@@ -42,7 +42,8 @@ Per SPEC.md Section 3 — accounts that must be live before development begins:
 
 Per SPEC.md Section 13 — decisions to lock before Sprint 1:
 
-- [ ] Brand direction confirmed as **Variation C** (Cormorant Garamond + Manrope + Aubergine palette + per-couple monogram). See `docs/06_Couple_Landing_Page_Designs_v1.html`.
+- [x] **Landing-page model:** all 3 variations (A, B, C) from `docs/06_Couple_Landing_Page_Designs_v1.html` ship as couple-selectable templates. Default = C. Variation C is also Tayo's master brand language for app chrome.
+- [ ] **Per-template palettes + typography:** extract final hex values, fonts, and accent gradients for each of A / B / C from doc 06 and codify in Tailwind theme.
 - [ ] Vercel vs Cloudflare Pages — final hosting choice
 - [ ] Subdomain strategy (custom subdomains in V1 or V1.5?)
 

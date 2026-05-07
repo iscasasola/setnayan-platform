@@ -259,6 +259,7 @@ create table events (
   guest_count_estimate integer,
   status text not null default 'planning' check (status in ('planning','ceremony_done','archived')),
   tier text not null default 'essentials' check (tier in ('essentials','premium','pro_event')),
+  landing_template text not null default 'c' check (landing_template in ('a','b','c')),
   color_palette jsonb,
   monogram_svg text,
   created_at timestamptz not null default now(),
@@ -268,7 +269,43 @@ create table events (
 create unique index events_slug_lower_idx on events (lower(slug));
 ```
 
-The `slug` is the URL-friendly identifier (`maria-juan-2026`). It is generated server-side from the couple's first names + year, and de-duplicated with a numeric suffix if needed.
+The `slug` is the URL-friendly identifier (`maria-juan-2026`). The **couple chooses it** during event creation. Validation rules:
+
+- 3–32 characters, lowercase alphanumeric + hyphens, no leading/trailing/double hyphens
+- Globally unique (case-insensitive — see `events_slug_lower_idx`)
+- Cannot match a reserved word (`admin`, `api`, `vendor`, `vendors`, `dashboard`, `auth`, `app`, `www`, `signup`, `login`, `coordinator`, etc.). Full list lives in `packages/shared/src/reserved-slugs.ts`.
+
+The slug picker shows a live availability indicator on the event-creation form. An **"Auto-suggest"** button generates a default from the couple's first names + year (`maria-juan-2026`), de-duplicated with a numeric suffix if taken. The slug is editable in **Landing Page Settings → Slug** while the event URL has not been publicly shared (no inquiries received, no RSVPs received). Once the URL is shared (first inquiry or first RSVP), the slug locks to prevent broken external links — the couple sees a "Slug locked" notice with an explanation.
+
+#### event_widgets
+
+Each section of a couple's public landing page is a **widget**. The page is a list of widget rows ordered by `position`. V1 ships 7 default widget types (`hero`, `our_story`, `schedule`, `venue`, `rsvp`, `gallery`, `footer`) which are materialized at event creation. V1.5+ introduces custom / marketplace widgets without a database migration — the `type` column is intentionally unconstrained at the DB level; the TypeScript Widget Registry in `packages/shared/src/widgets/` validates `type` and `config` at runtime per type-specific Zod schemas.
+
+```sql
+create table event_widgets (
+  id uuid primary key default gen_random_uuid(),
+  event_id uuid not null references events(id) on delete cascade,
+  type text not null,
+  config jsonb not null default '{}'::jsonb,
+  position integer not null,
+  enabled boolean not null default true,
+  is_locked boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index event_widgets_event_position_idx on event_widgets (event_id, position);
+create index event_widgets_event_id_idx on event_widgets (event_id);
+```
+
+`is_locked` semantics:
+
+- `hero` widget — `is_locked = true`. Always position 0; cannot be disabled or moved.
+- `footer` widget — `is_locked = true`. Always last position; cannot be disabled or moved.
+- `rsvp` widget — `is_locked = false` but `enabled` must remain `true` once any guest has RSVPed (enforced at RLS / app layer). Couple can reorder it; cannot disable it without first archiving open RSVPs.
+- `our_story`, `schedule`, `venue`, `gallery` — fully optional. Couple may reorder, disable, or re-enable freely.
+
+Default widget seeding runs in a Postgres trigger on `events` insert (or in the event-creation server action — implementation choice in Sprint 1). Ordered defaults: `hero` (0, locked), `our_story` (1), `schedule` (2), `venue` (3), `rsvp` (4), `gallery` (5), `footer` (6, locked).
 
 #### event_roles
 
@@ -929,18 +966,35 @@ For each page, the spec describes layout, primary CTA placement, secondary actio
 
 ### 6.1 Public Event Landing Page (`tayo.app/[slug]`)
 
-Three variations were prototyped in `06_Couple_Landing_Page_Designs_v1.html`. Recommended for V1: **Variation C (Cormorant Garamond + Manrope + Custom Monogram).**
+The page is composed of **widgets** rendered top-to-bottom in `event_widgets.position` order. The couple controls three things from **Landing Page Settings** (§6.10):
 
-**Layout:**
+1. **Slug** — `tayo.app/[slug]` is couple-chosen with availability check + auto-suggest fallback. See `events.slug` validation rules in §4.1.
+2. **Theme** — Variations A, B, C from `06_Couple_Landing_Page_Designs_v1.html` are selectable templates stored on `events.landing_template`. Default `c`. Theme is per-event, swappable anytime, non-destructive (widget structure is shared across themes).
+3. **Sections (widgets)** — enable/disable and reorder default widgets. Widget config is editable per widget. Custom widgets ship V1.5+.
 
-- Top: minimal logo (top-left) + "Sign in" link (top-right)
-- Hero: monogram (large, centered), couple names (Cormorant Garamond, 96px), date in long-form (Manrope, 18px), "View invitation" CTA
-- Sections (vertically stacked, each with its own viewport-height hero): Our Story, Schedule, Venue, RSVP, Gallery
-- Footer: monogram + hashtag
+**Default widgets shipped V1** (rendered in a fresh event in this order):
 
-**Primary CTA on hero:** "View invitation →" (champagne gold gradient, takes user to RSVP if logged in or sign-in-then-RSVP).
+| Type | Renders | Locked? |
+|---|---|---|
+| `hero` | Monogram + couple names + event date + primary CTA | Always position 0; cannot disable / move |
+| `our_story` | Couple's narrative text | Optional |
+| `schedule` | Day-of timeline (ceremony + reception) | Optional |
+| `venue` | Ceremony + reception address, map, parking | Optional |
+| `rsvp` | RSVP form bound to `guests.rsvp_status` | Reorderable; cannot disable once any guest has RSVPed |
+| `gallery` | Photo grid (selected photos from event album) | Optional |
+| `footer` | Monogram + hashtag + closing message | Always last; cannot disable / move |
 
-**Components:** custom `<Hero />`, custom `<Monogram />` (renders SVG from `events.monogram_svg`), shadcn `<Button>` with custom variant.
+**Architecture:**
+
+- Each widget is a TypeScript module under `apps/web/src/widgets/{type}/` exporting `{ definition, Renderer }`.
+- `definition` includes a Zod schema for `config`, default config, and lock semantics — registered in the central Widget Registry in `packages/shared/src/widgets/registry.ts`.
+- `Renderer` is a server component receiving `{ config, template: 'a'|'b'|'c', event }`. Theme-specific styling is selected inside the renderer (single component, three style branches) — not three component copies. This keeps widget logic DRY and makes adding new themes (V1.6+) cheap.
+- The page route at `app/[slug]/page.tsx` fetches `event_widgets` ordered by `position`, filters by `enabled`, and dispatches each through the registry.
+- The per-couple monogram (`events.monogram_svg`) is consumed by `hero` and `footer` widgets and rendered identically across themes.
+
+**Primary CTA on hero:** "View invitation →" (per-template accent treatment, routes to RSVP if logged in or sign-in-then-RSVP).
+
+**Top-of-page chrome (not a widget):** minimal Tayo logo (top-left) + "Sign in" link (top-right). This is page-level chrome, not part of the widget list — couples can't disable it.
 
 ### 6.2 Couple Dashboard (`tayo.app/dashboard`)
 
@@ -1031,6 +1085,28 @@ When vendor opens an inquiry:
 - Table view of weddings: couple, date, stage, tier, RSVPs, vendors booked, days out, "Open dashboard" action
 - Right side panel: Coordinator Code + commission tracker + "Refer a couple" button
 
+### 6.10 Landing Page Settings (`tayo.app/dashboard/settings/landing`)
+
+Reached from the dashboard sidebar Settings → Landing Page. Three tabs:
+
+**Slug tab:**
+- Editable `slug` field with live availability check (debounced API call to `GET /api/events/[id]/slug-check?candidate=...`).
+- "Auto-suggest" button regenerates a default from couple names + year.
+- Once the slug is locked (first inquiry or first RSVP), the field becomes read-only with a "Slug locked" badge and a tooltip explaining why.
+- "Copy public URL" button alongside the field.
+
+**Theme tab:**
+- Three template cards (A, B, C) rendered as live previews of the couple's actual content.
+- Selected card has an "Active" badge; clicking another card opens a confirmation ("Switch to Variation B? Your content stays the same — only typography and palette change.").
+- Saves to `events.landing_template`.
+
+**Sections tab:**
+- Drag-handle reorderable list of `event_widgets` rows (locked widgets show a lock icon and don't drag).
+- Each row: widget icon + name + enabled toggle + "Edit" button (opens widget config editor in a side sheet).
+- Footer of the list: "Add widget" button — disabled in V1 (V1.5+) with tooltip "Custom widgets coming soon."
+
+**Components:** shadcn `<Tabs>`, `<Card>`, `<Switch>`, `<Sheet>`, dnd-kit for reorder.
+
 ### 6.9 Tayo Staff Admin (`admin.tayo.app`)
 
 **Layout:** full admin shell.
@@ -1109,10 +1185,16 @@ Legend: ✓ V1.0 must ship, ◐ V1.0 if time permits, ○ V1.5+
 
 ### Per-event landing page
 
-- ✓ Variation C design (Cormorant + Manrope + monogram)
-- ✓ Story / Schedule / Venue / RSVP / Gallery sections
-- ✓ Custom monogram per couple
+- ✓ Couple-chosen slug with live availability check + auto-suggest fallback; locks after first inquiry / RSVP
+- ✓ Couple-selectable theme (Variations A, B, C from `06_Couple_Landing_Page_Designs_v1.html`); default `c`; swappable anytime
+- ✓ Widget-based composition: `event_widgets` table + TS Widget Registry; 7 default widget types ship V1
+- ✓ Default widgets: hero, our_story, schedule, venue, rsvp, gallery, footer
+- ✓ Hero + footer locked (position fixed, cannot disable); RSVP lock-on once any guest has RSVPed
+- ✓ Reorder + enable/disable default widgets via Landing Page Settings → Sections
+- ✓ Per-widget config editor (side sheet) for editable widget content
+- ✓ Custom monogram per couple — renders in hero + footer across all themes
 - ◐ Custom subdomain (`maria-juan-2026.tayo.app`) — DNS work (V1.5 if not ready)
+- ◐ Custom / marketplace widgets — V1.5+ (architecture in V1, surface in V1.5)
 - ✓ RSVP form integrated with `guests.rsvp_status`
 
 ### AI assistant
@@ -1351,7 +1433,11 @@ V1 is broken into 4 sprints, ~6 weeks each, totaling ~24 weeks (~6 months). The 
 - Auth flows: couple signup, guest auto-signup via QR
 - QR token resolution + deep-link handling
 - Couple dashboard shell + sidebar nav
-- Public event landing page (Variation C, Cormorant + Manrope + monogram)
+- `event_widgets` table + Widget Registry (TS) with Zod-validated per-type config; default-widget seeding on event creation
+- Default widget renderers: `hero`, `our_story`, `schedule`, `venue`, `rsvp`, `gallery`, `footer` — each theme-aware (a/b/c)
+- Public event landing page route (`tayo.app/[slug]`) renders widgets in order from the registry; theme selected via `events.landing_template`
+- Slug picker on event creation (couple chooses, live availability check, auto-suggest fallback)
+- Landing Page Settings page (`/dashboard/settings/landing`) with Slug, Theme (A/B/C selector), and Sections (drag-reorder + enable/disable) tabs
 - "My Events" home
 - Basic budget tracker (no vendors yet, just manual line items)
 - Basic timeline with seeded 21-category default
@@ -1478,7 +1564,8 @@ Developers should read these in order before starting work:
 
 These decisions must be resolved before Sprint 1 begins (or before the dependent feature in later sprints).
 
-- [ ] **Brand direction:** confirm Variation C from `06_Couple_Landing_Page_Designs_v1.html` as primary direction. Owner: Founder + designer. Due: Week 0.
+- [x] **Landing-page model:** all three variations (A, B, C) from `06_Couple_Landing_Page_Designs_v1.html` ship as couple-selectable templates via the Landing Page Settings panel. Default = C. Variation C also serves as Tayo's master brand language for app chrome / marketing. Resolved 2026-05-07.
+- [ ] **Per-template palette + typography lock:** extract final hex values, font weights, and accent gradients for each of A/B/C from `06_Couple_Landing_Page_Designs_v1.html` and codify in Tailwind theme. Owner: Founder + designer. Due: Week 0.
 - [ ] **Logo design:** finalize Tayo wordmark and the per-couple monogram generator template. The monogram generator must produce a unique SVG per couple from initials + a curated set of motifs. Owner: designer. Due: Week 2 (so Sprint 1 can render real monograms on the landing page).
 - [ ] **Final tier pricing:** lock Essentials / Premium / Pro Event tier prices before payment integration. Owner: Founder + finance. Due: end of Sprint 3 (before Sprint 4 payment work).
 - [ ] **Concierge re-pricing:** from ₱9,999 to ₱25,000+ before launch. Owner: Founder. Due: end of Sprint 3.

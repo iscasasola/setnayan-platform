@@ -1,0 +1,6 @@
+-- Tayo seed data
+-- Sprint 1: vendor categories, default 21-category timeline, default 46-category budget.
+-- Sprint 3: 109-shot list seed.
+-- Source of truth: docs/05_Default_Filipino_Wedding_Template_v1.docx
+-- Must be reviewed and signed off by a real Filipino-Catholic wedding coordinator
+-- before Sprint 1 ends (SPEC.md Section 13).

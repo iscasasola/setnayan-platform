@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tayo &mdash; Couple Landing Page Designs v1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,700&family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,700;1,400;1,500&family=Manrope:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --page-bg: #FAF6F0; --ink: #1A1A1A; --ink-soft: #6B6B6B; --rule: rgba(26, 26, 26, 0.08); }
+  html { scroll-behavior: smooth; }
+  body { background: var(--page-bg); color: var(--ink); font-family: 'Inter', system-ui, sans-serif; line-height: 1.5; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+  img { max-width: 100%; display: block; }
+
+  .doc-nav { position: sticky; top: 0; z-index: 100; background: rgba(250, 246, 240, 0.85); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid var(--rule); }
+  .doc-nav-inner { max-width: 1280px; margin: 0 auto; padding: 14px 32px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+  .doc-nav-brand { font-family: 'Fraunces', serif; font-weight: 500; font-size: 18px; letter-spacing: -0.01em; }
+  .doc-nav-brand span { color: var(--ink-soft); font-style: italic; font-weight: 400; }
+  .doc-nav-tabs { display: flex; gap: 4px; }
+  .doc-nav-tabs a { color: var(--ink); text-decoration: none; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500; padding: 8px 14px; border-radius: 999px; transition: background 0.2s; white-space: nowrap; }
+  .doc-nav-tabs a:hover { background: rgba(26, 26, 26, 0.06); }
+
+  .intro { max-width: 1280px; margin: 0 auto; padding: 80px 32px 48px; }
+  .intro-eyebrow { font-family: 'DM Mono', monospace; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 18px; }
+  .intro-title { font-family: 'Fraunces', serif; font-weight: 400; font-size: clamp(40px, 6vw, 72px); line-height: 1.02; letter-spacing: -0.02em; margin-bottom: 22px; max-width: 920px; }
+  .intro-title em { font-style: italic; font-weight: 400; }
+  .intro-sub { font-family: 'Inter', sans-serif; font-size: 18px; line-height: 1.55; color: var(--ink); opacity: 0.7; max-width: 720px; margin-bottom: 48px; }
+  .preview-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 24px; }
+  .preview-card { text-decoration: none; color: inherit; border: 1px solid var(--rule); border-radius: 14px; padding: 22px; background: #fff; transition: transform 0.2s, box-shadow 0.2s; }
+  .preview-card:hover { transform: translateY(-2px); box-shadow: 0 14px 40px rgba(26, 26, 26, 0.06); }
+  .preview-card-thumb { height: 120px; border-radius: 8px; margin-bottom: 18px; position: relative; overflow: hidden; }
+  .preview-card-thumb.a { background: linear-gradient(135deg, #F8F3EC 0%, #E8C9B0 60%, #C97B4B 100%); }
+  .preview-card-thumb.a::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent 50%, rgba(248, 243, 236, 0.95) 50%); }
+  .preview-card-thumb.a::before { content: 'M & J'; position: absolute; top: 50%; left: 25%; transform: translate(-50%, -50%); font-family: 'Instrument Serif', serif; font-size: 36px; color: #0F2C5C; z-index: 2; }
+  .preview-card-thumb.b { background: #FCFAF7; display: flex; align-items: center; justify-content: center; }
+  .preview-card-thumb.b::after { content: '10.24.26'; font-family: 'Fraunces', serif; font-weight: 400; font-size: 42px; color: #1F3A2E; letter-spacing: -0.03em; }
+  .preview-card-thumb.c { background: #FBFBF9; display: flex; align-items: center; justify-content: center; }
+  .preview-card-thumb.c svg { width: 56px; height: 56px; }
+  .preview-card-label { font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 8px; }
+  .preview-card-title { font-family: 'Fraunces', serif; font-weight: 500; font-size: 22px; margin-bottom: 6px; letter-spacing: -0.01em; }
+  .preview-card-desc { font-family: 'Inter', sans-serif; font-size: 14px; color: var(--ink-soft); line-height: 1.5; }
+
+  .variation-block { max-width: 1280px; margin: 0 auto; padding: 56px 32px 32px; }
+  .variation-label { margin-bottom: 22px; display: flex; align-items: baseline; flex-wrap: wrap; gap: 12px; }
+  .variation-label-tag { font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-soft); padding: 4px 10px; border: 1px solid var(--rule); border-radius: 999px; }
+  .variation-label-title { font-family: 'Fraunces', serif; font-weight: 500; font-size: 24px; letter-spacing: -0.01em; }
+  .variation-label-meta { font-family: 'Inter', sans-serif; font-size: 14px; color: var(--ink-soft); margin-left: auto; }
+
+  .browser { border-radius: 14px; background: #fff; box-shadow: 0 24px 60px rgba(26, 26, 26, 0.08), 0 4px 12px rgba(26, 26, 26, 0.04); overflow: hidden; border: 1px solid var(--rule); }
+  .browser-bar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #F1ECE3; border-bottom: 1px solid var(--rule); }
+  .browser-dots { display: flex; gap: 6px; }
+  .browser-dots span { width: 12px; height: 12px; border-radius: 50%; background: #D9CFC0; }
+  .browser-dots span:nth-child(1) { background: #E8826E; }
+  .browser-dots span:nth-child(2) { background: #E8C36E; }
+  .browser-dots span:nth-child(3) { background: #92BE82; }
+  .browser-url { flex: 1; background: #fff; border-radius: 6px; padding: 6px 12px; font-family: 'DM Mono', monospace; font-size: 12px; color: var(--ink-soft); border: 1px solid var(--rule); }
+  .browser-url strong { color: var(--ink); font-weight: 500; }
+  .browser-body { width: 100%; overflow: hidden; }
+
+  .notes { margin-top: 24px; border: 1px solid var(--rule); border-radius: 12px; background: #fff; overflow: hidden; }
+  .notes-grid { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .notes-cell { padding: 18px 22px; border-right: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+  .notes-cell:nth-child(3n) { border-right: none; }
+  .notes-cell:nth-last-child(-n+3) { border-bottom: none; }
+  .notes-label { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 8px; }
+  .notes-value { font-family: 'Inter', sans-serif; font-size: 14px; line-height: 1.5; color: var(--ink); }
+
+  .landing { width: 100%; }
+  .landing section { padding: 80px 64px; }
+
+  /* VAR A */
+  .var-a { --cream: #F8F3EC; --navy: #0F2C5C; --terracotta: #C97B4B; --blush: #E8C9B0; --char: #1A1A1A; --gray: #6B6B6B; background: var(--cream); color: var(--char); font-family: 'Geist', sans-serif; }
+  .var-a .hero { display: grid; grid-template-columns: 1fr 1fr; min-height: 85vh; padding: 0; position: relative; }
+  .var-a .hero-left { padding: 80px 64px; display: flex; flex-direction: column; justify-content: center; }
+  .var-a .hero-eyebrow { font-family: 'Geist', sans-serif; font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--gray); margin-bottom: 32px; display: flex; align-items: center; gap: 12px; }
+  .var-a .hero-eyebrow::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--terracotta); }
+  .var-a .hero-headline { font-family: 'Instrument Serif', serif; font-weight: 400; font-size: clamp(80px, 11vw, 156px); line-height: 0.92; letter-spacing: -0.025em; color: var(--navy); margin-bottom: 28px; }
+  .var-a .hero-headline em { font-style: italic; color: var(--terracotta); }
+  .var-a .hero-meta { font-family: 'Geist', sans-serif; font-size: 18px; color: var(--char); opacity: 0.78; margin-bottom: 32px; letter-spacing: -0.005em; }
+  .var-a .pill { display: inline-flex; align-items: center; gap: 10px; padding: 8px 16px; border-radius: 999px; background: rgba(255, 255, 255, 0.55); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(201, 123, 75, 0.2); font-family: 'Geist', sans-serif; font-size: 13px; font-weight: 500; color: var(--navy); width: fit-content; margin-bottom: 36px; }
+  .var-a .pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--terracotta); animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .var-a .btn { display: inline-flex; align-items: center; gap: 10px; padding: 14px 26px; border-radius: 999px; background: var(--navy); color: var(--cream); text-decoration: none; font-family: 'Geist', sans-serif; font-weight: 500; font-size: 15px; width: fit-content; transition: transform 0.2s; border: none; cursor: pointer; }
+  .var-a .btn:hover { transform: translateX(4px); }
+  .var-a .hero-right { position: relative; background: radial-gradient(ellipse at 30% 20%, #F5DCC4 0%, transparent 50%), radial-gradient(ellipse at 70% 60%, #C97B4B 0%, transparent 60%), linear-gradient(135deg, #F8E6D4 0%, #E8B898 50%, #C97B4B 100%); overflow: hidden; }
+  .var-a .hero-right::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 50% 40%, rgba(15, 44, 92, 0.15) 0%, transparent 60%); }
+  .var-a .hero-right::after { content: ''; position: absolute; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.18 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); opacity: 0.7; mix-blend-mode: multiply; }
+  .var-a .portrait-caption { position: absolute; bottom: 32px; left: 32px; right: 32px; z-index: 2; display: flex; justify-content: space-between; align-items: flex-end; color: var(--cream); }
+  .var-a .portrait-caption-left { font-family: 'Instrument Serif', serif; font-style: italic; font-size: 22px; line-height: 1.2; max-width: 60%; text-shadow: 0 2px 12px rgba(15, 44, 92, 0.4); }
+  .var-a .portrait-caption-right { font-family: 'Geist', sans-serif; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; opacity: 0.85; }
+  .var-a .divider { height: 1px; background: var(--terracotta); opacity: 0.35; margin: 0 64px; }
+  .var-a .section-eyebrow { font-family: 'Geist', sans-serif; font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--gray); margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+  .var-a .section-eyebrow::before { content: ''; width: 24px; height: 1px; background: var(--terracotta); }
+  .var-a .section-title { font-family: 'Instrument Serif', serif; font-style: italic; font-weight: 400; font-size: clamp(40px, 5vw, 64px); line-height: 1.05; color: var(--navy); letter-spacing: -0.015em; margin-bottom: 28px; }
+  .var-a .story { display: grid; grid-template-columns: 1fr 1.3fr; gap: 64px; align-items: center; }
+  .var-a .story-image { aspect-ratio: 4 / 5; background: radial-gradient(ellipse at 40% 30%, #F5DCC4 0%, transparent 60%), linear-gradient(135deg, #E8B898 0%, #C97B4B 100%); border-radius: 8px; position: relative; overflow: hidden; }
+  .var-a .story-image::after { content: ''; position: absolute; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.15 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); opacity: 0.6; mix-blend-mode: multiply; }
+  .var-a .story-text p { font-family: 'Geist', sans-serif; font-size: 19px; line-height: 1.65; color: var(--char); opacity: 0.65; margin-bottom: 18px; }
+  .var-a .story-text p:first-of-type::first-letter { font-family: 'Instrument Serif', serif; font-size: 64px; float: left; line-height: 0.9; margin: 6px 12px 0 0; color: var(--terracotta); opacity: 1; }
+  .var-a .signature { font-family: 'Instrument Serif', serif; font-style: italic; font-size: 24px; color: var(--navy); margin-top: 24px; opacity: 0.85; }
+  .var-a .day-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-top: 40px; }
+  .var-a .day-card { background: #fff; border-radius: 14px; padding: 28px 24px; box-shadow: 0 8px 24px rgba(15, 44, 92, 0.06); border: 1px solid rgba(15, 44, 92, 0.05); }
+  .var-a .day-time { font-family: 'Instrument Serif', serif; font-size: 48px; line-height: 1; color: var(--navy); margin-bottom: 18px; letter-spacing: -0.02em; }
+  .var-a .day-time em { font-style: italic; color: var(--terracotta); font-size: 20px; }
+  .var-a .day-card h4 { font-family: 'Geist', sans-serif; font-weight: 500; font-size: 15px; margin-bottom: 6px; }
+  .var-a .day-card p { font-family: 'Geist', sans-serif; font-size: 13px; color: var(--gray); line-height: 1.5; }
+  .var-a .venue { background: linear-gradient(180deg, var(--cream) 0%, #F0E5D5 100%); padding: 100px 64px; margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center; }
+  .var-a .venue-info p { font-family: 'Geist', sans-serif; font-size: 16px; line-height: 1.6; color: var(--char); opacity: 0.7; margin-bottom: 12px; }
+  .var-a .venue-meta { margin-top: 32px; display: flex; gap: 36px; }
+  .var-a .venue-meta div { display: flex; flex-direction: column; gap: 4px; }
+  .var-a .venue-meta .label { font-family: 'Geist', sans-serif; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--gray); }
+  .var-a .venue-meta .value { font-family: 'Instrument Serif', serif; font-size: 24px; color: var(--navy); }
+  .var-a .map { aspect-ratio: 5 / 4; border-radius: 12px; background: radial-gradient(ellipse at 30% 30%, rgba(201, 123, 75, 0.3) 0%, transparent 50%), radial-gradient(ellipse at 70% 70%, rgba(15, 44, 92, 0.15) 0%, transparent 50%), linear-gradient(135deg, #EFE3D2 0%, #D8C5AA 100%); position: relative; overflow: hidden; box-shadow: 0 12px 32px rgba(15, 44, 92, 0.08); }
+  .var-a .map::before { content: ''; position: absolute; inset: 0; background-image: linear-gradient(45deg, transparent 48%, rgba(15, 44, 92, 0.07) 48%, rgba(15, 44, 92, 0.07) 52%, transparent 52%), linear-gradient(-45deg, transparent 48%, rgba(15, 44, 92, 0.05) 48%, rgba(15, 44, 92, 0.05) 52%, transparent 52%); background-size: 60px 60px; }
+  .var-a .map-pin { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -100%); width: 28px; height: 28px; border-radius: 50%; background: var(--terracotta); box-shadow: 0 4px 16px rgba(201, 123, 75, 0.5); border: 4px solid #fff; }
+  .var-a .rsvp { background: var(--cream); text-align: center; padding: 120px 64px; }
+  .var-a .rsvp-form { max-width: 560px; margin: 40px auto 0; text-align: left; }
+  .var-a .field { margin-bottom: 20px; }
+  .var-a .field label { font-family: 'Geist', sans-serif; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--gray); margin-bottom: 6px; display: block; }
+  .var-a .field input, .var-a .field select { width: 100%; padding: 14px 16px; border: 1px solid rgba(15, 44, 92, 0.15); border-radius: 8px; background: #fff; font-family: 'Geist', sans-serif; font-size: 15px; color: var(--char); }
+  .var-a .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .var-a .submit { width: 100%; padding: 16px; border: none; border-radius: 8px; background: linear-gradient(135deg, #F5DCC4 0%, #E8B898 50%, #C97B4B 100%); color: #fff; font-family: 'Instrument Serif', serif; font-size: 22px; font-style: italic; cursor: pointer; margin-top: 12px; box-shadow: 0 8px 24px rgba(201, 123, 75, 0.25); }
+  .var-a .gallery { background: #fff; padding: 100px 64px; }
+  .var-a .gallery-grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 200px; gap: 12px; margin-top: 48px; }
+  .var-a .photo { border-radius: 8px; position: relative; overflow: hidden; }
+  .var-a .photo::after { content: ''; position: absolute; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.12 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); opacity: 0.5; mix-blend-mode: multiply; }
+  .var-a .photo:nth-child(1) { background: linear-gradient(135deg, #F8E6D4, #E8B898); grid-row: span 2; }
+  .var-a .photo:nth-child(2) { background: linear-gradient(135deg, #E8C9B0, #C97B4B); }
+  .var-a .photo:nth-child(3) { background: linear-gradient(135deg, #F5DCC4, #D8A57A); }
+  .var-a .photo:nth-child(4) { background: linear-gradient(135deg, #C97B4B, #8C5634); }
+  .var-a .photo:nth-child(5) { background: linear-gradient(135deg, #F8F3EC, #E8C9B0); grid-row: span 2; }
+  .var-a .photo:nth-child(6) { background: linear-gradient(135deg, #E8B898, #B86A3C); }
+  .var-a .photo:nth-child(7) { background: linear-gradient(135deg, #F5DCC4, #C97B4B); }
+  .var-a .photo:nth-child(8) { background: linear-gradient(135deg, #D8C5AA, #8C5634); }
+  .var-a .photo:nth-child(9) { background: linear-gradient(135deg, #F0E5D5, #C97B4B); }
+  .var-a .footer { background: var(--navy); color: var(--cream); padding: 60px 64px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 24px; }
+  .var-a .footer-mono { font-family: 'Instrument Serif', serif; font-style: italic; font-size: 28px; color: var(--cream); }
+  .var-a .footer-mono span { color: var(--terracotta); }
+  .var-a .footer-meta { font-family: 'Geist', sans-serif; font-size: 13px; opacity: 0.55; display: flex; gap: 28px; }
+  .var-a .footer-meta a { color: var(--cream); text-decoration: none; }
+
+  /* VAR B */
+  .var-b { --offwhite: #FCFAF7; --forest: #1F3A2E; --sage: #A8B89E; --mustard: #C99B3D; --char: #1A1A1A; background: var(--offwhite); color: var(--char); font-family: 'Inter', sans-serif; }
+  .var-b .paper-tex { background-image: radial-gradient(circle at 25% 35%, rgba(31, 58, 46, 0.015) 0%, transparent 40%), radial-gradient(circle at 75% 65%, rgba(201, 155, 61, 0.02) 0%, transparent 40%), url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.65' numOctaves='3'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.025 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+  .var-b .hero { min-height: 85vh; padding: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; text-align: center; }
+  .var-b .hero-eyebrow { font-family: 'DM Mono', monospace; font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--forest); opacity: 0.55; margin-bottom: 32px; display: flex; align-items: center; gap: 12px; }
+  .var-b .hero-eyebrow::before, .var-b .hero-eyebrow::after { content: ''; width: 32px; height: 1px; background: var(--mustard); }
+  .var-b .hero-date { font-family: 'Fraunces', serif; font-weight: 400; font-size: clamp(140px, 22vw, 320px); line-height: 0.85; letter-spacing: -0.04em; color: var(--forest); margin-bottom: 24px; font-variation-settings: "opsz" 144; position: relative; }
+  .var-b .hero-date .dot { color: var(--mustard); font-style: italic; }
+  .var-b .hero-couple { font-family: 'Inter', sans-serif; font-weight: 500; font-size: 24px; color: var(--char); opacity: 0.82; margin-bottom: 12px; letter-spacing: -0.01em; }
+  .var-b .hero-venue { font-family: 'DM Mono', monospace; font-size: 14px; color: var(--char); opacity: 0.55; margin-bottom: 32px; display: flex; align-items: center; gap: 10px; }
+  .var-b .hero-venue::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--mustard); }
+  .var-b .hero-btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 22px; border: 1px solid var(--forest); border-radius: 999px; background: transparent; color: var(--forest); text-decoration: none; font-family: 'Inter', sans-serif; font-weight: 500; font-size: 14px; transition: all 0.2s; }
+  .var-b .hero-btn:hover { background: var(--forest); color: var(--offwhite); }
+  .var-b .mono-divider { text-align: center; padding: 40px 0; font-family: 'DM Mono', monospace; font-size: 12px; color: var(--char); opacity: 0.4; letter-spacing: 0.3em; }
+  .var-b .narrow { max-width: 640px; margin: 0 auto; text-align: center; }
+  .var-b .section-eyebrow { font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--mustard); margin-bottom: 16px; }
+  .var-b .section-title { font-family: 'Fraunces', serif; font-weight: 400; font-size: clamp(36px, 4.5vw, 56px); line-height: 1.05; letter-spacing: -0.02em; color: var(--forest); margin-bottom: 32px; }
+  .var-b .section-title em { font-style: italic; }
+  .var-b .narrow p { font-family: 'Inter', sans-serif; font-size: 18px; line-height: 1.7; color: var(--char); opacity: 0.7; margin-bottom: 18px; }
+  .var-b .narrow .pullquote { font-family: 'Fraunces', serif; font-style: italic; font-weight: 400; font-size: 28px; line-height: 1.4; color: var(--forest); opacity: 0.95; margin: 32px 0; padding: 0 32px; }
+  .var-b .timeline { max-width: 780px; margin: 40px auto 0; }
+  .var-b .tl-row { display: grid; grid-template-columns: 120px 1fr auto; gap: 36px; align-items: baseline; padding: 26px 0; border-bottom: 1px solid rgba(31, 58, 46, 0.08); }
+  .var-b .tl-row:last-child { border-bottom: none; }
+  .var-b .tl-time { font-family: 'DM Mono', monospace; font-weight: 500; font-size: 22px; color: var(--forest); letter-spacing: -0.02em; }
+  .var-b .tl-activity { font-family: 'Fraunces', serif; font-size: 24px; color: var(--char); letter-spacing: -0.01em; }
+  .var-b .tl-activity em { font-style: italic; color: var(--forest); }
+  .var-b .tl-meta { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--char); opacity: 0.45; letter-spacing: 0.16em; text-transform: uppercase; }
+  .var-b .where { padding: 100px 64px; background: var(--offwhite); }
+  .var-b .where-card { max-width: 920px; margin: 0 auto; background: linear-gradient(135deg, rgba(168, 184, 158, 0.5) 0%, rgba(168, 184, 158, 0.25) 100%); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); border: 1px solid rgba(168, 184, 158, 0.4); border-radius: 18px; padding: 56px; display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; }
+  .var-b .where-name { font-family: 'Fraunces', serif; font-style: italic; font-weight: 400; font-size: 44px; line-height: 1.05; color: var(--forest); letter-spacing: -0.015em; margin-bottom: 18px; }
+  .var-b .where-card p { font-family: 'Inter', sans-serif; font-size: 15px; line-height: 1.6; color: var(--char); opacity: 0.72; margin-bottom: 14px; }
+  .var-b .where-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 24px; }
+  .var-b .where-stat .num { font-family: 'DM Mono', monospace; font-weight: 500; font-size: 28px; color: var(--forest); letter-spacing: -0.02em; }
+  .var-b .where-stat .lbl { font-family: 'Inter', sans-serif; font-size: 12px; color: var(--char); opacity: 0.55; letter-spacing: 0.04em; }
+  .var-b .where-img { aspect-ratio: 4 / 5; background: radial-gradient(ellipse at 30% 30%, #C8D4BE 0%, transparent 60%), linear-gradient(135deg, #A8B89E 0%, #6E8062 100%); border-radius: 12px; position: relative; overflow: hidden; }
+  .var-b .where-img::after { content: ''; position: absolute; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.18 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); opacity: 0.6; mix-blend-mode: multiply; }
+  .var-b .rsvp-b { text-align: center; padding: 120px 64px; }
+  .var-b .rsvp-buttons { display: flex; gap: 16px; justify-content: center; margin-top: 40px; flex-wrap: wrap; }
+  .var-b .big-btn { padding: 22px 40px; border: 2px solid var(--forest); border-radius: 999px; font-family: 'Fraunces', serif; font-size: 22px; font-style: italic; font-weight: 400; background: transparent; color: var(--forest); cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 12px; }
+  .var-b .big-btn::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--mustard); }
+  .var-b .big-btn:hover { background: var(--forest); color: var(--offwhite); }
+  .var-b .big-btn.primary { background: var(--forest); color: var(--offwhite); }
+  .var-b .big-btn.primary:hover { background: var(--mustard); border-color: var(--mustard); color: var(--forest); }
+  .var-b .photos { padding: 80px 64px 60px; }
+  .var-b .photo-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 40px; }
+  .var-b .photo-cell { aspect-ratio: 3 / 4; border-radius: 6px; position: relative; overflow: hidden; }
+  .var-b .photo-cell::after { content: ''; position: absolute; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.95' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.15 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); opacity: 0.5; mix-blend-mode: multiply; }
+  .var-b .photo-cell .cap { position: absolute; bottom: 8px; left: 8px; z-index: 2; font-family: 'DM Mono', monospace; font-size: 10px; color: #fff; background: rgba(31, 58, 46, 0.6); padding: 3px 8px; border-radius: 4px; letter-spacing: 0.08em; }
+  .var-b .photo-cell:nth-child(1) { background: linear-gradient(135deg, #C8D4BE, #6E8062); }
+  .var-b .photo-cell:nth-child(2) { background: linear-gradient(135deg, #E5DDC8, #A89B6E); }
+  .var-b .photo-cell:nth-child(3) { background: linear-gradient(135deg, #A8B89E, #1F3A2E); }
+  .var-b .photo-cell:nth-child(4) { background: linear-gradient(135deg, #F0E8D0, #C99B3D); }
+  .var-b .photo-cell:nth-child(5) { background: linear-gradient(135deg, #D8E0CE, #6E8062); }
+  .var-b .photo-cell:nth-child(6) { background: linear-gradient(135deg, #C99B3D, #8A6A20); }
+  .var-b .photo-cell:nth-child(7) { background: linear-gradient(135deg, #FCFAF7, #C8D4BE); }
+  .var-b .photo-cell:nth-child(8) { background: linear-gradient(135deg, #6E8062, #1F3A2E); }
+  .var-b .footer-b { padding: 60px 64px; border-top: 1px solid rgba(31, 58, 46, 0.1); text-align: center; }
+  .var-b .footer-b .mono { font-family: 'DM Mono', monospace; font-size: 13px; color: var(--char); opacity: 0.45; letter-spacing: 0.12em; }
+  .var-b .footer-b .mono span { color: var(--mustard); opacity: 1; }
+
+  /* VAR C */
+  .var-c { --pearl: #FBFBF9; --aubergine: #3D2A3D; --rose: #D4A5A5; --gold: #D4AF7F; --gold-deep: #C99B3D; --char: #2C2723; background: var(--pearl); color: var(--char); font-family: 'Manrope', sans-serif; background-image: radial-gradient(circle at 1px 1px, rgba(61, 42, 61, 0.06) 1px, transparent 0); background-size: 28px 28px; }
+  .var-c .hero { min-height: 90vh; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; position: relative; }
+  .var-c .monogram-large { width: 168px; height: 168px; margin-bottom: 36px; }
+  .var-c .monogram-large path, .var-c .monogram-large circle, .var-c .monogram-large line { stroke: var(--aubergine); }
+  .var-c .hero-couple { font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 400; font-size: clamp(72px, 10vw, 124px); line-height: 1; color: var(--aubergine); margin-bottom: 20px; letter-spacing: -0.015em; text-shadow: 0 2px 0 rgba(61, 42, 61, 0.04); }
+  .var-c .hero-couple .amp { font-family: 'Cormorant Garamond', serif; font-style: italic; color: var(--gold-deep); font-weight: 400; }
+  .var-c .hero-date-text { font-family: 'Manrope', sans-serif; font-weight: 400; font-size: 17px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--char); opacity: 0.78; margin-bottom: 24px; }
+  .var-c .gold-rule { width: 80px; height: 1px; background: linear-gradient(90deg, transparent 0%, var(--gold-deep) 50%, transparent 100%); margin: 0 auto 28px; }
+  .var-c .hero-venue { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 22px; color: var(--char); opacity: 0.65; }
+  .var-c .hashtag-watermark { position: absolute; bottom: 32px; right: 32px; font-family: 'Manrope', sans-serif; font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--aubergine); opacity: 0.35; display: flex; align-items: center; gap: 10px; }
+  .var-c .hashtag-watermark svg { width: 16px; height: 16px; }
+  .var-c .hashtag-watermark svg path, .var-c .hashtag-watermark svg circle, .var-c .hashtag-watermark svg line { stroke: var(--aubergine); }
+  .var-c .section-c { padding: 100px 64px; text-align: center; }
+  .var-c .section-c.alt { background: linear-gradient(180deg, var(--pearl) 0%, #F5EDE5 100%); }
+  .var-c .monogram-small { width: 32px; height: 32px; margin: 0 auto 20px; display: block; }
+  .var-c .monogram-small path, .var-c .monogram-small circle, .var-c .monogram-small line { stroke: var(--gold-deep); }
+  .var-c .section-title-c { font-family: 'Cormorant Garamond', serif; font-weight: 400; font-style: italic; font-size: clamp(40px, 5vw, 64px); line-height: 1.05; color: var(--aubergine); margin-bottom: 12px; letter-spacing: -0.01em; }
+  .var-c .gold-rule.center { margin: 16px auto 32px; }
+  .var-c .narrow-c { max-width: 620px; margin: 0 auto; }
+  .var-c .narrow-c p { font-family: 'Manrope', sans-serif; font-size: 17px; line-height: 1.75; color: var(--char); opacity: 0.72; margin-bottom: 18px; }
+  .var-c .narrow-c .pullquote-c { font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 400; font-size: 32px; line-height: 1.35; color: var(--aubergine); margin: 36px 0; }
+  .var-c .narrow-c .pullquote-c::before, .var-c .narrow-c .pullquote-c::after { content: ''; display: block; width: 40px; height: 1px; background: var(--gold-deep); opacity: 0.5; margin: 18px auto; }
+  .var-c .schedule-c { max-width: 720px; margin: 40px auto 0; text-align: left; }
+  .var-c .sch-row { display: grid; grid-template-columns: 90px 24px 1fr auto; gap: 24px; align-items: center; padding: 22px 0; border-bottom: 1px solid rgba(61, 42, 61, 0.08); }
+  .var-c .sch-row:last-child { border-bottom: none; }
+  .var-c .sch-time { font-family: 'Manrope', sans-serif; font-weight: 500; font-size: 15px; color: var(--aubergine); letter-spacing: 0.05em; }
+  .var-c .sch-divider { width: 24px; height: 24px; }
+  .var-c .sch-divider svg { width: 100%; height: 100%; }
+  .var-c .sch-divider svg path, .var-c .sch-divider svg circle, .var-c .sch-divider svg line { stroke: var(--gold-deep); }
+  .var-c .sch-act { font-family: 'Cormorant Garamond', serif; font-size: 22px; color: var(--char); letter-spacing: -0.005em; }
+  .var-c .sch-act em { font-style: italic; color: var(--aubergine); }
+  .var-c .sch-meta { font-family: 'Manrope', sans-serif; font-size: 12px; color: var(--char); opacity: 0.5; }
+  .var-c .travel { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; max-width: 1000px; margin: 40px auto 0; }
+  .var-c .travel-card { background: #fff; border: 1px solid rgba(61, 42, 61, 0.08); border-radius: 14px; overflow: hidden; box-shadow: 0 12px 40px rgba(61, 42, 61, 0.06); text-align: left; }
+  .var-c .travel-img { aspect-ratio: 16 / 9; position: relative; overflow: hidden; }
+  .var-c .travel-img.h1 { background: radial-gradient(ellipse at 30% 40%, #E8CFCF 0%, transparent 60%), linear-gradient(135deg, #D4A5A5 0%, #8C5C5C 100%); }
+  .var-c .travel-img.h2 { background: radial-gradient(ellipse at 70% 30%, #EDD8B8 0%, transparent 60%), linear-gradient(135deg, #D4AF7F 0%, #8A6A20 100%); }
+  .var-c .travel-card-body { padding: 24px 26px; }
+  .var-c .travel-card h4 { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 26px; color: var(--aubergine); margin-bottom: 6px; }
+  .var-c .travel-card p { font-family: 'Manrope', sans-serif; font-size: 14px; color: var(--char); opacity: 0.65; line-height: 1.55; }
+  .var-c .travel-card .meta { font-family: 'Manrope', sans-serif; font-size: 11px; color: var(--gold-deep); letter-spacing: 0.18em; text-transform: uppercase; margin-top: 14px; }
+  .var-c .rsvp-c { background: linear-gradient(180deg, var(--pearl) 0%, rgba(212, 165, 165, 0.25) 100%); padding: 120px 64px; text-align: center; }
+  .var-c .rsvp-c-form { max-width: 480px; margin: 40px auto 0; text-align: left; }
+  .var-c .field-c { margin-bottom: 18px; }
+  .var-c .field-c label { font-family: 'Manrope', sans-serif; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--aubergine); opacity: 0.7; margin-bottom: 6px; display: block; }
+  .var-c .field-c input, .var-c .field-c select { width: 100%; padding: 14px 16px; border: 1px solid var(--gold); border-radius: 6px; background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(8px); font-family: 'Manrope', sans-serif; font-size: 15px; color: var(--char); }
+  .var-c .submit-c { width: 100%; padding: 18px; border: none; border-radius: 6px; background: linear-gradient(135deg, #D4AF7F 0%, #C99B3D 100%); color: #fff; font-family: 'Cormorant Garamond', serif; font-size: 22px; font-style: italic; cursor: pointer; margin-top: 12px; box-shadow: 0 8px 24px rgba(201, 155, 61, 0.25); display: inline-flex; align-items: center; justify-content: center; gap: 12px; }
+  .var-c .submit-c svg { width: 20px; height: 20px; }
+  .var-c .submit-c svg path, .var-c .submit-c svg circle, .var-c .submit-c svg line { stroke: #fff; }
+  .var-c .registry { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; max-width: 920px; margin: 40px auto 0; }
+  .var-c .reg-card { background: #fff; border: 1px solid rgba(61, 42, 61, 0.08); border-radius: 12px; padding: 32px 24px; text-align: center; box-shadow: 0 8px 28px rgba(61, 42, 61, 0.05); }
+  .var-c .reg-card svg { width: 36px; height: 36px; margin: 0 auto 16px; display: block; }
+  .var-c .reg-card svg path, .var-c .reg-card svg circle, .var-c .reg-card svg line { stroke: var(--gold-deep); }
+  .var-c .reg-card h5 { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 22px; color: var(--aubergine); margin-bottom: 6px; }
+  .var-c .reg-card p { font-family: 'Manrope', sans-serif; font-size: 13px; color: var(--char); opacity: 0.6; line-height: 1.55; }
+  .var-c .gallery-c { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; max-width: 900px; margin: 40px auto 0; }
+  .var-c .circle-photo { aspect-ratio: 1; border-radius: 50%; border: 4px solid #fff; box-shadow: 0 8px 24px rgba(61, 42, 61, 0.1); position: relative; overflow: hidden; }
+  .var-c .circle-photo::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.12 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); opacity: 0.6; mix-blend-mode: multiply; }
+  .var-c .circle-photo:nth-child(1) { background: linear-gradient(135deg, #E8CFCF, #8C5C5C); }
+  .var-c .circle-photo:nth-child(2) { background: linear-gradient(135deg, #EDD8B8, #8A6A20); }
+  .var-c .circle-photo:nth-child(3) { background: linear-gradient(135deg, #D4A5A5, #6B4242); }
+  .var-c .circle-photo:nth-child(4) { background: linear-gradient(135deg, #F4E2D6, #C99B3D); }
+  .var-c .circle-photo:nth-child(5) { background: linear-gradient(135deg, #D4AF7F, #6B4824); }
+  .var-c .circle-photo:nth-child(6) { background: linear-gradient(135deg, #FBFBF9, #D4A5A5); }
+  .var-c .circle-photo:nth-child(7) { background: linear-gradient(135deg, #E8C4B0, #8C5C40); }
+  .var-c .circle-photo:nth-child(8) { background: linear-gradient(135deg, #C9A88C, #6B4824); }
+  .var-c .footer-c { padding: 60px 64px; text-align: center; border-top: 1px solid rgba(61, 42, 61, 0.08); }
+  .var-c .footer-c svg { width: 44px; height: 44px; margin: 0 auto 14px; display: block; }
+  .var-c .footer-c svg path, .var-c .footer-c svg circle, .var-c .footer-c svg line { stroke: var(--aubergine); }
+  .var-c .footer-c .tag { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 22px; color: var(--aubergine); margin-bottom: 6px; }
+  .var-c .footer-c .meta { font-family: 'Manrope', sans-serif; font-size: 12px; color: var(--char); opacity: 0.5; letter-spacing: 0.1em; }
+
+  .recommendations { max-width: 1280px; margin: 80px auto 0; padding: 56px 32px 100px; border-top: 1px solid var(--rule); }
+  .recommendations h2 { font-family: 'Fraunces', serif; font-weight: 400; font-size: 44px; letter-spacing: -0.02em; margin-bottom: 8px; }
+  .recommendations h2 em { font-style: italic; }
+  .recommendations .intro-eyebrow { margin-bottom: 14px; }
+  .rec-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 36px; }
+  .rec-card { background: #fff; border: 1px solid var(--rule); border-radius: 12px; padding: 26px; }
+  .rec-card .label { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 10px; }
+  .rec-card .value { font-family: 'Fraunces', serif; font-size: 22px; font-weight: 500; color: var(--ink); letter-spacing: -0.01em; margin-bottom: 8px; }
+  .rec-card p { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--ink-soft); line-height: 1.5; }
+  .rec-rationale { margin-top: 36px; padding: 28px 32px; background: linear-gradient(135deg, rgba(15, 44, 92, 0.03) 0%, rgba(201, 123, 75, 0.05) 100%); border-radius: 12px; border: 1px solid var(--rule); }
+  .rec-rationale h3 { font-family: 'Fraunces', serif; font-style: italic; font-size: 22px; margin-bottom: 10px; }
+  .rec-rationale p { font-family: 'Inter', sans-serif; font-size: 15px; line-height: 1.65; color: var(--ink); opacity: 0.78; }
+
+  .doc-footer { text-align: center; padding: 40px 32px 60px; font-family: 'DM Mono', monospace; font-size: 12px; color: var(--ink-soft); letter-spacing: 0.14em; text-transform: uppercase; }
+</style>
+</head>
+<body>
+
+<nav class="doc-nav">
+  <div class="doc-nav-inner">
+    <div class="doc-nav-brand">Tayo <span>&mdash; landing page designs</span></div>
+    <div class="doc-nav-tabs">
+      <a href="#variation-a">Variation A &mdash; Editorial Portrait</a>
+      <a href="#variation-b">Variation B &mdash; Typographic</a>
+      <a href="#variation-c">Variation C &mdash; Motif Symbol</a>
+    </div>
+  </div>
+</nav>
+
+<section class="intro">
+  <div class="intro-eyebrow">Design Review &middot; v1 &middot; May 2026</div>
+  <h1 class="intro-title">Couple Landing Pages &mdash; <em>Three Powerful Directions</em></h1>
+  <p class="intro-sub">Three variations of the same wedding using the 6 design principles. Pick the direction that resonates &mdash; all three use only free Google Fonts and CSS-only techniques that translate directly to your codebase.</p>
+
+  <div class="preview-cards">
+    <a href="#variation-a" class="preview-card">
+      <div class="preview-card-thumb a"></div>
+      <div class="preview-card-label">Variation A</div>
+      <div class="preview-card-title">Editorial Portrait</div>
+      <div class="preview-card-desc">Instrument Serif &times; Geist. The couple's photograph anchors a magazine-style split layout.</div>
+    </a>
+    <a href="#variation-b" class="preview-card">
+      <div class="preview-card-thumb b"></div>
+      <div class="preview-card-label">Variation B</div>
+      <div class="preview-card-title">Typographic</div>
+      <div class="preview-card-desc">Fraunces &times; DM Mono &times; Inter. The wedding date itself, rendered enormous, becomes the design.</div>
+    </a>
+    <a href="#variation-c" class="preview-card">
+      <div class="preview-card-thumb c">
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="32" cy="32" r="22" stroke="#3D2A3D" stroke-width="1.2"/>
+          <path d="M22 28 L22 42 M22 28 L28 36 L34 28 M34 28 L34 42" stroke="#3D2A3D" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+          <path d="M38 28 L38 42 C38 44 36.5 45 34.5 45" stroke="#3D2A3D" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+          <circle cx="32" cy="18" r="3" stroke="#D4AF7F" stroke-width="1" fill="none"/>
+          <circle cx="32" cy="46" r="2" stroke="#D4AF7F" stroke-width="1" fill="none"/>
+        </svg>
+      </div>
+      <div class="preview-card-label">Variation C</div>
+      <div class="preview-card-title">Motif Symbol</div>
+      <div class="preview-card-desc">Cormorant Garamond &times; Manrope. A custom monogram ties every element together as a brand mark.</div>
+    </a>
+  </div>
+</section>
+
+<section class="variation-block" id="variation-a">
+  <div class="variation-label">
+    <span class="variation-label-tag">Variation A</span>
+    <span class="variation-label-title">Editorial Portrait</span>
+    <span class="variation-label-meta">Anchor: Instrument Serif &middot; Body: Geist Sans</span>
+  </div>
+
+  <div class="browser">
+    <div class="browser-bar">
+      <div class="browser-dots"><span></span><span></span><span></span></div>
+      <div class="browser-url"><strong>tayo.app/maria-juan-2026</strong></div>
+    </div>
+    <div class="browser-body">
+      <div class="landing var-a">
+
+        <div class="hero">
+          <div class="hero-left">
+            <div class="hero-eyebrow">A wedding &middot; Tagaytay</div>
+            <h1 class="hero-headline">Maria<br>&amp; <em>Juan</em></h1>
+            <p class="hero-meta">October 24, 2026 &middot; Ardilla Garden Estate, Tagaytay</p>
+            <div class="pill">142 days to go</div>
+            <a href="#" class="btn">Read our story &rarr;</a>
+          </div>
+          <div class="hero-right">
+            <div class="portrait-caption">
+              <div class="portrait-caption-left">"It rained, we shared an umbrella, and never let go."</div>
+              <div class="portrait-caption-right">No. 01 &mdash; Hero</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <section style="background: #fff;">
+          <div class="story">
+            <div class="story-image"></div>
+            <div class="story-text">
+              <div class="section-eyebrow">Our Story</div>
+              <h2 class="section-title">A bookstore,<br>some rain, &amp; us.</h2>
+              <p>We met at a small bookstore on Maginhawa in 2021. Maria was looking for a copy of a Murakami novel; Juan was reaching for the same shelf. Outside, a Manila afternoon turned into a downpour without warning.</p>
+              <p>We shared an umbrella to the jeepney stop. Then to the next one. Then we walked instead. Five years later, we are still walking together.</p>
+              <div class="signature">&mdash; Maria &amp; Juan</div>
+            </div>
+          </div>
+        </section>
+
+        <div class="divider"></div>
+
+        <section style="background: #fff;">
+          <div class="section-eyebrow">The Day &middot; 24 October 2026</div>
+          <h2 class="section-title">A schedule,<br>set in soft light.</h2>
+          <div class="day-grid">
+            <div class="day-card">
+              <div class="day-time">3<em>:00</em></div>
+              <h4>Ceremony</h4>
+              <p>Garden chapel, lined with sampaguita. Dress code: garden formal.</p>
+            </div>
+            <div class="day-card">
+              <div class="day-time">4<em>:30</em></div>
+              <h4>Cocktails</h4>
+              <p>Tagaytay sunset, calamansi spritz, soft strings under the trees.</p>
+            </div>
+            <div class="day-card">
+              <div class="day-time">6<em>:00</em></div>
+              <h4>Reception</h4>
+              <p>A long table dinner, family style, hosted under string lights.</p>
+            </div>
+            <div class="day-card">
+              <div class="day-time">9<em>:30</em></div>
+              <h4>The Dance</h4>
+              <p>OPM, kundiman, and the songs we never stop playing in the car.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="venue">
+          <div class="venue-info">
+            <div class="section-eyebrow">The Venue</div>
+            <h2 class="section-title">Ardilla<br>Garden Estate.</h2>
+            <p>A century-old garden in the cool hills of Tagaytay, surrounded by acacia and old narra. Forty minutes south of Manila. A view of Taal in the distance.</p>
+            <div class="venue-meta">
+              <div>
+                <div class="label">Address</div>
+                <div class="value">Tagaytay City</div>
+              </div>
+              <div>
+                <div class="label">Drive time</div>
+                <div class="value">~1h 40m</div>
+              </div>
+            </div>
+          </div>
+          <div class="map">
+            <div class="map-pin"></div>
+          </div>
+        </section>
+
+        <section class="rsvp">
+          <div class="section-eyebrow" style="justify-content: center;">RSVP</div>
+          <h2 class="section-title">Will you<br>join us?</h2>
+          <form class="rsvp-form">
+            <div class="field-row">
+              <div class="field">
+                <label>First name</label>
+                <input type="text" placeholder="Maria" />
+              </div>
+              <div class="field">
+                <label>Last name</label>
+                <input type="text" placeholder="Santos" />
+              </div>
+            </div>
+            <div class="field">
+              <label>Email</label>
+              <input type="email" placeholder="you@example.com" />
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Attending</label>
+                <select><option>Yes, joyfully</option><option>Sadly cannot</option></select>
+              </div>
+              <div class="field">
+                <label>Plus-ones</label>
+                <select><option>Just me</option><option>+1</option><option>+2</option></select>
+              </div>
+            </div>
+            <button class="submit" type="button">Send our reply &rarr;</button>
+          </form>
+        </section>
+
+        <section class="gallery">
+          <div class="section-eyebrow">Live Gallery</div>
+          <h2 class="section-title">Memories,<br>as they happen.</h2>
+          <div class="gallery-grid">
+            <div class="photo"></div>
+            <div class="photo"></div>
+            <div class="photo"></div>
+            <div class="photo"></div>
+            <div class="photo"></div>
+            <div class="photo"></div>
+            <div class="photo"></div>
+            <div class="photo"></div>
+            <div class="photo"></div>
+          </div>
+        </section>
+
+        <footer class="footer">
+          <div class="footer-mono">Maria &amp; Juan <span>&middot;</span> <em>10.24.26</em></div>
+          <div class="footer-meta">
+            <span>Powered by Tayo</span>
+            <a href="#">Create your own wedding page &rarr;</a>
+          </div>
+        </footer>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="notes">
+    <div class="notes-grid">
+      <div class="notes-cell">
+        <div class="notes-label">Anchor Font</div>
+        <div class="notes-value">Instrument Serif (Google) &mdash; distinctive condensed serif, used at 156px+ for "Maria &amp; Juan", italicized for all section headings.</div>
+      </div>
+      <div class="notes-cell">
+        <div class="notes-label">Body Font</div>
+        <div class="notes-value">Geist Sans (Google) &mdash; modern technical sans, contrasts the serif. Used for meta, captions, body, and form fields.</div>
+      </div>
+      <div class="notes-cell">
+        <div class="notes-label">Star of Show</div>
+        <div class="notes-value">Editorial portrait &mdash; full-bleed gradient placeholder (cream &rarr; blush &rarr; terracotta) with SVG noise filter. Anchored on the right of the hero.</div>
+      </div>
+      <div class="notes-cell">
+        <div class="notes-label">Visual Rhymes</div>
+        <div class="notes-value">Terracotta dot recurs (eyebrow markers, pill pulse, divider lines, drop-cap). Italic Instrument Serif heads every section. Cream-to-terracotta gradient repeats on the RSVP submit.</div>
+      </div>
+      <div class="notes-cell">
+        <div class="notes-label">Depth Treatments</div>
+        <div class="notes-value">SVG feTurbulence noise on hero portrait + photos. Glass-morphism on "142 days" pill (white 55% + blur 12). Soft shadows on schedule cards (0 8px 24px navy/.06).</div>
+      </div>
+      <div class="notes-cell">
+        <div class="notes-label">Opacity Hierarchy</div>
+        <div class="notes-value">H1 100% &middot; Subhead 78% &middot; Body 65% &middot; Captions 45% &middot; Footer meta 55%. Drop-cap reverts to 100% to anchor the eye into long-form text.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="variation-block" id="variation-b">
+  <div class="variation-label">
+    <span class="variation-label-tag">Variation B</span>
+    <span class="variation-label-title">Typographic &mdash; the date is the star</span>
+    <span class="variation-label-meta">Anchor: Fraunces &middot; Body: DM Mono + Inter</span>
+  </div>
+
+  <div class="browser">
+    <div class="browser-bar">
+      <div class="browser-dots"><span></span><span></span><span></span></div>
+      <div class="browser-url"><strong>tayo.app/maria-juan-2026</strong></div>
+    </div>
+    <div class="browser-body">
+      <div class="landing var-b paper-tex">
+
+        <div class="hero">
+          <div class="hero-eyebrow">Save the date</div>
+          <h1 class="hero-date">10<span class="dot">.</span>24<span class="dot">.</span>26</h1>
+          <p class="hero-couple">Maria &amp; Juan</p>
+          <p class="hero-venue">Ardilla Garden Estate &middot; Tagaytay</p>
+          <a href="#" class="hero-btn">View invitation &rarr;</a>
+        </div>
+
+        <div class="mono-divider">&mdash; &middot; &mdash; &middot; &mdash; &middot; &mdash; &middot; 10.24.26 &middot; &mdash; &middot; &mdash; &middot; &mdash; &middot; &mdash;</div>
+
+        <section>
+          <div class="narrow">
+            <div class="section-eyebrow">// our story</div>
+            <h2 class="section-title">A small <em>bookstore</em>,<br>and a borrowed umbrella.</h2>
+            <p>We met at a bookstore on Maginhawa in 2021. It rained without warning. We shared one umbrella to the jeepney stop, then walked the rest of the way. We never quite let go.</p>
+            <p class="pullquote">"Five years and one wedding later, we are still walking together &mdash; slower now, but in step."</p>
+            <p>This little page is for the people who shaped us. Who taught us what love looks like when it's quiet, and ordinary, and ours.</p>
+          </div>
+        </section>
+
+        <div class="mono-divider">&mdash; &middot; &mdash; &middot; &mdash; &middot; &mdash; &middot; 10.24.26 &middot; &mdash; &middot; &mdash; &middot; &mdash; &middot; &mdash;</div>
+
+        <section>
+          <div class="narrow">
+            <div class="section-eyebrow">// the day</div>
+            <h2 class="section-title">Saturday, <em>set in numbers.</em></h2>
+          </div>
+          <div class="timeline">
+            <div class="tl-row">
+              <div class="tl-time">14:00</div>
+              <div class="tl-activity"><em>Ceremony</em> &middot; garden chapel</div>
+              <div class="tl-meta">90 min</div>
+            </div>
+            <div class="tl-row">
+              <div class="tl-time">15:30</div>
+              <div class="tl-activity"><em>Cocktails</em> &middot; sunset terrace</div>
+              <div class="tl-meta">90 min</div>
+            </div>
+            <div class="tl-row">
+              <div class="tl-time">17:00</div>
+              <div class="tl-activity"><em>Reception</em> &middot; long table dinner</div>
+              <div class="tl-meta">2 hr</div>
+            </div>
+            <div class="tl-row">
+              <div class="tl-time">19:00</div>
+              <div class="tl-activity"><em>Toasts</em> &middot; short, sweet, mostly funny</div>
+              <div class="tl-meta">45 min</div>
+            </div>
+            <div class="tl-row">
+              <div class="tl-time">21:30</div>
+              <div class="tl-activity"><em>Dancing</em> &middot; OPM &amp; kundiman</div>
+              <div class="tl-meta">til midnight</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="where">
+          <div class="narrow" style="margin-bottom: 40px;">
+            <div class="section-eyebrow">// where</div>
+            <h2 class="section-title">Tagaytay,<br><em>at golden hour.</em></h2>
+          </div>
+          <div class="where-card">
+            <div>
+              <div class="where-name">Ardilla Garden Estate</div>
+              <p>A century-old garden estate in the cool hills above Manila, surrounded by acacia trees and an open view of Taal in the distance.</p>
+              <p>Forty-minute drive from BGC after lunch. Bring a light jacket &mdash; the air gets cool by sundown.</p>
+              <div class="where-stats">
+                <div class="where-stat">
+                  <div class="num">42 km</div>
+                  <div class="lbl">From BGC</div>
+                </div>
+                <div class="where-stat">
+                  <div class="num">680 m</div>
+                  <div class="lbl">Elevation</div>
+                </div>
+                <div class="where-stat">
+                  <div class="num">17:42</div>
+                  <div class="lbl">Sunset</div>
+                </div>
+                <div class="where-stat">
+                  <div class="num">22&deg;C</div>
+                  <div class="lbl">Avg evening</div>
+                </div>
+              </div>
+            </div>
+            <div class="where-img"></div>
+          </div>
+        </section>
+
+        <div class="mono-divider">&mdash; &middot; &mdash; &middot; &mdash; &middot; &mdash; &middot; 10.24.26 &middot; &mdash; &middot; &mdash; &middot; &mdash; &middot; &mdash;</div>
+
+        <section class="rsvp-b">
+          <div class="narrow">
+            <div class="section-eyebrow">// rsvp by 09.15.26</div>
+            <h2 class="section-title">Will you <em>be there?</em></h2>
+            <p>One question. Two answers. Either is okay.</p>
+          </div>
+          <div class="rsvp-buttons">
+            <button class="big-btn primary">I'll be there</button>
+            <button class="big-btn">I can't make it</button>
+          </div>
+        </section>
+
+        <section class="photos">
+          <div class="narrow">
+            <div class="section-eyebrow">// photos</div>
+            <h2 class="section-title"><em>Glimpses</em>, captured.</h2>
+          </div>
+          <div class="photo-grid">
+            <div class="photo-cell"><span class="cap">captured 10.24.26</span></div>
+            <div class="photo-cell"><span class="cap">captured 10.24.26</span></div>
+            <div class="photo-cell"><span class="cap">captured 10.24.26</span></div>
+            <div class="photo-cell"><span class="cap">captured 10.24.26</span></div>
+            <div class="photo-cell"><span class="cap">captured 10.24.26</span></div>
+            <div class="photo-cell"><span class="cap">captured 10.24.26</span></div>
+            <div class="photo-cell"><span class="cap">captured 10.24.26</span></div>
+            <div class="photo-cell"><span class="cap">captured 10.24.26</span></div>
+          </div>
+        </section>
+
+        <footer class="footer-b">
+          <div class="mono">#MariaJuanForever <span>&middot;</span> 10.24.26 <span>&middot;</span> made with Tayo</div>
+        </footer>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="notes">
+    <div class="notes-grid">
+      <div class="notes-cell">
+        <div class="notes-label">Anchor Font</div>
+        <div class="notes-value">Fraunces (Google) &mdash; variable optical-sized serif. Used at 280-360px for "10.24.26" with opsz set to 144 for display weight.</div>
+      </div>
+      <div class="notes-cell">
+        <div class="notes-label">Body Font</div>
+        <div class="notes-value">DM Mono (Google) for all numbers/captions/dividers; Inter (Google) for body paragraphs. Three-font system, each with a clear job.</div>
+      </div>
+      <div class="notes-cell">
+        <div class="notes-label">Star of Show</div>
+        <div class="notes-value">The wedding date itself &mdash; "10.24.26" rendered enormous, with mustard dots as accents. The date IS the design element.</div>
+      </div>
+      <div class="notes-cell">
+        <div class="notes-label">Visual Rhymes</div>
+        <div class="notes-value">DM Mono "10.24.26" pattern recurs everywhere (dividers, captions, footer). All numbers use mono. Mustard dot from hero appears as bullets, RSVP accent, eyebrow stops.</div>
+      </div>
+      <div class="notes-cell">
+        <div class="notes-label">Depth Treatments</div>
+        <div class="notes-value">Faint paper-grain SVG turbulence on background. Sage-tinted glass-morphism on venue card (rgba sage 50% + blur 18). Tight letterspacing on display, generous on captions.</div>
+      </div>
+      <div class="notes-cell">
+        <div class="notes-label">Opacity Hierarchy</div>
+        <div class="notes-value">Date 100% &middot; Couple 82% &middot; Venue mono 55% &middot; Body 70% &middot; Pullquote 95% &middot; Footer mono 45%. Mustard accent always 100% to pop against muted layers.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="variation-block" id="variation-c">
+  <div class="variation-label">
+    <span class="variation-label-tag">Variation C</span>
+    <span class="variation-label-title">Motif Symbol &mdash; a custom monogram as brand mark</span>
+    <span class="variation-label-meta">Anchor: Cormorant Garamond &middot; Body: Manrope</span>
+  </div>
+
+  <div class="browser">
+    <div class="browser-bar">
+      <div class="browser-dots"><span></span><span></span><span></span></div>
+      <div class="browser-url"><strong>tayo.app/maria-juan-2026</strong></div>
+    </div>
+    <div class="browser-body">
+      <div class="landing var-c">
+
+        <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+          <symbol id="mj-monogram" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="42" fill="none" stroke-width="0.8" opacity="0.6"/>
+            <path d="M 28 38 L 28 64 M 28 38 L 38 54 L 48 38 M 48 38 L 48 64" fill="none" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M 64 38 L 64 60 C 64 63.5 61.5 65 58 65 C 55 65 53 63.5 52.5 61" fill="none" stroke-width="1.4" stroke-linecap="round"/>
+            <line x1="58" y1="34" x2="70" y2="34" stroke-width="1.4" stroke-linecap="round"/>
+            <circle cx="50" cy="22" r="2.4" fill="none" stroke-width="0.9"/>
+            <circle cx="46.5" cy="25" r="2" fill="none" stroke-width="0.9"/>
+            <circle cx="53.5" cy="25" r="2" fill="none" stroke-width="0.9"/>
+            <circle cx="50" cy="27.5" r="1.4" fill="none" stroke-width="0.9"/>
+            <path d="M 38 76 Q 50 80 62 76" fill="none" stroke-width="0.9" stroke-linecap="round"/>
+            <circle cx="50" cy="79" r="1.2" fill="none" stroke-width="0.9"/>
+          </symbol>
+        </svg>
+
+        <div class="hero">
+          <svg class="monogram-large"><use href="#mj-monogram"/></svg>
+          <h1 class="hero-couple">Maria <span class="amp">&amp;</span> Juan</h1>
+          <p class="hero-date-text">Saturday &middot; the twenty-fourth of October &middot; two thousand twenty-six</p>
+          <div class="gold-rule"></div>
+          <p class="hero-venue">Ardilla Garden Estate, Tagaytay</p>
+          <div class="hashtag-watermark">
+            <svg><use href="#mj-monogram"/></svg>
+            #MariaJuanForever
+          </div>
+        </div>
+
+        <section class="section-c">
+          <svg class="monogram-small"><use href="#mj-monogram"/></svg>
+          <h2 class="section-title-c">Our Story</h2>
+          <div class="gold-rule center"></div>
+          <div class="narrow-c">
+            <p>It started in a small bookstore on Maginhawa in 2021. Maria reached for a Murakami; Juan reached for the same shelf. Outside, a Manila afternoon turned into a downpour without warning.</p>
+            <div class="pullquote-c">"It rained, we shared an umbrella, and never let go."</div>
+            <p>Five years later, we are still walking together. We hope you'll walk with us, too &mdash; for one Saturday in Tagaytay, under acacia trees and a sky we hope cooperates.</p>
+          </div>
+        </section>
+
+        <section class="section-c alt">
+          <svg class="monogram-small"><use href="#mj-monogram"/></svg>
+          <h2 class="section-title-c">Schedule</h2>
+          <div class="gold-rule center"></div>
+          <div class="schedule-c">
+            <div class="sch-row">
+              <div class="sch-time">3:00 PM</div>
+              <div class="sch-divider"><svg><use href="#mj-monogram"/></svg></div>
+              <div class="sch-act"><em>Ceremony</em> &middot; garden chapel</div>
+              <div class="sch-meta">90 min</div>
+            </div>
+            <div class="sch-row">
+              <div class="sch-time">4:30 PM</div>
+              <div class="sch-divider"><svg><use href="#mj-monogram"/></svg></div>
+              <div class="sch-act"><em>Cocktails</em> &middot; sunset terrace</div>
+              <div class="sch-meta">90 min</div>
+            </div>
+            <div class="sch-row">
+              <div class="sch-time">6:00 PM</div>
+              <div class="sch-divider"><svg><use href="#mj-monogram"/></svg></div>
+              <div class="sch-act"><em>Reception</em> &middot; long table dinner</div>
+              <div class="sch-meta">2 hr</div>
+            </div>
+            <div class="sch-row">
+              <div class="sch-time">7:00 PM</div>
+              <div class="sch-divider"><svg><use href="#mj-monogram"/></svg></div>
+              <div class="sch-act"><em>Toasts</em> &middot; the family speaks</div>
+              <div class="sch-meta">45 min</div>
+            </div>
+            <div class="sch-row">
+              <div class="sch-time">9:30 PM</div>
+              <div class="sch-divider"><svg><use href="#mj-monogram"/></svg></div>
+              <div class="sch-act"><em>Dancing</em> &middot; OPM &amp; kundiman</div>
+              <div class="sch-meta">til midnight</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section-c">
+          <svg class="monogram-small"><use href="#mj-monogram"/></svg>
+          <h2 class="section-title-c">Travel <em>&amp; Stay</em></h2>
+          <div class="gold-rule center"></div>
+          <div class="travel">
+            <div class="travel-card">
+              <div class="travel-img h1"></div>
+              <div class="travel-card-body">
+                <h4>Taal Vista Hotel</h4>
+                <p>Ten minutes from the venue, with a view of the volcano and a soft pool deck. Rooms blocked at the Tayo group rate.</p>
+                <div class="meta">From &#8369;6,800 / night</div>
+              </div>
+            </div>
+            <div class="travel-card">
+              <div class="travel-img h2"></div>
+              <div class="travel-card-body">
+                <h4>Escala Tagaytay</h4>
+                <p>A quieter boutique stay tucked above the ridge. Walking distance to small caf&eacute;s and morning bird-song.</p>
+                <div class="meta">From &#8369;4,500 / night</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="rsvp-c">
+          <svg class="monogram-small"><use href="#mj-monogram"/></svg>
+          <h2 class="section-title-c">Will you <em>join us?</em></h2>
+          <div class="gold-rule center"></div>
+          <p style="font-family: 'Manrope', sans-serif; font-size: 14px; opacity: 0.65; max-width: 420px; margin: 0 auto;">Kindly respond by the fifteenth of September.</p>
+          <form class="rsvp-c-form">
+            <div class="field-c">
+              <label>Your name</label>
+              <input type="text" placeholder="Maria Santos" />
+            </div>
+            <div class="field-c">
+              <label>Email</label>
+              <input type="email" placeholder="you@example.com" />
+            </div>
+            <div class="field-c">
+              <label>Will you attend?</label>
+              <select><option>Yes, with great joy</option><option>Sadly, I cannot</option></select>
+            </div>
+            <button type="button" class="submit-c">
+              <svg><use href="#mj-monogram"/></svg>
+              Send our reply
+            </button>
+          </form>
+        </section>
+
+        <section class="section-c alt">
+          <svg class="monogram-small"><use href="#mj-monogram"/></svg>
+          <h2 class="section-title-c">A small <em>registry</em></h2>
+          <div class="gold-rule center"></div>
+          <p style="font-family: 'Manrope', sans-serif; font-size: 15px; opacity: 0.65; max-width: 480px; margin: 0 auto;">Your presence is the only gift we need. But for those who insist:</p>
+          <div class="registry">
+            <div class="reg-card">
+              <svg><use href="#mj-monogram"/></svg>
+              <h5>Honeymoon Fund</h5>
+              <p>Two weeks in Siargao to start the next chapter.</p>
+            </div>
+            <div class="reg-card">
+              <svg><use href="#mj-monogram"/></svg>
+              <h5>Home Together</h5>
+              <p>Curated pieces for our first apartment in Quezon City.</p>
+            </div>
+            <div class="reg-card">
+              <svg><use href="#mj-monogram"/></svg>
+              <h5>A Donation</h5>
+              <p>Given in your name to Save Philippine Seas.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="section-c">
+          <svg class="monogram-small"><use href="#mj-monogram"/></svg>
+          <h2 class="section-title-c">Photo Gallery</h2>
+          <div class="gold-rule center"></div>
+          <div class="gallery-c">
+            <div class="circle-photo"></div>
+            <div class="circle-photo"></div>
+            <div class="circle-photo"></div>
+            <div class="circle-photo"></div>
+            <div class="circle-photo"></div>
+            <div class="circle-photo"></div>
+            <div class="circle-photo"></div>
+            <div class="circle-photo"></div>
+          </div>
+        </section>
+
+        <footer class="footer-c">
+          <svg><use href="#mj-monogram"/></svg>
+          <div class="tag">#MariaJuanForever</div>
+          <div class="meta">Made with Tayo &middot; Manila &middot; 2026</div>
+        </footer>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="notes">
+    <div class="notes-grid">
+      <div class="notes-cell">
+        <div class="notes-label">Anchor Font</div>
+        <div class="notes-value">Cormorant Garamond (Google) &mdash; luxurious classical serif. Italicized at 124px for "Maria &amp; Juan", italicized again for all section titles and pull-quotes.</div>
+      </div>
+      <div class="notes-cell">
+        <div class="notes-label">Body Font</div>
+        <div class="notes-value">Manrope (Google) &mdash; friendly modern sans with rounded forms. Used for body, labels, schedule times, and form fields. Rounded geometry rhymes with the monogram.</div>
+      </div>
+      <div class="notes-cell">
+        <div class="notes-label">Star of Show</div>
+        <div class="notes-value">Custom inline-SVG monogram: interlocked M &amp; J inside a circle, with sampaguita-inspired flower above and a calligraphic flourish below. Defined once via &lt;symbol&gt;, reused everywhere.</div>
+      </div>
+      <div class="notes-cell">
+        <div class="notes-label">Visual Rhymes</div>
+        <div class="notes-value">Monogram repeats at 5 scales (hero, section-eyebrow, schedule divider, RSVP button, footer, watermark). Champagne-gold rule under every heading. Circular thumbnails rhyme the monogram's curves.</div>
+      </div>
+      <div class="notes-cell">
+        <div class="notes-label">Depth Treatments</div>
+        <div class="notes-value">Subtle dotted SVG-pattern background (1px dots / 28px grid). Soft shadows on cards (0 12px 40px aubergine/.06). Gold gradient on RSVP button. Faint text-shadow letterpress on hero serif.</div>
+      </div>
+      <div class="notes-cell">
+        <div class="notes-label">Opacity Hierarchy</div>
+        <div class="notes-value">Couple H1 100% &middot; Date subhead 78% &middot; Venue 65% &middot; Body 72% &middot; Pullquote 95% &middot; Watermark 35%. Gold rule at 100% but only 1px tall &mdash; punctuation, not pressure.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="recommendations">
+  <div class="intro-eyebrow">Tayo Design System Recommendations</div>
+  <h2>Our pick: <em>Variation C &mdash; Motif Symbol</em></h2>
+
+  <div class="rec-grid">
+    <div class="rec-card">
+      <div class="label">Primary anchor font</div>
+      <div class="value">Cormorant Garamond</div>
+      <p>Italicized headlines feel handwritten and intentional &mdash; the opposite of templated. Pairs beautifully with Filipino visual culture (calligraphy, embroidery, lace).</p>
+    </div>
+    <div class="rec-card">
+      <div class="label">Primary body font</div>
+      <div class="value">Manrope</div>
+      <p>Friendly rounded sans that scales from app UI to landing page without feeling cold. Renders well at every size and weight.</p>
+    </div>
+    <div class="rec-card">
+      <div class="label">Primary brand palette</div>
+      <div class="value">Pearl &middot; Aubergine &middot; Gold</div>
+      <p>Warm, ceremonial, and differentiated from the wedding-tech crowd (which leans heavy on millennial pink and sage). Champagne gold is the signature accent.</p>
+    </div>
+  </div>
+
+  <div class="rec-rationale">
+    <h3>Why this combination wins for Tayo</h3>
+    <p>Variation C builds in the strongest Tayo-specific advantage: every couple gets a one-of-one mark. The monogram is a system, not a template &mdash; couples generate their own glyph and it propagates across their landing page, invitations, and in-app moments. That's the kind of distinctive personality that signals "made with care, not generated" &mdash; exactly the editorial, non-AI feel the brand is reaching for. Cormorant + Manrope is also the most stylistically flexible pairing: it works for elegant Manila weddings, garden weddings in Tagaytay, and beach weddings in Siargao without re-skinning.</p>
+  </div>
+</section>
+
+<footer class="doc-footer">
+  Tayo Couple Landing Pages &mdash; Design Variations v1 &mdash; May 2026
+</footer>
+
+</body>
+</html>

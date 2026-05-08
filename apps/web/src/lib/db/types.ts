@@ -190,6 +190,7 @@ export interface Event {
   tier: EventTier;
   monogram_svg: string | null;
   rsvp_deadline: string | null;
+  photos_released_at: string | null; // 0002 — flag for the deferred 0005 cloud-delivery pipeline
   created_at: string;
   updated_at: string;
 }
@@ -243,6 +244,44 @@ export interface Guest {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  // 0002 additions
+  profile_photo_url: string | null;
+  profile_photo_set_at: string | null;
+  profile_photo_segment: "arrival" | "ceremony" | "cocktails" | "reception" | "manual" | null;
+  first_rule_completed_at: string | null;
+  first_rule_captured_by_user_id: string | null;
+  download_completed_at: string | null;
+  scan_tracking_opt_out: boolean;
+}
+
+// ─── 0002 — scan_events + guest_rsvp_extras ───────────────────────────────
+
+export const SCAN_SOURCES = ["browser", "tayo_native", "tayo_din", "coordinator"] as const;
+export type ScanSource = (typeof SCAN_SOURCES)[number];
+
+export interface ScanEvent {
+  scan_id: string;
+  event_id: string;
+  guest_id: string;
+  scanned_at: string;
+  source: ScanSource;
+  scanner_user_id: string | null;
+  context: Record<string, unknown> | null;
+  user_agent: string | null;
+  ip_anon: string | null;
+}
+
+export const DANCE_STYLES = ["slow", "line_dancing", "hip_hop", "no_preference"] as const;
+export type DanceStyle = (typeof DANCE_STYLES)[number];
+
+export interface GuestRsvpExtras {
+  guest_id: string;
+  event_id: string;
+  song_request: string | null;
+  dance_style: DanceStyle | null;
+  photo_challenges_opt_in: boolean;
+  freeform_note: string | null;
+  updated_at: string;
 }
 
 // ─── Joined views ──────────────────────────────────────────────────────────

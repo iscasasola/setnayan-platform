@@ -191,6 +191,12 @@ export interface Event {
   monogram_svg: string | null;
   rsvp_deadline: string | null;
   photos_released_at: string | null; // 0002 — flag for the deferred 0005 cloud-delivery pipeline
+  // 0012 Paparazzi additive
+  paparazzi_tier: 3 | 5 | null;
+  gallery_review_window_days: number;
+  gallery_public_unlocked_at: string | null;
+  hot_retention_days: number;
+  custom_monogram_unlocked: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -295,11 +301,163 @@ export interface GuestRsvpExtras {
   updated_at: string;
 }
 
+// ─── 0012 — Paparazzi ──────────────────────────────────────────────────────
+
+export const CAPTURE_TYPES = ["photo", "clip"] as const;
+export type CaptureType = (typeof CAPTURE_TYPES)[number];
+
+export const CAPTURE_MODERATION_STATUSES = [
+  "pending",
+  "approved",
+  "flagged",
+  "rejected",
+] as const;
+export type CaptureModerationStatus = (typeof CAPTURE_MODERATION_STATUSES)[number];
+
+export const CAPTURE_ORIENTATIONS = ["portrait", "landscape"] as const;
+export type CaptureOrientation = (typeof CAPTURE_ORIENTATIONS)[number];
+
+export const CAPTURE_TAG_SOURCES = [
+  "individual_qr",
+  "table_qr",
+  "manual_pick",
+  "auto_face_match",
+] as const;
+export type CaptureTagSource = (typeof CAPTURE_TAG_SOURCES)[number];
+
+export const REEL_RENDER_STATUSES = ["queued", "rendering", "ready", "failed"] as const;
+export type ReelRenderStatus = (typeof REEL_RENDER_STATUSES)[number];
+
+export const PAPARAZZI_GALLERY_FILTERS = [
+  "chronological",
+  "photos_of_us",
+  "untagged",
+  "type",
+] as const;
+export type PaparazziGalleryFilter = (typeof PAPARAZZI_GALLERY_FILTERS)[number];
+
+export const PAPARAZZI_GALLERY_FILTER_LABELS: Record<PaparazziGalleryFilter, string> = {
+  chronological: "Chronological",
+  photos_of_us: "Photos of us",
+  untagged: "Untagged",
+  type: "Type",
+};
+
+export interface PaparazziSeat {
+  seat_id: string;
+  event_id: string;
+  seat_index: number;
+  role_label: string | null;
+  claim_qr_token: string;
+  claimer_user_id: string | null;
+  claimer_label: string | null;
+  claimed_at: string | null;
+  device_platform: "ios" | "android" | null;
+  device_app_build: string | null;
+  last_seen_at: string | null;
+  battery_pct_last: number | null;
+  handed_off_to_seat_id: string | null;
+  revoked_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Capture {
+  capture_id: string;
+  event_id: string;
+  paparazzi_seat_id: string;
+  type: CaptureType;
+  duration_seconds: number | null;
+  flash_used: boolean;
+  orientation: CaptureOrientation;
+  client_capture_id: string;
+  captured_at: string;
+  uploaded_at: string;
+  r2_object_key: string;
+  r2_thumbnail_key: string | null;
+  width_px: number | null;
+  height_px: number | null;
+  byte_size: number | null;
+  moderation_status: CaptureModerationStatus;
+  nsfw_score: number | null;
+  hidden_by_couple_at: string | null;
+  hidden_reason: string | null;
+  favorite_of_couple: boolean;
+  tags_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CaptureTag {
+  capture_id: string;
+  guest_id: string;
+  source: CaptureTagSource;
+  tagged_at: string;
+  tagged_by_seat_id: string | null;
+}
+
+export interface ReelTemplate {
+  template_id: string;
+  slug: string;
+  display_name: string;
+  feel_category:
+    | "bridgerton_feel"
+    | "taylor_swift_feel"
+    | "mj_feel"
+    | "jazz"
+    | "sunday_morning"
+    | "hip_hop";
+  manifest_json: Record<string, unknown>;
+  preview_video_key: string | null;
+  paired_track_ids: string[];
+  duration_min_s: number;
+  duration_max_s: number;
+  production_ready: boolean;
+  retired_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PersonalReel {
+  reel_id: string;
+  event_id: string;
+  guest_id: string;
+  template_id: string;
+  selected_capture_ids: string[];
+  couple_clip_ids: string[];
+  duration_s: number;
+  music_track_id: string | null;
+  monogram_applied: boolean;
+  status: ReelRenderStatus;
+  r2_output_key: string | null;
+  preview_thumb_key: string | null;
+  enqueued_at: string;
+  rendering_started_at: string | null;
+  rendered_at: string | null;
+  failure_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PaparazziWalletSku {
+  service_key: "paparazzi_3_seat" | "paparazzi_5_seat" | "paparazzi_template";
+  display_name_en: string;
+  php_price_centavos: number;
+  token_display: number;
+  ref_type: string;
+  one_time_per_event: boolean;
+  created_at: string;
+}
+
 // ─── Joined views ──────────────────────────────────────────────────────────
 
 export interface GuestWithHousehold extends Guest {
   household: Pick<Household, "household_id" | "name"> | null;
   table: Pick<WeddingTable, "table_id" | "table_name"> | null;
+}
+
+export interface CaptureWithTags extends Capture {
+  tagged_guest_ids: string[];
 }
 
 // ─── Display helpers ───────────────────────────────────────────────────────

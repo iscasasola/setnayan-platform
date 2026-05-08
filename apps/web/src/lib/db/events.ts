@@ -24,6 +24,9 @@ export async function getCurrentEvent(): Promise<Event | null> {
         "bride_first_name, bride_last_name, groom_first_name, groom_last_name, " +
         "event_date, ceremony_type, ceremony_venue, reception_venue, " +
         "guest_count_estimate, status, tier, monogram_svg, rsvp_deadline, " +
+        "photos_released_at, " +
+        "paparazzi_tier, gallery_review_window_days, " +
+        "gallery_public_unlocked_at, hot_retention_days, custom_monogram_unlocked, " +
         "created_at, updated_at",
     )
     .order("created_at", { ascending: false })

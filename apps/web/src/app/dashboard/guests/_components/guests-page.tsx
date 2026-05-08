@@ -71,6 +71,28 @@ export function GuestsPage({ event, initialGuests, households, tables }: Props) 
     return Array.from(set).sort();
   }, [initialGuests]);
 
+  // Plus-one lookups: primary → +1 row, +1 → primary host. Built once over all
+  // guests (not the filtered set) so the relation survives any active filter.
+  const plusOneByPrimaryId = useMemo(() => {
+    const map = new Map<string, Guest>();
+    for (const g of initialGuests) {
+      if (g.plus_one_of_guest_id) map.set(g.plus_one_of_guest_id, g);
+    }
+    return map;
+  }, [initialGuests]);
+
+  const hostByPlusOneId = useMemo(() => {
+    const byId = new Map(initialGuests.map((g) => [g.guest_id, g] as const));
+    const map = new Map<string, Guest>();
+    for (const g of initialGuests) {
+      if (g.plus_one_of_guest_id) {
+        const host = byId.get(g.plus_one_of_guest_id);
+        if (host) map.set(g.guest_id, host);
+      }
+    }
+    return map;
+  }, [initialGuests]);
+
   const selectedGuest = selectedGuestId
     ? initialGuests.find((g) => g.guest_id === selectedGuestId) ?? null
     : null;
@@ -119,7 +141,11 @@ export function GuestsPage({ event, initialGuests, households, tables }: Props) 
       />
 
       {/* Mobile list */}
-      <MobileList rows={displayRows} onSelect={setSelectedGuestId} />
+      <MobileList
+        rows={displayRows}
+        onSelect={setSelectedGuestId}
+        hostByPlusOneId={hostByPlusOneId}
+      />
 
       {/* Desktop wrapper — hidden on mobile, full layout on lg+ */}
       <div className="hidden lg:block">
@@ -196,6 +222,8 @@ export function GuestsPage({ event, initialGuests, households, tables }: Props) 
                   rows={displayRows}
                   selectedGuestId={selectedGuestId}
                   onSelect={setSelectedGuestId}
+                  plusOneByPrimaryId={plusOneByPrimaryId}
+                  hostByPlusOneId={hostByPlusOneId}
                 />
               </div>
             </div>

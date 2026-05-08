@@ -18,7 +18,15 @@ async function ensureEvent() {
   return event;
 }
 
-/** Insert a guest. Server-side validation via Zod. */
+/**
+ * Insert a guest. Server-side validation via Zod.
+ *
+ * If `plus_one_allowed` is true, ALSO inserts a second `guests` row for the
+ * +1 (per work order 0001 plus-one model upgrade, 2026-05-09): the +1 is a
+ * first-class guest with its own qr_token, RSVP, meal preference, etc. The
+ * primary's `plus_one_allowed` flag stays true; `plus_one_of_guest_id` on
+ * the +1 row points at the primary.
+ */
 export async function addGuestAction(raw: unknown): Promise<ActionResult> {
   const parsed = addGuestSchema.safeParse(raw);
   if (!parsed.success) {
@@ -26,22 +34,74 @@ export async function addGuestAction(raw: unknown): Promise<ActionResult> {
   }
   const event = await ensureEvent();
   const supabase = await createClient();
-  const { error } = await supabase.from("guests").insert({
-    event_id: event.event_id,
-    ...flattenForInsert(parsed.data),
-  });
-  if (error) return { ok: false, error: error.message };
+
+  // Strip the staging-only fields (they don't map to columns on the primary row).
+  const {
+    plus_one_first_name,
+    plus_one_last_name,
+    plus_one_mode,
+    ...primaryFields
+  } = parsed.data;
+
+  // Insert primary, capture id + the fields we'll mirror onto the +1 row.
+  const { data: primaryRows, error: primaryErr } = await supabase
+    .from("guests")
+    .insert({ event_id: event.event_id, ...flattenForInsert(primaryFields) })
+    .select("guest_id, side, group_category, household_id, invited_to_blocks");
+  if (primaryErr) return { ok: false, error: primaryErr.message };
+  const primary = primaryRows?.[0] as
+    | {
+        guest_id: string;
+        side: string;
+        group_category: string;
+        household_id: string | null;
+        invited_to_blocks: string[];
+      }
+    | undefined;
+  if (!primary) return { ok: false, error: "Primary guest insert returned no row." };
+
+  // If a +1 was opted in, create the +1 as its own row.
+  if (parsed.data.plus_one_allowed) {
+    const mode = plus_one_mode ?? "full";
+    const fn = (plus_one_first_name ?? "").trim();
+    const ln = (plus_one_last_name ?? "").trim();
+    const { error: plusOneErr } = await supabase.from("guests").insert({
+      event_id: event.event_id,
+      first_name: fn,
+      last_name: ln,
+      side: primary.side,
+      group_category: primary.group_category,
+      role: "guest",
+      household_id: primary.household_id,
+      plus_one_of_guest_id: primary.guest_id,
+      plus_one_mode: mode,
+      photo_consent: true,
+      // Default the +1 to the same blocks the primary is invited to so the
+      // couple doesn't have to re-toggle them.
+      invited_to_blocks: primary.invited_to_blocks,
+    });
+    if (plusOneErr) {
+      // Best-effort: don't roll back the primary. Surface the error to the UI.
+      return { ok: false, error: `Primary guest saved, but +1 row failed: ${plusOneErr.message}` };
+    }
+  }
+
   revalidatePath("/dashboard/guests");
   return { ok: true };
 }
 
-/** Update an existing guest (partial). */
+/** Update an existing guest (partial). Plus-one staging fields are ignored —
+ * the +1 row, once created, is managed via its own row (Edit / Remove /
+ * RSVP buttons on its own list entry). */
 export async function updateGuestAction(raw: unknown): Promise<ActionResult> {
   const parsed = editGuestSchema.safeParse(raw);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
-  const { guest_id, ...patch } = parsed.data;
+  const { guest_id, plus_one_first_name, plus_one_last_name, plus_one_mode, ...patch } = parsed.data;
+  void plus_one_first_name;
+  void plus_one_last_name;
+  void plus_one_mode;
   const supabase = await createClient();
   const { error } = await supabase.from("guests").update(flattenForInsert(patch)).eq("guest_id", guest_id);
   if (error) return { ok: false, error: error.message };

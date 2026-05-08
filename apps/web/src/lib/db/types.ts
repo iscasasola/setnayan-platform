@@ -252,7 +252,18 @@ export interface Guest {
   first_rule_captured_by_user_id: string | null;
   download_completed_at: string | null;
   scan_tracking_opt_out: boolean;
+  // 0001 plus-one model upgrade (2026-05-09)
+  plus_one_of_guest_id: string | null;
+  plus_one_mode: PlusOneMode | null;
 }
+
+export const PLUS_ONE_MODES = ["full", "limited"] as const;
+export type PlusOneMode = (typeof PLUS_ONE_MODES)[number];
+
+export const PLUS_ONE_MODE_LABELS: Record<PlusOneMode, string> = {
+  full: "Full",
+  limited: "Limited",
+};
 
 // ─── 0002 — scan_events + guest_rsvp_extras ───────────────────────────────
 

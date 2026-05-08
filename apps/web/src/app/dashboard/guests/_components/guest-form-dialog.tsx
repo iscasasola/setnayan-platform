@@ -5,6 +5,8 @@ import {
   GROUP_CATEGORIES,
   GROUP_LABELS,
   MEAL_PREFERENCES,
+  PLUS_ONE_MODE_LABELS,
+  PLUS_ONE_MODES,
   ROLE_LABELS,
   RSVP_LABELS,
   RSVP_STATUSES,
@@ -37,6 +39,9 @@ const EMPTY_FORM: GuestInput = {
   role: "guest",
   plus_one_allowed: false,
   plus_one_name: undefined,
+  plus_one_first_name: undefined,
+  plus_one_last_name: undefined,
+  plus_one_mode: "full",
   email: undefined,
   mobile: undefined,
   meal_preference: undefined,
@@ -48,13 +53,6 @@ const EMPTY_FORM: GuestInput = {
   notes: undefined,
   rsvp_status: "pending",
 };
-
-type PlusOneOption = "none" | "tba" | "named";
-
-function plusOneFromForm(form: GuestInput): PlusOneOption {
-  if (!form.plus_one_allowed) return "none";
-  return form.plus_one_name ? "named" : "tba";
-}
 
 export function GuestFormDialog({ mode, households, onClose }: Props) {
   const initial = mode.kind === "edit" ? guestToInput(mode.guest) : EMPTY_FORM;
@@ -126,13 +124,23 @@ export function GuestFormDialog({ mode, households, onClose }: Props) {
     });
   }
 
+  function setPlusOneAllowed(allowed: boolean) {
+    setForm((f) => ({
+      ...f,
+      plus_one_allowed: allowed,
+      // When toggled OFF, clear staged +1 fields so a stale name doesn't
+      // accidentally create a +1 if the toggle is re-enabled later.
+      ...(allowed
+        ? {}
+        : { plus_one_first_name: undefined, plus_one_last_name: undefined, plus_one_mode: "full" as const }),
+    }));
+  }
+
   const title = mode.kind === "add" ? "Add a guest" : "Edit guest";
   const subtitle =
     mode.kind === "add"
       ? "Add an individual or a paired entry (couples, parents, sponsors)"
       : "Update this guest's details";
-
-  const plusOne = plusOneFromForm(form);
 
   return (
     <div className="fixed inset-0 z-50 flex items-stretch justify-center bg-ink/40 backdrop-blur-sm lg:items-center lg:p-6">
@@ -259,28 +267,67 @@ export function GuestFormDialog({ mode, households, onClose }: Props) {
               </select>
             </Field>
             <Field label="Plus-one">
-              <select
-                value={plusOne}
-                onChange={(e) => {
-                  const v = e.target.value as PlusOneOption;
-                  if (v === "none") {
-                    update("plus_one_allowed", false);
-                    update("plus_one_name", undefined);
-                  } else if (v === "tba") {
-                    update("plus_one_allowed", true);
-                    update("plus_one_name", undefined);
-                  } else {
-                    update("plus_one_allowed", true);
-                    if (!form.plus_one_name) update("plus_one_name", "");
-                  }
-                }}
-                className="form-input"
-              >
-                <option value="none">No plus-one</option>
-                <option value="tba">Allowed · TBA</option>
-                <option value="named">Allowed · named below</option>
-              </select>
+              <SegmentedToggle
+                value={form.plus_one_allowed}
+                onChange={setPlusOneAllowed}
+                offLabel="Off"
+                onLabel="Allow plus-one"
+              />
             </Field>
+
+            {/* Row 4.5 — Plus-one sub-block (revealed when toggle is ON).
+                Per work order 2026-05-09: a +1 is a first-class guests row with
+                its own qr_token. The form captures the staged details; the
+                server action creates the +1 row on save. TBA names are OK. */}
+            {form.plus_one_allowed && (
+              <>
+                <Field label="Plus-one first name">
+                  <input
+                    type="text"
+                    value={form.plus_one_first_name ?? ""}
+                    onChange={(e) => update("plus_one_first_name", e.target.value || undefined)}
+                    placeholder="Their first name (or leave blank for TBA)"
+                    className="form-input"
+                  />
+                </Field>
+                <Field label="Plus-one last name">
+                  <input
+                    type="text"
+                    value={form.plus_one_last_name ?? ""}
+                    onChange={(e) => update("plus_one_last_name", e.target.value || undefined)}
+                    placeholder="Their last name (or leave blank for TBA)"
+                    className="form-input"
+                  />
+                </Field>
+                <Field label="Plus-one access mode" className="lg:col-span-2">
+                  <div className="form-input-row flex gap-1 p-1">
+                    {PLUS_ONE_MODES.map((m) => {
+                      const active = form.plus_one_mode === m;
+                      return (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => update("plus_one_mode", m)}
+                          className={`flex-1 rounded-[6px] py-2 text-[13px] font-medium transition ${
+                            active
+                              ? "bg-ink text-white"
+                              : "bg-transparent text-ink-soft hover:bg-page-bg-soft hover:text-ink"
+                          }`}
+                          aria-pressed={active}
+                        >
+                          {PLUS_ONE_MODE_LABELS[m]}
+                          <span className="ml-1.5 hidden font-mono text-[10px] opacity-70 lg:inline">
+                            {m === "full"
+                              ? "· Shutter, Selfie, Challenges, reels"
+                              : "· tag + RSVP only"}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </Field>
+              </>
+            )}
 
             {/* Row 5 — Email | Mobile */}
             <Field label="Email">
@@ -434,19 +481,6 @@ export function GuestFormDialog({ mode, households, onClose }: Props) {
               />
             </Field>
 
-            {/* Plus-one name — only when "named below" selected; full-width helper row.
-                Sits at the bottom of the grid so the field structure above stays clean. */}
-            {plusOne === "named" && (
-              <Field label="Plus-one name" className="lg:col-span-2">
-                <input
-                  type="text"
-                  value={form.plus_one_name ?? ""}
-                  onChange={(e) => update("plus_one_name", e.target.value || undefined)}
-                  placeholder="Their name"
-                  className="form-input"
-                />
-              </Field>
-            )}
           </div>
 
           {error && (
@@ -611,6 +645,9 @@ function guestToInput(g: Guest): GuestInput {
     role: g.role,
     plus_one_allowed: g.plus_one_allowed,
     plus_one_name: g.plus_one_name ?? undefined,
+    plus_one_first_name: undefined,
+    plus_one_last_name: undefined,
+    plus_one_mode: "full",
     email: g.email ?? undefined,
     mobile: g.mobile ?? undefined,
     meal_preference: g.meal_preference ?? undefined,
@@ -622,4 +659,46 @@ function guestToInput(g: Guest): GuestInput {
     notes: g.notes ?? undefined,
     rsvp_status: g.rsvp_status,
   };
+}
+
+/**
+ * Two-segment toggle (Off / Allow plus-one) styled to match the form-input
+ * field box. Sits inside the same 46px chrome as inputs/selects so the
+ * uniform-sizing rule is preserved.
+ */
+function SegmentedToggle({
+  value,
+  onChange,
+  offLabel,
+  onLabel,
+}: {
+  value: boolean;
+  onChange: (v: boolean) => void;
+  offLabel: string;
+  onLabel: string;
+}) {
+  return (
+    <div className="form-input-row flex gap-1 p-1" role="group" aria-label="Plus-one">
+      <button
+        type="button"
+        onClick={() => onChange(false)}
+        className={`flex-1 rounded-[6px] py-2 text-[13px] font-medium transition ${
+          !value ? "bg-ink text-white" : "bg-transparent text-ink-soft hover:bg-page-bg-soft hover:text-ink"
+        }`}
+        aria-pressed={!value}
+      >
+        {offLabel}
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange(true)}
+        className={`flex-1 rounded-[6px] py-2 text-[13px] font-medium transition ${
+          value ? "bg-accent text-white" : "bg-transparent text-ink-soft hover:bg-page-bg-soft hover:text-ink"
+        }`}
+        aria-pressed={value}
+      >
+        {onLabel}
+      </button>
+    </div>
+  );
 }

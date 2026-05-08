@@ -9,6 +9,7 @@ import { z } from "zod";
 import {
   GROUP_CATEGORIES,
   MEAL_PREFERENCES,
+  PLUS_ONE_MODES,
   RSVP_STATUSES,
   SCHEDULE_BLOCKS,
   WEDDING_ROLES,
@@ -63,8 +64,16 @@ export const guestInputSchema = z.object({
   side: z.enum(WEDDING_SIDES),
   group_category: z.enum(GROUP_CATEGORIES),
   role: z.enum(WEDDING_ROLES).default("guest"),
+  // Plus-one toggle on the primary guest. Default OFF — couples must explicitly opt in.
   plus_one_allowed: z.boolean().default(false),
+  // Legacy display-only hint, used as a placeholder label until the +1 is named.
   plus_one_name: optionalString,
+  // 2026-05-09 model: when plus_one_allowed=true, the form may carry the +1's
+  // names and access mode. The server action creates a SEPARATE guests row for
+  // the +1 (with its own qr_token). Both names optional → TBA placeholder OK.
+  plus_one_first_name: z.string().trim().max(80).optional().or(z.literal("").transform(() => undefined)),
+  plus_one_last_name: z.string().trim().max(80).optional().or(z.literal("").transform(() => undefined)),
+  plus_one_mode: z.enum(PLUS_ONE_MODES).default("full"),
   email: emailField,
   mobile: phoneField,
   meal_preference: z.enum(MEAL_PREFERENCES).optional(),

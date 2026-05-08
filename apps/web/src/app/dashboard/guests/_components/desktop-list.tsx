@@ -3,17 +3,25 @@
 import { GenericTag, RoleTag, RsvpPill, SideAvatar, SideTag } from "./shared";
 import type { DisplayRow } from "./pairing";
 import { rowAvatarInitials, rowDisplayName, rowSubtitle } from "./pairing";
-import { GROUP_LABELS } from "@/lib/db/types";
+import { GROUP_LABELS, type Guest } from "@/lib/db/types";
+
+interface Props {
+  rows: DisplayRow[];
+  selectedGuestId: string | null;
+  onSelect: (guestId: string) => void;
+  /** Map<primary.guest_id → +1 guest row>, for the plus-one cell + display. */
+  plusOneByPrimaryId: Map<string, Guest>;
+  /** Map<+1.guest_id → primary host>, for the "brought by" subtitle on +1 rows. */
+  hostByPlusOneId: Map<string, Guest>;
+}
 
 export function DesktopList({
   rows,
   selectedGuestId,
   onSelect,
-}: {
-  rows: DisplayRow[];
-  selectedGuestId: string | null;
-  onSelect: (guestId: string) => void;
-}) {
+  plusOneByPrimaryId,
+  hostByPlusOneId,
+}: Props) {
   if (rows.length === 0) {
     return (
       <div className="flex min-h-[280px] flex-col items-center justify-center rounded-2xl border border-rule bg-surface px-6 py-12 text-center">
@@ -42,6 +50,11 @@ export function DesktopList({
         {rows.map((row) => {
           const id = row.primary.guest_id;
           const selected = selectedGuestId === id;
+          const host = hostByPlusOneId.get(id);
+          const isPlusOneRow = !!host;
+          const subtitle = isPlusOneRow
+            ? `+1 brought by ${host.first_name}${host.last_name ? ` ${host.last_name}` : ""}`
+            : rowSubtitle(row);
           return (
             <li
               key={id}
@@ -63,9 +76,11 @@ export function DesktopList({
               <div className="flex items-center gap-3 min-w-0">
                 <SideAvatar side={row.primary.side} initials={rowAvatarInitials(row)} />
                 <div className="flex min-w-0 flex-col gap-0.5">
-                  <strong className="truncate text-[14px] font-semibold text-ink">{rowDisplayName(row)}</strong>
+                  <strong className="truncate text-[14px] font-semibold text-ink">
+                    {isPlusOneRow ? plusOneDisplayName(row.primary) : rowDisplayName(row)}
+                  </strong>
                   <span className="font-mono text-[11px] tracking-label-tight text-ink-faint truncate">
-                    {rowSubtitle(row)}
+                    {subtitle}
                   </span>
                 </div>
               </div>
@@ -79,11 +94,15 @@ export function DesktopList({
               <div>
                 <RsvpPill
                   status={row.primary.rsvp_status}
-                  label={row.primary.role === "officiant" && row.primary.rsvp_status === "attending" ? "Confirmed" : undefined}
+                  label={
+                    row.primary.role === "officiant" && row.primary.rsvp_status === "attending"
+                      ? "Confirmed"
+                      : undefined
+                  }
                 />
               </div>
               <div className="font-mono text-[12px] tracking-label-tight text-ink-soft">
-                {plusOneCellLabel(row)}
+                {plusOneCellLabel(row, plusOneByPrimaryId, isPlusOneRow, row.primary.plus_one_mode)}
               </div>
               <div
                 onClick={(e) => e.stopPropagation()}
@@ -99,12 +118,43 @@ export function DesktopList({
   );
 }
 
-function plusOneCellLabel(row: DisplayRow): React.ReactNode {
+function plusOneDisplayName(g: Guest): string {
+  const fn = g.first_name.trim();
+  const ln = g.last_name.trim();
+  if (!fn && !ln) return "+1 · TBA";
+  return `${fn} ${ln}`.trim();
+}
+
+function plusOneCellLabel(
+  row: DisplayRow,
+  plusOneByPrimaryId: Map<string, Guest>,
+  isPlusOneRow: boolean,
+  plusOneRowMode: "full" | "limited" | null,
+): React.ReactNode {
+  if (isPlusOneRow) {
+    const tag = plusOneRowMode === "limited" ? "+1 · limited" : "+1";
+    return <span className="text-accent-deep font-medium">{tag}</span>;
+  }
   if (row.kind === "pair") return "paired";
   const g = row.primary;
   if (["ring_bearer", "bible_bearer", "coin_bearer", "flower_girl"].includes(g.role)) return "child";
   if (g.role === "officiant") return "—";
   if (!g.plus_one_allowed) return "no +1";
+
+  // Prefer the canonical +1 row over the legacy plus_one_name string.
+  const linked = plusOneByPrimaryId.get(g.guest_id);
+  if (linked) {
+    const fn = linked.first_name.trim();
+    const ln = linked.last_name.trim();
+    const display = fn ? (ln ? `${fn} ${ln.charAt(0)}.` : fn) : "TBA";
+    const limitedSuffix = linked.plus_one_mode === "limited" ? " (limited)" : "";
+    return (
+      <span className="text-accent-deep font-medium">
+        + {display}
+        {limitedSuffix}
+      </span>
+    );
+  }
   if (g.plus_one_name) {
     return <span className="text-accent-deep font-medium">+ {g.plus_one_name}</span>;
   }

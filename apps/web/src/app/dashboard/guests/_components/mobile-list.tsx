@@ -1,6 +1,6 @@
 "use client";
 
-import { familyForRole, ROLE_LABELS } from "@/lib/db/types";
+import { familyForRole, ROLE_LABELS, type Guest } from "@/lib/db/types";
 import { SideAvatar } from "./shared";
 import type { DisplayRow } from "./pairing";
 import { rowAvatarInitials, rowDisplayName } from "./pairing";
@@ -22,9 +22,11 @@ const SECTION_ORDER: Array<{
 export function MobileList({
   rows,
   onSelect,
+  hostByPlusOneId,
 }: {
   rows: DisplayRow[];
   onSelect: (guestId: string) => void;
+  hostByPlusOneId: Map<string, Guest>;
 }) {
   if (rows.length === 0) {
     return (
@@ -57,7 +59,12 @@ export function MobileList({
             </span>
           </div>
           {sec.items.map((row) => (
-            <MobileCard key={row.primary.guest_id} row={row} onSelect={() => onSelect(row.primary.guest_id)} />
+            <MobileCard
+              key={row.primary.guest_id}
+              row={row}
+              host={hostByPlusOneId.get(row.primary.guest_id) ?? null}
+              onSelect={() => onSelect(row.primary.guest_id)}
+            />
           ))}
         </div>
       ))}
@@ -65,7 +72,15 @@ export function MobileList({
   );
 }
 
-function MobileCard({ row, onSelect }: { row: DisplayRow; onSelect: () => void }) {
+function MobileCard({
+  row,
+  host,
+  onSelect,
+}: {
+  row: DisplayRow;
+  host: Guest | null;
+  onSelect: () => void;
+}) {
   const stripeBg =
     row.primary.side === "bride"
       ? "var(--bride)"
@@ -73,8 +88,13 @@ function MobileCard({ row, onSelect }: { row: DisplayRow; onSelect: () => void }
         ? "var(--groom)"
         : "var(--both)";
 
-  const roleText =
-    row.kind === "pair"
+  const isPlusOneRow = !!host;
+  const displayName = isPlusOneRow
+    ? plusOneCardName(row.primary)
+    : rowDisplayName(row);
+  const roleText = isPlusOneRow
+    ? `+1 · brought by ${host.first_name}${row.primary.plus_one_mode === "limited" ? " · limited" : ""}`
+    : row.kind === "pair"
       ? `${ROLE_LABELS[row.primary.role]} · paired`
       : ROLE_LABELS[row.primary.role];
 
@@ -105,7 +125,7 @@ function MobileCard({ row, onSelect }: { row: DisplayRow; onSelect: () => void }
       <SideAvatar side={row.primary.side} initials={rowAvatarInitials(row)} />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="truncate text-[16px] font-semibold tracking-tight text-ink">
-          {rowDisplayName(row)}
+          {displayName}
         </div>
         <div className="truncate text-[13px] font-medium text-ink-soft">{roleText}</div>
       </div>
@@ -118,4 +138,11 @@ function MobileCard({ row, onSelect }: { row: DisplayRow; onSelect: () => void }
       </span>
     </button>
   );
+}
+
+function plusOneCardName(g: Guest): string {
+  const fn = g.first_name.trim();
+  const ln = g.last_name.trim();
+  if (!fn && !ln) return "+1 · TBA";
+  return `${fn} ${ln}`.trim();
 }

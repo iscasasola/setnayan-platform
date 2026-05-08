@@ -57,7 +57,7 @@ export async function generateGuestQrSvg(input: {
     qr_token: input.qr_token,
   });
 
-  const svg = await QRCode.toString(url, {
+  const rawSvg = await QRCode.toString(url, {
     type: "svg",
     errorCorrectionLevel: "M",
     margin: 1,
@@ -69,6 +69,16 @@ export async function generateGuestQrSvg(input: {
     },
     width: input.size ?? 256,
   });
+
+  // The qrcode npm package hardcodes width/height attributes on the <svg>,
+  // which breaks fluid sizing inside small containers (e.g., 64px admin
+  // thumbnails). Strip them and let the SVG scale to its container via the
+  // viewBox + preserveAspectRatio combo.
+  const svg = rawSvg
+    .replace(/<\?xml[^?]*\?>\s*/i, "")
+    .replace(/(<svg\b[^>]*?)\s+width="[^"]*"/i, "$1")
+    .replace(/(<svg\b[^>]*?)\s+height="[^"]*"/i, "$1")
+    .replace(/<svg\b/i, '<svg width="100%" height="100%" preserveAspectRatio="xMidYMid meet"');
 
   cache.set(k, svg);
   // Keep the cache from unbounded growth in long-running dev sessions.

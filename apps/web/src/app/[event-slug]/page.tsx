@@ -1,11 +1,7 @@
 import { headers } from "next/headers";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
-import {
-  readGuestSession,
-  setGuestSessionCookie,
-  signGuestSession,
-} from "@/lib/server/guest-session";
+import { readGuestSession } from "@/lib/server/guest-session";
 import { generateGuestQrSvg } from "@/lib/server/qr";
 import type {
   Event,
@@ -22,10 +18,13 @@ interface RouteParams {
   searchParams: Promise<{ invite?: string }>;
 }
 
-export default async function EventInvitationPage({ params, searchParams }: RouteParams) {
+export default async function EventInvitationPage({ params }: RouteParams) {
   const { "event-slug": slug } = await params;
-  const { invite } = await searchParams;
 
+  // The middleware handles `?invite=<token>` upfront — validates, signs the
+  // cookie, logs the scan, and 302s to the clean URL. By the time we render
+  // here either the cookie is set (signed-in guest) or there's nothing
+  // (generic landing).
   const admin = createAdminClient();
 
   // Lookup the event (case-insensitive on slug, mirroring the DB unique index).
@@ -44,66 +43,18 @@ export default async function EventInvitationPage({ params, searchParams }: Rout
   if (!eventRow) notFound();
   const event = eventRow;
 
-  // Identify the guest. Priority:
-  // 1. ?invite=<token> in the URL — fresh QR scan; validate, set cookie, then redirect to clean URL.
-  // 2. tayo_guest_session cookie — returning guest.
-  // 3. Neither — render a generic "use your invite link" page.
+  // Read the guest session cookie (set by middleware on /<slug>?invite=<token>).
   let guest: Guest | null = null;
-
-  if (invite) {
+  const session = await readGuestSession();
+  if (session && session.event_id === event.event_id) {
     const { data } = await admin
       .from("guests")
       .select("*")
-      .eq("event_id", event.event_id)
-      .eq("qr_token", invite)
+      .eq("guest_id", session.guest_id)
+      .eq("qr_token", session.qr_token) // token rotation invalidates the session
       .is("deleted_at", null)
       .maybeSingle<Guest>();
-
-    if (!data) {
-      // Invalid / revoked token — fall through to generic page.
-    } else {
-      guest = data;
-      const jwt = await signGuestSession({
-        guest_id: guest.guest_id,
-        event_id: guest.event_id,
-        qr_token: guest.qr_token,
-      });
-      await setGuestSessionCookie(jwt);
-
-      // Log the scan. Best-effort — don't fail the page if logging errors.
-      const headerList = await headers();
-      const ua = headerList.get("user-agent");
-      const ip = headerList.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
-      const ipAnon = ip ? ip.split(".").slice(0, 3).join(".") + ".0" : null;
-      if (!guest.scan_tracking_opt_out) {
-        await admin.from("scan_events").insert({
-          event_id: guest.event_id,
-          guest_id: guest.guest_id,
-          source: "browser",
-          context: { from: "qr_or_link" },
-          user_agent: ua,
-          ip_anon: ipAnon,
-        });
-      }
-
-      // Drop the query param from the URL — the cookie now identifies the guest.
-      redirect(`/${event.slug}`);
-    }
-  }
-
-  // No fresh invite param. Try cookie.
-  if (!guest) {
-    const session = await readGuestSession();
-    if (session && session.event_id === event.event_id) {
-      const { data } = await admin
-        .from("guests")
-        .select("*")
-        .eq("guest_id", session.guest_id)
-        .eq("qr_token", session.qr_token) // token rotation invalidates the session
-        .is("deleted_at", null)
-        .maybeSingle<Guest>();
-      if (data) guest = data;
-    }
+    if (data) guest = data;
   }
 
   // Generate the QR SVG up front (cached). Origin from headers — works

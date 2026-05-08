@@ -4,6 +4,7 @@ import { getCurrentEvent } from "@/lib/db/events";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateGuestQrSvg } from "@/lib/server/qr";
 import { ROLE_LABELS, type Guest } from "@/lib/db/types";
+import { PrintButton } from "./print-button";
 
 export const dynamic = "force-dynamic";
 
@@ -48,18 +49,7 @@ export default async function PrintSheetPage() {
     <div className="print-page min-h-screen bg-page-bg p-4 print:bg-white print:p-0">
       <div className="screen-only mx-auto mb-6 flex max-w-[680px] items-center justify-between gap-3">
         <p className="meta-label">Print preview · {cards.length} cards</p>
-        <button
-          type="button"
-          onClick={() => {
-            if (typeof window !== "undefined") window.print();
-          }}
-          className="btn-accent text-[12px]"
-          // print() is fine inside an inline onClick on a server component
-          // because Next ships this as a static button; the client browser
-          // handles the call.
-        >
-          🖨 Print
-        </button>
+        <PrintButton />
       </div>
 
       <div className="print-grid mx-auto grid max-w-[210mm] grid-cols-3 gap-2 bg-white p-4 print:max-w-none print:p-0 print:gap-1.5">

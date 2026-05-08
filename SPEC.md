@@ -856,13 +856,25 @@ create policy "coordinators can read assigned events"
 
 ### 5.1 Auth Flow
 
-Use Supabase Auth with the following methods:
+Use Supabase Auth. Per-role auth method:
 
-- **Magic link email login** — default for all roles. One-time token sent to email, click to sign in.
-- **Google OAuth** — optional secondary, mainly for guests who already have a Google account.
-- **Phone OTP via Twilio** — V1.5, deferred.
+| Role | Method |
+|---|---|
+| Couple | OAuth: Google, Facebook, Apple (Apple added when iOS App Store work begins) |
+| Vendor | Same as Couple |
+| Coordinator / Stylist | Same as Couple |
+| Guest | Lightweight QR + name (no auth provider; invitation-driven, see §5.4) |
+| Tayo Staff | Magic link email at `admin.tayo.app` (internal users have pre-provisioned emails) |
 
-Magic links are valid for 1 hour. Sessions are stored in Supabase Auth-managed cookies, with a 30-day refresh window.
+Sessions are stored in Supabase Auth-managed cookies with a 30-day refresh window. The `/auth/callback` route handler exchanges the OAuth code for a session for all OAuth providers — no per-provider callback logic.
+
+**Provider setup:**
+
+- **Google OAuth.** Google Cloud Console → APIs & Services → Credentials → OAuth 2.0 Client ID. Authorized redirect URI: `https://[supabase-project-ref].supabase.co/auth/v1/callback`. Paste Client ID + Client Secret in Supabase → Authentication → Providers → Google.
+- **Facebook OAuth.** Meta for Developers → create app → add Facebook Login. Valid OAuth Redirect URI: same Supabase callback URL. Paste App ID + App Secret in Supabase.
+- **Apple OAuth (deferred to iOS App Store milestone).** Requires Apple Developer Program ($99/year). Required by App Store policy if any other third-party login is offered, so this gets enabled when we register the iOS app. Until then, the Apple button is hidden in the UI (not just disabled) so users don't see a non-functional CTA.
+
+**Phone OTP via Twilio** — V1.5, deferred.
 
 ### 5.2 Account Types and Capabilities
 
@@ -879,18 +891,19 @@ Magic links are valid for 1 hour. Sessions are stored in Supabase Auth-managed c
 
 **Couple signup:**
 
-1. Land on `tayo.app` → click "Plan your wedding"
-2. Enter email + name → magic link sent via Resend
-3. Confirm via link → signup form: wedding date, ceremony type, venue type, guest count estimate
-4. Tayo creates an `events` row, generates a slug from the names + year, and seeds the default checklist (21 categories from Section 7 of `05_Default_Filipino_Wedding_Template_v1.docx`)
-5. Redirect to dashboard
+1. Land on `tayo.app` → click "Plan your wedding" (or "Sign in")
+2. Choose **Continue with Google** or **Continue with Facebook** (Apple appears once iOS work begins)
+3. Provider OAuth consent → return to `/auth/callback` with session
+4. First-time users land on the wedding-details signup form: names, wedding date, ceremony type, venue type, guest count estimate
+5. Tayo creates a `users` profile row, an `events` row (slug from couple names + year), an `event_roles` row linking them as `couple`, and seeds the default checklist (21 categories from Section 7 of `05_Default_Filipino_Wedding_Template_v1.docx`)
+6. Redirect to dashboard
 
 **Vendor signup:**
 
 1. Land on `tayo.app/vendors` → click "Become a Tayo Vendor"
-2. Application form: business name, category, location, portfolio
+2. Application form: business name, category, location, portfolio (no auth required at this stage — anonymous application)
 3. Submit → Tayo Staff review (1–2 days)
-4. On approval: vendor receives magic link → fills out profile
+4. On approval: Tayo Staff sends an approval email containing a one-click "Activate your Tayo vendor account" link bound to the application email. Clicking starts an OAuth sign-in (Google or Facebook); the OAuth identity is then linked to the vendor application record.
 5. Vendor onboarding wizard: add at least 1 package, define pricing, upload portfolio
 6. Status becomes `active`, vendor appears in directory
 
@@ -901,6 +914,10 @@ Magic links are valid for 1 hour. Sessions are stored in Supabase Auth-managed c
 3. Server resolves the token to a `guests` row. If no `users` row exists yet, prompt for name only (no password) → creates lightweight `users` row with `account_type = 'guest'`
 4. Issue a Supabase Auth session
 5. Guest lands on event view with RSVP, personal album, photo upload
+
+**Guest account upgrade (optional, guest-driven):** From the guest event view, the guest can choose to link an OAuth identity (Google / Facebook) to their lightweight account. On link, the same `users` row stays — it picks up the OAuth provider, the user's verified email, and `account_type` may upgrade from `guest` to `couple` or remain `guest` (decision: stay `guest` until the user creates their own event). All existing `guests` rows across multiple events stay attached. Benefits surfaced to the user: cross-event photo library, multi-wedding RSVP history, faster sign-in next time.
+
+The login page (`/login`) is **never the entry point for guests** — they always enter via QR. The login page exists for couples / vendors / coordinators who came to plan or transact.
 
 **Coordinator signup:**
 

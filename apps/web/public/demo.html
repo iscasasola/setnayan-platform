@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tayo · Premium-feel Techniques (zero cost demo)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<style>
+:root {
+  --aubergine: #6B3F5C;
+  --aubergine-50: #F7F1F5;
+  --aubergine-100: #EBDDE5;
+  --aubergine-200: #D6BACB;
+  --aubergine-300: #BC93AC;
+  --aubergine-700: #56324A;
+  --aubergine-800: #3F2436;
+  --cream: #FAF6F0;
+  --gold: #C9A674;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Manrope', system-ui, sans-serif;
+  background: var(--cream);
+  color: var(--aubergine-800);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+.serif { font-family: 'Cormorant Garamond', serif; }
+.section { padding: 100px 32px; max-width: 960px; margin: 0 auto; }
+.section h2 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 56px;
+  color: var(--aubergine);
+  margin-bottom: 16px;
+  font-weight: 500;
+  letter-spacing: -1px;
+}
+.label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  color: var(--aubergine-700);
+  margin-bottom: 16px;
+  font-weight: 600;
+}
+.section p {
+  font-size: 16px;
+  color: var(--aubergine-800);
+  max-width: 680px;
+  margin-bottom: 8px;
+}
+.cost {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 4px 12px;
+  background: var(--aubergine-100);
+  color: var(--aubergine-700);
+  border-radius: 999px;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+/* Side dot nav */
+.nav-dots {
+  position: fixed;
+  right: 32px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  z-index: 100;
+}
+.nav-dots a {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--aubergine-200);
+  display: block;
+  transition: all 0.2s;
+}
+.nav-dots a:hover { background: var(--aubergine); transform: scale(1.4); }
+
+/* Hero */
+.hero {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: radial-gradient(circle at 30% 20%, var(--aubergine-100) 0%, var(--cream) 50%);
+  position: relative;
+}
+.hero h1 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 160px;
+  color: var(--aubergine);
+  font-weight: 500;
+  letter-spacing: -4px;
+  line-height: 1;
+  opacity: 0;
+}
+.hero .sub {
+  font-size: 13px;
+  letter-spacing: 5px;
+  text-transform: uppercase;
+  margin-top: 24px;
+  color: var(--aubergine-700);
+  opacity: 0;
+}
+.hero .scroll-hint {
+  position: absolute;
+  bottom: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--aubergine-700);
+  opacity: 0.6;
+  animation: bob 2s ease-in-out infinite;
+}
+@keyframes bob { 0%,100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(8px); } }
+
+/* Scroll choreography (Section 1) */
+.scroll-section {
+  height: 250vh;
+  position: relative;
+}
+.scroll-pin {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  text-align: center;
+  padding: 0 32px;
+}
+.scroll-text {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 96px;
+  color: var(--aubergine);
+  font-weight: 400;
+  letter-spacing: -2px;
+  margin-bottom: 32px;
+  opacity: 0;
+  transform: translateY(60px);
+  font-style: italic;
+}
+.scroll-photo {
+  width: 480px;
+  max-width: 90vw;
+  height: 320px;
+  background:
+    linear-gradient(135deg, rgba(107,63,92,0.1), rgba(201,166,116,0.15)),
+    radial-gradient(circle at 30% 30%, var(--aubergine-200), var(--aubergine-100));
+  border-radius: 20px;
+  box-shadow: 0 30px 80px rgba(107, 63, 92, 0.18);
+  margin-top: 16px;
+  opacity: 0;
+  transform: scale(0.85);
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  padding: 28px;
+}
+.scroll-photo .caption {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 24px;
+  color: var(--aubergine);
+  font-style: italic;
+  font-weight: 500;
+}
+
+/* Monogram (Section 2) */
+.monogram-demo {
+  background: white;
+  border-radius: 20px;
+  padding: 48px 40px;
+  box-shadow: 0 12px 48px rgba(107, 63, 92, 0.08);
+  margin-top: 32px;
+}
+.monogram-inputs { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 32px; }
+.monogram-inputs input {
+  padding: 14px 16px;
+  border: 1px solid var(--aubergine-200);
+  border-radius: 10px;
+  font-family: 'Manrope', sans-serif;
+  font-size: 14px;
+  color: var(--aubergine-800);
+  background: var(--cream);
+  outline: none;
+  transition: border 0.2s;
+}
+.monogram-inputs input:focus { border-color: var(--aubergine); }
+.monogram-svg { width: 360px; height: 360px; margin: 0 auto; display: block; }
+
+/* 3D tilt card (Section 3) */
+.tilt-wrap { perspective: 1500px; max-width: 380px; margin: 40px auto; }
+.tilt {
+  width: 380px;
+  height: 480px;
+  background:
+    linear-gradient(135deg, var(--aubergine), var(--aubergine-700)),
+    radial-gradient(circle at 70% 30%, rgba(255,255,255,0.15), transparent 60%);
+  border-radius: 24px;
+  box-shadow: 0 40px 80px rgba(107, 63, 92, 0.3);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 36px;
+  color: white;
+  transform-style: preserve-3d;
+  transition: transform 0.15s ease-out;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+.tilt::before {
+  content: '';
+  position: absolute;
+  top: -50%; right: -50%;
+  width: 100%; height: 100%;
+  background: radial-gradient(circle, rgba(201,166,116,0.4), transparent 60%);
+  transform: translateZ(-1px);
+}
+.tilt .tilt-top { transform: translateZ(40px); }
+.tilt .tilt-eyebrow { font-size: 10px; letter-spacing: 3px; text-transform: uppercase; opacity: 0.7; font-weight: 600; }
+.tilt h3 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 56px;
+  font-weight: 500;
+  margin-top: 12px;
+  letter-spacing: -1px;
+  line-height: 1;
+}
+.tilt .tilt-amp { font-style: italic; color: var(--gold); font-weight: 400; }
+.tilt .tilt-bottom { transform: translateZ(20px); }
+.tilt .tilt-date { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.85; }
+.tilt .tilt-loc { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-style: italic; margin-top: 4px; }
+
+/* Petals (CSS-only, Lottie analog) */
+.petals-section {
+  background: white;
+  border-radius: 20px;
+  padding: 60px 40px;
+  height: 520px;
+  position: relative;
+  overflow: hidden;
+  margin-top: 32px;
+  box-shadow: 0 12px 48px rgba(107, 63, 92, 0.08);
+}
+.petal {
+  position: absolute;
+  width: 12px;
+  height: 18px;
+  background: linear-gradient(180deg, var(--aubergine-300), var(--aubergine-100));
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  top: -30px;
+  opacity: 0.85;
+  animation: fall linear infinite;
+}
+.petal:nth-child(1) { left: 10%; animation-duration: 8s; animation-delay: 0s; background: linear-gradient(180deg, var(--aubergine-200), var(--aubergine-100)); }
+.petal:nth-child(2) { left: 22%; animation-duration: 11s; animation-delay: 1s; background: linear-gradient(180deg, var(--gold), #F1E2C8); }
+.petal:nth-child(3) { left: 35%; animation-duration: 9s; animation-delay: 2s; }
+.petal:nth-child(4) { left: 48%; animation-duration: 13s; animation-delay: 0.5s; background: linear-gradient(180deg, var(--aubergine-300), var(--aubergine-200)); }
+.petal:nth-child(5) { left: 62%; animation-duration: 10s; animation-delay: 3s; background: linear-gradient(180deg, var(--gold), var(--aubergine-100)); }
+.petal:nth-child(6) { left: 75%; animation-duration: 12s; animation-delay: 1.5s; }
+.petal:nth-child(7) { left: 88%; animation-duration: 9.5s; animation-delay: 2.5s; background: linear-gradient(180deg, var(--aubergine-200), var(--aubergine-100)); }
+.petal:nth-child(8) { left: 5%; animation-duration: 14s; animation-delay: 4s; background: linear-gradient(180deg, var(--gold), #F1E2C8); }
+.petal:nth-child(9) { left: 55%; animation-duration: 11.5s; animation-delay: 5s; }
+.petal:nth-child(10) { left: 92%; animation-duration: 10.5s; animation-delay: 3.5s; }
+@keyframes fall {
+  0% { top: -30px; transform: translateX(0) rotate(0); }
+  50% { transform: translateX(40px) rotate(180deg); }
+  100% { top: 600px; transform: translateX(-20px) rotate(360deg); }
+}
+.petals-content { position: relative; z-index: 2; text-align: center; padding-top: 100px; }
+.petals-content .label { color: var(--aubergine-700); }
+.petals-content h3 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 80px;
+  color: var(--aubergine);
+  font-weight: 500;
+  letter-spacing: -1px;
+  font-style: italic;
+}
+
+/* Voice greeting (Section 5) */
+.audio-demo {
+  background: white;
+  border-radius: 20px;
+  padding: 48px;
+  box-shadow: 0 12px 48px rgba(107, 63, 92, 0.08);
+  margin-top: 32px;
+  text-align: center;
+}
+.audio-demo .play-btn {
+  background: var(--aubergine);
+  color: white;
+  border: none;
+  padding: 18px 36px;
+  border-radius: 999px;
+  font-family: 'Manrope', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 8px 24px rgba(107, 63, 92, 0.25);
+}
+.audio-demo .play-btn:hover { background: var(--aubergine-700); transform: translateY(-2px); }
+.audio-demo input {
+  padding: 14px 18px;
+  border: 1px solid var(--aubergine-200);
+  border-radius: 10px;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 22px;
+  color: var(--aubergine);
+  background: var(--cream);
+  outline: none;
+  text-align: center;
+  width: 280px;
+  margin-bottom: 24px;
+}
+.audio-demo .voice-note {
+  font-size: 12px;
+  color: var(--aubergine-700);
+  margin-top: 20px;
+  font-style: italic;
+  opacity: 0.7;
+}
+
+/* Footer */
+.foot {
+  text-align: center;
+  padding: 80px 32px;
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--aubergine-700);
+  opacity: 0.6;
+}
+</style>
+</head>
+<body>
+
+<nav class="nav-dots">
+  <a href="#hero" title="Hero"></a>
+  <a href="#s1" title="Scroll choreography"></a>
+  <a href="#s2" title="Monogram"></a>
+  <a href="#s3" title="3D tilt"></a>
+  <a href="#s4" title="Petals"></a>
+  <a href="#s5" title="Voice"></a>
+</nav>
+
+<!-- Hero -->
+<section class="hero" id="hero">
+  <h1 id="hero-title">Tayo</h1>
+  <div class="sub" id="hero-sub">Premium-feel techniques · zero per-guest cost</div>
+  <div class="scroll-hint">Scroll ↓</div>
+</section>
+
+<!-- Section 1: Scroll choreography -->
+<section class="scroll-section" id="s1">
+  <div class="scroll-pin">
+    <div class="label">1 · Scroll choreography (GSAP)</div>
+    <div class="scroll-text">Dear Tita Linda,</div>
+    <div class="scroll-photo">
+      <div class="caption">"From a chance meeting in Quezon City…"</div>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="padding-top: 0;">
+  <p style="max-width: 680px;">Same technique as Apple's product pages: scroll position drives a timeline. Built with GSAP ScrollTrigger (free, ~50KB). On a real invitation, this is where the couple's video greeting + their love-story prose unfold as the guest scrolls.</p>
+  <span class="cost">Cost · $0 per guest</span>
+</section>
+
+<!-- Section 2: Monogram -->
+<section class="section" id="s2">
+  <div class="label">2 · Personalized monogram (deterministic SVG)</div>
+  <h2>A unique monogram for every guest</h2>
+  <p>Pure-function algorithm: <code>(brideInitial, groomInitial, guestName) → unique SVG</code>. Same inputs always produce the same output, so each guest's monogram is consistent across emails, the invitation page, and printed materials. Type below to see it update live.</p>
+  <span class="cost">Cost · $0 forever</span>
+
+  <div class="monogram-demo">
+    <div class="monogram-inputs">
+      <input id="m-bride" placeholder="Bride's first name" value="Maria">
+      <input id="m-groom" placeholder="Groom's first name" value="Juan">
+      <input id="m-guest" placeholder="Guest's first name" value="Linda">
+    </div>
+    <svg class="monogram-svg" viewBox="0 0 360 360" id="monogram"></svg>
+  </div>
+</section>
+
+<!-- Section 3: 3D tilt -->
+<section class="section" id="s3">
+  <div class="label">3 · 3D parallax photo card (CSS only)</div>
+  <h2>Hover the card</h2>
+  <p>Tracks your mouse and tilts in 3D space. No Three.js, no WebGL, no library — just CSS <code>transform: rotate3d()</code> with a few lines of mouse-tracking JS. Ships in our normal Tailwind/CSS setup.</p>
+  <span class="cost">Cost · $0 per guest</span>
+
+  <div class="tilt-wrap">
+    <div class="tilt" id="tilt">
+      <div class="tilt-top">
+        <div class="tilt-eyebrow">You're invited</div>
+        <h3>Maria <span class="tilt-amp">&</span> Juan</h3>
+      </div>
+      <div class="tilt-bottom">
+        <div class="tilt-date">October 24, 2026</div>
+        <div class="tilt-loc">Tagaytay Ridge</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Section 4: Petals -->
+<section class="section" id="s4">
+  <div class="label">4 · Lottie-class motion (CSS petals shown — Lottie is the same idea)</div>
+  <h2>Falling petals</h2>
+  <p>This particular demo is pure CSS (10 div elements + a <code>@keyframes</code> rule). Lottie does the same thing but with designer-crafted motion exported from After Effects — files are ~30KB JSON. Either way, zero per-guest cost.</p>
+  <span class="cost">Cost · $0 per guest</span>
+
+  <div class="petals-section">
+    <div class="petal"></div><div class="petal"></div><div class="petal"></div><div class="petal"></div>
+    <div class="petal"></div><div class="petal"></div><div class="petal"></div><div class="petal"></div>
+    <div class="petal"></div><div class="petal"></div>
+    <div class="petals-content">
+      <div class="label">RSVP</div>
+      <h3>Joyfully accept</h3>
+    </div>
+  </div>
+</section>
+
+<!-- Section 5: Voice -->
+<section class="section" id="s5">
+  <div class="label">5 · Voice greeting (Web Speech API — built into your browser)</div>
+  <h2>Hear your name spoken</h2>
+  <p>Type any name and click play. Your browser will speak it using the built-in Web Speech API (free, no service needed). For production we'd upgrade to a higher-quality neural voice (ElevenLabs, Google Cloud TTS) — still ~$0.001 per guest. Demo uses the browser's voice for instant proof-of-concept.</p>
+  <span class="cost">Cost · ~$0.001 per guest with neural TTS / $0 with browser voice</span>
+
+  <div class="audio-demo">
+    <input id="voice-name" type="text" value="Linda" maxlength="40">
+    <br>
+    <button class="play-btn" id="speak-btn">▶ Hear it</button>
+    <div class="voice-note">Tip: Chrome and Safari have higher-quality voices than Firefox. On a real invitation we'd cache one MP3 per guest, generated once.</div>
+  </div>
+</section>
+
+<div class="foot">End of demo · A real invitation would combine these into one continuous editorial scroll</div>
+
+<script>
+gsap.registerPlugin(ScrollTrigger);
+
+// Hero animations
+gsap.to('#hero-title', { opacity: 1, duration: 1.4, ease: 'power2.out' });
+gsap.to('#hero-sub', { opacity: 1, duration: 1.2, delay: 0.5 });
+
+// Scroll choreography
+gsap.to('.scroll-text', {
+  opacity: 1, y: 0,
+  scrollTrigger: { trigger: '.scroll-section', start: 'top 80%', end: 'top 30%', scrub: 1 }
+});
+gsap.to('.scroll-photo', {
+  opacity: 1, scale: 1,
+  scrollTrigger: { trigger: '.scroll-section', start: 'top 60%', end: 'top 10%', scrub: 1 }
+});
+
+// Monogram generator
+function generateMonogram() {
+  const bRaw = document.getElementById('m-bride').value || 'M';
+  const gRaw = document.getElementById('m-groom').value || 'J';
+  const uRaw = document.getElementById('m-guest').value || 'L';
+  const b = bRaw.trim().toUpperCase()[0] || 'M';
+  const g = gRaw.trim().toUpperCase()[0] || 'J';
+  const u = uRaw.trim().toUpperCase()[0] || 'L';
+
+  // Deterministic hash from guest name
+  let hash = 0;
+  for (const ch of uRaw) hash = (hash * 31 + ch.charCodeAt(0)) | 0;
+  const hue = Math.abs(hash * 17) % 360;
+  const accent = `hsl(${hue}, 28%, 52%)`;
+  const accentLight = `hsl(${hue}, 30%, 88%)`;
+  const seatNumber = Math.abs(hash * 23) % 9999;
+
+  const svg = document.getElementById('monogram');
+  svg.innerHTML = `
+    <defs>
+      <linearGradient id="grad" x1="0" x2="1" y1="0" y2="1">
+        <stop offset="0%" stop-color="#6B3F5C"/>
+        <stop offset="100%" stop-color="${accent}"/>
+      </linearGradient>
+    </defs>
+    <!-- Outer rings -->
+    <circle cx="180" cy="180" r="158" fill="none" stroke="url(#grad)" stroke-width="1" opacity="0.5"/>
+    <circle cx="180" cy="180" r="148" fill="none" stroke="url(#grad)" stroke-width="0.6" opacity="0.3"/>
+    <!-- Background medallion behind initials -->
+    <circle cx="180" cy="180" r="80" fill="${accentLight}" opacity="0.4"/>
+    <!-- Couple's interlocked initials -->
+    <text x="120" y="225" font-family="Cormorant Garamond, serif" font-size="160" fill="#6B3F5C" font-weight="500" font-style="italic">${b}</text>
+    <text x="200" y="225" font-family="Cormorant Garamond, serif" font-size="160" fill="${accent}" font-weight="500" font-style="italic">${g}</text>
+    <!-- Tiny ampersand between -->
+    <text x="180" y="195" font-family="Cormorant Garamond, serif" font-size="36" fill="#6B3F5C" font-weight="400" font-style="italic" text-anchor="middle" opacity="0.5">&amp;</text>
+    <!-- Per-guest signature: their initial inside a top medallion -->
+    <circle cx="180" cy="50" r="22" fill="${accent}" opacity="0.18"/>
+    <circle cx="180" cy="50" r="22" fill="none" stroke="${accent}" stroke-width="0.8"/>
+    <text x="180" y="58" font-family="Cormorant Garamond, serif" font-size="22" fill="${accent}" text-anchor="middle" font-weight="600" font-style="italic">${u}</text>
+    <!-- Per-guest seat number along bottom -->
+    <text x="180" y="320" font-family="Manrope, sans-serif" font-size="9" fill="#56324A" text-anchor="middle" letter-spacing="4">RESERVED · NO. ${String(seatNumber).padStart(4, '0')} · FOR ${uRaw.toUpperCase()}</text>
+  `;
+}
+['m-bride','m-groom','m-guest'].forEach(id =>
+  document.getElementById(id).addEventListener('input', generateMonogram)
+);
+generateMonogram();
+
+// 3D tilt
+const tilt = document.getElementById('tilt');
+const tiltWrap = tilt.parentElement;
+tiltWrap.addEventListener('mousemove', (e) => {
+  const rect = tiltWrap.getBoundingClientRect();
+  const x = (e.clientX - rect.left - rect.width/2) / rect.width;
+  const y = (e.clientY - rect.top - rect.height/2) / rect.height;
+  tilt.style.transform = `rotateY(${x * 18}deg) rotateX(${-y * 18}deg) scale(1.02)`;
+});
+tiltWrap.addEventListener('mouseleave', () => {
+  tilt.style.transform = 'rotateY(0) rotateX(0) scale(1)';
+});
+
+// Voice greeting via Web Speech API
+document.getElementById('speak-btn').addEventListener('click', () => {
+  const name = document.getElementById('voice-name').value || 'friend';
+  const text = `Dear ${name}, we'd love you to come to our wedding.`;
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.rate = 0.9;
+  utter.pitch = 1.05;
+  // Try to pick a "nicer" voice if available
+  const voices = speechSynthesis.getVoices();
+  const preferred = voices.find(v =>
+    /samantha|karen|moira|tessa|google.*us|google.*uk/i.test(v.name)
+  );
+  if (preferred) utter.voice = preferred;
+  speechSynthesis.cancel();
+  speechSynthesis.speak(utter);
+});
+// Pre-warm voices list (some browsers load async)
+speechSynthesis.getVoices();
+speechSynthesis.addEventListener('voiceschanged', () => speechSynthesis.getVoices());
+</script>
+
+</body>
+</html>

@@ -5,25 +5,70 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        // Variation C: Cormorant Garamond (serif headings) + Manrope (sans body)
+        // Filipino Heritage typography (per design tokens in mockup 17)
         serif: ["var(--font-cormorant)", "Cormorant Garamond", "serif"],
         sans: ["var(--font-manrope)", "Manrope", "system-ui", "sans-serif"],
+        mono: ["var(--font-dm-mono)", "DM Mono", "ui-monospace", "monospace"],
       },
       colors: {
-        // Brand palette — confirm exact values against docs/06_Couple_Landing_Page_Designs_v1.html
-        aubergine: {
-          DEFAULT: "#6B3F5C",
-          50: "#F7F1F5",
-          100: "#EBDDE5",
-          200: "#D6BACB",
-          300: "#BC93AC",
-          400: "#9D6B89",
-          500: "#7E4D6E",
-          600: "#6B3F5C",
-          700: "#56324A",
-          800: "#3F2436",
-          900: "#291723",
-        },
+        // Filipino Heritage palette — values map to CSS custom properties
+        // declared in globals.css. Keep both in sync.
+        "page-bg": "var(--page-bg)",
+        "page-bg-soft": "var(--page-bg-soft)",
+        ink: "var(--ink)",
+        "ink-soft": "var(--ink-soft)",
+        "ink-faint": "var(--ink-faint)",
+        accent: "var(--accent)",
+        "accent-soft": "var(--accent-soft)",
+        "accent-deep": "var(--accent-deep)",
+        rule: "var(--rule)",
+        "rule-strong": "var(--rule-strong)",
+        surface: "var(--surface)",
+        "surface-soft": "var(--surface-soft)",
+
+        // Side coding (bride / groom / both)
+        bride: "var(--bride)",
+        "bride-soft": "var(--bride-soft)",
+        "bride-ink": "var(--bride-ink)",
+        groom: "var(--groom)",
+        "groom-soft": "var(--groom-soft)",
+        "groom-ink": "var(--groom-ink)",
+        both: "var(--both)",
+        "both-soft": "var(--both-soft)",
+        "both-ink": "var(--both-ink)",
+
+        // RSVP statuses
+        "rsvp-attending": "var(--rsvp-attending)",
+        "rsvp-attending-soft": "var(--rsvp-attending-soft)",
+        "rsvp-attending-ink": "var(--rsvp-attending-ink)",
+        "rsvp-declined": "var(--rsvp-declined)",
+        "rsvp-declined-soft": "var(--rsvp-declined-soft)",
+        "rsvp-declined-ink": "var(--rsvp-declined-ink)",
+        "rsvp-pending": "var(--rsvp-pending)",
+        "rsvp-pending-soft": "var(--rsvp-pending-soft)",
+        "rsvp-pending-ink": "var(--rsvp-pending-ink)",
+        "rsvp-maybe": "var(--rsvp-maybe)",
+        "rsvp-maybe-soft": "var(--rsvp-maybe-soft)",
+        "rsvp-maybe-ink": "var(--rsvp-maybe-ink)",
+
+        // Role-coded chips (extracted from mockup tag.role-* classes)
+        "role-sponsor-bg": "var(--role-sponsor-bg)",
+        "role-sponsor-ink": "var(--role-sponsor-ink)",
+        "role-entourage-bg": "var(--role-entourage-bg)",
+        "role-entourage-ink": "var(--role-entourage-ink)",
+        "role-bearer-bg": "var(--role-bearer-bg)",
+        "role-bearer-ink": "var(--role-bearer-ink)",
+      },
+      boxShadow: {
+        "tayo-sm": "0 2px 8px rgba(26, 26, 26, 0.04)",
+        "tayo-md": "0 12px 32px rgba(26, 26, 26, 0.08)",
+        "tayo-lg": "0 28px 72px rgba(26, 26, 26, 0.12)",
+      },
+      letterSpacing: {
+        "label-tight": "0.04em",
+        "label-mid": "0.1em",
+        "label-wide": "0.14em",
+        "label-extra": "0.16em",
       },
     },
   },

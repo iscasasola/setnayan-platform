@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tayo · Modern Web (2025)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Manrope:wght@200..800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+/* ───────────── Modern color tokens (oklch, color-mix) ───────────── */
+:root {
+  --aubergine: oklch(38% 0.07 350);
+  --aubergine-deep: oklch(28% 0.08 350);
+  --aubergine-soft: oklch(78% 0.05 350);
+  --aubergine-mist: oklch(94% 0.02 350);
+  --gold: oklch(78% 0.10 78);
+  --rose: oklch(78% 0.07 15);
+  --sage: oklch(72% 0.05 140);
+  --cream: oklch(97% 0.01 80);
+  --ink: oklch(20% 0.03 350);
+}
+
+/* ───────────── @property registered gradient angle ─────────────
+   Lets us animate gradient angles smoothly — the OLD way couldn't. */
+@property --grad-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+@property --mesh-1 {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 0%;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Manrope', system-ui, sans-serif;
+  background: var(--cream);
+  color: var(--ink);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  font-variation-settings: 'wght' 400;
+  cursor: none; /* custom cursor takes over */
+}
+.serif { font-family: 'Cormorant Garamond', serif; }
+
+/* ───────────── Custom cursor ───────────── */
+.cursor {
+  position: fixed;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--aubergine);
+  pointer-events: none;
+  z-index: 9999;
+  mix-blend-mode: difference;
+  transition: width 0.25s, height 0.25s;
+}
+.cursor-ring {
+  position: fixed;
+  width: 36px; height: 36px;
+  border: 1px solid color-mix(in oklch, var(--aubergine) 50%, transparent);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9998;
+  transition: transform 0.15s ease-out, width 0.25s, height 0.25s, border-color 0.25s;
+}
+[data-magnetic]:hover ~ .cursor,
+.magnetic-area:hover .cursor {
+  width: 4px; height: 4px;
+}
+
+/* ───────────── Film grain overlay (SVG turbulence) ───────────── */
+.grain {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.06;
+  mix-blend-mode: overlay;
+  z-index: 100;
+}
+
+/* ───────────── Section base ───────────── */
+.section { padding: 120px 32px; max-width: 1080px; margin: 0 auto; position: relative; }
+.section h2 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(40px, 5vw, 72px);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  margin-bottom: 20px;
+  line-height: 1.05;
+  color: var(--aubergine-deep);
+}
+.label {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 11px; text-transform: uppercase; letter-spacing: 3px;
+  color: var(--aubergine);
+  margin-bottom: 20px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.label::before {
+  content: ''; width: 24px; height: 1px;
+  background: currentColor;
+}
+.section p { font-size: 17px; max-width: 640px; color: color-mix(in oklch, var(--ink) 80%, transparent); }
+.tag {
+  display: inline-block;
+  margin-top: 12px;
+  padding: 5px 12px;
+  background: color-mix(in oklch, var(--aubergine) 12%, transparent);
+  color: var(--aubergine-deep);
+  border-radius: 999px;
+  font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600;
+}
+
+/* ───────────── Hero with animated gradient mesh ───────────── */
+.hero {
+  height: 100vh;
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  isolation: isolate;
+}
+.mesh {
+  position: absolute;
+  inset: -20%;
+  z-index: -1;
+  background:
+    radial-gradient(circle at 20% 30%, var(--aubergine-soft) 0%, transparent 40%),
+    radial-gradient(circle at 80% 70%, var(--gold) 0%, transparent 35%),
+    radial-gradient(circle at 60% 20%, var(--rose) 0%, transparent 30%),
+    radial-gradient(circle at 30% 80%, var(--sage) 0%, transparent 35%),
+    var(--cream);
+  filter: blur(60px) saturate(1.2);
+  animation: meshDrift 22s ease-in-out infinite alternate;
+  transform-origin: center;
+}
+@keyframes meshDrift {
+  0%   { transform: rotate(0deg) scale(1); }
+  100% { transform: rotate(8deg) scale(1.15); }
+}
+.hero-content { text-align: center; z-index: 1; }
+.hero h1 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(96px, 16vw, 220px);
+  font-weight: 500;
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+  font-variation-settings: 'wght' 500;
+  color: var(--aubergine-deep);
+  background: linear-gradient(135deg, var(--aubergine-deep), var(--gold));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.hero h1 .amp {
+  font-style: italic;
+  font-weight: 400;
+}
+.hero .sub {
+  font-size: 12px; letter-spacing: 6px; text-transform: uppercase;
+  color: var(--aubergine);
+  margin-top: 32px;
+  font-weight: 500;
+}
+.scroll-hint {
+  position: absolute; bottom: 40px; left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px; letter-spacing: 4px; text-transform: uppercase;
+  color: var(--aubergine);
+  opacity: 0.6;
+}
+.scroll-hint::after {
+  content: ''; display: block;
+  width: 1px; height: 32px;
+  background: var(--aubergine);
+  margin: 12px auto 0;
+  animation: scrollLine 1.8s ease-in-out infinite;
+  transform-origin: top;
+}
+@keyframes scrollLine {
+  0%, 100% { transform: scaleY(0.3); }
+  50% { transform: scaleY(1); }
+}
+
+/* ───────────── 1. Native scroll-driven animations (CSS animation-timeline) ─────────────
+   This is brand-new CSS (Chrome 115+, no JS). Element animates based on its
+   position in the viewport — like ScrollTrigger but native, no library. */
+.scroll-card {
+  margin: 80px auto;
+  max-width: 720px;
+  padding: 80px 60px;
+  background: white;
+  border-radius: 28px;
+  border: 1px solid color-mix(in oklch, var(--aubergine) 8%, transparent);
+  box-shadow: 0 30px 80px -30px color-mix(in oklch, var(--aubergine) 30%, transparent);
+  text-align: center;
+  /* Native CSS scroll-driven animation — no JS */
+  animation: cardReveal linear both;
+  animation-timeline: view();
+  animation-range: entry 0% cover 40%;
+}
+@keyframes cardReveal {
+  0%   { opacity: 0; transform: translateY(80px) scale(0.92); filter: blur(8px); }
+  100% { opacity: 1; transform: translateY(0)    scale(1);    filter: blur(0);   }
+}
+.scroll-card h3 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 56px;
+  font-weight: 500;
+  font-style: italic;
+  color: var(--aubergine-deep);
+  letter-spacing: -0.02em;
+}
+
+/* ───────────── 2. Glass morphism cards ───────────── */
+.glass-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 40px;
+}
+.glass {
+  position: relative;
+  padding: 32px 28px;
+  border-radius: 24px;
+  background: color-mix(in oklch, white 70%, transparent);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border: 1px solid color-mix(in oklch, white 60%, transparent);
+  box-shadow: 0 12px 40px -12px color-mix(in oklch, var(--aubergine) 25%, transparent);
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+.glass:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 24px 60px -16px color-mix(in oklch, var(--aubergine) 40%, transparent);
+}
+.glass .glass-num {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 56px;
+  font-weight: 500;
+  color: var(--aubergine-deep);
+  line-height: 1;
+}
+.glass .glass-label {
+  font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+  margin-top: 8px;
+  color: color-mix(in oklch, var(--aubergine-deep) 70%, transparent);
+  font-weight: 600;
+}
+.glass-bg {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(circle at 30% 30%, var(--gold), var(--rose), var(--sage));
+  filter: blur(80px);
+  opacity: 0.5;
+  border-radius: 24px;
+}
+
+/* ───────────── 3. Gooey blob morph (SVG filter) ─────────────
+   Three blobs blur, then a contrast filter "merges" them — they appear to
+   melt into each other like mercury or honey. */
+.gooey-stage {
+  margin-top: 40px;
+  height: 360px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  border-radius: 24px;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--aubergine-mist), var(--cream));
+}
+.gooey {
+  filter: url('#gooey');
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--aubergine);
+  opacity: 0.95;
+}
+.blob.b1 { width: 140px; height: 140px; top: 50%; left: 30%; transform: translate(-50%, -50%); animation: blob1 6s ease-in-out infinite; }
+.blob.b2 { width: 110px; height: 110px; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--gold); animation: blob2 7s ease-in-out infinite; }
+.blob.b3 { width: 130px; height: 130px; top: 50%; left: 70%; transform: translate(-50%, -50%); background: var(--rose); animation: blob3 5.5s ease-in-out infinite; }
+@keyframes blob1 { 0%,100% { transform: translate(-50%,-50%) scale(1); } 50% { transform: translate(-90%,-30%) scale(1.2); } }
+@keyframes blob2 { 0%,100% { transform: translate(-50%,-50%) scale(1); } 50% { transform: translate(-30%,-80%) scale(0.9); } }
+@keyframes blob3 { 0%,100% { transform: translate(-50%,-50%) scale(1); } 50% { transform: translate(0%,-30%) scale(1.15); } }
+.gooey-text {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 2;
+  pointer-events: none;
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 56px;
+  color: var(--cream);
+  mix-blend-mode: difference;
+  letter-spacing: -0.02em;
+}
+
+/* ───────────── 4. Magnetic CTA + spring physics ───────────── */
+.magnetic-area { display: grid; place-items: center; padding: 80px 0; margin-top: 40px; }
+.magnetic-btn {
+  position: relative;
+  padding: 22px 56px;
+  background: var(--aubergine-deep);
+  color: var(--cream);
+  border: none;
+  border-radius: 999px;
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  cursor: none;
+  overflow: hidden;
+  isolation: isolate;
+  transition: padding 0.3s;
+}
+.magnetic-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at var(--mx, 50%) var(--my, 50%), var(--gold), transparent 50%);
+  opacity: 0;
+  transition: opacity 0.3s;
+  z-index: -1;
+}
+.magnetic-btn:hover::before { opacity: 1; }
+.magnetic-btn:hover { padding: 22px 64px; }
+
+/* ───────────── 5. Variable font weight morph on hover ───────────── */
+.hover-morph {
+  font-family: 'Manrope', sans-serif;
+  font-size: 28px;
+  font-variation-settings: 'wght' 200;
+  transition: font-variation-settings 0.5s cubic-bezier(0.65, 0, 0.35, 1);
+  cursor: none;
+  display: inline-block;
+}
+.hover-morph:hover { font-variation-settings: 'wght' 800; }
+.hover-morph-row { display: flex; flex-direction: column; gap: 18px; margin-top: 40px; padding: 40px; background: white; border-radius: 24px; border: 1px solid color-mix(in oklch, var(--aubergine) 8%, transparent); }
+.hover-morph-row span { color: var(--aubergine-deep); }
+
+/* ───────────── 6. Text scramble reveal ───────────── */
+.scramble-stage { padding: 80px 0; text-align: center; margin-top: 40px; }
+.scramble {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(48px, 7vw, 96px);
+  color: var(--aubergine-deep);
+  font-weight: 500;
+  font-style: italic;
+  letter-spacing: -0.02em;
+}
+.scramble-cta {
+  margin-top: 24px;
+  font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
+  color: var(--aubergine);
+  font-weight: 600;
+  background: none;
+  border: none;
+  cursor: none;
+}
+
+/* ───────────── 7. Sticky pinned narrative (CSS only) ───────────── */
+.story {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  margin-top: 40px;
+}
+.story-sticky {
+  position: sticky;
+  top: 25vh;
+  align-self: start;
+  height: 50vh;
+  border-radius: 24px;
+  background:
+    linear-gradient(135deg, color-mix(in oklch, var(--aubergine) 90%, white 10%), var(--aubergine-deep));
+  display: grid;
+  place-items: center;
+  color: var(--cream);
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 36px;
+  text-align: center;
+  padding: 32px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+.story-chapters > div {
+  padding: 60px 32px;
+  border-bottom: 1px solid color-mix(in oklch, var(--aubergine) 12%, transparent);
+  animation: chapterIn linear both;
+  animation-timeline: view();
+  animation-range: entry 10% cover 30%;
+}
+@keyframes chapterIn {
+  0%   { opacity: 0; transform: translateX(40px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+.story-chapters h4 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 32px;
+  font-weight: 500;
+  color: var(--aubergine-deep);
+  margin-bottom: 12px;
+}
+.story-chapters p { font-size: 15px; }
+
+/* footer */
+.foot {
+  text-align: center;
+  padding: 80px 32px 120px;
+  font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
+  color: color-mix(in oklch, var(--aubergine) 60%, transparent);
+}
+@media (max-width: 720px) {
+  .glass-row, .story { grid-template-columns: 1fr; }
+  body { cursor: auto; } .cursor, .cursor-ring { display: none; }
+  .magnetic-btn, .hover-morph, .scramble-cta { cursor: pointer; }
+}
+</style>
+</head>
+<body>
+
+<!-- Custom cursor -->
+<div class="cursor" id="cursor"></div>
+<div class="cursor-ring" id="cursorRing"></div>
+
+<!-- Film grain overlay (SVG turbulence) -->
+<svg class="grain" preserveAspectRatio="none">
+  <filter id="noise">
+    <feTurbulence type="fractalNoise" baseFrequency="2.4" numOctaves="2" stitchTiles="stitch"/>
+    <feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0"/>
+  </filter>
+  <rect width="100%" height="100%" filter="url(#noise)"/>
+</svg>
+
+<!-- SVG filters (gooey, etc.) -->
+<svg width="0" height="0" style="position:absolute;">
+  <filter id="gooey">
+    <feGaussianBlur in="SourceGraphic" stdDeviation="14"/>
+    <feColorMatrix values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -10"/>
+  </filter>
+</svg>
+
+<!-- ═══════════════════════ HERO with animated gradient mesh ═══════════════════════ -->
+<section class="hero">
+  <div class="mesh"></div>
+  <div class="hero-content">
+    <h1>Maria <span class="amp">&</span> Juan</h1>
+    <div class="sub">A modern web invitation</div>
+  </div>
+  <div class="scroll-hint">Scroll</div>
+</section>
+
+<!-- ═══════════════════════ 1. Native scroll-driven animations ═══════════════════════ -->
+<section class="section">
+  <span class="label">01 · Native CSS scroll-driven animations</span>
+  <h2>The reveal happens<br>in pure CSS</h2>
+  <p>No JavaScript scroll listeners. No GSAP. Modern CSS has <code>animation-timeline: view()</code> — the browser drives the animation based on the element's position in the viewport. Lighter, smoother, native.</p>
+  <span class="tag">Chrome 115+ · 2024 standard</span>
+
+  <div class="scroll-card">
+    <h3>It animates as it enters.</h3>
+    <p style="margin-top: 16px; max-width: 100%;">Scroll back up to see it reset. The animation is tied to scroll position, not time.</p>
+  </div>
+</section>
+
+<!-- ═══════════════════════ 2. Glass morphism cards ═══════════════════════ -->
+<section class="section">
+  <span class="label">02 · Glass morphism + color-mix() in oklch</span>
+  <h2>Translucent depth,<br>perceptually-uniform color</h2>
+  <p>Cards use <code>backdrop-filter: blur()</code> over a vivid blurred backdrop. Colors are blended in <code>oklch</code> space — perceptually uniform, no muddy mid-tones.</p>
+  <span class="tag">CSS color-mix() · backdrop-filter · oklch()</span>
+
+  <div class="glass-row">
+    <div class="glass"><div class="glass-bg"></div><div class="glass-num">142</div><div class="glass-label">Days to go</div></div>
+    <div class="glass"><div class="glass-bg" style="filter: blur(80px) hue-rotate(40deg);"></div><div class="glass-num">186</div><div class="glass-label">Guests confirmed</div></div>
+    <div class="glass"><div class="glass-bg" style="filter: blur(80px) hue-rotate(-30deg);"></div><div class="glass-num">12</div><div class="glass-label">Vendors booked</div></div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ 3. Gooey blob morph ═══════════════════════ -->
+<section class="section">
+  <span class="label">03 · SVG gooey filter</span>
+  <h2>Liquid morphing</h2>
+  <p>Three solid blobs + a Gaussian blur + a contrast filter = they melt into each other like mercury. One SVG filter, zero animation library. The text on top uses <code>mix-blend-mode: difference</code>.</p>
+  <span class="tag">SVG filter · ~10 lines of CSS</span>
+
+  <div class="gooey-stage">
+    <div class="gooey">
+      <div class="blob b1"></div>
+      <div class="blob b2"></div>
+      <div class="blob b3"></div>
+    </div>
+    <div class="gooey-text">tayo na</div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ 4. Magnetic CTA ═══════════════════════ -->
+<section class="section">
+  <span class="label">04 · Magnetic button + spring physics</span>
+  <h2>The button reaches<br>back at you</h2>
+  <p>Move your cursor near the button. It magnetically follows you with spring physics (GSAP). The hover gradient tracks your exact pointer position via CSS custom properties.</p>
+  <span class="tag">GSAP spring · CSS @property</span>
+
+  <div class="magnetic-area">
+    <button class="magnetic-btn" data-magnetic>Joyfully accept</button>
+  </div>
+</section>
+
+<!-- ═══════════════════════ 5. Variable font morph ═══════════════════════ -->
+<section class="section">
+  <span class="label">05 · Variable font animation</span>
+  <h2>One font file,<br>infinite weights</h2>
+  <p>Manrope is a variable font — a single file with a continuous weight axis from 200 to 800. We animate the weight directly via <code>font-variation-settings</code>. Hover any line.</p>
+  <span class="tag">Variable fonts · font-variation-settings</span>
+
+  <div class="hover-morph-row">
+    <span class="hover-morph">Hover me</span>
+    <span class="hover-morph">Watch the strokes thicken</span>
+    <span class="hover-morph">It's the same file, no swap</span>
+    <span class="hover-morph">Smoother than swapping fonts</span>
+  </div>
+</section>
+
+<!-- ═══════════════════════ 6. Text scramble ═══════════════════════ -->
+<section class="section">
+  <span class="label">06 · Text scramble reveal</span>
+  <h2>Decoded just for you</h2>
+  <p>Each guest's name decodes from random characters into the real name. Mission Impossible, but for invitations.</p>
+  <span class="tag">~20 lines of vanilla JS</span>
+
+  <div class="scramble-stage">
+    <div class="scramble" id="scramble">Dear ████████</div>
+    <button class="scramble-cta" id="scrambleBtn">▷ Decode again</button>
+  </div>
+</section>
+
+<!-- ═══════════════════════ 7. Sticky parallel scroll ═══════════════════════ -->
+<section class="section">
+  <span class="label">07 · Sticky-pinned story (pure CSS)</span>
+  <h2>Their story, told<br>at scroll pace</h2>
+  <p>Left side stays pinned while the right side scrolls. Each chapter fades in as it enters. No JavaScript — pure <code>position: sticky</code> + scroll-driven CSS.</p>
+  <span class="tag">position: sticky · animation-timeline: view()</span>
+
+  <div class="story">
+    <div class="story-sticky">"Tayo. Together."</div>
+    <div class="story-chapters">
+      <div><h4>Chapter 1 · Quezon City, 2019</h4><p>A chance meeting at a coffee shop. He spilled hers; she laughed. He asked for her number to "pay it back."</p></div>
+      <div><h4>Chapter 2 · Lockdown</h4><p>2020 happened. They video-called every night. They learned each other's faces in low resolution before they learned them in person.</p></div>
+      <div><h4>Chapter 3 · Tagaytay, 2024</h4><p>He proposed at the place they'd dreamed about. She had already known for months. She said yes anyway, with a real surprised face.</p></div>
+      <div><h4>Chapter 4 · You</h4><p>You've been part of this story all along. We'd love you to witness the next chapter.</p></div>
+    </div>
+  </div>
+</section>
+
+<div class="foot">2025 web · CSS @property · oklch · color-mix · animation-timeline · backdrop-filter · variable fonts</div>
+
+<script>
+// ═══════════════════════ Custom cursor ═══════════════════════
+const cursor = document.getElementById('cursor');
+const cursorRing = document.getElementById('cursorRing');
+let mx = window.innerWidth/2, my = window.innerHeight/2;
+let rx = mx, ry = my;
+window.addEventListener('mousemove', (e) => {
+  mx = e.clientX; my = e.clientY;
+  cursor.style.transform = `translate(${mx - 6}px, ${my - 6}px)`;
+});
+function tickCursor() {
+  rx += (mx - rx) * 0.18;
+  ry += (my - ry) * 0.18;
+  cursorRing.style.transform = `translate(${rx - 18}px, ${ry - 18}px)`;
+  requestAnimationFrame(tickCursor);
+}
+tickCursor();
+
+// ═══════════════════════ Magnetic button (spring) ═══════════════════════
+document.querySelectorAll('[data-magnetic]').forEach(el => {
+  let bx = 0, by = 0;
+  el.addEventListener('mousemove', (e) => {
+    const r = el.getBoundingClientRect();
+    bx = (e.clientX - (r.left + r.width/2)) * 0.4;
+    by = (e.clientY - (r.top + r.height/2)) * 0.4;
+    el.style.setProperty('--mx', `${e.clientX - r.left}px`);
+    el.style.setProperty('--my', `${e.clientY - r.top}px`);
+    gsap.to(el, { x: bx, y: by, duration: 0.6, ease: 'elastic.out(1, 0.4)' });
+  });
+  el.addEventListener('mouseleave', () => {
+    gsap.to(el, { x: 0, y: 0, duration: 0.8, ease: 'elastic.out(1, 0.3)' });
+  });
+});
+
+// ═══════════════════════ Text scramble ═══════════════════════
+const SCRAMBLE_CHARS = '!<>-_\\/[]{}—=+*^?#';
+class Scrambler {
+  constructor(el) {
+    this.el = el;
+    this.queue = [];
+    this.frame = 0;
+    this.frameRequest = null;
+  }
+  setText(newText) {
+    const oldText = this.el.innerText;
+    const length = Math.max(oldText.length, newText.length);
+    this.queue = [];
+    for (let i = 0; i < length; i++) {
+      const from = oldText[i] || '';
+      const to = newText[i] || '';
+      const start = Math.floor(Math.random() * 40);
+      const end = start + Math.floor(Math.random() * 40);
+      this.queue.push({ from, to, start, end, char: '' });
+    }
+    cancelAnimationFrame(this.frameRequest);
+    this.frame = 0;
+    this.update();
+  }
+  update() {
+    let output = '';
+    let complete = 0;
+    for (let i = 0; i < this.queue.length; i++) {
+      let { from, to, start, end, char } = this.queue[i];
+      if (this.frame >= end) {
+        complete++;
+        output += to;
+      } else if (this.frame >= start) {
+        if (!char || Math.random() < 0.28) {
+          char = SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)];
+          this.queue[i].char = char;
+        }
+        output += `<span style="color: var(--gold); opacity: 0.7;">${char}</span>`;
+      } else {
+        output += from;
+      }
+    }
+    this.el.innerHTML = output;
+    if (complete < this.queue.length) {
+      this.frameRequest = requestAnimationFrame(() => this.update());
+      this.frame++;
+    }
+  }
+}
+const scrambler = new Scrambler(document.getElementById('scramble'));
+const NAMES = ['Dear Tita Linda', 'Dear Kuya Mark', 'Dear Ate Jess', 'Dear Lolo Ed', 'Dear Mae'];
+let nameIdx = 0;
+function runScramble() {
+  scrambler.setText(NAMES[nameIdx % NAMES.length]);
+  nameIdx++;
+}
+setTimeout(runScramble, 600);
+document.getElementById('scrambleBtn').addEventListener('click', runScramble);
+</script>
+
+</body>
+</html>

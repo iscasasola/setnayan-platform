@@ -1,43 +1,58 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import Link from "next/link";
+import { getCurrentEvent } from "@/lib/db/events";
+import { daysUntil, eventCoupleNames } from "@/lib/db/types";
 
-export default async function DashboardPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+export default async function DashboardOverviewPage() {
+  const event = await getCurrentEvent();
+  if (!event) return null; // layout already renders the no-event state
 
-  // Redundant with middleware, but defensive — protects this RSC if middleware ever misses.
-  if (!user) {
-    redirect("/login");
-  }
+  const days = daysUntil(event.event_date);
+  const couple = eventCoupleNames(event);
+  const dateLabel = new Date(event.event_date + "T00:00:00").toLocaleDateString(
+    "en-US",
+    { weekday: "long", month: "long", day: "numeric", year: "numeric" },
+  );
 
   return (
-    <main className="min-h-screen bg-aubergine-50 p-8">
-      <div className="mx-auto max-w-3xl">
-        <header className="mb-12 flex items-center justify-between">
-          <h1 className="font-serif text-3xl text-aubergine-700">Tayo Dashboard</h1>
-          <form action="/auth/signout" method="POST">
-            <button
-              type="submit"
-              className="rounded-md border border-aubergine-300 bg-white px-4 py-2 font-sans text-sm text-aubergine-700 transition hover:bg-aubergine-100"
-            >
-              Sign out
-            </button>
-          </form>
-        </header>
+    <div className="px-6 py-8 lg:px-8 lg:py-10">
+      <div className="mx-auto max-w-6xl space-y-6">
+        <div>
+          <p className="meta-label mb-2">Dashboard / Overview</p>
+          <h1 className="display-title">Hello, {event.bride_first_name} &amp; {event.groom_first_name}</h1>
+        </div>
 
-        <div className="rounded-lg border border-aubergine-200 bg-white p-8">
-          <p className="mb-2 font-sans text-xs uppercase tracking-widest text-aubergine-600">
-            Signed in as
-          </p>
-          <p className="font-serif text-2xl text-aubergine-800">{user.email}</p>
-          <p className="mt-6 font-sans text-sm text-aubergine-700/70">
-            Sprint 1 placeholder. Couple signup form, wedding details, and the
-            real dashboard shell come next.
-          </p>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="rounded-2xl border border-rule bg-surface p-6 shadow-tayo-sm">
+            <p className="meta-label mb-2">Wedding</p>
+            <p className="font-serif text-3xl text-ink">{couple}</p>
+            <p className="mt-1 text-sm text-ink-soft">{dateLabel}</p>
+            <p className="mt-3 font-mono text-xs text-ink-faint tracking-label-mid">
+              {days} DAYS REMAINING
+            </p>
+          </div>
+          <div className="rounded-2xl border border-rule bg-surface p-6 shadow-tayo-sm">
+            <p className="meta-label mb-2">Guest list</p>
+            <p className="font-serif text-3xl text-ink">Manage</p>
+            <p className="mt-1 text-sm text-ink-soft">
+              Track invites, RSVPs, sponsors, plus-ones, and household pairings.
+            </p>
+            <Link
+              href="/dashboard/guests"
+              className="btn-accent mt-4 inline-flex"
+            >
+              Open guests →
+            </Link>
+          </div>
+          <div className="rounded-2xl border border-rule bg-surface p-6 shadow-tayo-sm">
+            <p className="meta-label mb-2">Coming soon</p>
+            <p className="font-serif text-3xl text-ink">Landing &amp; gallery</p>
+            <p className="mt-1 text-sm text-ink-soft">
+              Couple landing page, schedule, suppliers, gallery — each is its
+              own work order. Sprint 1 ships the guest list first.
+            </p>
+          </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

@@ -10,6 +10,7 @@ import type {
   Household,
 } from "@/lib/db/types";
 import { InvitationShell } from "./_components/invitation-shell";
+import { PlusOneOnboarding } from "./_components/plus-one-onboarding";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,9 @@ export default async function EventInvitationPage({ params }: RouteParams) {
         "bride_first_name, bride_last_name, groom_first_name, groom_last_name, " +
         "event_date, ceremony_type, ceremony_venue, reception_venue, " +
         "guest_count_estimate, status, tier, monogram_svg, rsvp_deadline, " +
-        "photos_released_at, created_at, updated_at",
+        "photos_released_at, palette_finalized_at, qr_color_dark, qr_color_light, " +
+        "monogram_source, monogram_uploaded_url, monogram_uploaded_format, monogram_uploaded_at, " +
+        "created_at, updated_at",
     )
     .ilike("slug", slug)
     .maybeSingle<Event>();
@@ -57,21 +60,37 @@ export default async function EventInvitationPage({ params }: RouteParams) {
     if (data) guest = data;
   }
 
+  // 0002 v2: TBA +1 onboarding. If this guest is a +1 (plus_one_of_guest_id
+  // set) AND has no first_name yet, intercept BEFORE rendering the regular
+  // invitation site. Show the name-capture screen.
+  if (guest && guest.plus_one_of_guest_id && !guest.first_name?.trim()) {
+    const { data: hostRow } = await admin
+      .from("guests")
+      .select("*")
+      .eq("guest_id", guest.plus_one_of_guest_id)
+      .maybeSingle<Guest>();
+    if (hostRow) {
+      return <PlusOneOnboarding event={event} guest={guest} host={hostRow} />;
+    }
+  }
+
   // Generate the QR SVG up front (cached). Origin from headers — works
   // identically on localhost and prod without env-var coupling.
   const headerList = await headers();
   const proto = headerList.get("x-forwarded-proto") ?? "http";
-  const host = headerList.get("host") ?? "localhost:3000";
-  const origin = `${proto}://${host}`;
+  const hostHeader = headerList.get("host") ?? "localhost:3000";
+  const origin = `${proto}://${hostHeader}`;
 
-  // Load the household + partner + rsvp extras for the guest, if signed in.
+  // Load the household + partner + rsvp extras + (if applicable) the +1's host
+  // primary record + the QR SVG.
   let household: Household | null = null;
   let partner: Guest | null = null;
   let rsvpExtras: GuestRsvpExtras | null = null;
+  let host: Guest | null = null;
   let qrSvg: string | null = null;
 
   if (guest) {
-    const [householdRes, partnerRes, extrasRes, qr] = await Promise.all([
+    const [householdRes, partnerRes, extrasRes, hostRes, qr] = await Promise.all([
       guest.household_id
         ? admin
             .from("households")
@@ -91,6 +110,15 @@ export default async function EventInvitationPage({ params }: RouteParams) {
         .select("*")
         .eq("guest_id", guest.guest_id)
         .maybeSingle<GuestRsvpExtras>(),
+      // 0002 v2 — when this guest is a +1, look up the primary host so the
+      // Limited variant + the personal site greeting can reference them.
+      guest.plus_one_of_guest_id
+        ? admin
+            .from("guests")
+            .select("*")
+            .eq("guest_id", guest.plus_one_of_guest_id)
+            .maybeSingle<Guest>()
+        : Promise.resolve({ data: null }),
       generateGuestQrSvg({
         origin,
         event_id: event.event_id,
@@ -102,8 +130,13 @@ export default async function EventInvitationPage({ params }: RouteParams) {
     household = householdRes.data ?? null;
     partner = partnerRes.data ?? null;
     rsvpExtras = extrasRes.data ?? null;
+    host = hostRes.data ?? null;
     qrSvg = qr;
   }
+
+  const isLimitedPlusOne = !!(
+    guest && guest.plus_one_of_guest_id && guest.plus_one_mode === "limited"
+  );
 
   return (
     <InvitationShell
@@ -115,6 +148,8 @@ export default async function EventInvitationPage({ params }: RouteParams) {
       qrSvg={qrSvg}
       // V1: all guests are "public" tier. Registered tier ships with the Tayo native app (Phase 2).
       isRegistered={false}
+      isLimitedPlusOne={isLimitedPlusOne}
+      host={host}
     />
   );
 }

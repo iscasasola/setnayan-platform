@@ -16,9 +16,19 @@ interface Props {
   rsvpDeadline: string | null;
   rsvpExtras: GuestRsvpExtras | null;
   isRegistered: boolean;
+  /** 0002 v2 — Limited +1 sees the core RSVP form but the registered-extras
+   *  block is hidden entirely (not rendered, not locked). */
+  isLimitedPlusOne?: boolean;
 }
 
-export function RsvpForm({ guest, partner, rsvpDeadline, rsvpExtras, isRegistered }: Props) {
+export function RsvpForm({
+  guest,
+  partner,
+  rsvpDeadline,
+  rsvpExtras,
+  isRegistered,
+  isLimitedPlusOne = false,
+}: Props) {
   const [status, setStatus] = useState<RsvpStatus>(guest.rsvp_status);
   const [plusOneName, setPlusOneName] = useState(guest.plus_one_name ?? "");
   const [meal, setMeal] = useState(guest.meal_preference ?? "");
@@ -154,7 +164,11 @@ export function RsvpForm({ guest, partner, rsvpDeadline, rsvpExtras, isRegistere
         </Field>
       </div>
 
-      {/* Registered-guest extras (locked for public guests) */}
+      {/* Registered-guest extras — hidden entirely for limited +1s (their RSVP
+          path doesn't include song / challenges / etc. — those are full-tier
+          features). For public guests, render in locked state with the
+          🔒 indicator and the "Sign up free →" CTA below. */}
+      {!isLimitedPlusOne && (
       <div
         className={`mt-6 rounded-2xl border p-5 ${
           isRegistered ? "border-rule bg-surface" : "border-dashed border-rule-strong bg-page-bg-soft/40 opacity-90"
@@ -234,6 +248,7 @@ export function RsvpForm({ guest, partner, rsvpDeadline, rsvpExtras, isRegistere
           </div>
         )}
       </div>
+      )}
 
       {error && (
         <p className="mt-4 rounded-md bg-rsvp-declined-soft px-3 py-2 text-[13px] text-rsvp-declined-ink">

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { clearGuestSessionCookie, readGuestSession } from "@/lib/server/guest-session";
@@ -94,4 +95,85 @@ export async function signOutGuestAction(): Promise<ActionResult> {
   await clearGuestSessionCookie();
   revalidatePath("/", "layout");
   return { ok: true };
+}
+
+// ─── +1 onboarding (0002 v2) ───────────────────────────────────────────────
+
+const confirmPlusOneSchema = z.object({
+  first_name: z.string().trim().min(1, "First name is required").max(80, "Too long"),
+  last_name: z.string().trim().min(1, "Last name is required").max(80, "Too long"),
+});
+
+/**
+ * TBA +1 confirms their identity on first scan. Updates `guests.first_name`,
+ * `guests.last_name`, and `guests.plus_one_name_confirmed_at`. Logs the
+ * onboarding scan event. Redirects to the personal invitation site.
+ *
+ * Server-side guards:
+ *   - Cookie session must be valid.
+ *   - Target guest must be a +1 row (`plus_one_of_guest_id` non-null) — defends
+ *     against a primary calling the action via a forged request.
+ */
+export async function confirmPlusOneIdentityAction(raw: unknown): Promise<ActionResult> {
+  const session = await readGuestSession();
+  if (!session) return { ok: false, error: "Not signed in." };
+
+  const parsed = confirmPlusOneSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid name" };
+  }
+
+  const admin = createAdminClient();
+
+  // Verify the session's guest IS a +1, and fetch the slug for the redirect.
+  const { data: guestRow } = await admin
+    .from("guests")
+    .select("guest_id, plus_one_of_guest_id, events!inner(slug)")
+    .eq("guest_id", session.guest_id)
+    .eq("qr_token", session.qr_token)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (!guestRow) return { ok: false, error: "Guest record not found." };
+  if (!guestRow.plus_one_of_guest_id) {
+    return { ok: false, error: "Onboarding only applies to +1 guests." };
+  }
+
+  // Supabase returns embedded resources as objects OR arrays depending on
+  // query shape — handle both forms defensively.
+  const eventsRaw = (guestRow as { events?: unknown }).events;
+  const eventsObj = Array.isArray(eventsRaw) ? eventsRaw[0] : eventsRaw;
+  const slug = (eventsObj as { slug?: string } | undefined)?.slug;
+  if (!slug) return { ok: false, error: "Event lookup failed." };
+
+  const { error } = await admin
+    .from("guests")
+    .update({
+      first_name: parsed.data.first_name,
+      last_name: parsed.data.last_name,
+      plus_one_name_confirmed_at: new Date().toISOString(),
+    })
+    .eq("guest_id", session.guest_id);
+  if (error) return { ok: false, error: error.message };
+
+  // Best-effort onboarding-scan log.
+  void admin.from("scan_events").insert({
+    event_id: session.event_id,
+    guest_id: session.guest_id,
+    source: "browser",
+    context: { onboarding: true, primary_guest_id: guestRow.plus_one_of_guest_id },
+  });
+
+  revalidatePath(`/${slug}`);
+  redirect(`/${slug}`);
+}
+
+/**
+ * "This isn't me — I scanned the wrong code" link on the onboarding screen.
+ * Clears the cookie session so the next visit doesn't auto-claim, then routes
+ * to the generic landing page. No mutation to the guests row.
+ */
+export async function exitNotMeAction(): Promise<ActionResult> {
+  await clearGuestSessionCookie();
+  redirect("/");
 }

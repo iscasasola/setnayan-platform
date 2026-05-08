@@ -28,6 +28,12 @@ interface Props {
   rsvpExtras: GuestRsvpExtras | null;
   qrSvg: string | null;
   isRegistered: boolean;
+  /** 0002 v2 — when true, render the locked-down variant (no Shutter, no
+   *  Sign Up CTA, no registered extras; photos route to primary's gallery). */
+  isLimitedPlusOne: boolean;
+  /** Primary host guest, set when this guest is a +1. Used by the locked
+   *  variant's explainer copy. */
+  host: Guest | null;
 }
 
 export function InvitationShell({
@@ -38,11 +44,16 @@ export function InvitationShell({
   rsvpExtras,
   qrSvg,
   isRegistered,
+  isLimitedPlusOne,
+  host,
 }: Props) {
   if (!guest || !qrSvg) {
     return <GenericLanding event={event} />;
   }
 
+  // The Limited +1 variant locks several CTAs but keeps the core invitation
+  // surface (greeting, schedule, venue, dress code, RSVP). The widgets below
+  // each branch on `isLimitedPlusOne` to render the locked-down state.
   return (
     <div className="invite-page min-h-screen bg-page-bg">
       <SiteHeader event={event} />
@@ -58,14 +69,19 @@ export function InvitationShell({
           rsvpDeadline={event.rsvp_deadline}
           rsvpExtras={rsvpExtras}
           isRegistered={isRegistered}
+          isLimitedPlusOne={isLimitedPlusOne}
         />
         <EventDetails event={event} guest={guest} partner={partner} household={household} />
         <Venue event={event} />
         <Schedule eventDate={event.event_date} />
         <DressCode />
         <PhotoMoments />
-        <YourPhotos guest={guest} />
-        <TierComparison isRegistered={isRegistered} />
+        <YourPhotos guest={guest} isLimitedPlusOne={isLimitedPlusOne} host={host} />
+        <TierComparison
+          isRegistered={isRegistered}
+          isLimitedPlusOne={isLimitedPlusOne}
+          host={host}
+        />
         <InvitationFooter event={event} />
       </main>
     </div>

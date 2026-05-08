@@ -24,8 +24,12 @@ interface CacheKey {
 
 const cache = new Map<string, string>();
 
+// Bump when the SVG post-processing changes so old cached SVGs are invalidated
+// across dev hot-reloads.
+const CACHE_VERSION = "v3";
+
 function key(k: CacheKey): string {
-  return `${k.event_id}:${k.guest_id}:${k.qr_token}`;
+  return `${CACHE_VERSION}:${k.event_id}:${k.guest_id}:${k.qr_token}`;
 }
 
 export function buildInviteUrl(input: {
@@ -73,12 +77,16 @@ export async function generateGuestQrSvg(input: {
   // The qrcode npm package hardcodes width/height attributes on the <svg>,
   // which breaks fluid sizing inside small containers (e.g., 64px admin
   // thumbnails). Strip them and let the SVG scale to its container via the
-  // viewBox + preserveAspectRatio combo.
+  // viewBox + preserveAspectRatio combo + a belt-and-suspenders inline style.
   const svg = rawSvg
     .replace(/<\?xml[^?]*\?>\s*/i, "")
     .replace(/(<svg\b[^>]*?)\s+width="[^"]*"/i, "$1")
     .replace(/(<svg\b[^>]*?)\s+height="[^"]*"/i, "$1")
-    .replace(/<svg\b/i, '<svg width="100%" height="100%" preserveAspectRatio="xMidYMid meet"');
+    .replace(/(<svg\b[^>]*?)\s+style="[^"]*"/i, "$1")
+    .replace(
+      /<svg\b/i,
+      '<svg width="100%" height="100%" preserveAspectRatio="xMidYMid meet" style="display:block;width:100%;height:100%;max-width:100%;max-height:100%"',
+    );
 
   cache.set(k, svg);
   // Keep the cache from unbounded growth in long-running dev sessions.

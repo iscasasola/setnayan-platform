@@ -123,9 +123,10 @@ function DesktopRow({
       className="grid items-center gap-3 border-b border-rule px-5 py-3 last:border-b-0 hover:bg-surface-soft"
       style={{ gridTemplateColumns: "84px 1.4fr 0.9fr 0.7fr 0.7fr 1fr 1fr 70px" }}
     >
-      <div className="grid h-16 w-16 place-items-center rounded-lg bg-page-bg-soft p-1.5">
-        <div className="h-full w-full" dangerouslySetInnerHTML={{ __html: qrSvg }} />
-      </div>
+      <div
+        className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-page-bg-soft p-1.5"
+        dangerouslySetInnerHTML={{ __html: qrSvg }}
+      />
       <div className="min-w-0">
         <div className="truncate text-[14px] font-semibold text-ink">
           {guest.display_name?.trim() || `${guest.first_name} ${guest.last_name}`}
@@ -260,9 +261,10 @@ function MobileRow({
 }) {
   return (
     <li className="flex items-center gap-3 rounded-2xl border border-rule bg-surface p-3">
-      <div className="grid h-16 w-16 shrink-0 place-items-center rounded-lg bg-page-bg-soft p-1">
-        <div className="h-full w-full" dangerouslySetInnerHTML={{ __html: qrSvg }} />
-      </div>
+      <div
+        className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-page-bg-soft p-1"
+        dangerouslySetInnerHTML={{ __html: qrSvg }}
+      />
       <div className="min-w-0 flex-1">
         <div className="truncate text-[14px] font-semibold text-ink">
           {guest.display_name?.trim() || `${guest.first_name} ${guest.last_name}`}

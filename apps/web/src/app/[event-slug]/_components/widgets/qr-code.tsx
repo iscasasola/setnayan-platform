@@ -15,15 +15,12 @@ export function QrCodeWidget({ qrSvg }: Props) {
       </h2>
 
       <div
-        className="mx-auto my-7 grid h-[220px] w-[220px] place-items-center rounded-2xl bg-page-bg-soft p-4 lg:h-[260px] lg:w-[260px]"
         aria-label="Personal QR code"
-      >
-        <div
-          className="h-full w-full"
-          /* The qrcode npm package returns a complete <svg>…</svg> string. */
-          dangerouslySetInnerHTML={{ __html: qrSvg }}
-        />
-      </div>
+        className="mx-auto my-7 h-[220px] w-[220px] overflow-hidden rounded-2xl bg-page-bg-soft p-4 lg:h-[260px] lg:w-[260px]"
+        /* qrcode-npm SVG injected directly. The post-processed SVG carries
+           inline width/height = 100% so it fills this fixed-size container. */
+        dangerouslySetInnerHTML={{ __html: qrSvg }}
+      />
 
       <p className="mx-auto max-w-[420px] text-[13px] leading-relaxed text-ink-soft lg:text-[14px]">
         Show this when you arrive — our shutterbugs will tag you in photos and

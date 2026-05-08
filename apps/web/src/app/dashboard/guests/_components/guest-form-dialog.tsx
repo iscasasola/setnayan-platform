@@ -342,7 +342,7 @@ export function GuestFormDialog({ mode, households, onClose }: Props) {
                 type="text"
                 value={form.dietary_restrictions ?? ""}
                 onChange={(e) => update("dietary_restrictions", e.target.value || undefined)}
-                placeholder="None / Vegetarian / Allergies / Long allergy notes"
+                placeholder="e.g., shellfish allergy, no pork, low-sodium"
                 className="form-input"
               />
             </Field>
@@ -355,11 +355,8 @@ export function GuestFormDialog({ mode, households, onClose }: Props) {
                   checked={form.photo_consent}
                   onChange={(e) => update("photo_consent", e.target.checked)}
                 />
-                <span className="text-[14px] text-ink">
-                  Allow this guest to be tagged in the gallery
-                </span>
-                <span className="ml-auto font-mono text-[10px] uppercase tracking-label-wide text-ink-faint">
-                  PH DPA
+                <span className="text-[14px] leading-snug text-ink">
+                  Allow this guest to be tagged in the gallery (PH Data Privacy Act — opt-out triggers face-blur)
                 </span>
               </label>
             </Field>
@@ -416,8 +413,12 @@ export function GuestFormDialog({ mode, households, onClose }: Props) {
                       addTag();
                     }
                   }}
-                  placeholder="Type and press Enter"
-                  className="flex-1 border-none bg-transparent text-[14px] outline-none placeholder:text-ink-faint"
+                  placeholder={
+                    form.custom_tags.length === 0
+                      ? "Type and press Enter — e.g., VIP, out-of-town, college, tito barkada"
+                      : "Add another"
+                  }
+                  className="min-w-[120px] flex-1 border-none bg-transparent text-[14px] outline-none placeholder:text-ink-faint"
                 />
               </div>
             </Field>

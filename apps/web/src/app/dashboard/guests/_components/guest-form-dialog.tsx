@@ -49,6 +49,13 @@ const EMPTY_FORM: GuestInput = {
   rsvp_status: "pending",
 };
 
+type PlusOneOption = "none" | "tba" | "named";
+
+function plusOneFromForm(form: GuestInput): PlusOneOption {
+  if (!form.plus_one_allowed) return "none";
+  return form.plus_one_name ? "named" : "tba";
+}
+
 export function GuestFormDialog({ mode, households, onClose }: Props) {
   const initial = mode.kind === "edit" ? guestToInput(mode.guest) : EMPTY_FORM;
   const [form, setForm] = useState<GuestInput>(initial);
@@ -125,18 +132,22 @@ export function GuestFormDialog({ mode, households, onClose }: Props) {
       ? "Add an individual or a paired entry (couples, parents, sponsors)"
       : "Update this guest's details";
 
+  const plusOne = plusOneFromForm(form);
+
   return (
     <div className="fixed inset-0 z-50 flex items-stretch justify-center bg-ink/40 backdrop-blur-sm lg:items-center lg:p-6">
       <div
         role="dialog"
         aria-label={title}
-        className="flex h-[100dvh] w-full max-w-none flex-col overflow-hidden bg-surface shadow-tayo-lg lg:h-auto lg:max-h-[90vh] lg:max-w-[640px] lg:rounded-3xl"
+        className="flex h-[100dvh] w-full max-w-none flex-col overflow-hidden bg-surface shadow-tayo-lg lg:h-auto lg:max-h-[90vh] lg:max-w-[720px] lg:rounded-[18px]"
       >
         {/* Header */}
-        <div className="flex items-start justify-between gap-4 border-b border-rule px-5 py-4 lg:px-7 lg:py-5">
+        <div className="flex items-start justify-between gap-4 border-b border-rule px-5 py-4 lg:px-8 lg:py-6">
           <div>
-            <h3 className="font-serif text-2xl font-medium tracking-tight lg:text-[28px]">{title}</h3>
-            <p className="mt-1 text-[13px] text-ink-soft">{subtitle}</p>
+            <h3 className="font-serif text-2xl font-medium tracking-tight lg:text-[30px]">{title}</h3>
+            <p className="mt-1 font-mono text-[12px] uppercase tracking-label-mid text-ink-soft">
+              {subtitle}
+            </p>
           </div>
           <button
             type="button"
@@ -153,9 +164,11 @@ export function GuestFormDialog({ mode, households, onClose }: Props) {
             e.preventDefault();
             submit(false);
           }}
-          className="flex flex-1 flex-col overflow-y-auto px-5 py-4 lg:px-7 lg:py-5"
+          className="flex flex-1 flex-col overflow-y-auto px-5 py-5 lg:px-8 lg:pt-6"
         >
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {/* 2-column grid; full-width rows opt in via lg:col-span-2 */}
+          <div className="grid grid-cols-1 gap-x-4 gap-y-[18px] lg:grid-cols-2">
+            {/* Row 1 — First name | Last name */}
             <Field label="First name" required>
               <input
                 type="text"
@@ -177,12 +190,14 @@ export function GuestFormDialog({ mode, households, onClose }: Props) {
                 className="form-input"
               />
             </Field>
+
+            {/* Row 2 — Display name | Household */}
             <Field label="Display name (optional)">
               <input
                 type="text"
                 value={form.display_name ?? ""}
                 onChange={(e) => update("display_name", e.target.value || undefined)}
-                placeholder='e.g., "Tito Boy & Tita Cora" or "Lola Adela"'
+                placeholder='e.g., "Tito Boy & Tita Cora"'
                 className="form-input"
               />
             </Field>
@@ -201,6 +216,7 @@ export function GuestFormDialog({ mode, households, onClose }: Props) {
               </select>
             </Field>
 
+            {/* Row 3 — Side | Group */}
             <Field label="Side" required>
               <select
                 value={form.side}
@@ -228,7 +244,8 @@ export function GuestFormDialog({ mode, households, onClose }: Props) {
               </select>
             </Field>
 
-            <Field label="Role in wedding" required className="lg:col-span-2">
+            {/* Row 4 — Role in wedding | Plus-one  (Role stays half-width even with 18 values) */}
+            <Field label="Role in wedding" required>
               <select
                 value={form.role}
                 onChange={(e) => update("role", e.target.value as GuestInput["role"])}
@@ -241,12 +258,11 @@ export function GuestFormDialog({ mode, households, onClose }: Props) {
                 ))}
               </select>
             </Field>
-
             <Field label="Plus-one">
               <select
-                value={form.plus_one_allowed ? (form.plus_one_name ? "named" : "tba") : "none"}
+                value={plusOne}
                 onChange={(e) => {
-                  const v = e.target.value;
+                  const v = e.target.value as PlusOneOption;
                   if (v === "none") {
                     update("plus_one_allowed", false);
                     update("plus_one_name", undefined);
@@ -255,6 +271,7 @@ export function GuestFormDialog({ mode, households, onClose }: Props) {
                     update("plus_one_name", undefined);
                   } else {
                     update("plus_one_allowed", true);
+                    if (!form.plus_one_name) update("plus_one_name", "");
                   }
                 }}
                 className="form-input"
@@ -264,18 +281,8 @@ export function GuestFormDialog({ mode, households, onClose }: Props) {
                 <option value="named">Allowed · named below</option>
               </select>
             </Field>
-            {form.plus_one_allowed && (
-              <Field label="Plus-one name">
-                <input
-                  type="text"
-                  value={form.plus_one_name ?? ""}
-                  onChange={(e) => update("plus_one_name", e.target.value || undefined)}
-                  placeholder="optional"
-                  className="form-input"
-                />
-              </Field>
-            )}
 
+            {/* Row 5 — Email | Mobile */}
             <Field label="Email">
               <input
                 type="email"
@@ -295,6 +302,7 @@ export function GuestFormDialog({ mode, households, onClose }: Props) {
               />
             </Field>
 
+            {/* Row 6 — Meal | RSVP status */}
             <Field label="Meal">
               <select
                 value={form.meal_preference ?? ""}
@@ -309,21 +317,11 @@ export function GuestFormDialog({ mode, households, onClose }: Props) {
                 <option value="">No selection</option>
                 {MEAL_PREFERENCES.map((m) => (
                   <option key={m} value={m}>
-                    {m.replace("_", " ")}
+                    {m === "no_preference" ? "No preference" : m.charAt(0).toUpperCase() + m.slice(1)}
                   </option>
                 ))}
               </select>
             </Field>
-            <Field label="Dietary restrictions">
-              <input
-                type="text"
-                value={form.dietary_restrictions ?? ""}
-                onChange={(e) => update("dietary_restrictions", e.target.value || undefined)}
-                placeholder="None / Vegetarian / Allergies"
-                className="form-input"
-              />
-            </Field>
-
             <Field label="RSVP status">
               <select
                 value={form.rsvp_status}
@@ -337,20 +335,38 @@ export function GuestFormDialog({ mode, households, onClose }: Props) {
                 ))}
               </select>
             </Field>
-            <Field label="Photo consent">
-              <label className="flex items-center gap-2 px-1 py-2.5 text-[13px] text-ink">
+
+            {/* Row 7 — Dietary restrictions (full-width) */}
+            <Field label="Dietary restrictions" className="lg:col-span-2">
+              <input
+                type="text"
+                value={form.dietary_restrictions ?? ""}
+                onChange={(e) => update("dietary_restrictions", e.target.value || undefined)}
+                placeholder="None / Vegetarian / Allergies / Long allergy notes"
+                className="form-input"
+              />
+            </Field>
+
+            {/* Row 8 — Photo consent (full-width row, custom 22px checkbox) */}
+            <Field label="Photo consent" className="lg:col-span-2">
+              <label className="field-checkbox flex items-center gap-3">
                 <input
                   type="checkbox"
                   checked={form.photo_consent}
                   onChange={(e) => update("photo_consent", e.target.checked)}
-                  className="h-4 w-4"
                 />
-                Allow this guest to be tagged in the gallery
+                <span className="text-[14px] text-ink">
+                  Allow this guest to be tagged in the gallery
+                </span>
+                <span className="ml-auto font-mono text-[10px] uppercase tracking-label-wide text-ink-faint">
+                  PH DPA
+                </span>
               </label>
             </Field>
 
+            {/* Row 9 — Invited to (full-width chip selector) */}
             <Field label="Invited to" className="lg:col-span-2">
-              <div className="flex flex-wrap gap-1.5 pt-1">
+              <div className="form-input-row flex flex-wrap items-center gap-1.5">
                 {SCHEDULE_BLOCKS.map((b) => {
                   const active = form.invited_to_blocks.includes(b);
                   return (
@@ -371,8 +387,9 @@ export function GuestFormDialog({ mode, households, onClose }: Props) {
               </div>
             </Field>
 
+            {/* Row 10 — Custom tags (full-width) */}
             <Field label="Custom tags" className="lg:col-span-2">
-              <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-rule-strong bg-surface px-2.5 py-2">
+              <div className="form-input-row flex flex-wrap items-center gap-1.5">
                 {form.custom_tags.map((t) => (
                   <span
                     key={t}
@@ -400,20 +417,35 @@ export function GuestFormDialog({ mode, households, onClose }: Props) {
                     }
                   }}
                   placeholder="Type and press Enter"
-                  className="flex-1 border-none bg-transparent text-[13px] outline-none placeholder:text-ink-faint"
+                  className="flex-1 border-none bg-transparent text-[14px] outline-none placeholder:text-ink-faint"
                 />
               </div>
             </Field>
 
+            {/* Row 11 — Notes (full-width textarea — 96px) */}
             <Field label="Notes (private to you)" className="lg:col-span-2">
               <textarea
                 value={form.notes ?? ""}
                 onChange={(e) => update("notes", e.target.value || undefined)}
                 rows={3}
-                className="form-input min-h-[80px]"
+                className="form-textarea"
                 placeholder="Anything we should remember about this guest"
               />
             </Field>
+
+            {/* Plus-one name — only when "named below" selected; full-width helper row.
+                Sits at the bottom of the grid so the field structure above stays clean. */}
+            {plusOne === "named" && (
+              <Field label="Plus-one name" className="lg:col-span-2">
+                <input
+                  type="text"
+                  value={form.plus_one_name ?? ""}
+                  onChange={(e) => update("plus_one_name", e.target.value || undefined)}
+                  placeholder="Their name"
+                  className="form-input"
+                />
+              </Field>
+            )}
           </div>
 
           {error && (
@@ -448,21 +480,98 @@ export function GuestFormDialog({ mode, households, onClose }: Props) {
         </div>
       </div>
 
-      {/* form-input utility class */}
+      {/* Uniform field sizing per work-order spec:
+            - height: 46px
+            - border-radius: 10px
+            - padding: 12px 14px
+            - font-size: 14px
+            - focus: var(--accent)
+            Textarea: same widths/styles, height 96px (only exception).
+            Checkbox: custom 22×22 with terracotta fill when checked. */}
       <style jsx>{`
-        :global(.form-input) {
+        :global(.form-input),
+        :global(.form-input-row) {
           width: 100%;
-          padding: 10px 12px;
+          height: 46px;
+          padding: 12px 14px;
           border: 1px solid var(--rule-strong);
-          border-radius: 8px;
+          border-radius: 10px;
           background: var(--surface);
-          font-size: 13px;
+          font-size: 14px;
           color: var(--ink);
           outline: none;
-          transition: border 0.15s;
+          transition: border-color 0.15s;
+          font-family: inherit;
+          line-height: 1.2;
+          box-sizing: border-box;
         }
-        :global(.form-input:focus) {
-          border-color: var(--ink);
+        :global(.form-input:focus),
+        :global(.form-input-row:focus-within) {
+          border-color: var(--accent);
+        }
+        :global(.form-textarea) {
+          width: 100%;
+          height: 96px;
+          min-height: 96px;
+          padding: 12px 14px;
+          border: 1px solid var(--rule-strong);
+          border-radius: 10px;
+          background: var(--surface);
+          font-size: 14px;
+          color: var(--ink);
+          outline: none;
+          transition: border-color 0.15s;
+          font-family: inherit;
+          resize: vertical;
+          line-height: 1.4;
+          box-sizing: border-box;
+        }
+        :global(.form-textarea:focus) {
+          border-color: var(--accent);
+        }
+        :global(select.form-input) {
+          appearance: none;
+          background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%236b6b6b' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+          background-repeat: no-repeat;
+          background-position: right 14px center;
+          padding-right: 36px;
+        }
+        :global(.field-checkbox) {
+          width: 100%;
+          min-height: 46px;
+          padding: 12px 14px;
+          border: 1px solid var(--rule);
+          border-radius: 10px;
+          background: var(--surface-soft);
+          font-size: 14px;
+          color: var(--ink);
+          box-sizing: border-box;
+          cursor: pointer;
+        }
+        :global(.field-checkbox input[type="checkbox"]) {
+          appearance: none;
+          -webkit-appearance: none;
+          width: 22px;
+          height: 22px;
+          flex-shrink: 0;
+          border: 1.5px solid var(--rule-strong);
+          border-radius: 6px;
+          background: var(--surface);
+          cursor: pointer;
+          display: grid;
+          place-items: center;
+          transition: all 0.15s;
+        }
+        :global(.field-checkbox input[type="checkbox"]:checked) {
+          background: var(--accent);
+          border-color: var(--accent);
+        }
+        :global(.field-checkbox input[type="checkbox"]:checked::after) {
+          content: "✓";
+          color: #fff;
+          font-size: 14px;
+          font-weight: 700;
+          line-height: 1;
         }
       `}</style>
     </div>
@@ -481,10 +590,10 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div className={className ?? ""}>
-      <label className="meta-label mb-1.5 block">
+    <div className={`flex min-w-0 flex-col gap-2 ${className ?? ""}`}>
+      <label className="meta-label flex items-center gap-1">
         {label}
-        {required && <span className="ml-0.5 text-rsvp-declined-ink">*</span>}
+        {required && <span className="text-accent font-semibold">*</span>}
       </label>
       {children}
     </div>

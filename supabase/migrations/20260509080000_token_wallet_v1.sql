@@ -45,6 +45,16 @@ CREATE TABLE IF NOT EXISTS service_catalog (
   updated_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
+-- Defensive: if the table pre-existed (hand-rolled stub or older partial
+-- migration), top up any columns that may be missing. ADD COLUMN IF NOT
+-- EXISTS is idempotent on the no-pre-existing path.
+ALTER TABLE service_catalog ADD COLUMN IF NOT EXISTS description       TEXT;
+ALTER TABLE service_catalog ADD COLUMN IF NOT EXISTS iteration_origin  TEXT;
+ALTER TABLE service_catalog ADD COLUMN IF NOT EXISTS one_time_per_event BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE service_catalog ADD COLUMN IF NOT EXISTS is_active         BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE service_catalog ADD COLUMN IF NOT EXISTS created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE service_catalog ADD COLUMN IF NOT EXISTS updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
 CREATE INDEX IF NOT EXISTS idx_service_catalog_active_category
   ON service_catalog(category) WHERE is_active = TRUE;
 

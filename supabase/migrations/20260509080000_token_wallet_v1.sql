@@ -122,6 +122,39 @@ CREATE TABLE IF NOT EXISTS token_packs (
   updated_at           TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
+-- Defensive: top up columns if the table pre-existed without them. slug is
+-- added nullable first; if any row predates this migration it gets a fallback
+-- slug derived from display_name; then SET NOT NULL + UNIQUE constraint.
+ALTER TABLE token_packs ADD COLUMN IF NOT EXISTS slug                TEXT;
+ALTER TABLE token_packs ADD COLUMN IF NOT EXISTS display_name        TEXT;
+ALTER TABLE token_packs ADD COLUMN IF NOT EXISTS php_price_centavos  BIGINT;
+ALTER TABLE token_packs ADD COLUMN IF NOT EXISTS base_tokens         INTEGER;
+ALTER TABLE token_packs ADD COLUMN IF NOT EXISTS bonus_tokens        INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE token_packs ADD COLUMN IF NOT EXISTS is_active           BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE token_packs ADD COLUMN IF NOT EXISTS display_order       INTEGER;
+ALTER TABLE token_packs ADD COLUMN IF NOT EXISTS badge_text          TEXT;
+ALTER TABLE token_packs ADD COLUMN IF NOT EXISTS description         TEXT;
+ALTER TABLE token_packs ADD COLUMN IF NOT EXISTS created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE token_packs ADD COLUMN IF NOT EXISTS updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+UPDATE token_packs
+   SET slug = COALESCE(slug, lower(regexp_replace(COALESCE(display_name, pack_id::TEXT), '[^a-z0-9]+', '_', 'g')))
+ WHERE slug IS NULL;
+
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'token_packs' AND column_name = 'slug' AND is_nullable = 'YES'
+  ) THEN
+    ALTER TABLE token_packs ALTER COLUMN slug SET NOT NULL;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'token_packs_slug_key'
+  ) THEN
+    ALTER TABLE token_packs ADD CONSTRAINT token_packs_slug_key UNIQUE (slug);
+  END IF;
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx_token_packs_active_order
   ON token_packs(display_order) WHERE is_active = TRUE;
 
@@ -166,6 +199,13 @@ CREATE TABLE IF NOT EXISTS token_wallets (
   updated_at             TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
+-- Defensive: top up columns if the table pre-existed with a different shape.
+ALTER TABLE token_wallets ADD COLUMN IF NOT EXISTS balance_tokens         INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE token_wallets ADD COLUMN IF NOT EXISTS total_purchased_tokens INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE token_wallets ADD COLUMN IF NOT EXISTS total_spent_tokens     INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE token_wallets ADD COLUMN IF NOT EXISTS created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE token_wallets ADD COLUMN IF NOT EXISTS updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
 CREATE INDEX IF NOT EXISTS idx_token_wallets_event ON token_wallets(event_id);
 
 DO $$ BEGIN
@@ -201,6 +241,13 @@ CREATE TABLE IF NOT EXISTS token_purchases (
   created_at         TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
+-- Defensive: top up additive columns; total_tokens is a generated column and
+-- can't be added retroactively cleanly, so left to the CREATE-only path.
+ALTER TABLE token_purchases ADD COLUMN IF NOT EXISTS bonus_tokens     INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE token_purchases ADD COLUMN IF NOT EXISTS refunded_at      TIMESTAMPTZ;
+ALTER TABLE token_purchases ADD COLUMN IF NOT EXISTS refund_reason    TEXT;
+ALTER TABLE token_purchases ADD COLUMN IF NOT EXISTS created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
 CREATE INDEX IF NOT EXISTS idx_token_purchases_wallet ON token_purchases(wallet_id, created_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_token_purchases_payment_ref
   ON token_purchases(payment_provider, payment_ref);
@@ -223,6 +270,11 @@ CREATE TABLE IF NOT EXISTS token_transactions (
   display_label   TEXT         NOT NULL,
   created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
+
+-- Defensive: top up additive columns if the table pre-existed.
+ALTER TABLE token_transactions ADD COLUMN IF NOT EXISTS ref_table     TEXT;
+ALTER TABLE token_transactions ADD COLUMN IF NOT EXISTS ref_id        UUID;
+ALTER TABLE token_transactions ADD COLUMN IF NOT EXISTS created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
 CREATE INDEX IF NOT EXISTS idx_token_transactions_wallet ON token_transactions(wallet_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_token_transactions_ref ON token_transactions(ref_table, ref_id) WHERE ref_id IS NOT NULL;

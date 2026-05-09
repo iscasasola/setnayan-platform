@@ -5,11 +5,12 @@ import type { PaparazziSeat } from "@/lib/db/types";
 import { regenerateSeatTokenAction } from "../actions";
 
 interface Props {
+  eventId: string;
   seats: PaparazziSeat[];
   tier: number | null;
 }
 
-export function SeatsPanel({ seats, tier }: Props) {
+export function SeatsPanel({ eventId, seats, tier }: Props) {
   const [pending, start] = useTransition();
   const [busy, setBusy] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -42,7 +43,7 @@ export function SeatsPanel({ seats, tier }: Props) {
     setFeedback(null);
     setBusy(seatId);
     start(async () => {
-      const r = await regenerateSeatTokenAction(seatId);
+      const r = await regenerateSeatTokenAction(eventId, seatId);
       setBusy(null);
       if (r.ok) setFeedback(`Seat #${idx} reissued.`);
       else setFeedback(`Could not reissue seat #${idx}: ${r.error}`);

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentEvent } from "@/lib/db/events";
+import { getEventByIdForUser } from "@/lib/db/events";
 import {
   addGuestSchema,
   csvRowSchema,
@@ -12,10 +12,14 @@ import {
 
 type ActionResult<T = void> = { ok: true; data?: T } | { ok: false; error: string };
 
-async function ensureEvent() {
-  const event = await getCurrentEvent();
-  if (!event) throw new Error("No event for the current user.");
+async function ensureEvent(eventId: string) {
+  const event = await getEventByIdForUser(eventId);
+  if (!event) throw new Error("No access to this event.");
   return event;
+}
+
+function guestsPath(eventId: string) {
+  return `/dashboard/${eventId}/guests`;
 }
 
 /**
@@ -27,12 +31,12 @@ async function ensureEvent() {
  * primary's `plus_one_allowed` flag stays true; `plus_one_of_guest_id` on
  * the +1 row points at the primary.
  */
-export async function addGuestAction(raw: unknown): Promise<ActionResult> {
+export async function addGuestAction(eventId: string, raw: unknown): Promise<ActionResult> {
   const parsed = addGuestSchema.safeParse(raw);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
-  const event = await ensureEvent();
+  const event = await ensureEvent(eventId);
   const supabase = await createClient();
 
   // Strip the staging-only fields (they don't map to columns on the primary row).
@@ -86,38 +90,45 @@ export async function addGuestAction(raw: unknown): Promise<ActionResult> {
     }
   }
 
-  revalidatePath("/dashboard/guests");
+  revalidatePath(guestsPath(event.event_id));
   return { ok: true };
 }
 
 /** Update an existing guest (partial). Plus-one staging fields are ignored —
  * the +1 row, once created, is managed via its own row (Edit / Remove /
  * RSVP buttons on its own list entry). */
-export async function updateGuestAction(raw: unknown): Promise<ActionResult> {
+export async function updateGuestAction(eventId: string, raw: unknown): Promise<ActionResult> {
   const parsed = editGuestSchema.safeParse(raw);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
+  const event = await ensureEvent(eventId);
   const { guest_id, plus_one_first_name, plus_one_last_name, plus_one_mode, ...patch } = parsed.data;
   void plus_one_first_name;
   void plus_one_last_name;
   void plus_one_mode;
   const supabase = await createClient();
-  const { error } = await supabase.from("guests").update(flattenForInsert(patch)).eq("guest_id", guest_id);
+  const { error } = await supabase
+    .from("guests")
+    .update(flattenForInsert(patch))
+    .eq("guest_id", guest_id)
+    .eq("event_id", event.event_id);
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/dashboard/guests");
+  revalidatePath(guestsPath(event.event_id));
   return { ok: true };
 }
 
 /** Soft-delete a guest by setting deleted_at. */
-export async function softDeleteGuestAction(guestId: string): Promise<ActionResult> {
+export async function softDeleteGuestAction(eventId: string, guestId: string): Promise<ActionResult> {
+  const event = await ensureEvent(eventId);
   const supabase = await createClient();
   const { error } = await supabase
     .from("guests")
     .update({ deleted_at: new Date().toISOString() })
-    .eq("guest_id", guestId);
+    .eq("guest_id", guestId)
+    .eq("event_id", event.event_id);
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/dashboard/guests");
+  revalidatePath(guestsPath(event.event_id));
   return { ok: true };
 }
 
@@ -126,14 +137,14 @@ export async function softDeleteGuestAction(guestId: string): Promise<ActionResu
  * server-side and run all inserts in a single statement for atomicity. If
  * any row violates the DB constraints the whole batch fails.
  */
-export async function bulkImportGuestsAction(rows: unknown[]): Promise<ActionResult<{ inserted: number }>> {
+export async function bulkImportGuestsAction(eventId: string, rows: unknown[]): Promise<ActionResult<{ inserted: number }>> {
   if (!Array.isArray(rows) || rows.length === 0) {
     return { ok: false, error: "No rows to import." };
   }
   if (rows.length > 200) {
     return { ok: false, error: "Maximum 200 rows per import." };
   }
-  const event = await ensureEvent();
+  const event = await ensureEvent(eventId);
   const supabase = await createClient();
 
   // Resolve household names from this import to existing household_ids on the event.
@@ -171,15 +182,17 @@ export async function bulkImportGuestsAction(rows: unknown[]): Promise<ActionRes
 
   const { error } = await supabase.from("guests").insert(toInsert);
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/dashboard/guests");
+  revalidatePath(guestsPath(event.event_id));
   return { ok: true, data: { inserted: toInsert.length } };
 }
 
 /** Toggle a single guest's RSVP status — for inline list interactions. */
 export async function setRsvpAction(
+  eventId: string,
   guestId: string,
   status: "pending" | "attending" | "declined" | "maybe",
 ): Promise<ActionResult> {
+  const event = await ensureEvent(eventId);
   const supabase = await createClient();
   const { error } = await supabase
     .from("guests")
@@ -187,9 +200,10 @@ export async function setRsvpAction(
       rsvp_status: status,
       rsvp_responded_at: status === "pending" ? null : new Date().toISOString(),
     })
-    .eq("guest_id", guestId);
+    .eq("guest_id", guestId)
+    .eq("event_id", event.event_id);
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/dashboard/guests");
+  revalidatePath(guestsPath(event.event_id));
   return { ok: true };
 }
 

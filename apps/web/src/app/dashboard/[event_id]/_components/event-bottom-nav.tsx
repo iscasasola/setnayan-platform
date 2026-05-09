@@ -3,14 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+interface Props {
+  eventId: string;
+}
+
 const TABS = [
-  { href: "/dashboard", label: "Overview", icon: "⌂" },
-  { href: "/dashboard/guests", label: "Guests", icon: "◉" },
-  { href: "/dashboard/schedule", label: "Schedule", icon: "⌚" },
-  { href: "/dashboard/more", label: "More", icon: "☰" },
+  { slug: "guests",   label: "Guests",   icon: "👥" },
+  { slug: "vendors",  label: "Vendors",  icon: "💼" },
+  { slug: "schedule", label: "Schedule", icon: "📅" },
+  { slug: "services", label: "Services", icon: "✨" },
 ] as const;
 
-export function MobileTabBar() {
+export function EventBottomNav({ eventId }: Props) {
   const pathname = usePathname();
 
   return (
@@ -19,14 +23,11 @@ export function MobileTabBar() {
       aria-label="Primary"
     >
       {TABS.map((t) => {
-        const active =
-          t.href === "/dashboard"
-            ? pathname === "/dashboard"
-            : pathname.startsWith(t.href);
+        const active = pathname.startsWith(`/dashboard/${eventId}/${t.slug}`);
         return (
           <Link
-            key={t.href}
-            href={t.href}
+            key={t.slug}
+            href={`/dashboard/${eventId}/${t.slug}`}
             className={`flex flex-col items-center gap-1 py-2.5 text-[10px] font-medium tracking-label-tight ${
               active ? "text-ink" : "text-ink-faint"
             }`}

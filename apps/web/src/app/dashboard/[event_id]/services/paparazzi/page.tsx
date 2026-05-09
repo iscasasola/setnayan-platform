@@ -1,6 +1,6 @@
-import { redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getCurrentEvent } from "@/lib/db/events";
+import { getEventByIdForUser } from "@/lib/db/events";
 import {
   fetchCoupleGalleryPage,
   fetchCoupleGuestIds,
@@ -23,6 +23,7 @@ import { SeatsPanel } from "./_components/seats-panel";
 export const dynamic = "force-dynamic";
 
 interface PageProps {
+  params: Promise<{ event_id: string }>;
   searchParams: Promise<{
     filter?: string;
     type?: string;
@@ -43,9 +44,10 @@ function parseTypeNarrow(raw: string | undefined): CaptureType | "all" {
   return "all";
 }
 
-export default async function GalleryPage({ searchParams }: PageProps) {
-  const event = await getCurrentEvent();
-  if (!event) redirect("/dashboard");
+export default async function GalleryPage({ params, searchParams }: PageProps) {
+  const { event_id } = await params;
+  const event = await getEventByIdForUser(event_id);
+  if (!event) notFound();
 
   const sp = await searchParams;
   const filter = parseFilter(sp.filter);
@@ -81,7 +83,7 @@ export default async function GalleryPage({ searchParams }: PageProps) {
       <div className="mx-auto flex max-w-7xl flex-col gap-6">
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="meta-label mb-2">Dashboard / Gallery</p>
+            <p className="meta-label mb-2">In-App Services / Paparazzi</p>
             <h1 className="display-title">Paparazzi Gallery</h1>
             <p className="mt-1 text-[13px] text-ink-soft">
               {summary.total} captures · {summary.photos} photos · {summary.clips} clips ·{" "}
@@ -91,7 +93,10 @@ export default async function GalleryPage({ searchParams }: PageProps) {
             </p>
           </div>
           {noTier && (
-            <Link href="/dashboard/wallet" className="btn-accent text-[12px]">
+            <Link
+              href={`/dashboard/${event.event_id}/services/wallet`}
+              className="btn-accent text-[12px]"
+            >
               Buy Paparazzi tier
             </Link>
           )}
@@ -99,6 +104,7 @@ export default async function GalleryPage({ searchParams }: PageProps) {
 
         {review && !event.gallery_public_unlocked_at && (
           <ReviewBanner
+            eventId={event.event_id}
             daysLeft={review.daysLeft}
             hoursLeft={review.hoursLeft}
             unlocksAt={review.unlocksAt.toISOString()}
@@ -117,7 +123,7 @@ export default async function GalleryPage({ searchParams }: PageProps) {
           </div>
         )}
 
-        <SeatsPanel seats={seats} tier={event.paparazzi_tier} />
+        <SeatsPanel eventId={event.event_id} seats={seats} tier={event.paparazzi_tier} />
 
         <FilterPills
           filter={filter}
@@ -131,6 +137,7 @@ export default async function GalleryPage({ searchParams }: PageProps) {
         />
 
         <CaptureGrid
+          eventId={event.event_id}
           captures={captures}
           filter={filter}
           showHidden={showHidden}

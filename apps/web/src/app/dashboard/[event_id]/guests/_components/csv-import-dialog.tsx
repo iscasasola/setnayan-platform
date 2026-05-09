@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useParams } from "next/navigation";
 import Papa from "papaparse";
 import { csvRowSchema, type CsvRow } from "@/lib/schemas/guest";
 import { bulkImportGuestsAction } from "../actions";
@@ -31,6 +32,8 @@ interface ParsedRow {
 }
 
 export function CsvImportDialog({ onClose }: Props) {
+  const params = useParams<{ event_id: string }>();
+  const eventId = params.event_id;
   const [rows, setRows] = useState<ParsedRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -90,7 +93,7 @@ export function CsvImportDialog({ onClose }: Props) {
     if (validRows.length === 0) return;
     setSubmitError(null);
     startTransition(async () => {
-      const r = await bulkImportGuestsAction(validRows.map((v) => v.data));
+      const r = await bulkImportGuestsAction(eventId, validRows.map((v) => v.data));
       if (!r.ok) {
         setSubmitError(r.error);
         return;

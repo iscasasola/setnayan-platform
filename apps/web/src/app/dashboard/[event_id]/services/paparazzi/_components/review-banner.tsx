@@ -7,13 +7,14 @@ import {
 } from "../actions";
 
 interface Props {
+  eventId: string;
   daysLeft: number;
   hoursLeft: number;
   unlocksAt: string;
   windowDays: number;
 }
 
-export function ReviewBanner({ daysLeft, hoursLeft, unlocksAt, windowDays }: Props) {
+export function ReviewBanner({ eventId, daysLeft, hoursLeft, unlocksAt, windowDays }: Props) {
   const [pending, start] = useTransition();
   const unlocksLabel = new Date(unlocksAt).toLocaleString("en-PH", {
     dateStyle: "medium",
@@ -48,7 +49,7 @@ export function ReviewBanner({ daysLeft, hoursLeft, unlocksAt, windowDays }: Pro
             disabled={pending}
             onClick={() =>
               start(async () => {
-                await extendReviewWindowAction(1);
+                await extendReviewWindowAction(eventId, 1);
               })
             }
             className="btn-default text-[12px]"
@@ -67,7 +68,7 @@ export function ReviewBanner({ daysLeft, hoursLeft, unlocksAt, windowDays }: Pro
                 return;
               }
               start(async () => {
-                await releaseGalleryEarlyAction();
+                await releaseGalleryEarlyAction(eventId);
               });
             }}
             className="btn-primary text-[12px]"

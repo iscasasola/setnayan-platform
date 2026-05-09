@@ -2,14 +2,18 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentEvent } from "@/lib/db/events";
+import { getEventByIdForUser } from "@/lib/db/events";
 
 type ActionResult<T = void> = { ok: true; data?: T } | { ok: false; error: string };
 
-async function ensureEvent() {
-  const event = await getCurrentEvent();
-  if (!event) throw new Error("No event for the current user.");
+async function ensureEvent(eventId: string) {
+  const event = await getEventByIdForUser(eventId);
+  if (!event) throw new Error("No access to this event.");
   return event;
+}
+
+function paparazziPath(eventId: string) {
+  return `/dashboard/${eventId}/services/paparazzi`;
 }
 
 /**
@@ -18,11 +22,12 @@ async function ensureEvent() {
  * suppressed from the public guest view.
  */
 export async function bulkHideCapturesAction(
+  eventId: string,
   captureIds: readonly string[],
   reason?: string,
 ): Promise<ActionResult<{ hidden: number }>> {
   if (captureIds.length === 0) return { ok: true, data: { hidden: 0 } };
-  const event = await ensureEvent();
+  const event = await ensureEvent(eventId);
   const supabase = await createClient();
 
   const { error, count } = await supabase
@@ -37,15 +42,16 @@ export async function bulkHideCapturesAction(
     .select("capture_id");
 
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/dashboard/gallery");
+  revalidatePath(paparazziPath(event.event_id));
   return { ok: true, data: { hidden: count ?? 0 } };
 }
 
 export async function bulkUnhideCapturesAction(
+  eventId: string,
   captureIds: readonly string[],
 ): Promise<ActionResult<{ unhidden: number }>> {
   if (captureIds.length === 0) return { ok: true, data: { unhidden: 0 } };
-  const event = await ensureEvent();
+  const event = await ensureEvent(eventId);
   const supabase = await createClient();
 
   const { error, count } = await supabase
@@ -57,7 +63,7 @@ export async function bulkUnhideCapturesAction(
     .select("capture_id");
 
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/dashboard/gallery");
+  revalidatePath(paparazziPath(event.event_id));
   return { ok: true, data: { unhidden: count ?? 0 } };
 }
 
@@ -66,8 +72,8 @@ export async function bulkUnhideCapturesAction(
  * NOW() so the 7-day countdown stops. Once set, public guests can view the
  * gallery on the landing page.
  */
-export async function releaseGalleryEarlyAction(): Promise<ActionResult> {
-  const event = await ensureEvent();
+export async function releaseGalleryEarlyAction(eventId: string): Promise<ActionResult> {
+  const event = await ensureEvent(eventId);
   const supabase = await createClient();
 
   const { error } = await supabase
@@ -77,7 +83,7 @@ export async function releaseGalleryEarlyAction(): Promise<ActionResult> {
     .is("gallery_public_unlocked_at", null);
 
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/dashboard/gallery");
+  revalidatePath(paparazziPath(event.event_id));
   return { ok: true };
 }
 
@@ -85,11 +91,14 @@ export async function releaseGalleryEarlyAction(): Promise<ActionResult> {
  * Extend the review window by N days (default 1). No-op if the gallery has
  * already been unlocked or N is non-positive.
  */
-export async function extendReviewWindowAction(extraDays = 1): Promise<ActionResult> {
+export async function extendReviewWindowAction(
+  eventId: string,
+  extraDays = 1,
+): Promise<ActionResult> {
   if (!Number.isFinite(extraDays) || extraDays <= 0) {
     return { ok: false, error: "extraDays must be positive" };
   }
-  const event = await ensureEvent();
+  const event = await ensureEvent(eventId);
   if (event.gallery_public_unlocked_at) {
     return { ok: false, error: "Gallery already publicly unlocked" };
   }
@@ -102,7 +111,7 @@ export async function extendReviewWindowAction(extraDays = 1): Promise<ActionRes
     .eq("event_id", event.event_id);
 
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/dashboard/gallery");
+  revalidatePath(paparazziPath(event.event_id));
   return { ok: true };
 }
 
@@ -113,12 +122,12 @@ export async function extendReviewWindowAction(extraDays = 1): Promise<ActionRes
  * the support dashboard, but couples can also self-serve here.
  */
 export async function regenerateSeatTokenAction(
+  eventId: string,
   seatId: string,
 ): Promise<ActionResult<{ claim_qr_token: string }>> {
-  const event = await ensureEvent();
+  const event = await ensureEvent(eventId);
   const supabase = await createClient();
 
-  // 16 random bytes hex-encoded — matches the column DEFAULT.
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
   const token = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
@@ -138,6 +147,6 @@ export async function regenerateSeatTokenAction(
     .single();
 
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/dashboard/gallery");
+  revalidatePath(paparazziPath(event.event_id));
   return { ok: true, data: { claim_qr_token: data!.claim_qr_token as string } };
 }

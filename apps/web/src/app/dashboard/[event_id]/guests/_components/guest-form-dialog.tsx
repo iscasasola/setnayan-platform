@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { useParams } from "next/navigation";
 import {
   GROUP_CATEGORIES,
   GROUP_LABELS,
@@ -55,6 +56,8 @@ const EMPTY_FORM: GuestInput = {
 };
 
 export function GuestFormDialog({ mode, households, onClose }: Props) {
+  const params = useParams<{ event_id: string }>();
+  const eventId = params.event_id;
   const initial = mode.kind === "edit" ? guestToInput(mode.guest) : EMPTY_FORM;
   const [form, setForm] = useState<GuestInput>(initial);
   const [tagInput, setTagInput] = useState("");
@@ -109,8 +112,11 @@ export function GuestFormDialog({ mode, households, onClose }: Props) {
     startTransition(async () => {
       const result =
         mode.kind === "add"
-          ? await addGuestAction(validation.data)
-          : await updateGuestAction({ guest_id: mode.guest.guest_id, ...validation.data });
+          ? await addGuestAction(eventId, validation.data)
+          : await updateGuestAction(eventId, {
+              guest_id: mode.guest.guest_id,
+              ...validation.data,
+            });
       if (!result.ok) {
         setError(result.error);
         return;

@@ -5,13 +5,14 @@ import type { CaptureWithTags, PaparazziGalleryFilter } from "@/lib/db/types";
 import { bulkHideCapturesAction, bulkUnhideCapturesAction } from "../actions";
 
 interface Props {
+  eventId: string;
   captures: CaptureWithTags[];
   filter: PaparazziGalleryFilter;
   showHidden: boolean;
   emptyHint: string;
 }
 
-export function CaptureGrid({ captures, filter, showHidden, emptyHint }: Props) {
+export function CaptureGrid({ eventId, captures, filter, showHidden, emptyHint }: Props) {
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +49,7 @@ export function CaptureGrid({ captures, filter, showHidden, emptyHint }: Props) 
     if (selectedIds.length === 0) return;
     setError(null);
     start(async () => {
-      const r = await bulkHideCapturesAction(selectedIds, "Bulk hide from gallery review");
+      const r = await bulkHideCapturesAction(eventId, selectedIds, "Bulk hide from gallery review");
       if (!r.ok) setError(r.error);
       else clearSelection();
     });
@@ -57,7 +58,7 @@ export function CaptureGrid({ captures, filter, showHidden, emptyHint }: Props) 
     if (selectedIds.length === 0) return;
     setError(null);
     start(async () => {
-      const r = await bulkUnhideCapturesAction(selectedIds);
+      const r = await bulkUnhideCapturesAction(eventId, selectedIds);
       if (!r.ok) setError(r.error);
       else clearSelection();
     });

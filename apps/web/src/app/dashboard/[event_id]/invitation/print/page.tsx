@@ -1,6 +1,6 @@
-import { redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { headers } from "next/headers";
-import { getCurrentEvent } from "@/lib/db/events";
+import { getEventByIdForUser } from "@/lib/db/events";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateGuestQrSvg } from "@/lib/server/qr";
 import { ROLE_LABELS, type Guest } from "@/lib/db/types";
@@ -13,9 +13,14 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function PrintSheetPage() {
-  const event = await getCurrentEvent();
-  if (!event) redirect("/dashboard");
+interface RouteParams {
+  params: Promise<{ event_id: string }>;
+}
+
+export default async function PrintSheetPage({ params }: RouteParams) {
+  const { event_id } = await params;
+  const event = await getEventByIdForUser(event_id);
+  if (!event) notFound();
 
   const admin = createAdminClient();
   const { data: guests } = await admin

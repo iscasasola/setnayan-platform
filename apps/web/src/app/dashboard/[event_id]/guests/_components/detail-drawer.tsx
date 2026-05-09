@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useParams } from "next/navigation";
 import {
   GROUP_LABELS,
   RSVP_LABELS,
@@ -25,6 +26,8 @@ interface Props {
 }
 
 export function DetailDrawer({ guest, partner, household, table, onClose, onEdit }: Props) {
+  const params = useParams<{ event_id: string }>();
+  const eventId = params.event_id;
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -40,7 +43,7 @@ export function DetailDrawer({ guest, partner, household, table, onClose, onEdit
   const updateRsvp = (status: RsvpStatus) => {
     setError(null);
     startTransition(async () => {
-      const r = await setRsvpAction(guest.guest_id, status);
+      const r = await setRsvpAction(eventId, guest.guest_id, status);
       if (!r.ok) setError(r.error);
     });
   };
@@ -49,7 +52,7 @@ export function DetailDrawer({ guest, partner, household, table, onClose, onEdit
     if (!confirm(`Remove ${displayName} from your guest list?`)) return;
     setError(null);
     startTransition(async () => {
-      const r = await softDeleteGuestAction(guest.guest_id);
+      const r = await softDeleteGuestAction(eventId, guest.guest_id);
       if (!r.ok) {
         setError(r.error);
       } else {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useParams } from "next/navigation";
 import {
   GROUP_LABELS,
   ROLE_LABELS,
@@ -220,6 +221,8 @@ function VendorCell() {
 }
 
 function ReissueButton({ guestId, guestName }: { guestId: string; guestName: string }) {
+  const params = useParams<{ event_id: string }>();
+  const eventId = params.event_id;
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -229,7 +232,7 @@ function ReissueButton({ guestId, guestName }: { guestId: string; guestName: str
     }
     setError(null);
     startTransition(async () => {
-      const r = await reissueGuestTokenAction(guestId);
+      const r = await reissueGuestTokenAction(eventId, guestId);
       if (!r.ok) setError(r.error);
     });
   }

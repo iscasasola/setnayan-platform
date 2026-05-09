@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getCurrentEvent } from "@/lib/db/events";
+import { getEventByIdForUser } from "@/lib/db/events";
 import { invalidateGuestQrCache } from "@/lib/server/qr";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
@@ -19,10 +19,13 @@ type ActionResult = { ok: true } | { ok: false; error: string };
  * Couple-only. Couples sign in via OAuth (Supabase auth), so we use the
  * normal server client and rely on RLS to prevent cross-event mischief.
  */
-export async function reissueGuestTokenAction(guestId: string): Promise<ActionResult> {
+export async function reissueGuestTokenAction(
+  eventId: string,
+  guestId: string,
+): Promise<ActionResult> {
   // Verify the calling user is a couple of the event that owns the guest.
-  const event = await getCurrentEvent();
-  if (!event) return { ok: false, error: "Not signed in." };
+  const event = await getEventByIdForUser(eventId);
+  if (!event) return { ok: false, error: "No access to this event." };
 
   const supabase = await createClient();
 
@@ -62,6 +65,6 @@ export async function reissueGuestTokenAction(guestId: string): Promise<ActionRe
     qr_token: existing.qr_token as string,
   });
 
-  revalidatePath("/dashboard/qr-codes");
+  revalidatePath(`/dashboard/${event.event_id}/invitation`);
   return { ok: true };
 }

@@ -1,7 +1,7 @@
-import { redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import Link from "next/link";
-import { getCurrentEvent } from "@/lib/db/events";
+import { getEventByIdForUser } from "@/lib/db/events";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateGuestQrSvg } from "@/lib/server/qr";
 import type { Guest, ScanEvent } from "@/lib/db/types";
@@ -9,9 +9,14 @@ import { QrAdminTable } from "./_components/qr-admin-table";
 
 export const dynamic = "force-dynamic";
 
-export default async function QrCodesPage() {
-  const event = await getCurrentEvent();
-  if (!event) redirect("/dashboard");
+interface RouteParams {
+  params: Promise<{ event_id: string }>;
+}
+
+export default async function QrCodesPage({ params }: RouteParams) {
+  const { event_id } = await params;
+  const event = await getEventByIdForUser(event_id);
+  if (!event) notFound();
 
   const admin = createAdminClient();
   const [{ data: guests }, { data: scans }] = await Promise.all([
@@ -78,7 +83,7 @@ export default async function QrCodesPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
-              href="/dashboard/qr-codes/print"
+              href={`/dashboard/${event.event_id}/invitation/print`}
               target="_blank"
               className="btn-default text-[12px]"
             >

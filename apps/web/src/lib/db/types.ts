@@ -197,8 +197,60 @@ export interface Event {
   gallery_public_unlocked_at: string | null;
   hot_retention_days: number;
   custom_monogram_unlocked: boolean;
+  // 0000 App shell
+  is_primary: boolean;
+  archived: boolean;
   created_at: string;
   updated_at: string;
+}
+
+// ─── 0000 — App shell / multi-event account model ─────────────────────────
+
+export const MEMBER_TYPES = ["couple", "guest", "vendor"] as const;
+export type MemberType = (typeof MEMBER_TYPES)[number];
+
+export const JOINED_VIAS = ["qr_scan", "invited", "created_event"] as const;
+export type JoinedVia = (typeof JOINED_VIAS)[number];
+
+export interface TayoUser {
+  user_id: string;
+  email: string;
+  phone: string | null;
+  display_name: string | null;
+  profile_photo_url: string | null;
+  created_at: string;
+  last_login_at: string | null;
+}
+
+export interface EventJoinToken {
+  event_id: string;
+  token: string;
+  created_at: string;
+  rotated_at: string | null;
+  revoked_at: string | null;
+}
+
+export interface EventMember {
+  member_id: string;
+  event_id: string;
+  user_id: string;
+  member_type: MemberType;
+  role: string | null;
+  guest_id: string | null;
+  joined_via: JoinedVia | null;
+  joined_at: string;
+}
+
+export interface EventCard {
+  event_id: string;
+  slug: string;
+  bride_first_name: string;
+  groom_first_name: string;
+  event_date: string;
+  is_primary: boolean;
+  archived: boolean;
+  guest_count_estimate: number | null;
+  member_type: MemberType;
 }
 
 export interface Household {

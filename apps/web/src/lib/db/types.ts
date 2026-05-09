@@ -200,9 +200,32 @@ export interface Event {
   // 0000 App shell
   is_primary: boolean;
   archived: boolean;
+  event_type: "wedding" | "birthday" | "celebration" | "travel" | "corporate" | "burial";
   created_at: string;
   updated_at: string;
 }
+
+export const EVENT_TYPES = [
+  "wedding",
+  "birthday",
+  "celebration",
+  "travel",
+  "corporate",
+  "burial",
+] as const;
+export type EventType = (typeof EVENT_TYPES)[number];
+
+export const EVENT_TYPE_LABELS: Record<EventType, string> = {
+  wedding: "Weddings",
+  birthday: "Birthday",
+  celebration: "Celebration",
+  travel: "Travel",
+  corporate: "Corporate",
+  burial: "Burial",
+};
+
+/** V1 only allows 'wedding' from the picker. The other five tiles render but are disabled. */
+export const EVENT_TYPE_V1_SELECTABLE: ReadonlySet<EventType> = new Set(["wedding"]);
 
 // ─── 0000 — App shell / multi-event account model ─────────────────────────
 
@@ -491,14 +514,125 @@ export interface PersonalReel {
   updated_at: string;
 }
 
-export interface PaparazziWalletSku {
-  service_key: "paparazzi_3_seat" | "paparazzi_5_seat" | "paparazzi_template";
-  display_name_en: string;
+// ─── 0003 — Token wallet & service catalog ────────────────────────────────
+
+export const SERVICE_CATEGORIES = [
+  "pro_widget",
+  "pro_bundle",
+  "paparazzi",
+  "template",
+  "live_stream",
+  "photo_delivery",
+  "led_background",
+  "mood_board",
+  "other",
+] as const;
+export type ServiceCategory = (typeof SERVICE_CATEGORIES)[number];
+
+export interface ServiceCatalogEntry {
+  service_key: string;
+  display_name: string;
+  category: ServiceCategory;
   php_price_centavos: number;
-  token_display: number;
-  ref_type: string;
+  description: string | null;
+  iteration_origin: string | null;
   one_time_per_event: boolean;
+  is_active: boolean;
   created_at: string;
+  updated_at: string;
+}
+
+export interface TokenPack {
+  pack_id: string;
+  slug: string;
+  display_name: string;
+  php_price_centavos: number;
+  base_tokens: number;
+  bonus_tokens: number;
+  is_active: boolean;
+  display_order: number;
+  badge_text: string | null;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TokenWallet {
+  wallet_id: string;
+  event_id: string;
+  balance_tokens: number;
+  total_purchased_tokens: number;
+  total_spent_tokens: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TokenPurchase {
+  purchase_id: string;
+  wallet_id: string;
+  pack_id: string;
+  php_paid_centavos: number;
+  base_tokens: number;
+  bonus_tokens: number;
+  total_tokens: number;
+  payment_provider: "paymongo" | "stripe";
+  payment_ref: string;
+  refunded_at: string | null;
+  refund_reason: string | null;
+  created_at: string;
+}
+
+export const TOKEN_TRANSACTION_REASONS = [
+  "pack_purchase",
+  "pack_bonus",
+  "spend",
+  "refund",
+  "grant",
+  "correction",
+] as const;
+export type TokenTransactionReason = (typeof TOKEN_TRANSACTION_REASONS)[number];
+
+export interface TokenTransaction {
+  txn_id: string;
+  wallet_id: string;
+  delta_tokens: number;
+  reason: TokenTransactionReason;
+  ref_table: string | null;
+  ref_id: string | null;
+  display_label: string;
+  created_at: string;
+}
+
+/** Output shape of the wallet_spend() RPC. */
+export interface WalletSpendResult {
+  ok: boolean;
+  reason: "insufficient_balance" | "unknown_service" | "no_wallet" | null;
+  txn_id: string | null;
+  tokens_charged: number;
+  tokens_short: number;
+  balance_after: number;
+}
+
+/** PHP centavos → tokens (30:1 multiplier per project rule). */
+export function phpToTokens(centavos: number): number {
+  return Math.round((centavos * 30) / 100);
+}
+
+/** Render a price as both tokens and PHP equivalent. */
+export function formatPrice(centavos: number): {
+  tokens: number;
+  phpDisplay: string;
+  display: string;
+} {
+  const tokens = phpToTokens(centavos);
+  const peso = (centavos / 100).toLocaleString("en-PH", {
+    minimumFractionDigits: 0,
+  });
+  return {
+    tokens,
+    phpDisplay: `₱${peso}`,
+    display: `${tokens.toLocaleString("en-PH")} tokens (≈₱${peso})`,
+  };
 }
 
 // ─── Joined views ──────────────────────────────────────────────────────────

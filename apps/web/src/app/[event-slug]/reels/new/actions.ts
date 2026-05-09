@@ -15,8 +15,6 @@ interface EnqueueInput {
 
 type ActionResult<T = void> = { ok: true; data?: T } | { ok: false; error: string };
 
-const REEL_TEMPLATE_PRICE_CENTAVOS = 20000;
-
 export async function enqueuePersonalReelAction(
   input: EnqueueInput,
 ): Promise<ActionResult<{ reel_id: string }>> {
@@ -68,11 +66,17 @@ export async function enqueuePersonalReelAction(
     return { ok: false, error: "One or more selected captures aren't available." };
   }
 
-  // Check unlock — if not unlocked, the wallet would charge ₱200. 0003 wires
-  // the actual spend; here we only block enqueue when the unlock row is
-  // missing AND the event hasn't been auto-unlocked. For now, auto-create
-  // the unlock as a placeholder so the flow is unblocked while 0003 is
-  // pending. When 0003 lands, this branch becomes a wallet.spend() call.
+  // Check unlock. 0003's wallet_spend() RPC is now schema-live, but the
+  // wallet UI (pack picker + spend modal) hasn't been built yet, so couples
+  // can't top up. To keep dev unblocked we auto-create the unlock instead
+  // of charging. When the wallet UI ships, replace this block with:
+  //
+  //   const { data: spend } = await admin.rpc("wallet_spend", {
+  //     p_event_id: input.event_id,
+  //     p_service_key: "template_addon",
+  //     p_ref_id: <new event_template_unlocks.id>,
+  //   });
+  //   if (!spend.ok) return { ok: false, error: spend.reason };
   const { data: unlockRow } = await admin
     .from("event_template_unlocks")
     .select("event_id")
@@ -118,7 +122,6 @@ export async function enqueuePersonalReelAction(
 
   // Render-pipeline kickoff lives in a Cloudflare Worker; this row is the
   // signal it watches. Until that worker exists the row stays in 'queued'.
-  void REEL_TEMPLATE_PRICE_CENTAVOS;
   revalidatePath(`/${input.slug}/reels`);
   redirect(`/${input.slug}/reels/${reel.reel_id}`);
 }

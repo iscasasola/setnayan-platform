@@ -21,7 +21,7 @@ const EVENT_SELECT =
   "photos_released_at, " +
   "paparazzi_tier, gallery_review_window_days, " +
   "gallery_public_unlocked_at, hot_retention_days, custom_monogram_unlocked, " +
-  "is_primary, archived, " +
+  "is_primary, archived, event_type, " +
   "created_at, updated_at";
 
 /**

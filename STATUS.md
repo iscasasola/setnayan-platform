@@ -3,14 +3,18 @@
 > Living checkpoint. Updated as work progresses.
 
 **Last updated:** 2026-05-13
-**Current sprint:** Sprint 0 (iteration `0013_platform_stack_and_sync`)
+**Current sprint:** Iteration `0000_app_shell_and_navigation` (Phases A–D shipped this session; join flow + Schedule view deferred)
 **Owner's wedding (deadline anchor):** December 2026
 
 ---
 
 ## Where we are right now
 
-**Sprint 0 is fully done.** All 7 provisioning steps green; both desktop artifacts (`.dmg` + `.msi`) successfully produced by CI. Ready to begin iteration 0000 (App Shell & Navigation) in the next session.
+**Sprint 0 closed; iteration 0000 mostly shipped.** Schema delta applied to live Supabase. The full event lifecycle works end-to-end on the deployed app: sign in → event picker → create-event (Weddings-only) → inside-event shell with 4-tab bottom nav → Services launcher grid → placeholder service pages.
+
+Deferred from iteration 0000 (out of session scope): join flow at `/join/[event-id]`, unified Schedule view (waits on 0006+0007), vendor/admin role-router destinations.
+
+Next likely sessions: iteration 0001 (guest list — the first iteration to put real content inside the Guest List tab and wire the 18-role taxonomy that the join flow needs).
 
 ---
 

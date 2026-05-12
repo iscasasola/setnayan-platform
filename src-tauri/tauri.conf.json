@@ -4,10 +4,10 @@
   "version": "0.0.1",
   "identifier": "com.setnayan.desktop",
   "build": {
-    "frontendDist": "../apps/web/out",
+    "frontendDist": "./shell",
     "devUrl": "http://localhost:3000",
     "beforeDevCommand": "pnpm --filter @setnayan/web dev",
-    "beforeBuildCommand": "pnpm --filter @setnayan/web build"
+    "beforeBuildCommand": ""
   },
   "app": {
     "windows": [

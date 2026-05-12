@@ -1,0 +1,87 @@
+name: build-desktop
+
+# Produces buildable .app (macOS) + .exe / .msi (Windows) artifacts on every
+# push to main and on PRs touching the desktop wrapper. Artifacts aren't
+# signed yet — that's a Phase 2 concern. The goal of this workflow is the
+# Sprint 0 "don't go back" insurance: if a web change breaks the Tauri
+# wrapper, CI catches it before the change lands.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - 'apps/web/**'
+      - 'src-tauri/**'
+      - '.github/workflows/build-desktop.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: build (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            target: 'aarch64-apple-darwin'
+            artifact-glob: 'src-tauri/target/release/bundle/dmg/*.dmg'
+          - platform: windows-latest
+            target: 'x86_64-pc-windows-msvc'
+            artifact-glob: 'src-tauri/target/release/bundle/msi/*.msi'
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.toml') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Install pnpm dependencies
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Install Tauri CLI
+        run: pnpm add -g @tauri-apps/cli@^2
+
+      - name: Generate Tauri icons (from icon.svg)
+        run: tauri icon src-tauri/icons/icon.svg
+
+      - name: Build desktop bundle
+        run: tauri build --target ${{ matrix.target }}
+        env:
+          # Sprint 0: build is unsigned so the Tauri build doesn't try to load
+          # signing identities that don't exist yet.
+          TAURI_SIGNING_PRIVATE_KEY: ''
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'http://placeholder' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder' }}
+          NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL || 'https://setnayan.com' }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: setnayan-desktop-${{ matrix.platform }}
+          path: ${{ matrix.artifact-glob }}
+          if-no-files-found: warn
+          retention-days: 14

@@ -1,74 +1,51 @@
-import type { Config } from "tailwindcss";
+import type { Config } from 'tailwindcss';
 
+// Locked breakpoints per kickoff brief — Tailwind defaults match the spec
+// (sm 640 / md 768 / lg 1024 / xl 1280). Re-declared explicitly so a future
+// theme override can't accidentally shift them.
 const config: Config = {
-  content: ["./src/**/*.{js,ts,jsx,tsx,mdx}"],
+  content: ['./app/**/*.{ts,tsx}', './lib/**/*.{ts,tsx}'],
   theme: {
+    screens: {
+      sm: '640px',
+      md: '768px',
+      lg: '1024px',
+      xl: '1280px',
+      '2xl': '1536px',
+    },
     extend: {
-      fontFamily: {
-        // Filipino Heritage typography (per design tokens in mockup 17)
-        serif: ["var(--font-cormorant)", "Cormorant Garamond", "serif"],
-        sans: ["var(--font-manrope)", "Manrope", "system-ui", "sans-serif"],
-        mono: ["var(--font-dm-mono)", "DM Mono", "ui-monospace", "monospace"],
-      },
       colors: {
-        // Filipino Heritage palette — values map to CSS custom properties
-        // declared in globals.css. Keep both in sync.
-        "page-bg": "var(--page-bg)",
-        "page-bg-soft": "var(--page-bg-soft)",
-        ink: "var(--ink)",
-        "ink-soft": "var(--ink-soft)",
-        "ink-faint": "var(--ink-faint)",
-        accent: "var(--accent)",
-        "accent-soft": "var(--accent-soft)",
-        "accent-deep": "var(--accent-deep)",
-        rule: "var(--rule)",
-        "rule-strong": "var(--rule-strong)",
-        surface: "var(--surface)",
-        "surface-soft": "var(--surface-soft)",
-
-        // Side coding (bride / groom / both)
-        bride: "var(--bride)",
-        "bride-soft": "var(--bride-soft)",
-        "bride-ink": "var(--bride-ink)",
-        groom: "var(--groom)",
-        "groom-soft": "var(--groom-soft)",
-        "groom-ink": "var(--groom-ink)",
-        both: "var(--both)",
-        "both-soft": "var(--both-soft)",
-        "both-ink": "var(--both-ink)",
-
-        // RSVP statuses
-        "rsvp-attending": "var(--rsvp-attending)",
-        "rsvp-attending-soft": "var(--rsvp-attending-soft)",
-        "rsvp-attending-ink": "var(--rsvp-attending-ink)",
-        "rsvp-declined": "var(--rsvp-declined)",
-        "rsvp-declined-soft": "var(--rsvp-declined-soft)",
-        "rsvp-declined-ink": "var(--rsvp-declined-ink)",
-        "rsvp-pending": "var(--rsvp-pending)",
-        "rsvp-pending-soft": "var(--rsvp-pending-soft)",
-        "rsvp-pending-ink": "var(--rsvp-pending-ink)",
-        "rsvp-maybe": "var(--rsvp-maybe)",
-        "rsvp-maybe-soft": "var(--rsvp-maybe-soft)",
-        "rsvp-maybe-ink": "var(--rsvp-maybe-ink)",
-
-        // Role-coded chips (extracted from mockup tag.role-* classes)
-        "role-sponsor-bg": "var(--role-sponsor-bg)",
-        "role-sponsor-ink": "var(--role-sponsor-ink)",
-        "role-entourage-bg": "var(--role-entourage-bg)",
-        "role-entourage-ink": "var(--role-entourage-ink)",
-        "role-bearer-bg": "var(--role-bearer-bg)",
-        "role-bearer-ink": "var(--role-bearer-ink)",
+        // Brand palette (per CLAUDE.md 2026-05-11 + 2026-05-12 brand locks):
+        // cream + ink + terracotta only.
+        cream: '#FAF7F2',
+        ink: '#1A1A1A',
+        terracotta: {
+          DEFAULT: '#C97B4B',
+          50: '#FBF1EA',
+          100: '#F4DBC9',
+          200: '#E8B68F',
+          300: '#DC9166',
+          400: '#D08654',
+          500: '#C97B4B',
+          600: '#A86138',
+          700: '#824A2A',
+          800: '#5C341D',
+          900: '#371F11',
+        },
       },
-      boxShadow: {
-        "tayo-sm": "0 2px 8px rgba(26, 26, 26, 0.04)",
-        "tayo-md": "0 12px 32px rgba(26, 26, 26, 0.08)",
-        "tayo-lg": "0 28px 72px rgba(26, 26, 26, 0.12)",
-      },
-      letterSpacing: {
-        "label-tight": "0.04em",
-        "label-mid": "0.1em",
-        "label-wide": "0.14em",
-        "label-extra": "0.16em",
+      fontFamily: {
+        // System fallback in Sprint 0. Cormorant Garamond + Manrope + DM Mono
+        // are queued for iteration 0015 (main marketing site).
+        sans: [
+          '-apple-system',
+          'BlinkMacSystemFont',
+          'Segoe UI',
+          'Roboto',
+          'Helvetica Neue',
+          'Arial',
+          'sans-serif',
+        ],
+        mono: ['ui-monospace', 'SF Mono', 'Menlo', 'monospace'],
       },
     },
   },

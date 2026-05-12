@@ -1,15 +1,29 @@
-import type { NextConfig } from "next";
-import path from "node:path";
+import path from 'node:path';
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  // typedRoutes is intentionally OFF until all aspirational nav links
-  // (Landing Page, Schedule, Suppliers, Gallery, Settings, More) have real
-  // page.tsx files. Re-enable when those work orders ship.
-  typedRoutes: false,
-  // Tell Next that the monorepo root is two levels up so it stops picking up the
-  // unrelated package-lock.json in the user's home directory.
-  outputFileTracingRoot: path.join(__dirname, "../../"),
+  // Standalone build per kickoff brief — produces a self-contained server bundle
+  // for Tauri desktop wrapping + container deploys.
+  output: 'standalone',
+  outputFileTracingRoot: path.join(__dirname, '../../'),
+  // PWA service worker + manifest must be reachable with no auth and no
+  // middleware rewriting — the matcher in middleware.ts already excludes them.
+  async headers() {
+    return [
+      {
+        source: '/sw.js',
+        headers: [
+          { key: 'Service-Worker-Allowed', value: '/' },
+          { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
+        ],
+      },
+      {
+        source: '/manifest.json',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=3600' }],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

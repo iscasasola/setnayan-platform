@@ -1,7 +1,8 @@
 {
-  "name": "tayo",
+  "name": "setnayan",
   "private": true,
   "version": "0.0.1",
+  "description": "Setnayan — Philippines-first life-events platform. V1 weddings.",
   "packageManager": "pnpm@9.12.0",
   "engines": {
     "node": ">=22.0.0",
@@ -13,7 +14,9 @@
     "lint": "turbo run lint",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
-    "clean": "turbo run clean && rm -rf node_modules"
+    "clean": "turbo run clean && rm -rf node_modules",
+    "tauri:dev": "pnpm --filter @setnayan/web dev & cargo tauri dev --manifest-path src-tauri/Cargo.toml",
+    "tauri:build": "cargo tauri build --manifest-path src-tauri/Cargo.toml"
   },
   "devDependencies": {
     "turbo": "^2.3.0",

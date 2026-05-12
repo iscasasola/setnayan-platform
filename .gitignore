@@ -2,43 +2,47 @@
 node_modules/
 .pnpm-store/
 
-# Build outputs
+# Build output
 .next/
 .turbo/
 dist/
 out/
 build/
-*.tsbuildinfo
 
-# Env
+# Tauri
+src-tauri/target/
+src-tauri/icons/32x32.png
+src-tauri/icons/128x128.png
+src-tauri/icons/128x128@2x.png
+src-tauri/icons/icon.icns
+src-tauri/icons/icon.ico
+src-tauri/icons/Square*.png
+src-tauri/icons/StoreLogo.png
+src-tauri/WixTools/
+
+# Environment
 .env
 .env.local
 .env.*.local
-
-# Editor
-.vscode/
-.idea/
-*.swp
-
-# OS
-.DS_Store
-Thumbs.db
+!.env.example
 
 # Logs
 *.log
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 pnpm-debug.log*
 
-# Vercel
-.vercel/
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
 
-# Test
+# macOS
+.DS_Store
+
+# Coverage / test artifacts
 coverage/
 .nyc_output/
-playwright-report/
-playwright/.cache/
 
 # Supabase
 supabase/.branches/

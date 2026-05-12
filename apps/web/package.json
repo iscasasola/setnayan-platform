@@ -1,5 +1,5 @@
 {
-  "name": "@tayo/web",
+  "name": "@setnayan/web",
   "version": "0.0.1",
   "private": true,
   "scripts": {
@@ -10,20 +10,14 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@supabase/ssr": "^0.10.2",
-    "@supabase/supabase-js": "^2.105.3",
-    "jose": "^6.2.3",
+    "@supabase/ssr": "^0.5.2",
+    "@supabase/supabase-js": "^2.45.4",
     "next": "^15.1.0",
-    "papaparse": "^5.5.3",
-    "qrcode": "^1.5.4",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "zod": "^4.4.3"
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
-    "@types/papaparse": "^5.5.2",
-    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "autoprefixer": "^10.4.20",

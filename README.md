@@ -1,84 +1,138 @@
-# Tayo
+# Setnayan
 
-Filipino-Catholic-peso-aware wedding planning platform. V1 webapp first; iOS/Android wraps after the webapp matures.
+> Set na 'yan. Philippines-first life-events platform. V1 weddings.
 
-The authoritative build spec is [SPEC.md](./SPEC.md). Read that first.
+This repo holds the **Setnayan V1 single-codebase build** — one Next.js app distributed to:
+
+- **Web** at `setnayan.com` (Vercel)
+- **Desktop** for macOS + Windows via Tauri
+- **Installable PWA** on iPhone, Android, iPad
+
+Native iOS/Android Papic + DSLR pairing are Phase 2.
+
+The product specifications and decision log live outside this repo at
+`~/Documents/Claude/Projects/Setnayan/`. `CLAUDE.md` there is the canonical
+source of truth for product behavior; this repo is the implementation.
 
 ## Repo layout
 
 ```
-tayo/
+.
 ├── apps/
-│   ├── web/              # Next.js app (couple, guest, vendor, coordinator) — tayo.app
-│   └── admin/            # Tayo Staff admin tool — admin.tayo.app
+│   └── web/                Next.js 15 App Router (the one product surface)
+│       ├── app/            routes (auth, login, signup, health, …)
+│       ├── lib/supabase/   server + browser + middleware-refresh clients
+│       ├── public/         manifest.json, service worker, PWA icons
+│       └── scripts/        rls-audit.sql (CI deploy gate)
 ├── packages/
-│   ├── ui/               # shadcn/ui components + custom Tayo components
-│   ├── db/               # Supabase types + migrations + RLS policies
-│   ├── ai/               # AI client wrappers (Claude, FLUX, Rekognition)
-│   ├── payments/         # PayMongo wrapper
-│   └── shared/           # Shared types, utils, constants, Zod schemas
+│   └── shared/             cross-app types (PublicId, AccountType, …)
+├── src-tauri/              Tauri 2 desktop wrapper (.app + .exe + .deb)
 ├── supabase/
-│   ├── migrations/       # SQL migrations
-│   └── seed.sql          # Default checklists, vendor categories
-├── docs/                 # Spec, design files, decisions
-└── SPEC.md               # Authoritative build spec (Section 3 → 13)
+│   ├── migrations/         SQL migrations (canonical schema + RLS)
+│   └── seed.sql            dev seed (re-runnable)
+├── .github/workflows/      ci · build-desktop · lighthouse
+└── .env.example            Sprint 0 canonical env keys
 ```
 
-## Day-0 prerequisites (before code work)
+## Sprint 0 — what shipped
 
-Per SPEC.md Section 3 — accounts that must be live before development begins:
+Sprint 0 iteration is **0013 platform_stack_and_sync**. Spec lives at
+`~/Documents/Claude/Projects/Setnayan/0013_platform_stack_and_sync/`.
 
-- [ ] Anthropic Console (API key with per-project budget)
-- [ ] Supabase project (free tier; Pro before launch)
-- [ ] Cloudflare account (R2 bucket + DNS for tayo.app)
-- [ ] AWS account (Rekognition only, ap-southeast-1)
-- [ ] PayMongo merchant account (PH KYC — start Week 0, takes ~4 weeks)
-- [ ] Resend account + verified sending domain (SPF/DKIM/DMARC on tayo.app)
-- [ ] Twilio account (only if SMS in V1)
-- [ ] Vercel account (Pro once team > 1)
-- [ ] Sentry + PostHog free tiers
-- [ ] GitHub org with private repo
-- [ ] 1Password team vault for secrets
-
-Per SPEC.md Section 13 — decisions to lock before Sprint 1:
-
-- [x] **Landing-page model:** all 3 variations (A, B, C) from `docs/06_Couple_Landing_Page_Designs_v1.html` ship as couple-selectable templates. Default = C. Variation C is also Tayo's master brand language for app chrome.
-- [ ] **Per-template palettes + typography:** extract final hex values, fonts, and accent gradients for each of A / B / C from doc 06 and codify in Tailwind theme.
-- [ ] Vercel vs Cloudflare Pages — final hosting choice
-- [ ] Subdomain strategy (custom subdomains in V1 or V1.5?)
+| Acceptance | State |
+|---|---|
+| Next.js 14+ App Router with `output: 'standalone'` | ✅ `apps/web/next.config.ts` |
+| Tailwind with locked breakpoints (sm 640 / md 768 / lg 1024 / xl 1280) | ✅ `apps/web/tailwind.config.ts` |
+| `.env.example` with Supabase / R2 / Daily.co / Resend / Anthropic / Sentry / PostHog / Better Stack keys | ✅ `.env.example` |
+| PWA manifest + service worker + maskable icons | ✅ `apps/web/public/manifest.json` + `sw.js` + `icon-192.svg` + `icon-512.svg` |
+| `generate_public_id(type_letter)` per `Account_ID_Format.md` | ✅ migration `20260512000000` |
+| 4 RLS helpers (`is_admin`, `current_event_ids`, `current_vendor_ids`, `current_thread_ids`) | ✅ migration `20260512000000` |
+| 4 base tables (`users`, `events`, `event_members`, `event_join_tokens`) with `S89X-` public_id | ✅ migration `20260512000000` |
+| RLS enabled + canonical Pattern A/B policies | ✅ migration `20260512000000` |
+| Supabase email/password + magic-link (no OAuth popups) | ✅ `apps/web/app/login` + `signup` |
+| `/health` returns 200 | ✅ `apps/web/app/health/route.ts` |
+| Owner auto-issued `is_internal=TRUE` on signup | ✅ DB trigger keyed off `iscasasolaii@gmail.com` |
+| Tauri scaffold (`src-tauri/`) | ✅ Cargo.toml + tauri.conf.json + main.rs + lib.rs |
+| GitHub Actions `build-desktop.yml` producing `.app` + `.exe` | ✅ macOS + Windows matrix |
+| Lighthouse ≥ 90 config (Perf / A11y / Best / SEO / PWA) | ✅ `.lighthouserc.json` + `lighthouse.yml` |
 
 ## Local development
 
 ```bash
-# Once: install pnpm system-wide via Corepack (requires sudo on macOS for the symlink)
-sudo corepack enable
+# Once: enable pnpm via Corepack (Node 22)
+corepack enable
 corepack prepare pnpm@9.12.0 --activate
 
-# Install dependencies
+# Install
 pnpm install
 
-# Run web app (port 3000)
-pnpm --filter @tayo/web dev
+# Copy env template
+cp .env.example .env.local
+# …then fill in real Supabase / R2 / Daily.co / Resend / Anthropic keys.
 
-# Run admin app (port 3001)
-pnpm --filter @tayo/admin dev
-
-# Run both in parallel (Turborepo)
+# Run the web app
 pnpm dev
 
-# Typecheck / lint / test across the monorepo
+# Typecheck / lint
 pnpm typecheck
 pnpm lint
-pnpm test
+
+# Tauri desktop (requires Rust toolchain + Tauri CLI prerequisites)
+pnpm tauri:dev          # boots web at :3000 and wraps it in a Tauri window
+pnpm tauri:build        # produces .app / .exe / .deb in src-tauri/target/
 ```
 
-Copy `.env.example` to `.env.local` and fill in real secrets (never commit `.env.local`).
+### Supabase
 
-## Sprint plan (SPEC.md Section 10)
+Migrations live in `supabase/migrations/` and are applied via the Supabase CLI:
 
-| Sprint | Weeks | Goal |
-|---|---|---|
-| 1 | 1–6 | Foundations: auth, RLS, dashboard shell, public landing page, basic budget/timeline/guests |
-| 2 | 7–12 | Vendor lifecycle: application → approval → packages → inquiry → quote → booking |
-| 3 | 13–18 | Photos + AI: R2 upload, Rekognition face matching, Tayo Kasalan AI assistant |
-| 4 | 19–24 | Polish + launch: coordinator dashboard, admin tool, PayMongo, day-of run-of-show, E2E tests |
+```bash
+# One-time link to the Supabase project
+supabase link --project-ref <project-ref>
+
+# Push the canonical schema
+supabase db push
+
+# Verify the RLS deploy-gate is clean
+psql "$DATABASE_URL" -f apps/web/scripts/rls-audit.sql
+```
+
+### Tauri icons
+
+`src-tauri/icons/icon.svg` is the master. The desktop build workflow runs
+`tauri icon` to convert it to the required PNG / ICO / ICNS formats. Locally,
+do the same once before `pnpm tauri:dev`:
+
+```bash
+pnpm add -g @tauri-apps/cli@^2
+tauri icon src-tauri/icons/icon.svg
+```
+
+## Decision log + spec
+
+This repo deliberately doesn't duplicate product decisions. The canonical
+sources live in the specs folder at `~/Documents/Claude/Projects/Setnayan/`:
+
+- `CLAUDE.md` — full decision log, most recent at bottom
+- `CLAUDE_Code_Build_Prompt.md` — tech-stack and pattern lockdowns
+- `02_Specifications/Account_ID_Format.md` — the `S89X-` ID contract
+- `02_Specifications/RLS_Policy_Pattern.md` — 8 RLS patterns + 4 helpers
+- `RETIRED_ITEMS.md` — what NOT to build (token wallet, STNYN wordmark, …)
+- `API_Integration_Checklist.md` — external service prerequisites
+- `0013_platform_stack_and_sync/` — this Sprint 0's spec + tests + fixtures
+
+## Commit conventions
+
+Conventional commits, iteration-scoped:
+
+- `iter(0013): wire R2 signed-URL helper`
+- `iter(0021): add overview surface card`
+- `cross: align brand tokens across web + tauri shell`
+- `chore: bump pnpm to 9.x`
+- `docs(0024): clarify STD render quota`
+
+PR titles include the iteration number in the same `iter(NNNN):` form.
+
+## License
+
+Private. © Setnayan.

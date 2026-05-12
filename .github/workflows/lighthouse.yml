@@ -1,0 +1,44 @@
+name: lighthouse
+
+# Runs Lighthouse CI against a local production build. Targets per kickoff:
+# Performance / Accessibility / Best Practices / SEO ≥ 90 (error); PWA ≥ 90 (warn).
+
+on:
+  pull_request:
+    paths:
+      - 'apps/web/**'
+      - '.lighthouserc.json'
+      - '.github/workflows/lighthouse.yml'
+  workflow_dispatch:
+
+jobs:
+  lighthouse:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Build web
+        run: pnpm --filter @setnayan/web build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+
+      - name: Run Lighthouse CI
+        run: npx --yes @lhci/cli@0.14 autorun
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
+          NEXT_PUBLIC_APP_URL: http://localhost:3000

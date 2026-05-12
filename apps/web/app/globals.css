@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-cream: 250 247 242;
+    --color-ink: 26 26 26;
+    --color-terracotta: 201 123 75;
+  }
+
+  html {
+    color-scheme: light;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: rgb(var(--color-cream));
+    color: rgb(var(--color-ink));
+  }
+
+  /* Touch targets ≥ 44pt per kickoff multi-platform rules. */
+  button,
+  [role='button'],
+  a.button,
+  input[type='submit'] {
+    min-height: 44px;
+  }
+}
+
+@layer components {
+  .button-primary {
+    @apply inline-flex h-11 items-center justify-center rounded-md bg-terracotta px-6 text-sm font-medium text-cream transition-colors hover:bg-terracotta-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .button-secondary {
+    @apply inline-flex h-11 items-center justify-center rounded-md border border-ink/20 bg-cream px-6 text-sm font-medium text-ink transition-colors hover:border-ink/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2;
+  }
+
+  .input-field {
+    @apply h-11 w-full rounded-md border border-ink/20 bg-cream px-3 text-base text-ink placeholder-ink/40 transition-colors focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta;
+  }
+}

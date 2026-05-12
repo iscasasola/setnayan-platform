@@ -1,0 +1,43 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Setnayan",
+  "version": "0.0.1",
+  "identifier": "com.setnayan.desktop",
+  "build": {
+    "frontendDist": "../apps/web/out",
+    "devUrl": "http://localhost:3000",
+    "beforeDevCommand": "pnpm --filter @setnayan/web dev",
+    "beforeBuildCommand": "pnpm --filter @setnayan/web build"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Setnayan",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 1024,
+        "minHeight": 768,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "category": "Productivity",
+    "shortDescription": "Setnayan desktop",
+    "longDescription": "Set na 'yan. Setnayan desktop wrapper for the web app.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}

@@ -25,10 +25,10 @@ jobs:
         include:
           - platform: macos-latest
             target: 'aarch64-apple-darwin'
-            artifact-glob: 'src-tauri/target/release/bundle/dmg/*.dmg'
+            artifact-glob: 'src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg'
           - platform: windows-latest
             target: 'x86_64-pc-windows-msvc'
-            artifact-glob: 'src-tauri/target/release/bundle/msi/*.msi'
+            artifact-glob: 'src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi'
 
     runs-on: ${{ matrix.platform }}
 

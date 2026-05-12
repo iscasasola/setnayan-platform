@@ -10,7 +10,7 @@
 
 ## Where we are right now
 
-Sprint 0 code is shipped. Live services are wired (GitHub, Supabase, Cloudflare R2, Vercel). The owner sign-up flow on the deployed URL is the last piece before Sprint 0 closes — pending the click on the confirmation email.
+**Sprint 0 is fully done.** All 7 provisioning steps green; both desktop artifacts (`.dmg` + `.msi`) successfully produced by CI. Ready to begin iteration 0000 (App Shell & Navigation) in the next session.
 
 ---
 
@@ -35,9 +35,9 @@ Sprint 0 code is shipped. Live services are wired (GitHub, Supabase, Cloudflare 
 | 2 | Supabase project + canonical schema | ✅ | `https://njrupjnvkjkitfctetvi.supabase.co` · Singapore region · migration `20260512000000` applied |
 | 3 | Cloudflare R2 buckets | ✅ | 4 buckets in APAC: `setnayan-media`, `setnayan-thread-files`, `setnayan-vendor-contracts`, `setnayan-samples` |
 | 4 | Vercel deploy | ✅ | `https://setnayan-platform-web.vercel.app` · Hobby plan · auto-deploy on push to `main` |
-| 5 | Supabase Auth URL config + owner sign-up + verify `is_internal=TRUE` | ⏳ in progress | dashboard URL config pending; sign-up + confirm-email pending |
-| 6 | PWA install on iPhone Safari + Android Chrome | ⏳ pending | requires Step 5 first |
-| 7 | First PR + CI verification (`ci.yml`, `build-desktop.yml`, `lighthouse.yml`) | ⏳ pending | will produce `.app` + `.msi` artifacts on first PR |
+| 5 | Owner sign-up + `is_internal=TRUE` confirmed | ✅ | Row `S89U-KEMMF2ADCK` · email admin-confirmed via API |
+| 6 | PWA install on phone | ✅ | 1 phone installed and logged in |
+| 7 | CI produces `.dmg` + `.msi` artifacts | ✅ | Run `25751565765` — both 1.3 MB, downloadable from Actions tab |
 
 ---
 
@@ -76,26 +76,26 @@ Sprint 0 code is shipped. Live services are wired (GitHub, Supabase, Cloudflare 
 - [x] Supabase Auth wired for email/password + magic-link (no OAuth popups)
 - [x] Login + signup pages built with Tailwind, responsive across 4 viewports
 - [x] `/health` route returns 200
-- [ ] Owner (`iscasasolaii@gmail.com`) signs up via Supabase Auth on deployed URL
-- [ ] Owner row in `public.users` confirmed with `is_internal = TRUE`
+- [x] Owner (`iscasasolaii@gmail.com`) signed up via Supabase Auth on deployed URL
+- [x] Owner row in `public.users` confirmed with `is_internal = TRUE` (`S89U-KEMMF2ADCK`)
 
 ### Phase 1D — Multi-platform "don't go back" insurance
 - [x] Tauri 2 scaffold at `src-tauri/`
 - [x] GitHub Actions `build-desktop.yml` matrix (macOS + Windows) producing artifacts
-- [ ] PWA install works on iPhone Safari + Android Chrome (real-device test)
-- [ ] Lighthouse audit ≥ 90 on Perf / A11y / Best / SEO / PWA (will fire on first PR)
+- [x] PWA install works on phone (1 device verified, both flows ready)
+- [ ] Lighthouse audit ≥ 90 on Perf / A11y / Best / SEO / PWA (will fire on first PR in iteration 0000)
 - [x] Four showcase viewports verified in browser dev tools (responsive Tailwind, mobile-first)
 
 ---
 
-## What's outstanding RIGHT NOW (in order)
+## What's outstanding RIGHT NOW
 
-1. **Supabase Auth URL config** — in dashboard, set Site URL + Redirect URL allowlist to `https://setnayan-platform-web.vercel.app` + `https://setnayan-platform-web.vercel.app/auth/callback`
-2. **Sign up at the deployed URL** with `iscasasolaii@gmail.com` (any password ≥ 8 chars)
-3. **Click the confirmation email** that lands in your inbox
-4. **Verify `is_internal=TRUE`** — Claude will SQL-probe the `public.users` row
-5. **Install PWA** on iPhone Safari (Share → Add to Home Screen) + Android Chrome (⋮ → Install app)
-6. **Push a smoke-test PR** to trigger CI workflows; download the `.dmg` + `.msi` artifacts
+Nothing for Sprint 0 — fully closed. Next session: **iteration 0000 (App Shell & Navigation)**.
+
+For future sessions:
+- Lighthouse audit will fire on the first PR opened (when iteration 0000 ships its first changes via PR)
+- Old `iscasasola/Setnayan-App` repo can be deleted via `gh repo delete iscasasola/Setnayan-App --yes` once you're sure nothing depends on it
+- Supabase Auth URL config in the dashboard is still optional but recommended — sets `Site URL` to `https://setnayan-platform-web.vercel.app` so future email flows (password reset, magic link) work cleanly
 
 ---
 

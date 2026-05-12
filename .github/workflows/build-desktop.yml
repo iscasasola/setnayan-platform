@@ -76,6 +76,16 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder' }}
           NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL || 'https://setnayan.com' }}
 
+      - name: Ad-hoc codesign macOS bundle (fixes "is damaged" Gatekeeper error)
+        if: matrix.platform == 'macos-latest'
+        run: |
+          APP_PATH="src-tauri/target/${{ matrix.target }}/release/bundle/macos/Setnayan.app"
+          DMG_PATH=$(ls src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg | head -1)
+          codesign --force --deep --sign - "$APP_PATH"
+          xattr -cr "$APP_PATH"
+          xattr -cr "$DMG_PATH"
+          echo "Ad-hoc signed: $APP_PATH"
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:

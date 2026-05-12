@@ -4,6 +4,53 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-13 · Iteration 0001 — Guest List (Phases A–C, MVP slice)
+
+**Commits:** to be filled in once committed.
+
+**What landed:**
+- **Phase A — schema migration `20260513010000_iteration_0001_guests.sql`:**
+  - Enum `public.guest_role` with all 18 Filipino-wedding roles per spec § Role taxonomy
+  - 5 supporting enums: `guest_side`, `guest_group_category`, `meal_preference`, `rsvp_status`, `plus_one_mode`
+  - `public.households` table (no public_id surface — internal entity)
+  - `public.guests` table with all 27 columns from the spec including `plus_one_*` columns, `photo_consent` (default TRUE per RA 10173), `invited_to_blocks` (default ceremony+reception), `custom_tags`, `qr_token` (auto-generated), `deleted_at` (soft delete)
+  - `public_id` on guests follows `S89G-XXXXXXXXXX` canonical format
+  - RLS Pattern B on both tables — event-scoped read, couple-write, admin override
+  - Bonus policy: a registered guest can read their own row (for iteration 0002's invitation site rendering)
+  - Retroactive FK: `event_members.guest_id → guests(guest_id) ON DELETE SET NULL`
+- **Phase B — `/dashboard/[eventId]/guests` list view** (replaces the iteration 0000 placeholder):
+  - Stats strip with 5 cards: Invited / Attending (emerald) / Pending (amber) / Declined (rose) / Plus-Ones (terracotta) — each card is a clickable filter
+  - URL-based filter: `?rsvp=attending|pending|declined|maybe`
+  - URL-based search: `?q=...` — fuzzy match on name + display name + email + custom tags
+  - Desktop table (≥640px): avatar + name + plus-one hint + role + side pill + RSVP pill + contact
+  - Mobile card list (<640px): avatar + name + role + RSVP pill
+  - Empty states for both "no guests yet" and "no matches for filters"
+  - Side-coded avatars (rose / sky / amber for bride / groom / both)
+- **Phase C — `/dashboard/[eventId]/guests/new` add-guest form:**
+  - 7-field MVP version: first/last name · side · group · role (all 18 options) · email · mobile · meal · RSVP · photo consent (default true) · notes
+  - Server action `createGuest` with full validation against every enum value
+  - On success → `revalidatePath` the list + redirect back to `/guests?added=1`
+  - Plus-one model, address JSONB, custom tags, invited_to blocks UI — deferred to a follow-up
+- `apps/web/lib/guests.ts` helper module — fetch/stats/labels/initials utilities + type unions for all enums
+
+**Deferred from iteration 0001 (out of session scope):**
+- Detail drawer (click row → side drawer with edit/delete)
+- Plus-one toggle + TBA / Full / Limited modes UI (schema is ready, UI deferred)
+- CSV import (200-row max)
+- Households UI (create + assign)
+- Custom-tag chips input with autocomplete
+- Invited-to schedule-block toggles per guest
+- Address JSONB editor
+- Mobile-specific full-screen add-guest sheet (currently uses the same form)
+- Bulk-edit spreadsheet mode
+
+**SPEC IMPACT — please update via Cowork in `~/Documents/Claude/Projects/Setnayan/0001_creating_guest_list/`:**
+
+1. **`0001_creating_guest_list.md` line 48** — declares route `setnayan.com/dashboard/guests`. Iteration 0000's locked URL pattern is `setnayan.com/dashboard/[event-id]/guests`. Update the route line to match.
+2. **No retired-system references found** in the 0001 spec — good.
+
+---
+
 ## 2026-05-13 · Iteration 0000 — App Shell & Navigation (Phases A–D)
 
 **Commits:** to be filled in once committed.

@@ -3,18 +3,25 @@
 > Living checkpoint. Updated as work progresses.
 
 **Last updated:** 2026-05-13
-**Current sprint:** Iteration `0000_app_shell_and_navigation` (Phases A–D shipped this session; join flow + Schedule view deferred)
+**Current sprint:** Iteration `0001_creating_guest_list` MVP slice (Phases A–C shipped; detail drawer / plus-one UI / CSV import / households UI deferred)
 **Owner's wedding (deadline anchor):** December 2026
 
 ---
 
 ## Where we are right now
 
-**Sprint 0 closed; iteration 0000 mostly shipped.** Schema delta applied to live Supabase. The full event lifecycle works end-to-end on the deployed app: sign in → event picker → create-event (Weddings-only) → inside-event shell with 4-tab bottom nav → Services launcher grid → placeholder service pages.
+**Sprint 0 closed; iteration 0000 mostly shipped; iteration 0001 MVP slice shipped.** Schema deltas applied to live Supabase. The full couple lifecycle works end-to-end on the deployed app:
 
-Deferred from iteration 0000 (out of session scope): join flow at `/join/[event-id]`, unified Schedule view (waits on 0006+0007), vendor/admin role-router destinations.
+1. Sign in → event picker
+2. Create-event (Weddings-only) → inside-event shell with 4-tab bottom nav
+3. **Guest List tab now has real content** — stats strip, list view, add guest, search, RSVP filter
+4. Services launcher grid → placeholder service pages
 
-Next likely sessions: iteration 0001 (guest list — the first iteration to put real content inside the Guest List tab and wire the 18-role taxonomy that the join flow needs).
+Deferred from iteration 0000: join flow at `/join/[event-id]`, unified Schedule view (waits on 0006+0007), vendor/admin role-router destinations.
+
+Deferred from iteration 0001 (MVP slice only): detail drawer + edit + delete, plus-one toggle UI (schema ready), CSV import, households UI, custom-tag chips, invited-to schedule-block toggles, address JSONB editor, mobile full-screen sheet, bulk-edit spreadsheet mode.
+
+Next likely sessions: complete iteration 0001 (detail drawer, plus-one UI, CSV import) → iteration 0002 (QR invitation system).
 
 ---
 

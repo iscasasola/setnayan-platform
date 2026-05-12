@@ -12,13 +12,14 @@ const ERROR_COPY: Record<string, string> = {
   password_too_short: 'Password must be at least 8 characters.',
 };
 
-type SearchParams = Promise<{ error?: string; sent?: string }>;
+type SearchParams = Promise<{ error?: string; sent?: string; next?: string }>;
 
 export default async function SignupPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   const rawError = params.error ? decodeURIComponent(params.error) : null;
   const errorMessage = rawError ? (ERROR_COPY[rawError] ?? rawError) : null;
   const confirmationSent = params.sent === '1';
+  const next = params.next && params.next.startsWith('/') ? params.next : '/';
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-8 px-6 py-12 sm:px-8">
@@ -50,6 +51,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
       ) : null}
 
       <form action={signUp} className="space-y-4">
+        <input type="hidden" name="next" value={next} />
         <div className="space-y-1.5">
           <label className="block text-sm font-medium text-ink" htmlFor="email">
             Email
@@ -87,7 +89,10 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
 
       <p className="text-center text-sm text-ink/60">
         Already have an account?{' '}
-        <Link className="font-medium text-terracotta underline-offset-4 hover:underline" href="/login">
+        <Link
+          className="font-medium text-terracotta underline-offset-4 hover:underline"
+          href={`/login${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`}
+        >
           Sign in
         </Link>
       </p>

@@ -7,12 +7,13 @@ export const metadata: Metadata = {
   description: 'Sign in to your Setnayan account.',
 };
 
-type SearchParams = Promise<{ error?: string; sent?: string }>;
+type SearchParams = Promise<{ error?: string; sent?: string; next?: string }>;
 
 export default async function LoginPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   const errorMessage = params.error ? decodeURIComponent(params.error) : null;
   const magicLinkSent = params.sent === '1';
+  const next = params.next && params.next.startsWith('/') ? params.next : '/';
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-8 px-6 py-12 sm:px-8">
@@ -45,6 +46,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
       ) : null}
 
       <form action={signInWithPassword} className="space-y-4">
+        <input type="hidden" name="next" value={next} />
         <div className="space-y-1.5">
           <label className="block text-sm font-medium text-ink" htmlFor="email">
             Email
@@ -91,6 +93,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
       </div>
 
       <form action={signInWithMagicLink} className="space-y-4">
+        <input type="hidden" name="next" value={next} />
         <div className="space-y-1.5">
           <label className="block text-sm font-medium text-ink" htmlFor="magic-email">
             Magic link
@@ -113,7 +116,10 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
 
       <p className="text-center text-sm text-ink/60">
         Don&rsquo;t have an account?{' '}
-        <Link className="font-medium text-terracotta underline-offset-4 hover:underline" href="/signup">
+        <Link
+          className="font-medium text-terracotta underline-offset-4 hover:underline"
+          href={`/signup${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`}
+        >
           Create one
         </Link>
       </p>

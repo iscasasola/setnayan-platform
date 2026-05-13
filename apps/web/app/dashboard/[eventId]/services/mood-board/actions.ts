@@ -4,29 +4,21 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { sanitizeRolePalette } from '@/lib/mood-board';
-import type { RoleGroup } from '@/lib/role-groups';
-
-const KEYS: ReadonlyArray<RoleGroup> = [
-  'wedding_party',
-  'principal_sponsors',
-  'secondary_sponsors',
-  'bearers_flower_girl',
-  'officiants',
-  'other_roles',
-];
 
 export async function saveRolePalette(formData: FormData) {
   const eventId = formData.get('event_id');
-  if (typeof eventId !== 'string') throw new Error('Invalid event');
-
-  const raw: Record<string, unknown> = {};
-  for (const key of KEYS) {
-    const v = formData.get(key);
-    if (typeof v === 'string' && v.length > 0) {
-      raw[key] = v;
-    }
+  const paletteJson = formData.get('palette_json');
+  if (typeof eventId !== 'string' || typeof paletteJson !== 'string') {
+    throw new Error('Invalid input');
   }
-  const sanitized = sanitizeRolePalette(raw);
+
+  let parsed: unknown = {};
+  try {
+    parsed = JSON.parse(paletteJson);
+  } catch {
+    throw new Error('Palette payload was not valid JSON');
+  }
+  const sanitized = sanitizeRolePalette(parsed);
 
   const supabase = await createClient();
   const {

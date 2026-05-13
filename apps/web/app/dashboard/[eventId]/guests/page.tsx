@@ -19,7 +19,11 @@ import {
   ROLE_GROUP_LABELS,
   roleGroupOf,
 } from '@/lib/role-groups';
-import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
+import {
+  getPrimaryColor,
+  sanitizeRolePalette,
+  type RolePalette,
+} from '@/lib/mood-board';
 
 export const metadata = { title: 'Guests' };
 
@@ -647,7 +651,7 @@ function RoleChip({
   palette: RolePalette;
 }) {
   const group = roleGroupOf(role);
-  const accent = group !== 'guest' ? palette[group] : undefined;
+  const accent = getPrimaryColor(palette, group);
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${ROLE_GROUP_CHIP[group]}`}

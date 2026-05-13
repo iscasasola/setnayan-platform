@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { deletePublicAsset, uploadPublicAsset } from '@/lib/storage';
 
 async function requireAdmin(): Promise<void> {
   const supabase = await createClient();
@@ -39,6 +40,9 @@ export async function savePlatformSettings(formData: FormData) {
     );
   }
 
+  // QR URLs are managed via the separate upload/remove actions below — they
+  // aren't included in this update, so re-saving text fields doesn't blow
+  // away an already-uploaded QR.
   const payload = {
     business_name:
       (typeof formData.get('business_name') === 'string'
@@ -49,10 +53,8 @@ export async function savePlatformSettings(formData: FormData) {
     business_email: nullIfBlank(formData.get('business_email')),
     bdo_account_name: nullIfBlank(formData.get('bdo_account_name')),
     bdo_account_number: nullIfBlank(formData.get('bdo_account_number')),
-    bdo_qr_url: nullIfBlank(formData.get('bdo_qr_url')),
     gcash_account_name: nullIfBlank(formData.get('gcash_account_name')),
     gcash_number: nullIfBlank(formData.get('gcash_number')),
-    gcash_qr_url: nullIfBlank(formData.get('gcash_qr_url')),
     default_vat_rate_pct: Math.round(vatRate * 100) / 100,
     updated_at: new Date().toISOString(),
   };
@@ -69,4 +71,105 @@ export async function savePlatformSettings(formData: FormData) {
   revalidatePath('/admin/settings');
   revalidatePath('/receipts', 'layout');
   redirect('/admin/settings?saved=1');
+}
+
+type QrKind = 'bdo' | 'gcash';
+
+function qrColumn(kind: QrKind): 'bdo_qr_url' | 'gcash_qr_url' {
+  return kind === 'bdo' ? 'bdo_qr_url' : 'gcash_qr_url';
+}
+
+export async function uploadMerchantQr(formData: FormData) {
+  await requireAdmin();
+  const kindRaw = formData.get('kind');
+  if (kindRaw !== 'bdo' && kindRaw !== 'gcash') {
+    throw new Error('Invalid QR kind');
+  }
+  const kind: QrKind = kindRaw;
+  const file = formData.get('file');
+  if (!(file instanceof File) || file.size === 0) {
+    return redirect(
+      `/admin/settings?error=${encodeURIComponent('Pick a file first')}`,
+    );
+  }
+
+  const upload = await uploadPublicAsset({
+    pathPrefix: `merchant-qr/${kind}`,
+    file,
+  });
+  if (!upload.ok) {
+    return redirect(`/admin/settings?error=${encodeURIComponent(upload.error)}`);
+  }
+
+  const admin = createAdminClient();
+
+  // Read the existing URL so we can clean up the old asset after the row is
+  // updated to point at the new one.
+  const { data: existing } = await admin
+    .from('platform_settings')
+    .select(qrColumn(kind))
+    .eq('id', 1)
+    .maybeSingle();
+  const existingUrl: string | null =
+    (existing as Record<string, unknown> | null)?.[qrColumn(kind)] as
+      | string
+      | null
+      | undefined ?? null;
+
+  const { error } = await admin
+    .from('platform_settings')
+    .update({
+      [qrColumn(kind)]: upload.publicUrl,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', 1);
+  if (error) {
+    return redirect(`/admin/settings?error=${encodeURIComponent(error.message)}`);
+  }
+
+  if (existingUrl) {
+    await deletePublicAsset({ publicUrl: existingUrl });
+  }
+
+  revalidatePath('/admin/settings');
+  redirect('/admin/settings?qr_uploaded=1');
+}
+
+export async function removeMerchantQr(formData: FormData) {
+  await requireAdmin();
+  const kindRaw = formData.get('kind');
+  if (kindRaw !== 'bdo' && kindRaw !== 'gcash') {
+    throw new Error('Invalid QR kind');
+  }
+  const kind: QrKind = kindRaw;
+
+  const admin = createAdminClient();
+  const { data: existing } = await admin
+    .from('platform_settings')
+    .select(qrColumn(kind))
+    .eq('id', 1)
+    .maybeSingle();
+  const existingUrl: string | null =
+    (existing as Record<string, unknown> | null)?.[qrColumn(kind)] as
+      | string
+      | null
+      | undefined ?? null;
+
+  const { error } = await admin
+    .from('platform_settings')
+    .update({
+      [qrColumn(kind)]: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', 1);
+  if (error) {
+    return redirect(`/admin/settings?error=${encodeURIComponent(error.message)}`);
+  }
+
+  if (existingUrl) {
+    await deletePublicAsset({ publicUrl: existingUrl });
+  }
+
+  revalidatePath('/admin/settings');
+  redirect('/admin/settings?qr_removed=1');
 }

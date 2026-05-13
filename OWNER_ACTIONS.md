@@ -48,7 +48,6 @@ Under **BDO bank transfer**:
 |---|---|
 | **Account name** | Your BDO account holder name |
 | **Account number** | Your BDO account number in `0000-0000-0000` format |
-| **QR image URL** | _Skip for now_ — needs the file upload feature (Phase 5) |
 
 ### Step 1.4 — Fill in GCash details
 
@@ -58,22 +57,38 @@ Under **GCash**:
 |---|---|
 | **Account name** | Your GCash registered name |
 | **GCash number** | Your GCash mobile number (`+63 917 XXX XXXX`) |
-| **QR image URL** | _Skip for now_ |
 
-### Step 1.5 — Save
+### Step 1.5 — Save text fields
 
-1. Scroll to the bottom
+1. Scroll to the bottom of the main form
 2. Click **Save settings**
 3. You should see a green banner: **"Settings saved. Live changes propagate to all surfaces immediately."**
 
-### Step 1.6 — Verify
+### Step 1.6 — Upload merchant QR codes
+
+Below the save button is a new **Merchant QR codes** section with two upload blocks.
+
+For **BDO QR code**:
+1. Open your BDO app on your phone, find your merchant QR (BDO QR Ph), save the image
+2. AirDrop / email / Drive it to your computer
+3. Click the file input under **BDO QR code**, pick the file
+4. Click **Upload**
+5. Page reloads with a green banner; you'll see your QR rendered inline at 160×160
+
+Repeat for **GCash QR code** with your GCash merchant QR.
+
+If you ever need to swap the image, click **Replace** on the same block. **Remove** clears it.
+
+Files are stored in Supabase Storage (Singapore region) under the `platform-assets` bucket. URLs are public so the couple's order page can render them without auth.
+
+### Step 1.7 — Verify
 
 1. Go to https://setnayan-platform-web.vercel.app/dashboard
 2. Click into your event
-3. Click the **Orders** tile
-4. Click any existing order (or create one if there are none)
+3. Click the **Orders** tile (or **Services** → **Orders**)
+4. Click any existing order, or create one if there are none
 5. Scroll to **Payment instructions**
-6. You should now see **BDO bank transfer** and **GCash** boxes with your real details
+6. You should now see **BDO bank transfer** and **GCash** boxes with your account info AND the uploaded QR images
 
 If receipts were already issued, they show the **business name** + **TIN** you just saved — open any receipt at `/admin/receipts` and click **View** to confirm.
 

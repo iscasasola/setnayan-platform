@@ -10,6 +10,7 @@ import {
   Sparkles,
   Palette,
   MessageSquare,
+  Receipt,
   ArrowRight,
   CheckCircle2,
   Circle,
@@ -52,7 +53,8 @@ type TileKey =
   | 'messages'
   | 'seating'
   | 'services'
-  | 'mood_board';
+  | 'mood_board'
+  | 'orders';
 
 const TILES: Array<{
   key: TileKey;
@@ -66,6 +68,7 @@ const TILES: Array<{
   { key: 'budget', label: 'Budget', Icon: Wallet, href: (id) => `/dashboard/${id}/budget` },
   { key: 'messages', label: 'Messages', Icon: MessageSquare, href: (id) => `/dashboard/${id}/messages` },
   { key: 'seating', label: 'Seating', Icon: LayoutGrid, href: (id) => `/dashboard/${id}/seating` },
+  { key: 'orders', label: 'Orders', Icon: Receipt, href: (id) => `/dashboard/${id}/orders` },
   { key: 'mood_board', label: 'Mood Board', Icon: Palette, href: (id) => `/dashboard/${id}/services/mood-board` },
   { key: 'services', label: 'Services', Icon: Sparkles, href: (id) => `/dashboard/${id}/services` },
 ];

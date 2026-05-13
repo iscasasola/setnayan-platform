@@ -94,10 +94,16 @@ export default async function ServicesPage({ params }: Props) {
       <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {SERVICES.map((service) => {
           const { Icon } = service;
+          const href =
+            service.key === 'orders'
+              ? `/dashboard/${eventId}/orders`
+              : service.key === 'mood-board'
+                ? `/dashboard/${eventId}/services/mood-board`
+                : `/dashboard/${eventId}/services/${service.key}`;
           return (
             <li key={service.key}>
               <Link
-                href={`/dashboard/${eventId}/services/${service.key}`}
+                href={href}
                 className="group flex h-full flex-col gap-3 rounded-xl border border-ink/10 bg-cream p-5 transition-colors hover:border-terracotta/50 hover:bg-terracotta/5"
               >
                 <div className="flex items-start justify-between">

@@ -4,6 +4,50 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-13 · 0019 communications MVP — couple↔vendor 1:1 chat + identity masking
+
+**Commits:** to be filled in once committed.
+
+**What landed:**
+- New migration `20260513130000_iteration_0019_communications.sql`:
+  - **New helper** `public.current_vendor_profile_ids()` — `SECURITY DEFINER STABLE` SETOF UUID of the calling user's vendor_profile_ids. Mirrors `current_couple_event_ids()` for vendor-side RLS.
+  - **chat_sender_role** enum: `couple` · `vendor` · `coordinator` (third value reserved for the future "coordinator-join" feature).
+  - **chat_threads** — `thread_id` PK, `public_id` (`S89H-…`), event FK + vendor_profile FK with **UNIQUE(event_id, vendor_profile_id)** so re-tapping "Start thread" resumes the same conversation. `created_by_user_id` FK to users (SET NULL on delete). Dual-side RLS: either party can read + write.
+  - **chat_messages** — `message_id` PK, thread + event + vendor_profile + sender FKs, `sender_role`, body (1–4000 chars), `created_at`. RLS allows SELECT for either party but only INSERT (no UPDATE/DELETE policy ⇒ messages are append-only).
+  - **Trigger** `on_chat_message_inserted` bumps `chat_threads.updated_at` to the new message's `created_at` — keeps thread lists ordered by recency without explicit writes from the app.
+- New `apps/web/lib/chat.ts` — types + `fetchCoupleThreads` (joins `vendor_profiles` for business_name/logo) + `fetchVendorThreads` (joins `events` for the masked display_name+date) + `fetchThreadById` + `fetchMessages` + `formatChatTimestamp` (same-day vs older).
+- New shared server action `apps/web/lib/chat-actions.ts:sendChatMessage` — looks up whether the current user is the couple or the vendor on the thread, tags the message with that role, and inserts. One action serves both `/dashboard/[eventId]/messages/[threadId]` and `/vendor-dashboard/messages/[threadId]`.
+- Couple-side surfaces:
+  - `/dashboard/[eventId]/messages` — thread list (avatar from vendor logo OR initials fallback) + start-by-vendor-email form. The form upserts on `(event_id, vendor_profile_id)` and redirects to the thread.
+  - `/dashboard/[eventId]/messages/[threadId]` — header with vendor name + tagline, message stream (right-aligned terracotta bubbles for the couple's own messages, left-aligned ink bubbles for the vendor's), composer with Send button.
+- Vendor-side surfaces (identity masking):
+  - `/vendor-dashboard/messages` — thread list showing **only the event's display_name + event_date** — never the couple's email or personal name. Empty state nudges the vendor to fill in their contact_email so couples can find them.
+  - `/vendor-dashboard/messages/[threadId]` — mirrored thread detail; sender label shows "You" for vendor messages, the masked event name for couple messages.
+  - Small Profile / Messages subnav on both vendor pages.
+- New `MessageSquare` tile on the couple Home grid (4×2 layout: Guests · Invitation · Vendors · Budget · **Messages** · Seating · Mood Board · Services).
+
+**SPEC IMPACT:**
+- `~/Documents/Claude/Projects/Setnayan/04_Iterations/0019_communications.md` — record V1 MVP scope and flag deferred sub-scopes:
+  - **Realtime delivery (Supabase Realtime):** V1 = page refresh on send. The schema is Realtime-ready (chat_messages has a simple insert pattern); a follow-on client component subscribing via `supabase.channel(...)` ships when needed.
+  - **Group chat / multi-vendor threads:** V1 is strict 1:1. A follow-on would add a `chat_thread_members` join table.
+  - **Video meetings (Daily.co):** spec calls for video. Daily.co integration requires API keys + a room-creation server route + an embed UI. Deferred — needs owner sign-off on Daily.co account.
+  - **File attachments + viewers:** spec calls for PDF / image viewers in-thread. Waits on R2 upload UI (also a 0022 follow-on).
+  - **Coordinator-join:** spec calls for a coordinator (3rd party) joining a thread. Schema reserves `'coordinator'` in `chat_sender_role` enum; no UI plumbing yet.
+- **Identity masking rule (record explicitly):** vendors **MUST NOT** see couples' emails or personal names. They see the event's `display_name` + `event_date` only. The couples deliberately controlled what they put in `events.display_name` — for some couples that's "Maria & Juan", for others it's "Event #12". This is the user choice that V1 respects. Future surfaces (e.g., the BookingsSurface in 0022) should follow the same rule.
+- The `current_vendor_profile_ids()` helper joins `current_couple_event_ids()` as a load-bearing canonical helper. Both should be documented in `02_Specifications/RLS_Policy_Pattern.md` § 4.
+
+**Deferred:**
+- Supabase Realtime subscription (currently page-refresh after send)
+- Group / multi-party threads
+- Video meetings (Daily.co)
+- File attachments + in-thread viewers
+- Coordinator-join
+- Read receipts, typing indicators, push notifications
+- Search across threads
+- Linking from `event_vendors` (couple's tracked vendor row) to a `chat_threads` (still requires email-based lookup)
+
+---
+
 ## 2026-05-13 · 0022 vendor dashboard MVP — sign-up + profile editor
 
 **Commits:** to be filled in once committed.

@@ -9,6 +9,7 @@ import {
   LayoutGrid,
   Sparkles,
   Palette,
+  MessageSquare,
   ArrowRight,
   CheckCircle2,
   Circle,
@@ -48,7 +49,7 @@ type TileKey =
   | 'invitation'
   | 'vendors'
   | 'budget'
-  | 'schedule'
+  | 'messages'
   | 'seating'
   | 'services'
   | 'mood_board';
@@ -63,7 +64,7 @@ const TILES: Array<{
   { key: 'invitation', label: 'Invitation', Icon: Send, href: (id) => `/dashboard/${id}/invitation` },
   { key: 'vendors', label: 'Vendors', Icon: Briefcase, href: (id) => `/dashboard/${id}/vendors` },
   { key: 'budget', label: 'Budget', Icon: Wallet, href: (id) => `/dashboard/${id}/budget` },
-  { key: 'schedule', label: 'Schedule', Icon: CalendarDays, href: (id) => `/dashboard/${id}/schedule` },
+  { key: 'messages', label: 'Messages', Icon: MessageSquare, href: (id) => `/dashboard/${id}/messages` },
   { key: 'seating', label: 'Seating', Icon: LayoutGrid, href: (id) => `/dashboard/${id}/seating` },
   { key: 'mood_board', label: 'Mood Board', Icon: Palette, href: (id) => `/dashboard/${id}/services/mood-board` },
   { key: 'services', label: 'Services', Icon: Sparkles, href: (id) => `/dashboard/${id}/services` },

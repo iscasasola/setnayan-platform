@@ -1,12 +1,7 @@
 import Link from 'next/link';
-import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
-import {
-  clearGuestSession,
-  readGuestSession,
-  setGuestSession,
-} from '@/lib/guest-session';
+import { readGuestSession } from '@/lib/guest-session';
 import { formatEventDate } from '@/lib/events';
 import { ROLE_LABELS, type GuestRole } from '@/lib/guests';
 import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
@@ -50,19 +45,27 @@ const RESERVED_TOP_LEVEL = new Set([
 
 type Props = {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ invite?: string }>;
+  searchParams: Promise<{ invite?: string; invite_error?: string }>;
 };
 
 export default async function PublicInvitationPage({ params, searchParams }: Props) {
   const { slug } = await params;
   const search = await searchParams;
   const invite = (search.invite ?? '').trim();
+  const inviteError = search.invite_error ?? null;
 
   if (!slug || RESERVED_TOP_LEVEL.has(slug)) notFound();
 
+  // If an invite token is in the URL, hand off to the redeem route handler
+  // which can write the session cookie (Server Components in Next 15 can't).
+  if (invite) {
+    redirect(
+      `/${slug}/redeem?slug=${encodeURIComponent(slug)}&token=${encodeURIComponent(invite)}`,
+    );
+  }
+
   const admin = createAdminClient();
 
-  // Look up the event by slug.
   const { data: event } = await admin
     .from('events')
     .select(
@@ -74,71 +77,24 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   if (!event) notFound();
   if (event.event_type !== 'wedding') notFound();
 
-  // Resolve guest identity: prefer the invite token, fall back to existing cookie.
-  let session = await readGuestSession();
-  let landedViaToken = false;
+  // Read the guest-session cookie (read-only — pages can't write cookies).
+  const session = await readGuestSession();
 
-  if (invite) {
-    const { data: guestByToken } = await admin
-      .from('guests')
-      .select('guest_id, event_id, qr_token')
-      .eq('qr_token', invite)
-      .is('deleted_at', null)
-      .maybeSingle();
-
-    if (guestByToken && guestByToken.event_id === event.event_id) {
-      await setGuestSession({
-        guest_id: guestByToken.guest_id,
-        event_id: guestByToken.event_id,
-        qr_token: guestByToken.qr_token,
-      });
-      session = {
-        guest_id: guestByToken.guest_id,
-        event_id: guestByToken.event_id,
-        qr_token: guestByToken.qr_token,
-      };
-      landedViaToken = true;
-
-      // Record the scan (admin client; visitor isn't authenticated).
-      const headerList = await headers();
-      const userAgent = headerList.get('user-agent') ?? null;
-      const xff = headerList.get('x-forwarded-for') ?? '';
-      const ipFull = xff.split(',')[0]?.trim() ?? '';
-      const ipAnon = ipFull
-        ? ipFull.split('.').slice(0, 3).join('.') + '.0'
-        : null;
-      await admin.from('scan_events').insert({
-        event_id: guestByToken.event_id,
-        guest_id: guestByToken.guest_id,
-        source: 'browser',
-        user_agent: userAgent,
-        ip_anon: ipAnon,
-        context: { entry: 'invite_link' },
-      });
-    } else {
-      // Bad token — clear any stale cookie and bail with a public landing.
-      await clearGuestSession();
-      return <PublicLanding event={event} reason="invalid_invite" />;
-    }
-  }
-
-  // If we landed via the ?invite= token, drop the param from the URL.
-  if (landedViaToken) {
-    redirect(`/${slug}`);
-  }
-
-  // No session and no token → show a public landing pitching the QR.
   if (!session) {
-    return <PublicLanding event={event} />;
+    return (
+      <PublicLanding
+        event={event}
+        reason={inviteError === 'invalid_token' ? 'invalid_invite' : null}
+      />
+    );
   }
 
-  // Cookie session is for a different event → ignore it for this URL.
+  // Cookie session is for a different event → bail to public landing.
+  // (Sign-out from the footer is how a guest swaps between events.)
   if (session.event_id !== event.event_id) {
-    await clearGuestSession();
     return <PublicLanding event={event} reason="wrong_event" />;
   }
 
-  // Load the guest row.
   const { data: guest } = await admin
     .from('guests')
     .select(
@@ -149,7 +105,6 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     .maybeSingle();
 
   if (!guest) {
-    await clearGuestSession();
     return <PublicLanding event={event} reason="invalid_invite" />;
   }
 
@@ -238,7 +193,7 @@ function PublicLanding({
   reason,
 }: {
   event: EventRow;
-  reason?: 'invalid_invite' | 'wrong_event';
+  reason?: 'invalid_invite' | 'wrong_event' | null;
 }) {
   return (
     <InvitationShell>

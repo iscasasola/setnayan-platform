@@ -209,12 +209,16 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
         ) : null}
       </section>
 
-      {/* Public URL + slug editor */}
+      {/* Invitation site URL + slug editor */}
       <section className="rounded-xl border border-ink/10 bg-cream p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 space-y-2">
             <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
-              Your public landing
+              Your invitation site
+            </p>
+            <p className="text-sm text-ink/60">
+              This is where every invitation goes — guests land here when they tap their
+              personal link or scan their QR.
             </p>
             {publicLandingUrl ? (
               <p className="break-all font-mono text-sm text-ink/75">{publicLandingUrl}</p>

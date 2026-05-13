@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-14 · desktop shell points at setnayan.com
+
+**Commit:** to be filled after commit.
+
+**What landed:**
+- `src-tauri/shell/index.html` now redirects to `https://setnayan.com` instead of the old `setnayan-platform-web.vercel.app`. Three call sites updated (the `<meta http-equiv="refresh">`, the `<noscript>` anchor, and the JS `window.location.replace`). No other Tauri config changes — bundle identifier (`com.setnayan.desktop`), product name, and window chrome stay the same.
+
+**Operational note (not a code issue):** the last 4 desktop builds on GitHub Actions failed with *"recent account payments have failed or your spending limit needs to be increased"*. The fix is on the GitHub billing side — see `OWNER_ACTIONS.md` (or settings at https://github.com/settings/billing/spending_limit). Once billing is unblocked, the next push will produce a `.dmg` + `.msi` pointing at the real domain.
+
+**SPEC IMPACT:** None — Tauri shell URL change only; the spec corpus doesn't pin the redirect target.
+
+---
+
 ## 2026-05-14 · admin mobile polish
 
 **Commit:** to be filled after commit.

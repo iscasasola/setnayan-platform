@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import {
-  VENDOR_CATEGORIES,
+  SERVICE_GROUPS,
   VENDOR_CATEGORY_LABEL,
   isCanonicalService,
 } from '@/lib/vendors';
@@ -79,31 +79,48 @@ export function ServicesPicker({ name, initial }: Props) {
         {customs.length > 0 ? ` · ${customs.length} custom` : ''}
       </p>
 
-      <fieldset className="space-y-2">
+      <fieldset className="space-y-3">
         <legend className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
           Standard categories
         </legend>
-        <div className="grid grid-cols-1 gap-1.5 rounded-xl border border-ink/10 bg-cream p-3 sm:grid-cols-2 md:grid-cols-3">
-          {VENDOR_CATEGORIES.map((cat) => {
-            const checked = selected.includes(cat);
+        <div className="space-y-3 rounded-xl border border-ink/10 bg-cream p-3">
+          {SERVICE_GROUPS.map((group) => {
+            const checkedInGroup = group.members.filter((m) => selected.includes(m)).length;
             return (
-              <label
-                key={cat}
-                className={`flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
-                  checked
-                    ? 'bg-terracotta/10 text-terracotta-700'
-                    : 'text-ink/75 hover:bg-ink/[0.04]'
-                } ${!checked && isAtMax ? 'opacity-50' : ''}`}
-              >
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={() => toggle(cat)}
-                  disabled={!checked && isAtMax}
-                  className="h-4 w-4 cursor-pointer accent-terracotta disabled:cursor-not-allowed"
-                />
-                <span>{VENDOR_CATEGORY_LABEL[cat]}</span>
-              </label>
+              <div key={group.key} className="space-y-1.5">
+                <p className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                  <span>{group.label}</span>
+                  {checkedInGroup > 0 ? (
+                    <span className="text-terracotta-700">
+                      {checkedInGroup} / {group.members.length}
+                    </span>
+                  ) : null}
+                </p>
+                <div className="grid grid-cols-1 gap-1 sm:grid-cols-2 md:grid-cols-3">
+                  {group.members.map((cat) => {
+                    const checked = selected.includes(cat);
+                    return (
+                      <label
+                        key={cat}
+                        className={`flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors ${
+                          checked
+                            ? 'bg-terracotta/10 text-terracotta-700'
+                            : 'text-ink/75 hover:bg-ink/[0.04]'
+                        } ${!checked && isAtMax ? 'opacity-50' : ''}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggle(cat)}
+                          disabled={!checked && isAtMax}
+                          className="h-4 w-4 cursor-pointer accent-terracotta disabled:cursor-not-allowed"
+                        />
+                        <span>{VENDOR_CATEGORY_LABEL[cat]}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
             );
           })}
         </div>

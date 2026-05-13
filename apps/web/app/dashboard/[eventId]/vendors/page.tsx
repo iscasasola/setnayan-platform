@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { Plus, Trash2, Mail, Phone } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import {
-  VENDOR_CATEGORIES,
+  SERVICE_GROUPS,
   VENDOR_CATEGORY_LABEL,
   VENDOR_STATUSES,
   VENDOR_STATUS_LABEL,
@@ -140,10 +140,14 @@ function AddVendorForm({ eventId }: { eventId: string }) {
               defaultValue="catering"
               className="input-field"
             >
-              {VENDOR_CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {VENDOR_CATEGORY_LABEL[c]}
-                </option>
+              {SERVICE_GROUPS.map((g) => (
+                <optgroup key={g.key} label={g.label}>
+                  {g.members.map((c) => (
+                    <option key={c} value={c}>
+                      {VENDOR_CATEGORY_LABEL[c]}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </Field>

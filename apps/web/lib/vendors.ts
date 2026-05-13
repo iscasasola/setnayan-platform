@@ -180,6 +180,87 @@ export function formatPhp(amount: number | null | undefined): string {
   return `₱${Number(amount).toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
+/**
+ * Display-layer grouping of the 28 canonical categories into 6 phases of a
+ * wedding. Used by the vendor-profile services checklist and the couple-side
+ * "Add a vendor" dropdown so the long flat list reads in sensible chunks.
+ *
+ * Not in the DB — purely presentational. If grouping ever needs to drive
+ * queries (e.g. filtering, analytics), promote to a `service_group` column.
+ */
+export type ServiceGroupKey =
+  | 'reception'
+  | 'ceremony'
+  | 'attire'
+  | 'media'
+  | 'logistics'
+  | 'other';
+
+export const SERVICE_GROUPS: ReadonlyArray<{
+  key: ServiceGroupKey;
+  label: string;
+  members: ReadonlyArray<VendorCategory>;
+}> = [
+  {
+    key: 'reception',
+    label: 'Reception',
+    members: ['venue', 'catering', 'cake_maker', 'mobile_bar', 'reception_decor'],
+  },
+  {
+    key: 'ceremony',
+    label: 'Ceremony',
+    members: ['officiant', 'church_fees', 'choir', 'string_quartet'],
+  },
+  {
+    key: 'attire',
+    label: 'Couple & attire',
+    members: ['gown_designer', 'suit_designer', 'makeup_artist', 'hair_stylist', 'rings'],
+  },
+  {
+    key: 'media',
+    label: 'Media & entertainment',
+    members: [
+      'photographer',
+      'videographer',
+      'photobooth',
+      'band_dj',
+      'host_emcee',
+      'lights_and_sound',
+      'led_screens',
+    ],
+  },
+  {
+    key: 'logistics',
+    label: 'Logistics',
+    members: [
+      'transportation',
+      'security',
+      'florist',
+      'invitations_stationery',
+      'planner_coordinator',
+    ],
+  },
+  {
+    key: 'other',
+    label: 'Other',
+    members: ['gifts_and_giveaways', 'misc'],
+  },
+];
+
+const CATEGORY_TO_GROUP: Record<VendorCategory, ServiceGroupKey> = (() => {
+  const m = {} as Record<VendorCategory, ServiceGroupKey>;
+  for (const g of SERVICE_GROUPS) {
+    for (const member of g.members) {
+      m[member] = g.key;
+    }
+  }
+  return m;
+})();
+
+export function serviceGroupOf(category: VendorCategory): ServiceGroupKey {
+  return CATEGORY_TO_GROUP[category];
+}
+
 const CATEGORY_SET: ReadonlySet<string> = new Set(VENDOR_CATEGORIES);
 
 /**

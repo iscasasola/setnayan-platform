@@ -127,6 +127,12 @@ export default async function GuestsPage({ params, searchParams }: Props) {
             Import CSV
           </Link>
           <Link
+            href={`/dashboard/${eventId}/guests/quick`}
+            className="button-secondary"
+          >
+            Quick add list
+          </Link>
+          <Link
             href={`/dashboard/${eventId}/guests/new`}
             className="button-primary"
           >
@@ -251,7 +257,11 @@ function pickFlash(search: {
   imported?: string;
   skipped?: string;
 }): string | null {
-  if (search.added) return 'Guest added.';
+  if (search.added) {
+    const n = Number(search.added);
+    if (Number.isFinite(n) && n > 1) return `Added ${n} guests.`;
+    return 'Guest added.';
+  }
   if (search.saved) return 'Saved.';
   if (search.removed) return 'Guest removed.';
   if (search.imported) {

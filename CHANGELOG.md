@@ -21,7 +21,7 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ## 2026-05-14 · admin merchant-QR uploads: auto-detect + square crop
 
-**Commit:** to be filled after commit.
+**Commit:** [2b8f0cc](https://github.com/iscasasola/setnayan-platform/commit/2b8f0cc) (PR #2)
 
 **What landed:**
 - New client component [apps/web/app/admin/settings/_components/qr-upload-form.tsx](apps/web/app/admin/settings/_components/qr-upload-form.tsx). When an admin picks a QR file on Platform Settings, the component decodes it via `createImageBitmap`, runs `jsQR` to locate the QR's four corners, computes a square bounding box (plus a ~12% quiet-zone margin), renders a 512×512 PNG crop on a white-background canvas, then submits that blob to the existing `uploadMerchantQr` server action via a manual FormData (so we don't depend on the `DataTransfer` file-swap trick, which has known iOS Safari quirks).
@@ -32,11 +32,41 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 - New `jsqr@^1.4.0` dep in [apps/web/package.json](apps/web/package.json) (~50 KB, pure JS, bundled types). No native deps.
 - [apps/web/app/admin/settings/page.tsx](apps/web/app/admin/settings/page.tsx) helper copy now explains the auto-crop behavior and the 512×512 output, and replaces the prior inline `<form>` with `<QrUploadForm>`.
 
-**Verified:**
-- `pnpm --filter @setnayan/web typecheck` — clean.
-- `pnpm --filter @setnayan/web lint` — clean.
+**SPEC IMPACT:** None on any locked decision. The merchant-QR upload contract (Iteration 0034 payments) is unchanged at the schema / server-action / storage layer — `platform_settings.{bdo_qr_url,gcash_qr_url}` still points at whatever Supabase Storage URL `uploadPublicAsset` returns. This is a pre-upload UX enhancement: admins can drop a phone screenshot or photo of their merchant QR and the system normalizes it to a clean square instead of forcing them to hand-crop in another app.
 
-**SPEC IMPACT:** None on any locked decision. The merchant-QR upload contract (Iteration 0034 payments) is unchanged at the schema / server-action / storage layer — `platform_settings.{bdo_qr_url,gcash_qr_url}` still points at whatever Supabase Storage URL `uploadPublicAsset` returns. This is a pre-upload UX enhancement: admins can drop a phone screenshot or photo of their merchant QR and the system normalizes it to a clean square instead of forcing them to hand-crop in another app. The 0034 spec doesn't prescribe input handling, so nothing in `~/Documents/Claude/Projects/Setnayan/02_Specifications/iter/0034/` needs to be updated via Cowork.
+---
+
+## 2026-05-14 · feat(guests): quick-add list — Enter-driven bulk entry
+
+**Commit:** to be filled after commit.
+
+**Why:** Adding guests one at a time through `/guests/new` (or CSV import) is too heavy for the most common case &mdash; the couple sitting at their laptop, brain-dumping every name they want at the wedding. The owner asked for an Excel-feel: type first name &rarr; Enter &rarr; last name &rarr; Enter &rarr; the row is committed and a fresh row appears, focused.
+
+**What landed:**
+
+- `apps/web/app/dashboard/[eventId]/guests/quick/page.tsx` &mdash; new public route at `/dashboard/<eventId>/guests/quick`. Server-component wrapper that handles auth + error-banner state, embeds the client component.
+- `apps/web/app/dashboard/[eventId]/guests/quick/_components/quick-add-list.tsx` &mdash; the heart of the feature. Client component:
+  - Auto-focus First Name on mount.
+  - `Enter` on First Name moves focus to Last Name. Empty + Enter when there are already finalized rows triggers the bulk upload.
+  - `Enter` on Last Name finalizes the row, clears both inputs, refocuses First Name.
+  - Last name is optional (some guests go by one name).
+  - Each finalized row shows with a green check + click-to-edit (combined first/last in a single editor) + remove X.
+  - The submit auto-finalizes whatever's in the live row at click time so a half-typed name isn't silently dropped.
+  - `useFormStatus()` driven Upload button shows the spinner + "Uploading&hellip;" during the server action.
+- `apps/web/app/dashboard/[eventId]/guests/quick/actions.ts` &mdash; `bulkAddGuests(eventId, formData)` parses a JSON array, validates (max 500 per upload), and bulk-inserts via a single Supabase `insert(rows)`. Defaults each row to `side: both`, `group_category: other`, `role: guest`, `rsvp_status: pending`, `invited_to_blocks: [ceremony, reception]`. Redirects to `/guests?added=N` so the couple sees a confirmation toast.
+- `apps/web/app/dashboard/[eventId]/guests/page.tsx`:
+  - New header CTA "Quick add list" alongside Import CSV / + Add guest.
+  - `pickFlash()` now reads the `?added=N` count and renders "Added 12 guests." instead of the generic "Guest added."
+
+**Tradeoffs (called out for owner / spec reconciliation):**
+- Quick-add intentionally **drops every name into "Other (uncategorized)"** with default side/role. The couple is expected to refine each row from the full guest list later. This is the right tradeoff for the brain-dump phase &mdash; forcing role/side at entry-time kills momentum.
+- Plus-ones are NOT supported in quick-add. If a couple wants a +1, they use `/guests/new` (which has the full plus-one model).
+- Single-word names work (last name is optional). Multi-word last names work. Mid-word Enter cleanly moves to the next field.
+
+**SPEC IMPACT:** 0001 Guest List:
+- Add a new sub-feature "quick-add list" to the iteration doc. It supplements the existing add-one-at-a-time flow and the CSV import &mdash; it does NOT replace either.
+- Note the defaults: side `both`, group `other`, role `guest`. The spec's role hierarchy and sponsor tiers are unaffected (couples refine post-entry).
+- Please update `~/Documents/Claude/Projects/Setnayan/04_Iterations/0001_guest_list.md` via Cowork.
 
 ---
 

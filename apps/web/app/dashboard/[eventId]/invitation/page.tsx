@@ -3,7 +3,8 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchGuestsByEvent, guestDisplayName, ROLE_LABELS, RSVP_LABELS } from '@/lib/guests';
 import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
-import { reissueGuestToken, updateEventSlug } from './actions';
+import { deriveMonogram, resolveMonogram } from '@/lib/monogram';
+import { reissueGuestToken, updateEventSlug, updateMonogram } from './actions';
 import { SlugField } from './_components/slug-field';
 
 export const metadata = { title: 'Invitations' };
@@ -14,6 +15,8 @@ type Props = {
     reissued?: string;
     slug_saved?: string;
     slug_error?: string;
+    mono_saved?: string;
+    mono_error?: string;
   }>;
 };
 
@@ -21,6 +24,10 @@ const SLUG_ERROR_COPY: Record<string, string> = {
   invalid_format:
     'Slugs must be 3–32 characters: lowercase letters, numbers, and hyphens only.',
   taken: 'That slug is already taken by another event.',
+};
+
+const MONO_ERROR_COPY: Record<string, string> = {
+  invalid_color: 'Monogram color must be a hex code like #C97B4B.',
 };
 
 export default async function InvitationAdminPage({ params, searchParams }: Props) {
@@ -35,14 +42,18 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
 
   const { data: event } = await supabase
     .from('events')
-    .select('event_id, public_id, display_name, event_date, slug')
+    .select(
+      'event_id, public_id, display_name, event_date, slug, monogram_text, monogram_color',
+    )
     .eq('event_id', eventId)
     .maybeSingle();
   if (!event) redirect(`/dashboard/${eventId}`);
 
   const guests = await fetchGuestsByEvent(supabase, eventId);
 
-  // Render QR thumbnails server-side. ~15 guests × ~5KB SVG = fine for V1.
+  const monogram = resolveMonogram(event);
+
+  // Render QR thumbnails server-side with monogram composited in the center.
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
   const qrEntries = await Promise.all(
@@ -53,6 +64,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
         appUrl,
         slug: event.slug ?? eventId,
         qrToken: g.qr_token,
+        monogram,
       }),
     })),
   );
@@ -65,12 +77,33 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
     ? (SLUG_ERROR_COPY[slugErrorKey] ?? decodeURIComponent(slugErrorKey))
     : null;
 
+  const monoSaved = search.mono_saved === '1';
+  const monoErrorKey = search.mono_error ?? null;
+  const monoError = monoErrorKey
+    ? (MONO_ERROR_COPY[monoErrorKey] ?? decodeURIComponent(monoErrorKey))
+    : null;
+
   // Public landing URL for the event.
   const publicLandingUrl = event.slug
     ? `${appUrl}/${event.slug}`
     : null;
 
   const slugAction = updateEventSlug.bind(null, eventId);
+  const monoAction = updateMonogram.bind(null, eventId);
+
+  // Render a single preview-size QR using the first guest's token so the
+  // couple can see exactly what their guests' QRs look like with the
+  // current monogram + color.
+  const previewGuest = guests[0];
+  const previewQrSvg = previewGuest
+    ? await renderInvitationQrSvg({
+        appUrl,
+        slug: event.slug ?? eventId,
+        qrToken: previewGuest.qr_token,
+        monogram,
+      })
+    : null;
+  const defaultDerived = deriveMonogram(event.display_name);
 
   return (
     <section className="space-y-6">
@@ -103,6 +136,77 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
           and re-send their card.
         </p>
       ) : null}
+
+      {/* Branding: monogram in QR center + hero */}
+      <section className="rounded-xl border border-ink/10 bg-cream p-5">
+        <header className="flex items-start justify-between gap-4">
+          <div>
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+              Branding
+            </p>
+            <h2 className="mt-1 text-xl font-semibold tracking-tight">Your monogram</h2>
+            <p className="mt-1 text-sm text-ink/60">
+              Appears in the center of every guest&rsquo;s QR + on the hero of their personal
+              invitation page.
+            </p>
+          </div>
+          {previewQrSvg ? (
+            <div
+              aria-label="QR preview with monogram"
+              className="h-32 w-32 shrink-0 overflow-hidden rounded-lg border border-ink/10 bg-white p-2"
+              dangerouslySetInnerHTML={{ __html: previewQrSvg }}
+            />
+          ) : null}
+        </header>
+
+        <form action={monoAction} className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto_auto]">
+          <div className="space-y-1.5">
+            <label htmlFor="monogram_text" className="block text-sm font-medium text-ink">
+              Monogram text
+            </label>
+            <input
+              id="monogram_text"
+              name="monogram_text"
+              defaultValue={event.monogram_text ?? ''}
+              maxLength={12}
+              placeholder={defaultDerived}
+              className="input-field font-serif text-base italic"
+            />
+            <p className="text-xs text-ink/50">
+              Defaults to <code className="font-mono">{defaultDerived}</code> from your
+              event name. Up to 12 characters.
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <label htmlFor="monogram_color" className="block text-sm font-medium text-ink">
+              Color
+            </label>
+            <input
+              id="monogram_color"
+              name="monogram_color"
+              type="color"
+              defaultValue={event.monogram_color ?? '#C97B4B'}
+              className="h-11 w-20 cursor-pointer rounded-md border border-ink/15 bg-cream p-1"
+            />
+          </div>
+          <div className="flex items-end">
+            <button type="submit" className="button-primary w-full sm:w-auto">
+              Save monogram
+            </button>
+          </div>
+        </form>
+
+        {monoError ? (
+          <p role="alert" className="mt-3 text-xs text-terracotta-700">
+            {monoError}
+          </p>
+        ) : null}
+        {monoSaved ? (
+          <p role="status" className="mt-3 text-xs text-emerald-700">
+            Monogram saved. Every guest&rsquo;s QR + invitation page now uses your new branding.
+          </p>
+        ) : null}
+      </section>
 
       {/* Public URL + slug editor */}
       <section className="rounded-xl border border-ink/10 bg-cream p-5">

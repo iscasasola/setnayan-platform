@@ -5,6 +5,7 @@ import { readGuestSession } from '@/lib/guest-session';
 import { formatEventDate } from '@/lib/events';
 import { ROLE_LABELS, type GuestRole } from '@/lib/guests';
 import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
+import { resolveMonogram, type MonogramConfig } from '@/lib/monogram';
 import { submitRsvp } from './actions';
 import { CountdownWidget } from './_components/countdown';
 
@@ -70,13 +71,15 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   const { data: event } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, event_type, slug',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, event_type, slug, monogram_text, monogram_color',
     )
     .ilike('slug', slug)
     .maybeSingle();
 
   if (!event) notFound();
   if (event.event_type !== 'wedding') notFound();
+
+  const monogram = resolveMonogram(event);
 
   // Read the guest-session cookie (read-only — pages can't write cookies).
   const session = await readGuestSession();
@@ -124,6 +127,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     appUrl,
     slug,
     qrToken: guest.qr_token,
+    monogram,
   });
   const invitationUrl = buildInvitationUrl({ appUrl, slug, qrToken: guest.qr_token });
 
@@ -133,6 +137,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
       guest={guest}
       qrSvg={qrSvg}
       invitationUrl={invitationUrl}
+      monogram={monogram}
     />
   );
 }
@@ -245,11 +250,13 @@ function InvitationSite({
   guest,
   qrSvg,
   invitationUrl,
+  monogram,
 }: {
   event: EventRow;
   guest: GuestRow;
   qrSvg: string;
   invitationUrl: string;
+  monogram: MonogramConfig;
 }) {
   const sideLabel =
     guest.side === 'both'
@@ -271,9 +278,10 @@ function InvitationSite({
           </p>
           <div
             aria-hidden
-            className="mx-auto mt-6 flex h-20 w-20 items-center justify-center rounded-full border-2 border-terracotta bg-cream font-serif text-2xl italic text-terracotta"
+            className="mx-auto mt-6 flex h-20 w-20 items-center justify-center rounded-full border-2 bg-cream font-serif text-2xl italic"
+            style={{ borderColor: monogram.color, color: monogram.color }}
           >
-            M &amp; J
+            {monogram.text}
           </div>
           <h1 className="mt-6 font-sans text-5xl font-semibold tracking-tight sm:text-6xl">
             {event.display_name}

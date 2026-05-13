@@ -100,3 +100,41 @@ export async function updateEventSlug(
   revalidatePath(`/dashboard/${eventId}/invitation`);
   redirect(`/dashboard/${eventId}/invitation?slug_saved=1`);
 }
+
+const HEX_COLOR = /^#[0-9A-Fa-f]{6}$/;
+
+export async function updateMonogram(
+  eventId: string,
+  formData: FormData,
+): Promise<void> {
+  const rawText = String(formData.get('monogram_text') ?? '').trim();
+  const rawColor = String(formData.get('monogram_color') ?? '').trim();
+
+  const text = rawText ? rawText.slice(0, 12) : null;
+  const color = rawColor && HEX_COLOR.test(rawColor) ? rawColor : '#C97B4B';
+
+  if (rawColor && !HEX_COLOR.test(rawColor)) {
+    redirect(`/dashboard/${eventId}/invitation?mono_error=invalid_color`);
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('events')
+    .update({
+      monogram_text: text,
+      monogram_color: color,
+      monogram_updated_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('event_id', eventId);
+
+  if (error) {
+    redirect(
+      `/dashboard/${eventId}/invitation?mono_error=${encodeURIComponent(error.message)}`,
+    );
+  }
+
+  revalidatePath(`/dashboard/${eventId}/invitation`);
+  revalidatePath(`/dashboard/${eventId}/invitation/print`);
+  redirect(`/dashboard/${eventId}/invitation?mono_saved=1`);
+}

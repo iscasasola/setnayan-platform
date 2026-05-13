@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchGuestsByEvent, guestDisplayName, ROLE_LABELS } from '@/lib/guests';
 import { renderInvitationQrSvg } from '@/lib/qr';
+import { resolveMonogram } from '@/lib/monogram';
 
 export const metadata = { title: 'Print sheet' };
 export const dynamic = 'force-dynamic';
@@ -19,7 +20,7 @@ export default async function PrintSheetPage({ params }: Props) {
 
   const { data: event } = await supabase
     .from('events')
-    .select('event_id, display_name, event_date, slug')
+    .select('event_id, display_name, event_date, slug, monogram_text, monogram_color')
     .eq('event_id', eventId)
     .maybeSingle();
   if (!event) notFound();
@@ -28,11 +29,12 @@ export default async function PrintSheetPage({ params }: Props) {
   const guests = await fetchGuestsByEvent(supabase, eventId);
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
+  const monogram = resolveMonogram(event);
 
   const qrCards = await Promise.all(
     guests.map(async (g) => ({
       guest: g,
-      svg: await renderInvitationQrSvg({ appUrl, slug, qrToken: g.qr_token }),
+      svg: await renderInvitationQrSvg({ appUrl, slug, qrToken: g.qr_token, monogram }),
     })),
   );
 

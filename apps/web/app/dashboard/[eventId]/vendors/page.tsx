@@ -13,6 +13,7 @@ import {
   type EventVendorRow,
   type VendorStatus,
 } from '@/lib/vendors';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { createVendor, deleteVendor, updateVendorStatus } from './actions';
 
 export const metadata = { title: 'Vendors' };
@@ -196,9 +197,9 @@ function AddVendorForm({ eventId }: { eventId: string }) {
             placeholder="Inclusions, follow-ups, contract dates…"
           />
         </Field>
-        <button type="submit" className="button-primary">
+        <SubmitButton className="button-primary" pendingLabel="Adding…">
           Add vendor
-        </button>
+        </SubmitButton>
       </form>
     </details>
   );
@@ -386,23 +387,23 @@ function VendorCard({ eventId, vendor }: { eventId: string; vendor: EventVendorR
               </option>
             ))}
           </select>
-          <button
-            type="submit"
-            className="rounded-md bg-ink/[0.05] px-2 py-1 text-xs font-medium text-ink/70 hover:bg-ink/10"
+          <SubmitButton
+            className="rounded-md bg-ink/[0.05] px-2 py-1 text-xs font-medium text-ink/70 hover:bg-ink/10 disabled:opacity-60"
+            pendingLabel="…"
           >
             Update
-          </button>
+          </SubmitButton>
         </form>
         <form action={deleteVendor}>
           <input type="hidden" name="event_id" value={eventId} />
           <input type="hidden" name="vendor_id" value={vendor.vendor_id} />
-          <button
-            type="submit"
+          <SubmitButton
             aria-label="Delete vendor"
-            className="rounded-md p-1.5 text-ink/40 hover:bg-ink/5 hover:text-rose-700"
+            pendingLabel=""
+            className="rounded-md p-1.5 text-ink/40 hover:bg-ink/5 hover:text-rose-700 disabled:opacity-60"
           >
             <Trash2 className="h-4 w-4" strokeWidth={1.75} />
-          </button>
+          </SubmitButton>
         </form>
       </div>
     </li>

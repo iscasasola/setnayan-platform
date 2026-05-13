@@ -4,6 +4,7 @@ import { ArrowLeft, Download, AlertTriangle, Compass, KeyRound } from 'lucide-re
 import { createClient } from '@/lib/supabase/server';
 import { fetchUserEvents } from '@/lib/events';
 import { restartTour } from '@/lib/tour-actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 import {
   changePassword,
   softDeleteAccount,
@@ -195,9 +196,9 @@ export default async function ProfilePage({ searchParams }: Props) {
               </span>
             </span>
           </label>
-          <button type="submit" className="button-primary">
+          <SubmitButton className="button-primary" pendingLabel="Saving…">
             Save personal info
-          </button>
+          </SubmitButton>
         </form>
       </section>
 
@@ -234,13 +235,13 @@ export default async function ProfilePage({ searchParams }: Props) {
               className="input-field"
             />
           </Field>
-          <button
-            type="submit"
+          <SubmitButton
             className="button-primary inline-flex items-center gap-2"
+            pendingLabel="Changing…"
           >
             <KeyRound aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             Change password
-          </button>
+          </SubmitButton>
         </form>
       </section>
 
@@ -420,12 +421,12 @@ export default async function ProfilePage({ searchParams }: Props) {
               placeholder="Type DELETE to confirm"
               className="input-field bg-cream"
             />
-            <button
-              type="submit"
-              className="inline-flex items-center gap-2 rounded-md bg-rose-700 px-4 py-2 text-sm font-medium text-cream hover:bg-rose-800"
+            <SubmitButton
+              className="inline-flex items-center gap-2 rounded-md bg-rose-700 px-4 py-2 text-sm font-medium text-cream hover:bg-rose-800 disabled:opacity-70"
+              pendingLabel="Deleting…"
             >
               Delete account
-            </button>
+            </SubmitButton>
           </form>
         </details>
       </section>

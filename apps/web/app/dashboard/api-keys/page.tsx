@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { ArrowLeft, Copy, Key, Plus, ShieldOff } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import type { ApiKeyRow } from '@/lib/api-keys';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { createApiKey, revokeApiKey } from './actions';
 
 export const metadata = { title: 'API keys' };
@@ -105,13 +106,13 @@ export default async function ApiKeysPage({ searchParams }: Props) {
               className="input-field"
             />
           </label>
-          <button
-            type="submit"
+          <SubmitButton
             className="button-primary inline-flex items-center justify-center gap-2"
+            pendingLabel="Creating…"
           >
             <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
             Create key
-          </button>
+          </SubmitButton>
         </form>
       </section>
 
@@ -157,13 +158,13 @@ export default async function ApiKeysPage({ searchParams }: Props) {
                   ) : (
                     <form action={revokeApiKey}>
                       <input type="hidden" name="api_key_id" value={k.api_key_id} />
-                      <button
-                        type="submit"
-                        className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-rose-100 hover:text-rose-700"
+                      <SubmitButton
+                        className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-rose-100 hover:text-rose-700 disabled:opacity-60"
+                        pendingLabel="Revoking…"
                       >
                         <ShieldOff className="h-3.5 w-3.5" strokeWidth={1.75} />
                         Revoke
-                      </button>
+                      </SubmitButton>
                     </form>
                   )}
                 </div>

@@ -16,6 +16,61 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-14 · VAT direction fix + sweep of every mutating form for double-submit prevention
+
+**Commits:** to be filled after commit.
+
+**Two issues from the live testing pass:**
+
+1. **VAT math was inverted.** Receipts treated the quoted order total as **VAT-inclusive gross** (back-calculating pre-VAT = total / 1.12). The actual contract is the PH B2B convention: the quoted price is the **pre-VAT base**, and VAT is **added on top**. So a ₱10,000 quote should bill the customer ₱11,200, and the OR shows pre-VAT ₱10,000 + VAT ₱1,200 + gross ₱11,200.
+
+2. **Many submit buttons could double-fire.** During Flow A testing, a double-click on the payment-log button created two duplicate payments at +2s apart. The fix from earlier (a single `<SubmitButton>` reusable component that hooks `useFormStatus`) was applied only to the payment-log surface. Today we swept every mutating form across the app.
+
+**What landed:**
+
+- **VAT math (`apps/web/lib/receipts.ts`):** renamed `computeVatBreakdown(grossPhp)` → `computeVatFromBase(basePhp)`. New math: `vat = base * rate / 100; gross = base + vat`. Order's `*_total_php` columns now semantically mean **pre-VAT base** (not gross). Existing receipts in the DB are unchanged — only new receipts use the new math.
+- **`apps/web/lib/orders.ts:computeOrderTotals`:** exposes `base`, `vat`, `vatRatePct`, `gross`. `headlineTotal` is now the gross (what the couple actually pays). `remaining` runs on gross.
+- **Couple order detail (`/dashboard/[eventId]/orders/[orderId]`):** stat row now reads **Pre-VAT base → + VAT (12%) → Total to pay → Remaining**. Explanatory line: *"Confirmed base = ₱X. PH BIR-compliant VAT (12%) is added on top — what you actually pay is ₱X·1.12."*
+- **Couple orders list (`/dashboard/[eventId]/orders`):** each card now shows the **gross** with an "incl. VAT" subscript, so couples never wonder why the line in payment-instructions is higher.
+- **New-order form (`/dashboard/[eventId]/orders/new`):** field re-labeled "Your proposed budget (PHP, pre-VAT)" with explainer text.
+- **Admin quote prompt (`/admin/payments` → "Orders needing a quote"):** shows the requested pre-VAT base + computed gross side-by-side: *"Requested (pre-VAT): ₱10,000 · buyer pays ₱11,200 incl. 12% VAT"*. Input now reads "Confirmed pre-VAT total (PHP)" with the same buyer-pays hint below.
+- **Receipt auto-issue (`/admin/payments/actions.ts:maybeIssueReceipt`):** uses `computeVatFromBase(base)`. Pre-VAT and gross now diverge correctly; the BIR-compliant OR shows the proper breakdown.
+
+**Form double-submit sweep — every mutating action now uses `SubmitButton`:**
+
+| Surface | Action |
+|---|---|
+| `/signup`, `/login` (password + magic link) | Sign up / Sign in / Send magic link |
+| `/join/[eventId]` | RSVP / Join event |
+| `/[slug]` (public guest), `/[slug]/welcome` | Save RSVP / Confirm plus-one |
+| `/dashboard/create-event` | Create event |
+| `/dashboard/[eventId]/guests/{new,[guestId],import}` | Create / Update / Delete / Import guests |
+| `/dashboard/[eventId]/messages` (couple + vendor) | Start thread / Send chat message |
+| `/dashboard/[eventId]/orders/{new,[orderId]}` | Submit / Cancel order |
+| `/dashboard/[eventId]/invitation` | Save monogram / Re-issue token |
+| `/dashboard/[eventId]/schedule` | Add / Toggle / Delete block |
+| `/dashboard/[eventId]/vendors` | Add / Update status / Delete vendor |
+| `/dashboard/[eventId]/budget` | Add line item / Delete line item / Log payment / Delete payment |
+| `/dashboard/[eventId]/seating` | Add table / Delete table / Assign / Unassign guest |
+| `/dashboard/[eventId]/services/save-the-date` | Request template |
+| `/dashboard/profile` | Save personal info / Change password / Delete account |
+| `/dashboard/api-keys` | Create key / Revoke key |
+| `/admin/users` | Restore / Toggle team pool / Confirm email / Reset password |
+| `/admin/help` | Update status |
+
+Each button now disables itself + shows a "Saving…" / "Logging…" / contextual pending label between click and redirect. The `useFormStatus()` hook unblocks once the server action resolves.
+
+**Skipped intentionally** (low-risk / idempotent): Apply/filter buttons on search pages, sign-out buttons (idempotent), planner step toggles, theme/mode switchers, slug-availability checker, restart-tour, the few action toggles in profile that are pure boolean flips.
+
+**SPEC IMPACT:** Receipts (Iteration 0026 BIR compliance):
+- The spec's VAT chapter described the math without nailing direction. Today's flip is the production-correct PH B2B reading: "The quoted price is exclusive of VAT; VAT is added on top." Please update `~/Documents/Claude/Projects/Setnayan/04_Iterations/0026_bir_tax_compliance.md` via Cowork to reflect:
+  - Order/quote totals are stored pre-VAT
+  - The amount the customer pays is `pre_vat * (1 + vat_rate/100)`
+  - The receipt always shows three lines: pre-VAT base, VAT amount, gross total
+  - Receipts issued under the old math (before today) are not retroactively adjusted
+
+---
+
 ## 2026-05-14 · public macOS download page + GitHub Release v0.0.1
 
 **Commit:** to be filled after commit.
@@ -59,6 +114,62 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Operational note (not a code issue):** the last 4 desktop builds on GitHub Actions failed with *"recent account payments have failed or your spending limit needs to be increased"*. The fix is on the GitHub billing side — see `OWNER_ACTIONS.md` (or settings at https://github.com/settings/billing/spending_limit). Once billing is unblocked, the next push will produce a `.dmg` + `.msi` pointing at the real domain.
 
 **SPEC IMPACT:** None — Tauri shell URL change only; the spec corpus doesn't pin the redirect target.
+
+---
+
+## 2026-05-14 · admin payments PGRST201 fix — page was silently returning empty (backfilled)
+
+**Commit:** [954def3](https://github.com/iscasasola/setnayan-platform/commit/954def3)
+
+**What broke:** `/admin/payments` showed *"Nothing to reconcile"* even when the DB had 2 pending payments. Supabase quietly returned an empty array. Root cause: PostgREST error `PGRST201` — the `payments` table has two FKs to `users` (`user_id` for the buyer + `reviewed_by_user_id` for the admin reviewer), and the embedded join `user:users(email, public_id)` was ambiguous. PostgREST returned a 300-class error and the data fell through to `[]`.
+
+**Fix:** Disambiguate the embed with the explicit FK constraint name on every Supabase select that joins through these two FKs:
+
+- `user:users!payments_user_id_fkey(email, public_id)` on the payments query
+- `user:users!orders_user_id_fkey(email, public_id)` on the orders-needing-quote query
+
+Verified via `curl` with the service-role key — both pending payments + their joined buyer rows came back as expected.
+
+**SPEC IMPACT:** None — implementation defect only; the spec's data model is correct.
+
+---
+
+## 2026-05-14 · pending-state SubmitButton + payment screenshot file upload (backfilled)
+
+**Commit:** [07e301c](https://github.com/iscasasola/setnayan-platform/commit/07e301c)
+
+**Two UX issues from the live Flow A test:**
+
+1. *"When I press the Log Payment button I don't know if it is loading. Seems like I can double-click on it."* → Two duplicate `payments` rows inserted at +2 seconds apart.
+2. *"Screenshot URL is not a link — it should be an upload photo."*
+
+**What landed:**
+
+- New reusable client component `apps/web/app/_components/submit-button.tsx`. Hooks `useFormStatus()` from `react-dom` to:
+  - Disable the button while the server action is pending (`disabled + aria-busy`).
+  - Swap content for a `Loader2` spinner + customizable `pendingLabel` ("Logging…", "Approving…", "Saving…", etc.).
+- Wired into the payment-log, approve, reject, confirm-quote, settings-save, QR-upload, QR-remove, and create-order surfaces immediately.
+- Payment screenshot input flipped from `<input type="url">` to `<input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif">`. Form now uses `encType="multipart/form-data"`. Server action `logPayment` parses the file from FormData and uploads via the existing `uploadPublicAsset()` helper to the `platform-assets` bucket under `payment-screenshots/<order_id>/`. Returns the public URL into `payments.screenshot_url`.
+- Raised Supabase bucket size cap + added HEIC MIME (iPhone Live-Photo default).
+- Raised Next.js `experimental.serverActions.bodySizeLimit` to `'6mb'` so iPhone screenshots survive the multipart hop.
+
+**SPEC IMPACT:** None on locked decisions. UX hardening only.
+
+---
+
+## 2026-05-14 · manual password reset workflows — Phase 2 (Resend) bypass (backfilled)
+
+**Commit:** [b556a6c](https://github.com/iscasasola/setnayan-platform/commit/b556a6c)
+
+**Why:** The owner chose to skip Resend email setup pre-launch (cost/quota concerns). Without a transactional email provider, the Supabase magic-link / password-reset emails don't go out. To unblock users, two manual workflows were added.
+
+**What landed:**
+
+- **Admin-initiated:** new server action `resetUserPassword(formData)` in `apps/web/app/admin/users/actions.ts`. Calls `supabase.auth.admin.updateUserById(targetUserId, { password: tempPassword })` with a freshly-generated 12-char alphabet (Crockford-style; no 0/O/1/I/l). Redirects to `/admin/users?temp_password=<...>&for_email=<...>` so the admin sees the password once in an amber banner.
+- **User self-service:** new section on `/dashboard/profile` ("Change password") with two `<input type="password">` fields. Server action `changePassword` validates the match, calls `supabase.auth.updateUser({ password })`. Session stays alive; new password takes effect on next sign-in.
+- `OWNER_ACTIONS.md` updated: Phase 2 (Resend) marked DEFERRED. Phase 2A documents the admin reset path. Phase 2B is the "wire Resend later" note.
+
+**SPEC IMPACT:** None on platform contract — both flows use existing Supabase Auth primitives. The deferred Resend integration only blocks the *self-service* email-based reset; admin-initiated reset is fully functional.
 
 ---
 

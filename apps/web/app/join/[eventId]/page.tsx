@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { joinEventAction } from './actions';
 import { ROLE_LABELS, type GuestRole } from '@/lib/guests';
 
@@ -154,9 +155,9 @@ export default async function JoinPage({ params, searchParams }: Props) {
             Pick &ldquo;Guest&rdquo; if your role isn&rsquo;t listed. The couple can refine it later.
           </p>
         </div>
-        <button type="submit" className="button-primary w-full sm:w-auto">
+        <SubmitButton className="button-primary w-full sm:w-auto" pendingLabel="Joining…">
           Join event
-        </button>
+        </SubmitButton>
       </form>
     </JoinShell>
   );

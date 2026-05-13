@@ -2,8 +2,17 @@
 
 > Living checkpoint. Updated as work progresses.
 
-**Last updated:** 2026-05-13
-**Current sprint:** **Pre-launch sprint complete.** 19 iterations shipped end-to-end across one extended session — couple side (0000 shell, 0001 guests, 0002 invitations, 0021 dashboard + planner + themes, 0008 seating, 0006 vendors, 0007 budget, 0010 mood board, 0024 Save the Date gallery, 0025 profile settings, 0031 day-of schedule, 0034 orders), vendor side (0022 profile + 0019 chat), platform (0023 admin console, 0028 notifications, 0029 help center, 0030 guided tour, 0033 API gateway, 0026 BIR receipts), marketing (0015). Only **0032 Contract Intelligence** (LLM-gated) and **0035 Observability** (Sentry/PostHog signup-gated) remain — both blocked on owner-side external service provisioning. See **HANDOFF.md** at the repo root for a single-document handoff with verification flow and outstanding owner action items.
+**Last updated:** 2026-05-14
+**Current phase:** **Launch hardening + first-mile distribution.** Pre-launch sprint completed 2026-05-13 (19 iterations end-to-end). 2026-05-14 added: custom domain `setnayan.com` + Vercel SSL live, admin mobile polish, public `/download` page with macOS .dmg on GitHub Releases v0.0.1, Tauri local-build pipeline fixed, manual password reset workflows (admin-initiated + user self-service), payment screenshot file upload (replaced URL input), `<SubmitButton>` double-submit prevention swept across every mutating form in the app, VAT direction flipped from inclusive-gross to exclusive-base (PH B2B convention), critical `/admin/payments` PGRST201 ambiguous-FK bug fixed.
+
+Only **0032 Contract Intelligence** (LLM-gated) and **0035 Observability** (Sentry/PostHog signup-gated) remain in the original spec backlog — both blocked on owner-side external service provisioning. See **HANDOFF.md** at the repo root for a single-document handoff with verification flow and outstanding owner action items.
+
+**Owner-side blockers still open** (these need YOU, not me):
+- GitHub Actions billing → fix at https://github.com/settings/billing so desktop CI can rebuild on every push
+- Apple Developer Program enrollment ($99/yr) → needed for notarized macOS .dmg + future iOS/iPadOS builds
+- Resend (or other transactional email) → currently bypassed via manual password reset; needed when self-service email flows resume
+- Cowork reconciliation — 2026-05-14 work logged 2 SPEC IMPACT lines (mostly 0026 BIR-receipt VAT-direction clarification); please walk the corresponding spec files via Cowork
+
 **Owner's wedding (deadline anchor):** December 2026
 
 ---

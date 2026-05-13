@@ -178,7 +178,13 @@ function OrdersNeedingQuote({ orders }: { orders: OrderJoined[] }) {
             {o.description}
           </p>
           <p className="text-xs text-ink/55">
-            Requested: <span className="font-mono">{formatPhp(o.requested_total_php)}</span>
+            Requested (pre-VAT):{' '}
+            <span className="font-mono">{formatPhp(o.requested_total_php)}</span>
+            {' · '}buyer pays{' '}
+            <span className="font-mono">
+              {formatPhp(Number(o.requested_total_php) * 1.12)}
+            </span>{' '}
+            incl. 12% VAT
           </p>
           <form
             action={confirmOrderTotal}
@@ -187,7 +193,7 @@ function OrdersNeedingQuote({ orders }: { orders: OrderJoined[] }) {
             <input type="hidden" name="order_id" value={o.order_id} />
             <label className="sm:col-span-1 space-y-1">
               <span className="block font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                Confirmed total (PHP)
+                Confirmed pre-VAT total (PHP)
               </span>
               <input
                 name="confirmed_total_php"
@@ -198,6 +204,9 @@ function OrdersNeedingQuote({ orders }: { orders: OrderJoined[] }) {
                 required
                 className="input-field h-9 py-0 text-sm"
               />
+              <span className="block font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+                Buyer pays base &times; 1.12 incl. VAT
+              </span>
             </label>
             <label className="sm:col-span-2 space-y-1">
               <span className="block font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">

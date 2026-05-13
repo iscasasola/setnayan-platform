@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchGuestsByEvent, guestDisplayName, ROLE_LABELS, RSVP_LABELS } from '@/lib/guests';
 import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { deriveMonogram, resolveMonogram } from '@/lib/monogram';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { reissueGuestToken, updateEventSlug, updateMonogram } from './actions';
 import { SlugField } from './_components/slug-field';
 
@@ -191,9 +192,9 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
             />
           </div>
           <div className="flex items-end">
-            <button type="submit" className="button-primary w-full sm:w-auto">
+            <SubmitButton className="button-primary w-full sm:w-auto" pendingLabel="Saving…">
               Save monogram
-            </button>
+            </SubmitButton>
           </div>
         </form>
 
@@ -302,12 +303,12 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
                   </td>
                   <td className="px-3 py-3 text-right">
                     <form action={reissueAction} className="inline">
-                      <button
-                        type="submit"
-                        className="text-sm text-terracotta-700 underline-offset-4 hover:underline"
+                      <SubmitButton
+                        className="text-sm text-terracotta-700 underline-offset-4 hover:underline disabled:opacity-60"
+                        pendingLabel="…"
                       >
                         Re-issue
-                      </button>
+                      </SubmitButton>
                     </form>
                   </td>
                 </tr>
@@ -345,12 +346,12 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
                 </div>
               </div>
               <form action={reissueAction}>
-                <button
-                  type="submit"
-                  className="text-sm text-terracotta-700 underline-offset-4 hover:underline"
+                <SubmitButton
+                  className="text-sm text-terracotta-700 underline-offset-4 hover:underline disabled:opacity-60"
+                  pendingLabel="…"
                 >
                   Re-issue token
-                </button>
+                </SubmitButton>
               </form>
             </li>
           );

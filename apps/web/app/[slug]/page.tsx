@@ -6,6 +6,7 @@ import { formatEventDate } from '@/lib/events';
 import { ROLE_LABELS, type GuestRole } from '@/lib/guests';
 import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { resolveMonogram, type MonogramConfig } from '@/lib/monogram';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { submitRsvp } from './actions';
 import { CountdownWidget } from './_components/countdown';
 import { ScheduleWidget } from './_components/schedule-widget';
@@ -513,9 +514,9 @@ function RsvpWidget({
         </p>
       )}
 
-      <button type="submit" className="button-primary w-full sm:w-auto">
+      <SubmitButton className="button-primary w-full sm:w-auto" pendingLabel="Saving RSVP…">
         Save RSVP
-      </button>
+      </SubmitButton>
     </form>
   );
 }

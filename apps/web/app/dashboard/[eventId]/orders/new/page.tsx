@@ -73,7 +73,9 @@ export default async function NewOrderPage({ params, searchParams }: Props) {
         </label>
 
         <label htmlFor="requested_total_php" className="block space-y-1">
-          <span className="block text-sm font-medium text-ink">Your proposed budget (PHP)</span>
+          <span className="block text-sm font-medium text-ink">
+            Your proposed budget (PHP, pre-VAT)
+          </span>
           <input
             id="requested_total_php"
             name="requested_total_php"
@@ -85,8 +87,10 @@ export default async function NewOrderPage({ params, searchParams }: Props) {
             className="input-field"
           />
           <span className="block text-xs text-ink/55">
-            We&rsquo;ll come back with a confirmed price — could be lower or higher depending
-            on the scope.
+            Enter the <span className="font-medium">pre-VAT base</span>. Setnayan adds
+            12% VAT on top per PH BIR rules — what you actually pay will be base &times;
+            1.12. We&rsquo;ll come back with a confirmed price &mdash; could be lower or
+            higher depending on the scope.
           </span>
         </label>
 

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { createWeddingEvent } from './actions';
 
 export const metadata = { title: 'Create event' };
@@ -144,9 +145,9 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row">
-          <button className="button-primary w-full sm:w-auto" type="submit">
+          <SubmitButton className="button-primary w-full sm:w-auto" pendingLabel="Creating event…">
             Create wedding event
-          </button>
+          </SubmitButton>
           <Link className="button-secondary w-full sm:w-auto" href="/dashboard">
             Cancel
           </Link>

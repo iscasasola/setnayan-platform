@@ -4,6 +4,47 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-13 · 0022 vendor dashboard MVP — sign-up + profile editor
+
+**Commits:** to be filled in once committed.
+
+**What landed:**
+- New migration `20260513120000_iteration_0022_vendor_dashboard.sql`:
+  - `vendor_profiles` table — one row per vendor user. `vendor_profile_id` PK, `public_id` (`S89B-…` — B for business), `user_id` FK to public.users UNIQUE, business_name + business_slug (case-insensitive UNIQUE partial index), tagline, logo_url, services TEXT[], location_city, website, contact_email/phone, is_published, timestamps. Pattern A RLS (owner-only).
+  - **Updated** `handle_new_auth_user()` trigger function: reads `NEW.raw_user_meta_data->>'account_type'`; if set to 'customer' or 'vendor', uses that enum value. Default stays 'customer'. The trigger itself isn't recreated — CREATE OR REPLACE FUNCTION updates the body in place.
+  - **New** `handle_new_vendor_user()` trigger on `public.users` AFTER INSERT — when account_type='vendor' lands, auto-create a starter `vendor_profiles` row so the dashboard never opens to a missing record.
+- Signup form (`apps/web/app/signup/page.tsx`) gains a Couple / Vendor radio choice at the top of the form (defaults to Couple).
+- Signup action (`apps/web/app/signup/actions.ts`) now passes `data: { account_type }` to `supabase.auth.signUp()` so the trigger picks it up from `raw_user_meta_data`.
+- Couple dashboard (`/dashboard`) layout reads `account_type` along with theme; if vendor, redirects to `/vendor-dashboard`.
+- New `/vendor-dashboard` route tree:
+  - Layout (`apps/web/app/vendor-dashboard/layout.tsx`) — auth-gated, redirects non-vendors out, mirrors the dashboard chrome (brand mark, name, sign-out). Theme honors the same `users.theme_preference` setting.
+  - Page (`apps/web/app/vendor-dashboard/page.tsx`) — profile editor: completion progress bar with missing-field hint, mandatory-logo warning when no logo URL, all fields (business name + slug + tagline + logo URL + services CSV + city + website + contact email/phone), published checkbox, save button.
+  - Action (`apps/web/app/vendor-dashboard/actions.ts`) — `saveVendorProfile`. Validates slug format, splits services on commas (≤ 12 items, each ≤ 48 chars), writes to vendor_profiles.
+
+**SPEC IMPACT:**
+- `~/Documents/Claude/Projects/Setnayan/04_Iterations/0022_vendor_dashboard.md` — record V1 MVP scope and flag deferred sub-scopes:
+  - **Six surfaces:** spec calls for 6 vendor-side surfaces. V1 ships **1** (profile editor). Follow-ons:
+    - Portfolio gallery (needs R2 upload UI)
+    - Public vendor profile at `/v/[slug]` (needs marketplace surface)
+    - Bookings — events where couples have added you to their `event_vendors` (needs link between `event_vendors.vendor_name` and `vendor_profiles.user_id` — currently no FK, vendor name is free-form on couple side)
+    - Communications (waits on iteration 0019)
+    - Settings · payouts (waits on 0034 payments)
+  - **Mandatory logo:** spec calls for required logo. V1 only warns + flags in the completion bar; doesn't block save. When the public vendor surface ships, `is_published=true` should require a `logo_url`.
+  - **Chat identity masking:** spec calls for vendors seeing couples as anonymous identities. Belongs in iteration 0019 (communications); no plumbing yet.
+  - **Couple ↔ vendor linkage:** spec implies vendors can see events they're working. Currently `event_vendors` (couple-side, iteration 0006) stores `vendor_name TEXT` with no FK to `vendor_profiles`. A follow-on should add `event_vendors.vendor_profile_id UUID NULL` so couples can "tag" a tracked vendor as an existing Setnayan vendor.
+- The `account_type` enum stays `('customer', 'vendor', 'admin')`. "customer" remains the codename for couples (Sprint 0 choice).
+
+**Deferred:**
+- Logo + portfolio file upload (R2)
+- Public vendor profile page (/v/[slug])
+- Bookings surface
+- Chat with couples (waits on 0019)
+- Settings / payouts
+- Vendor marketplace / search
+- Couple-side "claim this vendor" flow
+
+---
+
 ## 2026-05-13 · 0007 budget MVP — line items + payment log + .ics export
 
 **Commits:** to be filled in once committed.

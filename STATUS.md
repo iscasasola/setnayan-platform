@@ -3,7 +3,7 @@
 > Living checkpoint. Updated as work progresses.
 
 **Last updated:** 2026-05-13
-**Current sprint:** Iteration `0007_budget_expenses` MVP shipped — line items + payments + .ics. New `event_vendor_line_items` (label + amount + due_date) and `event_vendor_payments` (amount + paid_at + method + reference + notes; optional link to a line item) tables with Pattern B RLS. New `/dashboard/[eventId]/budget` page replaces the placeholder: stats strip (total budget · paid so far · remaining · due in 30 days), per-vendor cards with itemized line items + logged payments and inline add forms, delete buttons per row. A new authenticated `GET /api/budget/[eventId]/ics` endpoint streams an RFC 5545 calendar file (one VEVENT per upcoming unpaid line-item due date), wired to a "Export upcoming dates (.ics)" button on the budget page.
+**Current sprint:** Iteration `0022_vendor_dashboard` MVP shipped — vendor account type now usable end-to-end. New `vendor_profiles` table (Pattern A RLS, business_name / business_slug / tagline / logo_url / services[] / location / contact + is_published) with auto-create trigger on user insert for `account_type='vendor'`. Sign-up form gains a Couple / Vendor radio choice; the trigger reads `raw_user_meta_data->>'account_type'` to set the right enum value on the public.users row. New `/vendor-dashboard` route tree (auth-gated, redirects non-vendors out) with a profile editor: business fields, services CSV, completion-progress bar, mandatory-logo warning. `/dashboard` redirects vendors out the moment they land. Portfolio upload, public vendor pages, bookings, and chat (with identity masking — needs 0019) remain deferred sub-scopes.
 **Owner's wedding (deadline anchor):** December 2026
 
 ---

@@ -9,9 +9,15 @@ function safeNext(raw: FormDataEntryValue | null): string {
   return value;
 }
 
+function parseAccountType(raw: FormDataEntryValue | null): 'customer' | 'vendor' {
+  const value = raw ? String(raw) : '';
+  return value === 'vendor' ? 'vendor' : 'customer';
+}
+
 export async function signUp(formData: FormData) {
   const email = String(formData.get('email') ?? '').trim();
   const password = String(formData.get('password') ?? '');
+  const accountType = parseAccountType(formData.get('account_type'));
   const next = safeNext(formData.get('next'));
 
   if (!email || !password) {
@@ -28,6 +34,9 @@ export async function signUp(formData: FormData) {
     password,
     options: {
       emailRedirectTo: `${appUrl}/auth/callback?next=${encodeURIComponent(next)}`,
+      // The trigger reads raw_user_meta_data->>'account_type' to pick the
+      // public.account_type enum value for the new public.users row.
+      data: { account_type: accountType },
     },
   });
 

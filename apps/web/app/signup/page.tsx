@@ -52,6 +52,32 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
 
       <form action={signUp} className="space-y-4">
         <input type="hidden" name="next" value={next} />
+        <fieldset className="space-y-2">
+          <legend className="block text-sm font-medium text-ink">I&rsquo;m signing up as a</legend>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="relative flex cursor-pointer flex-col gap-1 rounded-md border border-ink/15 bg-cream p-3 text-sm transition-colors has-[input:checked]:border-terracotta has-[input:checked]:bg-terracotta/5">
+              <input
+                type="radio"
+                name="account_type"
+                value="customer"
+                defaultChecked
+                className="peer sr-only"
+              />
+              <span className="font-medium text-ink">Couple</span>
+              <span className="text-xs text-ink/60">Planning our wedding</span>
+            </label>
+            <label className="relative flex cursor-pointer flex-col gap-1 rounded-md border border-ink/15 bg-cream p-3 text-sm transition-colors has-[input:checked]:border-terracotta has-[input:checked]:bg-terracotta/5">
+              <input
+                type="radio"
+                name="account_type"
+                value="vendor"
+                className="peer sr-only"
+              />
+              <span className="font-medium text-ink">Vendor</span>
+              <span className="text-xs text-ink/60">Photographer, caterer, etc.</span>
+            </label>
+          </div>
+        </fieldset>
         <div className="space-y-1.5">
           <label className="block text-sm font-medium text-ink" htmlFor="email">
             Email

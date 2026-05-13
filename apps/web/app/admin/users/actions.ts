@@ -42,6 +42,27 @@ export async function toggleTeamMember(formData: FormData) {
 }
 
 /**
+ * Restore a soft-deleted account. Sets deleted_at back to NULL so the user
+ * can sign in again. Internal/team-pool only.
+ */
+export async function restoreUserAccount(formData: FormData) {
+  await requireAdmin();
+  const targetUserId = formData.get('user_id');
+  if (typeof targetUserId !== 'string') {
+    throw new Error('Invalid input');
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('users')
+    .update({ deleted_at: null, updated_at: new Date().toISOString() })
+    .eq('user_id', targetUserId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath('/admin/users');
+}
+
+/**
  * Manually confirm a user's email — useful when Supabase's outbound email
  * doesn't arrive (rate limit, spam folder, misconfigured SMTP, etc.).
  * Internal/team-pool only.

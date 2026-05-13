@@ -53,8 +53,14 @@ export default async function VendorNotificationsPage() {
       {items.length === 0 ? (
         <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center">
           <Bell aria-hidden className="mx-auto mb-2 h-6 w-6 text-ink/30" strokeWidth={1.5} />
-          <p className="text-sm text-ink/55">
-            Nothing yet. New couple messages land here.
+          <p className="text-sm font-medium text-ink">No notifications yet.</p>
+          <p className="mx-auto mt-1 max-w-md text-xs text-ink/60">
+            You&rsquo;ll be notified here when a couple sends a new message. Make sure
+            your{' '}
+            <Link href="/vendor-dashboard" className="text-terracotta hover:underline">
+              contact email
+            </Link>{' '}
+            is filled in — that&rsquo;s how couples find you and start a conversation.
           </p>
         </div>
       ) : (

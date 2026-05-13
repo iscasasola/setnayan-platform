@@ -60,9 +60,18 @@ export default async function CoupleNotificationsPage() {
       {items.length === 0 ? (
         <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center">
           <Bell aria-hidden className="mx-auto mb-2 h-6 w-6 text-ink/30" strokeWidth={1.5} />
-          <p className="text-sm text-ink/55">
-            Nothing yet. New messages, order quotes, and payment confirmations land here.
+          <p className="text-sm font-medium text-ink">No notifications yet.</p>
+          <p className="mx-auto mt-1 max-w-md text-xs text-ink/60">
+            You&rsquo;ll see notifications when a vendor replies to a thread, when the
+            Setnayan team confirms an order quote, or when a payment is matched. While
+            you&rsquo;re here — head to the dashboard and add a vendor or start a thread to
+            kick things off.
           </p>
+          <div className="mt-4">
+            <Link href="/dashboard" className="button-secondary">
+              Back to events
+            </Link>
+          </div>
         </div>
       ) : (
         <ul className="space-y-2">

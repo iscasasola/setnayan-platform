@@ -1,6 +1,6 @@
-import { Search, ShieldCheck, Sparkle, MailCheck } from 'lucide-react';
+import { Search, ShieldCheck, Sparkle, MailCheck, RotateCcw, Trash2 } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { confirmUserEmail, toggleTeamMember } from './actions';
+import { confirmUserEmail, restoreUserAccount, toggleTeamMember } from './actions';
 
 export const metadata = { title: 'Users · Admin' };
 
@@ -12,10 +12,11 @@ type UserRow = {
   account_type: 'customer' | 'vendor' | 'admin';
   is_internal: boolean;
   is_team_member: boolean;
+  deleted_at: string | null;
   created_at: string;
 };
 
-type Filter = 'all' | 'customer' | 'vendor' | 'internal' | 'team_pool';
+type Filter = 'all' | 'customer' | 'vendor' | 'internal' | 'team_pool' | 'deleted';
 
 type Props = {
   searchParams: Promise<{ q?: string; filter?: string }>;
@@ -30,7 +31,7 @@ export default async function AdminUsersPage({ searchParams }: Props) {
   let query = admin
     .from('users')
     .select(
-      'user_id,public_id,email,display_name,account_type,is_internal,is_team_member,created_at',
+      'user_id,public_id,email,display_name,account_type,is_internal,is_team_member,deleted_at,created_at',
     )
     .order('created_at', { ascending: false })
     .limit(200);
@@ -41,6 +42,8 @@ export default async function AdminUsersPage({ searchParams }: Props) {
     query = query.eq('is_internal', true);
   } else if (filter === 'team_pool') {
     query = query.eq('is_team_member', true);
+  } else if (filter === 'deleted') {
+    query = query.not('deleted_at', 'is', null);
   }
 
   if (q.length > 0) {
@@ -83,6 +86,7 @@ export default async function AdminUsersPage({ searchParams }: Props) {
           <option value="vendor">Vendors</option>
           <option value="internal">🟣 Internal (§ 10a)</option>
           <option value="team_pool">🟢 Team Pool (§ 10b)</option>
+          <option value="deleted">Soft-deleted</option>
         </select>
         <button type="submit" className="button-secondary">Apply</button>
       </form>
@@ -154,11 +158,28 @@ export default async function AdminUsersPage({ searchParams }: Props) {
                           Team
                         </span>
                       ) : null}
+                      {u.deleted_at ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-rose-800">
+                          <Trash2 className="h-3 w-3" strokeWidth={2} />
+                          Deleted
+                        </span>
+                      ) : null}
                     </div>
                   </td>
                   <td className="px-3 py-3">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      {u.is_internal ? (
+                      {u.deleted_at ? (
+                        <form action={restoreUserAccount}>
+                          <input type="hidden" name="user_id" value={u.user_id} />
+                          <button
+                            type="submit"
+                            className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-900 hover:bg-emerald-200"
+                          >
+                            <RotateCcw className="h-3 w-3" strokeWidth={2} />
+                            Restore
+                          </button>
+                        </form>
+                      ) : u.is_internal ? (
                         <span className="text-xs text-ink/55">Locked (internal)</span>
                       ) : (
                         <form action={toggleTeamMember}>
@@ -180,17 +201,19 @@ export default async function AdminUsersPage({ searchParams }: Props) {
                           </button>
                         </form>
                       )}
-                      <form action={confirmUserEmail}>
-                        <input type="hidden" name="user_id" value={u.user_id} />
-                        <button
-                          type="submit"
-                          title="Force-confirm this user's email (idempotent — useful when Supabase email doesn't arrive)"
-                          className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-ink/10"
-                        >
-                          <MailCheck className="h-3 w-3" strokeWidth={2} />
-                          Confirm email
-                        </button>
-                      </form>
+                      {!u.deleted_at ? (
+                        <form action={confirmUserEmail}>
+                          <input type="hidden" name="user_id" value={u.user_id} />
+                          <button
+                            type="submit"
+                            title="Force-confirm this user's email (idempotent — useful when Supabase email doesn't arrive)"
+                            className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-ink/10"
+                          >
+                            <MailCheck className="h-3 w-3" strokeWidth={2} />
+                            Confirm email
+                          </button>
+                        </form>
+                      ) : null}
                     </div>
                   </td>
                 </tr>

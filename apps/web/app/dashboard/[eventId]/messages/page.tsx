@@ -79,9 +79,21 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
             className="mx-auto mb-2 h-6 w-6 text-ink/30"
             strokeWidth={1.5}
           />
-          <p className="text-sm text-ink/55">
-            No conversations yet. Start one with the form above.
+          <p className="text-sm font-medium text-ink">No conversations yet.</p>
+          <p className="mx-auto mt-1 max-w-md text-xs text-ink/60">
+            Start a thread with the form above. You&rsquo;ll need the vendor&rsquo;s
+            contact email — the same one they listed on their Setnayan vendor profile.
+            Already tracking a vendor on the Vendors page? Their contact email is
+            on their card.
           </p>
+          <div className="mt-4">
+            <Link
+              href={`/dashboard/${eventId}/vendors`}
+              className="button-secondary"
+            >
+              Open vendors
+            </Link>
+          </div>
         </div>
       ) : (
         <ul className="space-y-2">

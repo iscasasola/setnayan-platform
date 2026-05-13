@@ -394,19 +394,21 @@ function NavGrid({
             <li key={tile.key}>
               <Link
                 href={tile.href(eventId)}
-                className="flex h-full flex-col gap-3 rounded-xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/40 hover:bg-terracotta/5"
+                className="flex h-full flex-col gap-2 rounded-xl border border-ink/10 bg-cream p-3 transition-colors hover:border-terracotta/40 hover:bg-terracotta/5 sm:gap-3 sm:p-4"
               >
-                <span className="relative inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
-                  <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+                <span className="relative inline-flex h-8 w-8 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta sm:h-10 sm:w-10">
+                  <Icon aria-hidden className="h-4 w-4 sm:h-5 sm:w-5" strokeWidth={1.75} />
                   {showBadge ? (
                     <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-terracotta px-1 font-mono text-[9px] font-semibold text-cream">
                       {unreadCount > 9 ? '9+' : unreadCount}
                     </span>
                   ) : null}
                 </span>
-                <span className="text-sm font-semibold text-ink">{tile.label}</span>
+                <span className="text-xs font-semibold text-ink sm:text-sm">
+                  {tile.label}
+                </span>
                 {counter ? (
-                  <span className="text-xs text-ink/55">{counter}</span>
+                  <span className="text-[10px] text-ink/55 sm:text-xs">{counter}</span>
                 ) : null}
               </Link>
             </li>

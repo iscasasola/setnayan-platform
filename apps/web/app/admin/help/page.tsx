@@ -1,5 +1,6 @@
 import { Mail } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { setHelpMessageStatus } from './actions';
 
 export const metadata = { title: 'Help inbox · Admin' };
@@ -159,12 +160,12 @@ export default async function AdminHelpPage({ searchParams }: Props) {
                     className="input-field h-9 py-0 text-sm"
                   />
                 </label>
-                <button
-                  type="submit"
-                  className="inline-flex h-9 items-center justify-center rounded-md bg-terracotta px-3 text-xs font-medium text-cream hover:bg-terracotta-600"
+                <SubmitButton
+                  className="inline-flex h-9 items-center justify-center rounded-md bg-terracotta px-3 text-xs font-medium text-cream hover:bg-terracotta-600 disabled:opacity-70"
+                  pendingLabel="Updating…"
                 >
                   Update
-                </button>
+                </SubmitButton>
               </form>
             </li>
           ))}

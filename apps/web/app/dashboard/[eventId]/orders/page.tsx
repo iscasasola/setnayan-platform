@@ -8,6 +8,7 @@ import {
   fetchOrdersForEvent,
   formatPhp,
 } from '@/lib/orders';
+import { computeVatFromBase } from '@/lib/receipts';
 
 export const metadata = { title: 'Orders' };
 
@@ -88,8 +89,15 @@ export default async function CoupleOrdersPage({ params, searchParams }: Props) 
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-3">
-                  <span className="text-sm font-mono text-ink">
-                    {formatPhp(o.confirmed_total_php ?? o.requested_total_php)}
+                  <span className="font-mono text-sm text-ink">
+                    {formatPhp(
+                      computeVatFromBase(
+                        Number(o.confirmed_total_php ?? o.requested_total_php),
+                      ).gross,
+                    )}
+                    <span className="ml-1 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+                      incl. VAT
+                    </span>
                   </span>
                   <span
                     className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${

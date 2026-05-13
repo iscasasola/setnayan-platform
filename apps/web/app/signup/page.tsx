@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { signUp } from './actions';
 
 export const metadata: Metadata = {
@@ -108,9 +109,9 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
             type="password"
           />
         </div>
-        <button className="button-primary w-full" type="submit">
+        <SubmitButton className="button-primary w-full" pendingLabel="Creating account…">
           Create account
-        </button>
+        </SubmitButton>
       </form>
 
       <p className="text-center text-sm text-ink/60">

@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import { formatPhp } from '@/lib/orders';
-import { computeVatBreakdown } from '@/lib/receipts';
+import { computeVatFromBase } from '@/lib/receipts';
 
 async function requireAdmin(): Promise<{ userId: string }> {
   const supabase = await createClient();
@@ -117,8 +117,10 @@ async function issueReceiptForOrder(args: {
     .maybeSingle();
   if (!order) return;
 
-  const gross = Number(order.confirmed_total_php ?? order.requested_total_php ?? 0);
-  if (gross <= 0) return;
+  // The order's *_total_php fields are the **pre-VAT base** (the value Setnayan
+  // quotes). VAT is added on top: customer paid (base + 12%).
+  const base = Number(order.confirmed_total_php ?? order.requested_total_php ?? 0);
+  if (base <= 0) return;
 
   const { data: buyer } = await admin
     .from('users')
@@ -126,7 +128,7 @@ async function issueReceiptForOrder(args: {
     .eq('user_id', order.user_id)
     .maybeSingle();
 
-  const { preVat, vat } = computeVatBreakdown(gross);
+  const { preVat, vat, gross } = computeVatFromBase(base);
 
   // or_serial defaults from public.or_serial_seq (atomic) — don't pass it.
   // The display "OR number" is composed at read-time via formatOrNumber().

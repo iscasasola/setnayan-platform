@@ -112,19 +112,28 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
         <p className="whitespace-pre-wrap text-sm text-ink/75">{order.description}</p>
 
         <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <Stat label="Requested" value={formatPhp(order.requested_total_php)} />
+          <Stat label="Pre-VAT base" value={formatPhp(totals.base)} />
           <Stat
-            label="Confirmed"
-            value={order.confirmed_total_php != null ? formatPhp(order.confirmed_total_php) : '—'}
-            tone={order.confirmed_total_php != null ? 'good' : 'muted'}
+            label={`+ VAT (${totals.vatRatePct}%)`}
+            value={formatPhp(totals.vat)}
+            tone="muted"
           />
-          <Stat label="Matched" value={formatPhp(totals.matched)} tone="good" />
+          <Stat label="Total to pay" value={formatPhp(totals.gross)} tone="good" />
           <Stat
             label="Remaining"
             value={formatPhp(totals.remaining)}
             tone={totals.remaining > 0 ? 'warn' : 'good'}
           />
         </dl>
+        <p className="text-xs text-ink/55">
+          {order.confirmed_total_php != null ? 'Confirmed' : 'Requested'} base ={' '}
+          <span className="font-mono">{formatPhp(totals.base)}</span>. PH BIR-compliant
+          VAT ({totals.vatRatePct}%) is added on top &mdash; what you actually pay is{' '}
+          <span className="font-mono font-semibold">{formatPhp(totals.gross)}</span>.
+          {totals.matched > 0
+            ? ` So far we've matched ${formatPhp(totals.matched)} of that.`
+            : ''}
+        </p>
 
         {order.admin_notes ? (
           <p className="rounded-md bg-ink/[0.04] p-3 text-sm text-ink/75">
@@ -140,13 +149,13 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
           <form action={cancelOrder}>
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="order_id" value={orderId} />
-            <button
-              type="submit"
-              className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-rose-700"
+            <SubmitButton
+              className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-rose-700 disabled:opacity-60"
+              pendingLabel="Cancelling…"
             >
               <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
               Cancel order
-            </button>
+            </SubmitButton>
           </form>
         ) : null}
       </header>

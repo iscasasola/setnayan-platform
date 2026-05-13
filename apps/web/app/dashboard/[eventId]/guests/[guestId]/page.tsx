@@ -18,6 +18,7 @@ import {
   type MealPreference,
   type RsvpStatus,
 } from '@/lib/guests';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { softDeleteGuest, updateGuest } from './actions';
 
 export const metadata = { title: 'Guest detail' };
@@ -269,9 +270,9 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
             <Link href={`/dashboard/${eventId}/guests`} className="button-secondary">
               Cancel
             </Link>
-            <button type="submit" className="button-primary">
+            <SubmitButton className="button-primary" pendingLabel="Saving…">
               Save changes
-            </button>
+            </SubmitButton>
           </div>
         </div>
       </form>
@@ -288,13 +289,13 @@ function DeleteForm({
 }) {
   return (
     <form action={action}>
-      <button
-        type="submit"
-        className="text-sm font-medium text-terracotta-700 underline-offset-4 hover:underline"
+      <SubmitButton
+        className="text-sm font-medium text-terracotta-700 underline-offset-4 hover:underline disabled:opacity-60"
         aria-label={`Remove ${guestName}`}
+        pendingLabel="Removing…"
       >
         Remove guest
-      </button>
+      </SubmitButton>
     </form>
   );
 }

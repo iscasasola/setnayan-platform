@@ -10,6 +10,7 @@ import {
   type VendorBudgetSummary,
 } from '@/lib/budget';
 import { VENDOR_CATEGORY_LABEL, VENDOR_STATUS_LABEL, VENDOR_STATUS_TONE } from '@/lib/vendors';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { addLineItem, deleteLineItem, deletePayment, logPayment } from './actions';
 
 export const metadata = { title: 'Budget' };
@@ -267,13 +268,13 @@ function LineItemSection({
                 <form action={deleteLineItem}>
                   <input type="hidden" name="event_id" value={eventId} />
                   <input type="hidden" name="line_item_id" value={li.line_item_id} />
-                  <button
-                    type="submit"
+                  <SubmitButton
                     aria-label="Delete line item"
-                    className="rounded-md p-1 text-ink/40 hover:bg-ink/5 hover:text-rose-700"
+                    pendingLabel=""
+                    className="rounded-md p-1 text-ink/40 hover:bg-ink/5 hover:text-rose-700 disabled:opacity-60"
                   >
                     <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  </button>
+                  </SubmitButton>
                 </form>
               </div>
             </li>
@@ -306,13 +307,13 @@ function LineItemSection({
           placeholder="Due date"
           className="input-field h-9 py-0 text-xs"
         />
-        <button
-          type="submit"
-          className="col-span-2 inline-flex items-center justify-center gap-1 rounded-md bg-terracotta px-3 py-1.5 text-xs font-medium text-cream hover:bg-terracotta-600 sm:col-span-4"
+        <SubmitButton
+          className="col-span-2 inline-flex items-center justify-center gap-1 rounded-md bg-terracotta px-3 py-1.5 text-xs font-medium text-cream hover:bg-terracotta-600 disabled:opacity-70 sm:col-span-4"
+          pendingLabel="Adding…"
         >
           <Plus className="h-3.5 w-3.5" strokeWidth={2} />
           Add line item
-        </button>
+        </SubmitButton>
       </form>
     </section>
   );
@@ -367,13 +368,13 @@ function PaymentSection({
                   <form action={deletePayment}>
                     <input type="hidden" name="event_id" value={eventId} />
                     <input type="hidden" name="payment_id" value={p.payment_id} />
-                    <button
-                      type="submit"
+                    <SubmitButton
                       aria-label="Delete payment"
-                      className="rounded-md p-1 text-emerald-900/50 hover:bg-emerald-900/5 hover:text-rose-700"
+                      pendingLabel=""
+                      className="rounded-md p-1 text-emerald-900/50 hover:bg-emerald-900/5 hover:text-rose-700 disabled:opacity-60"
                     >
                       <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
-                    </button>
+                    </SubmitButton>
                   </form>
                 </div>
               </li>
@@ -422,13 +423,13 @@ function PaymentSection({
           placeholder="Reference #"
           className="input-field h-9 py-0 text-xs"
         />
-        <button
-          type="submit"
-          className="col-span-1 inline-flex items-center justify-center gap-1 rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-emerald-800"
+        <SubmitButton
+          className="col-span-1 inline-flex items-center justify-center gap-1 rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-emerald-800 disabled:opacity-70"
+          pendingLabel="Logging…"
         >
           <Plus className="h-3.5 w-3.5" strokeWidth={2} />
           Log
-        </button>
+        </SubmitButton>
       </form>
     </section>
   );

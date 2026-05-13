@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { DEFAULT_VAT_RATE_PCT, computeVatFromBase } from '@/lib/receipts';
 
 export type OrderStatus =
   | 'draft'
@@ -129,9 +130,10 @@ export function formatPhp(amount: number | null | undefined): string {
 }
 
 /**
- * Compute the running totals for an order: confirmed cost (admin) vs. what
- * the couple has logged + what the admin has matched. Drives the order
- * detail page's "Amount due" line.
+ * Compute the running totals for an order. The order's *_total_php columns
+ * store the **pre-VAT base** (the value Setnayan quotes). The couple pays
+ * the **gross** = base + VAT, so headlineTotal/remaining/matched all run on
+ * the gross figure. Receipts later record pre-VAT, VAT, and gross.
  */
 export function computeOrderTotals(order: OrderRow, payments: PaymentRow[]) {
   const matched = payments
@@ -140,11 +142,16 @@ export function computeOrderTotals(order: OrderRow, payments: PaymentRow[]) {
   const pending = payments
     .filter((p) => p.status === 'pending')
     .reduce((acc, p) => acc + Number(p.amount_php), 0);
-  const headlineTotal = order.confirmed_total_php ?? order.requested_total_php;
+  const base = Number(order.confirmed_total_php ?? order.requested_total_php);
+  const { preVat, vat, gross, rate } = computeVatFromBase(base, DEFAULT_VAT_RATE_PCT);
   return {
     matched,
     pending,
-    headlineTotal: Number(headlineTotal),
-    remaining: Math.max(0, Number(headlineTotal) - matched),
+    base: preVat,
+    vat,
+    vatRatePct: rate,
+    gross,
+    headlineTotal: gross,
+    remaining: Math.max(0, gross - matched),
   };
 }

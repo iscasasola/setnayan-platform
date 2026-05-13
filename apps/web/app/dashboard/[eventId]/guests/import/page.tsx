@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { importGuestsCsv } from './actions';
 
 export const metadata = { title: 'Import guests' };
@@ -78,9 +79,9 @@ export default async function ImportGuestsPage({ params, searchParams }: Props) 
           />
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
-          <button type="submit" className="button-primary">
+          <SubmitButton className="button-primary" pendingLabel="Importing…">
             Import guests
-          </button>
+          </SubmitButton>
           <Link
             href={`/dashboard/${eventId}/guests`}
             className="button-secondary"

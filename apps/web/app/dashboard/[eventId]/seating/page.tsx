@@ -12,6 +12,7 @@ import {
   type SeatAssignmentRow,
   type TableType,
 } from '@/lib/seating';
+import { SubmitButton } from '@/app/_components/submit-button';
 import {
   assignGuest,
   createTable,
@@ -195,9 +196,9 @@ function AddTableForm({ eventId }: { eventId: string }) {
           className="input-field w-24"
         />
       </div>
-      <button type="submit" className="button-primary inline-flex items-center gap-2">
+      <SubmitButton className="button-primary inline-flex items-center gap-2" pendingLabel="Adding…">
         <Plus aria-hidden className="h-4 w-4" strokeWidth={2} /> Add table
-      </button>
+      </SubmitButton>
     </form>
   );
 }
@@ -254,13 +255,13 @@ function TableCard({
           <form action={deleteTable}>
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="table_id" value={table.table_id} />
-            <button
-              type="submit"
+            <SubmitButton
               aria-label="Delete table"
-              className="rounded-md p-1.5 text-ink/40 hover:bg-ink/5 hover:text-rose-700"
+              pendingLabel=""
+              className="rounded-md p-1.5 text-ink/40 hover:bg-ink/5 hover:text-rose-700 disabled:opacity-60"
             >
               <Trash2 className="h-4 w-4" strokeWidth={1.75} />
-            </button>
+            </SubmitButton>
           </form>
         </div>
       </div>
@@ -288,13 +289,13 @@ function TableCard({
                 <form action={unassignGuest}>
                   <input type="hidden" name="event_id" value={eventId} />
                   <input type="hidden" name="guest_id" value={a.guest_id} />
-                  <button
-                    type="submit"
+                  <SubmitButton
                     aria-label="Remove from table"
-                    className="rounded-md p-1 text-ink/40 hover:bg-ink/5 hover:text-rose-700"
+                    pendingLabel=""
+                    className="rounded-md p-1 text-ink/40 hover:bg-ink/5 hover:text-rose-700 disabled:opacity-60"
                   >
                     <UserMinus className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  </button>
+                  </SubmitButton>
                 </form>
               </li>
             );
@@ -324,13 +325,13 @@ function TableCard({
               );
             })}
           </select>
-          <button
-            type="submit"
+          <SubmitButton
             aria-label="Seat guest"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-ink/15 bg-cream text-terracotta hover:border-terracotta"
+            pendingLabel=""
+            className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-ink/15 bg-cream text-terracotta hover:border-terracotta disabled:opacity-60"
           >
             <UserPlus className="h-4 w-4" strokeWidth={1.75} />
-          </button>
+          </SubmitButton>
         </form>
       ) : null}
     </div>

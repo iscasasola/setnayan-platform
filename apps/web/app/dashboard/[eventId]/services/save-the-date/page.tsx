@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Sparkles, Video } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { SubmitButton } from '@/app/_components/submit-button';
 import {
   SAVE_THE_DATE_TEMPLATES,
   STD_PRICE_PHP,
@@ -142,13 +143,13 @@ function TemplateCard({
           />
           <input type="hidden" name="description" value={description} />
           <input type="hidden" name="requested_total_php" value={STD_PRICE_PHP} />
-          <button
-            type="submit"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta-600"
+          <SubmitButton
+            className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta-600 disabled:opacity-70"
+            pendingLabel="Requesting…"
           >
             <Video className="h-4 w-4" strokeWidth={1.75} />
             Request this template
-          </button>
+          </SubmitButton>
         </form>
       </div>
     </article>

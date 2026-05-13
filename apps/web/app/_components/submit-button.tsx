@@ -3,12 +3,12 @@
 import { useFormStatus } from 'react-dom';
 import { Loader2 } from 'lucide-react';
 
-type Props = {
+type Props = Omit<
+  React.ButtonHTMLAttributes<HTMLButtonElement>,
+  'type' | 'disabled' | 'aria-busy'
+> & {
   children: React.ReactNode;
-  className?: string;
   pendingLabel?: string;
-  /** Optional `aria-label` for screen readers when children is icon-only. */
-  'aria-label'?: string;
 };
 
 /**

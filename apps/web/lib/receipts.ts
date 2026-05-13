@@ -22,21 +22,23 @@ const SELECT =
 export const DEFAULT_VAT_RATE_PCT = 12;
 
 /**
- * Given the gross total the customer is paying, split it into pre-VAT base
- * and VAT amount under PH BIR rules where customers pay the VAT-inclusive
- * figure. Math: pre_vat = gross / (1 + rate/100); vat = gross - pre_vat.
+ * VAT is **added on top** of the quoted value (PH B2B convention).
+ * Given the pre-VAT base (the value Setnayan quotes), compute the VAT
+ * amount and the gross the customer actually pays.
+ *
+ * Math: vat = base * rate / 100; gross = base + vat.
  *
  * Returns numbers rounded to 2 decimal places. The CHECK constraint in the
  * receipts table tolerates ±0.01 rounding noise.
  */
-export function computeVatBreakdown(
-  grossPhp: number,
+export function computeVatFromBase(
+  basePhp: number,
   vatRatePct: number = DEFAULT_VAT_RATE_PCT,
 ): { preVat: number; vat: number; gross: number; rate: number } {
-  const gross = Math.round(grossPhp * 100) / 100;
+  const preVat = Math.round(basePhp * 100) / 100;
   const rate = vatRatePct;
-  const preVat = Math.round((gross / (1 + rate / 100)) * 100) / 100;
-  const vat = Math.round((gross - preVat) * 100) / 100;
+  const vat = Math.round(((preVat * rate) / 100) * 100) / 100;
+  const gross = Math.round((preVat + vat) * 100) / 100;
   return { preVat, vat, gross, rate };
 }
 

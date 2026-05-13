@@ -1,5 +1,6 @@
 import { Search, ShieldCheck, Sparkle, MailCheck, RotateCcw, Trash2, KeyRound } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { SubmitButton } from '@/app/_components/submit-button';
 import {
   confirmUserEmail,
   resetUserPassword,
@@ -219,13 +220,13 @@ export default async function AdminUsersPage({ searchParams }: Props) {
                       {u.deleted_at ? (
                         <form action={restoreUserAccount}>
                           <input type="hidden" name="user_id" value={u.user_id} />
-                          <button
-                            type="submit"
-                            className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-900 hover:bg-emerald-200"
+                          <SubmitButton
+                            className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-900 hover:bg-emerald-200 disabled:opacity-60"
+                            pendingLabel="…"
                           >
                             <RotateCcw className="h-3 w-3" strokeWidth={2} />
                             Restore
-                          </button>
+                          </SubmitButton>
                         </form>
                       ) : u.is_internal ? (
                         <span className="text-xs text-ink/55">Locked (internal)</span>
@@ -237,41 +238,41 @@ export default async function AdminUsersPage({ searchParams }: Props) {
                             name="desired"
                             value={u.is_team_member ? 'false' : 'true'}
                           />
-                          <button
-                            type="submit"
-                            className={`rounded-md px-2 py-1 text-xs font-medium ${
+                          <SubmitButton
+                            className={`rounded-md px-2 py-1 text-xs font-medium disabled:opacity-60 ${
                               u.is_team_member
                                 ? 'bg-emerald-100 text-emerald-900 hover:bg-emerald-200'
                                 : 'bg-ink/5 text-ink/70 hover:bg-ink/10'
                             }`}
+                            pendingLabel="…"
                           >
                             {u.is_team_member ? 'Remove from pool' : 'Add to pool'}
-                          </button>
+                          </SubmitButton>
                         </form>
                       )}
                       {!u.deleted_at ? (
                         <>
                           <form action={confirmUserEmail}>
                             <input type="hidden" name="user_id" value={u.user_id} />
-                            <button
-                              type="submit"
+                            <SubmitButton
                               title="Force-confirm this user's email (idempotent — useful when Supabase email doesn't arrive)"
-                              className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-ink/10"
+                              className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-ink/10 disabled:opacity-60"
+                              pendingLabel="…"
                             >
                               <MailCheck className="h-3 w-3" strokeWidth={2} />
                               Confirm email
-                            </button>
+                            </SubmitButton>
                           </form>
                           <form action={resetUserPassword}>
                             <input type="hidden" name="user_id" value={u.user_id} />
-                            <button
-                              type="submit"
+                            <SubmitButton
                               title="Generate a temporary password to share with this user. Shown once at the top of the page."
-                              className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-amber-100 hover:text-amber-900"
+                              className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-amber-100 hover:text-amber-900 disabled:opacity-60"
+                              pendingLabel="Generating…"
                             >
                               <KeyRound className="h-3 w-3" strokeWidth={2} />
                               Reset password
-                            </button>
+                            </SubmitButton>
                           </form>
                         </>
                       ) : null}

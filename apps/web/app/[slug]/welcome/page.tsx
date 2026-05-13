@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readGuestSession } from '@/lib/guest-session';
 import { formatEventDate } from '@/lib/events';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { abandonPlusOneInvite, confirmPlusOneName } from './actions';
 
 export const metadata = { title: 'Welcome' };
@@ -134,9 +135,12 @@ export default async function WelcomePage({ params, searchParams }: Props) {
             on photos you&rsquo;re tagged in.
           </p>
 
-          <button type="submit" className="button-primary h-14 w-full text-base">
+          <SubmitButton
+            className="button-primary h-14 w-full text-base"
+            pendingLabel="Confirming…"
+          >
             Correct — that&rsquo;s me
-          </button>
+          </SubmitButton>
         </form>
 
         <form action={abandonAction} className="text-center">

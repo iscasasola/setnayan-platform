@@ -13,6 +13,7 @@ import {
   type MealPreference,
   type RsvpStatus,
 } from '@/lib/guests';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { createGuest } from './actions';
 
 export const metadata = { title: 'Add guest' };
@@ -201,9 +202,9 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row">
-          <button type="submit" className="button-primary w-full sm:w-auto">
+          <SubmitButton className="button-primary w-full sm:w-auto" pendingLabel="Saving…">
             Save guest
-          </button>
+          </SubmitButton>
           <Link
             href={`/dashboard/${eventId}/guests`}
             className="button-secondary w-full sm:w-auto"

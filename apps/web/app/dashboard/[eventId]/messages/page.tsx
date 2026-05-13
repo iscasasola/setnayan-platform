@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { MessageSquare, Plus, ArrowRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchCoupleThreads, formatChatTimestamp } from '@/lib/chat';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { startThreadByVendorEmail } from './actions';
 
 export const metadata = { title: 'Messages' };
@@ -58,13 +59,13 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
             placeholder="vendor's contact email"
             className="input-field flex-1"
           />
-          <button
-            type="submit"
+          <SubmitButton
             className="button-primary inline-flex items-center justify-center gap-2"
+            pendingLabel="Starting…"
           >
             <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
             Start thread
-          </button>
+          </SubmitButton>
         </form>
         <p className="mt-2 text-xs text-ink/55">
           The vendor must already have a Setnayan vendor account with this email on their

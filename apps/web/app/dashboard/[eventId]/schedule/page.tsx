@@ -9,6 +9,7 @@ import {
   formatBlockTimeRange,
   type ScheduleBlockRow,
 } from '@/lib/schedule';
+import { SubmitButton } from '@/app/_components/submit-button';
 import {
   createScheduleBlock,
   deleteScheduleBlock,
@@ -150,9 +151,9 @@ function AddBlockForm({ eventId }: { eventId: string }) {
           </span>
         </label>
         <div className="sm:col-span-2">
-          <button type="submit" className="button-primary">
+          <SubmitButton className="button-primary" pendingLabel="Adding…">
             Add block
-          </button>
+          </SubmitButton>
         </div>
       </form>
     </details>
@@ -204,9 +205,9 @@ function BlockCard({ eventId, block }: { eventId: string; block: ScheduleBlockRo
             name="desired"
             value={block.is_public ? 'false' : 'true'}
           />
-          <button
-            type="submit"
-            className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-ink/10"
+          <SubmitButton
+            className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-ink/10 disabled:opacity-60"
+            pendingLabel="…"
           >
             {block.is_public ? (
               <>
@@ -219,18 +220,18 @@ function BlockCard({ eventId, block }: { eventId: string; block: ScheduleBlockRo
                 Show to guests
               </>
             )}
-          </button>
+          </SubmitButton>
         </form>
         <form action={deleteScheduleBlock}>
           <input type="hidden" name="event_id" value={eventId} />
           <input type="hidden" name="block_id" value={block.block_id} />
-          <button
-            type="submit"
+          <SubmitButton
             aria-label="Delete block"
-            className="rounded-md p-1.5 text-ink/40 hover:bg-ink/5 hover:text-rose-700"
+            pendingLabel=""
+            className="rounded-md p-1.5 text-ink/40 hover:bg-ink/5 hover:text-rose-700 disabled:opacity-60"
           >
             <Trash2 className="h-4 w-4" strokeWidth={1.75} />
-          </button>
+          </SubmitButton>
         </form>
       </div>
     </article>

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { Send } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { fetchMessages, fetchThreadById, formatChatTimestamp } from '@/lib/chat';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { sendChatMessage } from '@/lib/chat-actions';
@@ -103,13 +104,13 @@ export default async function VendorThreadPage({ params }: Props) {
           placeholder="Type a message…"
           className="input-field min-h-[60px] flex-1 py-2"
         />
-        <button
-          type="submit"
+        <SubmitButton
           aria-label="Send"
-          className="inline-flex h-11 w-11 items-center justify-center rounded-md bg-terracotta text-cream hover:bg-terracotta-600"
+          pendingLabel=""
+          className="inline-flex h-11 w-11 items-center justify-center rounded-md bg-terracotta text-cream hover:bg-terracotta-600 disabled:opacity-70"
         >
           <Send className="h-4 w-4" strokeWidth={1.75} />
-        </button>
+        </SubmitButton>
       </form>
     </section>
   );

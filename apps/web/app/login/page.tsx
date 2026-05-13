@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { signInWithMagicLink, signInWithPassword } from './actions';
 
 export const metadata: Metadata = {
@@ -110,9 +111,9 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
             type="password"
           />
         </div>
-        <button className="button-primary w-full" type="submit">
+        <SubmitButton className="button-primary w-full" pendingLabel="Signing in…">
           Sign in
-        </button>
+        </SubmitButton>
       </form>
 
       <div className="relative">
@@ -143,9 +144,9 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
             type="email"
           />
         </div>
-        <button className="button-secondary w-full" type="submit">
+        <SubmitButton className="button-secondary w-full" pendingLabel="Sending…">
           Email me a magic link
-        </button>
+        </SubmitButton>
       </form>
 
       <p className="text-center text-sm text-ink/60">

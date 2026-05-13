@@ -14,6 +14,7 @@ import {
   Tv,
   CloudUpload,
   ArrowRight,
+  Apple,
   type LucideIcon,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -110,6 +111,16 @@ function Hero() {
           </div>
           <p className="text-xs text-ink/50">
             Free to start · no credit card · pay-as-you-go for premium services
+          </p>
+          <p className="pt-2 text-xs text-ink/50">
+            On a Mac?{' '}
+            <Link
+              href="/download"
+              className="inline-flex items-center gap-1 font-medium text-terracotta underline-offset-4 hover:underline"
+            >
+              <Apple aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+              Download Setnayan for macOS
+            </Link>
           </p>
         </div>
 
@@ -391,6 +402,10 @@ function SiteFooter() {
           <span aria-hidden>·</span>
           <Link href="/help" className="hover:text-ink">
             Help
+          </Link>
+          <Link href="/download" className="inline-flex items-center gap-1 hover:text-ink">
+            <Apple aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+            Mac app
           </Link>
           <Link href="/privacy" className="hover:text-ink">
             Privacy

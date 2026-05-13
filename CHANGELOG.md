@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-14 · public macOS download page + GitHub Release v0.0.1
+
+**Commit:** to be filled after commit.
+
+**What landed:**
+- Published the locally built desktop bundle as **GitHub Release v0.0.1**: https://github.com/iscasasola/setnayan-platform/releases/tag/v0.0.1 (asset `Setnayan_0.0.1_aarch64.dmg`, 1.4 MB, Apple Silicon).
+- New `apps/web/lib/desktop-release.ts` — single source of truth for the currently shipped desktop release (version, tag, file URL, size, publish date). Future version bumps only touch this file.
+- New `apps/web/app/api/download/mac/route.ts` — 302 redirect to the GitHub Release asset. Lets the website link `/api/download/mac` indirect through this route so the underlying URL can rotate without touching every page.
+- New `apps/web/app/download/page.tsx` — public install page at `setnayan.com/download`. Hero with "Download for Mac" CTA + file metadata card, 4-step install guide, Gatekeeper-warning explainer card, system-requirements card. All Apple-Silicon-only messaging; Intel Mac users get routed back to the web app.
+- Homepage updated: small "On a Mac? Download Setnayan for macOS" inline link below the hero CTAs, plus a footer link.
+
+**Operational note:** the in-app/desktop **auto-updater** is **not** wired yet. Users who download v0.0.1 will need to revisit `/download` and reinstall to get future releases. The auto-update plumbing (Tauri updater plugin + signing keypair + manifest endpoint) is a separate task — best done after Apple Developer enrollment so the signed updates flow cleanly past Gatekeeper.
+
+**SPEC IMPACT:** None on locked decisions. The download page itself is new public surface but doesn't change any V1 contract — it just exposes the desktop wrapper Iteration 0023 already shipped (now distributable via the website instead of buried in a GitHub Actions artifact).
+
+---
+
 ## 2026-05-14 · desktop local-build fixes (tauri scripts + Cargo.lock)
 
 **Commit:** to be filled after commit.

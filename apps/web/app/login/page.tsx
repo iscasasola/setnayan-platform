@@ -11,6 +11,7 @@ type SearchParams = Promise<{
   error?: string;
   sent?: string;
   check_email?: string;
+  ready?: string;
   next?: string;
 }>;
 
@@ -21,6 +22,8 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
   const justSignedUpEmail = params.check_email
     ? decodeURIComponent(params.check_email)
     : null;
+  const readyEmail = params.ready ? decodeURIComponent(params.ready) : null;
+  const prefilledEmail = readyEmail ?? '';
   const next = params.next && params.next.startsWith('/') ? params.next : '/';
 
   return (
@@ -65,6 +68,16 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
         </p>
       ) : null}
 
+      {readyEmail ? (
+        <p
+          role="status"
+          className="rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+        >
+          Your account is ready. Sign in below with{' '}
+          <span className="font-medium">{readyEmail}</span> and the password you just set.
+        </p>
+      ) : null}
+
       <form action={signInWithPassword} className="space-y-4">
         <input type="hidden" name="next" value={next} />
         <div className="space-y-1.5">
@@ -74,6 +87,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
           <input
             autoComplete="email"
             className="input-field"
+            defaultValue={prefilledEmail}
             id="email"
             inputMode="email"
             name="email"

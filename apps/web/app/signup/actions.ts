@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 function safeNext(raw: FormDataEntryValue | null): string {
   const value = raw ? String(raw) : '';
@@ -29,7 +30,7 @@ export async function signUp(formData: FormData) {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
   const supabase = await createClient();
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
@@ -44,6 +45,24 @@ export async function signUp(formData: FormData) {
     return redirect(
       `/signup?error=${encodeURIComponent(error.message)}&next=${encodeURIComponent(next)}`,
     );
+  }
+
+  // V1 work-around: Supabase's built-in email sender drops into spam folders
+  // and free-tier rate limits are tight. Until we wire Resend (spec § email
+  // infrastructure), auto-confirm every new signup with the admin API so the
+  // user can sign in immediately without waiting on a confirmation link.
+  // Real verification returns when Resend is configured.
+  if (data.user?.id) {
+    try {
+      const admin = createAdminClient();
+      await admin.auth.admin.updateUserById(data.user.id, { email_confirm: true });
+      return redirect(
+        `/login?ready=${encodeURIComponent(email)}&next=${encodeURIComponent(next)}`,
+      );
+    } catch {
+      // Auto-confirm failed (admin env not configured, etc.) — fall through
+      // to the legacy "check your email" flow so the user has a path forward.
+    }
   }
 
   return redirect(

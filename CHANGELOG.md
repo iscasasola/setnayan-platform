@@ -4,6 +4,37 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-14 · repo public + free-tier security hardening pass
+
+**Commit:** to be filled after commit.
+
+**Context:** flipped the GitHub repo from private to public (CI Actions were getting metered against a low spending limit; public repos get unlimited free minutes). Before/during the flip, ran a credential audit on the committed files.
+
+**Incident found and resolved:** [HANDOFF.md:233](HANDOFF.md:233) had the real Supabase pooler URL including the database password (`postgresql://postgres.<ref>:<password>@…`). The line was added back when the repo was private and treated as an internal handoff doc. The password was rotated in the Supabase dashboard immediately upon detection; the file is now scrubbed to a redacted template that points at Vercel env vars / `.env.local` for the actual value. No code uses `SUPABASE_DB_URL` at runtime (only `supabase db push` migrations from CLI), so the rotation did not require a redeploy.
+
+**What landed in this commit:**
+- [LICENSE](LICENSE) — added GNU AGPL-3.0 (verbatim from gnu.org). Anyone may read and fork; any derivative offered as a hosted service must also be open-sourced. Maximizes commercial-fork friction while keeping the code legitimately open.
+- [.github/workflows/ci.yml](.github/workflows/ci.yml) — added a `gitleaks` job using `gitleaks/gitleaks-action@v2`. Future commits introducing credentials will fail CI before merge. Free for public repos.
+- [HANDOFF.md](HANDOFF.md) — DB connection string + password scrubbed; replaced with redacted template.
+- [STATUS.md](STATUS.md) — Supabase project URL + dashboard direct link replaced with "see Vercel env vars" / generic dashboard root. Project ref is not strictly secret (it's transmitted in every client request), but trimming it from docs slows down automated scraping.
+
+**GitHub-side settings flipped via `gh api` (no code change, recorded here for the audit trail):**
+- Dependabot vulnerability alerts → enabled
+- Dependabot automated security updates → enabled
+- Secret scanning → enabled
+- Secret-scanning push protection → enabled (rejects future commits containing recognized credential patterns)
+- Wiki → disabled
+- Projects → disabled
+- Discussions → already disabled
+
+**Owner follow-ups (UI-only flips, not REST-accessible):**
+- Settings → Actions → General → set "Require approval for first-time contributors" to **All outside collaborators**. Prevents drive-by fork PRs from auto-triggering paid workflows.
+- Optional: enable required PR review on `main` branch — deferred since solo dev; revisit if/when a second contributor joins.
+
+**SPEC IMPACT:** None on locked product decisions. The license choice (AGPL-3.0) is a new project-level fact worth noting in the spec corpus' `CLAUDE.md` decision log — please update `~/Documents/Claude/Projects/Setnayan/CLAUDE.md` via Cowork to reflect: *"Repo is public and AGPL-3.0 licensed as of 2026-05-14; downstream forks that host the code as a SaaS must also be AGPL-3.0."*
+
+---
+
 ## 2026-05-14 · feat(routing): short URLs for the couple dashboard
 
 **Commit:** to be filled after commit.

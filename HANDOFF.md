@@ -228,11 +228,11 @@ curl https://setnayan-platform-web.vercel.app/api/v1/me \
 
 ### Database
 
-- **Singapore Supabase project** — `njrupjnvkjkitfctetvi`
-- **Session pooler URL** (the working DB connection):
-  `postgresql://postgres.njrupjnvkjkitfctetvi:gejda4-zavkow-Kitsov@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres`
+- **Supabase project**: see Vercel env var `NEXT_PUBLIC_SUPABASE_URL` for the project ref. Region: Singapore.
+- **Session pooler URL** (the working DB connection): not committed. Get it from the Supabase dashboard → Project Settings → Database → Connection string (Session pooler), or from the `SUPABASE_DB_URL` value in `apps/web/.env.local`. Format:
+  `postgresql://postgres.<project_ref>:<password>@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres`
 - **Migration path**: drop SQL into `supabase/migrations/<timestamp>_<name>.sql`, run
-  `npx supabase db push --db-url "$URL"` from repo root
+  `npx supabase db push --db-url "$SUPABASE_DB_URL"` from repo root
 - 16 migrations applied as of this handoff
 
 ### Deployment

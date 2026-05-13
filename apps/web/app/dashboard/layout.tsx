@@ -13,9 +13,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const { data: profile } = await supabase
     .from('users')
-    .select('theme_preference, account_type')
+    .select('theme_preference, account_type, deleted_at')
     .eq('user_id', user.id)
     .maybeSingle();
+
+  // Reject deleted accounts — sign them out cleanly.
+  if (profile?.deleted_at) {
+    await supabase.auth.signOut();
+    redirect('/login?error=Account+deleted');
+  }
 
   // Vendors belong on the vendor-side tree.
   if (profile?.account_type === 'vendor') {

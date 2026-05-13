@@ -1,11 +1,20 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Download, AlertTriangle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchUserEvents } from '@/lib/events';
-import { updatePlannerMode, updateThemePreference } from './actions';
+import {
+  softDeleteAccount,
+  updatePersonalInfo,
+  updatePlannerMode,
+  updateThemePreference,
+} from './actions';
 
 export const metadata = { title: 'Profile' };
+
+type Props = {
+  searchParams: Promise<{ saved?: string; error?: string }>;
+};
 
 type ThemeKey = 'setnayan_default' | 'victorian' | 'classy' | 'ios';
 
@@ -41,7 +50,8 @@ const THEMES: Array<{
   },
 ];
 
-export default async function ProfilePage() {
+export default async function ProfilePage({ searchParams }: Props) {
+  const search = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -51,7 +61,7 @@ export default async function ProfilePage() {
   const { data: profile } = await supabase
     .from('users')
     .select(
-      'public_id, email, display_name, phone, account_type, is_internal, is_team_member, locale, theme_preference, planner_mode, created_at',
+      'public_id, email, display_name, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, theme_preference, planner_mode, marketing_opt_in, created_at',
     )
     .eq('user_id', user.id)
     .single();
@@ -86,15 +96,90 @@ export default async function ProfilePage() {
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
           Profile &amp; settings
         </h1>
-        <p className="text-base text-ink/60">
-          Minimal V1 — iteration 0025 ships the full 6-tab settings surface.
-        </p>
       </header>
 
+      {search.error ? (
+        <p
+          role="alert"
+          className="mb-4 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
+        >
+          {decodeURIComponent(search.error)}
+        </p>
+      ) : null}
+      {search.saved ? (
+        <p
+          role="status"
+          className="mb-4 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+        >
+          Saved.
+        </p>
+      ) : null}
+
+      {/* Personal info */}
+      <section className="mb-10 space-y-4">
+        <div className="space-y-1">
+          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+            Personal info
+          </h2>
+        </div>
+        <form action={updatePersonalInfo} className="space-y-4">
+          <Field label="Display name" htmlFor="display_name">
+            <input
+              id="display_name"
+              name="display_name"
+              maxLength={128}
+              defaultValue={profile?.display_name ?? ''}
+              placeholder="How you want to appear in the app"
+              className="input-field"
+            />
+          </Field>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Phone" htmlFor="phone">
+              <input
+                id="phone"
+                name="phone"
+                maxLength={32}
+                defaultValue={profile?.phone ?? ''}
+                placeholder="+63 917 …"
+                className="input-field"
+              />
+            </Field>
+            <Field label="Profile photo URL" htmlFor="profile_photo_url">
+              <input
+                id="profile_photo_url"
+                name="profile_photo_url"
+                type="url"
+                defaultValue={profile?.profile_photo_url ?? ''}
+                placeholder="https://… (file upload ships later)"
+                className="input-field"
+              />
+            </Field>
+          </div>
+          <label className="flex cursor-pointer items-start gap-3 rounded-md border border-ink/10 bg-cream p-3 text-sm">
+            <input
+              type="checkbox"
+              name="marketing_opt_in"
+              defaultChecked={profile?.marketing_opt_in ?? false}
+              className="mt-0.5 h-4 w-4 cursor-pointer accent-terracotta"
+            />
+            <span>
+              <span className="block font-medium text-ink">
+                Receive marketing emails
+              </span>
+              <span className="block text-xs text-ink/55">
+                Product updates · new templates · seasonal promos. RA 10173 opt-in. Default
+                off.
+              </span>
+            </span>
+          </label>
+          <button type="submit" className="button-primary">
+            Save personal info
+          </button>
+        </form>
+      </section>
+
       <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Row label="Display name" value={profile?.display_name ?? '—'} />
         <Row label="Email" value={profile?.email ?? user.email ?? '—'} />
-        <Row label="Phone" value={profile?.phone ?? '—'} />
         <Row label="Account ID" value={profile?.public_id ?? '—'} mono />
         <Row label="Account type" value={profile?.account_type ?? '—'} />
         <Row label="Locale" value={profile?.locale ?? '—'} />
@@ -221,15 +306,62 @@ export default async function ProfilePage() {
         </div>
       </section>
 
-      <section className="mt-10 space-y-3 rounded-xl border border-ink/10 bg-cream p-6">
-        <p className="font-medium text-ink">Coming in iteration 0025 (Profile Settings):</p>
-        <ul className="list-inside list-disc space-y-1 text-sm text-ink/60">
-          <li>Edit display name, phone, profile photo</li>
-          <li>Notification preferences</li>
-          <li>URL &amp; slug for your public landing page</li>
-          <li>Payment methods</li>
-          <li>RA 10173 — data export, soft/hard account delete, face-data revocation</li>
-        </ul>
+      <section className="mt-10 space-y-4">
+        <div className="space-y-1">
+          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+            Privacy &amp; data (RA 10173)
+          </h2>
+          <p className="text-sm text-ink/60">
+            Export your data or close your account at any time. Setnayan keeps
+            soft-deleted accounts for 30 days so an admin can restore by request.
+          </p>
+        </div>
+        <div className="flex flex-col gap-3 rounded-xl border border-ink/10 bg-cream p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-ink">Export my data</p>
+            <p className="text-xs text-ink/55">
+              Downloads a JSON file with your profile, events you&rsquo;re on, vendor
+              profile (if any), and chat messages you authored.
+            </p>
+          </div>
+          <a
+            href="/api/profile/export"
+            download
+            className="button-secondary inline-flex items-center gap-2"
+          >
+            <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            Download .json
+          </a>
+        </div>
+
+        <details className="space-y-3 rounded-xl border border-rose-200/60 bg-rose-50/50 p-4">
+          <summary className="flex cursor-pointer items-center gap-2 text-sm font-medium text-rose-800">
+            <AlertTriangle aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            Delete my account
+          </summary>
+          <form action={softDeleteAccount} className="mt-3 space-y-3">
+            <p className="text-sm text-rose-900">
+              This soft-deletes your account. You won&rsquo;t be able to sign in, and your
+              events become invisible to you. Internal admins can restore within 30 days; after
+              that, deletion becomes permanent. Type{' '}
+              <code className="rounded bg-rose-100 px-1 font-mono text-xs">DELETE</code> below
+              to confirm.
+            </p>
+            <input
+              name="confirm"
+              required
+              autoComplete="off"
+              placeholder="Type DELETE to confirm"
+              className="input-field bg-cream"
+            />
+            <button
+              type="submit"
+              className="inline-flex items-center gap-2 rounded-md bg-rose-700 px-4 py-2 text-sm font-medium text-cream hover:bg-rose-800"
+            >
+              Delete account
+            </button>
+          </form>
+        </details>
       </section>
 
       <section className="mt-6 flex flex-col gap-3 sm:flex-row">
@@ -254,5 +386,25 @@ function Row({ label, value, mono = false }: { label: string; value: string; mon
       <dt className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/50">{label}</dt>
       <dd className={`text-base text-ink ${mono ? 'font-mono' : ''}`}>{value}</dd>
     </div>
+  );
+}
+
+function Field({
+  label,
+  htmlFor,
+  help,
+  children,
+}: {
+  label: string;
+  htmlFor: string;
+  help?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label htmlFor={htmlFor} className="block space-y-1">
+      <span className="block text-sm font-medium text-ink">{label}</span>
+      {children}
+      {help ? <span className="block text-xs text-ink/55">{help}</span> : null}
+    </label>
   );
 }

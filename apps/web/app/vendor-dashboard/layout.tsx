@@ -15,9 +15,14 @@ export default async function VendorDashboardLayout({
 
   const { data: profile } = await supabase
     .from('users')
-    .select('account_type, theme_preference, email, display_name')
+    .select('account_type, theme_preference, email, display_name, deleted_at')
     .eq('user_id', user.id)
     .maybeSingle();
+
+  if (profile?.deleted_at) {
+    await supabase.auth.signOut();
+    redirect('/login?error=Account+deleted');
+  }
 
   // Non-vendors get bounced to the couple-side dashboard.
   if (profile?.account_type !== 'vendor') {

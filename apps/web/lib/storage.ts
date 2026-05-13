@@ -9,9 +9,12 @@ const ALLOWED_MIME = new Set([
   'image/jpg',
   'image/webp',
   'image/gif',
+  'image/heic',
+  'image/heif',
+  'image/avif',
 ]);
 
-const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
+const MAX_BYTES = 6 * 1024 * 1024; // 6 MB
 
 export type UploadResult =
   | { ok: true; publicUrl: string; path: string }
@@ -29,14 +32,20 @@ export async function uploadPublicAsset(args: {
 }): Promise<UploadResult> {
   const { bucket = PLATFORM_ASSETS_BUCKET, pathPrefix, file } = args;
 
-  if (!ALLOWED_MIME.has(file.type)) {
+  // file.type can be empty if the browser couldn't detect (some older
+  // Android browsers do this for HEIC). Fall back to extension sniffing.
+  const declaredType = file.type || sniffMimeFromName(file.name);
+  if (!declaredType || !ALLOWED_MIME.has(declaredType)) {
     return {
       ok: false,
-      error: `Unsupported file type: ${file.type}. Use PNG, JPEG, WebP, or GIF.`,
+      error: `Unsupported file type: ${file.type || 'unknown'}. Use PNG, JPEG, WebP, GIF, or HEIC.`,
     };
   }
   if (file.size > MAX_BYTES) {
-    return { ok: false, error: 'File is larger than 5 MB.' };
+    return {
+      ok: false,
+      error: `File is ${(file.size / 1024 / 1024).toFixed(1)} MB — max is 6 MB.`,
+    };
   }
 
   // Random suffix prevents browser/CDN caching the previous image of the
@@ -50,16 +59,40 @@ export async function uploadPublicAsset(args: {
   const arrayBuffer = await file.arrayBuffer();
 
   const { error } = await admin.storage.from(bucket).upload(path, arrayBuffer, {
-    contentType: file.type,
+    contentType: declaredType,
     cacheControl: '3600',
     upsert: false,
   });
   if (error) {
+    console.error('[storage] upload failed', { bucket, path, error });
     return { ok: false, error: error.message };
   }
 
   const { data: pub } = admin.storage.from(bucket).getPublicUrl(path);
   return { ok: true, publicUrl: pub.publicUrl, path };
+}
+
+function sniffMimeFromName(name: string): string | null {
+  const ext = name.toLowerCase().split('.').pop() ?? '';
+  switch (ext) {
+    case 'png':
+      return 'image/png';
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg';
+    case 'webp':
+      return 'image/webp';
+    case 'gif':
+      return 'image/gif';
+    case 'heic':
+      return 'image/heic';
+    case 'heif':
+      return 'image/heif';
+    case 'avif':
+      return 'image/avif';
+    default:
+      return null;
+  }
 }
 
 /**

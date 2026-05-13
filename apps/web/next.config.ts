@@ -7,6 +7,14 @@ const nextConfig: NextConfig = {
   // for Tauri desktop wrapping + container deploys.
   output: 'standalone',
   outputFileTracingRoot: path.join(__dirname, '../../'),
+  // Server actions accept file uploads (merchant QR codes, future vendor
+  // logos + payment screenshots). Default 1MB is too small for phone-camera
+  // screenshots — raise to 6MB so a single image plus form fields fit.
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '6mb',
+    },
+  },
   // PWA service worker + manifest must be reachable with no auth and no
   // middleware rewriting — the matcher in middleware.ts already excludes them.
   async headers() {

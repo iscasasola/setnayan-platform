@@ -3,7 +3,7 @@
 > Living checkpoint. Updated as work progresses.
 
 **Last updated:** 2026-05-13
-**Current sprint:** Iteration `0010_mood_board` MVP shipped — per-role palette only. New `events.role_palette` JSONB column plus a Mood Board page at `/dashboard/[eventId]/services/mood-board` lets couples set an accent hex for each of six role groups. The Guest List role chips now render a 2-px colored dot beside the role label when a palette entry exists. The 20-theme curated library, Setnayan Guide rule engine (cohesion / contrast / temperature / saturation / cultural defaults), and venue palette extraction remain explicitly deferred — flagged for Cowork in spec doc.
+**Current sprint:** Iteration `0008_seating_chart_editor` MVP shipped — tables + assignments. New `event_tables` + `event_seat_assignments` schema with 13-entry `table_type` enum and Pattern B RLS. New `/dashboard/[eventId]/seating` page replaces the placeholder: stats strip (tables / capacity / assigned / unassigned), add-table form, per-table cards with capacity indicators (green at full, rose if overfilled), per-table guest picker, unassigned-guests chip list. Free-placed drag editor + role-tier ring auto-fill + QR-on-publish print pack remain deferred — flagged for Cowork in spec.
 **Owner's wedding (deadline anchor):** December 2026
 
 ---

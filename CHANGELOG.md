@@ -4,6 +4,39 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-13 · 0008 seating chart MVP — tables + assignments (list-based, not drag-place)
+
+**Commits:** to be filled in once committed.
+
+**What landed:**
+- New migration `20260513090000_iteration_0008_seating.sql`:
+  - `public.table_type` enum with **13 catalog entries** straight from the spec: `round_8`, `round_10`, `round_12`, `rectangle_6`, `rectangle_8`, `rectangle_10`, `long_12`, `long_16`, `sweetheart_2`, `head_table`, `crescent_8`, `crescent_10`, `custom`.
+  - `event_tables` — `table_id` PK, `public_id` (`S89T-…` via generator), `event_id` FK, `table_label`, `table_type`, `capacity` CHECK 1..32, `x_pos`/`y_pos` reserved nullable for the future drag editor, `sort_order`, timestamps. Pattern B RLS: couples on the event read + write.
+  - `event_seat_assignments` — `(event_id, guest_id) UNIQUE` so a guest can only be at one table; cascades from both events and guests. Pattern B RLS.
+- New helpers in `apps/web/lib/seating.ts` — `TABLE_TYPE_CATALOG` (single source of truth for labels + default capacities), `fetchTables`, `fetchAssignments`, `computeSeatingStats`.
+- New server actions in `apps/web/app/dashboard/[eventId]/seating/actions.ts`: `createTable`, `deleteTable`, `assignGuest` (upsert with `onConflict: 'event_id,guest_id'`), `unassignGuest`.
+- New page at `/dashboard/[eventId]/seating` replaces the placeholder. Layout:
+  - **Stats strip** — 4 tiles (tables / total capacity / assigned / unassigned). Unassigned tile goes terracotta when > 0.
+  - **Add table form** — label + 13-option type picker + capacity (1–32), one Add button.
+  - **Table cards** (2-col grid on sm+) — each card has label, type, fill counter (`5 / 10`, green at full, rose if overfilled), delete button, assigned-guests list with per-row remove button, and an inline guest picker that only shows when there's capacity left and unassigned guests exist.
+  - **Unassigned guests** — chip list (first 60, then +N more) at the bottom.
+
+**SPEC IMPACT:**
+- `~/Documents/Claude/Projects/Setnayan/04_Iterations/0008_seating_chart_editor.md` — record V1 MVP scope (list-based editor) and flag three deferred sub-scopes:
+  - **Free-placed editor:** drag-place tables on a stage canvas. Schema reserves `x_pos`/`y_pos` columns so this becomes a UI-only follow-on.
+  - **Role-tier ring auto-fill:** algorithm that suggests assignments based on role hierarchy (head table = wedding party + parents; ring 1 = principal sponsors; ring 2 = family; etc.). Needs algorithm spec.
+  - **QR-on-publish print pack:** publish flow that snapshots assignments and generates a per-table QR + a printable seat chart for the venue. Needs publish-state model (current seating is always "live").
+- Pattern B helper `current_couple_event_ids()` is now load-bearing for FIVE surfaces (event_members write, event_journey_steps, role_palette indirectly via events, event_tables, event_seat_assignments). Should be promoted from "fix" to "canonical" in `02_Specifications/RLS_Policy_Pattern.md` § 4 helper list.
+
+**Deferred:**
+- Drag-place stage canvas
+- Auto-fill ring algorithm
+- Publish snapshot + per-table QR + printable seat chart
+- Seat-level assignments (current model assigns to table, not seat number — `seat_number` column is reserved nullable)
+- Bulk assign (e.g., "seat the whole maid_of_honor cohort at Table 2")
+
+---
+
 ## 2026-05-13 · 0010 mood board MVP — per-role palette only
 
 **Commits:** to be filled in once committed.

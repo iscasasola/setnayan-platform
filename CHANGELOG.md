@@ -4,6 +4,41 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-13 · 0006 vendors MVP — couple-side tracker (28 categories, 6-stage readiness)
+
+**Commits:** to be filled in once committed.
+
+**What landed:**
+- New migration `20260513100000_iteration_0006_vendors.sql`:
+  - `public.vendor_category` enum — **28 canonical PH wedding service categories** straight from the spec (venue, catering, photographer, videographer, florist, cake_maker, host_emcee, band_dj, string_quartet, choir, officiant, planner_coordinator, makeup_artist, hair_stylist, gown_designer, suit_designer, rings, invitations_stationery, transportation, lights_and_sound, led_screens, photobooth, mobile_bar, church_fees, reception_decor, security, gifts_and_giveaways, misc).
+  - `public.vendor_status` enum — 6-stage readiness flow: `considering` → `shortlisted` → `contracted` → `deposit_paid` → `delivered` → `complete`.
+  - `event_vendors` table — `vendor_id` PK, `public_id` (`S89V-…`), event FK, category, vendor_name, contact_email/phone, status, total_cost_php (NUMERIC 12,2), deposit_paid_php, notes, timestamps. CHECK constraints enforce non-negative money + deposit ≤ total.
+  - Pattern B RLS: couples on the event read + write.
+- New `apps/web/lib/vendors.ts` — types, label/tone maps, `fetchEventVendors`, `computeVendorStats`, `formatPhp` PHP formatter (no decimals for clean display).
+- New server actions: `createVendor`, `updateVendorStatus`, `deleteVendor`.
+- New `/dashboard/[eventId]/vendors` page replaces placeholder:
+  - **Stats strip** — 4 tiles: Vendors / Total cost / Deposits paid / Remaining. Remaining tile goes terracotta when > 0.
+  - **Add a vendor** (collapsed `<details>` block) — full form: name, category, email, phone, total cost, deposit paid, notes.
+  - **Status filter chips** — All + 6 status chips with live counts, query-string driven (`?status=contracted`).
+  - **Vendor cards** (2-col on lg+) — name + category, status pill, contact links (mailto/tel with Lucide icons), money breakdown (Total / Deposit / Remaining color-tinted), notes block, status updater dropdown + delete.
+
+**SPEC IMPACT:**
+- `~/Documents/Claude/Projects/Setnayan/04_Iterations/0006_vendors_management.md` — record V1 MVP scope (couple-side tracker only) and flag deferred sub-scopes:
+  - **Payment milestones (3-line spec):** the spec calls for 3 itemized payments per vendor (e.g., deposit, balance, tip). V1 collapses this to `total_cost_php` + `deposit_paid_php`. A follow-on migration would add an `event_vendor_payments` table.
+  - **Crew meals:** spec calls for tracking how many staff meals each vendor needs (caterer needs to plate them). Add a `crew_meals` integer column in a follow-on.
+  - **Vendor-side profiles:** the vendor's own dashboard (logo, portfolio, chat identity masking) is iteration 0022.
+  - **Public vendor catalog/marketplace:** searchable vendor list with reviews — out of V1 scope.
+- The 28-entry `vendor_category` list should be **locked** in the spec — once couples have data tied to these enum values, renaming any is a breaking migration. Confirm with owner via Cowork that these match the canonical PH wedding-vendor taxonomy.
+
+**Deferred:**
+- Payment milestones (3 line items per vendor)
+- Crew meals tracking
+- Meeting/contact log per vendor
+- Contract upload (R2)
+- Communications thread (waits on 0019)
+
+---
+
 ## 2026-05-13 · 0008 seating chart MVP — tables + assignments (list-based, not drag-place)
 
 **Commits:** to be filled in once committed.

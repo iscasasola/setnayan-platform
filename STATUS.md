@@ -3,7 +3,7 @@
 > Living checkpoint. Updated as work progresses.
 
 **Last updated:** 2026-05-13
-**Current sprint:** Iteration `0008_seating_chart_editor` MVP shipped — tables + assignments. New `event_tables` + `event_seat_assignments` schema with 13-entry `table_type` enum and Pattern B RLS. New `/dashboard/[eventId]/seating` page replaces the placeholder: stats strip (tables / capacity / assigned / unassigned), add-table form, per-table cards with capacity indicators (green at full, rose if overfilled), per-table guest picker, unassigned-guests chip list. Free-placed drag editor + role-tier ring auto-fill + QR-on-publish print pack remain deferred — flagged for Cowork in spec.
+**Current sprint:** Iteration `0006_vendors_management` MVP shipped — couple-side vendor tracker. New `vendor_category` enum (28 canonical PH categories), `vendor_status` enum (6-stage readiness flow), and `event_vendors` table with Pattern B RLS. New `/dashboard/[eventId]/vendors` page replaces the placeholder: stats strip (count / total cost PHP / deposit paid / remaining), add-vendor form (name + category + contact + cost + deposit + notes), status filter chips with counts, per-vendor cards (mail/tel links, money breakdown, status updater, delete). Vendor-side profiles (iteration 0022), payment milestones (3-line spec), and crew meals remain deferred.
 **Owner's wedding (deadline anchor):** December 2026
 
 ---

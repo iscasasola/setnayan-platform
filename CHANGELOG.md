@@ -4,6 +4,31 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-13 · Hotfix — RLS infinite-recursion in event_members policies
+
+**Commit:** `19242e4` · migration `20260513040000_fix_rls_infinite_recursion.sql`
+
+**Symptom:**
+Anyone signed in hitting `/dashboard` (or any page that queried event-scoped tables) got `Application error: a server-side exception has occurred`. Vercel runtime logs showed `Error: Failed to fetch events: infinite recursion detected in policy for relation "event_members"`.
+
+**Root cause:**
+Pattern B policies on `event_members`, `events`, `event_join_tokens`, `guests`, and `households` used inline subqueries like `event_id IN (SELECT event_id FROM event_members WHERE user_id = auth.uid() AND member_type = 'couple')`. When the outer query runs against `event_members`, the SELECT policy on `event_members` fires; the policy's USING clause issues that subquery; the subquery against `event_members` re-triggers the SELECT policy on `event_members`; Postgres aborts with the recursion error. This affected every page that read couple-scoped data through the user's JWT.
+
+**Fix:**
+Added two new SECURITY DEFINER helpers that bypass RLS for the lookup:
+- `public.current_couple_event_ids()` — event_ids where the caller is `member_type='couple'`
+- `public.current_user_guest_ids()` — guest_ids attached to caller's event_members rows
+
+Rewrote 10 policies (4 on event_members, 2 on events, 1 on event_join_tokens, 2 on guests, 1 on households) to use the helpers instead of inline subqueries on event_members.
+
+**Why this matters going forward:**
+Every future Pattern B policy that needs "events where I'm a couple" must use `current_couple_event_ids()`. Inline `SELECT event_id FROM event_members WHERE ...` subqueries will recurse the same way.
+
+**SPEC IMPACT — please update via Cowork:**
+`02_Specifications/RLS_Policy_Pattern.md` currently documents 4 helpers (`is_admin`, `current_event_ids`, `current_vendor_ids`, `current_thread_ids`). Add the two new ones to that doc — `current_couple_event_ids` and `current_user_guest_ids` — so future iterations know to use them.
+
+---
+
 ## 2026-05-13 · Iteration 0001-B — Seed sample guests + Join flow + next-redirect
 
 **Commits:** to be filled in once committed.

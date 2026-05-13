@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-14 · admin mobile polish
+
+**Commit:** to be filled after commit.
+
+**What landed:**
+- `/admin/users`: hid the Account ID column below `lg` (`hidden lg:table-cell`) and the Created column below `md`; updated the empty-state `colSpan` from 6 → 4 to match the visible-on-mobile column count.
+- `/admin/events`: hid Venue + Slug below `md` and the internal Event ID below `lg`; updated the empty-state `colSpan` from 6 → 3.
+- `/admin/receipts`: hid the Issued date below `md` and the Pre-VAT + VAT columns below `lg`. (Stat tiles already use `grid-cols-2 sm:grid-cols-4` and the OR-number / Customer / Gross columns stay visible on mobile.)
+- `apps/web/app/admin/layout.tsx`: kept the tab nav scrollable horizontally and added `shrink-0` to each `AdminTab` plus `whitespace-nowrap` on the nav so tabs don't squish/wrap on narrow viewports. Native scrollbar is hidden on WebKit/FF/MS for a cleaner look.
+
+No DB changes. No behavior changes beyond responsive styling. All other admin surfaces (`/admin`, `/admin/payments`, `/admin/vendors`, `/admin/help`, `/admin/settings`) already used card-grid layouts and already responded to viewport width.
+
+**SPEC IMPACT:** None — this is pure responsive styling; no schema, no contract, no copy changes. The admin console is still V1 MVP (Iteration 0023 surface).
+
+---
+
 ## 2026-05-13 · PRE-LAUNCH SPRINT COMPLETE — 19 iterations + 2 polish rounds
 
 **Summary commit reference:** see git log on `main` for the per-iteration commits. New consolidated handoff at `HANDOFF.md`.

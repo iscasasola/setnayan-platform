@@ -89,16 +89,16 @@ export default async function AdminEventsPage({ searchParams }: Props) {
             <tr>
               <th className="px-3 py-3 font-medium">Event</th>
               <th className="px-3 py-3 font-medium">Date</th>
-              <th className="px-3 py-3 font-medium">Venue</th>
-              <th className="px-3 py-3 font-medium">Slug</th>
+              <th className="hidden px-3 py-3 font-medium md:table-cell">Venue</th>
+              <th className="hidden px-3 py-3 font-medium md:table-cell">Slug</th>
               <th className="px-3 py-3 font-medium">Guests</th>
-              <th className="px-3 py-3 font-medium">ID</th>
+              <th className="hidden px-3 py-3 font-medium lg:table-cell">ID</th>
             </tr>
           </thead>
           <tbody>
             {events.length === 0 ? (
               <tr>
-                <td className="px-3 py-6 text-center text-ink/55" colSpan={6}>
+                <td className="px-3 py-6 text-center text-ink/55" colSpan={3}>
                   No events match.
                 </td>
               </tr>
@@ -116,16 +116,16 @@ export default async function AdminEventsPage({ searchParams }: Props) {
                   <td className="px-3 py-3 font-mono text-xs text-ink/65">
                     {e.event_date ?? '—'}
                   </td>
-                  <td className="px-3 py-3 text-xs text-ink/65">
+                  <td className="hidden px-3 py-3 text-xs text-ink/65 md:table-cell">
                     {e.venue_name ?? '—'}
                   </td>
-                  <td className="px-3 py-3 font-mono text-[11px] text-ink/65">
+                  <td className="hidden px-3 py-3 font-mono text-[11px] text-ink/65 md:table-cell">
                     {e.slug ?? '—'}
                   </td>
                   <td className="px-3 py-3 font-mono text-sm">
                     {guestCounts.get(e.event_id) ?? 0}
                   </td>
-                  <td className="px-3 py-3 font-mono text-[11px] text-ink/55">
+                  <td className="hidden px-3 py-3 font-mono text-[11px] text-ink/55 lg:table-cell">
                     {e.public_id}
                   </td>
                 </tr>

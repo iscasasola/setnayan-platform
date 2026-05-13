@@ -63,7 +63,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             </form>
           </div>
         </div>
-        <nav className="mx-auto flex w-full max-w-6xl gap-1 overflow-x-auto px-4 pb-2 text-sm sm:px-6 lg:px-8">
+        <nav className="mx-auto flex w-full max-w-6xl flex-nowrap gap-1 overflow-x-auto px-4 pb-2 text-sm whitespace-nowrap [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden sm:px-6 lg:px-8">
           <AdminTab href="/admin" label="Overview" />
           <AdminTab href="/admin/users" label="Users" />
           <AdminTab href="/admin/events" label="Events" />
@@ -83,7 +83,7 @@ function AdminTab({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
-      className="rounded-full bg-ink/5 px-3 py-1 text-ink/70 hover:bg-ink/10 hover:text-ink"
+      className="shrink-0 rounded-full bg-ink/5 px-3 py-1 text-ink/70 hover:bg-ink/10 hover:text-ink"
     >
       {label}
     </Link>

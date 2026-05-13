@@ -151,16 +151,16 @@ export default async function AdminUsersPage({ searchParams }: Props) {
             <tr>
               <th className="px-3 py-3 font-medium">Email</th>
               <th className="px-3 py-3 font-medium">Type</th>
-              <th className="px-3 py-3 font-medium">Account ID</th>
-              <th className="px-3 py-3 font-medium">Created</th>
+              <th className="hidden px-3 py-3 font-medium lg:table-cell">Account ID</th>
+              <th className="hidden px-3 py-3 font-medium md:table-cell">Created</th>
               <th className="px-3 py-3 font-medium">Flags</th>
-              <th className="px-3 py-3 font-medium">Team pool</th>
+              <th className="px-3 py-3 font-medium">Actions</th>
             </tr>
           </thead>
           <tbody>
             {users.length === 0 ? (
               <tr>
-                <td className="px-3 py-6 text-center text-ink/55" colSpan={6}>
+                <td className="px-3 py-6 text-center text-ink/55" colSpan={4}>
                   No users match.
                 </td>
               </tr>
@@ -186,10 +186,10 @@ export default async function AdminUsersPage({ searchParams }: Props) {
                       {u.account_type === 'customer' ? 'Couple' : u.account_type}
                     </span>
                   </td>
-                  <td className="px-3 py-3 font-mono text-[11px] text-ink/55">
+                  <td className="hidden px-3 py-3 font-mono text-[11px] text-ink/55 lg:table-cell">
                     {u.public_id}
                   </td>
-                  <td className="px-3 py-3 font-mono text-[11px] text-ink/55">
+                  <td className="hidden px-3 py-3 font-mono text-[11px] text-ink/55 md:table-cell">
                     {u.created_at.slice(0, 10)}
                   </td>
                   <td className="px-3 py-3">

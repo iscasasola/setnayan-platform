@@ -129,10 +129,10 @@ export default async function AdminReceiptsPage({ searchParams }: Props) {
             <thead className="bg-ink/[0.03] text-[11px] uppercase tracking-[0.12em] text-ink/55">
               <tr>
                 <th className="px-3 py-3 font-medium">OR number</th>
-                <th className="px-3 py-3 font-medium">Issued</th>
+                <th className="hidden px-3 py-3 font-medium md:table-cell">Issued</th>
                 <th className="px-3 py-3 font-medium">Customer</th>
-                <th className="px-3 py-3 font-medium">Pre-VAT</th>
-                <th className="px-3 py-3 font-medium">VAT</th>
+                <th className="hidden px-3 py-3 font-medium lg:table-cell">Pre-VAT</th>
+                <th className="hidden px-3 py-3 font-medium lg:table-cell">VAT</th>
                 <th className="px-3 py-3 font-medium">Gross</th>
                 <th className="px-3 py-3 font-medium" />
               </tr>
@@ -146,7 +146,7 @@ export default async function AdminReceiptsPage({ searchParams }: Props) {
                   <td className="px-3 py-3 font-mono text-xs text-ink">
                     {formatOrNumber(r.or_serial, r.issued_at)}
                   </td>
-                  <td className="px-3 py-3 font-mono text-xs text-ink/65">
+                  <td className="hidden px-3 py-3 font-mono text-xs text-ink/65 md:table-cell">
                     {r.issued_at.slice(0, 10)}
                   </td>
                   <td className="px-3 py-3">
@@ -157,10 +157,10 @@ export default async function AdminReceiptsPage({ searchParams }: Props) {
                       <p className="text-xs text-ink/55">{r.issued_to_email}</p>
                     ) : null}
                   </td>
-                  <td className="px-3 py-3 font-mono text-sm">
+                  <td className="hidden px-3 py-3 font-mono text-sm lg:table-cell">
                     {formatPhpFromString(r.pre_vat_php)}
                   </td>
-                  <td className="px-3 py-3 font-mono text-sm text-ink/65">
+                  <td className="hidden px-3 py-3 font-mono text-sm text-ink/65 lg:table-cell">
                     {formatPhpFromString(r.vat_amount_php)}
                   </td>
                   <td className="px-3 py-3 font-mono text-sm font-semibold">

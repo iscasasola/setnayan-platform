@@ -377,6 +377,9 @@ export default async function ProfilePage({ searchParams }: Props) {
         <Link href="/help" className="button-secondary">
           Help &amp; support
         </Link>
+        <Link href="/dashboard/api-keys" className="button-secondary">
+          API keys
+        </Link>
         <form action={restartTour}>
           <button className="button-secondary inline-flex items-center gap-2" type="submit">
             <Compass aria-hidden className="h-4 w-4" strokeWidth={1.75} />

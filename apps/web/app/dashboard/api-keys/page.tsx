@@ -1,0 +1,197 @@
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { ArrowLeft, Copy, Key, Plus, ShieldOff } from 'lucide-react';
+import { createClient } from '@/lib/supabase/server';
+import type { ApiKeyRow } from '@/lib/api-keys';
+import { createApiKey, revokeApiKey } from './actions';
+
+export const metadata = { title: 'API keys' };
+
+type Props = {
+  searchParams: Promise<{ just_created?: string; error?: string }>;
+};
+
+export default async function ApiKeysPage({ searchParams }: Props) {
+  const search = await searchParams;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data } = await supabase
+    .from('api_keys')
+    .select(
+      'api_key_id,public_id,user_id,name,key_prefix,last_used_at,revoked_at,expires_at,created_at',
+    )
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false });
+  const keys = (data ?? []) as ApiKeyRow[];
+
+  const justCreated = search.just_created ?? null;
+
+  return (
+    <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
+      <Link
+        href="/dashboard/profile"
+        className="mb-4 inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
+      >
+        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+        Back to profile
+      </Link>
+
+      <header className="mb-6 space-y-2">
+        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">API keys</h1>
+        <p className="text-base text-ink/65">
+          Personal access tokens for the Setnayan API. Each key authenticates as you. V1
+          ships the gateway only — endpoints land in follow-on iterations. Try{' '}
+          <code className="rounded bg-ink/[0.06] px-1 font-mono text-xs">/api/v1/health</code>{' '}
+          (no auth) or{' '}
+          <code className="rounded bg-ink/[0.06] px-1 font-mono text-xs">/api/v1/me</code>{' '}
+          (bearer token).
+        </p>
+      </header>
+
+      {search.error ? (
+        <p
+          role="alert"
+          className="mb-4 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
+        >
+          {decodeURIComponent(search.error)}
+        </p>
+      ) : null}
+
+      {justCreated ? (
+        <section className="mb-6 space-y-3 rounded-2xl border border-emerald-300/60 bg-emerald-50/80 p-5">
+          <div className="space-y-1">
+            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-emerald-900">
+              Save this key now
+            </p>
+            <p className="text-sm text-emerald-900">
+              This is the only time we&rsquo;ll show the full value. Store it in your secrets
+              manager — if you lose it, revoke and create a new one.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 rounded-md bg-cream p-3">
+            <code className="flex-1 break-all font-mono text-sm text-ink">{justCreated}</code>
+            {/* Copy button is intentionally a noscript-friendly visual hint;
+                browsers without JS would still see the key text. */}
+            <span
+              aria-hidden
+              className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/60"
+            >
+              <Copy className="h-3 w-3" strokeWidth={2} />
+              Select all + copy
+            </span>
+          </div>
+        </section>
+      ) : null}
+
+      <section className="mb-8 space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
+        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          Create a key
+        </h2>
+        <form
+          action={createApiKey}
+          className="flex flex-col gap-2 sm:flex-row sm:items-end"
+        >
+          <label className="flex-1 space-y-1">
+            <span className="block text-xs font-medium text-ink">Key name</span>
+            <input
+              name="name"
+              required
+              maxLength={80}
+              placeholder="e.g. Personal scripts, Notion integration"
+              className="input-field"
+            />
+          </label>
+          <button
+            type="submit"
+            className="button-primary inline-flex items-center justify-center gap-2"
+          >
+            <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
+            Create key
+          </button>
+        </form>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          Your keys ({keys.length})
+        </h2>
+        {keys.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center">
+            <Key
+              aria-hidden
+              className="mx-auto mb-2 h-6 w-6 text-ink/30"
+              strokeWidth={1.5}
+            />
+            <p className="text-sm text-ink/55">
+              No keys yet. Create one above to start calling the API.
+            </p>
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {keys.map((k) => (
+              <li
+                key={k.api_key_id}
+                className={`flex flex-wrap items-start justify-between gap-3 rounded-xl border p-4 ${
+                  k.revoked_at ? 'border-ink/10 bg-ink/[0.02] opacity-70' : 'border-ink/10 bg-cream'
+                }`}
+              >
+                <div className="min-w-0 space-y-0.5">
+                  <p className="text-sm font-semibold text-ink">{k.name}</p>
+                  <p className="break-all font-mono text-xs text-ink/65">
+                    {k.key_prefix}…
+                  </p>
+                  <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
+                    Created {k.created_at.slice(0, 10)}
+                    {k.last_used_at ? ` · last used ${k.last_used_at.slice(0, 10)}` : ' · never used'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {k.revoked_at ? (
+                    <span className="rounded-full bg-rose-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-rose-800">
+                      Revoked
+                    </span>
+                  ) : (
+                    <form action={revokeApiKey}>
+                      <input type="hidden" name="api_key_id" value={k.api_key_id} />
+                      <button
+                        type="submit"
+                        className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-rose-100 hover:text-rose-700"
+                      >
+                        <ShieldOff className="h-3.5 w-3.5" strokeWidth={1.75} />
+                        Revoke
+                      </button>
+                    </form>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="mt-10 space-y-3 rounded-2xl border border-dashed border-ink/15 bg-cream p-5">
+        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          Try it
+        </p>
+        <pre className="overflow-x-auto rounded-md bg-ink/[0.05] p-3 font-mono text-[11px] text-ink/80">
+{`curl https://setnayan-platform-web.vercel.app/api/v1/me \\
+  -H "Authorization: Bearer sk_live_…"`}
+        </pre>
+        <ul className="list-inside list-disc space-y-1 text-sm text-ink/65">
+          <li>
+            <code className="font-mono text-xs">GET /api/v1/health</code> — public liveness
+            probe, no auth required.
+          </li>
+          <li>
+            <code className="font-mono text-xs">GET /api/v1/me</code> — returns your profile
+            for the bearer token you send.
+          </li>
+        </ul>
+      </section>
+    </div>
+  );
+}

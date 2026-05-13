@@ -4,6 +4,34 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-13 · 0015 main website MVP — public landing rebuilt
+
+**Commits:** to be filled in once committed.
+
+**What landed:**
+- `/` was a 45-line placeholder; it now renders a full single-page marketing landing:
+  - **Top nav** with brand mark, Sign in (text), and Create account (primary button).
+  - **Hero** with the `Set na 'yan.` tagline, a longer-form subhead, dual CTAs (Start planning / I already have an account), and a device mock on the right that previews the actual couple-home design (greeting, stage strip, NEXT UP card, mini nav grid). The device mock uses the same Tailwind tokens as the real Home page, so when 0021 themes change the home, the mock changes with it (couples checking the landing while logged in see brand defaults because the redirect catches them first).
+  - **Shipping section** — six feature cards covering what's actually live (Guest List, QR invitations, RSVP, 4-theme system, Guided Planner, 6-stage strip + countdown). Lucide-icon lockups.
+  - **Roadmap section** — six cards for Vendors / Seating / Budget / Papic / Panood / Photo Delivery, each with a "when" badge (Coming next / 2026 H2). Dashed borders to signal "not shipped yet" without making them look broken.
+  - **Closing CTA** — short-form repeat ask with both Sign in and Create account links.
+  - **Footer** — brand mark, "Made in the Philippines", quick links.
+- Signed-in users still get redirected to `/dashboard` before the marketing layout renders.
+
+**SPEC IMPACT:**
+- `~/Documents/Claude/Projects/Setnayan/04_Iterations/0015_main_website.md` — record the V1-shipped MVP scope: English-only single-page landing. Two sub-scopes remain deferred and should stay flagged in the spec:
+  - **i18n (EN / TL / CEB):** locale switcher and translated copy not yet implemented. When this lands, the page will need a top-nav locale picker and translation files; the visual structure should stay intact.
+  - **Event Palette interactive preview:** the spec's "Event Palette" section (interactive palette previewer for the 4 themes) is replaced with a static device mock in this MVP. The interactive version is a follow-on.
+- The shipped feature copy in `apps/web/app/page.tsx` (Hero / Shipping / Roadmap / Closing) is a **starter draft** — owner should refine via Cowork for the luxurious-Filipino-modern voice. Until then, the page is honest about what's live vs. what's coming and gives visitors a clear sign-up path.
+
+**Deferred:**
+- Locale infrastructure (EN/TL/CEB) — moved into a follow-on
+- Event Palette interactive theme preview — moved into a follow-on
+- Pricing page (no charm-pricing matrix locked yet for non-token model)
+- Marketing pages beyond `/` (about, features detail, blog) — not in scope yet
+
+---
+
 ## 2026-05-13 · 0021 transversal slice — themes, Lucide icons, new Home, Guided Planner
 
 **Commits:** to be filled in once committed.

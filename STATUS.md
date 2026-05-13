@@ -3,7 +3,7 @@
 > Living checkpoint. Updated as work progresses.
 
 **Last updated:** 2026-05-13
-**Current sprint:** Iteration `0021_couple_dashboard_fully_purchased` transversal pieces shipped — 4-theme system (Setnayan Default / Victorian / Classy / iOS) wired through CSS vars, Lucide icon swap in BottomNav + Services launcher + admin status badges, new Home layout (warm welcome + 6-stage strip + NEXT UP card + 8-tile nav grid + activity feed), Guided Planner 9-step checklist with auto-derived + manual completions and a DIY toggle in Profile. Surfaces still gated on later iterations (Vendors / Budget / Seating / Schedule / QR Hub / Gallery) stay as placeholders until those land.
+**Current sprint:** Iteration `0015_main_website` MVP shipped — public marketing landing at `/` rebuilt with top nav, hero + device mock (couple home preview), six shipped-features grid, six-card roadmap, closing CTA, and footer. English-only copy as a starter draft for owner refinement via Cowork; EN/TL/CEB i18n + Event Palette interactive preview remain deferred sub-scopes.
 **Owner's wedding (deadline anchor):** December 2026
 
 ---

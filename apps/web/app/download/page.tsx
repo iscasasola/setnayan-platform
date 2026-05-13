@@ -62,15 +62,7 @@ export default function DownloadPage() {
 
             <p className="text-xs text-ink/55">
               Apple Silicon (M1 / M2 / M3 / M4) only. Released{' '}
-              {DESKTOP_RELEASE.publishedAt}. &nbsp;
-              <a
-                href={DESKTOP_RELEASE.releaseUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="underline-offset-4 hover:underline"
-              >
-                Release notes &rarr;
-              </a>
+              {DESKTOP_RELEASE.publishedAt}.
             </p>
           </div>
 

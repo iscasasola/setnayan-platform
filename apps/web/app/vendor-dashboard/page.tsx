@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { AlertTriangle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile, profileCompletion } from '@/lib/vendor-profile';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { saveVendorProfile } from './actions';
 import { ServicesPicker } from './_components/services-picker';
 
@@ -200,9 +201,9 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
           <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
             Account ID · {profile?.public_id ?? '—'}
           </p>
-          <button type="submit" className="button-primary">
+          <SubmitButton className="button-primary" pendingLabel="Saving…">
             Save profile
-          </button>
+          </SubmitButton>
         </div>
       </form>
 

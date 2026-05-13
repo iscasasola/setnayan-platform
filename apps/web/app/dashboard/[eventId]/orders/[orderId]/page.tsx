@@ -15,7 +15,7 @@ import {
 } from '@/lib/orders';
 import {
   fetchReceiptByOrderId,
-  formatOrNumber,
+  formatReceiptNumber,
 } from '@/lib/receipts';
 import {
   fetchPlatformSettings,
@@ -127,8 +127,8 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
         </dl>
         <p className="text-xs text-ink/55">
           {order.confirmed_total_php != null ? 'Confirmed' : 'Requested'} base ={' '}
-          <span className="font-mono">{formatPhp(totals.base)}</span>. PH BIR-compliant
-          VAT ({totals.vatRatePct}%) is added on top &mdash; what you actually pay is{' '}
+          <span className="font-mono">{formatPhp(totals.base)}</span>. PH VAT (
+          {totals.vatRatePct}%) is added on top &mdash; what you actually pay is{' '}
           <span className="font-mono font-semibold">{formatPhp(totals.gross)}</span>.
           {totals.matched > 0
             ? ` So far we've matched ${formatPhp(totals.matched)} of that.`
@@ -163,14 +163,16 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
       {receipt ? (
         <section className="space-y-2 rounded-2xl border border-emerald-300/60 bg-emerald-50/60 p-5">
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-emerald-900">
-            Official Receipt issued
+            Transaction receipt issued
           </p>
           <p className="text-base font-semibold text-emerald-900">
-            {formatOrNumber(receipt.or_serial, receipt.issued_at)}
+            {formatReceiptNumber(receipt.or_serial, receipt.issued_at)}
           </p>
           <p className="text-sm text-emerald-900/85">
-            BIR-compliant OR generated when payment was matched. Open the receipt to
-            print or save as PDF.
+            App-issued transaction receipt &mdash; generated when payment was matched.
+            Not a BIR Official Receipt; the BIR OR (where applicable) is issued by
+            Setnayan separately. Open the transaction receipt below to print or save
+            as PDF for your records.
           </p>
           <Link
             href={`/receipts/${receipt.receipt_id}`}

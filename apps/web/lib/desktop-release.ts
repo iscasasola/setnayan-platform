@@ -8,15 +8,19 @@
  * Update this file on every desktop release.
  */
 
+// We host the .dmg directly under the Vercel /public folder (served as
+// /downloads/<file>) so the link works for anonymous visitors. The repo is
+// private, so GitHub Release asset URLs require auth and return 404 to the
+// public — Vercel /public has no such restriction.
 export const DESKTOP_RELEASE = {
   version: '0.0.1',
   tag: 'v0.0.1',
-  releaseUrl: 'https://github.com/iscasasola/setnayan-platform/releases/tag/v0.0.1',
   publishedAt: '2026-05-14',
+  releaseNotesUrl: 'https://setnayan.com/download',
   mac: {
     aarch64: {
       filename: 'Setnayan_0.0.1_aarch64.dmg',
-      url: 'https://github.com/iscasasola/setnayan-platform/releases/download/v0.0.1/Setnayan_0.0.1_aarch64.dmg',
+      url: '/downloads/Setnayan_0.0.1_aarch64.dmg',
       sizeBytes: 1_446_653,
     },
   },

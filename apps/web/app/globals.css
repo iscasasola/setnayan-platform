@@ -74,7 +74,7 @@
   }
 
   .button-secondary {
-    @apply inline-flex h-11 items-center justify-center rounded-md border border-ink/20 bg-cream px-6 text-sm font-medium text-ink transition-colors hover:border-ink/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2;
+    @apply inline-flex h-11 items-center justify-center rounded-md border border-ink/20 bg-cream px-6 text-sm font-medium text-ink transition-colors hover:border-ink/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60;
   }
 
   .input-field {

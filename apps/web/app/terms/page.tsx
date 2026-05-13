@@ -53,12 +53,14 @@ export default function TermsPage() {
               agreed on with our team.
             </li>
             <li>
-              We issue a BIR-compliant Official Receipt for every paid order, downloadable
-              from the order detail page.
+              We issue an app <strong>transaction receipt</strong> for every paid order,
+              downloadable from the order detail page. This is for your records and
+              is <em>not</em> a BIR Official Receipt &mdash; the corresponding BIR OR
+              (where applicable) is issued by Setnayan separately, offline.
             </li>
             <li>
-              Pricing is in PHP and inclusive of 12% VAT unless otherwise noted on the
-              receipt.
+              Pricing is in PHP. Quoted amounts are <strong>pre-VAT base</strong>; 12% VAT
+              is added on top per PH BIR rules unless otherwise noted.
             </li>
             <li>
               Refunds: contact us via the{' '}

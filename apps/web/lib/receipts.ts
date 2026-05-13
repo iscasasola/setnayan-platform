@@ -42,11 +42,15 @@ export function computeVatFromBase(
   return { preVat, vat, gross, rate };
 }
 
-export function formatOrNumber(serial: number, issuedAtIso?: string): string {
+// Setnayan transaction receipts (not BIR Official Receipts). The actual
+// BIR OR for a paid order is issued by Setnayan separately, offline. The
+// `or_serial` DB column name is legacy and kept as-is; we just label it
+// "Transaction No." everywhere it's shown.
+export function formatReceiptNumber(serial: number, issuedAtIso?: string): string {
   const year = issuedAtIso
     ? new Date(issuedAtIso).getFullYear()
     : new Date().getFullYear();
-  return `SR-${year}-${String(serial).padStart(6, '0')}`;
+  return `TXN-${year}-${String(serial).padStart(6, '0')}`;
 }
 
 export async function fetchReceiptById(

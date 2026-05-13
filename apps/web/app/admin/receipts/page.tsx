@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ExternalLink, Receipt as ReceiptIcon } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { formatOrNumber, formatPhpFromString } from '@/lib/receipts';
+import { formatReceiptNumber, formatPhpFromString } from '@/lib/receipts';
 
 export const metadata = { title: 'Receipts · Admin' };
 
@@ -81,10 +81,11 @@ export default async function AdminReceiptsPage({ searchParams }: Props) {
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Receipts</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Transaction receipts</h1>
         <p className="text-sm text-ink/60">
-          Every Official Receipt issued when a payment was approved with &ldquo;Also mark
-          order as paid&rdquo;. Filter by month for BIR filing.
+          App-issued transaction receipts (one per paid order). These are{' '}
+          <strong>not</strong> BIR Official Receipts &mdash; cross-reference with your
+          BIR-side OR records before filing. Filter by month for reconciliation.
         </p>
       </header>
 
@@ -128,7 +129,7 @@ export default async function AdminReceiptsPage({ searchParams }: Props) {
           <table className="w-full text-left text-sm">
             <thead className="bg-ink/[0.03] text-[11px] uppercase tracking-[0.12em] text-ink/55">
               <tr>
-                <th className="px-3 py-3 font-medium">OR number</th>
+                <th className="px-3 py-3 font-medium">Transaction No.</th>
                 <th className="hidden px-3 py-3 font-medium md:table-cell">Issued</th>
                 <th className="px-3 py-3 font-medium">Customer</th>
                 <th className="hidden px-3 py-3 font-medium lg:table-cell">Pre-VAT</th>
@@ -144,7 +145,7 @@ export default async function AdminReceiptsPage({ searchParams }: Props) {
                   className="border-t border-ink/5 hover:bg-terracotta/[0.04]"
                 >
                   <td className="px-3 py-3 font-mono text-xs text-ink">
-                    {formatOrNumber(r.or_serial, r.issued_at)}
+                    {formatReceiptNumber(r.or_serial, r.issued_at)}
                   </td>
                   <td className="hidden px-3 py-3 font-mono text-xs text-ink/65 md:table-cell">
                     {r.issued_at.slice(0, 10)}

@@ -29,9 +29,11 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
       <header className="mb-6 space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">Platform settings</h1>
         <p className="text-sm text-ink/60">
-          Business identity (printed on every Official Receipt) and merchant payment info
-          (rendered on order detail + receipts). Everything here is read-everywhere across
-          the app; only internal/team-pool admins can edit.
+          Business identity (printed on every app transaction receipt) and merchant payment
+          info (rendered on order detail + receipts). Everything here is read-everywhere
+          across the app; only internal/team-pool admins can edit. The actual BIR Official
+          Receipt for a paid order is issued separately, offline &mdash; these are not BIR
+          ORs.
         </p>
       </header>
 
@@ -73,7 +75,7 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
           <div className="flex items-center gap-2">
             <Building className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
             <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-              Business identity (BIR §113)
+              Business identity
             </h2>
           </div>
           <Field label="Business name" htmlFor="business_name">
@@ -88,7 +90,7 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
           <Field
             label="Tax Identification Number (TIN)"
             htmlFor="business_tin"
-            help="Format: 000-000-000-000. Shown on every Official Receipt."
+            help="Format: 000-000-000-000. Shown on every transaction receipt."
           >
             <input
               id="business_tin"
@@ -255,13 +257,13 @@ function QrUploadBlock({
             <p>Currently shown to couples on order detail pages.</p>
             <form action={removeMerchantQr}>
               <input type="hidden" name="kind" value={kind} />
-              <button
-                type="submit"
-                className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-rose-700"
+              <SubmitButton
+                className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                pendingLabel="Removing…"
               >
                 <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                 Remove
-              </button>
+              </SubmitButton>
             </form>
           </div>
         </div>

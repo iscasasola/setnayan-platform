@@ -3,11 +3,11 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import {
   fetchReceiptById,
-  formatOrNumber,
+  formatReceiptNumber,
   formatPhpFromString,
 } from '@/lib/receipts';
 
-export const metadata = { title: 'Official Receipt · Setnayan' };
+export const metadata = { title: 'Transaction Receipt · Setnayan' };
 
 type Props = { params: Promise<{ receiptId: string }> };
 
@@ -29,7 +29,7 @@ export default async function ReceiptPage({ params }: Props) {
   // in case the policy changes.
   if (receipt.user_id !== user.id) notFound();
 
-  const orNumber = formatOrNumber(receipt.or_serial, receipt.issued_at);
+  const receiptNumber = formatReceiptNumber(receipt.or_serial, receipt.issued_at);
 
   return (
     <>
@@ -52,9 +52,11 @@ export default async function ReceiptPage({ params }: Props) {
                 {settings.business_name}
                 {settings.business_email ? ` · ${settings.business_email}` : ' · setnayan.com'}
               </p>
-              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-                BIR-Registered · TIN {settings.business_tin ?? 'Pending — admin /settings'}
-              </p>
+              {settings.business_tin ? (
+                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+                  TIN {settings.business_tin}
+                </p>
+              ) : null}
               {settings.business_address ? (
                 <p className="text-[10px] text-ink/60 whitespace-pre-wrap">
                   {settings.business_address}
@@ -63,9 +65,9 @@ export default async function ReceiptPage({ params }: Props) {
             </div>
             <div className="text-right">
               <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-ink/55">
-                Official Receipt
+                Transaction Receipt
               </p>
-              <p className="font-mono text-base font-semibold text-ink">{orNumber}</p>
+              <p className="font-mono text-base font-semibold text-ink">{receiptNumber}</p>
             </div>
           </header>
 
@@ -123,11 +125,15 @@ export default async function ReceiptPage({ params }: Props) {
 
           <footer className="space-y-2 border-t border-ink/10 pt-4 text-xs text-ink/55">
             <p>
-              This is a system-generated Official Receipt issued in accordance with BIR
-              Revenue Regulations on electronic receipting. No signature is required.
+              This is a system-generated <strong>transaction receipt</strong> for your
+              records. It is <em>not</em> a BIR Official Receipt. The
+              corresponding BIR Official Receipt (where applicable) is issued by
+              Setnayan separately &mdash; please reach out to{' '}
+              {settings.business_email ?? 'support@setnayan.com'} if you need it for
+              accounting or reimbursement.
             </p>
             <p className="font-mono text-[10px] uppercase tracking-[0.15em]">
-              Sequence · {receipt.or_serial.toString().padStart(6, '0')}
+              Transaction No. · {receipt.or_serial.toString().padStart(6, '0')}
             </p>
           </footer>
         </article>

@@ -6,13 +6,62 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ## 2026-05-14 · fix(invitation): monogram QR thumbnails clipped in fixed-size boxes
 
-**Commit:** to be filled after commit.
+**Commit:** [3d37ae7](https://github.com/iscasasola/setnayan-platform/commit/3d37ae7) (PR #1)
 
 **What landed:**
 - `apps/web/app/dashboard/[eventId]/invitation/page.tsx` — added `[&_svg]:h-full [&_svg]:w-full` to the three QR-thumbnail wrappers (the monogram preview card, the desktop guest-table cell, and the mobile guest-card row). The `qrcode` library bakes `width="256"` into its SVG output, so when the SVG was embedded in `h-32 w-32` / `h-16 w-16` / `h-20 w-20` containers with `overflow-hidden`, only the top-left corner of the 256-px QR was visible. The arbitrary-variant rule forces the inner `<svg>` to fill its constrained parent, matching the pattern the print sheet already uses (`.print-qr svg { width:100%; height:100% }`).
 - Public landing page (`apps/web/app/[slug]/page.tsx`) unaffected — it wraps the QR in an `inline-block` with no fixed dimensions, so the SVG renders at its natural 256 px.
 
 **SPEC IMPACT:** None — purely visual bug fix, no schema, RLS, or product-decision change.
+
+---
+
+## 2026-05-14 · transaction-receipt rename + /download 404 fix + remaining form-button sweep
+
+**Commit:** to be filled after commit.
+
+**Three things landed:**
+
+**1. Receipts are not BIR Official Receipts — clarified app-wide.**
+The system was labeling the auto-generated receipt as "Official Receipt" and citing "BIR Revenue Regulations". That overclaims: these are app **transaction receipts** for the customer's records. The actual BIR Official Receipt (where applicable) is issued separately, offline. Renames + disclaimers landed in:
+
+- `apps/web/lib/receipts.ts` — `formatOrNumber` → `formatReceiptNumber`. The numbering prefix changed from `SR-YYYY-XXXXXX` to `TXN-YYYY-XXXXXX`. The DB column `or_serial` is unchanged (it's an internal serial; a rename would have required a migration).
+- `apps/web/app/receipts/[receiptId]/page.tsx` — page title metadata "Official Receipt" → "Transaction Receipt"; the header badge says "Transaction Receipt"; the "BIR-Registered" label is removed (TIN stays, optional); footer rewritten: *"This is a system-generated transaction receipt for your records. It is NOT a BIR Official Receipt. The corresponding BIR Official Receipt is issued by Setnayan separately."*
+- `apps/web/app/admin/receipts/page.tsx` — page heading "Transaction receipts"; explainer says *"not BIR Official Receipts — cross-reference with your BIR-side OR records before filing"*; table column "OR number" → "Transaction No."
+- `apps/web/app/admin/settings/page.tsx` — wording on the business-identity section + TIN help text updated.
+- `apps/web/app/admin/payments/actions.ts` — code comment + `maybeIssueReceipt` comment.
+- `apps/web/app/dashboard/[eventId]/orders/[orderId]/page.tsx` — "BIR-compliant OR" banner rewritten to "Transaction receipt issued — Not a BIR Official Receipt".
+- `apps/web/app/terms/page.tsx` — legal text rewritten to remove BIR-compliant Official Receipt claim and explain that quoted amounts are pre-VAT base.
+
+**2. /download was 404'ing for anonymous visitors.**
+The download flow was redirecting to a GitHub Release asset URL. The repo is **private**, so anonymous downloads got 404 from GitHub. Fixed by:
+- Copied the DMG into `apps/web/public/downloads/Setnayan_0.0.1_aarch64.dmg`. Vercel serves `/downloads/...` publicly with no auth.
+- `apps/web/lib/desktop-release.ts` updated: `mac.aarch64.url` now points at `/downloads/Setnayan_0.0.1_aarch64.dmg` (relative).
+- `apps/web/app/api/download/mac/route.ts` re-implemented as a runtime route (the previous `force-static` directive couldn't reconcile relative URLs at static-export time). Now it resolves the target URL from `request.url` and 302-redirects.
+- Removed the now-broken "Release notes →" link from `/download` (the GitHub release page is also private).
+
+**3. Form-button audit — final sweep + login-pending visibility.**
+Spawned a parallel agent to do a multi-pass audit. It identified + fixed:
+
+- Couple notifications page: "Mark all read" + "Mark read" now use `SubmitButton`.
+- `/help` page contact form: "Send message" now uses `SubmitButton`.
+- Vendor notifications + vendor home: equivalent buttons swept.
+- `apps/web/app/globals.css`: `.button-secondary` got `disabled:cursor-not-allowed disabled:opacity-60` (matching `.button-primary` which already had it).
+
+**SubmitButton itself was hardened** so the pending state is unmistakable, especially for fast actions like sign-in where the redirect lands ~200ms after click:
+- Added `data-pending` attribute (useful for hooks + Cypress later).
+- Added `cursor-wait` while pending so the cursor changes immediately on click.
+- Bumped Loader2 stroke from 1.75 → 2.25 for a heavier-looking spinner.
+- Empty `pendingLabel` (e.g. icon-only Send buttons) now still announces "Working…" to screen readers via `sr-only`.
+
+**Background agent caveat:** the audit agent stalled at ~Pass 9 due to a stream watchdog timeout. Its committed-but-not-reported changes are good; the things it diagnosed but didn't yet fix were rolled into this commit (SubmitButton enhancements + the cursor-wait + sr-only fallback).
+
+**SPEC IMPACT:** 0026 BIR receipts:
+- The spec described the auto-issue as an "Official Receipt" — that wording is incorrect for V1. Please update `~/Documents/Claude/Projects/Setnayan/04_Iterations/0026_bir_tax_compliance.md` via Cowork:
+  - Rename "Official Receipt" → "App transaction receipt" throughout the iteration doc.
+  - Add a callout: V1 does NOT issue BIR-compliant ORs; the platform records a transaction reference for the customer, while the actual BIR OR is issued by Setnayan via its accountant / POS receipt book.
+  - The OR numbering prefix changed from `SR-YYYY-NNNNNN` to `TXN-YYYY-NNNNNN`; legacy receipts (if any) keep their SR- numbers since they were already issued.
+  - The math (pre-VAT base + 12% VAT added on top = gross) stays correct.
 
 ---
 

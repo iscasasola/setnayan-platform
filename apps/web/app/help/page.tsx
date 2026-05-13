@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { HelpCircle, MessageSquare, Mail } from 'lucide-react';
 import { HELP_TOPICS } from '@/lib/help';
 import { createClient } from '@/lib/supabase/server';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { submitHelpMessage } from './actions';
 
 export const metadata = {
@@ -219,10 +220,13 @@ export default async function HelpPage({ searchParams }: Props) {
                   />
                 </Field>
 
-                <button type="submit" className="button-primary inline-flex items-center gap-2">
+                <SubmitButton
+                  className="button-primary inline-flex items-center gap-2"
+                  pendingLabel="Sending…"
+                >
                   <Mail aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                   Send message
-                </button>
+                </SubmitButton>
               </form>
             </section>
           </div>

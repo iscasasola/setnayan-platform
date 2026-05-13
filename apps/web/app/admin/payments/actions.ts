@@ -87,7 +87,8 @@ export async function approvePayment(formData: FormData) {
         : null,
     });
 
-    // Auto-issue an Official Receipt (BIR § 113 compliance) — one per order.
+    // Auto-issue an app transaction receipt — one per order. This is NOT a
+    // BIR Official Receipt (the actual BIR OR is issued separately, offline).
     // The unique constraint on receipts.order_id makes the insert idempotent
     // across retries; subsequent runs silently no-op.
     await issueReceiptForOrder({ admin, orderId: payment.order_id });
@@ -131,7 +132,7 @@ async function issueReceiptForOrder(args: {
   const { preVat, vat, gross } = computeVatFromBase(base);
 
   // or_serial defaults from public.or_serial_seq (atomic) — don't pass it.
-  // The display "OR number" is composed at read-time via formatOrNumber().
+  // The display "Transaction No." is composed at read-time via formatReceiptNumber().
   await admin.from('receipts').insert({
     order_id: orderId,
     user_id: order.user_id,

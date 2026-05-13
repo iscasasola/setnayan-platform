@@ -20,6 +20,9 @@ type Props = Omit<
  *   • Swaps its content for a spinner + pendingLabel during the action so the
  *     user has a clear "something is happening" signal between click and
  *     the redirect / revalidate landing.
+ *   • Adds `data-pending="true"` and an explicit `cursor-wait` so the cursor
+ *     changes immediately and the button is unmistakably "in progress" —
+ *     not just a subtle opacity dip the user might miss.
  */
 export function SubmitButton({
   children,
@@ -33,13 +36,18 @@ export function SubmitButton({
       type="submit"
       disabled={pending}
       aria-busy={pending}
-      className={className}
+      data-pending={pending ? 'true' : undefined}
+      className={`${className ?? ''} ${pending ? 'cursor-wait' : ''}`.trim()}
       {...rest}
     >
       {pending ? (
         <span className="inline-flex items-center gap-2">
-          <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} />
-          {pendingLabel}
+          <Loader2
+            aria-hidden
+            className="h-4 w-4 animate-spin"
+            strokeWidth={2.25}
+          />
+          {pendingLabel || <span className="sr-only">Working…</span>}
         </span>
       ) : (
         children

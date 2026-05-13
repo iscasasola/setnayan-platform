@@ -12,6 +12,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from '@/lib/notification-actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 export const metadata = { title: 'Notifications · Vendor' };
 
@@ -40,13 +41,13 @@ export default async function VendorNotificationsPage() {
       {unreadCount > 0 ? (
         <form action={markAllNotificationsRead} className="mb-4">
           <input type="hidden" name="return_to" value={returnTo} />
-          <button
-            type="submit"
+          <SubmitButton
             className="button-secondary inline-flex items-center gap-2"
+            pendingLabel="Marking…"
           >
             <CheckCheck aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             Mark all read
-          </button>
+          </SubmitButton>
         </form>
       ) : null}
 
@@ -101,12 +102,12 @@ export default async function VendorNotificationsPage() {
                     <form action={markNotificationRead}>
                       <input type="hidden" name="notification_id" value={n.notification_id} />
                       <input type="hidden" name="return_to" value={returnTo} />
-                      <button
-                        type="submit"
-                        className="w-full rounded-md bg-ink/5 px-3 py-1 text-xs text-ink/70 hover:bg-ink/10"
+                      <SubmitButton
+                        className="w-full rounded-md bg-ink/5 px-3 py-1 text-xs text-ink/70 hover:bg-ink/10 disabled:cursor-not-allowed disabled:opacity-60"
+                        pendingLabel="…"
                       >
                         Mark read
-                      </button>
+                      </SubmitButton>
                     </form>
                   ) : null}
                 </div>

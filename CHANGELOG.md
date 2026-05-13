@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-14 · COWORK_INBOX.md handoff channel + caching strategy queued
+
+**Commit:** to be filled after commit.
+
+**What landed:**
+- New `COWORK_INBOX.md` at the repo root — active worklist of pending spec-corpus updates the owner must apply via Cowork. Distinct from `CHANGELOG.md` (full history): the inbox is a `[PENDING]` / `[DONE]` worklist that shrinks as items are actioned, so the owner doesn't have to scan changelog history to find what still needs Cowork's attention.
+- `CLAUDE.md` documentation contract expanded from three files to four (adds `COWORK_INBOX.md`). New step inserted into "Rules for every session": after any code change with non-`None` spec impact, append a `[PENDING]` entry to the inbox alongside the changelog entry. The Cowork-boundary section also references the inbox as the standard handoff channel.
+- Seeded the inbox with the first real entry: **Caching & Offline Strategy** — a new cross-cutting infra section (100 MB per-install budget, TanStack Query + IndexedDB + service-worker `CacheExpiration`). Inbox entry offers the owner two placement options (section in platform-foundation spec, or new mini-iteration `0036_caching_strategy/`).
+
+**Operational note:** No code in `apps/` or `packages/` touched. This is repo-doc housekeeping only — the caching implementation itself is parked until the spec is locked via Cowork and the owner explicitly green-lights the implementation plan.
+
+**SPEC IMPACT:** Indirect. The inbox itself is a repo-internal mechanism — no spec change needed. But the seeded *content* (caching strategy) does have spec impact: the owner must apply it via Cowork to either the platform-foundation spec or a new `0036_caching_strategy/` iteration folder at `~/Documents/Claude/Projects/Setnayan/`. The pending entry in `COWORK_INBOX.md` carries the full draft content.
+
+---
+
 ## 2026-05-14 · admin merchant-QR uploads: auto-detect + square crop
 
 **Commit:** to be filled after commit.

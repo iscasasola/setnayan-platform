@@ -70,7 +70,7 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
     const { data } = await admin
       .from('orders')
       .select(
-        'order_id,public_id,reference_code,description,requested_total_php,confirmed_total_php,status,admin_notes,created_at, user:users(email, public_id)',
+        'order_id,public_id,reference_code,description,requested_total_php,confirmed_total_php,status,admin_notes,created_at, user:users!orders_user_id_fkey(email, public_id)',
       )
       .eq('status', 'submitted')
       .order('created_at', { ascending: true })
@@ -80,7 +80,7 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
     let paymentsQuery = admin
       .from('payments')
       .select(
-        'payment_id,order_id,user_id,amount_php,channel,reference_number,screenshot_url,paid_at,status,admin_notes,reviewed_at,created_at, order:orders(public_id, reference_code, description, requested_total_php, confirmed_total_php, status), user:users(email, public_id)',
+        'payment_id,order_id,user_id,amount_php,channel,reference_number,screenshot_url,paid_at,status,admin_notes,reviewed_at,created_at, order:orders(public_id, reference_code, description, requested_total_php, confirmed_total_php, status), user:users!payments_user_id_fkey(email, public_id)',
       )
       .order('created_at', { ascending: false })
       .limit(100);

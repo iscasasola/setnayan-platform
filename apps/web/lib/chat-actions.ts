@@ -3,7 +3,9 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchThreadById } from './chat';
+import { emitNotification } from './notification-emit';
 
 /**
  * Decides whether the current user is the couple or the vendor on a thread,
@@ -71,8 +73,79 @@ export async function sendChatMessage(formData: FormData) {
   });
   if (error) throw new Error(error.message);
 
+  // Notify the OTHER party. The couple side notifies the vendor user;
+  // the vendor side notifies every couple member on the event. Use the
+  // admin client so the lookup bypasses RLS without leaking auth scope.
+  await notifyOtherParty({
+    threadId: thread.thread_id,
+    eventId: thread.event_id,
+    vendorProfileId: thread.vendor_profile_id,
+    senderRole,
+    senderUserId: user.id,
+    body: trimmed,
+  });
+
   if (typeof returnTo === 'string' && returnTo.startsWith('/')) {
     revalidatePath(returnTo);
     redirect(returnTo);
+  }
+}
+
+async function notifyOtherParty(args: {
+  threadId: string;
+  eventId: string;
+  vendorProfileId: string;
+  senderRole: 'couple' | 'vendor';
+  senderUserId: string;
+  body: string;
+}): Promise<void> {
+  const admin = createAdminClient();
+
+  // Look up labels for the notification title (event name vs. vendor name).
+  const [eventRes, vendorRes] = await Promise.all([
+    admin
+      .from('events')
+      .select('display_name')
+      .eq('event_id', args.eventId)
+      .maybeSingle(),
+    admin
+      .from('vendor_profiles')
+      .select('business_name, user_id')
+      .eq('vendor_profile_id', args.vendorProfileId)
+      .maybeSingle(),
+  ]);
+
+  const eventName = eventRes.data?.display_name ?? 'your event';
+  const vendorName = vendorRes.data?.business_name?.trim() || 'a vendor';
+  const preview = args.body.slice(0, 140);
+
+  if (args.senderRole === 'couple') {
+    // The vendor user is the recipient.
+    if (!vendorRes.data?.user_id) return;
+    await emitNotification({
+      userId: vendorRes.data.user_id,
+      type: 'chat_message',
+      title: `New message from ${eventName}`,
+      body: preview,
+      relatedUrl: `/vendor-dashboard/messages/${args.threadId}`,
+    });
+    return;
+  }
+
+  // sender is vendor — notify every couple user on the event.
+  const { data: members } = await admin
+    .from('event_members')
+    .select('user_id')
+    .eq('event_id', args.eventId)
+    .eq('member_type', 'couple');
+  for (const m of members ?? []) {
+    if (m.user_id === args.senderUserId) continue;
+    await emitNotification({
+      userId: m.user_id,
+      type: 'chat_message',
+      title: `New message from ${vendorName}`,
+      body: preview,
+      relatedUrl: `/dashboard/${args.eventId}/messages/${args.threadId}`,
+    });
   }
 }

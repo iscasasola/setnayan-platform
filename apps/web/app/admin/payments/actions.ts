@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { emitNotification } from '@/lib/notification-emit';
+import { formatPhp } from '@/lib/orders';
 
 async function requireAdmin(): Promise<{ userId: string }> {
   const supabase = await createClient();
@@ -47,15 +49,42 @@ export async function approvePayment(formData: FormData) {
       updated_at: new Date().toISOString(),
     })
     .eq('payment_id', paymentId)
-    .select('order_id')
+    .select('order_id, user_id, amount_php')
     .single();
   if (pErr || !payment) throw new Error(pErr?.message ?? 'Could not update payment');
+
+  // Look up the order so the notification can link directly + name the order.
+  const { data: order } = await admin
+    .from('orders')
+    .select('event_id, public_id')
+    .eq('order_id', payment.order_id)
+    .maybeSingle();
+
+  await emitNotification({
+    userId: payment.user_id,
+    type: 'payment_matched',
+    title: `Payment of ${formatPhp(payment.amount_php)} matched`,
+    body: adminNotes ?? 'The Setnayan team confirmed your payment.',
+    relatedUrl: order?.event_id
+      ? `/dashboard/${order.event_id}/orders/${payment.order_id}`
+      : null,
+  });
 
   if (promoteOrder) {
     await admin
       .from('orders')
       .update({ status: 'paid', updated_at: new Date().toISOString() })
       .eq('order_id', payment.order_id);
+
+    await emitNotification({
+      userId: payment.user_id,
+      type: 'order_paid',
+      title: `Order ${order?.public_id ?? ''} marked paid`,
+      body: 'Your order is fully paid. We&apos;ll start work right away.',
+      relatedUrl: order?.event_id
+        ? `/dashboard/${order.event_id}/orders/${payment.order_id}`
+        : null,
+    });
   }
 
   revalidatePath('/admin/payments');
@@ -68,7 +97,7 @@ export async function rejectPayment(formData: FormData) {
   if (typeof paymentId !== 'string') throw new Error('Invalid input');
 
   const admin = createAdminClient();
-  const { error } = await admin
+  const { data: payment, error } = await admin
     .from('payments')
     .update({
       status: 'rejected',
@@ -77,8 +106,26 @@ export async function rejectPayment(formData: FormData) {
       reviewed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
-    .eq('payment_id', paymentId);
-  if (error) throw new Error(error.message);
+    .eq('payment_id', paymentId)
+    .select('order_id, user_id, amount_php')
+    .single();
+  if (error || !payment) throw new Error(error?.message ?? 'Could not update payment');
+
+  const { data: order } = await admin
+    .from('orders')
+    .select('event_id')
+    .eq('order_id', payment.order_id)
+    .maybeSingle();
+
+  await emitNotification({
+    userId: payment.user_id,
+    type: 'payment_rejected',
+    title: `Payment of ${formatPhp(payment.amount_php)} couldn't be matched`,
+    body: adminNotes ?? 'Please review and try again, or reach out to support.',
+    relatedUrl: order?.event_id
+      ? `/dashboard/${order.event_id}/orders/${payment.order_id}`
+      : null,
+  });
 
   revalidatePath('/admin/payments');
 }
@@ -97,7 +144,7 @@ export async function confirmOrderTotal(formData: FormData) {
   }
 
   const admin = createAdminClient();
-  const { error } = await admin
+  const { data: order, error } = await admin
     .from('orders')
     .update({
       confirmed_total_php: Math.round(amount * 100) / 100,
@@ -105,8 +152,20 @@ export async function confirmOrderTotal(formData: FormData) {
       status: 'awaiting_payment',
       updated_at: new Date().toISOString(),
     })
-    .eq('order_id', orderId);
-  if (error) throw new Error(error.message);
+    .eq('order_id', orderId)
+    .select('user_id, event_id, public_id, confirmed_total_php')
+    .single();
+  if (error || !order) throw new Error(error?.message ?? 'Could not update order');
+
+  await emitNotification({
+    userId: order.user_id,
+    type: 'order_quoted',
+    title: `Order ${order.public_id} quoted at ${formatPhp(order.confirmed_total_php)}`,
+    body: adminNotes ?? 'Open the order to view payment instructions.',
+    relatedUrl: order.event_id
+      ? `/dashboard/${order.event_id}/orders/${orderId}`
+      : null,
+  });
 
   revalidatePath('/admin/payments');
 }

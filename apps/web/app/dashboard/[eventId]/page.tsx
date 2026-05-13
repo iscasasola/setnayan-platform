@@ -11,12 +11,14 @@ import {
   Palette,
   MessageSquare,
   Receipt,
+  Bell,
   ArrowRight,
   CheckCircle2,
   Circle,
   Square,
   type LucideIcon,
 } from 'lucide-react';
+import { countUnread } from '@/lib/notifications';
 import { createClient } from '@/lib/supabase/server';
 import { computeGuestStats, fetchGuestsByEvent, guestDisplayName } from '@/lib/guests';
 import { formatEventDate } from '@/lib/events';
@@ -54,7 +56,8 @@ type TileKey =
   | 'seating'
   | 'services'
   | 'mood_board'
-  | 'orders';
+  | 'orders'
+  | 'notifications';
 
 const TILES: Array<{
   key: TileKey;
@@ -69,6 +72,7 @@ const TILES: Array<{
   { key: 'messages', label: 'Messages', Icon: MessageSquare, href: (id) => `/dashboard/${id}/messages` },
   { key: 'seating', label: 'Seating', Icon: LayoutGrid, href: (id) => `/dashboard/${id}/seating` },
   { key: 'orders', label: 'Orders', Icon: Receipt, href: (id) => `/dashboard/${id}/orders` },
+  { key: 'notifications', label: 'Notifications', Icon: Bell, href: () => `/dashboard/notifications` },
   { key: 'mood_board', label: 'Mood Board', Icon: Palette, href: (id) => `/dashboard/${id}/services/mood-board` },
   { key: 'services', label: 'Services', Icon: Sparkles, href: (id) => `/dashboard/${id}/services` },
 ];
@@ -183,7 +187,7 @@ export default async function EventHomePage({
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [eventRes, profileRes, guests, manualSteps] = await Promise.all([
+  const [eventRes, profileRes, guests, manualSteps, unreadCount] = await Promise.all([
     supabase
       .from('events')
       .select('event_id, display_name, event_date, slug, venue_name, monogram_text, palette_finalized_at')
@@ -196,6 +200,7 @@ export default async function EventHomePage({
       .maybeSingle(),
     fetchGuestsByEvent(supabase, eventId),
     fetchManualStepCompletions(supabase, eventId),
+    countUnread(supabase, user.id),
   ]);
 
   const event = eventRes.data;
@@ -261,7 +266,7 @@ export default async function EventHomePage({
         <Checklist eventId={eventId} statuses={stepStatuses} />
       ) : null}
 
-      <NavGrid eventId={eventId} stats={stats} />
+      <NavGrid eventId={eventId} stats={stats} unreadCount={unreadCount} />
 
       <ActivityFeed activity={activity} />
     </section>
@@ -362,9 +367,11 @@ function NextUpCard({ nextUp }: { nextUp: NextUp }) {
 function NavGrid({
   eventId,
   stats,
+  unreadCount,
 }: {
   eventId: string;
   stats: { total: number; attending: number; pending: number };
+  unreadCount: number;
 }) {
   return (
     <div className="space-y-3">
@@ -379,15 +386,23 @@ function NavGrid({
               ? `${stats.attending}/${stats.total} attending`
               : tile.key === 'guests' && stats.pending > 0
                 ? `${stats.pending} pending`
-                : null;
+                : tile.key === 'notifications' && unreadCount > 0
+                  ? `${unreadCount} unread`
+                  : null;
+          const showBadge = tile.key === 'notifications' && unreadCount > 0;
           return (
             <li key={tile.key}>
               <Link
                 href={tile.href(eventId)}
                 className="flex h-full flex-col gap-3 rounded-xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/40 hover:bg-terracotta/5"
               >
-                <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
+                <span className="relative inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
                   <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+                  {showBadge ? (
+                    <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-terracotta px-1 font-mono text-[9px] font-semibold text-cream">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  ) : null}
                 </span>
                 <span className="text-sm font-semibold text-ink">{tile.label}</span>
                 {counter ? (

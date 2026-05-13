@@ -15,8 +15,9 @@
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
     "clean": "turbo run clean && rm -rf node_modules",
-    "tauri:dev": "pnpm --filter @setnayan/web dev & cargo tauri dev --manifest-path src-tauri/Cargo.toml",
-    "tauri:build": "cargo tauri build --manifest-path src-tauri/Cargo.toml"
+    "tauri:icons": "cargo tauri icon src-tauri/icons/icon.svg",
+    "tauri:dev": "pnpm --filter @setnayan/web dev & cargo tauri dev",
+    "tauri:build": "pnpm tauri:icons && cargo tauri build"
   },
   "devDependencies": {
     "turbo": "^2.3.0",

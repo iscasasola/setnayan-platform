@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-14 · desktop local-build fixes (tauri scripts + Cargo.lock)
+
+**Commit:** to be filled after commit.
+
+**What landed:**
+- `package.json` tauri scripts were passing `--manifest-path src-tauri/Cargo.toml` to `cargo tauri build` / `cargo tauri dev`. Tauri CLI doesn't accept that flag (it's a `cargo` flag, not a `cargo tauri` flag) — Tauri auto-discovers `src-tauri/`. Scripts now run plain `cargo tauri build` / `cargo tauri dev`. CI was unaffected because `.github/workflows/build-desktop.yml` invokes `tauri build` directly, not via the npm script.
+- Added a `tauri:icons` script (`cargo tauri icon src-tauri/icons/icon.svg`) and chained it into `tauri:build`. Generated icons are gitignored on purpose (CI regenerates from `icon.svg`); the chain ensures the local build doesn't fail with *"failed to open icon … 32x32.png: No such file or directory"* on a fresh clone.
+- Committed `src-tauri/Cargo.lock` for the first time. App crates (vs library crates) should pin transitive deps via the lockfile so every machine compiles identical bytecode.
+
+**Verified locally:**
+- `pnpm tauri:build` produced `src-tauri/target/release/bundle/dmg/Setnayan_0.0.1_aarch64.dmg` (1.4 MB) and `bundle/macos/Setnayan.app` (2.9 MB) on Apple Silicon. Ad-hoc codesigned, opens cleanly, native window loads `https://setnayan.com`.
+
+**SPEC IMPACT:** None — packaging fix only.
+
+---
+
 ## 2026-05-14 · desktop shell points at setnayan.com
 
 **Commit:** to be filled after commit.

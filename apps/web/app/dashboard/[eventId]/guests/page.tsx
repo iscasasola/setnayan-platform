@@ -54,12 +54,20 @@ export default async function GuestsPage({ params, searchParams }: Props) {
             {stats.total} {stats.total === 1 ? 'guest' : 'guests'}
           </h1>
         </div>
-        <Link
-          href={`/dashboard/${eventId}/guests/new`}
-          className="button-primary self-start sm:self-auto"
-        >
-          + Add guest
-        </Link>
+        <div className="flex flex-col gap-2 self-start sm:flex-row sm:self-auto">
+          <Link
+            href={`/dashboard/${eventId}/guests/import`}
+            className="button-secondary"
+          >
+            Import CSV
+          </Link>
+          <Link
+            href={`/dashboard/${eventId}/guests/new`}
+            className="button-primary"
+          >
+            + Add guest
+          </Link>
+        </div>
       </header>
 
       <StatsStrip stats={stats} eventId={eventId} active={rsvpFilter} />
@@ -193,7 +201,10 @@ function DesktopTable({ guests, eventId }: { guests: GuestRow[]; eventId: string
           {guests.map((guest) => (
             <tr key={guest.guest_id} className="border-t border-ink/5 hover:bg-terracotta/[0.04]">
               <td className="px-4 py-3">
-                <div className="flex items-center gap-3">
+                <Link
+                  href={`/dashboard/${eventId}/guests/${guest.guest_id}`}
+                  className="flex items-center gap-3 -mx-4 -my-3 px-4 py-3"
+                >
                   <Avatar guest={guest} />
                   <div className="min-w-0">
                     <p className="truncate font-medium text-ink">{guestDisplayName(guest)}</p>
@@ -203,7 +214,7 @@ function DesktopTable({ guests, eventId }: { guests: GuestRow[]; eventId: string
                       </p>
                     ) : null}
                   </div>
-                </div>
+                </Link>
               </td>
               <td className="px-3 py-3 text-ink/70">{ROLE_LABELS[guest.role]}</td>
               <td className="px-3 py-3">
@@ -228,14 +239,17 @@ function MobileCardList({ guests, eventId }: { guests: GuestRow[]; eventId: stri
     <ul className="space-y-2 sm:hidden">
       {guests.map((guest) => (
         <li key={guest.guest_id}>
-          <div className="flex items-center gap-3 rounded-lg border border-ink/10 bg-cream p-3">
+          <Link
+            href={`/dashboard/${eventId}/guests/${guest.guest_id}`}
+            className="flex items-center gap-3 rounded-lg border border-ink/10 bg-cream p-3 hover:border-terracotta/40"
+          >
             <Avatar guest={guest} />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-ink">{guestDisplayName(guest)}</p>
               <p className="truncate text-xs text-ink/55">{ROLE_LABELS[guest.role]}</p>
             </div>
             <RsvpPill status={guest.rsvp_status} />
-          </div>
+          </Link>
         </li>
       ))}
     </ul>

@@ -50,11 +50,47 @@ export type GuestRow = {
   role: GuestRole;
   plus_one_allowed: boolean;
   plus_one_name: string | null;
+  plus_one_of_guest_id: string | null;
+  plus_one_mode: 'full' | 'limited' | null;
   email: string | null;
   mobile: string | null;
+  meal_preference: MealPreference | null;
+  dietary_restrictions: string | null;
+  photo_consent: boolean;
+  invited_to_blocks: string[];
   rsvp_status: RsvpStatus;
+  notes: string | null;
+  qr_token: string;
   custom_tags: string[];
   created_at: string;
+};
+
+export const INVITED_TO_BLOCKS = [
+  'ceremony',
+  'reception',
+  'cocktails',
+  'after_party',
+  'rehearsal_dinner',
+] as const;
+
+export type InvitedToBlock = (typeof INVITED_TO_BLOCKS)[number];
+
+export const INVITED_TO_LABELS: Record<InvitedToBlock, string> = {
+  ceremony: 'Ceremony',
+  reception: 'Reception',
+  cocktails: 'Cocktails',
+  after_party: 'After-party',
+  rehearsal_dinner: 'Rehearsal dinner',
+};
+
+export const MEAL_LABELS: Record<MealPreference, string> = {
+  beef: 'Beef',
+  chicken: 'Chicken',
+  fish: 'Fish',
+  vegetarian: 'Vegetarian',
+  vegan: 'Vegan',
+  kids: 'Kids',
+  no_preference: 'No preference',
 };
 
 export const ROLE_LABELS: Record<GuestRole, string> = {
@@ -109,15 +145,16 @@ export type GuestStats = {
   plus_ones: number;
 };
 
+const GUEST_FIELDS =
+  'guest_id,public_id,event_id,first_name,last_name,display_name,side,group_category,role,plus_one_allowed,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,invited_to_blocks,rsvp_status,notes,qr_token,custom_tags,created_at';
+
 export async function fetchGuestsByEvent(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<GuestRow[]> {
   const { data, error } = await supabase
     .from('guests')
-    .select(
-      'guest_id,public_id,event_id,first_name,last_name,display_name,side,group_category,role,plus_one_allowed,plus_one_name,email,mobile,rsvp_status,custom_tags,created_at',
-    )
+    .select(GUEST_FIELDS)
     .eq('event_id', eventId)
     .is('deleted_at', null)
     .order('last_name', { ascending: true })
@@ -127,7 +164,26 @@ export async function fetchGuestsByEvent(
     throw new Error(`fetchGuestsByEvent failed: ${error.message}`);
   }
 
-  return (data ?? []) as GuestRow[];
+  return (data ?? []) as unknown as GuestRow[];
+}
+
+export async function fetchGuestById(
+  supabase: SupabaseClient,
+  eventId: string,
+  guestId: string,
+): Promise<GuestRow | null> {
+  const { data, error } = await supabase
+    .from('guests')
+    .select(GUEST_FIELDS)
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId)
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`fetchGuestById failed: ${error.message}`);
+  }
+  return (data ?? null) as unknown as GuestRow | null;
 }
 
 export function computeGuestStats(guests: GuestRow[]): GuestStats {

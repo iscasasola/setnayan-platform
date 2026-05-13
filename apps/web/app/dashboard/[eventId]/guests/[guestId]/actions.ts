@@ -72,13 +72,13 @@ function parseInvitedToBlocks(formData: FormData): InvitedToBlock[] {
       result.push(block);
     }
   }
-  if (result.length === 0) return ['ceremony', 'reception'];
   return result;
 }
 
-export async function createGuest(eventId: string, formData: FormData) {
+export async function updateGuest(eventId: string, guestId: string, formData: FormData) {
   const first_name = clean(formData.get('first_name'));
   const last_name = clean(formData.get('last_name'));
+  const display_name = clean(formData.get('display_name')) || null;
   const side = clean(formData.get('side')) as GuestSide;
   const group_category = clean(formData.get('group_category')) as GuestGroupCategory;
   const role = (clean(formData.get('role')) || 'guest') as GuestRole;
@@ -86,105 +86,86 @@ export async function createGuest(eventId: string, formData: FormData) {
   const mobile = clean(formData.get('mobile')) || null;
   const meal_preference =
     (clean(formData.get('meal_preference')) || null) as MealPreference | null;
+  const dietary_restrictions = clean(formData.get('dietary_restrictions')) || null;
   const rsvp_status = (clean(formData.get('rsvp_status')) || 'pending') as RsvpStatus;
   const photo_consent = clean(formData.get('photo_consent')) === 'on';
   const notes = clean(formData.get('notes')) || null;
   const custom_tags = parseTags(clean(formData.get('custom_tags')));
   const invited_to_blocks = parseInvitedToBlocks(formData);
 
-  // Plus-one fields (sub-block, only meaningful when plus_one_allowed === true)
-  const plus_one_allowed = clean(formData.get('plus_one_allowed')) === 'on';
-  const plus_one_first_name = clean(formData.get('plus_one_first_name'));
-  const plus_one_last_name = clean(formData.get('plus_one_last_name'));
-  const plus_one_mode_raw = clean(formData.get('plus_one_mode')) || 'full';
-  const plus_one_mode = (plus_one_mode_raw === 'limited' ? 'limited' : 'full') as
-    | 'full'
-    | 'limited';
+  const backTo = `/dashboard/${eventId}/guests/${guestId}`;
 
   if (!first_name || !last_name) {
-    return redirect(`/dashboard/${eventId}/guests/new?error=missing_name`);
+    return redirect(`${backTo}?error=missing_name`);
   }
   if (!SIDE_VALUES.includes(side)) {
-    return redirect(`/dashboard/${eventId}/guests/new?error=missing_side`);
+    return redirect(`${backTo}?error=missing_side`);
   }
   if (!GROUP_VALUES.includes(group_category)) {
-    return redirect(`/dashboard/${eventId}/guests/new?error=missing_group`);
+    return redirect(`${backTo}?error=missing_group`);
   }
   if (!ROLE_VALUES.includes(role)) {
-    return redirect(`/dashboard/${eventId}/guests/new?error=invalid_role`);
+    return redirect(`${backTo}?error=invalid_role`);
   }
   if (!RSVP_VALUES.includes(rsvp_status)) {
-    return redirect(`/dashboard/${eventId}/guests/new?error=invalid_rsvp`);
+    return redirect(`${backTo}?error=invalid_rsvp`);
   }
   if (meal_preference && !MEAL_VALUES.includes(meal_preference)) {
-    return redirect(`/dashboard/${eventId}/guests/new?error=invalid_meal`);
+    return redirect(`${backTo}?error=invalid_meal`);
   }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return redirect('/login');
-
-  // Snapshot of the plus-one display name for UI hints on the primary's row.
-  const plus_one_name = plus_one_allowed
-    ? [plus_one_first_name, plus_one_last_name].filter(Boolean).join(' ') || 'TBA'
-    : null;
-
-  const { data: inserted, error } = await supabase
+  const { error } = await supabase
     .from('guests')
-    .insert({
-      event_id: eventId,
+    .update({
       first_name,
       last_name,
+      display_name,
       side,
       group_category,
       role,
       email,
       mobile,
       meal_preference,
+      dietary_restrictions,
       rsvp_status,
       photo_consent,
       notes,
       custom_tags,
       invited_to_blocks,
-      plus_one_allowed,
-      plus_one_name,
+      rsvp_responded_at: ['attending', 'declined'].includes(rsvp_status) ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString(),
     })
-    .select('guest_id')
-    .single();
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId);
 
-  if (error || !inserted) {
-    return redirect(
-      `/dashboard/${eventId}/guests/new?error=${encodeURIComponent(error?.message ?? 'insert_failed')}`,
-    );
-  }
-
-  // If plus-one is allowed, create a SECOND guests row for the +1.
-  // TBA is valid: first_name / last_name may be empty strings.
-  if (plus_one_allowed) {
-    const { error: plusOneErr } = await supabase.from('guests').insert({
-      event_id: eventId,
-      first_name: plus_one_first_name || 'TBA',
-      last_name: plus_one_last_name || '+1',
-      side,
-      group_category,
-      role: 'guest',
-      rsvp_status: 'pending',
-      photo_consent: true,
-      invited_to_blocks,
-      plus_one_of_guest_id: inserted.guest_id,
-      plus_one_mode,
-      display_name: !plus_one_first_name && !plus_one_last_name ? `+ TBA · brought by ${first_name}` : null,
-    });
-
-    if (plusOneErr) {
-      return redirect(
-        `/dashboard/${eventId}/guests/new?error=${encodeURIComponent('plus_one_failed: ' + plusOneErr.message)}`,
-      );
-    }
+  if (error) {
+    return redirect(`${backTo}?error=${encodeURIComponent(error.message)}`);
   }
 
   revalidatePath(`/dashboard/${eventId}/guests`);
-  return redirect(`/dashboard/${eventId}/guests?added=1`);
+  revalidatePath(backTo);
+  return redirect(`${backTo}?saved=1`);
+}
+
+export async function softDeleteGuest(
+  eventId: string,
+  guestId: string,
+  _formData: FormData,
+): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from('guests')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId);
+
+  if (error) {
+    redirect(
+      `/dashboard/${eventId}/guests/${guestId}?error=${encodeURIComponent(error.message)}`,
+    );
+  }
+
+  revalidatePath(`/dashboard/${eventId}/guests`);
+  redirect(`/dashboard/${eventId}/guests?removed=1`);
 }

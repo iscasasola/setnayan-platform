@@ -3,7 +3,7 @@
 > Living checkpoint. Updated as work progresses.
 
 **Last updated:** 2026-05-13
-**Current sprint:** Iteration `0001_creating_guest_list` MVP slice (Phases A–C shipped; detail drawer / plus-one UI / CSV import / households UI deferred)
+**Current sprint:** Iteration `0001_creating_guest_list` polish layer shipped (detail drawer · plus-one UI · custom tags · invited-to blocks · CSV import). Only households UI / address editor / file-upload variant of CSV / bulk-edit spreadsheet remain deferred.
 **Owner's wedding (deadline anchor):** December 2026
 
 ---

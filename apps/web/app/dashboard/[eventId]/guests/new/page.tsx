@@ -1,12 +1,16 @@
 import Link from 'next/link';
 import {
   GROUP_CATEGORY_LABELS,
+  INVITED_TO_BLOCKS,
+  INVITED_TO_LABELS,
+  MEAL_LABELS,
   ROLE_LABELS,
   RSVP_LABELS,
   SIDE_LABELS,
   type GuestGroupCategory,
   type GuestRole,
   type GuestSide,
+  type MealPreference,
   type RsvpStatus,
 } from '@/lib/guests';
 import { createGuest } from './actions';
@@ -25,6 +29,7 @@ const ERROR_COPY: Record<string, string> = {
 const SIDE_OPTIONS: GuestSide[] = ['bride', 'groom', 'both'];
 const GROUP_OPTIONS: GuestGroupCategory[] = ['family', 'friends', 'work', 'school', 'officiant', 'other'];
 const RSVP_OPTIONS: RsvpStatus[] = ['pending', 'attending', 'declined', 'maybe'];
+const MEAL_OPTIONS: MealPreference[] = ['no_preference', 'beef', 'chicken', 'fish', 'vegetarian', 'vegan', 'kids'];
 const ROLE_OPTIONS: GuestRole[] = [
   'guest',
   'maid_of_honor',
@@ -70,7 +75,7 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
         </Link>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Add a guest</h1>
         <p className="text-sm text-ink/60">
-          The first 7 fields are the minimum. Plus-one, address, dietary, and tags will land in a follow-up.
+          First and last name + side + group are required. Everything else is optional.
         </p>
       </header>
 
@@ -119,11 +124,50 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
           <Field id="mobile" label="Mobile" placeholder="+63 …" />
         </div>
 
-        <Select
-          id="rsvp_status"
-          label="RSVP status"
-          defaultValue="pending"
-          options={RSVP_OPTIONS.map((v) => ({ value: v, label: RSVP_LABELS[v] }))}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Select
+            id="rsvp_status"
+            label="RSVP status"
+            defaultValue="pending"
+            options={RSVP_OPTIONS.map((v) => ({ value: v, label: RSVP_LABELS[v] }))}
+          />
+          <Select
+            id="meal_preference"
+            label="Meal preference"
+            defaultValue="no_preference"
+            options={MEAL_OPTIONS.map((v) => ({ value: v, label: MEAL_LABELS[v] }))}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium text-ink">Invited to</label>
+          <div className="flex flex-wrap gap-2">
+            {INVITED_TO_BLOCKS.map((block) => (
+              <label
+                key={block}
+                className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-ink/15 bg-cream px-3 py-1.5 text-sm has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/10 has-[:checked]:text-terracotta-700"
+              >
+                <input
+                  type="checkbox"
+                  name={`invited_${block}`}
+                  defaultChecked={block === 'ceremony' || block === 'reception'}
+                  className="sr-only"
+                />
+                {INVITED_TO_LABELS[block]}
+              </label>
+            ))}
+          </div>
+          <p className="text-xs text-ink/50">
+            Default: ceremony + reception. Toggle off any block the guest isn&rsquo;t invited to.
+          </p>
+        </div>
+
+        <PlusOneToggle />
+
+        <Field
+          id="custom_tags"
+          label="Custom tags (comma-separated)"
+          placeholder="vip, college-friends, ninang"
         />
 
         <div className="space-y-2">
@@ -169,6 +213,52 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
         </div>
       </form>
     </div>
+  );
+}
+
+function PlusOneToggle() {
+  return (
+    <details className="rounded-lg border border-ink/15 bg-cream open:border-terracotta/40">
+      <summary className="cursor-pointer list-none p-4 text-sm font-medium text-ink">
+        <span className="select-none">+ Add a plus-one for this guest</span>
+        <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
+          optional
+        </span>
+      </summary>
+      <div className="space-y-4 border-t border-ink/10 p-4">
+        <input type="hidden" name="plus_one_allowed" value="on" />
+        <p className="text-xs text-ink/60">
+          A second guest row will be created for the +1, with its own QR. Leave names blank for TBA.
+        </p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field id="plus_one_first_name" label="Plus-one first name" placeholder="(or leave blank for TBA)" />
+          <Field id="plus_one_last_name" label="Plus-one last name" />
+        </div>
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium text-ink">Plus-one access mode</label>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <label className="flex flex-1 cursor-pointer items-start gap-3 rounded-lg border border-ink/15 bg-cream p-3 has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/5">
+              <input type="radio" name="plus_one_mode" value="full" defaultChecked className="mt-0.5" />
+              <span>
+                <span className="block text-sm font-medium text-ink">Full</span>
+                <span className="block text-xs text-ink/60">
+                  Full guest experience — own invitation site, can join Setnayan account, can use Papic / Patiktok / reels.
+                </span>
+              </span>
+            </label>
+            <label className="flex flex-1 cursor-pointer items-start gap-3 rounded-lg border border-ink/15 bg-cream p-3 has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/5">
+              <input type="radio" name="plus_one_mode" value="limited" className="mt-0.5" />
+              <span>
+                <span className="block text-sm font-medium text-ink">Limited</span>
+                <span className="block text-xs text-ink/60">
+                  Tagging + RSVP only. No Shutter / Selfie Camera / Challenges. Their tagged photos route to the inviter&rsquo;s gallery.
+                </span>
+              </span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </details>
   );
 }
 

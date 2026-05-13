@@ -4,6 +4,42 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-13 · Iteration 0001 polish — detail/edit, plus-one UI, custom tags, invited-to blocks, CSV import
+
+**Commits:** to be filled in once committed.
+
+**What landed:**
+- **`/dashboard/[eventId]/guests/[guestId]`** detail + edit page surfacing all 27 columns:
+  - Identity, Categorization (side / group / role), RSVP & events (RSVP / meal / invited-to / dietary), Contact, Tags & notes, photo consent
+  - **Soft delete** via `softDeleteGuest` server action — sets `deleted_at`, RLS-gated SELECT already filters it out
+  - List rows + mobile cards now link to the detail page
+- **Plus-one toggle** in the add-guest flow:
+  - `<details>` progressive disclosure (no client JS — pure server-rendered)
+  - Sub-block exposes first/last name (or blank for TBA) + Full/Limited mode radio
+  - Server action creates the primary `guests` row, then a SECOND `guests` row with `plus_one_of_guest_id`, `plus_one_mode`, own auto-generated `qr_token` (per spec § Plus-one management)
+  - TBA path: blank names persist a row with placeholder `first_name='TBA'` + `last_name='+1'` + display_name `"+ TBA · brought by {primary}"`
+- **Custom tags** as comma-separated input on both add + edit forms — max 50 tags, persisted into `guests.custom_tags TEXT[]`
+- **Invited-to schedule-block chips** on both add + edit — 5 blocks (ceremony · reception · cocktails · after_party · rehearsal_dinner). Ceremony + reception checked by default. Uses CSS `has-[:checked]` to style without client JS
+- **`/dashboard/[eventId]/guests/import`** CSV import:
+  - Paste-into-textarea flow (200-row cap)
+  - Inline `parseCsv` helper in `lib/csv.ts` (quoted fields, escaped quotes, CRLF/LF/CR, empty cells)
+  - Per-row validation against canonical enums; failed rows surface line-numbered errors; valid rows batch-insert in one statement
+  - Returns to `/guests?imported=N&skipped=M`
+  - Template + accepted-columns inline on the import page
+
+**Deferred (not in this pass):**
+- Households UI (the CSV importer stashes the household column into `guests.notes` as a placeholder until households UI ships)
+- Address JSONB editor
+- File-upload variant of CSV import (paste-only for now)
+- Mobile-specific full-screen sheet variants of add/edit (responsive forms work cross-platform)
+- Bulk-edit spreadsheet mode
+- Resend-invitation action on detail page (depends on iteration 0028 email templates)
+- Custom-tag chip input with autocomplete from existing tags (comma-separated input works for now)
+
+**SPEC IMPACT:** None. All choices align with spec § Functional scope.
+
+---
+
 ## 2026-05-13 · Hotfix — RLS infinite-recursion in event_members policies
 
 **Commit:** `19242e4` · migration `20260513040000_fix_rls_infinite_recursion.sql`

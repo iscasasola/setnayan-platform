@@ -4,6 +4,8 @@ import { Bell, MessageSquare, User } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { countUnread } from '@/lib/notifications';
 import { VendorSubnavTab } from './_components/subnav-tab';
+import { GuidedTour } from '@/app/_components/guided-tour';
+import { completeTour } from '@/lib/tour-actions';
 
 export default async function VendorDashboardLayout({
   children,
@@ -19,7 +21,9 @@ export default async function VendorDashboardLayout({
   const [profileRes, unreadCount] = await Promise.all([
     supabase
       .from('users')
-      .select('account_type, theme_preference, email, display_name, deleted_at')
+      .select(
+        'account_type, theme_preference, email, display_name, deleted_at, tour_completed_at',
+      )
       .eq('user_id', user.id)
       .maybeSingle(),
     countUnread(supabase, user.id),
@@ -84,6 +88,9 @@ export default async function VendorDashboardLayout({
         </nav>
       </header>
       <main className="flex-1">{children}</main>
+      {!profile?.tour_completed_at ? (
+        <GuidedTour role="vendor" completeAction={completeTour} />
+      ) : null}
     </div>
   );
 }

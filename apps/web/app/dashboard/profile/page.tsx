@@ -1,8 +1,9 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Download, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Download, AlertTriangle, Compass } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchUserEvents } from '@/lib/events';
+import { restartTour } from '@/lib/tour-actions';
 import {
   softDeleteAccount,
   updatePersonalInfo,
@@ -13,7 +14,7 @@ import {
 export const metadata = { title: 'Profile' };
 
 type Props = {
-  searchParams: Promise<{ saved?: string; error?: string }>;
+  searchParams: Promise<{ saved?: string; error?: string; tour_restarted?: string }>;
 };
 
 type ThemeKey = 'setnayan_default' | 'victorian' | 'classy' | 'ios';
@@ -112,6 +113,14 @@ export default async function ProfilePage({ searchParams }: Props) {
           className="mb-4 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
         >
           Saved.
+        </p>
+      ) : null}
+      {search.tour_restarted ? (
+        <p
+          role="status"
+          className="mb-4 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+        >
+          Welcome tour restarted — head back to your dashboard to see it again.
         </p>
       ) : null}
 
@@ -364,10 +373,16 @@ export default async function ProfilePage({ searchParams }: Props) {
         </details>
       </section>
 
-      <section className="mt-6 flex flex-col gap-3 sm:flex-row">
+      <section className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         <Link href="/help" className="button-secondary">
           Help &amp; support
         </Link>
+        <form action={restartTour}>
+          <button className="button-secondary inline-flex items-center gap-2" type="submit">
+            <Compass aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            Restart welcome tour
+          </button>
+        </form>
         {isAdmin ? (
           <Link href="/admin" className="button-secondary">
             Admin console ↗

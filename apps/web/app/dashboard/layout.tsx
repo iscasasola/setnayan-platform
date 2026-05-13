@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { GuidedTour } from '@/app/_components/guided-tour';
+import { completeTour } from '@/lib/tour-actions';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -13,7 +15,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const { data: profile } = await supabase
     .from('users')
-    .select('theme_preference, account_type, deleted_at')
+    .select('theme_preference, account_type, deleted_at, tour_completed_at')
     .eq('user_id', user.id)
     .maybeSingle();
 
@@ -63,6 +65,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </div>
       </header>
       <main className="flex-1">{children}</main>
+      {!profile?.tour_completed_at ? (
+        <GuidedTour role="couple" completeAction={completeTour} />
+      ) : null}
     </div>
   );
 }

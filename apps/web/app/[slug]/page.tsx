@@ -8,6 +8,8 @@ import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { resolveMonogram, type MonogramConfig } from '@/lib/monogram';
 import { submitRsvp } from './actions';
 import { CountdownWidget } from './_components/countdown';
+import { ScheduleWidget } from './_components/schedule-widget';
+import { fetchPublicScheduleBlocks, type ScheduleBlockRow } from '@/lib/schedule';
 
 function displayNameOf(g: {
   first_name: string;
@@ -130,6 +132,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     monogram,
   });
   const invitationUrl = buildInvitationUrl({ appUrl, slug, qrToken: guest.qr_token });
+  const scheduleBlocks = await fetchPublicScheduleBlocks(admin, event.event_id);
 
   return (
     <InvitationSite
@@ -138,6 +141,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
       qrSvg={qrSvg}
       invitationUrl={invitationUrl}
       monogram={monogram}
+      scheduleBlocks={scheduleBlocks}
     />
   );
 }
@@ -251,12 +255,14 @@ function InvitationSite({
   qrSvg,
   invitationUrl,
   monogram,
+  scheduleBlocks,
 }: {
   event: EventRow;
   guest: GuestRow;
   qrSvg: string;
   invitationUrl: string;
   monogram: MonogramConfig;
+  scheduleBlocks: ScheduleBlockRow[];
 }) {
   const sideLabel =
     guest.side === 'both'
@@ -352,6 +358,9 @@ function InvitationSite({
 
         {/* Countdown — client-side ticking widget. Auto-hides once the wedding starts. */}
         {event.event_date ? <CountdownWidget targetIso={event.event_date} /> : null}
+
+        {/* Day-of schedule — public blocks with "happening now" highlight. */}
+        {scheduleBlocks.length > 0 ? <ScheduleWidget blocks={scheduleBlocks} /> : null}
 
         {/* Venues */}
         <VenueWidget event={event} />

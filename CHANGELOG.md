@@ -4,6 +4,27 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-14 · admin merchant-QR uploads: auto-detect + square crop
+
+**Commit:** to be filled after commit.
+
+**What landed:**
+- New client component [apps/web/app/admin/settings/_components/qr-upload-form.tsx](apps/web/app/admin/settings/_components/qr-upload-form.tsx). When an admin picks a QR file on Platform Settings, the component decodes it via `createImageBitmap`, runs `jsQR` to locate the QR's four corners, computes a square bounding box (plus a ~12% quiet-zone margin), renders a 512×512 PNG crop on a white-background canvas, then submits that blob to the existing `uploadMerchantQr` server action via a manual FormData (so we don't depend on the `DataTransfer` file-swap trick, which has known iOS Safari quirks).
+- Three resolved states surface inline:
+  - **Detected** — green confirmation + cropped preview.
+  - **Fallback** — couldn't find a QR in the source, center-square crop is used; amber warning asks the admin to review the preview before clicking Upload.
+  - **Raw passthrough** — `createImageBitmap` couldn't decode the source (e.g. HEIC on Chrome/Firefox); the original file is queued for upload unchanged so behavior matches what shipped before.
+- New `jsqr@^1.4.0` dep in [apps/web/package.json](apps/web/package.json) (~50 KB, pure JS, bundled types). No native deps.
+- [apps/web/app/admin/settings/page.tsx](apps/web/app/admin/settings/page.tsx) helper copy now explains the auto-crop behavior and the 512×512 output, and replaces the prior inline `<form>` with `<QrUploadForm>`.
+
+**Verified:**
+- `pnpm --filter @setnayan/web typecheck` — clean.
+- `pnpm --filter @setnayan/web lint` — clean.
+
+**SPEC IMPACT:** None on any locked decision. The merchant-QR upload contract (Iteration 0034 payments) is unchanged at the schema / server-action / storage layer — `platform_settings.{bdo_qr_url,gcash_qr_url}` still points at whatever Supabase Storage URL `uploadPublicAsset` returns. This is a pre-upload UX enhancement: admins can drop a phone screenshot or photo of their merchant QR and the system normalizes it to a clean square instead of forcing them to hand-crop in another app. The 0034 spec doesn't prescribe input handling, so nothing in `~/Documents/Claude/Projects/Setnayan/02_Specifications/iter/0034/` needs to be updated via Cowork.
+
+---
+
 ## 2026-05-14 · fix(invitation): monogram QR thumbnails clipped in fixed-size boxes
 
 **Commit:** [3d37ae7](https://github.com/iscasasola/setnayan-platform/commit/3d37ae7) (PR #1)

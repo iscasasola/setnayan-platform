@@ -2,14 +2,15 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { Users, Briefcase, CalendarDays, Sparkles, type LucideIcon } from 'lucide-react';
 
 type TabKey = 'guests' | 'vendors' | 'schedule' | 'services';
 
-const TABS: { key: TabKey; label: string; icon: string; href: (eventId: string) => string }[] = [
-  { key: 'guests', label: 'Guest List', icon: '👥', href: (id) => `/dashboard/${id}/guests` },
-  { key: 'vendors', label: 'Vendors', icon: '💼', href: (id) => `/dashboard/${id}/vendors` },
-  { key: 'schedule', label: 'Schedule', icon: '📅', href: (id) => `/dashboard/${id}/schedule` },
-  { key: 'services', label: 'Services', icon: '✨', href: (id) => `/dashboard/${id}/services` },
+const TABS: { key: TabKey; label: string; Icon: LucideIcon; href: (eventId: string) => string }[] = [
+  { key: 'guests', label: 'Guest List', Icon: Users, href: (id) => `/dashboard/${id}/guests` },
+  { key: 'vendors', label: 'Vendors', Icon: Briefcase, href: (id) => `/dashboard/${id}/vendors` },
+  { key: 'schedule', label: 'Schedule', Icon: CalendarDays, href: (id) => `/dashboard/${id}/schedule` },
+  { key: 'services', label: 'Services', Icon: Sparkles, href: (id) => `/dashboard/${id}/services` },
 ];
 
 function activeTab(pathname: string): TabKey | null {
@@ -36,6 +37,7 @@ export function BottomNav({ eventId }: { eventId: string }) {
       <ul className="mx-auto flex w-full max-w-6xl items-stretch justify-around px-2 py-1 sm:px-4 lg:max-w-6xl lg:justify-start lg:gap-2 lg:py-2">
         {TABS.map((tab) => {
           const isActive = current === tab.key;
+          const { Icon } = tab;
           return (
             <li key={tab.key} className="flex-1 lg:flex-initial">
               <Link
@@ -47,9 +49,7 @@ export function BottomNav({ eventId }: { eventId: string }) {
                     : 'text-ink/60 hover:text-ink'
                 }`}
               >
-                <span aria-hidden className="text-lg leading-none lg:text-base">
-                  {tab.icon}
-                </span>
+                <Icon aria-hidden className="h-5 w-5 lg:h-4 lg:w-4" strokeWidth={1.75} />
                 <span>{tab.label}</span>
               </Link>
             </li>

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { Link2, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import {
   computeGuestStats,
@@ -288,7 +289,10 @@ function ShareInvite({ joinUrl }: { joinUrl: string }) {
   return (
     <details className="rounded-lg border border-ink/10 bg-cream">
       <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium">
-        <span className="select-none text-ink">🔗 Share invite link</span>
+        <span className="inline-flex select-none items-center gap-2 text-ink">
+          <Link2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          Share invite link
+        </span>
         <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
           anyone with the link can sign up and join
         </span>
@@ -407,9 +411,10 @@ function FacetsSidebar({
               <li>
                 <Link
                   href={buildHref({ tag: null })}
-                  className="rounded-full bg-ink/5 px-2 py-1 text-xs text-ink/70 hover:bg-ink/10"
+                  className="inline-flex items-center gap-1 rounded-full bg-ink/5 px-2 py-1 text-xs text-ink/70 hover:bg-ink/10"
                 >
-                  ✕ Clear
+                  <X aria-hidden className="h-3 w-3" strokeWidth={2} />
+                  Clear
                 </Link>
               </li>
             ) : null}

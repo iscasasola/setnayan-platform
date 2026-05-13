@@ -15,20 +15,21 @@ const config: Config = {
     },
     extend: {
       colors: {
-        // Brand palette (per CLAUDE.md 2026-05-11 + 2026-05-12 brand locks):
-        // cream + ink + terracotta only.
-        cream: '#FAF7F2',
-        ink: '#1A1A1A',
+        // Themeable surface tokens — values resolve at runtime from CSS vars
+        // defined in globals.css per `[data-theme]` block. The default theme
+        // (Setnayan) keeps cream/ink/terracotta; Victorian/Classy/iOS swap.
+        cream: 'rgb(var(--color-cream) / <alpha-value>)',
+        ink: 'rgb(var(--color-ink) / <alpha-value>)',
         terracotta: {
-          DEFAULT: '#C97B4B',
+          DEFAULT: 'rgb(var(--color-terracotta) / <alpha-value>)',
           50: '#FBF1EA',
           100: '#F4DBC9',
           200: '#E8B68F',
           300: '#DC9166',
           400: '#D08654',
-          500: '#C97B4B',
-          600: '#A86138',
-          700: '#824A2A',
+          500: 'rgb(var(--color-terracotta) / <alpha-value>)',
+          600: 'rgb(var(--color-terracotta-600) / <alpha-value>)',
+          700: 'rgb(var(--color-terracotta-700) / <alpha-value>)',
           800: '#5C341D',
           900: '#371F11',
         },

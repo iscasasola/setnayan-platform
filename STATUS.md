@@ -3,7 +3,7 @@
 > Living checkpoint. Updated as work progresses.
 
 **Last updated:** 2026-05-13
-**Current sprint:** Iteration `0002_qr_invitation_system` close-out shipped — TBA +1 onboarding flow, 6 additional widgets (Countdown · Venue · Dress Code · Photo Moments · Your Photos · Public/Registered tier comparison), Limited +1 full lock variant, real-time slug availability check with 300ms debounce. Branded QR with monogram + per-role palette + native-app stubs are the only remaining 0002 items, all genuinely blocked or Phase 2/3.
+**Current sprint:** Iteration `0021_couple_dashboard_fully_purchased` transversal pieces shipped — 4-theme system (Setnayan Default / Victorian / Classy / iOS) wired through CSS vars, Lucide icon swap in BottomNav + Services launcher + admin status badges, new Home layout (warm welcome + 6-stage strip + NEXT UP card + 8-tile nav grid + activity feed), Guided Planner 9-step checklist with auto-derived + manual completions and a DIY toggle in Profile. Surfaces still gated on later iterations (Vendors / Budget / Seating / Schedule / QR Hub / Gallery) stay as placeholders until those land.
 **Owner's wedding (deadline anchor):** December 2026
 
 ---

@@ -3,10 +3,48 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
+  /*
+   * Theme system — iteration 0021.
+   * Each theme block redefines the 3 brand tokens (+ two darker terracotta
+   * shades used in hover/focus states). All Tailwind utility classes consume
+   * these vars via the `rgb(var(--color-x) / <alpha-value>)` pattern, so
+   * `bg-cream/70`, `text-ink/40`, etc. continue to work with alpha.
+   *
+   * Values are RGB triplets (space-separated) per Tailwind's CSS-variable
+   * color convention. Default lives on `:root` so unauthed surfaces stay on
+   * Setnayan brand; authenticated surfaces override on a wrapping element.
+   */
+  :root,
+  [data-theme='setnayan_default'] {
     --color-cream: 250 247 242;
     --color-ink: 26 26 26;
     --color-terracotta: 201 123 75;
+    --color-terracotta-600: 168 97 56;
+    --color-terracotta-700: 130 74 42;
+  }
+
+  [data-theme='victorian'] {
+    --color-cream: 245 235 217;
+    --color-ink: 46 26 26;
+    --color-terracotta: 139 30 63;
+    --color-terracotta-600: 111 24 50;
+    --color-terracotta-700: 84 18 38;
+  }
+
+  [data-theme='classy'] {
+    --color-cream: 244 244 242;
+    --color-ink: 15 15 15;
+    --color-terracotta: 163 133 96;
+    --color-terracotta-600: 138 109 76;
+    --color-terracotta-700: 110 87 60;
+  }
+
+  [data-theme='ios'] {
+    --color-cream: 242 242 247;
+    --color-ink: 0 0 0;
+    --color-terracotta: 0 122 255;
+    --color-terracotta-600: 0 100 209;
+    --color-terracotta-700: 0 78 167;
   }
 
   html {

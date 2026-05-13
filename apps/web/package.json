@@ -13,6 +13,7 @@
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.45.4",
     "jose": "^6.2.3",
+    "lucide-react": "^1.14.0",
     "next": "^15.1.0",
     "qrcode": "^1.5.4",
     "react": "^19.0.0",

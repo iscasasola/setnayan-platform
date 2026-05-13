@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition } from 'react';
+import { Check, X, AlertTriangle, Loader2 } from 'lucide-react';
 
 type CheckResult =
   | { status: 'current' }
@@ -111,30 +112,32 @@ function StatusBadge({
   check: CheckResult | null;
 }) {
   let tone = '';
-  let label: string | null = null;
+  let Icon: typeof Check | null = null;
+  let spin = false;
   if (busy) {
     tone = 'text-ink/45';
-    label = '⋯';
+    Icon = Loader2;
+    spin = true;
   } else if (!check) {
-    label = null;
+    Icon = null;
   } else if (check.status === 'available' || check.status === 'current') {
     tone = 'text-emerald-700';
-    label = '✓';
+    Icon = Check;
   } else if (check.status === 'taken' || check.status === 'reserved') {
     tone = 'text-rose-700';
-    label = '✗';
+    Icon = X;
   } else if (check.status === 'invalid_format') {
     tone = 'text-amber-700';
-    label = '⚠';
+    Icon = AlertTriangle;
   }
 
-  if (!label) return null;
+  if (!Icon) return null;
   return (
     <span
       aria-hidden
-      className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm ${tone}`}
+      className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 ${tone}`}
     >
-      {label}
+      <Icon className={`h-4 w-4 ${spin ? 'animate-spin' : ''}`} strokeWidth={2} />
     </span>
   );
 }

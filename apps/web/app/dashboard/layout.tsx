@@ -11,10 +11,17 @@ export default async function DashboardLayout({ children }: { children: React.Re
     redirect('/login');
   }
 
+  const { data: profile } = await supabase
+    .from('users')
+    .select('theme_preference')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  const theme = profile?.theme_preference ?? 'setnayan_default';
+
   // Top-level dashboard chrome (outside an event scope) — just the brand,
   // avatar, and sign-out. The inside-event layout layers more on top.
   return (
-    <div className="flex min-h-dvh flex-col bg-cream">
+    <div data-theme={theme} className="flex min-h-dvh flex-col bg-cream">
       <header className="border-b border-ink/10 bg-cream">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
           <Link href="/dashboard" className="flex items-center gap-2">

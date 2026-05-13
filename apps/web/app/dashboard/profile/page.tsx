@@ -216,14 +216,6 @@ export default async function ProfilePage() {
       </section>
 
       <section className="mt-6 flex flex-col gap-3 sm:flex-row">
-        <a
-          href="/?preview=1"
-          target="_blank"
-          rel="noreferrer"
-          className="button-secondary"
-        >
-          Preview public landing ↗
-        </a>
         <form action="/auth/sign-out" method="post">
           <button className="button-secondary" type="submit">
             Sign out

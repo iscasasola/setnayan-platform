@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { ExternalLink } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchGuestsByEvent, guestDisplayName, ROLE_LABELS, RSVP_LABELS } from '@/lib/guests';
 import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
@@ -210,22 +211,29 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
 
       {/* Public URL + slug editor */}
       <section className="rounded-xl border border-ink/10 bg-cream p-5">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
-          Your public landing
-        </p>
-        {publicLandingUrl ? (
-          <p className="mt-2">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 space-y-2">
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+              Your public landing
+            </p>
+            {publicLandingUrl ? (
+              <p className="break-all font-mono text-sm text-ink/75">{publicLandingUrl}</p>
+            ) : (
+              <p className="text-sm text-ink/60">No slug set yet — pick one below.</p>
+            )}
+          </div>
+          {publicLandingUrl ? (
             <Link
               href={publicLandingUrl}
               target="_blank"
-              className="break-all font-mono text-sm text-terracotta underline-offset-4 hover:underline"
+              rel="noreferrer"
+              className="inline-flex shrink-0 items-center gap-2 rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta-600"
             >
-              {publicLandingUrl}
+              Preview as guest
+              <ExternalLink aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             </Link>
-          </p>
-        ) : (
-          <p className="mt-2 text-sm text-ink/60">No slug set yet.</p>
-        )}
+          ) : null}
+        </div>
 
         <div className="mt-4">
           <SlugField

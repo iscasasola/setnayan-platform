@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { ArrowLeft, ExternalLink, Trash2 } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Trash2, Send } from 'lucide-react';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { createClient } from '@/lib/supabase/server';
 import {
   ORDER_STATUS_LABEL,
@@ -26,7 +27,11 @@ export const metadata = { title: 'Order detail' };
 
 type Props = {
   params: Promise<{ eventId: string; orderId: string }>;
-  searchParams: Promise<{ created?: string; paid_logged?: string }>;
+  searchParams: Promise<{
+    created?: string;
+    paid_logged?: string;
+    error?: string;
+  }>;
 };
 
 export default async function OrderDetailPage({ params, searchParams }: Props) {
@@ -74,6 +79,14 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
           className="rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
         >
           {flash}
+        </p>
+      ) : null}
+      {search.error ? (
+        <p
+          role="alert"
+          className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
+        >
+          {decodeURIComponent(search.error)}
         </p>
       ) : null}
 
@@ -246,6 +259,7 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
           </h2>
           <form
             action={logPayment}
+            encType="multipart/form-data"
             className="grid grid-cols-1 gap-3 sm:grid-cols-2"
           >
             <input type="hidden" name="event_id" value={eventId} />
@@ -289,21 +303,26 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
               />
             </label>
             <label className="sm:col-span-2 space-y-1">
-              <span className="block text-xs font-medium text-ink">Screenshot URL</span>
+              <span className="block text-xs font-medium text-ink">Screenshot</span>
               <input
-                name="screenshot_url"
-                type="url"
-                placeholder="https://… (host the image on Drive / Imgur for now)"
-                className="input-field"
+                name="screenshot"
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif"
+                className="block w-full cursor-pointer rounded-md border border-ink/15 bg-cream p-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-terracotta/10 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-terracotta-700 hover:file:bg-terracotta/15"
               />
               <span className="block text-xs text-ink/55">
-                File upload to Setnayan storage ships in a follow-on.
+                Optional. PNG / JPEG / HEIC up to 6 MB. The Setnayan team
+                uses this to match your payment.
               </span>
             </label>
             <div className="sm:col-span-2">
-              <button type="submit" className="button-primary">
+              <SubmitButton
+                className="button-primary inline-flex items-center gap-2"
+                pendingLabel="Logging…"
+              >
+                <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                 Log payment
-              </button>
+              </SubmitButton>
             </div>
           </form>
         </section>

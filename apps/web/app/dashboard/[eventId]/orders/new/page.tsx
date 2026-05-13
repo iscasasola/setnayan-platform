@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Send } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { createOrder } from '../actions';
 
 export const metadata = { title: 'New order' };
@@ -89,9 +90,13 @@ export default async function NewOrderPage({ params, searchParams }: Props) {
           </span>
         </label>
 
-        <button type="submit" className="button-primary">
+        <SubmitButton
+          className="button-primary inline-flex items-center gap-2"
+          pendingLabel="Submitting…"
+        >
+          <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           Submit order
-        </button>
+        </SubmitButton>
       </form>
     </div>
   );

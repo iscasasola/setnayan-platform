@@ -1,5 +1,6 @@
 import { ExternalLink } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { SubmitButton } from '@/app/_components/submit-button';
 import {
   ORDER_STATUS_LABEL,
   ORDER_STATUS_TONE,
@@ -208,12 +209,12 @@ function OrdersNeedingQuote({ orders }: { orders: OrderJoined[] }) {
                 className="input-field h-9 py-0 text-sm"
               />
             </label>
-            <button
-              type="submit"
-              className="sm:col-span-3 inline-flex items-center justify-center rounded-md bg-terracotta px-4 py-1.5 text-sm font-medium text-cream hover:bg-terracotta-600"
+            <SubmitButton
+              className="sm:col-span-3 inline-flex items-center justify-center rounded-md bg-terracotta px-4 py-1.5 text-sm font-medium text-cream hover:bg-terracotta-600 disabled:opacity-70"
+              pendingLabel="Confirming…"
             >
               Confirm quote · move to awaiting payment
-            </button>
+            </SubmitButton>
           </form>
         </li>
       ))}
@@ -317,12 +318,12 @@ function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
                     />
                     Also mark order as paid
                   </label>
-                  <button
-                    type="submit"
-                    className="inline-flex items-center justify-center rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-emerald-800"
+                  <SubmitButton
+                    className="inline-flex items-center justify-center rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-emerald-800 disabled:opacity-70"
+                    pendingLabel="Approving…"
                   >
                     Approve · matched
-                  </button>
+                  </SubmitButton>
                 </form>
                 <form action={rejectPayment} className="space-y-2">
                   <input type="hidden" name="payment_id" value={p.payment_id} />
@@ -331,12 +332,12 @@ function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
                     placeholder="Why is this rejected? (e.g. amount mismatch)"
                     className="input-field h-9 py-0 text-sm"
                   />
-                  <button
-                    type="submit"
-                    className="inline-flex items-center justify-center rounded-md bg-rose-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-rose-800"
+                  <SubmitButton
+                    className="inline-flex items-center justify-center rounded-md bg-rose-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-rose-800 disabled:opacity-70"
+                    pendingLabel="Rejecting…"
                   >
                     Reject
-                  </button>
+                  </SubmitButton>
                 </form>
               </div>
             ) : p.admin_notes ? (

@@ -1,5 +1,6 @@
 import { Building, Wallet, Smartphone, Trash2, Upload } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import {
   removeMerchantQr,
@@ -193,9 +194,12 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
             Last updated{' '}
             {new Date(settings.updated_at).toLocaleString()}
           </p>
-          <button type="submit" className="button-primary">
+          <SubmitButton
+            className="button-primary inline-flex items-center gap-2"
+            pendingLabel="Saving…"
+          >
             Save settings
-          </button>
+          </SubmitButton>
         </div>
       </form>
 
@@ -281,13 +285,13 @@ function QrUploadBlock({
           required
           className="flex-1 cursor-pointer rounded-md border border-ink/15 bg-cream p-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-terracotta/10 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-terracotta-700 hover:file:bg-terracotta/15"
         />
-        <button
-          type="submit"
-          className="inline-flex items-center justify-center gap-2 rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta-600"
+        <SubmitButton
+          className="inline-flex items-center justify-center gap-2 rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta-600 disabled:opacity-70"
+          pendingLabel="Uploading…"
         >
           <Upload aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           {currentUrl ? 'Replace' : 'Upload'}
-        </button>
+        </SubmitButton>
       </form>
     </section>
   );

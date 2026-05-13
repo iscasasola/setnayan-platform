@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { uploadPublicAsset } from '@/lib/storage';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -129,13 +130,30 @@ export async function logPayment(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // Optional screenshot file upload. If present + valid, store in the public
+  // assets bucket and persist the resulting URL on the payment row.
+  let screenshotUrl: string | null = null;
+  const screenshotFile = formData.get('screenshot');
+  if (screenshotFile instanceof File && screenshotFile.size > 0) {
+    const result = await uploadPublicAsset({
+      pathPrefix: `payment-screenshots/${orderId}`,
+      file: screenshotFile,
+    });
+    if (!result.ok) {
+      return redirect(
+        `/dashboard/${eventId}/orders/${orderId}?error=${encodeURIComponent(result.error)}`,
+      );
+    }
+    screenshotUrl = result.publicUrl;
+  }
+
   const { error } = await supabase.from('payments').insert({
     order_id: orderId,
     user_id: user.id,
     amount_php: Math.round(amount * 100) / 100,
     channel: trimmedChannel,
     reference_number: nullIfBlank(formData.get('reference_number')),
-    screenshot_url: nullIfBlank(formData.get('screenshot_url')),
+    screenshot_url: screenshotUrl,
     paid_at: paidAt,
   });
   if (error) throw new Error(error.message);

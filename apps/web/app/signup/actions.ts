@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { sendEmail } from '@/lib/email';
 
 function safeNext(raw: FormDataEntryValue | null): string {
   const value = raw ? String(raw) : '';
@@ -56,6 +57,31 @@ export async function signUp(formData: FormData) {
     try {
       const admin = createAdminClient();
       await admin.auth.admin.updateUserById(data.user.id, { email_confirm: true });
+
+      // Fire a welcome email if Resend is wired — best-effort, never blocks.
+      const accountKindLabel = accountType === 'vendor' ? 'vendor' : 'couple';
+      const landingPath = accountType === 'vendor' ? '/vendor-dashboard' : '/dashboard';
+      await sendEmail({
+        to: email,
+        subject: 'Welcome to Setnayan',
+        text: [
+          `Welcome to Setnayan.`,
+          ``,
+          `Your ${accountKindLabel} account is ready. Sign in here:`,
+          `${appUrl}/login`,
+          ``,
+          `What's next:`,
+          accountType === 'vendor'
+            ? `• Open ${appUrl}${landingPath} and fill in your business profile — couples search by contact email to find you.`
+            : `• Open ${appUrl}${landingPath} and create your event.`,
+          ``,
+          `Need help? ${appUrl}/help`,
+          ``,
+          `—`,
+          `Set na 'yan.`,
+        ].join('\n'),
+      });
+
       return redirect(
         `/login?ready=${encodeURIComponent(email)}&next=${encodeURIComponent(next)}`,
       );

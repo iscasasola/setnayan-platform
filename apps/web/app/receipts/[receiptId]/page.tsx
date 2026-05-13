@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
 import {
   fetchReceiptById,
   formatOrNumber,
@@ -18,7 +19,10 @@ export default async function ReceiptPage({ params }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const receipt = await fetchReceiptById(supabase, receiptId);
+  const [receipt, settings] = await Promise.all([
+    fetchReceiptById(supabase, receiptId),
+    fetchPlatformSettings(supabase),
+  ]);
   if (!receipt) notFound();
 
   // RLS allows only the owner to SELECT — defense in depth at the route layer
@@ -45,11 +49,17 @@ export default async function ReceiptPage({ params }: Props) {
           <header className="flex items-start justify-between gap-4 border-b border-ink/10 pb-6">
             <div className="space-y-1">
               <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-terracotta">
-                Setnayan · setnayan.com
+                {settings.business_name}
+                {settings.business_email ? ` · ${settings.business_email}` : ' · setnayan.com'}
               </p>
               <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-                BIR-Registered · TIN: 000-000-000-000
+                BIR-Registered · TIN {settings.business_tin ?? 'Pending — admin /settings'}
               </p>
+              {settings.business_address ? (
+                <p className="text-[10px] text-ink/60 whitespace-pre-wrap">
+                  {settings.business_address}
+                </p>
+              ) : null}
             </div>
             <div className="text-right">
               <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-ink/55">

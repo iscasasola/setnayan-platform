@@ -16,6 +16,10 @@ import {
   fetchReceiptByOrderId,
   formatOrNumber,
 } from '@/lib/receipts';
+import {
+  fetchPlatformSettings,
+  hasMerchantPaymentInfo,
+} from '@/lib/platform-settings';
 import { cancelOrder, logPayment } from '../actions';
 
 export const metadata = { title: 'Order detail' };
@@ -36,9 +40,10 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
 
   const order = await fetchOrderById(supabase, orderId);
   if (!order || order.event_id !== eventId) notFound();
-  const [payments, receipt] = await Promise.all([
+  const [payments, receipt, settings] = await Promise.all([
     fetchPaymentsForOrder(supabase, orderId),
     fetchReceiptByOrderId(supabase, orderId),
+    fetchPlatformSettings(supabase),
   ]);
   const totals = computeOrderTotals(order, payments);
 
@@ -164,7 +169,10 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
         <ul className="list-inside list-disc space-y-1 text-sm text-ink/75">
           <li>
             Send <span className="font-mono">{formatPhp(totals.headlineTotal)}</span> via BDO
-            or GCash to the merchant account (details emailed once your order is confirmed).
+            or GCash to the merchant account
+            {hasMerchantPaymentInfo(settings)
+              ? ' below.'
+              : ' (details emailed once your order is confirmed).'}
           </li>
           <li>
             Include the reference code{' '}
@@ -173,6 +181,62 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
           </li>
           <li>Take a screenshot of the receipt and log it below.</li>
         </ul>
+
+        {hasMerchantPaymentInfo(settings) ? (
+          <div className="grid gap-3 border-t border-ink/10 pt-3 sm:grid-cols-2">
+            {settings.bdo_account_number || settings.bdo_qr_url ? (
+              <div className="space-y-2 rounded-md bg-ink/[0.03] p-3">
+                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+                  BDO bank transfer
+                </p>
+                {settings.bdo_account_name ? (
+                  <p className="text-sm font-medium text-ink">
+                    {settings.bdo_account_name}
+                  </p>
+                ) : null}
+                {settings.bdo_account_number ? (
+                  <p className="break-all font-mono text-sm text-ink">
+                    {settings.bdo_account_number}
+                  </p>
+                ) : null}
+                {settings.bdo_qr_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={settings.bdo_qr_url}
+                    alt="BDO merchant QR"
+                    className="mt-2 h-40 w-40 rounded-md border border-ink/10 bg-cream object-contain"
+                  />
+                ) : null}
+              </div>
+            ) : null}
+
+            {settings.gcash_number || settings.gcash_qr_url ? (
+              <div className="space-y-2 rounded-md bg-ink/[0.03] p-3">
+                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+                  GCash
+                </p>
+                {settings.gcash_account_name ? (
+                  <p className="text-sm font-medium text-ink">
+                    {settings.gcash_account_name}
+                  </p>
+                ) : null}
+                {settings.gcash_number ? (
+                  <p className="break-all font-mono text-sm text-ink">
+                    {settings.gcash_number}
+                  </p>
+                ) : null}
+                {settings.gcash_qr_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={settings.gcash_qr_url}
+                    alt="GCash QR"
+                    className="mt-2 h-40 w-40 rounded-md border border-ink/10 bg-cream object-contain"
+                  />
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </section>
 
       {canLogPayment ? (

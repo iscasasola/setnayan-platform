@@ -1,0 +1,24 @@
+import type { MetadataRoute } from 'next';
+
+/**
+ * Public sitemap. Includes the marketing landing + open public pages
+ * (help, privacy, terms). Dashboard/admin/vendor routes are deliberately
+ * excluded — they're auth-gated and shouldn't appear in search results.
+ *
+ * Vendor public profiles at /v/[slug] are listed if their is_published
+ * flag is on; that requires a DB call, deferred until R2/CDN are wired
+ * since vendor profile pages need image hosting to be useful.
+ */
+export default function sitemap(): MetadataRoute.Sitemap {
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
+  const now = new Date();
+  return [
+    { url: `${baseUrl}/`, lastModified: now, changeFrequency: 'weekly', priority: 1 },
+    { url: `${baseUrl}/help`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${baseUrl}/login`, lastModified: now, changeFrequency: 'yearly', priority: 0.5 },
+    { url: `${baseUrl}/signup`, lastModified: now, changeFrequency: 'yearly', priority: 0.6 },
+    { url: `${baseUrl}/privacy`, lastModified: now, changeFrequency: 'yearly', priority: 0.3 },
+    { url: `${baseUrl}/terms`, lastModified: now, changeFrequency: 'yearly', priority: 0.3 },
+  ];
+}

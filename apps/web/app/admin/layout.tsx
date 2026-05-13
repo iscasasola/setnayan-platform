@@ -71,6 +71,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <AdminTab href="/admin/payments" label="Payments" />
           <AdminTab href="/admin/receipts" label="Receipts" />
           <AdminTab href="/admin/help" label="Help inbox" />
+          <AdminTab href="/admin/settings" label="Settings" />
         </nav>
       </header>
       <main className="flex-1">{children}</main>

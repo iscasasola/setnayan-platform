@@ -4,6 +4,54 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-13 · Iteration 0002 — QR Invitation System (MVP slice)
+
+**Commits:** to be filled in once committed.
+
+**What landed:**
+- **Phase A — schema migration `20260513050000_iteration_0002_invitation.sql`:**
+  - `events.slug` + format CHECK + case-insensitive UNIQUE index; `events.palette_finalized_at`
+  - `guests.profile_photo_url` + `profile_photo_set_at` + `profile_photo_segment`
+  - `guests.plus_one_name_confirmed_at`, `guests.scan_tracking_opt_out`, `guests.download_completed_at`
+  - `scan_events` table with `scan_source` enum; IP anonymized to first 3 octets per RA 10173
+  - `slug_change_log` for 90-day SEO redirects
+  - RLS: couples read their event's scan_events; guests read their own; service-role writes
+- **Phase B — slug auto-generation** in `apps/web/lib/slugs.ts`. Wired into `createWeddingEvent` so every new event gets a unique slug on creation. Reserved-slug pool (admin, api, dashboard, login, etc.) blocked from claim.
+- **Phase C — public guest invitation route at `/[slug]?invite=[token]`:**
+  - Token validated via admin client (visitor isn't authed). On valid: signs HS256 JWT cookie (60-day expiry covers the 30-day post-event window), records a `scan_events` row, redirects to clean `/[slug]` URL.
+  - Personal invitation site MVP: Hero with monogram placeholder · Greeting · QR card · RSVP form · Event details · sign-out
+  - Limited +1 sees inline disclosure block (full Limited variant deferred)
+  - Invalid token / wrong-event session → public landing with friendly message
+- **Phase D — RSVP submission via `submitRsvp` server action** writes through admin client (visitor isn't authed). Sets `rsvp_responded_at` when status is attending or declined. Revalidates `/dashboard/[eventId]/guests` so couple sees changes immediately.
+- **Phase E — Couple admin at `/dashboard/[eventId]/invitation`** (replaces 0000's placeholder):
+  - Public-landing URL display + slug editor
+  - Server-rendered QR thumbnails (qrcode npm, error correction level H, quiet zone 4)
+  - Per-guest "Re-issue" button rotates `qr_token` (16 random bytes hex); old printed QRs become invalid immediately
+  - Slug changes write to `slug_change_log` for the 90-day SEO redirect window
+- **Phase F — Print sheet at `/dashboard/[eventId]/invitation/print`** with A4 `@page` rules + 3-column QR grid; direct-browser-print works.
+
+**New libs:** `lib/slugs.ts`, `lib/qr.ts`, `lib/guest-session.ts` (JWT cookie helpers).
+**New env var:** `GUEST_SESSION_SECRET` (32-byte hex). Falls back to `SUPABASE_SERVICE_ROLE_KEY` if unset.
+**Backfill:** existing demo event `S89E-17VNTRAQD8` got slug `maria-and-juan` so the public route works against the seeded data.
+
+**Deferred (logged for future polish):**
+- Branded QR with monogram-in-center compositing + 25-frame library + simplified variants for QR-center
+- Per-role palette QR colors (depends on iteration 0010)
+- +1 TBA onboarding screen (column exists; UI deferred)
+- Limited +1 invitation site full variant (currently inline banner only)
+- 9 of 14 widgets: Countdown, Venue, Schedule, Dress Code, Photo Moments, Your Photos, Public vs Registered tier, Wallet save, Registered RSVP extras
+- Real-time slug availability check with 300ms debounce + `/api/slugs/check` endpoint
+- 3-day photo retention enforcement for public guests
+- Post-download conversion screen
+- Native-app scanning stubs (Phase 2/3)
+- Apple/Google Wallet passes
+
+**SPEC IMPACT — please update via Cowork:**
+1. `0002_qr_invitation_system.md` line 888 (Notes for Claude Code) says "error correction level M"; locked structural rules at line 537 say level H. Implementation uses H. Fix the notes inconsistency.
+2. `0002_qr_invitation_system.md` line 263 declares route `setnayan.com/dashboard/qr-codes` (couple admin); the actual implementation follows 0000's event-scoped pattern at `/dashboard/[event-id]/invitation`. Update the route declaration.
+
+---
+
 ## 2026-05-13 · Iteration 0001 polish — detail/edit, plus-one UI, custom tags, invited-to blocks, CSV import
 
 **Commits:** to be filled in once committed.

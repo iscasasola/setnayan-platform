@@ -3,7 +3,7 @@
 > Living checkpoint. Updated as work progresses.
 
 **Last updated:** 2026-05-13
-**Current sprint:** Iteration `0001_creating_guest_list` polish layer shipped (detail drawer · plus-one UI · custom tags · invited-to blocks · CSV import). Only households UI / address editor / file-upload variant of CSV / bulk-edit spreadsheet remain deferred.
+**Current sprint:** Iteration `0002_qr_invitation_system` MVP slice shipped — public invitation site at `/[slug]` with QR + RSVP + cookie session; couple admin at `/dashboard/[eventId]/invitation` + print sheet; per-guest token re-issue. Branded QR with monogram + +1 onboarding UI + 9 widgets deferred.
 **Owner's wedding (deadline anchor):** December 2026
 
 ---

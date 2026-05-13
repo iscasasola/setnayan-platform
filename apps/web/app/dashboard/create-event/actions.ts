@@ -2,6 +2,8 @@
 
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { generateUniqueSlug } from '@/lib/slugs';
 
 const ALLOWED_TYPES = ['wedding'] as const; // V1: Weddings only per iteration 0000 § 2.5
 
@@ -27,6 +29,10 @@ export async function createWeddingEvent(formData: FormData) {
     return redirect('/login');
   }
 
+  // Generate a unique URL slug from the display name.
+  const admin = createAdminClient();
+  const slug = await generateUniqueSlug(admin, display_name);
+
   // Insert the event. The on_event_created trigger mints the join token row.
   const { data: insertedEvent, error: insertError } = await supabase
     .from('events')
@@ -36,9 +42,10 @@ export async function createWeddingEvent(formData: FormData) {
       event_date,
       venue_name,
       venue_address,
+      slug,
       is_primary: true,
     })
-    .select('event_id')
+    .select('event_id, slug')
     .single();
 
   if (insertError || !insertedEvent) {

@@ -24,14 +24,22 @@ export const metadata = {
     "Setnayan is the Philippines-first life-events platform. V1 weddings — guest lists, QR invitations, branded sites, planner, and more. Set na 'yan.",
 };
 
-export default async function HomePage() {
+type HomeProps = {
+  searchParams: Promise<{ preview?: string }>;
+};
+
+export default async function HomePage({ searchParams }: HomeProps) {
+  const params = await searchParams;
+  const preview = params.preview === '1';
+
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Signed-in users belong inside the dashboard.
-  if (user) {
+  // Signed-in users normally bounce to /dashboard, but ?preview=1 lets them
+  // inspect the marketing landing without signing out.
+  if (user && !preview) {
     redirect('/dashboard');
   }
 

@@ -8,7 +8,7 @@ import {
   CalendarDays,
   LayoutGrid,
   Sparkles,
-  User,
+  Palette,
   ArrowRight,
   CheckCircle2,
   Circle,
@@ -51,7 +51,7 @@ type TileKey =
   | 'schedule'
   | 'seating'
   | 'services'
-  | 'profile';
+  | 'mood_board';
 
 const TILES: Array<{
   key: TileKey;
@@ -65,8 +65,8 @@ const TILES: Array<{
   { key: 'budget', label: 'Budget', Icon: Wallet, href: (id) => `/dashboard/${id}/budget` },
   { key: 'schedule', label: 'Schedule', Icon: CalendarDays, href: (id) => `/dashboard/${id}/schedule` },
   { key: 'seating', label: 'Seating', Icon: LayoutGrid, href: (id) => `/dashboard/${id}/seating` },
+  { key: 'mood_board', label: 'Mood Board', Icon: Palette, href: (id) => `/dashboard/${id}/services/mood-board` },
   { key: 'services', label: 'Services', Icon: Sparkles, href: (id) => `/dashboard/${id}/services` },
-  { key: 'profile', label: 'Profile', Icon: User, href: () => `/dashboard/profile` },
 ];
 
 function timeOfDayGreeting(date: Date): string {

@@ -74,8 +74,65 @@ export function PaletteEditor({ eventId, initial, saveAction }: Props) {
     <form action={handleSubmit} className="space-y-5">
       <input type="hidden" name="event_id" value={eventId} />
 
+      <PaletteFamily title="Venue" keys={PALETTE_ORDER.filter((k) => PALETTE_LIMITS[k].family === 'venue')}
+        palette={palette}
+        onUpdate={updateColor}
+        onAdd={addColor}
+        onRemove={removeColor}
+      />
+
+      <PaletteFamily title="Roles" keys={PALETTE_ORDER.filter((k) => PALETTE_LIMITS[k].family === 'role')}
+        palette={palette}
+        onUpdate={updateColor}
+        onAdd={addColor}
+        onRemove={removeColor}
+      />
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-xs text-ink/55">
+          {totals.configured} of {PALETTE_ORDER.length} groups configured
+          {totals.belowMin > 0
+            ? ` · ${totals.belowMin} below suggested minimum`
+            : null}
+        </div>
+        <div className="flex items-center gap-3">
+          {savedAt ? (
+            <span className="inline-flex items-center gap-1 text-xs text-emerald-700">
+              <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2} />
+              Saved {new Date(savedAt).toLocaleTimeString()}
+            </span>
+          ) : null}
+          <button type="submit" disabled={pending} className="button-primary">
+            {pending ? 'Saving…' : 'Save palette'}
+          </button>
+        </div>
+      </div>
+    </form>
+  );
+}
+
+function PaletteFamily({
+  title,
+  keys,
+  palette,
+  onUpdate,
+  onAdd,
+  onRemove,
+}: {
+  title: string;
+  keys: PaletteKey[];
+  palette: RolePalette;
+  onUpdate: (key: PaletteKey, index: number, color: string) => void;
+  onAdd: (key: PaletteKey) => void;
+  onRemove: (key: PaletteKey, index: number) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+        {title}
+      </h2>
       <div className="space-y-4">
-        {PALETTE_ORDER.map((key) => {
+        {keys.map((key) => {
           const limits = PALETTE_LIMITS[key];
           const colors = palette[key] ?? [];
           const atMax = colors.length >= limits.max;
@@ -104,37 +161,44 @@ export function PaletteEditor({ eventId, initial, saveAction }: Props) {
                 </span>
               </header>
 
-              <ul className="flex flex-wrap items-center gap-2">
+              <ul className="flex flex-wrap items-end gap-2">
                 {colors.map((c, i) => (
                   <li
                     key={`${key}-${i}`}
-                    className="group relative flex items-center gap-2 rounded-lg border border-ink/10 bg-cream p-1.5 pr-2"
+                    className="group relative flex flex-col items-stretch gap-1"
                   >
-                    <input
-                      type="color"
-                      aria-label={`${limits.label} color ${i + 1}`}
-                      value={c}
-                      onChange={(e) => updateColor(key, i, e.target.value)}
-                      className="h-9 w-9 cursor-pointer rounded-md border border-ink/10 bg-cream p-0.5"
-                    />
-                    <span className="font-mono text-[11px] uppercase tracking-[0.1em] text-ink/65">
-                      {c}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => removeColor(key, i)}
-                      aria-label="Remove color"
-                      className="rounded-md p-1 text-ink/40 hover:bg-ink/5 hover:text-rose-700"
-                    >
-                      <X className="h-3.5 w-3.5" strokeWidth={2} />
-                    </button>
+                    {limits.slotLabels?.[i] ? (
+                      <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
+                        {limits.slotLabels[i]}
+                      </span>
+                    ) : null}
+                    <div className="flex items-center gap-2 rounded-lg border border-ink/10 bg-cream p-1.5 pr-2">
+                      <input
+                        type="color"
+                        aria-label={`${limits.label} color ${i + 1}`}
+                        value={c}
+                        onChange={(e) => onUpdate(key, i, e.target.value)}
+                        className="h-9 w-9 cursor-pointer rounded-md border border-ink/10 bg-cream p-0.5"
+                      />
+                      <span className="font-mono text-[11px] uppercase tracking-[0.1em] text-ink/65">
+                        {c}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => onRemove(key, i)}
+                        aria-label="Remove color"
+                        className="rounded-md p-1 text-ink/40 hover:bg-ink/5 hover:text-rose-700"
+                      >
+                        <X className="h-3.5 w-3.5" strokeWidth={2} />
+                      </button>
+                    </div>
                   </li>
                 ))}
 
                 <li>
                   <button
                     type="button"
-                    onClick={() => addColor(key)}
+                    onClick={() => onAdd(key)}
                     disabled={atMax}
                     className="inline-flex h-12 items-center gap-1 rounded-lg border border-dashed border-ink/20 px-3 text-xs font-medium text-ink/65 transition-colors hover:border-terracotta hover:text-terracotta disabled:cursor-not-allowed disabled:opacity-50"
                   >
@@ -147,34 +211,14 @@ export function PaletteEditor({ eventId, initial, saveAction }: Props) {
               {belowMin ? (
                 <p className="inline-flex items-center gap-1 text-xs text-amber-900">
                   <AlertTriangle className="h-3.5 w-3.5" strokeWidth={2} />
-                  Below the suggested minimum of {limits.min} for this group — you can still
-                  save, but the palette will feel sparse.
+                  Below the suggested minimum of {limits.min} — you can still save, but the
+                  palette will feel sparse.
                 </p>
               ) : null}
             </section>
           );
         })}
       </div>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="text-xs text-ink/55">
-          {totals.configured} of {PALETTE_ORDER.length} groups configured
-          {totals.belowMin > 0
-            ? ` · ${totals.belowMin} below suggested minimum`
-            : null}
-        </div>
-        <div className="flex items-center gap-3">
-          {savedAt ? (
-            <span className="inline-flex items-center gap-1 text-xs text-emerald-700">
-              <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2} />
-              Saved {new Date(savedAt).toLocaleTimeString()}
-            </span>
-          ) : null}
-          <button type="submit" disabled={pending} className="button-primary">
-            {pending ? 'Saving…' : 'Save palette'}
-          </button>
-        </div>
-      </div>
-    </form>
+    </div>
   );
 }

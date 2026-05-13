@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Link2, X } from 'lucide-react';
+import { Link2, X, LayoutGrid, ArrowRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import {
   computeGuestStats,
@@ -145,6 +145,28 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       ) : null}
 
       <StatsStrip stats={stats} eventId={eventId} active={rsvpFilter} />
+
+      <Link
+        href={`/dashboard/${eventId}/seating`}
+        className="group inline-flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-cream px-4 py-3 transition-colors hover:border-terracotta/40 hover:bg-terracotta/5"
+      >
+        <span className="flex items-center gap-3">
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
+            <LayoutGrid aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          </span>
+          <span className="flex flex-col">
+            <span className="text-sm font-semibold text-ink">Seating chart</span>
+            <span className="text-xs text-ink/55">
+              Tables, floor plan, who sits where
+            </span>
+          </span>
+        </span>
+        <ArrowRight
+          aria-hidden
+          className="h-4 w-4 text-ink/40 transition-transform group-hover:translate-x-0.5 group-hover:text-terracotta"
+          strokeWidth={1.75}
+        />
+      </Link>
 
       {joinUrl ? <ShareInvite joinUrl={joinUrl} /> : null}
 

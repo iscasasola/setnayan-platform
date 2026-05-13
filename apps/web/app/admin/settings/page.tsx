@@ -1,12 +1,9 @@
-import { Building, Wallet, Smartphone, Trash2, Upload } from 'lucide-react';
+import { Building, Wallet, Smartphone, Trash2 } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
-import {
-  removeMerchantQr,
-  savePlatformSettings,
-  uploadMerchantQr,
-} from './actions';
+import { removeMerchantQr, savePlatformSettings } from './actions';
+import { QrUploadForm } from './_components/qr-upload-form';
 
 export const metadata = { title: 'Settings · Admin' };
 
@@ -211,9 +208,10 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
             Merchant QR codes
           </h2>
           <p className="text-sm text-ink/60">
-            Upload PNG/JPEG images (≤ 5 MB) of your merchant QR codes.
-            They appear on every couple&rsquo;s order detail page next to the
-            payment instructions.
+            Upload a photo or screenshot of your merchant QR code (PNG, JPEG,
+            WebP, GIF, or HEIC, ≤ 6 MB). We&rsquo;ll auto-detect the QR and crop
+            it to a 512×512 square before saving so it renders clean on every
+            couple&rsquo;s order detail page.
           </p>
         </header>
 
@@ -274,27 +272,7 @@ function QrUploadBlock({
         </p>
       )}
 
-      <form
-        action={uploadMerchantQr}
-        encType="multipart/form-data"
-        className="flex flex-col gap-2 border-t border-ink/10 pt-3 sm:flex-row sm:items-center"
-      >
-        <input type="hidden" name="kind" value={kind} />
-        <input
-          type="file"
-          name="file"
-          accept="image/png,image/jpeg,image/webp,image/gif"
-          required
-          className="flex-1 cursor-pointer rounded-md border border-ink/15 bg-cream p-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-terracotta/10 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-terracotta-700 hover:file:bg-terracotta/15"
-        />
-        <SubmitButton
-          className="inline-flex items-center justify-center gap-2 rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta-600 disabled:opacity-70"
-          pendingLabel="Uploading…"
-        >
-          <Upload aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          {currentUrl ? 'Replace' : 'Upload'}
-        </SubmitButton>
-      </form>
+      <QrUploadForm kind={kind} replace={!!currentUrl} />
     </section>
   );
 }

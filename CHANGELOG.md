@@ -4,6 +4,66 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-13 · PRE-LAUNCH SPRINT COMPLETE — 19 iterations + 2 polish rounds
+
+**Summary commit reference:** see git log on `main` for the per-iteration commits. New consolidated handoff at `HANDOFF.md`.
+
+This session shipped, in order:
+
+| Iteration | Surface | Migration |
+|---|---|---|
+| 0021 | Couple dashboard rework: 4 themes, Lucide icons, new Home, Guided Planner | `20260513070000_iteration_0021_planner.sql` |
+| 0015 | Public marketing landing at `/` (hero + features + roadmap + footer) | — |
+| 0010 | Mood Board with venue/couple/role palette families | `20260513080000_iteration_0010_mood_board.sql` |
+| 0008 | Seating chart (tables + assignments + drag-place floor plan) | `20260513090000_iteration_0008_seating.sql` |
+| 0006 | Vendors couple-side tracker (28-category enum + 6-stage status) | `20260513100000_iteration_0006_vendors.sql` |
+| 0007 | Budget & expenses (line items + payments + `.ics` export) | `20260513110000_iteration_0007_budget.sql` |
+| 0022 | Vendor sign-up + profile editor (Pattern A RLS) | `20260513120000_iteration_0022_vendor_dashboard.sql` |
+| 0019 | Couple↔vendor 1:1 chat with identity masking | `20260513130000_iteration_0019_communications.sql` |
+| 0023 | Admin console (Overview · Users · Events · Vendors) | — |
+| 0025 | Profile settings (editable info + RA 10173 export + soft-delete) | `20260513140000_iteration_0025_profile_settings.sql` |
+| 0034 | Orders + payments + manual reconciliation queue | `20260513150000_iteration_0034_payments.sql` |
+| 0028 | In-app notifications with cross-action emits | `20260513160000_iteration_0028_notifications.sql` |
+| 0029 | Help Center FAQ + contact form + admin inbox | `20260513170000_iteration_0029_help_center.sql` |
+| 0030 | Guided welcome tour (couple + vendor slide carousels) | `20260513180000_iteration_0030_guided_tour.sql` |
+| 0031 | Day-of-guest event schedule + live "happening now" widget | `20260513190000_iteration_0031_schedule.sql` |
+| 0033 | Public API foundation (api_keys + bearer auth + stubs) | `20260513200000_iteration_0033_api_gateway.sql` |
+| 0024 | Save the Date 12-template gallery → orders flow | — |
+| 0026 | BIR-compliant auto-issued Official Receipts | `20260513210000_iteration_0026_bir_tax_compliance.sql` + `20260513220000_iteration_0026_drop_or_number.sql` |
+
+Plus 2 polish rounds: empty states, mobile compaction, navigation tightening, header bell, vendor subnav hoist, admin "restore deleted account".
+
+**SPEC IMPACT (consolidated):**
+
+Most of the SPEC IMPACT callouts in earlier per-iteration changelog entries still stand — please walk the spec corpus at `~/Documents/Claude/Projects/Setnayan/04_Iterations/` via Cowork and reconcile each affected file:
+
+- `0006_vendors_management.md` — lock the 28-entry `vendor_category` enum, record the 6-stage flow + flag the payment-milestones / crew-meals deferrals
+- `0007_budget_expenses.md` — V1 ships add+delete only (no edit), per-vendor line items are couple-defined (not the spec's "3-line template"), `.ics` is one-shot download (not subscribable feed yet)
+- `0008_seating_chart_editor.md` — V1 = list + drag-place; ring auto-fill + publish-QR still deferred
+- `0010_mood_board.md` — Reception 3-6, Bride/Groom palettes added, role palettes conditional on guest presence, 20-theme library deferred, Setnayan Guide rule engine deferred
+- `0015_main_website.md` — EN-only V1, no Event Palette preview yet, copy is starter draft
+- `0019_communications.md` — V1 = 1:1 page-refresh chat with identity masking. Realtime, group, video (Daily.co), file viewers, coordinator-join all deferred. **Identity masking rule locked**: vendors see event.display_name + event_date only — never couple email or personal name
+- `0021_couple_dashboard_fully_purchased.md` — record the 4 theme palette RGB triplets (Setnayan Default `#FAF7F2`/`#1A1A1A`/`#C97B4B`, Victorian `#F5EBD9`/`#2E1A1A`/`#8B1E3F`, Classy `#F4F4F2`/`#0F0F0F`/`#A38560`, iOS `#F2F2F7`/`#000000`/`#007AFF`); 9 planner step keys (set_date, pick_venue, build_guests, customize_invite, set_slug, send_invites, book_vendors, finalize_seating, after_event)
+- `0022_vendor_dashboard.md` — V1 ships 1 of 6 surfaces (profile editor only). Logo upload, public vendor page at `/v/[slug]`, bookings linkage to couple-side event_vendors, chat identity masking (waits on 0019 ✅ now shipped), settings/payouts all deferred
+- `0023_admin_console.md` — V1 ships 3 of 7 surfaces (Users, Events, Vendors). Two-admin approval queue, audit log, system health, settings, reports all deferred. Document the `notFound()` (not `redirect`) pattern for non-leakage of admin URL existence
+- `0024_save_the_date.md` — V1 ships gallery + order request flow (manual production via 0034); Remotion render pipeline + LUT grading + customer clip uploads to R2 all deferred. 12 templates shipped, 30 in spec
+- `0025_profile_settings.md` — V1 ships Personal info edit + RA 10173 export + soft-delete. Hard delete + face-data revocation (waits on 0012 Papic) + payment methods (waits on 0034) deferred
+- `0026_bir_tax_compliance.md` — VAT-inclusive math (12% default), `or_serial` BIGINT from atomic sequence (display string `SR-YYYY-NNNNNN` composed at read-time), one OR per order. Hard-coded `TIN: 000-000-000-000` placeholder in receipt header **must** be replaced before any real receipts go out — see `HANDOFF.md` § Owner action items
+- `0028_email_notifications.md` — V1 = in-app only; email delivery via Resend deferred. Schema is ready; a notification-to-email worker is a small follow-on once Resend SMTP is wired
+- `0029_help_center.md` — 22 FAQ articles hardcoded in `apps/web/lib/help.ts`; CMS, AI search, multi-language all deferred. Anyone (anon + authenticated) can INSERT a `help_messages` row
+- `0030_guided_tour.md` — V1 = 4–6 slide carousel per role (couple + vendor); element-highlighting tour deferred. Restart via Profile
+- `0031_day_of_guest.md` — schedule blocks + live widget shipped; message wall + photo wall + live broadcast banner all defer to R2 wiring
+- `0033_public_api_foundation.md` — gateway + key management + 2 stub endpoints (`/api/v1/health` public, `/api/v1/me` auth-gated). Scopes, rate limiting, OAuth, webhooks all deferred. **Public contract** — additions to `/me` response shape need SPEC IMPACT review since they become a stability contract
+- `0034_payments_and_cart.md` — V1 ships single-order request flow (no cart) + 4-tier fuzzy SQL matcher replaced with simple substring-reference check; BDO/GCash QR images deferred (instructions only)
+
+**Outstanding (genuinely blocked on owner action):**
+- `0032_contract_intelligence.md` — LLM API key + R2 upload not yet provisioned
+- `0035_observability.md` — Sentry, PostHog, Better Stack accounts not yet provisioned
+
+See `HANDOFF.md` for the full owner action checklist and verification path.
+
+---
+
 ## 2026-05-13 · 0023 admin console MVP — overview + users + events + vendors
 
 **Commits:** to be filled in once committed.

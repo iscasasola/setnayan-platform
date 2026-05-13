@@ -4,6 +4,29 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-13 · 0010 mood board MVP — per-role palette only
+
+**Commits:** to be filled in once committed.
+
+**What landed:**
+- New migration `20260513080000_iteration_0010_mood_board.sql` adds `events.role_palette` (JSONB, default `'{}'`) and `events.mood_board_updated_at` (timestamptz). The JSONB shape is `{ <role_group>: "#RRGGBB" }` with six allowed keys: `wedding_party`, `principal_sponsors`, `secondary_sponsors`, `bearers_flower_girl`, `officiants`, `other_roles`. App-side validation in `apps/web/lib/mood-board.ts` (`sanitizeRolePalette`) drops unknown keys and bad hex.
+- New page at `/dashboard/[eventId]/services/mood-board` (takes precedence over the catch-all `[service]` placeholder for this slug only). Renders six labeled rows, each with a native `<input type="color">` and a swatch preview. Save submits to `saveRolePalette` server action which sanitizes, writes `role_palette` + `mood_board_updated_at`, and revalidates the event layout.
+- The Guest List role chips now consume `event.role_palette`: when a palette entry exists for the role's group, the chip renders a 2-px ring-bordered colored dot before the role label. Falls back to the existing Tailwind-tinted chip backgrounds when no palette is set. Both desktop table and mobile card list pass the palette down.
+
+**SPEC IMPACT:**
+- `~/Documents/Claude/Projects/Setnayan/04_Iterations/0010_mood_board.md` — record MVP scope (per-role hex palette only) and flag three deferred sub-scopes that need spec input before they can ship:
+  - **20-theme curated library:** named themes (e.g., "Cebu Sunrise", "Manila Old World", "Mountain Lodge") and their per-role palettes — needs design + content from owner.
+  - **Setnayan Guide rule engine:** cohesion / contrast / temperature / saturation / cultural-defaults scoring algorithm — needs algorithm spec (formulas, thresholds, what gets flagged at what score).
+  - **Venue palette extraction:** auto-derive a palette from venue photos via color quantization — needs upload pipeline + heuristics spec.
+- The chip dot is a "visual signal" choice, not a "replace the chip tint" choice — kept the existing Tailwind tints so the page doesn't depend on dynamic class generation. Record this trade-off in the spec so a later revision can intentionally swap to dynamic-class chip tints if desired.
+
+**Deferred:**
+- Save palettes as named "moods" the couple can swap between (no separate `event_moods` table yet)
+- Live preview of palette applied to a sample invitation
+- Export palette as a downloadable swatch sheet for vendors
+
+---
+
 ## 2026-05-13 · 0015 main website MVP — public landing rebuilt
 
 **Commits:** to be filled in once committed.

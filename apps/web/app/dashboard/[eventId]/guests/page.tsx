@@ -19,6 +19,7 @@ import {
   ROLE_GROUP_LABELS,
   roleGroupOf,
 } from '@/lib/role-groups';
+import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 
 export const metadata = { title: 'Guests' };
 
@@ -70,7 +71,15 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const guests = await fetchGuestsByEvent(supabase, eventId);
+  const [guests, eventRow] = await Promise.all([
+    fetchGuestsByEvent(supabase, eventId),
+    supabase
+      .from('events')
+      .select('role_palette')
+      .eq('event_id', eventId)
+      .maybeSingle(),
+  ]);
+  const palette: RolePalette = sanitizeRolePalette(eventRow.data?.role_palette ?? {});
 
   const q = (search.q ?? '').trim().toLowerCase();
   const rsvpFilter = (search.rsvp ?? '') as RsvpStatus | '';
@@ -151,8 +160,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
             <EmptyState hasGuests={stats.total > 0} eventId={eventId} />
           ) : (
             <>
-              <DesktopTable guests={visible} eventId={eventId} />
-              <MobileCardList guests={visible} eventId={eventId} />
+              <DesktopTable guests={visible} eventId={eventId} palette={palette} />
+              <MobileCardList guests={visible} eventId={eventId} palette={palette} />
             </>
           )}
         </div>
@@ -477,7 +486,15 @@ function EmptyState({ hasGuests, eventId }: { hasGuests: boolean; eventId: strin
   );
 }
 
-function DesktopTable({ guests, eventId }: { guests: GuestRow[]; eventId: string }) {
+function DesktopTable({
+  guests,
+  eventId,
+  palette,
+}: {
+  guests: GuestRow[];
+  eventId: string;
+  palette: RolePalette;
+}) {
   return (
     <div className="hidden overflow-hidden rounded-xl border border-ink/10 sm:block">
       <table className="w-full table-fixed text-left text-sm">
@@ -513,7 +530,7 @@ function DesktopTable({ guests, eventId }: { guests: GuestRow[]; eventId: string
                 </Link>
               </td>
               <td className="px-3 py-3">
-                <RoleChip role={guest.role} />
+                <RoleChip role={guest.role} palette={palette} />
               </td>
               <td className="px-3 py-3">
                 <SidePill side={guest.side} />
@@ -532,7 +549,15 @@ function DesktopTable({ guests, eventId }: { guests: GuestRow[]; eventId: string
   );
 }
 
-function MobileCardList({ guests, eventId }: { guests: GuestRow[]; eventId: string }) {
+function MobileCardList({
+  guests,
+  eventId,
+  palette,
+}: {
+  guests: GuestRow[];
+  eventId: string;
+  palette: RolePalette;
+}) {
   return (
     <ul className="space-y-2 sm:hidden">
       {guests.map((guest) => (
@@ -545,7 +570,7 @@ function MobileCardList({ guests, eventId }: { guests: GuestRow[]; eventId: stri
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-ink">{guestDisplayName(guest)}</p>
               <div className="mt-0.5 flex items-center gap-1.5">
-                <RoleChip role={guest.role} />
+                <RoleChip role={guest.role} palette={palette} />
               </div>
             </div>
             <RsvpPill status={guest.rsvp_status} />
@@ -614,12 +639,26 @@ function RsvpPill({ status }: { status: RsvpStatus }) {
   );
 }
 
-function RoleChip({ role }: { role: GuestRow['role'] }) {
+function RoleChip({
+  role,
+  palette,
+}: {
+  role: GuestRow['role'];
+  palette: RolePalette;
+}) {
   const group = roleGroupOf(role);
+  const accent = group !== 'guest' ? palette[group] : undefined;
   return (
     <span
-      className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${ROLE_GROUP_CHIP[group]}`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${ROLE_GROUP_CHIP[group]}`}
     >
+      {accent ? (
+        <span
+          aria-hidden
+          className="inline-block h-2 w-2 rounded-full ring-1 ring-ink/10"
+          style={{ backgroundColor: accent }}
+        />
+      ) : null}
       {ROLE_LABELS[role]}
     </span>
   );

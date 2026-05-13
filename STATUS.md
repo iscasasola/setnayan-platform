@@ -3,7 +3,7 @@
 > Living checkpoint. Updated as work progresses.
 
 **Last updated:** 2026-05-13
-**Current sprint:** Iteration `0015_main_website` MVP shipped — public marketing landing at `/` rebuilt with top nav, hero + device mock (couple home preview), six shipped-features grid, six-card roadmap, closing CTA, and footer. English-only copy as a starter draft for owner refinement via Cowork; EN/TL/CEB i18n + Event Palette interactive preview remain deferred sub-scopes.
+**Current sprint:** Iteration `0010_mood_board` MVP shipped — per-role palette only. New `events.role_palette` JSONB column plus a Mood Board page at `/dashboard/[eventId]/services/mood-board` lets couples set an accent hex for each of six role groups. The Guest List role chips now render a 2-px colored dot beside the role label when a palette entry exists. The 20-theme curated library, Setnayan Guide rule engine (cohesion / contrast / temperature / saturation / cultural defaults), and venue palette extraction remain explicitly deferred — flagged for Cowork in spec doc.
 **Owner's wedding (deadline anchor):** December 2026
 
 ---

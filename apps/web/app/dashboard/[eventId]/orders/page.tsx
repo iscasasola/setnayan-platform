@@ -38,9 +38,6 @@ export default async function CoupleOrdersPage({ params, searchParams }: Props) 
     <section className="space-y-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-2">
-          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            Iteration 0034 · Orders &amp; Payments (V1 MVP)
-          </p>
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Orders</h1>
           <p className="max-w-prose text-base text-ink/65">
             Apply for any Setnayan service — describe what you need, propose your budget. Our

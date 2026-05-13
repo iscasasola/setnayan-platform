@@ -1,6 +1,9 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { Bell, MessageSquare, User } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { countUnread } from '@/lib/notifications';
+import { VendorSubnavTab } from './_components/subnav-tab';
 
 export default async function VendorDashboardLayout({
   children,
@@ -13,11 +16,15 @@ export default async function VendorDashboardLayout({
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: profile } = await supabase
-    .from('users')
-    .select('account_type, theme_preference, email, display_name, deleted_at')
-    .eq('user_id', user.id)
-    .maybeSingle();
+  const [profileRes, unreadCount] = await Promise.all([
+    supabase
+      .from('users')
+      .select('account_type, theme_preference, email, display_name, deleted_at')
+      .eq('user_id', user.id)
+      .maybeSingle(),
+    countUnread(supabase, user.id),
+  ]);
+  const profile = profileRes.data;
 
   if (profile?.deleted_at) {
     await supabase.auth.signOut();
@@ -56,6 +63,25 @@ export default async function VendorDashboardLayout({
             </form>
           </div>
         </div>
+        <nav
+          aria-label="Vendor sections"
+          className="mx-auto flex w-full max-w-6xl gap-2 overflow-x-auto px-4 pb-3 sm:px-6 lg:px-8"
+        >
+          <VendorSubnavTab href="/vendor-dashboard" label="Profile" Icon={User} match="exact" />
+          <VendorSubnavTab
+            href="/vendor-dashboard/messages"
+            label="Messages"
+            Icon={MessageSquare}
+            match="prefix"
+          />
+          <VendorSubnavTab
+            href="/vendor-dashboard/notifications"
+            label="Notifications"
+            Icon={Bell}
+            badge={unreadCount}
+            match="prefix"
+          />
+        </nav>
       </header>
       <main className="flex-1">{children}</main>
     </div>

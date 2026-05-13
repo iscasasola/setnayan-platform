@@ -62,11 +62,8 @@ export default async function MoodBoardPage({ params }: Props) {
       </Link>
 
       <header className="space-y-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          Iteration 0010 · Mood Board (V1 MVP)
-        </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Palettes
+          Mood Board
         </h1>
         <p className="max-w-prose text-base text-ink/65">
           Three families: Venue (ceremony + reception), Couple (bride + groom), and Roles

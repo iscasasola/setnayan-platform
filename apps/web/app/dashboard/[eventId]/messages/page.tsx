@@ -26,13 +26,10 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
   return (
     <section className="space-y-6">
       <header className="space-y-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          Iteration 0019 · Communications (V1 MVP)
-        </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Messages</h1>
         <p className="max-w-prose text-base text-ink/65">
-          One thread per Setnayan vendor. Video meetings + file attachments + Realtime
-          delivery ship in follow-ons; V1 sends and refreshes the page.
+          One thread per vendor you&rsquo;re working with. Vendors find you via the email on
+          your invitation site or by starting their own thread.
         </p>
       </header>
 

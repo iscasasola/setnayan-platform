@@ -28,38 +28,14 @@ export default async function VendorNotificationsPage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
-      <header className="mb-6 space-y-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          Vendor · Notifications
-        </p>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Notifications</h1>
-        <p className="text-base text-ink/65">
-          Live in-app feed. Email delivery ships once Resend SMTP is wired.
-        </p>
+      <header className="mb-6 flex items-end justify-between gap-3">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Notifications</h1>
+          <p className="text-base text-ink/65">
+            Live in-app feed. Email delivery ships once Resend SMTP is wired.
+          </p>
+        </div>
       </header>
-
-      <nav className="mb-6 flex items-center gap-2 text-sm">
-        <Link
-          href="/vendor-dashboard"
-          className="rounded-full bg-ink/5 px-3 py-1 text-ink/70 hover:bg-ink/10"
-        >
-          Profile
-        </Link>
-        <Link
-          href="/vendor-dashboard/messages"
-          className="rounded-full bg-ink/5 px-3 py-1 text-ink/70 hover:bg-ink/10"
-        >
-          Messages
-        </Link>
-        <span className="rounded-full bg-terracotta px-3 py-1 text-cream">
-          Notifications
-          {unreadCount > 0 ? (
-            <span className="ml-1 rounded-full bg-cream/20 px-1.5 text-[10px]">
-              {unreadCount}
-            </span>
-          ) : null}
-        </span>
-      </nav>
 
       {unreadCount > 0 ? (
         <form action={markAllNotificationsRead} className="mb-4">

@@ -30,9 +30,6 @@ export default async function BudgetPage({ params }: Props) {
     <section className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="space-y-2">
-          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            Iteration 0007 · Budget &amp; Expenses (V1 MVP)
-          </p>
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Budget</h1>
           <p className="max-w-prose text-base text-ink/65">
             Itemize every vendor&rsquo;s cost into line items, log each payment as it lands.

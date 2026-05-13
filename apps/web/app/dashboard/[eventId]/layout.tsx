@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
+import { ArrowLeft, Bell } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { formatEventDate } from '@/lib/events';
+import { countUnread } from '@/lib/notifications';
 import { BottomNav } from './_components/bottom-nav';
 
 type Props = {
@@ -29,12 +31,15 @@ export default async function EventLayout({ children, params }: Props) {
     notFound();
   }
 
-  const { data: event } = await supabase
-    .from('events')
-    .select('event_id, public_id, display_name, event_date, archived, event_type')
-    .eq('event_id', eventId)
-    .single();
-
+  const [eventRes, unreadCount] = await Promise.all([
+    supabase
+      .from('events')
+      .select('event_id, public_id, display_name, event_date, archived, event_type')
+      .eq('event_id', eventId)
+      .single(),
+    countUnread(supabase, user.id),
+  ]);
+  const event = eventRes.data;
   if (!event) notFound();
 
   return (
@@ -45,9 +50,7 @@ export default async function EventLayout({ children, params }: Props) {
             href="/dashboard"
             className="group flex min-w-0 items-center gap-2 rounded-full bg-terracotta/10 px-3 py-1.5 text-sm font-medium text-terracotta-700 hover:bg-terracotta/15"
           >
-            <span aria-hidden className="text-base">
-              ↶
-            </span>
+            <ArrowLeft aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
             <span className="truncate">{event.display_name}</span>
             {event.event_date ? (
               <span className="hidden text-xs text-terracotta-600 sm:inline">
@@ -56,6 +59,22 @@ export default async function EventLayout({ children, params }: Props) {
             ) : null}
           </Link>
           <div className="flex items-center gap-2">
+            <Link
+              href="/dashboard/notifications"
+              aria-label={
+                unreadCount > 0
+                  ? `Notifications · ${unreadCount} unread`
+                  : 'Notifications'
+              }
+              className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-ink/15 bg-cream text-ink/70 hover:border-terracotta/40 hover:text-terracotta"
+            >
+              <Bell className="h-4 w-4" strokeWidth={1.75} />
+              {unreadCount > 0 ? (
+                <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-terracotta px-1 font-mono text-[9px] font-semibold text-cream">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              ) : null}
+            </Link>
             <Link
               href="/dashboard/profile"
               aria-label="Profile"

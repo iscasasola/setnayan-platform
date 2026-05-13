@@ -41,14 +41,10 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   return (
     <section className="space-y-6">
       <header className="space-y-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          Iteration 0006 · Vendors (V1 MVP)
-        </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Vendors</h1>
         <p className="max-w-prose text-base text-ink/65">
           Track every vendor through the 6-stage readiness flow: considering → shortlisted →
-          contracted → deposit paid → delivered → complete. Costs are in PHP. Vendor profiles
-          (the vendor-side dashboard) ship in iteration 0022.
+          contracted → deposit paid → delivered → complete. Costs are in PHP.
         </p>
       </header>
 

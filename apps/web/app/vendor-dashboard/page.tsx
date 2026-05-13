@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { AlertTriangle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -28,25 +27,12 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          Iteration 0022 · Vendor profile
-        </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Your profile</h1>
         <p className="text-base text-ink/65">
           Edit your business info. Couples find you by the contact email below and start
           chats from their dashboard — see those at Messages.
         </p>
       </header>
-
-      <nav className="mb-6 flex items-center gap-2 text-sm">
-        <span className="rounded-full bg-terracotta px-3 py-1 text-cream">Profile</span>
-        <Link
-          href="/vendor-dashboard/messages"
-          className="rounded-full bg-ink/5 px-3 py-1 text-ink/70 hover:bg-ink/10"
-        >
-          Messages
-        </Link>
-      </nav>
 
       {search.error ? (
         <p

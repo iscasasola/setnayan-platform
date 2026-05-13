@@ -38,12 +38,9 @@ export default async function CoupleNotificationsPage() {
 
       <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div className="space-y-2">
-          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            Iteration 0028 · In-app notifications (V1 MVP)
-          </p>
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Notifications</h1>
           <p className="max-w-prose text-base text-ink/65">
-            Live in-app feed. Email delivery ships once Resend SMTP is wired.
+            New messages, order quotes, and payment confirmations land here.
           </p>
         </div>
         {unreadCount > 0 ? (

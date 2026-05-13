@@ -48,13 +48,11 @@ export default async function SeatingPage({ params }: Props) {
     <section className="space-y-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1">
-          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            Iteration 0008 · Seating Chart (V1 MVP)
-          </p>
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Seating</h1>
           <p className="max-w-prose text-base text-ink/65">
-            Add tables, assign guests. Free-placed editor with ring auto-fill ships in a later
-            revision — for now this is a clean list view that keeps capacity counts honest.
+            Add tables, drag them into place on the floor plan, then seat your guests. The
+            capacity counter turns green when a table is full and rose if you&rsquo;ve
+            overbooked it.
           </p>
         </div>
       </header>

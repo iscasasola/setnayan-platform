@@ -12,7 +12,14 @@ import {
   type SeatAssignmentRow,
   type TableType,
 } from '@/lib/seating';
-import { assignGuest, createTable, deleteTable, unassignGuest } from './actions';
+import {
+  assignGuest,
+  createTable,
+  deleteTable,
+  unassignGuest,
+  updateTablePosition,
+} from './actions';
+import { FloorPlan } from './_components/floor-plan';
 
 export const metadata = { title: 'Seating chart' };
 
@@ -55,6 +62,18 @@ export default async function SeatingPage({ params }: Props) {
       <StatsStrip stats={stats} />
 
       <AddTableForm eventId={eventId} />
+
+      {tables.length > 0 ? (
+        <FloorPlan
+          eventId={eventId}
+          tables={tables}
+          assignmentCounts={tables.map((t) => ({
+            table_id: t.table_id,
+            count: assignments.filter((a) => a.table_id === t.table_id).length,
+          }))}
+          saveAction={updateTablePosition}
+        />
+      ) : null}
 
       {tables.length === 0 ? (
         <EmptyTables />

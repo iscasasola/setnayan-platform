@@ -48,6 +48,8 @@ export type EventTableRow = {
   table_type: TableType;
   capacity: number;
   sort_order: number;
+  x_pos: number | null;
+  y_pos: number | null;
 };
 
 export type SeatAssignmentRow = {
@@ -63,7 +65,9 @@ export async function fetchTables(
 ): Promise<EventTableRow[]> {
   const { data, error } = await supabase
     .from('event_tables')
-    .select('table_id,public_id,event_id,table_label,table_type,capacity,sort_order')
+    .select(
+      'table_id,public_id,event_id,table_label,table_type,capacity,sort_order,x_pos,y_pos',
+    )
     .eq('event_id', eventId)
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });

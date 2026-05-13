@@ -102,6 +102,45 @@ export async function assignGuest(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
+export async function updateTablePosition(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const tableId = formData.get('table_id');
+  const xRaw = formData.get('x_pos');
+  const yRaw = formData.get('y_pos');
+  if (
+    typeof eventId !== 'string' ||
+    typeof tableId !== 'string' ||
+    typeof xRaw !== 'string' ||
+    typeof yRaw !== 'string'
+  ) {
+    throw new Error('Invalid input');
+  }
+  const x = Number(xRaw);
+  const y = Number(yRaw);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    throw new Error('Position must be numeric');
+  }
+  // Positions are stored as percent (0–100) of the canvas dimensions, so the
+  // layout adapts to whatever container size we render the floor plan in.
+  const clampedX = Math.max(0, Math.min(100, x));
+  const clampedY = Math.max(0, Math.min(100, y));
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { error } = await supabase
+    .from('event_tables')
+    .update({ x_pos: clampedX, y_pos: clampedY, updated_at: new Date().toISOString() })
+    .eq('table_id', tableId)
+    .eq('event_id', eventId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/dashboard/${eventId}/seating`);
+}
+
 export async function unassignGuest(formData: FormData) {
   const eventId = formData.get('event_id');
   const guestId = formData.get('guest_id');

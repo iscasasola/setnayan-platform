@@ -6,6 +6,7 @@ import {
   Tv,
   CloudUpload,
   Sparkles,
+  Video,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -37,6 +38,14 @@ const SERVICES: ReadonlyArray<{
     iteration: '0010',
     blurb: 'Per-role palettes · Setnayan Guide rule engine · 20 themes',
     cta: 'Open',
+  },
+  {
+    key: 'save-the-date',
+    label: 'Save the Date',
+    Icon: Video,
+    iteration: '0024',
+    blurb: '12-template gallery · 60s video · vertical + square + horizontal · ₱99 per render',
+    cta: 'Browse templates',
   },
   {
     key: 'papic',
@@ -99,7 +108,9 @@ export default async function ServicesPage({ params }: Props) {
               ? `/dashboard/${eventId}/orders`
               : service.key === 'mood-board'
                 ? `/dashboard/${eventId}/services/mood-board`
-                : `/dashboard/${eventId}/services/${service.key}`;
+                : service.key === 'save-the-date'
+                  ? `/dashboard/${eventId}/services/save-the-date`
+                  : `/dashboard/${eventId}/services/${service.key}`;
           return (
             <li key={service.key}>
               <Link

@@ -154,7 +154,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
           {previewQrSvg ? (
             <div
               aria-label="QR preview with monogram"
-              className="h-32 w-32 shrink-0 overflow-hidden rounded-lg border border-ink/10 bg-white p-2"
+              className="h-32 w-32 shrink-0 overflow-hidden rounded-lg border border-ink/10 bg-white p-2 [&_svg]:h-full [&_svg]:w-full"
               dangerouslySetInnerHTML={{ __html: previewQrSvg }}
             />
           ) : null}
@@ -280,7 +280,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
                   <td className="px-4 py-3">
                     <div
                       aria-label={`QR for ${guestDisplayName(guest)}`}
-                      className="inline-block h-16 w-16 overflow-hidden rounded bg-white p-1"
+                      className="inline-block h-16 w-16 overflow-hidden rounded bg-white p-1 [&_svg]:h-full [&_svg]:w-full"
                       dangerouslySetInnerHTML={{ __html: qr?.svg ?? '' }}
                     />
                   </td>
@@ -330,7 +330,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
               <div className="flex items-start gap-3">
                 <div
                   aria-label={`QR for ${guestDisplayName(guest)}`}
-                  className="h-20 w-20 shrink-0 overflow-hidden rounded bg-white p-1"
+                  className="h-20 w-20 shrink-0 overflow-hidden rounded bg-white p-1 [&_svg]:h-full [&_svg]:w-full"
                   dangerouslySetInnerHTML={{ __html: qr?.svg ?? '' }}
                 />
                 <div className="min-w-0">

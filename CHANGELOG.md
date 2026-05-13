@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-14 · fix(invitation): monogram QR thumbnails clipped in fixed-size boxes
+
+**Commit:** to be filled after commit.
+
+**What landed:**
+- `apps/web/app/dashboard/[eventId]/invitation/page.tsx` — added `[&_svg]:h-full [&_svg]:w-full` to the three QR-thumbnail wrappers (the monogram preview card, the desktop guest-table cell, and the mobile guest-card row). The `qrcode` library bakes `width="256"` into its SVG output, so when the SVG was embedded in `h-32 w-32` / `h-16 w-16` / `h-20 w-20` containers with `overflow-hidden`, only the top-left corner of the 256-px QR was visible. The arbitrary-variant rule forces the inner `<svg>` to fill its constrained parent, matching the pattern the print sheet already uses (`.print-qr svg { width:100%; height:100% }`).
+- Public landing page (`apps/web/app/[slug]/page.tsx`) unaffected — it wraps the QR in an `inline-block` with no fixed dimensions, so the SVG renders at its natural 256 px.
+
+**SPEC IMPACT:** None — purely visual bug fix, no schema, RLS, or product-decision change.
+
+---
+
 ## 2026-05-14 · public macOS download page + GitHub Release v0.0.1
 
 **Commit:** to be filled after commit.

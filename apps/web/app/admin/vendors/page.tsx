@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin';
+import { displayServiceLabel } from '@/lib/vendors';
 
 export const metadata = { title: 'Vendors · Admin' };
 
@@ -122,7 +123,11 @@ export default async function AdminVendorsPage({ searchParams }: Props) {
                 {v.contact_email ? <p>📧 {v.contact_email}</p> : null}
                 {v.location_city ? <p>📍 {v.location_city}</p> : null}
                 {v.services.length > 0 ? (
-                  <p>🧰 {v.services.slice(0, 3).join(', ')}{v.services.length > 3 ? ` +${v.services.length - 3}` : ''}</p>
+                  <p>
+                    🧰{' '}
+                    {v.services.slice(0, 3).map(displayServiceLabel).join(', ')}
+                    {v.services.length > 3 ? ` +${v.services.length - 3}` : ''}
+                  </p>
                 ) : null}
               </div>
 

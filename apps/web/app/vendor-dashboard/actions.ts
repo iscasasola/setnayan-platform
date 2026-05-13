@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { VENDOR_CATEGORIES } from '@/lib/vendors';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -27,13 +28,38 @@ function parseSlug(raw: FormDataEntryValue | null): string | null {
   return lowered;
 }
 
+const CANONICAL_SERVICE_SET: ReadonlySet<string> = new Set(VENDOR_CATEGORIES);
+
 function parseServices(raw: FormDataEntryValue | null): string[] {
   if (typeof raw !== 'string') return [];
-  return raw
-    .split(',')
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0 && s.length <= 48)
-    .slice(0, 12);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(parsed)) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const item of parsed) {
+    if (typeof item !== 'string') continue;
+    // Canonical entries — keep the enum key verbatim.
+    if (CANONICAL_SERVICE_SET.has(item)) {
+      if (seen.has(item)) continue;
+      seen.add(item);
+      out.push(item);
+      continue;
+    }
+    // Custom entry — trim, length-check, dedupe case-insensitively.
+    const trimmed = item.trim().slice(0, 48);
+    if (trimmed.length === 0) continue;
+    const lc = trimmed.toLowerCase();
+    if (seen.has(lc)) continue;
+    seen.add(lc);
+    out.push(trimmed);
+    if (out.length >= 24) break;
+  }
+  return out;
 }
 
 export async function saveVendorProfile(formData: FormData) {

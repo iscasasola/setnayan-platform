@@ -179,3 +179,22 @@ export function formatPhp(amount: number | null | undefined): string {
   if (amount === null || amount === undefined) return '—';
   return `₱${Number(amount).toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
+
+const CATEGORY_SET: ReadonlySet<string> = new Set(VENDOR_CATEGORIES);
+
+/**
+ * Vendor profiles store services as `text[]` where canonical entries use the
+ * enum key (e.g. "photographer") and custom entries store the raw label
+ * (e.g. "Vintage car rental"). This resolves either to a human-readable
+ * label so display sites don't have to branch.
+ */
+export function displayServiceLabel(service: string): string {
+  if (CATEGORY_SET.has(service)) {
+    return VENDOR_CATEGORY_LABEL[service as VendorCategory];
+  }
+  return service;
+}
+
+export function isCanonicalService(service: string): boolean {
+  return CATEGORY_SET.has(service);
+}

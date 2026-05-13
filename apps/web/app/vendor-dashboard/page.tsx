@@ -4,6 +4,7 @@ import { AlertTriangle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile, profileCompletion } from '@/lib/vendor-profile';
 import { saveVendorProfile } from './actions';
+import { ServicesPicker } from './_components/services-picker';
 
 export const metadata = { title: 'Vendor profile · Setnayan' };
 
@@ -146,15 +147,9 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
         <Field
           label="Services"
           htmlFor="services"
-          help="Comma-separated. Up to 12, each ≤ 48 chars."
+          help="Tick the standard categories you offer. Add custom services for anything not on the list."
         >
-          <input
-            id="services"
-            name="services"
-            defaultValue={profile?.services.join(', ') ?? ''}
-            placeholder="Set menu plated, Buffet, Cocktail catering"
-            className="input-field"
-          />
+          <ServicesPicker name="services" initial={profile?.services ?? []} />
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">

@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchGuestsByEvent, guestDisplayName, ROLE_LABELS, RSVP_LABELS } from '@/lib/guests';
 import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { reissueGuestToken, updateEventSlug } from './actions';
+import { SlugField } from './_components/slug-field';
 
 export const metadata = { title: 'Invitations' };
 
@@ -122,22 +123,13 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
           <p className="mt-2 text-sm text-ink/60">No slug set yet.</p>
         )}
 
-        <form action={slugAction} className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
-          <label htmlFor="slug" className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55 sm:mr-2">
-            Slug
-          </label>
-          <input
-            id="slug"
-            name="slug"
-            defaultValue={event.slug ?? ''}
-            placeholder="maria-and-juan"
-            pattern="[a-z0-9-]{3,32}"
-            className="input-field flex-1 font-mono text-sm"
+        <div className="mt-4">
+          <SlugField
+            eventId={eventId}
+            initialSlug={event.slug ?? ''}
+            saveAction={slugAction}
           />
-          <button type="submit" className="button-secondary">
-            Save slug
-          </button>
-        </form>
+        </div>
         {slugError ? (
           <p role="alert" className="mt-2 text-xs text-terracotta-700">
             {slugError}
@@ -148,9 +140,6 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
             Slug saved.
           </p>
         ) : null}
-        <p className="mt-2 text-xs text-ink/50">
-          3–32 chars · lowercase letters, numbers, hyphens. Changes redirect old links for 90 days.
-        </p>
       </section>
 
       {/* Guest table */}

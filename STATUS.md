@@ -3,7 +3,7 @@
 > Living checkpoint. Updated as work progresses.
 
 **Last updated:** 2026-05-13
-**Current sprint:** Iteration `0002_qr_invitation_system` MVP slice shipped — public invitation site at `/[slug]` with QR + RSVP + cookie session; couple admin at `/dashboard/[eventId]/invitation` + print sheet; per-guest token re-issue. Branded QR with monogram + +1 onboarding UI + 9 widgets deferred.
+**Current sprint:** Iteration `0002_qr_invitation_system` close-out shipped — TBA +1 onboarding flow, 6 additional widgets (Countdown · Venue · Dress Code · Photo Moments · Your Photos · Public/Registered tier comparison), Limited +1 full lock variant, real-time slug availability check with 300ms debounce. Branded QR with monogram + per-role palette + native-app stubs are the only remaining 0002 items, all genuinely blocked or Phase 2/3.
 **Owner's wedding (deadline anchor):** December 2026
 
 ---

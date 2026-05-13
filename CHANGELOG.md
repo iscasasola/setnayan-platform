@@ -4,6 +4,47 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-13 · 0002 deferral close-out — TBA onboarding, 6 widgets, limited +1 lock, real-time slug check
+
+**Commits:** to be filled in once committed.
+
+**What landed:**
+- **Phase A — +1 TBA onboarding flow:**
+  - New `/[slug]/welcome` route that captures a TBA +1's first + last name. Spec § +1 onboarding flow (lines 121–161).
+  - Redeem handler detects TBA placeholders (`plus_one_of_guest_id IS NOT NULL && first_name='TBA' && plus_one_name_confirmed_at IS NULL`) and routes to `/welcome` instead of the personal invitation site.
+  - Confirmation submit updates `guests.first_name`, `guests.last_name`, `guests.plus_one_name_confirmed_at = NOW()`, then records a scan_events row with `context.entry='plus_one_onboarded'` so the couple's admin can see the onboarding moment distinctly, then redirects to the standard personal invitation site.
+  - "This isn't me" link clears the cookie via the existing sign-out flow.
+  - `/[slug]` page also gates: if a guest re-arrives with an unconfirmed TBA cookie (clicked away mid-onboarding), they're re-routed to `/welcome`.
+- **Phase B — 6 additional widgets** added to the personal invitation site:
+  - **Countdown** (client component, ticks every second, auto-hides past the event date) — 4 boxes for D / H / M / S
+  - **Venue** card with Google Maps deep-link "Get directions"
+  - **Dress Code** with 5-swatch palette + Do/Don't grid using locked copy
+  - **Photo Moments** 3-card grid (Bridal Walk · The Kiss · First Entrance) with locked spec copy
+  - **Your Photos** placeholder + profile-photo card + "Add more via Shutter" (deferred to Phase 2)
+  - **Public vs Registered tier comparison** with Sign-up free CTA
+- **Phase C — Limited +1 full lock variant:**
+  - When `plus_one_mode='limited'`, the tier comparison widget renders BOTH cards visually disabled (dashed borders, 55% opacity) and replaces the "Sign up free →" CTA with a "Learn more about Setnayan" link to the marketing site.
+  - "Your photos" widget hides the "Add more via Shutter" card and replaces it with a "Your photos will be visible in your inviter's gallery" notice.
+- **Phase D — Real-time slug availability check:**
+  - New `/api/slugs/check` route handler returns `{ status: 'available' | 'taken' | 'current' | 'invalid_format' | 'reserved' }` with 3 suggested alternatives on `taken`.
+  - New `SlugField` client component on the invitation admin uses 300ms debounce + `useTransition` for the save action. Visual states: `⋯` checking, `✓` available, `✗` taken, `⚠` invalid format. Suggestion chips populate inline; clicking one fills the field.
+  - Save button is disabled until the current value is `available` AND differs from `initialSlug`.
+
+**Build verification:** 6 new routes (`/[slug]/welcome`, `/api/slugs/check`, plus the previously-shipped 4) all compile and serve correctly.
+
+**SPEC IMPACT:** None new this pass. The 2 spec impacts flagged in the previous 0002 entry remain pending Cowork update.
+
+**Still deferred (genuinely blocked or out of V1 scope):**
+- Branded QR with monogram-in-center compositing + 25-frame library (complex SVG work; not blocking)
+- Per-role palette QR colors (waits on iteration 0010 palette finalization)
+- 3-day photo retention enforcement for public guests (no photos yet)
+- Post-download conversion screen (no photo download yet)
+- Native-app scanning stubs (Phase 2/3 explicitly)
+- Apple/Google Wallet pass generation (V1.5)
+- Schedule widget (waits on iteration 0004 invitation widgets)
+
+---
+
 ## 2026-05-13 · Iteration 0002 — QR Invitation System (MVP slice)
 
 **Commits:** to be filled in once committed.

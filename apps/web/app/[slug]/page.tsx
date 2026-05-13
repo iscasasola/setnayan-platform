@@ -6,6 +6,7 @@ import { formatEventDate } from '@/lib/events';
 import { ROLE_LABELS, type GuestRole } from '@/lib/guests';
 import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { submitRsvp } from './actions';
+import { CountdownWidget } from './_components/countdown';
 
 function displayNameOf(g: {
   first_name: string;
@@ -98,7 +99,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   const { data: guest } = await admin
     .from('guests')
     .select(
-      'guest_id, first_name, last_name, display_name, role, side, group_category, plus_one_of_guest_id, plus_one_mode, rsvp_status, meal_preference, dietary_restrictions, notes, custom_tags, qr_token',
+      'guest_id, first_name, last_name, display_name, role, side, group_category, plus_one_of_guest_id, plus_one_mode, plus_one_name_confirmed_at, rsvp_status, meal_preference, dietary_restrictions, notes, custom_tags, qr_token',
     )
     .eq('guest_id', session.guest_id)
     .is('deleted_at', null)
@@ -106,6 +107,15 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
 
   if (!guest) {
     return <PublicLanding event={event} reason="invalid_invite" />;
+  }
+
+  // TBA +1 still hasn't confirmed their name — re-route them to onboarding.
+  const isUnconfirmedTba =
+    guest.plus_one_of_guest_id !== null &&
+    !guest.plus_one_name_confirmed_at &&
+    (!guest.first_name || guest.first_name.toLowerCase() === 'tba');
+  if (isUnconfirmedTba) {
+    redirect(`/${slug}/welcome`);
   }
 
   const appUrl =
@@ -332,6 +342,24 @@ function InvitationSite({
           </dl>
         </section>
 
+        {/* Countdown — client-side ticking widget. Auto-hides once the wedding starts. */}
+        {event.event_date ? <CountdownWidget targetIso={event.event_date} /> : null}
+
+        {/* Venues */}
+        <VenueWidget event={event} />
+
+        {/* Dress code */}
+        <DressCodeWidget />
+
+        {/* Photo moments */}
+        <PhotoMomentsWidget />
+
+        {/* Your photos (placeholder) */}
+        <YourPhotosWidget limited={isLimitedPlusOne} />
+
+        {/* Public vs Registered tier comparison */}
+        <TierComparisonWidget limited={isLimitedPlusOne} />
+
         {isLimitedPlusOne ? (
           <section className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
             You&rsquo;re joining as a +1. Photos taken of you will appear in your inviter&rsquo;s
@@ -553,5 +581,269 @@ function Select({
         ))}
       </select>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Additional widgets (closing 0002 deferrals)
+// ---------------------------------------------------------------------------
+
+function VenueWidget({ event }: { event: EventRow }) {
+  const mapsHref = event.venue_address
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.venue_address)}`
+    : null;
+
+  return (
+    <section className="space-y-3 rounded-xl border border-ink/10 bg-cream p-6">
+      <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">Venue</p>
+      <div className="overflow-hidden rounded-lg border border-ink/10">
+        <div className="h-32 bg-gradient-to-br from-terracotta/30 via-amber-100 to-emerald-100" />
+        <div className="space-y-2 bg-cream p-4">
+          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta">
+            Ceremony &amp; Reception
+          </p>
+          <h3 className="text-xl font-semibold tracking-tight">
+            {event.venue_name ?? 'Venue to be confirmed'}
+          </h3>
+          {event.venue_address ? (
+            <p className="text-sm text-ink/65">{event.venue_address}</p>
+          ) : null}
+          {mapsHref ? (
+            <a
+              href={mapsHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="button-secondary mt-2 inline-flex"
+            >
+              Get directions
+            </a>
+          ) : null}
+          <p className="mt-2 text-xs text-ink/45">
+            Pro tier ships Waze + Google Maps deep links via iteration 0004 widgets.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function DressCodeWidget() {
+  const palette = [
+    { name: 'Cream', hex: '#FAF7F2' },
+    { name: 'Champagne', hex: '#E8D9B3' },
+    { name: 'Capiz', hex: '#F0E1D2' },
+    { name: 'Terracotta', hex: '#C97B4B' },
+    { name: 'Midnight', hex: '#1A1A1A' },
+  ];
+
+  return (
+    <section className="space-y-5 rounded-xl border border-ink/10 bg-cream p-6">
+      <header>
+        <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">Dress code</p>
+        <h3 className="mt-1 text-2xl font-semibold tracking-tight">Look magical</h3>
+      </header>
+      <p className="text-sm text-ink/70">
+        Formal evening wear. Lean into the palette. A little sparkle, sequins, or velvet —
+        encouraged. Dress like the night was made for you.
+      </p>
+      <div className="flex flex-wrap gap-3">
+        {palette.map((p) => (
+          <div key={p.name} className="flex items-center gap-2 text-xs text-ink/70">
+            <span
+              aria-hidden
+              className="inline-block h-6 w-6 rounded-full ring-1 ring-ink/10"
+              style={{ backgroundColor: p.hex }}
+            />
+            {p.name}
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+          <p className="font-mono text-[10px] uppercase tracking-[0.15em]">Do</p>
+          <ul className="space-y-1">
+            <li>· Long gowns, ternos, tuxedos, well-cut suits</li>
+            <li>· Lean into the palette</li>
+            <li>· A little sparkle, sequins, or velvet</li>
+          </ul>
+        </div>
+        <div className="space-y-2 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">
+          <p className="font-mono text-[10px] uppercase tracking-[0.15em]">Don&rsquo;t</p>
+          <ul className="space-y-1">
+            <li>· No barong tagalog</li>
+            <li>· No white or ivory — reserved for the bride</li>
+            <li>· No jeans / t-shirts</li>
+            <li>· No flash photography during the Mass</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function PhotoMomentsWidget() {
+  const moments = [
+    { time: '3:00 PM', label: 'Ceremony', title: 'The Bridal Walk', note: 'Processional · everyone stands' },
+    { time: '3:45 PM', label: 'Ceremony', title: 'The Kiss', note: 'After the vows · cheer when ready' },
+    { time: '6:30 PM', label: 'Reception', title: 'First Entrance', note: 'Newlyweds entering the reception' },
+  ];
+
+  return (
+    <section className="space-y-4 rounded-xl border border-ink/10 bg-cream p-6">
+      <header>
+        <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+          Savour the moments
+        </p>
+        <h3 className="mt-1 text-2xl font-semibold tracking-tight">Phone-down moments</h3>
+      </header>
+      <p className="text-sm text-ink/70">
+        We&rsquo;ll have <strong>shutterbugs</strong> around to make sure you have photos
+        of the event — so we&rsquo;d love it if you&rsquo;d savour these moments with us,
+        and skip the videos. Just witness them.
+      </p>
+      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {moments.map((m) => (
+          <li
+            key={m.title}
+            className="space-y-1 rounded-lg border border-ink/10 bg-cream p-4 text-sm"
+          >
+            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta">
+              {m.time} · {m.label}
+            </p>
+            <p className="font-medium text-ink">{m.title}</p>
+            <p className="text-xs text-ink/60">{m.note}</p>
+          </li>
+        ))}
+      </ul>
+      <p className="rounded-lg border border-dashed border-ink/20 bg-cream p-3 text-center text-xs italic text-ink/60">
+        Shutterbugs cover the angles. Your job is to clap, cheer, and be in the room.
+      </p>
+    </section>
+  );
+}
+
+function YourPhotosWidget({ limited }: { limited: boolean }) {
+  return (
+    <section className="space-y-4 rounded-xl border border-ink/10 bg-cream p-6">
+      <header>
+        <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">Your photos</p>
+        <h3 className="mt-1 text-2xl font-semibold tracking-tight">All curated for you</h3>
+      </header>
+
+      <div className="rounded-lg border border-dashed border-ink/20 bg-cream p-5 text-center text-sm text-ink/60">
+        All your photos will appear here after the event.
+      </div>
+
+      <div className="rounded-lg border border-ink/10 bg-cream p-5 text-sm">
+        <p className="font-medium text-ink">Make sure a shutterbug snaps you on the wedding day</p>
+        <p className="mt-1 text-ink/60">
+          Your first tagged photo automatically becomes your profile picture in the gallery.
+        </p>
+      </div>
+
+      {limited ? (
+        <p className="text-xs text-ink/55">
+          Your photos will be visible in your inviter&rsquo;s gallery.
+        </p>
+      ) : (
+        <div className="rounded-lg border border-terracotta/30 bg-gradient-to-br from-terracotta/10 to-cream p-5 text-sm">
+          <p className="font-medium text-ink">Add more via Shutter</p>
+          <p className="mt-1 text-ink/65">
+            You can also add your own photos and videos through Shutter, our in-app camera.
+            Tag up to 5 guests per post — the couple is tagged for you automatically.
+          </p>
+          <p className="mt-3 text-xs italic text-ink/45">
+            Shutter ships with the Setnayan native app (Phase 2).
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function TierComparisonWidget({ limited }: { limited: boolean }) {
+  if (limited) {
+    return (
+      <section className="space-y-4 rounded-xl border border-ink/10 bg-cream p-6">
+        <header>
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+            Your access
+          </p>
+          <h3 className="mt-1 text-2xl font-semibold tracking-tight">Two ways to celebrate</h3>
+        </header>
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          You&rsquo;re a +1 to your inviter. Your photos will appear in their gallery —
+          ask them to show you. Want full access? You can register your own Setnayan account
+          anytime — but for this wedding, you&rsquo;re invited as their +1.
+        </p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="space-y-2 rounded-lg border border-dashed border-ink/15 bg-cream p-5 opacity-55">
+            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
+              Public
+            </p>
+            <p className="text-sm text-ink/60">View invitation · RSVP · 3-day photo window</p>
+          </div>
+          <div className="space-y-2 rounded-lg border border-dashed border-terracotta/30 bg-cream p-5 opacity-55">
+            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta">
+              Registered (locked for +1s)
+            </p>
+            <p className="text-sm text-ink/60">
+              Shutter · Selfie Camera · Photo Challenges · Saved Forever · Reel builder
+            </p>
+          </div>
+        </div>
+        <a
+          href="https://setnayan.com"
+          className="button-secondary inline-flex"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Learn more about Setnayan
+        </a>
+      </section>
+    );
+  }
+
+  return (
+    <section className="space-y-4 rounded-xl border border-ink/10 bg-cream p-6">
+      <header>
+        <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">Your access</p>
+        <h3 className="mt-1 text-2xl font-semibold tracking-tight">Two ways to celebrate</h3>
+      </header>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="space-y-3 rounded-lg border border-ink/15 bg-cream p-5">
+          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
+            Public · As you are now
+          </p>
+          <p className="font-medium text-ink">Free · No sign-up needed</p>
+          <ul className="space-y-1 text-sm text-ink/70">
+            <li>· View this invitation</li>
+            <li>· RSVP for the wedding</li>
+            <li>· See your tagged photos for <strong>3 days</strong></li>
+            <li>· Save your QR to your phone</li>
+          </ul>
+          <p className="text-xs italic text-ink/50">
+            Photos delete from your view after 3 days unless you sign up.
+          </p>
+        </div>
+        <div className="space-y-3 rounded-lg border border-terracotta/40 bg-gradient-to-br from-terracotta/10 to-cream p-5">
+          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta">
+            With Setnayan account
+          </p>
+          <p className="font-medium text-ink">Free · One-tap sign-up</p>
+          <ul className="space-y-1 text-sm text-ink/75">
+            <li>· Everything in Public</li>
+            <li>· <strong>Shutter</strong> — capture &amp; tag photos as a guest</li>
+            <li>· <strong>Selfie Camera</strong> — branded wedding selfie cam</li>
+            <li>· <strong>Photo &amp; Video Challenges</strong> — fun mini-quests</li>
+            <li>· <strong>Saved Forever</strong> — photos kept permanently</li>
+            <li>· Build your own souvenir reel</li>
+          </ul>
+          <Link href="/signup" className="button-primary inline-flex">
+            Sign up free →
+          </Link>
+        </div>
+      </div>
+    </section>
   );
 }

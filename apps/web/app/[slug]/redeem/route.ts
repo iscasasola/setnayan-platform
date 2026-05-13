@@ -32,7 +32,9 @@ export async function GET(request: NextRequest) {
 
   const { data: guest } = await admin
     .from('guests')
-    .select('guest_id, event_id, qr_token')
+    .select(
+      'guest_id, event_id, qr_token, first_name, plus_one_of_guest_id, plus_one_name_confirmed_at',
+    )
     .eq('qr_token', token)
     .is('deleted_at', null)
     .maybeSingle();
@@ -61,6 +63,18 @@ export async function GET(request: NextRequest) {
     ip_anon: ipAnon,
     context: { entry: 'invite_link' },
   });
+
+  // TBA +1 onboarding gate: a +1 row with a placeholder first_name routes to
+  // the name-capture screen before they see the personal invitation site.
+  const isTbaPlusOne =
+    guest.plus_one_of_guest_id !== null &&
+    (!guest.first_name ||
+      guest.first_name === 'TBA' ||
+      guest.first_name.toLowerCase() === 'tba');
+
+  if (isTbaPlusOne && !guest.plus_one_name_confirmed_at) {
+    return NextResponse.redirect(new URL(`/${slug}/welcome`, url.origin));
+  }
 
   return NextResponse.redirect(target);
 }

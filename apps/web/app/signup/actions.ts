@@ -46,5 +46,7 @@ export async function signUp(formData: FormData) {
     );
   }
 
-  return redirect(`/signup?sent=1&next=${encodeURIComponent(next)}`);
+  return redirect(
+    `/login?check_email=${encodeURIComponent(email)}&next=${encodeURIComponent(next)}`,
+  );
 }

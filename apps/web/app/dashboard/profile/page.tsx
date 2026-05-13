@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { fetchUserEvents } from '@/lib/events';
 import { updatePlannerMode, updateThemePreference } from './actions';
 
 export const metadata = { title: 'Profile' };
@@ -61,14 +63,25 @@ export default async function ProfilePage() {
     profile?.is_team_member ||
     profile?.account_type === 'admin';
 
+  // If the user has exactly one active event, "Back" lands on that event's
+  // home rather than the event-picker. Two+ events fall through to /dashboard.
+  const events = await fetchUserEvents(supabase, user.id, 'couple');
+  const activeEvents = events.filter((e) => !e.archived);
+  const backHref =
+    activeEvents.length === 1 && activeEvents[0]
+      ? `/dashboard/${activeEvents[0].event_id}`
+      : '/dashboard';
+  const backLabel = activeEvents.length === 1 ? 'Back to Home' : 'Back to events';
+
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-8 space-y-2">
         <Link
-          href="/dashboard"
-          className="font-mono text-xs uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta"
+          href={backHref}
+          className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
         >
-          ‹ Back to events
+          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+          {backLabel}
         </Link>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
           Profile &amp; settings

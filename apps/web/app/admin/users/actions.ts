@@ -40,3 +40,26 @@ export async function toggleTeamMember(formData: FormData) {
 
   revalidatePath('/admin/users');
 }
+
+/**
+ * Manually confirm a user's email — useful when Supabase's outbound email
+ * doesn't arrive (rate limit, spam folder, misconfigured SMTP, etc.).
+ * Internal/team-pool only.
+ */
+export async function confirmUserEmail(formData: FormData) {
+  await requireAdmin();
+  const targetUserId = formData.get('user_id');
+  if (typeof targetUserId !== 'string') {
+    throw new Error('Invalid input');
+  }
+
+  const admin = createAdminClient();
+  // GoTrue admin API: PUT /auth/v1/admin/users/{id} { email_confirm: true }.
+  // The supabase-js SDK exposes this via auth.admin.updateUserById.
+  const { error } = await admin.auth.admin.updateUserById(targetUserId, {
+    email_confirm: true,
+  });
+  if (error) throw new Error(error.message);
+
+  revalidatePath('/admin/users');
+}

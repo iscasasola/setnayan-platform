@@ -13,10 +13,14 @@ import {
 type Props = {
   eventId: string;
   initial: RolePalette;
+  visibleKeys: PaletteKey[];
   saveAction: (formData: FormData) => Promise<void>;
 };
 
-export function PaletteEditor({ eventId, initial, saveAction }: Props) {
+export function PaletteEditor({ eventId, initial, visibleKeys, saveAction }: Props) {
+  const visibleSet = new Set(visibleKeys);
+  const inView = (key: PaletteKey) => visibleSet.has(key);
+
   const [palette, setPalette] = useState<RolePalette>(() =>
     Object.fromEntries(
       PALETTE_ORDER.map((k) => [k, initial[k] ?? []]),
@@ -74,14 +78,34 @@ export function PaletteEditor({ eventId, initial, saveAction }: Props) {
     <form action={handleSubmit} className="space-y-5">
       <input type="hidden" name="event_id" value={eventId} />
 
-      <PaletteFamily title="Venue" keys={PALETTE_ORDER.filter((k) => PALETTE_LIMITS[k].family === 'venue')}
+      <PaletteFamily
+        title="Venue"
+        keys={PALETTE_ORDER.filter(
+          (k) => PALETTE_LIMITS[k].family === 'venue' && inView(k),
+        )}
         palette={palette}
         onUpdate={updateColor}
         onAdd={addColor}
         onRemove={removeColor}
       />
 
-      <PaletteFamily title="Roles" keys={PALETTE_ORDER.filter((k) => PALETTE_LIMITS[k].family === 'role')}
+      <PaletteFamily
+        title="Couple"
+        keys={PALETTE_ORDER.filter(
+          (k) => PALETTE_LIMITS[k].family === 'couple' && inView(k),
+        )}
+        palette={palette}
+        onUpdate={updateColor}
+        onAdd={addColor}
+        onRemove={removeColor}
+      />
+
+      <PaletteFamily
+        title="Roles"
+        emptyHint="Add guests with roles (sponsors, bearers, officiants, wedding party) and their palette sections will appear here."
+        keys={PALETTE_ORDER.filter(
+          (k) => PALETTE_LIMITS[k].family === 'role' && inView(k),
+        )}
         palette={palette}
         onUpdate={updateColor}
         onAdd={addColor}
@@ -115,6 +139,7 @@ function PaletteFamily({
   title,
   keys,
   palette,
+  emptyHint,
   onUpdate,
   onAdd,
   onRemove,
@@ -122,10 +147,24 @@ function PaletteFamily({
   title: string;
   keys: PaletteKey[];
   palette: RolePalette;
+  emptyHint?: string;
   onUpdate: (key: PaletteKey, index: number, color: string) => void;
   onAdd: (key: PaletteKey) => void;
   onRemove: (key: PaletteKey, index: number) => void;
 }) {
+  if (keys.length === 0) {
+    if (!emptyHint) return null;
+    return (
+      <div className="space-y-3">
+        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          {title}
+        </h2>
+        <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-4 text-xs text-ink/55">
+          {emptyHint}
+        </p>
+      </div>
+    );
+  }
   return (
     <div className="space-y-3">
       <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">

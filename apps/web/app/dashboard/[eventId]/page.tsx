@@ -368,7 +368,7 @@ function NavGrid({
       <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
         Plan
       </h2>
-      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
         {TILES.map((tile) => {
           const { Icon } = tile;
           const counter =

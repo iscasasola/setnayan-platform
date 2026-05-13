@@ -1,6 +1,6 @@
-import { Search, ShieldCheck, Sparkle } from 'lucide-react';
+import { Search, ShieldCheck, Sparkle, MailCheck } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { toggleTeamMember } from './actions';
+import { confirmUserEmail, toggleTeamMember } from './actions';
 
 export const metadata = { title: 'Users · Admin' };
 
@@ -157,28 +157,41 @@ export default async function AdminUsersPage({ searchParams }: Props) {
                     </div>
                   </td>
                   <td className="px-3 py-3">
-                    {u.is_internal ? (
-                      <span className="text-xs text-ink/55">Locked (internal)</span>
-                    ) : (
-                      <form action={toggleTeamMember}>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {u.is_internal ? (
+                        <span className="text-xs text-ink/55">Locked (internal)</span>
+                      ) : (
+                        <form action={toggleTeamMember}>
+                          <input type="hidden" name="user_id" value={u.user_id} />
+                          <input
+                            type="hidden"
+                            name="desired"
+                            value={u.is_team_member ? 'false' : 'true'}
+                          />
+                          <button
+                            type="submit"
+                            className={`rounded-md px-2 py-1 text-xs font-medium ${
+                              u.is_team_member
+                                ? 'bg-emerald-100 text-emerald-900 hover:bg-emerald-200'
+                                : 'bg-ink/5 text-ink/70 hover:bg-ink/10'
+                            }`}
+                          >
+                            {u.is_team_member ? 'Remove from pool' : 'Add to pool'}
+                          </button>
+                        </form>
+                      )}
+                      <form action={confirmUserEmail}>
                         <input type="hidden" name="user_id" value={u.user_id} />
-                        <input
-                          type="hidden"
-                          name="desired"
-                          value={u.is_team_member ? 'false' : 'true'}
-                        />
                         <button
                           type="submit"
-                          className={`rounded-md px-2 py-1 text-xs font-medium ${
-                            u.is_team_member
-                              ? 'bg-emerald-100 text-emerald-900 hover:bg-emerald-200'
-                              : 'bg-ink/5 text-ink/70 hover:bg-ink/10'
-                          }`}
+                          title="Force-confirm this user's email (idempotent — useful when Supabase email doesn't arrive)"
+                          className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-ink/10"
                         >
-                          {u.is_team_member ? 'Remove from pool' : 'Add to pool'}
+                          <MailCheck className="h-3 w-3" strokeWidth={2} />
+                          Confirm email
                         </button>
                       </form>
-                    )}
+                    </div>
                   </td>
                 </tr>
               ))

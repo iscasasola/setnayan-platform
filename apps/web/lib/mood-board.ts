@@ -1,17 +1,22 @@
 import type { RoleGroup } from './role-groups';
 
 /**
- * Palette keys split into two families:
- *   • Venue-level palettes (ceremony, reception) — the overall event vibe
- *   • Role-level palettes (wedding_party, sponsors, …, guest)
+ * Palette keys split into three families:
+ *   • Venue — ceremony / reception (overall event vibe)
+ *   • Couple — bride / groom (attire palettes for the couple)
+ *   • Roles — wedding_party / sponsors / bearers / officiants (only shown if
+ *     guests actually exist in that role group) and plain `guest`
  *
- * Each key maps to an ARRAY of hex colors. The reception palette has named
- * slots (dominant, supporting, accents); other palettes are unlabeled.
+ * Reception palette has named slots (dominant, supporting, accents) for the
+ * first four indexes; the 5th + 6th are extra accents without labels.
  */
+export type CouplePaletteKey = 'bride' | 'groom';
+
 export type PaletteKey =
   | 'ceremony'
   | 'reception'
-  | RoleGroup
+  | CouplePaletteKey
+  | Exclude<RoleGroup, 'other_roles'>
   | 'guest';
 
 export type RolePalette = Partial<Record<PaletteKey, string[]>>;
@@ -26,7 +31,7 @@ export type PaletteLimits = {
   /** Per-index labels (e.g. ["Dominant", "Supporting", "Accent", "Accent 2"]). */
   slotLabels?: ReadonlyArray<string>;
   /** Grouping tag for UI sectioning. */
-  family: 'venue' | 'role';
+  family: 'venue' | 'couple' | 'role';
 };
 
 /**
@@ -47,11 +52,25 @@ export const PALETTE_LIMITS: Record<PaletteKey, PaletteLimits> = {
   },
   reception: {
     min: 3,
-    max: 4,
+    max: 6,
     label: 'Reception palette',
-    hint: 'Dominant + supporting + 1–2 accents — 3 to 4 colors',
+    hint: 'Dominant + supporting + accents — 3 to 6 colors',
     slotLabels: ['Dominant', 'Supporting', 'Accent', 'Accent 2'],
     family: 'venue',
+  },
+  bride: {
+    min: 1,
+    max: 3,
+    label: 'Bride',
+    hint: "The bride's attire palette — 1 to 3 colors",
+    family: 'couple',
+  },
+  groom: {
+    min: 1,
+    max: 3,
+    label: 'Groom',
+    hint: "The groom's attire palette — 1 to 3 colors",
+    family: 'couple',
   },
   wedding_party: {
     min: 3,
@@ -88,13 +107,6 @@ export const PALETTE_LIMITS: Record<PaletteKey, PaletteLimits> = {
     hint: 'Officiant · lectors · soloists — 1 to 3 colors',
     family: 'role',
   },
-  other_roles: {
-    min: 1,
-    max: 3,
-    label: 'Other roles',
-    hint: 'Anyone else with a named role — 1 to 3 colors',
-    family: 'role',
-  },
   guest: {
     min: 3,
     max: 6,
@@ -107,13 +119,28 @@ export const PALETTE_LIMITS: Record<PaletteKey, PaletteLimits> = {
 export const PALETTE_ORDER: ReadonlyArray<PaletteKey> = [
   'ceremony',
   'reception',
+  'bride',
+  'groom',
   'wedding_party',
   'principal_sponsors',
   'secondary_sponsors',
   'bearers_flower_girl',
   'officiants',
-  'other_roles',
   'guest',
+];
+
+/**
+ * Family membership lookup — drives conditional rendering. Venue and couple
+ * palettes always show. Role-family palettes only show when the event has at
+ * least one guest with a role mapping to that group, so the Mood Board doesn't
+ * present empty palette slots couples will never use.
+ */
+export const ROLE_FAMILY_KEYS: ReadonlyArray<PaletteKey> = [
+  'wedding_party',
+  'principal_sponsors',
+  'secondary_sponsors',
+  'bearers_flower_girl',
+  'officiants',
 ];
 
 /**
@@ -144,20 +171,22 @@ export function sanitizeRolePalette(raw: unknown): RolePalette {
 
 export function getPrimaryColor(
   palette: RolePalette,
-  key: PaletteKey,
+  key: PaletteKey | 'other_roles',
 ): string | undefined {
-  const arr = palette[key];
+  if (key === 'other_roles') return undefined;
+  const arr = palette[key as PaletteKey];
   return arr && arr.length > 0 ? arr[0] : undefined;
 }
 
 export const DEFAULT_PALETTE_SUGGESTIONS: Record<PaletteKey, string[]> = {
   ceremony: ['#FAF7F2', '#824A2A'],
   reception: ['#C97B4B', '#824A2A', '#D08654'],
+  bride: ['#FAF7F2'],
+  groom: ['#1A1A1A'],
   wedding_party: ['#C97B4B', '#824A2A', '#D08654'],
   principal_sponsors: ['#7C3AED'],
   secondary_sponsors: ['#D97706'],
   bearers_flower_girl: ['#059669'],
   officiants: ['#0284C7'],
-  other_roles: ['#525252'],
   guest: ['#FAF7F2', '#1A1A1A', '#C97B4B'],
 };

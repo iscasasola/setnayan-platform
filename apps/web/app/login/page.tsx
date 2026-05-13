@@ -7,12 +7,20 @@ export const metadata: Metadata = {
   description: 'Sign in to your Setnayan account.',
 };
 
-type SearchParams = Promise<{ error?: string; sent?: string; next?: string }>;
+type SearchParams = Promise<{
+  error?: string;
+  sent?: string;
+  check_email?: string;
+  next?: string;
+}>;
 
 export default async function LoginPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   const errorMessage = params.error ? decodeURIComponent(params.error) : null;
   const magicLinkSent = params.sent === '1';
+  const justSignedUpEmail = params.check_email
+    ? decodeURIComponent(params.check_email)
+    : null;
   const next = params.next && params.next.startsWith('/') ? params.next : '/';
 
   return (
@@ -42,6 +50,18 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
           className="rounded-md border border-ink/15 bg-ink/5 px-4 py-3 text-sm text-ink/80"
         >
           Magic link sent. Check your email to finish signing in.
+        </p>
+      ) : null}
+
+      {justSignedUpEmail ? (
+        <p
+          role="status"
+          className="rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+        >
+          Account created. We sent a confirmation link to{' '}
+          <span className="font-medium">{justSignedUpEmail}</span> — open it to finish, then
+          sign in below. Check your spam folder if it doesn&rsquo;t arrive in a couple of
+          minutes.
         </p>
       ) : null}
 

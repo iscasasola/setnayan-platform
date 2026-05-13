@@ -6,18 +6,18 @@ import {
   Home,
   Users,
   Briefcase,
-  CalendarDays,
+  Wallet,
   Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 
-type TabKey = 'home' | 'guests' | 'vendors' | 'schedule' | 'services';
+type TabKey = 'home' | 'guests' | 'vendors' | 'budget' | 'services';
 
 const TABS: { key: TabKey; label: string; Icon: LucideIcon; href: (eventId: string) => string }[] = [
   { key: 'home', label: 'Home', Icon: Home, href: (id) => `/dashboard/${id}` },
   { key: 'guests', label: 'Guests', Icon: Users, href: (id) => `/dashboard/${id}/guests` },
   { key: 'vendors', label: 'Vendors', Icon: Briefcase, href: (id) => `/dashboard/${id}/vendors` },
-  { key: 'schedule', label: 'Schedule', Icon: CalendarDays, href: (id) => `/dashboard/${id}/schedule` },
+  { key: 'budget', label: 'Budget', Icon: Wallet, href: (id) => `/dashboard/${id}/budget` },
   { key: 'services', label: 'Services', Icon: Sparkles, href: (id) => `/dashboard/${id}/services` },
 ];
 
@@ -27,9 +27,9 @@ function activeTab(pathname: string, eventId: string): TabKey | null {
     pathname.includes('/invitation') ||
     pathname.includes('/seating')
   ) return 'guests';
-  if (pathname.includes('/vendors') || pathname.includes('/budget')) return 'vendors';
-  if (pathname.includes('/schedule')) return 'schedule';
-  if (pathname.includes('/services')) return 'services';
+  if (pathname.includes('/vendors')) return 'vendors';
+  if (pathname.includes('/budget')) return 'budget';
+  if (pathname.includes('/services') || pathname.includes('/schedule')) return 'services';
   if (pathname === `/dashboard/${eventId}`) return 'home';
   return null;
 }

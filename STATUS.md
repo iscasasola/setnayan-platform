@@ -3,7 +3,7 @@
 > Living checkpoint. Updated as work progresses.
 
 **Last updated:** 2026-05-13
-**Current sprint:** Iteration `0006_vendors_management` MVP shipped — couple-side vendor tracker. New `vendor_category` enum (28 canonical PH categories), `vendor_status` enum (6-stage readiness flow), and `event_vendors` table with Pattern B RLS. New `/dashboard/[eventId]/vendors` page replaces the placeholder: stats strip (count / total cost PHP / deposit paid / remaining), add-vendor form (name + category + contact + cost + deposit + notes), status filter chips with counts, per-vendor cards (mail/tel links, money breakdown, status updater, delete). Vendor-side profiles (iteration 0022), payment milestones (3-line spec), and crew meals remain deferred.
+**Current sprint:** Iteration `0007_budget_expenses` MVP shipped — line items + payments + .ics. New `event_vendor_line_items` (label + amount + due_date) and `event_vendor_payments` (amount + paid_at + method + reference + notes; optional link to a line item) tables with Pattern B RLS. New `/dashboard/[eventId]/budget` page replaces the placeholder: stats strip (total budget · paid so far · remaining · due in 30 days), per-vendor cards with itemized line items + logged payments and inline add forms, delete buttons per row. A new authenticated `GET /api/budget/[eventId]/ics` endpoint streams an RFC 5545 calendar file (one VEVENT per upcoming unpaid line-item due date), wired to a "Export upcoming dates (.ics)" button on the budget page.
 **Owner's wedding (deadline anchor):** December 2026
 
 ---

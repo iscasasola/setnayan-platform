@@ -4,6 +4,37 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-13 · 0007 budget MVP — line items + payment log + .ics export
+
+**Commits:** to be filled in once committed.
+
+**What landed:**
+- New migration `20260513110000_iteration_0007_budget.sql`:
+  - `event_vendor_line_items` — `line_item_id` PK, event/vendor FKs, `label` (1–64 chars), `amount_php` NUMERIC(12,2) ≥ 0, `due_date` DATE nullable, `sort_order`, timestamp.
+  - `event_vendor_payments` — `payment_id` PK, event/vendor FKs, optional `line_item_id` FK (SET NULL on delete so a deleted line item doesn't nuke its payment history), `amount_php` > 0, `paid_at` DATE default `CURRENT_DATE`, optional `method`/`reference`/`notes` TEXT.
+  - Pattern B RLS on both tables via the canonical `current_couple_event_ids()` helper.
+- New `apps/web/lib/budget.ts` — types, `fetchBudgetSnapshot` (joins vendors + line items + payments per event), per-vendor + global totals (budget, paid, remaining, "due in 30 days"), and `renderBudgetIcs` that emits RFC 5545 `VCALENDAR` with CRLF line endings, proper TEXT escaping (`\\` / `\\;` / `\\,` / `\\n`), `DTSTART;VALUE=DATE:` for all-day events, and skips line items that are already fully paid.
+- New server actions in `apps/web/app/dashboard/[eventId]/budget/actions.ts`: `addLineItem`, `deleteLineItem`, `logPayment`, `deletePayment`. All validate money / date / label format on the server before the DB write.
+- New `/dashboard/[eventId]/budget` page replaces the placeholder. Top: stats strip (4 tiles) and the "Export upcoming dates (.ics)" button. Body: one card per vendor with a per-vendor stats row (budget · paid · remaining), a Line items column with inline add form, a Payments column with inline log form (defaults to today, can attribute to a specific line item or be generic).
+- New `GET /api/budget/[eventId]/ics` route handler — authenticated via Supabase cookie; returns `Content-Type: text/calendar` with `attachment` disposition (`setnayan-<event-slug>-budget.ics`). Calendar clients (Google Calendar, Apple Calendar) ingest this directly.
+
+**SPEC IMPACT:**
+- `~/Documents/Claude/Projects/Setnayan/04_Iterations/0007_budget_expenses.md` — record V1 MVP scope:
+  - **Line items:** spec mentioned "3 line items per vendor (Package · Crew Meal · Transportation)" as the suggested default. V1 lets couples create *any number* of line items per vendor with *any label*; the schema doesn't bake in the 3-line template. The spec doc should be updated to reflect this flexibility, or — if the owner prefers — V1 should be amended to constrain to 3 items.
+  - **Calendar feed vs download:** spec calls for ".ics calendar export". V1 ships a **one-shot authenticated download** rather than a subscribable feed. A subscribable feed requires a per-event public token + a public route that bypasses the auth cookie; that's a follow-on (would land alongside the public-API gateway in 0033).
+  - **Setnayan platform costs auto-populate:** the spec called for in-app purchases from 0034 (Payments & Cart) to flow into the budget automatically as a "Setnayan" vendor. V1 leaves this manual — couples can create a "Setnayan platform" vendor and log Setnayan transactions there. Auto-population lands when 0034 ships.
+- The `current_couple_event_ids()` helper is now load-bearing for **SEVEN** surfaces (event_members, event_journey_steps, event_tables, event_seat_assignments, event_vendors, event_vendor_line_items, event_vendor_payments). Definitively canonical.
+
+**Deferred:**
+- Editing line items / payments (V1 supports add + delete only)
+- Receipt / proof-of-payment file upload (would land alongside R2 wiring for vendor contracts)
+- Multi-currency
+- Subscribable .ics URL with per-event token
+- Auto-import from iteration 0034 payments
+- Charts / visualizations / month-over-month spending
+
+---
+
 ## 2026-05-13 · 0006 vendors MVP — couple-side tracker (28 categories, 6-stage readiness)
 
 **Commits:** to be filled in once committed.

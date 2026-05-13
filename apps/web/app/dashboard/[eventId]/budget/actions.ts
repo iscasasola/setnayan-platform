@@ -1,0 +1,149 @@
+'use server';
+
+import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
+import { createClient } from '@/lib/supabase/server';
+
+function parseMoney(raw: FormDataEntryValue | null): number | null {
+  if (typeof raw !== 'string' || raw.trim().length === 0) return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.round(n * 100) / 100;
+}
+
+function parseRequiredMoney(raw: FormDataEntryValue | null): number {
+  const v = parseMoney(raw);
+  if (v === null || v <= 0) throw new Error('Amount must be a positive number');
+  return v;
+}
+
+function nullIfBlank(raw: FormDataEntryValue | null): string | null {
+  if (typeof raw !== 'string') return null;
+  const t = raw.trim();
+  return t.length > 0 ? t : null;
+}
+
+function isIsoDate(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+export async function addLineItem(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const vendorId = formData.get('vendor_id');
+  const label = formData.get('label');
+  const dueDateRaw = formData.get('due_date');
+
+  if (typeof eventId !== 'string' || typeof vendorId !== 'string' || typeof label !== 'string') {
+    throw new Error('Invalid input');
+  }
+  const trimmedLabel = label.trim();
+  if (trimmedLabel.length === 0 || trimmedLabel.length > 64) {
+    throw new Error('Label must be 1–64 chars');
+  }
+  const amount = parseRequiredMoney(formData.get('amount_php'));
+  const dueDate =
+    typeof dueDateRaw === 'string' && dueDateRaw.length > 0 && isIsoDate(dueDateRaw)
+      ? dueDateRaw
+      : null;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { error } = await supabase.from('event_vendor_line_items').insert({
+    event_id: eventId,
+    vendor_id: vendorId,
+    label: trimmedLabel,
+    amount_php: amount,
+    due_date: dueDate,
+  });
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/dashboard/${eventId}/budget`);
+}
+
+export async function deleteLineItem(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const lineItemId = formData.get('line_item_id');
+  if (typeof eventId !== 'string' || typeof lineItemId !== 'string') {
+    throw new Error('Invalid input');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { error } = await supabase
+    .from('event_vendor_line_items')
+    .delete()
+    .eq('line_item_id', lineItemId)
+    .eq('event_id', eventId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/dashboard/${eventId}/budget`);
+}
+
+export async function logPayment(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const vendorId = formData.get('vendor_id');
+  const lineItemRaw = formData.get('line_item_id');
+  const paidAtRaw = formData.get('paid_at');
+
+  if (typeof eventId !== 'string' || typeof vendorId !== 'string') {
+    throw new Error('Invalid input');
+  }
+  const amount = parseRequiredMoney(formData.get('amount_php'));
+  const paidAt =
+    typeof paidAtRaw === 'string' && paidAtRaw.length > 0 && isIsoDate(paidAtRaw)
+      ? paidAtRaw
+      : new Date().toISOString().slice(0, 10);
+  const lineItemId =
+    typeof lineItemRaw === 'string' && lineItemRaw.length > 0 ? lineItemRaw : null;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { error } = await supabase.from('event_vendor_payments').insert({
+    event_id: eventId,
+    vendor_id: vendorId,
+    line_item_id: lineItemId,
+    amount_php: amount,
+    paid_at: paidAt,
+    method: nullIfBlank(formData.get('method')),
+    reference: nullIfBlank(formData.get('reference')),
+    notes: nullIfBlank(formData.get('notes')),
+  });
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/dashboard/${eventId}/budget`);
+}
+
+export async function deletePayment(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const paymentId = formData.get('payment_id');
+  if (typeof eventId !== 'string' || typeof paymentId !== 'string') {
+    throw new Error('Invalid input');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { error } = await supabase
+    .from('event_vendor_payments')
+    .delete()
+    .eq('payment_id', paymentId)
+    .eq('event_id', eventId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/dashboard/${eventId}/budget`);
+}

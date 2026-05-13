@@ -389,6 +389,9 @@ function SiteFooter() {
           <span aria-hidden>·</span>
           <span>Made in the Philippines</span>
           <span aria-hidden>·</span>
+          <Link href="/help" className="hover:text-ink">
+            Help
+          </Link>
           <Link href="/login" className="hover:text-ink">
             Sign in
           </Link>

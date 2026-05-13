@@ -365,6 +365,9 @@ export default async function ProfilePage({ searchParams }: Props) {
       </section>
 
       <section className="mt-6 flex flex-col gap-3 sm:flex-row">
+        <Link href="/help" className="button-secondary">
+          Help &amp; support
+        </Link>
         {isAdmin ? (
           <Link href="/admin" className="button-secondary">
             Admin console ↗

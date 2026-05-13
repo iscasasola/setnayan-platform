@@ -52,7 +52,7 @@ Next likely sessions: complete iteration 0001 (detail drawer, plus-one UI, CSV i
 | # | Step | State | Where |
 |---|---|---|---|
 | 1 | GitHub repo + main branch | ✅ | `https://github.com/iscasasola/setnayan-platform` (commit `394ded8`) |
-| 2 | Supabase project + canonical schema | ✅ | `https://njrupjnvkjkitfctetvi.supabase.co` · Singapore region · migration `20260512000000` applied |
+| 2 | Supabase project + canonical schema | ✅ | Singapore region · migration `20260512000000` applied. Project URL + dashboard link in Vercel env vars (`NEXT_PUBLIC_SUPABASE_URL`). |
 | 3 | Cloudflare R2 buckets | ✅ | 4 buckets in APAC: `setnayan-media`, `setnayan-thread-files`, `setnayan-vendor-contracts`, `setnayan-samples` |
 | 4 | Vercel deploy | ✅ | `https://setnayan-platform-web.vercel.app` · Hobby plan · auto-deploy on push to `main` |
 | 5 | Owner sign-up + `is_internal=TRUE` confirmed | ✅ | Row `S89U-KEMMF2ADCK` · email admin-confirmed via API |
@@ -169,7 +169,7 @@ Native iOS/Android Papic + DSLR pairing are Phase 2 (post-V1.0 launch). Per the 
 
 - **Live app:** https://setnayan-platform-web.vercel.app
 - **GitHub repo:** https://github.com/iscasasola/setnayan-platform
-- **Supabase project:** https://supabase.com/dashboard/project/njrupjnvkjkitfctetvi
+- **Supabase project:** https://supabase.com/dashboard/projects (project ref is in Vercel env vars)
 - **Vercel project:** https://vercel.com/iscasasolaii-9434s-projects/setnayan-platform-web
 - **Cloudflare dashboard:** https://dash.cloudflare.com
 - **Spec corpus:** `~/Documents/Claude/Projects/Setnayan/` (`CLAUDE.md` is the canonical decision log)

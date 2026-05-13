@@ -6,12 +6,13 @@
 
 The Setnayan V1 implementation. **All product specs and decision logs live OUTSIDE this repo** at `~/Documents/Claude/Projects/Setnayan/`. Read that folder's `CLAUDE.md` for the canonical decision log before any iteration work.
 
-## Documentation contract — three living docs in this repo
+## Documentation contract — four living docs in this repo
 
 | File | Purpose |
 |---|---|
 | `STATUS.md` | Snapshot of where the project is — current sprint, last completed step, what's next. Updated after every milestone. |
 | `CHANGELOG.md` | Append-only log of every code change, dated, with spec-impact callouts. Append after every meaningful change. |
+| `COWORK_INBOX.md` | Active worklist of pending spec-corpus updates the owner must apply via Cowork. Items removed once actioned. |
 | `CLAUDE.md` (this file) | Persistent instructions for future Claude Code sessions. |
 
 ### Rules for every session
@@ -19,8 +20,9 @@ The Setnayan V1 implementation. **All product specs and decision logs live OUTSI
 **After ANY non-trivial code change you must:**
 
 1. Append a `CHANGELOG.md` entry with: date, commit SHA, what changed, and a `SPEC IMPACT:` line (even if it says "None")
-2. Update `STATUS.md` if the project state advanced (new step, new iteration, new known gap)
-3. Commit both doc updates in the same commit as the code change
+2. If `SPEC IMPACT` is **not** "None", also append a `[PENDING]` entry to `COWORK_INBOX.md` with: the affected spec file path under `~/Documents/Claude/Projects/Setnayan/`, the exact content to add/change, and a short rationale. This is the owner's worklist for Cowork — keep it concise and actionable.
+3. Update `STATUS.md` if the project state advanced (new step, new iteration, new known gap)
+4. Commit all doc updates in the same commit as the code change
 
 ## Cowork — the spec-update boundary
 
@@ -31,6 +33,7 @@ The specs at `~/Documents/Claude/Projects/Setnayan/` are managed by the owner vi
 - If a code change implies a spec change (new SKU pricing, schema column rename, retired feature, new workflow, branding update, etc.), **do NOT edit files in `~/Documents/Claude/Projects/Setnayan/` directly.**
 - Instead, in your session response, surface the spec impact and **explicitly remind the owner**: *"Please update `<path-to-affected-spec.md>` via Cowork to reflect this change."*
 - Log the impact in the corresponding `CHANGELOG.md` entry with file path + reason.
+- Append a `[PENDING]` entry to `COWORK_INBOX.md` so the owner has a clean worklist instead of having to scan `CHANGELOG.md` history for what still needs Cowork's attention.
 
 Cowork is not a CLI tool you can invoke. It's the owner's editorial process. Your job is to flag what needs Cowork's attention, not to bypass it.
 

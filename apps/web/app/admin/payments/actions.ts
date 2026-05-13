@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import { formatPhp } from '@/lib/orders';
+import { computeVatBreakdown } from '@/lib/receipts';
 
 async function requireAdmin(): Promise<{ userId: string }> {
   const supabase = await createClient();
@@ -85,9 +86,59 @@ export async function approvePayment(formData: FormData) {
         ? `/dashboard/${order.event_id}/orders/${payment.order_id}`
         : null,
     });
+
+    // Auto-issue an Official Receipt (BIR § 113 compliance) — one per order.
+    // The unique constraint on receipts.order_id makes the insert idempotent
+    // across retries; subsequent runs silently no-op.
+    await issueReceiptForOrder({ admin, orderId: payment.order_id });
   }
 
   revalidatePath('/admin/payments');
+}
+
+async function issueReceiptForOrder(args: {
+  admin: ReturnType<typeof createAdminClient>;
+  orderId: string;
+}): Promise<void> {
+  const { admin, orderId } = args;
+
+  // Skip if a receipt was already issued for this order.
+  const { data: existing } = await admin
+    .from('receipts')
+    .select('receipt_id')
+    .eq('order_id', orderId)
+    .maybeSingle();
+  if (existing) return;
+
+  const { data: order } = await admin
+    .from('orders')
+    .select('user_id, confirmed_total_php, requested_total_php')
+    .eq('order_id', orderId)
+    .maybeSingle();
+  if (!order) return;
+
+  const gross = Number(order.confirmed_total_php ?? order.requested_total_php ?? 0);
+  if (gross <= 0) return;
+
+  const { data: buyer } = await admin
+    .from('users')
+    .select('email, display_name')
+    .eq('user_id', order.user_id)
+    .maybeSingle();
+
+  const { preVat, vat } = computeVatBreakdown(gross);
+
+  // or_serial defaults from public.or_serial_seq (atomic) — don't pass it.
+  // The display "OR number" is composed at read-time via formatOrNumber().
+  await admin.from('receipts').insert({
+    order_id: orderId,
+    user_id: order.user_id,
+    issued_to_email: buyer?.email ?? 'unknown@setnayan.com',
+    issued_to_name: buyer?.display_name ?? null,
+    pre_vat_php: preVat,
+    vat_amount_php: vat,
+    gross_total_php: gross,
+  });
 }
 
 export async function rejectPayment(formData: FormData) {

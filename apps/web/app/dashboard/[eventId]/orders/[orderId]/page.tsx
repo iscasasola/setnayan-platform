@@ -12,6 +12,10 @@ import {
   fetchPaymentsForOrder,
   formatPhp,
 } from '@/lib/orders';
+import {
+  fetchReceiptByOrderId,
+  formatOrNumber,
+} from '@/lib/receipts';
 import { cancelOrder, logPayment } from '../actions';
 
 export const metadata = { title: 'Order detail' };
@@ -32,7 +36,10 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
 
   const order = await fetchOrderById(supabase, orderId);
   if (!order || order.event_id !== eventId) notFound();
-  const payments = await fetchPaymentsForOrder(supabase, orderId);
+  const [payments, receipt] = await Promise.all([
+    fetchPaymentsForOrder(supabase, orderId),
+    fetchReceiptByOrderId(supabase, orderId),
+  ]);
   const totals = computeOrderTotals(order, payments);
 
   const flash =
@@ -125,6 +132,30 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
           </form>
         ) : null}
       </header>
+
+      {receipt ? (
+        <section className="space-y-2 rounded-2xl border border-emerald-300/60 bg-emerald-50/60 p-5">
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-emerald-900">
+            Official Receipt issued
+          </p>
+          <p className="text-base font-semibold text-emerald-900">
+            {formatOrNumber(receipt.or_serial, receipt.issued_at)}
+          </p>
+          <p className="text-sm text-emerald-900/85">
+            BIR-compliant OR generated when payment was matched. Open the receipt to
+            print or save as PDF.
+          </p>
+          <Link
+            href={`/receipts/${receipt.receipt_id}`}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-cream hover:bg-emerald-800"
+          >
+            <ExternalLink aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            Open receipt
+          </Link>
+        </section>
+      ) : null}
 
       <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
         <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">

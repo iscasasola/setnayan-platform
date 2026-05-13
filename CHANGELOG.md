@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-14 · feat(routing): short URLs for the couple dashboard
+
+**Commit:** to be filled after commit.
+
+**What landed:** `apps/web/middleware.ts` now redirects `/<event-uuid>/<anything>` &rarr; `/dashboard/<event-uuid>/<anything>`. So `setnayan.com/57159614-47aa-…/guests/quick` works the same as the full `setnayan.com/dashboard/57159614-…/guests/quick`. Couples can bookmark or share short URLs and skip the `/dashboard/` prefix when typing by hand.
+
+**Why it's safe:**
+- UUIDs are 36 chars (`xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`). Slugs are validated at 3&ndash;32 chars `[a-z0-9-]+`. The two patterns cannot collide &mdash; a UUID can never be mistaken for a slug, and vice versa.
+- The redirect fires before the `[slug]` catch-all gets a chance to 404. Slugs continue to resolve via `/<slug>` as before.
+- The destination `/dashboard/[eventId]/...` already enforces auth in its layout. If a non-authenticated user types a UUID URL by accident, they're bounced to `/login` exactly the same way they would be on the full URL.
+
+**SPEC IMPACT:** None &mdash; URL aliasing only; no schema, RLS, or product-decision change.
+
+---
+
 ## 2026-05-14 · COWORK_INBOX.md handoff channel + caching strategy queued
 
 **Commit:** to be filled after commit.

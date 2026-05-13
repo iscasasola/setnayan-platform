@@ -94,7 +94,53 @@ If receipts were already issued, they show the **business name** + **TIN** you j
 
 ---
 
-## Phase 2 — Wire Resend for real email (30 min, free signup)
+## Phase 2 — Wire Resend for real email (DEFERRED — see Phase 2A below)
+
+**Status:** Skipped per owner decision. Cost/limits don't make sense for
+V1's user count yet. Without Resend:
+
+- Signup auto-confirms (the existing bypass keeps working) ✓
+- Notifications stay in-app only (couples + vendors see badges) ✓
+- Password reset via the normal flow is broken — replaced by Phase 2A below ✓
+
+### Phase 2A — Manual password reset (LIVE NOW)
+
+Two paths replace the normal email-based reset:
+
+**A1. Admin resets another user's password:**
+
+1. Open https://setnayan-platform-web.vercel.app/admin/users
+2. Find the user (search by email)
+3. Click **Reset password** in their row (button has a key icon)
+4. Page reloads with an **amber banner at the top** showing a 12-character
+   temporary password — shown only once, then cleared on refresh
+5. Copy it and share with the user via a secure channel (DM, in person, SMS)
+6. The user signs in with the temp password and immediately changes it from
+   their Profile page
+
+**A2. User changes their own password:**
+
+1. User signs in (with temp or current password)
+2. Goes to `/dashboard/profile`
+3. Under **Change password**, types a new password twice
+4. Clicks **Change password**
+5. New password applies on next sign-in; current session stays active
+
+### Phase 2B — When you eventually want Resend
+
+The integration code is shipped — only env vars are missing. Follow the
+**Phase 2 (reference)** steps below and add to Vercel:
+
+```
+RESEND_API_KEY=re_…
+RESEND_FROM_EMAIL=Setnayan <noreply@yourdomain.com>
+```
+
+Redeploy. Every notification + welcome email starts flowing automatically.
+
+---
+
+### Phase 2 — Wire Resend for real email (REFERENCE, NOT REQUIRED)
 
 **Why:** Right now signup confirmation emails, payment-matched notifications,
 and welcome messages get queued but don't actually send. The day you paste

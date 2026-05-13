@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Download, AlertTriangle, Compass } from 'lucide-react';
+import { ArrowLeft, Download, AlertTriangle, Compass, KeyRound } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchUserEvents } from '@/lib/events';
 import { restartTour } from '@/lib/tour-actions';
 import {
+  changePassword,
   softDeleteAccount,
   updatePersonalInfo,
   updatePlannerMode,
@@ -14,7 +15,12 @@ import {
 export const metadata = { title: 'Profile' };
 
 type Props = {
-  searchParams: Promise<{ saved?: string; error?: string; tour_restarted?: string }>;
+  searchParams: Promise<{
+    saved?: string;
+    error?: string;
+    tour_restarted?: string;
+    password_changed?: string;
+  }>;
 };
 
 type ThemeKey = 'setnayan_default' | 'victorian' | 'classy' | 'ios';
@@ -123,6 +129,14 @@ export default async function ProfilePage({ searchParams }: Props) {
           Welcome tour restarted — head back to your dashboard to see it again.
         </p>
       ) : null}
+      {search.password_changed ? (
+        <p
+          role="status"
+          className="mb-4 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+        >
+          Password changed. Your session stays active; use the new password next time you sign in.
+        </p>
+      ) : null}
 
       {/* Personal info */}
       <section className="mb-10 space-y-4">
@@ -183,6 +197,49 @@ export default async function ProfilePage({ searchParams }: Props) {
           </label>
           <button type="submit" className="button-primary">
             Save personal info
+          </button>
+        </form>
+      </section>
+
+      <section className="mb-10 space-y-4">
+        <div className="space-y-1">
+          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+            Change password
+          </h2>
+          <p className="text-sm text-ink/60">
+            Minimum 8 characters. Your current session stays active; use the
+            new password next time you sign in.
+          </p>
+        </div>
+        <form action={changePassword} className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
+          <Field label="New password" htmlFor="new_password">
+            <input
+              id="new_password"
+              name="new_password"
+              type="password"
+              required
+              minLength={8}
+              autoComplete="new-password"
+              className="input-field"
+            />
+          </Field>
+          <Field label="Confirm new password" htmlFor="confirm_password">
+            <input
+              id="confirm_password"
+              name="confirm_password"
+              type="password"
+              required
+              minLength={8}
+              autoComplete="new-password"
+              className="input-field"
+            />
+          </Field>
+          <button
+            type="submit"
+            className="button-primary inline-flex items-center gap-2"
+          >
+            <KeyRound aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            Change password
           </button>
         </form>
       </section>

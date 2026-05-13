@@ -120,6 +120,45 @@ export async function softDeleteAccount(formData: FormData) {
   redirect('/login?error=Account+deleted');
 }
 
+export async function changePassword(formData: FormData) {
+  const newPassword = formData.get('new_password');
+  const confirmPassword = formData.get('confirm_password');
+
+  if (typeof newPassword !== 'string' || typeof confirmPassword !== 'string') {
+    return redirect(
+      `/dashboard/profile?error=${encodeURIComponent('Invalid input')}`,
+    );
+  }
+  if (newPassword.length < 8) {
+    return redirect(
+      `/dashboard/profile?error=${encodeURIComponent('Password must be at least 8 characters')}`,
+    );
+  }
+  if (newPassword !== confirmPassword) {
+    return redirect(
+      `/dashboard/profile?error=${encodeURIComponent('Passwords do not match')}`,
+    );
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // supabase.auth.updateUser works for the signed-in user to set their own
+  // password — no admin client needed, the session token authorizes the call.
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) {
+    return redirect(
+      `/dashboard/profile?error=${encodeURIComponent(error.message)}`,
+    );
+  }
+
+  revalidatePath('/dashboard/profile');
+  redirect('/dashboard/profile?password_changed=1');
+}
+
 export async function updatePlannerMode(formData: FormData) {
   const raw = formData.get('planner_mode');
   if (!isValidPlannerMode(raw)) {

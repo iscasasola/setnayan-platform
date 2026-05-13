@@ -63,6 +63,56 @@ export async function restoreUserAccount(formData: FormData) {
 }
 
 /**
+ * Generates a 12-char temporary password (no ambiguous chars like 0/O/1/l),
+ * sets it on the target account via the admin API, and redirects with the
+ * temp password in a transient query param so the admin can copy + share it.
+ *
+ * Useful when Supabase's outbound email isn't wired (no Resend SMTP yet)
+ * and a user can't reset their own password. Internal/team-pool only.
+ */
+export async function resetUserPassword(formData: FormData) {
+  await requireAdmin();
+  const targetUserId = formData.get('user_id');
+  if (typeof targetUserId !== 'string') {
+    throw new Error('Invalid input');
+  }
+
+  const tempPassword = generateTempPassword();
+
+  const admin = createAdminClient();
+  const { data: existing } = await admin
+    .from('users')
+    .select('email')
+    .eq('user_id', targetUserId)
+    .maybeSingle();
+  if (!existing?.email) {
+    throw new Error('User not found');
+  }
+
+  const { error } = await admin.auth.admin.updateUserById(targetUserId, {
+    password: tempPassword,
+  });
+  if (error) throw new Error(error.message);
+
+  revalidatePath('/admin/users');
+  redirect(
+    `/admin/users?temp_password=${encodeURIComponent(tempPassword)}&for_email=${encodeURIComponent(existing.email)}`,
+  );
+}
+
+function generateTempPassword(): string {
+  // Drop visually ambiguous chars (0, O, 1, I, l) so the password is easy to
+  // dictate over the phone if needed.
+  const alphabet =
+    'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const arr = new Uint8Array(12);
+  crypto.getRandomValues(arr);
+  return Array.from(arr)
+    .map((b) => alphabet[b % alphabet.length])
+    .join('');
+}
+
+/**
  * Manually confirm a user's email — useful when Supabase's outbound email
  * doesn't arrive (rate limit, spam folder, misconfigured SMTP, etc.).
  * Internal/team-pool only.

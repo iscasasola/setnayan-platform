@@ -1,6 +1,11 @@
-import { Search, ShieldCheck, Sparkle, MailCheck, RotateCcw, Trash2 } from 'lucide-react';
+import { Search, ShieldCheck, Sparkle, MailCheck, RotateCcw, Trash2, KeyRound } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { confirmUserEmail, restoreUserAccount, toggleTeamMember } from './actions';
+import {
+  confirmUserEmail,
+  resetUserPassword,
+  restoreUserAccount,
+  toggleTeamMember,
+} from './actions';
 
 export const metadata = { title: 'Users · Admin' };
 
@@ -19,13 +24,20 @@ type UserRow = {
 type Filter = 'all' | 'customer' | 'vendor' | 'internal' | 'team_pool' | 'deleted';
 
 type Props = {
-  searchParams: Promise<{ q?: string; filter?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    filter?: string;
+    temp_password?: string;
+    for_email?: string;
+  }>;
 };
 
 export default async function AdminUsersPage({ searchParams }: Props) {
   const search = await searchParams;
   const q = (search.q ?? '').trim();
   const filter = (search.filter ?? 'all') as Filter;
+  const tempPassword = search.temp_password ?? null;
+  const forEmail = search.for_email ?? null;
 
   const admin = createAdminClient();
   let query = admin
@@ -61,6 +73,42 @@ export default async function AdminUsersPage({ searchParams }: Props) {
           Latest 200 accounts (newest first). Filter or search to drill in.
         </p>
       </header>
+
+      {tempPassword ? (
+        <section
+          role="status"
+          className="mb-6 space-y-3 rounded-2xl border border-amber-300/60 bg-amber-50/80 p-5"
+        >
+          <div className="space-y-1">
+            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-amber-900">
+              Temporary password generated
+            </p>
+            <p className="text-sm text-amber-900">
+              Share this with{' '}
+              {forEmail ? (
+                <span className="font-medium">{forEmail}</span>
+              ) : (
+                'the user'
+              )}{' '}
+              via a secure channel (DM, in-person, encrypted message). The
+              password is shown once — refreshing this page clears it.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 rounded-md bg-cream p-3">
+            <code className="break-all font-mono text-lg font-semibold text-ink">
+              {tempPassword}
+            </code>
+            <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+              Select all + copy
+            </span>
+          </div>
+          <p className="text-xs text-amber-900/85">
+            Have the user sign in with this temp password, then change it
+            immediately from their Profile page (Personal info → Change
+            password).
+          </p>
+        </section>
+      ) : null}
 
       <form className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center" method="get">
         <div className="relative flex-1">
@@ -202,17 +250,30 @@ export default async function AdminUsersPage({ searchParams }: Props) {
                         </form>
                       )}
                       {!u.deleted_at ? (
-                        <form action={confirmUserEmail}>
-                          <input type="hidden" name="user_id" value={u.user_id} />
-                          <button
-                            type="submit"
-                            title="Force-confirm this user's email (idempotent — useful when Supabase email doesn't arrive)"
-                            className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-ink/10"
-                          >
-                            <MailCheck className="h-3 w-3" strokeWidth={2} />
-                            Confirm email
-                          </button>
-                        </form>
+                        <>
+                          <form action={confirmUserEmail}>
+                            <input type="hidden" name="user_id" value={u.user_id} />
+                            <button
+                              type="submit"
+                              title="Force-confirm this user's email (idempotent — useful when Supabase email doesn't arrive)"
+                              className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-ink/10"
+                            >
+                              <MailCheck className="h-3 w-3" strokeWidth={2} />
+                              Confirm email
+                            </button>
+                          </form>
+                          <form action={resetUserPassword}>
+                            <input type="hidden" name="user_id" value={u.user_id} />
+                            <button
+                              type="submit"
+                              title="Generate a temporary password to share with this user. Shown once at the top of the page."
+                              className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-amber-100 hover:text-amber-900"
+                            >
+                              <KeyRound className="h-3 w-3" strokeWidth={2} />
+                              Reset password
+                            </button>
+                          </form>
+                        </>
                       ) : null}
                     </div>
                   </td>

@@ -2,18 +2,26 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Users, Briefcase, CalendarDays, Sparkles, type LucideIcon } from 'lucide-react';
+import {
+  Home,
+  Users,
+  Briefcase,
+  CalendarDays,
+  Sparkles,
+  type LucideIcon,
+} from 'lucide-react';
 
-type TabKey = 'guests' | 'vendors' | 'schedule' | 'services';
+type TabKey = 'home' | 'guests' | 'vendors' | 'schedule' | 'services';
 
 const TABS: { key: TabKey; label: string; Icon: LucideIcon; href: (eventId: string) => string }[] = [
-  { key: 'guests', label: 'Guest List', Icon: Users, href: (id) => `/dashboard/${id}/guests` },
+  { key: 'home', label: 'Home', Icon: Home, href: (id) => `/dashboard/${id}` },
+  { key: 'guests', label: 'Guests', Icon: Users, href: (id) => `/dashboard/${id}/guests` },
   { key: 'vendors', label: 'Vendors', Icon: Briefcase, href: (id) => `/dashboard/${id}/vendors` },
   { key: 'schedule', label: 'Schedule', Icon: CalendarDays, href: (id) => `/dashboard/${id}/schedule` },
   { key: 'services', label: 'Services', Icon: Sparkles, href: (id) => `/dashboard/${id}/services` },
 ];
 
-function activeTab(pathname: string): TabKey | null {
+function activeTab(pathname: string, eventId: string): TabKey | null {
   if (
     pathname.includes('/guests') ||
     pathname.includes('/invitation') ||
@@ -22,12 +30,13 @@ function activeTab(pathname: string): TabKey | null {
   if (pathname.includes('/vendors') || pathname.includes('/budget')) return 'vendors';
   if (pathname.includes('/schedule')) return 'schedule';
   if (pathname.includes('/services')) return 'services';
+  if (pathname === `/dashboard/${eventId}`) return 'home';
   return null;
 }
 
 export function BottomNav({ eventId }: { eventId: string }) {
   const pathname = usePathname();
-  const current = activeTab(pathname);
+  const current = activeTab(pathname, eventId);
 
   return (
     <nav

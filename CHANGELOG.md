@@ -4,6 +4,42 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-13 · 0023 admin console MVP — overview + users + events + vendors
+
+**Commits:** to be filled in once committed.
+
+**What landed:**
+- No schema changes — admin uses the existing `users.is_internal` / `users.is_team_member` flags (set in Sprint 0) plus the service-role client to read across all tables regardless of RLS.
+- New `/admin` route tree:
+  - **Layout** (`apps/web/app/admin/layout.tsx`) — auth-gates the entire subtree. Allows users where `is_internal=TRUE OR is_team_member=TRUE OR account_type='admin'`. Non-admins get `notFound()` (404) rather than a redirect, so the admin URL doesn't leak its existence. Header shows a badge (🟣 Internal · 🟢 Team Pool · Admin) per the user's flag.
+  - **Overview** (`/admin`) — 8-tile stats strip (all users · couples · vendor users · events · vendor profiles · chat threads · 🟣 internal · 🟢 team pool) from service-role `count: 'exact', head: true` queries. Below: 4 navigation cards (Users · Events · Vendors · disabled Approval queue placeholder).
+  - **Users** (`/admin/users`) — server-rendered table, latest 200 rows. Search by email/display_name/public_id (single `or(…ilike…)` query). 5-way filter (all / customer / vendor / internal / team pool). Each non-internal row gets an "Add to pool" / "Remove from pool" button that flips `is_team_member` via `requireAdmin()`-guarded server action. Internal accounts (e.g., the owner) show a locked label — they shouldn't be flipped by admins.
+  - **Events** (`/admin/events`) — 200-row table sorted by event_date ascending, with a live guest count per event (single secondary query that batches by `IN`), search across display_name/slug/public_id, optional "include archived" toggle.
+  - **Vendors** (`/admin/vendors`) — vendor profile cards in a 3-col grid: avatar (logo URL or initials), published-vs-draft pill, tagline, contact_email, location, first three services, public_id. Search across name/slug/email/public_id + 3-way filter (all / published / draft).
+- New `requireAdmin()` helper in `apps/web/app/admin/users/actions.ts` — checks the calling user's flags via the regular Supabase client (under RLS) before doing service-role writes.
+- Profile page (`/dashboard/profile`) gains an "Admin console ↗" button that only renders for `is_internal || is_team_member || account_type='admin'`. The button is the canonical entry point to `/admin`.
+
+**SPEC IMPACT:**
+- `~/Documents/Claude/Projects/Setnayan/04_Iterations/0023_admin_console.md` — record V1 MVP scope (3 of 7 surfaces) and flag deferred sub-scopes:
+  - **Approval queue:** spec calls for a **two-admin approval workflow** for sensitive actions (refunds, account deletes, etc.). V1 doesn't define the underlying state machine — needs spec on which actions require two-admin approval and the queue UX (request → approve → execute).
+  - **Audit log:** an `audit_log` table that records who did what when. Needed before any "approval queue" can resolve disputes. Schema-design + trigger plumbing is a follow-on.
+  - **System health:** Supabase / R2 / Vercel metrics dashboard. Waits on iteration 0035 (observability) which wires Sentry / PostHog / Better Stack.
+  - **Settings:** platform-wide configuration (Setnayan brand strings, default theme, feature flags). Currently those live in `brand.config.ts` and env vars; admin-editable settings would need a `settings` table.
+  - **Reports:** GMV / vendor activity / payment reconciliation. Waits on iteration 0034 (Payments & Cart) for the underlying data.
+- The `requireAdmin()` pattern is intentionally **not** an RLS helper. The admin console reads via the service_role client and bypasses RLS; authorization is enforced at the route layer. Document this in `02_Specifications/RLS_Policy_Pattern.md` — service-role usage outside scripted/server-side flows should be the exception, not the rule. The admin console is a deliberate exception.
+- **Non-leakage choice (record explicitly):** the admin route uses `notFound()` for unauthorized users, not `redirect('/dashboard')`. This keeps the existence of `/admin` invisible to the public. Future admin-only routes should follow the same pattern.
+
+**Deferred:**
+- Two-admin approval queue (needs state-machine spec)
+- Audit log (`audit_log` table + triggers on sensitive tables)
+- System health / observability surface (waits on 0035)
+- Settings / feature flags surface
+- Reports / GMV / vendor performance dashboards
+- Bulk operations (mass-archive, mass-delete, etc.) — V1 admin is read-mostly + per-row flag flip
+- Impersonation ("view as user X") — a future debug aid
+
+---
+
 ## 2026-05-13 · 0019 communications MVP — couple↔vendor 1:1 chat + identity masking
 
 **Commits:** to be filled in once committed.

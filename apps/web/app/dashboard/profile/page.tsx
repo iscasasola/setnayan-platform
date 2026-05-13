@@ -56,6 +56,10 @@ export default async function ProfilePage() {
 
   const activeTheme = (profile?.theme_preference ?? 'setnayan_default') as ThemeKey;
   const activePlannerMode = (profile?.planner_mode ?? 'guided') as 'guided' | 'diy';
+  const isAdmin =
+    profile?.is_internal ||
+    profile?.is_team_member ||
+    profile?.account_type === 'admin';
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
@@ -216,6 +220,11 @@ export default async function ProfilePage() {
       </section>
 
       <section className="mt-6 flex flex-col gap-3 sm:flex-row">
+        {isAdmin ? (
+          <Link href="/admin" className="button-secondary">
+            Admin console ↗
+          </Link>
+        ) : null}
         <form action="/auth/sign-out" method="post">
           <button className="button-secondary" type="submit">
             Sign out

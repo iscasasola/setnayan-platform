@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { getQueryClient } from '@/lib/query-client';
-import { eventBundleQueryKeys, type EventBundle } from '@/lib/event-preload';
+import { eventBundleQueryKeys, type EventBundle } from '@/lib/event-bundle-keys';
 import { prepareForEventDay } from './event-day-prep-actions';
 
 /**

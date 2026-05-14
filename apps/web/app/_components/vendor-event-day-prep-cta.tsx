@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { CloudDownload, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
 import { getQueryClient } from '@/lib/query-client';
-import { eventBundleQueryKeys, type VendorEventBundle } from '@/lib/event-preload';
+import { eventBundleQueryKeys, type VendorEventBundle } from '@/lib/event-bundle-keys';
 import {
   prepareVendorEventDay,
   type PrepareVendorEventDayResult,

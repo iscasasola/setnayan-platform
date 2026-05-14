@@ -1,23 +1,31 @@
 import 'server-only';
 
 import { createClient } from '@/lib/supabase/server';
-import { fetchGuestsByEvent, type GuestRow } from '@/lib/guests';
-import {
-  fetchTables,
-  fetchAssignments,
-  type EventTableRow,
-  type SeatAssignmentRow,
-} from '@/lib/seating';
+import { fetchGuestsByEvent } from '@/lib/guests';
+import { fetchTables, fetchAssignments } from '@/lib/seating';
 import { fetchScheduleBlocks, type ScheduleBlockRow } from '@/lib/schedule';
-import { fetchEventVendors, type EventVendorRow } from '@/lib/vendors';
-import { fetchBudgetSnapshot, type BudgetSnapshot } from '@/lib/budget';
+import { fetchEventVendors } from '@/lib/vendors';
+import { fetchBudgetSnapshot } from '@/lib/budget';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
-import {
-  fetchCoupleThreads,
-  fetchMessages,
-  type ChatMessageRow,
-  type CoupleThreadWithVendor,
-} from '@/lib/chat';
+import { fetchCoupleThreads, fetchMessages, type ChatMessageRow } from '@/lib/chat';
+import type {
+  ChatThreadMessages,
+  EventBundle,
+  EventMeta,
+  VendorEventBundle,
+} from '@/lib/event-bundle-keys';
+
+// Re-export client-safe shapes + the query-key factory so existing callers
+// of `lib/event-preload` keep working without a churny rename. New client
+// imports should go through `@/lib/event-bundle-keys` directly to avoid
+// pulling this server-only module into the bundle.
+export type {
+  ChatThreadMessages,
+  EventBundle,
+  EventMeta,
+  VendorEventBundle,
+} from '@/lib/event-bundle-keys';
+export { eventBundleQueryKeys } from '@/lib/event-bundle-keys';
 
 /**
  * Event-day pre-load — iteration 0036.
@@ -39,46 +47,6 @@ import {
  * TanStack Query keys; the client iterates the bundle and calls
  * `queryClient.setQueryData([key, ...], data)` per section.
  */
-
-export type ChatThreadMessages = {
-  thread: CoupleThreadWithVendor;
-  messages: ChatMessageRow[];
-};
-
-export type EventMeta = {
-  event_id: string;
-  display_name: string;
-  event_date: string | null;
-  slug: string | null;
-  venue_name: string | null;
-  venue_address: string | null;
-  monogram_text: string | null;
-  role_palette: RolePalette;
-};
-
-export type EventBundle = {
-  /** When the bundle was assembled — used for UI freshness display. */
-  fetchedAt: string;
-  /** The event-level metadata (date, venue, palette). */
-  event: EventMeta;
-  /** Guests with RSVP, role, table assignment, etc. */
-  guests: GuestRow[];
-  /** Seating: tables + per-guest seat assignments. */
-  tables: EventTableRow[];
-  seatAssignments: SeatAssignmentRow[];
-  /** Schedule blocks (ceremony, reception, dancing…). */
-  scheduleBlocks: ScheduleBlockRow[];
-  /** All vendors contracted for the event. */
-  vendors: EventVendorRow[];
-  /** Budget line items + payments rolled up. */
-  budget: BudgetSnapshot;
-  /** Mood board palette (cached on event row, sanitized for safety). */
-  moodBoard: { palette: RolePalette };
-  /** Last 50 messages per chat thread the couple has open with vendors. */
-  chatThreads: ChatThreadMessages[];
-  /** Asset URLs the client should hand to the SW so they live in the cache. */
-  assetUrls: string[];
-};
 
 /**
  * Number of trailing messages we cache per thread. Tunable — 50 is a good
@@ -194,25 +162,6 @@ export async function prefetchEventBundle(eventId: string): Promise<EventBundle>
  * have to a contracted event. From the thread row we get event_id + the
  * thread_id needed for last-50-messages.
  */
-export type VendorEventBundle = {
-  fetchedAt: string;
-  threadId: string;
-  eventId: string;
-  eventDisplayName: string;
-  eventDate: string | null;
-  scheduleBlocks: ScheduleBlockRow[];
-  messages: ChatMessageRow[];
-  /**
-   * Couple contact — purely whatever surfaces through RLS on `event_vendors`.
-   * Vendors don't have couple-side read access in V1, so this is typically the
-   * masked event display name + date the couple chose to share via the thread.
-   */
-  maskedContact: {
-    event_display_name: string;
-    event_date: string | null;
-  };
-};
-
 export async function prefetchVendorEventBundle(args: {
   threadId: string;
   eventId: string;
@@ -247,22 +196,3 @@ export async function prefetchVendorEventBundle(args: {
   };
 }
 
-/**
- * Canonical TanStack-Query key builders. Centralized here so the hydration
- * step in `<EventDayPrepCta>` and the page-level queries in feature folders
- * never disagree about the key shape. Bare arrays so they survive
- * structural equality the way TanStack expects.
- */
-export const eventBundleQueryKeys = {
-  event: (eventId: string) => ['event', eventId] as const,
-  guests: (eventId: string) => ['event', eventId, 'guests'] as const,
-  tables: (eventId: string) => ['event', eventId, 'tables'] as const,
-  seatAssignments: (eventId: string) => ['event', eventId, 'seatAssignments'] as const,
-  scheduleBlocks: (eventId: string) => ['event', eventId, 'scheduleBlocks'] as const,
-  vendors: (eventId: string) => ['event', eventId, 'vendors'] as const,
-  budget: (eventId: string) => ['event', eventId, 'budget'] as const,
-  moodBoard: (eventId: string) => ['event', eventId, 'moodBoard'] as const,
-  chatThread: (threadId: string) => ['chat', threadId, 'messages'] as const,
-  vendorThread: (threadId: string) => ['vendor', 'chat', threadId, 'messages'] as const,
-  vendorEvent: (eventId: string) => ['vendor', 'event', eventId] as const,
-};

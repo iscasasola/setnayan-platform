@@ -7,6 +7,7 @@ export type NotificationType =
   | 'payment_matched'
   | 'payment_rejected'
   | 'rsvp_received'
+  | 'review_request'
   | 'help_ticket_replied'
   | 'vendor_inquiry_received';
 
@@ -17,6 +18,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   payment_matched: 'Payment matched',
   payment_rejected: 'Payment rejected',
   rsvp_received: 'RSVP received',
+  review_request: 'Review request',
   help_ticket_replied: 'Help ticket reply',
   vendor_inquiry_received: 'New booking inquiry',
 };
@@ -28,6 +30,7 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   payment_matched: 'bg-emerald-100 text-emerald-800',
   payment_rejected: 'bg-rose-100 text-rose-800',
   rsvp_received: 'bg-terracotta/15 text-terracotta-700',
+  review_request: 'bg-amber-100 text-amber-900',
   help_ticket_replied: 'bg-indigo-100 text-indigo-800',
   vendor_inquiry_received: 'bg-fuchsia-100 text-fuchsia-800',
 };

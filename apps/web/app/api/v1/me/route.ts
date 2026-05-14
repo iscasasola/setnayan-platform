@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { authenticateApiRequest, isAuthError } from '@/lib/api-auth';
+import {
+  apiErrorResponse,
+  authenticateApiRequest,
+  authErrorResponse,
+  isAuthError,
+  requireScope,
+} from '@/lib/api-auth';
 
 /**
  * Auth-gated whoami. The most basic authenticated endpoint — used to
@@ -10,9 +16,10 @@ import { authenticateApiRequest, isAuthError } from '@/lib/api-auth';
  */
 export async function GET(req: Request) {
   const auth = await authenticateApiRequest(req);
-  if (isAuthError(auth)) {
-    return NextResponse.json({ error: auth.error }, { status: auth.status });
-  }
+  if (isAuthError(auth)) return authErrorResponse(auth);
+
+  const scopeError = requireScope(auth, 'me.read');
+  if (scopeError) return scopeError;
 
   const admin = createAdminClient();
   const { data: profile } = await admin
@@ -22,15 +29,16 @@ export async function GET(req: Request) {
     .maybeSingle();
 
   if (!profile) {
-    return NextResponse.json({ error: 'user_not_found' }, { status: 404 });
+    return apiErrorResponse(404, 'user_not_found', 'User profile not found.');
   }
 
   return NextResponse.json(
+    { data: profile },
     {
-      data: profile,
-    },
-    {
-      headers: { 'Cache-Control': 'no-store' },
+      headers: {
+        'Cache-Control': 'no-store',
+        'Content-Type': 'application/json; charset=utf-8',
+      },
     },
   );
 }

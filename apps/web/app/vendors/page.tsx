@@ -1,5 +1,14 @@
-import { Briefcase } from 'lucide-react';
-import { DashboardPlaceholder } from '@/app/_components/dashboard-placeholder';
+import Link from 'next/link';
+import { Star, Search, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
+import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  VENDOR_CATEGORIES,
+  VENDOR_CATEGORY_LABEL,
+  type VendorCategory,
+  SERVICE_GROUPS,
+  displayServiceLabel,
+} from '@/lib/vendors';
+import { fetchReviewStatsForMany, formatStarRating } from '@/lib/reviews';
 
 export const metadata = {
   title: 'Vendors — Setnayan',
@@ -7,22 +16,539 @@ export const metadata = {
     'Browse Filipino wedding vendors on Setnayan. Photographers, caterers, coordinators, florists, and more.',
 };
 
-export default function VendorsMarketplacePage() {
+// The marketplace is public, but the underlying queries hit Supabase with a
+// service-role client so anonymous visitors don't need to install a per-page
+// cookie or burn an auth roundtrip. Each query is scoped to is_published =
+// TRUE so we never leak in-progress profiles.
+export const dynamic = 'force-dynamic';
+
+type SortKey = 'most_reviews' | 'highest_rated' | 'newest' | 'name_asc';
+const SORT_KEYS: ReadonlyArray<SortKey> = [
+  'most_reviews',
+  'highest_rated',
+  'newest',
+  'name_asc',
+];
+const SORT_LABEL: Record<SortKey, string> = {
+  most_reviews: 'Most reviews',
+  highest_rated: 'Highest rated',
+  newest: 'Newest',
+  name_asc: 'Name (A → Z)',
+};
+
+const PAGE_SIZE = 24;
+
+type Props = {
+  searchParams: Promise<{
+    q?: string;
+    category?: string;
+    city?: string;
+    sort?: string;
+    page?: string;
+  }>;
+};
+
+type VendorCardRow = {
+  vendor_profile_id: string;
+  public_id: string;
+  business_name: string;
+  business_slug: string | null;
+  tagline: string | null;
+  logo_url: string | null;
+  services: string[];
+  location_city: string | null;
+  created_at: string;
+};
+
+function parseFilters(
+  raw: Awaited<Props['searchParams']>,
+): {
+  q: string;
+  category: VendorCategory | null;
+  city: string;
+  sort: SortKey;
+  page: number;
+} {
+  const q = (raw.q ?? '').trim();
+  const sort = (SORT_KEYS as readonly string[]).includes(raw.sort ?? '')
+    ? (raw.sort as SortKey)
+    : 'most_reviews';
+  const category = (VENDOR_CATEGORIES as readonly string[]).includes(raw.category ?? '')
+    ? (raw.category as VendorCategory)
+    : null;
+  const city = (raw.city ?? '').trim();
+  const pageRaw = Number(raw.page ?? '1');
+  const page = Number.isFinite(pageRaw) && pageRaw > 0 ? Math.floor(pageRaw) : 1;
+  return { q, category, city, sort, page };
+}
+
+export default async function VendorsMarketplacePage({ searchParams }: Props) {
+  const raw = await searchParams;
+  const filters = parseFilters(raw);
+  const admin = createAdminClient();
+
+  // Build the base query. We always require is_published = TRUE.
+  let query = admin
+    .from('vendor_profiles')
+    .select(
+      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,created_at',
+      { count: 'exact' },
+    )
+    .eq('is_published', true);
+
+  if (filters.q.length > 0) {
+    query = query.ilike('business_name', `%${filters.q}%`);
+  }
+  if (filters.category) {
+    // `services` is a text[] in the DB; the contains operator matches when
+    // the array includes the canonical category key. Custom service strings
+    // are not indexed by canonical key, so a category filter won't match
+    // vendors who only listed a custom service — that's correct V1 behavior.
+    query = query.contains('services', [filters.category]);
+  }
+  if (filters.city.length > 0) {
+    query = query.ilike('location_city', `%${filters.city}%`);
+  }
+
+  // Sort: newest + name_asc are direct column sorts on the vendor_profiles
+  // table. most_reviews + highest_rated need the stats view, so for those we
+  // fall back to a two-stage fetch where we get a candidate page sorted by
+  // newest first, then re-sort in-memory by their stats. This trades a tiny
+  // sort cost for the simplicity of not having to PostgREST-join the view.
+  if (filters.sort === 'name_asc') {
+    query = query.order('business_name', { ascending: true });
+  } else {
+    query = query.order('created_at', { ascending: false });
+  }
+
+  const range = filters.sort === 'most_reviews' || filters.sort === 'highest_rated'
+    ? { from: 0, to: 2000 } // hydrate up to 2000 published rows for in-memory sort
+    : {
+        from: (filters.page - 1) * PAGE_SIZE,
+        to: filters.page * PAGE_SIZE - 1,
+      };
+
+  const { data: rowsRaw, count: totalCount } = await query.range(range.from, range.to);
+  const rows = (rowsRaw ?? []) as VendorCardRow[];
+
+  const statsById = await fetchReviewStatsForMany(
+    admin,
+    rows.map((r) => r.vendor_profile_id),
+  );
+
+  // Apply stats-based sort + pagination in-memory.
+  let sorted = rows;
+  if (filters.sort === 'most_reviews' || filters.sort === 'highest_rated') {
+    sorted = [...rows].sort((a, b) => {
+      const sa = statsById.get(a.vendor_profile_id);
+      const sb = statsById.get(b.vendor_profile_id);
+      const aCount = sa?.total_count ?? 0;
+      const bCount = sb?.total_count ?? 0;
+      const aRating = sa?.avg_rating_overall ?? 0;
+      const bRating = sb?.avg_rating_overall ?? 0;
+      if (filters.sort === 'highest_rated') {
+        if (bRating !== aRating) return bRating - aRating;
+        return bCount - aCount; // tiebreak by review count
+      }
+      // most_reviews
+      if (bCount !== aCount) return bCount - aCount;
+      return bRating - aRating;
+    });
+  }
+
+  const slicedTotal = filters.sort === 'most_reviews' || filters.sort === 'highest_rated'
+    ? sorted.length
+    : (totalCount ?? sorted.length);
+  const totalPages = Math.max(1, Math.ceil(slicedTotal / PAGE_SIZE));
+  const visible = filters.sort === 'most_reviews' || filters.sort === 'highest_rated'
+    ? sorted.slice((filters.page - 1) * PAGE_SIZE, filters.page * PAGE_SIZE)
+    : sorted;
+
   return (
     <main className="min-h-dvh bg-cream">
-      <DashboardPlaceholder
-        Icon={Briefcase}
-        eyebrow="Marketplace · coming soon"
-        title="Browse Filipino wedding vendors."
-        blurb="The public marketplace is opening soon. Couples will be able to discover vetted vendors by category, city, price band, and availability. Vendors who've already signed up will be the first listed."
-        features={[
-          '28 service categories — from photography and catering to coordination, florals, and pyrotechnics',
-          'Filter by city, available-on-date, price band, tier, and "has Setnayan-exclusive offer"',
-          'Sort by Recommended / Most reviews / Highest rated / Closest / Newest / Price',
-          'Direct chat with the vendor through the platform — identity-masked until you decide to share details',
-          'Reviews from real Setnayan couples post-event, with the 3% Setnayan Pay convenience-fee protection',
-        ]}
-      />
+      <header className="border-b border-ink/5">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+          <Link href="/" className="flex items-center gap-2">
+            <span
+              aria-hidden
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-terracotta font-semibold text-cream"
+            >
+              S
+            </span>
+            <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/70">
+              Setnayan
+            </span>
+          </Link>
+          <Link
+            href="/signup"
+            className="hidden text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline sm:inline"
+          >
+            Plan with Setnayan
+          </Link>
+        </div>
+      </header>
+
+      <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+        <div className="space-y-3">
+          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
+            Marketplace
+          </p>
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            Browse Filipino wedding vendors.
+          </h1>
+          <p className="max-w-prose text-base text-ink/65">
+            Verified vendors who took the time to set up a Setnayan profile. Star ratings
+            come from couples who&rsquo;ve actually paid for the service.
+          </p>
+        </div>
+
+        <FilterBar filters={filters} />
+
+        {visible.length === 0 ? (
+          <EmptyState filters={filters} />
+        ) : (
+          <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {visible.map((v) => {
+              const s = statsById.get(v.vendor_profile_id);
+              return (
+                <li key={v.vendor_profile_id}>
+                  <VendorMarketCard
+                    vendor={v}
+                    rating={s?.avg_rating_overall ?? 0}
+                    reviewCount={s?.total_count ?? 0}
+                  />
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        <Pagination
+          filters={filters}
+          page={filters.page}
+          totalPages={totalPages}
+          total={slicedTotal}
+        />
+      </section>
     </main>
+  );
+}
+
+function buildHref(
+  filters: {
+    q: string;
+    category: VendorCategory | null;
+    city: string;
+    sort: SortKey;
+    page: number;
+  },
+  patch: Partial<{
+    q: string;
+    category: VendorCategory | null | '';
+    city: string;
+    sort: SortKey;
+    page: number;
+  }>,
+): string {
+  const merged = { ...filters, ...patch };
+  const params = new URLSearchParams();
+  if (merged.q) params.set('q', merged.q);
+  if (merged.category) params.set('category', merged.category);
+  if (merged.city) params.set('city', merged.city);
+  if (merged.sort && merged.sort !== 'most_reviews') params.set('sort', merged.sort);
+  if (merged.page && merged.page > 1) params.set('page', String(merged.page));
+  const qs = params.toString();
+  return qs.length > 0 ? `/vendors?${qs}` : '/vendors';
+}
+
+function FilterBar({
+  filters,
+}: {
+  filters: {
+    q: string;
+    category: VendorCategory | null;
+    city: string;
+    sort: SortKey;
+    page: number;
+  };
+}) {
+  return (
+    <form
+      method="get"
+      action="/vendors"
+      className="mt-6 grid gap-3 rounded-2xl border border-ink/10 bg-cream p-4 sm:grid-cols-2 lg:grid-cols-5"
+    >
+      <label className="flex flex-col gap-1 lg:col-span-2">
+        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+          Search
+        </span>
+        <span className="relative">
+          <Search
+            aria-hidden
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40"
+            strokeWidth={1.75}
+          />
+          <input
+            type="search"
+            name="q"
+            defaultValue={filters.q}
+            placeholder="Photographer, florist, name…"
+            className="input-field pl-9"
+          />
+        </span>
+      </label>
+
+      <label className="flex flex-col gap-1">
+        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+          Category
+        </span>
+        <select name="category" defaultValue={filters.category ?? ''} className="input-field">
+          <option value="">All categories</option>
+          {SERVICE_GROUPS.map((g) => (
+            <optgroup key={g.key} label={g.label}>
+              {g.members.map((c) => (
+                <option key={c} value={c}>
+                  {VENDOR_CATEGORY_LABEL[c]}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+      </label>
+
+      <label className="flex flex-col gap-1">
+        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+          City
+        </span>
+        <input
+          type="text"
+          name="city"
+          defaultValue={filters.city}
+          placeholder="Manila, Cebu…"
+          className="input-field"
+        />
+      </label>
+
+      <label className="flex flex-col gap-1">
+        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+          Sort by
+        </span>
+        <select name="sort" defaultValue={filters.sort} className="input-field">
+          {SORT_KEYS.map((k) => (
+            <option key={k} value={k}>
+              {SORT_LABEL[k]}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <div className="flex items-end gap-2 lg:col-span-5">
+        <button type="submit" className="button-primary h-11 px-5">
+          Apply filters
+        </button>
+        {filters.q || filters.category || filters.city || filters.sort !== 'most_reviews' ? (
+          <Link href="/vendors" className="button-secondary h-11 px-5">
+            Clear
+          </Link>
+        ) : null}
+      </div>
+    </form>
+  );
+}
+
+function EmptyState({
+  filters,
+}: {
+  filters: {
+    q: string;
+    category: VendorCategory | null;
+    city: string;
+    sort: SortKey;
+    page: number;
+  };
+}) {
+  const hasFilter = !!(filters.q || filters.category || filters.city);
+  return (
+    <div className="mt-8 rounded-2xl border border-dashed border-ink/20 bg-cream p-10 text-center">
+      <p className="text-base font-medium text-ink/75">
+        {hasFilter
+          ? 'No vendors match these filters.'
+          : 'No vendors have published their Setnayan profile yet.'}
+      </p>
+      <p className="mt-1 text-sm text-ink/55">
+        {hasFilter
+          ? 'Try widening your search or clearing one filter at a time.'
+          : 'Check back soon — vendors are landing every week.'}
+      </p>
+      {hasFilter ? (
+        <Link href="/vendors" className="button-secondary mt-4 inline-flex h-10 px-4">
+          Clear all filters
+        </Link>
+      ) : null}
+    </div>
+  );
+}
+
+function VendorMarketCard({
+  vendor,
+  rating,
+  reviewCount,
+}: {
+  vendor: VendorCardRow;
+  rating: number;
+  reviewCount: number;
+}) {
+  const primaryService = vendor.services[0] ?? null;
+  const slug = vendor.business_slug ?? null;
+  const href = slug ? `/v/${slug}` : `#`;
+
+  return (
+    <article className="flex h-full flex-col gap-3 rounded-2xl border border-ink/10 bg-cream p-4 transition-shadow hover:shadow-md">
+      <header className="flex items-center gap-3">
+        <Logo logoUrl={vendor.logo_url} name={vendor.business_name} />
+        <div className="min-w-0">
+          <h2 className="truncate text-base font-semibold text-ink">
+            {vendor.business_name || 'Unnamed vendor'}
+          </h2>
+          {primaryService ? (
+            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+              {displayServiceLabel(primaryService)}
+            </p>
+          ) : null}
+        </div>
+      </header>
+
+      {vendor.tagline ? (
+        <p className="line-clamp-2 text-sm text-ink/65">{vendor.tagline}</p>
+      ) : null}
+
+      <ul className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink/55">
+        {vendor.location_city ? (
+          <li className="inline-flex items-center gap-1">
+            <MapPin className="h-3.5 w-3.5" strokeWidth={1.75} />
+            {vendor.location_city}
+          </li>
+        ) : null}
+        <li className="inline-flex items-center gap-1">
+          <Star
+            className={`h-3.5 w-3.5 ${
+              rating > 0 ? 'fill-amber-400 text-amber-500' : 'text-ink/25'
+            }`}
+            strokeWidth={1.75}
+          />
+          <span className="font-mono">
+            {rating > 0 ? formatStarRating(rating) : 'new'}
+          </span>
+          <span className="text-ink/45">
+            ({reviewCount} {reviewCount === 1 ? 'review' : 'reviews'})
+          </span>
+        </li>
+      </ul>
+
+      <div className="mt-auto flex items-center justify-between gap-2 pt-2">
+        {slug ? (
+          <Link
+            href={href}
+            className="text-sm font-medium text-terracotta hover:underline"
+          >
+            View profile →
+          </Link>
+        ) : (
+          <span className="text-xs text-ink/40">Profile coming soon</span>
+        )}
+      </div>
+    </article>
+  );
+}
+
+function Logo({ logoUrl, name }: { logoUrl: string | null; name: string }) {
+  if (logoUrl) {
+    return (
+      <span className="inline-flex h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-ink/10 bg-cream">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={logoUrl} alt={name} className="h-full w-full object-cover" />
+      </span>
+    );
+  }
+  const initials = name
+    .split(/\s+/)
+    .map((p) => p.charAt(0).toUpperCase())
+    .slice(0, 2)
+    .join('') || '?';
+  return (
+    <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-terracotta/15 text-base font-semibold text-terracotta-700">
+      {initials}
+    </span>
+  );
+}
+
+function Pagination({
+  filters,
+  page,
+  totalPages,
+  total,
+}: {
+  filters: {
+    q: string;
+    category: VendorCategory | null;
+    city: string;
+    sort: SortKey;
+    page: number;
+  };
+  page: number;
+  totalPages: number;
+  total: number;
+}) {
+  if (totalPages <= 1) return null;
+  return (
+    <nav
+      aria-label="Pagination"
+      className="mt-8 flex items-center justify-between gap-2 text-sm text-ink/70"
+    >
+      <p>
+        Page {page} of {totalPages} · {total} vendor{total === 1 ? '' : 's'}
+      </p>
+      <div className="flex items-center gap-2">
+        <PageLink
+          href={page > 1 ? buildHref(filters, { page: page - 1 }) : null}
+          label="Previous"
+          icon="prev"
+        />
+        <PageLink
+          href={page < totalPages ? buildHref(filters, { page: page + 1 }) : null}
+          label="Next"
+          icon="next"
+        />
+      </div>
+    </nav>
+  );
+}
+
+function PageLink({
+  href,
+  label,
+  icon,
+}: {
+  href: string | null;
+  label: string;
+  icon: 'prev' | 'next';
+}) {
+  const cls =
+    'inline-flex h-10 items-center gap-1 rounded-md border border-ink/20 px-3 text-sm font-medium';
+  if (!href) {
+    return (
+      <span className={`${cls} cursor-not-allowed opacity-40`}>
+        {icon === 'prev' ? <ChevronLeft className="h-4 w-4" /> : null}
+        {label}
+        {icon === 'next' ? <ChevronRight className="h-4 w-4" /> : null}
+      </span>
+    );
+  }
+  return (
+    <Link href={href} className={`${cls} hover:border-ink/40`}>
+      {icon === 'prev' ? <ChevronLeft className="h-4 w-4" /> : null}
+      {label}
+      {icon === 'next' ? <ChevronRight className="h-4 w-4" /> : null}
+    </Link>
   );
 }

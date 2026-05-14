@@ -11,14 +11,14 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-type TabKey = 'home' | 'guests' | 'vendors' | 'budget' | 'services';
+type TabKey = 'home' | 'guests' | 'vendors' | 'budget' | 'add_ons';
 
 const TABS: { key: TabKey; label: string; Icon: LucideIcon; href: (eventId: string) => string }[] = [
   { key: 'home', label: 'Home', Icon: Home, href: (id) => `/dashboard/${id}` },
   { key: 'guests', label: 'Guests', Icon: Users, href: (id) => `/dashboard/${id}/guests` },
   { key: 'vendors', label: 'Vendors', Icon: Briefcase, href: (id) => `/dashboard/${id}/vendors` },
   { key: 'budget', label: 'Budget', Icon: Wallet, href: (id) => `/dashboard/${id}/budget` },
-  { key: 'services', label: 'Services', Icon: Sparkles, href: (id) => `/dashboard/${id}/services` },
+  { key: 'add_ons', label: 'Add-ons', Icon: Sparkles, href: (id) => `/dashboard/${id}/add-ons` },
 ];
 
 function activeTab(pathname: string, eventId: string): TabKey | null {
@@ -29,7 +29,13 @@ function activeTab(pathname: string, eventId: string): TabKey | null {
   ) return 'guests';
   if (pathname.includes('/vendors')) return 'vendors';
   if (pathname.includes('/budget')) return 'budget';
-  if (pathname.includes('/services') || pathname.includes('/schedule')) return 'services';
+  // Keep matching the legacy `/services` substring so any in-flight redirect
+  // or bookmarked URL still lights up the right tab during the brief redirect.
+  if (
+    pathname.includes('/add-ons') ||
+    pathname.includes('/services') ||
+    pathname.includes('/schedule')
+  ) return 'add_ons';
   if (pathname === `/dashboard/${eventId}`) return 'home';
   return null;
 }

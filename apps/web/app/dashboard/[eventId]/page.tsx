@@ -60,7 +60,7 @@ type TileKey =
   | 'budget'
   | 'messages'
   | 'seating'
-  | 'services'
+  | 'add_ons'
   | 'mood_board'
   | 'orders'
   | 'notifications';
@@ -79,8 +79,8 @@ const TILES: Array<{
   { key: 'seating', label: 'Seating', Icon: LayoutGrid, href: (id) => `/dashboard/${id}/seating` },
   { key: 'orders', label: 'Orders', Icon: Receipt, href: (id) => `/dashboard/${id}/orders` },
   { key: 'notifications', label: 'Notifications', Icon: Bell, href: () => `/dashboard/notifications` },
-  { key: 'mood_board', label: 'Mood Board', Icon: Palette, href: (id) => `/dashboard/${id}/services/mood-board` },
-  { key: 'services', label: 'Services', Icon: Sparkles, href: (id) => `/dashboard/${id}/services` },
+  { key: 'mood_board', label: 'Mood Board', Icon: Palette, href: (id) => `/dashboard/${id}/add-ons/mood-board` },
+  { key: 'add_ons', label: 'Add-ons', Icon: Sparkles, href: (id) => `/dashboard/${id}/add-ons` },
 ];
 
 function timeOfDayGreeting(date: Date): string {

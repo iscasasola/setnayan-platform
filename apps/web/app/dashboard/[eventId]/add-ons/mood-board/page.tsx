@@ -55,10 +55,10 @@ export default async function MoodBoardPage({ params }: Props) {
   return (
     <div className="space-y-6">
       <Link
-        href={`/dashboard/${eventId}/services`}
+        href={`/dashboard/${eventId}/add-ons`}
         className="font-mono text-xs uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta"
       >
-        ‹ Back to services
+        ‹ Back to add-ons
       </Link>
 
       <header className="space-y-2">

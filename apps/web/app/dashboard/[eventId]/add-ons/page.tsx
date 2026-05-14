@@ -10,12 +10,12 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-export const metadata = { title: 'In-App Services' };
+export const metadata = { title: 'Add-ons' };
 
-// Service launcher manifest. Each card registers here. When a new iteration
+// Add-on launcher manifest. Each card registers here. When a new iteration
 // ships, it adds one entry. Wallet card REMOVED per the 2026-05-11 token-wallet
 // retirement; "Orders" links to the apply-then-pay surface from iteration 0034.
-const SERVICES: ReadonlyArray<{
+const ADD_ONS: ReadonlyArray<{
   key: string;
   label: string;
   Icon: LucideIcon;
@@ -83,14 +83,14 @@ const SERVICES: ReadonlyArray<{
 
 type Props = { params: Promise<{ eventId: string }> };
 
-export default async function ServicesPage({ params }: Props) {
+export default async function AddOnsPage({ params }: Props) {
   const { eventId } = await params;
 
   return (
     <section className="space-y-6">
       <header className="space-y-2">
         <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-          In-App Services
+          Add-ons
         </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
           What would you like to set up?
@@ -101,18 +101,18 @@ export default async function ServicesPage({ params }: Props) {
       </header>
 
       <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {SERVICES.map((service) => {
-          const { Icon } = service;
+        {ADD_ONS.map((addon) => {
+          const { Icon } = addon;
           const href =
-            service.key === 'orders'
+            addon.key === 'orders'
               ? `/dashboard/${eventId}/orders`
-              : service.key === 'mood-board'
-                ? `/dashboard/${eventId}/services/mood-board`
-                : service.key === 'save-the-date'
-                  ? `/dashboard/${eventId}/services/save-the-date`
-                  : `/dashboard/${eventId}/services/${service.key}`;
+              : addon.key === 'mood-board'
+                ? `/dashboard/${eventId}/add-ons/mood-board`
+                : addon.key === 'save-the-date'
+                  ? `/dashboard/${eventId}/add-ons/save-the-date`
+                  : `/dashboard/${eventId}/add-ons/${addon.key}`;
           return (
-            <li key={service.key}>
+            <li key={addon.key}>
               <Link
                 href={href}
                 className="group flex h-full flex-col gap-3 rounded-xl border border-ink/10 bg-cream p-5 transition-colors hover:border-terracotta/50 hover:bg-terracotta/5"
@@ -122,13 +122,13 @@ export default async function ServicesPage({ params }: Props) {
                     <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
                   </span>
                   <span className="rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
-                    {service.iteration}
+                    {addon.iteration}
                   </span>
                 </div>
-                <h2 className="text-lg font-semibold tracking-tight">{service.label}</h2>
-                <p className="text-sm text-ink/60">{service.blurb}</p>
+                <h2 className="text-lg font-semibold tracking-tight">{addon.label}</h2>
+                <p className="text-sm text-ink/60">{addon.blurb}</p>
                 <p className="mt-auto text-sm font-medium text-terracotta">
-                  {service.cta} <span aria-hidden>›</span>
+                  {addon.cta} <span aria-hidden>›</span>
                 </p>
               </Link>
             </li>

@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readGuestSession } from '@/lib/guest-session';
+import { emitNotification } from '@/lib/notification-emit';
 import type { MealPreference, RsvpStatus } from '@/lib/guests';
 
 const RSVP_VALUES: RsvpStatus[] = ['pending', 'attending', 'declined', 'maybe'];
@@ -76,9 +77,46 @@ export async function submitRsvp(
 
   const { data: ev } = await admin
     .from('events')
-    .select('slug')
+    .select('slug, display_name')
     .eq('event_id', eventId)
     .maybeSingle();
+
+  // Notify couple-side members that an RSVP came in. emitNotification handles
+  // both the in-app row + the Resend email (when configured). Failures here
+  // never roll back the RSVP — best-effort.
+  if (status === 'attending' || status === 'declined') {
+    try {
+      const { data: guest } = await admin
+        .from('guests')
+        .select('first_name, last_name, display_name')
+        .eq('guest_id', guestId)
+        .maybeSingle();
+      const guestName =
+        (guest?.display_name ?? '').trim() ||
+        `${guest?.first_name ?? ''} ${guest?.last_name ?? ''}`.trim() ||
+        'A guest';
+      const statusLabel = status === 'attending' ? 'attending' : 'not attending';
+      const { data: coupleMembers } = await admin
+        .from('event_members')
+        .select('user_id')
+        .eq('event_id', eventId)
+        .eq('member_type', 'couple');
+      for (const m of coupleMembers ?? []) {
+        await emitNotification({
+          userId: m.user_id,
+          type: 'rsvp_received',
+          title: `${guestName} RSVP'd: ${statusLabel}`,
+          body:
+            status === 'attending' && meal && meal !== 'no_preference'
+              ? `Meal preference: ${meal}.`
+              : null,
+          relatedUrl: `/dashboard/${eventId}/guests/${guestId}`,
+        });
+      }
+    } catch {
+      // Notification failures must not break the guest-side RSVP submit.
+    }
+  }
 
   revalidatePath(`/dashboard/${eventId}/guests`);
   redirect(ev?.slug ? `/${ev.slug}?saved=1` : '/');

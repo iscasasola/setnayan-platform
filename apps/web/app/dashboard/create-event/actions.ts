@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateUniqueSlug } from '@/lib/slugs';
+import { captureEvent } from '@/lib/analytics';
 
 const ALLOWED_TYPES = ['wedding'] as const; // V1: Weddings only per iteration 0000 § 2.5
 
@@ -66,6 +67,21 @@ export async function createWeddingEvent(formData: FormData) {
     return redirect(
       `/dashboard/create-event?error=${encodeURIComponent('member_link_failed: ' + memberError.message)}`,
     );
+  }
+
+  // Funnel event. Fire-and-forget; never block the redirect to the new
+  // event dashboard.
+  try {
+    await captureEvent({
+      distinctId: user.id,
+      event: 'event_created',
+      properties: {
+        event_id: insertedEvent.event_id,
+        event_type,
+      },
+    });
+  } catch {
+    // analytics never breaks the user-facing flow.
   }
 
   return redirect(`/dashboard/${insertedEvent.event_id}`);

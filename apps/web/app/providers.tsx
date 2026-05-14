@@ -20,6 +20,7 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
 
 import { getQueryClient } from '@/lib/query-client';
+import { PostHogProvider } from './_components/posthog-provider';
 
 const PERSIST_KEY = 'setnayan-query-cache';
 const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days — spec § 3.1
@@ -96,7 +97,15 @@ export function Providers({ children }: { children: React.ReactNode }) {
         buster: process.env.NEXT_PUBLIC_CACHE_BUSTER ?? 'v1',
       }}
     >
-      {children}
+      {/*
+        TODO: pass `userId` from a server component once we have a clean
+        place to read it (e.g., a SignedInProviders wrapper). For now the
+        PostHogProvider resolves the Supabase user_id itself via the
+        browser client + onAuthStateChange — keeps providers.tsx free of
+        server-only imports and avoids plumbing the id through every
+        layout.
+      */}
+      <PostHogProvider>{children}</PostHogProvider>
     </PersistQueryClientProvider>
   );
 }

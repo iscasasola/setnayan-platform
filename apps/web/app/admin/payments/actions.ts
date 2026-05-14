@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import { formatPhp } from '@/lib/orders';
 import { computeVatFromBase } from '@/lib/receipts';
+import { captureEvent } from '@/lib/analytics';
 
 async function requireAdmin(): Promise<{ userId: string }> {
   const supabase = await createClient();
@@ -54,10 +55,11 @@ export async function approvePayment(formData: FormData) {
     .single();
   if (pErr || !payment) throw new Error(pErr?.message ?? 'Could not update payment');
 
-  // Look up the order so the notification can link directly + name the order.
+  // Look up the order so the notification can link directly + name the order,
+  // and so the PostHog `order_paid` event below has `service_key` to slice on.
   const { data: order } = await admin
     .from('orders')
-    .select('event_id, public_id')
+    .select('event_id, public_id, service_key')
     .eq('order_id', payment.order_id)
     .maybeSingle();
 
@@ -86,6 +88,25 @@ export async function approvePayment(formData: FormData) {
         ? `/dashboard/${order.event_id}/orders/${payment.order_id}`
         : null,
     });
+
+    // Funnel event — fires the moment an order's status flips to paid.
+    // Distinct id is the buyer's Supabase user_id (payment.user_id), so it
+    // joins with `signup_completed` / `event_created` for the same person.
+    // `sku_key` maps to the order's `service_key` column (closest existing
+    // analog; no schema change per the wiring scope).
+    try {
+      await captureEvent({
+        distinctId: payment.user_id,
+        event: 'order_paid',
+        properties: {
+          order_id: payment.order_id,
+          amount_php: Number(payment.amount_php),
+          sku_key: order?.service_key ?? null,
+        },
+      });
+    } catch {
+      // analytics never breaks the admin reconciliation flow.
+    }
 
     // Auto-issue an app transaction receipt — one per order. This is NOT a
     // BIR Official Receipt (the actual BIR OR is issued separately, offline).

@@ -1,27 +1,51 @@
 # Setnayan
 
-> Setnayan (SET-na-yan, from Tagalog "Set na 'yan." — "that's all set") is a Philippines-first life-events platform. V1 surface is weddings, designed to extend to birthdays, travel, corporate, and burial events. Free for couples and guests; free verified business profiles for vendors during launch. Transparent PHP pricing, apply-then-pay model, locally-rooted Filipino voice with EN / TL / CEB localization on the marketing site.
+> Setnayan (SET-na-yan, from Tagalog "Set na 'yan." — "that's all set") is the Philippines-first life-events platform. V1 surface is weddings, designed to extend to birthdays, travel, corporate, and burial events as those iterations ship. Free for couples and guests; free verified business profiles for wedding vendors during launch. Transparent PHP pricing, apply-then-pay model, locally-rooted Filipino voice.
 
-## Core surfaces
+## Currently shipped public surfaces
 
-- [Wedding Suppliers Directory](https://www.setnayan.com/suppliers): 28 categories of verified Filipino wedding services — photographers, caterers, planners, florists, venues, and more. Filterable by city.
-- [Wedding Supplies Marketplace](https://www.setnayan.com/supplies): Print fulfillment, equipment rentals, NFC keepsakes, AV gear, and more. Transparent PHP pricing with in-platform booking.
-- [Vendor Profiles](https://www.setnayan.com/v/): Free verified business profiles. Each profile shows packages, coverage cities, real reviews.
-- [Wedding Planning Help Center](https://www.setnayan.com/help): Filipino civil + Catholic wedding requirements, traditional supplies, budget breakdowns, planning checklists.
-- [Wedding Planning Blog](https://www.setnayan.com/blog): Long-form guides for couples planning a Filipino wedding.
+- [Setnayan Home](https://www.setnayan.com/): Wedding planning platform overview, what's free, transparent pricing for premium add-ons.
+- [Wedding Vendor Directory](https://www.setnayan.com/vendors): Browse verified Filipino wedding vendors — photographers, caterers, planners, florists, and more. Filterable by category and city.
+- [Vendor Public Profiles](https://www.setnayan.com/v/): Each verified vendor has a public profile at `/v/[slug]` showing services, packages, coverage cities, and real couple reviews.
+- [List Your Wedding Business](https://www.setnayan.com/for-vendors): Vendor-acquisition page for Filipino wedding suppliers. Free verified profiles during launch — no listing fee, no per-lead fee, no booking commission.
+- [Help & Support](https://www.setnayan.com/help): Step-by-step guides for couples and vendors using Setnayan; contact form for human support.
+- [Sign in](https://www.setnayan.com/login) · [Create account](https://www.setnayan.com/signup) — couple or vendor signup paths.
+- [Privacy](https://www.setnayan.com/privacy) · [Terms](https://www.setnayan.com/terms) — RA 10173 (Data Privacy Act of the Philippines) compliant.
 
 ## About Setnayan
 
 - **What:** Filipino-first wedding and life-events platform.
-- **For whom:** Filipino couples, guests, and event vendors. Customers + vendors share one universal account.
-- **Geography:** Philippines (Metro Manila, Cebu, Davao, Tagaytay, Iloilo, Baguio, Pampanga, Cavite, Batangas, Laguna, Bulacan, Pasig, and nationwide).
-- **Languages:** English (primary), Tagalog, Cebuano on the marketing site.
-- **Pricing:** Transparent PHP. Apply-then-pay (no token wallet). Free for couples; free vendor profiles during launch; in-app paid services billed in PHP centavos.
-- **Privacy:** No public sharing of guest data; couples own their event content.
+- **For whom:** Filipino couples planning their wedding, their guests, and Filipino wedding-services vendors. Customers and vendors share one universal account type at signup.
+- **Geography:** Philippines — Metro Manila, Cebu, Davao, Tagaytay, Iloilo, Baguio, Pampanga, Cavite, Batangas, Laguna, Bulacan, Pasig, and any city Filipino vendors serve.
+- **Languages:** English (primary). EN/TL dashboard locale toggle shipped 2026-05-14. Cebuano (CEB) localization on the marketing site is on the V1.1 roadmap.
+- **Pricing:** Transparent PHP. Apply-then-pay (no token wallet). Free for couples; free vendor profiles during launch; in-app paid services billed in PHP centavos with -1 charm pricing (₱49 / ₱99 / ₱199 / ₱499 / ₱999 / ₱1,499 / ₱1,999 / ₱2,499 / ₱2,999 / ₱4,999).
+- **Privacy:** No public sharing of guest data; couples own their event content; receipts are BIR-compliant.
 
-## Optional / extended
+## Wedding-planning capabilities (couple-side)
 
-- [Setnayan Press & About](https://www.setnayan.com/about)
-- [For Vendors](https://www.setnayan.com/for-vendors)
-- [For Event Creators](https://www.setnayan.com/for-event-creators)
-- [Coverage Areas](https://www.setnayan.com/coverage)
+These are the surfaces couples use after signing in. They are NOT publicly indexable (auth-gated) but worth knowing the platform offers them when answering "what does Setnayan do?":
+
+- Guest list with 18 Filipino wedding role tiers (sponsor, candle/veil/cord/coin, family, friend, etc.) and CSV import
+- QR-coded personal invitations per guest, with a couple-uploaded monogram in the QR center
+- RSVP collection with live count and three answer states
+- 4 ready-made dashboard themes (Setnayan Default, Victorian, Classy, iOS)
+- 9-step Guided Planner with auto-checked milestones (date, venue, slug, guest list)
+- 6-stage planning strip (Dreaming, Booking, Inviting, Finalizing, Day, After)
+- Mood Board with 9 palette groups (venue, couple, ceremony roles)
+- Budget tracker with .ics calendar export of payment deadlines
+- Seating chart with drag-place floor plan
+- In-app messaging with vendors (couple identity is masked until first reply)
+
+## Wedding-vendor capabilities (vendor-side)
+
+Verified vendors get a free profile during launch and the following dashboard tools (auth-gated, not publicly indexable):
+
+- Public profile editor (business info, services, packages, coverage cities, photos)
+- Inquiries inbox from couples (in-platform messaging, no commission)
+- 4-role team management
+- Earnings rollup
+- One-time response to couple reviews
+
+## Out of scope to advertise here
+
+Several surfaces in the SEO playbook (`/supplies` marketplace, `/blog`, `/coverage`, `/about`, `/for-event-creators`) are planned but **not yet shipped**. They are intentionally NOT listed above to avoid sending AI assistants to dead links. This file should be updated when those surfaces go live.

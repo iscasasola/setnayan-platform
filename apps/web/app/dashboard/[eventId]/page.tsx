@@ -29,6 +29,10 @@ import {
   resolveStepStatuses,
   type StepStatus,
 } from '@/lib/planner';
+import { isInDayOfWindow } from '@/lib/day-of-mode';
+import { fetchScheduleBlocks } from '@/lib/schedule';
+import { fetchTables, type EventTableRow } from '@/lib/seating';
+import { DayOfModeGrid } from './_components/day-of-mode/grid';
 import { toggleJourneyStep } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -237,6 +241,27 @@ export default async function EventHomePage({
     daysOut,
   });
 
+  // Day-of mode (iteration 0031): when inside the T-1h .. T+8h window of the
+  // event date, fetch the schedule + seating data needed to render the live
+  // grid above the rest of the dashboard. Outside the window we render
+  // nothing extra and skip the queries entirely.
+  const dayOfActive = event.event_date ? isInDayOfWindow(event.event_date) : false;
+  let dayOfBlocks: Awaited<ReturnType<typeof fetchScheduleBlocks>> = [];
+  let dayOfHeadTable: EventTableRow | null = null;
+  let dayOfNearbyTables: EventTableRow[] = [];
+  if (dayOfActive) {
+    const [blocksRes, tablesRes] = await Promise.all([
+      fetchScheduleBlocks(supabase, eventId).catch(() => []),
+      fetchTables(supabase, eventId).catch(() => [] as EventTableRow[]),
+    ]);
+    dayOfBlocks = blocksRes;
+    const tables = tablesRes;
+    dayOfHeadTable = tables.find((t) => t.table_type === 'head_table') ?? null;
+    dayOfNearbyTables = tables
+      .filter((t) => t.table_id !== dayOfHeadTable?.table_id)
+      .slice(0, 6);
+  }
+
   const recentGuests = [...guests]
     .sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''))
     .slice(0, 6);
@@ -250,6 +275,21 @@ export default async function EventHomePage({
 
   return (
     <section className="space-y-8">
+      {dayOfActive ? (
+        <DayOfModeGrid
+          eventId={eventId}
+          blocks={dayOfBlocks.map((b) => ({
+            block_id: b.block_id,
+            label: b.label,
+            start_at: b.start_at,
+            end_at: b.end_at,
+            location: b.location,
+          }))}
+          headTable={dayOfHeadTable}
+          nearbyTables={dayOfNearbyTables}
+        />
+      ) : null}
+
       <WelcomeHeader
         greeting={greeting}
         name={greetingName}

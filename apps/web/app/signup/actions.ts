@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
 import { isEmailBlacklisted } from '@/lib/blacklist';
+import { captureEvent } from '@/lib/analytics';
 
 function safeNext(raw: FormDataEntryValue | null): string {
   const value = raw ? String(raw) : '';
@@ -101,6 +102,20 @@ export async function signUp(formData: FormData) {
   }
 
   if (autoConfirmed) {
+    // Fire the funnel event before the redirect. Wrapped in its own
+    // try/catch so a telemetry hiccup never escapes — and never trips
+    // Next's isRedirectError handling on the way out.
+    try {
+      if (data.user?.id) {
+        await captureEvent({
+          distinctId: data.user.id,
+          event: 'signup_completed',
+          properties: { account_type: accountType },
+        });
+      }
+    } catch {
+      // analytics is fire-and-forget; never block the signup redirect.
+    }
     return redirect(
       `/login?ready=${encodeURIComponent(email)}&next=${encodeURIComponent(next)}`,
     );

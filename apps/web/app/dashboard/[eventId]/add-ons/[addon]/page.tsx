@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { IterationPlaceholder } from '../../_components/placeholder';
+import { createClient } from '@/lib/supabase/server';
 
 const ADD_ON_META: Record<
   string,
@@ -48,10 +49,26 @@ type Props = {
   params: Promise<{ eventId: string; addon: string }>;
 };
 
+async function isInternalAdmin(): Promise<boolean> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return false;
+
+  const { data: me } = await supabase
+    .from('users')
+    .select('is_internal, is_team_member')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  return Boolean(me?.is_internal || me?.is_team_member);
+}
+
 export default async function AddOnDetailPage({ params }: Props) {
   const { eventId, addon } = await params;
   const meta = ADD_ON_META[addon];
   if (!meta) notFound();
+  const showDevCodes = await isInternalAdmin();
 
   return (
     <div className="space-y-4">
@@ -66,6 +83,7 @@ export default async function AddOnDetailPage({ params }: Props) {
         title={meta.title}
         blurb={meta.blurb}
         hint={meta.hint}
+        showIteration={showDevCodes}
       />
     </div>
   );

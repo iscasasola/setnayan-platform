@@ -5,10 +5,14 @@
 @layer base {
   /*
    * Theme system — iteration 0021.
-   * Each theme block redefines the 3 brand tokens (+ two darker terracotta
-   * shades used in hover/focus states). All Tailwind utility classes consume
-   * these vars via the `rgb(var(--color-x) / <alpha-value>)` pattern, so
-   * `bg-cream/70`, `text-ink/40`, etc. continue to work with alpha.
+   * Each theme block redefines the 3 brand tokens (+ two darker accent
+   * shades used in hover/focus states). The variables are named
+   * `--color-terracotta*` for historical reasons — they hold whatever
+   * accent color the active theme chooses (burgundy on Setnayan Default,
+   * deep burgundy on Victorian, forest on Forest Theme, blue on iOS).
+   * All Tailwind utility classes consume these vars via the
+   * `rgb(var(--color-x) / <alpha-value>)` pattern, so `bg-cream/70`,
+   * `text-ink/40`, etc. continue to work with alpha.
    *
    * Values are RGB triplets (space-separated) per Tailwind's CSS-variable
    * color convention. Default lives on `:root` so unauthed surfaces stay on

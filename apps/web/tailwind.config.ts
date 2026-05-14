@@ -17,7 +17,11 @@ const config: Config = {
       colors: {
         // Themeable surface tokens — values resolve at runtime from CSS vars
         // defined in globals.css per `[data-theme]` block. The default theme
-        // (Setnayan) keeps cream/ink/terracotta; Victorian/Classy/iOS swap.
+        // (Setnayan Default) ships burgundy as the accent; Victorian / Forest
+        // Theme (data-theme='classy') / iOS swap to their own accent colors.
+        // The CSS variable name `--color-terracotta` is kept as a stable token
+        // alias so every Tailwind utility (`bg-terracotta`, `text-terracotta`,
+        // etc.) keeps working — the *value* is whatever the active theme sets.
         cream: 'rgb(var(--color-cream) / <alpha-value>)',
         ink: 'rgb(var(--color-ink) / <alpha-value>)',
         terracotta: {

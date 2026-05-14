@@ -1,5 +1,6 @@
 import path from 'node:path';
 import type { NextConfig } from 'next';
+import { withSentryConfig } from '@sentry/nextjs';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -34,4 +35,17 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Sentry wrapper — injects the SDK and (when SENTRY_AUTH_TOKEN is set)
+// uploads source maps at build time. Source-map upload is deferred until
+// the owner provisions the auth token; the wrapper is safe without it.
+export default withSentryConfig(nextConfig, {
+  // Suppress CLI chatter outside CI builds.
+  silent: !process.env.CI,
+  // Instrument client files outside /pages so server-action errors keep
+  // useful stack frames.
+  widenClientFileUpload: true,
+  // Skip the Sentry logger to shrink the client bundle.
+  disableLogger: true,
+  // Vercel cron monitors are off — we'll opt in per-cron later if needed.
+  automaticVercelMonitors: false,
+});

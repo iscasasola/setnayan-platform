@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { emitNotification } from '@/lib/notification-emit';
 
 async function requireAdmin(): Promise<{ userId: string }> {
   const supabase = await createClient();
@@ -42,6 +43,16 @@ export async function setHelpMessageStatus(formData: FormData) {
   }
 
   const admin = createAdminClient();
+
+  // Fetch the prior state so we can detect when the admin has just posted a
+  // new reply (admin_notes content changed and is non-empty) vs. simply
+  // flipping the status. Only the former should fire a notification.
+  const { data: prior } = await admin
+    .from('help_messages')
+    .select('user_id, admin_notes')
+    .eq('message_id', messageId)
+    .maybeSingle();
+
   const payload: Record<string, string | null> = {
     status: statusRaw,
     admin_notes: adminNotes,
@@ -59,6 +70,25 @@ export async function setHelpMessageStatus(formData: FormData) {
     .update(payload)
     .eq('message_id', messageId);
   if (error) throw new Error(error.message);
+
+  // Iteration 0028 follow-up — when an admin posts a substantive reply on a
+  // help ticket (admin_notes content changed and is non-empty), notify the
+  // signed-in submitter via in-app + Resend email. Anonymous submitters have
+  // user_id NULL and are unreachable without an email-out path. Fire-and-
+  // forget; failures never block the status update.
+  const repliedNow =
+    adminNotes !== null &&
+    adminNotes.length > 0 &&
+    adminNotes !== (prior?.admin_notes ?? null);
+  if (repliedNow && prior?.user_id) {
+    await emitNotification({
+      userId: prior.user_id,
+      type: 'help_ticket_replied',
+      title: 'Setnayan replied to your help ticket',
+      body: adminNotes.slice(0, 200),
+      relatedUrl: '/help',
+    });
+  }
 
   revalidatePath('/admin/help');
 }

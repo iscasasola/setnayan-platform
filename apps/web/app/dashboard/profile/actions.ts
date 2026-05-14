@@ -19,6 +19,15 @@ function isValidPlannerMode(value: unknown): value is PlannerMode {
   return typeof value === 'string' && (VALID_PLANNER_MODES as readonly string[]).includes(value);
 }
 
+// Iteration 0025 — runtime EN/TL toggle. 'ceb' stays in the DB enum for a
+// future Cebuano dictionary; the UI only exposes EN/TL today.
+const VALID_LOCALES = ['en', 'tl'] as const;
+type LocalePref = (typeof VALID_LOCALES)[number];
+
+function isValidLocale(value: unknown): value is LocalePref {
+  return typeof value === 'string' && (VALID_LOCALES as readonly string[]).includes(value);
+}
+
 export async function updateThemePreference(formData: FormData) {
   const raw = formData.get('theme');
   if (!isValidTheme(raw)) {
@@ -157,6 +166,28 @@ export async function changePassword(formData: FormData) {
 
   revalidatePath('/dashboard/profile');
   redirect('/dashboard/profile?password_changed=1');
+}
+
+export async function updateLocalePreference(formData: FormData) {
+  const raw = formData.get('locale');
+  if (!isValidLocale(raw)) {
+    throw new Error('Invalid locale');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { error } = await supabase
+    .from('users')
+    .update({ locale: raw, updated_at: new Date().toISOString() })
+    .eq('user_id', user.id);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath('/dashboard', 'layout');
 }
 
 export async function updatePlannerMode(formData: FormData) {

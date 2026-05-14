@@ -63,6 +63,21 @@ export async function sendChatMessage(formData: FormData) {
     throw new Error('Not a member of this thread');
   }
 
+  // Iteration 0028 follow-up — count existing messages on this thread so we
+  // can distinguish the FIRST couple-to-vendor message (a booking inquiry)
+  // from a subsequent reply in an ongoing conversation. The count runs via
+  // the admin client below; here we just record whether the recipient should
+  // see a "new inquiry" alert instead of the generic "new message" one.
+  const admin = createAdminClient();
+  let isFirstMessage = false;
+  if (senderRole === 'couple') {
+    const { count } = await admin
+      .from('chat_messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('thread_id', thread.thread_id);
+    isFirstMessage = (count ?? 0) === 0;
+  }
+
   const { error } = await supabase.from('chat_messages').insert({
     thread_id: thread.thread_id,
     event_id: thread.event_id,
@@ -83,6 +98,7 @@ export async function sendChatMessage(formData: FormData) {
     senderRole,
     senderUserId: user.id,
     body: trimmed,
+    isFirstMessage,
   });
 
   if (typeof returnTo === 'string' && returnTo.startsWith('/')) {
@@ -98,6 +114,12 @@ async function notifyOtherParty(args: {
   senderRole: 'couple' | 'vendor';
   senderUserId: string;
   body: string;
+  /**
+   * True when the message being sent is the first one in the thread. Only
+   * fires for couple-to-vendor direction (a booking inquiry). Used to swap
+   * the notification type from chat_message to vendor_inquiry_received.
+   */
+  isFirstMessage?: boolean;
 }): Promise<void> {
   const admin = createAdminClient();
 
@@ -122,6 +144,18 @@ async function notifyOtherParty(args: {
   if (args.senderRole === 'couple') {
     // The vendor user is the recipient.
     if (!vendorRes.data?.user_id) return;
+    if (args.isFirstMessage) {
+      // First couple-to-vendor message — fire vendor_inquiry_received with a
+      // longer preview (200 chars per spec) and a more pointed title.
+      await emitNotification({
+        userId: vendorRes.data.user_id,
+        type: 'vendor_inquiry_received',
+        title: `New booking inquiry from ${eventName}`,
+        body: args.body.slice(0, 200),
+        relatedUrl: `/vendor-dashboard/messages/${args.threadId}`,
+      });
+      return;
+    }
     await emitNotification({
       userId: vendorRes.data.user_id,
       type: 'chat_message',

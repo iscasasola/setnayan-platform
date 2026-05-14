@@ -4,6 +4,7 @@ import { ArrowLeft, Bell } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { formatEventDate } from '@/lib/events';
 import { countUnread } from '@/lib/notifications';
+import { getLocale, makeT } from '@/lib/i18n';
 import { BottomNav } from './_components/bottom-nav';
 
 type Props = {
@@ -31,16 +32,26 @@ export default async function EventLayout({ children, params }: Props) {
     notFound();
   }
 
-  const [eventRes, unreadCount] = await Promise.all([
+  const [eventRes, unreadCount, locale] = await Promise.all([
     supabase
       .from('events')
       .select('event_id, public_id, display_name, event_date, archived, event_type')
       .eq('event_id', eventId)
       .single(),
     countUnread(supabase, user.id),
+    getLocale(),
   ]);
   const event = eventRes.data;
   if (!event) notFound();
+
+  const tr = makeT(locale);
+  const navLabels = {
+    home: tr('nav.home'),
+    guests: tr('nav.guests'),
+    vendors: tr('nav.vendors'),
+    budget: tr('nav.budget'),
+    add_ons: tr('nav.add_ons'),
+  };
 
   return (
     <div className="flex min-h-dvh flex-col bg-cream pb-16 lg:pb-0">
@@ -63,8 +74,8 @@ export default async function EventLayout({ children, params }: Props) {
               href="/dashboard/notifications"
               aria-label={
                 unreadCount > 0
-                  ? `Notifications · ${unreadCount} unread`
-                  : 'Notifications'
+                  ? `${tr('nav.notifications')} · ${unreadCount} unread`
+                  : tr('nav.notifications')
               }
               className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-ink/15 bg-cream text-ink/70 hover:border-terracotta/40 hover:text-terracotta"
             >
@@ -77,7 +88,7 @@ export default async function EventLayout({ children, params }: Props) {
             </Link>
             <Link
               href="/dashboard/profile"
-              aria-label="Profile"
+              aria-label={tr('common.profile')}
               className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-ink/15 bg-cream text-sm font-medium text-ink/70 hover:border-terracotta/40 hover:text-terracotta"
             >
               {user.email?.charAt(0).toUpperCase() ?? '?'}
@@ -90,7 +101,7 @@ export default async function EventLayout({ children, params }: Props) {
         {children}
       </main>
 
-      <BottomNav eventId={eventId} />
+      <BottomNav eventId={eventId} labels={navLabels} />
     </div>
   );
 }

@@ -13,12 +13,23 @@ import {
 
 type TabKey = 'home' | 'guests' | 'vendors' | 'budget' | 'add_ons';
 
-const TABS: { key: TabKey; label: string; Icon: LucideIcon; href: (eventId: string) => string }[] = [
-  { key: 'home', label: 'Home', Icon: Home, href: (id) => `/dashboard/${id}` },
-  { key: 'guests', label: 'Guests', Icon: Users, href: (id) => `/dashboard/${id}/guests` },
-  { key: 'vendors', label: 'Vendors', Icon: Briefcase, href: (id) => `/dashboard/${id}/vendors` },
-  { key: 'budget', label: 'Budget', Icon: Wallet, href: (id) => `/dashboard/${id}/budget` },
-  { key: 'add_ons', label: 'Add-ons', Icon: Sparkles, href: (id) => `/dashboard/${id}/add-ons` },
+type TabLabels = Record<TabKey, string>;
+
+// Default English labels — used if the server layout doesn't pass translations.
+const DEFAULT_LABELS: TabLabels = {
+  home: 'Home',
+  guests: 'Guests',
+  vendors: 'Vendors',
+  budget: 'Budget',
+  add_ons: 'Add-ons',
+};
+
+const TABS: { key: TabKey; Icon: LucideIcon; href: (eventId: string) => string }[] = [
+  { key: 'home', Icon: Home, href: (id) => `/dashboard/${id}` },
+  { key: 'guests', Icon: Users, href: (id) => `/dashboard/${id}/guests` },
+  { key: 'vendors', Icon: Briefcase, href: (id) => `/dashboard/${id}/vendors` },
+  { key: 'budget', Icon: Wallet, href: (id) => `/dashboard/${id}/budget` },
+  { key: 'add_ons', Icon: Sparkles, href: (id) => `/dashboard/${id}/add-ons` },
 ];
 
 function activeTab(pathname: string, eventId: string): TabKey | null {
@@ -40,9 +51,17 @@ function activeTab(pathname: string, eventId: string): TabKey | null {
   return null;
 }
 
-export function BottomNav({ eventId }: { eventId: string }) {
+export function BottomNav({
+  eventId,
+  labels,
+}: {
+  eventId: string;
+  /** Server-injected translations. Falls back to English when omitted. */
+  labels?: Partial<TabLabels>;
+}) {
   const pathname = usePathname();
   const current = activeTab(pathname, eventId);
+  const resolved: TabLabels = { ...DEFAULT_LABELS, ...(labels ?? {}) };
 
   return (
     <nav
@@ -65,7 +84,7 @@ export function BottomNav({ eventId }: { eventId: string }) {
                 }`}
               >
                 <Icon aria-hidden className="h-5 w-5 lg:h-4 lg:w-4" strokeWidth={1.75} />
-                <span>{tab.label}</span>
+                <span>{resolved[tab.key]}</span>
               </Link>
             </li>
           );

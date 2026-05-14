@@ -4,6 +4,35 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-14 · feat(0025+0028): EN/TL locale toggle + 2 more email templates
+
+**Commit:** to be filled after commit.
+
+**Context:** Phase 2 polish work — wire a Tagalog dashboard chrome for the FilipinoFirst feel locked in `02_Specifications/Brand_Voice.md`, and bring the email-wired event count from 7 (post-PR-20) to 9 with the two transactional templates that have been outstanding since iteration 0028 first landed.
+
+**Locale (0025):**
+- New `apps/web/lib/i18n/dashboard.en.json` and `apps/web/lib/i18n/dashboard.tl.json` — ~31 dashboard-chrome strings each (nav labels, common CTAs, status pills, time-of-day greetings, common buttons).
+- `apps/web/lib/i18n/index.ts` — `getLocale()` server helper reads `users.locale` (existing Postgres enum `locale_code`, values 'en'/'tl'/'ceb'). `t(key, locale?)` and `makeT(locale)` translate a known key. Anything other than 'tl' falls back to English.
+- `apps/web/app/dashboard/profile/page.tsx` — new "Display language" section just above Theme. EN / TL radio. Persists to `users.locale` via the new `updateLocalePreference` server action.
+- `apps/web/app/dashboard/profile/actions.ts` — `updateLocalePreference(formData)` validates against `('en','tl')` and writes the `users.locale` column.
+- `apps/web/app/dashboard/[eventId]/layout.tsx` — fetches locale alongside event + unread count; passes nav labels into `<BottomNav>`; replaces hard-coded `aria-label="Profile"` and notification labels.
+- `apps/web/app/dashboard/[eventId]/_components/bottom-nav.tsx` — accepts an optional `labels` prop with translated tab strings; falls back to English when omitted.
+- `apps/web/app/dashboard/[eventId]/page.tsx` — section headings (Plan, Next up, Recent activity, Guided planner) plus time-of-day greeting now go through `tr(key)`; tile labels reference `TranslationKey`s.
+
+**Emails (0028):**
+- `apps/web/lib/notifications.ts` — added `help_ticket_replied` and `vendor_inquiry_received` to `NotificationType` plus matching entries in `NOTIFICATION_TYPE_LABEL` and `NOTIFICATION_TYPE_TONE`.
+- `supabase/migrations/20260514010000_notification_type_additions.sql` — new migration that adds three `ALTER TYPE … ADD VALUE IF NOT EXISTS` statements: the two new types AND `rsvp_received`, which the codebase had been emitting since the iteration 0028 RSVP feature but was missing from the DB enum (the emits had been failing silently inside `emitNotification`'s try/catch).
+- `apps/web/app/admin/help/actions.ts` — `setHelpMessageStatus` now fetches prior `admin_notes` before the update; when the admin posts a substantive new reply (content changed, non-empty), fires `help_ticket_replied` to the signed-in submitter (anonymous submitters have no `user_id` and are unreachable). Title `"Setnayan replied to your help ticket"`, body = first 200 chars of the reply, `relatedUrl` `/help`.
+- `apps/web/lib/chat-actions.ts` — `sendChatMessage` now counts existing messages on the thread *before* inserting the new one. When `senderRole === 'couple'` AND the existing count is zero, fires `vendor_inquiry_received` (title `"New booking inquiry from <event name>"`, body = first 200 chars, `relatedUrl` `/vendor-dashboard/messages/<threadId>`). All subsequent messages still fire the regular `chat_message` notification.
+
+**Verify:** `pnpm --filter @setnayan/web typecheck` ✅ · `lint` ✅ · `build` ✅ (43 routes, no errors).
+
+**SPEC IMPACT:** Two specs touched.
+- `02_Specifications/Brand_Voice.md` (or equivalent) — V1 dashboard now ships Tagalog chrome; please record the EN/TL toggle and the locked translation set in the spec via Cowork.
+- `02_Specifications/0028_email_notifications.md` — event-wired list goes from 7 to 9 (add `help_ticket_replied` and `vendor_inquiry_received`). Please update via Cowork.
+
+---
+
 ## 2026-05-14 · feat(0036): event-day pre-load — couple + vendor day-of resilience
 
 **Commit:** to be filled after commit.

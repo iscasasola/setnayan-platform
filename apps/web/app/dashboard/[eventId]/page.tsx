@@ -22,6 +22,7 @@ import { countUnread } from '@/lib/notifications';
 import { createClient } from '@/lib/supabase/server';
 import { computeGuestStats, fetchGuestsByEvent, guestDisplayName } from '@/lib/guests';
 import { formatEventDate } from '@/lib/events';
+import { getLocale, makeT, type TranslationKey } from '@/lib/i18n';
 import {
   STEPS,
   fetchManualStepCompletions,
@@ -67,28 +68,28 @@ type TileKey =
 
 const TILES: Array<{
   key: TileKey;
-  label: string;
+  labelKey: TranslationKey;
   Icon: LucideIcon;
   href: (eventId: string) => string;
 }> = [
-  { key: 'guests', label: 'Guest List', Icon: Users, href: (id) => `/dashboard/${id}/guests` },
-  { key: 'invitation', label: 'Invitation', Icon: Send, href: (id) => `/dashboard/${id}/invitation` },
-  { key: 'vendors', label: 'Vendors', Icon: Briefcase, href: (id) => `/dashboard/${id}/vendors` },
-  { key: 'budget', label: 'Budget', Icon: Wallet, href: (id) => `/dashboard/${id}/budget` },
-  { key: 'messages', label: 'Messages', Icon: MessageSquare, href: (id) => `/dashboard/${id}/messages` },
-  { key: 'seating', label: 'Seating', Icon: LayoutGrid, href: (id) => `/dashboard/${id}/seating` },
-  { key: 'orders', label: 'Orders', Icon: Receipt, href: (id) => `/dashboard/${id}/orders` },
-  { key: 'notifications', label: 'Notifications', Icon: Bell, href: () => `/dashboard/notifications` },
-  { key: 'mood_board', label: 'Mood Board', Icon: Palette, href: (id) => `/dashboard/${id}/add-ons/mood-board` },
-  { key: 'add_ons', label: 'Add-ons', Icon: Sparkles, href: (id) => `/dashboard/${id}/add-ons` },
+  { key: 'guests', labelKey: 'nav.guests', Icon: Users, href: (id) => `/dashboard/${id}/guests` },
+  { key: 'invitation', labelKey: 'nav.invitation', Icon: Send, href: (id) => `/dashboard/${id}/invitation` },
+  { key: 'vendors', labelKey: 'nav.vendors', Icon: Briefcase, href: (id) => `/dashboard/${id}/vendors` },
+  { key: 'budget', labelKey: 'nav.budget', Icon: Wallet, href: (id) => `/dashboard/${id}/budget` },
+  { key: 'messages', labelKey: 'nav.messages', Icon: MessageSquare, href: (id) => `/dashboard/${id}/messages` },
+  { key: 'seating', labelKey: 'nav.seating', Icon: LayoutGrid, href: (id) => `/dashboard/${id}/seating` },
+  { key: 'orders', labelKey: 'nav.orders', Icon: Receipt, href: (id) => `/dashboard/${id}/orders` },
+  { key: 'notifications', labelKey: 'nav.notifications', Icon: Bell, href: () => `/dashboard/notifications` },
+  { key: 'mood_board', labelKey: 'nav.mood_board', Icon: Palette, href: (id) => `/dashboard/${id}/add-ons/mood-board` },
+  { key: 'add_ons', labelKey: 'nav.add_ons', Icon: Sparkles, href: (id) => `/dashboard/${id}/add-ons` },
 ];
 
-function timeOfDayGreeting(date: Date): string {
+function timeOfDayGreetingKey(date: Date): TranslationKey {
   const h = date.getHours();
-  if (h >= 5 && h < 12) return 'Good morning';
-  if (h >= 12 && h < 17) return 'Good afternoon';
-  if (h >= 17 && h < 21) return 'Good evening';
-  return 'Burning the midnight oil';
+  if (h >= 5 && h < 12) return 'greeting.morning';
+  if (h >= 12 && h < 17) return 'greeting.afternoon';
+  if (h >= 17 && h < 21) return 'greeting.evening';
+  return 'greeting.night';
 }
 
 function daysUntil(eventDate: string | null): number | null {
@@ -193,21 +194,26 @@ export default async function EventHomePage({
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [eventRes, profileRes, guests, manualSteps, unreadCount] = await Promise.all([
-    supabase
-      .from('events')
-      .select('event_id, display_name, event_date, slug, venue_name, monogram_text, palette_finalized_at')
-      .eq('event_id', eventId)
-      .maybeSingle(),
-    supabase
-      .from('users')
-      .select('display_name, planner_mode')
-      .eq('user_id', user.id)
-      .maybeSingle(),
-    fetchGuestsByEvent(supabase, eventId),
-    fetchManualStepCompletions(supabase, eventId),
-    countUnread(supabase, user.id),
-  ]);
+  const [eventRes, profileRes, guests, manualSteps, unreadCount, locale] =
+    await Promise.all([
+      supabase
+        .from('events')
+        .select(
+          'event_id, display_name, event_date, slug, venue_name, monogram_text, palette_finalized_at',
+        )
+        .eq('event_id', eventId)
+        .maybeSingle(),
+      supabase
+        .from('users')
+        .select('display_name, planner_mode')
+        .eq('user_id', user.id)
+        .maybeSingle(),
+      fetchGuestsByEvent(supabase, eventId),
+      fetchManualStepCompletions(supabase, eventId),
+      countUnread(supabase, user.id),
+      getLocale(),
+    ]);
+  const tr = makeT(locale);
 
   const event = eventRes.data;
   if (!event) notFound();
@@ -233,7 +239,7 @@ export default async function EventHomePage({
 
   const greetingName =
     profile?.display_name?.split(' ')[0] ?? user.email?.split('@')[0] ?? 'there';
-  const greeting = timeOfDayGreeting(now);
+  const greeting = tr(timeOfDayGreetingKey(now));
 
   const nextUp = pickNextUp({
     eventId,
@@ -304,15 +310,15 @@ export default async function EventHomePage({
 
       <StageStrip stage={stage} />
 
-      <NextUpCard nextUp={nextUp} />
+      <NextUpCard nextUp={nextUp} tr={tr} />
 
       {plannerMode === 'guided' ? (
-        <Checklist eventId={eventId} statuses={stepStatuses} />
+        <Checklist eventId={eventId} statuses={stepStatuses} tr={tr} />
       ) : null}
 
-      <NavGrid eventId={eventId} stats={stats} unreadCount={unreadCount} />
+      <NavGrid eventId={eventId} stats={stats} unreadCount={unreadCount} tr={tr} />
 
-      <ActivityFeed activity={activity} />
+      <ActivityFeed activity={activity} tr={tr} />
     </section>
   );
 }
@@ -387,7 +393,13 @@ function StageStrip({ stage }: { stage: Stage['key'] }) {
   );
 }
 
-function NextUpCard({ nextUp }: { nextUp: NextUp }) {
+function NextUpCard({
+  nextUp,
+  tr,
+}: {
+  nextUp: NextUp;
+  tr: (key: TranslationKey) => string;
+}) {
   return (
     <Link
       href={nextUp.href}
@@ -395,7 +407,7 @@ function NextUpCard({ nextUp }: { nextUp: NextUp }) {
     >
       <div className="space-y-1">
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-          Next up
+          {tr('section.next_up')}
         </p>
         <h2 className="text-xl font-semibold tracking-tight">{nextUp.title}</h2>
         <p className="max-w-prose text-sm text-ink/65">{nextUp.body}</p>
@@ -412,15 +424,17 @@ function NavGrid({
   eventId,
   stats,
   unreadCount,
+  tr,
 }: {
   eventId: string;
   stats: { total: number; attending: number; pending: number };
   unreadCount: number;
+  tr: (key: TranslationKey) => string;
 }) {
   return (
     <div className="space-y-3">
       <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-        Plan
+        {tr('section.plan')}
       </h2>
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
         {TILES.map((tile) => {
@@ -449,7 +463,7 @@ function NavGrid({
                   ) : null}
                 </span>
                 <span className="text-xs font-semibold text-ink sm:text-sm">
-                  {tile.label}
+                  {tr(tile.labelKey)}
                 </span>
                 {counter ? (
                   <span className="text-[10px] text-ink/55 sm:text-xs">{counter}</span>
@@ -466,9 +480,11 @@ function NavGrid({
 function Checklist({
   eventId,
   statuses,
+  tr,
 }: {
   eventId: string;
   statuses: StepStatus[];
+  tr: (key: TranslationKey) => string;
 }) {
   const progress = plannerProgress(statuses);
   const byKey = new Map(statuses.map((s) => [s.key, s]));
@@ -477,7 +493,7 @@ function Checklist({
       <div className="flex items-center justify-between">
         <div className="space-y-0.5">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Guided planner
+            {tr('section.guided_planner')}
           </h2>
           <p className="text-sm text-ink/65">
             {progress.done} of {progress.total} steps · prefer to fly solo? Switch to DIY in
@@ -564,7 +580,13 @@ function Checklist({
   );
 }
 
-function ActivityFeed({ activity }: { activity: Activity[] }) {
+function ActivityFeed({
+  activity,
+  tr,
+}: {
+  activity: Activity[];
+  tr: (key: TranslationKey) => string;
+}) {
   if (activity.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-6 text-center text-sm text-ink/55">
@@ -575,7 +597,7 @@ function ActivityFeed({ activity }: { activity: Activity[] }) {
   return (
     <div className="space-y-3">
       <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-        Recent activity
+        {tr('section.recent_activity')}
       </h2>
       <ul className="divide-y divide-ink/10 rounded-xl border border-ink/10 bg-cream">
         {activity.map((a) => (

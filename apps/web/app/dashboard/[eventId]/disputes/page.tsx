@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation';
 import { AlertTriangle, Paperclip, Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { FileUpload } from '@/app/_components/file-upload';
+import { displayUrlsForStoredAssets } from '@/lib/uploads';
 import {
   FLAG_TYPES,
   FLAG_TYPE_LABEL,
@@ -75,6 +77,20 @@ export default async function CoupleDisputesPage({ params, searchParams }: Props
     vendors.map((v) => [v.vendor_id, v]),
   );
 
+  // Pre-resolve every flag's evidence URLs. Legacy http(s) URLs pass through
+  // unchanged; new r2:// refs get a 24h presigned GET. The map is keyed by
+  // flag_id so `<FlagCard>` can look up the resolved hrefs without
+  // smuggling secrets back through React state.
+  const evidenceUrlMap: Record<string, string[]> = {};
+  await Promise.all(
+    flags.map(async (f) => {
+      if (!f.evidence_urls?.length) return;
+      evidenceUrlMap[f.flag_id] = await displayUrlsForStoredAssets(
+        f.evidence_urls,
+      );
+    }),
+  );
+
   return (
     <section className="space-y-6">
       <header className="space-y-2">
@@ -128,7 +144,12 @@ export default async function CoupleDisputesPage({ params, searchParams }: Props
         ) : (
           <ul className="space-y-3">
             {flags.map((f) => (
-              <FlagCard key={f.flag_id} flag={f} vendor={vendorById.get(f.event_vendor_id ?? '') ?? null} />
+              <FlagCard
+                key={f.flag_id}
+                flag={f}
+                vendor={vendorById.get(f.event_vendor_id ?? '') ?? null}
+                resolvedEvidenceUrls={evidenceUrlMap[f.flag_id] ?? null}
+              />
             ))}
           </ul>
         )}
@@ -152,7 +173,6 @@ function NewFlagForm({
       </summary>
       <form
         action={fileForceMajeureFlag}
-        encType="multipart/form-data"
         className="space-y-5 border-t border-ink/10 p-4"
       >
         <input type="hidden" name="event_id" value={eventId} />
@@ -221,19 +241,31 @@ function NewFlagForm({
           ) : null}
         </label>
 
-        <label htmlFor="evidence" className="block space-y-1">
+        <div className="block space-y-1">
           <span className="block font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
-            Evidence (optional — photos, screenshots, weather alerts; up to 6&nbsp;MB each)
+            Evidence (optional — photos, screenshots, weather alerts, PDFs)
           </span>
-          <input
-            id="evidence"
-            name="evidence"
-            type="file"
+          <FileUpload
+            bucket="thread-files"
+            pathPrefix={`events/${eventId}/disputes/incoming`}
+            name="evidence_refs"
             multiple
-            accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,image/avif"
-            className="block w-full text-sm text-ink/70 file:mr-3 file:rounded-md file:border-0 file:bg-ink/10 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-ink/80 hover:file:bg-ink/15"
+            maxFiles={5}
+            maxSizeMB={10}
+            acceptedTypes={[
+              'image/png',
+              'image/jpeg',
+              'image/webp',
+              'image/gif',
+              'image/heic',
+              'image/heif',
+              'image/avif',
+              'application/pdf',
+            ]}
+            help="Up to 5 files, 10 MB each. PNG / JPEG / WebP / HEIC / PDF."
+            variant="wide"
           />
-        </label>
+        </div>
 
         <SubmitButton className="button-primary" pendingLabel="Filing…">
           File flag
@@ -246,11 +278,19 @@ function NewFlagForm({
 function FlagCard({
   flag,
   vendor,
+  resolvedEvidenceUrls,
 }: {
   flag: FlagRow;
   vendor: EventVendorRow | null;
+  /**
+   * Pre-resolved display URLs (one per entry in `flag.evidence_urls`).
+   * Provided by the page-level server component so we can render either
+   * legacy http(s) URLs or freshly-presigned r2:// refs without exposing
+   * R2 internals to the client.
+   */
+  resolvedEvidenceUrls: string[] | null;
 }) {
-  const evidenceCount = flag.evidence_urls?.length ?? 0;
+  const evidenceCount = resolvedEvidenceUrls?.length ?? flag.evidence_urls?.length ?? 0;
   const countdown = flag.resolved_at
     ? null
     : formatAutoResolveCountdown(flag.auto_resolve_at);
@@ -281,8 +321,10 @@ function FlagCard({
       {evidenceCount > 0 ? (
         <div className="flex flex-wrap items-center gap-2 text-xs text-ink/60">
           <Paperclip aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          <span>{evidenceCount} attachment{evidenceCount === 1 ? '' : 's'}:</span>
-          {flag.evidence_urls?.map((url, idx) => (
+          <span>
+            {evidenceCount} attachment{evidenceCount === 1 ? '' : 's'}:
+          </span>
+          {resolvedEvidenceUrls?.map((url, idx) => (
             <a
               key={url}
               href={url}

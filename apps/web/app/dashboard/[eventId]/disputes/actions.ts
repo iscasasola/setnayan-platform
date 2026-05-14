@@ -53,23 +53,47 @@ export async function fileForceMajeureFlag(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  // Evidence upload — multiple files, all optional. Each file is validated
-  // by uploadPublicAsset (MIME + size). We stop on the first failure so the
-  // couple sees the underlying error message rather than a silent partial.
+  // Evidence — two supported shapes (see the matching note in
+  // app/dashboard/[eventId]/orders/actions.ts):
+  //
+  //   (1) New flow: `<FileUpload name="evidence_refs" multiple>` ships
+  //       direct-to-R2 client-side and emits one hidden input per ref
+  //       (`r2://bucket/key`). We accept up to 5 well-formed refs.
+  //
+  //   (2) Legacy flow: `<input type="file" name="evidence" multiple>` for
+  //       any half-deployed traffic. We pipe each file through
+  //       `uploadPublicAsset` like before.
+  //
+  // Both branches contribute to the same `evidence_urls` array on the flag
+  // row — the column is TEXT[] so r2:// refs and http(s) URLs coexist
+  // happily. Render-side resolution lives in `displayUrlsForStoredAssets`.
   const evidenceUrls: string[] = [];
-  const files = formData.getAll('evidence');
-  for (const f of files) {
-    if (!(f instanceof File) || f.size === 0) continue;
-    const result = await uploadPublicAsset({
-      pathPrefix: `force-majeure/${eventId}`,
-      file: f,
-    });
-    if (!result.ok) {
-      return redirect(
-        `/dashboard/${eventId}/disputes?error=${encodeURIComponent(result.error)}`,
-      );
+  const refStrings = formData.getAll('evidence_refs');
+  for (const r of refStrings) {
+    if (typeof r !== 'string') continue;
+    const trimmed = r.trim();
+    if (trimmed.length === 0) continue;
+    if (!trimmed.startsWith('r2://')) continue;
+    if (evidenceUrls.includes(trimmed)) continue;
+    evidenceUrls.push(trimmed);
+    if (evidenceUrls.length >= 5) break;
+  }
+  if (evidenceUrls.length === 0) {
+    const files = formData.getAll('evidence');
+    for (const f of files) {
+      if (!(f instanceof File) || f.size === 0) continue;
+      const result = await uploadPublicAsset({
+        pathPrefix: `force-majeure/${eventId}`,
+        file: f,
+      });
+      if (!result.ok) {
+        return redirect(
+          `/dashboard/${eventId}/disputes?error=${encodeURIComponent(result.error)}`,
+        );
+      }
+      evidenceUrls.push(result.publicUrl);
+      if (evidenceUrls.length >= 5) break;
     }
-    evidenceUrls.push(result.publicUrl);
   }
 
   const { data: inserted, error } = await supabase

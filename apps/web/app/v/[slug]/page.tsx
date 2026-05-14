@@ -2,7 +2,11 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Mail, Phone, Globe, MapPin, Star } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import { displayServiceLabel } from '@/lib/vendors';
+import { fetchUserEvents } from '@/lib/events';
+import { isFollowingVendor } from '@/lib/follow';
+import { FollowGate } from '@/app/_components/follow-gate';
 import {
   fetchReviewsForVendorWithCouple,
   fetchReviewStats,
@@ -78,6 +82,21 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
   ]);
   const hasMore = reviewStats.total_count > reviews.length;
 
+  // Resolve viewer state for the FollowGate (iteration 0019 § Gate). Public
+  // page so the supabase client may have no user; that's fine — the gate
+  // renders a "Sign in to follow" CTA in that case.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  let initialFollowing = false;
+  let coupleEventId: string | null = null;
+  if (user) {
+    initialFollowing = await isFollowingVendor(supabase, user.id, vendor.vendor_profile_id);
+    const events = await fetchUserEvents(supabase, user.id, 'couple');
+    coupleEventId = events[0]?.event_id ?? null;
+  }
+
   return (
     <main className="min-h-dvh bg-cream">
       <header className="border-b border-ink/5">
@@ -151,6 +170,17 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
                   Website
                 </a>
               ) : null}
+            </div>
+            <div className="pt-4">
+              <FollowGate
+                vendorProfileId={vendor.vendor_profile_id}
+                vendorName={vendor.business_name}
+                vendorEmail={vendor.contact_email}
+                isAuthenticated={user !== null}
+                initialFollowing={initialFollowing}
+                eventId={coupleEventId}
+                revalidatePath={`/v/${slug}`}
+              />
             </div>
           </div>
         </section>

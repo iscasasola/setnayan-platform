@@ -10,7 +10,7 @@ export const metadata = { title: 'Messages' };
 
 type Props = {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; prefill_vendor_email?: string }>;
 };
 
 export default async function CoupleMessagesPage({ params, searchParams }: Props) {
@@ -47,6 +47,11 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
         <h2 className="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
           Start a new thread
         </h2>
+        {search.prefill_vendor_email ? (
+          <p className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-terracotta/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
+            Pre-filled from vendor profile · just tap Start thread
+          </p>
+        ) : null}
         <form
           action={startThreadByVendorEmail}
           className="flex flex-col gap-2 sm:flex-row sm:items-stretch"
@@ -57,6 +62,8 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
             type="email"
             required
             placeholder="vendor's contact email"
+            defaultValue={search.prefill_vendor_email ?? ''}
+            autoFocus={!!search.prefill_vendor_email}
             className="input-field flex-1"
           />
           <SubmitButton

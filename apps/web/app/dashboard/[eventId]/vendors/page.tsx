@@ -15,6 +15,7 @@ import {
   type VendorStatus,
 } from '@/lib/vendors';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { FollowGate } from '@/app/_components/follow-gate';
 import { createVendor, deleteVendor, updateVendorStatus } from './actions';
 
 export const metadata = { title: 'Vendors' };
@@ -79,6 +80,25 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     return !!pid && reviewedProfileIds.has(pid);
   }
 
+  // Iteration 0019 § Gate — for every event-vendor row whose contact_email
+  // maps to a Setnayan vendor_profile_id, surface a FollowGate so the couple
+  // can follow + (gated) message directly from this list. Rows without a
+  // profile match (manually-tracked vendors) skip the gate row.
+  const profileIds = Array.from(new Set(emailToProfileId.values()));
+  let followedProfileIds = new Set<string>();
+  if (profileIds.length > 0) {
+    const { data: follows } = await supabase
+      .from('vendor_follows')
+      .select('vendor_profile_id')
+      .eq('follower_user_id', user.id)
+      .in('vendor_profile_id', profileIds);
+    followedProfileIds = new Set((follows ?? []).map((f) => f.vendor_profile_id));
+  }
+  function vendorProfileForRow(v: EventVendorRow): string | null {
+    if (!v.contact_email) return null;
+    return emailToProfileId.get(v.contact_email.toLowerCase()) ?? null;
+  }
+
   const activeFilter = (search.status ?? 'all') as 'all' | VendorStatus;
   const visible =
     activeFilter === 'all' ? vendors : vendors.filter((v) => v.status === activeFilter);
@@ -103,14 +123,19 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         <EmptyVendors filtered={activeFilter !== 'all'} />
       ) : (
         <ul className="grid gap-3 lg:grid-cols-2">
-          {visible.map((v) => (
-            <VendorCard
-              key={v.vendor_id}
-              eventId={eventId}
-              vendor={v}
-              alreadyReviewed={isAlreadyReviewed(v)}
-            />
-          ))}
+          {visible.map((v) => {
+            const profileId = vendorProfileForRow(v);
+            return (
+              <VendorCard
+                key={v.vendor_id}
+                eventId={eventId}
+                vendor={v}
+                alreadyReviewed={isAlreadyReviewed(v)}
+                vendorProfileId={profileId}
+                isFollowing={profileId !== null && followedProfileIds.has(profileId)}
+              />
+            );
+          })}
         </ul>
       )}
     </section>
@@ -355,10 +380,14 @@ function VendorCard({
   eventId,
   vendor,
   alreadyReviewed,
+  vendorProfileId,
+  isFollowing,
 }: {
   eventId: string;
   vendor: EventVendorRow;
   alreadyReviewed: boolean;
+  vendorProfileId: string | null;
+  isFollowing: boolean;
 }) {
   const remaining =
     vendor.total_cost_php !== null
@@ -426,6 +455,19 @@ function VendorCard({
 
       {vendor.notes ? (
         <p className="rounded-md bg-ink/[0.03] p-2 text-xs text-ink/75">{vendor.notes}</p>
+      ) : null}
+
+      {vendorProfileId ? (
+        <FollowGate
+          vendorProfileId={vendorProfileId}
+          vendorName={vendor.vendor_name}
+          vendorEmail={vendor.contact_email}
+          isAuthenticated={true}
+          initialFollowing={isFollowing}
+          eventId={eventId}
+          revalidatePath={`/dashboard/${eventId}/vendors`}
+          variant="card"
+        />
       ) : null}
 
       {reviewEligible ? (

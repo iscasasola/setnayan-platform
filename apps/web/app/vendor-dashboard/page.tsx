@@ -2,9 +2,26 @@ import { redirect } from 'next/navigation';
 import { AlertTriangle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile, profileCompletion } from '@/lib/vendor-profile';
+import { fetchVendorThreads } from '@/lib/chat';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { VendorEventDayPrepCta } from '@/app/_components/vendor-event-day-prep-cta';
 import { saveVendorProfile } from './actions';
 import { ServicesPicker } from './_components/services-picker';
+
+/**
+ * Returns true when `eventDate` falls inside the vendor pre-load window
+ * (T-3 days through T+1 day). Matches the visibility gate inside
+ * `<VendorEventDayPrepCta>`; we duplicate the check on the server so we can
+ * skip rendering threads that wouldn't show a CTA anyway.
+ */
+function isUpcomingForPreload(eventDate: string | null): boolean {
+  if (!eventDate) return false;
+  const event = new Date(`${eventDate}T00:00:00`);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const days = Math.round((event.getTime() - today.getTime()) / 86_400_000);
+  return days <= 3 && days >= -1;
+}
 
 export const metadata = { title: 'Vendor profile · Setnayan' };
 
@@ -25,6 +42,15 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
   const pct =
     completion.total === 0 ? 0 : Math.round((completion.done / completion.total) * 100);
 
+  // Vendor-side event-day pre-load: surface a CTA per upcoming event the
+  // vendor has a contracted relationship with (proxied through their open
+  // chat threads, which RLS already scopes to the vendor's profile).
+  const upcomingThreads = profile
+    ? (await fetchVendorThreads(supabase, profile.vendor_profile_id)).filter((t) =>
+        isUpcomingForPreload(t.event?.event_date ?? null),
+      )
+    : [];
+
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
@@ -34,6 +60,20 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
           chats from their dashboard — see those at Messages.
         </p>
       </header>
+
+      {upcomingThreads.length > 0 ? (
+        <section className="mb-6 space-y-2">
+          {upcomingThreads.map((t) => (
+            <VendorEventDayPrepCta
+              key={t.thread_id}
+              threadId={t.thread_id}
+              eventId={t.event_id}
+              eventDisplayName={t.event?.display_name ?? 'Upcoming event'}
+              eventDate={t.event?.event_date ?? null}
+            />
+          ))}
+        </section>
+      ) : null}
 
       {search.error ? (
         <p

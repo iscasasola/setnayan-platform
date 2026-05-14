@@ -24,6 +24,40 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// Iteration 0036 — event-day pre-load.
+// Listen for PRELOAD_ASSETS messages from the page and fetch+stash each URL
+// in the shell cache so it's available offline. This is a thin stub in
+// Sprint 0: the full Workbox-backed handler with route-scoped expiration
+// lands with the iteration 0010 caching foundation. Unknown message types
+// are ignored — V1 only cares about PRELOAD_ASSETS.
+self.addEventListener('message', (event) => {
+  const data = event.data;
+  if (!data || typeof data !== 'object') return;
+  if (data.type !== 'PRELOAD_ASSETS') return;
+  const urls = Array.isArray(data.urls) ? data.urls.filter((u) => typeof u === 'string') : [];
+  if (urls.length === 0) return;
+
+  event.waitUntil(
+    caches.open(CACHE_VERSION).then((cache) =>
+      Promise.all(
+        urls.map((url) =>
+          fetch(url, { mode: 'no-cors' })
+            .then((res) => {
+              // `no-cors` responses are opaque but still cacheable. Skip
+              // anything the browser flagged as a real failure.
+              if (!res || (res.status >= 400 && res.type !== 'opaque')) return;
+              return cache.put(url, res.clone());
+            })
+            .catch(() => {
+              // Best-effort warm-up; ignore network errors for individual
+              // URLs so one bad asset doesn't tank the whole preload.
+            }),
+        ),
+      ),
+    ),
+  );
+});
+
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET') return;

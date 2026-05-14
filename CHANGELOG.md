@@ -4,6 +4,28 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-14 · feat(0036): event-day pre-load — couple + vendor day-of resilience
+
+**Commit:** to be filled after commit.
+
+**Context:** day-of venue WiFi is unreliable. Owner asked for a proactive pre-load that downloads the full event bundle into the client cache so the dashboard works offline when it matters most. This iteration adds the pre-load infrastructure on the couple and vendor sides; the underlying TanStack-Query persistence layer ships separately as PR #10 (caching foundation).
+
+**What landed:**
+- [apps/web/lib/event-preload.ts](apps/web/lib/event-preload.ts) — new `server-only` module. `prefetchEventBundle(eventId)` fetches guests + tables/assignments + schedule + vendors + budget + mood-board palette + last-50 messages per couple/vendor thread, packaged under canonical TanStack-Query keys. RLS gates the read.
+- [apps/web/app/_components/event-day-prep-actions.ts](apps/web/app/_components/event-day-prep-actions.ts) — `'use server'` action `prepareForEventDay` (couple side) + `prepareVendorEventDay` (vendor side). Returns a discriminated union so the client surfaces retry-able errors instead of throwing.
+- [apps/web/app/_components/event-day-prep-cta.tsx](apps/web/app/_components/event-day-prep-cta.tsx) — couple-side banner CTA. Visible T-3 days to T+1 day. On click: hydrates the Query cache section-by-section + posts `{ type: 'PRELOAD_ASSETS', urls }` to the SW for asset warm-up. Phases: idle → loading → done (`"Ready for event day — works offline"`) or error with retry.
+- [apps/web/app/_components/auto-preload-on-event-day.tsx](apps/web/app/_components/auto-preload-on-event-day.tsx) — silent client component on the dashboard. Auto-fires the action when the event is T-24h to T+12h, deduped to once per 60 minutes via `localStorage`.
+- [apps/web/app/_components/vendor-event-day-prep-cta.tsx](apps/web/app/_components/vendor-event-day-prep-cta.tsx) — vendor-side analogue. Scoped per chat thread (one card per upcoming couple).
+- [apps/web/app/dashboard/[eventId]/page.tsx](apps/web/app/dashboard/[eventId]/page.tsx) — renders both new components above the welcome strip. Minimal edit.
+- [apps/web/app/vendor-dashboard/page.tsx](apps/web/app/vendor-dashboard/page.tsx) — renders a `<VendorEventDayPrepCta>` per upcoming event (filtered to the T-3/T+1 window server-side).
+- [apps/web/public/sw.js](apps/web/public/sw.js) — added a `message` listener that handles `PRELOAD_ASSETS` by `fetch + cache.put`-ing each URL. Stub-level today; the iteration 0010 (Workbox + route-scoped expiration) handler will continue to honor the same message shape.
+
+**Dependency:** PR #10 (`claude/caching-foundation`) is being worked on in parallel and adds the runtime side — `@tanstack/react-query`, `getQueryClient()`, the providers wrapper, persisted IndexedDB cache. This PR uses local gitignored stubs (`apps/web/lib/query-client.ts`, `apps/web/app/providers.tsx`, `apps/web/lib/use-tracked-mutation.ts`, excluded via `.git/info/exclude`) so typecheck + lint pass before merge. Stubs vanish once #10 lands.
+
+**SPEC IMPACT:** New iteration **0036_event_day_preload**. The owner needs to add this to the spec corpus via Cowork — see `COWORK_INBOX.md` for the entry.
+
+---
+
 ## 2026-05-14 · repo public + free-tier security hardening pass
 
 **Commit:** to be filled after commit.

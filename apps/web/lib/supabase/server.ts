@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { applyPersistentCookieDefaults } from './cookies';
 
 type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
@@ -21,7 +22,7 @@ export async function createClient() {
         setAll(cookiesToSet: CookieToSet[]) {
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options),
+              cookieStore.set(name, value, applyPersistentCookieDefaults(options)),
             );
           } catch {
             // Server Component context — middleware will refresh on the next request.

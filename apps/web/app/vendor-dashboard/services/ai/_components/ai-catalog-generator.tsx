@@ -7,7 +7,7 @@ import {
   CheckCircle2,
   Loader2,
   Mic,
-  PenLine,
+  PencilLine,
   Plus,
   Sparkles,
   Trash2,
@@ -20,9 +20,11 @@ import {
 import type { GeneratedCatalogEntry } from '@/lib/anthropic-catalog';
 import {
   generateCatalog,
+  generateCatalogFromPhotos,
   generateCatalogFromVoice,
   publishGeneratedCatalog,
 } from '../actions';
+import { PhotoOcrInput } from './photo-ocr-input';
 import { VoiceInput } from './voice-input';
 
 type Props = {
@@ -32,12 +34,11 @@ type Props = {
 type Step = 'input' | 'preview' | 'confirmation';
 
 /**
- * Iteration 0040 introduces three ways to seed the AI catalog generator:
- *   • TEXT — original PR #37 flow (vendor types a description).
- *   • PHOTO — sibling agent's branch (claude/ai-catalog-photo-ocr) wires
- *     this up; we render a disabled "Coming soon" tab so the markup is
- *     there and the two PRs can land independently.
- *   • VOICE — this PR (Filipino/Taglish via OpenAI Whisper).
+ * Three input modes for Step 1. All three are now enabled (Text via PR #37,
+ * Photo via PR #40 / Claude vision, Voice via PR #41 / OpenAI Whisper).
+ * Each input mode produces text that feeds the same Claude catalog
+ * generation flow — the shared `entries` / `step` state below doesn't care
+ * which mode produced the draft.
  */
 type InputMode = 'text' | 'photo' | 'voice';
 
@@ -54,19 +55,32 @@ const EXAMPLE_DESCRIPTION =
 
 /**
  * Three-step flow:
- *   1. INPUT — vendor types a description, hits Generate.
+ *   1. INPUT — vendor picks a mode (text / photo / voice) and provides input.
  *   2. PREVIEW — vendor reviews/edits cards side-by-side with their input.
  *   3. CONFIRMATION — vendor sees "X services added" and a link back.
  *
  * Names surface in the preview as a sanity-check hint but are not persisted
  * (existing `vendor_services` schema has no `name` column — see the comment
  * in lib/anthropic-catalog.ts).
+ *
+ * Input modes coordinate by sharing the same `entries` / `step` /
+ * `publishSummary` state — once Claude produces a catalog draft, the rest of
+ * the flow doesn't care which input mode produced it. Per-mode state
+ * (description, photoR2Keys, etc.) lives at this level too so a vendor can
+ * flip back to the input step without losing what they typed.
  */
 export function AiCatalogGenerator({ vendorProfileId }: Props) {
-  const [inputMode, setInputMode] = useState<InputMode>('text');
   const [step, setStep] = useState<Step>('input');
+  const [inputMode, setInputMode] = useState<InputMode>('text');
+
+  // Text-mode state.
   const [description, setDescription] = useState('');
   const [originalDescription, setOriginalDescription] = useState('');
+
+  // Photo-mode state. Stores r2://setnayan-media/... refs emitted by
+  // FileUpload after each photo finishes uploading.
+  const [photoR2Keys, setPhotoR2Keys] = useState<string[]>([]);
+
   const [entries, setEntries] = useState<EditableEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [publishSummary, setPublishSummary] = useState<PublishSummary | null>(
@@ -74,25 +88,6 @@ export function AiCatalogGenerator({ vendorProfileId }: Props) {
   );
   const [isGenerating, startGenerating] = useTransition();
   const [isPublishing, startPublishing] = useTransition();
-
-  /**
-   * Common landing point for both text and voice generation paths.
-   * Once entries are produced, the preview step doesn't care which input
-   * mode the vendor used — the editable cards are identical.
-   */
-  const enterPreviewWithEntries = (
-    rawEntries: GeneratedCatalogEntry[],
-    sourceText: string,
-  ) => {
-    setEntries(
-      rawEntries.map((e, idx) => ({
-        ...e,
-        id: `gen-${idx}-${Date.now()}`,
-      })),
-    );
-    setOriginalDescription(sourceText);
-    setStep('preview');
-  };
 
   const handleGenerate = () => {
     setError(null);
@@ -107,30 +102,67 @@ export function AiCatalogGenerator({ vendorProfileId }: Props) {
         setError(result.error);
         return;
       }
-      enterPreviewWithEntries(result.entries, trimmed);
+      setEntries(
+        result.entries.map((e, idx) => ({
+          ...e,
+          id: `gen-${idx}-${Date.now()}`,
+        })),
+      );
+      setOriginalDescription(trimmed);
+      setStep('preview');
     });
   };
 
-  /**
-   * Called from the VoiceInput component with the (possibly edited)
-   * transcript. We route through `generateCatalogFromVoice` rather than
-   * `generateCatalog` so future per-source analytics can hook in without
-   * touching this component.
-   */
-  const handleGenerateFromVoice = (transcript: string) => {
+  const handleGenerateFromPhotos = () => {
     setError(null);
-    const trimmed = transcript.trim();
-    if (trimmed.length === 0) {
-      setError('Record or paste a transcript before generating.');
+    if (photoR2Keys.length === 0) {
+      setError('Upload at least one menu photo first.');
       return;
     }
     startGenerating(async () => {
-      const result = await generateCatalogFromVoice(vendorProfileId, trimmed);
+      const result = await generateCatalogFromPhotos(
+        vendorProfileId,
+        photoR2Keys,
+      );
       if (!result.ok) {
         setError(result.error);
         return;
       }
-      enterPreviewWithEntries(result.entries, trimmed);
+      setEntries(
+        result.entries.map((e, idx) => ({
+          ...e,
+          id: `ocr-${idx}-${Date.now()}`,
+        })),
+      );
+      // Use a synthetic "description" so the preview's left panel still has
+      // useful context. Doesn't affect publish.
+      setOriginalDescription(
+        `Extracted from ${photoR2Keys.length} menu photo${photoR2Keys.length === 1 ? '' : 's'}.`,
+      );
+      setStep('preview');
+    });
+  };
+
+  const handleGenerateFromVoice = (transcript: string) => {
+    setError(null);
+    if (!transcript.trim()) {
+      setError('Record and transcribe before generating.');
+      return;
+    }
+    startGenerating(async () => {
+      const result = await generateCatalogFromVoice(vendorProfileId, transcript);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setEntries(
+        result.entries.map((e, idx) => ({
+          ...e,
+          id: `voice-${idx}-${Date.now()}`,
+        })),
+      );
+      setOriginalDescription(transcript);
+      setStep('preview');
     });
   };
 
@@ -196,60 +228,57 @@ export function AiCatalogGenerator({ vendorProfileId }: Props) {
     setError(null);
     setPublishSummary(null);
     setOriginalDescription('');
+    setPhotoR2Keys([]);
+    // Keep the user's last `description` and `inputMode` so re-entering the
+    // flow doesn't wipe their work; only clear what the new run will replace.
   };
 
   if (step === 'input') {
     return (
       <div className="space-y-4">
-        {/* ----- Input mode tabs ------------------------------------------ */}
+        {/* 3-tab toggle. All three modes are live as of PR #41. */}
         <div
           role="tablist"
-          aria-label="Catalog input method"
-          className="flex gap-2 rounded-2xl border border-ink/10 bg-cream/60 p-1.5"
+          aria-label="Catalog input mode"
+          className="inline-flex rounded-xl border border-ink/10 bg-cream p-1"
         >
           <TabButton
-            id="tab-text"
+            mode="text"
             active={inputMode === 'text'}
-            onClick={() => {
-              setError(null);
+            disabled={isGenerating}
+            onSelect={() => {
               setInputMode('text');
-            }}
-            icon={<PenLine aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
-            label="Text"
-            sublabel="Type a description"
-          />
-          {/* Photo tab — owned by sibling agent on claude/ai-catalog-photo-ocr.
-              Disabled here so the markup is in place and the two PRs land
-              independently without conflicting on this file. */}
-          <TabButton
-            id="tab-photo"
-            active={inputMode === 'photo'}
-            onClick={undefined}
-            disabled
-            icon={<Camera aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
-            label="Photo"
-            sublabel="Coming soon"
-          />
-          <TabButton
-            id="tab-voice"
-            active={inputMode === 'voice'}
-            onClick={() => {
               setError(null);
-              setInputMode('voice');
             }}
-            icon={<Mic aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+            icon={<PencilLine aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />}
+            label="Text"
+          />
+          <TabButton
+            mode="photo"
+            active={inputMode === 'photo'}
+            disabled={isGenerating}
+            onSelect={() => {
+              setInputMode('photo');
+              setError(null);
+            }}
+            icon={<Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />}
+            label="Photo"
+          />
+          <TabButton
+            mode="voice"
+            active={inputMode === 'voice'}
+            disabled={isGenerating}
+            onSelect={() => {
+              setInputMode('voice');
+              setError(null);
+            }}
+            icon={<Mic aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />}
             label="Voice"
-            sublabel="Tagalog / Taglish"
           />
         </div>
 
-        {/* ----- Tab panels ----------------------------------------------- */}
         {inputMode === 'text' ? (
-          <div
-            role="tabpanel"
-            aria-labelledby="tab-text"
-            className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6"
-          >
+          <div className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
             <div className="space-y-1">
               <label
                 htmlFor="ai-description"
@@ -258,9 +287,8 @@ export function AiCatalogGenerator({ vendorProfileId }: Props) {
                 Tell me about your services in plain English
               </label>
               <p className="text-xs text-ink/60">
-                Mention what you offer, your packages, pricing, and
-                what&rsquo;s included. The more detail you give, the better
-                the draft.
+                Mention what you offer, your packages, pricing, and what&rsquo;s
+                included. The more detail you give, the better the draft.
               </p>
             </div>
 
@@ -317,11 +345,7 @@ export function AiCatalogGenerator({ vendorProfileId }: Props) {
                   </>
                 ) : (
                   <>
-                    <Sparkles
-                      aria-hidden
-                      className="h-4 w-4"
-                      strokeWidth={1.75}
-                    />
+                    <Sparkles aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                     Generate catalog
                   </>
                 )}
@@ -330,42 +354,24 @@ export function AiCatalogGenerator({ vendorProfileId }: Props) {
           </div>
         ) : null}
 
-        {inputMode === 'voice' ? (
-          <div role="tabpanel" aria-labelledby="tab-voice" className="space-y-3">
-            <VoiceInput
-              vendorProfileId={vendorProfileId}
-              disabled={isGenerating}
-              onSubmit={handleGenerateFromVoice}
-            />
-            {/* Errors from generateCatalogFromVoice (Claude side) surface
-                here so they appear right above the action. The VoiceInput
-                component handles its own recording/transcription errors. */}
-            {error ? (
-              <p
-                role="alert"
-                className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-              >
-                {error}
-              </p>
-            ) : null}
-            {isGenerating ? (
-              <p
-                aria-live="polite"
-                className="inline-flex items-center gap-2 rounded-md bg-terracotta/10 px-3 py-2 text-xs font-medium text-terracotta-700"
-              >
-                <Loader2
-                  aria-hidden
-                  className="h-3.5 w-3.5 animate-spin"
-                  strokeWidth={2}
-                />
-                Generating catalog from transcript&hellip;
-              </p>
-            ) : null}
-          </div>
+        {inputMode === 'photo' ? (
+          <PhotoOcrInput
+            vendorProfileId={vendorProfileId}
+            photoR2Keys={photoR2Keys}
+            onChange={setPhotoR2Keys}
+            onGenerate={handleGenerateFromPhotos}
+            isGenerating={isGenerating}
+            error={error}
+          />
         ) : null}
 
-        {/* The Photo tab is disabled — when the photo-ocr branch merges it
-            will swap the disabled prop and render its own panel here. */}
+        {inputMode === 'voice' ? (
+          <VoiceInput
+            vendorProfileId={vendorProfileId}
+            disabled={isGenerating}
+            onSubmit={handleGenerateFromVoice}
+          />
+        ) : null}
       </div>
     );
   }
@@ -614,62 +620,42 @@ export function AiCatalogGenerator({ vendorProfileId }: Props) {
 }
 
 /**
- * Single tab in the three-up input-mode toggle. Pure presentation — the
- * generator owns mode state and decides what each tab does. Rendering
- * mirrors the design language used elsewhere in the vendor dashboard
- * (terracotta active state, ink/Hugh-neutral inactive, cream chrome).
+ * Single-tab pill used in the 3-tab input-mode toggle. Kept as a small
+ * sibling component (rather than a `tab` prop on the parent) so the Voice
+ * tab's `disabled + comingSoon` styling stays declarative.
  */
-function TabButton({
-  id,
-  active,
-  onClick,
-  disabled,
-  icon,
-  label,
-  sublabel,
-}: {
-  id: string;
+function TabButton(props: {
+  mode: InputMode;
   active: boolean;
-  onClick?: () => void;
-  disabled?: boolean;
+  disabled: boolean;
+  onSelect: () => void;
   icon: React.ReactNode;
   label: string;
-  sublabel: string;
+  comingSoon?: boolean;
 }) {
+  const { active, disabled, onSelect, icon, label, comingSoon } = props;
   return (
     <button
       type="button"
-      id={id}
       role="tab"
       aria-selected={active}
-      aria-controls={`panel-${id}`}
-      onClick={onClick}
+      onClick={onSelect}
       disabled={disabled}
-      className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors sm:px-4 sm:py-3 ${
+      className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.15em] transition-colors ${
         active
-          ? 'bg-terracotta text-cream shadow-sm shadow-terracotta/20'
+          ? 'bg-terracotta text-cream'
           : disabled
-            ? 'text-ink/35 cursor-not-allowed'
-            : 'text-ink/70 hover:bg-ink/[0.04] hover:text-ink'
+            ? 'cursor-not-allowed text-ink/35'
+            : 'text-ink/65 hover:text-ink'
       }`}
     >
-      <span
-        className={`inline-flex h-5 w-5 items-center justify-center ${
-          active ? 'text-cream' : disabled ? 'text-ink/30' : 'text-ink/55'
-        }`}
-      >
-        {icon}
-      </span>
-      <span className="flex flex-col items-start leading-tight">
-        <span>{label}</span>
-        <span
-          className={`font-mono text-[9px] uppercase tracking-[0.18em] ${
-            active ? 'text-cream/80' : disabled ? 'text-ink/30' : 'text-ink/45'
-          }`}
-        >
-          {sublabel}
+      {icon}
+      <span>{label}</span>
+      {comingSoon ? (
+        <span className="ml-1 rounded-full bg-ink/5 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.18em] text-ink/55">
+          Soon
         </span>
-      </span>
+      ) : null}
     </button>
   );
 }

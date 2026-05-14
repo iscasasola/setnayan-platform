@@ -44,7 +44,7 @@ export function profileCompletion(profile: VendorProfileRow | null): {
   missing: string[];
 } {
   const checks: Array<{ key: string; label: string; ok: boolean }> = [
-    { key: 'business_name', label: 'Business name', ok: !!profile?.business_name.trim() },
+    { key: 'business_name', label: 'Business name', ok: !!profile?.business_name?.trim() },
     { key: 'business_slug', label: 'Slug', ok: !!profile?.business_slug },
     { key: 'tagline', label: 'Tagline', ok: !!profile?.tagline?.trim() },
     { key: 'logo_url', label: 'Logo URL (mandatory)', ok: !!profile?.logo_url?.trim() },

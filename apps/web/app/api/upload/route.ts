@@ -87,14 +87,6 @@ const ALLOWED_MIME_TYPES: ReadonlySet<string> = new Set([
   'image/heif',
   'image/avif',
   'application/pdf',
-  // Audio — MediaRecorder default is webm/opus on Chromium/Firefox; Safari
-  // emits mp4-aac. Both are Whisper-supported. We allow the bare codec
-  // strings as well as the parameterized form some browsers emit.
-  'audio/webm',
-  'audio/ogg',
-  'audio/mp4',
-  'audio/mpeg',
-  'audio/wav',
 ]);
 
 // Maximum filename length we'll preserve in the object key. Anything longer

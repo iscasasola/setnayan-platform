@@ -80,47 +80,52 @@ export default async function VendorDashboardLayout({
           aria-label="Vendor sections"
           className="mx-auto flex w-full max-w-6xl gap-2 overflow-x-auto px-4 pb-3 sm:px-6 lg:px-8"
         >
-          <VendorSubnavTab href="/vendor-dashboard" label="Profile" Icon={User} match="exact" />
+          <VendorSubnavTab
+            href="/vendor-dashboard"
+            label="Profile"
+            icon={<User aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />}
+            match="exact"
+          />
           <VendorSubnavTab
             href="/vendor-dashboard/services"
             label="Services"
-            Icon={Briefcase}
+            icon={<Briefcase aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />}
             match="prefix"
           />
           <VendorSubnavTab
             href="/vendor-dashboard/bookings"
             label="Bookings"
-            Icon={ClipboardList}
+            icon={<ClipboardList aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />}
             match="prefix"
           />
           <VendorSubnavTab
             href="/vendor-dashboard/messages"
             label="Messages"
-            Icon={MessageSquare}
+            icon={<MessageSquare aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />}
             match="prefix"
           />
           <VendorSubnavTab
             href="/vendor-dashboard/reviews"
             label="Reviews"
-            Icon={Star}
+            icon={<Star aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />}
             match="prefix"
           />
           <VendorSubnavTab
             href="/vendor-dashboard/team"
             label="Team"
-            Icon={Users}
+            icon={<Users aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />}
             match="prefix"
           />
           <VendorSubnavTab
             href="/vendor-dashboard/earnings"
             label="Earnings"
-            Icon={Wallet}
+            icon={<Wallet aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />}
             match="prefix"
           />
           <VendorSubnavTab
             href="/vendor-dashboard/notifications"
             label="Notifications"
-            Icon={Bell}
+            icon={<Bell aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />}
             badge={unreadCount}
             match="prefix"
           />

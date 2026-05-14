@@ -2,17 +2,16 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import type { LucideIcon } from 'lucide-react';
 
 type Props = {
   href: string;
   label: string;
-  Icon: LucideIcon;
+  icon: React.ReactNode;
   badge?: number;
   match: 'exact' | 'prefix';
 };
 
-export function VendorSubnavTab({ href, label, Icon, badge, match }: Props) {
+export function VendorSubnavTab({ href, label, icon, badge, match }: Props) {
   const pathname = usePathname();
   const isActive = match === 'exact' ? pathname === href : pathname.startsWith(href);
   return (
@@ -24,7 +23,7 @@ export function VendorSubnavTab({ href, label, Icon, badge, match }: Props) {
           : 'bg-ink/5 text-ink/70 hover:bg-ink/10'
       }`}
     >
-      <Icon aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+      {icon}
       <span>{label}</span>
       {badge && badge > 0 ? (
         <span

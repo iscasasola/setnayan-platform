@@ -21,9 +21,11 @@ import type { GeneratedCatalogEntry } from '@/lib/anthropic-catalog';
 import {
   generateCatalog,
   generateCatalogFromPhotos,
+  generateCatalogFromVoice,
   publishGeneratedCatalog,
 } from '../actions';
 import { PhotoOcrInput } from './photo-ocr-input';
+import { VoiceInput } from './voice-input';
 
 type Props = {
   vendorProfileId: string;
@@ -32,11 +34,11 @@ type Props = {
 type Step = 'input' | 'preview' | 'confirmation';
 
 /**
- * Three input modes for Step 1. "Text" is the original textarea-based flow;
- * "Photo" is this PR's addition; "Voice" is being built by a parallel agent
- * on `claude/ai-catalog-voice-input`. We keep Voice in the tab list now (as
- * a disabled "coming soon" affordance) so users see the roadmap and the
- * sibling PR can enable it without touching this file again.
+ * Three input modes for Step 1. All three are now enabled (Text via PR #37,
+ * Photo via PR #40 / Claude vision, Voice via PR #41 / OpenAI Whisper).
+ * Each input mode produces text that feeds the same Claude catalog
+ * generation flow — the shared `entries` / `step` state below doesn't care
+ * which mode produced the draft.
  */
 type InputMode = 'text' | 'photo' | 'voice';
 
@@ -141,6 +143,29 @@ export function AiCatalogGenerator({ vendorProfileId }: Props) {
     });
   };
 
+  const handleGenerateFromVoice = (transcript: string) => {
+    setError(null);
+    if (!transcript.trim()) {
+      setError('Record and transcribe before generating.');
+      return;
+    }
+    startGenerating(async () => {
+      const result = await generateCatalogFromVoice(vendorProfileId, transcript);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setEntries(
+        result.entries.map((e, idx) => ({
+          ...e,
+          id: `voice-${idx}-${Date.now()}`,
+        })),
+      );
+      setOriginalDescription(transcript);
+      setStep('preview');
+    });
+  };
+
   const handleUseExample = () => {
     setDescription(EXAMPLE_DESCRIPTION);
   };
@@ -211,12 +236,7 @@ export function AiCatalogGenerator({ vendorProfileId }: Props) {
   if (step === 'input') {
     return (
       <div className="space-y-4">
-        {/*
-          3-tab toggle. Voice is rendered disabled with "Coming soon" — the
-          parallel voice-input agent's PR will flip the disabled flag once
-          their tab content lands. We intentionally don't import their
-          component yet to keep these branches mergeable in any order.
-        */}
+        {/* 3-tab toggle. All three modes are live as of PR #41. */}
         <div
           role="tablist"
           aria-label="Catalog input mode"
@@ -246,12 +266,14 @@ export function AiCatalogGenerator({ vendorProfileId }: Props) {
           />
           <TabButton
             mode="voice"
-            active={false}
-            disabled
-            onSelect={() => undefined}
+            active={inputMode === 'voice'}
+            disabled={isGenerating}
+            onSelect={() => {
+              setInputMode('voice');
+              setError(null);
+            }}
             icon={<Mic aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />}
             label="Voice"
-            comingSoon
           />
         </div>
 
@@ -340,6 +362,14 @@ export function AiCatalogGenerator({ vendorProfileId }: Props) {
             onGenerate={handleGenerateFromPhotos}
             isGenerating={isGenerating}
             error={error}
+          />
+        ) : null}
+
+        {inputMode === 'voice' ? (
+          <VoiceInput
+            vendorProfileId={vendorProfileId}
+            disabled={isGenerating}
+            onSubmit={handleGenerateFromVoice}
           />
         ) : null}
       </div>

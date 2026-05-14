@@ -2,20 +2,44 @@
 
 import Link from 'next/link';
 import { useState, useTransition } from 'react';
-import { CheckCircle2, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react';
+import {
+  Camera,
+  CheckCircle2,
+  Loader2,
+  Mic,
+  PenLine,
+  Plus,
+  Sparkles,
+  Trash2,
+} from 'lucide-react';
 import {
   VENDOR_CATEGORIES,
   VENDOR_CATEGORY_LABEL,
   type VendorCategory,
 } from '@/lib/vendors';
 import type { GeneratedCatalogEntry } from '@/lib/anthropic-catalog';
-import { generateCatalog, publishGeneratedCatalog } from '../actions';
+import {
+  generateCatalog,
+  generateCatalogFromVoice,
+  publishGeneratedCatalog,
+} from '../actions';
+import { VoiceInput } from './voice-input';
 
 type Props = {
   vendorProfileId: string;
 };
 
 type Step = 'input' | 'preview' | 'confirmation';
+
+/**
+ * Iteration 0040 introduces three ways to seed the AI catalog generator:
+ *   • TEXT — original PR #37 flow (vendor types a description).
+ *   • PHOTO — sibling agent's branch (claude/ai-catalog-photo-ocr) wires
+ *     this up; we render a disabled "Coming soon" tab so the markup is
+ *     there and the two PRs can land independently.
+ *   • VOICE — this PR (Filipino/Taglish via OpenAI Whisper).
+ */
+type InputMode = 'text' | 'photo' | 'voice';
 
 type EditableEntry = GeneratedCatalogEntry & { id: string };
 
@@ -38,10 +62,8 @@ const EXAMPLE_DESCRIPTION =
  * (existing `vendor_services` schema has no `name` column — see the comment
  * in lib/anthropic-catalog.ts).
  */
-export function AiCatalogGenerator(_props: Props) {
-  // _props.vendorProfileId is reserved for future per-vendor prompting
-  // (e.g., "this vendor is a caterer, focus on catering categories").
-
+export function AiCatalogGenerator({ vendorProfileId }: Props) {
+  const [inputMode, setInputMode] = useState<InputMode>('text');
   const [step, setStep] = useState<Step>('input');
   const [description, setDescription] = useState('');
   const [originalDescription, setOriginalDescription] = useState('');
@@ -52,6 +74,25 @@ export function AiCatalogGenerator(_props: Props) {
   );
   const [isGenerating, startGenerating] = useTransition();
   const [isPublishing, startPublishing] = useTransition();
+
+  /**
+   * Common landing point for both text and voice generation paths.
+   * Once entries are produced, the preview step doesn't care which input
+   * mode the vendor used — the editable cards are identical.
+   */
+  const enterPreviewWithEntries = (
+    rawEntries: GeneratedCatalogEntry[],
+    sourceText: string,
+  ) => {
+    setEntries(
+      rawEntries.map((e, idx) => ({
+        ...e,
+        id: `gen-${idx}-${Date.now()}`,
+      })),
+    );
+    setOriginalDescription(sourceText);
+    setStep('preview');
+  };
 
   const handleGenerate = () => {
     setError(null);
@@ -66,14 +107,30 @@ export function AiCatalogGenerator(_props: Props) {
         setError(result.error);
         return;
       }
-      setEntries(
-        result.entries.map((e, idx) => ({
-          ...e,
-          id: `gen-${idx}-${Date.now()}`,
-        })),
-      );
-      setOriginalDescription(trimmed);
-      setStep('preview');
+      enterPreviewWithEntries(result.entries, trimmed);
+    });
+  };
+
+  /**
+   * Called from the VoiceInput component with the (possibly edited)
+   * transcript. We route through `generateCatalogFromVoice` rather than
+   * `generateCatalog` so future per-source analytics can hook in without
+   * touching this component.
+   */
+  const handleGenerateFromVoice = (transcript: string) => {
+    setError(null);
+    const trimmed = transcript.trim();
+    if (trimmed.length === 0) {
+      setError('Record or paste a transcript before generating.');
+      return;
+    }
+    startGenerating(async () => {
+      const result = await generateCatalogFromVoice(vendorProfileId, trimmed);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      enterPreviewWithEntries(result.entries, trimmed);
     });
   };
 
@@ -143,79 +200,172 @@ export function AiCatalogGenerator(_props: Props) {
 
   if (step === 'input') {
     return (
-      <div className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
-        <div className="space-y-1">
-          <label
-            htmlFor="ai-description"
-            className="block text-sm font-medium text-ink"
-          >
-            Tell me about your services in plain English
-          </label>
-          <p className="text-xs text-ink/60">
-            Mention what you offer, your packages, pricing, and what&rsquo;s
-            included. The more detail you give, the better the draft.
-          </p>
+      <div className="space-y-4">
+        {/* ----- Input mode tabs ------------------------------------------ */}
+        <div
+          role="tablist"
+          aria-label="Catalog input method"
+          className="flex gap-2 rounded-2xl border border-ink/10 bg-cream/60 p-1.5"
+        >
+          <TabButton
+            id="tab-text"
+            active={inputMode === 'text'}
+            onClick={() => {
+              setError(null);
+              setInputMode('text');
+            }}
+            icon={<PenLine aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+            label="Text"
+            sublabel="Type a description"
+          />
+          {/* Photo tab — owned by sibling agent on claude/ai-catalog-photo-ocr.
+              Disabled here so the markup is in place and the two PRs land
+              independently without conflicting on this file. */}
+          <TabButton
+            id="tab-photo"
+            active={inputMode === 'photo'}
+            onClick={undefined}
+            disabled
+            icon={<Camera aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+            label="Photo"
+            sublabel="Coming soon"
+          />
+          <TabButton
+            id="tab-voice"
+            active={inputMode === 'voice'}
+            onClick={() => {
+              setError(null);
+              setInputMode('voice');
+            }}
+            icon={<Mic aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+            label="Voice"
+            sublabel="Tagalog / Taglish"
+          />
         </div>
 
-        <textarea
-          id="ai-description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={8}
-          placeholder={EXAMPLE_DESCRIPTION}
-          className="input-field w-full resize-y font-sans text-sm leading-relaxed"
-          maxLength={4000}
-          disabled={isGenerating}
-        />
-
-        <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <button
-            type="button"
-            onClick={handleUseExample}
-            disabled={isGenerating}
-            className="text-xs text-ink/60 underline-offset-4 hover:text-ink hover:underline disabled:opacity-50"
+        {/* ----- Tab panels ----------------------------------------------- */}
+        {inputMode === 'text' ? (
+          <div
+            role="tabpanel"
+            aria-labelledby="tab-text"
+            className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6"
           >
-            Use example
-          </button>
-          <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/40">
-            {description.length} / 4000
-          </span>
-        </div>
+            <div className="space-y-1">
+              <label
+                htmlFor="ai-description"
+                className="block text-sm font-medium text-ink"
+              >
+                Tell me about your services in plain English
+              </label>
+              <p className="text-xs text-ink/60">
+                Mention what you offer, your packages, pricing, and
+                what&rsquo;s included. The more detail you give, the better
+                the draft.
+              </p>
+            </div>
 
-        {error ? (
-          <p
-            role="alert"
-            className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-          >
-            {error}
-          </p>
+            <textarea
+              id="ai-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={8}
+              placeholder={EXAMPLE_DESCRIPTION}
+              className="input-field w-full resize-y font-sans text-sm leading-relaxed"
+              maxLength={4000}
+              disabled={isGenerating}
+            />
+
+            <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <button
+                type="button"
+                onClick={handleUseExample}
+                disabled={isGenerating}
+                className="text-xs text-ink/60 underline-offset-4 hover:text-ink hover:underline disabled:opacity-50"
+              >
+                Use example
+              </button>
+              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/40">
+                {description.length} / 4000
+              </span>
+            </div>
+
+            {error ? (
+              <p
+                role="alert"
+                className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
+              >
+                {error}
+              </p>
+            ) : null}
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={handleGenerate}
+                disabled={isGenerating || description.trim().length === 0}
+                className="button-primary inline-flex items-center gap-2"
+                aria-busy={isGenerating}
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2
+                      aria-hidden
+                      className="h-4 w-4 animate-spin"
+                      strokeWidth={2.25}
+                    />
+                    Generating&hellip;
+                  </>
+                ) : (
+                  <>
+                    <Sparkles
+                      aria-hidden
+                      className="h-4 w-4"
+                      strokeWidth={1.75}
+                    />
+                    Generate catalog
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         ) : null}
 
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={handleGenerate}
-            disabled={isGenerating || description.trim().length === 0}
-            className="button-primary inline-flex items-center gap-2"
-            aria-busy={isGenerating}
-          >
+        {inputMode === 'voice' ? (
+          <div role="tabpanel" aria-labelledby="tab-voice" className="space-y-3">
+            <VoiceInput
+              vendorProfileId={vendorProfileId}
+              disabled={isGenerating}
+              onSubmit={handleGenerateFromVoice}
+            />
+            {/* Errors from generateCatalogFromVoice (Claude side) surface
+                here so they appear right above the action. The VoiceInput
+                component handles its own recording/transcription errors. */}
+            {error ? (
+              <p
+                role="alert"
+                className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
+              >
+                {error}
+              </p>
+            ) : null}
             {isGenerating ? (
-              <>
+              <p
+                aria-live="polite"
+                className="inline-flex items-center gap-2 rounded-md bg-terracotta/10 px-3 py-2 text-xs font-medium text-terracotta-700"
+              >
                 <Loader2
                   aria-hidden
-                  className="h-4 w-4 animate-spin"
-                  strokeWidth={2.25}
+                  className="h-3.5 w-3.5 animate-spin"
+                  strokeWidth={2}
                 />
-                Generating&hellip;
-              </>
-            ) : (
-              <>
-                <Sparkles aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                Generate catalog
-              </>
-            )}
-          </button>
-        </div>
+                Generating catalog from transcript&hellip;
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {/* The Photo tab is disabled — when the photo-ocr branch merges it
+            will swap the disabled prop and render its own panel here. */}
       </div>
     );
   }
@@ -460,5 +610,66 @@ export function AiCatalogGenerator(_props: Props) {
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * Single tab in the three-up input-mode toggle. Pure presentation — the
+ * generator owns mode state and decides what each tab does. Rendering
+ * mirrors the design language used elsewhere in the vendor dashboard
+ * (terracotta active state, ink/Hugh-neutral inactive, cream chrome).
+ */
+function TabButton({
+  id,
+  active,
+  onClick,
+  disabled,
+  icon,
+  label,
+  sublabel,
+}: {
+  id: string;
+  active: boolean;
+  onClick?: () => void;
+  disabled?: boolean;
+  icon: React.ReactNode;
+  label: string;
+  sublabel: string;
+}) {
+  return (
+    <button
+      type="button"
+      id={id}
+      role="tab"
+      aria-selected={active}
+      aria-controls={`panel-${id}`}
+      onClick={onClick}
+      disabled={disabled}
+      className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors sm:px-4 sm:py-3 ${
+        active
+          ? 'bg-terracotta text-cream shadow-sm shadow-terracotta/20'
+          : disabled
+            ? 'text-ink/35 cursor-not-allowed'
+            : 'text-ink/70 hover:bg-ink/[0.04] hover:text-ink'
+      }`}
+    >
+      <span
+        className={`inline-flex h-5 w-5 items-center justify-center ${
+          active ? 'text-cream' : disabled ? 'text-ink/30' : 'text-ink/55'
+        }`}
+      >
+        {icon}
+      </span>
+      <span className="flex flex-col items-start leading-tight">
+        <span>{label}</span>
+        <span
+          className={`font-mono text-[9px] uppercase tracking-[0.18em] ${
+            active ? 'text-cream/80' : disabled ? 'text-ink/30' : 'text-ink/45'
+          }`}
+        >
+          {sublabel}
+        </span>
+      </span>
+    </button>
   );
 }

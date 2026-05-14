@@ -8,6 +8,8 @@ import {
   generateCatalogWithClaude,
   type GeneratedCatalogEntry,
 } from '@/lib/anthropic-catalog';
+import { transcribeWithWhisper } from '@/lib/openai-whisper';
+import { parseStoredAsset, presignDisplayUrl } from '@/lib/uploads';
 import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
 
 const CATEGORY_SET: ReadonlySet<string> = new Set(VENDOR_CATEGORIES);
@@ -205,4 +207,174 @@ export async function publishGeneratedCatalog(
 
   revalidatePath('/vendor-dashboard/services');
   return { ok: true, created, skipped, errors };
+}
+
+// ============================================================================
+// Voice input (iteration 0040 slice — Filipino/Taglish via OpenAI Whisper)
+// ============================================================================
+
+export type TranscribeAudioResult =
+  | { ok: true; transcript: string }
+  | { ok: false; error: string };
+
+// Maximum number of characters we accept from Whisper. A 60-second
+// recording transcribes to roughly 600–900 chars in Tagalog, so 4000 leaves
+// generous headroom while still cutting off pathological returns (looped
+// audio, model glitching) before they hit the Claude prompt builder.
+const MAX_TRANSCRIPT_CHARS = 4000;
+
+// `r2://` ref shape we expect from the upload route, scoped to the
+// thread-files bucket + the `vendors/{vendorProfileId}/voice-input/` prefix.
+// We re-derive the prefix per-call from the authenticated vendor profile,
+// so a vendor can't transcribe another vendor's recording even if they
+// guess the key.
+function audioPrefixFor(vendorProfileId: string): string {
+  return `vendors/${vendorProfileId}/voice-input/`;
+}
+
+/**
+ * Transcribe an uploaded voice recording.
+ *
+ * Inputs:
+ *   • `r2Ref` — the `r2://thread-files/vendors/{id}/voice-input/{uuid}.webm`
+ *     string the upload route returned when the browser PUT the recording.
+ *
+ * Auth & ownership:
+ *   • Caller must be signed in and own a vendor profile (`ensureProfile`).
+ *   • The ref must point at the caller's own voice-input prefix — we never
+ *     transcribe an arbitrary R2 key just because the URL is valid.
+ *
+ * Returns the trimmed transcript (string) or an error message safe to show
+ * the vendor. Network / model failures surface a generic "Could not
+ * transcribe…" message; the underlying error is logged server-side.
+ */
+export async function transcribeAudio(
+  r2Ref: string,
+): Promise<TranscribeAudioResult> {
+  const { profile } = await ensureProfile();
+
+  if (typeof r2Ref !== 'string' || r2Ref.length === 0) {
+    return { ok: false, error: 'No audio file supplied.' };
+  }
+
+  // Validate the ref structure + ownership BEFORE we issue a presign — the
+  // signing call hits AWS SDK and we don't want to spend a round trip on a
+  // bogus input.
+  const ref = parseStoredAsset(r2Ref);
+  if (!ref || ref.kind !== 'r2') {
+    return { ok: false, error: 'Audio file reference is invalid.' };
+  }
+  if (ref.bucket !== 'setnayan-thread-files') {
+    return {
+      ok: false,
+      error: 'Audio file must live in the thread-files bucket.',
+    };
+  }
+  const expectedPrefix = audioPrefixFor(profile.vendor_profile_id);
+  if (!ref.key.startsWith(expectedPrefix)) {
+    // Either a typo or a probing attempt — don't leak which.
+    return { ok: false, error: 'Audio file does not belong to your account.' };
+  }
+
+  // Whisper needs to download the audio. We use the same presigned-GET
+  // helper that powers thumbnail rendering, capped at 10 minutes — long
+  // enough for Whisper's queue latency on a cold day, short enough that a
+  // leaked URL stops working before the next session starts.
+  let signedUrl: string;
+  try {
+    signedUrl = await presignDisplayUrl(ref.bucket, ref.key, 60 * 10);
+  } catch (e) {
+    console.error('[transcribeAudio] presign failed', e);
+    return { ok: false, error: 'Could not access audio file. Please try again.' };
+  }
+
+  try {
+    const raw = await transcribeWithWhisper(signedUrl);
+    const trimmed = raw.trim();
+    if (trimmed.length === 0) {
+      return {
+        ok: false,
+        error:
+          'We did not hear anything in that recording. Try again somewhere quieter.',
+      };
+    }
+    // Hard cap on length — Whisper rarely returns more than ~1k chars for
+    // a 60s clip but we'd rather truncate than ship a pathological payload
+    // to Claude.
+    const transcript =
+      trimmed.length > MAX_TRANSCRIPT_CHARS
+        ? trimmed.slice(0, MAX_TRANSCRIPT_CHARS)
+        : trimmed;
+    return { ok: true, transcript };
+  } catch (e) {
+    console.error('[transcribeAudio] whisper failed', e);
+    return {
+      ok: false,
+      error: `Could not transcribe audio: ${(e as Error).message}`,
+    };
+  }
+}
+
+/**
+ * Generate a structured catalog from a voice transcript.
+ *
+ * This is a thin alias over `generateCatalog` that exists for two reasons:
+ *   1. Analytics — keeps text-input vs. voice-input call counts cleanly
+ *      separable in server logs (we don't ship analytics from this action
+ *      yet, but the affordance is here for iteration 0042's tracking).
+ *   2. UX — the vendor can edit the transcript before submitting, so the
+ *      call site reads more honestly as "generate from this (possibly
+ *      edited) transcript" rather than "generate from a fresh description".
+ *
+ * The actual prompt + Claude call are unchanged — Whisper output is just
+ * plain text, and the catalog extractor already handles Tagalog / Taglish
+ * (Claude is multilingual).
+ *
+ * Signature accepts the vendor profile id for symmetry with the future
+ * per-vendor prompting hook, but the current `generateCatalogWithClaude`
+ * doesn't use it. We validate ownership via `ensureProfile` regardless.
+ */
+export async function generateCatalogFromVoice(
+  vendorProfileId: string,
+  transcript: string,
+): Promise<GenerateCatalogResult> {
+  const { profile } = await ensureProfile();
+
+  // Defense-in-depth: the client passes the vendor profile id it knows
+  // about; we cross-check against the session-bound profile so a stale
+  // tab can't smuggle in a different id.
+  if (
+    typeof vendorProfileId === 'string' &&
+    vendorProfileId.length > 0 &&
+    vendorProfileId !== profile.vendor_profile_id
+  ) {
+    return {
+      ok: false,
+      error: 'Vendor profile mismatch — please refresh and try again.',
+    };
+  }
+
+  const trimmed = typeof transcript === 'string' ? transcript.trim() : '';
+  if (trimmed.length === 0) {
+    return {
+      ok: false,
+      error: 'Transcript is empty. Record again or switch to text input.',
+    };
+  }
+  if (trimmed.length > MAX_TRANSCRIPT_CHARS) {
+    return {
+      ok: false,
+      error: `Transcript is too long (max ${MAX_TRANSCRIPT_CHARS} characters).`,
+    };
+  }
+
+  try {
+    const entries = await generateCatalogWithClaude(trimmed);
+    return { ok: true, entries };
+  } catch (e) {
+    return {
+      ok: false,
+      error: `AI generation failed: ${(e as Error).message}`,
+    };
+  }
 }

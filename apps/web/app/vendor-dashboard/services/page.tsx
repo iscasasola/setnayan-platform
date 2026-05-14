@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Briefcase, Eye, EyeOff, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { Briefcase, Eye, EyeOff, Plus, Trash2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorServices } from '@/lib/vendor-services';
@@ -66,30 +66,6 @@ export default async function VendorServicesPage({ searchParams }: Props) {
           Toggle a service to hide it from the marketplace without losing pricing history.
         </p>
       </header>
-
-      {/* AI Catalog Generator — additive shortcut. Manual flow below is unchanged. */}
-      <Link
-        href="/vendor-dashboard/services/ai"
-        className="group flex items-center justify-between gap-4 rounded-2xl border border-terracotta/30 bg-gradient-to-r from-terracotta/5 to-cream p-4 transition-colors hover:border-terracotta/50 hover:from-terracotta/10 sm:p-5"
-      >
-        <div className="flex items-center gap-3">
-          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
-            <Sparkles aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-          </span>
-          <div>
-            <p className="text-sm font-semibold text-ink">
-              Generate your catalog with AI
-            </p>
-            <p className="text-xs text-ink/60">
-              Describe your services in plain English — we&rsquo;ll draft the
-              catalog for you.
-            </p>
-          </div>
-        </div>
-        <span className="hidden font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta sm:inline">
-          Try it →
-        </span>
-      </Link>
 
       {search.error ? (
         <p

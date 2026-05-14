@@ -4,6 +4,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { removeMerchantQr, savePlatformSettings } from './actions';
 import { QrUploadForm } from './_components/qr-upload-form';
+import { TinInput } from './_components/tin-input';
 
 export const metadata = { title: 'Settings · Admin' };
 
@@ -87,15 +88,9 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
           <Field
             label="Tax Identification Number (TIN)"
             htmlFor="business_tin"
-            help="Format: 000-000-000-000. Shown on every transaction receipt."
+            help="Format: 000-000-000-000. Shown on every transaction receipt. Dashes are inserted automatically as you type."
           >
-            <input
-              id="business_tin"
-              name="business_tin"
-              defaultValue={settings.business_tin ?? ''}
-              placeholder="000-000-000-000"
-              className="input-field font-mono"
-            />
+            <TinInput defaultValue={settings.business_tin ?? ''} />
           </Field>
           <Field label="Business address" htmlFor="business_address">
             <textarea

@@ -8,6 +8,64 @@
 
 ---
 
+## [PENDING] 2026-05-14 — Iteration 0042: Industry Events & B2B Vendor Marketing
+
+**Spec doc CREATED at:** `~/Documents/Claude/Projects/Setnayan/0042_industry_events_b2b/0042_industry_events_b2b.md`
+
+This is a **NEW B2B layer** on top of Setnayan's existing consumer marketplace. Owner spotted today that wedding fairs (GMBF at SMX Manila, ~134 exhibitors), vendor expos, and industry networking events have no good aggregator platform in PH — Setnayan can fill that distribution gap AND turn it into a revenue surface.
+
+**What's LOCKED:**
+- Industry events are a **SEPARATE concept from consumer events** in 0041 — different audience (vendors, not couples), different schema (`industry_events` table, not `events`), different RLS, different monetization
+- **7 industry event types:** bridal_fair, wedding_expo, vendor_networking, industry_conference, certification_workshop, trade_show, setnayan_event
+- **Wedding fair organizers = special vendors** with `is_industry_event_organizer = TRUE` flag (admin-verified)
+- **3 surfaces:** public `/industry-events`, vendor `/vendor-dashboard/opportunities`, organizer-side event management
+- **Setnayan as organizer:** Setnayan can host its own Wedding Connect-style events (à la Bridestory Singapore)
+
+**Real-world precedent (from research):**
+- Bridestory hosted "Wedding Connect Singapore" — 300+ vendors at one networking event
+- Getting Married Bridal Fair (GMBF) — recurring at SMX Convention Center Manila
+- US wedding-expo industry has proven monetization model (Jenks Productions, Florida Wedding Expo): tiered booth packages with premiums 2-5x base fees
+- B2B event tech moving to AI matchmaking (Bizzabo 2025)
+
+**Spec corpus updates owner should walk via Cowork:**
+- Read `~/Documents/Claude/Projects/Setnayan/0042_industry_events_b2b/0042_industry_events_b2b.md` end-to-end
+- Resolve the 10 open questions in spec § 9 (audience question § 9.1 is blocking; Phase 3 commission model still affects this too)
+- Decide: pursue GMBF partnership as launch deal? (spec § 9.4)
+- Decide: Setnayan-organized event at launch? (spec § 9.2 — recommended yes)
+
+**Strategic context:** When 0040 + 0041 + 0042 all ship, Setnayan becomes the only PH platform doing all five: couples plan any life event · vendors serve multiple event types · vendors discover business opportunities · fair organizers reach curated vendors · Setnayan organizes its own marketplace events. Real moat against TheKnot, HoneyBook, Bridestory, Eventbrite.
+
+**Once spec is refined and ready to implement, tell Claude Code:** "Iteration 0042 spec is locked — sweep the implementation against `tests.md` and spawn parallel agents per the resume checklist in spec § 10."
+
+---
+
+## [PENDING] 2026-05-14 — Iteration 0041: Multi-Event Vendor Catalog (LOCKED architecture)
+
+**Spec doc CREATED at:** `~/Documents/Claude/Projects/Setnayan/0041_multi_event_support/0041_multi_event_support.md`
+
+This is a **major V1.5 expansion** that lifts Setnayan from wedding-only to all Filipino life events (baptism, debut, birthday, anniversary, corporate, religious gatherings). Owner reviewed competitive research (Toast, Square, Thumbtack, WeddingWire, TheKnot, Zola, Shopify, Google Product Taxonomy) and locked the architecture this session.
+
+**What's LOCKED:**
+- **Architecture:** Hybrid 3-layer hierarchy + cross-cutting tags. Layer 1: Cluster (8). Layer 2: Category (38). Layer 3: Service (vendor-defined free naming). Cross-cutting tags handle event_types, settings, delivery_type, pricing_model, synonyms, specializations, languages, travel_zones.
+- **8 clusters:** Reception & Foundation · Ceremony & Religious · Media & Documentation · Music & Entertainment · Decor & Production · Attire & Beauty · Logistics & Support · Print & Gifts
+- **38 categories** (29 → 38; +9 new, 7 renamed/relabeled, 1 cross-listed, 1 deprecated). Full table in the spec doc § 5.
+- **7 event types for V1.5:** wedding, baptism, debut, birthday, anniversary, corporate, religious_event. Funeral deferred to V2 (sensitive marketing).
+- **2-step vendor service creation UX:** Choose Cluster → Identify Service → Configure (Step 3 hands off to iteration 0040 Catalog Studio).
+
+**Spec corpus updates owner should walk via Cowork:**
+- Read `~/Documents/Claude/Projects/Setnayan/0041_multi_event_support/0041_multi_event_support.md` end-to-end and refine wording, especially the 11 sections
+- The "28 canonical categories" locked decision in HANDOFF.md is now superseded — 38 categories
+- Resolve the 9 open questions in spec § 10 (Phase 3 commission model is the BLOCKING one)
+- Confirm or push back on the per-category event-types assignments in § 5
+- Confirm the bartending/bar-equipment split with 3-5 real Filipino bar vendors before implementation (spec § 10.5)
+
+**Why this is a [PENDING] not [DONE]:**
+The spec is drafted but unrefined. Implementation has NOT started. Spec lives in the corpus; owner refines via Cowork; then implementation iteration begins.
+
+**Once spec is refined and ready to implement, tell Claude Code:** "Iteration 0041 spec is locked — sweep the implementation against `tests.md` and spawn parallel agents per the resume checklist in spec § 11."
+
+---
+
 ## [PENDING] 2026-05-14 — Iteration 0006: vendor marketplace + reviews system
 
 **Spec target — owner should update:**

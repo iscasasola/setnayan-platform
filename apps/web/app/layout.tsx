@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import './globals.css';
 import { ClientTypeDetector } from './_components/client-type-detector';
+import { Providers } from './providers';
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'),
@@ -39,7 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className="min-h-dvh bg-cream font-sans text-ink antialiased">
-        {children}
+        <Providers>{children}</Providers>
         <ClientTypeDetector />
         <Script id="sw-register" strategy="afterInteractive">
           {`if ('serviceWorker' in navigator) {

@@ -8,6 +8,57 @@
 
 ---
 
+## [PENDING] 2026-05-14 — Iteration 0036: Event-Day Pre-Load (couple + vendor)
+
+**Spec target — owner should create:** new iteration folder
+`~/Documents/Claude/Projects/Setnayan/03_Iterations/0036_event_day_preload/` with
+the standard five files (`0036_event_day_preload.md`, `.html`, `.docx`,
+`tests.md`, `fixtures.json`). Sits alongside the caching-strategy entry below —
+the caching foundation is the platform infra, 0036 is the first feature on top
+of it.
+
+**Scope to capture (Locked 2026-05-14):**
+
+> **Goal.** Day-of resilience for both couple and vendor against bad venue WiFi.
+> Proactively pre-load the full event bundle into the client cache so every
+> screen serves from local storage and revalidates in the background.
+>
+> **Visibility window — couple.** "Prepare for event day" banner CTA visible
+> T-3 days through T+1 day on the dashboard home. Auto-preload (silent, no UI)
+> fires inside T-24h to T+12h, deduped to once per 60 minutes via localStorage.
+>
+> **Visibility window — vendor.** Same T-3 / T+1 visibility window, per chat
+> thread the vendor has with an upcoming event. One CTA card per upcoming
+> event on the vendor dashboard.
+>
+> **Couple bundle contents (under TanStack-Query keys).** Event meta · guest
+> list with RSVP + role + table assignment · tables + seat assignments ·
+> schedule blocks · vendors · budget snapshot (line items + payments) · mood
+> board palette · last 50 messages per open chat thread · asset URLs handed
+> to the SW for cache warm-up.
+>
+> **Vendor bundle contents.** Their service slot in the schedule · masked
+> couple contact (event display name + date) · last 50 messages with the
+> couple.
+>
+> **Service worker contract.** Page posts `{ type: 'PRELOAD_ASSETS', urls: [...] }`
+> to the active SW. SW fetches each URL with `mode: 'no-cors'` and stashes the
+> response in the shell cache. Unknown message types are silently ignored.
+>
+> **RLS scoping.** No new policies — the existing couple-read + vendor-read
+> policies already gate the underlying fetches. The server action runs under
+> the user's session.
+>
+> **Out of scope for V1.** Native iOS/Android offline. Photo gallery archive
+> downloads. Pre-load of guest invitation sites (those have their own
+> per-guest offline path via the QR token).
+
+**Why this is a spec change:** new feature not currently in any iteration spec. Implementation has landed in the repo (PR `claude/event-day-preload`) and depends on the parallel caching-foundation PR (`claude/caching-foundation`).
+
+**Once the spec is created, tell Claude Code:** "Iteration 0036 spec is locked — sweep the implementation against `tests.md`."
+
+---
+
 ## [PENDING] 2026-05-14 — Caching & Offline Strategy (new cross-cutting infra)
 
 **Spec target — owner picks one:**

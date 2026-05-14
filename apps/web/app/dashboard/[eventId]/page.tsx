@@ -34,6 +34,8 @@ import { fetchScheduleBlocks } from '@/lib/schedule';
 import { fetchTables, type EventTableRow } from '@/lib/seating';
 import { DayOfModeGrid } from './_components/day-of-mode/grid';
 import { toggleJourneyStep } from './actions';
+import { EventDayPrepCta } from '@/app/_components/event-day-prep-cta';
+import { AutoPreloadOnEventDay } from '@/app/_components/auto-preload-on-event-day';
 
 export const dynamic = 'force-dynamic';
 
@@ -275,6 +277,8 @@ export default async function EventHomePage({
 
   return (
     <section className="space-y-8">
+      <EventDayPrepCta eventId={eventId} eventDate={event.event_date} />
+      <AutoPreloadOnEventDay eventId={eventId} eventDate={event.event_date} />
       {dayOfActive ? (
         <DayOfModeGrid
           eventId={eventId}

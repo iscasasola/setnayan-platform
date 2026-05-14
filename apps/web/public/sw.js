@@ -173,8 +173,45 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'CACHE_BUST') {
+  const data = event.data;
+  if (!data || typeof data !== 'object') return;
+
+  if (data.type === 'CACHE_BUST') {
     event.waitUntil(clearAllCaches());
+    return;
+  }
+
+  // Iteration 0036 — event-day pre-load. Page sends a list of image URLs
+  // (guest avatars, mood-board thumbnails, save-the-date previews) to warm
+  // into IMAGE_CACHE so the dashboard renders offline on event day. Plays
+  // nice with the route-scoped LRU + max-age expiration in IMAGE_CACHE.
+  if (data.type === 'PRELOAD_ASSETS') {
+    const urls = Array.isArray(data.urls)
+      ? data.urls.filter((u) => typeof u === 'string')
+      : [];
+    if (urls.length === 0) return;
+
+    event.waitUntil(
+      (async () => {
+        const cache = await caches.open(IMAGE_CACHE);
+        await Promise.all(
+          urls.map(async (url) => {
+            try {
+              const res = await fetch(url, { mode: 'no-cors' });
+              // `no-cors` responses are opaque but still cacheable. Skip
+              // anything the browser flagged as a real failure.
+              if (!res || (res.status >= 400 && res.type !== 'opaque')) return;
+              await cache.put(url, res.clone());
+              recordAccess(IMAGE_CACHE, url);
+            } catch {
+              // Best-effort warm-up; ignore network errors for individual
+              // URLs so one bad asset doesn't tank the whole preload.
+            }
+          }),
+        );
+        await enforceLimits(IMAGE_CACHE);
+      })(),
+    );
   }
 });
 

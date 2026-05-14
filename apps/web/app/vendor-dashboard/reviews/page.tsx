@@ -27,7 +27,7 @@ export default async function VendorReviewsPage() {
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) {
     return (
-      <div className="mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Reviews</h1>
         <p className="mt-4 text-base text-ink/65">
           Set up your vendor profile first — once it&rsquo;s published and a couple marks a
@@ -45,7 +45,7 @@ export default async function VendorReviewsPage() {
   const axisAverages = averageByAxis(reviews);
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Reviews</h1>
         <p className="max-w-prose text-base text-ink/65">

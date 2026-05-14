@@ -29,6 +29,36 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+  build:
+    name: production build
+    runs-on: ubuntu-latest
+    # Catches errors that typecheck misses — most notably Next's
+    # compile-time `server-only` guard, which only fires in `next build`.
+    # Vercel runs the same build, so if this passes locally + here, deploy
+    # will pass too.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Build web app
+        run: pnpm --filter @setnayan/web build
+        env:
+          # Provide dummy values for env vars next.config / next build read at
+          # build time. Real values are set on Vercel; CI only needs the build
+          # to succeed, not to actually call Supabase/etc.
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+
   gitleaks:
     name: secret scan
     runs-on: ubuntu-latest

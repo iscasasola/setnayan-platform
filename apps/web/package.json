@@ -12,6 +12,10 @@
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.45.4",
+    "@tanstack/query-sync-storage-persister": "^5.0.0",
+    "@tanstack/react-query": "^5.0.0",
+    "@tanstack/react-query-persist-client": "^5.0.0",
+    "idb-keyval": "^6.2.1",
     "jose": "^6.2.3",
     "jsqr": "^1.4.0",
     "lucide-react": "^1.14.0",

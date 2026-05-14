@@ -5,6 +5,7 @@ import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
+import { isEmailBlacklisted } from '@/lib/blacklist';
 
 function safeNext(raw: FormDataEntryValue | null): string {
   const value = raw ? String(raw) : '';
@@ -28,6 +29,10 @@ export async function signUp(formData: FormData) {
   }
   if (password.length < 8) {
     return redirect(`/signup?error=password_too_short&next=${encodeURIComponent(next)}`);
+  }
+
+  if (await isEmailBlacklisted(email)) {
+    return redirect(`/signup?error=blacklisted&next=${encodeURIComponent(next)}`);
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';

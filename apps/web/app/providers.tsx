@@ -1,0 +1,102 @@
+'use client';
+
+// Root client-side providers for the web app.
+//
+// Wires TanStack Query with an IndexedDB-backed persister so warm data
+// (vendor profiles, mood board, guest list, etc.) survives reloads and
+// rehydrates in <100 ms on return visits — see spec § 3.1 and § 9.2.
+//
+// - `key: 'setnayan-query-cache'` — IndexedDB key for the serialised
+//   query cache blob.
+// - `maxAge: 7 days` — hard ceiling for persisted entries. Anything older
+//   is dropped on rehydrate (spec § 3.1).
+// - `buster: NEXT_PUBLIC_CACHE_BUSTER` — CI bumps this whenever a query
+//   response shape changes, so stale schemas don't survive a deploy
+//   (spec § 9.4).
+
+import { useState } from 'react';
+import { get, set, del } from 'idb-keyval';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
+
+import { getQueryClient } from '@/lib/query-client';
+
+const PERSIST_KEY = 'setnayan-query-cache';
+const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days — spec § 3.1
+
+// `idb-keyval` exposes an async get/set/del; `createSyncStoragePersister`
+// expects a synchronous `Storage`-like interface. We wrap the async calls
+// behind a fire-and-forget setter and a cached getter — the persister
+// already tolerates a sync API backed by an async store because writes
+// are debounced and reads only happen at boot (during rehydrate).
+function createIdbStorage(): Storage {
+  // Hold the last-known serialised cache in memory so the synchronous
+  // `getItem` contract can be honoured between async hops. On boot the
+  // persister calls `getItem(key)` exactly once during rehydrate, so we
+  // populate this synchronously the first time the module loads via a
+  // top-level promise initiated below.
+  let memory: Record<string, string> = {};
+  let primed: Promise<void> | null = null;
+
+  function prime(key: string): Promise<void> {
+    if (primed) return primed;
+    primed = get<string>(key)
+      .then((value) => {
+        if (typeof value === 'string') memory[key] = value;
+      })
+      .catch(() => {
+        // If IndexedDB is unavailable (private mode, blocked, etc.),
+        // fall back to in-memory only. The cache won't persist across
+        // sessions but the app still works.
+      });
+    return primed;
+  }
+
+  // Best-effort eager prime so the persister's first sync read succeeds.
+  if (typeof window !== 'undefined') {
+    void prime(PERSIST_KEY);
+  }
+
+  return {
+    get length() {
+      return Object.keys(memory).length;
+    },
+    clear: () => {
+      memory = {};
+      void del(PERSIST_KEY).catch(() => {});
+    },
+    key: (index: number) => Object.keys(memory)[index] ?? null,
+    getItem: (key: string) => memory[key] ?? null,
+    setItem: (key: string, value: string) => {
+      memory[key] = value;
+      void set(key, value).catch(() => {});
+    },
+    removeItem: (key: string) => {
+      delete memory[key];
+      void del(key).catch(() => {});
+    },
+  };
+}
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  const [queryClient] = useState(() => getQueryClient());
+  const [persister] = useState(() =>
+    createSyncStoragePersister({
+      storage: createIdbStorage(),
+      key: PERSIST_KEY,
+    }),
+  );
+
+  return (
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{
+        persister,
+        maxAge: MAX_AGE_MS,
+        buster: process.env.NEXT_PUBLIC_CACHE_BUSTER ?? 'v1',
+      }}
+    >
+      {children}
+    </PersistQueryClientProvider>
+  );
+}

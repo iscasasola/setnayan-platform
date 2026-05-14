@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { IterationPlaceholder } from '../../_components/placeholder';
 
-const SERVICE_META: Record<
+const ADD_ON_META: Record<
   string,
   { iteration: string; title: string; blurb: string; hint?: string }
 > = {
@@ -45,21 +45,21 @@ const SERVICE_META: Record<
 };
 
 type Props = {
-  params: Promise<{ eventId: string; service: string }>;
+  params: Promise<{ eventId: string; addon: string }>;
 };
 
-export default async function ServiceDetailPage({ params }: Props) {
-  const { eventId, service } = await params;
-  const meta = SERVICE_META[service];
+export default async function AddOnDetailPage({ params }: Props) {
+  const { eventId, addon } = await params;
+  const meta = ADD_ON_META[addon];
   if (!meta) notFound();
 
   return (
     <div className="space-y-4">
       <Link
-        href={`/dashboard/${eventId}/services`}
+        href={`/dashboard/${eventId}/add-ons`}
         className="font-mono text-xs uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta"
       >
-        ‹ Back to services
+        ‹ Back to add-ons
       </Link>
       <IterationPlaceholder
         iteration={meta.iteration}

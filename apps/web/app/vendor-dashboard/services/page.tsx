@@ -57,12 +57,12 @@ export default async function VendorServicesPage({ searchParams }: Props) {
             <Briefcase aria-hidden className="h-5 w-5" strokeWidth={1.75} />
           </span>
           <span className="rounded-full bg-ink/5 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            {services.length} of 28 selected
+            {services.length} of {VENDOR_CATEGORIES.length} selected
           </span>
         </div>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Your services</h1>
         <p className="max-w-prose text-base text-ink/65">
-          Pick from the 28 categories, set a starting price, and configure crew details.
+          Pick from the {VENDOR_CATEGORIES.length} categories, set a starting price, and configure crew details.
           Toggle a service to hide it from the marketplace without losing pricing history.
         </p>
       </header>

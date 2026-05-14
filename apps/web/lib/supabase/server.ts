@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { applyPersistentCookieDefaults, readClientType } from './cookies';
 
 type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
@@ -9,6 +10,9 @@ type CookieToSet = { name: string; value: string; options?: CookieOptions };
 // Server Component case without breaking the supported paths.
 export async function createClient() {
   const cookieStore = await cookies();
+  const clientHint = readClientType(
+    cookieStore.get('setnayan-client-type')?.value,
+  );
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -21,7 +25,11 @@ export async function createClient() {
         setAll(cookiesToSet: CookieToSet[]) {
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options),
+              cookieStore.set(
+                name,
+                value,
+                applyPersistentCookieDefaults(options, clientHint),
+              ),
             );
           } catch {
             // Server Component context — middleware will refresh on the next request.

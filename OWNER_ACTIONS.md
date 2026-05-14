@@ -215,6 +215,60 @@ If no email arrives within 5 minutes, check Resend's dashboard → **Logs** to s
 
 ---
 
+## Phase 2C — Persistent login (5 min, Supabase dashboard only)
+
+**Why:** The code-side hardening for "stay logged in" ships with this app
+(persistent cookie defaults + proactive token refresh + client-aware
+session length in middleware). The app already auto-detects three
+clients and behaves differently per surface:
+
+- **Desktop app (Tauri)** — 10-year cookie persistence, 30-min proactive refresh window. Treated like a native app — never auto-logs-out.
+- **Installed PWA on phone** (any platform that supports `display-mode: standalone`) — same 10-year persistence + 30-min window as desktop.
+- **Plain web browser** — 1-year cookie persistence + 10-min refresh window. Standard session behavior.
+
+To make sessions actually long-lived, two settings in the Supabase
+dashboard need to match. Without these flipped, the server will still
+expire your token in 1 hour regardless of how the cookie is stored.
+
+### Step 2C.1 — Open Auth settings
+
+1. Open https://supabase.com/dashboard (sign in if needed)
+2. Click your **setnayan-platform** project
+3. Left sidebar → **Authentication**
+4. **Sessions** tab (or "Configuration" → "Sessions" depending on version)
+
+### Step 2C.2 — Bump JWT expiry
+
+The default is `3600` seconds (1 hour). On the boundary, browsers / PWAs
+sometimes fail to refresh cleanly and the user is bounced to `/login`.
+
+| Field | What to set |
+|---|---|
+| **Access token (JWT) expiry** | `86400` (24 hours) — recommended; or `604800` (7 days) for a more "set-and-forget" feel |
+| **Refresh token reuse interval** | Leave at default (10 s) unless you have a specific reason |
+
+Click **Save**.
+
+### Step 2C.3 — Confirm session lifetime is generous
+
+Scroll for these (names vary by dashboard version):
+
+- **Inactivity timeout** — set to `Never` or at least `30 days`. This is what kills sessions after a long offline period.
+- **Session timebox** — leave **disabled**. (When enabled, it forces re-auth at a fixed cadence regardless of activity — usually not what you want for a wedding-planning app where couples open it once a month for a year.)
+
+Click **Save** for each.
+
+### Step 2C.4 — Verify
+
+1. Sign out, sign back in
+2. Close the browser entirely
+3. Reopen, hit https://setnayan.com/dashboard
+4. You should land on the dashboard without re-auth
+
+If you still get bounced to `/login`, paste me a screenshot of the browser's cookies for `setnayan.com` (DevTools → Application → Cookies). I'll read which cookies are there + their expiry dates.
+
+---
+
 ## Phase 3 — Custom domain (1 hour + DNS propagation)
 
 **Why:** Right now the app lives at `setnayan-platform-web.vercel.app`. For

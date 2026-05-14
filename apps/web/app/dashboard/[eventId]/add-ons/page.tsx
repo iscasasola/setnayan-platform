@@ -7,6 +7,8 @@ import {
   CloudUpload,
   Sparkles,
   Video,
+  Film,
+  ShoppingBag,
   type LucideIcon,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -89,6 +91,24 @@ const ADD_ONS: ReadonlyArray<{
     status: 'coming_soon',
     blurb: 'Google Drive integration for full-resolution photo handoff',
     cta: 'Connect',
+  },
+  {
+    key: 'patiktok',
+    label: 'Patiktok',
+    Icon: Film,
+    iteration: '0017',
+    status: 'coming_soon',
+    blurb: 'Vertical-reel template gallery · render-on-demand · 9:16 1080p MP4',
+    cta: 'Browse templates',
+  },
+  {
+    key: 'supplies-marketplace',
+    label: 'Supplies Marketplace',
+    Icon: ShoppingBag,
+    iteration: '0018',
+    status: 'coming_soon',
+    blurb: 'Wedding-day supplies + favors from vetted PH suppliers — direct to your venue',
+    cta: 'Browse supplies',
   },
   {
     key: 'led',

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { apiErrorResponse } from '@/lib/api-auth';
+import { PUBLIC_SURFACE_VISIBILITIES } from '@/lib/vendor-visibility';
 
 type Params = { params: Promise<{ publicId: string }> };
 
@@ -19,8 +20,9 @@ const PUBLIC_CORS_HEADERS = {
  * are intentionally masked even though they live on the same row — the
  * V1.5 booking flow will surface them after a booking is confirmed.
  *
- * 404 if the row is missing OR is_published is false (don't leak the
- * existence of an unpublished profile).
+ * 404 if the row is missing OR public_visibility is hidden/archived (don't
+ * leak the existence of suspended/closed profiles). Coming-soon + verified
+ * are both surfaced — coming_soon vendors expose `is_bookable: false`.
  */
 export async function GET(req: Request, { params }: Params) {
   const { publicId } = await params;
@@ -36,12 +38,14 @@ export async function GET(req: Request, { params }: Params) {
   const looksLikePublicId = /^B[A-Z0-9-]+/i.test(publicId);
   let row: VendorDetailRow | null = null;
 
+  // Decision 6 (2026-05-15): public surface includes coming_soon + verified;
+  // hidden + archived stay 404 to avoid leaking suspended/closed profiles.
   if (looksLikePublicId) {
     const { data } = await admin
       .from('vendor_profiles')
       .select(SELECT_COLUMNS)
       .eq('public_id', publicId)
-      .eq('is_published', true)
+      .in('public_visibility', PUBLIC_SURFACE_VISIBILITIES as readonly string[])
       .maybeSingle();
     row = (data as VendorDetailRow | null) ?? null;
   }
@@ -51,7 +55,7 @@ export async function GET(req: Request, { params }: Params) {
       .from('vendor_profiles')
       .select(SELECT_COLUMNS)
       .ilike('business_slug', publicId)
-      .eq('is_published', true)
+      .in('public_visibility', PUBLIC_SURFACE_VISIBILITIES as readonly string[])
       .maybeSingle();
     row = (data as VendorDetailRow | null) ?? null;
   }
@@ -78,6 +82,8 @@ export async function GET(req: Request, { params }: Params) {
         contact_phone: maskPhone(row.contact_phone),
         has_contact_email: Boolean(row.contact_email),
         has_contact_phone: Boolean(row.contact_phone),
+        public_visibility: row.public_visibility,
+        is_bookable: row.public_visibility === 'verified',
         created_at: row.created_at,
         updated_at: row.updated_at,
       },
@@ -108,12 +114,13 @@ type VendorDetailRow = {
   website: string | null;
   contact_email: string | null;
   contact_phone: string | null;
+  public_visibility: 'hidden' | 'coming_soon' | 'verified' | 'archived';
   created_at: string;
   updated_at: string;
 };
 
 const SELECT_COLUMNS =
-  'vendor_profile_id, public_id, business_name, business_slug, tagline, logo_url, services, location_city, website, contact_email, contact_phone, created_at, updated_at';
+  'vendor_profile_id, public_id, business_name, business_slug, tagline, logo_url, services, location_city, website, contact_email, contact_phone, public_visibility, created_at, updated_at';
 
 function maskEmail(value: string | null): string | null {
   if (!value) return null;

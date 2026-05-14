@@ -1,5 +1,10 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayServiceLabel } from '@/lib/vendors';
+import {
+  VENDOR_PUBLIC_VISIBILITY_LABEL,
+  parseVisibility,
+  type VendorPublicVisibility,
+} from '@/lib/vendor-visibility';
 
 export const metadata = { title: 'Vendors · Admin' };
 
@@ -15,6 +20,7 @@ type VendorRow = {
   location_city: string | null;
   contact_email: string | null;
   is_published: boolean;
+  public_visibility: VendorPublicVisibility;
   created_at: string;
 };
 
@@ -29,7 +35,7 @@ export default async function AdminVendorsPage({ searchParams }: Props) {
   let query = admin
     .from('vendor_profiles')
     .select(
-      'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,location_city,contact_email,is_published,created_at',
+      'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,location_city,contact_email,is_published,public_visibility,created_at',
     )
     .order('created_at', { ascending: false })
     .limit(200);
@@ -104,15 +110,7 @@ export default async function AdminVendorsPage({ searchParams }: Props) {
                     ) : null}
                   </div>
                 </div>
-                <span
-                  className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
-                    v.is_published
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : 'bg-ink/5 text-ink/60'
-                  }`}
-                >
-                  {v.is_published ? 'Published' : 'Draft'}
-                </span>
+                <VisibilityBadge value={parseVisibility(v.public_visibility)} />
               </div>
 
               {v.tagline ? (
@@ -139,6 +137,22 @@ export default async function AdminVendorsPage({ searchParams }: Props) {
         )}
       </ul>
     </div>
+  );
+}
+
+function VisibilityBadge({ value }: { value: VendorPublicVisibility }) {
+  const tone: Record<VendorPublicVisibility, string> = {
+    coming_soon: 'bg-amber-100 text-amber-900',
+    verified: 'bg-emerald-100 text-emerald-800',
+    hidden: 'bg-ink/8 text-ink/65',
+    archived: 'bg-ink/8 text-ink/45',
+  };
+  return (
+    <span
+      className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${tone[value]}`}
+    >
+      {VENDOR_PUBLIC_VISIBILITY_LABEL[value]}
+    </span>
   );
 }
 

@@ -13,6 +13,12 @@ import {
   type ServiceGroupKey,
   type VendorCategory,
 } from '@/lib/vendors';
+import {
+  isBookable,
+  isPubliclyVisible,
+  parseVisibility,
+  type VendorPublicVisibility,
+} from '@/lib/vendor-visibility';
 import { fetchVendorServices, type VendorServiceRow } from '@/lib/vendor-services';
 import { fetchUserEvents } from '@/lib/events';
 import { isFollowingVendor } from '@/lib/follow';
@@ -48,7 +54,7 @@ type PublicVendorRow = {
   website: string | null;
   contact_email: string | null;
   contact_phone: string | null;
-  is_published: boolean;
+  public_visibility: VendorPublicVisibility;
 };
 
 async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
@@ -56,7 +62,7 @@ async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
   const { data } = await admin
     .from('vendor_profiles')
     .select(
-      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,website,contact_email,contact_phone,is_published',
+      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,website,contact_email,contact_phone,public_visibility',
     )
     .ilike('business_slug', slug)
     .maybeSingle();
@@ -66,11 +72,12 @@ async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
 export async function generateMetadata({ params }: Props) {
   const { slug } = await params;
   const vendor = await fetchVendor(slug);
-  if (!vendor || !vendor.is_published) {
+  if (!vendor || !isPubliclyVisible(vendor.public_visibility)) {
     return { title: 'Setnayan vendor' };
   }
+  const suffix = vendor.public_visibility === 'coming_soon' ? ' · Coming soon' : '';
   return {
-    title: `${vendor.business_name} · Setnayan vendor`,
+    title: `${vendor.business_name} · Setnayan vendor${suffix}`,
     description: vendor.tagline ?? `${vendor.business_name} on Setnayan.`,
   };
 }
@@ -79,7 +86,12 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
   const { slug } = await params;
   const search = await searchParams;
   const vendor = await fetchVendor(slug);
-  if (!vendor || !vendor.is_published) notFound();
+  // Hidden + archived vendors 404 from the public surface (don't leak the
+  // existence of suspended / closed profiles). Coming-soon + verified render.
+  if (!vendor || !isPubliclyVisible(vendor.public_visibility)) notFound();
+  const visibility = parseVisibility(vendor.public_visibility);
+  const bookable = isBookable(visibility);
+  const isComingSoon = visibility === 'coming_soon';
 
   const pageRaw = Number(search.reviewsPage ?? '1');
   const reviewsPage = Number.isFinite(pageRaw) && pageRaw > 0 ? Math.floor(pageRaw) : 1;
@@ -134,6 +146,7 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
       </header>
 
       <article className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+        {isComingSoon ? <ComingSoonBanner vendorName={vendor.business_name} /> : null}
         <section className="flex flex-col items-start gap-6 border-b border-ink/10 pb-8 sm:flex-row">
           <Logo logoUrl={vendor.logo_url} name={vendor.business_name} />
           <div className="min-w-0 space-y-2">
@@ -153,7 +166,9 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
                   {vendor.location_city}
                 </span>
               ) : null}
-              {vendor.contact_email ? (
+              {/* Contact links surface only for verified (bookable) vendors —
+                  coming-soon profiles are read-only previews per 0022 § 2.1c. */}
+              {bookable && vendor.contact_email ? (
                 <a
                   href={`mailto:${vendor.contact_email}`}
                   className="inline-flex items-center gap-1 hover:text-terracotta"
@@ -162,7 +177,7 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
                   {vendor.contact_email}
                 </a>
               ) : null}
-              {vendor.contact_phone ? (
+              {bookable && vendor.contact_phone ? (
                 <a
                   href={`tel:${vendor.contact_phone.replace(/\s/g, '')}`}
                   className="inline-flex items-center gap-1 hover:text-terracotta"
@@ -183,17 +198,19 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
                 </a>
               ) : null}
             </div>
-            <div className="pt-4">
-              <FollowGate
-                vendorProfileId={vendor.vendor_profile_id}
-                vendorName={vendor.business_name}
-                vendorEmail={vendor.contact_email}
-                isAuthenticated={user !== null}
-                initialFollowing={initialFollowing}
-                eventId={coupleEventId}
-                revalidatePath={`/v/${slug}`}
-              />
-            </div>
+            {bookable ? (
+              <div className="pt-4">
+                <FollowGate
+                  vendorProfileId={vendor.vendor_profile_id}
+                  vendorName={vendor.business_name}
+                  vendorEmail={vendor.contact_email}
+                  isAuthenticated={user !== null}
+                  initialFollowing={initialFollowing}
+                  eventId={coupleEventId}
+                  revalidatePath={`/v/${slug}`}
+                />
+              </div>
+            ) : null}
           </div>
         </section>
 
@@ -233,20 +250,28 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
 
         <section className="space-y-4 py-8">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Get in touch
+            {bookable ? 'Get in touch' : 'Not yet bookable'}
           </h2>
           <p className="max-w-2xl text-sm text-ink/65">
-            {vendor.contact_email ? (
-              <>
-                Already a Setnayan couple? Start a thread directly with{' '}
-                <span className="font-medium text-ink">{vendor.business_name}</span> from your
-                dashboard using the contact email above. Identity stays masked until you
-                choose to share.
-              </>
+            {bookable ? (
+              vendor.contact_email ? (
+                <>
+                  Already a Setnayan couple? Start a thread directly with{' '}
+                  <span className="font-medium text-ink">{vendor.business_name}</span> from
+                  your dashboard using the contact email above. Identity stays masked
+                  until you choose to share.
+                </>
+              ) : (
+                <>
+                  {vendor.business_name} is on Setnayan but hasn&rsquo;t published a contact
+                  email yet. Check back soon.
+                </>
+              )
             ) : (
               <>
-                {vendor.business_name} is on Setnayan but hasn&rsquo;t published a contact
-                email yet. Check back soon.
+                <span className="font-medium text-ink">{vendor.business_name}</span> has set
+                up their Setnayan profile but is still completing verification. Bookings
+                will open as soon as the Setnayan Team finishes their review.
               </>
             )}
           </p>
@@ -265,6 +290,26 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
         </footer>
       </article>
     </main>
+  );
+}
+
+function ComingSoonBanner({ vendorName }: { vendorName: string }) {
+  return (
+    <section
+      aria-label="Coming soon"
+      className="mb-8 rounded-2xl border border-dashed border-ink/20 bg-ink/[0.04] p-5"
+    >
+      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+        Coming soon
+      </p>
+      <h2 className="mt-1 text-lg font-semibold tracking-tight text-ink">
+        {vendorName} is verifying their Setnayan account.
+      </h2>
+      <p className="mt-1 max-w-2xl text-sm text-ink/65">
+        Their profile is a read-only preview while the Setnayan Team completes
+        verification. Bookings open as soon as that&rsquo;s done.
+      </p>
+    </section>
   );
 }
 

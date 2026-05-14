@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { apiErrorResponse } from '@/lib/api-auth';
+import { PUBLIC_SURFACE_VISIBILITIES } from '@/lib/vendor-visibility';
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
@@ -22,6 +23,7 @@ type VendorRow = {
   services: string[];
   location_city: string | null;
   website: string | null;
+  public_visibility: 'hidden' | 'coming_soon' | 'verified' | 'archived';
   created_at: string;
 };
 
@@ -55,12 +57,14 @@ export async function GET(req: Request) {
 
   const admin = createAdminClient();
 
+  // Decision 6 (2026-05-15): public surface = 'verified' + 'coming_soon'.
+  // Legacy is_published is no longer consulted.
   let query = admin
     .from('vendor_profiles')
     .select(
-      'vendor_profile_id, public_id, business_name, business_slug, tagline, logo_url, services, location_city, website, created_at',
+      'vendor_profile_id, public_id, business_name, business_slug, tagline, logo_url, services, location_city, website, public_visibility, created_at',
     )
-    .eq('is_published', true)
+    .in('public_visibility', PUBLIC_SURFACE_VISIBILITIES as readonly string[])
     .order('created_at', { ascending: false })
     .order('public_id', { ascending: false })
     .limit(limit + 1);
@@ -115,6 +119,8 @@ export async function GET(req: Request) {
         services: v.services ?? [],
         location_city: v.location_city,
         website: v.website,
+        public_visibility: v.public_visibility,
+        is_bookable: v.public_visibility === 'verified',
       })),
       next_cursor: nextCursor,
     },

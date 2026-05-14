@@ -38,6 +38,7 @@ export type CategoryFilterChipsContext = {
   q: string;
   city: string;
   sort: string;
+  verifiedOnly?: boolean;
 };
 
 type Props = {
@@ -51,6 +52,7 @@ function buildHref(category: VendorCategory | null, context: CategoryFilterChips
   if (context.city) params.set('city', context.city);
   if (context.sort && context.sort !== 'most_reviews') params.set('sort', context.sort);
   if (category) params.set('category', category);
+  if (context.verifiedOnly) params.set('verified', '1');
   const qs = params.toString();
   return qs ? `/vendors?${qs}` : '/vendors';
 }

@@ -24,9 +24,58 @@ import {
 import { createClient } from '@/lib/supabase/server';
 
 export const metadata = {
-  title: 'Setnayan — Philippines-first life-events platform',
+  title: 'Wedding Suppliers & Supplies Philippines',
   description:
-    "Setnayan is the Philippines-first life-events platform. V1 weddings — guest lists, QR invitations, branded sites, planner, and more. Set na 'yan.",
+    'Find verified wedding supplies, suppliers, and rentals across the Philippines — from Manila to Cebu, Davao, and Tagaytay. Free planning tools, transparent PHP pricing.',
+};
+
+const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(
+  /\/$/,
+  '',
+);
+
+const HOMEPAGE_JSONLD = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': `${SITE_URL}/#organization`,
+      name: 'Setnayan',
+      url: `${SITE_URL}/`,
+      logo: `${SITE_URL}/icon-512.svg`,
+      description:
+        'Filipino-first wedding and life-events platform. Verified Philippine wedding suppliers and supplies with transparent PHP pricing.',
+      areaServed: { '@type': 'Country', name: 'Philippines' },
+    },
+    {
+      '@type': 'WebSite',
+      '@id': `${SITE_URL}/#website`,
+      url: `${SITE_URL}/`,
+      name: 'Setnayan',
+      inLanguage: 'en-PH',
+      publisher: { '@id': `${SITE_URL}/#organization` },
+      potentialAction: {
+        '@type': 'SearchAction',
+        target: {
+          '@type': 'EntryPoint',
+          urlTemplate: `${SITE_URL}/vendors?q={search_term_string}`,
+        },
+        'query-input': 'required name=search_term_string',
+      },
+    },
+    {
+      '@type': 'BreadcrumbList',
+      '@id': `${SITE_URL}/#breadcrumb`,
+      itemListElement: [
+        {
+          '@type': 'ListItem',
+          position: 1,
+          name: 'Home',
+          item: `${SITE_URL}/`,
+        },
+      ],
+    },
+  ],
 };
 
 export default async function HomePage() {
@@ -40,16 +89,22 @@ export default async function HomePage() {
   }
 
   return (
-    <main className="min-h-dvh">
-      <TopNav />
-      <Hero />
-      <TrustSignals />
-      <Shipping />
-      <Pricing />
-      <RoadmapCompact />
-      <ClosingCta />
-      <SiteFooter />
-    </main>
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(HOMEPAGE_JSONLD) }}
+      />
+      <main className="min-h-dvh">
+        <TopNav />
+        <Hero />
+        <TrustSignals />
+        <Shipping />
+        <Pricing />
+        <RoadmapCompact />
+        <ClosingCta />
+        <SiteFooter />
+      </main>
+    </>
   );
 }
 

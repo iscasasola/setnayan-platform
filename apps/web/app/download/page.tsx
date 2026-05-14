@@ -9,6 +9,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { DESKTOP_RELEASE } from '@/lib/desktop-release';
+import { SiteHeader } from '@/app/_components/site-header';
 
 export const metadata = {
   title: 'Download Setnayan for Mac',
@@ -25,7 +26,7 @@ export default function DownloadPage() {
 
   return (
     <main className="min-h-dvh bg-cream">
-      <TopNav />
+      <SiteHeader />
 
       <section className="border-b border-ink/5">
         <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[1.1fr,1fr] lg:px-8">
@@ -191,37 +192,6 @@ export default function DownloadPage() {
 
       <SiteFooter />
     </main>
-  );
-}
-
-function TopNav() {
-  return (
-    <header className="border-b border-ink/5">
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex items-center gap-2">
-          <span
-            aria-hidden
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-terracotta font-semibold text-cream"
-          >
-            S
-          </span>
-          <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/70">
-            Setnayan
-          </span>
-        </Link>
-        <nav className="flex items-center gap-2">
-          <Link
-            href="/login"
-            className="hidden text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline sm:inline"
-          >
-            Sign in
-          </Link>
-          <Link href="/signup" className="button-primary h-10 px-5 text-sm">
-            Create account
-          </Link>
-        </nav>
-      </div>
-    </header>
   );
 }
 

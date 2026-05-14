@@ -170,7 +170,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'theme',
         title: 'Switch your dashboard theme',
-        body: 'On Profile, pick one of four themes — Setnayan Default, Victorian, Classy, iOS. The whole dashboard re-skins instantly. Public invitation site stays on Setnayan Default regardless.',
+        body: 'On Profile, pick one of four themes — Setnayan Default, Victorian, Forest Theme, iOS. The whole dashboard re-skins instantly. Public invitation site stays on Setnayan Default regardless.',
       },
       {
         slug: 'data-export',

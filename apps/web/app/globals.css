@@ -18,9 +18,9 @@
   [data-theme='setnayan_default'] {
     --color-cream: 250 247 242;
     --color-ink: 26 26 26;
-    --color-terracotta: 201 123 75;
-    --color-terracotta-600: 168 97 56;
-    --color-terracotta-700: 130 74 42;
+    --color-terracotta: 122 31 43;
+    --color-terracotta-600: 92 23 33;
+    --color-terracotta-700: 79 16 25;
   }
 
   [data-theme='victorian'] {
@@ -31,12 +31,13 @@
     --color-terracotta-700: 84 18 38;
   }
 
+  /* Forest Theme — display label is "Forest Theme"; data-theme attr stays 'classy' to skip a DB migration. */
   [data-theme='classy'] {
-    --color-cream: 244 244 242;
-    --color-ink: 15 15 15;
-    --color-terracotta: 163 133 96;
-    --color-terracotta-600: 138 109 76;
-    --color-terracotta-700: 110 87 60;
+    --color-cream: 240 242 238;
+    --color-ink: 26 37 32;
+    --color-terracotta: 45 74 58;
+    --color-terracotta-600: 36 60 47;
+    --color-terracotta-700: 26 47 35;
   }
 
   [data-theme='ios'] {

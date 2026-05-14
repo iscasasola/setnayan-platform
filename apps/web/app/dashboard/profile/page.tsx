@@ -37,8 +37,8 @@ const THEMES: Array<{
   {
     key: 'setnayan_default',
     label: 'Setnayan Default',
-    tagline: 'Warm cream · ink · terracotta',
-    swatches: { cream: '#FAF7F2', ink: '#1A1A1A', accent: '#C97B4B' },
+    tagline: 'Warm cream · ink · burgundy',
+    swatches: { cream: '#FAF7F2', ink: '#1A1A1A', accent: '#7A1F2B' },
   },
   {
     key: 'victorian',
@@ -48,9 +48,9 @@ const THEMES: Array<{
   },
   {
     key: 'classy',
-    label: 'Classy',
-    tagline: 'Warm white · black · champagne',
-    swatches: { cream: '#F4F4F2', ink: '#0F0F0F', accent: '#A38560' },
+    label: 'Forest Theme',
+    tagline: 'Off-cream · ink · forest',
+    swatches: { cream: '#F0F2EE', ink: '#1A2520', accent: '#2D4A3A' },
   },
   {
     key: 'ios',

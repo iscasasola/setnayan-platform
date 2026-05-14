@@ -331,7 +331,7 @@ const SHIPPING_FEATURES: Array<{ Icon: LucideIcon; title: string; body: string }
   {
     Icon: Palette,
     title: 'Four ready-made looks',
-    body: 'Setnayan Default · Victorian · Classy · iOS. Switch your couple dashboard chrome to whichever feels like yours.',
+    body: 'Setnayan Default · Victorian · Forest Theme · iOS. Switch your couple dashboard chrome to whichever feels like yours.',
   },
   {
     Icon: ListChecks,

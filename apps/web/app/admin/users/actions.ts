@@ -43,21 +43,20 @@ export async function toggleTeamMember(formData: FormData) {
 }
 
 /**
- * Soft-delete a user account. Sets `deleted_at` on public.users AND bans the
- * auth.users row so the user cannot sign back in. Reversible via
- * `restoreUserAccount`. Internal/team-pool callers only.
+ * Hard-delete a user. Removes the auth.users row, which cascades to
+ * public.users. The email is then free for re-signup — e.g., a vendor who
+ * wants to re-register as a customer.
+ *
+ * To also block the email from being re-used, call `blacklistUser` instead.
  *
  * Safety guards:
- * - Cannot delete yourself.
- * - Cannot delete an internal account (owner/§ 10a). Use Supabase dashboard
- *   for that — it requires escalated intentionality.
+ * - Cannot delete yourself
+ * - Cannot delete is_internal accounts (owner / § 10a)
  */
-export async function softDeleteUser(formData: FormData) {
+export async function deleteUser(formData: FormData) {
   const { adminUserId } = await requireAdmin();
   const targetUserId = formData.get('user_id');
-  if (typeof targetUserId !== 'string') {
-    throw new Error('Invalid input');
-  }
+  if (typeof targetUserId !== 'string') throw new Error('Invalid input');
   if (targetUserId === adminUserId) {
     throw new Error('You cannot delete your own account from this page');
   }
@@ -72,56 +71,6 @@ export async function softDeleteUser(formData: FormData) {
     throw new Error('Cannot delete an internal account');
   }
 
-  const now = new Date().toISOString();
-  const { error: dbError } = await admin
-    .from('users')
-    .update({ deleted_at: now, updated_at: now })
-    .eq('user_id', targetUserId);
-  if (dbError) throw new Error(dbError.message);
-
-  // 100-year ban — effectively forever. Lifted by `restoreUserAccount`.
-  await admin.auth.admin.updateUserById(targetUserId, {
-    ban_duration: `${100 * 365 * 24}h`,
-  });
-
-  revalidatePath('/admin/users');
-}
-
-/**
- * Permanently delete a user account. Removes the row from auth.users — which
- * cascades to public.users via the FK. The user's auth identity is gone
- * forever; you can't restore from here.
- *
- * Only allowed on users that have already been soft-deleted. Forces a
- * two-step intentionality model: soft-delete first (which gives a recovery
- * window via Restore), then come back and confirm permanent removal.
- */
-export async function permanentDeleteUser(formData: FormData) {
-  const { adminUserId } = await requireAdmin();
-  const targetUserId = formData.get('user_id');
-  if (typeof targetUserId !== 'string') {
-    throw new Error('Invalid input');
-  }
-  if (targetUserId === adminUserId) {
-    throw new Error('You cannot delete your own account from this page');
-  }
-
-  const admin = createAdminClient();
-  const { data: target } = await admin
-    .from('users')
-    .select('is_internal, deleted_at')
-    .eq('user_id', targetUserId)
-    .maybeSingle();
-  if (!target) {
-    throw new Error('User not found');
-  }
-  if (target.is_internal) {
-    throw new Error('Cannot delete an internal account');
-  }
-  if (!target.deleted_at) {
-    throw new Error('Soft-delete first, then come back to permanently delete');
-  }
-
   const { error } = await admin.auth.admin.deleteUser(targetUserId);
   if (error) throw new Error(error.message);
 
@@ -129,27 +78,76 @@ export async function permanentDeleteUser(formData: FormData) {
 }
 
 /**
- * Restore a soft-deleted account. Clears `deleted_at` AND lifts the auth ban
- * so the user can sign in again. Internal/team-pool only.
+ * Hard-delete a user AND add their email to the permanent blacklist. The
+ * email is then rejected by the signup server action. Reverse with
+ * `unblacklistEmail`.
+ *
+ * Safety guards:
+ * - Cannot blacklist yourself
+ * - Cannot blacklist is_internal accounts
  */
-export async function restoreUserAccount(formData: FormData) {
-  await requireAdmin();
+export async function blacklistUser(formData: FormData) {
+  const { adminUserId } = await requireAdmin();
   const targetUserId = formData.get('user_id');
-  if (typeof targetUserId !== 'string') {
-    throw new Error('Invalid input');
+  const reasonRaw = formData.get('reason');
+  if (typeof targetUserId !== 'string') throw new Error('Invalid input');
+  if (targetUserId === adminUserId) {
+    throw new Error('You cannot blacklist your own account from this page');
   }
 
   const admin = createAdminClient();
-  const { error } = await admin
+  const { data: target } = await admin
     .from('users')
-    .update({ deleted_at: null, updated_at: new Date().toISOString() })
-    .eq('user_id', targetUserId);
-  if (error) throw new Error(error.message);
+    .select('is_internal, email')
+    .eq('user_id', targetUserId)
+    .maybeSingle();
+  if (!target) throw new Error('User not found');
+  if (target.is_internal) {
+    throw new Error('Cannot blacklist an internal account');
+  }
+  if (!target.email) {
+    throw new Error('User has no email to blacklist');
+  }
 
-  // Lift the auth ban so the user can sign in again.
-  await admin.auth.admin.updateUserById(targetUserId, {
-    ban_duration: 'none',
+  const reason =
+    typeof reasonRaw === 'string' && reasonRaw.trim().length > 0
+      ? reasonRaw.trim()
+      : null;
+
+  // Insert blacklist row FIRST so a failure here doesn't leave the user
+  // deleted but not blacklisted. Duplicate-key just means the email is
+  // already blacklisted — proceed to delete anyway.
+  const { error: bError } = await admin.from('blacklisted_emails').insert({
+    email: target.email.toLowerCase(),
+    reason,
+    blacklisted_by_user_id: adminUserId,
   });
+  if (bError && !bError.message.toLowerCase().includes('duplicate')) {
+    throw new Error(bError.message);
+  }
+
+  const { error: dError } = await admin.auth.admin.deleteUser(targetUserId);
+  if (dError) throw new Error(dError.message);
+
+  revalidatePath('/admin/users');
+}
+
+/**
+ * Remove an email from the blacklist so it can be used to sign up again.
+ * The associated auth/user record is already gone (was hard-deleted at
+ * blacklist time), so this only clears the gate at the signup action.
+ */
+export async function unblacklistEmail(formData: FormData) {
+  await requireAdmin();
+  const blacklistId = formData.get('blacklist_id');
+  if (typeof blacklistId !== 'string') throw new Error('Invalid input');
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('blacklisted_emails')
+    .delete()
+    .eq('id', blacklistId);
+  if (error) throw new Error(error.message);
 
   revalidatePath('/admin/users');
 }
@@ -217,8 +215,6 @@ export async function confirmUserEmail(formData: FormData) {
   }
 
   const admin = createAdminClient();
-  // GoTrue admin API: PUT /auth/v1/admin/users/{id} { email_confirm: true }.
-  // The supabase-js SDK exposes this via auth.admin.updateUserById.
   const { error } = await admin.auth.admin.updateUserById(targetUserId, {
     email_confirm: true,
   });

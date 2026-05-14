@@ -11,6 +11,8 @@ export const metadata: Metadata = {
 const ERROR_COPY: Record<string, string> = {
   missing: 'Please enter both an email and a password.',
   password_too_short: 'Password must be at least 8 characters.',
+  blacklisted:
+    'This email cannot be used to create a Setnayan account. Please use a different email, or contact support if you think this is a mistake.',
 };
 
 type SearchParams = Promise<{ error?: string; sent?: string; next?: string }>;

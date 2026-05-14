@@ -1,7 +1,17 @@
 import 'server-only';
-import { createAdminClient } from '@/lib/supabase/admin';
-
-export const PLATFORM_ASSETS_BUCKET = 'platform-assets';
+import { randomUUID } from 'node:crypto';
+import {
+  DeleteObjectCommand,
+  PutObjectCommand,
+  S3ServiceException,
+} from '@aws-sdk/client-s3';
+import {
+  R2_BUCKETS,
+  type R2BucketKey,
+  type R2BucketName,
+  getR2Client,
+  publicUrlFor,
+} from '@/lib/r2';
 
 const ALLOWED_MIME = new Set([
   'image/png',
@@ -17,20 +27,46 @@ const ALLOWED_MIME = new Set([
 const MAX_BYTES = 6 * 1024 * 1024; // 6 MB
 
 export type UploadResult =
-  | { ok: true; publicUrl: string; path: string }
+  | {
+      ok: true;
+      publicUrl: string;
+      key: string;
+      bucket: R2BucketName;
+    }
   | { ok: false; error: string };
 
 /**
- * Uploads a file to a public Supabase Storage bucket and returns the public
- * URL. Validates MIME type + size before sending. Server-only — uses the
- * service-role admin client.
+ * Routes a `pathPrefix` to one of the four R2 buckets.
+ *
+ * V1 rules (mirror the spec in the PR body):
+ *   - merchant-qr/*         → media
+ *   - vendor-logo/*         → media
+ *   - profile-photo/*       → media
+ *   - payment-screenshot/*  → thread-files
+ *   - everything else       → media (safe default for public assets)
+ */
+function bucketForPrefix(pathPrefix: string): R2BucketKey {
+  const normalized = pathPrefix.replace(/^\/+/, '');
+  if (normalized.startsWith('merchant-qr/')) return 'media';
+  if (normalized.startsWith('vendor-logo/')) return 'media';
+  if (normalized.startsWith('profile-photo/')) return 'media';
+  if (normalized.startsWith('payment-screenshot/')) return 'threadFiles';
+  return 'media';
+}
+
+/**
+ * Uploads a file to Cloudflare R2 and returns the public URL.
+ *
+ * Validates MIME type + size before sending. Server-only — uses the R2
+ * singleton client with the service-level access key. Object key is
+ * `${pathPrefix}/${randomUUID()}-${file.name}` so collisions are impossible
+ * and the file's original name is preserved for downloads.
  */
 export async function uploadPublicAsset(args: {
-  bucket?: string;
   pathPrefix: string;
   file: File;
 }): Promise<UploadResult> {
-  const { bucket = PLATFORM_ASSETS_BUCKET, pathPrefix, file } = args;
+  const { pathPrefix, file } = args;
 
   // file.type can be empty if the browser couldn't detect (some older
   // Android browsers do this for HEIC). Fall back to extension sniffing.
@@ -48,28 +84,35 @@ export async function uploadPublicAsset(args: {
     };
   }
 
-  // Random suffix prevents browser/CDN caching the previous image of the
-  // same name when the merchant replaces their QR.
-  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'png';
-  const stamp = Date.now();
-  const random = Math.random().toString(36).slice(2, 8);
-  const path = `${pathPrefix.replace(/^\/+|\/+$/g, '')}/${stamp}-${random}.${ext}`;
+  const bucketKey = bucketForPrefix(pathPrefix);
+  const bucket = R2_BUCKETS[bucketKey];
+  const prefix = pathPrefix.replace(/^\/+|\/+$/g, '');
+  const key = `${prefix}/${randomUUID()}-${file.name}`;
 
-  const admin = createAdminClient();
-  const arrayBuffer = await file.arrayBuffer();
-
-  const { error } = await admin.storage.from(bucket).upload(path, arrayBuffer, {
-    contentType: declaredType,
-    cacheControl: '3600',
-    upsert: false,
-  });
-  if (error) {
-    console.error('[storage] upload failed', { bucket, path, error });
-    return { ok: false, error: error.message };
+  try {
+    const client = getR2Client();
+    const body = new Uint8Array(await file.arrayBuffer());
+    await client.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Body: body,
+        ContentType: declaredType,
+        CacheControl: 'public, max-age=3600',
+      }),
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown upload error';
+    console.error('[storage] R2 upload failed', { bucket, key, error: message });
+    return { ok: false, error: message };
   }
 
-  const { data: pub } = admin.storage.from(bucket).getPublicUrl(path);
-  return { ok: true, publicUrl: pub.publicUrl, path };
+  return {
+    ok: true,
+    publicUrl: publicUrlFor(bucket, key),
+    key,
+    bucket,
+  };
 }
 
 function sniffMimeFromName(name: string): string | null {
@@ -96,19 +139,78 @@ function sniffMimeFromName(name: string): string | null {
 }
 
 /**
+ * Parses a public URL back into a `{ bucket, key }` pair.
+ *
+ * Handles both URL shapes `publicUrlFor` can emit:
+ *   1. `${R2_PUBLIC_URL}/${bucket}/${key}` (custom domain)
+ *   2. `https://${accountId}.r2.cloudflarestorage.com/${bucket}/${key}` (raw)
+ *
+ * Returns null for URLs that don't look like R2 (e.g. legacy Supabase
+ * Storage URLs — we leave those alone and rely on the owner's manual
+ * migration).
+ */
+function parseR2Url(
+  publicUrl: string,
+): { bucket: string; key: string } | null {
+  let pathname: string;
+  try {
+    pathname = new URL(publicUrl).pathname;
+  } catch {
+    return null;
+  }
+
+  // Strip the R2_PUBLIC_URL pathname prefix (custom domain may have a path).
+  const base = process.env.R2_PUBLIC_URL;
+  if (base) {
+    try {
+      const basePath = new URL(base).pathname.replace(/\/+$/, '');
+      if (basePath && pathname.startsWith(basePath)) {
+        pathname = pathname.slice(basePath.length);
+      }
+    } catch {
+      /* base not a full URL — ignore */
+    }
+  }
+
+  const stripped = pathname.replace(/^\/+/, '');
+  const slash = stripped.indexOf('/');
+  if (slash <= 0 || slash === stripped.length - 1) return null;
+
+  const bucket = stripped.slice(0, slash);
+  const key = decodeURIComponent(stripped.slice(slash + 1));
+  const knownBuckets: string[] = Object.values(R2_BUCKETS);
+  if (!knownBuckets.includes(bucket)) return null;
+  return { bucket, key };
+}
+
+/**
  * Best-effort delete; we don't roll back the parent record if cleanup fails.
+ * Tolerates "object not found" silently — R2 returns NoSuchKey for missing
+ * keys, and `DeleteObject` is otherwise idempotent.
  */
 export async function deletePublicAsset(args: {
-  bucket?: string;
   publicUrl: string;
 }): Promise<void> {
-  const { bucket = PLATFORM_ASSETS_BUCKET, publicUrl } = args;
-  const marker = `/object/public/${bucket}/`;
-  const idx = publicUrl.indexOf(marker);
-  if (idx === -1) return;
-  const path = publicUrl.slice(idx + marker.length);
-  if (!path) return;
+  const parsed = parseR2Url(args.publicUrl);
+  if (!parsed) {
+    // Not an R2 URL — probably a legacy Supabase Storage URL. Skip; the
+    // owner is handling historical migration manually.
+    return;
+  }
 
-  const admin = createAdminClient();
-  await admin.storage.from(bucket).remove([path]);
+  try {
+    const client = getR2Client();
+    await client.send(
+      new DeleteObjectCommand({ Bucket: parsed.bucket, Key: parsed.key }),
+    );
+  } catch (err) {
+    if (
+      err instanceof S3ServiceException &&
+      (err.name === 'NoSuchKey' || err.$metadata?.httpStatusCode === 404)
+    ) {
+      return;
+    }
+    const message = err instanceof Error ? err.message : 'Unknown delete error';
+    console.error('[storage] R2 delete failed', { ...parsed, error: message });
+  }
 }

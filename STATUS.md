@@ -74,6 +74,7 @@ Each of these requires a strategic call from the owner before code can ship:
 | **Anthropic Claude API (0032 Contract Intelligence)** | Sign up + spend cap → unblocks paid SKU | 3 days code |
 | **Apple Developer Program** | $99/yr enrollment | 2-5 day approval; signed `.dmg` + future iOS Papic |
 | **Render pipeline infra** | Cloudflare Workers Paid ($5/mo) + Hetzner Cloud VMs (€15/mo) — shared by 0011 / 0012 / 0017 / 0024 | 2 days code once provisioned |
+| **Public website visual redesign** | Owner provides direction on what to change. Current state (post PR #21): split-CTA hero + trust signals + pricing table + compact roadmap — functional but generic. Owner queued this for a later session — needs a specific brief ("hero feels weak", "want a hero image not a device mock", "needs a how-it-works section", etc.) before code can ship | 0.5–2 days depending on scope |
 
 ---
 

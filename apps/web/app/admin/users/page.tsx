@@ -1,10 +1,13 @@
 import { Search, ShieldCheck, Sparkle, MailCheck, RotateCcw, Trash2, KeyRound } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ConfirmForm } from '@/app/_components/confirm-form';
 import {
   confirmUserEmail,
+  permanentDeleteUser,
   resetUserPassword,
   restoreUserAccount,
+  softDeleteUser,
   toggleTeamMember,
 } from './actions';
 
@@ -218,16 +221,34 @@ export default async function AdminUsersPage({ searchParams }: Props) {
                   <td className="px-3 py-3">
                     <div className="flex flex-wrap items-center gap-1.5">
                       {u.deleted_at ? (
-                        <form action={restoreUserAccount}>
-                          <input type="hidden" name="user_id" value={u.user_id} />
-                          <SubmitButton
-                            className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-900 hover:bg-emerald-200 disabled:opacity-60"
-                            pendingLabel="…"
-                          >
-                            <RotateCcw className="h-3 w-3" strokeWidth={2} />
-                            Restore
-                          </SubmitButton>
-                        </form>
+                        <>
+                          <form action={restoreUserAccount}>
+                            <input type="hidden" name="user_id" value={u.user_id} />
+                            <SubmitButton
+                              className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-900 hover:bg-emerald-200 disabled:opacity-60"
+                              pendingLabel="…"
+                            >
+                              <RotateCcw className="h-3 w-3" strokeWidth={2} />
+                              Restore
+                            </SubmitButton>
+                          </form>
+                          {!u.is_internal ? (
+                            <ConfirmForm
+                              action={permanentDeleteUser}
+                              message={`Permanently delete ${u.email ?? 'this user'}? This removes their auth identity and cascades through all their data. NOT REVERSIBLE.`}
+                            >
+                              <input type="hidden" name="user_id" value={u.user_id} />
+                              <SubmitButton
+                                title="Permanently remove this user from auth.users and all related data (cascades). Irreversible."
+                                className="inline-flex items-center gap-1 rounded-md bg-rose-100 px-2 py-1 text-xs font-medium text-rose-900 hover:bg-rose-200 disabled:opacity-60"
+                                pendingLabel="Deleting…"
+                              >
+                                <Trash2 className="h-3 w-3" strokeWidth={2} />
+                                Delete permanently
+                              </SubmitButton>
+                            </ConfirmForm>
+                          ) : null}
+                        </>
                       ) : u.is_internal ? (
                         <span className="text-xs text-ink/55">Locked (internal)</span>
                       ) : (
@@ -274,6 +295,22 @@ export default async function AdminUsersPage({ searchParams }: Props) {
                               Reset password
                             </SubmitButton>
                           </form>
+                          {!u.is_internal ? (
+                            <ConfirmForm
+                              action={softDeleteUser}
+                              message={`Soft-delete ${u.email ?? 'this user'}? They won't be able to sign in. Reversible via the Restore button on the "Soft-deleted" filter.`}
+                            >
+                              <input type="hidden" name="user_id" value={u.user_id} />
+                              <SubmitButton
+                                title="Soft-delete this user: sets deleted_at + bans auth.users. Reversible. Filter by 'Soft-deleted' to find and restore."
+                                className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-rose-100 hover:text-rose-900 disabled:opacity-60"
+                                pendingLabel="Deleting…"
+                              >
+                                <Trash2 className="h-3 w-3" strokeWidth={2} />
+                                Delete
+                              </SubmitButton>
+                            </ConfirmForm>
+                          ) : null}
                         </>
                       ) : null}
                     </div>

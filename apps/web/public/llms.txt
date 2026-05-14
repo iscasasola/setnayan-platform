@@ -1,0 +1,27 @@
+# Setnayan
+
+> Setnayan (SET-na-yan, from Tagalog "Set na 'yan." — "that's all set") is a Philippines-first life-events platform. V1 surface is weddings, designed to extend to birthdays, travel, corporate, and burial events. Free for couples and guests; free verified business profiles for vendors during launch. Transparent PHP pricing, apply-then-pay model, locally-rooted Filipino voice with EN / TL / CEB localization on the marketing site.
+
+## Core surfaces
+
+- [Wedding Suppliers Directory](https://www.setnayan.com/suppliers): 28 categories of verified Filipino wedding services — photographers, caterers, planners, florists, venues, and more. Filterable by city.
+- [Wedding Supplies Marketplace](https://www.setnayan.com/supplies): Print fulfillment, equipment rentals, NFC keepsakes, AV gear, and more. Transparent PHP pricing with in-platform booking.
+- [Vendor Profiles](https://www.setnayan.com/v/): Free verified business profiles. Each profile shows packages, coverage cities, real reviews.
+- [Wedding Planning Help Center](https://www.setnayan.com/help): Filipino civil + Catholic wedding requirements, traditional supplies, budget breakdowns, planning checklists.
+- [Wedding Planning Blog](https://www.setnayan.com/blog): Long-form guides for couples planning a Filipino wedding.
+
+## About Setnayan
+
+- **What:** Filipino-first wedding and life-events platform.
+- **For whom:** Filipino couples, guests, and event vendors. Customers + vendors share one universal account.
+- **Geography:** Philippines (Metro Manila, Cebu, Davao, Tagaytay, Iloilo, Baguio, Pampanga, Cavite, Batangas, Laguna, Bulacan, Pasig, and nationwide).
+- **Languages:** English (primary), Tagalog, Cebuano on the marketing site.
+- **Pricing:** Transparent PHP. Apply-then-pay (no token wallet). Free for couples; free vendor profiles during launch; in-app paid services billed in PHP centavos.
+- **Privacy:** No public sharing of guest data; couples own their event content.
+
+## Optional / extended
+
+- [Setnayan Press & About](https://www.setnayan.com/about)
+- [For Vendors](https://www.setnayan.com/for-vendors)
+- [For Event Creators](https://www.setnayan.com/for-event-creators)
+- [Coverage Areas](https://www.setnayan.com/coverage)

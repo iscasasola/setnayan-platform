@@ -19,9 +19,12 @@ export type SendEmailResult =
  * without throwing. The day the owner pastes a Resend key into Vercel,
  * every notification emit also fires an email without code changes.
  *
- * From address comes from RESEND_FROM_EMAIL (e.g. "Setnayan <noreply@
- * setnayan.com>"). If unset, falls back to Resend's verified sandbox
- * domain via `onboarding@resend.dev` — useful for smoke-testing.
+ * From address comes from RESEND_FROM_ADDRESS (e.g. "Setnayan <noreply@
+ * setnayan.com>") — the canonical name used in `.env.example` and
+ * `OWNER_ACTIONS.md` Phase 2. `RESEND_FROM_EMAIL` is also accepted as a
+ * legacy alias. If neither is set, falls back to Resend's verified sandbox
+ * domain via `onboarding@resend.dev` — useful for smoke-testing, but the
+ * sandbox only delivers to the Resend account holder's own email address.
  */
 export async function sendEmail(args: SendEmailArgs): Promise<SendEmailResult> {
   const apiKey = process.env.RESEND_API_KEY;
@@ -29,7 +32,10 @@ export async function sendEmail(args: SendEmailArgs): Promise<SendEmailResult> {
     return { ok: false, reason: 'not_configured' };
   }
 
-  const fromEmail = process.env.RESEND_FROM_EMAIL ?? 'onboarding@resend.dev';
+  const fromEmail =
+    process.env.RESEND_FROM_ADDRESS ??
+    process.env.RESEND_FROM_EMAIL ??
+    'onboarding@resend.dev';
 
   try {
     // Lazy-import so the bundle stays clean for builds where Resend isn't used.

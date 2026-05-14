@@ -38,7 +38,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en-PH">
       <body className="min-h-dvh bg-cream font-sans text-ink antialiased">
         <Providers>{children}</Providers>
         <ClientTypeDetector />

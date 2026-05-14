@@ -55,7 +55,7 @@ export default async function VendorDashboardLayout({
   return (
     <div data-theme={theme} className="flex min-h-dvh flex-col bg-cream">
       <header className="border-b border-ink/10 bg-cream">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+        <div className="mx-auto flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
           <Link href="/vendor-dashboard" className="flex items-center gap-2">
             <span
               aria-hidden
@@ -78,7 +78,7 @@ export default async function VendorDashboardLayout({
         </div>
         <nav
           aria-label="Vendor sections"
-          className="mx-auto flex w-full max-w-6xl gap-2 overflow-x-auto px-4 pb-3 sm:px-6 lg:px-8"
+          className="mx-auto flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl gap-2 overflow-x-auto px-4 pb-3 sm:px-6 lg:px-8"
         >
           <VendorSubnavTab
             href="/vendor-dashboard"

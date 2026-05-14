@@ -113,7 +113,7 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
     : formatAutoResolveCountdown(row.auto_resolve_at);
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
       <Link
         href="/admin/force-majeure"
         className="mb-4 inline-flex items-center gap-1 text-sm text-terracotta hover:underline"

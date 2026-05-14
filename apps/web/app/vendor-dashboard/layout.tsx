@@ -128,6 +128,7 @@ export default async function VendorDashboardLayout({
             icon={<Bell aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />}
             badge={unreadCount}
             match="prefix"
+            liveNotificationsUserId={user.id}
           />
         </nav>
       </header>

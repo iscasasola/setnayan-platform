@@ -1,11 +1,11 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { Send } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { SubmitButton } from '@/app/_components/submit-button';
-import { fetchMessages, fetchThreadById, formatChatTimestamp } from '@/lib/chat';
+import { fetchMessages, fetchThreadById } from '@/lib/chat';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { sendChatMessage } from '@/lib/chat-actions';
+import { ChatMessageStream } from '@/app/_components/chat-message-stream';
+import { ChatSendForm } from '@/app/_components/chat-send-form';
 
 export const metadata = { title: 'Thread · Vendor' };
 
@@ -33,8 +33,9 @@ export default async function VendorThreadPage({ params }: Props) {
     .eq('event_id', thread.event_id)
     .maybeSingle();
 
-  const messages = await fetchMessages(supabase, threadId);
-  const returnTo = `/vendor-dashboard/messages/${threadId}`;
+  // Server-rendered first batch (SSR + SEO). Realtime takes over from here.
+  const initialMessages = await fetchMessages(supabase, threadId);
+  const coupleLabel = event?.display_name ?? 'Couple';
 
   return (
     <section className="mx-auto flex h-[calc(100dvh-12rem)] w-full max-w-3xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">
@@ -46,9 +47,7 @@ export default async function VendorThreadPage({ params }: Props) {
           >
             ‹ Messages
           </Link>
-          <p className="truncate text-base font-semibold text-ink">
-            {event?.display_name ?? 'Event'}
-          </p>
+          <p className="truncate text-base font-semibold text-ink">{coupleLabel}</p>
           {event?.event_date ? (
             <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
               {event.event_date}
@@ -57,61 +56,15 @@ export default async function VendorThreadPage({ params }: Props) {
         </div>
       </header>
 
-      <ol className="flex-1 space-y-2 overflow-y-auto rounded-xl border border-ink/10 bg-cream p-4">
-        {messages.length === 0 ? (
-          <li className="rounded-md border border-dashed border-ink/15 bg-cream p-6 text-center text-sm text-ink/55">
-            No messages yet — say hi to introduce yourself.
-          </li>
-        ) : (
-          messages.map((m) => (
-            <li
-              key={m.message_id}
-              className={`flex ${m.sender_role === 'vendor' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${
-                  m.sender_role === 'vendor'
-                    ? 'bg-terracotta text-cream'
-                    : 'bg-ink/[0.06] text-ink'
-                }`}
-              >
-                <p className="whitespace-pre-wrap break-words">{m.body}</p>
-                <p
-                  className={`mt-1 font-mono text-[10px] uppercase tracking-[0.15em] ${
-                    m.sender_role === 'vendor' ? 'text-cream/70' : 'text-ink/50'
-                  }`}
-                >
-                  {m.sender_role === 'vendor'
-                    ? 'You'
-                    : event?.display_name ?? 'Couple'}
-                  {' · '}
-                  {formatChatTimestamp(m.created_at)}
-                </p>
-              </div>
-            </li>
-          ))
-        )}
-      </ol>
+      <ChatMessageStream
+        threadId={threadId}
+        initialMessages={initialMessages}
+        currentUserId={user.id}
+        viewerRole="vendor"
+        counterpartyLabel={coupleLabel}
+      />
 
-      <form action={sendChatMessage} className="flex items-end gap-2">
-        <input type="hidden" name="thread_id" value={threadId} />
-        <input type="hidden" name="return_to" value={returnTo} />
-        <textarea
-          name="body"
-          rows={2}
-          required
-          maxLength={4000}
-          placeholder="Type a message…"
-          className="input-field min-h-[60px] flex-1 py-2"
-        />
-        <SubmitButton
-          aria-label="Send"
-          pendingLabel=""
-          className="inline-flex h-11 w-11 items-center justify-center rounded-md bg-terracotta text-cream hover:bg-terracotta-600 disabled:opacity-70"
-        >
-          <Send className="h-4 w-4" strokeWidth={1.75} />
-        </SubmitButton>
-      </form>
+      <ChatSendForm threadId={threadId} sendAction={sendChatMessage} />
     </section>
   );
 }

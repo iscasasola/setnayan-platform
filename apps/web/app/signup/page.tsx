@@ -15,7 +15,12 @@ const ERROR_COPY: Record<string, string> = {
     'This email cannot be used to create a Setnayan account. Please use a different email, or contact support if you think this is a mistake.',
 };
 
-type SearchParams = Promise<{ error?: string; sent?: string; next?: string }>;
+type SearchParams = Promise<{
+  error?: string;
+  sent?: string;
+  next?: string;
+  as?: string;
+}>;
 
 export default async function SignupPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
@@ -23,6 +28,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
   const errorMessage = rawError ? (ERROR_COPY[rawError] ?? rawError) : null;
   const confirmationSent = params.sent === '1';
   const next = params.next && params.next.startsWith('/') ? params.next : '/';
+  const preselectVendor = params.as === 'vendor';
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-8 px-6 py-12 sm:px-8">
@@ -63,7 +69,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
                 type="radio"
                 name="account_type"
                 value="customer"
-                defaultChecked
+                defaultChecked={!preselectVendor}
                 className="peer sr-only"
               />
               <span className="font-medium text-ink">Couple</span>
@@ -74,6 +80,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
                 type="radio"
                 name="account_type"
                 value="vendor"
+                defaultChecked={preselectVendor}
                 className="peer sr-only"
               />
               <span className="font-medium text-ink">Vendor</span>

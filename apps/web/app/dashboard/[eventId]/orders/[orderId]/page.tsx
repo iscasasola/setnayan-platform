@@ -2,7 +2,9 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, ExternalLink, Trash2, Send } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { FileUpload } from '@/app/_components/file-upload';
 import { createClient } from '@/lib/supabase/server';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import {
   ORDER_STATUS_LABEL,
   ORDER_STATUS_TONE,
@@ -51,6 +53,19 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
     fetchPlatformSettings(supabase),
   ]);
   const totals = computeOrderTotals(order, payments);
+
+  // Pre-resolve screenshot display URLs for every payment row. Legacy http(s)
+  // values pass through; r2:// refs get a 24h presigned GET. We do this on
+  // the server so the existing "Screenshot" link below the payment row works
+  // for both old and new uploads without exposing R2 internals to the client.
+  const paymentScreenshotMap: Record<string, string> = {};
+  await Promise.all(
+    payments.map(async (p) => {
+      if (!p.screenshot_url) return;
+      const url = await displayUrlForStoredAsset(p.screenshot_url);
+      if (url) paymentScreenshotMap[p.payment_id] = url;
+    }),
+  );
 
   const flash =
     search.created === '1'
@@ -270,7 +285,6 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
           </h2>
           <form
             action={logPayment}
-            encType="multipart/form-data"
             className="grid grid-cols-1 gap-3 sm:grid-cols-2"
           >
             <input type="hidden" name="event_id" value={eventId} />
@@ -313,19 +327,25 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
                 className="input-field"
               />
             </label>
-            <label className="sm:col-span-2 space-y-1">
-              <span className="block text-xs font-medium text-ink">Screenshot</span>
-              <input
-                name="screenshot"
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif"
-                className="block w-full cursor-pointer rounded-md border border-ink/15 bg-cream p-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-terracotta/10 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-terracotta-700 hover:file:bg-terracotta/15"
+            <div className="sm:col-span-2">
+              <FileUpload
+                bucket="media"
+                pathPrefix={`payments/${orderId}`}
+                name="screenshot_ref"
+                label="Screenshot"
+                help="Optional. PNG / JPEG / WebP / HEIC up to 5 MB. The Setnayan team uses this to match your payment."
+                maxSizeMB={5}
+                acceptedTypes={[
+                  'image/png',
+                  'image/jpeg',
+                  'image/webp',
+                  'image/gif',
+                  'image/heic',
+                  'image/heif',
+                ]}
+                variant="wide"
               />
-              <span className="block text-xs text-ink/55">
-                Optional. PNG / JPEG / HEIC up to 6 MB. The Setnayan team
-                uses this to match your payment.
-              </span>
-            </label>
+            </div>
             <div className="sm:col-span-2">
               <SubmitButton
                 className="button-primary inline-flex items-center gap-2"
@@ -369,9 +389,9 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
                   {p.admin_notes ? (
                     <p className="text-xs text-ink/65">{p.admin_notes}</p>
                   ) : null}
-                  {p.screenshot_url ? (
+                  {p.screenshot_url && paymentScreenshotMap[p.payment_id] ? (
                     <a
-                      href={p.screenshot_url}
+                      href={paymentScreenshotMap[p.payment_id]}
                       target="_blank"
                       rel="noreferrer"
                       className="inline-flex items-center gap-1 text-xs text-terracotta hover:underline"

@@ -3,7 +3,9 @@ import { AlertTriangle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile, profileCompletion } from '@/lib/vendor-profile';
 import { fetchVendorThreads } from '@/lib/chat';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { FileUpload } from '@/app/_components/file-upload';
 import { VendorEventDayPrepCta } from '@/app/_components/vendor-event-day-prep-cta';
 import { saveVendorProfile } from './actions';
 import { ServicesPicker } from './_components/services-picker';
@@ -50,6 +52,30 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
         isUpcomingForPreload(t.event?.event_date ?? null),
       )
     : [];
+
+  // Pre-resolve display URLs for the logo + every portfolio entry so the
+  // <FileUpload> thumbnails render on first paint without an extra
+  // round-trip. Both `displayUrlForStoredAsset` calls passes legacy http(s)
+  // values through unchanged and presigns r2:// refs with a 24h TTL.
+  const logoDisplayUrl = profile?.logo_url
+    ? await displayUrlForStoredAsset(profile.logo_url)
+    : null;
+  const portfolioDisplayMap: Record<string, string> = {};
+  if (profile?.portfolio_r2_keys?.length) {
+    const resolved = await Promise.all(
+      profile.portfolio_r2_keys.map(async (ref) => {
+        const url = await displayUrlForStoredAsset(ref);
+        return [ref, url] as const;
+      }),
+    );
+    for (const [ref, url] of resolved) {
+      if (url) portfolioDisplayMap[ref] = url;
+    }
+  }
+  const logoDisplayMap: Record<string, string> = {};
+  if (profile?.logo_url && logoDisplayUrl) {
+    logoDisplayMap[profile.logo_url] = logoDisplayUrl;
+  }
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
@@ -157,17 +183,38 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
         </Field>
 
         <Field
-          label="Logo URL"
+          label="Logo"
           htmlFor="logo_url"
-          help="Hosted image URL. File upload to Setnayan R2 ships in a follow-on."
+          help="PNG, JPEG, or WebP up to 2 MB. Couples see this on every vendor card."
         >
-          <input
-            id="logo_url"
+          <FileUpload
+            bucket="media"
+            pathPrefix={`vendors/${profile?.vendor_profile_id ?? 'unassigned'}/logo`}
             name="logo_url"
-            type="url"
-            defaultValue={profile?.logo_url ?? ''}
-            placeholder="https://example.com/logo.png"
-            className="input-field"
+            currentValue={profile?.logo_url ?? null}
+            initialDisplayUrls={logoDisplayMap}
+            maxSizeMB={2}
+            acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
+            variant="square"
+          />
+        </Field>
+
+        <Field
+          label="Portfolio"
+          htmlFor="portfolio_r2_keys"
+          help="Show off recent work. Up to 10 images, 5 MB each. Couples browse this on your public page."
+        >
+          <FileUpload
+            bucket="media"
+            pathPrefix={`vendors/${profile?.vendor_profile_id ?? 'unassigned'}/portfolio`}
+            name="portfolio_r2_keys"
+            currentValue={profile?.portfolio_r2_keys ?? []}
+            initialDisplayUrls={portfolioDisplayMap}
+            multiple
+            maxFiles={10}
+            maxSizeMB={5}
+            acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
+            variant="wide"
           />
         </Field>
 
@@ -252,7 +299,6 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
           Coming later
         </p>
         <ul className="list-inside list-disc space-y-1 text-sm text-ink/65">
-          <li>Logo + portfolio uploads to Setnayan R2 (file picker, not URLs)</li>
           <li>Public vendor page at /v/[slug]</li>
           <li>Bookings — events where couples have added you to their event_vendors</li>
           <li>Chat with couples (iteration 0019 + identity masking)</li>

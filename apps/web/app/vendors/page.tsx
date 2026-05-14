@@ -3,12 +3,11 @@ import { Star, Search, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   VENDOR_CATEGORIES,
-  VENDOR_CATEGORY_LABEL,
   type VendorCategory,
-  SERVICE_GROUPS,
   displayServiceLabel,
 } from '@/lib/vendors';
 import { fetchReviewStatsForMany, formatStarRating } from '@/lib/reviews';
+import { CategoryFilterChips } from '@/app/_components/category-filter-chips';
 
 export const metadata = {
   title: 'Vendors — Setnayan',
@@ -202,6 +201,13 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           </p>
         </div>
 
+        <div className="mt-6">
+          <CategoryFilterChips
+            currentCategory={filters.category}
+            context={{ q: filters.q, city: filters.city, sort: filters.sort }}
+          />
+        </div>
+
         <FilterBar filters={filters} />
 
         {visible.length === 0 ? (
@@ -276,7 +282,7 @@ function FilterBar({
     <form
       method="get"
       action="/vendors"
-      className="mt-6 grid gap-3 rounded-2xl border border-ink/10 bg-cream p-4 sm:grid-cols-2 lg:grid-cols-5"
+      className="mt-4 grid gap-3 rounded-2xl border border-ink/10 bg-cream p-4 sm:grid-cols-2 lg:grid-cols-4"
     >
       <label className="flex flex-col gap-1 lg:col-span-2">
         <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
@@ -298,23 +304,10 @@ function FilterBar({
         </span>
       </label>
 
-      <label className="flex flex-col gap-1">
-        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-          Category
-        </span>
-        <select name="category" defaultValue={filters.category ?? ''} className="input-field">
-          <option value="">All categories</option>
-          {SERVICE_GROUPS.map((g) => (
-            <optgroup key={g.key} label={g.label}>
-              {g.members.map((c) => (
-                <option key={c} value={c}>
-                  {VENDOR_CATEGORY_LABEL[c]}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-      </label>
+      {/* Category is now controlled by the chip bar above. Carry the
+          current selection through this form so submitting q/city/sort
+          doesn't accidentally clear the active category chip. */}
+      <input type="hidden" name="category" value={filters.category ?? ''} />
 
       <label className="flex flex-col gap-1">
         <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
@@ -342,7 +335,7 @@ function FilterBar({
         </select>
       </label>
 
-      <div className="flex items-end gap-2 lg:col-span-5">
+      <div className="flex items-end gap-2 lg:col-span-4">
         <button type="submit" className="button-primary h-11 px-5">
           Apply filters
         </button>

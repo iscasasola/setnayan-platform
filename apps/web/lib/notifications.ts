@@ -6,7 +6,8 @@ export type NotificationType =
   | 'order_paid'
   | 'payment_matched'
   | 'payment_rejected'
-  | 'rsvp_received';
+  | 'rsvp_received'
+  | 'review_request';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   chat_message: 'New message',
@@ -15,6 +16,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   payment_matched: 'Payment matched',
   payment_rejected: 'Payment rejected',
   rsvp_received: 'RSVP received',
+  review_request: 'Review request',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -24,6 +26,7 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   payment_matched: 'bg-emerald-100 text-emerald-800',
   payment_rejected: 'bg-rose-100 text-rose-800',
   rsvp_received: 'bg-terracotta/15 text-terracotta-700',
+  review_request: 'bg-amber-100 text-amber-900',
 };
 
 export type NotificationRow = {

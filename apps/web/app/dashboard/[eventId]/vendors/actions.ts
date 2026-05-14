@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { emitNotification } from '@/lib/notification-emit';
 import {
   VENDOR_CATEGORIES,
   VENDOR_STATUSES,
@@ -80,12 +81,41 @@ export async function updateVendorStatus(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // Snapshot the prior state so we can detect the "first-time delivered"
+  // transition that triggers the review-request notification below.
+  const { data: prev } = await supabase
+    .from('event_vendors')
+    .select('status, vendor_name')
+    .eq('vendor_id', vendorId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+
   const { error } = await supabase
     .from('event_vendors')
     .update({ status, updated_at: new Date().toISOString() })
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId);
   if (error) throw new Error(error.message);
+
+  // Phase-2 review-request emit: the moment a vendor's service is marked
+  // delivered (and wasn't already delivered/complete), drop a notification
+  // on the couple's tray + send a Resend email asking them to leave a
+  // review. Failure to emit must never roll back the status change itself,
+  // so emitNotification swallows errors internally.
+  if (
+    status === 'delivered'
+    && prev?.status !== 'delivered'
+    && prev?.status !== 'complete'
+  ) {
+    const vendorName = prev?.vendor_name ?? 'your vendor';
+    await emitNotification({
+      userId: user.id,
+      type: 'review_request',
+      title: `How was ${vendorName}?`,
+      body: 'Their service is marked delivered. Take a minute to leave a public review.',
+      relatedUrl: `/dashboard/${eventId}/vendors/${vendorId}/review`,
+    });
+  }
 
   revalidatePath(`/dashboard/${eventId}/vendors`);
 }

@@ -301,3 +301,39 @@ of it.
 **Why this is a spec change:** New cross-cutting architectural decision touching the platform foundation. Not currently in any iteration spec. Affects how all future iterations think about data freshness and offline behavior.
 
 **Once the spec is updated, tell Claude Code:** "Caching strategy is locked in the spec — proceed with implementation plan." Claude will then write the implementation plan, get your approval, and only then touch code.
+
+---
+
+## [PENDING] 2026-05-14 — RECONCILE: SEO Playbook §11 boost-service vs Iteration 0042 Industry Events & B2B
+
+Two specs landed in the corpus on the same day covering the **same product area** (bridal-fair / wedding-expo organizer onboarding + the surfaces couples and vendors see for those events). They need to be reconciled into a single canonical iteration before any code implementing either ships.
+
+**The two artifacts:**
+
+1. **`02_Specifications/17_SEO_and_AI_Discoverability_Playbook.md` §11** (locked 2026-05-14, 1,142 lines total playbook). Multi-audience extension: vendor-acquisition SEO at `/for-vendors` (this PR ships it), `/fairs/[fair-slug]` page template for boosted bridal fairs, homepage featured-fairs strip (hard cap 3, 60-day window per §11.3.1), Model A (free/barter) + Model B (cash tiers) boost-service pricing framework (§11.7), launch gate at 500 verified vendors AND 10,000 active couple accounts (§11.7.1), `/for-event-creators` as a pre-gate waitlist surface. Three [SPEC CHANGE] flags raised in §11.6 for new iteration `0036_bridal_fair_boost_service` + 0015 amendment + 01_Contracts/.
+2. **`0042_industry_events_b2b/0042_industry_events_b2b.md`** (referenced in the prior [PENDING] entry above — drafted 2026-05-14 the same day). B2B layer on top of consumer marketplace: 7 industry event types (bridal_fair, wedding_expo, vendor_networking, industry_conference, certification_workshop, trade_show, setnayan_event), wedding-fair organizers as special vendors with `is_industry_event_organizer = TRUE`, 3 surfaces (public `/industry-events`, vendor `/vendor-dashboard/opportunities`, organizer-side event management), Setnayan-as-organizer option.
+
+**The overlap:** Both specs cover bridal fair organizers as a Setnayan-served audience. Both describe public surfaces where couples and vendors discover fairs. Both propose schema for an industry-event entity. Both reference Themes & Motifs and the GMBF bridal-fair circuit.
+
+**The conflicts to resolve:**
+
+- **Iteration number:** §11.6 proposes new iteration `0036_bridal_fair_boost_service`. The team locked `0042_industry_events_b2b` for what is functionally the same feature. **Pick one number; merge the other's content into it.** Recommendation: keep `0042` (locked first, broader scope including all 7 event types not just bridal fairs).
+- **URL routing:** §11 specs `/fairs/[fair-slug]` + `/fairs` index + homepage featured-fairs strip. 0042 specs `/industry-events`. **Pick one URL pattern.** Recommendation: `/industry-events` is more accurate semantically (covers all 7 event types); `/fairs` could be a redirect or alias for SEO.
+- **Pricing model:** §11.7 specs Model A (free/barter — major sponsor + free booth + announcements + Setnayan-driven discount codes) AND Model B (cash tiers, ₱3K–₱20K/cycle inverse-listing range). 0042 references "tiered booth packages with premiums 2-5x base fees" from US wedding-expo precedent. **Pick one canonical pricing structure.** Recommendation: keep §11.7's framework (it's more developed and PH-anchored); add to 0042.
+- **Launch gate:** §11.7.1 specs hard gate at 500 verified vendors AND 10,000 active couple accounts before boost-service signups open. 0042 doesn't mention a gate. **Decide if the gate applies** (recommended yes — preserves audience-density guarantee for early fair-organizer partners).
+- **Capacity cap:** §11.3.1 specs hard cap of 3 concurrent boosted fairs with 60-day featured windows. 0042 doesn't mention concurrency limits. **Decide if cap applies** (recommended yes — it's the supply ceiling that underpins Model B pricing leverage).
+- **Audience question §9.1 (in 0042 spec):** still open per the prior [PENDING] above. §11 implicitly answers it (vendor-acquisition surface for vendors looking to be listed; bridal-fair surfaces for fair organizers as B2B service customers). Worth importing the answer.
+
+**Recommended Cowork sequence:**
+
+1. Open both specs side by side.
+2. Decide canonical iteration number (recommend 0042).
+3. Merge §11 content INTO 0042 — `/industry-events` URL pattern, but keep §11's pricing/gate/capacity/discount-code rules.
+4. Update playbook §11.6 + §10 cross-reference to point at 0042 instead of the proposed 0036.
+5. Update `02_Specifications/00_Iteration_Connection_Map.md` if needed.
+6. Update `Cowork_Pending_Items.md` at the corpus root (which this session created) — Section A item #4 should reference 0042, not the proposed 0036.
+7. Resolve 0042 §9 open questions while you're in there.
+
+**Why this is a spec change:** Two specs locked on the same day cover the same product surface. Implementation can't proceed against both. Need one source of truth.
+
+**Once reconciled, tell Claude Code:** "Iteration 0042 absorbs SEO playbook §11 boost-service content; ship per the unified spec." Claude will then plan the implementation against the merged spec.

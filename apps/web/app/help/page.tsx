@@ -11,6 +11,21 @@ export const metadata = {
     'Step-by-step guides for couples and vendors using Setnayan. Reach a human via the contact form below.',
 };
 
+const FAQ_JSONLD = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: HELP_TOPICS.flatMap((topic) =>
+    topic.articles.map((article) => ({
+      '@type': 'Question',
+      name: article.title,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: article.body,
+      },
+    })),
+  ),
+};
+
 type Props = {
   searchParams: Promise<{ submitted?: string; error?: string }>;
 };
@@ -26,7 +41,12 @@ export default async function HelpPage({ searchParams }: Props) {
   const prefilledEmail = user?.email ?? '';
 
   return (
-    <main className="min-h-dvh bg-cream">
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_JSONLD) }}
+      />
+      <main className="min-h-dvh bg-cream">
       <header className="border-b border-ink/5">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <Link href="/" className="flex items-center gap-2">
@@ -260,6 +280,7 @@ export default async function HelpPage({ searchParams }: Props) {
         </div>
       </footer>
     </main>
+    </>
   );
 }
 

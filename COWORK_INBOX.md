@@ -8,6 +8,99 @@
 
 ---
 
+## [PENDING] 2026-05-14 — Iteration 0006: vendor marketplace + reviews system
+
+**Spec target — owner should update:**
+- `~/Documents/Claude/Projects/Setnayan/03_Iterations/0006_vendors_management/` — capture the new `/vendors` public marketplace surface (category/city filters, search, sort by most_reviews/highest_rated/newest, paginated grid).
+- Same iteration — capture the reviews subsystem on the existing public vendor landing page `/v/[slug]`: 5-category-star aggregate + paginated review list with one-time vendor reply per review.
+
+**Schema (migration `20260514100000_vendor_reviews.sql`):**
+- New `vendor_reviews` table (event_vendor_id → event_vendors, couple_user_id → users, 5 category star ratings 1–5, free-text body, vendor_reply, created_at, replied_at)
+- Materialized `vendor_review_stats` view (per vendor_profile_id: review_count, avg_overall, avg per category)
+- RLS: public read, couple INSERT only after `event_vendors.status` is `delivered` or `complete`, vendor one-time UPDATE for `vendor_reply`
+- New notification type `review_request` — fires from `emitNotification` when admin flips `event_vendors.status` to delivered (in-app row + Resend email)
+
+**New routes:**
+- `/vendors` — public marketplace
+- `/dashboard/[eventId]/vendors/[eventVendorId]/review` — couple review form (5 category stars + free-text body)
+- `/vendor-dashboard/reviews` — vendor sees their reviews + one-time reply form per review
+- `/v/[slug]` — new Reviews section appended to the existing public vendor landing page (avg/count/star breakdown + paginated list)
+
+---
+
+## [PENDING] 2026-05-14 — Iteration 0022: vendor dashboard expansion (services + bookings + team + earnings)
+
+**Spec target — owner should update:**
+- `~/Documents/Claude/Projects/Setnayan/03_Iterations/0022_vendor_dashboard/` — extend with the 4 new tabs that replaced the Phase 1 placeholders.
+
+**4 new surfaces under `/vendor-dashboard/*`:**
+
+| Surface | What |
+|---|---|
+| **Services editor** | Vendor picks from the locked 28 categories, sets starting price, crew size, crew meal required. Toggle `is_active` to hide without losing pricing history. |
+| **Bookings inbox** | List existing chat threads from couples, prioritized by `event_date` proximity, read/unread + stale flags. Routes through to the existing `/messages/[threadId]`. |
+| **Team** | 4 role tiers (Owner / Admin / Agent / Viewer) via new `vendor_team_members` table. RLS scopes reads/writes to Owner+Admin. Self-invites disabled. |
+| **Earnings** | Read-only paid-order rollup, monthly subtotals, year-to-date running total, 3% Setnayan Pay convenience fee line per row. |
+
+**Schema (migration `20260514010000_iteration_0022_vendor_dashboard_expansion.sql`):**
+- New columns on existing `vendor_services` table: `starting_price_php BIGINT`, `is_active BOOLEAN DEFAULT TRUE`
+- New `vendor_team_members` table (vendor_profile_id, user_id, role enum)
+- RLS on team table: Owner+Admin read/write; Agent/Viewer scoped to own row
+
+---
+
+## [PENDING] 2026-05-14 — Iteration 0019: force-majeure flow + admin queues + funnel analytics
+
+**Spec target — owner picks one:**
+- Add a **§ Force Majeure Flow** subsection inside `~/Documents/Claude/Projects/Setnayan/03_Iterations/0019_communications/` (since disputes ride on chat-thread context), OR
+- Create new mini-iteration folder `~/Documents/Claude/Projects/Setnayan/03_Iterations/0019b_force_majeure/` if force-majeure should be its own spec doc.
+
+**Schema (migration `20260514110000_force_majeure_flags.sql`):**
+- New `force_majeure_flags` table (5 flag types · 8 statuses · evidence URL array · 7-day auto-resolve timer · admin handler `user_id`)
+- RLS: couple-scoped to their own event flags; admin sees all
+- `updated_at` trigger on the new table
+
+**Couple side `/dashboard/[eventId]/disputes`:**
+- File a flag with type, description, optional vendor scope, evidence file upload (multi-file → R2 via existing `uploadPublicAsset`)
+- List existing flags with status timeline
+
+**Admin side `/admin/force-majeure`:**
+- Filterable queue, take-ownership flow, 6 resolution paths, notifications back to couple on resolve
+
+**Funnel analytics `/admin/funnels`** (new admin surface, separate from force-majeure but landed in same PR):
+- 3 Supabase-side funnels: signups → first event → first paid order; vendor signups → profile complete → first booking; week-over-week
+- 4 PostHog-side funnels linked out: Save-the-Date, Papic, Pro upgrade, Guided Planner adoption
+
+---
+
+## [PENDING] 2026-05-14 — Iteration 0033: read-only public API (V1 Phase A + C)
+
+**Spec target — owner should update:**
+- `~/Documents/Claude/Projects/Setnayan/03_Iterations/0033_public_api/` — capture the read-only endpoints + scope model that shipped in V1. Note that rate limiting and the developer portal styling are deferred to V1.5+.
+
+**Endpoints:**
+
+| Method | Path | Auth | Scope |
+|---|---|---|---|
+| GET | `/api/v1/events` | Bearer `sk_live_*` | `events.read` |
+| GET | `/api/v1/events/:id` | Bearer `sk_live_*` | `events.read` |
+| GET | `/api/v1/events/:id/guests` | Bearer `sk_live_*` | `guests.read` |
+| GET | `/api/v1/vendors` | public (no auth) | — (filter by category/city/q, paginated) |
+| GET | `/api/v1/vendors/:id` | public (no auth) | — (single profile by `public_id`) |
+
+**Schema (migration `20260514010000_iteration_0033_api_scopes.sql`):**
+- New `api_keys.scopes TEXT[] NOT NULL DEFAULT ARRAY['me.read']` column (additive `ALTER` — default avoids the NOT-NULL backfill issue)
+- New public-read RLS policy on `vendor_profiles` for the unauth marketplace endpoints
+
+**Scope wiring:**
+- `lib/api-keys.ts` recognizes `events.read` / `guests.read` / `vendors.read` in addition to the existing `me.read`
+- `/dashboard/api-keys` form gets opt-in scope checkboxes per key
+- `lib/api-auth.ts`: new `requireScope()` helper
+
+**Docs surface:** new `/api/v1` page lists endpoints + example curls. Rate limiting deferred to V1.5 — flagged on the docs page.
+
+---
+
 ## [PENDING] 2026-05-14 — Iteration 0025: EN/TL locale toggle landed
 
 **Spec target — owner should update:**

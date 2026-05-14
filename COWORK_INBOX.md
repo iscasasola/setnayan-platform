@@ -8,6 +8,58 @@
 
 ---
 
+## [PENDING] 2026-05-14 — Iteration 0025: EN/TL locale toggle landed
+
+**Spec target — owner should update:**
+- `~/Documents/Claude/Projects/Setnayan/03_Iterations/0025_profile_settings/` — capture the new "Display language" row in the Appearance tab. EN / TL only (the DB enum `locale_code` still has 'ceb' reserved for a future Cebuano dictionary).
+- `~/Documents/Claude/Projects/Setnayan/02_Specifications/Brand_Voice.md` (or wherever the i18n strategy lives) — note that V1 ships dashboard CHROME ONLY in Tagalog (nav labels, common CTAs, status pills, time-of-day greetings, section headings). Guest-entered, vendor-entered, and marketing/landing content stay in whatever language they were authored in.
+
+**Locked set of ~31 strings translated (see `apps/web/lib/i18n/dashboard.tl.json`):**
+
+| Key | EN | TL |
+|---|---|---|
+| nav.guests | Guests | Mga Bisita |
+| nav.vendors | Vendors | Mga Vendor |
+| nav.budget | Budget | Budget |
+| nav.messages | Messages | Mga Mensahe |
+| nav.seating | Seating | Pagkakaupuan |
+| nav.add_ons | Add-ons | Mga Karagdagan |
+| nav.notifications | Notifications | Mga Abiso |
+| cta.save | Save | I-save |
+| cta.cancel | Cancel | Kanselahin |
+| cta.add | Add | Magdagdag |
+| cta.remove | Remove | Tanggalin |
+| cta.sign_out | Sign out | Mag-sign out |
+| status.pending | Pending | Naghihintay |
+| status.done | Done | Tapos na |
+| status.coming_soon | Coming soon | Malapit na |
+| greeting.morning | Good morning | Magandang umaga |
+| greeting.afternoon | Good afternoon | Magandang hapon |
+| greeting.evening | Good evening | Magandang gabi |
+| common.help | Help & support | Tulong at suporta |
+
+**Storage:** Re-uses the existing `users.locale` `public.locale_code` column (no new migration). The toggle constrains the UI surface to `('en','tl')`; the DB enum's `'ceb'` value is preserved for a future Cebuano addition.
+
+---
+
+## [PENDING] 2026-05-14 — Iteration 0028: two more transactional email events
+
+**Spec target — owner should update:**
+- `~/Documents/Claude/Projects/Setnayan/03_Iterations/0028_email_notifications/0028_email_notifications.md` — extend the event-wired table from 7 to 9 entries.
+
+**New events:**
+
+| Type | Trigger | Recipient | Title | relatedUrl |
+|---|---|---|---|---|
+| `help_ticket_replied` | Admin saves a substantive `admin_notes` reply on `/admin/help` (content changed, non-empty) | Signed-in help-ticket owner (anonymous submitters have `user_id` NULL and are skipped) | "Setnayan replied to your help ticket" | `/help` |
+| `vendor_inquiry_received` | Couple sends the FIRST message in a chat thread (message count was zero pre-insert) | Vendor user attached to the thread's `vendor_profile_id` | "New booking inquiry from <event display name>" | `/vendor-dashboard/messages/<threadId>` |
+
+**Email path:** Both fire through the existing `emitNotification` helper — in-app notification row + Resend transactional email (subject = title, body = title + first-200-chars of source + Open-Setnayan link). The fire-and-forget pattern is preserved; failures never roll back the primary write.
+
+**DB migration:** `supabase/migrations/20260514010000_notification_type_additions.sql` adds the two new enum values via `ALTER TYPE … ADD VALUE IF NOT EXISTS`. The migration also lazily adds `rsvp_received` — that value was being emitted by `apps/web/app/[slug]/actions.ts` since the RSVP feature shipped but had never been added to the DB enum, so the inserts were failing silently inside `emitNotification`'s try/catch.
+
+---
+
 ## [PENDING] 2026-05-14 — Iteration 0036: Event-Day Pre-Load (couple + vendor)
 
 **Spec target — owner should create:** new iteration folder

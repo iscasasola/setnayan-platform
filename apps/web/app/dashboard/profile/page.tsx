@@ -5,9 +5,11 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchUserEvents } from '@/lib/events';
 import { restartTour } from '@/lib/tour-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { makeT } from '@/lib/i18n';
 import {
   changePassword,
   softDeleteAccount,
+  updateLocalePreference,
   updatePersonalInfo,
   updatePlannerMode,
   updateThemePreference,
@@ -76,6 +78,10 @@ export default async function ProfilePage({ searchParams }: Props) {
 
   const activeTheme = (profile?.theme_preference ?? 'setnayan_default') as ThemeKey;
   const activePlannerMode = (profile?.planner_mode ?? 'guided') as 'guided' | 'diy';
+  // Iteration 0025 — runtime EN/TL toggle. The DB enum also has 'ceb' but the
+  // UI exposes EN/TL only; anything else falls back to EN in the toggle.
+  const activeLocale: 'en' | 'tl' = profile?.locale === 'tl' ? 'tl' : 'en';
+  const tr = makeT(activeLocale);
   const isAdmin =
     profile?.is_internal ||
     profile?.is_team_member ||
@@ -319,6 +325,61 @@ export default async function ProfilePage({ searchParams }: Props) {
       <section className="mt-10 space-y-4">
         <div className="space-y-1">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+            Display language
+          </h2>
+          <p className="text-sm text-ink/60">
+            Switches dashboard nav, headings, and common buttons between English and
+            Tagalog. Your guest list, vendor names, and the marketing site stay in
+            whatever you typed them in.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {(
+            [
+              {
+                key: 'en' as const,
+                label: 'English',
+                tagline: 'Default · ships across every Setnayan surface',
+              },
+              {
+                key: 'tl' as const,
+                label: 'Tagalog',
+                tagline: 'Dashboard chrome only · conversational tone',
+              },
+            ]
+          ).map((opt) => {
+            const isActive = opt.key === activeLocale;
+            return (
+              <form key={opt.key} action={updateLocalePreference}>
+                <input type="hidden" name="locale" value={opt.key} />
+                <button
+                  type="submit"
+                  disabled={isActive}
+                  className={`group flex w-full flex-col items-start gap-1 rounded-xl border p-4 text-left transition-colors ${
+                    isActive
+                      ? 'border-terracotta bg-terracotta/5'
+                      : 'border-ink/10 bg-cream hover:border-terracotta/50'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-ink">{opt.label}</span>
+                    {isActive ? (
+                      <span className="rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
+                        Active
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="text-xs text-ink/55">{opt.tagline}</span>
+                </button>
+              </form>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="mt-10 space-y-4">
+        <div className="space-y-1">
+          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
             Theme
           </h2>
           <p className="text-sm text-ink/60">
@@ -433,7 +494,7 @@ export default async function ProfilePage({ searchParams }: Props) {
 
       <section className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         <Link href="/help" className="button-secondary">
-          Help &amp; support
+          {tr('common.help')}
         </Link>
         <Link href="/dashboard/api-keys" className="button-secondary">
           API keys
@@ -451,7 +512,7 @@ export default async function ProfilePage({ searchParams }: Props) {
         ) : null}
         <form action="/auth/sign-out" method="post">
           <button className="button-secondary" type="submit">
-            Sign out
+            {tr('cta.sign_out')}
           </button>
         </form>
       </section>

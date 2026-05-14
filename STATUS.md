@@ -5,6 +5,8 @@
 
 **Owner deadline anchor:** December 2026 wedding
 
+**Phase 2 lands here (2026-05-14):** EN/TL dashboard locale toggle (iteration 0025) + 2 more transactional email templates (`help_ticket_replied`, `vendor_inquiry_received` — event-wired count 7 → 9, iteration 0028).
+
 ---
 
 ## Where we are right now

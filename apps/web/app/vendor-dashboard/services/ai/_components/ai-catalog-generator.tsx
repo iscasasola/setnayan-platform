@@ -2,20 +2,43 @@
 
 import Link from 'next/link';
 import { useState, useTransition } from 'react';
-import { CheckCircle2, Loader2, Plus, Sparkles, Trash2 } from 'lucide-react';
+import {
+  Camera,
+  CheckCircle2,
+  Loader2,
+  Mic,
+  PencilLine,
+  Plus,
+  Sparkles,
+  Trash2,
+} from 'lucide-react';
 import {
   VENDOR_CATEGORIES,
   VENDOR_CATEGORY_LABEL,
   type VendorCategory,
 } from '@/lib/vendors';
 import type { GeneratedCatalogEntry } from '@/lib/anthropic-catalog';
-import { generateCatalog, publishGeneratedCatalog } from '../actions';
+import {
+  generateCatalog,
+  generateCatalogFromPhotos,
+  publishGeneratedCatalog,
+} from '../actions';
+import { PhotoOcrInput } from './photo-ocr-input';
 
 type Props = {
   vendorProfileId: string;
 };
 
 type Step = 'input' | 'preview' | 'confirmation';
+
+/**
+ * Three input modes for Step 1. "Text" is the original textarea-based flow;
+ * "Photo" is this PR's addition; "Voice" is being built by a parallel agent
+ * on `claude/ai-catalog-voice-input`. We keep Voice in the tab list now (as
+ * a disabled "coming soon" affordance) so users see the roadmap and the
+ * sibling PR can enable it without touching this file again.
+ */
+type InputMode = 'text' | 'photo' | 'voice';
 
 type EditableEntry = GeneratedCatalogEntry & { id: string };
 
@@ -30,21 +53,32 @@ const EXAMPLE_DESCRIPTION =
 
 /**
  * Three-step flow:
- *   1. INPUT — vendor types a description, hits Generate.
+ *   1. INPUT — vendor picks a mode (text / photo / voice) and provides input.
  *   2. PREVIEW — vendor reviews/edits cards side-by-side with their input.
  *   3. CONFIRMATION — vendor sees "X services added" and a link back.
  *
  * Names surface in the preview as a sanity-check hint but are not persisted
  * (existing `vendor_services` schema has no `name` column — see the comment
  * in lib/anthropic-catalog.ts).
+ *
+ * Input modes coordinate by sharing the same `entries` / `step` /
+ * `publishSummary` state — once Claude produces a catalog draft, the rest of
+ * the flow doesn't care which input mode produced it. Per-mode state
+ * (description, photoR2Keys, etc.) lives at this level too so a vendor can
+ * flip back to the input step without losing what they typed.
  */
-export function AiCatalogGenerator(_props: Props) {
-  // _props.vendorProfileId is reserved for future per-vendor prompting
-  // (e.g., "this vendor is a caterer, focus on catering categories").
-
+export function AiCatalogGenerator({ vendorProfileId }: Props) {
   const [step, setStep] = useState<Step>('input');
+  const [inputMode, setInputMode] = useState<InputMode>('text');
+
+  // Text-mode state.
   const [description, setDescription] = useState('');
   const [originalDescription, setOriginalDescription] = useState('');
+
+  // Photo-mode state. Stores r2://setnayan-media/... refs emitted by
+  // FileUpload after each photo finishes uploading.
+  const [photoR2Keys, setPhotoR2Keys] = useState<string[]>([]);
+
   const [entries, setEntries] = useState<EditableEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [publishSummary, setPublishSummary] = useState<PublishSummary | null>(
@@ -73,6 +107,36 @@ export function AiCatalogGenerator(_props: Props) {
         })),
       );
       setOriginalDescription(trimmed);
+      setStep('preview');
+    });
+  };
+
+  const handleGenerateFromPhotos = () => {
+    setError(null);
+    if (photoR2Keys.length === 0) {
+      setError('Upload at least one menu photo first.');
+      return;
+    }
+    startGenerating(async () => {
+      const result = await generateCatalogFromPhotos(
+        vendorProfileId,
+        photoR2Keys,
+      );
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setEntries(
+        result.entries.map((e, idx) => ({
+          ...e,
+          id: `ocr-${idx}-${Date.now()}`,
+        })),
+      );
+      // Use a synthetic "description" so the preview's left panel still has
+      // useful context. Doesn't affect publish.
+      setOriginalDescription(
+        `Extracted from ${photoR2Keys.length} menu photo${photoR2Keys.length === 1 ? '' : 's'}.`,
+      );
       setStep('preview');
     });
   };
@@ -139,83 +203,145 @@ export function AiCatalogGenerator(_props: Props) {
     setError(null);
     setPublishSummary(null);
     setOriginalDescription('');
+    setPhotoR2Keys([]);
+    // Keep the user's last `description` and `inputMode` so re-entering the
+    // flow doesn't wipe their work; only clear what the new run will replace.
   };
 
   if (step === 'input') {
     return (
-      <div className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
-        <div className="space-y-1">
-          <label
-            htmlFor="ai-description"
-            className="block text-sm font-medium text-ink"
-          >
-            Tell me about your services in plain English
-          </label>
-          <p className="text-xs text-ink/60">
-            Mention what you offer, your packages, pricing, and what&rsquo;s
-            included. The more detail you give, the better the draft.
-          </p>
-        </div>
-
-        <textarea
-          id="ai-description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={8}
-          placeholder={EXAMPLE_DESCRIPTION}
-          className="input-field w-full resize-y font-sans text-sm leading-relaxed"
-          maxLength={4000}
-          disabled={isGenerating}
-        />
-
-        <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <button
-            type="button"
-            onClick={handleUseExample}
+      <div className="space-y-4">
+        {/*
+          3-tab toggle. Voice is rendered disabled with "Coming soon" — the
+          parallel voice-input agent's PR will flip the disabled flag once
+          their tab content lands. We intentionally don't import their
+          component yet to keep these branches mergeable in any order.
+        */}
+        <div
+          role="tablist"
+          aria-label="Catalog input mode"
+          className="inline-flex rounded-xl border border-ink/10 bg-cream p-1"
+        >
+          <TabButton
+            mode="text"
+            active={inputMode === 'text'}
             disabled={isGenerating}
-            className="text-xs text-ink/60 underline-offset-4 hover:text-ink hover:underline disabled:opacity-50"
-          >
-            Use example
-          </button>
-          <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/40">
-            {description.length} / 4000
-          </span>
+            onSelect={() => {
+              setInputMode('text');
+              setError(null);
+            }}
+            icon={<PencilLine aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />}
+            label="Text"
+          />
+          <TabButton
+            mode="photo"
+            active={inputMode === 'photo'}
+            disabled={isGenerating}
+            onSelect={() => {
+              setInputMode('photo');
+              setError(null);
+            }}
+            icon={<Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />}
+            label="Photo"
+          />
+          <TabButton
+            mode="voice"
+            active={false}
+            disabled
+            onSelect={() => undefined}
+            icon={<Mic aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />}
+            label="Voice"
+            comingSoon
+          />
         </div>
 
-        {error ? (
-          <p
-            role="alert"
-            className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-          >
-            {error}
-          </p>
+        {inputMode === 'text' ? (
+          <div className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
+            <div className="space-y-1">
+              <label
+                htmlFor="ai-description"
+                className="block text-sm font-medium text-ink"
+              >
+                Tell me about your services in plain English
+              </label>
+              <p className="text-xs text-ink/60">
+                Mention what you offer, your packages, pricing, and what&rsquo;s
+                included. The more detail you give, the better the draft.
+              </p>
+            </div>
+
+            <textarea
+              id="ai-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={8}
+              placeholder={EXAMPLE_DESCRIPTION}
+              className="input-field w-full resize-y font-sans text-sm leading-relaxed"
+              maxLength={4000}
+              disabled={isGenerating}
+            />
+
+            <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <button
+                type="button"
+                onClick={handleUseExample}
+                disabled={isGenerating}
+                className="text-xs text-ink/60 underline-offset-4 hover:text-ink hover:underline disabled:opacity-50"
+              >
+                Use example
+              </button>
+              <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/40">
+                {description.length} / 4000
+              </span>
+            </div>
+
+            {error ? (
+              <p
+                role="alert"
+                className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
+              >
+                {error}
+              </p>
+            ) : null}
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={handleGenerate}
+                disabled={isGenerating || description.trim().length === 0}
+                className="button-primary inline-flex items-center gap-2"
+                aria-busy={isGenerating}
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2
+                      aria-hidden
+                      className="h-4 w-4 animate-spin"
+                      strokeWidth={2.25}
+                    />
+                    Generating&hellip;
+                  </>
+                ) : (
+                  <>
+                    <Sparkles aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                    Generate catalog
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         ) : null}
 
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={handleGenerate}
-            disabled={isGenerating || description.trim().length === 0}
-            className="button-primary inline-flex items-center gap-2"
-            aria-busy={isGenerating}
-          >
-            {isGenerating ? (
-              <>
-                <Loader2
-                  aria-hidden
-                  className="h-4 w-4 animate-spin"
-                  strokeWidth={2.25}
-                />
-                Generating&hellip;
-              </>
-            ) : (
-              <>
-                <Sparkles aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                Generate catalog
-              </>
-            )}
-          </button>
-        </div>
+        {inputMode === 'photo' ? (
+          <PhotoOcrInput
+            vendorProfileId={vendorProfileId}
+            photoR2Keys={photoR2Keys}
+            onChange={setPhotoR2Keys}
+            onGenerate={handleGenerateFromPhotos}
+            isGenerating={isGenerating}
+            error={error}
+          />
+        ) : null}
       </div>
     );
   }
@@ -460,5 +586,46 @@ export function AiCatalogGenerator(_props: Props) {
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * Single-tab pill used in the 3-tab input-mode toggle. Kept as a small
+ * sibling component (rather than a `tab` prop on the parent) so the Voice
+ * tab's `disabled + comingSoon` styling stays declarative.
+ */
+function TabButton(props: {
+  mode: InputMode;
+  active: boolean;
+  disabled: boolean;
+  onSelect: () => void;
+  icon: React.ReactNode;
+  label: string;
+  comingSoon?: boolean;
+}) {
+  const { active, disabled, onSelect, icon, label, comingSoon } = props;
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onSelect}
+      disabled={disabled}
+      className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.15em] transition-colors ${
+        active
+          ? 'bg-terracotta text-cream'
+          : disabled
+            ? 'cursor-not-allowed text-ink/35'
+            : 'text-ink/65 hover:text-ink'
+      }`}
+    >
+      {icon}
+      <span>{label}</span>
+      {comingSoon ? (
+        <span className="ml-1 rounded-full bg-ink/5 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.18em] text-ink/55">
+          Soon
+        </span>
+      ) : null}
+    </button>
   );
 }

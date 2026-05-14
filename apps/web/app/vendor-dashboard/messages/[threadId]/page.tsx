@@ -6,6 +6,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { sendChatMessage } from '@/lib/chat-actions';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
+import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
 
 export const metadata = { title: 'Thread · Vendor' };
 
@@ -55,6 +56,8 @@ export default async function VendorThreadPage({ params }: Props) {
           ) : null}
         </div>
       </header>
+
+      <ChatPrivacyNotice />
 
       <ChatMessageStream
         threadId={threadId}

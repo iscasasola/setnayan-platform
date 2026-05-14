@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Star, Search, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import {
   VENDOR_CATEGORIES,
   type VendorCategory,
@@ -8,6 +9,8 @@ import {
 } from '@/lib/vendors';
 import { fetchReviewStatsForMany, formatStarRating } from '@/lib/reviews';
 import { CategoryFilterChips } from '@/app/_components/category-filter-chips';
+import { fetchUserEvents } from '@/lib/events';
+import { FollowGate } from '@/app/_components/follow-gate';
 
 export const metadata = {
   title: 'Vendors — Setnayan',
@@ -56,6 +59,7 @@ type VendorCardRow = {
   logo_url: string | null;
   services: string[];
   location_city: string | null;
+  contact_email: string | null;
   created_at: string;
 };
 
@@ -90,7 +94,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   let query = admin
     .from('vendor_profiles')
     .select(
-      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,created_at',
+      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,contact_email,created_at',
       { count: 'exact' },
     )
     .eq('is_published', true);
@@ -134,6 +138,29 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     admin,
     rows.map((r) => r.vendor_profile_id),
   );
+
+  // Iteration 0019 § Gate — resolve the viewer's follow set + primary event
+  // once for the whole page so each card renders a stateful FollowGate
+  // without N+1 queries. Anonymous visitors get every card as "not following".
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  let followedSet = new Set<string>();
+  let coupleEventId: string | null = null;
+  if (user) {
+    const ids = rows.map((r) => r.vendor_profile_id);
+    if (ids.length > 0) {
+      const { data: follows } = await supabase
+        .from('vendor_follows')
+        .select('vendor_profile_id')
+        .eq('follower_user_id', user.id)
+        .in('vendor_profile_id', ids);
+      followedSet = new Set((follows ?? []).map((f) => f.vendor_profile_id));
+    }
+    const events = await fetchUserEvents(supabase, user.id, 'couple');
+    coupleEventId = events[0]?.event_id ?? null;
+  }
 
   // Apply stats-based sort + pagination in-memory.
   let sorted = rows;
@@ -222,6 +249,9 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                     vendor={v}
                     rating={s?.avg_rating_overall ?? 0}
                     reviewCount={s?.total_count ?? 0}
+                    isAuthenticated={user !== null}
+                    isFollowing={followedSet.has(v.vendor_profile_id)}
+                    eventId={coupleEventId}
                   />
                 </li>
               );
@@ -386,10 +416,16 @@ function VendorMarketCard({
   vendor,
   rating,
   reviewCount,
+  isAuthenticated,
+  isFollowing,
+  eventId,
 }: {
   vendor: VendorCardRow;
   rating: number;
   reviewCount: number;
+  isAuthenticated: boolean;
+  isFollowing: boolean;
+  eventId: string | null;
 }) {
   const primaryService = vendor.services[0] ?? null;
   const slug = vendor.business_slug ?? null;
@@ -438,11 +474,21 @@ function VendorMarketCard({
         </li>
       </ul>
 
-      <div className="mt-auto flex items-center justify-between gap-2 pt-2">
+      <div className="mt-auto space-y-2 pt-2">
+        <FollowGate
+          vendorProfileId={vendor.vendor_profile_id}
+          vendorName={vendor.business_name}
+          vendorEmail={vendor.contact_email}
+          isAuthenticated={isAuthenticated}
+          initialFollowing={isFollowing}
+          eventId={eventId}
+          revalidatePath="/vendors"
+          variant="card"
+        />
         {slug ? (
           <Link
             href={href}
-            className="text-sm font-medium text-terracotta hover:underline"
+            className="text-xs font-medium text-terracotta hover:underline"
           >
             View profile →
           </Link>

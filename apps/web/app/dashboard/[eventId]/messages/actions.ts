@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { isFollowingVendor } from '@/lib/follow';
 
 export async function startThreadByVendorEmail(formData: FormData) {
   const eventId = formData.get('event_id');
@@ -41,6 +42,19 @@ export async function startThreadByVendorEmail(formData: FormData) {
   if (!vendor) {
     return redirect(
       `/dashboard/${eventId}/messages?error=${encodeURIComponent('No Setnayan vendor with that contact email.')}`,
+    );
+  }
+
+  // Iteration 0019 § Gate — couple must follow the vendor before opening a
+  // new thread. An existing thread (same event_id + vendor_profile_id) is
+  // exempt because the upsert below resolves to UPDATE not INSERT, which
+  // the restrictive INSERT RLS policy does not gate.
+  const following = await isFollowingVendor(supabase, user.id, vendor.vendor_profile_id);
+  if (!following) {
+    return redirect(
+      `/dashboard/${eventId}/messages?error=${encodeURIComponent(
+        `Follow ${vendor.business_name} first, then start the thread.`,
+      )}&next_action=follow&vendor_profile_id=${vendor.vendor_profile_id}`,
     );
   }
 

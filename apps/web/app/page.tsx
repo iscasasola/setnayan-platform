@@ -15,6 +15,10 @@ import {
   CloudUpload,
   ArrowRight,
   Apple,
+  MapPin,
+  ShieldCheck,
+  Receipt,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -39,8 +43,10 @@ export default async function HomePage() {
     <main className="min-h-dvh">
       <TopNav />
       <Hero />
+      <TrustSignals />
       <Shipping />
-      <Roadmap />
+      <Pricing />
+      <RoadmapCompact />
       <ClosingCta />
       <SiteFooter />
     </main>
@@ -97,22 +103,42 @@ function Hero() {
             reel — Setnayan is the Filipino-first home for everything around a wedding day.
             Built for couples, sponsors, vendors, and family on every device.
           </p>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Link className="button-primary" href="/signup">
-              Start planning · free
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Link
+              className="button-primary inline-flex items-center justify-between gap-3 px-5 py-3 text-sm"
+              href="/signup"
+            >
+              <span className="flex flex-col items-start text-left">
+                <span className="font-semibold">Plan our wedding</span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.15em] opacity-80">
+                  I&rsquo;m a couple
+                </span>
+              </span>
+              <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             </Link>
             <Link
-              className="button-secondary inline-flex items-center gap-2"
-              href="/login"
+              className="button-secondary inline-flex items-center justify-between gap-3 px-5 py-3 text-sm"
+              href="/signup?as=vendor"
             >
-              I already have an account
+              <span className="flex flex-col items-start text-left">
+                <span className="font-semibold">List my services</span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                  I&rsquo;m a vendor
+                </span>
+              </span>
               <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             </Link>
           </div>
           <p className="text-xs text-ink/50">
-            Free to start · no credit card · pay-as-you-go for premium services
+            Free to start · no credit card · pay-as-you-go for premium services ·{' '}
+            <Link
+              href="/login"
+              className="font-medium text-terracotta underline-offset-4 hover:underline"
+            >
+              Sign in
+            </Link>
           </p>
-          <p className="pt-2 text-xs text-ink/50">
+          <p className="text-xs text-ink/50">
             On a Mac?{' '}
             <Link
               href="/download"
@@ -201,6 +227,36 @@ function DeviceMock() {
   );
 }
 
+const TRUST_BADGES: Array<{ Icon: LucideIcon; label: string; sub: string }> = [
+  { Icon: MapPin, label: 'Built in the Philippines', sub: 'For Filipino weddings, by a Filipino team' },
+  { Icon: Receipt, label: 'BIR-compliant receipts', sub: '12% VAT split · auto OR · receipt log' },
+  { Icon: ShieldCheck, label: 'RA 10173 compliant', sub: 'Privacy-first · data export · account deletion' },
+  { Icon: Sparkles, label: 'Free to start', sub: 'Pay only for premium add-ons, when you opt in' },
+];
+
+function TrustSignals() {
+  return (
+    <section className="border-b border-ink/5">
+      <div className="mx-auto grid w-full max-w-6xl grid-cols-2 gap-4 px-4 py-8 sm:grid-cols-4 sm:px-6 lg:px-8">
+        {TRUST_BADGES.map((b) => {
+          const { Icon } = b;
+          return (
+            <div key={b.label} className="flex items-start gap-3">
+              <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
+                <Icon aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              </span>
+              <div className="space-y-0.5">
+                <p className="text-sm font-semibold text-ink">{b.label}</p>
+                <p className="text-[11px] text-ink/55">{b.sub}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 const SHIPPING_FEATURES: Array<{ Icon: LucideIcon; title: string; body: string }> = [
   {
     Icon: Users,
@@ -272,79 +328,98 @@ function Shipping() {
   );
 }
 
-const ROADMAP: Array<{ Icon: LucideIcon; title: string; when: string; body: string }> = [
-  {
-    Icon: Briefcase,
-    title: 'Vendors',
-    when: 'Coming next',
-    body: '28 service categories · 6-stage readiness tracker · flexible payment milestones · crew meals.',
-  },
-  {
-    Icon: LayoutGrid,
-    title: 'Seating Chart Editor',
-    when: 'Coming next',
-    body: '13-entry table catalog · free-placed stage · role-tier ring auto-fill · QR on publish.',
-  },
-  {
-    Icon: Wallet,
-    title: 'Budget & Expenses',
-    when: '2026 H2',
-    body: '3 line items per vendor · payment log · .ics calendar export.',
-  },
-  {
-    Icon: Camera,
-    title: 'Papic',
-    when: '2026 H2',
-    body: 'Candid capture · gesture shutter · QR tagging · personal reels from your wedding.',
-  },
-  {
-    Icon: Tv,
-    title: 'Panood',
-    when: '2026 H2',
-    body: 'Live stream · YouTube delivery · AI Highlights · Same-Day Edit.',
-  },
-  {
-    Icon: CloudUpload,
-    title: 'Photo Delivery',
-    when: '2026 H2',
-    body: 'Google Drive handoff for full-resolution photo delivery.',
-  },
+const PRICING_ROWS: Array<{ label: string; price: string; note: string }> = [
+  { label: 'Guest list, RSVPs, QR invitations, seating', price: 'Free', note: 'Unlimited guests' },
+  { label: 'Mood Board, Budget, 9-step Guided Planner', price: 'Free', note: 'Included' },
+  { label: 'Save the Date — vertical + square + horizontal MP4', price: '₱49', note: 'Per render' },
+  { label: 'Pro tier per Invitation Widget (Hero / Story / Schedule)', price: '₱99', note: 'Or ₱199 bundle' },
+  { label: 'Custom Monogram Pack (remove watermark, event-wide)', price: '₱1,999', note: 'One time' },
+  { label: 'Papic (3 candid-capture phone seats)', price: '₱1,499', note: 'Per event' },
+  { label: 'Live Stream — base broadcast (1 cam · 3 hours)', price: '₱2,499', note: 'Per event' },
 ];
 
-function Roadmap() {
+function Pricing() {
   return (
-    <section className="border-b border-ink/5 bg-cream">
+    <section className="border-b border-ink/5">
       <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
-        <div className="mb-10 max-w-2xl space-y-3">
+        <div className="mb-8 max-w-2xl space-y-3">
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            Shipping over 2026
+            Transparent pricing
           </p>
           <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-            On the way.
+            Free to plan. Pay only for what you opt into.
           </h2>
           <p className="text-base text-ink/65">
-            Setnayan is a live build. We&rsquo;re shipping the rest of the V1 surface across
-            2026 — start now and you&rsquo;ll grow with the platform.
+            No subscription, no per-guest fee, no commission on vendor bookings. You only
+            pay when you choose a premium add-on for your event.
           </p>
         </div>
-        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {ROADMAP.map((r) => {
+        <div className="overflow-x-auto rounded-xl border border-ink/10">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-ink/[0.03] text-[11px] uppercase tracking-[0.12em] text-ink/55">
+              <tr>
+                <th className="px-4 py-3 font-medium">What you get</th>
+                <th className="px-4 py-3 font-medium text-right">Price</th>
+                <th className="hidden px-4 py-3 font-medium sm:table-cell">Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {PRICING_ROWS.map((r) => (
+                <tr key={r.label} className="border-t border-ink/5">
+                  <td className="px-4 py-3 font-medium text-ink">{r.label}</td>
+                  <td className="px-4 py-3 text-right font-mono text-sm font-semibold text-terracotta">
+                    {r.price}
+                  </td>
+                  <td className="hidden px-4 py-3 font-mono text-[11px] text-ink/55 sm:table-cell">
+                    {r.note}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-3 text-xs text-ink/55">
+          Payments via BDO bank transfer or GCash. Receipts are BIR-compliant with the 12%
+          VAT split, issued automatically per order.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+const ROADMAP_HIGHLIGHTS: Array<{ Icon: LucideIcon; title: string }> = [
+  { Icon: Briefcase, title: 'Vendor Marketplace' },
+  { Icon: Camera, title: 'Papic candid capture' },
+  { Icon: Tv, title: 'Panood live stream' },
+  { Icon: CloudUpload, title: 'Photo Delivery' },
+];
+
+function RoadmapCompact() {
+  return (
+    <section className="border-b border-ink/5 bg-cream">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-12 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+        <div className="max-w-xl space-y-2">
+          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
+            Rolling out next
+          </p>
+          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+            More features ship over 2026.
+          </h2>
+          <p className="text-sm text-ink/65">
+            Vendor discovery, candid capture, live streaming, and post-event photo
+            delivery are next. Start your event today — you&rsquo;ll grow with the platform.
+          </p>
+        </div>
+        <ul className="flex flex-wrap gap-2 lg:max-w-md">
+          {ROADMAP_HIGHLIGHTS.map((r) => {
             const { Icon } = r;
             return (
               <li
                 key={r.title}
-                className="flex flex-col gap-3 rounded-xl border border-dashed border-ink/15 bg-cream p-5"
+                className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/65"
               >
-                <div className="flex items-center justify-between">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-ink/5 text-ink/55">
-                    <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-                  </span>
-                  <span className="rounded-full bg-terracotta/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
-                    {r.when}
-                  </span>
-                </div>
-                <h3 className="text-base font-semibold tracking-tight text-ink">{r.title}</h3>
-                <p className="text-sm text-ink/65">{r.body}</p>
+                <Icon aria-hidden className="h-3.5 w-3.5 text-terracotta" strokeWidth={1.75} />
+                {r.title}
               </li>
             );
           })}
@@ -360,19 +435,27 @@ function ClosingCta() {
       <div className="mx-auto flex w-full max-w-6xl flex-col items-start gap-6 px-4 py-16 sm:px-6 sm:py-20 lg:flex-row lg:items-center lg:justify-between lg:px-8">
         <div className="max-w-2xl space-y-3">
           <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-            Start with your guest list.
+            Pick your path.
           </h2>
           <p className="text-base text-ink/65">
-            Sign up free, create your event, and have invitations going out in an
-            afternoon. Pay only for premium services as you opt into them.
+            Couples plan end-to-end. Vendors list their services and reach Filipino
+            couples. Both free to start.
           </p>
         </div>
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <Link className="button-primary" href="/signup">
-            Create your account
+        <div className="grid w-full gap-3 sm:max-w-md sm:grid-cols-2">
+          <Link
+            className="button-primary inline-flex items-center justify-center gap-2 text-sm"
+            href="/signup"
+          >
+            Plan our wedding
+            <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           </Link>
-          <Link className="button-secondary" href="/login">
-            Sign in
+          <Link
+            className="button-secondary inline-flex items-center justify-center gap-2 text-sm"
+            href="/signup?as=vendor"
+          >
+            List my services
+            <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           </Link>
         </div>
       </div>

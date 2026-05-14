@@ -8,9 +8,6 @@ import { AiCatalogGenerator } from './_components/ai-catalog-generator';
 export const metadata = { title: 'AI Catalog Generator · Vendor' };
 
 const STUB_MODE = !process.env.ANTHROPIC_API_KEY;
-// Separate stub flag for Whisper so a dev with Claude keys but no OpenAI
-// key still sees "Voice: demo mode" — the two providers are independent.
-const VOICE_STUB_MODE = !process.env.OPENAI_API_KEY;
 
 export default async function VendorServicesAiPage() {
   const supabase = await createClient();
@@ -32,26 +29,17 @@ export default async function VendorServicesAiPage() {
           <ArrowLeft aria-hidden className="h-3 w-3" strokeWidth={2} />
           Back to services
         </Link>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2">
           <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
             <Sparkles aria-hidden className="h-5 w-5" strokeWidth={1.75} />
           </span>
           {STUB_MODE ? (
             <span className="rounded-full bg-amber-100 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.2em] text-amber-800">
-              Claude: demo
+              Demo mode (stub)
             </span>
           ) : (
             <span className="rounded-full bg-emerald-100 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.2em] text-emerald-800">
-              Claude: live
-            </span>
-          )}
-          {VOICE_STUB_MODE ? (
-            <span className="rounded-full bg-amber-100 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.2em] text-amber-800">
-              Voice: demo
-            </span>
-          ) : (
-            <span className="rounded-full bg-emerald-100 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.2em] text-emerald-800">
-              Voice: live
+              Live AI
             </span>
           )}
         </div>

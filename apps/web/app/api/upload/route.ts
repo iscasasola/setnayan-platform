@@ -73,10 +73,7 @@ const BUCKET_MAX_BYTES: Record<R2BucketKey, number> = {
 };
 
 // MIME type whitelist — same union the existing `lib/storage.ts` accepts,
-// plus PDF for force-majeure evidence and signed contracts, plus a small set
-// of audio types for the AI Catalog Generator's voice-input flow (Filipino/
-// Taglish service descriptions transcribed by OpenAI Whisper). Audio uploads
-// go to the thread-files bucket under `vendors/{id}/voice-input/`.
+// plus PDF for force-majeure evidence and signed contracts.
 const ALLOWED_MIME_TYPES: ReadonlySet<string> = new Set([
   'image/png',
   'image/jpeg',
@@ -87,14 +84,6 @@ const ALLOWED_MIME_TYPES: ReadonlySet<string> = new Set([
   'image/heif',
   'image/avif',
   'application/pdf',
-  // Audio — MediaRecorder default is webm/opus on Chromium/Firefox; Safari
-  // emits mp4-aac. Both are Whisper-supported. We allow the bare codec
-  // strings as well as the parameterized form some browsers emit.
-  'audio/webm',
-  'audio/ogg',
-  'audio/mp4',
-  'audio/mpeg',
-  'audio/wav',
 ]);
 
 // Maximum filename length we'll preserve in the object key. Anything longer
@@ -191,12 +180,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const filename = sanitizeFilename(filenameRaw);
 
   const contentType = typeof body.contentType === 'string' ? body.contentType : '';
-  // MediaRecorder sometimes appends `;codecs=opus` (or similar) to the MIME
-  // — strip parameters before checking the whitelist so `audio/webm;codecs=opus`
-  // matches `audio/webm`. We preserve the original value for the presign so
-  // R2 stores the full content-type header the browser sent.
-  const baseContentType = contentType.split(';')[0]?.trim() ?? '';
-  if (!ALLOWED_MIME_TYPES.has(baseContentType)) {
+  if (!ALLOWED_MIME_TYPES.has(contentType)) {
     return NextResponse.json(
       { error: `Unsupported file type "${contentType || 'unknown'}".` },
       { status: 400 },

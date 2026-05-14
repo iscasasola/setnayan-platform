@@ -3,7 +3,12 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { generateApiKey, hashApiKey, keyPrefix } from '@/lib/api-keys';
+import {
+  generateApiKey,
+  hashApiKey,
+  keyPrefix,
+  sanitizeScopes,
+} from '@/lib/api-keys';
 
 export async function createApiKey(formData: FormData) {
   const rawName = formData.get('name');
@@ -14,6 +19,12 @@ export async function createApiKey(formData: FormData) {
       `/dashboard/api-keys?error=${encodeURIComponent('Name is required')}`,
     );
   }
+
+  // Scope checkboxes use the same name "scopes" — getAll() collapses them
+  // into an array. sanitizeScopes drops unknown values and always re-adds
+  // me.read so a token never ships with zero capabilities.
+  const rawScopes = formData.getAll('scopes').filter((v): v is string => typeof v === 'string');
+  const scopes = sanitizeScopes(rawScopes);
 
   const supabase = await createClient();
   const {
@@ -32,6 +43,7 @@ export async function createApiKey(formData: FormData) {
       name,
       key_prefix: prefix,
       key_hash: hash,
+      scopes,
     })
     .select('api_key_id')
     .single();

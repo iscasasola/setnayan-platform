@@ -1,10 +1,12 @@
 import 'server-only';
+import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { hashApiKey } from '@/lib/api-keys';
+import { hashApiKey, hasScope, type ApiScope } from '@/lib/api-keys';
 
 export type ApiAuthResult = {
   userId: string;
   apiKeyId: string;
+  scopes: ApiScope[];
 };
 
 export type ApiAuthError = {
@@ -20,6 +22,14 @@ const ERROR_HTTP_STATUS: Record<ApiAuthError['error'], number> = {
   expired: 401,
 };
 
+const ERROR_MESSAGE: Record<ApiAuthError['error'], string> = {
+  missing_auth: 'Missing Authorization: Bearer header.',
+  invalid_format: 'Authorization header is not a Setnayan API key.',
+  invalid_key: 'API key not recognised.',
+  revoked: 'API key has been revoked.',
+  expired: 'API key has expired.',
+};
+
 function authError(error: ApiAuthError['error']): ApiAuthError {
   return { status: ERROR_HTTP_STATUS[error], error };
 }
@@ -29,7 +39,8 @@ function authError(error: ApiAuthError['error']): ApiAuthError {
  *
  * Expects `Authorization: Bearer sk_live_…`. Hashes the supplied key and
  * looks it up via the admin client (bypassing RLS). Returns the matched
- * user_id + api_key_id on success, or a structured error on failure.
+ * user_id, api_key_id, and scope list on success, or a structured error
+ * on failure.
  *
  * Fire-and-forget updates last_used_at when the key is valid. Never blocks
  * the response on the update.
@@ -48,7 +59,7 @@ export async function authenticateApiRequest(
   const admin = createAdminClient();
   const { data } = await admin
     .from('api_keys')
-    .select('api_key_id, user_id, revoked_at, expires_at')
+    .select('api_key_id, user_id, revoked_at, expires_at, scopes')
     .eq('key_hash', hash)
     .maybeSingle();
 
@@ -65,11 +76,62 @@ export async function authenticateApiRequest(
     .eq('api_key_id', data.api_key_id)
     .then();
 
-  return { userId: data.user_id, apiKeyId: data.api_key_id };
+  const scopes = Array.isArray(data.scopes) ? (data.scopes as ApiScope[]) : [];
+
+  return { userId: data.user_id, apiKeyId: data.api_key_id, scopes };
 }
 
 export function isAuthError(
   result: ApiAuthResult | ApiAuthError,
 ): result is ApiAuthError {
   return 'error' in result;
+}
+
+/**
+ * Standard JSON error response for the public API. Shape mirrors the
+ * 0033 spec — every error body is `{ error: { code, message } }` so
+ * downstream consumers can parse without sniffing the status code.
+ */
+export function apiErrorResponse(
+  status: number,
+  code: string,
+  message: string,
+): NextResponse {
+  return NextResponse.json(
+    { error: { code, message } },
+    {
+      status,
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    },
+  );
+}
+
+/**
+ * Translates an `ApiAuthError` into the canonical `{ error: { code, message } }`
+ * response. Lets every authenticated route share one error path.
+ */
+export function authErrorResponse(err: ApiAuthError): NextResponse {
+  return apiErrorResponse(err.status, err.error, ERROR_MESSAGE[err.error]);
+}
+
+/**
+ * Returns a 403 error response if the supplied auth result is missing the
+ * requested scope, or `null` if the scope is present. Routes call this
+ * after `authenticateApiRequest` returns a valid token:
+ *
+ *     const auth = await authenticateApiRequest(req);
+ *     if (isAuthError(auth)) return authErrorResponse(auth);
+ *     const scopeError = requireScope(auth, 'events.read');
+ *     if (scopeError) return scopeError;
+ */
+export function requireScope(
+  auth: ApiAuthResult,
+  scope: ApiScope,
+): NextResponse | null {
+  if (hasScope(auth.scopes, scope)) return null;
+  return apiErrorResponse(
+    403,
+    'insufficient_scope',
+    `This API key is missing the required scope: ${scope}.`,
+  );
 }

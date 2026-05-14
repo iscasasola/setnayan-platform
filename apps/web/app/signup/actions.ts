@@ -1,6 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
@@ -49,10 +50,12 @@ export async function signUp(formData: FormData) {
   }
 
   // V1 work-around: Supabase's built-in email sender drops into spam folders
-  // and free-tier rate limits are tight. Until we wire Resend (spec § email
-  // infrastructure), auto-confirm every new signup with the admin API so the
-  // user can sign in immediately without waiting on a confirmation link.
-  // Real verification returns when Resend is configured.
+  // and free-tier rate limits are tight. Auto-confirm every new signup with
+  // the admin API so the user can sign in immediately without waiting on a
+  // confirmation link, and fire a Resend-backed welcome email on the side.
+  // Real email-based verification returns when Supabase's SMTP is pointed at
+  // Resend (separate dashboard config).
+  let autoConfirmed = false;
   if (data.user?.id) {
     try {
       const admin = createAdminClient();
@@ -82,15 +85,21 @@ export async function signUp(formData: FormData) {
         ].join('\n'),
       });
 
-      return redirect(
-        `/login?ready=${encodeURIComponent(email)}&next=${encodeURIComponent(next)}`,
-      );
-    } catch {
-      // Auto-confirm failed (admin env not configured, etc.) — fall through
-      // to the legacy "check your email" flow so the user has a path forward.
+      autoConfirmed = true;
+    } catch (err) {
+      // Re-throw Next.js redirect/notFound control-flow errors so the caller
+      // still navigates correctly. Anything else (admin env not configured,
+      // Resend send error, etc.) falls through to the legacy "check your
+      // email" path so the user has a way forward.
+      if (isRedirectError(err)) throw err;
     }
   }
 
+  if (autoConfirmed) {
+    return redirect(
+      `/login?ready=${encodeURIComponent(email)}&next=${encodeURIComponent(next)}`,
+    );
+  }
   return redirect(
     `/login?check_email=${encodeURIComponent(email)}&next=${encodeURIComponent(next)}`,
   );

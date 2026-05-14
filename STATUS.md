@@ -79,6 +79,26 @@ Each of these requires a strategic call from the owner before code can ship:
 
 ---
 
+## Locked architectural decisions (no further owner input needed)
+
+### Time-limited services — **no cron**
+
+For services with a paid time budget (Panood live stream, Papic camera-seat session, future limited-duration SKUs), use database-state + on-access checks. Owner locked 2026-05-14: no Vercel Cron, no Supabase `pg_cron`, no Cloudflare Cron Triggers.
+
+**Pattern:**
+- `service_sessions` row stores `scheduled_for`, `start_window_opens` (= `scheduled_for - 30 min`), `start_window_closes` (= `scheduled_for + 2 hours`), `duration_minutes`, `started_at`, `expires_at`, `status`
+- Couple hits **Start** between `start_window_opens` and `start_window_closes` → server sets `started_at = now()`, `expires_at = now() + duration_minutes`, flips status to `active`
+- Every read of the service surface validates `now() < expires_at` server-side; flips status to `expired` lazily on next access if exceeded
+- Client tracks the countdown locally from `expires_at` for the visible timer; polls every 30 sec to revalidate
+- When countdown hits 0 client-side, UI swaps to "session ended" state immediately
+- **Resource teardown** (stopping the Cloudflare Stream broadcast, releasing Papic seats, etc.): hybrid client-driven + lazy admin sweep:
+  - **Client-driven (primary)**: countdown hits 0 → client fires `/api/sessions/[id]/teardown` → server calls the external API (Cloudflare, etc.) to stop the resource
+  - **Lazy sweep (backup)**: any couple/admin page load sweeps `WHERE expires_at < now() AND status = 'active'` and fires teardown — covers the case where the broadcaster's browser is offline
+
+Applies to: 0011 Panood, 0012 Papic, future time-budgeted SKUs. **Does NOT** apply to bookings or events themselves (those use absolute date scheduling).
+
+---
+
 ## Owner-side blockers (must act, no code can replace)
 
 - **🔴 BLOCKING — `supabase db push`** — 6 migrations on disk are not yet applied to prod: `blacklisted_emails` (#9), `vendor_dashboard_expansion` (#25), `api_scopes` (#27), `notification_type_additions` (#28), `vendor_reviews` (#24), `force_majeure_flags` (#26). New surfaces will 500 until pushed. Run `npx supabase db push --db-url "$SUPABASE_DB_URL"` once to apply all in one shot.

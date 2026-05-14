@@ -1,7 +1,10 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
+import { countUnread } from '@/lib/notifications';
 
 type Props = {
   href: string;
@@ -9,11 +12,80 @@ type Props = {
   icon: React.ReactNode;
   badge?: number;
   match: 'exact' | 'prefix';
+  /**
+   * When set, the tab subscribes to Supabase Realtime for this user's
+   * notifications so the badge stays live without a page reload. The
+   * `badge` prop becomes the initial value (server-rendered) and is
+   * superseded by the live count after the first SUBSCRIBED event.
+   */
+  liveNotificationsUserId?: string;
 };
 
-export function VendorSubnavTab({ href, label, icon, badge, match }: Props) {
+export function VendorSubnavTab({
+  href,
+  label,
+  icon,
+  badge,
+  match,
+  liveNotificationsUserId,
+}: Props) {
   const pathname = usePathname();
   const isActive = match === 'exact' ? pathname === href : pathname.startsWith(href);
+
+  // Live-count overlay. Defaults to the server-rendered `badge` value; once
+  // the Realtime channel is subscribed, this state takes over.
+  const [liveBadge, setLiveBadge] = useState<number | undefined>(badge);
+  useEffect(() => {
+    setLiveBadge(badge);
+  }, [badge]);
+
+  useEffect(() => {
+    if (!liveNotificationsUserId) return;
+    const supabase = createClient();
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const fresh = await countUnread(supabase, liveNotificationsUserId);
+        if (cancelled) return;
+        setLiveBadge(fresh);
+      } catch {
+        // Transient — next Realtime event will heal.
+      }
+    };
+    const channel = supabase
+      .channel(`notif-unread-tab-${liveNotificationsUserId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${liveNotificationsUserId}`,
+        },
+        () => setLiveBadge((n) => (n ?? 0) + 1),
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${liveNotificationsUserId}`,
+        },
+        () => {
+          void refresh();
+        },
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') void refresh();
+      });
+    return () => {
+      cancelled = true;
+      void supabase.removeChannel(channel);
+    };
+  }, [liveNotificationsUserId]);
+
+  const renderBadge = liveBadge;
   return (
     <Link
       href={href}
@@ -25,13 +97,13 @@ export function VendorSubnavTab({ href, label, icon, badge, match }: Props) {
     >
       {icon}
       <span>{label}</span>
-      {badge && badge > 0 ? (
+      {renderBadge && renderBadge > 0 ? (
         <span
           className={`rounded-full px-1.5 font-mono text-[10px] ${
             isActive ? 'bg-cream/20 text-cream' : 'bg-ink/10 text-ink/65'
           }`}
         >
-          {badge > 9 ? '9+' : badge}
+          {renderBadge > 9 ? '9+' : renderBadge}
         </span>
       ) : null}
     </Link>

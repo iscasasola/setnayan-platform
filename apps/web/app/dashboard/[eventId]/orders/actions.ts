@@ -130,21 +130,39 @@ export async function logPayment(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  // Optional screenshot file upload. If present + valid, store in the public
-  // assets bucket and persist the resulting URL on the payment row.
+  // Optional screenshot — TWO supported shapes:
+  //
+  //   (1) New flow (preferred): `<FileUpload name="screenshot_ref">` uploads
+  //       direct-to-R2 client-side and emits an `r2://bucket/key` hidden
+  //       input. We store that ref verbatim in `screenshot_url`.
+  //
+  //   (2) Legacy flow: a `<input type="file" name="screenshot">` for forms
+  //       that haven't been migrated yet (or admin tooling that pre-dates
+  //       the new component). We pipe the file through `uploadPublicAsset`
+  //       the same way the old code did and store the resulting public URL.
+  //
+  // (1) takes precedence — if both are present we trust the explicit ref.
   let screenshotUrl: string | null = null;
-  const screenshotFile = formData.get('screenshot');
-  if (screenshotFile instanceof File && screenshotFile.size > 0) {
-    const result = await uploadPublicAsset({
-      pathPrefix: `payment-screenshots/${orderId}`,
-      file: screenshotFile,
-    });
-    if (!result.ok) {
-      return redirect(
-        `/dashboard/${eventId}/orders/${orderId}?error=${encodeURIComponent(result.error)}`,
-      );
+  const screenshotRefRaw = formData.get('screenshot_ref');
+  if (
+    typeof screenshotRefRaw === 'string' &&
+    screenshotRefRaw.trim().startsWith('r2://')
+  ) {
+    screenshotUrl = screenshotRefRaw.trim();
+  } else {
+    const screenshotFile = formData.get('screenshot');
+    if (screenshotFile instanceof File && screenshotFile.size > 0) {
+      const result = await uploadPublicAsset({
+        pathPrefix: `payment-screenshots/${orderId}`,
+        file: screenshotFile,
+      });
+      if (!result.ok) {
+        return redirect(
+          `/dashboard/${eventId}/orders/${orderId}?error=${encodeURIComponent(result.error)}`,
+        );
+      }
+      screenshotUrl = result.publicUrl;
     }
-    screenshotUrl = result.publicUrl;
   }
 
   const { error } = await supabase.from('payments').insert({

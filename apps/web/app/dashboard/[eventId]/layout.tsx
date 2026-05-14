@@ -1,11 +1,12 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { ArrowLeft, Bell } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { formatEventDate } from '@/lib/events';
 import { countUnread } from '@/lib/notifications';
 import { getLocale, makeT } from '@/lib/i18n';
 import { BottomNav } from './_components/bottom-nav';
+import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 
 type Props = {
   children: React.ReactNode;
@@ -70,22 +71,13 @@ export default async function EventLayout({ children, params }: Props) {
             ) : null}
           </Link>
           <div className="flex items-center gap-2">
-            <Link
+            <UnreadBellBadge
+              userId={user.id}
+              initialUnread={unreadCount}
               href="/dashboard/notifications"
-              aria-label={
-                unreadCount > 0
-                  ? `${tr('nav.notifications')} · ${unreadCount} unread`
-                  : tr('nav.notifications')
-              }
-              className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-ink/15 bg-cream text-ink/70 hover:border-terracotta/40 hover:text-terracotta"
-            >
-              <Bell className="h-4 w-4" strokeWidth={1.75} />
-              {unreadCount > 0 ? (
-                <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-terracotta px-1 font-mono text-[9px] font-semibold text-cream">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
-              ) : null}
-            </Link>
+              ariaBaseLabel={tr('nav.notifications')}
+              ariaUnreadSuffix="unread"
+            />
             <Link
               href="/dashboard/profile"
               aria-label={tr('common.profile')}

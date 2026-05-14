@@ -30,6 +30,46 @@ function parseSlug(raw: FormDataEntryValue | null): string | null {
 
 const CANONICAL_SERVICE_SET: ReadonlySet<string> = new Set(VENDOR_CATEGORIES);
 
+/**
+ * Parses the repeated hidden inputs the <FileUpload> widget emits for the
+ * portfolio gallery into a clean `r2://bucket/key` array.
+ *
+ * <FileUpload name="portfolio_r2_keys" multiple/> renders one hidden input
+ * per uploaded ref, so `formData.getAll('portfolio_r2_keys')` returns all
+ * of them. We accept only well-formed `r2://` refs (cheap defense against a
+ * client posting arbitrary strings) and cap the array at 10 entries —
+ * matches the component-level `maxFiles=10` so a hostile client can't
+ * balloon the column.
+ */
+function parsePortfolioRefs(raw: FormDataEntryValue[]): string[] {
+  const out: string[] = [];
+  for (const item of raw) {
+    if (typeof item !== 'string') continue;
+    const trimmed = item.trim();
+    if (trimmed.length === 0) continue;
+    if (!trimmed.startsWith('r2://')) continue;
+    if (out.includes(trimmed)) continue;
+    out.push(trimmed);
+    if (out.length >= 10) break;
+  }
+  return out;
+}
+
+/**
+ * The logo column accepts either an r2:// ref (from the new <FileUpload>)
+ * or a legacy http(s) URL (backwards compat — vendors who already pasted
+ * an external image URL keep working). We reject anything else so the
+ * column doesn't accumulate junk strings.
+ */
+function parseLogoValue(raw: FormDataEntryValue | null): string | null {
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) return null;
+  if (trimmed.startsWith('r2://')) return trimmed;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return null;
+}
+
 function parseServices(raw: FormDataEntryValue | null): string[] {
   if (typeof raw !== 'string') return [];
   let parsed: unknown;
@@ -82,13 +122,14 @@ export async function saveVendorProfile(formData: FormData) {
     business_name: nonBlank(formData.get('business_name'), 128),
     business_slug,
     tagline: nullIfBlank(formData.get('tagline')),
-    logo_url: nullIfBlank(formData.get('logo_url')),
+    logo_url: parseLogoValue(formData.get('logo_url')),
     services: parseServices(formData.get('services')),
     location_city: nullIfBlank(formData.get('location_city')),
     website: nullIfBlank(formData.get('website')),
     contact_email: nullIfBlank(formData.get('contact_email')),
     contact_phone: nullIfBlank(formData.get('contact_phone')),
     is_published: formData.get('is_published') === 'on',
+    portfolio_r2_keys: parsePortfolioRefs(formData.getAll('portfolio_r2_keys')),
     updated_at: new Date().toISOString(),
   };
 

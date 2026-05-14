@@ -5,22 +5,24 @@
 
 **Owner deadline anchor:** December 2026 wedding
 
-**Phase 2 lands here (2026-05-14):** EN/TL dashboard locale toggle (iteration 0025) + 2 more transactional email templates (`help_ticket_replied`, `vendor_inquiry_received` — event-wired count 7 → 9, iteration 0028).
-
 ---
 
 ## Where we are right now
 
-Pre-launch sprint completed 2026-05-13 (19 iterations). The 2026-05-14 day added another **23 PRs** taking the platform from "feature-complete-ish" to "real-launch-ready" — landing-page conversion upgrades, full observability (Sentry + PostHog), R2 storage migration, day-of mode + event-day pre-load, account-lifecycle redesign (Delete vs Blacklist), TIN dashes, persistent login, caching foundation, Services → Add-ons rename, Phase-1 placeholders for everything not yet built, and the first 7 of 10 V1 email templates wired through Resend.
+V1 web surface is **functionally complete**. Pre-launch sprint closed 2026-05-13 (19 iterations). 2026-05-14 then landed **28 PRs** across two waves.
 
-**Phase 2 (in flight, code-only):** 5 background agents are landing PRs in parallel right now. When this doc was last touched, those PRs were either open or about to open:
-- Vendor public marketplace + reviews system
-- Vendor dashboard expansion (services, bookings, team, earnings)
-- Admin queues + force-majeure flow
-- EN/TL locale toggle + 2 more email templates
-- Read-only public API endpoints (events, guests, vendors)
+**Wave 1 — launch hardening (PRs #1–#23):** landing-page conversion upgrades, full observability (Sentry + PostHog), R2 storage migration, day-of mode + event-day pre-load, account-lifecycle redesign (Delete vs Blacklist), persistent login, caching foundation, Services → Add-ons rename, Phase 1 placeholder routes, 7 of 10 V1 email templates wired through Resend, status doc refresh.
 
-Once Phase 2 lands, the V1 web surface is functionally complete except for the explicitly decision-gated Phase 3 items below.
+**Wave 2 — Phase 2 closed (PRs #24–#28, merged 08:40–08:43Z):** 5 background agents shipped in parallel:
+- **#24** vendor marketplace at `/vendors` + reviews system (couple form, vendor reply, public profile section)
+- **#25** vendor dashboard expansion — services editor + bookings inbox + 4-role team + earnings rollup
+- **#26** admin force-majeure queue + couple-side dispute filing + admin funnel analytics (`/admin/funnels`)
+- **#27** read-only public API (`/api/v1/events|guests|vendors`) + scope-gated `sk_live_*` keys
+- **#28** EN/TL dashboard locale toggle + 2 more email templates (event-wired count 7 → 9)
+
+Email-wired count is now **9 of 10** V1 templates. Only Phase 3 decision-gated items below remain.
+
+> **🔴 Before next session:** run `npx supabase db push --db-url "$SUPABASE_DB_URL"` to apply 6 unpushed migrations (`blacklisted_emails`, `vendor_reviews`, `vendor_dashboard_expansion`, `force_majeure_flags`, `notification_type_additions`, `api_scopes`). The new surfaces will 500 against prod DB until pushed.
 
 ---
 
@@ -30,6 +32,12 @@ Merged commits on `main`, newest first:
 
 | PR | Commit | What |
 |---|---|---|
+| #28 | 9a966d0 | 0025+0028 — EN/TL dashboard locale toggle + 2 more email templates (`help_ticket_replied`, `vendor_inquiry_received`) |
+| #27 | 0fbd6f7 | 0033 — read-only public API (`/api/v1/events|guests|vendors`) + scope-gated `api_keys` |
+| #26 | 4bc0af3 | Admin force-majeure queue + couple disputes + 3 Supabase funnels + 4 PostHog funnel links at `/admin/funnels` |
+| #25 | 9f44813 | 0022 — vendor dashboard expansion (services editor + bookings inbox + 4-role team + earnings rollup) |
+| #24 | cfa9402 | 0006 + vendor-reviews — public marketplace at `/vendors`, couple review form, vendor one-time reply, public profile section |
+| #23 | c6d45ca | docs(status): EOD 2026-05-14 refresh (anchor doc) |
 | #22 | e74b169 | Phase 1 placeholder routes + nav (10 new surfaces, 2 add-ons grid entries) |
 | #21 | 4833541 | Landing page conversion upgrades — split CTA, trust signals, pricing transparency |
 | #20 | 4941a6f | 0028 RSVP-received email + in-app notification |
@@ -71,11 +79,11 @@ Each of these requires a strategic call from the owner before code can ship:
 
 ## Owner-side blockers (must act, no code can replace)
 
-- **`supabase db push`** — PR #9 added a `blacklisted_emails` table migration; subsequent Phase 2 PRs (marketplace reviews, force-majeure, vendor team) also add migrations. Run once after all Phase 2 PRs land to apply all in one shot
+- **🔴 BLOCKING — `supabase db push`** — 6 migrations on disk are not yet applied to prod: `blacklisted_emails` (#9), `vendor_dashboard_expansion` (#25), `api_scopes` (#27), `notification_type_additions` (#28), `vendor_reviews` (#24), `force_majeure_flags` (#26). New surfaces will 500 until pushed. Run `npx supabase db push --db-url "$SUPABASE_DB_URL"` once to apply all in one shot.
 - **Sentry / PostHog smoke test** — trigger one error in production, sign up one fresh user, confirm both show up in their respective dashboards
 - **Resend domain verification** — done; just confirm a fresh signup welcome email lands at a non-account-holder Gmail
 - **Supabase Sessions config** — Inactivity timeout already at "never" by default (free plan); JWT expiry can be bumped to 7-30 days when found in dashboard
-- **Cowork spec reconciliation** — `COWORK_INBOX.md` should grow `[PENDING]` entries for: caching strategy (already applied), event-day preload (iteration 0036 — new spec doc needed), account redesign (update 0023/0025), Services → Add-ons rename (mechanical doc updates), reviews schema (0006), force-majeure flag (0019)
+- **Cowork spec reconciliation** — `COWORK_INBOX.md` now carries `[PENDING]` entries for the full Phase 2 surface: 0006 reviews, 0019 force-majeure, 0022 vendor dashboard, 0025 locale, 0028 emails, 0033 API scopes, 0036 event-preload, caching strategy. Walk each via Cowork; tick `[DONE <YYYY-MM-DD>]` as you go.
 
 ---
 
@@ -84,10 +92,10 @@ Each of these requires a strategic call from the owner before code can ship:
 - **Repo:** https://github.com/iscasasola/setnayan-platform (public, AGPL-3.0)
 - **Hosting:** Vercel (Hobby plan), auto-deploys from `main`
 - **Domain:** `setnayan.com` (Vercel-managed SSL)
-- **DB:** Supabase (Singapore region) — 26 migrations on main as of EOD 2026-05-14 + 3-5 more from Phase 2 PRs incoming
+- **DB:** Supabase (Singapore region) — **31 migrations on main as of EOD 2026-05-14** (last 6 are unpushed to prod, see Owner-side blockers)
 - **Storage:** Cloudflare R2 — 4 PH-region buckets (live writes from PR #18), plus Supabase Storage for the `platform-assets` bucket (legacy)
-- **Email:** Resend — domain `setnayan.com` verified, `noreply@setnayan.com` from-address, 9 transactional templates wired (post Phase 2)
-- **Observability:** Sentry (errors) + PostHog (3 funnel events, more in Phase 2)
+- **Email:** Resend — domain `setnayan.com` verified, `noreply@setnayan.com` from-address, **9 of 10 V1 transactional templates wired**
+- **Observability:** Sentry (errors) + PostHog (3 funnel events) + 3 Supabase-side funnels at `/admin/funnels` (signup→event→paid order, vendor signup→profile→booking, week-over-week)
 - **Native:** Tauri 2 desktop wrapper (unsigned macOS .dmg on GitHub Releases v0.0.1); iOS/Android deferred to V1.0+
 
 ---

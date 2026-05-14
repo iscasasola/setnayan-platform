@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type VendorCategory =
   | 'venue'
-  | 'ceremonial_venue'
+  | 'religious_venue'
   | 'catering'
   | 'photographer'
   | 'videographer'
@@ -41,7 +41,7 @@ export type VendorStatus =
 
 export const VENDOR_CATEGORIES: ReadonlyArray<VendorCategory> = [
   'venue',
-  'ceremonial_venue',
+  'religious_venue',
   'catering',
   'photographer',
   'videographer',
@@ -72,8 +72,8 @@ export const VENDOR_CATEGORIES: ReadonlyArray<VendorCategory> = [
 ];
 
 export const VENDOR_CATEGORY_LABEL: Record<VendorCategory, string> = {
-  venue: 'Reception Venue',
-  ceremonial_venue: 'Ceremonial Venue',
+  venue: 'Venue',
+  religious_venue: 'Religious Ceremony Venue',
   catering: 'Catering',
   photographer: 'Photographer',
   videographer: 'Videographer',
@@ -212,7 +212,7 @@ export const SERVICE_GROUPS: ReadonlyArray<{
   {
     key: 'ceremony',
     label: 'Ceremony',
-    members: ['ceremonial_venue', 'officiant', 'church_fees', 'choir', 'string_quartet'],
+    members: ['religious_venue', 'officiant', 'church_fees', 'choir', 'string_quartet'],
   },
   {
     key: 'attire',

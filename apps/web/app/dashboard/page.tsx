@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchUserEvents, formatEventDate, type EventWithRole } from '@/lib/events';
+import { fetchUserRoleSummary, type UserRoleSummary } from '@/lib/roles';
 
 export const metadata = {
   title: 'Your events',
@@ -24,12 +25,29 @@ export default async function DashboardIndexPage() {
     redirect(`/dashboard/${active[0].event_id}`);
   }
 
-  const { data: profile } = await supabase
-    .from('users')
-    .select('display_name')
-    .eq('user_id', user.id)
-    .maybeSingle();
+  const [{ data: profile }, roles] = await Promise.all([
+    supabase
+      .from('users')
+      .select('display_name')
+      .eq('user_id', user.id)
+      .maybeSingle(),
+    fetchUserRoleSummary(supabase, user.id),
+  ]);
   const greeting = profile?.display_name?.split(' ')[0] ?? user.email?.split('@')[0] ?? 'there';
+
+  // Role-routed empty state per CLAUDE.md 2026-05-15 decision row 3:
+  //   - Zero events + vendor → land on /vendor-dashboard (Shop console).
+  //   - Zero events + admin (and not vendor) → land on /admin.
+  //   - Zero events + customer-only → render the "+" create-event monogram.
+  // Multi-role users with at least one event get the standard switcher.
+  if (active.length === 0) {
+    if (roles.hasVendorAccess) {
+      redirect('/vendor-dashboard');
+    }
+    if (roles.hasAdminAccess) {
+      redirect('/admin');
+    }
+  }
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
@@ -47,7 +65,11 @@ export default async function DashboardIndexPage() {
         </p>
       </header>
 
-      {active.length === 0 ? <EmptyState /> : <EventList events={active} />}
+      {active.length === 0 ? (
+        <EmptyState />
+      ) : (
+        <EventList events={active} roles={roles} />
+      )}
 
       {archived.length > 0 ? (
         <details className="mt-10 rounded-lg border border-ink/10 bg-cream p-4 text-sm text-ink/70">
@@ -85,7 +107,13 @@ function EmptyState() {
   );
 }
 
-function EventList({ events }: { events: EventWithRole[] }) {
+function EventList({
+  events,
+  roles,
+}: {
+  events: EventWithRole[];
+  roles: UserRoleSummary;
+}) {
   return (
     <div className="space-y-3">
       <ul className="space-y-3">
@@ -132,6 +160,111 @@ function EventList({ events }: { events: EventWithRole[] }) {
           + Create another event
         </Link>
       </div>
+
+      {roles.hasVendorAccess || roles.hasAdminAccess ? (
+        <RoleSwitchRows roles={roles} />
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Role-switch rows inside the event list — iteration 0000 § event switcher
+ * (locked 2026-05-15). Renders below the event list with a thin separator;
+ * Shop console row appears when the user is a vendor owner OR sits on any
+ * vendor team; Admin console row appears when the user has any admin grant.
+ *
+ * When a user sits across multiple vendors, the Shop console expands into
+ * a sub-list — each vendor row routes into that specific shop console.
+ */
+function RoleSwitchRows({ roles }: { roles: UserRoleSummary }) {
+  return (
+    <div className="mt-6 border-t border-ink/10 pt-4">
+      <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/40">
+        Switch view
+      </p>
+      <ul className="mt-3 space-y-2">
+        {roles.hasVendorAccess && roles.vendorProfiles.length === 1 ? (
+          <li>
+            <Link
+              href="/vendor-dashboard"
+              className="group flex items-center justify-between gap-3 rounded-lg border border-ink/10 bg-cream px-4 py-3 transition-colors hover:border-terracotta/50 hover:bg-terracotta/5"
+            >
+              <span className="flex items-center gap-3">
+                <span
+                  aria-hidden
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-terracotta/15 text-sm font-semibold text-terracotta-700"
+                >
+                  S
+                </span>
+                <span>
+                  <span className="block text-sm font-medium text-ink">Shop console</span>
+                  <span className="block text-xs text-ink/55">
+                    {roles.vendorProfiles[0]?.business_name ?? 'Vendor profile'}
+                  </span>
+                </span>
+              </span>
+              <span aria-hidden className="text-ink/40 group-hover:text-terracotta">
+                ›
+              </span>
+            </Link>
+          </li>
+        ) : roles.hasVendorAccess && roles.vendorProfiles.length > 1 ? (
+          <li>
+            <p className="px-4 text-xs text-ink/55">Shop console</p>
+            <ul className="mt-1 space-y-2">
+              {roles.vendorProfiles.map((vp) => (
+                <li key={vp.vendor_profile_id}>
+                  <Link
+                    href="/vendor-dashboard"
+                    className="group flex items-center justify-between gap-3 rounded-lg border border-ink/10 bg-cream px-4 py-3 transition-colors hover:border-terracotta/50 hover:bg-terracotta/5"
+                  >
+                    <span className="flex items-center gap-3">
+                      <span
+                        aria-hidden
+                        className="inline-flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-terracotta/15 text-sm font-semibold text-terracotta-700"
+                      >
+                        {vp.business_name.charAt(0).toUpperCase() || 'V'}
+                      </span>
+                      <span className="block text-sm font-medium text-ink">
+                        {vp.business_name}
+                      </span>
+                    </span>
+                    <span aria-hidden className="text-ink/40 group-hover:text-terracotta">
+                      ›
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </li>
+        ) : null}
+
+        {roles.hasAdminAccess ? (
+          <li>
+            <Link
+              href="/admin"
+              className="group flex items-center justify-between gap-3 rounded-lg border border-ink/10 bg-cream px-4 py-3 transition-colors hover:border-purple-300 hover:bg-purple-50"
+            >
+              <span className="flex items-center gap-3">
+                <span
+                  aria-hidden
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-purple-100 text-sm font-semibold text-purple-800"
+                >
+                  S
+                </span>
+                <span>
+                  <span className="block text-sm font-medium text-ink">Admin console</span>
+                  <span className="block text-xs text-ink/55">Setnayan admin</span>
+                </span>
+              </span>
+              <span aria-hidden className="text-ink/40 group-hover:text-purple-700">
+                ›
+              </span>
+            </Link>
+          </li>
+        ) : null}
+      </ul>
     </div>
   );
 }

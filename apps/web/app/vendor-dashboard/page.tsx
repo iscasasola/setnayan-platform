@@ -1,7 +1,11 @@
 import { redirect } from 'next/navigation';
 import { AlertTriangle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { fetchOwnVendorProfile, profileCompletion } from '@/lib/vendor-profile';
+import {
+  fetchOwnVendorProfile,
+  fetchVendorCompletedEventStats,
+  profileCompletion,
+} from '@/lib/vendor-profile';
 import { fetchVendorThreads } from '@/lib/chat';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -9,6 +13,7 @@ import { FileUpload } from '@/app/_components/file-upload';
 import { VendorEventDayPrepCta } from '@/app/_components/vendor-event-day-prep-cta';
 import { saveVendorProfile } from './actions';
 import { ServicesPicker } from './_components/services-picker';
+import { CompletedEventsCard } from './_components/completed-events-card';
 
 /**
  * Returns true when `eventDate` falls inside the vendor pre-load window
@@ -52,6 +57,13 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
         isUpcomingForPreload(t.event?.event_date ?? null),
       )
     : [];
+
+  // Completed-events count — public + full sibling views from
+  // 20260515000000_public_stats_exclusion.sql. Falls back to {0, 0} if the
+  // vendor has no row in the views yet (brand-new profile).
+  const completedStats = profile
+    ? await fetchVendorCompletedEventStats(supabase, profile.vendor_profile_id)
+    : { public_completed_count: 0, full_completed_count: 0 };
 
   // Pre-resolve display URLs for the logo + every portfolio entry so the
   // <FileUpload> thumbnails render on first paint without an extra
@@ -116,6 +128,16 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
         >
           Profile saved.
         </p>
+      ) : null}
+
+      {profile ? (
+        <div className="mb-6">
+          <CompletedEventsCard
+            publicCount={completedStats.public_completed_count}
+            fullCount={completedStats.full_completed_count}
+            showTeamBookings={profile.show_team_bookings_in_backend_count}
+          />
+        </div>
       ) : null}
 
       <section className="mb-6 space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">

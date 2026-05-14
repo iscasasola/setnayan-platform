@@ -43,6 +43,18 @@ const ADD_ON_META: Record<
     blurb:
       '8K template render pipeline · Photo Pool blend · USB delivery for venue playback.',
   },
+  patiktok: {
+    iteration: 'Iteration 0017',
+    title: 'Patiktok',
+    blurb:
+      'Vertical-reel template gallery (9:16 · 1080×1920 · 1-30s) with render-on-demand. Same FFmpeg pipeline backbone as Save-the-Date + Papic personal reels.',
+  },
+  'supplies-marketplace': {
+    iteration: 'Iteration 0018',
+    title: 'Supplies Marketplace',
+    blurb:
+      'Wedding-day supplies + favors from vetted Filipino suppliers — souvenirs, tokens, sponsor gifts, ceremony props — direct-to-venue with logistics quoted up front.',
+  },
 };
 
 type Props = {

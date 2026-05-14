@@ -1,6 +1,15 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Bell, MessageSquare, User } from 'lucide-react';
+import {
+  Bell,
+  Briefcase,
+  ClipboardList,
+  MessageSquare,
+  Star,
+  User,
+  Users,
+  Wallet,
+} from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { countUnread } from '@/lib/notifications';
 import { VendorSubnavTab } from './_components/subnav-tab';
@@ -73,9 +82,39 @@ export default async function VendorDashboardLayout({
         >
           <VendorSubnavTab href="/vendor-dashboard" label="Profile" Icon={User} match="exact" />
           <VendorSubnavTab
+            href="/vendor-dashboard/services"
+            label="Services"
+            Icon={Briefcase}
+            match="prefix"
+          />
+          <VendorSubnavTab
+            href="/vendor-dashboard/bookings"
+            label="Bookings"
+            Icon={ClipboardList}
+            match="prefix"
+          />
+          <VendorSubnavTab
             href="/vendor-dashboard/messages"
             label="Messages"
             Icon={MessageSquare}
+            match="prefix"
+          />
+          <VendorSubnavTab
+            href="/vendor-dashboard/reviews"
+            label="Reviews"
+            Icon={Star}
+            match="prefix"
+          />
+          <VendorSubnavTab
+            href="/vendor-dashboard/team"
+            label="Team"
+            Icon={Users}
+            match="prefix"
+          />
+          <VendorSubnavTab
+            href="/vendor-dashboard/earnings"
+            label="Earnings"
+            Icon={Wallet}
             match="prefix"
           />
           <VendorSubnavTab

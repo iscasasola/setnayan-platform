@@ -218,10 +218,17 @@ If no email arrives within 5 minutes, check Resend's dashboard → **Logs** to s
 ## Phase 2C — Persistent login (5 min, Supabase dashboard only)
 
 **Why:** The code-side hardening for "stay logged in" ships with this app
-(persistent cookie defaults + proactive token refresh in middleware). To
-make sessions actually long-lived, two settings in the Supabase dashboard
-need to match. Without these flipped, the server will still expire your
-token in 1 hour regardless of how the cookie is stored.
+(persistent cookie defaults + proactive token refresh + client-aware
+session length in middleware). The app already auto-detects three
+clients and behaves differently per surface:
+
+- **Desktop app (Tauri)** — 10-year cookie persistence, 30-min proactive refresh window. Treated like a native app — never auto-logs-out.
+- **Installed PWA on phone** (any platform that supports `display-mode: standalone`) — same 10-year persistence + 30-min window as desktop.
+- **Plain web browser** — 1-year cookie persistence + 10-min refresh window. Standard session behavior.
+
+To make sessions actually long-lived, two settings in the Supabase
+dashboard need to match. Without these flipped, the server will still
+expire your token in 1 hour regardless of how the cookie is stored.
 
 ### Step 2C.1 — Open Auth settings
 

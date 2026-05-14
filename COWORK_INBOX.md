@@ -8,6 +8,37 @@
 
 ---
 
+## [PENDING] 2026-05-14 — Iteration 0042: Industry Events & B2B Vendor Marketing
+
+**Spec doc CREATED at:** `~/Documents/Claude/Projects/Setnayan/0042_industry_events_b2b/0042_industry_events_b2b.md`
+
+This is a **NEW B2B layer** on top of Setnayan's existing consumer marketplace. Owner spotted today that wedding fairs (GMBF at SMX Manila, ~134 exhibitors), vendor expos, and industry networking events have no good aggregator platform in PH — Setnayan can fill that distribution gap AND turn it into a revenue surface.
+
+**What's LOCKED:**
+- Industry events are a **SEPARATE concept from consumer events** in 0041 — different audience (vendors, not couples), different schema (`industry_events` table, not `events`), different RLS, different monetization
+- **7 industry event types:** bridal_fair, wedding_expo, vendor_networking, industry_conference, certification_workshop, trade_show, setnayan_event
+- **Wedding fair organizers = special vendors** with `is_industry_event_organizer = TRUE` flag (admin-verified)
+- **3 surfaces:** public `/industry-events`, vendor `/vendor-dashboard/opportunities`, organizer-side event management
+- **Setnayan as organizer:** Setnayan can host its own Wedding Connect-style events (à la Bridestory Singapore)
+
+**Real-world precedent (from research):**
+- Bridestory hosted "Wedding Connect Singapore" — 300+ vendors at one networking event
+- Getting Married Bridal Fair (GMBF) — recurring at SMX Convention Center Manila
+- US wedding-expo industry has proven monetization model (Jenks Productions, Florida Wedding Expo): tiered booth packages with premiums 2-5x base fees
+- B2B event tech moving to AI matchmaking (Bizzabo 2025)
+
+**Spec corpus updates owner should walk via Cowork:**
+- Read `~/Documents/Claude/Projects/Setnayan/0042_industry_events_b2b/0042_industry_events_b2b.md` end-to-end
+- Resolve the 10 open questions in spec § 9 (audience question § 9.1 is blocking; Phase 3 commission model still affects this too)
+- Decide: pursue GMBF partnership as launch deal? (spec § 9.4)
+- Decide: Setnayan-organized event at launch? (spec § 9.2 — recommended yes)
+
+**Strategic context:** When 0040 + 0041 + 0042 all ship, Setnayan becomes the only PH platform doing all five: couples plan any life event · vendors serve multiple event types · vendors discover business opportunities · fair organizers reach curated vendors · Setnayan organizes its own marketplace events. Real moat against TheKnot, HoneyBook, Bridestory, Eventbrite.
+
+**Once spec is refined and ready to implement, tell Claude Code:** "Iteration 0042 spec is locked — sweep the implementation against `tests.md` and spawn parallel agents per the resume checklist in spec § 10."
+
+---
+
 ## [PENDING] 2026-05-14 — Iteration 0041: Multi-Event Vendor Catalog (LOCKED architecture)
 
 **Spec doc CREATED at:** `~/Documents/Claude/Projects/Setnayan/0041_multi_event_support/0041_multi_event_support.md`

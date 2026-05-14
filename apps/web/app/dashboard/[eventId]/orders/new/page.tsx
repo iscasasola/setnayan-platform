@@ -3,6 +3,12 @@ import { redirect } from 'next/navigation';
 import { ArrowLeft, Send } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { SubmitButton } from '@/app/_components/submit-button';
+import {
+  fetchSelfCompQuota,
+  fetchSelfPurchaseRoles,
+  type SelfCompQuota,
+} from '@/lib/self-purchase';
+import { SelfPurchaseConfirm } from '../_components/self-purchase-confirm';
 import { createOrder } from '../actions';
 
 export const metadata = { title: 'New order' };
@@ -23,6 +29,17 @@ export default async function NewOrderPage({ params, searchParams }: Props) {
 
   const prefillService = typeof search.service === 'string' ? search.service : '';
 
+  // Decision 1 (CLAUDE.md 2026-05-15) — § 3.1a Self-purchase confirm.
+  // Look up whether this user owns or sits on the team of any vendor.
+  // If so, the New-order form intercepts submit and shows the confirm modal
+  // with "Pay full price" or "Comp for myself" branches.
+  const selfPurchaseRoles = await fetchSelfPurchaseRoles(supabase, user.id);
+  const quotas: SelfCompQuota[] = await Promise.all(
+    selfPurchaseRoles
+      .filter((r) => r.role === 'owner' || r.role === 'admin')
+      .map((r) => fetchSelfCompQuota(supabase, r.vendor_profile_id)),
+  );
+
   return (
     <div className="mx-auto w-full max-w-2xl">
       <Link
@@ -41,6 +58,7 @@ export default async function NewOrderPage({ params, searchParams }: Props) {
         </p>
       </header>
 
+      <SelfPurchaseConfirm roles={selfPurchaseRoles} quotas={quotas}>
       <form action={createOrder} className="space-y-5 rounded-2xl border border-ink/10 bg-cream p-5">
         <input type="hidden" name="event_id" value={eventId} />
         {prefillService ? (
@@ -102,6 +120,7 @@ export default async function NewOrderPage({ params, searchParams }: Props) {
           Submit order
         </SubmitButton>
       </form>
+      </SelfPurchaseConfirm>
     </div>
   );
 }

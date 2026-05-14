@@ -4,6 +4,11 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createReview, type ReviewAxis } from '@/lib/reviews';
+import {
+  parseSelfReviewBlock,
+  SELF_REVIEW_SIGNALS,
+  type SelfReviewSignal,
+} from '@/lib/self-review-gate';
 
 const AXES: ReadonlyArray<ReviewAxis> = [
   'overall',
@@ -29,6 +34,11 @@ function parseRating(raw: FormDataEntryValue | null): number {
  * then delegates the RLS-gated INSERT to lib/reviews.ts. On success, sends
  * the user back to the vendor tracker with the new review already counted
  * via revalidatePath.
+ *
+ * Decision 1 (CLAUDE.md 2026-05-15) — § 2.2d.i Self-review block. If the
+ * BEFORE INSERT trigger refuses with SELF_REVIEW_BLOCKED, we route back to
+ * the review URL with `?blocked=<signal>` so the page renders the disabled
+ * + appeal flow instead of a generic error.
  */
 export async function submitCoupleReview(formData: FormData) {
   const eventId = formData.get('event_id');
@@ -64,14 +74,101 @@ export async function submitCoupleReview(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  await createReview(supabase, {
-    vendorProfileId,
-    eventId,
-    coupleUserId: user.id,
-    ratings,
-    body,
-  });
+  try {
+    await createReview(supabase, {
+      vendorProfileId,
+      eventId,
+      coupleUserId: user.id,
+      ratings,
+      body,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const signal = parseSelfReviewBlock(message);
+    if (signal) {
+      // Routing back to the review URL with `?blocked=<signal>` keeps the
+      // user in context — the page detects the same signal up front and
+      // renders the appeal form for the soft cases (payment/device/household)
+      // or the hard-block state for owner_self/team_member.
+      redirect(
+        `/dashboard/${eventId}/vendors/${eventVendorId}/review?blocked=${signal}`,
+      );
+    }
+    throw err;
+  }
 
   revalidatePath(`/dashboard/${eventId}/vendors`);
   redirect(`/dashboard/${eventId}/vendors?reviewed=${eventVendorId}`);
+}
+
+/**
+ * § 3.9 Self-review appeal — files a row in `vendor_review_appeals` for
+ * admin moderation. The reviewer attaches their `review_payload` (the
+ * would-be review row) plus a free-text reason explaining why they
+ * believe the related-account block is a false positive.
+ */
+export async function submitReviewAppeal(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const eventVendorId = formData.get('event_vendor_id');
+  const vendorProfileId = formData.get('vendor_profile_id');
+  const matchedSignal = formData.get('matched_signal');
+  const appealReason = formData.get('appeal_reason');
+
+  if (
+    typeof eventId !== 'string'
+    || typeof eventVendorId !== 'string'
+    || typeof vendorProfileId !== 'string'
+    || typeof matchedSignal !== 'string'
+    || typeof appealReason !== 'string'
+  ) {
+    throw new Error('Invalid appeal input');
+  }
+  if (!(SELF_REVIEW_SIGNALS as ReadonlyArray<string>).includes(matchedSignal)) {
+    throw new Error('Invalid matched_signal');
+  }
+  const reason = appealReason.trim();
+  if (reason.length === 0 || reason.length > 4000) {
+    throw new Error('Appeal reason must be 1–4000 characters.');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // Optional payload — when the user filled in the rating/body fields the
+  // appeal can carry them forward so the admin sees the would-be review
+  // when deciding the appeal.
+  const payload: Record<string, unknown> = {};
+  const overallRaw = formData.get('payload_rating_overall');
+  if (typeof overallRaw === 'string' && overallRaw.length > 0) {
+    const n = Number(overallRaw);
+    if (Number.isInteger(n) && n >= 1 && n <= 5) {
+      payload['rating_overall'] = n;
+    }
+  }
+  const payloadBodyRaw = formData.get('payload_body');
+  if (typeof payloadBodyRaw === 'string') {
+    const trimmed = payloadBodyRaw.trim();
+    if (trimmed.length > 0) payload['body'] = trimmed.slice(0, 4000);
+  }
+
+  const { error } = await supabase
+    .from('vendor_review_appeals')
+    .insert({
+      vendor_profile_id: vendorProfileId,
+      reviewer_user_id: user.id,
+      event_id: eventId,
+      event_vendor_id: eventVendorId,
+      matched_signal: matchedSignal as SelfReviewSignal,
+      review_payload: payload,
+      appeal_reason: reason,
+    });
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/dashboard/${eventId}/vendors`);
+  redirect(
+    `/dashboard/${eventId}/vendors/${eventVendorId}/review?appeal_filed=1`,
+  );
 }

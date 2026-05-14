@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Plus, Trash2, Mail, Phone, Star } from 'lucide-react';
+import { Plus, Trash2, Mail, Phone, Star, ShieldOff } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import {
   SERVICE_GROUPS,
@@ -16,6 +16,11 @@ import {
 } from '@/lib/vendors';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { FollowGate } from '@/app/_components/follow-gate';
+import {
+  detectSelfReviewSignal,
+  SELF_REVIEW_SIGNAL_TONE,
+  type SelfReviewSignal,
+} from '@/lib/self-review-gate';
 import { createVendor, deleteVendor, updateVendorStatus } from './actions';
 
 export const metadata = { title: 'Vendors' };
@@ -99,6 +104,16 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     return emailToProfileId.get(v.contact_email.toLowerCase()) ?? null;
   }
 
+  // Decision 1 (CLAUDE.md 2026-05-15) — § 2.2d.i Self-review block.
+  // For every linked vendor profile that's review-eligible, probe the
+  // self-review gate. If a signal matches, the card renders the disabled
+  // CTA + appeal link instead of the regular "Leave a review" button.
+  const selfReviewSignals = new Map<string, SelfReviewSignal>();
+  for (const pid of profileIds) {
+    const sig = await detectSelfReviewSignal(supabase, pid, user.id);
+    if (sig) selfReviewSignals.set(pid, sig);
+  }
+
   const activeFilter = (search.status ?? 'all') as 'all' | VendorStatus;
   const visible =
     activeFilter === 'all' ? vendors : vendors.filter((v) => v.status === activeFilter);
@@ -125,6 +140,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         <ul className="grid gap-3 lg:grid-cols-2">
           {visible.map((v) => {
             const profileId = vendorProfileForRow(v);
+            const selfReviewSignal =
+              profileId !== null ? (selfReviewSignals.get(profileId) ?? null) : null;
             return (
               <VendorCard
                 key={v.vendor_id}
@@ -133,6 +150,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
                 alreadyReviewed={isAlreadyReviewed(v)}
                 vendorProfileId={profileId}
                 isFollowing={profileId !== null && followedProfileIds.has(profileId)}
+                selfReviewSignal={selfReviewSignal}
               />
             );
           })}
@@ -382,12 +400,14 @@ function VendorCard({
   alreadyReviewed,
   vendorProfileId,
   isFollowing,
+  selfReviewSignal,
 }: {
   eventId: string;
   vendor: EventVendorRow;
   alreadyReviewed: boolean;
   vendorProfileId: string | null;
   isFollowing: boolean;
+  selfReviewSignal: SelfReviewSignal | null;
 }) {
   const remaining =
     vendor.total_cost_php !== null
@@ -395,6 +415,8 @@ function VendorCard({
       : null;
   const reviewEligible =
     (vendor.status === 'delivered' || vendor.status === 'complete') && !alreadyReviewed;
+  const isSoftBlock =
+    selfReviewSignal !== null && SELF_REVIEW_SIGNAL_TONE[selfReviewSignal] === 'soft';
 
   return (
     <li className="flex flex-col gap-3 rounded-xl border border-ink/10 bg-cream p-4">
@@ -470,7 +492,7 @@ function VendorCard({
         />
       ) : null}
 
-      {reviewEligible ? (
+      {reviewEligible && selfReviewSignal === null ? (
         <Link
           href={`/dashboard/${eventId}/vendors/${vendor.vendor_id}/review`}
           className="inline-flex items-center justify-center gap-1.5 rounded-md bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900 ring-1 ring-inset ring-amber-300 transition-colors hover:bg-amber-100"
@@ -478,6 +500,28 @@ function VendorCard({
           <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" strokeWidth={1.75} />
           Leave a review
         </Link>
+      ) : null}
+
+      {reviewEligible && selfReviewSignal !== null ? (
+        // Decision 1 (2026-05-15) — § 2.2d.i disabled CTA + appeal sub-link.
+        <div className="space-y-1.5">
+          <span
+            aria-disabled="true"
+            title="You can't review your own services"
+            className="inline-flex w-full cursor-not-allowed items-center justify-center gap-1.5 rounded-md bg-ink/5 px-3 py-2 text-xs font-medium text-ink/45 ring-1 ring-inset ring-ink/10"
+          >
+            <ShieldOff className="h-3.5 w-3.5" strokeWidth={1.75} />
+            You can&rsquo;t review your own services
+          </span>
+          {isSoftBlock ? (
+            <Link
+              href={`/dashboard/${eventId}/vendors/${vendor.vendor_id}/review`}
+              className="block text-center text-[11px] font-medium text-terracotta hover:underline"
+            >
+              Appeal this block →
+            </Link>
+          ) : null}
+        </div>
       ) : null}
 
       {alreadyReviewed ? (

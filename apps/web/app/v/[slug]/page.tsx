@@ -3,7 +3,17 @@ import { notFound } from 'next/navigation';
 import { Mail, Phone, Globe, MapPin, Star } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import { displayServiceLabel } from '@/lib/vendors';
+import {
+  SERVICE_GROUPS,
+  VENDOR_CATEGORY_LABEL,
+  displayServiceLabel,
+  formatPhp,
+  isCanonicalService,
+  serviceGroupOf,
+  type ServiceGroupKey,
+  type VendorCategory,
+} from '@/lib/vendors';
+import { fetchVendorServices, type VendorServiceRow } from '@/lib/vendor-services';
 import { fetchUserEvents } from '@/lib/events';
 import { isFollowingVendor } from '@/lib/follow';
 import { FollowGate } from '@/app/_components/follow-gate';
@@ -76,11 +86,13 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
   const limit = reviewsPage * REVIEWS_PAGE_SIZE;
 
   const admin = createAdminClient();
-  const [reviewStats, reviews] = await Promise.all([
+  const [reviewStats, reviews, allServices] = await Promise.all([
     fetchReviewStats(admin, vendor.vendor_profile_id),
     fetchReviewsForVendorWithCouple(admin, vendor.vendor_profile_id, { limit, offset: 0 }),
+    fetchVendorServices(admin, vendor.vendor_profile_id),
   ]);
   const hasMore = reviewStats.total_count > reviews.length;
+  const activeServices = allServices.filter((s) => s.is_active);
 
   // Resolve viewer state for the FollowGate (iteration 0019 § Gate). Public
   // page so the supabase client may have no user; that's fine — the gate
@@ -203,6 +215,13 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
           </section>
         ) : null}
 
+        {activeServices.length > 0 ? (
+          <ServicesPricingSection
+            services={activeServices}
+            businessName={vendor.business_name}
+          />
+        ) : null}
+
         <ReviewsSection
           slug={slug}
           businessName={vendor.business_name}
@@ -267,6 +286,85 @@ function Logo({ logoUrl, name }: { logoUrl: string | null; name: string }) {
     <span className="inline-flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl bg-terracotta/15 text-xl font-semibold text-terracotta-700">
       {initials || '?'}
     </span>
+  );
+}
+
+function ServicesPricingSection({
+  services,
+  businessName,
+}: {
+  services: ReadonlyArray<VendorServiceRow>;
+  businessName: string;
+}) {
+  const byGroup = new Map<ServiceGroupKey, VendorServiceRow[]>();
+  for (const s of services) {
+    const key: ServiceGroupKey = isCanonicalService(s.category)
+      ? serviceGroupOf(s.category as VendorCategory)
+      : 'other';
+    const bucket = byGroup.get(key);
+    if (bucket) bucket.push(s);
+    else byGroup.set(key, [s]);
+  }
+
+  return (
+    <section className="space-y-6 border-b border-ink/10 py-8">
+      <header className="space-y-1">
+        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          Services &amp; pricing
+        </h2>
+        <p className="text-sm text-ink/65">
+          Starting prices set by {businessName}. Final quotes happen in chat.
+        </p>
+      </header>
+      <div className="space-y-5">
+        {SERVICE_GROUPS.map((group) => {
+          const rows = byGroup.get(group.key);
+          if (!rows || rows.length === 0) return null;
+          return (
+            <div key={group.key} className="space-y-2">
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+                {group.label}
+              </p>
+              <ul className="grid gap-2 sm:grid-cols-2">
+                {rows.map((s) => (
+                  <li key={s.vendor_service_id}>
+                    <ServiceRow row={s} />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function ServiceRow({ row }: { row: VendorServiceRow }) {
+  const label = isCanonicalService(row.category)
+    ? VENDOR_CATEGORY_LABEL[row.category as VendorCategory]
+    : row.category;
+  const priceLabel =
+    row.starting_price_php !== null && row.starting_price_php > 0
+      ? `from ${formatPhp(row.starting_price_php)}`
+      : 'Inquire';
+  const crewParts: string[] = [];
+  if (row.crew_size !== null && row.crew_size > 0) {
+    crewParts.push(`${row.crew_size} crew on-site`);
+  }
+  if (row.crew_meal_required) {
+    crewParts.push('crew meal required');
+  }
+  return (
+    <div className="rounded-xl border border-ink/10 bg-cream p-4">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="font-medium text-ink">{label}</p>
+        <p className="font-mono text-sm text-ink/80">{priceLabel}</p>
+      </div>
+      {crewParts.length > 0 ? (
+        <p className="mt-1 text-[12px] text-ink/55">{crewParts.join(' · ')}</p>
+      ) : null}
+    </div>
   );
 }
 

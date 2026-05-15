@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { Logo } from '@/app/_components/logo';
 import { signUp } from './actions';
 
 export const metadata: Metadata = {
@@ -32,7 +33,10 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-8 px-6 py-12 sm:px-8">
-      <header className="space-y-2">
+      <header className="space-y-3">
+        <Link href="/" aria-label="Setnayan home" className="inline-flex text-ink">
+          <Logo height={32} />
+        </Link>
         <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
           Setnayan
         </p>

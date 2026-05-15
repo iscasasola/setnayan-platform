@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { GuidedTour } from '@/app/_components/guided-tour';
+import { Logo } from '@/app/_components/logo';
 import { completeTour } from '@/lib/tour-actions';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -38,16 +39,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <div data-theme={theme} className="flex min-h-dvh flex-col bg-cream">
       <header className="border-b border-ink/10 bg-cream">
         <div className="mx-auto flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <span
-              aria-hidden
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-terracotta font-semibold text-cream"
-            >
-              S
-            </span>
-            <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/70">
-              Setnayan
-            </span>
+          <Link href="/dashboard" className="flex items-center text-ink">
+            <Logo height={32} withWordmark />
           </Link>
           <div className="flex items-center gap-2">
             <Link

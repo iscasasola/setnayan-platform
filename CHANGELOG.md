@@ -4,6 +4,46 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-15 · feat(0015): /for-vendors landing page (vendor-side acquisition)
+
+**Commit:** to be filled after commit.
+
+**Context:** Iteration 0015 § Routes lists `/for-vendors` as a "vendor-side deep dive (verification, payouts, marketing benefits)" page; per CLAUDE.md decision log 2026-05-15 the page should be at LEAST as polished as the homepage and follow the Airbnb host-page convention (lead with merchant outcomes, Shopify pattern). The pre-existing `/for-vendors` page was the SEO-foundation v1 — covered the basics but lacked vendor-side ops storytelling, comparison framing, transparent pricing, and a sticky mobile CTA.
+
+**Page rewrite (in place):**
+- `apps/web/app/for-vendors/page.tsx` — composes the new sections, owns SEO metadata + JSON-LD (BreadcrumbList, Organization, WebPage, plus two `Offer` blocks: free listing and Pro ₱499/wk subscription), renders the shared `SiteHeader` (already context-aware for `as=vendor` per PR #52), and mounts the sticky mobile CTA outside the `<main>` so it floats above the page.
+
+**New section components under `apps/web/app/for-vendors/_sections/`:**
+- `hero.tsx` — outcome-led hero ("Run your wedding business in one app"), dual CTA (`List your business · free` → `/signup?as=vendor`, `Talk to a human →` → `/help#contact`), trust strip ("Free to list · No monthly fee until Pro · BIR receipts handled"), and a Mariposa-Bloom dashboard mock card mirroring the homepage's couple-side mock pattern.
+- `comparison.tsx` — six-row "5 apps vs Setnayan one app" outcome table (mobile: card stack; desktop: 3-column table with semantic `<th scope="col">` / `<th scope="row">`). Pulls the Shopify outcome-led pattern; mirrors the homepage chaos-panel beat for the vendor side.
+- `operating-system.tsx` — six tool cards mapping iteration 0022 § 1's six surfaces (Calendar, Pipeline, Chat, Proposals, Payments, Reviews).
+- `pricing.tsx` — exception to the homepage hide-prices rule (per CLAUDE.md 2026-05-15: vendors decide on cost; couples don't yet). Two-tier comparison (Free vs Pro ₱499/week), feature-by-feature checks, primary CTA on Pro.
+- `what-you-keep.tsx` — payouts split, BIR receipts, EWT/2307, branding-on-contracts. Sourced from iteration 0022 § 5c (vendor-controlled final price + payment routing).
+- `sponsored-boost.tsx` — 10km → 30km visibility extension (iteration 0022 § 5b), certified-vendor gate, density gate, ₱1,499/wk pricing visible.
+- `verification.tsx` — 4-step Setnayan Team review process, 3-business-day SLA, DTI/SEC/Mayor's Permit + portfolio-review fallback for solo creatives, `coming_soon` → `verified` state-machine handoff (iteration 0022 § 2.1c).
+- `testimonials.tsx` — empty placeholder slots at V1; populate post-launch with real vendor quotes (matches the iteration 0015 § Open Questions stance for couple testimonials, applied to vendor side).
+- `closing-cta.tsx` — final dual CTA repeating the hero buttons, framed inside a burgundy-bordered conversion card.
+- `sticky-mobile-cta.tsx` — fixed bottom-of-viewport CTA on `sm:` and below. 48px tap target, respects `env(safe-area-inset-bottom)`, hidden at `sm:` breakpoint and above. Page bottom padding (`pb-24 sm:pb-0`) prevents the sticky bar from masking the footer.
+
+**Cross-cutting standards honored:**
+- Mobile-first single-column → multi-column grid at `sm:` / `md:` / `lg:`.
+- Sticky thumb-zone CTA on mobile per Heyflow / Apple HIG / WCAG 2.2 SC 2.5.8.
+- WCAG 2.2 AA: visible focus rings inherited from `.button-primary` / `.button-secondary` (already styled with `focus-visible:ring-2`); `aria-hidden` on decorative icons; `role="region"` + `aria-label` on the sticky CTA bar.
+- Burgundy accent throughout (terracotta token name preserved per PR #52 — semantic value is burgundy `#7A1F2B`).
+- Taglish-tolerant voice: "Set na 'yan para sa business mo." in the closing CTA eyebrow; "Hi po!" in the demo inquiry; "chineck mo na po" in the comparison table.
+- Header `Create account` button already routes to `/signup?as=vendor` on `/for-vendors` paths via `SiteHeader`'s `isVendorContext()` helper — confirmed in `apps/web/app/_components/site-header.tsx`. No header change needed.
+
+**Out of scope (per task constraints):**
+- Did NOT touch `apps/web/app/page.tsx` or any homepage section component.
+- Did NOT touch `apps/web/app/_components/site-header.tsx`.
+- Did NOT add new dependencies — all icons reused from existing `lucide-react`.
+
+**Verify:** `pnpm --filter @setnayan/web typecheck` ✅ · `lint` ✅ (no warnings or errors) · `build` ✅ (`/for-vendors` listed as ○ static prerendered, 1.52 kB / 165 kB). Prerendered HTML inspected: all section copy present, both Offer schemas in JSON-LD, sticky CTA markup rendered, `/signup?as=vendor` and `/help#contact` CTAs wired.
+
+**SPEC IMPACT:** None — this implements iteration 0015 § Routes (`/for-vendors`) per the locked spec; no spec edits required.
+
+---
+
 ## 2026-05-14 · feat(0025+0028): EN/TL locale toggle + 2 more email templates
 
 **Commit:** to be filled after commit.

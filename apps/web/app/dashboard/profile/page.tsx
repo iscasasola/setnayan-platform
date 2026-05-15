@@ -26,7 +26,7 @@ type Props = {
   }>;
 };
 
-type ThemeKey = 'setnayan_default' | 'victorian' | 'classy' | 'ios';
+type ThemeKey = 'setnayan_default' | 'victorian' | 'classy' | 'ios' | 'forest_champagne';
 
 const THEMES: Array<{
   key: ThemeKey;
@@ -36,9 +36,9 @@ const THEMES: Array<{
 }> = [
   {
     key: 'setnayan_default',
-    label: 'Setnayan Default',
-    tagline: 'Warm cream · ink · terracotta',
-    swatches: { cream: '#FAF7F2', ink: '#1A1A1A', accent: '#C97B4B' },
+    label: 'Setnayan Default Color',
+    tagline: 'Warm cream · ink · deep burgundy',
+    swatches: { cream: '#FAF6F0', ink: '#1A1A1A', accent: '#7A1F2B' },
   },
   {
     key: 'victorian',
@@ -57,6 +57,12 @@ const THEMES: Array<{
     label: 'iOS',
     tagline: 'System grey · black · blue',
     swatches: { cream: '#F2F2F7', ink: '#000000', accent: '#007AFF' },
+  },
+  {
+    key: 'forest_champagne',
+    label: 'Forest & Champagne Gold',
+    tagline: 'Warm off-cream · deep forest · champagne gold',
+    swatches: { cream: '#F4F0E8', ink: '#1A2520', accent: '#2D4A3A' },
   },
 ];
 

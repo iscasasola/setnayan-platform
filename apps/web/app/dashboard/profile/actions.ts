@@ -5,7 +5,13 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
-const VALID_THEMES = ['setnayan_default', 'victorian', 'classy', 'ios'] as const;
+const VALID_THEMES = [
+  'setnayan_default',
+  'victorian',
+  'classy',
+  'ios',
+  'forest_champagne',
+] as const;
 type ThemePreference = (typeof VALID_THEMES)[number];
 
 function isValidTheme(value: unknown): value is ThemePreference {

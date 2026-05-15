@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { uploadPublicAsset } from '@/lib/storage';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
@@ -46,12 +47,55 @@ export async function createOrder(formData: FormData) {
   if (!Number.isFinite(amount) || amount < 0) {
     throw new Error('Amount must be a non-negative number');
   }
+  const requestedTotalPhp = Math.round(amount * 100) / 100;
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  // Decision 1 (CLAUDE.md 2026-05-15) — § 3.1a Self-purchase confirm.
+  // The new-order page injects `self_purchase_action` when the user is a
+  // vendor and picked a path in the modal. Empty / undefined = standard
+  // flow (default for non-vendor users).
+  const selfPurchaseAction = formData.get('self_purchase_action');
+  const isSelfComp = selfPurchaseAction === 'comp_for_myself';
+  const selfPurchaseVendorRaw = formData.get('self_purchase_vendor_profile_id');
+  const selfPurchaseVendorProfileId =
+    isSelfComp && typeof selfPurchaseVendorRaw === 'string' && selfPurchaseVendorRaw.length > 0
+      ? selfPurchaseVendorRaw
+      : null;
+
+  if (isSelfComp) {
+    if (!selfPurchaseVendorProfileId) {
+      throw new Error('Self-comp requires a vendor profile target.');
+    }
+    // The user must actually own / sit on the team of this vendor at the
+    // owner or admin tier. Re-verify server-side (the modal lies are
+    // cheap to fake on the client).
+    const { data: member } = await supabase
+      .from('vendor_team_members')
+      .select('role, vendor_profile_id')
+      .eq('vendor_profile_id', selfPurchaseVendorProfileId)
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (!member || (member.role !== 'owner' && member.role !== 'admin')) {
+      throw new Error('Not authorised to self-comp this vendor.');
+    }
+
+    const orderResult = await createSelfCompOrder({
+      eventId,
+      userId: user.id,
+      description: trimmedDesc,
+      serviceKey: nullIfBlank(serviceKey),
+      requestedTotalPhp,
+      vendorProfileId: selfPurchaseVendorProfileId,
+    });
+
+    revalidatePath(`/dashboard/${eventId}/orders`);
+    redirect(`/dashboard/${eventId}/orders/${orderResult.orderId}?self_comp=1`);
+  }
 
   const { data, error } = await supabase
     .from('orders')
@@ -60,7 +104,7 @@ export async function createOrder(formData: FormData) {
       user_id: user.id,
       service_key: nullIfBlank(serviceKey),
       description: trimmedDesc,
-      requested_total_php: Math.round(amount * 100) / 100,
+      requested_total_php: requestedTotalPhp,
       reference_code: generateReferenceCode(),
       status: 'submitted',
     })
@@ -71,6 +115,76 @@ export async function createOrder(formData: FormData) {
 
   revalidatePath(`/dashboard/${eventId}/orders`);
   redirect(`/dashboard/${eventId}/orders/${data.order_id}?created=1`);
+}
+
+/**
+ * Self-comp branch of § 3.1a. Creates a `comp_grants` row with
+ * source='vendor_self_comp' (self-approved per § 5.4, gated by the 12 / quarter
+ * trigger), then inserts an `orders` row marked `paid` with comp_grant_id
+ * pointing at the new grant. Two-step via service-role so the trigger fires.
+ */
+async function createSelfCompOrder(args: {
+  eventId: string;
+  userId: string;
+  description: string;
+  serviceKey: string | null;
+  requestedTotalPhp: number;
+  vendorProfileId: string;
+}): Promise<{ orderId: string }> {
+  const admin = createAdminClient();
+  const retailValueCentavos = Math.round(args.requestedTotalPhp * 100);
+
+  const grantInsert = await admin
+    .from('comp_grants')
+    .insert({
+      user_id: args.userId,
+      scope: 'single_order',
+      retail_value_centavos: retailValueCentavos,
+      rationale: 'Vendor self-comp at checkout',
+      granted_by: args.userId,
+      approved_by: args.userId,
+      source: 'vendor_self_comp',
+      vendor_profile_id: args.vendorProfileId,
+    })
+    .select('grant_id')
+    .single();
+
+  if (grantInsert.error || !grantInsert.data) {
+    // The enforce_vendor_self_comp_quota trigger raises check_violation
+    // with VENDOR_SELF_COMP_QUOTA_EXCEEDED when the per-quarter cap is hit;
+    // surface that to the caller verbatim so the UI can render the right
+    // hint. createAdminClient bypasses RLS so any error here is a true
+    // schema-level rejection.
+    throw new Error(
+      grantInsert.error?.message ?? 'Could not create self-comp grant.',
+    );
+  }
+
+  const grantId = grantInsert.data.grant_id as string;
+
+  const orderInsert = await admin
+    .from('orders')
+    .insert({
+      event_id: args.eventId,
+      user_id: args.userId,
+      service_key: args.serviceKey,
+      description: args.description,
+      requested_total_php: args.requestedTotalPhp,
+      confirmed_total_php: 0,
+      reference_code: generateReferenceCode(),
+      status: 'paid',
+      comp_grant_id: grantId,
+    })
+    .select('order_id')
+    .single();
+
+  if (orderInsert.error || !orderInsert.data) {
+    // The grant has already been written; we don't roll it back since the
+    // trigger uses it for rate-limit accounting. Surface the error.
+    throw new Error(orderInsert.error?.message ?? 'Could not create comp order.');
+  }
+
+  return { orderId: orderInsert.data.order_id as string };
 }
 
 export async function cancelOrder(formData: FormData) {

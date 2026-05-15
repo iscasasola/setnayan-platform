@@ -14,7 +14,7 @@ const NON_EVENT_DASHBOARD_PREFIXES = new Set([
 function isEventScopedRoute(pathname: string): boolean {
   const match = pathname.match(/^\/dashboard\/([^/]+)/);
   if (!match) return false;
-  return !NON_EVENT_DASHBOARD_PREFIXES.has(match[1]);
+  return !NON_EVENT_DASHBOARD_PREFIXES.has(match[1] ?? '');
 }
 
 export function OuterDashboardHeader({ email }: { email: string }) {

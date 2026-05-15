@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { SiteHeader } from '@/app/_components/site-header';
+import { Logo } from '@/app/_components/logo';
 
 export const metadata = {
   title: 'Wedding Suppliers & Supplies Philippines',
@@ -492,13 +493,8 @@ function SiteFooter() {
   return (
     <footer>
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-10 text-sm text-ink/55 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-        <div className="flex items-center gap-2">
-          <span
-            aria-hidden
-            className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-terracotta text-[10px] font-semibold text-cream"
-          >
-            S
-          </span>
+        <div className="flex items-center gap-2 text-ink">
+          <Logo height={24} />
           <span className="font-mono text-[11px] uppercase tracking-[0.2em]">
             Setnayan · setnayan.com
           </span>

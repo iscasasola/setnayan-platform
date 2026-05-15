@@ -16,10 +16,8 @@ const DISMISS_STORAGE_KEY = 'sn-banner-dismissed';
 
 export function AnnouncementBar() {
   const [dismissed, setDismissed] = useState(false);
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
     try {
       if (sessionStorage.getItem(DISMISS_STORAGE_KEY) === '1') {
         setDismissed(true);
@@ -29,8 +27,11 @@ export function AnnouncementBar() {
     }
   }, []);
 
-  // Avoid hydration mismatch — render nothing until mounted.
-  if (!mounted || dismissed) return null;
+  // Render the bar by default so SSR HTML matches first-paint and we don't
+  // ship CLS by popping the strip in after hydration. Visitors who have
+  // already dismissed it get a brief flash on return; that trade-off
+  // protects the much more common first-load CLS that Lighthouse measures.
+  if (dismissed) return null;
 
   return (
     <div

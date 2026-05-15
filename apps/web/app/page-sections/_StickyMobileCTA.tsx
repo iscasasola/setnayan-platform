@@ -12,7 +12,10 @@ import { ArrowRight } from 'lucide-react';
 //
 // PH is 80%+ mobile per DataReportal Digital 2024 Philippines.
 
-export function StickyMobileCTA() {
+// Default export so this client-only widget is import-able via
+// `next/dynamic({ ssr: false })`. The IntersectionObserver instance only
+// runs after hydration anyway — there's nothing to render server-side.
+export default function StickyMobileCTA() {
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
@@ -57,3 +60,7 @@ export function StickyMobileCTA() {
     </div>
   );
 }
+
+// Named re-export keeps the original `import { StickyMobileCTA } from …`
+// call sites working alongside the new default export.
+export { StickyMobileCTA };

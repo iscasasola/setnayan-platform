@@ -47,7 +47,10 @@ const VERIFICATION_STEPS: Array<{ n: string; body: string }> = [
   },
 ];
 
-export function VendorCompat() {
+// Default export so this client component is import-able via `next/dynamic`
+// (the App Router lazy-load helper) from the homepage Server Component.
+// Named export retained for any sibling page that wants direct, eager use.
+export default function VendorCompat() {
   const [active, setActive] = useState<TabId>('what-you-get');
 
   return (
@@ -176,3 +179,7 @@ export function VendorCompat() {
     </section>
   );
 }
+
+// Named re-export keeps the original `import { VendorCompat } from …`
+// call sites working alongside the new default export.
+export { VendorCompat };

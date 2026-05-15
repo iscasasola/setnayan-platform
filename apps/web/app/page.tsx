@@ -1,3 +1,4 @@
+import dynamic from 'next/dynamic';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { SiteHeader } from '@/app/_components/site-header';
@@ -8,7 +9,6 @@ import { Chaos } from '@/app/page-sections/_Chaos';
 import { TwoSides } from '@/app/page-sections/_TwoSides';
 import { MariaJuan } from '@/app/page-sections/_MariaJuan';
 import { InAppServices } from '@/app/page-sections/_InAppServices';
-import { VendorCompat } from '@/app/page-sections/_VendorCompat';
 import { ReadinessBoard } from '@/app/page-sections/_ReadinessBoard';
 import { CoverageMap } from '@/app/page-sections/_CoverageMap';
 import {
@@ -16,7 +16,24 @@ import {
   SiteFooter,
 } from '@/app/page-sections/_DualCTAFooter';
 import { AvailableEverywhere } from '@/app/page-sections/_AvailableEverywhere';
-import { StickyMobileCTA } from '@/app/page-sections/_StickyMobileCTA';
+import { DynamicStickyMobileCTA } from '@/app/page-sections/_StickyMobileCTAClient';
+
+// Section 8 (`_VendorCompat`) is the only below-the-fold section that ships
+// real client-side state — a tabbed module with `useState`. Loading its JS
+// chunk eagerly with the rest of the route bumps First Load JS for every
+// visitor even though the section sits ~6 viewport-heights down on mobile.
+// Lazy-import it with `next/dynamic({ ssr: true })` so the SSR HTML still
+// contains the section (preserving SEO + above-the-fold layout stability)
+// while its hydration JS lands in its own chunk that loads in parallel
+// with the rest of the page.
+const VendorCompat = dynamic(
+  () => import('@/app/page-sections/_VendorCompat'),
+  {
+    // Placeholder height matches the rendered section's intrinsic min so
+    // we don't introduce CLS during the brief hydration window.
+    loading: () => <div aria-hidden className="min-h-[640px]" />,
+  },
+);
 
 // Public-marketing-site homepage — iteration 0015 § Section-by-section spec
 // (locked 2026-05-15). Twelve sections in spec order:
@@ -108,10 +125,19 @@ const HOMEPAGE_JSONLD = {
 };
 
 export default async function HomePage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Resolve the viewer asynchronously and route signed-in users to the
+  // app surface. If the supabase call throws (env misconfig, network blip,
+  // outage) we fall through to the public marketing render rather than
+  // hitting the global error boundary — the homepage is the most-indexed
+  // page on the site, so it must keep serving even when auth is degraded.
+  let user: { id: string } | null = null;
+  try {
+    const supabase = await createClient();
+    const result = await supabase.auth.getUser();
+    user = result.data.user;
+  } catch {
+    user = null;
+  }
 
   if (user) {
     redirect('/dashboard');
@@ -168,8 +194,12 @@ export default async function HomePage() {
         <SiteFooter />
       </main>
 
-      {/* Cross-cutting: sticky thumb-zone CTA (mobile only) */}
-      <StickyMobileCTA />
+      {/* Cross-cutting: sticky thumb-zone CTA (mobile only).
+          Loaded via a thin client wrapper that calls `next/dynamic({
+          ssr: false })` — the widget is `lg:hidden`, so desktop visitors
+          (lighthouse + most SEO crawlers) never need its JS, and even
+          mobile users only need it after hydration. */}
+      <DynamicStickyMobileCTA />
     </>
   );
 }

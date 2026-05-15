@@ -3,6 +3,7 @@ import { HelpCircle, MessageSquare, Mail } from 'lucide-react';
 import { HELP_TOPICS } from '@/lib/help';
 import { createClient } from '@/lib/supabase/server';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { Logo } from '@/app/_components/logo';
 import { submitHelpMessage } from './actions';
 
 export const metadata = {
@@ -49,16 +50,8 @@ export default async function HelpPage({ searchParams }: Props) {
       <main className="min-h-dvh bg-cream">
       <header className="border-b border-ink/5">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <Link href="/" className="flex items-center gap-2">
-            <span
-              aria-hidden
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-terracotta font-semibold text-cream"
-            >
-              S
-            </span>
-            <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/70">
-              Setnayan · Help
-            </span>
+          <Link href="/" className="flex items-center text-ink">
+            <Logo height={32} withWordmark title="Setnayan · Help" />
           </Link>
           <nav className="flex items-center gap-2">
             <Link
@@ -255,13 +248,8 @@ export default async function HelpPage({ searchParams }: Props) {
 
       <footer className="border-t border-ink/5">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-10 text-sm text-ink/55 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2">
-            <span
-              aria-hidden
-              className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-terracotta text-[10px] font-semibold text-cream"
-            >
-              S
-            </span>
+          <div className="flex items-center gap-2 text-ink">
+            <Logo height={24} />
             <span className="font-mono text-[11px] uppercase tracking-[0.2em]">
               Setnayan · setnayan.com
             </span>

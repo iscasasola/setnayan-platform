@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { Logo } from './logo';
 
 function isVendorContext(pathname: string): boolean {
   return pathname === '/for-vendors' || pathname.startsWith('/for-vendors/');
@@ -14,16 +15,8 @@ export function SiteHeader() {
   return (
     <header className="border-b border-ink/5">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex items-center gap-2">
-          <span
-            aria-hidden
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-terracotta font-semibold text-cream"
-          >
-            S
-          </span>
-          <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/70">
-            Setnayan
-          </span>
+        <Link href="/" className="flex items-center text-ink">
+          <Logo height={32} withWordmark />
         </Link>
         <nav className="flex items-center gap-2">
           <Link

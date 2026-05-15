@@ -7,6 +7,12 @@ import {
   type VendorCategory,
   displayServiceLabel,
 } from '@/lib/vendors';
+import {
+  PUBLIC_SURFACE_VISIBILITIES,
+  isBookable,
+  parseVisibility,
+  type VendorPublicVisibility,
+} from '@/lib/vendor-visibility';
 import { fetchReviewStatsForMany, formatStarRating } from '@/lib/reviews';
 import { CategoryFilterChips } from '@/app/_components/category-filter-chips';
 import { fetchUserEvents } from '@/lib/events';
@@ -47,6 +53,7 @@ type Props = {
     city?: string;
     sort?: string;
     page?: string;
+    verified?: string;
   }>;
 };
 
@@ -60,6 +67,7 @@ type VendorCardRow = {
   services: string[];
   location_city: string | null;
   contact_email: string | null;
+  public_visibility: VendorPublicVisibility;
   created_at: string;
 };
 
@@ -71,6 +79,7 @@ function parseFilters(
   city: string;
   sort: SortKey;
   page: number;
+  verifiedOnly: boolean;
 } {
   const q = (raw.q ?? '').trim();
   const sort = (SORT_KEYS as readonly string[]).includes(raw.sort ?? '')
@@ -82,7 +91,10 @@ function parseFilters(
   const city = (raw.city ?? '').trim();
   const pageRaw = Number(raw.page ?? '1');
   const page = Number.isFinite(pageRaw) && pageRaw > 0 ? Math.floor(pageRaw) : 1;
-  return { q, category, city, sort, page };
+  // Verified-only toggle (locked 2026-05-15) — OFF by default; ON filters
+  // marketplace to vendors with public_visibility = 'verified' only.
+  const verifiedOnly = raw.verified === '1' || raw.verified === 'on';
+  return { q, category, city, sort, page, verifiedOnly };
 }
 
 export default async function VendorsMarketplacePage({ searchParams }: Props) {
@@ -90,14 +102,21 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   const filters = parseFilters(raw);
   const admin = createAdminClient();
 
-  // Build the base query. We always require is_published = TRUE.
+  // Build the base query. Visibility filter is the new authoritative gate
+  // (Decision 6 / 2026-05-15): default shows both 'verified' AND 'coming_soon';
+  // the "Verified only" toggle restricts to verified-bookable vendors. The
+  // legacy `is_published` boolean is no longer queried here — public_visibility
+  // is the source of truth for marketplace surfacing.
+  const allowedVisibilities = filters.verifiedOnly
+    ? (['verified'] as const)
+    : PUBLIC_SURFACE_VISIBILITIES;
   let query = admin
     .from('vendor_profiles')
     .select(
-      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,contact_email,created_at',
+      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,contact_email,public_visibility,created_at',
       { count: 'exact' },
     )
-    .eq('is_published', true);
+    .in('public_visibility', allowedVisibilities as readonly string[]);
 
   if (filters.q.length > 0) {
     query = query.ilike('business_name', `%${filters.q}%`);
@@ -231,7 +250,12 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         <div className="mt-6">
           <CategoryFilterChips
             currentCategory={filters.category}
-            context={{ q: filters.q, city: filters.city, sort: filters.sort }}
+            context={{
+              q: filters.q,
+              city: filters.city,
+              sort: filters.sort,
+              verifiedOnly: filters.verifiedOnly,
+            }}
           />
         </div>
 
@@ -277,6 +301,7 @@ function buildHref(
     city: string;
     sort: SortKey;
     page: number;
+    verifiedOnly: boolean;
   },
   patch: Partial<{
     q: string;
@@ -284,6 +309,7 @@ function buildHref(
     city: string;
     sort: SortKey;
     page: number;
+    verifiedOnly: boolean;
   }>,
 ): string {
   const merged = { ...filters, ...patch };
@@ -293,6 +319,7 @@ function buildHref(
   if (merged.city) params.set('city', merged.city);
   if (merged.sort && merged.sort !== 'most_reviews') params.set('sort', merged.sort);
   if (merged.page && merged.page > 1) params.set('page', String(merged.page));
+  if (merged.verifiedOnly) params.set('verified', '1');
   const qs = params.toString();
   return qs.length > 0 ? `/vendors?${qs}` : '/vendors';
 }
@@ -306,6 +333,7 @@ function FilterBar({
     city: string;
     sort: SortKey;
     page: number;
+    verifiedOnly: boolean;
   };
 }) {
   return (
@@ -365,11 +393,31 @@ function FilterBar({
         </select>
       </label>
 
+      <label className="flex items-center gap-2 text-sm text-ink/75 lg:col-span-4">
+        <input
+          type="checkbox"
+          name="verified"
+          value="1"
+          defaultChecked={filters.verifiedOnly}
+          className="h-4 w-4 rounded border-ink/25 text-terracotta focus:ring-terracotta/40"
+        />
+        <span>
+          <span className="font-medium">Verified only</span>
+          <span className="ml-2 text-ink/55">
+            (hide vendors who haven&rsquo;t completed verification)
+          </span>
+        </span>
+      </label>
+
       <div className="flex items-end gap-2 lg:col-span-4">
         <button type="submit" className="button-primary h-11 px-5">
           Apply filters
         </button>
-        {filters.q || filters.category || filters.city || filters.sort !== 'most_reviews' ? (
+        {filters.q ||
+        filters.category ||
+        filters.city ||
+        filters.sort !== 'most_reviews' ||
+        filters.verifiedOnly ? (
           <Link href="/vendors" className="button-secondary h-11 px-5">
             Clear
           </Link>
@@ -388,9 +436,10 @@ function EmptyState({
     city: string;
     sort: SortKey;
     page: number;
+    verifiedOnly: boolean;
   };
 }) {
-  const hasFilter = !!(filters.q || filters.category || filters.city);
+  const hasFilter = !!(filters.q || filters.category || filters.city || filters.verifiedOnly);
   return (
     <div className="mt-8 rounded-2xl border border-dashed border-ink/20 bg-cream p-10 text-center">
       <p className="text-base font-medium text-ink/75">
@@ -430,15 +479,34 @@ function VendorMarketCard({
   const primaryService = vendor.services[0] ?? null;
   const slug = vendor.business_slug ?? null;
   const href = slug ? `/v/${slug}` : `#`;
+  const visibility = parseVisibility(vendor.public_visibility);
+  const bookable = isBookable(visibility);
+  // Coming-soon cards render with a muted appearance + badge, no booking
+  // CTA (FollowGate hidden), read-only preview. Per 0006 § DIY-mode filter
+  // popup + 0022 § 2.1c.
+  const isComingSoon = visibility === 'coming_soon';
 
   return (
-    <article className="flex h-full flex-col gap-3 rounded-2xl border border-ink/10 bg-cream p-4 transition-shadow hover:shadow-md">
+    <article
+      className={`flex h-full flex-col gap-3 rounded-2xl border bg-cream p-4 transition-shadow hover:shadow-md ${
+        isComingSoon
+          ? 'border-dashed border-ink/20 opacity-90'
+          : 'border-ink/10'
+      }`}
+    >
       <header className="flex items-center gap-3">
         <Logo logoUrl={vendor.logo_url} name={vendor.business_name} />
-        <div className="min-w-0">
-          <h2 className="truncate text-base font-semibold text-ink">
-            {vendor.business_name || 'Unnamed vendor'}
-          </h2>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h2 className="truncate text-base font-semibold text-ink">
+              {vendor.business_name || 'Unnamed vendor'}
+            </h2>
+            {isComingSoon ? (
+              <span className="shrink-0 rounded-full bg-ink/8 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
+                Coming soon
+              </span>
+            ) : null}
+          </div>
           {primaryService ? (
             <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
               {displayServiceLabel(primaryService)}
@@ -475,16 +543,22 @@ function VendorMarketCard({
       </ul>
 
       <div className="mt-auto space-y-2 pt-2">
-        <FollowGate
-          vendorProfileId={vendor.vendor_profile_id}
-          vendorName={vendor.business_name}
-          vendorEmail={vendor.contact_email}
-          isAuthenticated={isAuthenticated}
-          initialFollowing={isFollowing}
-          eventId={eventId}
-          revalidatePath="/vendors"
-          variant="card"
-        />
+        {bookable ? (
+          <FollowGate
+            vendorProfileId={vendor.vendor_profile_id}
+            vendorName={vendor.business_name}
+            vendorEmail={vendor.contact_email}
+            isAuthenticated={isAuthenticated}
+            initialFollowing={isFollowing}
+            eventId={eventId}
+            revalidatePath="/vendors"
+            variant="card"
+          />
+        ) : (
+          <p className="text-xs text-ink/55">
+            Not yet bookable — verification in progress.
+          </p>
+        )}
         {slug ? (
           <Link
             href={href}
@@ -533,6 +607,7 @@ function Pagination({
     city: string;
     sort: SortKey;
     page: number;
+    verifiedOnly: boolean;
   };
   page: number;
   totalPages: number;

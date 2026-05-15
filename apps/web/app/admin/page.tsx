@@ -1,5 +1,13 @@
 import Link from 'next/link';
-import { Users, Calendar, Briefcase, MessageSquare, ArrowRight } from 'lucide-react';
+import {
+  Users,
+  Calendar,
+  Briefcase,
+  MessageSquare,
+  ArrowRight,
+  ShieldCheck,
+  LayoutGrid,
+} from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export const metadata = { title: 'Overview · Admin' };
@@ -49,8 +57,9 @@ export default async function AdminOverview() {
         </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Overview</h1>
         <p className="text-base text-ink/65">
-          Three live surfaces in V1: Users, Events, Vendors. The two-admin approval queue,
-          audit log, system health, and settings ship in follow-ons.
+          Eight admin surfaces per 0023 § 1: Overview · Users · Events · Vendors ·
+          Verification · Payments · Settings · Website editor. The two-admin
+          approval queue + audit log shipping in a follow-on revision.
         </p>
       </header>
 
@@ -69,6 +78,18 @@ export default async function AdminOverview() {
         <Tile href="/admin/users" Icon={Users} title="Users" body="Search, filter, flag team-pool members." />
         <Tile href="/admin/events" Icon={Calendar} title="Events" body="All events in the system + couple-side stats." />
         <Tile href="/admin/vendors" Icon={Briefcase} title="Vendors" body="Every vendor_profile + published status." />
+        <Tile
+          href="/admin/verify"
+          Icon={ShieldCheck}
+          title="Verification queue"
+          body="Approve registered vendors → flip Coming soon to Verified."
+        />
+        <Tile
+          href="/admin/website"
+          Icon={LayoutGrid}
+          title="Website editor"
+          body="Toggle + reorder marketing-site widgets per page."
+        />
         <Tile
           href="/admin"
           Icon={MessageSquare}

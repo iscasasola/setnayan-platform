@@ -1,9 +1,8 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { GuidedTour } from '@/app/_components/guided-tour';
-import { Logo } from '@/app/_components/logo';
 import { completeTour } from '@/lib/tour-actions';
+import { OuterDashboardHeader } from './_components/outer-dashboard-header';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -33,30 +32,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const theme = profile?.theme_preference ?? 'setnayan_default';
 
-  // Top-level dashboard chrome (outside an event scope) — just the brand,
-  // avatar, and sign-out. The inside-event layout layers more on top.
+  // Top-level dashboard chrome. The brand-logo header renders only on
+  // non-event-scoped routes (/dashboard root, /dashboard/profile, etc.).
+  // On /dashboard/[eventId]/* the EventSwitcher in that nested layout is
+  // the single source of chrome per the 2026-05-14 single-strip lock.
   return (
     <div data-theme={theme} className="flex min-h-dvh flex-col bg-cream">
-      <header className="border-b border-ink/10 bg-cream">
-        <div className="mx-auto flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
-          <Link href="/dashboard" className="flex items-center text-ink">
-            <Logo height={32} withWordmark />
-          </Link>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/dashboard/profile"
-              className="hidden text-sm text-ink/70 underline-offset-4 hover:underline sm:inline"
-            >
-              {user.email}
-            </Link>
-            <form action="/auth/sign-out" method="post">
-              <button className="button-secondary h-9 px-3 text-xs" type="submit">
-                Sign out
-              </button>
-            </form>
-          </div>
-        </div>
-      </header>
+      <OuterDashboardHeader email={user.email ?? ''} />
       <main className="flex-1">{children}</main>
       {!profile?.tour_completed_at ? (
         <GuidedTour role="couple" completeAction={completeTour} />

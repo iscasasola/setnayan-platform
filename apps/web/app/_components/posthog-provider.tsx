@@ -15,12 +15,21 @@
 // anonymous traffic is bucketed, but only authed users burn a
 // monthly-tracked-user slot. The owner can flip this to `'always'`
 // once the team needs anon segmentation.
+//
+// Bundle note: `posthog-js` is ~60 kB gzipped on its own. We dynamic-
+// import it lazily on first useEffect run so it lands in its own
+// async chunk and only ships after the page is interactive — the
+// PostHog provider itself stays tiny in the shared layout chunk and
+// the SDK is fetched in parallel with (not blocking) main-thread work.
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
-import posthog from 'posthog-js';
 
 import { createClient } from '@/lib/supabase/client';
+
+// Type-only import — erased at compile time, so no runtime cost.
+import type posthogType from 'posthog-js';
+type PostHog = typeof posthogType;
 
 type PostHogProviderProps = {
   children: React.ReactNode;
@@ -37,23 +46,53 @@ function isPostHogConfigured(): boolean {
   return Boolean(process.env.NEXT_PUBLIC_POSTHOG_KEY);
 }
 
+// Module-level holder for the lazy-loaded SDK. Shared across all
+// provider instances so we only fetch the chunk once per page load.
+let posthogModule: PostHog | null = null;
+let posthogPromise: Promise<PostHog | null> | null = null;
+
+function loadPostHog(): Promise<PostHog | null> {
+  if (posthogModule) return Promise.resolve(posthogModule);
+  if (!isPostHogConfigured()) return Promise.resolve(null);
+  if (posthogPromise) return posthogPromise;
+  posthogPromise = import('posthog-js')
+    .then((mod) => {
+      // The default export is the singleton.
+      posthogModule = (mod.default ?? mod) as PostHog;
+      return posthogModule;
+    })
+    .catch(() => null);
+  return posthogPromise;
+}
+
+function isLoaded(client: PostHog | null): boolean {
+  if (!client) return false;
+  return Boolean((client as unknown as { __loaded?: boolean }).__loaded);
+}
+
 export function PostHogProvider({ children, userId }: PostHogProviderProps) {
   // Init once on mount. The library guards against double-init internally,
-  // but the explicit `posthog.__loaded` check keeps the React 19 strict
+  // but the explicit `__loaded` check keeps the React 19 strict
   // double-invoke clean too.
   useEffect(() => {
     if (!isPostHogConfigured()) return;
-    const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
-    if (!key) return;
-    const loaded = (posthog as unknown as { __loaded?: boolean }).__loaded;
-    if (loaded) return;
-    posthog.init(key, {
-      api_host:
-        process.env.NEXT_PUBLIC_POSTHOG_HOST ?? 'https://us.i.posthog.com',
-      person_profiles: 'identified_only',
-      capture_pageview: false,
-      capture_pageleave: true,
+    let cancelled = false;
+    void loadPostHog().then((client) => {
+      if (cancelled || !client) return;
+      const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
+      if (!key) return;
+      if (isLoaded(client)) return;
+      client.init(key, {
+        api_host:
+          process.env.NEXT_PUBLIC_POSTHOG_HOST ?? 'https://us.i.posthog.com',
+        person_profiles: 'identified_only',
+        capture_pageview: false,
+        capture_pageleave: true,
+      });
     });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Resolve the Supabase user_id ourselves when the caller didn't pass it.
@@ -83,17 +122,29 @@ export function PostHogProvider({ children, userId }: PostHogProviderProps) {
     };
   }, [userId]);
 
-  // Identify/reset whenever the resolved user_id changes.
+  // Identify/reset whenever the resolved user_id changes. Wait for the
+  // SDK chunk to land before issuing the call — if it hasn't yet, the
+  // init useEffect above will eventually fire and we'll re-run when
+  // resolvedUserId next changes.
+  const lastIdentified = useRef<string | null | undefined>(undefined);
   useEffect(() => {
     if (!isPostHogConfigured()) return;
     if (resolvedUserId === undefined) return; // still loading
-    const loaded = (posthog as unknown as { __loaded?: boolean }).__loaded;
-    if (!loaded) return;
-    if (resolvedUserId) {
-      posthog.identify(resolvedUserId);
-    } else {
-      posthog.reset();
-    }
+    if (lastIdentified.current === resolvedUserId) return;
+    let cancelled = false;
+    void loadPostHog().then((client) => {
+      if (cancelled || !client) return;
+      if (!isLoaded(client)) return;
+      lastIdentified.current = resolvedUserId;
+      if (resolvedUserId) {
+        client.identify(resolvedUserId);
+      } else {
+        client.reset();
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [resolvedUserId]);
 
   return (
@@ -123,14 +174,20 @@ function PostHogPageTracker() {
   useEffect(() => {
     if (!isPostHogConfigured()) return;
     if (!pathname) return;
-    const loaded = (posthog as unknown as { __loaded?: boolean }).__loaded;
-    if (!loaded) return;
-    const search = searchParams?.toString();
-    const url =
-      typeof window !== 'undefined'
-        ? window.location.origin + pathname + (search ? `?${search}` : '')
-        : pathname + (search ? `?${search}` : '');
-    posthog.capture('$pageview', { $current_url: url });
+    let cancelled = false;
+    void loadPostHog().then((client) => {
+      if (cancelled || !client) return;
+      if (!isLoaded(client)) return;
+      const search = searchParams?.toString();
+      const url =
+        typeof window !== 'undefined'
+          ? window.location.origin + pathname + (search ? `?${search}` : '')
+          : pathname + (search ? `?${search}` : '');
+      client.capture('$pageview', { $current_url: url });
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [pathname, searchParams]);
 
   return null;

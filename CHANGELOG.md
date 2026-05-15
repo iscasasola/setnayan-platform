@@ -4,6 +4,42 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-15 · docs: PR auto-merge is the standing default
+
+**Commit:** to be filled after commit.
+
+**Context:** Owner asked 2026-05-15 to "always merge once ready to merge" — no manual click between PR creation and production ship. Repo-level `allow_auto_merge` was flipped on the same day; this commit makes the workflow rule visible to every future Claude Code session by writing it into `CLAUDE.md` directly.
+
+**What changed:**
+- `CLAUDE.md` — new "PR workflow — auto-merge is the default" section. Documents `gh pr merge <PR#> --auto --merge` as the immediate follow-up to `gh pr create`, locks the merge method to `--merge` (matching existing history), and clarifies that `build (windows-latest)` is non-blocking so auto-merge can fire while it's still running.
+
+**Verify:** Doc-only change. No code touched.
+
+**SPEC IMPACT:** None. This is a workflow rule for the implementation repo, not a product or spec decision.
+
+---
+
+## 2026-05-15 · feat(0000,0015): replace placeholder S badge with new Setnayan logo SVG
+
+**Commit:** `5c479ea` (merged via [#61](https://github.com/iscasasola/setnayan-platform/pull/61) as `ebdf686`).
+
+**Context:** Owner-provided brand mark (the spark-and-tail glyph) finally replaces the placeholder "S in a terracotta circle" that had been shipping since iteration 0000. PWA + Tauri icons now survive a circular mask without clipping.
+
+**What changed:**
+- `apps/web/app/_components/logo.tsx` — new server `<Logo />` component. Inlines the dark path data, renders via `currentColor`, exposes `height`/`withWordmark`/`title` props. Two files in `apps/web/app/v/[slug]/page.tsx` and `apps/web/app/vendors/page.tsx` import it as `BrandLogo` to avoid colliding with their local vendor-logo helper.
+- `apps/web/public/brand/setnayan-logo.svg` + `setnayan-mark.svg` — raw provided artwork + a `currentColor` extract for inline use.
+- `apps/web/public/icon-192.svg`, `apps/web/public/icon-512.svg`, `src-tauri/icons/icon.svg` — regenerated on a `1664x1664` square canvas with the tall 808x1298 mark centered + padded. Mark uses ~77% of the inscribed circle's radius so Android adaptive icons and iOS rounded-corner masks don't crop the emblem or the tail.
+- `src-tauri/shell/index.html` — redirect splash now renders the inline SVG mark instead of the placeholder `S` div.
+- Marketing chrome + footers: `apps/web/app/_components/site-header.tsx`, `page.tsx` footer, `for-vendors/page.tsx` (footer), `vendors/page.tsx`, `download/page.tsx`, `help/page.tsx` (header + footer), `privacy/page.tsx`, `terms/page.tsx`. Login + signup pages now show the mark above the existing terracotta kicker.
+- Dashboards: `dashboard/layout.tsx`, `vendor-dashboard/layout.tsx` ("Setnayan · Vendor"), `admin/layout.tsx` ("Setnayan · Admin").
+- Public pages: `[slug]/page.tsx` invitation header, `v/[slug]/page.tsx` vendor profile header.
+
+**Verify:** `pnpm typecheck` ✅ (both `@setnayan/shared` and `@setnayan/web`). Vercel preview + production CI checks green on [#61](https://github.com/iscasasola/setnayan-platform/pull/61).
+
+**SPEC IMPACT:** None — asset-level rebrand, no product/scope change. Tauri raster icons (`.png`/`.ico`/`.icns`) regenerate automatically from the new SVG via `pnpm tauri:icons` (part of `tauri:build`); no manual export step needed.
+
+---
+
 ## 2026-05-14 · feat(0025+0028): EN/TL locale toggle + 2 more email templates
 
 **Commit:** to be filled after commit.

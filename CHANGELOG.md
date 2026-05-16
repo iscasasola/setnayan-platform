@@ -4,6 +4,63 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-16 · feat(0011): YouTube OAuth wiring + Panood setup rewrite (V1 scope expansion)
+
+**Commit:** to be filled after commit.
+
+**Context:** Iteration 0011 Panood is V1.5+ deferred in the spec corpus, but per the 2026-05-16 4th decision-log row the owner authorized OAuth wiring on the V1.5+ scaffold setup pages so couples can connect their BYO accounts at setup time. This PR is the YouTube slice of that decision; sibling Agent B (Papic / Drive, iteration 0012) and Agent C (Patiktok / TikTok, iteration 0017 — already shipped via PR #92) close the rest. The PR also introduces the shared `oauth_grants` foundation that all three providers will eventually share (TikTok still uses the older `patiktok_oauth_grants` for V1; consolidation is a follow-up).
+
+**What this rewrites:** the Panood setup page at `apps/web/app/dashboard/[eventId]/add-ons/panood/page.tsx` reflected the composite-era model (Cloudflare Stream Live + Setnayan-owned master YouTube channel). Per the 2026-05-16 BYO-YouTube pricing pivot Panood now broadcasts on each couple's own channel. This rewrite adds a Step 1 "Connect your YouTube channel" panel and reframes the existing sections around BYO ownership while preserving the existing SKU display + visual language.
+
+**Why it's safe to ship today:** every Connect surface is wrapped in a graceful-fallback check — if `YOUTUBE_OAUTH_CLIENT_ID` is unset (the expected state until Google Cloud verified-app review completes, 1-4wk window) the page renders a disabled "coming soon — admin setup pending" placeholder and the start route returns 503 with a structured error. Couples don't see broken buttons; the V1 launch isn't blocked on the owner-side OAuth timeline.
+
+**New migration `supabase/migrations/20260516260000_oauth_grants_per_couple.sql`** (NOT the originally-assigned 230000 slot — that slot was already taken by the iteration 0017 Patiktok migration that landed earlier today; bumped to 260000 to keep the lexical chain consistent on this date):
+- `public.oauth_grants(grant_id, event_id → events, provider IN ('youtube','drive','tiktok'), scopes TEXT[], refresh_token, access_token, access_token_expires_at, external_account_id, external_account_display, granted_at, revoked_at, last_refreshed_at, metadata JSONB)` with `UNIQUE(event_id, provider)` and three indexes (event+provider, active partial, expiry).
+- RLS: `event_member_reads_oauth_grants` for couples (uses `public.current_event_ids()`), `admin_manages_oauth_grants` for admin. Writes go through service-role routes only — no couple-write policy.
+- `public.oauth_state(state_token PK, event_id, provider, initiated_by, created_at)` CSRF nonce table with admin-only read RLS.
+- `TODO(security):` annotated in the migration body — refresh_token + access_token are TEXT for V1 (Supabase Postgres at-rest encryption only); a pgcrypto column-level encryption wrapper is a follow-up once a project-wide helper lands.
+
+**New helper module `apps/web/lib/panood-youtube.ts`:**
+- `getYoutubeOAuthConfig()` — env-driven config status with `ready: false, missing[]` branch for graceful fallback.
+- `buildYoutubeAuthorizeUrl()` — Google OAuth consent URL with `access_type=offline` + `prompt=consent` + scopes `youtube` + `youtube.upload`.
+- `exchangeYoutubeCodeForToken()`, `refreshYoutubeAccessToken()`, `revokeYoutubeToken()` — Google token endpoint wrappers.
+- `fetchYoutubeChannel()` — channels API call for the display label (best-effort, failure doesn't block grant persistence).
+- `generateYoutubeStateToken()` — 24-byte hex CSRF nonce.
+
+**New OAuth routes (all guard env-missing → 503 / coming-soon redirect):**
+- `apps/web/app/api/oauth/youtube/start/route.ts` — couple-membership check, inserts oauth_state row, 302 to Google.
+- `apps/web/app/api/oauth/youtube/callback/route.ts` — validates state, exchanges code, fetches channel info, upserts oauth_grants (onConflict: event_id,provider so a re-consent replaces in place), redirects to `/dashboard/[eventId]/add-ons/panood?youtube_connected=1` or `?youtube_error=<reason>`.
+- `apps/web/app/api/oauth/youtube/disconnect/route.ts` — POSTs Google's revoke endpoint best-effort, flips `revoked_at` locally.
+
+**New cron worker stub `apps/web/app/api/cron/oauth-refresh/route.ts`:**
+- Auth via `x-cron-secret` header (constant-time compare against `OAUTH_REFRESH_CRON_SECRET` env).
+- Walks `oauth_grants` rows with `access_token_expires_at < now() + 24h AND revoked_at IS NULL`, refreshes each YouTube grant, updates the row in place.
+- `TODO(0011):` scheduling itself is owner-side (Cloudflare Cron Trigger or Supabase pg_cron). Recommended cadence: hourly during PHT 06:00-23:00.
+- `TODO(0012, Agent B):` Drive branch left as `provider != 'youtube' → skipped`; will be filled when Agent B lands.
+
+**Panood setup page rewrite:** five sections — Step 1 connect (NEW), Step 2 SKU summary (preserved from scaffold), Step 3 broadcaster + cameras (preserved), Step 4 add-on packs (preserved), Step 5 viewer info (rewording: "Setnayan's master channel" → "your own channel"). Status banners surface `?youtube_connected=1` / `?youtube_disconnected=1` / `?youtube_error=<reason>` from the query string. Replaced the `Youtube` lucide icon (not in the pinned lucide-react@1.14.0) with `Tv` to match the existing icon vocabulary.
+
+**Env vars added to `.env.example`:**
+- `YOUTUBE_OAUTH_CLIENT_ID`, `YOUTUBE_OAUTH_CLIENT_SECRET`, `YOUTUBE_OAUTH_REDIRECT_URI` (Google Cloud project + verified-app review owner action).
+- `OAUTH_REFRESH_CRON_SECRET` (shared with the future Drive refresh sweep).
+
+**Tests:** no test runner exists in `apps/web` today (`package.json` exposes lint + typecheck only). The integration cases called out in the brief (`/start` 503-when-unset → 302-when-set; `/callback` state-mismatch rejection; setup page coming-soon vs Connect render) are noted as `TODO(0011): integration tests` at the bottom of the Panood page so the next iteration that lands a test runner picks them up automatically.
+
+**Files:**
+- `supabase/migrations/20260516260000_oauth_grants_per_couple.sql` — NEW.
+- `apps/web/lib/panood-youtube.ts` — NEW.
+- `apps/web/app/api/oauth/youtube/{start,callback,disconnect}/route.ts` — NEW.
+- `apps/web/app/api/cron/oauth-refresh/route.ts` — NEW.
+- `apps/web/app/dashboard/[eventId]/add-ons/panood/page.tsx` — REWRITE (Step 1 added, Step 5 reworded; rest preserved).
+- `.env.example` — appended Iteration 0011 section.
+
+**SPEC IMPACT:** **YES** — three pending Cowork updates queued in `COWORK_INBOX.md`:
+1. `~/Documents/Claude/Projects/Setnayan/App_Build_Status.md` — flip iteration 0011 row from "🟡 V1.5+" to "⚠️ Partial — OAuth setup flow shipped V1; broadcaster surface still V1.5+".
+2. `~/Documents/Claude/Projects/Setnayan/CLAUDE.md` — append a decision-log row dated 2026-05-16 capturing the V1 scope expansion + the graceful-fallback pattern + the verified-app-review dependency.
+3. `~/Documents/Claude/Projects/Setnayan/API_Integration_Checklist.md` § 5.3 — flip the YouTube Data API per-couple OAuth row from "V1.5+ activation" to "V1 wiring shipped; owner-side Google Cloud setup is the remaining blocker".
+
+---
+
 ## 2026-05-16 · feat(0022): Boosted Ads ladder + Sponsored Boost Quarterly/Annual tier
 
 **Commit:** to be filled after commit.

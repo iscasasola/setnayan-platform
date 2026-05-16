@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import {
+  AlertCircle,
   ArrowLeft,
   Tv,
   Video,
@@ -12,33 +13,37 @@ import {
   Lock,
   Star,
   Radio,
+  ExternalLink,
+  Unlink2,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { formatPhp } from '@/lib/orders';
+import { getYoutubeOAuthConfig } from '@/lib/panood-youtube';
 import { CopyLink } from './_components/copy-link';
 
 export const metadata = { title: 'Panood · Setnayan' };
 
-// Iteration 0011 — Panood scaffold-level launch (V1.5+ unlock 2026-05-16).
+// Iteration 0011 — Panood couple-facing setup + broadcaster admin surface.
 //
-// What this page is: the couple-facing setup + broadcaster admin surface for
-// Panood. It replaces the IterationPlaceholder shim under the `panood` key.
+// Rewritten 2026-05-16 per the V1 scope expansion that wires real OAuth on
+// the V1.5+ scaffold setup pages (see CLAUDE.md decision log row 2026-05-16
+// "OAuth wiring for V1.5+ scaffold setup pages shipped early"). The original
+// scaffold (PR #86) framed the broadcast against a Cloudflare Stream Live
+// SFU + Setnayan-owned master YouTube channel. The 2026-05-16 BYO-YouTube
+// pricing pivot moved couples onto their own YouTube channel via OAuth —
+// this rewrite swaps Section 1 from "what you've unlocked" to "connect your
+// YouTube channel" and surfaces a coming-soon placeholder when the
+// owner-side Google Cloud setup isn't ready yet (graceful-fallback rule).
 //
 // What this page is NOT: a real broadcaster. Every integration seam — SFU
 // ingest, RTMP relay, AI render pipeline, projector cast, camera-operator
-// handshake — is stubbed with mock data and a `// TODO(0011):` marker so the
-// real wiring drops into clear seams in a follow-up iteration. Vendor-
-// infrastructure procurement (Cloudflare Stream Live entitlement + YouTube
-// master-channel provisioning) is the precondition for that follow-up.
-//
-// Prices below are sourced from the 2026-05-09 decision log (the
-// composite-era SKU lock that is still the price floor surfaced to couples
-// in V1.5+ today). The newer 2026-05-16 BYO-YouTube pivot in the spec is
-// pricing-only and does NOT change this scaffold surface; it changes the
-// SKU codes the orders system writes, which is a separate concern.
+// handshake — is still stubbed with mock data and a `// TODO(0011):`
+// marker so the real wiring drops into clear seams in follow-up iterations.
 
 // V1.5+ price floors — see CLAUDE.md decision log row 2026-05-09 (apparatus
-// rule) for the source. Do NOT invent new prices; if the spec moves, this
+// rule). The 2026-05-16 BYO-YouTube pivot is pricing-only and does NOT
+// change these floor numbers; SKU codes flip in the orders system (separate
+// concern from this UI). Do NOT invent new prices; if the spec moves, this
 // constant moves with it. All values are PHP whole pesos.
 const PANOOD_BASE_PHP = 2500;
 const CAMERA_ADDON_PHP = 1000;
@@ -61,9 +66,9 @@ type PanoodSetup = {
   customMonogramOwned: boolean;
   broadcastStyleOwned: boolean;
   aiEditedHighlightCount: number; // multi-purchase
-  // Surface-only state — once the broadcaster session goes live we record
-  // the YouTube watch URL on the event row; null while the broadcast is
-  // staged but not yet running.
+  // The live watch URL is written here once the broadcaster session goes
+  // live; null while the broadcast is staged but not yet running. With the
+  // BYO-YouTube pivot, this URL points at the couple's own channel.
   youtubeWatchUrl: string | null;
 };
 
@@ -77,15 +82,36 @@ function mockPanoodSetup(): PanoodSetup {
     aiEditedHighlightCount: 0,
     // Mock YouTube watch URL — appears once the setup is "complete". The
     // real value lands here from the YouTube Data API after broadcast
-    // creation (TODO(0011): wire that call).
+    // creation against the couple's connected channel.
     youtubeWatchUrl: null,
   };
 }
 
-type Props = { params: Promise<{ eventId: string }> };
+type YoutubeGrant = {
+  grant_id: string;
+  external_account_id: string | null;
+  external_account_display: string | null;
+  granted_at: string;
+  metadata: { thumbnail_url?: string } | null;
+};
 
-export default async function PanoodSetupPage({ params }: Props) {
+type Props = {
+  params: Promise<{ eventId: string }>;
+  searchParams: Promise<{
+    youtube_connected?: string;
+    youtube_disconnected?: string;
+    youtube_error?: string;
+  }>;
+};
+
+export default async function PanoodSetupPage({ params, searchParams }: Props) {
   const { eventId } = await params;
+  const {
+    youtube_connected: youtubeConnected,
+    youtube_disconnected: youtubeDisconnected,
+    youtube_error: youtubeError,
+  } = await searchParams;
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -99,13 +125,31 @@ export default async function PanoodSetupPage({ params }: Props) {
     .maybeSingle();
   if (!event) notFound();
 
+  // --- OAuth grant lookup ---
+  // RLS scopes oauth_grants by event_id IN current_event_ids(), so the
+  // regular anon client is fine here — no service role needed for the read.
+  const { data: grantRaw } = await supabase
+    .from('oauth_grants')
+    .select(
+      'grant_id, external_account_id, external_account_display, granted_at, metadata',
+    )
+    .eq('event_id', eventId)
+    .eq('provider', 'youtube')
+    .is('revoked_at', null)
+    .maybeSingle();
+  const youtubeGrant = (grantRaw ?? null) as YoutubeGrant | null;
+
+  // --- Graceful-fallback flag ---
+  // When YOUTUBE_OAUTH_CLIENT_ID is unset the Connect CTA renders as a
+  // disabled "coming soon" placeholder. This lets the page ship safely
+  // before the owner finishes Google Cloud verified-app review (1-4wk).
+  const oauthConfig = getYoutubeOAuthConfig();
+  const oauthReady = oauthConfig.ready;
+
   const setup = mockPanoodSetup();
 
   const totalCameras = 3 + setup.extraCameras;
   const totalHours = 3 + setup.extraHours;
-  // Mock consumption — a freshly-purchased event hasn't used any hours yet.
-  // TODO(0011): once broadcasts persist, read elapsed broadcast time from
-  // the broadcast session ledger.
   const hoursConsumed = 0;
   const hoursRemaining = totalHours - hoursConsumed;
 
@@ -130,19 +174,63 @@ export default async function PanoodSetupPage({ params }: Props) {
 
       <header className="space-y-2">
         <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          Panood · live stream
+          Panood · live broadcast
         </p>
         <h1 className="flex items-center gap-3 text-3xl font-semibold tracking-tight sm:text-4xl">
           <Tv aria-hidden className="h-7 w-7 text-terracotta" strokeWidth={1.75} />
           Broadcast your wedding live
         </h1>
         <p className="max-w-prose text-base text-ink/65">
-          Set up the broadcaster, send a setup link to each camera operator, and we&rsquo;ll
-          relay the composited feed to YouTube so family abroad can watch in real time.
-          Highlight markers, projector cast, and YouTube auto-archive are included in the
-          base SKU.
+          Connect your YouTube channel, set up the broadcaster, send a setup link to each
+          camera operator, and we&rsquo;ll relay the composited feed to your own channel
+          so family abroad can watch in real time. Highlight markers, projector cast, and
+          auto-archive are included in the base SKU.
         </p>
       </header>
+
+      {youtubeConnected ? (
+        <p
+          role="status"
+          className="inline-flex items-center gap-2 rounded-2xl border border-emerald-300/70 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+        >
+          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          YouTube connected
+          {youtubeGrant?.external_account_display
+            ? ` — ${youtubeGrant.external_account_display}`
+            : ''}
+          . Your broadcast will go live on this channel.
+        </p>
+      ) : null}
+
+      {youtubeDisconnected ? (
+        <p
+          role="status"
+          className="inline-flex items-center gap-2 rounded-2xl border border-ink/15 bg-cream px-4 py-3 text-sm text-ink/75"
+        >
+          <Unlink2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          YouTube disconnected. Reconnect any time to re-enable the broadcast.
+        </p>
+      ) : null}
+
+      {youtubeError ? (
+        <p
+          role="alert"
+          className="inline-flex items-start gap-2 rounded-2xl border border-rose-300/70 bg-rose-50 px-4 py-3 text-sm text-rose-900"
+        >
+          <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
+          <span>
+            YouTube connection failed (
+            <span className="font-mono text-xs">{youtubeError}</span>
+            ). Try again, or contact support if this persists.
+          </span>
+        </p>
+      ) : null}
+
+      <YoutubeConnect
+        eventId={eventId}
+        oauthReady={oauthReady}
+        youtubeGrant={youtubeGrant}
+      />
 
       <SetupStatus
         eventId={eventId}
@@ -162,13 +250,179 @@ export default async function PanoodSetupPage({ params }: Props) {
 
       <StyleAndAddOns setup={setup} />
 
-      <YouTubeDelivery youtubeWatchUrl={setup.youtubeWatchUrl} />
+      <YouTubeDelivery
+        youtubeWatchUrl={setup.youtubeWatchUrl}
+        connected={!!youtubeGrant}
+      />
     </section>
   );
 }
 
 // -----------------------------------------------------------------------------
-// Section 1 — Setup status
+// Section 1 — Connect YouTube
+// -----------------------------------------------------------------------------
+// The OAuth entry point. Three states:
+//   1. oauthReady=false → "coming soon — admin setup pending" placeholder.
+//   2. oauthReady=true + no grant → "Connect" CTA pointing at /api/oauth/youtube/start.
+//   3. oauthReady=true + grant → "Connected to <channel>" + disconnect form.
+
+function YoutubeConnect({
+  eventId,
+  oauthReady,
+  youtubeGrant,
+}: {
+  eventId: string;
+  oauthReady: boolean;
+  youtubeGrant: YoutubeGrant | null;
+}) {
+  return (
+    <section
+      aria-labelledby="youtube-connect-heading"
+      className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6"
+    >
+      <div className="space-y-1">
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+          Step 1 · connect your channel
+        </p>
+        <h2
+          id="youtube-connect-heading"
+          className="flex items-center gap-2 text-xl font-semibold tracking-tight"
+        >
+          <Tv aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
+          Connect your YouTube channel
+        </h2>
+        <p className="max-w-prose text-sm text-ink/65">
+          Panood broadcasts to <em>your</em> YouTube channel — your family controls who
+          subscribes, the archive belongs to you, and the watch URL is yours forever. We
+          request the minimum scopes needed to create + manage the live broadcast.
+        </p>
+      </div>
+
+      {!oauthReady ? (
+        <ComingSoonPlaceholder />
+      ) : youtubeGrant ? (
+        <ConnectedPanel eventId={eventId} grant={youtubeGrant} />
+      ) : (
+        <ConnectCTA eventId={eventId} />
+      )}
+
+      <ul className="grid gap-2 text-xs text-ink/55 sm:grid-cols-2">
+        <li className="rounded-md border border-ink/10 bg-cream/70 px-3 py-2">
+          <span className="font-mono text-ink/65">Scopes requested:</span> YouTube manage
+          + upload (broadcast lifecycle + same-day-edit archive).
+        </li>
+        <li className="rounded-md border border-ink/10 bg-cream/70 px-3 py-2">
+          <span className="font-mono text-ink/65">One-time consent:</span> disconnect any
+          time from this page; we revoke the grant on Google&rsquo;s side too.
+        </li>
+      </ul>
+    </section>
+  );
+}
+
+function ComingSoonPlaceholder() {
+  return (
+    <div className="rounded-xl border border-dashed border-ink/15 bg-cream/60 p-5">
+      <div className="flex items-start gap-3">
+        <span
+          aria-hidden
+          className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-ink/5 text-ink/55"
+        >
+          <Lock className="h-4 w-4" strokeWidth={1.75} />
+        </span>
+        <div className="space-y-1">
+          <p className="text-sm font-semibold text-ink/85">
+            Coming soon — admin setup pending
+          </p>
+          <p className="max-w-prose text-xs text-ink/60">
+            Setnayan&rsquo;s YouTube OAuth verified-app review is still in progress with
+            Google (the review window is 1–4 weeks). Once it clears, the Connect button
+            lights up here and your broadcast goes live to your own channel. We&rsquo;ll
+            email you the moment it&rsquo;s ready.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ConnectCTA({ eventId }: { eventId: string }) {
+  return (
+    <div className="space-y-2 rounded-xl border border-terracotta/30 bg-cream/80 p-5">
+      <Link
+        href={`/api/oauth/youtube/start?event_id=${eventId}`}
+        className="inline-flex items-center justify-center gap-2 rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-600"
+      >
+        <ExternalLink aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+        Connect YouTube
+      </Link>
+      <p className="text-xs text-ink/55">
+        You&rsquo;ll be redirected to Google to grant access, then bounced back here.
+        Takes about 20 seconds.
+      </p>
+    </div>
+  );
+}
+
+function ConnectedPanel({
+  eventId,
+  grant,
+}: {
+  eventId: string;
+  grant: YoutubeGrant;
+}) {
+  const channelLabel =
+    grant.external_account_display ?? 'Connected channel';
+  const grantedDate = new Date(grant.granted_at).toLocaleDateString('en-PH', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+  return (
+    <div className="space-y-3 rounded-xl border border-emerald-200/80 bg-emerald-50/60 p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <span
+            aria-hidden
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700"
+          >
+            <CheckCircle2 className="h-4 w-4" strokeWidth={2} />
+          </span>
+          <div className="space-y-0.5">
+            <p className="text-sm font-semibold text-ink">
+              Connected to YouTube: {channelLabel}
+            </p>
+            <p className="font-mono text-[11px] text-ink/55">
+              {grant.external_account_id
+                ? `Channel id ${grant.external_account_id} · `
+                : ''}
+              Connected {grantedDate}
+            </p>
+          </div>
+        </div>
+        <form action="/api/oauth/youtube/disconnect" method="post">
+          <input type="hidden" name="event_id" value={eventId} />
+          <button
+            type="submit"
+            className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink"
+          >
+            <Unlink2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Disconnect
+          </button>
+        </form>
+      </div>
+      <p className="text-xs text-ink/65">
+        We&rsquo;ll create the live broadcast on this channel with{' '}
+        <span className="font-mono text-ink/80">monetization=false</span> and{' '}
+        <span className="font-mono text-ink/80">latencyPreference=ultraLow</span> the
+        moment the broadcaster opens for the first time.
+      </p>
+    </div>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Section 2 — Setup status (SKU summary)
 // -----------------------------------------------------------------------------
 
 function SetupStatus({
@@ -194,10 +448,10 @@ function SetupStatus({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-            Section 1 of 4
+            Step 2 · what you&rsquo;ve unlocked
           </p>
           <h2 id="setup-status-heading" className="text-xl font-semibold tracking-tight">
-            What you&rsquo;ve unlocked
+            Your Panood package
           </h2>
         </div>
         {setup.baseOwned ? (
@@ -331,7 +585,7 @@ function AddOnRow({
 }
 
 // -----------------------------------------------------------------------------
-// Section 2 — Broadcast setup
+// Section 3 — Broadcast setup (broadcaster + camera operator links)
 // -----------------------------------------------------------------------------
 
 function BroadcastSetup({
@@ -352,7 +606,7 @@ function BroadcastSetup({
     >
       <div className="space-y-1">
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-          Section 2 of 4
+          Step 3 · broadcaster + cameras
         </p>
         <h2
           id="broadcast-setup-heading"
@@ -435,7 +689,7 @@ function BroadcastSetup({
 }
 
 // -----------------------------------------------------------------------------
-// Section 3 — Style + add-ons promo
+// Section 4 — Style + add-ons promo
 // -----------------------------------------------------------------------------
 
 function StyleAndAddOns({ setup }: { setup: PanoodSetup }) {
@@ -446,7 +700,7 @@ function StyleAndAddOns({ setup }: { setup: PanoodSetup }) {
     >
       <div className="space-y-1">
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-          Section 3 of 4
+          Step 4 · optional packs
         </p>
         <h2
           id="addons-heading"
@@ -572,13 +826,19 @@ function PackCard({
 }
 
 // -----------------------------------------------------------------------------
-// Section 4 — YouTube delivery info
+// Section 5 — YouTube delivery info
 // -----------------------------------------------------------------------------
+// Reworded slightly from the original scaffold to reflect the BYO pivot:
+// the broadcast goes to the couple's connected channel (when present),
+// not the Setnayan master channel. Latency/audience/auto-archive facts
+// are unchanged.
 
 function YouTubeDelivery({
   youtubeWatchUrl,
+  connected,
 }: {
   youtubeWatchUrl: string | null;
+  connected: boolean;
 }) {
   return (
     <section
@@ -587,7 +847,7 @@ function YouTubeDelivery({
     >
       <div className="space-y-1">
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-          Section 4 of 4
+          Step 5 · how viewers watch
         </p>
         <h2
           id="youtube-heading"
@@ -598,9 +858,9 @@ function YouTubeDelivery({
         </h2>
         <p className="max-w-prose text-sm text-ink/65">
           Setnayan ingests every camera, composites them server-side with your monogram
-          and broadcast style, then relays the program feed to YouTube Live. Viewers
-          watching on your Setnayan landing page and viewers watching on YouTube directly
-          see the same broadcast served from YouTube&rsquo;s CDN.
+          and broadcast style, then relays the program feed to YouTube Live on your own
+          channel. Viewers watching on your Setnayan landing page and viewers watching on
+          YouTube directly see the same broadcast served from YouTube&rsquo;s CDN.
         </p>
       </div>
 
@@ -617,8 +877,8 @@ function YouTubeDelivery({
         />
         <DeliveryFact
           label="Auto-archive"
-          value="Unlisted on Setnayan&rsquo;s master channel"
-          sub="Downloadable from your dashboard after the event"
+          value="Unlisted on your own channel"
+          sub="Downloadable from your dashboard after the event — the archive stays yours"
         />
         <DeliveryFact
           label="Cast to projector"
@@ -633,13 +893,19 @@ function YouTubeDelivery({
         </p>
         {youtubeWatchUrl ? (
           <p className="mt-1 font-mono text-sm text-ink/85">{youtubeWatchUrl}</p>
-        ) : (
+        ) : connected ? (
           <p className="mt-1 text-sm text-ink/60">
             Available once the broadcaster opens the session for the first time.
-            We&rsquo;ll auto-create the YouTube broadcast with{' '}
+            We&rsquo;ll auto-create the broadcast on your channel with{' '}
             <span className="font-mono text-ink/75">monetization=false</span> and
             <span className="font-mono text-ink/75"> latencyPreference=ultraLow</span>{' '}
             so the broadcast is structurally incapable of running ads.
+          </p>
+        ) : (
+          <p className="mt-1 text-sm text-ink/60">
+            Connect your YouTube channel in step 1 to enable the broadcast. The watch
+            URL appears here the moment the broadcaster opens the session for the first
+            time.
           </p>
         )}
       </div>
@@ -678,15 +944,24 @@ function DeliveryFact({
 // Listed here in one place so a future iteration can grep for the marker and
 // see the entire shape of the work without reading every JSX block.
 //
+// 2026-05-16 update: the OAuth connect surface (step 1) is wired end-to-end
+// against /api/oauth/youtube/start + /callback + /disconnect against
+// public.oauth_grants. The remaining TODOs are the same broadcaster /
+// orchestrator surface as before — just now they read the per-event
+// refresh_token out of oauth_grants instead of the retired
+// Setnayan-master-channel path.
+//
 // TODO(0011): Cloudflare Stream Live SFU connection — ingest WebRTC publishes
 //             from each camera operator's phone; per-camera health pings up
 //             to the broadcaster admin grid. Vendor entitlement is a Stripe
 //             billing prerequisite Setnayan does not yet have.
-// TODO(0011): YouTube RTMP relay — create the per-event broadcast via the
-//             YouTube Data API with monetization=false + latencyPreference=
-//             ultraLow, push the composited program feed via RTMP, and write
-//             the resulting watch URL back to the event row so the landing
-//             page can embed the IFrame Player.
+// TODO(0011): YouTube RTMP relay — create the per-event broadcast on the
+//             COUPLE's channel via the YouTube Data API with
+//             monetization=false + latencyPreference=ultraLow, push the
+//             composited program feed via RTMP, and write the resulting
+//             watch URL back to the event row so the landing page can embed
+//             the IFrame Player. Uses oauth_grants.refresh_token (refreshed
+//             via /api/cron/oauth-refresh) for the per-event access token.
 // TODO(0011): Camera-operator handshake / session tokens — mint a short-
 //             lived per-cam token at the moment the broadcaster issues a
 //             "Send setup link" CTA. Token binds the phone to a specific
@@ -703,4 +978,9 @@ function DeliveryFact({
 //             external-display flow on the broadcaster admin. WebRTC client
 //             pulls the composited feed (laptop) or raw active-camera feed
 //             (iPhone) into a fullscreen <video> for the secondary display.
+// TODO(0011): integration tests — no test runner exists in apps/web today.
+//             Once vitest (or similar) lands, add cases for: (a) /start
+//             returns 503 when env vars missing + 302 to Google when set;
+//             (b) /callback rejects mismatched/expired state; (c) page
+//             renders coming-soon when oauthReady=false, Connect when true.
 // =============================================================================

@@ -8,6 +8,33 @@
 
 ---
 
+## [PENDING] 2026-05-16 — Iteration 0011 Panood: YouTube OAuth wiring (V1 scope expansion)
+
+**Why:** Per the 2026-05-16 4th decision-log row, the owner expanded V1 scope to wire real OAuth on the V1.5+ scaffold setup pages so couples can connect their BYO accounts at setup time. PR `feat(0011): YouTube OAuth wiring + Panood setup rewrite` shipped the YouTube slice + the shared `oauth_grants` foundation today. Three spec files need to catch up so the spec corpus matches the shipped reality.
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/App_Build_Status.md`** — find the iteration 0011 (Panood) row. Today it reads roughly "🟡 V1.5+" (deferred). Flip it to:
+   > "⚠️ Partial — OAuth setup flow shipped V1 (couples can connect their BYO YouTube channel at setup time); broadcaster + SFU + RTMP relay surface still V1.5+. Graceful fallback to 'coming soon' until Google Cloud verified-app review completes."
+
+2. **`~/Documents/Claude/Projects/Setnayan/CLAUDE.md`** — append a new row to the decision log dated `2026-05-16` (after the existing four rows from today). Suggested text:
+   > **2026-05-16 — OAuth wiring for V1.5+ scaffold setup pages shipped early.** Couples can connect their YouTube channel (0011 Panood — shipped this date) and will be able to connect Google Drive (0012 Papic — Agent B follow-up) and TikTok (0017 Patiktok — already shipped via PR #92) at setup time, even though the full broadcaster / Drive sync / TikTok render pipelines remain V1.5+ deliverables. Shared substrate: `public.oauth_grants(event_id, provider, scopes, refresh_token, access_token, …)` with per-provider OAuth start/callback/disconnect routes under `/api/oauth/<provider>/*`. **Graceful-fallback pattern (LOCKED):** when `<PROVIDER>_OAUTH_CLIENT_ID` is unset the Connect CTA degrades to a disabled "coming soon — admin setup pending" placeholder and the start route returns 503. This decouples shipping the V1 surface from the owner-side OAuth verified-app review (1-4 wk window per provider). Doesn't break V1 launch.
+
+3. **`~/Documents/Claude/Projects/Setnayan/API_Integration_Checklist.md`** § 5.3 — find the YouTube Data API per-couple OAuth entry. Currently framed as "V1.5+ activation". Reframe to:
+   > "**V1 wiring shipped 2026-05-16** (PR `feat(0011)`). Routes live at `/api/oauth/youtube/{start,callback,disconnect}` + refresh worker at `/api/cron/oauth-refresh`. **Remaining owner-side blocker:** Google Cloud project setup → YouTube Data API v3 enable → OAuth consent screen (External, Production) → submit for Google verification (review window 1–4 wk) → paste `YOUTUBE_OAUTH_CLIENT_ID` / `YOUTUBE_OAUTH_CLIENT_SECRET` / `YOUTUBE_OAUTH_REDIRECT_URI` into Vercel env. Until this is done, the Panood setup page renders a 'coming soon' placeholder per the graceful-fallback rule."
+
+**Owner action checklist (separate from the spec edits above):**
+- [ ] Provision Google Cloud project for Setnayan (if not already).
+- [ ] Enable YouTube Data API v3.
+- [ ] Configure OAuth consent screen (External, Production); add scopes `https://www.googleapis.com/auth/youtube` + `https://www.googleapis.com/auth/youtube.upload`.
+- [ ] Submit for Google verification (1-4 wk).
+- [ ] Create OAuth 2.0 Web client; add `https://www.setnayan.com/api/oauth/youtube/callback` as an authorized redirect URI.
+- [ ] Paste `YOUTUBE_OAUTH_CLIENT_ID`, `YOUTUBE_OAUTH_CLIENT_SECRET`, `YOUTUBE_OAUTH_REDIRECT_URI` into Vercel env; redeploy.
+- [ ] Generate + paste `OAUTH_REFRESH_CRON_SECRET` (`openssl rand -hex 32`) — shared with the future Drive refresh sweep.
+- [ ] Schedule the cron worker (Cloudflare Cron Trigger or Supabase pg_cron) to POST `/api/cron/oauth-refresh` hourly with the `x-cron-secret` header — see the `TODO(0011):` block in that route.
+
+---
+
 ## [PENDING] 2026-05-14 — Iteration 0042: Industry Events & B2B Vendor Marketing
 
 **Spec doc CREATED at:** `~/Documents/Claude/Projects/Setnayan/0042_industry_events_b2b/0042_industry_events_b2b.md`

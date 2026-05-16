@@ -38,7 +38,4 @@ ALTER TABLE public.events
     CHECK (papic_storage_target IN ('setnayan_r2', 'google_drive_only'));
 
 COMMENT ON COLUMN public.events.papic_storage_target IS
-  'Where Papic photos write to. Default setnayan_r2 (recommended, fast, ' ||
-  'reliable). google_drive_only means couple opted out of R2 and accepted ' ||
-  'Drive throttling + quota tradeoffs. Requires active oauth_grants row ' ||
-  'with provider=drive when set to google_drive_only. See iteration 0012.';
+  'Where Papic photos write to. Default setnayan_r2 (recommended, fast, reliable). google_drive_only means couple opted out of R2 and accepted Drive throttling + quota tradeoffs. Requires active oauth_grants row with provider=drive when set to google_drive_only. See iteration 0012.';

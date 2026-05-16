@@ -35,8 +35,7 @@ CREATE TABLE IF NOT EXISTS public.patiktok_oauth_grants (
 );
 
 COMMENT ON TABLE public.patiktok_oauth_grants IS
-  'Iteration 0017 Phase 3 — per-event TikTok OAuth grants for Personal-tier ' ||
-  'couples. One active grant per event; revoke_at NULL filter applies.';
+  'Iteration 0017 Phase 3 — per-event TikTok OAuth grants for Personal-tier couples. One active grant per event; revoke_at NULL filter applies.';
 
 CREATE UNIQUE INDEX IF NOT EXISTS patiktok_oauth_grants_one_active_per_event
   ON public.patiktok_oauth_grants (event_id)

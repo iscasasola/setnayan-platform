@@ -1,6 +1,7 @@
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import {
+  AlertCircle,
   ArrowLeft,
   Camera,
   Aperture,
@@ -18,33 +19,66 @@ import {
   ImageIcon,
   Film,
   CircleHelp,
+  CheckCircle2,
+  Cloud,
+  ExternalLink,
+  FolderTree,
+  Lock,
+  Unlink2,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { formatPhp } from '@/lib/orders';
+import {
+  getDriveOAuthConfig,
+  PAPIC_DRIVE_SUBFOLDERS,
+} from '@/lib/papic-drive';
+import { setPapicStorageDrive, setPapicStorageR2 } from './actions';
 
-// Iteration 0012 — Papic (scaffold)
+// Iteration 0012 — Papic (V1 setup surface)
 //
-// Couple-facing admin view of the Papic crew. Surfaces the seat status,
-// the DSLR Pro Camera Bridge upgrade, the gesture-shutter teaching card,
-// a mock gallery preview, and the V1 settings. Native capture flow itself
-// lives in a separate iOS / Android app per spec (deferred to V1.5+ per
-// the 2026-05-16 architecture lock); this page is the couple's admin
-// surface inside the dashboard.
+// Rewritten 2026-05-16 per the V1 scope expansion that wires real OAuth on
+// the V1.5+ scaffold setup pages (see CLAUDE.md decision log row 2026-05-16
+// "OAuth wiring for V1.5+ scaffold setup pages shipped early"). The
+// original scaffold (preserved below as Sections 2-6) framed Papic as
+// purely a V1.5+ surface — couples could see the shape but couldn't make
+// any decisions. This rewrite adds Section 1: "Where do your photos go?"
+// which surfaces the new storage-choice radio cards (Setnayan R2 vs Google
+// Drive only) and the Drive OAuth wiring. The Setnayan-R2 option always
+// works (the default); the Drive option degrades to a "coming soon"
+// placeholder when GOOGLE_DRIVE_OAUTH_CLIENT_ID is unset (graceful-
+// fallback rule, decoupling V1 ship from the owner-side Google Cloud
+// verified-app review timeline).
 //
 // SPEC: ~/Documents/Claude/Projects/Setnayan/0012_papic/0012_papic.md
 //   · ~/Documents/Claude/Projects/Setnayan/0012_papic/0012_papic_compatible_cameras.md
 //   · ~/Documents/Claude/Projects/Setnayan/0012_papic/0012_papic_sdk_notes.md
 //
-// Every integration seam is marked with TODO(0012): — these stubs are
-// deliberately left unwired until the native app and pairing pipeline
-// are built. Web V1 here is a couple-admin surface only; no capture.
+// The 2026-05-16 owner directive also deviates from the original
+// "T+30d transfer" model (Setnayan stores for 30 days, bulk-pushes to
+// Drive). The new model is real-time DURING the event for both options;
+// R2 is the primary by default; couples who opt out of R2 get Drive
+// throttling + their own quota constraints. See the COWORK_INBOX.md
+// entry for the spec corpus catch-up.
 //
-// Prices below come from the spec's "Pricing alignment" section (charm
-// pricing locked 2026-05-12). DO NOT invent new prices.
+// Every integration seam (capture pipeline, native app pairing, QR
+// tagging) is still marked with TODO(0012): — these stubs are deliberately
+// left unwired until the native app + pairing pipeline are built. The
+// capture pipeline itself MUST branch on events.papic_storage_target to
+// decide where to write each photo — see the TODO(0012) marker in the
+// `StorageChoiceCard` doc comment below.
 
 export const metadata = { title: 'Papic · Setnayan' };
 
-type Props = { params: Promise<{ eventId: string }> };
+type Props = {
+  params: Promise<{ eventId: string }>;
+  searchParams: Promise<{
+    drive_connected?: string;
+    drive_disconnected?: string;
+    drive_error?: string;
+    storage_set?: string;
+    storage_error?: string;
+  }>;
+};
 
 // V1 prices, sourced from the spec ("Pricing alignment" table). Charm-priced
 // to PHP per the 2026-05-12 decision log; do NOT invent new numbers here.
@@ -105,9 +139,6 @@ const GESTURES: ReadonlyArray<Gesture> = [
   },
 ];
 
-// Mock gallery items. Tag source matches the spec's three tag-source
-// taxonomy (auto_face | qr_scan | untagged) so the chips and counts
-// line up with what the native app will actually surface.
 type MockPhoto = {
   id: string;
   kind: 'photo' | 'video';
@@ -130,8 +161,6 @@ const MOCK_PHOTOS: ReadonlyArray<MockPhoto> = [
   { id: 'p-12', kind: 'photo', tagSource: 'qr_scan', hue: 168 },
 ];
 
-// V1 essential filter chips — exactly the four the spec calls out.
-// Sort/filter beyond these four is deferred to V1.1.
 const FILTERS = [
   { id: 'chronological', label: 'Chronological' },
   { id: 'photos-of-us', label: 'Photos of us' },
@@ -139,8 +168,6 @@ const FILTERS = [
   { id: 'type', label: 'Photo · Video' },
 ] as const;
 
-// Pro Camera Bridge SDK matrix — Canon · Nikon · Sony · Fujifilm.
-// Body counts match the spec's compatible camera list as of 2026-05-11.
 const SDK_MATRIX = [
   { brand: 'Canon', sdk: 'EOS Camera Connect SDK', bodies: '11 V1 bodies (R-series mirrorless)' },
   { brand: 'Nikon', sdk: 'SnapBridge SDK + MTP-WiFi', bodies: '9 Z-series + 5 D-series' },
@@ -156,18 +183,74 @@ function seatPackPrice(pack: 'paparazzi_5_seats' | 'paparazzi_3_seats'): number 
   return pack === 'paparazzi_5_seats' ? PAPIC_5_SEATS_PRICE : PAPIC_3_SEATS_PRICE;
 }
 
-export default async function PapicAddonPage({ params }: Props) {
+// Shape of the oauth_grants row we read for the connected-Drive panel.
+type DriveGrant = {
+  grant_id: string;
+  external_account_display: string | null;
+  granted_at: string;
+  metadata: {
+    drive_folder_name?: string;
+    drive_subfolders?: Array<{ name: string; id: string }>;
+    account_name?: string;
+  } | null;
+};
+
+type StorageTarget = 'setnayan_r2' | 'google_drive_only';
+
+export default async function PapicAddonPage({ params, searchParams }: Props) {
   const { eventId } = await params;
+  const {
+    drive_connected: driveConnected,
+    drive_disconnected: driveDisconnected,
+    drive_error: driveError,
+    storage_set: storageSet,
+    storage_error: storageError,
+  } = await searchParams;
+
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  // TODO(0012): fetch real Papic seat allocation, seat claims, and
-  // bridge purchases from Supabase once the schema is added. For now,
-  // surface mock data so the couple can see the admin surface shape
-  // and the team can iterate on copy + layout.
+  // Read the event row + the current storage target. We need display_name
+  // for the header and papic_storage_target for the radio selection. The
+  // column has a NOT NULL DEFAULT in the migration, so we always get a
+  // value — but defensively narrow to the union type below in case a
+  // future migration relaxes it.
+  const { data: event } = await supabase
+    .from('events')
+    .select('event_id, display_name, papic_storage_target')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (!event) notFound();
+
+  const storageTarget: StorageTarget =
+    (event.papic_storage_target as StorageTarget | null) === 'google_drive_only'
+      ? 'google_drive_only'
+      : 'setnayan_r2';
+
+  // --- Drive OAuth grant lookup ---
+  // RLS scopes oauth_grants by event_id IN current_event_ids(), so the
+  // regular anon client is fine here — no service role needed for the read.
+  const { data: grantRaw } = await supabase
+    .from('oauth_grants')
+    .select(
+      'grant_id, external_account_display, granted_at, metadata',
+    )
+    .eq('event_id', eventId)
+    .eq('provider', 'drive')
+    .is('revoked_at', null)
+    .maybeSingle();
+  const driveGrant = (grantRaw ?? null) as DriveGrant | null;
+
+  // --- Graceful-fallback flag ---
+  // When GOOGLE_DRIVE_OAUTH_CLIENT_ID is unset the Drive radio renders as
+  // disabled with a "coming soon" caption underneath. The Setnayan-R2
+  // option still works. This decouples shipping the V1 surface from the
+  // owner-side Google Cloud verified-app review (1-4 wk window).
+  const driveConfig = getDriveOAuthConfig();
+  const driveOAuthReady = driveConfig.ready;
 
   const totalSeats = MOCK_SEATS.length;
   const claimedSeats = MOCK_SEATS.filter((s) => s.claimedBy !== null).length;
@@ -186,25 +269,61 @@ export default async function PapicAddonPage({ params }: Props) {
 
       <header className="space-y-3">
         <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          Papic · candid capture crew
+          Papic · wedding photo capture
         </p>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Your Papic setup
+        <h1 className="flex items-center gap-3 text-3xl font-semibold tracking-tight sm:text-4xl">
+          <Camera aria-hidden className="h-7 w-7 text-terracotta" strokeWidth={1.75} />
+          Papic — Wedding Photo Capture
         </h1>
         <p className="max-w-prose text-base text-ink/65">
           Papic turns friends and family into your candid-capture crew. Each
           paparazzo claims a seat from their own phone, shoots through the
           Papic app, and every photo or 5-second clip lands tagged in your
-          gallery in real time. The capture experience itself lives in the
-          native iOS &amp; Android app — this page is where you manage the
-          crew, the camera bridges, and what shows up in your gallery.
-        </p>
-        <p className="text-xs text-ink/55">
-          Native iOS &amp; Android capture flow is on the V1.5+ build path.
-          The setup surface below works today so you can plan your crew and
-          decide on DSLR upgrades before the capture app ships.
+          gallery in real time. Below: pick where the photos write to, then
+          manage your crew, camera bridges, and gallery settings.
         </p>
       </header>
+
+      <StatusBanners
+        driveConnected={!!driveConnected}
+        driveDisconnected={!!driveDisconnected}
+        driveError={driveError}
+        storageSet={storageSet}
+        storageError={storageError}
+        connectedAccount={driveGrant?.external_account_display ?? null}
+      />
+
+      {/* ----------------------------------------------------------------
+          Section 1 — Storage choice (NEW, 2026-05-16)
+          ----------------------------------------------------------------
+          The new V1 surface. Couple picks where Papic writes photos:
+            (a) Setnayan storage (R2) — recommended default
+            (b) Google Drive only — couple's own Drive folder
+          Server-side radio: switching triggers a server action that
+          updates events.papic_storage_target. The Connect-Drive button
+          only appears when the Drive radio is selected. If
+          GOOGLE_DRIVE_OAUTH_CLIENT_ID is unset, the Drive option is
+          disabled with a "coming soon — admin setup pending" caption.
+
+          TODO(0012): the Papic capture pipeline (V1.5+ — cameras +
+          face detection + transfer) MUST read events.papic_storage_target
+          and branch:
+            · 'setnayan_r2' → upload to R2 setnayan-media bucket
+              (current behavior; existing infra at lib/r2.ts)
+            · 'google_drive_only' → upload to the folder id in
+              oauth_grants.metadata.drive_folder_id via the Drive API.
+              Use refreshDriveAccessToken() before each session and
+              handle rate-limit / quota errors with a retry queue
+              (Drive's per-user quota is 1B queries/day but with a
+              250 req/100s burst limit — wedding bursts will exceed
+              that).
+       */}
+      <StorageChoiceCard
+        eventId={eventId}
+        storageTarget={storageTarget}
+        driveOAuthReady={driveOAuthReady}
+        driveGrant={driveGrant}
+      />
 
       <SeatStatusCard
         eventId={eventId}
@@ -230,6 +349,411 @@ export default async function PapicAddonPage({ params }: Props) {
   );
 }
 
+// -----------------------------------------------------------------------------
+// Status banners (Drive connect / disconnect / error + storage switch result)
+// -----------------------------------------------------------------------------
+
+function StatusBanners({
+  driveConnected,
+  driveDisconnected,
+  driveError,
+  storageSet,
+  storageError,
+  connectedAccount,
+}: {
+  driveConnected: boolean;
+  driveDisconnected: boolean;
+  driveError: string | undefined;
+  storageSet: string | undefined;
+  storageError: string | undefined;
+  connectedAccount: string | null;
+}) {
+  return (
+    <div className="space-y-3">
+      {driveConnected ? (
+        <p
+          role="status"
+          className="inline-flex items-center gap-2 rounded-2xl border border-emerald-300/70 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+        >
+          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          Google Drive connected
+          {connectedAccount ? ` — ${connectedAccount}` : ''}. Your Setnayan
+          folder structure is ready in your Drive.
+        </p>
+      ) : null}
+
+      {driveDisconnected ? (
+        <p
+          role="status"
+          className="inline-flex items-center gap-2 rounded-2xl border border-ink/15 bg-cream px-4 py-3 text-sm text-ink/75"
+        >
+          <Unlink2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          Google Drive disconnected. Storage is back on Setnayan R2 — reconnect
+          any time to switch back.
+        </p>
+      ) : null}
+
+      {driveError ? (
+        <p
+          role="alert"
+          className="inline-flex items-start gap-2 rounded-2xl border border-rose-300/70 bg-rose-50 px-4 py-3 text-sm text-rose-900"
+        >
+          <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
+          <span>
+            Google Drive connection failed (
+            <span className="font-mono text-xs">{driveError}</span>
+            ). Try again, or contact support if this persists.
+          </span>
+        </p>
+      ) : null}
+
+      {storageSet === 'r2' ? (
+        <p
+          role="status"
+          className="inline-flex items-center gap-2 rounded-2xl border border-emerald-300/70 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+        >
+          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          Storage set to Setnayan — we&rsquo;ll keep a secure copy of every photo.
+        </p>
+      ) : null}
+
+      {storageSet === 'drive' ? (
+        <p
+          role="status"
+          className="inline-flex items-center gap-2 rounded-2xl border border-emerald-300/70 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+        >
+          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          Storage set to your Google Drive only.
+        </p>
+      ) : null}
+
+      {storageError ? (
+        <p
+          role="alert"
+          className="inline-flex items-start gap-2 rounded-2xl border border-rose-300/70 bg-rose-50 px-4 py-3 text-sm text-rose-900"
+        >
+          <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
+          <span>
+            Could not update storage target (
+            <span className="font-mono text-xs">{storageError}</span>
+            ).{' '}
+            {storageError === 'connect_drive_first'
+              ? 'Connect Google Drive before switching to Drive-only storage.'
+              : 'Try again, or contact support if this persists.'}
+          </span>
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Section 1 — Storage choice (radio cards) + Drive connect
+// -----------------------------------------------------------------------------
+
+function StorageChoiceCard({
+  eventId,
+  storageTarget,
+  driveOAuthReady,
+  driveGrant,
+}: {
+  eventId: string;
+  storageTarget: StorageTarget;
+  driveOAuthReady: boolean;
+  driveGrant: DriveGrant | null;
+}) {
+  const r2Selected = storageTarget === 'setnayan_r2';
+  const driveSelected = storageTarget === 'google_drive_only';
+
+  return (
+    <article className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
+      <div className="space-y-1">
+        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          Section 1 · where your photos go
+        </p>
+        <h2 className="flex items-center gap-2 text-xl font-semibold tracking-tight">
+          <Cloud aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
+          Pick where Papic writes your photos
+        </h2>
+        <p className="max-w-prose text-sm text-ink/65">
+          Each photo your crew shoots needs somewhere to land in real time.
+          Setnayan storage is the default — fast and reliable. You can also
+          point Papic at your own Google Drive if you&rsquo;d rather skip
+          the Setnayan copy entirely.
+        </p>
+      </div>
+
+      <ul
+        role="radiogroup"
+        aria-label="Papic storage target"
+        className="space-y-3"
+      >
+        <li>
+          <StorageOptionR2 eventId={eventId} selected={r2Selected} />
+        </li>
+        <li>
+          <StorageOptionDrive
+            eventId={eventId}
+            selected={driveSelected}
+            driveOAuthReady={driveOAuthReady}
+            driveGrant={driveGrant}
+          />
+        </li>
+      </ul>
+
+      <p className="text-xs text-ink/55">
+        You can switch any time. Photos already uploaded stay where they
+        landed — switching the target only affects new captures.
+      </p>
+    </article>
+  );
+}
+
+function StorageOptionR2({
+  eventId,
+  selected,
+}: {
+  eventId: string;
+  selected: boolean;
+}) {
+  return (
+    <form
+      action={setPapicStorageR2}
+      className={
+        selected
+          ? 'block rounded-xl border-2 border-terracotta bg-terracotta/5 p-4 sm:p-5'
+          : 'block rounded-xl border border-ink/10 bg-cream/60 p-4 sm:p-5 hover:border-ink/20'
+      }
+    >
+      <input type="hidden" name="event_id" value={eventId} />
+      <button
+        type="submit"
+        aria-pressed={selected}
+        className="flex w-full items-start gap-3 text-left"
+      >
+        <RadioDot selected={selected} />
+        <div className="flex-1 space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-base font-semibold text-ink">
+              Setnayan storage
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
+              <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />
+              Recommended
+            </span>
+          </div>
+          <p className="text-sm text-ink/70">
+            Fast and reliable. We keep a secure copy of every photo. No
+            setup, no storage limits to manage.
+          </p>
+        </div>
+      </button>
+    </form>
+  );
+}
+
+function StorageOptionDrive({
+  eventId,
+  selected,
+  driveOAuthReady,
+  driveGrant,
+}: {
+  eventId: string;
+  selected: boolean;
+  driveOAuthReady: boolean;
+  driveGrant: DriveGrant | null;
+}) {
+  const connected = !!driveGrant;
+  const disabled = !driveOAuthReady;
+  const containerClass = selected
+    ? 'rounded-xl border-2 border-terracotta bg-terracotta/5 p-4 sm:p-5'
+    : disabled
+      ? 'rounded-xl border border-dashed border-ink/15 bg-cream/40 p-4 sm:p-5 opacity-90'
+      : 'rounded-xl border border-ink/10 bg-cream/60 p-4 sm:p-5 hover:border-ink/20';
+
+  return (
+    <div className={containerClass}>
+      {/* Outer form selects the Drive target. Always rendered; the submit
+          button is disabled when no grant exists OR when env vars are
+          missing. */}
+      <form action={setPapicStorageDrive}>
+        <input type="hidden" name="event_id" value={eventId} />
+        <button
+          type="submit"
+          aria-pressed={selected}
+          disabled={disabled || !connected}
+          className="flex w-full items-start gap-3 text-left disabled:cursor-not-allowed"
+        >
+          <RadioDot selected={selected} disabled={disabled || !connected} />
+          <div className="flex-1 space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-base font-semibold text-ink">
+                Use my Google Drive only
+              </span>
+              {disabled ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                  <Lock aria-hidden className="h-3 w-3" strokeWidth={2} />
+                  Coming soon
+                </span>
+              ) : connected ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-900">
+                  <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={2} />
+                  Connected
+                </span>
+              ) : null}
+            </div>
+            <p className="text-sm text-ink/65">
+              <em className="not-italic text-ink/75">Heads up:</em> weddings can
+              produce 30–60 GB of photos. Make sure your Google Drive has the
+              space — you may need to upgrade to a paid Google One plan. If
+              your Drive runs out of space or loses connection during the
+              event, Setnayan won&rsquo;t have a backup copy.
+            </p>
+          </div>
+        </button>
+      </form>
+
+      {/* Below the radio button: either the "coming soon" caption, the
+          Connect Drive CTA, or the connected panel. Kept OUTSIDE the
+          enclosing form so clicking Connect doesn't also submit the
+          storage-target switch. */}
+      <div className="mt-3 pl-7">
+        {disabled ? (
+          <p className="text-xs italic text-ink/55">
+            Coming soon — admin setup pending. Setnayan&rsquo;s Google Drive
+            OAuth verified-app review is still in progress (1–4 week window).
+            Setnayan storage works today; we&rsquo;ll email you the moment
+            Drive is ready.
+          </p>
+        ) : connected ? (
+          <DriveConnectedPanel eventId={eventId} grant={driveGrant!} />
+        ) : (
+          <DriveConnectCTA eventId={eventId} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RadioDot({
+  selected,
+  disabled = false,
+}: {
+  selected: boolean;
+  disabled?: boolean;
+}) {
+  if (disabled) {
+    return (
+      <span
+        aria-hidden
+        className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/20 bg-cream"
+      />
+    );
+  }
+  return (
+    <span
+      aria-hidden
+      className={
+        selected
+          ? 'mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 border-terracotta bg-cream'
+          : 'mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/30 bg-cream'
+      }
+    >
+      {selected ? (
+        <span className="inline-block h-2 w-2 rounded-full bg-terracotta" />
+      ) : null}
+    </span>
+  );
+}
+
+function DriveConnectCTA({ eventId }: { eventId: string }) {
+  return (
+    <div className="space-y-2">
+      <Link
+        href={`/api/oauth/drive/start?event_id=${eventId}`}
+        className="inline-flex items-center gap-2 rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-600"
+      >
+        <ExternalLink aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+        Connect Google Drive
+      </Link>
+      <p className="text-xs text-ink/55">
+        You&rsquo;ll be redirected to Google to grant access, then bounced
+        back here. We request only the <span className="font-mono">drive.file</span>{' '}
+        scope — Setnayan can only see files we create in your Drive, nothing
+        else. Takes about 20 seconds.
+      </p>
+    </div>
+  );
+}
+
+function DriveConnectedPanel({
+  eventId,
+  grant,
+}: {
+  eventId: string;
+  grant: DriveGrant;
+}) {
+  const accountLabel = grant.external_account_display ?? 'Connected Drive';
+  const grantedDate = new Date(grant.granted_at).toLocaleDateString('en-PH', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+  // Fall back to the canonical hard-coded folder list if metadata is empty
+  // for any reason — keeps the UI deterministic even if a future migration
+  // changes the JSONB shape.
+  const subfolders =
+    grant.metadata?.drive_subfolders?.map((s) => s.name) ??
+    [...PAPIC_DRIVE_SUBFOLDERS];
+  const folderName = grant.metadata?.drive_folder_name ?? 'Setnayan';
+
+  return (
+    <div className="space-y-3 rounded-xl border border-emerald-200/80 bg-emerald-50/60 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <p className="text-sm font-semibold text-ink">
+            Connected to Google Drive as {accountLabel}
+          </p>
+          <p className="font-mono text-[11px] text-ink/55">
+            Connected {grantedDate}
+          </p>
+        </div>
+        <form action="/api/oauth/drive/disconnect" method="post">
+          <input type="hidden" name="event_id" value={eventId} />
+          <button
+            type="submit"
+            className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink"
+          >
+            <Unlink2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Disconnect
+          </button>
+        </form>
+      </div>
+
+      <div className="rounded-lg border border-ink/10 bg-cream/80 p-3">
+        <div className="flex items-center gap-1.5 text-ink/65">
+          <FolderTree aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          <span className="font-mono text-[10px] uppercase tracking-[0.18em]">
+            Folder structure ready in your Drive
+          </span>
+        </div>
+        <p className="mt-1.5 font-mono text-xs text-ink/85">
+          Setnayan / {folderName} /
+        </p>
+        <ul className="mt-1 space-y-0.5 pl-4 font-mono text-xs text-ink/65">
+          {subfolders.map((name) => (
+            <li key={name}>{name}/</li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Section 2 — Seat status (PRESERVED from scaffold)
+// -----------------------------------------------------------------------------
+
 function SeatStatusCard({
   eventId,
   pack,
@@ -253,7 +777,7 @@ function SeatStatusCard({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Section 1 · seat status
+            Section 2 · seat status
           </p>
           <h2 className="text-xl font-semibold tracking-tight">
             {seatPackLabel(pack)} ·{' '}
@@ -280,15 +804,15 @@ function SeatStatusCard({
             key={seat.id}
             className="flex items-center justify-between gap-3 p-3 sm:p-4"
           >
-            <div className="flex items-center gap-3 min-w-0">
+            <div className="flex min-w-0 items-center gap-3">
               <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
                 <Smartphone aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               </span>
               <div className="min-w-0">
-                <p className="text-sm font-medium text-ink truncate">
+                <p className="truncate text-sm font-medium text-ink">
                   {seat.label}
                 </p>
-                <p className="text-xs text-ink/60 truncate">
+                <p className="truncate text-xs text-ink/60">
                   {seat.claimedBy ?? 'Unclaimed — waiting for crew member'}
                 </p>
               </div>
@@ -358,7 +882,7 @@ function ProCameraBridgeCard({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Section 2 · DSLR Pro Camera Bridge
+            Section 3 · DSLR Pro Camera Bridge
           </p>
           <h2 className="text-xl font-semibold tracking-tight">
             Pair a real camera body for{' '}
@@ -374,7 +898,7 @@ function ProCameraBridgeCard({
         </div>
       </div>
 
-      <p className="text-sm text-ink/70 max-w-prose">
+      <p className="max-w-prose text-sm text-ink/70">
         Turn one phone seat into a phone + DSLR pair. The phone keeps doing
         all of the work — gesture shutter, QR tagging, face detection,
         EXIF stamping, adaptive compression, upload — and the camera body
@@ -417,10 +941,10 @@ function ProCameraBridgeCard({
                   className="flex items-center justify-between gap-3 rounded-lg bg-cream px-3 py-2"
                 >
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-ink truncate">
+                    <p className="truncate text-sm font-medium text-ink">
                       {s.label} · {s.claimedBy}
                     </p>
-                    <p className="text-xs text-ink/60 truncate">
+                    <p className="truncate text-xs text-ink/60">
                       Paired with {s.proBridge?.brand} {s.proBridge?.model}
                     </p>
                   </div>
@@ -434,7 +958,7 @@ function ProCameraBridgeCard({
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-ink/55 max-w-prose">
+        <p className="max-w-prose text-xs text-ink/55">
           One purchase counts toward whichever surface the paired phone
           is running (Papic or Panood live stream).
         </p>
@@ -459,7 +983,7 @@ function GestureReferenceCard() {
     <article className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
       <div className="space-y-1">
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Section 3 · gesture shutter
+          Section 4 · gesture shutter
         </p>
         <h2 className="text-xl font-semibold tracking-tight">
           Teach your crew the four shutter gestures
@@ -510,7 +1034,7 @@ function GalleryPreviewCard() {
     <article className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
       <div className="space-y-1">
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Section 4 · gallery preview
+          Section 5 · gallery preview
         </p>
         <h2 className="text-xl font-semibold tracking-tight">
           What your gallery looks like
@@ -631,7 +1155,7 @@ function SettingsCard() {
     <article className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5 sm:p-6">
       <div className="space-y-1">
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Section 5 · settings
+          Section 6 · settings
         </p>
         <h2 className="text-xl font-semibold tracking-tight">Capture defaults</h2>
         <p className="max-w-prose text-sm text-ink/65">
@@ -651,7 +1175,7 @@ function SettingsCard() {
         <SettingsRow
           Icon={HardDrive}
           title="Storage — app sandbox only"
-          body="Captures live in the Papic app's private storage with a 24-hour purge after successful upload to R2. Photos never leak into your paparazzo's camera roll."
+          body="Captures live in the Papic app's private storage with a 24-hour purge after successful upload. Photos never leak into your paparazzo's camera roll."
           status="V1 default"
         />
         <SettingsRow
@@ -736,3 +1260,45 @@ function Stat({
     </div>
   );
 }
+
+// =============================================================================
+// Integration seams — every TODO below is a real follow-up engineering ticket.
+//
+// 2026-05-16 update: the storage-choice radio (Section 1) is wired
+// end-to-end against /api/oauth/drive/{start,callback,disconnect} +
+// public.oauth_grants. The remaining TODOs are the same native-app /
+// pairing / capture pipeline surfaces as before — they now have a
+// well-defined branch point: events.papic_storage_target +
+// oauth_grants.metadata.drive_folder_id.
+//
+// TODO(0012): native iOS + Android Papic capture app — phone-as-camera
+//             implementation; gesture shutter; QR scan; face detection;
+//             EXIF stamping; adaptive compression; background upload.
+//             Pairing handshakes per SDK_MATRIX above for DSLR bridges.
+// TODO(0012): capture pipeline MUST branch on events.papic_storage_target:
+//             · 'setnayan_r2' → upload to R2 setnayan-media bucket via
+//               the existing R2 helpers in apps/web/lib/r2.ts.
+//             · 'google_drive_only' → upload to the Drive folder id in
+//               oauth_grants.metadata.drive_folder_id via Drive API v3
+//               (use refreshDriveAccessToken() to mint a fresh access
+//               token before each session; handle 403 rateLimitExceeded
+//               + 429 with exponential backoff + retry queue. Drive's
+//               per-user quota is generous in aggregate but the 250 req
+//               /100 s burst limit will be exceeded by a Papic crew of
+//               5 paparazzi all firing at the cocktail hour).
+// TODO(0012): seat QR generation — wire to 0002's QR system. Each
+//             unclaimed seat needs a wedding-scoped setup link.
+// TODO(0012): apply-then-pay wiring for the DSLR Pro Camera Bridge
+//             purchase via 0034 service_orders flow.
+// TODO(0012): integration tests — no test runner exists in apps/web
+//             today. Once vitest (or similar) lands, add cases for:
+//             (a) storage-choice radio default = setnayan_r2;
+//             (b) Drive option disabled when GOOGLE_DRIVE_OAUTH_CLIENT_ID
+//                 unset; visible "coming soon" caption;
+//             (c) /api/oauth/drive/start returns 503 when env unset +
+//                 302 to Google when set;
+//             (d) /api/oauth/drive/callback rejects mismatched /
+//                 expired state;
+//             (e) bootstrap creates 5 sub-folders inside Setnayan/[event];
+//             (f) setPapicStorageDrive rejects when no active grant.
+// =============================================================================

@@ -4,6 +4,74 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-16 · feat(0012): Google Drive OAuth + Papic storage-choice setup (V1 scope expansion)
+
+**Commit:** to be filled after commit.
+
+**Context:** Sibling PR to the YouTube/Panood slice from earlier today (PR #95, SHA `565e79c`). Iteration 0012 Papic is V1.5+ deferred in the spec corpus, but per the 2026-05-16 decision-log row "OAuth wiring for V1.5+ scaffold setup pages shipped early" the owner expanded V1 scope so couples can connect their BYO Google Drive at setup time. This PR is the Papic/Drive slice of that decision. The shared `oauth_grants` foundation already shipped in PR #95 (`20260516260000_oauth_grants_per_couple.sql`); this PR adds the per-event `papic_storage_target` column + the Drive OAuth round-trip + a rewritten Papic setup page that surfaces the storage choice as a radio.
+
+**What this rewrites:** the Papic setup page at `apps/web/app/dashboard/[eventId]/add-ons/papic/page.tsx` previously framed Papic as purely a V1.5+ surface with mock data. This rewrite preserves all the existing sections (seat status, DSLR bridge, gestures, gallery preview, settings) and adds a new **Section 1: "Where your photos go"** containing two radio cards:
+- **Setnayan storage** (recommended default) — fast and reliable, Setnayan keeps a secure copy.
+- **Use my Google Drive only** — narrower scope, no Setnayan copy, but quota + reliability tradeoffs on the couple.
+
+**Spec deviation from earlier T+30d transfer model (LOCKED 2026-05-16):** the prior 0012 spec contemplated Setnayan keeping photos for 30 days then bulk-pushing to Drive. The new model is **real-time DURING the event for BOTH options** — R2 is the primary by default; couples who opt out get Drive throttling + their own quota constraints as a deliberate tradeoff. No bulk-transfer pipeline ships in V1. Spec corpus catch-up queued in COWORK_INBOX.md.
+
+**Why it's safe to ship today:** every Drive surface is wrapped in a graceful-fallback check — if `GOOGLE_DRIVE_OAUTH_CLIENT_ID` is unset (the expected state until Google Cloud verified-app review completes, 1-4wk) the Drive radio renders disabled with an italic "coming soon — admin setup pending" caption and the start route returns 503 with a structured error. The Setnayan-R2 default option remains fully functional. Couples don't see broken buttons; the V1 launch isn't blocked on the owner-side OAuth timeline.
+
+**New migration `supabase/migrations/20260516280000_events_papic_storage_target.sql`:**
+- `ALTER TABLE events ADD COLUMN papic_storage_target TEXT NOT NULL DEFAULT 'setnayan_r2' CHECK (papic_storage_target IN ('setnayan_r2', 'google_drive_only'))`. TEXT + CHECK rather than ENUM to match the `oauth_grants.provider` pattern already in PR #95 — easier to extend later without enum-in-transaction friction.
+- `COMMENT ON COLUMN` documents the V1 contract: `'google_drive_only'` requires an active `oauth_grants` row with `provider='drive'` for the same event_id; the disconnect route flips the column back to `'setnayan_r2'` to keep the capture pipeline from being left in a broken state.
+
+**New helper module `apps/web/lib/papic-drive.ts`** (mirrors `lib/panood-youtube.ts`):
+- `getDriveOAuthConfig()` — env-driven config status with `ready: false, missing[]` branch for graceful fallback.
+- `buildDriveAuthorizeUrl()` — Google OAuth consent URL with `access_type=offline` + `prompt=consent` + scope `drive.file` (narrowest possible — only files Setnayan creates in the couple's Drive, NOT full Drive access).
+- `exchangeDriveCodeForToken()`, `refreshDriveAccessToken()`, `revokeDriveToken()` — Google token endpoint wrappers.
+- `fetchDriveUserInfo()` — userinfo endpoint call for `external_account_display` (best-effort).
+- `bootstrapPapicDriveFolders()` — creates `Setnayan/[Event display_name]/{00_Cover, 01_Pre-event, 02_Ceremony, 03_Reception, 04_Auto-Recap}` via parallel Drive API folder creates; returns the root folder id to store in `oauth_grants.metadata.drive_folder_id` so the V1.5+ capture pipeline knows where to write.
+- `generateDriveStateToken()` — 24-byte hex CSRF nonce, same scheme as YouTube/Patiktok so the shared `oauth_state` table sees uniform-looking values.
+- `PAPIC_DRIVE_SUBFOLDERS` exported as a constant so the connected-panel UI can render the structure preview even when metadata is empty for any reason.
+
+**New OAuth routes (all guard env-missing → 503 / coming-soon caption):**
+- `apps/web/app/api/oauth/drive/start/route.ts` — couple-membership check, inserts oauth_state row with `provider='drive'`, 302 to Google.
+- `apps/web/app/api/oauth/drive/callback/route.ts` — validates state, exchanges code, fetches userinfo, bootstraps the Drive folder tree (failure here redirects with `?drive_error=folder_bootstrap_failed:...` so we never persist a grant without a folder id), upserts oauth_grants (onConflict: `event_id,provider` so a re-consent replaces in place and recreates the folder structure). Redirects to `/dashboard/[eventId]/add-ons/papic?drive_connected=1` or `?drive_error=<reason>`.
+- `apps/web/app/api/oauth/drive/disconnect/route.ts` — POSTs Google's revoke endpoint best-effort, flips `revoked_at` locally, AND resets `events.papic_storage_target` back to `'setnayan_r2'` (paired updates run via `Promise.all`) so the capture pipeline can't be left pointing at a disconnected grant.
+
+**New server actions `apps/web/app/dashboard/[eventId]/add-ons/papic/actions.ts`:**
+- `setPapicStorageR2(formData)` — always safe; flips `events.papic_storage_target` to `'setnayan_r2'`.
+- `setPapicStorageDrive(formData)` — defensive re-check that an active oauth_grants row exists for (event_id, 'drive') before flipping the column. If no grant, redirects with `?storage_error=connect_drive_first`. The UI also gates the button on connection state but the server checks again so a stale form submission can't leave the capture pipeline pointed at a phantom grant.
+
+**Token-refresh worker extension `apps/web/app/api/cron/oauth-refresh/route.ts`:**
+- Replaced the `provider !== 'youtube'` early-skip block with a per-provider dispatch (`youtube` → `refreshYoutubeAccessToken`, `drive` → `refreshDriveAccessToken`). Both providers call the same Google OAuth token endpoint but use SEPARATE env-driven client credentials so they can be rotated independently. The TikTok grants still live in `patiktok_oauth_grants` and skip with `provider_not_yet_implemented`.
+
+**Papic setup page rewrite:** preserves all 5 existing scaffold sections (now renumbered 2-6 — seat status, DSLR bridge, gestures, gallery preview, settings) and inserts a new **Section 1: "Where your photos go"** above them. The new section renders:
+- Two radio cards (Setnayan R2 with "Recommended" pill / Drive with quota-warning caption).
+- Each radio is its own form submitting to the server action; clicking switches the storage target server-side and revalidates the path.
+- Below the Drive radio: either the "coming soon" caption (env-missing), the Connect Drive CTA (env-ready, no grant), or the connected panel with disconnect form + bootstrapped folder structure preview (env-ready, grant present).
+- Status banners surface `?drive_connected=1` / `?drive_disconnected=1` / `?drive_error=<reason>` / `?storage_set=r2|drive` / `?storage_error=<reason>` from the query string.
+
+**Env vars added to `.env.example`:**
+- `GOOGLE_DRIVE_OAUTH_CLIENT_ID`, `GOOGLE_DRIVE_OAUTH_CLIENT_SECRET`, `GOOGLE_DRIVE_OAUTH_REDIRECT_URI` with owner-action notes explaining the dual-purpose Google Cloud client (YouTube + Drive can share the same OAuth 2.0 client; the redirect URI distinguishes them).
+- No new cron secret — the Drive refresh sweep reuses `OAUTH_REFRESH_CRON_SECRET` from PR #95.
+
+**Tests:** no test runner exists in `apps/web` today. The integration cases called out in the brief (radio default = R2; Drive radio disabled when env unset + "coming soon" visible; `/start` 503-when-unset → 302-when-set; `/callback` state-mismatch rejection; bootstrap creates 5 sub-folders; `setPapicStorageDrive` rejects when no active grant) are noted as `TODO(0012): integration tests` at the bottom of the Papic page so the next iteration that lands a test runner picks them up automatically.
+
+**Files:**
+- `supabase/migrations/20260516280000_events_papic_storage_target.sql` — NEW.
+- `apps/web/lib/papic-drive.ts` — NEW.
+- `apps/web/app/api/oauth/drive/{start,callback,disconnect}/route.ts` — NEW.
+- `apps/web/app/dashboard/[eventId]/add-ons/papic/actions.ts` — NEW.
+- `apps/web/app/dashboard/[eventId]/add-ons/papic/page.tsx` — REWRITE (Section 1 added; sections 2-6 preserved with renumbering).
+- `apps/web/app/api/cron/oauth-refresh/route.ts` — EDIT (drive branch wired; existing youtube branch unchanged).
+- `.env.example` — appended Iteration 0012 Drive OAuth section.
+
+**SPEC IMPACT:** **YES** — four pending Cowork updates queued in `COWORK_INBOX.md`:
+1. `~/Documents/Claude/Projects/Setnayan/0012_papic/0012_papic.md` — add storage-choice flow section + the new `events.papic_storage_target` schema + flag the deviation from the T+30d transfer model.
+2. `~/Documents/Claude/Projects/Setnayan/App_Build_Status.md` — flip iteration 0012 row from "🟡 V1.5+" to "⚠️ Partial — Drive OAuth + storage-choice setup shipped V1; capture pipeline still V1.5+".
+3. `~/Documents/Claude/Projects/Setnayan/CLAUDE.md` — append a decision-log row dated 2026-05-16 capturing the Papic V1 scope expansion + the spec deviation + the dual-purpose Google Cloud client.
+4. `~/Documents/Claude/Projects/Setnayan/API_Integration_Checklist.md` — add § 5.6 (or extend § 5.3) for the Drive OAuth scope; flag the dual-purpose YouTube+Drive OAuth client.
+
+---
+
 ## 2026-05-16 · feat(0011): YouTube OAuth wiring + Panood setup rewrite (V1 scope expansion)
 
 **Commit:** to be filled after commit.

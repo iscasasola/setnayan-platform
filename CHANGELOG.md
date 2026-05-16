@@ -198,6 +198,55 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-16 · feat(0012): Papic — scaffold-level launch
+
+**Commit:** to be filled after commit.
+
+**Context:** Iteration 0012 (Papic) was one of six V1.5+ deferrals unlocked by the owner on 2026-05-16 (12th decision-log entry that day, see `~/Documents/Claude/Projects/Setnayan/CLAUDE.md`). The add-ons grid already advertised the `papic` card as `web_v1` and pointed at the generic `IterationPlaceholder` shim — this swap replaces the shim with a real couple-facing admin surface. Full spec at `~/Documents/Claude/Projects/Setnayan/0012_papic/0012_papic.md` (drafted 2026-05-09, revised through 2026-05-16 with V1.5+ architecture lock), with companions `0012_papic_compatible_cameras.md`, `0012_papic_offline_note.md`, and `0012_papic_sdk_notes.md`. The native capture experience is deliberately out of scope for this pass — it lives in the V1.5+ iOS / Android build per the architecture lock. This page is the dashboard-side admin surface only.
+
+**What shipped:**
+- `apps/web/app/dashboard/[eventId]/add-ons/papic/page.tsx` — new route replacing the `IterationPlaceholder` shim for the `papic` add-on key. Five sections, all responsive (Tailwind `sm:` / `md:` / `lg:`), using the cream / ink / terracotta brand tokens already in `app/globals.css`:
+  - **Seat status** — surfaces the chosen pack ("Papic 5-seat" at ₱2,499 in the mock), counts claimed vs unclaimed seats, lists each seat with its claimant + DSLR bridge state, and exposes a disabled "Send setup QR to crew" CTA wired with a `title` preview link.
+  - **DSLR Pro Camera Bridge** — explains the ₱1,499/seat upgrade, shows the four-brand SDK matrix (Canon EOS Camera Connect / Nikon SnapBridge + MTP-WiFi / Sony Camera Remote / Fujifilm Camera Remote), shows which seats are currently bridged, and surfaces a disabled "Add bridge to a seat" CTA.
+  - **Gesture shutter reference** — visual reference card teaching the four canonical gestures (tap = photo, drag up = photo+flash, drag right = 5-second clip, drag right → drag up chord = 5-second clip + flash). 5-second clip duration explained as fixed-by-design.
+  - **Gallery preview** — mock 12-tile grid (3 columns mobile, 6 on lg) with auto-face / QR-scan / untagged dot indicators, the four V1 essential filter chips (Chronological / Photos of us / Untagged / Photo · Video), and a tag-source legend.
+  - **Settings** — five rows surfacing the V1 locked defaults: 20% battery warning, app-sandbox storage with 24h purge, camera-roll save toggle (opt-in, default off), front-camera disabled (rear-only locked 2026-05-09), manual handoff QR flow.
+- Prices sourced directly from the spec's "Pricing alignment" table — 3-seat ₱1,499, 5-seat ₱2,499, Pro Camera Bridge ₱1,499 per DSLR seat. `formatPhp` from `lib/orders.ts` used for rendering; no new prices invented.
+- All Lucide icons reused from existing dependency (`Camera`, `Aperture`, `Scan`, `BatteryWarning`, `Hand`, `Share2`, `Sparkles`, `Tag`, `Info`, `ChevronUp`, `ChevronRight`, `HardDrive`, `Smartphone`, `ImageIcon`, `Film`, `CircleHelp`, `ArrowLeft`).
+- Auth-gated identically to neighboring add-on detail pages (`createClient` → `auth.getUser` → redirect to `/login` if unauthed).
+
+**What's stubbed (every integration seam tagged `// TODO(0012):`):**
+- getUserMedia + MediaRecorder web capture pipeline (deferred to native + V1.5+ architecture lock).
+- Native iOS / Android Papic capture flow (Phase 2 per repo-root `CLAUDE.md`).
+- Vendor DSLR SDK pairing handshakes (Canon EOS Camera Connect / Nikon SnapBridge / Sony Camera Remote / Fujifilm Camera Remote).
+- MediaPipe-WASM / Apple Vision / ML Kit face detection at the 0.85 auto-tag confidence threshold.
+- QR-tag handshake (peer-to-peer scan + table fan-out into up to 10 tags per photo).
+- R2 upload pipeline + signed-URL PUTs.
+- 5-minute face-vector cache refresh.
+- Battery telemetry + manual handoff QR generation.
+- `paparazzi_3_seats` / `paparazzi_5_seats` / `pro_camera_bridge_seat` SKU purchase wiring into the 0034 apply-then-pay `service_orders` flow.
+- Schema migration for Papic photo storage — large enough surface to warrant its own pass; mock data is sufficient for this scaffold per task scope.
+
+**Out of scope (this pass):**
+- Native iOS / Android capture surface (Phase 2 — V1.5+ build).
+- Real photo / clip captures (no R2 schema yet — mock-only gallery).
+- Migration for `dslr_pairings`, `face_enrollments`, `papic_seats`, photo / clip storage (separate pass once V1.5+ build sequence kicks off).
+- Touching `apps/web/app/dashboard/[eventId]/add-ons/page.tsx` (the `papic` entry was already `web_v1` — left untouched per task constraints).
+- Touching `apps/web/app/dashboard/[eventId]/add-ons/[addon]/page.tsx` (papic ADD_ON_META entry left as dead-code router fallback — harmless).
+
+**Cross-cutting standards honored:**
+- Mobile-first → single-column on small screens, multi-column grids at `sm:` / `lg:`.
+- Brand tokens only (cream / ink / terracotta — no hardcoded hex except the mock photo hues, which are deliberately `hsl()` for tile-color variety).
+- Min 44px tap targets (inherited from `globals.css` `button` baseline).
+- All CTAs that don't have wiring yet are rendered `disabled` with `aria-label` and `title` previews — no dead clicks that look live.
+- PHP only (no USD anywhere); SETNAYAN brand spelling.
+
+**Verify:** `pnpm --filter @setnayan/web typecheck` ✅ (zero errors) · `pnpm --filter @setnayan/web lint` ✅ (no ESLint warnings or errors). `pnpm build` / `pnpm dev` deliberately not run per task scope.
+
+**SPEC IMPACT:** None. The scaffold ships within the existing spec — no new SKUs introduced, no pricing change, no schema migration. Web V1 scope is admin-surface-only; native capture deferral is already documented in the spec's "V1.5+ Architecture Lock" section (2026-05-16).
+
+---
+
 ## 2026-05-16 · feat(0009): Photo Delivery — scaffold-level launch
 
 **Commit:** to be filled after commit.

@@ -4,6 +4,39 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-16 · feat(0017): Patiktok — scaffold-level launch
+
+**Commit:** to be filled after commit.
+
+**Context:** Iteration 0017 (Patiktok — TikTok-style mimic station) was deliberately deferred to V1.5+ per the original V1 scope freeze. Owner unlocked all six V1.5+ iterations on 2026-05-16 (12th decision-log row in `CLAUDE.md` for that date). Spec source of truth: `0017_patiktok.md`. The spec defines a vertical-reel mimic booth (9:16 · 1080×1920 · 1–30s) with face-lock continuity, masked transitions, Setnayan-owned AI music, and a dual-tier per-day SKU lock (₱999 / ₱1,999 / +₱49 overage).
+
+**What shipped:**
+- `apps/web/lib/patiktok.ts` — new V1.5+ scaffold catalogue: 12 mock vertical-reel templates spread across 5 categories (Save-the-date, Ceremony, Reception, SDE, Outro), display-only pricing tiers sourced verbatim from the spec's V1 SKU lock (Setnayan TikTok ₱999/day, Personal TikTok ₱1,999/day, overage ₱49/+10 videos, 40-video soft cap).
+- `apps/web/app/dashboard/[eventId]/add-ons/patiktok/page.tsx` — new gallery surface (server component). Hero with the 9:16 1080×1920 framing called out, dual-tier pricing strip, "How Patiktok runs at your event" 3-step strip, category filter chips (URL search-param driven), grid of 12 templates with CSS-painted 9:16 previews (palette + couple-name overlay), and a "Choose template" CTA per card.
+- `apps/web/app/dashboard/[eventId]/add-ons/patiktok/[templateId]/page.tsx` — new template detail sub-route. Full-size 9:16 preview with template palette + couple-name, mimic-duration picker (1–30s slider, defaults to the template's choreographed duration), "Render reel" CTA → mock job-ID success state, paired-music explainer, Station Pack inclusions list.
+- `apps/web/app/dashboard/[eventId]/add-ons/patiktok/_components/render-form.tsx` — client component for the duration slider + render queue mock (600ms simulated queue-submit → "Render queued" state with `pt_<base36>_<random>` mock job ID).
+- `apps/web/app/dashboard/[eventId]/add-ons/page.tsx` — flipped the Patiktok grid card's `status` from `'coming_soon'` to `'web_v1'`. Card is now clickable, Web V1 pill rendered.
+
+**What's stubbed (TODO(0017) comments inline):**
+- ffmpeg/Remotion vertical-reel render pipeline (shared backbone with Save-the-Date + Papic personal reels).
+- Render-queue worker that drains `patiktok_render_jobs` rows.
+- R2 upload of rendered MP4 + signed-URL delivery.
+- Suno Premier owned-AI music catalogue selection (~400 tracks · 6 categories per spec).
+- Real database persistence — the scaffold is pure mock. Decision: no migration in this PR (see PR body rationale). A future `20260516440000_iteration_0017_patiktok.sql` migration creating `patiktok_render_jobs` with `current_event_ids()` RLS will land alongside the real render-queue worker, not now.
+- Purchase wiring — display-only pricing on the gallery page. Apply-then-pay handoff (iteration 0034) is the existing path; this scaffold deliberately doesn't yet wire a "Buy Patiktok" order.
+
+**Out of scope:**
+- Real renders. No MP4 is produced; the success state surfaces a clearly-mock job ID.
+- Operator dashboard (printable booth QR + live submission counter + primary/backup template swap) — that's the next iteration of work once the render pipeline is live.
+- TikTok OAuth handshake for the Personal-tier posting flow.
+- Multi-performer face-lock + masked transitions — backend-only work, pure stub here.
+
+**Verify:** `pnpm --filter @setnayan/web typecheck` ✅ (zero errors) · `pnpm --filter @setnayan/web lint` ✅ (zero warnings/errors). Build + dev runs intentionally skipped per task scope.
+
+**SPEC IMPACT:** None — scaffold-level implementation against the existing locked spec. No spec edits required.
+
+---
+
 ## 2026-05-16 · feat(0005): LED Background Maker — scaffold-level launch
 
 **Commit:** to be filled after commit.

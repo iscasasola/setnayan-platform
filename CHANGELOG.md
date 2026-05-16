@@ -4,6 +4,62 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-16 · feat(0006,0023): vendor verification flow + admin queue + SKU aliases
+
+**Commit:** to be filled after commit.
+
+**Context:** Spec corpus 2026-05-16 locked the full Vendor Verification flow: FREE initial / ₱1,500 annual renewal / ₱2,500 post-demotion re-verification, 12-document checklist, all-or-nothing approval, 3–5 BD SLA, `setnayan-vendor-verification` R2 bucket (90-day rolling raw + 7-year audit per BIR § 235). PR #56 shipped the admin queue shell + the marketplace `public_visibility` state machine; this PR completes the workflow side: a new `verification_state` ENUM on `vendor_profiles`, an `application` intake table, a `tier_history` audit table, the vendor-facing 12-doc upload page, and the admin Approve / Reject / Demote / In-review action set.
+
+**Schema (`supabase/migrations/20260516040000_iteration_0006_vendor_verification_flow.sql`):**
+- New ENUM `vendor_verification_state('unverified','pending_review','verified','demoted','rejected')`.
+- New column `vendor_profiles.verification_state` default `'unverified'` (idempotent ADD COLUMN IF NOT EXISTS); + `last_verified_at`, `next_renewal_due_at`, `demotion_count`, `last_demoted_at`. Backfill: rows already at `public_visibility='verified'` from PR #56 lift to `verification_state='verified'` so live listings retain their perk-unlock signal on deploy.
+- New table `vendor_verification_applications` — application/intake rows. Tracks `application_type` (`initial` / `annual_renewal` / `post_demotion`), `fee_php_centavos`, `status` (`draft` / `pending_review` / `in_review` / `approved` / `rejected` / `withdrawn`), `doc_uploads` JSONB (12-doc checklist + R2 keys), `docs_complete`, `submitted_at`, `sla_due_at`, `admin_user_id`, `decision`, `decision_reason`, `decided_at`, `notes`. RLS: vendor sees + writes their own draft rows; admin (service-role) has full access.
+- New table `vendor_tier_history` — state-transition audit (`from_state` / `to_state` / `application_id` / `admin_user_id` / `reason` / `metadata`). RLS: vendor sees their own timeline; admins see everything.
+- Two SKU alias rows in `service_catalog` (`verification_annual_renewal` ₱1,500 + `verification_reverification` ₱2,500) coexist with the canonical `vendor_verification_*` codes from the 2026-05-16 SKU lock so call sites that follow either naming convention resolve.
+- All inserts use `ON CONFLICT (sku_code) DO UPDATE`; all DDL is `CREATE TABLE IF NOT EXISTS` + `ADD COLUMN IF NOT EXISTS`; no drops.
+
+**Environment + R2:**
+- `.env.example` gains `R2_BUCKET_VENDOR_VERIFICATION=setnayan-vendor-verification` (90d rolling raw + 7yr audit retention per BIR § 235; owner provisions the bucket separately).
+- `apps/web/lib/r2.ts` exports `vendorVerification: 'setnayan-vendor-verification'`.
+- `apps/web/app/api/upload/route.ts` whitelists `vendor-verification` / `vendorVerification` as a bucket alias with a 15 MB per-file cap.
+- `apps/web/app/_components/file-upload.tsx` adds `'vendor-verification'` to the `FileUploadBucket` union.
+
+**Vendor surface (`apps/web/app/vendor-dashboard/verify/`):**
+- New tab `Verify` in the vendor-dashboard subnav (`layout.tsx`).
+- `page.tsx` — single-page workflow:
+  - Status card (current `verification_state` + latest application reference).
+  - "Start application" picker for `initial` / `annual_renewal` / `post_demotion` (recommended type pre-selected from `recommendedApplicationType` heuristic).
+  - Progress bar (`completeCount`/12) + per-slot card grid for the 12 checklist items. Each card carries the spec hint (e.g. "auto-validated via DTI lookup once integration ships") and per-slot input UI:
+    - Upload slots → `FileUpload` with R2 `vendor-verification` bucket + per-vendor path prefix.
+    - `social_media` → URL input.
+    - `google_meet` / `phone_email_otp` / `amlc_screening` → admin-run notice ("Setnayan flips this after submission").
+    - Portfolio-samples + client-references accept multi-file uploads (up to 10).
+  - Submit gate: requires ≥ 8 of 12 items to submit (the 4 admin-run slots — Persona ID, Google Meet, OTP, AMLC — are flipped post-submit).
+  - Pending / Approved / Rejected status cards render once a decision lands.
+- `actions.ts` — server actions `ensureDraftApplication`, `updateDocUpload`, `submitApplication`, `withdrawApplication`. Submit stamps `submitted_at` + `sla_due_at` (5 business days), bumps `verification_state` → `pending_review`, and writes an `admin_audit_log` row.
+- `apps/web/lib/vendor-verification.ts` — shared types + helpers (`DOC_SLOTS`, `VERIFICATION_STATES`, `APPLICATION_FEE_CENTAVOS`, `countCompleteSlots`, `addBusinessDays`, `computeSlaTone`, `formatSlaCountdown`, `fetchLatestApplication`, `fetchTierHistory`, `recommendedApplicationType`).
+
+**Admin surface (`apps/web/app/admin/verify/`):**
+- `page.tsx` — refactored into two surfaces switched by `?surface=`:
+  - `applications` (default) — Vendor Verification queue with tabs `pending` / `in_review` / `approved` / `rejected` / `demoted` / `all`. Each row shows the vendor, application type + fee, SLA badge (on_track / warning amber after 3 BD / overdue red after 5 BD / closed), tier badge, status badge, decision reason, and a 12-doc checklist `<details>` expander. Action row: `Mark in review` / `Approve → Verified` / `Reject…` (textarea reason required, min 5 chars) / `Demote…` (for approved rows, textarea reason required).
+  - `visibility` — the marketplace `public_visibility` queue from PR #56, preserved 1:1.
+- `actions.ts` — adds server actions `approveApplication`, `rejectApplication`, `demoteVendor`, `setApplicationInReview`. Each writes the application row's `decision` + `admin_user_id` + `decided_at`, transitions `vendor_profiles.verification_state` (and side-effects: `last_verified_at` / `next_renewal_due_at` on approve · `last_demoted_at` + `demotion_count++` on demote), inserts a `vendor_tier_history` row, and writes an `admin_audit_log` row.
+
+**Webhook stubs (owner-action pending):**
+- `apps/web/app/api/webhooks/persona/route.ts` — accepts POST + GET, logs the payload to console + Sentry breadcrumb, returns 200. No signature verification yet (Persona dashboard signup is owner-action pending per App_Build_Status.md). TODO comment block in the file documents the wire-up steps.
+- `apps/web/app/api/webhooks/veriff/route.ts` — same pattern; parallel stub for the Veriff provider.
+
+**Verify:** `pnpm --filter @setnayan/web typecheck` ✅ · `lint` ✅ (zero warnings) · `build` ✅ (`/vendor-dashboard/verify` + `/admin/verify` + `/api/webhooks/persona` + `/api/webhooks/veriff` all listed in the route table).
+
+**Owner action required:**
+- `supabase db push --db-url "$SUPABASE_DB_URL"` to apply the migration.
+- Provision Cloudflare R2 bucket `setnayan-vendor-verification` (90-day rolling lifecycle on `raw/` prefix · 7-year retention on `audit/` prefix per BIR § 235).
+- Sign up for Persona / Veriff / Onfido + AMLC; populate `PERSONA_API_KEY` / `PERSONA_TEMPLATE_ID` / `AMLC_API_KEY` in Vercel; then wire signature verification + the post-submit handler into the webhook stubs.
+
+**SPEC IMPACT:** None — implements 0006 § "Vendor Verification flow (locked 2026-05-16)" + 0023 § 3.2a as written. Two minor spec-side notes to surface to Cowork separately: (1) the spec's `verification_state` ENUM lists `('coming_soon','verified','demoted','revoked')` while the engineering task brief locked `('unverified','pending_review','verified','demoted','rejected')`; this PR follows the task brief because the workflow needs distinct `unverified` (no app started) vs `pending_review` (app submitted) vs `rejected` (admin said no, vendor must re-apply) states the spec wording elides. (2) The spec's `vendor_verification_applications` schema is satisfied 1:1; the spec ENUM mismatch is the only deviation.
+
+---
+
 ## 2026-05-16 · feat(infra): graceful Supabase Storage fallback when R2 env vars are unset
 
 **Commit:** to be filled after commit.

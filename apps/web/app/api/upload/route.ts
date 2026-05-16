@@ -47,6 +47,7 @@ const BUCKET_KEYS: ReadonlySet<R2BucketKey> = new Set([
   'threadFiles',
   'vendorContracts',
   'samples',
+  'vendorVerification',
 ]);
 
 // Aliases the client sends ("thread-files") map to the internal R2BucketKey
@@ -59,6 +60,8 @@ const BUCKET_ALIASES: Record<string, R2BucketKey> = {
   'vendor-contracts': 'vendorContracts',
   vendorContracts: 'vendorContracts',
   samples: 'samples',
+  'vendor-verification': 'vendorVerification',
+  vendorVerification: 'vendorVerification',
 };
 
 // Per-bucket hard caps. The component-level cap is an additional sanity
@@ -70,6 +73,7 @@ const BUCKET_MAX_BYTES: Record<R2BucketKey, number> = {
   threadFiles: 20 * 1024 * 1024, // 20 MB — force-majeure evidence + PDF receipts
   vendorContracts: 25 * 1024 * 1024, // 25 MB — signed PDF contracts
   samples: 10 * 1024 * 1024,
+  vendorVerification: 15 * 1024 * 1024, // 15 MB — DTI, BIR 2303, Mayor's Permit, etc.
 };
 
 // MIME type whitelist — same union the existing `lib/storage.ts` accepts,

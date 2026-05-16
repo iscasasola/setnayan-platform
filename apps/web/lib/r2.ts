@@ -38,6 +38,7 @@ export const R2_BUCKETS = {
   threadFiles: 'setnayan-thread-files',
   vendorContracts: 'setnayan-vendor-contracts',
   samples: 'setnayan-samples',
+  vendorVerification: 'setnayan-vendor-verification',
 } as const;
 
 export type R2BucketKey = keyof typeof R2_BUCKETS;

@@ -38,7 +38,8 @@ export type FileUploadBucket =
   | 'media'
   | 'thread-files'
   | 'vendor-contracts'
-  | 'samples';
+  | 'samples'
+  | 'vendor-verification';
 
 export type FileUploadProps = {
   /** R2 bucket to write to. Maps to one of the four PH-region buckets. */

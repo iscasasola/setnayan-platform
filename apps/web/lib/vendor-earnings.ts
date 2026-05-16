@@ -1,10 +1,18 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
- * Setnayan Pay convenience fee. Disclosed transparently on each row so the
- * vendor sees how the gross-to-net math works out.
+ * Default Setnayan Pay convenience-fee percentage. Disclosed transparently
+ * on each row so the vendor sees how the gross-to-net math works out.
+ *
+ * Per-method rates live in `setnayan_pay_methods` (cheap rails 5.5% / premium
+ * 6.5%); this constant matches the cheapest default rail (Maya QR Ph / Bank
+ * Transfer / GCash Direct) so previews don't over-estimate. Wiring
+ * `convenienceFeePhp` to read per-method from the table is a follow-up
+ * (see migration 20260516030000_v1_sku_lock_setnayan_pay_methods.sql).
+ *
+ * Repriced 3 → 5.5 on 2026-05-16 (spec corpus commit a0fa3c7).
  */
-export const SETNAYAN_PAY_FEE_PCT = 3;
+export const SETNAYAN_PAY_FEE_PCT = 5.5;
 
 export type VendorEarningRow = {
   order_id: string;
@@ -158,9 +166,11 @@ export function computeMonthlySubtotals(
 }
 
 /**
- * Setnayan Pay 3% convenience-fee line. Returned as a positive number; the
- * caller chooses how to surface it (vendor sees it as the platform's slice
- * of the gross).
+ * Setnayan Pay convenience-fee line, computed at the default rail rate
+ * (`SETNAYAN_PAY_FEE_PCT`). For a specific payment method, callers should
+ * look up the rate in `setnayan_pay_methods`. Returned as a positive number;
+ * the caller chooses how to surface it (vendor sees it as the platform's
+ * slice of the gross).
  */
 export function convenienceFeePhp(grossPhp: number): number {
   return Math.round((grossPhp * SETNAYAN_PAY_FEE_PCT) / 100);

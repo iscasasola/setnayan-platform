@@ -6,6 +6,7 @@ import {
   Briefcase,
   ClipboardList,
   FileText,
+  Megaphone,
   MessageSquare,
   ShieldCheck,
   Star,
@@ -121,6 +122,12 @@ export default async function VendorDashboardLayout({
             href="/vendor-dashboard/verify"
             label="Verify"
             icon={<ShieldCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />}
+            match="prefix"
+          />
+          <VendorSubnavTab
+            href="/vendor-dashboard/marketing"
+            label="Marketing"
+            icon={<Megaphone aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />}
             match="prefix"
           />
           <VendorSubnavTab

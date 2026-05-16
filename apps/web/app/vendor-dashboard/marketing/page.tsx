@@ -48,35 +48,35 @@ export default async function VendorMarketingPage({ searchParams }: Props) {
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
 
-  // Verified gate — V1 proxy via public_visibility. A parallel agent is
-  // wiring `vendors.verification_state`; until that column lands we read
-  // public_visibility (which carries the same semantic meaning per
-  // 0022 § 2.1c). Pre-flight the column existence by attempting to select
-  // it; on PostgREST column-missing the request resolves with an error
-  // body, so we treat any failure as "not present yet".
-  const visibilityRes = await supabase
-    .from('vendor_profiles')
-    .select('public_visibility')
-    .eq('vendor_profile_id', profile.vendor_profile_id)
-    .maybeSingle();
-  const visibility = parseVisibility(visibilityRes.data?.public_visibility);
-  let isVerified = visibility === 'verified';
-  // Soft-probe for the new enum column; ignore failure (column not shipped
-  // yet on this environment).
+  // Verified gate. The parallel verification-flow PR added the canonical
+  // `vendor_profiles.verification_state` ENUM ('unverified' | 'pending_review'
+  // | 'verified' | 'demoted' | 'rejected'). We read both that and the
+  // marketplace-side `public_visibility` so either signal can unlock the
+  // gate (per 0022 § 2.1c, `public_visibility = 'verified'` carries the
+  // same meaning as `verification_state = 'verified'`). Soft-probe so a
+  // pre-migration environment still renders the page.
+  let isVerified = false;
   try {
-    const probe = await supabase
+    const res = await supabase
       .from('vendor_profiles')
-      .select('verification_state' as 'public_visibility')
+      .select('public_visibility, verification_state' as 'public_visibility')
       .eq('vendor_profile_id', profile.vendor_profile_id)
       .maybeSingle();
-    const probeRow = probe.data as unknown as
-      | { verification_state?: string | null }
+    const row = res.data as unknown as
+      | { public_visibility?: string | null; verification_state?: string | null }
       | null;
-    if (probeRow && probeRow.verification_state === 'verified') {
-      isVerified = true;
-    }
+    const visibility = parseVisibility(row?.public_visibility);
+    isVerified =
+      row?.verification_state === 'verified' || visibility === 'verified';
   } catch {
-    // Column doesn't exist on this environment — fall back to visibility.
+    // Column missing — fall back to visibility-only read.
+    const visibilityRes = await supabase
+      .from('vendor_profiles')
+      .select('public_visibility')
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .maybeSingle();
+    isVerified =
+      parseVisibility(visibilityRes.data?.public_visibility) === 'verified';
   }
 
   const rows = await fetchVendorAdSubscriptions(supabase, profile.vendor_profile_id);

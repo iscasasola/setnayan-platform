@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
+import { Logo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readGuestSession } from '@/lib/guest-session';
 import { formatEventDate } from '@/lib/events';
@@ -184,13 +185,8 @@ function InvitationShell({ children }: { children: React.ReactNode }) {
     <main className="min-h-dvh bg-cream text-ink">
       <header className="border-b border-ink/10 bg-cream/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
-          <span className="flex items-center gap-2">
-            <span
-              aria-hidden
-              className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-terracotta text-xs font-semibold text-cream"
-            >
-              S
-            </span>
+          <span className="flex items-center gap-2 text-ink">
+            <Logo height={28} />
             <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/60">
               Setnayan
             </span>

@@ -77,3 +77,16 @@ For each `NNNN` iteration in the spec corpus:
 5. Translate the `.html` prototype into React components (don't reinterpret)
 6. Pass every checkbox in `tests.md` before opening a PR
 7. Append a `CHANGELOG.md` entry + update `STATUS.md` before committing
+
+## PR workflow — auto-merge is the default
+
+Immediately after `gh pr create` on this repo, enable auto-merge:
+
+```bash
+gh pr merge <PR#> --auto --merge
+```
+
+- Use `--merge` (merge commit) to match the existing history pattern. Don't switch to `--squash` or `--rebase` unless the owner explicitly asks.
+- Auto-merge waits for required CI checks (typecheck + lint, secret scan, production build, Lighthouse, Vercel preview). If any required check fails, the merge is paused — investigate the failure rather than overriding.
+- The `build (windows-latest)` job from `build-desktop.yml` is NOT a required check; auto-merge can (and will) fire while it's still in progress. That's expected.
+- This is the standing default — never ask "should I auto-merge?" Owner locked 2026-05-15.

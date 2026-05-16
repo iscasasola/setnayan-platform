@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchUserEvents } from '@/lib/events';
@@ -8,6 +7,7 @@ import { getLocale, makeT } from '@/lib/i18n';
 import { BottomNav } from './_components/bottom-nav';
 import { EventSwitcher } from './_components/event-switcher';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
+import { ProfileMenu } from '@/app/_components/profile-menu';
 
 type Props = {
   children: React.ReactNode;
@@ -37,7 +37,9 @@ export default async function EventLayout({ children, params }: Props) {
   const [eventRes, unreadCount, locale, switcherEvents, roles] = await Promise.all([
     supabase
       .from('events')
-      .select('event_id, public_id, display_name, event_date, archived, event_type')
+      .select(
+        'event_id, public_id, display_name, event_date, archived, event_type, monogram_text, monogram_color',
+      )
       .eq('event_id', eventId)
       .single(),
     countUnread(supabase, user.id),
@@ -65,6 +67,8 @@ export default async function EventLayout({ children, params }: Props) {
             currentEventId={event.event_id}
             currentEventName={event.display_name}
             currentEventDate={event.event_date}
+            currentMonogramText={event.monogram_text}
+            currentMonogramColor={event.monogram_color}
             events={switcherEvents
               .filter((e) => !e.archived)
               .map((e) => ({
@@ -72,6 +76,8 @@ export default async function EventLayout({ children, params }: Props) {
                 display_name: e.display_name,
                 event_date: e.event_date,
                 is_primary: e.is_primary,
+                monogram_text: e.monogram_text,
+                monogram_color: e.monogram_color,
               }))}
             hasVendorAccess={roles.hasVendorAccess}
             hasAdminAccess={roles.hasAdminAccess}
@@ -85,13 +91,10 @@ export default async function EventLayout({ children, params }: Props) {
               ariaBaseLabel={tr('nav.notifications')}
               ariaUnreadSuffix="unread"
             />
-            <Link
-              href="/dashboard/profile"
-              aria-label={tr('common.profile')}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-ink/15 bg-cream text-sm font-medium text-ink/70 hover:border-terracotta/40 hover:text-terracotta"
-            >
-              {user.email?.charAt(0).toUpperCase() ?? '?'}
-            </Link>
+            <ProfileMenu
+              email={user.email ?? ''}
+              ariaLabel={tr('common.profile')}
+            />
           </div>
         </div>
       </div>

@@ -1,26 +1,34 @@
 'use client';
 
 import Link from 'next/link';
-import { ChevronDown, ArrowLeft } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { formatEventDate } from '@/lib/events';
+import { EventMonogram } from '@/app/_components/event-monogram';
 
 /**
- * Event switcher — iteration 0000 chrome (locked 2026-05-15 row 3).
+ * Event switcher — iteration 0000 chrome (locked 2026-05-14 single-strip
+ * top-nav + 2026-05-15 event-lifecycle add-event entry-point).
  *
- * Anchors to the monogram / event pill in the top strip:
- *   - Mobile: bottom sheet rises on long-press of the pill.
- *   - Desktop: dropdown popover on caret-click.
+ * The top-strip anchor is a **monogram chip** (per-event circular badge from
+ * `events.monogram_text` / derived initials of `display_name`):
+ *   - **Tap monogram** → routes to the event dashboard.
+ *   - **Long-press monogram (mobile)** → opens the switcher.
+ *   - **Caret ▾ (desktop)** → opens the switcher popover.
  *
- * Contents (top to bottom):
- *   1. `+ Add event` row.
+ * Switcher contents (top to bottom):
+ *   1. `+ Add event` row at top.
  *   2. Event list — primary first, marked with ★; each row monogram + name
  *      + date pill (or "date TBD" when event_date is null).
  *   3. Role-switch rows separated by a thin border:
  *        - Shop console (visible when user has vendor access)
  *        - Admin console (visible when user has admin grant)
  *
- * The currently-active event is dimmed but still navigable.
+ * Set-primary affordance is **scope-cut to V1.1** — the existing `events.is_primary`
+ * column already drives the ★ marker on the most recent / primary event,
+ * but the long-press-row / kebab UI to flip the flag from the switcher is
+ * not in this PR. Couples can still set primary via the existing
+ * `/dashboard/profile`-side controls until V1.1 ships.
  */
 
 export type SwitcherEvent = {
@@ -28,6 +36,8 @@ export type SwitcherEvent = {
   display_name: string;
   event_date: string | null;
   is_primary: boolean;
+  monogram_text: string | null;
+  monogram_color: string | null;
 };
 
 export type SwitcherVendorTarget = {
@@ -40,6 +50,8 @@ type Props = {
   currentEventId: string;
   currentEventName: string;
   currentEventDate: string | null;
+  currentMonogramText: string | null;
+  currentMonogramColor: string | null;
   events: SwitcherEvent[];
   hasVendorAccess: boolean;
   hasAdminAccess: boolean;
@@ -50,6 +62,8 @@ export function EventSwitcher({
   currentEventId,
   currentEventName,
   currentEventDate,
+  currentMonogramText,
+  currentMonogramColor,
   events,
   hasVendorAccess,
   hasAdminAccess,
@@ -80,8 +94,7 @@ export function EventSwitcher({
   }, [open]);
 
   // Long-press handling for mobile — fire the switcher when the user
-  // holds the pill for ≥400ms. We use pointer events so it works for
-  // touch, mouse, and pen identically.
+  // holds the monogram for ≥400ms. Pointer events handle touch + mouse + pen.
   const startLongPress = () => {
     isLongPressFiredRef.current = false;
     longPressTimerRef.current = window.setTimeout(() => {
@@ -97,9 +110,8 @@ export function EventSwitcher({
     }
   };
 
-  // If the long-press fired we eat the subsequent tap so the link
-  // doesn't navigate.
-  const onPillClick = (e: React.MouseEvent) => {
+  // If long-press fired we eat the subsequent tap so the link doesn't navigate.
+  const onMonogramClick = (e: React.MouseEvent) => {
     if (isLongPressFiredRef.current) {
       e.preventDefault();
       isLongPressFiredRef.current = false;
@@ -109,22 +121,23 @@ export function EventSwitcher({
   return (
     <div ref={containerRef} className="relative flex min-w-0 items-center gap-1">
       <Link
-        href="/dashboard"
-        className="group flex min-w-0 items-center gap-2 rounded-full bg-terracotta/10 px-3 py-1.5 text-sm font-medium text-terracotta-700 hover:bg-terracotta/15"
+        href={`/dashboard/${currentEventId}`}
+        className="flex items-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40"
         onPointerDown={startLongPress}
         onPointerUp={cancelLongPress}
         onPointerLeave={cancelLongPress}
         onPointerCancel={cancelLongPress}
-        onClick={onPillClick}
-        aria-label={`Go to dashboard · long-press to switch events`}
+        onClick={onMonogramClick}
+        aria-label={`${currentEventName} dashboard · long-press to switch events`}
       >
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
-        <span className="truncate">{currentEventName}</span>
-        {currentEventDate ? (
-          <span className="hidden text-xs text-terracotta-600 sm:inline">
-            · {formatEventDate(currentEventDate)}
-          </span>
-        ) : null}
+        <EventMonogram
+          event={{
+            display_name: currentEventName,
+            monogram_text: currentMonogramText,
+            monogram_color: currentMonogramColor,
+          }}
+          size="md"
+        />
       </Link>
       <button
         type="button"
@@ -132,7 +145,7 @@ export function EventSwitcher({
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex h-7 w-7 items-center justify-center rounded-full text-terracotta-700 hover:bg-terracotta/15"
+        className="inline-flex h-7 w-7 items-center justify-center rounded-full text-ink/60 hover:bg-terracotta/10 hover:text-terracotta"
       >
         <ChevronDown
           aria-hidden
@@ -140,6 +153,18 @@ export function EventSwitcher({
           strokeWidth={2}
         />
       </button>
+
+      {/* Desktop-only event-name + date pill. On mobile the chrome is
+          monogram-only per 2026-05-14 single-strip lock; the event name +
+          date surface only inside the switcher. */}
+      <span className="ml-1 hidden min-w-0 items-center gap-2 rounded-full bg-terracotta/10 px-3 py-1 text-sm text-terracotta-700 sm:inline-flex">
+        <span className="max-w-[14rem] truncate font-medium">{currentEventName}</span>
+        {currentEventDate ? (
+          <span className="text-xs text-terracotta-700/80">
+            · {formatEventDate(currentEventDate)}
+          </span>
+        ) : null}
+      </span>
 
       {open ? (
         <div
@@ -173,22 +198,32 @@ export function EventSwitcher({
                         role="menuitem"
                         href={`/dashboard/${ev.event_id}`}
                         aria-current={isCurrent ? 'page' : undefined}
-                        className={`flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-sm transition-colors hover:bg-terracotta/10 ${
+                        className={`flex items-center justify-between gap-2 rounded-xl px-2 py-2 text-sm transition-colors hover:bg-terracotta/10 ${
                           isCurrent ? 'bg-terracotta/5 text-ink' : 'text-ink/85'
                         }`}
                         onClick={() => setOpen(false)}
                       >
                         <span className="flex min-w-0 items-center gap-2">
-                          {ev.is_primary ? (
-                            <span aria-hidden className="text-terracotta">
-                              ★
-                            </span>
-                          ) : (
-                            <span aria-hidden className="w-3 text-transparent">
-                              ·
-                            </span>
-                          )}
-                          <span className="truncate font-medium">{ev.display_name}</span>
+                          <EventMonogram
+                            event={{
+                              display_name: ev.display_name,
+                              monogram_text: ev.monogram_text,
+                              monogram_color: ev.monogram_color,
+                            }}
+                            size="sm"
+                          />
+                          <span className="flex min-w-0 items-center gap-1">
+                            {ev.is_primary ? (
+                              <span
+                                aria-label="Primary event"
+                                title="Primary event"
+                                className="text-terracotta"
+                              >
+                                ★
+                              </span>
+                            ) : null}
+                            <span className="truncate font-medium">{ev.display_name}</span>
+                          </span>
                         </span>
                         <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
                           {ev.event_date ? formatEventDate(ev.event_date) : 'date TBD'}

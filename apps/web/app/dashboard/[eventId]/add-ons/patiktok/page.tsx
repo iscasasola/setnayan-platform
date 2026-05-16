@@ -6,10 +6,12 @@ import {
   Hash,
   Music,
   QrCode,
+  ShoppingCart,
   Smartphone,
   Sparkles,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { formatPhp } from '@/lib/orders';
 import {
   PATIKTOK_CATEGORIES,
@@ -20,6 +22,9 @@ import {
   type PatiktokCategory,
   type PatiktokTemplate,
 } from '@/lib/patiktok';
+import { createOrder } from '../../orders/actions';
+
+type PatiktokTier = (typeof PATIKTOK_TIERS)[number];
 
 export const metadata = { title: 'Patiktok · Setnayan' };
 
@@ -80,11 +85,11 @@ export default async function PatiktokGallery({
           per clip.
         </p>
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Scaffold preview · purchase wiring lives in the apply-then-pay flow
+          V1.5+ scaffold · purchase live · render pipeline ships in Phase 2
         </p>
       </header>
 
-      <PricingTiers />
+      <PricingTiers eventId={eventId} couplePurchasable />
 
       <HowItWorks />
 
@@ -122,29 +127,22 @@ export default async function PatiktokGallery({
   );
 }
 
-function PricingTiers() {
+function PricingTiers({
+  eventId,
+  couplePurchasable,
+}: {
+  eventId: string;
+  couplePurchasable: boolean;
+}) {
   return (
     <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       {PATIKTOK_TIERS.map((tier) => (
-        <article
+        <TierCard
           key={tier.key}
-          className="space-y-2 rounded-2xl border border-ink/10 bg-cream p-5"
-        >
-          <div className="flex items-start justify-between gap-2">
-            <div className="space-y-1">
-              <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-                Per-day tier
-              </p>
-              <h2 className="text-lg font-semibold tracking-tight">
-                {tier.label}
-              </h2>
-            </div>
-            <span className="rounded-full bg-terracotta/10 px-2 py-0.5 font-mono text-[11px] uppercase tracking-[0.15em] text-terracotta-700">
-              {formatPhp(tier.pricePhpPerDay)} / day
-            </span>
-          </div>
-          <p className="text-sm text-ink/70">{tier.blurb}</p>
-        </article>
+          eventId={eventId}
+          tier={tier}
+          purchasable={couplePurchasable}
+        />
       ))}
       <p className="sm:col-span-2 text-xs text-ink/55">
         Soft cap: {PATIKTOK_VIDEO_SOFT_CAP} captured videos per booth per day.
@@ -155,6 +153,64 @@ function PricingTiers() {
         in-event if your crowd outruns the cap.
       </p>
     </section>
+  );
+}
+
+function TierCard({
+  eventId,
+  tier,
+  purchasable,
+}: {
+  eventId: string;
+  tier: PatiktokTier;
+  purchasable: boolean;
+}) {
+  const serviceKey =
+    tier.key === 'personal'
+      ? 'patiktok:personal_daily'
+      : 'patiktok:setnayan_daily';
+  const description =
+    tier.key === 'personal'
+      ? `Patiktok booth — Personal TikTok tier (₱${tier.pricePhpPerDay}/day · auto-post to couple's own TikTok via OAuth · 40-video soft cap).`
+      : `Patiktok booth — Setnayan TikTok tier (₱${tier.pricePhpPerDay}/day · auto-post to @SetnayanWeddings · 40-video soft cap).`;
+  return (
+    <article className="flex h-full flex-col gap-3 rounded-2xl border border-ink/10 bg-cream p-5">
+      <div className="flex items-start justify-between gap-2">
+        <div className="space-y-1">
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+            Per-day tier
+          </p>
+          <h2 className="text-lg font-semibold tracking-tight">{tier.label}</h2>
+        </div>
+        <span className="rounded-full bg-terracotta/10 px-2 py-0.5 font-mono text-[11px] uppercase tracking-[0.15em] text-terracotta-700">
+          {formatPhp(tier.pricePhpPerDay)} / day
+        </span>
+      </div>
+      <p className="text-sm text-ink/70">{tier.blurb}</p>
+      {purchasable ? (
+        <form action={createOrder} className="mt-auto pt-1">
+          <input type="hidden" name="event_id" value={eventId} />
+          <input type="hidden" name="service_key" value={serviceKey} />
+          <input type="hidden" name="description" value={description} />
+          <input
+            type="hidden"
+            name="requested_total_php"
+            value={tier.pricePhpPerDay}
+          />
+          <SubmitButton
+            className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-600 disabled:opacity-70"
+            pendingLabel="Submitting…"
+          >
+            <ShoppingCart className="h-4 w-4" strokeWidth={1.75} />
+            Buy 1 day · {formatPhp(tier.pricePhpPerDay)}
+          </SubmitButton>
+          <p className="pt-2 text-[11px] text-ink/55">
+            Apply-then-pay · Setnayan confirms inside 24 h after BDO / GCash
+            payment is logged.
+          </p>
+        </form>
+      ) : null}
+    </article>
   );
 }
 

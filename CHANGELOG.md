@@ -4,6 +4,39 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-16 · feat(0005): LED Background Maker — scaffold-level launch
+
+**Commit:** to be filled after commit.
+
+**Context:** Iteration 0005 spec (`0005_led_background_maker.md` + `0005_ffmpeg_lottie_reference.md`) defines a couple-facing 8K LED loop generator with USB delivery for venue playback — the "Pailaw" surface in live-site framing. Per the 2026-05-16 decision-log row (12th entry that day), the six V1.5+ deferred add-ons were unlocked for scaffold-level Web V1 launches today; this is the LED entry of that unlock. V1 SKUs/pricing remain locked, so this scaffold carries no new prices and no wallet UI. Master loop durations (5 / 10 / 30 / 90-min Custom tier) follow the 2026-05-08 spec decision row.
+
+**What shipped:**
+- `apps/web/lib/led-background.ts` — V1 catalogue of all 10 spec-locked templates (Filigree Bloom, Capiz Shimmer, Sampaguita Drift, Gold Particles, Ethereal Mist, Bokeh Lights, Watercolor Wash, Slow Pulse, Constellation, Velvet Sweep) plus the loop-duration option list with file-size + repeat-count copy.
+- `apps/web/app/dashboard/[eventId]/add-ons/led/page.tsx` — RSC entry that loads the event, renders the Pailaw eyebrow + "8K loop · USB delivery" trio strip (Sparkles / Tv / Usb cards), and mounts the maker.
+- `apps/web/app/dashboard/[eventId]/add-ons/led/_components/led-background-maker.tsx` — client component for the interactive flow: 10-template gallery (gradient placeholder thumbnails sourced from each template's palette + motif overlay), sticky right-rail customization panel with loop-duration radio group (90-min option visibly disabled with a Lock icon + "Custom tier" hint), Photo Pool blend toggle with explainer copy about rotating photos per loop iteration, output-spec readback, and the Render & queue CTA. Render submission shows a success card with a mock job ID (`LED-2026-XXXXXX`), template + loop + Photo Pool summary, render-time estimate, USB-delivery handoff copy ("We'll email you when your USB master is ready"), and a back-to-Orders link.
+- `apps/web/app/dashboard/[eventId]/add-ons/page.tsx` — flipped the `led` entry's `status` from `'coming_soon'` to `'web_v1'` so the card on the add-ons grid is clickable and pills as "Web V1". Touched nothing else in the file.
+
+**What's stubbed (`// TODO(0005):` comments in place):**
+- FFmpeg + Lottie 8K render pipeline — `puppeteer-lottie` / `@lottiefiles/lottie-renderer-cli` → PNG sequence → FFmpeg filtergraph composite with particle/light-leak overlays → H.264 MP4 at 8K with 4K + 1080p downsamples.
+- Cloudflare Queues render-worker — currently the `Render` button just sets local state to a mock job; production needs the `/api/led-background/render` endpoint, queue insertion, and a polling status surface.
+- Photo Pool blend logic — selects N photos per loop iteration from the event's photo pool, composites at 30% opacity behind the monogram.
+- USB master fulfillment — physical delivery via iteration 0018 Supplies Marketplace, per the spec's "auto-delivery to LED tech" + pre-event checklist sections.
+- Real looping `thumb.mp4` template previews — gallery cards currently render solid gradient placeholders with motif-overlay copy.
+
+**Out of scope (deferred):**
+- Real 8K rendering — needs the FFmpeg + Lottie worker container.
+- Live preview canvas with concurrent animation layers — spec § "Live preview" needs to wait for the production pipeline + browser preview shim.
+- Hosted Live Playback URL add-on (₱99 SKU) — V1 surface is offline-USB-first per spec § "Offline safety".
+- Drive push integration — depends on iteration 0009 photo-delivery shipping first.
+- Pricing display — V1 SKUs/pricing remain locked; checkout is order-and-pay via Setnayan team handoff for now (mirrors Save-the-Date pattern).
+- DB migration — scaffold is pure mock client state, so no `led_render_jobs` table was added in this PR. A migration named `20260516400000_iteration_0005_led.sql` (with RLS via `current_event_ids()`) ships when the render worker lands.
+
+**Verify:** `pnpm --filter @setnayan/web typecheck` ✅ (zero errors) · `pnpm --filter @setnayan/web lint` ✅ (no ESLint warnings or errors).
+
+**SPEC IMPACT:** None — this implements the scaffold layer for iteration 0005 per the locked spec; no spec edits required.
+
+---
+
 ## 2026-05-16 · feat(marketing): surface 0009 Photo Delivery + 0018 Supplies Marketplace on www.setnayan.com
 
 **Commit:** to be filled after commit.

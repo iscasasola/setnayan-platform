@@ -2,13 +2,17 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import {
   ArrowLeft,
+  CheckCircle2,
+  Clock3,
   Film,
   Hash,
+  Loader2,
   Music,
   QrCode,
   ShoppingCart,
   Smartphone,
   Sparkles,
+  XCircle,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -19,10 +23,22 @@ import {
   PATIKTOK_TEMPLATES,
   PATIKTOK_TIERS,
   PATIKTOK_VIDEO_SOFT_CAP,
+  findPatiktokTemplate,
   type PatiktokCategory,
   type PatiktokTemplate,
 } from '@/lib/patiktok';
 import { createOrder } from '../../orders/actions';
+
+type RenderJobRow = {
+  job_id: string;
+  template_slug: string;
+  duration_sec: number;
+  status: 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled';
+  output_url: string | null;
+  failure_reason: string | null;
+  enqueued_at: string;
+  completed_at: string | null;
+};
 
 type PatiktokTier = (typeof PATIKTOK_TIERS)[number];
 
@@ -30,7 +46,7 @@ export const metadata = { title: 'Patiktok · Setnayan' };
 
 type Props = {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ category?: string }>;
+  searchParams: Promise<{ category?: string; queued?: string }>;
 };
 
 export default async function PatiktokGallery({
@@ -38,7 +54,7 @@ export default async function PatiktokGallery({
   searchParams,
 }: Props) {
   const { eventId } = await params;
-  const { category } = await searchParams;
+  const { category, queued } = await searchParams;
 
   const supabase = await createClient();
   const {
@@ -59,6 +75,16 @@ export default async function PatiktokGallery({
     activeCategory === 'all'
       ? PATIKTOK_TEMPLATES
       : PATIKTOK_TEMPLATES.filter((t) => t.category === activeCategory);
+
+  const { data: jobsRaw } = await supabase
+    .from('patiktok_render_jobs')
+    .select(
+      'job_id, template_slug, duration_sec, status, output_url, failure_reason, enqueued_at, completed_at',
+    )
+    .eq('event_id', eventId)
+    .order('enqueued_at', { ascending: false })
+    .limit(20);
+  const jobs = (jobsRaw ?? []) as RenderJobRow[];
 
   return (
     <section className="space-y-6">
@@ -85,11 +111,24 @@ export default async function PatiktokGallery({
           per clip.
         </p>
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          V1.5+ scaffold · purchase live · render pipeline ships in Phase 2
+          V1.5+ build · purchase live · render queue active
         </p>
       </header>
 
+      {queued ? (
+        <p
+          role="status"
+          className="inline-flex items-center gap-2 rounded-2xl border border-emerald-300/70 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+        >
+          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          Render queued. We&rsquo;ll email a download link the moment it
+          finishes — track it under <span className="font-semibold">Your renders</span> below.
+        </p>
+      ) : null}
+
       <PricingTiers eventId={eventId} couplePurchasable />
+
+      <YourRenders jobs={jobs} eventId={eventId} />
 
       <HowItWorks />
 
@@ -124,6 +163,106 @@ export default async function PatiktokGallery({
         — describe the vibe + reference TikTok link and our team will quote.
       </p>
     </section>
+  );
+}
+
+function YourRenders({
+  jobs,
+  eventId: _eventId,
+}: {
+  jobs: ReadonlyArray<RenderJobRow>;
+  eventId: string;
+}) {
+  if (jobs.length === 0) return null;
+  return (
+    <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
+      <header className="flex items-baseline justify-between gap-2">
+        <h2 className="text-lg font-semibold tracking-tight">Your renders</h2>
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+          Latest {Math.min(jobs.length, 20)} · live queue state
+        </p>
+      </header>
+      <ul className="divide-y divide-ink/5">
+        {jobs.map((job) => {
+          const template = findPatiktokTemplate(job.template_slug);
+          const templateName = template?.name ?? job.template_slug;
+          return (
+            <li
+              key={job.job_id}
+              className="flex flex-wrap items-center gap-3 py-3 text-sm"
+            >
+              <RenderStatusPill status={job.status} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium text-ink">{templateName}</p>
+                <p className="font-mono text-[11px] text-ink/55">
+                  {job.duration_sec}s · queued{' '}
+                  {new Date(job.enqueued_at).toLocaleString('en-PH', {
+                    dateStyle: 'medium',
+                    timeStyle: 'short',
+                  })}
+                </p>
+                {job.status === 'failed' && job.failure_reason ? (
+                  <p className="text-[11px] text-rose-700">
+                    {job.failure_reason}
+                  </p>
+                ) : null}
+              </div>
+              {job.status === 'completed' && job.output_url ? (
+                <p className="font-mono text-[11px] text-ink/55">
+                  Download link emailed
+                </p>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+function RenderStatusPill({ status }: { status: RenderJobRow['status'] }) {
+  const map: Record<
+    RenderJobRow['status'],
+    { Icon: typeof Clock3; cls: string; label: string }
+  > = {
+    queued: {
+      Icon: Clock3,
+      cls: 'bg-ink/5 text-ink/70',
+      label: 'Queued',
+    },
+    processing: {
+      Icon: Loader2,
+      cls: 'bg-amber-100 text-amber-900',
+      label: 'Rendering',
+    },
+    completed: {
+      Icon: CheckCircle2,
+      cls: 'bg-emerald-100 text-emerald-900',
+      label: 'Completed',
+    },
+    failed: {
+      Icon: XCircle,
+      cls: 'bg-rose-100 text-rose-900',
+      label: 'Failed',
+    },
+    cancelled: {
+      Icon: XCircle,
+      cls: 'bg-ink/5 text-ink/55',
+      label: 'Cancelled',
+    },
+  };
+  const { Icon, cls, label } = map[status];
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${cls}`}
+    >
+      <Icon
+        aria-hidden
+        className={`h-3 w-3 ${status === 'processing' ? 'animate-spin' : ''}`}
+        strokeWidth={1.75}
+      />
+      {label}
+    </span>
   );
 }
 

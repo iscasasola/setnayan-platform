@@ -80,6 +80,7 @@ export default async function PatiktokTemplateDetail({ params }: Props) {
               compilation.
             </p>
             <RenderForm
+              eventId={eventId}
               templateSlug={template.slug}
               templateName={template.name}
               defaultDurationSec={template.defaultDurationSec}

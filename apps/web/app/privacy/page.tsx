@@ -80,12 +80,86 @@ export default function PrivacyPage() {
           </ul>
         </Section>
 
+        <Section title="TikTok integration (Patiktok · iteration 0017)">
+          <p>
+            Couples on the Patiktok Personal tier (₱1,999/day) connect their own
+            TikTok account to Setnayan so Patiktok booth compilations can
+            auto-post to the couple&rsquo;s handle. Setnayan uses TikTok&rsquo;s
+            Login Kit and Content Posting API. The Setnayan tier (₱999/day)
+            does not require a couple-side TikTok connection — those
+            compilations post to <strong>@SetnayanWeddings</strong>, our
+            company-owned handle, using credentials Setnayan manages directly.
+          </p>
+          <ul className="ml-5 list-disc space-y-1 pt-2">
+            <li>
+              <strong>Scopes requested.</strong> Only <code className="font-mono text-[12px]">user.info.basic</code>,{' '}
+              <code className="font-mono text-[12px]">video.upload</code>, and{' '}
+              <code className="font-mono text-[12px]">video.publish</code>. We
+              do not request access to your TikTok followers, drafts, messages,
+              or analytics.
+            </li>
+            <li>
+              <strong>What we receive from TikTok.</strong> Your TikTok open ID
+              (a stable per-app identifier), your union ID (if available),
+              your display name / handle, an access token (typically valid 24
+              hours), and a refresh token. We do not receive your TikTok
+              password.
+            </li>
+            <li>
+              <strong>How we use it.</strong> The access token is read only by
+              our render worker, only to post one rendered compilation MP4 per
+              booth-day on your behalf, with a caption you can configure. We
+              do not browse, download, or modify any other content on your
+              TikTok account.
+            </li>
+            <li>
+              <strong>Storage + scope.</strong> Tokens and the open ID are
+              stored in <code className="font-mono text-[12px]">patiktok_oauth_grants</code> in our
+              Supabase database (Singapore region · encrypted at rest), scoped
+              to one specific Setnayan event. They are never shared with
+              vendors, other couples, or third parties.
+            </li>
+            <li>
+              <strong>Retention.</strong> Grants are kept until the earlier of
+              (a) you revoke them from your profile or from TikTok&rsquo;s app
+              settings, (b) you delete your Setnayan account, or (c) 30 days
+              after the event ends. Refresh tokens past their expiry are
+              purged automatically.
+            </li>
+            <li>
+              <strong>Revoking access.</strong> Two paths, either works
+              immediately:
+              <ul className="ml-5 mt-1 list-disc space-y-1">
+                <li>
+                  In Setnayan, open the Patiktok page and click{' '}
+                  <em>Disconnect TikTok</em>. We soft-revoke the grant locally.
+                </li>
+                <li>
+                  In TikTok, go to <em>Settings → Privacy → Manage apps and
+                  websites</em> and remove Setnayan. We honor the revocation on
+                  the next render attempt.
+                </li>
+              </ul>
+            </li>
+            <li>
+              <strong>Posts on your TikTok account.</strong> Once a compilation
+              is posted to your account, the video is owned by you. Delete it
+              from TikTok like any other video — Setnayan cannot delete posts
+              on your behalf after they go live.
+            </li>
+          </ul>
+        </Section>
+
         <Section title="Subprocessors">
           <ul className="ml-5 list-disc space-y-1">
             <li>Supabase (database + auth, Singapore region)</li>
             <li>Vercel (web hosting)</li>
             <li>Cloudflare (CDN + planned R2 object storage, APAC region)</li>
             <li>Resend (transactional email — pending activation)</li>
+            <li>
+              TikTok (Personal-tier Patiktok only · for couples who explicitly
+              connect their TikTok account via OAuth)
+            </li>
           </ul>
         </Section>
 

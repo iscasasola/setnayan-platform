@@ -82,7 +82,11 @@ export const PATIKTOK_TIERS: ReadonlyArray<{
 export const PATIKTOK_OVERAGE_PHP = 49;
 export const PATIKTOK_VIDEO_SOFT_CAP = 40;
 
-export const PATIKTOK_TEMPLATES: ReadonlyArray<PatiktokTemplate> = [
+export const PATIKTOK_TEMPLATES: readonly [
+  PatiktokTemplate,
+  PatiktokTemplate,
+  ...PatiktokTemplate[]
+] = [
   {
     slug: 'cebu-sunrise-reel',
     name: 'Cebu Sunrise',

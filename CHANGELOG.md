@@ -4,6 +4,33 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-16 · feat(marketing): surface 0009 Photo Delivery + 0018 Supplies Marketplace on www.setnayan.com
+
+**Commit:** to be filled after commit.
+
+**Context:** Per the 12th 2026-05-16 decision-log row (V1.5+ unlock), six previously-deferred iterations are landing as scaffold-level routes under `/dashboard/[eventId]/add-ons/`. The public marketing surface (homepage `_InAppServices` + `/features` `_DayOfApparatus`) already advertised four of them (Panood, Papic, Pamahiya = 0017 Patiktok in marketing copy, Pailaw) but the two new V1.5+ surfaces — **0009 Photo Delivery** and **0018 Supplies Marketplace** — had no marketing presence at all. Owner asked for these to be visible on www.setnayan.com so couples discovering the site can see the full feature surface, not just the V1 cluster.
+
+**What shipped:**
+- `apps/web/app/page-sections/_InAppServices.tsx` — added two cards to the homepage in-app-services grid: **Photo Delivery** (CloudUpload icon, "Full-res handoff after the day" tagline, 30-day compression-grace explainer) and **Supplies Marketplace** (ShoppingBag icon, "Wedding-day supplies, one bill" tagline, vetted-PH-vendors framing). Both tagged `quote` consistent with the rest of the apparatus catalog (no PHP figures on marketing pages per iteration 0015's pricing-hide rule).
+- `apps/web/app/features/_sections/_DayOfApparatus.tsx` — mirrored the two new cards in the `/features` deep-dive section, sized + framed to match the existing seven service entries (Panood / Papic / Pamahiya / Pakulay / Pailaw / Pareto / Custom Monogram Pack).
+
+**Cross-cutting:**
+- Both files already used `lucide-react` icons; this entry only adds `CloudUpload` + `ShoppingBag` to the imports.
+- No new components, no new sections, no new SEO metadata changes — the additions slot into the existing grids and inherit the page-level metadata + JSON-LD blocks.
+- Mobile-first layout unchanged; existing Tailwind `sm:` / `lg:` grid breakpoints absorb the two extra cards.
+- Pricing-hide rule respected: tag is `quote` on both cards, no PHP figures shown on the public marketing surface.
+
+**Out of scope (per task constraints):**
+- Did NOT touch `brand.config.ts`.
+- Did NOT introduce new pricing UI, wallet UI, or commission-routing framing (apparatus rule + locked SKU surface untouched).
+- Did NOT touch `apps/web/app/dashboard/...` — the dashboard scaffolds for these features ship via the per-iteration PRs from the 2026-05-16 V1.5+ unlock cluster.
+
+**Verify:** `pnpm --filter @setnayan/web typecheck` ✅ · `lint` ✅. Both files compile clean with the two added icon imports.
+
+**SPEC IMPACT:** None — this is a marketing-side reflection of the existing locked iteration scopes (0009, 0018). No spec edits required.
+
+---
+
 ## 2026-05-16 · feat(0009): Photo Delivery — scaffold-level launch
 
 **Commit:** to be filled after commit.

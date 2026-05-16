@@ -6,6 +6,8 @@ import {
   Lightbulb,
   Aperture,
   Sparkles,
+  CloudUpload,
+  ShoppingBag,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -62,6 +64,18 @@ const SERVICES: Service[] = [
     sku: 'Custom Monogram Pack',
     tagline: 'Your mark, everywhere',
     body: 'One purchase replaces the Setnayan watermark with the couple&rsquo;s monogram across every media output — invitations, broadcast lower-thirds, photo overlays, gallery downloads, souvenir reels. Designed for you by the Setnayan Team during onboarding.',
+  },
+  {
+    Icon: CloudUpload,
+    sku: 'Photo Delivery',
+    tagline: 'Full-res handoff after the day',
+    body: 'Connect your photographer&rsquo;s Google Drive — Setnayan pipes full-resolution albums into the couple&rsquo;s gallery post-event, with a 30-day grace window before automated storage tiering compresses the originals. Keep your raws as long as you need.',
+  },
+  {
+    Icon: ShoppingBag,
+    sku: 'Supplies Marketplace',
+    tagline: 'Wedding-day supplies, one bill',
+    body: 'Vetted Filipino vendors for prints, equipment rentals, NFC keepsakes, and reception decor &mdash; direct-to-venue, on one Setnayan invoice. Everything the software needs to land in the physical world, sourced from one place.',
   },
 ];
 

@@ -97,7 +97,7 @@ const ADD_ONS: ReadonlyArray<{
     label: 'Patiktok',
     Icon: Film,
     iteration: '0017',
-    status: 'coming_soon',
+    status: 'web_v1',
     blurb: 'Vertical-reel template gallery · render-on-demand · 9:16 1080p MP4',
     cta: 'Browse templates',
   },

@@ -1,0 +1,99 @@
+import Link from 'next/link';
+import { ArrowRight } from 'lucide-react';
+
+// Section 2 — Hero (three-question framing) (iteration 0015 § Section 2)
+// Above-the-fold conversion module. Problem-aware framing per CXL awareness-
+// stage research — 95% of homepage visitors are problem-aware, not solution-
+// aware.
+//
+// Spec essentials:
+//   - Eyebrow (small, all-caps, muted, brand-accent): SET NA 'YAN · /sɛt na jan/
+//   - Headline stack (3 lines, h1; large 64–96px desktop, 40–56px mobile)
+//   - Subhead (h2-size 22–28px)
+//   - Primary CTA `Start planning · free` → /apply  (signup in this codebase)
+//   - Secondary CTA `I'm a vendor →` → /for-vendors
+//   - Trust strip: Built in the Philippines · BIR-compliant receipts · EN / Tagalog
+//
+// Visual treatment is placeholder per skeleton-phase scope — full-bleed
+// photography + brand-color overlay (the Zola pattern recommended in the spec)
+// is owner-side design-direction-blocked. Pure-text on tinted cream surface
+// here.
+
+export function Hero() {
+  return (
+    <section
+      aria-labelledby="hero-heading"
+      className="relative overflow-hidden border-b border-ink/5 bg-cream"
+    >
+      {/* Soft accent wash — placeholder for the eventual Filipino-luxe
+          photographic background. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10"
+        style={{
+          background:
+            'radial-gradient(ellipse at top right, rgb(var(--color-terracotta) / 0.08), transparent 55%), radial-gradient(ellipse at bottom left, rgb(var(--color-terracotta) / 0.05), transparent 50%)',
+        }}
+      />
+      <div className="mx-auto w-full max-w-6xl px-4 pb-16 pt-12 sm:px-6 sm:pb-20 sm:pt-16 lg:px-8 lg:pb-28 lg:pt-24">
+        <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-terracotta sm:text-xs">
+          SET NA &lsquo;YAN
+          <span aria-hidden className="mx-2 text-ink/30">
+            ·
+          </span>
+          <span className="text-ink/55">/sɛt na jan/</span>
+        </p>
+
+        <h1
+          id="hero-heading"
+          className="mt-5 max-w-4xl text-balance font-sans text-[40px] font-semibold leading-[1.05] tracking-tight text-ink sm:text-[56px] lg:text-[80px]"
+        >
+          <span className="block">Planning an event?</span>
+          <span className="mt-1 block">Looking for vendors?</span>
+          <span className="mt-1 block text-ink/65">
+            Or a vendor looking for customers?
+          </span>
+        </h1>
+
+        <p className="mt-8 max-w-2xl text-pretty text-lg leading-relaxed text-ink/70 sm:text-xl lg:text-[22px]">
+          Setnayan is the only Filipino-built platform with real operating
+          tools for both sides — from your guest list to your same-day
+          highlight reel.
+        </p>
+
+        <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <Link
+            href="/signup"
+            className="button-primary inline-flex min-h-[48px] items-center justify-center gap-2 px-7 text-sm font-semibold sm:text-base"
+          >
+            Start planning
+            <span aria-hidden className="mx-1 opacity-60">
+              ·
+            </span>
+            <span className="opacity-90">free</span>
+            <ArrowRight aria-hidden className="ml-1 h-4 w-4" strokeWidth={2} />
+          </Link>
+          <Link
+            href="/for-vendors"
+            className="button-secondary inline-flex min-h-[44px] items-center justify-center gap-2 px-6 text-sm font-medium sm:text-base"
+          >
+            I&rsquo;m a vendor
+            <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          </Link>
+        </div>
+
+        <p className="mt-8 max-w-2xl text-sm text-ink/55">
+          Built in the Philippines{' '}
+          <span aria-hidden className="mx-1 text-ink/30">
+            ·
+          </span>{' '}
+          BIR-compliant receipts{' '}
+          <span aria-hidden className="mx-1 text-ink/30">
+            ·
+          </span>{' '}
+          EN / Tagalog
+        </p>
+      </div>
+    </section>
+  );
+}

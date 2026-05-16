@@ -18,6 +18,13 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type UserRoleSummary = {
   /**
+   * True when /dashboard is a reachable surface for this user — i.e. the
+   * `/dashboard` layout guard (`account_type === 'vendor' → redirect`)
+   * will let them through. Used by the always-visible Switch view pill
+   * to decide whether to offer "Customer view" as a target.
+   */
+  hasCustomerAccess: boolean;
+  /**
    * True if the user owns a `vendor_profiles` row OR sits on any
    * `vendor_team_members` row. Either of these grants access to the
    * Shop console (iteration 0022 / `/vendor-dashboard`).
@@ -120,6 +127,7 @@ export async function fetchUserRoleSummary(
   }
 
   return {
+    hasCustomerAccess: profile?.account_type !== 'vendor',
     hasVendorAccess: vendorProfiles.length > 0,
     hasAdminAccess,
     vendorProfiles,

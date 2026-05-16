@@ -16,8 +16,10 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { countUnread } from '@/lib/notifications';
+import { fetchUserRoleSummary } from '@/lib/roles';
 import { VendorSubnavTab } from './_components/subnav-tab';
 import { GuidedTour } from '@/app/_components/guided-tour';
+import { RoleSwitchPill } from '@/app/_components/role-switch-pill';
 import { completeTour } from '@/lib/tour-actions';
 
 export default async function VendorDashboardLayout({
@@ -31,7 +33,7 @@ export default async function VendorDashboardLayout({
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [profileRes, unreadCount] = await Promise.all([
+  const [profileRes, unreadCount, roles] = await Promise.all([
     supabase
       .from('users')
       .select(
@@ -40,6 +42,7 @@ export default async function VendorDashboardLayout({
       .eq('user_id', user.id)
       .maybeSingle(),
     countUnread(supabase, user.id),
+    fetchUserRoleSummary(supabase, user.id),
   ]);
   const profile = profileRes.data;
 
@@ -64,6 +67,13 @@ export default async function VendorDashboardLayout({
             <Logo height={32} withWordmark title="Setnayan · Vendor" />
           </Link>
           <div className="flex items-center gap-2">
+            <RoleSwitchPill
+              currentRole="vendor"
+              hasCustomerAccess={roles.hasCustomerAccess}
+              hasVendorAccess={roles.hasVendorAccess}
+              hasAdminAccess={roles.hasAdminAccess}
+              vendorProfiles={roles.vendorProfiles}
+            />
             <span className="hidden text-sm text-ink/70 sm:inline">{displayName}</span>
             <form action="/auth/sign-out" method="post">
               <button className="button-secondary h-9 px-3 text-xs" type="submit">

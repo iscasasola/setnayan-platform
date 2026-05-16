@@ -36,6 +36,13 @@ export type VendorProfileRow = {
    * toggleable. Column added in 20260515000000_public_stats_exclusion.sql.
    */
   show_team_bookings_in_backend_count: boolean;
+  /**
+   * Public visibility state (added in 20260515000000_vendor_public_visibility.sql).
+   * Drives marketplace surfaces + payout schedule (verified → immediate T+1,
+   * coming_soon → 20/60/20 staged). Defaults to 'coming_soon' for new
+   * registrations; flipped to 'verified' by /admin/verify approval.
+   */
+  public_visibility: 'hidden' | 'coming_soon' | 'verified' | 'archived';
   created_at: string;
   updated_at: string;
 };
@@ -47,7 +54,7 @@ export async function fetchOwnVendorProfile(
   const { data, error } = await supabase
     .from('vendor_profiles')
     .select(
-      'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,location_city,website,contact_email,contact_phone,is_published,portfolio_r2_keys,show_team_bookings_in_backend_count,created_at,updated_at',
+      'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,location_city,website,contact_email,contact_phone,is_published,portfolio_r2_keys,show_team_bookings_in_backend_count,public_visibility,created_at,updated_at',
     )
     .eq('user_id', userId)
     .maybeSingle();
@@ -60,16 +67,20 @@ export async function fetchOwnVendorProfile(
   // as `null` until the migration runs.
   const row = data as Omit<
     VendorProfileRow,
-    'portfolio_r2_keys' | 'show_team_bookings_in_backend_count'
+    | 'portfolio_r2_keys'
+    | 'show_team_bookings_in_backend_count'
+    | 'public_visibility'
   > & {
     portfolio_r2_keys: string[] | null;
     show_team_bookings_in_backend_count: boolean | null;
+    public_visibility: VendorProfileRow['public_visibility'] | null;
   };
   return {
     ...row,
     portfolio_r2_keys: row.portfolio_r2_keys ?? [],
     show_team_bookings_in_backend_count:
       row.show_team_bookings_in_backend_count ?? false,
+    public_visibility: row.public_visibility ?? 'coming_soon',
   };
 }
 

@@ -58,6 +58,40 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-16 · feat(0006,0034): Vendor Payout model — verified T+1 + coming_soon 20/60/20
+
+**Commit:** to be filled after commit.
+
+**Context:** Spec lock 2026-05-16 in `0006_vendors_management.md` § "Vendor Payout model" and `0034_payments_and_cart.md` § 6.7 — verified vendors receive an immediate full payout T+1 (less gateway + BIR 0.5% withholding; Setnayan absorbs the ₱15-25 disbursement fee); coming_soon (and demoted) vendors release in three milestone stages (20% on booking confirmation, 60% T+7 from event start, 20% T+7 from event end) with T-14 + T+7 dispute windows; vendors auto-demote on 3+ disputes in any rolling 30-day window. The build-status grid row "Vendor Payout model (NEW 2026-05-16)" flips from 🟡 pending → 🟢 V1 web ready post-merge.
+
+**What shipped:**
+- `supabase/migrations/20260516210000_vendor_payout_model.sql` — adds the canonical `payout_stage` ENUM (`immediate_full`, `stage_1_confirm`, `stage_2_event_start`, `stage_3_event_end`); ALTERs `vendor_payouts` to add audit-trail columns (`payout_stage`, `gross_centavos`, `gateway_fee_centavos`, `vendor_net_centavos`, `scheduled_at`, `paid_at`, `dispute_window_ends_at`, `payment_method`, `audit_log JSONB`); ALTERs `orders` (this repo's `service_orders`) with `setnayan_fee_bps` / `gateway_fee_centavos` / `bir_withholding_centavos` / `vendor_net_centavos` / `disbursement_fee_centavos` / `payment_method_key` / `vendor_profile_id`; new `vendor_disputes` table + `count_vendor_disputes_30d()` SQL helper for the cron. Idempotent (CREATE IF NOT EXISTS, ADD COLUMN IF NOT EXISTS, DO blocks for the ENUM). RLS preserved.
+- `apps/web/lib/payouts.ts` — payout dispatcher. `computePayoutBreakdown` does integer-centavo gross→net math (Setnayan fee + gateway + BIR 0.5% deducted; disbursement fee tracked-not-deducted). `planPayoutStages` returns 1 row (verified) or 3 rows (coming_soon 20/60/20) with correct `scheduled_at` + `dispute_window_ends_at`. `dispatchVendorPayouts` writes the rows idempotently keyed on `(order_id, payout_stage)`. `markPayoutPaid` + `holdPayout` append audit-log entries on every transition.
+- `apps/web/app/api/admin/cron/dispute-counter/route.ts` — POST-only daily cron. Authenticates via `Authorization: Bearer $CRON_SECRET`; rolls 30 days of `vendor_disputes` rows; flips any verified vendor with 3+ disputes to `public_visibility = coming_soon` + bumps `demotion_count` + writes `admin_audit_log` row with `action='vendor_demoted_by_dispute_threshold'`. Falls back gracefully when the parallel `verification_state` column / `last_demoted_at` / `demotion_count` columns are absent at apply time (since both migrations land in the same `supabase db push`).
+- `apps/web/app/admin/payouts/page.tsx` + `actions.ts` — new admin queue at `/admin/payouts` with filter tabs (Pending / Paid / On hold / All) + stage tabs (Immediate / Stage 1 / 2 / 3) + vendor-ID search + scheduled-date range. Each row exposes "Mark paid" (records payment method + reference + appends audit-log entry) and "Place on hold" (records reason). KPI row shows pending + paid + on-hold totals scoped to the filter selection.
+- `apps/web/app/admin/layout.tsx` — added "Payouts" tab to the admin top nav (between Payments + Receipts).
+- `apps/web/app/admin/page.tsx` — added a Vendor payouts tile to the overview grid.
+- `apps/web/app/vendor-dashboard/earnings/page.tsx` — vendor-side surface now reads `vendor_payouts` for the signed-in vendor and renders the confirmed-but-not-paid / in-stage / paid split, including BIR + gateway per-stage breakdown and an explanatory blurb that swaps between the verified-T+1 and coming_soon-20/60/20 narratives based on the vendor's `public_visibility`. RLS on `vendor_payouts` already gates this read to the vendor's own rows.
+- `apps/web/app/admin/payments/actions.ts` — `approvePayment` now invokes `schedulePayoutsForOrder` after promoting an order to `paid`. Computes the breakdown, writes it back onto the order row (so receipts can read it), and calls `dispatchVendorPayouts` (verified → 1 stage T+1; coming_soon → 3 stages 20/60/20). No-op when the order isn't a vendor booking (`vendor_profile_id` NULL). Failures are caught + logged but never block payment approval.
+- `apps/web/lib/vendor-profile.ts` — `fetchOwnVendorProfile` now selects `public_visibility` so vendor surfaces can render the payout-model copy that matches their state.
+
+**Coordination with PR #80 (vendor verification flow, merged just before):** The verification PR introduced the `verification_state` ENUM + `last_demoted_at` / `demotion_count` columns this PR's cron writes. `lib/payouts.ts::resolveVendorVerificationState` prefers `verification_state` when present and falls back to `public_visibility` so this code is order-independent at the migration level. The dispute counter cron also catches missing-column errors and retries the UPDATE with the safe column subset.
+
+**Dispute counter cron infra (owner action):**
+- No `vercel.json` exists in the repo, so the cron is implemented as a POST-only API route protected by `CRON_SECRET`. Until Vercel Cron Pro is enabled in V1.5 (per spec Maya Business gateway timeline), the owner triggers it from an external scheduler (cron-job.org, GitHub Actions, etc.) hitting `POST /api/admin/cron/dispute-counter` with `Authorization: Bearer $CRON_SECRET` once a day. When `vercel.json` lands, add `"crons": [{ "path": "/api/admin/cron/dispute-counter", "schedule": "0 4 * * *" }]` (04:00 UTC = noon Manila).
+
+**SPEC IMPACT:** None — implements an existing 2026-05-16 spec lock without modifying the spec corpus. The build-status grid row will be flipped by the owner from 🟡 to 🟢 (V1 web ready) post-deploy.
+
+**Verify:** `pnpm --filter @setnayan/web typecheck` ✅ · `pnpm --filter @setnayan/web lint` ✅ · `pnpm --filter @setnayan/web build` ✅. Migration is additive-only; existing `vendor_payouts` rows (none today) keep their legacy `stage`/`trigger_type`/`payout_method` columns and gain a populated `payout_stage` via the migration's `UPDATE`.
+
+**Out of scope:**
+- Real Maya Business gateway integration (V1.5+ per § 6.6).
+- BIR Form 2307 PDF generation (V1.5; columns reserved).
+- Two-admin gate on payout release (V1.5 per § 9.1).
+- Per-method config wiring through to per-order `payment_method_key` (column added; cart-side wiring is a follow-on).
+
+---
+
 ## 2026-05-16 · feat(0006,0023): vendor verification flow + admin queue + SKU aliases
 
 **Commit:** to be filled after commit.

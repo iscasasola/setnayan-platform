@@ -1,9 +1,11 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import {
+  AlertCircle,
   ArrowLeft,
   CheckCircle2,
   Clock3,
+  ExternalLink,
   Film,
   Hash,
   Loader2,
@@ -40,13 +42,25 @@ type RenderJobRow = {
   completed_at: string | null;
 };
 
+type TiktokGrant = {
+  tiktok_handle: string | null;
+  tiktok_open_id: string;
+  expires_at: string;
+};
+
 type PatiktokTier = (typeof PATIKTOK_TIERS)[number];
 
 export const metadata = { title: 'Patiktok · Setnayan' };
 
 type Props = {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ category?: string; queued?: string }>;
+  searchParams: Promise<{
+    category?: string;
+    queued?: string;
+    tiktok_connected?: string;
+    tiktok_error?: string;
+    missing?: string;
+  }>;
 };
 
 export default async function PatiktokGallery({
@@ -54,7 +68,13 @@ export default async function PatiktokGallery({
   searchParams,
 }: Props) {
   const { eventId } = await params;
-  const { category, queued } = await searchParams;
+  const {
+    category,
+    queued,
+    tiktok_connected: tiktokConnected,
+    tiktok_error: tiktokError,
+    missing: tiktokMissing,
+  } = await searchParams;
 
   const supabase = await createClient();
   const {
@@ -85,6 +105,14 @@ export default async function PatiktokGallery({
     .order('enqueued_at', { ascending: false })
     .limit(20);
   const jobs = (jobsRaw ?? []) as RenderJobRow[];
+
+  const { data: grantRaw } = await supabase
+    .from('patiktok_oauth_grants')
+    .select('tiktok_handle, tiktok_open_id, expires_at')
+    .eq('event_id', eventId)
+    .is('revoked_at', null)
+    .maybeSingle();
+  const tiktokGrant = (grantRaw ?? null) as TiktokGrant | null;
 
   return (
     <section className="space-y-6">
@@ -126,7 +154,42 @@ export default async function PatiktokGallery({
         </p>
       ) : null}
 
-      <PricingTiers eventId={eventId} couplePurchasable />
+      {tiktokConnected ? (
+        <p
+          role="status"
+          className="inline-flex items-center gap-2 rounded-2xl border border-emerald-300/70 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+        >
+          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          TikTok connected
+          {tiktokGrant?.tiktok_handle
+            ? ` — @${tiktokGrant.tiktok_handle}`
+            : ''}
+          . Your Patiktok renders will auto-post here.
+        </p>
+      ) : null}
+
+      {tiktokError ? (
+        <p
+          role="alert"
+          className="inline-flex items-start gap-2 rounded-2xl border border-rose-300/70 bg-rose-50 px-4 py-3 text-sm text-rose-900"
+        >
+          <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
+          <span>
+            TikTok connection failed (
+            <span className="font-mono text-xs">{tiktokError}</span>
+            {tiktokMissing
+              ? `; env missing: ${tiktokMissing}`
+              : ''}
+            ). Try again or contact support if this persists.
+          </span>
+        </p>
+      ) : null}
+
+      <PricingTiers
+        eventId={eventId}
+        couplePurchasable
+        tiktokGrant={tiktokGrant}
+      />
 
       <YourRenders jobs={jobs} eventId={eventId} />
 
@@ -269,9 +332,11 @@ function RenderStatusPill({ status }: { status: RenderJobRow['status'] }) {
 function PricingTiers({
   eventId,
   couplePurchasable,
+  tiktokGrant,
 }: {
   eventId: string;
   couplePurchasable: boolean;
+  tiktokGrant: TiktokGrant | null;
 }) {
   return (
     <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -281,6 +346,7 @@ function PricingTiers({
           eventId={eventId}
           tier={tier}
           purchasable={couplePurchasable}
+          tiktokGrant={tier.key === 'personal' ? tiktokGrant : null}
         />
       ))}
       <p className="sm:col-span-2 text-xs text-ink/55">
@@ -299,19 +365,21 @@ function TierCard({
   eventId,
   tier,
   purchasable,
+  tiktokGrant,
 }: {
   eventId: string;
   tier: PatiktokTier;
   purchasable: boolean;
+  tiktokGrant: TiktokGrant | null;
 }) {
-  const serviceKey =
-    tier.key === 'personal'
-      ? 'patiktok:personal_daily'
-      : 'patiktok:setnayan_daily';
-  const description =
-    tier.key === 'personal'
-      ? `Patiktok booth — Personal TikTok tier (₱${tier.pricePhpPerDay}/day · auto-post to couple's own TikTok via OAuth · 40-video soft cap).`
-      : `Patiktok booth — Setnayan TikTok tier (₱${tier.pricePhpPerDay}/day · auto-post to @SetnayanWeddings · 40-video soft cap).`;
+  const isPersonal = tier.key === 'personal';
+  const serviceKey = isPersonal
+    ? 'patiktok:personal_daily'
+    : 'patiktok:setnayan_daily';
+  const description = isPersonal
+    ? `Patiktok booth — Personal TikTok tier (₱${tier.pricePhpPerDay}/day · auto-post to couple's own TikTok via OAuth · 40-video soft cap).`
+    : `Patiktok booth — Setnayan TikTok tier (₱${tier.pricePhpPerDay}/day · auto-post to @SetnayanWeddings · 40-video soft cap).`;
+  const needsTiktokConnect = isPersonal && !tiktokGrant;
   return (
     <article className="flex h-full flex-col gap-3 rounded-2xl border border-ink/10 bg-cream p-5">
       <div className="flex items-start justify-between gap-2">
@@ -326,7 +394,32 @@ function TierCard({
         </span>
       </div>
       <p className="text-sm text-ink/70">{tier.blurb}</p>
-      {purchasable ? (
+
+      {isPersonal && tiktokGrant ? (
+        <p className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-2.5 py-1 text-[11px] text-emerald-900">
+          <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+          TikTok connected
+          {tiktokGrant.tiktok_handle ? `: @${tiktokGrant.tiktok_handle}` : ''}
+        </p>
+      ) : null}
+
+      {purchasable && needsTiktokConnect ? (
+        <div className="mt-auto space-y-2 pt-1">
+          <Link
+            href={`/api/tiktok/auth/start?event_id=${eventId}`}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-terracotta bg-cream px-4 py-2 text-sm font-medium text-terracotta-700 transition-colors hover:bg-terracotta/10"
+          >
+            <ExternalLink className="h-4 w-4" strokeWidth={1.75} />
+            Connect TikTok to enable buy
+          </Link>
+          <p className="text-[11px] text-ink/55">
+            Personal tier auto-posts to your own TikTok. One-time OAuth — we
+            store the access token scoped to this event only.
+          </p>
+        </div>
+      ) : null}
+
+      {purchasable && !needsTiktokConnect ? (
         <form action={createOrder} className="mt-auto pt-1">
           <input type="hidden" name="event_id" value={eventId} />
           <input type="hidden" name="service_key" value={serviceKey} />

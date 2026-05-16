@@ -9,6 +9,7 @@ import { Chaos } from '@/app/page-sections/_Chaos';
 import { TwoSides } from '@/app/page-sections/_TwoSides';
 import { MariaJuan } from '@/app/page-sections/_MariaJuan';
 import { InAppServices } from '@/app/page-sections/_InAppServices';
+import { TransparentPricing } from '@/app/page-sections/_TransparentPricing';
 import { ReadinessBoard } from '@/app/page-sections/_ReadinessBoard';
 import { CoverageMap } from '@/app/page-sections/_CoverageMap';
 import {
@@ -175,6 +176,14 @@ export default async function HomePage() {
 
         {/* 8 — Vendor compatibility & verification */}
         <VendorCompat />
+
+        {/* 8.5 — Transparent pricing (locked 2026-05-16 spec-corpus row 9)
+            Couple-side disclosure of the 5.5% Setnayan Pay convenience fee
+            added at checkout. Vendor-side "no commission" framing in
+            Sections 5 / 8 / /for-vendors stays intact — the 5.5% is
+            couple-paid on top of the vendor's listed price, never deducted
+            from the vendor's principal. */}
+        <TransparentPricing />
 
         {/* 9 — Event-type readiness board */}
         <ReadinessBoard />

@@ -20,6 +20,7 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
 
 import { getQueryClient } from '@/lib/query-client';
+import { DeferredObservability } from './_components/deferred-observability';
 import { PostHogProvider } from './_components/posthog-provider';
 
 const PERSIST_KEY = 'setnayan-query-cache';
@@ -106,6 +107,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
         layout.
       */}
       <PostHogProvider>{children}</PostHogProvider>
+      {/*
+        Sentry browser SDK is lazy-loaded post-hydration via a deferred
+        client component so the ~105 kB `@sentry/nextjs` chunk stays
+        out of the shared First Load JS bundle. Server-side Sentry
+        (instrumentation.ts + sentry.{server,edge}.config.ts) is
+        untouched and continues to capture server errors eagerly.
+      */}
+      <DeferredObservability />
     </PersistQueryClientProvider>
   );
 }

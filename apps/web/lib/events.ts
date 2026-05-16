@@ -10,6 +10,13 @@ export type EventRow = {
   archived: boolean;
   venue_name: string | null;
   venue_address: string | null;
+  /**
+   * Per-event monogram from iteration 0002 § Branding (locked 2026-05-13).
+   * Both columns may be null — the dashboard chrome falls back to the
+   * derived `M & J`-style monogram from `display_name` when text is null.
+   */
+  monogram_text: string | null;
+  monogram_color: string | null;
 };
 
 export type EventWithRole = EventRow & {
@@ -46,7 +53,9 @@ export async function fetchUserEvents(
          is_primary,
          archived,
          venue_name,
-         venue_address
+         venue_address,
+         monogram_text,
+         monogram_color
        )`,
     )
     .eq('user_id', userId);

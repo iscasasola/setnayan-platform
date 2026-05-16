@@ -14,7 +14,12 @@ export const metadata = { title: 'Orders' };
 
 type Props = {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ created?: string; cancelled?: string; paid_logged?: string }>;
+  searchParams: Promise<{
+    created?: string;
+    cancelled?: string;
+    paid_logged?: string;
+    self_comp?: string;
+  }>;
 };
 
 export default async function CoupleOrdersPage({ params, searchParams }: Props) {
@@ -29,11 +34,13 @@ export default async function CoupleOrdersPage({ params, searchParams }: Props) 
   const orders = await fetchOrdersForEvent(supabase, eventId);
 
   const flash =
-    search.created === '1'
-      ? 'Order created. Pay the amount below and log the payment so the Setnayan team can match it.'
-      : search.cancelled === '1'
-        ? 'Order cancelled.'
-        : null;
+    search.self_comp === '1'
+      ? 'Self-comp order created and marked paid. The grant is audit-logged for the admin team.'
+      : search.created === '1'
+        ? 'Order created. Pay the amount below and log the payment so the Setnayan team can match it.'
+        : search.cancelled === '1'
+          ? 'Order cancelled.'
+          : null;
 
   return (
     <section className="space-y-6">

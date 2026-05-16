@@ -28,6 +28,14 @@ export type VendorProfileRow = {
    * in the database (see migration 20260514130000_vendor_portfolio.sql).
    */
   portfolio_r2_keys: string[];
+  /**
+   * Per-vendor toggle on the Completed-events backend card. FALSE (default)
+   * = the card shows the same team-excluded count the public sees. TRUE =
+   * the card shows the full unfiltered count with the team/internal delta
+   * inline and the public count as a footnote. Public count is NEVER
+   * toggleable. Column added in 20260515000000_public_stats_exclusion.sql.
+   */
+  show_team_bookings_in_backend_count: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -39,7 +47,7 @@ export async function fetchOwnVendorProfile(
   const { data, error } = await supabase
     .from('vendor_profiles')
     .select(
-      'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,location_city,website,contact_email,contact_phone,is_published,portfolio_r2_keys,created_at,updated_at',
+      'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,location_city,website,contact_email,contact_phone,is_published,portfolio_r2_keys,show_team_bookings_in_backend_count,created_at,updated_at',
     )
     .eq('user_id', userId)
     .maybeSingle();
@@ -47,10 +55,66 @@ export async function fetchOwnVendorProfile(
   if (!data) return null;
   // Defensive: column has NOT NULL DEFAULT '{}' so this is null only if the
   // migration hasn't run yet. Normalise so callers can assume an array.
-  const row = data as Omit<VendorProfileRow, 'portfolio_r2_keys'> & {
+  // Same defensive default for `show_team_bookings_in_backend_count` — the
+  // column has NOT NULL DEFAULT FALSE but pre-migration rows may surface
+  // as `null` until the migration runs.
+  const row = data as Omit<
+    VendorProfileRow,
+    'portfolio_r2_keys' | 'show_team_bookings_in_backend_count'
+  > & {
     portfolio_r2_keys: string[] | null;
+    show_team_bookings_in_backend_count: boolean | null;
   };
-  return { ...row, portfolio_r2_keys: row.portfolio_r2_keys ?? [] };
+  return {
+    ...row,
+    portfolio_r2_keys: row.portfolio_r2_keys ?? [],
+    show_team_bookings_in_backend_count:
+      row.show_team_bookings_in_backend_count ?? false,
+  };
+}
+
+/**
+ * Per-vendor public + full completed-event counts. Wraps the two
+ * materialized views from 20260515000000_public_stats_exclusion.sql.
+ *
+ *  - `public_completed_count` is what the marketplace / public profile
+ *    surfaces. Team / internal / self-comp bookings are filtered out.
+ *  - `full_completed_count` is the unfiltered sibling. Only the vendor's
+ *    own backend card reads this when their toggle is ON.
+ *
+ * Returns 0 for either count if the vendor has no row in the view yet
+ * (a brand-new profile or no completed bookings).
+ */
+export type VendorCompletedEventStats = {
+  public_completed_count: number;
+  full_completed_count: number;
+};
+
+export async function fetchVendorCompletedEventStats(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+): Promise<VendorCompletedEventStats> {
+  const [publicRes, fullRes] = await Promise.all([
+    supabase
+      .from('vendor_public_completed_events_stats')
+      .select('public_completed_count')
+      .eq('vendor_profile_id', vendorProfileId)
+      .maybeSingle(),
+    supabase
+      .from('vendor_full_completed_events_stats')
+      .select('full_completed_count')
+      .eq('vendor_profile_id', vendorProfileId)
+      .maybeSingle(),
+  ]);
+  // We deliberately swallow "view doesn't exist yet" errors so the
+  // dashboard still renders for environments where the migration hasn't
+  // run. Both counts fall back to 0.
+  const publicCount = publicRes.data?.public_completed_count ?? 0;
+  const fullCount = fullRes.data?.full_completed_count ?? 0;
+  return {
+    public_completed_count: Number(publicCount) || 0,
+    full_completed_count: Number(fullCount) || 0,
+  };
 }
 
 /**

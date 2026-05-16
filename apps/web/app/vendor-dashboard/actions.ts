@@ -147,3 +147,80 @@ export async function saveVendorProfile(formData: FormData) {
   revalidatePath('/vendor-dashboard');
   redirect('/vendor-dashboard?saved=1');
 }
+
+/**
+ * Flips the "Include team bookings" toggle on the Completed-events backend
+ * card (iteration 0022 § 2.4a). The public count is NEVER affected by this
+ * toggle — only the vendor's own backend display switches between the
+ * team-excluded view (default, matches public) and the full unfiltered
+ * view.
+ *
+ * The toggle change is written to `admin_audit_log` so the vendor's audit
+ * trail keeps a record of every flip — action `vendor_backend_count_toggle`.
+ */
+export async function toggleVendorBackendCount(formData: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const requested = formData.get('show_team_bookings');
+  const target = requested === 'on' || requested === 'true';
+
+  // Read the existing row + value so we can audit the delta and only
+  // write when the value actually changes.
+  const { data: profile, error: readError } = await supabase
+    .from('vendor_profiles')
+    .select('vendor_profile_id, show_team_bookings_in_backend_count')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (readError || !profile) {
+    return redirect(
+      `/vendor-dashboard?error=${encodeURIComponent(
+        readError?.message ?? 'Vendor profile not found',
+      )}`,
+    );
+  }
+
+  const previous = profile.show_team_bookings_in_backend_count ?? false;
+  if (previous === target) {
+    // Idempotent no-op — still revalidate so the URL params flip without
+    // a stale audit row.
+    revalidatePath('/vendor-dashboard');
+    return redirect('/vendor-dashboard?saved=1');
+  }
+
+  const { error: updateError } = await supabase
+    .from('vendor_profiles')
+    .update({
+      show_team_bookings_in_backend_count: target,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('vendor_profile_id', profile.vendor_profile_id);
+
+  if (updateError) {
+    return redirect(
+      `/vendor-dashboard?error=${encodeURIComponent(updateError.message)}`,
+    );
+  }
+
+  // Best-effort audit write. We don't fail the user-visible toggle if the
+  // audit table doesn't exist yet (e.g. older test environment); the toggle
+  // change still lands on the vendor_profiles row.
+  const auditPayload = {
+    action: 'vendor_backend_count_toggle' as const,
+    target_id: profile.vendor_profile_id,
+    actor_user_id: user.id,
+    metadata: {
+      old_value: previous,
+      new_value: target,
+      by_user_id: user.id,
+    },
+  };
+  await supabase.from('admin_audit_log').insert(auditPayload);
+
+  revalidatePath('/vendor-dashboard');
+  redirect('/vendor-dashboard?saved=1');
+}

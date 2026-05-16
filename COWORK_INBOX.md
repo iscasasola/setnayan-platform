@@ -8,6 +8,40 @@
 
 ---
 
+## [PENDING] 2026-05-16 — Iteration 0012 Papic: Google Drive OAuth + storage-choice setup (V1 scope expansion)
+
+**Why:** Per the 2026-05-16 V1 scope expansion (sibling to PR #95 which shipped the YouTube slice for Panood), Papic now ships OAuth-wired setup at V1 even though the capture pipeline itself (cameras + face detection + transfer) remains V1.5+. PR `feat(0012): Google Drive OAuth + Papic storage-choice setup` shipped today and adds a new storage-choice radio (Setnayan R2 default vs Google Drive only) plus the full Drive OAuth round-trip with bootstrapped folder structure. Four spec files need to catch up so the spec corpus matches the shipped reality.
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/0012_papic/0012_papic.md`** — add a new section near the top called **"Storage choice (V1)"** documenting the radio:
+   > "Couples pick where Papic writes photos via a radio on `/dashboard/[eventId]/add-ons/papic`. **Setnayan R2** (default, recommended): fast, reliable, no quota for the couple. **Google Drive only**: writes directly to the couple's Drive via OAuth (drive.file scope), no Setnayan copy. Stored on `events.papic_storage_target` (`'setnayan_r2' | 'google_drive_only'`, default `'setnayan_r2'`). On first Drive connect, Setnayan bootstraps `Setnayan/[Event display_name]/{00_Cover, 01_Pre-event, 02_Ceremony, 03_Reception, 04_Auto-Recap}` inside the couple's Drive; the root folder id lands in `oauth_grants.metadata.drive_folder_id`."
+   >
+   > **Deviation from earlier 'T+30d transfer' model (LOCKED 2026-05-16):** the prior spec contemplated Setnayan keeping photos for 30 days then bulk-pushing to the couple's Drive. The new model is **real-time DURING the event for BOTH options** — R2 is the primary by default; couples who opt out get Drive throttling + their own quota constraints as a deliberate tradeoff. No T+30d transfer pipeline ships in V1.
+
+2. **`~/Documents/Claude/Projects/Setnayan/App_Build_Status.md`** — find the iteration 0012 (Papic) row. Today it reads roughly "🟡 V1.5+" (deferred). Flip it to:
+   > "⚠️ Partial — Drive OAuth + storage-choice setup shipped V1 (couples can connect their BYO Google Drive at setup time + pick R2 vs Drive-only target); capture pipeline (native app pairing, face detection, transfer) still V1.5+. Graceful fallback to 'coming soon' on the Drive radio until Google Cloud verified-app review completes."
+
+3. **`~/Documents/Claude/Projects/Setnayan/CLAUDE.md`** — append a new row to the decision log dated `2026-05-16` (after the PR #95 row already queued in this inbox). Suggested text:
+   > **2026-05-16 — Papic V1 scope expansion: Drive OAuth + storage-choice radio (Setnayan R2 recommended default vs Drive-only opt-in with quota warning).** Couples now pick where Papic photos land at setup time. `events.papic_storage_target` (`'setnayan_r2' | 'google_drive_only'`, default `setnayan_r2`) is the hard toggle the V1.5+ capture pipeline reads to branch upload destinations. Drive connect flow bootstraps `Setnayan/[Event]/{00_Cover, 01_Pre-event, 02_Ceremony, 03_Reception, 04_Auto-Recap}` inside the couple's Drive via the narrowest `drive.file` scope. **Spec deviation from earlier T+30d transfer model:** new model is real-time during the event for BOTH options; no bulk-transfer pipeline in V1. **Graceful-fallback pattern reused:** when `GOOGLE_DRIVE_OAUTH_CLIENT_ID` is unset, the Drive radio renders disabled with "coming soon — admin setup pending"; the Setnayan-R2 option stays fully functional, so the V1 launch isn't blocked on the Google verified-app review timeline.
+
+4. **`~/Documents/Claude/Projects/Setnayan/API_Integration_Checklist.md`** — add a new **§ 5.6 Google Drive API v3 (per-couple OAuth)** (or extend § 5.3 if you'd rather keep all Google scopes in one row):
+   > "**V1 wiring shipped 2026-05-16** (PR `feat(0012)`). Routes live at `/api/oauth/drive/{start,callback,disconnect}` + refresh handled by the shared `/api/cron/oauth-refresh` worker (now dual-provider, youtube + drive). **Scope requested:** `https://www.googleapis.com/auth/drive.file` (narrowest — only files Setnayan creates in the couple's Drive). **Remaining owner-side blocker:** Google Cloud project (CAN reuse the YouTube one — Drive and YouTube can share the same OAuth client since the redirect URI distinguishes them) → enable Drive API v3 → add `drive.file` scope to consent screen → if not already verified, submit for Google verification (1–4 wk) → paste `GOOGLE_DRIVE_OAUTH_CLIENT_ID` / `GOOGLE_DRIVE_OAUTH_CLIENT_SECRET` / `GOOGLE_DRIVE_OAUTH_REDIRECT_URI` into Vercel env. Until this is done, the Papic setup page renders a 'coming soon' caption under the Drive radio per the graceful-fallback rule, and the Setnayan-R2 default still works."
+   >
+   > Also flag the dual-purpose nature: **the same Google Cloud project / OAuth client now powers both YouTube (Panood) and Drive (Papic)**. Splitting later is a config-only change (separate client_id / secret env vars already in place).
+
+**Owner action checklist (separate from the spec edits above):**
+- [ ] Confirm Google Cloud project is reused (vs separate Drive project).
+- [ ] Enable Google Drive API v3 in the same Google Cloud project.
+- [ ] Add `https://www.googleapis.com/auth/drive.file` to the OAuth consent screen scopes (alongside the YouTube scopes from PR #95).
+- [ ] If not already verified, submit for Google verification (1-4 wk).
+- [ ] Add `https://www.setnayan.com/api/oauth/drive/callback` as an authorized redirect URI on the OAuth 2.0 Web client (same client as YouTube or a new one).
+- [ ] Paste `GOOGLE_DRIVE_OAUTH_CLIENT_ID`, `GOOGLE_DRIVE_OAUTH_CLIENT_SECRET`, `GOOGLE_DRIVE_OAUTH_REDIRECT_URI` into Vercel env; redeploy.
+- [ ] Run `supabase db push` to apply `20260516280000_events_papic_storage_target.sql` (adds the `events.papic_storage_target` column with R2 default).
+- [ ] No new cron secret needed — the Drive refresh worker reuses `OAUTH_REFRESH_CRON_SECRET` from PR #95.
+
+---
+
 ## [PENDING] 2026-05-16 — Iteration 0011 Panood: YouTube OAuth wiring (V1 scope expansion)
 
 **Why:** Per the 2026-05-16 4th decision-log row, the owner expanded V1 scope to wire real OAuth on the V1.5+ scaffold setup pages so couples can connect their BYO accounts at setup time. PR `feat(0011): YouTube OAuth wiring + Panood setup rewrite` shipped the YouTube slice + the shared `oauth_grants` foundation today. Three spec files need to catch up so the spec corpus matches the shipped reality.

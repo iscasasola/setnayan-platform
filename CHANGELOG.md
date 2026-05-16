@@ -4,6 +4,60 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-16 · feat(0026): BIR Form 2307 quarterly auto-fill — per-vendor PDF + pg_cron + admin queue
+
+**Commit:** to be filled after commit.
+
+**Context:** Iteration 0026 § 5.4 ("Form 2307 quarterly generation") + the V1 SKU lock decision row from 2026-05-16 — "BIR 2307 generation, vendor_payouts table" was the last engineering item left open against the V1 launch-blocker list for iteration 0034 Payments. This PR closes that gap end-to-end: one PDF per (vendor, year, quarter), generated automatically on the 1st of every Jan/Apr/Jul/Oct at 02:00 PHT via Supabase pg_cron, with an admin-side manual trigger + per-row regenerate button for backfills and corrections.
+
+**What shipped:**
+- `supabase/migrations/20260516100000_iteration_0026_bir_2307_filings.sql` — adds `vendor_2307_filings` (one row per vendor per quarter, with monthly breakdown + totals JSONB + audit log + PDF storage ref), BIR identity columns on `vendor_profiles` (`tin_number`, `tin_type`, `registered_business_name`, `registered_address`, `registered_zip`, `bir_service_category`) and the matching Setnayan-side payor columns on `platform_settings` (`bir_payor_name`/`_address`/`_zip` + `bir_authorized_rep_name`/`_tin`/`_title`). Migration enables `pg_cron` + `pg_net` extensions (guarded — silently skipped on environments where the extensions aren't available) and schedules the `quarterly_2307_generation` cron job to POST to `/api/admin/cron/generate-2307` on the 1st of Jan/Apr/Jul/Oct at 02:00 PHT (18:00 UTC). RLS allows self-read by the owning vendor + full read by admin; no vendor writes.
+- `apps/web/lib/bir/atc-mapper.ts` — pure `mapVendorToATC(vendor)` that returns `{ atc_code, rate_bps, description }`. Wires the V1 ruleset: WC158 (2%) for any corporation, WI151 (5%) for professional individuals, WI080 (5%) for talent individuals, WI158 (2%) for default service-supplier individuals under the Top Withholding Agent rule. Includes a `centavosToPesoString` helper used by every PDF surface.
+- `apps/web/lib/bir/filings.ts` — server-side data access. `buildQuarterFilings(admin, period)` walks `vendor_payouts.bir_withholding_centavos` (post-#68 Setnayan Pay reprice column) for the quarter, groups by vendor + month-index within quarter, runs the ATC mapper, returns the aggregated filing inputs. Also exposes `quarterThatJustEnded(now)`, `quarterToPeriod(year, q)`, `deadlineForQuarter(year, q)` (Apr 30 / Jul 31 / Oct 31 / Jan 31), `fetchFilingByVendorAndPeriod`, `listFilingsForVendor`, `listAllFilings`.
+- `apps/web/lib/bir/2307-pdf.ts` — `generate2307PDF({filing, period, payor})` using pdf-lib. Two strategies: (A) load `apps/web/public/bir-forms/2307-2018-ENCS.pdf` and fill AcroForm fields by name (`Payee_TIN` / `Field2` / `Payor_TIN` / `Field6` / `ATC_1` / `M1_1` / etc. — multiple naming variants per slot so a BIR template refresh doesn't drop fields silently) then flatten; (B) when no AcroForm fields exist on the template, overlay text at calibrated coordinates; (C) fallback when the template file is absent — draws a from-scratch single-page Letter portrait layout with all BIR-required sections (period header, Part I Payee, Part II Payor, Part III monthly breakdown table with ATC rows, grand totals row, signature block). All three paths emit `Uint8Array` PDF bytes for upload.
+- `apps/web/lib/bir/storage.ts` — `upload2307Pdf({pdfBytes, vendor_profile_id, tax_year, tax_quarter})` writes to R2 bucket `setnayan-bir-2307` (env `R2_BUCKET_BIR_2307`), with auto-fallback to Supabase Storage bucket `bir-2307` when R2 envs are unset. Object key: `vendors/{vendor_profile_id}/{year}_Q{quarter}.pdf` — matches the spec § 5.4 layout (minus the bucket-name prefix, which is the bucket itself).
+- `apps/web/lib/bir/generator.ts` — orchestration. `generateQuarter({admin, year, quarter, triggered_by_admin_id})` aggregates filings → renders PDFs → uploads → upserts the `vendor_2307_filings` row (idempotent — regenerating UPDATEs in place, bumps `regenerated_count`, appends to `audit_log`). Per-vendor failures are recorded as `status='error'` rows but don't abort the batch. Also exports `regenerateVendor(...)` for the admin manual button.
+- `apps/web/app/api/admin/cron/generate-2307/route.ts` — `POST` handler with two auth paths: (1) `X-Cron-Secret` header matched against `process.env.CRON_SECRET` (used by Supabase pg_cron via `net.http_post`), (2) admin session cookie via `createClient()` + `users.account_type/is_internal/is_team_member` check (used by the manual trigger button on `/admin/bir/2307`). Accepts `?year=&quarter=` for backfills; defaults to the quarter that just ended. Returns a JSON summary `{vendor_count, generated, skipped_no_ewt, errors, filings}`. `GET` returns metadata so an operator can sanity-check the wiring without firing a real run.
+- `apps/web/app/api/admin/bir/2307/regenerate/route.ts` — `POST` handler for single-row regeneration. Validates admin session, then calls `regenerateVendor(...)` and returns the upserted row.
+- `apps/web/app/vendor-dashboard/tax-documents/page.tsx` + `actions.ts` — vendor surface showing per-quarter filings with download link + "Mark as filed" toggle for the vendor's own record-keeping. Top card shows the vendor's BIR identity (TIN / registered name / address / ZIP / TIN type / BIR service category) with red-tone callouts for unset fields and an inline reminder that TIN edits require re-verification (per spec § 7.3). Banners: amber "ready to download" for new filings, red "past the filing deadline" for ones still un-actioned past the BIR deadline.
+- `apps/web/app/admin/bir/2307/page.tsx` + `_components/manual-trigger.tsx` + `_components/regenerate-button.tsx` — admin queue. Period filter dropdown, summary stats (filings count, gross paid, EWT, generated/downloaded/filed/error counts), per-row table with View + Regenerate. Manual trigger card at the top lets admin pick `{year, quarter}` and POST to the cron endpoint.
+- `apps/web/app/admin/layout.tsx` — wired new "BIR 2307" tab into the admin sub-nav (between Receipts and Reviews).
+- `apps/web/app/vendor-dashboard/layout.tsx` — wired new "Tax docs" tab into the vendor sub-nav (after Earnings, before Notifications).
+- `.env.example` — added `R2_BUCKET_BIR_2307=setnayan-bir-2307` + `CRON_SECRET=` with comments documenting the owner-side setup (Supabase Dashboard ALTER DATABASE for `app.cron_secret` + `app.app_url`).
+- `apps/web/public/bir-forms/.gitkeep` — placeholder that documents the BIR template owner-action.
+- `apps/web/package.json` — adds `pdf-lib ^1.17.1`.
+
+**Cron strategy:** Supabase pg_cron + pg_net. Avoids an external scheduler (Vercel Cron / GitHub Actions / Cloudflare Workers) — pg_cron ships with Supabase Postgres, runs free, and authenticates via a database-side `app.cron_secret` GUC so the secret never leaves Postgres. The cron's `net.http_post` calls `/api/admin/cron/generate-2307` with `X-Cron-Secret` and a JSON body so the same endpoint also handles admin manual triggers.
+
+**Verify:**
+- `pnpm --filter @setnayan/web typecheck` ✅
+- `pnpm --filter @setnayan/web lint` ✅
+- `pnpm --filter @setnayan/web build` ✅ (new routes present: `/admin/bir/2307`, `/api/admin/bir/2307/regenerate`, `/api/admin/cron/generate-2307`, `/vendor-dashboard/tax-documents`)
+
+**Owner action required:**
+1. **Download the official BIR Form 2307 (January 2018 ENCS) PDF** from https://www.bir.gov.ph/index.php/bir-forms/certificates.html and check it into the repo at `apps/web/public/bir-forms/2307-2018-ENCS.pdf`. Until this file lands, the generator falls back to a from-scratch layout that contains every BIR-required field but isn't a pixel-perfect facsimile.
+2. **Provision the R2 bucket** `setnayan-bir-2307` in the Cloudflare R2 dashboard (PH region; lifecycle: retain 10 years per BIR audit window; no public access — URLs are emitted server-side and shared only with the owning vendor + admin).
+3. **Enable Postgres extensions** in Supabase Dashboard → Database → Extensions: `pg_cron` and `pg_net` (both ship pre-installed; just flip the toggle).
+4. **Set cron + URL GUCs** in Supabase SQL Editor (one-time):
+   ```sql
+   ALTER DATABASE postgres SET app.cron_secret = '<openssl rand -hex 32>';
+   ALTER DATABASE postgres SET app.app_url    = 'https://www.setnayan.com';
+   ```
+5. **Paste `CRON_SECRET`** (the same value from step 4) into Vercel env (Production + Preview).
+6. **Fill `platform_settings.bir_payor_*` + `bir_authorized_rep_*`** via the admin settings surface once the legal-name + BIR Permit + authorized-signatory are confirmed (these populate Part II of every 2307 PDF).
+7. **Backfill vendor BIR identity** (`vendor_profiles.tin_number`, `tin_type`, `registered_business_name`, `registered_address`, `registered_zip`, `bir_service_category`) — currently nullable; without them the mapper defaults to individual + service_supplier → WI158 at 2%.
+8. **Spec corpus** (do NOT edit in this worktree): note in `0026_bir_tax_compliance.md` § 5.4 that the actual repo implementation reads `vendor_payouts.bir_withholding_centavos` (post-#68) rather than the spec's `service_orders.bir_withholding_centavos` placeholder. Mention also that `vendor_profiles` carries the BIR identity columns rather than the `vendors` table named in the spec.
+
+**Out of scope (deferred to V1.5+):**
+- Email notification when a 2307 is generated (0028 hooks pending — vendor surface already shows it).
+- Multi-ATC per vendor — V1 mapper emits a single ATC code per vendor, even if the vendor delivered services across multiple BIR categories in a quarter. Once a future migration adds `vendor_services.bir_atc_override` we can group by service.
+- 2307 PDF e-signature via 0027 — V1 prints `payor.authorized_rep_name` on the signature line; physical signing is admin-side, offline.
+- Form 1601-EQ remittance return CSV export — covered by iteration 0026 § 6.2 as a follow-on under the `/admin/finance/tax-reports` surface.
+
+**SPEC IMPACT:** Iteration 0026 § 5.2 + § 5.4 schema names diverge slightly from the live code (live: `vendor_profiles` + `vendor_payouts`; spec: `vendors` + dedicated `form_2307_issuances`). Engineering followed the live schema to avoid renaming tables that #68 just landed. Spec corpus update — call out the column-location reality in 0026 — is owner-side per `feedback_setnayan_edit_first_and_safety` (no spec-folder edits from this worktree).
+
+---
+
 ## 2026-05-16 · feat(0006,0023): vendor verification flow + admin queue + SKU aliases
 
 **Commit:** to be filled after commit.

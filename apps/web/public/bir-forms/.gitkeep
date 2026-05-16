@@ -1,0 +1,17 @@
+BIR template PDFs land here.
+
+Owner action (iteration 0026 BIR Form 2307 quarterly auto-fill):
+  Download the official BIR Form 2307 (January 2018 ENCS) from
+  https://www.bir.gov.ph/index.php/bir-forms/certificates.html
+  and save it at this path:
+    apps/web/public/bir-forms/2307-2018-ENCS.pdf
+
+The PDF generator at apps/web/lib/bir/2307-pdf.ts uses the file as
+a template — it fills any AcroForm fields by name, or overlays text
+on the rendered page when no AcroForm is present. When the file is
+missing entirely the generator falls back to a from-scratch layout
+that contains the same BIR-required data points (see "Strategy B"
+in 2307-pdf.ts) — usable but not pixel-perfect.
+
+This file (.gitkeep) is here so the directory survives `git clean`.
+It can be deleted once the official PDF is in place.

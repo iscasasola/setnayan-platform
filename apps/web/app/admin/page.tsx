@@ -7,6 +7,7 @@ import {
   ArrowRight,
   ShieldCheck,
   LayoutGrid,
+  Wallet,
 } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 
@@ -83,6 +84,12 @@ export default async function AdminOverview() {
           Icon={ShieldCheck}
           title="Verification queue"
           body="Approve registered vendors → flip Coming soon to Verified."
+        />
+        <Tile
+          href="/admin/payouts"
+          Icon={Wallet}
+          title="Vendor payouts"
+          body="Verified T+1 · coming-soon 20/60/20 release schedule + dispute holds."
         />
         <Tile
           href="/admin/website"

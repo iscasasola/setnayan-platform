@@ -8,6 +8,12 @@ import { emitNotification } from '@/lib/notification-emit';
 import { formatPhp } from '@/lib/orders';
 import { computeVatFromBase } from '@/lib/receipts';
 import { captureEvent } from '@/lib/analytics';
+import {
+  computePayoutBreakdown,
+  dispatchVendorPayouts,
+  phpToCentavos,
+  resolveVendorVerificationState,
+} from '@/lib/payouts';
 
 async function requireAdmin(): Promise<{ userId: string }> {
   const supabase = await createClient();
@@ -113,9 +119,113 @@ export async function approvePayment(formData: FormData) {
     // The unique constraint on receipts.order_id makes the insert idempotent
     // across retries; subsequent runs silently no-op.
     await issueReceiptForOrder({ admin, orderId: payment.order_id });
+
+    // Vendor Payout dispatcher (locked 2026-05-16). If this order is linked
+    // to a vendor_profile (vendor_profile_id column on orders, populated by
+    // the Setnayan Pay cart flow), schedule the payout rows now. Verified
+    // vendors get a single T+1 immediate stage; coming_soon / demoted get
+    // the 20/60/20 staged release.
+    //
+    // No-op when the order isn't a vendor booking (vendor_profile_id NULL)
+    // — couples buying Setnayan SKUs don't trigger vendor payouts. Failures
+    // here NEVER block the payment-approval flow; payouts can be retried
+    // from /admin/payouts.
+    try {
+      await schedulePayoutsForOrder({
+        admin,
+        orderId: payment.order_id,
+        actorUserId: userId,
+      });
+    } catch (e) {
+      console.error('vendor payout scheduling failed (non-fatal):', e);
+    }
   }
 
   revalidatePath('/admin/payments');
+  revalidatePath('/admin/payouts');
+}
+
+async function schedulePayoutsForOrder(args: {
+  admin: ReturnType<typeof createAdminClient>;
+  orderId: string;
+  actorUserId: string;
+}): Promise<void> {
+  const { admin, orderId, actorUserId } = args;
+
+  // Pull the order + linked vendor + linked event date in one round-trip.
+  const { data: orderRow } = await admin
+    .from('orders')
+    .select(
+      `order_id, vendor_profile_id, confirmed_total_php, requested_total_php,
+       setnayan_fee_bps, gateway_fee_centavos, payment_method_key, event_id,
+       vendor:vendor_profiles!orders_vendor_profile_id_fkey(public_visibility),
+       event:events!orders_event_id_fkey(event_date)`,
+    )
+    .eq('order_id', orderId)
+    .maybeSingle();
+
+  if (!orderRow) return;
+  const row = orderRow as unknown as {
+    order_id: string;
+    vendor_profile_id: string | null;
+    confirmed_total_php: number | null;
+    requested_total_php: number;
+    setnayan_fee_bps: number | null;
+    gateway_fee_centavos: number | null;
+    payment_method_key: string | null;
+    event_id: string | null;
+    vendor: { public_visibility: string | null } | null;
+    event: { event_date: string | null } | null;
+  };
+
+  // Skip non-vendor orders silently — couples buying Setnayan SKUs don't
+  // generate a vendor payout schedule.
+  if (!row.vendor_profile_id) return;
+
+  const basePhp = Number(row.confirmed_total_php ?? row.requested_total_php ?? 0);
+  if (basePhp <= 0) return;
+
+  // Gross = pre-VAT base + 12% VAT (the customer pays gross).
+  const { gross } = computeVatFromBase(basePhp);
+  const grossCentavos = phpToCentavos(gross);
+
+  const breakdown = computePayoutBreakdown({
+    grossCentavos,
+    setnayanFeeBps: row.setnayan_fee_bps ?? undefined,
+    gatewayFeeCentavos: row.gateway_fee_centavos ?? undefined,
+  });
+
+  // Write the breakdown back onto the order row so receipts / vendor surfaces
+  // can read it without re-computing.
+  await admin
+    .from('orders')
+    .update({
+      gateway_fee_centavos: breakdown.gatewayFeeCentavos,
+      bir_withholding_centavos: breakdown.birWithholdingCentavos,
+      vendor_net_centavos: breakdown.vendorNetCentavos,
+      disbursement_fee_centavos: breakdown.disbursementFeeCentavos,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('order_id', orderId);
+
+  const verificationState = resolveVendorVerificationState({
+    public_visibility: row.vendor?.public_visibility ?? null,
+  });
+
+  await dispatchVendorPayouts(admin, {
+    orderId,
+    vendorProfileId: row.vendor_profile_id,
+    verificationState,
+    paidAt: new Date().toISOString(),
+    eventDate: row.event?.event_date ?? null,
+    breakdown,
+    // Default disbursement rail until the vendor sets a preferred one in
+    // their profile (V1.5 field). `maya_account` maps to the spec's
+    // 'maya' rail in the legacy `payout_method` CHECK column on
+    // vendor_payouts (migration 20260516020000).
+    payoutMethod: 'maya_account',
+    actorUserId,
+  });
 }
 
 async function issueReceiptForOrder(args: {

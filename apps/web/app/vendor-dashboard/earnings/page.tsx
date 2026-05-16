@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Wallet } from 'lucide-react';
+import { Wallet, Clock3, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -11,6 +11,14 @@ import {
   convenienceFeePhp,
   fetchVendorEarnings,
 } from '@/lib/vendor-earnings';
+import {
+  PAYOUT_STAGE_LABEL,
+  PAYOUT_STAGE_TONE,
+  formatCentavosPhp,
+  resolveVendorVerificationState,
+  type PayoutStage,
+  type VendorVerificationState,
+} from '@/lib/payouts';
 import { displayServiceLabel, formatPhp } from '@/lib/vendors';
 
 export const metadata = { title: 'Earnings · Vendor' };
@@ -45,6 +53,61 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
     categories.length > 0 ? await fetchVendorEarnings(admin, categories) : [];
 
   const { ytdTotal, months } = computeMonthlySubtotals(earnings);
+
+  // Vendor Payout model (2026-05-16 lock) — pull this vendor's own scheduled
+  // payouts so the page can render the confirmed / in-stage / paid split.
+  // RLS already lets the vendor read their own payouts, so we use the user
+  // client to respect server-side auth scoping.
+  const { data: payoutRows } = await supabase
+    .from('vendor_payouts')
+    .select(
+      `payout_id, payout_stage, stage, stage_pct, amount_centavos,
+       vendor_net_centavos, gross_centavos, bir_withholding_centavos,
+       gateway_fee_centavos, disbursement_fee_centavos,
+       scheduled_at, paid_at, released_at, dispute_window_ends_at, on_hold,
+       hold_reason, payment_method, payout_method, created_at,
+       order:orders!vendor_payouts_order_id_fkey(reference_code, description)`,
+    )
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .order('scheduled_at', { ascending: true, nullsFirst: false })
+    .limit(100);
+
+  type PayoutRow = {
+    payout_id: string;
+    payout_stage: PayoutStage | null;
+    stage: string;
+    stage_pct: number;
+    amount_centavos: number;
+    vendor_net_centavos: number | null;
+    gross_centavos: number | null;
+    bir_withholding_centavos: number;
+    gateway_fee_centavos: number;
+    disbursement_fee_centavos: number;
+    scheduled_at: string | null;
+    paid_at: string | null;
+    released_at: string | null;
+    dispute_window_ends_at: string | null;
+    on_hold: boolean;
+    hold_reason: string | null;
+    payment_method: string | null;
+    payout_method: string | null;
+    created_at: string;
+    order: { reference_code: string; description: string } | null;
+  };
+  const payouts = (payoutRows ?? []) as unknown as PayoutRow[];
+
+  const verificationState: VendorVerificationState =
+    resolveVendorVerificationState(profile);
+
+  const pendingCentavos = payouts
+    .filter((r) => !r.paid_at && !r.on_hold)
+    .reduce((acc, r) => acc + (r.vendor_net_centavos ?? r.amount_centavos), 0);
+  const paidCentavos = payouts
+    .filter((r) => !!r.paid_at)
+    .reduce((acc, r) => acc + (r.vendor_net_centavos ?? r.amount_centavos), 0);
+  const onHoldCentavos = payouts
+    .filter((r) => r.on_hold)
+    .reduce((acc, r) => acc + (r.vendor_net_centavos ?? r.amount_centavos), 0);
 
   // Pagination over the recent-orders list (most recent first).
   const pageRaw = Number.parseInt(search.page ?? '1', 10);
@@ -116,6 +179,120 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
               </li>
             ))}
           </ol>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+            Payout schedule ({payouts.length})
+          </h2>
+          <span className="inline-flex items-center gap-1 rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/70">
+            <ShieldCheck className="h-3 w-3" aria-hidden /> {verificationState}
+          </span>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <PayoutKpi
+            tone="bg-amber-100 text-amber-800"
+            icon={<Clock3 className="h-4 w-4" />}
+            label={
+              verificationState === 'verified'
+                ? 'Awaiting T+1 release'
+                : 'Confirmed · not yet paid'
+            }
+            value={formatCentavosPhp(pendingCentavos)}
+            help={`${payouts.filter((r) => !r.paid_at && !r.on_hold).length} stage(s)`}
+          />
+          <PayoutKpi
+            tone="bg-emerald-100 text-emerald-800"
+            icon={<CheckCircle2 className="h-4 w-4" />}
+            label="Paid to date"
+            value={formatCentavosPhp(paidCentavos)}
+            help={`${payouts.filter((r) => !!r.paid_at).length} stage(s)`}
+          />
+          <PayoutKpi
+            tone="bg-rose-100 text-rose-800"
+            icon={<Wallet className="h-4 w-4" />}
+            label="On hold (dispute)"
+            value={formatCentavosPhp(onHoldCentavos)}
+            help={`${payouts.filter((r) => r.on_hold).length} stage(s)`}
+          />
+        </div>
+
+        <p className="rounded-md border border-ink/10 bg-cream px-3 py-2 text-xs text-ink/65">
+          {verificationState === 'verified'
+            ? 'You are verified — payouts release T+1 after each booking, less the gateway fee and BIR 0.5% withholding. Setnayan absorbs the ₱15-25 outbound fee.'
+            : 'Coming-soon vendors release in three stages: 20% on booking confirmation, 60% T+7 from event start, 20% T+7 from event end. Each post-confirmation stage has a 7-day couple-response window; silence auto-releases.'}
+        </p>
+
+        {payouts.length > 0 ? (
+          <ul className="space-y-2">
+            {payouts.slice(0, 25).map((row) => {
+              const stage: PayoutStage = (row.payout_stage ??
+                legacyStageToPayoutStage(row.stage)) as PayoutStage;
+              return (
+                <li
+                  key={row.payout_id}
+                  className="rounded-xl border border-ink/10 bg-cream p-4"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span
+                          className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${PAYOUT_STAGE_TONE[stage]}`}
+                        >
+                          {PAYOUT_STAGE_LABEL[stage]}
+                        </span>
+                        {row.paid_at ? (
+                          <span className="rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-800">
+                            Paid
+                          </span>
+                        ) : row.on_hold ? (
+                          <span className="rounded-full bg-rose-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-rose-800">
+                            On hold
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-amber-800">
+                            Scheduled
+                          </span>
+                        )}
+                      </div>
+                      <p className="truncate text-sm font-semibold text-ink">
+                        {row.order?.reference_code ?? '—'}
+                      </p>
+                      <p className="line-clamp-1 text-xs text-ink/65">
+                        {row.order?.description ?? '—'}
+                      </p>
+                      <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                        Scheduled {formatTimestamp(row.scheduled_at)} · BIR{' '}
+                        {formatCentavosPhp(row.bir_withholding_centavos)} · Gateway{' '}
+                        {formatCentavosPhp(row.gateway_fee_centavos)}
+                      </p>
+                      {row.hold_reason ? (
+                        <p className="text-xs text-rose-800">
+                          <span className="font-medium">Hold:</span> {row.hold_reason}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="space-y-0.5 text-right">
+                      <p className="font-mono text-sm font-semibold text-ink">
+                        {formatCentavosPhp(row.vendor_net_centavos ?? row.amount_centavos)}
+                      </p>
+                      <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                        Stage {row.stage_pct}%
+                      </p>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-6 text-center text-sm text-ink/55">
+            No scheduled payouts yet. Stages land here when an admin reconciles
+            a couple&rsquo;s payment for your service.
+          </p>
         )}
       </section>
 
@@ -234,4 +411,59 @@ function Stat({
       {help ? <p className="mt-1 text-xs text-ink/55">{help}</p> : null}
     </div>
   );
+}
+
+function PayoutKpi({
+  tone,
+  icon,
+  label,
+  value,
+  help,
+}: {
+  tone: string;
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  help: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-ink/10 bg-cream p-4">
+      <div className="flex items-center gap-2">
+        <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full ${tone}`}>
+          {icon}
+        </span>
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+          {label}
+        </p>
+      </div>
+      <p className="mt-2 text-xl font-semibold tracking-tight text-ink">{value}</p>
+      <p className="mt-0.5 text-xs text-ink/55">{help}</p>
+    </div>
+  );
+}
+
+function legacyStageToPayoutStage(legacy: string): PayoutStage {
+  switch (legacy) {
+    case 'immediate':
+      return 'immediate_full';
+    case 'reservation':
+      return 'stage_1_confirm';
+    case 'pre_event':
+      return 'stage_2_event_start';
+    case 'post_event':
+      return 'stage_3_event_end';
+    default:
+      return 'immediate_full';
+  }
+}
+
+function formatTimestamp(iso: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('en-PH', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
 }

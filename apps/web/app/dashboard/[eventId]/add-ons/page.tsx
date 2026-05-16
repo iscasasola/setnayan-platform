@@ -88,7 +88,7 @@ const ADD_ONS: ReadonlyArray<{
     label: 'Photo Delivery',
     Icon: CloudUpload,
     iteration: '0009',
-    status: 'coming_soon',
+    status: 'web_v1',
     blurb: 'Google Drive integration for full-resolution photo handoff',
     cta: 'Connect',
   },

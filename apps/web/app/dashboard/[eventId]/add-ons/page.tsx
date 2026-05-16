@@ -106,7 +106,7 @@ const ADD_ONS: ReadonlyArray<{
     label: 'Supplies Marketplace',
     Icon: ShoppingBag,
     iteration: '0018',
-    status: 'coming_soon',
+    status: 'web_v1',
     blurb: 'Wedding-day supplies + favors from vetted PH suppliers — direct to your venue',
     cta: 'Browse supplies',
   },

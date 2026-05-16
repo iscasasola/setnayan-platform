@@ -57,10 +57,7 @@ CREATE TABLE IF NOT EXISTS public.oauth_grants (
 );
 
 COMMENT ON TABLE public.oauth_grants IS
-  'Shared per-couple OAuth grants table (created 2026-05-16). One row per ' ||
-  '(event_id, provider). Used by Panood (youtube), Papic (drive). Tiktok ' ||
-  'continues to use the older patiktok_oauth_grants table for V1; future ' ||
-  'consolidation is tracked as a TODO.';
+  'Shared per-couple OAuth grants table (created 2026-05-16). One row per (event_id, provider). Used by Panood (youtube), Papic (drive). Tiktok continues to use the older patiktok_oauth_grants table for V1; future consolidation is tracked as a TODO.';
 
 CREATE INDEX IF NOT EXISTS oauth_grants_event_provider_idx
   ON public.oauth_grants (event_id, provider);

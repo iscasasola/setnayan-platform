@@ -33,10 +33,7 @@ CREATE TABLE IF NOT EXISTS public.patiktok_music_tracks (
 );
 
 COMMENT ON TABLE public.patiktok_music_tracks IS
-  'Iteration 0017 Phase 5 — Setnayan-owned AI music catalogue used by ' ||
-  'Patiktok render worker. Spec target: ~400 tracks across 6 categories; ' ||
-  'this seed has 25 representative rows. Real Suno Premier ingest fills ' ||
-  'the rest. Loops are 30-60s; render worker stitches into longer compilations.';
+  'Iteration 0017 Phase 5 — Setnayan-owned AI music catalogue used by Patiktok render worker. Spec target: ~400 tracks across 6 categories; this seed has 25 representative rows. Real Suno Premier ingest fills the rest. Loops are 30-60s; render worker stitches into longer compilations.';
 
 ALTER TABLE public.patiktok_music_tracks ENABLE ROW LEVEL SECURITY;
 

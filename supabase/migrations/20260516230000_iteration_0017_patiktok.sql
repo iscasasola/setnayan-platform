@@ -98,8 +98,7 @@ CREATE TABLE IF NOT EXISTS public.patiktok_render_jobs (
 );
 
 COMMENT ON TABLE public.patiktok_render_jobs IS
-  'Iteration 0017 Patiktok — per-event render-on-demand jobs. Phase 1 ships ' ||
-  'the table + RLS only. Phase 2 wires the ffmpeg/Remotion worker that drains it.';
+  'Iteration 0017 Patiktok — per-event render-on-demand jobs. Phase 1 ships the table + RLS only. Phase 2 wires the ffmpeg/Remotion worker that drains it.';
 
 CREATE INDEX IF NOT EXISTS patiktok_render_jobs_event_status_enqueued_idx
   ON public.patiktok_render_jobs (event_id, status, enqueued_at);

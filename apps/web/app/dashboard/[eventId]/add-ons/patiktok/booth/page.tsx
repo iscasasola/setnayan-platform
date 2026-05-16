@@ -359,6 +359,12 @@ function RecordCTA({
       <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
         Camera capture · TODO(0017-phase4.1) · getUserMedia + MediaRecorder + face-lock
       </p>
+      <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
+        Multi-performer · TODO(0017-phase5.1) · MediaPipe-WASM face detection · geometric-center anchor · tag-others prompt post-clip
+      </p>
+      <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
+        External display dual-view · TODO(0017-phase5.2) · Presentation API + split / PIP layouts for HDMI / AirPlay / Chromecast
+      </p>
     </section>
   );
 }

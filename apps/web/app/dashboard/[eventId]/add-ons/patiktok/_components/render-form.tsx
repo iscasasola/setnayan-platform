@@ -5,24 +5,40 @@ import { Film } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { submitPatiktokRender } from '../actions';
 
-// Iteration 0017 Phase 2 — Patiktok render-form (real server action).
+// Iteration 0017 Phase 5 — Patiktok render-form with music selection.
 //
-// Previously this component mocked the render queue client-side and generated
-// a fake job ID. Phase 2 swaps the mock for a real <form action={…}> POST that
-// inserts a row into `patiktok_render_jobs` via the `submitPatiktokRender`
-// server action. The action redirects back to the gallery with ?queued=<job>
-// so the success state lives in URL state, not transient component state.
+// Builds on Phase 2 (real server action + queue) by adding the music-track
+// dropdown sourced from the Setnayan-owned AI music catalogue table (Phase 5
+// migration). Tracks are grouped by category (Bridgerton · Pop · Hip-hop ·
+// Jazz · Acoustic · Filipino Pop) per spec.
 //
-// Real ffmpeg/Remotion render orchestration still ships in the worker (see
-// `app/api/internal/patiktok/process-job/route.ts` seam) — this form's job
-// is only to enqueue the work. Music selection moves into the gallery flow
-// in Phase 5; for now `performer_count` defaults to 1.
+// Selection is optional — leaving it on "Auto-pick" lets the render worker
+// choose a track from the template's vibe category. Real ffmpeg/Remotion
+// looping + beat-sync continuity is still TODO in the worker.
+
+export type MusicTrackOption = {
+  track_slug: string;
+  category: string;
+  display_name: string;
+  bpm: number;
+  duration_sec: number;
+};
+
+const CATEGORY_LABELS: Record<string, string> = {
+  bridgerton: 'Bridgerton',
+  pop: 'Pop',
+  hip_hop: 'Hip-hop',
+  jazz: 'Jazz',
+  acoustic: 'Acoustic',
+  filipino_pop: 'Filipino Pop',
+};
 
 type Props = {
   eventId: string;
   templateSlug: string;
   templateName: string;
   defaultDurationSec: number;
+  musicTracks: ReadonlyArray<MusicTrackOption>;
 };
 
 export function RenderForm({
@@ -30,14 +46,30 @@ export function RenderForm({
   templateSlug,
   templateName: _templateName,
   defaultDurationSec,
+  musicTracks,
 }: Props) {
   const [duration, setDuration] = useState<number>(defaultDurationSec);
+  const [musicTrackSlug, setMusicTrackSlug] = useState<string>('');
+
+  // Group tracks by category so the <select> renders <optgroup>s.
+  const grouped = musicTracks.reduce<Record<string, MusicTrackOption[]>>(
+    (acc, t) => {
+      (acc[t.category] ??= []).push(t);
+      return acc;
+    },
+    {},
+  );
 
   return (
     <form action={submitPatiktokRender} className="space-y-4">
       <input type="hidden" name="event_id" value={eventId} />
       <input type="hidden" name="template_slug" value={templateSlug} />
       <input type="hidden" name="duration_sec" value={duration} />
+      <input
+        type="hidden"
+        name="music_track_slug"
+        value={musicTrackSlug}
+      />
 
       <div className="space-y-2">
         <label
@@ -60,6 +92,39 @@ export function RenderForm({
         <p className="text-xs text-ink/55">
           Spec range: 1–30 seconds per clip. Default tracks the template&rsquo;s
           choreographed beat length.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <label
+          htmlFor="music-track"
+          className="block text-sm font-medium text-ink"
+        >
+          Music track
+        </label>
+        <select
+          id="music-track"
+          value={musicTrackSlug}
+          onChange={(e) => setMusicTrackSlug(e.target.value)}
+          className="w-full rounded-md border border-ink/15 bg-cream px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none"
+        >
+          <option value="">Auto-pick from template vibe</option>
+          {Object.entries(grouped).map(([category, tracks]) => (
+            <optgroup
+              key={category}
+              label={CATEGORY_LABELS[category] ?? category}
+            >
+              {tracks.map((t) => (
+                <option key={t.track_slug} value={t.track_slug}>
+                  {t.display_name} · {t.bpm} BPM · {t.duration_sec}s loop
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+        <p className="text-xs text-ink/55">
+          All tracks are Setnayan-owned AI compositions — safe to download
+          and share. Loops seamlessly across the full compilation.
         </p>
       </div>
 

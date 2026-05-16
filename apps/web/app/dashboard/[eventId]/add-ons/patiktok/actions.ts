@@ -23,6 +23,7 @@ export async function submitPatiktokRender(formData: FormData) {
   const templateSlug = formData.get('template_slug');
   const durationRaw = formData.get('duration_sec');
   const performerCountRaw = formData.get('performer_count');
+  const musicTrackSlugRaw = formData.get('music_track_slug');
 
   if (typeof eventId !== 'string' || eventId.length === 0) {
     throw new Error('event_id required');
@@ -32,7 +33,7 @@ export async function submitPatiktokRender(formData: FormData) {
   }
   // Validate the slug against the catalogue so we can't insert rows that
   // reference templates the UI can't render. Phase 2 keeps the catalogue
-  // hard-coded; Phase 5 moves it to DB-backed.
+  // hard-coded; Phase 5+ moves it to DB-backed.
   if (!findPatiktokTemplate(templateSlug)) {
     throw new Error(`Unknown patiktok template: ${templateSlug}`);
   }
@@ -45,12 +46,31 @@ export async function submitPatiktokRender(formData: FormData) {
     typeof performerCountRaw === 'string' && performerCountRaw.length > 0
       ? Math.max(1, Math.floor(Number(performerCountRaw)))
       : 1;
+  const musicTrackSlug =
+    typeof musicTrackSlugRaw === 'string' && musicTrackSlugRaw.length > 0
+      ? musicTrackSlugRaw
+      : null;
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  // Validate music track if provided. RLS-scoped read; we trust the policy
+  // (anyone_reads_active_tracks WHERE is_active = TRUE) to surface only
+  // legitimate choices.
+  if (musicTrackSlug) {
+    const { data: track } = await supabase
+      .from('patiktok_music_tracks')
+      .select('track_slug')
+      .eq('track_slug', musicTrackSlug)
+      .eq('is_active', true)
+      .maybeSingle();
+    if (!track) {
+      throw new Error(`Unknown patiktok music track: ${musicTrackSlug}`);
+    }
+  }
 
   const { data, error } = await supabase
     .from('patiktok_render_jobs')
@@ -60,6 +80,7 @@ export async function submitPatiktokRender(formData: FormData) {
       requested_by: user.id,
       duration_sec: Math.round(durationSec),
       performer_count: performerCount,
+      music_track_slug: musicTrackSlug,
       status: 'queued',
     })
     .select('job_id')

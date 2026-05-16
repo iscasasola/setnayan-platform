@@ -115,7 +115,7 @@ const ADD_ONS: ReadonlyArray<{
     label: 'LED Background',
     Icon: Sparkles,
     iteration: '0005',
-    status: 'coming_soon',
+    status: 'web_v1',
     blurb: '8K template render · Photo Pool blend · USB delivery',
     cta: 'Choose template',
   },

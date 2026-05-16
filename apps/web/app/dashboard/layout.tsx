@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { GuidedTour } from '@/app/_components/guided-tour';
 import { completeTour } from '@/lib/tour-actions';
-import { fetchUserEvents } from '@/lib/events';
+import { fetchUserEvents, sortEventsForSwitcher } from '@/lib/events';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { countUnread } from '@/lib/notifications';
 import { OuterDashboardHeader } from './_components/outer-dashboard-header';
@@ -45,8 +45,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
     fetchUserRoleSummary(supabase, user.id),
     countUnread(supabase, user.id),
   ]);
-  const activeEvents = events.filter((e) => !e.archived);
-  const primary = activeEvents.find((e) => e.is_primary) ?? activeEvents[0] ?? null;
+  // Hide archived events from the switcher (existing behavior); then sort
+  // the remaining list with active-first + expired-rightmost per the
+  // 2026-05-17 owner directive. `sortEventsForSwitcher` preserves the
+  // prior primary-then-date-asc order inside the active group.
+  const visibleEvents = events.filter((e) => !e.archived);
+  const activeEvents = sortEventsForSwitcher(visibleEvents);
+  const primary = visibleEvents.find((e) => e.is_primary) ?? activeEvents[0] ?? null;
 
   // Top-level dashboard chrome. The single-strip top nav renders only on
   // non-event-scoped routes (/dashboard root, /dashboard/profile, etc.).

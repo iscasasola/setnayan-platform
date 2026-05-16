@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { ExternalLink, Settings2, Tv } from 'lucide-react';
+import { ExternalLink, Tv } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { formatPhp } from '@/lib/orders';
 import {
@@ -8,8 +8,12 @@ import {
   type PlanRow,
   type StatTile,
 } from '@/app/_components/app-store/layout';
-import { ChoosePlanSheet } from '@/app/_components/app-store/choose-plan-sheet';
-import { eventOwnsFeature, fetchAddOnStats } from '@/lib/add-on-stats';
+import {
+  AddOnStateCta,
+  statusPillForState,
+} from '@/app/_components/app-store/state-cta';
+import { fetchAddOnStats } from '@/lib/add-on-stats';
+import { resolveAddOnState } from '@/lib/add-on-state';
 
 // Iteration 0011 — Panood App Store-style detail surface.
 //
@@ -123,10 +127,17 @@ export default async function PanoodAppStorePage({ params }: Props) {
     .maybeSingle();
   if (!event) notFound();
 
-  const [stats, owned] = await Promise.all([
+  const [stats, stateCtx] = await Promise.all([
     fetchAddOnStats(supabase, 'panood'),
-    eventOwnsFeature(supabase, eventId, 'panood'),
+    resolveAddOnState(
+      supabase,
+      eventId,
+      'panood',
+      'couple',
+      `/dashboard/${eventId}/add-ons/panood/setup`,
+    ),
   ]);
+  const owned = stateCtx.state === 'launch';
 
   const fromPriceCentavos = Math.min(...PANOOD_SKUS.map((s) => s.centavos));
   const fromPriceFormatted = `${formatPhp(fromPriceCentavos / 100)} / day`;
@@ -165,29 +176,27 @@ export default async function PanoodAppStorePage({ params }: Props) {
     },
   ];
 
-  const heroCta = owned ? (
-    <Link
-      href={`/dashboard/${eventId}/add-ons/panood/setup`}
-      className="inline-flex items-center gap-2 rounded-full bg-terracotta px-5 py-2 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-600"
-    >
-      <Settings2 aria-hidden className="h-4 w-4" strokeWidth={2} />
-      Open Panood setup
-    </Link>
-  ) : (
-    <ChoosePlanSheet
-      eventId={eventId}
-      triggerLabel="Choose plan"
-      priceFromLabel={`From ${fromPriceFormatted}`}
-      plans={PANOOD_SKUS.map((s) => ({
-        sku_code: s.sku_code,
-        name: s.name,
-        scope: s.scope,
-        price: formatPhp(s.centavos / 100),
-        unit: s.unit,
-        badge: s.badge,
-      }))}
-      introCopy="Filipino weddings often have separate event-days for prep, ceremony, and reception. Buy one day per broadcast day, or unlock the full year with an Annual plan."
-      footnote="Apply-then-pay flow · we confirm price before payment · refunds follow the standard 24-hour SLA."
+  const heroCta = (
+    <AddOnStateCta
+      context={stateCtx}
+      launchLabel="Launch"
+      choosePlan={{
+        eventId,
+        triggerLabel: 'Add',
+        priceFromLabel: `From ${fromPriceFormatted}`,
+        plans: PANOOD_SKUS.map((s) => ({
+          sku_code: s.sku_code,
+          name: s.name,
+          scope: s.scope,
+          price: formatPhp(s.centavos / 100),
+          unit: s.unit,
+          badge: s.badge,
+        })),
+        introCopy:
+          'Filipino weddings often have separate event-days for prep, ceremony, and reception. Buy one day per broadcast day, or unlock the full year with an Annual plan.',
+        footnote:
+          'Apply-then-pay flow · we confirm price before payment · refunds follow the standard 24-hour SLA.',
+      }}
     />
   );
 
@@ -200,9 +209,8 @@ export default async function PanoodAppStorePage({ params }: Props) {
         title: 'Broadcast your wedding live',
         tagline:
           'Stream to your own YouTube channel with one to five cameras. Family abroad watches in real time; you keep the archive forever.',
-        statusPill: owned
-          ? { label: 'Active on this event', tone: 'success' }
-          : { label: 'Web V1', tone: 'accent' },
+        statusPill:
+          statusPillForState(stateCtx.state) ?? { label: 'Web V1', tone: 'accent' },
         cta: heroCta,
         secondary: owned ? (
           <Link

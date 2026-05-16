@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
 import { createClient } from '@/lib/supabase/server';
-import { R2_BUCKETS, type R2BucketKey } from '@/lib/r2';
+import { R2_BUCKETS, isR2Configured, type R2BucketKey } from '@/lib/r2';
 import {
   encodeR2Ref,
   presignDisplayUrl,
@@ -126,6 +126,26 @@ function sanitizePathPrefix(raw: string): string {
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  // R2 is required for the presigned-PUT flow — there's no Supabase
+  // Storage equivalent of "browser PUTs the bytes directly to the bucket".
+  // The server-side helper `uploadPublicAsset` in `lib/storage.ts` DOES
+  // fall back to Supabase Storage; surface that to the operator so they
+  // know which path needs the env vars.
+  if (!isR2Configured()) {
+    console.warn(
+      '[upload] Rejecting presign request — R2 env vars unset. ' +
+        'Browser-direct uploads via /api/upload require R2. ' +
+        'Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY in Vercel.',
+    );
+    return NextResponse.json(
+      {
+        error:
+          'Uploads are not configured. Please contact support — the operator needs to set R2 credentials.',
+      },
+      { status: 503 },
+    );
+  }
+
   let body: RequestBody;
   try {
     body = (await request.json()) as RequestBody;

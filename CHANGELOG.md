@@ -4,6 +4,30 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-16 · feat(infra): graceful Supabase Storage fallback when R2 env vars are unset
+
+**Commit:** to be filled after commit.
+
+**Context:** The R2 migration shipped in PR #18 — all production uploads write to one of the four Cloudflare R2 buckets (`setnayan-media`, `setnayan-thread-files`, `setnayan-vendor-contracts`, `setnayan-samples`). Today's change closes a dev/staging gap: if a deployment is missing `R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`, the server-side upload helper (`lib/storage.ts → uploadPublicAsset`) used to throw at the first `getR2Client()` call, which propagated as a 500 to the user. The fallback now writes to Supabase Storage `platform-assets` (the pre-PR-#18 path) and logs a one-shot warning so the operator sees the gap without users seeing an error. Reads of legacy Supabase Storage URLs already pass through `parseStoredAsset → legacy_url` unchanged — that side of the round-trip didn't need to change.
+
+**What shipped:**
+- `apps/web/lib/r2.ts` — added `isR2Configured()` predicate, converted `getR2Client()` to return `S3Client | null` instead of throwing, added `requireR2Client()` for code paths that have no fallback, added named helpers `r2Upload` / `r2SignedGet` / `r2PublicUrl` per the R2 migration spec's public surface. Top-of-file docblock now spells out the graceful-degradation contract (which call sites fall back, which surface a 503).
+- `apps/web/lib/storage.ts` — `uploadPublicAsset` now checks `isR2Configured()` and routes to the new `uploadViaSupabaseFallback` helper when R2 env vars are unset. Fallback writes to `platform-assets` with the same `${timestamp}-${random}.${ext}` key scheme the legacy V0 code used (so URLs are recognisable to anyone debugging old + new in the same trace). `deletePublicAsset` learned to route by URL shape — R2 URLs go to `DeleteObjectCommand`, Supabase Storage URLs go to `storage.remove()`, and anything else is a no-op. The R2 branch tolerates a missing client (logs a warning and skips, so a delete during a fallback window doesn't crash).
+- `apps/web/app/api/upload/route.ts` — presigned-PUT route returns a clean 503 + log when R2 isn't configured (no Supabase equivalent of "browser PUTs the bytes directly", so we can't gracefully degrade this surface — we surface a clear operator-facing error instead).
+- `apps/web/lib/uploads.ts` — switched `presignDisplayUrl` / `presignUploadUrl` to use the new `requireR2Client` helper. These two functions sign URLs and have no fallback path.
+
+**Why not a wider migration:** All four call-site categories named in the migration spec (vendor logos, payment screenshots, thread attachments, vendor contracts) were already on R2 as of PR #18 — `git grep` for `supabase.storage` and `.upload(` returned zero matches. This entry is purely about hardening the fallback so dev/staging environments without R2 credentials don't 500.
+
+**Verify:** `pnpm --filter @setnayan/web typecheck` ✅ (zero errors) · `pnpm --filter @setnayan/web lint` ✅ (no ESLint warnings or errors) · `pnpm --filter @setnayan/web build` ✅ (production build succeeds). No new dependencies — `@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner` were already in the lockfile from PR #18.
+
+**Owner action items:**
+- **None for production** — `R2_ACCESS_KEY_ID` / `R2_ACCOUNT_ID` / `R2_SECRET_ACCESS_KEY` are already set in Vercel and uploads continue to write to R2.
+- For local dev / preview deployments without R2 credentials: uploads will silently fall through to Supabase Storage `platform-assets` and you'll see a `[r2] R2 env vars unset` warning in the function logs. Set the three env vars in `.env.local` to exercise the R2 path.
+
+**SPEC IMPACT:** None — codifies the "fall back when env unset" requirement from the R2 migration spec. No spec edits required.
+
+---
+
 ## 2026-05-16 · feat(0005): LED Background Maker — scaffold-level launch
 
 **Commit:** to be filled after commit.

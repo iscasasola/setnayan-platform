@@ -37,8 +37,8 @@ const TOOLS: Array<{
   {
     Icon: Wallet,
     title: 'Payments',
-    body: 'Default: couple pays you direct (BDO / GCash) — Setnayan tracks the milestone, takes nothing. Or opt into Setnayan Pay: couple pays a 3% convenience fee, you receive the full quoted amount within 24h.',
-    bullet: 'Direct payments · Setnayan Pay (couple pays 3%)',
+    body: 'Default: couple pays you direct (BDO / GCash) — Setnayan tracks the milestone, takes nothing. Or opt into Setnayan Pay: couple pays a 5.5% convenience fee on the cheapest rails (Maya QR Ph / bank transfer / GCash) and you receive the full quoted amount within 24h.',
+    bullet: 'Direct payments · Setnayan Pay (couple pays 5.5%)',
   },
   {
     Icon: Star,

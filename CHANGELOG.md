@@ -4,6 +4,37 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-16 · feat(0018): Supplies Marketplace — scaffold-level launch
+
+**Commit:** to be filled after commit.
+
+**Context:** Iteration 0018 — Supplies Marketplace (spec at `~/Documents/Claude/Projects/Setnayan/0018_supplies_marketplace/0018_supplies_marketplace.md`). Owner unlocked the V1.5+ deferred-iteration cluster today per the 12th 2026-05-16 decision-log row in the spec corpus's `CLAUDE.md`: the six previously-deferred iterations (0005 LED Background · 0009 Photo Delivery · 0011 Panood · 0012 Papic · 0017 Patiktok · 0018 Supplies Marketplace) are unlocked for scaffold-level launch — one functional route per iteration, hardware-dependent paths stubbed with clean integration points, no SKU / pricing edits, no wallet UI, no commission revenue plumbing. This entry covers iteration 0018 only.
+
+**What shipped:**
+- `apps/web/app/dashboard/[eventId]/add-ons/supplies-marketplace/page.tsx` — server component. Replaces the `IterationPlaceholder` shim with a real browse + cart surface. Auth-gated; pulls existing orders for this event so the recommended-for rail can light up when the user already has past Patiktok / Papic / Panood / seating / photo-delivery purchases on the event. Falls back to a "starter kit" recommendation (QR cards, place cards, signage, backdrop) when there's no signal — matches spec § "Coordinator workflow" line *"Standard recommendations: QR cards, place cards print"*.
+- `apps/web/app/dashboard/[eventId]/add-ons/supplies-marketplace/_data/products.ts` — typed `SUPPLY_PRODUCTS` mock catalog. 18 listings spread across the spec's 5 categories (print fulfillment · equipment rentals · backdrop + decor · NFC + QR keepsakes · specialty merch). Prices pulled directly from spec § "Coordinator workflow" + § "Marketplace categories" (Patiktok background ₱599, HDMI dongle ₱899, monitor rental ₱2,500, tripod kit ₱599, QR cards ₱1,999/100, place cards ₱799/100, signage set ₱1,499, projector ₱3,500–₱4,500, velvet backdrop ₱2,999, floral arch ₱8,500–₱14,500, fairy-light kit ₱1,899, NFC pendant ₱2,499, NFC table cards ₱3,499, arras coins ₱4,500–₱6,500, QR wristbands ₱1,199, premium QR cards ₱2,999, photo book ₱4,500, save-the-date mailers ₱2,499). PHP only — no USD, no invented prices, no new SKU codes.
+- `apps/web/app/dashboard/[eventId]/add-ons/supplies-marketplace/_components/cart-drawer.tsx` — `'use client'` component. Category chip strip · "Recommended for your event" rail (visible on the "All categories" view) · mobile-first responsive product grid (1 col → 2 col `sm:` → 3 col `lg:`) · Add-to-cart + quantity steppers on each card · floating sticky cart pill bottom-right (above the bottom nav on mobile) · slide-over drawer (bottom sheet on mobile, right sheet on `sm:`+) with line items + subtotal + "Checkout via Orders" CTA. Cart state is in-memory only. The checkout CTA hands off to `/dashboard/[eventId]/orders/new?service=supplies-marketplace&description=…&requested_total_php=…` — pre-fills the existing apply-then-pay surface (iteration 0034) with the cart contents.
+- `apps/web/app/dashboard/[eventId]/add-ons/page.tsx` — flipped the `supplies-marketplace` entry's status from `coming_soon` → `web_v1`. Touched nothing else in the `ADD_ONS` array (six parallel PRs are flipping their own entries per the row-12 unlock).
+- `apps/web/app/dashboard/[eventId]/add-ons/[addon]/page.tsx` — left the dead `'supplies-marketplace'` entry in `ADD_ON_META` untouched. Next.js static-segment precedence routes `/add-ons/supplies-marketplace` to the new `page.tsx` regardless; the metadata stays as a no-op safety net.
+
+**What's stubbed (TODO(0018) markers throughout `_data` + `_components`):**
+- Vendor inventory persistence — Din Phase 3 work. Today the catalog is a mock `SUPPLY_PRODUCTS` array; the real surface is vendor self-input via the iteration 0006 vendor onboarding pipeline.
+- Payout routing + commission distribution. Spec § "Pricing model" defines 10% (prints / keepsakes / specialty) vs 15% (rentals / decor) category take rates — the actual ledger entries are 0003 Billing Rail work, not 0018 scaffold scope.
+- PayMongo / Setnayan Pay direct checkout. The scaffold-safe shortcut: hand off to `/orders/new` (iteration 0034 apply-then-pay) so existing reconciliation flows handle payment. Real in-cart payment is V1.5+ work.
+- Coordinator-specific features from spec § "Coordinator-specific features" (bulk ordering, margin markup, saved supply templates, vendor preferences, single bill across clients). Surfaced as a teaser link in the page footer; build is a follow-up.
+
+**Out of scope:**
+- Did NOT add a Supabase migration. Vendor inventory persistence is Din Phase 3; mock data is sufficient for the scaffold per the spec's deferral note.
+- Did NOT touch `brand.config.ts`, add SKUs, edit prices, reintroduce wallet UI, or wire commission plumbing.
+- Did NOT modify other iterations' add-on routes. Only `add-ons/supplies-marketplace/` + the single `supplies-marketplace` status flip on `add-ons/page.tsx`.
+- Checkout itself — lives in iteration 0034. The cart hand-off URL pre-fills `/orders/new` with the line items as a description; the user re-confirms scope and submits the apply-then-pay request from there.
+
+**Verify:** `pnpm --filter @setnayan/web typecheck` ✅ · `pnpm --filter @setnayan/web lint` ✅ (zero warnings or errors). Did not run `pnpm build` or `pnpm dev` per task constraints.
+
+**SPEC IMPACT:** None. This implements iteration 0018's locked scope at scaffold level per the 12th 2026-05-16 V1.5+ unlock decision-log row; no spec edits required. Hardware / payout / commission stubs are explicitly called out as TODO(0018) seams matching the spec's "Vendor onboarding" + "Pricing model" sections.
+
+---
+
 ## 2026-05-16 · feat(0005): LED Background Maker — scaffold-level launch
 
 **Commit:** to be filled after commit.

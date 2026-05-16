@@ -30,6 +30,7 @@ import {
   type PatiktokTemplate,
 } from '@/lib/patiktok';
 import { createOrder } from '../../orders/actions';
+import { disconnectPatiktokTiktok } from './actions';
 
 type RenderJobRow = {
   job_id: string;
@@ -58,6 +59,7 @@ type Props = {
     category?: string;
     queued?: string;
     tiktok_connected?: string;
+    tiktok_disconnected?: string;
     tiktok_error?: string;
     missing?: string;
   }>;
@@ -72,6 +74,7 @@ export default async function PatiktokGallery({
     category,
     queued,
     tiktok_connected: tiktokConnected,
+    tiktok_disconnected: tiktokDisconnected,
     tiktok_error: tiktokError,
     missing: tiktokMissing,
   } = await searchParams;
@@ -173,6 +176,16 @@ export default async function PatiktokGallery({
             ? ` — @${tiktokGrant.tiktok_handle}`
             : ''}
           . Your Patiktok renders will auto-post here.
+        </p>
+      ) : null}
+
+      {tiktokDisconnected ? (
+        <p
+          role="status"
+          className="inline-flex items-center gap-2 rounded-2xl border border-ink/15 bg-cream px-4 py-3 text-sm text-ink/70"
+        >
+          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          TikTok disconnected. Re-connect anytime to resume Personal-tier posting.
         </p>
       ) : null}
 
@@ -404,11 +417,22 @@ function TierCard({
       <p className="text-sm text-ink/70">{tier.blurb}</p>
 
       {isPersonal && tiktokGrant ? (
-        <p className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-2.5 py-1 text-[11px] text-emerald-900">
-          <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-          TikTok connected
-          {tiktokGrant.tiktok_handle ? `: @${tiktokGrant.tiktok_handle}` : ''}
-        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 px-2.5 py-1 text-[11px] text-emerald-900">
+            <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+            TikTok connected
+            {tiktokGrant.tiktok_handle ? `: @${tiktokGrant.tiktok_handle}` : ''}
+          </p>
+          <form action={disconnectPatiktokTiktok}>
+            <input type="hidden" name="event_id" value={eventId} />
+            <SubmitButton
+              className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-2.5 py-1 text-[11px] text-ink/70 hover:border-rose-300 hover:text-rose-700 disabled:opacity-70"
+              pendingLabel="Disconnecting…"
+            >
+              Disconnect TikTok
+            </SubmitButton>
+          </form>
+        </div>
       ) : null}
 
       {purchasable && needsTiktokConnect ? (

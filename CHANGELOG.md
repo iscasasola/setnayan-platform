@@ -4,6 +4,45 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-16 · feat(0009): Photo Delivery — scaffold-level launch
+
+**Commit:** to be filled after commit.
+
+**Context:** Iteration 0009 ([spec](../Setnayan/0009_photo_delivery/0009_photo_delivery.md)) was deliberately deferred to V1.5+ until 2026-05-16, when the owner unlocked all six pending iterations (decision log row 12 on 2026-05-16 in `/Users/icecasasola/Documents/Claude/Projects/Setnayan/CLAUDE.md`). This entry replaces the `IterationPlaceholder` shim at the `photo-delivery` add-ons key with a real, responsive surface and flips the grid status from `coming_soon` → `web_v1`. The 30-day post-download compression rule (per the 2026-05-09 decision log entry) is the canonical UI moment for that policy and is surfaced visibly here.
+
+**What shipped:**
+- `apps/web/app/dashboard/[eventId]/add-ons/photo-delivery/page.tsx` — server component shell. Auth-gates the route, reads the event display name + date for the folder-name preview, renders the iteration eyebrow + headline + a top-level 30-day compression-rule callout, then mounts the interactive panel.
+- `apps/web/app/dashboard/[eventId]/add-ons/photo-delivery/_components/photo-delivery-panel.tsx` — client component encoding the 3-state lifecycle:
+  - **Not connected** — hero card with "Connect Google Drive" CTA (stubbed: shows a 2-second "Drive connection in progress…" spinner, then transitions to connected). Permission-disclosure copy explaining `drive.file` scope. 3-step explainer grid (Connect → Vendors deliver → Download or share).
+  - **Connected** — green connection card showing the folder name (`Setnayan · {display_name} · {YYYY-MM-DD}`) + masked account email + Disconnect button. Below it: a 4-item vendor-deliveries list (Lead photographer · 1,247 photos, Second shooter · 612 photos, Drone team · 198 photos + 14 clips, Cinema team · 312 clips) with per-folder size + received date metadata and a "Download all" CTA.
+  - **Downloaded** (per-folder) — folder card swaps the CTA for a `Downloaded {relative}` confirmation + a "Re-download originals" secondary action, AND shows a `Originals compress in 28 days` countdown badge (recomputed from `Date.now() - downloadedAtMs` so it stays accurate). When any folder is downloaded, a bottom-of-page amber explainer card surfaces the "you've downloaded — compression in 30 days" copy with re-delivery guidance.
+- `apps/web/app/dashboard/[eventId]/add-ons/page.tsx` — flipped the `photo-delivery` ADD_ONS entry from `status: 'coming_soon'` to `status: 'web_v1'`. No other field touched. The `[addon]/page.tsx` placeholder router still has the `photo-delivery` entry in `ADD_ON_META`; it's now unreachable from the grid (the grid links straight to `/add-ons/photo-delivery`) but kept as dead code per the work order.
+
+**What's stubbed (live work for V1.5+ proper):**
+- Real Google Drive OAuth (PKCE + `drive.file` scope) — the Connect button is a 2-second `setTimeout` today. Marked `// TODO(0009):` at the call site.
+- Real Drive API list/download — the 4-folder mock list is a hard-coded constant in the panel. The shape mirrors the spec's vendor-deliveries section so the swap-in is a fetch-shaped substitution.
+- 30-day compression cron worker — UI surfaces the countdown but no server-side timer is scheduled. Marked `// TODO(0009):` on the download handler.
+- R2 storage tier transitions (full-res originals → web-quality JPEG after 30 days) — purely a backend concern; the UI explainer prepares couples for it but no transition runs today.
+- DB migration intentionally NOT added — local React state is enough to demonstrate the flow at scaffold level. The `photo_delivery_connections` shape is described in the 2026-05-09 result doc and can land alongside the real OAuth wiring without UI churn.
+
+**Out of scope:**
+- Real Google OAuth credentials, Google Cloud Project setup, Drive API verification (~6-week Google review for `drive.file` scope per the spec's notes section).
+- Server actions / database / background workers — this is intentionally a presentational scaffold so the real iteration can drop in the Drive client without touching the layout.
+- Other cloud providers (Dropbox / OneDrive / iCloud) — spec keeps these deferred indefinitely.
+- Mobile-specific affordances like a sticky-bottom Connect CTA — the responsive Tailwind grid handles the breakpoints, but a dedicated mobile shell is V1.5+ proper.
+
+**30-day rule visibility (work order requirement):**
+- Top-of-page `<aside role="note">` amber callout describes the rule before any download happens — visible the moment the page loads, both desktop and mobile.
+- Per-folder countdown badge (`Originals compress in {N} {day|days}`) appears the instant a folder is marked downloaded.
+- Post-download explainer card surfaces the rule again with re-delivery guidance once at least one folder has been downloaded.
+- All three rule surfaces use the same amber tone (`bg-amber-50` / `text-amber-950` / `bg-amber-200/80`) so the visual association reads as "policy notice".
+
+**Verify:** `pnpm --filter @setnayan/web typecheck` ✅ (zero errors) · `pnpm --filter @setnayan/web lint` ✅ (no ESLint warnings or errors). No new dependencies added — Lucide icons (`CloudUpload`, `Camera`, `Plane`, `Video`, `HardDrive`, `Download`, `CheckCircle2`, `ShieldAlert`, `ShieldCheck`, `Loader2`) reused from existing imports.
+
+**SPEC IMPACT:** None — this implements iteration 0009 § Frontend per the locked spec at scaffold level. Stubs map directly to the spec's "must work end-to-end" list (OAuth, Drive API, background job, manifest, notifications) and are inventoried above for the V1.5+ proper follow-up.
+
+---
+
 ## 2026-05-15 · feat(0015): /for-vendors landing page (vendor-side acquisition)
 
 **Commit:** to be filled after commit.

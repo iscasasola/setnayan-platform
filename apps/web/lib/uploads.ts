@@ -8,8 +8,8 @@ import {
   R2_BUCKETS,
   type R2BucketKey,
   type R2BucketName,
-  getR2Client,
   publicUrlFor,
+  requireR2Client,
 } from '@/lib/r2';
 
 /**
@@ -124,7 +124,7 @@ export async function presignDisplayUrl(
   key: string,
   ttlSeconds = 60 * 60 * 24,
 ): Promise<string> {
-  const client = getR2Client();
+  const client = requireR2Client();
   return await getSignedUrl(
     client,
     new GetObjectCommand({ Bucket: bucket, Key: key }),
@@ -148,7 +148,7 @@ export async function presignUploadUrl(args: {
   sizeBytes: number;
   ttlSeconds?: number;
 }): Promise<string> {
-  const client = getR2Client();
+  const client = requireR2Client();
   return await getSignedUrl(
     client,
     new PutObjectCommand({

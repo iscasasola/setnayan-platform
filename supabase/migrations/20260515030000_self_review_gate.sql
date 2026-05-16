@@ -1,7 +1,16 @@
 -- ============================================================================
--- 20260515000000_self_review_gate.sql
+-- 20260515030000_self_review_gate.sql
 -- Decision 1 (CLAUDE.md 2026-05-15) — dual-role customer ↔ vendor:
 -- self-purchase confirm + self-review three-layer hard-gate.
+--
+-- Renamed from 20260515020000_self_review_gate.sql on 2026-05-16: that
+-- timestamp collided with 20260515020000_public_stats_exclusion.sql, which
+-- creates a minimal `comp_grants` stub. Alphabetic tie-break made the stub
+-- win, this file's `CREATE TABLE IF NOT EXISTS comp_grants` silently no-op'd,
+-- and the very next `CREATE INDEX … ON comp_grants(user_id)` aborted the
+-- whole migration because `user_id` didn't exist in the stub. Bumping the
+-- timestamp by one slot + switching `CREATE TABLE` → `ALTER TABLE … ADD
+-- COLUMN IF NOT EXISTS` lets this file upgrade the stub in place.
 --
 -- Spec sources:
 --   - 0006_vendors_management.md § Reviews + § Dual-role review gate
@@ -19,9 +28,12 @@
 --   - Spec `service_order_payments.payer_account_number`
 --                                       → real `payments.reference_number`
 --                                         (V1 reconciliation matcher key)
---   - Spec `comp_grants` (not yet built — staging added here, populated by
---     the cart self-comp action; the broader comp ledger lands when
---     `service_orders` lands in a follow-up payment migration).
+--   - Spec `comp_grants` — minimal stub created earlier in the push by
+--     `20260515020000_public_stats_exclusion.sql`; this file upgrades that
+--     stub to the full V1 shape (public_id, user_id, scope, rationale,
+--     granted_by, …) via `ALTER TABLE … ADD COLUMN IF NOT EXISTS`. The
+--     broader comp ledger (owner_internal / team_pool / external_promo /
+--     dispute_remedy sources) lives in `service_orders` follow-ups.
 --
 -- This migration:
 --   1. New table `user_devices` (user_id, device_hash, last_seen_at) +
@@ -39,8 +51,12 @@
 --      reviews awaiting admin appeal decision).
 --   6. New columns on `vendor_reviews`: `override_admin_id`,
 --      `override_reason`.
---   7. New table `comp_grants` (minimal viable shape; only the
---      `vendor_self_comp` source is wired in V1).
+--   7. Upgrade `comp_grants` (the stub created earlier by
+--      `20260515020000_public_stats_exclusion.sql`) to the full V1 shape:
+--      public_id, user_id, scope, scoped_skus, rationale, granted_by,
+--      approved_by, two_admin_approval_id, revoked_at + CHECK / FK
+--      constraints + owner-read RLS policy. Only the `vendor_self_comp`
+--      source is wired by app code in V1.
 --
 -- All operations idempotent (IF NOT EXISTS / DROP IF EXISTS).
 -- ============================================================================
@@ -157,39 +173,83 @@ CREATE POLICY vendor_review_appeals_owner_insert
   WITH CHECK (reviewer_user_id = auth.uid());
 
 -- ----------------------------------------------------------------------------
--- 5. comp_grants — minimal V1 staging table for the vendor self-comp grant
---    type added in 0034 § 5.4. The full ledger (owner_internal / team_pool /
---    external_promo / dispute_remedy) is deferred until `service_orders`
---    lands; we ship the vendor_self_comp shape today so the cart confirm
---    modal can persist a comp record and the 12/quarter rate limit can fire.
+-- 5. comp_grants — upgrade the stub from
+--    `20260515020000_public_stats_exclusion.sql` to the full V1 shape for
+--    the vendor self-comp grant type (0034 § 5.4 + dual-role review gate).
+--    The stub already provides: grant_id (PK), source TEXT NOT NULL,
+--    created_at, plus the loosely-typed order_id / vendor_profile_id /
+--    created_by_user_id / reason columns and ENABLE ROW LEVEL SECURITY +
+--    `comp_grants_admin_read` policy. We add the 11 columns the cart action
+--    + rate-limit trigger expect, attach CHECK + FK constraints to the
+--    stub's existing columns, and add the owner-read policy alongside the
+--    stub's admin-read policy. `created_by_user_id` and `reason` from the
+--    stub are left in place (deprecated; cart action writes `granted_by`
+--    and `rationale` instead — no data, harmless).
 -- ----------------------------------------------------------------------------
 
-CREATE TABLE IF NOT EXISTS public.comp_grants (
-  grant_id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  public_id               TEXT UNIQUE NOT NULL DEFAULT public.generate_public_id('C'),
-  user_id                 UUID NOT NULL REFERENCES public.users(user_id) ON DELETE CASCADE,
-  scope                   TEXT NOT NULL DEFAULT 'single_order'
-                          CHECK (scope IN ('all_services', 'specific_skus', 'single_order')),
-  scoped_skus             TEXT[],
-  expiry                  TIMESTAMPTZ,
-  retail_value_centavos   INT,
-  rationale               TEXT NOT NULL,
-  granted_by              UUID NOT NULL REFERENCES public.users(user_id) ON DELETE CASCADE,
-  approved_by             UUID REFERENCES public.users(user_id) ON DELETE SET NULL,
-  two_admin_approval_id   UUID,
-  source                  TEXT NOT NULL
-                          CHECK (source IN (
-                            'owner_internal',
-                            'team_pool',
-                            'external_promo',
-                            'dispute_remedy',
-                            'vendor_self_comp'
-                          )),
-  vendor_profile_id       UUID REFERENCES public.vendor_profiles(vendor_profile_id) ON DELETE SET NULL,
-  order_id                UUID REFERENCES public.orders(order_id) ON DELETE SET NULL,
-  created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  revoked_at              TIMESTAMPTZ
-);
+ALTER TABLE public.comp_grants
+  ADD COLUMN IF NOT EXISTS public_id              TEXT,
+  ADD COLUMN IF NOT EXISTS user_id                UUID
+    REFERENCES public.users(user_id) ON DELETE CASCADE,
+  ADD COLUMN IF NOT EXISTS scope                  TEXT NOT NULL DEFAULT 'single_order',
+  ADD COLUMN IF NOT EXISTS scoped_skus            TEXT[],
+  ADD COLUMN IF NOT EXISTS expiry                 TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS retail_value_centavos  INT,
+  ADD COLUMN IF NOT EXISTS rationale              TEXT,
+  ADD COLUMN IF NOT EXISTS granted_by             UUID
+    REFERENCES public.users(user_id) ON DELETE CASCADE,
+  ADD COLUMN IF NOT EXISTS approved_by            UUID
+    REFERENCES public.users(user_id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS two_admin_approval_id  UUID,
+  ADD COLUMN IF NOT EXISTS revoked_at             TIMESTAMPTZ;
+
+-- Backfill public_id (no-op in prod — table is empty), then attach default +
+-- NOT NULL + UNIQUE.
+UPDATE public.comp_grants
+   SET public_id = public.generate_public_id('C')
+ WHERE public_id IS NULL;
+ALTER TABLE public.comp_grants
+  ALTER COLUMN public_id SET DEFAULT public.generate_public_id('C'),
+  ALTER COLUMN public_id SET NOT NULL;
+DO $$
+BEGIN
+  ALTER TABLE public.comp_grants
+    ADD CONSTRAINT comp_grants_public_id_key UNIQUE (public_id);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- CHECK + FK constraints the stub didn't define.
+DO $$
+BEGIN
+  ALTER TABLE public.comp_grants
+    ADD CONSTRAINT comp_grants_scope_check
+    CHECK (scope IN ('all_services', 'specific_skus', 'single_order'));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$
+BEGIN
+  ALTER TABLE public.comp_grants
+    ADD CONSTRAINT comp_grants_source_check
+    CHECK (source IN (
+      'owner_internal','team_pool','external_promo','dispute_remedy','vendor_self_comp'
+    ));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$
+BEGIN
+  ALTER TABLE public.comp_grants
+    ADD CONSTRAINT comp_grants_order_id_fkey
+    FOREIGN KEY (order_id) REFERENCES public.orders(order_id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$
+BEGIN
+  ALTER TABLE public.comp_grants
+    ADD CONSTRAINT comp_grants_vendor_profile_id_fkey
+    FOREIGN KEY (vendor_profile_id)
+      REFERENCES public.vendor_profiles(vendor_profile_id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_comp_grants_user
   ON public.comp_grants(user_id) WHERE revoked_at IS NULL;
@@ -199,8 +259,8 @@ CREATE INDEX IF NOT EXISTS idx_comp_grants_vendor_self_comp
   ON public.comp_grants(vendor_profile_id, created_at DESC)
   WHERE source = 'vendor_self_comp';
 
-ALTER TABLE public.comp_grants ENABLE ROW LEVEL SECURITY;
-
+-- RLS is already enabled by the stub; add the owner-read policy alongside
+-- the stub's `comp_grants_admin_read` policy. Both apply via OR.
 DROP POLICY IF EXISTS comp_grants_owner_read ON public.comp_grants;
 CREATE POLICY comp_grants_owner_read
   ON public.comp_grants FOR SELECT

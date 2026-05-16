@@ -4,34 +4,137 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-05-16 · feat(0018): Supplies Marketplace — scaffold-level launch
+## 2026-05-16 · feat(0026): BIR Form 2307 quarterly auto-fill — per-vendor PDF + pg_cron + admin queue
 
 **Commit:** to be filled after commit.
 
-**Context:** Iteration 0018 — Supplies Marketplace (spec at `~/Documents/Claude/Projects/Setnayan/0018_supplies_marketplace/0018_supplies_marketplace.md`). Owner unlocked the V1.5+ deferred-iteration cluster today per the 12th 2026-05-16 decision-log row in the spec corpus's `CLAUDE.md`: the six previously-deferred iterations (0005 LED Background · 0009 Photo Delivery · 0011 Panood · 0012 Papic · 0017 Patiktok · 0018 Supplies Marketplace) are unlocked for scaffold-level launch — one functional route per iteration, hardware-dependent paths stubbed with clean integration points, no SKU / pricing edits, no wallet UI, no commission revenue plumbing. This entry covers iteration 0018 only.
+**Context:** Iteration 0026 § 5.4 ("Form 2307 quarterly generation") + the V1 SKU lock decision row from 2026-05-16 — "BIR 2307 generation, vendor_payouts table" was the last engineering item left open against the V1 launch-blocker list for iteration 0034 Payments. This PR closes that gap end-to-end: one PDF per (vendor, year, quarter), generated automatically on the 1st of every Jan/Apr/Jul/Oct at 02:00 PHT via Supabase pg_cron, with an admin-side manual trigger + per-row regenerate button for backfills and corrections.
 
 **What shipped:**
-- `apps/web/app/dashboard/[eventId]/add-ons/supplies-marketplace/page.tsx` — server component. Replaces the `IterationPlaceholder` shim with a real browse + cart surface. Auth-gated; pulls existing orders for this event so the recommended-for rail can light up when the user already has past Patiktok / Papic / Panood / seating / photo-delivery purchases on the event. Falls back to a "starter kit" recommendation (QR cards, place cards, signage, backdrop) when there's no signal — matches spec § "Coordinator workflow" line *"Standard recommendations: QR cards, place cards print"*.
-- `apps/web/app/dashboard/[eventId]/add-ons/supplies-marketplace/_data/products.ts` — typed `SUPPLY_PRODUCTS` mock catalog. 18 listings spread across the spec's 5 categories (print fulfillment · equipment rentals · backdrop + decor · NFC + QR keepsakes · specialty merch). Prices pulled directly from spec § "Coordinator workflow" + § "Marketplace categories" (Patiktok background ₱599, HDMI dongle ₱899, monitor rental ₱2,500, tripod kit ₱599, QR cards ₱1,999/100, place cards ₱799/100, signage set ₱1,499, projector ₱3,500–₱4,500, velvet backdrop ₱2,999, floral arch ₱8,500–₱14,500, fairy-light kit ₱1,899, NFC pendant ₱2,499, NFC table cards ₱3,499, arras coins ₱4,500–₱6,500, QR wristbands ₱1,199, premium QR cards ₱2,999, photo book ₱4,500, save-the-date mailers ₱2,499). PHP only — no USD, no invented prices, no new SKU codes.
-- `apps/web/app/dashboard/[eventId]/add-ons/supplies-marketplace/_components/cart-drawer.tsx` — `'use client'` component. Category chip strip · "Recommended for your event" rail (visible on the "All categories" view) · mobile-first responsive product grid (1 col → 2 col `sm:` → 3 col `lg:`) · Add-to-cart + quantity steppers on each card · floating sticky cart pill bottom-right (above the bottom nav on mobile) · slide-over drawer (bottom sheet on mobile, right sheet on `sm:`+) with line items + subtotal + "Checkout via Orders" CTA. Cart state is in-memory only. The checkout CTA hands off to `/dashboard/[eventId]/orders/new?service=supplies-marketplace&description=…&requested_total_php=…` — pre-fills the existing apply-then-pay surface (iteration 0034) with the cart contents.
-- `apps/web/app/dashboard/[eventId]/add-ons/page.tsx` — flipped the `supplies-marketplace` entry's status from `coming_soon` → `web_v1`. Touched nothing else in the `ADD_ONS` array (six parallel PRs are flipping their own entries per the row-12 unlock).
-- `apps/web/app/dashboard/[eventId]/add-ons/[addon]/page.tsx` — left the dead `'supplies-marketplace'` entry in `ADD_ON_META` untouched. Next.js static-segment precedence routes `/add-ons/supplies-marketplace` to the new `page.tsx` regardless; the metadata stays as a no-op safety net.
+- `supabase/migrations/20260516100000_iteration_0026_bir_2307_filings.sql` — adds `vendor_2307_filings` (one row per vendor per quarter, with monthly breakdown + totals JSONB + audit log + PDF storage ref), BIR identity columns on `vendor_profiles` (`tin_number`, `tin_type`, `registered_business_name`, `registered_address`, `registered_zip`, `bir_service_category`) and the matching Setnayan-side payor columns on `platform_settings` (`bir_payor_name`/`_address`/`_zip` + `bir_authorized_rep_name`/`_tin`/`_title`). Migration enables `pg_cron` + `pg_net` extensions (guarded — silently skipped on environments where the extensions aren't available) and schedules the `quarterly_2307_generation` cron job to POST to `/api/admin/cron/generate-2307` on the 1st of Jan/Apr/Jul/Oct at 02:00 PHT (18:00 UTC). RLS allows self-read by the owning vendor + full read by admin; no vendor writes.
+- `apps/web/lib/bir/atc-mapper.ts` — pure `mapVendorToATC(vendor)` that returns `{ atc_code, rate_bps, description }`. Wires the V1 ruleset: WC158 (2%) for any corporation, WI151 (5%) for professional individuals, WI080 (5%) for talent individuals, WI158 (2%) for default service-supplier individuals under the Top Withholding Agent rule. Includes a `centavosToPesoString` helper used by every PDF surface.
+- `apps/web/lib/bir/filings.ts` — server-side data access. `buildQuarterFilings(admin, period)` walks `vendor_payouts.bir_withholding_centavos` (post-#68 Setnayan Pay reprice column) for the quarter, groups by vendor + month-index within quarter, runs the ATC mapper, returns the aggregated filing inputs. Also exposes `quarterThatJustEnded(now)`, `quarterToPeriod(year, q)`, `deadlineForQuarter(year, q)` (Apr 30 / Jul 31 / Oct 31 / Jan 31), `fetchFilingByVendorAndPeriod`, `listFilingsForVendor`, `listAllFilings`.
+- `apps/web/lib/bir/2307-pdf.ts` — `generate2307PDF({filing, period, payor})` using pdf-lib. Two strategies: (A) load `apps/web/public/bir-forms/2307-2018-ENCS.pdf` and fill AcroForm fields by name (`Payee_TIN` / `Field2` / `Payor_TIN` / `Field6` / `ATC_1` / `M1_1` / etc. — multiple naming variants per slot so a BIR template refresh doesn't drop fields silently) then flatten; (B) when no AcroForm fields exist on the template, overlay text at calibrated coordinates; (C) fallback when the template file is absent — draws a from-scratch single-page Letter portrait layout with all BIR-required sections (period header, Part I Payee, Part II Payor, Part III monthly breakdown table with ATC rows, grand totals row, signature block). All three paths emit `Uint8Array` PDF bytes for upload.
+- `apps/web/lib/bir/storage.ts` — `upload2307Pdf({pdfBytes, vendor_profile_id, tax_year, tax_quarter})` writes to R2 bucket `setnayan-bir-2307` (env `R2_BUCKET_BIR_2307`), with auto-fallback to Supabase Storage bucket `bir-2307` when R2 envs are unset. Object key: `vendors/{vendor_profile_id}/{year}_Q{quarter}.pdf` — matches the spec § 5.4 layout (minus the bucket-name prefix, which is the bucket itself).
+- `apps/web/lib/bir/generator.ts` — orchestration. `generateQuarter({admin, year, quarter, triggered_by_admin_id})` aggregates filings → renders PDFs → uploads → upserts the `vendor_2307_filings` row (idempotent — regenerating UPDATEs in place, bumps `regenerated_count`, appends to `audit_log`). Per-vendor failures are recorded as `status='error'` rows but don't abort the batch. Also exports `regenerateVendor(...)` for the admin manual button.
+- `apps/web/app/api/admin/cron/generate-2307/route.ts` — `POST` handler with two auth paths: (1) `X-Cron-Secret` header matched against `process.env.CRON_SECRET` (used by Supabase pg_cron via `net.http_post`), (2) admin session cookie via `createClient()` + `users.account_type/is_internal/is_team_member` check (used by the manual trigger button on `/admin/bir/2307`). Accepts `?year=&quarter=` for backfills; defaults to the quarter that just ended. Returns a JSON summary `{vendor_count, generated, skipped_no_ewt, errors, filings}`. `GET` returns metadata so an operator can sanity-check the wiring without firing a real run.
+- `apps/web/app/api/admin/bir/2307/regenerate/route.ts` — `POST` handler for single-row regeneration. Validates admin session, then calls `regenerateVendor(...)` and returns the upserted row.
+- `apps/web/app/vendor-dashboard/tax-documents/page.tsx` + `actions.ts` — vendor surface showing per-quarter filings with download link + "Mark as filed" toggle for the vendor's own record-keeping. Top card shows the vendor's BIR identity (TIN / registered name / address / ZIP / TIN type / BIR service category) with red-tone callouts for unset fields and an inline reminder that TIN edits require re-verification (per spec § 7.3). Banners: amber "ready to download" for new filings, red "past the filing deadline" for ones still un-actioned past the BIR deadline.
+- `apps/web/app/admin/bir/2307/page.tsx` + `_components/manual-trigger.tsx` + `_components/regenerate-button.tsx` — admin queue. Period filter dropdown, summary stats (filings count, gross paid, EWT, generated/downloaded/filed/error counts), per-row table with View + Regenerate. Manual trigger card at the top lets admin pick `{year, quarter}` and POST to the cron endpoint.
+- `apps/web/app/admin/layout.tsx` — wired new "BIR 2307" tab into the admin sub-nav (between Receipts and Reviews).
+- `apps/web/app/vendor-dashboard/layout.tsx` — wired new "Tax docs" tab into the vendor sub-nav (after Earnings, before Notifications).
+- `.env.example` — added `R2_BUCKET_BIR_2307=setnayan-bir-2307` + `CRON_SECRET=` with comments documenting the owner-side setup (Supabase Dashboard ALTER DATABASE for `app.cron_secret` + `app.app_url`).
+- `apps/web/public/bir-forms/.gitkeep` — placeholder that documents the BIR template owner-action.
+- `apps/web/package.json` — adds `pdf-lib ^1.17.1`.
 
-**What's stubbed (TODO(0018) markers throughout `_data` + `_components`):**
-- Vendor inventory persistence — Din Phase 3 work. Today the catalog is a mock `SUPPLY_PRODUCTS` array; the real surface is vendor self-input via the iteration 0006 vendor onboarding pipeline.
-- Payout routing + commission distribution. Spec § "Pricing model" defines 10% (prints / keepsakes / specialty) vs 15% (rentals / decor) category take rates — the actual ledger entries are 0003 Billing Rail work, not 0018 scaffold scope.
-- PayMongo / Setnayan Pay direct checkout. The scaffold-safe shortcut: hand off to `/orders/new` (iteration 0034 apply-then-pay) so existing reconciliation flows handle payment. Real in-cart payment is V1.5+ work.
-- Coordinator-specific features from spec § "Coordinator-specific features" (bulk ordering, margin markup, saved supply templates, vendor preferences, single bill across clients). Surfaced as a teaser link in the page footer; build is a follow-up.
+**Cron strategy:** Supabase pg_cron + pg_net. Avoids an external scheduler (Vercel Cron / GitHub Actions / Cloudflare Workers) — pg_cron ships with Supabase Postgres, runs free, and authenticates via a database-side `app.cron_secret` GUC so the secret never leaves Postgres. The cron's `net.http_post` calls `/api/admin/cron/generate-2307` with `X-Cron-Secret` and a JSON body so the same endpoint also handles admin manual triggers.
 
-**Out of scope:**
-- Did NOT add a Supabase migration. Vendor inventory persistence is Din Phase 3; mock data is sufficient for the scaffold per the spec's deferral note.
-- Did NOT touch `brand.config.ts`, add SKUs, edit prices, reintroduce wallet UI, or wire commission plumbing.
-- Did NOT modify other iterations' add-on routes. Only `add-ons/supplies-marketplace/` + the single `supplies-marketplace` status flip on `add-ons/page.tsx`.
-- Checkout itself — lives in iteration 0034. The cart hand-off URL pre-fills `/orders/new` with the line items as a description; the user re-confirms scope and submits the apply-then-pay request from there.
+**Verify:**
+- `pnpm --filter @setnayan/web typecheck` ✅
+- `pnpm --filter @setnayan/web lint` ✅
+- `pnpm --filter @setnayan/web build` ✅ (new routes present: `/admin/bir/2307`, `/api/admin/bir/2307/regenerate`, `/api/admin/cron/generate-2307`, `/vendor-dashboard/tax-documents`)
 
-**Verify:** `pnpm --filter @setnayan/web typecheck` ✅ · `pnpm --filter @setnayan/web lint` ✅ (zero warnings or errors). Did not run `pnpm build` or `pnpm dev` per task constraints.
+**Owner action required:**
+1. **Download the official BIR Form 2307 (January 2018 ENCS) PDF** from https://www.bir.gov.ph/index.php/bir-forms/certificates.html and check it into the repo at `apps/web/public/bir-forms/2307-2018-ENCS.pdf`. Until this file lands, the generator falls back to a from-scratch layout that contains every BIR-required field but isn't a pixel-perfect facsimile.
+2. **Provision the R2 bucket** `setnayan-bir-2307` in the Cloudflare R2 dashboard (PH region; lifecycle: retain 10 years per BIR audit window; no public access — URLs are emitted server-side and shared only with the owning vendor + admin).
+3. **Enable Postgres extensions** in Supabase Dashboard → Database → Extensions: `pg_cron` and `pg_net` (both ship pre-installed; just flip the toggle).
+4. **Set cron + URL GUCs** in Supabase SQL Editor (one-time):
+   ```sql
+   ALTER DATABASE postgres SET app.cron_secret = '<openssl rand -hex 32>';
+   ALTER DATABASE postgres SET app.app_url    = 'https://www.setnayan.com';
+   ```
+5. **Paste `CRON_SECRET`** (the same value from step 4) into Vercel env (Production + Preview).
+6. **Fill `platform_settings.bir_payor_*` + `bir_authorized_rep_*`** via the admin settings surface once the legal-name + BIR Permit + authorized-signatory are confirmed (these populate Part II of every 2307 PDF).
+7. **Backfill vendor BIR identity** (`vendor_profiles.tin_number`, `tin_type`, `registered_business_name`, `registered_address`, `registered_zip`, `bir_service_category`) — currently nullable; without them the mapper defaults to individual + service_supplier → WI158 at 2%.
+8. **Spec corpus** (do NOT edit in this worktree): note in `0026_bir_tax_compliance.md` § 5.4 that the actual repo implementation reads `vendor_payouts.bir_withholding_centavos` (post-#68) rather than the spec's `service_orders.bir_withholding_centavos` placeholder. Mention also that `vendor_profiles` carries the BIR identity columns rather than the `vendors` table named in the spec.
 
-**SPEC IMPACT:** None. This implements iteration 0018's locked scope at scaffold level per the 12th 2026-05-16 V1.5+ unlock decision-log row; no spec edits required. Hardware / payout / commission stubs are explicitly called out as TODO(0018) seams matching the spec's "Vendor onboarding" + "Pricing model" sections.
+**Out of scope (deferred to V1.5+):**
+- Email notification when a 2307 is generated (0028 hooks pending — vendor surface already shows it).
+- Multi-ATC per vendor — V1 mapper emits a single ATC code per vendor, even if the vendor delivered services across multiple BIR categories in a quarter. Once a future migration adds `vendor_services.bir_atc_override` we can group by service.
+- 2307 PDF e-signature via 0027 — V1 prints `payor.authorized_rep_name` on the signature line; physical signing is admin-side, offline.
+- Form 1601-EQ remittance return CSV export — covered by iteration 0026 § 6.2 as a follow-on under the `/admin/finance/tax-reports` surface.
+
+**SPEC IMPACT:** Iteration 0026 § 5.2 + § 5.4 schema names diverge slightly from the live code (live: `vendor_profiles` + `vendor_payouts`; spec: `vendors` + dedicated `form_2307_issuances`). Engineering followed the live schema to avoid renaming tables that #68 just landed. Spec corpus update — call out the column-location reality in 0026 — is owner-side per `feedback_setnayan_edit_first_and_safety` (no spec-folder edits from this worktree).
+
+---
+
+## 2026-05-16 · feat(0006,0023): vendor verification flow + admin queue + SKU aliases
+
+**Commit:** to be filled after commit.
+
+**Context:** Spec corpus 2026-05-16 locked the full Vendor Verification flow: FREE initial / ₱1,500 annual renewal / ₱2,500 post-demotion re-verification, 12-document checklist, all-or-nothing approval, 3–5 BD SLA, `setnayan-vendor-verification` R2 bucket (90-day rolling raw + 7-year audit per BIR § 235). PR #56 shipped the admin queue shell + the marketplace `public_visibility` state machine; this PR completes the workflow side: a new `verification_state` ENUM on `vendor_profiles`, an `application` intake table, a `tier_history` audit table, the vendor-facing 12-doc upload page, and the admin Approve / Reject / Demote / In-review action set.
+
+**Schema (`supabase/migrations/20260516040000_iteration_0006_vendor_verification_flow.sql`):**
+- New ENUM `vendor_verification_state('unverified','pending_review','verified','demoted','rejected')`.
+- New column `vendor_profiles.verification_state` default `'unverified'` (idempotent ADD COLUMN IF NOT EXISTS); + `last_verified_at`, `next_renewal_due_at`, `demotion_count`, `last_demoted_at`. Backfill: rows already at `public_visibility='verified'` from PR #56 lift to `verification_state='verified'` so live listings retain their perk-unlock signal on deploy.
+- New table `vendor_verification_applications` — application/intake rows. Tracks `application_type` (`initial` / `annual_renewal` / `post_demotion`), `fee_php_centavos`, `status` (`draft` / `pending_review` / `in_review` / `approved` / `rejected` / `withdrawn`), `doc_uploads` JSONB (12-doc checklist + R2 keys), `docs_complete`, `submitted_at`, `sla_due_at`, `admin_user_id`, `decision`, `decision_reason`, `decided_at`, `notes`. RLS: vendor sees + writes their own draft rows; admin (service-role) has full access.
+- New table `vendor_tier_history` — state-transition audit (`from_state` / `to_state` / `application_id` / `admin_user_id` / `reason` / `metadata`). RLS: vendor sees their own timeline; admins see everything.
+- Two SKU alias rows in `service_catalog` (`verification_annual_renewal` ₱1,500 + `verification_reverification` ₱2,500) coexist with the canonical `vendor_verification_*` codes from the 2026-05-16 SKU lock so call sites that follow either naming convention resolve.
+- All inserts use `ON CONFLICT (sku_code) DO UPDATE`; all DDL is `CREATE TABLE IF NOT EXISTS` + `ADD COLUMN IF NOT EXISTS`; no drops.
+
+**Environment + R2:**
+- `.env.example` gains `R2_BUCKET_VENDOR_VERIFICATION=setnayan-vendor-verification` (90d rolling raw + 7yr audit retention per BIR § 235; owner provisions the bucket separately).
+- `apps/web/lib/r2.ts` exports `vendorVerification: 'setnayan-vendor-verification'`.
+- `apps/web/app/api/upload/route.ts` whitelists `vendor-verification` / `vendorVerification` as a bucket alias with a 15 MB per-file cap.
+- `apps/web/app/_components/file-upload.tsx` adds `'vendor-verification'` to the `FileUploadBucket` union.
+
+**Vendor surface (`apps/web/app/vendor-dashboard/verify/`):**
+- New tab `Verify` in the vendor-dashboard subnav (`layout.tsx`).
+- `page.tsx` — single-page workflow:
+  - Status card (current `verification_state` + latest application reference).
+  - "Start application" picker for `initial` / `annual_renewal` / `post_demotion` (recommended type pre-selected from `recommendedApplicationType` heuristic).
+  - Progress bar (`completeCount`/12) + per-slot card grid for the 12 checklist items. Each card carries the spec hint (e.g. "auto-validated via DTI lookup once integration ships") and per-slot input UI:
+    - Upload slots → `FileUpload` with R2 `vendor-verification` bucket + per-vendor path prefix.
+    - `social_media` → URL input.
+    - `google_meet` / `phone_email_otp` / `amlc_screening` → admin-run notice ("Setnayan flips this after submission").
+    - Portfolio-samples + client-references accept multi-file uploads (up to 10).
+  - Submit gate: requires ≥ 8 of 12 items to submit (the 4 admin-run slots — Persona ID, Google Meet, OTP, AMLC — are flipped post-submit).
+  - Pending / Approved / Rejected status cards render once a decision lands.
+- `actions.ts` — server actions `ensureDraftApplication`, `updateDocUpload`, `submitApplication`, `withdrawApplication`. Submit stamps `submitted_at` + `sla_due_at` (5 business days), bumps `verification_state` → `pending_review`, and writes an `admin_audit_log` row.
+- `apps/web/lib/vendor-verification.ts` — shared types + helpers (`DOC_SLOTS`, `VERIFICATION_STATES`, `APPLICATION_FEE_CENTAVOS`, `countCompleteSlots`, `addBusinessDays`, `computeSlaTone`, `formatSlaCountdown`, `fetchLatestApplication`, `fetchTierHistory`, `recommendedApplicationType`).
+
+**Admin surface (`apps/web/app/admin/verify/`):**
+- `page.tsx` — refactored into two surfaces switched by `?surface=`:
+  - `applications` (default) — Vendor Verification queue with tabs `pending` / `in_review` / `approved` / `rejected` / `demoted` / `all`. Each row shows the vendor, application type + fee, SLA badge (on_track / warning amber after 3 BD / overdue red after 5 BD / closed), tier badge, status badge, decision reason, and a 12-doc checklist `<details>` expander. Action row: `Mark in review` / `Approve → Verified` / `Reject…` (textarea reason required, min 5 chars) / `Demote…` (for approved rows, textarea reason required).
+  - `visibility` — the marketplace `public_visibility` queue from PR #56, preserved 1:1.
+- `actions.ts` — adds server actions `approveApplication`, `rejectApplication`, `demoteVendor`, `setApplicationInReview`. Each writes the application row's `decision` + `admin_user_id` + `decided_at`, transitions `vendor_profiles.verification_state` (and side-effects: `last_verified_at` / `next_renewal_due_at` on approve · `last_demoted_at` + `demotion_count++` on demote), inserts a `vendor_tier_history` row, and writes an `admin_audit_log` row.
+
+**Webhook stubs (owner-action pending):**
+- `apps/web/app/api/webhooks/persona/route.ts` — accepts POST + GET, logs the payload to console + Sentry breadcrumb, returns 200. No signature verification yet (Persona dashboard signup is owner-action pending per App_Build_Status.md). TODO comment block in the file documents the wire-up steps.
+- `apps/web/app/api/webhooks/veriff/route.ts` — same pattern; parallel stub for the Veriff provider.
+
+**Verify:** `pnpm --filter @setnayan/web typecheck` ✅ · `lint` ✅ (zero warnings) · `build` ✅ (`/vendor-dashboard/verify` + `/admin/verify` + `/api/webhooks/persona` + `/api/webhooks/veriff` all listed in the route table).
+
+**Owner action required:**
+- `supabase db push --db-url "$SUPABASE_DB_URL"` to apply the migration.
+- Provision Cloudflare R2 bucket `setnayan-vendor-verification` (90-day rolling lifecycle on `raw/` prefix · 7-year retention on `audit/` prefix per BIR § 235).
+- Sign up for Persona / Veriff / Onfido + AMLC; populate `PERSONA_API_KEY` / `PERSONA_TEMPLATE_ID` / `AMLC_API_KEY` in Vercel; then wire signature verification + the post-submit handler into the webhook stubs.
+
+**SPEC IMPACT:** None — implements 0006 § "Vendor Verification flow (locked 2026-05-16)" + 0023 § 3.2a as written. Two minor spec-side notes to surface to Cowork separately: (1) the spec's `verification_state` ENUM lists `('coming_soon','verified','demoted','revoked')` while the engineering task brief locked `('unverified','pending_review','verified','demoted','rejected')`; this PR follows the task brief because the workflow needs distinct `unverified` (no app started) vs `pending_review` (app submitted) vs `rejected` (admin said no, vendor must re-apply) states the spec wording elides. (2) The spec's `vendor_verification_applications` schema is satisfied 1:1; the spec ENUM mismatch is the only deviation.
+
+---
+
+## 2026-05-16 · feat(infra): graceful Supabase Storage fallback when R2 env vars are unset
+
+**Commit:** to be filled after commit.
+
+**Context:** The R2 migration shipped in PR #18 — all production uploads write to one of the four Cloudflare R2 buckets (`setnayan-media`, `setnayan-thread-files`, `setnayan-vendor-contracts`, `setnayan-samples`). Today's change closes a dev/staging gap: if a deployment is missing `R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`, the server-side upload helper (`lib/storage.ts → uploadPublicAsset`) used to throw at the first `getR2Client()` call, which propagated as a 500 to the user. The fallback now writes to Supabase Storage `platform-assets` (the pre-PR-#18 path) and logs a one-shot warning so the operator sees the gap without users seeing an error. Reads of legacy Supabase Storage URLs already pass through `parseStoredAsset → legacy_url` unchanged — that side of the round-trip didn't need to change.
+
+**What shipped:**
+- `apps/web/lib/r2.ts` — added `isR2Configured()` predicate, converted `getR2Client()` to return `S3Client | null` instead of throwing, added `requireR2Client()` for code paths that have no fallback, added named helpers `r2Upload` / `r2SignedGet` / `r2PublicUrl` per the R2 migration spec's public surface. Top-of-file docblock now spells out the graceful-degradation contract (which call sites fall back, which surface a 503).
+- `apps/web/lib/storage.ts` — `uploadPublicAsset` now checks `isR2Configured()` and routes to the new `uploadViaSupabaseFallback` helper when R2 env vars are unset. Fallback writes to `platform-assets` with the same `${timestamp}-${random}.${ext}` key scheme the legacy V0 code used (so URLs are recognisable to anyone debugging old + new in the same trace). `deletePublicAsset` learned to route by URL shape — R2 URLs go to `DeleteObjectCommand`, Supabase Storage URLs go to `storage.remove()`, and anything else is a no-op. The R2 branch tolerates a missing client (logs a warning and skips, so a delete during a fallback window doesn't crash).
+- `apps/web/app/api/upload/route.ts` — presigned-PUT route returns a clean 503 + log when R2 isn't configured (no Supabase equivalent of "browser PUTs the bytes directly", so we can't gracefully degrade this surface — we surface a clear operator-facing error instead).
+- `apps/web/lib/uploads.ts` — switched `presignDisplayUrl` / `presignUploadUrl` to use the new `requireR2Client` helper. These two functions sign URLs and have no fallback path.
+
+**Why not a wider migration:** All four call-site categories named in the migration spec (vendor logos, payment screenshots, thread attachments, vendor contracts) were already on R2 as of PR #18 — `git grep` for `supabase.storage` and `.upload(` returned zero matches. This entry is purely about hardening the fallback so dev/staging environments without R2 credentials don't 500.
+
+**Verify:** `pnpm --filter @setnayan/web typecheck` ✅ (zero errors) · `pnpm --filter @setnayan/web lint` ✅ (no ESLint warnings or errors) · `pnpm --filter @setnayan/web build` ✅ (production build succeeds). No new dependencies — `@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner` were already in the lockfile from PR #18.
+
+**Owner action items:**
+- **None for production** — `R2_ACCESS_KEY_ID` / `R2_ACCOUNT_ID` / `R2_SECRET_ACCESS_KEY` are already set in Vercel and uploads continue to write to R2.
+- For local dev / preview deployments without R2 credentials: uploads will silently fall through to Supabase Storage `platform-assets` and you'll see a `[r2] R2 env vars unset` warning in the function logs. Set the three env vars in `.env.local` to exercise the R2 path.
+
+**SPEC IMPACT:** None — codifies the "fall back when env unset" requirement from the R2 migration spec. No spec edits required.
 
 ---
 

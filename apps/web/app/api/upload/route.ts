@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
 import { createClient } from '@/lib/supabase/server';
-import { R2_BUCKETS, type R2BucketKey } from '@/lib/r2';
+import { R2_BUCKETS, isR2Configured, type R2BucketKey } from '@/lib/r2';
 import {
   encodeR2Ref,
   presignDisplayUrl,
@@ -47,6 +47,7 @@ const BUCKET_KEYS: ReadonlySet<R2BucketKey> = new Set([
   'threadFiles',
   'vendorContracts',
   'samples',
+  'vendorVerification',
 ]);
 
 // Aliases the client sends ("thread-files") map to the internal R2BucketKey
@@ -59,6 +60,8 @@ const BUCKET_ALIASES: Record<string, R2BucketKey> = {
   'vendor-contracts': 'vendorContracts',
   vendorContracts: 'vendorContracts',
   samples: 'samples',
+  'vendor-verification': 'vendorVerification',
+  vendorVerification: 'vendorVerification',
 };
 
 // Per-bucket hard caps. The component-level cap is an additional sanity
@@ -70,6 +73,7 @@ const BUCKET_MAX_BYTES: Record<R2BucketKey, number> = {
   threadFiles: 20 * 1024 * 1024, // 20 MB — force-majeure evidence + PDF receipts
   vendorContracts: 25 * 1024 * 1024, // 25 MB — signed PDF contracts
   samples: 10 * 1024 * 1024,
+  vendorVerification: 15 * 1024 * 1024, // 15 MB — DTI, BIR 2303, Mayor's Permit, etc.
 };
 
 // MIME type whitelist — same union the existing `lib/storage.ts` accepts,
@@ -126,6 +130,26 @@ function sanitizePathPrefix(raw: string): string {
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  // R2 is required for the presigned-PUT flow — there's no Supabase
+  // Storage equivalent of "browser PUTs the bytes directly to the bucket".
+  // The server-side helper `uploadPublicAsset` in `lib/storage.ts` DOES
+  // fall back to Supabase Storage; surface that to the operator so they
+  // know which path needs the env vars.
+  if (!isR2Configured()) {
+    console.warn(
+      '[upload] Rejecting presign request — R2 env vars unset. ' +
+        'Browser-direct uploads via /api/upload require R2. ' +
+        'Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY in Vercel.',
+    );
+    return NextResponse.json(
+      {
+        error:
+          'Uploads are not configured. Please contact support — the operator needs to set R2 credentials.',
+      },
+      { status: 503 },
+    );
+  }
+
   let body: RequestBody;
   try {
     body = (await request.json()) as RequestBody;

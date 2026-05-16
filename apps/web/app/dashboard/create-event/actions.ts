@@ -10,9 +10,6 @@ const ALLOWED_TYPES = ['wedding'] as const; // V1: Weddings only per iteration 0
 
 export async function createWeddingEvent(formData: FormData) {
   const display_name = String(formData.get('display_name') ?? '').trim();
-  const event_date = String(formData.get('event_date') ?? '').trim() || null;
-  const venue_name = String(formData.get('venue_name') ?? '').trim() || null;
-  const venue_address = String(formData.get('venue_address') ?? '').trim() || null;
   const event_type = String(formData.get('event_type') ?? 'wedding');
 
   if (!display_name) {
@@ -30,19 +27,23 @@ export async function createWeddingEvent(formData: FormData) {
     return redirect('/login');
   }
 
-  // Generate a unique URL slug from the display name.
+  // Single-field event setup per iteration 0000 § 2.5 (locked 2026-05-14):
+  // event_name only — date + venue are deferred to Guided Planner or Profile.
+  // Both writes go through the admin client because the user-scoped JWT can
+  // be stale or the role can resolve to anon at the edge — RLS would then
+  // reject the insert even though the action already authenticated the user.
   const admin = createAdminClient();
   const slug = await generateUniqueSlug(admin, display_name);
 
   // Insert the event. The on_event_created trigger mints the join token row.
-  const { data: insertedEvent, error: insertError } = await supabase
+  const { data: insertedEvent, error: insertError } = await admin
     .from('events')
     .insert({
       event_type,
       display_name,
-      event_date,
-      venue_name,
-      venue_address,
+      event_date: null,
+      venue_name: null,
+      venue_address: null,
       slug,
       is_primary: true,
     })
@@ -56,7 +57,7 @@ export async function createWeddingEvent(formData: FormData) {
   }
 
   // Add the creating user as a couple member.
-  const { error: memberError } = await supabase.from('event_members').insert({
+  const { error: memberError } = await admin.from('event_members').insert({
     event_id: insertedEvent.event_id,
     user_id: user.id,
     member_type: 'couple',

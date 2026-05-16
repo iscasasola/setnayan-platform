@@ -99,49 +99,8 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
             type="text"
           />
           <p className="text-xs text-ink/50">
-            Usually both names. Can be edited later from event settings.
+            Usually both names. Date and venue are added later from event settings.
           </p>
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-ink" htmlFor="event_date">
-            Wedding date
-          </label>
-          <input
-            className="input-field"
-            id="event_date"
-            name="event_date"
-            type="date"
-          />
-          <p className="text-xs text-ink/50">Optional — you can add it later.</p>
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-ink" htmlFor="venue_name">
-            Venue name
-          </label>
-          <input
-            autoComplete="off"
-            className="input-field"
-            id="venue_name"
-            name="venue_name"
-            placeholder="Tagaytay Highlands Country Club"
-            type="text"
-          />
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-ink" htmlFor="venue_address">
-            Venue address
-          </label>
-          <input
-            autoComplete="off"
-            className="input-field"
-            id="venue_address"
-            name="venue_address"
-            placeholder="Tagaytay City, Cavite"
-            type="text"
-          />
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row">

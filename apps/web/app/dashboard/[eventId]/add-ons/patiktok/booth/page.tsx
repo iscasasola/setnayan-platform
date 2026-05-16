@@ -84,10 +84,13 @@ export default async function PatiktokBoothDashboard({
   const remaining = Math.max(0, PATIKTOK_VIDEO_SOFT_CAP - submissions);
   const overCap = submissions >= PATIKTOK_VIDEO_SOFT_CAP;
 
-  const primaryTemplate =
-    (primary ? findPatiktokTemplate(primary) : null) ?? PATIKTOK_TEMPLATES[0];
-  const backupTemplate =
-    (backup ? findPatiktokTemplate(backup) : null) ?? PATIKTOK_TEMPLATES[1];
+  // PATIKTOK_TEMPLATES is statically seeded with at least two entries in
+  // apps/web/lib/patiktok.ts, so the indexed fallbacks are non-null by
+  // construction. The `!` is what tells TS that under noUncheckedIndexedAccess.
+  const primaryTemplate: PatiktokTemplate =
+    (primary ? findPatiktokTemplate(primary) : null) ?? PATIKTOK_TEMPLATES[0]!;
+  const backupTemplate: PatiktokTemplate =
+    (backup ? findPatiktokTemplate(backup) : null) ?? PATIKTOK_TEMPLATES[1]!;
 
   return (
     <section className="space-y-6">

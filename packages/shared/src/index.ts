@@ -27,7 +27,8 @@ export type EventType =
   | 'celebration'
   | 'travel'
   | 'corporate'
-  | 'burial';
+  | 'tournament'
+  | 'christening';
 
 export type MemberType = 'couple' | 'guest' | 'vendor' | 'coordinator';
 

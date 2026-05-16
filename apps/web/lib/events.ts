@@ -3,7 +3,14 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 export type EventRow = {
   event_id: string;
   public_id: string;
-  event_type: 'wedding' | 'birthday' | 'celebration' | 'travel' | 'corporate' | 'burial';
+  event_type:
+    | 'wedding'
+    | 'birthday'
+    | 'celebration'
+    | 'travel'
+    | 'corporate'
+    | 'tournament'
+    | 'christening';
   display_name: string;
   event_date: string | null;
   is_primary: boolean;

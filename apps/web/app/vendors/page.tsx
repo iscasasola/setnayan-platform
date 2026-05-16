@@ -14,6 +14,7 @@ import {
   parseVisibility,
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
+import { fetchActiveAdLookups, type ActiveAdLookup } from '@/lib/vendor-ads';
 import { fetchReviewStatsForMany, formatStarRating } from '@/lib/reviews';
 import { CategoryFilterChips } from '@/app/_components/category-filter-chips';
 import { fetchUserEvents } from '@/lib/events';
@@ -159,6 +160,17 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     rows.map((r) => r.vendor_profile_id),
   );
 
+  // Iteration 0022 § 5b — pull each visible vendor's active Boosted Ads /
+  // Sponsored Boost row so the card can render the right badge and so the
+  // in-memory sort can prioritize boosted vendors. Sponsored > Boosted >
+  // unboosted; within a tier larger radius wins, then expiry. Reads from
+  // the `vendor_active_ads` view which collapses overlapping rows to the
+  // single most-permissive active subscription per vendor.
+  const adById = await fetchActiveAdLookups(
+    admin,
+    rows.map((r) => r.vendor_profile_id),
+  );
+
   // Iteration 0019 § Gate — resolve the viewer's follow set + primary event
   // once for the whole page so each card renders a stateful FollowGate
   // without N+1 queries. Anonymous visitors get every card as "not following".
@@ -182,10 +194,23 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     coupleEventId = events[0]?.event_id ?? null;
   }
 
-  // Apply stats-based sort + pagination in-memory.
+  // Apply stats-based sort + pagination in-memory. Boosted/Sponsored
+  // vendors always float to the top of the page (within each sort key) per
+  // iteration 0022 § 5b — "Top-of-search ranking within radius · tiny
+  // 'Sponsored' pill differentiator". Sponsored beats Boosted; both beat
+  // unboosted.
+  const adWeight = (vid: string): number => {
+    const ad = adById.get(vid);
+    if (!ad) return 0;
+    if (ad.tier === 'sponsored') return 2;
+    return 1;
+  };
   let sorted = rows;
   if (filters.sort === 'most_reviews' || filters.sort === 'highest_rated') {
     sorted = [...rows].sort((a, b) => {
+      const adA = adWeight(a.vendor_profile_id);
+      const adB = adWeight(b.vendor_profile_id);
+      if (adA !== adB) return adB - adA;
       const sa = statsById.get(a.vendor_profile_id);
       const sb = statsById.get(b.vendor_profile_id);
       const aCount = sa?.total_count ?? 0;
@@ -199,6 +224,16 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       // most_reviews
       if (bCount !== aCount) return bCount - aCount;
       return bRating - aRating;
+    });
+  } else {
+    // For "newest" / "name_asc" — still float ads to the top of the page
+    // (V1 behavior: the boost is the value prop, the underlying sort is
+    // preserved as a secondary key).
+    sorted = [...rows].sort((a, b) => {
+      const adA = adWeight(a.vendor_profile_id);
+      const adB = adWeight(b.vendor_profile_id);
+      if (adA !== adB) return adB - adA;
+      return 0; // preserve postgres-side order
     });
   }
 
@@ -269,6 +304,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                     isAuthenticated={user !== null}
                     isFollowing={followedSet.has(v.vendor_profile_id)}
                     eventId={coupleEventId}
+                    ad={adById.get(v.vendor_profile_id) ?? null}
                   />
                 </li>
               );
@@ -461,6 +497,7 @@ function VendorMarketCard({
   isAuthenticated,
   isFollowing,
   eventId,
+  ad,
 }: {
   vendor: VendorCardRow;
   rating: number;
@@ -468,6 +505,7 @@ function VendorMarketCard({
   isAuthenticated: boolean;
   isFollowing: boolean;
   eventId: string | null;
+  ad: ActiveAdLookup | null;
 }) {
   const primaryService = vendor.services[0] ?? null;
   const slug = vendor.business_slug ?? null;
@@ -478,25 +516,42 @@ function VendorMarketCard({
   // CTA (FollowGate hidden), read-only preview. Per 0006 § DIY-mode filter
   // popup + 0022 § 2.1c.
   const isComingSoon = visibility === 'coming_soon';
+  // Iteration 0022 § 5b — gold "Featured Sponsor" pill for the 30km long-
+  // commit tier; terracotta "Boosted" pill for the weekly 5/10/20km tier.
+  const sponsoredAccent = ad?.tier === 'sponsored';
+  const boostedAccent = ad?.tier === 'boosted';
 
   return (
     <article
       className={`flex h-full flex-col gap-3 rounded-2xl border bg-cream p-4 transition-shadow hover:shadow-md ${
         isComingSoon
           ? 'border-dashed border-ink/20 opacity-90'
-          : 'border-ink/10'
+          : sponsoredAccent
+            ? 'border-amber-300 ring-1 ring-amber-200'
+            : boostedAccent
+              ? 'border-terracotta/30'
+              : 'border-ink/10'
       }`}
     >
       <header className="flex items-center gap-3">
         <Logo logoUrl={vendor.logo_url} name={vendor.business_name} />
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <h2 className="truncate text-base font-semibold text-ink">
               {vendor.business_name || 'Unnamed vendor'}
             </h2>
             {isComingSoon ? (
               <span className="shrink-0 rounded-full bg-ink/8 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
                 Coming soon
+              </span>
+            ) : null}
+            {sponsoredAccent ? (
+              <span className="shrink-0 rounded-full bg-amber-400 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-amber-950">
+                Featured Sponsor
+              </span>
+            ) : boostedAccent ? (
+              <span className="shrink-0 rounded-full bg-terracotta px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-cream">
+                Boosted
               </span>
             ) : null}
           </div>

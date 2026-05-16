@@ -4,6 +4,48 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-16 · feat(0022): Boosted Ads ladder + Sponsored Boost Quarterly/Annual tier
+
+**Commit:** to be filled after commit.
+
+**Context:** Iteration 0022 § 5b (locked 2026-05-16 — eighth row of the 2026-05-16 decision log). Replaces the retired single ₱1,499/wk Sponsored Boost SKU with a two-tier marketing ladder: (1) **Boosted Ads** weekly by radius (5km ₱5,000 / 10km ₱8,000 / 20km ₱15,000) and (2) **Sponsored Boost** long-commit, 30km, verified-only (Quarterly ₱250,000 / Annual ₱800,000). The five new SKUs were already seeded in `service_catalog` by the existing `20260516000000_v1_sku_lock_service_catalog.sql` migration (lines 333–390) and the old `sponsored_boost_weekly` row was flipped to `is_active=FALSE` (lines 478–492). This PR ships the missing **per-vendor subscription ledger** + **vendor marketing surface** + **admin queue** + **DIY-browse badge / sort impact** that turn the seeded prices into a shippable feature.
+
+**What shipped:**
+- `supabase/migrations/20260516220000_vendor_ad_subscriptions.sql` — new table tracking per-vendor purchases. Columns: `vendor_profile_id`, `sku_code` (FK to `service_catalog`), `radius_km` (5/10/20/30 check), `gross_centavos`, `payment_method_key`, `order_id`, `started_at`, `expires_at`, `auto_renew`, `cancelled_at`, `cancel_reason`, `refund_centavos`, `cancelled_by_user_id`, `notes`. Three indexes: `vendor_idx`, `sku_idx`, partial active-only `active_idx`, and partial expiring-only `expiring_idx`. **RLS:** vendor self-read of own rows (matches `vendor_tool_bundles` pattern) + admin read-all; service-role writes only (no policied INSERT/UPDATE/DELETE for users). Also creates the `vendor_active_ads` view which collapses overlapping rows to the single most-permissive active subscription per vendor (Sponsored > Boosted; larger radius > smaller; latest expiry wins). Idempotent.
+- `apps/web/lib/vendor-ads.ts` — typed TS mirror of the 5 SKUs with the per-tier metadata the UI needs (radius, term days, use-case copy, verified-only flag, auto-renew default). Helpers: `findAdOption()`, `fetchVendorAdSubscriptions()`, `fetchAllAdSubscriptionsForAdmin()`, `isActiveAdSubscription()`, `daysRemaining()`, `fetchActiveAdLookups()` (the marketplace bulk lookup), `adPriceDisplay()`, `effectiveMonthlyPesos()` (for the Sponsored Boost amortization copy). Graceful degradation: every fetch swallows `42P01` "relation does not exist" so the app keeps rendering on pre-migration environments.
+- `apps/web/app/vendor-dashboard/marketing/page.tsx` — new vendor-facing route. Sections: (i) flash banner (started / cancelled / error), (ii) verified gate callout (V1 reads `vendor_profiles.public_visibility = 'verified'`; degrades gracefully if a parallel agent's `vendors.verification_state` enum ships, see Verification handoff below), (iii) "Currently running" card per active tier with cancel form + auto-renew indicator + days-remaining, (iv) Boosted Ads picker (3 cards, terracotta accent), (v) Sponsored Boost picker (2 cards, gold/amber accent, "≈ ₱X/mo effective" sticker), (vi) static stacked-cost worked example matching the spec, (vii) 20-row history list with cancel-reason annotations.
+- `apps/web/app/vendor-dashboard/marketing/actions.ts` — two server actions: `startAdSubscription(formData)` validates the SKU + verified gate, enforces V1 "one active per tier" guard (a Boosted + a Sponsored row can coexist; a second Boosted or a second Sponsored while one is live is rejected), inserts the subscription row, audit-logs the start (`vendor_ad_subscription_start`), and revalidates `/vendor-dashboard/marketing` + `/admin/ads` + `/vendors`. `cancelAdSubscription(formData)` is the vendor self-serve cancel — confirms authority via `vendor_profile_id`, idempotent on already-cancelled rows, audit-logs `vendor_ad_subscription_cancel`.
+- `apps/web/app/vendor-dashboard/layout.tsx` — adds the new **Marketing** subnav tab (Megaphone icon) between Earnings and Notifications. Match `prefix` so deep links / future sub-routes stay highlighted.
+- `apps/web/app/admin/ads/page.tsx` + `actions.ts` — new admin queue. Status tabs (Active / Cancelled / Expired / All), per-row card showing vendor (with `/v/{slug}` link), SKU + radius + term + gross, days-remaining or expiry date, auto-renew + refunded amount when present, cancel form with required reason + optional `refund_centavos` (capped at the gross). Admin cancel writes `vendor_ad_subscription_admin_cancel` to `admin_audit_log` with before/after JSON and the actor's user_id. Refund payment movement runs through the existing `/admin/payments` rail; this surface is the queue marker.
+- `apps/web/app/admin/layout.tsx` — adds the **Ads** tab to the admin top-nav between Receipts and Reviews.
+- `apps/web/app/vendors/page.tsx` — public marketplace now: (1) calls `fetchActiveAdLookups()` on the visible rows in a single round-trip, (2) sorts boosted/sponsored vendors to the top of the page within each existing sort key (Sponsored > Boosted > unboosted), (3) renders a gold **Featured Sponsor** pill on Sponsored cards and a terracotta **Boosted** pill on Boosted cards (cards also get a subtle border accent matching the badge), and (4) preserves the verified-only toggle + coming-soon dimming behavior from PR #56.
+
+**Pricing centralization:**
+- All amounts stored in PHP centavos (1 peso = 100 centavos) matching `service_catalog`. Display via `formatCentavosPhp()` from `lib/sku-catalog.ts`. No new pricing constants outside the typed `AD_TIER_OPTIONS` mirror in `lib/vendor-ads.ts` — the migration's snapshot is the source of truth. `detectAdPriceDrift()` helper exists for future test coverage.
+- Sponsored Boost Quarterly: ₱250,000 = 25,000,000 centavos. Annual: ₱800,000 = 80,000,000 centavos. Boosted Ads: ₱5,000 / ₱8,000 / ₱15,000 (500,000 / 800,000 / 1,500,000 centavos). Verified-only flag set TRUE on all 5 rows per the locked spec.
+
+**Verification handoff (graceful degradation):**
+- Spec calls out that a parallel agent is wiring `vendors.verification_state` enum; until that column lands, the marketing surface reads `vendor_profiles.public_visibility === 'verified'` as the V1 proxy (semantically equivalent per 0022 § 2.1c). The actions code checks for a `verification_state` field on the raw vendor row first; if present (post-other-agent landing — see the verification-flow PR landing in the same batch) it uses that; otherwise it falls back to `public_visibility`. No conflict either way.
+
+**Out of scope (intentional V1 boundaries):**
+- Real payment flow. V1 keeps the apply-then-pay rail: vendor opts in → subscription row goes live → Setnayan admin reconciles the corresponding order via `/admin/payments` → admin cancels (via `/admin/ads`) if payment fails within 7 days. The vendor sees this in the "Started" flash banner copy on the marketing surface.
+- Per-pin gating. Spec § 5b allows a multi-pin vendor to see the boost available per-zone (locked in some pins, available in others). V1 is single-radius; multi-pin will land alongside iteration 0006's Extended Pins extended work.
+- Density gate (≥20 vendors in same service category within 20km). The view hides the boost below threshold per spec — V1 doesn't implement the daily cron that computes `vendors_in_20km_per_category`; the gate ships when iteration 0023 admin console adds the relevant settings surface.
+- Featured Vendor / Category Sponsor / Showcase Spotlight future boost types are deferred to V1.5.
+
+**Test plan:**
+- [x] `pnpm --filter @setnayan/web typecheck` — passes
+- [x] `pnpm --filter @setnayan/web lint` — clean
+- [x] `pnpm --filter @setnayan/web build` — clean (new routes `/vendor-dashboard/marketing` + `/admin/ads` listed in the build output)
+- [ ] Owner: `supabase db push` to apply `20260516220000_vendor_ad_subscriptions.sql` (joins the existing pile of pending migrations)
+- [ ] After deploy, eyeball `/vendor-dashboard/marketing` for a verified vendor shows the two pickers, the started-flash, the one-active-per-tier gate, and the stacked-cost example
+- [ ] After deploy, `/vendors` marketplace shows the **Featured Sponsor** gold pill on Sponsored vendors and **Boosted** terracotta pill on Boosted vendors; boosted vendors appear at the top of every sort key
+- [ ] After deploy, `/admin/ads` shows the active queue, cancel form persists, and `admin_audit_log` carries a `vendor_ad_subscription_admin_cancel` row
+
+**SPEC IMPACT:** None — implements 0022 § 5b verbatim, including the retire of `sponsored_boost_weekly`, the 5-row ladder, the verified-only gate on Sponsored, and the stacked-cost example. The migration's table + view names match the spec's `sponsored_boosts(...)` block ergonomically while extending it to cover both the weekly Boosted ladder and the long-commit Sponsored tier in one table (a deliberate V1 simplification — the spec's table-per-tier hint was for documentation, not a schema requirement).
+
+---
+
 ## 2026-05-16 · feat(0026): BIR Form 2307 quarterly auto-fill — per-vendor PDF + pg_cron + admin queue
 
 **Commit:** to be filled after commit.

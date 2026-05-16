@@ -6,6 +6,7 @@ import { EventSwitcher, type SwitcherEvent, type SwitcherVendorTarget } from '@/
 import { EmptyEventMonogram } from '@/app/_components/event-monogram';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { ProfileMenu } from '@/app/_components/profile-menu';
+import { RoleSwitchPill } from '@/app/_components/role-switch-pill';
 
 /**
  * Outer dashboard chrome — iteration 0000 single-strip top-nav
@@ -103,6 +104,13 @@ export function OuterDashboardHeader({
         )}
 
         <div className="flex items-center gap-2">
+          <RoleSwitchPill
+            currentRole="customer"
+            hasCustomerAccess
+            hasVendorAccess={hasVendorAccess}
+            hasAdminAccess={hasAdminAccess}
+            vendorProfiles={vendorProfiles}
+          />
           <UnreadBellBadge
             userId={userId}
             initialUnread={unreadCount}

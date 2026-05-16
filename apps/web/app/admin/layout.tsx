@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { Logo } from '@/app/_components/logo';
+import { RoleSwitchPill } from '@/app/_components/role-switch-pill';
+import { fetchUserRoleSummary } from '@/lib/roles';
 
 export const metadata = { title: 'Admin · Setnayan' };
 
@@ -12,11 +14,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: profile } = await supabase
-    .from('users')
-    .select('display_name, email, account_type, is_internal, is_team_member, theme_preference')
-    .eq('user_id', user.id)
-    .maybeSingle();
+  const [{ data: profile }, roles] = await Promise.all([
+    supabase
+      .from('users')
+      .select('display_name, email, account_type, is_internal, is_team_member, theme_preference')
+      .eq('user_id', user.id)
+      .maybeSingle(),
+    fetchUserRoleSummary(supabase, user.id),
+  ]);
 
   const isAdmin =
     profile?.is_internal ||
@@ -43,6 +48,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <Logo height={32} withWordmark title="Setnayan · Admin" />
           </Link>
           <div className="flex items-center gap-2">
+            <RoleSwitchPill
+              currentRole="admin"
+              hasCustomerAccess={roles.hasCustomerAccess}
+              hasVendorAccess={roles.hasVendorAccess}
+              hasAdminAccess={roles.hasAdminAccess}
+              vendorProfiles={roles.vendorProfiles}
+            />
             <span
               className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${badge.tone}`}
             >

@@ -8,6 +8,7 @@ import { BottomNav } from './_components/bottom-nav';
 import { EventSwitcher } from './_components/event-switcher';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { ProfileMenu } from '@/app/_components/profile-menu';
+import { RoleSwitchPill } from '@/app/_components/role-switch-pill';
 
 type Props = {
   children: React.ReactNode;
@@ -84,6 +85,13 @@ export default async function EventLayout({ children, params }: Props) {
             vendorProfiles={roles.vendorProfiles}
           />
           <div className="flex items-center gap-2">
+            <RoleSwitchPill
+              currentRole="customer"
+              hasCustomerAccess
+              hasVendorAccess={roles.hasVendorAccess}
+              hasAdminAccess={roles.hasAdminAccess}
+              vendorProfiles={roles.vendorProfiles}
+            />
             <UnreadBellBadge
               userId={user.id}
               initialUnread={unreadCount}

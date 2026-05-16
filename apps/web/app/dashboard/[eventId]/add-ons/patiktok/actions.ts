@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { findPatiktokTemplate } from '@/lib/patiktok';
 
 // Iteration 0017 Phase 2 — Patiktok render-job submission.
@@ -93,5 +94,63 @@ export async function submitPatiktokRender(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/add-ons/patiktok`);
   redirect(
     `/dashboard/${eventId}/add-ons/patiktok?queued=${data.job_id}`,
+  );
+}
+
+/**
+ * Phase 3.0.1 — couple-initiated TikTok grant revocation.
+ *
+ * Soft-revokes the active patiktok_oauth_grants row for the event (sets
+ * revoked_at + revoked_reason='couple_disconnected'). The render worker
+ * checks revoked_at before posting, so future renders won't reach TikTok
+ * via this grant.
+ *
+ * Note this does NOT call TikTok's revoke endpoint — the access token stays
+ * technically valid until it expires naturally (~24h). Couples who want a
+ * harder revocation should also remove Setnayan from TikTok Settings →
+ * Privacy → Manage apps and websites. The privacy policy documents both
+ * paths.
+ */
+export async function disconnectPatiktokTiktok(formData: FormData) {
+  const eventId = formData.get('event_id');
+  if (typeof eventId !== 'string' || eventId.length === 0) {
+    throw new Error('event_id required');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // Verify the caller is the couple on this event. RLS on patiktok_oauth_grants
+  // already restricts reads to event members, but only couples should be able
+  // to revoke. Service role write bypasses RLS so we must check authorization
+  // ourselves.
+  const { data: membership } = await supabase
+    .from('event_members')
+    .select('member_type')
+    .eq('event_id', eventId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (!membership || membership.member_type !== 'couple') {
+    throw new Error('Only the couple can disconnect TikTok for this event');
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('patiktok_oauth_grants')
+    .update({
+      revoked_at: new Date().toISOString(),
+      revoked_reason: 'couple_disconnected',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('event_id', eventId)
+    .is('revoked_at', null);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/dashboard/${eventId}/add-ons/patiktok`);
+  redirect(
+    `/dashboard/${eventId}/add-ons/patiktok?tiktok_disconnected=1`,
   );
 }

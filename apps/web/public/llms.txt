@@ -1,6 +1,6 @@
 # Setnayan
 
-> Setnayan (SET-na-yan, from Tagalog "Set na 'yan." — "that's all set") is the Philippines-first life-events platform. V1 surface is weddings, designed to extend to birthdays, travel, corporate, and burial events as those iterations ship. Free for couples and guests; free verified business profiles for wedding vendors during launch. Transparent PHP pricing, apply-then-pay model, locally-rooted Filipino voice.
+> Setnayan (SET-na-yan, from Tagalog "Set na 'yan." — "that's all set") is the Philippines-first life-events platform. V1 surface is weddings, designed to extend to birthdays, celebrations, travel, corporate, tournament, and christening events as those iterations ship. Free for couples and guests; free verified business profiles for wedding vendors during launch. Transparent PHP pricing, apply-then-pay model, locally-rooted Filipino voice.
 
 ## Currently shipped public surfaces
 

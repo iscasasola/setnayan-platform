@@ -9,6 +9,8 @@ import {
   Sparkles,
   Layout,
   Wand2,
+  CloudUpload,
+  ShoppingBag,
   ArrowRight,
   type LucideIcon,
 } from 'lucide-react';
@@ -88,6 +90,20 @@ const SERVICES: Array<{
     tagline: 'Same-day reels',
     body: 'Auto-curated event highlight reels from Papic + Panood feeds.',
     Icon: Wand2,
+    tag: 'quote',
+  },
+  {
+    name: 'Photo Delivery',
+    tagline: 'Full-res handoff after the day',
+    body: 'Connect your photographer’s Google Drive. Setnayan delivers full-resolution albums to the couple post-event with a 30-day compression grace window — keep your originals as long as you need before storage tiering kicks in.',
+    Icon: CloudUpload,
+    tag: 'quote',
+  },
+  {
+    name: 'Supplies Marketplace',
+    tagline: 'Wedding-day supplies, one bill',
+    body: 'Vetted Filipino vendors for prints, rentals, NFC keepsakes, and decor — direct to your venue. Everything Setnayan’s software needs to land in the physical world, on one invoice.',
+    Icon: ShoppingBag,
     tag: 'quote',
   },
 ];

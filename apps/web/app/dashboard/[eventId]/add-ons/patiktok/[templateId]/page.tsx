@@ -7,7 +7,7 @@ import {
   findPatiktokTemplate,
   type PatiktokTemplate,
 } from '@/lib/patiktok';
-import { RenderForm } from '../_components/render-form';
+import { RenderForm, type MusicTrackOption } from '../_components/render-form';
 
 type Props = {
   params: Promise<{ eventId: string; templateId: string }>;
@@ -37,6 +37,14 @@ export default async function PatiktokTemplateDetail({ params }: Props) {
     .select('display_name')
     .eq('event_id', eventId)
     .maybeSingle();
+
+  const { data: tracksRaw } = await supabase
+    .from('patiktok_music_tracks')
+    .select('track_slug, category, display_name, bpm, duration_sec')
+    .eq('is_active', true)
+    .order('category', { ascending: true })
+    .order('display_name', { ascending: true });
+  const musicTracks = (tracksRaw ?? []) as MusicTrackOption[];
 
   return (
     <section className="space-y-6">
@@ -84,6 +92,7 @@ export default async function PatiktokTemplateDetail({ params }: Props) {
               templateSlug={template.slug}
               templateName={template.name}
               defaultDurationSec={template.defaultDurationSec}
+              musicTracks={musicTracks}
             />
           </section>
 
@@ -93,13 +102,15 @@ export default async function PatiktokTemplateDetail({ params }: Props) {
               Paired music
             </h2>
             <p className="text-sm text-ink/65">
-              This template pairs with a Setnayan-owned AI-generated track from
-              our Suno Premier catalogue (Bridgerton · Pop · Hip-hop · Jazz ·
-              Acoustic). Music loops seamlessly across the full compilation —
+              Pick from {musicTracks.length} Setnayan-owned AI-generated tracks
+              above — grouped by Bridgerton · Pop · Hip-hop · Jazz · Acoustic ·
+              Filipino Pop. Music loops seamlessly across the full compilation —
               no per-clip restart.
             </p>
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/50">
-              Music selection UI · TODO(0017)
+            <p className="text-xs text-ink/55">
+              Leaving the dropdown on <span className="font-semibold">Auto-pick</span>{' '}
+              lets the render worker choose a track that matches this
+              template&rsquo;s vibe.
             </p>
           </section>
 

@@ -4,6 +4,39 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-16 · feat(0011): Panood — scaffold-level launch
+
+**Commit:** to be filled after commit.
+
+**Context:** Iteration 0011 (Panood live stream) was one of six V1.5+ surfaces unlocked 2026-05-16 (12th decision-log row of the day in spec corpus `CLAUDE.md`). The add-ons grid entry was already `web_v1`; the `[addon]/page.tsx` router pointed the `panood` key at the generic `IterationPlaceholder` shim. This change replaces that shim with a real, responsive Panood setup + broadcaster-preview surface, while leaving every hardware integration seam stubbed and explicitly marked. Spec source of truth: `~/Documents/Claude/Projects/Setnayan/0011_panood/0011_panood.md`.
+
+**What shipped:**
+- `apps/web/app/dashboard/[eventId]/add-ons/panood/page.tsx` — couple-facing Panood setup page. Four sections: (1) Setup status card with base-SKU + add-on consumption rows (mock: 1 extra camera, 1 extra hour), (2) Broadcast setup with broadcaster URL + per-camera setup links (each behind a copy-to-clipboard widget), (3) Style + add-ons promo with Broadcast Style Pack (₱3,000), AI Edited Highlight (₱5,000 / 3 min), Custom Monogram Pack (₱1,999), and a disabled Same-Day Edit card marked "V1.1 · coming soon," (4) YouTube delivery info card with latency, audience-cap, and auto-archive facts plus the mock watch URL slot.
+- `apps/web/app/dashboard/[eventId]/add-ons/panood/broadcast/page.tsx` — tight broadcaster admin preview. 4-up camera grid (placeholder rectangles with `Cam N feed · PAUSED` chips), three-button control row (Mark highlight · Cast to projector · Go live · hold 1.5s), and a static 3-channel audio rail. Buttons are non-functional in V1.5+ scaffold — explicit "Preview mode" banner at the top so couples don't expect a real broadcast.
+- `apps/web/app/dashboard/[eventId]/add-ons/panood/_components/copy-link.tsx` — small client component (`'use client'`) for the broadcaster + camera-operator URL widgets. Uses the Clipboard API with a graceful no-op fallback for restricted PWA contexts.
+- Prices are sourced verbatim from the 2026-05-09 decision log apparatus-rule lock (₱2,500 base · ₱1,000 camera add-on · ₱1,000 hour add-on · ₱3,000 Broadcast Style Pack · ₱5,000 AI Edited Highlight · ₱1,999 Custom Monogram). PHP only. No wallet UI; no token balance pill. The 2026-05-16 BYO-YouTube pivot in the spec is pricing-only and does not change the scaffold surface; SKU-code rewires are a separate concern.
+- Tailwind tokens (`cream` / `ink` / `terracotta`) + Lucide icons (`Tv`, `Video`, `Camera`, `Sparkles`, `Cast`, `Radio`, `Mic`, etc.). Mobile-first responsive (single-column → `sm:grid-cols-2` / `lg:grid-cols-3`).
+
+**What's stubbed (every seam marked with `// TODO(0011):`):**
+- Cloudflare Stream Live SFU ingest connection — WebRTC publish from camera-operator phones, per-camera health pings into the broadcaster grid.
+- YouTube RTMP relay setup — `youtube.liveBroadcasts.insert` with `monetizationDetails.monetization=false` and `latencyPreference=ultraLow`, then push the composited program feed.
+- Camera-operator handshake / session tokens — per-cam short-lived tokens bound to a slot id.
+- AI Edited Highlight render pipeline — Claude vision pass + Remotion render + LUT colorgrade against the YouTube archive.
+- Broadcast Style Pack runtime mode switching — `events.panood_state.style_mode` JSONB read by the compositor each frame.
+- Projector cast — laptop popup-window + iPhone external-display flow on the broadcaster admin.
+
+**Out of scope (intentionally deferred):**
+- No real broadcasts. Vendor-side infrastructure procurement (Cloudflare Stream Live entitlement, YouTube master-channel provisioning + YPP-disabled verification, vendor-SDK contracts for the 0012 native bridge) is the precondition for the follow-up build.
+- No schema migration in this pass. Live Stream session/job persistence is a future iteration concern; mock data + UI is enough for the scaffold.
+- The add-ons grid entry (`apps/web/app/dashboard/[eventId]/add-ons/page.tsx`) was already `web_v1` and is intentionally untouched.
+- The placeholder router (`apps/web/app/dashboard/[eventId]/add-ons/[addon]/page.tsx`) still contains a `panood` entry in `ADD_ON_META`; left as harmless dead code since this route now wins the directory match.
+
+**Verify:** `pnpm --filter @setnayan/web typecheck` (zero errors) · `pnpm --filter @setnayan/web lint` (zero warnings or errors). Build + dev not run per task constraints.
+
+**SPEC IMPACT:** None. The iteration 0011 spec is the source of truth that this scaffold honors; pricing is sourced verbatim from the 2026-05-09 decision log row (still the V1 price floor surfaced to couples). No spec edit required.
+
+---
+
 ## 2026-05-15 · feat(0015): /for-vendors landing page (vendor-side acquisition)
 
 **Commit:** to be filled after commit.

@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { AlertTriangle, Paperclip, Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { FileUpload } from '@/app/_components/file-upload';
 import { displayUrlsForStoredAssets } from '@/lib/uploads';
@@ -10,6 +11,7 @@ import {
   FLAG_STATUS_LABEL,
   FLAG_STATUS_TONE,
   formatAutoResolveCountdown,
+  sweepAutoResolveStaleFlags,
   type FlagStatus,
   type FlagType,
 } from '@/lib/force-majeure';
@@ -51,6 +53,11 @@ export default async function CoupleDisputesPage({ params, searchParams }: Props
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  // Per the no-cron lock (PR #47, 2026-05-14): every couple pageview
+  // sweeps stale `open` / `under_review` flags past their 7-day window.
+  // Uses the admin client because RLS restricts UPDATE to admins.
+  await sweepAutoResolveStaleFlags(createAdminClient());
 
   const [flagsRes, vendorsRes] = await Promise.all([
     supabase

@@ -7,6 +7,7 @@ import {
   FLAG_STATUS_TONE,
   FLAG_TYPE_LABEL,
   formatAutoResolveCountdown,
+  sweepAutoResolveStaleFlags,
   type FlagStatus,
   type FlagType,
 } from '@/lib/force-majeure';
@@ -69,6 +70,11 @@ export default async function AdminForceMajeurePage({ searchParams }: Props) {
       : 'open_set';
 
   const admin = createAdminClient();
+
+  // Per the no-cron lock (PR #47, 2026-05-14): every admin pageview sweeps
+  // stale `open` / `under_review` flags past their 7-day auto-resolve
+  // window. Idempotent + best-effort; failures never block render.
+  await sweepAutoResolveStaleFlags(admin);
 
   let query = admin
     .from('force_majeure_flags')

@@ -9,7 +9,8 @@ export type NotificationType =
   | 'rsvp_received'
   | 'review_request'
   | 'help_ticket_replied'
-  | 'vendor_inquiry_received';
+  | 'vendor_inquiry_received'
+  | 'force_majeure_filed';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   chat_message: 'New message',
@@ -21,6 +22,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   review_request: 'Review request',
   help_ticket_replied: 'Help ticket reply',
   vendor_inquiry_received: 'New booking inquiry',
+  force_majeure_filed: 'Force-majeure flag filed',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -33,6 +35,7 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   review_request: 'bg-amber-100 text-amber-900',
   help_ticket_replied: 'bg-indigo-100 text-indigo-800',
   vendor_inquiry_received: 'bg-fuchsia-100 text-fuchsia-800',
+  force_majeure_filed: 'bg-rose-100 text-rose-800',
 };
 
 export type NotificationRow = {

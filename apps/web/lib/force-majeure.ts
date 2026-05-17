@@ -3,6 +3,8 @@
 // must stay in sync with the CHECK constraints on public.force_majeure_flags
 // (see supabase/migrations/20260514110000_force_majeure_flags.sql).
 
+import type { SupabaseClient } from '@supabase/supabase-js';
+
 export const FLAG_TYPES = [
   'typhoon',
   'family_emergency',
@@ -80,6 +82,40 @@ export function isResolutionAction(value: unknown): value is ResolutionAction {
     typeof value === 'string' &&
     (RESOLUTION_ACTIONS as readonly string[]).includes(value)
   );
+}
+
+/**
+ * Idempotent lazy sweep — flips stale `open` / `under_review` flags to
+ * `resolved` once their 7-day `auto_resolve_at` window has elapsed. Call
+ * from any page that lists or surfaces force-majeure flags (admin queue +
+ * couple disputes page) so the data converges on next pageview.
+ *
+ * Per the owner-locked no-cron architecture (PR #47, 2026-05-14): use
+ * database state + on-access checks instead of any scheduled job. The
+ * sweep is best-effort — failures never block the page render.
+ *
+ * Requires a service-role / admin client because the couple's session
+ * client can't UPDATE `force_majeure_flags` (admin-only UPDATE policy
+ * from the base migration).
+ */
+export async function sweepAutoResolveStaleFlags(
+  adminClient: SupabaseClient,
+): Promise<void> {
+  try {
+    const nowIso = new Date().toISOString();
+    await adminClient
+      .from('force_majeure_flags')
+      .update({
+        status: 'resolved',
+        resolved_at: nowIso,
+        resolution_notes:
+          'Auto-resolved after 7-day window with no admin action.',
+      })
+      .in('status', ['open', 'under_review'])
+      .lt('auto_resolve_at', nowIso);
+  } catch (e) {
+    console.error('[force-majeure] auto-resolve sweep failed:', e);
+  }
 }
 
 // Returns a human-readable "auto-resolve in X" string. Negative = elapsed.

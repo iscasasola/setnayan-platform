@@ -126,7 +126,7 @@ export async function fileForceMajeureFlag(formData: FormData) {
         adminUsers.map((row) =>
           emitNotification({
             userId: row.user_id as string,
-            type: 'order_quoted',
+            type: 'force_majeure_filed',
             title: `Force-majeure flag · ${flagPublicId || 'new'}`,
             body: `${FLAG_TYPE_LABEL[flagType]} — ${summary}${
               summary.length === 140 ? '…' : ''

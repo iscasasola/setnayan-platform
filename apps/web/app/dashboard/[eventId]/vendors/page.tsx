@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Plus, Trash2, Mail, Phone, Star, ShieldOff } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { emitNotification } from '@/lib/notification-emit';
 import {
   SERVICE_GROUPS,
   VENDOR_CATEGORY_LABEL,
@@ -38,6 +40,15 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  // Per the no-cron lock (PR #47, 2026-05-14): lazy review-request emit.
+  // Any vendor still in `contracted` / `deposit_paid` 24h after the event
+  // date is flipped to `delivered` and a review_request notification
+  // (+ Resend email when configured) is fired. The manual "mark
+  // delivered" flow on the vendor card stays as the primary trigger; this
+  // sweep is the safety net for couples who never get around to flipping
+  // it. Idempotent — flipped rows no longer match the filter.
+  await sweepRipeReviewRequests(eventId, user.id);
 
   const vendors = await fetchEventVendors(supabase, eventId);
   const stats = computeVendorStats(vendors);
@@ -158,6 +169,48 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       )}
     </section>
   );
+}
+
+async function sweepRipeReviewRequests(
+  eventId: string,
+  coupleUserId: string,
+): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    const cutoffIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data: ripe } = await admin
+      .from('event_vendors')
+      .select('vendor_id, vendor_name, events!inner(event_date)')
+      .eq('event_id', eventId)
+      .in('status', ['contracted', 'deposit_paid'])
+      .lt('events.event_date', cutoffIso);
+    const rows = (ripe ?? []) as Array<{
+      vendor_id: string;
+      vendor_name: string | null;
+    }>;
+    for (const v of rows) {
+      // Race guard: `.in('status', […])` ensures a concurrent sweep doesn't
+      // double-update. `.select('vendor_id')` returns only rows that this
+      // query actually mutated, so we skip the notification emit if a
+      // sibling render already won the race.
+      const { data: updated, error: updErr } = await admin
+        .from('event_vendors')
+        .update({ status: 'delivered', updated_at: new Date().toISOString() })
+        .eq('vendor_id', v.vendor_id)
+        .in('status', ['contracted', 'deposit_paid'])
+        .select('vendor_id');
+      if (updErr || !updated || updated.length === 0) continue;
+      await emitNotification({
+        userId: coupleUserId,
+        type: 'review_request',
+        title: `How was ${v.vendor_name ?? 'your vendor'}?`,
+        body: 'Their service is marked delivered. Take a minute to leave a public review.',
+        relatedUrl: `/dashboard/${eventId}/vendors/${v.vendor_id}/review`,
+      });
+    }
+  } catch (e) {
+    console.error('[reviews] ripe-review sweep failed:', e);
+  }
 }
 
 function StatsStrip({

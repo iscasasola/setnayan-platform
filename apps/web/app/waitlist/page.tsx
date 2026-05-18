@@ -206,7 +206,7 @@ export default async function WaitlistPage({ searchParams }: Props) {
           <ul className="mt-4 space-y-2 text-sm text-ink/70">
             <li>· Free planning tools — guest list, RSVP, seating, budget, mood board, schedule</li>
             <li>· Marketplace browsing — see real vendor portfolios and pricing today</li>
-            <li>· Setnayan Concierge — full-service event coordination at ₱4,999, 3-day free trial</li>
+            <li>· Setnayan Concierge — full-service event coordination at ₱2,499, 3-day free trial</li>
             <li>· Built-in dual e-signature on every vendor contract — free</li>
             <li>· BIR-compliant receipts on every Setnayan Pay transaction</li>
             <li>· Most add-on services FREE until March 31, 2027 during the launch promo</li>

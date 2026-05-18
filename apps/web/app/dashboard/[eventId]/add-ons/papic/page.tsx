@@ -835,28 +835,32 @@ function SeatStatusCard({
         ))}
       </ul>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-ink/15 bg-cream/60 p-3 sm:p-4">
-        <div className="min-w-0 space-y-0.5">
-          <p className="text-sm font-medium text-ink">Invite the rest of your crew</p>
-          <p className="text-xs text-ink/60">
-            Each unclaimed seat gets a wedding-scoped setup link — your
-            paparazzo opens it on their phone and the seat token claims to
-            their device.
-          </p>
+      <div className="space-y-3 rounded-xl border border-dashed border-ink/15 bg-cream/60 p-3 sm:p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 space-y-0.5">
+            <p className="text-sm font-medium text-ink">Invite the rest of your crew</p>
+            <p className="text-xs text-ink/60">
+              Each unclaimed seat gets a wedding-scoped setup link — your
+              paparazzo opens it on their phone and the seat token claims to
+              their device.
+            </p>
+          </div>
+          {/* TODO(0012): replace with a server action that generates a
+              wedding-scoped setup QR via 0002's QR system. For now this is
+              a preview placeholder — Papic native iOS/Android shells are
+              V1.5+ per CLAUDE.md 2026-05-16 Papic architecture lock. */}
+          <span
+            className="inline-flex items-center gap-2 rounded-md border border-ink/15 bg-ink/5 px-4 py-2 text-sm font-medium text-ink/55"
+            aria-label="Send setup QR to crew — coming with the Papic native app (V1.5+)"
+          >
+            <Share2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            Send setup QR to crew
+          </span>
         </div>
-        {/* TODO(0012): replace with a server action that generates a
-            wedding-scoped setup QR via 0002's QR system. For now this is
-            a mock copy-link affordance. */}
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta-600 disabled:opacity-70"
-          disabled
-          aria-label="Send setup QR to crew (preview — coming with native app)"
-          title={`Setup link · setnayan.com/papic/setup/${eventId} — full flow ships with native app`}
-        >
-          <Share2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Send setup QR to crew
-        </button>
+        <p className="rounded-md bg-ink/5 px-3 py-2 font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
+          Coming with the Papic native app (V1.5+). Setup link preview:{' '}
+          <span className="break-all font-mono text-ink/70">{`setnayan.com/papic/setup/${eventId}`}</span>
+        </p>
       </div>
     </article>
   );

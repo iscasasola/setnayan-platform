@@ -3,7 +3,8 @@
  *
  * 4 event-state variants (DIY · Trial · Active · Expired) + enforcement
  * overlay (none · warning · trial_banned · full_banned) per the 2026-05-17
- * Concierge lock. Single SKU `concierge_complete` at ₱4,999. Card-less
+ * Concierge lock. Single SKU `concierge_complete` at ₱2,499 (repriced from
+ * ₱4,999 in CLAUDE.md row 415, 2026-05-18). Card-less
  * 3-day trial · one per account.
  */
 

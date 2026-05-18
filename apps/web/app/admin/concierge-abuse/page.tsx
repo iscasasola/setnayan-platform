@@ -11,6 +11,7 @@
  * The page is gated by the parent admin layout (notFound for non-admins).
  */
 
+import Link from 'next/link';
 import { AlertTriangle, ShieldAlert, ShieldCheck, Users as UsersIcon } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -139,7 +140,7 @@ export default async function ConciergeAbusePage({ searchParams }: Props) {
       </header>
 
       <nav className="mb-6 flex flex-wrap gap-2">
-        <a
+        <Link
           href="/admin/concierge-abuse?tab=queue"
           className={`rounded-full px-3 py-1.5 text-sm font-medium ${
             tab === 'queue'
@@ -148,8 +149,8 @@ export default async function ConciergeAbusePage({ searchParams }: Props) {
           }`}
         >
           Pending review ({pendingFlags.length})
-        </a>
-        <a
+        </Link>
+        <Link
           href="/admin/concierge-abuse?tab=enforcement"
           className={`rounded-full px-3 py-1.5 text-sm font-medium ${
             tab === 'enforcement'
@@ -158,7 +159,7 @@ export default async function ConciergeAbusePage({ searchParams }: Props) {
           }`}
         >
           Enforcement decisions ({enforcementUsers.length})
-        </a>
+        </Link>
       </nav>
 
       {/* Status banners */}

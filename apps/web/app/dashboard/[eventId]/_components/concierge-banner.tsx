@@ -247,7 +247,7 @@ function TrialBanner({
             Trial · {days} {days === 1 ? 'day' : 'days'} left
           </p>
           <h2 className="text-base font-semibold tracking-tight text-ink">
-            You're on a 3-day Setnayan Concierge trial
+            You&rsquo;re on a 3-day Setnayan Concierge trial
           </h2>
           <p className="text-xs text-ink/70">
             Trial ends {formatConciergeDate(expiresAt)}. Continue with Setnayan Concierge for ₱
@@ -337,7 +337,7 @@ function LongEngagementAdvisory({
         <p className="font-medium">Long-engagement advisory</p>
         <p className="mt-1 text-amber-900/80">
           Your wedding is more than 24 months away. Setnayan Concierge covers up to 24 months
-          from your purchase date — you'll lose access ~{monthsGap} months before your wedding
+          from your purchase date — you&rsquo;ll lose access ~{monthsGap} months before your wedding
           day. We recommend renewing closer to your wedding for full coverage.
         </p>
       </div>

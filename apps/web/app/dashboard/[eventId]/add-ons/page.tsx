@@ -54,7 +54,7 @@ const ADD_ONS: ReadonlyArray<{
     Icon: Video,
     iteration: '0024',
     status: 'live',
-    blurb: '12-template gallery · 60s video · vertical + square + horizontal · ₱99 per render',
+    blurb: 'Create a clean video for your wedding',
     cta: 'Browse templates',
   },
   {
@@ -63,7 +63,7 @@ const ADD_ONS: ReadonlyArray<{
     Icon: Globe2,
     iteration: '0002',
     status: 'coming_soon',
-    blurb: 'Customize the public landing page guests see when they scan your QR or open your link',
+    blurb: 'Free website for your wedding (upgrades available)',
     cta: 'Customize',
   },
   {
@@ -72,7 +72,7 @@ const ADD_ONS: ReadonlyArray<{
     Icon: Music,
     iteration: '0034',
     status: 'coming_soon',
-    blurb: 'Pick from Setnayan-owned music or generate a custom track for your event reels',
+    blurb: 'Create your personal music for your wedding',
     cta: 'Browse music',
   },
   {
@@ -81,7 +81,7 @@ const ADD_ONS: ReadonlyArray<{
     Icon: Type,
     iteration: '0004',
     status: 'coming_soon',
-    blurb: 'Design your wedding monogram · animated SVG trace · custom hero background',
+    blurb: 'Free monogram for your wedding (upgrades available)',
     cta: 'Open studio',
   },
   {
@@ -90,7 +90,7 @@ const ADD_ONS: ReadonlyArray<{
     Icon: Camera,
     iteration: '0012',
     status: 'web_v1',
-    blurb: 'Candid capture · gesture shutter · QR tagging · personal reels',
+    blurb: 'Advanced photo service for your wedding',
     cta: 'Set up',
   },
   {
@@ -99,7 +99,7 @@ const ADD_ONS: ReadonlyArray<{
     Icon: Tv,
     iteration: '0011',
     status: 'web_v1',
-    blurb: 'Live stream · YouTube delivery · AI Highlights · Same-Day Edit',
+    blurb: 'Live-stream your wedding for guests who can’t make it',
     cta: 'Set up',
   },
   {
@@ -108,7 +108,7 @@ const ADD_ONS: ReadonlyArray<{
     Icon: Film,
     iteration: '0017',
     status: 'web_v1',
-    blurb: 'Vertical-reel template gallery · render-on-demand · 9:16 1080p MP4',
+    blurb: 'Short vertical reels of your wedding for TikTok',
     cta: 'Browse templates',
   },
   {
@@ -117,7 +117,7 @@ const ADD_ONS: ReadonlyArray<{
     Icon: Printer,
     iteration: '0018',
     status: 'web_v1',
-    blurb: 'Wedding-day print pack + favors from vetted PH suppliers — direct to your venue',
+    blurb: 'Wedding-day print pack + favors delivered to your venue',
     cta: 'Browse Paprint',
   },
   {
@@ -126,7 +126,7 @@ const ADD_ONS: ReadonlyArray<{
     Icon: Sparkles,
     iteration: '0005',
     status: 'web_v1',
-    blurb: '8K template render · Photo Pool blend · USB delivery',
+    blurb: 'Custom LED visuals for your reception',
     cta: 'Choose template',
   },
 ];

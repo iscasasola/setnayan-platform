@@ -447,16 +447,19 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
     isActive: true,
   },
   {
+    // Retired 2026-05-18 — Contract Intelligence (iteration 0032) replaced by
+    // free built-in dual e-signature on every vendor contract. Kept in the
+    // catalog (isActive=false) so audit references don't break.
     skuCode: 'contract_intelligence_per_contract',
-    displayName: 'Contract Intelligence per contract',
-    category: 'vendor_tools',
+    displayName: 'Contract Intelligence per contract (retired)',
+    category: 'retired',
     priceCentavos: 19900,
     unit: 'contract',
     multiPurchase: true,
     subscription: false,
     refundable: true,
     purchaserRole: 'vendor',
-    isActive: true,
+    isActive: false,
   },
 ];
 
@@ -535,6 +538,8 @@ export const RETIRED_SKU_CODES = [
   'pro_widget_bundle',
   'pro_widget_story',
   'pro_widget_hero',                 // -> monogram_hero_upgrade
+  'contract_intelligence_upgrade',   // 0032 retired 2026-05-18 (couple-side)
+  'contract_intelligence_per_contract', // 0032 retired 2026-05-18 (vendor-side)
 ] as const;
 
 /** BIR marketplace withholding rate. 0.5% of gross booking. */

@@ -1,7 +1,8 @@
 import Link from 'next/link';
-import { Check, ArrowRight, Sparkles } from 'lucide-react';
+import { Check, ArrowRight, Sparkles, Gift } from 'lucide-react';
 import { SiteHeader } from '@/app/_components/site-header';
 import { Logo } from '@/app/_components/logo';
+import { formatPromoEndDateShort, LAUNCH_PROMO_UNTIL } from '@/lib/sku-catalog';
 
 // /pricing — couple-side pricing transparency.
 //
@@ -42,53 +43,31 @@ type AddOn = {
   price: string;
   cadence: string;
   blurb: string;
+  /** True if this SKU is included in the launch promo (free until LAUNCH_PROMO_UNTIL). */
+  freeDuringLaunch: boolean;
 };
 
 // Mirrors public.service_catalog rows where purchaser_role='couple' AND
 // is_active=TRUE AND category <> 'concierge'. Source: migrations
-// 20260516000000 (initial seed) + 20260518000000 (Concierge + charm).
+// 20260516000000 (initial seed), 20260518000000 (Concierge + charm),
+// 20260518100000 (launch promo). Items with freeDuringLaunch=true are
+// FREE until LAUNCH_PROMO_UNTIL (2027-03-31 23:59:59 +08:00).
 const ADD_ONS: Array<AddOn> = [
-  {
-    name: 'Custom Monogram',
-    price: '₱1,999',
-    cadence: 'one-time',
-    blurb:
-      'Animated SVG hero with a Setnayan-designed monogram trace. Drop it on your invitation suite, save-the-date video, and event landing page.',
-  },
   {
     name: 'Save-the-Date Video',
     price: '₱99',
     cadence: 'per render',
     blurb:
       'Vertical 30–60s MP4 made from 5–10 engagement photos with Setnayan-owned music. Ends with a landing-page link for guests.',
+    freeDuringLaunch: true,
   },
   {
-    name: 'AI Highlight (60s)',
-    price: '₱1,999',
-    cadence: 'one-time',
-    blurb:
-      'Auto-edited 60-second highlight reel from your event footage. AI cuts, music sync, no manual editing.',
-  },
-  {
-    name: 'AI Edited Highlight (3 min)',
-    price: '₱3,499',
-    cadence: 'one-time',
-    blurb:
-      'Three-minute curated highlight reel — longer arc, story-paced. Same automated edit, more room to breathe.',
-  },
-  {
-    name: 'Contract Intelligence',
-    price: '₱199',
-    cadence: 'per contract',
-    blurb:
-      'Setnayan reads your vendor contract, surfaces clauses that need attention, drafts your response. Free for any vendor on Pro.',
-  },
-  {
-    name: 'Pro Widget Bundle',
-    price: '₱199',
+    name: 'Live Schedule Widget',
+    price: '₱999',
     cadence: 'per event',
     blurb:
-      'Three premium invitation widgets — Hero, Story, Schedule — unlocked for your event. Each is ₱99 separately.',
+      'Premium "happening now" highlight on your public invitation page — updates live as your timeline moves through ceremony, photos, dinner, party.',
+    freeDuringLaunch: true,
   },
   {
     name: 'Panood — Daily Broadcast',
@@ -96,6 +75,7 @@ const ADD_ONS: Array<AddOn> = [
     cadence: 'per day',
     blurb:
       'Live-stream your ceremony or reception to your own YouTube channel. Bring-your-own YouTube — Setnayan handles the broadcaster.',
+    freeDuringLaunch: true,
   },
   {
     name: 'Panood — Annual Streaming',
@@ -103,8 +83,43 @@ const ADD_ONS: Array<AddOn> = [
     cadence: 'per year',
     blurb:
       'Annual unlimited broadcasts for the household — birthdays, baptisms, anniversaries, every event for 12 months.',
+    freeDuringLaunch: true,
+  },
+  {
+    name: 'Patiktok',
+    price: '₱999',
+    cadence: 'per day',
+    blurb:
+      'TikTok booth for your reception — guests record short clips that auto-post to Setnayan TikTok. Personal-TikTok BYO version available at ₱1,999/day.',
+    freeDuringLaunch: true,
+  },
+  {
+    name: 'Custom Monogram',
+    price: '₱1,999',
+    cadence: 'one-time',
+    blurb:
+      'Animated SVG hero with a Setnayan-designed monogram trace. Drop it on your invitation suite, save-the-date video, and event landing page.',
+    freeDuringLaunch: false,
+  },
+  {
+    name: 'AI Highlight (60s)',
+    price: '₱1,999',
+    cadence: 'one-time',
+    blurb:
+      'Auto-edited 60-second highlight reel from your event footage. AI cuts, music sync, no manual editing.',
+    freeDuringLaunch: false,
+  },
+  {
+    name: 'AI Edited Highlight (3 min)',
+    price: '₱3,499',
+    cadence: 'one-time',
+    blurb:
+      'Three-minute curated highlight reel — longer arc, story-paced. Same automated edit, more room to breathe.',
+    freeDuringLaunch: false,
   },
 ];
+
+const PROMO_END_SHORT = formatPromoEndDateShort(LAUNCH_PROMO_UNTIL);
 
 export default function PricingPage() {
   return (
@@ -127,6 +142,18 @@ export default function PricingPage() {
               Vendor bookings include a flat 5.0% Setnayan Pay convenience fee at
               checkout — same rate on every rail, disclosed before you confirm.
             </p>
+            <div className="mt-6 flex max-w-2xl items-start gap-3 rounded-2xl border-2 border-terracotta/40 bg-terracotta/5 p-4 sm:p-5">
+              <Gift aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-terracotta" strokeWidth={2} />
+              <p className="text-sm text-ink">
+                <span className="font-semibold text-terracotta">
+                  Launch promo:
+                </span>{' '}
+                most add-ons are <strong>free until {PROMO_END_SHORT}</strong> —
+                including Save-the-Date Video, Panood live broadcasts, Patiktok,
+                and the Live Schedule widget. Setnayan Concierge, AI Highlights,
+                and Custom Monogram are not included.
+              </p>
+            </div>
           </div>
         </div>
       </section>
@@ -262,17 +289,43 @@ export default function PricingPage() {
             {ADD_ONS.map((addOn) => (
               <li
                 key={addOn.name}
-                className="flex flex-col gap-3 rounded-2xl border border-ink/10 bg-cream p-5"
+                className={
+                  addOn.freeDuringLaunch
+                    ? 'flex flex-col gap-3 rounded-2xl border-2 border-terracotta/40 bg-cream p-5'
+                    : 'flex flex-col gap-3 rounded-2xl border border-ink/10 bg-cream p-5'
+                }
               >
                 <header className="space-y-1">
-                  <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-                    {addOn.name}
-                  </p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+                      {addOn.name}
+                    </p>
+                    {addOn.freeDuringLaunch ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-terracotta px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.18em] text-cream">
+                        <Gift aria-hidden className="h-3 w-3" strokeWidth={2} />
+                        Free during launch
+                      </span>
+                    ) : null}
+                  </div>
                   <p className="flex items-baseline gap-2">
-                    <span className="font-sans text-3xl font-semibold tracking-tight text-ink">
-                      {addOn.price}
-                    </span>
-                    <span className="text-xs text-ink/55">{addOn.cadence}</span>
+                    {addOn.freeDuringLaunch ? (
+                      <>
+                        <span className="font-sans text-3xl font-semibold tracking-tight text-terracotta">
+                          FREE
+                        </span>
+                        <span className="text-xs text-ink/55">
+                          <span className="line-through">{addOn.price}</span> ·{' '}
+                          {addOn.cadence}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="font-sans text-3xl font-semibold tracking-tight text-ink">
+                          {addOn.price}
+                        </span>
+                        <span className="text-xs text-ink/55">{addOn.cadence}</span>
+                      </>
+                    )}
                   </p>
                 </header>
                 <p className="text-sm text-ink/65">{addOn.blurb}</p>

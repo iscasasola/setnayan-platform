@@ -1,5 +1,8 @@
 import Link from 'next/link';
-import { Check, Minus, ArrowRight } from 'lucide-react';
+import { Check, Minus, ArrowRight, Gift } from 'lucide-react';
+import { formatPromoEndDateShort } from '@/lib/sku-catalog';
+
+const PROMO_END_SHORT = formatPromoEndDateShort();
 
 // Pricing — exception to the homepage's hide-prices rule. Vendors decide
 // on cost; couples don't yet (per CLAUDE.md decision log 2026-05-15
@@ -53,7 +56,7 @@ const TIERS: Array<Tier> = [
       { label: 'Per-service calendars + master calendar', included: true },
       { label: 'Proposal builder (per-client custom plans)', included: true },
       { label: 'Team / agent invites + per-service scoping', included: true },
-      { label: 'Video meetings (Daily.co)', included: true },
+      { label: 'All Tools Unlock annual bundle add-on (Mood Board · Palette · Seating · QR Reader · Advanced Pricing)', included: true },
     ],
     cta: { label: 'Start with Pro', href: '/signup?as=vendor', primary: true },
   },
@@ -75,6 +78,16 @@ export function Pricing() {
             doesn&rsquo;t — Pro is a flat weekly subscription, paused anytime.
             A photographer with 10 weddings in one week pays ₱499 once.
           </p>
+          <div className="flex items-start gap-3 rounded-2xl border-2 border-terracotta/40 bg-terracotta/5 p-4 sm:p-5">
+            <Gift aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-terracotta" strokeWidth={2} />
+            <p className="text-sm text-ink">
+              <span className="font-semibold text-terracotta">Launch promo:</span>{' '}
+              Pro tier and the All Tools Unlock annual bundle are{' '}
+              <strong>free until {PROMO_END_SHORT}</strong>. List, accept bookings,
+              and use every vendor tool without the weekly subscription kicking in.
+              Boosted Ads and Sponsored Boost stay paid (competitive marketing slots).
+            </p>
+          </div>
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
@@ -99,10 +112,23 @@ export function Pricing() {
                   ) : null}
                 </div>
                 <p className="flex items-baseline gap-2">
-                  <span className="font-sans text-4xl font-semibold tracking-tight text-ink sm:text-5xl">
-                    {tier.price}
-                  </span>
-                  <span className="text-sm text-ink/55">{tier.cadence}</span>
+                  {tier.cta.primary ? (
+                    <>
+                      <span className="font-sans text-4xl font-semibold tracking-tight text-terracotta sm:text-5xl">
+                        FREE
+                      </span>
+                      <span className="text-sm text-ink/55">
+                        <span className="line-through">{tier.price}</span> · until {PROMO_END_SHORT}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-sans text-4xl font-semibold tracking-tight text-ink sm:text-5xl">
+                        {tier.price}
+                      </span>
+                      <span className="text-sm text-ink/55">{tier.cadence}</span>
+                    </>
+                  )}
                 </p>
                 <p className="text-sm text-ink/65">{tier.blurb}</p>
               </header>
@@ -153,9 +179,10 @@ export function Pricing() {
         <p className="mt-6 text-xs text-ink/55">
           Pro is billed weekly via the apply-then-pay rail (BDO transfer or
           GCash) — no card on file, no surprise renewals. Pause anytime
-          from your dashboard. Add-ons like Sponsored Boost (₱1,499/wk) and
-          Extended Pins (₱49/wk each) stack on top of Pro and are individually
-          opt-in.
+          from your dashboard. Optional paid add-ons: Boosted Ads (5km ₱4,999/wk ·
+          10km ₱7,999/wk · 20km ₱14,999/wk) and Sponsored Boost (Quarterly
+          ₱249,999 · Annual ₱799,999 at 30km, verified vendors only) stack
+          on top of Pro.
         </p>
       </div>
     </section>

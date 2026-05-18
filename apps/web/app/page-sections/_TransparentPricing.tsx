@@ -26,7 +26,7 @@ const TRANSPARENCY_COLUMNS: Array<{ heading: string; body: string }> = [
   },
   {
     heading: 'À la carte',
-    body: 'Papic, Panood, Custom Monogram, Live Stream, Save-the-Date Video — you only pay when you opt into a specific service. Couple-side prices are listed on /pricing and re-shown at checkout.',
+    body: 'Panood, Patiktok, Save-the-Date Video, Custom Monogram — you only pay when you opt into a specific service. Most add-ons are FREE during the launch promo (until Mar 31, 2027). Couple-side prices are listed on /pricing and re-shown at checkout.',
   },
   {
     heading: '+5.0% at checkout',

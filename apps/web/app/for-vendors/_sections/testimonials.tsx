@@ -24,38 +24,21 @@ export function Testimonials() {
           </p>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-3">
-          {[1, 2, 3].map((slot) => (
-            <article
-              key={slot}
-              aria-label={`Vendor testimonial slot ${slot} — empty at V1`}
-              className="flex flex-col gap-4 rounded-2xl border border-dashed border-ink/15 bg-cream p-6"
-            >
-              <Quote
-                aria-hidden
-                className="h-6 w-6 text-ink/25"
-                strokeWidth={1.5}
-              />
-              <p className="text-sm italic text-ink/45">
-                A real vendor quote will live here after our launch cohort
-                ships their first season — paired with the vendor&rsquo;s
-                business name, logo, and city.
-              </p>
-              <div className="mt-auto flex items-center gap-3 pt-2">
-                <span
-                  aria-hidden
-                  className="inline-block h-9 w-9 rounded-full bg-ink/10"
-                />
-                <div className="space-y-0.5">
-                  <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/35">
-                    Vendor — coming soon
-                  </p>
-                  <p className="text-xs text-ink/35">Verified · Setnayan</p>
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
+        <article
+          aria-label="Vendor stories — to be published after our pioneer cohort ships their first season"
+          className="flex max-w-2xl flex-col gap-4 rounded-2xl border border-dashed border-ink/15 bg-cream p-6"
+        >
+          <Quote
+            aria-hidden
+            className="h-6 w-6 text-ink/25"
+            strokeWidth={1.5}
+          />
+          <p className="text-sm italic text-ink/50">
+            Vendor stories publish here after our pioneer cohort ships their
+            first season — with the vendor&rsquo;s business name, logo, and a
+            real photo.
+          </p>
+        </article>
       </div>
     </section>
   );

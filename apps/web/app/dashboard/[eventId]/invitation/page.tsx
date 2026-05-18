@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ExternalLink } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
 import { fetchGuestsByEvent, guestDisplayName, ROLE_LABELS, RSVP_LABELS } from '@/lib/guests';
 import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { deriveMonogram, resolveMonogram } from '@/lib/monogram';
@@ -36,11 +37,9 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
   const { eventId } = await params;
   const search = await searchParams;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
+  const supabase = await createClient();
 
   const { data: event } = await supabase
     .from('events')

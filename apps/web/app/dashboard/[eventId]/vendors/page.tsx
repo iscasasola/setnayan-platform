@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Plus, Trash2, Mail, Phone, Star, ShieldOff } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import {
@@ -35,11 +36,9 @@ type Props = {
 export default async function VendorsPage({ params, searchParams }: Props) {
   const { eventId } = await params;
   const search = await searchParams;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
+  const supabase = await createClient();
 
   // Per the no-cron lock (PR #47, 2026-05-14): lazy review-request emit.
   // Any vendor still in `contracted` / `deposit_paid` 24h after the event

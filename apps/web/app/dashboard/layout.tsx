@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
 import { GuidedTour } from '@/app/_components/guided-tour';
 import { completeTour } from '@/lib/tour-actions';
 import { fetchUserEvents, sortEventsForSwitcher } from '@/lib/events';
@@ -8,13 +9,11 @@ import { countUnread } from '@/lib/notifications';
 import { OuterDashboardHeader } from './_components/outer-dashboard-header';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) {
     redirect('/login');
   }
+  const supabase = await createClient();
 
   const { data: profile } = await supabase
     .from('users')

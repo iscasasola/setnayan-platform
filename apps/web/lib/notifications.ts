@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type NotificationType =
@@ -64,17 +65,20 @@ export async function fetchOwnNotifications(
   return (data ?? []) as NotificationRow[];
 }
 
-export async function countUnread(
+// Wrapped in React `cache()` so the dashboard chrome's unread-bell badge
+// (shown in both the outer layout AND the per-event layout AND queried again
+// inside the home page) reduces from 3 count(*) queries per nav down to one.
+export const countUnread = cache(async (
   supabase: SupabaseClient,
   userId: string,
-): Promise<number> {
+): Promise<number> => {
   const { count } = await supabase
     .from('notifications')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
     .is('read_at', null);
   return count ?? 0;
-}
+});
 
 export function relativeTime(iso: string, now = new Date()): string {
   const ms = now.getTime() - new Date(iso).getTime();

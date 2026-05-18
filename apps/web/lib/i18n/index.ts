@@ -1,5 +1,7 @@
 import 'server-only';
+import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
 import enStrings from './dashboard.en.json';
 import tlStrings from './dashboard.tl.json';
 
@@ -35,14 +37,17 @@ function normalizeLocale(raw: unknown): Locale {
  * Server helper — reads the signed-in user's `users.locale` and returns
  * 'en' or 'tl'. Anything other than 'tl' (including 'ceb', null, or an
  * unauthenticated request) collapses to 'en'.
+ *
+ * Wrapped in React `cache()` and routed through `getCurrentUser` so the
+ * /dashboard/[eventId] layout and its page (both of which need the
+ * translator) share one users.locale read per request instead of two
+ * auth+SELECT round-trips.
  */
-export async function getLocale(): Promise<Locale> {
+export const getLocale = cache(async (): Promise<Locale> => {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
     if (!user) return 'en';
+    const supabase = await createClient();
     const { data } = await supabase
       .from('users')
       .select('locale')
@@ -52,7 +57,7 @@ export async function getLocale(): Promise<Locale> {
   } catch {
     return 'en';
   }
-}
+});
 
 /**
  * Translate a key into the requested locale. If `locale` is omitted, returns

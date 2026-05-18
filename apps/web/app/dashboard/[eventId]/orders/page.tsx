@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Plus, Receipt } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
 import {
   ORDER_STATUS_LABEL,
   ORDER_STATUS_TONE,
@@ -25,11 +26,9 @@ type Props = {
 export default async function CoupleOrdersPage({ params, searchParams }: Props) {
   const { eventId } = await params;
   const search = await searchParams;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
+  const supabase = await createClient();
 
   const orders = await fetchOrdersForEvent(supabase, eventId);
 

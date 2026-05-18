@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { MessageSquare, Plus, ArrowRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
 import { fetchCoupleThreads, formatChatTimestamp } from '@/lib/chat';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { startThreadByVendorEmail } from './actions';
@@ -16,11 +17,9 @@ type Props = {
 export default async function CoupleMessagesPage({ params, searchParams }: Props) {
   const { eventId } = await params;
   const search = await searchParams;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
+  const supabase = await createClient();
 
   const threads = await fetchCoupleThreads(supabase, eventId);
 

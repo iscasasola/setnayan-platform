@@ -14,6 +14,7 @@
  *   - Admin grant: `users.is_internal` OR `users.is_team_member` OR
  *     `users.account_type = 'admin'`
  */
+import { cache } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type UserRoleSummary = {
@@ -58,11 +59,15 @@ export type VendorSwitchTarget = {
  *
  * Returns an empty summary when no user is signed in (the chrome callers
  * already short-circuit to /login in that case; this is defensive).
+ *
+ * Wrapped in React `cache()` — the outer dashboard layout AND the inner
+ * `[eventId]` layout both need the role pills, so before the cache they ran
+ * the three sub-queries twice per navigation. Now they share one fetch.
  */
-export async function fetchUserRoleSummary(
+export const fetchUserRoleSummary = cache(async (
   supabase: SupabaseClient,
   userId: string,
-): Promise<UserRoleSummary> {
+): Promise<UserRoleSummary> => {
   const [profileRes, ownedRes, teamRes] = await Promise.all([
     supabase
       .from('users')
@@ -132,4 +137,4 @@ export async function fetchUserRoleSummary(
     hasAdminAccess,
     vendorProfiles,
   };
-}
+});

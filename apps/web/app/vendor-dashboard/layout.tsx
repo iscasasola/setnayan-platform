@@ -16,6 +16,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
 import { countUnread } from '@/lib/notifications';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { VendorSubnavTab } from './_components/subnav-tab';
@@ -28,11 +29,9 @@ export default async function VendorDashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
+  const supabase = await createClient();
 
   const [profileRes, unreadCount, roles] = await Promise.all([
     supabase

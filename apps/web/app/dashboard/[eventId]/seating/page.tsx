@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { Plus, Trash2, UserPlus, UserMinus, LayoutGrid } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
 import { fetchGuestsByEvent, ROLE_LABELS, type GuestRow } from '@/lib/guests';
 import {
   TABLE_TYPE_CATALOG,
@@ -28,11 +29,9 @@ type Props = { params: Promise<{ eventId: string }> };
 
 export default async function SeatingPage({ params }: Props) {
   const { eventId } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
+  const supabase = await createClient();
 
   const [tables, assignments, guests] = await Promise.all([
     fetchTables(supabase, eventId),

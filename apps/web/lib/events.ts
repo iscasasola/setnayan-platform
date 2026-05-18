@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type EventRow = {
@@ -41,12 +42,18 @@ type MembershipQueryRow = {
  *
  * RLS already filters to the current user via Pattern B + Pattern A overlap;
  * the `.eq('user_id', userId)` is a defense-in-depth narrowing.
+ *
+ * Wrapped in React `cache()` so the outer dashboard layout and the per-event
+ * layout (which both need the switcher list) share a single round-trip per
+ * request. Cache key is (supabase, userId, memberType); the cached Supabase
+ * client (lib/supabase/server.ts) keeps the first arg identity-stable so
+ * the dedupe actually fires.
  */
-export async function fetchUserEvents(
+export const fetchUserEvents = cache(async (
   supabase: SupabaseClient,
   userId: string,
   memberType?: EventWithRole['member_type'],
-): Promise<EventWithRole[]> {
+): Promise<EventWithRole[]> => {
   let query = supabase
     .from('event_members')
     .select(
@@ -96,7 +103,7 @@ export async function fetchUserEvents(
     });
 
   return events;
-}
+});
 
 // Post-wedding grace window before an event flips to "expired" on the
 // event-switcher carousel and on per-feature App Store-detail surfaces.

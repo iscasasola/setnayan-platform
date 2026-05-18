@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
 import { fetchUserEvents, formatEventDate, type EventWithRole } from '@/lib/events';
 import { fetchUserRoleSummary, type UserRoleSummary } from '@/lib/roles';
 
@@ -9,12 +10,10 @@ export const metadata = {
 };
 
 export default async function DashboardIndexPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   // Layout already redirects to /login if no user; this is for type narrowing.
   if (!user) redirect('/login');
+  const supabase = await createClient();
 
   const events = await fetchUserEvents(supabase, user.id, 'couple');
   const active = events.filter((e) => !e.archived);

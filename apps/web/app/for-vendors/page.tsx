@@ -3,15 +3,18 @@ import { Apple } from 'lucide-react';
 import { SiteHeader } from '@/app/_components/site-header';
 import { Logo } from '@/app/_components/logo';
 import { Hero } from './_sections/hero';
-import { Comparison } from './_sections/comparison';
 import { OperatingSystem } from './_sections/operating-system';
 import { Pricing } from './_sections/pricing';
-import { WhatYouKeep } from './_sections/what-you-keep';
-import { SponsoredBoost } from './_sections/sponsored-boost';
-import { Verification } from './_sections/verification';
 import { Testimonials } from './_sections/testimonials';
 import { ClosingCta } from './_sections/closing-cta';
 import { StickyMobileCta } from './_sections/sticky-mobile-cta';
+
+// Page trim 2026-05-18: dropped Comparison, WhatYouKeep, SponsoredBoost,
+// Verification sections to lighten the page (owner directive — "too
+// documentary, want light and powerful for vendors to scale"). 17 sections
+// → 7. Substance routed elsewhere: Sponsored Boost ladder lives on
+// /pricing; verification flow + density rules link to /help; the
+// before/after comparison content folded into the hero copy.
 
 // /for-vendors — vendor-side acquisition landing page.
 //
@@ -139,12 +142,8 @@ export default function ForVendorsPage() {
       <main className="min-h-dvh pb-24 sm:pb-0">
         <SiteHeader />
         <Hero />
-        <Comparison />
         <OperatingSystem />
         <Pricing />
-        <WhatYouKeep />
-        <SponsoredBoost />
-        <Verification />
         <Testimonials />
         <ClosingCta />
         <SiteFooter />

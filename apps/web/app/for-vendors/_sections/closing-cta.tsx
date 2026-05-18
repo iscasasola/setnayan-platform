@@ -15,51 +15,32 @@ export function ClosingCta() {
           <div className="grid gap-8 lg:grid-cols-[1.4fr_1fr] lg:items-center">
             <div className="space-y-4">
               <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-                Set na &lsquo;yan para sa business mo.
+                Set na &lsquo;yan.
               </p>
-              <h2 className="font-sans text-3xl font-semibold tracking-tight text-ink sm:text-4xl lg:text-5xl">
-                Run your wedding business in one app.
+              <h2 className="font-sans text-4xl font-semibold leading-tight tracking-tight text-ink sm:text-5xl">
+                Pioneer vendor spot.{' '}
+                <span className="text-ink/55">Free for 10 months.</span>
               </h2>
               <p className="text-base text-ink/65">
-                Free to list. Verified within a week. Pro when you&rsquo;re
-                ready, paused when you&rsquo;re not. We&rsquo;ll be here when
-                you decide.
+                Pre-register today. We&rsquo;ll verify within a week. Couples
+                land on a marketplace already stocked with photographers,
+                caterers, florists, and coordinators by December 1.
               </p>
             </div>
             <div className="flex flex-col gap-3">
               <Link
                 href="/signup?as=vendor"
-                className="button-primary inline-flex items-center justify-between gap-3 px-5 py-3 text-sm"
+                className="button-primary inline-flex min-h-[52px] items-center justify-center gap-2 px-6 text-base font-semibold"
               >
-                <span className="flex flex-col items-start text-left">
-                  <span className="font-semibold">List your business</span>
-                  <span className="font-mono text-[10px] uppercase tracking-[0.15em] opacity-80">
-                    Free
-                  </span>
-                </span>
-                <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                Pre-register your business
+                <ArrowRight aria-hidden className="h-5 w-5" strokeWidth={2} />
               </Link>
               <Link
                 href="/help#contact"
-                className="button-secondary inline-flex items-center justify-between gap-3 px-5 py-3 text-sm"
+                className="text-center text-sm font-medium text-ink/55 underline-offset-4 hover:text-terracotta hover:underline"
               >
-                <span className="flex flex-col items-start text-left">
-                  <span className="font-semibold">Talk to a human</span>
-                  <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                    Same-day reply
-                  </span>
-                </span>
-                <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                Talk to a human — same-day reply
               </Link>
-              <p className="text-[11px] text-ink/55">
-                Already on Setnayan?{' '}
-                <Link
-                  href="/login"
-                  className="font-medium text-terracotta underline-offset-4 hover:underline"
-                >
-                  Sign in
-                </Link>
-              </p>
             </div>
           </div>
         </div>

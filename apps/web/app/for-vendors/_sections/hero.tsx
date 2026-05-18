@@ -11,65 +11,36 @@ export function Hero() {
   return (
     <section className="border-b border-ink/5 bg-cream">
       <div className="mx-auto grid w-full max-w-6xl gap-12 px-4 pt-16 pb-24 sm:px-6 sm:pt-20 lg:grid-cols-2 lg:px-8 lg:pt-24">
-        <div className="space-y-6">
+        <div className="space-y-8">
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            For Filipino wedding vendors · Founding cohort
+            Pioneer vendors · Pre-launch
           </p>
-          <h1 className="font-sans text-4xl font-semibold tracking-tight text-ink sm:text-5xl lg:text-6xl">
-            Run your wedding business in one app.
+          <h1 className="font-sans text-5xl font-semibold leading-[1.05] tracking-tight text-ink sm:text-6xl lg:text-[72px]">
+            Scale your wedding business.{' '}
+            <span className="text-ink/55">One app.</span>
           </h1>
-          <p className="max-w-prose text-lg text-ink/70">
-            Listing. Calendar. Chat. Proposals. Payments. Reviews. Built for
-            Filipino vendors who&rsquo;d rather book the gig than chase the
-            GCash receipt.
+          <p className="max-w-prose text-xl leading-relaxed text-ink/70 sm:text-2xl">
+            Get found by couples planning weddings across the Philippines.
+            Pro tier <strong className="text-ink">free for 10 months</strong>{' '}
+            when you pre-register today.
           </p>
-          <div className="rounded-2xl border-2 border-terracotta/40 bg-terracotta/5 p-4 sm:p-5">
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
-              Founding-vendor window — June 1 → Dec 1, 2026
-            </p>
-            <p className="mt-2 text-sm text-ink">
-              Pre-register today and lock in <strong>10 months of Pro tier FREE</strong>{' '}
-              (until March 31, 2027). Couples open Dec 1 — get your portfolio,
-              pricing, and contracts ready before the engagement-season surge.
-            </p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <Link
-              className="button-primary inline-flex items-center justify-between gap-3 px-5 py-3 text-sm"
+              className="button-primary inline-flex min-h-[52px] items-center justify-center gap-2 px-8 text-base font-semibold"
               href="/signup?as=vendor"
             >
-              <span className="flex flex-col items-start text-left">
-                <span className="font-semibold">Pre-register your business</span>
-                <span className="font-mono text-[10px] uppercase tracking-[0.15em] opacity-80">
-                  Free forever to list · Pro free until Mar 31, 2027
-                </span>
-              </span>
-              <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              Pre-register your business
+              <ArrowRight aria-hidden className="h-5 w-5" strokeWidth={2} />
             </Link>
-            <Link
-              className="button-secondary inline-flex items-center justify-between gap-3 px-5 py-3 text-sm"
-              href="/help#contact"
-            >
-              <span className="flex flex-col items-start text-left">
-                <span className="font-semibold">Talk to a human</span>
-                <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                  We&rsquo;ll reply same day
-                </span>
-              </span>
-              <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            </Link>
-          </div>
-          <p className="text-xs text-ink/55">
-            Free to list · Pro &amp; All Tools FREE until Mar 31, 2027 · BIR receipts handled
-          </p>
-          <p className="text-xs text-ink/50">
-            Already have an account?{' '}
             <Link
               href="/login"
-              className="font-medium text-terracotta underline-offset-4 hover:underline"
+              className="text-sm font-medium text-ink/55 underline-offset-4 hover:text-terracotta hover:underline"
             >
-              Sign in
+              Already have an account? Sign in
             </Link>
+          </div>
+          <p className="text-xs text-ink/45">
+            Free forever to list · Pro &amp; All Tools FREE until Mar 31, 2027 · BIR receipts handled
           </p>
         </div>
 

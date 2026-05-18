@@ -36,9 +36,45 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 
+function getOrigin(url: string | undefined): string | null {
+  if (!url) return null;
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+}
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // Preconnect to backend origins the marketing + dashboard surfaces will
+  // hit within the first second — saves the cold DNS+TCP+TLS roundtrip on
+  // the first auth check, first analytics event, and first signed-URL fetch.
+  const supabaseOrigin = getOrigin(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  const posthogOrigin = getOrigin(process.env.NEXT_PUBLIC_POSTHOG_HOST);
+  const r2Origin = getOrigin(process.env.R2_PUBLIC_URL);
+
   return (
     <html lang="en-PH">
+      <head>
+        {supabaseOrigin ? (
+          <>
+            <link rel="preconnect" href={supabaseOrigin} crossOrigin="anonymous" />
+            <link rel="dns-prefetch" href={supabaseOrigin} />
+          </>
+        ) : null}
+        {posthogOrigin ? (
+          <>
+            <link rel="preconnect" href={posthogOrigin} crossOrigin="anonymous" />
+            <link rel="dns-prefetch" href={posthogOrigin} />
+          </>
+        ) : null}
+        {r2Origin ? (
+          <>
+            <link rel="preconnect" href={r2Origin} crossOrigin="anonymous" />
+            <link rel="dns-prefetch" href={r2Origin} />
+          </>
+        ) : null}
+      </head>
       <body className="min-h-dvh bg-cream font-sans text-ink antialiased">
         <Providers>{children}</Providers>
         <ClientTypeDetector />

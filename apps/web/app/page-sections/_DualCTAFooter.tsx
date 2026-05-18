@@ -188,7 +188,7 @@ export function SiteFooter() {
             </p>
             <ul
               role="list"
-              aria-label="Language switcher (placeholder, non-functional in V1)"
+              aria-label="Language switcher (English, Tagalog, Sugbuanon — available at launch)"
               className="mt-4 space-y-2 text-sm"
             >
               {LANGUAGES.map((l, i) => (

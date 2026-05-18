@@ -54,8 +54,8 @@ export function CoverageMap() {
               in that city.
             </p>
             <p className="text-xs text-ink/50">
-              Map is a skeleton placeholder. Real SVG basemap + live PSGC
-              counts wire in once the coverage data lands.
+              City pins light up as Setnayan-booked weddings ship in each
+              location.
             </p>
           </div>
 
@@ -64,7 +64,7 @@ export function CoverageMap() {
               <svg
                 viewBox="0 0 320 380"
                 role="img"
-                aria-label="Map of the Philippines with city-level pins, placeholder"
+                aria-label="Map of the Philippines with city-level pins"
                 className="h-full w-full"
               >
                 {/* Decorative island silhouettes — placeholder geography. */}

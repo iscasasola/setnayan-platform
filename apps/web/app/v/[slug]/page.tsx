@@ -437,10 +437,13 @@ function ReviewsSection({
       <ReviewHeroMetrics stats={reviewStats} />
 
       {reviews.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-ink/20 bg-cream p-6 text-sm text-ink/55">
-          No reviews yet. Be the first — couples can leave a review after their service is
-          marked delivered.
-        </p>
+        <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-6">
+          <p className="text-sm text-ink/65">This vendor still has no review.</p>
+          <p className="mt-1 text-xs text-ink/45">
+            Bookings through Setnayan generate a review request 24 hours after
+            the event.
+          </p>
+        </div>
       ) : (
         <ul className="space-y-4">
           {reviews.map((r) => (

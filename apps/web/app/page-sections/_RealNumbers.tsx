@@ -22,7 +22,7 @@
 export function RealNumbers() {
   return (
     <section
-      aria-label="Setnayan numbers — pre-launch placeholder"
+      aria-label="Setnayan numbers — pre-launch"
       className="border-b border-ink/5 bg-cream"
     >
       <div className="mx-auto flex w-full max-w-6xl items-center justify-center px-4 py-12 sm:px-6 sm:py-16 lg:px-8">

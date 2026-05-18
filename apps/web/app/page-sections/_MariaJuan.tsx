@@ -154,8 +154,7 @@ export function MariaJuan() {
               same data.
             </p>
             <p className="text-xs text-ink/50">
-              Interactive preview is a skeleton placeholder — full demo lands
-              with the next design pass.
+              A live walkthrough lands as we approach launch — December 1, 2026.
             </p>
           </div>
           <div className="lg:pl-8">

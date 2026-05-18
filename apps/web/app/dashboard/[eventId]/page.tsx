@@ -20,8 +20,15 @@ import {
 } from 'lucide-react';
 import { countUnread } from '@/lib/notifications';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { computeGuestStats, fetchGuestsByEvent, guestDisplayName } from '@/lib/guests';
 import { formatEventDate } from '@/lib/events';
+import {
+  sweepExpiredConcierge,
+  type ConciergeEnforcementLevel,
+  type ConciergeStatus,
+} from '@/lib/concierge';
+import { ConciergeBanner } from './_components/concierge-banner';
 import { getLocale, makeT, type TranslationKey } from '@/lib/i18n';
 import {
   STEPS,
@@ -184,28 +191,39 @@ function relativeTime(iso: string, now: Date): string {
 
 export default async function EventHomePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ eventId: string }>;
+  searchParams?: Promise<{ concierge_trial?: string }>;
 }) {
   const { eventId } = await params;
+  const search = searchParams ? await searchParams : {};
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // Lazy expiry sweep at the top of any Concierge-surfacing page (no-cron
+  // architecture per CLAUDE.md 2026-05-14 / PR #47). Fire-and-forget; failures
+  // never block the dashboard render.
+  const adminClient = createAdminClient();
+  void sweepExpiredConcierge(adminClient);
+
   const [eventRes, profileRes, guests, manualSteps, unreadCount, locale] =
     await Promise.all([
       supabase
         .from('events')
         .select(
-          'event_id, display_name, event_date, slug, venue_name, monogram_text, palette_finalized_at',
+          'event_id, display_name, event_date, slug, venue_name, monogram_text, palette_finalized_at, concierge_status, concierge_tier, concierge_activated_at, concierge_expires_at, concierge_long_engagement_advised_at',
         )
         .eq('event_id', eventId)
         .maybeSingle(),
       supabase
         .from('users')
-        .select('display_name, planner_mode')
+        .select(
+          'display_name, planner_mode, concierge_trial_used_at, concierge_enforcement_level',
+        )
         .eq('user_id', user.id)
         .maybeSingle(),
       fetchGuestsByEvent(supabase, eventId),
@@ -281,6 +299,42 @@ export default async function EventHomePage({
     href: `/dashboard/${eventId}/guests/${g.guest_id}`,
   }));
 
+  // Concierge state for the inline banner (iteration 0021 § 2.0b).
+  const eventConciergeRow = event as typeof event & {
+    concierge_status?: ConciergeStatus | null;
+    concierge_activated_at?: string | null;
+    concierge_expires_at?: string | null;
+    concierge_long_engagement_advised_at?: string | null;
+  };
+  const conciergeStatus: ConciergeStatus = eventConciergeRow.concierge_status ?? 'diy';
+  const conciergeEnforcementLevel: ConciergeEnforcementLevel =
+    ((profile as { concierge_enforcement_level?: ConciergeEnforcementLevel } | null)
+      ?.concierge_enforcement_level ?? 'none');
+  const conciergeTrialUsedAt =
+    (profile as { concierge_trial_used_at?: string | null } | null)
+      ?.concierge_trial_used_at ?? null;
+
+  // Long-engagement advisory one-shot stamp (per HANDOFF_2026-05-17 § 3 +
+  // iteration 0016 § 0). If active Concierge AND wedding > activated + 24mo
+  // AND not yet stamped, stamp now so the advisory only fires once per event.
+  if (
+    conciergeStatus === 'active' &&
+    eventConciergeRow.concierge_activated_at &&
+    event.event_date &&
+    !eventConciergeRow.concierge_long_engagement_advised_at &&
+    isWeddingBeyondConciergeCap(
+      eventConciergeRow.concierge_activated_at,
+      event.event_date,
+    )
+  ) {
+    void adminClient
+      .from('events')
+      .update({ concierge_long_engagement_advised_at: new Date().toISOString() })
+      .eq('event_id', eventId)
+      .is('concierge_long_engagement_advised_at', null)
+      .then(() => undefined);
+  }
+
   return (
     <section className="space-y-8">
       <EventDayPrepCta eventId={eventId} eventDate={event.event_date} />
@@ -299,6 +353,18 @@ export default async function EventHomePage({
           nearbyTables={dayOfNearbyTables}
         />
       ) : null}
+
+      <ConciergeBanner
+        eventId={eventId}
+        status={conciergeStatus}
+        expiresAt={eventConciergeRow.concierge_expires_at ?? null}
+        activatedAt={eventConciergeRow.concierge_activated_at ?? null}
+        weddingDate={event.event_date}
+        longEngagementAdvisedAt={eventConciergeRow.concierge_long_engagement_advised_at ?? null}
+        enforcementLevel={conciergeEnforcementLevel}
+        trialUsedAt={conciergeTrialUsedAt}
+        trialResultStatus={search.concierge_trial ?? null}
+      />
 
       <WelcomeHeader
         greeting={greeting}
@@ -321,6 +387,15 @@ export default async function EventHomePage({
       <ActivityFeed activity={activity} tr={tr} />
     </section>
   );
+}
+
+function isWeddingBeyondConciergeCap(activatedIso: string, weddingIso: string): boolean {
+  const activated = new Date(activatedIso);
+  const wedding = new Date(weddingIso);
+  if (Number.isNaN(activated.getTime()) || Number.isNaN(wedding.getTime())) return false;
+  const cap = new Date(activated);
+  cap.setMonth(cap.getMonth() + 24);
+  return wedding.getTime() > cap.getTime();
 }
 
 function WelcomeHeader({

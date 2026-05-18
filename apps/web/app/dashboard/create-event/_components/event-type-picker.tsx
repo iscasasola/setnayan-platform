@@ -2,9 +2,44 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { createWeddingEvent } from '../actions';
+
+type ConciergeChoice = 'diy' | 'trial' | 'paid';
+
+type ConciergeOption = {
+  key: ConciergeChoice;
+  badge: string;
+  title: string;
+  bullets: string[];
+  cta: string;
+};
+
+const CONCIERGE_OPTIONS: ConciergeOption[] = [
+  {
+    key: 'diy',
+    badge: 'Free',
+    title: 'DIY mode',
+    bullets: [
+      'All dashboard tools.',
+      'Plan at your own pace.',
+      'No timeline help.',
+    ],
+    cta: 'Start Free',
+  },
+  {
+    key: 'paid',
+    badge: '₱4,999',
+    title: 'Setnayan Concierge',
+    bullets: [
+      'Full 9-step roadmap.',
+      'Daily nudges + priority vendor matching.',
+      'Less than ₱25K coordinator.',
+    ],
+    cta: 'Buy ₱4,999',
+  },
+];
 
 // V1 tile list (locked 2026-05-16). Only `wedding` is selectable per
 // iteration 0000 § 2.5; the rest render as "Coming soon" placeholders so
@@ -26,6 +61,7 @@ export function EventTypePicker() {
   const N = EVENT_TYPES.length;
   const [centerIdx, setCenterIdx] = useState(0);
   const [selectedKey, setSelectedKey] = useState<EventTypeKey | null>(null);
+  const [conciergeChoice, setConciergeChoice] = useState<ConciergeChoice>('diy');
 
   // Modulo helper that keeps the index positive when going backwards — this
   // is what gives the carousel its "infinite" feel: rewinding from index 0
@@ -108,8 +144,9 @@ export function EventTypePicker() {
       </section>
 
       {selected ? (
-        <form action={createWeddingEvent} className="mt-10 space-y-5">
+        <form action={createWeddingEvent} className="mt-10 space-y-6">
           <input type="hidden" name="event_type" value={selected.key} />
+          <input type="hidden" name="concierge_choice" value={conciergeChoice} />
 
           <p className="rounded-md border border-ink/10 bg-cream px-4 py-2.5 text-sm text-ink/75">
             <span aria-hidden className="mr-2 text-base">
@@ -144,12 +181,21 @@ export function EventTypePicker() {
             </p>
           </div>
 
+          <ConciergeChoiceCard
+            selected={conciergeChoice}
+            onSelect={setConciergeChoice}
+          />
+
           <div className="flex flex-col gap-3 sm:flex-row">
             <SubmitButton
               className="button-primary w-full sm:w-auto"
               pendingLabel="Creating event…"
             >
-              Create {selected.label.toLowerCase()} event
+              {conciergeChoice === 'paid'
+                ? `Create event · continue to Concierge ₱4,999`
+                : conciergeChoice === 'trial'
+                  ? `Create event · start 3-day Concierge trial`
+                  : `Create ${selected.label.toLowerCase()} event (DIY)`}
             </SubmitButton>
             <Link className="button-secondary w-full sm:w-auto" href="/dashboard">
               Cancel
@@ -162,6 +208,98 @@ export function EventTypePicker() {
         </p>
       )}
     </>
+  );
+}
+
+function ConciergeChoiceCard({
+  selected,
+  onSelect,
+}: {
+  selected: ConciergeChoice;
+  onSelect: (choice: ConciergeChoice) => void;
+}) {
+  return (
+    <section
+      aria-labelledby="concierge-choice-heading"
+      className="space-y-3 rounded-2xl border border-ink/10 bg-cream/40 p-4 sm:p-5"
+    >
+      <header className="space-y-1">
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
+          Wedding coordinator ₱25,000+ · Setnayan Concierge ₱4,999
+        </p>
+        <h2
+          id="concierge-choice-heading"
+          className="text-base font-semibold tracking-tight text-ink sm:text-lg"
+        >
+          How would you like to plan?
+        </h2>
+        <p className="text-xs text-ink/55">
+          Less than your invitation suite. More than worth it.
+        </p>
+      </header>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        {CONCIERGE_OPTIONS.map((opt) => {
+          const isActive = selected === opt.key;
+          return (
+            <button
+              key={opt.key}
+              type="button"
+              onClick={() => onSelect(opt.key)}
+              aria-pressed={isActive}
+              className={`flex h-full flex-col gap-2 rounded-xl border p-4 text-left transition-all ${
+                isActive
+                  ? opt.key === 'paid'
+                    ? 'border-terracotta bg-terracotta/[0.06] ring-2 ring-terracotta/30'
+                    : 'border-ink/30 bg-cream ring-2 ring-ink/15'
+                  : 'border-ink/15 bg-cream hover:border-terracotta/40 hover:bg-terracotta/[0.04]'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span
+                  className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
+                    opt.key === 'paid'
+                      ? 'bg-terracotta/15 text-terracotta-700'
+                      : 'bg-ink/10 text-ink/65'
+                  }`}
+                >
+                  {opt.badge}
+                </span>
+                {opt.key === 'paid' ? (
+                  <Sparkles aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+                ) : null}
+              </div>
+              <span className="text-base font-semibold text-ink">{opt.title}</span>
+              <ul className="space-y-1 text-xs text-ink/65">
+                {opt.bullets.map((b) => (
+                  <li key={b}>{b}</li>
+                ))}
+              </ul>
+              <span
+                className={`mt-auto inline-flex items-center gap-1.5 text-xs font-medium ${
+                  isActive ? 'text-terracotta-700' : 'text-ink/65'
+                }`}
+              >
+                {isActive ? '✓ Selected' : opt.cta}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => onSelect(selected === 'trial' ? 'diy' : 'trial')}
+        className="mx-auto block rounded-full px-3 py-1 text-xs font-medium text-terracotta hover:underline"
+      >
+        {selected === 'trial'
+          ? '✓ Try 3 days free (no card required) — tap to undo'
+          : 'Not ready to commit? Try 3 days free →'}
+      </button>
+      <p className="text-center text-[11px] text-ink/50">
+        Activate or change anytime from Settings → Setnayan Concierge.
+      </p>
+    </section>
   );
 }
 

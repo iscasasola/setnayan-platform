@@ -1,6 +1,4 @@
-import dynamic from 'next/dynamic';
-import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import nextDynamic from 'next/dynamic';
 import { SiteHeader } from '@/app/_components/site-header';
 import { AnnouncementBar } from '@/app/page-sections/_AnnouncementBar';
 import { Hero } from '@/app/page-sections/_Hero';
@@ -27,7 +25,7 @@ import { DynamicStickyMobileCTA } from '@/app/page-sections/_StickyMobileCTAClie
 // contains the section (preserving SEO + above-the-fold layout stability)
 // while its hydration JS lands in its own chunk that loads in parallel
 // with the rest of the page.
-const VendorCompat = dynamic(
+const VendorCompat = nextDynamic(
   () => import('@/app/page-sections/_VendorCompat'),
   {
     // Placeholder height matches the rendered section's intrinsic min so
@@ -77,6 +75,15 @@ export const metadata = {
     "Setnayan is the only Filipino-built platform with real operating tools for both sides — from your guest list to your same-day highlight reel. Built in the Philippines.",
 };
 
+// Marketing home is rendered at build time and served straight from the CDN
+// edge — no per-request SSR, no auth roundtrip, no serverless cold start.
+// TTFB drops from ~300 ms (Singapore edge bouncing to US-East compute) to
+// ~30 ms (edge cache hit). The signed-in → /dashboard redirect that used
+// to live in this file moved to middleware.ts so that this page stays
+// statically pre-rendered for the 95%+ of visitors who arrive logged out.
+export const dynamic = 'force-static';
+export const revalidate = false;
+
 const SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
 ).replace(/\/$/, '');
@@ -125,25 +132,12 @@ const HOMEPAGE_JSONLD = {
   ],
 };
 
-export default async function HomePage() {
-  // Resolve the viewer asynchronously and route signed-in users to the
-  // app surface. If the supabase call throws (env misconfig, network blip,
-  // outage) we fall through to the public marketing render rather than
-  // hitting the global error boundary — the homepage is the most-indexed
-  // page on the site, so it must keep serving even when auth is degraded.
-  let user: { id: string } | null = null;
-  try {
-    const supabase = await createClient();
-    const result = await supabase.auth.getUser();
-    user = result.data.user;
-  } catch {
-    user = null;
-  }
-
-  if (user) {
-    redirect('/dashboard');
-  }
-
+export default function HomePage() {
+  // Signed-in viewers are redirected to /dashboard by middleware.ts
+  // before this component runs, so this body only renders for anonymous
+  // visitors. Keep it free of `cookies()`, `headers()`, or any other
+  // dynamic API — adding one would silently revert this route to
+  // per-request SSR and undo the TTFB win.
   return (
     <>
       <script

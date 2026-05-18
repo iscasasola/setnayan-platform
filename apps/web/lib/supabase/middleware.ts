@@ -1,8 +1,14 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import type { User } from '@supabase/supabase-js';
 import { NextResponse, type NextRequest } from 'next/server';
 import { applyPersistentCookieDefaults, readClientType } from './cookies';
 
 type CookieToSet = { name: string; value: string; options?: CookieOptions };
+
+export type UpdateSessionResult = {
+  response: NextResponse;
+  user: User | null;
+};
 
 // Proactively refresh the session when the access token is within this many
 // milliseconds of expiry. Native-like clients (desktop app, installed PWA)
@@ -11,7 +17,9 @@ type CookieToSet = { name: string; value: string; options?: CookieOptions };
 const PROACTIVE_REFRESH_WINDOW_MS_NATIVE = 30 * 60 * 1000;
 const PROACTIVE_REFRESH_WINDOW_MS_WEB = 10 * 60 * 1000;
 
-export async function updateSession(request: NextRequest) {
+export async function updateSession(
+  request: NextRequest,
+): Promise<UpdateSessionResult> {
   let response = NextResponse.next({ request });
 
   const clientHint = readClientType(
@@ -65,5 +73,5 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  return response;
+  return { response, user };
 }

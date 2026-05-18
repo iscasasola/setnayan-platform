@@ -150,12 +150,143 @@ export default function PrivacyPage() {
           </ul>
         </Section>
 
+        <Section title="YouTube integration (Panood · iteration 0011)">
+          <p>
+            Couples who purchase a Panood SKU (live wedding broadcast) connect
+            their own YouTube channel to Setnayan so the live ceremony can
+            stream to their channel and embed on the event landing page. The
+            connection uses Google&rsquo;s standard OAuth sign-in. You can
+            revoke it at any time from your{' '}
+            <a
+              href="https://myaccount.google.com/permissions"
+              className="text-terracotta hover:underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Google Account permissions
+            </a>
+            .
+          </p>
+          <ul className="ml-5 list-disc space-y-1 pt-2">
+            <li>
+              <strong>Scopes requested.</strong> Only{' '}
+              <code className="font-mono text-[12px]">.../auth/youtube</code>{' '}
+              (create and manage live broadcasts on your channel),{' '}
+              <code className="font-mono text-[12px]">.../auth/youtube.upload</code>{' '}
+              (upload videos · used by V1.5+ AI Edited Highlight),{' '}
+              <code className="font-mono text-[12px]">.../auth/userinfo.email</code>, and{' '}
+              <code className="font-mono text-[12px]">.../auth/userinfo.profile</code>.
+              We never request read access to your subscribers, comments, view
+              history, watch history, search history, or any YouTube data
+              unrelated to the broadcast we created for your event.
+            </li>
+            <li>
+              <strong>What we receive from Google.</strong> A refresh token
+              tied to your YouTube channel, your channel name and ID, an
+              access token (typically valid 1 hour), and the broadcast IDs we
+              create on your behalf. We do not receive your Google password.
+            </li>
+            <li>
+              <strong>How we use it.</strong> The refresh token is read by our
+              broadcaster orchestration service only during your event window,
+              to (a) create the YouTube live broadcast for your event, (b)
+              push the selected camera feed to YouTube&rsquo;s ingest endpoint
+              while you are live, and (c) embed the resulting public broadcast
+              in your Setnayan event landing page. We do not browse, modify,
+              or delete any other content on your YouTube channel.
+            </li>
+            <li>
+              <strong>Storage + scope.</strong> Tokens and the channel ID are
+              stored in <code className="font-mono text-[12px]">oauth_grants</code>{' '}
+              in our Supabase database (Singapore region · encrypted at rest),
+              scoped to one specific Setnayan event. They are never shared
+              with vendors, other couples, or third parties.
+            </li>
+            <li>
+              <strong>Limited Use commitment.</strong> Setnayan&rsquo;s use
+              and transfer of information received from Google APIs to any
+              other app adheres to the{' '}
+              <a
+                href="https://developers.google.com/terms/api-services-user-data-policy"
+                className="text-terracotta hover:underline"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Google API Services User Data Policy
+              </a>
+              , including the Limited Use requirements. We never use your
+              YouTube data for advertising, never sell or transfer it, and
+              never use it to train AI or ML models.
+            </li>
+            <li>
+              <strong>Retention.</strong> Grants are kept until the earlier of
+              (a) you revoke them from your Google account or from your
+              Setnayan profile, (b) you delete your Setnayan account, or (c)
+              30 days after the event ends. Refresh tokens past their expiry
+              are purged automatically.
+            </li>
+            <li>
+              <strong>Revoking access.</strong> Two paths, either works
+              immediately:
+              <ul className="ml-5 mt-1 list-disc space-y-1">
+                <li>
+                  In Setnayan, open the Panood page and click{' '}
+                  <em>Disconnect YouTube</em>. We soft-revoke the grant
+                  locally.
+                </li>
+                <li>
+                  In your Google account, go to{' '}
+                  <a
+                    href="https://myaccount.google.com/permissions"
+                    className="text-terracotta hover:underline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Security → Third-party apps with account access
+                  </a>{' '}
+                  and remove Setnayan. We honor the revocation on the next
+                  broadcast attempt.
+                </li>
+              </ul>
+            </li>
+            <li>
+              <strong>Broadcasts on your YouTube channel.</strong> Once a
+              broadcast is created on your channel, the recording is owned by
+              you. Edit or delete it from YouTube Studio like any other video
+              — Setnayan cannot delete videos on your behalf after the
+              broadcast ends. Your use of YouTube is also governed by{' '}
+              <a
+                href="https://www.youtube.com/t/terms"
+                className="text-terracotta hover:underline"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                YouTube&rsquo;s Terms of Service
+              </a>{' '}
+              and the{' '}
+              <a
+                href="https://policies.google.com/privacy"
+                className="text-terracotta hover:underline"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Google Privacy Policy
+              </a>
+              .
+            </li>
+          </ul>
+        </Section>
+
         <Section title="Subprocessors">
           <ul className="ml-5 list-disc space-y-1">
             <li>Supabase (database + auth, Singapore region)</li>
             <li>Vercel (web hosting)</li>
             <li>Cloudflare (CDN + planned R2 object storage, APAC region)</li>
             <li>Resend (transactional email — pending activation)</li>
+            <li>
+              Google (YouTube Data API — only for couples who purchase Panood
+              and explicitly connect their YouTube channel via OAuth)
+            </li>
             <li>
               TikTok (Personal-tier Patiktok only · for couples who explicitly
               connect their TikTok account via OAuth)

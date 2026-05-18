@@ -17,12 +17,12 @@ import { formatPromoEndDateShort, LAUNCH_PROMO_UNTIL } from '@/lib/sku-catalog';
 export const metadata = {
   title: 'Pricing — Setnayan',
   description:
-    'Setnayan Concierge ₱4,999 with 3-day free trial. Free planning tools. Most add-ons free until Mar 31, 2027. Flat 5.0% at checkout.',
+    'Setnayan Concierge ₱2,499 with 3-day free trial. Free planning tools. Most add-ons free until Mar 31, 2027. Flat 5.0% at checkout.',
   alternates: { canonical: '/pricing' },
   openGraph: {
     title: 'Pricing — Setnayan',
     description:
-      'Setnayan Concierge ₱4,999. Free planning tools. Add-ons free until Mar 31, 2027.',
+      'Setnayan Concierge ₱2,499. Free planning tools. Add-ons free until Mar 31, 2027.',
     url: '/pricing',
     type: 'website',
     siteName: 'Setnayan',
@@ -30,7 +30,7 @@ export const metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Pricing — Setnayan',
-    description: 'Concierge ₱4,999 · planning free · 5.0% at checkout.',
+    description: 'Concierge ₱2,499 · planning free · 5.0% at checkout.',
   },
 };
 
@@ -122,7 +122,7 @@ export default function PricingPage() {
             </h2>
             <p className="mt-4 flex items-baseline gap-3">
               <span className="font-sans text-6xl font-semibold tracking-tight text-ink sm:text-7xl">
-                ₱4,999
+                ₱2,499
               </span>
               <span className="text-base text-ink/55">one-time</span>
             </p>

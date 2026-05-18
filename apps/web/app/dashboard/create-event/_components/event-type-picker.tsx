@@ -30,14 +30,14 @@ const CONCIERGE_OPTIONS: ConciergeOption[] = [
   },
   {
     key: 'paid',
-    badge: '₱4,999',
+    badge: '₱2,499',
     title: 'Setnayan Concierge',
     bullets: [
       'Full 9-step roadmap.',
       'Daily nudges + priority vendor matching.',
       'Less than ₱25K coordinator.',
     ],
-    cta: 'Buy ₱4,999',
+    cta: 'Buy ₱2,499',
   },
 ];
 
@@ -192,7 +192,7 @@ export function EventTypePicker() {
               pendingLabel="Creating event…"
             >
               {conciergeChoice === 'paid'
-                ? `Create event · continue to Concierge ₱4,999`
+                ? `Create event · continue to Concierge ₱2,499`
                 : conciergeChoice === 'trial'
                   ? `Create event · start 3-day Concierge trial`
                   : `Create ${selected.label.toLowerCase()} event (DIY)`}
@@ -225,7 +225,7 @@ function ConciergeChoiceCard({
     >
       <header className="space-y-1">
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-          Wedding coordinator ₱25,000+ · Setnayan Concierge ₱4,999
+          Wedding coordinator ₱25,000+ · Setnayan Concierge ₱2,499
         </p>
         <h2
           id="concierge-choice-heading"

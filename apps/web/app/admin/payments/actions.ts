@@ -143,6 +143,12 @@ export async function approvePayment(formData: FormData) {
 
   revalidatePath('/admin/payments');
   revalidatePath('/admin/payouts');
+  // Force a refresh of the couple's user-facing routes so any
+  // activation-reading UI (Concierge banner, add-on pages) picks up the
+  // status change immediately. Full activation-cycle UI fix is queued as
+  // PR B (proper per-SKU activation dispatcher); for now this at least
+  // makes the couple's dashboard re-render fresh data after admin approves.
+  revalidatePath('/dashboard', 'layout');
 }
 
 async function schedulePayoutsForOrder(args: {

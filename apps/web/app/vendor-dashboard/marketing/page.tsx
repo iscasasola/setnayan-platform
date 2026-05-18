@@ -473,9 +473,9 @@ function StackedExample({ isVerified }: { isVerified: boolean }) {
         Annual:{' '}
         <span className="font-mono">₱499</span> +{' '}
         <span className="font-mono">₱99</span> +{' '}
-        <span className="font-mono">₱8,000</span> (weekly) +{' '}
-        <span className="font-mono">₱800,000/yr</span> (~₱15,400/wk amortized) ≈{' '}
-        <span className="font-semibold">~₱24,000/week effective</span>.
+        <span className="font-mono">₱7,999</span> (weekly) +{' '}
+        <span className="font-mono">₱799,999/yr</span> (~₱15,384/wk amortized) ≈{' '}
+        <span className="font-semibold">~₱23,981/week effective</span>.
       </p>
       {!isVerified ? (
         <p className="mt-2 text-xs text-ink/55">

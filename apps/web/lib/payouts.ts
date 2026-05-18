@@ -84,11 +84,12 @@ export const BIR_WITHHOLDING_BPS = 50;
 export const DEFAULT_DISBURSEMENT_FEE_CENTAVOS = 2000;
 
 /**
- * Default Setnayan Pay convenience fee (5.5% cheap rails). Wiring per-method
- * rates lives in setnayan_pay_methods (migration 20260516030000); this is the
- * fallback used when the order doesn't yet carry a `payment_method_key`.
+ * Default Setnayan Pay convenience fee — flat 5.0% across all rails (locked
+ * 2026-05-16 row 16, supersedes morning 5.5%/6.5%). Per-method config still
+ * lives in setnayan_pay_methods; this constant is the fallback when an order
+ * doesn't yet carry a `payment_method_key`.
  */
-export const DEFAULT_SETNAYAN_FEE_BPS = 550;
+export const DEFAULT_SETNAYAN_FEE_BPS = 500;
 
 /** Conservative gateway fee for V1 manual reconciliation (no gateway today). */
 export const DEFAULT_GATEWAY_FEE_BPS = 0;
@@ -96,7 +97,7 @@ export const DEFAULT_GATEWAY_FEE_BPS = 0;
 export type PayoutInputs = {
   /** Total customer-paid amount in centavos (after VAT, this is the gross). */
   grossCentavos: number;
-  /** Setnayan convenience-fee rate (bps). Defaults to 5.5% cheap rails. */
+  /** Setnayan convenience-fee rate (bps). Defaults to flat 5.0% across rails. */
   setnayanFeeBps?: number;
   /** Gateway fee in centavos (V1 = 0 for manual reconciliation). */
   gatewayFeeCentavos?: number;

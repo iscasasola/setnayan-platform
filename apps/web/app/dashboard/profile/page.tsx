@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Download, AlertTriangle, Compass, KeyRound } from 'lucide-react';
+import { ArrowLeft, Download, AlertTriangle, Compass, KeyRound, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchUserEvents } from '@/lib/events';
 import { restartTour } from '@/lib/tour-actions';
@@ -499,6 +499,13 @@ export default async function ProfilePage({ searchParams }: Props) {
       </section>
 
       <section className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+        <Link
+          href="/dashboard/profile/concierge"
+          className="button-secondary inline-flex items-center gap-2"
+        >
+          <Sparkles aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          Setnayan Concierge
+        </Link>
         <Link href="/help" className="button-secondary">
           {tr('common.help')}
         </Link>

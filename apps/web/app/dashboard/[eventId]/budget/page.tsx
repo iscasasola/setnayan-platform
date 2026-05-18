@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Plus, Trash2, Calendar, Receipt, Download } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
 import {
   fetchBudgetSnapshot,
   formatPhp,
@@ -19,11 +20,9 @@ type Props = { params: Promise<{ eventId: string }> };
 
 export default async function BudgetPage({ params }: Props) {
   const { eventId } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
+  const supabase = await createClient();
 
   const snapshot = await fetchBudgetSnapshot(supabase, eventId);
 

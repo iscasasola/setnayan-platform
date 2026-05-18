@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { countUnread } from '@/lib/notifications';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { computeGuestStats, fetchGuestsByEvent, guestDisplayName } from '@/lib/guests';
 import { formatEventDate } from '@/lib/events';
@@ -198,11 +199,9 @@ export default async function EventHomePage({
 }) {
   const { eventId } = await params;
   const search = searchParams ? await searchParams : {};
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
+  const supabase = await createClient();
 
   // Lazy expiry sweep at the top of any Concierge-surfacing page (no-cron
   // architecture per CLAUDE.md 2026-05-14 / PR #47). Fire-and-forget; failures

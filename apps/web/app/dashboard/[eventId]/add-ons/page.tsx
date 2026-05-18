@@ -13,6 +13,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
 
 export const metadata = { title: 'Add-ons' };
 
@@ -134,11 +135,9 @@ const ADD_ONS: ReadonlyArray<{
 type Props = { params: Promise<{ eventId: string }> };
 
 async function isInternalAdmin(): Promise<boolean> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return false;
+  const supabase = await createClient();
 
   const { data: me } = await supabase
     .from('users')

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
 import { Logo } from '@/app/_components/logo';
 import { RoleSwitchPill } from '@/app/_components/role-switch-pill';
 import { fetchUserRoleSummary } from '@/lib/roles';
@@ -8,11 +9,9 @@ import { fetchUserRoleSummary } from '@/lib/roles';
 export const metadata = { title: 'Admin · Setnayan' };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
+  const supabase = await createClient();
 
   const [{ data: profile }, roles] = await Promise.all([
     supabase

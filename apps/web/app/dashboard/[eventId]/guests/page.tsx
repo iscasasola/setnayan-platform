@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Link2, X, LayoutGrid, ArrowRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
 import {
   computeGuestStats,
   fetchGuestsByEvent,
@@ -69,11 +70,9 @@ type Props = {
 export default async function GuestsPage({ params, searchParams }: Props) {
   const { eventId } = await params;
   const search = await searchParams;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
+  const supabase = await createClient();
 
   const [guests, eventRow] = await Promise.all([
     fetchGuestsByEvent(supabase, eventId),

@@ -5,8 +5,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  *
  * Source of truth for the V1 spec lives in iteration 0016 § 0 (wedding-anchored
  * access · 3-day card-less trial · tiered abuse enforcement). Single SKU
- * `concierge_complete` at ₱4,999. Schema added in
- * `20260518000000_v1_concierge_pay_flat_and_charm.sql` (PR #105).
+ * `concierge_complete` at ₱2,499 (repriced from ₱4,999 per CLAUDE.md sixth
+ * 2026-05-18 row · migration 20260518400000_concierge_repriced_to_2499.sql).
  *
  * Per CLAUDE.md 2026-05-14 (PR #47) no new cron — expiry is enforced via
  * idempotent UPDATEs at the top of any page that surfaces Concierge state
@@ -22,8 +22,8 @@ export type ConciergeEnforcementLevel =
   | 'trial_banned'
   | 'full_banned';
 
-export const CONCIERGE_PRICE_CENTAVOS = 499_900; // ₱4,999
-export const CONCIERGE_PRICE_PHP = 4_999;
+export const CONCIERGE_PRICE_CENTAVOS = 249_900; // ₱2,499
+export const CONCIERGE_PRICE_PHP = 2_499;
 export const TRIAL_DURATION_DAYS = 3;
 export const FLOOR_MONTHS = 12;
 export const CAP_MONTHS = 24;

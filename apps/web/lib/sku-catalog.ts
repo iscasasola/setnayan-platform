@@ -51,6 +51,43 @@ export type SkuRecord = {
   isActive: boolean;
 };
 
+/**
+ * Launch promo end date — 2027-03-31 23:59:59 +08:00 (PH local time).
+ * Mirrors `service_catalog.launch_promo_until` (migration
+ * 20260518100000_launch_promo_until_mar_2027.sql).
+ */
+export const LAUNCH_PROMO_UNTIL = new Date('2027-03-31T23:59:59+08:00');
+
+/**
+ * SKUs that are FREE during the launch promo (2026-05-18 owner lock).
+ * 16 zero-marginal-cost SKUs across couple- and vendor-side. Vendor ads
+ * (Boosted + Sponsored Boost) are EXCLUDED — they're competitive marketing
+ * slots and free-for-all would defeat their purpose. Concierge, AI
+ * Highlights, Custom Monogram, Contract Intelligence, and Vendor
+ * Verification are also EXCLUDED — those have real labor/API cost.
+ */
+export const LAUNCH_PROMO_SKU_CODES: ReadonlySet<string> = new Set([
+  // Couple-side (9)
+  'pro_widget_schedule',
+  'save_the_date_video',
+  'panood_daily_broadcast',
+  'panood_camera_sync',
+  'panood_annual_streaming',
+  'panood_annual_streaming_plus',
+  'patiktok_setnayan_tiktok',
+  'patiktok_personal_tiktok',
+  'patiktok_video_overage',
+
+  // Vendor-side (7)
+  'vendor_pro_weekly',
+  'all_tools_unlock_annual',
+  'tool_mood_board_weekly',
+  'tool_seat_arrangement_weekly',
+  'tool_palette_weekly',
+  'tool_qr_reader_weekly',
+  'tool_advanced_pricing_weekly',
+]);
+
 export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
   // ---- Couple add-ons ----
   {
@@ -426,6 +463,47 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
 /** Lookup by SKU code. Returns `undefined` for unknown / retired-only codes. */
 export function findSku(skuCode: string): SkuRecord | undefined {
   return SKU_CATALOG.find((s) => s.skuCode === skuCode && s.isActive);
+}
+
+/**
+ * True if this SKU is currently FREE under the launch promo window.
+ * Once `LAUNCH_PROMO_UNTIL` passes, the SKU reverts to `priceCentavos`.
+ * Pass an explicit `now` for deterministic tests.
+ */
+export function isFreeNow(sku: SkuRecord | string, now: Date = new Date()): boolean {
+  const code = typeof sku === 'string' ? sku : sku.skuCode;
+  if (!LAUNCH_PROMO_SKU_CODES.has(code)) return false;
+  return now < LAUNCH_PROMO_UNTIL;
+}
+
+/**
+ * The price a checkout flow should charge today. Returns 0 if the SKU is
+ * in the launch promo window, otherwise the canonical `priceCentavos`.
+ */
+export function getEffectivePriceCentavos(
+  sku: SkuRecord,
+  now: Date = new Date(),
+): number {
+  return isFreeNow(sku, now) ? 0 : sku.priceCentavos;
+}
+
+/**
+ * Promo end date for a SKU, or null if the SKU is not in the launch promo.
+ * Useful for surfacing "Free until {date}" copy.
+ */
+export function getPromoEndDate(sku: SkuRecord | string): Date | null {
+  const code = typeof sku === 'string' ? sku : sku.skuCode;
+  return LAUNCH_PROMO_SKU_CODES.has(code) ? LAUNCH_PROMO_UNTIL : null;
+}
+
+/** Format a Date as "Mar 31, 2027" (en-PH short month + numeric day + year). */
+export function formatPromoEndDateShort(d: Date = LAUNCH_PROMO_UNTIL): string {
+  return d.toLocaleDateString('en-PH', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'Asia/Manila',
+  });
 }
 
 /** Convert centavos to whole pesos (rounds for display). */

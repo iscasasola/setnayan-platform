@@ -8,7 +8,6 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { r2Upload, R2_BUCKETS } from '@/lib/r2';
 import {
-  CONTRACT_MAX_BYTES,
   parseSignatureDataUrl,
   validateContractFile,
 } from '@/lib/contracts';
@@ -305,7 +304,3 @@ export async function cancelContract(formData: FormData) {
   revalidatePath(`/vendor-dashboard/contracts/${contractId}`);
   revalidatePath('/vendor-dashboard/contracts');
 }
-
-// Re-export the max-bytes constant so client UI can show the limit
-// before submitting a file.
-export const MAX_BYTES = CONTRACT_MAX_BYTES;

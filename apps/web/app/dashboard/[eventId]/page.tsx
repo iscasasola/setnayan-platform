@@ -5,7 +5,6 @@ import {
   Send,
   Briefcase,
   Wallet,
-  CalendarDays,
   LayoutGrid,
   Sparkles,
   Palette,
@@ -22,7 +21,8 @@ import { countUnread } from '@/lib/notifications';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { computeGuestStats, fetchGuestsByEvent, guestDisplayName } from '@/lib/guests';
+import { computeGuestStats, fetchGuestsByEvent } from '@/lib/guests';
+import { fetchEventActivity, relativeTime, type ActivityItem } from '@/lib/activity';
 import { formatEventDate } from '@/lib/events';
 import {
   sweepExpiredConcierge,
@@ -119,76 +119,157 @@ function currentStage(daysOut: number | null, guestCount: number): Stage['key'] 
   return 'dreaming';
 }
 
-type NextUp = {
+type NextTask = {
+  id: string;
   title: string;
   body: string;
   cta: string;
   href: string;
 };
 
-function pickNextUp(args: {
+function pickNextTasks(args: {
   eventId: string;
   slug: string | null;
+  venueName: string | null;
+  monogramText: string | null;
+  paletteFinalizedAt: string | null;
   guestCount: number;
   pendingCount: number;
   daysOut: number | null;
-}): NextUp {
-  const { eventId, slug, guestCount, pendingCount, daysOut } = args;
+}): NextTask[] {
+  const {
+    eventId,
+    slug,
+    venueName,
+    monogramText,
+    paletteFinalizedAt,
+    guestCount,
+    pendingCount,
+    daysOut,
+  } = args;
+  const out: NextTask[] = [];
+  const push = (t: NextTask) => {
+    if (out.length < 5 && !out.some((x) => x.id === t.id)) out.push(t);
+  };
+
   if (guestCount === 0) {
-    return {
+    push({
+      id: 'add-guests',
       title: 'Add your first guests',
-      body: 'Start with the wedding party — bearers, sponsors, and your immediate family. Plus-ones come later.',
+      body: 'Start with the wedding party — bearers, sponsors, and your immediate family.',
       cta: 'Add a guest',
       href: `/dashboard/${eventId}/guests/new`,
-    };
+    });
   }
   if (!slug) {
-    return {
+    push({
+      id: 'set-slug',
       title: 'Pick your invitation URL',
-      body: 'Set a slug like maria-and-juan so your invitations land on a clean, memorable address.',
-      cta: 'Set the slug',
+      body: 'Set a slug like maria-and-juan so your invites land on a clean address.',
+      cta: 'Set slug',
       href: `/dashboard/${eventId}/invitation`,
-    };
+    });
+  }
+  if (!venueName) {
+    push({
+      id: 'set-venue',
+      title: 'Lock in your venue',
+      body: 'A venue name lets us pre-fill invitations, seating, and vendor briefs.',
+      cta: 'Add venue',
+      href: `/dashboard/${eventId}/invitation`,
+    });
   }
   if (pendingCount > 0) {
-    return {
-      title: `Send invites to ${pendingCount} pending guests`,
+    push({
+      id: 'send-invites',
+      title:
+        pendingCount === 1
+          ? 'Send invite to 1 pending guest'
+          : `Send invites to ${pendingCount} pending guests`,
       body: 'Print the QR sheet or share individual links so each guest can RSVP.',
-      cta: 'Open invitation admin',
+      cta: 'Open invitation',
       href: `/dashboard/${eventId}/invitation`,
-    };
+    });
+  }
+  if (daysOut !== null && daysOut > 0 && daysOut <= 14) {
+    push({
+      id: 'final-week',
+      title: 'Run final-week confirmations',
+      body: 'Confirm arrival times with every booked vendor — the call sheet is ready in Vendors.',
+      cta: 'Open vendors',
+      href: `/dashboard/${eventId}/vendors`,
+    });
   }
   if (daysOut !== null && daysOut > 0 && daysOut <= 60) {
-    return {
+    push({
+      id: 'lock-seating',
       title: 'Lock in the seating plan',
-      body: 'Your event is approaching — finalize the seating so vendors get clean numbers.',
+      body: 'Your event is approaching — finalize seating so vendors get clean numbers.',
       cta: 'Open seating',
       href: `/dashboard/${eventId}/seating`,
-    };
+    });
   }
-  return {
-    title: 'Review your event',
-    body: 'Everything looks set. Step through each section to make sure the details still match.',
-    cta: 'Open invitation',
-    href: `/dashboard/${eventId}/invitation`,
-  };
+  if (!paletteFinalizedAt) {
+    push({
+      id: 'set-palette',
+      title: 'Lock in your color palette',
+      body: 'Pick the palette for invitations, signage, and the gallery — vendors will match it.',
+      cta: 'Open mood board',
+      href: `/dashboard/${eventId}/add-ons/mood-board`,
+    });
+  }
+  if (!monogramText) {
+    push({
+      id: 'set-monogram',
+      title: 'Set your monogram',
+      body: 'Your initials anchor the invitation card, table numbers, and event signage.',
+      cta: 'Set monogram',
+      href: `/dashboard/${eventId}/add-ons`,
+    });
+  }
+
+  const evergreen: NextTask[] = [
+    {
+      id: 'browse-vendors',
+      title: 'Browse vendor directory',
+      body: 'Photographers, florists, mobile bars — discover Filipino-first vendors near your venue.',
+      cta: 'Open vendors',
+      href: `/dashboard/${eventId}/vendors`,
+    },
+    {
+      id: 'sketch-schedule',
+      title: 'Sketch your day-of timeline',
+      body: 'Block in ceremony, photos, reception. Vendors plug into your schedule.',
+      cta: 'Open schedule',
+      href: `/dashboard/${eventId}/schedule`,
+    },
+    {
+      id: 'review-budget',
+      title: 'Review your budget',
+      body: 'Compare vendor commitments against your total and flag anything close to your cap.',
+      cta: 'Open budget',
+      href: `/dashboard/${eventId}/budget`,
+    },
+    {
+      id: 'preview-invitation',
+      title: 'Preview your invitation',
+      body: 'See what guests see when they open your invitation URL.',
+      cta: 'Open invitation',
+      href: `/dashboard/${eventId}/invitation`,
+    },
+    {
+      id: 'review-event',
+      title: 'Review your event details',
+      body: 'Step through every section to make sure the details still match.',
+      cta: 'Open settings',
+      href: `/dashboard/${eventId}/invitation`,
+    },
+  ];
+  for (const t of evergreen) push(t);
+
+  return out;
 }
 
-type Activity = {
-  id: string;
-  when: string;
-  description: string;
-  href: string;
-};
-
-function relativeTime(iso: string, now: Date): string {
-  const ms = now.getTime() - new Date(iso).getTime();
-  if (ms < 60_000) return 'just now';
-  if (ms < 3_600_000) return `${Math.floor(ms / 60_000)}m ago`;
-  if (ms < 86_400_000) return `${Math.floor(ms / 3_600_000)}h ago`;
-  if (ms < 7 * 86_400_000) return `${Math.floor(ms / 86_400_000)}d ago`;
-  return new Date(iso).toLocaleDateString();
-}
 
 export default async function EventHomePage({
   params,
@@ -258,9 +339,12 @@ export default async function EventHomePage({
     profile?.display_name?.split(' ')[0] ?? user.email?.split('@')[0] ?? 'there';
   const greeting = tr(timeOfDayGreetingKey(now));
 
-  const nextUp = pickNextUp({
+  const nextTasks = pickNextTasks({
     eventId,
     slug: event.slug ?? null,
+    venueName: event.venue_name ?? null,
+    monogramText: event.monogram_text ?? null,
+    paletteFinalizedAt: event.palette_finalized_at ?? null,
     guestCount: stats.total,
     pendingCount: stats.pending,
     daysOut,
@@ -287,16 +371,7 @@ export default async function EventHomePage({
       .slice(0, 6);
   }
 
-  const recentGuests = [...guests]
-    .sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''))
-    .slice(0, 6);
-
-  const activity: Activity[] = recentGuests.map((g) => ({
-    id: g.guest_id,
-    when: relativeTime(g.created_at ?? new Date().toISOString(), now),
-    description: `${guestDisplayName(g)} added · ${g.rsvp_status === 'pending' ? 'awaiting RSVP' : g.rsvp_status}`,
-    href: `/dashboard/${eventId}/guests/${g.guest_id}`,
-  }));
+  const activity = await fetchEventActivity(supabase, eventId, 20);
 
   // Concierge state for the inline banner (iteration 0021 § 2.0b).
   const eventConciergeRow = event as typeof event & {
@@ -375,7 +450,7 @@ export default async function EventHomePage({
 
       <StageStrip stage={stage} />
 
-      <NextUpCard nextUp={nextUp} tr={tr} />
+      <NextTasksCarousel tasks={nextTasks} tr={tr} />
 
       {plannerMode === 'guided' ? (
         <Checklist eventId={eventId} statuses={stepStatuses} tr={tr} />
@@ -383,7 +458,7 @@ export default async function EventHomePage({
 
       <NavGrid eventId={eventId} stats={stats} unreadCount={unreadCount} tr={tr} />
 
-      <ActivityFeed activity={activity} tr={tr} />
+      <ActivityFeed activity={activity} eventId={eventId} tr={tr} />
     </section>
   );
 }
@@ -411,12 +486,12 @@ function WelcomeHeader({
   daysOut: number | null;
 }) {
   return (
-    <header className="space-y-2">
-      <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+    <header className="space-y-1.5">
+      <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{eventName}</h1>
+      <p className="text-base text-ink/75">
         {greeting}, {name}
       </p>
-      <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{eventName}</h1>
-      <p className="text-base text-ink/60">
+      <p className="text-sm text-ink/55">
         {eventDate ? formatEventDate(eventDate) : 'Date to be confirmed'}
         {daysOut !== null
           ? daysOut > 0
@@ -431,66 +506,106 @@ function WelcomeHeader({
 }
 
 function StageStrip({ stage }: { stage: Stage['key'] }) {
-  const activeIndex = STAGES.findIndex((s) => s.key === stage);
+  const foundIndex = STAGES.findIndex((s) => s.key === stage);
+  const activeIndex = foundIndex >= 0 ? foundIndex : 0;
+  const activeLabel = STAGES[activeIndex]?.label ?? STAGES[0]?.label ?? '';
   return (
-    <ol className="flex w-full items-center gap-2 overflow-x-auto rounded-xl border border-ink/10 bg-cream p-3">
-      {STAGES.map((s, i) => {
-        const done = i < activeIndex;
-        const active = i === activeIndex;
-        return (
-          <li key={s.key} className="flex shrink-0 items-center gap-2">
-            <span
-              className={`inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-medium ${
-                active
-                  ? 'bg-terracotta text-cream'
-                  : done
-                    ? 'bg-terracotta/15 text-terracotta-700'
-                    : 'bg-ink/5 text-ink/55'
-              }`}
-            >
-              {done ? (
-                <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-              ) : active ? (
-                <Circle aria-hidden className="h-3.5 w-3.5 fill-cream" strokeWidth={2} />
-              ) : (
-                <Circle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.5} />
-              )}
-              {s.label}
-            </span>
-            {i < STAGES.length - 1 ? (
-              <span aria-hidden className="h-px w-4 bg-ink/15 sm:w-6" />
-            ) : null}
-          </li>
-        );
-      })}
-    </ol>
+    <div className="space-y-2">
+      <ol className="flex w-full items-center gap-1.5" aria-label="Wedding stage progress">
+        {STAGES.map((s, i) => {
+          const done = i < activeIndex;
+          const isActive = i === activeIndex;
+          return (
+            <li key={s.key} className="flex flex-1 items-center gap-1.5">
+              <span
+                aria-current={isActive ? 'step' : undefined}
+                aria-label={s.label}
+                className={`block h-1.5 flex-1 rounded-full transition-colors ${
+                  isActive
+                    ? 'bg-terracotta'
+                    : done
+                      ? 'bg-terracotta/45'
+                      : 'bg-ink/10'
+                }`}
+              />
+            </li>
+          );
+        })}
+      </ol>
+      <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+        Stage {activeIndex + 1} of {STAGES.length} · <span className="text-ink/85">{activeLabel}</span>
+      </p>
+    </div>
   );
 }
 
-function NextUpCard({
-  nextUp,
+function NextTasksCarousel({
+  tasks,
   tr,
 }: {
-  nextUp: NextUp;
+  tasks: NextTask[];
   tr: (key: TranslationKey) => string;
 }) {
+  if (tasks.length === 0) return null;
   return (
-    <Link
-      href={nextUp.href}
-      className="group flex flex-col gap-3 rounded-2xl border border-terracotta/30 bg-terracotta/5 p-6 transition-colors hover:border-terracotta hover:bg-terracotta/10 sm:flex-row sm:items-center sm:justify-between"
-    >
-      <div className="space-y-1">
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-          {tr('section.next_up')}
-        </p>
-        <h2 className="text-xl font-semibold tracking-tight">{nextUp.title}</h2>
-        <p className="max-w-prose text-sm text-ink/65">{nextUp.body}</p>
+    <section aria-labelledby="next-tasks-heading" className="space-y-3">
+      <div className="flex items-baseline justify-between">
+        <h2
+          id="next-tasks-heading"
+          className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55"
+        >
+          {tr('section.next_tasks')}
+        </h2>
+        <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/40">
+          {tasks.length}
+        </span>
       </div>
-      <span className="inline-flex shrink-0 items-center gap-2 self-start rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-cream sm:self-center">
-        {nextUp.cta}
-        <ArrowRight aria-hidden className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-      </span>
-    </Link>
+      <ol className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
+        {tasks.map((t, i) => {
+          const featured = i === 0;
+          return (
+            <li
+              key={t.id}
+              className="w-[86%] shrink-0 snap-start sm:w-[48%] lg:w-[31%]"
+            >
+              <Link
+                href={t.href}
+                className={`group flex h-full flex-col justify-between gap-4 rounded-2xl border p-5 transition-colors ${
+                  featured
+                    ? 'border-terracotta/30 bg-terracotta/5 hover:border-terracotta hover:bg-terracotta/10'
+                    : 'border-ink/10 bg-cream hover:border-ink/20 hover:bg-ink/[0.03]'
+                }`}
+              >
+                <div className="space-y-1.5">
+                  <p
+                    className={`font-mono text-[10px] uppercase tracking-[0.2em] ${
+                      featured ? 'text-terracotta' : 'text-ink/45'
+                    }`}
+                  >
+                    {i + 1} of {tasks.length}
+                  </p>
+                  <h3 className="text-base font-semibold leading-snug tracking-tight">
+                    {t.title}
+                  </h3>
+                  <p className="text-sm text-ink/65">{t.body}</p>
+                </div>
+                <span
+                  className={`inline-flex items-center gap-1.5 text-sm font-medium ${
+                    featured ? 'text-terracotta' : 'text-ink/70'
+                  }`}
+                >
+                  {t.cta}
+                  <ArrowRight
+                    aria-hidden
+                    className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
+                  />
+                </span>
+              </Link>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
   );
 }
 
@@ -656,38 +771,60 @@ function Checklist({
 
 function ActivityFeed({
   activity,
+  eventId,
   tr,
 }: {
-  activity: Activity[];
+  activity: ActivityItem[];
+  eventId: string;
   tr: (key: TranslationKey) => string;
 }) {
   if (activity.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-6 text-center text-sm text-ink/55">
-        Nothing in your activity feed yet — add a guest and it&rsquo;ll show up here.
-      </div>
+      <section aria-labelledby="recent-activity-heading" className="space-y-3">
+        <h2
+          id="recent-activity-heading"
+          className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55"
+        >
+          {tr('section.recent_activity')}
+        </h2>
+        <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-6 text-center text-sm text-ink/55">
+          Nothing yet. Add a guest, book a vendor, or place an order — it&rsquo;ll show up here.
+        </p>
+      </section>
     );
   }
   return (
-    <div className="space-y-3">
-      <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-        {tr('section.recent_activity')}
-      </h2>
-      <ul className="divide-y divide-ink/10 rounded-xl border border-ink/10 bg-cream">
+    <section aria-labelledby="recent-activity-heading" className="space-y-3">
+      <div className="flex items-baseline justify-between">
+        <h2
+          id="recent-activity-heading"
+          className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55"
+        >
+          {tr('section.recent_activity')}
+        </h2>
+        <Link
+          href={`/dashboard/${eventId}/activity`}
+          className="inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta hover:text-terracotta-700"
+        >
+          {tr('cta.see_all')}
+          <ArrowRight aria-hidden className="h-3 w-3" />
+        </Link>
+      </div>
+      <ul className="space-y-1">
         {activity.map((a) => (
           <li key={a.id}>
             <Link
               href={a.href}
-              className="flex items-center justify-between gap-3 px-4 py-3 text-sm hover:bg-terracotta/5"
+              className="-mx-2 flex items-center justify-between gap-3 rounded-md px-2 py-1.5 text-sm hover:bg-terracotta/5"
             >
               <span className="truncate text-ink/80">{a.description}</span>
-              <span className="shrink-0 font-mono text-[11px] uppercase tracking-[0.15em] text-ink/50">
-                {a.when}
+              <span className="shrink-0 font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
+                {relativeTime(a.at)}
               </span>
             </Link>
           </li>
         ))}
       </ul>
-    </div>
+    </section>
   );
 }

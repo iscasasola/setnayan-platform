@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import './globals.css';
 import { ClientTypeDetector } from './_components/client-type-detector';
+import { PilotModeBanner } from './_components/pilot-mode-banner';
 import { Providers } from './providers';
 
 export const metadata: Metadata = {
@@ -76,6 +77,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         ) : null}
       </head>
       <body className="min-h-dvh bg-cream font-sans text-ink antialiased">
+        <PilotModeBanner />
         <Providers>{children}</Providers>
         <ClientTypeDetector />
         <Script id="sw-register" strategy="afterInteractive">

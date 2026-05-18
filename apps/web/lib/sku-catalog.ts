@@ -469,19 +469,51 @@ export function findSku(skuCode: string): SkuRecord | undefined {
 }
 
 /**
- * True if this SKU is currently FREE under the launch promo window.
- * Once `LAUNCH_PROMO_UNTIL` passes, the SKU reverts to `priceCentavos`.
+ * Optional pilot-mode override.
+ *
+ * Setting `NEXT_PUBLIC_PILOT_MODE_FREE_UNTIL` (ISO 8601 timestamp, e.g.
+ * `"2026-08-31T23:59:59+08:00"`) makes EVERY paid SKU resolve to ₱0 until
+ * that timestamp passes. Used for closed pilot testing — couples and
+ * vendors can exercise the full checkout → activation → expiry → cancel
+ * cycle without money actually moving. Unsets itself automatically after
+ * the cutoff. Empty/missing/invalid env value = pilot mode OFF.
+ *
+ * Orthogonal to the launch promo: launch promo applies to a fixed list
+ * of 16 zero-marginal-cost SKUs through 2027-03-31 regardless of pilot
+ * mode. Pilot mode is a wider "everything is free during testing"
+ * override that supplements (not replaces) the launch promo.
+ */
+export function getPilotFreeUntil(): Date | null {
+  const raw = process.env.NEXT_PUBLIC_PILOT_MODE_FREE_UNTIL;
+  if (!raw) return null;
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
+export function isPilotFreeMode(now: Date = new Date()): boolean {
+  const until = getPilotFreeUntil();
+  return until !== null && now < until;
+}
+
+/**
+ * True if this SKU is currently FREE — either because it's in the launch
+ * promo window, or because pilot mode is active and it's a paid SKU.
  * Pass an explicit `now` for deterministic tests.
  */
 export function isFreeNow(sku: SkuRecord | string, now: Date = new Date()): boolean {
   const code = typeof sku === 'string' ? sku : sku.skuCode;
-  if (!LAUNCH_PROMO_SKU_CODES.has(code)) return false;
-  return now < LAUNCH_PROMO_UNTIL;
+  if (LAUNCH_PROMO_SKU_CODES.has(code) && now < LAUNCH_PROMO_UNTIL) return true;
+  if (isPilotFreeMode(now)) {
+    const record = typeof sku === 'string' ? findSku(sku) : sku;
+    if (record && record.priceCentavos > 0) return true;
+  }
+  return false;
 }
 
 /**
  * The price a checkout flow should charge today. Returns 0 if the SKU is
- * in the launch promo window, otherwise the canonical `priceCentavos`.
+ * in the launch promo window OR pilot mode is active for a paid SKU.
  */
 export function getEffectivePriceCentavos(
   sku: SkuRecord,
@@ -491,12 +523,22 @@ export function getEffectivePriceCentavos(
 }
 
 /**
- * Promo end date for a SKU, or null if the SKU is not in the launch promo.
- * Useful for surfacing "Free until {date}" copy.
+ * End date of whichever promo is currently making this SKU free, or null
+ * if the SKU is not currently free. Launch promo takes precedence when a
+ * SKU is in both (already-fixed end date vs admin-controlled pilot
+ * window).
  */
-export function getPromoEndDate(sku: SkuRecord | string): Date | null {
+export function getPromoEndDate(
+  sku: SkuRecord | string,
+  now: Date = new Date(),
+): Date | null {
   const code = typeof sku === 'string' ? sku : sku.skuCode;
-  return LAUNCH_PROMO_SKU_CODES.has(code) ? LAUNCH_PROMO_UNTIL : null;
+  if (LAUNCH_PROMO_SKU_CODES.has(code)) return LAUNCH_PROMO_UNTIL;
+  if (isPilotFreeMode(now)) {
+    const record = typeof sku === 'string' ? findSku(sku) : sku;
+    if (record && record.priceCentavos > 0) return getPilotFreeUntil();
+  }
+  return null;
 }
 
 /** Format a Date as "Mar 31, 2027" (en-PH short month + numeric day + year). */

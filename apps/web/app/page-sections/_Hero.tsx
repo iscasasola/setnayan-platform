@@ -48,36 +48,37 @@ export function Hero() {
           id="hero-heading"
           className="mt-5 max-w-4xl text-balance font-sans text-[40px] font-semibold leading-[1.05] tracking-tight text-ink sm:text-[56px] lg:text-[80px]"
         >
-          <span className="block">Planning an event?</span>
-          <span className="mt-1 block">Looking for vendors?</span>
+          <span className="block">Planning a wedding?</span>
+          <span className="mt-1 block">Or a vendor</span>
           <span className="mt-1 block text-ink/65">
-            Or a vendor looking for customers?
+            looking for customers?
           </span>
         </h1>
 
         <p className="mt-8 max-w-2xl text-pretty text-lg leading-relaxed text-ink/70 sm:text-xl lg:text-[22px]">
           Setnayan is the only Filipino-built platform with real operating
           tools for both sides — from your guest list to your same-day
-          highlight reel.
+          highlight reel. Vendors pre-register today.{' '}
+          <strong className="text-ink">Couples launch December 1, 2026.</strong>
         </p>
 
         <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
           <Link
-            href="/signup"
+            href="/signup?as=vendor"
             className="button-primary inline-flex min-h-[48px] items-center justify-center gap-2 px-7 text-sm font-semibold sm:text-base"
           >
-            Start planning
+            I&rsquo;m a vendor
             <span aria-hidden className="mx-1 opacity-60">
               ·
             </span>
-            <span className="opacity-90">free</span>
+            <span className="opacity-90">pre-register</span>
             <ArrowRight aria-hidden className="ml-1 h-4 w-4" strokeWidth={2} />
           </Link>
           <Link
-            href="/for-vendors"
+            href="/waitlist"
             className="button-secondary inline-flex min-h-[44px] items-center justify-center gap-2 px-6 text-sm font-medium sm:text-base"
           >
-            I&rsquo;m a vendor
+            I&rsquo;m a couple — join waitlist
             <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           </Link>
         </div>

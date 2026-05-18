@@ -5,6 +5,7 @@ import {
   Bell,
   Briefcase,
   ClipboardList,
+  FileSignature,
   FileText,
   Megaphone,
   MessageSquare,
@@ -102,6 +103,12 @@ export default async function VendorDashboardLayout({
             href="/vendor-dashboard/bookings"
             label="Bookings"
             icon={<ClipboardList aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />}
+            match="prefix"
+          />
+          <VendorSubnavTab
+            href="/vendor-dashboard/contracts"
+            label="Contracts"
+            icon={<FileSignature aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />}
             match="prefix"
           />
           <VendorSubnavTab

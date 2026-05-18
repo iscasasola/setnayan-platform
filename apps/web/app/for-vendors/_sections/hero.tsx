@@ -13,7 +13,7 @@ export function Hero() {
       <div className="mx-auto grid w-full max-w-6xl gap-12 px-4 pt-16 pb-24 sm:px-6 sm:pt-20 lg:grid-cols-2 lg:px-8 lg:pt-24">
         <div className="space-y-6">
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            For Filipino wedding vendors
+            For Filipino wedding vendors · Founding cohort
           </p>
           <h1 className="font-sans text-4xl font-semibold tracking-tight text-ink sm:text-5xl lg:text-6xl">
             Run your wedding business in one app.
@@ -23,15 +23,25 @@ export function Hero() {
             Filipino vendors who&rsquo;d rather book the gig than chase the
             GCash receipt.
           </p>
+          <div className="rounded-2xl border-2 border-terracotta/40 bg-terracotta/5 p-4 sm:p-5">
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
+              Founding-vendor window — June 1 → Dec 1, 2026
+            </p>
+            <p className="mt-2 text-sm text-ink">
+              Pre-register today and lock in <strong>10 months of Pro tier FREE</strong>{' '}
+              (until March 31, 2027). Couples open Dec 1 — get your portfolio,
+              pricing, and contracts ready before the engagement-season surge.
+            </p>
+          </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <Link
               className="button-primary inline-flex items-center justify-between gap-3 px-5 py-3 text-sm"
               href="/signup?as=vendor"
             >
               <span className="flex flex-col items-start text-left">
-                <span className="font-semibold">List your business</span>
+                <span className="font-semibold">Pre-register your business</span>
                 <span className="font-mono text-[10px] uppercase tracking-[0.15em] opacity-80">
-                  Free
+                  Free forever to list · Pro free until Mar 31, 2027
                 </span>
               </span>
               <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -50,7 +60,7 @@ export function Hero() {
             </Link>
           </div>
           <p className="text-xs text-ink/55">
-            Free to list · No monthly fee until Pro · BIR receipts handled
+            Free to list · Pro &amp; All Tools FREE until Mar 31, 2027 · BIR receipts handled
           </p>
           <p className="text-xs text-ink/50">
             Already have an account?{' '}

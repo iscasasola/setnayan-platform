@@ -172,9 +172,9 @@ export default function HomePage() {
         <VendorCompat />
 
         {/* 8.5 — Transparent pricing (locked 2026-05-16 spec-corpus row 9)
-            Couple-side disclosure of the 5.5% Setnayan Pay convenience fee
+            Couple-side disclosure of the 5.0% Setnayan Pay convenience fee
             added at checkout. Vendor-side "no commission" framing in
-            Sections 5 / 8 / /for-vendors stays intact — the 5.5% is
+            Sections 5 / 8 / /for-vendors stays intact — the 5.0% is
             couple-paid on top of the vendor's listed price, never deducted
             from the vendor's principal. */}
         <TransparentPricing />

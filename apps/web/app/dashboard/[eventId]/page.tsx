@@ -493,7 +493,7 @@ function Checklist({
       <div className="flex items-center justify-between">
         <div className="space-y-0.5">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            {tr('section.guided_planner')}
+            {tr('section.concierge')}
           </h2>
           <p className="text-sm text-ink/65">
             {progress.done} of {progress.total} steps · prefer to fly solo? Switch to DIY in

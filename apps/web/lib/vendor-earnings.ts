@@ -4,15 +4,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * Default Setnayan Pay convenience-fee percentage. Disclosed transparently
  * on each row so the vendor sees how the gross-to-net math works out.
  *
- * Per-method rates live in `setnayan_pay_methods` (cheap rails 5.5% / premium
- * 6.5%); this constant matches the cheapest default rail (Maya QR Ph / Bank
- * Transfer / GCash Direct) so previews don't over-estimate. Wiring
- * `convenienceFeePhp` to read per-method from the table is a follow-up
- * (see migration 20260516030000_v1_sku_lock_setnayan_pay_methods.sql).
- *
- * Repriced 3 → 5.5 on 2026-05-16 (spec corpus commit a0fa3c7).
+ * All rails are now a flat 5.0% (locked 2026-05-16 row 16 — supersedes the
+ * morning's 5.5%/6.5% dual rate). Per-method rates still live in
+ * `setnayan_pay_methods`; wiring `convenienceFeePhp` to read per-method
+ * from the table is a follow-up (see migration 20260518000000).
  */
-export const SETNAYAN_PAY_FEE_PCT = 5.5;
+export const SETNAYAN_PAY_FEE_PCT = 5.0;
 
 export type VendorEarningRow = {
   order_id: string;

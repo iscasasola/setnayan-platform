@@ -1,14 +1,15 @@
 import Link from 'next/link';
 import {
   Receipt,
-  Palette,
+  Globe2,
+  Music,
+  Type,
   Camera,
   Tv,
-  CloudUpload,
   Sparkles,
   Video,
   Film,
-  ShoppingBag,
+  Printer,
   type LucideIcon,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -48,22 +49,40 @@ const ADD_ONS: ReadonlyArray<{
     cta: 'View orders',
   },
   {
-    key: 'mood-board',
-    label: 'Mood Board',
-    Icon: Palette,
-    iteration: '0010',
-    status: 'live',
-    blurb: 'Per-role palettes · Setnayan Guide rule engine · 20 themes',
-    cta: 'Open',
-  },
-  {
     key: 'save-the-date',
-    label: 'Save the Date',
+    label: 'Save the Date Video',
     Icon: Video,
     iteration: '0024',
     status: 'live',
     blurb: '12-template gallery · 60s video · vertical + square + horizontal · ₱99 per render',
     cta: 'Browse templates',
+  },
+  {
+    key: 'landing-page',
+    label: 'Landing Page',
+    Icon: Globe2,
+    iteration: '0002',
+    status: 'coming_soon',
+    blurb: 'Customize the public landing page guests see when they scan your QR or open your link',
+    cta: 'Customize',
+  },
+  {
+    key: 'music-creator',
+    label: 'Music Creator',
+    Icon: Music,
+    iteration: '0034',
+    status: 'coming_soon',
+    blurb: 'Pick from Setnayan-owned music or generate a custom track for your event reels',
+    cta: 'Browse music',
+  },
+  {
+    key: 'monogram-creator',
+    label: 'Monogram Creator',
+    Icon: Type,
+    iteration: '0004',
+    status: 'coming_soon',
+    blurb: 'Design your wedding monogram · animated SVG trace · custom hero background',
+    cta: 'Open studio',
   },
   {
     key: 'papic',
@@ -84,15 +103,6 @@ const ADD_ONS: ReadonlyArray<{
     cta: 'Set up',
   },
   {
-    key: 'photo-delivery',
-    label: 'Photo Delivery',
-    Icon: CloudUpload,
-    iteration: '0009',
-    status: 'web_v1',
-    blurb: 'Google Drive integration for full-resolution photo handoff',
-    cta: 'Connect',
-  },
-  {
     key: 'patiktok',
     label: 'Patiktok',
     Icon: Film,
@@ -103,12 +113,12 @@ const ADD_ONS: ReadonlyArray<{
   },
   {
     key: 'supplies-marketplace',
-    label: 'Supplies Marketplace',
-    Icon: ShoppingBag,
+    label: 'Paprint',
+    Icon: Printer,
     iteration: '0018',
     status: 'web_v1',
-    blurb: 'Wedding-day supplies + favors from vetted PH suppliers — direct to your venue',
-    cta: 'Browse supplies',
+    blurb: 'Wedding-day print pack + favors from vetted PH suppliers — direct to your venue',
+    cta: 'Browse Paprint',
   },
   {
     key: 'led',
@@ -162,11 +172,7 @@ export default async function AddOnsPage({ params }: Props) {
           const href =
             addon.key === 'orders'
               ? `/dashboard/${eventId}/orders`
-              : addon.key === 'mood-board'
-                ? `/dashboard/${eventId}/add-ons/mood-board`
-                : addon.key === 'save-the-date'
-                  ? `/dashboard/${eventId}/add-ons/save-the-date`
-                  : `/dashboard/${eventId}/add-ons/${addon.key}`;
+              : `/dashboard/${eventId}/add-ons/${addon.key}`;
 
           const isClickable = addon.status !== 'coming_soon';
           const pill = showDevCodes ? (

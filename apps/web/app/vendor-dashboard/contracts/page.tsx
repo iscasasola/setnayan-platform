@@ -9,7 +9,8 @@ export const metadata = { title: 'Contracts · Vendor' };
 
 const STATUS_TONE: Record<ContractStatus, string> = {
   draft: 'bg-ink/10 text-ink/70',
-  sent_for_signature: 'bg-sky-100 text-sky-800',
+  // Repurposed under upload-only scope (2026-05-18) — see lib/contracts.ts.
+  sent_for_signature: 'bg-emerald-100 text-emerald-800',
   fully_signed: 'bg-emerald-100 text-emerald-800',
   cancelled: 'bg-rose-100 text-rose-800',
 };
@@ -44,8 +45,9 @@ export default async function VendorContractsPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Contracts</h1>
           <p className="mt-1 text-sm text-ink/65">
-            Upload a contract PDF, send it for signature, both you and the couple
-            sign in-app. PDF stays in your portfolio after.
+            Upload a contract PDF and make it visible to the couple for
+            reference. Signing happens between you and the couple externally —
+            Setnayan hosts the file but does not facilitate signatures.
           </p>
         </div>
         <Link

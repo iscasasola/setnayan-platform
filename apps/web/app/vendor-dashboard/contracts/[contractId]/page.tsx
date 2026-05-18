@@ -1,23 +1,15 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import { notFound, redirect } from 'next/navigation';
-import { ArrowLeft, Download, Send, X } from 'lucide-react';
+import { ArrowLeft, Download, Eye, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import {
   fetchContract,
-  fetchContractSignatures,
-  findSignatureByRole,
   formatFileSize,
   statusLabel,
 } from '@/lib/contracts';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { SignatureCanvas } from '@/app/_components/signature-canvas';
-import {
-  cancelContract,
-  sendContractForSignature,
-  signContractAsVendor,
-} from '../actions';
+import { cancelContract, publishContractToCouple } from '../actions';
 
 export const metadata = { title: 'Contract · Vendor' };
 
@@ -38,21 +30,15 @@ export default async function VendorContractDetailPage({ params }: Props) {
     notFound();
   }
 
-  const [signatures, eventLookup] = await Promise.all([
-    fetchContractSignatures(supabase, contractId),
-    supabase
-      .from('events')
-      .select('event_id, display_name, event_date')
-      .eq('event_id', contract.event_id)
-      .maybeSingle(),
-  ]);
-
+  const eventLookup = await supabase
+    .from('events')
+    .select('event_id, display_name, event_date')
+    .eq('event_id', contract.event_id)
+    .maybeSingle();
   const event = eventLookup.data;
-  const vendorSig = findSignatureByRole(signatures, 'vendor');
-  const customerSig = findSignatureByRole(signatures, 'customer');
+
   const isDraft = contract.status === 'draft';
-  const isSent = contract.status === 'sent_for_signature';
-  const isFullySigned = contract.status === 'fully_signed';
+  const isVisible = contract.status === 'sent_for_signature' || contract.status === 'fully_signed';
   const isCancelled = contract.status === 'cancelled';
 
   return (
@@ -111,99 +97,50 @@ export default async function VendorContractDetailPage({ params }: Props) {
         </div>
       </section>
 
-      {/* Send-for-signature OR vendor signing */}
+      {/* Hosting-only disclosure */}
+      <p className="rounded-md border border-ink/10 bg-cream/60 px-3 py-2 text-xs text-ink/65">
+        Setnayan hosts this PDF for the couple to reference — we do not facilitate
+        signing. Handle signatures externally (email, in-person, your own e-sig
+        tool) and keep the signed copy with your records.
+      </p>
+
+      {/* Publish-to-couple action (only while draft) */}
       {isDraft ? (
         <section className="rounded-2xl border border-ink/10 bg-cream p-5">
-          <h2 className="text-base font-semibold text-ink">Send to the couple</h2>
+          <h2 className="text-base font-semibold text-ink">Share with the couple</h2>
           <p className="mt-1 text-sm text-ink/65">
-            Once sent, the couple can review and sign in their dashboard. You can sign
-            after.
+            Right now only you can see this. Make it visible so the couple can
+            view and download it from their dashboard.
           </p>
-          <form action={sendContractForSignature} className="mt-4">
+          <form action={publishContractToCouple} className="mt-4">
             <input type="hidden" name="contract_id" value={contract.contract_id} />
             <SubmitButton
               className="button-primary inline-flex items-center justify-center gap-2 text-sm"
-              pendingLabel="Sending…"
+              pendingLabel="Sharing…"
             >
-              <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              Send for signature
+              <Eye aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              Make visible to couple
             </SubmitButton>
           </form>
         </section>
       ) : null}
 
-      {isSent && !vendorSig ? (
-        <section className="rounded-2xl border-2 border-terracotta/40 bg-terracotta/5 p-5">
-          <h2 className="text-base font-semibold text-ink">Sign as vendor</h2>
-          <p className="mt-1 text-sm text-ink/65">
-            Add your signature to commit to the contract terms. The couple still needs
-            to sign separately.
-          </p>
-          <form action={signContractAsVendor} className="mt-4 space-y-4">
-            <input type="hidden" name="contract_id" value={contract.contract_id} />
-            <div className="space-y-1.5">
-              <label htmlFor="full_name" className="block text-sm font-medium text-ink">
-                Full name <span className="text-terracotta">*</span>
-              </label>
-              <input
-                id="full_name"
-                name="full_name"
-                type="text"
-                required
-                maxLength={200}
-                placeholder="Your legal name as it appears on the contract"
-                className="input-field"
-              />
-            </div>
-            <SignatureCanvas
-              name="signature_data_url"
-              label="Sign here"
-              hint="By signing you agree to the terms in the PDF above."
-            />
-            <SubmitButton className="button-primary text-sm" pendingLabel="Signing…">
-              Add my signature
-            </SubmitButton>
-          </form>
-        </section>
+      {isVisible ? (
+        <p className="rounded-md border border-emerald-300/60 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+          The couple can see this contract in their dashboard.
+        </p>
       ) : null}
 
-      {/* Signature status */}
-      <section className="rounded-2xl border border-ink/10 bg-cream p-5">
-        <h2 className="text-base font-semibold text-ink">Signatures</h2>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <SignatureBlock
-            role="Vendor"
-            sig={vendorSig}
-            pendingHint={isDraft ? 'Send for signature first.' : 'Awaiting your signature.'}
-          />
-          <SignatureBlock
-            role="Customer"
-            sig={customerSig}
-            pendingHint={
-              isDraft
-                ? 'Send for signature first.'
-                : 'Awaiting customer signature.'
-            }
-          />
-        </div>
-        {isFullySigned && contract.fully_signed_at ? (
-          <p className="mt-4 rounded-md border border-emerald-300/60 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
-            Both parties signed on{' '}
-            {new Date(contract.fully_signed_at).toLocaleString('en-PH', {
-              dateStyle: 'medium',
-              timeStyle: 'short',
-            })}
-            .
-          </p>
-        ) : null}
-      </section>
-
-      {/* Cancel (only while not fully signed) */}
-      {!isFullySigned && !isCancelled ? (
+      {/* Cancel — available except when already cancelled */}
+      {!isCancelled ? (
         <details className="rounded-2xl border border-ink/10 bg-cream p-5">
           <summary className="cursor-pointer text-sm font-medium text-rose-700">
             Cancel this contract
           </summary>
+          <p className="mt-2 text-xs text-ink/55">
+            Removes the contract from the couple&rsquo;s view. The file stays in
+            our records for audit but is not shown anywhere else.
+          </p>
           <form action={cancelContract} className="mt-3 space-y-3">
             <input type="hidden" name="contract_id" value={contract.contract_id} />
             <div className="space-y-1.5">
@@ -240,46 +177,6 @@ export default async function VendorContractDetailPage({ params }: Props) {
           {contract.cancelled_reason ? ` — ${contract.cancelled_reason}` : '.'}
         </p>
       ) : null}
-    </div>
-  );
-}
-
-function SignatureBlock({
-  role,
-  sig,
-  pendingHint,
-}: {
-  role: string;
-  sig: ReturnType<typeof findSignatureByRole>;
-  pendingHint: string;
-}) {
-  return (
-    <div className="rounded-xl border border-ink/10 bg-cream/60 p-4">
-      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-        {role}
-      </p>
-      {sig ? (
-        <div className="mt-2 space-y-2">
-          <p className="text-sm font-medium text-ink">{sig.signer_full_name}</p>
-          <Image
-            src={sig.signature_image_url}
-            alt={`${role} signature`}
-            width={400}
-            height={120}
-            unoptimized
-            className="h-20 w-full rounded border border-ink/10 bg-white object-contain"
-          />
-          <p className="text-[11px] text-ink/55">
-            Signed{' '}
-            {new Date(sig.signed_at).toLocaleString('en-PH', {
-              dateStyle: 'medium',
-              timeStyle: 'short',
-            })}
-          </p>
-        </div>
-      ) : (
-        <p className="mt-2 text-xs text-ink/55">{pendingHint}</p>
-      )}
     </div>
   );
 }

@@ -1,16 +1,12 @@
 'use server';
 
-import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { r2Upload, R2_BUCKETS } from '@/lib/r2';
-import {
-  parseSignatureDataUrl,
-  validateContractFile,
-} from '@/lib/contracts';
+import { validateContractFile } from '@/lib/contracts';
 
 // ----------------------------------------------------------------------------
 // Helpers
@@ -25,14 +21,6 @@ async function ensureVendor() {
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
   return { supabase, user, profile };
-}
-
-async function clientHeaders() {
-  const h = await headers();
-  const ipAddress =
-    h.get('x-forwarded-for')?.split(',')[0]?.trim() ?? h.get('x-real-ip') ?? null;
-  const userAgent = h.get('user-agent')?.slice(0, 500) ?? null;
-  return { ipAddress, userAgent };
 }
 
 function safeFileName(name: string): string {
@@ -92,9 +80,7 @@ export async function uploadVendorContract(formData: FormData) {
     );
   }
 
-  // Push the PDF to R2. Key path: <vendor_profile_id>/<contract_id placeholder>/<filename>
-  // We don't have the contract_id yet, so use a timestamp + random shard
-  // and store the resulting URL on the row we insert next.
+  // Push the PDF to R2. Key path: <vendor_profile_id>/<timestamp>_<rand>/<filename>
   const buffer = Buffer.from(await file.arrayBuffer());
   const stamp = Date.now();
   const random = Math.random().toString(36).slice(2, 10);
@@ -142,11 +128,14 @@ export async function uploadVendorContract(formData: FormData) {
 }
 
 // ----------------------------------------------------------------------------
-// sendContractForSignature — flips a draft to 'sent_for_signature' so the
-// customer side becomes visible. Idempotent (no-ops if already sent).
+// publishContractToCouple — flips a draft to 'sent_for_signature' which
+// under the upload-only scope (owner lock later 2026-05-18) we treat as
+// "visible to couple". The DB column name is kept for forward
+// compatibility with the original dual-sig schema; no signing happens.
+// Idempotent (no-ops if already published or cancelled).
 // ----------------------------------------------------------------------------
 
-export async function sendContractForSignature(formData: FormData) {
+export async function publishContractToCouple(formData: FormData) {
   const { profile } = await ensureVendor();
   const contractId = String(formData.get('contract_id') ?? '').trim();
   if (!contractId) throw new Error('Missing contract id.');
@@ -161,11 +150,9 @@ export async function sendContractForSignature(formData: FormData) {
     throw new Error('Contract not found.');
   }
   if (row.status === 'cancelled') {
-    throw new Error('Cancelled contracts cannot be sent.');
+    throw new Error('Cancelled contracts cannot be re-published.');
   }
-  if (row.status === 'fully_signed') {
-    throw new Error('Contract is already fully signed.');
-  }
+  if (row.status !== 'draft') return; // already visible — idempotent
 
   const { error } = await admin
     .from('vendor_contracts')
@@ -186,86 +173,8 @@ export async function sendContractForSignature(formData: FormData) {
 }
 
 // ----------------------------------------------------------------------------
-// signContractAsVendor — vendor's own signature on a sent contract. Customer
-// side has the mirror action in apps/web/app/dashboard/[eventId]/contracts/actions.ts.
-// ----------------------------------------------------------------------------
-
-export async function signContractAsVendor(formData: FormData) {
-  const { supabase, user, profile } = await ensureVendor();
-
-  const contractId = String(formData.get('contract_id') ?? '').trim();
-  const fullName = String(formData.get('full_name') ?? '').trim();
-  const signatureDataUrl = String(formData.get('signature_data_url') ?? '');
-
-  if (!contractId) throw new Error('Missing contract id.');
-  if (fullName.length < 1 || fullName.length > 200) {
-    throw new Error('Full name is required.');
-  }
-
-  const parsed = parseSignatureDataUrl(signatureDataUrl);
-  if (!parsed.ok) {
-    throw new Error(parsed.reason);
-  }
-
-  // Confirm the contract is owned by this vendor + is currently sendable.
-  const { data: row } = await supabase
-    .from('vendor_contracts')
-    .select('contract_id, status, vendor_profile_id')
-    .eq('contract_id', contractId)
-    .maybeSingle();
-  if (!row || row.vendor_profile_id !== profile.vendor_profile_id) {
-    throw new Error('Contract not found.');
-  }
-  if (row.status !== 'sent_for_signature') {
-    throw new Error('Send the contract for signature first.');
-  }
-
-  // Push the signature PNG to R2.
-  const buffer = Buffer.from(parsed.base64, 'base64');
-  if (buffer.byteLength > 200 * 1024) {
-    throw new Error('Signature image too large.');
-  }
-  const key = `${profile.vendor_profile_id}/${contractId}/signatures/vendor.png`;
-  let imageUrl: string;
-  try {
-    imageUrl = await r2Upload({
-      bucket: R2_BUCKETS.vendorContracts,
-      key,
-      body: buffer,
-      contentType: 'image/png',
-    });
-  } catch (e) {
-    console.error('[contracts] signature upload failed:', e);
-    throw new Error('Could not save the signature. Try again.');
-  }
-
-  const { ipAddress, userAgent } = await clientHeaders();
-  const admin = createAdminClient();
-  const { error } = await admin.from('vendor_contract_signatures').insert({
-    contract_id: contractId,
-    signer_user_id: user.id,
-    signer_role: 'vendor',
-    signer_full_name: fullName,
-    signature_image_url: imageUrl,
-    ip_address: ipAddress,
-    user_agent: userAgent,
-  });
-
-  if (error) {
-    // 23505 = unique violation — vendor already signed this one.
-    if (error.code === '23505') {
-      throw new Error('You have already signed this contract.');
-    }
-    throw new Error(error.message);
-  }
-
-  revalidatePath(`/vendor-dashboard/contracts/${contractId}`);
-  revalidatePath('/vendor-dashboard/contracts');
-}
-
-// ----------------------------------------------------------------------------
-// cancelContract — vendor pulls back a draft / sent-for-signature contract.
-// fully_signed contracts cannot be cancelled (terminal state for audit).
+// cancelContract — vendor pulls back a contract. Cancelled contracts no
+// longer appear on the couple's view but stay in the DB for audit.
 // ----------------------------------------------------------------------------
 
 export async function cancelContract(formData: FormData) {
@@ -282,9 +191,6 @@ export async function cancelContract(formData: FormData) {
     .maybeSingle();
   if (!row || row.vendor_profile_id !== profile.vendor_profile_id) {
     throw new Error('Contract not found.');
-  }
-  if (row.status === 'fully_signed') {
-    throw new Error('Fully signed contracts cannot be cancelled.');
   }
   if (row.status === 'cancelled') return; // idempotent
 

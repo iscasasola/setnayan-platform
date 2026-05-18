@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowRight, FileSignature } from 'lucide-react';
+import { ArrowRight, FileText } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchEventContracts, statusLabel, type ContractStatus } from '@/lib/contracts';
 
@@ -8,7 +8,8 @@ export const metadata = { title: 'Vendor contracts' };
 
 const STATUS_TONE: Record<ContractStatus, string> = {
   draft: 'bg-ink/10 text-ink/70',
-  sent_for_signature: 'bg-sky-100 text-sky-800',
+  // Repurposed under upload-only scope (2026-05-18) — see lib/contracts.ts.
+  sent_for_signature: 'bg-emerald-100 text-emerald-800',
   fully_signed: 'bg-emerald-100 text-emerald-800',
   cancelled: 'bg-rose-100 text-rose-800',
 };
@@ -47,20 +48,21 @@ export default async function EventContractsPage({ params }: Props) {
       <header>
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Vendor contracts</h1>
         <p className="mt-1 text-sm text-ink/65">
-          Contracts your vendors have sent for your signature. Review the PDF, then
-          sign in-app — both parties are required.
+          PDFs your vendors have uploaded for reference. Setnayan hosts the
+          files so both sides have a copy on hand — signing happens between
+          you and the vendor externally.
         </p>
       </header>
 
       {contracts.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-ink/15 bg-cream p-10 text-center">
-          <FileSignature
+          <FileText
             aria-hidden
             className="mx-auto h-8 w-8 text-ink/40"
             strokeWidth={1.5}
           />
           <p className="mt-3 text-sm text-ink/65">
-            No contracts yet. Vendors will send contracts here once you agree on
+            No contracts yet. Vendors will upload PDFs here once you agree on
             terms in chat.
           </p>
         </div>

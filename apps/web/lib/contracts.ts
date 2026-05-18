@@ -1,36 +1,44 @@
 /**
- * Vendor contracts — dual e-signature.
+ * Vendor contracts — upload-only (hosting + visibility, no signing).
  *
- * Owner lock 2026-05-18: Contract Intelligence (iteration 0032) retired.
- * Replaced by a free, built-in PDF upload + dual signature flow. Vendor
- * uploads a contract PDF, picks the event/couple, sends it for signature,
- * then both vendor and customer sign with canvas-captured signatures.
+ * Owner scope shrink 2026-05-18 (later same day): the dual e-signature
+ * flow specified in CLAUDE.md row 414 is dropped. Setnayan's role on
+ * vendor contracts becomes **document storage + visibility** between the
+ * vendor and the couple — not contract facilitation. Couples and vendors
+ * handle signing externally (email, in-person, separate e-sig tool);
+ * Setnayan just keeps the PDF accessible to both sides.
  *
- * Notary integration explicitly excluded — Philippine Notarial Law (2004)
- * restricts a notary's commission to their RTC city/province, so an
- * in-house notary covers ≈10% of cross-city vendor-couple contracts.
- * Couples who want notarization take the signed PDF to their own local
- * notary; Setnayan stays out of that flow in V1.
+ * The underlying schema in
+ * `supabase/migrations/20260518200000_vendor_contracts_dual_esign_retire_0032.sql`
+ * still has signature columns / signature table / fully-signed trigger
+ * for forward compatibility. We just don't write to or read from them.
+ * The `sent_for_signature` status is repurposed as "active / visible to
+ * couple" in the UI. The `fully_signed` state is never reached because
+ * no signatures are ever inserted.
  *
- * Tables / RLS / fully-signed trigger in
- * `supabase/migrations/20260518200000_vendor_contracts_dual_esign_retire_0032.sql`.
+ * Notary integration was explicitly excluded by owner (PH Notarial Law
+ * 2004 restricts a notary's commission to their RTC city/province).
+ * Couples who want notarization take the PDF to their own local notary.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+/**
+ * Status values the UI surfaces. We keep the underlying DB enum
+ * (`draft | sent_for_signature | fully_signed | cancelled`) for forward
+ * compatibility but only ever read/write three states:
+ *   - 'draft' — vendor uploaded, only vendor can see it
+ *   - 'sent_for_signature' — visible to the couple (we label it "Active")
+ *   - 'cancelled' — vendor pulled it back
+ */
 export type ContractStatus =
   | 'draft'
   | 'sent_for_signature'
   | 'fully_signed'
   | 'cancelled';
 
-export type SignerRole = 'vendor' | 'customer';
-
 /** Max upload size — 25 MB. Matches CHECK on vendor_contracts.file_size_bytes. */
 export const CONTRACT_MAX_BYTES = 25 * 1024 * 1024;
-
-/** Max signature image — 200 KB. Canvas PNGs are well under this. */
-export const SIGNATURE_MAX_BYTES = 200 * 1024;
 
 /** Canonical row shape returned by selects. */
 export type VendorContractRow = {
@@ -56,18 +64,6 @@ export type VendorContractRow = {
   updated_at: string;
 };
 
-export type ContractSignatureRow = {
-  signature_id: string;
-  contract_id: string;
-  signer_user_id: string;
-  signer_role: SignerRole;
-  signer_full_name: string;
-  signature_image_url: string;
-  signed_at: string;
-  ip_address: string | null;
-  user_agent: string | null;
-};
-
 /**
  * Lookup all contracts a vendor has authored. Ordered most-recent first.
  * Returns the canonical row shape (no joined event details).
@@ -90,7 +86,7 @@ export async function fetchVendorContracts(
 
 /**
  * Lookup contracts targeted at a couple's event. RLS automatically filters
- * out 'draft' contracts (those stay private to the vendor until sent).
+ * out 'draft' contracts (those stay private to the vendor until published).
  */
 export async function fetchEventContracts(
   supabase: SupabaseClient,
@@ -125,40 +121,16 @@ export async function fetchContract(
   return (data as VendorContractRow | null) ?? null;
 }
 
-/** Signatures attached to a contract. Empty array if none / not authorised. */
-export async function fetchContractSignatures(
-  supabase: SupabaseClient,
-  contractId: string,
-): Promise<ContractSignatureRow[]> {
-  const { data, error } = await supabase
-    .from('vendor_contract_signatures')
-    .select('*')
-    .eq('contract_id', contractId)
-    .order('signed_at', { ascending: true });
-  if (error) {
-    console.error('[contracts] fetchContractSignatures:', error.message);
-    return [];
-  }
-  return (data ?? []) as ContractSignatureRow[];
-}
-
-/** Look up a single signature by (contract, role). Returns null if none. */
-export function findSignatureByRole(
-  signatures: ContractSignatureRow[],
-  role: SignerRole,
-): ContractSignatureRow | null {
-  return signatures.find((s) => s.signer_role === role) ?? null;
-}
-
 /** Human-friendly status label for UI. */
 export function statusLabel(status: ContractStatus): string {
   switch (status) {
     case 'draft':
-      return 'Draft';
+      return 'Draft (only you see this)';
     case 'sent_for_signature':
-      return 'Awaiting signatures';
+      return 'Visible to couple';
     case 'fully_signed':
-      return 'Fully signed';
+      // Unreachable under upload-only scope; preserved for type-safety.
+      return 'Visible to couple';
     case 'cancelled':
       return 'Cancelled';
   }
@@ -190,27 +162,4 @@ export function validateContractFile(file: {
     return { ok: false, reason: 'Only PDF files are accepted.' };
   }
   return { ok: true };
-}
-
-/**
- * Validate a base64-encoded signature data URL coming from the canvas
- * component. Expected shape: "data:image/png;base64,XXXXX". Returns the
- * raw base64 payload if valid, or { ok: false, reason }.
- */
-export function parseSignatureDataUrl(
-  dataUrl: string,
-): { ok: true; base64: string } | { ok: false; reason: string } {
-  if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/png;base64,')) {
-    return { ok: false, reason: 'Signature must be a PNG image.' };
-  }
-  const base64 = dataUrl.slice('data:image/png;base64,'.length);
-  if (base64.length === 0) {
-    return { ok: false, reason: 'Signature image is empty.' };
-  }
-  // Quick size check before decoding — base64 inflates by ~4/3.
-  const approxBytes = Math.ceil((base64.length * 3) / 4);
-  if (approxBytes > SIGNATURE_MAX_BYTES) {
-    return { ok: false, reason: 'Signature image too large.' };
-  }
-  return { ok: true, base64 };
 }

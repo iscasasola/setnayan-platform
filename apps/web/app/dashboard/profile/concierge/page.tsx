@@ -351,7 +351,7 @@ function StatusPanel({
         </header>
         <h2 className="text-2xl font-semibold tracking-tight">{eventName}</h2>
         <p className="mt-1 text-sm text-amber-900/80">
-          You're trying the full Setnayan Concierge experience for {days ?? 0} more{' '}
+          You&rsquo;re trying the full Setnayan Concierge experience for {days ?? 0} more{' '}
           {days === 1 ? 'day' : 'days'}.
         </p>
         <p className="mt-1 text-sm text-amber-900/80">
@@ -452,7 +452,7 @@ function StatusPanel({
       </header>
       <h2 className="text-2xl font-semibold tracking-tight">{eventName}</h2>
       <p className="mt-1 text-sm text-ink/65">
-        You're planning on your own. All dashboard tools are available, but you won't get
+        You&rsquo;re planning on your own. All dashboard tools are available, but you won&rsquo;t get
         timeline help, deadline alerts, or vendor picks matched to your style.
       </p>
       <div className="mt-4 flex flex-wrap gap-3">
@@ -477,7 +477,7 @@ function StatusPanel({
       </div>
       {trialUsedAt && !showTrial ? (
         <p className="mt-4 rounded-md border border-ink/10 bg-ink/[0.03] px-3 py-2 text-xs text-ink/55">
-          You've used your free 3-day trial on this account. Buy Setnayan Concierge anytime
+          You&rsquo;ve used your free 3-day trial on this account. Buy Setnayan Concierge anytime
           to continue with the full experience.
         </p>
       ) : null}

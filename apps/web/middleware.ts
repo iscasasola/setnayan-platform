@@ -44,7 +44,20 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  return await updateSession(request);
+  const { response, user } = await updateSession(request);
+
+  // Signed-in visitors landing on the marketing homepage get bounced to
+  // the app shell. Doing the redirect here — instead of inside the page
+  // component — lets `/` stay fully static, which drops home-page TTFB
+  // from ~300 ms (SSR + auth roundtrip on every request) to edge-cache
+  // speed. Other auth-sensitive routes (`/login`, `/signup`) keep their
+  // existing page-level logic since those flows may have intentional
+  // signed-in render paths (e.g., account switching).
+  if (user && pathname === '/') {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
+  return response;
 }
 
 export const config = {

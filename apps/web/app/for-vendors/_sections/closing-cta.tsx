@@ -17,7 +17,7 @@ export function ClosingCta() {
               <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
                 Set na &lsquo;yan.
               </p>
-              <h2 className="font-sans text-4xl font-semibold leading-tight tracking-tight text-ink sm:text-5xl">
+              <h2 className="font-display text-4xl font-medium leading-tight tracking-tight text-ink sm:text-5xl">
                 Pioneer vendor spot.{' '}
                 <span className="text-ink/55">Free for 10 months.</span>
               </h2>

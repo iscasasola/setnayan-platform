@@ -65,7 +65,7 @@ export function AvailableEverywhere() {
           </p>
           <h2
             id="platforms-heading"
-            className="text-balance font-sans text-3xl font-semibold tracking-tight text-ink sm:text-4xl"
+            className="text-balance font-display text-4xl font-medium tracking-tight text-ink sm:text-5xl"
           >
             Available everywhere you plan.
           </h2>

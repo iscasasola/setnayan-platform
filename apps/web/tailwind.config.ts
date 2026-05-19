@@ -1,4 +1,6 @@
 import type { Config } from 'tailwindcss';
+import defaultTheme from 'tailwindcss/defaultTheme';
+import tailwindcssAnimate from 'tailwindcss-animate';
 
 // Locked breakpoints per kickoff brief — Tailwind defaults match the spec
 // (sm 640 / md 768 / lg 1024 / xl 1280). Re-declared explicitly so a future
@@ -35,22 +37,23 @@ const config: Config = {
         },
       },
       fontFamily: {
-        // System fallback in Sprint 0. Cormorant Garamond + Manrope + DM Mono
-        // are queued for iteration 0015 (main marketing site).
-        sans: [
-          '-apple-system',
-          'BlinkMacSystemFont',
-          'Segoe UI',
-          'Roboto',
-          'Helvetica Neue',
-          'Arial',
-          'sans-serif',
-        ],
-        mono: ['ui-monospace', 'SF Mono', 'Menlo', 'monospace'],
+        // Brand typography wired via `next/font/google` in `app/layout.tsx`
+        // (--font-sans / --font-display / --font-mono CSS variables). Defaults
+        // fall back to the system stack so SSR HTML and a font-load failure
+        // both keep rendering instead of going blank.
+        //
+        // Use `font-sans` for body / buttons / nav (Manrope).
+        // Use `font-display` (or its `font-serif` alias) for h1/h2 hero +
+        //   section titles (Cormorant Garamond — editorial serif).
+        // Use `font-mono` for brand eyebrows + accent labels (DM Mono).
+        sans: ['var(--font-sans)', ...defaultTheme.fontFamily.sans],
+        display: ['var(--font-display)', ...defaultTheme.fontFamily.serif],
+        serif: ['var(--font-display)', ...defaultTheme.fontFamily.serif],
+        mono: ['var(--font-mono)', ...defaultTheme.fontFamily.mono],
       },
     },
   },
-  plugins: [],
+  plugins: [tailwindcssAnimate],
 };
 
 export default config;

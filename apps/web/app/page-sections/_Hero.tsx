@@ -46,7 +46,7 @@ export function Hero() {
 
         <h1
           id="hero-heading"
-          className="mt-5 max-w-4xl text-balance font-sans text-[40px] font-semibold leading-[1.05] tracking-tight text-ink sm:text-[56px] lg:text-[80px]"
+          className="mt-5 max-w-4xl text-balance font-display text-[44px] font-medium leading-[1.02] tracking-tight text-ink sm:text-[60px] lg:text-[88px]"
         >
           <span className="block">Planning a wedding?</span>
           <span className="mt-1 block">Or a vendor</span>

@@ -217,7 +217,7 @@ function PublicLanding({
         <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
           You&rsquo;re invited
         </p>
-        <h1 className="font-sans text-5xl font-semibold tracking-tight sm:text-6xl">
+        <h1 className="font-display text-5xl font-medium tracking-tight sm:text-6xl">
           {event.display_name}
         </h1>
         <p className="text-base text-ink/60">
@@ -286,7 +286,7 @@ function InvitationSite({
           >
             {monogram.text}
           </div>
-          <h1 className="mt-6 font-sans text-5xl font-semibold tracking-tight sm:text-6xl">
+          <h1 className="mt-6 font-display text-5xl font-medium tracking-tight sm:text-6xl">
             {event.display_name}
           </h1>
           <p className="mt-3 font-mono text-xs uppercase tracking-[0.2em] text-ink/60">

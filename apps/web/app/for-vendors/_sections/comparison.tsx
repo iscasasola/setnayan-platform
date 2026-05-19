@@ -50,7 +50,7 @@ export function Comparison() {
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
             Sounds familiar?
           </p>
-          <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+          <h2 className="font-display text-4xl font-medium tracking-tight sm:text-5xl">
             Five apps, three spreadsheets, a Viber group at 11pm.
           </h2>
           <p className="text-base text-ink/65">

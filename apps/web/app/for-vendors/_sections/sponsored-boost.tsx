@@ -13,7 +13,7 @@ export function SponsoredBoost() {
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
             When you&rsquo;re ready to scale
           </p>
-          <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+          <h2 className="font-display text-4xl font-medium tracking-tight sm:text-5xl">
             Sponsored Boost — 10km becomes 30km.
           </h2>
           <p className="text-base text-ink/65">
@@ -30,8 +30,8 @@ export function SponsoredBoost() {
                 <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
                   Sponsored Boost
                 </p>
-                <p className="font-sans text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-                  ₱1,499 <span className="text-base font-normal text-ink/55">/ week</span>
+                <p className="font-display text-4xl font-medium tracking-tight text-ink sm:text-5xl">
+                  ₱1,499 <span className="font-sans text-base font-normal text-ink/55">/ week</span>
                 </p>
                 <p className="text-sm text-ink/55">
                   Per boosted pin · stacks weekly with Pro · pause anytime

@@ -48,7 +48,7 @@ export default async function WaitlistPage({ searchParams }: Props) {
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
             Couple waitlist
           </p>
-          <h1 className="mt-3 text-balance font-sans text-4xl font-semibold tracking-tight sm:text-5xl lg:text-6xl">
+          <h1 className="mt-3 text-balance font-display text-5xl font-medium tracking-tight sm:text-6xl lg:text-7xl">
             Setnayan opens to couples on{' '}
             <span className="text-terracotta">December 1, 2026</span>.
           </h1>

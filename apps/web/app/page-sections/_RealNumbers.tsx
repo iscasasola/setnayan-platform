@@ -34,7 +34,7 @@ export function RealNumbers() {
         Post-threshold render (do not delete — wires in once gate passes):
 
         <div className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
-          <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+          <h2 className="font-display text-3xl font-medium tracking-tight sm:text-4xl">
             The numbers behind Setnayan
           </h2>
           <ul className="mt-8 grid grid-cols-2 gap-6 text-ink lg:grid-cols-4">

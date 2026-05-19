@@ -13,7 +13,7 @@ export function FinalCTA() {
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
             Set na &lsquo;yan. &mdash; it&rsquo;s all set.
           </p>
-          <h2 className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
+          <h2 className="font-display text-4xl font-medium tracking-tight text-ink sm:text-5xl">
             That&rsquo;s the catalog. Want a quote for your event?
           </h2>
           <p className="text-base text-ink/65">

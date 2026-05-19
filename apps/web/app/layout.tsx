@@ -27,6 +27,16 @@ export const metadata: Metadata = {
     title: 'Setnayan',
     statusBarStyle: 'default',
   },
+  openGraph: {
+    type: 'website',
+    siteName: 'Setnayan',
+    locale: 'en_PH',
+    images: [{ url: '/icon-512.svg', width: 512, height: 512, alt: 'Setnayan' }],
+  },
+  twitter: {
+    card: 'summary',
+    images: ['/icon-512.svg'],
+  },
 };
 
 export const viewport: Viewport = {

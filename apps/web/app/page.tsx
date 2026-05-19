@@ -69,10 +69,22 @@ const VendorCompat = nextDynamic(
 //   dashboard preview — for Filipino-luxe photography and final
 //   illustration per owner's art direction. Skeleton-phase only.
 
+const HOME_TITLE = 'Wedding Suppliers & Supplies Philippines';
+const HOME_DESCRIPTION =
+  "Setnayan is the only Filipino-built platform with real operating tools for both sides — from your guest list to your same-day highlight reel. Built in the Philippines.";
+
 export const metadata = {
-  title: 'Wedding Suppliers & Supplies Philippines',
-  description:
-    "Setnayan is the only Filipino-built platform with real operating tools for both sides — from your guest list to your same-day highlight reel. Built in the Philippines.",
+  title: HOME_TITLE,
+  description: HOME_DESCRIPTION,
+  openGraph: {
+    title: HOME_TITLE,
+    description: HOME_DESCRIPTION,
+    url: '/',
+  },
+  twitter: {
+    title: HOME_TITLE,
+    description: HOME_DESCRIPTION,
+  },
 };
 
 // Marketing home is rendered at build time and served straight from the CDN

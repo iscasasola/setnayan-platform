@@ -7,7 +7,7 @@ import { Logo } from '@/app/_components/logo';
 import { submitHelpMessage } from './actions';
 
 export const metadata = {
-  title: 'Help & support · Setnayan',
+  title: 'Help & support',
   description:
     'Step-by-step guides for couples and vendors using Setnayan. Reach a human via the contact form below.',
 };

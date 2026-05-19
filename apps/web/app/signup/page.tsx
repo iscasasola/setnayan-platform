@@ -63,7 +63,10 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
         </p>
       ) : null}
 
-      <form action={signUp} className="space-y-4">
+      <form
+        action={signUp}
+        className="space-y-4 [&:has(input[value='vendor']:checked)_[data-couple-only]]:hidden"
+      >
         <input type="hidden" name="next" value={next} />
         <fieldset className="space-y-2">
           <legend className="block text-sm font-medium text-ink">I&rsquo;m signing up as a</legend>
@@ -92,6 +95,40 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
             </label>
           </div>
         </fieldset>
+
+        {/* Public Event Summary consent — couples only. Hidden via the form's
+            :has() arbitrary variant when the Vendor radio is checked. Wording
+            and behavior locked in CLAUDE.md decision-log rows 426 + 428
+            (2026-05-19): public-by-default with the 8 RA 10173 safe-harbor
+            guardrails (T+30d grace window + reminder email + one-click opt-out
+            from /dashboard/{eventId}/privacy). Checkbox defaults checked so
+            the default behavior matches the locked "public-by-default" posture;
+            couples who uncheck land with users.public_summary_consent_at NULL
+            and can flip it on later from the in-dashboard privacy surface. */}
+        <fieldset
+          data-couple-only
+          className="space-y-2 rounded-md border border-ink/10 bg-cream/50 p-3"
+        >
+          <legend className="sr-only">Public Real Weddings showcase</legend>
+          <label className="flex cursor-pointer items-start gap-3 text-sm text-ink/80">
+            <input
+              type="checkbox"
+              name="public_summary_consent"
+              value="yes"
+              defaultChecked
+              className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-ink/30 text-terracotta focus:ring-2 focus:ring-terracotta/30"
+            />
+            <span>
+              <span className="font-medium text-ink">
+                Include my wedding in Setnayan&rsquo;s Real Weddings showcase.
+              </span>{' '}
+              30 days after our event, our editorial page becomes publicly
+              searchable on <span className="font-mono">setnayan.com/weddings</span>{' '}
+              and Google. We can keep it private at any time from our dashboard.
+            </span>
+          </label>
+        </fieldset>
+
         <div className="space-y-1.5">
           <label className="block text-sm font-medium text-ink" htmlFor="email">
             Email

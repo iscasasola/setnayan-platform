@@ -1,6 +1,7 @@
 import nextDynamic from 'next/dynamic';
 import { SiteHeader } from '@/app/_components/site-header';
 import { AnnouncementBar } from '@/app/page-sections/_AnnouncementBar';
+import { BrowseStrip } from '@/app/page-sections/_BrowseStrip';
 import { Hero } from '@/app/page-sections/_Hero';
 import { RealNumbers } from '@/app/page-sections/_RealNumbers';
 import { Chaos } from '@/app/page-sections/_Chaos';
@@ -161,6 +162,13 @@ export default function HomePage() {
         <AnnouncementBar />
 
         <SiteHeader />
+
+        {/* Browse strip — Phase A scaffolding for the public-view-and-search
+            lock (CLAUDE.md decision-log row 426, 2026-05-19). Sits between
+            chrome and hero so pre-launch visitors who don't want to sign up
+            yet still have a clear path into the already-shipped /vendors
+            marketplace. The hero below keeps the funnel-first CTAs intact. */}
+        <BrowseStrip />
 
         {/* 2 — Hero (three-question framing) */}
         <Hero />

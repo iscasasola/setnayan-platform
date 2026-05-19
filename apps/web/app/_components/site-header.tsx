@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
-import { Menu } from 'lucide-react';
+import { Menu, Search } from 'lucide-react';
 import { Logo } from './logo';
 import { Sheet } from './sheet';
 
@@ -12,19 +12,29 @@ import { Sheet } from './sheet';
 // decision-log row) — no two-row drift, no wallet pill, no event-switcher
 // (that lives inside the per-event dashboard layout, not the public chrome).
 //
+// Browse + search entry points added per CLAUDE.md decision-log rows 426 +
+// 428 (2026-05-19, Phase A scaffolding for the public-view-and-search lock):
+//   - "Browse" leads the primary nav and points at the already-shipped
+//     /vendors marketplace.
+//   - Inline search bar at lg+ submits a GET form to /vendors?q=<query>
+//     (matches the SearchAction JSON-LD already declared in apps/web/app/page.tsx).
+//   - Mobile hamburger sheet includes both the search input and the Browse
+//     link near the top of the sheet so the discovery path is reachable
+//     without a desktop viewport.
+//
 // Responsive contract:
 //   - mobile (< 768): logo + hamburger. The hamburger opens a Sheet with
-//     the primary nav + Sign in + Create account. Single-thumb reach;
-//     respects platform-appropriate patterns (bottom-sheet on mobile, not
-//     a centered modal).
+//     the primary nav + search field + Sign in + Create account.
 //   - md+ (>= 768): logo + inline primary nav + Sign in (link) + Create
-//     account (button). No hamburger.
+//     account (button). Search input appears at lg+ to keep md width
+//     uncluttered for tablet.
 //
 // Vendor-context detection routes the Create-account href to
 // /signup?as=vendor when the viewer is on /for-vendors/* so the signup
 // step pre-selects the vendor role.
 
 const PRIMARY_NAV = [
+  { href: '/vendors', label: 'Browse' },
   { href: '/features', label: 'Features' },
   { href: '/for-vendors', label: 'For vendors' },
   { href: '/pricing', label: 'Pricing' },
@@ -70,6 +80,33 @@ export function SiteHeader() {
 
         {/* Right-side actions */}
         <div className="flex items-center gap-2">
+          {/* Inline search — visible at lg+ so md (tablet) keeps the nav
+              uncluttered. Submits a GET form to /vendors so the action
+              matches the homepage SearchAction JSON-LD and the existing
+              /vendors page already reads `?q=` server-side. */}
+          <form
+            action="/vendors"
+            method="get"
+            role="search"
+            className="relative hidden lg:block"
+          >
+            <label htmlFor="site-search" className="sr-only">
+              Search vendors
+            </label>
+            <Search
+              aria-hidden
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/50"
+              strokeWidth={1.75}
+            />
+            <input
+              id="site-search"
+              name="q"
+              type="search"
+              placeholder="Search vendors"
+              autoComplete="off"
+              className="h-10 w-56 rounded-md border border-ink/15 bg-white pl-9 pr-3 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30"
+            />
+          </form>
           <Link
             href="/login"
             className="hidden text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline md:inline"
@@ -106,6 +143,29 @@ export function SiteHeader() {
         title="Menu"
       >
         <nav aria-labelledby="site-nav-title" id="site-nav-sheet" className="px-2 py-3">
+          {/* Mobile search — submits the same GET form as desktop. Closing
+              the sheet on submit isn't necessary because the form navigation
+              triggers a full page change. */}
+          <form action="/vendors" method="get" role="search" className="px-2 pb-3">
+            <label htmlFor="site-search-mobile" className="sr-only">
+              Search vendors
+            </label>
+            <div className="relative">
+              <Search
+                aria-hidden
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/50"
+                strokeWidth={1.75}
+              />
+              <input
+                id="site-search-mobile"
+                name="q"
+                type="search"
+                placeholder="Search vendors"
+                autoComplete="off"
+                className="h-11 w-full rounded-md border border-ink/15 bg-white pl-9 pr-3 text-base text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30"
+              />
+            </div>
+          </form>
           <ul className="space-y-1">
             {PRIMARY_NAV.map((link) => {
               const isActive =

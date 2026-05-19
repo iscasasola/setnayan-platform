@@ -53,7 +53,7 @@ const FEATURES: Feature[] = [
   },
   {
     Icon: Palette,
-    title: 'Mood board — your wedding&rsquo;s look',
+    title: 'Mood board — your wedding’s look',
     oneLiner: 'Pin photos, lock palettes, share with vendors in one click.',
     body: 'Pin photos from Pinterest, Instagram, your friend&rsquo;s wedding album. Setnayan extracts the dominant palette so your florist, your stationer, and your stylist all reference the same hex codes. Per-role palettes for the bride, the groom, the entourage, and the venue. Share the board with a vendor by link — no account required to view.',
     iteration: 'Iteration 0010',

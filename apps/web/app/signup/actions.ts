@@ -24,6 +24,13 @@ export async function signUp(formData: FormData) {
   const password = String(formData.get('password') ?? '');
   const accountType = parseAccountType(formData.get('account_type'));
   const next = safeNext(formData.get('next'));
+  // Public Event Summary consent — couples only. Captured at signup per
+  // CLAUDE.md decision-log rows 426 + 428 (2026-05-19) + the 8 RA 10173
+  // safe-harbor guardrails. Vendors don't get this field (form hides it
+  // via :has(); we double-check the account type here so a forged POST
+  // can't write the column for a vendor row).
+  const publicSummaryConsent =
+    accountType === 'customer' && String(formData.get('public_summary_consent') ?? '') === 'yes';
 
   if (!email || !password) {
     return redirect(`/signup?error=missing&next=${encodeURIComponent(next)}`);
@@ -66,6 +73,24 @@ export async function signUp(formData: FormData) {
     try {
       const admin = createAdminClient();
       await admin.auth.admin.updateUserById(data.user.id, { email_confirm: true });
+
+      // Persist the Public Event Summary consent timestamp. The DB trigger
+      // tied to auth.signUp creates the public.users row; we then UPDATE
+      // public_summary_consent_at = NOW() when the couple opted in at
+      // signup. Wrapped defensively — if the column or trigger isn't yet
+      // applied in this env (pre-migration push) the signup flow still
+      // succeeds and the consent can be captured later via the dashboard
+      // privacy surface.
+      if (publicSummaryConsent) {
+        try {
+          await admin
+            .from('users')
+            .update({ public_summary_consent_at: new Date().toISOString() })
+            .eq('user_id', data.user.id);
+        } catch {
+          // Non-blocking: signup completes even if the consent write fails.
+        }
+      }
 
       // Fire a welcome email if Resend is wired — best-effort, never blocks.
       const accountKindLabel = accountType === 'vendor' ? 'vendor' : 'couple';

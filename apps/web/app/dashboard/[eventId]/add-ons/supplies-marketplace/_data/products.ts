@@ -1,16 +1,24 @@
-// Mock catalog for iteration 0018 Supplies Marketplace (scaffold-level).
+// Mock catalog for iteration 0018 Setnayan Supplies (scaffold-level).
 //
-// Vendor inventory persistence is Din Phase 3 work — these listings live in
-// memory for now so the surface is browsable end-to-end without a DB write.
-// Prices and product types are pulled directly from the spec § "Marketplace
-// categories" + § "Coordinator workflow" (Patiktok background ₱599, HDMI
-// dongle ₱899, monitor rental ₱2,500, QR cards ₱1,999/100, etc.). No
-// invented prices, no new SKUs — PHP only.
+// 2026-05-19 model pivot: this iteration is no longer a marketplace with
+// vendor-set retail prices. New locked model is Setnayan-sourced resale —
+// Setnayan negotiates wholesale per area, marks up 50% (retail = wholesale
+// × 1.5). The static catalog below still uses pre-pivot prices for UI
+// continuity; they will be replaced by a dynamic query in PR 3b.
 //
-// When iteration 0018 graduates from scaffold → real, this file is replaced
-// by a Supabase query against the vendor inventory table.
-// TODO(0018): swap mock SUPPLY_PRODUCTS for a Supabase fetch when vendor
-// inventory + listings ship in Din Phase 3.
+// PR 3b plan: swap this static SUPPLY_PRODUCTS array for a Supabase query
+// that calls public.resolve_supplies_pricing(sku_code, area, qty) for each
+// distinct sku_code in the supplier_vendor_skus catalog (schema PR #143/#145,
+// resolver function PR #146). Empty state ("Coming to your area soon") will
+// surface when the query returns no rows.
+//
+// Static prices below remain reference points for UI sizing while supplier
+// vendor agreements are signed + SKU data is seeded (owner-side ops work
+// gated on `01_Contracts/Setnayan_Supplier_Vendor_Agreement.md` template).
+// No invented prices, no new SKUs — PHP only.
+//
+// TODO(0018 PR 3b): swap mock SUPPLY_PRODUCTS for a Supabase fetch +
+// resolveSuppliesPricing() per SKU; render empty state if zero rows.
 
 export const SUPPLY_CATEGORIES = [
   {

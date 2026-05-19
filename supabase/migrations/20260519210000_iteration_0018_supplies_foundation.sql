@@ -1,5 +1,9 @@
 -- ============================================================================
--- 20260519200000_iteration_0018_supplies_foundation.sql
+-- 20260519210000_iteration_0018_supplies_foundation.sql
+--
+-- Renamed 2026-05-19 from 20260519200000 to 20260519210000 to resolve a
+-- timestamp collision with a parallel-agent migration (vendor_invites
+-- foundation) that landed at the same 20:00 prefix.
 --
 -- PR 1 of 8 for V1 iteration 0018 Setnayan Supplies (curated reseller).
 -- Spec corpus: 0018_supplies_marketplace/0018_supplies_marketplace.md

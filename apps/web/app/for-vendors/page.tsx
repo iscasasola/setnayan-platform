@@ -98,7 +98,7 @@ const FOR_VENDORS_JSONLD = {
       '@id': `${SITE_URL}/for-vendors#pro-subscription`,
       name: 'Setnayan Pro for vendors (weekly subscription)',
       description:
-        'Multi-service authoring, per-service calendars + master calendar, in-app payments with auto-disbursement, proposal builder, team / agent invites, video meetings. Billed weekly, paused anytime.',
+        'Multi-service authoring, per-service calendars + master calendar, in-app payments with auto-disbursement, proposal builder, team / agent invites, plus free Setnayan Concierge for every couple you book. Billed weekly, paused anytime.',
       price: '499',
       priceCurrency: 'PHP',
       priceSpecification: {

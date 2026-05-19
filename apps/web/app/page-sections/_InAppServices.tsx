@@ -3,7 +3,6 @@ import Link from 'next/link';
 import {
   Camera,
   Tv,
-  Film,
   Palette,
   Lightbulb,
   Aperture,
@@ -53,14 +52,6 @@ const SERVICES: Array<{
     Icon: Tv,
     tag: 'quote',
     image: '/add-ons/panood.avif',
-  },
-  {
-    name: 'Pamahiya',
-    tagline: 'Personal Souvenir Reels',
-    body: 'Every guest renders their own 1–30 second reel from a template library, scored to Setnayan-owned music.',
-    Icon: Film,
-    tag: 'quote',
-    image: '/add-ons/pamahiya.avif',
   },
   {
     name: 'Pakulay',

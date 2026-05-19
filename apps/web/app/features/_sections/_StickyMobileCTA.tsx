@@ -35,7 +35,7 @@ export function StickyMobileCTA() {
       style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
     >
       <Link
-        href="/apply"
+        href="/signup"
         tabIndex={visible ? 0 : -1}
         className="button-primary flex h-12 w-full items-center justify-center gap-2 text-sm"
       >

@@ -75,7 +75,10 @@ export function Compliance() {
                   <h3 className="text-base font-semibold tracking-tight text-ink">
                     {item.title}
                   </h3>
-                  <p className="text-sm text-ink/65">{item.body}</p>
+                  <p
+                    className="text-sm text-ink/65"
+                    dangerouslySetInnerHTML={{ __html: item.body }}
+                  />
                 </div>
               </li>
             );

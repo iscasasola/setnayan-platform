@@ -1,6 +1,6 @@
 # Add-ons tile imagery
 
-11 banner photos for the homepage `Section 7 — In-app services` cards in
+10 banner photos for the homepage `Section 7 — In-app services` cards in
 `_InAppServices.tsx`. Each file maps 1:1 to a `SERVICES[].image` entry.
 
 ## Files
@@ -9,7 +9,6 @@
 |---|---|---|
 | `papic.avif` | Papic | Designated Paparazzi |
 | `panood.avif` | Panood | Multi-Cam Live Stream |
-| `pamahiya.avif` | Pamahiya | Personal Souvenir Reels |
 | `pakulay.avif` | Pakulay | Mood Board & Palette Engine |
 | `pailaw.avif` | Pailaw | LED Background Maker |
 | `pareto.avif` | Pareto | Pro Camera Bridge |

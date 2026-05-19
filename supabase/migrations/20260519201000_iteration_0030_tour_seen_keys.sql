@@ -1,5 +1,8 @@
 -- ============================================================================
--- 20260519200000_iteration_0030_tour_seen_keys.sql
+-- 20260519201000_iteration_0030_tour_seen_keys.sql
+--   (renamed from 20260519200000_* to break a timestamp collision with
+--   20260519200000_vendor_invites_foundation.sql; +1-minute offset per the
+--   CI migration-timestamp-guard playbook. No DDL change — file rename only.)
 -- Iteration 0030 — per-tour completion tracking.
 --
 -- The MVP migration (20260513180000) added a single `users.tour_completed_at`

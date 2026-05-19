@@ -40,8 +40,11 @@ pnpm-debug.log*
 # macOS
 .DS_Store
 
-# Coverage / test artifacts
-coverage/
+# Coverage / test artifacts — root-level only (leading `/`) so
+# `apps/web/public/coverage/` city placeholders aren't accidentally
+# matched. Vitest / nyc default to `<rootDir>/coverage` so this still
+# excludes test output.
+/coverage/
 .nyc_output/
 
 # Supabase

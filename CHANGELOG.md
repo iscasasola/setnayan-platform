@@ -4,6 +4,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-19 · feat(0015): wire 8 PH coverage-map city photo tiles
+
+**Commit:** to be filled after commit.
+
+**Context:** Continues the placeholder sequence (PRs #130 hero/portraits, #132 add-ons/covers). The coverage-map section was an SVG silhouette + 6 city chips reading as abstract dots-on-a-map. Adding a small photo-tile grid below the SVG turns the section into a "real places, real coverage" visual without overwhelming the map itself. Two new cities added (Tagaytay + Bohol) since Tagaytay is a key PH wedding destination and Bohol's Chocolate Hills are an iconic regional marker.
+
+**What ships:**
+
+- `apps/web/public/coverage/{manila,tagaytay,baguio,iloilo,cebu,bohol,cagayan-de-oro,davao}.avif` — 8 city vignettes from Higgsfield `soul_location` (1:1 at 2048×2048, AVIF q=65, total 1.0 MB).
+- `apps/web/app/page-sections/_CoverageMap.tsx`:
+  - `PIN_PLACEHOLDERS` gains `image: string` field on each entry + 2 new pins (Tagaytay, Bohol). Reordered geographically (north-to-south).
+  - Chip strip replaced with a 2-col mobile / 4-col desktop photo-tile grid (each tile = `aspect-square` AVIF + city label below). Subtle `hover:scale-[1.04]` for the photos. Photo tiles are decorative — `alt=""`, hover-scale obeys `prefers-reduced-motion: reduce` (transition disabled by the global Phase 1 reduce-motion block).
+- `apps/web/public/coverage/README.md` (new) — file mapping, source notes, replacement contract, privacy invariant per 0015 § Section 10 (city-level only — never barangay, never identifiable couples).
+
+**SPEC IMPACT:** None on schema/SKU/policy. Two new cities surfaced on the marketing-site coverage map (Tagaytay, Bohol); the privacy invariant (city-level only) is preserved. Iteration `0015_main_website.md` § Section 10 already calls for a `city-pins` overlay — the new tiles below the map don't change that contract.
+
+---
+
 ## 2026-05-19 · feat(0015): wire 11 add-ons tile photos + 2 dashboard cover placeholders
 
 **Commit:** to be filled after commit.

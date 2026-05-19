@@ -30,6 +30,7 @@ export type SkuPurchaserRole = 'couple' | 'vendor' | 'either';
 export type SkuCategory =
   | 'couple_addon'
   | 'panood'
+  | 'papic'
   | 'patiktok'
   | 'vendor_verification'
   | 'vendor_tools'
@@ -186,6 +187,83 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
     refundable: true,
     purchaserRole: 'couple',
     // Retired 2026-05-17 — collapsed into panood_annual_streaming always-multicam.
+    isActive: false,
+  },
+
+  // ---- Papic (candid-capture · seat packs locked 2026-05-17 reactivation) ----
+  {
+    skuCode: 'paparazzi_3_seats',
+    displayName: '3-Paparazzi Pack',
+    category: 'papic',
+    priceCentavos: 149900,
+    unit: 'event',
+    multiPurchase: false,
+    subscription: false,
+    refundable: true,
+    purchaserRole: 'couple',
+    isActive: true,
+  },
+  {
+    skuCode: 'paparazzi_5_seats',
+    displayName: '5-Paparazzi Pack',
+    category: 'papic',
+    priceCentavos: 249900,
+    unit: 'event',
+    multiPurchase: false,
+    subscription: false,
+    refundable: true,
+    purchaserRole: 'couple',
+    isActive: true,
+  },
+  {
+    skuCode: 'paparazzi_camera_addon',
+    displayName: 'Camera Add-on (+1 seat)',
+    category: 'papic',
+    priceCentavos: 99900,
+    unit: 'event',
+    multiPurchase: true,
+    subscription: false,
+    refundable: true,
+    purchaserRole: 'couple',
+    isActive: true,
+  },
+  // Cam Bridge (DSLR pairing) — cataloged but isActive=false. Requires native
+  // Papic-binary app + DSLR WiFi SDK access, both gated by the DTI chain
+  // (deferred until pilot wraps per 2026-05-18 lock).
+  {
+    skuCode: 'papic_cam_bridge_slot_day',
+    displayName: 'Cam Bridge (per slot · per day)',
+    category: 'papic',
+    priceCentavos: 9900,
+    unit: 'day',
+    multiPurchase: true,
+    subscription: false,
+    refundable: true,
+    purchaserRole: 'couple',
+    isActive: false,
+  },
+  {
+    skuCode: 'papic_cam_bridge_all_slots_day',
+    displayName: 'Cam Bridge (all slots · per day)',
+    category: 'papic',
+    priceCentavos: 24900,
+    unit: 'day',
+    multiPurchase: true,
+    subscription: false,
+    refundable: true,
+    purchaserRole: 'couple',
+    isActive: false,
+  },
+  {
+    skuCode: 'papic_cam_bridge_all_slots_annual',
+    displayName: 'Cam Bridge (all slots · annual)',
+    category: 'papic',
+    priceCentavos: 249900,
+    unit: 'year',
+    multiPurchase: false,
+    subscription: true,
+    refundable: true,
+    purchaserRole: 'either',
     isActive: false,
   },
 

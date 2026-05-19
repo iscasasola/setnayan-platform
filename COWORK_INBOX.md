@@ -8,6 +8,53 @@
 
 ---
 
+## [PENDING] 2026-05-20 — Iteration 0009 Photo Delivery: architecture deviations from spec
+
+**Why:** Iteration 0009 was promoted V1.5+ → V1 on 2026-05-18; PRs 1-4 shipped end-to-end this session (#147 schema, #152 encryption helper, #153 OAuth routes, **PR 4** release producer + sweep tick). The spec at `~/Documents/Claude/Projects/Setnayan/0009_photo_delivery/0009_photo_delivery.md` predates a few architectural realities in the repo — five concrete deviations need to be reflected so future Claude sessions don't re-derive them from the spec.
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`0009_photo_delivery/0009_photo_delivery.md`** — § OAuth flow: replace the `apps/web/lib/encryption.ts` + `events.photo_delivery_oauth_token_encrypted` design with the shipped pattern:
+   > "Refresh tokens are persisted in the shared `oauth_grants` table with `provider='drive_photo_delivery'`, matching the Papic (0012) pattern shipped 2026-05-16. Plaintext for V1; the in-schema `TODO(security)` on `oauth_grants.refresh_token` anticipates a future migration to pgcrypto via the `apps/web/lib/encryption.ts` helper landed in PR #152. The events column `events.photo_delivery_oauth_token_encrypted` ships as schema waste until that harmonization."
+
+2. **`0009_photo_delivery/0009_photo_delivery.md`** — § Routes: rename the OAuth route paths:
+   > "OAuth start: `/api/oauth/photo-delivery/start?event_id=...` (not `/api/oauth/google/start`)."
+   > "OAuth callback: `/api/oauth/photo-delivery/callback?code=...&state=...` (not `/api/oauth/google/callback`). Google Cloud OAuth client must register this URI alongside Papic's `/api/oauth/drive/callback`; the redirect URI is what distinguishes the two iterations server-side."
+   > "Surface URL: `/dashboard/[eventId]/add-ons/photo-delivery` (the shipped add-ons path, not the spec's earlier `/services/photo-delivery` or root `/dashboard/photo-delivery` references)."
+
+3. **`0009_photo_delivery/0009_photo_delivery.md`** — § Data model: deprecate the "Extensions to `photos`" subsection. Replace with:
+   > "**`photo_delivery_artifacts` (new join table, PR #154)** — `photos` (unified) does not exist in the V1 schema; what shipped via PR #151 is iteration-specific `papic_photos`. Photo Delivery per-photo state therefore lives in a join table keyed by `(event_id, source_table='papic_photos', source_photo_id)`. Columns: `drive_file_id`, `uploaded_at`, `attempt_count` (cap 5), `last_error_text`, `last_error_at`. Re-releases UPSERT by the unique index and skip rows where `drive_file_id IS NOT NULL`."
+
+4. **`0009_photo_delivery/0009_photo_delivery.md`** — § Release pipeline (the upload job): replace the Cloudflare Queues + Workers architecture with the Vercel-native pattern:
+   > "**Producer:** `POST /api/photo-delivery/release` — couple-auth, creates a `photo_delivery_jobs` row + UPSERTs `photo_delivery_artifacts` from `papic_photos` (filtering `hidden_at IS NULL`), flips `events.photo_delivery_status='releasing'`."
+   > "**Worker:** `POST /api/cron/photo-delivery-tick` — `x-cron-secret`-guarded sweep, picks up to 5 events with status ∈ {'releasing','uploading'} per tick, processes 6 artifacts per event via Drive multipart upload. Token refresh handled inline via `refreshDriveAccessToken` from `papic-drive.ts`. Cron cadence 1-2 minutes (external scheduler — Cloudflare Cron Triggers or Vercel Cron). No `apps/workers/` package ships in V1."
+
+5. **`App_Build_Status.md`** — find the iteration 0009 row (today: "🟡 V1 build pending (promoted from V1.5+ 2026-05-18)"). Update to:
+   > "⚠️ Partial — schema (PR #147), encryption helper (PR #152 unused pending harmonization), OAuth routes (PR #153), release producer + sweep tick (PR #154) all shipped. Pending: status polling + redeliver/disconnect routes + email templates (PR 5)."
+
+6. **`CLAUDE.md` decision log** — append a new row dated `2026-05-20`:
+   > `| 2026-05-20 | **0009 Photo Delivery V1 architecture set (oauth_grants over encrypted-events column · papic_photos as the source-of-truth join target via new photo_delivery_artifacts table · Vercel routes + cron tick over Cloudflare Workers).** PRs #147/#152/#153/#154. Encryption helper kept ready for a future oauth_grants pgcrypto harmonization. | apps/web/lib/photo-delivery-{drive,release}.ts · supabase/migrations/202605200{00,20,30}000_*.sql |`
+
+---
+
+## [PENDING] 2026-05-20 — Iteration 0005 LED Background: pricing table sanity check
+
+**Why:** PR #150 shipped the LED schema foundation (`led_background_configs` + `led_background_renders`). SKU seed was deliberately skipped because the spec's 2026-05-08 pricing table at `0005_led_background_maker.md` § "Pricing" reads:
+> | 1080p HD | ₱249 |
+> | 4K UHD | ₱399 |
+> | 8K cinematic | ₱99 |
+
+8K being cheapest is implausible (8K render is the most compute-intensive output). Likely transposed: 8K should be ₱999, not ₱99. Owner must confirm correct pricing before PR 1b seeds live SKUs.
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`0005_led_background_maker/0005_led_background_maker.md`** — § Pricing: confirm or correct the 1080p / 4K / 8K row prices. Pro Bundle's "All 10 templates · ₱99" also worth a sanity check (₱99 for unlimited drafts reads low if individual renders are ₱99-249).
+2. **`0005_led_background_maker/0005_led_background_maker.md`** — § Pricing: if prices change, log a 2026-05-20 decision-log row at `CLAUDE.md` documenting the correction.
+
+After owner confirmation, follow-up PR seeds the SKUs into `service_catalog` (PR 1b for 0005).
+
+---
+
 ## [PENDING] 2026-05-16 — Iteration 0012 Papic: Google Drive OAuth + storage-choice setup (V1 scope expansion)
 
 **Why:** Per the 2026-05-16 V1 scope expansion (sibling to PR #95 which shipped the YouTube slice for Panood), Papic now ships OAuth-wired setup at V1 even though the capture pipeline itself (cameras + face detection + transfer) remains V1.5+. PR `feat(0012): Google Drive OAuth + Papic storage-choice setup` shipped today and adds a new storage-choice radio (Setnayan R2 default vs Google Drive only) plus the full Drive OAuth round-trip with bootstrapped folder structure. Four spec files need to catch up so the spec corpus matches the shipped reality.

@@ -19,9 +19,20 @@
 -- All idempotent (IF NOT EXISTS · CHECK constraints don't double-add).
 -- Engineering work pending after this migration: wizard state machine + intake
 -- forms + plan generation server action + Next Actions UI + 0023 Brain Editor UI.
+--
+-- pgvector note (fixed 2026-05-19): the brain table's `embedding` column +
+-- the unanswered-questions `query_embedding` column reference `vector(384)`.
+-- Supabase ships pgvector in the `extensions` schema, NOT in `public`'s
+-- search_path, so bare `VECTOR(384)` fails with SQLSTATE 42704 at push time.
+-- Columns now use the schema-qualified `extensions.vector(384)` form, and
+-- the migration explicitly ensures the extension is enabled in `extensions`
+-- before any reference to the type.
 -- ============================================================================
 
 BEGIN;
+
+-- Ensure pgvector lives in `extensions` (Supabase default). Safe to re-run.
+CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA extensions;
 
 -- ----------------------------------------------------------------------------
 -- 1. events — Pro Weekly bundle perk tracking (0016 § 0c)
@@ -157,7 +168,7 @@ CREATE TABLE IF NOT EXISTS public.concierge_brain_chunks (
   source_citation       TEXT,                 -- required for cultural/legal chunks per brain README governance
   paid_tier_only        BOOLEAN NOT NULL DEFAULT FALSE,
   tier_visible_to       TEXT[] NOT NULL DEFAULT ARRAY['diy', 'trial', 'active'],
-  embedding             VECTOR(384),          -- bge-small-en-v1.5 via Cloudflare Workers AI
+  embedding             extensions.vector(384), -- bge-small-en-v1.5 via Cloudflare Workers AI (extensions.* qualifier per Supabase pgvector convention)
   embedding_generated_at TIMESTAMPTZ,
   is_stale              BOOLEAN NOT NULL DEFAULT FALSE,  -- flagged when body edits; nightly sweep regenerates
   cowork_authored_by    TEXT,                 -- when chunk arrived via Cowork sync
@@ -273,7 +284,7 @@ CREATE TABLE IF NOT EXISTS public.concierge_unanswered_questions (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_id              UUID REFERENCES public.events(event_id) ON DELETE SET NULL,
   question_text         TEXT NOT NULL,
-  query_embedding       VECTOR(384),
+  query_embedding       extensions.vector(384),
   similar_count_30d     INT NOT NULL DEFAULT 1,
   first_asked_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   last_asked_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),

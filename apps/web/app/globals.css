@@ -138,3 +138,65 @@
     @apply h-11 w-full rounded-md border border-ink/20 bg-cream px-3 text-base text-ink placeholder-ink/40 transition-colors focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta;
   }
 }
+
+/*
+ * Aurora hero motion — iteration 0015 § Section 2 visual differentiation.
+ * Two warm-toned radial gradients that slowly drift across the hero, blended
+ * behind the photographic backdrop. Pure CSS keyframes — no JS, no
+ * runtime cost beyond compositor-only `transform` updates (GPU-accelerated).
+ *
+ * The aurora layer is intentionally subtle (~10–15% opacity); it's meant to
+ * make the hero feel alive without competing with the headline or any
+ * eventual photograph. Inspired by the Aceternity/Magic UI aurora pattern
+ * but hand-rolled so we don't take on a third-party motion lib.
+ *
+ * `prefers-reduced-motion: reduce` is already handled by the global block
+ * above (line 116) which forces `animation-duration: 0.001ms`. No extra
+ * guard needed here.
+ */
+@keyframes aurora-drift-1 {
+  0%,
+  100% {
+    transform: translate3d(-8%, -6%, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(6%, 4%, 0) scale(1.05);
+  }
+}
+
+@keyframes aurora-drift-2 {
+  0%,
+  100% {
+    transform: translate3d(6%, 8%, 0) scale(1.02);
+  }
+  50% {
+    transform: translate3d(-4%, -6%, 0) scale(0.96);
+  }
+}
+
+@keyframes aurora-drift-3 {
+  0%,
+  100% {
+    transform: translate3d(0%, 0%, 0) scale(0.95);
+  }
+  50% {
+    transform: translate3d(-3%, 5%, 0) scale(1.04);
+  }
+}
+
+@layer utilities {
+  .aurora-blob-1 {
+    animation: aurora-drift-1 24s ease-in-out infinite;
+    will-change: transform;
+  }
+  .aurora-blob-2 {
+    animation: aurora-drift-2 32s ease-in-out infinite;
+    animation-delay: -8s;
+    will-change: transform;
+  }
+  .aurora-blob-3 {
+    animation: aurora-drift-3 40s ease-in-out infinite;
+    animation-delay: -16s;
+    will-change: transform;
+  }
+}

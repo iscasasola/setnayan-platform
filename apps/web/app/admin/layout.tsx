@@ -5,6 +5,9 @@ import { getCurrentUser } from '@/lib/auth';
 import { Logo } from '@/app/_components/logo';
 import { RoleSwitchPill } from '@/app/_components/role-switch-pill';
 import { fetchUserRoleSummary } from '@/lib/roles';
+import { GuidedTour } from '@/app/_components/guided-tour';
+import { completeTour } from '@/lib/tour-actions';
+import { TOURS } from '@/lib/tours';
 
 export const metadata = { title: 'Admin · Setnayan' };
 
@@ -16,7 +19,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const [{ data: profile }, roles] = await Promise.all([
     supabase
       .from('users')
-      .select('display_name, email, account_type, is_internal, is_team_member, theme_preference')
+      .select(
+        'display_name, email, account_type, is_internal, is_team_member, theme_preference, tour_seen_keys',
+      )
       .eq('user_id', user.id)
       .maybeSingle(),
     fetchUserRoleSummary(supabase, user.id),
@@ -88,6 +93,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </nav>
       </header>
       <main className="flex-1">{children}</main>
+      {!(profile?.tour_seen_keys ?? []).includes('admin_welcome_v1') ? (
+        <GuidedTour
+          tourKey="admin_welcome_v1"
+          slides={TOURS.admin_welcome_v1.slides}
+          completeAction={completeTour}
+        />
+      ) : null}
     </div>
   );
 }

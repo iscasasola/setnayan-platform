@@ -22,6 +22,7 @@ import {
   updateTablePosition,
 } from './actions';
 import { FloorPlan } from './_components/floor-plan';
+import { MiniTour } from '@/app/_components/mini-tour';
 
 export const metadata = { title: 'Seating chart' };
 
@@ -93,6 +94,7 @@ export default async function SeatingPage({ params }: Props) {
       {unassignedGuests.length > 0 ? (
         <UnassignedList unassigned={unassignedGuests} />
       ) : null}
+      <MiniTour tourKey="customer_seat_plan_v1" />
     </section>
   );
 }

@@ -34,6 +34,7 @@ import {
   SELF_REVIEW_SIGNAL_TONE,
   type SelfReviewSignal,
 } from '@/lib/self-review-gate';
+import { MiniTour } from '@/app/_components/mini-tour';
 import { createVendor, deleteVendor, updateVendorStatus } from './actions';
 import { InviteVendorButton } from './invite-modal';
 
@@ -189,6 +190,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           })}
         </ul>
       )}
+      <MiniTour tourKey="customer_vendors_v1" />
     </section>
   );
 }

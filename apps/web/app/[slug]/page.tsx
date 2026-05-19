@@ -12,6 +12,7 @@ import { submitRsvp } from './actions';
 import { CountdownWidget } from './_components/countdown';
 import { ScheduleWidget } from './_components/schedule-widget';
 import { fetchPublicScheduleBlocks, type ScheduleBlockRow } from '@/lib/schedule';
+import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
 
 function displayNameOf(g: {
   first_name: string;
@@ -392,6 +393,7 @@ function InvitationSite({
           </form>
         </section>
       </article>
+      <GuestGuidedTour tourKey="guest_welcome_v1" />
     </InvitationShell>
   );
 }

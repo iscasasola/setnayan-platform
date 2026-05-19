@@ -24,28 +24,38 @@ type QueuedJob = {
   photoPool: boolean;
 };
 
+export type LedInitialConfig = {
+  configId: string;
+  templateSlug: string;
+  loopSeconds: number;
+  photoPoolEnabled: boolean;
+};
+
 type Props = {
   eventId: string;
   coupleName: string;
   templates: ReadonlyArray<LedTemplate>;
+  initialConfig: LedInitialConfig | null;
 };
-
-// TODO(0005): swap mock job ID for the real render job ID once the
-// /api/led-background/render endpoint + Cloudflare Queues worker land.
-function generateMockJobId(): string {
-  const random = Math.random().toString(36).slice(2, 8).toUpperCase();
-  return `LED-${new Date().getFullYear()}-${random}`;
-}
 
 export function LedBackgroundMaker({
   eventId,
   coupleName,
   templates,
+  initialConfig,
 }: Props) {
-  const [selectedSlug, setSelectedSlug] = useState<string>(templates[0]?.slug ?? '');
-  const [loopSeconds, setLoopSeconds] = useState<number>(LED_DEFAULT_LOOP_SECONDS);
-  const [photoPoolEnabled, setPhotoPoolEnabled] = useState<boolean>(false);
+  const [selectedSlug, setSelectedSlug] = useState<string>(
+    initialConfig?.templateSlug ?? templates[0]?.slug ?? '',
+  );
+  const [loopSeconds, setLoopSeconds] = useState<number>(
+    initialConfig?.loopSeconds ?? LED_DEFAULT_LOOP_SECONDS,
+  );
+  const [photoPoolEnabled, setPhotoPoolEnabled] = useState<boolean>(
+    initialConfig?.photoPoolEnabled ?? false,
+  );
   const [queuedJob, setQueuedJob] = useState<QueuedJob | null>(null);
+  const [saving, setSaving] = useState<boolean>(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const selected = useMemo(
     () => templates.find((t) => t.slug === selectedSlug) ?? templates[0]!,
@@ -58,20 +68,42 @@ export function LedBackgroundMaker({
     [loopSeconds],
   );
 
-  function handleRender() {
-    // TODO(0005): replace this with a server action that POSTs to
-    // /api/led-background/render — enqueues the FFmpeg + Lottie pipeline,
-    // returns the real render_id, and routes the couple to a status page.
-    setQueuedJob({
-      id: generateMockJobId(),
-      templateName: selected.name,
-      loopLabel: loopOption.label,
-      photoPool: photoPoolEnabled,
-    });
+  async function handleRender() {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const res = await fetch('/api/led-background/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event_id: eventId,
+          template_slug: selected.slug,
+          loop_duration_s: loopSeconds,
+          photo_pool_enabled: photoPoolEnabled,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setSaveError(typeof data?.error === 'string' ? data.error : 'save_failed');
+        return;
+      }
+      const data = (await res.json()) as { config_id: string };
+      setQueuedJob({
+        id: data.config_id,
+        templateName: selected.name,
+        loopLabel: loopOption.label,
+        photoPool: photoPoolEnabled,
+      });
+    } catch (err) {
+      setSaveError((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
   }
 
   function handleReset() {
     setQueuedJob(null);
+    setSaveError(null);
   }
 
   if (queuedJob) {
@@ -252,15 +284,21 @@ export function LedBackgroundMaker({
         <button
           type="button"
           onClick={handleRender}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-terracotta px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-terracotta-600"
+          disabled={saving}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-terracotta px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-terracotta-600 disabled:cursor-wait disabled:opacity-70"
         >
           <Clapperboard
             aria-hidden
             className="h-4 w-4"
             strokeWidth={1.75}
           />
-          Render &amp; queue for USB delivery
+          {saving ? 'Saving draft…' : 'Save draft & queue for render'}
         </button>
+        {saveError ? (
+          <p className="text-center text-[11px] text-rose-700">
+            Could not save: {saveError}. Try again.
+          </p>
+        ) : null}
         <p className="text-center text-[11px] text-ink/50">
           {coupleName ? <>{coupleName} &middot; </> : null}Event{' '}
           {eventId.slice(0, 8)}
@@ -312,12 +350,13 @@ function RenderQueuedCard({
         />
         <div className="space-y-1">
           <h2 className="text-xl font-semibold tracking-tight text-emerald-900">
-            Render queued
+            Draft saved
           </h2>
           <p className="text-sm text-emerald-900/80">
-            Your 8K master loop is in the queue. We&rsquo;ll email you once the
-            file is finalised and the USB master is being mailed to your venue
-            contact.
+            Your template + settings are saved. The 8K render pipeline ships
+            shortly &mdash; we&rsquo;ll notify you the moment your USB master
+            is queued so it lands at your venue contact in time for the
+            event.
           </p>
         </div>
       </div>
@@ -325,9 +364,9 @@ function RenderQueuedCard({
       <dl className="grid grid-cols-1 gap-3 rounded-xl bg-cream/80 p-4 sm:grid-cols-3">
         <div>
           <dt className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-            Job ID
+            Draft ID
           </dt>
-          <dd className="mt-1 font-mono text-sm font-medium text-ink">
+          <dd className="mt-1 break-all font-mono text-sm font-medium text-ink">
             {job.id}
           </dd>
         </div>
@@ -358,8 +397,9 @@ function RenderQueuedCard({
             strokeWidth={1.75}
           />
           <span>
-            Render time runs ~25 minutes per 10-minute loop at 8K. Larger loops
-            and Photo Pool blend extend that by ~30%.
+            Your draft is saved against this event. Reopen this page anytime
+            to tweak the template, loop length, or Photo Pool blend &mdash;
+            we&rsquo;ll keep the most recent version.
           </span>
         </li>
         <li className="flex items-start gap-2">
@@ -369,9 +409,9 @@ function RenderQueuedCard({
             strokeWidth={1.75}
           />
           <span>
-            We&rsquo;ll email you when your USB master is ready &mdash;
-            typically within 3 business days, in time for your venue tech to
-            soak-test the loop pre-event.
+            When the render pipeline goes live, we&rsquo;ll email you with
+            the queue ETA and a preview frame so you can lock in your final
+            template before the 8K render kicks off.
           </span>
         </li>
         <li className="flex items-start gap-2">
@@ -381,9 +421,9 @@ function RenderQueuedCard({
             strokeWidth={1.75}
           />
           <span>
-            The USB is preloaded with the MP4 + a one-page LED-tech checklist
-            (repeat-on, fullscreen, no audio). Backup copies of the file ship
-            on a second USB and your Setnayan dashboard.
+            Final delivery is a venue-ready USB with the MP4 + a one-page
+            LED-tech checklist (repeat-on, fullscreen, no audio). A backup
+            copy lives on your Setnayan dashboard.
           </span>
         </li>
       </ul>
@@ -395,14 +435,8 @@ function RenderQueuedCard({
           className="inline-flex items-center gap-2 rounded-md border border-emerald-700/30 bg-cream px-3 py-1.5 text-xs font-medium text-emerald-900 hover:border-emerald-700/60"
         >
           <RefreshCcw aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          Render another loop
+          Edit draft
         </button>
-        <a
-          href={`/dashboard/${eventId}/orders`}
-          className="text-xs font-medium text-emerald-900 underline-offset-4 hover:underline"
-        >
-          Track render status in Orders &rsaquo;
-        </a>
       </div>
     </section>
   );

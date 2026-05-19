@@ -4,6 +4,27 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-20 · feat(0005): wire LED Background Maker draft persistence (PR 2 of 5)
+
+**Commit:** to be filled after commit.
+
+**Context:** PR 2 of 5 for iteration 0005 LED Background Maker. The shipped scaffold (template gallery + loop selector + Photo Pool toggle) was UI-only — the "Render & queue for USB delivery" button generated a mock job id and nothing persisted. This PR wires the save flow against the PR #150 schema and updates the post-save copy so couples aren't promised emails the render pipeline can't deliver yet.
+
+**What ships:**
+
+- `apps/web/app/api/led-background/save/route.ts` — `POST /api/led-background/save`. Couple-authenticated; validates template_slug against the in-repo enum + loop_duration_s against the 5/10/30/90-min table; upserts a `led_background_configs` row keyed by `(event_id, is_default=TRUE)` via the partial unique index from PR #150. Returns `{ config_id, created }`. config_json holds `{ template_id, loop_duration_s, photo_pool_enabled }` — the rest of the spec's customization fields (palette, effect_intensity, animation_speed, overlay, aspect_ratio, show_couple_names, show_date) default at render time from the template's defaults until PR 2b adds editor controls.
+- `apps/web/app/dashboard/[eventId]/add-ons/led/page.tsx` — server-side admin fetch loads the couple's default config (if any) and threads it through to the client component as `initialConfig`. Service-role admin client used because `led_background_configs` ships RLS-on with no policies yet.
+- `apps/web/app/dashboard/[eventId]/add-ons/led/_components/led-background-maker.tsx`:
+  - Accepts new `initialConfig` prop; restores `selectedSlug`, `loopSeconds`, `photoPoolEnabled` state from it on first render so reopening the page shows the last saved draft.
+  - `handleRender` now POSTs to `/api/led-background/save`, surfaces a save error inline under the CTA when the request fails, and only flips to the success card on `res.ok`.
+  - Removed the `generateMockJobId` helper; the success card now shows the real `config_id` (UUID) under "Draft ID".
+  - Success-card copy rewritten to be honest: "Draft saved" instead of "Render queued"; the render-pipeline ETA / venue-USB language is now phrased as a future commitment ("when the render pipeline goes live…") rather than a near-term promise.
+  - Reset CTA copy: "Render another loop" → "Edit draft". Dropped the "Track render status in Orders" link since the render flow doesn't exist yet.
+
+**SPEC IMPACT:** Minor. The 0005 spec's § "Functional scope · Must work end-to-end" lists template gallery, live preview, render submission, render pipeline, download, Drive push, email notification, re-render. This PR delivers the persistence layer underlying the editor surface; render pipeline + Drive push + email notification + download all wait on PR 3. No locked decisions touched. The honest post-save copy is a temporary measure until the render pipeline ships; once PR 3 lands the success-card copy reverts to "Render queued" with real ETAs.
+
+---
+
 ## 2026-05-20 · feat(0009): status + disconnect routes + finalization notifications (PR 5 of 5)
 
 **Commit:** to be filled after commit.

@@ -104,8 +104,15 @@ function AuroraLayer() {
   );
 }
 
+// AI-generated placeholder pending the eventual real photoshoot (see
+// `public/hero/README.md`). The env var still wins when set — operators
+// can swap in a per-environment hero by setting `NEXT_PUBLIC_HERO_IMAGE_URL`
+// in Vercel without touching code. The committed AVIF is the safe default
+// so the homepage never reads as broken even on a fresh clone with no env.
+const DEFAULT_HERO_SRC = '/hero/hero-couple.avif';
+
 export function HeroBackdrop({
-  src = process.env.NEXT_PUBLIC_HERO_IMAGE_URL,
+  src = process.env.NEXT_PUBLIC_HERO_IMAGE_URL ?? DEFAULT_HERO_SRC,
   alt = '',
   overlayClassName = 'bg-gradient-to-b from-cream/40 via-cream/20 to-cream/70',
   aurora = true,

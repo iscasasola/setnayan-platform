@@ -60,16 +60,60 @@ type HeroBackdropProps = {
    * body copy readable on warm-toned wedding photos.
    */
   overlayClassName?: string;
+  /**
+   * When true (default), renders the aurora motion layer — three slowly
+   * drifting warm-toned radial gradients behind the photo / fallback.
+   * Pass `aurora={false}` for sections where ambient motion would
+   * compete with content (e.g. a hero featuring its own video bg).
+   */
+  aurora?: boolean;
 };
+
+// Aurora layer — three radial-gradient "blobs" drifting on independent
+// timing. CSS keyframes live in `globals.css` (`@keyframes aurora-drift-*`),
+// utility classes apply them with offset delays. The blur is what turns
+// the visible disc into a soft cloud; without `blur-3xl` the discs would
+// read as solid shapes. `mix-blend-multiply` lets each blob darken into
+// the cream backdrop instead of stacking additively (which would blow out
+// to white).
+function AuroraLayer() {
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-0 -z-30 overflow-hidden">
+      <div
+        className="aurora-blob-1 absolute -left-[20%] -top-[20%] h-[70%] w-[70%] rounded-full opacity-60 mix-blend-multiply blur-3xl"
+        style={{
+          background:
+            'radial-gradient(circle, rgb(var(--color-terracotta) / 0.55), transparent 60%)',
+        }}
+      />
+      <div
+        className="aurora-blob-2 absolute -right-[15%] top-[10%] h-[80%] w-[80%] rounded-full opacity-50 mix-blend-multiply blur-3xl"
+        style={{
+          background:
+            'radial-gradient(circle, rgb(var(--color-terracotta) / 0.4), transparent 65%)',
+        }}
+      />
+      <div
+        className="aurora-blob-3 absolute -bottom-[20%] left-[20%] h-[65%] w-[65%] rounded-full opacity-40 mix-blend-multiply blur-3xl"
+        style={{
+          background:
+            'radial-gradient(circle, rgb(201, 166, 107, 0.5), transparent 60%)',
+        }}
+      />
+    </div>
+  );
+}
 
 export function HeroBackdrop({
   src = process.env.NEXT_PUBLIC_HERO_IMAGE_URL,
   alt = '',
   overlayClassName = 'bg-gradient-to-b from-cream/40 via-cream/20 to-cream/70',
+  aurora = true,
 }: HeroBackdropProps) {
   if (src) {
     return (
       <>
+        {aurora ? <AuroraLayer /> : null}
         <div aria-hidden className="pointer-events-none absolute inset-0 -z-20">
           <Image
             src={src}
@@ -89,18 +133,23 @@ export function HeroBackdrop({
     );
   }
 
-  // Fallback — the brand radial wash that ships today. Same look as the
-  // pre-photo placeholder so the section is never visually broken even
-  // when no `NEXT_PUBLIC_HERO_IMAGE_URL` is set (dev, staging, branch
-  // previews, or a fresh prod deploy before assets land).
+  // Fallback — brand radial wash + aurora motion. Same composition as the
+  // photo path so the section never reads as visually "off" when no
+  // `NEXT_PUBLIC_HERO_IMAGE_URL` is set (dev, staging, branch previews,
+  // or a fresh prod deploy before assets land). The aurora is the
+  // distinctive signal that this isn't a generic SaaS landing page —
+  // it stays on whether or not a real photo ships.
   return (
-    <div
-      aria-hidden
-      className="pointer-events-none absolute inset-0 -z-10"
-      style={{
-        background:
-          'radial-gradient(ellipse at top right, rgb(var(--color-terracotta) / 0.08), transparent 55%), radial-gradient(ellipse at bottom left, rgb(var(--color-terracotta) / 0.05), transparent 50%)',
-      }}
-    />
+    <>
+      {aurora ? <AuroraLayer /> : null}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10"
+        style={{
+          background:
+            'radial-gradient(ellipse at top right, rgb(var(--color-terracotta) / 0.08), transparent 55%), radial-gradient(ellipse at bottom left, rgb(var(--color-terracotta) / 0.05), transparent 50%)',
+        }}
+      />
+    </>
   );
 }

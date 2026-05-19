@@ -29,7 +29,24 @@ export function Hero() {
     >
       <HeroBackdrop />
       <div className="relative mx-auto w-full max-w-6xl px-4 pb-16 pt-12 sm:px-6 sm:pb-20 sm:pt-16 lg:px-8 lg:pb-28 lg:pt-24">
-        <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-terracotta sm:text-xs">
+        {/*
+         * Staggered entrance — each block fades up with a small delay.
+         * `animate-in fade-in slide-in-from-bottom-4` is from
+         * tailwindcss-animate (Phase 1 install). `fill-mode-backwards` is
+         * critical: without it the elements would flash at their final
+         * position before the animation starts. Per-block delays push
+         * each subsequent element 80ms behind the previous one (eyebrow
+         * 0, headline 80ms, subhead 240ms, CTAs 360ms, trust strip 480ms)
+         * — fast enough to feel responsive, staggered enough to read as
+         * intentional motion rather than a single jump.
+         *
+         * `prefers-reduced-motion: reduce` is handled by the global
+         * `globals.css` block — these animations collapse to a 0.001ms
+         * no-op for visitors with that OS setting.
+         */}
+        <p
+          className="font-mono text-[11px] uppercase tracking-[0.28em] text-terracotta animate-in fade-in slide-in-from-bottom-4 duration-700 fill-mode-backwards sm:text-xs"
+        >
           SET NA &lsquo;YAN
           <span aria-hidden className="mx-2 text-ink/30">
             ·
@@ -39,7 +56,8 @@ export function Hero() {
 
         <h1
           id="hero-heading"
-          className="mt-5 max-w-4xl text-balance font-display text-[44px] font-medium leading-[1.02] tracking-tight text-ink sm:text-[60px] lg:text-[88px]"
+          className="mt-5 max-w-4xl text-balance font-display text-[44px] font-medium leading-[1.02] tracking-tight text-ink animate-in fade-in slide-in-from-bottom-4 duration-700 fill-mode-backwards sm:text-[60px] lg:text-[88px]"
+          style={{ animationDelay: '80ms' }}
         >
           <span className="block">Planning a wedding?</span>
           <span className="mt-1 block">Or a vendor</span>
@@ -48,35 +66,44 @@ export function Hero() {
           </span>
         </h1>
 
-        <p className="mt-8 max-w-2xl text-pretty text-lg leading-relaxed text-ink/70 sm:text-xl lg:text-[22px]">
+        <p
+          className="mt-8 max-w-2xl text-pretty text-lg leading-relaxed text-ink/70 animate-in fade-in slide-in-from-bottom-4 duration-700 fill-mode-backwards sm:text-xl lg:text-[22px]"
+          style={{ animationDelay: '240ms' }}
+        >
           Setnayan is the only Filipino-built platform with real operating
           tools for both sides — from your guest list to your same-day
           highlight reel. Vendors pre-register today.{' '}
           <strong className="text-ink">Couples launch December 1, 2026.</strong>
         </p>
 
-        <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div
+          className="mt-10 flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-4 duration-700 fill-mode-backwards sm:flex-row sm:items-center"
+          style={{ animationDelay: '360ms' }}
+        >
           <Link
             href="/signup?as=vendor"
-            className="button-primary inline-flex min-h-[48px] items-center justify-center gap-2 px-7 text-sm font-semibold sm:text-base"
+            className="button-primary inline-flex min-h-[48px] items-center justify-center gap-2 px-7 text-sm font-semibold transition-transform hover:scale-[1.02] sm:text-base"
           >
             I&rsquo;m a vendor
             <span aria-hidden className="mx-1 opacity-60">
               ·
             </span>
             <span className="opacity-90">pre-register</span>
-            <ArrowRight aria-hidden className="ml-1 h-4 w-4" strokeWidth={2} />
+            <ArrowRight aria-hidden className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-0.5" strokeWidth={2} />
           </Link>
           <Link
             href="/waitlist"
-            className="button-secondary inline-flex min-h-[44px] items-center justify-center gap-2 px-6 text-sm font-medium sm:text-base"
+            className="button-secondary inline-flex min-h-[44px] items-center justify-center gap-2 px-6 text-sm font-medium transition-transform hover:scale-[1.02] sm:text-base"
           >
             I&rsquo;m a couple — join waitlist
             <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           </Link>
         </div>
 
-        <p className="mt-8 max-w-2xl text-sm text-ink/55">
+        <p
+          className="mt-8 max-w-2xl text-sm text-ink/55 animate-in fade-in slide-in-from-bottom-4 duration-700 fill-mode-backwards"
+          style={{ animationDelay: '480ms' }}
+        >
           Built in the Philippines{' '}
           <span aria-hidden className="mx-1 text-ink/30">
             ·

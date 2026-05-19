@@ -1,10 +1,15 @@
+import Image from 'next/image';
+
 // Section 10 — PH coverage map (iteration 0015 § Section 10)
 // PH SVG basemap with city-level pins (never barangay public).
 // Aggregated counts only. Brand-accent pins; sizes scale by event count.
 //
 // Skeleton phase: placeholder simplified-PH silhouette with a handful of
-// dummy city pins to give the section visual rhythm. Full SVG basemap +
-// PSGC-keyed pin overlay is design-direction-blocked.
+// dummy city pins to give the section visual rhythm, plus a photo-tile
+// grid beneath the map so the section reads as place-specific rather
+// than abstract. AI placeholders today (Higgsfield soul_location);
+// swap in real city photography as Setnayan books real events in each
+// location — see `public/coverage/README.md`.
 
 // Generic three-island silhouette (placeholder geography).
 // Coordinates are decorative only — not actual lat/lon.
@@ -13,13 +18,16 @@ const PIN_PLACEHOLDERS: Array<{
   cx: number;
   cy: number;
   size: 'sm' | 'md' | 'lg' | 'xl';
+  image: string;
 }> = [
-  { city: 'Metro Manila', cx: 145, cy: 110, size: 'xl' },
-  { city: 'Cebu City', cx: 175, cy: 195, size: 'lg' },
-  { city: 'Davao', cx: 230, cy: 280, size: 'md' },
-  { city: 'Iloilo', cx: 145, cy: 200, size: 'sm' },
-  { city: 'Cagayan de Oro', cx: 210, cy: 250, size: 'sm' },
-  { city: 'Baguio', cx: 130, cy: 75, size: 'sm' },
+  { city: 'Metro Manila', cx: 145, cy: 110, size: 'xl', image: '/coverage/manila.avif' },
+  { city: 'Tagaytay', cx: 138, cy: 132, size: 'md', image: '/coverage/tagaytay.avif' },
+  { city: 'Baguio', cx: 130, cy: 75, size: 'sm', image: '/coverage/baguio.avif' },
+  { city: 'Iloilo', cx: 145, cy: 200, size: 'sm', image: '/coverage/iloilo.avif' },
+  { city: 'Cebu City', cx: 175, cy: 195, size: 'lg', image: '/coverage/cebu.avif' },
+  { city: 'Bohol', cx: 195, cy: 220, size: 'sm', image: '/coverage/bohol.avif' },
+  { city: 'Cagayan de Oro', cx: 210, cy: 250, size: 'sm', image: '/coverage/cagayan-de-oro.avif' },
+  { city: 'Davao', cx: 230, cy: 280, size: 'md', image: '/coverage/davao.avif' },
 ];
 
 const SIZE_MAP: Record<'sm' | 'md' | 'lg' | 'xl', number> = {
@@ -104,17 +112,30 @@ export function CoverageMap() {
                 ))}
               </svg>
             </div>
-            <ul className="mt-4 flex flex-wrap gap-2 text-xs text-ink/55">
+            <ul className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
               {PIN_PLACEHOLDERS.map((p) => (
                 <li
                   key={p.city}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-ink/10 bg-cream px-2.5 py-1"
+                  className="group overflow-hidden rounded-lg border border-ink/10 bg-cream"
                 >
-                  <span
-                    aria-hidden
-                    className="inline-block h-1.5 w-1.5 rounded-full bg-terracotta"
-                  />
-                  {p.city}
+                  <div className="relative aspect-square">
+                    <Image
+                      src={p.image}
+                      alt=""
+                      fill
+                      sizes="(min-width: 640px) 120px, 45vw"
+                      loading="lazy"
+                      quality={70}
+                      className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                    />
+                  </div>
+                  <p className="flex items-center justify-center gap-1.5 px-2 py-1.5 text-center text-xs font-medium text-ink/80">
+                    <span
+                      aria-hidden
+                      className="inline-block h-1.5 w-1.5 rounded-full bg-terracotta"
+                    />
+                    {p.city}
+                  </p>
                 </li>
               ))}
             </ul>

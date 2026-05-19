@@ -2,6 +2,7 @@ import { Search, ShieldCheck, Sparkle, MailCheck, Trash2, Ban, KeyRound, Undo2 }
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
+import { MiniTour } from '@/app/_components/mini-tour';
 import {
   blacklistUser,
   confirmUserEmail,
@@ -186,6 +187,7 @@ export default async function AdminUsersPage({ searchParams }: Props) {
       ) : (
         <UsersTable rows={userRows} />
       )}
+      <MiniTour tourKey="admin_users_v1" />
     </div>
   );
 }

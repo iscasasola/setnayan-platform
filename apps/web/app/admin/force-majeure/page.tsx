@@ -11,6 +11,7 @@ import {
   type FlagStatus,
   type FlagType,
 } from '@/lib/force-majeure';
+import { MiniTour } from '@/app/_components/mini-tour';
 
 export const metadata = { title: 'Force Majeure · Admin' };
 
@@ -258,6 +259,7 @@ export default async function AdminForceMajeurePage({ searchParams }: Props) {
           </table>
         </div>
       )}
+      <MiniTour tourKey="admin_force_majeure_v1" />
     </div>
   );
 }

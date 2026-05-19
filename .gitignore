@@ -41,7 +41,7 @@ pnpm-debug.log*
 .DS_Store
 
 # Coverage / test artifacts
-coverage/
+/coverage/
 .nyc_output/
 
 # Supabase

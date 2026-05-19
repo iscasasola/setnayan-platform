@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
+import { HeroBackdrop } from '@/app/_components/hero-backdrop';
 
 // Section 2 — Hero (three-question framing) (iteration 0015 § Section 2)
 // Above-the-fold conversion module. Problem-aware framing per CXL awareness-
@@ -14,10 +15,11 @@ import { ArrowRight } from 'lucide-react';
 //   - Secondary CTA `I'm a vendor →` → /for-vendors
 //   - Trust strip: Built in the Philippines · BIR-compliant receipts · EN / Tagalog
 //
-// Visual treatment is placeholder per skeleton-phase scope — full-bleed
-// photography + brand-color overlay (the Zola pattern recommended in the spec)
-// is owner-side design-direction-blocked. Pure-text on tinted cream surface
-// here.
+// Visual treatment: full-bleed photography + brand-color overlay (Zola
+// pattern from the spec) when NEXT_PUBLIC_HERO_IMAGE_URL is set; falls back
+// to the brand radial-gradient wash when no photo is configured. See
+// `app/_components/hero-backdrop.tsx` for the "how to ship a real photo"
+// runbook.
 
 export function Hero() {
   return (
@@ -25,17 +27,8 @@ export function Hero() {
       aria-labelledby="hero-heading"
       className="relative overflow-hidden border-b border-ink/5 bg-cream"
     >
-      {/* Soft accent wash — placeholder for the eventual Filipino-luxe
-          photographic background. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10"
-        style={{
-          background:
-            'radial-gradient(ellipse at top right, rgb(var(--color-terracotta) / 0.08), transparent 55%), radial-gradient(ellipse at bottom left, rgb(var(--color-terracotta) / 0.05), transparent 50%)',
-        }}
-      />
-      <div className="mx-auto w-full max-w-6xl px-4 pb-16 pt-12 sm:px-6 sm:pb-20 sm:pt-16 lg:px-8 lg:pb-28 lg:pt-24">
+      <HeroBackdrop />
+      <div className="relative mx-auto w-full max-w-6xl px-4 pb-16 pt-12 sm:px-6 sm:pb-20 sm:pt-16 lg:px-8 lg:pb-28 lg:pt-24">
         <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-terracotta sm:text-xs">
           SET NA &lsquo;YAN
           <span aria-hidden className="mx-2 text-ink/30">

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Plus, Trash2, Mail, Phone, Star, ShieldOff } from 'lucide-react';
+import { Plus, Trash2, Mail, Phone, Star, ShieldOff, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -17,6 +17,16 @@ import {
   type EventVendorRow,
   type VendorStatus,
 } from '@/lib/vendors';
+import {
+  fetchLatestInvitesByVendorIds,
+  pillVariantFor,
+  daysLeftFor,
+  INVITE_PILL_COPY,
+  INVITE_PILL_TONE,
+  type VendorInviteRow,
+  type VendorPillVariant,
+} from '@/lib/vendor-invites';
+import { revokeVendorInvite } from '@/lib/vendor-invite-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { FollowGate } from '@/app/_components/follow-gate';
 import {
@@ -25,6 +35,7 @@ import {
   type SelfReviewSignal,
 } from '@/lib/self-review-gate';
 import { createVendor, deleteVendor, updateVendorStatus } from './actions';
+import { InviteVendorButton } from './invite-modal';
 
 export const metadata = { title: 'Vendors' };
 
@@ -51,6 +62,14 @@ export default async function VendorsPage({ params, searchParams }: Props) {
 
   const vendors = await fetchEventVendors(supabase, eventId);
   const stats = computeVendorStats(vendors);
+
+  // Couple-invite state per vendor row (iteration 0006 § Invite-to-Setnayan
+  // flow, locked 2026-05-19). Single query joined client-side; renders the
+  // status pill + the "Invite to Setnayan" CTA inline on each card.
+  const latestInvites = await fetchLatestInvitesByVendorIds(
+    supabase,
+    vendors.map((v) => v.vendor_id),
+  );
 
   // Build a per-event_vendor "has the couple already reviewed this one?"
   // lookup. We fetch all reviews this user has posted for this event in one
@@ -152,6 +171,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
             const profileId = vendorProfileForRow(v);
             const selfReviewSignal =
               profileId !== null ? (selfReviewSignals.get(profileId) ?? null) : null;
+            const latestInvite = latestInvites.get(v.vendor_id) ?? null;
+            const pillVariant = pillVariantFor(v.marketplace_vendor_id, latestInvite);
             return (
               <VendorCard
                 key={v.vendor_id}
@@ -161,6 +182,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
                 vendorProfileId={profileId}
                 isFollowing={profileId !== null && followedProfileIds.has(profileId)}
                 selfReviewSignal={selfReviewSignal}
+                latestInvite={latestInvite}
+                pillVariant={pillVariant}
               />
             );
           })}
@@ -453,6 +476,8 @@ function VendorCard({
   vendorProfileId,
   isFollowing,
   selfReviewSignal,
+  latestInvite,
+  pillVariant,
 }: {
   eventId: string;
   vendor: EventVendorRow;
@@ -460,11 +485,23 @@ function VendorCard({
   vendorProfileId: string | null;
   isFollowing: boolean;
   selfReviewSignal: SelfReviewSignal | null;
+  latestInvite: VendorInviteRow | null;
+  pillVariant: VendorPillVariant;
 }) {
   const remaining =
     vendor.total_cost_php !== null
       ? Number(vendor.total_cost_php) - Number(vendor.deposit_paid_php ?? 0)
       : null;
+  const daysLeft = latestInvite ? daysLeftFor(latestInvite) : null;
+  // Show the "Invite to Setnayan" CTA when the vendor row is off-platform
+  // (no marketplace_vendor_id), there's no email-soft-link to an existing
+  // vendor_profile, and no invite is currently pending. Other states
+  // (declined / expired / revoked) still get the CTA so the couple can
+  // resend after the lifecycle hits a terminal state.
+  const canInvite =
+    vendor.marketplace_vendor_id === null &&
+    vendorProfileId === null &&
+    (latestInvite === null || latestInvite.status !== 'pending');
   const reviewEligible =
     (vendor.status === 'delivered' || vendor.status === 'complete') && !alreadyReviewed;
   const isSoftBlock =
@@ -529,6 +566,49 @@ function VendorCard({
 
       {vendor.notes ? (
         <p className="rounded-md bg-ink/[0.03] p-2 text-xs text-ink/75">{vendor.notes}</p>
+      ) : null}
+
+      {/* Off-platform invite state — pill + actions. Hidden when the vendor
+          row has an explicit marketplace link (showing the Joined pill in
+          that case would duplicate the FollowGate's own state). */}
+      {vendor.marketplace_vendor_id === null && vendorProfileId === null ? (
+        <div className="flex items-center justify-between gap-3 border-t border-ink/10 pt-3">
+          <div className="flex items-center gap-2 text-xs">
+            <span
+              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${INVITE_PILL_TONE[pillVariant]}`}
+            >
+              {pillVariant === 'on_platform' ? (
+                <Sparkles className="h-3 w-3" strokeWidth={1.75} />
+              ) : null}
+              {INVITE_PILL_COPY[pillVariant]}
+            </span>
+            {latestInvite?.status === 'pending' && daysLeft !== null ? (
+              <span className="text-ink/55">{daysLeft}d left</span>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-2">
+            {latestInvite?.status === 'pending' ? (
+              <form action={revokeVendorInvite}>
+                <input type="hidden" name="invite_id" value={latestInvite.invite_id} />
+                <input type="hidden" name="event_id" value={eventId} />
+                <SubmitButton
+                  className="text-[11px] font-medium text-ink/55 hover:text-rose-700"
+                  pendingLabel="…"
+                >
+                  Revoke
+                </SubmitButton>
+              </form>
+            ) : null}
+            {canInvite ? (
+              <InviteVendorButton
+                vendorId={vendor.vendor_id}
+                eventId={eventId}
+                vendorName={vendor.vendor_name}
+                defaultEmail={vendor.contact_email}
+              />
+            ) : null}
+          </div>
+        </div>
       ) : null}
 
       {vendorProfileId ? (

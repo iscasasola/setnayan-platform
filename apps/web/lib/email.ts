@@ -62,3 +62,50 @@ export async function sendEmail(args: SendEmailArgs): Promise<SendEmailResult> {
 export function isEmailConfigured(): boolean {
   return Boolean(process.env.RESEND_API_KEY);
 }
+
+// ---------------------------------------------------------------------------
+// Vendor invite — couple-initiated claim invite (iterations 0006 + 0022,
+// locked 2026-05-19). Plain-text body with the claim link. HTML template
+// can be layered on later without touching callers.
+// ---------------------------------------------------------------------------
+
+export type VendorInviteEmailArgs = {
+  to: string;
+  businessName: string;
+  coupleDisplayName: string;
+  serviceCategory: string;
+  eventDate: string | null;
+  claimUrl: string;
+};
+
+export async function sendVendorInviteEmail(
+  args: VendorInviteEmailArgs,
+): Promise<SendEmailResult> {
+  const dateLine = args.eventDate
+    ? new Date(args.eventDate).toLocaleDateString('en-PH', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      })
+    : 'their upcoming wedding';
+
+  return sendEmail({
+    to: args.to,
+    subject: `${args.coupleDisplayName} added you as their ${args.serviceCategory} on Setnayan`,
+    text: [
+      `Hi ${args.businessName},`,
+      ``,
+      `${args.coupleDisplayName} is planning their wedding on ${dateLine} using Setnayan, and added you as their ${args.serviceCategory}.`,
+      ``,
+      `Claim your free Setnayan profile here:`,
+      args.claimUrl,
+      ``,
+      `On signup you'll see everything they've recorded so far, and the in-app chat unlocks immediately so you can confirm details.`,
+      ``,
+      `Not the right vendor? Just ignore this email — we won't follow up.`,
+      ``,
+      `—`,
+      `Set na 'yan.`,
+    ].join('\n'),
+  });
+}

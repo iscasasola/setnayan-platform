@@ -21,6 +21,9 @@ type SearchParams = Promise<{
   sent?: string;
   next?: string;
   as?: string;
+  /** Pre-fill the email field — used by /vendor/claim/[token]?as=vendor flows
+   *  per iteration 0006 § Invite-to-Setnayan, locked 2026-05-19. */
+  prefill_email?: string;
 }>;
 
 export default async function SignupPage({ searchParams }: { searchParams: SearchParams }) {
@@ -30,6 +33,8 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
   const confirmationSent = params.sent === '1';
   const next = params.next && params.next.startsWith('/') ? params.next : '/';
   const preselectVendor = params.as === 'vendor';
+  const prefilledEmail =
+    typeof params.prefill_email === 'string' ? params.prefill_email : '';
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-8 px-6 py-12 sm:px-8">
@@ -136,6 +141,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
           <input
             autoComplete="email"
             className="input-field"
+            defaultValue={prefilledEmail}
             id="email"
             inputMode="email"
             name="email"

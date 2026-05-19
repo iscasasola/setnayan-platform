@@ -4,6 +4,29 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-20 · feat(0009): status + disconnect routes + finalization notifications (PR 5 of 5)
+
+**Commit:** to be filled after commit.
+
+**Context:** Final PR of the 0009 Photo Delivery V1 build. Closes the loop the worker (PR #154) opened: panel can now poll for live progress, couples can disconnect Drive cleanly, and finalized jobs fan out couple-side in-app + email notifications via the existing 0028 helper.
+
+**What ships:**
+
+- `supabase/migrations/20260520040000_iteration_0009_notification_types.sql` — adds two `notification_type` enum values (`photo_delivery_complete`, `photo_delivery_failed`). Bare migration (no transaction wrapper) since `ALTER TYPE ADD VALUE` rejects explicit BEGIN; `IF NOT EXISTS` keeps it idempotent. Matches the prior `force_majeure_filed` pattern from PR #76.
+- `apps/web/lib/notifications.ts` — extends `NotificationType` enum + adds matching `NOTIFICATION_TYPE_LABEL` ("Photos delivered" / "Photo delivery failed") + `NOTIFICATION_TYPE_TONE` rows (emerald for complete, rose for failed).
+- `apps/web/lib/photo-delivery-release.ts` — `finalizeJob` now calls a new `fanOutFinalizationNotice` that emits the relevant notification to every couple member of the event. Idempotency guard: `photo_delivery_jobs.notification_sent_at` is stamped first, so repeated empty-batch ticks after a job has already finalized don't re-fire.
+- `apps/web/app/api/photo-delivery/status/route.ts` — `GET ?event_id=...`. Couple-authenticated. Returns `{ event: { photo_delivery_* fields }, job: { latest photo_delivery_jobs row } }`. Panel polls this ~2s during an active release.
+- `apps/web/app/api/photo-delivery/disconnect/route.ts` — `POST { event_id }`. Couple-authenticated. Revokes the Drive refresh token at Google (best-effort), marks `oauth_grants.revoked_at`, and wipes the `events.photo_delivery_*` panel fields back to idle. Idempotent — safe to re-call.
+
+**Out of scope (deliberately deferred):**
+
+- Panel UI re-wiring (the `photo-delivery-panel.tsx` client component is still scaffold-level: 516 lines of local-state mock data). A follow-up PR replaces the mock state with real fetches against `/status`, calls `/release` on the Connect-CTA click path, and surfaces a Disconnect button against `/disconnect`. Not a blocker for V1 since the OAuth flow + worker are end-to-end functional; only the visual surface lags.
+- Redeliver is implemented by simply re-POSTing to `/api/photo-delivery/release` — `enqueueRelease`'s artifact UPSERT skips already-delivered photos by virtue of the unique-on-source-photo-id constraint + `drive_file_id IS NULL` worker filter. No new route needed.
+
+**SPEC IMPACT:** None on locked policy. The notification copy is owner-tunable; if the owner prefers different language for "Photos delivered" / "Photo delivery hit a snag", that's a small follow-up — the strings live in `apps/web/lib/photo-delivery-release.ts` (`fanOutFinalizationNotice`) for the email/notification body and in `apps/web/lib/notifications.ts` for the bell-label. The 0028 email infrastructure send-path is unchanged; this PR just emits two new notification types through it.
+
+---
+
 ## 2026-05-20 · feat(0009): photo-delivery release producer + sweep tick (PR 4 of 5)
 
 **Commit:** to be filled after commit.

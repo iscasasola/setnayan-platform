@@ -2,7 +2,12 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Sparkles, Tv, Usb } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { LED_TEMPLATES } from '@/lib/led-background';
+import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  LED_DEFAULT_LOOP_SECONDS,
+  LED_TEMPLATES,
+  findLedTemplate,
+} from '@/lib/led-background';
 import { LedBackgroundMaker } from './_components/led-background-maker';
 
 export const metadata = { title: 'LED Background Maker · Setnayan' };
@@ -22,6 +27,28 @@ export default async function LedBackgroundPage({ params }: Props) {
     .select('display_name')
     .eq('event_id', eventId)
     .maybeSingle();
+
+  // Load the couple's existing default config (if any) so reopening the
+  // editor restores their last draft. Service role since led_background_configs
+  // has no couple-readable RLS policy yet (PR 1 shipped RLS-on / no-policies).
+  const admin = createAdminClient();
+  const { data: existingConfig } = await admin
+    .from('led_background_configs')
+    .select('config_id, template_id, config_json')
+    .eq('event_id', eventId)
+    .eq('is_default', true)
+    .maybeSingle();
+  const draftTemplate =
+    findLedTemplate((existingConfig?.template_id as string) ?? '') ?? null;
+  const draftConfigJson = (existingConfig?.config_json ?? {}) as Record<string, unknown>;
+  const initialConfig = existingConfig
+    ? {
+        configId: existingConfig.config_id as string,
+        templateSlug: draftTemplate?.slug ?? LED_TEMPLATES[0]!.slug,
+        loopSeconds: Number(draftConfigJson.loop_duration_s ?? LED_DEFAULT_LOOP_SECONDS),
+        photoPoolEnabled: Boolean(draftConfigJson.photo_pool_enabled),
+      }
+    : null;
 
   return (
     <section className="space-y-6">
@@ -95,6 +122,7 @@ export default async function LedBackgroundPage({ params }: Props) {
         eventId={eventId}
         coupleName={event?.display_name ?? ''}
         templates={LED_TEMPLATES}
+        initialConfig={initialConfig}
       />
     </section>
   );

@@ -15,7 +15,7 @@ export function Hero() {
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
             Pioneer vendors · Pre-launch
           </p>
-          <h1 className="font-sans text-5xl font-semibold leading-[1.05] tracking-tight text-ink sm:text-6xl lg:text-[72px]">
+          <h1 className="font-display text-[44px] font-medium leading-[1.02] tracking-tight text-ink sm:text-[60px] lg:text-[80px]">
             Scale your wedding business.{' '}
             <span className="text-ink/55">One app.</span>
           </h1>

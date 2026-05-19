@@ -93,7 +93,7 @@ export default function PricingPage() {
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
             Pricing
           </p>
-          <h1 className="mt-4 text-balance font-sans text-5xl font-semibold leading-[1.05] tracking-tight sm:text-6xl lg:text-[88px]">
+          <h1 className="mt-4 text-balance font-display text-5xl font-medium leading-[1.02] tracking-tight sm:text-7xl lg:text-[96px]">
             Free to plan.{' '}
             <span className="text-ink/55">Pay only for what you opt into.</span>
           </h1>
@@ -117,7 +117,7 @@ export default function PricingPage() {
                 3-day free trial
               </span>
             </div>
-            <h2 className="mt-6 font-sans text-4xl font-semibold tracking-tight sm:text-5xl">
+            <h2 className="mt-6 font-display text-4xl font-medium tracking-tight sm:text-5xl">
               Setnayan Concierge
             </h2>
             <p className="mt-4 flex items-baseline gap-3">

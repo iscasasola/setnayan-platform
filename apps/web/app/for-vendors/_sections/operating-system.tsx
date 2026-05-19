@@ -32,7 +32,7 @@ export function OperatingSystem() {
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
             Built to scale
           </p>
-          <h2 className="text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
+          <h2 className="text-balance font-display text-5xl font-medium tracking-tight sm:text-6xl">
             Less chasing. More booking.
           </h2>
         </div>

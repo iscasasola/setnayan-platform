@@ -57,7 +57,7 @@ export function ConversionModule() {
           </p>
           <h2
             id="conversion-heading"
-            className="mt-4 text-balance font-sans text-4xl font-semibold tracking-tight text-ink sm:text-5xl lg:text-6xl"
+            className="mt-4 text-balance font-display text-5xl font-medium tracking-tight text-ink sm:text-6xl lg:text-7xl"
           >
             <span className="italic text-ink/85">Everything&rsquo;s set.</span>
           </h2>

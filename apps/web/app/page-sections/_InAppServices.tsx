@@ -136,7 +136,7 @@ export function InAppServices() {
           </p>
           <h2
             id="in-app-services-heading"
-            className="text-balance font-sans text-3xl font-semibold tracking-tight text-ink sm:text-4xl lg:text-5xl"
+            className="text-balance font-display text-4xl font-medium tracking-tight text-ink sm:text-5xl lg:text-6xl"
           >
             When the day comes, we bring the gear.
           </h2>

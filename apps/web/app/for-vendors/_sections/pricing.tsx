@@ -70,7 +70,7 @@ export function Pricing() {
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
             Pricing — visible on purpose
           </p>
-          <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+          <h2 className="font-display text-4xl font-medium tracking-tight sm:text-5xl">
             Free to list. Pay weekly when you&rsquo;re ready for Pro.
           </h2>
           <p className="text-base text-ink/65">
@@ -114,7 +114,7 @@ export function Pricing() {
                 <p className="flex items-baseline gap-2">
                   {tier.cta.primary ? (
                     <>
-                      <span className="font-sans text-4xl font-semibold tracking-tight text-terracotta sm:text-5xl">
+                      <span className="font-display text-5xl font-medium tracking-tight text-terracotta sm:text-6xl">
                         FREE
                       </span>
                       <span className="text-sm text-ink/55">
@@ -123,7 +123,7 @@ export function Pricing() {
                     </>
                   ) : (
                     <>
-                      <span className="font-sans text-4xl font-semibold tracking-tight text-ink sm:text-5xl">
+                      <span className="font-display text-5xl font-medium tracking-tight text-ink sm:text-6xl">
                         {tier.price}
                       </span>
                       <span className="text-sm text-ink/55">{tier.cadence}</span>

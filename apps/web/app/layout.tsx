@@ -1,9 +1,49 @@
 import type { Metadata, Viewport } from 'next';
+import { Cormorant_Garamond, Manrope, DM_Mono } from 'next/font/google';
 import Script from 'next/script';
 import './globals.css';
 import { ClientTypeDetector } from './_components/client-type-detector';
 import { PilotModeBanner } from './_components/pilot-mode-banner';
 import { Providers } from './providers';
+
+// Brand typography — iteration 0015 § Brand. Self-hosted via next/font/google
+// so the fonts ship in the same render lifecycle as the page (no FOUT, no
+// extra DNS roundtrip to fonts.gstatic.com on cold cache). The CSS variables
+// are wired into `tailwind.config.ts` so `font-display` / `font-sans` /
+// `font-mono` Tailwind utilities resolve to the right family at build time.
+//
+//   - Cormorant Garamond → display (h1/h2 hero + section titles). Editorial
+//     serif with the elegant wedding-invitation register the spec calls for.
+//   - Manrope            → body sans (paragraphs, buttons, nav, form fields).
+//     Modern geometric humanist; reads well on small screens (PH is 80%+
+//     mobile per DataReportal Digital 2024 Philippines).
+//   - DM Mono            → accent mono (eyebrows, label chips, /sɛt na jan/).
+//     Brand mono distinct from the dev-tools SF Mono fallback.
+//
+// `display: 'swap'` means the system fallback paints immediately while the
+// webfont streams, so LCP measurements stay anchored to first paint instead
+// of font load. The weight subsets are minimal — only the weights we actually
+// reference — so payload stays under ~80KB total for all three families.
+const cormorant = Cormorant_Garamond({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-display',
+});
+
+const manrope = Manrope({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-sans',
+});
+
+const dmMono = DM_Mono({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['400', '500'],
+  variable: '--font-mono',
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'),
@@ -65,7 +105,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const r2Origin = getOrigin(process.env.R2_PUBLIC_URL);
 
   return (
-    <html lang="en-PH">
+    <html
+      lang="en-PH"
+      className={`${cormorant.variable} ${manrope.variable} ${dmMono.variable}`}
+    >
       <head>
         {supabaseOrigin ? (
           <>

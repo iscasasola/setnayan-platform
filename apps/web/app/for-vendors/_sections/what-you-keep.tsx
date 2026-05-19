@@ -41,7 +41,7 @@ export function WhatYouKeep() {
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
             What you keep
           </p>
-          <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+          <h2 className="font-display text-4xl font-medium tracking-tight sm:text-5xl">
             Setnayan is the rails, not the storefront.
           </h2>
           <p className="text-base text-ink/65">

@@ -99,6 +99,30 @@
   input[type='submit'] {
     min-height: 44px;
   }
+
+  /*
+   * Accessibility — `prefers-reduced-motion` (WCAG 2.2 § 2.3.3 Animation
+   * from Interactions, AAA). Disable transitions, scroll-snap, transforms,
+   * and any tailwindcss-animate-driven motion when the OS-level setting
+   * says reduce. Visitors who set this on macOS / iOS / Android / Windows
+   * get a still page instead of fade-ups or scroll-linked motion.
+   *
+   * `!important` is required because Tailwind utilities (`transition-*`,
+   * `animate-*`) emit longhand declarations that would otherwise win the
+   * cascade. The blast radius is intentional — any developer-added motion
+   * must opt out by writing `motion-safe:` utilities, not by working
+   * around this block.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
 
 @layer components {

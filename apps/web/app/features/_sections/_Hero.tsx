@@ -14,7 +14,7 @@ export function FeaturesHero() {
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
             For couples · the full feature catalog
           </p>
-          <h1 className="font-sans text-4xl font-semibold tracking-tight text-ink sm:text-5xl lg:text-6xl">
+          <h1 className="font-display text-5xl font-medium tracking-tight text-ink sm:text-6xl lg:text-7xl">
             Every part of your event,
             <span className="block text-ink/65">in one place.</span>
           </h1>

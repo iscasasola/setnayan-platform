@@ -143,6 +143,13 @@ export type EventVendorRow = {
   deposit_paid_php: number | null;
   notes: string | null;
   created_at: string;
+  /**
+   * FK to vendor_profiles. NULL = off-platform (couple-encoded only).
+   * Populated atomically when a couple-invite is claimed or a Connect
+   * happens; the same transaction also inserts a vendor_follows row
+   * per 0019 § Booking-implies-follow auto-insert.
+   */
+  marketplace_vendor_id: string | null;
 };
 
 export async function fetchEventVendors(
@@ -152,7 +159,7 @@ export async function fetchEventVendors(
   const { data, error } = await supabase
     .from('event_vendors')
     .select(
-      'vendor_id,public_id,event_id,category,vendor_name,contact_email,contact_phone,status,total_cost_php,deposit_paid_php,notes,created_at',
+      'vendor_id,public_id,event_id,category,vendor_name,contact_email,contact_phone,status,total_cost_php,deposit_paid_php,notes,created_at,marketplace_vendor_id',
     )
     .eq('event_id', eventId)
     .order('created_at', { ascending: true });

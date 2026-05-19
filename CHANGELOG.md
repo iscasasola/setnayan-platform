@@ -4,6 +4,80 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-20 · feat(0009): photo-delivery release producer + sweep tick (PR 4 of 5)
+
+**Commit:** to be filled after commit.
+
+**Context:** PR 4 of 5 for iteration 0009 Photo Delivery. The 0009 brief assumed a Cloudflare Workers + Queues background pipeline; that infra doesn't exist in this repo. This PR ships a Vercel-native equivalent that fits the existing on-access-sweep cron strategy. Follows PR 1 (schema), PR 2 (encryption.ts helper — currently unused; planned harmonization deferred), PR 3 (Drive OAuth routes).
+
+**What ships:**
+
+- `supabase/migrations/20260520030000_iteration_0009_photo_delivery_artifacts.sql` — new `photo_delivery_artifacts` join table (job_id, event_id, source_table='papic_photos' for now, source_photo_id, r2_object_key, drive_file_id, attempt_count, last_error_*). Unique (event_id, source_table, source_photo_id) keeps re-releases idempotent. Partial index on (event_id, attempt_count, created_at) WHERE drive_file_id IS NULL covers the worker's hot path. RLS on, no policies — server role only.
+- `apps/web/lib/photo-delivery-release.ts` — `enqueueRelease` (validates event state, lists deliverable `papic_photos` rows, creates job + upserts artifacts, flips events status) and `processBatchForEvent` (token refresh via `papic-drive.ts`, R2 download via `@aws-sdk/client-s3` GetObject, Drive multipart upload to `events.photo_delivery_folder_id`, per-file retry with attempt_count cap = 5, progress rollup, terminal job finalization).
+- `apps/web/app/api/photo-delivery/release/route.ts` — POST producer. Couple-auth required; validates membership via event_members; delegates to `enqueueRelease`.
+- `apps/web/app/api/cron/photo-delivery-tick/route.ts` — POST sweep. `x-cron-secret` guard (reuses `OAUTH_REFRESH_CRON_SECRET`); picks up to 5 events with `photo_delivery_status ∈ {'releasing','uploading'}` per tick, processes 6 artifacts per event.
+
+**Architecture deviations from spec (all flagged in COWORK_INBOX.md):**
+
+1. No Cloudflare Workers — Vercel routes + cron tick instead.
+2. Source of truth is `papic_photos`, not a unified `photos` table (which doesn't exist).
+3. Per-photo delivery state lives in new `photo_delivery_artifacts` join table, not on the source photos table.
+4. Drive route names are `/api/oauth/photo-delivery/*`, not `/api/oauth/google/*` from the spec.
+5. Refresh token stays plaintext in `oauth_grants` (Papic's shipped pattern); PR 1 `events.photo_delivery_oauth_token_encrypted` column + PR 2 `encryption.ts` helper currently unused, pending a future harmonization PR that may migrate `oauth_grants.refresh_token` to encrypted via pgcrypto.
+
+**Owner actions (gating live operation):**
+
+1. Set `OAUTH_REFRESH_CRON_SECRET` in Vercel env vars if not already set (also unlocks the existing OAuth-refresh cron).
+2. Configure an external scheduler to POST `/api/cron/photo-delivery-tick` with `x-cron-secret` header every 1-2 minutes. Cloudflare Cron Triggers or Vercel Cron are both fine; cadence is a tradeoff between Drive API quota burn and delivery latency.
+3. `PHOTO_DELIVERY_OAUTH_REDIRECT_URI` + Google Cloud redirect URI registration (still pending from PR 3).
+4. `ENCRYPTION_KEY` in Vercel (still pending from PR 2; unused today but kept ready for the harmonization).
+
+**SPEC IMPACT:** SUBSTANTIAL — see `COWORK_INBOX.md` entry "2026-05-20 — Iteration 0009 architecture deviations" for the full owner-walked update list against `0009_photo_delivery.md`.
+
+---
+
+## 2026-05-20 · feat(0009): OAuth start + callback routes for Photo Delivery Drive (PR 3 of 5)
+
+**Commit:** PR #153 (`ce0aa86`).
+
+**Context:** Backfill — process-gap catch-up for the 4 PRs shipped earlier this session without CHANGELOG entries.
+
+**What ships:** New routes `/api/oauth/photo-delivery/start` + `/callback`. New provider value `'drive_photo_delivery'` on `oauth_state` + `oauth_grants`. New helper lib `photo-delivery-drive.ts`. `.env.example` adds `PHOTO_DELIVERY_OAUTH_REDIRECT_URI`. See PR #153 body for the full file list.
+
+**SPEC IMPACT:** Rolled into the 2026-05-20 PR 4 SPEC IMPACT row above (consolidated).
+
+---
+
+## 2026-05-20 · feat(0009): AES-256-GCM token encryption helper (PR 2 of 5)
+
+**Commit:** PR #152 (`fcd1389`).
+
+**What ships:** `apps/web/lib/encryption.ts` (lazy-loaded AES-256-GCM via `ENCRYPTION_KEY`, server-only). `.env.example` adds `ENCRYPTION_KEY`.
+
+**SPEC IMPACT:** None on current behaviour — helper sits unused after the PR 3 architectural call to use `oauth_grants` plaintext. Will be reused when `oauth_grants.refresh_token` migrates to encrypted-at-rest.
+
+---
+
+## 2026-05-20 · feat(0009): photo-delivery schema foundation (PR 1 of 5)
+
+**Commit:** PR #147 (`f75a462`).
+
+**What ships:** 12 `photo_delivery_*` columns on `events` + new `photo_delivery_jobs` table.
+
+**SPEC IMPACT:** `events.photo_delivery_oauth_token_encrypted` is currently dead per the PR 3 architectural call (using `oauth_grants` plaintext instead). Will be re-evaluated in the future harmonization PR.
+
+---
+
+## 2026-05-20 · feat(0005): LED background schema foundation — configs + renders (PR 1 of 5)
+
+**Commit:** PR #150 (`3b105bc`).
+
+**What ships:** `led_background_configs` (10-template enum, one-default-per-event) + `led_background_renders` (1080p/4k/8k/custom resolution guard, master loop length 300/600/1800/5400 s).
+
+**SPEC IMPACT:** SKU seed deferred — the spec's 2026-05-08 pricing table at `0005_led_background_maker.md` shows 8K ₱99 cheaper than 1080p ₱249 which reads like a transposed typo; owner reconciliation needed before live SKUs ship. See `COWORK_INBOX.md` 2026-05-20 entry "0005 LED pricing table sanity check".
+
+---
+
 ## 2026-05-19 · feat(0015): wire 8 PH coverage-map city photo tiles
 
 **Commit:** to be filled after commit.

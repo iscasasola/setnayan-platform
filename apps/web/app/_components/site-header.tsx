@@ -35,6 +35,7 @@ import { Sheet } from './sheet';
 
 const PRIMARY_NAV = [
   { href: '/vendors', label: 'Browse' },
+  { href: '/how-it-works', label: 'How it works' },
   { href: '/features', label: 'Features' },
   { href: '/for-vendors', label: 'For vendors' },
   { href: '/pricing', label: 'Pricing' },
@@ -58,7 +59,7 @@ export function SiteHeader() {
         </Link>
 
         {/* Desktop primary nav — inline at md+ */}
-        <nav aria-label="Primary" className="hidden items-center gap-6 md:flex">
+        <nav aria-label="Primary" className="hidden items-center gap-5 md:flex">
           {PRIMARY_NAV.map((link) => {
             const isActive =
               link.href === pathname ||

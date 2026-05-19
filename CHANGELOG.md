@@ -4,6 +4,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-19 · feat(0015): wire 11 add-ons tile photos + 2 dashboard cover placeholders
+
+**Commit:** to be filled after commit.
+
+**Context:** PR #130 landed the hero + portrait placeholder set. This continues the placeholder sequence the owner requested ("create placeholders for all items on our website"). Section 7 of the homepage (`_InAppServices.tsx`) was 11 icon-only cards reading as a generic feature list — adding a per-card hero image transforms the section into a product showcase. Couple-dashboard cover photos land as ready inventory pending the 0021 cover-slot wiring.
+
+**What ships:**
+
+- `apps/web/public/add-ons/{papic,panood,pamahiya,pakulay,pailaw,pareto,custom-monogram,pro-invitation-widgets,ai-video,photo-delivery,supplies-marketplace}.avif` — 11 AI-generated 16:9 tile banners (Higgsfield `z_image`, AVIF q=65, total 1.10 MB).
+- `apps/web/public/dashboard/{cover-couple-venue,cover-reception-table}.avif` — 2 wide-frame cover placeholders for the eventual couple-dashboard event-header cover slot. Not yet wired; sample wiring snippet in `public/dashboard/README.md`.
+- `apps/web/app/page-sections/_InAppServices.tsx` — Added `image: string` field to the `SERVICES` type + array (11 paths). Refactored each card to render a 16:9 `<Image>` banner at the top (rounded-xl `overflow-hidden`, `aspect-[16/9]`, `object-cover`). First 3 cards lazy-load eagerly; remaining 8 use default lazy behavior so below-fold cards don't compete for bandwidth on first paint.
+- `apps/web/public/add-ons/README.md` (new) — mapping table, source notes, replacement contract.
+- `apps/web/public/dashboard/README.md` (new) — wiring instructions for when 0021 adopts the slot.
+
+**SPEC IMPACT:** None. Placeholder imagery only. Real photography lands via the same `image: '/add-ons/<slug>.avif'` pointers once Setnayan books real events.
+
+---
+
 ## 2026-05-19 · feat(0015): commit Higgsfield AI placeholder hero + 11 portrait/variant placeholders
 
 **Commit:** to be filled after commit.

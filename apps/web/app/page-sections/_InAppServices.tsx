@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import {
   Camera,
@@ -16,9 +17,15 @@ import {
 } from 'lucide-react';
 
 // Section 7 — In-app services / apparatus catalog (iteration 0015 § Section 7)
-// A grid of feature cards for the paid services. Each card: icon, name,
-// one-paragraph description, "Free with every account" OR "Included in
-// your custom quote" tag, "Get your quote →" CTA. NO PHP figures.
+// A grid of feature cards for the paid services. Each card: image banner,
+// icon, name, one-paragraph description, "Free with every account" OR
+// "Included in your custom quote" tag, "Get your quote →" CTA. NO PHP
+// figures.
+//
+// Image assets: AI-generated AVIF placeholders at `public/add-ons/<slug>.avif`
+// (Higgsfield z_image, 16:9, q=65, all <300 KB on the wire). Replace with
+// real photography as the verified vendor cohort + first real events ship.
+// See `public/add-ons/README.md` for swap procedure.
 
 type ServiceTag = 'quote' | 'free';
 
@@ -28,6 +35,8 @@ const SERVICES: Array<{
   body: string;
   Icon: LucideIcon;
   tag: ServiceTag;
+  /** Path to the tile banner image under `public/add-ons/`. */
+  image: string;
 }> = [
   {
     name: 'Papic',
@@ -35,6 +44,7 @@ const SERVICES: Array<{
     body: 'Native iOS/Android app for friends and family. Gesture shutter, QR-tag photos to specific guests or whole tables, untagged photos still land in the couple’s gallery. Real-time delivery.',
     Icon: Camera,
     tag: 'quote',
+    image: '/add-ons/papic.avif',
   },
   {
     name: 'Panood',
@@ -42,6 +52,7 @@ const SERVICES: Array<{
     body: 'Up to five cameras, one broadcaster, broadcast on YouTube. Custom monogram + Broadcast Style Pack support. AI Highlight reels post-event.',
     Icon: Tv,
     tag: 'quote',
+    image: '/add-ons/panood.avif',
   },
   {
     name: 'Pamahiya',
@@ -49,6 +60,7 @@ const SERVICES: Array<{
     body: 'Every guest renders their own 1–30 second reel from a template library, scored to Setnayan-owned music.',
     Icon: Film,
     tag: 'quote',
+    image: '/add-ons/pamahiya.avif',
   },
   {
     name: 'Pakulay',
@@ -56,6 +68,7 @@ const SERVICES: Array<{
     body: 'Per-role + per-venue palettes with the Setnayan Guide rule engine catching contrast / temperature / cultural-default mistakes before they hit the printer.',
     Icon: Palette,
     tag: 'free',
+    image: '/add-ons/pakulay.avif',
   },
   {
     name: 'Pailaw',
@@ -63,6 +76,7 @@ const SERVICES: Array<{
     body: '8K loop generators for venue LED walls, USB-deliverable for offline playback.',
     Icon: Lightbulb,
     tag: 'quote',
+    image: '/add-ons/pailaw.avif',
   },
   {
     name: 'Pareto',
@@ -70,6 +84,7 @@ const SERVICES: Array<{
     body: 'Pair a DSLR (Canon / Nikon / Sony / Fujifilm) with the Papic phone for broadcast-grade glass without changing the operator’s workflow.',
     Icon: Aperture,
     tag: 'quote',
+    image: '/add-ons/pareto.avif',
   },
   {
     name: 'Custom Monogram Pack',
@@ -77,6 +92,7 @@ const SERVICES: Array<{
     body: 'One purchase replaces the Setnayan watermark with the couple’s monogram across every media output.',
     Icon: Sparkles,
     tag: 'quote',
+    image: '/add-ons/custom-monogram.avif',
   },
   {
     name: 'Pro Invitation Widgets',
@@ -84,6 +100,7 @@ const SERVICES: Array<{
     body: 'Pro tiers for Hero / Our Story / Schedule blocks on the personal invitation page.',
     Icon: Layout,
     tag: 'quote',
+    image: '/add-ons/pro-invitation-widgets.avif',
   },
   {
     name: 'AI Video / Edited Highlight',
@@ -91,6 +108,7 @@ const SERVICES: Array<{
     body: 'Auto-curated event highlight reels from Papic + Panood feeds.',
     Icon: Wand2,
     tag: 'quote',
+    image: '/add-ons/ai-video.avif',
   },
   {
     name: 'Photo Delivery',
@@ -98,6 +116,7 @@ const SERVICES: Array<{
     body: 'Connect your photographer’s Google Drive. Setnayan delivers full-resolution albums to the couple post-event with a 30-day compression grace window — keep your originals as long as you need before storage tiering kicks in.',
     Icon: CloudUpload,
     tag: 'quote',
+    image: '/add-ons/photo-delivery.avif',
   },
   {
     name: 'Supplies Marketplace',
@@ -105,6 +124,7 @@ const SERVICES: Array<{
     body: 'Vetted Filipino vendors for prints, rentals, NFC keepsakes, and decor — direct to your venue. Everything Setnayan’s software needs to land in the physical world, on one invoice.',
     Icon: ShoppingBag,
     tag: 'quote',
+    image: '/add-ons/supplies-marketplace.avif',
   },
 ];
 
@@ -149,40 +169,58 @@ export function InAppServices() {
         </div>
 
         <ul className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {SERVICES.map((s) => {
+          {SERVICES.map((s, index) => {
             const { Icon } = s;
+            // First card on each row at lg+ is "above-ish the fold" on a
+            // typical 1080p viewport — let next/image fetch it eagerly so
+            // the section's first paint isn't an empty grid. Below-fold
+            // cards lazy-load via the default behavior.
+            const isEager = index < 3;
             return (
               <li
                 key={s.name}
-                className="flex flex-col gap-3 rounded-xl border border-ink/10 bg-cream p-5"
+                className="flex flex-col overflow-hidden rounded-xl border border-ink/10 bg-cream"
               >
-                <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
-                  <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-                </span>
-                <div>
-                  <h3 className="text-base font-semibold tracking-tight text-ink sm:text-lg">
-                    {s.name}
-                  </h3>
-                  <p className="text-xs uppercase tracking-[0.12em] text-ink/55">
-                    {s.tagline}
-                  </p>
+                <div className="relative aspect-[16/9] w-full bg-ink/5">
+                  <Image
+                    src={s.image}
+                    alt=""
+                    fill
+                    sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                    loading={isEager ? 'eager' : 'lazy'}
+                    quality={70}
+                    className="object-cover"
+                  />
                 </div>
-                <p className="text-sm text-ink/65">{s.body}</p>
-                <div className="mt-auto flex flex-col gap-3 pt-2">
-                  <TagBadge tag={s.tag} />
-                  {s.tag === 'quote' ? (
-                    <Link
-                      href="/signup"
-                      className="inline-flex items-center gap-1.5 text-sm font-medium text-terracotta underline-offset-4 hover:underline focus-visible:outline-none focus-visible:underline"
-                    >
-                      Get your quote
-                      <ArrowRight
-                        aria-hidden
-                        className="h-3.5 w-3.5"
-                        strokeWidth={1.75}
-                      />
-                    </Link>
-                  ) : null}
+                <div className="flex flex-1 flex-col gap-3 p-5">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
+                    <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+                  </span>
+                  <div>
+                    <h3 className="text-base font-semibold tracking-tight text-ink sm:text-lg">
+                      {s.name}
+                    </h3>
+                    <p className="text-xs uppercase tracking-[0.12em] text-ink/55">
+                      {s.tagline}
+                    </p>
+                  </div>
+                  <p className="text-sm text-ink/65">{s.body}</p>
+                  <div className="mt-auto flex flex-col gap-3 pt-2">
+                    <TagBadge tag={s.tag} />
+                    {s.tag === 'quote' ? (
+                      <Link
+                        href="/signup"
+                        className="inline-flex items-center gap-1.5 text-sm font-medium text-terracotta underline-offset-4 hover:underline focus-visible:outline-none focus-visible:underline"
+                      >
+                        Get your quote
+                        <ArrowRight
+                          aria-hidden
+                          className="h-3.5 w-3.5"
+                          strokeWidth={1.75}
+                        />
+                      </Link>
+                    ) : null}
+                  </div>
                 </div>
               </li>
             );

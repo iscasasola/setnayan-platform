@@ -73,16 +73,35 @@ ALTER TABLE vendor_payouts ADD COLUMN supplies_order_id UUID REFERENCES supplies
 
 Read spec § Schema additions in full for the canonical column list.
 
-### PR 2 — Service area resolver + wholesale pricing engine (~3-5 days)
+### PR 2 — Service area resolver + lowest-available-wholesale pricing engine (~3-5 days)
 
 `apps/web/lib/supplies/`
-- Couple's delivery address → resolve to `service_area_code` (V1: just `METRO_MANILA`)
-- Per SKU + area, fetch the active wholesale price from `supplier_vendor_sku_pricing` (respecting `effective_from` / `effective_to`)
-- Compute retail = wholesale × 1.5 (rounded to nearest peso)
-- Volume discount tiers from `volume_tiers` JSONB
-- Cache-friendly (pricing changes infrequently)
 
-Test surfaces include: get_retail_for_sku(sku_id, area_code, quantity) → returns retail_centavos + wholesale_centavos snapshot.
+- Couple's delivery address → resolve to `service_area_code` (V1: just `METRO_MANILA`)
+- Per (SKU, area), fetch ALL active wholesale prices from `supplier_vendor_sku_pricing` (respecting `effective_from` / `effective_to`)
+- Filter to available vendors: `vendors.is_supplier_vendor = TRUE` + `vendors.status = 'active'` + `supplier_vendor_skus.is_active = TRUE` + (V1.5+: capacity check)
+- **Order by `wholesale_centavos ASC` and pick the FIRST available (lowest price wins; rule locked 2026-05-19)**
+- Compute retail = wholesale × 1.5 (rounded to nearest peso)
+- Volume discount tiers from `volume_tiers` JSONB apply to the chosen vendor's pricing
+- If no vendor available → return null; surface "Coming to your area soon — join waitlist" UI state
+- Cache-friendly with TTL ~5 minutes (pricing changes infrequently, but availability flips faster)
+
+**Critical: snapshot the chosen vendor + wholesale + retail at order time.** Schema is in `supplies_order_line_items.wholesale_centavos_at_order` + `retail_centavos_at_order` + `supplier_vendor_id`. This locks the price even if the underlying wholesale changes mid-order.
+
+**Stale-price-resolution at checkout.** If the chosen vendor becomes unavailable BETWEEN add-to-cart and checkout (status flip, stock out, suspension), the cart MUST re-resolve to the next-cheapest. Couple sees a notification before payment confirms: "Your supplier was updated — your total changed from ₱X to ₱Y." Order then snapshots at the new wholesale + retail. If NO next-cheapest is available, the line item drops from the cart with an explanation.
+
+Test surfaces:
+- `resolve_supplies_pricing(sku_id, area_code, quantity, delivery_window?)` → returns `{ vendor_id, wholesale_centavos, retail_centavos, volume_tier_applied? }` OR `null` if unavailable
+- `recheck_cart_pricing(cart_id)` at checkout → re-resolves every line item, returns array of `{ line_item_id, old_total, new_total, status: 'unchanged' | 'reresolved' | 'unavailable' }`
+- Vitest fixtures for: 1 vendor / multiple vendors same area / vendor goes inactive between add-to-cart and checkout / no vendors in area / volume tier kicks in
+
+**Vendor opacity in V1.** Vendors quote wholesale independently; they don't see competitor pricing. V1.5+ candidate: surface "you're X% above the area median" signal in 0022 supplier-vendor dashboard to encourage competitive wholesale.
+
+**Quality floor mitigation in V1.** Pure lowest-price-wins risks race-to-bottom on quality. V1 mitigation:
+- SLA enforcement via wholesale agreement (fulfillment time + defect rate ceiling); SLA misses suspend vendor → falls out of available pool automatically
+- Setnayan ops can manually suspend a vendor whose quality drops (admin surface in PR 5)
+- Couple ratings + dispute counts feed an internal vendor reliability score (NOT surfaced to couples)
+- V1.5+ candidate: composite ranking that weights wholesale by reliability so 10%-of-the-time-rotates to a higher-quality vendor — keeps the supplier pool healthy without pure lowest-price race
 
 ### PR 3 — Supplies browse + cart surface (~5-7 days)
 

@@ -4,6 +4,27 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-19 · feat(0015): commit Higgsfield AI placeholder hero + 11 portrait/variant placeholders
+
+**Commit:** to be filled after commit.
+
+**Context:** Phase 5 of the recent responsive/UX audit landed the `<HeroBackdrop>` infrastructure with an env-var-driven photo slot (PR #128), and Phase 4 added the aurora motion behind it (PR #129). Both shipped with no real asset — the homepage rendered the aurora + cream gradient. This PR commits the AI-generated placeholder set requested by the owner.
+
+**What ships:**
+
+- `apps/web/public/hero/hero-couple.avif` — Take 1 of the "forehead-touch / golden hour / left-third composition" prompt set. Generated via Higgsfield `z_image` (16:9, 2048×1152), AVIF q=65, ~62 KB on the wire.
+- `apps/web/public/hero/variants/` — 5 alternate compositions (forehead-touch take 2, walking 1+2, ring-detail 1+2). Available for instant swap via `NEXT_PUBLIC_HERO_IMAGE_URL`.
+- `apps/web/public/portraits/` — 6 cinematic solo-character portraits (3 grooms, 3 brides) for use as vendor-card / testimonial-avatar placeholders until the verified vendor cohort onboards (Dec 2026 launch). Generated via Higgsfield `soul_cast`.
+- `apps/web/app/_components/hero-backdrop.tsx` — `src` default changed from `process.env.NEXT_PUBLIC_HERO_IMAGE_URL` (which could be undefined → gradient fallback) to `process.env.NEXT_PUBLIC_HERO_IMAGE_URL ?? '/hero/hero-couple.avif'`. Env var still wins when set; the committed file is now the deterministic default.
+- `apps/web/public/hero/README.md` rewritten — documents what's live, what variants are on deck, swap procedure, and the brief for the eventual real photoshoot.
+- `apps/web/public/portraits/README.md` (new) — usage pattern for vendor-card fallbacks (hash `public_id` → portrait), with a hard rule against captioning these AI faces with real names/businesses/testimonials.
+
+**Conversion pipeline:** PNG 2048×1152 source from Higgsfield CDN → AVIF q=65 effort=6 via `sharp@0.34.4`. Total committed weight: 1.34 MB across 12 files (avg ~110 KB).
+
+**SPEC IMPACT:** None. Placeholders only — no schema, no SKU, no copy, no feature surface changes. The eventual real photoshoot (an owner-action item flagged in the responsive/UX audit) will replace `hero-couple.avif` with a real Filipino wedding moment; that swap is also documented in `public/hero/README.md`. The portrait set is explicitly marked as **not for use with real names** — when verified vendors land they'll provide real photos via the upload pipeline (iteration 0006 + 0023).
+
+---
+
 ## 2026-05-16 · feat(0012): Google Drive OAuth + Papic storage-choice setup (V1 scope expansion)
 
 **Commit:** to be filled after commit.

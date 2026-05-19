@@ -27,7 +27,7 @@ export function FeaturesHero() {
           <div className="pt-2">
             <Link
               className="button-primary inline-flex items-center justify-between gap-3 px-5 py-3 text-sm sm:max-w-xs"
-              href="/apply"
+              href="/signup"
             >
               <span className="flex flex-col items-start text-left">
                 <span className="font-semibold">Start planning &middot; free</span>

@@ -127,7 +127,10 @@ function FeatureRow({ feature, flipped }: { feature: Feature; flipped: boolean }
           className="text-base font-medium text-ink/80"
           dangerouslySetInnerHTML={{ __html: feature.oneLiner }}
         />
-        <p className="text-sm text-ink/65">{feature.body}</p>
+        <p
+          className="text-sm text-ink/65"
+          dangerouslySetInnerHTML={{ __html: feature.body }}
+        />
       </div>
       <div className={flipped ? 'lg:order-1' : ''}>{feature.visual}</div>
     </article>

@@ -1,7 +1,6 @@
 import {
   Tv,
   Camera,
-  Film,
   Palette,
   Lightbulb,
   Aperture,
@@ -11,9 +10,9 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-// Day-of apparatus (in-app services) — Panood, Papic, Pamahiya, Pakulay,
-// Pailaw, Pareto, Custom Monogram. One card per service. NO PHP figures
-// (per spec: prices hidden on public site, route to /apply for quotes).
+// Day-of apparatus (in-app services) — Panood, Papic, Pakulay, Pailaw,
+// Pareto, Custom Monogram, Photo Delivery, Supplies Marketplace. One card
+// per service. NO PHP figures (prices live on /pricing and the in-app cart).
 
 type Service = {
   Icon: LucideIcon;
@@ -34,12 +33,6 @@ const SERVICES: Service[] = [
     sku: 'Papic',
     tagline: 'Designated paparazzi',
     body: 'Native iOS/Android app for friends and family. Gesture shutter, QR-tag photos to specific guests or whole tables, untagged photos still land in the couple&rsquo;s gallery. Real-time delivery — guests can flip through tagged photos before the reception is over.',
-  },
-  {
-    Icon: Film,
-    sku: 'Pamahiya',
-    tagline: 'Personal souvenir reels',
-    body: 'Every guest renders their own 1&ndash;30 second reel from a template library, scored to Setnayan-owned music. Their reel pulls only photos they&rsquo;re tagged in, so it feels like their wedding too. Shareable to socials with one tap.',
   },
   {
     Icon: Palette,

@@ -45,7 +45,7 @@ type AddOn = {
 const ADD_ONS: Array<AddOn> = [
   {
     name: 'Save-the-Date Video',
-    price: '₱99',
+    price: '₱199',
     cadence: 'per render',
     blurb: 'Vertical 30–60s MP4 from your engagement photos.',
     freeDuringLaunch: true,
@@ -59,23 +59,30 @@ const ADD_ONS: Array<AddOn> = [
   },
   {
     name: 'Panood — Daily Broadcast',
-    price: '₱499',
+    price: '₱2,499',
     cadence: 'per day',
-    blurb: 'Live-stream your ceremony to your own YouTube channel.',
+    blurb: 'Always multi-cam (up to 6) — live-stream to your own YouTube channel.',
     freeDuringLaunch: true,
   },
   {
     name: 'Panood — Annual Streaming',
-    price: '₱2,999',
-    cadence: 'per year',
-    blurb: 'Unlimited broadcasts for 12 months of household events.',
+    price: '₱19,999',
+    cadence: 'per year, all events',
+    blurb: 'Unlimited multi-cam broadcasts for vendors and event organizers.',
     freeDuringLaunch: true,
   },
   {
-    name: 'Patiktok',
+    name: 'Patiktok (Setnayan)',
     price: '₱999',
     cadence: 'per day',
-    blurb: 'TikTok booth — guests record clips that auto-post.',
+    blurb: 'TikTok booth — guests auto-post to @SetnayanWeddings.',
+    freeDuringLaunch: true,
+  },
+  {
+    name: 'Patiktok (Personal)',
+    price: '₱1,999',
+    cadence: 'per day',
+    blurb: 'TikTok booth that auto-posts to your own TikTok account.',
     freeDuringLaunch: true,
   },
 ];

@@ -24,7 +24,7 @@ export function FinalCTA() {
           <div className="flex flex-col items-center gap-4 pt-2 sm:flex-row sm:justify-center">
             <Link
               className="button-primary inline-flex w-full items-center justify-center gap-2 px-8 text-sm sm:w-auto"
-              href="/apply"
+              href="/signup"
             >
               Start planning &middot; free
               <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />

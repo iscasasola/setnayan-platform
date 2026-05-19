@@ -67,13 +67,12 @@ export const LAUNCH_PROMO_UNTIL = new Date('2027-03-31T23:59:59+08:00');
  * Verification are also EXCLUDED — those have real labor/API cost.
  */
 export const LAUNCH_PROMO_SKU_CODES: ReadonlySet<string> = new Set([
-  // Couple-side (9)
+  // Couple-side (7 active — panood_camera_sync + panood_annual_streaming_plus
+  // were retired 2026-05-17 when Panood pivoted to always-multicam baseline).
   'pro_widget_schedule',
   'save_the_date_video',
   'panood_daily_broadcast',
-  'panood_camera_sync',
   'panood_annual_streaming',
-  'panood_annual_streaming_plus',
   'patiktok_setnayan_tiktok',
   'patiktok_personal_tiktok',
   'patiktok_video_overage',
@@ -94,7 +93,10 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
     skuCode: 'save_the_date_video',
     displayName: 'Save-the-Date Video Render',
     category: 'couple_addon',
-    priceCentavos: 9900,
+    // Repriced 2026-05-17 (CLAUDE.md row 406): was 9900 (₱99), now 19900 (₱199).
+    // Cost Watch math — highest observed render ~₱45; ₱199 lands cost-to-price
+    // at 23% (green) vs 45% (yellow) at ₱99.
+    priceCentavos: 19900,
     unit: 'render',
     multiPurchase: true,
     subscription: false,
@@ -128,11 +130,16 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
   },
 
   // ---- Panood (live streaming) ----
+  // Always-multicam pivot 2026-05-17 (CLAUDE.md row 406): max 6 cams via SFU
+  // baked into Daily Broadcast and Annual Streaming. Camera Sync + Annual
+  // Streaming Plus retired (collapsed into the always-multicam SKUs).
   {
     skuCode: 'panood_daily_broadcast',
-    displayName: 'Panood Daily Broadcast',
+    displayName: 'Panood Daily Broadcast (always multi-cam, up to 6)',
     category: 'panood',
-    priceCentavos: 49900,
+    // Repriced 2026-05-17: was 49900 (₱499 single-cam), now 249900 (₱2,499
+    // always-multicam baked in).
+    priceCentavos: 249900,
     unit: 'day',
     multiPurchase: true,
     subscription: false,
@@ -150,13 +157,17 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
     subscription: false,
     refundable: true,
     purchaserRole: 'couple',
-    isActive: true,
+    // Retired 2026-05-17 — collapsed into panood_daily_broadcast always-multicam.
+    isActive: false,
   },
   {
     skuCode: 'panood_annual_streaming',
-    displayName: 'Panood Annual Streaming (single-cam unlimited)',
+    displayName: 'Panood Annual Streaming (always multi-cam, all events)',
     category: 'panood',
-    priceCentavos: 299900,
+    // Repriced 2026-05-17: was 299900 (₱2,999), now 1999900 (₱19,999).
+    // Vendor / competition-organizer subscription positioning at year +
+    // all_events scope.
+    priceCentavos: 1999900,
     unit: 'year',
     multiPurchase: false,
     subscription: true,
@@ -174,7 +185,8 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
     subscription: true,
     refundable: true,
     purchaserRole: 'couple',
-    isActive: true,
+    // Retired 2026-05-17 — collapsed into panood_annual_streaming always-multicam.
+    isActive: false,
   },
 
   // ---- AI Highlights ----

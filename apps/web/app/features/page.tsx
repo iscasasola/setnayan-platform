@@ -26,7 +26,7 @@ import { SiteFooter } from './_sections/_SiteFooter';
 // 3. Planning toolkit (guest list, seating, budget, mood board, schedule)
 // 4. Communications (invitations, QR, microsite, RSVP, email)
 // 5. Vendors & ledger (vendor mgmt, payment milestones, .ics, contracts)
-// 6. Day-of apparatus (Panood, Papic, Pamahiya, Pakulay, Pailaw, Pareto, Monogram)
+// 6. Day-of apparatus (Panood, Papic, Pakulay, Pailaw, Pareto, Monogram)
 // 7. Outsourcing / pacing / scheduling (the dropped Section 7)
 // 8. Compliance & receipts (BIR ORs, RA 10173, EWT, Form 2307)
 // 9. Final CTA + soft secondary to /for-vendors
@@ -47,7 +47,7 @@ import { SiteFooter } from './_sections/_SiteFooter';
 export const metadata = {
   title: 'Every Feature in Setnayan — Wedding & Life-Events Platform Philippines',
   description:
-    'Guest list, seating, budget, mood board, schedule, vendor ledger, BIR-compliant receipts, plus day-of apparatus (Panood, Papic, Pamahiya). The full feature catalog of the Filipino-first events platform.',
+    'Guest list, seating, budget, mood board, schedule, vendor ledger, BIR-compliant receipts, plus day-of apparatus (Panood, Papic, Pakulay). The full feature catalog of the Filipino-first events platform.',
 };
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(

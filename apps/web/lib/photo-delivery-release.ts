@@ -6,6 +6,7 @@ import {
   getDriveOAuthConfig,
   refreshDriveAccessToken,
 } from '@/lib/papic-drive';
+import { emitNotification } from '@/lib/notification-emit';
 
 // 0009 Photo Delivery — release + tick business logic.
 //
@@ -338,7 +339,87 @@ async function finalizeJob(input: {
     })
     .eq('event_id', input.eventId);
 
+  // Fire couple-side notifications + emails once per job. notification_sent_at
+  // is the idempotency guard — repeated finalizeJob calls (e.g. on every
+  // empty-batch tick after a job already finalized) won't fan out again.
+  await fanOutFinalizationNotice({ eventId: input.eventId, jobId: input.jobId, finalStatus: status, failedCount: terminalFails ?? 0 });
+
   return { eventId: input.eventId, uploaded: 0, failed: 0, remaining: 0, status };
+}
+
+async function fanOutFinalizationNotice(input: {
+  eventId: string;
+  jobId: string;
+  finalStatus: 'complete' | 'failed';
+  failedCount: number;
+}): Promise<void> {
+  const admin = createAdminClient();
+
+  // Idempotency: only emit if notification_sent_at is still NULL.
+  const { data: jobRow } = await admin
+    .from('photo_delivery_jobs')
+    .select('notification_sent_at, total_files, uploaded_files')
+    .eq('job_id', input.jobId)
+    .maybeSingle();
+  if (!jobRow || jobRow.notification_sent_at) return;
+
+  // Stamp first so a concurrent ticker won't re-emit. Race is fine: at
+  // worst two ticks both write the same timestamp; the followup
+  // emitNotification call below still only runs from this path.
+  await admin
+    .from('photo_delivery_jobs')
+    .update({ notification_sent_at: new Date().toISOString() })
+    .eq('job_id', input.jobId);
+
+  const { data: ev } = await admin
+    .from('events')
+    .select('display_name, photo_delivery_folder_name')
+    .eq('event_id', input.eventId)
+    .maybeSingle();
+  const displayName = (ev?.display_name as string | undefined) ?? 'your event';
+  const folderName = (ev?.photo_delivery_folder_name as string | undefined) ?? '';
+
+  const { data: couples } = await admin
+    .from('event_members')
+    .select('user_id')
+    .eq('event_id', input.eventId)
+    .eq('member_type', 'couple');
+  const recipients = (couples ?? []).map((r) => r.user_id as string);
+
+  const relatedUrl = `/dashboard/${input.eventId}/add-ons/photo-delivery`;
+
+  if (input.finalStatus === 'complete') {
+    const uploaded = (jobRow.uploaded_files as number) ?? 0;
+    const total = (jobRow.total_files as number) ?? uploaded;
+    const title = 'Photos delivered to your Google Drive';
+    const body =
+      `${uploaded} of ${total} photo${total === 1 ? '' : 's'} uploaded to ` +
+      (folderName ? `“${folderName}” in ` : '') +
+      `your Drive. Open the panel to see the folder link or push a re-delivery if more photos come in.`;
+    for (const userId of recipients) {
+      await emitNotification({
+        userId,
+        type: 'photo_delivery_complete',
+        title,
+        body,
+        relatedUrl,
+      });
+    }
+  } else {
+    const title = 'Photo delivery hit a snag';
+    const body =
+      `${input.failedCount} photo${input.failedCount === 1 ? '' : 's'} couldn’t be uploaded for ${displayName} after 5 retries. ` +
+      `Open the panel to review the failures, redeliver, or disconnect and reconnect Drive.`;
+    for (const userId of recipients) {
+      await emitNotification({
+        userId,
+        type: 'photo_delivery_failed',
+        title,
+        body,
+        relatedUrl,
+      });
+    }
+  }
 }
 
 async function ensureFreshAccessToken(input: {

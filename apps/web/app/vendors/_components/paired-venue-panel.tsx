@@ -1,29 +1,32 @@
-import Link from 'next/link';
 import { MapPin } from 'lucide-react';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { formatDistanceKm } from '@/lib/geo';
 import {
   findPairedCeremonyVenues,
+  displayVenueType,
   PAIRED_VENUE_CONFIG,
 } from '@/lib/venue-recommendations';
 
 /**
  * Paired-venue recommendation panel. Renders ceremony venues within a
  * configurable radius of the couple's reception anchor (saved via the
- * save-vendor flow in PR #229). Closes the "I picked a reception venue,
- * where's the ceremony" planning loop.
+ * save-vendor flow). Closes the "I picked a reception venue, where's the
+ * ceremony" planning loop.
+ *
+ * V1 data source: `venue_directory` table (read-only seed of ~50 known
+ * PH wedding venues). Entries are informational — couples can't book or
+ * contact through Setnayan yet. V1.2 venue iteration upgrades these into
+ * bookable listings with per-location calendar + day-rates; the panel UI
+ * stays the same and the cards gain CTAs at that point.
  *
  * Visibility rules:
  *   • Hidden entirely when the couple has no `events.venue_latitude` set.
- *   • Hidden when religious_venue vendor seed is empty (graceful — couples
- *     don't see a "0 results" empty panel pretending to be useful).
+ *   • Hidden when no directory entries match the faith + radius window
+ *     (graceful — couples don't see a "0 results" empty panel pretending
+ *     to be useful).
  *   • Faith-filtered to the couple's `ceremony_type` so Catholic couples
  *     don't see mosques in their recommendations.
- *
- * Pre-launch state (2026-05-21): zero religious_venue rows seeded. Panel
- * renders nothing. V1.2 venue iteration seeds ~80 PH churches/mosques/INC
- * chapels and this panel lights up automatically.
  */
 export async function PairedVenuePanel({
   anchor,
@@ -42,7 +45,7 @@ export async function PairedVenuePanel({
   if (candidates.length === 0) {
     // Empty state — soft-fail so the panel doesn't render at all rather
     // than showing a "no venues found" message that reads as broken. When
-    // V1.2 seeds land, this branch self-clears.
+    // the directory grows or V1.2 seeds land, this branch self-clears.
     return null;
   }
 
@@ -67,46 +70,35 @@ export async function PairedVenuePanel({
           Within {PAIRED_VENUE_CONFIG.radiusKm} km of your reception anchor.
           {coupleCeremonyType
             ? ` Filtered to ${displayCeremonyType(coupleCeremonyType)} venues.`
-            : null}
+            : null}{' '}
+          <span className="text-ink/45">
+            Bookable listings ship in V1.2 — for now, contact the venue
+            directly with the details below.
+          </span>
         </p>
       </header>
       <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {candidates.map((venue) => {
-          const href = venue.business_slug ? `/v/${venue.business_slug}` : '#';
           const initials =
-            venue.business_name
+            venue.name
               .split(/\s+/)
               .map((p) => p.charAt(0).toUpperCase())
               .slice(0, 2)
               .join('') || '?';
           return (
-            <li key={venue.vendor_profile_id}>
-              <Link
-                href={href}
-                className="group flex h-full flex-col gap-2 rounded-xl border border-ink/10 bg-cream p-3 transition-colors hover:border-terracotta/50 hover:bg-terracotta/5"
-              >
-                <header className="flex items-center gap-2">
-                  {venue.logo_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={venue.logo_url}
-                      alt={venue.business_name}
-                      className="h-10 w-10 shrink-0 rounded-md border border-ink/10 object-cover"
-                    />
-                  ) : (
-                    <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-terracotta/15 text-sm font-semibold text-terracotta-700">
-                      {initials}
-                    </span>
-                  )}
+            <li key={venue.venue_directory_id}>
+              <article className="flex h-full flex-col gap-2 rounded-xl border border-ink/10 bg-cream p-3">
+                <header className="flex items-start gap-2">
+                  <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-terracotta/15 text-sm font-semibold text-terracotta-700">
+                    {initials}
+                  </span>
                   <div className="min-w-0 flex-1">
-                    <h3 className="truncate text-sm font-semibold text-ink group-hover:text-terracotta">
-                      {venue.business_name}
+                    <h3 className="truncate text-sm font-semibold text-ink">
+                      {venue.name}
                     </h3>
-                    {venue.location_city ? (
-                      <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                        {venue.location_city}
-                      </p>
-                    ) : null}
+                    <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                      {venue.location_city}
+                    </p>
                   </div>
                 </header>
                 <p className="inline-flex items-center gap-1 text-xs text-ink/70">
@@ -120,10 +112,15 @@ export async function PairedVenuePanel({
                   </span>
                   <span className="text-ink/45">from your venue</span>
                 </p>
-                <p className="mt-auto text-xs font-medium text-terracotta group-hover:underline">
-                  View venue →
-                </p>
-              </Link>
+                <div className="mt-auto flex flex-wrap items-center gap-1">
+                  <span className="inline-flex items-center rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/65">
+                    {displayVenueType(venue.venue_type)}
+                  </span>
+                  <span className="inline-flex items-center rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
+                    V1.2 · Bookable soon
+                  </span>
+                </div>
+              </article>
             </li>
           );
         })}

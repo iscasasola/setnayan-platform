@@ -304,7 +304,7 @@ function TemplateCard({
             />
             <p className="mt-2 text-[11px] text-ink/55">
               The preview applies your palette to the regions Setnayan has tagged on this
-              template. Tap "Save to moodboard" to pin this look.
+              template. Tap &ldquo;Save to moodboard&rdquo; to pin this look.
             </p>
           </div>
         )}

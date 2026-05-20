@@ -77,6 +77,20 @@ const ALLOWED_EVENT_TYPE_FILTERS = [
 ] as const;
 type EventTypeFilter = (typeof ALLOWED_EVENT_TYPE_FILTERS)[number];
 
+// Couple-facing labels for the empty-state framing. Stays in sync with the
+// `EVENT_TYPES` list in apps/web/app/dashboard/create-event/_components/event-type-picker.tsx.
+const EVENT_TYPE_LABEL: Record<EventTypeFilter, string> = {
+  wedding: 'Wedding',
+  gender_reveal: 'Gender Reveal',
+  debut: 'Debut',
+  birthday: 'Birthday',
+  celebration: 'Celebration',
+  travel: 'Travel',
+  corporate: 'Corporate',
+  tournament: 'Tournament',
+  christening: 'Christening',
+};
+
 type VendorCardRow = {
   vendor_profile_id: string;
   public_id: string;
@@ -583,6 +597,7 @@ function EmptyState({
     page: number;
     verifiedOnly: boolean;
     matchEvent: boolean;
+    eventType: EventTypeFilter | null;
   };
 }) {
   const hasFilter = !!(
@@ -590,8 +605,42 @@ function EmptyState({
     filters.category ||
     filters.city ||
     filters.verifiedOnly ||
-    filters.matchEvent
+    filters.matchEvent ||
+    filters.eventType
   );
+
+  // Iteration 0041 — event-type-specific empty state. When the marketplace
+  // is filtered to an event_type and zero vendors match, frame the empty
+  // result as "Coming Soon — vendors being recruited" rather than a
+  // generic "no matches". Avoids couples on a debut event seeing a silently
+  // empty marketplace and assuming the platform is broken. Mirrors the
+  // iteration 0043 faith-activation pattern (Coming Soon + future email
+  // capture).
+  if (filters.eventType && filters.eventType !== 'wedding') {
+    const label = EVENT_TYPE_LABEL[filters.eventType];
+    return (
+      <div className="mt-8 rounded-2xl border border-dashed border-terracotta/30 bg-terracotta/[0.04] p-10 text-center">
+        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
+          Coming soon
+        </p>
+        <p className="mt-3 text-base font-medium text-ink">
+          {label} vendors are being recruited for Setnayan.
+        </p>
+        <p className="mx-auto mt-2 max-w-prose text-sm text-ink/65">
+          Setnayan launches each event-type marketplace once enough verified
+          vendors are onboarded. Wedding vendors are live now — other event
+          types open as their vendor pools mature.
+        </p>
+        <Link
+          href="/vendors"
+          className="button-secondary mt-5 inline-flex h-10 px-4"
+        >
+          Browse all vendors
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="mt-8 rounded-2xl border border-dashed border-ink/20 bg-cream p-10 text-center">
       <p className="text-base font-medium text-ink/75">

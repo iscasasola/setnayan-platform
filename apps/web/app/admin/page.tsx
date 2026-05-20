@@ -91,6 +91,12 @@ export default async function AdminOverview() {
           body="Toggle + reorder marketing-site widgets per page."
         />
         <Tile
+          href="/admin/moodboard-library"
+          icon="layout-grid"
+          title="Moodboard library"
+          body="Upload + tag template photos for Visual preview pillars (0010 · locked 2026-05-21)."
+        />
+        <Tile
           href="/admin"
           icon="message-square"
           title="Approval queue"

@@ -15,6 +15,7 @@ import { fetchReviewStatsForMany, formatStarRating } from '@/lib/reviews';
 import { EventTypeNotifyForm } from './_components/event-type-notify-form';
 import { TaxonomySearch, type TaxonomyOption } from './_components/taxonomy-search';
 import { CategoryTile, type CategoryTileData } from './_components/category-tile';
+import { SaveVendorButton } from './_components/save-vendor-button';
 import { FolderTabs, type FolderTab } from './_components/mega-column-tabs';
 import {
   TAXONOMY_MAP,
@@ -444,6 +445,27 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     }
   }
 
+  // 2026-05-20 — saved-to-picks set for the SaveVendorButton on each card.
+  // RLS on event_vendors is couple-scoped so the SELECT is naturally bounded
+  // to the viewer's own events. Joining via marketplace_vendor_id IN (visible
+  // ids) keeps the read tight.
+  let savedSet = new Set<string>();
+  if (user && coupleEventId) {
+    const ids = rows.map((r) => r.vendor_profile_id);
+    if (ids.length > 0) {
+      const { data: saved } = await supabase
+        .from('event_vendors')
+        .select('marketplace_vendor_id')
+        .eq('event_id', coupleEventId)
+        .in('marketplace_vendor_id', ids);
+      savedSet = new Set(
+        (saved ?? [])
+          .map((s) => s.marketplace_vendor_id)
+          .filter((id): id is string => Boolean(id)),
+      );
+    }
+  }
+
   // Apply stats-based sort + pagination in-memory. Boosted/Sponsored
   // vendors always float to the top of the page (within each sort key) per
   // iteration 0022 § 5b — "Top-of-search ranking within radius · tiny
@@ -580,6 +602,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                     reviewCount={s?.total_count ?? 0}
                     isAuthenticated={user !== null}
                     isFollowing={followedSet.has(v.vendor_profile_id)}
+                    isSaved={savedSet.has(v.vendor_profile_id)}
                     eventId={coupleEventId}
                     ad={adById.get(v.vendor_profile_id) ?? null}
                   />
@@ -845,6 +868,7 @@ function VendorMarketCard({
   reviewCount,
   isAuthenticated,
   isFollowing,
+  isSaved,
   eventId,
   ad,
 }: {
@@ -853,6 +877,7 @@ function VendorMarketCard({
   reviewCount: number;
   isAuthenticated: boolean;
   isFollowing: boolean;
+  isSaved: boolean;
   eventId: string | null;
   ad: ActiveAdLookup | null;
 }) {
@@ -959,14 +984,26 @@ function VendorMarketCard({
             Setnayan is verifying their setup.
           </p>
         )}
-        {slug ? (
-          <Link
-            href={href}
-            className="text-xs font-medium text-terracotta hover:underline"
-          >
-            View profile →
-          </Link>
-        ) : null}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Save-to-picks (2026-05-20). Only surfaced for authenticated
+              couples with at least one event; the button itself is the
+              client component that does the heavy lifting. */}
+          {bookable && isAuthenticated && eventId ? (
+            <SaveVendorButton
+              vendorProfileId={vendor.vendor_profile_id}
+              initiallySaved={isSaved}
+              canSave={true}
+            />
+          ) : null}
+          {slug ? (
+            <Link
+              href={href}
+              className="text-xs font-medium text-terracotta hover:underline"
+            >
+              View profile →
+            </Link>
+          ) : null}
+        </div>
       </div>
     </article>
   );

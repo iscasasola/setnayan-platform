@@ -9,6 +9,7 @@ import {
   FileText,
   Megaphone,
   MessageSquare,
+  Palette,
   ShieldCheck,
   Star,
   User,
@@ -148,6 +149,12 @@ export default async function VendorDashboardLayout({
             href="/vendor-dashboard/marketing"
             label="Marketing"
             icon={<Megaphone aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />}
+            match="prefix"
+          />
+          <VendorSubnavTab
+            href="/vendor-dashboard/moodboard-library"
+            label="Moodboard"
+            icon={<Palette aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />}
             match="prefix"
           />
           <VendorSubnavTab

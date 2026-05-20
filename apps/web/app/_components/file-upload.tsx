@@ -90,6 +90,14 @@ export type FileUploadProps = {
   disabled?: boolean;
   /** Visual variant — `square` is good for logos, `wide` for evidence. */
   variant?: 'square' | 'wide';
+  /**
+   * Apply the SETNAYAN watermark to each uploaded image before sending it
+   * to R2. Per owner directive 2026-05-21: all photos posted on the app
+   * get auto-watermarked EXCEPT event photos. Vendor marketplace photos
+   * MUST be watermarked. Non-image files (PDFs etc.) are passed through
+   * untouched even when this is true.
+   */
+  watermark?: boolean;
 };
 
 const DEFAULT_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
@@ -186,6 +194,7 @@ export function FileUpload({
   help,
   disabled = false,
   variant = 'square',
+  watermark = false,
 }: FileUploadProps) {
   const inputId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -328,10 +337,28 @@ export function FileUpload({
    * Errors at any step roll back the inFlight entry and surface the message
    * via the `error` state.
    */
-  async function uploadOne(file: File) {
+  async function uploadOne(rawFile: File) {
     const id = `up-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const contentType =
-      file.type || (file.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
+    const initialContentType =
+      rawFile.type || (rawFile.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
+
+    // --- Step 0: watermark (if opted in and the file is an image) ---------
+    // Done client-side before presign so the signed `content-length` matches
+    // the actual PUT body. Non-image files (PDFs etc.) skip this step.
+    let file = rawFile;
+    if (watermark && isImage(initialContentType)) {
+      try {
+        const { watermarkFile } = await import('@/lib/watermark');
+        file = await watermarkFile(rawFile, { position: 'bottom-right', opacity: 0.55 });
+      } catch (err) {
+        // Best-effort: if watermarking fails, fall back to the original file.
+        // We don't block uploads on a watermark failure — it's a deterrent,
+        // not a security guarantee, and the user shouldn't be stuck.
+        console.warn('watermark failed; uploading original', err);
+        file = rawFile;
+      }
+    }
+    const contentType = file.type || initialContentType;
 
     setInFlight((prev) => [
       ...prev,

@@ -209,7 +209,7 @@ export default async function WaitlistPage({ searchParams }: Props) {
             <li>· Setnayan Concierge — full-service event coordination at ₱2,499, 3-day free trial</li>
             <li>· Vendor contracts hosted in-app — both sides keep a copy alongside the chat thread</li>
             <li>· BIR-compliant receipts on every Setnayan Pay transaction</li>
-            <li>· Most add-on services FREE until March 31, 2027 during the launch promo</li>
+            <li>· Most add-on services FREE until January 30, 2027 during the launch promo</li>
           </ul>
           <p className="mt-6 text-xs text-ink/55">
             Vendor? <Link href="/for-vendors" className="font-semibold text-terracotta underline-offset-4 hover:underline">Skip the waitlist — pre-register today</Link>.

@@ -18,6 +18,7 @@ import { TaxonomySearch, type TaxonomyOption } from './_components/taxonomy-sear
 import { CategoryTile, type CategoryTileData } from './_components/category-tile';
 import { SaveVendorButton } from './_components/save-vendor-button';
 import { FolderTabs, type FolderTab } from './_components/mega-column-tabs';
+import { PairedVenuePanel } from './_components/paired-venue-panel';
 import {
   TAXONOMY_MAP,
   WEDDING_FOLDER_LABEL,
@@ -251,13 +252,16 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // every vendor card. Populated by saveVendorToPicks when the couple saves
   // a category='venue' vendor with coords. NULL = no anchor → no chips.
   let venueAnchor: { lat: number; lng: number } | null = null;
+  let venueAnchorName: string | null = null;
   if (user) {
     const userEvents = await fetchUserEvents(supabase, user.id, 'couple');
     coupleEventId = userEvents[0]?.event_id ?? null;
     if (coupleEventId) {
       const { data: ev } = await admin
         .from('events')
-        .select('ceremony_type, venue_setting, event_type, venue_latitude, venue_longitude')
+        .select(
+          'ceremony_type, venue_setting, event_type, venue_latitude, venue_longitude, venue_name',
+        )
         .eq('event_id', coupleEventId)
         .maybeSingle();
       if (
@@ -270,6 +274,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           lat: Number(ev.venue_latitude),
           lng: Number(ev.venue_longitude),
         };
+        venueAnchorName = (ev?.venue_name as string | null) ?? null;
       }
       // Iteration 0043 — ceremony × venue compat fields are wedding-only
       // (NULL for non-wedding events per migration 20260521080000), so the
@@ -345,6 +350,9 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         matchableEvent={matchableEvent}
         matchEvent={filters.matchEvent}
         coupleFaith={coupleFaith}
+        venueAnchor={venueAnchor}
+        venueAnchorName={venueAnchorName}
+        coupleCeremonyType={matchableEvent?.ceremony_type ?? null}
       />
     );
   }
@@ -1204,11 +1212,17 @@ async function CatalogView({
   matchableEvent,
   matchEvent,
   coupleFaith,
+  venueAnchor,
+  venueAnchorName,
+  coupleCeremonyType,
 }: {
   admin: ReturnType<typeof createAdminClient>;
   matchableEvent: { ceremony_type: string; venue_setting: string } | null;
   matchEvent: boolean;
   coupleFaith: CoupleFaith;
+  venueAnchor: { lat: number; lng: number } | null;
+  venueAnchorName: string | null;
+  coupleCeremonyType: string | null;
 }) {
   // Single round-trip per page render — both reads are admin-scoped because
   // anonymous visitors hit this route and `vendor_profiles` is gated by RLS.
@@ -1351,6 +1365,17 @@ async function CatalogView({
         <CatalogFilterBar matchableEvent={matchableEvent} />
 
         <FolderTabs tabs={tabs} totalCount={totalCategories} />
+
+        {venueAnchor ? (
+          <PairedVenuePanel
+            anchor={{
+              lat: venueAnchor.lat,
+              lng: venueAnchor.lng,
+              name: venueAnchorName,
+            }}
+            coupleCeremonyType={coupleCeremonyType}
+          />
+        ) : null}
 
         {WEDDING_FOLDER_ORDER.map((folder) => {
           if (folder === 'reception') {

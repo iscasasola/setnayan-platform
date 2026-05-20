@@ -21,11 +21,64 @@ import { AddVenueToPlanButton } from './add-venue-to-plan-button';
  * type, faith-filtered when religion-default-on is active — alongside the
  * officiants and pre-marriage canonical_service tiles.
  *
- * Pre-launch state (2026-05-21): venue_directory has 19 Catholic Churches,
- * 3 INC Chapels, 3 Mosques, 3 Christian Churches, 5 Civil Registrars. Faith
- * filter narrows to whichever the couple has selected (or all when
- * anonymous browse).
+ * 2026-05-21: ALWAYS renders the venue_type sub-headers, even when
+ * venue_directory has no matching rows (e.g. migration not yet applied,
+ * faith filter narrows to a type with 0 seeds). Each empty sub-header
+ * shows a couple-friendly placeholder listing example venues — couples
+ * see "Catholic Church" presence on Ceremony unconditionally, replaced by
+ * real cards as the directory fills.
  */
+
+type PlaceholderType = {
+  venue_type: string;
+  /** Sample venue names couples will recognize — empty-state placeholder. */
+  examples: ReadonlyArray<string>;
+  /** Ceremony types this venue_type is allowed under. Mirrors compatible_ceremony_types. */
+  faiths: ReadonlyArray<string>;
+};
+
+const CEREMONY_VENUE_PLACEHOLDERS: ReadonlyArray<PlaceholderType> = [
+  {
+    venue_type: 'catholic_church',
+    examples: ['Manila Cathedral', 'Sto. Domingo Church', 'Pink Sisters Tagaytay', 'Caleruega', 'San Agustin Church'],
+    faiths: ['catholic'],
+  },
+  {
+    venue_type: 'christian_church',
+    examples: ["Christ's Commission Fellowship", 'Victory Christian Fellowship', 'JIL Manila'],
+    faiths: ['christian'],
+  },
+  {
+    venue_type: 'inc_chapel',
+    examples: ['INC Central Office QC', 'INC Local Manila', 'INC Local Cubao'],
+    faiths: ['inc'],
+  },
+  {
+    venue_type: 'mosque',
+    examples: ['Manila Golden Mosque', 'Marawi Grand Mosque', 'Cotabato Grand Mosque'],
+    faiths: ['muslim'],
+  },
+  {
+    venue_type: 'cultural_site',
+    examples: ['Indigenous community grounds', 'Maranao cultural grounds', 'Tausug ancestral sites'],
+    faiths: ['cultural'],
+  },
+  {
+    venue_type: 'civil_registrar',
+    examples: ['Manila City Hall', 'Quezon City Hall', 'Makati City Hall', 'Cebu City Hall'],
+    faiths: ['civil', 'catholic', 'christian', 'inc', 'cultural'],
+  },
+];
+
+function visiblePlaceholders(
+  coupleCeremonyType: string | null,
+): ReadonlyArray<PlaceholderType> {
+  if (coupleCeremonyType === null) return CEREMONY_VENUE_PLACEHOLDERS;
+  return CEREMONY_VENUE_PLACEHOLDERS.filter((p) =>
+    p.faiths.includes(coupleCeremonyType),
+  );
+}
+
 export async function CeremonyVenuesSection({
   coupleCeremonyType,
   venueAnchor,
@@ -44,18 +97,24 @@ export async function CeremonyVenuesSection({
     perTypeLimit: 6,
   });
 
-  if (candidates.length === 0) {
-    // Soft-fail — no venues match the faith. Section disappears rather
-    // than rendering an empty header.
-    return null;
+  // Bucket actual candidates by venue_type.
+  const candidatesByType = new Map<string, PairedVenueCandidate[]>();
+  for (const c of candidates) {
+    const arr = candidatesByType.get(c.venue_type) ?? [];
+    arr.push(c);
+    candidatesByType.set(c.venue_type, arr);
   }
 
-  // Group by venue_type for the section sub-headers.
-  const groups = new Map<string, PairedVenueCandidate[]>();
-  for (const c of candidates) {
-    const arr = groups.get(c.venue_type) ?? [];
-    arr.push(c);
-    groups.set(c.venue_type, arr);
+  const placeholders = visiblePlaceholders(coupleCeremonyType);
+
+  // Build the full list of types to render: every placeholder type that
+  // matches the faith. Real candidates fill in when they exist; an empty
+  // placeholder card renders when they don't. This guarantees couples see
+  // "Catholic Church" etc. on the Ceremony folder unconditionally.
+  if (placeholders.length === 0) {
+    // Civil-only couple with only civil_registrar — still rendered above.
+    // Fall-through here only if the coupleCeremonyType is unknown.
+    return null;
   }
 
   return (
@@ -83,21 +142,63 @@ export async function CeremonyVenuesSection({
         </p>
       </header>
 
-      {[...groups.entries()].map(([venueType, venues]) => (
-        <div key={venueType} className="mb-5 last:mb-0">
-          <h3 className="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-            {displayVenueType(venueType)} ({venues.length})
-          </h3>
-          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {venues.map((venue) => (
-              <li key={venue.venue_directory_id}>
-                <CeremonyVenueCard venue={venue} hasAnchor={venueAnchor !== null} currentEventId={currentEventId} />
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
+      {placeholders.map((placeholder) => {
+        const venues = candidatesByType.get(placeholder.venue_type) ?? [];
+        return (
+          <div key={placeholder.venue_type} className="mb-5 last:mb-0">
+            <h3 className="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+              {displayVenueType(placeholder.venue_type)}{' '}
+              {venues.length > 0 ? `(${venues.length})` : ''}
+            </h3>
+            {venues.length > 0 ? (
+              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {venues.map((venue) => (
+                  <li key={venue.venue_directory_id}>
+                    <CeremonyVenueCard
+                      venue={venue}
+                      hasAnchor={venueAnchor !== null}
+                      currentEventId={currentEventId}
+                    />
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <EmptyPlaceholderCard placeholder={placeholder} />
+            )}
+          </div>
+        );
+      })}
     </section>
+  );
+}
+
+/**
+ * Empty-state card for a venue_type with no directory rows yet. Lists a
+ * handful of example venue names so couples see the category is real and
+ * Setnayan is curating — without claiming bookable availability.
+ */
+function EmptyPlaceholderCard({ placeholder }: { placeholder: PlaceholderType }) {
+  return (
+    <article className="rounded-xl border border-dashed border-ink/15 bg-cream/60 p-4">
+      <p className="text-sm text-ink/75">
+        <span className="font-medium text-ink">Setnayan is curating PH{' '}
+        {displayVenueType(placeholder.venue_type)} venues.</span>{' '}
+        Examples coming to the directory:
+      </p>
+      <ul className="mt-2 flex flex-wrap gap-1.5">
+        {placeholder.examples.map((name) => (
+          <li
+            key={name}
+            className="inline-flex items-center rounded-full bg-ink/[0.04] px-2 py-0.5 text-xs text-ink/70"
+          >
+            {name}
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/45">
+        V1.2 · Bookable soon
+      </p>
+    </article>
   );
 }
 

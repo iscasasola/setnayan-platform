@@ -9,6 +9,8 @@ on 2026-05-20 — see the 2026-05-21 "Moodboard expanded · 3 pillars" row in
 |---|---|---|
 | `figure_filipino_guest_v1.png` | `figure_attire · guest_female` | Filipino woman in a uniform emerald green cocktail dress. The dress is a single solid hue — clean target for slot 1 (cocktail dress). Skin tones are warm but far from emerald, so the color-range mask stays on the dress with reasonable tolerance. |
 | `venue_filipino_reception_v1.png` | `venue_scene · reception` | Manila ballroom reception setup with burgundy drapery + matching table runners as the dominant accent. White tablecloths + gold chairs are distinctly different hues so the color-range mask stays on the burgundy regions. |
+| `figure_filipino_guest_terracotta_v2.png` | `figure_attire · guest_female` | Generated 2026-05-21 via the randomized prompt pipeline (`apps/web/lib/higgsfield-prompts.ts`). Filipino woman in a fitted knee-length terracotta cocktail dress. Same single-hue solid-tone story as v1; tolerance ~18 catches the subtle eyelet pattern. |
+| `venue_filipino_garden_sage_v2.png` | `venue_scene · reception` | Generated 2026-05-21. Tagaytay garden reception under string lights with dusty sage drapery + matching sage table runners + cross-back wooden chairs + lush tropical foliage. Clean sage solid for slot 1. |
 
 ## How to use these in V1 soft-beta
 
@@ -45,7 +47,8 @@ keep through soft-beta.
 
 ## Provenance
 
-- Generated 2026-05-20 via Higgsfield workspace (`user_3DvCMge8WKFuyTkcpidqZrFxpiO`)
-- Figure: model `text2image_soul_v2` (Higgsfield Soul 2.0), seed 17634, quality 2k, aspect 3:4
-- Venue: model `nano_banana_2` (Google Nano Banana Pro), resolution 2k, aspect 16:9
-- Source URLs (raw) on file in the prior session — both downloaded into this repo at 2026-05-21
+- v1 generated 2026-05-20 via Higgsfield workspace (`user_3DvCMge8WKFuyTkcpidqZrFxpiO`)
+- v2 generated 2026-05-21 via the new randomized prompt pipeline (see `apps/web/lib/higgsfield-prompts.ts`)
+- Figure files: model `text2image_soul_v2` (Higgsfield Soul 2.0), quality 2k, aspect 3:4
+- Venue files: model `nano_banana_2` (Google Nano Banana Pro), resolution 2k, aspect 16:9
+- All four files downloaded into this repo + Setnayan-owned (Higgsfield-generated, no third-party license concerns)

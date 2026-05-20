@@ -1,19 +1,19 @@
 'use client';
 
 /**
- * Couple-side Visual preview pillars (locked 2026-05-21 in 0010 §
+ * Host-side Visual preview pillars (locked 2026-05-21 in 0010 §
  * "Visual preview pillars · Location feel + Dress codes").
  *
- * The couple's experience:
+ * The host's experience:
  *   - Browses approved template assets (venue scenes + figure attires)
  *   - Sees each template with the Color Range Manipulator's HSL substitution
- *     applied using the couple's current palette
+ *     applied using the event's current palette
  *   - Saves a (pillar, pillar_slot, asset_id, palette_snapshot) pairing to
- *     persist their pinned moodboard. "Locked" = pinned, NOT immutable.
+ *     persist the event's pinned moodboard. "Locked" = pinned, NOT immutable.
  *   - Can swap to a different template + re-save anytime
  *
- * Per owner directive 2026-05-21: guests/couples can only USE templates here,
- * not upload. Upload flow is admin-only (or stylist-Drive in V1.x).
+ * Per owner directive 2026-05-21: hosts can only USE templates here, not
+ * upload. Upload flow is admin-only (or stylist-Drive in V1.x).
  */
 
 import { useMemo, useState, useTransition } from 'react';
@@ -55,7 +55,7 @@ export function VisualPreview({ eventId, templates, existingSaves, rolePalette }
   const [isPending, startTransition] = useTransition();
   const [saves, setSaves] = useState<ExistingSave[]>(existingSaves);
 
-  // Build palette preview map for each template based on couple's rolePalette.
+  // Build palette preview map for each template based on the event's rolePalette.
   // Slot 1 = primary palette color for the role/venue this asset belongs to.
   // Other slots use the template's original sampled hex (no substitution).
   function buildPreviewPalette(asset: TemplateAsset): PalettePreview {
@@ -63,7 +63,7 @@ export function VisualPreview({ eventId, templates, existingSaves, rolePalette }
     const preview: PalettePreview = {};
     if (primary) preview[1] = primary;
     // Slots 2-6 stay as the asset's sampled hex → no recolor for those slots
-    // (V1 simplification: couples only customize slot 1 via their existing palette).
+    // (V1 simplification: only slot 1 maps to the event's existing palette).
     return preview;
   }
 
@@ -338,7 +338,7 @@ function PaletteRow({ palette }: { palette: Record<string, string> }) {
 // ---- palette mapping helper ----
 
 /**
- * For a given template, pick the primary palette color from the couple's
+ * For a given template, pick the primary palette color from the event's
  * existing role_palette JSONB based on asset_subtype.
  *
  * Mapping is best-effort: venue templates pull from ceremony/reception
@@ -357,8 +357,8 @@ function primaryColorFor(asset: TemplateAsset, palette: Record<string, string>):
   }
 
   // figure_attire
-  if (sub === 'bride') return palette.bride || palette.couple || null;
-  if (sub === 'groom') return palette.groom || palette.couple || null;
+  if (sub === 'bride') return palette.bride || null;
+  if (sub === 'groom') return palette.groom || null;
   if (sub.startsWith('bridesmaid') || sub.startsWith('groomsman') || sub.startsWith('wedding_party'))
     return palette.wedding_party || palette.bride || null;
   if (sub.startsWith('guest')) return palette.guest || null;

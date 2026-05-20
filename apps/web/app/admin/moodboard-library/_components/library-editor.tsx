@@ -161,7 +161,7 @@ export function LibraryEditor({ initialAssets }: Props) {
 
   function handleRetire() {
     if (!selected) return;
-    if (!confirm('Retire this asset? It will stop appearing for couples.')) return;
+    if (!confirm('Retire this asset? It will stop appearing for hosts.')) return;
     startTransition(async () => {
       try {
         await retireAsset(selected.asset_id);
@@ -383,7 +383,7 @@ export function LibraryEditor({ initialAssets }: Props) {
               </div>
               <p className="mt-2 text-[11px] text-ink/55">
                 These are the colors that will be applied to each tagged slot when previewing.
-                In production this comes from the couple&apos;s master palette.
+                In production this comes from the host&apos;s master palette.
               </p>
             </details>
           </>

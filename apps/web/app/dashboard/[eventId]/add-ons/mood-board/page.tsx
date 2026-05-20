@@ -126,7 +126,7 @@ async function VisualPreviewSection({
 }) {
   const admin = createAdminClient();
 
-  // Fetch approved templates + their color ranges + couple's existing saves
+  // Fetch approved templates + their color ranges + the event's existing saves
   const [{ data: templateRows }, { data: rangeRows }, { data: saveRows }] = await Promise.all([
     admin
       .from('moodboard_library_assets')

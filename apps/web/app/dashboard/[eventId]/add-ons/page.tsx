@@ -10,6 +10,7 @@ import {
   Video,
   Film,
   Printer,
+  ImageDown,
   type LucideIcon,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -101,6 +102,15 @@ const ADD_ONS: ReadonlyArray<{
     iteration: '0011',
     status: 'web_v1',
     blurb: 'Live stream · YouTube delivery · AI Highlights · Same-Day Edit',
+    cta: 'Set up',
+  },
+  {
+    key: 'photo-delivery',
+    label: 'Photo Delivery',
+    Icon: ImageDown,
+    iteration: '0009',
+    status: 'web_v1',
+    blurb: 'Connect Google Drive · photographer post-event handoff · share albums with guests',
     cta: 'Set up',
   },
   {

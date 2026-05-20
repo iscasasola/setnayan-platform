@@ -402,16 +402,6 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
             Verified vendors who took the time to set up a Setnayan profile. Star ratings
             come from couples who&rsquo;ve actually paid for the service.
           </p>
-          <p className="text-sm text-ink/55">
-            Looking for something specific?{' '}
-            <Link
-              href="/vendors/categories"
-              className="font-medium text-terracotta underline-offset-4 hover:underline"
-            >
-              Browse the full vendor taxonomy
-            </Link>{' '}
-            — 192 sub-categories across 5 mega-menu columns.
-          </p>
         </div>
 
         <div className="mt-6">
@@ -425,6 +415,22 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
               matchEvent: filters.matchEvent,
             }}
           />
+        </div>
+
+        {/* Prominent affordance for the full 192-item taxonomy. The 6
+          * mega-category chips above are the fast path; this button is
+          * the "I know exactly what I'm looking for" path (e.g. "drone
+          * operator", "lechon station"). Previously this link lived
+          * inline in the header paragraph and read as decorative text. */}
+        <div className="mt-4">
+          <Link
+            href="/vendors/categories"
+            className="inline-flex items-center gap-2 rounded-xl border border-terracotta/30 bg-terracotta/5 px-4 py-2.5 text-sm font-medium text-terracotta-700 transition hover:border-terracotta hover:bg-terracotta/10"
+          >
+            <Search aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            Browse all 192 vendor sub-categories
+            <span aria-hidden>→</span>
+          </Link>
         </div>
 
         <FilterBar filters={filters} matchableEvent={matchableEvent} />

@@ -12,6 +12,7 @@
  */
 
 import { useMemo, useState, useTransition } from 'react';
+import { watermarkFile } from '@/lib/watermark';
 import {
   ColorRangeManipulator,
   type ColorRangeMap,
@@ -78,6 +79,17 @@ export function LibraryEditor({ initialAssets }: Props) {
     const formData = new FormData(form);
     startTransition(async () => {
       try {
+        // Apply SETNAYAN watermark before upload (owner directive 2026-05-21:
+        // all photos posted to the app get auto-watermark except event photos).
+        const original = formData.get('file') as File | null;
+        if (original) {
+          const watermarked = await watermarkFile(original, {
+            position: 'bottom-right',
+            opacity: 0.55,
+          });
+          formData.set('file', watermarked);
+        }
+
         const { assetId } = await uploadAsset(formData);
         // Optimistic: append a placeholder row; server will revalidate fully on next load
         const label = String(formData.get('label') ?? '');
@@ -85,8 +97,7 @@ export function LibraryEditor({ initialAssets }: Props) {
         const assetSubtype = String(formData.get('assetSubtype') ?? '') || null;
         const source = (String(formData.get('source') ?? '') ||
           'internet_placeholder') as LibraryAsset['source'];
-        // We don't have public_url yet — page will refresh on next load.
-        // For immediate UX, store a blob URL of the uploaded file.
+        // For immediate UX, store a blob URL of the watermarked file.
         const file = formData.get('file') as File | null;
         const blobUrl = file ? URL.createObjectURL(file) : '';
         const placeholder: LibraryAsset = {

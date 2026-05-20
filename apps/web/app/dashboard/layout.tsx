@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { GuidedTour } from '@/app/_components/guided-tour';
 import { completeTour } from '@/lib/tour-actions';
 import { fetchUserEvents, sortEventsForSwitcher } from '@/lib/events';
@@ -11,7 +11,7 @@ import { OuterDashboardHeader } from './_components/outer-dashboard-header';
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
   if (!user) {
-    redirect('/login');
+    redirect(loginRedirectPath('/dashboard'));
   }
   const supabase = await createClient();
 

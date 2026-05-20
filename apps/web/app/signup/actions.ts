@@ -7,12 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
 import { isEmailBlacklisted } from '@/lib/blacklist';
 import { captureEvent } from '@/lib/analytics';
-
-function safeNext(raw: FormDataEntryValue | null): string {
-  const value = raw ? String(raw) : '';
-  if (!value.startsWith('/') || value.startsWith('//')) return '/';
-  return value;
-}
+import { safeNext } from '@/lib/auth';
 
 function parseAccountType(raw: FormDataEntryValue | null): 'customer' | 'vendor' {
   const value = raw ? String(raw) : '';
@@ -82,13 +77,34 @@ export async function signUp(formData: FormData) {
       // succeeds and the consent can be captured later via the dashboard
       // privacy surface.
       if (publicSummaryConsent) {
+        // The DB trigger that creates public.users runs on a separate
+        // connection from this admin write. If we race the trigger
+        // the UPDATE hits zero rows and the consent timestamp is
+        // silently dropped — bad for RA 10173 audit trail. Poll
+        // briefly for the row to exist, then update.
+        for (let attempt = 0; attempt < 5; attempt++) {
+          const { data: row } = await admin
+            .from('users')
+            .select('user_id')
+            .eq('user_id', data.user.id)
+            .maybeSingle();
+          if (row) break;
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
         try {
-          await admin
+          const { error: consentErr } = await admin
             .from('users')
             .update({ public_summary_consent_at: new Date().toISOString() })
             .eq('user_id', data.user.id);
-        } catch {
+          if (consentErr) {
+            console.warn(
+              '[signup] public_summary_consent update failed:',
+              consentErr.message,
+            );
+          }
+        } catch (err) {
           // Non-blocking: signup completes even if the consent write fails.
+          console.warn('[signup] public_summary_consent update threw:', err);
         }
       }
 

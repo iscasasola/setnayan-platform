@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { loginRedirectPath } from '@/lib/auth';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import {
   fetchReceiptById,
@@ -17,7 +18,10 @@ export default async function ReceiptPage({ params }: Props) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
+  // Receipts are deep-linked from emails. Without preserving `next=`,
+  // a click from an unauthed tab lands the user on `/` after login
+  // and they have to dig the email back up.
+  if (!user) redirect(loginRedirectPath(`/receipts/${receiptId}`));
 
   const [receipt, settings] = await Promise.all([
     fetchReceiptById(supabase, receiptId),

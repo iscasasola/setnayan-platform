@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { Logo } from '@/app/_components/logo';
+import { safeNext } from '@/lib/auth';
 import { signUp } from './actions';
 
 export const metadata: Metadata = {
@@ -31,7 +32,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
   const rawError = params.error ? decodeURIComponent(params.error) : null;
   const errorMessage = rawError ? (ERROR_COPY[rawError] ?? rawError) : null;
   const confirmationSent = params.sent === '1';
-  const next = params.next && params.next.startsWith('/') ? params.next : '/';
+  const next = safeNext(params.next);
   const preselectVendor = params.as === 'vendor';
   const prefilledEmail =
     typeof params.prefill_email === 'string' ? params.prefill_email : '';

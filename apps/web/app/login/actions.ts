@@ -2,13 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-
-// Only allow same-site relative paths for the next-redirect to avoid open-redirect.
-function safeNext(raw: FormDataEntryValue | null): string {
-  const value = raw ? String(raw) : '';
-  if (!value.startsWith('/') || value.startsWith('//')) return '/';
-  return value;
-}
+import { safeNext } from '@/lib/auth';
 
 export async function signInWithPassword(formData: FormData) {
   const email = String(formData.get('email') ?? '').trim();

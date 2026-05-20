@@ -47,6 +47,8 @@ import { DayOfModeGrid } from './_components/day-of-mode/grid';
 import { toggleJourneyStep } from './actions';
 import { EventDayPrepCta } from '@/app/_components/event-day-prep-cta';
 import { AutoPreloadOnEventDay } from '@/app/_components/auto-preload-on-event-day';
+import { PlanningGroups } from './_components/planning-groups';
+import type { VendorCategory } from '@/lib/vendors';
 
 export const dynamic = 'force-dynamic';
 
@@ -125,158 +127,6 @@ function currentStage(daysOut: number | null, guestCount: number): Stage['key'] 
   return 'dreaming';
 }
 
-type NextTask = {
-  id: string;
-  title: string;
-  body: string;
-  cta: string;
-  href: string;
-};
-
-function pickNextTasks(args: {
-  eventId: string;
-  slug: string | null;
-  venueName: string | null;
-  monogramText: string | null;
-  paletteFinalizedAt: string | null;
-  guestCount: number;
-  pendingCount: number;
-  daysOut: number | null;
-}): NextTask[] {
-  const {
-    eventId,
-    slug,
-    venueName,
-    monogramText,
-    paletteFinalizedAt,
-    guestCount,
-    pendingCount,
-    daysOut,
-  } = args;
-  const out: NextTask[] = [];
-  const push = (t: NextTask) => {
-    if (out.length < 5 && !out.some((x) => x.id === t.id)) out.push(t);
-  };
-
-  if (guestCount === 0) {
-    push({
-      id: 'add-guests',
-      title: 'Add your first guests',
-      body: 'Start with the wedding party — bearers, sponsors, and your immediate family.',
-      cta: 'Add a guest',
-      href: `/dashboard/${eventId}/guests/new`,
-    });
-  }
-  if (!slug) {
-    push({
-      id: 'set-slug',
-      title: 'Pick your invitation URL',
-      body: 'Set a slug like maria-and-juan so your invites land on a clean address.',
-      cta: 'Set slug',
-      href: `/dashboard/${eventId}/invitation`,
-    });
-  }
-  if (!venueName) {
-    push({
-      id: 'set-venue',
-      title: 'Lock in your venue',
-      body: 'Browse verified Philippine venues. We pre-fill invitations, seating, and vendor briefs once you book.',
-      cta: 'Search venues',
-      href: `/vendors?category=venue`,
-    });
-  }
-  if (pendingCount > 0) {
-    push({
-      id: 'send-invites',
-      title:
-        pendingCount === 1
-          ? 'Send invite to 1 pending guest'
-          : `Send invites to ${pendingCount} pending guests`,
-      body: 'Print the QR sheet or share individual links so each guest can RSVP.',
-      cta: 'Open invitation',
-      href: `/dashboard/${eventId}/invitation`,
-    });
-  }
-  if (daysOut !== null && daysOut > 0 && daysOut <= 14) {
-    push({
-      id: 'final-week',
-      title: 'Run final-week confirmations',
-      body: 'Confirm arrival times with every booked vendor — the call sheet is ready in Vendors.',
-      cta: 'Open vendors',
-      href: `/dashboard/${eventId}/vendors`,
-    });
-  }
-  if (daysOut !== null && daysOut > 0 && daysOut <= 60) {
-    push({
-      id: 'lock-seating',
-      title: 'Lock in the seating plan',
-      body: 'Your event is approaching — finalize seating so vendors get clean numbers.',
-      cta: 'Open seating',
-      href: `/dashboard/${eventId}/seating`,
-    });
-  }
-  if (!paletteFinalizedAt) {
-    push({
-      id: 'set-palette',
-      title: 'Lock in your color palette',
-      body: 'Pick the palette for invitations, signage, and the gallery — vendors will match it.',
-      cta: 'Open mood board',
-      href: `/dashboard/${eventId}/add-ons/mood-board`,
-    });
-  }
-  if (!monogramText) {
-    push({
-      id: 'set-monogram',
-      title: 'Set your monogram',
-      body: 'Your initials anchor the invitation card, table numbers, and event signage.',
-      cta: 'Open monogram creator',
-      href: `/dashboard/${eventId}/add-ons/monogram-creator`,
-    });
-  }
-
-  const evergreen: NextTask[] = [
-    {
-      id: 'browse-vendors',
-      title: 'Browse vendor directory',
-      body: 'Photographers, florists, mobile bars — discover Filipino-first vendors near your venue.',
-      cta: 'Open vendors',
-      href: `/dashboard/${eventId}/vendors`,
-    },
-    {
-      id: 'sketch-schedule',
-      title: 'Sketch your day-of timeline',
-      body: 'Block in ceremony, photos, reception. Vendors plug into your schedule.',
-      cta: 'Open schedule',
-      href: `/dashboard/${eventId}/schedule`,
-    },
-    {
-      id: 'review-budget',
-      title: 'Review your budget',
-      body: 'Compare vendor commitments against your total and flag anything close to your cap.',
-      cta: 'Open budget',
-      href: `/dashboard/${eventId}/budget`,
-    },
-    {
-      id: 'preview-invitation',
-      title: 'Preview your invitation',
-      body: 'See what guests see when they open your invitation URL.',
-      cta: 'Open invitation',
-      href: `/dashboard/${eventId}/invitation`,
-    },
-    {
-      id: 'review-event',
-      title: 'Review your event details',
-      body: 'Step through every section to make sure the details still match.',
-      cta: 'Open settings',
-      href: `/dashboard/${eventId}/invitation`,
-    },
-  ];
-  for (const t of evergreen) push(t);
-
-  return out;
-}
-
-
 export default async function EventHomePage({
   params,
   searchParams,
@@ -296,7 +146,7 @@ export default async function EventHomePage({
   const adminClient = createAdminClient();
   void sweepExpiredConcierge(adminClient);
 
-  const [eventRes, profileRes, guests, manualSteps, unreadCount, locale] =
+  const [eventRes, profileRes, guests, manualSteps, unreadCount, locale, eventVendorsRes] =
     await Promise.all([
       supabase
         .from('events')
@@ -316,6 +166,13 @@ export default async function EventHomePage({
       fetchManualStepCompletions(supabase, eventId),
       countUnread(supabase, user.id),
       getLocale(),
+      // 12-group planner needs every saved vendor for this event, bucketed
+      // by category. RLS already restricts to couples on this event.
+      supabase
+        .from('event_vendors')
+        .select('vendor_id, vendor_name, category, status')
+        .eq('event_id', eventId)
+        .order('created_at', { ascending: true }),
     ]);
   const tr = makeT(locale);
 
@@ -345,16 +202,12 @@ export default async function EventHomePage({
     profile?.display_name?.split(' ')[0] ?? user.email?.split('@')[0] ?? 'there';
   const greeting = tr(timeOfDayGreetingKey(now));
 
-  const nextTasks = pickNextTasks({
-    eventId,
-    slug: event.slug ?? null,
-    venueName: event.venue_name ?? null,
-    monogramText: event.monogram_text ?? null,
-    paletteFinalizedAt: event.palette_finalized_at ?? null,
-    guestCount: stats.total,
-    pendingCount: stats.pending,
-    daysOut,
-  });
+  const eventVendors = (eventVendorsRes.data ?? []) as Array<{
+    vendor_id: string;
+    vendor_name: string;
+    category: VendorCategory;
+    status: string | null;
+  }>;
 
   // Day-of mode (iteration 0031): when inside the T-1h .. T+8h window of the
   // event date, fetch the schedule + seating data needed to render the live
@@ -456,7 +309,11 @@ export default async function EventHomePage({
 
       <StageStrip stage={stage} />
 
-      <NextTasksCarousel tasks={nextTasks} tr={tr} />
+      <PlanningGroups
+        eventId={eventId}
+        eventDate={event.event_date}
+        vendors={eventVendors}
+      />
 
       {plannerMode === 'guided' ? (
         <Checklist eventId={eventId} statuses={stepStatuses} tr={tr} />
@@ -542,76 +399,6 @@ function StageStrip({ stage }: { stage: Stage['key'] }) {
         Stage {activeIndex + 1} of {STAGES.length} · <span className="text-ink/85">{activeLabel}</span>
       </p>
     </div>
-  );
-}
-
-function NextTasksCarousel({
-  tasks,
-  tr,
-}: {
-  tasks: NextTask[];
-  tr: (key: TranslationKey) => string;
-}) {
-  if (tasks.length === 0) return null;
-  return (
-    <section aria-labelledby="next-tasks-heading" className="space-y-3">
-      <div className="flex items-baseline justify-between">
-        <h2
-          id="next-tasks-heading"
-          className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55"
-        >
-          {tr('section.next_tasks')}
-        </h2>
-        <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/40">
-          {tasks.length}
-        </span>
-      </div>
-      <ol className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden">
-        {tasks.map((t, i) => {
-          const featured = i === 0;
-          return (
-            <li
-              key={t.id}
-              className="w-[86%] shrink-0 snap-start sm:w-[48%] lg:w-[31%]"
-            >
-              <Link
-                href={t.href}
-                className={`group flex h-full flex-col justify-between gap-4 rounded-2xl border p-5 transition-colors ${
-                  featured
-                    ? 'border-terracotta/30 bg-terracotta/5 hover:border-terracotta hover:bg-terracotta/10'
-                    : 'border-ink/10 bg-cream hover:border-ink/20 hover:bg-ink/[0.03]'
-                }`}
-              >
-                <div className="space-y-1.5">
-                  <p
-                    className={`font-mono text-[10px] uppercase tracking-[0.2em] ${
-                      featured ? 'text-terracotta' : 'text-ink/45'
-                    }`}
-                  >
-                    {i + 1} of {tasks.length}
-                  </p>
-                  <h3 className="text-base font-semibold leading-snug tracking-tight">
-                    {t.title}
-                  </h3>
-                  <p className="text-sm text-ink/65">{t.body}</p>
-                </div>
-                <span
-                  className={`inline-flex items-center gap-1.5 text-sm font-medium ${
-                    featured ? 'text-terracotta' : 'text-ink/70'
-                  }`}
-                >
-                  {t.cta}
-                  <ArrowRight
-                    aria-hidden
-                    className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
-                  />
-                </span>
-              </Link>
-            </li>
-          );
-        })}
-      </ol>
-    </section>
   );
 }
 

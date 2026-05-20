@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { createWeddingEvent } from '../actions';
+import { WeddingTypePicker, type LaunchStatusRow } from './wedding-type-picker';
 
 type ConciergeChoice = 'diy' | 'trial' | 'paid';
 
@@ -57,7 +58,11 @@ const EVENT_TYPES = [
 type EventTypeKey = (typeof EVENT_TYPES)[number]['key'];
 type EventTypeRow = (typeof EVENT_TYPES)[number];
 
-export function EventTypePicker() {
+type EventTypePickerProps = {
+  launchStatus: LaunchStatusRow[];
+};
+
+export function EventTypePicker({ launchStatus }: EventTypePickerProps) {
   const N = EVENT_TYPES.length;
   const [centerIdx, setCenterIdx] = useState(0);
   const [selectedKey, setSelectedKey] = useState<EventTypeKey | null>(null);
@@ -180,6 +185,11 @@ export function EventTypePicker() {
               Usually both names. Date and venue are added later from event settings.
             </p>
           </div>
+
+          {/* Iteration 0043 — two-axis wedding-type picker. Renders hidden
+              inputs that the createWeddingEvent action reads into
+              ceremony_type / venue_setting / sub-type / mixed columns. */}
+          <WeddingTypePicker launchStatus={launchStatus} />
 
           <ConciergeChoiceCard
             selected={conciergeChoice}

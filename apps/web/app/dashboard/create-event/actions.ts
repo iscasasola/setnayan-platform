@@ -16,10 +16,83 @@ const ALLOWED_TYPES = ['wedding'] as const; // V1: Weddings only per iteration 0
 const ALLOWED_CONCIERGE_CHOICES = ['diy', 'trial', 'paid'] as const;
 type ConciergeChoice = (typeof ALLOWED_CONCIERGE_CHOICES)[number];
 
+// Iteration 0043 — wedding-type picker. Active ceremonies + venue settings
+// the create-event form may submit. CHECK constraints on `events` mirror
+// these lists; we validate here so a bad submission is caught before the
+// round-trip to the DB. The four "coming soon" faiths (christian / inc /
+// muslim / cultural) are intentionally NOT in ALLOWED_CEREMONIES — the
+// picker blocks them client-side and routes interest to
+// couple_wedding_type_notify_signups via notifyWhenWeddingTypeLaunches below.
+const ALLOWED_CEREMONIES = ['catholic', 'civil', 'mixed'] as const;
+const ALLOWED_VENUES = [
+  'banquet_hall',
+  'garden',
+  'beach',
+  'destination',
+  'heritage',
+  'outdoor_tent',
+  'civil_registrar',
+] as const;
+const ALLOWED_SECONDARY = ['catholic', 'civil', 'inc', 'christian', 'muslim', 'cultural'] as const;
+const ALLOWED_MUSLIM_SUB = [
+  'maranao',
+  'tausug',
+  'maguindanao',
+  'sama_bajau',
+  'yakan',
+  'general_muslim',
+] as const;
+const ALLOWED_CULTURAL_SUB = [
+  'igorot_cordillera',
+  'manobo',
+  'visayan_folk',
+  'tagalog_folk',
+  'kapampangan_folk',
+  'other',
+] as const;
+
 export async function createWeddingEvent(formData: FormData) {
   const display_name = String(formData.get('display_name') ?? '').trim();
   const event_type = String(formData.get('event_type') ?? 'wedding');
   const concierge_choice = String(formData.get('concierge_choice') ?? 'diy') as ConciergeChoice;
+
+  // Iteration 0043 — picker fields. Defaults match the events table column
+  // defaults (catholic + banquet_hall) so a form submitted without the
+  // picker still produces a valid row.
+  const raw_ceremony = String(formData.get('ceremony_type') ?? 'catholic');
+  const raw_venue = String(formData.get('venue_setting') ?? 'banquet_hall');
+  const raw_sub_type = String(formData.get('ceremony_sub_type') ?? '').trim();
+  const raw_is_mixed = String(formData.get('is_mixed_ceremony') ?? 'false') === 'true';
+  const raw_secondary = String(formData.get('secondary_ceremony_type') ?? '').trim();
+
+  const ceremony_type = (ALLOWED_CEREMONIES as readonly string[]).includes(raw_ceremony)
+    ? raw_ceremony
+    : 'catholic';
+  const venue_setting = (ALLOWED_VENUES as readonly string[]).includes(raw_venue)
+    ? raw_venue
+    : 'banquet_hall';
+  // Sub-type only persisted (and required) for muslim/cultural. Since the
+  // picker blocks those today, ceremony_sub_type stays null in V1.1 but the
+  // validation is in place for V1.2+ activation.
+  const ceremony_sub_type = ceremony_type === 'muslim'
+    ? ((ALLOWED_MUSLIM_SUB as readonly string[]).includes(raw_sub_type) ? raw_sub_type : null)
+    : ceremony_type === 'cultural'
+      ? ((ALLOWED_CULTURAL_SUB as readonly string[]).includes(raw_sub_type) ? raw_sub_type : null)
+      : null;
+  const is_mixed_ceremony = ceremony_type === 'mixed' && raw_is_mixed;
+  const secondary_ceremony_type = is_mixed_ceremony
+    && (ALLOWED_SECONDARY as readonly string[]).includes(raw_secondary)
+    ? raw_secondary
+    : null;
+
+  // Conditional integrity guards — mirror the DB CHECK constraints so the
+  // user sees a friendly error rather than a Postgres failure string.
+  if ((ceremony_type === 'muslim' || ceremony_type === 'cultural') && !ceremony_sub_type) {
+    return redirect('/dashboard/create-event?error=missing_sub_type');
+  }
+  if (is_mixed_ceremony && !secondary_ceremony_type) {
+    return redirect('/dashboard/create-event?error=missing_secondary');
+  }
 
   if (!display_name) {
     return redirect('/dashboard/create-event?error=missing_name');
@@ -58,6 +131,14 @@ export async function createWeddingEvent(formData: FormData) {
       venue_address: null,
       slug,
       is_primary: true,
+      // Iteration 0043 — wedding-type picker columns. Defaults applied above
+      // so a row always lands in a valid state per the events_*_check
+      // constraints.
+      ceremony_type,
+      venue_setting,
+      ceremony_sub_type,
+      is_mixed_ceremony,
+      secondary_ceremony_type,
     })
     .select('event_id, slug')
     .single();
@@ -92,6 +173,9 @@ export async function createWeddingEvent(formData: FormData) {
         event_id: insertedEvent.event_id,
         event_type,
         concierge_choice: choice,
+        ceremony_type,
+        venue_setting,
+        is_mixed_ceremony,
       },
     });
   } catch {
@@ -123,4 +207,59 @@ export async function createWeddingEvent(formData: FormData) {
   }
 
   return redirect(`/dashboard/${insertedEvent.event_id}`);
+}
+
+// Iteration 0043 — email capture for "Coming Soon" ceremony types. Returns a
+// plain { ok } object instead of redirecting because the picker calls this
+// from a client component over fetch and uses the result to flip the inline
+// UI between "submitting → sent → error" states without leaving the form.
+const NOTIFY_FAITHS = ['catholic', 'civil', 'inc', 'christian', 'muslim', 'cultural'] as const;
+
+export async function notifyWhenWeddingTypeLaunches(
+  formData: FormData,
+): Promise<{ ok: boolean; reason?: string }> {
+  const email = String(formData.get('email') ?? '').trim();
+  const ceremony = String(formData.get('ceremony_type_interested') ?? '').trim();
+  const region = String(formData.get('region') ?? '').trim() || null;
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { ok: false, reason: 'invalid_email' };
+  }
+  if (!(NOTIFY_FAITHS as readonly string[]).includes(ceremony)) {
+    return { ok: false, reason: 'invalid_ceremony' };
+  }
+
+  // user_id is optional — the form works pre-account. When the caller IS
+  // signed in we attribute the signup so admins can correlate later.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const admin = createAdminClient();
+  const { error } = await admin.from('couple_wedding_type_notify_signups').insert({
+    user_id: user?.id ?? null,
+    email,
+    ceremony_type_interested: ceremony,
+    region,
+  });
+
+  if (error) {
+    console.error('[create-event] notify signup failed:', error);
+    return { ok: false, reason: error.message };
+  }
+
+  // Funnel signal — recruitment uses this to prioritize vendor sourcing by
+  // faith × region demand. Fire-and-forget per the existing pattern.
+  try {
+    await captureEvent({
+      distinctId: user?.id ?? email,
+      event: 'wedding_type_notify_signup',
+      properties: { ceremony_type: ceremony, region: region ?? undefined },
+    });
+  } catch {
+    // analytics never breaks user-facing flow
+  }
+
+  return { ok: true };
 }

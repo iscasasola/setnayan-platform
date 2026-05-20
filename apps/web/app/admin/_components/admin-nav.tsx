@@ -49,6 +49,13 @@ const NAV: Entry[] = [
       { href: '/admin/website', label: 'Website' },
     ],
   },
+  {
+    kind: 'group',
+    label: 'Operations',
+    items: [
+      { href: '/admin/operations-hiring', label: 'Hiring & Growth' },
+    ],
+  },
   { kind: 'leaf', href: '/admin/funnels', label: 'Funnels' },
   { kind: 'leaf', href: '/admin/settings', label: 'Settings' },
 ];

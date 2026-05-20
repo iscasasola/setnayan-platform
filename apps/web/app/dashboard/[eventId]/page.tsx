@@ -151,7 +151,7 @@ export default async function EventHomePage({
       supabase
         .from('events')
         .select(
-          'event_id, display_name, event_date, slug, venue_name, monogram_text, palette_finalized_at, concierge_status, concierge_tier, concierge_activated_at, concierge_expires_at, concierge_long_engagement_advised_at',
+          'event_id, display_name, event_date, slug, venue_name, venue_latitude, venue_longitude, monogram_text, palette_finalized_at, concierge_status, concierge_tier, concierge_activated_at, concierge_expires_at, concierge_long_engagement_advised_at',
         )
         .eq('event_id', eventId)
         .maybeSingle(),
@@ -312,6 +312,12 @@ export default async function EventHomePage({
       <PlanningGroups
         eventId={eventId}
         eventDate={event.event_date}
+        venueLatitude={
+          (event as { venue_latitude?: number | null }).venue_latitude ?? null
+        }
+        venueLongitude={
+          (event as { venue_longitude?: number | null }).venue_longitude ?? null
+        }
         vendors={eventVendors}
       />
 

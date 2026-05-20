@@ -37,6 +37,7 @@ import {
 import { MiniTour } from '@/app/_components/mini-tour';
 import { createVendor, deleteVendor, updateVendorStatus } from './actions';
 import { InviteVendorButton } from './invite-modal';
+import { NavLinksRow } from '@/app/_components/nav-links';
 
 export const metadata = { title: 'Vendors' };
 
@@ -63,6 +64,38 @@ export default async function VendorsPage({ params, searchParams }: Props) {
 
   const vendors = await fetchEventVendors(supabase, eventId);
   const stats = computeVendorStats(vendors);
+
+  // 2026-05-21 — batch-fetch HQ coords for every marketplace-linked vendor
+  // so each tracker row can surface Google Maps / Waze / Apple Maps nav
+  // chips. Vendors without marketplace_vendor_id (off-platform couple-encoded
+  // rows) or without geocoded coords just don't render the nav row.
+  const marketplaceIds = vendors
+    .map((v) => v.marketplace_vendor_id)
+    .filter((id): id is string => Boolean(id));
+  const hqCoordsByProfileId = new Map<
+    string,
+    { latitude: number | null; longitude: number | null; address: string | null }
+  >();
+  if (marketplaceIds.length > 0) {
+    const { data: hqRows } = await supabase
+      .from('vendor_profiles')
+      .select('vendor_profile_id, hq_latitude, hq_longitude, hq_address, location_city')
+      .in('vendor_profile_id', marketplaceIds);
+    for (const row of hqRows ?? []) {
+      const r = row as {
+        vendor_profile_id: string;
+        hq_latitude: number | null;
+        hq_longitude: number | null;
+        hq_address: string | null;
+        location_city: string | null;
+      };
+      hqCoordsByProfileId.set(r.vendor_profile_id, {
+        latitude: r.hq_latitude,
+        longitude: r.hq_longitude,
+        address: r.hq_address ?? r.location_city,
+      });
+    }
+  }
 
   // Couple-invite state per vendor row (iteration 0006 § Invite-to-Setnayan
   // flow, locked 2026-05-19). Single query joined client-side; renders the
@@ -185,6 +218,11 @@ export default async function VendorsPage({ params, searchParams }: Props) {
                 selfReviewSignal={selfReviewSignal}
                 latestInvite={latestInvite}
                 pillVariant={pillVariant}
+                hqCoords={
+                  v.marketplace_vendor_id
+                    ? hqCoordsByProfileId.get(v.marketplace_vendor_id) ?? null
+                    : null
+                }
               />
             );
           })}
@@ -480,6 +518,7 @@ function VendorCard({
   selfReviewSignal,
   latestInvite,
   pillVariant,
+  hqCoords,
 }: {
   eventId: string;
   vendor: EventVendorRow;
@@ -489,6 +528,11 @@ function VendorCard({
   selfReviewSignal: SelfReviewSignal | null;
   latestInvite: VendorInviteRow | null;
   pillVariant: VendorPillVariant;
+  hqCoords: {
+    latitude: number | null;
+    longitude: number | null;
+    address: string | null;
+  } | null;
 }) {
   const remaining =
     vendor.total_cost_php !== null
@@ -548,6 +592,16 @@ function VendorCard({
             </a>
           ) : null}
         </div>
+      ) : null}
+
+      {hqCoords && (hqCoords.latitude !== null || hqCoords.address) ? (
+        <NavLinksRow
+          latitude={hqCoords.latitude}
+          longitude={hqCoords.longitude}
+          addressFallback={hqCoords.address}
+          label="Directions"
+          compact
+        />
       ) : null}
 
       {vendor.total_cost_php !== null ? (

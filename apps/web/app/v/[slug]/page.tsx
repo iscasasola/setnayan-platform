@@ -25,6 +25,7 @@ import { fetchUserEvents } from '@/lib/events';
 import { isFollowingVendor } from '@/lib/follow';
 import { FollowGate } from '@/app/_components/follow-gate';
 import { SaveVendorButton } from '@/app/vendors/_components/save-vendor-button';
+import { NavLinksRow } from '@/app/_components/nav-links';
 import {
   fetchReviewsForVendorWithCouple,
   fetchReviewStats,
@@ -53,6 +54,9 @@ type PublicVendorRow = {
   logo_url: string | null;
   services: string[];
   location_city: string | null;
+  hq_address: string | null;
+  hq_latitude: number | null;
+  hq_longitude: number | null;
   website: string | null;
   contact_email: string | null;
   contact_phone: string | null;
@@ -89,7 +93,7 @@ async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
   const { data } = await admin
     .from('vendor_profiles')
     .select(
-      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings',
+      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings',
     )
     .ilike('business_slug', slug)
     .maybeSingle();
@@ -249,6 +253,15 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
                 />
               </div>
             ) : null}
+            {/* Nav deep-links (2026-05-21). Renders Google Maps · Waze ·
+                Apple Maps when the vendor has hq_lat/lng. Falls back to
+                a single Google Maps text-search when only the address
+                is set. Hidden entirely when neither exists. */}
+            <NavLinksRow
+              latitude={vendor.hq_latitude}
+              longitude={vendor.hq_longitude}
+              addressFallback={vendor.hq_address ?? vendor.location_city ?? null}
+            />
           </div>
         </section>
 

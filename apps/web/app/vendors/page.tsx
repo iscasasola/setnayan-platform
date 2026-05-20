@@ -353,6 +353,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         venueAnchor={venueAnchor}
         venueAnchorName={venueAnchorName}
         coupleCeremonyType={matchableEvent?.ceremony_type ?? null}
+        currentEventId={coupleEventId}
       />
     );
   }
@@ -1215,6 +1216,7 @@ async function CatalogView({
   venueAnchor,
   venueAnchorName,
   coupleCeremonyType,
+  currentEventId,
 }: {
   admin: ReturnType<typeof createAdminClient>;
   matchableEvent: { ceremony_type: string; venue_setting: string } | null;
@@ -1223,6 +1225,7 @@ async function CatalogView({
   venueAnchor: { lat: number; lng: number } | null;
   venueAnchorName: string | null;
   coupleCeremonyType: string | null;
+  currentEventId: string | null;
 }) {
   // Single round-trip per page render — both reads are admin-scoped because
   // anonymous visitors hit this route and `vendor_profiles` is gated by RLS.
@@ -1374,6 +1377,7 @@ async function CatalogView({
               name: venueAnchorName,
             }}
             coupleCeremonyType={coupleCeremonyType}
+            currentEventId={currentEventId}
           />
         ) : null}
 

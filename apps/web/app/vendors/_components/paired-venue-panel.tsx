@@ -8,6 +8,7 @@ import {
   displayVenueType,
   PAIRED_VENUE_CONFIG,
 } from '@/lib/venue-recommendations';
+import { AddVenueToPlanButton } from './add-venue-to-plan-button';
 
 /**
  * Paired-venue recommendation panel. Renders ceremony venues within a
@@ -32,15 +33,23 @@ import {
 export async function PairedVenuePanel({
   anchor,
   coupleCeremonyType,
+  currentEventId,
 }: {
   anchor: { lat: number; lng: number; name: string | null };
   coupleCeremonyType: string | null;
+  /**
+   * Primary event id for the signed-in couple, or null when the viewer is
+   * anonymous or doesn't have a primary event yet. Drives the
+   * AddVenueToPlanButton's canAdd + initiallyAdded state.
+   */
+  currentEventId: string | null;
 }) {
   const admin = createAdminClient();
   const candidates = await findPairedCeremonyVenues(admin, {
     anchorLat: anchor.lat,
     anchorLng: anchor.lng,
     coupleCeremonyType,
+    eventId: currentEventId,
   });
 
   if (candidates.length === 0) {
@@ -129,13 +138,20 @@ export async function PairedVenuePanel({
                     </span>
                     <span className="text-ink/45">from your venue</span>
                   </p>
-                  <div className="mt-auto flex flex-wrap items-center gap-1">
+                  <div className="flex flex-wrap items-center gap-1">
                     <span className="inline-flex items-center rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/65">
                       {displayVenueType(venue.venue_type)}
                     </span>
                     <span className="inline-flex items-center rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
                       V1.2 · Bookable soon
                     </span>
+                  </div>
+                  <div className="mt-auto">
+                    <AddVenueToPlanButton
+                      venueDirectoryId={venue.venue_directory_id}
+                      initiallyAdded={venue.is_in_plan}
+                      canAdd={currentEventId !== null}
+                    />
                   </div>
                   {venue.hero_image_url && venue.hero_image_attribution ? (
                     <p className="font-mono text-[9px] leading-tight text-ink/40">

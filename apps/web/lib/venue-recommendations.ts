@@ -59,6 +59,7 @@ export type PairedVenueCandidate = {
   hero_image_attribution: string | null;
   hero_image_license: string | null;
   hero_image_source_url: string | null;
+  is_in_plan: boolean;
 };
 
 type Row = {
@@ -97,6 +98,13 @@ export async function findPairedCeremonyVenues(
     anchorLat: number;
     anchorLng: number;
     coupleCeremonyType: string | null;
+    /**
+     * If supplied, each returned candidate carries `is_in_plan: true` when
+     * the event already has a saved event_vendors row keyed on its
+     * source_venue_directory_id. Used by the panel to render the "Add to
+     * plan" button in its terminal "Added" state on first paint.
+     */
+    eventId?: string | null;
   },
 ): Promise<PairedVenueCandidate[]> {
   // Cast a generous fetch window because PostgREST can't trim by haversine
@@ -149,11 +157,35 @@ export async function findPairedCeremonyVenues(
       hero_image_attribution: row.hero_image_attribution,
       hero_image_license: row.hero_image_license,
       hero_image_source_url: row.hero_image_source_url,
+      is_in_plan: false,
     });
   }
 
   candidates.sort((a, b) => a.distance_km - b.distance_km);
-  return candidates.slice(0, PAIRED_VENUE_LIMIT);
+  const topCandidates = candidates.slice(0, PAIRED_VENUE_LIMIT);
+
+  // Resolve already-in-plan state for the surfaced top N (not the full
+  // window) so the secondary query stays cheap. Only fires when the
+  // viewer has a primary event — anonymous browsers skip this entirely
+  // and the AddVenueToPlanButton renders in `canAdd=false` (hidden) state.
+  if (args.eventId && topCandidates.length > 0) {
+    const ids = topCandidates.map((c) => c.venue_directory_id);
+    const { data: savedRows } = await admin
+      .from('event_vendors')
+      .select('source_venue_directory_id')
+      .eq('event_id', args.eventId)
+      .in('source_venue_directory_id', ids);
+    const savedSet = new Set(
+      (savedRows ?? [])
+        .map((r) => r.source_venue_directory_id as string | null)
+        .filter((x): x is string => x !== null),
+    );
+    for (const c of topCandidates) {
+      if (savedSet.has(c.venue_directory_id)) c.is_in_plan = true;
+    }
+  }
+
+  return topCandidates;
 }
 
 /** Human-friendly label for the venue_type chip. */

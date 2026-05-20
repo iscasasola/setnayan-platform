@@ -224,3 +224,156 @@ export async function saveVendorToPicks(formData: FormData): Promise<SaveVendorR
   return { status: 'ok', eventVendorId: inserted.vendor_id };
 }
 
+// ============================================================================
+// Add-venue-directory-entry-to-plan (2026-05-21)
+// ----------------------------------------------------------------------------
+// PairedVenuePanel "Add to plan" button calls this with a venue_directory_id.
+// Distinct from saveVendorToPicks above because venue_directory and
+// vendor_profiles have parallel but non-aligned slug spaces (per migration
+// 20260530000000), so we can't reliably resolve directory entries to
+// marketplace vendors. Instead we link via the new
+// event_vendors.source_venue_directory_id column.
+//
+// Category mapping is unambiguous because venue_directory.venue_type already
+// encodes ceremony-vs-reception intent: religious_venue for any faith
+// chapel + civil registrar, venue for hotels/gardens/beach/heritage. The
+// couple can re-categorize manually in their planner if a garden is
+// actually serving as their ceremony venue.
+//
+// Idempotent via the unique partial index on (event_id, source_venue_directory_id).
+// ============================================================================
+
+export type AddVenueToPlanResult =
+  | { status: 'ok'; eventVendorId: string }
+  | { status: 'already_added'; eventVendorId: string }
+  | { status: 'not_signed_in' }
+  | { status: 'no_primary_event' }
+  | { status: 'venue_not_found' }
+  | { status: 'error'; message: string };
+
+function venueDirectoryTypeToCategory(venueType: string): VendorCategory {
+  switch (venueType) {
+    case 'catholic_church':
+    case 'christian_church':
+    case 'inc_chapel':
+    case 'mosque':
+    case 'cultural_site':
+    case 'civil_registrar':
+      return 'religious_venue';
+    case 'hotel_ballroom':
+    case 'garden':
+    case 'beach':
+    case 'destination_resort':
+    case 'heritage':
+    case 'outdoor_tent':
+      return 'venue';
+    default:
+      return 'venue';
+  }
+}
+
+export async function addVenueDirectoryEntryToPlan(
+  formData: FormData,
+): Promise<AddVenueToPlanResult> {
+  const venueDirectoryId = String(formData.get('venue_directory_id') ?? '').trim();
+  if (!venueDirectoryId) {
+    return { status: 'error', message: 'Missing venue_directory_id' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { status: 'not_signed_in' };
+  }
+
+  const admin = createAdminClient();
+
+  // 1. Resolve the user's primary couple event (same shape as saveVendorToPicks).
+  const { data: membershipRows, error: memError } = await admin
+    .from('event_members')
+    .select('event_id, events:event_id(event_id, is_primary, archived)')
+    .eq('user_id', user.id)
+    .eq('member_type', 'couple');
+  if (memError) {
+    return { status: 'error', message: memError.message };
+  }
+
+  type EventStub = { event_id: string; is_primary: boolean; archived: boolean };
+  const events = (membershipRows ?? [])
+    .map((r) => (Array.isArray(r.events) ? r.events[0] : r.events) as EventStub | null)
+    .filter((e): e is EventStub => e !== null && !e.archived)
+    .sort((a, b) => (a.is_primary === b.is_primary ? 0 : a.is_primary ? -1 : 1));
+  const primaryEvent = events[0];
+  if (!primaryEvent) {
+    return { status: 'no_primary_event' };
+  }
+
+  // 2. Load the directory row (name + venue_type drives the category;
+  //    coords let us anchor the reception slot for non-religious venues).
+  const { data: venue, error: vError } = await admin
+    .from('venue_directory')
+    .select('venue_directory_id, name, venue_type, hq_latitude, hq_longitude')
+    .eq('venue_directory_id', venueDirectoryId)
+    .maybeSingle();
+  if (vError) {
+    return { status: 'error', message: vError.message };
+  }
+  if (!venue) {
+    return { status: 'venue_not_found' };
+  }
+
+  // 3. Already added? Idempotent return — the unique partial index would
+  //    catch this on INSERT, but we short-circuit for the cleaner UX.
+  const { data: existing } = await admin
+    .from('event_vendors')
+    .select('vendor_id')
+    .eq('event_id', primaryEvent.event_id)
+    .eq('source_venue_directory_id', venueDirectoryId)
+    .maybeSingle();
+  if (existing?.vendor_id) {
+    return { status: 'already_added', eventVendorId: existing.vendor_id };
+  }
+
+  // 4. Insert.
+  const category = venueDirectoryTypeToCategory(venue.venue_type as string);
+  const { data: inserted, error: iError } = await admin
+    .from('event_vendors')
+    .insert({
+      event_id: primaryEvent.event_id,
+      source_venue_directory_id: venueDirectoryId,
+      category,
+      vendor_name: venue.name,
+      status: 'considering',
+    })
+    .select('vendor_id')
+    .single();
+  if (iError || !inserted) {
+    return { status: 'error', message: iError?.message ?? 'Insert failed' };
+  }
+
+  // 5. Anchor the reception venue lat/lng if this is a reception-type pick
+  //    and the event has no anchor yet. Religious venues never anchor the
+  //    "reception" coordinate — that's the slot reserved for hotels /
+  //    gardens / beach / etc. per the saveVendorToPicks convention.
+  const venueHasCoords =
+    venue.hq_latitude !== null && venue.hq_longitude !== null;
+  if (category === 'venue' && venueHasCoords) {
+    await admin
+      .from('events')
+      .update({
+        venue_latitude: venue.hq_latitude,
+        venue_longitude: venue.hq_longitude,
+      })
+      .eq('event_id', primaryEvent.event_id)
+      .is('venue_latitude', null);
+  }
+
+  revalidatePath('/vendors');
+  revalidatePath('/v/');
+  revalidatePath(`/dashboard/${primaryEvent.event_id}`);
+
+  return { status: 'ok', eventVendorId: inserted.vendor_id };
+}
+

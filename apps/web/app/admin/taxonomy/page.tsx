@@ -1,8 +1,9 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   TAXONOMY_MAP,
-  MEGA_MENU_COLUMN_LABEL,
-  type MegaMenuColumn,
+  WEDDING_FOLDER_LABEL,
+  WEDDING_FOLDER_ORDER,
+  type WeddingFolder,
   type TaxonomyEntry,
 } from '@/lib/taxonomy';
 
@@ -18,7 +19,7 @@ type SchemaRow = {
 };
 
 type Grouped = {
-  column: MegaMenuColumn;
+  folder: WeddingFolder;
   label: string;
   rows: Array<SchemaRow & { meta: TaxonomyEntry }>;
 };
@@ -59,12 +60,12 @@ export default async function AdminTaxonomyPage() {
 
   const schemas = (rows ?? []) as SchemaRow[];
 
-  // Bucket each row into a column via TAXONOMY_MAP. Unknown keys land in a
-  // separate "Unmapped" group so admins can spot drift between DB seeds and
-  // the lib/taxonomy.ts metadata map.
-  const buckets = new Map<MegaMenuColumn, Grouped>();
-  for (const col of [1, 2, 3, 4, 5] as MegaMenuColumn[]) {
-    buckets.set(col, { column: col, label: MEGA_MENU_COLUMN_LABEL[col], rows: [] });
+  // Bucket each row into a wedding folder via TAXONOMY_MAP. Unknown keys land
+  // in a separate "Unmapped" group so admins can spot drift between DB seeds
+  // and the lib/taxonomy.ts metadata map.
+  const buckets = new Map<WeddingFolder, Grouped>();
+  for (const folder of WEDDING_FOLDER_ORDER) {
+    buckets.set(folder, { folder, label: WEDDING_FOLDER_LABEL[folder], rows: [] });
   }
   const unmapped: SchemaRow[] = [];
 
@@ -74,7 +75,7 @@ export default async function AdminTaxonomyPage() {
       unmapped.push(row);
       continue;
     }
-    buckets.get(meta.column)?.rows.push({ ...row, meta });
+    buckets.get(meta.folder)?.rows.push({ ...row, meta });
   }
 
   // Sort each bucket by phase severity then display name so V1.1 base reads
@@ -116,7 +117,7 @@ export default async function AdminTaxonomyPage() {
         </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Taxonomy</h1>
         <p className="text-base text-ink/65">
-          Read-only viewer over <code className="font-mono text-sm">canonical_service_schemas</code>, grouped into the 5-column mega-menu structure from
+          Read-only viewer over <code className="font-mono text-sm">canonical_service_schemas</code>, grouped into the 12 PH-grounded wedding folders from
           {' '}<code className="font-mono text-sm">Vendor_Taxonomy_V1_Master.md</code>. Faith badges surface conditionally on
           {' '}<code className="font-mono text-sm">events.ceremony_type</code> per iteration 0043; phase badges show launch sequencing.
         </p>
@@ -124,19 +125,19 @@ export default async function AdminTaxonomyPage() {
 
       <section className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Total rows" value={totalRows} />
-        <Stat label="Mapped to a column" value={totalMapped} />
+        <Stat label="Mapped to a folder" value={totalMapped} />
         <Stat label="With filter_facets" value={facetedCount} />
         <Stat label="Unmapped (drift)" value={unmapped.length} />
       </section>
 
-      {[1, 2, 3, 4, 5].map((col) => {
-        const bucket = buckets.get(col as MegaMenuColumn);
+      {WEDDING_FOLDER_ORDER.map((folder, idx) => {
+        const bucket = buckets.get(folder);
         if (!bucket) return null;
         return (
-          <section key={col} className="mb-10">
+          <section key={folder} className="mb-10">
             <header className="mb-3 flex items-baseline justify-between gap-3">
               <h2 className="text-lg font-semibold tracking-tight text-ink">
-                <span className="font-mono text-xs text-ink/55">Column {col}</span> · {bucket.label}
+                <span className="font-mono text-xs text-ink/55">Folder {idx + 1}</span> · {bucket.label}
               </h2>
               <span className="font-mono text-xs text-ink/55">{bucket.rows.length} categories</span>
             </header>

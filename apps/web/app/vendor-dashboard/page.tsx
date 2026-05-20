@@ -464,6 +464,24 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
               className="input-field"
             />
           </Field>
+          <Field
+            label="HQ address (for distance to couples)"
+            htmlFor="hq_address"
+          >
+            <input
+              id="hq_address"
+              name="hq_address"
+              maxLength={500}
+              defaultValue={profile?.hq_address ?? ''}
+              placeholder="123 Katipunan Ave, Quezon City, Metro Manila"
+              className="input-field"
+            />
+            <p className="mt-1 text-xs text-ink/55">
+              Used to show couples how far you are from their reception
+              venue. Street address geocodes more precisely than a city
+              alone.
+            </p>
+          </Field>
           <Field label="Website" htmlFor="website">
             <input
               id="website"

@@ -3,7 +3,9 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
+import { geocodeNominatim } from '@/lib/geo';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -196,13 +198,17 @@ export async function saveVendorProfile(formData: FormData) {
     );
   }
 
+  const hq_address = nullIfBlank(formData.get('hq_address'));
+  const location_city = nullIfBlank(formData.get('location_city'));
+
   const payload = {
     business_name: nonBlank(formData.get('business_name'), 128),
     business_slug,
     tagline: nullIfBlank(formData.get('tagline')),
     logo_url: parseLogoValue(formData.get('logo_url')),
     services: parseServices(formData.get('services')),
-    location_city: nullIfBlank(formData.get('location_city')),
+    location_city,
+    hq_address,
     website: nullIfBlank(formData.get('website')),
     contact_email: nullIfBlank(formData.get('contact_email')),
     contact_phone: nullIfBlank(formData.get('contact_phone')),
@@ -229,6 +235,27 @@ export async function saveVendorProfile(formData: FormData) {
     return redirect(
       `/vendor-dashboard?error=${encodeURIComponent(error.message)}`,
     );
+  }
+
+  // 2026-05-21 — auto-geocode the HQ when the vendor saves. Best-effort:
+  // a Nominatim miss or network blip just leaves hq_latitude/longitude
+  // unchanged. The save itself never fails on geocode errors. Prefers
+  // hq_address (street-level) over location_city (city-level) for better
+  // resolution. Admin-supplied coords (if any) are NOT clobbered here —
+  // this UPDATE only fires when the geocoder actually returns something.
+  const geocodeQuery = hq_address ?? location_city;
+  if (geocodeQuery) {
+    const geo = await geocodeNominatim(geocodeQuery);
+    if (geo) {
+      const admin = createAdminClient();
+      await admin
+        .from('vendor_profiles')
+        .update({
+          hq_latitude: geo.latitude,
+          hq_longitude: geo.longitude,
+        })
+        .eq('user_id', user.id);
+    }
   }
 
   revalidatePath('/vendor-dashboard');

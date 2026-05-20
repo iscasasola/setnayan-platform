@@ -1,11 +1,20 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchGuestsByEvent } from '@/lib/guests';
 import { roleGroupOf, type RoleGroup } from '@/lib/role-groups';
 import { sanitizeRolePalette, type PaletteKey } from '@/lib/mood-board';
 import { saveRolePalette } from './actions';
 import { PaletteEditor } from './_components/palette-editor';
+import {
+  VisualPreview,
+  type TemplateAsset,
+  type ExistingSave,
+} from './_components/visual-preview';
+import type { ColorRangeMap } from '@/app/admin/moodboard-library/_components/color-range-manipulator';
+
+const MOODBOARD_BUCKET = 'moodboard-library';
 
 export const metadata = { title: 'Mood Board' };
 
@@ -86,6 +95,8 @@ export default async function MoodBoardPage({ params }: Props) {
         saveAction={saveRolePalette}
       />
 
+      <VisualPreviewSection eventId={eventId} rolePalette={palette} />
+
       <section className="space-y-3 rounded-2xl border border-dashed border-ink/15 bg-cream p-5">
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
           Coming later
@@ -96,9 +107,92 @@ export default async function MoodBoardPage({ params }: Props) {
           <li>Setnayan Guide rule engine (cohesion · contrast · temperature · saturation)</li>
           <li>Venue palette extraction from venue photos</li>
           <li>Guests pick their dress-code color from the &ldquo;Plain guests&rdquo; palette</li>
-          <li>Save palettes as named moods you can swap between</li>
+          <li>Stylist uploads from their own Google Drive (V1.x)</li>
         </ul>
       </section>
     </div>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// Visual preview pillars (Location feel + Dress codes) · locked 2026-05-21
+// ----------------------------------------------------------------------------
+async function VisualPreviewSection({
+  eventId,
+  rolePalette,
+}: {
+  eventId: string;
+  rolePalette: Record<string, string>;
+}) {
+  const admin = createAdminClient();
+
+  // Fetch approved templates + their color ranges + couple's existing saves
+  const [{ data: templateRows }, { data: rangeRows }, { data: saveRows }] = await Promise.all([
+    admin
+      .from('moodboard_library_assets')
+      .select('asset_id, asset_type, asset_subtype, label, storage_path')
+      .not('approved_at', 'is', null)
+      .is('retired_at', null)
+      .order('created_at', { ascending: false }),
+    admin
+      .from('moodboard_asset_color_ranges')
+      .select('asset_id, slot_id, sampled_hex, tolerance_de, region_label'),
+    admin
+      .from('event_moodboard_saves')
+      .select('save_id, pillar, pillar_slot, asset_id, palette_snapshot, saved_at')
+      .eq('event_id', eventId)
+      .order('saved_at', { ascending: false }),
+  ]);
+
+  const colorRangesByAsset = new Map<string, ColorRangeMap>();
+  for (const r of rangeRows ?? []) {
+    const existing = colorRangesByAsset.get(r.asset_id) ?? {};
+    existing[r.slot_id] = {
+      slotId: r.slot_id,
+      sampledHex: r.sampled_hex,
+      toleranceDe: Number(r.tolerance_de),
+      regionLabel: r.region_label ?? undefined,
+    };
+    colorRangesByAsset.set(r.asset_id, existing);
+  }
+
+  const templates: TemplateAsset[] = (templateRows ?? []).map((r) => {
+    const key = r.storage_path.replace(`${MOODBOARD_BUCKET}/`, '');
+    const { data: pub } = admin.storage.from(MOODBOARD_BUCKET).getPublicUrl(key);
+    return {
+      asset_id: r.asset_id,
+      asset_type: r.asset_type as TemplateAsset['asset_type'],
+      asset_subtype: r.asset_subtype,
+      label: r.label,
+      public_url: pub.publicUrl,
+      color_ranges: colorRangesByAsset.get(r.asset_id) ?? {},
+    };
+  });
+
+  const existingSaves: ExistingSave[] = (saveRows ?? []).map((s) => ({
+    save_id: s.save_id,
+    pillar: s.pillar as ExistingSave['pillar'],
+    pillar_slot: s.pillar_slot,
+    asset_id: s.asset_id,
+    palette_snapshot: (s.palette_snapshot as Record<string, string>) ?? {},
+    saved_at: s.saved_at,
+  }));
+
+  return (
+    <section className="space-y-4 border-t border-ink/10 pt-6">
+      <header>
+        <h2 className="text-2xl font-semibold text-ink">Visual preview</h2>
+        <p className="text-sm text-ink/65">
+          See how your palette will land on real venue setups and outfits. Pick the
+          looks you want — Setnayan applies your colors automatically.
+        </p>
+      </header>
+      <VisualPreview
+        eventId={eventId}
+        templates={templates}
+        existingSaves={existingSaves}
+        rolePalette={rolePalette}
+      />
+    </section>
   );
 }

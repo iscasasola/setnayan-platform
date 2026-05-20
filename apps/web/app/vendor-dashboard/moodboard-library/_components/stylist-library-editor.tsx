@@ -7,7 +7,7 @@
  *
  * V1 implementation per the 2026-05-21 lock — vendor uploads land in
  * Setnayan storage with source='stylist_upload', awaiting admin approval
- * before couples can see them on the moodboard.
+ * before hosts can see them on the moodboard.
  */
 
 import { useMemo, useState, useTransition } from 'react';
@@ -193,7 +193,7 @@ export function StylistLibraryEditor({ initialAssets }: { initialAssets: Stylist
             <p className="text-[11px] text-ink/55">
               Your photo will be auto-watermarked with SETNAYAN before it lands on
               your library. Submissions appear as drafts; Setnayan reviews them
-              before couples see them in the shared template library.
+              before hosts see them in the shared template library.
             </p>
           </form>
         </section>
@@ -308,7 +308,7 @@ export function StylistLibraryEditor({ initialAssets }: { initialAssets: Stylist
                 ))}
               </div>
               <p className="mt-2 text-[11px] text-ink/55">
-                In production each couple&apos;s palette renders here. This is your
+                In production each host&apos;s palette renders here. This is your
                 preview tool to verify the tag regions look right across colors.
               </p>
             </details>

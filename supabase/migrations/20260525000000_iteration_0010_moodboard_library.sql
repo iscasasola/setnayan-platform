@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS public.moodboard_library_assets (
   source         TEXT NOT NULL DEFAULT 'internet_placeholder'
                  CHECK (source IN ('internet_placeholder', 'higgsfield_generated', 'stylist_upload')),
   uploaded_by    UUID REFERENCES public.users(user_id),
-  approved_at    TIMESTAMPTZ,                                   -- admin review gate; NULL = draft, not visible to couples
+  approved_at    TIMESTAMPTZ,                                   -- admin review gate; NULL = draft, not visible to hosts
   retired_at     TIMESTAMPTZ,                                   -- soft-delete; for V1 placeholder cutover at hard-launch
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -84,7 +84,7 @@ CREATE POLICY moodboard_library_assets_admin_all ON public.moodboard_library_ass
     )
   );
 
--- Everyone can SELECT approved + not-retired assets (couples + stylists alike)
+-- Everyone can SELECT approved + not-retired assets (hosts + stylists alike)
 DROP POLICY IF EXISTS moodboard_library_assets_public_read ON public.moodboard_library_assets;
 CREATE POLICY moodboard_library_assets_public_read ON public.moodboard_library_assets
   FOR SELECT

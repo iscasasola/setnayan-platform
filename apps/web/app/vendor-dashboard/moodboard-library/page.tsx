@@ -94,7 +94,7 @@ export default async function StylistMoodboardLibraryPage() {
         <p className="max-w-prose text-base text-ink/65">
           Upload photos of your real wedding setups, tag the color regions, and
           Setnayan will review them for the shared template library. Once approved,
-          couples will see your work rendered in their own palette and can pick it
+          hosts will see your work rendered in their own palette and can pick it
           for their moodboard.
         </p>
         <p className="max-w-prose text-xs text-ink/50">

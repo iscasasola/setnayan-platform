@@ -27,7 +27,7 @@ are applied:
      Slot 1, label "drapery"; (optional) eyedropper on the gold chairs to
      Slot 2, label "chairs"
 5. Click "Publish" on each
-6. Switch to a couple account, visit `/dashboard/[eventId]/add-ons/mood-board`,
+6. Switch to a host account, visit `/dashboard/[eventId]/add-ons/mood-board`,
    verify the two cards appear in Visual preview with the palette applied
 
 ## When this folder retires

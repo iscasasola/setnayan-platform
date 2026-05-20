@@ -3,7 +3,7 @@
  *
  * Per owner directive 2026-05-21: every photo posted to the app gets an auto
  * SETNAYAN watermark EXCEPT event photos (Papic captures, Panood recordings,
- * couple's wedding photos — those belong to the couple). Vendor marketplace
+ * host's wedding photos — those belong to the host). Vendor marketplace
  * photos MUST have watermarks (default-on for IP protection against scraping).
  *
  * V1 approach: client-side Canvas watermarking before upload. Simpler than

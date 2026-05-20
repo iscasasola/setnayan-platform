@@ -80,8 +80,9 @@ export async function resolveSuppliesPricing(
   }
 
   const rows = (data ?? []) as ResolverRow[];
+  const [row] = rows;
 
-  if (rows.length === 0) {
+  if (!row) {
     return {
       status: 'unavailable',
       reason: 'no_vendor_in_area',
@@ -91,7 +92,6 @@ export async function resolveSuppliesPricing(
     };
   }
 
-  const row = rows[0];
   return {
     status: 'available',
     sku_id: row.sku_id,

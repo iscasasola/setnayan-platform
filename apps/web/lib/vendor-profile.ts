@@ -61,18 +61,54 @@ export type VendorProfileRow = {
   updated_at: string;
 };
 
+// Iteration 0043 — graceful fallback when the compatibility columns aren't
+// yet in the database (migration 20260521000000 pending push). The legacy
+// SELECT excludes them so the page can render against pre-0043 schemas;
+// callers see compatible_* as null in that mode, identical to a vendor
+// who hasn't picked any tags yet — "open to all" semantics.
+const FULL_VENDOR_PROFILE_SELECT =
+  'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,location_city,website,contact_email,contact_phone,is_published,portfolio_r2_keys,show_team_bookings_in_backend_count,public_visibility,compatible_ceremony_types,compatible_venue_settings,created_at,updated_at';
+
+const LEGACY_VENDOR_PROFILE_SELECT =
+  'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,location_city,website,contact_email,contact_phone,is_published,portfolio_r2_keys,show_team_bookings_in_backend_count,public_visibility,created_at,updated_at';
+
 export async function fetchOwnVendorProfile(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<VendorProfileRow | null> {
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('vendor_profiles')
-    .select(
-      'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,location_city,website,contact_email,contact_phone,is_published,portfolio_r2_keys,show_team_bookings_in_backend_count,public_visibility,compatible_ceremony_types,compatible_venue_settings,created_at,updated_at',
-    )
+    .select(FULL_VENDOR_PROFILE_SELECT)
     .eq('user_id', userId)
     .maybeSingle();
-  if (error) throw new Error(`fetchOwnVendorProfile failed: ${error.message}`);
+  if (error) {
+    // Most likely: 0043 migration not yet applied to this database — the
+    // compatible_* columns don't exist. Retry without them and surface
+    // null compatibility on the returned row. Anything else still throws.
+    const missingCompatColumns =
+      typeof error.message === 'string' &&
+      (error.message.includes('compatible_ceremony_types') ||
+        error.message.includes('compatible_venue_settings') ||
+        // PostgREST returns 42703 for "column does not exist"
+        (error as { code?: string }).code === '42703');
+    if (!missingCompatColumns) {
+      throw new Error(`fetchOwnVendorProfile failed: ${error.message}`);
+    }
+    const fallback = await supabase
+      .from('vendor_profiles')
+      .select(LEGACY_VENDOR_PROFILE_SELECT)
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (fallback.error) {
+      throw new Error(`fetchOwnVendorProfile failed: ${fallback.error.message}`);
+    }
+    if (!fallback.data) return null;
+    data = {
+      ...(fallback.data as Record<string, unknown>),
+      compatible_ceremony_types: null,
+      compatible_venue_settings: null,
+    } as typeof data;
+  }
   if (!data) return null;
   // Defensive: column has NOT NULL DEFAULT '{}' so this is null only if the
   // migration hasn't run yet. Normalise so callers can assume an array.

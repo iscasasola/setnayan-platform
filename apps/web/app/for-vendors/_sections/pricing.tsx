@@ -182,10 +182,11 @@ export function Pricing() {
         <p className="mt-6 text-xs text-ink/55">
           Pro is billed weekly via the apply-then-pay rail (BDO transfer or
           GCash) — no card on file, no surprise renewals. Pause anytime
-          from your dashboard. Optional paid add-ons: Boosted Ads (5km ₱4,999/wk ·
-          10km ₱7,999/wk · 20km ₱14,999/wk) and Sponsored Boost (Quarterly
-          ₱249,999 · Annual ₱799,999 at 30km, verified vendors only) stack
-          on top of Pro.
+          from your dashboard. Marketing slots — Boosted Ads (5/10/20km
+          weekly) and Sponsored Boost (Quarterly / Annual at 30km) —
+          unlock once Setnayan reaches 1,000 verified vendors + 5,000
+          weekly visitors. See the Sponsored Boost section below for the
+          pricing preview and unlock criteria.
         </p>
       </div>
     </section>

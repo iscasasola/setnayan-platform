@@ -187,14 +187,52 @@ const COMPONENT_BY_WIDGET_ID: Record<string, ComponentType> = {
   home_platforms: AvailableEverywhere,
 };
 
+// Fired only when the build-time site_widgets fetch fails — e.g. the CI
+// build runs without SUPABASE_SERVICE_ROLE_KEY, or Supabase is unreachable
+// at deploy time. Mirrors the seed in 20260515010000_site_widgets.sql so
+// the static fallback renders the same marketing surface admins would
+// otherwise toggle through /admin/website. Announcement bar defaults off
+// because it's only meant to light up during active campaigns.
+const FALLBACK_WIDGETS: ReadonlyArray<{ widget_id: string; is_enabled: boolean }> = [
+  { widget_id: 'home_announcement_bar', is_enabled: false },
+  { widget_id: 'home_browse_strip', is_enabled: true },
+  { widget_id: 'home_hero', is_enabled: true },
+  { widget_id: 'home_real_numbers', is_enabled: true },
+  { widget_id: 'home_chaos', is_enabled: true },
+  { widget_id: 'home_two_sides', is_enabled: true },
+  { widget_id: 'home_maria_juan', is_enabled: true },
+  { widget_id: 'home_in_app_services', is_enabled: true },
+  { widget_id: 'home_vendor_compat', is_enabled: true },
+  { widget_id: 'home_transparent_pricing', is_enabled: true },
+  { widget_id: 'home_readiness_board', is_enabled: true },
+  { widget_id: 'home_coverage_map', is_enabled: true },
+  { widget_id: 'home_dual_cta_footer', is_enabled: true },
+  { widget_id: 'home_platforms', is_enabled: true },
+];
+
 export default async function HomePage() {
   // Signed-in viewers are redirected to /dashboard by middleware.ts
   // before this component runs, so this body only renders for anonymous
   // visitors. Keep it free of `cookies()`, `headers()`, or any other
   // dynamic API — adding one would silently revert this route to
   // per-request SSR and undo the TTFB win.
-  const supabase = createAdminClient();
-  const widgets = await fetchWidgetsForPage(supabase, 'home');
+  //
+  // The widget fetch needs the service-role key (no cookies/headers so the
+  // route stays static). If the key is missing (CI build) or Supabase is
+  // unreachable, fall back to the hardcoded seed list rather than failing
+  // the static prerender — a built homepage with default widgets is
+  // strictly better than a build that blocks every deploy.
+  let widgets: ReadonlyArray<{ widget_id: string; is_enabled: boolean }>;
+  try {
+    const supabase = createAdminClient();
+    widgets = await fetchWidgetsForPage(supabase, 'home');
+  } catch (err) {
+    console.warn(
+      '[homepage] site_widgets fetch failed, using fallback widget list:',
+      err instanceof Error ? err.message : err,
+    );
+    widgets = FALLBACK_WIDGETS;
+  }
   const enabled = widgets.filter((w) => w.is_enabled);
 
   // Announcement strip pins above SiteHeader when enabled regardless of

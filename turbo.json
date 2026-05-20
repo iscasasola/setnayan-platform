@@ -16,7 +16,24 @@
         "SENTRY_DSN",
         "SENTRY_AUTH_TOKEN",
         "SENTRY_ORG",
-        "SENTRY_PROJECT"
+        "SENTRY_PROJECT",
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "R2_ACCOUNT_ID",
+        "R2_ACCESS_KEY_ID",
+        "R2_SECRET_ACCESS_KEY",
+        "R2_BUCKET_MEDIA",
+        "R2_BUCKET_THREAD_FILES",
+        "R2_BUCKET_VENDOR_CONTRACTS",
+        "R2_BUCKET_SAMPLES",
+        "R2_PUBLIC_URL",
+        "RESEND_API_KEY",
+        "RESEND_FROM_ADDRESS",
+        "GOOGLE_OAUTH_CLIENT_ID",
+        "GOOGLE_OAUTH_CLIENT_SECRET",
+        "ENCRYPTION_KEY",
+        "OAUTH_REFRESH_CRON_SECRET",
+        "CRON_SECRET",
+        "INTERNAL_WORKER_SECRET"
       ]
     },
     "dev": {

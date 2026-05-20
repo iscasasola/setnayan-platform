@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { enqueueRelease } from '@/lib/photo-delivery-release';
+import { revokeDriveToken } from '@/lib/papic-drive';
 
 // Iteration 0009 Photo Delivery — sync-mode server actions.
 //
@@ -117,4 +119,105 @@ export async function setPhotoDeliverySyncModeAuto(formData: FormData) {
   redirect(
     `/dashboard/${auth.eventId}/add-ons/photo-delivery?sync_mode_set=auto_sync`,
   );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Release + Disconnect (real OAuth panel wiring, 2026-05-20)                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Trigger the manual_release upload flow — enqueues a photo_delivery_jobs
+ * row + flips events.photo_delivery_status='releasing'. The actual uploads
+ * run via the existing batch processor (see lib/photo-delivery-release.ts).
+ *
+ * Safe to call only on manual_release events; the UI hides the Release
+ * button in auto_sync mode. The lib function validates the event's grant
+ * state and refuses to fire if Drive isn't connected.
+ */
+export async function releasePhotoDelivery(formData: FormData) {
+  const auth = await getCoupleEventId(formData.get('event_id'));
+  if (!auth.ok) redirect(auth.redirectTo);
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const result = await enqueueRelease({ eventId: auth.eventId, userId: user.id });
+
+  if (!result.ok) {
+    redirect(
+      `/dashboard/${auth.eventId}/add-ons/photo-delivery?release_error=${encodeURIComponent(
+        result.reason.slice(0, 64),
+      )}`,
+    );
+  }
+
+  revalidatePath(`/dashboard/${auth.eventId}/add-ons/photo-delivery`);
+  redirect(
+    `/dashboard/${auth.eventId}/add-ons/photo-delivery?release_started=1${
+      result.alreadyComplete ? '&already_complete=1' : ''
+    }`,
+  );
+}
+
+/**
+ * Disconnect Drive — revokes the OAuth token, marks the grant revoked,
+ * and clears events.photo_delivery_* fields back to idle. Idempotent:
+ * safe to call repeatedly even if the grant is already revoked.
+ *
+ * Folder created in the couple's Drive is NOT deleted — the couple owns
+ * those files now. They can keep, move, or delete them themselves.
+ *
+ * Replicates the logic of POST /api/photo-delivery/disconnect so the panel
+ * can use a server-action form post instead of a JSON fetch.
+ */
+export async function disconnectPhotoDelivery(formData: FormData) {
+  const auth = await getCoupleEventId(formData.get('event_id'));
+  if (!auth.ok) redirect(auth.redirectTo);
+
+  const admin = createAdminClient();
+
+  // Revoke at Google + mark grant revoked (best-effort).
+  const { data: grant } = await admin
+    .from('oauth_grants')
+    .select('grant_id, refresh_token, revoked_at')
+    .eq('event_id', auth.eventId)
+    .eq('provider', 'drive_photo_delivery')
+    .maybeSingle();
+
+  if (grant && !grant.revoked_at && grant.refresh_token) {
+    await revokeDriveToken(grant.refresh_token as string);
+    await admin
+      .from('oauth_grants')
+      .update({
+        revoked_at: new Date().toISOString(),
+        access_token: null,
+        access_token_expires_at: null,
+      })
+      .eq('grant_id', grant.grant_id);
+  }
+
+  // Clear events.photo_delivery_* back to idle. Folder pointer wiped so a
+  // re-connect produces a fresh folder rather than reusing a stale id.
+  await admin
+    .from('events')
+    .update({
+      photo_delivery_provider: null,
+      photo_delivery_oauth_expires_at: null,
+      photo_delivery_folder_id: null,
+      photo_delivery_folder_name: null,
+      photo_delivery_account_email: null,
+      photo_delivery_status: 'idle',
+      photo_delivery_progress_pct: 0,
+      photo_delivery_started_at: null,
+      photo_delivery_completed_at: null,
+      photo_delivery_failed_count: 0,
+      photos_released_at: null,
+    })
+    .eq('event_id', auth.eventId);
+
+  revalidatePath(`/dashboard/${auth.eventId}/add-ons/photo-delivery`);
+  redirect(`/dashboard/${auth.eventId}/add-ons/photo-delivery?disconnected=1`);
 }

@@ -277,6 +277,133 @@ export default function PrivacyPage() {
           </ul>
         </Section>
 
+        <Section title="Google Drive integration (Photo Delivery · iteration 0009 + Papic · iteration 0012)">
+          <p>
+            Couples who use Photo Delivery (vendor-released final wedding
+            photos) or Papic (the V1.5+ camera mesh) connect a Google Drive
+            account so Setnayan can write photos and videos into that Drive
+            on the couple&rsquo;s behalf. The connection uses Google&rsquo;s
+            standard OAuth sign-in. You can revoke it at any time from your{' '}
+            <a
+              href="https://myaccount.google.com/permissions"
+              className="text-terracotta hover:underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Google Account permissions
+            </a>
+            .
+          </p>
+          <ul className="ml-5 list-disc space-y-1 pt-2">
+            <li>
+              <strong>Scope requested.</strong> Only{' '}
+              <code className="font-mono text-[12px]">.../auth/drive.file</code>{' '}
+              — a narrow scope that restricts Setnayan to ONLY files and
+              folders the Setnayan app itself creates in the Drive. We
+              cannot see, read, edit, or delete any other files, folders,
+              photos, or documents you already have in the Drive. We also
+              never request{' '}
+              <code className="font-mono text-[12px]">.../auth/drive</code>{' '}
+              (full Drive access),{' '}
+              <code className="font-mono text-[12px]">.../auth/drive.readonly</code>,
+              or any other Drive scope.
+            </li>
+            <li>
+              <strong>What we receive from Google.</strong> A refresh token
+              tied to the connected Drive account, the email address used to
+              sign in, an access token (typically valid 1 hour), and the
+              file/folder IDs of the items Setnayan creates. We do not
+              receive your Google password and do not enumerate or index
+              your existing Drive contents.
+            </li>
+            <li>
+              <strong>How we use it.</strong> For Photo Delivery (0009), we
+              create one folder per event named after the wedding (for
+              example, <em>&ldquo;Setnayan · Maria &amp; Juan Wedding ·
+              2026-10-24&rdquo;</em>) and the vendor&rsquo;s release action
+              writes the finalized photo set into that folder. For Papic
+              (V1.5+), the camera-mesh capture pipeline writes event-day
+              photos into a bootstrapped folder structure inside the same
+              Drive. We never browse, modify, or delete any file we did not
+              create.
+            </li>
+            <li>
+              <strong>Storage + scope.</strong> Tokens and the connected
+              email + folder IDs are stored in{' '}
+              <code className="font-mono text-[12px]">oauth_grants</code>{' '}
+              in our Supabase database (Singapore region · encrypted at
+              rest), scoped to one specific Setnayan event. They are never
+              shared with vendors, other couples, or third parties.
+            </li>
+            <li>
+              <strong>Limited Use commitment.</strong> Setnayan&rsquo;s use
+              and transfer of information received from Google APIs to any
+              other app adheres to the{' '}
+              <a
+                href="https://developers.google.com/terms/api-services-user-data-policy"
+                className="text-terracotta hover:underline"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Google API Services User Data Policy
+              </a>
+              , including the Limited Use requirements. We never use your
+              Drive data for advertising, never sell or transfer it, and
+              never use it to train AI or ML models.
+            </li>
+            <li>
+              <strong>Retention.</strong> Grants are kept until the earlier
+              of (a) you revoke them from your Google account or from your
+              Setnayan profile, (b) you delete your Setnayan account, or
+              (c) 30 days after the event ends. Refresh tokens past their
+              expiry are purged automatically. The files Setnayan wrote to
+              your Drive are not deleted by Setnayan when the grant ends —
+              they remain in your Drive under your sole control.
+            </li>
+            <li>
+              <strong>Revoking access.</strong> Two paths, either works
+              immediately:
+              <ul className="ml-5 mt-1 list-disc space-y-1">
+                <li>
+                  In Setnayan, open the Photo Delivery or Papic page for
+                  your event and click <em>Disconnect Google Drive</em>. We
+                  soft-revoke the grant locally.
+                </li>
+                <li>
+                  In your Google account, go to{' '}
+                  <a
+                    href="https://myaccount.google.com/permissions"
+                    className="text-terracotta hover:underline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Security → Third-party apps with account access
+                  </a>{' '}
+                  and remove Setnayan. We honor the revocation on the next
+                  write attempt.
+                </li>
+              </ul>
+            </li>
+            <li>
+              <strong>Files in your Drive.</strong> Once a file is written
+              to your Drive, it is owned by the Drive account that
+              authorized the grant. Move, share, or delete it from
+              drive.google.com like any other file — Setnayan cannot delete
+              files on your behalf after the grant is revoked. Your use of
+              Google Drive is also governed by the{' '}
+              <a
+                href="https://policies.google.com/privacy"
+                className="text-terracotta hover:underline"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Google Privacy Policy
+              </a>
+              .
+            </li>
+          </ul>
+        </Section>
+
         <Section title="Subprocessors">
           <ul className="ml-5 list-disc space-y-1">
             <li>Supabase (database + auth, Singapore region)</li>
@@ -285,7 +412,9 @@ export default function PrivacyPage() {
             <li>Resend (transactional email — pending activation)</li>
             <li>
               Google (YouTube Data API — only for couples who purchase Panood
-              and explicitly connect their YouTube channel via OAuth)
+              and explicitly connect their YouTube channel via OAuth; Google
+              Drive API — only for couples who use Photo Delivery or Papic
+              and explicitly connect a Drive account via OAuth)
             </li>
             <li>
               TikTok (Personal-tier Patiktok only · for couples who explicitly

@@ -319,6 +319,16 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
             Verified vendors who took the time to set up a Setnayan profile. Star ratings
             come from couples who&rsquo;ve actually paid for the service.
           </p>
+          <p className="text-sm text-ink/55">
+            Looking for something specific?{' '}
+            <Link
+              href="/vendors/categories"
+              className="font-medium text-terracotta underline-offset-4 hover:underline"
+            >
+              Browse the full vendor taxonomy
+            </Link>{' '}
+            — 192 sub-categories across 5 mega-menu columns.
+          </p>
         </div>
 
         <div className="mt-6">

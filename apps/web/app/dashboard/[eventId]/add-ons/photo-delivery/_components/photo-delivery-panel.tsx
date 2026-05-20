@@ -67,6 +67,12 @@ type Props = {
   alreadyComplete: boolean;
   disconnectedFlash: boolean;
   job: JobRollup | null;
+  // 2026-05-20 graceful-fallback: when the Google Drive OAuth env isn't
+  // set (the #19g verified-app review hasn't cleared yet), the Connect
+  // Drive button degrades to a "coming soon" placeholder instead of
+  // letting the couple click through to a JSON error page from the
+  // /api/oauth/photo-delivery/start route.
+  oauthReady: boolean;
 };
 
 export function PhotoDeliveryPanel({
@@ -86,6 +92,7 @@ export function PhotoDeliveryPanel({
   alreadyComplete,
   disconnectedFlash,
   job,
+  oauthReady,
 }: Props) {
   const folderNamePreview = buildFolderNamePreview(eventName, eventDate);
 
@@ -95,6 +102,7 @@ export function PhotoDeliveryPanel({
         eventId={eventId}
         folderNamePreview={folderNamePreview}
         disconnectedFlash={disconnectedFlash}
+        oauthReady={oauthReady}
       />
     );
   }
@@ -137,10 +145,12 @@ function IdleState({
   eventId,
   folderNamePreview,
   disconnectedFlash,
+  oauthReady,
 }: {
   eventId: string;
   folderNamePreview: string;
   disconnectedFlash: boolean;
+  oauthReady: boolean;
 }) {
   return (
     <div className="space-y-6">
@@ -174,13 +184,26 @@ function IdleState({
             </p>
           </div>
 
-          <Link
-            href={`/api/oauth/photo-delivery/start?event_id=${encodeURIComponent(eventId)}`}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-terracotta px-5 py-3 text-sm font-medium text-cream transition hover:bg-terracotta-600 sm:w-auto"
-          >
-            <CloudUpload aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            Connect Google Drive
-          </Link>
+          {oauthReady ? (
+            <Link
+              href={`/api/oauth/photo-delivery/start?event_id=${encodeURIComponent(eventId)}`}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-terracotta px-5 py-3 text-sm font-medium text-cream transition hover:bg-terracotta-600 sm:w-auto"
+            >
+              <CloudUpload aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              Connect Google Drive
+            </Link>
+          ) : (
+            <div className="inline-flex w-full max-w-sm flex-col items-start gap-1 rounded-md border border-ink/15 bg-ink/[0.03] px-4 py-3 text-xs text-ink/65 sm:w-auto">
+              <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                <CloudUpload aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                Drive setup pending
+              </span>
+              <span className="leading-snug">
+                Setnayan&rsquo;s admin is finishing the Google Cloud verified-app review.
+                The Connect button lights up here the moment that clears.
+              </span>
+            </div>
+          )}
         </div>
       </section>
 

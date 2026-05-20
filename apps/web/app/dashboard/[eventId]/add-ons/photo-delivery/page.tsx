@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { ArrowLeft, CheckCircle2, CloudUpload, Radio, ShieldCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getPhotoDeliveryOAuthConfig } from '@/lib/photo-delivery-drive';
 import {
   PhotoDeliveryPanel,
   type PhotoDeliveryStatus,
@@ -162,6 +163,7 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
         releaseStartedFlash={releaseStartedFlash}
         alreadyComplete={alreadyCompleteFlash}
         disconnectedFlash={disconnectedFlash}
+        oauthReady={getPhotoDeliveryOAuthConfig().ready}
         job={
           latestJob
             ? {

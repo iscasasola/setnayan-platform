@@ -24,6 +24,13 @@ const TILES: EventTile[] = [
     readiness: 100,
   },
   {
+    name: 'Debut',
+    status: 'Coming soon',
+    unlocks:
+      '18th-birthday packages — formal venues, cotillion choreography, gown designers, hosts.',
+    readiness: 40,
+  },
+  {
     name: 'Birthday Parties',
     status: 'Coming soon',
     unlocks:

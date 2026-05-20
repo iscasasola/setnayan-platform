@@ -31,8 +31,7 @@ export async function MiniTour({ tourKey }: { tourKey: TourKey }) {
   const seen = (row?.tour_seen_keys ?? []) as string[];
   if (seen.includes(tourKey)) return null;
 
-  const def = TOURS[tourKey];
-  if (!def) return null;
+  if (!TOURS[tourKey]) return null;
 
-  return <GuidedTour tourKey={tourKey} slides={def.slides} completeAction={completeTour} />;
+  return <GuidedTour tourKey={tourKey} completeAction={completeTour} />;
 }

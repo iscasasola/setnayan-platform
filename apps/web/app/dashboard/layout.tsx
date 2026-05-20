@@ -3,7 +3,6 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { GuidedTour } from '@/app/_components/guided-tour';
 import { completeTour } from '@/lib/tour-actions';
-import { TOURS } from '@/lib/tours';
 import { fetchUserEvents, sortEventsForSwitcher } from '@/lib/events';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { countUnread } from '@/lib/notifications';
@@ -90,11 +89,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       />
       <main className="flex-1">{children}</main>
       {!(profile?.tour_seen_keys ?? []).includes('couple_welcome_v1') ? (
-        <GuidedTour
-          tourKey="couple_welcome_v1"
-          slides={TOURS.couple_welcome_v1.slides}
-          completeAction={completeTour}
-        />
+        <GuidedTour tourKey="couple_welcome_v1" completeAction={completeTour} />
       ) : null}
     </div>
   );

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { GuidedTour } from '@/app/_components/guided-tour';
-import { TOURS, type TourKey } from '@/lib/tours';
+import type { TourKey } from '@/lib/tours';
 
 const STORAGE_PREFIX = 'setnayan.tour_seen.';
 
@@ -36,11 +36,5 @@ export function GuestGuidedTour({ tourKey }: { tourKey: TourKey }) {
     setShouldShow(false);
   };
 
-  return (
-    <GuidedTour
-      tourKey={tourKey}
-      slides={TOURS[tourKey].slides}
-      completeAction={markSeen}
-    />
-  );
+  return <GuidedTour tourKey={tourKey} completeAction={markSeen} />;
 }

@@ -7,7 +7,13 @@ import { generateUniqueSlug } from '@/lib/slugs';
 import { captureEvent } from '@/lib/analytics';
 import { startConciergeTrial } from '@/app/dashboard/profile/concierge/actions';
 
-const ALLOWED_TYPES = ['wedding'] as const; // V1: Weddings only per iteration 0000 § 2.5
+// V1.1 multi-event roster (iteration 0041). Wedding is the original V1 type;
+// gender_reveal is the first V1.1 expansion (2026-05-20). Other 0041 types
+// (baptism, debut, anniversary, etc.) land as separate per-type migrations
+// as the product surfaces support them — vendor matching + Concierge are
+// still wedding-themed, so non-wedding events render the dashboard tools
+// (guest list / budget / etc.) as generic event-planning utilities.
+const ALLOWED_TYPES = ['wedding', 'gender_reveal'] as const;
 
 // 0000 § 2.5b — DIY · Trial · Paid choice card (locked 2026-05-17).
 // `paid` lands on the dashboard then routes to checkout; `trial` invokes
@@ -100,9 +106,14 @@ export async function createWeddingEvent(formData: FormData) {
   if (!ALLOWED_TYPES.includes(event_type as (typeof ALLOWED_TYPES)[number])) {
     return redirect('/dashboard/create-event?error=invalid_type');
   }
-  const choice: ConciergeChoice = ALLOWED_CONCIERGE_CHOICES.includes(concierge_choice)
+  // Concierge is wedding-only in V1.1; force DIY for any other event_type
+  // so a stale conciergeChoice (e.g. couple toggled "trial" on a wedding,
+  // then changed event_type to gender_reveal without resetting the picker
+  // UI) never starts a trial or charges a non-wedding event.
+  const rawChoice: ConciergeChoice = ALLOWED_CONCIERGE_CHOICES.includes(concierge_choice)
     ? concierge_choice
     : 'diy';
+  const choice: ConciergeChoice = event_type === 'wedding' ? rawChoice : 'diy';
 
   const supabase = await createClient();
   const {

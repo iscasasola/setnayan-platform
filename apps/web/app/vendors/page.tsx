@@ -57,8 +57,25 @@ type Props = {
     page?: string;
     verified?: string;
     match?: string;
+    event_type?: string;
   }>;
 };
+
+// Iteration 0041 — multi-event support. Filter chip on `vendor_profiles.event_types[]`
+// (migration 20260521090000). Mirrors the live `public.event_type` enum; keep in
+// sync when new event_type values are added.
+const ALLOWED_EVENT_TYPE_FILTERS = [
+  'wedding',
+  'gender_reveal',
+  'debut',
+  'birthday',
+  'celebration',
+  'travel',
+  'corporate',
+  'tournament',
+  'christening',
+] as const;
+type EventTypeFilter = (typeof ALLOWED_EVENT_TYPE_FILTERS)[number];
 
 type VendorCardRow = {
   vendor_profile_id: string;
@@ -84,6 +101,7 @@ function parseFilters(
   page: number;
   verifiedOnly: boolean;
   matchEvent: boolean;
+  eventType: EventTypeFilter | null;
 } {
   const q = (raw.q ?? '').trim();
   const sort = (SORT_KEYS as readonly string[]).includes(raw.sort ?? '')
@@ -104,7 +122,16 @@ function parseFilters(
   // No-op (toggle hidden) for non-logged-in visitors and couples without
   // an event yet.
   const matchEvent = raw.match === '1' || raw.match === 'on';
-  return { q, category, city, sort, page, verifiedOnly, matchEvent };
+  // Iteration 0041 — event-type filter. Restricts the marketplace to
+  // vendors who serve a specific event_type (debut, gender_reveal, etc.).
+  // Default null = show vendors who serve any event_type. The CHECK
+  // constraint on vendor_profiles.event_types guarantees every vendor
+  // serves at least one type; existing wedding vendors were backfilled
+  // to ['wedding'] in migration 20260521090000.
+  const eventType = (ALLOWED_EVENT_TYPE_FILTERS as readonly string[]).includes(raw.event_type ?? '')
+    ? (raw.event_type as EventTypeFilter)
+    : null;
+  return { q, category, city, sort, page, verifiedOnly, matchEvent, eventType };
 }
 
 export default async function VendorsMarketplacePage({ searchParams }: Props) {
@@ -165,6 +192,12 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     // are not indexed by canonical key, so a category filter won't match
     // vendors who only listed a custom service — that's correct V1 behavior.
     query = query.contains('services', [filters.category]);
+  }
+  if (filters.eventType) {
+    // Iteration 0041 — vendor_profiles.event_types[] gates which event_types
+    // each vendor serves (default ['wedding'] for legacy / V1.1 vendors).
+    // GIN-indexed by migration 20260521090000.
+    query = query.contains('event_types', [filters.eventType]);
   }
   if (filters.city.length > 0) {
     query = query.ilike('location_city', `%${filters.city}%`);

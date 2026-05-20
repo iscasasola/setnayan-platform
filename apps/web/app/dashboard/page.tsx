@@ -19,9 +19,20 @@ export default async function DashboardIndexPage() {
   const active = events.filter((e) => !e.archived);
   const archived = events.filter((e) => e.archived);
 
-  // Auto-jump rule (per spec): exactly 1 active event → straight into it.
-  if (active.length === 1 && active[0]) {
-    redirect(`/dashboard/${active[0].event_id}`);
+  // Universal login-landing rule (locked 2026-05-20). Every user — customer,
+  // vendor, admin — lands on their primary event after login. The admin
+  // (`/admin`) and vendor (`/vendor-dashboard`) consoles are reachable only
+  // via the chrome role-switch pill, never as auto-redirect. Supersedes
+  // the 2026-05-15 row-3 rule that bounced 0-event vendors to /vendor-
+  // dashboard and 0-event admins to /admin. See memory file
+  // `project_setnayan_login_landing.md` for the why.
+  //
+  // Auto-jump order: primary (events.is_primary=true) → first active.
+  // The chrome event-switcher (PR #67) is the only way to hop between
+  // events once landed.
+  if (active.length >= 1) {
+    const primary = active.find((e) => e.is_primary) ?? active[0]!;
+    redirect(`/dashboard/${primary.event_id}`);
   }
 
   const [{ data: profile }, roles] = await Promise.all([
@@ -34,18 +45,15 @@ export default async function DashboardIndexPage() {
   ]);
   const greeting = profile?.display_name?.split(' ')[0] ?? user.email?.split('@')[0] ?? 'there';
 
-  // Role-routed empty state per CLAUDE.md 2026-05-15 decision row 3:
-  //   - Zero events + vendor → land on /vendor-dashboard (Shop console).
-  //   - Zero events + admin (and not vendor) → land on /admin.
-  //   - Zero events + customer-only → render the "+" create-event monogram.
-  // Multi-role users with at least one event get the standard switcher.
-  if (active.length === 0) {
-    if (roles.hasVendorAccess) {
-      redirect('/vendor-dashboard');
-    }
-    if (roles.hasAdminAccess) {
-      redirect('/admin');
-    }
+  // Zero-event branch (locked 2026-05-20).
+  //   - Vendor or admin users → redirect to /dashboard/create-event so they
+  //     plan an event first (consoles reached via chrome role-switch pill,
+  //     not via auto-redirect).
+  //   - Customer-only users → fall through to render the existing "+"
+  //     create-event empty-state monogram below (same destination,
+  //     different UX).
+  if (active.length === 0 && (roles.hasVendorAccess || roles.hasAdminAccess)) {
+    redirect('/dashboard/create-event');
   }
 
   return (

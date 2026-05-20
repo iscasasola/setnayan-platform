@@ -12,6 +12,7 @@
 import Link from 'next/link';
 import { Sparkles, Clock, CheckCircle2, AlertCircle, Calendar } from 'lucide-react';
 import {
+  CONCIERGE_ENABLED,
   CONCIERGE_PRICE_PHP,
   type ConciergeEnforcementLevel,
   type ConciergeStatus,
@@ -72,6 +73,10 @@ export function ConciergeBanner(props: Props) {
     trialUsedAt,
     trialResultStatus,
   } = props;
+
+  // Owner kill-switch (2026-05-20). Hide the entire banner so couples don't
+  // see a Concierge CTA they can click into a broken purchase form.
+  if (!CONCIERGE_ENABLED) return null;
 
   // Full-banned takes over everything except the inline transient message.
   if (enforcementLevel === 'full_banned') {

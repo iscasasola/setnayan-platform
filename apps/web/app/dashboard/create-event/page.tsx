@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+import { CONCIERGE_ENABLED } from '@/lib/concierge';
 import { EventTypePicker } from './_components/event-type-picker';
 import type { LaunchStatusRow } from './_components/wedding-type-picker';
 
@@ -66,7 +67,7 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
         </p>
       ) : null}
 
-      <EventTypePicker launchStatus={launchStatus} />
+      <EventTypePicker launchStatus={launchStatus} conciergeEnabled={CONCIERGE_ENABLED} />
     </div>
   );
 }

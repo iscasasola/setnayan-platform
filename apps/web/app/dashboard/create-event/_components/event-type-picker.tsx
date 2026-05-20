@@ -69,9 +69,10 @@ type EventTypeRow = (typeof EVENT_TYPES)[number];
 
 type EventTypePickerProps = {
   launchStatus: LaunchStatusRow[];
+  conciergeEnabled: boolean;
 };
 
-export function EventTypePicker({ launchStatus }: EventTypePickerProps) {
+export function EventTypePicker({ launchStatus, conciergeEnabled }: EventTypePickerProps) {
   const N = EVENT_TYPES.length;
   const [centerIdx, setCenterIdx] = useState(0);
   const [selectedKey, setSelectedKey] = useState<EventTypeKey | null>(null);
@@ -209,8 +210,10 @@ export function EventTypePicker({ launchStatus }: EventTypePickerProps) {
           {/* Setnayan Concierge is wedding-themed (9-step wedding roadmap,
               wedding vendor matching). Surface only for weddings; non-
               wedding event_types default to DIY via the hidden input on
-              the form. Concierge for gender_reveal / etc. is V1.2+. */}
-          {selected.key === 'wedding' ? (
+              the form. Concierge for gender_reveal / etc. is V1.2+.
+              Owner kill-switch (2026-05-20): hide entirely when
+              conciergeEnabled=false — the purchase form is being rebuilt. */}
+          {selected.key === 'wedding' && conciergeEnabled ? (
             <ConciergeChoiceCard
               selected={conciergeChoice}
               onSelect={setConciergeChoice}
@@ -222,11 +225,11 @@ export function EventTypePicker({ launchStatus }: EventTypePickerProps) {
               className="button-primary w-full sm:w-auto"
               pendingLabel="Creating event…"
             >
-              {conciergeChoice === 'paid'
+              {conciergeEnabled && conciergeChoice === 'paid'
                 ? `Create event · continue to Concierge ₱2,499`
-                : conciergeChoice === 'trial'
+                : conciergeEnabled && conciergeChoice === 'trial'
                   ? `Create event · start 3-day Concierge trial`
-                  : `Create ${selected.label.toLowerCase()} event (DIY)`}
+                  : `Create ${selected.label.toLowerCase()} event`}
             </SubmitButton>
             <Link className="button-secondary w-full sm:w-auto" href="/dashboard">
               Cancel

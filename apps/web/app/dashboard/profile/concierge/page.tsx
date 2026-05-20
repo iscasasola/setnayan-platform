@@ -16,6 +16,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchUserEvents } from '@/lib/events';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
+  CONCIERGE_ENABLED,
   CONCIERGE_PRICE_PHP,
   type ConciergeEnforcementLevel,
   type ConciergeStatus,
@@ -76,6 +77,37 @@ export default async function ConciergePage({ searchParams }: Props) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  // Owner kill-switch (2026-05-20). Direct URL visitors get a polite
+  // "Temporarily unavailable" panel instead of the live purchase flow,
+  // which currently conflates the couple's ideal budget with the SKU fee
+  // (see chat log). Flip CONCIERGE_ENABLED back to true once that's fixed.
+  if (!CONCIERGE_ENABLED) {
+    return (
+      <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
+        <Link
+          href="/dashboard/profile"
+          className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
+        >
+          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+          Back to profile
+        </Link>
+        <section className="mt-6 rounded-2xl border border-ink/10 bg-cream p-8 text-center">
+          <Sparkles aria-hidden className="mx-auto h-8 w-8 text-terracotta" strokeWidth={1.5} />
+          <h1 className="mt-3 text-2xl font-semibold tracking-tight sm:text-3xl">
+            Setnayan Concierge
+          </h1>
+          <p className="mt-2 text-base text-ink/65">
+            Concierge is temporarily unavailable while we rework the purchase flow.
+          </p>
+          <p className="mt-1 text-sm text-ink/55">
+            All your DIY planning tools — guest list, vendors, budget, mood board, schedule — stay
+            fully working in the meantime.
+          </p>
+        </section>
+      </div>
+    );
+  }
 
   // Lazy expiry sweep at the top of any Concierge-surfacing page (no-cron
   // architecture per CLAUDE.md 2026-05-14 lock / PR #47).

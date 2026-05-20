@@ -229,8 +229,8 @@ function pickNextTasks(args: {
       id: 'set-monogram',
       title: 'Set your monogram',
       body: 'Your initials anchor the invitation card, table numbers, and event signage.',
-      cta: 'Set monogram',
-      href: `/dashboard/${eventId}/add-ons`,
+      cta: 'Open monogram creator',
+      href: `/dashboard/${eventId}/add-ons/monogram-creator`,
     });
   }
 

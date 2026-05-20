@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { generateUniqueSlug } from '@/lib/slugs';
 import { captureEvent } from '@/lib/analytics';
 import { startConciergeTrial } from '@/app/dashboard/profile/concierge/actions';
+import { CONCIERGE_ENABLED } from '@/lib/concierge';
 
 // V1.1 multi-event roster (iteration 0041). Wedding is the original V1
 // type; debut (2026-05-20) is the first creatable expansion. Other 0041
@@ -127,10 +128,18 @@ export async function createWeddingEvent(formData: FormData) {
   // so a stale conciergeChoice (e.g. couple toggled "trial" on a wedding,
   // then changed event_type to gender_reveal without resetting the picker
   // UI) never starts a trial or charges a non-wedding event.
+  //
+  // Owner kill-switch (2026-05-20): when CONCIERGE_ENABLED=false, every
+  // create-event call lands on DIY regardless of the form selection — the
+  // purchase + trial paths point at a flow that's being rebuilt.
   const rawChoice: ConciergeChoice = ALLOWED_CONCIERGE_CHOICES.includes(concierge_choice)
     ? concierge_choice
     : 'diy';
-  const choice: ConciergeChoice = event_type === 'wedding' ? rawChoice : 'diy';
+  const choice: ConciergeChoice = !CONCIERGE_ENABLED
+    ? 'diy'
+    : event_type === 'wedding'
+      ? rawChoice
+      : 'diy';
 
   const supabase = await createClient();
   const {

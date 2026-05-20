@@ -1,185 +1,159 @@
-'use client';
-
-import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import {
-  Camera,
+  ArrowUpRight,
   CheckCircle2,
   CloudUpload,
-  Download,
-  HardDrive,
-  Loader2,
-  Plane,
+  Radio,
+  RefreshCw,
   ShieldAlert,
-  Video,
-  type LucideIcon,
+  ShieldCheck,
+  Unlink2,
 } from 'lucide-react';
+import {
+  disconnectPhotoDelivery,
+  releasePhotoDelivery,
+} from '../actions';
+import { ReleaseProgressPoller } from './release-progress-poller';
 
-/**
- * Iteration 0009 — Photo Delivery panel (V1.5+ scaffold).
- *
- * This is the interactive surface. It models the three product states:
- *   1. Not connected   → Hero + Connect Google Drive CTA (stubbed).
- *   2. Connected       → List of vendor delivery folders + per-folder
- *                        "Download all" CTAs.
- *   3. Downloaded      → Folder shows a countdown badge ("Originals compress
- *                        in 28 days") and the 30-day rule is repeated near
- *                        the action zone.
- *
- * State management is intentionally local — no DB row, no server action.
- * This is a scaffold-level launch; the persistent state shape ships with the
- * real Drive OAuth integration in V1.5+ proper.
- *
- * Stubs:
- *  - // TODO(0009): Real Google Drive OAuth (PKCE, drive.file scope).
- *  - // TODO(0009): Real Drive API list/download (folders + files).
- *  - // TODO(0009): Background worker that runs the 30-day compression cron.
- *  - // TODO(0009): R2 storage tier transitions (originals → web-quality).
- */
+// 0009 Photo Delivery panel — wired to real OAuth + release flow.
+//
+// Server component. Renders one of three top-level states based on
+// events.photo_delivery_status:
+//
+//   idle (no Drive grant or post-disconnect)
+//     → Connect Drive CTA + 3-step explainer
+//
+//   connected | releasing | uploading | paused | complete | failed
+//     → ConnectedState — connected info card + Disconnect button + state-
+//       specific content (release button / progress poller / success /
+//       error).
+//
+// Replaces the 517-line mock client-state panel that shipped pre-2026-05-20.
+// The OAuth lib + lib/photo-delivery-release.ts + the API routes (start,
+// callback, release, disconnect, status) were already engineering-ready;
+// this rewrite hooks them up. See CLAUDE.md decision log row 446 for the
+// 0009 sync-mode + relationship clarifications that preceded this work.
 
-type DeliveryFolder = {
-  key: string;
-  vendorLabel: string;
-  vendorType: 'photographer' | 'drone' | 'video';
-  Icon: LucideIcon;
-  photoCount: number;
-  clipCount: number;
-  totalBytes: number;
-  receivedAt: string; // ISO date — fixed so the mock list doesn't change on re-render.
+export type PhotoDeliveryStatus =
+  | 'idle'
+  | 'connected'
+  | 'releasing'
+  | 'uploading'
+  | 'paused'
+  | 'complete'
+  | 'failed';
+
+type JobRollup = {
+  total_files: number;
+  uploaded_files: number;
+  total_bytes: number;
+  uploaded_bytes: number;
 };
-
-const COMPRESSION_WINDOW_DAYS = 30;
-
-// Deterministic mock list — same content on every load. The label format
-// matches the spec's "Lead photographer · 1,247 photos" pattern.
-const MOCK_FOLDERS: ReadonlyArray<DeliveryFolder> = [
-  {
-    key: 'lead-photographer',
-    vendorLabel: 'Lead photographer',
-    vendorType: 'photographer',
-    Icon: Camera,
-    photoCount: 1247,
-    clipCount: 0,
-    totalBytes: 4_200_000_000, // 4.2 GB
-    receivedAt: '2026-10-25T08:14:00.000Z',
-  },
-  {
-    key: 'second-shooter',
-    vendorLabel: 'Second shooter',
-    vendorType: 'photographer',
-    Icon: Camera,
-    photoCount: 612,
-    clipCount: 0,
-    totalBytes: 1_950_000_000, // 1.95 GB
-    receivedAt: '2026-10-25T11:42:00.000Z',
-  },
-  {
-    key: 'drone-team',
-    vendorLabel: 'Drone team',
-    vendorType: 'drone',
-    Icon: Plane,
-    photoCount: 198,
-    clipCount: 14,
-    totalBytes: 2_800_000_000, // 2.8 GB
-    receivedAt: '2026-10-26T09:05:00.000Z',
-  },
-  {
-    key: 'cinema-team',
-    vendorLabel: 'Cinema team',
-    vendorType: 'video',
-    Icon: Video,
-    photoCount: 0,
-    clipCount: 312,
-    totalBytes: 18_400_000_000, // 18.4 GB
-    receivedAt: '2026-10-26T15:30:00.000Z',
-  },
-];
-
-type PanelState = 'idle' | 'connecting' | 'connected';
 
 type Props = {
   eventId: string;
   eventName: string | null;
   eventDate: string | null;
+  syncMode: 'manual_release' | 'auto_sync';
+  status: PhotoDeliveryStatus;
+  folderName: string | null;
+  folderId: string | null;
+  accountEmail: string | null;
+  progressPct: number;
+  failedCount: number;
+  completedAt: string | null;
+  releaseError: string | null;
+  releaseStartedFlash: boolean;
+  alreadyComplete: boolean;
+  disconnectedFlash: boolean;
+  job: JobRollup | null;
 };
 
-export function PhotoDeliveryPanel({ eventId, eventName, eventDate }: Props) {
-  // Connection lifecycle: idle → connecting (2s spinner) → connected.
-  const [state, setState] = useState<PanelState>('idle');
+export function PhotoDeliveryPanel({
+  eventId,
+  eventName,
+  eventDate,
+  syncMode,
+  status,
+  folderName,
+  folderId,
+  accountEmail,
+  progressPct,
+  failedCount,
+  completedAt,
+  releaseError,
+  releaseStartedFlash,
+  alreadyComplete,
+  disconnectedFlash,
+  job,
+}: Props) {
+  const folderNamePreview = buildFolderNamePreview(eventName, eventDate);
 
-  // Per-folder downloaded-at timestamps. A non-null value means "the couple
-  // has clicked Download all on this folder" → the 30-day compression
-  // countdown is now ticking.
-  const [downloadedAt, setDownloadedAt] = useState<Record<string, number | null>>(
-    () => Object.fromEntries(MOCK_FOLDERS.map((f) => [f.key, null])),
-  );
-
-  function handleConnect() {
-    // TODO(0009): Replace with real Google OAuth (drive.file scope, PKCE).
-    // Today this just simulates the round-trip so the UI flow is honest.
-    setState('connecting');
-    window.setTimeout(() => setState('connected'), 2000);
-  }
-
-  function handleDisconnect() {
-    // TODO(0009): Call the real Drive revoke endpoint when the live OAuth lands.
-    setState('idle');
-    setDownloadedAt(Object.fromEntries(MOCK_FOLDERS.map((f) => [f.key, null])));
-  }
-
-  function handleDownload(folderKey: string) {
-    // TODO(0009): Trigger real Drive download + start the compression cron timer.
-    // For scaffold-level: stamp "downloaded now" so the countdown badge
-    // appears and the compression rule explainer is surfaced.
-    setDownloadedAt((prev) => ({ ...prev, [folderKey]: Date.now() }));
-  }
-
-  // For scaffold display only — the real folder name is built server-side
-  // when the OAuth callback creates the Drive folder.
-  const folderName = useMemo(() => {
-    const couple = eventName?.trim();
-    const date = eventDate ? eventDate.slice(0, 10) : null;
-    if (couple && date) return `Setnayan · ${couple} · ${date}`;
-    if (couple) return `Setnayan · ${couple}`;
-    return 'Setnayan · Your wedding';
-  }, [eventName, eventDate]);
-
-  if (state === 'idle' || state === 'connecting') {
+  if (status === 'idle') {
     return (
-      <ConnectState
-        connecting={state === 'connecting'}
-        onConnect={handleConnect}
-        folderName={folderName}
+      <IdleState
+        eventId={eventId}
+        folderNamePreview={folderNamePreview}
+        disconnectedFlash={disconnectedFlash}
       />
     );
   }
 
   return (
     <ConnectedState
-      folders={MOCK_FOLDERS}
-      downloadedAt={downloadedAt}
-      folderName={folderName}
-      onDownload={handleDownload}
-      onDisconnect={handleDisconnect}
       eventId={eventId}
+      syncMode={syncMode}
+      status={status}
+      folderName={folderName ?? folderNamePreview}
+      folderId={folderId}
+      accountEmail={accountEmail}
+      progressPct={progressPct}
+      failedCount={failedCount}
+      completedAt={completedAt}
+      releaseError={releaseError}
+      releaseStartedFlash={releaseStartedFlash}
+      alreadyComplete={alreadyComplete}
+      job={job}
     />
   );
 }
 
+function buildFolderNamePreview(
+  eventName: string | null,
+  eventDate: string | null,
+): string {
+  const couple = eventName?.trim();
+  const date = eventDate ? eventDate.slice(0, 10) : null;
+  if (couple && date) return `Setnayan · ${couple} · ${date}`;
+  if (couple) return `Setnayan · ${couple}`;
+  return 'Setnayan · Your wedding';
+}
+
 /* -------------------------------------------------------------------------- */
-/*  State 1: not connected (or connecting)                                    */
+/*  Idle state — Drive not yet connected (or just disconnected)               */
 /* -------------------------------------------------------------------------- */
 
-function ConnectState({
-  connecting,
-  onConnect,
-  folderName,
+function IdleState({
+  eventId,
+  folderNamePreview,
+  disconnectedFlash,
 }: {
-  connecting: boolean;
-  onConnect: () => void;
-  folderName: string;
+  eventId: string;
+  folderNamePreview: string;
+  disconnectedFlash: boolean;
 }) {
   return (
     <div className="space-y-6">
+      {disconnectedFlash ? (
+        <p
+          role="status"
+          className="inline-flex items-center gap-1.5 rounded-md bg-emerald-100/80 px-3 py-1.5 text-xs font-medium text-emerald-950"
+        >
+          <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          Drive disconnected. The files Setnayan wrote to your Drive are still yours.
+        </p>
+      ) : null}
+
       <section className="rounded-2xl border border-ink/10 bg-cream p-6 sm:p-8">
         <div className="grid gap-6 sm:grid-cols-[1fr_auto] sm:items-center">
           <div className="space-y-3">
@@ -191,7 +165,7 @@ function ConnectState({
             </h2>
             <p className="max-w-prose text-sm text-ink/65">
               Setnayan creates one folder in your Drive — named{' '}
-              <span className="font-mono text-ink">{folderName}</span> — and
+              <span className="font-mono text-ink">{folderNamePreview}</span> — and
               pushes every photographer and videographer&rsquo;s finished
               deliverables there. We use the{' '}
               <span className="font-mono">drive.file</span> scope, which means
@@ -200,29 +174,13 @@ function ConnectState({
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={onConnect}
-            disabled={connecting}
-            aria-busy={connecting}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-terracotta px-5 py-3 text-sm font-medium text-cream transition hover:bg-terracotta-600 disabled:cursor-wait disabled:opacity-80 sm:w-auto"
+          <Link
+            href={`/api/oauth/photo-delivery/start?event_id=${encodeURIComponent(eventId)}`}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-terracotta px-5 py-3 text-sm font-medium text-cream transition hover:bg-terracotta-600 sm:w-auto"
           >
-            {connecting ? (
-              <>
-                <Loader2
-                  aria-hidden
-                  className="h-4 w-4 animate-spin"
-                  strokeWidth={2.25}
-                />
-                Drive connection in progress…
-              </>
-            ) : (
-              <>
-                <CloudUpload aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                Connect Google Drive
-              </>
-            )}
-          </button>
+            <CloudUpload aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            Connect Google Drive
+          </Link>
         </div>
       </section>
 
@@ -240,8 +198,8 @@ function ConnectState({
           },
           {
             n: 3,
-            title: 'Download or share',
-            body: 'You own the archive in your Drive. Setnayan keeps a 5-year backup independently.',
+            title: 'Own the archive',
+            body: 'Photos arrive in your Drive. Setnayan keeps a 5-year backup independently in case you need a re-delivery.',
           },
         ].map((step) => (
           <li
@@ -261,28 +219,69 @@ function ConnectState({
 }
 
 /* -------------------------------------------------------------------------- */
-/*  State 2 + 3: connected (per-folder download + compression countdown)      */
+/*  Connected state — Drive linked; state-specific content inside             */
 /* -------------------------------------------------------------------------- */
 
 function ConnectedState({
-  folders,
-  downloadedAt,
-  folderName,
-  onDownload,
-  onDisconnect,
   eventId,
+  syncMode,
+  status,
+  folderName,
+  folderId,
+  accountEmail,
+  progressPct,
+  failedCount,
+  completedAt,
+  releaseError,
+  releaseStartedFlash,
+  alreadyComplete,
+  job,
 }: {
-  folders: ReadonlyArray<DeliveryFolder>;
-  downloadedAt: Record<string, number | null>;
-  folderName: string;
-  onDownload: (folderKey: string) => void;
-  onDisconnect: () => void;
   eventId: string;
+  syncMode: 'manual_release' | 'auto_sync';
+  status: Exclude<PhotoDeliveryStatus, 'idle'>;
+  folderName: string;
+  folderId: string | null;
+  accountEmail: string | null;
+  progressPct: number;
+  failedCount: number;
+  completedAt: string | null;
+  releaseError: string | null;
+  releaseStartedFlash: boolean;
+  alreadyComplete: boolean;
+  job: JobRollup | null;
 }) {
-  const anyDownloaded = Object.values(downloadedAt).some((t) => t !== null);
+  const isUploading = status === 'releasing' || status === 'uploading';
+  const isComplete = status === 'complete';
+  const isFailed = status === 'failed';
+  const isConnectedIdle = status === 'connected' || status === 'paused';
+
+  const driveFolderUrl = folderId
+    ? `https://drive.google.com/drive/folders/${folderId}`
+    : null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      {releaseError ? (
+        <p
+          role="alert"
+          className="rounded-md border border-terracotta/30 bg-terracotta/10 px-3 py-2 text-xs text-terracotta-700"
+        >
+          Could not start release: {releaseError}
+        </p>
+      ) : null}
+      {releaseStartedFlash && !releaseError ? (
+        <p
+          role="status"
+          className="inline-flex items-center gap-1.5 rounded-md bg-emerald-100/80 px-3 py-1.5 text-xs font-medium text-emerald-950"
+        >
+          <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          {alreadyComplete
+            ? 'Already up to date — no new photos to release.'
+            : 'Release started — uploads begin in the background.'}
+        </p>
+      ) : null}
+
       <section
         aria-label="Connected Drive folder"
         className="rounded-2xl border border-emerald-300/60 bg-emerald-50/70 p-4 sm:p-5"
@@ -300,217 +299,202 @@ function ConnectedState({
                 Folder:{' '}
                 <span className="font-mono text-emerald-950">{folderName}</span>
               </p>
-              <p className="text-xs text-emerald-900/80">
-                Account: <span className="font-mono">c•••@gmail.com</span>
-              </p>
+              {accountEmail ? (
+                <p className="text-xs text-emerald-900/80">
+                  Account: <span className="font-mono">{accountEmail}</span>
+                </p>
+              ) : null}
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={onDisconnect}
-            className="inline-flex items-center gap-1.5 rounded-md border border-emerald-300/70 bg-cream/60 px-3 py-1.5 text-xs font-medium text-emerald-950 hover:bg-cream"
-          >
-            Disconnect
-          </button>
+          <form action={disconnectPhotoDelivery}>
+            <input type="hidden" name="event_id" value={eventId} />
+            <button
+              type="submit"
+              className="inline-flex items-center gap-1.5 rounded-md border border-emerald-300/70 bg-cream/60 px-3 py-1.5 text-xs font-medium text-emerald-950 hover:bg-cream"
+            >
+              <Unlink2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+              Disconnect
+            </button>
+          </form>
         </div>
       </section>
 
-      <section className="space-y-3">
-        <header className="flex items-end justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">
-              Vendor deliveries
-            </h2>
-            <p className="text-sm text-ink/65">
-              Each finalized handoff your vendors push to Setnayan shows up here.
+      <ModeBanner syncMode={syncMode} isUploading={isUploading} />
+
+      {isUploading ? (
+        <ReleaseProgressPoller
+          eventId={eventId}
+          initialPct={progressPct}
+          initialUploadedFiles={job?.uploaded_files ?? 0}
+          initialTotalFiles={job?.total_files ?? 0}
+          initialUploadedBytes={job?.uploaded_bytes ?? 0}
+          initialTotalBytes={job?.total_bytes ?? 0}
+        />
+      ) : null}
+
+      {isConnectedIdle && syncMode === 'manual_release' ? (
+        <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
+          <header className="space-y-1">
+            <h3 className="text-base font-semibold text-ink">
+              Ready when you are
+            </h3>
+            <p className="max-w-prose text-sm text-ink/65">
+              Setnayan is holding your photos. When you&rsquo;ve finished
+              reviewing, release the full archive to your Drive in one pass.
             </p>
-          </div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/50">
-            {folders.length} folders
-          </p>
-        </header>
+          </header>
+          <form action={releasePhotoDelivery}>
+            <input type="hidden" name="event_id" value={eventId} />
+            <button
+              type="submit"
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream transition hover:bg-terracotta-600"
+            >
+              <CloudUpload aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              Release to Drive
+            </button>
+          </form>
+        </section>
+      ) : null}
 
-        <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-          {folders.map((folder) => (
-            <li key={folder.key}>
-              <FolderCard
-                folder={folder}
-                downloadedAt={downloadedAt[folder.key] ?? null}
-                onDownload={() => onDownload(folder.key)}
-              />
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      {anyDownloaded ? (
+      {isConnectedIdle && syncMode === 'auto_sync' ? (
         <section
-          aria-label="Compression reminder"
-          className="rounded-2xl border border-amber-300/60 bg-amber-50/60 p-4 text-sm text-amber-950 sm:p-5"
+          aria-label="Auto-sync active"
+          className="rounded-2xl border border-ink/10 bg-cream p-5"
         >
-          <div className="flex items-start gap-3">
-            <span className="mt-0.5 inline-flex h-8 w-8 flex-none items-center justify-center rounded-full bg-amber-200/80 text-amber-900">
-              <ShieldAlert aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            </span>
-            <div className="space-y-1.5">
-              <p className="font-semibold tracking-tight">
-                You&rsquo;ve downloaded — compression in 30 days
-              </p>
-              <p className="text-amber-900/85">
-                The folders you downloaded above will keep their full-resolution
-                originals on Drive for 30 days, then Setnayan compresses them to
-                web-quality JPEGs so your Drive doesn&rsquo;t balloon. Setnayan&rsquo;s
-                own 5-year backup stays untouched — you can request a re-delivery
-                at full resolution any time within that window from this page.
-              </p>
-              <p className="text-xs text-amber-900/70">
-                Event: <span className="font-mono">{eventId.slice(0, 8)}</span>
-              </p>
-            </div>
+          <p className="max-w-prose text-sm text-ink/65">
+            Photos will land in your Drive as they arrive in Setnayan. No
+            release step needed. Check this page during the event to see the
+            upload count tick up.
+          </p>
+        </section>
+      ) : null}
+
+      {isComplete ? (
+        <section className="space-y-3 rounded-2xl border border-emerald-300/60 bg-emerald-50/70 p-5">
+          <header className="space-y-1">
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-emerald-900/70">
+              Delivery complete{completedAt ? ` · ${formatCompletedAt(completedAt)}` : ''}
+            </p>
+            <h3 className="text-base font-semibold text-emerald-950">
+              All photos are in your Drive
+            </h3>
+            <p className="text-sm text-emerald-900/85">
+              {job
+                ? `${job.uploaded_files.toLocaleString('en-US')} files · ${formatBytes(job.uploaded_bytes)} delivered.`
+                : 'Your folder is ready.'}{' '}
+              Setnayan keeps a 5-year backup in case you need a re-delivery.
+            </p>
+          </header>
+          <div className="flex flex-wrap gap-2">
+            {driveFolderUrl ? (
+              <Link
+                href={driveFolderUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-medium text-cream transition hover:bg-emerald-800"
+              >
+                <ArrowUpRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                Open in Drive
+              </Link>
+            ) : null}
+            <form action={releasePhotoDelivery}>
+              <input type="hidden" name="event_id" value={eventId} />
+              <button
+                type="submit"
+                className="inline-flex items-center gap-1.5 rounded-md border border-emerald-300/70 bg-cream/60 px-3 py-1.5 text-xs font-medium text-emerald-950 hover:bg-cream"
+              >
+                <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                Re-deliver new photos
+              </button>
+            </form>
           </div>
+        </section>
+      ) : null}
+
+      {isFailed ? (
+        <section className="space-y-3 rounded-2xl border border-terracotta/40 bg-terracotta/5 p-5">
+          <header className="space-y-1">
+            <div className="flex items-center gap-2">
+              <ShieldAlert
+                aria-hidden
+                className="h-4 w-4 text-terracotta-700"
+                strokeWidth={1.75}
+              />
+              <h3 className="text-base font-semibold text-terracotta-700">
+                Upload failed
+              </h3>
+            </div>
+            <p className="text-sm text-ink/75">
+              {failedCount > 0
+                ? `${failedCount} file${failedCount === 1 ? '' : 's'} couldn't make it after several retries. `
+                : ''}
+              Setnayan still has your photos safely in R2 — retry whenever you&rsquo;re ready.
+            </p>
+          </header>
+          <form action={releasePhotoDelivery}>
+            <input type="hidden" name="event_id" value={eventId} />
+            <button
+              type="submit"
+              className="inline-flex items-center gap-1.5 rounded-md bg-terracotta px-3 py-1.5 text-xs font-medium text-cream transition hover:bg-terracotta-600"
+            >
+              <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+              Retry upload
+            </button>
+          </form>
         </section>
       ) : null}
     </div>
   );
 }
 
-function FolderCard({
-  folder,
-  downloadedAt,
-  onDownload,
+function ModeBanner({
+  syncMode,
+  isUploading,
 }: {
-  folder: DeliveryFolder;
-  downloadedAt: number | null;
-  onDownload: () => void;
+  syncMode: 'manual_release' | 'auto_sync';
+  isUploading: boolean;
 }) {
-  const { Icon } = folder;
-  const totalLabel = formatFolderTotal(folder);
-  const sizeLabel = formatBytes(folder.totalBytes);
-  const receivedLabel = formatReceivedAt(folder.receivedAt);
-  const daysRemaining =
-    downloadedAt !== null ? daysUntilCompression(downloadedAt) : null;
-
+  if (isUploading) return null;
+  if (syncMode === 'auto_sync') {
+    return (
+      <p
+        role="status"
+        className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/75"
+      >
+        <Radio aria-hidden className="h-3.5 w-3.5 text-terracotta" strokeWidth={1.75} />
+        Live sync active · photos stream to your Drive as they land in R2
+      </p>
+    );
+  }
   return (
-    <article className="flex h-full flex-col gap-4 rounded-xl border border-ink/10 bg-cream p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <span className="inline-flex h-10 w-10 flex-none items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
-            <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-          </span>
-          <div className="space-y-0.5">
-            <h3 className="text-base font-semibold text-ink">
-              {folder.vendorLabel}
-            </h3>
-            <p className="text-xs text-ink/55">{totalLabel}</p>
-          </div>
-        </div>
-
-        {downloadedAt !== null && daysRemaining !== null ? (
-          <span
-            className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-amber-900"
-            title="30-day post-download compression rule"
-          >
-            <ShieldAlert
-              aria-hidden
-              className="h-3 w-3"
-              strokeWidth={1.75}
-            />
-            Originals compress in {daysRemaining}{' '}
-            {daysRemaining === 1 ? 'day' : 'days'}
-          </span>
-        ) : null}
-      </div>
-
-      <dl className="grid grid-cols-2 gap-2 rounded-lg bg-ink/[0.03] p-3 text-xs">
-        <div>
-          <dt className="font-mono uppercase tracking-[0.15em] text-ink/50">
-            Size
-          </dt>
-          <dd className="mt-0.5 font-mono text-sm text-ink">{sizeLabel}</dd>
-        </div>
-        <div>
-          <dt className="font-mono uppercase tracking-[0.15em] text-ink/50">
-            Received
-          </dt>
-          <dd className="mt-0.5 text-sm text-ink/80">{receivedLabel}</dd>
-        </div>
-      </dl>
-
-      {downloadedAt === null ? (
-        <button
-          type="button"
-          onClick={onDownload}
-          className="mt-auto inline-flex w-full items-center justify-center gap-2 rounded-md border border-terracotta/60 bg-cream px-4 py-2 text-sm font-medium text-terracotta-700 transition hover:bg-terracotta/10"
-        >
-          <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Download all
-        </button>
-      ) : (
-        <div className="mt-auto space-y-1.5">
-          <p className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-800">
-            <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Downloaded {formatRelative(downloadedAt)}
-          </p>
-          <button
-            type="button"
-            onClick={onDownload}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-ink/15 bg-cream px-4 py-2 text-xs font-medium text-ink/75 transition hover:bg-ink/5"
-          >
-            <HardDrive aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Re-download originals
-          </button>
-        </div>
-      )}
-    </article>
+    <p
+      role="status"
+      className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/75"
+    >
+      <ShieldCheck aria-hidden className="h-3.5 w-3.5 text-terracotta" strokeWidth={1.75} />
+      Review mode · release when you&rsquo;re ready (change above)
+    </p>
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Helpers                                                                   */
-/* -------------------------------------------------------------------------- */
-
-function formatFolderTotal(folder: DeliveryFolder): string {
-  const parts: string[] = [];
-  if (folder.photoCount > 0)
-    parts.push(`${folder.photoCount.toLocaleString('en-US')} photos`);
-  if (folder.clipCount > 0)
-    parts.push(`${folder.clipCount.toLocaleString('en-US')} clips`);
-  return parts.join(' · ');
+function formatCompletedAt(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString('en-PH', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  } catch {
+    return iso.slice(0, 10);
+  }
 }
 
 function formatBytes(bytes: number): string {
-  if (bytes >= 1_000_000_000) {
-    return `${(bytes / 1_000_000_000).toFixed(1)} GB`;
-  }
-  if (bytes >= 1_000_000) {
-    return `${Math.round(bytes / 1_000_000)} MB`;
-  }
+  if (bytes >= 1_000_000_000) return `${(bytes / 1_000_000_000).toFixed(1)} GB`;
+  if (bytes >= 1_000_000) return `${Math.round(bytes / 1_000_000)} MB`;
   return `${Math.round(bytes / 1_000)} KB`;
-}
-
-function formatReceivedAt(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
-
-function daysUntilCompression(downloadedAtMs: number): number {
-  const elapsedMs = Date.now() - downloadedAtMs;
-  const elapsedDays = Math.floor(elapsedMs / (1000 * 60 * 60 * 24));
-  return Math.max(0, COMPRESSION_WINDOW_DAYS - elapsedDays);
-}
-
-function formatRelative(downloadedAtMs: number): string {
-  const elapsedMs = Date.now() - downloadedAtMs;
-  const minutes = Math.floor(elapsedMs / (1000 * 60));
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes} min ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
-  const days = Math.floor(hours / 24);
-  return `${days} ${days === 1 ? 'day' : 'days'} ago`;
 }

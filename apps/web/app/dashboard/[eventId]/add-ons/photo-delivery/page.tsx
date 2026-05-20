@@ -2,7 +2,11 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, CheckCircle2, CloudUpload, Radio, ShieldCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { PhotoDeliveryPanel } from './_components/photo-delivery-panel';
+import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  PhotoDeliveryPanel,
+  type PhotoDeliveryStatus,
+} from './_components/photo-delivery-panel';
 import {
   setPhotoDeliverySyncModeAuto,
   setPhotoDeliverySyncModeManual,
@@ -17,6 +21,10 @@ type Props = {
   searchParams: Promise<{
     sync_mode_set?: string;
     sync_mode_error?: string;
+    release_started?: string;
+    already_complete?: string;
+    release_error?: string;
+    disconnected?: string;
   }>;
 };
 
@@ -45,7 +53,9 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
 
   const { data: event } = await supabase
     .from('events')
-    .select('display_name, event_date, photo_delivery_sync_mode')
+    .select(
+      'display_name, event_date, photo_delivery_sync_mode, photo_delivery_status, photo_delivery_folder_id, photo_delivery_folder_name, photo_delivery_account_email, photo_delivery_progress_pct, photo_delivery_failed_count, photo_delivery_completed_at',
+    )
     .eq('event_id', eventId)
     .maybeSingle();
 
@@ -56,6 +66,25 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
       ? (search.sync_mode_set as SyncMode)
       : null;
   const syncModeError = search.sync_mode_error ?? null;
+
+  const deliveryStatus =
+    (event?.photo_delivery_status as PhotoDeliveryStatus | null) ?? 'idle';
+
+  // Read the latest job rollup via the admin client (RLS on photo_delivery_jobs
+  // restricts to service role). The status route uses the same pattern.
+  const adminForJobs = createAdminClient();
+  const { data: latestJob } = await adminForJobs
+    .from('photo_delivery_jobs')
+    .select('total_files, uploaded_files, total_bytes, uploaded_bytes')
+    .eq('event_id', eventId)
+    .order('started_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const releaseStartedFlash = search.release_started === '1';
+  const alreadyCompleteFlash = search.already_complete === '1';
+  const releaseErrorMsg = search.release_error ?? null;
+  const disconnectedFlash = search.disconnected === '1';
 
   return (
     <section className="space-y-6">
@@ -100,10 +129,11 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
               30-day window for full-resolution originals
             </p>
             <p className="text-amber-900/85">
-              Once a folder is downloaded, you have <span className="font-mono font-semibold">30 days</span> to
-              copy or back up the full-resolution files. After that, Setnayan
-              compresses the Drive originals to web-quality JPEGs to keep
-              your storage tidy — your Setnayan-side 5-year backup stays intact.
+              Once photos land in your Drive, you have <span className="font-mono font-semibold">30 days</span> to
+              copy or back up the originals if you want them elsewhere. After
+              that, Setnayan compresses the Drive originals to web-quality
+              JPEGs to keep your storage tidy — your Setnayan-side 5-year
+              backup stays intact.
             </p>
           </div>
         </div>
@@ -120,6 +150,28 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
         eventId={eventId}
         eventName={event?.display_name ?? null}
         eventDate={event?.event_date ?? null}
+        syncMode={syncMode}
+        status={deliveryStatus}
+        folderName={event?.photo_delivery_folder_name ?? null}
+        folderId={event?.photo_delivery_folder_id ?? null}
+        accountEmail={event?.photo_delivery_account_email ?? null}
+        progressPct={event?.photo_delivery_progress_pct ?? 0}
+        failedCount={event?.photo_delivery_failed_count ?? 0}
+        completedAt={event?.photo_delivery_completed_at ?? null}
+        releaseError={releaseErrorMsg}
+        releaseStartedFlash={releaseStartedFlash}
+        alreadyComplete={alreadyCompleteFlash}
+        disconnectedFlash={disconnectedFlash}
+        job={
+          latestJob
+            ? {
+                total_files: latestJob.total_files as number,
+                uploaded_files: latestJob.uploaded_files as number,
+                total_bytes: Number(latestJob.total_bytes),
+                uploaded_bytes: Number(latestJob.uploaded_bytes),
+              }
+            : null
+        }
       />
     </section>
   );

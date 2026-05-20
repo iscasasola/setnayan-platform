@@ -42,11 +42,13 @@ const CONCIERGE_OPTIONS: ConciergeOption[] = [
   },
 ];
 
-// V1 tile list (locked 2026-05-16). Only `wedding` is selectable per
-// iteration 0000 § 2.5; the rest render as "Coming soon" placeholders so
-// couples can see what is on the roadmap without being able to pick it yet.
+// V1 tile list (locked 2026-05-16, gender_reveal enabled 2026-05-20). The
+// V1.1 multi-event roster begins with wedding + gender_reveal; the rest
+// render as "Coming soon" placeholders so couples can see what is on the
+// roadmap without being able to pick it yet (iteration 0041).
 const EVENT_TYPES = [
   { key: 'wedding', label: 'Wedding', emoji: '💍', enabled: true },
+  { key: 'gender_reveal', label: 'Gender Reveal', emoji: '🎈', enabled: true },
   { key: 'birthday', label: 'Birthday', emoji: '🎂', enabled: false },
   { key: 'celebration', label: 'Celebration', emoji: '🥂', enabled: false },
   { key: 'travel', label: 'Travel', emoji: '✈️', enabled: false },
@@ -188,13 +190,25 @@ export function EventTypePicker({ launchStatus }: EventTypePickerProps) {
 
           {/* Iteration 0043 — two-axis wedding-type picker. Renders hidden
               inputs that the createWeddingEvent action reads into
-              ceremony_type / venue_setting / sub-type / mixed columns. */}
-          <WeddingTypePicker launchStatus={launchStatus} />
+              ceremony_type / venue_setting / sub-type / mixed columns.
+              Only relevant for wedding events; non-wedding event_types
+              (gender_reveal, etc. per iteration 0041) skip the picker so
+              the form stores ceremony defaults silently rather than asking
+              the couple a wedding-only question. */}
+          {selected.key === 'wedding' ? (
+            <WeddingTypePicker launchStatus={launchStatus} />
+          ) : null}
 
-          <ConciergeChoiceCard
-            selected={conciergeChoice}
-            onSelect={setConciergeChoice}
-          />
+          {/* Setnayan Concierge is wedding-themed (9-step wedding roadmap,
+              wedding vendor matching). Surface only for weddings; non-
+              wedding event_types default to DIY via the hidden input on
+              the form. Concierge for gender_reveal / etc. is V1.2+. */}
+          {selected.key === 'wedding' ? (
+            <ConciergeChoiceCard
+              selected={conciergeChoice}
+              onSelect={setConciergeChoice}
+            />
+          ) : null}
 
           <div className="flex flex-col gap-3 sm:flex-row">
             <SubmitButton

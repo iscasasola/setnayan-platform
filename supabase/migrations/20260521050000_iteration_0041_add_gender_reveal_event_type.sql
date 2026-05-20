@@ -1,0 +1,22 @@
+-- ============================================================================
+-- 20260521050000_iteration_0041_add_gender_reveal_event_type.sql
+--
+-- Iteration 0041 — Multi-event support. First surgical expansion of the
+-- public.event_type enum beyond wedding for V1.1: adds 'gender_reveal' so
+-- couples can create a gender-reveal event from /dashboard/create-event.
+--
+-- Spec corpus: 0041_multi_event_support/0041_multi_event_support.md.
+-- Note that the 0041 spec also names baptism / debut / anniversary /
+-- religious_event as planned V1.5 event_types — this migration is
+-- intentionally narrower (only gender_reveal) per a 2026-05-20 ask. The
+-- other 0041 enum values will land as separate per-type migrations as
+-- product surfaces support them.
+--
+-- ALTER TYPE ... ADD VALUE IS transaction-safe in PostgreSQL 12+ as long
+-- as the new value isn't used in the same transaction. This migration
+-- only adds the value; usage comes from later inserts / form submissions
+-- after the migration commits. IF NOT EXISTS keeps the migration
+-- idempotent: re-running is a no-op once 'gender_reveal' is present.
+-- ============================================================================
+
+ALTER TYPE public.event_type ADD VALUE IF NOT EXISTS 'gender_reveal';

@@ -89,50 +89,123 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  // Crash guard — every subsequent fetch is wrapped so a transient DB / RLS
+  // / column-drift failure shows a friendly error state instead of crashing
+  // the whole page with a generic Next.js 5xx digest. Sentry still captures
+  // the underlying exception via the console.error + the instrumentation
+  // hook in apps/web/sentry.server.config.ts.
+  //
+  // Added 2026-05-20 after PR #188 deploy surfaced a digest-486685855 crash
+  // on /vendor-dashboard; the actual root cause needs Sentry's stack to
+  // diagnose. This guard limits blast radius until that diagnosis lands.
+  let loaderState:
+    | {
+        ok: true;
+        profile: Awaited<ReturnType<typeof fetchOwnVendorProfile>>;
+        upcomingThreads: Awaited<ReturnType<typeof fetchVendorThreads>>;
+        completedStats: Awaited<ReturnType<typeof fetchVendorCompletedEventStats>>;
+        logoDisplayUrl: string | null;
+        portfolioDisplayMap: Record<string, string>;
+        logoDisplayMap: Record<string, string>;
+      }
+    | { ok: false; message: string };
+  try {
+    const profile = await fetchOwnVendorProfile(supabase, user.id);
+
+    // Vendor-side event-day pre-load: surface a CTA per upcoming event the
+    // vendor has a contracted relationship with (proxied through their open
+    // chat threads, which RLS already scopes to the vendor's profile).
+    const upcomingThreads = profile
+      ? (await fetchVendorThreads(supabase, profile.vendor_profile_id)).filter((t) =>
+          isUpcomingForPreload(t.event?.event_date ?? null),
+        )
+      : [];
+
+    // Completed-events count — public + full sibling views from
+    // 20260515000000_public_stats_exclusion.sql. Falls back to {0, 0} if the
+    // vendor has no row in the views yet (brand-new profile).
+    const completedStats = profile
+      ? await fetchVendorCompletedEventStats(supabase, profile.vendor_profile_id)
+      : { public_completed_count: 0, full_completed_count: 0 };
+
+    // Pre-resolve display URLs for the logo + every portfolio entry so the
+    // <FileUpload> thumbnails render on first paint without an extra
+    // round-trip. Both `displayUrlForStoredAsset` calls passes legacy http(s)
+    // values through unchanged and presigns r2:// refs with a 24h TTL.
+    const logoDisplayUrl = profile?.logo_url
+      ? await displayUrlForStoredAsset(profile.logo_url)
+      : null;
+    const portfolioDisplayMap: Record<string, string> = {};
+    if (profile?.portfolio_r2_keys?.length) {
+      const resolved = await Promise.all(
+        profile.portfolio_r2_keys.map(async (ref) => {
+          const url = await displayUrlForStoredAsset(ref);
+          return [ref, url] as const;
+        }),
+      );
+      for (const [ref, url] of resolved) {
+        if (url) portfolioDisplayMap[ref] = url;
+      }
+    }
+    const logoDisplayMap: Record<string, string> = {};
+    if (profile?.logo_url && logoDisplayUrl) {
+      logoDisplayMap[profile.logo_url] = logoDisplayUrl;
+    }
+
+    loaderState = {
+      ok: true,
+      profile,
+      upcomingThreads,
+      completedStats,
+      logoDisplayUrl,
+      portfolioDisplayMap,
+      logoDisplayMap,
+    };
+  } catch (err) {
+    // Log so Sentry's nodejs runtime hook picks it up. The thrown Error
+    // typically carries enough context (column name / RLS detail) to
+    // diagnose; without this log we only see the digest in the UI.
+    // eslint-disable-next-line no-console
+    console.error('[/vendor-dashboard] loader failed', err);
+    const message = err instanceof Error ? err.message : String(err);
+    loaderState = { ok: false, message };
+  }
+
+  if (!loaderState.ok) {
+    return (
+      <div className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
+        <header className="mb-6 flex items-start gap-3">
+          <AlertTriangle aria-hidden className="mt-0.5 h-6 w-6 shrink-0 text-terracotta" strokeWidth={1.75} />
+          <div className="space-y-1">
+            <h1 className="text-2xl font-semibold tracking-tight">Your vendor dashboard is temporarily unavailable.</h1>
+            <p className="text-sm text-ink/65">
+              We hit an error loading your profile. The Setnayan team has been notified
+              via Sentry. Refreshing in a minute usually clears transient failures;
+              if it persists, please reply to your last vendor email and we&rsquo;ll
+              dig in.
+            </p>
+          </div>
+        </header>
+        {process.env.NODE_ENV !== 'production' ? (
+          <pre className="overflow-auto rounded-md border border-ink/15 bg-ink/[0.03] p-3 text-xs text-ink/65">
+            {loaderState.message}
+          </pre>
+        ) : null}
+      </div>
+    );
+  }
+
+  const {
+    profile,
+    upcomingThreads,
+    completedStats,
+    logoDisplayUrl,
+    portfolioDisplayMap,
+    logoDisplayMap,
+  } = loaderState;
   const completion = profileCompletion(profile);
   const pct =
     completion.total === 0 ? 0 : Math.round((completion.done / completion.total) * 100);
-
-  // Vendor-side event-day pre-load: surface a CTA per upcoming event the
-  // vendor has a contracted relationship with (proxied through their open
-  // chat threads, which RLS already scopes to the vendor's profile).
-  const upcomingThreads = profile
-    ? (await fetchVendorThreads(supabase, profile.vendor_profile_id)).filter((t) =>
-        isUpcomingForPreload(t.event?.event_date ?? null),
-      )
-    : [];
-
-  // Completed-events count — public + full sibling views from
-  // 20260515000000_public_stats_exclusion.sql. Falls back to {0, 0} if the
-  // vendor has no row in the views yet (brand-new profile).
-  const completedStats = profile
-    ? await fetchVendorCompletedEventStats(supabase, profile.vendor_profile_id)
-    : { public_completed_count: 0, full_completed_count: 0 };
-
-  // Pre-resolve display URLs for the logo + every portfolio entry so the
-  // <FileUpload> thumbnails render on first paint without an extra
-  // round-trip. Both `displayUrlForStoredAsset` calls passes legacy http(s)
-  // values through unchanged and presigns r2:// refs with a 24h TTL.
-  const logoDisplayUrl = profile?.logo_url
-    ? await displayUrlForStoredAsset(profile.logo_url)
-    : null;
-  const portfolioDisplayMap: Record<string, string> = {};
-  if (profile?.portfolio_r2_keys?.length) {
-    const resolved = await Promise.all(
-      profile.portfolio_r2_keys.map(async (ref) => {
-        const url = await displayUrlForStoredAsset(ref);
-        return [ref, url] as const;
-      }),
-    );
-    for (const [ref, url] of resolved) {
-      if (url) portfolioDisplayMap[ref] = url;
-    }
-  }
-  const logoDisplayMap: Record<string, string> = {};
-  if (profile?.logo_url && logoDisplayUrl) {
-    logoDisplayMap[profile.logo_url] = logoDisplayUrl;
-  }
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">

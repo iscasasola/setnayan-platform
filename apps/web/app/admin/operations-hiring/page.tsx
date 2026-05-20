@@ -11,6 +11,7 @@ import {
   SIGNAL_THRESHOLDS,
   type SignalLevel,
 } from '@/lib/hiring-guide/types';
+import { SmokeTestPanel } from './_components/smoke-test-panel';
 
 export const metadata = { title: 'Operations & Hiring · Growth Cockpit · Admin' };
 
@@ -252,6 +253,9 @@ export default async function OperationsHiringPage() {
           <p className="mt-3 text-sm text-ink/50">Roadmap not seeded — run migration.</p>
         )}
       </section>
+
+      {/* Smoke tests */}
+      <SmokeTestPanel />
 
       {/* Footer note */}
       <footer className="rounded-lg border border-ink/10 bg-ink/[0.02] p-4 text-xs text-ink/60 space-y-2">

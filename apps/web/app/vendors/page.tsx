@@ -1,13 +1,9 @@
 import Link from 'next/link';
-import { Star, Search, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Star, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Logo as BrandLogo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import {
-  VENDOR_CATEGORIES,
-  type VendorCategory,
-  displayServiceLabel,
-} from '@/lib/vendors';
+import { displayServiceLabel } from '@/lib/vendors';
 import {
   PUBLIC_SURFACE_VISIBILITIES,
   isBookable,
@@ -16,10 +12,17 @@ import {
 } from '@/lib/vendor-visibility';
 import { fetchActiveAdLookups, type ActiveAdLookup } from '@/lib/vendor-ads';
 import { fetchReviewStatsForMany, formatStarRating } from '@/lib/reviews';
-import { CategoryFilterChips } from '@/app/_components/category-filter-chips';
 import { EventTypeNotifyForm } from './_components/event-type-notify-form';
 import { TaxonomySearch, type TaxonomyOption } from './_components/taxonomy-search';
-import { TAXONOMY_MAP, type MegaMenuColumn } from '@/lib/taxonomy';
+import { CategoryTile, type CategoryTileData } from './_components/category-tile';
+import { MegaColumnTabs, type MegaColumnTab } from './_components/mega-column-tabs';
+import {
+  TAXONOMY_MAP,
+  MEGA_MENU_COLUMN_LABEL,
+  type MegaMenuColumn,
+  type TaxonomyPhase,
+} from '@/lib/taxonomy';
+import { fetchVendorCountsByService } from '@/lib/vendor-counts';
 import { fetchUserEvents } from '@/lib/events';
 import { FollowGate } from '@/app/_components/follow-gate';
 
@@ -263,6 +266,30 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     }
   }
 
+  // Catalog mode — landing view when no narrowing filter is set. Renders the
+  // full 192-category taxonomy grouped by mega-column so couples see the full
+  // breadth of services Setnayan covers, even before vendor pools fill in.
+  // Replaces the bare empty-state that previously rendered when zero vendors
+  // satisfied the publishing gate. Any filter (category, search, city,
+  // verified-only, match, event_type) drops the user into vendor-grid mode
+  // below so they can drill into a specific service.
+  const isCatalogMode =
+    !filters.category &&
+    !filters.q &&
+    !filters.city &&
+    !filters.verifiedOnly &&
+    !filters.matchEvent &&
+    !filters.eventType;
+
+  if (isCatalogMode) {
+    return (
+      <CatalogView
+        admin={admin}
+        matchableEvent={matchableEvent}
+      />
+    );
+  }
+
   // Build the base query. Visibility filter is the new authoritative gate
   // (Decision 6 / 2026-05-15): default shows both 'verified' AND 'coming_soon';
   // the "Verified only" toggle restricts to verified-bookable vendors. The
@@ -458,44 +485,27 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           </p>
         </div>
 
-        <div className="mt-6">
-          {/* The chip UI only highlights the 28-enum VendorCategory keys.
-            * A canonical_service from the 192-taxonomy (set by the
-            * autocomplete / taxonomy browser) won't match any chip —
-            * narrow to null so the chip row stays neutral. The URL
-            * category param is still preserved by the hidden input
-            * inside FilterBar so the filter survives Apply clicks. */}
-          <CategoryFilterChips
-            currentCategory={
-              filters.category &&
-              (VENDOR_CATEGORIES as readonly string[]).includes(filters.category)
-                ? (filters.category as VendorCategory)
-                : null
-            }
-            context={{
-              q: filters.q,
-              city: filters.city,
-              sort: filters.sort,
-              verifiedOnly: filters.verifiedOnly,
-              matchEvent: filters.matchEvent,
-            }}
-          />
-        </div>
-
-        {/* Prominent affordance for the full 192-item taxonomy. The 6
-          * mega-category chips above are the fast path; this button is
-          * the "I know exactly what I'm looking for" path (e.g. "drone
-          * operator", "lechon station"). Previously this link lived
-          * inline in the header paragraph and read as decorative text. */}
-        <div className="mt-4">
+        {/* Vendor-grid mode is reached only when a narrowing filter is set
+          * (category, search, city, verified, match). The mega-column
+          * catalog view above is unfiltered. A back-affordance is the
+          * primary way to return to the 192-category catalog. */}
+        <div className="mt-6 flex flex-wrap items-baseline justify-between gap-3">
           <Link
-            href="/vendors/categories"
-            className="inline-flex items-center gap-2 rounded-xl border border-terracotta/30 bg-terracotta/5 px-4 py-2.5 text-sm font-medium text-terracotta-700 transition hover:border-terracotta hover:bg-terracotta/10"
+            href="/vendors"
+            className="inline-flex items-center gap-1 text-sm font-medium text-terracotta underline-offset-4 hover:underline"
           >
-            <Search aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            Browse all 192 vendor sub-categories
-            <span aria-hidden>→</span>
+            <ChevronLeft className="h-4 w-4" strokeWidth={2} aria-hidden />
+            Browse all 192 categories
           </Link>
+          {filters.category ? (
+            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+              Showing: {taxonomyLabel(filters.category)}
+            </p>
+          ) : filters.q ? (
+            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+              Search: &ldquo;{filters.q}&rdquo;
+            </p>
+          ) : null}
         </div>
 
         <FilterBar filters={filters} matchableEvent={matchableEvent} />
@@ -997,5 +1007,276 @@ function PageLink({
       {label}
       {icon === 'next' ? <ChevronRight className="h-4 w-4" /> : null}
     </Link>
+  );
+}
+
+// ─── Catalog mode ──────────────────────────────────────────────────────────
+// Unfiltered landing view. Renders the full 192-category taxonomy grouped by
+// the 5 mega-columns so couples see the breadth of services Setnayan covers
+// even before vendor pools fill in. Per-tile vendor counts come from
+// `fetchVendorCountsByService`; categories with zero vendors render in a
+// "Recruiting" or "Coming soon" state per the live phase of the canonical
+// service (see `lib/taxonomy.ts`).
+
+type CatalogSchemaRow = {
+  canonical_service: string;
+  display_name_en: string;
+  display_name_tl: string | null;
+};
+
+const MEGA_COLUMN_SLUG: Record<MegaMenuColumn, string> = {
+  1: 'capture',
+  2: 'music',
+  3: 'food',
+  4: 'look',
+  5: 'coordination',
+};
+
+const MEGA_COLUMN_SHORT_LABEL: Record<MegaMenuColumn, string> = {
+  1: 'Capture',
+  2: 'Music',
+  3: 'Food',
+  4: 'Look',
+  5: 'Coordination',
+};
+
+const CATALOG_PHASE_RANK: Record<TaxonomyPhase, number> = {
+  'V1.1 base': 0,
+  'V1.1.1': 1,
+  'V1.1.2': 2,
+  'V1.1.3': 3,
+  'V1.1.4': 4,
+  'V1.1.5': 5,
+  'V1.1.6': 6,
+  'V1.2': 7,
+  'V1.3': 8,
+  'V1.4': 9,
+  'V1.5+': 10,
+};
+
+async function CatalogView({
+  admin,
+  matchableEvent,
+}: {
+  admin: ReturnType<typeof createAdminClient>;
+  matchableEvent: { ceremony_type: string; venue_setting: string } | null;
+}) {
+  // Single round-trip per page render — both reads are admin-scoped because
+  // anonymous visitors hit this route and `vendor_profiles` is gated by RLS.
+  const [{ data: schemaRows }, vendorCounts] = await Promise.all([
+    admin
+      .from('canonical_service_schemas')
+      .select('canonical_service, display_name_en, display_name_tl')
+      .order('display_name_en', { ascending: true }),
+    fetchVendorCountsByService(admin),
+  ]);
+
+  const schemas = (schemaRows ?? []) as CatalogSchemaRow[];
+
+  // Bucket every schema row into its mega-column. Rows whose canonical_service
+  // is missing from TAXONOMY_MAP are dropped — same behaviour as the legacy
+  // /vendors/categories page; the admin viewer surfaces drift separately.
+  const buckets = new Map<MegaMenuColumn, CategoryTileData[]>();
+  for (const col of [1, 2, 3, 4, 5] as MegaMenuColumn[]) {
+    buckets.set(col, []);
+  }
+  for (const row of schemas) {
+    const meta = TAXONOMY_MAP[row.canonical_service];
+    if (!meta) continue;
+    buckets.get(meta.column)?.push({
+      canonicalService: row.canonical_service,
+      displayNameEn: row.display_name_en,
+      displayNameTl: row.display_name_tl,
+      meta,
+      count: vendorCounts.get(row.canonical_service) ?? null,
+    });
+  }
+
+  // Sort each column: populated first (highest total), then live-phase
+  // recruiting, then future-phase. Inside each tier, alphabetical.
+  for (const tiles of buckets.values()) {
+    tiles.sort((a, b) => {
+      const aTotal = a.count?.total ?? 0;
+      const bTotal = b.count?.total ?? 0;
+      if (aTotal !== bTotal) return bTotal - aTotal;
+      const aRank = CATALOG_PHASE_RANK[a.meta.phase] ?? 99;
+      const bRank = CATALOG_PHASE_RANK[b.meta.phase] ?? 99;
+      if (aRank !== bRank) return aRank - bRank;
+      return a.displayNameEn.localeCompare(b.displayNameEn);
+    });
+  }
+
+  const totalCategories = schemas.filter((r) => TAXONOMY_MAP[r.canonical_service]).length;
+  const totalLive = schemas.filter(
+    (r) => (vendorCounts.get(r.canonical_service)?.total ?? 0) > 0,
+  ).length;
+
+  const tabs: MegaColumnTab[] = ([1, 2, 3, 4, 5] as MegaMenuColumn[]).map((col) => ({
+    column: col,
+    label: MEGA_COLUMN_SHORT_LABEL[col],
+    slug: MEGA_COLUMN_SLUG[col],
+    count: buckets.get(col)?.length ?? 0,
+  }));
+
+  return (
+    <main className="min-h-dvh bg-cream">
+      <header className="border-b border-ink/5">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+          <Link href="/" className="flex items-center text-ink">
+            <BrandLogo height={32} withWordmark />
+          </Link>
+          <Link
+            href="/signup"
+            className="hidden text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline sm:inline"
+          >
+            Plan with Setnayan
+          </Link>
+        </div>
+      </header>
+
+      <section
+        id="all"
+        className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8"
+      >
+        <div className="space-y-3">
+          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
+            Marketplace
+          </p>
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            Browse Filipino wedding vendors.
+          </h1>
+          <p className="max-w-prose text-base text-ink/65">
+            Every service Setnayan covers — {totalCategories} categories across
+            five mega-columns.{' '}
+            {totalLive > 0 ? (
+              <>
+                <span className="font-medium text-ink">{totalLive}</span> have
+                verified vendors today; the rest are recruiting now or rolling
+                out by phase. Tap any tile to drill in.
+              </>
+            ) : (
+              <>
+                Setnayan is in soft launch — vendor pools are filling in by
+                category each week. Tap a tile to see who&rsquo;s onboarded
+                already or get notified when a category opens.
+              </>
+            )}
+          </p>
+        </div>
+
+        <CatalogFilterBar matchableEvent={matchableEvent} />
+
+        <MegaColumnTabs tabs={tabs} totalCount={totalCategories} />
+
+        {([1, 2, 3, 4, 5] as MegaMenuColumn[]).map((col) => {
+          const tiles = buckets.get(col) ?? [];
+          if (tiles.length === 0) return null;
+          return (
+            <section
+              key={col}
+              id={MEGA_COLUMN_SLUG[col]}
+              className="scroll-mt-20 pt-8 sm:pt-10"
+              aria-labelledby={`${MEGA_COLUMN_SLUG[col]}-heading`}
+            >
+              <header className="mb-4 flex items-baseline justify-between gap-3 border-b border-ink/10 pb-2">
+                <h2
+                  id={`${MEGA_COLUMN_SLUG[col]}-heading`}
+                  className="text-xl font-semibold tracking-tight text-ink sm:text-2xl"
+                >
+                  <span className="font-mono text-xs text-ink/50">
+                    Column {col}
+                  </span>{' '}
+                  · {MEGA_MENU_COLUMN_LABEL[col]}
+                </h2>
+                <span className="font-mono text-xs text-ink/55">
+                  {tiles.length} categories
+                </span>
+              </header>
+              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {tiles.map((tile) => (
+                  <li key={tile.canonicalService}>
+                    <CategoryTile data={tile} />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          );
+        })}
+      </section>
+    </main>
+  );
+}
+
+// Slim filter form for catalog mode — only the inputs that make sense pre-
+// drill-in. Picking a search suggestion or submitting the form router-pushes
+// into vendor-grid mode for the matching category.
+function CatalogFilterBar({
+  matchableEvent,
+}: {
+  matchableEvent: { ceremony_type: string; venue_setting: string } | null;
+}) {
+  return (
+    <form
+      method="get"
+      action="/vendors"
+      className="mt-6 grid gap-3 rounded-2xl border border-ink/10 bg-cream p-4 sm:grid-cols-2 lg:grid-cols-3"
+    >
+      <label className="flex flex-col gap-1 lg:col-span-2">
+        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+          Search any of 192 categories
+        </span>
+        <TaxonomySearch
+          initialQuery=""
+          options={TAXONOMY_OPTIONS}
+          preserve={{
+            city: '',
+            sort: 'most_reviews',
+            verifiedOnly: false,
+            matchEvent: false,
+            eventType: null,
+          }}
+        />
+      </label>
+
+      <label className="flex flex-col gap-1">
+        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+          City (optional)
+        </span>
+        <input
+          type="text"
+          name="city"
+          placeholder="Manila, Cebu…"
+          className="input-field"
+        />
+      </label>
+
+      {matchableEvent ? (
+        <label className="flex items-center gap-2 text-sm text-ink/75 lg:col-span-3">
+          <input
+            type="checkbox"
+            name="match"
+            value="1"
+            className="h-4 w-4 rounded border-ink/25 text-terracotta focus:ring-terracotta/40"
+          />
+          <span>
+            <span className="font-medium">Match my wedding</span>
+            <span className="ml-2 text-ink/55">
+              (compatible with{' '}
+              <span className="font-mono">{matchableEvent.ceremony_type}</span> ·{' '}
+              <span className="font-mono">
+                {matchableEvent.venue_setting.replace(/_/g, ' ')}
+              </span>
+              )
+            </span>
+          </span>
+        </label>
+      ) : null}
+
+      <div className="lg:col-span-3">
+        <button type="submit" className="button-primary px-5">
+          Apply filters
+        </button>
+      </div>
+    </form>
   );
 }

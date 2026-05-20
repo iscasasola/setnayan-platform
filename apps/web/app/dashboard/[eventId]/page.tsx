@@ -12,6 +12,7 @@ import {
   Receipt,
   Bell,
   FileSignature,
+  UserPlus,
   ArrowRight,
   CheckCircle2,
   Circle,
@@ -64,6 +65,7 @@ const STAGES: Stage[] = [
 ];
 
 type TileKey =
+  | 'hosts'
   | 'guests'
   | 'invitation'
   | 'vendors'
@@ -82,6 +84,7 @@ const TILES: Array<{
   Icon: LucideIcon;
   href: (eventId: string) => string;
 }> = [
+  { key: 'hosts', labelKey: 'nav.hosts', Icon: UserPlus, href: (id) => `/dashboard/${id}/hosts` },
   { key: 'guests', labelKey: 'nav.guests', Icon: Users, href: (id) => `/dashboard/${id}/guests` },
   { key: 'invitation', labelKey: 'nav.invitation', Icon: Send, href: (id) => `/dashboard/${id}/invitation` },
   { key: 'vendors', labelKey: 'nav.vendors', Icon: Briefcase, href: (id) => `/dashboard/${id}/vendors` },

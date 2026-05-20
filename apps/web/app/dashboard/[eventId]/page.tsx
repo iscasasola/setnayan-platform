@@ -48,6 +48,7 @@ import { toggleJourneyStep } from './actions';
 import { EventDayPrepCta } from '@/app/_components/event-day-prep-cta';
 import { AutoPreloadOnEventDay } from '@/app/_components/auto-preload-on-event-day';
 import { PlanningGroups } from './_components/planning-groups';
+import { EventDateInput } from './_components/event-date-input';
 import type { VendorCategory } from '@/lib/vendors';
 
 export const dynamic = 'force-dynamic';
@@ -306,6 +307,8 @@ export default async function EventHomePage({
         eventDate={event.event_date}
         daysOut={daysOut}
       />
+
+      <EventDateInput eventId={eventId} initial={event.event_date ?? null} />
 
       <StageStrip stage={stage} />
 

@@ -56,6 +56,31 @@ type PublicVendorRow = {
   contact_email: string | null;
   contact_phone: string | null;
   public_visibility: VendorPublicVisibility;
+  compatible_ceremony_types: string[] | null;
+  compatible_venue_settings: string[] | null;
+};
+
+// Iteration 0043 — labels for wedding-type compatibility badges rendered on
+// the public vendor profile. Mirror the vendor-dashboard editor labels so
+// the badge text matches what the vendor saw when they ticked the box.
+const CEREMONY_TYPE_LABELS: Readonly<Record<string, string>> = {
+  catholic: 'Catholic',
+  civil: 'Civil',
+  inc: 'INC',
+  christian: 'Christian',
+  muslim: 'Muslim',
+  cultural: 'Cultural',
+  mixed: 'Mixed / interfaith',
+};
+
+const VENUE_SETTING_LABELS: Readonly<Record<string, string>> = {
+  banquet_hall: 'Banquet hall',
+  garden: 'Garden',
+  beach: 'Beach',
+  destination: 'Destination',
+  heritage: 'Heritage',
+  outdoor_tent: 'Outdoor tent',
+  civil_registrar: 'Civil registrar',
 };
 
 async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
@@ -63,7 +88,7 @@ async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
   const { data } = await admin
     .from('vendor_profiles')
     .select(
-      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,website,contact_email,contact_phone,public_visibility',
+      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings',
     )
     .ilike('business_slug', slug)
     .maybeSingle();
@@ -222,6 +247,49 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
                 </li>
               ))}
             </ul>
+          </section>
+        ) : null}
+
+        {(vendor.compatible_ceremony_types && vendor.compatible_ceremony_types.length > 0) ||
+        (vendor.compatible_venue_settings && vendor.compatible_venue_settings.length > 0) ? (
+          <section className="space-y-4 border-b border-ink/10 py-8">
+            <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+              Wedding compatibility
+            </h2>
+            {vendor.compatible_ceremony_types && vendor.compatible_ceremony_types.length > 0 ? (
+              <div className="space-y-2">
+                <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+                  Ceremonies
+                </p>
+                <ul className="flex flex-wrap gap-2">
+                  {vendor.compatible_ceremony_types.map((ct) => (
+                    <li
+                      key={ct}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-ink/[0.05] px-3 py-1 text-sm text-ink/75"
+                    >
+                      {CEREMONY_TYPE_LABELS[ct] ?? ct}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {vendor.compatible_venue_settings && vendor.compatible_venue_settings.length > 0 ? (
+              <div className="space-y-2">
+                <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+                  Venues
+                </p>
+                <ul className="flex flex-wrap gap-2">
+                  {vendor.compatible_venue_settings.map((v) => (
+                    <li
+                      key={v}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-ink/[0.05] px-3 py-1 text-sm text-ink/75"
+                    >
+                      {VENUE_SETTING_LABELS[v] ?? v.replace(/_/g, ' ')}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </section>
         ) : null}
 

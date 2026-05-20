@@ -93,29 +93,29 @@ export async function fetchOwnVendorProfile(
     .eq('user_id', userId)
     .maybeSingle();
   if (error) {
-    // Most likely: 0043 migration not yet applied to this database — the
-    // compatible_* columns don't exist. Retry without them and surface
-    // null compatibility on the returned row. Anything else still throws.
-    // Migrations the fallback tolerates: 20260521000000 (compatible_*) and
-    // 20260521090000 (event_types). Both column families surface as
-    // PostgREST 42703 / "column does not exist" until applied.
-    const missingNewerColumns =
-      typeof error.message === 'string' &&
-      (error.message.includes('compatible_ceremony_types') ||
-        error.message.includes('compatible_venue_settings') ||
-        error.message.includes('event_types') ||
-        // PostgREST returns 42703 for "column does not exist"
-        (error as { code?: string }).code === '42703');
-    if (!missingNewerColumns) {
-      throw new Error(`fetchOwnVendorProfile failed: ${error.message}`);
-    }
+    // Defensive fallback (hardened 2026-05-20 after digest-486685855 crash):
+    // always retry against the legacy SELECT regardless of error shape. The
+    // original fallback only fired on 42703 / "column does not exist" but
+    // other failure modes (RLS edge, expired JWT, transient PostgREST 500)
+    // crashed the page with a generic 5xx. We now log the first-attempt
+    // error via console.error so Sentry's nodejs runtime hook captures it
+    // for diagnosis, then try the LEGACY select as a graceful fallback.
+    // Worst case: legacy also fails → we throw with both error messages.
+    // eslint-disable-next-line no-console
+    console.error('[fetchOwnVendorProfile] FULL select failed; falling back to LEGACY', {
+      user_id: userId,
+      error_code: (error as { code?: string }).code,
+      error_message: error.message,
+    });
     const fallback = await supabase
       .from('vendor_profiles')
       .select(LEGACY_VENDOR_PROFILE_SELECT)
       .eq('user_id', userId)
       .maybeSingle();
     if (fallback.error) {
-      throw new Error(`fetchOwnVendorProfile failed: ${fallback.error.message}`);
+      throw new Error(
+        `fetchOwnVendorProfile failed: FULL=[${error.message}] LEGACY=[${fallback.error.message}]`,
+      );
     }
     if (!fallback.data) return null;
     data = {

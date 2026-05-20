@@ -22,6 +22,10 @@ type Props = {
     saved?: string;
     removed?: string;
     add?: string;
+    /** Comma-separated field keys that are still missing for the saved
+     *  service's visibility gate. Set by saveVendorServiceAttribute when
+     *  the save succeeded but minimum_fields aren't all populated yet. */
+    missing?: string;
   }>;
 };
 
@@ -144,6 +148,19 @@ export default async function VendorAttributesPage({ searchParams }: Props) {
   const error = search.error ? decodeURIComponent(search.error) : null;
   const savedService = search.saved ? decodeURIComponent(search.saved) : null;
   const removed = search.removed === '1';
+  const missingFields = search.missing
+    ? decodeURIComponent(search.missing).split(',').filter((s) => s.length > 0)
+    : [];
+
+  // Unknown ?add= service surfaces an explicit error banner so vendors
+  // don't pick something invalid and silently see no form. The page-load
+  // try/catch handled the fetch failure already; this catches the case
+  // where the fetch succeeded but returned null (canonical_service not in
+  // the catalog).
+  const requestedAdd = (search.add ?? '').trim();
+  const unknownAddService =
+    requestedAdd.length > 0 && addCandidateSchema === null
+      && !payloads.some((p) => p.canonical_service === requestedAdd);
 
   // Catalog rows the vendor hasn't added yet — these populate the
   // "Add another service" dropdown. Already-saved canonicals are filtered
@@ -175,14 +192,29 @@ export default async function VendorAttributesPage({ searchParams }: Props) {
           {error}
         </div>
       ) : null}
-      {savedService ? (
+      {savedService && missingFields.length === 0 ? (
         <div role="status" className="mb-5 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
           Saved attributes for <span className="font-medium">{savedService}</span>.
+        </div>
+      ) : null}
+      {savedService && missingFields.length > 0 ? (
+        <div role="status" className="mb-5 rounded-md border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Saved <span className="font-medium">{savedService}</span> — but your listing
+          won&rsquo;t surface in the marketplace yet. Still missing for the visibility gate:{' '}
+          <span className="font-mono text-xs">{missingFields.join(', ')}</span>.
+          Fill those in and save again to flip the listing-ready badge.
         </div>
       ) : null}
       {removed ? (
         <div role="status" className="mb-5 rounded-md border border-ink/15 bg-cream px-4 py-3 text-sm text-ink/70">
           Removed that service&rsquo;s attribute payload.
+        </div>
+      ) : null}
+      {unknownAddService ? (
+        <div role="alert" className="mb-5 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
+          <span className="font-medium">Unknown service: </span>
+          <span className="font-mono">{requestedAdd}</span> isn&rsquo;t in the catalog.
+          Pick a different one from the dropdown above.
         </div>
       ) : null}
 

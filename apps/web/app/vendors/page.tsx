@@ -15,26 +15,47 @@ import { fetchReviewStatsForMany, formatStarRating } from '@/lib/reviews';
 import { EventTypeNotifyForm } from './_components/event-type-notify-form';
 import { TaxonomySearch, type TaxonomyOption } from './_components/taxonomy-search';
 import { CategoryTile, type CategoryTileData } from './_components/category-tile';
-import { MegaColumnTabs, type MegaColumnTab } from './_components/mega-column-tabs';
+import { FolderTabs, type FolderTab } from './_components/mega-column-tabs';
 import {
   TAXONOMY_MAP,
-  MEGA_MENU_COLUMN_LABEL,
-  type MegaMenuColumn,
+  WEDDING_FOLDER_LABEL,
+  WEDDING_FOLDER_ORDER,
+  WEDDING_FOLDER_SHORT_LABEL,
+  WEDDING_FOLDER_SLUG,
+  type WeddingFolder,
   type TaxonomyPhase,
 } from '@/lib/taxonomy';
 import { fetchVendorCountsByService } from '@/lib/vendor-counts';
 import { fetchUserEvents } from '@/lib/events';
 import { FollowGate } from '@/app/_components/follow-gate';
 
-// Short column hints rendered as secondary text in each autocomplete row.
-// Full labels in MEGA_MENU_COLUMN_LABEL are too long for a dropdown row.
-const SHORT_COLUMN_LABEL: Record<MegaMenuColumn, string> = {
-  1: 'Capture',
-  2: 'Music',
-  3: 'Food',
-  4: 'Look',
-  5: 'Coordination',
-};
+// Mirrors TaxonomyEntry['faith']. `null` covers two cases: anonymous browse
+// (no event linked) AND civil ceremonies (secular by nature — no faith tag
+// applies). In both cases the religion-default-on filter doesn't fire.
+type CoupleFaith =
+  | 'Catholic'
+  | 'Christian'
+  | 'INC'
+  | 'Muslim'
+  | 'Cultural'
+  | null;
+
+function mapCeremonyTypeToFaith(ceremonyType: string): CoupleFaith {
+  switch (ceremonyType) {
+    case 'catholic':
+      return 'Catholic';
+    case 'christian':
+      return 'Christian';
+    case 'inc':
+      return 'INC';
+    case 'muslim':
+      return 'Muslim';
+    case 'cultural':
+      return 'Cultural';
+    default:
+      return null;
+  }
+}
 
 // Derive a human-readable label from a snake_case canonical_service key.
 // Pre-baked overrides for cases that don't title-case cleanly (acronyms,
@@ -61,7 +82,7 @@ const TAXONOMY_OPTIONS: ReadonlyArray<TaxonomyOption> = Object.entries(
   .map(([key, meta]) => ({
     key,
     label: taxonomyLabel(key),
-    column: SHORT_COLUMN_LABEL[meta.column],
+    column: WEDDING_FOLDER_SHORT_LABEL[meta.folder],
   }))
   .sort((a, b) => a.label.localeCompare(b.label));
 
@@ -266,6 +287,23 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     }
   }
 
+  // Religion-default-on (2026-05-20): when a couple has set their ceremony_type
+  // and venue_setting, default the marketplace filter to ON so faith-
+  // incompatible vendors + catalog tiles auto-hide. Couples toggle off via
+  // ?match=0 (the "Show all faiths" pill). Anonymous visitors and couples
+  // without a ceremony_type get the unfiltered universe by default.
+  const coupleFaith: CoupleFaith = matchableEvent
+    ? mapCeremonyTypeToFaith(matchableEvent.ceremony_type)
+    : null;
+  if (
+    matchableEvent &&
+    raw.match !== '0' &&
+    raw.match !== 'off' &&
+    !filters.matchEvent
+  ) {
+    filters = { ...filters, matchEvent: true };
+  }
+
   // Catalog mode — landing view when no narrowing filter is set. Renders the
   // full 192-category taxonomy grouped by mega-column so couples see the full
   // breadth of services Setnayan covers, even before vendor pools fill in.
@@ -286,6 +324,8 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       <CatalogView
         admin={admin}
         matchableEvent={matchableEvent}
+        matchEvent={filters.matchEvent}
+        coupleFaith={coupleFaith}
       />
     );
   }
@@ -1028,32 +1068,20 @@ function PageLink({
 
 // ─── Catalog mode ──────────────────────────────────────────────────────────
 // Unfiltered landing view. Renders the full 192-category taxonomy grouped by
-// the 5 mega-columns so couples see the breadth of services Setnayan covers
-// even before vendor pools fill in. Per-tile vendor counts come from
-// `fetchVendorCountsByService`; categories with zero vendors render in a
-// "Recruiting" or "Coming soon" state per the live phase of the canonical
+// the 12 PH-grounded wedding folders so couples see the breadth of services
+// Setnayan covers even before vendor pools fill in. Per-tile vendor counts
+// come from `fetchVendorCountsByService`; categories with zero vendors render
+// in a "Recruiting" or "Coming soon" state per the live phase of the canonical
 // service (see `lib/taxonomy.ts`).
+//
+// Folder #2 (Reception) is filter-only — backed by the venue_setting enum
+// rather than canonical_services. Rendered as a special section with seven
+// venue-type chips that drill into the marketplace filtered by setting.
 
 type CatalogSchemaRow = {
   canonical_service: string;
   display_name_en: string;
   display_name_tl: string | null;
-};
-
-const MEGA_COLUMN_SLUG: Record<MegaMenuColumn, string> = {
-  1: 'capture',
-  2: 'music',
-  3: 'food',
-  4: 'look',
-  5: 'coordination',
-};
-
-const MEGA_COLUMN_SHORT_LABEL: Record<MegaMenuColumn, string> = {
-  1: 'Capture',
-  2: 'Music',
-  3: 'Food',
-  4: 'Look',
-  5: 'Coordination',
 };
 
 const CATALOG_PHASE_RANK: Record<TaxonomyPhase, number> = {
@@ -1070,12 +1098,34 @@ const CATALOG_PHASE_RANK: Record<TaxonomyPhase, number> = {
   'V1.5+': 10,
 };
 
+// Reception folder facets — surfaced as chips that drill into the marketplace
+// filtered by venue_setting via the existing `?city=` proxy until V1.2 ships
+// dedicated venue routing. Combined-venue badge marks settings that also host
+// the ceremony (garden, beach, destination, heritage, outdoor_tent).
+const RECEPTION_VENUE_FACETS: ReadonlyArray<{
+  key: string;
+  label: string;
+  combined: boolean;
+}> = [
+  { key: 'banquet_hall',    label: 'Hotel Ballroom / Banquet Hall', combined: false },
+  { key: 'garden',          label: 'Garden Estate',                 combined: true },
+  { key: 'beach',           label: 'Beach',                         combined: true },
+  { key: 'destination',     label: 'Destination Resort',            combined: true },
+  { key: 'heritage',        label: 'Heritage / Hacienda',           combined: true },
+  { key: 'outdoor_tent',    label: 'Outdoor Tent',                  combined: true },
+  { key: 'civil_registrar', label: "Civil Registrar's Office",      combined: false },
+];
+
 async function CatalogView({
   admin,
   matchableEvent,
+  matchEvent,
+  coupleFaith,
 }: {
   admin: ReturnType<typeof createAdminClient>;
   matchableEvent: { ceremony_type: string; venue_setting: string } | null;
+  matchEvent: boolean;
+  coupleFaith: CoupleFaith;
 }) {
   // Single round-trip per page render — both reads are admin-scoped because
   // anonymous visitors hit this route and `vendor_profiles` is gated by RLS.
@@ -1089,17 +1139,32 @@ async function CatalogView({
 
   const schemas = (schemaRows ?? []) as CatalogSchemaRow[];
 
-  // Bucket every schema row into its mega-column. Rows whose canonical_service
+  // Religion-default-on: when the couple has a faith (ceremony_type maps to
+  // Catholic/Christian/INC/Muslim/Cultural), hide tiles tagged for OTHER
+  // faiths. Untagged tiles always surface — they're the cross-faith base.
+  // Civil couples (coupleFaith=null) keep all faith-tagged tiles hidden when
+  // matchEvent is on. Anonymous visitors see everything.
+  const religionFilteringActive = matchEvent && matchableEvent !== null;
+  const passesReligionFilter = (
+    meta: { faith?: 'Catholic' | 'Christian' | 'INC' | 'Muslim' | 'Cultural' },
+  ): boolean => {
+    if (!religionFilteringActive) return true;
+    if (!meta.faith) return true;
+    return meta.faith === coupleFaith;
+  };
+
+  // Bucket every schema row into its wedding folder. Rows whose canonical_service
   // is missing from TAXONOMY_MAP are dropped — same behaviour as the legacy
   // /vendors/categories page; the admin viewer surfaces drift separately.
-  const buckets = new Map<MegaMenuColumn, CategoryTileData[]>();
-  for (const col of [1, 2, 3, 4, 5] as MegaMenuColumn[]) {
-    buckets.set(col, []);
+  const buckets = new Map<WeddingFolder, CategoryTileData[]>();
+  for (const folder of WEDDING_FOLDER_ORDER) {
+    buckets.set(folder, []);
   }
   for (const row of schemas) {
     const meta = TAXONOMY_MAP[row.canonical_service];
     if (!meta) continue;
-    buckets.get(meta.column)?.push({
+    if (!passesReligionFilter(meta)) continue;
+    buckets.get(meta.folder)?.push({
       canonicalService: row.canonical_service,
       displayNameEn: row.display_name_en,
       displayNameTl: row.display_name_tl,
@@ -1108,7 +1173,7 @@ async function CatalogView({
     });
   }
 
-  // Sort each column: populated first (highest total), then live-phase
+  // Sort each folder: populated first (highest total), then live-phase
   // recruiting, then future-phase. Inside each tier, alphabetical.
   for (const tiles of buckets.values()) {
     tiles.sort((a, b) => {
@@ -1122,16 +1187,29 @@ async function CatalogView({
     });
   }
 
-  const totalCategories = schemas.filter((r) => TAXONOMY_MAP[r.canonical_service]).length;
-  const totalLive = schemas.filter(
-    (r) => (vendorCounts.get(r.canonical_service)?.total ?? 0) > 0,
-  ).length;
+  // Count visible categories AFTER the religion filter. Tabs and the
+  // "X categories" copy reflect what the couple actually sees, not the
+  // unfiltered 192.
+  const totalCategories = schemas.filter((r) => {
+    const meta = TAXONOMY_MAP[r.canonical_service];
+    return meta !== undefined && passesReligionFilter(meta);
+  }).length;
+  const totalLive = schemas.filter((r) => {
+    const meta = TAXONOMY_MAP[r.canonical_service];
+    if (!meta || !passesReligionFilter(meta)) return false;
+    return (vendorCounts.get(r.canonical_service)?.total ?? 0) > 0;
+  }).length;
 
-  const tabs: MegaColumnTab[] = ([1, 2, 3, 4, 5] as MegaMenuColumn[]).map((col) => ({
-    column: col,
-    label: MEGA_COLUMN_SHORT_LABEL[col],
-    slug: MEGA_COLUMN_SLUG[col],
-    count: buckets.get(col)?.length ?? 0,
+  // Tab strip — 12 chips. Reception (zero canonical_services) gets the count
+  // of its venue facets instead of zero so the chip badge reads accurately.
+  const tabs: FolderTab[] = WEDDING_FOLDER_ORDER.map((folder) => ({
+    folder,
+    label: WEDDING_FOLDER_SHORT_LABEL[folder],
+    slug: WEDDING_FOLDER_SLUG[folder],
+    count:
+      folder === 'reception'
+        ? RECEPTION_VENUE_FACETS.length
+        : buckets.get(folder)?.length ?? 0,
   }));
 
   return (
@@ -1162,8 +1240,8 @@ async function CatalogView({
             Browse Filipino wedding vendors.
           </h1>
           <p className="max-w-prose text-base text-ink/65">
-            Every service Setnayan covers — {totalCategories} categories across
-            five mega-columns.{' '}
+            Every service Setnayan covers — {totalCategories} categories
+            organized around the Filipino wedding journey.{' '}
             {totalLive > 0 ? (
               <>
                 <span className="font-medium text-ink">{totalLive}</span> have
@@ -1180,34 +1258,46 @@ async function CatalogView({
           </p>
         </div>
 
+        {religionFilteringActive ? (
+          <ReligionBanner
+            coupleFaith={coupleFaith}
+            ceremonyType={matchableEvent!.ceremony_type}
+          />
+        ) : null}
+
         <CatalogFilterBar matchableEvent={matchableEvent} />
 
-        <MegaColumnTabs tabs={tabs} totalCount={totalCategories} />
+        <FolderTabs tabs={tabs} totalCount={totalCategories} />
 
-        {([1, 2, 3, 4, 5] as MegaMenuColumn[]).map((col) => {
-          const tiles = buckets.get(col) ?? [];
+        {WEDDING_FOLDER_ORDER.map((folder) => {
+          if (folder === 'reception') {
+            return (
+              <ReceptionSection key={folder} matchableEvent={matchableEvent} />
+            );
+          }
+          const tiles = buckets.get(folder) ?? [];
           if (tiles.length === 0) return null;
+          const slug = WEDDING_FOLDER_SLUG[folder];
+          const isCeremony = folder === 'ceremony';
           return (
             <section
-              key={col}
-              id={MEGA_COLUMN_SLUG[col]}
+              key={folder}
+              id={slug}
               className="scroll-mt-20 pt-8 sm:pt-10"
-              aria-labelledby={`${MEGA_COLUMN_SLUG[col]}-heading`}
+              aria-labelledby={`${slug}-heading`}
             >
               <header className="mb-4 flex items-baseline justify-between gap-3 border-b border-ink/10 pb-2">
                 <h2
-                  id={`${MEGA_COLUMN_SLUG[col]}-heading`}
+                  id={`${slug}-heading`}
                   className="text-xl font-semibold tracking-tight text-ink sm:text-2xl"
                 >
-                  <span className="font-mono text-xs text-ink/50">
-                    Column {col}
-                  </span>{' '}
-                  · {MEGA_MENU_COLUMN_LABEL[col]}
+                  {WEDDING_FOLDER_LABEL[folder]}
                 </h2>
                 <span className="font-mono text-xs text-ink/55">
                   {tiles.length} categories
                 </span>
               </header>
+              {isCeremony ? <CeremonyVenuePanel /> : null}
               <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {tiles.map((tile) => (
                   <li key={tile.canonicalService}>
@@ -1220,6 +1310,147 @@ async function CatalogView({
         })}
       </section>
     </main>
+  );
+}
+
+// Reception folder is filter-only — surfaces venue_setting facets without
+// backing canonical_services. Drills into the marketplace via `?city=` until
+// V1.2 ships a dedicated `/venues` route. The combined-venue badge marks
+// settings that can also host the ceremony (garden, beach, destination,
+// heritage, outdoor_tent).
+function ReceptionSection({
+  matchableEvent,
+}: {
+  matchableEvent: { ceremony_type: string; venue_setting: string } | null;
+}) {
+  return (
+    <section
+      id={WEDDING_FOLDER_SLUG.reception}
+      className="scroll-mt-20 pt-8 sm:pt-10"
+      aria-labelledby="reception-heading"
+    >
+      <header className="mb-4 flex items-baseline justify-between gap-3 border-b border-ink/10 pb-2">
+        <h2
+          id="reception-heading"
+          className="text-xl font-semibold tracking-tight text-ink sm:text-2xl"
+        >
+          {WEDDING_FOLDER_LABEL.reception}
+        </h2>
+        <span className="font-mono text-xs text-ink/55">
+          {RECEPTION_VENUE_FACETS.length} venue settings
+        </span>
+      </header>
+      <p className="mb-4 max-w-prose text-sm text-ink/65">
+        Where you celebrate after the ceremony. Settings marked{' '}
+        <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-emerald-800">
+          ⇄ also hosts ceremony
+        </span>{' '}
+        can do both back-to-back at the same location. Dedicated venue listings
+        with day-rates ship in V1.2.
+      </p>
+      <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {RECEPTION_VENUE_FACETS.map((facet) => (
+          <li key={facet.key}>
+            <Link
+              href={
+                matchableEvent
+                  ? `/vendors?match=1&category=&city=`
+                  : '/vendors'
+              }
+              className="group flex h-full flex-col gap-2 rounded-2xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/50 hover:bg-terracotta/5"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="truncate text-sm font-semibold text-ink group-hover:text-terracotta">
+                  {facet.label}
+                </h3>
+                <span className="shrink-0 rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
+                  V1.2
+                </span>
+              </div>
+              {facet.combined ? (
+                <span className="inline-flex w-fit items-center rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-emerald-800">
+                  ⇄ also hosts ceremony
+                </span>
+              ) : null}
+              <p className="mt-auto text-xs font-medium text-terracotta group-hover:underline">
+                Notify me when venues open →
+              </p>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+// Religion-default-on banner. Tells the couple that the catalog is filtered
+// to their faith and offers a one-click escape to see everything.
+function ReligionBanner({
+  coupleFaith,
+  ceremonyType,
+}: {
+  coupleFaith: CoupleFaith;
+  ceremonyType: string;
+}) {
+  const faithLabel =
+    coupleFaith ?? (ceremonyType === 'civil' ? 'civil (secular)' : ceremonyType);
+  return (
+    <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-terracotta/30 bg-terracotta/5 px-4 py-3">
+      <p className="text-sm text-ink/80">
+        Showing your{' '}
+        <span className="font-medium text-terracotta-700">{faithLabel}</span>{' '}
+        wedding — faith-specific tiles auto-filtered. Cross-faith services
+        (photo, catering, attire) stay visible.
+      </p>
+      <Link
+        href="/vendors?match=0"
+        className="inline-flex shrink-0 items-center rounded-full border border-terracotta/30 bg-cream px-3 py-1 text-xs font-medium text-terracotta-700 hover:border-terracotta hover:bg-terracotta/10"
+      >
+        Show all faiths
+      </Link>
+    </div>
+  );
+}
+
+// Static info panel inside Ceremony folder. Tells the couple WHERE their
+// ceremony will physically happen for each path: religious venue (off-platform
+// parish booking), civil registrar (LGU government), or combined venue (cross-
+// link to #2). Closes the V1 gap where ceremony venues aren't bookable in the
+// marketplace yet.
+function CeremonyVenuePanel() {
+  return (
+    <div className="mb-4 rounded-2xl border border-terracotta/20 bg-terracotta/5 p-4 sm:p-5">
+      <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
+        Where will your ceremony happen?
+      </p>
+      <ul className="space-y-2 text-sm text-ink/80">
+        <li>
+          <span className="font-medium text-ink">
+            At your church / mosque / chapel
+          </span>{' '}
+          — book directly with the parish office. Setnayan helps you find the
+          officiant + handle pre-marriage requirements below.
+        </li>
+        <li>
+          <span className="font-medium text-ink">At the courthouse</span> — go
+          to your LGU&rsquo;s Civil Registrar. Setnayan helps you find a Civil
+          Judge / Mayor / JP + expedite your marriage license.
+        </li>
+        <li>
+          <span className="font-medium text-ink">
+            At your reception venue (combined)
+          </span>{' '}
+          — pick a garden / beach / destination / heritage / outdoor venue from{' '}
+          <a
+            href={`#${WEDDING_FOLDER_SLUG.reception}`}
+            className="font-medium text-terracotta underline-offset-4 hover:underline"
+          >
+            Reception
+          </a>{' '}
+          that&rsquo;s tagged &ldquo;also hosts ceremony&rdquo;.
+        </li>
+      </ul>
+    </div>
   );
 }
 

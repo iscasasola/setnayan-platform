@@ -2,37 +2,35 @@
 
 import { useEffect, useState } from 'react';
 
-import type { MegaMenuColumn } from '@/lib/taxonomy';
+import type { WeddingFolder } from '@/lib/taxonomy';
 
-export type MegaColumnTab = {
-  column: MegaMenuColumn;
+export type FolderTab = {
+  folder: WeddingFolder;
   /** Short label rendered in the chip. */
   label: string;
-  /** Lowercase slug used as the section anchor (e.g. `#capture`). */
+  /** Lowercase slug used as the section anchor (e.g. `#ceremony`). */
   slug: string;
-  /** Number of categories under this column (rendered as the chip count). */
+  /** Number of categories (or venue facets) under this folder. */
   count: number;
 };
 
 type Props = {
-  tabs: ReadonlyArray<MegaColumnTab>;
-  /** Combined count across all columns — drives the "All" chip badge. */
+  tabs: ReadonlyArray<FolderTab>;
+  /** Combined count across all folders — drives the "All" chip badge. */
   totalCount: number;
 };
 
 /**
- * Catalog-mode column nav. Replaces the legacy 6-group `CategoryFilterChips`
- * which was tied to the 28-enum `VendorCategory` taxonomy. The new chips
- * mirror the 5 mega-columns from `TAXONOMY_MAP` and scroll-anchor to
- * `#<slug>` sections rendered by the vendors page.
+ * Catalog-mode folder nav. Renders the 12 PH-grounded wedding folders as a
+ * sticky horizontally-scrollable chip strip. Active state is driven by
+ * IntersectionObserver against the section headings so the chip auto-
+ * highlights as the user scrolls.
  *
- * Active state is driven by IntersectionObserver against the section headings
- * so the chip auto-highlights as the user scrolls. Clicking a chip uses the
- * browser's native hash navigation (smooth-scroll comes from the CSS
- * `scroll-behavior: smooth` on `<html>`). No router state — we want this to
- * survive view-transition and keep the catalog SSR-friendly.
+ * Hash navigation only (no router state) — keeps the catalog SSR-friendly and
+ * lets browsers handle scroll-restoration on back/forward. CSS
+ * `scroll-behavior: smooth` on `<html>` gives the smooth-scroll animation.
  */
-export function MegaColumnTabs({ tabs, totalCount }: Props) {
+export function FolderTabs({ tabs, totalCount }: Props) {
   const [activeSlug, setActiveSlug] = useState<string>('all');
 
   useEffect(() => {
@@ -66,7 +64,7 @@ export function MegaColumnTabs({ tabs, totalCount }: Props) {
 
   return (
     <nav
-      aria-label="Vendor category columns"
+      aria-label="Wedding folders"
       className="sticky top-0 z-20 -mx-4 mt-6 overflow-x-auto border-b border-ink/10 bg-cream/95 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
     >
       <ul className="flex min-w-max items-center gap-2 sm:gap-2.5">

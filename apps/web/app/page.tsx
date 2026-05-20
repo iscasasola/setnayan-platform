@@ -1,3 +1,4 @@
+import type { ComponentType } from 'react';
 import nextDynamic from 'next/dynamic';
 import { SiteHeader } from '@/app/_components/site-header';
 import { AnnouncementBar } from '@/app/page-sections/_AnnouncementBar';
@@ -17,6 +18,8 @@ import {
 } from '@/app/page-sections/_DualCTAFooter';
 import { AvailableEverywhere } from '@/app/page-sections/_AvailableEverywhere';
 import { DynamicStickyMobileCTA } from '@/app/page-sections/_StickyMobileCTAClient';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { fetchWidgetsForPage } from '@/lib/site-widgets';
 
 // Section 8 (`_VendorCompat`) is the only below-the-fold section that ships
 // real client-side state — a tabbed module with `useState`. Loading its JS
@@ -36,34 +39,42 @@ const VendorCompat = nextDynamic(
 );
 
 // Public-marketing-site homepage — iteration 0015 § Section-by-section spec
-// (locked 2026-05-15). Twelve sections in spec order:
-//   1  Announcement bar
-//   2  Hero (three-question framing)
-//   3  Real numbers (count-gated)
-//   4  The chaos we're fixing
-//   5  Built for both sides of the celebration
-//   6  Maria & Juan: see how it works
-//   7  In-app services (apparatus catalog)
-//   8  Vendor compatibility & verification
-//   9  Event-type readiness board
-//  10  PH coverage map
-//  11  Dual CTA conversion module + brand-origin footer
-//  12  Available everywhere you plan
+// (locked 2026-05-15) wired to the `site_widgets` registry (iteration 0015
+// § Widget architecture) so admins can toggle on/off + drag-drop reorder
+// individual sections via /admin/website (iteration 0023 § 3.10).
+//
+// The fourteen sections (in seed display_order) — admin-editable via the
+// Website editor; per-widget config remains code-locked in V1:
+//    1  Announcement bar              (special-cased above SiteHeader)
+//    2  Browse strip
+//    3  Hero (three-question framing)
+//    4  Real numbers (count-gated)
+//    5  The chaos we're fixing
+//    6  Built for both sides of the celebration
+//    7  Maria & Juan: see how it works
+//    8  In-app services (apparatus catalog)
+//    9  Vendor compatibility & verification
+//   10  Transparent pricing
+//   11  Event-type readiness board
+//   12  PH coverage map
+//   13  Dual CTA conversion module
+//   14  Available everywhere you plan (platforms · per_tile-gated)
+//
+// Chrome that stays outside the widget loop: SiteHeader (top), SiteFooter
+// (bottom), DynamicStickyMobileCTA (mobile sticky). The announcement bar
+// is treated as a regular widget but pinned above SiteHeader when enabled
+// — moving it elsewhere in the editor changes its on/off state only, not
+// its visual position, because a banner mid-page reads as broken UX.
 //
 // Cross-cutting standards baseline:
 //   - Mobile-first single-column layouts; multi-column at md/lg.
-//   - Sticky thumb-zone primary CTA on mobile (auto-hides over Section 11).
+//   - Sticky thumb-zone primary CTA on mobile (auto-hides over the
+//     conversion block).
 //   - WCAG 2.2 AA — visible focus rings, 44-48px primary tap targets,
 //     24px floor on secondary, 4.5:1 / 3:1 contrast.
 //   - Taglish-tolerant voice copy where the spec specifies.
 //   - Language switcher placeholder in footer with self-names
 //     (English · Tagalog · Sugbuanon).
-//
-// TODO(post-Agent-D-merge): wire sections to site_widgets registry
-//   (display_order, is_enabled, gate_type). Currently renders all 12
-//   sections statically in spec order. Hide-condition logic for the
-//   announcement bar (hide once verified_vendor_count >= 500) and the
-//   count-gated stats render (Section 3) also depend on this.
 //
 // TODO(design-direction): swap placeholder visuals — chaos collage, hero
 //   photographic background, coverage SVG basemap, readiness tile covers,
@@ -94,6 +105,13 @@ export const metadata = {
 // ~30 ms (edge cache hit). The signed-in → /dashboard redirect that used
 // to live in this file moved to middleware.ts so that this page stays
 // statically pre-rendered for the 95%+ of visitors who arrive logged out.
+//
+// `site_widgets` is fetched via the stateless service-role client (no
+// cookies, no headers — neither would survive `force-static`). Admin edits
+// land via /api/v1/admin/site-widgets/* which already call
+// `revalidatePath('/')`, so the static HTML refreshes on the next request
+// after a toggle / reorder. `revalidate = false` means the cache is
+// otherwise indefinite — the on-demand invalidation is the sole trigger.
 export const dynamic = 'force-static';
 export const revalidate = false;
 
@@ -145,12 +163,51 @@ const HOMEPAGE_JSONLD = {
   ],
 };
 
-export default function HomePage() {
+// Widget-id → React component. The renderer iterates `site_widgets` in
+// display_order, skips rows whose `is_enabled` is false, and renders the
+// matched component. Keys MUST stay in sync with the seed in
+// supabase/migrations/20260515010000_site_widgets.sql + the drift-fix
+// migration 20260521100000_iteration_0015_site_widgets_home_drift_fix.sql.
+// Unknown ids (rows added in the DB without a matching component) render
+// as null so a partially-applied migration can't break the page.
+const COMPONENT_BY_WIDGET_ID: Record<string, ComponentType> = {
+  home_announcement_bar: AnnouncementBar,
+  home_browse_strip: BrowseStrip,
+  home_hero: Hero,
+  home_real_numbers: RealNumbers,
+  home_chaos: Chaos,
+  home_two_sides: TwoSides,
+  home_maria_juan: MariaJuan,
+  home_in_app_services: InAppServices,
+  home_vendor_compat: VendorCompat,
+  home_transparent_pricing: TransparentPricing,
+  home_readiness_board: ReadinessBoard,
+  home_coverage_map: CoverageMap,
+  home_dual_cta_footer: ConversionModule,
+  home_platforms: AvailableEverywhere,
+};
+
+export default async function HomePage() {
   // Signed-in viewers are redirected to /dashboard by middleware.ts
   // before this component runs, so this body only renders for anonymous
   // visitors. Keep it free of `cookies()`, `headers()`, or any other
   // dynamic API — adding one would silently revert this route to
   // per-request SSR and undo the TTFB win.
+  const supabase = createAdminClient();
+  const widgets = await fetchWidgetsForPage(supabase, 'home');
+  const enabled = widgets.filter((w) => w.is_enabled);
+
+  // Announcement strip pins above SiteHeader when enabled regardless of
+  // its DB display_order — a banner that drifts mid-page reads as broken
+  // UX. The editor can still toggle it on/off; reordering it within the
+  // page is a no-op for layout.
+  const hasAnnouncement = enabled.some(
+    (w) => w.widget_id === 'home_announcement_bar',
+  );
+  const bodyWidgets = enabled.filter(
+    (w) => w.widget_id !== 'home_announcement_bar',
+  );
+
   return (
     <>
       <script
@@ -158,62 +215,16 @@ export default function HomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(HOMEPAGE_JSONLD) }}
       />
       <main className="min-h-dvh">
-        {/* 1 — Announcement bar */}
-        <AnnouncementBar />
+        {hasAnnouncement ? <AnnouncementBar /> : null}
 
         <SiteHeader />
 
-        {/* Browse strip — Phase A scaffolding for the public-view-and-search
-            lock (CLAUDE.md decision-log row 426, 2026-05-19). Sits between
-            chrome and hero so pre-launch visitors who don't want to sign up
-            yet still have a clear path into the already-shipped /vendors
-            marketplace. The hero below keeps the funnel-first CTAs intact. */}
-        <BrowseStrip />
+        {bodyWidgets.map((w) => {
+          const Component = COMPONENT_BY_WIDGET_ID[w.widget_id];
+          if (!Component) return null;
+          return <Component key={w.widget_id} />;
+        })}
 
-        {/* 2 — Hero (three-question framing) */}
-        <Hero />
-
-        {/* 3 — Real numbers (count-gated; pre-threshold placeholder) */}
-        <RealNumbers />
-
-        {/* 4 — The chaos we're fixing */}
-        <Chaos />
-
-        {/* 5 — Built for both sides of the celebration */}
-        <TwoSides />
-
-        {/* 6 — Maria & Juan: see how it works */}
-        <MariaJuan />
-
-        {/* 7 — In-app services (apparatus catalog) */}
-        <InAppServices />
-
-        {/* 8 — Vendor compatibility & verification */}
-        <VendorCompat />
-
-        {/* 8.5 — Transparent pricing (locked 2026-05-16 spec-corpus row 9)
-            Couple-side disclosure of the 5.0% Setnayan Pay convenience fee
-            added at checkout. Vendor-side "no commission" framing in
-            Sections 5 / 8 / /for-vendors stays intact — the 5.0% is
-            couple-paid on top of the vendor's listed price, never deducted
-            from the vendor's principal. */}
-        <TransparentPricing />
-
-        {/* 9 — Event-type readiness board */}
-        <ReadinessBoard />
-
-        {/* 10 — PH coverage map */}
-        <CoverageMap />
-
-        {/* 11 — Dual CTA conversion module (first half) */}
-        <ConversionModule />
-
-        {/* 12 — Available everywhere you plan
-            Per spec § Section 12: renders visually between the conversion
-            block and the footer chrome. */}
-        <AvailableEverywhere />
-
-        {/* 11 — Footer chrome (second half of Section 11) */}
         <SiteFooter />
       </main>
 

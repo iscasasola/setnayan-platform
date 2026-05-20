@@ -19,6 +19,7 @@ import { CategoryTile, type CategoryTileData } from './_components/category-tile
 import { SaveVendorButton } from './_components/save-vendor-button';
 import { FolderTabs, type FolderTab } from './_components/mega-column-tabs';
 import { PairedVenuePanel } from './_components/paired-venue-panel';
+import { CeremonyVenuesSection } from './_components/ceremony-venues-section';
 import {
   TAXONOMY_MAP,
   WEDDING_FOLDER_LABEL,
@@ -1409,7 +1410,16 @@ async function CatalogView({
                   {tiles.length} categories
                 </span>
               </header>
-              {isCeremony ? <CeremonyVenuePanel /> : null}
+              {isCeremony ? (
+                <>
+                  <CeremonyVenuePanel />
+                  <CeremonyVenuesSection
+                    coupleCeremonyType={coupleCeremonyType}
+                    venueAnchor={venueAnchor}
+                    currentEventId={currentEventId}
+                  />
+                </>
+              ) : null}
               <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {tiles.map((tile) => (
                   <li key={tile.canonicalService}>

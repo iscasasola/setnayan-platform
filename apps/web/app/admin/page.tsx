@@ -1,14 +1,4 @@
-import Link from 'next/link';
-import {
-  Users,
-  Calendar,
-  Briefcase,
-  MessageSquare,
-  ArrowRight,
-  ShieldCheck,
-  LayoutGrid,
-  Wallet,
-} from 'lucide-react';
+import { Tile } from './_overview-tile';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export const metadata = { title: 'Overview · Admin' };
@@ -76,30 +66,30 @@ export default async function AdminOverview() {
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Tile href="/admin/users" Icon={Users} title="Users" body="Search, filter, flag team-pool members." />
-        <Tile href="/admin/events" Icon={Calendar} title="Events" body="All events in the system + couple-side stats." />
-        <Tile href="/admin/vendors" Icon={Briefcase} title="Vendors" body="Every vendor_profile + published status." />
+        <Tile href="/admin/users" icon="users" title="Users" body="Search, filter, flag team-pool members." />
+        <Tile href="/admin/events" icon="calendar" title="Events" body="All events in the system + couple-side stats." />
+        <Tile href="/admin/vendors" icon="briefcase" title="Vendors" body="Every vendor_profile + published status." />
         <Tile
           href="/admin/verify"
-          Icon={ShieldCheck}
+          icon="shield-check"
           title="Verification queue"
           body="Approve registered vendors → flip Coming soon to Verified."
         />
         <Tile
           href="/admin/payouts"
-          Icon={Wallet}
+          icon="wallet"
           title="Vendor payouts"
           body="Verified T+1 · coming-soon 20/60/20 release schedule + dispute holds."
         />
         <Tile
           href="/admin/website"
-          Icon={LayoutGrid}
+          icon="layout-grid"
           title="Website editor"
           body="Toggle + reorder marketing-site widgets per page."
         />
         <Tile
           href="/admin"
-          Icon={MessageSquare}
+          icon="message-square"
           title="Approval queue"
           body="Two-admin approvals · ships in a follow-on revision."
           disabled
@@ -120,38 +110,3 @@ function Stat({ label, value }: { label: string; value: number | null }) {
   );
 }
 
-function Tile({
-  href,
-  Icon,
-  title,
-  body,
-  disabled = false,
-}: {
-  href: string;
-  Icon: typeof Users;
-  title: string;
-  body: string;
-  disabled?: boolean;
-}) {
-  const Inner = (
-    <div
-      className={`group flex h-full flex-col gap-3 rounded-xl border p-5 ${
-        disabled
-          ? 'cursor-not-allowed border-dashed border-ink/15 bg-cream/60 opacity-70'
-          : 'border-ink/10 bg-cream transition-colors hover:border-terracotta/40 hover:bg-terracotta/5'
-      }`}
-    >
-      <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
-        <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-      </span>
-      <h2 className="text-base font-semibold tracking-tight text-ink">{title}</h2>
-      <p className="text-sm text-ink/65">{body}</p>
-      {!disabled ? (
-        <span className="mt-auto inline-flex items-center gap-1 text-sm text-terracotta">
-          Open <ArrowRight aria-hidden className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-        </span>
-      ) : null}
-    </div>
-  );
-  return disabled ? Inner : <Link href={href}>{Inner}</Link>;
-}

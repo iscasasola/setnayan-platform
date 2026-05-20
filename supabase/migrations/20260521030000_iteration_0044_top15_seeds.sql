@@ -1,11 +1,17 @@
 -- ============================================================================
--- 20260521020000_iteration_0044_top15_seeds.sql
+-- 20260521030000_iteration_0044_top15_seeds.sql
 --
 -- Iteration 0044 — Per-Category Vendor Attribute Schemas (top-15 seeds)
 -- Spec corpus: 0044_per_category_schemas/0044_per_category_schemas.md
 --
 -- V1.1 wave PR 3 of 15. Follow-up to the base framework migration
--- (20260521010000). Seeds:
+-- (20260521010000). Renamed from 20260521020000 → 20260521030000 to break
+-- a timestamp collision with iteration_0009_photo_delivery_sync_mode, which
+-- already owned 20260521020000 when PR #167 merged. `supabase db push` keys
+-- on the 14-digit prefix, so duplicates crash the push mid-apply (per the
+-- migration-timestamp-guard CI rationale).
+--
+-- Seeds:
 --   • 5 shared_attribute_groups — faith_compatibility, dietary_accommodations,
 --     geographic_service_areas, pricing_signal, vendor_credentials.
 --   • 15 canonical_service_schemas — catering, photography, videography,

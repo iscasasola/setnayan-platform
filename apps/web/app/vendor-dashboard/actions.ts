@@ -52,6 +52,40 @@ const ALLOWED_VENUE_SETTINGS: ReadonlySet<string> = new Set([
   'civil_registrar',
 ]);
 
+// Iteration 0041 — event_types vendor opt-in. Mirrors the
+// `vendor_profiles_event_types_check` CHECK constraint in
+// migration 20260521090000. Keep in sync when new public.event_type
+// enum values land.
+const ALLOWED_EVENT_TYPES: ReadonlySet<string> = new Set([
+  'wedding',
+  'gender_reveal',
+  'debut',
+  'birthday',
+  'celebration',
+  'travel',
+  'corporate',
+  'tournament',
+  'christening',
+]);
+
+/**
+ * Parse the repeated checkbox values for `event_types` into a clean array.
+ * Always returns a non-empty array — the column has CHECK
+ * `cardinality(event_types) > 0`, so if a vendor unchecks every box we
+ * default to `['wedding']` rather than letting the insert fail.
+ */
+function parseEventTypesArray(raw: FormDataEntryValue[]): string[] {
+  const out: string[] = [];
+  for (const item of raw) {
+    if (typeof item !== 'string') continue;
+    const trimmed = item.trim();
+    if (!ALLOWED_EVENT_TYPES.has(trimmed)) continue;
+    if (out.includes(trimmed)) continue;
+    out.push(trimmed);
+  }
+  return out.length > 0 ? out : ['wedding'];
+}
+
 /**
  * Parse a repeated set of checkbox values into a clean compatibility array.
  * Returns NULL (not `[]`) when nothing is selected so the marketplace
@@ -182,6 +216,7 @@ export async function saveVendorProfile(formData: FormData) {
       formData.getAll('compatible_venue_settings'),
       ALLOWED_VENUE_SETTINGS,
     ),
+    event_types: parseEventTypesArray(formData.getAll('event_types')),
     updated_at: new Date().toISOString(),
   };
 

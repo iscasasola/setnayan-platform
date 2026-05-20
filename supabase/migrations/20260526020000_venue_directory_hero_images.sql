@@ -1,7 +1,7 @@
 -- ============================================================================
--- 20260526010000_venue_directory_hero_images.sql
+-- 20260526020000_venue_directory_hero_images.sql
 --
--- Stacks on 20260526000000_venue_directory_seed.sql. Adds hero image columns
+-- Stacks on 20260526010000_venue_directory_seed.sql. Adds hero image columns
 -- to public.venue_directory and seeds 18 of the 28 religious venues with
 -- legally-clean Wikimedia Commons photos (license verified per row, all
 -- URLs HTTP-checked 200 OK before this migration was authored).

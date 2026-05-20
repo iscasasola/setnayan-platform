@@ -426,7 +426,7 @@ export function ColorRangeManipulator({ imageSrc, initialMap = {}, onChange, pre
       {/* Region label input */}
       <div className="space-y-1">
         <label htmlFor="region-label" className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Region label (e.g. "drapery", "cocktail dress")
+          Region label (e.g. &ldquo;drapery&rdquo;, &ldquo;cocktail dress&rdquo;)
         </label>
         <input
           id="region-label"

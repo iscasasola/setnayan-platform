@@ -358,7 +358,7 @@ export function LibraryEditor({ initialAssets }: Props) {
 
             <details className="rounded-lg border border-ink/15 bg-cream p-3">
               <summary className="cursor-pointer text-sm font-medium text-ink">
-                Preview palette (used in the "Preview with palette" toggle)
+                Preview palette (used in the &ldquo;Preview with palette&rdquo; toggle)
               </summary>
               <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">
                 {[1, 2, 3, 4, 5, 6].map((slotId) => (

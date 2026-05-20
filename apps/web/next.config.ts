@@ -39,6 +39,16 @@ const remoteImagePatterns = [
         pathname: '/storage/v1/object/public/**',
       }
     : null,
+  // Wikimedia Commons — deviation from "origins we control" because V1
+  // venue_directory hero photos hotlink CC-BY-SA images served from
+  // upload.wikimedia.org (iteration 0022, migration
+  // 20260526020000_venue_directory_hero_images.sql). V1.2 venue iteration
+  // copies these into Supabase Storage and this rule retires.
+  {
+    protocol: 'https' as const,
+    hostname: 'upload.wikimedia.org',
+    pathname: '/wikipedia/commons/**',
+  },
 ].filter((p): p is NonNullable<typeof p> => p !== null);
 
 const nextConfig: NextConfig = {

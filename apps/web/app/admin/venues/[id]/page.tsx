@@ -52,13 +52,21 @@ export default async function EditVenuePage({ params }: Props) {
         Back to venues
       </Link>
 
-      <header className="mb-6 space-y-1">
+      <header className="mb-6 space-y-2">
         <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
           Edit venue
         </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
           {row.name}
         </h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-amber-900">
+            Placeholder · admin-managed
+          </span>
+          <span className="font-mono text-[10px] text-ink/45">
+            deletable anytime · V1.2 ships bookable replacement
+          </span>
+        </div>
         <p className="font-mono text-[11px] text-ink/45">
           {row.slug} · created{' '}
           {new Date(row.created_at).toLocaleDateString('en-PH', {

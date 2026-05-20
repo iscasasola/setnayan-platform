@@ -85,6 +85,14 @@ export default async function AdminVenuesPage({ searchParams }: Props) {
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
             Venue directory
           </h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-amber-900">
+              Placeholder · admin-managed
+            </span>
+            <span className="font-mono text-[10px] text-ink/45">
+              deletable anytime
+            </span>
+          </div>
           <p className="max-w-prose text-sm text-ink/65">
             Read-only directory of known PH wedding venues. Powers the marketplace
             Paired-Venue recommendation panel. Admins curate this list while the

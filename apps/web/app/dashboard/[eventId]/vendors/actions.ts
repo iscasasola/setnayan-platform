@@ -66,6 +66,72 @@ export async function createVendor(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/vendors`);
 }
 
+// ============================================================================
+// Inline custom-vendor add from the home-page planner cards (2026-05-21).
+//
+// Same insert shape as createVendor but returns a Result so the client
+// component can render pending / added / error states without the
+// "thrown error → page-level fault" UX that createVendor produces inside
+// a `<form action={...}>`.
+// ============================================================================
+
+export type AddCustomVendorResult =
+  | { status: 'ok'; eventVendorId: string }
+  | { status: 'not_signed_in' }
+  | { status: 'error'; message: string };
+
+export async function addCustomVendor(
+  formData: FormData,
+): Promise<AddCustomVendorResult> {
+  const eventId = formData.get('event_id');
+  const name = formData.get('vendor_name');
+  const category = formData.get('category');
+
+  if (typeof eventId !== 'string' || eventId.length === 0) {
+    return { status: 'error', message: 'Missing event id' };
+  }
+  if (typeof name !== 'string') {
+    return { status: 'error', message: 'Missing vendor name' };
+  }
+  if (!isValidCategory(category)) {
+    return { status: 'error', message: 'Unknown category' };
+  }
+  const trimmedName = name.trim();
+  if (trimmedName.length === 0) {
+    return { status: 'error', message: 'Vendor name is required' };
+  }
+  if (trimmedName.length > 128) {
+    return { status: 'error', message: 'Name must be 128 chars or fewer' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { status: 'not_signed_in' };
+  }
+
+  const { data: inserted, error } = await supabase
+    .from('event_vendors')
+    .insert({
+      event_id: eventId,
+      category,
+      vendor_name: trimmedName,
+      status: 'considering',
+    })
+    .select('vendor_id')
+    .single();
+
+  if (error || !inserted) {
+    return { status: 'error', message: error?.message ?? 'Insert failed' };
+  }
+
+  revalidatePath(`/dashboard/${eventId}`);
+  revalidatePath(`/dashboard/${eventId}/vendors`);
+  return { status: 'ok', eventVendorId: inserted.vendor_id };
+}
+
 export async function updateVendorStatus(formData: FormData) {
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');

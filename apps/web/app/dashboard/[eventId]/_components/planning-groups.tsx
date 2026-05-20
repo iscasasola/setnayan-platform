@@ -1,5 +1,4 @@
-import Link from 'next/link';
-import { ArrowRight, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import { CheckCircle2, Clock, AlertCircle } from 'lucide-react';
 import { NavLinksRow } from '@/app/_components/nav-links';
 import {
   PLAN_GROUPS,
@@ -10,6 +9,7 @@ import {
   type VendorPickStatus,
 } from '@/lib/wedding-plan-groups';
 import type { VendorCategory } from '@/lib/vendors';
+import { PlanCardCTAs } from './plan-card-ctas';
 
 type PickRow = {
   vendor_id: string;
@@ -129,15 +129,11 @@ function GroupCard({
   const lockedCount = picks.filter((p) => p.status === 'locked').length;
   const pickedOnlyCount = picks.length - lockedCount;
 
-  // Empty groups drop into the marketplace filtered to the FIRST category in
-  // the group (the most representative one). Non-empty groups send the
-  // couple to their vendor tracker where they can manage what they've saved.
-  const ctaHref =
-    picks.length === 0
-      ? `/vendors?category=${encodeURIComponent(group.categories[0]!)}`
-      : `/dashboard/${eventId}/vendors`;
-
-  const ctaLabel = picks.length === 0 ? 'Find vendors' : 'Manage picks';
+  // Search drops into the marketplace filtered to the FIRST category in
+  // the group (the most representative one). Add fires the inline custom-
+  // vendor form so couples can attach a DIY / not-on-list vendor without
+  // leaving the planner.
+  const searchHref = `/vendors?category=${encodeURIComponent(group.categories[0]!)}`;
 
   return (
     <article
@@ -225,13 +221,12 @@ function GroupCard({
         />
       ) : null}
 
-      <Link
-        href={ctaHref}
-        className="mt-auto inline-flex items-center gap-1 text-sm font-medium text-terracotta hover:underline"
-      >
-        {ctaLabel}
-        <ArrowRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-      </Link>
+      <PlanCardCTAs
+        eventId={eventId}
+        defaultCategory={group.categories[0]!}
+        searchHref={searchHref}
+        groupLabel={group.label}
+      />
     </article>
   );
 }

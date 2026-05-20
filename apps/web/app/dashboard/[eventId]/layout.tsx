@@ -1,4 +1,6 @@
+import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
+import { Store } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchUserEvents } from '@/lib/events';
@@ -84,6 +86,14 @@ export default async function EventLayout({ children, params }: Props) {
             vendorProfiles={roles.vendorProfiles}
           />
           <div className="flex items-center gap-2">
+            <Link
+              href="/vendors"
+              aria-label="Vendor marketplace"
+              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-medium text-ink/70 hover:bg-ink/5 hover:text-ink sm:px-3"
+            >
+              <Store aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              <span className="hidden sm:inline">Marketplace</span>
+            </Link>
             <RoleSwitchPill
               currentRole="customer"
               hasCustomerAccess

@@ -14,13 +14,15 @@ import { Sheet } from './sheet';
 //
 // Browse + search entry points added per CLAUDE.md decision-log rows 426 +
 // 428 (2026-05-19, Phase A scaffolding for the public-view-and-search lock):
-//   - "Browse" leads the primary nav and points at the already-shipped
-//     /vendors marketplace.
+//   - "Marketplace" leads the primary nav and points at the already-shipped
+//     /vendors marketplace. (Relabelled from "Browse" on 2026-05-20 — same
+//     destination; clearer purpose vs. the adjacent "For vendors" sign-up
+//     landing page.)
 //   - Inline search bar at lg+ submits a GET form to /vendors?q=<query>
 //     (matches the SearchAction JSON-LD already declared in apps/web/app/page.tsx).
-//   - Mobile hamburger sheet includes both the search input and the Browse
-//     link near the top of the sheet so the discovery path is reachable
-//     without a desktop viewport.
+//   - Mobile hamburger sheet includes both the search input and the
+//     Marketplace link near the top of the sheet so the discovery path is
+//     reachable without a desktop viewport.
 //
 // Responsive contract:
 //   - mobile (< 768): logo + hamburger. The hamburger opens a Sheet with
@@ -34,7 +36,7 @@ import { Sheet } from './sheet';
 // step pre-selects the vendor role.
 
 const PRIMARY_NAV = [
-  { href: '/vendors', label: 'Browse' },
+  { href: '/vendors', label: 'Marketplace' },
   { href: '/how-it-works', label: 'How it works' },
   { href: '/features', label: 'Features' },
   { href: '/for-vendors', label: 'For vendors' },

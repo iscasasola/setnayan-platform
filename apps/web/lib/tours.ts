@@ -12,13 +12,11 @@
 import {
   Apple,
   Briefcase,
-  Bell,
   Calendar,
   CheckCircle2,
   ClipboardList,
   Mailbox,
   MessageSquare,
-  Palette,
   PartyPopper,
   QrCode,
   Receipt,
@@ -44,24 +42,20 @@ export type TourSlide = {
 export type TourKey =
   // Role welcomes — fire once per user on first signed-in session for that role.
   | 'couple_welcome_v1'
-  | 'vendor_welcome_v1'
   | 'admin_welcome_v1'
   | 'guest_welcome_v1'
   // Mini-tours — fire once per user when they first land on the surface.
   | 'customer_vendors_v1'
   | 'customer_seat_plan_v1'
-  | 'vendor_services_v1'
   | 'admin_users_v1'
   | 'admin_force_majeure_v1';
 
 export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'couple_welcome_v1',
-  'vendor_welcome_v1',
   'admin_welcome_v1',
   'guest_welcome_v1',
   'customer_vendors_v1',
   'customer_seat_plan_v1',
-  'vendor_services_v1',
   'admin_users_v1',
   'admin_force_majeure_v1',
 ];
@@ -108,33 +102,6 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         Icon: PartyPopper,
         title: 'On the day',
         body: 'From T-1 hour, the Day-of card shows you the timeline, lets you reach your coordinator, and surfaces the photo wall. Your guests get the same view, scoped to their seat + role.',
-      },
-    ],
-  },
-  vendor_welcome_v1: {
-    key: 'vendor_welcome_v1',
-    label: 'Vendor — welcome tour',
-    blurb: 'Four-step intro to the vendor dashboard. Fires on first sign-in.',
-    slides: [
-      {
-        Icon: Sparkles,
-        title: 'Welcome to Setnayan',
-        body: 'You&rsquo;re signed in as a vendor. Couples discover you through your business profile and start conversations from their dashboard.',
-      },
-      {
-        Icon: Briefcase,
-        title: 'Fill in your profile',
-        body: 'Your business name, services, location, and especially the contact email — couples search by that exact email to start a thread with you. Add a logo URL too; couples see it in their thread list.',
-      },
-      {
-        Icon: MessageSquare,
-        title: 'Reply to couples',
-        body: 'When a couple opens a thread with you, they appear masked as just their event name + date. Reply through Setnayan; their personal info stays private until they choose to share.',
-      },
-      {
-        Icon: Bell,
-        title: 'Stay in the loop',
-        body: 'New messages and any other vendor updates show up under Notifications with an unread badge in the nav. Email delivery is coming soon — for now, check in regularly or keep the tab open.',
       },
     ],
   },
@@ -233,28 +200,6 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         Icon: QrCode,
         title: 'Publish to mint QRs',
         body: "Once you publish, each guest&rsquo;s personal QR includes their seat assignment. The Day-of card on their personal page shows the table number with no extra setup.",
-      },
-    ],
-  },
-  vendor_services_v1: {
-    key: 'vendor_services_v1',
-    label: 'Vendor services mini-tour',
-    blurb: 'How to publish your first service.',
-    slides: [
-      {
-        Icon: Briefcase,
-        title: 'One service is enough to publish',
-        body: "Add at least one service so your profile is discoverable. You can expand with packages, photos, and pricing tiers anytime.",
-      },
-      {
-        Icon: Palette,
-        title: 'Canonical category vs custom',
-        body: "Pick from the 28 canonical categories so couples can filter to you in the marketplace. Custom categories work too but won&rsquo;t show up in faceted browse.",
-      },
-      {
-        Icon: Send,
-        title: 'Publish toggle',
-        body: 'Draft mode is private (only you see it). Published is visible in the marketplace. Toggle anytime — it takes effect immediately.',
       },
     ],
   },

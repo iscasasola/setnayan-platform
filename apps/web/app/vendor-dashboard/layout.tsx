@@ -20,9 +20,7 @@ import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { countUnread } from '@/lib/notifications';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { VendorSubnavTab } from './_components/subnav-tab';
-import { GuidedTour } from '@/app/_components/guided-tour';
 import { RoleSwitchPill } from '@/app/_components/role-switch-pill';
-import { completeTour } from '@/lib/tour-actions';
 
 export default async function VendorDashboardLayout({
   children,
@@ -37,7 +35,7 @@ export default async function VendorDashboardLayout({
     supabase
       .from('users')
       .select(
-        'account_type, theme_preference, email, display_name, deleted_at, tour_seen_keys',
+        'account_type, theme_preference, email, display_name, deleted_at',
       )
       .eq('user_id', user.id)
       .maybeSingle(),
@@ -169,9 +167,6 @@ export default async function VendorDashboardLayout({
         </nav>
       </header>
       <main className="flex-1">{children}</main>
-      {!(profile?.tour_seen_keys ?? []).includes('vendor_welcome_v1') ? (
-        <GuidedTour tourKey="vendor_welcome_v1" completeAction={completeTour} />
-      ) : null}
     </div>
   );
 }

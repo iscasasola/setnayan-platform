@@ -11,7 +11,6 @@ function isTourKey(value: unknown): value is TourKey {
 
 const LEGACY_WELCOME_KEYS: ReadonlyArray<TourKey> = [
   'couple_welcome_v1',
-  'vendor_welcome_v1',
 ];
 
 // Append `tourKey` to `users.tour_seen_keys` if it's not already present.

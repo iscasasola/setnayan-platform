@@ -217,13 +217,21 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   const allowedVisibilities = filters.verifiedOnly
     ? (['verified'] as const)
     : PUBLIC_SURFACE_VISIBILITIES;
+  // Public marketplace requires a non-empty business_name. Coming-soon
+  // vendors are intentionally surfaced (Decision 6 / 2026-05-15) — but
+  // a row that hasn't even filled in its name renders as "Unnamed
+  // vendor" which makes the whole marketplace look broken. Gate the
+  // public surface on the minimum self-identification work; admins
+  // can still see the row in /admin/vendors.
   let query = admin
     .from('vendor_profiles')
     .select(
       'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,contact_email,public_visibility,created_at',
       { count: 'exact' },
     )
-    .in('public_visibility', allowedVisibilities as readonly string[]);
+    .in('public_visibility', allowedVisibilities as readonly string[])
+    .not('business_name', 'is', null)
+    .neq('business_name', '');
 
   if (filters.q.length > 0) {
     query = query.ilike('business_name', `%${filters.q}%`);
@@ -739,7 +747,10 @@ function VendorMarketCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="truncate text-base font-semibold text-ink">
-              {vendor.business_name || 'Unnamed vendor'}
+              {/* Empty business_name is filtered out at the query level,
+                * so this fallback is purely defensive — keep it neutral
+                * instead of "Unnamed vendor", which read as dev text. */}
+              {vendor.business_name || 'Vendor'}
             </h2>
             {isComingSoon ? (
               <span className="shrink-0 rounded-full bg-ink/8 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
@@ -805,7 +816,7 @@ function VendorMarketCard({
           />
         ) : (
           <p className="text-xs text-ink/55">
-            Not yet bookable — verification in progress.
+            Setnayan is verifying their setup.
           </p>
         )}
         {slug ? (
@@ -815,9 +826,7 @@ function VendorMarketCard({
           >
             View profile →
           </Link>
-        ) : (
-          <span className="text-xs text-ink/40">Profile coming soon</span>
-        )}
+        ) : null}
       </div>
     </article>
   );

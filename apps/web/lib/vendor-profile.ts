@@ -43,6 +43,20 @@ export type VendorProfileRow = {
    * registrations; flipped to 'verified' by /admin/verify approval.
    */
   public_visibility: 'hidden' | 'coming_soon' | 'verified' | 'archived';
+  /**
+   * Iteration 0043 — wedding-type compatibility tags.
+   *
+   * NULL = "open to all" (legacy vendors who pre-date 0043 default here).
+   * Non-empty array = vendor explicitly serves only these ceremony types.
+   * Empty array = vendor has explicitly opted out of every type (rare; the
+   * UI submits NULL when all checkboxes are unchecked rather than `{}`).
+   *
+   * Drives the "Match my wedding" toggle on /vendors (iteration 0043 §
+   * compatibility filter). Couples toggle ON to filter the marketplace
+   * to vendors whose tags include their event's ceremony_type.
+   */
+  compatible_ceremony_types: string[] | null;
+  compatible_venue_settings: string[] | null;
   created_at: string;
   updated_at: string;
 };
@@ -54,7 +68,7 @@ export async function fetchOwnVendorProfile(
   const { data, error } = await supabase
     .from('vendor_profiles')
     .select(
-      'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,location_city,website,contact_email,contact_phone,is_published,portfolio_r2_keys,show_team_bookings_in_backend_count,public_visibility,created_at,updated_at',
+      'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,location_city,website,contact_email,contact_phone,is_published,portfolio_r2_keys,show_team_bookings_in_backend_count,public_visibility,compatible_ceremony_types,compatible_venue_settings,created_at,updated_at',
     )
     .eq('user_id', userId)
     .maybeSingle();

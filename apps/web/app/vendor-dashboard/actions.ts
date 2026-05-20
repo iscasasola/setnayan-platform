@@ -30,6 +30,50 @@ function parseSlug(raw: FormDataEntryValue | null): string | null {
 
 const CANONICAL_SERVICE_SET: ReadonlySet<string> = new Set(VENDOR_CATEGORIES);
 
+// Iteration 0043 — wedding-type compatibility tags. Allowed values mirror
+// the events.ceremony_type + events.venue_setting CHECK constraints from
+// migration 20260521000000_iteration_0043_wedding_type_picker.sql.
+const ALLOWED_CEREMONY_TYPES: ReadonlySet<string> = new Set([
+  'catholic',
+  'civil',
+  'inc',
+  'christian',
+  'muslim',
+  'cultural',
+  'mixed',
+]);
+const ALLOWED_VENUE_SETTINGS: ReadonlySet<string> = new Set([
+  'banquet_hall',
+  'garden',
+  'beach',
+  'destination',
+  'heritage',
+  'outdoor_tent',
+  'civil_registrar',
+]);
+
+/**
+ * Parse a repeated set of checkbox values into a clean compatibility array.
+ * Returns NULL (not `[]`) when nothing is selected so the marketplace
+ * filter treats this vendor as "open to all" rather than "compatible with
+ * none". Drops anything not in the allowed set as a cheap defense against
+ * a hostile client posting arbitrary strings.
+ */
+function parseCompatibilityArray(
+  raw: FormDataEntryValue[],
+  allowed: ReadonlySet<string>,
+): string[] | null {
+  const out: string[] = [];
+  for (const item of raw) {
+    if (typeof item !== 'string') continue;
+    const trimmed = item.trim();
+    if (!allowed.has(trimmed)) continue;
+    if (out.includes(trimmed)) continue;
+    out.push(trimmed);
+  }
+  return out.length > 0 ? out : null;
+}
+
 /**
  * Parses the repeated hidden inputs the <FileUpload> widget emits for the
  * portfolio gallery into a clean `r2://bucket/key` array.
@@ -130,6 +174,14 @@ export async function saveVendorProfile(formData: FormData) {
     contact_phone: nullIfBlank(formData.get('contact_phone')),
     is_published: formData.get('is_published') === 'on',
     portfolio_r2_keys: parsePortfolioRefs(formData.getAll('portfolio_r2_keys')),
+    compatible_ceremony_types: parseCompatibilityArray(
+      formData.getAll('compatible_ceremony_types'),
+      ALLOWED_CEREMONY_TYPES,
+    ),
+    compatible_venue_settings: parseCompatibilityArray(
+      formData.getAll('compatible_venue_settings'),
+      ALLOWED_VENUE_SETTINGS,
+    ),
     updated_at: new Date().toISOString(),
   };
 

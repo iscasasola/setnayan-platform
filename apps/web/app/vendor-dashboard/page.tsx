@@ -30,6 +30,30 @@ function isUpcomingForPreload(eventDate: string | null): boolean {
   return days <= 3 && days >= -1;
 }
 
+// Iteration 0043 — wedding-type compatibility tags rendered on the vendor
+// profile form. Mirror the events.ceremony_type / events.venue_setting
+// CHECK constraints from migration 20260521000000. Labels are kebabbed
+// English (no Tagalog yet — vendor surface stays EN for V1).
+const CEREMONY_TYPES: ReadonlyArray<{ key: string; label: string }> = [
+  { key: 'catholic', label: 'Catholic' },
+  { key: 'civil', label: 'Civil' },
+  { key: 'inc', label: 'INC' },
+  { key: 'christian', label: 'Christian' },
+  { key: 'muslim', label: 'Muslim' },
+  { key: 'cultural', label: 'Cultural' },
+  { key: 'mixed', label: 'Mixed / interfaith' },
+];
+
+const VENUE_SETTINGS: ReadonlyArray<{ key: string; label: string }> = [
+  { key: 'banquet_hall', label: 'Banquet hall' },
+  { key: 'garden', label: 'Garden' },
+  { key: 'beach', label: 'Beach' },
+  { key: 'destination', label: 'Destination' },
+  { key: 'heritage', label: 'Heritage' },
+  { key: 'outdoor_tent', label: 'Outdoor tent' },
+  { key: 'civil_registrar', label: 'Civil registrar' },
+];
+
 export const metadata = { title: 'Vendor profile · Setnayan' };
 
 type Props = {
@@ -246,6 +270,65 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
           help="Tick the standard categories you offer. Add custom services for anything not on the list."
         >
           <ServicesPicker name="services" initial={profile?.services ?? []} />
+        </Field>
+
+        <Field
+          label="Wedding compatibility"
+          htmlFor="compatible_ceremony_types"
+          help="Tick the ceremonies + venues you serve. Couples who turn on “Match my wedding” on the marketplace see only vendors whose tags include their event. Leave everything unchecked to stay open to every wedding (matches the default for legacy profiles)."
+        >
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                Ceremony types
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {CEREMONY_TYPES.map((ct) => {
+                  const checked = profile?.compatible_ceremony_types?.includes(ct.key) ?? false;
+                  return (
+                    <label
+                      key={ct.key}
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 py-1.5 text-xs text-ink/75 transition has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/10 has-[:checked]:text-terracotta-700 hover:border-ink/30"
+                    >
+                      <input
+                        type="checkbox"
+                        name="compatible_ceremony_types"
+                        value={ct.key}
+                        defaultChecked={checked}
+                        className="h-3.5 w-3.5 rounded border-ink/25 text-terracotta focus:ring-terracotta/40"
+                      />
+                      <span>{ct.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                Venue settings
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {VENUE_SETTINGS.map((v) => {
+                  const checked = profile?.compatible_venue_settings?.includes(v.key) ?? false;
+                  return (
+                    <label
+                      key={v.key}
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 py-1.5 text-xs text-ink/75 transition has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/10 has-[:checked]:text-terracotta-700 hover:border-ink/30"
+                    >
+                      <input
+                        type="checkbox"
+                        name="compatible_venue_settings"
+                        value={v.key}
+                        defaultChecked={checked}
+                        className="h-3.5 w-3.5 rounded border-ink/25 text-terracotta focus:ring-terracotta/40"
+                      />
+                      <span>{v.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">

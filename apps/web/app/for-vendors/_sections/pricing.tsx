@@ -7,8 +7,9 @@ const PROMO_END_SHORT = formatPromoEndDateShort();
 // Pricing — exception to the homepage's hide-prices rule. Vendors decide
 // on cost; couples don't yet (per CLAUDE.md decision log 2026-05-15
 // "/for-vendors should ... include pricing visible (vendors decide on
-// cost; couples don't yet)"). Free listing vs Pro ₱499/wk pulled from
-// iteration 0022 § 3.
+// cost; couples don't yet)"). Free / Pro pulled from iteration 0022 § 3
+// with the 2026-05-20 Free/Pro/Max relock. Max tier is NOT shown publicly
+// during the launch promo — it launches as a marketing event on 2027-01-30.
 
 type Tier = {
   name: string;
@@ -42,10 +43,10 @@ const TIERS: Array<Tier> = [
   },
   {
     name: 'Pro',
-    price: '₱499',
-    cadence: 'per week · pause anytime',
+    price: '₱4,999',
+    cadence: 'per week · pause anytime · ₱3,999/wk founder rate locked for life',
     blurb:
-      'For vendors running multiple services, agents, and a real pipeline. Cancel or pause weekly — no monthly lock-in, no annual contract.',
+      'For vendors running multiple services, a real team, and a real pipeline. Cancel or pause weekly — no monthly lock-in, no annual contract. Pre-register during the launch promo and you lock the founder rate ₱3,999/wk for life when you convert.',
     features: [
       { label: 'Verified profile on the directory', included: true },
       { label: 'Unlimited services in your catalog', included: true, note: 'multi-service' },
@@ -75,8 +76,10 @@ export function Pricing() {
           </h2>
           <p className="text-base text-ink/65">
             Most marketplaces charge a percentage of every booking. Setnayan
-            doesn&rsquo;t — Pro is a flat weekly subscription, paused anytime.
-            A photographer with 10 weddings in one week pays ₱499 once.
+            doesn&rsquo;t — Pro is a flat weekly subscription, paused anytime,
+            with <strong className="text-ink">unlimited bookings</strong> at
+            every tier. A studio with 10 weddings in one week pays ₱4,999
+            once.
           </p>
           <div className="flex items-start gap-3 rounded-2xl border-2 border-terracotta/40 bg-terracotta/5 p-4 sm:p-5">
             <Gift aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-terracotta" strokeWidth={2} />

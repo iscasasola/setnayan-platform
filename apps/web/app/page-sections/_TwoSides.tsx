@@ -56,8 +56,8 @@ const VENDOR_BEATS: Array<{ title: string; body: string }> = [
     body: "when you're ready to scale — 10km → 30km visibility.",
   },
   {
-    title: 'Crew-rate marketplace (V1.5)',
-    body: '— list your team and earn from every job.',
+    title: 'Crew-rate marketplace',
+    body: '— coming soon. List your team and earn from every job.',
   },
 ];
 

@@ -53,11 +53,15 @@ export type SkuRecord = {
 };
 
 /**
- * Launch promo end date — 2027-03-31 23:59:59 +08:00 (PH local time).
- * Mirrors `service_catalog.launch_promo_until` (migration
- * 20260518100000_launch_promo_until_mar_2027.sql).
+ * Launch promo end date — 2027-01-30 23:59:59 +08:00 (PH local time).
+ * Re-locked 2026-05-20 from the original 2027-03-31 to align the sunset
+ * with the end of peak Filipino wedding-search season (Jan-Mar), giving
+ * conversion the strongest motivation window. The original migration
+ * 20260518100000_launch_promo_until_mar_2027.sql still seeds the DB
+ * column to Mar 31 — a follow-up migration is pending to flip
+ * `service_catalog.launch_promo_until` to match.
  */
-export const LAUNCH_PROMO_UNTIL = new Date('2027-03-31T23:59:59+08:00');
+export const LAUNCH_PROMO_UNTIL = new Date('2027-01-30T23:59:59+08:00');
 
 /**
  * SKUs that are FREE during the launch promo (2026-05-18 owner lock).

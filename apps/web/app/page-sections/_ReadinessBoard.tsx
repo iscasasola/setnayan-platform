@@ -111,8 +111,9 @@ export function ReadinessBoard() {
             Event-type readiness board.
           </h2>
           <p className="text-base text-ink/65 sm:text-lg">
-            Wedding is live. Other event types unlock as their vendor pools
-            reach the per-type readiness threshold.
+            Wedding is live. The other event types open one by one — each
+            unlocks the moment enough verified vendors are ready to take
+            bookings.
           </p>
         </div>
 
@@ -173,8 +174,8 @@ export function ReadinessBoard() {
           })}
         </ul>
         <p className="mt-8 text-xs text-ink/50">
-          11+ more event types tracked. Tiles unlock as vendor pools reach
-          per-type readiness thresholds.
+          11+ more event types in the works. Each tile opens as soon as
+          enough verified vendors are ready in your area.
         </p>
       </div>
     </section>

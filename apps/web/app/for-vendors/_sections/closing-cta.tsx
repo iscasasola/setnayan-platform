@@ -19,7 +19,7 @@ export function ClosingCta() {
               </p>
               <h2 className="font-display text-4xl font-medium leading-tight tracking-tight text-ink sm:text-5xl">
                 Pioneer vendor spot.{' '}
-                <span className="text-ink/55">Free for 10 months.</span>
+                <span className="text-ink/55">Free for 8 months.</span>
               </h2>
               <p className="text-base text-ink/65">
                 Pre-register today. We&rsquo;ll verify within a week. Couples

@@ -32,14 +32,14 @@ import { StickyMobileCta } from './_sections/sticky-mobile-cta';
 export const metadata = {
   title: 'Run your wedding business in one app — Setnayan for vendors',
   description:
-    'List your wedding business free on Setnayan. One app for calendar, chat, proposals, payments, reviews — built for Filipino vendors. Pro at ₱499/week, paused anytime. BIR receipts handled.',
+    'List your wedding business free on Setnayan. One app for calendar, chat, proposals, payments, reviews — built for Filipino vendors. Pro at ₱4,999/week, paused anytime. BIR receipts handled.',
   alternates: {
     canonical: '/for-vendors',
   },
   openGraph: {
     title: 'Run your wedding business in one app — Setnayan for vendors',
     description:
-      'Listing. Calendar. Chat. Proposals. Payments. Reviews. One app for Filipino wedding vendors. Free to list. Pro ₱499/week, paused anytime.',
+      'Listing. Calendar. Chat. Proposals. Payments. Reviews. One app for Filipino wedding vendors. Free to list. Pro ₱4,999/week, paused anytime.',
     url: '/for-vendors',
     type: 'website',
     siteName: 'Setnayan',

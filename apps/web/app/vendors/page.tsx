@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { Star, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Star, MapPin, ChevronLeft, ChevronRight, Navigation } from 'lucide-react';
+import { haversineKm, formatDistanceKm } from '@/lib/geo';
 import { Logo as BrandLogo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
@@ -167,6 +168,8 @@ type VendorCardRow = {
   logo_url: string | null;
   services: string[];
   location_city: string | null;
+  hq_latitude: number | null;
+  hq_longitude: number | null;
   contact_email: string | null;
   public_visibility: VendorPublicVisibility;
   created_at: string;
@@ -244,15 +247,30 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   let coupleEventId: string | null = null;
   let matchableEvent: { ceremony_type: string; venue_setting: string } | null = null;
   let coupleEventType: string | null = null;
+  // 2026-05-21 — reception venue anchor (lat/lng) for the distance chip on
+  // every vendor card. Populated by saveVendorToPicks when the couple saves
+  // a category='venue' vendor with coords. NULL = no anchor → no chips.
+  let venueAnchor: { lat: number; lng: number } | null = null;
   if (user) {
     const userEvents = await fetchUserEvents(supabase, user.id, 'couple');
     coupleEventId = userEvents[0]?.event_id ?? null;
     if (coupleEventId) {
       const { data: ev } = await admin
         .from('events')
-        .select('ceremony_type, venue_setting, event_type')
+        .select('ceremony_type, venue_setting, event_type, venue_latitude, venue_longitude')
         .eq('event_id', coupleEventId)
         .maybeSingle();
+      if (
+        ev?.venue_latitude !== null &&
+        ev?.venue_latitude !== undefined &&
+        ev?.venue_longitude !== null &&
+        ev?.venue_longitude !== undefined
+      ) {
+        venueAnchor = {
+          lat: Number(ev.venue_latitude),
+          lng: Number(ev.venue_longitude),
+        };
+      }
       // Iteration 0043 — ceremony × venue compat fields are wedding-only
       // (NULL for non-wedding events per migration 20260521080000), so the
       // matchable block only populates for wedding event_types.
@@ -348,7 +366,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   let query = admin
     .from('vendor_profiles')
     .select(
-      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,contact_email,public_visibility,created_at',
+      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_latitude,hq_longitude,contact_email,public_visibility,created_at',
       { count: 'exact' },
     )
     .in('public_visibility', allowedVisibilities as readonly string[])
@@ -604,6 +622,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                     isFollowing={followedSet.has(v.vendor_profile_id)}
                     isSaved={savedSet.has(v.vendor_profile_id)}
                     eventId={coupleEventId}
+                    venueAnchor={venueAnchor}
                     ad={adById.get(v.vendor_profile_id) ?? null}
                   />
                 </li>
@@ -870,6 +889,7 @@ function VendorMarketCard({
   isFollowing,
   isSaved,
   eventId,
+  venueAnchor,
   ad,
 }: {
   vendor: VendorCardRow;
@@ -879,6 +899,7 @@ function VendorMarketCard({
   isFollowing: boolean;
   isSaved: boolean;
   eventId: string | null;
+  venueAnchor: { lat: number; lng: number } | null;
   ad: ActiveAdLookup | null;
 }) {
   const primaryService = vendor.services[0] ?? null;
@@ -951,6 +972,31 @@ function VendorMarketCard({
             {vendor.location_city}
           </li>
         ) : null}
+        {(() => {
+          // 2026-05-21 — distance from the couple's reception venue. Renders
+          // only when BOTH ends have coords; otherwise the city pill alone
+          // stays the geo-signal. Computation is haversine in-process, no
+          // DB or external call per card.
+          if (
+            !venueAnchor ||
+            vendor.hq_latitude === null ||
+            vendor.hq_longitude === null
+          ) {
+            return null;
+          }
+          const km = haversineKm(
+            venueAnchor.lat,
+            venueAnchor.lng,
+            Number(vendor.hq_latitude),
+            Number(vendor.hq_longitude),
+          );
+          return (
+            <li className="inline-flex items-center gap-1 text-terracotta">
+              <Navigation className="h-3.5 w-3.5" strokeWidth={1.75} />
+              {formatDistanceKm(km)} from venue
+            </li>
+          );
+        })()}
         <li className="inline-flex items-center gap-1">
           <Star
             className={`h-3.5 w-3.5 ${

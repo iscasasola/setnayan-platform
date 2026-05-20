@@ -153,10 +153,11 @@ export async function saveVendorToPicks(formData: FormData): Promise<SaveVendorR
     return { status: 'no_primary_event' };
   }
 
-  // 2. Load the vendor profile (name + services for category mapping).
+  // 2. Load the vendor profile (name + services for category mapping +
+  //    HQ coords so we can anchor the event's venue if this is a venue pick).
   const { data: vendor, error: vError } = await admin
     .from('vendor_profiles')
-    .select('vendor_profile_id, business_name, services')
+    .select('vendor_profile_id, business_name, services, hq_latitude, hq_longitude')
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
   if (vError) {
@@ -194,8 +195,28 @@ export async function saveVendorToPicks(formData: FormData): Promise<SaveVendorR
     return { status: 'error', message: iError?.message ?? 'Insert failed' };
   }
 
-  // Repaint both the marketplace (button → "Saved") and the couple home
-  // (12-group planner now shows the new pick).
+  // 5. 2026-05-21 — anchor the event's reception venue when this save
+  // is a venue pick. First-saved-wins: we only set venue_latitude when
+  // it's currently NULL so the couple doesn't lose a manually-set
+  // anchor (or one they pinned by saving a different venue earlier).
+  // Admin can override via /admin/events. Distance chips on the
+  // marketplace key off this column.
+  const vendorHasCoords =
+    vendor.hq_latitude !== null && vendor.hq_longitude !== null;
+  if (category === 'venue' && vendorHasCoords) {
+    await admin
+      .from('events')
+      .update({
+        venue_latitude: vendor.hq_latitude,
+        venue_longitude: vendor.hq_longitude,
+      })
+      .eq('event_id', primaryEvent.event_id)
+      .is('venue_latitude', null);
+  }
+
+  // Repaint both the marketplace (button → "Saved" · distance chips
+  // update if venue just got anchored) and the couple home (12-group
+  // planner now shows the new pick).
   revalidatePath('/vendors');
   revalidatePath(`/v/`);
   revalidatePath(`/dashboard/${primaryEvent.event_id}`);

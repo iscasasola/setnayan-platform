@@ -187,15 +187,62 @@ const COMPONENT_BY_WIDGET_ID: Record<string, ComponentType> = {
   home_platforms: AvailableEverywhere,
 };
 
+// Last-resort widget order used when the `site_widgets` fetch fails — most
+// commonly during `next build` runs without `SUPABASE_SERVICE_ROLE_KEY`
+// (the CI `production build` job uses placeholder env vars per ci.yml; same
+// shape can hit preview deploys with un-provisioned secrets). Keeping the
+// fallback identical to the seed means a failed fetch produces the exact
+// same HTML as a healthy fetch — the public site stays up; only the
+// admin's toggle / reorder ability is temporarily inert until the next
+// successful render with a working DB. Order matches the seed in
+// 20260521100000_iteration_0015_site_widgets_home_drift_fix.sql.
+const FALLBACK_HOME_WIDGET_IDS: ReadonlyArray<string> = [
+  'home_announcement_bar',
+  'home_browse_strip',
+  'home_hero',
+  'home_real_numbers',
+  'home_chaos',
+  'home_two_sides',
+  'home_maria_juan',
+  'home_in_app_services',
+  'home_vendor_compat',
+  'home_transparent_pricing',
+  'home_readiness_board',
+  'home_coverage_map',
+  'home_dual_cta_footer',
+  'home_platforms',
+];
+
+type RenderWidget = { widget_id: string };
+
+async function loadHomeWidgets(): Promise<ReadonlyArray<RenderWidget>> {
+  try {
+    const supabase = createAdminClient();
+    const rows = await fetchWidgetsForPage(supabase, 'home');
+    return rows.filter((w) => w.is_enabled);
+  } catch (err) {
+    // Two scenarios land here:
+    //   1. Build-time render with missing env vars (CI's production-build
+    //      job, preview deploys without secrets, local `next build` without
+    //      `.env.production.local`). `createAdminClient` throws.
+    //   2. Runtime regen after admin edit with a flaky network / DB blip.
+    // Either way the public homepage must stay up — fall back to the
+    // hardcoded seed order so SSR HTML is identical to the healthy path.
+    console.warn(
+      '[home] site_widgets fetch failed; rendering hardcoded fallback:',
+      err instanceof Error ? err.message : err,
+    );
+    return FALLBACK_HOME_WIDGET_IDS.map((widget_id) => ({ widget_id }));
+  }
+}
+
 export default async function HomePage() {
   // Signed-in viewers are redirected to /dashboard by middleware.ts
   // before this component runs, so this body only renders for anonymous
   // visitors. Keep it free of `cookies()`, `headers()`, or any other
   // dynamic API — adding one would silently revert this route to
   // per-request SSR and undo the TTFB win.
-  const supabase = createAdminClient();
-  const widgets = await fetchWidgetsForPage(supabase, 'home');
-  const enabled = widgets.filter((w) => w.is_enabled);
+  const enabled = await loadHomeWidgets();
 
   // Announcement strip pins above SiteHeader when enabled regardless of
   // its DB display_order — a banner that drifts mid-page reads as broken

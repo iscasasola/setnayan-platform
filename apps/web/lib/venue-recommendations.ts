@@ -188,6 +188,121 @@ export async function findPairedCeremonyVenues(
   return topCandidates;
 }
 
+/**
+ * All ceremony venues (catholic_church · christian_church · inc_chapel ·
+ * mosque · cultural_site · civil_registrar) filtered by the couple's faith.
+ * UNLIKE `findPairedCeremonyVenues`, this one is NOT distance-gated — it
+ * surfaces the venues directly inside the Ceremony folder of the marketplace
+ * regardless of whether a reception anchor exists.
+ *
+ * When `args.anchorLat/Lng` is provided, each candidate carries a
+ * `distance_km` so the section can sort by proximity. Without an anchor,
+ * results are alphabetical within each venue_type group.
+ *
+ * Faith filter mirrors findPairedCeremonyVenues: empty `compatible_ceremony_
+ * types[]` = open to all; populated array must include `coupleCeremonyType`.
+ */
+export async function findCeremonyVenuesByFaith(
+  admin: SupabaseClient,
+  args: {
+    coupleCeremonyType: string | null;
+    anchorLat?: number | null;
+    anchorLng?: number | null;
+    eventId?: string | null;
+    /** Cap per venue_type group. Default 6 so the section reads as scannable. */
+    perTypeLimit?: number;
+  },
+): Promise<PairedVenueCandidate[]> {
+  const perTypeLimit = args.perTypeLimit ?? 6;
+  const hasAnchor =
+    typeof args.anchorLat === 'number' &&
+    typeof args.anchorLng === 'number' &&
+    Number.isFinite(args.anchorLat) &&
+    Number.isFinite(args.anchorLng);
+
+  const { data, error } = await admin
+    .from('venue_directory')
+    .select(
+      'venue_directory_id,slug,name,venue_type,location_city,hq_latitude,hq_longitude,compatible_ceremony_types,hero_image_url,hero_image_attribution,hero_image_license,hero_image_source_url',
+    )
+    .in('venue_type', CEREMONY_VENUE_TYPES as readonly string[])
+    .order('name', { ascending: true });
+
+  if (error || !data) return [];
+
+  const rows = data as Row[];
+  const candidates: PairedVenueCandidate[] = [];
+
+  for (const row of rows) {
+    const lat = Number(row.hq_latitude);
+    const lng = Number(row.hq_longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+
+    if (args.coupleCeremonyType !== null) {
+      const compat = row.compatible_ceremony_types ?? [];
+      if (compat.length > 0 && !compat.includes(args.coupleCeremonyType)) {
+        continue;
+      }
+    }
+
+    const distance = hasAnchor
+      ? haversineKm(args.anchorLat as number, args.anchorLng as number, lat, lng)
+      : 0;
+
+    candidates.push({
+      venue_directory_id: row.venue_directory_id,
+      slug: row.slug,
+      name: row.name,
+      venue_type: row.venue_type,
+      location_city: row.location_city,
+      hq_latitude: lat,
+      hq_longitude: lng,
+      distance_km: distance,
+      compatible_ceremony_types: row.compatible_ceremony_types ?? [],
+      hero_image_url: row.hero_image_url,
+      hero_image_attribution: row.hero_image_attribution,
+      hero_image_license: row.hero_image_license,
+      hero_image_source_url: row.hero_image_source_url,
+      is_in_plan: false,
+    });
+  }
+
+  // Bucket by venue_type, sort each bucket, then flatten.
+  const buckets = new Map<string, PairedVenueCandidate[]>();
+  for (const c of candidates) {
+    const arr = buckets.get(c.venue_type) ?? [];
+    arr.push(c);
+    buckets.set(c.venue_type, arr);
+  }
+  const trimmed: PairedVenueCandidate[] = [];
+  for (const bucket of buckets.values()) {
+    if (hasAnchor) {
+      bucket.sort((a, b) => a.distance_km - b.distance_km);
+    }
+    trimmed.push(...bucket.slice(0, perTypeLimit));
+  }
+
+  // Resolve in-plan state in one round-trip for the trimmed surface.
+  if (args.eventId && trimmed.length > 0) {
+    const ids = trimmed.map((c) => c.venue_directory_id);
+    const { data: savedRows } = await admin
+      .from('event_vendors')
+      .select('source_venue_directory_id')
+      .eq('event_id', args.eventId)
+      .in('source_venue_directory_id', ids);
+    const savedSet = new Set(
+      (savedRows ?? [])
+        .map((r) => r.source_venue_directory_id as string | null)
+        .filter((x): x is string => x !== null),
+    );
+    for (const c of trimmed) {
+      if (savedSet.has(c.venue_directory_id)) c.is_in_plan = true;
+    }
+  }
+
+  return trimmed;
+}
+
 /** Human-friendly label for the venue_type chip. */
 export function displayVenueType(venueType: string): string {
   switch (venueType) {

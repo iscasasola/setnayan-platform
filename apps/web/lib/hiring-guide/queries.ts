@@ -59,9 +59,13 @@ export async function refreshBottleneckSignalsIfStale(): Promise<void> {
   if (!lastRefresh || lastRefresh < hourAgo) {
     // The CONCURRENT refresh requires the unique index on refreshed_at;
     // safe to call even if a refresh is in progress.
-    await supabase.rpc('refresh_bottleneck_signals' as never).catch((err) => {
+    // Supabase's PostgrestBuilder is thenable-like but not a real Promise,
+    // so `.catch()` doesn't exist on it — wrap in try/catch instead.
+    try {
+      await supabase.rpc('refresh_bottleneck_signals' as never);
+    } catch (err) {
       console.warn('[hiring-guide] materialized view refresh RPC missing; falling back to next caller', err);
-    });
+    }
   }
 }
 

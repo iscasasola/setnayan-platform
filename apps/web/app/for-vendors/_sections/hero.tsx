@@ -1,5 +1,8 @@
 import Link from 'next/link';
 import { ArrowRight, Calendar, Inbox, FileText, Star } from 'lucide-react';
+import { formatPromoEndDateShort } from '@/lib/sku-catalog';
+
+const PROMO_END_SHORT = formatPromoEndDateShort();
 
 // Vendor hero — outcome-led ("Run your wedding business in one app").
 // Different from the main homepage hero. Per iteration 0015 § Routes
@@ -21,7 +24,7 @@ export function Hero() {
           </h1>
           <p className="max-w-prose text-xl leading-relaxed text-ink/70 sm:text-2xl">
             Get found by couples planning weddings across the Philippines.
-            Pro tier <strong className="text-ink">free for 10 months</strong>{' '}
+            Pro tier <strong className="text-ink">free for 8 months</strong>{' '}
             when you pre-register today.
           </p>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -40,7 +43,7 @@ export function Hero() {
             </Link>
           </div>
           <p className="text-xs text-ink/45">
-            Free forever to list · Pro &amp; All Tools FREE until Mar 31, 2027 · BIR receipts handled
+            Free forever to list · Pro &amp; All Tools FREE until {PROMO_END_SHORT} · BIR receipts handled
           </p>
         </div>
 

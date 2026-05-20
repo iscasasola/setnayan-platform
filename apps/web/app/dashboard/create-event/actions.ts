@@ -206,7 +206,11 @@ export async function createWeddingEvent(formData: FormData) {
       const result = await startConciergeTrial({ eventId: insertedEvent.event_id });
       // Pass the trial-attach result through the URL so the dashboard can
       // surface the right inline status banner (started · already_used ·
-      // enforcement_blocked · under_review).
+      // already_used_on_event · enforcement_blocked · under_review).
+      // already_used_on_event is the 2026-05-20 dual-scope addition — fires
+      // when a different moderator on this event already consumed the
+      // per-event trial slot (rare in V1 single-host, primary V1.2 case
+      // once iteration 0048 multi-moderator events ship).
       return redirect(
         `/dashboard/${insertedEvent.event_id}?concierge_trial=${result.status}`,
       );

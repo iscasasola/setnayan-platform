@@ -180,9 +180,9 @@ function pickNextTasks(args: {
     push({
       id: 'set-venue',
       title: 'Lock in your venue',
-      body: 'A venue name lets us pre-fill invitations, seating, and vendor briefs.',
-      cta: 'Add venue',
-      href: `/dashboard/${eventId}/invitation`,
+      body: 'Browse verified Philippine venues. We pre-fill invitations, seating, and vendor briefs once you book.',
+      cta: 'Search venues',
+      href: `/vendors?category=venue`,
     });
   }
   if (pendingCount > 0) {

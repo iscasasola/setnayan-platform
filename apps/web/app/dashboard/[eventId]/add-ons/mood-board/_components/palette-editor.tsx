@@ -211,21 +211,19 @@ function PaletteFamily({
                         {limits.slotLabels[i]}
                       </span>
                     ) : null}
-                    <div className="flex items-center gap-2 rounded-lg border border-ink/10 bg-cream p-1.5 pr-2">
+                    <div className="flex items-center gap-1.5 rounded-lg border border-ink/10 bg-cream p-1.5 pr-1.5">
                       <input
                         type="color"
-                        aria-label={`${limits.label} color ${i + 1}`}
+                        aria-label={`${limits.label} color ${i + 1} — ${c}`}
+                        title={c}
                         value={c}
                         onChange={(e) => onUpdate(key, i, e.target.value)}
                         className="h-9 w-9 cursor-pointer rounded-md border border-ink/10 bg-cream p-0.5"
                       />
-                      <span className="font-mono text-[11px] uppercase tracking-[0.1em] text-ink/65">
-                        {c}
-                      </span>
                       <button
                         type="button"
                         onClick={() => onRemove(key, i)}
-                        aria-label="Remove color"
+                        aria-label={`Remove color ${c}`}
                         className="rounded-md p-1 text-ink/40 hover:bg-ink/5 hover:text-rose-700"
                       >
                         <X className="h-3.5 w-3.5" strokeWidth={2} />

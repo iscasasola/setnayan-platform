@@ -57,6 +57,17 @@ export type VendorProfileRow = {
    */
   compatible_ceremony_types: string[] | null;
   compatible_venue_settings: string[] | null;
+  /**
+   * Iteration 0041 — multi-event support. Which event_types this vendor
+   * serves. Default ['wedding'] for legacy / V1.1 vendors (backfilled in
+   * migration 20260521090000). The `vendor_profiles_event_types_check`
+   * constraint guarantees a non-empty array of valid public.event_type
+   * enum values.
+   *
+   * Drives the marketplace `?event_type=` filter at /vendors — a vendor
+   * appears in the debut marketplace only if 'debut' is in this array.
+   */
+  event_types: string[];
   created_at: string;
   updated_at: string;
 };
@@ -67,7 +78,7 @@ export type VendorProfileRow = {
 // callers see compatible_* as null in that mode, identical to a vendor
 // who hasn't picked any tags yet — "open to all" semantics.
 const FULL_VENDOR_PROFILE_SELECT =
-  'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,location_city,website,contact_email,contact_phone,is_published,portfolio_r2_keys,show_team_bookings_in_backend_count,public_visibility,compatible_ceremony_types,compatible_venue_settings,created_at,updated_at';
+  'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,location_city,website,contact_email,contact_phone,is_published,portfolio_r2_keys,show_team_bookings_in_backend_count,public_visibility,compatible_ceremony_types,compatible_venue_settings,event_types,created_at,updated_at';
 
 const LEGACY_VENDOR_PROFILE_SELECT =
   'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,location_city,website,contact_email,contact_phone,is_published,portfolio_r2_keys,show_team_bookings_in_backend_count,public_visibility,created_at,updated_at';
@@ -85,13 +96,17 @@ export async function fetchOwnVendorProfile(
     // Most likely: 0043 migration not yet applied to this database — the
     // compatible_* columns don't exist. Retry without them and surface
     // null compatibility on the returned row. Anything else still throws.
-    const missingCompatColumns =
+    // Migrations the fallback tolerates: 20260521000000 (compatible_*) and
+    // 20260521090000 (event_types). Both column families surface as
+    // PostgREST 42703 / "column does not exist" until applied.
+    const missingNewerColumns =
       typeof error.message === 'string' &&
       (error.message.includes('compatible_ceremony_types') ||
         error.message.includes('compatible_venue_settings') ||
+        error.message.includes('event_types') ||
         // PostgREST returns 42703 for "column does not exist"
         (error as { code?: string }).code === '42703');
-    if (!missingCompatColumns) {
+    if (!missingNewerColumns) {
       throw new Error(`fetchOwnVendorProfile failed: ${error.message}`);
     }
     const fallback = await supabase
@@ -107,6 +122,7 @@ export async function fetchOwnVendorProfile(
       ...(fallback.data as Record<string, unknown>),
       compatible_ceremony_types: null,
       compatible_venue_settings: null,
+      event_types: ['wedding'],
     } as typeof data;
   }
   if (!data) return null;
@@ -120,10 +136,12 @@ export async function fetchOwnVendorProfile(
     | 'portfolio_r2_keys'
     | 'show_team_bookings_in_backend_count'
     | 'public_visibility'
+    | 'event_types'
   > & {
     portfolio_r2_keys: string[] | null;
     show_team_bookings_in_backend_count: boolean | null;
     public_visibility: VendorProfileRow['public_visibility'] | null;
+    event_types: string[] | null;
   };
   return {
     ...row,
@@ -131,6 +149,13 @@ export async function fetchOwnVendorProfile(
     show_team_bookings_in_backend_count:
       row.show_team_bookings_in_backend_count ?? false,
     public_visibility: row.public_visibility ?? 'coming_soon',
+    // Defensive: vendor_profiles.event_types is NOT NULL DEFAULT
+    // ARRAY['wedding'] per migration 20260521090000. A null surfaces only
+    // pre-migration; collapse to the V1 baseline so callers can rely on a
+    // non-empty array.
+    event_types: row.event_types && row.event_types.length > 0
+      ? row.event_types
+      : ['wedding'],
   };
 }
 

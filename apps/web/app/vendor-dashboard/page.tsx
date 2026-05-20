@@ -54,6 +54,27 @@ const VENUE_SETTINGS: ReadonlyArray<{ key: string; label: string }> = [
   { key: 'civil_registrar', label: 'Civil registrar' },
 ];
 
+// Iteration 0041 — event_types vendor opt-in roster. Mirrors the live
+// `public.event_type` enum + the `vendor_profiles_event_types_check`
+// constraint in migration 20260521090000. Vendors check which event types
+// they actually serve; the marketplace `?event_type=` filter at /vendors
+// reads vendor_profiles.event_types[] to match.
+//
+// All 9 enum values are checkable here even though only wedding + debut
+// are creatable in the picker today — vendors can pre-tag for Coming-Soon
+// event_types so they're ready when those tiles enable.
+const EVENT_TYPES_SERVED: ReadonlyArray<{ key: string; label: string; emoji: string }> = [
+  { key: 'wedding', label: 'Wedding', emoji: '💍' },
+  { key: 'debut', label: 'Debut', emoji: '👑' },
+  { key: 'gender_reveal', label: 'Gender Reveal', emoji: '🎈' },
+  { key: 'birthday', label: 'Birthday', emoji: '🎂' },
+  { key: 'celebration', label: 'Celebration', emoji: '🥂' },
+  { key: 'christening', label: 'Christening', emoji: '🕯️' },
+  { key: 'corporate', label: 'Corporate', emoji: '🏢' },
+  { key: 'travel', label: 'Travel', emoji: '✈️' },
+  { key: 'tournament', label: 'Tournament', emoji: '🏆' },
+];
+
 export const metadata = { title: 'Vendor profile · Setnayan' };
 
 type Props = {
@@ -270,6 +291,34 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
           help="Tick the standard categories you offer. Add custom services for anything not on the list."
         >
           <ServicesPicker name="services" initial={profile?.services ?? []} />
+        </Field>
+
+        <Field
+          label="Event types you serve"
+          htmlFor="event_types"
+          help="Tick every event type you take bookings for. Couples browsing each marketplace see only vendors who serve their event. Wedding is checked by default for every vendor (iteration 0041 backfill); tick others to expand your reach as those marketplaces open."
+        >
+          <div className="flex flex-wrap gap-2">
+            {EVENT_TYPES_SERVED.map((et) => {
+              const checked = profile?.event_types?.includes(et.key) ?? (et.key === 'wedding');
+              return (
+                <label
+                  key={et.key}
+                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 py-1.5 text-xs text-ink/75 transition has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/10 has-[:checked]:text-terracotta-700 hover:border-ink/30"
+                >
+                  <input
+                    type="checkbox"
+                    name="event_types"
+                    value={et.key}
+                    defaultChecked={checked}
+                    className="h-3.5 w-3.5 rounded border-ink/25 text-terracotta focus:ring-terracotta/40"
+                  />
+                  <span aria-hidden>{et.emoji}</span>
+                  <span>{et.label}</span>
+                </label>
+              );
+            })}
+          </div>
         </Field>
 
         <Field

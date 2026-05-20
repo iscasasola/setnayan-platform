@@ -178,7 +178,12 @@ export async function saveVendorServiceAttribute(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return redirect('/login');
+    // Preserve the destination via ?next= so re-auth lands the vendor
+    // back on the attributes form, not on the customer dashboard. Bare
+    // redirect('/login') was the bug #9 pattern caught in the sweep.
+    return redirect(
+      '/login?next=' + encodeURIComponent('/vendor-dashboard/attributes'),
+    );
   }
 
   // Everything below talks to Postgres. Wrap the lot in try/catch so any

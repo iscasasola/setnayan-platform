@@ -80,10 +80,20 @@ export async function approvePayment(formData: FormData) {
   });
 
   if (promoteOrder) {
-    await admin
+    // Capture the update result. If this silently failed we'd notify
+    // the buyer "your order is paid" while the DB row still says
+    // pending — and downstream payout / receipt logic would diverge.
+    // Fail loudly so the admin can re-run rather than leaking a
+    // half-promoted order.
+    const { error: promoteErr } = await admin
       .from('orders')
       .update({ status: 'paid', updated_at: new Date().toISOString() })
       .eq('order_id', payment.order_id);
+    if (promoteErr) {
+      throw new Error(
+        `Failed to promote order ${payment.order_id} to paid: ${promoteErr.message}`,
+      );
+    }
 
     await emitNotification({
       userId: payment.user_id,
@@ -332,6 +342,16 @@ export async function confirmOrderTotal(formData: FormData) {
   const amount = Number(confirmedRaw);
   if (!Number.isFinite(amount) || amount < 0) {
     throw new Error('Confirmed amount must be a non-negative number');
+  }
+  // Sanity ceiling. ₱100M is well above any realistic wedding total
+  // (the largest V1 SKU bundles are well under ₱1M) so anything
+  // higher is a paste-typo, not a real number. Catching it here
+  // beats baking the wrong value into orders + payouts.
+  const MAX_CONFIRMED_AMOUNT_PHP = 100_000_000;
+  if (amount > MAX_CONFIRMED_AMOUNT_PHP) {
+    throw new Error(
+      `Confirmed amount ${amount} exceeds the ₱${MAX_CONFIRMED_AMOUNT_PHP.toLocaleString()} sanity ceiling — double-check the input.`,
+    );
   }
 
   const admin = createAdminClient();

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { Store } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { fetchUserEvents } from '@/lib/events';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { countUnread } from '@/lib/notifications';
@@ -21,7 +21,7 @@ type Props = {
 export default async function EventLayout({ children, params }: Props) {
   const { eventId } = await params;
   const user = await getCurrentUser();
-  if (!user) redirect('/login');
+  if (!user) redirect(loginRedirectPath(`/dashboard/${eventId}`));
   const supabase = await createClient();
 
   // Authorization (per acceptance criterion: 404 for non-couples).

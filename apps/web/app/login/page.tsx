@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { Logo } from '@/app/_components/logo';
+import { safeNext } from '@/lib/auth';
 import { signInWithMagicLink, signInWithPassword } from './actions';
 
 export const metadata: Metadata = {
@@ -26,7 +27,11 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
     : null;
   const readyEmail = params.ready ? decodeURIComponent(params.ready) : null;
   const prefilledEmail = readyEmail ?? '';
-  const next = params.next && params.next.startsWith('/') ? params.next : '/';
+  // Use the same validator the server actions use — rejects
+  // `//evil.com` (protocol-relative) which the previous inline
+  // `.startsWith('/')` check let through. Rendered link tags and
+  // hidden form inputs are both based on this.
+  const next = safeNext(params.next);
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-8 px-6 py-12 sm:px-8">

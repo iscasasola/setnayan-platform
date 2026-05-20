@@ -42,9 +42,19 @@ export default async function AdminVendorsPage({ searchParams }: Props) {
   if (status === 'published') query = query.eq('is_published', true);
   if (status === 'draft') query = query.eq('is_published', false);
   if (q.length > 0) {
-    query = query.or(
-      `business_name.ilike.%${q}%,business_slug.ilike.%${q}%,contact_email.ilike.%${q}%,public_id.ilike.%${q}%`,
-    );
+    // PostgREST's `.or()` parses the string as comma-separated filters
+    // where each is `field.operator.value`. Raw user input would let a
+    // crafted `q` (containing `,`, `(`, `)`, `:`) inject additional
+    // filter clauses and read rows the search wasn't meant to match.
+    // Strip the structural delimiters before interpolation — admins
+    // searching by business name don't legitimately need them, and
+    // `%` / `_` are still allowed so ilike wildcards behave as expected.
+    const safeQ = q.replace(/[,()*\\]/g, '').slice(0, 100);
+    if (safeQ.length > 0) {
+      query = query.or(
+        `business_name.ilike.%${safeQ}%,business_slug.ilike.%${safeQ}%,contact_email.ilike.%${safeQ}%,public_id.ilike.%${safeQ}%`,
+      );
+    }
   }
 
   const { data, error } = await query;

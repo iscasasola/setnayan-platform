@@ -369,7 +369,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
         <Field
           label="Event types you serve"
           htmlFor="event_types"
-          help="Tick every event type you take bookings for. Couples browsing each marketplace see only vendors who serve their event. Wedding is checked by default for every vendor (iteration 0041 backfill); tick others to expand your reach as those marketplaces open."
+          help="Tick every event type you take bookings for. Couples browsing each marketplace see only vendors who serve their event. Wedding is checked by default for every vendor; tick others to expand your reach as those marketplaces open."
         >
           <div className="flex flex-wrap gap-2">
             {EVENT_TYPES_SERVED.map((et) => {
@@ -505,8 +505,10 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
           <span>
             <span className="block text-sm font-medium text-ink">Published</span>
             <span className="block text-xs text-ink/55">
-              When on, your profile becomes discoverable. In V1 nothing displays it publicly
-              yet — this toggle lights up the moment the vendor marketplace ships.
+              When on, your profile appears in the Setnayan vendor marketplace. New
+              profiles show with a <em>Coming soon</em> badge until Setnayan
+              verifies your business — the badge flips to <em>Verified</em> the
+              moment your application is approved.
             </span>
           </span>
         </label>
@@ -521,17 +523,6 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
         </div>
       </form>
 
-      <section className="mt-10 space-y-3 rounded-2xl border border-dashed border-ink/15 bg-cream p-5">
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Coming later
-        </p>
-        <ul className="list-inside list-disc space-y-1 text-sm text-ink/65">
-          <li>Public vendor page at /v/[slug]</li>
-          <li>Bookings — events where couples have added you to their event_vendors</li>
-          <li>Chat with couples (iteration 0019 + identity masking)</li>
-          <li>Settings · payouts</li>
-        </ul>
-      </section>
     </div>
   );
 }

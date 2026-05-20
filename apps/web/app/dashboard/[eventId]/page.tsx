@@ -11,6 +11,7 @@ import {
   MessageSquare,
   Receipt,
   Bell,
+  FileSignature,
   ArrowRight,
   CheckCircle2,
   Circle,
@@ -66,6 +67,7 @@ type TileKey =
   | 'guests'
   | 'invitation'
   | 'vendors'
+  | 'contracts'
   | 'budget'
   | 'messages'
   | 'seating'
@@ -83,6 +85,7 @@ const TILES: Array<{
   { key: 'guests', labelKey: 'nav.guests', Icon: Users, href: (id) => `/dashboard/${id}/guests` },
   { key: 'invitation', labelKey: 'nav.invitation', Icon: Send, href: (id) => `/dashboard/${id}/invitation` },
   { key: 'vendors', labelKey: 'nav.vendors', Icon: Briefcase, href: (id) => `/dashboard/${id}/vendors` },
+  { key: 'contracts', labelKey: 'nav.contracts', Icon: FileSignature, href: (id) => `/dashboard/${id}/contracts` },
   { key: 'budget', labelKey: 'nav.budget', Icon: Wallet, href: (id) => `/dashboard/${id}/budget` },
   { key: 'messages', labelKey: 'nav.messages', Icon: MessageSquare, href: (id) => `/dashboard/${id}/messages` },
   { key: 'seating', labelKey: 'nav.seating', Icon: LayoutGrid, href: (id) => `/dashboard/${id}/seating` },

@@ -8,54 +8,64 @@ import { haversineKm } from './geo';
  * When a couple has anchored a reception venue (`events.venue_latitude` +
  * `events.venue_longitude` populated by the save-vendor flow), this helper
  * surfaces nearby CEREMONY venues for the matching ceremony_type — closing
- * the "I picked a venue, where's the other half?" loop the marketplace
- * couldn't answer in V1.
+ * the "I picked a venue, where's the other half?" planning loop the
+ * marketplace couldn't answer in V1.
+ *
+ * Data source: `public.venue_directory` (V1 read-only seed introduced in
+ * migration 20260526000000_venue_directory_seed.sql). Distinct from
+ * `vendor_profiles` because directory entries are informational placeholders
+ * for couples — no booking, no chat, no user ownership requirement. V1.2
+ * venue iteration migrates these rows into a bookable schema with per-
+ * location calendars + day-rates.
  *
  * V1 scope:
  *   • Reception → Ceremony direction only. `events.venue_latitude` is
  *     defined as the reception anchor in migration
  *     20260525000000_vendor_hq_geocode_and_event_venue_anchor.sql. Adding
  *     a symmetric ceremony anchor needs a separate migration (V1.2).
- *   • Religious ceremony venues are surfaced when they're in the data as
- *     `vendor_profiles` rows with `services` containing `religious_venue`.
- *     Civil weddings also see Civil Registrar locations when seeded.
- *   • Filtering uses `compatible_ceremony_types[]` so a Catholic couple
- *     doesn't see a mosque, etc. NULL/missing array = "compatible with all"
- *     (per the 0043 contract).
+ *   • Religious ceremony venue types: `catholic_church`, `christian_church`,
+ *     `inc_chapel`, `mosque`, `cultural_site`, plus `civil_registrar` for
+ *     civil couples.
+ *   • Faith filter uses `compatible_ceremony_types[]` so a Catholic couple
+ *     doesn't see a mosque, etc. Empty array = "open to all" (matches the
+ *     0043 contract on vendor_profiles).
  *   • Top 3 candidates within 10 km, sorted by distance. Couples wanting
  *     a wider radius browse the Ceremony folder directly.
- *
- * Honest pre-launch state: zero ceremony venues are seeded in V1. This
- * helper returns an empty array until a venue iteration ships seed rows
- * (the catalog panel renders a "Coming soon" placeholder in that case).
  */
 
 const PAIRED_VENUE_RADIUS_KM = 10;
 const PAIRED_VENUE_LIMIT = 3;
 
+const CEREMONY_VENUE_TYPES = [
+  'catholic_church',
+  'christian_church',
+  'inc_chapel',
+  'mosque',
+  'cultural_site',
+  'civil_registrar',
+] as const;
+
 export type PairedVenueCandidate = {
-  vendor_profile_id: string;
-  public_id: string;
-  business_name: string;
-  business_slug: string | null;
-  location_city: string | null;
-  logo_url: string | null;
+  venue_directory_id: string;
+  slug: string;
+  name: string;
+  venue_type: string;
+  location_city: string;
   hq_latitude: number;
   hq_longitude: number;
   distance_km: number;
-  compatible_ceremony_types: string[] | null;
+  compatible_ceremony_types: string[];
 };
 
 type Row = {
-  vendor_profile_id: string;
-  public_id: string;
-  business_name: string;
-  business_slug: string | null;
-  location_city: string | null;
-  logo_url: string | null;
-  hq_latitude: number | string | null;
-  hq_longitude: number | string | null;
-  compatible_ceremony_types: string[] | null;
+  venue_directory_id: string;
+  slug: string;
+  name: string;
+  venue_type: string;
+  location_city: string;
+  hq_latitude: number | string;
+  hq_longitude: number | string;
+  compatible_ceremony_types: string[];
 };
 
 /**
@@ -63,9 +73,15 @@ type Row = {
  * reception anchor. Returns ≤ `PAIRED_VENUE_LIMIT`, sorted by distance.
  *
  * Faith filter: when `coupleCeremonyType` is set (e.g. 'catholic'), only
- * venues that include it in `compatible_ceremony_types[]` (or have NULL
- * meaning "open to all") surface. When `null` (anonymous browse or no
- * couple), all faiths surface.
+ * venues that include it in `compatible_ceremony_types[]` (or have an
+ * empty array meaning "open to all") surface. When `null` (anonymous
+ * browse or no couple), all faiths surface.
+ *
+ * Note on civil couples: `coupleCeremonyType === 'civil'` matches
+ * `civil_registrar` venues by enum membership. Civil couples who want a
+ * combined ceremony + reception at a garden/beach venue would set a
+ * different ceremony_type — this helper recommends the courthouse,
+ * not the reception venue.
  */
 export async function findPairedCeremonyVenues(
   admin: SupabaseClient,
@@ -75,22 +91,17 @@ export async function findPairedCeremonyVenues(
     coupleCeremonyType: string | null;
   },
 ): Promise<PairedVenueCandidate[]> {
-  // Cast a generous fetch window because RLS/index won't trim by distance —
-  // we do the haversine math in-process. 50 rows is more than enough headroom
-  // for any reception anchor; 99% of couples have <10 candidates within 10 km.
-  const FETCH_WINDOW = 50;
+  // Cast a generous fetch window because PostgREST can't trim by haversine
+  // distance — we do the math in-process. The directory caps at ~80 rows
+  // total in V1 so a 200-row window covers any radius < global.
+  const FETCH_WINDOW = 200;
 
   const { data, error } = await admin
-    .from('vendor_profiles')
+    .from('venue_directory')
     .select(
-      'vendor_profile_id,public_id,business_name,business_slug,location_city,logo_url,hq_latitude,hq_longitude,compatible_ceremony_types',
+      'venue_directory_id,slug,name,venue_type,location_city,hq_latitude,hq_longitude,compatible_ceremony_types',
     )
-    .contains('services', ['religious_venue'])
-    .in('public_visibility', ['verified', 'coming_soon'])
-    .not('business_name', 'is', null)
-    .neq('business_name', '')
-    .not('hq_latitude', 'is', null)
-    .not('hq_longitude', 'is', null)
+    .in('venue_type', CEREMONY_VENUE_TYPES as readonly string[])
     .limit(FETCH_WINDOW);
 
   if (error || !data) return [];
@@ -99,16 +110,16 @@ export async function findPairedCeremonyVenues(
   const candidates: PairedVenueCandidate[] = [];
 
   for (const row of rows) {
-    const lat = row.hq_latitude !== null ? Number(row.hq_latitude) : NaN;
-    const lng = row.hq_longitude !== null ? Number(row.hq_longitude) : NaN;
+    const lat = Number(row.hq_latitude);
+    const lng = Number(row.hq_longitude);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
 
-    // Faith filter — if couple has a ceremony_type, vendor must declare
-    // compatibility OR have NULL (open to all). Civil-only couples skip
-    // this filter entirely (coupleCeremonyType === null).
+    // Faith filter — if couple has a ceremony_type, the venue must declare
+    // compatibility OR have an empty array (open to all). Anonymous viewers
+    // (coupleCeremonyType === null) skip the filter entirely.
     if (args.coupleCeremonyType !== null) {
-      const compat = row.compatible_ceremony_types;
-      if (compat !== null && !compat.includes(args.coupleCeremonyType)) {
+      const compat = row.compatible_ceremony_types ?? [];
+      if (compat.length > 0 && !compat.includes(args.coupleCeremonyType)) {
         continue;
       }
     }
@@ -117,21 +128,52 @@ export async function findPairedCeremonyVenues(
     if (distance > PAIRED_VENUE_RADIUS_KM) continue;
 
     candidates.push({
-      vendor_profile_id: row.vendor_profile_id,
-      public_id: row.public_id,
-      business_name: row.business_name,
-      business_slug: row.business_slug,
+      venue_directory_id: row.venue_directory_id,
+      slug: row.slug,
+      name: row.name,
+      venue_type: row.venue_type,
       location_city: row.location_city,
-      logo_url: row.logo_url,
       hq_latitude: lat,
       hq_longitude: lng,
       distance_km: distance,
-      compatible_ceremony_types: row.compatible_ceremony_types,
+      compatible_ceremony_types: row.compatible_ceremony_types ?? [],
     });
   }
 
   candidates.sort((a, b) => a.distance_km - b.distance_km);
   return candidates.slice(0, PAIRED_VENUE_LIMIT);
+}
+
+/** Human-friendly label for the venue_type chip. */
+export function displayVenueType(venueType: string): string {
+  switch (venueType) {
+    case 'catholic_church':
+      return 'Catholic Church';
+    case 'christian_church':
+      return 'Christian Church';
+    case 'inc_chapel':
+      return 'INC Chapel';
+    case 'mosque':
+      return 'Mosque';
+    case 'cultural_site':
+      return 'Cultural Site';
+    case 'civil_registrar':
+      return 'Civil Registrar';
+    case 'hotel_ballroom':
+      return 'Hotel Ballroom';
+    case 'garden':
+      return 'Garden';
+    case 'beach':
+      return 'Beach';
+    case 'destination_resort':
+      return 'Destination Resort';
+    case 'heritage':
+      return 'Heritage';
+    case 'outdoor_tent':
+      return 'Outdoor Tent';
+    default:
+      return venueType;
+  }
 }
 
 export const PAIRED_VENUE_CONFIG = {

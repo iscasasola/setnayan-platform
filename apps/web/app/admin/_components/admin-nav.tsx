@@ -30,6 +30,7 @@ const NAV: Entry[] = [
       { href: '/admin/users', label: 'Users' },
       { href: '/admin/events', label: 'Events' },
       { href: '/admin/vendors', label: 'Vendors' },
+      { href: '/admin/venues', label: 'Venues' },
     ],
   },
   {

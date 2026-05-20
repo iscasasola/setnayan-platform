@@ -17,6 +17,7 @@ import {
 import { fetchActiveAdLookups, type ActiveAdLookup } from '@/lib/vendor-ads';
 import { fetchReviewStatsForMany, formatStarRating } from '@/lib/reviews';
 import { CategoryFilterChips } from '@/app/_components/category-filter-chips';
+import { EventTypeNotifyForm } from './_components/event-type-notify-form';
 import { fetchUserEvents } from '@/lib/events';
 import { FollowGate } from '@/app/_components/follow-gate';
 
@@ -658,11 +659,12 @@ function EmptyState({
           vendors are onboarded. Wedding vendors are live now — other event
           types open as their vendor pools mature.
         </p>
+        <EventTypeNotifyForm eventType={filters.eventType} label={label} />
         <Link
           href="/vendors"
-          className="button-secondary mt-5 inline-flex h-10 px-4"
+          className="mt-4 inline-flex items-center text-sm font-medium text-terracotta underline-offset-4 hover:underline"
         >
-          Browse all vendors
+          Or browse all vendors instead →
         </Link>
       </div>
     );

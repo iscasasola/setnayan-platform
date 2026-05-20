@@ -130,23 +130,16 @@ export default async function MoodBoardPage({ params }: Props) {
 // ----------------------------------------------------------------------------
 async function VisualPreviewSection({
   eventId,
-  rolePalette: rolePaletteSource,
+  rolePalette,
 }: {
   eventId: string;
   /**
-   * Source role palette from events.role_palette — each role holds an array
-   * of hex strings (the couple's full palette). VisualPreview expects a
-   * single primary hex per role, so we flatten via the first entry.
+   * Already-flattened role → primary hex map. The parent (MoodBoardPage)
+   * runs the array→first-color flattening before passing it down because
+   * VisualPreview accepts one accent per role for the silhouette tint.
    */
-  rolePalette: Partial<Record<string, string[]>>;
+  rolePalette: Record<string, string>;
 }) {
-  // Flatten arrays → single primary hex per role for the downstream component.
-  const rolePalette: Record<string, string> = {};
-  for (const [role, colors] of Object.entries(rolePaletteSource)) {
-    if (colors && colors.length > 0 && typeof colors[0] === 'string') {
-      rolePalette[role] = colors[0];
-    }
-  }
   const admin = createAdminClient();
 
   // Fetch approved templates + their color ranges + the event's existing saves

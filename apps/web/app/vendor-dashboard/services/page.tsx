@@ -13,7 +13,6 @@ import {
   formatPhp,
 } from '@/lib/vendors';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { MiniTour } from '@/app/_components/mini-tour';
 import {
   createVendorService,
   updateVendorService,
@@ -342,7 +341,6 @@ export default async function VendorServicesPage({ searchParams }: Props) {
           )}
         </div>
       </div>
-      <MiniTour tourKey="vendor_services_v1" />
     </section>
   );
 }

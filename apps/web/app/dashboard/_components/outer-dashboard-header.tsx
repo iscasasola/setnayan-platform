@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { Store } from 'lucide-react';
 import { EventSwitcher, type SwitcherEvent, type SwitcherVendorTarget } from '@/app/dashboard/[eventId]/_components/event-switcher';
 import { EmptyEventMonogram } from '@/app/_components/event-monogram';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
@@ -104,6 +105,14 @@ export function OuterDashboardHeader({
         )}
 
         <div className="flex items-center gap-2">
+          <Link
+            href="/vendors"
+            aria-label="Vendor marketplace"
+            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-medium text-ink/70 hover:bg-ink/5 hover:text-ink sm:px-3"
+          >
+            <Store aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            <span className="hidden sm:inline">Marketplace</span>
+          </Link>
           <RoleSwitchPill
             currentRole="customer"
             hasCustomerAccess

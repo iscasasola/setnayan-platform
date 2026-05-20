@@ -595,7 +595,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           * primary way to return to the 192-category catalog. */}
         <div className="mt-6 flex flex-wrap items-baseline justify-between gap-3">
           <Link
-            href="/vendors"
+            href="/vendors?match=0"
             className="inline-flex items-center gap-1 text-sm font-medium text-terracotta underline-offset-4 hover:underline"
           >
             <ChevronLeft className="h-4 w-4" strokeWidth={2} aria-hidden />

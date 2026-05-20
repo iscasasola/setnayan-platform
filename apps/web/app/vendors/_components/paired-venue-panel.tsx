@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { MapPin } from 'lucide-react';
 
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -87,38 +88,71 @@ export async function PairedVenuePanel({
               .join('') || '?';
           return (
             <li key={venue.venue_directory_id}>
-              <article className="flex h-full flex-col gap-2 rounded-xl border border-ink/10 bg-cream p-3">
-                <header className="flex items-start gap-2">
-                  <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-terracotta/15 text-sm font-semibold text-terracotta-700">
-                    {initials}
-                  </span>
-                  <div className="min-w-0 flex-1">
+              <article className="flex h-full flex-col overflow-hidden rounded-xl border border-ink/10 bg-cream">
+                {venue.hero_image_url ? (
+                  <div className="relative aspect-[16/10] w-full bg-ink/5">
+                    <Image
+                      src={venue.hero_image_url}
+                      alt={venue.name}
+                      fill
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                      className="object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div
+                    aria-hidden
+                    className="flex aspect-[16/10] w-full items-center justify-center bg-terracotta/10"
+                  >
+                    <span className="text-3xl font-semibold text-terracotta-700">
+                      {initials}
+                    </span>
+                  </div>
+                )}
+                <div className="flex flex-1 flex-col gap-2 p-3">
+                  <header>
                     <h3 className="truncate text-sm font-semibold text-ink">
                       {venue.name}
                     </h3>
                     <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
                       {venue.location_city}
                     </p>
+                  </header>
+                  <p className="inline-flex items-center gap-1 text-xs text-ink/70">
+                    <MapPin
+                      aria-hidden
+                      className="h-3.5 w-3.5"
+                      strokeWidth={1.75}
+                    />
+                    <span className="font-mono">
+                      {formatDistanceKm(venue.distance_km)}
+                    </span>
+                    <span className="text-ink/45">from your venue</span>
+                  </p>
+                  <div className="mt-auto flex flex-wrap items-center gap-1">
+                    <span className="inline-flex items-center rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/65">
+                      {displayVenueType(venue.venue_type)}
+                    </span>
+                    <span className="inline-flex items-center rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
+                      V1.2 · Bookable soon
+                    </span>
                   </div>
-                </header>
-                <p className="inline-flex items-center gap-1 text-xs text-ink/70">
-                  <MapPin
-                    aria-hidden
-                    className="h-3.5 w-3.5"
-                    strokeWidth={1.75}
-                  />
-                  <span className="font-mono">
-                    {formatDistanceKm(venue.distance_km)}
-                  </span>
-                  <span className="text-ink/45">from your venue</span>
-                </p>
-                <div className="mt-auto flex flex-wrap items-center gap-1">
-                  <span className="inline-flex items-center rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/65">
-                    {displayVenueType(venue.venue_type)}
-                  </span>
-                  <span className="inline-flex items-center rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
-                    V1.2 · Bookable soon
-                  </span>
+                  {venue.hero_image_url && venue.hero_image_attribution ? (
+                    <p className="font-mono text-[9px] leading-tight text-ink/40">
+                      {venue.hero_image_source_url ? (
+                        <a
+                          href={venue.hero_image_source_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline-offset-2 hover:text-ink/60 hover:underline"
+                        >
+                          {venue.hero_image_attribution}
+                        </a>
+                      ) : (
+                        venue.hero_image_attribution
+                      )}
+                    </p>
+                  ) : null}
                 </div>
               </article>
             </li>

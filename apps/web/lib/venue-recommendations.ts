@@ -55,6 +55,10 @@ export type PairedVenueCandidate = {
   hq_longitude: number;
   distance_km: number;
   compatible_ceremony_types: string[];
+  hero_image_url: string | null;
+  hero_image_attribution: string | null;
+  hero_image_license: string | null;
+  hero_image_source_url: string | null;
 };
 
 type Row = {
@@ -66,6 +70,10 @@ type Row = {
   hq_latitude: number | string;
   hq_longitude: number | string;
   compatible_ceremony_types: string[];
+  hero_image_url: string | null;
+  hero_image_attribution: string | null;
+  hero_image_license: string | null;
+  hero_image_source_url: string | null;
 };
 
 /**
@@ -99,7 +107,7 @@ export async function findPairedCeremonyVenues(
   const { data, error } = await admin
     .from('venue_directory')
     .select(
-      'venue_directory_id,slug,name,venue_type,location_city,hq_latitude,hq_longitude,compatible_ceremony_types',
+      'venue_directory_id,slug,name,venue_type,location_city,hq_latitude,hq_longitude,compatible_ceremony_types,hero_image_url,hero_image_attribution,hero_image_license,hero_image_source_url',
     )
     .in('venue_type', CEREMONY_VENUE_TYPES as readonly string[])
     .limit(FETCH_WINDOW);
@@ -137,6 +145,10 @@ export async function findPairedCeremonyVenues(
       hq_longitude: lng,
       distance_km: distance,
       compatible_ceremony_types: row.compatible_ceremony_types ?? [],
+      hero_image_url: row.hero_image_url,
+      hero_image_attribution: row.hero_image_attribution,
+      hero_image_license: row.hero_image_license,
+      hero_image_source_url: row.hero_image_source_url,
     });
   }
 

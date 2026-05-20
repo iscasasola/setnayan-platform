@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import {
   fetchGuestById,
+  fetchSingletonRoleHolders,
   guestDisplayName,
   GROUP_CATEGORY_LABELS,
   INVITED_TO_BLOCKS,
@@ -25,6 +26,8 @@ export const metadata = { title: 'Guest detail' };
 
 const ROLE_OPTIONS: GuestRole[] = [
   'guest',
+  'bride',
+  'groom',
   'maid_of_honor',
   'matron_of_honor',
   'best_man',
@@ -88,6 +91,14 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
 
   const guest = await fetchGuestById(supabase, eventId, guestId);
   if (!guest) notFound();
+
+  // Hide bride/groom from the role dropdown if someone else already has
+  // them — DB partial unique indexes enforce this regardless, but the UI
+  // shouldn't offer an option that will fail on save.
+  const singletonHolders = await fetchSingletonRoleHolders(supabase, eventId, guestId);
+  const availableRoles = ROLE_OPTIONS.filter(
+    (r) => !(r in singletonHolders) || r === guest.role,
+  );
 
   const rawError = search.error ? decodeURIComponent(search.error) : null;
   const errorMessage = rawError ? (ERROR_COPY[rawError] ?? rawError) : null;
@@ -169,7 +180,7 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
             id="role"
             label="Role in wedding"
             defaultValue={guest.role}
-            options={ROLE_OPTIONS.map((v) => ({ value: v, label: ROLE_LABELS[v] }))}
+            options={availableRoles.map((v) => ({ value: v, label: ROLE_LABELS[v] }))}
           />
         </fieldset>
 

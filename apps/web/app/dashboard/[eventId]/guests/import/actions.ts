@@ -15,6 +15,8 @@ const MAX_ROWS = 200;
 
 const ROLE_VALUES: GuestRole[] = [
   'guest',
+  'bride',
+  'groom',
   'maid_of_honor',
   'matron_of_honor',
   'best_man',

@@ -15,6 +15,8 @@ import {
 
 const ROLE_VALUES: GuestRole[] = [
   'guest',
+  'bride',
+  'groom',
   'maid_of_honor',
   'matron_of_honor',
   'best_man',
@@ -155,8 +157,18 @@ export async function createGuest(eventId: string, formData: FormData) {
     .single();
 
   if (error || !inserted) {
+    // 23505 from the partial unique indexes (migration 20260531010000)
+    // when trying to set a second bride or groom. Friendlier copy than
+    // the raw constraint name.
+    const friendly =
+      error && (error as { code?: string }).code === '23505' &&
+      /guests_one_(bride|groom)_per_event/.test(error.message)
+        ? role === 'bride'
+          ? 'Already a Bride in this event — change theirs first.'
+          : 'Already a Groom in this event — change theirs first.'
+        : (error?.message ?? 'insert_failed');
     return redirect(
-      `/dashboard/${eventId}/guests/new?error=${encodeURIComponent(error?.message ?? 'insert_failed')}`,
+      `/dashboard/${eventId}/guests/new?error=${encodeURIComponent(friendly)}`,
     );
   }
 

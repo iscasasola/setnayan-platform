@@ -2,6 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type GuestRole =
   | 'guest'
+  | 'bride'
+  | 'groom'
   | 'maid_of_honor'
   | 'matron_of_honor'
   | 'best_man'
@@ -19,6 +21,13 @@ export type GuestRole =
   | 'officiant'
   | 'reader_lector'
   | 'soloist_musician';
+
+/**
+ * Roles that may exist at most once per event. Enforced at the DB layer
+ * via partial unique indexes (migration 20260531010000); UI uses this
+ * list to filter the role dropdown.
+ */
+export const SINGLETON_GUEST_ROLES: ReadonlyArray<GuestRole> = ['bride', 'groom'];
 
 export type GuestSide = 'bride' | 'groom' | 'both';
 export type GuestGroupCategory =
@@ -95,6 +104,8 @@ export const MEAL_LABELS: Record<MealPreference, string> = {
 
 export const ROLE_LABELS: Record<GuestRole, string> = {
   guest: 'Guest',
+  bride: 'Bride',
+  groom: 'Groom',
   maid_of_honor: 'Maid of Honor',
   matron_of_honor: 'Matron of Honor',
   best_man: 'Best Man',
@@ -215,4 +226,33 @@ export function guestInitials(guest: GuestRow): string {
   const first = guest.first_name.charAt(0).toUpperCase();
   const last = guest.last_name.charAt(0).toUpperCase();
   return `${first}${last}` || guest.first_name.slice(0, 2).toUpperCase() || '??';
+}
+
+/**
+ * Lookup which singleton roles (bride / groom) are currently assigned in
+ * an event. Returned map keyed by role → guest_id of the holder. Used by
+ * the guest edit / new pages to hide options that are already taken.
+ *
+ * `exceptGuestId` excludes the guest currently being edited so they don't
+ * see their own role missing from the dropdown.
+ */
+export async function fetchSingletonRoleHolders(
+  supabase: SupabaseClient,
+  eventId: string,
+  exceptGuestId?: string,
+): Promise<Partial<Record<GuestRole, string>>> {
+  const { data, error } = await supabase
+    .from('guests')
+    .select('guest_id,role')
+    .eq('event_id', eventId)
+    .in('role', SINGLETON_GUEST_ROLES as readonly string[])
+    .is('deleted_at', null);
+
+  if (error || !data) return {};
+  const holders: Partial<Record<GuestRole, string>> = {};
+  for (const row of data as Array<{ guest_id: string; role: GuestRole }>) {
+    if (exceptGuestId && row.guest_id === exceptGuestId) continue;
+    holders[row.role] = row.guest_id;
+  }
+  return holders;
 }

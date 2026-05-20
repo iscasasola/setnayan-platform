@@ -95,18 +95,11 @@ export default async function MoodBoardPage({ params }: Props) {
         saveAction={saveRolePalette}
       />
 
-      {/* Flatten the role palette to {role → first color} for the visual
-         preview pillars — they pick ONE accent per role for the silhouette
-         tint, not the full multi-color list. Pre-existing type mismatch
-         spot-fixed 2026-05-21. */}
-      <VisualPreviewSection
-        eventId={eventId}
-        rolePalette={Object.fromEntries(
-          Object.entries(palette)
-            .map(([role, colors]) => [role, colors?.[0] ?? null])
-            .filter((entry): entry is [string, string] => entry[1] !== null),
-        )}
-      />
+      {/* Pass the multi-color role palette raw — VisualPreviewSection
+         flattens to {role → first color} internally for the silhouette tint.
+         The caller-side flatten was double-flattening + type-mismatched
+         (build error 2026-05-21). */}
+      <VisualPreviewSection eventId={eventId} rolePalette={palette} />
 
       <section className="space-y-3 rounded-2xl border border-dashed border-ink/15 bg-cream p-5">
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">

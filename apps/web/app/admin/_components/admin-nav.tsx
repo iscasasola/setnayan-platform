@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 type Leaf = { kind: 'leaf'; href: string; label: string };
 type Group = { kind: 'group'; label: string; items: { href: string; label: string }[] };
@@ -69,10 +70,21 @@ export function AdminNav() {
   const pathname = usePathname() ?? '/admin';
   const [open, setOpen] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  // The nav strip uses `overflow-x-auto` to stay one row on narrow
+  // viewports. That creates a clipping context for any absolutely-
+  // positioned descendant — which used to swallow the GroupChip
+  // dropdowns whole and made them look broken. The portalRef points
+  // to whichever menu is currently rendered into document.body so
+  // the click-outside listener still recognises clicks inside it as
+  // "inside the nav" (and doesn't close mid-navigation).
+  const portalRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(null);
+      const target = e.target as Node;
+      if (rootRef.current?.contains(target)) return;
+      if (portalRef.current?.contains(target)) return;
+      setOpen(null);
     }
     function onEsc(e: KeyboardEvent) {
       if (e.key === 'Escape') setOpen(null);
@@ -112,6 +124,7 @@ export function AdminNav() {
             onToggle={() =>
               setOpen((cur) => (cur === entry.label ? null : entry.label))
             }
+            portalRef={portalRef}
           />
         ),
       )}
@@ -149,17 +162,46 @@ function GroupChip({
   pathname,
   isOpen,
   onToggle,
+  portalRef,
 }: {
   label: string;
   items: { href: string; label: string }[];
   pathname: string;
   isOpen: boolean;
   onToggle: () => void;
+  portalRef: React.MutableRefObject<HTMLDivElement | null>;
 }) {
   const active = items.some((i) => isActiveHref(pathname, i.href));
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(
+    null,
+  );
+  const [mounted, setMounted] = useState(false);
+
+  // createPortal needs `document.body`, which is undefined during SSR.
+  // Defer the portal render to the first client-side effect.
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Compute the menu position from the button's bounding rect. Run
+  // before paint (useLayoutEffect) so the menu never flashes at the
+  // origin before its `style` settles.
+  useLayoutEffect(() => {
+    if (!isOpen) {
+      setCoords(null);
+      return;
+    }
+    const btn = buttonRef.current;
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    setCoords({ top: rect.bottom + 4, left: rect.left });
+  }, [isOpen]);
+
   return (
     <div className="relative shrink-0">
       <button
+        ref={buttonRef}
         type="button"
         onClick={onToggle}
         aria-haspopup="menu"
@@ -189,31 +231,40 @@ function GroupChip({
           />
         </svg>
       </button>
-      {isOpen ? (
-        <div
-          role="menu"
-          className="absolute left-0 top-full z-40 mt-1 min-w-[12rem] overflow-hidden rounded-xl border border-ink/10 bg-cream shadow-lg"
-        >
-          {items.map((item) => {
-            const itemActive = isActiveHref(pathname, item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                role="menuitem"
-                aria-current={itemActive ? 'page' : undefined}
-                className={
-                  itemActive
-                    ? 'block bg-ink/10 px-3 py-2 text-sm text-ink'
-                    : 'block px-3 py-2 text-sm text-ink/75 hover:bg-ink/5 hover:text-ink'
-                }
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-        </div>
-      ) : null}
+      {isOpen && coords && mounted
+        ? createPortal(
+            <div
+              ref={portalRef}
+              role="menu"
+              style={{
+                position: 'fixed',
+                top: coords.top,
+                left: coords.left,
+              }}
+              className="z-50 min-w-[12rem] overflow-hidden rounded-xl border border-ink/10 bg-cream shadow-lg"
+            >
+              {items.map((item) => {
+                const itemActive = isActiveHref(pathname, item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    role="menuitem"
+                    aria-current={itemActive ? 'page' : undefined}
+                    className={
+                      itemActive
+                        ? 'block bg-ink/10 px-3 py-2 text-sm text-ink'
+                        : 'block px-3 py-2 text-sm text-ink/75 hover:bg-ink/5 hover:text-ink'
+                    }
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

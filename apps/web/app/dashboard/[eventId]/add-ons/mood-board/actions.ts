@@ -22,7 +22,7 @@ export async function saveMoodboardSelection(
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  // RLS enforces couple-only writes on their own events via event_members.
+  // RLS enforces host-only writes on their own events via event_members.
   const { data, error } = await supabase
     .from('event_moodboard_saves')
     .upsert(

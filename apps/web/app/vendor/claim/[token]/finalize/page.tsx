@@ -52,16 +52,22 @@ export default async function FinalizeClaimPage({ params }: Props) {
     return (
       <ErrorShell
         title={`This invite is ${data.invite.status}.`}
-        body={`Ask ${data.event.couple_display_name} to send you a new one.`}
+        body={`Ask ${data.event?.couple_display_name ?? 'Setnayan'} to send you a new one.`}
       />
     );
   }
 
   // ------------------------------------------------------------------
-  // 1. Ensure a vendor_profiles row exists for the signed-in user.
-  //    If the user already has one (Already-on-Setnayan branch), reuse
-  //    it. Otherwise create a stub row with business_name from the
-  //    invite — the vendor can edit it from /vendor-dashboard.
+  // 1. Resolve the vendor_profiles row to land in.
+  //
+  //    Three branches:
+  //    (a) The signed-in user already has a vendor_profiles row
+  //        (Already-on-Setnayan / Connect path).
+  //    (b) 2026-05-21 — Admin-pre-staged unclaimed profile linked to
+  //        this invite (data.invite.source === 'admin' and the invite's
+  //        claimed_vendor_profile_id points at a row with user_id=NULL).
+  //        Transfer ownership by UPDATEing user_id = claimant.
+  //    (c) Default — create a fresh stub row.
   // ------------------------------------------------------------------
   let vendorProfileId: string;
   const { data: existingProfile } = await admin
@@ -72,6 +78,32 @@ export default async function FinalizeClaimPage({ params }: Props) {
 
   if (existingProfile) {
     vendorProfileId = existingProfile.vendor_profile_id as string;
+  } else if (
+    data.invite.source === 'admin' &&
+    data.invite.claimed_vendor_profile_id
+  ) {
+    // Transfer ownership of the pre-staged row to the claimant. The
+    // .is('user_id', null) guard prevents two parallel claims from
+    // racing to take the same profile.
+    const { data: transferred, error: transferErr } = await admin
+      .from('vendor_profiles')
+      .update({
+        user_id: user.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('vendor_profile_id', data.invite.claimed_vendor_profile_id)
+      .is('user_id', null)
+      .select('vendor_profile_id')
+      .single();
+    if (transferErr || !transferred) {
+      return (
+        <ErrorShell
+          title="Couldn't transfer your vendor profile."
+          body={transferErr?.message ?? 'The pre-staged profile may already be claimed.'}
+        />
+      );
+    }
+    vendorProfileId = transferred.vendor_profile_id as string;
   } else {
     const { data: created, error: createErr } = await admin
       .from('vendor_profiles')
@@ -99,20 +131,46 @@ export default async function FinalizeClaimPage({ params }: Props) {
   // 2. Auto-link transaction — sets event_vendors.marketplace_vendor_id,
   //    flips invite to 'claimed', and inserts vendor_follows for the
   //    couple members (per 0019 § Booking-implies-follow auto-insert).
+  //
+  //    2026-05-21 — Admin-source invites (no event_vendors parent) skip
+  //    this step. We just flip the invite to 'claimed' so it can't be
+  //    re-used; there's no event to follow.
   // ------------------------------------------------------------------
-  const linked = await applyClaimAutoLink({
-    claimToken: token,
-    claimedByUserId: user.id,
-    claimedVendorProfileId: vendorProfileId,
-  });
+  if (data.invite.source === 'admin') {
+    const { error: claimErr } = await admin
+      .from('vendor_invites')
+      .update({
+        status: 'claimed',
+        claimed_by_user_id: user.id,
+        claimed_vendor_profile_id: vendorProfileId,
+        claimed_at: new Date().toISOString(),
+      })
+      .eq('invite_id', data.invite.invite_id)
+      .eq('status', 'pending');
+    if (claimErr) {
+      return (
+        <ErrorShell
+          title="Couldn't finish claim."
+          body={claimErr.message}
+        />
+      );
+    }
+  } else {
+    const linked = await applyClaimAutoLink({
+      claimToken: token,
+      claimedByUserId: user.id,
+      claimedVendorProfileId: vendorProfileId,
+    });
 
-  if (!linked.ok) {
-    return <ErrorShell title="Couldn't finish connecting." body={linked.message} />;
+    if (!linked.ok) {
+      return <ErrorShell title="Couldn't finish connecting." body={linked.message} />;
+    }
   }
 
   // ------------------------------------------------------------------
   // 3. Done. Land them in the vendor dashboard with the new client
-  //    visible in their Clients pipeline.
+  //    visible in their Clients pipeline (couple-source) or just the
+  //    fresh dashboard (admin-source).
   // ------------------------------------------------------------------
   redirect('/vendor-dashboard?claimed=1');
 }

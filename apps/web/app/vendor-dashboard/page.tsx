@@ -355,6 +355,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
             maxSizeMB={5}
             acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
             variant="wide"
+            watermark
           />
         </Field>
 

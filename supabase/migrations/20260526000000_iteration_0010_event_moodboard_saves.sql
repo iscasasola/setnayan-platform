@@ -1,12 +1,12 @@
 -- ============================================================================
 -- 20260526000000_iteration_0010_event_moodboard_saves.sql
--- Iteration 0010 Moodboard — couple-side save/lock mechanism for the
+-- Iteration 0010 Moodboard — host-side save/lock mechanism for the
 -- Visual preview pillars (Locked 2026-05-21 in 0010 § "Save / lock mechanism").
 --
--- Couples persist (pillar, pillar_slot, asset_id, palette_snapshot) pairings as
--- their pinned moodboard state. "Locked" = pinned current state, NOT immutable
--- — couples can swap to a different asset, edit their palette, and re-save
--- anytime. Palette snapshot captured at save time triggers a re-render prompt
+-- Hosts persist (pillar, pillar_slot, asset_id, palette_snapshot) pairings as
+-- the event's pinned moodboard state. "Locked" = pinned current state, NOT
+-- immutable — hosts can swap to a different asset, edit their palette, and
+-- re-save anytime. Palette snapshot captured at save time triggers a re-render prompt
 -- on the UI if the master palette shifts later.
 --
 -- Idempotent.
@@ -33,7 +33,7 @@ CREATE INDEX IF NOT EXISTS idx_event_moodboard_saves_event
 -- ----------------------------------------------------------------------------
 ALTER TABLE public.event_moodboard_saves ENABLE ROW LEVEL SECURITY;
 
--- Couple (event owner / moderator) can manage their own saves
+-- Host (event member) can manage their event's saves
 DROP POLICY IF EXISTS event_moodboard_saves_owner_all ON public.event_moodboard_saves;
 CREATE POLICY event_moodboard_saves_owner_all ON public.event_moodboard_saves
   FOR ALL

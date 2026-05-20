@@ -21,10 +21,12 @@ import {
 import {
   approveAsset,
   deleteAsset,
+  getRandomHiggsfieldPrompt,
   retireAsset,
   saveColorRanges,
   uploadAsset,
 } from '../actions';
+import type { RandomMoodboardPrompt } from '@/lib/higgsfield-prompts';
 
 export type LibraryAsset = {
   asset_id: string;
@@ -69,6 +71,31 @@ export function LibraryEditor({ initialAssets }: Props) {
     Object.fromEntries(initialAssets.map((a) => [a.asset_id, a.color_ranges])),
   );
   const [previewPalette, setPreviewPalette] = useState<PalettePreview>(DEFAULT_PREVIEW_PALETTE);
+  const [randomPrompt, setRandomPrompt] = useState<RandomMoodboardPrompt | null>(null);
+  const [promptCopied, setPromptCopied] = useState(false);
+
+  function generatePrompt() {
+    startTransition(async () => {
+      try {
+        const p = await getRandomHiggsfieldPrompt();
+        setRandomPrompt(p);
+        setPromptCopied(false);
+      } catch (err) {
+        alert(`Generate failed: ${(err as Error).message}`);
+      }
+    });
+  }
+
+  async function copyPrompt() {
+    if (!randomPrompt) return;
+    try {
+      await navigator.clipboard.writeText(randomPrompt.prompt);
+      setPromptCopied(true);
+      setTimeout(() => setPromptCopied(false), 2000);
+    } catch {
+      // ignored — clipboard API not always available in dev
+    }
+  }
 
   function setMapForSelected(next: ColorRangeMap) {
     if (!selected) return;
@@ -161,7 +188,7 @@ export function LibraryEditor({ initialAssets }: Props) {
 
   function handleRetire() {
     if (!selected) return;
-    if (!confirm('Retire this asset? It will stop appearing for couples.')) return;
+    if (!confirm('Retire this asset? It will stop appearing for hosts.')) return;
     startTransition(async () => {
       try {
         await retireAsset(selected.asset_id);
@@ -192,8 +219,75 @@ export function LibraryEditor({ initialAssets }: Props) {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-      {/* LEFT: library grid + upload */}
+      {/* LEFT: random-prompt generator + library grid + upload */}
       <div className="space-y-4">
+        {/* Random Higgsfield prompt generator (owner directive 2026-05-21:
+           "we can just click generate and it will make one everytime") */}
+        <section className="rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
+          <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+            Random Higgsfield prompt
+          </p>
+          <p className="mb-3 text-xs text-ink/65">
+            One click → a Filipino-first prompt with randomized asset type,
+            subtype, and accent color. Copy it into Higgsfield, generate,
+            then upload the result below.
+          </p>
+          <button
+            type="button"
+            onClick={generatePrompt}
+            disabled={isPending}
+            className="mb-3 w-full rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream disabled:opacity-50"
+          >
+            {isPending ? 'Rolling…' : 'Generate random prompt'}
+          </button>
+          {randomPrompt && (
+            <div className="space-y-2 rounded-md border border-ink/15 bg-white p-3">
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                  Label
+                </p>
+                <p className="text-sm font-medium text-ink">{randomPrompt.label}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-[11px]">
+                <div>
+                  <p className="font-mono uppercase tracking-[0.15em] text-ink/55">Type</p>
+                  <p className="text-ink">
+                    {randomPrompt.assetType}
+                    {' · '}
+                    {randomPrompt.assetSubtype}
+                  </p>
+                </div>
+                <div>
+                  <p className="font-mono uppercase tracking-[0.15em] text-ink/55">Model</p>
+                  <p className="text-ink">
+                    {randomPrompt.recommendedModel} · {randomPrompt.aspectRatio}
+                  </p>
+                </div>
+              </div>
+              <div>
+                <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                  Accent · {randomPrompt.primaryAccentColor} on {randomPrompt.primaryAccentRegion}
+                </p>
+              </div>
+              <details>
+                <summary className="cursor-pointer font-mono text-[11px] uppercase tracking-[0.15em] text-ink/65">
+                  Prompt
+                </summary>
+                <p className="mt-2 whitespace-pre-wrap rounded border border-ink/10 bg-cream p-2 text-xs text-ink/80">
+                  {randomPrompt.prompt}
+                </p>
+              </details>
+              <button
+                type="button"
+                onClick={copyPrompt}
+                className="w-full rounded-md border border-ink/20 bg-cream px-3 py-1.5 text-xs font-medium text-ink"
+              >
+                {promptCopied ? '✓ Copied' : 'Copy prompt to clipboard'}
+              </button>
+            </div>
+          )}
+        </section>
+
         <section className="rounded-xl border border-ink/15 bg-cream p-4">
           <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
             Upload new
@@ -383,7 +477,7 @@ export function LibraryEditor({ initialAssets }: Props) {
               </div>
               <p className="mt-2 text-[11px] text-ink/55">
                 These are the colors that will be applied to each tagged slot when previewing.
-                In production this comes from the couple&apos;s master palette.
+                In production this comes from the host&apos;s master palette.
               </p>
             </details>
           </>

@@ -18,6 +18,10 @@ import { revalidatePath } from 'next/cache';
 import { randomUUID } from 'node:crypto';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  generateRandomMoodboardPrompt,
+  type RandomMoodboardPrompt,
+} from '@/lib/higgsfield-prompts';
 import type { ColorRangeMap } from './_components/color-range-manipulator';
 
 const BUCKET = 'moodboard-library';
@@ -39,6 +43,21 @@ async function requireAdmin() {
     profile?.is_internal || profile?.is_team_member || profile?.account_type === 'admin';
   if (!isAdmin) throw new Error('admin only');
   return { supabase, userId: user.id };
+}
+
+/**
+ * Random Higgsfield prompt generator — admin clicks "Generate prompt" on the
+ * moodboard library page; receives a fresh Filipino-first prompt + recommended
+ * model + aspect ratio. Per owner directive 2026-05-21: "we can just click
+ * generate and it will make one everytime."
+ *
+ * V1 surface: returns the prompt for the admin to copy/paste into Higgsfield
+ * manually; once Higgsfield API access lands in env, we can wire the full
+ * generate → download → watermark → upload loop in one click.
+ */
+export async function getRandomHiggsfieldPrompt(): Promise<RandomMoodboardPrompt> {
+  await requireAdmin();
+  return generateRandomMoodboardPrompt();
 }
 
 export async function uploadAsset(formData: FormData): Promise<{ assetId: string }> {

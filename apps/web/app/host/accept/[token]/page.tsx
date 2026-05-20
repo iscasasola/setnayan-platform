@@ -148,7 +148,7 @@ export default async function HostAcceptPage({ params, searchParams }: Props) {
         <header className="space-y-3 text-center">
           <p className="inline-flex items-center justify-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
             <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            You're invited
+            You&apos;re invited
           </p>
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
             {inviterName} invited you to help plan {eventName}
@@ -159,8 +159,8 @@ export default async function HostAcceptPage({ params, searchParams }: Props) {
             {eventDate ? ` · ${new Date(eventDate).toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' })}` : ''}
           </p>
           <p className="text-sm text-ink/65">
-            Sign in or create a free account to accept. We'll send you straight to the
-            event dashboard once you're in.
+            Sign in or create a free account to accept. We&apos;ll send you straight to the
+            event dashboard once you&apos;re in.
           </p>
         </header>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -205,7 +205,7 @@ export default async function HostAcceptPage({ params, searchParams }: Props) {
           title="This invitation was sent to a different email."
           body={
             <>
-              You're signed in as <span className="font-mono">{user.email}</span>, but
+              You&apos;re signed in as <span className="font-mono">{user.email}</span>, but
               this invitation was sent to{' '}
               <span className="font-mono">{search.expected ?? invite.invitation_email}</span>.
               Sign out and back in with the correct account, or ask the inviter to

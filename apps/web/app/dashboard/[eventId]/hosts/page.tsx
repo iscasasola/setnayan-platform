@@ -145,7 +145,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
           Hosts on this event
         </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Who's planning this wedding with you?
+          Who&apos;s planning this wedding with you?
         </h1>
         <p className="max-w-prose text-base text-ink/65">
           Add parents, the wedding planner, your maid of honor, ninongs and ninangs —
@@ -165,7 +165,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
                 Invitation created.
               </p>
               <p className="text-xs text-emerald-900/85">
-                Share this link with the host you invited. They'll sign up or sign
+                Share this link with the host you invited. They&apos;ll sign up or sign
                 in, then land on the accept page.
               </p>
               <code className="block break-all rounded-md bg-cream/80 px-2 py-1.5 font-mono text-[11px] text-emerald-950">
@@ -256,12 +256,12 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
             Current hosts · {accepted.length}
           </p>
           <p className="text-sm text-ink/65">
-            Everyone who's accepted their invite + can see this event's plan.
+            Everyone who&apos;s accepted their invite + can see this event&apos;s plan.
           </p>
         </header>
         {accepted.length === 0 ? (
           <p className="rounded-md border border-dashed border-ink/15 bg-cream p-4 text-sm text-ink/55">
-            You're the only host so far. Use the form below to add your partner, parents,
+            You&apos;re the only host so far. Use the form below to add your partner, parents,
             or anyone else who should be part of planning.
           </p>
         ) : (
@@ -359,7 +359,7 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
               className="input-field"
             />
             <span className="text-xs text-ink/55">
-              Shown alongside the role so the host knows who's who.
+              Shown alongside the role so the host knows who&apos;s who.
             </span>
           </label>
 

@@ -1,11 +1,15 @@
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase/server';
 import { EventTypePicker } from './_components/event-type-picker';
+import type { LaunchStatusRow } from './_components/wedding-type-picker';
 
 export const metadata = { title: 'Create event' };
 
 const ERROR_COPY: Record<string, string> = {
   missing_name: 'Please give the event a name.',
   invalid_type: 'Only weddings are supported in V1. The other event types are coming soon.',
+  missing_sub_type: 'Pick a tradition for the ceremony type you chose.',
+  missing_secondary: 'Pick a secondary ceremony for your interfaith wedding.',
 };
 
 type SearchParams = Promise<{ error?: string }>;
@@ -14,6 +18,25 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
   const params = await searchParams;
   const rawError = params.error ? decodeURIComponent(params.error) : null;
   const errorMessage = rawError ? (ERROR_COPY[rawError] ?? rawError) : null;
+
+  // Iteration 0043 — read which faiths are active in this region so the
+  // picker can render Coming Soon cards correctly. RLS lets anon + auth
+  // read the table; if the query fails (auth blip, db hiccup) we fall
+  // back to "catholic + civil active" which is the V1.1 launch baseline.
+  const supabase = await createClient();
+  const { data: launchRows } = await supabase
+    .from('wedding_type_launch_status')
+    .select('ceremony_type, status')
+    .eq('region', 'all');
+
+  const launchStatus: LaunchStatusRow[] = (launchRows as LaunchStatusRow[] | null) ?? [
+    { ceremony_type: 'catholic',  status: 'active' },
+    { ceremony_type: 'civil',     status: 'active' },
+    { ceremony_type: 'christian', status: 'coming_soon' },
+    { ceremony_type: 'inc',       status: 'coming_soon' },
+    { ceremony_type: 'muslim',    status: 'coming_soon' },
+    { ceremony_type: 'cultural',  status: 'coming_soon' },
+  ];
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 lg:px-8">
@@ -41,7 +64,7 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
         </p>
       ) : null}
 
-      <EventTypePicker />
+      <EventTypePicker launchStatus={launchStatus} />
     </div>
   );
 }

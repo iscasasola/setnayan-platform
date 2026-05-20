@@ -7,7 +7,8 @@ export const metadata = { title: 'Create event' };
 
 const ERROR_COPY: Record<string, string> = {
   missing_name: 'Please give the event a name.',
-  invalid_type: 'Only weddings are supported in V1. The other event types are coming soon.',
+  invalid_type:
+    'Setnayan is opening one event type at a time — pick Wedding to continue, or tap an upcoming tile to be notified when it opens.',
   missing_sub_type: 'Pick a tradition for the ceremony type you chose.',
   missing_secondary: 'Pick a secondary ceremony for your interfaith wedding.',
 };
@@ -51,7 +52,8 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
           What kind of event are you planning?
         </h1>
         <p className="text-base text-ink/60">
-          Weddings ship first in V1. The other categories are on the roadmap — swipe through to see what is coming.
+          Weddings are live today. Swipe through to see the other event types
+          on their way — tap one to be notified the moment it opens.
         </p>
       </header>
 

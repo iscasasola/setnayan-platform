@@ -8,13 +8,18 @@ import { captureEvent } from '@/lib/analytics';
 import { startConciergeTrial } from '@/app/dashboard/profile/concierge/actions';
 
 // V1.1 multi-event roster (iteration 0041). Wedding is the original V1
-// type; gender_reveal (2026-05-20) and debut (2026-05-20) are the first
-// V1.1 expansions. Other 0041 types (baptism, anniversary, etc.) land as
-// separate per-type migrations as the product surfaces support them —
-// vendor matching + Concierge are still wedding-themed, so non-wedding
-// events render the dashboard tools (guest list / budget / etc.) as
-// generic event-planning utilities.
-const ALLOWED_TYPES = ['wedding', 'gender_reveal', 'debut'] as const;
+// type; debut (2026-05-20) is the first creatable expansion. Other 0041
+// types (baptism, anniversary, etc.) land as separate per-type entries
+// as the product surfaces support them — vendor matching + Concierge are
+// still wedding-themed, so non-wedding events render the dashboard tools
+// (guest list / budget / etc.) as generic event-planning utilities.
+//
+// gender_reveal was briefly in this list on 2026-05-20 (PR #177) then
+// pulled the same day per owner decision. The DB enum value stays in
+// place (migration 20260521050000) — unused enum values are harmless.
+// Re-enabling later is a one-line addition here + the matching tile flip
+// in event-type-picker.tsx.
+const ALLOWED_TYPES = ['wedding', 'debut'] as const;
 
 // 0000 § 2.5b — DIY · Trial · Paid choice card (locked 2026-05-17).
 // `paid` lands on the dashboard then routes to checkout; `trial` invokes

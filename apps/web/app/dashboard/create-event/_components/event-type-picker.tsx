@@ -42,15 +42,20 @@ const CONCIERGE_OPTIONS: ConciergeOption[] = [
   },
 ];
 
-// V1 tile list (locked 2026-05-16, gender_reveal enabled 2026-05-20, debut
-// enabled 2026-05-20). The V1.1 multi-event roster (iteration 0041) is
-// growing one event_type at a time; the rest render as "Coming soon"
-// placeholders so couples can see what is on the roadmap without being
-// able to pick it yet.
+// V1 tile list (locked 2026-05-16, debut enabled 2026-05-20). The V1.1
+// multi-event roster (iteration 0041) is growing one event_type at a
+// time; the rest render as "Coming soon" placeholders so couples can see
+// what is on the roadmap without being able to pick it yet.
+//
+// gender_reveal was briefly enabled on 2026-05-20 (PR #177) then reverted
+// to "Coming soon" the same day per owner decision. The enum value stays
+// in the DB (migration 20260521050000) — it's idempotent and harmless
+// when unused; re-enabling later is a one-line flip of `enabled` here +
+// ALLOWED_TYPES in actions.ts.
 const EVENT_TYPES = [
   { key: 'wedding', label: 'Wedding', emoji: '💍', enabled: true },
-  { key: 'gender_reveal', label: 'Gender Reveal', emoji: '🎈', enabled: true },
   { key: 'debut', label: 'Debut', emoji: '👑', enabled: true },
+  { key: 'gender_reveal', label: 'Gender Reveal', emoji: '🎈', enabled: false },
   { key: 'birthday', label: 'Birthday', emoji: '🎂', enabled: false },
   { key: 'celebration', label: 'Celebration', emoji: '🥂', enabled: false },
   { key: 'travel', label: 'Travel', emoji: '✈️', enabled: false },

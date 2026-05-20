@@ -44,21 +44,22 @@ export function AnnouncementBar() {
           <span aria-hidden className="mr-2">
             ✦
           </span>
-          Vendors pre-register today · Couples launch{' '}
-          <span className="font-semibold">December 1, 2026</span>.{' '}
+          Planning tools are{' '}
+          <span className="font-semibold">free forever</span> — sign up and
+          invite your team.{' '}
           <Link
-            href="/signup?as=vendor"
+            href="/signup"
             className="font-semibold underline-offset-4 hover:underline focus-visible:outline-none focus-visible:underline"
           >
-            Vendor sign-up &rarr;
+            Start planning &rarr;
           </Link>
           <span className="hidden sm:inline">
             {' '}·{' '}
             <Link
-              href="/waitlist"
+              href="/for-vendors"
               className="font-semibold underline-offset-4 hover:underline focus-visible:outline-none focus-visible:underline"
             >
-              Couple waitlist &rarr;
+              I&rsquo;m a vendor &rarr;
             </Link>
           </span>
         </p>

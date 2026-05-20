@@ -2,24 +2,11 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { HeroBackdrop } from '@/app/_components/hero-backdrop';
 
-// Section 2 — Hero (three-question framing) (iteration 0015 § Section 2)
-// Above-the-fold conversion module. Problem-aware framing per CXL awareness-
-// stage research — 95% of homepage visitors are problem-aware, not solution-
-// aware.
-//
-// Spec essentials:
-//   - Eyebrow (small, all-caps, muted, brand-accent): SET NA 'YAN · /sɛt na jan/
-//   - Headline stack (3 lines, h1; large 64–96px desktop, 40–56px mobile)
-//   - Subhead (h2-size 22–28px)
-//   - Primary CTA `Start planning · free` → /apply  (signup in this codebase)
-//   - Secondary CTA `I'm a vendor →` → /for-vendors
-//   - Trust strip: Built in the Philippines · BIR-compliant receipts · EN / Tagalog
-//
-// Visual treatment: full-bleed photography + brand-color overlay (Zola
-// pattern from the spec) when NEXT_PUBLIC_HERO_IMAGE_URL is set; falls back
-// to the brand radial-gradient wash when no photo is configured. See
-// `app/_components/hero-backdrop.tsx` for the "how to ship a real photo"
-// runbook.
+// Section 2 — Hero (iteration 0015 § Section 2). Couples-primary CTA per
+// spec; vendor demoted to secondary. Subhead now reflects multi-host event
+// access (iteration 0048) — anyone planning can sign up, then invite a
+// partner / parent / coordinator. Trust strip notes Tagalog as "soon" until
+// the TL bundle ships.
 
 export function Hero() {
   return (
@@ -60,9 +47,8 @@ export function Hero() {
           style={{ animationDelay: '80ms' }}
         >
           <span className="block">Planning a wedding?</span>
-          <span className="mt-1 block">Or a vendor</span>
           <span className="mt-1 block text-ink/65">
-            looking for customers?
+            We&rsquo;ll set everything up.
           </span>
         </h1>
 
@@ -70,10 +56,10 @@ export function Hero() {
           className="mt-8 max-w-2xl text-pretty text-lg leading-relaxed text-ink/70 animate-in fade-in slide-in-from-bottom-4 duration-700 fill-mode-backwards sm:text-xl lg:text-[22px]"
           style={{ animationDelay: '240ms' }}
         >
-          Setnayan is the only Filipino-built platform with real operating
-          tools for both sides — from your guest list to your same-day
-          highlight reel. Vendors pre-register today.{' '}
-          <strong className="text-ink">Couples launch December 1, 2026.</strong>
+          The only Filipino-built platform with real operating tools for the
+          whole day — guest list, vendors, budget, invitations, livestream,
+          same-day highlight reel. Sign up free, then invite your partner,
+          parents, or coordinator to help plan.
         </p>
 
         <div
@@ -81,21 +67,21 @@ export function Hero() {
           style={{ animationDelay: '360ms' }}
         >
           <Link
-            href="/signup?as=vendor"
+            href="/signup"
             className="button-primary inline-flex min-h-[48px] items-center justify-center gap-2 px-7 text-sm font-semibold transition-transform hover:scale-[1.02] sm:text-base"
           >
-            I&rsquo;m a vendor
+            Start planning
             <span aria-hidden className="mx-1 opacity-60">
               ·
             </span>
-            <span className="opacity-90">pre-register</span>
+            <span className="opacity-90">free</span>
             <ArrowRight aria-hidden className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-0.5" strokeWidth={2} />
           </Link>
           <Link
-            href="/waitlist"
+            href="/for-vendors"
             className="button-secondary inline-flex min-h-[44px] items-center justify-center gap-2 px-6 text-sm font-medium transition-transform hover:scale-[1.02] sm:text-base"
           >
-            I&rsquo;m a couple — join waitlist
+            I&rsquo;m a vendor
             <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           </Link>
         </div>
@@ -112,7 +98,7 @@ export function Hero() {
           <span aria-hidden className="mx-1 text-ink/30">
             ·
           </span>{' '}
-          EN / Tagalog
+          English today, Tagalog soon
         </p>
       </div>
     </section>

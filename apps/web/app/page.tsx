@@ -12,6 +12,7 @@ import { InAppServices } from '@/app/page-sections/_InAppServices';
 import { TransparentPricing } from '@/app/page-sections/_TransparentPricing';
 import { ReadinessBoard } from '@/app/page-sections/_ReadinessBoard';
 import { CoverageMap } from '@/app/page-sections/_CoverageMap';
+import { FAQ } from '@/app/page-sections/_FAQ';
 import {
   ConversionModule,
   SiteFooter,
@@ -43,12 +44,12 @@ const VendorCompat = nextDynamic(
 // § Widget architecture) so admins can toggle on/off + drag-drop reorder
 // individual sections via /admin/website (iteration 0023 § 3.10).
 //
-// The fourteen sections (in seed display_order) — admin-editable via the
+// The fifteen sections (in seed display_order) — admin-editable via the
 // Website editor; per-widget config remains code-locked in V1:
 //    1  Announcement bar              (special-cased above SiteHeader)
 //    2  Browse strip
-//    3  Hero (three-question framing)
-//    4  Real numbers (count-gated)
+//    3  Hero (couples-primary, multi-host subhead)
+//    4  Real numbers / What's-live-today (count-gated)
 //    5  The chaos we're fixing
 //    6  Built for both sides of the celebration
 //    7  Maria & Juan: see how it works
@@ -57,8 +58,9 @@ const VendorCompat = nextDynamic(
 //   10  Transparent pricing
 //   11  Event-type readiness board
 //   12  PH coverage map
-//   13  Dual CTA conversion module
-//   14  Available everywhere you plan (platforms · per_tile-gated)
+//   13  FAQ (NEW 2026-05-20 — six quick answers before convert)
+//   14  Dual CTA conversion module
+//   15  Available everywhere you plan (platforms · per_tile-gated)
 //
 // Chrome that stays outside the widget loop: SiteHeader (top), SiteFooter
 // (bottom), DynamicStickyMobileCTA (mobile sticky). The announcement bar
@@ -183,6 +185,7 @@ const COMPONENT_BY_WIDGET_ID: Record<string, ComponentType> = {
   home_transparent_pricing: TransparentPricing,
   home_readiness_board: ReadinessBoard,
   home_coverage_map: CoverageMap,
+  home_faq: FAQ,
   home_dual_cta_footer: ConversionModule,
   home_platforms: AvailableEverywhere,
 };
@@ -206,6 +209,7 @@ const FALLBACK_WIDGETS: ReadonlyArray<{ widget_id: string; is_enabled: boolean }
   { widget_id: 'home_transparent_pricing', is_enabled: true },
   { widget_id: 'home_readiness_board', is_enabled: true },
   { widget_id: 'home_coverage_map', is_enabled: true },
+  { widget_id: 'home_faq', is_enabled: true },
   { widget_id: 'home_dual_cta_footer', is_enabled: true },
   { widget_id: 'home_platforms', is_enabled: true },
 ];

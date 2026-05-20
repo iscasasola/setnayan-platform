@@ -43,13 +43,14 @@ export type SiteWidgetRow = {
 /**
  * Human-readable labels for the home-page widgets. Keys MUST match the
  * seeded widget_id values in 20260515010000_site_widgets.sql +
- * 20260521100000_iteration_0015_site_widgets_home_drift_fix.sql.
+ * 20260521100000_iteration_0015_site_widgets_home_drift_fix.sql +
+ * 20260524000000_iteration_0015_home_faq_widget.sql.
  */
 export const WIDGET_LABEL: Record<string, string> = {
   home_announcement_bar: 'Announcement bar',
   home_browse_strip: 'Browse strip',
   home_hero: 'Hero',
-  home_real_numbers: 'Real numbers',
+  home_real_numbers: 'What’s live today',
   home_chaos: 'The chaos we’re fixing',
   home_two_sides: 'Built for both sides',
   home_maria_juan: 'Maria & Juan',
@@ -58,6 +59,7 @@ export const WIDGET_LABEL: Record<string, string> = {
   home_transparent_pricing: 'Transparent pricing',
   home_readiness_board: 'Readiness board',
   home_coverage_map: 'Coverage map',
+  home_faq: 'FAQ',
   home_dual_cta_footer: 'Dual CTA footer',
   home_platforms: 'Platforms',
 };

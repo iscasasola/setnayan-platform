@@ -44,13 +44,16 @@ export default async function AdminOverview() {
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-8 space-y-2">
         <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          Iteration 0023 · Admin Console (V1 MVP)
+          Setnayan · Admin
         </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Overview</h1>
         <p className="text-base text-ink/65">
-          Eight admin surfaces per 0023 § 1: Overview · Users · Events · Vendors ·
-          Verification · Payments · Settings · Website editor. The two-admin
-          approval queue + audit log shipping in a follow-on revision.
+          A snapshot of the platform — counts at a glance, then jump into{' '}
+          <strong className="text-ink">Queues</strong> for action work,{' '}
+          <strong className="text-ink">Directory</strong> to look up people and
+          events, <strong className="text-ink">Money</strong> for payouts and
+          receipts, or <strong className="text-ink">Content</strong> to update
+          the marketing site and taxonomy.
         </p>
       </header>
 

@@ -7,6 +7,7 @@ import { RoleSwitchPill } from '@/app/_components/role-switch-pill';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { GuidedTour } from '@/app/_components/guided-tour';
 import { completeTour } from '@/lib/tour-actions';
+import { AdminNav } from './_components/admin-nav';
 
 export const metadata = { title: 'Admin · Setnayan' };
 
@@ -71,25 +72,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             </form>
           </div>
         </div>
-        <nav className="mx-auto flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl flex-nowrap gap-1 overflow-x-auto px-4 pb-2 text-sm whitespace-nowrap [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden sm:px-6 lg:px-8">
-          <AdminTab href="/admin" label="Overview" />
-          <AdminTab href="/admin/users" label="Users" />
-          <AdminTab href="/admin/events" label="Events" />
-          <AdminTab href="/admin/vendors" label="Vendors" />
-          <AdminTab href="/admin/taxonomy" label="Taxonomy" />
-          <AdminTab href="/admin/verify" label="Verification" />
-          <AdminTab href="/admin/payments" label="Payments" />
-          <AdminTab href="/admin/payouts" label="Payouts" />
-          <AdminTab href="/admin/receipts" label="Receipts" />
-          <AdminTab href="/admin/ads" label="Ads" />
-          <AdminTab href="/admin/bir/2307" label="BIR 2307" />
-          <AdminTab href="/admin/reviews" label="Reviews" />
-          <AdminTab href="/admin/help" label="Help inbox" />
-          <AdminTab href="/admin/funnels" label="Funnels" />
-          <AdminTab href="/admin/force-majeure" label="Force majeure" />
-          <AdminTab href="/admin/concierge-abuse" label="Concierge abuse" />
-          <AdminTab href="/admin/website" label="Website" />
-          <AdminTab href="/admin/settings" label="Settings" />
+        <nav aria-label="Admin sections">
+          <AdminNav />
         </nav>
       </header>
       <main className="flex-1">{children}</main>
@@ -100,13 +84,3 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   );
 }
 
-function AdminTab({ href, label }: { href: string; label: string }) {
-  return (
-    <Link
-      href={href}
-      className="shrink-0 rounded-full bg-ink/5 px-3 py-1 text-ink/70 hover:bg-ink/10 hover:text-ink"
-    >
-      {label}
-    </Link>
-  );
-}

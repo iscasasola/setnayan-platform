@@ -24,6 +24,7 @@ import { fetchVendorServices, type VendorServiceRow } from '@/lib/vendor-service
 import { fetchUserEvents } from '@/lib/events';
 import { isFollowingVendor } from '@/lib/follow';
 import { FollowGate } from '@/app/_components/follow-gate';
+import { SaveVendorButton } from '@/app/vendors/_components/save-vendor-button';
 import {
   fetchReviewsForVendorWithCouple,
   fetchReviewStats,
@@ -141,10 +142,20 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
   } = await supabase.auth.getUser();
   let initialFollowing = false;
   let coupleEventId: string | null = null;
+  let isAlreadySaved = false;
   if (user) {
     initialFollowing = await isFollowingVendor(supabase, user.id, vendor.vendor_profile_id);
     const events = await fetchUserEvents(supabase, user.id, 'couple');
     coupleEventId = events[0]?.event_id ?? null;
+    if (coupleEventId) {
+      const { data: saved } = await supabase
+        .from('event_vendors')
+        .select('vendor_id')
+        .eq('event_id', coupleEventId)
+        .eq('marketplace_vendor_id', vendor.vendor_profile_id)
+        .maybeSingle();
+      isAlreadySaved = Boolean(saved?.vendor_id);
+    }
   }
 
   return (
@@ -217,7 +228,7 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
               ) : null}
             </div>
             {bookable ? (
-              <div className="pt-4">
+              <div className="flex flex-wrap items-center gap-3 pt-4">
                 <FollowGate
                   vendorProfileId={vendor.vendor_profile_id}
                   vendorName={vendor.business_name}
@@ -226,6 +237,15 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
                   initialFollowing={initialFollowing}
                   eventId={coupleEventId}
                   revalidatePath={`/v/${slug}`}
+                />
+                {/* Save-to-picks (2026-05-20). Only surfaced for logged-in
+                    couples with at least one event; the button hides
+                    itself otherwise via canSave. */}
+                <SaveVendorButton
+                  vendorProfileId={vendor.vendor_profile_id}
+                  initiallySaved={isAlreadySaved}
+                  canSave={user !== null && coupleEventId !== null}
+                  variant="profile"
                 />
               </div>
             ) : null}

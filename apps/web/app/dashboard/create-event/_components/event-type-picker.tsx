@@ -42,13 +42,15 @@ const CONCIERGE_OPTIONS: ConciergeOption[] = [
   },
 ];
 
-// V1 tile list (locked 2026-05-16, gender_reveal enabled 2026-05-20). The
-// V1.1 multi-event roster begins with wedding + gender_reveal; the rest
-// render as "Coming soon" placeholders so couples can see what is on the
-// roadmap without being able to pick it yet (iteration 0041).
+// V1 tile list (locked 2026-05-16, gender_reveal enabled 2026-05-20, debut
+// enabled 2026-05-20). The V1.1 multi-event roster (iteration 0041) is
+// growing one event_type at a time; the rest render as "Coming soon"
+// placeholders so couples can see what is on the roadmap without being
+// able to pick it yet.
 const EVENT_TYPES = [
   { key: 'wedding', label: 'Wedding', emoji: '💍', enabled: true },
   { key: 'gender_reveal', label: 'Gender Reveal', emoji: '🎈', enabled: true },
+  { key: 'debut', label: 'Debut', emoji: '👑', enabled: true },
   { key: 'birthday', label: 'Birthday', emoji: '🎂', enabled: false },
   { key: 'celebration', label: 'Celebration', emoji: '🥂', enabled: false },
   { key: 'travel', label: 'Travel', emoji: '✈️', enabled: false },

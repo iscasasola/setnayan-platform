@@ -57,6 +57,50 @@ export function formatDistanceKm(km: number): string {
   return `${Math.round(km)} km`;
 }
 
+// ============================================================================
+// Map / nav deep-link URL helpers (2026-05-21).
+//
+// Pure URL builders — they don't fetch anything. Returned URLs open the
+// destination on whichever map app the user has set as default; on mobile
+// the OS hands off to the native app (Google Maps, Waze, Apple Maps), and
+// on desktop the web version of each opens.
+//
+// Coordinate-based URLs are preferred when available because text search
+// can mis-resolve (e.g., two venues with the same name in different cities).
+// `googleMapsSearchByQuery` is kept as a string-input fallback for surfaces
+// that only have a venue_address — same pattern as the existing public
+// invitation page (apps/web/app/[slug]/page.tsx).
+// ============================================================================
+
+/** Google Maps — start a directions session to the destination coords. */
+export function googleMapsNavUrl(lat: number, lng: number): string {
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${lat},${lng}`)}`;
+}
+
+/** Google Maps — show the pin without starting nav. */
+export function googleMapsSearchUrl(lat: number, lng: number): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lng}`)}`;
+}
+
+/** Google Maps — fallback for surfaces that only have a free-text address. */
+export function googleMapsSearchByQuery(query: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
+/** Waze — start nav to coords. `navigate=yes` auto-starts the route. */
+export function wazeNavUrl(lat: number, lng: number): string {
+  return `https://waze.com/ul?ll=${encodeURIComponent(`${lat},${lng}`)}&navigate=yes`;
+}
+
+/**
+ * Apple Maps — open a pin at coords. On non-Apple devices this just renders
+ * the Apple Maps web preview (which then offers "open in Google Maps"), so
+ * the icon is safe to show universally.
+ */
+export function appleMapsUrl(lat: number, lng: number): string {
+  return `https://maps.apple.com/?ll=${encodeURIComponent(`${lat},${lng}`)}`;
+}
+
 export type GeocodeResult = {
   latitude: number;
   longitude: number;

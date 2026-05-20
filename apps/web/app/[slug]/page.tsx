@@ -13,6 +13,7 @@ import { CountdownWidget } from './_components/countdown';
 import { ScheduleWidget } from './_components/schedule-widget';
 import { fetchPublicScheduleBlocks, type ScheduleBlockRow } from '@/lib/schedule';
 import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
+import { NavLinksRow } from '@/app/_components/nav-links';
 
 function displayNameOf(g: {
   first_name: string;
@@ -76,7 +77,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   const { data: event } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, event_type, slug, monogram_text, monogram_color',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -160,6 +161,8 @@ type EventRow = {
   event_date: string | null;
   venue_name: string | null;
   venue_address: string | null;
+  venue_latitude: number | null;
+  venue_longitude: number | null;
   slug: string;
 };
 
@@ -605,16 +608,16 @@ function Select({
 // ---------------------------------------------------------------------------
 
 function VenueWidget({ event }: { event: EventRow }) {
-  const mapsHref = event.venue_address
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.venue_address)}`
-    : null;
-
+  // 2026-05-21 — coords-based deep links (Google Maps · Waze · Apple Maps)
+  // when the event has a geocoded venue. Falls back to a text-search
+  // Google Maps link when only venue_address is set. Hidden entirely if
+  // both are missing.
   return (
     <section className="space-y-3 rounded-xl border border-ink/10 bg-cream p-6">
       <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">Venue</p>
       <div className="overflow-hidden rounded-lg border border-ink/10">
         <div className="h-32 bg-gradient-to-br from-terracotta/30 via-amber-100 to-emerald-100" />
-        <div className="space-y-2 bg-cream p-4">
+        <div className="space-y-3 bg-cream p-4">
           <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta">
             Ceremony &amp; Reception
           </p>
@@ -624,19 +627,13 @@ function VenueWidget({ event }: { event: EventRow }) {
           {event.venue_address ? (
             <p className="text-sm text-ink/65">{event.venue_address}</p>
           ) : null}
-          {mapsHref ? (
-            <a
-              href={mapsHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="button-secondary mt-2 inline-flex"
-            >
-              Get directions
-            </a>
-          ) : null}
-          <p className="mt-2 text-xs text-ink/45">
-            Pro tier ships Waze + Google Maps deep links via iteration 0004 widgets.
-          </p>
+          <NavLinksRow
+            latitude={event.venue_latitude ?? null}
+            longitude={event.venue_longitude ?? null}
+            addressFallback={event.venue_address ?? event.venue_name ?? null}
+            label="Get directions"
+            compact
+          />
         </div>
       </div>
     </section>

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ArrowRight, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import { NavLinksRow } from '@/app/_components/nav-links';
 import {
   PLAN_GROUPS,
   bucketVendorsByGroup,
@@ -20,6 +21,11 @@ type PickRow = {
 type Props = {
   eventId: string;
   eventDate: string | null;
+  /** Reception venue coordinates (events.venue_latitude/longitude).
+   *  When set, the venue groups (ceremony_venue, reception_venue) get
+   *  Google Maps / Waze / Apple Maps nav-links on the card. */
+  venueLatitude: number | null;
+  venueLongitude: number | null;
   vendors: ReadonlyArray<{
     vendor_id: string;
     vendor_name: string;
@@ -30,7 +36,13 @@ type Props = {
 
 const MAX_VENDOR_PREVIEW = 3;
 
-export function PlanningGroups({ eventId, eventDate, vendors }: Props) {
+export function PlanningGroups({
+  eventId,
+  eventDate,
+  venueLatitude,
+  venueLongitude,
+  vendors,
+}: Props) {
   const bucketed = bucketVendorsByGroup(vendors);
 
   let totalLocked = 0;
@@ -78,6 +90,8 @@ export function PlanningGroups({ eventId, eventDate, vendors }: Props) {
                 eventDate={eventDate}
                 group={group}
                 picks={picks}
+                venueLatitude={venueLatitude}
+                venueLongitude={venueLongitude}
               />
             </li>
           );
@@ -92,12 +106,23 @@ function GroupCard({
   eventDate,
   group,
   picks,
+  venueLatitude,
+  venueLongitude,
 }: {
   eventId: string;
   eventDate: string | null;
   group: PlanGroup;
   picks: ReadonlyArray<PickRow>;
+  venueLatitude: number | null;
+  venueLongitude: number | null;
 }) {
+  // Surface nav deep-links on the two venue groups when the event's
+  // reception venue is geocoded — both Ceremony venue + Reception venue
+  // point at the same anchor today (single events.venue_lat/lng column).
+  const isVenueGroup =
+    group.id === 'ceremony_venue' || group.id === 'reception_venue';
+  const showNavLinks =
+    isVenueGroup && venueLatitude !== null && venueLongitude !== null;
   const hasLocked = picks.some((p) => p.status === 'locked');
   const status = targetDateStatus(eventDate, group.monthsBefore, hasLocked);
 
@@ -189,6 +214,15 @@ function GroupCard({
             </li>
           ) : null}
         </ul>
+      ) : null}
+
+      {showNavLinks ? (
+        <NavLinksRow
+          latitude={venueLatitude}
+          longitude={venueLongitude}
+          label="Directions"
+          compact
+        />
       ) : null}
 
       <Link

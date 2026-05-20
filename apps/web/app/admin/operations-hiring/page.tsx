@@ -5,6 +5,7 @@ import {
   getRecentAlerts,
   refreshBottleneckSignalsIfStale,
 } from '@/lib/hiring-guide/queries';
+import { runHiringAlertSweep } from '@/lib/hiring-guide/alert-engine';
 import {
   JAN_30_2027_SUNSET,
   SIGNAL_THRESHOLDS,
@@ -41,6 +42,18 @@ function formatPhp(n: number | null | undefined): string {
 export default async function OperationsHiringPage() {
   // Refresh stale signals before reading
   await refreshBottleneckSignalsIfStale();
+
+  // On-access alert sweep — fires new bottleneck/milestone/countdown alerts
+  // and dispatches emails to iscasasolaii@gmail.com (per
+  // reference_setnayan_owner_email memory). No pg_cron — see
+  // reference_setnayan_cron_strategy.
+  const dashboardUrl =
+    (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com') +
+    '/admin/operations-hiring';
+  const sweep = await runHiringAlertSweep(dashboardUrl).catch((err) => {
+    console.error('[operations-hiring] alert sweep failed', err);
+    return { alertsFired: 0, emailsSent: 0, emailsFailed: 0, errors: [String(err)] };
+  });
 
   const [signals, roadmap, alerts] = await Promise.all([
     getBottleneckSignals(),
@@ -241,7 +254,7 @@ export default async function OperationsHiringPage() {
       </section>
 
       {/* Footer note */}
-      <footer className="rounded-lg border border-ink/10 bg-ink/[0.02] p-4 text-xs text-ink/60">
+      <footer className="rounded-lg border border-ink/10 bg-ink/[0.02] p-4 text-xs text-ink/60 space-y-2">
         <p>
           Alerts route to{' '}
           <code className="rounded bg-ink/5 px-1 py-0.5 font-mono">iscasasolaii@gmail.com</code> via 0028 email
@@ -250,6 +263,16 @@ export default async function OperationsHiringPage() {
           crosses 100 / 1,000 / 5,000 / 25,000. Hiring countdown emails fire T-30 / T-14 / T-7 days from each
           hire-by date in the roadmap above.
         </p>
+        {sweep.alertsFired > 0 && (
+          <p className="text-ink/70">
+            <strong>This page-load sweep:</strong> {sweep.alertsFired} new alert{sweep.alertsFired === 1 ? '' : 's'}{' '}
+            recorded · {sweep.emailsSent} email{sweep.emailsSent === 1 ? '' : 's'} sent
+            {sweep.emailsFailed > 0 && ` · ${sweep.emailsFailed} failed`}.
+          </p>
+        )}
+        {sweep.errors.length > 0 && (
+          <p className="text-rose-700">Sweep errors: {sweep.errors.join('; ')}</p>
+        )}
       </footer>
     </div>
   );

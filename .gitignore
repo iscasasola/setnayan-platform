@@ -47,3 +47,5 @@ pnpm-debug.log*
 # Supabase
 supabase/.branches/
 supabase/.temp/
+
+*.tsbuildinfo

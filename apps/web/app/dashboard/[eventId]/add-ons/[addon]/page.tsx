@@ -55,6 +55,28 @@ const ADD_ON_META: Record<
     blurb:
       'Wedding-day supplies + favors from vetted Filipino suppliers — souvenirs, tokens, sponsor gifts, ceremony props — direct-to-venue with logistics quoted up front.',
   },
+  // Coming-soon placeholders so contextual CTAs (e.g. "Set your monogram"
+  // → /add-ons/monogram-creator) land on a polite page instead of a 404.
+  // The listing-level tiles for these stay status='coming_soon' on
+  // /add-ons (unclickable) per owner direction 2026-05-20.
+  'monogram-creator': {
+    iteration: 'Iteration 0037',
+    title: 'Monogram Creator',
+    blurb:
+      'Design your wedding monogram with an AI brief — initials, motif, refinement loop. Locks across QR center, hero, save-the-date, AI Highlight, signage. Coming back soon.',
+  },
+  'music-creator': {
+    iteration: 'Iteration 0036',
+    title: 'Music Creator',
+    blurb:
+      'Pick from Setnayan-owned tracks or generate a custom score for your event reels — Pakanta. Coming back soon.',
+  },
+  'landing-page': {
+    iteration: 'Iteration 0002',
+    title: 'Landing Page',
+    blurb:
+      'Customize the public landing page guests see when they scan your QR or open your link — beyond the default invitation surface. Coming back soon.',
+  },
 };
 
 type Props = {

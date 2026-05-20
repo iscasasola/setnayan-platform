@@ -22,6 +22,17 @@ export type ConciergeEnforcementLevel =
   | 'trial_banned'
   | 'full_banned';
 
+// Owner-set kill switch (2026-05-20). Concierge surface is hidden from
+// every entry point in the app while the purchase flow gets reworked
+// (see chat log re: ideal-budget vs pay-now conflation in
+// /dashboard/{eventId}/orders/new). Direct URLs to /dashboard/profile/concierge
+// render a "Temporarily unavailable" panel — they do not 404, so any
+// bookmarked links stay polite.
+//
+// Flip to `true` to re-light Concierge once the purchase form is rebuilt
+// as a fixed-price SKU flow (no free-form budget input).
+export const CONCIERGE_ENABLED = false;
+
 export const CONCIERGE_PRICE_CENTAVOS = 249_900; // ₱2,499
 export const CONCIERGE_PRICE_PHP = 2_499;
 export const TRIAL_DURATION_DAYS = 3;

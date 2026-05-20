@@ -56,6 +56,7 @@ type Props = {
     sort?: string;
     page?: string;
     verified?: string;
+    match?: string;
   }>;
 };
 
@@ -82,6 +83,7 @@ function parseFilters(
   sort: SortKey;
   page: number;
   verifiedOnly: boolean;
+  matchEvent: boolean;
 } {
   const q = (raw.q ?? '').trim();
   const sort = (SORT_KEYS as readonly string[]).includes(raw.sort ?? '')
@@ -96,13 +98,47 @@ function parseFilters(
   // Verified-only toggle (locked 2026-05-15) — OFF by default; ON filters
   // marketplace to vendors with public_visibility = 'verified' only.
   const verifiedOnly = raw.verified === '1' || raw.verified === 'on';
-  return { q, category, city, sort, page, verifiedOnly };
+  // Match-my-wedding toggle (iteration 0043, 2026-05-20) — OFF by default;
+  // ON filters marketplace to vendors whose compatible_ceremony_types +
+  // compatible_venue_settings include the couple's primary event values.
+  // No-op (toggle hidden) for non-logged-in visitors and couples without
+  // an event yet.
+  const matchEvent = raw.match === '1' || raw.match === 'on';
+  return { q, category, city, sort, page, verifiedOnly, matchEvent };
 }
 
 export default async function VendorsMarketplacePage({ searchParams }: Props) {
   const raw = await searchParams;
   const filters = parseFilters(raw);
   const admin = createAdminClient();
+
+  // 0043 compatibility hooks — resolve the viewer's couple-side primary event
+  // BEFORE the marketplace query is built so the compatibility filter can
+  // attach onto the query when ?match=1 is set. The same `user` + supabase
+  // client are reused for the follow-set lookup below (saves one auth roundtrip).
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  let coupleEventId: string | null = null;
+  let matchableEvent: { ceremony_type: string; venue_setting: string } | null = null;
+  if (user) {
+    const userEvents = await fetchUserEvents(supabase, user.id, 'couple');
+    coupleEventId = userEvents[0]?.event_id ?? null;
+    if (coupleEventId) {
+      const { data: ev } = await admin
+        .from('events')
+        .select('ceremony_type, venue_setting')
+        .eq('event_id', coupleEventId)
+        .maybeSingle();
+      if (ev?.ceremony_type && ev?.venue_setting) {
+        matchableEvent = {
+          ceremony_type: ev.ceremony_type as string,
+          venue_setting: ev.venue_setting as string,
+        };
+      }
+    }
+  }
 
   // Build the base query. Visibility filter is the new authoritative gate
   // (Decision 6 / 2026-05-15): default shows both 'verified' AND 'coming_soon';
@@ -132,6 +168,21 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   }
   if (filters.city.length > 0) {
     query = query.ilike('location_city', `%${filters.city}%`);
+  }
+
+  // 0043 compatibility filter — only applies when the toggle is on AND the
+  // couple has a matchable primary event. NULL/missing compatible_* columns
+  // count as "open to all" so legacy vendors who pre-date the compatibility
+  // tags aren't excluded; only vendors with explicit non-matching arrays
+  // get filtered out.
+  if (filters.matchEvent && matchableEvent) {
+    query = query
+      .or(
+        `compatible_ceremony_types.is.null,compatible_ceremony_types.cs.{${matchableEvent.ceremony_type}}`,
+      )
+      .or(
+        `compatible_venue_settings.is.null,compatible_venue_settings.cs.{${matchableEvent.venue_setting}}`,
+      );
   }
 
   // Sort: newest + name_asc are direct column sorts on the vendor_profiles
@@ -171,15 +222,12 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     rows.map((r) => r.vendor_profile_id),
   );
 
-  // Iteration 0019 § Gate — resolve the viewer's follow set + primary event
-  // once for the whole page so each card renders a stateful FollowGate
-  // without N+1 queries. Anonymous visitors get every card as "not following".
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Iteration 0019 § Gate — resolve the viewer's follow set so each card
+  // renders a stateful FollowGate without N+1 queries. The viewer's auth +
+  // primary event are already resolved above for the 0043 compatibility
+  // filter; we reuse the same `user` + `supabase` here. Anonymous visitors
+  // get every card as "not following".
   let followedSet = new Set<string>();
-  let coupleEventId: string | null = null;
   if (user) {
     const ids = rows.map((r) => r.vendor_profile_id);
     if (ids.length > 0) {
@@ -190,8 +238,6 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         .in('vendor_profile_id', ids);
       followedSet = new Set((follows ?? []).map((f) => f.vendor_profile_id));
     }
-    const events = await fetchUserEvents(supabase, user.id, 'couple');
-    coupleEventId = events[0]?.event_id ?? null;
   }
 
   // Apply stats-based sort + pagination in-memory. Boosted/Sponsored
@@ -283,11 +329,12 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
               city: filters.city,
               sort: filters.sort,
               verifiedOnly: filters.verifiedOnly,
+              matchEvent: filters.matchEvent,
             }}
           />
         </div>
 
-        <FilterBar filters={filters} />
+        <FilterBar filters={filters} matchableEvent={matchableEvent} />
 
         {visible.length === 0 ? (
           <EmptyState filters={filters} />
@@ -331,6 +378,7 @@ function buildHref(
     sort: SortKey;
     page: number;
     verifiedOnly: boolean;
+    matchEvent: boolean;
   },
   patch: Partial<{
     q: string;
@@ -339,6 +387,7 @@ function buildHref(
     sort: SortKey;
     page: number;
     verifiedOnly: boolean;
+    matchEvent: boolean;
   }>,
 ): string {
   const merged = { ...filters, ...patch };
@@ -349,12 +398,14 @@ function buildHref(
   if (merged.sort && merged.sort !== 'most_reviews') params.set('sort', merged.sort);
   if (merged.page && merged.page > 1) params.set('page', String(merged.page));
   if (merged.verifiedOnly) params.set('verified', '1');
+  if (merged.matchEvent) params.set('match', '1');
   const qs = params.toString();
   return qs.length > 0 ? `/vendors?${qs}` : '/vendors';
 }
 
 function FilterBar({
   filters,
+  matchableEvent,
 }: {
   filters: {
     q: string;
@@ -363,7 +414,9 @@ function FilterBar({
     sort: SortKey;
     page: number;
     verifiedOnly: boolean;
+    matchEvent: boolean;
   };
+  matchableEvent: { ceremony_type: string; venue_setting: string } | null;
 }) {
   return (
     <form
@@ -438,6 +491,26 @@ function FilterBar({
         </span>
       </label>
 
+      {matchableEvent ? (
+        <label className="flex items-center gap-2 text-sm text-ink/75 lg:col-span-4">
+          <input
+            type="checkbox"
+            name="match"
+            value="1"
+            defaultChecked={filters.matchEvent}
+            className="h-4 w-4 rounded border-ink/25 text-terracotta focus:ring-terracotta/40"
+          />
+          <span>
+            <span className="font-medium">Match my wedding</span>
+            <span className="ml-2 text-ink/55">
+              (only show vendors compatible with{' '}
+              <span className="font-mono">{matchableEvent.ceremony_type}</span> ·{' '}
+              <span className="font-mono">{matchableEvent.venue_setting.replace(/_/g, ' ')}</span>)
+            </span>
+          </span>
+        </label>
+      ) : null}
+
       <div className="flex items-end gap-2 lg:col-span-4">
         <button type="submit" className="button-primary h-11 px-5">
           Apply filters
@@ -466,9 +539,16 @@ function EmptyState({
     sort: SortKey;
     page: number;
     verifiedOnly: boolean;
+    matchEvent: boolean;
   };
 }) {
-  const hasFilter = !!(filters.q || filters.category || filters.city || filters.verifiedOnly);
+  const hasFilter = !!(
+    filters.q ||
+    filters.category ||
+    filters.city ||
+    filters.verifiedOnly ||
+    filters.matchEvent
+  );
   return (
     <div className="mt-8 rounded-2xl border border-dashed border-ink/20 bg-cream p-10 text-center">
       <p className="text-base font-medium text-ink/75">
@@ -656,6 +736,7 @@ function Pagination({
     sort: SortKey;
     page: number;
     verifiedOnly: boolean;
+    matchEvent: boolean;
   };
   page: number;
   totalPages: number;

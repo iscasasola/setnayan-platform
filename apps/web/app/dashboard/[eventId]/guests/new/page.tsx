@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import {
+  fetchSingletonRoleHolders,
   GROUP_CATEGORY_LABELS,
   INVITED_TO_BLOCKS,
   INVITED_TO_LABELS,
@@ -13,6 +14,7 @@ import {
   type MealPreference,
   type RsvpStatus,
 } from '@/lib/guests';
+import { createClient } from '@/lib/supabase/server';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { createGuest } from './actions';
 
@@ -33,6 +35,8 @@ const RSVP_OPTIONS: RsvpStatus[] = ['pending', 'attending', 'declined', 'maybe']
 const MEAL_OPTIONS: MealPreference[] = ['no_preference', 'beef', 'chicken', 'fish', 'vegetarian', 'vegan', 'kids'];
 const ROLE_OPTIONS: GuestRole[] = [
   'guest',
+  'bride',
+  'groom',
   'maid_of_honor',
   'matron_of_honor',
   'best_man',
@@ -62,6 +66,13 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
   const search = await searchParams;
   const rawError = search.error ? decodeURIComponent(search.error) : null;
   const errorMessage = rawError ? (ERROR_COPY[rawError] ?? rawError) : null;
+
+  // Hide bride/groom from the dropdown when already assigned in the event;
+  // the DB partial unique indexes (migration 20260531010000) make a second
+  // pick fail anyway, so don't offer the option in the first place.
+  const supabase = await createClient();
+  const singletonHolders = await fetchSingletonRoleHolders(supabase, eventId);
+  const availableRoles = ROLE_OPTIONS.filter((r) => !(r in singletonHolders));
 
   const action = createGuest.bind(null, eventId);
 
@@ -117,7 +128,7 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
           id="role"
           label="Role in wedding"
           defaultValue="guest"
-          options={ROLE_OPTIONS.map((v) => ({ value: v, label: ROLE_LABELS[v] }))}
+          options={availableRoles.map((v) => ({ value: v, label: ROLE_LABELS[v] }))}
         />
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

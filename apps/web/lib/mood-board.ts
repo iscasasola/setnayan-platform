@@ -12,11 +12,15 @@ import type { RoleGroup } from './role-groups';
  */
 export type CouplePaletteKey = 'bride' | 'groom';
 
+// The mood-board's 'bride' and 'groom' palette keys (attire palettes)
+// stand in for the 'couple' role group from role-groups.ts — there's no
+// separate 'couple' palette. Excluded here to avoid forcing a redundant
+// key on every palette record.
 export type PaletteKey =
   | 'ceremony'
   | 'reception'
   | CouplePaletteKey
-  | Exclude<RoleGroup, 'other_roles'>
+  | Exclude<RoleGroup, 'other_roles' | 'couple'>
   | 'guest';
 
 export type RolePalette = Partial<Record<PaletteKey, string[]>>;
@@ -171,9 +175,13 @@ export function sanitizeRolePalette(raw: unknown): RolePalette {
 
 export function getPrimaryColor(
   palette: RolePalette,
-  key: PaletteKey | 'other_roles',
+  key: PaletteKey | 'other_roles' | 'couple',
 ): string | undefined {
-  if (key === 'other_roles') return undefined;
+  // 'other_roles' is the fallback bucket from role-groups.ts (no palette).
+  // 'couple' is the role group bride + groom belong to, but the palette
+  // splits attire colors into separate `bride` and `groom` keys, so
+  // there's no aggregate "couple" primary to surface here.
+  if (key === 'other_roles' || key === 'couple') return undefined;
   const arr = palette[key as PaletteKey];
   return arr && arr.length > 0 ? arr[0] : undefined;
 }

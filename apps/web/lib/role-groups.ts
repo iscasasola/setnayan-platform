@@ -1,6 +1,7 @@
 import type { GuestRole } from './guests';
 
 export type RoleGroup =
+  | 'couple'
   | 'wedding_party'
   | 'principal_sponsors'
   | 'secondary_sponsors'
@@ -9,6 +10,7 @@ export type RoleGroup =
   | 'other_roles';
 
 export const ROLE_GROUP_LABELS: Record<RoleGroup, string> = {
+  couple: 'Bride & Groom',
   wedding_party: 'Wedding Party',
   principal_sponsors: 'Principal Sponsors',
   secondary_sponsors: 'Secondary Sponsors',
@@ -19,6 +21,8 @@ export const ROLE_GROUP_LABELS: Record<RoleGroup, string> = {
 
 const ROLE_TO_GROUP: Record<GuestRole, RoleGroup | 'guest'> = {
   guest: 'guest',
+  bride: 'couple',
+  groom: 'couple',
   maid_of_honor: 'wedding_party',
   matron_of_honor: 'wedding_party',
   best_man: 'wedding_party',
@@ -44,6 +48,7 @@ export function roleGroupOf(role: GuestRole): RoleGroup | 'guest' {
 
 // Tailwind tint per role group. Cream/ink/terracotta-aligned palette.
 export const ROLE_GROUP_CHIP: Record<RoleGroup | 'guest', string> = {
+  couple: 'bg-rose-100 text-rose-900 ring-1 ring-rose-200',
   wedding_party: 'bg-terracotta/10 text-terracotta-700 ring-1 ring-terracotta/20',
   principal_sponsors: 'bg-violet-100 text-violet-800 ring-1 ring-violet-200',
   secondary_sponsors: 'bg-amber-100 text-amber-900 ring-1 ring-amber-200',

@@ -5,6 +5,7 @@ import {
   parseVisibility,
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
+import { InviteVendorForm } from './_components/invite-vendor-form';
 
 export const metadata = { title: 'Vendors · Admin' };
 
@@ -69,6 +70,8 @@ export default async function AdminVendorsPage({ searchParams }: Props) {
           contact emails (the email couples use to start a thread).
         </p>
       </header>
+
+      <InviteVendorForm />
 
       <form className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center" method="get">
         <input

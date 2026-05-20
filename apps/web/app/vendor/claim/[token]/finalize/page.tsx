@@ -52,7 +52,7 @@ export default async function FinalizeClaimPage({ params }: Props) {
     return (
       <ErrorShell
         title={`This invite is ${data.invite.status}.`}
-        body={`Ask ${data.event.couple_display_name} to send you a new one.`}
+        body={`Ask ${data.event?.couple_display_name ?? 'Setnayan'} to send you a new one.`}
       />
     );
   }
@@ -99,20 +99,46 @@ export default async function FinalizeClaimPage({ params }: Props) {
   // 2. Auto-link transaction — sets event_vendors.marketplace_vendor_id,
   //    flips invite to 'claimed', and inserts vendor_follows for the
   //    couple members (per 0019 § Booking-implies-follow auto-insert).
+  //
+  //    2026-05-21 — Admin-source invites (no event_vendors parent) skip
+  //    this step. We just flip the invite to 'claimed' so it can't be
+  //    re-used; there's no event to follow.
   // ------------------------------------------------------------------
-  const linked = await applyClaimAutoLink({
-    claimToken: token,
-    claimedByUserId: user.id,
-    claimedVendorProfileId: vendorProfileId,
-  });
+  if (data.invite.source === 'admin') {
+    const { error: claimErr } = await admin
+      .from('vendor_invites')
+      .update({
+        status: 'claimed',
+        claimed_by_user_id: user.id,
+        claimed_vendor_profile_id: vendorProfileId,
+        claimed_at: new Date().toISOString(),
+      })
+      .eq('invite_id', data.invite.invite_id)
+      .eq('status', 'pending');
+    if (claimErr) {
+      return (
+        <ErrorShell
+          title="Couldn't finish claim."
+          body={claimErr.message}
+        />
+      );
+    }
+  } else {
+    const linked = await applyClaimAutoLink({
+      claimToken: token,
+      claimedByUserId: user.id,
+      claimedVendorProfileId: vendorProfileId,
+    });
 
-  if (!linked.ok) {
-    return <ErrorShell title="Couldn't finish connecting." body={linked.message} />;
+    if (!linked.ok) {
+      return <ErrorShell title="Couldn't finish connecting." body={linked.message} />;
+    }
   }
 
   // ------------------------------------------------------------------
   // 3. Done. Land them in the vendor dashboard with the new client
-  //    visible in their Clients pipeline.
+  //    visible in their Clients pipeline (couple-source) or just the
+  //    fresh dashboard (admin-source).
   // ------------------------------------------------------------------
   redirect('/vendor-dashboard?claimed=1');
 }

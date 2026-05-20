@@ -13,16 +13,22 @@ export type VendorInviteStatus =
   | 'revoked'
   | 'declined';
 
+/** 2026-05-21 — admin-initiated invites have no parent event_vendors row
+ *  (`vendor_id` is NULL). The claim flow branches on this field to skip
+ *  applyClaimAutoLink for admin-source rows. */
+export type VendorInviteSource = 'couple' | 'admin';
+
 export type VendorInviteRow = {
   invite_id: string;
   public_id: string;
-  vendor_id: string;
+  vendor_id: string | null;
   invited_by_user_id: string;
   email: string;
   business_name: string;
   service_category: string | null;
   claim_token: string;
   status: VendorInviteStatus;
+  source: VendorInviteSource;
   sent_at: string;
   expires_at: string;
   claimed_by_user_id: string | null;
@@ -91,14 +97,16 @@ export async function fetchLatestInvitesByVendorIds(
   const { data, error } = await supabase
     .from('vendor_invites')
     .select(
-      'invite_id,public_id,vendor_id,invited_by_user_id,email,business_name,service_category,claim_token,status,sent_at,expires_at,claimed_by_user_id,claimed_vendor_profile_id,claimed_at,declined_at,revoked_at',
+      'invite_id,public_id,vendor_id,invited_by_user_id,email,business_name,service_category,claim_token,status,source,sent_at,expires_at,claimed_by_user_id,claimed_vendor_profile_id,claimed_at,declined_at,revoked_at',
     )
     .in('vendor_id', vendorIds)
     .order('sent_at', { ascending: false });
   if (error) throw new Error(`fetchLatestInvitesByVendorIds failed: ${error.message}`);
   const out = new Map<string, VendorInviteRow>();
   for (const row of (data ?? []) as VendorInviteRow[]) {
-    if (!out.has(row.vendor_id)) out.set(row.vendor_id, row);
+    // Skip admin-source rows (no vendor_id) — this helper is for the
+    // couple-side vendor tracker that keys by event_vendors.vendor_id.
+    if (row.vendor_id && !out.has(row.vendor_id)) out.set(row.vendor_id, row);
   }
   return out;
 }
@@ -146,6 +154,7 @@ export function daysLeftFor(invite: VendorInviteRow): number | null {
 
 export type ClaimLandingData = {
   invite: VendorInviteRow;
+  /** Couple-source invites only. NULL for admin-source rows. */
   parentVendor: {
     vendor_id: string;
     event_id: string;
@@ -153,12 +162,13 @@ export type ClaimLandingData = {
     contact_email: string | null;
     contact_phone: string | null;
     category: string;
-  };
+  } | null;
+  /** Couple-source invites only. NULL for admin-source rows. */
   event: {
     event_id: string;
     event_date: string | null;
     couple_display_name: string;
-  };
+  } | null;
   /** When the invited email already runs a Setnayan vendor account. */
   existingVendor: { vendor_profile_id: string; business_name: string } | null;
 };
@@ -182,7 +192,7 @@ export async function fetchClaimLandingByToken(
   const { data: invite, error: invErr } = await admin
     .from('vendor_invites')
     .select(
-      'invite_id,public_id,vendor_id,invited_by_user_id,email,business_name,service_category,claim_token,status,sent_at,expires_at,claimed_by_user_id,claimed_vendor_profile_id,claimed_at,declined_at,revoked_at',
+      'invite_id,public_id,vendor_id,invited_by_user_id,email,business_name,service_category,claim_token,status,source,sent_at,expires_at,claimed_by_user_id,claimed_vendor_profile_id,claimed_at,declined_at,revoked_at',
     )
     .eq('claim_token', token)
     .maybeSingle();
@@ -203,23 +213,37 @@ export async function fetchClaimLandingByToken(
     resolvedInvite = { ...inviteRow, status: 'expired' };
   }
 
-  // 3. Parent event_vendors row.
-  const { data: parent, error: parentErr } = await admin
-    .from('event_vendors')
-    .select('vendor_id,event_id,vendor_name,contact_email,contact_phone,category')
-    .eq('vendor_id', resolvedInvite.vendor_id)
-    .maybeSingle();
-  if (parentErr) throw new Error(`fetchClaimLandingByToken parent: ${parentErr.message}`);
-  if (!parent) return null;
+  // 2026-05-21 — admin-source invites skip the parent + event lookups
+  // entirely. They were never tied to an event_vendors row; the claim page
+  // renders a simpler "Setnayan invited you" surface.
+  let parent: NonNullable<ClaimLandingData['parentVendor']> | null = null;
+  let event: NonNullable<ClaimLandingData['event']> | null = null;
+  if (resolvedInvite.source === 'couple' && resolvedInvite.vendor_id) {
+    // 3. Parent event_vendors row.
+    const { data: parentRow, error: parentErr } = await admin
+      .from('event_vendors')
+      .select('vendor_id,event_id,vendor_name,contact_email,contact_phone,category')
+      .eq('vendor_id', resolvedInvite.vendor_id)
+      .maybeSingle();
+    if (parentErr) throw new Error(`fetchClaimLandingByToken parent: ${parentErr.message}`);
+    if (!parentRow) return null;
+    parent = parentRow as NonNullable<ClaimLandingData['parentVendor']>;
 
-  // 4. Event + display name (couple's chosen public-facing event name).
-  const { data: ev, error: evErr } = await admin
-    .from('events')
-    .select('event_id,event_date,display_name')
-    .eq('event_id', parent.event_id)
-    .maybeSingle();
-  if (evErr) throw new Error(`fetchClaimLandingByToken event: ${evErr.message}`);
-  const event = ev ?? { event_id: parent.event_id, event_date: null, display_name: '' };
+    // 4. Event + display name (couple's chosen public-facing event name).
+    const { data: ev, error: evErr } = await admin
+      .from('events')
+      .select('event_id,event_date,display_name')
+      .eq('event_id', parent.event_id)
+      .maybeSingle();
+    if (evErr) throw new Error(`fetchClaimLandingByToken event: ${evErr.message}`);
+    const evRow = ev ?? { event_id: parent.event_id, event_date: null, display_name: '' };
+    event = {
+      event_id: evRow.event_id as string,
+      event_date: (evRow.event_date as string | null) ?? null,
+      couple_display_name:
+        ((evRow.display_name as string | null) ?? '').trim() || 'A Setnayan couple',
+    };
+  }
 
   // 5. Already-on-Setnayan detection — does this email already own a vendor?
   const { data: existingVendor } = await admin
@@ -231,13 +255,8 @@ export async function fetchClaimLandingByToken(
 
   return {
     invite: resolvedInvite,
-    parentVendor: parent as ClaimLandingData['parentVendor'],
-    event: {
-      event_id: event.event_id as string,
-      event_date: (event.event_date as string | null) ?? null,
-      couple_display_name:
-        ((event.display_name as string | null) ?? '').trim() || 'A Setnayan couple',
-    },
+    parentVendor: parent,
+    event,
     existingVendor: existingVendor
       ? {
           vendor_profile_id: existingVendor.vendor_profile_id as string,

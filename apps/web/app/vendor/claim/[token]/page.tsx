@@ -22,15 +22,20 @@ export default async function VendorClaimPage({ params }: Props) {
   if (!data) notFound();
 
   const { invite, parentVendor, event, existingVendor } = data;
-  const categoryLabel =
-    VENDOR_CATEGORY_LABEL[parentVendor.category as VendorCategory] ?? parentVendor.category;
-  const eventDateLabel = event.event_date
+  // Couple-source invites carry a category + event date; admin-source rows
+  // don't. We fall back to the invite snapshot for both fields so the
+  // claim surface still renders meaningful identity for either source.
+  const categoryLabel = parentVendor
+    ? (VENDOR_CATEGORY_LABEL[parentVendor.category as VendorCategory] ?? parentVendor.category)
+    : (invite.service_category ?? 'Vendor');
+  const eventDateLabel = event?.event_date
     ? new Date(event.event_date).toLocaleDateString('en-PH', {
         year: 'numeric',
         month: 'long',
         day: 'numeric',
       })
     : 'their upcoming wedding';
+  const inviterName = event?.couple_display_name ?? 'Setnayan';
 
   // ------------------------------------------------------------------
   // Terminal-state surfaces (status !== 'pending')
@@ -52,7 +57,7 @@ export default async function VendorClaimPage({ params }: Props) {
         <TerminalCard
           eyebrow="Setnayan · Expired"
           title="This invite link has expired."
-          body={`Ask ${event.couple_display_name} to send you a new one.`}
+          body={`Ask ${inviterName} to send you a new one.`}
         />
       </ClaimShell>
     );
@@ -74,14 +79,80 @@ export default async function VendorClaimPage({ params }: Props) {
         <TerminalCard
           eyebrow="Setnayan · Declined"
           title="This invite was previously declined."
-          body={`If you'd like to reconsider, please ask ${event.couple_display_name} to send a new invite.`}
+          body={`If you'd like to reconsider, please ask ${inviterName} to send a new invite.`}
         />
       </ClaimShell>
     );
   }
 
   // ------------------------------------------------------------------
+  // Admin-source branch (2026-05-21) — Setnayan team pre-created the
+  // account. No couple, no event, no event_vendors row to link. Simpler
+  // surface: "the Setnayan team set up a profile for you, claim it".
+  // ------------------------------------------------------------------
+  if (invite.source === 'admin') {
+    const finalizeUrl = `/vendor/claim/${invite.claim_token}/finalize`;
+    const signupUrl = `/signup?as=vendor&prefill_email=${encodeURIComponent(invite.email)}&next=${encodeURIComponent(finalizeUrl)}`;
+    const signInUrl = `/login?next=${encodeURIComponent(finalizeUrl)}`;
+    return (
+      <ClaimShell>
+        <article className="space-y-6">
+          <header className="space-y-3">
+            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+              Setnayan · Team invite
+            </p>
+            <h1 className="font-serif text-3xl font-medium leading-tight text-ink sm:text-4xl">
+              The Setnayan team set up a profile for{' '}
+              <strong className="font-semibold">{invite.business_name}</strong>.
+            </h1>
+            <p className="text-base text-ink/70">
+              Claim it now to add your photos, services, and pricing. Couples
+              browsing the marketplace will see you once you publish.
+            </p>
+          </header>
+
+          <section className="space-y-2">
+            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+              What you get
+            </p>
+            <ul className="grid grid-cols-1 gap-2 text-sm text-ink/70 sm:grid-cols-2">
+              <Perk>Free vendor profile + marketplace listing</Perk>
+              <Perk>Chat with couples in-app</Perk>
+              <Perk>Calendar + bookings dashboard</Perk>
+              <Perk>BIR-compliant payouts</Perk>
+              <Perk className="sm:col-span-2">No upfront cost · no credit card required</Perk>
+            </ul>
+          </section>
+
+          <div className="flex flex-wrap gap-3">
+            {existingVendor ? (
+              <Link
+                href={signInUrl}
+                className="inline-flex items-center justify-center rounded-md bg-terracotta px-6 py-3 text-sm font-semibold text-cream hover:bg-terracotta-700"
+              >
+                Sign in &amp; claim
+              </Link>
+            ) : (
+              <Link
+                href={signupUrl}
+                className="inline-flex items-center justify-center rounded-md bg-terracotta px-6 py-3 text-sm font-semibold text-cream hover:bg-terracotta-700"
+              >
+                Claim &amp; sign up
+              </Link>
+            )}
+            <DeclineForm token={invite.claim_token} />
+          </div>
+          <p className="text-xs text-ink/50">
+            Not the right business? Just ignore this page — we won&rsquo;t follow up.
+          </p>
+        </article>
+      </ClaimShell>
+    );
+  }
+
+  // ------------------------------------------------------------------
   // Already-on-Setnayan branch — email matches an existing vendor account.
+  // (Couple-source only; admin-source already returned above.)
   // ------------------------------------------------------------------
   if (existingVendor) {
     const finalizeUrl = `/vendor/claim/${invite.claim_token}/finalize`;
@@ -98,7 +169,7 @@ export default async function VendorClaimPage({ params }: Props) {
               <strong className="font-semibold">{existingVendor.business_name}</strong>.
             </h1>
             <p className="text-base text-ink/70">
-              <strong className="text-ink">{event.couple_display_name}</strong> wants to
+              <strong className="text-ink">{inviterName}</strong> wants to
               connect their wedding ({eventDateLabel}) to your existing profile.
             </p>
           </header>
@@ -138,7 +209,7 @@ export default async function VendorClaimPage({ params }: Props) {
             Setnayan · Couple invite
           </p>
           <h1 className="font-serif text-3xl font-medium leading-tight text-ink sm:text-4xl">
-            <strong className="font-semibold">{event.couple_display_name}</strong> invited
+            <strong className="font-semibold">{inviterName}</strong> invited
             you to claim your free Setnayan profile.
           </h1>
           <p className="text-base text-ink/70">
@@ -156,16 +227,20 @@ export default async function VendorClaimPage({ params }: Props) {
             What they&rsquo;ve recorded
           </p>
           <dl className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <SnapshotField label="Business" value={parentVendor.vendor_name} bold />
+            <SnapshotField
+              label="Business"
+              value={parentVendor?.vendor_name ?? invite.business_name}
+              bold
+            />
             <SnapshotField label="Service" value={categoryLabel} />
-            {parentVendor.contact_email ? (
+            {parentVendor?.contact_email ? (
               <SnapshotField
                 label="Email"
                 value={parentVendor.contact_email}
                 icon={<Mail className="h-3.5 w-3.5" strokeWidth={1.75} />}
               />
             ) : null}
-            {parentVendor.contact_phone ? (
+            {parentVendor?.contact_phone ? (
               <SnapshotField
                 label="Phone"
                 value={parentVendor.contact_phone}
@@ -185,7 +260,7 @@ export default async function VendorClaimPage({ params }: Props) {
           </p>
           <ul className="grid grid-cols-1 gap-2 text-sm text-ink/70 sm:grid-cols-2">
             <Perk>Free vendor profile + marketplace listing</Perk>
-            <Perk>Chat with {event.couple_display_name} in-app</Perk>
+            <Perk>Chat with {inviterName} in-app</Perk>
             <Perk>Payment + contract tracking pre-filled</Perk>
             <Perk>Marketplace exposure to other PH couples</Perk>
             <Perk className="sm:col-span-2">No upfront cost · no credit card required</Perk>

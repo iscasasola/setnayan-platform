@@ -430,17 +430,33 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
 
   return (
     <main className="min-h-dvh bg-cream">
+      {/* Inline marketplace header. Auth-aware CTA swap (2026-05-20): when
+          a signed-in user clicks "Marketplace" from the dashboard outer
+          header, we route the right-side CTA back to /dashboard instead of
+          pushing them at /signup — without this the page reads as
+          "logged out" even though the session cookie is still alive. The
+          `user` variable above is fetched server-side via the same
+          createClient() used for the catalog filter; no extra roundtrip. */}
       <header className="border-b border-ink/5">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <Link href="/" className="flex items-center text-ink">
+          <Link href={user ? '/dashboard' : '/'} className="flex items-center text-ink">
             <BrandLogo height={32} withWordmark />
           </Link>
-          <Link
-            href="/signup"
-            className="hidden text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline sm:inline"
-          >
-            Plan with Setnayan
-          </Link>
+          {user ? (
+            <Link
+              href="/dashboard"
+              className="button-primary hidden h-10 px-5 text-sm sm:inline-flex"
+            >
+              Dashboard
+            </Link>
+          ) : (
+            <Link
+              href="/signup"
+              className="hidden text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline sm:inline"
+            >
+              Plan with Setnayan
+            </Link>
+          )}
         </div>
       </header>
 

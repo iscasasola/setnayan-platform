@@ -34,6 +34,14 @@ import { Sheet } from './sheet';
 // Vendor-context detection routes the Create-account href to
 // /signup?as=vendor when the viewer is on /for-vendors/* so the signup
 // step pre-selects the vendor role.
+//
+// Auth-aware CTA swap (2026-05-20): when a signed-in user lands on any
+// marketing surface (e.g., logged-in couple clicking "Marketplace" from
+// the dashboard outer header), the Sign in / Create account pair is
+// replaced with a single "Dashboard" CTA that routes back to the app
+// shell. Without this, the chrome reads as "logged out" to the user even
+// though the auth cookie is still valid — see decision-log entry on this
+// fix for the full reproduction trace.
 
 const PRIMARY_NAV = [
   { href: '/vendors', label: 'Marketplace' },
@@ -48,10 +56,19 @@ function isVendorContext(pathname: string): boolean {
   return pathname === '/for-vendors' || pathname.startsWith('/for-vendors/');
 }
 
-export function SiteHeader() {
+type SiteHeaderProps = {
+  // Minimal projection of the Supabase auth user. Pages render with a
+  // server-side createClient() then pass { id, email } through. `null`
+  // means anonymous visitor (default for static marketing pages that
+  // never read the session).
+  user?: { id: string; email: string | null } | null;
+};
+
+export function SiteHeader({ user = null }: SiteHeaderProps = {}) {
   const pathname = usePathname() ?? '/';
   const signupHref = isVendorContext(pathname) ? '/signup?as=vendor' : '/signup';
   const [navOpen, setNavOpen] = useState(false);
+  const signedIn = !!user;
 
   return (
     <header className="border-b border-ink/5">
@@ -110,18 +127,29 @@ export function SiteHeader() {
               className="h-10 w-56 rounded-md border border-ink/15 bg-white pl-9 pr-3 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30"
             />
           </form>
-          <Link
-            href="/login"
-            className="hidden text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline md:inline"
-          >
-            Sign in
-          </Link>
-          <Link
-            href={signupHref}
-            className="button-primary hidden h-10 px-5 text-sm md:inline-flex"
-          >
-            Create account
-          </Link>
+          {signedIn ? (
+            <Link
+              href="/dashboard"
+              className="button-primary hidden h-10 px-5 text-sm md:inline-flex"
+            >
+              Dashboard
+            </Link>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="hidden text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline md:inline"
+              >
+                Sign in
+              </Link>
+              <Link
+                href={signupHref}
+                className="button-primary hidden h-10 px-5 text-sm md:inline-flex"
+              >
+                Create account
+              </Link>
+            </>
+          )}
 
           {/* Mobile hamburger — md:hidden */}
           <button
@@ -190,24 +218,38 @@ export function SiteHeader() {
               );
             })}
             <li aria-hidden className="my-3 border-t border-ink/10" />
-            <li>
-              <Link
-                href="/login"
-                onClick={() => setNavOpen(false)}
-                className="flex min-h-[48px] items-center rounded-md px-4 text-base font-medium text-ink hover:bg-ink/5"
-              >
-                Sign in
-              </Link>
-            </li>
-            <li className="px-4 pt-3">
-              <Link
-                href={signupHref}
-                onClick={() => setNavOpen(false)}
-                className="button-primary flex min-h-[48px] w-full items-center justify-center text-sm font-semibold"
-              >
-                Create account
-              </Link>
-            </li>
+            {signedIn ? (
+              <li className="px-4 pt-1">
+                <Link
+                  href="/dashboard"
+                  onClick={() => setNavOpen(false)}
+                  className="button-primary flex min-h-[48px] w-full items-center justify-center text-sm font-semibold"
+                >
+                  Dashboard
+                </Link>
+              </li>
+            ) : (
+              <>
+                <li>
+                  <Link
+                    href="/login"
+                    onClick={() => setNavOpen(false)}
+                    className="flex min-h-[48px] items-center rounded-md px-4 text-base font-medium text-ink hover:bg-ink/5"
+                  >
+                    Sign in
+                  </Link>
+                </li>
+                <li className="px-4 pt-3">
+                  <Link
+                    href={signupHref}
+                    onClick={() => setNavOpen(false)}
+                    className="button-primary flex min-h-[48px] w-full items-center justify-center text-sm font-semibold"
+                  >
+                    Create account
+                  </Link>
+                </li>
+              </>
+            )}
           </ul>
         </nav>
       </Sheet>

@@ -3,6 +3,7 @@ import { ArrowRight, CalendarHeart, CheckCircle2 } from 'lucide-react';
 import { SiteHeader } from '@/app/_components/site-header';
 import { Logo } from '@/app/_components/logo';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { createClient } from '@/lib/supabase/server';
 import { joinCoupleWaitlist } from './actions';
 
 export const metadata = {
@@ -39,9 +40,18 @@ export default async function WaitlistPage({ searchParams }: Props) {
   const joined = search.status === 'joined';
   const errorMessage = search.error ? ERROR_COPY[search.error] ?? null : null;
 
+  // Page is already dynamic via searchParams, so the auth fetch costs
+  // nothing extra over the existing render. See SiteHeader's auth-aware
+  // CTA swap (2026-05-20) for the broader rationale.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const headerUser = user ? { id: user.id, email: user.email ?? null } : null;
+
   return (
     <div className="min-h-screen bg-cream text-ink">
-      <SiteHeader />
+      <SiteHeader user={headerUser} />
 
       <section className="border-b border-ink/5">
         <div className="mx-auto w-full max-w-3xl px-4 pt-16 pb-20 sm:px-6 sm:pt-24 sm:pb-28 lg:px-8">

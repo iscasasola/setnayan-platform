@@ -18,8 +18,49 @@ import { fetchActiveAdLookups, type ActiveAdLookup } from '@/lib/vendor-ads';
 import { fetchReviewStatsForMany, formatStarRating } from '@/lib/reviews';
 import { CategoryFilterChips } from '@/app/_components/category-filter-chips';
 import { EventTypeNotifyForm } from './_components/event-type-notify-form';
+import { TaxonomySearch, type TaxonomyOption } from './_components/taxonomy-search';
+import { TAXONOMY_MAP, type MegaMenuColumn } from '@/lib/taxonomy';
 import { fetchUserEvents } from '@/lib/events';
 import { FollowGate } from '@/app/_components/follow-gate';
+
+// Short column hints rendered as secondary text in each autocomplete row.
+// Full labels in MEGA_MENU_COLUMN_LABEL are too long for a dropdown row.
+const SHORT_COLUMN_LABEL: Record<MegaMenuColumn, string> = {
+  1: 'Capture',
+  2: 'Music',
+  3: 'Food',
+  4: 'Look',
+  5: 'Coordination',
+};
+
+// Derive a human-readable label from a snake_case canonical_service key.
+// Pre-baked overrides for cases that don't title-case cleanly (acronyms,
+// hyphenated terms, Setnayan-branded SKUs).
+const TAXONOMY_LABEL_OVERRIDE: Record<string, string> = {
+  pre_nup_photographer: 'Pre-Nup Photographer',
+  pre_nup_shoot_locations: 'Pre-Nup Shoot Locations',
+  setnayan_papic: 'Setnayan · Papic',
+  setnayan_ai_edited_highlight: 'Setnayan · AI Highlight',
+};
+
+function taxonomyLabel(key: string): string {
+  if (TAXONOMY_LABEL_OVERRIDE[key]) return TAXONOMY_LABEL_OVERRIDE[key];
+  return key
+    .split('_')
+    .map((w) => (w.length === 0 ? w : w.charAt(0).toUpperCase() + w.slice(1)))
+    .join(' ');
+}
+
+// Build the full 192-item autocomplete list once at module load.
+const TAXONOMY_OPTIONS: ReadonlyArray<TaxonomyOption> = Object.entries(
+  TAXONOMY_MAP,
+)
+  .map(([key, meta]) => ({
+    key,
+    label: taxonomyLabel(key),
+    column: SHORT_COLUMN_LABEL[meta.column],
+  }))
+  .sort((a, b) => a.label.localeCompare(b.label));
 
 export const metadata = {
   title: 'Vendors — Setnayan',
@@ -110,7 +151,15 @@ function parseFilters(
   raw: Awaited<Props['searchParams']>,
 ): {
   q: string;
-  category: VendorCategory | null;
+  // `category` is the marketplace "filter by service" param. It can be:
+  //   - one of the 28-enum VendorCategory keys (set by the chip UI)
+  //   - one of the 192 canonical_service keys from TAXONOMY_MAP (set by
+  //     the /vendors/categories browser or the taxonomy autocomplete)
+  // The query at .contains('services', [category]) treats either form
+  // as an opaque string and matches when vendor.services[] includes it.
+  // Categories not yet stocked with vendors hit the empty state —
+  // documented V1.1 progressive-launch behavior, not a bug.
+  category: string | null;
   city: string;
   sort: SortKey;
   page: number;
@@ -122,8 +171,13 @@ function parseFilters(
   const sort = (SORT_KEYS as readonly string[]).includes(raw.sort ?? '')
     ? (raw.sort as SortKey)
     : 'most_reviews';
-  const category = (VENDOR_CATEGORIES as readonly string[]).includes(raw.category ?? '')
-    ? (raw.category as VendorCategory)
+  // Accept any non-empty string (28-enum OR canonical_service from the
+  // 192-taxonomy). Length-cap + character-class guard against injection
+  // — the value flows into a PostgREST `.contains()` predicate.
+  const rawCategory = (raw.category ?? '').trim();
+  const category = rawCategory.length > 0 && rawCategory.length <= 64
+    && /^[a-z0-9_]+$/i.test(rawCategory)
+    ? rawCategory
     : null;
   const city = (raw.city ?? '').trim();
   const pageRaw = Number(raw.page ?? '1');
@@ -405,8 +459,19 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         </div>
 
         <div className="mt-6">
+          {/* The chip UI only highlights the 28-enum VendorCategory keys.
+            * A canonical_service from the 192-taxonomy (set by the
+            * autocomplete / taxonomy browser) won't match any chip —
+            * narrow to null so the chip row stays neutral. The URL
+            * category param is still preserved by the hidden input
+            * inside FilterBar so the filter survives Apply clicks. */}
           <CategoryFilterChips
-            currentCategory={filters.category}
+            currentCategory={
+              filters.category &&
+              (VENDOR_CATEGORIES as readonly string[]).includes(filters.category)
+                ? (filters.category as VendorCategory)
+                : null
+            }
             context={{
               q: filters.q,
               city: filters.city,
@@ -472,7 +537,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
 function buildHref(
   filters: {
     q: string;
-    category: VendorCategory | null;
+    category: string | null;
     city: string;
     sort: SortKey;
     page: number;
@@ -481,7 +546,7 @@ function buildHref(
   },
   patch: Partial<{
     q: string;
-    category: VendorCategory | null | '';
+    category: string | null | '';
     city: string;
     sort: SortKey;
     page: number;
@@ -508,12 +573,13 @@ function FilterBar({
 }: {
   filters: {
     q: string;
-    category: VendorCategory | null;
+    category: string | null;
     city: string;
     sort: SortKey;
     page: number;
     verifiedOnly: boolean;
     matchEvent: boolean;
+    eventType: EventTypeFilter | null;
   };
   matchableEvent: { ceremony_type: string; venue_setting: string } | null;
 }) {
@@ -527,20 +593,22 @@ function FilterBar({
         <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
           Search
         </span>
-        <span className="relative">
-          <Search
-            aria-hidden
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40"
-            strokeWidth={1.75}
-          />
-          <input
-            type="search"
-            name="q"
-            defaultValue={filters.q}
-            placeholder="Photographer, florist, name…"
-            className="input-field pl-9"
-          />
-        </span>
+        {/* TaxonomySearch is a client component that shows the 192-item
+          * autocomplete on type. Picking a suggestion router-pushes to a
+          * `?category=<canonical_service>` URL (bypassing this form).
+          * Typing free text + clicking "Apply filters" still submits the
+          * form normally, hitting the existing business_name ilike. */}
+        <TaxonomySearch
+          initialQuery={filters.q}
+          options={TAXONOMY_OPTIONS}
+          preserve={{
+            city: filters.city,
+            sort: filters.sort,
+            verifiedOnly: filters.verifiedOnly,
+            matchEvent: filters.matchEvent,
+            eventType: filters.eventType,
+          }}
+        />
       </label>
 
       {/* Category is now controlled by the chip bar above. Carry the
@@ -633,7 +701,7 @@ function EmptyState({
 }: {
   filters: {
     q: string;
-    category: VendorCategory | null;
+    category: string | null;
     city: string;
     sort: SortKey;
     page: number;
@@ -867,7 +935,7 @@ function Pagination({
 }: {
   filters: {
     q: string;
-    category: VendorCategory | null;
+    category: string | null;
     city: string;
     sort: SortKey;
     page: number;

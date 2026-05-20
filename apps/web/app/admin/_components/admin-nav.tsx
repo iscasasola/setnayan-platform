@@ -48,6 +48,7 @@ const NAV: Entry[] = [
     items: [
       { href: '/admin/taxonomy', label: 'Taxonomy' },
       { href: '/admin/website', label: 'Website' },
+      { href: '/admin/moodboard-library', label: 'Moodboard library' },
     ],
   },
   {

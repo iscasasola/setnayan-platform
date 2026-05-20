@@ -7,13 +7,14 @@ import { generateUniqueSlug } from '@/lib/slugs';
 import { captureEvent } from '@/lib/analytics';
 import { startConciergeTrial } from '@/app/dashboard/profile/concierge/actions';
 
-// V1.1 multi-event roster (iteration 0041). Wedding is the original V1 type;
-// gender_reveal is the first V1.1 expansion (2026-05-20). Other 0041 types
-// (baptism, debut, anniversary, etc.) land as separate per-type migrations
-// as the product surfaces support them — vendor matching + Concierge are
-// still wedding-themed, so non-wedding events render the dashboard tools
-// (guest list / budget / etc.) as generic event-planning utilities.
-const ALLOWED_TYPES = ['wedding', 'gender_reveal'] as const;
+// V1.1 multi-event roster (iteration 0041). Wedding is the original V1
+// type; gender_reveal (2026-05-20) and debut (2026-05-20) are the first
+// V1.1 expansions. Other 0041 types (baptism, anniversary, etc.) land as
+// separate per-type migrations as the product surfaces support them —
+// vendor matching + Concierge are still wedding-themed, so non-wedding
+// events render the dashboard tools (guest list / budget / etc.) as
+// generic event-planning utilities.
+const ALLOWED_TYPES = ['wedding', 'gender_reveal', 'debut'] as const;
 
 // 0000 § 2.5b — DIY · Trial · Paid choice card (locked 2026-05-17).
 // `paid` lands on the dashboard then routes to checkout; `trial` invokes

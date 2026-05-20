@@ -1,0 +1,26 @@
+-- ============================================================================
+-- 20260521060000_iteration_0041_add_debut_event_type.sql
+--
+-- Iteration 0041 — Multi-event support. Adds 'debut' as the second V1.1
+-- enum expansion (follows 'gender_reveal' from 20260521050000).
+--
+-- Spec corpus: 0041_multi_event_support/0041_multi_event_support.md and
+-- 02_Specifications/Vendor_Taxonomy_V1_Master.md.
+--
+-- The Filipino debut (the 18th-birthday formal celebration for women,
+-- sometimes 21st for men) is culturally distinct from a generic birthday
+-- party: white gown + cotillion choreography + 18 candles / 18 roses / 18
+-- treasures + ballroom-scale venue + formal entourage of escorts. The
+-- vendor pool, program structure, and pricing tier differ enough from a
+-- generic birthday that the 0041 spec lists 'debut' as its own top-level
+-- event_type rather than a birthday sub-type. This migration ships that
+-- enum value; per-debut vendor matching + program templates land in V1.2+.
+--
+-- ALTER TYPE ... ADD VALUE is transaction-safe in PostgreSQL 12+ as long
+-- as the new value isn't used in the same transaction. This migration
+-- only adds the value; usage comes from later inserts / form submissions
+-- after the migration commits. IF NOT EXISTS keeps the migration
+-- idempotent: re-running is a no-op once 'debut' is present.
+-- ============================================================================
+
+ALTER TYPE public.event_type ADD VALUE IF NOT EXISTS 'debut';

@@ -152,7 +152,7 @@ WITH verification_backlog AS (
   -- Pending verifications waiting for admin review
   SELECT COUNT(*)::INT AS pending_count
   FROM public.vendor_profiles
-  WHERE verification_state = 'pending'
+  WHERE verification_state = 'pending_review'
 ),
 support_response AS (
   -- Average hours since help_messages created in last 7 days (proxy for response queue depth)

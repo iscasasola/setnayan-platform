@@ -81,10 +81,7 @@ export async function PairedVenuePanel({
           {coupleCeremonyType
             ? ` Filtered to ${displayCeremonyType(coupleCeremonyType)} venues.`
             : null}{' '}
-          <span className="text-ink/45">
-            Bookable listings ship in V1.2 — for now, contact the venue
-            directly with the details below.
-          </span>
+          Add any to your plan to lock it in for your wedding date.
         </p>
       </header>
       <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -141,9 +138,6 @@ export async function PairedVenuePanel({
                   <div className="flex flex-wrap items-center gap-1">
                     <span className="inline-flex items-center rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/65">
                       {displayVenueType(venue.venue_type)}
-                    </span>
-                    <span className="inline-flex items-center rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
-                      V1.2 · Bookable soon
                     </span>
                   </div>
                   <div className="mt-auto">

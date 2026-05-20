@@ -1467,8 +1467,7 @@ function ReceptionSection({
         <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-emerald-800">
           ⇄ also hosts ceremony
         </span>{' '}
-        can do both back-to-back at the same location. Dedicated venue listings
-        with day-rates ship in V1.2.
+        can do both back-to-back at the same location.
       </p>
       <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {RECEPTION_VENUE_FACETS.map((facet) => (
@@ -1485,9 +1484,6 @@ function ReceptionSection({
                 <h3 className="truncate text-sm font-semibold text-ink group-hover:text-terracotta">
                   {facet.label}
                 </h3>
-                <span className="shrink-0 rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
-                  V1.2
-                </span>
               </div>
               {facet.combined ? (
                 <span className="inline-flex w-fit items-center rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-emerald-800">
@@ -1495,7 +1491,7 @@ function ReceptionSection({
                 </span>
               ) : null}
               <p className="mt-auto text-xs font-medium text-terracotta group-hover:underline">
-                Notify me when venues open →
+                Browse vendors compatible with this setting →
               </p>
             </Link>
           </li>

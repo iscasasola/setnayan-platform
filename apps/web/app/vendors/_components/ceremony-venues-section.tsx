@@ -134,11 +134,8 @@ export async function CeremonyVenuesSection({
         </h2>
         <p className="max-w-prose text-sm text-ink/65">
           Top {coupleCeremonyType ? displayCeremonyType(coupleCeremonyType) : 'PH'}{' '}
-          ceremony venues in the directory.{' '}
-          <span className="text-ink/45">
-            Bookable listings ship in V1.2 — couples should still book the parish
-            office / mosque / chapel / LGU directly today.
-          </span>
+          ceremony venues in the directory. Add any to your plan to lock it in
+          for your wedding date.
         </p>
       </header>
 
@@ -195,9 +192,6 @@ function EmptyPlaceholderCard({ placeholder }: { placeholder: PlaceholderType })
           </li>
         ))}
       </ul>
-      <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/45">
-        V1.2 · Bookable soon
-      </p>
     </article>
   );
 }
@@ -255,11 +249,6 @@ function CeremonyVenueCard({
             <span className="text-ink/45">from your venue</span>
           </p>
         ) : null}
-        <div className="flex flex-wrap items-center gap-1">
-          <span className="inline-flex items-center rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
-            V1.2 · Bookable soon
-          </span>
-        </div>
         <div className="mt-auto">
           <AddVenueToPlanButton
             venueDirectoryId={venue.venue_directory_id}

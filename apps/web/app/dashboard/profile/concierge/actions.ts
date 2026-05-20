@@ -186,19 +186,43 @@ export async function cancelConcierge(formData: FormData): Promise<void> {
  * `already_active` (no double-stamp).
  */
 export async function startConciergeTrial(input: { eventId: string }): Promise<{
-  status: 'started' | 'already_used' | 'enforcement_blocked' | 'under_review' | 'already_active';
+  status:
+    | 'started'
+    | 'already_used'
+    | 'already_used_on_event'
+    | 'enforcement_blocked'
+    | 'under_review'
+    | 'already_active';
 }> {
   const { userId, eventId } = await requireCoupleMembership(input.eventId);
   const admin = createAdminClient();
 
   // Check event status first — idempotent retry on an existing trial.
+  // Also reads the new (2026-05-20 dual-scope lock) per-event trial-used
+  // column so we can short-circuit when another host on this event has
+  // already consumed the event-level trial slot.
   const { data: eventRow } = await admin
     .from('events')
-    .select('concierge_status, concierge_expires_at')
+    .select(
+      'concierge_status, concierge_expires_at, concierge_trial_used_at, concierge_trial_started_by_user_id',
+    )
     .eq('event_id', eventId)
     .maybeSingle();
   if (eventRow?.concierge_status === 'trial') {
     return { status: 'already_active' };
+  }
+
+  // Per-event lock (locked 2026-05-20) — even if THIS user's account trial
+  // is still fresh, the event itself may have already consumed its single
+  // trial slot via a different moderator (V1.2 multi-moderator events
+  // from iteration 0048 are the primary motivator; for V1 single-host
+  // events this branch only fires on the bookkeeping edge case where
+  // events.concierge_status was reverted/cleaned without resetting
+  // concierge_trial_used_at).
+  if (
+    (eventRow as { concierge_trial_used_at?: string | null } | null)?.concierge_trial_used_at
+  ) {
+    return { status: 'already_used_on_event' };
   }
 
   const { data: userRow } = await admin
@@ -253,6 +277,11 @@ export async function startConciergeTrial(input: { eventId: string }): Promise<{
       concierge_tier: 'complete',
       concierge_activated_at: now.toISOString(),
       concierge_expires_at: expiresAt.toISOString(),
+      // Dual-scope lock (2026-05-20) — stamp the per-event trial slot so
+      // no other moderator on this event can fire their own per-account
+      // trial against it.
+      concierge_trial_used_at: now.toISOString(),
+      concierge_trial_started_by_user_id: userId,
     })
     .eq('event_id', eventId);
   if (eventErr) throw new Error(eventErr.message);

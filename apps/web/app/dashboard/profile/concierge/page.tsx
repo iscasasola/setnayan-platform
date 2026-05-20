@@ -42,6 +42,11 @@ const TRIAL_RESULT_COPY: Record<string, { tone: 'ok' | 'warn'; message: string }
     message:
       "Trial started — you've got 3 days of Setnayan Concierge. Your dashboard is now in trial mode.",
   },
+  already_used_on_event: {
+    tone: 'warn',
+    message:
+      'Another host on this event already started the 3-day trial. Buy Setnayan Concierge anytime to continue.',
+  },
   already_used: {
     tone: 'warn',
     message:

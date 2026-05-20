@@ -44,6 +44,11 @@ const TRIAL_RESULT_MESSAGE: Record<string, { tone: 'ok' | 'warn'; copy: string }
     copy:
       "You've used your free trial on this account. Buy Setnayan Concierge anytime to continue.",
   },
+  already_used_on_event: {
+    tone: 'warn',
+    copy:
+      'Another host on this event already started the 3-day trial. Buy Setnayan Concierge anytime to continue.',
+  },
   enforcement_blocked: {
     tone: 'warn',
     copy: 'The 3-day trial is unavailable on this account. Open the help center to appeal.',

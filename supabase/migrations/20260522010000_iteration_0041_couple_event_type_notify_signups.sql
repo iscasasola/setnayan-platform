@@ -1,8 +1,19 @@
 -- ============================================================================
--- 20260521100000_iteration_0041_couple_event_type_notify_signups.sql
+-- 20260522010000_iteration_0041_couple_event_type_notify_signups.sql
 --
 -- Iteration 0041 — Multi-event support. Email-capture table for couples
 -- (or anonymous visitors) interested in a Coming-Soon event_type. Mirrors
+-- the iteration 0043 pattern.
+--
+-- Renamed from 20260521100000 → 20260522010000 (2026-05-20) to break a
+-- timestamp collision with `20260521100000_iteration_0015_site_widgets_home_drift_fix.sql`
+-- (PR #190) which landed at the same prefix. `supabase db push` keys
+-- on the 14-digit timestamp as primary key in supabase_migrations, so
+-- duplicates crash the push. The new timestamp also sidesteps a phantom
+-- `20260521110000` entry the migration tracker referenced (likely from
+-- the same PR #190 / #192 collision auto-bump).
+--
+-- Original spec mirror:
 -- the iteration 0043 pattern from `couple_wedding_type_notify_signups`
 -- (faith-gating) but indexed by event_type instead of ceremony_type.
 --

@@ -68,49 +68,60 @@ export async function createWeddingEvent(formData: FormData) {
   const event_type = String(formData.get('event_type') ?? 'wedding');
   const concierge_choice = String(formData.get('concierge_choice') ?? 'diy') as ConciergeChoice;
 
-  // Iteration 0043 — picker fields. Defaults match the events table column
-  // defaults (catholic + banquet_hall) so a form submitted without the
-  // picker still produces a valid row.
+  // Validate event_type up front so we know whether to read the wedding-
+  // type picker fields at all. The DB CHECK constraint
+  // `events_wedding_fields_consistency` (migration 20260521080000) enforces
+  // that ceremony_type + venue_setting are populated iff event_type='wedding';
+  // for non-wedding event_types we must write NULL into all five wedding
+  // fields or the insert will fail.
+  if (!display_name) {
+    return redirect('/dashboard/create-event?error=missing_name');
+  }
+  if (!ALLOWED_TYPES.includes(event_type as (typeof ALLOWED_TYPES)[number])) {
+    return redirect('/dashboard/create-event?error=invalid_type');
+  }
+  const isWedding = event_type === 'wedding';
+
+  // Iteration 0043 — picker fields. Read raw values from the form only when
+  // the event_type is wedding; non-wedding event_types (debut, future
+  // gender_reveal etc.) never render the picker and we write NULL.
   const raw_ceremony = String(formData.get('ceremony_type') ?? 'catholic');
   const raw_venue = String(formData.get('venue_setting') ?? 'banquet_hall');
   const raw_sub_type = String(formData.get('ceremony_sub_type') ?? '').trim();
   const raw_is_mixed = String(formData.get('is_mixed_ceremony') ?? 'false') === 'true';
   const raw_secondary = String(formData.get('secondary_ceremony_type') ?? '').trim();
 
-  const ceremony_type = (ALLOWED_CEREMONIES as readonly string[]).includes(raw_ceremony)
-    ? raw_ceremony
-    : 'catholic';
-  const venue_setting = (ALLOWED_VENUES as readonly string[]).includes(raw_venue)
-    ? raw_venue
-    : 'banquet_hall';
-  // Sub-type only persisted (and required) for muslim/cultural. Since the
-  // picker blocks those today, ceremony_sub_type stays null in V1.1 but the
-  // validation is in place for V1.2+ activation.
-  const ceremony_sub_type = ceremony_type === 'muslim'
-    ? ((ALLOWED_MUSLIM_SUB as readonly string[]).includes(raw_sub_type) ? raw_sub_type : null)
-    : ceremony_type === 'cultural'
-      ? ((ALLOWED_CULTURAL_SUB as readonly string[]).includes(raw_sub_type) ? raw_sub_type : null)
-      : null;
-  const is_mixed_ceremony = ceremony_type === 'mixed' && raw_is_mixed;
-  const secondary_ceremony_type = is_mixed_ceremony
+  const ceremony_type: string | null = isWedding
+    ? ((ALLOWED_CEREMONIES as readonly string[]).includes(raw_ceremony) ? raw_ceremony : 'catholic')
+    : null;
+  const venue_setting: string | null = isWedding
+    ? ((ALLOWED_VENUES as readonly string[]).includes(raw_venue) ? raw_venue : 'banquet_hall')
+    : null;
+  // Sub-type only persisted (and required) for muslim/cultural weddings.
+  // Since the picker blocks those today, ceremony_sub_type stays null in
+  // V1.1 but the validation is in place for V1.2+ activation.
+  const ceremony_sub_type: string | null = !isWedding
+    ? null
+    : ceremony_type === 'muslim'
+      ? ((ALLOWED_MUSLIM_SUB as readonly string[]).includes(raw_sub_type) ? raw_sub_type : null)
+      : ceremony_type === 'cultural'
+        ? ((ALLOWED_CULTURAL_SUB as readonly string[]).includes(raw_sub_type) ? raw_sub_type : null)
+        : null;
+  const is_mixed_ceremony = isWedding && ceremony_type === 'mixed' && raw_is_mixed;
+  const secondary_ceremony_type: string | null = is_mixed_ceremony
     && (ALLOWED_SECONDARY as readonly string[]).includes(raw_secondary)
     ? raw_secondary
     : null;
 
   // Conditional integrity guards — mirror the DB CHECK constraints so the
-  // user sees a friendly error rather than a Postgres failure string.
-  if ((ceremony_type === 'muslim' || ceremony_type === 'cultural') && !ceremony_sub_type) {
+  // user sees a friendly error rather than a Postgres failure string. Only
+  // run for wedding event_types; non-wedding event_types never carry these
+  // wedding-specific fields (they're NULL by construction above).
+  if (isWedding && (ceremony_type === 'muslim' || ceremony_type === 'cultural') && !ceremony_sub_type) {
     return redirect('/dashboard/create-event?error=missing_sub_type');
   }
   if (is_mixed_ceremony && !secondary_ceremony_type) {
     return redirect('/dashboard/create-event?error=missing_secondary');
-  }
-
-  if (!display_name) {
-    return redirect('/dashboard/create-event?error=missing_name');
-  }
-  if (!ALLOWED_TYPES.includes(event_type as (typeof ALLOWED_TYPES)[number])) {
-    return redirect('/dashboard/create-event?error=invalid_type');
   }
   // Concierge is wedding-only in V1.1; force DIY for any other event_type
   // so a stale conciergeChoice (e.g. couple toggled "trial" on a wedding,

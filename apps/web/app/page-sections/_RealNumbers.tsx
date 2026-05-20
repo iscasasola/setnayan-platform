@@ -1,4 +1,13 @@
-// Section 3 — Real numbers (count-gated) (iteration 0015 § Section 3)
+// Section 3 — Real numbers (count-gated) (iteration 0015 § Section 3).
+//
+// Pre-threshold render reworked 2026-05-20: the previous "Real Filipino
+// weddings shipping on Setnayan — soon." line was empty editorial weight
+// that took a full vertical slot and signalled nothing useful. Replaced
+// with a "What's live today" feature chip strip — concrete, scannable
+// reassurance that the product is real and shipped, sourced from the
+// V1 App Build Status (iterations 0001, 0002, 0006, 0011, 0012, 0021,
+// 0028, 0034, 0048 are all live). Post-threshold render (commented
+// below) still drops in cleanly once the count gate trips.
 //
 // Single page position with two render states keyed off a derived
 // `stats_section_visible` flag that recomputes daily against:
@@ -6,29 +15,40 @@
 //   - celebrated_event_count >= 25
 //   - active_couple_count >= 1,000  (90-day active)
 //   - ph_cities_live >= 5
-//
-// Pre-threshold render (V1 launch state) — what ships now:
-//   single line, muted, centered:
-//   "Real Filipino weddings shipping on Setnayan — soon."
-//
-// Post-threshold render lives in this file too (commented placeholder
-// JSX below) so the eventual wire-up against site_widgets is trivial.
 
-// TODO(post-Agent-D-merge): swap to dynamic gate read from
-//   site_widgets row `home_real_numbers` (gate_type='count') and the
-//   derived count_gate_passes BOOLEAN once the registry table lands.
-//   For now the pre-threshold placeholder is unconditional.
+const SHIPPED_FEATURES: ReadonlyArray<string> = [
+  'BIR-compliant receipts',
+  'QR invitations',
+  'Verified vendor marketplace',
+  'Day-of livestream',
+  'Same-day highlight reel',
+  'Multi-host event access',
+  'In-app chat with vendors',
+  'Milestone-protected payments',
+];
 
 export function RealNumbers() {
   return (
     <section
-      aria-label="Setnayan numbers — pre-launch"
+      aria-label="What's live on Setnayan today"
       className="border-b border-ink/5 bg-cream"
     >
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-center px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
-        <p className="text-center font-mono text-xs uppercase tracking-[0.25em] text-ink/40 sm:text-sm">
-          Real Filipino weddings shipping on Setnayan &mdash; soon.
-        </p>
+      <div className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 sm:py-14 lg:px-8">
+        <div className="flex flex-col items-center gap-5 sm:gap-6">
+          <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-terracotta sm:text-xs">
+            What&rsquo;s live today
+          </p>
+          <ul className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+            {SHIPPED_FEATURES.map((label) => (
+              <li
+                key={label}
+                className="inline-flex items-center rounded-full border border-ink/10 bg-cream px-3 py-1.5 text-xs text-ink/75 sm:px-4 sm:py-2 sm:text-sm"
+              >
+                {label}
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
       {/*
         Post-threshold render (do not delete — wires in once gate passes):

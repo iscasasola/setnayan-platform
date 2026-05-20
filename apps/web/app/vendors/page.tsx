@@ -150,7 +150,7 @@ function parseFilters(
 
 export default async function VendorsMarketplacePage({ searchParams }: Props) {
   const raw = await searchParams;
-  const filters = parseFilters(raw);
+  let filters = parseFilters(raw);
   const admin = createAdminClient();
 
   // 0043 compatibility hooks — resolve the viewer's couple-side primary event
@@ -163,21 +163,48 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   } = await supabase.auth.getUser();
   let coupleEventId: string | null = null;
   let matchableEvent: { ceremony_type: string; venue_setting: string } | null = null;
+  let coupleEventType: string | null = null;
   if (user) {
     const userEvents = await fetchUserEvents(supabase, user.id, 'couple');
     coupleEventId = userEvents[0]?.event_id ?? null;
     if (coupleEventId) {
       const { data: ev } = await admin
         .from('events')
-        .select('ceremony_type, venue_setting')
+        .select('ceremony_type, venue_setting, event_type')
         .eq('event_id', coupleEventId)
         .maybeSingle();
+      // Iteration 0043 — ceremony × venue compat fields are wedding-only
+      // (NULL for non-wedding events per migration 20260521080000), so the
+      // matchable block only populates for wedding event_types.
       if (ev?.ceremony_type && ev?.venue_setting) {
         matchableEvent = {
           ceremony_type: ev.ceremony_type as string,
           venue_setting: ev.venue_setting as string,
         };
       }
+      // Iteration 0041 — event_type auto-apply. Carry the couple's primary
+      // event_type forward so the marketplace can default-filter the
+      // catalog to vendors who actually serve that event_type.
+      if (ev?.event_type) {
+        coupleEventType = ev.event_type as string;
+      }
+    }
+  }
+
+  // Iteration 0041 — couple-side event_type auto-apply. When no
+  // ?event_type= URL param is set AND the couple has a primary event with
+  // a non-wedding event_type, default the filter to that event_type. The
+  // couple lands on a marketplace scoped to their event. Wedding event_types
+  // intentionally skip the auto-apply (every existing vendor is tagged
+  // wedding, so auto-applying would be a no-op visually). Users who want
+  // to browse all vendors can clear the filter via the empty-state CTA
+  // (PR #184's "Browse all vendors" link drops the event_type from the URL).
+  if (!filters.eventType && coupleEventType && coupleEventType !== 'wedding') {
+    const knownEventType = (ALLOWED_EVENT_TYPE_FILTERS as readonly string[]).includes(coupleEventType)
+      ? (coupleEventType as EventTypeFilter)
+      : null;
+    if (knownEventType) {
+      filters = { ...filters, eventType: knownEventType };
     }
   }
 

@@ -2,20 +2,28 @@
 
 import { useState, useTransition } from 'react';
 import { X, ArrowLeft, ArrowRight } from 'lucide-react';
-import type { TourSlide, TourKey } from '@/lib/tours';
+import { TOURS, type TourKey } from '@/lib/tours';
 
 type Props = {
   tourKey: TourKey;
-  slides: ReadonlyArray<TourSlide>;
   // Server action invoked when the user finishes or skips the tour. The key
   // is passed back so the action can append to `users.tour_seen_keys`.
   completeAction: (tourKey: TourKey) => Promise<void>;
 };
 
-export function GuidedTour({ tourKey, slides, completeAction }: Props) {
+// Slides are looked up here (client side) rather than passed in as a prop.
+// Each slide carries a Lucide `Icon` (a function reference), and Next 15 /
+// React 19 refuses to serialize function-typed props across the server →
+// client boundary — so passing `slides` from a server-component layout
+// would crash with "Functions cannot be passed directly to Client
+// Components". Reading TOURS in the client keeps the function refs
+// entirely client-side.
+export function GuidedTour({ tourKey, completeAction }: Props) {
   const [open, setOpen] = useState(true);
   const [step, setStep] = useState(0);
   const [pending, startTransition] = useTransition();
+
+  const slides = TOURS[tourKey].slides;
 
   if (!open) return null;
 

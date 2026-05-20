@@ -23,7 +23,6 @@ import { VendorSubnavTab } from './_components/subnav-tab';
 import { GuidedTour } from '@/app/_components/guided-tour';
 import { RoleSwitchPill } from '@/app/_components/role-switch-pill';
 import { completeTour } from '@/lib/tour-actions';
-import { TOURS } from '@/lib/tours';
 
 export default async function VendorDashboardLayout({
   children,
@@ -165,11 +164,7 @@ export default async function VendorDashboardLayout({
       </header>
       <main className="flex-1">{children}</main>
       {!(profile?.tour_seen_keys ?? []).includes('vendor_welcome_v1') ? (
-        <GuidedTour
-          tourKey="vendor_welcome_v1"
-          slides={TOURS.vendor_welcome_v1.slides}
-          completeAction={completeTour}
-        />
+        <GuidedTour tourKey="vendor_welcome_v1" completeAction={completeTour} />
       ) : null}
     </div>
   );

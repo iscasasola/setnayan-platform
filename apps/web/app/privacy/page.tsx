@@ -23,6 +23,37 @@ export default function PrivacyPage() {
           </p>
         </header>
 
+        <Section title="Data Protection Officer">
+          <p>
+            Setnayan&rsquo;s Data Protection Officer is reachable at{' '}
+            <a href="mailto:dpo@setnayan.com" className="text-terracotta hover:underline">
+              dpo@setnayan.com
+            </a>
+            . Reach the DPO for requests under RA 10173 (access, correction,
+            blocking, erasure, complaints, NPC inquiries). We respond within 15
+            business days.
+          </p>
+        </Section>
+
+        <Section title="Regulatory posture">
+          <p>
+            Setnayan is currently operating in a closed pilot phase
+            (approximately 5–20 households). During pilot, the Personal
+            Information Controller is the platform owner under personal name
+            (DTI Business Name and BIR registration pending; targeted before
+            public launch on December 1, 2026). NPC registration will be filed
+            under the registered business entity at that time. The DPO function
+            during pilot is held by the platform owner directly.
+          </p>
+          <p className="pt-2">
+            Cross-border data transfers — Singapore (Supabase), United States
+            (Cloudflare R2 PH-region buckets), United States (Anthropic Console
+            for Concierge AI), and United States (Persona for vendor
+            verification) — are subject to RA 10173 § 21 and the cloud
+            provider&rsquo;s adequacy commitments.
+          </p>
+        </Section>
+
         <Section title="What we collect">
           <ul className="ml-5 list-disc space-y-1">
             <li>Account info — email, password (hashed), display name, optional phone + profile photo URL</li>
@@ -48,6 +79,57 @@ export default function PrivacyPage() {
             When you chat with a Setnayan vendor, the vendor sees only your event display
             name and date — never your email or personal name unless you choose to share.
             This is a load-bearing product rule.
+          </p>
+        </Section>
+
+        <Section title="Public Event Summary (post-event editorial)">
+          <p>
+            If a host opts in, the event&rsquo;s summary page at{' '}
+            <code className="font-mono text-[12px]">setnayan.com/{'{event-slug}'}</code>{' '}
+            transitions from invitation and day-of mode into a public editorial
+            article 30 days after the event date. The page becomes publicly
+            indexable on <code className="font-mono text-[12px]">setnayan.com/weddings</code>{' '}
+            and discoverable by search engines.
+          </p>
+          <p className="pt-2">
+            <strong>Eight safeguards apply</strong> under RA 10173 § 16(e) right
+            to object:
+          </p>
+          <ol className="ml-5 list-decimal space-y-1 pt-1">
+            <li>
+              Onboarding-time consent during signup with explicit T+30d
+              disclosure.
+            </li>
+            <li>
+              Phase 4 starts at T+1d in archive mode (public via slug only).
+            </li>
+            <li>
+              Index inclusion auto-activates at T+30d unless the host opts out.
+            </li>
+            <li>
+              Reminder email at T+27d (&ldquo;Your wedding goes public in 3
+              days — preview and edit, or keep it private&rdquo;).
+            </li>
+            <li>
+              One-click opt-out from{' '}
+              <code className="font-mono text-[12px]">/dashboard/{'{eventId}'}/privacy</code>{' '}
+              removes the page from the index immediately.
+            </li>
+            <li>
+              Pseudonymization option (full names, initials only, or pseudonym).
+            </li>
+            <li>
+              Private-always field allowlist — guest list, RSVP data, budget
+              figures, vendor chat history, day-of broadcast video, and raw
+              photo feed never reach the public Summary.
+            </li>
+            <li>
+              Right to redact any field, photo, vendor credit, or whole page at
+              any time.
+            </li>
+          </ol>
+          <p className="pt-2 text-xs text-ink/55">
+            Per CLAUDE.md decision-log 2026-05-19 row 426.
           </p>
         </Section>
 
@@ -395,6 +477,31 @@ export default function PrivacyPage() {
               .
             </li>
           </ul>
+        </Section>
+
+        <Section title="AI-assisted Setnayan Concierge">
+          <p>
+            Setnayan Concierge uses curated Filipino-wedding knowledge plus AI
+            synthesis. The free DIY tier (three questions per event) and the
+            three-day card-less trial route through Cloudflare Workers AI
+            (model: Llama 3.1 8B), hosted in Cloudflare&rsquo;s regional
+            infrastructure. Paid Setnayan Concierge (₱2,499 per event,
+            wedding-anchored access) routes through Anthropic Console (model:
+            Claude Haiku 4.5; data processing terms per Anthropic&rsquo;s
+            commercial agreement).
+          </p>
+          <p className="pt-2">
+            Wedding data submitted to either model is processed solely to
+            answer your question and populate your event plan — not used for
+            model training, not shared with third parties, not retained beyond
+            the conversation thread. The paid tier persists the thread for 12
+            months for your access; you can delete it at any time.
+            Conversation logs are stored encrypted at rest in Supabase
+            (Singapore region).
+          </p>
+          <p className="pt-2 text-xs text-ink/55">
+            Per CLAUDE.md decision-log 2026-05-18 row 1.
+          </p>
         </Section>
 
         <Section title="Subprocessors">

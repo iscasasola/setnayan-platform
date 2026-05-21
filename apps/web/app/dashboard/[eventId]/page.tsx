@@ -171,7 +171,9 @@ export default async function EventHomePage({
       // by category. RLS already restricts to couples on this event.
       supabase
         .from('event_vendors')
-        .select('vendor_id, vendor_name, category, status')
+        .select(
+          'vendor_id, vendor_name, category, status, total_cost_php, deposit_paid_php, notes, contact_email, contact_phone',
+        )
         .eq('event_id', eventId)
         .order('created_at', { ascending: true }),
     ]);
@@ -208,6 +210,11 @@ export default async function EventHomePage({
     vendor_name: string;
     category: VendorCategory;
     status: string | null;
+    total_cost_php: number | string | null;
+    deposit_paid_php: number | string | null;
+    notes: string | null;
+    contact_email: string | null;
+    contact_phone: string | null;
   }>;
 
   // Day-of mode (iteration 0031): when inside the T-1h .. T+8h window of the

@@ -4,19 +4,13 @@ import {
   PLAN_GROUPS,
   bucketVendorsByGroup,
   targetDateStatus,
+  type PlanCardPick,
   type PlanGroup,
   type PlanGroupId,
-  type VendorPickStatus,
 } from '@/lib/wedding-plan-groups';
 import type { VendorCategory } from '@/lib/vendors';
 import { PlanCardCTAs } from './plan-card-ctas';
-
-type PickRow = {
-  vendor_id: string;
-  vendor_name: string;
-  category: VendorCategory;
-  status: VendorPickStatus;
-};
+import { PlanCardCompare } from './plan-card-compare';
 
 type Props = {
   eventId: string;
@@ -31,6 +25,11 @@ type Props = {
     vendor_name: string;
     category: VendorCategory;
     status: string | null;
+    total_cost_php?: number | string | null;
+    deposit_paid_php?: number | string | null;
+    notes?: string | null;
+    contact_email?: string | null;
+    contact_phone?: string | null;
   }>;
 };
 
@@ -112,7 +111,7 @@ function GroupCard({
   eventId: string;
   eventDate: string | null;
   group: PlanGroup;
-  picks: ReadonlyArray<PickRow>;
+  picks: ReadonlyArray<PlanCardPick>;
   venueLatitude: number | null;
   venueLongitude: number | null;
 }) {
@@ -227,6 +226,16 @@ function GroupCard({
         searchHref={searchHref}
         groupLabel={group.label}
       />
+      {picks.length >= 2 ? (
+        <div className="-mt-1">
+          <PlanCardCompare
+            eventId={eventId}
+            groupLabel={group.label}
+            groupCategories={group.categories}
+            picks={picks}
+          />
+        </div>
+      ) : null}
     </article>
   );
 }

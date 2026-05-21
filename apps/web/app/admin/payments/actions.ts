@@ -47,6 +47,12 @@ export async function approvePayment(formData: FormData) {
   if (typeof paymentId !== 'string') throw new Error('Invalid input');
 
   const admin = createAdminClient();
+  // State-machine guard (Task 8 pilot hardening, 2026-06-01): only flip
+  // pending → matched. If the row was already matched/rejected (race with
+  // another admin, double-click after 503, stale page render), the WHERE
+  // clause filters it out and the .single() below raises — surface to the
+  // admin as "Payment already resolved" instead of silently re-firing the
+  // downstream activation + payout + receipt + notification fan-out.
   const { data: payment, error: pErr } = await admin
     .from('payments')
     .update({
@@ -57,9 +63,23 @@ export async function approvePayment(formData: FormData) {
       updated_at: new Date().toISOString(),
     })
     .eq('payment_id', paymentId)
+    .eq('status', 'pending')
     .select('order_id, user_id, amount_php')
-    .single();
-  if (pErr || !payment) throw new Error(pErr?.message ?? 'Could not update payment');
+    .maybeSingle();
+  if (pErr) throw new Error(pErr.message);
+  if (!payment) {
+    // Either the payment_id doesn't exist or it's already been resolved.
+    // Re-read so we can give the admin a useful message.
+    const { data: existing } = await admin
+      .from('payments')
+      .select('status')
+      .eq('payment_id', paymentId)
+      .maybeSingle();
+    if (!existing) throw new Error('Payment not found');
+    throw new Error(
+      `Payment already resolved (status: ${existing.status}). Refresh the page.`,
+    );
+  }
 
   // Look up the order so the notification can link directly + name the order,
   // and so the PostHog `order_paid` event below has `service_key` to slice on.
@@ -298,6 +318,11 @@ export async function rejectPayment(formData: FormData) {
   if (typeof paymentId !== 'string') throw new Error('Invalid input');
 
   const admin = createAdminClient();
+  // State-machine guard (Task 8 pilot hardening, 2026-06-01): only flip
+  // pending → rejected. Mirrors approvePayment guard — if another admin
+  // already approved or rejected this payment, the WHERE filter zeros the
+  // update and we surface "already resolved" rather than overwriting a
+  // matched payment + double-notifying the customer.
   const { data: payment, error } = await admin
     .from('payments')
     .update({
@@ -308,9 +333,21 @@ export async function rejectPayment(formData: FormData) {
       updated_at: new Date().toISOString(),
     })
     .eq('payment_id', paymentId)
+    .eq('status', 'pending')
     .select('order_id, user_id, amount_php')
-    .single();
-  if (error || !payment) throw new Error(error?.message ?? 'Could not update payment');
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!payment) {
+    const { data: existing } = await admin
+      .from('payments')
+      .select('status')
+      .eq('payment_id', paymentId)
+      .maybeSingle();
+    if (!existing) throw new Error('Payment not found');
+    throw new Error(
+      `Payment already resolved (status: ${existing.status}). Refresh the page.`,
+    );
+  }
 
   const { data: order } = await admin
     .from('orders')

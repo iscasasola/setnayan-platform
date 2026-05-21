@@ -70,6 +70,24 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  lint-retired-strings:
+    name: lint retired strings
+    runs-on: ubuntu-latest
+    # Fails when retired product strings re-appear in apps/web/app/**.
+    # 2026-05-22 10-sweep audit Sweep 5 found 5 new drifts in 4 days, including
+    # Pareto + Custom Monogram Pack listed on /features 8 days after their
+    # retirement. This guard stops drift treadmill at PR-merge time.
+    # Config: apps/web/.retired-strings.json — add entries here, no code change.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Lint retired strings
+        run: node apps/web/scripts/lint-retired-strings.mjs
+
   migration-timestamp-guard:
     name: migration timestamp guard
     runs-on: ubuntu-latest

@@ -279,6 +279,18 @@ export async function logPayment(formData: FormData) {
     }
   }
 
+  // Task 8 pilot hardening (2026-06-01): client-supplied idempotency key
+  // deduplicates double-submits during pilot. The new-payment form mints
+  // a UUID once on first render and ships it as a hidden input on every
+  // retry; the (order_id, client_idempotency_key) partial unique index
+  // turns the second insert into a 23505 unique-violation we catch and
+  // treat as "already logged."
+  const idempotencyKeyRaw = formData.get('client_idempotency_key');
+  const idempotencyKey =
+    typeof idempotencyKeyRaw === 'string' && idempotencyKeyRaw.trim().length > 0
+      ? idempotencyKeyRaw.trim().slice(0, 64)
+      : null;
+
   const { error } = await supabase.from('payments').insert({
     order_id: orderId,
     user_id: user.id,
@@ -287,8 +299,20 @@ export async function logPayment(formData: FormData) {
     reference_number: nullIfBlank(formData.get('reference_number')),
     screenshot_url: screenshotUrl,
     paid_at: paidAt,
+    client_idempotency_key: idempotencyKey,
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    // 23505 = unique_violation. With a non-null idempotency key this means
+    // the customer's previous submit succeeded and they retried; treat as
+    // success and route them to the order detail page so they see the
+    // already-logged payment.
+    const code = (error as { code?: string }).code;
+    if (code === '23505' && idempotencyKey) {
+      revalidatePath(`/dashboard/${eventId}/orders/${orderId}`);
+      redirect(`/dashboard/${eventId}/orders/${orderId}?paid_logged=1`);
+    }
+    throw new Error(error.message);
+  }
 
   revalidatePath(`/dashboard/${eventId}/orders/${orderId}`);
   redirect(`/dashboard/${eventId}/orders/${orderId}?paid_logged=1`);

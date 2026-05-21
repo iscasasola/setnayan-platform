@@ -289,6 +289,16 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
           >
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="order_id" value={orderId} />
+            {/* Task 8 pilot hardening (2026-06-01): per-render idempotency
+                key. If the customer double-clicks Submit or retries after a
+                503, both submits ship the same UUID and the partial unique
+                index on payments(order_id, client_idempotency_key) makes
+                the second insert a no-op. */}
+            <input
+              type="hidden"
+              name="client_idempotency_key"
+              value={crypto.randomUUID()}
+            />
             <label className="space-y-1">
               <span className="block text-xs font-medium text-ink">Amount (PHP)</span>
               <input

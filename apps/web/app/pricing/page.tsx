@@ -218,7 +218,7 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* Setnayan Pay — one sentence */}
+      {/* Setnayan Pay — headline + worked example */}
       <section className="border-b border-ink/5 bg-ink/[0.02]">
         <div className="mx-auto w-full max-w-5xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
@@ -227,6 +227,40 @@ export default function PricingPage() {
           <p className="mt-4 max-w-3xl text-balance text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
             Flat 5.0% at checkout. Same rate on every rail. Your vendor still receives 100% of their listed price.
           </p>
+
+          {/* Worked example — mirrors the homepage _TransparentPricing card.
+              Locked 2026-05-22 (Task #17) to close audit Sweep 4 drift —
+              prior copy stated the rate but never showed the math. */}
+          <div className="mt-10 flex flex-col gap-3 rounded-xl border border-ink/10 bg-cream p-5 sm:p-6 lg:max-w-2xl">
+            <p className="text-base font-semibold tracking-tight text-ink">
+              Worked example — ₱100,000 vendor booking
+            </p>
+            <dl className="flex flex-col gap-2 text-sm">
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="text-ink/65">Vendor&rsquo;s listed price</dt>
+                <dd className="font-mono text-sm text-ink">₱100,000</dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="text-ink/65">Setnayan Pay convenience fee (5.0%)</dt>
+                <dd className="font-mono text-sm text-ink">₱5,000</dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-3 border-t border-ink/10 pt-2">
+                <dt className="text-ink/65">You pay at checkout</dt>
+                <dd className="font-mono text-sm font-semibold text-terracotta">
+                  ₱105,000
+                </dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="text-ink/65">Vendor receives</dt>
+                <dd className="font-mono text-sm text-ink">₱100,000</dd>
+              </div>
+            </dl>
+            <p className="text-xs text-ink/55">
+              Setnayan Pay covers the fee end-to-end — your vendor sees no
+              platform deduction on their listed price (terminal fee + BIR
+              withholding apply the same as on any payment platform).
+            </p>
+          </div>
         </div>
       </section>
 

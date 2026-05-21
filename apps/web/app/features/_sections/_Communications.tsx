@@ -47,7 +47,7 @@ const ITEMS: Item[] = [
   {
     Icon: Bell,
     title: 'Email notifications that don&rsquo;t feel like spam',
-    body: 'Just the things you actually need to know about: an RSVP came in, a vendor sent a message, a payment is due in 7 days. No marketing blasts, no daily digests, no cross-promotion. Per-couple delivery preferences (per channel, per category). Unsubscribe is one click and per-channel.',
+    body: 'Just the things you actually need to know about: an RSVP came in, a vendor sent a message, a payment is due in 7 days. No marketing blasts, no daily digests, no cross-promotion. Per-event delivery preferences (per channel, per category). Unsubscribe is one click and per-channel.',
     iteration: 'Iteration 0028',
   },
 ];

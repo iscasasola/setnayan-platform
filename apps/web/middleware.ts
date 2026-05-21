@@ -15,8 +15,30 @@ const UUID_RE =
 const LEGACY_SERVICES_RE =
   /^\/dashboard\/([^/]+)\/services(\/.*)?$/;
 
+// /vendors/compare orphan guard (Task #12 · CLAUDE.md 2026-05-22).
+// PR #231 (2026-05-20) shipped the compare surface but left its entry-points
+// for V1.2 wiring, which leaves the route reachable only by hand-typed URL —
+// a shipped orphan per the `feedback_setnayan_orphan_prevention` rule locked
+// 2026-05-22. Until V1.2 wires a real entry point on /vendors or
+// /dashboard/[eventId]/vendors, every hit is redirected to /vendors with a
+// notice banner. 307 (temporary + method-preserving) — the page itself is
+// preserved on disk, not deleted, so the redirect lifts cleanly when V1.2
+// removes this match. Matches GET requests with or without query params.
+const COMPARE_ORPHAN_PATH = '/vendors/compare';
+
 export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
+
+  // /vendors/compare → /vendors?notice=compare_v1_2 (Task #12). Strip the
+  // visitor-supplied query string — the compare page never wired its `ids`
+  // param to anything actionable, so preserving it would only leak intent
+  // the receiving page cannot honor. The banner explains the gap politely.
+  if (pathname === COMPARE_ORPHAN_PATH) {
+    return NextResponse.redirect(
+      new URL('/vendors?notice=compare_v1_2', request.url),
+      307,
+    );
+  }
 
   // Legacy /services → /add-ons. 308 (permanent + method-preserving) since
   // the rename is intentional and not coming back.

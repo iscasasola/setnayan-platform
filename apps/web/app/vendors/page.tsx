@@ -355,6 +355,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         venueAnchorName={venueAnchorName}
         coupleCeremonyType={matchableEvent?.ceremony_type ?? null}
         currentEventId={coupleEventId}
+        isAuthenticated={user !== null}
       />
     );
   }
@@ -562,9 +563,9 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           {user ? (
             <Link
               href="/dashboard"
-              className="button-primary hidden h-10 px-5 text-sm sm:inline-flex"
+              className="hidden text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline sm:inline"
             >
-              Dashboard
+              Return to Dashboard
             </Link>
           ) : (
             <Link
@@ -1218,6 +1219,7 @@ async function CatalogView({
   venueAnchorName,
   coupleCeremonyType,
   currentEventId,
+  isAuthenticated,
 }: {
   admin: ReturnType<typeof createAdminClient>;
   matchableEvent: { ceremony_type: string; venue_setting: string } | null;
@@ -1227,6 +1229,9 @@ async function CatalogView({
   venueAnchorName: string | null;
   coupleCeremonyType: string | null;
   currentEventId: string | null;
+  /** Whether the viewer has a Setnayan session. Drives the header CTA
+   *  ("Return to Dashboard" for couples, "Plan with Setnayan" for guests). */
+  isAuthenticated: boolean;
 }) {
   // Single round-trip per page render — both reads are admin-scoped because
   // anonymous visitors hit this route and `vendor_profiles` is gated by RLS.
@@ -1320,12 +1325,21 @@ async function CatalogView({
           <Link href="/" className="flex items-center text-ink">
             <BrandLogo height={32} withWordmark />
           </Link>
-          <Link
-            href="/signup"
-            className="hidden text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline sm:inline"
-          >
-            Plan with Setnayan
-          </Link>
+          {isAuthenticated ? (
+            <Link
+              href="/dashboard"
+              className="hidden text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline sm:inline"
+            >
+              Return to Dashboard
+            </Link>
+          ) : (
+            <Link
+              href="/signup"
+              className="hidden text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline sm:inline"
+            >
+              Plan with Setnayan
+            </Link>
+          )}
         </div>
       </header>
 

@@ -62,7 +62,11 @@ export async function submitHelpMessage(formData: FormData) {
         type: 'chat_message',
         title: `Help request · ${subject}`,
         body: `${email}: ${body.slice(0, 140)}`,
-        relatedUrl: `/admin/help/${data.message_id}`,
+        // Anchor to the specific message in the flat /admin/help list — there
+        // is no /admin/help/[messageId] subroute. The <li> in admin/help/page.tsx
+        // carries id={`message-${message_id}`} so the email link scrolls the
+        // admin straight to the new request.
+        relatedUrl: `/admin/help#message-${data.message_id}`,
       });
     }
   } catch {

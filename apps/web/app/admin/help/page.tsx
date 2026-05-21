@@ -87,7 +87,8 @@ export default async function AdminHelpPage({ searchParams }: Props) {
           {items.map((m) => (
             <li
               key={m.message_id}
-              className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4"
+              id={`message-${m.message_id}`}
+              className="scroll-mt-24 space-y-3 rounded-xl border border-ink/10 bg-cream p-4"
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0 space-y-0.5">

@@ -88,6 +88,24 @@ jobs:
       - name: Lint retired strings
         run: node apps/web/scripts/lint-retired-strings.mjs
 
+  lint-email-links:
+    name: lint email template links
+    runs-on: ubuntu-latest
+    # Task #20 of the 2026-05-22 audit verified that every emitNotification
+    # `relatedUrl` resolves to a real route under apps/web/app/**. This guard
+    # keeps it that way — a broken `relatedUrl` ships a 404 link to the user's
+    # inbox via Resend, and the owner won't see it until pilot. See
+    # apps/web/scripts/lint-email-links.mjs for the matcher logic.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Lint email template links
+        run: node apps/web/scripts/lint-email-links.mjs
+
   migration-timestamp-guard:
     name: migration timestamp guard
     runs-on: ubuntu-latest

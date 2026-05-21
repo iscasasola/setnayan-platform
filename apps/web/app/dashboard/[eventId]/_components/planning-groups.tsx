@@ -9,6 +9,7 @@ import {
   type PlanGroupId,
 } from '@/lib/wedding-plan-groups';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
+import { WEDDING_FOLDER_SLUG } from '@/lib/taxonomy';
 import { PlanCardCTAs } from './plan-card-ctas';
 import { PlanCardCompare } from './plan-card-compare';
 
@@ -145,11 +146,14 @@ function GroupCard({
   const lockedCount = picks.filter((p) => p.status === 'locked').length;
   const pickedOnlyCount = picks.length - lockedCount;
 
-  // Search drops into the marketplace filtered to the FIRST category in
-  // the group (the most representative one). Add fires the inline custom-
-  // vendor form so couples can attach a DIY / not-on-list vendor without
-  // leaving the planner.
-  const searchHref = `/vendors?category=${encodeURIComponent(group.categories[0]!)}`;
+  // Search opens the marketplace's CURATED CATALOG view scrolled to the
+  // matching folder section (PairedVenuePanel + CeremonyVenuesSection
+  // photo cards + tile grid). Routing to `/vendors#<folder>` keeps the
+  // filtered-search view out of the way — couples land on the rich
+  // browse, not the bare list. Add fires the inline custom-vendor form
+  // so couples can attach a DIY / not-on-list vendor without leaving
+  // the planner.
+  const searchHref = `/vendors#${WEDDING_FOLDER_SLUG[group.catalogFolder]}`;
 
   return (
     <article

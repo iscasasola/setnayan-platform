@@ -25,10 +25,11 @@ const NAV_LINKS: Array<{ href: string; label: string }> = [
   { href: '/signup', label: 'Plan an event' },
   { href: '/for-vendors', label: 'For vendors' },
   // /about and /contact don't exist yet in this codebase; route to /help
-  // until those pages land (per spec routes list).
+  // until those pages land (per spec routes list). Contact deep-links to
+  // the help-page contact form section (id="contact" verified to exist).
   { href: '/help', label: 'About' },
   { href: '/help', label: 'Help center' },
-  { href: '/help', label: 'Contact' },
+  { href: '/help#contact', label: 'Contact' },
   { href: '/login', label: 'Login' },
 ];
 

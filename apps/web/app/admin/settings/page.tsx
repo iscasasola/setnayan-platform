@@ -1,10 +1,11 @@
-import { Building, Wallet, Smartphone, Trash2 } from 'lucide-react';
+import { Building, Wallet, Smartphone, Trash2, Activity } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { removeMerchantQr, savePlatformSettings } from './actions';
 import { QrUploadForm } from './_components/qr-upload-form';
 import { TinInput } from './_components/tin-input';
+import { SentrySmokeTestButton } from './_components/sentry-smoke-test-button';
 
 export const metadata = { title: 'Settings · Admin' };
 
@@ -220,6 +221,35 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
           label="GCash QR code"
           currentUrl={settings.gcash_qr_url}
         />
+      </div>
+
+      <div className="mt-10 space-y-4 border-t border-ink/10 pt-8">
+        <header className="space-y-1">
+          <div className="flex items-center gap-2">
+            <Activity className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+            <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+              System health
+            </h2>
+          </div>
+          <p className="text-sm text-ink/60">
+            Verify production observability is wired and routing alerts correctly.
+            One-shot owner actions — no background sweeps. Punch-list item #19e
+            (Sentry prod smoke test).
+          </p>
+        </header>
+
+        <section className="rounded-xl border border-ink/10 bg-cream p-5">
+          <h3 className="text-sm font-semibold text-ink">Sentry prod smoke test</h3>
+          <p className="mt-1 text-xs text-ink/60">
+            Triggers a controlled error tagged{' '}
+            <code className="rounded bg-ink/5 px-1 py-0.5 font-mono">source=manual-smoke-test</code>
+            {' '}so it&rsquo;s easy to find in the Sentry dashboard. POST-only — the
+            endpoint cannot be triggered by URL paste or preview-deploy crawlers.
+          </p>
+          <div className="mt-4">
+            <SentrySmokeTestButton />
+          </div>
+        </section>
       </div>
     </div>
   );

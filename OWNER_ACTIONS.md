@@ -372,15 +372,44 @@ matters most for your timeline.
 user reports. Sentry catches every JavaScript error + server error and pings
 you.
 
+**Status:** `@sentry/nextjs` SDK is already wired in the repo (`apps/web/sentry.server.config.ts`
++ `sentry.edge.config.ts` + `instrumentation.ts`). It activates automatically
+in production when `SENTRY_DSN` is set in Vercel env.
+
 1. Sign up at https://sentry.io
 2. Create a new project → choose **Next.js** as the platform
 3. Sentry gives you a DSN string (looks like `https://abc123@sentry.io/456`)
-4. Add to Vercel env vars: `SENTRY_DSN=<your DSN>`
+4. Add to Vercel env vars: `SENTRY_DSN=<your DSN>` (production scope at minimum;
+   preview/development optional — local dev errors stay in the terminal)
 5. Redeploy
+6. Configure an alert rule in Sentry (Settings → Alerts → "Issues" rule) to
+   notify your email or Slack on new errors. Without an alert rule, Sentry
+   captures errors silently and you'll only see them by opening the dashboard.
 
-The wiring code isn't in the repo yet because the SDK choice depends on which
-features you want (replays, performance, etc.). When you're ready, I can ship
-a follow-on that adds `@sentry/nextjs` and wires the DSN through.
+#### Step Sentry.7 — Verify capture + alert routing (punch-list #19e)
+
+Once the DSN is set and you've redeployed, walk this verification to
+confirm Sentry captures errors AND your alert rule routes them to the
+right destination:
+
+1. Open `https://setnayan.com/admin/settings` while signed in as an admin user
+2. Scroll to the **System health** section near the bottom
+3. Click **Fire Sentry smoke test (admin only)**
+   - The button posts to `/api/admin/sentry-smoke-test` (POST-only — cannot be
+     triggered by URL paste or Vercel preview crawlers)
+   - You'll see a green box with a `trace_id` (8 hex chars, e.g. `a3f9b1c2`)
+   - The endpoint throws a controlled error 100ms after responding, tagged
+     `source=manual-smoke-test` + `initiated_by=<your email>`
+4. **Verify capture** — open your Sentry project dashboard. The error should
+   appear within 60 seconds. Search by the `trace_id` to find it directly. The
+   error message will read: `Sentry smoke test — <trace_id> — owner-initiated controlled error`
+5. **Verify alert routing** — check the inbox/Slack channel your Sentry alert
+   rule targets. The alert should arrive within 60 seconds of capture. If the
+   error is in Sentry but no alert fired, your alert rule isn't routing
+   correctly — fix that in Sentry → Settings → Alerts before launch.
+
+If the trace appears in Sentry **and** the alert lands in your inbox/Slack
+within 60s, punch-list item #19e is closed and Sentry is verified for prod.
 
 ### PostHog (product analytics, ~20 min, free tier OK)
 

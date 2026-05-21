@@ -104,6 +104,11 @@ export default function GlobalError({ error, reset }: Props) {
             >
               Try again
             </button>
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages --
+                global-error mounts when the root layout itself has crashed.
+                The Next.js router context may not be available, so a raw <a>
+                with full-page navigation is the safe fallback. <Link> would
+                depend on the same machinery that just died. */}
             <a
               href="/"
               style={{

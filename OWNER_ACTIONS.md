@@ -47,14 +47,33 @@
 #### 1. Paste 4 crypto secrets in Vercel env (~5 min) 🔴 blocker
 
 Without these, OAuth flows fail decrypt and cron/internal endpoints return 401.
-Pre-generated values:
 
+> ⚠️ **Rotate before pasting.** The original pre-generated values for these 4
+> variables were briefly committed to this file via PR #291 (now redacted)
+> and may have been ingested by GitHub search indexes / forks / mirrors
+> before the redaction commit landed. **Generate fresh values via the
+> command below** rather than reusing the leaked ones. Pilot-stage so the
+> rotation impact is small but visible — any in-flight OAuth refresh tokens
+> in `oauth_grants` will fail decrypt and the affected couples need to
+> re-authorize their YouTube / Drive / TikTok connections once.
+
+Generate 4 fresh 32-byte base64 secrets:
+
+```bash
+echo "ENCRYPTION_KEY=$(openssl rand -base64 32)"
+echo "CRON_SECRET=$(openssl rand -base64 32)"
+echo "OAUTH_REFRESH_CRON_SECRET=$(openssl rand -base64 32)"
+echo "INTERNAL_WORKER_SECRET=$(openssl rand -base64 32)"
 ```
-ENCRYPTION_KEY=YjI4OWY0ZDhhMzc2NTJhYzU3NjFmNjg4OWFmNDdmZGZjNGE4ZTBiNzNlMmI2YzlkYmUxN2FjODg5N2MxMjNkZQ==
-CRON_SECRET=ZjFiZDM4MmM2YjY2YjZjMmExMzZhMmFmYTZkOWY1ZDM5NjQ0YzkzZmM5MTU0NjI0YjkwODg5MzdkY2I3NjAzZA==
-OAUTH_REFRESH_CRON_SECRET=YTllN2Y5MjM4YjBkZGE3OGE3MjBmZjU5MzdiY2EzNzNkMmNiZTQ3MTQ3MWRjMjUzZTYwYWU5M2I4NDBmNTNhMQ==
-INTERNAL_WORKER_SECRET=Y2VlZGZmYTVkY2YwMTM3ZTk3OWRlZWFhYTI0YjY5OWUxMzM2YjY1M2QxOGY3YzZjMTRiOWZhYzQ3MWE3OWE2ZQ==
-```
+
+The 4 variable names + what each gates:
+
+- `ENCRYPTION_KEY` — `apps/web/lib/encryption.ts` AES-256-GCM OAuth token storage
+- `CRON_SECRET` — `/api/admin/cron/*` endpoints
+- `OAUTH_REFRESH_CRON_SECRET` — `/api/cron/oauth-refresh`
+- `INTERNAL_WORKER_SECRET` — `/api/internal/patiktok/process-job`
+
+Save the freshly-generated values to your password manager FIRST, then paste into Vercel.
 
 1. Open https://vercel.com/iscasasola/setnayan-platform-web/settings/environment-variables
 2. For each of the 4 variables: click **Add**, paste the name + value, tick **Production**, **Preview**, **Development** → **Save**

@@ -25,6 +25,7 @@
  */
 
 import type { VendorCategory } from '@/lib/vendors';
+import type { WeddingFolder } from '@/lib/taxonomy';
 
 export type PlanGroupId =
   | 'ceremony_venue'
@@ -48,6 +49,14 @@ export type PlanGroup = {
   categories: ReadonlyArray<VendorCategory>;
   /** How many months before the wedding date to aim to have this locked. */
   monthsBefore: number;
+  /**
+   * Which catalog folder the planner's [Search] button anchors into.
+   * The marketplace's CatalogView renders each folder as a `<section
+   * id={WEDDING_FOLDER_SLUG[folder]}>` so a URL like `/vendors#ceremony`
+   * lands the couple on the rich PairedVenuePanel + CeremonyVenuesSection
+   * directly — no filter applied, full curated browse view.
+   */
+  catalogFolder: WeddingFolder;
 };
 
 export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
@@ -61,6 +70,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     // reception-side hint.
     categories: ['religious_venue', 'church_fees'],
     monthsBefore: 12,
+    catalogFolder: 'ceremony',
   },
   {
     id: 'reception_venue',
@@ -68,6 +78,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     hint: 'Where you celebrate after. Same place as ceremony? Add it under both.',
     categories: ['venue'],
     monthsBefore: 12,
+    catalogFolder: 'reception',
   },
   {
     id: 'officiant',
@@ -75,6 +86,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     hint: 'Priest, pastor, or judge. Civil ceremonies need them booked early too.',
     categories: ['officiant'],
     monthsBefore: 9,
+    catalogFolder: 'ceremony',
   },
   {
     id: 'catering',
@@ -82,6 +94,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     hint: 'Food + service. Tastings happen 4-6 months out; book the team earlier.',
     categories: ['catering'],
     monthsBefore: 9,
+    catalogFolder: 'catering',
   },
   {
     id: 'photography',
@@ -89,6 +102,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     hint: 'Photo + video team for the day. Often booked together.',
     categories: ['photographer', 'videographer'],
     monthsBefore: 9,
+    catalogFolder: 'photo_video',
   },
   {
     id: 'attire',
@@ -96,6 +110,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     hint: 'Gown, suit, and the rings. Designers need fitting time.',
     categories: ['gown_designer', 'suit_designer', 'rings'],
     monthsBefore: 8,
+    catalogFolder: 'attire',
   },
   {
     id: 'hair_makeup',
@@ -103,6 +118,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     hint: 'Bridal + entourage glam. Trials happen 1-2 months before the day.',
     categories: ['makeup_artist', 'hair_stylist'],
     monthsBefore: 6,
+    catalogFolder: 'hair_makeup',
   },
   {
     id: 'florals_decor',
@@ -110,6 +126,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     hint: 'Bouquets, aisle, reception styling. Pin colors first, then book.',
     categories: ['florist', 'reception_decor'],
     monthsBefore: 6,
+    catalogFolder: 'decor_florals_sound',
   },
   {
     id: 'music_entertainment',
@@ -124,6 +141,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
       'mobile_bar',
     ],
     monthsBefore: 6,
+    catalogFolder: 'music_program',
   },
   {
     id: 'cake',
@@ -131,6 +149,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     hint: 'Tastings 3-4 months out. Order locks 1 month before.',
     categories: ['cake_maker'],
     monthsBefore: 4,
+    catalogFolder: 'catering',
   },
   {
     id: 'invitations_stationery',
@@ -138,6 +157,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     hint: 'Save-the-dates, invites, monogram, table cards, menus.',
     categories: ['invitations_stationery'],
     monthsBefore: 4,
+    catalogFolder: 'invitations_keepsakes',
   },
   {
     id: 'logistics',
@@ -153,6 +173,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
       'misc',
     ],
     monthsBefore: 2,
+    catalogFolder: 'planning_logistics_travel',
   },
 ];
 

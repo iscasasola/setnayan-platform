@@ -177,14 +177,29 @@ async function VisualPreviewSection({
   }
 
   const templates: TemplateAsset[] = (templateRows ?? []).map((r) => {
-    const key = r.storage_path.replace(`${MOODBOARD_BUCKET}/`, '');
-    const { data: pub } = admin.storage.from(MOODBOARD_BUCKET).getPublicUrl(key);
+    // V1 moodboard seed (migration 20260528000000) writes absolute URLs to
+    // `storage_path` for placeholder photos hotlinked from picsum.photos.
+    // Real admin uploads land in Supabase Storage with the bucket-prefixed
+    // path. Detect the difference cheaply and pick the right resolver.
+    const isAbsoluteUrl =
+      r.storage_path.startsWith('http://') ||
+      r.storage_path.startsWith('https://');
+    let publicUrl: string;
+    if (isAbsoluteUrl) {
+      publicUrl = r.storage_path;
+    } else {
+      const key = r.storage_path.replace(`${MOODBOARD_BUCKET}/`, '');
+      const { data: pub } = admin.storage
+        .from(MOODBOARD_BUCKET)
+        .getPublicUrl(key);
+      publicUrl = pub.publicUrl;
+    }
     return {
       asset_id: r.asset_id,
       asset_type: r.asset_type as TemplateAsset['asset_type'],
       asset_subtype: r.asset_subtype,
       label: r.label,
-      public_url: pub.publicUrl,
+      public_url: publicUrl,
       color_ranges: colorRangesByAsset.get(r.asset_id) ?? {},
     };
   });

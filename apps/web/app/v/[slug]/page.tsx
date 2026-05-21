@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { Mail, Phone, Globe, MapPin, Star } from 'lucide-react';
 import { Logo as BrandLogo } from '@/app/_components/logo';
@@ -420,8 +421,13 @@ function Logo({ logoUrl, name }: { logoUrl: string | null; name: string }) {
   if (logoUrl) {
     return (
       <span className="inline-flex h-24 w-24 shrink-0 overflow-hidden rounded-2xl border border-ink/10 bg-cream">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={logoUrl} alt={name} className="h-full w-full object-cover" />
+        <Image
+          src={logoUrl}
+          alt={name}
+          width={96}
+          height={96}
+          className="h-full w-full object-cover"
+        />
       </span>
     );
   }

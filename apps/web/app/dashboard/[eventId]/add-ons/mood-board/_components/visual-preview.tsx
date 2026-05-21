@@ -1,5 +1,7 @@
 'use client';
 
+import Image from 'next/image';
+
 /**
  * Host-side Visual preview pillars (locked 2026-05-21 in 0010 §
  * "Visual preview pillars · Location feel + Dress codes").
@@ -141,9 +143,12 @@ export function VisualPreview({ eventId, templates, existingSaves, rolePalette }
                   key={s.save_id}
                   className="overflow-hidden rounded-lg border border-ink/15 bg-cream"
                 >
-                  <img
+                  <Image
                     src={asset.public_url}
                     alt={asset.label}
+                    width={400}
+                    height={300}
+                    loading="lazy"
                     className="aspect-[4/3] w-full object-cover"
                   />
                   <div className="space-y-1 p-3">
@@ -253,9 +258,12 @@ function TemplateCard({
         onClick={onToggle}
         className="block w-full text-left"
       >
-        <img
+        <Image
           src={asset.public_url}
           alt={asset.label}
+          width={400}
+          height={300}
+          loading="lazy"
           className="aspect-[4/3] w-full object-cover"
         />
       </button>

@@ -1,5 +1,5 @@
 -- ============================================================================
--- 20260531000000_guest_role_add_bride_groom.sql
+-- 20260530020000_guest_role_add_bride_groom.sql
 --
 -- Extends the public.guest_role enum with 'bride' and 'groom' so couples
 -- can explicitly mark these two roles on the guest list. The hard-single

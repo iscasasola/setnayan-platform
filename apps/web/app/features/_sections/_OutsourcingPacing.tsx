@@ -39,9 +39,9 @@ const COLUMNS = [
     sub: 'One calendar for everything that has a date attached to it.',
     body: 'Vendor meetings, payment deadlines, RSVP cutoffs, dress fittings, food tastings, the day-of run-of-show &mdash; all rendered into a single calendar surface. Subscribe to the .ics feed; your phone&rsquo;s native calendar reflects the latest at all times. Filter by what you care about (vendors, payments, family events) and the unified view re-renders.',
     items: [
-      'Vendor meetings &mdash; pulled from iteration 0006.',
-      'Payment deadlines &mdash; pulled from iteration 0007.',
-      'RSVP cutoffs &mdash; pulled from iteration 0001.',
+      'Vendor meetings &mdash; pulled from your vendor list.',
+      'Payment deadlines &mdash; pulled from your budget.',
+      'RSVP cutoffs &mdash; pulled from your guest list.',
       'Day-of run-of-show &mdash; the day, minute by minute.',
     ],
   },

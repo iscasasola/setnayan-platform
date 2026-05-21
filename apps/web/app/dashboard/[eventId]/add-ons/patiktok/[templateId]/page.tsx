@@ -188,7 +188,7 @@ function Preview({
           className="mt-4 font-mono text-[9px] uppercase tracking-[0.2em]"
           style={{ color: dark, opacity: 0.55 }}
         >
-          [preview placeholder]
+          Live preview opens on booth night
         </p>
       </div>
     </div>

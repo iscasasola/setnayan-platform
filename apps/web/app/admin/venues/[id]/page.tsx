@@ -92,8 +92,8 @@ export default async function EditVenuePage({ params }: Props) {
         </p>
         <p className="mt-1 mb-3 max-w-prose text-sm text-rose-900/80">
           Deleting a venue removes it from the marketplace Paired-Venue panel
-          immediately. Couples with this venue in their saved shortlist (none
-          today — V1.2 ships saving) will lose the row. Not reversible.
+          immediately. Couples with this venue in their saved shortlist will
+          lose the row. Not reversible.
         </p>
         <ConfirmForm
           action={deleteVenue}

@@ -88,9 +88,7 @@ export default async function AdminVenuesPage({ searchParams }: Props) {
           <p className="max-w-prose text-sm text-ink/65">
             Read-only directory of known PH wedding venues. Powers the marketplace
             Paired-Venue recommendation panel. Admins curate this list while the
-            V1.2 venue marketplace (per-location calendar + day-rates) is being
-            built — at that point this table either ALTERs into the new schema or
-            rows migrate in.
+            full venue marketplace (per-location calendar + day-rates) is being built.
           </p>
         </div>
         <Link

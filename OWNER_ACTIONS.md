@@ -455,6 +455,49 @@ your wedding cohort.
 
 ---
 
+## Manual smoke test — day-of PWA offline shell (5 min, optional)
+
+**Why:** Task #13 (2026-05-22) shipped ISR + day-of mode + guest preload on
+the public guest invitation surface (`/{slug}`) so a guest at the venue with
+weak WiFi still sees the invitation if they reload. This is a hand check —
+the platform doesn't have Playwright wired yet, so we verify in DevTools.
+
+1. Open a Chrome window in Incognito (so SW state is clean)
+2. Navigate to `https://setnayan-platform-web.vercel.app/{test-couple-slug}`
+   (replace with a real seeded couple slug from your dashboard)
+3. **First visit (online):** confirm the page renders the monogram + greeting
+   + QR card normally
+4. Open DevTools → **Application** tab → **Service Workers** sidebar — confirm
+   `sw.js` is registered and **Status: activated and is running**
+5. Application → **Cache Storage** sidebar — expand `setnayan-v1` and confirm
+   the `/{slug}` path appears (means SW cached the navigation HTML)
+6. DevTools → **Network** tab → check the **Offline** dropdown (or set throttling
+   to **Offline**)
+7. Reload the page (Cmd+R / Ctrl+R)
+8. **Pass:** page renders with monogram, "You are invited" heading, and at
+   least the hero section visible — no "you're offline" Chrome error page,
+   no blank screen
+9. **Fail:** if you get the Chrome dinosaur or blank page, capture the
+   Application → Service Workers state and ping back
+
+**Day-of mode branches** — these are tied to the event's `event_date` column
+so you'll need to either:
+
+- Use a seeded event with `event_date` set to today (live phase: T-1h to T+8h)
+- OR temporarily change a test event's date via Admin → Events → Edit
+- OR test on a future event where the phase is `inactive` (default behavior)
+
+When live, you should see a green "Live now" banner above the hero and the
+day-of schedule pinned to the top of the article. When in post phase (T+8h
+to T+24h past the event), you'll see a quiet "Thank you for celebrating"
+banner instead.
+
+V1.1 follow-up: per-guest table-assignment preload (the guest's seating chart
+served from cache when offline) is intentionally deferred — see Task #9 audit
+findings.
+
+---
+
 ## If something breaks
 
 1. Check `/admin/help` first — useful for reproducing issues users report

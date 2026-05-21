@@ -13,6 +13,8 @@ import {
   Bell,
   FileSignature,
   UserPlus,
+  CalendarClock,
+  AlertTriangle,
   ArrowRight,
   CheckCircle2,
   Circle,
@@ -76,10 +78,12 @@ type TileKey =
   | 'budget'
   | 'messages'
   | 'seating'
+  | 'schedule'
   | 'add_ons'
   | 'mood_board'
   | 'orders'
-  | 'notifications';
+  | 'notifications'
+  | 'disputes';
 
 const TILES: Array<{
   key: TileKey;
@@ -95,10 +99,12 @@ const TILES: Array<{
   { key: 'budget', labelKey: 'nav.budget', Icon: Wallet, href: (id) => `/dashboard/${id}/budget` },
   { key: 'messages', labelKey: 'nav.messages', Icon: MessageSquare, href: (id) => `/dashboard/${id}/messages` },
   { key: 'seating', labelKey: 'nav.seating', Icon: LayoutGrid, href: (id) => `/dashboard/${id}/seating` },
+  { key: 'schedule', labelKey: 'nav.schedule', Icon: CalendarClock, href: (id) => `/dashboard/${id}/schedule` },
   { key: 'orders', labelKey: 'nav.orders', Icon: Receipt, href: (id) => `/dashboard/${id}/orders` },
   { key: 'notifications', labelKey: 'nav.notifications', Icon: Bell, href: () => `/dashboard/notifications` },
   { key: 'mood_board', labelKey: 'nav.mood_board', Icon: Palette, href: (id) => `/dashboard/${id}/add-ons/mood-board` },
   { key: 'add_ons', labelKey: 'nav.add_ons', Icon: Sparkles, href: (id) => `/dashboard/${id}/add-ons` },
+  { key: 'disputes', labelKey: 'nav.disputes', Icon: AlertTriangle, href: (id) => `/dashboard/${id}/disputes` },
 ];
 
 function timeOfDayGreetingKey(date: Date): TranslationKey {

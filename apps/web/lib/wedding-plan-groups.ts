@@ -12,10 +12,16 @@
  * migration 20260513100000) maps into exactly one group, so any vendor
  * the couple saves to their event surfaces on the home dashboard.
  *
- * Ceremony venue + Reception venue both pull from `category='venue'` —
- * the schema doesn't differentiate, so the same venue row may surface
- * under both groups when a couple uses one place for both. Splitting
- * those into separate sub-categories is a follow-up schema change.
+ * Ceremony venue and Reception venue are kept disjoint by category so
+ * the same saved vendor doesn't double-render in both cards (owner
+ * direction 2026-05-21):
+ *   • Ceremony venue   ← religious_venue · church_fees
+ *   • Reception venue  ← venue
+ * A combined-venue wedding (one place hosting both) requires adding the
+ * vendor to BOTH cards manually — the Reception hint nudges couples to
+ * do that. A follow-up schema change can introduce a 'reception_venue'
+ * sub-category if we want venue-only browse filters cleaner, but the
+ * disjoint coarse mapping fixes the double-render today.
  */
 
 import type { VendorCategory } from '@/lib/vendors';
@@ -49,7 +55,11 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     id: 'ceremony_venue',
     label: 'Ceremony venue',
     hint: 'Where you say I do — book early, the best places fill 12 months out.',
-    categories: ['venue', 'religious_venue', 'church_fees'],
+    // 'venue' deliberately NOT here — it lives in reception_venue so a
+    // saved hotel/garden doesn't surface in both cards. Combined-venue
+    // weddings add their pick to BOTH groups manually per the
+    // reception-side hint.
+    categories: ['religious_venue', 'church_fees'],
     monthsBefore: 12,
   },
   {

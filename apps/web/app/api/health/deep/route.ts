@@ -54,8 +54,16 @@ async function checkSupabase(): Promise<CheckResult> {
     // Cheap, side-effect-free SELECT against a table that always exists.
     // `users` is in the V1 base schema; `head: true` + `count: exact` issues
     // a HEAD that returns no rows.
-    const { error } = await withTimeout(
-      client.from('users').select('user_id', { head: true, count: 'exact' }).limit(1),
+    //
+    // PostgrestFilterBuilder is a thenable, not a Promise, so wrap it in
+    // Promise.resolve() to satisfy withTimeout<T>'s Promise<T> signature.
+    // The .select() return type is the awaited shape `{ data, error, count, status, statusText }`.
+    const query = client
+      .from('users')
+      .select('user_id', { head: true, count: 'exact' })
+      .limit(1);
+    const { error } = await withTimeout<Awaited<typeof query>>(
+      Promise.resolve(query),
       CHECK_TIMEOUT_MS,
       'supabase',
     );

@@ -129,8 +129,44 @@ type Props = {
     verified?: string;
     match?: string;
     event_type?: string;
+    /** Task #12 · CLAUDE.md 2026-05-22 — middleware redirects
+     *  /vendors/compare here with `notice=compare_v1_2`. Surfaces the
+     *  "compare is coming in V1.2" banner under the marketplace header. */
+    notice?: string;
   }>;
 };
+
+// Single-source notice copy for query-string-driven banners on /vendors. Add
+// new entries here as future deferred features start redirecting through the
+// same gateway pattern; keep the brand voice (no dev text) per
+// `feedback_setnayan_no_dev_text_post_launch`.
+const VENDORS_NOTICE_COPY: Record<string, { title: string; body: string }> = {
+  compare_v1_2: {
+    title: 'Side-by-side comparison is coming in V1.2.',
+    body:
+      'For now, save vendors you’re considering to your shortlist from each vendor’s profile — we’ll bring the comparison view alongside it shortly.',
+  },
+};
+
+function NoticeBanner({ noticeKey }: { noticeKey: string | null }) {
+  if (!noticeKey) return null;
+  const copy = VENDORS_NOTICE_COPY[noticeKey];
+  if (!copy) return null;
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="border-b border-terracotta/15 bg-terracotta/5"
+    >
+      <div className="mx-auto w-full max-w-6xl px-4 py-3 sm:px-6 lg:px-8">
+        <p className="text-sm text-ink/80">
+          <span className="font-medium text-ink">{copy.title}</span>{' '}
+          <span className="text-ink/70">{copy.body}</span>
+        </p>
+      </div>
+    </div>
+  );
+}
 
 // Iteration 0041 — multi-event support. Filter chip on `vendor_profiles.event_types[]`
 // (migration 20260521090000). Mirrors the live `public.event_type` enum; keep in
@@ -357,6 +393,12 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     !filters.matchEvent &&
     !filters.eventType;
 
+  // Allow-list the notice key — anything else (typo, manual URL fiddling,
+  // future deferred-feature key without copy) renders no banner instead of
+  // a broken/empty card. Keeps the surface honest.
+  const noticeKey =
+    raw.notice && VENDORS_NOTICE_COPY[raw.notice] ? raw.notice : null;
+
   if (isCatalogMode) {
     return (
       <CatalogView
@@ -369,6 +411,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         coupleCeremonyType={matchableEvent?.ceremony_type ?? null}
         currentEventId={coupleEventId}
         isAuthenticated={user !== null}
+        noticeKey={noticeKey}
       />
     );
   }
@@ -552,6 +595,8 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           )}
         </div>
       </header>
+
+      <NoticeBanner noticeKey={noticeKey} />
 
       <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
         <div className="space-y-3">
@@ -1235,6 +1280,7 @@ async function CatalogView({
   coupleCeremonyType,
   currentEventId,
   isAuthenticated,
+  noticeKey,
 }: {
   admin: ReturnType<typeof createAdminClient>;
   matchableEvent: { ceremony_type: string; venue_setting: string } | null;
@@ -1247,6 +1293,10 @@ async function CatalogView({
   /** Whether the viewer has a Setnayan session. Drives the header CTA
    *  ("Return to Dashboard" for couples, "Plan with Setnayan" for guests). */
   isAuthenticated: boolean;
+  /** Allow-listed notice key from ?notice=… (Task #12). Null when absent or
+   *  unknown. Surfaces a polite banner under the header explaining a
+   *  redirected-from-deferred-feature landing. */
+  noticeKey: string | null;
 }) {
   // Single round-trip per page render — both reads are admin-scoped because
   // anonymous visitors hit this route and `vendor_profiles` is gated by RLS.
@@ -1357,6 +1407,8 @@ async function CatalogView({
           )}
         </div>
       </header>
+
+      <NoticeBanner noticeKey={noticeKey} />
 
       <section
         id="all"

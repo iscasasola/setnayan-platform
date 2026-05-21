@@ -49,6 +49,22 @@ const remoteImagePatterns = [
     hostname: 'upload.wikimedia.org',
     pathname: '/wikipedia/commons/**',
   },
+  // Picsum.photos — V1 moodboard placeholder photos (iteration 0010,
+  // migration 20260528000000_moodboard_library_placeholder_seed.sql).
+  // The moodboard_library_assets table is empty at hard-launch until admin
+  // uploads via /admin/moodboard-library; this seed uses stable Picsum seed
+  // URLs so couples have something to render on the Mood Board page.
+  // Retires when admin replaces them with real wedding-specific photos.
+  {
+    protocol: 'https' as const,
+    hostname: 'picsum.photos',
+    pathname: '/**',
+  },
+  {
+    protocol: 'https' as const,
+    hostname: 'fastly.picsum.photos',
+    pathname: '/**',
+  },
 ].filter((p): p is NonNullable<typeof p> => p !== null);
 
 const nextConfig: NextConfig = {

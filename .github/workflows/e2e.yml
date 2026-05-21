@@ -1,0 +1,84 @@
+name: e2e
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  playwright:
+    name: playwright e2e (chromium)
+    runs-on: ubuntu-latest
+    # Critical-path E2E tests (Task #35) — homepage renders, health
+    # endpoints respond, signup routing works, 404 surface ships
+    # editorial-brand-voice copy. Six tests today; future PRs extend
+    # by copying patterns from apps/web/tests/e2e/*.spec.ts.
+    #
+    # Strategy: build + start the production server in CI, then run
+    # Playwright against http://localhost:3000. Avoids the Vercel
+    # preview-URL discovery dance (which requires a preview to already
+    # have deployed by the time this job kicks off — race-y at best).
+    # When Vercel preview deployments are integrated later, set
+    # E2E_BASE_URL on the runner to skip the build + start step.
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Install Playwright Chromium
+        run: pnpm --filter @setnayan/web exec playwright install --with-deps chromium
+
+      - name: Build web app
+        run: pnpm --filter @setnayan/web build
+        env:
+          # Same dummy env-var pattern as the existing `build` job in
+          # ci.yml — real values are set on Vercel; CI only needs the
+          # build to succeed for E2E to have a server to hit.
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+
+      - name: Start production server
+        # `next start` binds to port 3000 (per the script in package.json).
+        # Background it + wait for the health endpoint to confirm boot.
+        run: |
+          pnpm --filter @setnayan/web start &
+          echo "Waiting for server to boot..."
+          for i in {1..30}; do
+            if curl -sf http://localhost:3000/api/health > /dev/null; then
+              echo "Server is up"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Server failed to boot in 30s"
+          exit 1
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+
+      - name: Run Playwright tests
+        run: pnpm --filter @setnayan/web test:e2e
+        env:
+          E2E_BASE_URL: http://localhost:3000
+          CI: 'true'
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 7

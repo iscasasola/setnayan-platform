@@ -44,6 +44,15 @@ pnpm-debug.log*
 /coverage/
 .nyc_output/
 
+# Playwright E2E (Task #35) — install browsers + traces locally;
+# CI installs fresh each run. Reports + results are PR-specific artifacts.
+/test-results/
+/playwright-report/
+/playwright/.cache/
+apps/web/test-results/
+apps/web/playwright-report/
+apps/web/playwright/.cache/
+
 # Supabase
 supabase/.branches/
 supabase/.temp/

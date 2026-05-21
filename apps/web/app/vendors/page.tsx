@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { Star, MapPin, ChevronLeft, ChevronRight, Navigation } from 'lucide-react';
 import { haversineKm, formatDistanceKm } from '@/lib/geo';
 import { Logo as BrandLogo } from '@/app/_components/logo';
@@ -11,8 +12,8 @@ import {
   parseVisibility,
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
-import { fetchActiveAdLookups, type ActiveAdLookup } from '@/lib/vendor-ads';
-import { fetchReviewStatsForMany, formatStarRating } from '@/lib/reviews';
+import type { ActiveAdLookup } from '@/lib/vendor-ads';
+import { formatStarRating } from '@/lib/reviews';
 import { EventTypeNotifyForm } from './_components/event-type-notify-form';
 import { TaxonomySearch, type TaxonomyOption } from './_components/taxonomy-search';
 import { CategoryTile, type CategoryTileData } from './_components/category-tile';
@@ -175,6 +176,18 @@ type VendorCardRow = {
   contact_email: string | null;
   public_visibility: VendorPublicVisibility;
   created_at: string;
+  // Iteration 0006 — sourced from vendor_market_stats view (see migration
+  // 20260601020000). avg_rating + review_count let the marketplace card
+  // render without a second SELECT; ad_* lets it render the Sponsored /
+  // Boosted pill without a third SELECT. ad_rank powers the SQL-side sort
+  // so we no longer hydrate 2000 rows just to re-sort 24.
+  avg_rating_overall: number;
+  review_count: number;
+  ad_rank: number;
+  ad_tier: 'sponsored' | 'boosted' | null;
+  ad_sku_code: string | null;
+  ad_radius_km: number | null;
+  ad_expires_at: string | null;
 };
 
 function parseFilters(
@@ -374,10 +387,13 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // vendor" which makes the whole marketplace look broken. Gate the
   // public surface on the minimum self-identification work; admins
   // can still see the row in /admin/vendors.
+  // Iteration 0006 (2026-05-21) — read against vendor_market_stats so the
+  // sort, ad-rank, and review aggregates resolve in one SQL roundtrip
+  // instead of the old hydrate-2000-then-sort-in-JS dance.
   let query = admin
-    .from('vendor_profiles')
+    .from('vendor_market_stats')
     .select(
-      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_latitude,hq_longitude,contact_email,public_visibility,created_at',
+      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_latitude,hq_longitude,contact_email,public_visibility,created_at,avg_rating_overall,review_count,ad_rank,ad_tier,ad_sku_code,ad_radius_km,ad_expires_at',
       { count: 'exact' },
     )
     .in('public_visibility', allowedVisibilities as readonly string[])
@@ -434,132 +450,76 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     }
   }
 
-  // Sort: newest + name_asc are direct column sorts on the vendor_profiles
-  // table. most_reviews + highest_rated need the stats view, so for those we
-  // fall back to a two-stage fetch where we get a candidate page sorted by
-  // newest first, then re-sort in-memory by their stats. This trades a tiny
-  // sort cost for the simplicity of not having to PostgREST-join the view.
-  if (filters.sort === 'name_asc') {
-    query = query.order('business_name', { ascending: true });
-  } else {
-    query = query.order('created_at', { ascending: false });
+  // Sort chain (iteration 0006, 2026-05-21): always float Sponsored Boost +
+  // Boosted Ads to the top per iteration 0022 § 5b, then apply the user's
+  // chosen sort. All columns live on vendor_market_stats so PostgREST orders
+  // and paginates in one query — no in-memory pass.
+  query = query.order('ad_rank', { ascending: false });
+  switch (filters.sort) {
+    case 'highest_rated':
+      query = query
+        .order('avg_rating_overall', { ascending: false })
+        .order('review_count', { ascending: false }); // tiebreak by volume
+      break;
+    case 'name_asc':
+      query = query.order('business_name', { ascending: true });
+      break;
+    case 'newest':
+      query = query.order('created_at', { ascending: false });
+      break;
+    case 'most_reviews':
+    default:
+      query = query
+        .order('review_count', { ascending: false })
+        .order('avg_rating_overall', { ascending: false });
+      break;
   }
 
-  const range = filters.sort === 'most_reviews' || filters.sort === 'highest_rated'
-    ? { from: 0, to: 2000 } // hydrate up to 2000 published rows for in-memory sort
-    : {
-        from: (filters.page - 1) * PAGE_SIZE,
-        to: filters.page * PAGE_SIZE - 1,
-      };
-
-  const { data: rowsRaw, count: totalCount } = await query.range(range.from, range.to);
+  const { data: rowsRaw, count: totalCount } = await query.range(
+    (filters.page - 1) * PAGE_SIZE,
+    filters.page * PAGE_SIZE - 1,
+  );
   const rows = (rowsRaw ?? []) as VendorCardRow[];
 
-  const statsById = await fetchReviewStatsForMany(
-    admin,
-    rows.map((r) => r.vendor_profile_id),
-  );
+  // Each card already carries its stats + active-ad columns on the view row,
+  // so the render below reads them directly off `v` — no per-card Map lookup
+  // and no second roundtrip.
 
-  // Iteration 0022 § 5b — pull each visible vendor's active Boosted Ads /
-  // Sponsored Boost row so the card can render the right badge and so the
-  // in-memory sort can prioritize boosted vendors. Sponsored > Boosted >
-  // unboosted; within a tier larger radius wins, then expiry. Reads from
-  // the `vendor_active_ads` view which collapses overlapping rows to the
-  // single most-permissive active subscription per vendor.
-  const adById = await fetchActiveAdLookups(
-    admin,
-    rows.map((r) => r.vendor_profile_id),
-  );
-
-  // Iteration 0019 § Gate — resolve the viewer's follow set so each card
-  // renders a stateful FollowGate without N+1 queries. The viewer's auth +
-  // primary event are already resolved above for the 0043 compatibility
-  // filter; we reuse the same `user` + `supabase` here. Anonymous visitors
-  // get every card as "not following".
-  let followedSet = new Set<string>();
-  if (user) {
-    const ids = rows.map((r) => r.vendor_profile_id);
-    if (ids.length > 0) {
+  // Iteration 0019 § Gate + 2026-05-20 saved-to-picks — resolve the viewer's
+  // follow set and saved-vendor set for each visible card. Both reads are
+  // viewer-scoped and only need the IDs we just paginated, so they run in
+  // parallel rather than the old sequential await chain.
+  const visibleIds = rows.map((r) => r.vendor_profile_id);
+  const [followedSet, savedSet] = await Promise.all([
+    (async (): Promise<Set<string>> => {
+      if (!user || visibleIds.length === 0) return new Set<string>();
       const { data: follows } = await supabase
         .from('vendor_follows')
         .select('vendor_profile_id')
         .eq('follower_user_id', user.id)
-        .in('vendor_profile_id', ids);
-      followedSet = new Set((follows ?? []).map((f) => f.vendor_profile_id));
-    }
-  }
-
-  // 2026-05-20 — saved-to-picks set for the SaveVendorButton on each card.
-  // RLS on event_vendors is couple-scoped so the SELECT is naturally bounded
-  // to the viewer's own events. Joining via marketplace_vendor_id IN (visible
-  // ids) keeps the read tight.
-  let savedSet = new Set<string>();
-  if (user && coupleEventId) {
-    const ids = rows.map((r) => r.vendor_profile_id);
-    if (ids.length > 0) {
+        .in('vendor_profile_id', visibleIds);
+      return new Set((follows ?? []).map((f) => f.vendor_profile_id));
+    })(),
+    (async (): Promise<Set<string>> => {
+      if (!user || !coupleEventId || visibleIds.length === 0) return new Set<string>();
       const { data: saved } = await supabase
         .from('event_vendors')
         .select('marketplace_vendor_id')
         .eq('event_id', coupleEventId)
-        .in('marketplace_vendor_id', ids);
-      savedSet = new Set(
+        .in('marketplace_vendor_id', visibleIds);
+      return new Set(
         (saved ?? [])
           .map((s) => s.marketplace_vendor_id)
           .filter((id): id is string => Boolean(id)),
       );
-    }
-  }
+    })(),
+  ]);
 
-  // Apply stats-based sort + pagination in-memory. Boosted/Sponsored
-  // vendors always float to the top of the page (within each sort key) per
-  // iteration 0022 § 5b — "Top-of-search ranking within radius · tiny
-  // 'Sponsored' pill differentiator". Sponsored beats Boosted; both beat
-  // unboosted.
-  const adWeight = (vid: string): number => {
-    const ad = adById.get(vid);
-    if (!ad) return 0;
-    if (ad.tier === 'sponsored') return 2;
-    return 1;
-  };
-  let sorted = rows;
-  if (filters.sort === 'most_reviews' || filters.sort === 'highest_rated') {
-    sorted = [...rows].sort((a, b) => {
-      const adA = adWeight(a.vendor_profile_id);
-      const adB = adWeight(b.vendor_profile_id);
-      if (adA !== adB) return adB - adA;
-      const sa = statsById.get(a.vendor_profile_id);
-      const sb = statsById.get(b.vendor_profile_id);
-      const aCount = sa?.total_count ?? 0;
-      const bCount = sb?.total_count ?? 0;
-      const aRating = sa?.avg_rating_overall ?? 0;
-      const bRating = sb?.avg_rating_overall ?? 0;
-      if (filters.sort === 'highest_rated') {
-        if (bRating !== aRating) return bRating - aRating;
-        return bCount - aCount; // tiebreak by review count
-      }
-      // most_reviews
-      if (bCount !== aCount) return bCount - aCount;
-      return bRating - aRating;
-    });
-  } else {
-    // For "newest" / "name_asc" — still float ads to the top of the page
-    // (V1 behavior: the boost is the value prop, the underlying sort is
-    // preserved as a secondary key).
-    sorted = [...rows].sort((a, b) => {
-      const adA = adWeight(a.vendor_profile_id);
-      const adB = adWeight(b.vendor_profile_id);
-      if (adA !== adB) return adB - adA;
-      return 0; // preserve postgres-side order
-    });
-  }
-
-  const slicedTotal = filters.sort === 'most_reviews' || filters.sort === 'highest_rated'
-    ? sorted.length
-    : (totalCount ?? sorted.length);
-  const totalPages = Math.max(1, Math.ceil(slicedTotal / PAGE_SIZE));
-  const visible = filters.sort === 'most_reviews' || filters.sort === 'highest_rated'
-    ? sorted.slice((filters.page - 1) * PAGE_SIZE, filters.page * PAGE_SIZE)
-    : sorted;
+  // Sort + ad-floating already happened SQL-side (see .order chain above),
+  // so `rows` is already in render order. `totalCount` is the count: 'exact'
+  // result from the view-backed query — accurate for the pagination footer.
+  const totalPages = Math.max(1, Math.ceil((totalCount ?? rows.length) / PAGE_SIZE));
+  const visible = rows;
 
   return (
     <main className="min-h-dvh bg-cream">
@@ -637,19 +597,28 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         ) : (
           <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {visible.map((v) => {
-              const s = statsById.get(v.vendor_profile_id);
+              const ad: ActiveAdLookup | null =
+                v.ad_tier && v.ad_sku_code && v.ad_radius_km !== null && v.ad_expires_at
+                  ? {
+                      vendor_profile_id: v.vendor_profile_id,
+                      tier: v.ad_tier,
+                      radius_km: v.ad_radius_km,
+                      sku_code: v.ad_sku_code as ActiveAdLookup['sku_code'],
+                      expires_at: v.ad_expires_at,
+                    }
+                  : null;
               return (
                 <li key={v.vendor_profile_id}>
                   <VendorMarketCard
                     vendor={v}
-                    rating={s?.avg_rating_overall ?? 0}
-                    reviewCount={s?.total_count ?? 0}
+                    rating={Number(v.avg_rating_overall ?? 0)}
+                    reviewCount={v.review_count ?? 0}
                     isAuthenticated={user !== null}
                     isFollowing={followedSet.has(v.vendor_profile_id)}
                     isSaved={savedSet.has(v.vendor_profile_id)}
                     eventId={coupleEventId}
                     venueAnchor={venueAnchor}
-                    ad={adById.get(v.vendor_profile_id) ?? null}
+                    ad={ad}
                   />
                 </li>
               );
@@ -661,7 +630,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           filters={filters}
           page={filters.page}
           totalPages={totalPages}
-          total={slicedTotal}
+          total={totalCount ?? rows.length}
         />
       </section>
     </main>
@@ -1082,11 +1051,23 @@ function VendorMarketCard({
 }
 
 function Logo({ logoUrl, name }: { logoUrl: string | null; name: string }) {
-  if (logoUrl) {
+  // Switch to next/image for optimized 48×48 AVIF delivery on the host
+  // origins next.config.ts whitelists (R2 + Supabase Storage). Vendor
+  // dashboard uploads land on one of those two, so in practice every logo
+  // takes the optimized path; the host-allowlist check below is a
+  // belt-and-braces guard so a stray external URL won't crash the page —
+  // it falls back to the initials avatar instead.
+  if (logoUrl && isOptimizableImageUrl(logoUrl)) {
     return (
       <span className="inline-flex h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-ink/10 bg-cream">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={logoUrl} alt={name} className="h-full w-full object-cover" />
+        <Image
+          src={logoUrl}
+          alt={name}
+          width={48}
+          height={48}
+          sizes="48px"
+          className="h-full w-full object-cover"
+        />
       </span>
     );
   }
@@ -1099,6 +1080,25 @@ function Logo({ logoUrl, name }: { logoUrl: string | null; name: string }) {
     <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-terracotta/15 text-base font-semibold text-terracotta-700">
       {initials}
     </span>
+  );
+}
+
+// Mirror of the host whitelist in next.config.ts's `images.remotePatterns`.
+// Kept inline (not exported) because the marketplace logo is the only
+// vendor-controlled URL the public route renders — if more surfaces need
+// this check it should graduate to lib/.
+function isOptimizableImageUrl(url: string): boolean {
+  let host: string;
+  try {
+    host = new URL(url).hostname;
+  } catch {
+    return false;
+  }
+  return (
+    host.endsWith('.r2.dev') ||
+    host.endsWith('.r2.cloudflarestorage.com') ||
+    host.endsWith('.supabase.co') ||
+    host.endsWith('.supabase.in')
   );
 }
 

@@ -1,18 +1,22 @@
 import {
   Tv,
   Camera,
+  Video,
   Palette,
   Lightbulb,
+  Music,
   CloudUpload,
   ShoppingBag,
   type LucideIcon,
 } from 'lucide-react';
 
-// Day-of apparatus (in-app services) — Panood, Papic, Pakulay, Pailaw,
-// Photo Delivery, Supplies Marketplace. One card per service.
-// NO PHP figures (prices live on /pricing and the in-app cart).
+// Day-of apparatus (in-app services) — Panood, Papic, Patiktok, Pakulay,
+// Pailaw, Pakanta, Photo Delivery, Supplies Marketplace. One card per
+// service. NO PHP figures (prices live on /pricing and the in-app cart).
 // Two cards removed 2026-05-22 — Pro Camera Bridge never shipped to V1;
 // monogram-pack copy superseded by Bespoke Monogram (iteration 0037).
+// Two cards added 2026-05-22 — Patiktok (iteration 0017) + Pakanta
+// (iteration 0036) per Task #14, Sweep 5 audit rows 21 + 22.
 
 type Service = {
   Icon: LucideIcon;
@@ -35,6 +39,12 @@ const SERVICES: Service[] = [
     body: 'Native iOS/Android app for friends and family. Gesture shutter, QR-tag photos to specific guests or whole tables, untagged photos still land in the couple&rsquo;s gallery. Real-time delivery — guests can flip through tagged photos before the reception is over.',
   },
   {
+    Icon: Video,
+    sku: 'Patiktok',
+    tagline: 'TikTok-format booth at the venue',
+    body: 'A booth station capturing 30-second TikTok-format videos from your guests during cocktail or reception. Two tiers: post to your own TikTok handle, or to Setnayan&rsquo;s curated showcase. Compilation arrives in your gallery the next morning.',
+  },
+  {
     Icon: Palette,
     sku: 'Pakulay',
     tagline: 'Mood-board engine',
@@ -45,6 +55,12 @@ const SERVICES: Service[] = [
     sku: 'Pailaw',
     tagline: 'LED background maker',
     body: '8K loop generators for venue LED walls. USB-deliverable for offline playback at venues with no reliable internet. Match the loop to your palette and the visual language of your day reads consistently from the entrance to the dance floor.',
+  },
+  {
+    Icon: Music,
+    sku: 'Pakanta',
+    tagline: 'A wedding song written for the two of you',
+    body: 'Custom song composition + recording for your wedding day. Three tiers: Basic for a 60-second pure-vocal piece, Premium for full production with your love story woven through, Wedding Suite for ceremony processional + reception entrance + first-dance song bundle. All Setnayan-AI-generated, royalty-free, yours forever.',
   },
   {
     Icon: CloudUpload,

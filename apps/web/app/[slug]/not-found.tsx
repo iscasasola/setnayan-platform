@@ -1,18 +1,21 @@
 import Link from 'next/link';
 
-// Root 404 — brand-voice per feedback_setnayan_no_dev_text_post_launch lock.
-// Next.js auto-routes any unmatched URL here. Implicit entry point via routing.
-// Copy is luxurious-Filipino-modern register (Aesop / Aman / Soho House) —
-// no exclamation marks, no engineering jargon, no "Oops!" style placeholders.
-// Two recovery CTAs: home (always works) and Browse vendors (the highest-
-// signal next surface for pilot couples + curious visitors).
+// Day-of guest 404 — invitation slug couldn't be resolved (event missing,
+// archived, wrong slug, or non-wedding event_type). Different recovery path
+// from the root 404: the visitor is most likely either (a) a guest with a
+// mistyped/expired link who needs to ask the host, or (b) a host whose own
+// event slug changed who should sign in.
+//
+// Per feedback_setnayan_no_dev_text_post_launch: brand-voice on every visible
+// surface. This page is reachable by guests at the venue scanning a printed
+// QR code — copy must be calm and route-forward, never "ERROR 404".
 
 export const metadata = {
-  title: 'Page not found',
-  description: "This page doesn't exist on Setnayan.",
+  title: 'Invitation not found',
+  description: "This invitation link can't be found.",
 };
 
-export default function NotFound() {
+export default function SlugNotFound() {
   return (
     <main className="min-h-screen bg-cream text-ink flex items-center justify-center px-6 py-16">
       <div className="max-w-xl w-full text-center">
@@ -20,24 +23,24 @@ export default function NotFound() {
           Setnayan
         </p>
         <h1 className="font-display italic text-4xl sm:text-5xl leading-tight text-ink mb-6">
-          This page doesn&rsquo;t exist on Setnayan.
+          This invitation link can&rsquo;t be found.
         </h1>
         <p className="font-sans text-base sm:text-lg text-ink/70 leading-relaxed mb-10 max-w-md mx-auto">
-          It may have moved, or never been here. Either way, let&rsquo;s get you
-          somewhere useful.
+          Double-check the link with the host, or if you&rsquo;re the host, sign
+          in to your dashboard.
         </p>
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center justify-center">
           <Link
-            href="/"
+            href="/login"
             className="inline-flex items-center justify-center px-6 py-3 bg-terracotta text-cream font-sans text-sm font-medium tracking-wide hover:bg-terracotta-600 transition-colors rounded-sm"
           >
-            Take me home
+            Sign in
           </Link>
           <Link
-            href="/vendors"
+            href="/"
             className="inline-flex items-center justify-center px-6 py-3 border border-ink/20 text-ink font-sans text-sm font-medium tracking-wide hover:bg-ink/5 transition-colors rounded-sm"
           >
-            Browse vendors
+            Take me home
           </Link>
         </div>
       </div>

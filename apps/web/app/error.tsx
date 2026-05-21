@@ -1,60 +1,62 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect } from 'react';
+import Link from 'next/link';
 
-// Global error boundary. Catches runtime errors from any route under the
-// root layout. Keep copy editorial-brand-voice per
-// `feedback_setnayan_no_dev_text_post_launch` — no stack-trace exposure,
-// no "something went wrong" generic, just polite + actionable.
-export default function GlobalError({
-  error,
-  reset,
-}: {
+// Root error boundary — brand-voice per feedback_setnayan_no_dev_text_post_launch
+// lock. Next.js auto-mounts this for any unhandled exception in a route segment.
+// Must be a Client Component (Next.js requirement for error boundaries).
+// Sentry SDK already captures the error via the global handler wired in
+// instrumentation.ts (iteration 0035 Observability) — no manual logging needed.
+
+type Props = {
   error: Error & { digest?: string };
   reset: () => void;
-}) {
+};
+
+export default function RootError({ error, reset }: Props) {
   useEffect(() => {
-    // Forward to Sentry via the existing provider chain. Avoid logging the
-    // full error object to console — keep production logs clean.
-    if (typeof window !== 'undefined' && 'Sentry' in window) {
-      const sentry = (window as unknown as { Sentry?: { captureException: (e: unknown) => void } })
-        .Sentry;
-      sentry?.captureException(error);
+    // Sentry SDK auto-captures via the global handler. The `digest` is the
+    // server-side error ID Next.js emits — surfaces in Sentry breadcrumb if
+    // a customer mentions it in support.
+    if (process.env.NODE_ENV === 'development') {
+      console.error('[root error boundary]', error);
     }
   }, [error]);
 
   return (
-    <main className="mx-auto flex min-h-[60vh] w-full max-w-2xl flex-col items-center justify-center px-4 py-16 text-center sm:px-6 sm:py-24 lg:px-8">
-      <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.25em] text-ink/55">
-        Something interrupted us
-      </p>
-      <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-        We couldn&rsquo;t load this page.
-      </h1>
-      <p className="mt-4 max-w-prose text-base text-ink/65">
-        It&rsquo;s on us — our team has been notified. Try again, or take a moment
-        and come back to it.
-      </p>
-      {error.digest ? (
-        <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/40">
-          Reference: {error.digest}
+    <main className="min-h-screen bg-cream text-ink flex items-center justify-center px-6 py-16">
+      <div className="max-w-xl w-full text-center">
+        <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/40 mb-6">
+          Setnayan
         </p>
-      ) : null}
-      <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-        <button
-          type="button"
-          onClick={reset}
-          className="inline-flex h-11 items-center justify-center rounded-md bg-terracotta px-5 text-sm font-medium text-cream hover:bg-terracotta-600"
-        >
-          Try again
-        </button>
-        <Link
-          href="/"
-          className="inline-flex h-11 items-center justify-center rounded-md border border-ink/15 bg-cream px-5 text-sm font-medium text-ink hover:bg-ink/5"
-        >
-          Take me home
-        </Link>
+        <h1 className="font-display italic text-4xl sm:text-5xl leading-tight text-ink mb-6">
+          Something on our end didn&rsquo;t work.
+        </h1>
+        <p className="font-sans text-base sm:text-lg text-ink/70 leading-relaxed mb-10 max-w-md mx-auto">
+          We&rsquo;ve logged the issue and our team will look at it. Please try
+          again in a moment.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center justify-center">
+          <button
+            type="button"
+            onClick={() => reset()}
+            className="inline-flex items-center justify-center px-6 py-3 bg-terracotta text-cream font-sans text-sm font-medium tracking-wide hover:bg-terracotta-600 transition-colors rounded-sm"
+          >
+            Try again
+          </button>
+          <Link
+            href="/"
+            className="inline-flex items-center justify-center px-6 py-3 border border-ink/20 text-ink font-sans text-sm font-medium tracking-wide hover:bg-ink/5 transition-colors rounded-sm"
+          >
+            Take me home
+          </Link>
+        </div>
+        {error?.digest && (
+          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/30 mt-10">
+            Reference: {error.digest}
+          </p>
+        )}
       </div>
     </main>
   );

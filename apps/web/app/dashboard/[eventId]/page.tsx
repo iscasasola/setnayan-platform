@@ -25,6 +25,7 @@ import { countUnread } from '@/lib/notifications';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
 import { computeGuestStats, fetchGuestsByEvent } from '@/lib/guests';
 import { fetchEventActivity, relativeTime, type ActivityItem } from '@/lib/activity';
 import { formatEventDate } from '@/lib/events';
@@ -93,18 +94,68 @@ const TILES: Array<{
 }> = [
   { key: 'hosts', labelKey: 'nav.hosts', Icon: UserPlus, href: (id) => `/dashboard/${id}/hosts` },
   { key: 'guests', labelKey: 'nav.guests', Icon: Users, href: (id) => `/dashboard/${id}/guests` },
-  { key: 'invitation', labelKey: 'nav.invitation', Icon: Send, href: (id) => `/dashboard/${id}/invitation` },
-  { key: 'vendors', labelKey: 'nav.vendors', Icon: Briefcase, href: (id) => `/dashboard/${id}/vendors` },
-  { key: 'contracts', labelKey: 'nav.contracts', Icon: FileSignature, href: (id) => `/dashboard/${id}/contracts` },
+  {
+    key: 'invitation',
+    labelKey: 'nav.invitation',
+    Icon: Send,
+    href: (id) => `/dashboard/${id}/invitation`,
+  },
+  {
+    key: 'vendors',
+    labelKey: 'nav.vendors',
+    Icon: Briefcase,
+    href: (id) => `/dashboard/${id}/vendors`,
+  },
+  {
+    key: 'contracts',
+    labelKey: 'nav.contracts',
+    Icon: FileSignature,
+    href: (id) => `/dashboard/${id}/contracts`,
+  },
   { key: 'budget', labelKey: 'nav.budget', Icon: Wallet, href: (id) => `/dashboard/${id}/budget` },
-  { key: 'messages', labelKey: 'nav.messages', Icon: MessageSquare, href: (id) => `/dashboard/${id}/messages` },
-  { key: 'seating', labelKey: 'nav.seating', Icon: LayoutGrid, href: (id) => `/dashboard/${id}/seating` },
-  { key: 'schedule', labelKey: 'nav.schedule', Icon: CalendarClock, href: (id) => `/dashboard/${id}/schedule` },
+  {
+    key: 'messages',
+    labelKey: 'nav.messages',
+    Icon: MessageSquare,
+    href: (id) => `/dashboard/${id}/messages`,
+  },
+  {
+    key: 'seating',
+    labelKey: 'nav.seating',
+    Icon: LayoutGrid,
+    href: (id) => `/dashboard/${id}/seating`,
+  },
+  {
+    key: 'schedule',
+    labelKey: 'nav.schedule',
+    Icon: CalendarClock,
+    href: (id) => `/dashboard/${id}/schedule`,
+  },
   { key: 'orders', labelKey: 'nav.orders', Icon: Receipt, href: (id) => `/dashboard/${id}/orders` },
-  { key: 'notifications', labelKey: 'nav.notifications', Icon: Bell, href: () => `/dashboard/notifications` },
-  { key: 'mood_board', labelKey: 'nav.mood_board', Icon: Palette, href: (id) => `/dashboard/${id}/add-ons/mood-board` },
-  { key: 'add_ons', labelKey: 'nav.add_ons', Icon: Sparkles, href: (id) => `/dashboard/${id}/add-ons` },
-  { key: 'disputes', labelKey: 'nav.disputes', Icon: AlertTriangle, href: (id) => `/dashboard/${id}/disputes` },
+  {
+    key: 'notifications',
+    labelKey: 'nav.notifications',
+    Icon: Bell,
+    href: () => `/dashboard/notifications`,
+  },
+  {
+    key: 'mood_board',
+    labelKey: 'nav.mood_board',
+    Icon: Palette,
+    href: (id) => `/dashboard/${id}/add-ons/mood-board`,
+  },
+  {
+    key: 'add_ons',
+    labelKey: 'nav.add_ons',
+    Icon: Sparkles,
+    href: (id) => `/dashboard/${id}/add-ons`,
+  },
+  {
+    key: 'disputes',
+    labelKey: 'nav.disputes',
+    Icon: AlertTriangle,
+    href: (id) => `/dashboard/${id}/disputes`,
+  },
 ];
 
 function timeOfDayGreetingKey(date: Date): TranslationKey {
@@ -152,6 +203,10 @@ export default async function EventHomePage({
   // never block the dashboard render.
   const adminClient = createAdminClient();
   void sweepExpiredConcierge(adminClient);
+  // Companion sweep for non-Concierge subscription SKUs (Task #23 — pilot
+  // blocker). Scoped by eventId so couple-dashboard renders only sweep this
+  // event's orders, keeping the hot path fast.
+  void sweepLapsedSubscriptions(adminClient, { eventId });
 
   const [eventRes, profileRes, guests, manualSteps, unreadCount, locale, eventVendorsRes] =
     await Promise.all([
@@ -164,9 +219,7 @@ export default async function EventHomePage({
         .maybeSingle(),
       supabase
         .from('users')
-        .select(
-          'display_name, planner_mode, concierge_trial_used_at, concierge_enforcement_level',
-        )
+        .select('display_name, planner_mode, concierge_trial_used_at, concierge_enforcement_level')
         .eq('user_id', user.id)
         .maybeSingle(),
       fetchGuestsByEvent(supabase, eventId),
@@ -207,8 +260,7 @@ export default async function EventHomePage({
     manualSteps,
   );
 
-  const greetingName =
-    profile?.display_name?.split(' ')[0] ?? user.email?.split('@')[0] ?? 'there';
+  const greetingName = profile?.display_name?.split(' ')[0] ?? user.email?.split('@')[0] ?? 'there';
   const greeting = tr(timeOfDayGreetingKey(now));
 
   const eventVendors = (eventVendorsRes.data ?? []) as Array<{
@@ -239,9 +291,7 @@ export default async function EventHomePage({
     dayOfBlocks = blocksRes;
     const tables = tablesRes;
     dayOfHeadTable = tables.find((t) => t.table_type === 'head_table') ?? null;
-    dayOfNearbyTables = tables
-      .filter((t) => t.table_id !== dayOfHeadTable?.table_id)
-      .slice(0, 6);
+    dayOfNearbyTables = tables.filter((t) => t.table_id !== dayOfHeadTable?.table_id).slice(0, 6);
   }
 
   const activity = await fetchEventActivity(supabase, eventId, 20);
@@ -255,11 +305,11 @@ export default async function EventHomePage({
   };
   const conciergeStatus: ConciergeStatus = eventConciergeRow.concierge_status ?? 'diy';
   const conciergeEnforcementLevel: ConciergeEnforcementLevel =
-    ((profile as { concierge_enforcement_level?: ConciergeEnforcementLevel } | null)
-      ?.concierge_enforcement_level ?? 'none');
+    (profile as { concierge_enforcement_level?: ConciergeEnforcementLevel } | null)
+      ?.concierge_enforcement_level ?? 'none';
   const conciergeTrialUsedAt =
-    (profile as { concierge_trial_used_at?: string | null } | null)
-      ?.concierge_trial_used_at ?? null;
+    (profile as { concierge_trial_used_at?: string | null } | null)?.concierge_trial_used_at ??
+    null;
 
   // Long-engagement advisory one-shot stamp (per HANDOFF_2026-05-17 § 3 +
   // iteration 0016 § 0). If active Concierge AND wedding > activated + 24mo
@@ -269,10 +319,7 @@ export default async function EventHomePage({
     eventConciergeRow.concierge_activated_at &&
     event.event_date &&
     !eventConciergeRow.concierge_long_engagement_advised_at &&
-    isWeddingBeyondConciergeCap(
-      eventConciergeRow.concierge_activated_at,
-      event.event_date,
-    )
+    isWeddingBeyondConciergeCap(eventConciergeRow.concierge_activated_at, event.event_date)
   ) {
     void adminClient
       .from('events')
@@ -328,12 +375,8 @@ export default async function EventHomePage({
       <PlanningGroups
         eventId={eventId}
         eventDate={event.event_date}
-        venueLatitude={
-          (event as { venue_latitude?: number | null }).venue_latitude ?? null
-        }
-        venueLongitude={
-          (event as { venue_longitude?: number | null }).venue_longitude ?? null
-        }
+        venueLatitude={(event as { venue_latitude?: number | null }).venue_latitude ?? null}
+        venueLongitude={(event as { venue_longitude?: number | null }).venue_longitude ?? null}
         vendors={eventVendors}
       />
 
@@ -406,11 +449,7 @@ function StageStrip({ stage }: { stage: Stage['key'] }) {
                 aria-current={isActive ? 'step' : undefined}
                 aria-label={s.label}
                 className={`block h-1.5 flex-1 rounded-full transition-colors ${
-                  isActive
-                    ? 'bg-terracotta'
-                    : done
-                      ? 'bg-terracotta/45'
-                      : 'bg-ink/10'
+                  isActive ? 'bg-terracotta' : done ? 'bg-terracotta/45' : 'bg-ink/10'
                 }`}
               />
             </li>
@@ -418,7 +457,8 @@ function StageStrip({ stage }: { stage: Stage['key'] }) {
         })}
       </ol>
       <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-        Stage {activeIndex + 1} of {STAGES.length} · <span className="text-ink/85">{activeLabel}</span>
+        Stage {activeIndex + 1} of {STAGES.length} ·{' '}
+        <span className="text-ink/85">{activeLabel}</span>
       </p>
     </div>
   );
@@ -504,9 +544,7 @@ function Checklist({
             Profile.
           </p>
         </div>
-        <span className="font-mono text-sm font-semibold text-terracotta-700">
-          {progress.pct}%
-        </span>
+        <span className="font-mono text-sm font-semibold text-terracotta-700">{progress.pct}%</span>
       </div>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink/10">
         <span
@@ -519,19 +557,12 @@ function Checklist({
           const status = byKey.get(step.key);
           const done = status?.completed ?? false;
           return (
-            <li
-              key={step.key}
-              className="flex items-start gap-3 px-3 py-3 sm:px-4"
-            >
+            <li key={step.key} className="flex items-start gap-3 px-3 py-3 sm:px-4">
               {step.source === 'manual' ? (
                 <form action={toggleJourneyStep}>
                   <input type="hidden" name="event_id" value={eventId} />
                   <input type="hidden" name="step_key" value={step.key} />
-                  <input
-                    type="hidden"
-                    name="action"
-                    value={done ? 'uncomplete' : 'complete'}
-                  />
+                  <input type="hidden" name="action" value={done ? 'uncomplete' : 'complete'} />
                   <button
                     type="submit"
                     aria-label={done ? `Mark ${step.label} not done` : `Mark ${step.label} done`}

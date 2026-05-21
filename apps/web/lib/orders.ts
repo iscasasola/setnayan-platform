@@ -7,6 +7,7 @@ export type OrderStatus =
   | 'awaiting_payment'
   | 'paid'
   | 'fulfilled'
+  | 'lapsed'
   | 'cancelled'
   | 'refunded';
 
@@ -18,6 +19,9 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   awaiting_payment: 'Awaiting payment',
   paid: 'Paid',
   fulfilled: 'Fulfilled',
+  // Subscription expired naturally (term ended, no refund). See
+  // apps/web/lib/subscriptions.ts + 20260602000000 migration.
+  lapsed: 'Lapsed',
   cancelled: 'Cancelled',
   refunded: 'Refunded',
 };
@@ -28,6 +32,7 @@ export const ORDER_STATUS_TONE: Record<OrderStatus, string> = {
   awaiting_payment: 'bg-amber-100 text-amber-900',
   paid: 'bg-emerald-100 text-emerald-800',
   fulfilled: 'bg-emerald-200 text-emerald-900',
+  lapsed: 'bg-ink/15 text-ink/70',
   cancelled: 'bg-ink/10 text-ink/55',
   refunded: 'bg-violet-100 text-violet-800',
 };

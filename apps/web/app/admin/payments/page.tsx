@@ -1,5 +1,6 @@
 import { ExternalLink } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
   ORDER_STATUS_LABEL,
@@ -63,6 +64,12 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
 
   const admin = createAdminClient();
 
+  // Global subscription expiry sweep (Task #23 — pilot blocker). Admin
+  // payments is the safety net: any per-scope sweep miss on couple/vendor
+  // dashboards gets caught here. Fire-and-forget — never blocks the queue
+  // render.
+  void sweepLapsedSubscriptions(admin);
+
   let payments: PaymentJoined[] = [];
   let unquotedOrders: OrderJoined[] = [];
 
@@ -90,13 +97,13 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8 xl:max-w-7xl 2xl:max-w-screen-2xl">
       <header className="mb-6 space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">Payments &amp; reconciliation</h1>
         <p className="text-sm text-ink/60">
           Couples log payments after they transfer. Match each one against the order&rsquo;s
-          reference code. Submitted orders without a confirmed total need a quote before
-          couples can pay.
+          reference code. Submitted orders without a confirmed total need a quote before couples can
+          pay.
         </p>
       </header>
 
@@ -133,9 +140,7 @@ function FilterChip({
     <a
       href={`/admin/payments?filter=${target}`}
       className={`rounded-full px-3 py-1 text-xs font-medium ${
-        isActive
-          ? 'bg-terracotta text-cream'
-          : 'bg-ink/5 text-ink/70 hover:bg-ink/10'
+        isActive ? 'bg-terracotta text-cream' : 'bg-ink/5 text-ink/70 hover:bg-ink/10'
       }`}
     >
       {label}
@@ -154,15 +159,11 @@ function OrdersNeedingQuote({ orders }: { orders: OrderJoined[] }) {
   return (
     <ul className="space-y-3">
       {orders.map((o) => (
-        <li
-          key={o.order_id}
-          className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4"
-        >
+        <li key={o.order_id} className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="min-w-0 space-y-0.5">
               <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
-                {o.public_id} · ref{' '}
-                <span className="text-terracotta-700">{o.reference_code}</span>
+                {o.public_id} · ref <span className="text-terracotta-700">{o.reference_code}</span>
               </p>
               <p className="text-sm font-semibold text-ink">{o.user?.email ?? '—'}</p>
             </div>
@@ -181,9 +182,7 @@ function OrdersNeedingQuote({ orders }: { orders: OrderJoined[] }) {
             Requested (pre-VAT):{' '}
             <span className="font-mono">{formatPhp(o.requested_total_php)}</span>
             {' · '}buyer pays{' '}
-            <span className="font-mono">
-              {formatPhp(Number(o.requested_total_php) * 1.12)}
-            </span>{' '}
+            <span className="font-mono">{formatPhp(Number(o.requested_total_php) * 1.12)}</span>{' '}
             incl. 12% VAT
           </p>
           <form
@@ -191,7 +190,7 @@ function OrdersNeedingQuote({ orders }: { orders: OrderJoined[] }) {
             className="grid grid-cols-1 gap-2 border-t border-ink/10 pt-3 sm:grid-cols-3"
           >
             <input type="hidden" name="order_id" value={o.order_id} />
-            <label className="sm:col-span-1 space-y-1">
+            <label className="space-y-1 sm:col-span-1">
               <span className="block font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
                 Confirmed pre-VAT total (PHP)
               </span>
@@ -208,7 +207,7 @@ function OrdersNeedingQuote({ orders }: { orders: OrderJoined[] }) {
                 Buyer pays base &times; 1.12 incl. VAT
               </span>
             </label>
-            <label className="sm:col-span-2 space-y-1">
+            <label className="space-y-1 sm:col-span-2">
               <span className="block font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
                 Note to couple
               </span>
@@ -219,7 +218,7 @@ function OrdersNeedingQuote({ orders }: { orders: OrderJoined[] }) {
               />
             </label>
             <SubmitButton
-              className="sm:col-span-3 inline-flex items-center justify-center rounded-md bg-terracotta px-4 py-1.5 text-sm font-medium text-cream hover:bg-terracotta-600 disabled:opacity-70"
+              className="inline-flex items-center justify-center rounded-md bg-terracotta px-4 py-1.5 text-sm font-medium text-cream hover:bg-terracotta-600 disabled:opacity-70 sm:col-span-3"
               pendingLabel="Confirming…"
             >
               Confirm quote · move to awaiting payment
@@ -247,17 +246,12 @@ function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
           !!p.order?.reference_code &&
           p.reference_number.toUpperCase().includes(p.order.reference_code.toUpperCase());
         return (
-          <li
-            key={p.payment_id}
-            className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4"
-          >
+          <li key={p.payment_id} className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0 space-y-0.5">
                 <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
                   Order {p.order?.public_id ?? '—'} · ref{' '}
-                  <span className="text-terracotta-700">
-                    {p.order?.reference_code ?? '—'}
-                  </span>
+                  <span className="text-terracotta-700">{p.order?.reference_code ?? '—'}</span>
                 </p>
                 <p className="text-sm font-semibold text-ink">{p.user?.email ?? '—'}</p>
               </div>
@@ -366,20 +360,10 @@ function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
   );
 }
 
-function Stat({
-  label,
-  value,
-  mono = false,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-}) {
+function Stat({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="rounded-md bg-ink/[0.03] p-2">
-      <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
-        {label}
-      </dt>
+      <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">{label}</dt>
       <dd className={`mt-0.5 text-sm font-semibold text-ink ${mono ? 'font-mono' : ''}`}>
         {value}
       </dd>

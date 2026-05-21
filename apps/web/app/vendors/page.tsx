@@ -17,9 +17,6 @@ import { EventTypeNotifyForm } from './_components/event-type-notify-form';
 import { TaxonomySearch, type TaxonomyOption } from './_components/taxonomy-search';
 import { CategoryTile, type CategoryTileData } from './_components/category-tile';
 import { SaveVendorButton } from './_components/save-vendor-button';
-import { CompareProvider } from './_components/compare-provider';
-import { CompareToggle } from './_components/compare-toggle';
-import { CompareBasket } from './_components/compare-basket';
 import { FolderTabs, type FolderTab } from './_components/mega-column-tabs';
 import { PairedVenuePanel } from './_components/paired-venue-panel';
 import { CeremonyVenuesSection } from './_components/ceremony-venues-section';
@@ -550,7 +547,6 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     : sorted;
 
   return (
-    <CompareProvider>
     <main className="min-h-dvh bg-cream">
       {/* Inline marketplace header. Auth-aware CTA swap (2026-05-20): when
           a signed-in user clicks "Marketplace" from the dashboard outer
@@ -653,9 +649,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           total={slicedTotal}
         />
       </section>
-      <CompareBasket />
     </main>
-    </CompareProvider>
   );
 }
 
@@ -1058,9 +1052,6 @@ function VendorMarketCard({
               canSave={true}
             />
           ) : null}
-          {/* Compare toggle (2026-05-21). Available to anyone — no auth
-              gate. Selections collect in the floating CompareBasket. */}
-          <CompareToggle vendorProfileId={vendor.vendor_profile_id} />
           {slug ? (
             <Link
               href={href}
@@ -1328,7 +1319,6 @@ async function CatalogView({
   }));
 
   return (
-    <CompareProvider>
     <main className="min-h-dvh bg-cream">
       <header className="border-b border-ink/5">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
@@ -1455,9 +1445,7 @@ async function CatalogView({
           );
         })}
       </section>
-      <CompareBasket />
     </main>
-    </CompareProvider>
   );
 }
 

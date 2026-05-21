@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayServiceLabel } from '@/lib/vendors';
 import {
@@ -985,8 +986,14 @@ function Avatar({ logoUrl, name }: { logoUrl: string | null; name: string }) {
   if (logoUrl) {
     return (
       <span className="inline-flex h-10 w-10 shrink-0 overflow-hidden rounded-full border border-ink/10 bg-cream">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={logoUrl} alt="" className="h-full w-full object-cover" />
+        <Image
+          src={logoUrl}
+          alt=""
+          width={40}
+          height={40}
+          loading="lazy"
+          className="h-full w-full object-cover"
+        />
       </span>
     );
   }

@@ -11,6 +11,7 @@
  */
 
 import { useMemo, useState, useTransition } from 'react';
+import Image from 'next/image';
 import { watermarkFile } from '@/lib/watermark';
 import {
   ColorRangeManipulator,
@@ -219,9 +220,12 @@ export function StylistLibraryEditor({ initialAssets }: { initialAssets: Stylist
                         : 'border-ink/10 hover:border-ink/30'
                     }`}
                   >
-                    <img
+                    <Image
                       src={a.public_url}
                       alt=""
+                      width={48}
+                      height={48}
+                      loading="lazy"
                       className="h-12 w-12 flex-shrink-0 rounded object-cover"
                     />
                     <div className="min-w-0 flex-1">

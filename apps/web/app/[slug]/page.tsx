@@ -14,6 +14,8 @@ import { ScheduleWidget } from './_components/schedule-widget';
 import { fetchPublicScheduleBlocks, type ScheduleBlockRow } from '@/lib/schedule';
 import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
 import { NavLinksRow } from '@/app/_components/nav-links';
+import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
+import { GuestPreload } from './_components/guest-preload';
 
 function displayNameOf(g: {
   first_name: string;
@@ -23,7 +25,16 @@ function displayNameOf(g: {
   return g.display_name?.trim() || `${g.first_name} ${g.last_name}`.trim();
 }
 
-export const dynamic = 'force-dynamic';
+// Task #13 (Phase 1 day-of PWA fix, 2026-05-22) — swap `dynamic = 'force-dynamic'`
+// for ISR so this surface can be CDN-cached AND served from SHELL_CACHE when a
+// guest reloads at a venue with weak WiFi. 60s revalidate window is acceptable
+// for V1 pilot — guest invitation content changes infrequently; RSVP submit is
+// a server action that still revalidates fresh.
+//
+// V1.1 follow-up: per-guest table-assignment preload via guest-session-scoped
+// Cache API write — see Task #9 audit findings (CLAUDE.md decision-log row
+// 2026-05-22).
+export const revalidate = 60;
 
 const RESERVED_TOP_LEVEL = new Set([
   'admin',
@@ -87,6 +98,13 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
 
   const monogram = resolveMonogram(event);
 
+  // Task #13 — compute day-of phase server-side so each branch ships as plain
+  // server-rendered HTML the CDN can cache and the SW can offline-fallback.
+  // Falls through to `inactive` for events without dates (very early planning).
+  const dayOfPhase: DayOfPhase = event.event_date
+    ? getDayOfPhase(event.event_date)
+    : 'inactive';
+
   // Read the guest-session cookie (read-only — pages can't write cookies).
   const session = await readGuestSession();
 
@@ -95,6 +113,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
       <PublicLanding
         event={event}
         reason={inviteError === 'invalid_token' ? 'invalid_invite' : null}
+        dayOfPhase={dayOfPhase}
       />
     );
   }
@@ -102,7 +121,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // Cookie session is for a different event → bail to public landing.
   // (Sign-out from the footer is how a guest swaps between events.)
   if (session.event_id !== event.event_id) {
-    return <PublicLanding event={event} reason="wrong_event" />;
+    return <PublicLanding event={event} reason="wrong_event" dayOfPhase={dayOfPhase} />;
   }
 
   const { data: guest } = await admin
@@ -115,7 +134,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     .maybeSingle();
 
   if (!guest) {
-    return <PublicLanding event={event} reason="invalid_invite" />;
+    return <PublicLanding event={event} reason="invalid_invite" dayOfPhase={dayOfPhase} />;
   }
 
   // TBA +1 still hasn't confirmed their name — re-route them to onboarding.
@@ -146,6 +165,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
       invitationUrl={invitationUrl}
       monogram={monogram}
       scheduleBlocks={scheduleBlocks}
+      dayOfPhase={dayOfPhase}
     />
   );
 }
@@ -211,13 +231,31 @@ function InvitationShell({ children }: { children: React.ReactNode }) {
 function PublicLanding({
   event,
   reason,
+  dayOfPhase,
 }: {
   event: EventRow;
   reason?: 'invalid_invite' | 'wrong_event' | null;
+  dayOfPhase: DayOfPhase;
 }) {
+  // Task #13 — day-of-mode badge surfaces to public-landing viewers too so a
+  // guest at the venue without a session cookie still sees "happening now".
+  const dayOfBadge =
+    dayOfPhase === 'live' ? (
+      <p className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-800">
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-600" />
+        Happening now
+      </p>
+    ) : dayOfPhase === 'post' ? (
+      <p className="inline-flex rounded-full bg-ink/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/70">
+        Thank you for celebrating
+      </p>
+    ) : null;
+
   return (
     <InvitationShell>
+      <GuestPreload eventSlug={event.slug} />
       <div className="space-y-6 text-center">
+        {dayOfBadge}
         <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
           You&rsquo;re invited
         </p>
@@ -257,6 +295,7 @@ function InvitationSite({
   invitationUrl,
   monogram,
   scheduleBlocks,
+  dayOfPhase,
 }: {
   event: EventRow;
   guest: GuestRow;
@@ -264,6 +303,7 @@ function InvitationSite({
   invitationUrl: string;
   monogram: MonogramConfig;
   scheduleBlocks: ScheduleBlockRow[];
+  dayOfPhase: DayOfPhase;
 }) {
   const sideLabel =
     guest.side === 'both'
@@ -275,9 +315,23 @@ function InvitationSite({
   const isLimitedPlusOne =
     guest.plus_one_of_guest_id !== null && guest.plus_one_mode === 'limited';
 
+  // Task #13 — when the wedding is live (T-1h .. T+8h), surface the schedule +
+  // QR card prominently at the top so a guest at the venue with weak WiFi sees
+  // the load-bearing information first; the rest of the page (RSVP, dress code,
+  // photo moments) stays available below for offline-cached reads.
+  const isLive = dayOfPhase === 'live';
+  const isPost = dayOfPhase === 'post';
+
   return (
     <InvitationShell>
+      <GuestPreload eventSlug={event.slug} />
       <article className="space-y-12">
+        {isLive ? (
+          <DayOfBanner kind="live" />
+        ) : isPost ? (
+          <DayOfBanner kind="post" />
+        ) : null}
+
         {/* Hero */}
         <section className="text-center">
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
@@ -316,6 +370,19 @@ function InvitationSite({
             <span className="text-ink/80">{sideLabel}</span>.
           </p>
         </section>
+
+        {/* Task #13 — day-of-mode promotes the schedule block to the top of
+            the article so a guest at the venue sees "happening now" before
+            scrolling past hero / greeting / QR. The same ScheduleWidget renders
+            in its default position below for non-live phases. */}
+        {isLive && scheduleBlocks.length > 0 ? (
+          <section
+            aria-label="Day-of schedule"
+            className="rounded-2xl border-2 border-emerald-300 bg-emerald-50/50 p-2"
+          >
+            <ScheduleWidget blocks={scheduleBlocks} />
+          </section>
+        ) : null}
 
         {/* QR card */}
         <section className="rounded-2xl border border-ink/10 bg-cream p-6 text-center shadow-sm sm:p-8">
@@ -360,8 +427,12 @@ function InvitationSite({
         {/* Countdown — client-side ticking widget. Auto-hides once the wedding starts. */}
         {event.event_date ? <CountdownWidget targetIso={event.event_date} /> : null}
 
-        {/* Day-of schedule — public blocks with "happening now" highlight. */}
-        {scheduleBlocks.length > 0 ? <ScheduleWidget blocks={scheduleBlocks} /> : null}
+        {/* Day-of schedule — public blocks with "happening now" highlight.
+            When live, this is already pinned to the top of the article (above).
+            Don't render it twice. */}
+        {!isLive && scheduleBlocks.length > 0 ? (
+          <ScheduleWidget blocks={scheduleBlocks} />
+        ) : null}
 
         {/* Venues */}
         <VenueWidget event={event} />
@@ -770,6 +841,50 @@ function YourPhotosWidget({ limited }: { limited: boolean }) {
           </p>
         </div>
       )}
+    </section>
+  );
+}
+
+// Task #13 — day-of lifecycle banner. `live` = T-1h..T+8h (per
+// lib/day-of-mode.ts), `post` = T+8h..T+24h. Renders server-side so the
+// surface is offline-cacheable; no client effect needed.
+function DayOfBanner({ kind }: { kind: 'live' | 'post' }) {
+  if (kind === 'live') {
+    return (
+      <section
+        aria-label="Live event mode"
+        className="flex items-center gap-3 rounded-xl border-2 border-emerald-300 bg-emerald-50 p-4 sm:p-5"
+      >
+        <span
+          aria-hidden
+          className="inline-flex h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-emerald-600"
+        />
+        <div className="flex-1">
+          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-800">
+            Live now
+          </p>
+          <p className="text-sm text-emerald-900">
+            The wedding is happening. Your schedule, QR, and venue info are pinned
+            below — they work offline if WiFi cuts out.
+          </p>
+        </div>
+      </section>
+    );
+  }
+
+  // post
+  return (
+    <section
+      aria-label="Post-event mode"
+      className="rounded-xl border border-ink/10 bg-cream p-4 sm:p-5"
+    >
+      <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+        Thank you for celebrating
+      </p>
+      <p className="mt-1 text-sm text-ink/70">
+        The wedding wrapped up. Your tagged photos will land here as the couple
+        releases them — check back over the next few days.
+      </p>
     </section>
   );
 }

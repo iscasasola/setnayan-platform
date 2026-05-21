@@ -1,6 +1,6 @@
 # Setnayan — Project Status
 
-> Living checkpoint. Refreshed 2026-05-14 (end of day).
+> Living checkpoint. Refreshed 2026-05-22 (Task #13 — day-of PWA Phase 1).
 > Anchor doc — if you're opening this repo cold in a new Claude session, start here.
 
 **Owner deadline anchor:** December 2026 wedding
@@ -10,6 +10,8 @@
 ## Where we are right now
 
 V1 web surface is **functionally complete**. Pre-launch sprint closed 2026-05-13 (19 iterations). 2026-05-14 then landed **28 PRs** across two waves.
+
+**Task #13 (2026-05-22) — day-of PWA Phase 1.** Public guest surface at `/[slug]` flipped from `force-dynamic` to ISR (`revalidate = 60`); day-of-mode lifecycle branches (`pre` / `live` / `post`) wired via `getDayOfPhase`; new `GuestPreload` client component posts `PRELOAD_ASSETS` to the SW on hydration so guest at venue with weak WiFi sees the invitation from SHELL_CACHE on reload instead of a blank page. Live phase pins schedule + green "Live now" banner to top; post phase shows quiet "Thank you for celebrating" header. Manual offline test recipe added to `OWNER_ACTIONS.md` (Playwright deferred — no test infrastructure in repo yet). Phase 2 per-guest table-assignment preload deferred to V1.1 per Task #9 audit.
 
 **Wave 1 — launch hardening (PRs #1–#23):** landing-page conversion upgrades, full observability (Sentry + PostHog), R2 storage migration, day-of mode + event-day pre-load, account-lifecycle redesign (Delete vs Blacklist), persistent login, caching foundation, Services → Add-ons rename, Phase 1 placeholder routes, 7 of 10 V1 email templates wired through Resend, status doc refresh.
 

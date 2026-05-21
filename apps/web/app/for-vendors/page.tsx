@@ -57,6 +57,7 @@ const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com')
   '',
 );
 
+// Schema.org pricing — keep in sync with /pricing page UI per CLAUDE.md 2026-05-20 vendor tier lock
 const FOR_VENDORS_JSONLD = {
   '@context': 'https://schema.org',
   '@graph': [
@@ -99,11 +100,11 @@ const FOR_VENDORS_JSONLD = {
       name: 'Setnayan Pro for vendors (weekly subscription)',
       description:
         'Multi-service authoring, per-service calendars + master calendar, in-app payments with auto-disbursement, proposal builder, team / agent invites, plus free Setnayan Concierge for every couple you book. Billed weekly, paused anytime.',
-      price: '499',
+      price: '4999',
       priceCurrency: 'PHP',
       priceSpecification: {
         '@type': 'UnitPriceSpecification',
-        price: '499',
+        price: '4999',
         priceCurrency: 'PHP',
         unitText: 'WEEK',
       },

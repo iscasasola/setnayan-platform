@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation';
 import { AlertTriangle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
 import {
   fetchOwnVendorProfile,
   fetchVendorCompletedEventStats,
@@ -89,6 +91,13 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // Lazy subscription expiry sweep (Task #23 — pilot blocker). Scoped to
+  // this vendor's auth user so the vendor-dashboard hot path stays fast.
+  // Fire-and-forget — failures are swallowed inside the sweep itself, and
+  // the admin global sweep at /admin/payments is the safety net of last
+  // resort.
+  void sweepLapsedSubscriptions(createAdminClient(), { vendorUserId: user.id });
+
   // Crash guard — every subsequent fetch is wrapped so a transient DB / RLS
   // / column-drift failure shows a friendly error state instead of crashing
   // the whole page with a generic Next.js 5xx digest. Sentry still captures
@@ -175,14 +184,19 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
     return (
       <div className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
         <header className="mb-6 flex items-start gap-3">
-          <AlertTriangle aria-hidden className="mt-0.5 h-6 w-6 shrink-0 text-terracotta" strokeWidth={1.75} />
+          <AlertTriangle
+            aria-hidden
+            className="mt-0.5 h-6 w-6 shrink-0 text-terracotta"
+            strokeWidth={1.75}
+          />
           <div className="space-y-1">
-            <h1 className="text-2xl font-semibold tracking-tight">Your vendor dashboard is temporarily unavailable.</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Your vendor dashboard is temporarily unavailable.
+            </h1>
             <p className="text-sm text-ink/65">
-              We hit an error loading your profile. The Setnayan team has been notified
-              via Sentry. Refreshing in a minute usually clears transient failures;
-              if it persists, please reply to your last vendor email and we&rsquo;ll
-              dig in.
+              We hit an error loading your profile. The Setnayan team has been notified via Sentry.
+              Refreshing in a minute usually clears transient failures; if it persists, please reply
+              to your last vendor email and we&rsquo;ll dig in.
             </p>
           </div>
         </header>
@@ -204,16 +218,15 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
     logoDisplayMap,
   } = loaderState;
   const completion = profileCompletion(profile);
-  const pct =
-    completion.total === 0 ? 0 : Math.round((completion.done / completion.total) * 100);
+  const pct = completion.total === 0 ? 0 : Math.round((completion.done / completion.total) * 100);
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Your profile</h1>
         <p className="text-base text-ink/65">
-          Edit your business info. Couples find you by the contact email below and start
-          chats from their dashboard — see those at Messages.
+          Edit your business info. Couples find you by the contact email below and start chats from
+          their dashboard — see those at Messages.
         </p>
       </header>
 
@@ -374,11 +387,11 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
         >
           <div className="flex flex-wrap gap-2">
             {EVENT_TYPES_SERVED.map((et) => {
-              const checked = profile?.event_types?.includes(et.key) ?? (et.key === 'wedding');
+              const checked = profile?.event_types?.includes(et.key) ?? et.key === 'wedding';
               return (
                 <label
                   key={et.key}
-                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 py-1.5 text-xs text-ink/75 transition has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/10 has-[:checked]:text-terracotta-700 hover:border-ink/30"
+                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 py-1.5 text-xs text-ink/75 transition hover:border-ink/30 has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/10 has-[:checked]:text-terracotta-700"
                 >
                   <input
                     type="checkbox"
@@ -411,7 +424,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
                   return (
                     <label
                       key={ct.key}
-                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 py-1.5 text-xs text-ink/75 transition has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/10 has-[:checked]:text-terracotta-700 hover:border-ink/30"
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 py-1.5 text-xs text-ink/75 transition hover:border-ink/30 has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/10 has-[:checked]:text-terracotta-700"
                     >
                       <input
                         type="checkbox"
@@ -436,7 +449,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
                   return (
                     <label
                       key={v.key}
-                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 py-1.5 text-xs text-ink/75 transition has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/10 has-[:checked]:text-terracotta-700 hover:border-ink/30"
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3 py-1.5 text-xs text-ink/75 transition hover:border-ink/30 has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/10 has-[:checked]:text-terracotta-700"
                     >
                       <input
                         type="checkbox"
@@ -465,10 +478,7 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
               className="input-field"
             />
           </Field>
-          <Field
-            label="HQ address (for distance to couples)"
-            htmlFor="hq_address"
-          >
+          <Field label="HQ address (for distance to couples)" htmlFor="hq_address">
             <input
               id="hq_address"
               name="hq_address"
@@ -478,9 +488,8 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
               className="input-field"
             />
             <p className="mt-1 text-xs text-ink/55">
-              Used to show couples how far you are from their reception
-              venue. Street address geocodes more precisely than a city
-              alone.
+              Used to show couples how far you are from their reception venue. Street address
+              geocodes more precisely than a city alone.
             </p>
           </Field>
           <Field label="Website" htmlFor="website">
@@ -524,10 +533,9 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
           <span>
             <span className="block text-sm font-medium text-ink">Published</span>
             <span className="block text-xs text-ink/55">
-              When on, your profile appears in the Setnayan vendor marketplace. New
-              profiles show with a <em>Coming soon</em> badge until Setnayan
-              verifies your business — the badge flips to <em>Verified</em> the
-              moment your application is approved.
+              When on, your profile appears in the Setnayan vendor marketplace. New profiles show
+              with a <em>Coming soon</em> badge until Setnayan verifies your business — the badge
+              flips to <em>Verified</em> the moment your application is approved.
             </span>
           </span>
         </label>
@@ -541,7 +549,6 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
           </SubmitButton>
         </div>
       </form>
-
     </div>
   );
 }

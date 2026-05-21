@@ -11,7 +11,136 @@
 
 ---
 
-## Phase 1 — Fill in business info (15 min, no signups required)
+## Post 2026-05-22 sprint punch list (read this FIRST)
+
+> 17 PRs shipped autonomously overnight on 2026-05-22 while you were offline.
+> Total time to clear this list: ~45 min of owner-side actions, all external
+> to the codebase (Vercel env paste, mailbox forward, Supabase CLI, Sentry
+> click-test, Better Stack monitor, GSC resubmit, two product decisions).
+> Engineering work has landed and is awaiting these owner actions to be
+> production-effective. Numbered in recommended execution order.
+
+### Today's 17 merges (for awareness)
+
+| Area | PR | What it shipped |
+|---|---|---|
+| Migration | [#272](https://github.com/iscasasola/setnayan-platform/pull/272) | `launch_promo_until` column (Jan 30 2027 promo) |
+| Privacy | [#273](https://github.com/iscasasola/setnayan-platform/pull/273) | RA 10173 4 missing sections in `/privacy` |
+| Orphan fix | [#274](https://github.com/iscasasola/setnayan-platform/pull/274) | `/vendors/compare` route reachable |
+| Orphan fix | [#285](https://github.com/iscasasola/setnayan-platform/pull/285) | `/admin` payment-methods nav |
+| Orphan fix | [#287](https://github.com/iscasasola/setnayan-platform/pull/287) | `/schedule` + `/disputes` couple-side nav |
+| Observability | [#275](https://github.com/iscasasola/setnayan-platform/pull/275) | `/api/health` + `/api/health/deep` endpoints |
+| Observability | [#280](https://github.com/iscasasola/setnayan-platform/pull/280) | Sentry smoke-test admin trigger |
+| Observability | [#289](https://github.com/iscasasola/setnayan-platform/pull/289) | Typecheck fix on health-deep |
+| Payments | [#277](https://github.com/iscasasola/setnayan-platform/pull/277) | 3 race conditions sealed in cart/checkout |
+| SEO | [#278](https://github.com/iscasasola/setnayan-platform/pull/278) | schema.org JSON-LD across marketing routes |
+| SEO | [#279](https://github.com/iscasasola/setnayan-platform/pull/279) | Sitemap +4 routes (pricing/how-it-works/waitlist/download) |
+| SEO | [#286](https://github.com/iscasasola/setnayan-platform/pull/286) | Footer link parity |
+| Drift cleanup | [#276](https://github.com/iscasasola/setnayan-platform/pull/276) | Lint guard + Pareto + CMP cleanup |
+| Drift cleanup | [#288](https://github.com/iscasasola/setnayan-platform/pull/288) | Email link audit + CI guard |
+| Marketing | [#281](https://github.com/iscasasola/setnayan-platform/pull/281) | Patiktok + Pakanta copy refresh |
+| Marketing | [#282](https://github.com/iscasasola/setnayan-platform/pull/282) | Worked example + actor terms (customer/host) |
+| PWA | [#284](https://github.com/iscasasola/setnayan-platform/pull/284) | Day-of mode shell |
+
+### Owner actions (recommended order)
+
+#### 1. Paste 4 crypto secrets in Vercel env (~5 min) 🔴 blocker
+
+Without these, OAuth flows fail decrypt and cron/internal endpoints return 401.
+Pre-generated values:
+
+```
+ENCRYPTION_KEY=YjI4OWY0ZDhhMzc2NTJhYzU3NjFmNjg4OWFmNDdmZGZjNGE4ZTBiNzNlMmI2YzlkYmUxN2FjODg5N2MxMjNkZQ==
+CRON_SECRET=ZjFiZDM4MmM2YjY2YjZjMmExMzZhMmFmYTZkOWY1ZDM5NjQ0YzkzZmM5MTU0NjI0YjkwODg5MzdkY2I3NjAzZA==
+OAUTH_REFRESH_CRON_SECRET=YTllN2Y5MjM4YjBkZGE3OGE3MjBmZjU5MzdiY2EzNzNkMmNiZTQ3MTQ3MWRjMjUzZTYwYWU5M2I4NDBmNTNhMQ==
+INTERNAL_WORKER_SECRET=Y2VlZGZmYTVkY2YwMTM3ZTk3OWRlZWFhYTI0YjY5OWUxMzM2YjY1M2QxOGY3YzZjMTRiOWZhYzQ3MWE3OWE2ZQ==
+```
+
+1. Open https://vercel.com/iscasasola/setnayan-platform-web/settings/environment-variables
+2. For each of the 4 variables: click **Add**, paste the name + value, tick **Production**, **Preview**, **Development** → **Save**
+3. Vercel auto-triggers a redeploy. Wait ~2 min.
+4. Verify in the deployment logs that no envvar warnings appear.
+
+#### 2. Verify `dpo@setnayan.com` mailbox routes to your inbox (~10 min) 🔴 RA 10173 §21
+
+Privacy policy (PR [#273](https://github.com/iscasasola/setnayan-platform/pull/273)) references this address. Required to be contactable.
+
+Two ways:
+- **Domain registrar forward (easier):** in your registrar console → Email forwarding → add `dpo@setnayan.com` → forward to `iscasasolaii@gmail.com`.
+- **Mailbox alias:** if you have Google Workspace on `setnayan.com`, add `dpo@` as an alias on your primary user.
+
+**Verify:** send an email from any other account to `dpo@setnayan.com`. It should land in your inbox within 60s.
+
+#### 3. Decide on `CONCIERGE_ENABLED` killswitch (~2 min, product decision)
+
+`apps/web/lib/concierge.ts:33` has `CONCIERGE_ENABLED=false` (you set this 2026-05-20). Engineering doesn't unilaterally flip owner-set killswitches.
+
+**Question:** is Setnayan Concierge in the pilot scope (per CLAUDE.md row 8, pilot-first posture)?
+
+- **YES** → flip to `true` in `apps/web/lib/concierge.ts:33`, commit, push. Pilot couples will see the Concierge upgrade card + 3-day trial CTA.
+- **NO** → leave at `false`. Add a one-line comment above the constant explaining the deferral reason ("pilot scope excludes paid Concierge AI brain — defer to V1.5+" or similar) so the next session doesn't re-litigate.
+
+Either way: reply in this thread so engineering can update CLAUDE.md.
+
+#### 4. Push migration to prod via `supabase db push --linked` (~3 min)
+
+PR [#272](https://github.com/iscasasola/setnayan-platform/pull/272) added `20260522080000_iteration_0034_launch_promo_until_jan_30_2027.sql`. Must be applied to production DB before the launch promo column is queryable.
+
+```bash
+cd ~/Setnayan/setnayan-platform # or wherever your local checkout lives
+git pull origin main
+supabase db push --linked
+supabase migration list --linked | tail -5 # confirm 20260522080000 appears as applied
+```
+
+If the CLI says "Remote migration versions not found locally," your working copy is behind `origin/main` — run `git pull` first. Do NOT run `supabase migration repair` (destructive against production).
+
+#### 5. Sentry smoke-test 3-step verification (~5 min) — closes punch-list #19e
+
+Per the new Sentry section added by PR [#280](https://github.com/iscasasola/setnayan-platform/pull/280):
+
+1. Navigate to `setnayan.com/admin/settings → System health`
+2. Click **Fire Sentry smoke test (admin only)** — note the `trace_id` shown in the green confirmation panel
+3. Within 60s: open https://sentry.io → Setnayan project → Issues → search by `trace_id:<paste>` → confirm the error appears
+4. Within 60s: check your configured alert destination (email or Slack) → confirm the alert lands
+
+If steps 3 or 4 fail, the SDK is mounted but the alert routing or DSN isn't wired correctly — reply with the trace_id and which step failed; engineering investigates.
+
+#### 6. Configure Better Stack synthetic monitor (~10 min)
+
+Target the deep-health endpoint shipped via PR [#275](https://github.com/iscasasola/setnayan-platform/pull/275) + typecheck fix PR [#289](https://github.com/iscasasola/setnayan-platform/pull/289).
+
+1. Open https://betterstack.com → Uptime → **Create monitor**
+2. **URL:** `https://www.setnayan.com/api/health/deep`
+3. **Region:** Singapore (closest to PH)
+4. **Method:** HEAD
+5. **Interval:** 60s
+6. **Alert on:** non-200 OR duration > 3s
+7. Save.
+
+**Optional faster sanity probe:** create a second monitor targeting `https://www.setnayan.com/api/health` (shallow), HEAD, 30s interval. Catches Vercel-edge issues that don't flag in the deep check.
+
+#### 7. Resubmit sitemap to Google Search Console (~3 min)
+
+PR [#279](https://github.com/iscasasola/setnayan-platform/pull/279) added `/pricing` `/how-it-works` `/waitlist` `/download` to the sitemap (now 14 routes total).
+
+1. Open https://search.google.com/search-console
+2. Select the `setnayan.com` property
+3. Sitemaps → click `sitemap.xml` row → **Resubmit**
+4. Google will re-crawl the 4 new high-intent SEO surfaces faster than waiting for the next natural crawl.
+
+#### 8. Decide on PR [#283](https://github.com/iscasasola/setnayan-platform/pull/283) — stress test script (~5 min product decision)
+
+PR open without auto-merge per the "only auto-merge if 5/5 scenarios PASS" gate. Full run wasn't executed (sandbox had no Docker, no remote test-DB).
+
+Three options:
+- **(a) Provide real test DB credentials** → reply in PR with `STRESS_TEST_DB_URL=...` (a throwaway Supabase project, not prod) → engineering runs the test → merges if green.
+- **(b) Merge with caveat** → comment "merge with run pending"; the script lands in the repo, run executes later when test-DB is provisioned.
+- **(c) Leave open until V1.1** → close with `wontfix: defer to V1.1`; revisit after pilot wraps.
+
+Recommended: **(b)** if you want the script in the repo for the V1.5+ traffic phase; **(c)** if pilot scope doesn't justify the test infra investment yet.
+
+---
 
 **Why:** The app shows placeholders for BIR TIN, business name, and bank
 details. Until you replace them, real receipts say "TIN 000-000-000-000"

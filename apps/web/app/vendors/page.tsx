@@ -410,13 +410,28 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // tags aren't excluded; only vendors with explicit non-matching arrays
   // get filtered out.
   if (filters.matchEvent && matchableEvent) {
-    query = query
-      .or(
-        `compatible_ceremony_types.is.null,compatible_ceremony_types.cs.{${matchableEvent.ceremony_type}}`,
-      )
-      .or(
+    // Always require ceremony_type compatibility — that's the faith match.
+    query = query.or(
+      `compatible_ceremony_types.is.null,compatible_ceremony_types.cs.{${matchableEvent.ceremony_type}}`,
+    );
+    // Skip the venue_setting compatibility check when the catalog is
+    // already filtered to a ceremony-venue category. Ceremony venues are
+    // tagged with venue_settings like 'heritage' / 'destination' /
+    // 'civil_registrar' — never with the reception-side settings the
+    // couple picks (banquet_hall, garden, beach, etc.). Compounding
+    // both filters empties the result set, which is what owner saw on
+    // 2026-05-21 when clicking [Search] from the Ceremony venue
+    // planner card. Reception-side categories (everything else) still
+    // get both filters because non-venue vendors (photographers,
+    // caterers, etc.) typically declare both dimensions.
+    const isCeremonyCategoryFilter =
+      filters.category === 'religious_venue' ||
+      filters.category === 'church_fees';
+    if (!isCeremonyCategoryFilter) {
+      query = query.or(
         `compatible_venue_settings.is.null,compatible_venue_settings.cs.{${matchableEvent.venue_setting}}`,
       );
+    }
   }
 
   // Sort: newest + name_asc are direct column sorts on the vendor_profiles

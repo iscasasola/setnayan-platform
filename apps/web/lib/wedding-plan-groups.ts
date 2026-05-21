@@ -170,15 +170,30 @@ export function statusOfVendor(rawStatus: string | null | undefined): VendorPick
   return rawStatus && LOCKED_STATUSES.has(rawStatus) ? 'locked' : 'picked';
 }
 
+export type PlanCardPick = {
+  vendor_id: string;
+  vendor_name: string;
+  category: VendorCategory;
+  status: VendorPickStatus;
+  /** Raw event_vendors.status (e.g. 'considering', 'inquiring', 'contracted') for finer-grained chips. */
+  raw_status: string | null;
+  total_cost_php: number | null;
+  deposit_paid_php: number | null;
+  notes: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+};
+
 export type GroupedPicks = {
   groupId: PlanGroupId;
-  picks: ReadonlyArray<{
-    vendor_id: string;
-    vendor_name: string;
-    category: VendorCategory;
-    status: VendorPickStatus;
-  }>;
+  picks: ReadonlyArray<PlanCardPick>;
 };
+
+function toNum(v: number | string | null | undefined): number | null {
+  if (v === null || v === undefined) return null;
+  const n = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) ? n : null;
+}
 
 /** Bucket event_vendors rows into the 12-group structure. */
 export function bucketVendorsByGroup(
@@ -187,17 +202,28 @@ export function bucketVendorsByGroup(
     vendor_name: string;
     category: VendorCategory;
     status: string | null;
+    total_cost_php?: number | string | null;
+    deposit_paid_php?: number | string | null;
+    notes?: string | null;
+    contact_email?: string | null;
+    contact_phone?: string | null;
   }>,
 ): Map<PlanGroupId, GroupedPicks['picks']> {
   const out = new Map<PlanGroupId, Array<GroupedPicks['picks'][number]>>();
   for (const g of PLAN_GROUPS) out.set(g.id, []);
 
   for (const v of vendors) {
-    const pick = {
+    const pick: PlanCardPick = {
       vendor_id: v.vendor_id,
       vendor_name: v.vendor_name,
       category: v.category,
       status: statusOfVendor(v.status),
+      raw_status: v.status ?? null,
+      total_cost_php: toNum(v.total_cost_php ?? null),
+      deposit_paid_php: toNum(v.deposit_paid_php ?? null),
+      notes: v.notes ?? null,
+      contact_email: v.contact_email ?? null,
+      contact_phone: v.contact_phone ?? null,
     };
     for (const g of PLAN_GROUPS) {
       if (g.categories.includes(v.category)) {

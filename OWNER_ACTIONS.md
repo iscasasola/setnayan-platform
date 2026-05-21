@@ -47,14 +47,17 @@
 #### 1. Paste 4 crypto secrets in Vercel env (~5 min) 🔴 blocker
 
 Without these, OAuth flows fail decrypt and cron/internal endpoints return 401.
-Pre-generated values:
 
-```
-ENCRYPTION_KEY=YjI4OWY0ZDhhMzc2NTJhYzU3NjFmNjg4OWFmNDdmZGZjNGE4ZTBiNzNlMmI2YzlkYmUxN2FjODg5N2MxMjNkZQ==
-CRON_SECRET=ZjFiZDM4MmM2YjY2YjZjMmExMzZhMmFmYTZkOWY1ZDM5NjQ0YzkzZmM5MTU0NjI0YjkwODg5MzdkY2I3NjAzZA==
-OAUTH_REFRESH_CRON_SECRET=YTllN2Y5MjM4YjBkZGE3OGE3MjBmZjU5MzdiY2EzNzNkMmNiZTQ3MTQ3MWRjMjUzZTYwYWU5M2I4NDBmNTNhMQ==
-INTERNAL_WORKER_SECRET=Y2VlZGZmYTVkY2YwMTM3ZTk3OWRlZWFhYTI0YjY5OWUxMzM2YjY1M2QxOGY3YzZjMTRiOWZhYzQ3MWE3OWE2ZQ==
-```
+**Get the 4 pre-generated values from the Task #29 chat thread description** (or from your password manager if you already saved them there — the values themselves are NOT checked into the repo for obvious reasons; gitleaks scans every PR).
+
+The 4 variable names are:
+
+- `ENCRYPTION_KEY` — used by `apps/web/lib/encryption.ts` for AES-256-GCM OAuth token storage
+- `CRON_SECRET` — gates the admin cron endpoints under `/api/admin/cron/*`
+- `OAUTH_REFRESH_CRON_SECRET` — gates `/api/cron/oauth-refresh`
+- `INTERNAL_WORKER_SECRET` — gates `/api/internal/patiktok/process-job`
+
+Each value is a 32-byte base64 string (e.g. `openssl rand -base64 32`). If you've misplaced the pre-generated values, regenerate fresh ones via that command — only catch is that any existing OAuth refresh tokens in `oauth_grants` will fail decrypt and need to be re-authorized by their owners. Pilot-stage so impact is small but visible.
 
 1. Open https://vercel.com/iscasasola/setnayan-platform-web/settings/environment-variables
 2. For each of the 4 variables: click **Add**, paste the name + value, tick **Production**, **Preview**, **Development** → **Save**

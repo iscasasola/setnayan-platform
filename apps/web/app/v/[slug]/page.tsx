@@ -169,12 +169,21 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
           <Link href="/" className="flex items-center text-ink">
             <BrandLogo height={32} withWordmark />
           </Link>
-          <Link
-            href="/signup"
-            className="hidden text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline sm:inline"
-          >
-            Plan with Setnayan
-          </Link>
+          {user ? (
+            <Link
+              href="/dashboard"
+              className="hidden text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline sm:inline"
+            >
+              Return to Dashboard
+            </Link>
+          ) : (
+            <Link
+              href="/signup"
+              className="hidden text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline sm:inline"
+            >
+              Plan with Setnayan
+            </Link>
+          )}
         </div>
       </header>
 

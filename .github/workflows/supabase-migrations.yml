@@ -1,0 +1,111 @@
+name: supabase-migrations
+
+# Auto-applies new Supabase migrations to production on every push to main
+# that touches `supabase/migrations/**`. Closes the gap where Vercel deploys
+# the app code with `next build` but never runs `supabase db push` — which
+# left several recent migrations (e.g. event_vendors.source_venue_directory_id)
+# unmerged in prod and surfaced as "Try again" errors on the marketplace.
+#
+# ─── ONE-TIME SETUP (owner) ──────────────────────────────────────────
+# This workflow needs three pieces of state attached to the repo on
+# GitHub. Set them once, then every merge to main with a new migration
+# applies itself.
+#
+#   1. Settings → Secrets and variables → Actions → New repository secret
+#         Name:  SUPABASE_ACCESS_TOKEN
+#         Value: <personal access token from
+#                 https://supabase.com/dashboard/account/tokens>
+#
+#   2. Same place, second secret:
+#         Name:  SUPABASE_DB_PASSWORD
+#         Value: <the database password — Supabase dashboard → Project
+#                 Settings → Database → Connection string contains it,
+#                 OR reset it under Database → Reset database password>
+#
+#   3. Settings → Secrets and variables → Actions → New repository VARIABLE
+#         Name:  SUPABASE_PROJECT_REF
+#         Value: njrupjnvkjkitfctetvi
+#                (the project ref from NEXT_PUBLIC_SUPABASE_URL — kept as
+#                 a variable, not a secret, since it's already in the
+#                 client bundle. Variable lets future env-split land
+#                 cleanly without rewriting the workflow.)
+#
+# After all three are set, the next migration commit to main triggers
+# this workflow automatically. The Actions tab shows what got applied.
+#
+# ─── HOW TO RUN MANUALLY ─────────────────────────────────────────────
+# Actions → supabase-migrations → Run workflow → main. Useful when:
+#   • A previous run failed mid-apply and you want to retry
+#   • A migration landed in main without touching `supabase/migrations/**`
+#     (rare — the path filter exists to skip the workflow for unrelated
+#     PRs, not to gate intentional applies)
+#
+# ─── HOW IT WORKS ────────────────────────────────────────────────────
+# The Supabase CLI's `db push` reads `supabase_migrations.schema_migrations`
+# in the target database and applies only versions that aren't already
+# present. Re-running is a no-op. Migration ordering follows the
+# alphabetical filename order under `supabase/migrations/`, so timestamp
+# prefixes ARE the version identifier — duplicate timestamps cause CLI
+# errors (caught here at apply time, not at runtime).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+  workflow_dispatch:
+
+# Serialize applies across overlapping main pushes. `cancel-in-progress`
+# left FALSE because a half-applied migration set is a worse state than
+# a queued-up second run.
+concurrency:
+  group: supabase-migrations-prod
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    name: apply pending migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Sanity-check that required secrets are present
+        run: |
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::SUPABASE_ACCESS_TOKEN is not set. See workflow file header for setup steps."
+            exit 1
+          fi
+          if [ -z "$SUPABASE_DB_PASSWORD" ]; then
+            echo "::error::SUPABASE_DB_PASSWORD is not set. See workflow file header for setup steps."
+            exit 1
+          fi
+          if [ -z "$SUPABASE_PROJECT_REF" ]; then
+            echo "::error::SUPABASE_PROJECT_REF variable is not set. See workflow file header for setup steps."
+            exit 1
+          fi
+
+      - name: Link to Supabase project
+        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+
+      - name: List local migrations
+        run: |
+          echo "Local migration files in this commit:"
+          ls -1 supabase/migrations/ | grep -E '^[0-9]+_' || echo "(none)"
+
+      - name: Apply pending migrations
+        run: supabase db push --yes
+
+      - name: Show migration history after apply
+        if: always()
+        run: supabase migration list

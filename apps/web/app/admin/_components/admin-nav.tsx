@@ -9,6 +9,13 @@ type Leaf = { kind: 'leaf'; href: string; label: string };
 type Group = { kind: 'group'; label: string; items: { href: string; label: string }[] };
 type Entry = Leaf | Group;
 
+// URL-only admin routes (intentionally NOT in this nav — reached via parent list pages):
+//   /admin/force-majeure/[flagId]            — opened from /admin/force-majeure row link
+//   /admin/vendors/[vendorProfileId]/edit    — opened from /admin/vendors row link
+//   /admin/venues/[id]                       — opened from /admin/venues row link
+//   /admin/venues/new                        — opened from /admin/venues "New venue" CTA
+// These are detail/create surfaces with no standalone entry point — listing them in nav
+// would 404 (dynamic params) or duplicate the parent CTA (venues/new).
 const NAV: Entry[] = [
   { kind: 'leaf', href: '/admin', label: 'Overview' },
   {
@@ -41,6 +48,7 @@ const NAV: Entry[] = [
       { href: '/admin/receipts', label: 'Receipts' },
       { href: '/admin/bir/2307', label: 'BIR 2307' },
       { href: '/admin/ads', label: 'Ads' },
+      { href: '/admin/settings/payment-methods', label: 'Payment methods' },
     ],
   },
   {

@@ -63,8 +63,8 @@ export default async function JoinSuccessPage({ params }: Props) {
 
       <section className="space-y-3 text-sm text-ink/70">
         <p>
-          Your personal invitation site will be ready when iteration 0002 ships. For now,
-          you&rsquo;ll find this event in your dashboard.
+          Your personal invitation site is on its way. For now, you&rsquo;ll find this
+          event in your dashboard.
         </p>
       </section>
 

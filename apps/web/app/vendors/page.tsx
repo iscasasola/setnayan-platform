@@ -142,7 +142,7 @@ type Props = {
 // `feedback_setnayan_no_dev_text_post_launch`.
 const VENDORS_NOTICE_COPY: Record<string, { title: string; body: string }> = {
   compare_v1_2: {
-    title: 'Side-by-side comparison is coming in V1.2.',
+    title: 'Side-by-side comparison is coming soon.',
     body:
       'For now, save vendors you’re considering to your shortlist from each vendor’s profile — we’ll bring the comparison view alongside it shortly.',
   },

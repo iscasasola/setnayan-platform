@@ -155,7 +155,7 @@ export default function PrivacyPage() {
           </ul>
         </Section>
 
-        <Section title="TikTok integration (Patiktok · iteration 0017)">
+        <Section title="TikTok integration (Patiktok)">
           <p>
             Couples on the Patiktok Personal tier (₱1,999/day) connect their own
             TikTok account to Setnayan so Patiktok booth compilations can
@@ -225,7 +225,7 @@ export default function PrivacyPage() {
           </ul>
         </Section>
 
-        <Section title="YouTube integration (Panood · iteration 0011)">
+        <Section title="YouTube integration (Panood)">
           <p>
             Couples who purchase a Panood SKU (live wedding broadcast) connect
             their own YouTube channel to Setnayan so the live ceremony can
@@ -352,7 +352,7 @@ export default function PrivacyPage() {
           </ul>
         </Section>
 
-        <Section title="Google Drive integration (Photo Delivery · iteration 0009 + Papic · iteration 0012)">
+        <Section title="Google Drive integration (Photo Delivery + Papic)">
           <p>
             Couples who use Photo Delivery (vendor-released final wedding
             photos) or Papic (the V1.5+ camera mesh) connect a Google Drive

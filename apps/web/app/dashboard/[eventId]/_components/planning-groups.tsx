@@ -8,9 +8,26 @@ import {
   type PlanGroup,
   type PlanGroupId,
 } from '@/lib/wedding-plan-groups';
-import type { VendorCategory } from '@/lib/vendors';
+import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
 import { PlanCardCTAs } from './plan-card-ctas';
 import { PlanCardCompare } from './plan-card-compare';
+
+function formatPHP(value: number | null): string | null {
+  if (value === null) return null;
+  return new Intl.NumberFormat('en-PH', {
+    style: 'currency',
+    currency: 'PHP',
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function rawStatusLabel(raw: string | null): string {
+  if (!raw) return 'Considering';
+  return raw
+    .split('_')
+    .map((w) => (w.length > 0 ? w.charAt(0).toUpperCase() + w.slice(1) : w))
+    .join(' ');
+}
 
 type Props = {
   eventId: string;
@@ -185,24 +202,49 @@ function GroupCard({
       </p>
 
       {picks.length > 0 ? (
-        <ul className="space-y-1 text-sm">
-          {picks.slice(0, MAX_VENDOR_PREVIEW).map((p) => (
-            <li
-              key={p.vendor_id}
-              className="flex items-center justify-between gap-2 text-ink/80"
-            >
-              <span className="truncate">{p.vendor_name}</span>
-              {p.status === 'locked' ? (
-                <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-emerald-800">
-                  Locked
+        <ul className="space-y-2 text-sm">
+          {picks.slice(0, MAX_VENDOR_PREVIEW).map((p) => {
+            // Multi-canonical groups (Attire & Rings, Music & Entertainment,
+            // etc.) include the canonical label on the sub-line so the
+            // couple can tell at a glance which slot each pick fills.
+            // Single-canonical groups skip it (the card header already
+            // says "Catering" / "Cake" / etc.).
+            const isMultiCanonical = group.categories.length > 1;
+            const formattedCost = formatPHP(p.total_cost_php);
+            const subLineParts: string[] = [];
+            if (isMultiCanonical) {
+              subLineParts.push(
+                VENDOR_CATEGORY_LABEL[p.category] ?? p.category,
+              );
+            }
+            if (formattedCost !== null) subLineParts.push(formattedCost);
+            return (
+              <li
+                key={p.vendor_id}
+                className="flex items-start justify-between gap-2"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm text-ink/80">
+                    {p.vendor_name}
+                  </p>
+                  {subLineParts.length > 0 ? (
+                    <p className="truncate font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">
+                      {subLineParts.join(' · ')}
+                    </p>
+                  ) : null}
+                </div>
+                <span
+                  className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] ${
+                    p.status === 'locked'
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : 'bg-ink/5 text-ink/55'
+                  }`}
+                >
+                  {rawStatusLabel(p.raw_status)}
                 </span>
-              ) : (
-                <span className="shrink-0 rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-ink/55">
-                  Picked
-                </span>
-              )}
-            </li>
-          ))}
+              </li>
+            );
+          })}
           {picks.length > MAX_VENDOR_PREVIEW ? (
             <li className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
               +{picks.length - MAX_VENDOR_PREVIEW} more

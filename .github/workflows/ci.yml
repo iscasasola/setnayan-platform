@@ -59,6 +59,38 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key
           NEXT_PUBLIC_APP_URL: http://localhost:3000
 
+  bundle-size-check:
+    name: bundle size check
+    runs-on: ubuntu-latest
+    # Hard ceiling: 200KB gzipped on the shared client bundle (union of
+    # chunks loaded on every page). CLAUDE.md 2026-05-22 KPI lock —
+    # without this guard, a single chunky import in a shared layout
+    # silently regresses LCP for every couple-facing route. The script
+    # at apps/web/scripts/check-bundle-size.mjs intersects build-manifest
+    # routes, gzips each shared chunk on disk, and fails over budget.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Build web app
+        run: pnpm --filter @setnayan/web build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+
+      - name: Check shared bundle size
+        run: pnpm --filter @setnayan/web bundle-size-check
+
   gitleaks:
     name: secret scan
     runs-on: ubuntu-latest

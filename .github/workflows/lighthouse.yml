@@ -1,7 +1,17 @@
 name: lighthouse
 
-# Runs Lighthouse CI against a local production build. Targets per kickoff:
-# Performance / Accessibility / Best Practices / SEO ≥ 90 (error); PWA ≥ 90 (warn).
+# Runs Lighthouse CI against a local production build under throttled mobile
+# 4G PH conditions (CLAUDE.md 2026-05-22 KPI lock: LCP <1.5s · INP <100ms ·
+# CLS <0.05). Three pages covered today: /, /pricing, /login.
+#
+# Category gates (Performance / A11y / Best Practices / SEO ≥ 90) stay as
+# `error` (hard fail) — those are stable.
+#
+# Core Web Vitals (LCP / TBT / max-potential-FID / CLS / FCP / speed-index)
+# ship as `warn` (Task #33) — we report them on every PR and use the next
+# 1-2 weeks of runs to establish baselines. Flip to `error` post-pilot once
+# we know which page actually anchors the budget (Slug pages may need
+# different thresholds than marketing-static surfaces).
 
 on:
   pull_request:

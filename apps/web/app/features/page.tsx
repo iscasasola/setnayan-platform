@@ -26,7 +26,7 @@ import { SiteFooter } from './_sections/_SiteFooter';
 // 3. Planning toolkit (guest list, seating, budget, mood board, schedule)
 // 4. Communications (invitations, QR, microsite, RSVP, email)
 // 5. Vendors & ledger (vendor mgmt, payment milestones, .ics, contracts)
-// 6. Day-of apparatus (Panood, Papic, Pakulay, Pailaw, Pareto, Monogram)
+// 6. Day-of apparatus (Panood, Papic, Pakulay, Pailaw, Photo Delivery, Supplies)
 // 7. Outsourcing / pacing / scheduling (the dropped Section 7)
 // 8. Compliance & receipts (BIR ORs, RA 10173, EWT, Form 2307)
 // 9. Final CTA + soft secondary to /for-vendors

@@ -3,16 +3,16 @@ import {
   Camera,
   Palette,
   Lightbulb,
-  Aperture,
-  Sparkles,
   CloudUpload,
   ShoppingBag,
   type LucideIcon,
 } from 'lucide-react';
 
 // Day-of apparatus (in-app services) — Panood, Papic, Pakulay, Pailaw,
-// Pareto, Custom Monogram, Photo Delivery, Supplies Marketplace. One card
-// per service. NO PHP figures (prices live on /pricing and the in-app cart).
+// Photo Delivery, Supplies Marketplace. One card per service.
+// NO PHP figures (prices live on /pricing and the in-app cart).
+// Two cards removed 2026-05-22 — Pro Camera Bridge never shipped to V1;
+// monogram-pack copy superseded by Bespoke Monogram (iteration 0037).
 
 type Service = {
   Icon: LucideIcon;
@@ -45,18 +45,6 @@ const SERVICES: Service[] = [
     sku: 'Pailaw',
     tagline: 'LED background maker',
     body: '8K loop generators for venue LED walls. USB-deliverable for offline playback at venues with no reliable internet. Match the loop to your palette and the visual language of your day reads consistently from the entrance to the dance floor.',
-  },
-  {
-    Icon: Aperture,
-    sku: 'Pareto',
-    tagline: 'Pro camera bridge',
-    body: 'Pair a DSLR (Canon / Nikon / Sony / Fujifilm) with the Papic phone for broadcast-grade glass without changing the operator&rsquo;s workflow. The phone handles connectivity, tagging, and delivery; the DSLR handles the image.',
-  },
-  {
-    Icon: Sparkles,
-    sku: 'Custom Monogram Pack',
-    tagline: 'Your mark, everywhere',
-    body: 'One purchase replaces the Setnayan watermark with the couple&rsquo;s monogram across every media output — invitations, broadcast lower-thirds, photo overlays, gallery downloads, souvenir reels. Designed for you by the Setnayan Team during onboarding.',
   },
   {
     Icon: CloudUpload,

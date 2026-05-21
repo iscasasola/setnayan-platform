@@ -38,7 +38,7 @@ const SERVICES: Array<{
   {
     name: 'Papic',
     tagline: 'Designated Paparazzi',
-    body: 'Native iOS/Android app for friends and family. Gesture shutter, QR-tag photos to specific guests or whole tables, untagged photos still land in the couple’s gallery. Real-time delivery.',
+    body: 'Native iOS/Android app for friends and family. Gesture shutter, QR-tag photos to specific guests or whole tables, untagged photos still land in your gallery. Real-time delivery.',
     Icon: Camera,
     tag: 'quote',
     image: '/add-ons/papic.avif',

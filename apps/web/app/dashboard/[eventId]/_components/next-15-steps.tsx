@@ -1,3 +1,6 @@
+'use client';
+
+import { useState } from 'react';
 import Link from 'next/link';
 import {
   AlertCircle,
@@ -38,19 +41,51 @@ type Props = {
   steps: ReadonlyArray<NextStep>;
 };
 
-// Default-visible step count when the section is collapsed. The remaining
-// steps (steps.slice(VISIBLE_TOP_COUNT)) sit inside a <details> element
-// and reveal on click. Owner directive 2026-05-22 — section was always-
-// expanded and "cluttered the page", so the collapse keeps it scannable
-// at first glance while preserving the full ladder one click away.
+// Default-visible step count when the section is collapsed. Owner
+// directive 2026-05-22 — section was always-expanded and "cluttered
+// the page", so the collapse keeps it scannable at first glance while
+// preserving the full ladder one click away.
 const VISIBLE_TOP_COUNT = 5;
 
+// Disclosure increment — how many additional steps reveal per click.
+// Owner directive 2026-05-22 — incremental reveal feels lighter than
+// a single "Show 10 more" disclosure that dumped the entire remaining
+// ladder at once. Five-at-a-time mirrors the initial-visible count, so
+// the host opens the surface in equal chunks instead of one big jump.
+const REVEAL_INCREMENT = 5;
+
 export function Next15Steps({ eventId, steps }: Props) {
+  // Number of additional steps revealed beyond VISIBLE_TOP_COUNT. State
+  // lives client-side because we increment by REVEAL_INCREMENT per click
+  // rather than dumping every remaining row at once. Hydration cost is
+  // negligible — the rows themselves render server-side; only the
+  // counter + button toggle is client-driven.
+  const [extraVisible, setExtraVisible] = useState(0);
+
   if (steps.length === 0) return null;
 
   const topSteps = steps.slice(0, VISIBLE_TOP_COUNT);
   const remainingSteps = steps.slice(VISIBLE_TOP_COUNT);
+  const visibleExtras = remainingSteps.slice(0, extraVisible);
+  const hiddenCount = remainingSteps.length - extraVisible;
   const hasMore = remainingSteps.length > 0;
+  const canRevealMore = hiddenCount > 0;
+  const isExpanded = extraVisible > 0;
+  // When fewer than REVEAL_INCREMENT remain, the button label reflects the
+  // true remaining count ("Show 3 more steps") rather than a misleading
+  // "Show 5 more" that under-delivers. Matches the existing pluralization
+  // pattern (steps.length === 1 ? '' : 's').
+  const nextRevealCount = Math.min(REVEAL_INCREMENT, hiddenCount);
+
+  const handleShowMore = () => {
+    setExtraVisible((prev) =>
+      Math.min(prev + REVEAL_INCREMENT, remainingSteps.length)
+    );
+  };
+
+  const handleShowFewer = () => {
+    setExtraVisible(0);
+  };
 
   return (
     <section
@@ -79,41 +114,53 @@ export function Next15Steps({ eventId, steps }: Props) {
             <NextStepRow step={step} index={index} eventId={eventId} />
           </li>
         ))}
+        {visibleExtras.map((step, index) => (
+          <li key={step.id}>
+            <NextStepRow
+              step={step}
+              index={VISIBLE_TOP_COUNT + index}
+              eventId={eventId}
+            />
+          </li>
+        ))}
         {hasMore ? (
-          // <details> keeps the collapse pure-SSR — no client JS, no
-          // hydration cost, native keyboard + screen-reader support.
-          // Default-closed; clicking the summary reveals remainingSteps.
-          // Lives inside the same <ol> so list-item numbering stays
-          // continuous when expanded.
-          <li>
-            <details className="group/expand">
-              <summary className="flex cursor-pointer items-center justify-between gap-2 px-4 py-3 text-xs font-medium text-terracotta transition-colors hover:bg-cream/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-cream sm:px-5 [&::-webkit-details-marker]:hidden [&::marker]:hidden">
-                <span className="font-mono text-[10px] uppercase tracking-[0.15em]">
-                  <span className="group-open/expand:hidden">
-                    Show {remainingSteps.length} more step{remainingSteps.length === 1 ? '' : 's'}
-                  </span>
-                  <span className="hidden group-open/expand:inline">
-                    Show fewer
-                  </span>
+          // Disclosure footer — surfaces either "Show N more steps" (when
+          // more rows remain hidden) or "Show fewer" (when expanded with
+          // no further rows to reveal). The two affordances are mutually
+          // exclusive at any given time, but coexist when the host has
+          // partially expanded the ladder — "Show 5 more steps" sits next
+          // to "Show fewer" so they can keep revealing or collapse back.
+          <li className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 sm:px-5">
+            {canRevealMore ? (
+              <button
+                type="button"
+                onClick={handleShowMore}
+                className="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta transition-colors hover:text-terracotta/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-cream"
+              >
+                <span>
+                  Show {nextRevealCount} more step{nextRevealCount === 1 ? '' : 's'}
                 </span>
                 <span aria-hidden className="font-mono text-sm leading-none">
-                  <span className="inline-block transition-transform group-open/expand:rotate-180">
-                    ↓
-                  </span>
+                  ↓
                 </span>
-              </summary>
-              <ol className="divide-y divide-ink/8 border-t border-ink/8">
-                {remainingSteps.map((step, index) => (
-                  <li key={step.id}>
-                    <NextStepRow
-                      step={step}
-                      index={VISIBLE_TOP_COUNT + index}
-                      eventId={eventId}
-                    />
-                  </li>
-                ))}
-              </ol>
-            </details>
+              </button>
+            ) : (
+              <span aria-hidden className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+                All caught up
+              </span>
+            )}
+            {isExpanded ? (
+              <button
+                type="button"
+                onClick={handleShowFewer}
+                className="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55 transition-colors hover:text-ink/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-cream"
+              >
+                <span>Show fewer</span>
+                <span aria-hidden className="font-mono text-sm leading-none">
+                  ↑
+                </span>
+              </button>
+            ) : null}
           </li>
         ) : null}
       </ol>

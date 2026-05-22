@@ -24,6 +24,8 @@ V1 web surface is **functionally complete**. Pre-launch sprint closed 2026-05-13
 
 Email-wired count is now **9 of 10** V1 templates. Only Phase 3 decision-gated items below remain.
 
+> **🔴 Active prod-deploy gap (Task #49, 2026-05-22):** Guest-list edit form throws `invalid input value for enum guest_role: "bride"` / `"groom"` because `20260530020000_guest_role_add_bride_groom.sql` (committed 2026-05-21) hasn't been applied to prod. Run `supabase migration list --linked` from your local checkout to see all unpushed migrations from the last 12 days, then `supabase db push --linked` to apply them. Full step-by-step in `OWNER_ACTIONS.md` punch-list item #9.
+
 > **🔴 Before next session:** run `npx supabase db push --db-url "$SUPABASE_DB_URL"` to apply 6 unpushed migrations (`blacklisted_emails`, `vendor_reviews`, `vendor_dashboard_expansion`, `force_majeure_flags`, `notification_type_additions`, `api_scopes`). The new surfaces will 500 against prod DB until pushed.
 
 ---

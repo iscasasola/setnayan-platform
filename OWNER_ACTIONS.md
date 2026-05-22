@@ -159,6 +159,69 @@ Three options:
 
 Recommended: **(b)** if you want the script in the repo for the V1.5+ traffic phase; **(c)** if pilot scope doesn't justify the test infra investment yet.
 
+#### 9. Push pending Supabase migrations to prod (~5 min · Task #49 fix)
+
+🔴 **Active user-facing bug:** Guest-list edit form throws `invalid input value for enum guest_role: "bride"` (Claire) and `...groom` (Ice). The migration `20260530020000_guest_role_add_bride_groom.sql` (commit `2e6f64f`, 2026-05-21) exists on `main` but hasn't been applied to prod. Migration follows the same idempotent `ALTER TYPE ... ADD VALUE IF NOT EXISTS` pattern as `20260514012000_notification_type_additions.sql` — safe to push.
+
+There may be other unpushed migrations from the last 12 days too (31 migrations have landed since the 2026-05-20 prod-sync verification). Easiest is to push all in one batch.
+
+**Easy path — Supabase CLI (recommended):**
+
+```bash
+# From your local checkout (NOT inside Claude — your real terminal):
+cd ~/path/to/setnayan-platform
+git pull origin main
+supabase migration list --linked  # shows which migrations are unpushed
+supabase db push --linked         # applies everything not yet in prod
+```
+
+If `migration list --linked` shows `20260530020000_guest_role_add_bride_groom.sql` as not-yet-applied, you've found the bug. After `db push --linked` finishes, re-run `migration list --linked` to confirm parity.
+
+**Fallback path — Supabase Studio SQL editor** (if CLI errors):
+
+1. Open https://supabase.com/dashboard/project/njrupjnvkjkitfctetvi/sql
+2. Paste this SQL:
+
+   ```sql
+   -- 20260530020000_guest_role_add_bride_groom.sql
+   -- Adds 'bride' + 'groom' to public.guest_role enum.
+   -- Idempotent: re-run safe.
+   ALTER TYPE public.guest_role ADD VALUE IF NOT EXISTS 'bride';
+   ALTER TYPE public.guest_role ADD VALUE IF NOT EXISTS 'groom';
+   ```
+
+3. Click **Run**. Expect "Success. No rows returned" (the values are added to the enum type definition; nothing inserted into a table).
+
+4. Also paste this SQL (the singleton-constraint migration that depends on the enum change):
+
+   ```sql
+   -- 20260531010000_guests_unique_bride_groom_per_event.sql
+   -- One bride + one groom per event (not-deleted rows only).
+   BEGIN;
+
+   CREATE UNIQUE INDEX IF NOT EXISTS guests_one_bride_per_event
+     ON public.guests (event_id)
+     WHERE role = 'bride' AND deleted_at IS NULL;
+
+   CREATE UNIQUE INDEX IF NOT EXISTS guests_one_groom_per_event
+     ON public.guests (event_id)
+     WHERE role = 'groom' AND deleted_at IS NULL;
+
+   COMMIT;
+   ```
+
+5. Click **Run**. Expect "Success. No rows returned".
+
+**Verification (post-push):**
+
+1. Refresh https://www.setnayan.com/dashboard/{eventId}/guests/{guestId for Claire — `S89G-6A8RCA9CJQ`}
+2. Pick Bride from the Role in wedding dropdown → Save → expect green confirmation banner.
+3. Repeat for Ice (`S89G-H83AGFJMK5`) with Groom selected.
+
+Both saves should succeed.
+
+**Note on broader migration gap:** While you're in the Supabase CLI, `supabase migration list --linked` will surface any other migrations from the last 12 days that need pushing. Recommend pushing all in one batch via `supabase db push --linked` rather than spot-fixing per error.
+
 ---
 
 **Why:** The app shows placeholders for BIR TIN, business name, and bank

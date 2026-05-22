@@ -68,7 +68,9 @@ import { CeremonyTypeChip } from './_components/ceremony-type-chip';
 import { BudgetCountdownHeader } from './_components/budget-countdown-header';
 import { FinalizedChipStrip } from './_components/finalized-chip-strip';
 import { UsefulRightNow } from './_components/useful-right-now';
-import { UpcomingSchedules, type UpcomingItem } from './_components/upcoming-schedules';
+import { UpcomingSchedules } from './_components/upcoming-schedules';
+import { MoneyInFlight } from './_components/money-in-flight';
+import { fetchUpcomingItems } from '@/lib/upcoming-items';
 import { ActivityFeed } from './_components/activity-feed';
 import { getConfirmedVendorCount, isEventDateInPast } from '@/lib/events';
 import type { VendorCategory } from '@/lib/vendors';
@@ -251,7 +253,6 @@ export default async function EventHomePage({
     moodBoardSavesRes,
     seatAssignmentsRes,
     vendorThreadsRes,
-    upcomingBlocksRes,
     paidOrdersRes,
   ] =
     await Promise.all([
@@ -310,14 +311,6 @@ export default async function EventHomePage({
         .from('chat_threads')
         .select('thread_id', { count: 'exact', head: true })
         .eq('event_id', eventId),
-      // Next 5 upcoming schedule blocks — fuels UpcomingSchedules.
-      supabase
-        .from('event_schedule_blocks')
-        .select('block_id, label, start_at, end_at, location, block_type')
-        .eq('event_id', eventId)
-        .gte('start_at', new Date().toISOString())
-        .order('start_at', { ascending: true })
-        .limit(5),
       // Paid + fulfilled orders — fuels BudgetCountdownHeader's
       // "committed" number. Pulled separately from the cart UI flow
       // because home only needs the aggregate, not the line items.
@@ -566,26 +559,23 @@ export default async function EventHomePage({
   const eventBudgetCentavos =
     (event as { estimated_budget_centavos?: number | null }).estimated_budget_centavos ?? null;
 
-  // Upcoming schedule blocks — already filtered server-side to future
-  // rows + limited to 5. Type the shape for the component prop.
-  const upcomingItems: UpcomingItem[] = (upcomingBlocksRes.data ?? []).map((row) => {
-    const r = row as {
-      block_id: string;
-      label: string;
-      start_at: string;
-      end_at: string | null;
-      location: string | null;
-      block_type: UpcomingItem['block_type'];
-    };
-    return {
-      block_id: r.block_id,
-      label: r.label,
-      start_at: r.start_at,
-      end_at: r.end_at,
-      location: r.location,
-      block_type: r.block_type,
-    };
+  // Upcoming items — V1 Home aggregation hub. Merges five sources
+  // (vendor meetings · day-of schedule blocks · vendor payment
+  // milestones · Setnayan SKU subscription renewals · statutory
+  // document deadlines) into a single chronologically-sorted stream.
+  // Owner directive 2026-05-22 — Home is the operational hub.
+  // See @/lib/upcoming-items for the per-source schema audit + the
+  // vendor_meetings table-doesn't-exist note.
+  const upcoming = await fetchUpcomingItems({
+    supabase,
+    eventId,
+    eventDate: event.event_date,
+    ceremonyType: (event as { ceremony_type?: string | null }).ceremony_type,
+    now,
+    limit: 10,
   });
+  const upcomingItems = upcoming.items;
+  const moneyInFlightItems = upcoming.paymentItemsNext30d;
 
   // Concierge state for the inline banner (iteration 0021 § 2.0b).
   const eventConciergeRow = event as typeof event & {
@@ -746,12 +736,15 @@ export default async function EventHomePage({
       <NavGrid eventId={eventId} stats={stats} unreadCount={unreadCount} tr={tr} />
 
       {/* V1 pilot Home v2 — owner directive 2026-05-22.
-       *  UsefulRightNow + UpcomingSchedules sit between the 14-tile
-       *  NavGrid and the activity feed. The 2×2 toolkit fast-routes
-       *  to the four surfaces hosts return to most; the upcoming
-       *  schedule strip surfaces the next handful of day-of timeline
-       *  blocks so the host doesn't have to click into the schedule
-       *  surface for a quick "what's next" glance. */}
+       *  UsefulRightNow + MoneyInFlight + UpcomingSchedules sit
+       *  between the 14-tile NavGrid and the activity feed. The 2×2
+       *  toolkit fast-routes to the four surfaces hosts return to
+       *  most; MoneyInFlight surfaces vendor payment milestones due
+       *  in the next 30 days (hidden when empty); UpcomingSchedules
+       *  is the merged operational stream — vendor meetings, day-of
+       *  schedule blocks, payment milestones further out, Setnayan
+       *  SKU subscription renewals, and statutory paperwork
+       *  deadlines — top 10, chronologically sorted. */}
       <UsefulRightNow
         eventId={eventId}
         moodBoardSaveCount={moodBoardSaveCount}
@@ -759,6 +752,8 @@ export default async function EventHomePage({
         seatedGuests={seatedGuests}
         vendorThreadCount={vendorThreadCount}
       />
+
+      <MoneyInFlight eventId={eventId} items={moneyInFlightItems} now={now} />
 
       <UpcomingSchedules eventId={eventId} items={upcomingItems} now={now} />
 

@@ -43,6 +43,20 @@ type Props = {
    * host is currently at narrower precision.
    */
   confirmedVendorCount?: number;
+  /**
+   * Task #65 (2026-05-22) — when true, the editor mounts directly into
+   * edit mode (skips the read-mode chip + Edit button entirely). Used by
+   * the consolidated EventMetaLine component which already renders the
+   * meta line + pencil affordance externally; the embedded editor only
+   * needs to surface the form.
+   */
+  autoEdit?: boolean;
+  /**
+   * Task #65 — optional callback fired when the host saves the date
+   * successfully OR clicks Cancel. Used by EventMetaLine to dismiss the
+   * outer wrapper without leaving a stale read-mode chip behind.
+   */
+  onClose?: () => void;
 };
 
 const NOW = new Date();
@@ -74,9 +88,14 @@ export function EventDateInput({
   initial,
   initialPrecision = 'year',
   confirmedVendorCount = 0,
+  autoEdit = false,
+  onClose,
 }: Props) {
   const dateLocked = confirmedVendorCount > 0 && Boolean(initial);
-  const [editing, setEditing] = useState(!initial && !dateLocked);
+  // Task #65 — autoEdit forces edit mode on first mount (unless locked).
+  // Otherwise preserve the prior behavior: edit when there's no initial
+  // value, read when there is one.
+  const [editing, setEditing] = useState((!initial || autoEdit) && !dateLocked);
   const [precision, setPrecision] = useState<EventDatePrecision>(initialPrecision);
 
   // Derive initial part-state from the stored event_date placeholder.
@@ -140,6 +159,10 @@ export function EventDateInput({
       try {
         await updateEventDate(fd);
         setEditing(false);
+        // Task #65 — bubble up close signal to the EventMetaLine wrapper
+        // so the inline editor dismisses cleanly on save instead of
+        // collapsing into a duplicate read-mode chip beneath the meta line.
+        onClose?.();
       } catch (err) {
         setError((err as Error).message);
       }
@@ -313,28 +336,32 @@ export function EventDateInput({
           {isPending ? 'Saving…' : initial ? 'Save' : 'Save date'}
         </button>
 
-        {initial && (
+        {(initial || (autoEdit && onClose)) && (
           <button
             type="button"
             onClick={() => {
               // Task #41 — re-snap to future-safe defaults when re-opening
               // the editor so a past stored value never pre-populates the
               // picker.
-              const parts = parseParts(initial);
-              const reopenYear =
-                parts.year && parts.year >= CURRENT_YEAR
-                  ? parts.year
-                  : CURRENT_YEAR;
-              const reopenMonth =
-                parts.year && parts.year > CURRENT_YEAR
-                  ? parts.month ?? 1
-                  : Math.max(parts.month ?? CURRENT_MONTH, CURRENT_MONTH);
-              setYear(reopenYear);
-              setMonth(reopenMonth);
-              setDayDraft(initial && !isInitialDayInPast(initial) ? initial : '');
-              setPrecision(initialPrecision);
+              if (initial) {
+                const parts = parseParts(initial);
+                const reopenYear =
+                  parts.year && parts.year >= CURRENT_YEAR
+                    ? parts.year
+                    : CURRENT_YEAR;
+                const reopenMonth =
+                  parts.year && parts.year > CURRENT_YEAR
+                    ? parts.month ?? 1
+                    : Math.max(parts.month ?? CURRENT_MONTH, CURRENT_MONTH);
+                setYear(reopenYear);
+                setMonth(reopenMonth);
+                setDayDraft(initial && !isInitialDayInPast(initial) ? initial : '');
+                setPrecision(initialPrecision);
+              }
               setError(null);
               setEditing(false);
+              // Task #65 — also dismiss the EventMetaLine wrapper.
+              onClose?.();
             }}
             className="rounded-md border border-ink/15 px-3 py-1 text-xs text-ink/65 hover:border-ink/30"
           >

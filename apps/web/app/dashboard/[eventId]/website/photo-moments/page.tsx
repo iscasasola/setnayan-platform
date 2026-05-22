@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { ArrowLeft, Camera } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
-import { parsePhotoMomentsConfig } from './actions';
+import { parsePhotoMomentsConfig } from './config';
 import { PhotoMomentsEditor } from './_components/photo-moments-editor';
 
 export const metadata = { title: 'Photo moments' };

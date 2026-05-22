@@ -13,6 +13,7 @@ import {
 } from '@/lib/vendors';
 import {
   HARD_SINGLE_PICK_GROUPS,
+  canonicalServiceToPlanGroupId,
   planGroupForCategory,
 } from '@/lib/wedding-plan-groups';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
@@ -57,6 +58,10 @@ export async function createVendor(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // Stamp source='host_manual' so the UI can distinguish picks the host
+  // added themselves from picks that were auto-cascaded by finalizeVendor.
+  // Legacy rows stay NULL via the column default — UI treats both
+  // 'host_manual' and NULL the same (no badge).
   const { error } = await supabase.from('event_vendors').insert({
     event_id: eventId,
     category,
@@ -66,6 +71,7 @@ export async function createVendor(formData: FormData) {
     total_cost_php: parseMoney(formData.get('total_cost_php')),
     deposit_paid_php: parseMoney(formData.get('deposit_paid_php')),
     notes: nullIfBlank(formData.get('notes')),
+    source: 'host_manual',
   });
   if (error) throw new Error(error.message);
 
@@ -125,6 +131,7 @@ export async function addCustomVendor(
       category,
       vendor_name: trimmedName,
       status: 'considering',
+      source: 'host_manual',
     })
     .select('vendor_id')
     .single();
@@ -291,9 +298,14 @@ export async function finalizeVendor(
   }
 
   // Read the target vendor and any already-locked siblings in one trip.
+  // marketplace_vendor_id added 2026-05-22 — drives the auto-add cascade
+  // below. Off-platform / custom vendors (where the host typed the
+  // vendor name themselves and has no vendor_profiles link) won't have
+  // OTHER services to cascade in from, so the cascade is gated on the
+  // marketplace link being non-null.
   const { data: targetVendor, error: targetErr } = await supabase
     .from('event_vendors')
-    .select('vendor_id, category, status, vendor_name')
+    .select('vendor_id, category, status, vendor_name, marketplace_vendor_id')
     .eq('event_id', eventId)
     .eq('vendor_id', vendorId)
     .maybeSingle();
@@ -391,7 +403,8 @@ export async function finalizeVendor(
     return { status: 'error', message: lockErr.message };
   }
 
-  // Finalize auto-cleanup (CLAUDE.md 2026-05-22 owner directive).
+  // ----------------------------------------------------------------------
+  // Finalize auto-cleanup (CLAUDE.md 2026-05-22 owner directive — Task #26).
   //
   // Owner verbatim: "when the vendor is finalized, the other vendors there
   // will be removed from the recommended vendors. this technique will help
@@ -417,6 +430,7 @@ export async function finalizeVendor(
   // host can manually delete or re-confirm any stale considering picks
   // from the vendor tracker. We log the error to console.warn so it
   // surfaces in Sentry for ops attention, but the action returns ok.
+  // ----------------------------------------------------------------------
   const { error: archiveErr } = await supabase
     .from('event_vendors')
     .update({
@@ -435,6 +449,159 @@ export async function finalizeVendor(
       `[finalizeVendor] archive-others cleanup failed for event=${eventId} category=${targetCategory}:`,
       archiveErr.message,
     );
+  }
+
+  // ----------------------------------------------------------------------
+  // Auto-add cascade on finalize — CLAUDE.md 2026-05-22 owner directive.
+  //
+  // Owner verbatim: "when finalized, and the other services of that vendor
+  // is not yet availed, it will be automatically added to the list of the
+  // event. example. a vendor locked in catering but also has a photobooth.
+  // their photobooth would automatically be on the list for photobooths.
+  // so the host can consider them as well."
+  //
+  // Complements the intra-category archive sweep ABOVE (Task #26): that
+  // pass collapses other vendors competing for the SAME category. This
+  // pass expands the host's plan into OTHER categories the locked vendor
+  // can also handle. The two are complementary, not conflicting.
+  //
+  // Algorithm:
+  //   1. Skip if the target vendor isn't marketplace-linked (off-platform
+  //      / custom vendors don't have vendor_services rows).
+  //   2. Look up vendor_services rows for the locked vendor.
+  //   3. For each row, resolve canonical_service → target PlanGroupId.
+  //   4. Skip if target == source category (no self-cascade).
+  //   5. Skip if host already has a finalized vendor in the target group
+  //      (don't replace someone's chosen pick).
+  //   6. Skip if host already has any event_vendors row (any status) for
+  //      THIS vendor in the target category (no duplicate).
+  //   7. INSERT new event_vendors row with status='considering',
+  //      source='auto_cascade_from_finalize', source_category=X.
+  //
+  // Failure mode: the cascade swallows errors silently (try/catch around
+  // the whole block). The lock step has already succeeded — failing the
+  // entire finalize because of a cascade hiccup would be hostile UX. The
+  // worst case is the host sees their lock but not the auto-cascaded
+  // considering picks; they can manually add them later if needed.
+  //
+  // Reversal: revertVendorToConsidering does NOT auto-remove cascaded
+  // rows. Host can manually remove via the existing pick-row Remove
+  // button (which fires deleteVendor). V1 keeps this simple — explicit
+  // host control over considering picks.
+  // ----------------------------------------------------------------------
+  if (targetVendor.marketplace_vendor_id) {
+    try {
+      const { data: vendorServices } = await supabase
+        .from('vendor_services')
+        .select('category')
+        .eq('vendor_profile_id', targetVendor.marketplace_vendor_id)
+        .eq('is_active', true);
+
+      if (vendorServices && vendorServices.length > 0) {
+        // Compute distinct target categories from the vendor's services.
+        // We bucket by PlanGroupId, then for each unique target group we
+        // pick the FIRST canonical category in vendor_services as the
+        // representative — that's the category the new event_vendors
+        // row gets stamped with. Picking one specific category (rather
+        // than the whole group) keeps the row queryable + filterable by
+        // VENDOR_CATEGORIES the same way every other row is.
+        const sourceCategory = targetVendor.category as VendorCategory;
+        const sourceGroupId = planGroupForCategory(sourceCategory);
+        // Map of PlanGroupId → first VendorCategory we saw for it.
+        const targetGroupToCategory = new Map<string, VendorCategory>();
+        for (const vs of vendorServices) {
+          const canonicalService = (vs as { category: string }).category;
+          if (!canonicalService) continue;
+          const targetGroup = canonicalServiceToPlanGroupId(canonicalService);
+          if (!targetGroup) continue;
+          // Skip self-cascade: don't auto-add into the same PlanGroup the
+          // host just locked in. (Hard-single groups can only have one
+          // vendor anyway; soft-single + multi groups would clutter.)
+          if (sourceGroupId && targetGroup === sourceGroupId) continue;
+          if (!targetGroupToCategory.has(targetGroup)) {
+            targetGroupToCategory.set(
+              targetGroup,
+              canonicalService as VendorCategory,
+            );
+          }
+        }
+
+        if (targetGroupToCategory.size > 0) {
+          // Pre-fetch the host's existing event_vendors rows in one trip
+          // so we can check (a) finalized vendors per group and (b) any
+          // existing row for THIS vendor per category without N+1
+          // queries. Filter out archived rows — they don't count as
+          // "already taken" since the host could re-add the vendor.
+          const { data: existing } = await supabase
+            .from('event_vendors')
+            .select('vendor_id, category, status, marketplace_vendor_id')
+            .eq('event_id', eventId)
+            .is('archived_at', null);
+
+          // Build two lookup sets:
+          //   • finalizedCategories: VendorCategory[] where the host has
+          //     a CONFIRMED status already (cascade skips these groups)
+          //   • vendorTakenCategories: VendorCategory[] where the host
+          //     already has any row for the SAME vendor (no duplicate)
+          const finalizedGroups = new Set<string>();
+          const vendorTakenCategories = new Set<string>();
+          for (const row of existing ?? []) {
+            const rowStatus = (row as { status: string | null }).status;
+            const rowCategory = (row as { category: string }).category;
+            const rowVendor = (row as { marketplace_vendor_id: string | null })
+              .marketplace_vendor_id;
+            if (
+              rowStatus &&
+              (CONFIRMED_VENDOR_STATUSES as readonly string[]).includes(
+                rowStatus,
+              )
+            ) {
+              const g = planGroupForCategory(rowCategory as VendorCategory);
+              if (g) finalizedGroups.add(g);
+            }
+            if (rowVendor === targetVendor.marketplace_vendor_id) {
+              vendorTakenCategories.add(rowCategory);
+            }
+          }
+
+          // Build the insert payload for every eligible target.
+          const insertRows: Array<{
+            event_id: string;
+            category: VendorCategory;
+            vendor_name: string;
+            status: string;
+            marketplace_vendor_id: string;
+            source: string;
+            source_category: VendorCategory;
+          }> = [];
+          for (const [targetGroup, targetCategory] of targetGroupToCategory) {
+            // Skip if host already finalized something in this group.
+            if (finalizedGroups.has(targetGroup)) continue;
+            // Skip if host already has ANY row for this vendor in this
+            // exact category.
+            if (vendorTakenCategories.has(targetCategory)) continue;
+            insertRows.push({
+              event_id: eventId,
+              category: targetCategory,
+              vendor_name: targetVendor.vendor_name as string,
+              status: 'considering',
+              marketplace_vendor_id: targetVendor.marketplace_vendor_id,
+              source: 'auto_cascade_from_finalize',
+              source_category: sourceCategory,
+            });
+          }
+
+          if (insertRows.length > 0) {
+            // Batch insert — single round-trip. Errors are swallowed
+            // intentionally per the failure-mode comment above; the
+            // lock succeeded and that's what matters most to the host.
+            await supabase.from('event_vendors').insert(insertRows);
+          }
+        }
+      }
+    } catch {
+      // Silent cascade failure — preserves the successful lock.
+    }
   }
 
   // Refresh both the event home (FinalizedChipStrip + PlanningGroups read
@@ -1076,6 +1243,9 @@ export async function attachManualVendorToCategory(
       vendor_name: manualVendor.business_name,
       manual_vendor_id: manualVendorIdRaw,
       status: 'considering',
+      // Stamp source='host_manual' so the AutoCascadedChip doesn't
+      // fire on rows the host added themselves (manual vendor attach).
+      source: 'host_manual',
     })
     .select('vendor_id')
     .single();

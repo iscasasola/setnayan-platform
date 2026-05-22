@@ -355,6 +355,14 @@ function parseFilters(
    * Anonymous browsers + hosts without a venue_setting picked treat
    * 'on' as a no-op (no filter applies; toggle stays hidden). */
   venueDefault: 'on' | 'off';
+  /** 2026-05-22 evening (Pull V1.2 venue directory forward) — when `?venue=`
+   *  carries an explicit facet key (banquet_hall, garden, beach, destination,
+   *  heritage, outdoor_tent), this surfaces it. Null when the URL is using
+   *  the on/off toggle form. Drives the Reception folder's <FacetFilterBar>
+   *  active-chip highlight + the card grid filter override (explicit pick
+   *  wins over host's default-on setting so a host who picked Garden at
+   *  event creation can still browse Beach venues). */
+  venueFacet: string | null;
 } {
   const q = (raw.q ?? '').trim();
   const sort = (SORT_KEYS as readonly string[]).includes(raw.sort ?? '')
@@ -400,7 +408,22 @@ function parseFilters(
   // else collapses to 'on'. The "applicable" check (host has a
   // venue_setting + we're in Reception scope) happens at the query layer
   // where we have the event data; this just decodes the URL signal.
-  const venueDefault = raw.venue === '0' ? ('off' as const) : ('on' as const);
+  //
+  // 2026-05-22 evening — the same `?venue=` param now also accepts explicit
+  // facet keys (banquet_hall, garden, beach, destination, heritage,
+  // outdoor_tent, civil_registrar). When set, the Reception folder's
+  // <FacetFilterBar> reads the value as the active chip; the card grid
+  // narrows accordingly. Three decoded states:
+  //   • '0'                   → venueDefault='off', venueFacet=null
+  //   • '1' / 'on' / absent   → venueDefault='on',  venueFacet=null
+  //   • <facet_key>           → venueDefault='on',  venueFacet=<facet_key>
+  const VENUE_FACET_KEYS = new Set([
+    'banquet_hall', 'garden', 'beach', 'destination',
+    'heritage', 'outdoor_tent', 'civil_registrar',
+  ]);
+  const rawVenue = (raw.venue ?? '').trim();
+  const venueDefault = rawVenue === '0' ? ('off' as const) : ('on' as const);
+  const venueFacet = VENUE_FACET_KEYS.has(rawVenue) ? rawVenue : null;
   return {
     q,
     category,
@@ -412,6 +435,7 @@ function parseFilters(
     eventType,
     folder,
     venueDefault,
+    venueFacet,
   };
 }
 
@@ -682,6 +706,8 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         scopedFolder={filters.folder}
         hostVenueSetting={hostVenueSetting}
         venueFilterActive={venueFilterActive}
+        venueFacet={filters.venueFacet}
+        inDemoMode={inDemoMode}
       />
     );
   }
@@ -794,9 +820,20 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // on the column is non-null per migration 20260521000000, so in practice
   // every modern vendor row has SOME array — the `.is.null` half covers
   // the test_seed_null backfill edge case + future schema additions.
-  if (venueFilterActive && filters.folder === 'reception') {
+  //
+  // 2026-05-22 evening — `?venue=<facet_key>` explicit pick wins over the
+  // host's default-on setting. Lets a host who picked Garden at event
+  // creation still browse Beach-compatible florists via
+  // `?folder=reception&venue=beach&category=florals`. Falls back to the
+  // host's setting when no explicit facet is present.
+  const effectiveVenueSetting = filters.venueFacet ?? hostVenueSetting;
+  if (
+    effectiveVenueSetting &&
+    filters.folder === 'reception' &&
+    filters.venueDefault === 'on'
+  ) {
     query = query.or(
-      `compatible_venue_settings.is.null,compatible_venue_settings.cs.{${hostVenueSetting}}`,
+      `compatible_venue_settings.is.null,compatible_venue_settings.cs.{${effectiveVenueSetting}}`,
     );
   }
 
@@ -867,7 +904,15 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // count means the empty-state can offer a "Show all settings" CTA with
   // the actual count of vendors that DO exist in the category without the
   // venue clause attached.
-  const venueFilterFiring = venueFilterActive && filters.folder === 'reception';
+  //
+  // 2026-05-22 evening — explicit ?venue=<facet> picks also count as strict
+  // for the same reason (they narrow on compatible_venue_settings). When
+  // the host has no own setting but the URL carries ?venue=garden, the
+  // broadening flow still fires correctly.
+  const venueFilterFiring =
+    (venueFilterActive || filters.venueFacet !== null) &&
+    filters.folder === 'reception' &&
+    filters.venueDefault === 'on';
   const hasStrictFilter =
     filters.matchEvent || filters.verifiedOnly || venueFilterFiring;
   if (rows.length === 0 && hasStrictFilter) {
@@ -1086,14 +1131,16 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           hostVenueSetting={hostVenueSetting}
         />
 
-        {/* Task #48 — venue default-on chip. Surfaced only when the venue
-            filter is actually firing on this query (Reception scope + host
-            has a setting + ?venue not explicitly 0). Gives couples one-click
+        {/* Task #48 — venue default-on chip. Surfaced when the venue
+            filter is firing on this query (Reception scope + host's
+            default-on OR explicit ?venue=<facet>). Gives couples one-click
             "Show all settings" recovery if the narrowed pool is too small,
-            without losing the rest of their filter state. */}
-        {venueFilterFiring && hostVenueSetting ? (
+            without losing the rest of their filter state.
+            2026-05-22 evening — also surfaces when ?venue=<facet> is
+            an explicit pick (filter venueFacet wins over host's setting). */}
+        {venueFilterFiring && (filters.venueFacet ?? hostVenueSetting) ? (
           <VenueFilterBanner
-            settingKey={hostVenueSetting}
+            settingKey={(filters.venueFacet ?? hostVenueSetting) as string}
             showAllHref={buildHref(filters, { venueDefault: 'off' })}
           />
         ) : null}
@@ -1849,24 +1896,11 @@ const CATALOG_PHASE_RANK: Record<TaxonomyPhase, number> = {
   'V1.5+': 10,
 };
 
-// Reception folder facets — surfaced as chips that drill into the marketplace
-// filtered by venue_setting. Combined-venue badge marks settings that also
-// host the ceremony (garden, beach, destination, heritage, outdoor_tent).
-// Labels source from VENUE_SETTING_LABEL so the catalog facet copy stays in
-// sync with the VenueFilterBanner copy in vendor-grid mode.
-const RECEPTION_VENUE_FACETS: ReadonlyArray<{
-  key: string;
-  label: string;
-  combined: boolean;
-}> = [
-  { key: 'banquet_hall',    label: VENUE_SETTING_LABEL.banquet_hall,    combined: false },
-  { key: 'garden',          label: VENUE_SETTING_LABEL.garden,          combined: true  },
-  { key: 'beach',           label: VENUE_SETTING_LABEL.beach,           combined: true  },
-  { key: 'destination',     label: VENUE_SETTING_LABEL.destination,     combined: true  },
-  { key: 'heritage',        label: VENUE_SETTING_LABEL.heritage,        combined: true  },
-  { key: 'outdoor_tent',    label: VENUE_SETTING_LABEL.outdoor_tent,    combined: true  },
-  { key: 'civil_registrar', label: VENUE_SETTING_LABEL.civil_registrar, combined: false },
-];
+// Reception facet definitions moved into apps/web/app/vendors/_components/
+// reception-venues-section.tsx as part of the 2026-05-22 evening "Pull V1.2
+// venue directory forward" PR. The new <ReceptionVenuesSection> owns BOTH
+// the chip filter bar AND the venue card grid; this file no longer needs
+// the constant.
 
 async function CatalogView({
   admin,
@@ -1882,6 +1916,8 @@ async function CatalogView({
   scopedFolder,
   hostVenueSetting,
   venueFilterActive,
+  venueFacet,
+  inDemoMode,
 }: {
   admin: ReturnType<typeof createAdminClient>;
   matchableEvent: { ceremony_type: string; venue_setting: string } | null;
@@ -1917,6 +1953,15 @@ async function CatalogView({
    *  surface AND the auto-applied venue param on Reception facet drill-
    *  ins so the host stays scoped. */
   venueFilterActive: boolean;
+  /** 2026-05-22 evening — explicit `?venue=<facet>` pick from the URL.
+   *  Null when the URL uses the on/off toggle form. When set, the
+   *  Reception folder's FacetFilterBar renders this chip as the active
+   *  one + the card grid narrows to that facet's venue_type. */
+  venueFacet: string | null;
+  /** 2026-05-22 evening — admin demo mode. When true, the Reception card
+   *  grid includes `is_demo=TRUE` venue_directory rows + each card
+   *  surfaces a DEMO chip overlay on its hero photo. */
+  inDemoMode: boolean;
 }) {
   // Single round-trip per page render — both reads are admin-scoped because
   // anonymous visitors hit this route and `vendor_profiles` is gated by RLS.
@@ -1993,13 +2038,16 @@ async function CatalogView({
 
   // Tab strip — 12 chips. Reception (zero canonical_services) gets the count
   // of its venue facets instead of zero so the chip badge reads accurately.
+  // 6 reception-side venue settings: banquet_hall · garden · beach ·
+  // destination · heritage · outdoor_tent. (civil_registrar is ceremony-only.)
+  const RECEPTION_FACET_COUNT = 6;
   const tabs: FolderTab[] = WEDDING_FOLDER_ORDER.map((folder) => ({
     folder,
     label: WEDDING_FOLDER_SHORT_LABEL[folder],
     slug: WEDDING_FOLDER_SLUG[folder],
     count:
       folder === 'reception'
-        ? RECEPTION_VENUE_FACETS.length
+        ? RECEPTION_FACET_COUNT
         : buckets.get(folder)?.length ?? 0,
   }));
 
@@ -2102,15 +2150,37 @@ async function CatalogView({
           // don't also see the entire Ceremony folder + its venue cards.
           if (scopedFolder !== null && folder !== scopedFolder) return null;
           if (folder === 'reception') {
+            // 2026-05-22 evening upgrade — ReceptionVenuesSection now owns
+            // BOTH the chip filter bar AND the venue card grid. The old
+            // inline ReceptionSection wrapper that rendered the 7-chip
+            // stub above ReceptionVenuesSection was retired with this PR.
             return (
-              <ReceptionSection
+              <section
                 key={folder}
-                hostVenueSetting={hostVenueSetting}
-                venueFilterActive={venueFilterActive}
-                venueAnchor={venueAnchor}
-                currentEventId={currentEventId}
-                matchEvent={matchEvent}
-              />
+                id={WEDDING_FOLDER_SLUG.reception}
+                className="scroll-mt-20 pt-8 sm:pt-10"
+                aria-labelledby="reception-heading"
+              >
+                <header className="mb-4 flex items-baseline justify-between gap-3 border-b border-ink/10 pb-2">
+                  <h2
+                    id="reception-heading"
+                    className="text-xl font-semibold tracking-tight text-ink sm:text-2xl"
+                  >
+                    {WEDDING_FOLDER_LABEL.reception}
+                  </h2>
+                  <span className="font-mono text-xs text-ink/55">
+                    6 venue settings
+                  </span>
+                </header>
+                <ReceptionVenuesSection
+                  hostVenueSetting={hostVenueSetting}
+                  venueFilterActive={venueFilterActive}
+                  activeFacet={venueFacet}
+                  venueAnchor={venueAnchor}
+                  currentEventId={currentEventId}
+                  isDemoMode={inDemoMode}
+                />
+              </section>
             );
           }
           const tiles = buckets.get(folder) ?? [];
@@ -2168,190 +2238,18 @@ async function CatalogView({
   );
 }
 
-// Reception folder is filter-only — surfaces venue_setting facets without
-// backing canonical_services. The combined-venue badge marks settings that
-// can also host the ceremony (garden, beach, destination, heritage,
-// outdoor_tent). V1.2 venue iteration adds dedicated /venues records with
-// per-location calendars + day-rates.
+// Inline ReceptionSection wrapper used to live here, rendering the 7-chip
+// stub above ReceptionVenuesSection. Retired with the 2026-05-22 evening
+// "Pull V1.2 venue directory forward" PR — the new ReceptionVenuesSection
+// renders its own FacetFilterBar + venue cards in a single self-contained
+// section, and the catalog loop in CatalogView invokes it directly inside
+// a slim wrapper <section> with the folder heading. The chip grid is gone;
+// the chip filter bar inside the section takes over its job AND filters
+// the card grid live (vs the old chips which never filtered anything).
 //
-// Task #48 (2026-05-22) — when the host has picked a venue_setting on event
-// creation, the section surfaces a VenueFilterBanner above the chip grid
-// AND highlights the host's setting chip as "Your setting" with a brighter
-// accent. Hosts without a setting see VenuePickerHint nudging them to fill
-// in the field on their event details. Each facet chip now drills into
-// vendor-grid mode pre-filtered by both ?folder=reception (Task #47 scope)
-// AND the venue_setting (via the existing query.or compatible_venue_settings
-// clause — composes cleanly with the religion-match toggle).
-function ReceptionSection({
-  hostVenueSetting,
-  venueFilterActive,
-  venueAnchor,
-  currentEventId,
-  matchEvent,
-}: {
-  /** Host's events.venue_setting (snake_case enum). Null when anonymous
-   *  OR the host hasn't picked one. Drives the "Your setting" chip
-   *  highlight + VenueFilterBanner / VenuePickerHint state branching. */
-  hostVenueSetting: string | null;
-  /** True when the venue default-on filter is currently firing — used to
-   *  pick between VenueFilterBanner (filter active) and VenuePickerHint
-   *  (host has event but no setting yet). */
-  venueFilterActive: boolean;
-  /** Host's reception anchor (from events.venue_latitude/longitude).
-   *  Threaded to ReceptionVenuesSection so each venue_directory card can
-   *  show "X km from your venue" when the host has saved a reception
-   *  vendor that populated the lat/lng. Null on anonymous browse. */
-  venueAnchor: { lat: number; lng: number } | null;
-  /** Drives the VenuePickerHint deep-link to event details. Null on
-   *  anonymous browse (no hint surfaced). */
-  currentEventId: string | null;
-  /** Religion-match toggle state — propagated into facet drill-in URLs
-   *  so the host stays in their faith scope on click. */
-  matchEvent: boolean;
-}) {
-  // Per-facet drill-in URL. Reception is filter-only by design (CLAUDE.md
-  // 2026-05-20 row 470) — there's no canonical_service backing each venue
-  // setting until V1.2 ships dedicated `/venues` records, so the chip
-  // can't drill into a populated vendor-grid mode the way Catering or
-  // Photo facets would. Instead we keep the chip in catalog scope and
-  // anchor back to #reception so the host stays on the venue grid. The
-  // venue_setting context already lives at the page level — the host's
-  // own setting is highlighted via the "Your setting" badge below, AND
-  // the VenueFilterBanner at the top of the section explains the default-
-  // on filter that gets applied when they drill into OTHER folders (e.g.
-  // Catering, Photo) and want caterers compatible with their garden venue.
-  //
-  // Carry-forward: ?folder=reception keeps the section scoped; ?match=1
-  // preserves religion-match if it was on; ?venue=0 only propagates when
-  // the host has explicitly opted out (we never set ?venue=1 explicitly
-  // since "on" is the default — keeps URLs clean per buildHref).
-  const buildFacetHref = (_settingKey: string): string => {
-    const params = new URLSearchParams();
-    params.set('folder', WEDDING_FOLDER_SLUG.reception);
-    if (matchEvent) params.set('match', '1');
-    if (!venueFilterActive && hostVenueSetting) {
-      // Only set venue=0 when the host has a setting but has opted out;
-      // otherwise omit the param (default-on inferred at parseFilters).
-      params.set('venue', '0');
-    }
-    return `/vendors?${params.toString()}#reception`;
-  };
-
-  return (
-    <section
-      id={WEDDING_FOLDER_SLUG.reception}
-      className="scroll-mt-20 pt-8 sm:pt-10"
-      aria-labelledby="reception-heading"
-    >
-      <header className="mb-4 flex items-baseline justify-between gap-3 border-b border-ink/10 pb-2">
-        <h2
-          id="reception-heading"
-          className="text-xl font-semibold tracking-tight text-ink sm:text-2xl"
-        >
-          {WEDDING_FOLDER_LABEL.reception}
-        </h2>
-        <span className="font-mono text-xs text-ink/55">
-          {RECEPTION_VENUE_FACETS.length} venue settings
-        </span>
-      </header>
-      <p className="mb-4 max-w-prose text-sm text-ink/65">
-        Where you celebrate after the ceremony. Settings marked{' '}
-        <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-emerald-800">
-          ⇄ also hosts ceremony
-        </span>{' '}
-        can do both back-to-back at the same location.
-      </p>
-
-      {/* Task #48 — host context surface. Three states:
-            (a) host has a picked venue_setting + filter active → banner
-                explaining the default-on filter + Show all settings escape.
-            (b) host has an event but no venue_setting yet → polite hint
-                linking to event details so they can narrow these chips.
-            (c) anonymous browse OR explicit ?venue=0 → no banner, all
-                seven chips render as a neutral catalog. */}
-      {venueFilterActive && hostVenueSetting ? (
-        <VenueFilterBanner
-          settingKey={hostVenueSetting}
-          // Show-all in catalog mode preserves Reception scope so the
-          // host stays in the same view; only the venue clause drops.
-          showAllHref={`/vendors?folder=${WEDDING_FOLDER_SLUG.reception}&venue=0#reception`}
-        />
-      ) : currentEventId && !hostVenueSetting ? (
-        <VenuePickerHint eventId={currentEventId} />
-      ) : null}
-
-      <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {RECEPTION_VENUE_FACETS.map((facet) => {
-          // Highlight the host's picked setting so it reads as "yours" in
-          // the chip grid. Pure-visual cue — the chip still drills into
-          // the same vendor-grid view as every other chip; the actual
-          // venue_setting filter at the SQL layer reads from events.venue_setting
-          // (single source of truth) not from the picked chip.
-          const isHostPick =
-            hostVenueSetting !== null && hostVenueSetting === facet.key;
-          return (
-            <li key={facet.key}>
-              <Link
-                href={buildFacetHref(facet.key)}
-                className={`group flex h-full flex-col gap-2 rounded-2xl border p-4 transition-colors ${
-                  isHostPick
-                    ? 'border-terracotta/50 bg-terracotta/5 hover:border-terracotta hover:bg-terracotta/10'
-                    : 'border-ink/10 bg-cream hover:border-terracotta/50 hover:bg-terracotta/5'
-                }`}
-                aria-label={
-                  isHostPick
-                    ? `${facet.label} — your wedding's picked setting. Browse vendors compatible with this.`
-                    : `Browse vendors compatible with ${facet.label} venues.`
-                }
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <h3 className="truncate text-sm font-semibold text-ink group-hover:text-terracotta">
-                    {facet.label}
-                  </h3>
-                  {isHostPick ? (
-                    <span className="shrink-0 rounded-full bg-terracotta px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-cream">
-                      Your setting
-                    </span>
-                  ) : null}
-                </div>
-                {facet.combined ? (
-                  <span className="inline-flex w-fit items-center rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-emerald-800">
-                    ⇄ also hosts ceremony
-                  </span>
-                ) : null}
-                <p className="mt-auto text-xs font-medium text-terracotta group-hover:underline">
-                  {isHostPick
-                    ? 'Browse vendors who work with your setting →'
-                    : 'Browse vendors compatible with this setting →'}
-                </p>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-
-      {/* CLAUDE.md 2026-05-22 follow-up — owner-reported gap: clicking
-            Reception on the dashboard surfaced the 7 venue_setting facet
-            cards above (dead-ends pre-V1.2 because Reception is filter-only
-            per 2026-05-20 row 470), without ever showing real venues. The
-            section below pulls actual venue_directory rows so couples see
-            "Hotel Ballroom choices" directly. When the host has a
-            venue_setting picked AND ?venue is default-on, narrows to that
-            one venue_type (banquet_hall → Hotel Ballroom). When opted out
-            OR anonymous, all 6 reception types render. Mirrors
-            CeremonyVenuesSection's faith-grouped pattern. */}
-      <div className="mt-6">
-        <ReceptionVenuesSection
-          hostVenueSetting={hostVenueSetting}
-          venueFilterActive={venueFilterActive}
-          venueAnchor={venueAnchor}
-          currentEventId={currentEventId}
-        />
-      </div>
-
-    </section>
-  );
-}
+// VenueFilterBanner (below) is still in use by vendor-grid mode — it stays.
+// VenuePickerHint was retired in the same pass (used only by the deleted
+// ReceptionSection).
 
 // Task #48 (2026-05-22) — venue_setting default-on banner. Surfaces in
 // BOTH catalog mode (Reception folder section, when the host has a
@@ -2389,30 +2287,12 @@ function VenueFilterBanner({
   );
 }
 
-// Task #48 — catalog-mode hint for hosts whose primary event has NO
-// venue_setting picked yet. The Reception facet chips still drill cleanly
-// (they don't depend on a host setting), but we surface a polite nudge so
-// the host knows they can narrow these results by setting their venue
-// type on the event. Avoids the "why isn't this filtered for me?" question
-// from couples who watched the religion-match auto-apply but didn't
-// realize venue_setting is a sibling control. Anonymous browsers never
-// see this hint.
-function VenuePickerHint({ eventId }: { eventId: string }) {
-  return (
-    <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-ink/15 bg-cream px-4 py-3">
-      <p className="text-sm text-ink/75">
-        Pick your venue setting in your event details and we&rsquo;ll narrow
-        these results to vendors who work with that kind of space.
-      </p>
-      <Link
-        href={`/dashboard/${eventId}/settings`}
-        className="inline-flex shrink-0 items-center rounded-full border border-ink/20 bg-cream px-3 py-1 text-xs font-medium text-ink/75 hover:border-ink/40 hover:bg-ink/5"
-      >
-        Open event details
-      </Link>
-    </div>
-  );
-}
+// VenuePickerHint (Task #48 catalog-mode nudge) used to live here but was
+// retired with the 2026-05-22 evening "Pull V1.2 venue directory forward"
+// PR — the new ReceptionVenuesSection renders real venue cards regardless
+// of whether the host has a venue_setting picked, plus a dedicated empty-
+// state when the filter narrows to 0 venues. The chip-grid nudge is no
+// longer needed.
 
 // Task #47 — scoped-folder banner. Renders when the catalog is showing
 // only one of the 12 folders (driven by ?folder=… from the dashboard

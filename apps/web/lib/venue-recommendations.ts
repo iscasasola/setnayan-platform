@@ -60,6 +60,20 @@ export type PairedVenueCandidate = {
   hero_image_license: string | null;
   hero_image_source_url: string | null;
   is_in_plan: boolean;
+  /** Iteration 0050 (V1 venue directory promoted 2026-05-22 evening) —
+   *  optional fields from `20260604000000_venue_directory_reception_support`.
+   *  When the column doesn't exist (pre-migration) OR the row is NULL,
+   *  these populate as null/false. The Reception card rendering hides the
+   *  associated chips when fields are null. */
+  day_rate_php_min: number | null;
+  day_rate_php_max: number | null;
+  capacity_min: number | null;
+  capacity_max: number | null;
+  is_demo: boolean;
+  /** `venue_category` ∈ {'ceremony', 'reception', 'combined'} — drives the
+   *  "⇄ also hosts ceremony" badge. Null pre-migration; populated post-PR
+   *  #324. */
+  venue_category: 'ceremony' | 'reception' | 'combined' | null;
 };
 
 type Row = {
@@ -75,6 +89,14 @@ type Row = {
   hero_image_attribution: string | null;
   hero_image_license: string | null;
   hero_image_source_url: string | null;
+  // Optional post-Agent-A schema columns.
+  day_rate_php_min?: number | string | null;
+  day_rate_php_max?: number | string | null;
+  capacity_min?: number | string | null;
+  capacity_max?: number | string | null;
+  is_demo?: boolean | null;
+  venue_category?: string | null;
+  compatible_venue_settings?: string[] | null;
 };
 
 /**
@@ -158,6 +180,29 @@ export async function findPairedCeremonyVenues(
       hero_image_license: row.hero_image_license,
       hero_image_source_url: row.hero_image_source_url,
       is_in_plan: false,
+      day_rate_php_min:
+        row.day_rate_php_min !== null && row.day_rate_php_min !== undefined
+          ? Number(row.day_rate_php_min)
+          : null,
+      day_rate_php_max:
+        row.day_rate_php_max !== null && row.day_rate_php_max !== undefined
+          ? Number(row.day_rate_php_max)
+          : null,
+      capacity_min:
+        row.capacity_min !== null && row.capacity_min !== undefined
+          ? Number(row.capacity_min)
+          : null,
+      capacity_max:
+        row.capacity_max !== null && row.capacity_max !== undefined
+          ? Number(row.capacity_max)
+          : null,
+      is_demo: row.is_demo === true,
+      venue_category:
+        row.venue_category === 'ceremony' ||
+        row.venue_category === 'reception' ||
+        row.venue_category === 'combined'
+          ? row.venue_category
+          : null,
     });
   }
 
@@ -264,6 +309,29 @@ export async function findCeremonyVenuesByFaith(
       hero_image_license: row.hero_image_license,
       hero_image_source_url: row.hero_image_source_url,
       is_in_plan: false,
+      day_rate_php_min:
+        row.day_rate_php_min !== null && row.day_rate_php_min !== undefined
+          ? Number(row.day_rate_php_min)
+          : null,
+      day_rate_php_max:
+        row.day_rate_php_max !== null && row.day_rate_php_max !== undefined
+          ? Number(row.day_rate_php_max)
+          : null,
+      capacity_min:
+        row.capacity_min !== null && row.capacity_min !== undefined
+          ? Number(row.capacity_min)
+          : null,
+      capacity_max:
+        row.capacity_max !== null && row.capacity_max !== undefined
+          ? Number(row.capacity_max)
+          : null,
+      is_demo: row.is_demo === true,
+      venue_category:
+        row.venue_category === 'ceremony' ||
+        row.venue_category === 'reception' ||
+        row.venue_category === 'combined'
+          ? row.venue_category
+          : null,
     });
   }
 
@@ -387,6 +455,9 @@ export async function findReceptionVenuesByVenueSetting(
     eventId?: string | null;
     /** Cap per venue_type group. Default 6 — matches CeremonyVenuesSection. */
     perTypeLimit?: number;
+    /** When true, include rows with `is_demo=TRUE`. Default false: demo
+     *  venues stay hidden unless the viewer is an admin in demo mode. */
+    includeDemo?: boolean;
   },
 ): Promise<PairedVenueCandidate[]> {
   const perTypeLimit = args.perTypeLimit ?? 6;
@@ -404,17 +475,54 @@ export async function findReceptionVenuesByVenueSetting(
       ? [args.hostDirectoryType]
       : (RECEPTION_VENUE_TYPES as ReadonlyArray<string>);
 
-  const { data, error } = await admin
-    .from('venue_directory')
-    .select(
-      'venue_directory_id,slug,name,venue_type,location_city,hq_latitude,hq_longitude,compatible_ceremony_types,hero_image_url,hero_image_attribution,hero_image_license,hero_image_source_url',
-    )
-    .in('venue_type', venueTypes as readonly string[])
-    .order('name', { ascending: true });
+  // SELECT the new schema columns (day_rate_php_*, capacity_*, is_demo,
+  // venue_category, compatible_venue_settings) added 2026-05-22 evening by
+  // migration 20260604000000_venue_directory_reception_support.sql. Falls
+  // back gracefully when the columns don't exist (pre-migration) — the
+  // catch path retries with the narrow column set so the section never
+  // goes blank.
+  const wideColumns =
+    'venue_directory_id,slug,name,venue_type,location_city,hq_latitude,hq_longitude,'
+    + 'compatible_ceremony_types,hero_image_url,hero_image_attribution,hero_image_license,hero_image_source_url,'
+    + 'day_rate_php_min,day_rate_php_max,capacity_min,capacity_max,is_demo,venue_category,compatible_venue_settings';
+  const narrowColumns =
+    'venue_directory_id,slug,name,venue_type,location_city,hq_latitude,hq_longitude,'
+    + 'compatible_ceremony_types,hero_image_url,hero_image_attribution,hero_image_license,hero_image_source_url';
 
-  if (error || !data) return [];
+  let rows: Row[] = [];
+  // Default: exclude demo venues unless caller opts in via args.includeDemo.
+  const includeDemo = args.includeDemo === true;
+  {
+    let q = admin
+      .from('venue_directory')
+      .select(wideColumns)
+      .in('venue_type', venueTypes as readonly string[])
+      .order('name', { ascending: true });
+    if (!includeDemo) {
+      // Exclude is_demo=TRUE; the .neq fallback covers NULL is_demo on pre-
+      // migration rows by treating NULL as "not demo".
+      q = q.or('is_demo.is.null,is_demo.eq.false');
+    }
+    const { data, error } = await q;
+    if (error) {
+      if (/day_rate|capacity_|is_demo|venue_category|compatible_venue_settings/i.test(error.message)) {
+        // Pre-migration retry — narrow column set, no demo filter (column
+        // doesn't exist yet so every row is implicitly non-demo).
+        const { data: narrow, error: nerr } = await admin
+          .from('venue_directory')
+          .select(narrowColumns)
+          .in('venue_type', venueTypes as readonly string[])
+          .order('name', { ascending: true });
+        if (nerr || !narrow) return [];
+        rows = narrow as unknown as Row[];
+      } else {
+        return [];
+      }
+    } else {
+      rows = (data ?? []) as unknown as Row[];
+    }
+  }
 
-  const rows = data as Row[];
   const candidates: PairedVenueCandidate[] = [];
 
   for (const row of rows) {
@@ -441,6 +549,29 @@ export async function findReceptionVenuesByVenueSetting(
       hero_image_license: row.hero_image_license,
       hero_image_source_url: row.hero_image_source_url,
       is_in_plan: false,
+      day_rate_php_min:
+        row.day_rate_php_min !== null && row.day_rate_php_min !== undefined
+          ? Number(row.day_rate_php_min)
+          : null,
+      day_rate_php_max:
+        row.day_rate_php_max !== null && row.day_rate_php_max !== undefined
+          ? Number(row.day_rate_php_max)
+          : null,
+      capacity_min:
+        row.capacity_min !== null && row.capacity_min !== undefined
+          ? Number(row.capacity_min)
+          : null,
+      capacity_max:
+        row.capacity_max !== null && row.capacity_max !== undefined
+          ? Number(row.capacity_max)
+          : null,
+      is_demo: row.is_demo === true,
+      venue_category:
+        row.venue_category === 'ceremony' ||
+        row.venue_category === 'reception' ||
+        row.venue_category === 'combined'
+          ? row.venue_category
+          : null,
     });
   }
 
@@ -515,3 +646,107 @@ export const PAIRED_VENUE_CONFIG = {
   radiusKm: PAIRED_VENUE_RADIUS_KM,
   limit: PAIRED_VENUE_LIMIT,
 } as const;
+
+/**
+ * Inverse of `venueSettingToDirectoryType` — given a `venue_directory.venue_type`
+ * enum value, returns the marketplace facet key (events.venue_setting enum
+ * value). Used by the Reception venue card to declare which filter chip
+ * would surface it. Returns null for ceremony-only venue_types
+ * (catholic_church etc.) which never reach the Reception section.
+ */
+export function venueTypeToSetting(venueType: string): string | null {
+  switch (venueType) {
+    case 'hotel_ballroom':
+      return 'banquet_hall';
+    case 'garden':
+      return 'garden';
+    case 'beach':
+      return 'beach';
+    case 'destination_resort':
+      return 'destination';
+    case 'heritage':
+      return 'heritage';
+    case 'outdoor_tent':
+      return 'outdoor_tent';
+    default:
+      return null;
+  }
+}
+
+/**
+ * Reception venue_types that can ALSO host the ceremony back-to-back at
+ * the same location. Mirrors the combined-venue badge in the marketplace
+ * (CLAUDE.md 2026-05-20 row 470 — "Settings marked ⇄ also hosts ceremony").
+ * hotel_ballroom is NOT combined (hotels don't host ceremonies by tradition);
+ * the other 5 reception types are combined-capable.
+ */
+const COMBINED_VENUE_TYPES: ReadonlySet<string> = new Set([
+  'garden',
+  'beach',
+  'destination_resort',
+  'heritage',
+  'outdoor_tent',
+]);
+
+/**
+ * Returns true when the venue_type can host ceremony + reception back-to-
+ * back at the same location. When the row's `venue_category = 'combined'`
+ * is set (post-Agent-A migration), prefer that; otherwise fall back to
+ * the venue_type-based map for pre-migration rows.
+ */
+export function isCombinedVenue(
+  venueType: string,
+  venueCategory: string | null,
+): boolean {
+  if (venueCategory === 'combined') return true;
+  if (venueCategory === 'reception') return false;
+  if (venueCategory === 'ceremony') return false;
+  return COMBINED_VENUE_TYPES.has(venueType);
+}
+
+/**
+ * Format a venue's day-rate range as a short PHP label for the card pricing
+ * chip. Day rates are stored as PHP whole pesos (NOT centavos) per
+ * migration 20260604000000_venue_directory_reception_support.sql — the
+ * field comment notes the alignment with vendor_services.starting_price_php.
+ *
+ * Returns null when no rate data is set (pre-migration OR row left null);
+ * the caller renders the "Inquire for pricing" fallback in that case.
+ *
+ * Pricing surface posture: venue directory entries are informational V1
+ * placeholders (no booking, no couple sign-up gating). Surfacing a
+ * starting-from rate gives couples something to budget against.
+ */
+export function formatVenueDayRate(
+  minPhp: number | null,
+  maxPhp: number | null,
+): string | null {
+  if (minPhp === null || !Number.isFinite(minPhp) || minPhp <= 0) return null;
+  const formatPeso = (whole: number): string => {
+    // Day rates stored as PHP whole pesos, NOT centavos (per migration
+    // header doc). Format with thousands separators.
+    return '₱' + Math.round(whole).toLocaleString('en-PH');
+  };
+  if (maxPhp !== null && Number.isFinite(maxPhp) && maxPhp > minPhp) {
+    return formatPeso(minPhp) + '–' + formatPeso(maxPhp) + '/day';
+  }
+  return 'From ' + formatPeso(minPhp) + '/day';
+}
+
+/**
+ * Format a venue's capacity range as a short label for the card chip.
+ * Returns null when no capacity data is set (pre-migration OR row left
+ * null).
+ */
+export function formatVenueCapacity(
+  capMin: number | null,
+  capMax: number | null,
+): string | null {
+  if (capMin === null && capMax === null) return null;
+  if (capMin !== null && capMax !== null && capMin !== capMax) {
+    return capMin.toLocaleString('en-PH') + '–' + capMax.toLocaleString('en-PH') + ' guests';
+  }
+  const cap = capMin ?? capMax;
+  if (cap === null) return null;
+  return cap.toLocaleString('en-PH') + ' guests';
+}

@@ -4,6 +4,43 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-05-22 · docs(0001): flag guest_role bride/groom enum prod-push gap (Task #49)
+
+**Commit:** to be filled after commit.
+
+**Context:** Owner reported live 2026-05-22 (two screenshots) that guest-edit form throws `invalid input value for enum guest_role: "bride"` for Claire Buanhog (`S89G-6A8RCA9CJQ`) and `...groom` for Ice Casasola (`S89G-H83AGFJMK5`) when saving the "Role in wedding" select. Both forms correctly offer Bride / Groom; the production Postgres enum rejects.
+
+**Diagnosis:** Migration `supabase/migrations/20260530020000_guest_role_add_bride_groom.sql` (commit `2e6f64f`, 2026-05-21) adds `'bride'` + `'groom'` to the `public.guest_role` enum and lives on `main`. The 2026-05-20 CLAUDE.md decision-log row 451 ("Prod migration parity verified") confirmed every migration through `20260522010000` was applied to prod — but 31 migrations have landed locally since that verification (including `20260530020000` ten days later). The owner has been pushing migrations regularly during this window; one (or more) appears to have been missed. `20260530020000` is the only one that affects the production-visible guest-list enum, so it surfaced first via this user-facing crash.
+
+**Form schema vs DB enum audit (this row):**
+
+- **Local main DB enum** (`supabase/migrations/20260513010000_iteration_0001_guests.sql` + `20260530020000_guest_role_add_bride_groom.sql`): 20 values including `'bride'` + `'groom'`.
+- **Production DB enum** (inferred from the error message): the original 18 values from `20260513010000` — missing `'bride'` + `'groom'`.
+- **Form select** (`apps/web/app/dashboard/[eventId]/guests/[guestId]/page.tsx` ROLE_OPTIONS + `new/page.tsx` ROLE_OPTIONS + `apps/web/lib/guests.ts` `GuestRole` type + `ROLE_LABELS` + `SINGLETON_GUEST_ROLES`): all 20 values including `'bride'` + `'groom'`.
+
+**Fix path A chosen** (no code change · push existing migration to prod). The migration file follows the same `ALTER TYPE ... ADD VALUE IF NOT EXISTS` pattern as `20260514012000_notification_type_additions.sql` (the model cited in the migration's own header comment) — idempotent + safe to re-run on prod.
+
+**What ships (this PR):**
+
+- **`CHANGELOG.md`** — this entry.
+- **`OWNER_ACTIONS.md`** — new "Owner action #11" appended to the 2026-05-22 sprint punch list with the `supabase db push --linked` instruction + verbatim SQL for the owner to paste into Supabase Studio if the CLI approach errors.
+- **`STATUS.md`** — adds a "before next session" warning matching the existing pattern from 2026-05-14 (`6 unpushed migrations` warning that already lives at line 23).
+- **`COWORK_INBOX.md`** — no entry (this is a deploy-side fix, not a spec-corpus update; the spec corpus already correctly documents Bride + Groom as singleton hard-single guest roles in iteration 0001).
+- **NO app code changes** — the form, the lib types, the singleton enforcement migration `20260531010000_guests_unique_bride_groom_per_event.sql` are all correct on `main`.
+- **NO new migration** — the existing `20260530020000_guest_role_add_bride_groom.sql` is the canonical fix; it just hasn't been applied to prod yet.
+
+**Verification path** (post owner-action):
+
+1. After `supabase db push --linked` succeeds, refresh the Claire Buanhog edit page and save with Bride role selected.
+2. Refresh the Ice Casasola edit page and save with Groom role selected.
+3. Both should succeed and the chair in the seating chart should show the correct role tier.
+
+**Acceptance criteria:** PR ships these 3 doc updates; owner runs `supabase db push --linked`; Claire's + Ice's edits succeed.
+
+**SPEC IMPACT:** None. The spec corpus iteration 0001 (`0001_creating_guest_list/0001_creating_guest_list.md`) already lists Bride + Groom as the two hard-single guest roles enforced via partial unique indexes. The bride/groom enum addition itself was a corpus-aligned migration when it landed 2026-05-21. This entry is purely a prod-deploy gap, not a spec-vs-code drift.
+
+---
+
 ## 2026-05-22 · feat(0021): tiered wedding-date precision + vendor calendar intersection (Task #39 + Task #38 bundled)
 
 **Commit:** to be filled after commit.

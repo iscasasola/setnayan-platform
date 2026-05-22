@@ -12,7 +12,11 @@ import {
 } from 'lucide-react';
 import {
   PLAN_GROUPS,
+  PLAN_GROUP_TIER_HINT,
+  PLAN_GROUP_TIER_LABEL,
+  PLAN_GROUP_TIER_ORDER,
   bucketVendorsByGroup,
+  buildPlanGroupSearchHref,
   isCeremonyType,
   resolvePlanGroupHint,
   targetDateStatus,
@@ -21,8 +25,9 @@ import {
   type PlanCardPick,
   type PlanGroup,
   type PlanGroupId,
+  type PlanGroupTier,
 } from '@/lib/wedding-plan-groups';
-import { VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
+import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
 import { WEDDING_FOLDER_SLUG } from '@/lib/taxonomy';
 import type { PaperworkSummary } from '@/lib/paperwork';
 import { deleteVendor } from '../vendors/actions';
@@ -48,6 +53,39 @@ function rawStatusLabel(raw: string | null): string {
     .split('_')
     .map((w) => (w.length > 0 ? w.charAt(0).toUpperCase() + w.slice(1) : w))
     .join(' ');
+}
+
+/**
+ * Pick the VendorCategory used to seed the inline custom-vendor form
+ * when a host clicks Add on a planning card. Cards with at least one
+ * category in their bucketing array use the first entry (the most
+ * representative). Entry-point cards (countsTowardLockable: false —
+ * Live band, Bridal car, Guest shuttle) have empty categories arrays;
+ * for those we fall back to a sensible VendorCategory enum value tied
+ * to the card's intent.
+ *
+ * Mapping for entry-point cards (22-card grid expansion, 2026-05-22):
+ *   - live_band     → 'band_dj'        (lives under music_entertainment)
+ *   - bridal_car    → 'transportation' (lives under logistics)
+ *   - guest_shuttle → 'transportation' (lives under logistics)
+ *
+ * Picks added via these cards will surface in their respective parent
+ * card (music_entertainment or logistics) so the host's saved vendors
+ * always have a home. Per [[feedback_setnayan_orphan_prevention]] —
+ * no card produces a custom-vendor row that has no PlanGroupId home.
+ */
+function resolveDefaultCategoryForCard(group: PlanGroup): VendorCategory {
+  if (group.categories.length > 0) return group.categories[0]!;
+  // Entry-point cards.
+  switch (group.id) {
+    case 'live_band':
+      return 'band_dj';
+    case 'bridal_car':
+    case 'guest_shuttle':
+      return 'transportation';
+    default:
+      return 'misc';
+  }
 }
 
 type Props = {
@@ -161,23 +199,34 @@ export function PlanningGroups({
     ? (lockedCeremonyVenue.marketplace_business_name ?? lockedCeremonyVenue.vendor_name)
     : null;
 
-  // Counter rewrite — owner directive 2026-05-22 (Task #54).
+  // Counter rewrite — owner directive 2026-05-22 (Task #54), extended for
+  // 22-card grid (2026-05-22, same day).
   //
   // OLD math counted pick-ROWS ("3 picked" meant the host had 3 considering
-  // vendors across all 12 cards), which was confusing because it didn't
-  // track progress toward locking in 12 categories.
+  // vendors across all cards), which was confusing because it didn't
+  // track progress toward locking in N categories.
   //
   // NEW math is card-state-aware:
-  //   - lockedCards = count of plan groups with ≥1 locked vendor
-  //   - leftToLock  = 12 − lockedCards
-  //   - consideredPicks = pick-rows that aren't locked (informational only,
-  //     kept on a secondary line so the host can still see "you have N
-  //     options on the table")
+  //   - countableGroups   = plan groups that count toward lockable progress.
+  //     Excludes entry-point cards (countsTowardLockable: false) — Live band,
+  //     Bridal car, Guest shuttle share their underlying VendorCategory with
+  //     another card, so the host doesn't see "22 things" with 3 of them
+  //     locked-by-proxy. Header denominator is the countable count.
+  //   - lockedCards       = count of countable groups with ≥1 locked vendor.
+  //   - leftToLock        = countable − lockedCards.
+  //   - consideredPicks   = pick-rows that aren't locked (informational only,
+  //     kept on a secondary line so the host can still see "N options on
+  //     the table").
   //
   // The header now reads progress, not inventory.
+  const countableGroups = PLAN_GROUPS.filter(
+    (g) => g.countsTowardLockable !== false,
+  );
+  const totalCountable = countableGroups.length;
   let lockedCards = 0;
   let consideredPicks = 0;
-  for (const picks of bucketed.values()) {
+  for (const group of countableGroups) {
+    const picks = bucketed.get(group.id) ?? [];
     let groupHasLocked = false;
     for (const p of picks) {
       if (p.status === 'locked') groupHasLocked = true;
@@ -185,11 +234,21 @@ export function PlanningGroups({
     }
     if (groupHasLocked) lockedCards += 1;
   }
-  const totalGroups = PLAN_GROUPS.length;
-  const leftToLock = Math.max(0, totalGroups - lockedCards);
+  const leftToLock = Math.max(0, totalCountable - lockedCards);
+  const totalCards = PLAN_GROUPS.length;
+
+  // Group cards by tier for the 5-tier render (owner directive
+  // 2026-05-22). Iterate in PLAN_GROUP_TIER_ORDER so the tiers stack
+  // in canonical timeline order (Foundation → Big bookings → Style +
+  // program → Extras → Paper).
+  const cardsByTier = new Map<PlanGroupTier, PlanGroup[]>();
+  for (const tier of PLAN_GROUP_TIER_ORDER) cardsByTier.set(tier, []);
+  for (const group of PLAN_GROUPS) {
+    cardsByTier.get(group.tier)!.push(group);
+  }
 
   return (
-    <section aria-labelledby="planning-groups-heading" className="space-y-4">
+    <section aria-labelledby="planning-groups-heading" className="space-y-5">
       <header className="space-y-1.5">
         <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
           Your wedding plan
@@ -199,7 +258,7 @@ export function PlanningGroups({
             id="planning-groups-heading"
             className="text-2xl font-semibold tracking-tight sm:text-3xl"
           >
-            {totalGroups} things to lock in.
+            {totalCards} things to lock in.
           </h2>
           <div className="space-y-0.5 text-right">
             <p className="text-sm text-ink/70">
@@ -231,52 +290,77 @@ export function PlanningGroups({
         </div>
       </header>
 
-      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {PLAN_GROUPS.map((group) => {
-          const picks = bucketed.get(group.id) ?? [];
-          return (
-            <li
-              key={group.id}
-              // Anchor target for OfficiantParishCTAs State B's "Lock
-              // ceremony venue first" deep-link. Scrolls the host to
-              // the Ceremony venue card so they can finalize their
-              // venue pick. Owner directive 2026-05-22: "#ceremony-
-              // venue anchor scrolls the page up to the Ceremony
-              // venue card." Implemented as an id-anchor on the LI
-              // wrapper so smooth-scroll lands at the card boundary.
-              id={
-                group.id === 'ceremony_venue'
-                  ? 'ceremony-venue-card'
-                  : undefined
-              }
-              className={
-                group.id === 'ceremony_venue' ? 'scroll-mt-20' : undefined
-              }
-            >
-              <GroupCard
-                eventId={eventId}
-                eventDate={eventDate}
-                group={group}
-                picks={picks}
-                ceremonyType={resolvedCeremony}
-                venueLatitude={venueLatitude}
-                venueLongitude={venueLongitude}
-                ceremonyVenueName={ceremonyVenueName}
-                paperworkSummary={
-                  group.id === 'ceremony_venue'
-                    ? (paperworkSummary ?? null)
-                    : null
-                }
-                manualVendorOptions={manualVendorOptions ?? []}
-                manualVendorsAttachedForGroup={collectAttachedForGroup(
-                  group.categories,
-                  manualVendorsAttachedByCategory,
-                )}
-              />
-            </li>
-          );
-        })}
-      </ul>
+      {PLAN_GROUP_TIER_ORDER.map((tier) => {
+        const tierGroups = cardsByTier.get(tier) ?? [];
+        if (tierGroups.length === 0) return null;
+        const tierLabel = PLAN_GROUP_TIER_LABEL[tier];
+        const tierHint = PLAN_GROUP_TIER_HINT[tier];
+        const tierId = `planning-tier-${tier}`;
+        return (
+          <section
+            key={tier}
+            aria-labelledby={tierId}
+            className="space-y-3"
+          >
+            <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-ink/10 pb-1.5">
+              <h3
+                id={tierId}
+                className="font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-terracotta"
+              >
+                {tierLabel}
+              </h3>
+              {tierHint ? (
+                <p className="text-xs text-ink/55">{tierHint}</p>
+              ) : null}
+            </header>
+            <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {tierGroups.map((group) => {
+                const picks = bucketed.get(group.id) ?? [];
+                return (
+                  <li
+                    key={group.id}
+                    // Anchor target for OfficiantParishCTAs State B's
+                    // "Lock ceremony venue first" deep-link. Scrolls the
+                    // host to the Ceremony venue card so they can
+                    // finalize their venue pick. Implemented as an
+                    // id-anchor on the LI wrapper so smooth-scroll lands
+                    // at the card boundary.
+                    id={
+                      group.id === 'ceremony_venue'
+                        ? 'ceremony-venue-card'
+                        : undefined
+                    }
+                    className={
+                      group.id === 'ceremony_venue' ? 'scroll-mt-20' : undefined
+                    }
+                  >
+                    <GroupCard
+                      eventId={eventId}
+                      eventDate={eventDate}
+                      group={group}
+                      picks={picks}
+                      ceremonyType={resolvedCeremony}
+                      venueLatitude={venueLatitude}
+                      venueLongitude={venueLongitude}
+                      ceremonyVenueName={ceremonyVenueName}
+                      paperworkSummary={
+                        group.id === 'ceremony_venue'
+                          ? (paperworkSummary ?? null)
+                          : null
+                      }
+                      manualVendorOptions={manualVendorOptions ?? []}
+                      manualVendorsAttachedForGroup={collectAttachedForGroup(
+                        group.categories,
+                        manualVendorsAttachedByCategory,
+                      )}
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        );
+      })}
     </section>
   );
 }
@@ -352,18 +436,25 @@ function GroupCard({
   const lockedCount = picks.filter((p) => p.status === 'locked').length;
   const pickedOnlyCount = picks.length - lockedCount;
 
-  // Search opens the marketplace's CURATED CATALOG view scoped to the
-  // matching folder section. `?folder=<slug>` tells /vendors to render
-  // ONLY that one folder (hides the other 11 + the page-level
-  // PairedVenuePanel). The `#<slug>` anchor preserves smooth-scroll
-  // into the section header so the FolderTabs strip lands where the
-  // couple expects. Task #47 — closes the reported bug where clicking
-  // Reception Search showed Ceremony churches because the universal
-  // 12-folder catalog rendered Ceremony directly above Reception.
+  // Search opens the marketplace at the matching folder section.
+  //
+  // For groups with a `subcategoryHint` (Live band, Host/MC, Cocktail
+  // Booths, LED Background, Cake, Photobooth, Bridal Car, Guest Shuttle,
+  // Rings, etc.) the search href deep-links to
+  // `/vendors?folder=<slug>&category=<canonical>` — vendor-grid mode
+  // FILTERED to that specific canonical_service in the 192-row taxonomy.
+  // The host lands on a narrow vendor list instead of the broader folder.
+  //
+  // For groups without a subcategoryHint (Photography & Video, Catering,
+  // Attire, Florals & Decor, Logistics) the search href stays at
+  // `/vendors?folder=<slug>#<slug>` — catalog mode scoped to the folder
+  // with smooth-scroll anchor to the section header. Task #47 closes the
+  // reported bug where clicking Reception Search showed Ceremony churches.
+  //
   // Add fires the inline custom-vendor form so couples can attach a
   // DIY / not-on-list vendor without leaving the planner.
   const folderSlug = WEDDING_FOLDER_SLUG[group.catalogFolder];
-  const searchHref = `/vendors?folder=${folderSlug}#${folderSlug}`;
+  const searchHref = buildPlanGroupSearchHref(group, folderSlug);
 
   // Finalized-vendor-photo-card (2026-05-22 — owner directive PR D).
   //
@@ -534,18 +625,23 @@ function GroupCard({
        * vendor dropdown wiring lands on every OTHER card via
        * PlanCardCTAs. Future iteration can unify the two paths if the
        * parish-aware affordances prove redundant in practice.
+       *
+       * 22-card grid expansion (2026-05-22): for entry-point cards
+       * (Live band, Bridal car, Guest shuttle — countsTowardLockable
+       * false) we fall back to `resolveDefaultCategoryForCard` so the
+       * inline Add form has a valid VendorCategory enum value to seed.
        */}
       {group.id === 'officiant' ? (
         <OfficiantParishCTAs
           eventId={eventId}
-          defaultCategory={group.categories[0]!}
+          defaultCategory={resolveDefaultCategoryForCard(group)}
           searchHref={searchHref}
           ceremonyVenueName={ceremonyVenueName}
         />
       ) : (
         <PlanCardCTAs
           eventId={eventId}
-          defaultCategory={group.categories[0]!}
+          defaultCategory={resolveDefaultCategoryForCard(group)}
           searchHref={searchHref}
           groupLabel={group.label}
           manualVendorOptions={manualVendorOptions}

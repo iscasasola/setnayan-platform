@@ -15,15 +15,25 @@ export type VendorInviteStatus =
 
 /** 2026-05-21 — admin-initiated invites have no parent event_vendors row
  *  (`vendor_id` is NULL). The claim flow branches on this field to skip
- *  applyClaimAutoLink for admin-source rows. */
-export type VendorInviteSource = 'couple' | 'admin';
+ *  applyClaimAutoLink for admin-source rows.
+ *
+ *  2026-05-22 — `auto_share_link` is the third source. Created by
+ *  finalizeVendor when a host locks a manual vendor (one with
+ *  `event_vendors.manual_vendor_id IS NOT NULL` and no marketplace link).
+ *  No target email at insert time — the host shares the URL via whatever
+ *  channel (Viber, Messenger, SMS); the vendor's email is captured at
+ *  signup. Behaves like 'couple' on the claim page (auto-link via
+ *  applyClaimAutoLink fires when the vendor finishes signup). */
+export type VendorInviteSource = 'couple' | 'admin' | 'auto_share_link';
 
 export type VendorInviteRow = {
   invite_id: string;
   public_id: string;
   vendor_id: string | null;
   invited_by_user_id: string;
-  email: string;
+  /** Nullable as of 2026-05-22 (auto_share_link source). NOT NULL for
+   *  couple + admin sources — enforced by vendor_invites_source_vendor_consistency. */
+  email: string | null;
   business_name: string;
   service_category: string | null;
   claim_token: string;
@@ -246,24 +256,175 @@ export async function fetchClaimLandingByToken(
   }
 
   // 5. Already-on-Setnayan detection — does this email already own a vendor?
-  const { data: existingVendor } = await admin
-    .from('vendor_profiles')
-    .select('vendor_profile_id,business_name,contact_email')
-    .ilike('contact_email', resolvedInvite.email)
-    .limit(1)
-    .maybeSingle();
+  // Skipped for auto_share_link source (no email captured at invite time);
+  // existingVendor stays null and the claim flow falls through to its
+  // own branch in the claim page.
+  let existingVendor: { vendor_profile_id: string; business_name: string } | null = null;
+  if (resolvedInvite.email) {
+    const { data: row } = await admin
+      .from('vendor_profiles')
+      .select('vendor_profile_id,business_name,contact_email')
+      .ilike('contact_email', resolvedInvite.email)
+      .limit(1)
+      .maybeSingle();
+    if (row) {
+      existingVendor = {
+        vendor_profile_id: row.vendor_profile_id as string,
+        business_name: row.business_name as string,
+      };
+    }
+  }
 
   return {
     invite: resolvedInvite,
     parentVendor: parent,
     event,
-    existingVendor: existingVendor
-      ? {
-          vendor_profile_id: existingVendor.vendor_profile_id as string,
-          business_name: existingVendor.business_name as string,
-        }
-      : null,
+    existingVendor,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Auto-share-link invites (2026-05-22) — idempotent ensure + fetch helpers
+//
+// Called from finalizeVendor (apps/web/app/dashboard/[eventId]/vendors/actions.ts)
+// when a host locks a manual vendor that has no Setnayan account. Returns
+// an existing pending token if one exists for this event_vendors row, or
+// creates a fresh row + token. Workspace page calls fetchActiveAutoShareInvite
+// to render the claim-URL CTA.
+// ---------------------------------------------------------------------------
+
+const AUTO_SHARE_INVITE_TTL_DAYS = 90;
+
+function computeAutoShareExpiresAt(): string {
+  return new Date(Date.now() + AUTO_SHARE_INVITE_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+}
+
+/**
+ * Idempotently ensures an `auto_share_link` invite exists for an
+ * event_vendors row. Returns the invite (existing or freshly-created)
+ * so the caller can build the claim URL. The partial unique index
+ * `vendor_invites_auto_share_live_unique` guarantees at most one pending
+ * row per event_vendors id, so this is safe to call repeatedly.
+ *
+ * Schema gating: caller MUST verify the parent event_vendors row has
+ * `manual_vendor_id IS NOT NULL` AND `marketplace_vendor_id IS NULL`
+ * before calling. The DB doesn't enforce that linkage — `vendor_id` on
+ * vendor_invites is just an FK to event_vendors.vendor_id, and a
+ * marketplace-linked row already has chat unlocked + a vendor_profile
+ * for the vendor to log into, so an invite would be a no-op.
+ *
+ * Failure mode: if the insert fails (RLS denial, network), returns null
+ * and lets the caller decide whether to surface the error. The lock
+ * itself has already succeeded by the time this is called, so silent
+ * fallback is the right shape (per the auto-cascade pattern in
+ * finalizeVendor's existing trailing operations).
+ */
+export async function ensureAutoShareInvite(
+  supabase: SupabaseClient,
+  args: {
+    eventVendorId: string;
+    invitedByUserId: string;
+    businessName: string;
+    serviceCategory: string | null;
+  },
+): Promise<VendorInviteRow | null> {
+  // 1. Look for an existing pending auto_share_link invite for this row.
+  const { data: existing, error: readErr } = await supabase
+    .from('vendor_invites')
+    .select(
+      'invite_id,public_id,vendor_id,invited_by_user_id,email,business_name,service_category,claim_token,status,source,sent_at,expires_at,claimed_by_user_id,claimed_vendor_profile_id,claimed_at,declined_at,revoked_at',
+    )
+    .eq('vendor_id', args.eventVendorId)
+    .eq('source', 'auto_share_link')
+    .eq('status', 'pending')
+    .maybeSingle();
+  if (readErr) {
+    // RLS or transient error — don't try to insert blindly. Caller can
+    // re-run on the next finalize hit.
+    return null;
+  }
+  if (existing) {
+    return existing as VendorInviteRow;
+  }
+
+  // 2. Create a new pending row. Email stays NULL (host shares manually);
+  //    business_name + service_category are denormalized snapshots so the
+  //    claim page renders stable identity even if the host later edits
+  //    the event_vendors row.
+  const claimToken = generateClaimToken();
+  const { data: inserted, error: insertErr } = await supabase
+    .from('vendor_invites')
+    .insert({
+      vendor_id: args.eventVendorId,
+      invited_by_user_id: args.invitedByUserId,
+      email: null,
+      business_name: args.businessName,
+      service_category: args.serviceCategory,
+      claim_token: claimToken,
+      status: 'pending',
+      source: 'auto_share_link',
+      expires_at: computeAutoShareExpiresAt(),
+    })
+    .select(
+      'invite_id,public_id,vendor_id,invited_by_user_id,email,business_name,service_category,claim_token,status,source,sent_at,expires_at,claimed_by_user_id,claimed_vendor_profile_id,claimed_at,declined_at,revoked_at',
+    )
+    .single();
+
+  if (insertErr) {
+    // 23505 = unique_violation. Another concurrent finalize call may have
+    // just inserted the row — re-read and return that one.
+    if (insertErr.code === '23505') {
+      const { data: raced } = await supabase
+        .from('vendor_invites')
+        .select(
+          'invite_id,public_id,vendor_id,invited_by_user_id,email,business_name,service_category,claim_token,status,source,sent_at,expires_at,claimed_by_user_id,claimed_vendor_profile_id,claimed_at,declined_at,revoked_at',
+        )
+        .eq('vendor_id', args.eventVendorId)
+        .eq('source', 'auto_share_link')
+        .eq('status', 'pending')
+        .maybeSingle();
+      return (raced as VendorInviteRow | null) ?? null;
+    }
+    return null;
+  }
+  return inserted as VendorInviteRow;
+}
+
+/**
+ * Returns the most recent auto_share_link invite for an event_vendors row,
+ * regardless of status. Used by the workspace page to render either:
+ *   - The active claim URL CTA when status='pending'
+ *   - The "Linked on {claimed_at}" status when status='claimed'
+ *   - The "Invite expired/revoked" hint when status='expired'/'revoked'
+ *
+ * Returns null when no invite has ever been auto-created (e.g. host hasn't
+ * locked this manual vendor yet, or it was created before this feature
+ * landed).
+ */
+export async function fetchActiveAutoShareInvite(
+  supabase: SupabaseClient,
+  eventVendorId: string,
+): Promise<VendorInviteRow | null> {
+  const { data } = await supabase
+    .from('vendor_invites')
+    .select(
+      'invite_id,public_id,vendor_id,invited_by_user_id,email,business_name,service_category,claim_token,status,source,sent_at,expires_at,claimed_by_user_id,claimed_vendor_profile_id,claimed_at,declined_at,revoked_at',
+    )
+    .eq('vendor_id', eventVendorId)
+    .eq('source', 'auto_share_link')
+    .order('sent_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (data as VendorInviteRow | null) ?? null;
+}
+
+/**
+ * Build the public-facing claim URL for a token. Centralized so the host
+ * UI + email + future SMS share-helpers all produce the same shape.
+ */
+export function buildClaimUrl(token: string): string {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com';
+  return `${appUrl.replace(/\/$/, '')}/vendor/claim/${token}`;
 }
 
 // ---------------------------------------------------------------------------

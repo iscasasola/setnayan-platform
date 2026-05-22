@@ -47,14 +47,22 @@ import {
   CheckCircle2,
   Circle,
   FileText,
+  LinkIcon,
   MessageCircle,
   Package as PackageIcon,
   PiggyBank,
   Plus,
+  UserCheck,
   Upload,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
+import {
+  buildClaimUrl,
+  ensureAutoShareInvite,
+  fetchActiveAutoShareInvite,
+} from '@/lib/vendor-invites';
+import { ClaimLinkShare } from './_components/claim-link-share';
 
 export const metadata = { title: 'Vendor workspace · Setnayan' };
 
@@ -200,7 +208,7 @@ export default async function VendorWorkspacePage({ params }: Props) {
   const { data: vendorRow, error: vendorErr } = await supabase
     .from('event_vendors')
     .select(
-      'vendor_id, event_id, category, vendor_name, contact_email, contact_phone, status, workspace_status, total_cost_php, deposit_paid_php, notes, marketplace_vendor_id, created_at',
+      'vendor_id, event_id, category, vendor_name, contact_email, contact_phone, status, workspace_status, total_cost_php, deposit_paid_php, notes, marketplace_vendor_id, manual_vendor_id, created_at',
     )
     .eq('vendor_id', eventVendorId)
     .eq('event_id', eventId)
@@ -221,8 +229,35 @@ export default async function VendorWorkspacePage({ params }: Props) {
     deposit_paid_php: number | string | null;
     notes: string | null;
     marketplace_vendor_id: string | null;
+    manual_vendor_id: string | null;
     created_at: string;
   };
+
+  // ----------------------------------------------------------------------
+  // Auto-share-link invite (2026-05-22 owner directive). Reads the current
+  // invite (if any) so the CTA can render the right state.
+  // ----------------------------------------------------------------------
+  const needsInvite =
+    ev.manual_vendor_id !== null && ev.marketplace_vendor_id === null;
+  let autoShareInvite = needsInvite
+    ? await fetchActiveAutoShareInvite(supabase, ev.vendor_id)
+    : null;
+  // Self-heal path — if the vendor is in a state that warrants an invite
+  // (manual-vendor-locked + no marketplace link) but no auto_share_link row
+  // exists yet (e.g. finalize fired before this feature shipped, or the
+  // invite insert failed at lock time), generate one on this render so the
+  // host always sees a fresh shareable link. This is idempotent — if the
+  // row already exists it just gets re-read.
+  if (needsInvite && !autoShareInvite && (ev.status === 'contracted'
+    || ev.status === 'deposit_paid' || ev.status === 'delivered'
+    || ev.status === 'complete')) {
+    autoShareInvite = await ensureAutoShareInvite(supabase, {
+      eventVendorId: ev.vendor_id,
+      invitedByUserId: user.id,
+      businessName: ev.vendor_name,
+      serviceCategory: ev.category,
+    });
+  }
 
   // Parallel fetches for the 5 panel data sources. None of these are critical-
   // path — if any fail (e.g. RLS edge case, table doesn't exist on prod yet),
@@ -484,6 +519,109 @@ export default async function VendorWorkspacePage({ params }: Props) {
           </Link>
         </div>
       </section>
+
+      {/* ============================================================== */}
+      {/* Section 1b — Bring this vendor onto Setnayan                     */}
+      {/* ============================================================== */}
+      {/* Renders when the locked vendor is a manual contact (no Setnayan  */}
+      {/* account). Surfaces a shareable claim link the host sends to the  */}
+      {/* vendor via Viber/Messenger/SMS/email/etc. — the vendor opens it, */}
+      {/* registers a free vendor account, and applyClaimAutoLink fires:   */}
+      {/* event_vendors.marketplace_vendor_id ← new vendor_profile_id.     */}
+      {/* CLAUDE.md 2026-05-22 owner directive.                             */}
+      {needsInvite && autoShareInvite && autoShareInvite.status === 'pending' ? (
+        <section
+          aria-labelledby="claim-invite-heading"
+          className="rounded-2xl border border-amber-300/60 bg-amber-50/60 p-5 sm:p-6"
+        >
+          <header className="flex items-start gap-3">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-amber-100 text-amber-800">
+              <LinkIcon aria-hidden className="h-4.5 w-4.5" strokeWidth={1.75} />
+            </div>
+            <div className="min-w-0 space-y-1">
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-amber-800">
+                Bring this vendor onto Setnayan
+              </p>
+              <h2
+                id="claim-invite-heading"
+                className="text-sm font-semibold text-ink"
+              >
+                Send {displayName} this link
+              </h2>
+              <p className="text-xs text-ink/70">
+                They don&rsquo;t have a Setnayan account yet. Share this link
+                so they can register a free vendor account and see the
+                schedule you&rsquo;ve locked for them.
+              </p>
+            </div>
+          </header>
+
+          <div className="mt-4">
+            <ClaimLinkShare
+              claimUrl={buildClaimUrl(autoShareInvite.claim_token)}
+              shareTitle={`Setnayan invite for ${displayName}`}
+              shareText={`Hi! I added you on Setnayan for our wedding. Claim your free vendor account here:`}
+            />
+          </div>
+
+          <p className="mt-3 text-[11px] text-ink/55">
+            Free vendor account · launch promo runs through 30 Jan 2027 ·
+            Link expires in 90 days
+          </p>
+        </section>
+      ) : needsInvite && autoShareInvite && autoShareInvite.status === 'claimed' ? (
+        <section
+          aria-labelledby="claim-linked-heading"
+          className="rounded-2xl border border-emerald-200/80 bg-emerald-50/60 p-5"
+        >
+          <header className="flex items-start gap-3">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-800">
+              <UserCheck aria-hidden className="h-4.5 w-4.5" strokeWidth={1.75} />
+            </div>
+            <div className="min-w-0 space-y-1">
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-emerald-800">
+                Linked to vendor account
+              </p>
+              <h2
+                id="claim-linked-heading"
+                className="text-sm font-semibold text-ink"
+              >
+                {displayName} joined Setnayan
+              </h2>
+              <p className="text-xs text-ink/70">
+                Chat unlocks below. They can confirm details, upload
+                contracts, and sync their schedule directly with you.
+              </p>
+            </div>
+          </header>
+        </section>
+      ) : needsInvite && autoShareInvite && autoShareInvite.status === 'expired' ? (
+        <section
+          aria-labelledby="claim-expired-heading"
+          className="rounded-2xl border border-ink/15 bg-cream/60 p-5"
+        >
+          <header className="flex items-start gap-3">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ink/5 text-ink/55">
+              <LinkIcon aria-hidden className="h-4.5 w-4.5" strokeWidth={1.75} />
+            </div>
+            <div className="min-w-0 space-y-1">
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+                Invite link expired
+              </p>
+              <h2
+                id="claim-expired-heading"
+                className="text-sm font-semibold text-ink/85"
+              >
+                The previous invite link is no longer active
+              </h2>
+              <p className="text-xs text-ink/65">
+                Re-lock this vendor to generate a fresh link, or reach out to
+                them using the contact details above.
+              </p>
+            </div>
+          </header>
+        </section>
+      ) : null}
 
       {/* ============================================================== */}
       {/* Section 2 — Status stepper                                       */}

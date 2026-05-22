@@ -343,6 +343,37 @@ export async function applyClaimAutoLink(args: {
           ignoreDuplicates: true,
         });
     }
+
+    // 5. Upsert a chat_thread so the vendor's /vendor-dashboard/bookings
+    // surface shows the event immediately on first login. The
+    // chat_threads UNIQUE (event_id, vendor_profile_id) lets us safely
+    // upsert without race conditions on multi-host events. RLS allows
+    // both sides to read once the row exists (chat_threads_member_read
+    // in 20260513130000_iteration_0019_communications.sql); the admin
+    // client used here bypasses RLS for the insert itself.
+    //
+    // Without this, the vendor lands on /vendor-dashboard, sees only the
+    // profile-completion prompts, and has no path back to the event
+    // they just claimed until the host sends them the first chat
+    // message. Pre-seeding the thread closes that gap — the vendor
+    // sees the booking under "Upcoming events" via fetchVendorThreads.
+    //
+    // The thread is created with NO messages — chat_messages.thread_id
+    // is the actual conversation, which stays empty until either side
+    // posts the first message. The empty thread is acceptable: vendor
+    // bookings page renders a "Say hello" empty state, and the host
+    // sees the thread show up in their /messages list with a "No
+    // messages yet" pill. Standard 0019 communications shape.
+    await admin
+      .from('chat_threads')
+      .upsert(
+        {
+          event_id: parent.event_id as string,
+          vendor_profile_id: args.claimedVendorProfileId,
+          created_by_user_id: args.claimedByUserId,
+        },
+        { onConflict: 'event_id,vendor_profile_id', ignoreDuplicates: true },
+      );
   }
 
   return { ok: true, vendorId: invite.vendor_id as string, coupleUserIds };

@@ -193,14 +193,28 @@ export async function createWeddingEvent(formData: FormData) {
       ceremony_sub_type,
       is_mixed_ceremony,
       secondary_ceremony_type,
-      // Task #38 (2026-05-22) — explicitly DO NOT auto-stamp
-      // ceremony_type_locked_at at create-time. The picker default of
-      // 'catholic' is a silent inheritance, not an affirmative confirmation;
-      // the religion CTA from PR #301 surfaces on event home and lets the
-      // host explicitly confirm via the chip, at which point the lock fires.
-      // Auto-stamping here (the original behavior shipped in PR #301 then
-      // reverted as a bug) bypasses the chip CTA entirely for new events,
-      // breaking the chip's "set then immutable" semantic.
+      // Per CLAUDE.md 2026-05-22 owner directive ("select wedding type
+      // is still not showing the initial wedding type"): stamp
+      // ceremony_type_locked_at at create-time for weddings.
+      //
+      // Task #44 (2026-05-22) made ceremony_type a REQUIRED affirmative
+      // pick at event creation — the previous silent 'catholic' default
+      // is gone. Once the pick is affirmative, the original Task #38
+      // rationale for NOT stamping locked_at (the picker was implicitly
+      // defaulting and we wanted the dashboard chip to surface the CTA
+      // for explicit confirmation) no longer applies.
+      //
+      // Without this stamp, EventMetaLine's check
+      //   ceremonyConfirmed = Boolean(ceremony_type_locked_at) && Boolean(ceremony_type)
+      // returns false even though the host picked Catholic at create-time,
+      // so event home renders the "Set wedding type" CTA right after a
+      // fresh event creation — confusing UX exactly matching the owner
+      // bug report.
+      //
+      // For non-wedding event_types ceremony_type is NULL so we leave
+      // locked_at NULL too (the columns travel together by construction).
+      ceremony_type_locked_at: isWedding ? new Date().toISOString() : null,
+      ceremony_type_locked_by: isWedding ? user.id : null,
       //
       // Task #39 (2026-05-22) — event_date_precision defaults to 'year'
       // via the column default (migration 20260603100000). We intentionally

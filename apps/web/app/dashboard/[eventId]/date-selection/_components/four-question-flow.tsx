@@ -37,7 +37,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { lockEventDate, setMeaningfulDates } from '../actions';
+import { lockEventDate, setMeaningfulDates, setCeremonyTypeFromFlow } from '../actions';
 import {
   computeAuspiciousReasons,
   suggestMeaningfulDates,
@@ -143,14 +143,56 @@ export function FourQuestionFlow({
   const [pickedDate, setPickedDate] = useState<string | null>(null);
 
   function next() {
-    if (step === 1) setStep(2);
-    else if (step === 2) setStep(3);
+    if (step === 1) {
+      // Persist ceremony_type to events.ceremony_type before moving to
+      // step 2. Per CLAUDE.md 2026-05-22 owner directive ("select wedding
+      // type is still not showing the initial wedding type") — the prior
+      // build captured the pick in local state only, so the EventMetaLine
+      // on event home rendered "Set wedding type" CTA even when the host
+      // had picked Catholic here. Stamp ceremony_type_locked_at via the
+      // action so the chip reads as confirmed.
+      //
+      // Skip the write when the host hasn't picked anything OR picked
+      // "Skip for now" (undecided) — the action treats both as no-op so
+      // events.ceremony_type stays NULL and the dashboard CTA still
+      // surfaces correctly.
+      if (ceremonyChoice && ceremonyChoice !== 'undecided') {
+        submitCeremonyType(() => setStep(2));
+      } else {
+        setStep(2);
+      }
+    } else if (step === 2) setStep(3);
     else if (step === 3) {
       // Save meaningful dates before moving to step 4
       submitMeaningfulDates(() => setStep(4));
     } else if (step === 4) {
       setStep('suggestions');
     }
+  }
+
+  function submitCeremonyType(onSuccess?: () => void) {
+    if (!ceremonyChoice || ceremonyChoice === 'undecided') {
+      if (onSuccess) onSuccess();
+      return;
+    }
+    const form = new FormData();
+    form.set('event_id', eventId);
+    form.set('ceremony_type', ceremonyChoice);
+    setError(null);
+    startTransition(async () => {
+      try {
+        const result = await setCeremonyTypeFromFlow(form);
+        if (!result.ok) {
+          setError(result.message);
+          return;
+        }
+        if (onSuccess) onSuccess();
+      } catch (e) {
+        const message =
+          e instanceof Error ? e.message : 'Could not save your wedding type — please try again';
+        setError(message);
+      }
+    });
   }
 
   function back() {

@@ -66,7 +66,16 @@ export default async function EventLayout({ children, params }: Props) {
   return (
     <div className="flex min-h-dvh flex-col bg-cream pb-16 lg:pb-0 lg:pl-60">
       <div className="sticky top-0 z-20 border-b border-ink/10 bg-cream/95 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
+        {/* Owner directive 2026-05-22: "why is it not maximizing the
+            whole screen?" The previous cap (max-w-6xl / xl:max-w-7xl /
+            2xl:max-w-screen-2xl) topped out at 1536px even on wide
+            monitors, leaving significant whitespace on both sides on
+            Macbook 16" and external displays. Removing the cap lets the
+            event-scoped layout fill the full viewport with the existing
+            horizontal padding (32px each side via lg:px-8). The header
+            strip stays consistent with the main content below by
+            mirroring the same width treatment. */}
+        <div className="mx-auto flex w-full items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <EventSwitcher
             currentEventId={event.event_id}
             currentEventName={event.display_name}
@@ -118,7 +127,11 @@ export default async function EventLayout({ children, params }: Props) {
         </div>
       </div>
 
-      <main className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
+      {/* Full-width main — see comment above the header strip for the
+          why (2026-05-22 owner directive). The event home's Finder-column
+          layout + other event-scoped surfaces all benefit from filling
+          the viewport on wide monitors. */}
+      <main className="mx-auto w-full flex-1 px-4 py-6 sm:px-6 lg:px-8">
         {children}
       </main>
 

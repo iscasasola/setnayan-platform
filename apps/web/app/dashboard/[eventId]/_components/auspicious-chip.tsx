@@ -4,13 +4,29 @@
  * Renders one of two states on event home, just below the welcome strip
  * and above the inline date input:
  *
- *   (a) date_status='locked' → polite chip "⭐ Your date · {date} · See why
- *       this date works ▸" that links to /dashboard/[eventId]/date-selection.
- *       Tapping the chip opens the full Phase 0 surface where the
- *       AuspiciousCard renders inline alongside the calendar picker (so the
- *       host can review the reasoning + re-pick).
- *   (b) date_status != 'locked' → a small "Pick your date →" prompt that
- *       routes to the same surface for the host to enter the flow.
+ *   (a) event_date is set (regardless of date_status) → polite chip
+ *       "⭐ Your date · {date} · See why this date works ▸" that links to
+ *       /dashboard/[eventId]/date-selection. Tapping the chip opens the
+ *       full Phase 0 surface where the AuspiciousCard renders inline
+ *       alongside the calendar picker (so the host can review the
+ *       reasoning + re-pick).
+ *   (b) no event_date set → a small "Pick your date →" prompt that routes
+ *       to the same surface for the host to enter the flow.
+ *
+ * Detection rule (per CLAUDE.md 2026-05-22 owner directive — Task #67):
+ * The presence of a valid `event_date` IS the locked-equivalent signal.
+ * Earlier framing checked `date_status === 'locked'` exclusively, which
+ * mismatched real production data where (a) events created before the
+ * 2026-06-04 Phase 0 migration shipped have event_date populated but
+ * date_status='undecided', AND (b) the original migration's UPDATE pass
+ * has had no chance to catch events whose dates were set via paths
+ * outside the Phase 0 lock-this-date flow. Owner verbatim: "asking for
+ * a date even if we already have a date. please make sure the date
+ * follows the upper function and not the second one." Migration
+ * `20260604140000_backfill_date_status_for_existing_events.sql` re-runs
+ * the backfill belt-and-suspenders style; this component now also reads
+ * the event_date column directly so display is correct regardless of
+ * date_status drift.
  *
  * Per CLAUDE.md 2026-05-22 Phase 0 lock — every string is polite brand
  * voice, no dev text post-launch per [[feedback_setnayan_no_dev_text_post_launch]].
@@ -26,15 +42,20 @@ type Props = {
   eventId: string;
   /** YYYY-MM-DD or null */
   eventDate: string | null;
-  /** From events.date_status — drives which variant renders. */
+  /** From events.date_status — currently advisory only; event_date drives display. */
   dateStatus: string | null;
 };
 
 export function AuspiciousChip({ eventId, eventDate, dateStatus }: Props) {
   const href = `/dashboard/${eventId}/date-selection`;
 
-  // Locked state — show the date + invitation to see why it works.
-  if (dateStatus === 'locked' && eventDate && /^\d{4}-\d{2}-\d{2}$/.test(eventDate)) {
+  // Locked-display state — the event has a real date set. We treat event_date
+  // presence as the load-bearing signal so legacy events (and events whose
+  // Phase 0 flow crashed mid-save) still render their date here instead of
+  // contradicting EventMetaLine below. Per Task #67 owner directive 2026-05-22.
+  const hasRealDate = Boolean(eventDate && /^\d{4}-\d{2}-\d{2}$/.test(eventDate));
+
+  if (hasRealDate && eventDate) {
     return (
       <a
         href={href}
@@ -63,7 +84,7 @@ export function AuspiciousChip({ eventId, eventDate, dateStatus }: Props) {
     );
   }
 
-  // Unlocked / tentative / undecided — soft prompt.
+  // Unlocked / tentative / undecided — no date set yet, soft prompt.
   return (
     <a
       href={href}

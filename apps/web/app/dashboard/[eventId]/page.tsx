@@ -204,14 +204,6 @@ const TILES: Array<{
   },
 ];
 
-function timeOfDayGreetingKey(date: Date): TranslationKey {
-  const h = date.getHours();
-  if (h >= 5 && h < 12) return 'greeting.morning';
-  if (h >= 12 && h < 17) return 'greeting.afternoon';
-  if (h >= 17 && h < 21) return 'greeting.evening';
-  return 'greeting.night';
-}
-
 function daysUntil(eventDate: string | null): number | null {
   if (!eventDate) return null;
   const event = new Date(`${eventDate}T00:00:00`);
@@ -520,9 +512,6 @@ export default async function EventHomePage({
     },
     manualSteps,
   );
-
-  const greetingName = profile?.display_name?.split(' ')[0] ?? user.email?.split('@')[0] ?? 'there';
-  const greeting = tr(timeOfDayGreetingKey(now));
 
   const eventVendorsRaw = (eventVendorsRes.data ?? []) as Array<{
     vendor_id: string;
@@ -1218,11 +1207,7 @@ export default async function EventHomePage({
         trialResultStatus={search.concierge_trial ?? null}
       />
 
-      <WelcomeHeader
-        greeting={greeting}
-        name={greetingName}
-        eventName={event.display_name}
-      />
+      <WelcomeHeader eventName={event.display_name} />
 
       {/* Phase 0 Date Selection entry point — CLAUDE.md 2026-05-22 lock.
        *  Renders one of two states based on events.date_status:
@@ -1434,27 +1419,17 @@ function isWeddingBeyondConciergeCap(activatedIso: string, weddingIso: string): 
   return wedding.getTime() > cap.getTime();
 }
 
-function WelcomeHeader({
-  greeting,
-  name,
-  eventName,
-}: {
-  greeting: string;
-  name: string;
-  eventName: string;
-}) {
-  // Task #65 (2026-05-22) — date + countdown + ceremony type moved into
+function WelcomeHeader({ eventName }: { eventName: string }) {
+  // Task #65 (2026-05-22) — date + countdown + ceremony type live in
   // <EventMetaLine> immediately below (rendered as a sibling in the page
-  // composition). This header now carries only the event-name display +
-  // time-of-day greeting so the welcome strip stays the single source of
-  // "who and what" without duplicating the "when" three times across the
-  // page. See _components/event-meta-line.tsx.
+  // composition). 2026-05-22 (owner directive) — the time-of-day greeting
+  // line previously rendered beneath the event name was removed; header now
+  // carries only the event-name display so the welcome strip stays the
+  // single source of "who and what" without duplicating the "when" three
+  // times across the page. See _components/event-meta-line.tsx.
   return (
     <header className="space-y-1.5">
       <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{eventName}</h1>
-      <p className="text-base text-ink/75">
-        {greeting}, {name}
-      </p>
     </header>
   );
 }

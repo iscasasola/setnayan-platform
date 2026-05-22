@@ -315,6 +315,63 @@ export function statusOfVendor(rawStatus: string | null | undefined): VendorPick
 }
 
 /**
+ * Saturation rules per CLAUDE.md 2026-05-09 lock + 2026-05-20 row 470
+ * (12-folder marketplace remap). Maps onto the 12 PlanGroupId buckets.
+ *
+ * Hard-single groups: only one vendor can be locked at any time. A
+ * second lock attempt surfaces a Switch / Cancel modal so the host can
+ * either swap the existing lock OR cancel the new attempt.
+ *
+ * Soft-single + multi-uncapped groups: lock proceeds without confirm.
+ * (Soft-single warning UX is V1.1 — for V1 we don't gate beyond the
+ * hard-single set because the multi-pick reality is common across
+ * Filipino weddings — e.g. two principal officiants, three photo teams.)
+ *
+ * Mapped from the spec's per-category list to the 12 plan groups:
+ *   • ceremony_venue   — 1 church/chapel only (religious_venue +
+ *     church_fees categories)
+ *   • reception_venue  — 1 venue only (venue category)
+ *   • officiant        — 1 officiant (officiant category). Mixed-faith
+ *     weddings that need 2 officiants override via the Switch flow.
+ *
+ * Other groups have legitimate multi-lock scenarios:
+ *   • catering: 1 main caterer is common but specialty caterers (cake,
+ *     dessert bar, signature drinks) are routinely co-locked.
+ *   • photography: photo + video are separate categories often booked
+ *     separately as 2 different vendors.
+ *   • attire/rings: gown + suit + rings are 3 separate vendors.
+ *   • music_entertainment: host + band + DJ + choir routinely all
+ *     locked separately.
+ *   • logistics: transportation + lights + security + planner all
+ *     separate vendors.
+ */
+export const HARD_SINGLE_PICK_GROUPS: ReadonlySet<PlanGroupId> = new Set([
+  'ceremony_venue',
+  'reception_venue',
+  'officiant',
+]);
+
+export function isHardSinglePickGroup(groupId: PlanGroupId): boolean {
+  return HARD_SINGLE_PICK_GROUPS.has(groupId);
+}
+
+/**
+ * Look up which PlanGroupId a vendor category belongs to, or null if the
+ * category isn't part of any planning group. Mirrors the
+ * `bucketVendorsByGroup` logic but returns just the bucket key — used
+ * by the finalize server action to gate hard-single conflict checks
+ * against the canonical group definition.
+ */
+export function planGroupForCategory(
+  category: VendorCategory,
+): PlanGroupId | null {
+  for (const g of PLAN_GROUPS) {
+    if (g.categories.includes(category)) return g.id;
+  }
+  return null;
+}
+
+/**
  * Compatibility issue surfaced on a pick when the host's
  * `events.ceremony_type` OR `events.venue_setting` has drifted away
  * from a previously-picked vendor's tagged compatibility set.

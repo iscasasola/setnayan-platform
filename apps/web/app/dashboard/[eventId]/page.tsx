@@ -349,6 +349,16 @@ export default async function EventHomePage({
     contractsCountRes,
     setnayanCreationOrdersRes,
     manualVendorsRes,
+    // Love-quote popup gating (owner directive 2026-05-22). The 5-sec
+    // once-per-day popup fires only for hosts whose event_moderators
+    // row carries role_subtype ∈ {bride, groom, partner1, partner2}.
+    // Other hosts (parents · ninong · ninang · planner · MOH · best
+    // man · family_helper · viewer) see nothing — the quote is the
+    // couple's intimate daily moment. Returns null when the host has
+    // no event_moderators row (legacy event_members 'couple' pattern
+    // pre-iteration-0048 backfill); component returns null upstream
+    // in that case so legacy events stay calm too.
+    viewerModeratorRes,
   ] =
     await Promise.all([
       supabase
@@ -478,6 +488,20 @@ export default async function EventHomePage({
         )
         .eq('event_id', eventId)
         .order('created_at', { ascending: true }),
+      // Viewer's event_moderators row — drives the love-quote popup
+      // visibility gate (owner directive 2026-05-22). Filters by
+      // removed_at IS NULL to skip revoked-host rows. RLS scoped via
+      // event_moderators per migration 20260519100000. .maybeSingle()
+      // returns null when the viewer has no moderator row (legacy
+      // event_members 'couple' pattern OR not a moderator at all);
+      // the popup component handles null gracefully.
+      supabase
+        .from('event_moderators')
+        .select('role_subtype')
+        .eq('event_id', eventId)
+        .eq('user_id', user.id)
+        .is('removed_at', null)
+        .maybeSingle(),
     ]);
   const tr = makeT(locale);
 
@@ -1210,12 +1234,21 @@ export default async function EventHomePage({
 
       <WelcomeHeader eventName={event.display_name} />
 
-      {/* Love-quote-of-the-day — 2026-05-22 owner directive: "we want a 365
-       *  days in love quote that will be shared everyday depending on how
-       *  far they are from the wedding." Returns null when `daysOut` is null
-       *  (no real day picked yet) so brand-new events stay calm.
-       *  See _components/love-quote-of-the-day.tsx + lib/love-quotes.ts. */}
-      <LoveQuoteOfTheDay daysToWedding={daysOut} />
+      {/* Love-quote-of-the-day — 2026-05-22 owner directive (refined same-
+       *  day): "pops up for 5 seconds ONCE per day · disappears after ·
+       *  reappears next day just once" + "Visibility scoped to bride · groom
+       *  · partner1 · partner2" + "TWO parallel 365-day quote sets, one for
+       *  the BRIDE · one for the GROOM" + pressure-aware tone rewrite of
+       *  every entry. Returns null when `daysOut` is null (no real day
+       *  picked yet) OR when `viewerRoleSubtype` is not in the couple set
+       *  (parents, planners, MOH, best man, ninong, ninang, family_helper,
+       *  viewer all see nothing — the quote is the couple's intimate
+       *  moment). See _components/love-quote-of-the-day.tsx +
+       *  lib/love-quotes.ts. */}
+      <LoveQuoteOfTheDay
+        daysToWedding={daysOut}
+        roleSubtype={viewerModeratorRes.data?.role_subtype ?? null}
+      />
 
       {/* Phase 0 Date Selection entry point — CLAUDE.md 2026-05-22 lock.
        *  Renders one of two states based on events.date_status:

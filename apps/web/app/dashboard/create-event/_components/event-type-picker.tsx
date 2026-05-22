@@ -163,20 +163,6 @@ export function EventTypePicker({ launchStatus, conciergeEnabled }: EventTypePic
           <input type="hidden" name="event_type" value={selected.key} />
           <input type="hidden" name="concierge_choice" value={conciergeChoice} />
 
-          <p className="rounded-md border border-ink/10 bg-cream px-4 py-2.5 text-sm text-ink/75">
-            <span aria-hidden className="mr-2 text-base">
-              {selected.emoji}
-            </span>
-            Planning a <strong className="font-semibold text-ink">{selected.label}</strong>.{' '}
-            <button
-              type="button"
-              onClick={() => setSelectedKey(null)}
-              className="font-mono text-[11px] uppercase tracking-[0.15em] text-terracotta hover:underline"
-            >
-              Change
-            </button>
-          </p>
-
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-ink" htmlFor="display_name">
               Event name <span className="text-terracotta">*</span>

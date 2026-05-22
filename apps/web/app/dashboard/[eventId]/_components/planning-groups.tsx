@@ -1,4 +1,4 @@
-import { CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import { CheckCircle2, Clock, AlertCircle, AlertTriangle } from 'lucide-react';
 import { NavLinksRow } from '@/app/_components/nav-links';
 import {
   PLAN_GROUPS,
@@ -7,12 +7,14 @@ import {
   resolvePlanGroupHint,
   targetDateStatus,
   type CeremonyType,
+  type EventVendorRowInput,
   type PlanCardPick,
   type PlanGroup,
   type PlanGroupId,
 } from '@/lib/wedding-plan-groups';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
 import { WEDDING_FOLDER_SLUG } from '@/lib/taxonomy';
+import { deleteVendor } from '../vendors/actions';
 import { PlanCardCTAs } from './plan-card-ctas';
 import { PlanCardCompare } from './plan-card-compare';
 
@@ -45,24 +47,26 @@ type Props = {
    * Host's picked `events.ceremony_type`. Drives the religion-adaptive
    * card hint copy (catholic / civil / inc / christian / muslim /
    * cultural / mixed). `null` for events that haven't picked yet —
-   * those see the generic default hints.
+   * those see the generic default hints. Also feeds the per-pick
+   * compatibility-mismatch check (PR B 2026-05-22) — picks tagged with
+   * a different ceremony_type than the host's current pick surface an
+   * inline chip + Remove action.
    *
    * Owner directive 2026-05-22: ADAPT-COPY > HIDE-CARD. Every card stays
    * visible across all ceremony types; only hint copy changes. See the
    * full decision matrix in the same-day CLAUDE.md decision-log row.
    */
   ceremonyType?: string | null;
-  vendors: ReadonlyArray<{
-    vendor_id: string;
-    vendor_name: string;
-    category: VendorCategory;
-    status: string | null;
-    total_cost_php?: number | string | null;
-    deposit_paid_php?: number | string | null;
-    notes?: string | null;
-    contact_email?: string | null;
-    contact_phone?: string | null;
-  }>;
+  /**
+   * Host's picked `events.venue_setting` (PR B 2026-05-22). Feeds the
+   * per-pick compatibility-mismatch check — vendors whose
+   * compatible_venue_settings[] doesn't cover the host's current
+   * setting (e.g. an indoor-only band on a garden wedding) surface an
+   * inline chip + Remove action. `null` to skip the venue-setting
+   * branch of the check.
+   */
+  venueSetting?: string | null;
+  vendors: ReadonlyArray<EventVendorRowInput>;
 };
 
 const MAX_VENDOR_PREVIEW = 3;
@@ -73,9 +77,18 @@ export function PlanningGroups({
   venueLatitude,
   venueLongitude,
   ceremonyType,
+  venueSetting,
   vendors,
 }: Props) {
-  const bucketed = bucketVendorsByGroup(vendors);
+  // PR B 2026-05-22 — pass ceremony_type + venue_setting to the bucketer
+  // so each pick gets a compatibility_issue field computed against the
+  // host's current event settings. Null/null effectively disables the
+  // check (early-planning events).
+  const bucketed = bucketVendorsByGroup(
+    vendors,
+    ceremonyType ?? null,
+    venueSetting ?? null,
+  );
 
   // Resolve ceremony type once at the top so every card reads from the
   // same source. `null` for early-planning events (no pick yet) yields
@@ -291,29 +304,35 @@ function GroupCard({
             }
             if (formattedCost !== null) subLineParts.push(formattedCost);
             return (
-              <li
-                key={p.vendor_id}
-                className="flex items-start justify-between gap-2"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm text-ink/80">
-                    {p.vendor_name}
-                  </p>
-                  {subLineParts.length > 0 ? (
-                    <p className="truncate font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">
-                      {subLineParts.join(' · ')}
+              <li key={p.vendor_id} className="space-y-1.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm text-ink/80">
+                      {p.vendor_name}
                     </p>
-                  ) : null}
+                    {subLineParts.length > 0 ? (
+                      <p className="truncate font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">
+                        {subLineParts.join(' · ')}
+                      </p>
+                    ) : null}
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] ${
+                      p.status === 'locked'
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : 'bg-ink/5 text-ink/55'
+                    }`}
+                  >
+                    {rawStatusLabel(p.raw_status)}
+                  </span>
                 </div>
-                <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] ${
-                    p.status === 'locked'
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : 'bg-ink/5 text-ink/55'
-                  }`}
-                >
-                  {rawStatusLabel(p.raw_status)}
-                </span>
+                {p.compatibility_issue ? (
+                  <CompatibilityChip
+                    eventId={eventId}
+                    vendorId={p.vendor_id}
+                    label={p.compatibility_issue.label}
+                  />
+                ) : null}
               </li>
             );
           })}
@@ -397,6 +416,60 @@ function StatusPill({
     <span className="shrink-0 rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-ink/50">
       Open
     </span>
+  );
+}
+
+/**
+ * Inline compatibility-mismatch chip — PR B 2026-05-22 (Task #53).
+ *
+ * Renders when a picked vendor's compatible_ceremony_types[] OR
+ * compatible_venue_settings[] doesn't cover the host's current
+ * events.ceremony_type / events.venue_setting. Two actions: a calm
+ * "Remove" form-button (server action: existing deleteVendor) and a
+ * passive read of the mismatch reason.
+ *
+ * Owner directive: "Don't auto-delete — the host gets agency."
+ * Implementation matches: the host explicitly clicks Remove; the
+ * server action `deleteVendor` runs under the host's own session +
+ * RLS gates further. The `formAction` attribute on the button binds
+ * the action to that single button click (no full-form submit needed).
+ *
+ * Brand voice rule: amber not red. This is informational, not an error.
+ * The vendor was a valid pick when the host saved them; the *event*
+ * changed underneath them, so the chip reads as a heads-up not a
+ * scolding.
+ */
+function CompatibilityChip({
+  eventId,
+  vendorId,
+  label,
+}: {
+  eventId: string;
+  vendorId: string;
+  label: string;
+}) {
+  return (
+    <form
+      action={deleteVendor}
+      className="flex flex-wrap items-start gap-2 rounded-md border border-amber-300/50 bg-amber-50/60 px-2.5 py-1.5"
+    >
+      <input type="hidden" name="event_id" value={eventId} />
+      <input type="hidden" name="vendor_id" value={vendorId} />
+      <AlertTriangle
+        aria-hidden
+        className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-700"
+        strokeWidth={2}
+      />
+      <p className="min-w-0 flex-1 text-[11px] leading-snug text-amber-900">
+        {label}
+      </p>
+      <button
+        type="submit"
+        className="shrink-0 rounded-md border border-amber-400/60 bg-cream px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-amber-900 transition-colors hover:bg-amber-100"
+      >
+        Remove
+      </button>
+    </form>
   );
 }
 

@@ -206,5 +206,9 @@ export async function deleteVendor(formData: FormData) {
     .eq('event_id', eventId);
   if (error) throw new Error(error.message);
 
+  // Revalidate both surfaces so an incompatible-pick Remove on the event
+  // home (PR B 2026-05-22) clears the chip without a hard refresh, and
+  // the vendor tracker stays in sync.
+  revalidatePath(`/dashboard/${eventId}`);
   revalidatePath(`/dashboard/${eventId}/vendors`);
 }

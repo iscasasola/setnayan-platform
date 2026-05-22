@@ -303,6 +303,182 @@ export async function findCeremonyVenuesByFaith(
   return trimmed;
 }
 
+/**
+ * Reception venue_directory_type values (6 reception venues + civil_registrar
+ * which appears in both ceremony and reception folders per the directory
+ * enum locked 2026-05-26).
+ *
+ * Mirrors CEREMONY_VENUE_TYPES so the Reception folder surface (introduced
+ * 2026-05-22 — CLAUDE.md row "Fix: Reception folder now respects host's
+ * events.venue_setting" follow-up) reads real `venue_directory` rows.
+ *
+ * NB: the events.venue_setting enum uses `banquet_hall` + `destination`
+ * while venue_directory.venue_type uses `hotel_ballroom` + `destination_resort`.
+ * The mapping lives in `venueSettingToDirectoryType()` below.
+ */
+const RECEPTION_VENUE_TYPES = [
+  'hotel_ballroom',
+  'garden',
+  'beach',
+  'destination_resort',
+  'heritage',
+  'outdoor_tent',
+] as const;
+
+/**
+ * Map a host's `events.venue_setting` enum value to the corresponding
+ * `venue_directory.venue_type` enum value. The two enums diverged at seed
+ * time (events.venue_setting was locked 2026-05-19 iteration 0043; the
+ * directory enum landed 2026-05-26).
+ *
+ * Returns `null` when the input doesn't map to any reception venue_type —
+ * either an unknown value or a `civil_registrar` setting which the
+ * Ceremony folder already covers.
+ */
+export function venueSettingToDirectoryType(setting: string): string | null {
+  switch (setting) {
+    case 'banquet_hall':
+      return 'hotel_ballroom';
+    case 'garden':
+      return 'garden';
+    case 'beach':
+      return 'beach';
+    case 'destination':
+      return 'destination_resort';
+    case 'heritage':
+      return 'heritage';
+    case 'outdoor_tent':
+      return 'outdoor_tent';
+    // civil_registrar appears on Ceremony, not Reception — fall through.
+    default:
+      return null;
+  }
+}
+
+/**
+ * Surface reception venues from `venue_directory`. Mirrors
+ * `findCeremonyVenuesByFaith` but scoped to reception venue_types and
+ * filtered by the host's `events.venue_setting` instead of `ceremony_type`.
+ *
+ * When `hostDirectoryType` is set (host has a venue_setting picked AND the
+ * `?venue` filter is default-on per Task #48 / PR #311), the result is
+ * narrowed to that one venue_type — e.g. a host with `venue_setting='banquet_hall'`
+ * sees only `hotel_ballroom` rows. The Ceremony surface keeps the 6 facet
+ * cards above for "show me other settings" escape.
+ *
+ * When `hostDirectoryType` is null (anonymous browse OR `?venue=0` opt-out),
+ * all 6 reception venue_types render — keeping the broad catalog view honest.
+ *
+ * `is_in_plan` resolves identically to the Ceremony helper via a single
+ * `event_vendors` lookup keyed on `source_venue_directory_id`.
+ */
+export async function findReceptionVenuesByVenueSetting(
+  admin: SupabaseClient,
+  args: {
+    /**
+     * The `venue_directory.venue_type` value to filter to. Resolve via
+     * `venueSettingToDirectoryType(events.venue_setting)`. When null, all
+     * 6 reception venue_types surface.
+     */
+    hostDirectoryType: string | null;
+    /** Used to compute `distance_km` from the host's reception anchor. */
+    anchorLat?: number | null;
+    anchorLng?: number | null;
+    eventId?: string | null;
+    /** Cap per venue_type group. Default 6 — matches CeremonyVenuesSection. */
+    perTypeLimit?: number;
+  },
+): Promise<PairedVenueCandidate[]> {
+  const perTypeLimit = args.perTypeLimit ?? 6;
+  const hasAnchor =
+    typeof args.anchorLat === 'number' &&
+    typeof args.anchorLng === 'number' &&
+    Number.isFinite(args.anchorLat) &&
+    Number.isFinite(args.anchorLng);
+
+  // When the host has picked a venue_setting, narrow the query to that one
+  // venue_type. Otherwise pull all 6 reception types so anonymous browsers
+  // see the breadth.
+  const venueTypes: ReadonlyArray<string> =
+    args.hostDirectoryType !== null
+      ? [args.hostDirectoryType]
+      : (RECEPTION_VENUE_TYPES as ReadonlyArray<string>);
+
+  const { data, error } = await admin
+    .from('venue_directory')
+    .select(
+      'venue_directory_id,slug,name,venue_type,location_city,hq_latitude,hq_longitude,compatible_ceremony_types,hero_image_url,hero_image_attribution,hero_image_license,hero_image_source_url',
+    )
+    .in('venue_type', venueTypes as readonly string[])
+    .order('name', { ascending: true });
+
+  if (error || !data) return [];
+
+  const rows = data as Row[];
+  const candidates: PairedVenueCandidate[] = [];
+
+  for (const row of rows) {
+    const lat = Number(row.hq_latitude);
+    const lng = Number(row.hq_longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+
+    const distance = hasAnchor
+      ? haversineKm(args.anchorLat as number, args.anchorLng as number, lat, lng)
+      : 0;
+
+    candidates.push({
+      venue_directory_id: row.venue_directory_id,
+      slug: row.slug,
+      name: row.name,
+      venue_type: row.venue_type,
+      location_city: row.location_city,
+      hq_latitude: lat,
+      hq_longitude: lng,
+      distance_km: distance,
+      compatible_ceremony_types: row.compatible_ceremony_types ?? [],
+      hero_image_url: row.hero_image_url,
+      hero_image_attribution: row.hero_image_attribution,
+      hero_image_license: row.hero_image_license,
+      hero_image_source_url: row.hero_image_source_url,
+      is_in_plan: false,
+    });
+  }
+
+  // Bucket + per-type cap mirrors Ceremony.
+  const buckets = new Map<string, PairedVenueCandidate[]>();
+  for (const c of candidates) {
+    const arr = buckets.get(c.venue_type) ?? [];
+    arr.push(c);
+    buckets.set(c.venue_type, arr);
+  }
+  const trimmed: PairedVenueCandidate[] = [];
+  for (const bucket of buckets.values()) {
+    if (hasAnchor) {
+      bucket.sort((a, b) => a.distance_km - b.distance_km);
+    }
+    trimmed.push(...bucket.slice(0, perTypeLimit));
+  }
+
+  if (args.eventId && trimmed.length > 0) {
+    const ids = trimmed.map((c) => c.venue_directory_id);
+    const { data: savedRows } = await admin
+      .from('event_vendors')
+      .select('source_venue_directory_id')
+      .eq('event_id', args.eventId)
+      .in('source_venue_directory_id', ids);
+    const savedSet = new Set(
+      (savedRows ?? [])
+        .map((r) => r.source_venue_directory_id as string | null)
+        .filter((x): x is string => x !== null),
+    );
+    for (const c of trimmed) {
+      if (savedSet.has(c.venue_directory_id)) c.is_in_plan = true;
+    }
+  }
+
+  return trimmed;
+}
+
 /** Human-friendly label for the venue_type chip. */
 export function displayVenueType(venueType: string): string {
   switch (venueType) {

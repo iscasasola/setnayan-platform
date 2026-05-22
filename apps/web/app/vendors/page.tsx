@@ -26,6 +26,7 @@ import { SaveVendorButton } from './_components/save-vendor-button';
 import { FolderTabs, type FolderTab } from './_components/mega-column-tabs';
 import { PairedVenuePanel } from './_components/paired-venue-panel';
 import { CeremonyVenuesSection } from './_components/ceremony-venues-section';
+import { ReceptionVenuesSection } from './_components/reception-venues-section';
 import {
   TAXONOMY_MAP,
   WEDDING_FOLDER_LABEL,
@@ -2102,6 +2103,7 @@ async function CatalogView({
                 key={folder}
                 hostVenueSetting={hostVenueSetting}
                 venueFilterActive={venueFilterActive}
+                venueAnchor={venueAnchor}
                 currentEventId={currentEventId}
                 matchEvent={matchEvent}
               />
@@ -2179,6 +2181,7 @@ async function CatalogView({
 function ReceptionSection({
   hostVenueSetting,
   venueFilterActive,
+  venueAnchor,
   currentEventId,
   matchEvent,
 }: {
@@ -2190,6 +2193,11 @@ function ReceptionSection({
    *  pick between VenueFilterBanner (filter active) and VenuePickerHint
    *  (host has event but no setting yet). */
   venueFilterActive: boolean;
+  /** Host's reception anchor (from events.venue_latitude/longitude).
+   *  Threaded to ReceptionVenuesSection so each venue_directory card can
+   *  show "X km from your venue" when the host has saved a reception
+   *  vendor that populated the lat/lng. Null on anonymous browse. */
+  venueAnchor: { lat: number; lng: number } | null;
   /** Drives the VenuePickerHint deep-link to event details. Null on
    *  anonymous browse (no hint surfaced). */
   currentEventId: string | null;
@@ -2317,6 +2325,25 @@ function ReceptionSection({
           );
         })}
       </ul>
+
+      {/* CLAUDE.md 2026-05-22 follow-up — owner-reported gap: clicking
+            Reception on the dashboard surfaced the 7 venue_setting facet
+            cards above (dead-ends pre-V1.2 because Reception is filter-only
+            per 2026-05-20 row 470), without ever showing real venues. The
+            section below pulls actual venue_directory rows so couples see
+            "Hotel Ballroom choices" directly. When the host has a
+            venue_setting picked AND ?venue is default-on, narrows to that
+            one venue_type (banquet_hall → Hotel Ballroom). When opted out
+            OR anonymous, all 6 reception types render. Mirrors
+            CeremonyVenuesSection's faith-grouped pattern. */}
+      <div className="mt-6">
+        <ReceptionVenuesSection
+          hostVenueSetting={hostVenueSetting}
+          venueFilterActive={venueFilterActive}
+          venueAnchor={venueAnchor}
+          currentEventId={currentEventId}
+        />
+      </div>
 
     </section>
   );

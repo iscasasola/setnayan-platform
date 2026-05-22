@@ -90,7 +90,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   const { data: event } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, landing_page_visibility',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, landing_page_visibility, dress_code_config',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -250,6 +250,16 @@ type EventRow = {
   venue_latitude: number | null;
   venue_longitude: number | null;
   slug: string;
+  // Host-curated dress code (CLAUDE.md 2026-05-22). Stored as JSONB so a
+  // brand-new event gets `{}` and the renderer's empty-state branch fires.
+  // Editor at /dashboard/[eventId]/website/dress-code stamps this shape.
+  dress_code_config?: {
+    title?: string;
+    description?: string;
+    dos?: string[];
+    donts?: string[];
+    palette?: { name: string; hex: string }[];
+  } | null;
 };
 
 type GuestRow = {
@@ -564,8 +574,11 @@ function InvitationSite({
         {/* Venues */}
         <VenueWidget event={event} />
 
-        {/* Dress code */}
-        <DressCodeWidget />
+        {/* Dress code — host-curated via /dashboard/[eventId]/website/dress-code
+            (CLAUDE.md 2026-05-22). Falls back to a polite brand-voice empty
+            state when the host hasn't set anything yet so guests know the
+            section is intentional. */}
+        <DressCodeWidget config={event.dress_code_config ?? null} />
 
         {/* Photo moments */}
         <PhotoMomentsWidget />
@@ -838,56 +851,121 @@ function VenueWidget({ event }: { event: EventRow }) {
   );
 }
 
-function DressCodeWidget() {
-  const palette = [
-    { name: 'Cream', hex: '#FAF7F2' },
-    { name: 'Champagne', hex: '#E8D9B3' },
-    { name: 'Capiz', hex: '#F0E1D2' },
-    { name: 'Terracotta', hex: '#C97B4B' },
-    { name: 'Midnight', hex: '#1A1A1A' },
-  ];
+/**
+ * Dress code section on the public landing page (CLAUDE.md 2026-05-22).
+ *
+ * Reads `events.dress_code_config` (migration 20260605030000) — host edits
+ * via /dashboard/[eventId]/website/dress-code. When every field is empty
+ * (brand-new event, host hasn't set anything yet), renders a polite
+ * brand-voice fallback so guests know the section is intentional and to
+ * check back closer to the day.
+ */
+function DressCodeWidget({
+  config,
+}: {
+  config: EventRow['dress_code_config'];
+}) {
+  // Defensive read — JSONB column defaults to `{}` so every field may be
+  // absent. Skip rows in palette that aren't valid #RRGGBB to avoid CSS
+  // injection via the inline style attribute.
+  const title = typeof config?.title === 'string' ? config.title : '';
+  const description = typeof config?.description === 'string' ? config.description : '';
+  const dos = Array.isArray(config?.dos)
+    ? config.dos.filter((s): s is string => typeof s === 'string' && s.length > 0)
+    : [];
+  const donts = Array.isArray(config?.donts)
+    ? config.donts.filter((s): s is string => typeof s === 'string' && s.length > 0)
+    : [];
+  const palette = Array.isArray(config?.palette)
+    ? config.palette.filter(
+        (p): p is { name: string; hex: string } =>
+          !!p &&
+          typeof p.name === 'string' &&
+          typeof p.hex === 'string' &&
+          /^#[0-9a-fA-F]{6}$/.test(p.hex),
+      )
+    : [];
+
+  const hasAnything =
+    title.length > 0 ||
+    description.length > 0 ||
+    dos.length > 0 ||
+    donts.length > 0 ||
+    palette.length > 0;
+
+  // Empty state — section stays visible (so guests know to expect it) but
+  // reads as an intentional "coming soon" note in the host's brand voice.
+  if (!hasAnything) {
+    return (
+      <section className="space-y-3 rounded-xl border border-ink/10 bg-cream p-6">
+        <header>
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+            Dress code
+          </p>
+          <h3 className="mt-1 text-2xl font-semibold tracking-tight">
+            Coming together
+          </h3>
+        </header>
+        <p className="text-sm text-ink/65">
+          Your hosts haven&rsquo;t shared the dress code yet — check back closer to
+          the wedding.
+        </p>
+      </section>
+    );
+  }
 
   return (
     <section className="space-y-5 rounded-xl border border-ink/10 bg-cream p-6">
       <header>
         <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">Dress code</p>
-        <h3 className="mt-1 text-2xl font-semibold tracking-tight">Look magical</h3>
+        <h3 className="mt-1 text-2xl font-semibold tracking-tight">
+          {title || 'Dress with us'}
+        </h3>
       </header>
-      <p className="text-sm text-ink/70">
-        Formal evening wear. Lean into the palette. A little sparkle, sequins, or velvet —
-        encouraged. Dress like the night was made for you.
-      </p>
-      <div className="flex flex-wrap gap-3">
-        {palette.map((p) => (
-          <div key={p.name} className="flex items-center gap-2 text-xs text-ink/70">
-            <span
-              aria-hidden
-              className="inline-block h-6 w-6 rounded-full ring-1 ring-ink/10"
-              style={{ backgroundColor: p.hex }}
-            />
-            {p.name}
-          </div>
-        ))}
-      </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em]">Do</p>
-          <ul className="space-y-1">
-            <li>· Long gowns, ternos, tuxedos, well-cut suits</li>
-            <li>· Lean into the palette</li>
-            <li>· A little sparkle, sequins, or velvet</li>
-          </ul>
+      {description ? <p className="text-sm text-ink/70">{description}</p> : null}
+      {palette.length > 0 ? (
+        <div className="flex flex-wrap gap-3">
+          {palette.map((p, i) => (
+            <div
+              key={`${p.hex}-${i}`}
+              className="flex items-center gap-2 text-xs text-ink/70"
+            >
+              <span
+                aria-hidden
+                className="inline-block h-6 w-6 rounded-full ring-1 ring-ink/10"
+                style={{ backgroundColor: p.hex }}
+              />
+              {p.name}
+            </div>
+          ))}
         </div>
-        <div className="space-y-2 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em]">Don&rsquo;t</p>
-          <ul className="space-y-1">
-            <li>· No barong tagalog</li>
-            <li>· No white or ivory — reserved for the bride</li>
-            <li>· No jeans / t-shirts</li>
-            <li>· No flash photography during the Mass</li>
-          </ul>
+      ) : null}
+      {dos.length > 0 || donts.length > 0 ? (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {dos.length > 0 ? (
+            <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+              <p className="font-mono text-[10px] uppercase tracking-[0.15em]">Do</p>
+              <ul className="space-y-1">
+                {dos.map((row, i) => (
+                  <li key={i}>· {row}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {donts.length > 0 ? (
+            <div className="space-y-2 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">
+              <p className="font-mono text-[10px] uppercase tracking-[0.15em]">
+                Don&rsquo;t
+              </p>
+              <ul className="space-y-1">
+                {donts.map((row, i) => (
+                  <li key={i}>· {row}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
-      </div>
+      ) : null}
     </section>
   );
 }

@@ -10,7 +10,6 @@ import {
   MessageCircle,
   ScrollText,
 } from 'lucide-react';
-import { NavLinksRow } from '@/app/_components/nav-links';
 import {
   PLAN_GROUPS,
   bucketVendorsByGroup,
@@ -23,11 +22,13 @@ import {
   type PlanGroup,
   type PlanGroupId,
 } from '@/lib/wedding-plan-groups';
-import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
+import { VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
 import { WEDDING_FOLDER_SLUG } from '@/lib/taxonomy';
 import type { PaperworkSummary } from '@/lib/paperwork';
 import { deleteVendor } from '../vendors/actions';
+import { DirectionsButtons } from './directions-buttons';
 import { PlanCardCTAs } from './plan-card-ctas';
+import { OfficiantParishCTAs } from './officiant-parish-ctas';
 import { PlanCardCompare } from './plan-card-compare';
 import { SwitchVendorConfirm } from './switch-vendor-confirm';
 
@@ -121,6 +122,26 @@ export function PlanningGroups({
     ? ceremonyType
     : null;
 
+  // Officiant venue-linking — owner directive 2026-05-22:
+  //   "officiant will be listed by the locked ceremony venue then add a
+  //    button to search outside of the official ceremony venue to show
+  //    other officiants or they can add manually."
+  //
+  // Resolve the host's LOCKED ceremony-venue pick (status at-or-past
+  // 'contracted' per CONFIRMED_VENDOR_STATUSES). Filipino weddings
+  // typically pull their officiant from the parish where the ceremony
+  // happens — surfacing the venue name on the Officiant card lets the
+  // host call the parish secretary directly. When no ceremony venue is
+  // locked yet, the Officiant card shows a polite "lock venue first"
+  // hint with three escape paths (jump to ceremony · search anyway ·
+  // add manually). See OfficiantParishCTAs for the actual surface.
+  const ceremonyVenuePicks = bucketed.get('ceremony_venue') ?? [];
+  const lockedCeremonyVenue =
+    ceremonyVenuePicks.find((p) => p.status === 'locked') ?? null;
+  const ceremonyVenueName = lockedCeremonyVenue
+    ? (lockedCeremonyVenue.marketplace_business_name ?? lockedCeremonyVenue.vendor_name)
+    : null;
+
   // Counter rewrite — owner directive 2026-05-22 (Task #54).
   //
   // OLD math counted pick-ROWS ("3 picked" meant the host had 3 considering
@@ -195,7 +216,24 @@ export function PlanningGroups({
         {PLAN_GROUPS.map((group) => {
           const picks = bucketed.get(group.id) ?? [];
           return (
-            <li key={group.id}>
+            <li
+              key={group.id}
+              // Anchor target for OfficiantParishCTAs State B's "Lock
+              // ceremony venue first" deep-link. Scrolls the host to
+              // the Ceremony venue card so they can finalize their
+              // venue pick. Owner directive 2026-05-22: "#ceremony-
+              // venue anchor scrolls the page up to the Ceremony
+              // venue card." Implemented as an id-anchor on the LI
+              // wrapper so smooth-scroll lands at the card boundary.
+              id={
+                group.id === 'ceremony_venue'
+                  ? 'ceremony-venue-card'
+                  : undefined
+              }
+              className={
+                group.id === 'ceremony_venue' ? 'scroll-mt-20' : undefined
+              }
+            >
               <GroupCard
                 eventId={eventId}
                 eventDate={eventDate}
@@ -204,6 +242,7 @@ export function PlanningGroups({
                 ceremonyType={resolvedCeremony}
                 venueLatitude={venueLatitude}
                 venueLongitude={venueLongitude}
+                ceremonyVenueName={ceremonyVenueName}
                 paperworkSummary={
                   group.id === 'ceremony_venue'
                     ? (paperworkSummary ?? null)
@@ -226,6 +265,7 @@ function GroupCard({
   ceremonyType,
   venueLatitude,
   venueLongitude,
+  ceremonyVenueName,
   paperworkSummary,
 }: {
   eventId: string;
@@ -235,6 +275,14 @@ function GroupCard({
   ceremonyType: CeremonyType | null;
   venueLatitude: number | null;
   venueLongitude: number | null;
+  /**
+   * Display name of the host's LOCKED ceremony venue (status at-or-past
+   * 'contracted'). Used ONLY by the Officiant card to surface the
+   * "your officiant typically comes from {venue}" hint. `null` when no
+   * venue is locked yet — the Officiant card flips to State B (the
+   * "lock ceremony venue first" hint with escape paths).
+   */
+  ceremonyVenueName: string | null;
   paperworkSummary: PaperworkSummary | null;
 }) {
   // Resolve religion-adaptive hint copy. Returns the static default
@@ -406,11 +454,10 @@ function GroupCard({
       ) : null}
 
       {showNavLinks ? (
-        <NavLinksRow
+        <DirectionsButtons
           latitude={venueLatitude}
           longitude={venueLongitude}
           label="Directions"
-          compact
         />
       ) : null}
 
@@ -421,12 +468,32 @@ function GroupCard({
         />
       ) : null}
 
-      <PlanCardCTAs
-        eventId={eventId}
-        defaultCategory={group.categories[0]!}
-        searchHref={searchHref}
-        groupLabel={group.label}
-      />
+      {/* Officiant venue-linking — owner directive 2026-05-22.
+       *
+       * Officiant card replaces the standard Search/Add row with parish-
+       * aware affordances. State A (ceremony venue locked) surfaces the
+       * "your officiant typically comes from {parish}" banner + a "from
+       * parish" Add affordance + an "outside this parish" Search link.
+       * State B (no ceremony venue locked yet) shows a polite "lock
+       * venue first" hint + three escape paths (jump to ceremony · search
+       * anyway · add manually). Per ADAPT-COPY > HIDE-CARD principle the
+       * card stays visible across both states; only the body changes.
+       */}
+      {group.id === 'officiant' ? (
+        <OfficiantParishCTAs
+          eventId={eventId}
+          defaultCategory={group.categories[0]!}
+          searchHref={searchHref}
+          ceremonyVenueName={ceremonyVenueName}
+        />
+      ) : (
+        <PlanCardCTAs
+          eventId={eventId}
+          defaultCategory={group.categories[0]!}
+          searchHref={searchHref}
+          groupLabel={group.label}
+        />
+      )}
       {picks.length >= 2 ? (
         <div className="-mt-1">
           <PlanCardCompare
@@ -466,10 +533,10 @@ function GroupCard({
  * vendor inside the surface, which is one extra click but doesn't
  * orphan a route per [[feedback_setnayan_orphan_prevention]].
  *
- * NavLinksRow + PaperworkSubLink stay visible — both are read-only
- * sub-features that don't conflict with the locked state. A locked
- * Ceremony venue card still benefits from Directions + Paperwork
- * progress.
+ * DirectionsButtons + PaperworkSubLink stay visible — both are read-
+ * only sub-features that don't conflict with the locked state. A
+ * locked Ceremony venue card still benefits from Directions (Google
+ * Maps · Waze · Apple Maps brand-icon buttons) + Paperwork progress.
  */
 function LockedCard({
   eventId,
@@ -594,11 +661,10 @@ function LockedCard({
       ) : null}
 
       {showNavLinks ? (
-        <NavLinksRow
+        <DirectionsButtons
           latitude={venueLatitude}
           longitude={venueLongitude}
           label="Directions"
-          compact
         />
       ) : null}
 

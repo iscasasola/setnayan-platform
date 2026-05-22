@@ -52,5 +52,4 @@ LEFT JOIN public.vendor_active_ads   vaa USING (vendor_profile_id);
 GRANT SELECT ON public.vendor_market_stats TO anon, authenticated, service_role;
 
 COMMENT ON VIEW public.vendor_market_stats IS
-  'Marketplace read-path consolidation: vendor_profiles + vendor_review_stats + vendor_active_ads '
-  || 'with precomputed ad_rank for SQL-side sort. Used by /vendors. Iteration 0006, 2026-05-21.';
+  'Marketplace read-path consolidation: vendor_profiles + vendor_review_stats + vendor_active_ads with precomputed ad_rank for SQL-side sort. Used by /vendors. Iteration 0006, 2026-05-21.';

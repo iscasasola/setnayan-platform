@@ -10,6 +10,7 @@ import {
   type PaymentRow,
   type VendorBudgetSummary,
 } from '@/lib/budget';
+import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { VENDOR_CATEGORY_LABEL, VENDOR_STATUS_LABEL, VENDOR_STATUS_TONE } from '@/lib/vendors';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { addLineItem, deleteLineItem, deletePayment, logPayment } from './actions';
@@ -19,19 +20,13 @@ export const metadata = { title: 'Budget' };
 
 type Props = { params: Promise<{ eventId: string }> };
 
-// Status order that counts toward "committed" — vendors signed or
-// further. Mirrors the BudgetCountdownHeader server-side aggregation
-// in apps/web/app/dashboard/[eventId]/page.tsx so the "Current
-// commitments" summary card on this page matches what the host sees
-// on event home. Drafted vendors don't count; they're still being
-// shopped.
-const COMMITTED_VENDOR_STATUSES: ReadonlyArray<string> = [
-  'signed',
-  'confirmed',
-  'deposit_paid',
-  'delivered',
-  'complete',
-];
+// Per-vendor itemization renders only vendors at-or-past 'contracted'.
+// Considering / shortlisted vendors are still being shopped — line-item
+// and payment tracking is reserved for vendors the host has actually
+// locked in. Mirrors the same taxonomy used by BudgetCountdownHeader on
+// event home + every other surface that distinguishes "shopping" from
+// "committed" (CONFIRMED_VENDOR_STATUSES in lib/events.ts).
+const CONFIRMED_STATUS_SET = new Set<string>(CONFIRMED_VENDOR_STATUSES as readonly string[]);
 
 export default async function BudgetPage({ params }: Props) {
   const { eventId } = await params;
@@ -70,9 +65,10 @@ export default async function BudgetPage({ params }: Props) {
       ?.estimated_budget_centavos ?? null;
 
   // Current commitments — sum of paid/fulfilled service_orders + the
-  // total_cost_php of every vendor at status 'signed' or further.
-  // Matches the BudgetCountdownHeader committed-total aggregation
-  // so the two surfaces stay in lock-step.
+  // total_cost_php of every vendor at-or-past 'contracted' status (the
+  // canonical CONFIRMED_VENDOR_STATUSES set). Matches the
+  // BudgetCountdownHeader committed-total aggregation so the two
+  // surfaces stay in lock-step.
   const paidOrdersTotalPhp = (paidOrdersRes.data ?? []).reduce((acc, row) => {
     const r = row as {
       requested_total_php: number | null;
@@ -83,13 +79,26 @@ export default async function BudgetPage({ params }: Props) {
     return acc + (Number.isFinite(Number(v)) ? Number(v) : 0);
   }, 0);
   const contractedVendorsTotalPhp = snapshot.vendors.reduce((acc, s) => {
-    if (!COMMITTED_VENDOR_STATUSES.includes(s.vendor.status as string)) {
+    if (!CONFIRMED_STATUS_SET.has(s.vendor.status as string)) {
       return acc;
     }
     const cost = s.vendor.total_cost_php !== null ? Number(s.vendor.total_cost_php) : 0;
     return acc + (Number.isFinite(cost) ? cost : 0);
   }, 0);
   const committedPhpTotal = paidOrdersTotalPhp + contractedVendorsTotalPhp;
+
+  // Filter to only finalized vendors for the per-vendor itemization
+  // section. Considering / shortlisted vendors are still being shopped
+  // — line-item + payment tracking unlocks once they're contracted.
+  // Topline metrics (Total budget / Paid so far / Remaining / Due in
+  // 30 days) still reflect all vendors via snapshot.totals — those
+  // numbers come from line items + payments which can pre-exist a
+  // contract (pencil-in deposits are valid).
+  const finalizedVendors = snapshot.vendors.filter((s) =>
+    CONFIRMED_STATUS_SET.has(s.vendor.status as string),
+  );
+  const hasAnyVendors = snapshot.vendors.length > 0;
+  const hasFinalizedVendors = finalizedVendors.length > 0;
 
   return (
     <section className="space-y-6">
@@ -139,11 +148,13 @@ export default async function BudgetPage({ params }: Props) {
 
         <StatsStrip totals={snapshot.totals} />
 
-        {snapshot.vendors.length === 0 ? (
+        {!hasAnyVendors ? (
           <EmptyBudget eventId={eventId} />
+        ) : !hasFinalizedVendors ? (
+          <NoFinalizedVendors eventId={eventId} />
         ) : (
           <ul className="space-y-4">
-            {snapshot.vendors.map((s) => (
+            {finalizedVendors.map((s) => (
               <li key={s.vendor.vendor_id}>
                 <VendorBudgetCard summary={s} eventId={eventId} />
               </li>
@@ -341,6 +352,30 @@ function EmptyBudget({ eventId }: { eventId: string }) {
     <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center">
       <p className="text-sm text-ink/65">
         No vendors yet. Add a vendor first, then come back here to itemize costs.
+      </p>
+      <div className="mt-4">
+        <Link href={`/dashboard/${eventId}/vendors`} className="button-primary">
+          Open vendors
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Empty state for: ≥1 vendor on the event, but none yet contracted.
+ * Per-vendor budget tracking unlocks once a vendor is locked in — until
+ * then, considering / shortlisted vendors are still being shopped and
+ * pricing isn't pinned down. The host can keep shortlisting from the
+ * vendors page; once they contract one, it'll appear here.
+ */
+function NoFinalizedVendors({ eventId }: { eventId: string }) {
+  return (
+    <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center">
+      <p className="text-sm text-ink/65">
+        Per-vendor budget tracking unlocks once you contract a vendor. Keep
+        shortlisting — your committed line items will land here as you lock
+        them in.
       </p>
       <div className="mt-4">
         <Link href={`/dashboard/${eventId}/vendors`} className="button-primary">

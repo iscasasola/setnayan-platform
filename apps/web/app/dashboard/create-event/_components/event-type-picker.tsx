@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
+import type { CeremonyTypeKey } from '@/app/_components/ceremony-type-radio-group';
 import { createWeddingEvent } from '../actions';
 import { WeddingTypePicker, type LaunchStatusRow } from './wedding-type-picker';
 
@@ -77,6 +78,10 @@ export function EventTypePicker({ launchStatus, conciergeEnabled }: EventTypePic
   const [centerIdx, setCenterIdx] = useState(0);
   const [selectedKey, setSelectedKey] = useState<EventTypeKey | null>(null);
   const [conciergeChoice, setConciergeChoice] = useState<ConciergeChoice>('diy');
+  // Task #44 (2026-05-22) — track the ceremony pick so the Save button stays
+  // disabled until the host explicitly chooses one. Non-wedding event_types
+  // don't render the picker and are allowed to submit without it.
+  const [ceremonyType, setCeremonyType] = useState<CeremonyTypeKey | null>(null);
 
   // Modulo helper that keeps the index positive when going backwards — this
   // is what gives the carousel its "infinite" feel: rewinding from index 0
@@ -182,15 +187,18 @@ export function EventTypePicker({ launchStatus, conciergeEnabled }: EventTypePic
             </p>
           </div>
 
-          {/* Iteration 0043 — two-axis wedding-type picker. Renders hidden
-              inputs that the createWeddingEvent action reads into
-              ceremony_type / venue_setting / sub-type / mixed columns.
-              Only relevant for wedding events; non-wedding event_types
-              (gender_reveal, etc. per iteration 0041) skip the picker so
-              the form stores ceremony defaults silently rather than asking
-              the couple a wedding-only question. */}
+          {/* Iteration 0043 + Task #44 — two-axis wedding-type picker. Hidden
+              inputs feed createWeddingEvent which reads ceremony_type /
+              venue_setting / sub-type / mixed columns. For wedding events
+              ceremony_type is a REQUIRED field per Task #44 — the parent
+              gates Save behind an affirmative pick. Non-wedding event_types
+              (debut, etc. per iteration 0041) skip the picker entirely and
+              store NULL on the wedding-specific columns. */}
           {selected.key === 'wedding' ? (
-            <WeddingTypePicker launchStatus={launchStatus} />
+            <WeddingTypePicker
+              launchStatus={launchStatus}
+              onCeremonyChange={setCeremonyType}
+            />
           ) : null}
 
           {/* Setnayan Concierge is wedding-themed (9-step wedding roadmap,
@@ -206,20 +214,31 @@ export function EventTypePicker({ launchStatus, conciergeEnabled }: EventTypePic
             />
           ) : null}
 
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <SubmitButton
-              className="button-primary w-full sm:w-auto"
-              pendingLabel="Creating event…"
-            >
-              {conciergeEnabled && conciergeChoice === 'paid'
-                ? `Create event · continue to Concierge ₱2,499`
-                : conciergeEnabled && conciergeChoice === 'trial'
-                  ? `Create event · start 3-day Concierge trial`
-                  : `Create ${selected.label.toLowerCase()} event`}
-            </SubmitButton>
-            <Link className="button-secondary w-full sm:w-auto" href="/dashboard">
-              Cancel
-            </Link>
+          <div className="space-y-3">
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <SubmitButton
+                className="button-primary w-full sm:w-auto"
+                pendingLabel="Creating event…"
+                disabled={selected.key === 'wedding' && !ceremonyType}
+              >
+                {conciergeEnabled && conciergeChoice === 'paid'
+                  ? `Create event · continue to Concierge ₱2,499`
+                  : conciergeEnabled && conciergeChoice === 'trial'
+                    ? `Create event · start 3-day Concierge trial`
+                    : `Create ${selected.label.toLowerCase()} event`}
+              </SubmitButton>
+              <Link className="button-secondary w-full sm:w-auto" href="/dashboard">
+                Cancel
+              </Link>
+            </div>
+            {/* Task #44 — surface why Save is disabled. Editorial copy per
+                [[feedback_setnayan_no_dev_text_post_launch]] — no marketing
+                jargon, no exclamation, matter-of-fact about what's missing. */}
+            {selected.key === 'wedding' && !ceremonyType ? (
+              <p className="text-xs text-ink/55">
+                Pick a wedding type so we can match vendors compatible with your ceremony.
+              </p>
+            ) : null}
           </div>
         </form>
       ) : (

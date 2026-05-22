@@ -1,18 +1,28 @@
 'use client';
 
 import { useState } from 'react';
+import {
+  CeremonyTypeRadioGroup,
+  type CeremonyTypeKey,
+} from '@/app/_components/ceremony-type-radio-group';
 import { notifyWhenWeddingTypeLaunches } from '../actions';
 
-// Iteration 0043 — two-axis wedding-type picker. Renders inline inside the
-// create-event form. Persisted columns: ceremony_type, venue_setting,
-// ceremony_sub_type, is_mixed_ceremony, secondary_ceremony_type.
+// Iteration 0043 + Task #44 (2026-05-22) — wedding-type picker. Renders inline
+// inside the create-event form. Persisted columns: ceremony_type,
+// venue_setting, ceremony_sub_type, is_mixed_ceremony, secondary_ceremony_type.
+//
+// Task #44 lock: ceremony_type is now a REQUIRED field with NO silent default.
+// New events MUST land with ceremony_type SET — the previous behavior (silent
+// 'catholic' default if the host never touched the picker) caused new events
+// to land on the dashboard with foundation unset and forced the host to fix
+// it via the chip CTA afterward.
 //
 // V1.1 active faiths: catholic + civil. The other four render as Coming Soon
-// cards with an inline email-capture that writes to
+// radios with an inline email-capture that writes to
 // couple_wedding_type_notify_signups (drives vendor-recruitment priority).
 // Status is fetched server-side and passed in as `launchStatus`.
 
-export type CeremonyType = 'catholic' | 'civil' | 'inc' | 'christian' | 'muslim' | 'cultural' | 'mixed';
+export type CeremonyType = CeremonyTypeKey;
 export type VenueSetting =
   | 'banquet_hall'
   | 'garden'
@@ -27,29 +37,12 @@ export type LaunchStatusRow = {
   status: 'active' | 'coming_soon' | 'disabled';
 };
 
-type CeremonyCard = {
-  key: CeremonyType;
-  label: string;
-  icon: string;
-  description: string;
-};
-
 type VenueCard = {
   key: VenueSetting;
   label: string;
   icon: string;
   description: string;
 };
-
-const CEREMONIES: CeremonyCard[] = [
-  { key: 'catholic',  label: 'Catholic',  icon: '⛪', description: 'Catholic mass with Pre-Cana requirement' },
-  { key: 'civil',     label: 'Civil',     icon: '🏛️', description: 'City Hall or Mayor / Judge officiates' },
-  { key: 'christian', label: 'Christian', icon: '✝️',  description: 'Born-again, Evangelical, or Protestant pastor' },
-  { key: 'inc',       label: 'INC',       icon: '🕯️', description: 'Iglesia ni Cristo minister · no alcohol' },
-  { key: 'muslim',    label: 'Muslim',    icon: '🕌',  description: 'Imam-led · Nikah + Walima · Halal-only' },
-  { key: 'cultural',  label: 'Cultural',  icon: '🪶',  description: 'Tribal or ethno-cultural tradition' },
-  { key: 'mixed',     label: 'Mixed',     icon: '✨',  description: 'Interfaith — two ceremonies on different days' },
-];
 
 const VENUES: VenueCard[] = [
   { key: 'banquet_hall',    label: 'Banquet Hall',    icon: '🍽️', description: 'Standard utilities, indoor reception' },
@@ -79,14 +72,25 @@ const CULTURAL_SUB_TYPES = [
   { key: 'other',             label: 'Other tradition' },
 ];
 
-const SECONDARY_OPTIONS = CEREMONIES.filter((c) => c.key !== 'mixed');
+const SECONDARY_LABELS: Record<Exclude<CeremonyType, 'mixed'>, string> = {
+  catholic: 'Catholic',
+  civil: 'Civil',
+  inc: 'INC',
+  christian: 'Christian',
+  muslim: 'Muslim',
+  cultural: 'Cultural',
+};
 
 type Props = {
   launchStatus: LaunchStatusRow[];
+  /** Called when the host selects a ceremony so the parent can enable Save. */
+  onCeremonyChange?: (ceremony: CeremonyType | null) => void;
 };
 
-export function WeddingTypePicker({ launchStatus }: Props) {
-  const [ceremony, setCeremony] = useState<CeremonyType>('catholic');
+export function WeddingTypePicker({ launchStatus, onCeremonyChange }: Props) {
+  // Task #44 — no silent default. `ceremony` starts as null so the parent
+  // form can gate Save behind an affirmative pick.
+  const [ceremony, setCeremony] = useState<CeremonyType | null>(null);
   const [venue, setVenue] = useState<VenueSetting>('banquet_hall');
   const [subType, setSubType] = useState<string>('');
   const [secondary, setSecondary] = useState<Exclude<CeremonyType, 'mixed'> | ''>('');
@@ -95,26 +99,27 @@ export function WeddingTypePicker({ launchStatus }: Props) {
   const [notifyState, setNotifyState] = useState<'idle' | 'submitting' | 'sent' | 'error'>('idle');
 
   // Active faiths in this region. Mixed is always available (it pairs two
-  // already-active faiths). Coming-soon cards stay visible but block
-  // selection — the click opens the notify-me capture instead.
+  // already-active faiths). Coming-soon options stay visible but block
+  // selection — picking one opens the notify-me capture instead.
   const activeMap = new Map<string, boolean>(
     launchStatus.map((row) => [row.ceremony_type, row.status === 'active']),
   );
   const isCeremonyActive = (key: CeremonyType) =>
     key === 'mixed' ? true : (activeMap.get(key) ?? false);
 
-  function selectCeremony(c: CeremonyCard) {
-    if (!isCeremonyActive(c.key)) {
-      // Coming-soon → open notify-capture under that card.
-      setNotifyOpenFor(c.key as Exclude<CeremonyType, 'mixed'>);
+  function handleCeremonyChange(key: CeremonyType) {
+    if (!isCeremonyActive(key)) {
+      // Coming-soon → open notify-capture beneath the group.
+      setNotifyOpenFor(key as Exclude<CeremonyType, 'mixed'>);
       setNotifyState('idle');
       return;
     }
-    setCeremony(c.key);
+    setCeremony(key);
     setNotifyOpenFor(null);
     // Clear conditional fields that no longer apply.
-    if (c.key !== 'muslim' && c.key !== 'cultural') setSubType('');
-    if (c.key !== 'mixed') setSecondary('');
+    if (key !== 'muslim' && key !== 'cultural') setSubType('');
+    if (key !== 'mixed') setSecondary('');
+    onCeremonyChange?.(key);
   }
 
   async function submitNotify(e: React.FormEvent<HTMLFormElement>) {
@@ -142,8 +147,11 @@ export function WeddingTypePicker({ launchStatus }: Props) {
       aria-labelledby="wedding-type-heading"
       className="space-y-6 rounded-2xl border border-ink/10 bg-cream/40 p-4 sm:p-5"
     >
-      {/* Hidden inputs read by the createWeddingEvent action. */}
-      <input type="hidden" name="ceremony_type" value={ceremony} />
+      {/* Hidden inputs read by the createWeddingEvent action. Note:
+          ceremony_type is intentionally absent from the radio name attribute
+          coming from CeremonyTypeRadioGroup — the radio handles the visual
+          state, this hidden input is what FormData submits to the server. */}
+      <input type="hidden" name="ceremony_type" value={ceremony ?? ''} />
       <input type="hidden" name="venue_setting" value={venue} />
       <input type="hidden" name="ceremony_sub_type" value={subType} />
       <input type="hidden" name="is_mixed_ceremony" value={ceremony === 'mixed' ? 'true' : 'false'} />
@@ -157,64 +165,44 @@ export function WeddingTypePicker({ launchStatus }: Props) {
           id="wedding-type-heading"
           className="text-base font-semibold tracking-tight text-ink sm:text-lg"
         >
-          What kind of wedding?
+          Wedding type <span className="text-terracotta">*</span>
         </h2>
         <p className="text-xs text-ink/55">
-          Drives which vendors, copy, and timelines we surface for you. You can change this later.
+          Drives which vendors, copy, and timelines we surface for you. Pick the
+          ceremony that matches your plans.
         </p>
       </header>
 
-      {/* Axis A — Ceremony */}
-      <div className="space-y-2">
-        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-          Ceremony
-        </p>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {CEREMONIES.map((c) => {
-            const active = isCeremonyActive(c.key);
-            const selected = ceremony === c.key;
-            return (
-              <button
-                key={c.key}
-                type="button"
-                onClick={() => selectCeremony(c)}
-                aria-pressed={selected}
-                title={c.description}
-                className={`group relative flex flex-col items-start gap-1.5 rounded-xl border p-3 text-left transition-all ${
-                  selected
-                    ? 'border-terracotta bg-terracotta/[0.07] ring-2 ring-terracotta/30'
-                    : active
-                      ? 'border-ink/15 bg-cream hover:border-terracotta/40 hover:bg-terracotta/[0.04]'
-                      : 'border-ink/10 bg-ink/[0.03] opacity-60'
-                }`}
-              >
-                <span aria-hidden className="text-xl">{c.icon}</span>
-                <span className="text-sm font-medium text-ink">{c.label}</span>
-                {!active ? (
-                  <span className="rounded-full bg-ink/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-ink/60">
-                    Coming soon
-                  </span>
-                ) : null}
-              </button>
-            );
-          })}
-        </div>
-        <p className="text-[11px] text-ink/50">{
-          CEREMONIES.find((c) => c.key === ceremony)?.description ?? ''
-        }</p>
-      </div>
+      {/* Axis A — Ceremony (shared radio group, Task #44 / 2026-05-22). The
+          notify-me capture only opens when the host taps a Coming Soon option;
+          the active ones flow into `handleCeremonyChange` and bubble up to the
+          parent form so it can enable Save. */}
+      <CeremonyTypeRadioGroup
+        value={ceremony}
+        onChange={handleCeremonyChange}
+        name="ceremony_type_radio"
+        legend="Wedding type"
+        isOptionDisabled={(key) => !isCeremonyActive(key)}
+        renderOptionBadge={(key) =>
+          !isCeremonyActive(key) ? (
+            <span className="rounded-full bg-ink/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-ink/60">
+              Coming soon
+            </span>
+          ) : null
+        }
+      />
 
-      {/* Notify-me capture, appears under ceremony grid when a coming-soon
-          card is tapped. */}
+      {/* Notify-me capture, appears under ceremony radios when a coming-soon
+          option is tapped. */}
       {notifyOpenFor ? (
         <div className="rounded-lg border border-terracotta/20 bg-terracotta/[0.04] p-3">
           <p className="mb-2 text-sm text-ink">
-            <strong className="font-semibold">{CEREMONIES.find((c) => c.key === notifyOpenFor)?.label}</strong>{' '}
+            <strong className="font-semibold">{SECONDARY_LABELS[notifyOpenFor]}</strong>{' '}
             weddings are coming soon. Want a heads-up when we launch support?
           </p>
           {notifyState === 'sent' ? (
             <p className="text-xs text-ink/65">
-              Got it — we&apos;ll email you when {CEREMONIES.find((c) => c.key === notifyOpenFor)?.label} support is ready.
+              Got it — we&apos;ll email you when {SECONDARY_LABELS[notifyOpenFor]} support is ready.
             </p>
           ) : (
             <form onSubmit={submitNotify} className="flex flex-col gap-2 sm:flex-row">
@@ -286,14 +274,14 @@ export function WeddingTypePicker({ launchStatus }: Props) {
             Secondary ceremony
           </p>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {SECONDARY_OPTIONS.map((c) => {
-              const active = isCeremonyActive(c.key);
-              const selected = secondary === c.key;
+            {(Object.keys(SECONDARY_LABELS) as Array<Exclude<CeremonyType, 'mixed'>>).map((key) => {
+              const active = isCeremonyActive(key);
+              const selected = secondary === key;
               return (
                 <button
-                  key={c.key}
+                  key={key}
                   type="button"
-                  onClick={() => active && setSecondary(c.key as Exclude<CeremonyType, 'mixed'>)}
+                  onClick={() => active && setSecondary(key)}
                   disabled={!active}
                   aria-pressed={selected}
                   className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-all ${
@@ -304,8 +292,7 @@ export function WeddingTypePicker({ launchStatus }: Props) {
                         : 'border-ink/10 bg-ink/[0.03] opacity-60'
                   }`}
                 >
-                  <span aria-hidden>{c.icon}</span>
-                  <span>{c.label}</span>
+                  <span>{SECONDARY_LABELS[key]}</span>
                 </button>
               );
             })}

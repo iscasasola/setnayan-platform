@@ -4,6 +4,8 @@
  * Task #37 (2026-05-22) — Wedding-type setter modal.
  * Task #43 (2026-05-22 evening) — accepts currentValue for edit mode,
  * pre-populates the radio selection, swaps Save button copy to "Update".
+ * Task #44 (2026-05-22) — uses the shared CeremonyTypeRadioGroup so the
+ * 7 options + descriptions stay aligned with the create-event picker.
  *
  * Opened from CeremonyTypeChip:
  *   - first-time set (no current value): empty radio group, Save labeled
@@ -18,9 +20,11 @@
 
 import { useState, useTransition } from 'react';
 import { X } from 'lucide-react';
+import {
+  CeremonyTypeRadioGroup,
+  type CeremonyTypeKey,
+} from '@/app/_components/ceremony-type-radio-group';
 import { setEventCeremonyType } from '../actions';
-
-type CeremonyKey = 'catholic' | 'civil' | 'inc' | 'christian' | 'muslim' | 'cultural' | 'mixed';
 
 type Props = {
   eventId: string;
@@ -28,51 +32,7 @@ type Props = {
   onClose: () => void;
 };
 
-type Option = {
-  key: CeremonyKey;
-  label: string;
-  description: string;
-};
-
-const OPTIONS: Option[] = [
-  {
-    key: 'catholic',
-    label: 'Catholic',
-    description: 'Mass at a Catholic church with priest, ninong/ninang, cord & veil',
-  },
-  {
-    key: 'civil',
-    label: 'Civil',
-    description: 'City hall ceremony with witnesses',
-  },
-  {
-    key: 'inc',
-    label: 'INC',
-    description: 'Iglesia ni Cristo ceremony with minister',
-  },
-  {
-    key: 'christian',
-    label: 'Christian',
-    description: 'Born Again, Evangelical, or other Christian ceremony',
-  },
-  {
-    key: 'muslim',
-    label: 'Muslim',
-    description: 'Nikah ceremony with imam',
-  },
-  {
-    key: 'cultural',
-    label: 'Cultural',
-    description: 'Indigenous Filipino tradition (Maranao, Tausug, Maguindanao, Sama, Yakan, other)',
-  },
-  {
-    key: 'mixed',
-    label: 'Mixed',
-    description: 'Two ceremonies on the same day (e.g. Catholic morning + civil afternoon)',
-  },
-];
-
-const ALLOWED_KEYS: CeremonyKey[] = [
+const ALLOWED_KEYS: CeremonyTypeKey[] = [
   'catholic',
   'civil',
   'inc',
@@ -82,15 +42,15 @@ const ALLOWED_KEYS: CeremonyKey[] = [
   'mixed',
 ];
 
-function normaliseInitial(value: string | null | undefined): CeremonyKey | null {
+function normaliseInitial(value: string | null | undefined): CeremonyTypeKey | null {
   if (!value) return null;
-  return ALLOWED_KEYS.includes(value as CeremonyKey) ? (value as CeremonyKey) : null;
+  return ALLOWED_KEYS.includes(value as CeremonyTypeKey) ? (value as CeremonyTypeKey) : null;
 }
 
 export function CeremonyTypeModal({ eventId, currentValue, onClose }: Props) {
   const initial = normaliseInitial(currentValue);
   const isEditing = initial !== null;
-  const [selected, setSelected] = useState<Option['key'] | null>(initial);
+  const [selected, setSelected] = useState<CeremonyTypeKey | null>(initial);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -146,36 +106,13 @@ export function CeremonyTypeModal({ eventId, currentValue, onClose }: Props) {
           </button>
         </header>
 
-        <fieldset className="flex-1 space-y-2 overflow-y-auto px-6 py-4">
-          <legend className="sr-only">Wedding type</legend>
-          {OPTIONS.map((opt) => {
-            const checked = selected === opt.key;
-            return (
-              <label
-                key={opt.key}
-                className={
-                  'flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition ' +
-                  (checked
-                    ? 'border-terracotta bg-terracotta/[0.06]'
-                    : 'border-ink/10 hover:border-ink/25 hover:bg-ink/[0.02]')
-                }
-              >
-                <input
-                  type="radio"
-                  name="ceremony_type"
-                  value={opt.key}
-                  checked={checked}
-                  onChange={() => setSelected(opt.key)}
-                  className="mt-1 h-4 w-4 accent-terracotta"
-                />
-                <div className="flex-1">
-                  <div className="text-sm font-medium text-ink">{opt.label}</div>
-                  <div className="text-xs text-ink/65">{opt.description}</div>
-                </div>
-              </label>
-            );
-          })}
-        </fieldset>
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          <CeremonyTypeRadioGroup
+            value={selected}
+            onChange={setSelected}
+            legend="Wedding type"
+          />
+        </div>
 
         {error ? (
           <div className="mx-6 mb-2 rounded-md bg-rose-50 px-3 py-2 text-xs text-rose-800 ring-1 ring-inset ring-rose-200">

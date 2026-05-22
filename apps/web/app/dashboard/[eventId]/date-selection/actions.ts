@@ -265,6 +265,140 @@ export async function setMeaningfulDates(formData: FormData): Promise<void> {
 }
 
 /**
+ * Persist the host's ceremony_type pick from the 4-question flow.
+ *
+ * Why this exists separately from the parent setEventCeremonyType in
+ * apps/web/app/dashboard/[eventId]/actions.ts:
+ *
+ *   - The parent setEventCeremonyType is the canonical writer with full
+ *     audit-log + vendor-lock semantics + idempotent-no-op short-circuit.
+ *   - The Phase 0 4-question flow needs to write ceremony_type as the
+ *     host steps through Q1 (religious tradition). Step transitions are
+ *     non-blocking — if the write fails we still want the host to see
+ *     the rest of the flow without an error blocker.
+ *   - The 4-question flow's "Skip for now" path emits 'undecided' which
+ *     the parent setEventCeremonyType would reject as invalid_input —
+ *     this thin wrapper handles undecided as a no-op (leave NULL).
+ *
+ * Per CLAUDE.md 2026-05-22 owner directive ("select wedding type is still
+ * not showing the initial wedding type"): the previous build of the
+ * 4-question flow captured ceremonyChoice in local React state but never
+ * persisted it to events.ceremony_type, so the EventMetaLine on event
+ * home displayed "Set wedding type" CTA even when the host had picked
+ * Catholic in Phase 0. This action closes that gap.
+ *
+ * Stamps both ceremony_type AND ceremony_type_locked_at (+ locked_by)
+ * because picking through the 4-question flow IS an affirmative pick —
+ * same semantic as picking through the create-event picker or the
+ * dashboard chip modal. EventMetaLine's "Set wedding type" CTA gates
+ * on `Boolean(ceremony_type_locked_at) && Boolean(ceremony_type)`; both
+ * must be truthy for the chip to render the confirmed state.
+ */
+export async function setCeremonyTypeFromFlow(
+  formData: FormData,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const eventId = formData.get('event_id');
+  const ceremonyRaw = formData.get('ceremony_type');
+  if (typeof eventId !== 'string') {
+    return { ok: false, message: 'event_id required' };
+  }
+  if (typeof ceremonyRaw !== 'string' || ceremonyRaw.trim().length === 0) {
+    return { ok: false, message: 'ceremony_type required' };
+  }
+  // 'undecided' is a valid client-side state but a no-op for persistence:
+  // leave the column NULL so EventMetaLine's CTA still surfaces correctly.
+  if (ceremonyRaw === 'undecided') {
+    return { ok: true };
+  }
+  if (!isCeremonyType(ceremonyRaw)) {
+    return { ok: false, message: 'Invalid ceremony type' };
+  }
+  const ceremonyType = ceremonyRaw as CeremonyType;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // Vendor-lock guard mirrors the parent setEventCeremonyType. Even
+  // though Phase 0 is typically pre-vendor, defense-in-depth: a host who
+  // re-enters Phase 0 after their first vendor confirmed cannot quietly
+  // change ceremony_type — they have to go through the dashboard modal
+  // path which surfaces the lock copy explicitly.
+  const admin = createAdminClient();
+  const { data: priorRow, error: selectErr } = await admin
+    .from('events')
+    .select('event_type, ceremony_type, ceremony_type_locked_at')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (selectErr) {
+    return { ok: false, message: selectErr.message };
+  }
+  if (!priorRow) {
+    return { ok: false, message: 'Event not found' };
+  }
+  if (priorRow.event_type !== 'wedding') {
+    // Non-wedding events don't carry ceremony_type. Silent no-op so the
+    // flow doesn't error for someone who somehow lands on Phase 0 for
+    // a debut etc.
+    return { ok: true };
+  }
+
+  const { count: confirmedCount } = await admin
+    .from('event_vendors')
+    .select('vendor_id', { count: 'exact', head: true })
+    .eq('event_id', eventId)
+    .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[]);
+  const confirmed = confirmedCount ?? 0;
+  if (confirmed > 0 && priorRow.ceremony_type !== ceremonyType) {
+    return {
+      ok: false,
+      message: `Wedding type is locked — ${confirmed} confirmed ${confirmed === 1 ? 'vendor' : 'vendors'}. Contact support to discuss a change.`,
+    };
+  }
+
+  // Idempotent no-op: same value already stamped.
+  if (priorRow.ceremony_type === ceremonyType && priorRow.ceremony_type_locked_at) {
+    return { ok: true };
+  }
+
+  const nowIso = new Date().toISOString();
+  const { error: updateError } = await admin
+    .from('events')
+    .update({
+      ceremony_type: ceremonyType,
+      ceremony_type_locked_at: nowIso,
+      ceremony_type_locked_by: user.id,
+    })
+    .eq('event_id', eventId);
+  if (updateError) {
+    return { ok: false, message: updateError.message };
+  }
+
+  // Audit-log so misuse / drift surfaces. Mirrors the parent action's
+  // shape so admin dashboards reading admin_audit_log see consistent rows
+  // regardless of whether the host set the type via Phase 0 or the chip.
+  await admin.from('admin_audit_log').insert({
+    action: priorRow.ceremony_type_locked_at ? 'ceremony_type_updated' : 'ceremony_type_set',
+    target_table: 'events',
+    target_id: eventId,
+    before_json: {
+      ceremony_type: priorRow.ceremony_type,
+      ceremony_type_locked_at: priorRow.ceremony_type_locked_at,
+      confirmed_vendor_count: confirmed,
+      source: 'phase_0_four_question_flow',
+    },
+    after_json: { ceremony_type: ceremonyType, ceremony_type_locked_at: nowIso },
+    actor_user_id: user.id,
+  });
+
+  revalidatePath(`/dashboard/${eventId}`);
+  revalidatePath(`/dashboard/${eventId}/date-selection`);
+  return { ok: true };
+}
+
+/**
  * Mark the date as undecided. Does NOT clear an existing event_date so
  * "I'm not ready yet" mid-flow doesn't accidentally destroy a previously
  * locked-in date. To clear the date entirely the host edits via the

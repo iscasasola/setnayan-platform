@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { TAXONOMY_MAP, type WeddingFolder } from './taxonomy';
 import type { VendorPublicVisibility } from './vendor-visibility';
 
 /**
@@ -56,4 +57,188 @@ export async function fetchVendorCountsByService(
     }
   }
   return counts;
+}
+
+/**
+ * Top vendor preview row used by both:
+ *   • FolderVendorsSection (inline real-vendor cards in catalog mode)
+ *   • CategoryTile (subtle "Vendor A · Vendor B · …" preview strip below
+ *     populated tiles — closes the gap surfaced 2026-05-22 where category
+ *     tiles only showed an "X listed" count without naming any of the X).
+ *
+ * Mirrors the columns vendor_market_stats already exposes — no new query
+ * shape needed beyond the FROM clause.
+ */
+export type VendorPreviewRow = {
+  vendor_profile_id: string;
+  business_name: string;
+  business_slug: string | null;
+  logo_url: string | null;
+  tagline: string | null;
+  services: string[];
+  location_city: string | null;
+  hq_latitude: number | null;
+  hq_longitude: number | null;
+  public_visibility: VendorPublicVisibility;
+  avg_rating_overall: number | null;
+  review_count: number;
+  ad_rank: number | null;
+};
+
+/**
+ * Compute the inverse of TAXONOMY_MAP — folder → canonical_services list.
+ * Cached at module load (192 entries × ~50 bytes = negligible). Used by
+ * `findTopVendorsByFolder` to translate a folder request into a `.overlaps()`
+ * predicate against the vendor's `services[]` array.
+ */
+const CANONICAL_SERVICES_BY_FOLDER: Map<WeddingFolder, string[]> = (() => {
+  const map = new Map<WeddingFolder, string[]>();
+  for (const [canonical, meta] of Object.entries(TAXONOMY_MAP)) {
+    const arr = map.get(meta.folder) ?? [];
+    arr.push(canonical);
+    map.set(meta.folder, arr);
+  }
+  return map;
+})();
+
+/**
+ * Top N vendor_market_stats rows for a folder's canonical_services. Used to
+ * surface real vendor cards inline in catalog mode for every folder that
+ * has at least one signed-up vendor — closes the gap surfaced 2026-05-22
+ * where 10 of the 12 folders showed only count-pill tiles without naming
+ * any of the underlying vendors.
+ *
+ * Sort chain mirrors the vendor-grid sort (ad_rank → review_count → rating)
+ * so the "Featured vendors" preview reads the same shape couples will see
+ * when they click into the full folder grid. Excludes demo vendors unless
+ * the caller passes `includeDemoIds`. Excludes coming_soon vendors with
+ * empty business_name (same publishing gate as the main vendor list).
+ *
+ * Returns [] on any query error so the catalog stays clean rather than
+ * partially-broken — the section render guards on empty array.
+ */
+export async function findTopVendorsByFolder(
+  admin: SupabaseClient,
+  args: {
+    folder: WeddingFolder;
+    /** Cap on rows returned. Default 9 — fits 3 columns × 3 rows on desktop. */
+    limit?: number;
+    /** When provided, EXCLUDES these vendor_profile_ids (demo-mode off). */
+    excludeVendorIds?: ReadonlyArray<string>;
+    /** When provided, RESTRICTS to these visibilities. Default both. */
+    visibilities?: ReadonlyArray<VendorPublicVisibility>;
+  },
+): Promise<VendorPreviewRow[]> {
+  const limit = args.limit ?? 9;
+  const visibilities = args.visibilities ?? ['verified', 'coming_soon'];
+  const folderServices = CANONICAL_SERVICES_BY_FOLDER.get(args.folder) ?? [];
+  if (folderServices.length === 0) return [];
+
+  let query = admin
+    .from('vendor_market_stats')
+    .select(
+      'vendor_profile_id,business_name,business_slug,logo_url,tagline,services,location_city,hq_latitude,hq_longitude,public_visibility,avg_rating_overall,review_count,ad_rank',
+    )
+    .in('public_visibility', visibilities as readonly string[])
+    .not('business_name', 'is', null)
+    .neq('business_name', '')
+    .overlaps('services', folderServices);
+
+  if (args.excludeVendorIds && args.excludeVendorIds.length > 0) {
+    // PostgREST NOT IN with parenthesised comma list — same shape the
+    // vendor-grid query uses for demo exclusion at vendors/page.tsx:740.
+    // Cast via `unknown` to a narrowed shape to dodge the TS recursion
+    // ceiling on chained PostgREST query types (mirrors the broadened-
+    // count pattern at vendors/page.tsx:928-937).
+    type NotShape = {
+      not: (column: string, op: string, value: string) => typeof query;
+    };
+    query = (query as unknown as NotShape).not(
+      'vendor_profile_id',
+      'in',
+      `(${args.excludeVendorIds.join(',')})`,
+    );
+  }
+
+  // Sort: ad_rank first (Boosted Ads + Sponsored Boost float to top), then
+  // review_count (social proof), then rating, then most-recent. Mirrors the
+  // vendor-grid default sort so the inline preview reads consistently.
+  query = query
+    .order('ad_rank', { ascending: false, nullsFirst: false })
+    .order('review_count', { ascending: false, nullsFirst: false })
+    .order('avg_rating_overall', { ascending: false, nullsFirst: false })
+    .limit(limit);
+
+  const { data, error } = await query;
+  if (error || !data) return [];
+  return data as VendorPreviewRow[];
+}
+
+/**
+ * Top-3 vendor names per canonical_service, used by the CategoryTile
+ * "Sample: A · B · C" preview line surfaced 2026-05-22. Single round-trip
+ * for the full visible service set so the catalog page stays at one query
+ * for previews regardless of how many services render.
+ *
+ * Returns a Map keyed on canonical_service → array of business_names
+ * (deduplicated, ordered same as findTopVendorsByFolder).
+ */
+export async function fetchTopVendorNamesByService(
+  admin: SupabaseClient,
+  args: {
+    services: ReadonlyArray<string>;
+    /** Cap per service. Default 3 — fits one inline line of preview text. */
+    perServiceLimit?: number;
+    excludeVendorIds?: ReadonlyArray<string>;
+  },
+): Promise<Map<string, string[]>> {
+  const perServiceLimit = args.perServiceLimit ?? 3;
+  if (args.services.length === 0) return new Map();
+
+  let query = admin
+    .from('vendor_market_stats')
+    .select(
+      'business_name,services,ad_rank,review_count,avg_rating_overall,vendor_profile_id',
+    )
+    .in('public_visibility', ['verified', 'coming_soon'])
+    .not('business_name', 'is', null)
+    .neq('business_name', '')
+    .overlaps('services', args.services as readonly string[]);
+
+  if (args.excludeVendorIds && args.excludeVendorIds.length > 0) {
+    type NotShape = {
+      not: (column: string, op: string, value: string) => typeof query;
+    };
+    query = (query as unknown as NotShape).not(
+      'vendor_profile_id',
+      'in',
+      `(${args.excludeVendorIds.join(',')})`,
+    );
+  }
+
+  query = query
+    .order('ad_rank', { ascending: false, nullsFirst: false })
+    .order('review_count', { ascending: false, nullsFirst: false })
+    .order('avg_rating_overall', { ascending: false, nullsFirst: false });
+
+  const { data, error } = await query;
+  if (error || !data) return new Map();
+
+  const requested = new Set(args.services);
+  const byService = new Map<string, string[]>();
+  for (const row of data as Array<{
+    business_name: string;
+    services: string[] | null;
+  }>) {
+    const vendorServices = row.services ?? [];
+    for (const service of vendorServices) {
+      if (!requested.has(service)) continue;
+      const arr = byService.get(service) ?? [];
+      if (arr.length >= perServiceLimit) continue;
+      if (arr.includes(row.business_name)) continue;
+      arr.push(row.business_name);
+      byService.set(service, arr);
+    }
+  }
+  return byService;
 }

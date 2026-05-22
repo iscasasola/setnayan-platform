@@ -391,6 +391,52 @@ export async function finalizeVendor(
     return { status: 'error', message: lockErr.message };
   }
 
+  // Finalize auto-cleanup (CLAUDE.md 2026-05-22 owner directive).
+  //
+  // Owner verbatim: "when the vendor is finalized, the other vendors there
+  // will be removed from the recommended vendors. this technique will help
+  // the host of the event find a faster way to process other services
+  // since they already locked this service with that vendor."
+  //
+  // Auto-archive every OTHER considering pick in the SAME category — the
+  // host has committed to this vendor, so the rest of the shortlist no
+  // longer needs to clutter the planning grid. Uses the
+  // 20260604100000_event_vendors_archive_pattern.sql archived_at column
+  // (soft-delete; rows stay in DB for audit + potential restore via the
+  // existing SwitchVendorConfirm flow).
+  //
+  // Status filter: only archive 'considering' + 'shortlisted' rows. We
+  // never touch rows already in CONFIRMED_VENDOR_STATUSES (those wouldn't
+  // exist anyway after the hard-single conflict gate above on
+  // ceremony_venue/reception_venue/officiant — but for the multi-pick
+  // groups like Music & Entertainment, multiple confirmed vendors IS the
+  // happy path, so we don't accidentally archive a legitimate co-lock).
+  //
+  // Failure mode: if the archive sweep fails, we DON'T roll back the lock
+  // because the lock itself was the primary action the host took. The
+  // host can manually delete or re-confirm any stale considering picks
+  // from the vendor tracker. We log the error to console.warn so it
+  // surfaces in Sentry for ops attention, but the action returns ok.
+  const { error: archiveErr } = await supabase
+    .from('event_vendors')
+    .update({
+      archived_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('event_id', eventId)
+    .eq('category', targetCategory)
+    .neq('vendor_id', vendorId)
+    .in('status', ['considering', 'shortlisted'])
+    .is('archived_at', null);
+  if (archiveErr) {
+    // Surface to Sentry-style logging without rolling back the lock.
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[finalizeVendor] archive-others cleanup failed for event=${eventId} category=${targetCategory}:`,
+      archiveErr.message,
+    );
+  }
+
   // Refresh both the event home (FinalizedChipStrip + PlanningGroups read
   // from the same event_vendors fetch) and the vendor tracker (separate
   // surface that lists every vendor + status).
@@ -398,6 +444,206 @@ export async function finalizeVendor(
   revalidatePath(`/dashboard/${eventId}/vendors`);
 
   return { status: 'ok', vendorId, lockedStatus: LOCKED_STATUS };
+}
+
+// ============================================================================
+// addRecommendedVendorToCategory (2026-05-22) — Cross-category vendor
+// recommendations · CLAUDE.md owner directive.
+//
+// When the host picks Vendor A in Catering, and Vendor A also offers Cake +
+// Mobile Bar services via their vendor_services rows, the planning grid
+// surfaces Vendor A as RECOMMENDED on the Cake card + Music & Entertainment
+// card. This action lets the host accept that recommendation — adding Vendor
+// A to the new category with the same marketplace link + service link as
+// their existing pick.
+//
+// Two modes via the `status` form field:
+//   - 'considering' — adds as a new option-on-the-table for the host to
+//     compare against other vendors they might browse.
+//   - 'contracted' — locks the vendor in the new category directly (the
+//     host already trusts them from the source category, the "Lock too"
+//     shortcut). Cascades the finalize cleanup (auto-archive other
+//     considering picks in this category).
+//
+// Verification at the action boundary:
+//   - host must be signed in (redirect to /login if not).
+//   - host must have access to this event (RLS on event_vendors gates writes).
+//   - the source vendor row must exist on this event (defensive — the
+//     recommendation surfaces only when the home page bundled this vendor,
+//     but a stale form submission with a wrong vendor_id should fail
+//     loudly rather than insert a phantom pick).
+//   - vendor_services row must exist + be active + match the requested
+//     category (defensive — the form submits service_id + category, so
+//     we verify they match what the vendor actually offers).
+// ============================================================================
+
+export type AddRecommendedVendorResult =
+  | { status: 'ok'; eventVendorId: string; locked: boolean }
+  | { status: 'not_signed_in' }
+  | { status: 'source_vendor_not_found' }
+  | { status: 'service_not_found' }
+  | { status: 'invalid_category' }
+  | { status: 'already_picked' }
+  | { status: 'error'; message: string };
+
+export async function addRecommendedVendorToCategory(
+  formData: FormData,
+): Promise<AddRecommendedVendorResult> {
+  const eventId = formData.get('event_id');
+  const sourceMarketplaceVendorId = formData.get('marketplace_vendor_id');
+  const serviceId = formData.get('service_id');
+  const categoryRaw = formData.get('category');
+  const desiredStatusRaw = formData.get('desired_status');
+
+  if (typeof eventId !== 'string' || eventId.length === 0) {
+    return { status: 'error', message: 'Missing event id' };
+  }
+  if (
+    typeof sourceMarketplaceVendorId !== 'string' ||
+    sourceMarketplaceVendorId.length === 0
+  ) {
+    return { status: 'error', message: 'Missing marketplace vendor id' };
+  }
+  if (typeof serviceId !== 'string' || serviceId.length === 0) {
+    return { status: 'error', message: 'Missing service id' };
+  }
+  if (!isValidCategory(categoryRaw)) {
+    return { status: 'invalid_category' };
+  }
+  const lockImmediately =
+    desiredStatusRaw === 'contracted' || desiredStatusRaw === 'lock';
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { status: 'not_signed_in' };
+  }
+
+  // Verify the source vendor row exists on this event AND is linked to
+  // the marketplace vendor we're recommending. Belt-and-suspenders against
+  // stale form submissions — the recommendation surface only renders when
+  // the home page bundled this vendor as a pick.
+  const { data: sourcePick, error: sourceErr } = await supabase
+    .from('event_vendors')
+    .select('vendor_id, vendor_name, status')
+    .eq('event_id', eventId)
+    .eq('marketplace_vendor_id', sourceMarketplaceVendorId)
+    .is('archived_at', null)
+    .limit(1)
+    .maybeSingle();
+  if (sourceErr) {
+    return { status: 'error', message: sourceErr.message };
+  }
+  if (!sourcePick) {
+    return { status: 'source_vendor_not_found' };
+  }
+
+  // Defensive: confirm the vendor_services row matches the marketplace
+  // vendor + category we were told. The form data is host-supplied so a
+  // race condition (vendor deactivates a service after the page renders
+  // but before the host clicks Consider) should fail cleanly.
+  // We use the admin client because vendor_services RLS restricts to
+  // the vendor's own user_id — same reason page.tsx uses adminClient
+  // for the cross-category fetch.
+  const { createAdminClient } = await import('@/lib/supabase/admin');
+  const adminClient = createAdminClient();
+  const { data: serviceRow, error: serviceErr } = await adminClient
+    .from('vendor_services')
+    .select('vendor_service_id, vendor_profile_id, category, is_active')
+    .eq('vendor_service_id', serviceId)
+    .maybeSingle();
+  if (serviceErr) {
+    return { status: 'error', message: serviceErr.message };
+  }
+  if (
+    !serviceRow ||
+    !serviceRow.is_active ||
+    serviceRow.vendor_profile_id !== sourceMarketplaceVendorId ||
+    serviceRow.category !== categoryRaw
+  ) {
+    return { status: 'service_not_found' };
+  }
+
+  // Already picked in this category? Idempotent no-op — surface the state
+  // so the UI can collapse the action without a misleading "added" toast.
+  const { data: existing, error: existingErr } = await supabase
+    .from('event_vendors')
+    .select('vendor_id')
+    .eq('event_id', eventId)
+    .eq('marketplace_vendor_id', sourceMarketplaceVendorId)
+    .eq('category', categoryRaw)
+    .is('archived_at', null)
+    .limit(1)
+    .maybeSingle();
+  if (existingErr) {
+    return { status: 'error', message: existingErr.message };
+  }
+  if (existing) {
+    return { status: 'already_picked' };
+  }
+
+  // Look up the canonical vendor name from vendor_profiles for the new row.
+  // Falls back to the source pick's vendor_name if the join misses (the
+  // marketplace vendor row was deleted after the recommendation rendered).
+  const { data: marketplaceProfile } = await adminClient
+    .from('vendor_profiles')
+    .select('business_name')
+    .eq('vendor_profile_id', sourceMarketplaceVendorId)
+    .maybeSingle();
+  const insertedVendorName =
+    marketplaceProfile?.business_name ?? sourcePick.vendor_name;
+
+  // Insert the new pick. Same marketplace_vendor_id + service_id as the
+  // source — that's what makes this a cross-category recommendation
+  // rather than a brand-new vendor entry. Status defaults to 'considering'
+  // (lockImmediately flag handled below as a follow-up update).
+  const { data: inserted, error: insertErr } = await supabase
+    .from('event_vendors')
+    .insert({
+      event_id: eventId,
+      category: categoryRaw,
+      vendor_name: insertedVendorName,
+      status: 'considering',
+      marketplace_vendor_id: sourceMarketplaceVendorId,
+      service_id: serviceId,
+    })
+    .select('vendor_id')
+    .single();
+  if (insertErr || !inserted) {
+    return {
+      status: 'error',
+      message: insertErr?.message ?? 'Insert failed',
+    };
+  }
+
+  // Lock-too path: chain into the finalize action. This goes through the
+  // same hard-single conflict + cleanup logic so the host gets one
+  // coherent flow regardless of entry point.
+  let locked = false;
+  if (lockImmediately) {
+    const lockForm = new FormData();
+    lockForm.set('event_id', eventId);
+    lockForm.set('vendor_id', inserted.vendor_id);
+    // Don't override existing locked vendors silently — if the host hits
+    // Lock-too on a category that already has a locked vendor, they need
+    // to see the SwitchVendorConfirm modal explicitly. The result surface
+    // for that is already handled in PlanCardCompare's existing finalize
+    // flow; we just return ok+locked=false here so the UI can route the
+    // host into that modal.
+    lockForm.set('override_existing', '0');
+    const finalizeResult = await finalizeVendor(lockForm);
+    locked = finalizeResult.status === 'ok';
+    // Note: we don't surface the conflict result up here — the
+    // recommendation UI is a "Consider" path; locking is a secondary
+    // affordance. If the lock fails, the row still exists as a
+    // considering pick, which is the correct safe default.
+  }
+
+  revalidatePath(`/dashboard/${eventId}`);
+  revalidatePath(`/dashboard/${eventId}/vendors`);
+  return { status: 'ok', eventVendorId: inserted.vendor_id, locked };
 }
 
 // ============================================================================

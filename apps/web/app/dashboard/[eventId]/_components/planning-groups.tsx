@@ -21,6 +21,7 @@ import {
   resolvePlanGroupHint,
   targetDateStatus,
   type CeremonyType,
+  type CrossCategoryRecommendation,
   type EventVendorRowInput,
   type PlanCardPick,
   type PlanGroup,
@@ -35,6 +36,7 @@ import { DirectionsButtons } from './directions-buttons';
 import { PlanCardCTAs } from './plan-card-ctas';
 import { OfficiantParishCTAs } from './officiant-parish-ctas';
 import { PlanCardCompare } from './plan-card-compare';
+import { RecommendedVendorRow } from './recommended-vendor-row';
 import { SwitchVendorConfirm } from './switch-vendor-confirm';
 import type { ManualVendorOption } from './manual-vendor-dropdown';
 
@@ -146,6 +148,23 @@ type Props = {
    * VendorCategory string.
    */
   manualVendorsAttachedByCategory?: ReadonlyMap<string, ReadonlySet<string>>;
+  /**
+   * Cross-category vendor recommendations · CLAUDE.md 2026-05-22 owner
+   * directive. Map keyed on PlanGroupId — each card reads from
+   * `recommendations.get(groupId)` and renders a "⭐ Recommended" sub-
+   * section listing vendors already picked in OTHER categories who also
+   * offer service(s) in this card's category (per vendor_services).
+   *
+   * Empty map / undefined → no RECOMMENDED sub-section renders.
+   * Graceful degradation: if vendor_services hasn't been populated yet
+   * for V1 (vendor onboarding incomplete), no recommendations surface
+   * and the card flow is unchanged. Recommendations also hidden when
+   * the card is in LOCKED state (the host already committed — no need
+   * to suggest more vendors for the same group).
+   */
+  crossCategoryRecommendations?:
+    | ReadonlyMap<PlanGroupId, ReadonlyArray<CrossCategoryRecommendation>>
+    | null;
 };
 
 const MAX_VENDOR_PREVIEW = 3;
@@ -161,6 +180,7 @@ export function PlanningGroups({
   paperworkSummary,
   manualVendorOptions,
   manualVendorsAttachedByCategory,
+  crossCategoryRecommendations,
 }: Props) {
   // PR B 2026-05-22 — pass ceremony_type + venue_setting to the bucketer
   // so each pick gets a compatibility_issue field computed against the
@@ -316,6 +336,8 @@ export function PlanningGroups({
             <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {tierGroups.map((group) => {
                 const picks = bucketed.get(group.id) ?? [];
+                const recommendations =
+                  crossCategoryRecommendations?.get(group.id) ?? [];
                 return (
                   <li
                     key={group.id}
@@ -353,6 +375,7 @@ export function PlanningGroups({
                         group.categories,
                         manualVendorsAttachedByCategory,
                       )}
+                      recommendations={recommendations}
                     />
                   </li>
                 );
@@ -399,6 +422,7 @@ function GroupCard({
   paperworkSummary,
   manualVendorOptions,
   manualVendorsAttachedForGroup,
+  recommendations,
 }: {
   eventId: string;
   eventDate: string | null;
@@ -418,6 +442,7 @@ function GroupCard({
   paperworkSummary: PaperworkSummary | null;
   manualVendorOptions: ReadonlyArray<ManualVendorOption>;
   manualVendorsAttachedForGroup: ReadonlySet<string>;
+  recommendations: ReadonlyArray<CrossCategoryRecommendation>;
 }) {
   // Resolve religion-adaptive hint copy. Returns the static default
   // (group.hint) when ceremonyType is null OR the card has no faith-
@@ -592,6 +617,44 @@ function GroupCard({
             </li>
           ) : null}
         </ul>
+      ) : null}
+
+      {/* Cross-category vendor recommendations — CLAUDE.md 2026-05-22.
+       *
+       * When the host has picked a vendor in OTHER categories who also
+       * offers service(s) in THIS category, surface them as RECOMMENDED.
+       * Amber accent distinguishes from picks (terracotta) and locked
+       * (emerald). Renders only on unlocked cards — the locked-state
+       * variant already has the host's chosen vendor and doesn't need
+       * the suggestion. */}
+      {recommendations.length > 0 ? (
+        <div className="space-y-2">
+          <h4 className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-amber-700/90">
+            <span aria-hidden>⭐</span>
+            <span>Recommended — vendors you’ve already chosen</span>
+          </h4>
+          <ul className="space-y-1.5">
+            {recommendations.slice(0, 3).map((rec) => (
+              <li key={`${rec.vendor_id}:${rec.target_category}`}>
+                <RecommendedVendorRow
+                  eventId={eventId}
+                  marketplaceVendorId={rec.vendor_id}
+                  serviceId={rec.service_id}
+                  targetCategory={rec.target_category}
+                  vendorName={rec.vendor_name}
+                  vendorLogoUrl={rec.vendor_logo_url}
+                  sourceGroupLabel={rec.source_group_label}
+                  sourceStatus={rec.source_status}
+                />
+              </li>
+            ))}
+            {recommendations.length > 3 ? (
+              <li className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+                +{recommendations.length - 3} more in your network
+              </li>
+            ) : null}
+          </ul>
+        </div>
       ) : null}
 
       {showNavLinks ? (

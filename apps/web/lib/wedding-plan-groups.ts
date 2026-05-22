@@ -37,7 +37,7 @@
  * needed first-class cards.
  */
 
-import type { VendorCategory } from '@/lib/vendors';
+import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
 import type { WeddingFolder } from '@/lib/taxonomy';
 
 export type PlanGroupId =
@@ -984,6 +984,225 @@ export function bucketVendorsByGroup(
   }
   return out as Map<PlanGroupId, GroupedPicks['picks']>;
 }
+
+// ============================================================================
+// Cross-category vendor recommendations · CLAUDE.md 2026-05-22 owner directive.
+//
+// Owner verbatim: "when a vendor is picked and finalized or listed on something,
+// they will be added as a recommended vendor for other services that they also
+// provide. when the vendor is finalized, the other vendors there will be
+// removed from the recommended vendors."
+//
+// THE PATTERN:
+//   1. Host picks Vendor A in Catering (considering OR locked).
+//   2. Vendor A also offers Cake + Mobile Bar services (via vendor_services
+//      rows the vendor added to their profile).
+//   3. Cake card + Mobile Bar card now show Vendor A as RECOMMENDED with badge
+//      "also doing your catering."
+//   4. Host finalizes Vendor A in any category → all OTHER considering picks
+//      in THAT category auto-archive (host has committed). Cross-category
+//      recommendations remain available across other cards.
+//
+// Compute strategy: server-side in page.tsx, no new storage table. Reads
+// vendor_services for every picked vendor's marketplace_vendor_id, maps each
+// vendor_services.category onto its PlanGroupId via planGroupForCategory(),
+// then exposes a Map<PlanGroupId, CrossCategoryRecommendation[]> for the
+// planning-groups renderer to consume.
+//
+// Graceful degradation: if vendor_services has 0 rows for picked vendors
+// (V1 marketplace not yet populated, vendor onboarding incomplete), the
+// recommendations map is empty and no RECOMMENDED sub-section renders.
+// Feature is purely additive — never breaks the existing card flow.
+//
+// Don't recommend self: if Vendor A is already in the Catering card (the
+// source group), we skip surfacing them as recommended FOR Catering. Only
+// other groups they cover see the recommendation.
+// ============================================================================
+
+export type CrossCategoryRecommendation = {
+  /** marketplace_vendor_id from event_vendors (== vendor_profile_id on vendor_profiles). */
+  vendor_id: string;
+  /** Display name from vendor_profiles.business_name OR vendor_name fallback. */
+  vendor_name: string;
+  /** Vendor's resolved logo URL (priority 1 service photo OR vendor_profiles.logo_url). */
+  vendor_logo_url: string | null;
+  /** vendor_services.category — what the vendor offers in the target group. */
+  target_category: VendorCategory;
+  /** Source group label — "also doing your catering," "also doing your photography," etc. */
+  source_group_label: string;
+  /** Source group ID for cross-reference in UI logic. */
+  source_group_id: PlanGroupId;
+  /** Locked/picked status from the source pick — UI may surface this differently. */
+  source_status: VendorPickStatus;
+  /** vendor_services.vendor_service_id — passed back into addRecommendedVendorToCategory. */
+  service_id: string;
+};
+
+/**
+ * Input shape for `buildCrossCategoryRecommendations`. Mirrors the
+ * EventVendorRowInput shape used by bucketVendorsByGroup but adds the
+ * pre-fetched vendor_services rows so the build step stays pure (no
+ * Supabase calls inside the lib helper).
+ */
+export type CrossCategoryInput = {
+  /** Subset of EventVendorRowInput — only what cross-cat recommendations need. */
+  picks: ReadonlyArray<{
+    /** marketplace_vendor_id (NOT event_vendors.vendor_id PK). NULL for off-platform. */
+    marketplace_vendor_id: string | null;
+    category: VendorCategory;
+    status: string | null;
+    marketplace_business_name: string | null;
+    marketplace_logo_url: string | null;
+    vendor_name: string;
+  }>;
+  /** vendor_services rows for every marketplace_vendor_id present in `picks`. */
+  vendor_services: ReadonlyArray<{
+    vendor_service_id: string;
+    vendor_profile_id: string;
+    category: string;
+    is_active: boolean;
+  }>;
+};
+
+/**
+ * Build the Map<PlanGroupId, CrossCategoryRecommendation[]> from the host's
+ * picks + the vendor_services rows of every picked marketplace vendor.
+ *
+ * Behavior:
+ *   - Skips off-platform picks (no marketplace_vendor_id → no vendor_services).
+ *   - Skips inactive services (is_active=false on vendor_services).
+ *   - Skips invalid categories (vendor_services.category is a free-form TEXT,
+ *     not the VendorCategory enum — we validate before mapping).
+ *   - Skips services whose canonical_service maps to a PlanGroupId the vendor
+ *     is ALREADY picked in (don't recommend to self).
+ *   - De-dupes: if the same vendor offers two distinct services that fall
+ *     into the same target group (e.g. catering + cake_maker both → cake
+ *     group's catalogFolder), only the first cross-recommendation surfaces.
+ *
+ * Returns an empty Map (per PlanGroupId, empty array) when input is empty,
+ * so consumers can call `.get(groupId) ?? []` without null-checking.
+ */
+export function buildCrossCategoryRecommendations(
+  input: CrossCategoryInput,
+): Map<PlanGroupId, CrossCategoryRecommendation[]> {
+  const out = new Map<PlanGroupId, CrossCategoryRecommendation[]>();
+  for (const g of PLAN_GROUPS) out.set(g.id, []);
+
+  // Resolve the GROUPS each picked vendor is already in — so we can skip
+  // recommending them to a group they're already a pick in.
+  const vendorGroupMembership = new Map<string, Set<PlanGroupId>>();
+  for (const p of input.picks) {
+    if (!p.marketplace_vendor_id) continue;
+    const groupId = planGroupForCategory(p.category);
+    if (!groupId) continue;
+    if (!vendorGroupMembership.has(p.marketplace_vendor_id)) {
+      vendorGroupMembership.set(p.marketplace_vendor_id, new Set());
+    }
+    vendorGroupMembership.get(p.marketplace_vendor_id)!.add(groupId);
+  }
+
+  // Build a per-vendor lookup for display data + source group (the first
+  // picked group surfaces as the "also doing your X" label). When a vendor
+  // appears in multiple source groups, prefer the LOCKED one (more
+  // commitment signal) over considering; tied locks pick the first by
+  // iteration order. That keeps the badge copy concrete ("also doing
+  // your catering" — the host knows it's a locked pick, not just a
+  // shortlist hopeful).
+  const vendorMeta = new Map<
+    string,
+    {
+      vendor_name: string;
+      vendor_logo_url: string | null;
+      source_group_id: PlanGroupId;
+      source_status: VendorPickStatus;
+    }
+  >();
+  // First pass: prefer locked picks
+  for (const p of input.picks) {
+    if (!p.marketplace_vendor_id) continue;
+    const groupId = planGroupForCategory(p.category);
+    if (!groupId) continue;
+    const status = statusOfVendor(p.status);
+    if (status !== 'locked') continue;
+    if (vendorMeta.has(p.marketplace_vendor_id)) continue;
+    vendorMeta.set(p.marketplace_vendor_id, {
+      vendor_name: p.marketplace_business_name ?? p.vendor_name,
+      vendor_logo_url: p.marketplace_logo_url ?? null,
+      source_group_id: groupId,
+      source_status: 'locked',
+    });
+  }
+  // Second pass: fill in considering picks where no locked entry exists.
+  for (const p of input.picks) {
+    if (!p.marketplace_vendor_id) continue;
+    const groupId = planGroupForCategory(p.category);
+    if (!groupId) continue;
+    if (vendorMeta.has(p.marketplace_vendor_id)) continue;
+    vendorMeta.set(p.marketplace_vendor_id, {
+      vendor_name: p.marketplace_business_name ?? p.vendor_name,
+      vendor_logo_url: p.marketplace_logo_url ?? null,
+      source_group_id: groupId,
+      source_status: 'picked',
+    });
+  }
+
+  // Walk the vendor_services rows. For each, check (a) is_active, (b)
+  // category maps to a valid VendorCategory, (c) the target group isn't
+  // the source group, (d) the target group isn't already in the vendor's
+  // membership set (skip "already a pick" cases).
+  const dedupeKey = new Set<string>(); // `${vendorId}:${targetGroupId}`
+  for (const svc of input.vendor_services) {
+    if (!svc.is_active) continue;
+    const meta = vendorMeta.get(svc.vendor_profile_id);
+    if (!meta) continue;
+    const targetCategory = svc.category as VendorCategory;
+    if (!isVendorCategory(targetCategory)) continue;
+    const targetGroupId = planGroupForCategory(targetCategory);
+    if (!targetGroupId) continue;
+    // Don't recommend self — vendor is already a pick in this group.
+    const membership = vendorGroupMembership.get(svc.vendor_profile_id);
+    if (membership && membership.has(targetGroupId)) continue;
+    // Don't recommend within the source group (defensive — the
+    // membership check above should already cover this, but the source
+    // group is always covered by the vendor's existing pick).
+    if (targetGroupId === meta.source_group_id) continue;
+    // De-dupe: same vendor → same target group only surfaces once.
+    const dedupe = `${svc.vendor_profile_id}:${targetGroupId}`;
+    if (dedupeKey.has(dedupe)) continue;
+    dedupeKey.add(dedupe);
+
+    const sourceGroup = PLAN_GROUPS.find((g) => g.id === meta.source_group_id);
+    if (!sourceGroup) continue;
+
+    out.get(targetGroupId)!.push({
+      vendor_id: svc.vendor_profile_id,
+      vendor_name: meta.vendor_name,
+      vendor_logo_url: meta.vendor_logo_url,
+      target_category: targetCategory,
+      source_group_label: sourceGroup.label.toLowerCase(),
+      source_group_id: meta.source_group_id,
+      source_status: meta.source_status,
+      service_id: svc.vendor_service_id,
+    });
+  }
+
+  return out;
+}
+
+/**
+ * Defensive runtime check that a raw TEXT from vendor_services.category
+ * matches the canonical VendorCategory enum. Mirrors the structural
+ * check from vendor-services.ts but enforces against the exact enum
+ * list — vendor_services.category is free-form on the DB side but
+ * downstream consumers expect a known enum value.
+ */
+function isVendorCategory(value: string): value is VendorCategory {
+  return (VENDOR_CATEGORIES as readonly string[]).includes(value);
+}
+
+// ============================================================================
+// (end cross-category recommendations)
+// ============================================================================
 
 /**
  * Compute the target lock-by date for a group given the wedding date.

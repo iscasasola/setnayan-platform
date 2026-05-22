@@ -67,6 +67,7 @@ import { toggleJourneyStep } from './actions';
 import { EventDayPrepCta } from '@/app/_components/event-day-prep-cta';
 import { AutoPreloadOnEventDay } from '@/app/_components/auto-preload-on-event-day';
 import { PlanningGroups } from './_components/planning-groups';
+import { buildCrossCategoryRecommendations } from '@/lib/wedding-plan-groups';
 import {
   summarize as summarizePaperwork,
   type PaperworkRow,
@@ -318,6 +319,14 @@ export default async function EventHomePage({
           'vendor_id, vendor_name, category, status, total_cost_php, deposit_paid_php, notes, contact_email, contact_phone, marketplace_vendor_id, source_venue_directory_id, service_id, manual_vendor_id',
         )
         .eq('event_id', eventId)
+        // Cross-category recommendations + finalize cleanup (CLAUDE.md
+        // 2026-05-22). When the host locks ONE vendor in a category,
+        // the other considering picks in that same category are
+        // soft-archived. The home grid + planning-groups bucketing
+        // should only see active rows — archived ones stay in DB for
+        // audit + potential restore via the existing SwitchVendorConfirm
+        // flow.
+        .is('archived_at', null)
         .order('created_at', { ascending: true }),
       // Task #37 — confirmed-vendor count drives the date-edit + ceremony-
       // type-edit lock state on event home. Same RLS scope as the vendors
@@ -691,6 +700,57 @@ export default async function EventHomePage({
     (event as { ceremony_type?: string | null }).ceremony_type ?? null;
   const eventVenueSetting =
     (event as { venue_setting?: string | null }).venue_setting ?? null;
+
+  // Cross-category vendor recommendations (CLAUDE.md 2026-05-22 owner
+  // directive). For every marketplace vendor the host has picked, fetch
+  // ALL of that vendor's vendor_services rows so we can recommend them
+  // for other categories they cover. e.g. a caterer who also offers
+  // cake + cocktail bar surfaces as RECOMMENDED on the Cake card +
+  // Music & Entertainment card with badge "also doing your catering."
+  //
+  // Single batch fetch — one IN(...) per page render — keyed on the
+  // distinct marketplace_vendor_id set we already computed for the
+  // compatibility-mismatch path above. Graceful degradation: if
+  // vendor_services has 0 rows for any vendor (V1 marketplace not yet
+  // populated), the recommendations map is empty and no RECOMMENDED
+  // sub-section renders.
+  //
+  // adminClient used (same as the compat fetches) because vendor_services
+  // RLS is restricted to the owning vendor — couples can't read other
+  // vendors' service rows. The admin path is safe here because the
+  // marketplace_vendor_id set is already gated by the couple's RLS read
+  // on event_vendors above; we're not exposing anything they can't see.
+  const { data: crossCategoryServicesRaw } =
+    marketplaceIds.length > 0
+      ? await adminClient
+          .from('vendor_services')
+          .select(
+            'vendor_service_id, vendor_profile_id, category, is_active',
+          )
+          .in('vendor_profile_id', marketplaceIds)
+          .eq('is_active', true)
+      : { data: [] as Array<{
+          vendor_service_id: string;
+          vendor_profile_id: string;
+          category: string;
+          is_active: boolean;
+        }> };
+  const crossCategoryRecommendations = buildCrossCategoryRecommendations({
+    picks: eventVendors.map((v) => ({
+      marketplace_vendor_id: v.marketplace_vendor_id,
+      category: v.category,
+      status: v.status,
+      marketplace_business_name: v.marketplace_business_name,
+      marketplace_logo_url: v.marketplace_logo_url,
+      vendor_name: v.vendor_name,
+    })),
+    vendor_services: (crossCategoryServicesRaw ?? []) as Array<{
+      vendor_service_id: string;
+      vendor_profile_id: string;
+      category: string;
+      is_active: boolean;
+    }>,
+  });
 
   // Today's one thing — single-focus hero (owner directive 2026-05-22,
   // Headspace-pattern). Resolves the host's #1 most-urgent planning
@@ -1116,6 +1176,7 @@ export default async function EventHomePage({
           paperworkSummary={paperworkSummary}
           manualVendorOptions={manualVendorOptions}
           manualVendorsAttachedByCategory={manualVendorsAttachedByCategory}
+          crossCategoryRecommendations={crossCategoryRecommendations}
         />
       </section>
 

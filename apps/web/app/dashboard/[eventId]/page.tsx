@@ -62,6 +62,7 @@ import { EventDayPrepCta } from '@/app/_components/event-day-prep-cta';
 import { AutoPreloadOnEventDay } from '@/app/_components/auto-preload-on-event-day';
 import { PlanningGroups } from './_components/planning-groups';
 import { EventDateInput } from './_components/event-date-input';
+import { AuspiciousChip } from './_components/auspicious-chip';
 import { VendorAvailabilityIntersection } from './_components/vendor-availability-intersection';
 import { CeremonyTypeChip } from './_components/ceremony-type-chip';
 import { BudgetCountdownHeader } from './_components/budget-countdown-header';
@@ -257,7 +258,7 @@ export default async function EventHomePage({
       supabase
         .from('events')
         .select(
-          'event_id, display_name, event_date, event_date_precision, slug, venue_name, venue_latitude, venue_longitude, monogram_text, palette_finalized_at, concierge_status, concierge_tier, concierge_activated_at, concierge_expires_at, concierge_long_engagement_advised_at, event_type, ceremony_type, ceremony_type_locked_at, venue_setting, estimated_budget_centavos',
+          'event_id, display_name, event_date, event_date_precision, slug, venue_name, venue_latitude, venue_longitude, monogram_text, palette_finalized_at, concierge_status, concierge_tier, concierge_activated_at, concierge_expires_at, concierge_long_engagement_advised_at, event_type, ceremony_type, ceremony_type_locked_at, venue_setting, estimated_budget_centavos, date_status, auspicious_reasons',
         )
         .eq('event_id', eventId)
         .maybeSingle(),
@@ -657,6 +658,18 @@ export default async function EventHomePage({
         eventDate={event.event_date}
         eventDatePrecision={eventDatePrecision}
         now={now}
+      />
+
+      {/* Phase 0 Date Selection entry point — CLAUDE.md 2026-05-22 lock.
+       *  Renders one of two states based on events.date_status:
+       *    - 'locked' → shows the host's chosen date + invitation to
+       *      review the auspicious reasoning at /date-selection.
+       *    - other   → soft "Pick your date" prompt routing to /date-selection.
+       *  See _components/auspicious-chip.tsx + date-selection/page.tsx. */}
+      <AuspiciousChip
+        eventId={eventId}
+        eventDate={event.event_date}
+        dateStatus={(event as { date_status?: string | null }).date_status ?? null}
       />
 
       <div className="space-y-2">

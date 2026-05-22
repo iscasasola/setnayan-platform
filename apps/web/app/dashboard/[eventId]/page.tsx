@@ -15,7 +15,6 @@ import {
   UserPlus,
   CalendarClock,
   AlertTriangle,
-  ArrowRight,
   CheckCircle2,
   Circle,
   Square,
@@ -27,7 +26,8 @@ import { getCurrentUser } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
 import { computeGuestStats, fetchGuestsByEvent } from '@/lib/guests';
-import { fetchEventActivity, relativeTime, type ActivityItem } from '@/lib/activity';
+import { fetchEventActivity } from '@/lib/activity';
+import { fetchAttributedActivity } from '@/lib/activity-attribution';
 import {
   formatEventDateWithPrecision,
   formatEventCountdown,
@@ -63,6 +63,11 @@ import { PlanningGroups } from './_components/planning-groups';
 import { EventDateInput } from './_components/event-date-input';
 import { VendorAvailabilityIntersection } from './_components/vendor-availability-intersection';
 import { CeremonyTypeChip } from './_components/ceremony-type-chip';
+import { BudgetCountdownHeader } from './_components/budget-countdown-header';
+import { FinalizedChipStrip } from './_components/finalized-chip-strip';
+import { UsefulRightNow } from './_components/useful-right-now';
+import { UpcomingSchedules, type UpcomingItem } from './_components/upcoming-schedules';
+import { ActivityFeed } from './_components/activity-feed';
 import { getConfirmedVendorCount, isEventDateInPast } from '@/lib/events';
 import type { VendorCategory } from '@/lib/vendors';
 
@@ -220,7 +225,26 @@ export default async function EventHomePage({
   // event's orders, keeping the hot path fast.
   void sweepLapsedSubscriptions(adminClient, { eventId });
 
-  const [eventRes, profileRes, guests, manualSteps, unreadCount, locale, eventVendorsRes, confirmedVendorCount] =
+  const [
+    eventRes,
+    profileRes,
+    guests,
+    manualSteps,
+    unreadCount,
+    locale,
+    eventVendorsRes,
+    confirmedVendorCount,
+    // V1 pilot Home v2 — owner directive 2026-05-22.
+    // Five extra reads feed the new home sections + the attributed
+    // activity lane. Every query is RLS-scoped to the host's events;
+    // they ride the same Promise.all so the home-page request stays
+    // one round trip wide.
+    moodBoardSavesRes,
+    seatAssignmentsRes,
+    vendorThreadsRes,
+    upcomingBlocksRes,
+    paidOrdersRes,
+  ] =
     await Promise.all([
       supabase
         .from('events')
@@ -260,6 +284,39 @@ export default async function EventHomePage({
       // query above; getConfirmedVendorCount returns 0 on error so a
       // count failure never blocks the dashboard render.
       getConfirmedVendorCount(supabase, eventId),
+      // Mood Board save count — fuels the UsefulRightNow tile subtitle.
+      supabase
+        .from('event_moodboard_saves')
+        .select('save_id', { count: 'exact', head: true })
+        .eq('event_id', eventId),
+      // Seat assignments — fuels the UsefulRightNow Seat Plan subtitle.
+      supabase
+        .from('event_seat_assignments')
+        .select('assignment_id', { count: 'exact', head: true })
+        .eq('event_id', eventId),
+      // Vendor chat threads — Inbox tile proxy until read-receipt
+      // tracking lands. Counts active threads on this event regardless
+      // of read state; the polite-voice subtitle works either way.
+      supabase
+        .from('chat_threads')
+        .select('thread_id', { count: 'exact', head: true })
+        .eq('event_id', eventId),
+      // Next 5 upcoming schedule blocks — fuels UpcomingSchedules.
+      supabase
+        .from('event_schedule_blocks')
+        .select('block_id, label, start_at, end_at, location, block_type')
+        .eq('event_id', eventId)
+        .gte('start_at', new Date().toISOString())
+        .order('start_at', { ascending: true })
+        .limit(5),
+      // Paid + fulfilled orders — fuels BudgetCountdownHeader's
+      // "committed" number. Pulled separately from the cart UI flow
+      // because home only needs the aggregate, not the line items.
+      supabase
+        .from('orders')
+        .select('order_id, requested_total_php, confirmed_total_php, status')
+        .eq('event_id', eventId)
+        .in('status', ['paid', 'fulfilled']),
     ]);
   const tr = makeT(locale);
 
@@ -451,7 +508,73 @@ export default async function EventHomePage({
     }
   }
 
-  const activity = await fetchEventActivity(supabase, eventId, 20);
+  // V1 pilot Home v2 — parallel fetches for the source activity feed
+  // + the new attributed lane (event_action_log). Attribution silently
+  // returns [] when the table has no rows for this event OR a join
+  // fails, so the source feed always renders.
+  const [activity, attributedActivity] = await Promise.all([
+    fetchEventActivity(supabase, eventId, 20),
+    fetchAttributedActivity(adminClient, eventId, user.id, 20),
+  ]);
+
+  // Derived counts for the new Home v2 sections.
+  const moodBoardSaveCount = moodBoardSavesRes.count ?? 0;
+  const seatedGuests = seatAssignmentsRes.count ?? 0;
+  const vendorThreadCount = vendorThreadsRes.count ?? 0;
+
+  // "Committed" budget signal: paid + fulfilled orders + every
+  // contracted-or-better event_vendors row whose total_cost_php is
+  // known. The result is in PHP centavos so the BudgetCountdownHeader
+  // can format it consistently with future cart line items.
+  const paidOrdersTotalPhp = (paidOrdersRes.data ?? []).reduce<number>((acc, row) => {
+    const r = row as { requested_total_php: number | string | null; confirmed_total_php: number | string | null };
+    const confirmed = r.confirmed_total_php !== null ? Number(r.confirmed_total_php) : null;
+    const requested = r.requested_total_php !== null ? Number(r.requested_total_php) : null;
+    const amount = confirmed ?? requested ?? 0;
+    return acc + (Number.isFinite(amount) ? amount : 0);
+  }, 0);
+  const contractedVendorsTotalPhp = eventVendorsRaw.reduce<number>((acc, row) => {
+    const status = row.status ?? '';
+    if (
+      status !== 'contracted' &&
+      status !== 'deposit_paid' &&
+      status !== 'delivered' &&
+      status !== 'complete'
+    ) {
+      return acc;
+    }
+    const cost = row.total_cost_php !== null ? Number(row.total_cost_php) : 0;
+    return acc + (Number.isFinite(cost) ? cost : 0);
+  }, 0);
+  const committedCentavos = Math.round((paidOrdersTotalPhp + contractedVendorsTotalPhp) * 100);
+
+  // Target budget — events table doesn't carry a budget column yet
+  // (V1 schema audit 2026-05-22). Pull defensively in case a future
+  // migration lands it; otherwise null is fine and the strip surfaces
+  // the "Set your budget" CTA.
+  const eventBudgetCentavos =
+    (event as { estimated_budget_centavos?: number | null }).estimated_budget_centavos ?? null;
+
+  // Upcoming schedule blocks — already filtered server-side to future
+  // rows + limited to 5. Type the shape for the component prop.
+  const upcomingItems: UpcomingItem[] = (upcomingBlocksRes.data ?? []).map((row) => {
+    const r = row as {
+      block_id: string;
+      label: string;
+      start_at: string;
+      end_at: string | null;
+      location: string | null;
+      block_type: UpcomingItem['block_type'];
+    };
+    return {
+      block_id: r.block_id,
+      label: r.label,
+      start_at: r.start_at,
+      end_at: r.end_at,
+      location: r.location,
+      block_type: r.block_type,
+    };
+  });
 
   // Concierge state for the inline banner (iteration 0021 § 2.0b).
   const eventConciergeRow = event as typeof event & {
@@ -567,6 +690,22 @@ export default async function EventHomePage({
 
       <StageStrip stage={stage} />
 
+      {/* V1 pilot Home v2 — owner directive 2026-05-22.
+       *  BudgetCountdownHeader + FinalizedChipStrip sit between the
+       *  StageStrip and the 12-card PlanningGroups so the host sees
+       *  their countdown + money state + locked vendors before they
+       *  scroll into category-by-category planning. */}
+      <BudgetCountdownHeader
+        eventDate={event.event_date}
+        eventDatePrecision={eventDatePrecision}
+        targetCentavos={eventBudgetCentavos}
+        committedCentavos={committedCentavos}
+        settingsHref={`/dashboard/${eventId}/budget`}
+        now={now}
+      />
+
+      <FinalizedChipStrip eventId={eventId} vendors={eventVendorsRaw} />
+
       <PlanningGroups
         eventId={eventId}
         eventDate={event.event_date}
@@ -583,7 +722,30 @@ export default async function EventHomePage({
 
       <NavGrid eventId={eventId} stats={stats} unreadCount={unreadCount} tr={tr} />
 
-      <ActivityFeed activity={activity} eventId={eventId} tr={tr} />
+      {/* V1 pilot Home v2 — owner directive 2026-05-22.
+       *  UsefulRightNow + UpcomingSchedules sit between the 14-tile
+       *  NavGrid and the activity feed. The 2×2 toolkit fast-routes
+       *  to the four surfaces hosts return to most; the upcoming
+       *  schedule strip surfaces the next handful of day-of timeline
+       *  blocks so the host doesn't have to click into the schedule
+       *  surface for a quick "what's next" glance. */}
+      <UsefulRightNow
+        eventId={eventId}
+        moodBoardSaveCount={moodBoardSaveCount}
+        totalGuests={stats.total}
+        seatedGuests={seatedGuests}
+        vendorThreadCount={vendorThreadCount}
+      />
+
+      <UpcomingSchedules eventId={eventId} items={upcomingItems} now={now} />
+
+      <ActivityFeed
+        eventId={eventId}
+        sourceActivity={activity}
+        attributedActivity={attributedActivity}
+        headingLabel={tr('section.recent_activity')}
+        seeAllLabel={tr('cta.see_all')}
+      />
     </section>
   );
 }
@@ -813,62 +975,6 @@ function Checklist({
   );
 }
 
-function ActivityFeed({
-  activity,
-  eventId,
-  tr,
-}: {
-  activity: ActivityItem[];
-  eventId: string;
-  tr: (key: TranslationKey) => string;
-}) {
-  if (activity.length === 0) {
-    return (
-      <section aria-labelledby="recent-activity-heading" className="space-y-3">
-        <h2
-          id="recent-activity-heading"
-          className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55"
-        >
-          {tr('section.recent_activity')}
-        </h2>
-        <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-6 text-center text-sm text-ink/55">
-          Nothing yet. Add a guest, book a vendor, or place an order — it&rsquo;ll show up here.
-        </p>
-      </section>
-    );
-  }
-  return (
-    <section aria-labelledby="recent-activity-heading" className="space-y-3">
-      <div className="flex items-baseline justify-between">
-        <h2
-          id="recent-activity-heading"
-          className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55"
-        >
-          {tr('section.recent_activity')}
-        </h2>
-        <Link
-          href={`/dashboard/${eventId}/activity`}
-          className="inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta hover:text-terracotta-700"
-        >
-          {tr('cta.see_all')}
-          <ArrowRight aria-hidden className="h-3 w-3" />
-        </Link>
-      </div>
-      <ul className="space-y-1">
-        {activity.map((a) => (
-          <li key={a.id}>
-            <Link
-              href={a.href}
-              className="-mx-2 flex items-center justify-between gap-3 rounded-md px-2 py-1.5 text-sm hover:bg-terracotta/5"
-            >
-              <span className="truncate text-ink/80">{a.description}</span>
-              <span className="shrink-0 font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
-                {relativeTime(a.at)}
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
+// ActivityFeed moved to ./_components/activity-feed.tsx as part of
+// the V1 pilot Home v2 refactor (2026-05-22). The shared component
+// renders both the existing source feed AND the attributed lane.

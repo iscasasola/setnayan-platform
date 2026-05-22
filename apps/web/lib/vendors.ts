@@ -29,6 +29,7 @@ export type VendorCategory =
   | 'reception_decor'
   | 'security'
   | 'gifts_and_giveaways'
+  | 'accommodation'
   | 'misc';
 
 export type VendorStatus =
@@ -68,6 +69,7 @@ export const VENDOR_CATEGORIES: ReadonlyArray<VendorCategory> = [
   'reception_decor',
   'security',
   'gifts_and_giveaways',
+  'accommodation',
   'misc',
 ];
 
@@ -100,6 +102,7 @@ export const VENDOR_CATEGORY_LABEL: Record<VendorCategory, string> = {
   reception_decor: 'Reception decor',
   security: 'Security',
   gifts_and_giveaways: 'Gifts & giveaways',
+  accommodation: 'Accommodation',
   misc: 'Miscellaneous',
 };
 
@@ -248,6 +251,7 @@ export const SERVICE_GROUPS: ReadonlyArray<{
       'florist',
       'invitations_stationery',
       'planner_coordinator',
+      'accommodation',
     ],
   },
   {

@@ -192,6 +192,7 @@ const VENDOR_CATEGORY_EFFORT: Record<PlanGroupId, EstimatedEffort> = {
   bridal_car: '1day',
   guest_shuttle: '1day',
   rings: '1wk',
+  accommodation: '1wk',
   invitations_stationery: '1day',
   logistics: '1day',
 };
@@ -260,16 +261,17 @@ const PHASE_ORDER: Record<PlanGroupId, number> = {
   host_mc: 11,
   lights_sound: 12,
   led_background: 13,
-  // Extras tier (14-19)
+  // Extras tier (14-20) — accommodation added 2026-05-22 as the 23rd card
   cocktail_booths: 14,
   photobooth: 15,
   cake: 16,
   bridal_car: 17,
   guest_shuttle: 18,
   rings: 19,
-  // Paper tier (20-21)
-  invitations_stationery: 20,
-  logistics: 21,
+  accommodation: 20,
+  // Paper tier (21-22) — shifted +1 to accommodate the 23rd card
+  invitations_stationery: 21,
+  logistics: 22,
 };
 
 /** Reception venue label — reused in best-after chips. */
@@ -373,6 +375,7 @@ const ACTION_TITLE: Record<PlanGroupId, string> = {
   bridal_car: 'Lock your bridal car',
   guest_shuttle: 'Lock your guest shuttle',
   rings: 'Lock your rings',
+  accommodation: 'Lock your accommodation',
   invitations_stationery: 'Lock your stationery partner',
   logistics: 'Lock your day-of logistics',
 };
@@ -402,6 +405,7 @@ const CTA_LABEL: Record<PlanGroupId, string> = {
   bridal_car: 'Browse bridal cars',
   guest_shuttle: 'Browse guest shuttles',
   rings: 'Browse rings',
+  accommodation: 'Browse hotels',
   invitations_stationery: 'Browse stationery',
   logistics: 'Browse logistics',
 };
@@ -452,6 +456,8 @@ const WHY_IT_MATTERS_VENDOR: Record<PlanGroupId, string> = {
     'For venues away from the city, shuttle service keeps guests stress-free. Book 6-8 weeks out once you have an approximate headcount.',
   rings:
     'The most-photographed object of your wedding. Custom rings take 6-8 weeks; off-the-shelf 2-3 weeks. Lock the design and have backups for emergencies.',
+  accommodation:
+    'Where you and your wedding party rest the night before — sometimes bundled into your reception hotel package. Lock 1-2 months out · venue-affiliated room blocks fill fast.',
   invitations_stationery:
     'Save-the-dates, invitations, monograms, and table cards all share a visual story. Locking your stationery partner early means everything ships out of one consistent hand.',
   logistics:

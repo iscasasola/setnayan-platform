@@ -38,8 +38,19 @@ type Props = {
   steps: ReadonlyArray<NextStep>;
 };
 
+// Default-visible step count when the section is collapsed. The remaining
+// steps (steps.slice(VISIBLE_TOP_COUNT)) sit inside a <details> element
+// and reveal on click. Owner directive 2026-05-22 — section was always-
+// expanded and "cluttered the page", so the collapse keeps it scannable
+// at first glance while preserving the full ladder one click away.
+const VISIBLE_TOP_COUNT = 5;
+
 export function Next15Steps({ eventId, steps }: Props) {
   if (steps.length === 0) return null;
+
+  const topSteps = steps.slice(0, VISIBLE_TOP_COUNT);
+  const remainingSteps = steps.slice(VISIBLE_TOP_COUNT);
+  const hasMore = remainingSteps.length > 0;
 
   return (
     <section
@@ -63,11 +74,48 @@ export function Next15Steps({ eventId, steps }: Props) {
       </header>
 
       <ol className="overflow-hidden rounded-2xl border border-ink/10 bg-cream/40 divide-y divide-ink/8">
-        {steps.map((step, index) => (
+        {topSteps.map((step, index) => (
           <li key={step.id}>
             <NextStepRow step={step} index={index} eventId={eventId} />
           </li>
         ))}
+        {hasMore ? (
+          // <details> keeps the collapse pure-SSR — no client JS, no
+          // hydration cost, native keyboard + screen-reader support.
+          // Default-closed; clicking the summary reveals remainingSteps.
+          // Lives inside the same <ol> so list-item numbering stays
+          // continuous when expanded.
+          <li>
+            <details className="group/expand">
+              <summary className="flex cursor-pointer items-center justify-between gap-2 px-4 py-3 text-xs font-medium text-terracotta transition-colors hover:bg-cream/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-cream sm:px-5 [&::-webkit-details-marker]:hidden [&::marker]:hidden">
+                <span className="font-mono text-[10px] uppercase tracking-[0.15em]">
+                  <span className="group-open/expand:hidden">
+                    Show {remainingSteps.length} more step{remainingSteps.length === 1 ? '' : 's'}
+                  </span>
+                  <span className="hidden group-open/expand:inline">
+                    Show fewer
+                  </span>
+                </span>
+                <span aria-hidden className="font-mono text-sm leading-none">
+                  <span className="inline-block transition-transform group-open/expand:rotate-180">
+                    ↓
+                  </span>
+                </span>
+              </summary>
+              <ol className="divide-y divide-ink/8 border-t border-ink/8">
+                {remainingSteps.map((step, index) => (
+                  <li key={step.id}>
+                    <NextStepRow
+                      step={step}
+                      index={VISIBLE_TOP_COUNT + index}
+                      eventId={eventId}
+                    />
+                  </li>
+                ))}
+              </ol>
+            </details>
+          </li>
+        ) : null}
       </ol>
 
       <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">

@@ -68,6 +68,7 @@ import { EventDayPrepCta } from '@/app/_components/event-day-prep-cta';
 import { AutoPreloadOnEventDay } from '@/app/_components/auto-preload-on-event-day';
 import { PlanningGroups } from './_components/planning-groups';
 import { EventHomeDetailPane } from './_components/event-home-detail-pane';
+import { EventHomeSplitView } from './_components/event-home-split-view';
 import {
   buildCrossCategoryRecommendations,
   PLAN_GROUPS,
@@ -1217,23 +1218,25 @@ export default async function EventHomePage({
   }
 
   return (
-    // Finder-column UX (CLAUDE.md 2026-05-22 lock) — owner directive:
-    // "first column will be the exact mobile version, then it will have
-    // the second column be whatever button they press on the mobile
-    // version · feels like the finder in columns for macbook."
-    //
-    // Mobile (<lg): renders as a single block — the outer div is a no-op
-    // wrapper and the existing <section> keeps its current full-width
-    // shape. Desktop (lg+): splits into a 2-col grid where the LEFT
-    // column carries every existing element in mobile width (max ~420px)
-    // and the RIGHT column is a sticky <aside> rendering the
-    // EventHomeDetailPane keyed off `?card=` in the URL.
-    //
-    // `lg:items-start` lets the aside stick independently; `lg:min-w-0`
-    // on the section overrides grid items' default min-content sizing so
-    // long pick names + monogram strips wrap rather than stretch the col.
-    <div className="lg:grid lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] lg:items-start lg:gap-8">
-    <section className="space-y-8 lg:min-w-0">
+    // Finder-column UX (CLAUDE.md 2026-05-22 lock) — owner directive
+    // chain across the session:
+    //   1. "first column will be the exact mobile version, then it will
+    //      have the second column be whatever button they press · feels
+    //      like the finder in columns for macbook"
+    //   2. "columns should look like this and not compressed · there is
+    //      a divider" (50/50 split with visible divider)
+    //   3. "the column divider can be adjusted just like claude desktop"
+    //      → this PR: replace the static 50/50 split with a draggable
+    //      boundary. EventHomeSplitView is a client component that owns
+    //      the splitPct state + handles pointer drag, localStorage
+    //      persistence, double-click reset, and keyboard nudges. Mobile
+    //      (<lg) renders as a single column unchanged — the handle is
+    //      hidden and the inline `gridTemplateColumns` is a no-op
+    //      because `lg:grid` doesn't activate `display: grid` below
+    //      the breakpoint.
+    <EventHomeSplitView
+      left={
+        <>
       <EventDayPrepCta eventId={eventId} eventDate={event.event_date} />
       <AutoPreloadOnEventDay eventId={eventId} eventDate={event.event_date} />
       {dayOfActive ? (
@@ -1479,25 +1482,20 @@ export default async function EventHomePage({
         headingLabel={tr('section.recent_activity')}
         seeAllLabel={tr('cta.see_all')}
       />
-    </section>
-    {/* Right pane · Finder-column right slot · desktop-only.
-     *  Hidden on mobile (the mobile view IS the left col on desktop).
-     *  Sticky so the host can scroll the left col without losing the
-     *  selected card's expanded view. Independent vertical scroll
-     *  via overflow-y-auto so long cross-cat recommendation strips
-     *  don't push the pane off-screen. */}
-    <aside className="hidden rounded-2xl border border-ink/10 bg-cream/40 p-5 lg:sticky lg:top-4 lg:block lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
-      <EventHomeDetailPane
-        eventId={eventId}
-        eventDate={event.event_date}
-        selectedCardId={selectedCardId}
-        vendors={eventVendors}
-        ceremonyType={eventCeremonyType}
-        venueSetting={eventVenueSetting}
-        crossCategoryRecommendations={crossCategoryRecommendations}
-      />
-    </aside>
-    </div>
+        </>
+      }
+      right={
+        <EventHomeDetailPane
+          eventId={eventId}
+          eventDate={event.event_date}
+          selectedCardId={selectedCardId}
+          vendors={eventVendors}
+          ceremonyType={eventCeremonyType}
+          venueSetting={eventVenueSetting}
+          crossCategoryRecommendations={crossCategoryRecommendations}
+        />
+      }
+    />
   );
 }
 

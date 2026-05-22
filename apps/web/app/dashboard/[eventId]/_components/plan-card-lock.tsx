@@ -1,0 +1,456 @@
+'use client';
+
+import { useEffect, useRef, useState, useTransition } from 'react';
+import {
+  AlertTriangle,
+  BookmarkCheck,
+  Loader2,
+  Lock,
+  X,
+} from 'lucide-react';
+import type { PlanCardPick, PlanGroupId } from '@/lib/wedding-plan-groups';
+import {
+  finalizeVendor,
+  revertVendorToConsidering,
+  type FinalizeVendorResult,
+} from '../vendors/actions';
+
+// Lock-this-vendor inline CTA — for the single-pick case (2026-05-22).
+//
+// When a card has exactly ONE considering pick, the Compare drawer doesn't
+// surface (it gates on picks.length >= 2 because there's nothing to compare).
+// Without this component the host has no in-card path to lock that single
+// vendor — they had to leave the dashboard, open the vendor tracker, change
+// the status manually, and come back. Owner-reported gap 2026-05-22:
+// "When only 1 considering pick, show a Lock button in place of Compare."
+//
+// Reuses the proven server actions from PlanCardCompare (2026-05-22, PR shipping
+// the finalizeVendor + revertVendorToConsidering pair):
+//   - finalizeVendor flips status considering → 'contracted' (the first entry
+//     in CONFIRMED_VENDOR_STATUSES per lib/events.ts). Returns a Result shape
+//     so the UI can surface conflict + error states without a page fault.
+//   - revertVendorToConsidering powers the 5-second Undo toast — same UX
+//     contract PlanCardCompare ships, lifted here for symmetry.
+//
+// Hard-single conflict: ceremony_venue + reception_venue + officiant +
+// coordinator + host_mc + led_background are HARD_SINGLE_PICK_GROUPS per
+// lib/wedding-plan-groups.ts. The hasLocked short-circuit in GroupCard already
+// prevents this component from rendering when THIS card has a lock — but a
+// hard-single CANONICAL could still have a lock elsewhere (rare, only on
+// shared-canonical multi-card groups). The conflict path stays wired so the
+// host gets the same Switch / Cancel modal PlanCardCompare ships.
+//
+// Brand voice — Lock icon + label "Lock" matches the Compare-drawer Lock CTA
+// (BookmarkCheck + "Lock this vendor"). The inline button is sized to the
+// Search / Add row so the three CTAs read as a single button group. Per
+// [[feedback_setnayan_no_dev_text_post_launch]] — polite copy, no jargon,
+// no all-caps urgency.
+
+const TOAST_AUTO_DISMISS_MS = 5_000;
+
+type LockState =
+  | { kind: 'idle' }
+  | { kind: 'pending' }
+  | {
+      kind: 'conflict';
+      existingVendorId: string;
+      existingVendorName: string;
+      conflictGroupLabel: string;
+    }
+  | { kind: 'error'; message: string };
+
+type ToastState =
+  | { kind: 'hidden' }
+  | {
+      kind: 'locked';
+      vendorId: string;
+      vendorName: string;
+      undoUntil: number;
+    };
+
+type Props = {
+  eventId: string;
+  groupId: PlanGroupId;
+  groupLabel: string;
+  pick: PlanCardPick;
+};
+
+export function PlanCardLock({ eventId, groupId, groupLabel, pick }: Props) {
+  const [isOpen, setOpen] = useState(false);
+  const [lockState, setLockState] = useState<LockState>({ kind: 'idle' });
+  const [toast, setToast] = useState<ToastState>({ kind: 'hidden' });
+  const [isPending, startTransition] = useTransition();
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const cancelBtnRef = useRef<HTMLButtonElement | null>(null);
+
+  // Auto-dismiss the toast after TOAST_AUTO_DISMISS_MS.
+  useEffect(() => {
+    if (toast.kind !== 'locked') return;
+    const remaining = toast.undoUntil - Date.now();
+    if (remaining <= 0) {
+      setToast({ kind: 'hidden' });
+      return;
+    }
+    const t = setTimeout(() => setToast({ kind: 'hidden' }), remaining);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  // Focus the cancel button on open — calmest default, the destructive
+  // path requires a deliberate tab over.
+  useEffect(() => {
+    if (isOpen) {
+      cancelBtnRef.current?.focus();
+    }
+  }, [isOpen]);
+
+  // Escape-key dismissal — accessibility default for modals.
+  useEffect(() => {
+    if (!isOpen) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setOpen(false);
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen]);
+
+  const closeModal = () => {
+    setOpen(false);
+    // Clear ephemeral lock state so the next open starts clean. The toast
+    // outlives the modal on purpose — Undo should reach the host even
+    // after the dialog closes.
+    setLockState({ kind: 'idle' });
+  };
+
+  const performLock = (overrideExisting: boolean) => {
+    setLockState({ kind: 'pending' });
+    startTransition(async () => {
+      const fd = new FormData();
+      fd.set('event_id', eventId);
+      fd.set('vendor_id', pick.vendor_id);
+      if (overrideExisting) fd.set('override_existing', '1');
+      let result: FinalizeVendorResult;
+      try {
+        result = await finalizeVendor(fd);
+      } catch (err) {
+        setLockState({
+          kind: 'error',
+          message:
+            err instanceof Error
+              ? err.message
+              : 'Something went wrong. Try again.',
+        });
+        return;
+      }
+      switch (result.status) {
+        case 'ok':
+        case 'already_locked':
+          // Show toast immediately so it persists after the modal closes.
+          setToast({
+            kind: 'locked',
+            vendorId: pick.vendor_id,
+            vendorName: pick.vendor_name,
+            undoUntil: Date.now() + TOAST_AUTO_DISMISS_MS,
+          });
+          // Close the modal. revalidatePath on the server action refreshes
+          // the page — the card flips to the LockedCard variant on the
+          // next render so the host never sees the now-stale Lock CTA.
+          setOpen(false);
+          setLockState({ kind: 'idle' });
+          // PostHog vendor_locked event — mirrors the vendor_unlocked event
+          // SwitchVendorConfirm fires (2026-05-22 owner directive). Lazy
+          // import so the home-page bundle stays lean.
+          try {
+            const mod = await import('posthog-js');
+            const client = (mod.default ?? mod) as unknown as {
+              capture?: (
+                event: string,
+                props?: Record<string, unknown>,
+              ) => void;
+            };
+            client.capture?.('vendor_locked', {
+              event_id: eventId,
+              vendor_id: pick.vendor_id,
+              group_id: groupId,
+              group_label: groupLabel,
+              source: 'plan_card_lock_single_pick',
+            });
+          } catch {
+            // PostHog optional — never block UX.
+          }
+          return;
+        case 'hard_single_conflict':
+          setLockState({
+            kind: 'conflict',
+            existingVendorId: result.existingVendorId,
+            existingVendorName: result.existingVendorName,
+            conflictGroupLabel: result.groupLabel,
+          });
+          return;
+        case 'not_signed_in':
+          setLockState({
+            kind: 'error',
+            message: 'Sign in again to lock this vendor.',
+          });
+          return;
+        case 'not_found':
+          setLockState({
+            kind: 'error',
+            message:
+              "We can't find this vendor on your event. Refresh the page.",
+          });
+          return;
+        case 'error':
+          setLockState({ kind: 'error', message: result.message });
+          return;
+      }
+    });
+  };
+
+  const performUndo = (vendorId: string) => {
+    setToast({ kind: 'hidden' });
+    startTransition(async () => {
+      const fd = new FormData();
+      fd.set('event_id', eventId);
+      fd.set('vendor_id', vendorId);
+      await revertVendorToConsidering(fd);
+    });
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center justify-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/80 transition-colors hover:border-terracotta/50 hover:text-terracotta"
+      >
+        <Lock aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+        Lock
+      </button>
+
+      {isOpen ? (
+        <div
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="plan-card-lock-headline"
+          aria-describedby="plan-card-lock-body"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm sm:items-center"
+          onClick={(e) => {
+            if (e.target === dialogRef.current) closeModal();
+          }}
+        >
+          <div className="relative w-full max-w-md rounded-2xl border border-ink/10 bg-cream p-5 shadow-xl sm:p-6">
+            <button
+              type="button"
+              aria-label="Close"
+              onClick={closeModal}
+              className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full text-ink/55 transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+            >
+              <X aria-hidden className="h-4 w-4" strokeWidth={2} />
+            </button>
+
+            <h2
+              id="plan-card-lock-headline"
+              className="font-display text-2xl italic tracking-tight text-ink"
+            >
+              Lock {pick.vendor_name} in?
+            </h2>
+
+            <div
+              id="plan-card-lock-body"
+              className="mt-3 space-y-3 text-sm text-ink/75"
+            >
+              <p>
+                You&rsquo;re about to lock{' '}
+                <strong className="font-medium text-ink">
+                  {pick.vendor_name}
+                </strong>{' '}
+                for {groupLabel.toLowerCase()}. This marks them as your
+                confirmed vendor and surfaces them on your day-of timeline.
+              </p>
+              <p className="text-ink/65">
+                You can switch later if plans change — your other research
+                stays on the card as considering picks.
+              </p>
+            </div>
+
+            {lockState.kind === 'error' ? (
+              <p
+                role="alert"
+                className="mt-3 rounded-md border border-rose-300/50 bg-rose-50/60 px-3 py-2 text-xs text-rose-900"
+              >
+                {lockState.message}
+              </p>
+            ) : null}
+
+            {lockState.kind === 'conflict' ? (
+              <div
+                role="alertdialog"
+                aria-labelledby="plan-card-lock-conflict-heading"
+                aria-describedby="plan-card-lock-conflict-body"
+                className="mt-3 space-y-3 rounded-lg border border-amber-300/60 bg-amber-50/70 px-3 py-3"
+              >
+                <div className="flex items-start gap-2">
+                  <AlertTriangle
+                    aria-hidden
+                    className="mt-0.5 h-4 w-4 shrink-0 text-amber-700"
+                    strokeWidth={2}
+                  />
+                  <div className="space-y-1">
+                    <h3
+                      id="plan-card-lock-conflict-heading"
+                      className="text-sm font-semibold text-amber-900"
+                    >
+                      {lockState.existingVendorName} is already locked for{' '}
+                      {lockState.conflictGroupLabel.toLowerCase()}.
+                    </h3>
+                    <p
+                      id="plan-card-lock-conflict-body"
+                      className="text-xs leading-snug text-amber-900/85"
+                    >
+                      Only one {lockState.conflictGroupLabel.toLowerCase()} can
+                      be locked at a time. Switch to{' '}
+                      <strong>{pick.vendor_name}</strong> instead? Your earlier
+                      pick stays on the card as a considering option.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => performLock(true)}
+                    disabled={isPending}
+                    className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-md bg-terracotta px-3 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-60"
+                  >
+                    {isPending ? (
+                      <>
+                        <Loader2
+                          aria-hidden
+                          className="h-3.5 w-3.5 animate-spin"
+                          strokeWidth={2}
+                        />
+                        Switching…
+                      </>
+                    ) : (
+                      <>Switch to {pick.vendor_name}</>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLockState({ kind: 'idle' })}
+                    disabled={isPending}
+                    className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-amber-400/60 bg-cream px-3 py-2 text-sm font-medium text-amber-900 transition-colors hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600 disabled:opacity-60"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {lockState.kind !== 'conflict' ? (
+              <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
+                <button
+                  ref={cancelBtnRef}
+                  type="button"
+                  onClick={closeModal}
+                  disabled={isPending}
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-ink/15 bg-cream px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-ink/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => performLock(false)}
+                  disabled={isPending}
+                  className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-terracotta px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-60"
+                >
+                  {isPending ? (
+                    <>
+                      <Loader2
+                        aria-hidden
+                        className="h-4 w-4 animate-spin"
+                        strokeWidth={2}
+                      />
+                      Locking…
+                    </>
+                  ) : (
+                    <>
+                      <BookmarkCheck
+                        aria-hidden
+                        className="h-4 w-4"
+                        strokeWidth={2}
+                      />
+                      Yes, lock {pick.vendor_name}
+                    </>
+                  )}
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Undo toast — outlives the modal so a host who clicks Lock then
+          immediately rethinks can roll back without re-opening the dialog.
+          Mirrors the PlanCardCompare toast UX for consistency. */}
+      {toast.kind === 'locked' ? (
+        <UndoToast
+          vendorName={toast.vendorName}
+          onUndo={() => performUndo(toast.vendorId)}
+          onDismiss={() => setToast({ kind: 'hidden' })}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function UndoToast({
+  vendorName,
+  onUndo,
+  onDismiss,
+}: {
+  vendorName: string;
+  onUndo: () => void;
+  onDismiss: () => void;
+}) {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="fixed bottom-4 left-1/2 z-50 w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 rounded-xl border border-emerald-300/60 bg-cream px-4 py-3 shadow-lg"
+    >
+      <div className="flex items-start gap-3">
+        <BookmarkCheck
+          aria-hidden
+          className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700"
+          strokeWidth={2}
+        />
+        <div className="min-w-0 flex-1 space-y-1">
+          <p className="text-sm font-medium text-ink">
+            {vendorName} is locked in.
+          </p>
+          <p className="text-[11px] text-ink/60">
+            Changed your mind?{' '}
+            <button
+              type="button"
+              onClick={onUndo}
+              className="font-medium text-terracotta underline underline-offset-2 hover:text-terracotta/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+            >
+              Undo · revert to considering
+            </button>
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label="Dismiss"
+          className="shrink-0 rounded-md p-1 text-ink/45 hover:bg-ink/5 hover:text-ink/70"
+        >
+          <X aria-hidden className="h-4 w-4" strokeWidth={2} />
+        </button>
+      </div>
+    </div>
+  );
+}

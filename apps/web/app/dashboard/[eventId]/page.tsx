@@ -603,49 +603,34 @@ export default async function EventHomePage({
     }
   }
 
-  const eventVendors = eventVendorsRaw.map((v) => {
-    const marketplace = v.marketplace_vendor_id
-      ? marketplaceCompatMap.get(v.marketplace_vendor_id)
-      : undefined;
-    const directory = v.source_venue_directory_id
-      ? directoryCompatMap.get(v.source_venue_directory_id) ?? null
-      : null;
-    const servicePhotoUrl = v.service_id
-      ? servicePhotoMap.get(v.service_id) ?? null
-      : null;
-    // 2026-05-22 owner directive — manual vendor photo lookup. PRIORITY
-    // 1 on the avatar ladder for picks that wrap a host-managed
-    // contact. NULL on marketplace + freeform rows.
-    const manualVendorPhotoUrl = v.manual_vendor_id
-      ? manualVendorPhotoMap.get(v.manual_vendor_id) ?? null
-      : null;
-    return {
-      ...v,
-      marketplace_compatible_ceremony_types: marketplace?.ceremony ?? null,
-      marketplace_compatible_venue_settings: marketplace?.venue ?? null,
-      directory_compatible_ceremony_types: directory,
-      // Finalized-vendor-photo-card (2026-05-22) — carry logo + canonical
-      // business_name + city from the same vendor_profiles join so the
-      // LockedCard + upgraded FinalizedChipStrip can render the photo
-      // without an extra round-trip.
-      marketplace_logo_url: marketplace?.logo_url ?? null,
-      marketplace_business_name: marketplace?.business_name ?? null,
-      marketplace_city: marketplace?.city ?? null,
-      // Finalized-card-service-photo refinement (2026-05-22). PRIORITY 2
-      // photo source — the booked service's primary photo. Resolved as
-      // a public URL via r2PublicUrl above. Falls back to
-      // marketplace_logo_url, then initials, at render time. See the
-      // 4-tier fallback ladder in LockedVendorAvatar and the upgraded
-      // VendorAvatar in finalized-chip-strip.tsx.
-      service_primary_photo_url: servicePhotoUrl,
-      // 2026-05-22 owner directive — manual vendor photo URL is
-      // PRIORITY 1 on the avatar ladder when the pick wraps a manual
-      // contact (Tito Marcel, family helper). Beats service photo +
-      // marketplace logo + initials. NULL means "fall through to the
-      // next tier" — no special handling needed downstream.
-      manual_vendor_photo_url: manualVendorPhotoUrl,
-    };
-  });
+  // Hot-fix 2026-05-22 — TDZ violation surfaced by PR #349.
+  //
+  // The original PR #349 placement put the `eventVendors = eventVendorsRaw.map(...)`
+  // enrichment BEFORE the `manualVendorPhotoMap` declaration, even though
+  // the callback at line 611 reads `manualVendorPhotoMap.get(...)`.
+  // JavaScript `const` is hoisted into block scope but the binding stays
+  // uninitialized until execution reaches the declaration — any read
+  // attempt throws `ReferenceError: Cannot access 'manualVendorPhotoMap'
+  // before initialization`.
+  //
+  // For freshly-created events (eventVendorsRaw = []) the `.map()`
+  // callback never runs, so the TDZ doesn't fire. But for ANY event
+  // that has at least one event_vendors row with manual_vendor_id set
+  // — and even rows with manual_vendor_id = null still evaluate the
+  // surrounding `.map()` body where the closure captures the
+  // identifier — the production runtime throws and the globalError
+  // boundary renders.
+  //
+  // Fix: declare all four manual-vendor variables (manualVendorRows,
+  // manualVendorOptions, manualVendorPhotoMap, manualVendorsAttachedByCategory)
+  // BEFORE the eventVendors enrichment block so the `.map()` callback
+  // can safely read manualVendorPhotoMap.get(...) regardless of how
+  // many vendor picks the event has. None of the four depend on
+  // eventVendors (the enriched array) — they all read from
+  // manualVendorsRes.data and eventVendorsRaw, both of which are
+  // already populated.
+  //
+  // See CLAUDE.md 2026-05-22 hot-fix decision-log row.
 
   // Manual vendors — host-managed contacts reusable across N planning
   // categories (2026-05-22 owner directive). Resolve photo R2 keys to
@@ -695,6 +680,50 @@ export default async function EventHomePage({
       manualVendorsAttachedByCategory.get(v.category)!.add(v.manual_vendor_id);
     }
   }
+
+  const eventVendors = eventVendorsRaw.map((v) => {
+    const marketplace = v.marketplace_vendor_id
+      ? marketplaceCompatMap.get(v.marketplace_vendor_id)
+      : undefined;
+    const directory = v.source_venue_directory_id
+      ? directoryCompatMap.get(v.source_venue_directory_id) ?? null
+      : null;
+    const servicePhotoUrl = v.service_id
+      ? servicePhotoMap.get(v.service_id) ?? null
+      : null;
+    // 2026-05-22 owner directive — manual vendor photo lookup. PRIORITY
+    // 1 on the avatar ladder for picks that wrap a host-managed
+    // contact. NULL on marketplace + freeform rows.
+    const manualVendorPhotoUrl = v.manual_vendor_id
+      ? manualVendorPhotoMap.get(v.manual_vendor_id) ?? null
+      : null;
+    return {
+      ...v,
+      marketplace_compatible_ceremony_types: marketplace?.ceremony ?? null,
+      marketplace_compatible_venue_settings: marketplace?.venue ?? null,
+      directory_compatible_ceremony_types: directory,
+      // Finalized-vendor-photo-card (2026-05-22) — carry logo + canonical
+      // business_name + city from the same vendor_profiles join so the
+      // LockedCard + upgraded FinalizedChipStrip can render the photo
+      // without an extra round-trip.
+      marketplace_logo_url: marketplace?.logo_url ?? null,
+      marketplace_business_name: marketplace?.business_name ?? null,
+      marketplace_city: marketplace?.city ?? null,
+      // Finalized-card-service-photo refinement (2026-05-22). PRIORITY 2
+      // photo source — the booked service's primary photo. Resolved as
+      // a public URL via r2PublicUrl above. Falls back to
+      // marketplace_logo_url, then initials, at render time. See the
+      // 4-tier fallback ladder in LockedVendorAvatar and the upgraded
+      // VendorAvatar in finalized-chip-strip.tsx.
+      service_primary_photo_url: servicePhotoUrl,
+      // 2026-05-22 owner directive — manual vendor photo URL is
+      // PRIORITY 1 on the avatar ladder when the pick wraps a manual
+      // contact (Tito Marcel, family helper). Beats service photo +
+      // marketplace logo + initials. NULL means "fall through to the
+      // next tier" — no special handling needed downstream.
+      manual_vendor_photo_url: manualVendorPhotoUrl,
+    };
+  });
 
   const eventCeremonyType =
     (event as { ceremony_type?: string | null }).ceremony_type ?? null;

@@ -64,8 +64,8 @@ export default async function EventLayout({ children, params }: Props) {
   };
 
   return (
-    <div className="flex min-h-dvh flex-col bg-cream pb-16 lg:pb-0">
-      <div className="sticky top-0 z-10 border-b border-ink/10 bg-cream/95 backdrop-blur">
+    <div className="flex min-h-dvh flex-col bg-cream pb-16 lg:pb-0 lg:pl-60">
+      <div className="sticky top-0 z-20 border-b border-ink/10 bg-cream/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <EventSwitcher
             currentEventId={event.event_id}

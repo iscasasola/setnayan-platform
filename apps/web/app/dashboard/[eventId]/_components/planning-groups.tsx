@@ -363,6 +363,7 @@ function GroupCard({
         <div className="-mt-1">
           <PlanCardCompare
             eventId={eventId}
+            groupId={group.id}
             groupLabel={group.label}
             groupCategories={group.categories}
             picks={picks}

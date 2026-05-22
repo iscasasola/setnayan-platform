@@ -40,6 +40,7 @@ import { OfficiantParishCTAs } from './officiant-parish-ctas';
 import { PlanCardCompare } from './plan-card-compare';
 import { RecommendedVendorRow } from './recommended-vendor-row';
 import { SwitchVendorConfirm } from './switch-vendor-confirm';
+import { CardSelectable } from './card-selectable';
 import type { ManualVendorOption } from './manual-vendor-dropdown';
 
 function formatPHP(value: number | null): string | null {
@@ -167,6 +168,17 @@ type Props = {
   crossCategoryRecommendations?:
     | ReadonlyMap<PlanGroupId, ReadonlyArray<CrossCategoryRecommendation>>
     | null;
+  /**
+   * Currently-selected planning card in the desktop Finder-column UX
+   * (CLAUDE.md 2026-05-22 lock). On desktop the card with this id renders
+   * a subtle terracotta ring + its EventHomeDetailPane content surfaces
+   * in the right pane. `null` on initial load / on mobile / when the
+   * `?card=` URL param is absent or doesn't match a real plan group.
+   * Mobile (<lg) ignores this prop — the CardSelectable wrapper renders
+   * its ring at `lg:` only and the click handler is a no-op below the
+   * desktop breakpoint.
+   */
+  selectedCardId?: PlanGroupId | null;
 };
 
 const MAX_VENDOR_PREVIEW = 3;
@@ -183,6 +195,7 @@ export function PlanningGroups({
   manualVendorOptions,
   manualVendorsAttachedByCategory,
   crossCategoryRecommendations,
+  selectedCardId,
 }: Props) {
   // PR B 2026-05-22 — pass ceremony_type + venue_setting to the bucketer
   // so each pick gets a compatibility_issue field computed against the
@@ -363,27 +376,32 @@ export function PlanningGroups({
                       group.id === 'ceremony_venue' ? 'scroll-mt-20' : undefined
                     }
                   >
-                    <GroupCard
-                      eventId={eventId}
-                      eventDate={eventDate}
-                      group={group}
-                      picks={picks}
-                      ceremonyType={resolvedCeremony}
-                      venueLatitude={venueLatitude}
-                      venueLongitude={venueLongitude}
-                      ceremonyVenueName={ceremonyVenueName}
-                      paperworkSummary={
-                        group.id === 'ceremony_venue'
-                          ? (paperworkSummary ?? null)
-                          : null
-                      }
-                      manualVendorOptions={manualVendorOptions ?? []}
-                      manualVendorsAttachedForGroup={collectAttachedForGroup(
-                        group.categories,
-                        manualVendorsAttachedByCategory,
-                      )}
-                      recommendations={recommendations}
-                    />
+                    <CardSelectable
+                      groupId={group.id}
+                      isSelected={selectedCardId === group.id}
+                    >
+                      <GroupCard
+                        eventId={eventId}
+                        eventDate={eventDate}
+                        group={group}
+                        picks={picks}
+                        ceremonyType={resolvedCeremony}
+                        venueLatitude={venueLatitude}
+                        venueLongitude={venueLongitude}
+                        ceremonyVenueName={ceremonyVenueName}
+                        paperworkSummary={
+                          group.id === 'ceremony_venue'
+                            ? (paperworkSummary ?? null)
+                            : null
+                        }
+                        manualVendorOptions={manualVendorOptions ?? []}
+                        manualVendorsAttachedForGroup={collectAttachedForGroup(
+                          group.categories,
+                          manualVendorsAttachedByCategory,
+                        )}
+                        recommendations={recommendations}
+                      />
+                    </CardSelectable>
                   </li>
                 );
               })}

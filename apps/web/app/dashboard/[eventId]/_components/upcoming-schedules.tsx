@@ -1,45 +1,42 @@
 import Link from 'next/link';
 import {
   Calendar,
-  Camera,
-  Cake,
-  Utensils,
-  Music2,
-  Sparkles,
-  HeartHandshake,
-  PartyPopper,
+  CalendarDays,
+  Clock,
+  Wallet,
+  RefreshCw,
+  FileText,
+  Users,
   ArrowRight,
   ArrowDown,
-  Wine,
-  Heart,
   type LucideIcon,
 } from 'lucide-react';
-import { type ScheduleBlockType } from '@/lib/schedule';
+import type { UpcomingItem, UpcomingItemCategory } from '@/lib/upcoming-items';
 
-// V1 pilot Home v2 — owner directive 2026-05-22.
-// Sits BELOW UsefulRightNow, ABOVE ActivityFeed. Shows up to 5 upcoming
-// schedule blocks (the host's authored day-of timeline). The brief
-// originally called for `vendor_meetings` rows, but that table doesn't
-// ship in V1 — `event_schedule_blocks` is the closest analog and is
-// already the host's calendar of record. When `vendor_meetings` lands
-// post-V1, this component can take an additional prop and merge the
-// two streams.
+/**
+ * UpcomingSchedules — V1 Home aggregation surface.
+ *
+ * Owner directive 2026-05-22: Home is the operational hub. PR #329
+ * shipped this component pulling only from event_schedule_blocks; this
+ * version widens to five sources via the unified `UpcomingItem` shape
+ * from `@/lib/upcoming-items` (vendor meetings · day-of schedule
+ * blocks · vendor payment milestones · Setnayan SKU subscription
+ * renewals · statutory document deadlines).
+ *
+ * Sits BELOW MoneyInFlight, ABOVE ActivityFeed. The merged stream
+ * is already sorted chronologically + capped server-side, so the
+ * component just renders the rows it's given. Category-specific
+ * icons + styling distinguish the source at a glance without leaking
+ * source-table names into UI strings.
+ */
 
-export type UpcomingItem = {
-  block_id: string;
-  label: string;
-  start_at: string;
-  end_at: string | null;
-  location: string | null;
-  block_type: ScheduleBlockType;
-};
+export type { UpcomingItem };
 
 type Props = {
   eventId: string;
   items: ReadonlyArray<UpcomingItem>;
   /** Server-passed clock so relative tags are stable between
-   *  render and hydration (this is a server component but we
-   *  pass it explicitly to keep the formatter pure). */
+   *  render and hydration. */
   now: Date;
 };
 
@@ -54,7 +51,7 @@ export function UpcomingSchedules({ eventId, items, now }: Props) {
           Upcoming
         </h2>
         <p className="flex items-center gap-2 rounded-xl border border-dashed border-ink/15 bg-cream px-4 py-3 text-sm text-ink/65">
-          <span>Nothing scheduled yet — your next steps are below</span>
+          <span>Nothing on the calendar yet — your next steps are below</span>
           <ArrowDown aria-hidden className="h-3.5 w-3.5 text-terracotta" strokeWidth={1.75} />
         </p>
       </section>
@@ -80,8 +77,8 @@ export function UpcomingSchedules({ eventId, items, now }: Props) {
       </div>
       <ul className="space-y-2">
         {items.map((item) => (
-          <li key={item.block_id}>
-            <UpcomingRow item={item} now={now} />
+          <li key={item.id}>
+            <UpcomingRow item={item} />
           </li>
         ))}
       </ul>
@@ -89,15 +86,15 @@ export function UpcomingSchedules({ eventId, items, now }: Props) {
   );
 }
 
-function UpcomingRow({ item, now }: { item: UpcomingItem; now: Date }) {
-  const start = new Date(item.start_at);
-  const Icon = iconFor(item.block_type);
-  const dateTag = monthDay(start);
-  const relative = relativeTag(start, now);
-  const timeLabel = timeOfDay(start, item.end_at ? new Date(item.end_at) : null);
+function UpcomingRow({ item }: { item: UpcomingItem }) {
+  const Icon = iconFor(item.category);
+  const dateTag = monthDay(item.date);
+  const relative = relativeTag(item.daysFromNow);
+  const iconStyles = iconStylesFor(item.category);
+  const containerStyles = containerStylesFor(item.category);
 
-  return (
-    <div className="flex items-center gap-3 rounded-xl border border-ink/10 bg-white px-3 py-2.5 sm:px-4 sm:py-3">
+  const body = (
+    <div className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 sm:px-4 sm:py-3 ${containerStyles}`}>
       <div className="flex w-12 shrink-0 flex-col items-center sm:w-14">
         <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
           {dateTag}
@@ -108,44 +105,72 @@ function UpcomingRow({ item, now }: { item: UpcomingItem; now: Date }) {
       </div>
       <span
         aria-hidden
-        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta"
+        className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${iconStyles}`}
       >
         <Icon className="h-4 w-4" strokeWidth={1.75} />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-ink">{item.label}</p>
-        <p className="truncate text-xs text-ink/55">
-          {timeLabel}
-          {item.location ? ` · ${item.location}` : null}
-        </p>
+        <p className="truncate text-sm font-medium text-ink">{item.title}</p>
+        <p className="truncate text-xs text-ink/55">{item.subtitle}</p>
       </div>
     </div>
   );
+
+  if (item.href) {
+    return (
+      <Link href={item.href} className="block transition hover:opacity-95">
+        {body}
+      </Link>
+    );
+  }
+  return body;
 }
 
-function iconFor(type: ScheduleBlockType): LucideIcon {
-  switch (type) {
-    case 'pre_ceremony':
-      return Sparkles;
-    case 'ceremony':
-      return HeartHandshake;
-    case 'cocktails':
-      return Wine;
-    case 'reception':
-      return PartyPopper;
-    case 'dinner':
-      return Utensils;
-    case 'program':
-      return Heart;
-    case 'dancing':
-      return Music2;
-    case 'send_off':
-      return Cake;
-    case 'after_party':
-      return Camera;
-    case 'custom':
+function iconFor(category: UpcomingItemCategory): LucideIcon {
+  switch (category) {
+    case 'meeting':
+      return Users;
+    case 'schedule':
+      return Clock;
+    case 'payment':
+      return Wallet;
+    case 'renewal':
+      return RefreshCw;
+    case 'document':
+      return FileText;
     default:
-      return Calendar;
+      return CalendarDays;
+  }
+}
+
+function iconStylesFor(category: UpcomingItemCategory): string {
+  switch (category) {
+    case 'payment':
+      // Payments echo the amber palette used in MoneyInFlight so the
+      // visual association carries across both sections.
+      return 'bg-amber-100 text-amber-700';
+    case 'renewal':
+      return 'bg-emerald-50 text-emerald-700';
+    case 'document':
+      return 'bg-blue-50 text-blue-700';
+    case 'meeting':
+      return 'bg-indigo-50 text-indigo-700';
+    case 'schedule':
+    default:
+      return 'bg-terracotta/10 text-terracotta';
+  }
+}
+
+function containerStylesFor(category: UpcomingItemCategory): string {
+  switch (category) {
+    case 'payment':
+      return 'border-amber-200/70 bg-amber-50/40';
+    case 'document':
+      // Statutory deadlines need to stand out a touch — they're easy
+      // to miss otherwise. Soft blue tint matches the icon palette.
+      return 'border-blue-200/70 bg-blue-50/30';
+    default:
+      return 'border-ink/10 bg-white';
   }
 }
 
@@ -158,26 +183,14 @@ function monthDay(date: Date): string {
     .toUpperCase();
 }
 
-function timeOfDay(start: Date, end: Date | null): string {
-  const fmt = new Intl.DateTimeFormat('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-  const startLabel = fmt.format(start);
-  if (!end) return startLabel;
-  return `${startLabel} – ${fmt.format(end)}`;
+function relativeTag(daysFromNow: number): string {
+  if (daysFromNow === 0) return 'Today';
+  if (daysFromNow === 1) return 'Tomorrow';
+  if (daysFromNow < 7) return `in ${daysFromNow}d`;
+  if (daysFromNow < 30) return `in ${daysFromNow}d`;
+  return `in ${Math.round(daysFromNow / 7)}w`;
 }
 
-function relativeTag(start: Date, now: Date): string {
-  const today = new Date(now);
-  today.setHours(0, 0, 0, 0);
-  const startDay = new Date(start);
-  startDay.setHours(0, 0, 0, 0);
-  const days = Math.round((startDay.getTime() - today.getTime()) / 86_400_000);
-  if (days === 0) return 'Today';
-  if (days === 1) return 'Tomorrow';
-  if (days < 0) return 'Past';
-  if (days < 7) return `in ${days}d`;
-  if (days < 30) return `in ${days}d`;
-  return `in ${Math.round(days / 7)}w`;
-}
+// Calendar import retained for future direct-render scenarios where
+// the type isn't surfaced via the category enum yet.
+export { Calendar };

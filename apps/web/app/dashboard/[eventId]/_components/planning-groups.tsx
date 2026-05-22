@@ -1,9 +1,13 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import {
   CheckCircle2,
   Clock,
   AlertCircle,
   AlertTriangle,
+  BookmarkCheck,
+  FileText,
+  MessageCircle,
   ScrollText,
 } from 'lucide-react';
 import { NavLinksRow } from '@/app/_components/nav-links';
@@ -25,6 +29,7 @@ import type { PaperworkSummary } from '@/lib/paperwork';
 import { deleteVendor } from '../vendors/actions';
 import { PlanCardCTAs } from './plan-card-ctas';
 import { PlanCardCompare } from './plan-card-compare';
+import { SwitchVendorConfirm } from './switch-vendor-confirm';
 
 function formatPHP(value: number | null): string | null {
   if (value === null) return null;
@@ -262,16 +267,54 @@ function GroupCard({
   const folderSlug = WEDDING_FOLDER_SLUG[group.catalogFolder];
   const searchHref = `/vendors?folder=${folderSlug}#${folderSlug}`;
 
+  // Finalized-vendor-photo-card (2026-05-22 — owner directive PR D).
+  //
+  // When ANY pick in this group is locked (status at-or-past
+  // 'contracted' per CONFIRMED_VENDOR_STATUSES), the card flips to the
+  // LockedCard variant. We pick the FIRST locked vendor to feature
+  // (the host has typically already committed when reaching this
+  // state; for multi-canonical groups with two locked picks — Attire &
+  // Rings with both gown + suit confirmed, etc. — the first lock wins
+  // the hero slot and the others stack below as compact rows).
+  //
+  // The LockedCard removes the Add / Search / Compare buttons. Edit
+  // affordances go away. The only forward path is Switch vendor, which
+  // requires explicit confirmation per the owner directive ("high-
+  // stakes action"). View contract + Open thread are the two safe
+  // secondary actions that don't change state.
+  //
+  // ADAPT-COPY > HIDE-CARD principle from PR #314 still holds: the
+  // card stays visible, only the body shape changes.
+  if (hasLocked) {
+    const lockedPicks = picks.filter((p) => p.status === 'locked');
+    const featured = lockedPicks[0]!;
+    const otherLocked = lockedPicks.slice(1);
+    const considering = picks.filter((p) => p.status !== 'locked');
+    return (
+      <LockedCard
+        eventId={eventId}
+        group={group}
+        featured={featured}
+        otherLocked={otherLocked}
+        consideringCount={considering.length}
+        showNavLinks={showNavLinks}
+        venueLatitude={venueLatitude}
+        venueLongitude={venueLongitude}
+        paperworkSummary={paperworkSummary}
+        hintCopy={hintCopy}
+        statusLabel={status.label}
+      />
+    );
+  }
+
   return (
     <article
       className={`flex h-full flex-col gap-3 rounded-xl border p-4 sm:p-5 ${
-        hasLocked
-          ? 'border-emerald-300/50 bg-emerald-50/40'
-          : status.tone === 'overdue'
-            ? 'border-rose-300/50 bg-rose-50/40'
-            : status.tone === 'soon'
-              ? 'border-amber-300/50 bg-amber-50/40'
-              : 'border-ink/10 bg-cream'
+        status.tone === 'overdue'
+          ? 'border-rose-300/50 bg-rose-50/40'
+          : status.tone === 'soon'
+            ? 'border-amber-300/50 bg-amber-50/40'
+            : 'border-ink/10 bg-cream'
       }`}
     >
       <header className="flex items-start justify-between gap-3">
@@ -304,8 +347,6 @@ function GroupCard({
           <AlertCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
         ) : status.tone === 'soon' ? (
           <Clock aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        ) : status.tone === 'fine' && hasLocked ? (
-          <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
         ) : (
           <Clock aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
         )}
@@ -342,13 +383,7 @@ function GroupCard({
                       </p>
                     ) : null}
                   </div>
-                  <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] ${
-                      p.status === 'locked'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : 'bg-ink/5 text-ink/55'
-                    }`}
-                  >
+                  <span className="shrink-0 rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-ink/55">
                     {rawStatusLabel(p.raw_status)}
                   </span>
                 </div>
@@ -404,6 +439,244 @@ function GroupCard({
         </div>
       ) : null}
     </article>
+  );
+}
+
+/**
+ * Locked-state variant of the planning card — finalized-vendor-photo-
+ * card (2026-05-22, owner directive PR D).
+ *
+ * Renders when at least one vendor in the category is past 'contracted'.
+ * Hides the standard Add / Search / Compare affordances because the
+ * host has committed. Surfaces:
+ *   - Featured locked vendor (logo or initials + canonical name + city
+ *     + total_cost_php hint)
+ *   - Other locked picks in the same multi-canonical group, compact
+ *     row form (e.g. Attire & Rings group with gown + suit + rings
+ *     all locked)
+ *   - Still-considering count subtitle (informational, no jump-to-
+ *     compare button — switching is the only state-change path)
+ *   - View contract (links into /dashboard/{eventId}/contracts)
+ *   - Open thread (links into /dashboard/{eventId}/messages)
+ *   - Switch vendor (opens SwitchVendorConfirm modal)
+ *
+ * View contract + Open thread are event-scoped landing pages. We don't
+ * deep-link to a specific vendor's contract or thread because that
+ * routing layer isn't built yet — the host filters down to the right
+ * vendor inside the surface, which is one extra click but doesn't
+ * orphan a route per [[feedback_setnayan_orphan_prevention]].
+ *
+ * NavLinksRow + PaperworkSubLink stay visible — both are read-only
+ * sub-features that don't conflict with the locked state. A locked
+ * Ceremony venue card still benefits from Directions + Paperwork
+ * progress.
+ */
+function LockedCard({
+  eventId,
+  group,
+  featured,
+  otherLocked,
+  consideringCount,
+  showNavLinks,
+  venueLatitude,
+  venueLongitude,
+  paperworkSummary,
+  hintCopy,
+  statusLabel,
+}: {
+  eventId: string;
+  group: PlanGroup;
+  featured: PlanCardPick;
+  otherLocked: ReadonlyArray<PlanCardPick>;
+  consideringCount: number;
+  showNavLinks: boolean;
+  venueLatitude: number | null;
+  venueLongitude: number | null;
+  paperworkSummary: PaperworkSummary | null;
+  hintCopy: string;
+  statusLabel: string;
+}) {
+  const displayName =
+    featured.marketplace_business_name ?? featured.vendor_name;
+  const logoUrl = featured.marketplace_logo_url ?? null;
+  const city = featured.marketplace_city ?? null;
+  const formattedCost = formatPHP(featured.total_cost_php);
+  const isMultiCanonical = group.categories.length > 1;
+  const featuredCategoryLabel = isMultiCanonical
+    ? (VENDOR_CATEGORY_LABEL[featured.category] ?? featured.category)
+    : null;
+
+  return (
+    <article className="flex h-full flex-col gap-3 rounded-xl border border-emerald-300/50 bg-emerald-50/40 p-4 sm:p-5">
+      <header className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h3 className="text-base font-semibold tracking-tight text-ink sm:text-lg">
+            {group.label}
+          </h3>
+          <p className="text-xs text-ink/55">{hintCopy}</p>
+        </div>
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-emerald-800">
+          <BookmarkCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
+          Locked
+        </span>
+      </header>
+
+      <p className="flex items-center gap-1.5 text-xs text-emerald-800">
+        <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+        <span>{statusLabel}</span>
+      </p>
+
+      {/* Featured locked vendor — photo card */}
+      <div className="flex items-start gap-3 rounded-lg bg-cream/80 p-3">
+        <LockedVendorAvatar logoUrl={logoUrl} name={displayName} />
+        <div className="min-w-0 flex-1 space-y-0.5">
+          {featuredCategoryLabel ? (
+            <p className="truncate font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+              {featuredCategoryLabel}
+            </p>
+          ) : null}
+          <p className="truncate text-sm font-semibold text-ink">
+            {displayName}
+          </p>
+          {(city || formattedCost) ? (
+            <p className="truncate text-xs text-ink/60">
+              {[city, formattedCost].filter((s) => s !== null && s !== '').join(' · ')}
+            </p>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Multi-canonical groups: stack any other locked picks compactly */}
+      {otherLocked.length > 0 ? (
+        <ul className="space-y-1.5 text-sm">
+          {otherLocked.map((p) => {
+            const otherName = p.marketplace_business_name ?? p.vendor_name;
+            const otherCategoryLabel =
+              VENDOR_CATEGORY_LABEL[p.category] ?? p.category;
+            return (
+              <li
+                key={p.vendor_id}
+                className="flex items-center gap-2 rounded-md bg-cream/60 px-2.5 py-1.5"
+              >
+                <BookmarkCheck
+                  aria-hidden
+                  className="h-3.5 w-3.5 shrink-0 text-emerald-700"
+                  strokeWidth={2}
+                />
+                <span className="min-w-0 flex-1 truncate text-xs text-ink/80">
+                  <span className="font-mono text-[9px] uppercase tracking-[0.15em] text-ink/45">
+                    {otherCategoryLabel}
+                  </span>
+                  {' · '}
+                  {otherName}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+
+      {consideringCount > 0 ? (
+        <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+          {consideringCount === 1
+            ? '1 other option still on the table'
+            : `${consideringCount} other options still on the table`}
+        </p>
+      ) : null}
+
+      {showNavLinks ? (
+        <NavLinksRow
+          latitude={venueLatitude}
+          longitude={venueLongitude}
+          label="Directions"
+          compact
+        />
+      ) : null}
+
+      {paperworkSummary ? (
+        <PaperworkSubLink
+          eventId={eventId}
+          summary={paperworkSummary}
+        />
+      ) : null}
+
+      {/* Safe secondary actions — neither changes vendor state */}
+      <div className="flex flex-wrap gap-2">
+        <Link
+          href={`/dashboard/${eventId}/contracts`}
+          className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-2 text-xs font-medium text-ink/80 transition-colors hover:border-terracotta/40 hover:text-terracotta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+        >
+          <FileText aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          View contract
+        </Link>
+        <Link
+          href={`/dashboard/${eventId}/messages`}
+          className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-2 text-xs font-medium text-ink/80 transition-colors hover:border-terracotta/40 hover:text-terracotta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+        >
+          <MessageCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          Open thread
+        </Link>
+      </div>
+
+      {/* High-stakes Switch vendor — destructive, confirm modal */}
+      <div className="-mt-1 text-right">
+        <SwitchVendorConfirm
+          eventId={eventId}
+          vendorId={featured.vendor_id}
+          vendorName={displayName}
+          groupLabel={group.label}
+        />
+      </div>
+    </article>
+  );
+}
+
+/**
+ * LockedVendorAvatar — 56×56 vendor photo on the LockedCard hero slot.
+ * Reuses the same logo-or-initials pattern from FinalizedChipStrip but
+ * sized larger for the planning-card surface. Initials fall back to
+ * terracotta-on-cream when vendor_profiles.logo_url is null.
+ */
+function LockedVendorAvatar({
+  logoUrl,
+  name,
+}: {
+  logoUrl: string | null;
+  name: string;
+}) {
+  const initials =
+    name
+      .split(/\s+/)
+      .map((p) => p.charAt(0).toUpperCase())
+      .filter((c) => c.length > 0)
+      .slice(0, 2)
+      .join('') || '?';
+  const isOptimizable =
+    !!logoUrl &&
+    (logoUrl.startsWith('http://') ||
+      logoUrl.startsWith('https://') ||
+      logoUrl.startsWith('/'));
+  if (logoUrl && isOptimizable) {
+    return (
+      <span className="inline-flex h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-ink/10 bg-cream">
+        <Image
+          src={logoUrl}
+          alt=""
+          width={56}
+          height={56}
+          loading="lazy"
+          className="h-full w-full object-cover"
+        />
+      </span>
+    );
+  }
+  return (
+    <span
+      aria-hidden
+      className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-terracotta/15 font-mono text-base font-semibold text-terracotta-700"
+    >
+      {initials}
+    </span>
   );
 }
 

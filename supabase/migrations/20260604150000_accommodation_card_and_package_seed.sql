@@ -53,9 +53,15 @@ ALTER TYPE public.vendor_category ADD VALUE IF NOT EXISTS 'accommodation';
 -- 2. canonical_service_schemas — seed 'accommodation' row
 -- ----------------------------------------------------------------------------
 
+-- Fix 2026-05-22 — original migration referenced `v11_taxonomy_version`
+-- which doesn't exist on canonical_service_schemas (the column is named
+-- `schema_version` per 20260521010000_iteration_0044_per_category_schemas_base.sql
+-- line 39). schema_version has DEFAULT 1 so we just omit it from the INSERT
+-- and let the default fire. Fix-forward in place because the migration
+-- never successfully applied — supabase tracker shows it pending, no prod
+-- drift to repair.
 INSERT INTO public.canonical_service_schemas (
   canonical_service,
-  v11_taxonomy_version,
   display_name_en,
   display_name_tl,
   display_name_ceb,
@@ -66,7 +72,6 @@ INSERT INTO public.canonical_service_schemas (
   ranking_signal_weights
 ) VALUES (
   'accommodation',
-  1,
   'Accommodation',
   NULL,
   NULL,

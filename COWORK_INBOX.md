@@ -8,6 +8,24 @@
 
 ---
 
+## [PENDING] 2026-05-22 — Iteration 0021: tiered wedding-date precision + vendor calendar intersection (Task #39)
+
+**Why:** Owner-confirmed V1 pilot-blocking feature (CLAUDE.md decision log Task #39, 2026-05-22). The event date model changes from "specific day required" to a 3-precision tier (year / month / day). Spec corpus needs the canonical decision-log row + iteration 0021 § 10 supersession note + new schema column documented.
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/CLAUDE.md` decision log** — append a new 2026-05-22 row covering: the 3-precision tier (year / month / day), the new `events.event_date_precision` column with backfill rule, the vendor calendar intersection logic powered by `getCommonAvailableDays`, the refine-only ratchet (precision can narrow but never widen with ≥1 confirmed vendor), and a note that this supersedes iteration 0021 § 10 narrative-driven date-change negotiation for the common case (couple narrows date via vendor-availability intersection rather than negotiating a date change). Cross-reference the bundled Task #38 fix (removed `ceremony_type_locked_at = NOW()` auto-stamp from create-event action). Sequencing: extends the 2026-05-22 morning planning row + closes Task #39 from the 11-item P0 sprint list.
+
+2. **`~/Documents/Claude/Projects/Setnayan/0021_couple_dashboard_fully_purchased/0021_couple_dashboard_fully_purchased.md`** — new sub-section under § Date row UX documenting the 3-mode picker (Year · Month + Year · Specific Day), refine-only ratchet, and `EventDatePrecision` column. Update § 10 to note that the vendor-availability intersection panel handles the common "couple narrows date" case directly on event home; the multi-party negotiation flow remains for date changes that occur AFTER day-precision is locked.
+
+3. **Iteration 0021 schema additions section** — document `events.event_date_precision TEXT NOT NULL DEFAULT 'year' CHECK IN ('year', 'month', 'day')` + backfill rule (rows with non-null `event_date` → 'day', rows with null → 'year').
+
+4. **`~/Documents/Claude/Projects/Setnayan/CLAUDE.md` Task #38 note** — confirm bundled fix in CLAUDE.md: the `ceremony_type_locked_at = NOW()` auto-stamp from PR #301 was a bug; the religion CTA on event home reads `ceremony_type_locked_at` to gate the "Set wedding type" CTA state, and auto-stamping at create-time bypassed the CTA entirely for new events. Fix removes the auto-stamp; new events land with NULL lock and surface the CTA correctly.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-05-XX]` here.
+
+---
+
 ## [PENDING] 2026-05-20 — Iteration 0009 Photo Delivery: architecture deviations from spec
 
 **Why:** Iteration 0009 was promoted V1.5+ → V1 on 2026-05-18; PRs 1-4 shipped end-to-end this session (#147 schema, #152 encryption helper, #153 OAuth routes, **PR 4** release producer + sweep tick). The spec at `~/Documents/Claude/Projects/Setnayan/0009_photo_delivery/0009_photo_delivery.md` predates a few architectural realities in the repo — five concrete deviations need to be reflected so future Claude sessions don't re-derive them from the spec.

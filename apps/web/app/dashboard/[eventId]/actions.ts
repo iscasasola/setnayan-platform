@@ -5,12 +5,36 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { STEPS, type StepKey } from '@/lib/planner';
-import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
+import {
+  CONFIRMED_VENDOR_STATUSES,
+  PRECISION_ORDER,
+  type EventDatePrecision,
+} from '@/lib/events';
+
+const ALLOWED_PRECISIONS = ['year', 'month', 'day'] as const;
+
+function isPrecision(value: unknown): value is EventDatePrecision {
+  return typeof value === 'string'
+    && (ALLOWED_PRECISIONS as readonly string[]).includes(value);
+}
 
 /**
  * Save the wedding date on an event. Empty / null clears the date back to
  * "not set." RLS scopes the update to event_members so non-hosts can't
  * touch other people's events.
+ *
+ * Task #39 (2026-05-22) — tiered precision support. The form submits a
+ * `precision` field (year | month | day) alongside `event_date` and
+ * `event_date_precision` is persisted on `events`. For year/month modes,
+ * event_date stores the first-day-of-range placeholder ('2027-01-01' for
+ * year, '2027-08-01' for month) so downstream consumers that read
+ * event_date keep working.
+ *
+ * Refine-only ratchet (Task #39): when confirmed_vendor_count > 0, the
+ * precision can narrow (year → month, month → day, year → day) but never
+ * widen (day → month, month → year). Same date value at lower precision
+ * IS a widening — gate fires. The UI hides the wider modes when the gate
+ * applies; this server action is defense-in-depth.
  *
  * Per the 0021 date-edit gate (Task #37, 2026-05-22): hosts may freely
  * change the date until at least one vendor relationship is at-or-past
@@ -21,7 +45,10 @@ import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 export async function updateEventDate(formData: FormData) {
   const eventId = formData.get('event_id');
   const dateRaw = formData.get('event_date');
+  const precisionRaw = formData.get('precision');
   if (typeof eventId !== 'string') throw new Error('event_id required');
+
+  const newPrecision: EventDatePrecision = isPrecision(precisionRaw) ? precisionRaw : 'day';
 
   let eventDate: string | null = null;
   if (typeof dateRaw === 'string' && dateRaw.trim().length > 0) {
@@ -40,23 +67,37 @@ export async function updateEventDate(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  // Vendor-lock gate. Only fires when there IS a date being changed
-  // (eventDate non-null) AND there's a prior date set (we're editing, not
-  // first-set). First-setting a date is always allowed; only changes are
-  // gated by the vendor-confirmation count.
+  // Read prior precision + date so we can run both gates: (a) the original
+  // Task #37 vendor-lock gate when the day itself changes, and (b) the new
+  // Task #39 refine-only ratchet when precision widens.
   const { data: priorRow } = await supabase
     .from('events')
-    .select('event_date')
+    .select('event_date, event_date_precision')
     .eq('event_id', eventId)
     .maybeSingle();
+  const priorPrecision: EventDatePrecision = isPrecision(priorRow?.event_date_precision)
+    ? (priorRow!.event_date_precision as EventDatePrecision)
+    : 'year';
   const wasSet = Boolean(priorRow?.event_date);
-  if (wasSet && eventDate !== priorRow?.event_date) {
+  const dateChanged = wasSet && eventDate !== priorRow?.event_date;
+  const precisionWidens = PRECISION_ORDER[newPrecision] < PRECISION_ORDER[priorPrecision];
+
+  if (wasSet && (dateChanged || precisionWidens)) {
     const { count } = await supabase
       .from('event_vendors')
       .select('vendor_id', { count: 'exact', head: true })
       .eq('event_id', eventId)
       .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[]);
     if ((count ?? 0) > 0) {
+      // Surface the refine-only message when the violation is a precision
+      // widen (this is the new Task #39 path). When the day itself
+      // changed at the same precision, surface the original Task #37 lock
+      // message so the host sees the more specific guidance.
+      if (precisionWidens && !dateChanged) {
+        throw new Error(
+          `Can't widen precision — you have ${count} confirmed vendor${count === 1 ? '' : 's'}. Narrow your date instead (year → month → day), don't broaden it.`,
+        );
+      }
       throw new Error(
         `Date is locked — ${count} confirmed vendor${count === 1 ? '' : 's'}. Contact support to discuss changes.`,
       );
@@ -65,7 +106,10 @@ export async function updateEventDate(formData: FormData) {
 
   const { error } = await supabase
     .from('events')
-    .update({ event_date: eventDate })
+    .update({
+      event_date: eventDate,
+      event_date_precision: newPrecision,
+    })
     .eq('event_id', eventId);
   if (error) throw new Error(error.message);
 

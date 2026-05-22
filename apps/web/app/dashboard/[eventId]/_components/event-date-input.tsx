@@ -1,10 +1,14 @@
 'use client';
 
 /**
- * Inline wedding-date editor on the event home. If no date is set, shows
- * an empty input with a "Save date" CTA. Once set, the date renders as
- * read-only text with an "Edit" affordance that switches back to the
- * input. Submits the existing server action `updateEventDate`.
+ * Inline wedding-date editor on event home. Task #39 (2026-05-22) adds
+ * 3-mode precision selection: year (lowest commitment, "Sometime in 2027"),
+ * month ("August 2027"), or day (full specific date). Hosts start at year
+ * precision by default and narrow as their plans solidify.
+ *
+ * Refine-only ratchet: when the host has confirmed vendors, the precision
+ * selector hides the wider modes (year/month) once they've narrowed to
+ * day. The server action runs the same gate as defense-in-depth.
  *
  * Per the 2026-05-21 owner directive: hosts need a place to input the
  * wedding date. This is the V1 implementation — a focused inline form
@@ -15,42 +19,112 @@
 import { useState, useTransition } from 'react';
 import { CalendarDays, Lock, Pencil } from 'lucide-react';
 import { updateEventDate } from '../actions';
+import {
+  formatEventDateWithPrecision,
+  PRECISION_ORDER,
+  type EventDatePrecision,
+} from '@/lib/events';
 
 type Props = {
   eventId: string;
   /** YYYY-MM-DD or null when not yet set */
   initial: string | null;
+  /** 'year' | 'month' | 'day' — defaults to 'year' for new events */
+  initialPrecision?: EventDatePrecision;
   /**
    * Task #37 (2026-05-22) — count of vendors at-or-past `contracted`.
    * When ≥1, the Edit affordance is replaced with a locked tooltip
    * pointing the host at support (mirrors the 2026-05-17 § 10 date-edit
    * gate). Defaults to 0 to preserve the prior unlocked behavior for
    * any caller that hasn't passed the prop yet.
+   *
+   * Task #39 — also gates the refine-only ratchet: wider precisions
+   * disappear from the selector once ≥1 confirmed vendor exists AND the
+   * host is currently at narrower precision.
    */
   confirmedVendorCount?: number;
 };
 
-export function EventDateInput({ eventId, initial, confirmedVendorCount = 0 }: Props) {
+const CURRENT_YEAR = new Date().getFullYear();
+const YEAR_OPTIONS = Array.from({ length: 6 }, (_, i) => CURRENT_YEAR + i);
+const MONTH_OPTIONS = [
+  { value: 1, label: 'January' },
+  { value: 2, label: 'February' },
+  { value: 3, label: 'March' },
+  { value: 4, label: 'April' },
+  { value: 5, label: 'May' },
+  { value: 6, label: 'June' },
+  { value: 7, label: 'July' },
+  { value: 8, label: 'August' },
+  { value: 9, label: 'September' },
+  { value: 10, label: 'October' },
+  { value: 11, label: 'November' },
+  { value: 12, label: 'December' },
+];
+
+export function EventDateInput({
+  eventId,
+  initial,
+  initialPrecision = 'year',
+  confirmedVendorCount = 0,
+}: Props) {
   const dateLocked = confirmedVendorCount > 0 && Boolean(initial);
   const [editing, setEditing] = useState(!initial && !dateLocked);
-  const [draft, setDraft] = useState(initial ?? '');
+  const [precision, setPrecision] = useState<EventDatePrecision>(initialPrecision);
+
+  // Derive initial part-state from the stored event_date placeholder.
+  const initialParts = parseParts(initial);
+  const [year, setYear] = useState<number>(initialParts.year ?? CURRENT_YEAR + 1);
+  const [month, setMonth] = useState<number>(initialParts.month ?? 1);
+  const [dayDraft, setDayDraft] = useState<string>(initial ?? '');
+
   const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  // Refine-only ratchet: with ≥1 confirmed vendor, widening is blocked.
+  // We hide modes wider than the host's current saved precision.
+  const minPrecisionAllowed: EventDatePrecision =
+    confirmedVendorCount > 0 ? initialPrecision : 'year';
+  const visibleModes: EventDatePrecision[] = (['year', 'month', 'day'] as const).filter(
+    (p) => PRECISION_ORDER[p] >= PRECISION_ORDER[minPrecisionAllowed],
+  );
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const fd = new FormData(e.currentTarget);
+    setError(null);
+
+    // Build the event_date placeholder per precision.
+    let eventDateStr: string | null = null;
+    if (precision === 'year') {
+      eventDateStr = `${year}-01-01`;
+    } else if (precision === 'month') {
+      eventDateStr = `${year}-${pad(month)}-01`;
+    } else {
+      // day mode — validate the day input
+      if (!dayDraft || !/^\d{4}-\d{2}-\d{2}$/.test(dayDraft)) {
+        setError('Pick a specific date.');
+        return;
+      }
+      eventDateStr = dayDraft;
+    }
+
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('event_date', eventDateStr);
+    fd.set('precision', precision);
+
     startTransition(async () => {
       try {
         await updateEventDate(fd);
         setEditing(false);
       } catch (err) {
-        alert(`Save failed: ${(err as Error).message}`);
+        setError((err as Error).message);
       }
     });
   }
 
   if (!editing && initial) {
-    const pretty = formatPretty(initial);
+    const pretty = formatEventDateWithPrecision(initial, initialPrecision);
     const noun = confirmedVendorCount === 1 ? 'vendor' : 'vendors';
     const lockTooltip = `Date is locked — ${confirmedVendorCount} confirmed ${noun}. Contact support to discuss changes.`;
     return (
@@ -59,7 +133,7 @@ export function EventDateInput({ eventId, initial, confirmedVendorCount = 0 }: P
         <span>
           Wedding date · <strong className="font-medium text-ink">{pretty}</strong>
         </span>
-        {dateLocked ? (
+        {dateLocked && initialPrecision === 'day' ? (
           <>
             <Lock aria-hidden className="h-3.5 w-3.5 text-ink/50" strokeWidth={1.75} />
             <button
@@ -77,7 +151,11 @@ export function EventDateInput({ eventId, initial, confirmedVendorCount = 0 }: P
           <button
             type="button"
             onClick={() => {
-              setDraft(initial);
+              const parts = parseParts(initial);
+              setYear(parts.year ?? CURRENT_YEAR + 1);
+              setMonth(parts.month ?? 1);
+              setDayDraft(initial);
+              setPrecision(initialPrecision);
               setEditing(true);
             }}
             className="inline-flex items-center gap-1 rounded-md border border-ink/15 px-2 py-0.5 text-xs text-ink/70 hover:border-ink/30 hover:text-ink"
@@ -92,55 +170,144 @@ export function EventDateInput({ eventId, initial, confirmedVendorCount = 0 }: P
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-wrap items-center gap-2">
-      <input type="hidden" name="event_id" value={eventId} />
-      <label htmlFor={`event-date-${eventId}`} className="flex items-center gap-1.5 text-sm text-ink/70">
+    <form onSubmit={handleSubmit} className="space-y-2">
+      <div className="flex items-center gap-1.5 text-sm text-ink/70">
         <CalendarDays aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         <span>Wedding date</span>
-      </label>
-      <input
-        id={`event-date-${eventId}`}
-        type="date"
-        name="event_date"
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        className="rounded-md border border-ink/15 bg-cream px-2 py-1 text-sm focus:border-terracotta focus:outline-none"
-      />
-      <button
-        type="submit"
-        disabled={isPending}
-        className="rounded-md bg-terracotta px-3 py-1 text-xs font-medium text-cream disabled:opacity-50"
+      </div>
+
+      {/* Precision selector — segmented control */}
+      <div
+        role="radiogroup"
+        aria-label="Date precision"
+        className="flex flex-col gap-1 sm:flex-row sm:gap-0 sm:rounded-md sm:border sm:border-ink/15 sm:bg-cream sm:p-0.5"
       >
-        {isPending ? 'Saving…' : initial ? 'Save' : 'Save date'}
-      </button>
-      {initial && (
+        {visibleModes.map((mode) => (
+          <button
+            key={mode}
+            type="button"
+            role="radio"
+            aria-checked={precision === mode}
+            onClick={() => setPrecision(mode)}
+            className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+              precision === mode
+                ? 'bg-terracotta text-cream'
+                : 'text-ink/65 hover:text-ink'
+            }`}
+          >
+            {modeLabel(mode)}
+          </button>
+        ))}
+      </div>
+
+      {/* Per-mode input */}
+      <div className="flex flex-wrap items-center gap-2">
+        {precision === 'year' && (
+          <select
+            aria-label="Year"
+            value={year}
+            onChange={(e) => setYear(Number(e.target.value))}
+            className="rounded-md border border-ink/15 bg-cream px-2 py-1 text-sm focus:border-terracotta focus:outline-none"
+          >
+            {YEAR_OPTIONS.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+        )}
+
+        {precision === 'month' && (
+          <>
+            <select
+              aria-label="Month"
+              value={month}
+              onChange={(e) => setMonth(Number(e.target.value))}
+              className="rounded-md border border-ink/15 bg-cream px-2 py-1 text-sm focus:border-terracotta focus:outline-none"
+            >
+              {MONTH_OPTIONS.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Year"
+              value={year}
+              onChange={(e) => setYear(Number(e.target.value))}
+              className="rounded-md border border-ink/15 bg-cream px-2 py-1 text-sm focus:border-terracotta focus:outline-none"
+            >
+              {YEAR_OPTIONS.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
+
+        {precision === 'day' && (
+          <input
+            type="date"
+            aria-label="Specific date"
+            value={dayDraft}
+            onChange={(e) => setDayDraft(e.target.value)}
+            className="rounded-md border border-ink/15 bg-cream px-2 py-1 text-sm focus:border-terracotta focus:outline-none"
+          />
+        )}
+
         <button
-          type="button"
-          onClick={() => {
-            setDraft(initial);
-            setEditing(false);
-          }}
-          className="rounded-md border border-ink/15 px-3 py-1 text-xs text-ink/65 hover:border-ink/30"
+          type="submit"
+          disabled={isPending}
+          className="rounded-md bg-terracotta px-3 py-1 text-xs font-medium text-cream disabled:opacity-50"
         >
-          Cancel
+          {isPending ? 'Saving…' : initial ? 'Save' : 'Save date'}
         </button>
+
+        {initial && (
+          <button
+            type="button"
+            onClick={() => {
+              const parts = parseParts(initial);
+              setYear(parts.year ?? CURRENT_YEAR + 1);
+              setMonth(parts.month ?? 1);
+              setDayDraft(initial);
+              setPrecision(initialPrecision);
+              setError(null);
+              setEditing(false);
+            }}
+            className="rounded-md border border-ink/15 px-3 py-1 text-xs text-ink/65 hover:border-ink/30"
+          >
+            Cancel
+          </button>
+        )}
+      </div>
+
+      {error && (
+        <p role="alert" className="text-xs text-terracotta">
+          {error}
+        </p>
       )}
     </form>
   );
 }
 
-function formatPretty(yyyyMmDd: string): string {
-  // Avoid timezone drift on a DATE column — parse the parts manually.
-  const [yearStr, monthStr, dayStr] = yyyyMmDd.split('-');
-  const year = Number(yearStr);
-  const month = Number(monthStr);
-  const day = Number(dayStr);
-  if (!year || !month || !day) return yyyyMmDd;
-  const d = new Date(year, month - 1, day);
-  return d.toLocaleDateString('en-PH', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+function modeLabel(p: EventDatePrecision): string {
+  if (p === 'year') return 'Year';
+  if (p === 'month') return 'Month + Year';
+  return 'Specific Day';
+}
+
+function pad(n: number): string {
+  return String(n).padStart(2, '0');
+}
+
+function parseParts(iso: string | null): { year: number | null; month: number | null; day: number | null } {
+  if (!iso) return { year: null, month: null, day: null };
+  const [y, m, d] = iso.split('-');
+  return {
+    year: Number(y) || null,
+    month: Number(m) || null,
+    day: Number(d) || null,
+  };
 }

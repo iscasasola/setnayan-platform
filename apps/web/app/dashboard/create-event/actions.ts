@@ -176,12 +176,18 @@ export async function createWeddingEvent(formData: FormData) {
       ceremony_sub_type,
       is_mixed_ceremony,
       secondary_ceremony_type,
-      // Task #37 (2026-05-22) — host made an explicit picker choice, lock
-      // ceremony_type immediately so event home shows the read-only chip
-      // rather than the "Set wedding type" CTA. Non-wedding event_types
-      // stay NULL (CHECK events_ceremony_lock_requires_ceremony_type).
-      ceremony_type_locked_at: isWedding ? new Date().toISOString() : null,
-      ceremony_type_locked_by: isWedding ? user.id : null,
+      // Task #38 (2026-05-22) — explicitly DO NOT auto-stamp
+      // ceremony_type_locked_at at create-time. The picker default of
+      // 'catholic' is a silent inheritance, not an affirmative confirmation;
+      // the religion CTA from PR #301 surfaces on event home and lets the
+      // host explicitly confirm via the chip, at which point the lock fires.
+      // Auto-stamping here (the original behavior shipped in PR #301 then
+      // reverted as a bug) bypasses the chip CTA entirely for new events,
+      // breaking the chip's "set then immutable" semantic.
+      //
+      // Task #39 (2026-05-22) — event_date_precision defaults to 'year'
+      // via the column default (migration 20260603100000). We intentionally
+      // DO NOT set it explicitly here so the DB default applies.
     })
     .select('event_id, slug')
     .single();

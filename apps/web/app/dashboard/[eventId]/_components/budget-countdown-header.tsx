@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Wallet, CalendarHeart } from 'lucide-react';
+import { Wallet, CalendarHeart, ArrowRight } from 'lucide-react';
 import {
   formatEventDateWithPrecision,
   type EventDatePrecision,
@@ -12,6 +12,13 @@ import {
 // host's stated budget target. When no target is set, the strip
 // short-circuits to a polite "Set your budget" CTA so the host can fill
 // it in from Settings without leaving the home page.
+//
+// Empty-state collapse (owner directive 2026-05-22, second pass): when the
+// host has neither set a target NOR committed any money yet, the full
+// three-column card wastes vertical real estate above the fold. Replace
+// it with a single-line CTA that still reads as a calm Setnayan surface
+// (terracotta wallet icon · burgundy CTA link · cream dashed border) and
+// upgrades cleanly to the full card the moment either signal arrives.
 
 type Props = {
   /** events.event_date — may be NULL for early-planning events. */
@@ -51,6 +58,47 @@ export function BudgetCountdownHeader({
 
   const targetPhp = targetCentavos !== null ? targetCentavos / 100 : null;
   const committedPhp = committedCentavos / 100;
+
+  // Empty-state collapse: host has done nothing yet (no budget target set
+  // AND no money committed). Render a single-line CTA instead of the full
+  // three-column card. Upgrades to the full layout the moment either
+  // signal lands — host sets a target via Budget Setter, or first
+  // committed peso lands via paid SKU / contracted vendor.
+  if (targetCentavos === null && committedCentavos === 0) {
+    return (
+      <section
+        aria-labelledby="budget-cta-heading"
+        className="rounded-xl border border-dashed border-ink/15 bg-cream px-5 py-4"
+      >
+        <h2 id="budget-cta-heading" className="sr-only">
+          Your wedding budget
+        </h2>
+        <Link
+          href={settingsHref}
+          className="flex items-center gap-2 text-sm text-ink/75 transition-colors hover:text-ink"
+        >
+          <Wallet
+            aria-hidden
+            className="h-4 w-4 shrink-0 text-terracotta"
+            strokeWidth={1.75}
+          />
+          <span className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+            <span>{countdownLabel(daysOut)}</span>
+            <span aria-hidden className="text-ink/40">·</span>
+            <span className="font-medium text-terracotta underline-offset-2 hover:underline">
+              Set your budget
+            </span>
+            <span className="text-ink/55">— helps us project your final cost</span>
+          </span>
+          <ArrowRight
+            aria-hidden
+            className="ml-auto h-3.5 w-3.5 shrink-0 text-terracotta"
+            strokeWidth={1.75}
+          />
+        </Link>
+      </section>
+    );
+  }
 
   // Projected final: trust the host's target when set; otherwise
   // gently inflate committed by 10% so the rightmost number is

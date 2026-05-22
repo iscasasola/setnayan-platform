@@ -1,22 +1,32 @@
 'use client';
 
 /**
- * Task #37 (2026-05-22) — Wedding-type chip on event home.
+ * Task #43 (2026-05-22 evening) — Wedding-type chip on event home.
  *
- * Three states:
- *   1. unlocked + 0 confirmed vendors → terracotta "Set wedding type" CTA
- *      that opens the modal.
- *   2. unlocked + ≥1 confirmed vendor → muted Lock chip ("Wedding type ·
- *      Not set"), tooltip explains support-mediated change.
- *   3. locked → muted outline chip ("Wedding type · {DisplayLabel}"),
- *      no click. Immutable per spec.
+ * REVERSES Task #37's set-once-immutable rule. New semantic mirrors the
+ * wedding-date editor (PR #301): the foundation can be changed during
+ * early planning (0 confirmed vendors) and locks the moment any vendor
+ * commits to the booking.
+ *
+ * Four states:
+ *   1. !ceremonyTypeLockedAt + 0 confirmed →
+ *        terracotta "Set wedding type" CTA, opens modal.
+ *   2. !ceremonyTypeLockedAt + ≥1 confirmed →
+ *        muted Lock chip "Wedding type · Not set", tooltip points to
+ *        support since the host never confirmed before vendors locked in.
+ *   3. ceremonyTypeLockedAt + 0 confirmed → NEW post-Task-#43:
+ *        editable chip "Wedding type · {Label}" with an Edit affordance
+ *        that reopens the modal pre-populated with the current value.
+ *   4. ceremonyTypeLockedAt + ≥1 confirmed →
+ *        locked chip "Wedding type · {Label}" with Lock icon + tooltip
+ *        explaining the vendor commitment locks the foundation.
  *
  * Rendered immediately under the wedding-date row in event home so the
- * two basics share visual weight.
+ * two basics share visual weight + edit semantics.
  */
 
 import { useState } from 'react';
-import { Lock, Sparkles, Sun } from 'lucide-react';
+import { Lock, Pencil, Sparkles, Sun } from 'lucide-react';
 import { CeremonyTypeModal } from './ceremony-type-modal';
 
 type Props = {
@@ -48,18 +58,19 @@ export function CeremonyTypeChip({
 
   if (eventType !== 'wedding') return null;
 
-  const isLocked = Boolean(ceremonyTypeLockedAt);
-  const vendorBlocked = !isLocked && confirmedVendorCount > 0;
+  const isConfirmed = Boolean(ceremonyTypeLockedAt);
+  const vendorLocked = confirmedVendorCount > 0;
 
-  // State 3: Locked / read-only.
-  if (isLocked && ceremonyType) {
+  // State 4: Confirmed + vendor-locked. Read-only with Lock icon.
+  if (isConfirmed && vendorLocked && ceremonyType) {
     const label = DISPLAY_LABEL[ceremonyType] ?? ceremonyType;
+    const noun = confirmedVendorCount === 1 ? 'vendor' : 'vendors';
     return (
       <div
-        className="inline-flex items-center gap-2 rounded-md border border-ink/15 px-2.5 py-1 text-sm text-ink/70"
-        title="Wedding type was set and is permanent. Contact support if there is a genuine reason to change it."
+        className="inline-flex items-center gap-2 rounded-md border border-ink/15 bg-ink/[0.03] px-2.5 py-1 text-sm text-ink/70"
+        title={`Wedding type is locked — ${confirmedVendorCount} confirmed ${noun}. Contact support to change.`}
       >
-        <Sun aria-hidden className="h-4 w-4 text-ink/55" strokeWidth={1.75} />
+        <Lock aria-hidden className="h-4 w-4 text-ink/55" strokeWidth={1.75} />
         <span>
           Wedding type · <strong className="font-medium text-ink">{label}</strong>
         </span>
@@ -67,8 +78,39 @@ export function CeremonyTypeChip({
     );
   }
 
-  // State 2: Unlocked but a vendor has confirmed. Muted lock chip.
-  if (vendorBlocked) {
+  // State 3: Confirmed + 0 vendors. Editable chip with Edit affordance.
+  if (isConfirmed && ceremonyType) {
+    const label = DISPLAY_LABEL[ceremonyType] ?? ceremonyType;
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => setModalOpen(true)}
+          aria-label="Edit wedding type"
+          className="inline-flex items-center gap-2 rounded-md border border-ink/15 px-2.5 py-1 text-sm text-ink/70 transition hover:border-ink/30 hover:bg-ink/[0.03] hover:text-ink"
+        >
+          <Sun aria-hidden className="h-4 w-4 text-ink/55" strokeWidth={1.75} />
+          <span>
+            Wedding type · <strong className="font-medium text-ink">{label}</strong>
+          </span>
+          <span className="ml-1 inline-flex items-center gap-1 text-xs text-ink/55">
+            <Pencil aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+            Edit
+          </span>
+        </button>
+        {modalOpen ? (
+          <CeremonyTypeModal
+            eventId={eventId}
+            currentValue={ceremonyType}
+            onClose={() => setModalOpen(false)}
+          />
+        ) : null}
+      </>
+    );
+  }
+
+  // State 2: Not confirmed + vendor has locked the foundation.
+  if (vendorLocked) {
     const noun = confirmedVendorCount === 1 ? 'vendor' : 'vendors';
     return (
       <div

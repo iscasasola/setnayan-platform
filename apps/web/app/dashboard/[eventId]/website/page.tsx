@@ -207,11 +207,33 @@ export default async function WebsiteHubPage({
               </Link>
             </div>
             <div className="overflow-hidden rounded-lg border border-ink/10 bg-white shadow-sm">
+              {/*
+                Sandbox tokens — WHY this set, in this order:
+                  • allow-scripts        — required so the public landing page
+                    (a Next.js route with client-hydrated countdown · schedule
+                    widget · guided-tour · nav-links · RSVP SubmitButton)
+                    can actually render. Without it the iframe boots into
+                    server-HTML and React never hydrates → blank white box.
+                  • allow-same-origin    — required so the preview can read
+                    its own cookies / Supabase auth / guest-session for the
+                    accurate "this is what every guest sees" promise.
+                  • allow-forms          — preserves the RSVP form inside
+                    the preview (host can sanity-check the submit flow
+                    without leaving the dashboard).
+                  • allow-popups + allow-popups-to-escape-sandbox — keeps
+                    any "Open map" / "Add to calendar" / external links in
+                    the public landing page working from the preview.
+                MDN caveat: `allow-scripts` + `allow-same-origin` together
+                let same-origin iframe content remove its own sandbox. This
+                is YOUR OWN public landing page on the same origin — we
+                already trust it; the sandbox here is a defense-in-depth
+                marker, not a security boundary against hostile content.
+              */}
               <iframe
                 src={publicLandingUrl}
                 title="Public landing page preview"
                 loading="lazy"
-                sandbox="allow-same-origin"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
                 className="block h-[400px] w-full bg-white sm:h-[480px]"
               />
             </div>

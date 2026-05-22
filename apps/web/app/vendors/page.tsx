@@ -361,22 +361,17 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     }
   }
 
-  // Religion-default-on (2026-05-20): when a couple has set their ceremony_type
-  // and venue_setting, default the marketplace filter to ON so faith-
-  // incompatible vendors + catalog tiles auto-hide. Couples toggle off via
-  // ?match=0 (the "Show all faiths" pill). Anonymous visitors and couples
-  // without a ceremony_type get the unfiltered universe by default.
+  // Religion-default-on (2026-05-20) → default-OFF (Task #42, 2026-05-22):
+  // pre-pilot vendor inventory has sparse ceremony+venue cross-compat data,
+  // so strict-AND default-on filtering produced zero results from the
+  // dashboard Ceremony venue Search button. Toggle now requires explicit
+  // ?match=1 opt-in. Anonymous visitors and couples without a ceremony_type
+  // still see the unfiltered universe; couples who set their ceremony type
+  // see all vendors by default and tick "Match my wedding" if they want to
+  // narrow. Owner directive: surface the broadest inventory by default.
   const coupleFaith: CoupleFaith = matchableEvent
     ? mapCeremonyTypeToFaith(matchableEvent.ceremony_type)
     : null;
-  if (
-    matchableEvent &&
-    raw.match !== '0' &&
-    raw.match !== 'off' &&
-    !filters.matchEvent
-  ) {
-    filters = { ...filters, matchEvent: true };
-  }
 
   // Catalog mode — landing view when no narrowing filter is set. Renders the
   // full 192-category taxonomy grouped by mega-column so couples see the full
@@ -468,29 +463,19 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // count as "open to all" so legacy vendors who pre-date the compatibility
   // tags aren't excluded; only vendors with explicit non-matching arrays
   // get filtered out.
+  //
+  // Task #42 (2026-05-22): venue_setting clause dropped from the filter
+  // entirely. Faith alone is the right scope — couples often don't have
+  // a venue picked yet, OR their venue_setting is flexible (a Catholic
+  // ceremony can happen at a banquet hall OR garden OR heritage site).
+  // Compounding both dimensions emptied the result set in pre-pilot
+  // testing (owner's 2026-05-22 Ceremony-venue Search button repro).
+  // Previously had a per-category opt-out for religious_venue + church_fees;
+  // now the venue_setting filter never fires regardless of category.
   if (filters.matchEvent && matchableEvent) {
-    // Always require ceremony_type compatibility — that's the faith match.
     query = query.or(
       `compatible_ceremony_types.is.null,compatible_ceremony_types.cs.{${matchableEvent.ceremony_type}}`,
     );
-    // Skip the venue_setting compatibility check when the catalog is
-    // already filtered to a ceremony-venue category. Ceremony venues are
-    // tagged with venue_settings like 'heritage' / 'destination' /
-    // 'civil_registrar' — never with the reception-side settings the
-    // couple picks (banquet_hall, garden, beach, etc.). Compounding
-    // both filters empties the result set, which is what owner saw on
-    // 2026-05-21 when clicking [Search] from the Ceremony venue
-    // planner card. Reception-side categories (everything else) still
-    // get both filters because non-venue vendors (photographers,
-    // caterers, etc.) typically declare both dimensions.
-    const isCeremonyCategoryFilter =
-      filters.category === 'religious_venue' ||
-      filters.category === 'church_fees';
-    if (!isCeremonyCategoryFilter) {
-      query = query.or(
-        `compatible_venue_settings.is.null,compatible_venue_settings.cs.{${matchableEvent.venue_setting}}`,
-      );
-    }
   }
 
   // Sort chain (iteration 0006, 2026-05-21): always float Sponsored Boost +
@@ -523,6 +508,37 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     filters.page * PAGE_SIZE - 1,
   );
   const rows = (rowsRaw ?? []) as VendorCardRow[];
+
+  // Task #42 (2026-05-22) — when the filtered result set is empty AND the
+  // strict filters (match-my-wedding, verified-only) are active, compute the
+  // broadened-scope count so the empty state can offer a "Show all" CTA with
+  // concrete inventory framing instead of a generic "no matches" dead-end.
+  // Only runs on empty pages — zero overhead when results exist. Category,
+  // city, q, and eventType context is preserved; only match + verified drop.
+  let broadenedCount: number | null = null;
+  const hasStrictFilter = filters.matchEvent || filters.verifiedOnly;
+  if (rows.length === 0 && hasStrictFilter) {
+    let broadened = admin
+      .from('vendor_market_stats')
+      .select('vendor_profile_id', { count: 'exact', head: true })
+      .in('public_visibility', PUBLIC_SURFACE_VISIBILITIES as readonly string[])
+      .not('business_name', 'is', null)
+      .neq('business_name', '');
+    if (filters.q.length > 0) {
+      broadened = broadened.ilike('business_name', `%${filters.q}%`);
+    }
+    if (filters.category) {
+      broadened = broadened.contains('services', [filters.category]);
+    }
+    if (filters.eventType) {
+      broadened = broadened.contains('event_types', [filters.eventType]);
+    }
+    if (filters.city.length > 0) {
+      broadened = broadened.ilike('location_city', `%${filters.city}%`);
+    }
+    const { count: bc } = await broadened;
+    broadenedCount = bc ?? 0;
+  }
 
   // Each card already carries its stats + active-ad columns on the view row,
   // so the render below reads them directly off `v` — no per-card Map lookup
@@ -638,7 +654,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         <FilterBar filters={filters} matchableEvent={matchableEvent} />
 
         {visible.length === 0 ? (
-          <EmptyState filters={filters} />
+          <EmptyState filters={filters} broadenedCount={broadenedCount} />
         ) : (
           <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {visible.map((v) => {
@@ -691,6 +707,7 @@ function buildHref(
     page: number;
     verifiedOnly: boolean;
     matchEvent: boolean;
+    eventType?: EventTypeFilter | null;
   },
   patch: Partial<{
     q: string;
@@ -700,6 +717,7 @@ function buildHref(
     page: number;
     verifiedOnly: boolean;
     matchEvent: boolean;
+    eventType: EventTypeFilter | null;
   }>,
 ): string {
   const merged = { ...filters, ...patch };
@@ -711,6 +729,7 @@ function buildHref(
   if (merged.page && merged.page > 1) params.set('page', String(merged.page));
   if (merged.verifiedOnly) params.set('verified', '1');
   if (merged.matchEvent) params.set('match', '1');
+  if (merged.eventType) params.set('event_type', merged.eventType);
   const qs = params.toString();
   return qs.length > 0 ? `/vendors?${qs}` : '/vendors';
 }
@@ -819,8 +838,8 @@ function FilterBar({
             <span className="font-medium">Match my wedding</span>
             <span className="ml-2 text-ink/55">
               (only show vendors compatible with{' '}
-              <span className="font-mono">{matchableEvent.ceremony_type}</span> ·{' '}
-              <span className="font-mono">{matchableEvent.venue_setting.replace(/_/g, ' ')}</span>)
+              <span className="font-mono">{matchableEvent.ceremony_type}</span>{' '}
+              ceremonies)
             </span>
           </span>
         </label>
@@ -846,6 +865,7 @@ function FilterBar({
 
 function EmptyState({
   filters,
+  broadenedCount,
 }: {
   filters: {
     q: string;
@@ -857,6 +877,7 @@ function EmptyState({
     matchEvent: boolean;
     eventType: EventTypeFilter | null;
   };
+  broadenedCount: number | null;
 }) {
   const hasFilter = !!(
     filters.q ||
@@ -866,6 +887,20 @@ function EmptyState({
     filters.matchEvent ||
     filters.eventType
   );
+
+  // Task #42 (2026-05-22) — "Show all" CTA appears when strict filters
+  // (match-my-wedding, verified-only) shrank the result to zero but the
+  // broadened scope (same category/city/q/eventType) has inventory. Drops
+  // only match + verified; keeps every other filter so the couple stays
+  // anchored to the category they were searching.
+  const hasStrictFilter = filters.matchEvent || filters.verifiedOnly;
+  const showAllHref = buildHref(filters, {
+    matchEvent: false,
+    verifiedOnly: false,
+    page: 1,
+  });
+  const showAllAvailable =
+    hasStrictFilter && broadenedCount !== null && broadenedCount > 0;
 
   // Iteration 0041 — event-type-specific empty state. When the marketplace
   // is filtered to an event_type and zero vendors match, frame the empty
@@ -904,18 +939,27 @@ function EmptyState({
     <div className="mt-8 rounded-2xl border border-dashed border-ink/20 bg-cream p-10 text-center">
       <p className="text-base font-medium text-ink/75">
         {hasFilter
-          ? 'No vendors match these filters.'
+          ? 'No vendors match exactly.'
           : 'No vendors have published their Setnayan profile yet.'}
       </p>
       <p className="mt-1 text-sm text-ink/55">
         {hasFilter
-          ? 'Try widening your search or clearing one filter at a time.'
+          ? showAllAvailable
+            ? `We have ${broadenedCount} vendor${broadenedCount === 1 ? '' : 's'} in this category — try Show all, or clear one filter to widen your search.`
+            : 'Try widening your search or clearing one filter at a time.'
           : 'Check back soon — vendors are landing every week.'}
       </p>
       {hasFilter ? (
-        <Link href="/vendors" className="button-secondary mt-4 inline-flex h-10 px-4">
-          Clear all filters
-        </Link>
+        <div className="mt-4 flex flex-wrap justify-center gap-2">
+          {showAllAvailable ? (
+            <Link href={showAllHref} className="button-primary inline-flex h-10 px-4">
+              Show all
+            </Link>
+          ) : null}
+          <Link href="/vendors" className="button-secondary inline-flex h-10 px-4">
+            Clear all filters
+          </Link>
+        </div>
       ) : null}
     </div>
   );
@@ -1716,11 +1760,8 @@ function CatalogFilterBar({
             <span className="font-medium">Match my wedding</span>
             <span className="ml-2 text-ink/55">
               (compatible with{' '}
-              <span className="font-mono">{matchableEvent.ceremony_type}</span> ·{' '}
-              <span className="font-mono">
-                {matchableEvent.venue_setting.replace(/_/g, ' ')}
-              </span>
-              )
+              <span className="font-mono">{matchableEvent.ceremony_type}</span>{' '}
+              ceremonies)
             </span>
           </span>
         </label>

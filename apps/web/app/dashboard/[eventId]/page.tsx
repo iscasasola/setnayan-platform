@@ -225,7 +225,7 @@ export default async function EventHomePage({
       supabase
         .from('events')
         .select(
-          'event_id, display_name, event_date, event_date_precision, slug, venue_name, venue_latitude, venue_longitude, monogram_text, palette_finalized_at, concierge_status, concierge_tier, concierge_activated_at, concierge_expires_at, concierge_long_engagement_advised_at, event_type, ceremony_type, ceremony_type_locked_at',
+          'event_id, display_name, event_date, event_date_precision, slug, venue_name, venue_latitude, venue_longitude, monogram_text, palette_finalized_at, concierge_status, concierge_tier, concierge_activated_at, concierge_expires_at, concierge_long_engagement_advised_at, event_type, ceremony_type, ceremony_type_locked_at, venue_setting',
         )
         .eq('event_id', eventId)
         .maybeSingle(),
@@ -240,10 +240,18 @@ export default async function EventHomePage({
       getLocale(),
       // 12-group planner needs every saved vendor for this event, bucketed
       // by category. RLS already restricts to couples on this event.
+      //
+      // PR B 2026-05-22 — adds `marketplace_vendor_id` + `source_venue_directory_id`
+      // so the compatibility-mismatch check downstream can resolve the
+      // picked vendor's `compatible_ceremony_types[]` /
+      // `compatible_venue_settings[]` arrays against the host's current
+      // events.ceremony_type / events.venue_setting. Two follow-up batch
+      // queries against vendor_profiles + venue_directory enrich each
+      // row with its compat arrays before bucketVendorsByGroup runs.
       supabase
         .from('event_vendors')
         .select(
-          'vendor_id, vendor_name, category, status, total_cost_php, deposit_paid_php, notes, contact_email, contact_phone',
+          'vendor_id, vendor_name, category, status, total_cost_php, deposit_paid_php, notes, contact_email, contact_phone, marketplace_vendor_id, source_venue_directory_id',
         )
         .eq('event_id', eventId)
         .order('created_at', { ascending: true }),
@@ -291,7 +299,7 @@ export default async function EventHomePage({
   const greetingName = profile?.display_name?.split(' ')[0] ?? user.email?.split('@')[0] ?? 'there';
   const greeting = tr(timeOfDayGreetingKey(now));
 
-  const eventVendors = (eventVendorsRes.data ?? []) as Array<{
+  const eventVendorsRaw = (eventVendorsRes.data ?? []) as Array<{
     vendor_id: string;
     vendor_name: string;
     category: VendorCategory;
@@ -301,7 +309,95 @@ export default async function EventHomePage({
     notes: string | null;
     contact_email: string | null;
     contact_phone: string | null;
+    marketplace_vendor_id: string | null;
+    source_venue_directory_id: string | null;
   }>;
+
+  // PR B 2026-05-22 — enrich each event_vendor row with the compatibility
+  // arrays from its linked vendor_profiles row (when
+  // `marketplace_vendor_id` is set) OR its linked venue_directory row
+  // (when `source_venue_directory_id` is set + no marketplace link). Two
+  // batch queries — one IN(...) per linked table — collapse all the
+  // needed lookups into 2 round trips even for events with 50+ picks.
+  // Off-platform / custom rows (both FKs null) skip the enrichment and
+  // get null compat arrays, which `computeCompatibilityIssue` treats as
+  // "no data to check" and returns null for. Mirrors the data-flow
+  // pattern in `venue-recommendations.ts`.
+  const marketplaceIds = Array.from(
+    new Set(
+      eventVendorsRaw
+        .map((v) => v.marketplace_vendor_id)
+        .filter((id): id is string => id !== null),
+    ),
+  );
+  const directoryIds = Array.from(
+    new Set(
+      eventVendorsRaw
+        .map((v) => v.source_venue_directory_id)
+        .filter((id): id is string => id !== null),
+    ),
+  );
+
+  const compatibilityFetches = await Promise.all([
+    marketplaceIds.length > 0
+      ? adminClient
+          .from('vendor_profiles')
+          .select(
+            'vendor_profile_id, compatible_ceremony_types, compatible_venue_settings',
+          )
+          .in('vendor_profile_id', marketplaceIds)
+      : Promise.resolve({ data: [] as Array<{
+          vendor_profile_id: string;
+          compatible_ceremony_types: string[] | null;
+          compatible_venue_settings: string[] | null;
+        }> }),
+    directoryIds.length > 0
+      ? adminClient
+          .from('venue_directory')
+          .select('venue_directory_id, compatible_ceremony_types')
+          .in('venue_directory_id', directoryIds)
+      : Promise.resolve({ data: [] as Array<{
+          venue_directory_id: string;
+          compatible_ceremony_types: string[] | null;
+        }> }),
+  ]);
+  const marketplaceCompatMap = new Map<
+    string,
+    { ceremony: string[] | null; venue: string[] | null }
+  >();
+  for (const row of compatibilityFetches[0].data ?? []) {
+    marketplaceCompatMap.set(row.vendor_profile_id, {
+      ceremony: (row.compatible_ceremony_types as string[] | null) ?? null,
+      venue: (row.compatible_venue_settings as string[] | null) ?? null,
+    });
+  }
+  const directoryCompatMap = new Map<string, string[] | null>();
+  for (const row of compatibilityFetches[1].data ?? []) {
+    directoryCompatMap.set(
+      row.venue_directory_id,
+      (row.compatible_ceremony_types as string[] | null) ?? null,
+    );
+  }
+
+  const eventVendors = eventVendorsRaw.map((v) => {
+    const marketplace = v.marketplace_vendor_id
+      ? marketplaceCompatMap.get(v.marketplace_vendor_id)
+      : undefined;
+    const directory = v.source_venue_directory_id
+      ? directoryCompatMap.get(v.source_venue_directory_id) ?? null
+      : null;
+    return {
+      ...v,
+      marketplace_compatible_ceremony_types: marketplace?.ceremony ?? null,
+      marketplace_compatible_venue_settings: marketplace?.venue ?? null,
+      directory_compatible_ceremony_types: directory,
+    };
+  });
+
+  const eventCeremonyType =
+    (event as { ceremony_type?: string | null }).ceremony_type ?? null;
+  const eventVenueSetting =
+    (event as { venue_setting?: string | null }).venue_setting ?? null;
 
   // Day-of mode (iteration 0031): when inside the T-1h .. T+8h window of the
   // event date, fetch the schedule + seating data needed to render the live
@@ -476,7 +572,8 @@ export default async function EventHomePage({
         eventDate={event.event_date}
         venueLatitude={(event as { venue_latitude?: number | null }).venue_latitude ?? null}
         venueLongitude={(event as { venue_longitude?: number | null }).venue_longitude ?? null}
-        ceremonyType={(event as { ceremony_type?: string | null }).ceremony_type ?? null}
+        ceremonyType={eventCeremonyType}
+        venueSetting={eventVenueSetting}
         vendors={eventVendors}
       />
 

@@ -314,6 +314,40 @@ export function statusOfVendor(rawStatus: string | null | undefined): VendorPick
   return rawStatus && LOCKED_STATUSES.has(rawStatus) ? 'locked' : 'picked';
 }
 
+/**
+ * Compatibility issue surfaced on a pick when the host's
+ * `events.ceremony_type` OR `events.venue_setting` has drifted away
+ * from a previously-picked vendor's tagged compatibility set.
+ *
+ * Three kinds (one pick can only have one — religion takes precedence
+ * because it's the more semantically severe mismatch):
+ *   • religion — vendor's compatible_ceremony_types[] doesn't include
+ *     the host's current ceremony_type.
+ *   • venue_setting — vendor's compatible_venue_settings[] doesn't
+ *     include the host's current venue_setting.
+ *   • directory — for picks linked via source_venue_directory_id only,
+ *     the venue_directory.compatible_ceremony_types check (no
+ *     venue_setting on directory rows).
+ *
+ * `kind: 'none'` is intentionally omitted — null on PlanCardPick means
+ * "no mismatch surfaced" so the chip just doesn't render. Saves a
+ * truthiness check at every consumer site.
+ */
+export type PlanCardCompatibilityIssue =
+  | {
+      kind: 'religion';
+      /** Human-readable: the picked vendor doesn't match the host's faith. */
+      label: string;
+    }
+  | {
+      kind: 'venue_setting';
+      label: string;
+    }
+  | {
+      kind: 'directory';
+      label: string;
+    };
+
 export type PlanCardPick = {
   vendor_id: string;
   vendor_name: string;
@@ -326,6 +360,15 @@ export type PlanCardPick = {
   notes: string | null;
   contact_email: string | null;
   contact_phone: string | null;
+  /**
+   * Compatibility issue, if any, with the host's current
+   * events.ceremony_type / events.venue_setting. Surfaced as an inline
+   * chip + Remove action on the planning-card pick row. `null` when the
+   * vendor is compatible OR when the pick has no compatibility data
+   * (off-platform / custom row with no marketplace_vendor_id and no
+   * source_venue_directory_id — we can't check what we don't know).
+   */
+  compatibility_issue: PlanCardCompatibilityIssue | null;
 };
 
 export type GroupedPicks = {
@@ -339,19 +382,175 @@ function toNum(v: number | string | null | undefined): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** Bucket event_vendors rows into the 12-group structure. */
+/**
+ * Input shape for `bucketVendorsByGroup`. Wider than the pre-PR-B
+ * payload — adds the marketplace + directory link columns + the joined
+ * compatibility arrays so the compat-mismatch check runs entirely in
+ * memory (no extra DB roundtrip).
+ *
+ * The `*_compatible_ceremony_types` / `*_compatible_venue_settings`
+ * fields come from a Supabase nested-select join on `vendor_profiles`
+ * + `venue_directory` from the same `event_vendors` query — see
+ * `apps/web/app/dashboard/[eventId]/page.tsx`. `null` covers three
+ * shapes: column-not-set (open to all), join-missed (link FK is NULL),
+ * or schema-pre-iteration-0043 (legacy rows without the columns).
+ *
+ * Behavior per [[feedback_setnayan_senior_dev_persona]]: null array = "open
+ * to all" (same convention used by /vendors religion-default-on
+ * filter, PR #305, so the dashboard side reads from the same source
+ * of truth).
+ */
+export type EventVendorRowInput = {
+  vendor_id: string;
+  vendor_name: string;
+  category: VendorCategory;
+  status: string | null;
+  total_cost_php?: number | string | null;
+  deposit_paid_php?: number | string | null;
+  notes?: string | null;
+  contact_email?: string | null;
+  contact_phone?: string | null;
+  /** Optional link to a real vendor_profiles row — if set, we use its compat arrays. */
+  marketplace_vendor_id?: string | null;
+  /** Optional link to a venue_directory row — if set AND there's no marketplace link, we use its compat array. */
+  source_venue_directory_id?: string | null;
+  /** From vendor_profiles JOIN (when marketplace_vendor_id is set). */
+  marketplace_compatible_ceremony_types?: string[] | null;
+  marketplace_compatible_venue_settings?: string[] | null;
+  /** From venue_directory JOIN (when source_venue_directory_id is set). */
+  directory_compatible_ceremony_types?: string[] | null;
+};
+
+/**
+ * Ceremony-type readable label for the inline compat-mismatch chip
+ * copy. Matches the wording in ceremony-type-chip.tsx so the host sees
+ * consistent terminology across the dashboard.
+ */
+const CEREMONY_TYPE_READABLE_LABEL: Record<string, string> = {
+  catholic: 'Catholic',
+  civil: 'Civil',
+  inc: 'INC',
+  christian: 'Christian',
+  muslim: 'Muslim',
+  cultural: 'Cultural',
+  mixed: 'Mixed',
+};
+
+/**
+ * Venue setting readable label — matches /vendors VENUE_SETTING_LABEL.
+ * Both maps drift apart safely (catch-all fallback in the consumer).
+ */
+const VENUE_SETTING_READABLE_LABEL: Record<string, string> = {
+  banquet_hall: 'banquet hall',
+  garden: 'garden',
+  beach: 'beach',
+  destination: 'destination resort',
+  heritage: 'heritage venue',
+  outdoor_tent: 'outdoor tent',
+  civil_registrar: 'civil registrar',
+};
+
+function readableCeremonyType(value: string | null): string {
+  if (!value) return 'wedding';
+  return CEREMONY_TYPE_READABLE_LABEL[value] ?? value;
+}
+
+function readableVenueSetting(value: string | null): string {
+  if (!value) return 'venue';
+  return VENUE_SETTING_READABLE_LABEL[value] ?? value.replace(/_/g, ' ');
+}
+
+/**
+ * Compute a single PlanCardCompatibilityIssue for a vendor row against
+ * the host's current ceremony_type / venue_setting.
+ *
+ * Algorithm (religion > venue_setting > directory, by severity):
+ *   1. If `marketplace_vendor_id` is set + compat arrays are populated:
+ *      a. Religion mismatch: ceremony_type not in
+ *         marketplace_compatible_ceremony_types[] → emit religion issue.
+ *      b. Venue mismatch: venue_setting not in
+ *         marketplace_compatible_venue_settings[] → emit venue_setting.
+ *   2. If `source_venue_directory_id` is set (no marketplace link):
+ *      a. Religion mismatch via directory_compatible_ceremony_types →
+ *         emit directory issue (same shape as religion but tagged for
+ *         consumer to know the data source).
+ *   3. Otherwise (off-platform / custom row): return null.
+ *
+ * Returns null when:
+ *   • no event ceremony_type AND no event venue_setting (nothing to check)
+ *   • compat arrays are null (open-to-all convention)
+ *   • compat arrays explicitly include the host's value (compatible)
+ *
+ * Mirrors the OR-pattern in /vendors page.tsx lines 634-656 where NULL
+ * compatible_ceremony_types means "open to all" — defensive against
+ * legacy / pre-iteration-0043 vendor rows.
+ */
+export function computeCompatibilityIssue(
+  row: EventVendorRowInput,
+  eventCeremonyType: string | null,
+  eventVenueSetting: string | null,
+): PlanCardCompatibilityIssue | null {
+  // No event context = can't check anything.
+  if (!eventCeremonyType && !eventVenueSetting) return null;
+
+  // Marketplace-linked path (richest data).
+  if (row.marketplace_vendor_id) {
+    if (
+      eventCeremonyType &&
+      Array.isArray(row.marketplace_compatible_ceremony_types) &&
+      row.marketplace_compatible_ceremony_types.length > 0 &&
+      !row.marketplace_compatible_ceremony_types.includes(eventCeremonyType)
+    ) {
+      return {
+        kind: 'religion',
+        label: `Your wedding is now ${readableCeremonyType(eventCeremonyType)} — this vendor doesn't match.`,
+      };
+    }
+    if (
+      eventVenueSetting &&
+      Array.isArray(row.marketplace_compatible_venue_settings) &&
+      row.marketplace_compatible_venue_settings.length > 0 &&
+      !row.marketplace_compatible_venue_settings.includes(eventVenueSetting)
+    ) {
+      return {
+        kind: 'venue_setting',
+        label: `Your reception is now a ${readableVenueSetting(eventVenueSetting)} — this vendor doesn't cover that setting.`,
+      };
+    }
+    return null;
+  }
+
+  // Directory-linked path (venue_directory has ceremony_type only).
+  if (row.source_venue_directory_id) {
+    if (
+      eventCeremonyType &&
+      Array.isArray(row.directory_compatible_ceremony_types) &&
+      row.directory_compatible_ceremony_types.length > 0 &&
+      !row.directory_compatible_ceremony_types.includes(eventCeremonyType)
+    ) {
+      return {
+        kind: 'directory',
+        label: `Your wedding is now ${readableCeremonyType(eventCeremonyType)} — this venue doesn't host that ceremony.`,
+      };
+    }
+    return null;
+  }
+
+  // Off-platform / custom row — no compat data to check.
+  return null;
+}
+
+/**
+ * Bucket event_vendors rows into the 12-group structure.
+ *
+ * `eventCeremonyType` + `eventVenueSetting` enable per-pick
+ * compatibility checks. Pass `null`/`null` to skip the check (pre-PR-B
+ * callers, or events with no ceremony_type / venue_setting picked).
+ */
 export function bucketVendorsByGroup(
-  vendors: ReadonlyArray<{
-    vendor_id: string;
-    vendor_name: string;
-    category: VendorCategory;
-    status: string | null;
-    total_cost_php?: number | string | null;
-    deposit_paid_php?: number | string | null;
-    notes?: string | null;
-    contact_email?: string | null;
-    contact_phone?: string | null;
-  }>,
+  vendors: ReadonlyArray<EventVendorRowInput>,
+  eventCeremonyType: string | null = null,
+  eventVenueSetting: string | null = null,
 ): Map<PlanGroupId, GroupedPicks['picks']> {
   const out = new Map<PlanGroupId, Array<GroupedPicks['picks'][number]>>();
   for (const g of PLAN_GROUPS) out.set(g.id, []);
@@ -368,6 +567,11 @@ export function bucketVendorsByGroup(
       notes: v.notes ?? null,
       contact_email: v.contact_email ?? null,
       contact_phone: v.contact_phone ?? null,
+      compatibility_issue: computeCompatibilityIssue(
+        v,
+        eventCeremonyType,
+        eventVenueSetting,
+      ),
     };
     for (const g of PLAN_GROUPS) {
       if (g.categories.includes(v.category)) {

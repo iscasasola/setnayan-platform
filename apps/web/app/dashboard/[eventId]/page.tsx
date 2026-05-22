@@ -31,7 +31,6 @@ import { fetchEventActivity } from '@/lib/activity';
 import { fetchAttributedActivity } from '@/lib/activity-attribution';
 import {
   formatEventDateWithPrecision,
-  formatEventCountdown,
   type EventDatePrecision,
 } from '@/lib/events';
 import {
@@ -70,10 +69,9 @@ import {
   summarize as summarizePaperwork,
   type PaperworkRow,
 } from '@/lib/paperwork';
-import { EventDateInput } from './_components/event-date-input';
 import { AuspiciousChip } from './_components/auspicious-chip';
+import { EventMetaLine } from './_components/event-meta-line';
 import { VendorAvailabilityIntersection } from './_components/vendor-availability-intersection';
-import { CeremonyTypeChip } from './_components/ceremony-type-chip';
 import { BudgetCountdownHeader } from './_components/budget-countdown-header';
 import { FinalizedChipStrip } from './_components/finalized-chip-strip';
 import { UsefulRightNow } from './_components/useful-right-now';
@@ -689,9 +687,6 @@ export default async function EventHomePage({
         greeting={greeting}
         name={greetingName}
         eventName={event.display_name}
-        eventDate={event.event_date}
-        eventDatePrecision={eventDatePrecision}
-        now={now}
       />
 
       {/* Phase 0 Date Selection entry point — CLAUDE.md 2026-05-22 lock.
@@ -699,51 +694,58 @@ export default async function EventHomePage({
        *    - 'locked' → shows the host's chosen date + invitation to
        *      review the auspicious reasoning at /date-selection.
        *    - other   → soft "Pick your date" prompt routing to /date-selection.
-       *  See _components/auspicious-chip.tsx + date-selection/page.tsx. */}
+       *  See _components/auspicious-chip.tsx + date-selection/page.tsx.
+       *
+       *  Sits between <WelcomeHeader> and <EventMetaLine> so the cultural-
+       *  intelligence chip leads the date conversation; the consolidated
+       *  meta line beneath surfaces the chosen date + countdown + ceremony
+       *  with the subtle pencil edit affordances. */}
       <AuspiciousChip
         eventId={eventId}
         eventDate={event.event_date}
         dateStatus={(event as { date_status?: string | null }).date_status ?? null}
       />
 
-      <div className="space-y-2">
-        <EventDateInput
+      {/* Task #65 (2026-05-22) — consolidated meta line replaces the
+       *  prior 3-redundant-date layout (welcome strip date + standalone
+       *  Wedding-date row + standalone Wedding-type chip). Single line:
+       *  "{date} · {N days to go} · {Catholic} ceremony [✎ date] [✎ type]"
+       *  with subtle pencil edit affordances. See _components/event-meta-line.tsx. */}
+      <EventMetaLine
+        eventId={eventId}
+        eventDate={event.event_date}
+        eventDatePrecision={eventDatePrecision}
+        eventType={(event as { event_type?: string | null }).event_type ?? 'wedding'}
+        ceremonyType={(event as { ceremony_type?: string | null }).ceremony_type ?? null}
+        ceremonyTypeLockedAt={
+          (event as { ceremony_type_locked_at?: string | null }).ceremony_type_locked_at ?? null
+        }
+        confirmedVendorCount={confirmedVendorCount}
+        now={now}
+      />
+
+      {event.event_date && isEventDateInPast(event.event_date, eventDatePrecision, now) ? (
+        // Task #41 (2026-05-22) — muted warning when the stored wedding
+        // date is already in the past (e.g. the "Bonbon and Chihuahua"
+        // event that originally surfaced this bug). Editorial-restraint
+        // tone per brand voice — no exclamation marks, no red panic
+        // styling, no all-caps. The Edit pencil on EventMetaLine above
+        // still works to fix the value.
+        <p className="flex items-center gap-1.5 text-xs text-ink/55">
+          <AlertTriangle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          Wedding date is in the past — please update.
+        </p>
+      ) : null}
+
+      {availabilityVendorCount > 0 && availabilityWindowLabel ? (
+        <VendorAvailabilityIntersection
           eventId={eventId}
-          initial={event.event_date ?? null}
-          initialPrecision={eventDatePrecision}
-          confirmedVendorCount={confirmedVendorCount}
+          availableDays={availabilityDays}
+          confirmedVendorCount={availabilityVendorCount}
+          windowLabel={availabilityWindowLabel}
+          totalDaysInRange={availabilityTotalDays}
         />
-        {event.event_date && isEventDateInPast(event.event_date, eventDatePrecision, now) ? (
-          // Task #41 (2026-05-22) — muted warning when the stored wedding
-          // date is already in the past (e.g. the "Bonbon and Chihuahua"
-          // event that originally surfaced this bug). Editorial-restraint
-          // tone per brand voice — no exclamation marks, no red panic
-          // styling, no all-caps. The Edit button on EventDateInput above
-          // still works to fix the value.
-          <p className="flex items-center gap-1.5 text-xs text-ink/55">
-            <AlertTriangle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Wedding date is in the past — please update.
-          </p>
-        ) : null}
-        {availabilityVendorCount > 0 && availabilityWindowLabel ? (
-          <VendorAvailabilityIntersection
-            eventId={eventId}
-            availableDays={availabilityDays}
-            confirmedVendorCount={availabilityVendorCount}
-            windowLabel={availabilityWindowLabel}
-            totalDaysInRange={availabilityTotalDays}
-          />
-        ) : null}
-        <CeremonyTypeChip
-          eventId={eventId}
-          eventType={(event as { event_type?: string | null }).event_type ?? 'wedding'}
-          ceremonyType={(event as { ceremony_type?: string | null }).ceremony_type ?? null}
-          ceremonyTypeLockedAt={
-            (event as { ceremony_type_locked_at?: string | null }).ceremony_type_locked_at ?? null
-          }
-          confirmedVendorCount={confirmedVendorCount}
-        />
-      </div>
+      ) : null}
 
       <StageStrip stage={stage} />
 
@@ -861,31 +863,22 @@ function WelcomeHeader({
   greeting,
   name,
   eventName,
-  eventDate,
-  eventDatePrecision,
-  now,
 }: {
   greeting: string;
   name: string;
   eventName: string;
-  eventDate: string | null;
-  eventDatePrecision: EventDatePrecision;
-  now: Date;
 }) {
-  // Task #39 (2026-05-22) — precision-aware display + countdown.
-  const pretty = eventDate
-    ? formatEventDateWithPrecision(eventDate, eventDatePrecision)
-    : 'Date to be confirmed';
-  const countdown = formatEventCountdown(eventDate, eventDatePrecision, now);
+  // Task #65 (2026-05-22) — date + countdown + ceremony type moved into
+  // <EventMetaLine> immediately below (rendered as a sibling in the page
+  // composition). This header now carries only the event-name display +
+  // time-of-day greeting so the welcome strip stays the single source of
+  // "who and what" without duplicating the "when" three times across the
+  // page. See _components/event-meta-line.tsx.
   return (
     <header className="space-y-1.5">
       <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{eventName}</h1>
       <p className="text-base text-ink/75">
         {greeting}, {name}
-      </p>
-      <p className="text-sm text-ink/55">
-        {pretty}
-        {countdown ? ` · ${countdown}` : null}
       </p>
     </header>
   );

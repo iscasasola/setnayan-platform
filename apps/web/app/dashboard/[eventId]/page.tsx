@@ -45,6 +45,11 @@ import {
   type ConciergeStatus,
 } from '@/lib/concierge';
 import { ConciergeBanner } from './_components/concierge-banner';
+import { TodaysOneThing } from './_components/todays-one-thing';
+import {
+  pickTodaysOneThing,
+  countUnlockedCategories,
+} from '@/lib/todays-one-thing';
 import { getLocale, makeT, type TranslationKey } from '@/lib/i18n';
 import {
   STEPS,
@@ -458,6 +463,20 @@ export default async function EventHomePage({
   const eventVenueSetting =
     (event as { venue_setting?: string | null }).venue_setting ?? null;
 
+  // Today's one thing — single-focus hero (owner directive 2026-05-22,
+  // Headspace-pattern). Resolves the host's #1 most-urgent planning
+  // task from the same `eventVendors` array PlanningGroups uses, so
+  // the hero and the grid below it agree on lock state. Returns null
+  // when (a) the event has no wedding_date, or (b) every category is
+  // already locked — the hero card distinguishes the two via the
+  // `weddingDateMissing` prop.
+  const todaysOneThing = pickTodaysOneThing(
+    eventVendors,
+    event.event_date,
+    now,
+  );
+  const unlockedCategoryCount = countUnlockedCategories(eventVendors);
+
   // Day-of mode (iteration 0031): when inside the T-1h .. T+8h window of the
   // event date, fetch the schedule + seating data needed to render the live
   // grid above the rest of the dashboard. Outside the window we render
@@ -719,15 +738,50 @@ export default async function EventHomePage({
 
       <FinalizedChipStrip eventId={eventId} vendors={eventVendorsRaw} />
 
-      <PlanningGroups
+      {/* V1 pilot Home v2 — owner directive 2026-05-22 (Headspace
+       *  single-focus pattern). The hero card replaces the previous
+       *  multi-card carousel concept: ONE most-urgent task surfaces
+       *  here. The 12-card PlanningGroups grid below collapses behind
+       *  a "Show all N more tasks" disclosure so a host who IS ready
+       *  to ladder through multiple categories can still see them.
+       *  Reduces decision paralysis on the home surface. */}
+      <TodaysOneThing
         eventId={eventId}
-        eventDate={event.event_date}
-        venueLatitude={(event as { venue_latitude?: number | null }).venue_latitude ?? null}
-        venueLongitude={(event as { venue_longitude?: number | null }).venue_longitude ?? null}
-        ceremonyType={eventCeremonyType}
-        venueSetting={eventVenueSetting}
-        vendors={eventVendors}
+        topPriorityTask={todaysOneThing}
+        weddingDateMissing={event.event_date === null}
+        totalRemainingTasks={unlockedCategoryCount}
       />
+
+      <details className="group rounded-xl border border-ink/10 bg-cream/40">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 text-sm font-medium text-ink transition-colors hover:bg-cream sm:px-6">
+          <span className="flex items-center gap-2">
+            <LayoutGrid
+              aria-hidden
+              className="h-4 w-4 text-terracotta"
+              strokeWidth={1.75}
+            />
+            <span>
+              {unlockedCategoryCount > 0
+                ? `Show all ${unlockedCategoryCount} more ${unlockedCategoryCount === 1 ? 'task' : 'tasks'}`
+                : 'Show your full plan'}
+            </span>
+          </span>
+          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55 transition-transform group-open:rotate-180">
+            ↓
+          </span>
+        </summary>
+        <div className="border-t border-ink/10 px-5 py-5 sm:px-6 sm:py-6">
+          <PlanningGroups
+            eventId={eventId}
+            eventDate={event.event_date}
+            venueLatitude={(event as { venue_latitude?: number | null }).venue_latitude ?? null}
+            venueLongitude={(event as { venue_longitude?: number | null }).venue_longitude ?? null}
+            ceremonyType={eventCeremonyType}
+            venueSetting={eventVenueSetting}
+            vendors={eventVendors}
+          />
+        </div>
+      </details>
 
       {plannerMode === 'guided' ? (
         <Checklist eventId={eventId} statuses={stepStatuses} tr={tr} />

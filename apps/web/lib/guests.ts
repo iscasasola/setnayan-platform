@@ -326,6 +326,16 @@ export async function fetchGuestGroupsByEvent(
   ]);
 
   if (groupsRes.error) {
+    // Graceful degrade when the migration hasn't been applied to prod yet
+    // (`supabase db push --linked` is the owner-side step). Postgres code
+    // 42P01 = "relation does not exist." Mirroring the same treatment
+    // `fetchGroupMembershipsByEvent` already does below — render the page
+    // with no custom groups instead of crashing the entire guests surface.
+    // Any other error (auth, RLS denial, etc.) still throws so we don't
+    // silently swallow a real bug.
+    if (groupsRes.error.code === '42P01') {
+      return [];
+    }
     throw new Error(`fetchGuestGroupsByEvent failed: ${groupsRes.error.message}`);
   }
   const groups = (groupsRes.data ?? []) as unknown as GuestGroupRow[];

@@ -81,6 +81,7 @@ import { UpcomingSchedules } from './_components/upcoming-schedules';
 import { MoneyInFlight } from './_components/money-in-flight';
 import { fetchUpcomingItems } from '@/lib/upcoming-items';
 import { ActivityFeed } from './_components/activity-feed';
+import { YourPlanSection } from './_components/your-plan-section';
 import { getConfirmedVendorCount, isEventDateInPast } from '@/lib/events';
 import type { VendorCategory } from '@/lib/vendors';
 // Finalized-card-service-photo refinement (2026-05-22) — resolve
@@ -272,6 +273,9 @@ export default async function EventHomePage({
     paidOrdersRes,
     paperworkRowsRes,
     sponsorsRes,
+    scheduleBlocksRes,
+    contractsCountRes,
+    setnayanCreationOrdersRes,
   ] =
     await Promise.all([
       supabase
@@ -367,6 +371,29 @@ export default async function EventHomePage({
         .from('event_sponsors')
         .select('sponsor_tier, invitation_status')
         .eq('event_id', eventId),
+      // YOUR PLAN section reads (owner directive 2026-05-22).
+      // Schedule blocks count fuels the Schedule tool tile sub-line.
+      supabase
+        .from('event_schedule_blocks')
+        .select('block_id', { count: 'exact', head: true })
+        .eq('event_id', eventId),
+      // Vendor contracts count (non-draft, RLS already filters). Fuels
+      // the Documents tool tile + the consolidated /documents route.
+      supabase
+        .from('vendor_contracts')
+        .select('contract_id', { count: 'exact', head: true })
+        .eq('event_id', eventId),
+      // Setnayan creation orders — Save-the-Date Video + Monogram Hero
+      // upgrade. Drives the "Saved to your event" sub-line on the
+      // Save-the-Date + Monogram tool tiles. Filter to non-cancelled
+      // statuses so a cancelled order doesn't lock the CTA to its
+      // post-purchase state.
+      supabase
+        .from('orders')
+        .select('service_key, status')
+        .eq('event_id', eventId)
+        .in('service_key', ['save_the_date_video', 'monogram_hero_upgrade'])
+        .not('status', 'in', '("cancelled","refunded","lapsed")'),
     ]);
   const tr = makeT(locale);
 
@@ -719,6 +746,39 @@ export default async function EventHomePage({
   const seatedGuests = seatAssignmentsRes.count ?? 0;
   const vendorThreadCount = vendorThreadsRes.count ?? 0;
 
+  // YOUR PLAN section derived stats (owner directive 2026-05-22).
+  // All counts pulled from the same Promise.all above. The section is a
+  // grid of nine tool tiles — each tile's sub-line shows live progress
+  // so the host sees a snapshot without clicking through.
+  const scheduleBlockCount = scheduleBlocksRes.count ?? 0;
+  const contractCount = contractsCountRes.count ?? 0;
+  const sponsorRowsForCount = (sponsorsRes.data ?? []) as Array<{
+    sponsor_tier: string | null;
+    invitation_status: string | null;
+  }>;
+  const sponsorCount = sponsorRowsForCount.length;
+  const acceptedSponsorCount = sponsorRowsForCount.filter(
+    (s) => s.invitation_status === 'accepted',
+  ).length;
+  // Paperwork in-progress = anything not received OR expired. Lines up
+  // with the "X in progress" doc-tile sub-line.
+  const paperworkInProgressCount = paperworkRowsForNextSteps.filter(
+    (r) => r.status !== 'received' && r.status !== 'expired',
+  ).length;
+  // Setnayan creation orders — present means the host has a non-cancelled
+  // order for that SKU. Either pending payment OR paid both count
+  // because the tile copy ("Saved to your event") works for both.
+  const setnayanCreationRows = (setnayanCreationOrdersRes.data ?? []) as Array<{
+    service_key: string | null;
+    status: string | null;
+  }>;
+  const hasSaveTheDateOrder = setnayanCreationRows.some(
+    (r) => r.service_key === 'save_the_date_video',
+  );
+  const hasMonogramOrder = setnayanCreationRows.some(
+    (r) => r.service_key === 'monogram_hero_upgrade',
+  );
+
   // Paperwork pipeline summary — drives the small "📋 Paperwork — X of Y"
   // sub-link on the Ceremony venue plan card. Falls back gracefully to a
   // zero-state summary when the table doesn't exist yet (pre-migration)
@@ -979,6 +1039,35 @@ export default async function EventHomePage({
           paperworkSummary={paperworkSummary}
         />
       </section>
+
+      {/* YOUR PLAN section — owner directive 2026-05-22.
+       *  Sits between the vendor grid above (PlanningGroups · "what you
+       *  book") and the legacy NavGrid below. Surfaces the nine tools
+       *  the host BUILDS personally — Mood Board, Seat Plan, Guest List,
+       *  Sponsors, Schedule, Budget, Documents, Save-the-Date, Monogram.
+       *  Each tile shows a live progress sub-line.
+       *
+       *  Documents tile routes to the consolidated /documents page
+       *  (this PR ships both together). */}
+      <YourPlanSection
+        eventId={eventId}
+        locale={locale}
+        stats={{
+          moodBoardSaveCount,
+          totalGuests: stats.total,
+          seatedGuests,
+          attendingGuests: stats.attending,
+          pendingGuests: stats.pending,
+          sponsorCount,
+          acceptedSponsorCount,
+          scheduleBlockCount,
+          hasBudgetTarget: eventBudgetCentavos !== null && eventBudgetCentavos > 0,
+          paperworkInProgressCount,
+          contractCount,
+          hasSaveTheDateOrder,
+          hasMonogramOrder,
+        }}
+      />
 
       {plannerMode === 'guided' ? (
         <Checklist eventId={eventId} statuses={stepStatuses} tr={tr} />

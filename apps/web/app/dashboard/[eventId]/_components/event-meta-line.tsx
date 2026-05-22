@@ -201,6 +201,33 @@ export function EventMetaLine({
         </span>
       </p>
 
+      {/* Inline date editor — renders DIRECTLY under the meta line (which
+          contains the date row + date pencil) so the editor appears under
+          the date row, not under the ceremony type row. Owner directive
+          2026-05-22: "when editing wedding date, it should be under the
+          wedding date not under the wedding type."
+
+          Reuses the existing EventDateInput component so the precision
+          selector + refine-only ratchet + server action plumbing stay
+          untouched. autoEdit=true so it mounts directly into edit mode
+          (skips its own read-mode chip + Edit button — the meta line
+          above already serves that role). onClose collapses the wrapper
+          on save success or Cancel so the host never sees a duplicate
+          read-mode chip stacked under the meta line. */}
+      {dateEditing ? (
+        <div className="rounded-md border border-ink/10 bg-cream/40 p-3">
+          <EventDateInput
+            key={`date-editor-${eventDate ?? 'empty'}`}
+            eventId={eventId}
+            initial={eventDate}
+            initialPrecision={eventDatePrecision}
+            confirmedVendorCount={confirmedVendorCount}
+            autoEdit
+            onClose={() => setDateEditing(false)}
+          />
+        </div>
+      ) : null}
+
       {/* State 2 of CeremonyTypeChip — host never set the ceremony before
           a vendor confirmed. Render the muted "Not set" chip below the
           meta line so it stays visible without polluting the main line. */}
@@ -226,28 +253,6 @@ export function EventMetaLine({
           <Pencil aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           <span>Set wedding type</span>
         </button>
-      ) : null}
-
-      {/* Inline date editor — only renders when the date pencil is tapped.
-          Reuses the existing EventDateInput component so the precision
-          selector + refine-only ratchet + server action plumbing stay
-          untouched. autoEdit=true so it mounts directly into edit mode
-          (skips its own read-mode chip + Edit button — the meta line
-          above already serves that role). onClose collapses the wrapper
-          on save success or Cancel so the host never sees a duplicate
-          read-mode chip stacked under the meta line. */}
-      {dateEditing ? (
-        <div className="rounded-md border border-ink/10 bg-cream/40 p-3">
-          <EventDateInput
-            key={`date-editor-${eventDate ?? 'empty'}`}
-            eventId={eventId}
-            initial={eventDate}
-            initialPrecision={eventDatePrecision}
-            confirmedVendorCount={confirmedVendorCount}
-            autoEdit
-            onClose={() => setDateEditing(false)}
-          />
-        </div>
       ) : null}
 
       {/* Ceremony modal */}

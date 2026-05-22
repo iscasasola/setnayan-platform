@@ -68,7 +68,17 @@ const NAV: Entry[] = [
     ],
   },
   { kind: 'leaf', href: '/admin/funnels', label: 'Funnels' },
-  { kind: 'leaf', href: '/admin/settings', label: 'Settings' },
+  {
+    kind: 'group',
+    label: 'Settings',
+    items: [
+      { href: '/admin/settings', label: 'Platform settings' },
+      // Payment methods is also reachable from the Money group above —
+      // surfaced here too because it's a Settings surface conceptually.
+      { href: '/admin/settings/payment-methods', label: 'Payment methods' },
+      { href: '/admin/settings/demo-mode', label: 'Demo mode' },
+    ],
+  },
 ];
 
 function isActiveHref(pathname: string, href: string): boolean {

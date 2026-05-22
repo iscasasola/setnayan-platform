@@ -2,7 +2,9 @@ import type { Metadata, Viewport } from 'next';
 import { Cormorant_Garamond, Manrope, DM_Mono } from 'next/font/google';
 import Script from 'next/script';
 import './globals.css';
+import { Suspense } from 'react';
 import { ClientTypeDetector } from './_components/client-type-detector';
+import { DemoModeBanner } from './_components/demo-mode-banner';
 import { PilotModeBanner } from './_components/pilot-mode-banner';
 import { Providers } from './providers';
 
@@ -131,6 +133,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-dvh bg-cream font-sans text-ink antialiased">
         <PilotModeBanner />
+        {/*
+          DemoModeBanner is admin-only (the server component itself
+          short-circuits to null for non-admin sessions, even if a stale
+          cookie is present). Wrapped in Suspense so anonymous + non-admin
+          visitors don't wait on the cookie + auth lookup — the public
+          marketing surface stays as fast as before; only admin sessions
+          actually hit the banner-render path.
+        */}
+        <Suspense fallback={null}>
+          <DemoModeBanner />
+        </Suspense>
         <Providers>{children}</Providers>
         <ClientTypeDetector />
         <Script id="sw-register" strategy="afterInteractive">

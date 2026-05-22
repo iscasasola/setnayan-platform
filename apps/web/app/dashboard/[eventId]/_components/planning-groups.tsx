@@ -38,6 +38,7 @@ import { DirectionsButtons } from './directions-buttons';
 import { PlanCardCTAs } from './plan-card-ctas';
 import { OfficiantParishCTAs } from './officiant-parish-ctas';
 import { PlanCardCompare } from './plan-card-compare';
+import { PlanCardLock } from './plan-card-lock';
 import { RecommendedVendorRow } from './recommended-vendor-row';
 import { SwitchVendorConfirm } from './switch-vendor-confirm';
 import { CardSelectable } from './card-selectable';
@@ -757,6 +758,23 @@ function GroupCard({
             groupLabel={group.label}
             groupCategories={group.categories}
             picks={picks}
+          />
+        </div>
+      ) : picks.length === 1 && picks[0]!.status !== 'locked' ? (
+        // Single-pick case (2026-05-22 owner directive). Compare gates on
+        // picks.length >= 2; without this affordance the host has no
+        // in-card path to lock a single considering vendor. The hasLocked
+        // short-circuit higher in GroupCard already returned for the
+        // locked-state variant — the picks[0].status guard here is
+        // belt-and-braces against the LockedCard not catching it
+        // (multi-canonical groups with one locked + one picked share a
+        // single card; that case renders as LockedCard not this branch).
+        <div className="-mt-1">
+          <PlanCardLock
+            eventId={eventId}
+            groupId={group.id}
+            groupLabel={group.label}
+            pick={picks[0]!}
           />
         </div>
       ) : null}

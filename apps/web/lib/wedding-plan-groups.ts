@@ -770,6 +770,18 @@ export type PlanCardPick = {
    * NULL otherwise.
    */
   source_category: VendorCategory | null;
+  /**
+   * Vendor packages back-link (owner directive 2026-05-22 — vendor
+   * packages + cascade-lock). When the event_vendors row was cascade-
+   * created from a locked vendor package, these carry the booking ID
+   * + package name. Powers the "Included in <package name>" badge on
+   * the LockedCard variant.
+   *
+   * Both are null on standalone (non-package) event_vendors rows.
+   * Consumers fall back to the normal locked-card render in that case.
+   */
+  event_vendor_package_id: string | null;
+  package_name: string | null;
 };
 
 export type GroupedPicks = {
@@ -878,6 +890,15 @@ export type EventVendorRowInput = {
    * source === 'auto_cascade_from_finalize'.
    */
   source_category?: VendorCategory | null;
+  /**
+   * Vendor packages back-link (owner directive 2026-05-22 — vendor
+   * packages + cascade-lock). When set, this event_vendors row was
+   * cascade-created from a locked package. The dashboard fetch joins
+   * event_vendor_packages → vendor_packages to resolve the
+   * package_name for the "Included in <package>" badge.
+   */
+  event_vendor_package_id?: string | null;
+  package_name?: string | null;
 };
 
 /**
@@ -1043,6 +1064,8 @@ export function bucketVendorsByGroup(
       manual_vendor_photo_url: v.manual_vendor_photo_url ?? null,
       source: v.source ?? null,
       source_category: (v.source_category ?? null) as VendorCategory | null,
+      event_vendor_package_id: v.event_vendor_package_id ?? null,
+      package_name: v.package_name ?? null,
     };
     for (const g of PLAN_GROUPS) {
       if (g.categories.includes(v.category)) {

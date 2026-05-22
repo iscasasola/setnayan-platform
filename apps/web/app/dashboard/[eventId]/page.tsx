@@ -231,6 +231,84 @@ function currentStage(daysOut: number | null, guestCount: number): Stage['key'] 
   return 'dreaming';
 }
 
+/**
+ * Defensive event_vendors fetcher — tries the new
+ * `event_vendor_package_id` column first (added 2026-05-22, migration
+ * 20260604110000_vendor_packages.sql). If a stale deploy environment
+ * hasn't applied that migration yet, the PostgREST query errors with a
+ * "column does not exist" message; we fall back to the legacy select
+ * without `event_vendor_package_id`, so event home keeps rendering. The
+ * "Included in <package>" badge just won't appear until the migration
+ * lands. Once the migration is applied, the fallback path is dormant.
+ *
+ * Mirrors the same pattern `/v/[slug]` uses for the `is_demo` column
+ * (PR brief 2026-05-22 evening — marketplace simulation workstream).
+ */
+type EventVendorsResult = Awaited<
+  ReturnType<
+    ReturnType<
+      Awaited<ReturnType<typeof import('@/lib/supabase/server').createClient>>['from']
+    >['select']
+  >
+>;
+
+async function fetchEventVendorsRobust(
+  supabase: Awaited<ReturnType<typeof import('@/lib/supabase/server').createClient>>,
+  eventId: string,
+): Promise<EventVendorsResult> {
+  // Full select includes both this PR's `event_vendor_package_id` (migration
+  // 20260604110000) AND the sibling 22-card-grid PR's
+  // `manual_vendor_id, source, source_category` (migration 20260604120000).
+  // If the package column is missing in a stale environment, fall back to
+  // the wider sibling-only select. If those are missing too, fall back to
+  // the legacy pre-2026-05-22 select. Three-tier fallback keeps event
+  // home rendering across every migration ordering.
+  const fullSelect =
+    'vendor_id, vendor_name, category, status, total_cost_php, deposit_paid_php, notes, contact_email, contact_phone, marketplace_vendor_id, source_venue_directory_id, service_id, manual_vendor_id, source, source_category, event_vendor_package_id';
+  const siblingOnlySelect =
+    'vendor_id, vendor_name, category, status, total_cost_php, deposit_paid_php, notes, contact_email, contact_phone, marketplace_vendor_id, source_venue_directory_id, service_id, manual_vendor_id, source, source_category';
+  const legacySelect =
+    'vendor_id, vendor_name, category, status, total_cost_php, deposit_paid_php, notes, contact_email, contact_phone, marketplace_vendor_id, source_venue_directory_id, service_id';
+
+  // Cross-category recommendations + finalize cleanup (CLAUDE.md
+  // 2026-05-22). Active rows only — archived picks live in DB for audit
+  // + potential restore via SwitchVendorConfirm but shouldn't surface on
+  // home / bucketing. The `archived_at IS NULL` filter applies to all
+  // three select-tiers; if the column itself is missing (pre-archive
+  // migration 20260604100000), the .is() filter silently no-ops in
+  // PostgREST (returns "column does not exist" which falls through to
+  // the next tier).
+  const fullResult = await supabase
+    .from('event_vendors')
+    .select(fullSelect)
+    .eq('event_id', eventId)
+    .is('archived_at', null)
+    .order('created_at', { ascending: true });
+  if (
+    fullResult.error &&
+    /event_vendor_package_id/i.test(fullResult.error.message)
+  ) {
+    const siblingResult = await supabase
+      .from('event_vendors')
+      .select(siblingOnlySelect)
+      .eq('event_id', eventId)
+      .is('archived_at', null)
+      .order('created_at', { ascending: true });
+    if (
+      siblingResult.error &&
+      /(manual_vendor_id|source_category|source)\b/i.test(siblingResult.error.message)
+    ) {
+      return supabase
+        .from('event_vendors')
+        .select(legacySelect)
+        .eq('event_id', eventId)
+        .order('created_at', { ascending: true });
+    }
+    return siblingResult;
+  }
+  return fullResult;
+}
+
 export default async function EventHomePage({
   params,
   searchParams,
@@ -306,32 +384,17 @@ export default async function EventHomePage({
       // events.ceremony_type / events.venue_setting. Two follow-up batch
       // queries against vendor_profiles + venue_directory enrich each
       // row with its compat arrays before bucketVendorsByGroup runs.
-      supabase
-        .from('event_vendors')
-        .select(
-          // service_id (added 2026-05-22, migration
-          // 20260604070000_vendor_services_primary_photo_and_event_link)
-          // links the saved row to the specific vendor_services entry
-          // the host booked. Drives the PRIORITY 1 service-photo
-          // resolution on the locked-state avatars. NULL on off-platform
-          // / custom rows + pre-2026-05-22 rows — falls through to
-          // marketplace_logo_url (PR #341 baseline) at render time.
-          //
-          // source + source_category (added 2026-05-22, migration
-          // 20260604120000_event_vendors_source_tracking) drive the
-          // Sparkles badge on auto-cascaded considering picks.
-          'vendor_id, vendor_name, category, status, total_cost_php, deposit_paid_php, notes, contact_email, contact_phone, marketplace_vendor_id, source_venue_directory_id, service_id, manual_vendor_id, source, source_category',
-        )
-        .eq('event_id', eventId)
-        // Cross-category recommendations + finalize cleanup (CLAUDE.md
-        // 2026-05-22). When the host locks ONE vendor in a category,
-        // the other considering picks in that same category are
-        // soft-archived. The home grid + planning-groups bucketing
-        // should only see active rows — archived ones stay in DB for
-        // audit + potential restore via the existing SwitchVendorConfirm
-        // flow.
-        .is('archived_at', null)
-        .order('created_at', { ascending: true }),
+      //
+      // source + source_category (added 2026-05-22, migration
+      // 20260604120000_event_vendors_source_tracking) drive the
+      // Sparkles badge on auto-cascaded considering picks.
+      //
+      // event_vendor_package_id (added 2026-05-22, migration
+      // 20260604110000_vendor_packages) drives the "Included in
+      // <package>" badge on the LockedCard variant. Defensive fetch via
+      // fetchEventVendorsRobust falls back to the legacy select when
+      // the column is missing on a stale deploy environment.
+      fetchEventVendorsRobust(supabase, eventId),
       // Task #37 — confirmed-vendor count drives the date-edit + ceremony-
       // type-edit lock state on event home. Same RLS scope as the vendors
       // query above; getConfirmedVendorCount returns 0 on error so a
@@ -474,7 +537,20 @@ export default async function EventHomePage({
     marketplace_vendor_id: string | null;
     source_venue_directory_id: string | null;
     service_id: string | null;
-    manual_vendor_id: string | null;
+    // 22-card-grid PR (migration 20260604120000_event_vendors_source_tracking)
+    // adds manual_vendor_id, source, source_category. Optional on the type
+    // because fetchEventVendorsRobust may fall back to the legacy select
+    // when the columns are missing on a stale deploy.
+    manual_vendor_id?: string | null;
+    source?: string | null;
+    source_category?: VendorCategory | null;
+    // Vendor packages back-link (owner directive 2026-05-22 — vendor
+    // packages + cascade-lock). Optional because the column may be
+    // missing on stale deploys before migration 20260604110000 lands —
+    // defensive read via fetchEventVendorsRobust falls back to the
+    // sibling-only or legacy select in those cases. Drives the
+    // "Included in <package>" badge on the LockedCard variant.
+    event_vendor_package_id?: string | null;
   }>;
 
   // PR B 2026-05-22 — enrich each event_vendor row with the compatibility
@@ -514,6 +590,23 @@ export default async function EventHomePage({
     new Set(
       eventVendorsRaw
         .map((v) => v.service_id)
+        .filter((id): id is string => id !== null),
+    ),
+  );
+  // Vendor packages back-link (owner directive 2026-05-22). Single batch
+  // fetch resolves every package_name for every linked
+  // event_vendor_package_id present on this event's picks. Drives the
+  // "Included in <package>" badge on the LockedCard variant. Map is
+  // empty when migration 20260604110000 hasn't shipped OR when no picks
+  // came from a package — badge just doesn't render in either case.
+  const packageBookingIds = Array.from(
+    new Set(
+      eventVendorsRaw
+        .map(
+          (v) =>
+            (v as { event_vendor_package_id?: string | null })
+              .event_vendor_package_id ?? null,
+        )
         .filter((id): id is string => id !== null),
     ),
   );
@@ -562,6 +655,21 @@ export default async function EventHomePage({
           vendor_service_id: string;
           primary_photo_r2_key: string | null;
         }> }),
+    // Vendor packages back-link (owner directive 2026-05-22) — resolve
+    // package_name for every event_vendor_package_id on this event's
+    // picks. Two-table join via Supabase nested select; falls back to
+    // empty data on any error (migration unapplied, RLS quirk, etc.).
+    packageBookingIds.length > 0
+      ? adminClient
+          .from('event_vendor_packages')
+          .select(
+            'booking_id, vendor_packages:package_id(package_name)',
+          )
+          .in('booking_id', packageBookingIds)
+      : Promise.resolve({ data: [] as Array<{
+          booking_id: string;
+          vendor_packages: { package_name: string } | null;
+        }> }),
   ]);
   const marketplaceCompatMap = new Map<
     string,
@@ -604,6 +712,17 @@ export default async function EventHomePage({
         row.vendor_service_id,
         r2PublicUrl(R2_BUCKETS.media, key),
       );
+    }
+  }
+  // Vendor packages back-link (owner directive 2026-05-22). booking_id →
+  // package_name. Empty map when no package picks OR when migration
+  // unapplied — badge silently doesn't render in either case.
+  const packageNameMap = new Map<string, string>();
+  for (const row of compatibilityFetches[3]?.data ?? []) {
+    const pkg = (row as { vendor_packages?: { package_name?: string } | null })
+      .vendor_packages;
+    if (pkg?.package_name) {
+      packageNameMap.set(row.booking_id, pkg.package_name);
     }
   }
 
@@ -726,6 +845,31 @@ export default async function EventHomePage({
       // marketplace logo + initials. NULL means "fall through to the
       // next tier" — no special handling needed downstream.
       manual_vendor_photo_url: manualVendorPhotoUrl,
+      // 22-card-grid auto-cascade source tracking — drives the Sparkles
+      // badge on auto-cascaded considering picks. Optional on the raw
+      // row (may be missing on stale deploys); coerce to null here.
+      source: (v as { source?: string | null }).source ?? null,
+      source_category:
+        ((v as { source_category?: VendorCategory | null }).source_category ??
+          null) as VendorCategory | null,
+      // Vendor packages back-link (owner directive 2026-05-22 — vendor
+      // packages + cascade-lock). When the row was cascade-created from
+      // a locked vendor package, carries the package_name so the
+      // LockedCard "Included in <package>" badge can render. NULL on
+      // standalone (non-package) rows.
+      event_vendor_package_id:
+        (v as { event_vendor_package_id?: string | null })
+          .event_vendor_package_id ?? null,
+      package_name:
+        (v as { event_vendor_package_id?: string | null })
+          .event_vendor_package_id !== null &&
+        (v as { event_vendor_package_id?: string | null })
+          .event_vendor_package_id !== undefined
+          ? packageNameMap.get(
+              (v as { event_vendor_package_id: string })
+                .event_vendor_package_id,
+            ) ?? null
+          : null,
     };
   });
 

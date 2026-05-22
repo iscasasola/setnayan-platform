@@ -2068,7 +2068,11 @@ async function CatalogView({
 
         <CatalogFilterBar matchableEvent={matchableEvent} />
 
-        <FolderTabs tabs={tabs} totalCount={totalCategories} />
+        <FolderTabs
+          tabs={tabs}
+          totalCount={totalCategories}
+          scopedFolder={scopedFolder}
+        />
 
         {scopedFolder !== null ? (
           <ScopedFolderBanner folder={scopedFolder} />

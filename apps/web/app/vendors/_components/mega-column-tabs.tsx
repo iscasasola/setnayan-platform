@@ -18,6 +18,23 @@ type Props = {
   tabs: ReadonlyArray<FolderTab>;
   /** Combined count across all folders — drives the "All" chip badge. */
   totalCount: number;
+  /**
+   * When the catalog is scoped to a single folder via `?folder=…` (per PR
+   * #310 / Task #47 2026-05-22), the other 11 sections are NOT rendered
+   * in the DOM. Hash-only navigation breaks because `#photo-video` etc.
+   * point at elements that don't exist. When `scopedFolder` is set:
+   *   1. tab clicks navigate via full URL (`/vendors?folder=<slug>#<slug>`)
+   *      preserving sibling URL params (?match=1, ?venue=0, ?demo=1, ?city=…)
+   *   2. the active chip is fixed to the scoped folder (IntersectionObserver
+   *      is skipped — only one section exists, the observer is moot)
+   *   3. clicking "All" navigates to `/vendors` (clears the scope) while
+   *      preserving sibling params
+   *
+   * When `scopedFolder` is null (unscoped /vendors browse), behavior is
+   * unchanged — hash nav scrolls within the single-page catalog and the
+   * IntersectionObserver tracks active section on scroll.
+   */
+  scopedFolder?: WeddingFolder | null;
 };
 
 /**
@@ -26,14 +43,46 @@ type Props = {
  * IntersectionObserver against the section headings so the chip auto-
  * highlights as the user scrolls.
  *
- * Hash navigation only (no router state) — keeps the catalog SSR-friendly and
- * lets browsers handle scroll-restoration on back/forward. CSS
+ * Hash navigation in unscoped catalog mode — keeps the catalog SSR-friendly
+ * and lets browsers handle scroll-restoration on back/forward. CSS
  * `scroll-behavior: smooth` on `<html>` gives the smooth-scroll animation.
+ *
+ * Full-URL navigation in scoped catalog mode (when `?folder=…` is set) —
+ * required because sibling folder sections aren't in the DOM; hash nav
+ * would silently fail. See `scopedFolder` prop docs above.
  */
-export function FolderTabs({ tabs, totalCount }: Props) {
-  const [activeSlug, setActiveSlug] = useState<string>('all');
+export function FolderTabs({ tabs, totalCount, scopedFolder = null }: Props) {
+  // Default the active chip to the scoped folder when in scoped mode;
+  // otherwise start on 'all' and let IntersectionObserver take over.
+  const initialActive = scopedFolder
+    ? (tabs.find((t) => t.folder === scopedFolder)?.slug ?? 'all')
+    : 'all';
+  const [activeSlug, setActiveSlug] = useState<string>(initialActive);
+  // Captured on mount in the browser so we can preserve sibling URL
+  // params when navigating between folders in scoped mode. SSR returns
+  // an empty string — first paint links omit sibling params, then the
+  // useEffect rebuilds them client-side. Acceptable because hydration
+  // happens before any click.
+  const [siblingParams, setSiblingParams] = useState<string>('');
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    params.delete('folder'); // tab hrefs set folder per-tab
+    const rest = params.toString();
+    setSiblingParams(rest);
+  }, []);
+
+  useEffect(() => {
+    // Scoped mode: only one section exists. Pin the active chip to the
+    // scoped folder; skip IntersectionObserver entirely.
+    if (scopedFolder !== null) {
+      const slug =
+        tabs.find((t) => t.folder === scopedFolder)?.slug ?? 'all';
+      setActiveSlug(slug);
+      return;
+    }
+    // Unscoped mode: track active section on scroll.
     if (typeof window === 'undefined') return;
     const targets = tabs
       .map((t) => document.getElementById(t.slug))
@@ -60,7 +109,29 @@ export function FolderTabs({ tabs, totalCount }: Props) {
     );
     targets.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
-  }, [tabs]);
+  }, [tabs, scopedFolder]);
+
+  /**
+   * Build the href for a tab. In unscoped mode this is hash-only
+   * (`#<slug>`), preserving the original behavior. In scoped mode this is
+   * a full URL with `?folder=<slug>` (or no `?folder=` for the All tab,
+   * which clears the scope), preserving any sibling URL params present
+   * on the current page so the user doesn't lose `?match=1`, `?venue=0`,
+   * `?demo=1`, `?city=…`, etc. when switching folders.
+   */
+  const hrefFor = (slug: string): string => {
+    if (scopedFolder === null) {
+      return `#${slug}`;
+    }
+    const suffix = siblingParams ? `&${siblingParams}` : '';
+    if (slug === 'all') {
+      // Clear the scope. Keep sibling params (drop only ?folder).
+      return siblingParams
+        ? `/vendors?${siblingParams}#all`
+        : '/vendors#all';
+    }
+    return `/vendors?folder=${slug}${suffix}#${slug}`;
+  };
 
   return (
     <nav
@@ -70,7 +141,7 @@ export function FolderTabs({ tabs, totalCount }: Props) {
       <ul className="flex min-w-max items-center gap-2 sm:gap-2.5">
         <li>
           <a
-            href="#all"
+            href={hrefFor('all')}
             aria-current={activeSlug === 'all' ? 'true' : undefined}
             className={
               activeSlug === 'all'
@@ -87,7 +158,7 @@ export function FolderTabs({ tabs, totalCount }: Props) {
           return (
             <li key={tab.slug}>
               <a
-                href={`#${tab.slug}`}
+                href={hrefFor(tab.slug)}
                 aria-current={active ? 'true' : undefined}
                 className={
                   active

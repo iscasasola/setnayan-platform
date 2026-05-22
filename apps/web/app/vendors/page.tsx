@@ -49,6 +49,18 @@ import {
   getEventCommonAvailability,
 } from '@/lib/vendor-availability';
 import { VendorsAvailabilityBanner } from './_components/vendors-availability-banner';
+// 2026-05-22 quick-view redesign — see CLAUDE.md decision log row
+// "Ship vendor marketplace card quick-view redesign + 4-badge system".
+// VendorCard replaces the inline VendorMarketCard render and consumes
+// the badge engine + review carousel + service-photo enrichment.
+import { VendorCard } from './_components/vendor-card';
+import {
+  computeVendorBadges,
+  fetchCompletedBookingCounts,
+  type VendorBadge,
+} from '@/lib/vendor-badges';
+import { fetchLatestReviewsByVendor } from '@/lib/vendor-reviews-preview';
+import { r2PublicUrl, R2_BUCKETS } from '@/lib/r2';
 
 // Mirrors TaxonomyEntry['faith']. `null` covers two cases: anonymous browse
 // (no event linked) AND civil ceremonies (secular by nature — no faith tag
@@ -323,6 +335,23 @@ type VendorCardRow = {
   // row. Real-vendor cards never populate this in V1 (the 2026-05-16
   // hide-prices lock).
   demo_starts_at_label?: string | null;
+  // 2026-05-22 quick-view enrichment additions. All optional + null-
+  // safe — the new VendorCard handles missing values by hiding the
+  // surface, never by surfacing a placeholder.
+  /** `vendor_profiles.verification_state` — pulled in a targeted
+   *  follow-up read because the `vendor_market_stats` view didn't
+   *  carry it pre-2026-05-22. Drives the badge engine in
+   *  `lib/vendor-badges.ts`. */
+  verification_state?: string | null;
+  /** Resolved public URL for the vendor's hero service photo
+   *  (`vendor_services.primary_photo_r2_key` → r2PublicUrl). Null when
+   *  the vendor has no service with a photo set. */
+  primary_photo_url?: string | null;
+  /** Lowest active `vendor_services.starting_price_php` across all
+   *  the vendor's services. Real-vendor cards intentionally render
+   *  this only when present + the page is in demo mode OR the
+   *  vendor opts in (V1 hide-prices lock kept). */
+  starting_price_php?: number | null;
 };
 
 function parseFilters(
@@ -1085,6 +1114,148 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // and filter compose properly.
   const totalPages = Math.max(1, Math.ceil((totalCount ?? rows.length) / PAGE_SIZE));
 
+  // ---------------------------------------------------------------------
+  // 2026-05-22 vendor-card quick-view enrichment.
+  //
+  // Three batched reads run in parallel against the IDs in `visible` so
+  // the new VendorCard surface (badges + service hero photo + review
+  // carousel) renders without going N+1 against the DB:
+  //
+  //   (a) `vendor_profiles.verification_state` — needed for the badge
+  //       engine. Wasn't on `vendor_market_stats` pre-2026-05-22 so it
+  //       lives as a targeted follow-up SELECT.
+  //
+  //   (b) `vendor_services` rows for each vendor — we pick the lowest
+  //       `starting_price_php` per vendor (matches the "Starts at"
+  //       framing in the brief) and resolve the first non-null
+  //       `primary_photo_r2_key` for the hero photo.
+  //
+  //   (c) Completed-booking counts via `fetchCompletedBookingCounts`
+  //       — drives the `most_booking` badge.
+  //
+  //   (d) Latest reviews per vendor via `fetchLatestReviewsByVendor`
+  //       — drives the per-card carousel.
+  //
+  // All four fail-soft — empty maps when reads error so a partial DB
+  // hiccup doesn't take down the marketplace. Cards just render
+  // without their badges / carousel / price / photo until the next
+  // page load.
+  // ---------------------------------------------------------------------
+  const visibleVendorIds = visible.map((v) => v.vendor_profile_id);
+  const [verificationByVendorId, servicesByVendorId, bookingCounts, reviewsByVendorId] =
+    await Promise.all([
+      (async (): Promise<Map<string, string>> => {
+        if (visibleVendorIds.length === 0) return new Map();
+        const { data, error } = await admin
+          .from('vendor_profiles')
+          .select('vendor_profile_id, verification_state')
+          .in('vendor_profile_id', visibleVendorIds);
+        if (error) {
+          console.error('[vendors] verification_state fetch failed', error);
+          return new Map();
+        }
+        const out = new Map<string, string>();
+        for (const row of data ?? []) {
+          const r = row as { vendor_profile_id: string; verification_state: string | null };
+          if (r.verification_state) out.set(r.vendor_profile_id, r.verification_state);
+        }
+        return out;
+      })(),
+      (async (): Promise<
+        Map<string, { startingPrice: number | null; photoR2Key: string | null }>
+      > => {
+        if (visibleVendorIds.length === 0) return new Map();
+        const { data, error } = await admin
+          .from('vendor_services')
+          .select(
+            'vendor_profile_id, starting_price_php, primary_photo_r2_key, is_active',
+          )
+          .in('vendor_profile_id', visibleVendorIds);
+        if (error) {
+          console.error('[vendors] vendor_services fetch failed', error);
+          return new Map();
+        }
+        const out = new Map<
+          string,
+          { startingPrice: number | null; photoR2Key: string | null }
+        >();
+        for (const row of data ?? []) {
+          const r = row as {
+            vendor_profile_id: string;
+            starting_price_php: number | null;
+            primary_photo_r2_key: string | null;
+            is_active: boolean | null;
+          };
+          // Skip inactive services — they shouldn't drive the
+          // surfaced starting price.
+          if (r.is_active === false) continue;
+          const existing = out.get(r.vendor_profile_id);
+          // Lowest starting price wins. Photo lookup picks the first
+          // service with a non-null key (deterministic but not
+          // strictly cheapest — that's intentional, the hero photo
+          // doesn't need to match the cheapest service).
+          const newPrice =
+            r.starting_price_php !== null && r.starting_price_php > 0
+              ? r.starting_price_php
+              : null;
+          const newPhoto =
+            r.primary_photo_r2_key && r.primary_photo_r2_key.length > 0
+              ? r.primary_photo_r2_key
+              : null;
+          if (!existing) {
+            out.set(r.vendor_profile_id, {
+              startingPrice: newPrice,
+              photoR2Key: newPhoto,
+            });
+            continue;
+          }
+          const startingPrice =
+            existing.startingPrice === null
+              ? newPrice
+              : newPrice === null
+                ? existing.startingPrice
+                : Math.min(existing.startingPrice, newPrice);
+          const photoR2Key = existing.photoR2Key ?? newPhoto;
+          out.set(r.vendor_profile_id, { startingPrice, photoR2Key });
+        }
+        return out;
+      })(),
+      fetchCompletedBookingCounts(admin, visibleVendorIds),
+      fetchLatestReviewsByVendor(admin, visibleVendorIds),
+    ]);
+
+  // Enrich each visible row with the new optional fields. Real-vendor
+  // cards stay price-less per the 2026-05-16 hide-prices lock UNLESS
+  // demo mode is on (which already populates `demo_starts_at_label`
+  // above) — passing `starting_price_php` only for demo rows preserves
+  // that contract while letting the card's price line stay generic.
+  // V1.1 candidate: surface `starting_price_php` for real vendors too
+  // once the hide-prices lock is reconsidered (owner decision pending).
+  for (const v of visible) {
+    v.verification_state = verificationByVendorId.get(v.vendor_profile_id) ?? null;
+    const svc = servicesByVendorId.get(v.vendor_profile_id);
+    v.primary_photo_url = svc?.photoR2Key
+      ? r2PublicUrl(R2_BUCKETS.media, svc.photoR2Key)
+      : null;
+    // Only expose starting_price_php on demo cards in V1; real cards
+    // keep the price line hidden per hide-prices lock.
+    v.starting_price_php =
+      v.is_demo === true && svc?.startingPrice ? svc.startingPrice : null;
+  }
+
+  // Badge computation runs against the enriched `visible` set so
+  // percentile thresholds reflect what's on this page.
+  const badgesByVendorId = computeVendorBadges(
+    visible.map((v) => ({
+      vendor_profile_id: v.vendor_profile_id,
+      verification_state: v.verification_state ?? null,
+      created_at: v.created_at,
+      avg_rating_overall: v.avg_rating_overall ?? 0,
+      review_count: v.review_count ?? 0,
+    })),
+    bookingCounts,
+  );
+
   return (
     <main className="min-h-dvh bg-cream">
       {/* Inline marketplace header. Auth-aware CTA swap (2026-05-20): when
@@ -1209,7 +1380,12 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                   : null;
               return (
                 <li key={v.vendor_profile_id}>
-                  <VendorMarketCard
+                  {/* 2026-05-22 quick-view redesign — VendorCard
+                      replaces the legacy VendorMarketCard. Adds the
+                      4-badge row + service hero photo + recent-reviews
+                      carousel + "Service by Business" header line per
+                      the owner directive (CLAUDE.md decision log). */}
+                  <VendorCard
                     vendor={v}
                     rating={Number(v.avg_rating_overall ?? 0)}
                     reviewCount={v.review_count ?? 0}
@@ -1219,6 +1395,8 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                     eventId={coupleEventId}
                     venueAnchor={venueAnchor}
                     ad={ad}
+                    badges={badgesByVendorId.get(v.vendor_profile_id) ?? []}
+                    reviews={reviewsByVendorId.get(v.vendor_profile_id) ?? []}
                   />
                 </li>
               );
@@ -1568,256 +1746,6 @@ function EmptyState({
   );
 }
 
-function VendorMarketCard({
-  vendor,
-  rating,
-  reviewCount,
-  isAuthenticated,
-  isFollowing,
-  isSaved,
-  eventId,
-  venueAnchor,
-  ad,
-}: {
-  vendor: VendorCardRow;
-  rating: number;
-  reviewCount: number;
-  isAuthenticated: boolean;
-  isFollowing: boolean;
-  isSaved: boolean;
-  eventId: string | null;
-  venueAnchor: { lat: number; lng: number } | null;
-  ad: ActiveAdLookup | null;
-}) {
-  const primaryService = vendor.services[0] ?? null;
-  const slug = vendor.business_slug ?? null;
-  const href = slug ? `/v/${slug}` : `#`;
-  const visibility = parseVisibility(vendor.public_visibility);
-  const bookable = isBookable(visibility);
-  // Coming-soon cards render with a muted appearance + badge, no booking
-  // CTA (FollowGate hidden), read-only preview. Per 0006 § DIY-mode filter
-  // popup + 0022 § 2.1c.
-  const isComingSoon = visibility === 'coming_soon';
-  // Iteration 0022 § 5b — gold "Featured Sponsor" pill for the 30km long-
-  // commit tier; terracotta "Boosted" pill for the weekly 5/10/20km tier.
-  const sponsoredAccent = ad?.tier === 'sponsored';
-  const boostedAccent = ad?.tier === 'boosted';
-
-  // PR brief 2026-05-22 evening — demo card variants. Demo vendors get
-  // an amber DEMO chip + a starting-price row that the 2026-05-16 hide-
-  // prices lock keeps off non-demo cards. Both fields are populated by
-  // the page query when demo mode is on for an admin viewer.
-  const isDemoCard = vendor.is_demo === true;
-
-  return (
-    <article
-      className={`flex h-full flex-col gap-3 rounded-2xl border bg-cream p-4 transition-shadow hover:shadow-md ${
-        isDemoCard
-          ? 'border-amber-300 ring-1 ring-amber-200/70'
-          : isComingSoon
-            ? 'border-dashed border-ink/20 opacity-90'
-            : sponsoredAccent
-              ? 'border-amber-300 ring-1 ring-amber-200'
-              : boostedAccent
-                ? 'border-terracotta/30'
-                : 'border-ink/10'
-      }`}
-    >
-      <header className="flex items-center gap-3">
-        <Logo logoUrl={vendor.logo_url} name={vendor.business_name} />
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="truncate text-base font-semibold text-ink">
-              {/* Empty business_name is filtered out at the query level,
-                * so this fallback is purely defensive — keep it neutral
-                * instead of "Unnamed vendor", which read as dev text. */}
-              {vendor.business_name || 'Vendor'}
-            </h2>
-            {isDemoCard ? (
-              <span
-                className="shrink-0 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-amber-800"
-                title="Synthetic vendor — visible only to admins in demo mode."
-              >
-                <Sparkles className="h-3 w-3" strokeWidth={2} aria-hidden />
-                Demo
-              </span>
-            ) : null}
-            {isComingSoon ? (
-              <span className="shrink-0 rounded-full bg-ink/8 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
-                Coming soon
-              </span>
-            ) : null}
-            {sponsoredAccent ? (
-              <span className="shrink-0 rounded-full bg-amber-400 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-amber-950">
-                Featured Sponsor
-              </span>
-            ) : boostedAccent ? (
-              <span className="shrink-0 rounded-full bg-terracotta px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-cream">
-                Boosted
-              </span>
-            ) : null}
-          </div>
-          {primaryService ? (
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-              {displayServiceLabel(primaryService)}
-            </p>
-          ) : null}
-        </div>
-      </header>
-
-      {vendor.tagline ? (
-        <p className="line-clamp-2 text-sm text-ink/65">{vendor.tagline}</p>
-      ) : null}
-
-      {/* Demo-only pricing row. Real vendor cards stay price-less per
-          the 2026-05-16 hide-prices lock. */}
-      {isDemoCard && vendor.demo_starts_at_label ? (
-        <p className="font-mono text-xs text-amber-800/90">
-          {vendor.demo_starts_at_label}
-        </p>
-      ) : null}
-
-      <ul className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink/55">
-        {vendor.location_city ? (
-          <li className="inline-flex items-center gap-1">
-            <MapPin className="h-3.5 w-3.5" strokeWidth={1.75} />
-            {vendor.location_city}
-          </li>
-        ) : null}
-        {(() => {
-          // 2026-05-21 — distance from the couple's reception venue. Renders
-          // only when BOTH ends have coords; otherwise the city pill alone
-          // stays the geo-signal. Computation is haversine in-process, no
-          // DB or external call per card.
-          if (
-            !venueAnchor ||
-            vendor.hq_latitude === null ||
-            vendor.hq_longitude === null
-          ) {
-            return null;
-          }
-          const km = haversineKm(
-            venueAnchor.lat,
-            venueAnchor.lng,
-            Number(vendor.hq_latitude),
-            Number(vendor.hq_longitude),
-          );
-          return (
-            <li className="inline-flex items-center gap-1 text-terracotta">
-              <Navigation className="h-3.5 w-3.5" strokeWidth={1.75} />
-              {formatDistanceKm(km)} from venue
-            </li>
-          );
-        })()}
-        <li className="inline-flex items-center gap-1">
-          <Star
-            className={`h-3.5 w-3.5 ${
-              rating > 0 ? 'fill-amber-400 text-amber-500' : 'text-ink/25'
-            }`}
-            strokeWidth={1.75}
-          />
-          <span className="font-mono">
-            {rating > 0 ? formatStarRating(rating) : 'new'}
-          </span>
-          <span className="text-ink/45">
-            ({reviewCount} {reviewCount === 1 ? 'review' : 'reviews'})
-          </span>
-        </li>
-      </ul>
-
-      <div className="mt-auto space-y-2 pt-2">
-        {bookable ? (
-          <FollowGate
-            vendorProfileId={vendor.vendor_profile_id}
-            vendorName={vendor.business_name}
-            vendorEmail={vendor.contact_email}
-            isAuthenticated={isAuthenticated}
-            initialFollowing={isFollowing}
-            eventId={eventId}
-            revalidatePath="/vendors"
-            variant="card"
-          />
-        ) : (
-          <p className="text-xs text-ink/55">
-            Setnayan is verifying their setup.
-          </p>
-        )}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Save-to-picks (2026-05-20). Only surfaced for authenticated
-              couples with at least one event; the button itself is the
-              client component that does the heavy lifting. */}
-          {bookable && isAuthenticated && eventId ? (
-            <SaveVendorButton
-              vendorProfileId={vendor.vendor_profile_id}
-              initiallySaved={isSaved}
-              canSave={true}
-            />
-          ) : null}
-          {slug ? (
-            <Link
-              href={href}
-              className="text-xs font-medium text-terracotta hover:underline"
-            >
-              View profile →
-            </Link>
-          ) : null}
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function Logo({ logoUrl, name }: { logoUrl: string | null; name: string }) {
-  // Switch to next/image for optimized 48×48 AVIF delivery on the host
-  // origins next.config.ts whitelists (R2 + Supabase Storage). Vendor
-  // dashboard uploads land on one of those two, so in practice every logo
-  // takes the optimized path; the host-allowlist check below is a
-  // belt-and-braces guard so a stray external URL won't crash the page —
-  // it falls back to the initials avatar instead.
-  if (logoUrl && isOptimizableImageUrl(logoUrl)) {
-    return (
-      <span className="inline-flex h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-ink/10 bg-cream">
-        <Image
-          src={logoUrl}
-          alt={name}
-          width={48}
-          height={48}
-          sizes="48px"
-          className="h-full w-full object-cover"
-        />
-      </span>
-    );
-  }
-  const initials = name
-    .split(/\s+/)
-    .map((p) => p.charAt(0).toUpperCase())
-    .slice(0, 2)
-    .join('') || '?';
-  return (
-    <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-terracotta/15 text-base font-semibold text-terracotta-700">
-      {initials}
-    </span>
-  );
-}
-
-// Mirror of the host whitelist in next.config.ts's `images.remotePatterns`.
-// Kept inline (not exported) because the marketplace logo is the only
-// vendor-controlled URL the public route renders — if more surfaces need
-// this check it should graduate to lib/.
-function isOptimizableImageUrl(url: string): boolean {
-  let host: string;
-  try {
-    host = new URL(url).hostname;
-  } catch {
-    return false;
-  }
-  return (
-    host.endsWith('.r2.dev') ||
-    host.endsWith('.r2.cloudflarestorage.com') ||
-    host.endsWith('.supabase.co') ||
-    host.endsWith('.supabase.in')
-  );
-}
 
 function Pagination({
   filters,

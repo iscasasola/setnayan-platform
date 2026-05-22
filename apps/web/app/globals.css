@@ -4,80 +4,74 @@
 
 @layer base {
   /*
-   * Theme system — iteration 0021.
-   * Each theme block redefines the 3 brand tokens (+ two darker accent shades
-   * used in hover/focus states). All Tailwind utility classes consume these
-   * vars via the `rgb(var(--color-x) / <alpha-value>)` pattern, so
-   * `bg-cream/70`, `text-ink/40`, etc. continue to work with alpha.
+   * Theme system — brand pivot 2026-05-22 (CLAUDE.md decision-log).
    *
-   * Values are RGB triplets (space-separated) per Tailwind's CSS-variable
-   * color convention. Default lives on `:root` so unauthed surfaces stay on
-   * Setnayan brand; authenticated surfaces override on a wrapping element.
+   * WHY: Owner directive verbatim — "make our default color be like facebook
+   * white and blue. and remove the personalization of colors. It will be
+   * light, dark, auto. just like ios".
    *
-   * 2026-05-15: Setnayan Default accent swapped from terracotta to burgundy
-   * (CLAUDE.md decision log). Tailwind slot name `terracotta` preserved to
-   * avoid a codebase-wide class rename — the slot is semantically "accent"
-   * regardless of color. Spec-aligned hex tokens (--accent, --accent-deep,
-   * --accent-soft) are also exposed for components written against the Theme
-   * System Implementation Spec naming convention.
-   * 2026-05-15: Added 'Forest & Champagne Gold' as the fifth theme.
+   * SCOPE: app chrome only (dashboard / admin / vendor / marketplace / public
+   * marketing). The wedding landing page chrome at `app/[slug]/page.tsx` is
+   * OUT OF SCOPE — that surface is driven by the couple's mood-board palette
+   * per iteration 0010 + 0002 + 2026-05-22 unified-QR-lifecycle lock. Mood
+   * board palettes (`event_palettes`) and per-couple monogram colors are
+   * untouched.
+   *
+   * MODES:
+   *   Light  → Facebook white surface (#FFFFFF + #F0F2F5) + Facebook blue accent
+   *            (#1877F2 / hover #166FE5). Default for new accounts and
+   *            unauthed visitors.
+   *   Dark   → Facebook dark theme (#18191A bg + #242526 surface) + same blue
+   *            accent which reads cleanly on dark.
+   *   Auto   → Reads `prefers-color-scheme` at runtime. Default for
+   *            existing accounts whose legacy theme migrated to 'auto'.
+   *
+   * IMPLEMENTATION: `darkMode: 'class'` in tailwind.config.ts. The
+   * ThemeProvider client component sets `dark` class on `<html>` based on
+   * localStorage + system preference. A FOUC-safe inline script in
+   * layout.tsx <head> applies the class before first paint.
+   *
+   * LEGACY CLASS NAMES PRESERVED: Hundreds of components use `bg-cream`,
+   * `text-ink`, `text-terracotta`, `text-burgundy` etc. Renaming the call
+   * sites would touch hundreds of files. Instead the slot names stay; the
+   * VALUES remap to Facebook palette per mode. New code should prefer
+   * canonical tokens (`accent`, `surface`, `surface-soft`, `ink`, `ink-soft`)
+   * exposed below.
+   *
+   * RETIRED 2026-05-22: 5-theme picker (Setnayan Default · Victorian ·
+   * Classy · iOS · Forest Theme) per CLAUDE.md 2026-05-15 row 5. Spec doc
+   * `02_Specifications/Theme_System_Implementation_Spec.md` retains the
+   * historical content with a retirement banner per
+   * [[feedback_setnayan_document_changes_with_why]].
    */
-  :root,
-  [data-theme='setnayan_default'] {
-    --color-cream: 250 246 240;
-    --color-ink: 26 26 26;
-    --color-terracotta: 122 31 43;
-    --color-terracotta-600: 79 16 25;
-    --color-terracotta-700: 58 11 18;
-    --accent: #7a1f2b;
-    --accent-deep: #4f1019;
-    --accent-soft: #d9b8bd;
+  :root {
+    /* Light mode — Facebook white + blue (DEFAULT) */
+    --color-cream: 255 255 255;        /* page bg → Facebook white */
+    --color-ink: 5 5 5;                /* primary text → Facebook ink */
+    --color-terracotta: 24 119 242;    /* accent → Facebook blue #1877F2 */
+    --color-terracotta-600: 22 111 229; /* accent hover → #166FE5 */
+    --color-terracotta-700: 10 88 202;  /* accent deeper still */
+    --accent: #1877f2;
+    --accent-deep: #166fe5;
+    --accent-soft: #e7f3ff;
+    --surface: #ffffff;
+    --surface-soft: #f0f2f5;           /* Facebook card / muted surface */
+    --ink-soft: 101 103 107;           /* Facebook secondary text */
   }
 
-  [data-theme='victorian'] {
-    --color-cream: 245 235 217;
-    --color-ink: 46 26 26;
-    --color-terracotta: 139 30 63;
-    --color-terracotta-600: 111 24 50;
-    --color-terracotta-700: 84 18 38;
-    --accent: #8b1e3f;
-    --accent-deep: #5a0e2a;
-    --accent-soft: #d4b8c0;
-    --gold: #c9a66b;
-  }
-
-  [data-theme='classy'] {
-    --color-cream: 244 244 242;
-    --color-ink: 15 15 15;
-    --color-terracotta: 163 133 96;
-    --color-terracotta-600: 138 109 76;
-    --color-terracotta-700: 110 87 60;
-    --accent: #b8945f;
-    --accent-deep: #8c6b3f;
-    --accent-soft: #e8dcc0;
-  }
-
-  [data-theme='ios'] {
-    --color-cream: 242 242 247;
-    --color-ink: 0 0 0;
-    --color-terracotta: 0 122 255;
-    --color-terracotta-600: 0 100 209;
-    --color-terracotta-700: 0 78 167;
-    --accent: #007aff;
-    --accent-deep: #0040dd;
-    --accent-soft: #b3d7ff;
-  }
-
-  [data-theme='forest_champagne'] {
-    --color-cream: 244 240 232;
-    --color-ink: 26 37 32;
-    --color-terracotta: 45 74 58;
-    --color-terracotta-600: 26 47 35;
-    --color-terracotta-700: 18 33 25;
-    --accent: #2d4a3a;
-    --accent-deep: #1a2f23;
-    --accent-soft: #b8c9bf;
-    --gold: #c9a66b;
+  html.dark {
+    /* Dark mode — Facebook dark */
+    --color-cream: 24 25 26;           /* page bg → Facebook dark */
+    --color-ink: 228 230 235;          /* primary text → Facebook dark ink */
+    --color-terracotta: 45 136 255;    /* accent → brighter blue for contrast */
+    --color-terracotta-600: 24 119 242;
+    --color-terracotta-700: 22 111 229;
+    --accent: #2d88ff;
+    --accent-deep: #1877f2;
+    --accent-soft: #263951;
+    --surface: #18191a;
+    --surface-soft: #242526;
+    --ink-soft: 176 179 184;
   }
 
   html {
@@ -85,6 +79,10 @@
     -webkit-tap-highlight-color: transparent;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+  }
+
+  html.dark {
+    color-scheme: dark;
   }
 
   body {
@@ -151,8 +149,7 @@
  * but hand-rolled so we don't take on a third-party motion lib.
  *
  * `prefers-reduced-motion: reduce` is already handled by the global block
- * above (line 116) which forces `animation-duration: 0.001ms`. No extra
- * guard needed here.
+ * above which forces `animation-duration: 0.001ms`. No extra guard needed.
  */
 @keyframes aurora-drift-1 {
   0%,

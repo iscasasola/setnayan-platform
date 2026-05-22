@@ -5,13 +5,15 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
-const VALID_THEMES = [
-  'setnayan_default',
-  'victorian',
-  'classy',
-  'ios',
-  'forest_champagne',
-] as const;
+// 2026-05-22 brand pivot (CLAUDE.md decision-log). 5-theme list retired —
+// replaced with 3-mode (Light · Dark · Auto). Owner directive: "make our
+// default color be like facebook white and blue. and remove the personalization
+// of colors. It will be light, dark, auto. just like ios". The Postgres ENUM
+// `theme_preference` is migrated to the 3 new values via
+// `supabase/migrations/20260606000000_users_theme_preference_three_mode.sql` —
+// legacy rows remap to 'light' (setnayan_default / victorian / classy /
+// forest_champagne) or 'auto' (ios). See CLAUDE.md row for full rationale.
+const VALID_THEMES = ['light', 'dark', 'auto'] as const;
 type ThemePreference = (typeof VALID_THEMES)[number];
 
 function isValidTheme(value: unknown): value is ThemePreference {

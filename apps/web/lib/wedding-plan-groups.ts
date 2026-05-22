@@ -1,16 +1,22 @@
 /**
- * 12-group wedding planning structure (owner-locked 2026-05-20).
+ * 22-group wedding planning structure (owner directive 2026-05-22).
  *
  * The couple home page (iteration 0021) groups every relevant Filipino
- * wedding decision into 12 logical buckets, each anchored to a typical
- * lead-time before the wedding date. Picked vendors from `event_vendors`
- * are bucketed by group via the `categories` array; each group also
- * advertises a target date computed from the event_date and
+ * wedding decision into 22 logical buckets, rendered in 5 tiers (Foundation
+ * / Big bookings / Style + program / Extras / Paper), each anchored to a
+ * typical lead-time before the wedding date. Picked vendors from
+ * `event_vendors` are bucketed by group via the `categories` array; each
+ * group also advertises a target date computed from the event_date and
  * `monthsBefore`.
  *
  * Coverage: every value of the `vendor_category` enum (28 entries as of
- * migration 20260513100000) maps into exactly one group, so any vendor
- * the couple saves to their event surfaces on the home dashboard.
+ * migration 20260513100000) maps into exactly one VENDOR-BUCKETING group,
+ * so any vendor the couple saves to their event surfaces on the home
+ * dashboard. Cards flagged `countsTowardLockable: false` are entry-point
+ * cards — they don't bucket-receive picks and don't count in the locked /
+ * left math; they exist purely as marketplace deep-link entry points
+ * (Live band, Bridal car, Guest shuttle share their underlying
+ * VendorCategory with another card).
  *
  * Ceremony venue and Reception venue are kept disjoint by category so
  * the same saved vendor doesn't double-render in both cards (owner
@@ -19,32 +25,96 @@
  *   • Reception venue  ← venue
  * A combined-venue wedding (one place hosting both) requires adding the
  * vendor to BOTH cards manually — the Reception hint nudges couples to
- * do that. A follow-up schema change can introduce a 'reception_venue'
- * sub-category if we want venue-only browse filters cleaner, but the
- * disjoint coarse mapping fixes the double-render today.
+ * do that.
+ *
+ * 22-card expansion (2026-05-22) — owner directive verbatim: "where are the
+ * cocktail booths, band, host, coordinator and other vendor affiliated
+ * services, shouldn't they be here as well?" The prior 12-card grid was
+ * too compressed: coordinator was buried in "Logistics" but is the most
+ * important Filipino-wedding role; live band buried in "Music &
+ * Entertainment"; host/MC, cocktail booths, LED background, lights &
+ * sound, bridal car, photobooth, rings, guest shuttle, photobooth — all
+ * needed first-class cards.
  */
 
 import type { VendorCategory } from '@/lib/vendors';
 import type { WeddingFolder } from '@/lib/taxonomy';
 
 export type PlanGroupId =
+  // Foundation tier
   | 'ceremony_venue'
   | 'reception_venue'
+  | 'coordinator'
+  // Big bookings tier
   | 'officiant'
   | 'catering'
   | 'photography'
   | 'attire'
   | 'hair_makeup'
+  // Style + program tier
   | 'florals_decor'
+  | 'live_band'
   | 'music_entertainment'
+  | 'host_mc'
+  | 'lights_sound'
+  | 'led_background'
+  // Extras tier
+  | 'cocktail_booths'
+  | 'photobooth'
   | 'cake'
+  | 'bridal_car'
+  | 'guest_shuttle'
+  | 'rings'
+  // Paper tier
   | 'invitations_stationery'
   | 'logistics';
+
+/**
+ * Tier groupings for the 5-section card render (owner directive
+ * 2026-05-22). Each tier renders as a labeled subsection with cards
+ * grouped underneath. Order within a tier matches PLAN_GROUPS order.
+ */
+export type PlanGroupTier =
+  | 'foundation'
+  | 'big_bookings'
+  | 'style_program'
+  | 'extras'
+  | 'paper';
+
+export const PLAN_GROUP_TIER_ORDER: ReadonlyArray<PlanGroupTier> = [
+  'foundation',
+  'big_bookings',
+  'style_program',
+  'extras',
+  'paper',
+];
+
+export const PLAN_GROUP_TIER_LABEL: Record<PlanGroupTier, string> = {
+  foundation: 'Foundation',
+  big_bookings: 'Big bookings',
+  style_program: 'Style + program',
+  extras: 'Extras',
+  paper: 'Paper',
+};
+
+/**
+ * Optional one-line subtitle rendered under each tier heading. Short,
+ * brand-voice — sets context for the cards underneath without being
+ * preachy. Empty strings render no subtitle.
+ */
+export const PLAN_GROUP_TIER_HINT: Record<PlanGroupTier, string> = {
+  foundation: 'Locks the date and unblocks everything else. Book first.',
+  big_bookings: 'The largest line items. Top suppliers fill 6-12 months out.',
+  style_program: 'Sets the vibe of the day. Pin the palette before locking.',
+  extras: 'The atmosphere makers. Most are 2-4 months out.',
+  paper: 'Stationery and the small choices that round out the day.',
+};
 
 export type PlanGroup = {
   id: PlanGroupId;
   label: string;
   hint: string;
+  tier: PlanGroupTier;
   /** vendor_category enum values that count toward this group. */
   categories: ReadonlyArray<VendorCategory>;
   /** How many months before the wedding date to aim to have this locked. */
@@ -57,6 +127,36 @@ export type PlanGroup = {
    * directly — no filter applied, full curated browse view.
    */
   catalogFolder: WeddingFolder;
+  /**
+   * Optional canonical_service hint (from the 192-row taxonomy at
+   * `TAXONOMY_MAP` in apps/web/lib/taxonomy.ts). When set, the planner
+   * card's [Search] button deep-links to
+   * `/vendors?folder=<slug>&category=<hint>` — vendor-grid mode filtered
+   * to that specific canonical_service. When omitted, falls back to
+   * `/vendors?folder=<slug>#<slug>` — catalog mode scoped to the folder.
+   *
+   * Used for sub-category cards (Live band, Host/MC, Cocktail Booths,
+   * LED Background, etc.) so the host's discovery jump lands on the
+   * specific service slice instead of the broader folder. Per CLAUDE.md
+   * 2026-05-22 22-card grid expansion.
+   */
+  subcategoryHint?: string;
+  /**
+   * When false, this card is an entry-point card only — it doesn't
+   * bucket-receive vendor picks (its `categories` array is empty), and
+   * it's excluded from the lockedCards / leftToLock counter math.
+   *
+   * Used for the 3 sub-category cards whose underlying VendorCategory is
+   * already owned by another card (Live band shares `band_dj` with
+   * Music; Bridal car + Guest shuttle share `transportation` with
+   * Logistics). Including them as full bucketing groups would
+   * double-count a single band vendor toward both Live band AND Music,
+   * inflating the locked count. The entry-point pattern keeps them as
+   * marketplace discovery jumps without polluting the math.
+   *
+   * Default `true` (counts toward locked / left). Omit on regular cards.
+   */
+  countsTowardLockable?: boolean;
 };
 
 /**
@@ -140,9 +240,18 @@ const CEREMONY_HINTS: Partial<Record<PlanGroupId, Partial<Record<CeremonyType, s
     cultural: 'Bouquets, aisle, reception styling — traditional motifs per your tradition.',
   },
   music_entertainment: {
-    inc: 'Host, band, DJ, choir, photobooth. No alcohol bar at INC receptions.',
-    muslim: 'Host, kulintang ensemble, photobooth. No-alcohol mobile bar.',
-    cultural: 'Host, traditional ensemble (kulintang, rondalla, folk), photobooth.',
+    inc: 'DJ, choir, music for the program. No alcohol bar at INC receptions.',
+    muslim: 'DJ or kulintang ensemble. No-alcohol mobile bar.',
+    cultural: 'Traditional ensemble — kulintang, rondalla, folk — alongside DJ.',
+  },
+  host_mc: {
+    inc: 'Your emcee carries the program. Brief them on INC-specific protocols and dry reception.',
+    muslim: 'Emcee for the akad nikah celebration. Coordinate cultural cues + bilingual delivery.',
+    cultural: 'Host who can carry cultural protocols and bilingual or trilingual delivery.',
+  },
+  cocktail_booths: {
+    inc: 'Mocktail bar, coffee, juice. INC receptions are alcohol-free — book non-alcoholic booths.',
+    muslim: 'Non-alcoholic booths — coffee, mocktails, juice. Halal-friendly only.',
   },
   cake: {
     muslim: 'Tastings 3-4 months out. Confirm halal ingredients with the cake maker.',
@@ -183,10 +292,12 @@ export function isCeremonyType(value: unknown): value is CeremonyType {
 }
 
 export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
+  // ════════ Foundation tier ════════
   {
     id: 'ceremony_venue',
     label: 'Ceremony venue',
     hint: 'Where you say I do — book early, the best places fill 12 months out.',
+    tier: 'foundation',
     // 'venue' deliberately NOT here — it lives in reception_venue so a
     // saved hotel/garden doesn't surface in both cards. Combined-venue
     // weddings add their pick to BOTH groups manually per the
@@ -199,39 +310,60 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     id: 'reception_venue',
     label: 'Reception venue',
     hint: 'Where you celebrate after. Same place as ceremony? Add it under both.',
+    tier: 'foundation',
     categories: ['venue'],
     monthsBefore: 12,
     catalogFolder: 'reception',
   },
   {
+    id: 'coordinator',
+    label: 'Wedding coordinator',
+    hint: 'Your day-of conductor. Top coordinators book 9-12 months out.',
+    tier: 'foundation',
+    categories: ['planner_coordinator'],
+    monthsBefore: 12,
+    catalogFolder: 'planning_logistics_travel',
+    subcategoryHint: 'wedding_coordination',
+  },
+
+  // ════════ Big bookings tier ════════
+  {
     id: 'officiant',
     label: 'Officiant',
     hint: 'Priest, pastor, or judge. Civil ceremonies need them booked early too.',
+    tier: 'big_bookings',
     categories: ['officiant'],
     monthsBefore: 9,
     catalogFolder: 'ceremony',
+    subcategoryHint: 'officiant_priest_minister',
   },
   {
     id: 'catering',
     label: 'Catering',
     hint: 'Food + service. Tastings happen 4-6 months out; book the team earlier.',
+    tier: 'big_bookings',
     categories: ['catering'],
     monthsBefore: 9,
     catalogFolder: 'catering',
+    subcategoryHint: 'catering',
   },
   {
     id: 'photography',
     label: 'Photography & Video',
     hint: 'Photo + video team for the day. Often booked together.',
+    tier: 'big_bookings',
     categories: ['photographer', 'videographer'],
     monthsBefore: 9,
     catalogFolder: 'photo_video',
   },
   {
     id: 'attire',
-    label: 'Attire & Rings',
+    label: 'Attire',
     hint: 'Gown, suit, and the rings. Designers need fitting time.',
-    categories: ['gown_designer', 'suit_designer', 'rings'],
+    tier: 'big_bookings',
+    // 'rings' moved to its own card in 22-card grid expansion (2026-05-22);
+    // attire now owns gown + suit + designers only.
+    categories: ['gown_designer', 'suit_designer'],
     monthsBefore: 8,
     catalogFolder: 'attire',
   },
@@ -239,59 +371,166 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     id: 'hair_makeup',
     label: 'Hair & Makeup',
     hint: 'Bridal + entourage glam. Trials happen 1-2 months before the day.',
+    tier: 'big_bookings',
     categories: ['makeup_artist', 'hair_stylist'],
     monthsBefore: 6,
     catalogFolder: 'hair_makeup',
+    subcategoryHint: 'bridal_hmua',
   },
+
+  // ════════ Style + program tier ════════
   {
     id: 'florals_decor',
     label: 'Florals & Decor',
     hint: 'Bouquets, aisle, reception styling. Pin colors first, then book.',
+    tier: 'style_program',
     categories: ['florist', 'reception_decor'],
     monthsBefore: 6,
     catalogFolder: 'decor_florals_sound',
+    subcategoryHint: 'florals',
+  },
+  {
+    id: 'live_band',
+    label: 'Live band',
+    hint: 'Sets the energy of your reception. Top bands book 6-9 months ahead.',
+    tier: 'style_program',
+    // Entry-point card — picks bucket under music_entertainment.
+    categories: [],
+    monthsBefore: 6,
+    catalogFolder: 'music_program',
+    subcategoryHint: 'live_band',
+    countsTowardLockable: false,
   },
   {
     id: 'music_entertainment',
-    label: 'Music & Entertainment',
-    hint: 'Host, band, DJ, choir, mobile bar, photobooth.',
-    categories: [
-      'host_emcee',
-      'band_dj',
-      'string_quartet',
-      'choir',
-      'photobooth',
-      'mobile_bar',
-    ],
+    label: 'DJ / Music',
+    hint: 'DJ, string quartet, choir — your music team for the program.',
+    tier: 'style_program',
+    // host_emcee broken out to its own card in 22-card grid expansion
+    // (2026-05-22). Mobile bar moved to cocktail_booths. Photobooth
+    // moved to its own card.
+    categories: ['band_dj', 'string_quartet', 'choir'],
     monthsBefore: 6,
     catalogFolder: 'music_program',
+    subcategoryHint: 'dj',
+  },
+  {
+    id: 'host_mc',
+    label: 'Host / MC',
+    hint: 'Carries the program from cocktail hour through send-off. Book 4-6 months out.',
+    tier: 'style_program',
+    categories: ['host_emcee'],
+    monthsBefore: 5,
+    catalogFolder: 'music_program',
+    subcategoryHint: 'host_emcee',
+  },
+  {
+    id: 'lights_sound',
+    label: 'Lights & Sound',
+    hint: 'Reception PA + lights setup. Confirm the venue power supply.',
+    tier: 'style_program',
+    categories: ['lights_and_sound'],
+    monthsBefore: 5,
+    catalogFolder: 'decor_florals_sound',
+    subcategoryHint: 'lights_sound',
+  },
+  {
+    id: 'led_background',
+    label: 'LED Background',
+    hint: 'Brings your monogram + theme to the stage. Setnayan can render 8K loops.',
+    tier: 'style_program',
+    categories: ['led_screens'],
+    monthsBefore: 3,
+    catalogFolder: 'decor_florals_sound',
+    subcategoryHint: 'setnayan_pailaw',
+  },
+
+  // ════════ Extras tier ════════
+  {
+    id: 'cocktail_booths',
+    label: 'Cocktail Booths',
+    hint: 'Mobile bar, coffee, tea, cocktail station — the social glue of cocktail hour.',
+    tier: 'extras',
+    categories: ['mobile_bar'],
+    monthsBefore: 4,
+    catalogFolder: 'catering',
+    subcategoryHint: 'mobile_bar',
+  },
+  {
+    id: 'photobooth',
+    label: 'Photobooth',
+    hint: 'Classic, mirror, 360, slow-mo, polaroid — pick the style that fits your vibe.',
+    tier: 'extras',
+    categories: ['photobooth'],
+    monthsBefore: 3,
+    catalogFolder: 'booths_stations',
+    subcategoryHint: 'photo_booth',
   },
   {
     id: 'cake',
     label: 'Cake',
     hint: 'Tastings 3-4 months out. Order locks 1 month before.',
+    tier: 'extras',
     categories: ['cake_maker'],
     monthsBefore: 4,
     catalogFolder: 'catering',
+    subcategoryHint: 'wedding_cake',
   },
+  {
+    id: 'bridal_car',
+    label: 'Bridal Car',
+    hint: 'Your wedding-day arrival vehicle. Vintage, luxury, or classic.',
+    tier: 'extras',
+    // Entry-point card — picks bucket under logistics (shares
+    // 'transportation' category with guest_shuttle).
+    categories: [],
+    monthsBefore: 2,
+    catalogFolder: 'planning_logistics_travel',
+    subcategoryHint: 'transportation_bridal_car',
+    countsTowardLockable: false,
+  },
+  {
+    id: 'guest_shuttle',
+    label: 'Guest Shuttle',
+    hint: 'Keeps far-venue guests stress-free. Book once you have an approximate headcount.',
+    tier: 'extras',
+    // Entry-point card — picks bucket under logistics.
+    categories: [],
+    monthsBefore: 2,
+    catalogFolder: 'planning_logistics_travel',
+    subcategoryHint: 'transportation_guest_shuttle',
+    countsTowardLockable: false,
+  },
+  {
+    id: 'rings',
+    label: 'Rings',
+    hint: 'Most-photographed object of your wedding. Custom takes 6-8 weeks.',
+    tier: 'extras',
+    categories: ['rings'],
+    monthsBefore: 3,
+    catalogFolder: 'rings_accessories',
+    subcategoryHint: 'wedding_ring',
+  },
+
+  // ════════ Paper tier ════════
   {
     id: 'invitations_stationery',
     label: 'Invitations & Stationery',
     hint: 'Save-the-dates, invites, monogram, table cards, menus.',
+    tier: 'paper',
     categories: ['invitations_stationery'],
     monthsBefore: 4,
     catalogFolder: 'invitations_keepsakes',
+    subcategoryHint: 'invitation_print',
   },
   {
     id: 'logistics',
-    label: 'Logistics',
-    hint: 'Transportation, lights & sound, LED, security, planner, giveaways.',
+    label: 'Logistics & Misc',
+    hint: 'Transportation, security, giveaways, and the rest.',
+    tier: 'paper',
     categories: [
       'transportation',
-      'lights_and_sound',
-      'led_screens',
       'security',
-      'planner_coordinator',
       'gifts_and_giveaways',
       'misc',
     ],
@@ -316,7 +555,7 @@ export function statusOfVendor(rawStatus: string | null | undefined): VendorPick
 
 /**
  * Saturation rules per CLAUDE.md 2026-05-09 lock + 2026-05-20 row 470
- * (12-folder marketplace remap). Maps onto the 12 PlanGroupId buckets.
+ * (12-folder marketplace remap) + 2026-05-22 22-card grid expansion.
  *
  * Hard-single groups: only one vendor can be locked at any time. A
  * second lock attempt surfaces a Switch / Cancel modal so the host can
@@ -327,28 +566,38 @@ export function statusOfVendor(rawStatus: string | null | undefined): VendorPick
  * hard-single set because the multi-pick reality is common across
  * Filipino weddings — e.g. two principal officiants, three photo teams.)
  *
- * Mapped from the spec's per-category list to the 12 plan groups:
- *   • ceremony_venue   — 1 church/chapel only (religious_venue +
- *     church_fees categories)
- *   • reception_venue  — 1 venue only (venue category)
- *   • officiant        — 1 officiant (officiant category). Mixed-faith
- *     weddings that need 2 officiants override via the Switch flow.
+ * Hard-single across the 22-card grid:
+ *   • ceremony_venue   — 1 church/chapel only
+ *   • reception_venue  — 1 venue only
+ *   • officiant        — 1 officiant. Mixed-faith weddings override via Switch.
+ *   • coordinator      — 1 coordinator. Partial-coordinator splits handle
+ *     via the Logistics card multi-pick.
+ *   • host_mc          — 1 emcee. Co-hosts handled via Switch + custom
+ *     vendor add to the secondary slot.
+ *   • led_background   — 1 LED supplier. Multi-screen events go via
+ *     Logistics multi-pick.
  *
  * Other groups have legitimate multi-lock scenarios:
  *   • catering: 1 main caterer is common but specialty caterers (cake,
  *     dessert bar, signature drinks) are routinely co-locked.
  *   • photography: photo + video are separate categories often booked
  *     separately as 2 different vendors.
- *   • attire/rings: gown + suit + rings are 3 separate vendors.
- *   • music_entertainment: host + band + DJ + choir routinely all
- *     locked separately.
- *   • logistics: transportation + lights + security + planner all
- *     separate vendors.
+ *   • attire: gown + suit are 2 separate vendors.
+ *   • hair_makeup: bridal MUA + hair + family MUA all separately booked.
+ *   • florals_decor: florist + stylist often separate.
+ *   • music_entertainment: DJ + string quartet + choir all separable.
+ *   • cocktail_booths: multiple booth types co-locked (mobile bar +
+ *     coffee + cocktail station).
+ *   • photobooth: classic + 360 + mirror sometimes co-booked.
+ *   • logistics: transportation + security + giveaways all separate.
  */
 export const HARD_SINGLE_PICK_GROUPS: ReadonlySet<PlanGroupId> = new Set([
   'ceremony_venue',
   'reception_venue',
   'officiant',
+  'coordinator',
+  'host_mc',
+  'led_background',
 ]);
 
 export function isHardSinglePickGroup(groupId: PlanGroupId): boolean {
@@ -361,6 +610,10 @@ export function isHardSinglePickGroup(groupId: PlanGroupId): boolean {
  * `bucketVendorsByGroup` logic but returns just the bucket key — used
  * by the finalize server action to gate hard-single conflict checks
  * against the canonical group definition.
+ *
+ * Entry-point cards (countsTowardLockable: false) are skipped because
+ * their categories array is empty by definition; vendor rows with
+ * shared VendorCategory enum values resolve to the primary card.
  */
 export function planGroupForCategory(
   category: VendorCategory,
@@ -681,11 +934,16 @@ export function computeCompatibilityIssue(
 }
 
 /**
- * Bucket event_vendors rows into the 12-group structure.
+ * Bucket event_vendors rows into the 22-group structure.
  *
  * `eventCeremonyType` + `eventVenueSetting` enable per-pick
  * compatibility checks. Pass `null`/`null` to skip the check (pre-PR-B
  * callers, or events with no ceremony_type / venue_setting picked).
+ *
+ * Entry-point cards (countsTowardLockable: false, e.g. live_band,
+ * bridal_car, guest_shuttle) have empty `categories` arrays so they
+ * never bucket-receive picks. Picks for those VendorCategory enum
+ * values fall through to the primary card that owns the category.
  */
 export function bucketVendorsByGroup(
   vendors: ReadonlyArray<EventVendorRowInput>,
@@ -803,4 +1061,30 @@ function formatTargetDate(d: Date): string {
     day: 'numeric',
     year: 'numeric',
   }).format(d);
+}
+
+/**
+ * Build the marketplace deep-link URL for a plan group's [Search] button.
+ *
+ * When the group has a `subcategoryHint` (e.g. live_band, host_emcee,
+ * mobile_bar, photo_booth), returns
+ * `/vendors?folder=<slug>&category=<canonical>` — vendor-grid mode
+ * filtered to that specific canonical_service in the 192-row taxonomy.
+ *
+ * Otherwise returns `/vendors?folder=<slug>#<slug>` — catalog mode
+ * scoped to the folder, smooth-scroll-anchored to the section header.
+ *
+ * Consumed by planning-groups.tsx (the [Search] button) and todays-one-
+ * thing.ts + next-steps.ts (the CTA URLs on the hero + 15-step list).
+ * Keeps URL construction in one place so all three surfaces stay in
+ * lock-step.
+ */
+export function buildPlanGroupSearchHref(
+  group: PlanGroup,
+  folderSlug: string,
+): string {
+  if (group.subcategoryHint) {
+    return `/vendors?folder=${folderSlug}&category=${encodeURIComponent(group.subcategoryHint)}`;
+  }
+  return `/vendors?folder=${folderSlug}#${folderSlug}`;
 }

@@ -52,6 +52,7 @@
 import {
   PLAN_GROUPS,
   bucketVendorsByGroup,
+  buildPlanGroupSearchHref,
   targetDateStatus,
   type EventVendorRowInput,
   type PlanCardPick,
@@ -107,6 +108,8 @@ const WHY_IT_MATTERS: Record<PlanGroupId, string> = {
     'The first domino — everything downstream waits on this. Your coordinator, caterer, and photographer all key off where your reception lives.',
   ceremony_venue:
     'Locks the date and starts the paperwork clock. Parish documents take 4-6 weeks to gather; the marriage license has a 120-day countdown.',
+  coordinator:
+    'Your day-of conductor. Best coordinators book 9-12 months out; the earlier you lock yours, the more they can shape every choice downstream.',
   officiant:
     'The voice of your ceremony. Priests, ministers, and judges book months ahead; locking yours early is what makes the paperwork chain start moving.',
   catering:
@@ -119,14 +122,32 @@ const WHY_IT_MATTERS: Record<PlanGroupId, string> = {
     'Your bridal glam team carries the whole entourage on the morning of. Trials happen 1-2 months before the day; lock the artist first so the trial date even makes sense.',
   florals_decor:
     'Florals and styling read the palette and theme you’ve been refining. Once your colors are settled, your florist can quote real flowers in real season — not abstract ideas.',
+  live_band:
+    'A live band sets the energy of your reception. Top bands in PH book 6-9 months ahead; locking early means your favorite is still available.',
   music_entertainment:
-    'Hosts, bands, DJs, and choirs all anchor the reception flow. The best ones run a wedding every weekend in peak season; book early or you’ll choose from what’s left.',
+    'DJ, string quartet, choir — the music team that carries your program. The best ones run a wedding every weekend in peak season; book early or choose from what’s left.',
+  host_mc:
+    'Your emcee carries the program from cocktail hour through send-off. A great host makes the night feel effortless; book 4-6 months out.',
+  lights_sound:
+    'Reception lighting + sound shapes the whole atmosphere. PA + lights setup is technical — book 4-6 months out and confirm the venue power supply.',
+  led_background:
+    'LED background brings your monogram + theme to the stage. Setnayan can render an 8K loop for offline playback; book about 3 months out.',
+  cocktail_booths:
+    'Mobile bar, coffee booth, cocktail station — the social glue of cocktail hour. PH cocktail-hour culture loves these; book 3-4 months out.',
+  photobooth:
+    'Guests love a good photo booth. Classic, mirror, 360, slow-mo, polaroid — pick the style that fits your vibe. 2-3 months ahead is plenty.',
   cake:
     'Tastings happen 3-4 months before the wedding. Pin a palette and a flavor direction first so the cake maker can pull samples that fit your day.',
+  bridal_car:
+    'Your wedding-day arrival vehicle. Vintage, luxury, classic — book about 2 months out and confirm pickup time + decoration scope.',
+  guest_shuttle:
+    'For venues away from the city, shuttle service keeps guests stress-free. Book 6-8 weeks out once you have an approximate headcount.',
+  rings:
+    'The most-photographed object of your wedding. Custom rings take 6-8 weeks; off-the-shelf 2-3 weeks. Lock the design and have backups for emergencies.',
   invitations_stationery:
     'Save-the-dates, invitations, monograms, and table cards all share a visual story. Locking your stationery partner early means everything ships out of one consistent hand.',
   logistics:
-    'Transportation, lights and sound, planners, security, giveaways — the small choices that make the day actually run. Lock these as your guest list firms up.',
+    'Transportation, security, giveaways — the small choices that make the day actually run. Lock these as your guest list firms up.',
 };
 
 /**
@@ -137,14 +158,24 @@ const WHY_IT_MATTERS: Record<PlanGroupId, string> = {
 const CTA_LABEL: Record<PlanGroupId, string> = {
   reception_venue: 'Browse reception venues',
   ceremony_venue: 'Browse ceremony venues',
+  coordinator: 'Browse coordinators',
   officiant: 'Find an officiant',
   catering: 'Browse caterers',
   photography: 'Browse photo & video',
-  attire: 'Browse attire & rings',
+  attire: 'Browse attire',
   hair_makeup: 'Browse hair & makeup',
   florals_decor: 'Browse florals & decor',
-  music_entertainment: 'Browse music & entertainment',
+  live_band: 'Browse live bands',
+  music_entertainment: 'Browse DJs & music',
+  host_mc: 'Browse hosts & emcees',
+  lights_sound: 'Browse lights & sound',
+  led_background: 'Browse LED suppliers',
+  cocktail_booths: 'Browse cocktail booths',
+  photobooth: 'Browse photobooths',
   cake: 'Browse cake makers',
+  bridal_car: 'Browse bridal cars',
+  guest_shuttle: 'Browse guest shuttles',
+  rings: 'Browse rings',
   invitations_stationery: 'Browse stationery',
   logistics: 'Browse logistics',
 };
@@ -157,14 +188,24 @@ const CTA_LABEL: Record<PlanGroupId, string> = {
 const ACTION_TITLE: Record<PlanGroupId, string> = {
   reception_venue: 'Lock your reception venue',
   ceremony_venue: 'Lock your ceremony venue',
+  coordinator: 'Lock your coordinator',
   officiant: 'Lock your officiant',
   catering: 'Lock your caterer',
   photography: 'Lock your photo & video team',
-  attire: 'Lock your attire and rings',
+  attire: 'Lock your attire',
   hair_makeup: 'Lock your hair & makeup team',
   florals_decor: 'Lock your florals and decor',
-  music_entertainment: 'Lock your music & entertainment',
+  live_band: 'Lock your live band',
+  music_entertainment: 'Lock your DJ + music',
+  host_mc: 'Lock your host / emcee',
+  lights_sound: 'Lock your lights & sound',
+  led_background: 'Lock your LED background',
+  cocktail_booths: 'Lock your cocktail booths',
+  photobooth: 'Lock your photobooth',
   cake: 'Lock your cake maker',
+  bridal_car: 'Lock your bridal car',
+  guest_shuttle: 'Lock your guest shuttle',
+  rings: 'Lock your rings',
   invitations_stationery: 'Lock your stationery partner',
   logistics: 'Lock your day-of logistics',
 };
@@ -216,6 +257,13 @@ export function pickTodaysOneThing(
   // assigned per algorithm.
   const candidates: Candidate[] = [];
   for (const group of PLAN_GROUPS) {
+    // 22-card grid expansion (2026-05-22): skip entry-point cards
+    // (countsTowardLockable: false). They share their underlying
+    // VendorCategory with another card, so showing "Lock your live
+    // band" as Today's One Thing when the parent music_entertainment
+    // card already covers it would double-surface the same task.
+    if (group.countsTowardLockable === false) continue;
+
     const picks = bucketed.get(group.id) ?? [];
     if (hasLockedPick(picks)) {
       // Already locked — skip. The host has nothing to do here today.
@@ -261,12 +309,18 @@ export function pickTodaysOneThing(
 /**
  * Count of UNLOCKED categories — exported so the hero card consumer
  * can render the "Show all N more tasks" disclosure label. Returns
- * the total minus locked-category count; reused by the home page
- * directly so it doesn't have to re-bucket.
+ * the countable-card total minus locked-category count; reused by the
+ * home page directly so it doesn't have to re-bucket.
  *
- * Returns 12 when no vendors are locked yet, 0 when every category
- * has a lock. Mirrors the leftToLock math from PlanningGroups so the
- * two surfaces agree.
+ * Returns the countable-card count when no vendors are locked yet,
+ * 0 when every category has a lock. Mirrors the leftToLock math from
+ * PlanningGroups so the two surfaces agree.
+ *
+ * 22-card grid expansion (2026-05-22): excludes entry-point cards
+ * (countsTowardLockable: false) so the denominator matches the
+ * PlanningGroups header. Entry-point cards (live_band, bridal_car,
+ * guest_shuttle) share their underlying VendorCategory with another
+ * card and shouldn't inflate the unlocked count.
  */
 export function countUnlockedCategories(
   vendors: ReadonlyArray<EventVendorRowInput>,
@@ -274,6 +328,7 @@ export function countUnlockedCategories(
   const bucketed = bucketVendorsByGroup(vendors, null, null);
   let unlocked = 0;
   for (const group of PLAN_GROUPS) {
+    if (group.countsTowardLockable === false) continue;
     const picks = bucketed.get(group.id) ?? [];
     if (!hasLockedPick(picks)) unlocked += 1;
   }
@@ -370,7 +425,11 @@ function resolveTask(candidate: Candidate): ResolvedTask {
   // Mirror PlanningGroups' search href construction so the hero CTA
   // and the planning-card CTA both land on the same scoped catalog
   // section. See Task #47 (PR #310) for the `?folder=...#...` lock.
-  const ctaHref = `/vendors?folder=${folderSlug}#${folderSlug}`;
+  // 22-card grid expansion (2026-05-22): groups with a `subcategoryHint`
+  // (live_band, host_emcee, mobile_bar, photo_booth, etc.) deep-link to
+  // /vendors?folder=...&category=<canonical> for filtered vendor-grid
+  // mode; others fall back to the catalog-scope anchor.
+  const ctaHref = buildPlanGroupSearchHref(group, folderSlug);
 
   // Surface a sensible `daysContextual` per status: overdue → days
   // past floor; due_this_week / next_up → days until floor;

@@ -67,6 +67,7 @@
 import {
   PLAN_GROUPS,
   bucketVendorsByGroup,
+  buildPlanGroupSearchHref,
   computeTargetDate,
   type EventVendorRowInput,
   type PlanCardPick,
@@ -173,14 +174,24 @@ export type NextStep = {
 const VENDOR_CATEGORY_EFFORT: Record<PlanGroupId, EstimatedEffort> = {
   reception_venue: '1wk',
   ceremony_venue: '1wk',
+  coordinator: '1wk',
   officiant: '1wk',
   catering: '1wk',
   photography: '1wk',
   attire: '1wk',
   hair_makeup: '1day',
   florals_decor: '1day',
+  live_band: '1wk',
   music_entertainment: '1day',
+  host_mc: '1day',
+  lights_sound: '1day',
+  led_background: '1day',
+  cocktail_booths: '1day',
+  photobooth: '1day',
   cake: '1day',
+  bridal_car: '1day',
+  guest_shuttle: '1day',
+  rings: '1wk',
   invitations_stationery: '1day',
   logistics: '1day',
 };
@@ -188,25 +199,41 @@ const VENDOR_CATEGORY_EFFORT: Record<PlanGroupId, EstimatedEffort> = {
 /**
  * Categories that benefit from a Reception venue lock first. Owner
  * intelligence: caterer, photographer, videographer, florist, live
- * band, lights & sound all key off venue logistics (capacity, layout,
- * access, AC, parking). Locking those before venue creates rework
- * risk.
+ * band, DJ, lights & sound, LED, photobooth, cocktail booths all key
+ * off venue logistics (capacity, layout, access, AC, parking).
+ * Locking those before venue creates rework risk.
+ *
+ * 22-card grid expansion (2026-05-22): adds live_band + host_mc +
+ * lights_sound + led_background + cocktail_booths + photobooth to the
+ * dependency set. Coordinator is in FOUNDATION_GROUPS, not here.
  */
 const RECOMMENDED_DEPENDS_ON_VENUE: ReadonlySet<PlanGroupId> = new Set([
   'catering',
   'photography',
   'florals_decor',
+  'live_band',
   'music_entertainment',
+  'host_mc',
+  'lights_sound',
+  'led_background',
+  'cocktail_booths',
+  'photobooth',
   'cake',
 ]);
 
 /**
  * Foundation categories — never blocked. Venue locks pull everything
  * downstream into focus.
+ *
+ * 22-card grid expansion (2026-05-22): coordinator joins the venues as
+ * Foundation tier per CLAUDE.md decision log + the new tier-based
+ * grouping. Per owner directive a top-tier coordinator unblocks every
+ * other vendor's planning timeline.
  */
 const FOUNDATION_GROUPS: ReadonlySet<PlanGroupId> = new Set([
   'reception_venue',
   'ceremony_venue',
+  'coordinator',
 ]);
 
 /**
@@ -216,18 +243,33 @@ const FOUNDATION_GROUPS: ReadonlySet<PlanGroupId> = new Set([
  * with the grid.
  */
 const PHASE_ORDER: Record<PlanGroupId, number> = {
+  // Foundation tier (0-2)
   reception_venue: 0,
   ceremony_venue: 1,
-  officiant: 2,
-  catering: 3,
-  photography: 4,
-  attire: 5,
-  hair_makeup: 6,
-  florals_decor: 7,
-  music_entertainment: 8,
-  cake: 9,
-  invitations_stationery: 10,
-  logistics: 11,
+  coordinator: 2,
+  // Big bookings tier (3-7)
+  officiant: 3,
+  catering: 4,
+  photography: 5,
+  attire: 6,
+  hair_makeup: 7,
+  // Style + program tier (8-13)
+  florals_decor: 8,
+  live_band: 9,
+  music_entertainment: 10,
+  host_mc: 11,
+  lights_sound: 12,
+  led_background: 13,
+  // Extras tier (14-19)
+  cocktail_booths: 14,
+  photobooth: 15,
+  cake: 16,
+  bridal_car: 17,
+  guest_shuttle: 18,
+  rings: 19,
+  // Paper tier (20-21)
+  invitations_stationery: 20,
+  logistics: 21,
 };
 
 /** Reception venue label — reused in best-after chips. */
@@ -313,14 +355,24 @@ const TOOL_META: Record<ToolKey, ToolMeta> = {
 const ACTION_TITLE: Record<PlanGroupId, string> = {
   reception_venue: 'Lock your reception venue',
   ceremony_venue: 'Lock your ceremony venue',
+  coordinator: 'Lock your coordinator',
   officiant: 'Lock your officiant',
   catering: 'Lock your caterer',
   photography: 'Lock your photo & video team',
-  attire: 'Lock your attire and rings',
+  attire: 'Lock your attire',
   hair_makeup: 'Lock your hair & makeup team',
   florals_decor: 'Lock your florals and decor',
-  music_entertainment: 'Lock your music & entertainment',
+  live_band: 'Lock your live band',
+  music_entertainment: 'Lock your DJ + music',
+  host_mc: 'Lock your host / emcee',
+  lights_sound: 'Lock your lights & sound',
+  led_background: 'Lock your LED background',
+  cocktail_booths: 'Lock your cocktail booths',
+  photobooth: 'Lock your photobooth',
   cake: 'Lock your cake maker',
+  bridal_car: 'Lock your bridal car',
+  guest_shuttle: 'Lock your guest shuttle',
+  rings: 'Lock your rings',
   invitations_stationery: 'Lock your stationery partner',
   logistics: 'Lock your day-of logistics',
 };
@@ -332,14 +384,24 @@ const ACTION_TITLE: Record<PlanGroupId, string> = {
 const CTA_LABEL: Record<PlanGroupId, string> = {
   reception_venue: 'Browse reception venues',
   ceremony_venue: 'Browse ceremony venues',
+  coordinator: 'Browse coordinators',
   officiant: 'Find an officiant',
   catering: 'Browse caterers',
   photography: 'Browse photo & video',
-  attire: 'Browse attire & rings',
+  attire: 'Browse attire',
   hair_makeup: 'Browse hair & makeup',
   florals_decor: 'Browse florals & decor',
-  music_entertainment: 'Browse music & entertainment',
+  live_band: 'Browse live bands',
+  music_entertainment: 'Browse DJs & music',
+  host_mc: 'Browse hosts & emcees',
+  lights_sound: 'Browse lights & sound',
+  led_background: 'Browse LED suppliers',
+  cocktail_booths: 'Browse cocktail booths',
+  photobooth: 'Browse photobooths',
   cake: 'Browse cake makers',
+  bridal_car: 'Browse bridal cars',
+  guest_shuttle: 'Browse guest shuttles',
+  rings: 'Browse rings',
   invitations_stationery: 'Browse stationery',
   logistics: 'Browse logistics',
 };
@@ -354,6 +416,8 @@ const WHY_IT_MATTERS_VENDOR: Record<PlanGroupId, string> = {
     'The first domino — everything downstream waits on this. Your coordinator, caterer, and photographer all key off where your reception lives.',
   ceremony_venue:
     'Locks the date and starts the paperwork clock. Parish documents take 4-6 weeks to gather; the marriage license has a 120-day countdown.',
+  coordinator:
+    'Your day-of conductor. Best coordinators book 9-12 months out; the earlier you lock yours, the more they can shape every choice downstream.',
   officiant:
     'The voice of your ceremony. Priests, ministers, and judges book months ahead; locking yours early is what makes the paperwork chain start moving.',
   catering:
@@ -366,14 +430,32 @@ const WHY_IT_MATTERS_VENDOR: Record<PlanGroupId, string> = {
     'Your bridal glam team carries the whole entourage on the morning of. Trials happen 1-2 months before the day; lock the artist first so the trial date even makes sense.',
   florals_decor:
     'Florals and styling read the palette and theme you’ve been refining. Once your colors are settled, your florist can quote real flowers in real season — not abstract ideas.',
+  live_band:
+    'A live band sets the energy of your reception. Top bands in PH book 6-9 months ahead; locking early means your favorite is still available.',
   music_entertainment:
-    'Hosts, bands, DJs, and choirs all anchor the reception flow. The best ones run a wedding every weekend in peak season; book early or you’ll choose from what’s left.',
+    'DJ, string quartet, choir — the music team that carries your program. The best ones run a wedding every weekend in peak season; book early or choose from what’s left.',
+  host_mc:
+    'Your emcee carries the program from cocktail hour through send-off. A great host makes the night feel effortless; book 4-6 months out.',
+  lights_sound:
+    'Reception lighting + sound shapes the whole atmosphere. PA + lights setup is technical — book 4-6 months out and confirm the venue power supply.',
+  led_background:
+    'LED background brings your monogram + theme to the stage. Setnayan can render an 8K loop for offline playback; book about 3 months out.',
+  cocktail_booths:
+    'Mobile bar, coffee booth, cocktail station — the social glue of cocktail hour. PH cocktail-hour culture loves these; book 3-4 months out.',
+  photobooth:
+    'Guests love a good photo booth. Classic, mirror, 360, slow-mo, polaroid — pick the style that fits your vibe. 2-3 months ahead is plenty.',
   cake:
     'Tastings happen 3-4 months before the wedding. Pin a palette and a flavor direction first so the cake maker can pull samples that fit your day.',
+  bridal_car:
+    'Your wedding-day arrival vehicle. Vintage, luxury, classic — book about 2 months out and confirm pickup time + decoration scope.',
+  guest_shuttle:
+    'For venues away from the city, shuttle service keeps guests stress-free. Book 6-8 weeks out once you have an approximate headcount.',
+  rings:
+    'The most-photographed object of your wedding. Custom rings take 6-8 weeks; off-the-shelf 2-3 weeks. Lock the design and have backups for emergencies.',
   invitations_stationery:
     'Save-the-dates, invitations, monograms, and table cards all share a visual story. Locking your stationery partner early means everything ships out of one consistent hand.',
   logistics:
-    'Transportation, lights and sound, planners, security, giveaways — the small choices that make the day actually run. Lock these as your guest list firms up.',
+    'Transportation, security, giveaways — the small choices that make the day actually run. Lock these as your guest list firms up.',
 };
 
 /**
@@ -613,6 +695,13 @@ function resolveVendorCategorySteps(
   const out: NextStep[] = [];
 
   for (const group of PLAN_GROUPS) {
+    // 22-card grid expansion (2026-05-22): skip entry-point cards
+    // (countsTowardLockable: false). They share their underlying
+    // VendorCategory with another card, so showing "Lock your live
+    // band" alongside "Lock your DJ + music" would surface duplicate
+    // recommendations. The parent card carries the canonical step.
+    if (group.countsTowardLockable === false) continue;
+
     const picks = bucketed.get(group.id) ?? [];
     if (hasLockedPick(picks)) continue; // already locked
 
@@ -651,7 +740,10 @@ function buildVendorStep(
   const folderSlug = WEDDING_FOLDER_SLUG[group.catalogFolder];
   // Anchor matches the Today's One Thing hero CTA — same scoped catalog
   // section. See PR #310 for the `?folder=...#...` lock.
-  const ctaHref = `/vendors?folder=${folderSlug}#${folderSlug}`;
+  // 22-card grid expansion (2026-05-22): groups with a `subcategoryHint`
+  // deep-link to /vendors?folder=...&category=<canonical> for filtered
+  // vendor-grid mode; others fall back to the catalog-scope anchor.
+  const ctaHref = buildPlanGroupSearchHref(group, folderSlug);
 
   return {
     id: `vendor_category:${group.id}`,
@@ -974,7 +1066,8 @@ function compareSteps(a: NextStep, b: NextStep): number {
 }
 
 function rankWithinBucket(step: NextStep): number {
-  // Vendor categories — use PHASE_ORDER (0..11).
+  // Vendor categories — use PHASE_ORDER (0..21 after 22-card grid expansion
+  // 2026-05-22).
   // Paperwork — middling priority (offset 100); document name ordering
   // is preserved by the seed map's ordering and the resolver's
   // iteration over that array.

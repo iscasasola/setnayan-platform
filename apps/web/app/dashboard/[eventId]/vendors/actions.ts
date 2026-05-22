@@ -229,12 +229,14 @@ export async function deleteVendor(formData: FormData) {
 // UX that synchronous form actions produce.
 //
 // Hard-single conflict gate: per CLAUDE.md 2026-05-09 saturation rules + the
-// HARD_SINGLE_PICK_GROUPS set in lib/wedding-plan-groups.ts, ceremony_venue +
-// reception_venue + officiant groups allow only ONE locked vendor at a time.
-// If the host tries to lock a second vendor in one of those groups, the
-// action returns 'hard_single_conflict' with the existing locked vendor's
-// info; the UI then offers a Switch flow that (a) reverts the existing
-// locked vendor to 'considering' and (b) locks the new vendor in one pass.
+// HARD_SINGLE_PICK_GROUPS set in lib/wedding-plan-groups.ts. As of the 22-card
+// grid expansion (2026-05-22), the hard-single set covers: ceremony_venue +
+// reception_venue + officiant + coordinator + host_mc + led_background — each
+// allows only ONE locked vendor at a time. If the host tries to lock a second
+// vendor in one of those groups, the action returns 'hard_single_conflict'
+// with the existing locked vendor's info; the UI then offers a Switch flow
+// that (a) reverts the existing locked vendor to 'considering' and
+// (b) locks the new vendor in one pass.
 //
 // Multi-host race: per iteration 0048, two hosts (e.g. a couple member + a
 // parent_of_bride moderator) could both try to lock different vendors in

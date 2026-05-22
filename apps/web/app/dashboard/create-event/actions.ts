@@ -176,6 +176,12 @@ export async function createWeddingEvent(formData: FormData) {
       ceremony_sub_type,
       is_mixed_ceremony,
       secondary_ceremony_type,
+      // Task #37 (2026-05-22) — host made an explicit picker choice, lock
+      // ceremony_type immediately so event home shows the read-only chip
+      // rather than the "Set wedding type" CTA. Non-wedding event_types
+      // stay NULL (CHECK events_ceremony_lock_requires_ceremony_type).
+      ceremony_type_locked_at: isWedding ? new Date().toISOString() : null,
+      ceremony_type_locked_by: isWedding ? user.id : null,
     })
     .select('event_id, slug')
     .single();

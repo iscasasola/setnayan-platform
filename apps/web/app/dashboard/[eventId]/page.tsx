@@ -52,6 +52,8 @@ import { EventDayPrepCta } from '@/app/_components/event-day-prep-cta';
 import { AutoPreloadOnEventDay } from '@/app/_components/auto-preload-on-event-day';
 import { PlanningGroups } from './_components/planning-groups';
 import { EventDateInput } from './_components/event-date-input';
+import { CeremonyTypeChip } from './_components/ceremony-type-chip';
+import { getConfirmedVendorCount } from '@/lib/events';
 import type { VendorCategory } from '@/lib/vendors';
 
 export const dynamic = 'force-dynamic';
@@ -208,12 +210,12 @@ export default async function EventHomePage({
   // event's orders, keeping the hot path fast.
   void sweepLapsedSubscriptions(adminClient, { eventId });
 
-  const [eventRes, profileRes, guests, manualSteps, unreadCount, locale, eventVendorsRes] =
+  const [eventRes, profileRes, guests, manualSteps, unreadCount, locale, eventVendorsRes, confirmedVendorCount] =
     await Promise.all([
       supabase
         .from('events')
         .select(
-          'event_id, display_name, event_date, slug, venue_name, venue_latitude, venue_longitude, monogram_text, palette_finalized_at, concierge_status, concierge_tier, concierge_activated_at, concierge_expires_at, concierge_long_engagement_advised_at',
+          'event_id, display_name, event_date, slug, venue_name, venue_latitude, venue_longitude, monogram_text, palette_finalized_at, concierge_status, concierge_tier, concierge_activated_at, concierge_expires_at, concierge_long_engagement_advised_at, event_type, ceremony_type, ceremony_type_locked_at',
         )
         .eq('event_id', eventId)
         .maybeSingle(),
@@ -235,6 +237,11 @@ export default async function EventHomePage({
         )
         .eq('event_id', eventId)
         .order('created_at', { ascending: true }),
+      // Task #37 — confirmed-vendor count drives the date-edit + ceremony-
+      // type-edit lock state on event home. Same RLS scope as the vendors
+      // query above; getConfirmedVendorCount returns 0 on error so a
+      // count failure never blocks the dashboard render.
+      getConfirmedVendorCount(supabase, eventId),
     ]);
   const tr = makeT(locale);
 
@@ -368,7 +375,22 @@ export default async function EventHomePage({
         daysOut={daysOut}
       />
 
-      <EventDateInput eventId={eventId} initial={event.event_date ?? null} />
+      <div className="space-y-2">
+        <EventDateInput
+          eventId={eventId}
+          initial={event.event_date ?? null}
+          confirmedVendorCount={confirmedVendorCount}
+        />
+        <CeremonyTypeChip
+          eventId={eventId}
+          eventType={(event as { event_type?: string | null }).event_type ?? 'wedding'}
+          ceremonyType={(event as { ceremony_type?: string | null }).ceremony_type ?? null}
+          ceremonyTypeLockedAt={
+            (event as { ceremony_type_locked_at?: string | null }).ceremony_type_locked_at ?? null
+          }
+          confirmedVendorCount={confirmedVendorCount}
+        />
+      </div>
 
       <StageStrip stage={stage} />
 

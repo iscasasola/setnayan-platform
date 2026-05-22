@@ -169,3 +169,44 @@ export function formatEventDate(iso: string | null, locale = 'en-US'): string {
     day: 'numeric',
   });
 }
+
+/**
+ * Vendor statuses that count as a confirmed commitment for the
+ * date-edit + ceremony-type-edit gates on event home (iteration 0021
+ * § 10 / § 11 / § 13 + Task #37).
+ *
+ * Mirrors the spec language ("≥1 confirmed vendor") against the actual
+ * `vendor_status` enum from 20260513100000_iteration_0006_vendors.sql.
+ * `considering` and `shortlisted` are exploratory — a host can still
+ * change the date / wedding type freely. `contracted` onwards means an
+ * actual booking commitment that would be disrupted by a unilateral
+ * change, so the edit flips to support-mediated negotiation per § 10.1.
+ */
+export const CONFIRMED_VENDOR_STATUSES = [
+  'contracted',
+  'deposit_paid',
+  'delivered',
+  'complete',
+] as const;
+
+export type ConfirmedVendorStatus = (typeof CONFIRMED_VENDOR_STATUSES)[number];
+
+/**
+ * Count of vendors on this event whose status is at-or-past 'contracted'.
+ * Returns 0 on error so the chrome never crashes the event page; the
+ * downstream UI will simply render the unlocked state, which is the
+ * conservative default (worst case: host edits → server action's own
+ * idempotent guard catches the conflict).
+ */
+export async function getConfirmedVendorCount(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<number> {
+  const { count, error } = await supabase
+    .from('event_vendors')
+    .select('vendor_id', { count: 'exact', head: true })
+    .eq('event_id', eventId)
+    .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[]);
+  if (error) return 0;
+  return count ?? 0;
+}

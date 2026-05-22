@@ -45,6 +45,8 @@ import {
 } from '@/lib/concierge';
 import { ConciergeBanner } from './_components/concierge-banner';
 import { TodaysOneThing } from './_components/todays-one-thing';
+import { Next15Steps } from './_components/next-15-steps';
+import { pickNextSteps, type SponsorRowInput } from '@/lib/next-steps';
 import {
   pickTodaysOneThing,
   countUnlockedCategories,
@@ -262,6 +264,7 @@ export default async function EventHomePage({
     vendorThreadsRes,
     paidOrdersRes,
     paperworkRowsRes,
+    sponsorsRes,
   ] =
     await Promise.all([
       supabase
@@ -338,6 +341,17 @@ export default async function EventHomePage({
         .select(
           'id, event_id, document_type, status, requested_at, received_at, expected_completion_date, expires_at, tracking_reference, document_r2_key, notes, created_at, updated_at',
         )
+        .eq('event_id', eventId),
+      // Sponsors — fuels the Next 15 Steps resolver. Picks each tier
+      // whose `accepted` count falls short of the cultural minimum
+      // (principal = 1+ accepted pair; secondaries = 2 accepted slots
+      // each). Read sponsor_tier + invitation_status only — that's all
+      // the resolver needs. RLS scoped via event_moderators; returns
+      // [] before the migration lands without crashing thanks to
+      // defensive Supabase column-missing semantics.
+      supabase
+        .from('event_sponsors')
+        .select('sponsor_tier, invitation_status')
         .eq('event_id', eventId),
     ]);
   const tr = makeT(locale);
@@ -518,6 +532,57 @@ export default async function EventHomePage({
   );
   const unlockedCategoryCount = countUnlockedCategories(eventVendors);
 
+  // Next 15 Steps — Wave 2 of the home-surface evolution. Owner
+  // directive 2026-05-22 — surface a scannable ladder of the next
+  // 15 things to do, tagged with parallelizability so hosts know
+  // what they can work on right now vs what's better to wait on.
+  // The resolver is pure — passes already-fetched data in. No extra
+  // DB roundtrips beyond what the page already does for Today's One
+  // Thing + PlanningGroups + paperwork + sponsors.
+  const sponsorRowsForNextSteps: ReadonlyArray<SponsorRowInput> = (
+    (sponsorsRes.data ?? []) as Array<{
+      sponsor_tier: string | null;
+      invitation_status: string | null;
+    }>
+  )
+    .filter(
+      (s): s is { sponsor_tier: string; invitation_status: string | null } =>
+        typeof s.sponsor_tier === 'string' &&
+        (s.sponsor_tier === 'principal' ||
+          s.sponsor_tier === 'cord' ||
+          s.sponsor_tier === 'veil' ||
+          s.sponsor_tier === 'coin' ||
+          s.sponsor_tier === 'candle'),
+    )
+    .map((s) => ({
+      sponsor_tier: s.sponsor_tier as SponsorRowInput['sponsor_tier'],
+      invitation_status: s.invitation_status,
+    }));
+  const moodBoardLocked =
+    (event as { palette_finalized_at?: string | null }).palette_finalized_at !==
+      null &&
+    (event as { palette_finalized_at?: string | null }).palette_finalized_at !==
+      undefined;
+  // Extract paperwork rows once — both the Next 15 Steps resolver and
+  // the PlanningGroups paperwork sub-link read from the same array, so
+  // we compute it inline here. The summarization runs later
+  // (`summarizePaperwork(paperworkRowsForNextSteps, ...)`) under its
+  // existing comment block. Mirrors the deduped variable pattern
+  // already in this file for eventVendors / eventVendorsRaw.
+  const paperworkRowsForNextSteps = (paperworkRowsRes.data ?? []) as PaperworkRow[];
+  const nextSteps = pickNextSteps({
+    eventId,
+    weddingDateIso: event.event_date,
+    ceremonyType: eventCeremonyType,
+    vendors: eventVendors,
+    paperwork: paperworkRowsForNextSteps,
+    sponsors: sponsorRowsForNextSteps,
+    guestCount: stats.total,
+    moodBoardLocked,
+    now,
+    limit: 15,
+  });
+
   // Day-of mode (iteration 0031): when inside the T-1h .. T+8h window of the
   // event date, fetch the schedule + seating data needed to render the live
   // grid above the rest of the dashboard. Outside the window we render
@@ -589,7 +654,7 @@ export default async function EventHomePage({
   // zero-state summary when the table doesn't exist yet (pre-migration)
   // OR the host hasn't seeded any rows yet — the sub-link renders as a
   // "Track your paperwork" empty-state CTA in that case.
-  const paperworkRows = (paperworkRowsRes.data ?? []) as PaperworkRow[];
+  const paperworkRows = paperworkRowsForNextSteps;
   const paperworkSummary = summarizePaperwork(paperworkRows, event.event_date);
 
   // "Committed" budget signal: paid + fulfilled orders + every
@@ -808,6 +873,15 @@ export default async function EventHomePage({
         weddingDateMissing={event.event_date === null}
         totalRemainingTasks={unlockedCategoryCount}
       />
+
+      {/* Wave 2 of Home v2 — owner directive 2026-05-22 (Next 15 Steps
+       *  parallelizability surface). Lives between the single-focus
+       *  hero above and the full 12-card grid in the disclosure below.
+       *  Senior PH wedding planner intelligence encoded as data —
+       *  vendor categories + paperwork + sponsors + in-app tools all
+       *  ranked into one sortable ladder, tagged with parallelizability
+       *  so hosts can decide what to do now vs later vs in parallel. */}
+      <Next15Steps eventId={eventId} steps={nextSteps} />
 
       <details className="group rounded-xl border border-ink/10 bg-cream/40">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 text-sm font-medium text-ink transition-colors hover:bg-cream sm:px-6">

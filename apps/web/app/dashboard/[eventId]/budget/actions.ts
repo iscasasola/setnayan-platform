@@ -158,7 +158,14 @@ export async function addLineItem(formData: FormData) {
   });
   if (error) throw new Error(error.message);
 
+  // Both surfaces share the same VendorItemizationCard component since the
+  // 2026-05-22 extraction. Revalidating /budget alone left the workspace
+  // page rendering stale data when the host added a milestone from the
+  // embedded card. The workspace revalidation uses the path pattern; the
+  // dynamic [eventVendorId] segment matches `vendor_id` 1:1 because
+  // workspace pages are routed by event_vendor.vendor_id.
   revalidatePath(`/dashboard/${eventId}/budget`);
+  revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`);
 }
 
 export async function deleteLineItem(formData: FormData) {
@@ -174,6 +181,16 @@ export async function deleteLineItem(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // Look up the vendor_id before the delete so we can revalidate the
+  // matching workspace path after. RLS scopes the SELECT to the host's own
+  // events; missing row → just skip the workspace revalidation.
+  const { data: lineRow } = await supabase
+    .from('event_vendor_line_items')
+    .select('vendor_id')
+    .eq('line_item_id', lineItemId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+
   const { error } = await supabase
     .from('event_vendor_line_items')
     .delete()
@@ -182,6 +199,9 @@ export async function deleteLineItem(formData: FormData) {
   if (error) throw new Error(error.message);
 
   revalidatePath(`/dashboard/${eventId}/budget`);
+  if (lineRow?.vendor_id) {
+    revalidatePath(`/dashboard/${eventId}/vendors/${lineRow.vendor_id}/workspace`);
+  }
 }
 
 export async function logPayment(formData: FormData) {
@@ -245,7 +265,11 @@ export async function logPayment(formData: FormData) {
   });
   if (error) throw new Error(error.message);
 
+  // Revalidate both /budget AND the workspace page — the embedded
+  // VendorItemizationCard on the workspace surface needs the new payment
+  // row + recomputed totals on the next visit.
   revalidatePath(`/dashboard/${eventId}/budget`);
+  revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`);
 }
 
 export async function deletePayment(formData: FormData) {
@@ -261,6 +285,15 @@ export async function deletePayment(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // Look up the vendor_id before the delete for the workspace revalidation
+  // path. Same pattern as deleteLineItem above — missing row just skips.
+  const { data: paymentRow } = await supabase
+    .from('event_vendor_payments')
+    .select('vendor_id')
+    .eq('payment_id', paymentId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+
   const { error } = await supabase
     .from('event_vendor_payments')
     .delete()
@@ -269,4 +302,7 @@ export async function deletePayment(formData: FormData) {
   if (error) throw new Error(error.message);
 
   revalidatePath(`/dashboard/${eventId}/budget`);
+  if (paymentRow?.vendor_id) {
+    revalidatePath(`/dashboard/${eventId}/vendors/${paymentRow.vendor_id}/workspace`);
+  }
 }

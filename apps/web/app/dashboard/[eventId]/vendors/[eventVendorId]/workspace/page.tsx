@@ -51,18 +51,25 @@ import {
   MessageCircle,
   Package as PackageIcon,
   PiggyBank,
-  Plus,
   UserCheck,
   Upload,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
+import { fetchBudgetSnapshot } from '@/lib/budget';
 import {
   buildClaimUrl,
   ensureAutoShareInvite,
   fetchActiveAutoShareInvite,
 } from '@/lib/vendor-invites';
 import { ClaimLinkShare } from './_components/claim-link-share';
+import { VendorItemizationCard } from '../../../_components/vendor-itemization-card';
+import {
+  VendorMarketplaceInfo,
+  fetchMarketplaceContact,
+  fetchMarketplaceServices,
+  fetchMarketplaceReviews,
+} from '../../../_components/vendor-marketplace-info';
 
 export const metadata = { title: 'Vendor workspace · Setnayan' };
 
@@ -259,9 +266,17 @@ export default async function VendorWorkspacePage({ params }: Props) {
     });
   }
 
-  // Parallel fetches for the 5 panel data sources. None of these are critical-
-  // path — if any fail (e.g. RLS edge case, table doesn't exist on prod yet),
-  // we render the empty state for that section rather than crashing the page.
+  // Parallel fetches for the 5 panel data sources + the per-vendor budget
+  // snapshot (drives the embedded VendorItemizationCard inside the Payments
+  // section, owner directive 2026-05-22) + the three marketplace-info
+  // surfaces (services · contact · reviews) when the vendor is marketplace-
+  // linked.
+  //
+  // None of these are critical-path — if any fail (e.g. RLS edge case, table
+  // doesn't exist on prod yet), we render the empty state for that section
+  // rather than crashing the page. Budget snapshot is wrapped in a defensive
+  // catch because fetchBudgetSnapshot throws on Postgres errors; we treat
+  // any throw as "no budget data available" + show the polite empty state.
   const [
     lineItemsRes,
     paymentsRes,
@@ -269,6 +284,9 @@ export default async function VendorWorkspacePage({ params }: Props) {
     meetingsRes,
     marketplaceProfileRes,
     chatThreadRes,
+    marketplaceServicesData,
+    marketplaceContactData,
+    marketplaceReviewsData,
   ] = await Promise.all([
     // 1. Payment milestones
     supabase
@@ -325,7 +343,48 @@ export default async function VendorWorkspacePage({ params }: Props) {
           .eq('vendor_profile_id', ev.marketplace_vendor_id)
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
+
+    // 7-9. Marketplace info — only fetch when the event_vendors row points
+    //      at a marketplace vendor_profile. Each helper handles its own
+    //      42P01 / 42703 graceful-degrade so a missing migration on prod
+    //      surfaces as an empty card, not a 500.
+    ev.marketplace_vendor_id
+      ? fetchMarketplaceServices(supabase, ev.marketplace_vendor_id)
+      : Promise.resolve([]),
+    ev.marketplace_vendor_id
+      ? fetchMarketplaceContact(supabase, ev.marketplace_vendor_id)
+      : Promise.resolve(null),
+    ev.marketplace_vendor_id
+      ? fetchMarketplaceReviews(supabase, ev.marketplace_vendor_id)
+      : Promise.resolve({
+          stats: {
+            vendor_profile_id: '',
+            avg_rating_overall: 0,
+            total_count: 0,
+            count_5_star: 0,
+            count_4_star: 0,
+            count_3_star: 0,
+            count_2_star: 0,
+            count_1_star: 0,
+          },
+          reviews: [],
+        }),
   ]);
+
+  // Budget snapshot — fetched after the main Promise.all so the throw-on-
+  // error path doesn't take down the whole page. We need the per-vendor
+  // VendorBudgetSummary so the embedded VendorItemizationCard can render
+  // identically to the budget page. fetchBudgetSnapshot pulls every
+  // vendor's data; we filter to just this vendor below.
+  let vendorBudgetSummary: Awaited<ReturnType<typeof fetchBudgetSnapshot>>['vendors'][number] | null = null;
+  try {
+    const snapshot = await fetchBudgetSnapshot(supabase, eventId);
+    vendorBudgetSummary =
+      snapshot.vendors.find((s) => s.vendor.vendor_id === ev.vendor_id) ?? null;
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('[VendorWorkspacePage] fetchBudgetSnapshot threw', e);
+  }
 
   const lineItems = (lineItemsRes.data ?? []) as Array<{
     line_item_id: string;
@@ -403,15 +462,6 @@ export default async function VendorWorkspacePage({ params }: Props) {
   }, 0);
   const planTotalFormatted =
     lineItems.length > 0 ? formatPHP(milestonesTotal) : totalCostFormatted;
-
-  // Resolve which line items have been paid (sum of payments per line item)
-  const paidByLineItem = new Map<string, number>();
-  for (const p of payments) {
-    if (!p.line_item_id) continue;
-    const n = typeof p.amount_php === 'string' ? Number(p.amount_php) : p.amount_php;
-    if (!Number.isFinite(n)) continue;
-    paidByLineItem.set(p.line_item_id, (paidByLineItem.get(p.line_item_id) ?? 0) + n);
-  }
 
   // Conversation deep-link target
   const conversationHref = chatThread
@@ -748,6 +798,17 @@ export default async function VendorWorkspacePage({ params }: Props) {
 
         {/* ----------------------------------------------------------- */}
         {/* Section 4 — Payments                                         */}
+        {/*                                                              */}
+        {/* Owner directive 2026-05-22 — embed the per-vendor budget     */}
+        {/* itemization (Line Items + Payments form from /budget) inside */}
+        {/* this card. Renders the SAME VendorItemizationCard component  */}
+        {/* the budget page uses, in 'embed' variant (drops the outer    */}
+        {/* article chrome since this card already supplies it).         */}
+        {/*                                                              */}
+        {/* The empty state below applies when fetchBudgetSnapshot failed*/}
+        {/* outright OR returned no row for this vendor (rare race —     */}
+        {/* event_vendors row exists but snapshot query lost it). Both   */}
+        {/* fall back to the same polite empty state.                    */}
         {/* ----------------------------------------------------------- */}
         <section
           id="payments"
@@ -766,91 +827,19 @@ export default async function VendorWorkspacePage({ params }: Props) {
               />
               Payments
             </h2>
-            <Link
-              href={`/dashboard/${eventId}/budget#vendor-${ev.vendor_id}`}
-              className="inline-flex items-center gap-1 text-[11px] font-medium text-terracotta-700 hover:text-terracotta-800"
-            >
-              <Plus aria-hidden className="h-3 w-3" strokeWidth={2} />
-              Add milestone
-            </Link>
           </header>
 
-          {lineItems.length === 0 && payments.length === 0 ? (
-            <p className="text-xs text-ink/55">
-              No payment milestones added yet. Use the budget tracker to plan
-              and record payments to {displayName}.
-            </p>
+          {vendorBudgetSummary ? (
+            <VendorItemizationCard
+              summary={vendorBudgetSummary}
+              eventId={eventId}
+              variant="embed"
+            />
           ) : (
-            <>
-              {lineItems.length > 0 ? (
-                <ul className="space-y-2">
-                  {lineItems.map((li) => {
-                    const liAmount =
-                      typeof li.amount_php === 'string'
-                        ? Number(li.amount_php)
-                        : li.amount_php;
-                    const paid = paidByLineItem.get(li.line_item_id) ?? 0;
-                    const settled =
-                      Number.isFinite(liAmount) && paid >= Number(liAmount);
-                    return (
-                      <li
-                        key={li.line_item_id}
-                        className="flex items-center justify-between gap-3 rounded-lg border border-ink/10 bg-cream/80 px-3 py-2"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm text-ink">
-                            {li.label}
-                          </p>
-                          {li.due_date ? (
-                            <p className="text-[10px] text-ink/55">
-                              Due {formatPaymentDate(li.due_date)}
-                            </p>
-                          ) : null}
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm font-medium text-ink">
-                            {formatPHP(liAmount) ?? '—'}
-                          </p>
-                          <p
-                            className={[
-                              'font-mono text-[9px] uppercase tracking-[0.15em]',
-                              settled ? 'text-emerald-700' : 'text-ink/45',
-                            ].join(' ')}
-                          >
-                            {settled ? 'Paid' : 'Pending'}
-                          </p>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : null}
-
-              {payments.length > 0 ? (
-                <details className="rounded-lg bg-cream/40 px-3 py-2">
-                  <summary className="cursor-pointer text-[11px] font-medium text-ink/70">
-                    Payment history ({payments.length})
-                  </summary>
-                  <ul className="mt-2 space-y-1.5">
-                    {payments.map((p) => {
-                      const amt = formatPHP(p.amount_php);
-                      return (
-                        <li
-                          key={p.payment_id}
-                          className="flex items-center justify-between text-xs text-ink/75"
-                        >
-                          <span>
-                            {formatPaymentDate(p.paid_at)}
-                            {p.method ? ` · ${p.method}` : ''}
-                          </span>
-                          <span className="font-medium text-ink">{amt}</span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </details>
-              ) : null}
-            </>
+            <p className="text-xs text-ink/55">
+              No payment milestones added yet. Add a line item or log a payment
+              below as money moves to {displayName}.
+            </p>
           )}
         </section>
 
@@ -983,6 +972,29 @@ export default async function VendorWorkspacePage({ params }: Props) {
           )}
         </section>
       </div>
+
+      {/* ============================================================== */}
+      {/* Section 6.5 — Marketplace info (marketplace-linked vendors only) */}
+      {/* ============================================================== */}
+      {/* Owner directive 2026-05-22 — surface Services + Contact + Reviews */}
+      {/* from the vendor's marketplace profile. Skipped entirely for       */}
+      {/* off-platform vendors (no marketplace_vendor_id) since the data    */}
+      {/* simply doesn't exist for them. The Conversation card above        */}
+      {/* already explains the off-platform state.                          */}
+      {ev.marketplace_vendor_id ? (
+        <VendorMarketplaceInfo
+          services={marketplaceServicesData}
+          contact={marketplaceContactData}
+          reviewsData={marketplaceReviewsData}
+          vendorBusinessName={displayName}
+          vendorProfileSlug={marketplaceProfile?.business_slug ?? null}
+          reviewLinkHref={
+            ev.status === 'delivered' || ev.status === 'complete'
+              ? `/dashboard/${eventId}/vendors/${ev.vendor_id}/review`
+              : null
+          }
+        />
+      ) : null}
 
       {/* ============================================================== */}
       {/* Section 7 — Package                                              */}

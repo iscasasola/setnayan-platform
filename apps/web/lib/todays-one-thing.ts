@@ -221,6 +221,63 @@ type Candidate = {
 };
 
 /**
+ * Foundation tier — canonical Filipino wedding-planner ordering for
+ * within-bucket tie-breaks. Owner directive 2026-05-22 after a screenshot
+ * showed Today's Focus picking Ceremony Venue when Next 15 Steps below
+ * (correctly) had Reception Venue at #1. Both groups have monthsBefore=12
+ * + tier='foundation', so the prior monthsBefore-ascending tiebreak fell
+ * back to PLAN_GROUPS array order — which lists ceremony first
+ * (alphabetic-ish coincidence). That ordering is wrong for PH planning
+ * canon.
+ *
+ * The canon: **Reception is THE foundation** — it locks the date, drives
+ * downstream booking (the coordinator + caterer + photographer all key
+ * off the reception location), and is what every Filipino wedding
+ * planner asks about first. Ceremony venue is second (drives paperwork
+ * + officiant chain). Coordinator is third (the day-of conductor, but
+ * structurally downstream of the two venues since coordinators quote
+ * based on where the wedding lives).
+ *
+ * Lower number = wins the tiebreak. Categories not in this map fall
+ * through to the existing monthsBefore tiebreak.
+ *
+ * The same canonical ordering lives in `next-steps.ts` via PHASE_ORDER
+ * (reception_venue:0, ceremony_venue:1, coordinator:2) — verified to
+ * already-be-correct via `compareSteps` + `rankWithinBucket` at lines
+ * 1046-1085 of that file, so this fix is local to Today's One Thing.
+ */
+const FOUNDATION_PRIORITY: Partial<Record<PlanGroupId, number>> = {
+  reception_venue: 1,
+  ceremony_venue: 2,
+  coordinator: 3,
+};
+
+/**
+ * Within-bucket tie-breaker. Called from the sort comparator AFTER the
+ * primary status bucket + days metric have been compared. Splits into
+ * two phases:
+ *   1. Foundation tier (reception → ceremony → coordinator) takes
+ *      precedence over everything else.
+ *   2. Within the foundation tier, the canonical order from
+ *      FOUNDATION_PRIORITY wins (lower number first).
+ *   3. Fall back to monthsBefore ASC (existing behavior) for
+ *      non-foundation groups.
+ *
+ * Returns a negative number when a should sort before b, positive when
+ * b should sort first, 0 when truly equal.
+ */
+function compareWithinBucket(a: Candidate, b: Candidate): number {
+  const aFoundation = FOUNDATION_PRIORITY[a.group.id];
+  const bFoundation = FOUNDATION_PRIORITY[b.group.id];
+  if (aFoundation !== undefined && bFoundation !== undefined) {
+    return aFoundation - bFoundation;
+  }
+  if (aFoundation !== undefined) return -1; // a wins
+  if (bFoundation !== undefined) return 1; // b wins
+  return a.monthsBefore - b.monthsBefore;
+}
+
+/**
  * Pick today's one thing — server-side resolver. Pass the host's
  * already-fetched `event_vendors` rows + the event's `wedding_date` +
  * the current clock; returns the highest-priority unlocked task, or
@@ -277,28 +334,34 @@ export function pickTodaysOneThing(
   if (candidates.length === 0) return null;
 
   // Sort — priority by status bucket, then by within-bucket key.
+  //
+  // Owner directive 2026-05-22: within every bucket (overdue +
+  // due_this_week + next_up + not_started), Foundation tier wins the
+  // tie-break in canonical PH-planner order (reception → ceremony →
+  // coordinator) BEFORE falling back to monthsBefore ASC. See
+  // `compareWithinBucket` + `FOUNDATION_PRIORITY` above for the rationale.
   candidates.sort((a, b) => {
     const aOrder = STATUS_PRIORITY[a.status];
     const bOrder = STATUS_PRIORITY[b.status];
     if (aOrder !== bOrder) return aOrder - bOrder;
 
     if (a.status === 'overdue') {
-      // Most-overdue first; tie-break earliest-monthsBefore first
-      // (structurally upstream categories win — e.g. venue beats cake
-      // when both are overdue by the same margin).
+      // Most-overdue first; foundation-tier tiebreak only when days
+      // are equal (structurally upstream categories win — e.g. venue
+      // beats cake when both are overdue by the same margin).
       if (a.days !== b.days) return b.days - a.days;
-      return a.monthsBefore - b.monthsBefore;
+      return compareWithinBucket(a, b);
     }
 
     if (a.status === 'due_this_week') {
       // Closest to floor first (lower days = more urgent).
       if (a.days !== b.days) return a.days - b.days;
-      return a.monthsBefore - b.monthsBefore;
+      return compareWithinBucket(a, b);
     }
 
-    // next_up + not_started share the same secondary key:
-    // earliest-monthsBefore first.
-    return a.monthsBefore - b.monthsBefore;
+    // next_up + not_started share the same secondary key: foundation
+    // tier first, then earliest-monthsBefore.
+    return compareWithinBucket(a, b);
   });
 
   const winner = candidates[0];

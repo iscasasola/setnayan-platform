@@ -125,6 +125,53 @@ const SORT_LABEL: Record<SortKey, string> = {
 
 const PAGE_SIZE = 24;
 
+// Task #48 — couple-facing labels for the 7 venue_setting enum values.
+// Source of truth lives in migration 20260521000000_iteration_0043 's
+// events_venue_setting_check constraint. Re-used by both the catalog
+// Reception facet chips AND the vendor-grid VenueFilterBanner so the
+// host sees the same wording everywhere ("Garden venues only", "Garden
+// Estate" chip, etc.). Keep in sync when V1.2 adds new venue settings.
+//
+// The literal-keyed object type (vs Record<string, string>) lets TS infer
+// each key's value as `string`-not-`string | undefined`, which the
+// RECEPTION_VENUE_FACETS literal below needs to satisfy its own
+// readonly-of-{key,label,combined} shape.
+const VENUE_SETTING_LABEL = {
+  banquet_hall: 'Hotel Ballroom / Banquet Hall',
+  garden: 'Garden Estate',
+  beach: 'Beach',
+  destination: 'Destination Resort',
+  heritage: 'Heritage / Hacienda',
+  outdoor_tent: 'Outdoor Tent',
+  civil_registrar: "Civil Registrar's Office",
+} as const;
+
+// Shorter form for inline-banner copy ("Garden venues only · your wedding's
+// setting"). Same literal-key shape so the banner doesn't have to defend
+// against undefined.
+const VENUE_SETTING_SHORT_LABEL = {
+  banquet_hall: 'Banquet hall',
+  garden: 'Garden',
+  beach: 'Beach',
+  destination: 'Destination resort',
+  heritage: 'Heritage venue',
+  outdoor_tent: 'Outdoor tent',
+  civil_registrar: 'Civil registrar',
+} as const;
+
+// Defensive accessor — when a venue_setting key comes from the DB and
+// hasn't been added to the literal map yet (e.g. a V1.2 addition the
+// frontend hasn't picked up), fall back to a Title Case of the key so
+// nothing renders blank. Used by the VenueFilterBanner + FilterBar copy.
+function venueSettingLongLabel(key: string): string {
+  return (VENUE_SETTING_LABEL as Record<string, string>)[key]
+    ?? key.replace(/_/g, ' ');
+}
+function venueSettingShortLabel(key: string): string {
+  return (VENUE_SETTING_SHORT_LABEL as Record<string, string>)[key]
+    ?? key.replace(/_/g, ' ');
+}
+
 type Props = {
   searchParams: Promise<{
     q?: string;
@@ -149,6 +196,18 @@ type Props = {
      *  12-folder catalog renders as before. Invalid values fall back to
      *  unscoped catalog. */
     folder?: string;
+    /** Task #48 · CLAUDE.md 2026-05-22 — venue_setting default-on filter
+     *  for the Reception folder. When the host's primary event has a
+     *  picked `events.venue_setting` AND they're viewing Reception (catalog
+     *  mode with ?folder=reception, OR vendor-grid mode anchored to a
+     *  venue-typed canonical), the marketplace defaults to filtering
+     *  vendor_profiles whose `compatible_venue_settings` array contains
+     *  the host's setting. Mirrors the religion-match shape from PR #305:
+     *  default ON when present, toggle OFF via `?venue=0`. Absent (default
+     *  null) is treated as "on when applicable, off when the host has no
+     *  venue_setting". Composes cleanly with ?match=1/0 (religion) and
+     *  ?folder=reception (catalog scope). */
+    venue?: string;
   }>;
 };
 
@@ -266,6 +325,16 @@ function parseFilters(
    *  Source: dashboard planning-group [Search] buttons (planning-groups.tsx).
    *  Absent / invalid → render all 12 folders (universal Browse). */
   folder: WeddingFolder | null;
+  /** Task #48 — venue_setting default-on toggle. Three states:
+   *   - `'on'` (default when absent OR `?venue=1`): apply the host's
+   *     `events.venue_setting` as a filter on `compatible_venue_settings`
+   *     whenever the marketplace is anchored to Reception (folder=reception
+   *     in catalog mode, OR vendor-grid mode where the URL carries venue=1).
+   *   - `'off'` (`?venue=0`): explicit opt-out — broaden the result set to
+   *     include vendors compatible with any venue setting.
+   * Anonymous browsers + hosts without a venue_setting picked treat
+   * 'on' as a no-op (no filter applies; toggle stays hidden). */
+  venueDefault: 'on' | 'off';
 } {
   const q = (raw.q ?? '').trim();
   const sort = (SORT_KEYS as readonly string[]).includes(raw.sort ?? '')
@@ -306,7 +375,24 @@ function parseFilters(
   const folder = (WEDDING_FOLDER_ORDER as readonly string[]).includes(rawFolder)
     ? (rawFolder as WeddingFolder)
     : null;
-  return { q, category, city, sort, page, verifiedOnly, matchEvent, eventType, folder };
+  // Task #48 — venue default-on toggle. Default 'on' (apply host's
+  // venue_setting when applicable). `?venue=0` explicit opt-out. Anything
+  // else collapses to 'on'. The "applicable" check (host has a
+  // venue_setting + we're in Reception scope) happens at the query layer
+  // where we have the event data; this just decodes the URL signal.
+  const venueDefault = raw.venue === '0' ? ('off' as const) : ('on' as const);
+  return {
+    q,
+    category,
+    city,
+    sort,
+    page,
+    verifiedOnly,
+    matchEvent,
+    eventType,
+    folder,
+    venueDefault,
+  };
 }
 
 export default async function VendorsMarketplacePage({ searchParams }: Props) {
@@ -452,6 +538,18 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   const noticeKey =
     raw.notice && VENDORS_NOTICE_COPY[raw.notice] ? raw.notice : null;
 
+  // Task #48 — derive the effective venue-default filter state for
+  // catalog mode. The filter only "fires" (UX chips lit + facet drill-
+  // ins pre-filtered) when ALL conditions hold: (a) host has an event
+  // with a picked venue_setting, (b) ?venue=0 was NOT explicitly set.
+  // Anonymous visitors AND hosts without a venue_setting yet treat the
+  // toggle as a no-op so the catalog renders cleanly with the existing
+  // facet chips. The actual SQL filter only attaches in vendor-grid
+  // mode below — catalog mode is unfiltered by design (per Task #47).
+  const hostVenueSetting: string | null = matchableEvent?.venue_setting ?? null;
+  const venueFilterActive =
+    hostVenueSetting !== null && filters.venueDefault === 'on';
+
   if (isCatalogMode) {
     return (
       <CatalogView
@@ -466,6 +564,8 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         isAuthenticated={user !== null}
         noticeKey={noticeKey}
         scopedFolder={filters.folder}
+        hostVenueSetting={hostVenueSetting}
+        venueFilterActive={venueFilterActive}
       />
     );
   }
@@ -537,6 +637,24 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     );
   }
 
+  // Task #48 (2026-05-22) — venue_setting default-on filter. Composes
+  // independently with ?match=1 (religion). Fires when ALL hold: (a) the
+  // host has a venue_setting picked on their primary event, (b) ?venue=0
+  // was NOT set, (c) the request reads as Reception-anchored — either
+  // explicit ?folder=reception, or the host already drilled into a venue-
+  // typed canonical_service via the Reception facet chips. The OR clause
+  // mirrors the religion-match safety valve: vendors with a NULL
+  // compatible_venue_settings (legacy / pre-iteration-0043) stay visible
+  // alongside vendors who explicitly tagged the host's setting. The DEFAULT
+  // on the column is non-null per migration 20260521000000, so in practice
+  // every modern vendor row has SOME array — the `.is.null` half covers
+  // the test_seed_null backfill edge case + future schema additions.
+  if (venueFilterActive && filters.folder === 'reception') {
+    query = query.or(
+      `compatible_venue_settings.is.null,compatible_venue_settings.cs.{${hostVenueSetting}}`,
+    );
+  }
+
   // Sort chain (iteration 0006, 2026-05-21): always float Sponsored Boost +
   // Boosted Ads to the top per iteration 0022 § 5b, then apply the user's
   // chosen sort. All columns live on vendor_market_stats so PostgREST orders
@@ -575,7 +693,14 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // Only runs on empty pages — zero overhead when results exist. Category,
   // city, q, and eventType context is preserved; only match + verified drop.
   let broadenedCount: number | null = null;
-  const hasStrictFilter = filters.matchEvent || filters.verifiedOnly;
+  // Task #48 — the venue default-on filter also counts as "strict" when
+  // it's actively narrowing results. Hooking it into the broadened-scope
+  // count means the empty-state can offer a "Show all settings" CTA with
+  // the actual count of vendors that DO exist in the category without the
+  // venue clause attached.
+  const venueFilterFiring = venueFilterActive && filters.folder === 'reception';
+  const hasStrictFilter =
+    filters.matchEvent || filters.verifiedOnly || venueFilterFiring;
   if (rows.length === 0 && hasStrictFilter) {
     let broadened = admin
       .from('vendor_market_stats')
@@ -773,7 +898,23 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           ) : null}
         </div>
 
-        <FilterBar filters={filters} matchableEvent={matchableEvent} />
+        <FilterBar
+          filters={filters}
+          matchableEvent={matchableEvent}
+          hostVenueSetting={hostVenueSetting}
+        />
+
+        {/* Task #48 — venue default-on chip. Surfaced only when the venue
+            filter is actually firing on this query (Reception scope + host
+            has a setting + ?venue not explicitly 0). Gives couples one-click
+            "Show all settings" recovery if the narrowed pool is too small,
+            without losing the rest of their filter state. */}
+        {venueFilterFiring && hostVenueSetting ? (
+          <VenueFilterBanner
+            settingKey={hostVenueSetting}
+            showAllHref={buildHref(filters, { venueDefault: 'off' })}
+          />
+        ) : null}
 
         {/* Task #45 — calendar intersection banner. Only renders when the
             host has confirmed vendors AND the precision window narrows the
@@ -846,6 +987,8 @@ function buildHref(
     verifiedOnly: boolean;
     matchEvent: boolean;
     eventType?: EventTypeFilter | null;
+    folder?: WeddingFolder | null;
+    venueDefault?: 'on' | 'off';
   },
   patch: Partial<{
     q: string;
@@ -856,6 +999,8 @@ function buildHref(
     verifiedOnly: boolean;
     matchEvent: boolean;
     eventType: EventTypeFilter | null;
+    folder: WeddingFolder | null;
+    venueDefault: 'on' | 'off';
   }>,
 ): string {
   const merged = { ...filters, ...patch };
@@ -868,6 +1013,12 @@ function buildHref(
   if (merged.verifiedOnly) params.set('verified', '1');
   if (merged.matchEvent) params.set('match', '1');
   if (merged.eventType) params.set('event_type', merged.eventType);
+  if (merged.folder) params.set('folder', merged.folder);
+  // Task #48 — only emit ?venue=0 (explicit opt-out). The 'on' default is
+  // implicit, so omitting the param keeps URLs short AND means new clicks
+  // inherit the default-on behavior unless the user has explicitly toggled
+  // off via the chip.
+  if (merged.venueDefault === 'off') params.set('venue', '0');
   const qs = params.toString();
   return qs.length > 0 ? `/vendors?${qs}` : '/vendors';
 }
@@ -875,6 +1026,7 @@ function buildHref(
 function FilterBar({
   filters,
   matchableEvent,
+  hostVenueSetting,
 }: {
   filters: {
     q: string;
@@ -885,9 +1037,26 @@ function FilterBar({
     verifiedOnly: boolean;
     matchEvent: boolean;
     eventType: EventTypeFilter | null;
+    folder: WeddingFolder | null;
+    venueDefault: 'on' | 'off';
   };
   matchableEvent: { ceremony_type: string; venue_setting: string } | null;
+  /** Task #48 — host's events.venue_setting (snake_case enum). Surfaces
+   *  the Venue toggle only when the marketplace is Reception-scoped AND
+   *  the host has set a venue_setting. Null on anonymous browse or for
+   *  hosts who haven't picked one yet. */
+  hostVenueSetting: string | null;
 }) {
+  // Task #48 — venue toggle is contextual: only meaningful when the URL
+  // is Reception-scoped. Outside that scope the toggle would surprise
+  // couples ("why is there a 'Garden venues only' switch on a Photography
+  // search?"), so hide it. The catalog-mode banner above the FilterBar
+  // already explains the filter in its proper context.
+  const showVenueToggle =
+    filters.folder === 'reception' && hostVenueSetting !== null;
+  const venueLongLabel = hostVenueSetting
+    ? venueSettingLongLabel(hostVenueSetting)
+    : null;
   return (
     <form
       method="get"
@@ -981,6 +1150,42 @@ function FilterBar({
             </span>
           </span>
         </label>
+      ) : null}
+
+      {/* Task #48 — venue_setting toggle, Reception-scoped. The default-on
+          behavior means parseFilters reads "absent param" as 'on'. We can't
+          rely on the standard checked/unchecked checkbox pattern here
+          because an unchecked HTML checkbox doesn't submit any value
+          (parseFilters would see no param → default-on → toggle never
+          worked). Instead we use an inverted "Show all settings" checkbox
+          that's UNCHECKED when the filter is firing (default state); when
+          the host checks it to broaden the search, the form submits
+          ?venue=0 explicitly. Re-unchecking drops the param so the host
+          returns to default-on. */}
+      {showVenueToggle ? (
+        <label className="flex items-center gap-2 text-sm text-ink/75 lg:col-span-4">
+          <input
+            type="checkbox"
+            name="venue"
+            value="0"
+            defaultChecked={filters.venueDefault === 'off'}
+            className="h-4 w-4 rounded border-ink/25 text-terracotta focus:ring-terracotta/40"
+          />
+          <span>
+            <span className="font-medium">Show all venue settings</span>
+            <span className="ml-2 text-ink/55">
+              (uncheck to focus on{' '}
+              <span className="font-medium text-ink/75">{venueLongLabel}</span>{' '}
+              — your wedding&rsquo;s picked setting)
+            </span>
+          </span>
+        </label>
+      ) : null}
+
+      {/* Preserve folder scope (Task #47) on form submit so toggling other
+          filters doesn't drop the host back into the unscoped catalog. */}
+      {filters.folder ? (
+        <input type="hidden" name="folder" value={filters.folder} />
       ) : null}
 
       <div className="flex items-end gap-2 lg:col-span-4">
@@ -1343,6 +1548,9 @@ function Pagination({
     page: number;
     verifiedOnly: boolean;
     matchEvent: boolean;
+    eventType: EventTypeFilter | null;
+    folder: WeddingFolder | null;
+    venueDefault: 'on' | 'off';
   };
   page: number;
   totalPages: number;
@@ -1435,21 +1643,22 @@ const CATALOG_PHASE_RANK: Record<TaxonomyPhase, number> = {
 };
 
 // Reception folder facets — surfaced as chips that drill into the marketplace
-// filtered by venue_setting via the existing `?city=` proxy until V1.2 ships
-// dedicated venue routing. Combined-venue badge marks settings that also host
-// the ceremony (garden, beach, destination, heritage, outdoor_tent).
+// filtered by venue_setting. Combined-venue badge marks settings that also
+// host the ceremony (garden, beach, destination, heritage, outdoor_tent).
+// Labels source from VENUE_SETTING_LABEL so the catalog facet copy stays in
+// sync with the VenueFilterBanner copy in vendor-grid mode.
 const RECEPTION_VENUE_FACETS: ReadonlyArray<{
   key: string;
   label: string;
   combined: boolean;
 }> = [
-  { key: 'banquet_hall',    label: 'Hotel Ballroom / Banquet Hall', combined: false },
-  { key: 'garden',          label: 'Garden Estate',                 combined: true },
-  { key: 'beach',           label: 'Beach',                         combined: true },
-  { key: 'destination',     label: 'Destination Resort',            combined: true },
-  { key: 'heritage',        label: 'Heritage / Hacienda',           combined: true },
-  { key: 'outdoor_tent',    label: 'Outdoor Tent',                  combined: true },
-  { key: 'civil_registrar', label: "Civil Registrar's Office",      combined: false },
+  { key: 'banquet_hall',    label: VENUE_SETTING_LABEL.banquet_hall,    combined: false },
+  { key: 'garden',          label: VENUE_SETTING_LABEL.garden,          combined: true  },
+  { key: 'beach',           label: VENUE_SETTING_LABEL.beach,           combined: true  },
+  { key: 'destination',     label: VENUE_SETTING_LABEL.destination,     combined: true  },
+  { key: 'heritage',        label: VENUE_SETTING_LABEL.heritage,        combined: true  },
+  { key: 'outdoor_tent',    label: VENUE_SETTING_LABEL.outdoor_tent,    combined: true  },
+  { key: 'civil_registrar', label: VENUE_SETTING_LABEL.civil_registrar, combined: false },
 ];
 
 async function CatalogView({
@@ -1464,6 +1673,8 @@ async function CatalogView({
   isAuthenticated,
   noticeKey,
   scopedFolder,
+  hostVenueSetting,
+  venueFilterActive,
 }: {
   admin: ReturnType<typeof createAdminClient>;
   matchableEvent: { ceremony_type: string; venue_setting: string } | null;
@@ -1489,6 +1700,16 @@ async function CatalogView({
    *  user came in via the universal Browse path (top-nav, sitemap, direct
    *  visit) — full 12-folder catalog renders as before. */
   scopedFolder: WeddingFolder | null;
+  /** Task #48 — host's events.venue_setting (snake_case enum). Null on
+   *  anonymous browse OR for hosts who haven't picked one yet. Drives the
+   *  VenueFilterBanner / VenuePickerHint surface in the Reception folder
+   *  section, plus the per-facet "your setting" highlight on the chips. */
+  hostVenueSetting: string | null;
+  /** Task #48 — true when the venue default-on filter is currently
+   *  active (host has a setting + ?venue is NOT 0). Drives the banner
+   *  surface AND the auto-applied venue param on Reception facet drill-
+   *  ins so the host stays scoped. */
+  venueFilterActive: boolean;
 }) {
   // Single round-trip per page render — both reads are admin-scoped because
   // anonymous visitors hit this route and `vendor_profiles` is gated by RLS.
@@ -1671,7 +1892,13 @@ async function CatalogView({
           if (scopedFolder !== null && folder !== scopedFolder) return null;
           if (folder === 'reception') {
             return (
-              <ReceptionSection key={folder} matchableEvent={matchableEvent} />
+              <ReceptionSection
+                key={folder}
+                hostVenueSetting={hostVenueSetting}
+                venueFilterActive={venueFilterActive}
+                currentEventId={currentEventId}
+                matchEvent={matchEvent}
+              />
             );
           }
           const tiles = buckets.get(folder) ?? [];
@@ -1730,15 +1957,68 @@ async function CatalogView({
 }
 
 // Reception folder is filter-only — surfaces venue_setting facets without
-// backing canonical_services. Drills into the marketplace via `?city=` until
-// V1.2 ships a dedicated `/venues` route. The combined-venue badge marks
-// settings that can also host the ceremony (garden, beach, destination,
-// heritage, outdoor_tent).
+// backing canonical_services. The combined-venue badge marks settings that
+// can also host the ceremony (garden, beach, destination, heritage,
+// outdoor_tent). V1.2 venue iteration adds dedicated /venues records with
+// per-location calendars + day-rates.
+//
+// Task #48 (2026-05-22) — when the host has picked a venue_setting on event
+// creation, the section surfaces a VenueFilterBanner above the chip grid
+// AND highlights the host's setting chip as "Your setting" with a brighter
+// accent. Hosts without a setting see VenuePickerHint nudging them to fill
+// in the field on their event details. Each facet chip now drills into
+// vendor-grid mode pre-filtered by both ?folder=reception (Task #47 scope)
+// AND the venue_setting (via the existing query.or compatible_venue_settings
+// clause — composes cleanly with the religion-match toggle).
 function ReceptionSection({
-  matchableEvent,
+  hostVenueSetting,
+  venueFilterActive,
+  currentEventId,
+  matchEvent,
 }: {
-  matchableEvent: { ceremony_type: string; venue_setting: string } | null;
+  /** Host's events.venue_setting (snake_case enum). Null when anonymous
+   *  OR the host hasn't picked one. Drives the "Your setting" chip
+   *  highlight + VenueFilterBanner / VenuePickerHint state branching. */
+  hostVenueSetting: string | null;
+  /** True when the venue default-on filter is currently firing — used to
+   *  pick between VenueFilterBanner (filter active) and VenuePickerHint
+   *  (host has event but no setting yet). */
+  venueFilterActive: boolean;
+  /** Drives the VenuePickerHint deep-link to event details. Null on
+   *  anonymous browse (no hint surfaced). */
+  currentEventId: string | null;
+  /** Religion-match toggle state — propagated into facet drill-in URLs
+   *  so the host stays in their faith scope on click. */
+  matchEvent: boolean;
 }) {
+  // Per-facet drill-in URL. Reception is filter-only by design (CLAUDE.md
+  // 2026-05-20 row 470) — there's no canonical_service backing each venue
+  // setting until V1.2 ships dedicated `/venues` records, so the chip
+  // can't drill into a populated vendor-grid mode the way Catering or
+  // Photo facets would. Instead we keep the chip in catalog scope and
+  // anchor back to #reception so the host stays on the venue grid. The
+  // venue_setting context already lives at the page level — the host's
+  // own setting is highlighted via the "Your setting" badge below, AND
+  // the VenueFilterBanner at the top of the section explains the default-
+  // on filter that gets applied when they drill into OTHER folders (e.g.
+  // Catering, Photo) and want caterers compatible with their garden venue.
+  //
+  // Carry-forward: ?folder=reception keeps the section scoped; ?match=1
+  // preserves religion-match if it was on; ?venue=0 only propagates when
+  // the host has explicitly opted out (we never set ?venue=1 explicitly
+  // since "on" is the default — keeps URLs clean per buildHref).
+  const buildFacetHref = (_settingKey: string): string => {
+    const params = new URLSearchParams();
+    params.set('folder', WEDDING_FOLDER_SLUG.reception);
+    if (matchEvent) params.set('match', '1');
+    if (!venueFilterActive && hostVenueSetting) {
+      // Only set venue=0 when the host has a setting but has opted out;
+      // otherwise omit the param (default-on inferred at parseFilters).
+      params.set('venue', '0');
+    }
+    return `/vendors?${params.toString()}#reception`;
+  };
+
   return (
     <section
       id={WEDDING_FOLDER_SLUG.reception}
@@ -1763,35 +2043,137 @@ function ReceptionSection({
         </span>{' '}
         can do both back-to-back at the same location.
       </p>
-      <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {RECEPTION_VENUE_FACETS.map((facet) => (
-          <li key={facet.key}>
-            <Link
-              href={
-                matchableEvent
-                  ? `/vendors?match=1&category=&city=`
-                  : '/vendors'
-              }
-              className="group flex h-full flex-col gap-2 rounded-2xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/50 hover:bg-terracotta/5"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <h3 className="truncate text-sm font-semibold text-ink group-hover:text-terracotta">
-                  {facet.label}
-                </h3>
-              </div>
-              {facet.combined ? (
-                <span className="inline-flex w-fit items-center rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-emerald-800">
-                  ⇄ also hosts ceremony
-                </span>
-              ) : null}
-              <p className="mt-auto text-xs font-medium text-terracotta group-hover:underline">
-                Browse vendors compatible with this setting →
-              </p>
-            </Link>
-          </li>
-        ))}
+
+      {/* Task #48 — host context surface. Three states:
+            (a) host has a picked venue_setting + filter active → banner
+                explaining the default-on filter + Show all settings escape.
+            (b) host has an event but no venue_setting yet → polite hint
+                linking to event details so they can narrow these chips.
+            (c) anonymous browse OR explicit ?venue=0 → no banner, all
+                seven chips render as a neutral catalog. */}
+      {venueFilterActive && hostVenueSetting ? (
+        <VenueFilterBanner
+          settingKey={hostVenueSetting}
+          // Show-all in catalog mode preserves Reception scope so the
+          // host stays in the same view; only the venue clause drops.
+          showAllHref={`/vendors?folder=${WEDDING_FOLDER_SLUG.reception}&venue=0#reception`}
+        />
+      ) : currentEventId && !hostVenueSetting ? (
+        <VenuePickerHint eventId={currentEventId} />
+      ) : null}
+
+      <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {RECEPTION_VENUE_FACETS.map((facet) => {
+          // Highlight the host's picked setting so it reads as "yours" in
+          // the chip grid. Pure-visual cue — the chip still drills into
+          // the same vendor-grid view as every other chip; the actual
+          // venue_setting filter at the SQL layer reads from events.venue_setting
+          // (single source of truth) not from the picked chip.
+          const isHostPick =
+            hostVenueSetting !== null && hostVenueSetting === facet.key;
+          return (
+            <li key={facet.key}>
+              <Link
+                href={buildFacetHref(facet.key)}
+                className={`group flex h-full flex-col gap-2 rounded-2xl border p-4 transition-colors ${
+                  isHostPick
+                    ? 'border-terracotta/50 bg-terracotta/5 hover:border-terracotta hover:bg-terracotta/10'
+                    : 'border-ink/10 bg-cream hover:border-terracotta/50 hover:bg-terracotta/5'
+                }`}
+                aria-label={
+                  isHostPick
+                    ? `${facet.label} — your wedding's picked setting. Browse vendors compatible with this.`
+                    : `Browse vendors compatible with ${facet.label} venues.`
+                }
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="truncate text-sm font-semibold text-ink group-hover:text-terracotta">
+                    {facet.label}
+                  </h3>
+                  {isHostPick ? (
+                    <span className="shrink-0 rounded-full bg-terracotta px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-cream">
+                      Your setting
+                    </span>
+                  ) : null}
+                </div>
+                {facet.combined ? (
+                  <span className="inline-flex w-fit items-center rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-emerald-800">
+                    ⇄ also hosts ceremony
+                  </span>
+                ) : null}
+                <p className="mt-auto text-xs font-medium text-terracotta group-hover:underline">
+                  {isHostPick
+                    ? 'Browse vendors who work with your setting →'
+                    : 'Browse vendors compatible with this setting →'}
+                </p>
+              </Link>
+            </li>
+          );
+        })}
       </ul>
+
     </section>
+  );
+}
+
+// Task #48 (2026-05-22) — venue_setting default-on banner. Surfaces in
+// BOTH catalog mode (Reception folder section, when the host has a
+// venue_setting picked) AND vendor-grid mode (whenever the URL is
+// Reception-scoped with the filter firing). Mirrors the religion-match
+// pattern from ReligionBanner — explains what the filter is, why it's
+// firing, and gives a one-click escape ("Show all settings") that flips
+// ?venue=0 without losing the rest of the URL state. Brand-voice copy
+// stays in lockstep with VENUE_SETTING_LABEL so the host reads the same
+// wording everywhere they encounter their picked setting.
+function VenueFilterBanner({
+  settingKey,
+  showAllHref,
+}: {
+  settingKey: string;
+  showAllHref: string;
+}) {
+  const longLabel = venueSettingLongLabel(settingKey);
+  const shortLabel = venueSettingShortLabel(settingKey);
+  return (
+    <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-terracotta/30 bg-terracotta/5 px-4 py-3">
+      <p className="text-sm text-ink/80">
+        Showing vendors who work with{' '}
+        <span className="font-medium text-terracotta-700">{shortLabel}</span>{' '}
+        venues — your wedding&rsquo;s picked setting (
+        <span className="font-mono text-xs text-ink/60">{longLabel}</span>).
+      </p>
+      <Link
+        href={showAllHref}
+        className="inline-flex shrink-0 items-center rounded-full border border-terracotta/30 bg-cream px-3 py-1 text-xs font-medium text-terracotta-700 hover:border-terracotta hover:bg-terracotta/10"
+      >
+        Show all venue settings
+      </Link>
+    </div>
+  );
+}
+
+// Task #48 — catalog-mode hint for hosts whose primary event has NO
+// venue_setting picked yet. The Reception facet chips still drill cleanly
+// (they don't depend on a host setting), but we surface a polite nudge so
+// the host knows they can narrow these results by setting their venue
+// type on the event. Avoids the "why isn't this filtered for me?" question
+// from couples who watched the religion-match auto-apply but didn't
+// realize venue_setting is a sibling control. Anonymous browsers never
+// see this hint.
+function VenuePickerHint({ eventId }: { eventId: string }) {
+  return (
+    <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-ink/15 bg-cream px-4 py-3">
+      <p className="text-sm text-ink/75">
+        Pick your venue setting in your event details and we&rsquo;ll narrow
+        these results to vendors who work with that kind of space.
+      </p>
+      <Link
+        href={`/dashboard/${eventId}/settings`}
+        className="inline-flex shrink-0 items-center rounded-full border border-ink/20 bg-cream px-3 py-1 text-xs font-medium text-ink/75 hover:border-ink/40 hover:bg-ink/5"
+      >
+        Open event details
+      </Link>
+    </div>
   );
 }
 

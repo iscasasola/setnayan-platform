@@ -1,11 +1,16 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { Star, MapPin, ChevronLeft, ChevronRight, Navigation } from 'lucide-react';
+import { cookies } from 'next/headers';
+import { Star, MapPin, ChevronLeft, ChevronRight, Navigation, Sparkles } from 'lucide-react';
 import { haversineKm, formatDistanceKm } from '@/lib/geo';
 import { Logo as BrandLogo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import { displayServiceLabel } from '@/lib/vendors';
+import { displayServiceLabel, formatPhp } from '@/lib/vendors';
+import {
+  DEMO_MODE_COOKIE_NAME,
+  isAdminProfile,
+} from '@/lib/demo-mode';
 import {
   PUBLIC_SURFACE_VISIBILITIES,
   isBookable,
@@ -299,6 +304,20 @@ type VendorCardRow = {
   ad_sku_code: string | null;
   ad_radius_km: number | null;
   ad_expires_at: string | null;
+  // PR brief 2026-05-22 evening — demo-mode marketplace simulation.
+  // Optional because (a) Agent 1's `is_demo` column may not be on main
+  // yet, and (b) the vendor_market_stats view doesn't currently surface
+  // it. Populated post-query via a targeted lookup against
+  // vendor_profiles below. Cards with `is_demo=TRUE` render a DEMO chip
+  // and the starting price (when one exists). Cards with `is_demo` null
+  // or false render exactly as before.
+  is_demo?: boolean | null;
+  // Starting price label for demo vendors — computed only when demo
+  // mode is on. `null` means the vendor has no starting price set OR
+  // demo mode is off; either way the card renders without the price
+  // row. Real-vendor cards never populate this in V1 (the 2026-05-16
+  // hide-prices lock).
+  demo_starts_at_label?: string | null;
 };
 
 function parseFilters(
@@ -395,6 +414,84 @@ function parseFilters(
   };
 }
 
+/**
+ * Fetch the list of vendor_profile_id values flagged `is_demo=TRUE`.
+ * Used by the marketplace + the broadened empty-state count to exclude
+ * demo vendors when demo mode is off, and to annotate cards with the
+ * DEMO chip when demo mode is on.
+ *
+ * Defensive against Agent 1's `is_demo` column not yet being on main:
+ * any PostgREST error containing "is_demo" is swallowed and an empty
+ * array returned. Under that fallback the marketplace behaves exactly
+ * like it did before this PR (no exclusion, no demo annotation).
+ *
+ * The list is expected to be small (handful for V1 dogfood). At pilot
+ * scale this stays well under the URL-length limit for the subsequent
+ * `.not('vendor_profile_id', 'in', '(...)')` predicate.
+ */
+async function fetchDemoVendorIds(
+  admin: ReturnType<typeof createAdminClient>,
+): Promise<string[]> {
+  try {
+    const { data, error } = await admin
+      .from('vendor_profiles')
+      .select('vendor_profile_id')
+      .eq('is_demo', true);
+    if (error) {
+      if (/is_demo/i.test(error.message)) return [];
+      // Other errors get logged but don't break the marketplace
+      // render — opening the door for prod even on partial outage.
+      console.warn('[demo-mode] fetchDemoVendorIds failed:', error.message);
+      return [];
+    }
+    return (data ?? []).map((row) => row.vendor_profile_id as string);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Look up the minimum `starting_price_php` per vendor_profile_id for
+ * the given list — used only for demo-mode marketplace card pricing.
+ * Returns a Map for O(1) lookup at render time.
+ *
+ * Non-demo vendors never reach this function: the caller gates on
+ * `is_demo` membership. So this is exclusively a demo-mode read.
+ */
+async function fetchDemoStartingPrices(
+  admin: ReturnType<typeof createAdminClient>,
+  vendorIds: ReadonlyArray<string>,
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  if (vendorIds.length === 0) return out;
+  try {
+    const { data, error } = await admin
+      .from('vendor_services')
+      .select('vendor_profile_id, starting_price_php, is_active')
+      .in('vendor_profile_id', vendorIds as string[]);
+    if (error) {
+      console.warn('[demo-mode] fetchDemoStartingPrices failed:', error.message);
+      return out;
+    }
+    for (const row of data ?? []) {
+      const vpId = row.vendor_profile_id as string;
+      const isActive = (row as { is_active?: boolean }).is_active !== false;
+      const price = (row as { starting_price_php?: number | null })
+        .starting_price_php;
+      if (!isActive || price === null || price === undefined || price <= 0) {
+        continue;
+      }
+      const current = out.get(vpId);
+      if (current === undefined || price < current) {
+        out.set(vpId, price);
+      }
+    }
+    return out;
+  } catch {
+    return out;
+  }
+}
+
 export default async function VendorsMarketplacePage({ searchParams }: Props) {
   const raw = await searchParams;
   let filters = parseFilters(raw);
@@ -408,6 +505,24 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  // PR brief 2026-05-22 evening — demo-mode resolution. Cheap fast
+  // path: skip the admin check entirely unless the cookie is present.
+  // When ON for an admin session, the marketplace additionally surfaces
+  // is_demo=TRUE vendor rows; cards render a DEMO chip + starting price.
+  const cookieStore = await cookies();
+  const hasDemoCookie =
+    cookieStore.get(DEMO_MODE_COOKIE_NAME)?.value === '1';
+  let inDemoMode = false;
+  if (hasDemoCookie && user) {
+    const { data: viewerProfile } = await supabase
+      .from('users')
+      .select('account_type, is_internal, is_team_member')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    inDemoMode = isAdminProfile(viewerProfile);
+  }
+
   let coupleEventId: string | null = null;
   let matchableEvent: { ceremony_type: string; venue_setting: string } | null = null;
   let coupleEventType: string | null = null;
@@ -578,6 +693,16 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   const allowedVisibilities = filters.verifiedOnly
     ? (['verified'] as const)
     : PUBLIC_SURFACE_VISIBILITIES;
+
+  // PR brief 2026-05-22 evening — demo vendor exclusion. Demo vendors
+  // are pre-fetched + excluded from the main query unless demo mode is
+  // on. We resolve the demo ID list once and use `.in()` / `.not()` to
+  // either include or exclude. The vendor_market_stats view doesn't
+  // surface is_demo, so the source of truth stays on vendor_profiles —
+  // a defensive query that tolerates Agent 1's column not being on
+  // main yet.
+  const demoVendorIds = await fetchDemoVendorIds(admin);
+
   // Public marketplace requires a non-empty business_name. Coming-soon
   // vendors are intentionally surfaced (Decision 6 / 2026-05-15) — but
   // a row that hasn't even filled in its name renders as "Unnamed
@@ -596,6 +721,25 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     .in('public_visibility', allowedVisibilities as readonly string[])
     .not('business_name', 'is', null)
     .neq('business_name', '');
+
+  // PR brief 2026-05-22 evening — exclude demo vendor IDs unless an
+  // admin has demo mode on. PostgREST's NOT IN syntax expects a
+  // parenthesized comma-separated list. The narrowing cast through
+  // unknown is for the type system: chained PostgREST query types get
+  // deep enough that TS hits the recursion ceiling on
+  // `query = query.not(...)`, so we widen once and continue. Behavior
+  // is unchanged from the explicit chain — empty-list guard above
+  // means we only call when there's at least one ID to exclude.
+  if (!inDemoMode && demoVendorIds.length > 0) {
+    type QueryShape = {
+      not: (column: string, op: string, value: string) => typeof query;
+    };
+    query = (query as unknown as QueryShape).not(
+      'vendor_profile_id',
+      'in',
+      `(${demoVendorIds.join(',')})`,
+    );
+  }
 
   if (filters.q.length > 0) {
     query = query.ilike('business_name', `%${filters.q}%`);
@@ -686,6 +830,30 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   );
   const rows = (rowsRaw ?? []) as VendorCardRow[];
 
+  // PR brief 2026-05-22 evening — annotate demo rows with their
+  // starting price + is_demo flag. Only when demo mode is on AND at
+  // least one row matches a demo ID; otherwise zero extra work. Real
+  // vendor cards never get `demo_starts_at_label` set; the 2026-05-16
+  // hide-prices lock continues to apply to them. Annotation is purely
+  // additive — fields are optional on VendorCardRow.
+  if (inDemoMode && demoVendorIds.length > 0) {
+    const demoIdSet = new Set(demoVendorIds);
+    const demoRowIds = rows
+      .filter((r) => demoIdSet.has(r.vendor_profile_id))
+      .map((r) => r.vendor_profile_id);
+    if (demoRowIds.length > 0) {
+      const startingPrices = await fetchDemoStartingPrices(admin, demoRowIds);
+      for (const row of rows) {
+        if (demoIdSet.has(row.vendor_profile_id)) {
+          row.is_demo = true;
+          const startsAt = startingPrices.get(row.vendor_profile_id);
+          row.demo_starts_at_label =
+            startsAt && startsAt > 0 ? `from ${formatPhp(startsAt)}` : null;
+        }
+      }
+    }
+  }
+
   // Task #42 (2026-05-22) — when the filtered result set is empty AND the
   // strict filters (match-my-wedding, verified-only) are active, compute the
   // broadened-scope count so the empty state can offer a "Show all" CTA with
@@ -708,6 +876,19 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       .in('public_visibility', PUBLIC_SURFACE_VISIBILITIES as readonly string[])
       .not('business_name', 'is', null)
       .neq('business_name', '');
+    // Mirror the demo exclusion on the broadened count so the "Show
+    // all" empty-state messaging doesn't promise demo inventory to
+    // non-admin visitors. Same type-narrowing as the main query above.
+    if (!inDemoMode && demoVendorIds.length > 0) {
+      type BroadenedShape = {
+        not: (column: string, op: string, value: string) => typeof broadened;
+      };
+      broadened = (broadened as unknown as BroadenedShape).not(
+        'vendor_profile_id',
+        'in',
+        `(${demoVendorIds.join(',')})`,
+      );
+    }
     if (filters.q.length > 0) {
       broadened = broadened.ilike('business_name', `%${filters.q}%`);
     }
@@ -1343,16 +1524,24 @@ function VendorMarketCard({
   const sponsoredAccent = ad?.tier === 'sponsored';
   const boostedAccent = ad?.tier === 'boosted';
 
+  // PR brief 2026-05-22 evening — demo card variants. Demo vendors get
+  // an amber DEMO chip + a starting-price row that the 2026-05-16 hide-
+  // prices lock keeps off non-demo cards. Both fields are populated by
+  // the page query when demo mode is on for an admin viewer.
+  const isDemoCard = vendor.is_demo === true;
+
   return (
     <article
       className={`flex h-full flex-col gap-3 rounded-2xl border bg-cream p-4 transition-shadow hover:shadow-md ${
-        isComingSoon
-          ? 'border-dashed border-ink/20 opacity-90'
-          : sponsoredAccent
-            ? 'border-amber-300 ring-1 ring-amber-200'
-            : boostedAccent
-              ? 'border-terracotta/30'
-              : 'border-ink/10'
+        isDemoCard
+          ? 'border-amber-300 ring-1 ring-amber-200/70'
+          : isComingSoon
+            ? 'border-dashed border-ink/20 opacity-90'
+            : sponsoredAccent
+              ? 'border-amber-300 ring-1 ring-amber-200'
+              : boostedAccent
+                ? 'border-terracotta/30'
+                : 'border-ink/10'
       }`}
     >
       <header className="flex items-center gap-3">
@@ -1365,6 +1554,15 @@ function VendorMarketCard({
                 * instead of "Unnamed vendor", which read as dev text. */}
               {vendor.business_name || 'Vendor'}
             </h2>
+            {isDemoCard ? (
+              <span
+                className="shrink-0 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-amber-800"
+                title="Synthetic vendor — visible only to admins in demo mode."
+              >
+                <Sparkles className="h-3 w-3" strokeWidth={2} aria-hidden />
+                Demo
+              </span>
+            ) : null}
             {isComingSoon ? (
               <span className="shrink-0 rounded-full bg-ink/8 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
                 Coming soon
@@ -1390,6 +1588,14 @@ function VendorMarketCard({
 
       {vendor.tagline ? (
         <p className="line-clamp-2 text-sm text-ink/65">{vendor.tagline}</p>
+      ) : null}
+
+      {/* Demo-only pricing row. Real vendor cards stay price-less per
+          the 2026-05-16 hide-prices lock. */}
+      {isDemoCard && vendor.demo_starts_at_label ? (
+        <p className="font-mono text-xs text-amber-800/90">
+          {vendor.demo_starts_at_label}
+        </p>
       ) : null}
 
       <ul className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink/55">

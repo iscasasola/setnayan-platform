@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { Mail, Phone, Globe, MapPin, Star } from 'lucide-react';
+import { Mail, Phone, Globe, MapPin, Star, Sparkles } from 'lucide-react';
 import { Logo as BrandLogo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
@@ -36,6 +37,10 @@ import {
   type ReviewWithCouple,
   type ReviewStatsRow,
 } from '@/lib/reviews';
+import {
+  DEMO_MODE_COOKIE_NAME,
+  isAdminProfile,
+} from '@/lib/demo-mode';
 
 export const dynamic = 'force-dynamic';
 
@@ -64,6 +69,12 @@ type PublicVendorRow = {
   public_visibility: VendorPublicVisibility;
   compatible_ceremony_types: string[] | null;
   compatible_venue_settings: string[] | null;
+  // PR brief 2026-05-22 evening — marketplace simulation workstream.
+  // `is_demo` is added to `vendors` by Agent 1's PR. Defensive: nullable
+  // + treated as FALSE when null so this PR keeps building if Agent 1's
+  // column hasn't been merged yet. The actual `is_demo IS NOT TRUE` filter
+  // on visibility lives below (see `isDemoVendor`).
+  is_demo?: boolean | null;
 };
 
 // Iteration 0043 — labels for wedding-type compatibility badges rendered on
@@ -89,15 +100,57 @@ const VENUE_SETTING_LABELS: Readonly<Record<string, string>> = {
   civil_registrar: 'Civil registrar',
 };
 
+/**
+ * Resolve whether the current request belongs to an admin session that
+ * has demo mode turned on. Cheap (single auth + single users select),
+ * but only called once per /v/[slug] render — wrapped to keep the
+ * page body readable.
+ *
+ * Returns `false` for unauthenticated visitors AND for authenticated
+ * non-admins, even if the demo-mode cookie is present. The cookie is
+ * never the source of truth on its own — admin status is.
+ */
+async function isAdminInDemoMode(): Promise<boolean> {
+  const cookieStore = await cookies();
+  if (cookieStore.get(DEMO_MODE_COOKIE_NAME)?.value !== '1') return false;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return false;
+  const { data: profile } = await supabase
+    .from('users')
+    .select('account_type, is_internal, is_team_member')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  return isAdminProfile(profile);
+}
+
 async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
   const admin = createAdminClient();
-  const { data } = await admin
+  // The `is_demo` column ships in a parallel PR (marketplace simulation
+  // workstream, Agent 1). If that PR hasn't landed yet on `main`,
+  // requesting the column returns a PostgREST error. We try with the
+  // column first and fall back to the legacy select — keeps this PR
+  // mergeable in either order. Once both PRs are on main the fallback
+  // path is dormant.
+  const fullSelect =
+    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo';
+  const legacySelect =
+    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings';
+
+  let { data, error } = await admin
     .from('vendor_profiles')
-    .select(
-      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings',
-    )
+    .select(fullSelect)
     .ilike('business_slug', slug)
     .maybeSingle();
+  if (error && /is_demo/i.test(error.message)) {
+    ({ data } = await admin
+      .from('vendor_profiles')
+      .select(legacySelect)
+      .ilike('business_slug', slug)
+      .maybeSingle());
+  }
   return (data ?? null) as PublicVendorRow | null;
 }
 
@@ -105,6 +158,14 @@ export async function generateMetadata({ params }: Props) {
   const { slug } = await params;
   const vendor = await fetchVendor(slug);
   if (!vendor || !isPubliclyVisible(vendor.public_visibility)) {
+    return { title: 'Setnayan vendor' };
+  }
+  // Demo vendors are admin-only. Don't leak their business name in
+  // metadata to crawlers / link previews — generic title only. Admins
+  // in demo mode still see the real page title on the dashboard tab
+  // because the page itself sets `metadata` per render via the
+  // surrounding header text.
+  if (vendor.is_demo === true) {
     return { title: 'Setnayan vendor' };
   }
   const suffix = vendor.public_visibility === 'coming_soon' ? ' · Coming soon' : '';
@@ -121,6 +182,17 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
   // Hidden + archived vendors 404 from the public surface (don't leak the
   // existence of suspended / closed profiles). Coming-soon + verified render.
   if (!vendor || !isPubliclyVisible(vendor.public_visibility)) notFound();
+
+  // PR brief 2026-05-22 evening — demo vendor gate. A vendor with
+  // `is_demo=TRUE` only renders on /v/[slug] when the requesting
+  // session is an admin AND demo mode is on. Non-demo vendors are
+  // unaffected. Defensive null-coalesce: if Agent 1's `is_demo`
+  // column hasn't shipped yet, every vendor reads as non-demo (false),
+  // which is the conservative outcome that preserves current behavior.
+  const isDemoVendor = vendor.is_demo === true;
+  const inDemoMode = await isAdminInDemoMode();
+  if (isDemoVendor && !inDemoMode) notFound();
+
   const visibility = parseVisibility(vendor.public_visibility);
   const bookable = isBookable(visibility);
   const isComingSoon = visibility === 'coming_soon';
@@ -189,6 +261,7 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
       </header>
 
       <article className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+        {isDemoVendor ? <DemoVendorBanner /> : null}
         {isComingSoon ? <ComingSoonBanner vendorName={vendor.business_name} /> : null}
         <section className="flex flex-col items-start gap-6 border-b border-ink/10 pb-8 sm:flex-row">
           <Logo logoUrl={vendor.logo_url} name={vendor.business_name} />
@@ -413,6 +486,43 @@ function ComingSoonBanner({ vendorName }: { vendorName: string }) {
         Their profile is a read-only preview while the Setnayan Team completes
         verification. Bookings open as soon as that&rsquo;s done.
       </p>
+    </section>
+  );
+}
+
+/**
+ * Visible only to admins in demo mode — the gate above this banner
+ * 404s for non-admins, so when this banner renders the viewer already
+ * has admin grants AND the demo cookie set. Marks the profile as
+ * synthetic so the admin doesn't mistake it for a real onboarded
+ * vendor. Brand-voice copy per `feedback_setnayan_no_dev_text_post_launch`.
+ */
+function DemoVendorBanner() {
+  return (
+    <section
+      aria-label="Demo vendor"
+      className="mb-8 rounded-2xl border border-amber-300/70 bg-amber-50 p-5"
+    >
+      <div className="flex items-start gap-3">
+        <Sparkles
+          aria-hidden
+          className="mt-0.5 h-4 w-4 text-amber-700"
+          strokeWidth={1.75}
+        />
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-amber-700">
+            Demo vendor
+          </p>
+          <h2 className="mt-1 text-lg font-semibold tracking-tight text-amber-900">
+            This profile is synthetic — visible only to admins in demo mode.
+          </h2>
+          <p className="mt-1 max-w-2xl text-sm text-amber-900/85">
+            Pricing renders publicly here so admins can dogfood how the page
+            would feel if the 2026-05-16 hide-prices lock were lifted. Real
+            vendors stay private to the apply/register flow.
+          </p>
+        </div>
+      </div>
     </section>
   );
 }

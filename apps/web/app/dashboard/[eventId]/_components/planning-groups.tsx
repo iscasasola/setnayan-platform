@@ -335,7 +335,12 @@ export function PlanningGroups({
                 <p className="text-xs text-ink/55">{tierHint}</p>
               ) : null}
             </header>
-            <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {/* Layout lock 2026-05-22 (CLAUDE.md decision-log):
+                desktop = 2 cols (maximize per-card real estate so 12 cards
+                stay readable without towering), mobile = 1 col. Earlier
+                lg:grid-cols-3 + xl:grid-cols-4 made each card too narrow
+                on the laptop / wide-monitor case. */}
+            <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {tierGroups.map((group) => {
                 const picks = bucketed.get(group.id) ?? [];
                 const recommendations =

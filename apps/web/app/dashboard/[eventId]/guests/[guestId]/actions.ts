@@ -158,7 +158,10 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
 
   revalidatePath(`/dashboard/${eventId}/guests`);
   revalidatePath(backTo);
-  return redirect(`${backTo}?saved=1`);
+  // Owner directive 2026-05-22: when information is saved on guest,
+  // it needs to return to guest list. The guests list page consumes
+  // ?saved=1 to render a "Saved." flash banner.
+  return redirect(`/dashboard/${eventId}/guests?saved=1`);
 }
 
 export async function softDeleteGuest(

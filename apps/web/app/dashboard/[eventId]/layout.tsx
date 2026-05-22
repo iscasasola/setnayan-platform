@@ -63,35 +63,44 @@ export default async function EventLayout({ children, params }: Props) {
     services: tr('nav.services'),
   };
 
+  // Build the chrome-data object once — passed to BottomNav so the desktop
+  // sidebar can render the consolidated chrome (event switcher + marketplace
+  // link + role-switch + bell + profile menu). On mobile, BottomNav still
+  // renders just the 4 nav tabs at the bottom; the chrome props are ignored
+  // by the mobile branch because the mobile top strip below renders the
+  // same elements horizontally.
+  const switcherEventsMapped = switcherEvents
+    .filter((e) => !e.archived)
+    .map((e) => ({
+      event_id: e.event_id,
+      display_name: e.display_name,
+      event_date: e.event_date,
+      is_primary: e.is_primary,
+      monogram_text: e.monogram_text,
+      monogram_color: e.monogram_color,
+    }));
+
   return (
     <div className="flex min-h-dvh flex-col bg-cream pb-16 lg:pb-0 lg:pl-60">
-      <div className="sticky top-0 z-20 border-b border-ink/10 bg-cream/95 backdrop-blur">
+      {/* Mobile top strip (< lg / < 1024px). On desktop this strip hides
+          (lg:hidden) and ALL of its content is pulled into the BottomNav
+          desktop sidebar — owner directive 2026-05-23: "Top Nav and
+          Bottom Nav will Combine on Side Nav. Arrange them properly."
+          See bottom-nav.tsx for the desktop sidebar layout. */}
+      <div className="sticky top-0 z-20 border-b border-ink/10 bg-cream/95 backdrop-blur lg:hidden">
         {/* Owner directive 2026-05-22: "why is it not maximizing the
             whole screen?" The previous cap (max-w-6xl / xl:max-w-7xl /
             2xl:max-w-screen-2xl) topped out at 1536px even on wide
-            monitors, leaving significant whitespace on both sides on
-            Macbook 16" and external displays. Removing the cap lets the
-            event-scoped layout fill the full viewport with the existing
-            horizontal padding (32px each side via lg:px-8). The header
-            strip stays consistent with the main content below by
-            mirroring the same width treatment. */}
-        <div className="mx-auto flex w-full items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
+            monitors. Mobile keeps the same edge-to-edge treatment for
+            consistency with the desktop sidebar's left-edge positioning. */}
+        <div className="mx-auto flex w-full items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <EventSwitcher
             currentEventId={event.event_id}
             currentEventName={event.display_name}
             currentEventDate={event.event_date}
             currentMonogramText={event.monogram_text}
             currentMonogramColor={event.monogram_color}
-            events={switcherEvents
-              .filter((e) => !e.archived)
-              .map((e) => ({
-                event_id: e.event_id,
-                display_name: e.display_name,
-                event_date: e.event_date,
-                is_primary: e.is_primary,
-                monogram_text: e.monogram_text,
-                monogram_color: e.monogram_color,
-              }))}
+            events={switcherEventsMapped}
             hasVendorAccess={roles.hasVendorAccess}
             hasAdminAccess={roles.hasAdminAccess}
             vendorProfiles={roles.vendorProfiles}
@@ -127,15 +136,36 @@ export default async function EventLayout({ children, params }: Props) {
         </div>
       </div>
 
-      {/* Full-width main — see comment above the header strip for the
-          why (2026-05-22 owner directive). The event home's Finder-column
-          layout + other event-scoped surfaces all benefit from filling
-          the viewport on wide monitors. */}
+      {/* Full-width main — see comment above for the 2026-05-22 owner
+          directive ("why is it not maximizing the whole screen?"). The
+          event home's Finder-column layout + other event-scoped surfaces
+          all benefit from filling the viewport on wide monitors. */}
       <main className="mx-auto w-full flex-1 px-4 py-6 sm:px-6 lg:px-8">
         {children}
       </main>
 
-      <BottomNav eventId={eventId} labels={navLabels} />
+      <BottomNav
+        eventId={eventId}
+        labels={navLabels}
+        chrome={{
+          currentEvent: {
+            event_id: event.event_id,
+            display_name: event.display_name,
+            event_date: event.event_date,
+            monogram_text: event.monogram_text,
+            monogram_color: event.monogram_color,
+          },
+          switcherEvents: switcherEventsMapped,
+          vendorProfiles: roles.vendorProfiles,
+          hasVendorAccess: roles.hasVendorAccess,
+          hasAdminAccess: roles.hasAdminAccess,
+          userId: user.id,
+          userEmail: user.email ?? '',
+          unreadCount,
+          bellLabel: tr('nav.notifications'),
+          profileLabel: tr('common.profile'),
+        }}
+      />
     </div>
   );
 }

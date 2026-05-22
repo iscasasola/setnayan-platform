@@ -21,9 +21,15 @@ type Props = {
   email: string;
   /** Optional notification href so callers can route the bell-less variant. */
   ariaLabel?: string;
+  /** Popover open direction. Default `'down'` matches the existing horizontal
+   *  toolbar (top-strip) UX. `'up'` is used by the desktop sidebar consolidation
+   *  (2026-05-23 owner directive · BottomNav.desktop sidebar) where the avatar
+   *  sits near the bottom edge of the sidebar — `'down'` would push the popover
+   *  past the viewport bottom. */
+  align?: 'down' | 'up';
 };
 
-export function ProfileMenu({ email, ariaLabel = 'Account menu' }: Props) {
+export function ProfileMenu({ email, ariaLabel = 'Account menu', align = 'down' }: Props) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const initial = email?.charAt(0).toUpperCase() || '?';
@@ -64,7 +70,9 @@ export function ProfileMenu({ email, ariaLabel = 'Account menu' }: Props) {
         <div
           role="menu"
           aria-label={ariaLabel}
-          className="absolute right-0 top-full z-30 mt-2 w-56 rounded-2xl border border-ink/10 bg-cream p-2 shadow-lg"
+          className={`absolute right-0 z-30 w-56 rounded-2xl border border-ink/10 bg-cream p-2 shadow-lg ${
+            align === 'up' ? 'bottom-full mb-2' : 'top-full mt-2'
+          }`}
         >
           <p
             className="truncate px-3 pt-1 pb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45"

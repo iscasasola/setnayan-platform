@@ -241,20 +241,31 @@ export default async function VendorWorkspacePage({ params }: Props) {
   };
 
   // ----------------------------------------------------------------------
-  // Auto-share-link invite (2026-05-22 owner directive). Reads the current
-  // invite (if any) so the CTA can render the right state.
+  // Auto-share-link invite (2026-05-22 owner directive).
+  //
+  // Broadened 2026-05-22 PM per owner directive: ANY vendor without a
+  // Setnayan account (marketplace_vendor_id IS NULL) gets the claim-link
+  // CTA — not just host-typed manual vendors. Includes venue_directory
+  // entries (e.g. seeded Conrad Manila / Pink Sisters Convent) that the
+  // host locked from /venues, custom-typed names, and any other source
+  // that doesn't end with a real Setnayan vendor profile.
+  //
+  // The post-signup hook (applyClaimAutoLink in vendor-invite-actions.ts)
+  // populates event_vendor_relationships.marketplace_vendor_id when the
+  // vendor registers via the claim URL — works regardless of which
+  // source column initially pointed at the vendor row.
   // ----------------------------------------------------------------------
-  const needsInvite =
-    ev.manual_vendor_id !== null && ev.marketplace_vendor_id === null;
+  const needsInvite = ev.marketplace_vendor_id === null;
   let autoShareInvite = needsInvite
     ? await fetchActiveAutoShareInvite(supabase, ev.vendor_id)
     : null;
   // Self-heal path — if the vendor is in a state that warrants an invite
-  // (manual-vendor-locked + no marketplace link) but no auto_share_link row
-  // exists yet (e.g. finalize fired before this feature shipped, or the
-  // invite insert failed at lock time), generate one on this render so the
-  // host always sees a fresh shareable link. This is idempotent — if the
-  // row already exists it just gets re-read.
+  // (no marketplace link · status locked or beyond) but no auto_share_link
+  // row exists yet (e.g. finalize fired before this feature shipped, OR
+  // the vendor was linked via venue_directory which bypasses finalize's
+  // ensureAutoShareInvite hook, OR the invite insert failed at lock time),
+  // generate one on this render so the host always sees a fresh shareable
+  // link. Idempotent — if the row already exists it just gets re-read.
   if (needsInvite && !autoShareInvite && (ev.status === 'contracted'
     || ev.status === 'deposit_paid' || ev.status === 'delivered'
     || ev.status === 'complete')) {

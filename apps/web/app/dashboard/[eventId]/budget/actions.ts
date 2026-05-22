@@ -198,14 +198,40 @@ export async function logPayment(formData: FormData) {
     typeof paidAtRaw === 'string' && paidAtRaw.length > 0 && isIsoDate(paidAtRaw)
       ? paidAtRaw
       : new Date().toISOString().slice(0, 10);
-  const lineItemId =
-    typeof lineItemRaw === 'string' && lineItemRaw.length > 0 ? lineItemRaw : null;
+
+  // Vendor-controlled-line-item selection convention — the budget page
+  // surfaces vendor_package_items + vendor_services entries in the same
+  // payment-attribution dropdown as event_vendor_line_items rows, but
+  // those vendor-controlled rows don't have a corresponding row in the
+  // local event_vendor_line_items table to FK to.
+  //
+  // To preserve the FK constraint, the budget page tags vendor-
+  // controlled options with a synthetic value of the form `vc:<label>`
+  // (see budget/page.tsx PaymentSection optgroup). When the action sees
+  // this prefix, it writes line_item_id=NULL and stores the label in
+  // notes so the payment record still shows what the host attributed
+  // the payment to.
+  let lineItemId: string | null = null;
+  let vendorControlledLabel: string | null = null;
+  if (typeof lineItemRaw === 'string' && lineItemRaw.length > 0) {
+    if (lineItemRaw.startsWith('vc:')) {
+      vendorControlledLabel = lineItemRaw.slice(3);
+    } else {
+      lineItemId = lineItemRaw;
+    }
+  }
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  // Resolve notes — prefer the explicit notes field if the host typed
+  // one, otherwise fall back to the vendor-controlled label so the
+  // payment list renders something meaningful next to the amount.
+  const explicitNotes = nullIfBlank(formData.get('notes'));
+  const notes = explicitNotes ?? vendorControlledLabel;
 
   const { error } = await supabase.from('event_vendor_payments').insert({
     event_id: eventId,
@@ -215,7 +241,7 @@ export async function logPayment(formData: FormData) {
     paid_at: paidAt,
     method: nullIfBlank(formData.get('method')),
     reference: nullIfBlank(formData.get('reference')),
-    notes: nullIfBlank(formData.get('notes')),
+    notes,
   });
   if (error) throw new Error(error.message);
 

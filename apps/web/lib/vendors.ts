@@ -153,6 +153,13 @@ export type EventVendorRow = {
    * per 0019 § Booking-implies-follow auto-insert.
    */
   marketplace_vendor_id: string | null;
+  /**
+   * FK to event_vendor_packages (migration 20260604110000_vendor_packages.sql).
+   * Populated by the cascade-lock flow when a host locks a vendor's
+   * bundled package. NULL on normal (non-package) event_vendors rows.
+   * Optional — surfaced as undefined by clients that don't SELECT it.
+   */
+  event_vendor_package_id?: string | null;
 };
 
 export async function fetchEventVendors(

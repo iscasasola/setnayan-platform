@@ -1224,16 +1224,19 @@ export default async function EventHomePage({
     //
     // Mobile (<lg): renders as a single block — the outer div is a no-op
     // wrapper and the existing <section> keeps its current full-width
-    // shape. Desktop (lg+): splits into a 2-col grid where the LEFT
-    // column carries every existing element in mobile width (max ~420px)
-    // and the RIGHT column is a sticky <aside> rendering the
-    // EventHomeDetailPane keyed off `?card=` in the URL.
+    // shape. Desktop (lg+): splits into a true 50/50 grid (owner directive
+    // follow-up 2026-05-22 — "columns should look like this and not
+    // compressed · there is a divider"). `lg:grid-cols-2` gives equal
+    // halves; `lg:pr-8` on the section + `lg:border-l lg:border-ink/10
+    // lg:pl-8` on the aside creates the divider line with 32px breathing
+    // room on each side. No `gap-*` — the symmetric padding handles
+    // separation cleanly.
     //
     // `lg:items-start` lets the aside stick independently; `lg:min-w-0`
     // on the section overrides grid items' default min-content sizing so
     // long pick names + monogram strips wrap rather than stretch the col.
-    <div className="lg:grid lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] lg:items-start lg:gap-8">
-    <section className="space-y-8 lg:min-w-0">
+    <div className="lg:grid lg:grid-cols-2 lg:items-start">
+    <section className="space-y-8 lg:min-w-0 lg:pr-8">
       <EventDayPrepCta eventId={eventId} eventDate={event.event_date} />
       <AutoPreloadOnEventDay eventId={eventId} eventDate={event.event_date} />
       {dayOfActive ? (
@@ -1486,7 +1489,12 @@ export default async function EventHomePage({
      *  selected card's expanded view. Independent vertical scroll
      *  via overflow-y-auto so long cross-cat recommendation strips
      *  don't push the pane off-screen. */}
-    <aside className="hidden rounded-2xl border border-ink/10 bg-cream/40 p-5 lg:sticky lg:top-4 lg:block lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
+    {/* Right pane shed the rounded card-styling (outer border + bg + p-5)
+        that was nesting around EventHomeDetailPane's own dashed-empty-state
+        border — looked like a card-in-card. Now it's a clean column with
+        a single divider line on the left + 32px padding; the inner pane
+        owns its own framing. */}
+    <aside className="hidden lg:sticky lg:top-4 lg:block lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:border-l lg:border-ink/10 lg:pl-8">
       <EventHomeDetailPane
         eventId={eventId}
         eventDate={event.event_date}

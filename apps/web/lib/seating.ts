@@ -1,40 +1,59 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+// Catalog locked 2026-05-09 (CLAUDE.md decision log § "0008 Seating Chart
+// table catalog locked at 13 entries" + same-day "0008 serpentine geometry
+// locked" refinement). Realigned 2026-05-22 from the 2026-05-13 drift —
+// see migration 20260603200000_iteration_0008_seating_catalog_realignment.sql.
 export type TableType =
   | 'round_8'
   | 'round_10'
   | 'round_12'
-  | 'rectangle_6'
-  | 'rectangle_8'
-  | 'rectangle_10'
-  | 'long_12'
-  | 'long_16'
+  | 'long_banquet_6'
+  | 'long_banquet_8'
+  | 'long_banquet_10'
+  | 'family_head_12'
+  | 'family_head_14'
+  | 'family_head_16'
   | 'sweetheart_2'
-  | 'head_table'
-  | 'crescent_8'
-  | 'crescent_10'
-  | 'custom';
+  | 'serpentine_6'
+  | 'serpentine_12'
+  | 'serpentine_18';
+
+export type TableShapeHint =
+  | 'round'
+  | 'long_banquet'
+  | 'family_head'
+  | 'sweetheart'
+  | 'serpentine';
 
 export const TABLE_TYPE_CATALOG: ReadonlyArray<{
   type: TableType;
   label: string;
   defaultCapacity: number;
-  shapeHint: 'round' | 'rectangle' | 'long' | 'crescent' | 'head' | 'sweetheart' | 'custom';
+  shapeHint: TableShapeHint;
 }> = [
   { type: 'round_8', label: 'Round (8 seats)', defaultCapacity: 8, shapeHint: 'round' },
   { type: 'round_10', label: 'Round (10 seats)', defaultCapacity: 10, shapeHint: 'round' },
   { type: 'round_12', label: 'Round (12 seats)', defaultCapacity: 12, shapeHint: 'round' },
-  { type: 'rectangle_6', label: 'Rectangle (6 seats)', defaultCapacity: 6, shapeHint: 'rectangle' },
-  { type: 'rectangle_8', label: 'Rectangle (8 seats)', defaultCapacity: 8, shapeHint: 'rectangle' },
-  { type: 'rectangle_10', label: 'Rectangle (10 seats)', defaultCapacity: 10, shapeHint: 'rectangle' },
-  { type: 'long_12', label: 'Long table (12 seats)', defaultCapacity: 12, shapeHint: 'long' },
-  { type: 'long_16', label: 'Long table (16 seats)', defaultCapacity: 16, shapeHint: 'long' },
+  { type: 'long_banquet_6', label: 'Long banquet (6 seats)', defaultCapacity: 6, shapeHint: 'long_banquet' },
+  { type: 'long_banquet_8', label: 'Long banquet (8 seats)', defaultCapacity: 8, shapeHint: 'long_banquet' },
+  { type: 'long_banquet_10', label: 'Long banquet (10 seats)', defaultCapacity: 10, shapeHint: 'long_banquet' },
+  { type: 'family_head_12', label: 'Family head (12 seats)', defaultCapacity: 12, shapeHint: 'family_head' },
+  { type: 'family_head_14', label: 'Family head (14 seats)', defaultCapacity: 14, shapeHint: 'family_head' },
+  { type: 'family_head_16', label: 'Family head (16 seats)', defaultCapacity: 16, shapeHint: 'family_head' },
   { type: 'sweetheart_2', label: 'Sweetheart (2 seats)', defaultCapacity: 2, shapeHint: 'sweetheart' },
-  { type: 'head_table', label: 'Head table (variable)', defaultCapacity: 10, shapeHint: 'head' },
-  { type: 'crescent_8', label: 'Crescent (8 seats)', defaultCapacity: 8, shapeHint: 'crescent' },
-  { type: 'crescent_10', label: 'Crescent (10 seats)', defaultCapacity: 10, shapeHint: 'crescent' },
-  { type: 'custom', label: 'Custom shape', defaultCapacity: 8, shapeHint: 'custom' },
+  { type: 'serpentine_6', label: 'Serpentine (6 seats · 1 segment)', defaultCapacity: 6, shapeHint: 'serpentine' },
+  { type: 'serpentine_12', label: 'Serpentine (12 seats · 2 segments)', defaultCapacity: 12, shapeHint: 'serpentine' },
+  { type: 'serpentine_18', label: 'Serpentine (18 seats · 3 segments)', defaultCapacity: 18, shapeHint: 'serpentine' },
 ];
+
+// Number of donut-wedge segments per serpentine type. Each segment seats 6
+// (2 inner-cove chairs + 4 outer-edge chairs). Per 2026-05-09 spec lock.
+export const SERPENTINE_SEGMENTS: Partial<Record<TableType, number>> = {
+  serpentine_6: 1,
+  serpentine_12: 2,
+  serpentine_18: 3,
+};
 
 export const TABLE_TYPE_LABEL: Record<TableType, string> = Object.fromEntries(
   TABLE_TYPE_CATALOG.map((t) => [t.type, t.label]),

@@ -318,7 +318,10 @@ export default async function EventHomePage({
     ]);
     dayOfBlocks = blocksRes;
     const tables = tablesRes;
-    dayOfHeadTable = tables.find((t) => t.table_type === 'head_table') ?? null;
+    // The canonical 2026-05-09 catalog replaces the variable-capacity 'head_table'
+    // with three fixed family_head_12/14/16 variants. Day-of UI keeps surfacing
+    // a single "head table" by picking the first family_head_* row found.
+    dayOfHeadTable = tables.find((t) => t.table_type.startsWith('family_head_')) ?? null;
     dayOfNearbyTables = tables.filter((t) => t.table_id !== dayOfHeadTable?.table_id).slice(0, 6);
   }
 

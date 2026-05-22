@@ -15,14 +15,20 @@ type Props = {
 
 type LocalPos = { x: number; y: number };
 
-function shapeFor(type: TableType): 'circle' | 'rect' | 'long' | 'crescent' | 'sweetheart' | 'head' | 'custom' {
+type ShapeHint = 'circle' | 'long_banquet' | 'family_head' | 'sweetheart' | 'serpentine';
+
+// Maps canonical TableType (locked 2026-05-09, realigned 2026-05-22) onto a
+// rendering hint. Serpentine renders as a wedge-shaped band per the locked
+// donut-segment geometry — full chair-level visualization deferred until the
+// 2026-05-09 spec's chair-circle interaction work ships.
+function shapeFor(type: TableType): ShapeHint {
   if (type.startsWith('round_')) return 'circle';
-  if (type.startsWith('rectangle_')) return 'rect';
-  if (type.startsWith('long_')) return 'long';
-  if (type.startsWith('crescent_')) return 'crescent';
+  if (type.startsWith('long_banquet_')) return 'long_banquet';
+  if (type.startsWith('family_head_')) return 'family_head';
   if (type === 'sweetheart_2') return 'sweetheart';
-  if (type === 'head_table') return 'head';
-  return 'custom';
+  if (type.startsWith('serpentine_')) return 'serpentine';
+  // Defensive fallback — all 13 canonical types are covered above.
+  return 'circle';
 }
 
 /** Default grid position when x/y haven't been set yet. */
@@ -250,20 +256,21 @@ function TableShape({
       ? 'border-emerald-500 bg-emerald-50'
       : 'border-ink/30 bg-cream';
 
+  // Family head sized wider than long banquet per 2026-05-09 spec lock
+  // ("long rectangulars, not ovals — sized larger than the standard long banquet").
+  // Serpentine uses asymmetric border-radius to suggest the donut-wedge curve;
+  // proper chair-level quarter-donut SVG geometry is a follow-up alongside the
+  // chair-circle interaction work from the same spec lock.
   const dimensions =
     shape === 'circle'
       ? 'h-20 w-20 rounded-full'
-      : shape === 'rect'
-        ? 'h-16 w-24 rounded-lg'
-        : shape === 'long'
-          ? 'h-12 w-32 rounded-md'
-          : shape === 'crescent'
-            ? 'h-14 w-24 rounded-t-full rounded-b-md'
-            : shape === 'sweetheart'
-              ? 'h-14 w-14 rounded-full'
-              : shape === 'head'
-                ? 'h-12 w-36 rounded-md'
-                : 'h-16 w-20 rounded-md';
+      : shape === 'long_banquet'
+        ? 'h-12 w-32 rounded-md'
+        : shape === 'family_head'
+          ? 'h-14 w-40 rounded-md'
+          : shape === 'sweetheart'
+            ? 'h-14 w-14 rounded-full'
+            : 'h-16 w-32 rounded-tr-[2rem] rounded-br-[2rem] rounded-tl-md rounded-bl-md';
 
   return (
     <div

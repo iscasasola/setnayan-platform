@@ -8,6 +8,7 @@ import {
   BookmarkCheck,
   FileText,
   MessageCircle,
+  Package as PackageIcon,
   ScrollText,
   Sparkles,
 } from 'lucide-react';
@@ -855,6 +856,20 @@ function LockedCard({
         </div>
       </div>
 
+      {/* "From package" badge (owner directive 2026-05-22 — vendor packages
+          + cascade-lock). When this featured pick was cascade-created from
+          a locked vendor package, surface a small badge with the package
+          name + a deep-link to the per-package manage page. The badge is
+          informational only; the secondary actions below (Switch / View
+          contract / Open thread) still drive state changes. */}
+      {featured.event_vendor_package_id && featured.package_name ? (
+        <FromPackageBadge
+          eventId={eventId}
+          bookingId={featured.event_vendor_package_id}
+          packageName={featured.package_name}
+        />
+      ) : null}
+
       {/* Multi-canonical groups: stack any other locked picks compactly */}
       {otherLocked.length > 0 ? (
         <ul className="space-y-1.5 text-sm">
@@ -1257,3 +1272,40 @@ function PaperworkSubLink({
 // outside this file but keeping it in the public surface keeps the module
 // shape consistent with PLAN_GROUPS being part of the lib API.
 export type { PlanGroupId };
+
+/**
+ * FromPackageBadge — small "INCLUDED IN <package name>" link surfaced
+ * inside LockedCard when the featured pick was cascade-created from a
+ * locked vendor package (owner directive 2026-05-22).
+ *
+ * Routes to the per-package manage page where the host can:
+ *   • Review all 6 cascaded categories at a glance
+ *   • Remove a single item (refunds value into consumable pool)
+ *   • Release the entire package (reverts every cascade row to considering)
+ *   • See remaining consumable budget
+ *
+ * Polite brand voice per [[feedback_setnayan_no_dev_text_post_launch]]:
+ * "Included in <package name>" — concrete, contextual, no jargon.
+ */
+function FromPackageBadge({
+  eventId,
+  bookingId,
+  packageName,
+}: {
+  eventId: string;
+  bookingId: string;
+  packageName: string;
+}) {
+  return (
+    <Link
+      href={`/dashboard/${eventId}/vendors/packages/${bookingId}`}
+      className="-mt-1 inline-flex items-center gap-1.5 self-start rounded-md border border-terracotta/30 bg-terracotta/[0.06] px-2.5 py-1.5 text-[11px] font-medium text-terracotta-deep transition-colors hover:border-terracotta/60 hover:bg-terracotta/[0.10] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+    >
+      <PackageIcon aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
+      <span className="truncate">
+        Included in{' '}
+        <span className="font-semibold">{packageName}</span>
+      </span>
+    </Link>
+  );
+}

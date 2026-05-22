@@ -26,6 +26,13 @@ import { fetchVendorServices, type VendorServiceRow } from '@/lib/vendor-service
 import { fetchUserEvents } from '@/lib/events';
 import { isFollowingVendor } from '@/lib/follow';
 import { FollowGate } from '@/app/_components/follow-gate';
+import { PackageCard } from '@/app/_components/vendor-packages/package-card';
+import { LockPackageModal } from '@/app/_components/vendor-packages/lock-modal';
+import type {
+  VendorPackageItemRow,
+  VendorPackageRow,
+  VendorPackageWithItems,
+} from '@/lib/vendor-packages';
 import { SaveVendorButton } from '@/app/vendors/_components/save-vendor-button';
 import { NavLinksRow } from '@/app/_components/nav-links';
 import {
@@ -202,10 +209,16 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
   const limit = reviewsPage * REVIEWS_PAGE_SIZE;
 
   const admin = createAdminClient();
-  const [reviewStats, reviews, allServices] = await Promise.all([
+  const [reviewStats, reviews, allServices, vendorPackages] = await Promise.all([
     fetchReviewStats(admin, vendor.vendor_profile_id),
     fetchReviewsForVendorWithCouple(admin, vendor.vendor_profile_id, { limit, offset: 0 }),
     fetchVendorServices(admin, vendor.vendor_profile_id),
+    // Vendor packages (owner directive 2026-05-22) — bundled multi-category
+    // wedding offerings. Public-read via RLS when is_active=TRUE. The fetch
+    // is best-effort: if the table doesn't exist yet in a deploy environment
+    // (migration unapplied), the catch returns [] and the page renders
+    // without the Packages section.
+    fetchVendorPackagesWithItems(admin, vendor.vendor_profile_id),
   ]);
   const hasMore = reviewStats.total_count > reviews.length;
   const activeServices = allServices.filter((s) => s.is_active);
@@ -413,6 +426,19 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
           <ServicesPricingSection
             services={activeServices}
             businessName={vendor.business_name}
+          />
+        ) : null}
+
+        {/* Vendor packages (owner directive 2026-05-22) — bundled multi-
+            category offerings. Hotels sell their "wedding package" SKU
+            here; locking one cascade-locks every included planning-card
+            category. Public read; the LockPackageModal CTA only renders
+            for signed-in hosts with an active event. */}
+        {vendorPackages.length > 0 ? (
+          <VendorPackagesSection
+            packages={vendorPackages}
+            coupleEventId={coupleEventId}
+            isComingSoon={isComingSoon}
           />
         ) : null}
 
@@ -824,5 +850,108 @@ function VendorReplyBlock({ review }: { review: ReviewWithCouple }) {
       </p>
       <p className="mt-1 whitespace-pre-line text-sm text-ink/80">{review.vendor_reply}</p>
     </div>
+  );
+}
+
+/**
+ * Fetch vendor packages with their items in one round-trip per package.
+ * Best-effort: errors (table missing in stale deploy environment) return
+ * an empty array so /v/[slug] keeps rendering without the Packages
+ * section. Migrations applied → real data flows.
+ */
+async function fetchVendorPackagesWithItems(
+  admin: ReturnType<typeof createAdminClient>,
+  vendorProfileId: string,
+): Promise<VendorPackageWithItems[]> {
+  try {
+    const { data: pkgs, error: pkgsErr } = await admin
+      .from('vendor_packages')
+      .select(
+        'package_id, vendor_profile_id, package_name, description, total_price_centavos, consumable_budget_centavos, is_consumable_flexible, primary_canonical_service, is_active, created_at, updated_at',
+      )
+      .eq('vendor_profile_id', vendorProfileId)
+      .eq('is_active', true)
+      .order('created_at', { ascending: true });
+    if (pkgsErr || !pkgs || pkgs.length === 0) return [];
+
+    const packageIds = pkgs.map((p) => p.package_id);
+    const { data: items } = await admin
+      .from('vendor_package_items')
+      .select(
+        'item_id, package_id, canonical_service, service_description, is_default_included, replacement_value_centavos, display_order, created_at',
+      )
+      .in('package_id', packageIds)
+      .order('display_order', { ascending: true });
+
+    const itemsByPackage = new Map<string, VendorPackageItemRow[]>();
+    for (const row of items ?? []) {
+      const list = itemsByPackage.get(row.package_id) ?? [];
+      list.push(row as VendorPackageItemRow);
+      itemsByPackage.set(row.package_id, list);
+    }
+    return (pkgs as VendorPackageRow[]).map((p) => ({
+      ...p,
+      items: itemsByPackage.get(p.package_id) ?? [],
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Vendor packages section on /v/[slug] (owner directive 2026-05-22).
+ *
+ * Renders one PackageCard per active package. The CTA slot wires either:
+ *   • LockPackageModal — signed-in host on a bookable verified vendor
+ *   • A signed-in "couple_event_id missing" hint — sign-in works, no event
+ *   • A coming_soon "not yet bookable" sub-line — informational only
+ *   • A signed-out "sign in to customize" link
+ */
+function VendorPackagesSection({
+  packages,
+  coupleEventId,
+  isComingSoon,
+}: {
+  packages: ReadonlyArray<VendorPackageWithItems>;
+  coupleEventId: string | null;
+  isComingSoon: boolean;
+}) {
+  return (
+    <section className="space-y-4 border-b border-ink/10 py-8">
+      <header>
+        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          Packages
+        </h2>
+        <p className="mt-1 max-w-2xl text-sm text-ink/70">
+          One price, everything bundled. Locking a package locks every
+          included planning category to this vendor.
+        </p>
+      </header>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        {packages.map((pkg) => {
+          let cta: React.ReactNode = null;
+          if (isComingSoon) {
+            cta = (
+              <p className="text-xs text-ink/55">
+                Not yet bookable — this vendor is finishing verification.
+              </p>
+            );
+          } else if (coupleEventId) {
+            cta = <LockPackageModal eventId={coupleEventId} pkg={pkg} />;
+          } else {
+            cta = (
+              <Link
+                href="/login"
+                className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-terracotta bg-terracotta px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-deep"
+              >
+                Sign in to customize
+              </Link>
+            );
+          }
+          return <PackageCard key={pkg.package_id} pkg={pkg} ctaSlot={cta} />;
+        })}
+      </div>
+    </section>
   );
 }

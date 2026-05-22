@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
+import { Lock } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import { readGuestSession } from '@/lib/guest-session';
 import { formatEventDate } from '@/lib/events';
 import { ROLE_LABELS, type GuestRole } from '@/lib/guests';
@@ -88,7 +90,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   const { data: event } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, landing_page_visibility',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -98,6 +100,70 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
 
   const monogram = resolveMonogram(event);
 
+  // Read the guest-session cookie up-front so the private-gate below can
+  // accept a session-cookie-bearing guest without re-fetching guests
+  // unnecessarily. The same `session` reference is consumed by the
+  // existing guest-vs-public branch a few lines down — no extra DB call.
+  const session = await readGuestSession();
+
+  // Private-mode gate (CLAUDE.md 2026-05-22 owner directive).
+  //
+  // 'public' + 'unlisted' render identically on this page — the difference
+  // is search-engine indexing + future "browse weddings" surfaces (V1.1).
+  // 'private' restricts the page to:
+  //   (a) signed-in hosts in event_members / event_moderators, OR
+  //   (b) signed-in guests with a valid guest-session cookie for this event.
+  //
+  // The `?invite=<token>` route fires above this block (redirects to the
+  // redeem handler that writes the cookie), so a guest landing with their
+  // personal link is automatically allowed even on a private event — they
+  // come back through here without `?invite=` and the cookie matches.
+  const visibility = (event.landing_page_visibility ?? 'public') as
+    | 'public'
+    | 'unlisted'
+    | 'private';
+
+  if (visibility === 'private') {
+    // Path A — guest cookie session for this exact event. Legitimate
+    // invited guest already redeemed their personal link.
+    const guestSessionMatches = session?.event_id === event.event_id;
+
+    // Path B — signed-in host. event_members (V1 couple membership) OR
+    // event_moderators (iteration 0048 multi-host invite path).
+    let isAuthedHost = false;
+    if (!guestSessionMatches) {
+      const supabase = await createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        const [{ data: memberRow }, { data: moderatorRow }] = await Promise.all([
+          admin
+            .from('event_members')
+            .select('member_type')
+            .eq('event_id', event.event_id)
+            .eq('user_id', user.id)
+            .maybeSingle(),
+          admin
+            .from('event_moderators')
+            .select('moderator_id')
+            .eq('event_id', event.event_id)
+            .eq('user_id', user.id)
+            .not('accepted_at', 'is', null)
+            .is('removed_at', null)
+            .maybeSingle(),
+        ]);
+        isAuthedHost = Boolean(memberRow) || Boolean(moderatorRow);
+      }
+    }
+
+    if (!guestSessionMatches && !isAuthedHost) {
+      return <PrivateLanding event={event} monogram={monogram} />;
+    }
+    // Otherwise fall through — public / unlisted rendering path below
+    // handles the rest of the page exactly as it would for a public event.
+  }
+
   // Task #13 — compute day-of phase server-side so each branch ships as plain
   // server-rendered HTML the CDN can cache and the SW can offline-fallback.
   // Falls through to `inactive` for events without dates (very early planning).
@@ -105,8 +171,8 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     ? getDayOfPhase(event.event_date)
     : 'inactive';
 
-  // Read the guest-session cookie (read-only — pages can't write cookies).
-  const session = await readGuestSession();
+  // (Note: guest-session cookie was already read above for the private-gate
+  // check — reuse the same `session` reference rather than re-fetching.)
 
   if (!session) {
     return (
@@ -283,6 +349,67 @@ function PublicLanding({
             the couple sent you to see your invitation.
           </p>
         )}
+      </div>
+    </InvitationShell>
+  );
+}
+
+/**
+ * Locked screen for landing-page-visibility='private' (CLAUDE.md 2026-05-22).
+ *
+ * Rendered when an unauthenticated visitor (or a signed-in visitor with no
+ * host membership / no guest cookie for this event) opens the URL of a
+ * private wedding. Polite — not severe. Monogram + couple name + date stay
+ * visible so the visitor can confirm they have the right wedding and reach
+ * out to the hosts if they should have access.
+ */
+function PrivateLanding({
+  event,
+  monogram,
+}: {
+  event: EventRow;
+  monogram: MonogramConfig;
+}) {
+  return (
+    <InvitationShell>
+      <div className="space-y-8 text-center">
+        <div
+          aria-hidden
+          className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border-2 bg-cream font-serif text-2xl italic"
+          style={{ borderColor: monogram.color, color: monogram.color }}
+        >
+          {monogram.text}
+        </div>
+        <div className="space-y-3">
+          <h1 className="font-display text-4xl font-medium tracking-tight sm:text-5xl">
+            {event.display_name}
+          </h1>
+          {event.event_date ? (
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+              {formatEventDate(event.event_date)}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="mx-auto max-w-md space-y-4 rounded-2xl border border-ink/10 bg-cream/60 p-6 sm:p-8">
+          <Lock
+            aria-hidden
+            className="mx-auto h-7 w-7 text-terracotta"
+            strokeWidth={1.5}
+          />
+          <h2 className="font-serif text-2xl italic tracking-tight">
+            This wedding&rsquo;s page is private
+          </h2>
+          <p className="text-sm text-ink/70">
+            Only the couple&rsquo;s guests and moderators can view it. If you should
+            have access, please ask your hosts to add you to the guest list.
+          </p>
+        </div>
+
+        <p className="text-xs text-ink/45">
+          Already invited? Open the personal link the couple sent you, or scan your
+          invitation QR.
+        </p>
       </div>
     </InvitationShell>
   );

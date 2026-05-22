@@ -498,7 +498,12 @@ function LockedCard({
 }) {
   const displayName =
     featured.marketplace_business_name ?? featured.vendor_name;
-  const logoUrl = featured.marketplace_logo_url ?? null;
+  // 3-tier avatar resolution (2026-05-22 refinement on PR #341):
+  //   1. service primary photo · vendor_services row the host booked
+  //   2. vendor logo · vendor_profiles.logo_url (PR #341 baseline)
+  //   3. initials placeholder · handled inside LockedVendorAvatar
+  const servicePhotoUrl = featured.service_primary_photo_url ?? null;
+  const vendorLogoUrl = featured.marketplace_logo_url ?? null;
   const city = featured.marketplace_city ?? null;
   const formattedCost = formatPHP(featured.total_cost_php);
   const isMultiCanonical = group.categories.length > 1;
@@ -528,7 +533,11 @@ function LockedCard({
 
       {/* Featured locked vendor — photo card */}
       <div className="flex items-start gap-3 rounded-lg bg-cream/80 p-3">
-        <LockedVendorAvatar logoUrl={logoUrl} name={displayName} />
+        <LockedVendorAvatar
+          servicePhotoUrl={servicePhotoUrl}
+          vendorLogoUrl={vendorLogoUrl}
+          name={displayName}
+        />
         <div className="min-w-0 flex-1 space-y-0.5">
           {featuredCategoryLabel ? (
             <p className="truncate font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
@@ -633,15 +642,28 @@ function LockedCard({
 
 /**
  * LockedVendorAvatar — 56×56 vendor photo on the LockedCard hero slot.
- * Reuses the same logo-or-initials pattern from FinalizedChipStrip but
- * sized larger for the planning-card surface. Initials fall back to
- * terracotta-on-cream when vendor_profiles.logo_url is null.
+ * Sized larger than FinalizedChipStrip's 36×36 because the planning
+ * card has more vertical room. Both surfaces share the same 3-tier
+ * resolution ladder, but each ships its own component because the
+ * size + corner radius differ (rounded-full chip vs rounded-lg card).
+ *
+ * 3-tier avatar fallback (2026-05-22 refinement on PR #341):
+ *   PRIORITY 1: servicePhotoUrl — booked vendor_services row's
+ *               primary photo. Resolved via r2PublicUrl in page.tsx
+ *               so consumers receive a ready-to-render URL.
+ *   PRIORITY 2: vendorLogoUrl — vendor_profiles.logo_url. PR #341
+ *               baseline. Falls through when service photo absent.
+ *   PRIORITY 3: initials-on-terracotta — when both are null/invalid.
+ *               Same off-platform / custom-row fallback path that
+ *               PR #341 shipped.
  */
 function LockedVendorAvatar({
-  logoUrl,
+  servicePhotoUrl,
+  vendorLogoUrl,
   name,
 }: {
-  logoUrl: string | null;
+  servicePhotoUrl: string | null;
+  vendorLogoUrl: string | null;
   name: string;
 }) {
   const initials =
@@ -651,16 +673,23 @@ function LockedVendorAvatar({
       .filter((c) => c.length > 0)
       .slice(0, 2)
       .join('') || '?';
-  const isOptimizable =
-    !!logoUrl &&
-    (logoUrl.startsWith('http://') ||
-      logoUrl.startsWith('https://') ||
-      logoUrl.startsWith('/'));
-  if (logoUrl && isOptimizable) {
+  const isOptimizable = (url: string | null): url is string =>
+    !!url &&
+    (url.startsWith('http://') ||
+      url.startsWith('https://') ||
+      url.startsWith('/'));
+  // Walk the ladder. A malformed service photo URL still falls through
+  // to the logo instead of rendering broken markup.
+  const chosen = isOptimizable(servicePhotoUrl)
+    ? servicePhotoUrl
+    : isOptimizable(vendorLogoUrl)
+      ? vendorLogoUrl
+      : null;
+  if (chosen) {
     return (
       <span className="inline-flex h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-ink/10 bg-cream">
         <Image
-          src={logoUrl}
+          src={chosen}
           alt=""
           width={56}
           height={56}

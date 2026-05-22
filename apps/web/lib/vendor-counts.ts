@@ -90,13 +90,37 @@ export type VendorPreviewRow = {
  * Cached at module load (192 entries × ~50 bytes = negligible). Used by
  * `findTopVendorsByFolder` to translate a folder request into a `.overlaps()`
  * predicate against the vendor's `services[]` array.
+ *
+ * 2026-05-22 cross-listing — honors `secondary_folders` on TaxonomyEntry
+ * so a service registered under a primary folder ALSO surfaces under any
+ * declared secondary folders. PH wedding reality: hotels (accommodation,
+ * primary planning_logistics_travel) bundle catering, so they appear in
+ * the catering folder's FolderVendorsSection inline vendor preview AND
+ * the catering folder's vendor-grid query when a host scopes catalog
+ * mode via `?folder=catering`. Owner directive: "most hotels also provide
+ * catering." Map values stay deduplicated implicitly because a service
+ * appears once per (primary OR secondary) folder.
  */
 const CANONICAL_SERVICES_BY_FOLDER: Map<WeddingFolder, string[]> = (() => {
   const map = new Map<WeddingFolder, string[]>();
   for (const [canonical, meta] of Object.entries(TAXONOMY_MAP)) {
-    const arr = map.get(meta.folder) ?? [];
-    arr.push(canonical);
-    map.set(meta.folder, arr);
+    // Primary folder placement (unchanged 2026-05-20 behavior).
+    const primaryArr = map.get(meta.folder) ?? [];
+    primaryArr.push(canonical);
+    map.set(meta.folder, primaryArr);
+    // Secondary folder cross-listing (new 2026-05-22). Empty/undefined
+    // secondary_folders is the common case — no behavior change for the
+    // 191 services that don't declare cross-listing.
+    if (meta.secondary_folders) {
+      for (const secondary of meta.secondary_folders) {
+        // Defensive: never duplicate-add to the same folder if a misconfigured
+        // entry lists its own primary folder in secondary_folders.
+        if (secondary === meta.folder) continue;
+        const secondaryArr = map.get(secondary) ?? [];
+        secondaryArr.push(canonical);
+        map.set(secondary, secondaryArr);
+      }
+    }
   }
   return map;
 })();

@@ -780,7 +780,34 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     // the array includes the canonical category key. Custom service strings
     // are not indexed by canonical key, so a category filter won't match
     // vendors who only listed a custom service — that's correct V1 behavior.
-    query = query.contains('services', [filters.category]);
+    //
+    // 2026-05-22 cross-listing — when (a) the host arrived via a planning-
+    // card [Search] button (filters.folder is set), AND (b) the picked
+    // category is a generic catch-all that matches the folder (e.g.
+    // ?folder=catering&category=catering), ALSO include vendors whose
+    // services[] holds any service cross-listed into this folder via
+    // `secondary_folders`. The owner-locked example: hotels (services[]
+    // contains 'accommodation', which has `secondary_folders: ['catering']`)
+    // surface in catering search alongside dedicated caterers.
+    //
+    // We only expand when filters.category EXACTLY equals filters.folder
+    // because that's the "generic folder catch-all" pattern the dashboard
+    // planning cards emit (subcategoryHint='catering' for the Catering
+    // card). Specific drill-ins like `?category=halal_catering` don't get
+    // the expansion — those couples picked a narrow service for a reason.
+    const isGenericFolderCatchall =
+      filters.folder !== null && filters.category === filters.folder;
+    if (isGenericFolderCatchall) {
+      const crossListed = Object.entries(TAXONOMY_MAP)
+        .filter(([, meta]) =>
+          meta.secondary_folders?.includes(filters.folder as WeddingFolder),
+        )
+        .map(([key]) => key);
+      const services = [filters.category, ...crossListed];
+      query = query.overlaps('services', services);
+    } else {
+      query = query.contains('services', [filters.category]);
+    }
   }
   if (filters.eventType) {
     // Iteration 0041 — vendor_profiles.event_types[] gates which event_types
@@ -2007,6 +2034,13 @@ async function CatalogView({
   // 2026-05-22 evening — also collect the populated canonical_services so
   // we can batch-fetch top-3 vendor names per service in ONE round-trip,
   // populating the CategoryTile "Sample: A · B · C" preview line.
+  // 2026-05-22 cross-listing — services with `secondary_folders` are pushed
+  // into BOTH the primary folder and every secondary folder. The CategoryTile
+  // for a secondary-folder placement reads `isSecondaryListing=true` so it
+  // can surface a subtle "Primary folder · Planning" line letting couples
+  // know the vendor's home category — per owner directive *"most hotels also
+  // provide catering"*, hotels surface in catering search alongside dedicated
+  // caterers.
   const populatedServices: string[] = [];
   const buckets = new Map<WeddingFolder, CategoryTileData[]>();
   for (const folder of WEDDING_FOLDER_ORDER) {
@@ -2020,6 +2054,7 @@ async function CatalogView({
     if ((count?.total ?? 0) > 0) {
       populatedServices.push(row.canonical_service);
     }
+    // Primary folder placement (unchanged).
     buckets.get(meta.folder)?.push({
       canonicalService: row.canonical_service,
       displayNameEn: row.display_name_en,
@@ -2027,6 +2062,25 @@ async function CatalogView({
       meta,
       count,
     });
+    // Secondary folder cross-listings (new 2026-05-22). Same tile data,
+    // flagged with `primaryFolderHint` so the CategoryTile renders a
+    // muted "Primary folder · Planning" line under the count pill — gives
+    // couples the context "this vendor's home is the Planning folder but
+    // they also do catering." Empty for the 191 services without
+    // `secondary_folders` declared, so 0 behavior change for them.
+    if (meta.secondary_folders) {
+      for (const secondary of meta.secondary_folders) {
+        if (secondary === meta.folder) continue;
+        buckets.get(secondary)?.push({
+          canonicalService: row.canonical_service,
+          displayNameEn: row.display_name_en,
+          displayNameTl: row.display_name_tl,
+          meta,
+          count,
+          primaryFolderHint: meta.folder,
+        });
+      }
+    }
   }
 
   // 2026-05-22 evening — fetch top-3 vendor names per populated

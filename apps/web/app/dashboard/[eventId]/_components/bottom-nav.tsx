@@ -43,25 +43,66 @@ const TABS: { key: TabKey; Icon: LucideIcon; href: (eventId: string) => string }
   { key: 'services', Icon: Sparkles, href: (id) => `/dashboard/${id}/add-ons` },
 ];
 
+// Why: owner directive 2026-05-22 — "choosing any of these will lock on side nav
+// for desktop view not just home". The original implementation only highlighted
+// when pathname matched a small closed list of slug substrings; dozens of real
+// event-scoped sub-routes (/vendors, /budget, /orders, /messages, /paperwork,
+// /documents, /contracts, /disputes, /activity, /sponsors, /hosts,
+// /date-selection, and every guest/[id] / vendor/[id]/workspace sub-route)
+// matched none of the 4, so the side nav showed NO active item.
+//
+// Fix pattern: Home is exact-match only (so it doesn't catch every sub-route,
+// since every dashboard URL starts with /dashboard/{eventId}). The other 3
+// tabs each carry an umbrella of route segments they conceptually cover and
+// match via startsWith on the full {/segment} prefix — never bare .includes(),
+// which would mis-fire on path fragments like `/messages` appearing inside an
+// unrelated route someday. Order matters: Guests + Website are checked before
+// Services so the Services catch-all only fires for genuinely planning-side
+// surfaces that aren't people-side or landing-page-side.
+const GUESTS_UMBRELLA = ['guests', 'invitation', 'seating', 'hosts', 'sponsors'];
+const WEBSITE_UMBRELLA = ['website'];
+const SERVICES_UMBRELLA = [
+  'add-ons',
+  'services',
+  'schedule',
+  'vendors',
+  'budget',
+  'orders',
+  'messages',
+  'paperwork',
+  'documents',
+  'contracts',
+  'disputes',
+  'activity',
+  'date-selection',
+];
+
+function matchesUmbrella(pathname: string, eventId: string, umbrella: string[]): boolean {
+  const eventBase = `/dashboard/${eventId}`;
+  return umbrella.some((segment) => {
+    const segmentBase = `${eventBase}/${segment}`;
+    return pathname === segmentBase || pathname.startsWith(`${segmentBase}/`);
+  });
+}
+
 function activeTab(pathname: string, eventId: string): TabKey | null {
-  // Guests umbrella also covers invitation editor + seating chart since those
-  // are guest-side workflows reached from the Guests surface.
-  if (
-    pathname.includes('/guests') ||
-    pathname.includes('/invitation') ||
-    pathname.includes('/seating')
-  ) return 'guests';
-  // Website tab lights up for the new /website hub.
-  if (pathname.includes('/website')) return 'website';
-  // Services umbrella keeps matching legacy /services path so bookmarked URLs
-  // (pre-rename) still light up the right tab during the brief redirect, and
-  // covers /add-ons + /schedule which are reached from the Services surface.
-  if (
-    pathname.includes('/add-ons') ||
-    pathname.includes('/services') ||
-    pathname.includes('/schedule')
-  ) return 'services';
-  if (pathname === `/dashboard/${eventId}`) return 'home';
+  const homeHref = `/dashboard/${eventId}`;
+  // Home: exact match only so it doesn't catch sub-routes (every dashboard
+  // URL technically starts with /dashboard/{id}, so startsWith would over-match).
+  if (pathname === homeHref) return 'home';
+  // People-side surfaces — guest list, invitation editor, seating chart,
+  // hosts list, sponsors list — all land under the Guests tab.
+  if (matchesUmbrella(pathname, eventId, GUESTS_UMBRELLA)) return 'guests';
+  // Public landing page hub.
+  if (matchesUmbrella(pathname, eventId, WEBSITE_UMBRELLA)) return 'website';
+  // Services catch-all for everything event-planning-side: add-ons (canonical),
+  // services (legacy alias still served during the rename window), schedule,
+  // vendors marketplace + per-vendor workspaces, budget, orders, messages
+  // (vendor chats), paperwork (BIR + marriage license pipeline), documents,
+  // contracts (vendor-uploaded PDFs), disputes, activity feed, date-selection.
+  // Every event-scoped route is enumerated above; routes added in the future
+  // need an explicit entry in one of the umbrellas (no silent default).
+  if (matchesUmbrella(pathname, eventId, SERVICES_UMBRELLA)) return 'services';
   return null;
 }
 

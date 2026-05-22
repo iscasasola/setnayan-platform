@@ -28,7 +28,16 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
 import { computeGuestStats, fetchGuestsByEvent } from '@/lib/guests';
 import { fetchEventActivity, relativeTime, type ActivityItem } from '@/lib/activity';
-import { formatEventDate } from '@/lib/events';
+import {
+  formatEventDateWithPrecision,
+  formatEventCountdown,
+  type EventDatePrecision,
+} from '@/lib/events';
+import {
+  getCommonAvailableDays,
+  rangeFromPrecision,
+  formatDayKey,
+} from '@/lib/vendor-availability';
 import {
   sweepExpiredConcierge,
   type ConciergeEnforcementLevel,
@@ -52,6 +61,7 @@ import { EventDayPrepCta } from '@/app/_components/event-day-prep-cta';
 import { AutoPreloadOnEventDay } from '@/app/_components/auto-preload-on-event-day';
 import { PlanningGroups } from './_components/planning-groups';
 import { EventDateInput } from './_components/event-date-input';
+import { VendorAvailabilityIntersection } from './_components/vendor-availability-intersection';
 import { CeremonyTypeChip } from './_components/ceremony-type-chip';
 import { getConfirmedVendorCount } from '@/lib/events';
 import type { VendorCategory } from '@/lib/vendors';
@@ -215,7 +225,7 @@ export default async function EventHomePage({
       supabase
         .from('events')
         .select(
-          'event_id, display_name, event_date, slug, venue_name, venue_latitude, venue_longitude, monogram_text, palette_finalized_at, concierge_status, concierge_tier, concierge_activated_at, concierge_expires_at, concierge_long_engagement_advised_at, event_type, ceremony_type, ceremony_type_locked_at',
+          'event_id, display_name, event_date, event_date_precision, slug, venue_name, venue_latitude, venue_longitude, monogram_text, palette_finalized_at, concierge_status, concierge_tier, concierge_activated_at, concierge_expires_at, concierge_long_engagement_advised_at, event_type, ceremony_type, ceremony_type_locked_at',
         )
         .eq('event_id', eventId)
         .maybeSingle(),
@@ -251,7 +261,18 @@ export default async function EventHomePage({
   const profile = profileRes.data;
   const stats = computeGuestStats(guests);
   const now = new Date();
-  const daysOut = daysUntil(event.event_date);
+  // Task #39 (2026-05-22) — event_date_precision drives display + intersection.
+  // Default 'year' for any pre-migration rows that somehow reach here without
+  // the column populated; the migration backfills, so in practice this only
+  // gates the prop type.
+  const eventDatePrecision: EventDatePrecision =
+    (event as { event_date_precision?: EventDatePrecision | null }).event_date_precision ?? 'year';
+  // Stage + countdown only meaningful when the host has narrowed to day
+  // precision. Year/month modes are early-planning states where the
+  // numerical days-out is misleading (the placeholder date is the 1st of
+  // the range, not the actual day).
+  const daysOut =
+    eventDatePrecision === 'day' ? daysUntil(event.event_date) : null;
   const stage = currentStage(daysOut, stats.total);
 
   const plannerMode = profile?.planner_mode ?? 'guided';
@@ -299,6 +320,36 @@ export default async function EventHomePage({
     const tables = tablesRes;
     dayOfHeadTable = tables.find((t) => t.table_type === 'head_table') ?? null;
     dayOfNearbyTables = tables.filter((t) => t.table_id !== dayOfHeadTable?.table_id).slice(0, 6);
+  }
+
+  // Task #39 (2026-05-22) — vendor calendar intersection. Renders only at
+  // year/month precision with ≥1 confirmed vendor. Errors return an empty
+  // result so the dashboard never crashes on a calendar-query failure.
+  let availabilityDays: string[] = [];
+  let availabilityTotalDays = 0;
+  let availabilityVendorCount = 0;
+  let availabilityWindowLabel = '';
+  if (
+    (eventDatePrecision === 'year' || eventDatePrecision === 'month') &&
+    confirmedVendorCount > 0 &&
+    event.event_date
+  ) {
+    const range = rangeFromPrecision(event.event_date, eventDatePrecision);
+    if (range) {
+      try {
+        const result = await getCommonAvailableDays(supabase, eventId, range.start, range.end);
+        availabilityDays = result.availableDays.map(formatDayKey);
+        availabilityTotalDays = result.totalDaysInRange;
+        availabilityVendorCount = result.confirmedVendorCount;
+        availabilityWindowLabel = formatEventDateWithPrecision(
+          event.event_date,
+          eventDatePrecision,
+        ).replace(/^Sometime in /, '');
+      } catch {
+        // Stay silent on errors — the dashboard renders the date input
+        // without the intersection panel, which is the safe default.
+      }
+    }
   }
 
   const activity = await fetchEventActivity(supabase, eventId, 20);
@@ -372,15 +423,26 @@ export default async function EventHomePage({
         name={greetingName}
         eventName={event.display_name}
         eventDate={event.event_date}
-        daysOut={daysOut}
+        eventDatePrecision={eventDatePrecision}
+        now={now}
       />
 
       <div className="space-y-2">
         <EventDateInput
           eventId={eventId}
           initial={event.event_date ?? null}
+          initialPrecision={eventDatePrecision}
           confirmedVendorCount={confirmedVendorCount}
         />
+        {availabilityVendorCount > 0 && availabilityWindowLabel ? (
+          <VendorAvailabilityIntersection
+            eventId={eventId}
+            availableDays={availabilityDays}
+            confirmedVendorCount={availabilityVendorCount}
+            windowLabel={availabilityWindowLabel}
+            totalDaysInRange={availabilityTotalDays}
+          />
+        ) : null}
         <CeremonyTypeChip
           eventId={eventId}
           eventType={(event as { event_type?: string | null }).event_type ?? 'wedding'}
@@ -427,14 +489,21 @@ function WelcomeHeader({
   name,
   eventName,
   eventDate,
-  daysOut,
+  eventDatePrecision,
+  now,
 }: {
   greeting: string;
   name: string;
   eventName: string;
   eventDate: string | null;
-  daysOut: number | null;
+  eventDatePrecision: EventDatePrecision;
+  now: Date;
 }) {
+  // Task #39 (2026-05-22) — precision-aware display + countdown.
+  const pretty = eventDate
+    ? formatEventDateWithPrecision(eventDate, eventDatePrecision)
+    : 'Date to be confirmed';
+  const countdown = formatEventCountdown(eventDate, eventDatePrecision, now);
   return (
     <header className="space-y-1.5">
       <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{eventName}</h1>
@@ -442,14 +511,8 @@ function WelcomeHeader({
         {greeting}, {name}
       </p>
       <p className="text-sm text-ink/55">
-        {eventDate ? formatEventDate(eventDate) : 'Date to be confirmed'}
-        {daysOut !== null
-          ? daysOut > 0
-            ? ` · ${daysOut} day${daysOut === 1 ? '' : 's'} to go`
-            : daysOut === 0
-              ? ' · today!'
-              : ` · ${Math.abs(daysOut)} day${Math.abs(daysOut) === 1 ? '' : 's'} ago`
-          : null}
+        {pretty}
+        {countdown ? ` · ${countdown}` : null}
       </p>
     </header>
   );

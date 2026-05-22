@@ -171,6 +171,118 @@ export function formatEventDate(iso: string | null, locale = 'en-US'): string {
 }
 
 /**
+ * Task #39 (2026-05-22) — render the event date with precision-aware
+ * phrasing. Year precision reads as "Sometime in 2027"; month precision
+ * reads as "August 2027"; day precision reads as the full long form
+ * ("Friday, August 15, 2027"). For year/month modes, event_date stores
+ * the first-day-of-range placeholder ('2027-01-01' / '2027-08-01') so we
+ * parse parts manually to avoid timezone drift on the DATE column.
+ *
+ * Returns empty string when iso is null. The "Date to be confirmed"
+ * empty-state copy is handled at the call site so the literal isn't
+ * duplicated across surfaces.
+ */
+export type EventDatePrecision = 'year' | 'month' | 'day';
+
+export function formatEventDateWithPrecision(
+  iso: string | null,
+  precision: EventDatePrecision,
+  locale = 'en-US',
+): string {
+  if (!iso) return '';
+  // Parse parts manually to avoid timezone drift on the DATE column.
+  const [yearStr, monthStr, dayStr] = iso.split('-');
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  const day = Number(dayStr);
+  if (!year || !month || !day) return iso;
+
+  if (precision === 'year') {
+    return `Sometime in ${year}`;
+  }
+  if (precision === 'month') {
+    const d = new Date(year, month - 1, 1);
+    return d.toLocaleDateString(locale, { year: 'numeric', month: 'long' });
+  }
+  // precision === 'day'
+  const d = new Date(year, month - 1, day);
+  return d.toLocaleDateString(locale, {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+/**
+ * Task #39 — countdown phrasing per precision. Day-precision returns the
+ * canonical "N days to go" / "today!" / "N days ago" string (matches the
+ * existing WelcomeHeader behavior). Month-precision returns "in N months"
+ * approximate. Year-precision returns "this year" if same calendar year,
+ * "in N months" if next year is < 12 months away, or null when the year
+ * is too distant for a meaningful countdown (the precision itself is
+ * already the countdown signal).
+ */
+export function formatEventCountdown(
+  iso: string | null,
+  precision: EventDatePrecision,
+  now: Date = new Date(),
+): string | null {
+  if (!iso) return null;
+  const [yearStr, monthStr, dayStr] = iso.split('-');
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  const day = Number(dayStr);
+  if (!year || !month || !day) return null;
+
+  if (precision === 'day') {
+    const event = new Date(year, month - 1, day);
+    event.setHours(0, 0, 0, 0);
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
+    const ms = event.getTime() - today.getTime();
+    const days = Math.round(ms / 86_400_000);
+    if (days > 0) return `${days} day${days === 1 ? '' : 's'} to go`;
+    if (days === 0) return 'today!';
+    const absDays = Math.abs(days);
+    return `${absDays} day${absDays === 1 ? '' : 's'} ago`;
+  }
+
+  if (precision === 'month') {
+    const event = new Date(year, month - 1, 1);
+    const today = new Date(now.getFullYear(), now.getMonth(), 1);
+    const months =
+      (event.getFullYear() - today.getFullYear()) * 12 + (event.getMonth() - today.getMonth());
+    if (months > 0) return `in ${months} month${months === 1 ? '' : 's'}`;
+    if (months === 0) return 'this month';
+    const absMonths = Math.abs(months);
+    return `${absMonths} month${absMonths === 1 ? '' : 's'} ago`;
+  }
+
+  // precision === 'year'
+  const nowYear = now.getFullYear();
+  if (year === nowYear) return 'this year';
+  if (year === nowYear + 1) {
+    // Approximate months to start of next year — never less than 1.
+    const monthsToYearStart = 12 - now.getMonth();
+    return `in ${monthsToYearStart} month${monthsToYearStart === 1 ? '' : 's'}`;
+  }
+  if (year < nowYear) return `${nowYear - year} year${nowYear - year === 1 ? '' : 's'} ago`;
+  // Year is 2+ years away — precision itself is the countdown. Skip.
+  return null;
+}
+
+/**
+ * Task #39 — precision ranking for the refine-only ratchet. Higher value
+ * means more precise. Used to gate widening when confirmed vendors exist.
+ */
+export const PRECISION_ORDER: Record<EventDatePrecision, number> = {
+  year: 0,
+  month: 1,
+  day: 2,
+};
+
+/**
  * Vendor statuses that count as a confirmed commitment for the
  * date-edit + ceremony-type-edit gates on event home (iteration 0021
  * § 10 / § 11 / § 13 + Task #37).

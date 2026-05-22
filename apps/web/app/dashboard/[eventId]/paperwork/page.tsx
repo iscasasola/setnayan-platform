@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import {
   AlertCircle,
   ArrowLeft,
+  ArrowRight,
   CheckCircle2,
   Clock,
   ExternalLink,
@@ -111,7 +112,18 @@ export default async function PaperworkPage({ params }: Props) {
 
   return (
     <section className="space-y-6">
-      <BackLink eventId={eventId} />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <BackLink eventId={eventId} />
+        {/* YOUR PLAN consolidation 2026-05-22 — every paper artifact also
+         *  lives in the consolidated /documents view alongside contracts,
+         *  Setnayan creations, and receipts. */}
+        <Link
+          href={`/dashboard/${eventId}/documents`}
+          className="inline-flex items-center gap-1 text-xs font-medium text-terracotta-700 hover:text-terracotta-800"
+        >
+          See all documents <ArrowRight aria-hidden className="h-3 w-3" strokeWidth={2} />
+        </Link>
+      </div>
       <header className="space-y-3">
         <h1 className="font-display text-3xl italic tracking-tight text-ink sm:text-4xl">
           Your wedding paperwork

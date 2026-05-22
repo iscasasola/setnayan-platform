@@ -45,9 +45,20 @@ export default async function EventContractsPage({ params }: Props) {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Vendor contracts</h1>
-        <p className="mt-1 text-sm text-ink/65">
+      <header className="space-y-2">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Vendor contracts</h1>
+          {/* YOUR PLAN consolidation 2026-05-22 — vendor contracts also
+           *  appear in the consolidated /documents view alongside
+           *  paperwork, creations, and receipts. */}
+          <Link
+            href={`/dashboard/${eventId}/documents`}
+            className="inline-flex items-center gap-1 text-xs font-medium text-terracotta-700 hover:text-terracotta-800"
+          >
+            See all documents <ArrowRight aria-hidden className="h-3 w-3" strokeWidth={2} />
+          </Link>
+        </div>
+        <p className="text-sm text-ink/65">
           PDFs your vendors have uploaded for reference. Setnayan hosts the
           files so both sides have a copy on hand — signing happens between
           you and the vendor externally.

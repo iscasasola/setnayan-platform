@@ -180,3 +180,233 @@ function daysBetween(a: Date, b: Date): number {
 export function formatDayKey(d: Date): string {
   return dayKey(d);
 }
+
+// ---------------------------------------------------------------------------
+// Task #45 (2026-05-22) — marketplace calendar intersection filter helpers.
+// Owner-locked design: candidate vendors browsed via /vendors are filtered
+// against the host's commonAvailability across all confirmed-vendor calendars.
+// The dashboard surface above operates on year/month only (the refinement
+// flow); the marketplace surface operates on year, month, AND day (every
+// candidate must share ≥1 free day with the locked vendors).
+//
+// N+1 query cost (one vendor_calendar_blocks roundtrip per candidate) is
+// acceptable at pilot scale (≤20 candidates × handful of locked vendors).
+// V1.x should consolidate into a single SQL join — see TODO in
+// filterVendorsByAvailabilityIntersection below.
+// ---------------------------------------------------------------------------
+
+// Re-exported from lib/events for downstream importers that only consume
+// the marketplace surface — keeps `EventDatePrecision` a single source of
+// truth (defined in lib/events.ts line 185).
+export type { EventDatePrecision } from './events';
+import type { EventDatePrecision as _EDP } from './events';
+
+/**
+ * Compute the host's candidate-day window from event_date + precision.
+ * Day mode collapses to a single day; year/month delegate to the same logic
+ * the dashboard intersection panel uses.
+ *
+ * Returns null when event_date is malformed (defensive — callers fall back
+ * to no filter rather than crashing the marketplace).
+ */
+export function computeCandidateWindow(
+  eventDate: string,
+  precision: _EDP,
+): { start: Date; end: Date } | null {
+  if (precision === 'day') {
+    const [yearStr, monthStr, dayStr] = eventDate.split('-');
+    const year = Number(yearStr);
+    const month = Number(monthStr);
+    const day = Number(dayStr);
+    if (!year || !month || !day) return null;
+    const single = new Date(year, month - 1, day);
+    return { start: single, end: single };
+  }
+  return rangeFromPrecision(eventDate, precision);
+}
+
+/**
+ * Build the set of YYYY-MM-DD keys spanning [start, end] inclusive.
+ * Used to convert a candidate window into the same set shape the
+ * intersection logic produces, so set ops compose cleanly.
+ */
+export function dayKeySetFromWindow(start: Date, end: Date): Set<string> {
+  const keys = new Set<string>();
+  const cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  const last = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+  while (cursor <= last) {
+    keys.add(dayKey(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return keys;
+}
+
+/**
+ * Resolve the set of YYYY-MM-DD keys a single vendor has AVAILABLE inside
+ * [rangeStart, rangeEnd]. Reads vendor_calendar_blocks for that vendor in
+ * range, walks each block to mark every blocked calendar day, then returns
+ * windowDays minus blockedDays.
+ *
+ * Returns the full window when the vendor has zero blocks — vendor with no
+ * declared calendar is treated as fully available (the V1 default; vendors
+ * upgrade their calendar discipline as they ship more events).
+ */
+export async function getVendorAvailableDays(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+  rangeStart: Date,
+  rangeEnd: Date,
+): Promise<Set<string>> {
+  const windowKeys = dayKeySetFromWindow(rangeStart, rangeEnd);
+  if (windowKeys.size === 0) return windowKeys;
+
+  const { data: blocks, error } = await supabase
+    .from('vendor_calendar_blocks')
+    .select('blocked_at, blocked_until')
+    .eq('vendor_profile_id', vendorProfileId)
+    .lte('blocked_at', rangeEnd.toISOString())
+    .gte('blocked_until', rangeStart.toISOString());
+
+  // On error, return the unfiltered window. The marketplace will still
+  // surface the vendor; the locked-vendor intersection on the parent helper
+  // is the load-bearing gate (the candidate-vendor filter only narrows
+  // further). Failing-open keeps the marketplace usable when calendar
+  // queries flake.
+  if (error) return windowKeys;
+
+  const blockedDays = new Set<string>();
+  for (const block of blocks ?? []) {
+    const b = block as { blocked_at: string; blocked_until: string };
+    const start = new Date(b.blocked_at);
+    const end = new Date(b.blocked_until);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) continue;
+    const cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const finalDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+    while (cursor <= finalDay) {
+      blockedDays.add(dayKey(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+  }
+
+  const available = new Set<string>();
+  for (const k of windowKeys) {
+    if (!blockedDays.has(k)) available.add(k);
+  }
+  return available;
+}
+
+/**
+ * Resolve commonAvailability across all CONFIRMED vendors on an event.
+ * Intersection of every confirmed vendor's available-day set inside
+ * [rangeStart, rangeEnd]. When 0 confirmed vendors → returns the full
+ * window (no filter applied to the marketplace).
+ *
+ * Empty result (size 0) WITH lockedCount > 0 → conflict state. Callers
+ * read `lockedCount` from the return to disambiguate "no filter" from
+ * "intersection is empty".
+ *
+ * Uses the admin Supabase client because the marketplace surface is
+ * public + the read crosses event scope (a coordinator could be browsing
+ * for a couple they delegate-manage). Existing 0022 § 2.3 RLS on
+ * vendor_calendar_blocks would otherwise gate per-viewer.
+ */
+export async function getEventCommonAvailability(
+  supabase: SupabaseClient,
+  eventId: string,
+  rangeStart: Date,
+  rangeEnd: Date,
+): Promise<{ commonAvailability: Set<string>; lockedCount: number }> {
+  const windowKeys = dayKeySetFromWindow(rangeStart, rangeEnd);
+
+  const { data: locked, error } = await supabase
+    .from('event_vendors')
+    .select('marketplace_vendor_id')
+    .eq('event_id', eventId)
+    .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[]);
+
+  if (error) {
+    // Defensive: no filter on read error. The marketplace stays browsable.
+    return { commonAvailability: windowKeys, lockedCount: 0 };
+  }
+
+  const profileIds = (locked ?? [])
+    .map((row) => (row as { marketplace_vendor_id: string | null }).marketplace_vendor_id)
+    .filter((id): id is string => Boolean(id));
+
+  if (profileIds.length === 0) {
+    return { commonAvailability: windowKeys, lockedCount: 0 };
+  }
+
+  let intersection: Set<string> | null = null;
+  for (const vendorProfileId of profileIds) {
+    const vendorDays = await getVendorAvailableDays(
+      supabase,
+      vendorProfileId,
+      rangeStart,
+      rangeEnd,
+    );
+    if (intersection === null) {
+      intersection = vendorDays;
+    } else {
+      const next = new Set<string>();
+      for (const k of intersection) {
+        if (vendorDays.has(k)) next.add(k);
+      }
+      intersection = next;
+    }
+    if (intersection.size === 0) {
+      // Short-circuit — no further vendor can re-add days to an empty
+      // intersection. Save N-1 roundtrips when conflict is detected early.
+      return { commonAvailability: new Set(), lockedCount: profileIds.length };
+    }
+  }
+
+  return {
+    commonAvailability: intersection ?? new Set(),
+    lockedCount: profileIds.length,
+  };
+}
+
+/**
+ * Filter candidate vendor IDs to those whose availableDays intersect
+ * commonAvailability. Vendor stays in the result iff at least one day
+ * inside the candidate window is BOTH free for them AND in the locked
+ * vendors' intersection.
+ *
+ * When commonAvailability is empty (conflict state) → returns empty
+ * array (no candidate can satisfy zero shared days).
+ *
+ * V1.x TODO: this is N+1 queries (one per candidate). At pilot scale
+ * (~handful of locked vendors, <50 candidates per page) the cost is
+ * acceptable. The optimization is a single SQL pass — JOIN the candidate
+ * vendor IDs against vendor_calendar_blocks in range and EXCEPT against
+ * the commonAvailability day-set generated server-side. Out of scope for
+ * Task #45.
+ */
+export async function filterVendorsByAvailabilityIntersection(
+  supabase: SupabaseClient,
+  candidateVendorProfileIds: string[],
+  commonAvailability: Set<string>,
+  rangeStart: Date,
+  rangeEnd: Date,
+): Promise<Set<string>> {
+  const result = new Set<string>();
+  if (commonAvailability.size === 0) return result;
+  if (candidateVendorProfileIds.length === 0) return result;
+
+  for (const vendorProfileId of candidateVendorProfileIds) {
+    const days = await getVendorAvailableDays(
+      supabase,
+      vendorProfileId,
+      rangeStart,
+      rangeEnd,
+    );
+    for (const k of days) {
+      if (commonAvailability.has(k)) {
+        result.add(vendorProfileId);
+        break;
+      }
+    }
+  }
+  return result;
+}

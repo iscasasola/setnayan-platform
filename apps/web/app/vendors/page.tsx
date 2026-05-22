@@ -31,8 +31,14 @@ import {
   type TaxonomyPhase,
 } from '@/lib/taxonomy';
 import { fetchVendorCountsByService } from '@/lib/vendor-counts';
-import { fetchUserEvents } from '@/lib/events';
+import { fetchUserEvents, formatEventDateWithPrecision, type EventDatePrecision } from '@/lib/events';
 import { FollowGate } from '@/app/_components/follow-gate';
+import {
+  computeCandidateWindow,
+  filterVendorsByAvailabilityIntersection,
+  getEventCommonAvailability,
+} from '@/lib/vendor-availability';
+import { VendorsAvailabilityBanner } from './_components/vendors-availability-banner';
 
 // Mirrors TaxonomyEntry['faith']. `null` covers two cases: anonymous browse
 // (no event linked) AND civil ceremonies (secular by nature — no faith tag
@@ -303,6 +309,11 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // a category='venue' vendor with coords. NULL = no anchor → no chips.
   let venueAnchor: { lat: number; lng: number } | null = null;
   let venueAnchorName: string | null = null;
+  // Task #45 (2026-05-22) — host's event_date + precision drive the
+  // marketplace candidate-window. Read alongside the existing event fields
+  // in the same select so the intersection filter doesn't add a roundtrip.
+  let coupleEventDate: string | null = null;
+  let coupleEventDatePrecision: 'year' | 'month' | 'day' | null = null;
   if (user) {
     const userEvents = await fetchUserEvents(supabase, user.id, 'couple');
     coupleEventId = userEvents[0]?.event_id ?? null;
@@ -310,7 +321,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       const { data: ev } = await admin
         .from('events')
         .select(
-          'ceremony_type, venue_setting, event_type, venue_latitude, venue_longitude, venue_name',
+          'ceremony_type, venue_setting, event_type, venue_latitude, venue_longitude, venue_name, event_date, event_date_precision',
         )
         .eq('event_id', coupleEventId)
         .maybeSingle();
@@ -340,6 +351,18 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       // catalog to vendors who actually serve that event_type.
       if (ev?.event_type) {
         coupleEventType = ev.event_type as string;
+      }
+      // Task #45 — event_date + precision for the intersection filter.
+      // event_date_precision column shipped via migration 20260603100000
+      // with default 'year'; legacy rows pre-migration land on 'day'/'year'
+      // per the backfill. Defensive null-check keeps anonymous/early-stage
+      // events from short-circuiting the marketplace.
+      if (ev?.event_date) {
+        coupleEventDate = ev.event_date as string;
+        const p = (ev as { event_date_precision?: string | null }).event_date_precision;
+        if (p === 'year' || p === 'month' || p === 'day') {
+          coupleEventDatePrecision = p;
+        }
       }
     }
   }
@@ -574,11 +597,74 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     })(),
   ]);
 
+  // Task #45 (2026-05-22) — calendar intersection filter. When the host has
+  // set event_date + precision AND has ≥1 confirmed vendor, drop candidate
+  // vendors whose calendar has zero overlap with commonAvailability
+  // (intersection of all confirmed vendors' available days inside the
+  // precision window). Per owner lock: 0 confirmed vendors → no filter; ≤7
+  // shared days → render selector banner; ∅ shared days → render conflict
+  // banner with link to the dispute flow (0021 § 10).
+  //
+  // Uses the admin client because (a) the marketplace is a public surface
+  // and (b) the vendor_calendar_blocks RLS is per-event-member-scope; the
+  // admin client carries no viewer identity so the read is consistent for
+  // anonymous-browser + coordinator-delegate scenarios alike.
+  //
+  // Order: SQL filters already narrowed `rows`. We post-filter against
+  // commonAvailability so the page count math + banner copy stay
+  // consistent with the page-of-vendors the host actually browses.
+  type AvailabilityState =
+    | { kind: 'none' }
+    | {
+        kind: 'active';
+        lockedCount: number;
+        availableDays: string[];
+        windowLabel: string;
+        precision: EventDatePrecision;
+      };
+  let availability: AvailabilityState = { kind: 'none' };
+  let visible = rows;
+  if (coupleEventId && coupleEventDate && coupleEventDatePrecision) {
+    const window = computeCandidateWindow(coupleEventDate, coupleEventDatePrecision);
+    if (window) {
+      const { commonAvailability, lockedCount } = await getEventCommonAvailability(
+        admin,
+        coupleEventId,
+        window.start,
+        window.end,
+      );
+      if (lockedCount > 0) {
+        const allowedIds = await filterVendorsByAvailabilityIntersection(
+          admin,
+          rows.map((r) => r.vendor_profile_id),
+          commonAvailability,
+          window.start,
+          window.end,
+        );
+        visible = rows.filter((r) => allowedIds.has(r.vendor_profile_id));
+        const sortedDays = [...commonAvailability].sort();
+        availability = {
+          kind: 'active',
+          lockedCount,
+          availableDays: sortedDays,
+          windowLabel: formatEventDateWithPrecision(
+            coupleEventDate,
+            coupleEventDatePrecision,
+          ).replace(/^Sometime in /, ''),
+          precision: coupleEventDatePrecision,
+        };
+      }
+    }
+  }
+
   // Sort + ad-floating already happened SQL-side (see .order chain above),
   // so `rows` is already in render order. `totalCount` is the count: 'exact'
   // result from the view-backed query — accurate for the pagination footer.
+  // The intersection filter narrows `visible` AFTER pagination: pages with
+  // many filtered-out candidates may render short — acceptable at pilot
+  // scale; V1.x folds the intersection into the SQL query so pagination
+  // and filter compose properly.
   const totalPages = Math.max(1, Math.ceil((totalCount ?? rows.length) / PAGE_SIZE));
-  const visible = rows;
 
   return (
     <main className="min-h-dvh bg-cream">
@@ -652,6 +738,22 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         </div>
 
         <FilterBar filters={filters} matchableEvent={matchableEvent} />
+
+        {/* Task #45 — calendar intersection banner. Only renders when the
+            host has confirmed vendors AND the precision window narrows the
+            commonAvailability to ≤7 days OR empty. Above the grid so the
+            host sees the constraint before scrolling candidate cards. */}
+        {availability.kind === 'active' &&
+          coupleEventId &&
+          (availability.availableDays.length === 0 ||
+            availability.availableDays.length <= 7) ? (
+          <VendorsAvailabilityBanner
+            eventId={coupleEventId}
+            availableDays={availability.availableDays}
+            lockedCount={availability.lockedCount}
+            windowLabel={availability.windowLabel}
+          />
+        ) : null}
 
         {visible.length === 0 ? (
           <EmptyState filters={filters} broadenedCount={broadenedCount} />

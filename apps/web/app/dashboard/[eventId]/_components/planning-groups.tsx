@@ -3,7 +3,10 @@ import { NavLinksRow } from '@/app/_components/nav-links';
 import {
   PLAN_GROUPS,
   bucketVendorsByGroup,
+  isCeremonyType,
+  resolvePlanGroupHint,
   targetDateStatus,
+  type CeremonyType,
   type PlanCardPick,
   type PlanGroup,
   type PlanGroupId,
@@ -38,6 +41,17 @@ type Props = {
    *  Google Maps / Waze / Apple Maps nav-links on the card. */
   venueLatitude: number | null;
   venueLongitude: number | null;
+  /**
+   * Host's picked `events.ceremony_type`. Drives the religion-adaptive
+   * card hint copy (catholic / civil / inc / christian / muslim /
+   * cultural / mixed). `null` for events that haven't picked yet —
+   * those see the generic default hints.
+   *
+   * Owner directive 2026-05-22: ADAPT-COPY > HIDE-CARD. Every card stays
+   * visible across all ceremony types; only hint copy changes. See the
+   * full decision matrix in the same-day CLAUDE.md decision-log row.
+   */
+  ceremonyType?: string | null;
   vendors: ReadonlyArray<{
     vendor_id: string;
     vendor_name: string;
@@ -58,18 +72,44 @@ export function PlanningGroups({
   eventDate,
   venueLatitude,
   venueLongitude,
+  ceremonyType,
   vendors,
 }: Props) {
   const bucketed = bucketVendorsByGroup(vendors);
 
-  let totalLocked = 0;
-  let totalPicked = 0;
+  // Resolve ceremony type once at the top so every card reads from the
+  // same source. `null` for early-planning events (no pick yet) yields
+  // the static `PlanGroup.hint` defaults via resolvePlanGroupHint.
+  const resolvedCeremony: CeremonyType | null = isCeremonyType(ceremonyType)
+    ? ceremonyType
+    : null;
+
+  // Counter rewrite — owner directive 2026-05-22 (Task #54).
+  //
+  // OLD math counted pick-ROWS ("3 picked" meant the host had 3 considering
+  // vendors across all 12 cards), which was confusing because it didn't
+  // track progress toward locking in 12 categories.
+  //
+  // NEW math is card-state-aware:
+  //   - lockedCards = count of plan groups with ≥1 locked vendor
+  //   - leftToLock  = 12 − lockedCards
+  //   - consideredPicks = pick-rows that aren't locked (informational only,
+  //     kept on a secondary line so the host can still see "you have N
+  //     options on the table")
+  //
+  // The header now reads progress, not inventory.
+  let lockedCards = 0;
+  let consideredPicks = 0;
   for (const picks of bucketed.values()) {
+    let groupHasLocked = false;
     for (const p of picks) {
-      if (p.status === 'locked') totalLocked += 1;
-      else totalPicked += 1;
+      if (p.status === 'locked') groupHasLocked = true;
+      else consideredPicks += 1;
     }
+    if (groupHasLocked) lockedCards += 1;
   }
+  const totalGroups = PLAN_GROUPS.length;
+  const leftToLock = Math.max(0, totalGroups - lockedCards);
 
   return (
     <section aria-labelledby="planning-groups-heading" className="space-y-4">
@@ -82,18 +122,35 @@ export function PlanningGroups({
             id="planning-groups-heading"
             className="text-2xl font-semibold tracking-tight sm:text-3xl"
           >
-            12 things to lock in.
+            {totalGroups} things to lock in.
           </h2>
-          <p className="text-sm text-ink/60">
-            {totalLocked > 0 || totalPicked > 0 ? (
-              <>
-                <strong className="text-ink">{totalLocked} locked</strong> ·{' '}
-                {totalPicked} picked
-              </>
+          <div className="space-y-0.5 text-right">
+            <p className="text-sm text-ink/70">
+              {lockedCards === 0 ? (
+                <>
+                  <strong className="text-ink">
+                    {leftToLock} left to lock in
+                  </strong>
+                </>
+              ) : (
+                <>
+                  <strong className="text-ink">{lockedCards} locked</strong>{' '}
+                  · {leftToLock} left
+                </>
+              )}
+            </p>
+            {consideredPicks > 0 ? (
+              <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+                {consideredPicks === 1
+                  ? '1 option on the table'
+                  : `${consideredPicks} options on the table`}
+              </p>
             ) : (
-              'Browse vendors in each group below — picks land here automatically.'
+              <p className="text-xs text-ink/55">
+                Browse vendors below — picks land here automatically.
+              </p>
             )}
-          </p>
+          </div>
         </div>
       </header>
 
@@ -107,6 +164,7 @@ export function PlanningGroups({
                 eventDate={eventDate}
                 group={group}
                 picks={picks}
+                ceremonyType={resolvedCeremony}
                 venueLatitude={venueLatitude}
                 venueLongitude={venueLongitude}
               />
@@ -123,6 +181,7 @@ function GroupCard({
   eventDate,
   group,
   picks,
+  ceremonyType,
   venueLatitude,
   venueLongitude,
 }: {
@@ -130,9 +189,14 @@ function GroupCard({
   eventDate: string | null;
   group: PlanGroup;
   picks: ReadonlyArray<PlanCardPick>;
+  ceremonyType: CeremonyType | null;
   venueLatitude: number | null;
   venueLongitude: number | null;
 }) {
+  // Resolve religion-adaptive hint copy. Returns the static default
+  // (group.hint) when ceremonyType is null OR the card has no faith-
+  // specific override registered for the picked ceremony type.
+  const hintCopy = resolvePlanGroupHint(group, ceremonyType);
   // Surface nav deep-links on the two venue groups when the event's
   // reception venue is geocoded — both Ceremony venue + Reception venue
   // point at the same anchor today (single events.venue_lat/lng column).
@@ -176,7 +240,7 @@ function GroupCard({
           <h3 className="text-base font-semibold tracking-tight text-ink sm:text-lg">
             {group.label}
           </h3>
-          <p className="text-xs text-ink/55">{group.hint}</p>
+          <p className="text-xs text-ink/55">{hintCopy}</p>
         </div>
         <StatusPill
           tone={status.tone}

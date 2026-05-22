@@ -476,6 +476,7 @@ export default async function EventHomePage({
         eventDate={event.event_date}
         venueLatitude={(event as { venue_latitude?: number | null }).venue_latitude ?? null}
         venueLongitude={(event as { venue_longitude?: number | null }).venue_longitude ?? null}
+        ceremonyType={(event as { ceremony_type?: string | null }).ceremony_type ?? null}
         vendors={eventVendors}
       />
 

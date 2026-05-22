@@ -59,6 +59,129 @@ export type PlanGroup = {
   catalogFolder: WeddingFolder;
 };
 
+/**
+ * Ceremony types the religion-adaptive copy layer recognizes. Mirrors the
+ * `events.ceremony_type` CHECK constraint from migration 20260521000000.
+ * `null` covers events without a picked ceremony type (early planning) —
+ * those get the default `PlanGroup.hint`.
+ */
+export type CeremonyType =
+  | 'catholic'
+  | 'civil'
+  | 'inc'
+  | 'christian'
+  | 'muslim'
+  | 'cultural'
+  | 'mixed';
+
+/**
+ * Religion-adaptive hint table — owner directive 2026-05-22.
+ *
+ * When the host has picked a `ceremony_type`, each plan-card surfaces a
+ * faith-aware hint instead of the generic one. The copy table is keyed
+ * `[PlanGroupId][CeremonyType]`; missing entries fall back to the static
+ * `PlanGroup.hint` field. Anglo-Catholic-default scenarios that need no
+ * adaptation are intentionally absent (e.g. cake for any ceremony type —
+ * the generic hint already works).
+ *
+ * Brand voice rule [[feedback_setnayan_no_dev_text_post_launch]]: no
+ * jargon, no inline parens, no "etc." soup. Each line reads like a wedding
+ * planner speaking — concrete, polite, Filipino-aware.
+ *
+ * Coverage philosophy: ADAPT-COPY > HIDE-CARD. Every card stays visible
+ * for every ceremony type (no card has been deemed truly inapplicable
+ * across all 7 ceremony types). Hiding cards risks under-serving real
+ * edge cases (e.g. a civil-only couple who still wants a coordinator);
+ * adapting copy lets the host self-select.
+ */
+const CEREMONY_HINTS: Partial<Record<PlanGroupId, Partial<Record<CeremonyType, string>>>> = {
+  ceremony_venue: {
+    catholic: 'The Catholic church or chapel for your sacrament. Pre-Cana paperwork starts here.',
+    civil: "Civil registrar's office or judge's chambers. Often combined with reception.",
+    inc: 'Your local INC chapel. Local administration handles the booking.',
+    christian: 'The Christian church for the wedding rite.',
+    muslim: 'Mosque, ballroom, or family compound for the akad nikah.',
+    cultural: 'Cultural ceremony site — Singkil pavilion, ancestral home, tribal ground.',
+    mixed: 'The venue for your primary ceremony. Add the second below if needed.',
+  },
+  reception_venue: {
+    civil: 'Where you celebrate after — often the same place as the civil ceremony.',
+    muslim: 'Reception venue. Confirm halal-friendly catering policy before signing.',
+    mixed: 'Reception venue — the celebration after both ceremonies.',
+  },
+  officiant: {
+    catholic: 'Priest. Pre-Cana required 4-5 months before the wedding day.',
+    civil: 'Judge or civil registrar to officiate the civil ceremony.',
+    inc: 'INC minister, assigned through your local administration.',
+    christian: 'Pastor or minister from your church.',
+    muslim: 'Imam to officiate the akad nikah.',
+    cultural: 'Cultural elder, datu, or babaylan per your tradition.',
+    mixed: 'Two officiants — one per ceremony.',
+  },
+  catering: {
+    inc: 'Food and service for guests. INC weddings are alcohol-free — confirm with caterer.',
+    muslim: 'Food and service — halal-certified caterer for a Muslim ceremony.',
+    cultural: 'Food and service — include cultural dishes per your tradition.',
+    mixed: 'Food and service. Clear both ceremonies’ dietary needs with the caterer.',
+  },
+  photography: {
+    muslim: 'Photo and video team. Confirm gender-respect protocols with the team.',
+  },
+  attire: {
+    civil: 'Outfit and rings. Civil weddings are dressier than couples expect — plan ahead.',
+    muslim: 'Modest attire and rings. Hijab-friendly designers tagged in the directory.',
+    cultural: 'Filipiniana, Barong Tagalog, or tribal attire per your tradition.',
+    mixed: 'Both ceremonies’ attire — sometimes two outfits, sometimes one.',
+  },
+  hair_makeup: {
+    muslim: 'Bridal and entourage glam. Hijab-compatible stylists tagged in the directory.',
+  },
+  florals_decor: {
+    cultural: 'Bouquets, aisle, reception styling — traditional motifs per your tradition.',
+  },
+  music_entertainment: {
+    inc: 'Host, band, DJ, choir, photobooth. No alcohol bar at INC receptions.',
+    muslim: 'Host, kulintang ensemble, photobooth. No-alcohol mobile bar.',
+    cultural: 'Host, traditional ensemble (kulintang, rondalla, folk), photobooth.',
+  },
+  cake: {
+    muslim: 'Tastings 3-4 months out. Confirm halal ingredients with the cake maker.',
+  },
+};
+
+/**
+ * Resolve the hint copy for a plan group given the host's picked
+ * `events.ceremony_type`. Falls back to the static `PlanGroup.hint` when
+ * the ceremony type has no faith-specific copy registered.
+ *
+ * Pass `null` for early-planning events (no ceremony_type yet) — the host
+ * gets the generic Filipino-wedding-default copy.
+ */
+export function resolvePlanGroupHint(
+  group: PlanGroup,
+  ceremonyType: CeremonyType | null,
+): string {
+  if (ceremonyType === null) return group.hint;
+  return CEREMONY_HINTS[group.id]?.[ceremonyType] ?? group.hint;
+}
+
+/**
+ * Type guard for `events.ceremony_type` string columns coming off the
+ * Supabase client. Keeps the upstream `unknown` strings from leaking
+ * into the typed copy resolver.
+ */
+export function isCeremonyType(value: unknown): value is CeremonyType {
+  return (
+    value === 'catholic' ||
+    value === 'civil' ||
+    value === 'inc' ||
+    value === 'christian' ||
+    value === 'muslim' ||
+    value === 'cultural' ||
+    value === 'mixed'
+  );
+}
+
 export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
   {
     id: 'ceremony_venue',

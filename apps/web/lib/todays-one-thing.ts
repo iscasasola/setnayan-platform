@@ -144,6 +144,8 @@ const WHY_IT_MATTERS: Record<PlanGroupId, string> = {
     'For venues away from the city, shuttle service keeps guests stress-free. Book 6-8 weeks out once you have an approximate headcount.',
   rings:
     'The most-photographed object of your wedding. Custom rings take 6-8 weeks; off-the-shelf 2-3 weeks. Lock the design and have backups for emergencies.',
+  accommodation:
+    'Where you and your wedding party rest the night before — sometimes bundled into your reception hotel package. Lock 1-2 months out · venue-affiliated room blocks fill fast.',
   invitations_stationery:
     'Save-the-dates, invitations, monograms, and table cards all share a visual story. Locking your stationery partner early means everything ships out of one consistent hand.',
   logistics:
@@ -176,6 +178,7 @@ const CTA_LABEL: Record<PlanGroupId, string> = {
   bridal_car: 'Browse bridal cars',
   guest_shuttle: 'Browse guest shuttles',
   rings: 'Browse rings',
+  accommodation: 'Browse hotels',
   invitations_stationery: 'Browse stationery',
   logistics: 'Browse logistics',
 };
@@ -206,6 +209,7 @@ const ACTION_TITLE: Record<PlanGroupId, string> = {
   bridal_car: 'Lock your bridal car',
   guest_shuttle: 'Lock your guest shuttle',
   rings: 'Lock your rings',
+  accommodation: 'Lock your accommodation',
   invitations_stationery: 'Lock your stationery partner',
   logistics: 'Lock your day-of logistics',
 };

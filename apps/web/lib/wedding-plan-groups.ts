@@ -65,6 +65,7 @@ export type PlanGroupId =
   | 'bridal_car'
   | 'guest_shuttle'
   | 'rings'
+  | 'accommodation'
   // Paper tier
   | 'invitations_stationery'
   | 'logistics';
@@ -510,6 +511,28 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     monthsBefore: 3,
     catalogFolder: 'rings_accessories',
     subcategoryHint: 'wedding_ring',
+  },
+  {
+    id: 'accommodation',
+    label: 'Accommodation',
+    // 23rd vendor card (2026-05-22, owner directive verbatim): "also add
+    // accommodation. sometime this will be dedicated to places where people
+    // need to rest for their wedding. sometimes hotel includes this on their
+    // package." Where you and your wedding party rest the night before /
+    // night of — sometimes included in your reception hotel package via the
+    // vendor_packages cascade (see migration 20260604110000 + the 6 hotel
+    // package seeds in 20260604150000). Sits in the Extras tier alongside
+    // Cocktail Booths · Photobooth · Cake · Bridal Car · Guest Shuttle ·
+    // Rings — none of these block the booking on their own, but each
+    // shapes the day. Folder = planning_logistics_travel because hotels +
+    // venue-affiliated room blocks live alongside transportation and
+    // travel logistics.
+    hint: 'Where you and your wedding party rest the night before. Sometimes bundled with your reception hotel package — book 1-2 months out before room blocks fill.',
+    tier: 'extras',
+    categories: ['accommodation'],
+    monthsBefore: 2,
+    catalogFolder: 'planning_logistics_travel',
+    subcategoryHint: 'accommodation',
   },
 
   // ════════ Paper tier ════════

@@ -223,10 +223,16 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   bug_repellent_station:             { folder: 'planning_logistics_travel', phase: 'V1.2' },
   wedding_day_weather_forecaster:    { folder: 'planning_logistics_travel', phase: 'V1.2', ph: true },
   parasol_hat_rental:                { folder: 'planning_logistics_travel', phase: 'V1.2', rental: true },
-  // Travel
+  // Travel & accommodation
   honeymoon_planner:                 { folder: 'planning_logistics_travel', phase: 'V1.1 base' },
   destination_wedding_travel_coordinator: { folder: 'planning_logistics_travel', phase: 'V1.2' },
   visa_wedding_logistics:            { folder: 'planning_logistics_travel', phase: 'V1.5+', ph: true },
+  // 23rd planning-card (2026-05-22) — hotels + room blocks. Some hotels
+  // include accommodation in their vendor_packages cascade (see
+  // 20260604110000 hotel-package seed + the 2026-05-22 follow-up seed that
+  // adds the 'accommodation' line item to Sofitel · Shangri-La · Conrad ·
+  // Marriott · Discovery Primea · Manila Hotel).
+  accommodation:                     { folder: 'planning_logistics_travel', phase: 'V1.1 base' },
 
   // ════════════════════════════════════════════════════════════════════
   // 4. PHOTO & VIDEO (15)

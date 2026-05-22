@@ -53,10 +53,6 @@
   "status.coming_soon": "Coming soon",
   "status.active": "Active",
   "status.archived": "Archived",
-  "greeting.morning": "Good morning",
-  "greeting.afternoon": "Good afternoon",
-  "greeting.evening": "Good evening",
-  "greeting.night": "Burning the midnight oil",
   "common.profile": "Profile",
   "common.help": "Help & support"
 }

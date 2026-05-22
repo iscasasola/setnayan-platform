@@ -11,9 +11,12 @@ import type { UpcomingItem } from '@/lib/upcoming-items';
  * host can act on right now (defer or schedule them off Home and they
  * fall through the cracks).
  *
- * Renders nothing when there are zero payment items in the 30-day
- * window (no empty-state). The merged Upcoming list still surfaces
- * payments further out via UpcomingSchedules.
+ * Always-active rule (owner directive 2026-05-22 — "i want everything
+ * on home to be active now"). Supersedes the prior empty-collapse: when
+ * no payments are due in the next 30 days, the section renders its
+ * header + a polite-voice empty-state hint so the host sees the
+ * structure at a glance. Payments further out still surface via the
+ * merged UpcomingSchedules stream.
  *
  * Each row deep-links to /dashboard/[eventId]/budget where the host
  * can either record a payment (event_vendor_payments insert) or
@@ -29,7 +32,35 @@ type Props = {
 };
 
 export function MoneyInFlight({ eventId, items, now }: Props) {
-  if (items.length === 0) return null;
+  if (items.length === 0) {
+    return (
+      <section aria-labelledby="money-in-flight-heading" className="space-y-3">
+        <div className="flex items-baseline justify-between">
+          <h2
+            id="money-in-flight-heading"
+            className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55"
+          >
+            Money in flight · next 30 days
+          </h2>
+          <Link
+            href={`/dashboard/${eventId}/budget`}
+            className="inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta hover:text-terracotta-700"
+          >
+            Open budget
+            <ArrowRight aria-hidden className="h-3 w-3" />
+          </Link>
+        </div>
+        <div className="rounded-xl border border-dashed border-ink/15 bg-cream px-5 py-4">
+          <p className="text-sm text-ink/70">
+            Nothing due in the next 30 days.
+          </p>
+          <p className="mt-1 text-xs text-ink/55">
+            Your committed vendors will show their next payment milestones here.
+          </p>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section aria-labelledby="money-in-flight-heading" className="space-y-3">

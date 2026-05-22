@@ -953,37 +953,32 @@ export default async function EventHomePage({
        *  so hosts can decide what to do now vs later vs in parallel. */}
       <Next15Steps eventId={eventId} steps={nextSteps} />
 
-      <details className="group rounded-xl border border-ink/10 bg-cream/40">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 text-sm font-medium text-ink transition-colors hover:bg-cream sm:px-6">
-          <span className="flex items-center gap-2">
-            <LayoutGrid
-              aria-hidden
-              className="h-4 w-4 text-terracotta"
-              strokeWidth={1.75}
-            />
-            <span>
-              {unlockedCategoryCount > 0
-                ? `Show all ${unlockedCategoryCount} more ${unlockedCategoryCount === 1 ? 'task' : 'tasks'}`
-                : 'Show your full plan'}
-            </span>
-          </span>
-          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55 transition-transform group-open:rotate-180">
-            ↓
-          </span>
-        </summary>
-        <div className="border-t border-ink/10 px-5 py-5 sm:px-6 sm:py-6">
-          <PlanningGroups
-            eventId={eventId}
-            eventDate={event.event_date}
-            venueLatitude={(event as { venue_latitude?: number | null }).venue_latitude ?? null}
-            venueLongitude={(event as { venue_longitude?: number | null }).venue_longitude ?? null}
-            ceremonyType={eventCeremonyType}
-            venueSetting={eventVenueSetting}
-            vendors={eventVendors}
-            paperworkSummary={paperworkSummary}
-          />
-        </div>
-      </details>
+      {/* Always-active rule (owner directive 2026-05-22 — "i want
+       *  everything on home to be active now"). Supersedes PR #337's
+       *  <details> wrapper around PlanningGroups. The 12-card planning
+       *  grid renders directly as a top-level section, always visible.
+       *  Decision-paralysis concern from the prior wrap is addressed
+       *  instead by the TodaysOneThing hero + Next15Steps ladder
+       *  above — both still focus the host's attention without
+       *  hiding the full plan behind a disclosure. */}
+      <section aria-labelledby="planning-groups-heading" className="space-y-4">
+        <h2
+          id="planning-groups-heading"
+          className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55"
+        >
+          Your wedding plan · 12 things to lock in
+        </h2>
+        <PlanningGroups
+          eventId={eventId}
+          eventDate={event.event_date}
+          venueLatitude={(event as { venue_latitude?: number | null }).venue_latitude ?? null}
+          venueLongitude={(event as { venue_longitude?: number | null }).venue_longitude ?? null}
+          ceremonyType={eventCeremonyType}
+          venueSetting={eventVenueSetting}
+          vendors={eventVendors}
+          paperworkSummary={paperworkSummary}
+        />
+      </section>
 
       {plannerMode === 'guided' ? (
         <Checklist eventId={eventId} statuses={stepStatuses} tr={tr} />

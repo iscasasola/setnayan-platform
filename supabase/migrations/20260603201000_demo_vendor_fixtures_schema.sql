@@ -1,7 +1,14 @@
 -- ============================================================================
--- 20260603200000_demo_vendor_fixtures_schema.sql
+-- 20260603201000_demo_vendor_fixtures_schema.sql
 --
 -- PR 1 of 3 — Marketplace simulation workstream (owner-approved 2026-05-22 evening).
+-- Timestamp bumped 20260603200000 → 20260603201000 on 2026-05-22 to resolve a
+-- duplicate-prefix collision with 20260603200000_iteration_0008_seating_catalog_
+-- realignment.sql (PR #312, merged earlier same day). Both PRs picked the same
+-- future-anchored timestamp without rebasing; the `migration timestamp guard`
+-- CI workflow at .github/workflows/ci.yml correctly blocked main until one of
+-- the two files was renamed. Demo fixtures merged second so it takes the +1000
+-- offset; seating keeps the original timestamp. SQL DDL below is unchanged.
 -- Spec context: CLAUDE.md 2026-05-22 marketplace-simulation rows (Agent 1
 -- ships seed data + admin cleanup UI; Agent 2 gates demo visibility behind
 -- ?demo=1; Agent 3 ships compare view).

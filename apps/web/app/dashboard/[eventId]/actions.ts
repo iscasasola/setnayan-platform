@@ -171,8 +171,13 @@ export async function toggleJourneyStep(formData: FormData) {
 }
 
 // Task #37 (2026-05-22) — host explicitly confirms wedding ceremony_type.
-// One-time set, then immutable (idempotent guard fires on second call).
-// Mirrors the event_type lock from iteration 0000.
+// Task #43 (2026-05-22 evening) — REVERSES the set-once-immutable rule.
+// Religion chip now follows the same gate as the wedding-date editor:
+// editable while confirmedVendorCount === 0, locked when ≥1 vendor has
+// confirmed. Removed the `already_locked` rejection so a host can correct
+// a typo or change their mind during early planning. The vendor-confirmed
+// gate still fires server-side as defence-in-depth even if the chip's UI
+// state drifts.
 const ALLOWED_CEREMONY_TYPES = [
   'catholic',
   'civil',
@@ -185,8 +190,8 @@ const ALLOWED_CEREMONY_TYPES = [
 type AllowedCeremonyType = (typeof ALLOWED_CEREMONY_TYPES)[number];
 
 type SetCeremonyResult =
-  | { ok: true; ceremony_type: AllowedCeremonyType }
-  | { ok: false; code: 'invalid_input' | 'unauthorized' | 'already_locked' | 'vendor_lock' | 'not_wedding' | 'db_error'; message: string };
+  | { ok: true; ceremony_type: AllowedCeremonyType; updated: boolean }
+  | { ok: false; code: 'invalid_input' | 'unauthorized' | 'vendor_lock' | 'not_wedding' | 'db_error'; message: string };
 
 export async function setEventCeremonyType(formData: FormData): Promise<SetCeremonyResult> {
   const eventId = formData.get('event_id');
@@ -256,14 +261,16 @@ export async function setEventCeremonyType(formData: FormData): Promise<SetCerem
   if (eventRow.event_type !== 'wedding') {
     return { ok: false, code: 'not_wedding', message: 'Wedding type applies to wedding events only' };
   }
-  if (eventRow.ceremony_type_locked_at) {
-    return { ok: false, code: 'already_locked', message: 'Wedding type is already set and cannot be changed' };
-  }
+
+  const wasConfirmedBefore = Boolean(eventRow.ceremony_type_locked_at);
+  const previousType = eventRow.ceremony_type ?? null;
 
   // Vendor-confirmed gate — once any vendor is at-or-past `contracted`,
-  // the wedding type is locked at its current default. Host must contact
-  // support to discuss a change (mirrors the 2026-05-15 row 449 self-delete
-  // pattern + the 2026-05-17 § 10 date-edit gate).
+  // the wedding type locks at its current default. Mirrors the 2026-05-17
+  // § 10 date-edit gate + 2026-05-15 row 449 self-delete pattern.
+  // This is the SOLE remaining gate post-Task-#43 — the prior
+  // ceremony_type_locked_at "set once" rule is removed; hosts can correct
+  // typos or change their mind freely until the first vendor commits.
   const { count: confirmedCount, error: countError } = await admin
     .from('event_vendors')
     .select('vendor_id', { count: 'exact', head: true })
@@ -272,61 +279,61 @@ export async function setEventCeremonyType(formData: FormData): Promise<SetCerem
   if (countError) {
     return { ok: false, code: 'db_error', message: countError.message };
   }
-  if ((confirmedCount ?? 0) > 0) {
+  const confirmed = confirmedCount ?? 0;
+  if (confirmed > 0) {
+    // Audit-log the blocked attempt so we can see misuse / drift.
+    await admin.from('admin_audit_log').insert({
+      action: 'ceremony_type_update_blocked',
+      target_table: 'events',
+      target_id: eventId,
+      before_json: { ceremony_type: previousType, confirmed_vendor_count: confirmed },
+      after_json: { attempted: ceremony_type },
+      actor_user_id: user.id,
+    });
     return {
       ok: false,
       code: 'vendor_lock',
-      message: `Wedding type cannot be set after vendors confirm (${confirmedCount} confirmed). Contact support to discuss.`,
+      message: `Wedding type is locked — ${confirmed} confirmed ${confirmed === 1 ? 'vendor' : 'vendors'}. Contact support to discuss a change.`,
     };
   }
 
-  // Race-tolerant write — guard on ceremony_type_locked_at IS NULL so two
-  // concurrent hosts hitting Save at the same instant can't both succeed.
-  // The DB CHECK (events_ceremony_lock_requires_ceremony_type from
-  // 20260603000000) enforces ceremony_type is non-NULL alongside the stamp,
-  // which is already true for every wedding row.
+  // No-op short-circuit: same value already saved. Returns ok=true so the
+  // modal closes cleanly, but we don't write or audit-log.
+  if (previousType === ceremony_type && wasConfirmedBefore) {
+    return { ok: true, ceremony_type, updated: false };
+  }
+
+  // Write the new value + stamp the lock columns. ceremony_type_locked_at
+  // continues to mean "host explicitly confirmed" (vs the silent 'catholic'
+  // default from the biconditional CHECK invariant). It is NOT load-bearing
+  // for the UI lock — the UI gates on live confirmedVendorCount instead.
   const nowIso = new Date().toISOString();
-  const { data: updated, error: updateError } = await admin
+  const { error: updateError } = await admin
     .from('events')
     .update({
       ceremony_type,
       ceremony_type_locked_at: nowIso,
       ceremony_type_locked_by: user.id,
     })
-    .eq('event_id', eventId)
-    .is('ceremony_type_locked_at', null)
-    .select('event_id, ceremony_type, ceremony_type_locked_at')
-    .maybeSingle();
+    .eq('event_id', eventId);
   if (updateError) {
     return { ok: false, code: 'db_error', message: updateError.message };
   }
-  if (!updated) {
-    // Zero-row update means another host locked the slot between our
-    // SELECT and UPDATE. Re-fetch to surface the actual locked value.
-    const { data: latest } = await admin
-      .from('events')
-      .select('ceremony_type, ceremony_type_locked_at')
-      .eq('event_id', eventId)
-      .maybeSingle();
-    return {
-      ok: false,
-      code: 'already_locked',
-      message: latest?.ceremony_type
-        ? `Wedding type was set to ${latest.ceremony_type} by another host`
-        : 'Wedding type was set by another host',
-    };
-  }
 
-  // Audit log — admin_audit_log is the canonical record per 0023.
+  // Audit log — distinguish set (first time) from updated (Task #43).
   await admin.from('admin_audit_log').insert({
-    action: 'ceremony_type_set',
+    action: wasConfirmedBefore ? 'ceremony_type_updated' : 'ceremony_type_set',
     target_table: 'events',
     target_id: eventId,
-    before_json: { ceremony_type: eventRow.ceremony_type, ceremony_type_locked_at: null },
+    before_json: {
+      ceremony_type: previousType,
+      ceremony_type_locked_at: eventRow.ceremony_type_locked_at,
+      confirmed_vendor_count: confirmed,
+    },
     after_json: { ceremony_type, ceremony_type_locked_at: nowIso },
     actor_user_id: user.id,
   });
 
   revalidatePath(`/dashboard/${eventId}`);
-  return { ok: true, ceremony_type };
+  return { ok: true, ceremony_type, updated: wasConfirmedBefore };
 }

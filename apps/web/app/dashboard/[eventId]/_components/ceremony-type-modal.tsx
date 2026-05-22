@@ -2,10 +2,14 @@
 
 /**
  * Task #37 (2026-05-22) — Wedding-type setter modal.
+ * Task #43 (2026-05-22 evening) — accepts currentValue for edit mode,
+ * pre-populates the radio selection, swaps Save button copy to "Update".
  *
- * Opened from CeremonyTypeChip when no value is locked and no vendor
- * has confirmed. One-time set; on success the parent revalidates and
- * the chip flips to the read-only locked state.
+ * Opened from CeremonyTypeChip:
+ *   - first-time set (no current value): empty radio group, Save labeled
+ *     "Save wedding type".
+ *   - edit (current value passed in): radio pre-selected, Save labeled
+ *     "Update wedding type". Server rejects when ≥1 vendor confirmed.
  *
  * Brand-voice rules per [[feedback_setnayan_no_dev_text_post_launch]]:
  * editorial, no exclamation marks, no marketing jargon. Mobile-first
@@ -16,13 +20,16 @@ import { useState, useTransition } from 'react';
 import { X } from 'lucide-react';
 import { setEventCeremonyType } from '../actions';
 
+type CeremonyKey = 'catholic' | 'civil' | 'inc' | 'christian' | 'muslim' | 'cultural' | 'mixed';
+
 type Props = {
   eventId: string;
+  currentValue?: string | null;
   onClose: () => void;
 };
 
 type Option = {
-  key: 'catholic' | 'civil' | 'inc' | 'christian' | 'muslim' | 'cultural' | 'mixed';
+  key: CeremonyKey;
   label: string;
   description: string;
 };
@@ -65,8 +72,25 @@ const OPTIONS: Option[] = [
   },
 ];
 
-export function CeremonyTypeModal({ eventId, onClose }: Props) {
-  const [selected, setSelected] = useState<Option['key'] | null>(null);
+const ALLOWED_KEYS: CeremonyKey[] = [
+  'catholic',
+  'civil',
+  'inc',
+  'christian',
+  'muslim',
+  'cultural',
+  'mixed',
+];
+
+function normaliseInitial(value: string | null | undefined): CeremonyKey | null {
+  if (!value) return null;
+  return ALLOWED_KEYS.includes(value as CeremonyKey) ? (value as CeremonyKey) : null;
+}
+
+export function CeremonyTypeModal({ eventId, currentValue, onClose }: Props) {
+  const initial = normaliseInitial(currentValue);
+  const isEditing = initial !== null;
+  const [selected, setSelected] = useState<Option['key'] | null>(initial);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -103,11 +127,12 @@ export function CeremonyTypeModal({ eventId, onClose }: Props) {
               Setnayan · Wedding basics
             </p>
             <h2 id="ceremony-modal-title" className="text-lg font-semibold text-ink">
-              Set wedding type
+              {isEditing ? 'Update wedding type' : 'Set wedding type'}
             </h2>
             <p className="text-sm text-ink/65">
-              Choose carefully — this affects vendor matching, custom traditions, and
-              your ceremony schedule. It can&rsquo;t be changed once you save.
+              {isEditing
+                ? 'You can change this until your first vendor confirms. Once any vendor commits, the wedding type locks and only support can adjust it.'
+                : 'This affects vendor matching, custom traditions, and your ceremony schedule. You can update it until your first vendor confirms.'}
             </p>
           </div>
           <button
@@ -170,10 +195,16 @@ export function CeremonyTypeModal({ eventId, onClose }: Props) {
           <button
             type="button"
             onClick={handleSave}
-            disabled={pending || !selected}
+            disabled={pending || !selected || (isEditing && selected === initial)}
             className="inline-flex items-center justify-center rounded-md bg-terracotta px-4 py-2 text-sm font-semibold text-cream hover:bg-terracotta-700 disabled:opacity-50"
           >
-            {pending ? 'Saving…' : 'Save wedding type'}
+            {pending
+              ? isEditing
+                ? 'Updating…'
+                : 'Saving…'
+              : isEditing
+                ? 'Update wedding type'
+                : 'Save wedding type'}
           </button>
         </footer>
       </div>

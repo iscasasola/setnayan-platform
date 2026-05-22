@@ -66,6 +66,10 @@ import { toggleJourneyStep } from './actions';
 import { EventDayPrepCta } from '@/app/_components/event-day-prep-cta';
 import { AutoPreloadOnEventDay } from '@/app/_components/auto-preload-on-event-day';
 import { PlanningGroups } from './_components/planning-groups';
+import {
+  summarize as summarizePaperwork,
+  type PaperworkRow,
+} from '@/lib/paperwork';
 import { EventDateInput } from './_components/event-date-input';
 import { AuspiciousChip } from './_components/auspicious-chip';
 import { VendorAvailabilityIntersection } from './_components/vendor-availability-intersection';
@@ -259,6 +263,7 @@ export default async function EventHomePage({
     seatAssignmentsRes,
     vendorThreadsRes,
     paidOrdersRes,
+    paperworkRowsRes,
   ] =
     await Promise.all([
       supabase
@@ -324,6 +329,18 @@ export default async function EventHomePage({
         .select('order_id, requested_total_php, confirmed_total_php, status')
         .eq('event_id', eventId)
         .in('status', ['paid', 'fulfilled']),
+      // Paperwork pipeline rows — fuels the small "📋 Paperwork — X of Y"
+      // sub-link rendered on the Ceremony venue plan card. Per CLAUDE.md
+      // 2026-05-22 owner directive: surgical sub-link on the existing
+      // card, no other home surface impacted. RLS scoped to host via
+      // event_moderators; returns [] before the migration lands without
+      // crashing thanks to defensive Supabase column-missing semantics.
+      supabase
+        .from('event_paperwork')
+        .select(
+          'id, event_id, document_type, status, requested_at, received_at, expected_completion_date, expires_at, tracking_reference, document_r2_key, notes, created_at, updated_at',
+        )
+        .eq('event_id', eventId),
     ]);
   const tr = makeT(locale);
 
@@ -542,6 +559,14 @@ export default async function EventHomePage({
   const moodBoardSaveCount = moodBoardSavesRes.count ?? 0;
   const seatedGuests = seatAssignmentsRes.count ?? 0;
   const vendorThreadCount = vendorThreadsRes.count ?? 0;
+
+  // Paperwork pipeline summary — drives the small "📋 Paperwork — X of Y"
+  // sub-link on the Ceremony venue plan card. Falls back gracefully to a
+  // zero-state summary when the table doesn't exist yet (pre-migration)
+  // OR the host hasn't seeded any rows yet — the sub-link renders as a
+  // "Track your paperwork" empty-state CTA in that case.
+  const paperworkRows = (paperworkRowsRes.data ?? []) as PaperworkRow[];
+  const paperworkSummary = summarizePaperwork(paperworkRows, event.event_date);
 
   // "Committed" budget signal: paid + fulfilled orders + every
   // contracted-or-better event_vendors row whose total_cost_php is
@@ -779,6 +804,7 @@ export default async function EventHomePage({
             ceremonyType={eventCeremonyType}
             venueSetting={eventVenueSetting}
             vendors={eventVendors}
+            paperworkSummary={paperworkSummary}
           />
         </div>
       </details>

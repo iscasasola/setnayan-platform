@@ -1,4 +1,11 @@
-import { CheckCircle2, Clock, AlertCircle, AlertTriangle } from 'lucide-react';
+import Link from 'next/link';
+import {
+  CheckCircle2,
+  Clock,
+  AlertCircle,
+  AlertTriangle,
+  ScrollText,
+} from 'lucide-react';
 import { NavLinksRow } from '@/app/_components/nav-links';
 import {
   PLAN_GROUPS,
@@ -14,6 +21,7 @@ import {
 } from '@/lib/wedding-plan-groups';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
 import { WEDDING_FOLDER_SLUG } from '@/lib/taxonomy';
+import type { PaperworkSummary } from '@/lib/paperwork';
 import { deleteVendor } from '../vendors/actions';
 import { PlanCardCTAs } from './plan-card-ctas';
 import { PlanCardCompare } from './plan-card-compare';
@@ -67,6 +75,16 @@ type Props = {
    */
   venueSetting?: string | null;
   vendors: ReadonlyArray<EventVendorRowInput>;
+  /**
+   * Optional paperwork progress summary for the Ceremony venue card's
+   * sub-link. When set, the card renders a small "📋 Paperwork — X of Y
+   * in progress" deep-link to /paperwork. When undefined or zero-total
+   * (host hasn't seeded yet), the link still renders but with empty-state
+   * copy. Per CLAUDE.md 2026-05-22 owner directive — paperwork pipeline
+   * UI lives at /paperwork with the surface-link surgical on the
+   * existing Ceremony PlanningGroup card.
+   */
+  paperworkSummary?: PaperworkSummary | null;
 };
 
 const MAX_VENDOR_PREVIEW = 3;
@@ -79,6 +97,7 @@ export function PlanningGroups({
   ceremonyType,
   venueSetting,
   vendors,
+  paperworkSummary,
 }: Props) {
   // PR B 2026-05-22 — pass ceremony_type + venue_setting to the bucketer
   // so each pick gets a compatibility_issue field computed against the
@@ -180,6 +199,11 @@ export function PlanningGroups({
                 ceremonyType={resolvedCeremony}
                 venueLatitude={venueLatitude}
                 venueLongitude={venueLongitude}
+                paperworkSummary={
+                  group.id === 'ceremony_venue'
+                    ? (paperworkSummary ?? null)
+                    : null
+                }
               />
             </li>
           );
@@ -197,6 +221,7 @@ function GroupCard({
   ceremonyType,
   venueLatitude,
   venueLongitude,
+  paperworkSummary,
 }: {
   eventId: string;
   eventDate: string | null;
@@ -205,6 +230,7 @@ function GroupCard({
   ceremonyType: CeremonyType | null;
   venueLatitude: number | null;
   venueLongitude: number | null;
+  paperworkSummary: PaperworkSummary | null;
 }) {
   // Resolve religion-adaptive hint copy. Returns the static default
   // (group.hint) when ceremonyType is null OR the card has no faith-
@@ -353,6 +379,13 @@ function GroupCard({
         />
       ) : null}
 
+      {paperworkSummary ? (
+        <PaperworkSubLink
+          eventId={eventId}
+          summary={paperworkSummary}
+        />
+      ) : null}
+
       <PlanCardCTAs
         eventId={eventId}
         defaultCategory={group.categories[0]!}
@@ -471,6 +504,59 @@ function CompatibilityChip({
         Remove
       </button>
     </form>
+  );
+}
+
+/**
+ * Compact paperwork-progress sub-link rendered ONLY on the Ceremony venue
+ * card. Deep-links to `/dashboard/{eventId}/paperwork`. Three states:
+ *   • Zero rows yet — neutral "Track your paperwork" CTA
+ *   • Some progress — "X of Y received" with tone keyed to overdue count
+ *   • Marriage license expiring — amber tint
+ *
+ * Per CLAUDE.md 2026-05-22 owner directive: surgical sub-link on existing
+ * Ceremony card, doesn't disturb the rest of the card's layout. Polite
+ * brand voice — no engineering jargon, no exclamation marks.
+ */
+function PaperworkSubLink({
+  eventId,
+  summary,
+}: {
+  eventId: string;
+  summary: PaperworkSummary;
+}) {
+  const hasRows = summary.total > 0;
+  const isOverdue = summary.overdueCount > 0;
+  const showLicenseWarn = summary.hasMarriageLicenseExpiring;
+
+  const toneClass = isOverdue
+    ? 'border-rose-300/50 bg-rose-50/60 text-rose-900 hover:bg-rose-100/60'
+    : showLicenseWarn
+      ? 'border-amber-300/50 bg-amber-50/60 text-amber-900 hover:bg-amber-100/60'
+      : hasRows
+        ? 'border-ink/15 bg-cream text-ink/80 hover:border-terracotta/40 hover:text-terracotta'
+        : 'border-dashed border-ink/20 bg-cream text-ink/70 hover:border-terracotta/40 hover:text-terracotta';
+
+  const labelCopy = hasRows
+    ? isOverdue
+      ? `Paperwork — ${summary.overdueCount} overdue · ${summary.received}/${summary.total} received`
+      : showLicenseWarn
+        ? `Paperwork — marriage license expiring soon · ${summary.received}/${summary.total} received`
+        : `Paperwork — ${summary.received}/${summary.total} received`
+    : 'Track your paperwork — PSA, CENOMAR, marriage license';
+
+  return (
+    <Link
+      href={`/dashboard/${eventId}/paperwork`}
+      className={`-mt-1 inline-flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-[11px] font-medium transition-colors ${toneClass}`}
+    >
+      <ScrollText
+        className="h-3.5 w-3.5 shrink-0"
+        strokeWidth={1.75}
+        aria-hidden
+      />
+      <span className="truncate">{labelCopy}</span>
+    </Link>
   );
 }
 

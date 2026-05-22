@@ -14,12 +14,13 @@ import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 // don't surface here — that's the planning grid's job, not the locked
 // strip.
 //
-// Empty-state collapse (owner directive 2026-05-22, second pass): when
-// nothing is locked yet, this section renders nothing — the "Nothing
-// locked yet — start with your reception venue" hint moved to a subtitle
-// on the Today's-one-thing hero card. Returning null here keeps the
-// section above the planning grid quiet until the host actually has
-// commitments to show. PRESERVED unchanged.
+// Always-active rule (owner directive 2026-05-22 — "i want everything on
+// home to be active now"). Supersedes the prior empty-state collapse: this
+// section always renders. When zero vendors are locked, a polite-voice
+// dashed-border placeholder shows the empty state with a sub-CTA pointing
+// at the reception-venue marketplace (the canonical first lock per the PH
+// wedding planning timeline). When ≥1 locked, the existing chip grid
+// renders with the 3-tier photo ladder from PR #341 / #343 intact.
 //
 // Finalized-vendor-photo-card (2026-05-22 — owner directive PR D).
 // Upgrades each chip from text-only ("Catering · La Maison") to a
@@ -158,13 +159,39 @@ export function FinalizedChipStrip({ eventId, vendors }: Props) {
   );
   const count = locked.length;
 
-  // Empty-state collapse: nothing locked yet → render nothing. The
-  // "start with your reception venue" prompt lives on the Today's-one-
-  // thing hero card instead (shipped via PR #335 + #337). Returning null
-  // here keeps the section quiet so the host's eye flows straight from
-  // BudgetCountdownHeader into the hero card.
+  // Always-active empty state: nothing locked yet → render a polite-voice
+  // dashed-border placeholder + a sub-CTA pointing at reception venues
+  // (the canonical first lock per the PH wedding timeline). Per owner
+  // directive 2026-05-22 — "i want everything on home to be active now":
+  // the host sees every Home section's structure at a glance, no hidden
+  // disclosures.
   if (count === 0) {
-    return null;
+    return (
+      <section
+        aria-labelledby="finalized-chip-strip-heading"
+        className="space-y-3"
+      >
+        <div className="flex items-baseline justify-between gap-3">
+          <h2
+            id="finalized-chip-strip-heading"
+            className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55"
+          >
+            ✓ Finalized · 0 locked
+          </h2>
+        </div>
+        <div className="rounded-xl border border-dashed border-ink/15 bg-cream px-5 py-4">
+          <p className="text-sm text-ink/70">
+            Nothing locked yet — start with your reception venue.
+          </p>
+          <Link
+            href="/vendors?folder=reception"
+            className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-terracotta underline-offset-2 hover:text-terracotta-700 hover:underline"
+          >
+            Browse reception venues →
+          </Link>
+        </div>
+      </section>
+    );
   }
 
   return (

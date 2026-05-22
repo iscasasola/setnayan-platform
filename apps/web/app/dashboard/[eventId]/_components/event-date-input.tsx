@@ -45,8 +45,15 @@ type Props = {
   confirmedVendorCount?: number;
 };
 
-const CURRENT_YEAR = new Date().getFullYear();
+const NOW = new Date();
+const CURRENT_YEAR = NOW.getFullYear();
+const CURRENT_MONTH = NOW.getMonth() + 1; // 1-12
+// Task #41 (2026-05-22) — YEAR_OPTIONS starts at CURRENT_YEAR so past
+// years can never be picked. 6 options = currentYear … currentYear+5.
 const YEAR_OPTIONS = Array.from({ length: 6 }, (_, i) => CURRENT_YEAR + i);
+// ISO today, used as the `min` attr on the day-precision date input so
+// the native picker disables past dates entirely.
+const TODAY_ISO = `${CURRENT_YEAR}-${String(CURRENT_MONTH).padStart(2, '0')}-${String(NOW.getDate()).padStart(2, '0')}`;
 const MONTH_OPTIONS = [
   { value: 1, label: 'January' },
   { value: 2, label: 'February' },
@@ -73,10 +80,26 @@ export function EventDateInput({
   const [precision, setPrecision] = useState<EventDatePrecision>(initialPrecision);
 
   // Derive initial part-state from the stored event_date placeholder.
+  // Task #41 (2026-05-22) — if the stored event_date is already in the
+  // past (e.g. the "Bonbon and Chihuahua" Jan 2026 event surfaced this
+  // bug), snap the editor's defaults to currentYear so the host doesn't
+  // see a past selection pre-populated in the picker. The pretty display
+  // (when not editing) still shows the original value via the parent
+  // page's warning chip + EventDateInput's read-mode rendering.
   const initialParts = parseParts(initial);
-  const [year, setYear] = useState<number>(initialParts.year ?? CURRENT_YEAR + 1);
-  const [month, setMonth] = useState<number>(initialParts.month ?? 1);
-  const [dayDraft, setDayDraft] = useState<string>(initial ?? '');
+  const safeYear =
+    initialParts.year && initialParts.year >= CURRENT_YEAR
+      ? initialParts.year
+      : CURRENT_YEAR;
+  const safeMonth =
+    initialParts.year && initialParts.year > CURRENT_YEAR
+      ? initialParts.month ?? 1
+      : Math.max(initialParts.month ?? CURRENT_MONTH, CURRENT_MONTH);
+  const safeDay =
+    initial && !isInitialDayInPast(initial) ? initial : '';
+  const [year, setYear] = useState<number>(safeYear);
+  const [month, setMonth] = useState<number>(safeMonth);
+  const [dayDraft, setDayDraft] = useState<string>(safeDay);
 
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -151,10 +174,21 @@ export function EventDateInput({
           <button
             type="button"
             onClick={() => {
+              // Task #41 — re-snap to future-safe defaults when re-opening
+              // the editor so a past stored value never pre-populates the
+              // picker.
               const parts = parseParts(initial);
-              setYear(parts.year ?? CURRENT_YEAR + 1);
-              setMonth(parts.month ?? 1);
-              setDayDraft(initial);
+              const reopenYear =
+                parts.year && parts.year >= CURRENT_YEAR
+                  ? parts.year
+                  : CURRENT_YEAR;
+              const reopenMonth =
+                parts.year && parts.year > CURRENT_YEAR
+                  ? parts.month ?? 1
+                  : Math.max(parts.month ?? CURRENT_MONTH, CURRENT_MONTH);
+              setYear(reopenYear);
+              setMonth(reopenMonth);
+              setDayDraft(initial && !isInitialDayInPast(initial) ? initial : '');
               setPrecision(initialPrecision);
               setEditing(true);
             }}
@@ -219,13 +253,18 @@ export function EventDateInput({
 
         {precision === 'month' && (
           <>
+            {/* Task #41 — when the host has picked the current year, only
+               surface months ≥ current month so a past month-year combo
+               can never be selected. Future years show all 12 months. */}
             <select
               aria-label="Month"
               value={month}
               onChange={(e) => setMonth(Number(e.target.value))}
               className="rounded-md border border-ink/15 bg-cream px-2 py-1 text-sm focus:border-terracotta focus:outline-none"
             >
-              {MONTH_OPTIONS.map((m) => (
+              {MONTH_OPTIONS.filter((m) =>
+                year > CURRENT_YEAR ? true : m.value >= CURRENT_MONTH,
+              ).map((m) => (
                 <option key={m.value} value={m.value}>
                   {m.label}
                 </option>
@@ -234,7 +273,16 @@ export function EventDateInput({
             <select
               aria-label="Year"
               value={year}
-              onChange={(e) => setYear(Number(e.target.value))}
+              onChange={(e) => {
+                const next = Number(e.target.value);
+                setYear(next);
+                // Task #41 — if switching to current year, clamp month
+                // up to current month so a stale past-month selection
+                // can't be smuggled in by toggling year back down.
+                if (next === CURRENT_YEAR && month < CURRENT_MONTH) {
+                  setMonth(CURRENT_MONTH);
+                }
+              }}
               className="rounded-md border border-ink/15 bg-cream px-2 py-1 text-sm focus:border-terracotta focus:outline-none"
             >
               {YEAR_OPTIONS.map((y) => (
@@ -251,6 +299,7 @@ export function EventDateInput({
             type="date"
             aria-label="Specific date"
             value={dayDraft}
+            min={TODAY_ISO}
             onChange={(e) => setDayDraft(e.target.value)}
             className="rounded-md border border-ink/15 bg-cream px-2 py-1 text-sm focus:border-terracotta focus:outline-none"
           />
@@ -268,10 +317,21 @@ export function EventDateInput({
           <button
             type="button"
             onClick={() => {
+              // Task #41 — re-snap to future-safe defaults when re-opening
+              // the editor so a past stored value never pre-populates the
+              // picker.
               const parts = parseParts(initial);
-              setYear(parts.year ?? CURRENT_YEAR + 1);
-              setMonth(parts.month ?? 1);
-              setDayDraft(initial);
+              const reopenYear =
+                parts.year && parts.year >= CURRENT_YEAR
+                  ? parts.year
+                  : CURRENT_YEAR;
+              const reopenMonth =
+                parts.year && parts.year > CURRENT_YEAR
+                  ? parts.month ?? 1
+                  : Math.max(parts.month ?? CURRENT_MONTH, CURRENT_MONTH);
+              setYear(reopenYear);
+              setMonth(reopenMonth);
+              setDayDraft(initial && !isInitialDayInPast(initial) ? initial : '');
               setPrecision(initialPrecision);
               setError(null);
               setEditing(false);
@@ -300,6 +360,20 @@ function modeLabel(p: EventDatePrecision): string {
 
 function pad(n: number): string {
   return String(n).padStart(2, '0');
+}
+
+// Task #41 — pre-edit guard so the date input doesn't pre-populate a
+// past day value (the native browser picker would reject it anyway via
+// the `min` attr, but we'd rather show empty than a value that fails on
+// first click).
+function isInitialDayInPast(iso: string): boolean {
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!y || !m || !d) return false;
+  const candidate = new Date(y, m - 1, d);
+  candidate.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return candidate.getTime() < today.getTime();
 }
 
 function parseParts(iso: string | null): { year: number | null; month: number | null; day: number | null } {

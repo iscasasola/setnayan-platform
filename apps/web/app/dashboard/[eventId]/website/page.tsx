@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import {
   ArrowRight,
+  Camera,
   Copy,
   Download,
   ExternalLink,
@@ -320,6 +321,23 @@ export default async function WebsiteHubPage({
                 <p className="text-xs text-ink/45">Pick a slug first.</p>
               </div>
             )}
+          </li>
+          {/* Photo Moments editor — PR landing-page-photo-moments. */}
+          <li>
+            <Link
+              href={`/dashboard/${eventId}/website/photo-moments`}
+              className="group flex h-full min-h-[44pt] flex-col gap-2 rounded-xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/40 hover:bg-white/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+            >
+              <Camera
+                aria-hidden
+                className="h-5 w-5 text-terracotta"
+                strokeWidth={1.75}
+              />
+              <p className="text-sm font-semibold text-ink">Edit photo moments</p>
+              <p className="text-xs text-ink/55">
+                Phone-down, cameras welcome, or reserved for your paparazzo.
+              </p>
+            </Link>
           </li>
         </ul>
       </section>

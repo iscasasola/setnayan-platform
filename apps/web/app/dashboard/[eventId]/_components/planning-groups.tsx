@@ -146,14 +146,18 @@ function GroupCard({
   const lockedCount = picks.filter((p) => p.status === 'locked').length;
   const pickedOnlyCount = picks.length - lockedCount;
 
-  // Search opens the marketplace's CURATED CATALOG view scrolled to the
-  // matching folder section (PairedVenuePanel + CeremonyVenuesSection
-  // photo cards + tile grid). Routing to `/vendors#<folder>` keeps the
-  // filtered-search view out of the way — couples land on the rich
-  // browse, not the bare list. Add fires the inline custom-vendor form
-  // so couples can attach a DIY / not-on-list vendor without leaving
-  // the planner.
-  const searchHref = `/vendors#${WEDDING_FOLDER_SLUG[group.catalogFolder]}`;
+  // Search opens the marketplace's CURATED CATALOG view scoped to the
+  // matching folder section. `?folder=<slug>` tells /vendors to render
+  // ONLY that one folder (hides the other 11 + the page-level
+  // PairedVenuePanel). The `#<slug>` anchor preserves smooth-scroll
+  // into the section header so the FolderTabs strip lands where the
+  // couple expects. Task #47 — closes the reported bug where clicking
+  // Reception Search showed Ceremony churches because the universal
+  // 12-folder catalog rendered Ceremony directly above Reception.
+  // Add fires the inline custom-vendor form so couples can attach a
+  // DIY / not-on-list vendor without leaving the planner.
+  const folderSlug = WEDDING_FOLDER_SLUG[group.catalogFolder];
+  const searchHref = `/vendors?folder=${folderSlug}#${folderSlug}`;
 
   return (
     <article

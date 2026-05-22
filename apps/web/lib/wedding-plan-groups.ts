@@ -447,12 +447,22 @@ export type PlanCardPick = {
   /**
    * Finalized-card-service-photo refinement (2026-05-22, follow-up on
    * PR #341). Resolved public URL for the booked service's primary
-   * photo. Renders as PRIORITY 1 on FinalizedChipStrip + LockedCard
-   * avatars; falls back to `marketplace_logo_url`, then initials. See
+   * photo. Renders as PRIORITY 2 on FinalizedChipStrip + LockedCard
+   * avatars (after manual_vendor_photo_url); falls back to
+   * `marketplace_logo_url`, then initials. See
    * EventVendorRowInput.service_primary_photo_url for the source-side
    * doc.
    */
   service_primary_photo_url: string | null;
+  /**
+   * 2026-05-22 owner directive — manual vendor photo URL takes PRIORITY 1
+   * when the host attached a manual contact. Photo source is
+   * `event_manual_vendors.photo_r2_key` → r2PublicUrl(). NULL on
+   * marketplace picks (no manual_vendor link) and on manual picks
+   * where the host skipped the photo upload. Falls through to
+   * service_primary_photo_url → marketplace_logo_url → initials.
+   */
+  manual_vendor_photo_url: string | null;
 };
 
 export type GroupedPicks = {
@@ -498,6 +508,29 @@ export type EventVendorRowInput = {
   marketplace_vendor_id?: string | null;
   /** Optional link to a venue_directory row — if set AND there's no marketplace link, we use its compat array. */
   source_venue_directory_id?: string | null;
+  /**
+   * Optional link to an event_manual_vendors row (2026-05-22 owner
+   * directive). When set, the host attached a manual contact (Photo +
+   * Name + Contact Person + Phone) to this category. The contact info
+   * lives on the linked row + propagates across every event_vendors
+   * row that shares the same manual_vendor_id. NULL on marketplace
+   * picks (use marketplace_vendor_id instead) and on pre-2026-05-22
+   * freeform rows.
+   */
+  manual_vendor_id?: string | null;
+  /**
+   * Resolved public URL for the linked manual vendor's photo (when
+   * the host uploaded one at create-time). Source path is
+   * `event_manual_vendors.photo_r2_key` → `r2PublicUrl()` in the
+   * dashboard page.tsx data fetch (NOT a raw R2 key, so consumers can
+   * hand it straight to next/image). NULL when no photo OR when the
+   * row is not manual-vendor-linked.
+   *
+   * Renders as PRIORITY 1 on the LockedVendorAvatar + FinalizedChipStrip
+   * avatars when the row has a manual_vendor link. See the upgraded
+   * 4-tier ladder in those components for the full fallback order.
+   */
+  manual_vendor_photo_url?: string | null;
   /** From vendor_profiles JOIN (when marketplace_vendor_id is set). */
   marketplace_compatible_ceremony_types?: string[] | null;
   marketplace_compatible_venue_settings?: string[] | null;
@@ -683,6 +716,7 @@ export function bucketVendorsByGroup(
       marketplace_business_name: v.marketplace_business_name ?? null,
       marketplace_city: v.marketplace_city ?? null,
       service_primary_photo_url: v.service_primary_photo_url ?? null,
+      manual_vendor_photo_url: v.manual_vendor_photo_url ?? null,
     };
     for (const g of PLAN_GROUPS) {
       if (g.categories.includes(v.category)) {

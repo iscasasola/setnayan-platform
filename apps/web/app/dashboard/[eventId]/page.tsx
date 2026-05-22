@@ -276,6 +276,7 @@ export default async function EventHomePage({
     scheduleBlocksRes,
     contractsCountRes,
     setnayanCreationOrdersRes,
+    manualVendorsRes,
   ] =
     await Promise.all([
       supabase
@@ -314,7 +315,7 @@ export default async function EventHomePage({
           // resolution on the locked-state avatars. NULL on off-platform
           // / custom rows + pre-2026-05-22 rows — falls through to
           // marketplace_logo_url (PR #341 baseline) at render time.
-          'vendor_id, vendor_name, category, status, total_cost_php, deposit_paid_php, notes, contact_email, contact_phone, marketplace_vendor_id, source_venue_directory_id, service_id',
+          'vendor_id, vendor_name, category, status, total_cost_php, deposit_paid_php, notes, contact_email, contact_phone, marketplace_vendor_id, source_venue_directory_id, service_id, manual_vendor_id',
         )
         .eq('event_id', eventId)
         .order('created_at', { ascending: true }),
@@ -394,6 +395,20 @@ export default async function EventHomePage({
         .eq('event_id', eventId)
         .in('service_key', ['save_the_date_video', 'monogram_hero_upgrade'])
         .not('status', 'in', '("cancelled","refunded","lapsed")'),
+      // Manual vendors — host-managed contacts with Photo + Name +
+      // Contact Person + Phone, reusable across N planning categories
+      // (2026-05-22 owner directive). Read all rows for this event so
+      // the home-page card "+ Add" dropdown can list every saved
+      // contact, plus we map manual_vendor_id → contact metadata for
+      // the existing event_vendors picks that link to manual rows. RLS
+      // scoped via event_moderators per migration 20260604080000.
+      supabase
+        .from('event_manual_vendors')
+        .select(
+          'manual_vendor_id, business_name, contact_person, contact_number, photo_r2_key',
+        )
+        .eq('event_id', eventId)
+        .order('created_at', { ascending: true }),
     ]);
   const tr = makeT(locale);
 
@@ -446,6 +461,7 @@ export default async function EventHomePage({
     marketplace_vendor_id: string | null;
     source_venue_directory_id: string | null;
     service_id: string | null;
+    manual_vendor_id: string | null;
   }>;
 
   // PR B 2026-05-22 — enrich each event_vendor row with the compatibility
@@ -588,6 +604,12 @@ export default async function EventHomePage({
     const servicePhotoUrl = v.service_id
       ? servicePhotoMap.get(v.service_id) ?? null
       : null;
+    // 2026-05-22 owner directive — manual vendor photo lookup. PRIORITY
+    // 1 on the avatar ladder for picks that wrap a host-managed
+    // contact. NULL on marketplace + freeform rows.
+    const manualVendorPhotoUrl = v.manual_vendor_id
+      ? manualVendorPhotoMap.get(v.manual_vendor_id) ?? null
+      : null;
     return {
       ...v,
       marketplace_compatible_ceremony_types: marketplace?.ceremony ?? null,
@@ -600,15 +622,70 @@ export default async function EventHomePage({
       marketplace_logo_url: marketplace?.logo_url ?? null,
       marketplace_business_name: marketplace?.business_name ?? null,
       marketplace_city: marketplace?.city ?? null,
-      // Finalized-card-service-photo refinement (2026-05-22). PRIORITY 1
+      // Finalized-card-service-photo refinement (2026-05-22). PRIORITY 2
       // photo source — the booked service's primary photo. Resolved as
       // a public URL via r2PublicUrl above. Falls back to
       // marketplace_logo_url, then initials, at render time. See the
-      // 3-tier fallback ladder in LockedVendorAvatar and the upgraded
+      // 4-tier fallback ladder in LockedVendorAvatar and the upgraded
       // VendorAvatar in finalized-chip-strip.tsx.
       service_primary_photo_url: servicePhotoUrl,
+      // 2026-05-22 owner directive — manual vendor photo URL is
+      // PRIORITY 1 on the avatar ladder when the pick wraps a manual
+      // contact (Tito Marcel, family helper). Beats service photo +
+      // marketplace logo + initials. NULL means "fall through to the
+      // next tier" — no special handling needed downstream.
+      manual_vendor_photo_url: manualVendorPhotoUrl,
     };
   });
+
+  // Manual vendors — host-managed contacts reusable across N planning
+  // categories (2026-05-22 owner directive). Resolve photo R2 keys to
+  // public URLs once here so the dropdown components stay client-side
+  // pure (no server-only r2 calls).
+  const manualVendorRows = (manualVendorsRes.data ?? []) as Array<{
+    manual_vendor_id: string;
+    business_name: string;
+    contact_person: string;
+    contact_number: string;
+    photo_r2_key: string | null;
+  }>;
+  const manualVendorOptions = manualVendorRows.map((mv) => ({
+    manual_vendor_id: mv.manual_vendor_id,
+    business_name: mv.business_name,
+    contact_person: mv.contact_person,
+    photo_url:
+      mv.photo_r2_key && mv.photo_r2_key.length > 0
+        ? r2PublicUrl(R2_BUCKETS.media, mv.photo_r2_key)
+        : null,
+  }));
+
+  // Lookup map for the 4-tier avatar ladder — manual_vendor_id →
+  // resolved photo URL. Mirrors the servicePhotoMap pattern above.
+  // Used downstream to enrich each event_vendors row's
+  // manual_vendor_photo_url for LockedVendorAvatar / FinalizedChipStrip.
+  const manualVendorPhotoMap = new Map<string, string>();
+  for (const mv of manualVendorRows) {
+    if (mv.photo_r2_key && mv.photo_r2_key.length > 0) {
+      manualVendorPhotoMap.set(
+        mv.manual_vendor_id,
+        r2PublicUrl(R2_BUCKETS.media, mv.photo_r2_key),
+      );
+    }
+  }
+
+  // Per-category attach map — which manual_vendor_ids are already
+  // wired into which categories. Drives the "✓ Added" disabled state
+  // on the dropdown so hosts don't double-attach the same manual
+  // vendor to the same card. Map<category, Set<manual_vendor_id>>.
+  const manualVendorsAttachedByCategory = new Map<string, Set<string>>();
+  for (const v of eventVendorsRaw) {
+    if (v.manual_vendor_id) {
+      if (!manualVendorsAttachedByCategory.has(v.category)) {
+        manualVendorsAttachedByCategory.set(v.category, new Set());
+      }
+      manualVendorsAttachedByCategory.get(v.category)!.add(v.manual_vendor_id);
+    }
+  }
 
   const eventCeremonyType =
     (event as { ceremony_type?: string | null }).ceremony_type ?? null;
@@ -1037,6 +1114,8 @@ export default async function EventHomePage({
           venueSetting={eventVenueSetting}
           vendors={eventVendors}
           paperworkSummary={paperworkSummary}
+          manualVendorOptions={manualVendorOptions}
+          manualVendorsAttachedByCategory={manualVendorsAttachedByCategory}
         />
       </section>
 

@@ -31,6 +31,7 @@ import { PlanCardCTAs } from './plan-card-ctas';
 import { OfficiantParishCTAs } from './officiant-parish-ctas';
 import { PlanCardCompare } from './plan-card-compare';
 import { SwitchVendorConfirm } from './switch-vendor-confirm';
+import type { ManualVendorOption } from './manual-vendor-dropdown';
 
 function formatPHP(value: number | null): string | null {
   if (value === null) return null;
@@ -91,6 +92,22 @@ type Props = {
    * existing Ceremony PlanningGroup card.
    */
   paperworkSummary?: PaperworkSummary | null;
+  /**
+   * Manual vendors saved on THIS event (2026-05-22 owner directive). Feeds
+   * the per-card "Add" dropdown so hosts can reuse the same contact (Tito
+   * Marcel, family helper, off-platform supplier) across multiple
+   * categories. Each option carries an already-resolved photo URL —
+   * page.tsx maps photo_r2_key → r2PublicUrl once at fetch time.
+   */
+  manualVendorOptions?: ReadonlyArray<ManualVendorOption>;
+  /**
+   * Per-category attach map — which `manual_vendor_id`s are already
+   * attached to which category on this event. Drives the "✓ Added"
+   * disabled-row affordance on the dropdown so hosts don't accidentally
+   * attach the same contact twice to the same card. Keyed by
+   * VendorCategory string.
+   */
+  manualVendorsAttachedByCategory?: ReadonlyMap<string, ReadonlySet<string>>;
 };
 
 const MAX_VENDOR_PREVIEW = 3;
@@ -104,6 +121,8 @@ export function PlanningGroups({
   venueSetting,
   vendors,
   paperworkSummary,
+  manualVendorOptions,
+  manualVendorsAttachedByCategory,
 }: Props) {
   // PR B 2026-05-22 — pass ceremony_type + venue_setting to the bucketer
   // so each pick gets a compatibility_issue field computed against the
@@ -248,6 +267,11 @@ export function PlanningGroups({
                     ? (paperworkSummary ?? null)
                     : null
                 }
+                manualVendorOptions={manualVendorOptions ?? []}
+                manualVendorsAttachedForGroup={collectAttachedForGroup(
+                  group.categories,
+                  manualVendorsAttachedByCategory,
+                )}
               />
             </li>
           );
@@ -255,6 +279,28 @@ export function PlanningGroups({
       </ul>
     </section>
   );
+}
+
+/**
+ * Collapses the per-category attach map (which manual_vendor_ids are
+ * attached to which VendorCategory) into a single Set scoped to ONE
+ * planning group. A multi-canonical group like Attire & Rings has 3+
+ * categories; if a manual vendor is attached to any of them, the
+ * dropdown row should show "Added" for all of them — the host doesn't
+ * have to remember which canonical sub-slot they used.
+ */
+function collectAttachedForGroup(
+  categories: ReadonlyArray<string>,
+  byCategory: ReadonlyMap<string, ReadonlySet<string>> | undefined,
+): ReadonlySet<string> {
+  if (!byCategory) return new Set();
+  const out = new Set<string>();
+  for (const c of categories) {
+    const set = byCategory.get(c);
+    if (!set) continue;
+    for (const id of set) out.add(id);
+  }
+  return out;
 }
 
 function GroupCard({
@@ -267,6 +313,8 @@ function GroupCard({
   venueLongitude,
   ceremonyVenueName,
   paperworkSummary,
+  manualVendorOptions,
+  manualVendorsAttachedForGroup,
 }: {
   eventId: string;
   eventDate: string | null;
@@ -284,6 +332,8 @@ function GroupCard({
    */
   ceremonyVenueName: string | null;
   paperworkSummary: PaperworkSummary | null;
+  manualVendorOptions: ReadonlyArray<ManualVendorOption>;
+  manualVendorsAttachedForGroup: ReadonlySet<string>;
 }) {
   // Resolve religion-adaptive hint copy. Returns the static default
   // (group.hint) when ceremonyType is null OR the card has no faith-
@@ -478,6 +528,12 @@ function GroupCard({
        * venue first" hint + three escape paths (jump to ceremony · search
        * anyway · add manually). Per ADAPT-COPY > HIDE-CARD principle the
        * card stays visible across both states; only the body changes.
+       *
+       * Officiant card keeps its own inline freeform add for V1
+       * (parish-aware copy + suggested name from venue context). Manual
+       * vendor dropdown wiring lands on every OTHER card via
+       * PlanCardCTAs. Future iteration can unify the two paths if the
+       * parish-aware affordances prove redundant in practice.
        */}
       {group.id === 'officiant' ? (
         <OfficiantParishCTAs
@@ -492,6 +548,8 @@ function GroupCard({
           defaultCategory={group.categories[0]!}
           searchHref={searchHref}
           groupLabel={group.label}
+          manualVendorOptions={manualVendorOptions}
+          manualVendorsAttachedForGroup={manualVendorsAttachedForGroup}
         />
       )}
       {picks.length >= 2 ? (
@@ -565,10 +623,14 @@ function LockedCard({
 }) {
   const displayName =
     featured.marketplace_business_name ?? featured.vendor_name;
-  // 3-tier avatar resolution (2026-05-22 refinement on PR #341):
-  //   1. service primary photo · vendor_services row the host booked
-  //   2. vendor logo · vendor_profiles.logo_url (PR #341 baseline)
-  //   3. initials placeholder · handled inside LockedVendorAvatar
+  // 4-tier avatar resolution (2026-05-22 owner directive — manual
+  // vendor photo extension on top of the prior 3-tier ladder from
+  // PR #341 / #343):
+  //   1. manual vendor photo · event_manual_vendors.photo_r2_key
+  //   2. service primary photo · vendor_services row the host booked
+  //   3. vendor logo · vendor_profiles.logo_url (PR #341 baseline)
+  //   4. initials placeholder · handled inside LockedVendorAvatar
+  const manualVendorPhotoUrl = featured.manual_vendor_photo_url ?? null;
   const servicePhotoUrl = featured.service_primary_photo_url ?? null;
   const vendorLogoUrl = featured.marketplace_logo_url ?? null;
   const city = featured.marketplace_city ?? null;
@@ -601,6 +663,7 @@ function LockedCard({
       {/* Featured locked vendor — photo card */}
       <div className="flex items-start gap-3 rounded-lg bg-cream/80 p-3">
         <LockedVendorAvatar
+          manualVendorPhotoUrl={manualVendorPhotoUrl}
           servicePhotoUrl={servicePhotoUrl}
           vendorLogoUrl={vendorLogoUrl}
           name={displayName}
@@ -709,25 +772,32 @@ function LockedCard({
 /**
  * LockedVendorAvatar — 56×56 vendor photo on the LockedCard hero slot.
  * Sized larger than FinalizedChipStrip's 36×36 because the planning
- * card has more vertical room. Both surfaces share the same 3-tier
+ * card has more vertical room. Both surfaces share the same 4-tier
  * resolution ladder, but each ships its own component because the
  * size + corner radius differ (rounded-full chip vs rounded-lg card).
  *
- * 3-tier avatar fallback (2026-05-22 refinement on PR #341):
- *   PRIORITY 1: servicePhotoUrl — booked vendor_services row's
+ * 4-tier avatar fallback (2026-05-22 owner directive — manual vendor
+ * photo extension on top of the prior 3-tier ladder from PR #341 / #343):
+ *   PRIORITY 1: manualVendorPhotoUrl — event_manual_vendors row's
+ *               photo. NEW. Highest priority because the host typed
+ *               this contact info themselves — strongest signal of
+ *               "this is the actual person I'm working with."
+ *   PRIORITY 2: servicePhotoUrl — booked vendor_services row's
  *               primary photo. Resolved via r2PublicUrl in page.tsx
  *               so consumers receive a ready-to-render URL.
- *   PRIORITY 2: vendorLogoUrl — vendor_profiles.logo_url. PR #341
+ *   PRIORITY 3: vendorLogoUrl — vendor_profiles.logo_url. PR #341
  *               baseline. Falls through when service photo absent.
- *   PRIORITY 3: initials-on-terracotta — when both are null/invalid.
- *               Same off-platform / custom-row fallback path that
- *               PR #341 shipped.
+ *   PRIORITY 4: initials-on-terracotta — when all photo sources are
+ *               null/invalid. Same off-platform / custom-row fallback
+ *               path that PR #341 shipped.
  */
 function LockedVendorAvatar({
+  manualVendorPhotoUrl,
   servicePhotoUrl,
   vendorLogoUrl,
   name,
 }: {
+  manualVendorPhotoUrl: string | null;
   servicePhotoUrl: string | null;
   vendorLogoUrl: string | null;
   name: string;
@@ -744,13 +814,16 @@ function LockedVendorAvatar({
     (url.startsWith('http://') ||
       url.startsWith('https://') ||
       url.startsWith('/'));
-  // Walk the ladder. A malformed service photo URL still falls through
-  // to the logo instead of rendering broken markup.
-  const chosen = isOptimizable(servicePhotoUrl)
-    ? servicePhotoUrl
-    : isOptimizable(vendorLogoUrl)
-      ? vendorLogoUrl
-      : null;
+  // Walk the ladder. A malformed manual-vendor photo URL still falls
+  // through to the service photo / logo instead of rendering broken
+  // markup.
+  const chosen = isOptimizable(manualVendorPhotoUrl)
+    ? manualVendorPhotoUrl
+    : isOptimizable(servicePhotoUrl)
+      ? servicePhotoUrl
+      : isOptimizable(vendorLogoUrl)
+        ? vendorLogoUrl
+        : null;
   if (chosen) {
     return (
       <span className="inline-flex h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-ink/10 bg-cream">

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { emitNotification } from '@/lib/notification-emit';
+import { uploadPublicAsset } from '@/lib/storage';
 import {
   VENDOR_CATEGORIES,
   VENDOR_STATUSES,
@@ -469,4 +470,376 @@ export async function revertVendorToConsidering(
   revalidatePath(`/dashboard/${eventId}/vendors`);
 
   return { status: 'ok', vendorId };
+}
+
+// ============================================================================
+// Manual vendor primitive (2026-05-22) — Photo + Name + Contact Person + Phone.
+//
+// Owner directive: "When we add a vendor for the card, can we show a drop
+// down of all manually added vendors, so we can choose them as well, and
+// have an option to add a new one if not there? Manual input must have
+// Photo, Vendor Name, Contact Person, Contact Number."
+//
+// Pattern: create a manual vendor ONCE per event with rich contact info,
+// then attach the same manual_vendor_id across N planning categories.
+// Each category attach creates a fresh event_vendors row (so per-category
+// status / total cost / deposit tracking stays independent) but they all
+// share the same manual_vendor_id — editing the manual vendor row (e.g.
+// updating the contact number) propagates everywhere it's attached.
+//
+// Schema: supabase/migrations/20260604080000_event_manual_vendors_table.sql
+//
+// All four actions return Result-shaped responses so the client dropdown
+// + modal can render pending / saved / error states without the
+// "thrown error → page-level fault" UX that synchronous form actions
+// produce.
+// ============================================================================
+
+export type ManualVendorResult =
+  | { status: 'ok'; manualVendorId: string }
+  | { status: 'not_signed_in' }
+  | { status: 'error'; message: string };
+
+export type AttachManualVendorResult =
+  | { status: 'ok'; eventVendorId: string; manualVendorId: string }
+  | { status: 'not_signed_in' }
+  | { status: 'error'; message: string };
+
+export type DeleteManualVendorResult =
+  | { status: 'ok' }
+  | { status: 'not_signed_in' }
+  | { status: 'error'; message: string };
+
+const PHOTO_PATH_PREFIX = 'manual-vendors';
+
+function readStringField(
+  formData: FormData,
+  key: string,
+  maxLen: number,
+): { ok: true; value: string } | { ok: false; message: string } {
+  const raw = formData.get(key);
+  if (typeof raw !== 'string') {
+    return { ok: false, message: `${key} is required` };
+  }
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) {
+    return { ok: false, message: `${key} is required` };
+  }
+  if (trimmed.length > maxLen) {
+    return { ok: false, message: `${key} must be ${maxLen} chars or fewer` };
+  }
+  return { ok: true, value: trimmed };
+}
+
+/**
+ * Creates a manual vendor row for an event with the 4 owner-directive
+ * fields (business_name, contact_person, contact_number, optional photo).
+ *
+ * Photo upload is OPTIONAL — host can skip it at create-time and add
+ * later via updateManualVendor. When present, the photo runs through
+ * uploadPublicAsset which (a) validates MIME + size, (b) falls back to
+ * Supabase Storage if R2 env vars are unset (dev / preview env), (c)
+ * returns an R2 object key we persist to photo_r2_key.
+ *
+ * Returns the manual_vendor_id so the caller (typically the dropdown's
+ * "+ Add new" modal) can pipe it into attachManualVendorToCategory
+ * without a roundtrip.
+ */
+export async function createManualVendor(
+  formData: FormData,
+): Promise<ManualVendorResult> {
+  const eventIdRaw = formData.get('event_id');
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {
+    return { status: 'error', message: 'Missing event id' };
+  }
+
+  const businessName = readStringField(formData, 'business_name', 128);
+  if (!businessName.ok) return { status: 'error', message: businessName.message };
+  const contactPerson = readStringField(formData, 'contact_person', 128);
+  if (!contactPerson.ok) return { status: 'error', message: contactPerson.message };
+  const contactNumber = readStringField(formData, 'contact_number', 32);
+  if (!contactNumber.ok) return { status: 'error', message: contactNumber.message };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { status: 'not_signed_in' };
+  }
+
+  // Optional photo upload. The FormData carries either a File object
+  // (when the host picked one) or an empty File / no entry (when they
+  // skipped). Skip the upload pipeline entirely when no file present so
+  // the create flow stays fast.
+  let photoR2Key: string | null = null;
+  const photoEntry = formData.get('photo');
+  if (photoEntry instanceof File && photoEntry.size > 0) {
+    const uploadResult = await uploadPublicAsset({
+      pathPrefix: `${PHOTO_PATH_PREFIX}/${eventIdRaw}`,
+      file: photoEntry,
+    });
+    if (!uploadResult.ok) {
+      return { status: 'error', message: uploadResult.error };
+    }
+    photoR2Key = uploadResult.key;
+  }
+
+  const { data: inserted, error } = await supabase
+    .from('event_manual_vendors')
+    .insert({
+      event_id: eventIdRaw,
+      business_name: businessName.value,
+      contact_person: contactPerson.value,
+      contact_number: contactNumber.value,
+      photo_r2_key: photoR2Key,
+      created_by_user_id: user.id,
+    })
+    .select('manual_vendor_id')
+    .single();
+
+  if (error || !inserted) {
+    return { status: 'error', message: error?.message ?? 'Insert failed' };
+  }
+
+  revalidatePath(`/dashboard/${eventIdRaw}`);
+  revalidatePath(`/dashboard/${eventIdRaw}/vendors`);
+  return { status: 'ok', manualVendorId: inserted.manual_vendor_id };
+}
+
+/**
+ * Updates an existing manual vendor's 4 fields. Edit-once-propagates:
+ * because every linked event_vendors row reads the contact info via the
+ * manual_vendor_id join, updating here flows to all attached categories
+ * automatically.
+ *
+ * Photo handling is dual-mode:
+ *   - When the form sends a new File (size > 0), we upload + replace the
+ *     stored r2_key. We do NOT delete the prior R2 object — keep the
+ *     history for cheap rollback. Storage cost on R2 is small enough
+ *     that V1 doesn't need a vacuum job.
+ *   - When the form carries an empty File OR no `photo` entry, we leave
+ *     the existing photo_r2_key untouched (host edited name only).
+ *   - When the form carries `remove_photo=1` (explicit clear), we null
+ *     the column. The orphaned R2 object stays — same rationale.
+ */
+export async function updateManualVendor(
+  formData: FormData,
+): Promise<ManualVendorResult> {
+  const manualVendorIdRaw = formData.get('manual_vendor_id');
+  if (typeof manualVendorIdRaw !== 'string' || manualVendorIdRaw.length === 0) {
+    return { status: 'error', message: 'Missing manual vendor id' };
+  }
+
+  const businessName = readStringField(formData, 'business_name', 128);
+  if (!businessName.ok) return { status: 'error', message: businessName.message };
+  const contactPerson = readStringField(formData, 'contact_person', 128);
+  if (!contactPerson.ok) return { status: 'error', message: contactPerson.message };
+  const contactNumber = readStringField(formData, 'contact_number', 32);
+  if (!contactNumber.ok) return { status: 'error', message: contactNumber.message };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { status: 'not_signed_in' };
+  }
+
+  // Read existing row to scope path-prefix on the photo upload (we
+  // re-use the same {event_id} prefix so per-event photo grouping
+  // stays stable across edits).
+  const { data: existing, error: readErr } = await supabase
+    .from('event_manual_vendors')
+    .select('event_id, photo_r2_key')
+    .eq('manual_vendor_id', manualVendorIdRaw)
+    .maybeSingle();
+  if (readErr) {
+    return { status: 'error', message: readErr.message };
+  }
+  if (!existing) {
+    return { status: 'error', message: 'Manual vendor not found' };
+  }
+
+  let nextPhotoR2Key: string | null | undefined = undefined;
+  const removePhotoFlag = formData.get('remove_photo');
+  if (removePhotoFlag === '1' || removePhotoFlag === 'true') {
+    nextPhotoR2Key = null;
+  } else {
+    const photoEntry = formData.get('photo');
+    if (photoEntry instanceof File && photoEntry.size > 0) {
+      const uploadResult = await uploadPublicAsset({
+        pathPrefix: `${PHOTO_PATH_PREFIX}/${existing.event_id}`,
+        file: photoEntry,
+      });
+      if (!uploadResult.ok) {
+        return { status: 'error', message: uploadResult.error };
+      }
+      nextPhotoR2Key = uploadResult.key;
+    }
+  }
+
+  const update: Record<string, unknown> = {
+    business_name: businessName.value,
+    contact_person: contactPerson.value,
+    contact_number: contactNumber.value,
+    updated_at: new Date().toISOString(),
+  };
+  if (nextPhotoR2Key !== undefined) {
+    update.photo_r2_key = nextPhotoR2Key;
+  }
+
+  const { error: updateErr } = await supabase
+    .from('event_manual_vendors')
+    .update(update)
+    .eq('manual_vendor_id', manualVendorIdRaw);
+  if (updateErr) {
+    return { status: 'error', message: updateErr.message };
+  }
+
+  revalidatePath(`/dashboard/${existing.event_id}`);
+  revalidatePath(`/dashboard/${existing.event_id}/vendors`);
+  return { status: 'ok', manualVendorId: manualVendorIdRaw };
+}
+
+/**
+ * Hard-deletes a manual vendor row. Per the FK ON DELETE SET NULL on
+ * event_vendors.manual_vendor_id, every linked event_vendors row
+ * survives with its manual_vendor_id zeroed out — the host's saved
+ * categories don't disappear, they just lose the contact-info link.
+ *
+ * This intentionally doesn't cascade-delete the event_vendors rows.
+ * Some hosts use the manual-vendor dropdown to attach the same person
+ * to multiple categories, then realize they want different contacts
+ * per category — deleting the manual vendor should leave the per-
+ * category status / cost tracking intact for re-attachment.
+ */
+export async function deleteManualVendor(
+  formData: FormData,
+): Promise<DeleteManualVendorResult> {
+  const manualVendorIdRaw = formData.get('manual_vendor_id');
+  if (typeof manualVendorIdRaw !== 'string' || manualVendorIdRaw.length === 0) {
+    return { status: 'error', message: 'Missing manual vendor id' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { status: 'not_signed_in' };
+  }
+
+  // Read the event_id for revalidation before we delete the row.
+  const { data: row } = await supabase
+    .from('event_manual_vendors')
+    .select('event_id')
+    .eq('manual_vendor_id', manualVendorIdRaw)
+    .maybeSingle();
+  const eventIdForRevalidate = row?.event_id as string | undefined;
+
+  const { error } = await supabase
+    .from('event_manual_vendors')
+    .delete()
+    .eq('manual_vendor_id', manualVendorIdRaw);
+  if (error) {
+    return { status: 'error', message: error.message };
+  }
+
+  if (eventIdForRevalidate) {
+    revalidatePath(`/dashboard/${eventIdForRevalidate}`);
+    revalidatePath(`/dashboard/${eventIdForRevalidate}/vendors`);
+  }
+  return { status: 'ok' };
+}
+
+/**
+ * Attaches a manual vendor to a planning category by creating a fresh
+ * event_vendors row linked via manual_vendor_id. The new row gets the
+ * vendor's business_name as vendor_name (for backwards-compat with
+ * surfaces that read vendor_name directly), the category passed in,
+ * and status='considering' (initial state — host promotes via the
+ * Compare drawer's Lock action).
+ *
+ * Reuse semantics — calling this N times against the same manual
+ * vendor with N different categories creates N event_vendors rows that
+ * all read the same contact info. The host sees "Tito Marcel" in both
+ * the Coordinator card and the Host/MC card, status tracked
+ * independently per card.
+ *
+ * Does NOT dedupe — if the host accidentally attaches the same manual
+ * vendor to the same category twice, we'll create two event_vendors
+ * rows. The dropdown UX should prevent that (greyed-out option once
+ * already-attached for THIS category), but the server stays permissive
+ * so concurrent inserts from multi-host events don't fail.
+ */
+export async function attachManualVendorToCategory(
+  formData: FormData,
+): Promise<AttachManualVendorResult> {
+  const eventIdRaw = formData.get('event_id');
+  const manualVendorIdRaw = formData.get('manual_vendor_id');
+  const categoryRaw = formData.get('category');
+
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {
+    return { status: 'error', message: 'Missing event id' };
+  }
+  if (typeof manualVendorIdRaw !== 'string' || manualVendorIdRaw.length === 0) {
+    return { status: 'error', message: 'Missing manual vendor id' };
+  }
+  if (!isValidCategory(categoryRaw)) {
+    return { status: 'error', message: 'Unknown category' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { status: 'not_signed_in' };
+  }
+
+  // Read the manual vendor's business_name so the event_vendors row
+  // carries a vendor_name (some surfaces still read vendor_name
+  // directly; updating it here lets edits to the manual vendor
+  // propagate without rewriting every event_vendors row).
+  const { data: manualVendor, error: readErr } = await supabase
+    .from('event_manual_vendors')
+    .select('business_name, event_id')
+    .eq('manual_vendor_id', manualVendorIdRaw)
+    .maybeSingle();
+  if (readErr) {
+    return { status: 'error', message: readErr.message };
+  }
+  if (!manualVendor) {
+    return { status: 'error', message: 'Manual vendor not found' };
+  }
+  // Defensive: the manual vendor must belong to the same event the
+  // host is attaching from. RLS would also catch a cross-event attach
+  // but the explicit check produces a clearer error path.
+  if (manualVendor.event_id !== eventIdRaw) {
+    return { status: 'error', message: 'Manual vendor belongs to a different event' };
+  }
+
+  const { data: inserted, error: insertErr } = await supabase
+    .from('event_vendors')
+    .insert({
+      event_id: eventIdRaw,
+      category: categoryRaw,
+      vendor_name: manualVendor.business_name,
+      manual_vendor_id: manualVendorIdRaw,
+      status: 'considering',
+    })
+    .select('vendor_id')
+    .single();
+  if (insertErr || !inserted) {
+    return { status: 'error', message: insertErr?.message ?? 'Insert failed' };
+  }
+
+  revalidatePath(`/dashboard/${eventIdRaw}`);
+  revalidatePath(`/dashboard/${eventIdRaw}/vendors`);
+  return {
+    status: 'ok',
+    eventVendorId: inserted.vendor_id,
+    manualVendorId: manualVendorIdRaw,
+  };
 }

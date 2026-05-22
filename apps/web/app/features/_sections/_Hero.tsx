@@ -21,8 +21,15 @@ export function FeaturesHero() {
           <p className="max-w-2xl text-lg text-ink/70">
             From the first guest invite to the same-day highlight reel —
             here&rsquo;s everything Setnayan does. Read as much or as little as
-            you want; when you&rsquo;re ready, apply and the Setnayan Team will
-            quote your event.
+            you want; when you&rsquo;re ready, sign up and pick the à-la-carte
+            SKUs your event needs. Fixed PHP prices live on{' '}
+            <Link
+              href="/pricing"
+              className="underline decoration-ink/30 underline-offset-2 hover:text-terracotta hover:decoration-terracotta"
+            >
+              /pricing
+            </Link>
+            .
           </p>
           <div className="pt-2">
             <Link
@@ -32,7 +39,7 @@ export function FeaturesHero() {
               <span className="flex flex-col items-start text-left">
                 <span className="font-semibold">Start planning &middot; free</span>
                 <span className="font-mono text-[10px] uppercase tracking-[0.15em] opacity-80">
-                  We quote per event &middot; no card
+                  Fixed PHP prices &middot; no card
                 </span>
               </span>
               <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />

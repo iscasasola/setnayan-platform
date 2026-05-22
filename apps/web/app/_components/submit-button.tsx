@@ -5,10 +5,17 @@ import { Loader2 } from 'lucide-react';
 
 type Props = Omit<
   React.ButtonHTMLAttributes<HTMLButtonElement>,
-  'type' | 'disabled' | 'aria-busy'
+  'type' | 'aria-busy'
 > & {
   children: React.ReactNode;
   pendingLabel?: string;
+  /**
+   * External disable signal. Task #44 (2026-05-22) — required-field gating
+   * on the create-event form needs to keep Save disabled until a ceremony
+   * type is picked. The button is ALWAYS disabled while pending (regardless
+   * of this value); this flag adds an additional reason to disable.
+   */
+  disabled?: boolean;
 };
 
 /**
@@ -28,16 +35,18 @@ export function SubmitButton({
   children,
   className,
   pendingLabel = 'Working…',
+  disabled = false,
   ...rest
 }: Props) {
   const { pending } = useFormStatus();
+  const isDisabled = pending || disabled;
   return (
     <button
       type="submit"
-      disabled={pending}
+      disabled={isDisabled}
       aria-busy={pending}
       data-pending={pending ? 'true' : undefined}
-      className={`${className ?? ''} ${pending ? 'cursor-wait' : ''}`.trim()}
+      className={`${className ?? ''} ${pending ? 'cursor-wait' : ''} ${disabled && !pending ? 'opacity-50 cursor-not-allowed' : ''}`.trim()}
       {...rest}
     >
       {pending ? (

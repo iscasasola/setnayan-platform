@@ -14,6 +14,10 @@
 
 import { useState, useTransition } from 'react';
 import { X } from 'lucide-react';
+import {
+  CeremonyTypeRadioGroup,
+  type CeremonyTypeKey,
+} from '@/app/_components/ceremony-type-radio-group';
 import { setEventCeremonyType } from '../actions';
 
 type Props = {
@@ -21,52 +25,8 @@ type Props = {
   onClose: () => void;
 };
 
-type Option = {
-  key: 'catholic' | 'civil' | 'inc' | 'christian' | 'muslim' | 'cultural' | 'mixed';
-  label: string;
-  description: string;
-};
-
-const OPTIONS: Option[] = [
-  {
-    key: 'catholic',
-    label: 'Catholic',
-    description: 'Mass at a Catholic church with priest, ninong/ninang, cord & veil',
-  },
-  {
-    key: 'civil',
-    label: 'Civil',
-    description: 'City hall ceremony with witnesses',
-  },
-  {
-    key: 'inc',
-    label: 'INC',
-    description: 'Iglesia ni Cristo ceremony with minister',
-  },
-  {
-    key: 'christian',
-    label: 'Christian',
-    description: 'Born Again, Evangelical, or other Christian ceremony',
-  },
-  {
-    key: 'muslim',
-    label: 'Muslim',
-    description: 'Nikah ceremony with imam',
-  },
-  {
-    key: 'cultural',
-    label: 'Cultural',
-    description: 'Indigenous Filipino tradition (Maranao, Tausug, Maguindanao, Sama, Yakan, other)',
-  },
-  {
-    key: 'mixed',
-    label: 'Mixed',
-    description: 'Two ceremonies on the same day (e.g. Catholic morning + civil afternoon)',
-  },
-];
-
 export function CeremonyTypeModal({ eventId, onClose }: Props) {
-  const [selected, setSelected] = useState<Option['key'] | null>(null);
+  const [selected, setSelected] = useState<CeremonyTypeKey | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -121,36 +81,13 @@ export function CeremonyTypeModal({ eventId, onClose }: Props) {
           </button>
         </header>
 
-        <fieldset className="flex-1 space-y-2 overflow-y-auto px-6 py-4">
-          <legend className="sr-only">Wedding type</legend>
-          {OPTIONS.map((opt) => {
-            const checked = selected === opt.key;
-            return (
-              <label
-                key={opt.key}
-                className={
-                  'flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition ' +
-                  (checked
-                    ? 'border-terracotta bg-terracotta/[0.06]'
-                    : 'border-ink/10 hover:border-ink/25 hover:bg-ink/[0.02]')
-                }
-              >
-                <input
-                  type="radio"
-                  name="ceremony_type"
-                  value={opt.key}
-                  checked={checked}
-                  onChange={() => setSelected(opt.key)}
-                  className="mt-1 h-4 w-4 accent-terracotta"
-                />
-                <div className="flex-1">
-                  <div className="text-sm font-medium text-ink">{opt.label}</div>
-                  <div className="text-xs text-ink/65">{opt.description}</div>
-                </div>
-              </label>
-            );
-          })}
-        </fieldset>
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          <CeremonyTypeRadioGroup
+            value={selected}
+            onChange={setSelected}
+            legend="Wedding type"
+          />
+        </div>
 
         {error ? (
           <div className="mx-6 mb-2 rounded-md bg-rose-50 px-3 py-2 text-xs text-rose-800 ring-1 ring-inset ring-rose-200">

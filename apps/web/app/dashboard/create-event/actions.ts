@@ -83,18 +83,35 @@ export async function createWeddingEvent(formData: FormData) {
   }
   const isWedding = event_type === 'wedding';
 
-  // Iteration 0043 — picker fields. Read raw values from the form only when
-  // the event_type is wedding; non-wedding event_types (debut, future
-  // gender_reveal etc.) never render the picker and we write NULL.
-  const raw_ceremony = String(formData.get('ceremony_type') ?? 'catholic');
+  // Iteration 0043 + Task #44 (2026-05-22) — picker fields. Read raw values
+  // from the form only when the event_type is wedding; non-wedding
+  // event_types (debut, future gender_reveal etc.) never render the picker
+  // and we write NULL.
+  //
+  // Task #44 lock: ceremony_type is REQUIRED for weddings. The previous
+  // silent-default-to-'catholic' behavior caused new events to land with
+  // ceremony_type effectively unset from the host's perspective and forced
+  // them to confirm via the dashboard chip CTA afterward. We now reject
+  // empty submissions explicitly.
+  const raw_ceremony = String(formData.get('ceremony_type') ?? '').trim();
   const raw_venue = String(formData.get('venue_setting') ?? 'banquet_hall');
   const raw_sub_type = String(formData.get('ceremony_sub_type') ?? '').trim();
   const raw_is_mixed = String(formData.get('is_mixed_ceremony') ?? 'false') === 'true';
   const raw_secondary = String(formData.get('secondary_ceremony_type') ?? '').trim();
 
-  const ceremony_type: string | null = isWedding
-    ? ((ALLOWED_CEREMONIES as readonly string[]).includes(raw_ceremony) ? raw_ceremony : 'catholic')
-    : null;
+  if (isWedding && !raw_ceremony) {
+    return redirect('/dashboard/create-event?error=missing_ceremony_type');
+  }
+  if (isWedding && !(ALLOWED_CEREMONIES as readonly string[]).includes(raw_ceremony)) {
+    // Picker only emits keys from ALLOWED_CEREMONIES for active faiths.
+    // A non-empty value that isn't in the list means either a bad submission
+    // (hand-crafted form) or someone managed to submit a Coming Soon faith —
+    // either way we send them back with the same error rather than silently
+    // coercing to 'catholic'.
+    return redirect('/dashboard/create-event?error=missing_ceremony_type');
+  }
+
+  const ceremony_type: string | null = isWedding ? raw_ceremony : null;
   const venue_setting: string | null = isWedding
     ? ((ALLOWED_VENUES as readonly string[]).includes(raw_venue) ? raw_venue : 'banquet_hall')
     : null;

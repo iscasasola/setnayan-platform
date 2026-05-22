@@ -10,6 +10,8 @@ const ERROR_COPY: Record<string, string> = {
   missing_name: 'Please give the event a name.',
   invalid_type:
     'Setnayan is opening one event type at a time — pick Wedding to continue, or tap an upcoming tile to be notified when it opens.',
+  missing_ceremony_type:
+    'Pick a wedding type so we can match vendors compatible with your ceremony.',
   missing_sub_type: 'Pick a tradition for the ceremony type you chose.',
   missing_secondary: 'Pick a secondary ceremony for your interfaith wedding.',
 };

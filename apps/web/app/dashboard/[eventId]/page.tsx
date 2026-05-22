@@ -63,7 +63,7 @@ import { PlanningGroups } from './_components/planning-groups';
 import { EventDateInput } from './_components/event-date-input';
 import { VendorAvailabilityIntersection } from './_components/vendor-availability-intersection';
 import { CeremonyTypeChip } from './_components/ceremony-type-chip';
-import { getConfirmedVendorCount } from '@/lib/events';
+import { getConfirmedVendorCount, isEventDateInPast } from '@/lib/events';
 import type { VendorCategory } from '@/lib/vendors';
 
 export const dynamic = 'force-dynamic';
@@ -434,6 +434,18 @@ export default async function EventHomePage({
           initialPrecision={eventDatePrecision}
           confirmedVendorCount={confirmedVendorCount}
         />
+        {event.event_date && isEventDateInPast(event.event_date, eventDatePrecision, now) ? (
+          // Task #41 (2026-05-22) — muted warning when the stored wedding
+          // date is already in the past (e.g. the "Bonbon and Chihuahua"
+          // event that originally surfaced this bug). Editorial-restraint
+          // tone per brand voice — no exclamation marks, no red panic
+          // styling, no all-caps. The Edit button on EventDateInput above
+          // still works to fix the value.
+          <p className="flex items-center gap-1.5 text-xs text-ink/55">
+            <AlertTriangle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Wedding date is in the past — please update.
+          </p>
+        ) : null}
         {availabilityVendorCount > 0 && availabilityWindowLabel ? (
           <VendorAvailabilityIntersection
             eventId={eventId}

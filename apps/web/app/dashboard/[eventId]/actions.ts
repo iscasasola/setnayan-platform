@@ -8,6 +8,7 @@ import { STEPS, type StepKey } from '@/lib/planner';
 import {
   CONFIRMED_VENDOR_STATUSES,
   PRECISION_ORDER,
+  isEventDateInPast,
   type EventDatePrecision,
 } from '@/lib/events';
 
@@ -59,6 +60,17 @@ export async function updateEventDate(formData: FormData) {
       throw new Error('Invalid date format — use YYYY-MM-DD');
     }
     eventDate = trimmed;
+  }
+
+  // Task #41 (2026-05-22) — reject past dates. The client `min` attrs
+  // restrict the picker, but a direct form-submit could still try to
+  // sneak past it; this is defense-in-depth. Precision-aware: year mode
+  // accepts the rest of the current calendar year, month mode the rest
+  // of the current month, day mode strictly today onwards.
+  if (eventDate && isEventDateInPast(eventDate, newPrecision)) {
+    throw new Error(
+      "Wedding date can't be in the past. Pick today or a future date.",
+    );
   }
 
   const supabase = await createClient();

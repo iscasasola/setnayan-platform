@@ -283,6 +283,53 @@ export const PRECISION_ORDER: Record<EventDatePrecision, number> = {
 };
 
 /**
+ * Task #41 (2026-05-22) — is this event_date "in the past" given its
+ * precision? Past wedding dates are nonsensical (a wedding either hasn't
+ * happened yet or has already happened — there's no editing-back-in-time).
+ *
+ * "Past" is precision-aware: for year precision we accept the whole year
+ * as still-future until Dec 31 of that year has passed; for month
+ * precision we accept the whole month until its last day has passed; for
+ * day precision we accept today and reject earlier days.
+ *
+ * Used by:
+ *   - updateEventDate server action — defense-in-depth rejection of past
+ *     submissions even if the client `min` attributes are bypassed.
+ *   - Event home polish — surface a muted warning chip on existing events
+ *     whose date is already in the past (e.g. the "Bonbon and Chihuahua"
+ *     event that originally surfaced this bug 2026-05-22).
+ */
+export function isEventDateInPast(
+  iso: string | null,
+  precision: EventDatePrecision,
+  now: Date = new Date(),
+): boolean {
+  if (!iso) return false;
+  const [yearStr, monthStr, dayStr] = iso.split('-');
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  const day = Number(dayStr);
+  if (!year || !month || !day) return false;
+
+  // Effective "last day still considered future" per precision.
+  let effective: Date;
+  if (precision === 'year') {
+    effective = new Date(year, 11, 31);
+  } else if (precision === 'month') {
+    // Last day of the given month: day 0 of next month.
+    effective = new Date(year, month, 0);
+  } else {
+    effective = new Date(year, month - 1, day);
+  }
+  effective.setHours(0, 0, 0, 0);
+
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+
+  return effective.getTime() < today.getTime();
+}
+
+/**
  * Vendor statuses that count as a confirmed commitment for the
  * date-edit + ceremony-type-edit gates on event home (iteration 0021
  * § 10 / § 11 / § 13 + Task #37).

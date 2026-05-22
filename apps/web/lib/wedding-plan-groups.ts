@@ -444,6 +444,15 @@ export type PlanCardPick = {
   marketplace_logo_url: string | null;
   marketplace_business_name: string | null;
   marketplace_city: string | null;
+  /**
+   * Finalized-card-service-photo refinement (2026-05-22, follow-up on
+   * PR #341). Resolved public URL for the booked service's primary
+   * photo. Renders as PRIORITY 1 on FinalizedChipStrip + LockedCard
+   * avatars; falls back to `marketplace_logo_url`, then initials. See
+   * EventVendorRowInput.service_primary_photo_url for the source-side
+   * doc.
+   */
+  service_primary_photo_url: string | null;
 };
 
 export type GroupedPicks = {
@@ -504,6 +513,19 @@ export type EventVendorRowInput = {
   marketplace_logo_url?: string | null;
   marketplace_business_name?: string | null;
   marketplace_city?: string | null;
+  /**
+   * Finalized-card-service-photo refinement (2026-05-22, follow-up on PR
+   * #341). Public URL for `vendor_services.primary_photo_r2_key` —
+   * resolved via `r2PublicUrl()` in the dashboard page.tsx data fetch
+   * (NOT a raw R2 key, so consumers can hand it straight to next/image).
+   *
+   * Priority 1 on the locked-state avatars. `null` when (a) the
+   * event_vendors row has no `service_id`, (b) the linked
+   * vendor_services row has no `primary_photo_r2_key`, OR (c) the row is
+   * off-platform / custom. Falls through to `marketplace_logo_url`
+   * (PR #341 baseline), then initials placeholder.
+   */
+  service_primary_photo_url?: string | null;
 };
 
 /**
@@ -660,6 +682,7 @@ export function bucketVendorsByGroup(
       marketplace_logo_url: v.marketplace_logo_url ?? null,
       marketplace_business_name: v.marketplace_business_name ?? null,
       marketplace_city: v.marketplace_city ?? null,
+      service_primary_photo_url: v.service_primary_photo_url ?? null,
     };
     for (const g of PLAN_GROUPS) {
       if (g.categories.includes(v.category)) {

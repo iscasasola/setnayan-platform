@@ -81,6 +81,13 @@ import { fetchUpcomingItems } from '@/lib/upcoming-items';
 import { ActivityFeed } from './_components/activity-feed';
 import { getConfirmedVendorCount, isEventDateInPast } from '@/lib/events';
 import type { VendorCategory } from '@/lib/vendors';
+// Finalized-card-service-photo refinement (2026-05-22) — resolve
+// vendor_services.primary_photo_r2_key → public URL for the locked-state
+// avatars. r2PublicUrl is synchronous (no signing roundtrip), so we can
+// build the URL once per service and feed it through the EventVendor
+// enrichment pipeline below. setnayan-media is the canonical bucket for
+// vendor portfolio + service media.
+import { R2_BUCKETS, r2PublicUrl } from '@/lib/r2';
 
 export const dynamic = 'force-dynamic';
 
@@ -293,7 +300,14 @@ export default async function EventHomePage({
       supabase
         .from('event_vendors')
         .select(
-          'vendor_id, vendor_name, category, status, total_cost_php, deposit_paid_php, notes, contact_email, contact_phone, marketplace_vendor_id, source_venue_directory_id',
+          // service_id (added 2026-05-22, migration
+          // 20260604070000_vendor_services_primary_photo_and_event_link)
+          // links the saved row to the specific vendor_services entry
+          // the host booked. Drives the PRIORITY 1 service-photo
+          // resolution on the locked-state avatars. NULL on off-platform
+          // / custom rows + pre-2026-05-22 rows — falls through to
+          // marketplace_logo_url (PR #341 baseline) at render time.
+          'vendor_id, vendor_name, category, status, total_cost_php, deposit_paid_php, notes, contact_email, contact_phone, marketplace_vendor_id, source_venue_directory_id, service_id',
         )
         .eq('event_id', eventId)
         .order('created_at', { ascending: true }),
@@ -390,6 +404,7 @@ export default async function EventHomePage({
     contact_phone: string | null;
     marketplace_vendor_id: string | null;
     source_venue_directory_id: string | null;
+    service_id: string | null;
   }>;
 
   // PR B 2026-05-22 — enrich each event_vendor row with the compatibility
@@ -413,6 +428,22 @@ export default async function EventHomePage({
     new Set(
       eventVendorsRaw
         .map((v) => v.source_venue_directory_id)
+        .filter((id): id is string => id !== null),
+    ),
+  );
+  // Finalized-card-service-photo refinement (2026-05-22). Service photos
+  // are PRIORITY 1 on the locked-state avatars per the owner directive
+  // ("the SERVICE the host booked"). We batch-fetch the
+  // primary_photo_r2_key for every service_id present on this event's
+  // picks in a single IN(...) — one extra round trip max, regardless of
+  // how many distinct services the host has saved across all 12 plan
+  // groups. NULL service_id (off-platform / custom rows + pre-migration
+  // rows) skip the fetch entirely, fall through to marketplace_logo_url
+  // → initials placeholder at render time.
+  const serviceIds = Array.from(
+    new Set(
+      eventVendorsRaw
+        .map((v) => v.service_id)
         .filter((id): id is string => id !== null),
     ),
   );
@@ -447,6 +478,20 @@ export default async function EventHomePage({
           venue_directory_id: string;
           compatible_ceremony_types: string[] | null;
         }> }),
+    // Finalized-card-service-photo refinement (2026-05-22) — single
+    // batch fetch against vendor_services for every distinct service_id
+    // on this event's picks. NULL primary_photo_r2_key just means the
+    // vendor hasn't uploaded a service photo yet → consumer falls
+    // through to vendor_profiles.logo_url (PR #341 priority 2).
+    serviceIds.length > 0
+      ? adminClient
+          .from('vendor_services')
+          .select('vendor_service_id, primary_photo_r2_key')
+          .in('vendor_service_id', serviceIds)
+      : Promise.resolve({ data: [] as Array<{
+          vendor_service_id: string;
+          primary_photo_r2_key: string | null;
+        }> }),
   ]);
   const marketplaceCompatMap = new Map<
     string,
@@ -476,6 +521,21 @@ export default async function EventHomePage({
       (row.compatible_ceremony_types as string[] | null) ?? null,
     );
   }
+  // Finalized-card-service-photo refinement (2026-05-22). Map service_id
+  // → public photo URL once, here, so the per-row enrichment below stays
+  // a plain Map.get. NULL key (service has no photo yet) → drop from
+  // map → consumer falls through to vendor logo at render time.
+  const servicePhotoMap = new Map<string, string>();
+  for (const row of compatibilityFetches[2].data ?? []) {
+    const key = (row as { primary_photo_r2_key?: string | null })
+      .primary_photo_r2_key;
+    if (key && key.length > 0) {
+      servicePhotoMap.set(
+        row.vendor_service_id,
+        r2PublicUrl(R2_BUCKETS.media, key),
+      );
+    }
+  }
 
   const eventVendors = eventVendorsRaw.map((v) => {
     const marketplace = v.marketplace_vendor_id
@@ -483,6 +543,9 @@ export default async function EventHomePage({
       : undefined;
     const directory = v.source_venue_directory_id
       ? directoryCompatMap.get(v.source_venue_directory_id) ?? null
+      : null;
+    const servicePhotoUrl = v.service_id
+      ? servicePhotoMap.get(v.service_id) ?? null
       : null;
     return {
       ...v,
@@ -496,6 +559,13 @@ export default async function EventHomePage({
       marketplace_logo_url: marketplace?.logo_url ?? null,
       marketplace_business_name: marketplace?.business_name ?? null,
       marketplace_city: marketplace?.city ?? null,
+      // Finalized-card-service-photo refinement (2026-05-22). PRIORITY 1
+      // photo source — the booked service's primary photo. Resolved as
+      // a public URL via r2PublicUrl above. Falls back to
+      // marketplace_logo_url, then initials, at render time. See the
+      // 3-tier fallback ladder in LockedVendorAvatar and the upgraded
+      // VendorAvatar in finalized-chip-strip.tsx.
+      service_primary_photo_url: servicePhotoUrl,
     };
   });
 

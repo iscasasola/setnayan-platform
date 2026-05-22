@@ -1,7 +1,12 @@
 import Link from 'next/link';
 import { Star } from 'lucide-react';
 
-import type { TaxonomyEntry, TaxonomyPhase } from '@/lib/taxonomy';
+import {
+  WEDDING_FOLDER_SHORT_LABEL,
+  type TaxonomyEntry,
+  type TaxonomyPhase,
+  type WeddingFolder,
+} from '@/lib/taxonomy';
 import type { VendorCount } from '@/lib/vendor-counts';
 
 export type CategoryTileData = {
@@ -20,6 +25,16 @@ export type CategoryTileData = {
    * back to its existing copy).
    */
   sampleVendorNames?: ReadonlyArray<string>;
+  /**
+   * When set, this tile is a cross-listing of a service whose PRIMARY home
+   * is a different folder. Surfaces a muted "Also under Planning" line
+   * under the count pill so couples reading the Catering folder understand
+   * "this is a hotel — primary home is Planning, but it provides catering
+   * too." Locked 2026-05-22 per owner directive *"most hotels also provide
+   * catering"*. Undefined for the 191 services that don't declare any
+   * `secondary_folders` on their TaxonomyEntry.
+   */
+  primaryFolderHint?: WeddingFolder;
 };
 
 const LIVE_PHASES: ReadonlySet<TaxonomyPhase> = new Set([
@@ -89,6 +104,18 @@ export function CategoryTile({ data }: { data: CategoryTileData }) {
           {data.displayNameTl ? (
             <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
               {data.displayNameTl}
+            </p>
+          ) : null}
+          {/* 2026-05-22 catering cross-listing — when this tile renders a
+                service whose primary folder is elsewhere (e.g. an
+                accommodation tile surfacing inside the Catering folder),
+                surface a muted "Also under …" line so couples reading the
+                Catering folder understand "this is a hotel — primary home
+                is Planning, but it provides catering too." Owner directive
+                verbatim: "most hotels also provide catering." */}
+          {data.primaryFolderHint ? (
+            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/40">
+              Also under {WEDDING_FOLDER_SHORT_LABEL[data.primaryFolderHint]}
             </p>
           ) : null}
         </div>

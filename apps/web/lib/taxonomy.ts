@@ -150,6 +150,26 @@ export type TaxonomyEntry = {
   setnayan?: true;
   /** Rental variant of a category. */
   rental?: true;
+  /**
+   * Cross-listed folders the service ALSO surfaces under, beyond its primary
+   * `folder`. Locked 2026-05-22 per owner directive *"most hotels also provide
+   * catering"* — when a host searches Catering on the dashboard planning card,
+   * hotel vendors (whose primary folder is planning_logistics_travel via the
+   * `accommodation` canonical_service) should ALSO show up because Filipino
+   * weddings routinely bundle catering with the hotel reception package.
+   *
+   * Bucketing consumers (apps/web/app/vendors/page.tsx CatalogView buckets +
+   * apps/web/lib/vendor-counts.ts CANONICAL_SERVICES_BY_FOLDER) honor this
+   * field by emitting the service into BOTH the primary folder and every
+   * secondary folder — so a vendor whose services[] contains 'accommodation'
+   * surfaces in the catering folder's FolderVendorsSection vendor query.
+   *
+   * Stay pragmatic: only add a cross-listing when it represents a real bundle
+   * Filipino couples expect (hotel→catering, hotel→reception venue setting).
+   * Speculative cross-listings (e.g. florist→stylist) belong in the vendor's
+   * own services[] array, not in the taxonomy map.
+   */
+  secondary_folders?: ReadonlyArray<WeddingFolder>;
 };
 
 /**
@@ -232,7 +252,15 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   // 20260604110000 hotel-package seed + the 2026-05-22 follow-up seed that
   // adds the 'accommodation' line item to Sofitel · Shangri-La · Conrad ·
   // Marriott · Discovery Primea · Manila Hotel).
-  accommodation:                     { folder: 'planning_logistics_travel', phase: 'V1.1 base' },
+  //
+  // 2026-05-22 (catering cross-listing) — `secondary_folders: ['catering']`
+  // surfaces hotel/accommodation vendors under the Catering folder too.
+  // PH wedding reality: most hotels bundle catering with the reception
+  // package, so couples searching catering on the dashboard planning card
+  // should see Manila Marriott, Sofitel, Shangri-La etc. inline with the
+  // dedicated catering vendors. Owner directive verbatim: "most hotels also
+  // provide catering."
+  accommodation:                     { folder: 'planning_logistics_travel', phase: 'V1.1 base', secondary_folders: ['catering'] },
 
   // ════════════════════════════════════════════════════════════════════
   // 4. PHOTO & VIDEO (15)

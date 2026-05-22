@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Plus, Check, AlertCircle } from 'lucide-react';
+import { Plus, Check, AlertCircle, CalendarPlus } from 'lucide-react';
+import Link from 'next/link';
 import {
   addVenueDirectoryEntryToPlan,
   type AddVenueToPlanResult,
@@ -27,6 +28,8 @@ type Props = {
 type LocalState =
   | { kind: 'idle' }
   | { kind: 'added' }
+  | { kind: 'no_event' }
+  | { kind: 'venue_unavailable' }
   | { kind: 'error'; message: string };
 
 export function AddVenueToPlanButton({
@@ -42,13 +45,44 @@ export function AddVenueToPlanButton({
   if (!canAdd) return null;
 
   const isAdded = state.kind === 'added';
-  const isError = state.kind === 'error';
+  const isNoEvent = state.kind === 'no_event';
+  const isVenueUnavailable = state.kind === 'venue_unavailable';
+  const isGenericError = state.kind === 'error';
+  const isError = isNoEvent || isVenueUnavailable || isGenericError;
+
+  // No-event state renders as a CTA link to /dashboard/create-event so
+  // the host can resolve the gap inline rather than seeing a dead-end
+  // "Try again" error. Per [[orphan_prevention]] the destination route
+  // exists and is wired into the chrome's empty-state "+" monogram CTA.
+  if (isNoEvent) {
+    return (
+      <Link
+        href="/dashboard/create-event"
+        className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-terracotta/40 bg-terracotta/5 px-3 py-1.5 text-xs font-medium text-terracotta transition-colors hover:border-terracotta/60 hover:bg-terracotta/10"
+        title="You don't have an event yet — create one to start saving venues."
+      >
+        <CalendarPlus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+        Create an event first
+      </Link>
+    );
+  }
 
   const stateClasses = isAdded
     ? 'border-emerald-300/60 bg-emerald-50 text-emerald-900'
     : isError
       ? 'border-rose-300/60 bg-rose-50 text-rose-900'
       : 'border-ink/15 bg-cream text-ink/80 hover:border-terracotta/50 hover:text-terracotta';
+
+  // Per-state hover tooltip copy. Specific by error variant so a host
+  // hovering over the rose-tinted chip sees the actual cause, not just
+  // "Try again."
+  const tooltip = isAdded
+    ? 'Added to your plan'
+    : isVenueUnavailable
+      ? 'This venue is no longer in our directory.'
+      : isGenericError && state.kind === 'error'
+        ? state.message
+        : 'Add this venue to your plan';
 
   return (
     <form
@@ -71,14 +105,11 @@ export function AddVenueToPlanButton({
             return;
           }
           if (result.status === 'no_primary_event') {
-            setState({
-              kind: 'error',
-              message: 'Create an event first to add venues.',
-            });
+            setState({ kind: 'no_event' });
             return;
           }
           if (result.status === 'venue_not_found') {
-            setState({ kind: 'error', message: 'Venue unavailable.' });
+            setState({ kind: 'venue_unavailable' });
             return;
           }
           setState({ kind: 'error', message: result.message ?? 'Add failed.' });
@@ -89,13 +120,7 @@ export function AddVenueToPlanButton({
       <button
         type="submit"
         disabled={isAdded || pending}
-        title={
-          isAdded
-            ? 'Added to your plan'
-            : isError && state.kind === 'error'
-              ? state.message
-              : 'Add this venue to your plan'
-        }
+        title={tooltip}
         className={`inline-flex w-full items-center justify-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-default disabled:opacity-90 ${stateClasses}`}
       >
         {isAdded ? (
@@ -103,7 +128,12 @@ export function AddVenueToPlanButton({
             <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             Added to plan
           </>
-        ) : isError ? (
+        ) : isVenueUnavailable ? (
+          <>
+            <AlertCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+            Venue unavailable
+          </>
+        ) : isGenericError ? (
           <>
             <AlertCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             Try again
@@ -111,7 +141,7 @@ export function AddVenueToPlanButton({
         ) : (
           <>
             <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            {pending ? 'Adding…' : 'Add to plan'}
+            {pending ? 'Adding' : 'Add to plan'}
           </>
         )}
       </button>

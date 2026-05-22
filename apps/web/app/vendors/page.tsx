@@ -31,7 +31,7 @@ import {
   type TaxonomyPhase,
 } from '@/lib/taxonomy';
 import { fetchVendorCountsByService } from '@/lib/vendor-counts';
-import { fetchUserEvents, formatEventDateWithPrecision, type EventDatePrecision } from '@/lib/events';
+import { fetchUserEvents, formatEventDateWithPrecision, resolvePrimaryHostEvent, type EventDatePrecision } from '@/lib/events';
 import { FollowGate } from '@/app/_components/follow-gate';
 import {
   computeCandidateWindow,
@@ -317,6 +317,20 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   if (user) {
     const userEvents = await fetchUserEvents(supabase, user.id, 'couple');
     coupleEventId = userEvents[0]?.event_id ?? null;
+    // Task #46 (2026-05-22) — hosts who joined via the iteration 0048
+    // invite flow at /host/accept/[token] only have an event_moderators
+    // row, NOT an event_members 'couple' row. Fall back to the cross-
+    // table resolver so the marketplace gates ("Add to plan" CTA,
+    // distance chips, compat filter) work for them too.
+    if (!coupleEventId) {
+      try {
+        const resolved = await resolvePrimaryHostEvent(admin, user.id);
+        coupleEventId = resolved?.event_id ?? null;
+      } catch {
+        // Best-effort fallback — the marketplace still renders without
+        // an event link; downstream UI will show the anonymous variant.
+      }
+    }
     if (coupleEventId) {
       const { data: ev } = await admin
         .from('events')

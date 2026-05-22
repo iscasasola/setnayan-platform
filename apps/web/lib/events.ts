@@ -369,3 +369,130 @@ export async function getConfirmedVendorCount(
   if (error) return 0;
   return count ?? 0;
 }
+
+// ----------------------------------------------------------------------------
+// resolvePrimaryHostEvent (2026-05-22 — Task #46)
+// ----------------------------------------------------------------------------
+// Returns the user's primary event_id across BOTH host membership models:
+//
+//   (a) event_members.member_type='couple'  → legacy V1 creator path
+//   (b) event_moderators (active, primary-host role_subtype) → iteration
+//       0048 multi-host invite path (PR #183, 2026-05-20)
+//
+// Background: the original 0021 model treated "couple" as the only host
+// concept. Iteration 0048 (CLAUDE.md 2026-05-19 row 425 + 2026-05-20 row
+// 448) introduced event_moderators with 13 role_subtypes and the host-
+// invite flow at /host/accept/[token] writes ONLY to event_moderators,
+// NOT event_members. Server actions that gate on event_members alone
+// (saveVendorToPicks · addVenueDirectoryEntryToPlan · others) return
+// 'no_primary_event' for invited hosts even though they're legitimate
+// hosts on a real event.
+//
+// Returns null when the user has no active membership in either table.
+// Throws on real DB errors so the action layer can surface a specific
+// message instead of a misleading 'no_primary_event'.
+// ----------------------------------------------------------------------------
+
+// Role subtypes that grant "primary host" status — equivalent to the
+// legacy member_type='couple' for plan-ownership purposes. Excludes
+// viewer / family_helper / ninong / ninang / maid_of_honor / best_man —
+// those roles can co-plan but aren't the canonical event-owner host.
+// Per iteration 0048 spec § Permission templates, only these subtypes
+// default to full edit+checkout permissions.
+const PRIMARY_HOST_ROLE_SUBTYPES = [
+  'bride',
+  'groom',
+  'partner1',
+  'partner2',
+  'parent_of_bride',
+  'parent_of_groom',
+  'wedding_planner_external',
+] as const;
+
+export type PrimaryHostResolution = {
+  event_id: string;
+  source: 'event_members' | 'event_moderators';
+};
+
+/**
+ * Resolves the host's primary event across both membership models.
+ * Pass the admin client when called from a server action — RLS on
+ * event_moderators is restrictive in V1.2 Phase A and would otherwise
+ * hide moderator-only rows from the very query trying to surface them.
+ */
+export async function resolvePrimaryHostEvent(
+  client: SupabaseClient,
+  userId: string,
+): Promise<PrimaryHostResolution | null> {
+  // (a) Legacy couple membership.
+  const { data: memberRows, error: memErr } = await client
+    .from('event_members')
+    .select('event_id, events:event_id(event_id, is_primary, archived)')
+    .eq('user_id', userId)
+    .eq('member_type', 'couple');
+  if (memErr) {
+    throw new Error(`event_members lookup failed: ${memErr.message}`);
+  }
+
+  // (b) event_moderators (iteration 0048 multi-host invite path).
+  const { data: modRows, error: modErr } = await client
+    .from('event_moderators')
+    .select(
+      'event_id, role_subtype, events:event_id(event_id, is_primary, archived)',
+    )
+    .eq('user_id', userId)
+    .is('removed_at', null)
+    .not('accepted_at', 'is', null)
+    .in('role_subtype', PRIMARY_HOST_ROLE_SUBTYPES as unknown as string[]);
+  if (modErr) {
+    throw new Error(`event_moderators lookup failed: ${modErr.message}`);
+  }
+
+  type EventStub = { event_id: string; is_primary: boolean; archived: boolean };
+  type Candidate = { event: EventStub; source: PrimaryHostResolution['source'] };
+  const candidates: Candidate[] = [];
+
+  for (const row of memberRows ?? []) {
+    const ev = (Array.isArray(row.events) ? row.events[0] : row.events) as
+      | EventStub
+      | null;
+    if (ev && !ev.archived) {
+      candidates.push({ event: ev, source: 'event_members' });
+    }
+  }
+
+  for (const row of modRows ?? []) {
+    const ev = (Array.isArray(row.events) ? row.events[0] : row.events) as
+      | EventStub
+      | null;
+    if (ev && !ev.archived) {
+      candidates.push({ event: ev, source: 'event_moderators' });
+    }
+  }
+
+  if (candidates.length === 0) return null;
+
+  // De-dupe by event_id (a couple-creator who later got invited as
+  // moderator would appear in both lists). Prefer the event_members
+  // entry as the canonical source.
+  const byEventId = new Map<string, Candidate>();
+  for (const c of candidates) {
+    const existing = byEventId.get(c.event.event_id);
+    if (!existing) {
+      byEventId.set(c.event.event_id, c);
+    } else if (
+      existing.source === 'event_moderators' &&
+      c.source === 'event_members'
+    ) {
+      byEventId.set(c.event.event_id, c);
+    }
+  }
+
+  const sorted = [...byEventId.values()].sort((a, b) =>
+    a.event.is_primary === b.event.is_primary ? 0 : a.event.is_primary ? -1 : 1,
+  );
+
+  const winner = sorted[0];
+  if (!winner) return null;
+  return { event_id: winner.event.event_id, source: winner.source };
+}

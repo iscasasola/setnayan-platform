@@ -53,12 +53,14 @@ export default async function EventLayout({ children, params }: Props) {
   if (!event) notFound();
 
   const tr = makeT(locale);
+  // 4-tab BottomNav per CLAUDE.md 2026-05-22 (owner directive). Vendors + Budget
+  // come out of the bottom (still reachable via planning cards on Home +
+  // top-nav Marketplace + 14-tile NavGrid). Add-ons renames to Services.
   const navLabels = {
     home: tr('nav.home'),
     guests: tr('nav.guests'),
-    vendors: tr('nav.vendors'),
-    budget: tr('nav.budget'),
-    add_ons: tr('nav.add_ons'),
+    website: tr('nav.website'),
+    services: tr('nav.services'),
   };
 
   return (

@@ -40,3 +40,30 @@ export function buildInvitationUrl(params: {
 }): string {
   return `${params.appUrl}/${params.slug}?invite=${params.qrToken}`;
 }
+
+/**
+ * Render the event's master QR — encodes `setnayan.com/{slug}` with no token
+ * suffix. The same QR drives:
+ *   (a) host-shared public landing page (Facebook · WhatsApp · save-the-date),
+ *   (b) vendor scan-at-venue Tier 1 / Tier 2 flow per 0006 (CLAUDE.md 2026-05-22
+ *       unified QR lifecycle lock).
+ *
+ * Distinct from `renderInvitationQrSvg` which encodes a guest-token URL. The
+ * master QR is anonymous; only the slug matters.
+ */
+export async function renderEventLandingQrSvg(params: {
+  appUrl: string;
+  slug: string;
+  monogram?: MonogramConfig;
+}): Promise<string> {
+  const url = `${params.appUrl}/${params.slug}`;
+  const svg = await QRCode.toString(url, { ...QR_OPTIONS, type: 'svg', width: 256 });
+  if (params.monogram) {
+    return compositeMonogram(svg, params.monogram);
+  }
+  return svg;
+}
+
+export function buildEventLandingUrl(params: { appUrl: string; slug: string }): string {
+  return `${params.appUrl}/${params.slug}`;
+}

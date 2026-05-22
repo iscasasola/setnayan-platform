@@ -349,11 +349,15 @@ export function PlanningGroups({
               ) : null}
             </header>
             {/* Layout lock 2026-05-22 (CLAUDE.md decision-log):
-                desktop = 2 cols (maximize per-card real estate so 12 cards
-                stay readable without towering), mobile = 1 col. Earlier
-                lg:grid-cols-3 + xl:grid-cols-4 made each card too narrow
-                on the laptop / wide-monitor case. */}
-            <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                mobile (<640px) = 1 col · tablet (640-1023px, no Finder
+                split) = 2 cols (PR #364 — maximizes per-card real estate
+                on tablet so 12 cards stay readable without towering) ·
+                desktop (lg+, 1024px+) = 1 col INSIDE the 420px Finder
+                left col (PR #367 — at 2 cols × ~204px each the bottom
+                Search + Add CTA row + Compare button row would squeeze
+                until effectively hidden; collapsing to 1 col gives each
+                card the full 420px so the CTAs render as designed). */}
+            <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
               {tierGroups.map((group) => {
                 const picks = bucketed.get(group.id) ?? [];
                 const recommendations =

@@ -625,6 +625,38 @@ export function planGroupForCategory(
 }
 
 /**
+ * Resolve a canonical service string (from vendor_services.category) to its
+ * target PlanGroupId. Used by the auto-add cascade in finalizeVendor (CLAUDE.md
+ * 2026-05-22) — when a vendor is locked in category X, their OTHER services
+ * (rows in vendor_services with different categories) auto-appear as
+ * considering picks in the corresponding target PlanGroups.
+ *
+ * Lightweight wrapper around `planGroupForCategory` that accepts the raw
+ * string from the DB (vendor_services.category is TEXT, not the enum type)
+ * and validates it's a known VendorCategory before resolving. Returns null
+ * for unknown / future canonical services so the cascade silently skips
+ * rows it can't bucket — never crashes, never inserts orphan rows.
+ *
+ * If Task #26's cross-category recommendations land first with a richer
+ * version of this helper, this file's helper will be replaced by an
+ * import from there (same signature). Until then this is the canonical
+ * resolver for canonical_service → PlanGroupId.
+ */
+export function canonicalServiceToPlanGroupId(
+  canonicalService: string,
+): PlanGroupId | null {
+  // VendorCategory is the enum that backs event_vendors.category AND
+  // vendor_services.category. Validate by membership in PLAN_GROUPS'
+  // declared category sets (which collectively cover the full enum).
+  for (const g of PLAN_GROUPS) {
+    if ((g.categories as readonly string[]).includes(canonicalService)) {
+      return g.id;
+    }
+  }
+  return null;
+}
+
+/**
  * Compatibility issue surfaced on a pick when the host's
  * `events.ceremony_type` OR `events.venue_setting` has drifted away
  * from a previously-picked vendor's tagged compatibility set.
@@ -716,6 +748,28 @@ export type PlanCardPick = {
    * service_primary_photo_url → marketplace_logo_url → initials.
    */
   manual_vendor_photo_url: string | null;
+  /**
+   * Auto-add-cascade-on-finalize source tracking (2026-05-22, owner
+   * directive). When `source === 'auto_cascade_from_finalize'`, this
+   * pick was inserted by the cascade — the host locked the SAME vendor
+   * in a different category and the cascade brought their other
+   * services in as considering picks. The planning-card UI renders a
+   * small Sparkles badge on these rows reading "Auto-added because
+   * they're handling your {source_category}".
+   *
+   * `null` for legacy rows (pre-2026-05-22) — UI treats null as no
+   * badge. 'host_manual' for createVendor / addCustomVendor inserts;
+   * UI treats this the same as null (no badge — the host added it
+   * themselves, no need to explain).
+   */
+  source: string | null;
+  /**
+   * Only set when source === 'auto_cascade_from_finalize'. Stores the
+   * source VendorCategory the cascade fired from so the badge can
+   * render the human-readable label (e.g. "your Catering pick").
+   * NULL otherwise.
+   */
+  source_category: VendorCategory | null;
 };
 
 export type GroupedPicks = {
@@ -812,6 +866,18 @@ export type EventVendorRowInput = {
    * (PR #341 baseline), then initials placeholder.
    */
   service_primary_photo_url?: string | null;
+  /**
+   * Auto-add-cascade-on-finalize source tracking (2026-05-22, owner
+   * directive). From event_vendors.source. See PlanCardPick.source for
+   * full doc. `null` for legacy rows + when the source column isn't
+   * selected.
+   */
+  source?: string | null;
+  /**
+   * From event_vendors.source_category. Only set when
+   * source === 'auto_cascade_from_finalize'.
+   */
+  source_category?: VendorCategory | null;
 };
 
 /**
@@ -975,6 +1041,8 @@ export function bucketVendorsByGroup(
       marketplace_city: v.marketplace_city ?? null,
       service_primary_photo_url: v.service_primary_photo_url ?? null,
       manual_vendor_photo_url: v.manual_vendor_photo_url ?? null,
+      source: v.source ?? null,
+      source_category: (v.source_category ?? null) as VendorCategory | null,
     };
     for (const g of PLAN_GROUPS) {
       if (g.categories.includes(v.category)) {

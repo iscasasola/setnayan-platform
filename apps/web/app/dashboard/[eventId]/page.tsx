@@ -316,7 +316,11 @@ export default async function EventHomePage({
           // resolution on the locked-state avatars. NULL on off-platform
           // / custom rows + pre-2026-05-22 rows — falls through to
           // marketplace_logo_url (PR #341 baseline) at render time.
-          'vendor_id, vendor_name, category, status, total_cost_php, deposit_paid_php, notes, contact_email, contact_phone, marketplace_vendor_id, source_venue_directory_id, service_id, manual_vendor_id',
+          //
+          // source + source_category (added 2026-05-22, migration
+          // 20260604120000_event_vendors_source_tracking) drive the
+          // Sparkles badge on auto-cascaded considering picks.
+          'vendor_id, vendor_name, category, status, total_cost_php, deposit_paid_php, notes, contact_email, contact_phone, marketplace_vendor_id, source_venue_directory_id, service_id, manual_vendor_id, source, source_category',
         )
         .eq('event_id', eventId)
         // Cross-category recommendations + finalize cleanup (CLAUDE.md

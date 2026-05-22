@@ -9,6 +9,7 @@ import {
   FileText,
   MessageCircle,
   ScrollText,
+  Sparkles,
 } from 'lucide-react';
 import {
   PLAN_GROUPS,
@@ -608,6 +609,15 @@ function GroupCard({
                     label={p.compatibility_issue.label}
                   />
                 ) : null}
+                {p.source === 'auto_cascade_from_finalize' &&
+                p.status !== 'locked' ? (
+                  <AutoCascadedChip
+                    eventId={eventId}
+                    vendorId={p.vendor_id}
+                    vendorName={p.vendor_name}
+                    sourceCategory={p.source_category}
+                  />
+                ) : null}
               </li>
             );
           })}
@@ -1100,6 +1110,83 @@ function CompatibilityChip({
       <button
         type="submit"
         className="shrink-0 rounded-md border border-amber-400/60 bg-cream px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-amber-900 transition-colors hover:bg-amber-100"
+      >
+        Remove
+      </button>
+    </form>
+  );
+}
+
+/**
+ * Inline auto-cascade chip — owner directive 2026-05-22.
+ *
+ * Renders on considering picks whose `source === 'auto_cascade_from_finalize'`.
+ * The host locked the SAME vendor in a different category and the
+ * cascade brought their other services in as considering picks so the
+ * host can evaluate one-stop-shop bundling without manually adding rows.
+ *
+ * Two affordances: a single Remove form-button (server action: existing
+ * deleteVendor — same flow CompatibilityChip uses) and a Sparkles icon
+ * with a polite-voice explanation reading "Auto-added because they're
+ * handling your {Source Category}".
+ *
+ * Brand voice rule: terracotta tint, not amber or red. This isn't an
+ * error or a heads-up — it's a friendly suggestion. The cascade saw
+ * that the host already trusts this vendor in another category and
+ * offered them up for consideration in adjacent categories too.
+ *
+ * Per "Keep considering / Lock too" lock from the task brief: the
+ * "Keep considering" path is the default state (row stays as-is, no
+ * extra UI needed). "Lock too" is reached via the existing compare
+ * drawer + finalize flow once the host has 2+ picks in the category.
+ * No extra button needed here — the chip just explains WHY the row
+ * is there and gives a one-tap escape if it's unwanted.
+ */
+function AutoCascadedChip({
+  eventId,
+  vendorId,
+  vendorName,
+  sourceCategory,
+}: {
+  eventId: string;
+  vendorId: string;
+  vendorName: string;
+  sourceCategory: VendorCategory | null;
+}) {
+  // Read the source category label from the same canonical map every
+  // other surface uses. Falls back to "another category" defensively
+  // when sourceCategory is null (legacy / pre-2026-05-22 rows that
+  // somehow got the source flag without the category — shouldn't
+  // happen for fresh cascades but keeps the chip resilient).
+  const sourceLabel = sourceCategory
+    ? VENDOR_CATEGORY_LABEL[sourceCategory] ?? sourceCategory
+    : 'another category';
+
+  // Strip the trailing -er / pluralization so the sentence reads
+  // naturally — "your Catering pick" sounds right, "your Photographer
+  // pick" reads cleanly. The VENDOR_CATEGORY_LABEL values are already
+  // human-friendly so we use them as-is and lowercase the first
+  // character for inline grammar.
+  return (
+    <form
+      action={deleteVendor}
+      className="flex flex-wrap items-start gap-2 rounded-md border border-terracotta/25 bg-terracotta/[0.04] px-2.5 py-1.5"
+    >
+      <input type="hidden" name="event_id" value={eventId} />
+      <input type="hidden" name="vendor_id" value={vendorId} />
+      <Sparkles
+        aria-hidden
+        className="mt-0.5 h-3.5 w-3.5 shrink-0 text-terracotta"
+        strokeWidth={1.75}
+      />
+      <p className="min-w-0 flex-1 text-[11px] leading-snug text-ink/75">
+        Auto-added because {vendorName} is handling your{' '}
+        <span className="font-medium text-ink">{sourceLabel}</span>.
+      </p>
+      <button
+        type="submit"
+        aria-label={`Remove ${vendorName} from this card`}
+        className="shrink-0 rounded-md border border-terracotta/30 bg-cream px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-terracotta transition-colors hover:bg-terracotta/10"
       >
         Remove
       </button>

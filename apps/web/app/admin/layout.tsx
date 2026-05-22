@@ -20,7 +20,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     supabase
       .from('users')
       .select(
-        'display_name, email, account_type, is_internal, is_team_member, theme_preference, tour_seen_keys',
+        'display_name, email, account_type, is_internal, is_team_member, tour_seen_keys',
       )
       .eq('user_id', user.id)
       .maybeSingle(),
@@ -36,7 +36,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // bouncing to /dashboard, which could leak the existence of /admin.
   if (!isAdmin) notFound();
 
-  const theme = profile?.theme_preference ?? 'setnayan_default';
+  // 2026-05-22 brand pivot: per-wrapper `data-theme` retired; light/dark
+  // toggled by the global ThemeProvider's `html.dark` class. See CLAUDE.md.
   const displayName = profile?.display_name ?? profile?.email ?? 'Admin';
   const badge = profile?.is_internal
     ? { label: '🟣 Internal', tone: 'bg-purple-100 text-purple-800' }
@@ -45,7 +46,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       : { label: 'Admin', tone: 'bg-ink/10 text-ink/70' };
 
   return (
-    <div data-theme={theme} className="flex min-h-dvh flex-col bg-cream">
+    <div className="flex min-h-dvh flex-col bg-cream">
       <header className="border-b border-ink/10 bg-cream">
         <div className="mx-auto flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
           <Link href="/admin" className="flex items-center text-ink">

@@ -36,7 +36,7 @@ export default async function VendorDashboardLayout({
     supabase
       .from('users')
       .select(
-        'account_type, theme_preference, email, display_name, deleted_at',
+        'account_type, email, display_name, deleted_at',
       )
       .eq('user_id', user.id)
       .maybeSingle(),
@@ -55,11 +55,12 @@ export default async function VendorDashboardLayout({
     redirect('/dashboard');
   }
 
-  const theme = profile?.theme_preference ?? 'setnayan_default';
+  // 2026-05-22 brand pivot: per-wrapper `data-theme` retired; light/dark
+  // toggled by the global ThemeProvider's `html.dark` class. See CLAUDE.md.
   const displayName = profile?.display_name ?? profile?.email ?? 'Vendor';
 
   return (
-    <div data-theme={theme} className="flex min-h-dvh flex-col bg-cream">
+    <div className="flex min-h-dvh flex-col bg-cream">
       <header className="border-b border-ink/10 bg-cream">
         <div className="mx-auto flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
           <Link href="/vendor-dashboard" className="flex items-center text-ink">

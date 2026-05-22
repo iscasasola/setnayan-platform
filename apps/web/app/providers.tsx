@@ -22,6 +22,7 @@ import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persist
 import { getQueryClient } from '@/lib/query-client';
 import { DeferredObservability } from './_components/deferred-observability';
 import { PostHogProvider } from './_components/posthog-provider';
+import { ThemeProvider, type ThemeMode } from './_components/theme-provider';
 
 const PERSIST_KEY = 'setnayan-query-cache';
 const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days — spec § 3.1
@@ -80,7 +81,19 @@ function createIdbStorage(): Storage {
   };
 }
 
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({
+  children,
+  initialThemeMode = 'auto',
+}: {
+  children: React.ReactNode;
+  /**
+   * SSR-resolved theme mode from `users.theme_preference` (or 'auto' for
+   * anonymous visitors). Wraps everything so client components can call
+   * `useTheme()` to read/write the current mode.
+   * 2026-05-22 brand pivot — see CLAUDE.md decision-log.
+   */
+  initialThemeMode?: ThemeMode;
+}) {
   const [queryClient] = useState(() => getQueryClient());
   const [persister] = useState(() =>
     createSyncStoragePersister({
@@ -90,31 +103,33 @@ export function Providers({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <PersistQueryClientProvider
-      client={queryClient}
-      persistOptions={{
-        persister,
-        maxAge: MAX_AGE_MS,
-        buster: process.env.NEXT_PUBLIC_CACHE_BUSTER ?? 'v1',
-      }}
-    >
-      {/*
-        TODO: pass `userId` from a server component once we have a clean
-        place to read it (e.g., a SignedInProviders wrapper). For now the
-        PostHogProvider resolves the Supabase user_id itself via the
-        browser client + onAuthStateChange — keeps providers.tsx free of
-        server-only imports and avoids plumbing the id through every
-        layout.
-      */}
-      <PostHogProvider>{children}</PostHogProvider>
-      {/*
-        Sentry browser SDK is lazy-loaded post-hydration via a deferred
-        client component so the ~105 kB `@sentry/nextjs` chunk stays
-        out of the shared First Load JS bundle. Server-side Sentry
-        (instrumentation.ts + sentry.{server,edge}.config.ts) is
-        untouched and continues to capture server errors eagerly.
-      */}
-      <DeferredObservability />
-    </PersistQueryClientProvider>
+    <ThemeProvider initialMode={initialThemeMode}>
+      <PersistQueryClientProvider
+        client={queryClient}
+        persistOptions={{
+          persister,
+          maxAge: MAX_AGE_MS,
+          buster: process.env.NEXT_PUBLIC_CACHE_BUSTER ?? 'v1',
+        }}
+      >
+        {/*
+          TODO: pass `userId` from a server component once we have a clean
+          place to read it (e.g., a SignedInProviders wrapper). For now the
+          PostHogProvider resolves the Supabase user_id itself via the
+          browser client + onAuthStateChange — keeps providers.tsx free of
+          server-only imports and avoids plumbing the id through every
+          layout.
+        */}
+        <PostHogProvider>{children}</PostHogProvider>
+        {/*
+          Sentry browser SDK is lazy-loaded post-hydration via a deferred
+          client component so the ~105 kB `@sentry/nextjs` chunk stays
+          out of the shared First Load JS bundle. Server-side Sentry
+          (instrumentation.ts + sentry.{server,edge}.config.ts) is
+          untouched and continues to capture server errors eagerly.
+        */}
+        <DeferredObservability />
+      </PersistQueryClientProvider>
+    </ThemeProvider>
   );
 }

@@ -7,6 +7,7 @@ import { ClientTypeDetector } from './_components/client-type-detector';
 import { DemoModeBanner } from './_components/demo-mode-banner';
 import { PilotModeBanner } from './_components/pilot-mode-banner';
 import { Providers } from './providers';
+import { themeBootstrapScript } from './_components/theme-provider';
 
 // Brand typography — iteration 0015 § Brand. Self-hosted via next/font/google
 // so the fonts ship in the same render lifecycle as the page (no FOUT, no
@@ -81,8 +82,14 @@ export const metadata: Metadata = {
   },
 };
 
+// 2026-05-22 brand pivot: theme-color responds to light vs dark mode so iOS
+// Safari + Android Chrome tint the URL bar to match the active palette.
+// Light → Facebook white. Dark → Facebook dark surface.
 export const viewport: Viewport = {
-  themeColor: '#FAF7F2',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#FFFFFF' },
+    { media: '(prefers-color-scheme: dark)', color: '#18191A' },
+  ],
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
@@ -112,6 +119,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${cormorant.variable} ${manrope.variable} ${dmMono.variable}`}
     >
       <head>
+        {/*
+          FOUC-safe theme bootstrap — 2026-05-22 brand pivot.
+          Runs synchronously before first paint, reads localStorage.theme,
+          applies `dark` class to <html> when resolved theme is dark. Keeps
+          light/dark toggles from flashing the wrong palette on cold loads.
+          See _components/theme-provider.tsx for the algorithm.
+        */}
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
         {supabaseOrigin ? (
           <>
             <link rel="preconnect" href={supabaseOrigin} crossOrigin="anonymous" />

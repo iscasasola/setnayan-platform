@@ -17,7 +17,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const { data: profile } = await supabase
     .from('users')
-    .select('theme_preference, account_type, deleted_at, tour_seen_keys')
+    .select('account_type, deleted_at, tour_seen_keys')
     .eq('user_id', user.id)
     .maybeSingle();
 
@@ -32,7 +32,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
     redirect('/vendor-dashboard');
   }
 
-  const theme = profile?.theme_preference ?? 'setnayan_default';
+  // 2026-05-22 brand pivot: per-wrapper `data-theme` is retired. The global
+  // ThemeProvider toggles `html.dark` instead of swapping a 5-theme palette
+  // attribute — see CLAUDE.md decision-log for the rationale. `theme_preference`
+  // is still read on the profile settings page for the picker UI.
 
   // Resolve the chrome data once at the layout level so the outer header
   // can render the per-event monogram switcher + (I) menu (iteration 0000
@@ -59,7 +62,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // OuterDashboardHeader returns null there to avoid the two-stacked-row
   // drift confirmed in production 2026-05-15.
   return (
-    <div data-theme={theme} className="flex min-h-dvh flex-col bg-cream">
+    <div className="flex min-h-dvh flex-col bg-cream">
       <OuterDashboardHeader
         userId={user.id}
         email={user.email ?? ''}

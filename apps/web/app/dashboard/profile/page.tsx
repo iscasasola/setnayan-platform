@@ -7,13 +7,14 @@ import { fetchUserEvents } from '@/lib/events';
 import { restartTour } from '@/lib/tour-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { makeT } from '@/lib/i18n';
+import { isThemeMode, type ThemeMode } from '@/app/_components/theme-provider';
+import { ThemeModePicker } from './_components/theme-mode-picker';
 import {
   changePassword,
   softDeleteAccount,
   updateLocalePreference,
   updatePersonalInfo,
   updatePlannerMode,
-  updateThemePreference,
 } from './actions';
 
 export const metadata = { title: 'Profile' };
@@ -27,45 +28,9 @@ type Props = {
   }>;
 };
 
-type ThemeKey = 'setnayan_default' | 'victorian' | 'classy' | 'ios' | 'forest_champagne';
-
-const THEMES: Array<{
-  key: ThemeKey;
-  label: string;
-  tagline: string;
-  swatches: { cream: string; ink: string; accent: string };
-}> = [
-  {
-    key: 'setnayan_default',
-    label: 'Setnayan Default Color',
-    tagline: 'Warm cream · ink · deep burgundy',
-    swatches: { cream: '#FAF6F0', ink: '#1A1A1A', accent: '#7A1F2B' },
-  },
-  {
-    key: 'victorian',
-    label: 'Victorian',
-    tagline: 'Parchment · burgundy · ornate',
-    swatches: { cream: '#F5EBD9', ink: '#2E1A1A', accent: '#8B1E3F' },
-  },
-  {
-    key: 'classy',
-    label: 'Classy',
-    tagline: 'Warm white · black · champagne',
-    swatches: { cream: '#F4F4F2', ink: '#0F0F0F', accent: '#A38560' },
-  },
-  {
-    key: 'ios',
-    label: 'iOS',
-    tagline: 'System grey · black · blue',
-    swatches: { cream: '#F2F2F7', ink: '#000000', accent: '#007AFF' },
-  },
-  {
-    key: 'forest_champagne',
-    label: 'Forest & Champagne Gold',
-    tagline: 'Warm off-cream · deep forest · champagne gold',
-    swatches: { cream: '#F4F0E8', ink: '#1A2520', accent: '#2D4A3A' },
-  },
-];
+// 2026-05-22 brand pivot: 5-theme array retired. Theme picker is now a
+// 3-mode (Light · Dark · Auto) ThemeModePicker client component. See
+// _components/theme-mode-picker.tsx and CLAUDE.md decision-log.
 
 export default async function ProfilePage({ searchParams }: Props) {
   const search = await searchParams;
@@ -83,7 +48,14 @@ export default async function ProfilePage({ searchParams }: Props) {
     .eq('user_id', user.id)
     .single();
 
-  const activeTheme = (profile?.theme_preference ?? 'setnayan_default') as ThemeKey;
+  // 2026-05-22 brand pivot: theme_preference now holds 'light' | 'dark' | 'auto'.
+  // Defensive fallback to 'auto' covers (a) anonymous shouldn't reach here, and
+  // (b) the migration in 20260606000000_users_theme_preference_three_mode.sql
+  // remaps legacy 'setnayan_default' / 'victorian' / 'classy' / 'forest_champagne'
+  // to 'light' and legacy 'ios' to 'auto' — any stale rows that escape the
+  // migration also fall back to 'auto' here.
+  const rawTheme = profile?.theme_preference;
+  const activeThemeMode: ThemeMode = isThemeMode(rawTheme) ? rawTheme : 'auto';
   const activePlannerMode = (profile?.planner_mode ?? 'guided') as 'guided' | 'diy';
   // Iteration 0025 — runtime EN/TL toggle. The DB enum also has 'ceb' but the
   // UI exposes EN/TL only; anything else falls back to EN in the toggle.
@@ -387,58 +359,20 @@ export default async function ProfilePage({ searchParams }: Props) {
       <section className="mt-10 space-y-4">
         <div className="space-y-1">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Theme
+            Appearance
           </h2>
           <p className="text-sm text-ink/60">
-            Switches the look of every dashboard surface. Your public invitation site stays on
-            Setnayan Default — that&rsquo;s a separate branding control on the invitation page.
+            Light, Dark, or Auto — just like iOS. Your wedding landing page keeps
+            its own palette from the mood board; this only changes how Setnayan looks
+            for you.
           </p>
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {THEMES.map((t) => {
-            const isActive = t.key === activeTheme;
-            return (
-              <form key={t.key} action={updateThemePreference}>
-                <input type="hidden" name="theme" value={t.key} />
-                <button
-                  type="submit"
-                  disabled={isActive}
-                  className={`group flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${
-                    isActive
-                      ? 'border-terracotta bg-terracotta/5'
-                      : 'border-ink/10 bg-cream hover:border-terracotta/50'
-                  }`}
-                >
-                  <span
-                    aria-hidden
-                    className="flex h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-ink/10"
-                    style={{ backgroundColor: t.swatches.cream }}
-                  >
-                    <span
-                      className="h-full w-1/2"
-                      style={{ backgroundColor: t.swatches.ink }}
-                    />
-                    <span
-                      className="h-full w-1/2"
-                      style={{ backgroundColor: t.swatches.accent }}
-                    />
-                  </span>
-                  <span className="flex min-w-0 flex-col">
-                    <span className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-ink">{t.label}</span>
-                      {isActive ? (
-                        <span className="rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
-                          Active
-                        </span>
-                      ) : null}
-                    </span>
-                    <span className="truncate text-xs text-ink/55">{t.tagline}</span>
-                  </span>
-                </button>
-              </form>
-            );
-          })}
-        </div>
+        {/*
+          2026-05-22 brand pivot: client component so the picker applies the
+          mode INSTANTLY (no full page reload) while a transition persists the
+          choice to `users.theme_preference` in the background.
+        */}
+        <ThemeModePicker initialMode={activeThemeMode} />
       </section>
 
       <section className="mt-10 space-y-4">

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+import { resolvePrimaryHostEvent } from '@/lib/events';
 import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
 
 // Iteration 0041 — email capture for Coming-Soon event_type interest.
@@ -132,25 +133,20 @@ export async function saveVendorToPicks(formData: FormData): Promise<SaveVendorR
 
   const admin = createAdminClient();
 
-  // 1. Resolve the user's primary couple event.
-  const { data: membershipRows, error: memError } = await admin
-    .from('event_members')
-    .select('event_id, events:event_id(event_id, is_primary, archived)')
-    .eq('user_id', user.id)
-    .eq('member_type', 'couple');
-  if (memError) {
-    return { status: 'error', message: memError.message };
-  }
-
-  type EventStub = { event_id: string; is_primary: boolean; archived: boolean };
-  const events = (membershipRows ?? [])
-    .map((r) => (Array.isArray(r.events) ? r.events[0] : r.events) as EventStub | null)
-    .filter((e): e is EventStub => e !== null && !e.archived)
-    .sort((a, b) => (a.is_primary === b.is_primary ? 0 : a.is_primary ? -1 : 1));
-
-  const primaryEvent = events[0];
-  if (!primaryEvent) {
-    return { status: 'no_primary_event' };
+  // 1. Resolve the user's primary host event across BOTH membership
+  //    models — event_members (legacy 'couple') and event_moderators
+  //    (iteration 0048 multi-host invite path). See
+  //    resolvePrimaryHostEvent in @/lib/events for the rule.
+  let primaryEvent: { event_id: string };
+  try {
+    const resolved = await resolvePrimaryHostEvent(admin, user.id);
+    if (!resolved) {
+      return { status: 'no_primary_event' };
+    }
+    primaryEvent = { event_id: resolved.event_id };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Unknown resolution error';
+    return { status: 'error', message };
   }
 
   // 2. Load the vendor profile (name + services for category mapping +
@@ -290,24 +286,19 @@ export async function addVenueDirectoryEntryToPlan(
 
   const admin = createAdminClient();
 
-  // 1. Resolve the user's primary couple event (same shape as saveVendorToPicks).
-  const { data: membershipRows, error: memError } = await admin
-    .from('event_members')
-    .select('event_id, events:event_id(event_id, is_primary, archived)')
-    .eq('user_id', user.id)
-    .eq('member_type', 'couple');
-  if (memError) {
-    return { status: 'error', message: memError.message };
-  }
-
-  type EventStub = { event_id: string; is_primary: boolean; archived: boolean };
-  const events = (membershipRows ?? [])
-    .map((r) => (Array.isArray(r.events) ? r.events[0] : r.events) as EventStub | null)
-    .filter((e): e is EventStub => e !== null && !e.archived)
-    .sort((a, b) => (a.is_primary === b.is_primary ? 0 : a.is_primary ? -1 : 1));
-  const primaryEvent = events[0];
-  if (!primaryEvent) {
-    return { status: 'no_primary_event' };
+  // 1. Resolve the user's primary host event across BOTH membership
+  //    models (legacy event_members 'couple' + iteration 0048
+  //    event_moderators invite path). Same helper as saveVendorToPicks.
+  let primaryEvent: { event_id: string };
+  try {
+    const resolved = await resolvePrimaryHostEvent(admin, user.id);
+    if (!resolved) {
+      return { status: 'no_primary_event' };
+    }
+    primaryEvent = { event_id: resolved.event_id };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Unknown resolution error';
+    return { status: 'error', message };
   }
 
   // 2. Load the directory row (name + venue_type drives the category;

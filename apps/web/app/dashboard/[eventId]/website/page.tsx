@@ -10,6 +10,7 @@ import {
   Lock,
   Pencil,
   QrCode,
+  Shirt,
   Users,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -322,8 +323,8 @@ export default async function WebsiteHubPage({
               </div>
             )}
           </li>
-          {/* CLAUDE.md 2026-05-22 — landing-page visibility tile. Routes
-              to /dashboard/[eventId]/website/privacy for the Public /
+          {/* CLAUDE.md 2026-05-22 — landing-page visibility tile (PR #381).
+              Routes to /dashboard/[eventId]/website/privacy for the Public /
               Unlisted / Private picker (V1 minimum-viable privacy lever
               for the Phase 4 RA 10173 work-stream in iteration 0046). */}
           <li>
@@ -339,6 +340,26 @@ export default async function WebsiteHubPage({
               <p className="text-sm font-semibold text-ink">Set who can view</p>
               <p className="text-xs text-ink/55">
                 Public, unlisted, or private — change anytime.
+              </p>
+            </Link>
+          </li>
+          {/* Edit dress code — CLAUDE.md 2026-05-22 sibling of Hero Photo +
+              Photo Moments + Privacy. Host curates dress-code copy +
+              palette + dos/donts; landing page renders from
+              events.dress_code_config (migration 20260605030000). */}
+          <li>
+            <Link
+              href={`/dashboard/${eventId}/website/dress-code`}
+              className="group flex h-full min-h-[44pt] flex-col gap-2 rounded-xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/40 hover:bg-white/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+            >
+              <Shirt
+                aria-hidden
+                className="h-5 w-5 text-terracotta"
+                strokeWidth={1.75}
+              />
+              <p className="text-sm font-semibold text-ink">Edit dress code</p>
+              <p className="text-xs text-ink/55">
+                Headline, palette, and dos &amp; don&rsquo;ts for your guests.
               </p>
             </Link>
           </li>

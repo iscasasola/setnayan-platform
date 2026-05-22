@@ -156,7 +156,14 @@ INSERT INTO public.events (
   display_name,
   event_date,
   is_primary,
-  archived
+  archived,
+  -- Wedding-only required fields per
+  -- 20260521080000_iteration_0041_non_wedding_event_nullable_wedding_fields.sql.
+  -- The biconditional CHECK `events_wedding_fields_consistency` requires
+  -- both NOT NULL when event_type = 'wedding'. The 'catholic'/'banquet_hall'
+  -- defaults were dropped by that migration so we set them explicitly here.
+  ceremony_type,
+  venue_setting
 )
 SELECT
   'wedding'::public.event_type,
@@ -165,7 +172,21 @@ SELECT
   -- 1-12 months ago (review-eligible window).
   (CURRENT_DATE - (30 + (cn.rn * 11) % 540)::INT)::DATE,
   FALSE,
-  TRUE
+  TRUE,
+  -- Rotate ceremony_type + venue_setting across the catalog so the seeded
+  -- events feel like a realistic distribution rather than 50 identical
+  -- Catholic banquet weddings.
+  --
+  -- We deliberately skip 'muslim' and 'cultural' because
+  -- `events_sub_type_required_when_muslim_or_cultural` CHECK requires
+  -- ceremony_sub_type NOT NULL for those — out of scope for a vendor-reviews
+  -- seed. 'mixed' is OK because is_mixed_ceremony defaults to FALSE which
+  -- makes the secondary_ceremony_type constraint vacuous.
+  --
+  -- Picks from the 5 unconstrained ceremony types + all 7 venue settings
+  -- via independent mod-rotation per row.
+  (ARRAY['catholic','civil','inc','christian','mixed'])[1 + (cn.rn % 5)],
+  (ARRAY['banquet_hall','garden','beach','destination','heritage','outdoor_tent','civil_registrar'])[1 + ((cn.rn * 3) % 7)]
 FROM couple_names cn
 WHERE NOT EXISTS (
   SELECT 1 FROM public.events e

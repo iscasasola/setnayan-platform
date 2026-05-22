@@ -2,16 +2,16 @@
 
 import { useState, useTransition } from 'react';
 import { ArrowDown, ArrowUp, Camera, CircleSlash, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { updatePhotoMoments } from '../actions';
 import {
   PHOTO_MOMENT_LIMITS,
   PHOTO_MOMENT_MODES,
   PHOTO_MOMENT_MODE_HINT,
   PHOTO_MOMENT_MODE_LABEL,
-  updatePhotoMoments,
   type PhotoMoment,
   type PhotoMomentMode,
   type PhotoMomentsConfig,
-} from '../actions';
+} from '../config';
 
 /**
  * Client-side editor for the Photo Moments JSONB column. Keeps the

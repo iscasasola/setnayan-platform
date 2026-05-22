@@ -3,6 +3,14 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import {
+  isPhotoMomentMode,
+  PHOTO_MOMENT_LIMITS,
+  type PhotoMoment,
+  type PhotoMomentMode,
+  type PhotoMomentsConfig,
+  type UpdatePhotoMomentsResult,
+} from './config';
 
 // Photo Moments — host-curated phone-down moments shown on the public
 // landing page at /[slug]. Replaces the hardcoded sample list
@@ -15,77 +23,13 @@ import { createClient } from '@/lib/supabase/server';
 // endpoints — the editor page submits the whole list in one form so the
 // host sees a single Save button (not per-row CRUD).
 //
-// Co-dispatched with Hero Photo, Dress Code, and Privacy editors (all
-// 2026-05-22 same-day).
-
-const MAX_MOMENTS = 8;
-const MAX_INTRO_LEN = 240;
-const MAX_TIME_LABEL_LEN = 60;
-const MAX_TITLE_LEN = 80;
-const MAX_NOTE_LEN = 200;
-
-// Fixed enum keeps the landing-page render branch-safe — three modes,
-// each gets its own visual treatment (camera icon, quiet phone-down
-// icon, Papic-branded chip per iteration 0012). Adding a fourth mode
-// requires extending both this validator AND the renderer; do not let
-// unknown strings through.
-const MODE_VALUES = ['camera_ok', 'phone_down', 'papic_only'] as const;
-export type PhotoMomentMode = (typeof MODE_VALUES)[number];
-
-export type PhotoMoment = {
-  time_label: string;
-  title: string;
-  note: string;
-  mode: PhotoMomentMode;
-};
-
-export type PhotoMomentsConfig = {
-  intro_copy: string;
-  moments: PhotoMoment[];
-};
-
-export type UpdatePhotoMomentsResult =
-  | { ok: true }
-  | { ok: false; error: string };
-
-function isPhotoMomentMode(value: string): value is PhotoMomentMode {
-  return (MODE_VALUES as readonly string[]).includes(value);
-}
-
-/**
- * Reads the existing config off events.photo_moments_config and coerces
- * it to a known-good shape for the editor form. Unknown JSON shapes
- * (corrupted, partial, old) degrade gracefully to empty defaults so the
- * editor never crashes on a bad row.
- */
-export function parsePhotoMomentsConfig(raw: unknown): PhotoMomentsConfig {
-  const empty: PhotoMomentsConfig = { intro_copy: '', moments: [] };
-  if (!raw || typeof raw !== 'object') return empty;
-
-  const obj = raw as Record<string, unknown>;
-  const intro = typeof obj.intro_copy === 'string' ? obj.intro_copy : '';
-
-  const momentsRaw = Array.isArray(obj.moments) ? obj.moments : [];
-  const moments: PhotoMoment[] = [];
-  for (const m of momentsRaw) {
-    if (!m || typeof m !== 'object') continue;
-    const item = m as Record<string, unknown>;
-    const timeLabel = typeof item.time_label === 'string' ? item.time_label : '';
-    const title = typeof item.title === 'string' ? item.title : '';
-    const note = typeof item.note === 'string' ? item.note : '';
-    const mode =
-      typeof item.mode === 'string' && isPhotoMomentMode(item.mode)
-        ? item.mode
-        : 'phone_down';
-    // Skip rows with no title — they're meaningless on the landing page
-    // and produce empty bullet entries that look like dev placeholders.
-    if (title.trim().length === 0) continue;
-    moments.push({ time_label: timeLabel, title, note, mode });
-    if (moments.length >= MAX_MOMENTS) break;
-  }
-
-  return { intro_copy: intro, moments };
-}
+// Hotfix 2026-05-22: file used to mix sync helpers + types into the
+// 'use server' module which broke the Vercel build (Server Actions
+// must be async functions). All sync exports moved to ./config.ts;
+// this file is now async-only + clean of non-action exports.
+//
+// Co-shipped with Hero Photo (PR #388), Dress Code (PR #382), and
+// Privacy (PR #381) editors (all 2026-05-22 same-day).
 
 /**
  * Persists the host's photo-moments config onto
@@ -120,7 +64,7 @@ export async function updatePhotoMoments(
   const introRaw = formData.get('intro_copy');
   const introCopy =
     typeof introRaw === 'string'
-      ? introRaw.trim().slice(0, MAX_INTRO_LEN)
+      ? introRaw.trim().slice(0, PHOTO_MOMENT_LIMITS.MAX_INTRO_LEN)
       : '';
 
   // Parallel arrays — each moment row submits four fields with the
@@ -143,7 +87,7 @@ export async function updatePhotoMoments(
   for (let i = 0; i < rowCount; i++) {
     const titleRaw = titles[i];
     if (typeof titleRaw !== 'string') continue;
-    const title = titleRaw.trim().slice(0, MAX_TITLE_LEN);
+    const title = titleRaw.trim().slice(0, PHOTO_MOMENT_LIMITS.MAX_TITLE_LEN);
     // Drop rows without a title — scaffold rows the host added but
     // never filled in shouldn't show up as empty bullets. The host
     // doesn't have to manually delete them before saving.
@@ -152,12 +96,14 @@ export async function updatePhotoMoments(
     const timeLabelRaw = timeLabels[i];
     const timeLabel =
       typeof timeLabelRaw === 'string'
-        ? timeLabelRaw.trim().slice(0, MAX_TIME_LABEL_LEN)
+        ? timeLabelRaw.trim().slice(0, PHOTO_MOMENT_LIMITS.MAX_TIME_LABEL_LEN)
         : '';
 
     const noteRaw = notes[i];
     const note =
-      typeof noteRaw === 'string' ? noteRaw.trim().slice(0, MAX_NOTE_LEN) : '';
+      typeof noteRaw === 'string'
+        ? noteRaw.trim().slice(0, PHOTO_MOMENT_LIMITS.MAX_NOTE_LEN)
+        : '';
 
     const modeRaw = modes[i];
     const mode: PhotoMomentMode =
@@ -166,7 +112,7 @@ export async function updatePhotoMoments(
         : 'phone_down';
 
     moments.push({ time_label: timeLabel, title, note, mode });
-    if (moments.length >= MAX_MOMENTS) break;
+    if (moments.length >= PHOTO_MOMENT_LIMITS.MAX_MOMENTS) break;
   }
 
   const config: PhotoMomentsConfig = {
@@ -211,27 +157,3 @@ export async function updatePhotoMoments(
 
   return { ok: true };
 }
-
-// Re-exports so the editor page + landing renderer can share the
-// same shape constants without re-typing them.
-export const PHOTO_MOMENT_LIMITS = {
-  MAX_MOMENTS,
-  MAX_INTRO_LEN,
-  MAX_TIME_LABEL_LEN,
-  MAX_TITLE_LEN,
-  MAX_NOTE_LEN,
-} as const;
-
-export const PHOTO_MOMENT_MODES = MODE_VALUES;
-
-export const PHOTO_MOMENT_MODE_LABEL: Record<PhotoMomentMode, string> = {
-  camera_ok: 'Cameras welcome',
-  phone_down: 'Phone-down — stay present',
-  papic_only: 'Our paparazzo will capture this',
-};
-
-export const PHOTO_MOMENT_MODE_HINT: Record<PhotoMomentMode, string> = {
-  camera_ok: 'Guests welcome to shoot freely.',
-  phone_down: 'Ask guests to put phones down and savour the moment.',
-  papic_only: 'Reserved for your Papic team — guests stay present.',
-};

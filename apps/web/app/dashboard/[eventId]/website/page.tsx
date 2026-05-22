@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import {
   ArrowRight,
+  Camera,
   Copy,
   Download,
   ExternalLink,
@@ -323,10 +324,31 @@ export default async function WebsiteHubPage({
               </div>
             )}
           </li>
-          {/* CLAUDE.md 2026-05-22 — landing-page visibility tile (PR #381).
-              Routes to /dashboard/[eventId]/website/privacy for the Public /
-              Unlisted / Private picker (V1 minimum-viable privacy lever
-              for the Phase 4 RA 10173 work-stream in iteration 0046). */}
+          {/* CLAUDE.md 2026-05-22 — three sibling landing-page editors merged
+              cleanly: Photo Moments (PR #383) · Privacy (PR #381 · merged) ·
+              Dress Code (PR #382 · merged). Each adds one tile to the
+              Quick Actions grid in append-only fashion. */}
+          {/* Photo Moments editor — PR #383 landing-page-photo-moments. */}
+          <li>
+            <Link
+              href={`/dashboard/${eventId}/website/photo-moments`}
+              className="group flex h-full min-h-[44pt] flex-col gap-2 rounded-xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/40 hover:bg-white/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+            >
+              <Camera
+                aria-hidden
+                className="h-5 w-5 text-terracotta"
+                strokeWidth={1.75}
+              />
+              <p className="text-sm font-semibold text-ink">Edit photo moments</p>
+              <p className="text-xs text-ink/55">
+                Phone-down, cameras welcome, or reserved for your paparazzo.
+              </p>
+            </Link>
+          </li>
+          {/* Privacy tile — PR #381 landing-page-privacy-toggle. Routes to
+              /dashboard/[eventId]/website/privacy for the Public / Unlisted
+              / Private picker (V1 minimum-viable privacy lever for the
+              Phase 4 RA 10173 work-stream in iteration 0046). */}
           <li>
             <Link
               href={`/dashboard/${eventId}/website/privacy`}
@@ -343,9 +365,8 @@ export default async function WebsiteHubPage({
               </p>
             </Link>
           </li>
-          {/* Edit dress code — CLAUDE.md 2026-05-22 sibling of Hero Photo +
-              Photo Moments + Privacy. Host curates dress-code copy +
-              palette + dos/donts; landing page renders from
+          {/* Dress Code tile — PR #382 landing-page-dress-code. Host curates
+              copy + palette + dos/donts; landing page renders from
               events.dress_code_config (migration 20260605030000). */}
           <li>
             <Link

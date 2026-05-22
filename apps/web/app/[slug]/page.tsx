@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { Lock } from 'lucide-react';
+import { Camera, CircleSlash, Lock, Sparkles } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
@@ -90,7 +90,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   const { data: event } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, landing_page_visibility, dress_code_config',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, photo_moments_config, landing_page_visibility, dress_code_config',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -250,7 +250,12 @@ type EventRow = {
   venue_latitude: number | null;
   venue_longitude: number | null;
   slug: string;
-  // Host-curated dress code (CLAUDE.md 2026-05-22). Stored as JSONB so a
+  // JSONB column populated by the host via /dashboard/[eventId]/website/photo-moments.
+  // Shape: { intro_copy: string, moments: [{ time_label, title, note, mode }] }.
+  // Unknown / empty shapes degrade gracefully in PhotoMomentsWidget — the
+  // widget renders polite fallback copy when no moments are curated.
+  photo_moments_config: unknown;
+  // Host-curated dress code (CLAUDE.md 2026-05-22 PR #382). Stored as JSONB so a
   // brand-new event gets `{}` and the renderer's empty-state branch fires.
   // Editor at /dashboard/[eventId]/website/dress-code stamps this shape.
   dress_code_config?: {
@@ -260,6 +265,9 @@ type EventRow = {
     donts?: string[];
     palette?: { name: string; hex: string }[];
   } | null;
+  // Landing page visibility lever from PR #381 — ‹public, unlisted, private›.
+  // Private renders <PrivateLanding> for non-guest visitors.
+  landing_page_visibility?: 'public' | 'unlisted' | 'private' | null;
 };
 
 type GuestRow = {
@@ -580,8 +588,9 @@ function InvitationSite({
             section is intentional. */}
         <DressCodeWidget config={event.dress_code_config ?? null} />
 
-        {/* Photo moments */}
-        <PhotoMomentsWidget />
+        {/* Photo moments — host-curated via /dashboard/[eventId]/website/photo-moments.
+            Falls back to polite brand-voice copy when the host hasn't curated yet. */}
+        <PhotoMomentsWidget config={event.photo_moments_config} />
 
         {/* Your photos (placeholder) */}
         <YourPhotosWidget limited={isLimitedPlusOne} />
@@ -970,12 +979,67 @@ function DressCodeWidget({
   );
 }
 
-function PhotoMomentsWidget() {
-  const moments = [
-    { time: '3:00 PM', label: 'Ceremony', title: 'The Bridal Walk', note: 'Processional · everyone stands' },
-    { time: '3:45 PM', label: 'Ceremony', title: 'The Kiss', note: 'After the vows · cheer when ready' },
-    { time: '6:30 PM', label: 'Reception', title: 'First Entrance', note: 'Newlyweds entering the reception' },
-  ];
+// Mode enum matches the server-side validator at
+// /dashboard/[eventId]/website/photo-moments/actions.ts. Three values
+// each get a distinct visual treatment on the landing page:
+//   • camera_ok   — emerald Camera icon, "cameras welcome"
+//   • phone_down  — quiet ink CircleSlash, "stay present"
+//   • papic_only  — terracotta Sparkles, "our paparazzo will capture"
+type PhotoMomentMode = 'camera_ok' | 'phone_down' | 'papic_only';
+type PhotoMoment = {
+  time_label: string;
+  title: string;
+  note: string;
+  mode: PhotoMomentMode;
+};
+
+function parsePhotoMomentsConfig(
+  raw: unknown,
+): { intro_copy: string; moments: PhotoMoment[] } {
+  if (!raw || typeof raw !== 'object') return { intro_copy: '', moments: [] };
+  const obj = raw as Record<string, unknown>;
+  const intro = typeof obj.intro_copy === 'string' ? obj.intro_copy : '';
+  const momentsRaw = Array.isArray(obj.moments) ? obj.moments : [];
+  const moments: PhotoMoment[] = [];
+  for (const m of momentsRaw) {
+    if (!m || typeof m !== 'object') continue;
+    const item = m as Record<string, unknown>;
+    const title = typeof item.title === 'string' ? item.title.trim() : '';
+    if (title.length === 0) continue;
+    const timeLabel = typeof item.time_label === 'string' ? item.time_label : '';
+    const note = typeof item.note === 'string' ? item.note : '';
+    const modeStr = typeof item.mode === 'string' ? item.mode : 'phone_down';
+    const mode: PhotoMomentMode =
+      modeStr === 'camera_ok' || modeStr === 'papic_only' ? modeStr : 'phone_down';
+    moments.push({ time_label: timeLabel, title, note, mode });
+    if (moments.length >= 8) break;
+  }
+  return { intro_copy: intro, moments };
+}
+
+function PhotoMomentsWidget({ config }: { config: unknown }) {
+  const { intro_copy, moments } = parsePhotoMomentsConfig(config);
+
+  // No host-curated moments yet — render polite brand-voice fallback
+  // instead of the prior hardcoded sample list. Per the no-dev-text rule,
+  // this reads as a calm "coming soon" not a developer placeholder.
+  if (moments.length === 0) {
+    return (
+      <section className="space-y-4 rounded-xl border border-ink/10 bg-cream p-6">
+        <header>
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+            Savour the moments
+          </p>
+          <h3 className="mt-1 text-2xl font-semibold tracking-tight">
+            Photo moments
+          </h3>
+        </header>
+        <p className="rounded-lg border border-dashed border-ink/20 bg-cream p-5 text-center text-sm italic text-ink/60">
+          Your hosts will share their photo guidance closer to the wedding.
+        </p>
+      </section>
+    );
+  }
 
   return (
     <section className="space-y-4 rounded-xl border border-ink/10 bg-cream p-6">
@@ -983,31 +1047,56 @@ function PhotoMomentsWidget() {
         <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
           Savour the moments
         </p>
-        <h3 className="mt-1 text-2xl font-semibold tracking-tight">Phone-down moments</h3>
+        <h3 className="mt-1 text-2xl font-semibold tracking-tight">Photo moments</h3>
       </header>
-      <p className="text-sm text-ink/70">
-        We&rsquo;ll have <strong>shutterbugs</strong> around to make sure you have photos
-        of the event — so we&rsquo;d love it if you&rsquo;d savour these moments with us,
-        and skip the videos. Just witness them.
-      </p>
-      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {moments.map((m) => (
+      {intro_copy.trim().length > 0 ? (
+        <p className="text-sm text-ink/70">{intro_copy}</p>
+      ) : null}
+      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {moments.map((m, i) => (
           <li
-            key={m.title}
-            className="space-y-1 rounded-lg border border-ink/10 bg-cream p-4 text-sm"
+            key={`${m.title}-${i}`}
+            className="space-y-2 rounded-lg border border-ink/10 bg-cream p-4 text-sm"
           >
-            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta">
-              {m.time} · {m.label}
-            </p>
+            <PhotoMomentModeBadge mode={m.mode} />
+            {m.time_label.trim().length > 0 ? (
+              <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta">
+                {m.time_label}
+              </p>
+            ) : null}
             <p className="font-medium text-ink">{m.title}</p>
-            <p className="text-xs text-ink/60">{m.note}</p>
+            {m.note.trim().length > 0 ? (
+              <p className="text-xs text-ink/60">{m.note}</p>
+            ) : null}
           </li>
         ))}
       </ul>
-      <p className="rounded-lg border border-dashed border-ink/20 bg-cream p-3 text-center text-xs italic text-ink/60">
-        Shutterbugs cover the angles. Your job is to clap, cheer, and be in the room.
-      </p>
     </section>
+  );
+}
+
+function PhotoMomentModeBadge({ mode }: { mode: PhotoMomentMode }) {
+  if (mode === 'camera_ok') {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-emerald-800">
+        <Camera aria-hidden className="h-3 w-3" strokeWidth={2} />
+        Cameras welcome
+      </span>
+    );
+  }
+  if (mode === 'papic_only') {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
+        <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />
+        Our paparazzo
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/70">
+      <CircleSlash aria-hidden className="h-3 w-3" strokeWidth={2} />
+      Phone-down
+    </span>
   );
 }
 

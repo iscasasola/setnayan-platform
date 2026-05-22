@@ -267,6 +267,48 @@ export async function fetchSingletonRoleHolders(
 // supabase/migrations/20260604170000_iteration_0001_guest_groups.sql.
 // -----------------------------------------------------------------------
 
+/**
+ * Robust missing-relation detector. Catches the case where the migration
+ * hasn't been pushed to prod yet via every variant Supabase/PostgREST
+ * can surface:
+ *
+ *   - `42P01` — Postgres `undefined_table`, returned when the SQL hits a
+ *     missing table directly (the simple SELECT path).
+ *   - `42703` — Postgres `undefined_column`, returned when a SELECT
+ *     references a column that hasn't been added yet (parallel risk for
+ *     migrations that ALTER existing tables).
+ *   - `PGRST200` / `PGRST205` — PostgREST schema-cache codes. PGRST205
+ *     fires when the table exists in Postgres but PostgREST's in-memory
+ *     schema cache hasn't reloaded yet (common right after a migration
+ *     push); PGRST200 fires when an embedded relationship (`!inner(...)`)
+ *     can't be resolved because either side of the FK is missing.
+ *   - Fallback to message-substring match for "does not exist" /
+ *     "schema cache" — defensive net for future PostgREST versions that
+ *     might rename codes.
+ *
+ * Background: PR #380 (commit 7240f05) caught only `42P01` for the
+ * `guest_groups` SELECT, but a fresh user-reported crash AFTER #380
+ * deploy showed the guests page still bouncing into the error boundary
+ * (new reference 2167755689 vs the original 1251857393). The likely
+ * unhandled-path candidates are the PostgREST PGRST20x codes when the
+ * schema cache for `guest_groups` / `guest_group_memberships` hasn't
+ * caught up to the DB yet (or when the cache reload itself raced).
+ */
+function isMissingRelationError(
+  error: { code?: string | null; message?: string | null } | null | undefined,
+): boolean {
+  if (!error) return false;
+  const code = error.code ?? '';
+  if (code === '42P01' || code === '42703') return true;
+  if (code === 'PGRST200' || code === 'PGRST205') return true;
+  const msg = (error.message ?? '').toLowerCase();
+  if (msg.includes('does not exist')) return true;
+  if (msg.includes('schema cache')) return true;
+  if (msg.includes('could not find the table')) return true;
+  if (msg.includes('could not find the function')) return true;
+  return false;
+}
+
 export type GuestGroupTeamSide = 'bride' | 'groom' | 'both';
 
 export const GUEST_GROUP_TEAM_SIDES: ReadonlyArray<GuestGroupTeamSide> = [
@@ -326,19 +368,32 @@ export async function fetchGuestGroupsByEvent(
   ]);
 
   if (groupsRes.error) {
-    // Graceful degrade when the migration hasn't been applied to prod yet
-    // (`supabase db push --linked` is the owner-side step). Postgres code
-    // 42P01 = "relation does not exist." Mirroring the same treatment
-    // `fetchGroupMembershipsByEvent` already does below — render the page
-    // with no custom groups instead of crashing the entire guests surface.
-    // Any other error (auth, RLS denial, etc.) still throws so we don't
-    // silently swallow a real bug.
-    if (groupsRes.error.code === '42P01') {
+    // Graceful-degrade when the migration hasn't been applied to prod yet
+    // (`supabase db push --linked` is the owner-side step) or PostgREST's
+    // schema cache hasn't caught up. The detector covers every code +
+    // message variant Supabase surfaces — see `isMissingRelationError`
+    // above for the WHY. PR #380's narrower `42P01` check missed the
+    // PGRST20x codes that PostgREST returns when its schema cache is
+    // stale; this widens the net so the page renders with no custom
+    // groups instead of crashing. Any non-missing-relation error (auth,
+    // RLS denial, network) still throws so we don't silently swallow a
+    // real bug.
+    if (isMissingRelationError(groupsRes.error)) {
       return [];
     }
     throw new Error(`fetchGuestGroupsByEvent failed: ${groupsRes.error.message}`);
   }
   const groups = (groupsRes.data ?? []) as unknown as GuestGroupRow[];
+
+  // Same graceful-degrade for memberships. The previous `?? []` was
+  // implicit-safe (no throw) but treated *every* error the same way,
+  // including real RLS denials that we'd want to surface. Explicit
+  // check matches the groupsRes treatment and keeps real bugs loud.
+  if (membershipsRes.error && !isMissingRelationError(membershipsRes.error)) {
+    throw new Error(
+      `fetchGuestGroupsByEvent (memberships) failed: ${membershipsRes.error.message}`,
+    );
+  }
 
   const counts = new Map<string, number>();
   for (const m of (membershipsRes.data ?? []) as Array<{ group_id: string }>) {
@@ -361,7 +416,26 @@ export async function fetchGroupMembershipsByEvent(
     .select('guest_id, group_id, guest_groups!inner(event_id)')
     .eq('guest_groups.event_id', eventId);
 
-  if (error) return new Map();
+  // Graceful-degrade when the migration is unpushed or PostgREST's
+  // schema cache hasn't caught up — render the page with no custom-group
+  // memberships rather than crashing. We intentionally keep this
+  // function's "any-error → empty Map()" fallback (vs strictening like
+  // `fetchGuestGroupsByEvent` above does) because this helper sits on
+  // every guests-page render and we'd rather miss a Sentry breadcrumb
+  // than re-introduce a crash that PR #380 didn't see coming. Errors are
+  // still logged for diagnosis. Sentry captures via the global handler
+  // in instrumentation.ts (iteration 0035 Observability) when the
+  // request flows through any other throw upstream.
+  if (error) {
+    if (!isMissingRelationError(error)) {
+      // Non-missing-relation error (RLS denial, auth, network). Don't
+      // throw — the page render path is too important to crash on a
+      // best-effort enrichment query — but log it so we surface real
+      // bugs in production logs.
+      console.error('[fetchGroupMembershipsByEvent]', error);
+    }
+    return new Map();
+  }
   const map = new Map<string, string[]>();
   for (const row of (data ?? []) as Array<{ guest_id: string; group_id: string }>) {
     const existing = map.get(row.guest_id) ?? [];

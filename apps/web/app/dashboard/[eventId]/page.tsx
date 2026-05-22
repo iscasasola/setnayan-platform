@@ -73,6 +73,7 @@ import {
   type PaperworkRow,
 } from '@/lib/paperwork';
 import { AuspiciousChip } from './_components/auspicious-chip';
+import { LoveQuoteOfTheDay } from './_components/love-quote-of-the-day';
 import { EventMetaLine } from './_components/event-meta-line';
 import { VendorAvailabilityIntersection } from './_components/vendor-availability-intersection';
 import { BudgetCountdownHeader } from './_components/budget-countdown-header';
@@ -1208,6 +1209,13 @@ export default async function EventHomePage({
       />
 
       <WelcomeHeader eventName={event.display_name} />
+
+      {/* Love-quote-of-the-day — 2026-05-22 owner directive: "we want a 365
+       *  days in love quote that will be shared everyday depending on how
+       *  far they are from the wedding." Returns null when `daysOut` is null
+       *  (no real day picked yet) so brand-new events stay calm.
+       *  See _components/love-quote-of-the-day.tsx + lib/love-quotes.ts. */}
+      <LoveQuoteOfTheDay daysToWedding={daysOut} />
 
       {/* Phase 0 Date Selection entry point — CLAUDE.md 2026-05-22 lock.
        *  Renders one of two states based on events.date_status:

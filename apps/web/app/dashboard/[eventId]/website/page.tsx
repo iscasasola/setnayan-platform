@@ -8,6 +8,7 @@ import {
   ExternalLink,
   Eye,
   Globe,
+  ImagePlus,
   Lock,
   Pencil,
   QrCode,
@@ -346,10 +347,31 @@ export default async function WebsiteHubPage({
               </div>
             )}
           </li>
-          {/* CLAUDE.md 2026-05-22 — three sibling landing-page editors merged
-              cleanly: Photo Moments (PR #383) · Privacy (PR #381 · merged) ·
-              Dress Code (PR #382 · merged). Each adds one tile to the
-              Quick Actions grid in append-only fashion. */}
+          {/* CLAUDE.md 2026-05-22 — four sibling landing-page editors merged
+              cleanly: Hero Photo (this PR · direct ship) · Photo Moments
+              (PR #383) · Privacy (PR #381) · Dress Code (PR #382). Each adds
+              one tile to the Quick Actions grid in append-only fashion. */}
+          {/* Hero Photo upload — direct ship 2026-05-22 (agents hit session
+              limits before reaching this; built inline). Routes to
+              /dashboard/[eventId]/website/hero-photo for the file uploader.
+              Reads + writes events.landing_page_hero_image_url via
+              migration 20260605020000. */}
+          <li>
+            <Link
+              href={`/dashboard/${eventId}/website/hero-photo`}
+              className="group flex h-full min-h-[44pt] flex-col gap-2 rounded-xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/40 hover:bg-white/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+            >
+              <ImagePlus
+                aria-hidden
+                className="h-5 w-5 text-terracotta"
+                strokeWidth={1.75}
+              />
+              <p className="text-sm font-semibold text-ink">Edit hero photo</p>
+              <p className="text-xs text-ink/55">
+                Upload the full-bleed banner for your public landing page.
+              </p>
+            </Link>
+          </li>
           {/* Photo Moments editor — PR #383 landing-page-photo-moments. */}
           <li>
             <Link

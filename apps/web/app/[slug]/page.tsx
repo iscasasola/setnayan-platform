@@ -18,6 +18,7 @@ import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
 import { NavLinksRow } from '@/app/_components/nav-links';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
 import { GuestPreload } from './_components/guest-preload';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 
 function displayNameOf(g: {
   first_name: string;
@@ -90,7 +91,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   const { data: event } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, photo_moments_config, landing_page_visibility, dress_code_config',
+      'event_id, public_id, display_name, event_date, venue_name, venue_address, venue_latitude, venue_longitude, event_type, slug, monogram_text, monogram_color, photo_moments_config, landing_page_visibility, dress_code_config, landing_page_hero_image_url',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -99,6 +100,16 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   if (event.event_type !== 'wedding') notFound();
 
   const monogram = resolveMonogram(event);
+
+  // Resolve the hero photo's display URL up-front so it's available to both
+  // PublicLanding (anonymous browsers) and InvitationSite (guest-cookie
+  // visitors). Resolves to a presigned 24h GET URL when the host has uploaded
+  // a photo via /dashboard/[eventId]/website/hero-photo (migration
+  // 20260605020000); otherwise returns null and both renderers fall back to
+  // the monogram-only hero.
+  const heroPhotoUrl = await displayUrlForStoredAsset(
+    event.landing_page_hero_image_url,
+  );
 
   // Read the guest-session cookie up-front so the private-gate below can
   // accept a session-cookie-bearing guest without re-fetching guests
@@ -180,6 +191,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         event={event}
         reason={inviteError === 'invalid_token' ? 'invalid_invite' : null}
         dayOfPhase={dayOfPhase}
+        heroPhotoUrl={heroPhotoUrl}
       />
     );
   }
@@ -187,7 +199,14 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // Cookie session is for a different event → bail to public landing.
   // (Sign-out from the footer is how a guest swaps between events.)
   if (session.event_id !== event.event_id) {
-    return <PublicLanding event={event} reason="wrong_event" dayOfPhase={dayOfPhase} />;
+    return (
+      <PublicLanding
+        event={event}
+        reason="wrong_event"
+        dayOfPhase={dayOfPhase}
+        heroPhotoUrl={heroPhotoUrl}
+      />
+    );
   }
 
   const { data: guest } = await admin
@@ -200,7 +219,14 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     .maybeSingle();
 
   if (!guest) {
-    return <PublicLanding event={event} reason="invalid_invite" dayOfPhase={dayOfPhase} />;
+    return (
+      <PublicLanding
+        event={event}
+        reason="invalid_invite"
+        dayOfPhase={dayOfPhase}
+        heroPhotoUrl={heroPhotoUrl}
+      />
+    );
   }
 
   // TBA +1 still hasn't confirmed their name — re-route them to onboarding.
@@ -232,6 +258,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
       monogram={monogram}
       scheduleBlocks={scheduleBlocks}
       dayOfPhase={dayOfPhase}
+      heroPhotoUrl={heroPhotoUrl}
     />
   );
 }
@@ -268,6 +295,11 @@ type EventRow = {
   // Landing page visibility lever from PR #381 — ‹public, unlisted, private›.
   // Private renders <PrivateLanding> for non-guest visitors.
   landing_page_visibility?: 'public' | 'unlisted' | 'private' | null;
+  // r2://-tagged ref to the hero photo uploaded via
+  // /dashboard/[eventId]/website/hero-photo (migration 20260605020000).
+  // Null = render the monogram-only hero (legacy/default behavior).
+  // Display URL resolved via displayUrlForStoredAsset() before render.
+  landing_page_hero_image_url?: string | null;
 };
 
 type GuestRow = {
@@ -316,10 +348,15 @@ function PublicLanding({
   event,
   reason,
   dayOfPhase,
+  heroPhotoUrl,
 }: {
   event: EventRow;
   reason?: 'invalid_invite' | 'wrong_event' | null;
   dayOfPhase: DayOfPhase;
+  // Presigned GET URL for the host's uploaded hero photo, or null when the
+  // monogram-only fallback should render. See displayUrlForStoredAsset() in
+  // lib/uploads.ts — caller resolves once at the top-level page.
+  heroPhotoUrl?: string | null;
 }) {
   // Task #13 — day-of-mode badge surfaces to public-landing viewers too so a
   // guest at the venue without a session cookie still sees "happening now".
@@ -338,19 +375,54 @@ function PublicLanding({
   return (
     <InvitationShell>
       <GuestPreload eventSlug={event.slug} />
+      {/* When a hero photo is uploaded, render a full-bleed banner. Otherwise
+          fall back to the existing centered text-only treatment. */}
+      {heroPhotoUrl ? (
+        <div className="relative -mx-4 mb-8 overflow-hidden rounded-2xl text-center sm:-mx-0">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={heroPhotoUrl}
+            alt=""
+            aria-hidden
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+          <div
+            aria-hidden
+            className="absolute inset-0 bg-gradient-to-b from-cream/40 via-cream/60 to-cream/90"
+          />
+          <div className="relative space-y-3 px-6 py-12 sm:py-16">
+            {dayOfBadge}
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+              You&rsquo;re invited
+            </p>
+            <h1 className="font-display text-5xl font-medium tracking-tight text-ink sm:text-6xl">
+              {event.display_name}
+            </h1>
+            <p className="text-base text-ink/70">
+              {[formatEventDate(event.event_date), event.venue_name]
+                .filter(Boolean)
+                .join(' · ')}
+            </p>
+          </div>
+        </div>
+      ) : null}
       <div className="space-y-6 text-center">
-        {dayOfBadge}
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-          You&rsquo;re invited
-        </p>
-        <h1 className="font-display text-5xl font-medium tracking-tight sm:text-6xl">
-          {event.display_name}
-        </h1>
-        <p className="text-base text-ink/60">
-          {[formatEventDate(event.event_date), event.venue_name]
-            .filter(Boolean)
-            .join(' · ')}
-        </p>
+        {!heroPhotoUrl ? dayOfBadge : null}
+        {!heroPhotoUrl ? (
+          <>
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+              You&rsquo;re invited
+            </p>
+            <h1 className="font-display text-5xl font-medium tracking-tight sm:text-6xl">
+              {event.display_name}
+            </h1>
+            <p className="text-base text-ink/60">
+              {[formatEventDate(event.event_date), event.venue_name]
+                .filter(Boolean)
+                .join(' · ')}
+            </p>
+          </>
+        ) : null}
         {reason === 'invalid_invite' ? (
           <p className="mx-auto max-w-prose rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
             That invite link doesn&rsquo;t look right. Ask the couple to send you a fresh
@@ -441,6 +513,7 @@ function InvitationSite({
   monogram,
   scheduleBlocks,
   dayOfPhase,
+  heroPhotoUrl,
 }: {
   event: EventRow;
   guest: GuestRow;
@@ -449,6 +522,10 @@ function InvitationSite({
   monogram: MonogramConfig;
   scheduleBlocks: ScheduleBlockRow[];
   dayOfPhase: DayOfPhase;
+  // Presigned GET URL for the host's uploaded hero photo, or null when the
+  // monogram-only fallback should render. Caller resolves once at the
+  // top-level page so PublicLanding + InvitationSite share the result.
+  heroPhotoUrl?: string | null;
 }) {
   const sideLabel =
     guest.side === 'both'
@@ -477,26 +554,68 @@ function InvitationSite({
           <DayOfBanner kind="post" />
         ) : null}
 
-        {/* Hero */}
-        <section className="text-center">
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-            You are invited
-          </p>
-          <div
-            aria-hidden
-            className="mx-auto mt-6 flex h-20 w-20 items-center justify-center rounded-full border-2 bg-cream font-serif text-2xl italic"
-            style={{ borderColor: monogram.color, color: monogram.color }}
-          >
-            {monogram.text}
-          </div>
-          <h1 className="mt-6 font-display text-5xl font-medium tracking-tight sm:text-6xl">
-            {event.display_name}
-          </h1>
-          <p className="mt-3 font-mono text-xs uppercase tracking-[0.2em] text-ink/60">
-            {formatEventDate(event.event_date)}
-          </p>
-          <hr className="mx-auto mt-6 w-24 border-t border-ink/20" />
-        </section>
+        {/* Hero. When the host uploads a banner photo via
+            /dashboard/[eventId]/website/hero-photo, render full-bleed with a
+            soft overlay so the monogram + display name + date stay legible.
+            Default falls back to the cream-on-cream monogram-only treatment. */}
+        {heroPhotoUrl ? (
+          <section className="relative -mx-4 overflow-hidden rounded-2xl text-center sm:-mx-0">
+            {/* Full-bleed photo. eslint-disable-next-line @next/next/no-img-element —
+                presigned R2 URL expires in 24h so next/image's optimizer would
+                cache an expired URL; raw <img> is the right shape here. */}
+            <img
+              src={heroPhotoUrl}
+              alt=""
+              aria-hidden
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+            {/* Cream overlay for text contrast — gradient bottom is stronger so
+                the date + monogram circle read cleanly on busy photo backgrounds. */}
+            <div
+              aria-hidden
+              className="absolute inset-0 bg-gradient-to-b from-cream/40 via-cream/60 to-cream/85"
+            />
+            <div className="relative px-6 py-12 sm:py-16">
+              <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+                You are invited
+              </p>
+              <div
+                aria-hidden
+                className="mx-auto mt-6 flex h-20 w-20 items-center justify-center rounded-full border-2 bg-cream font-serif text-2xl italic shadow-sm"
+                style={{ borderColor: monogram.color, color: monogram.color }}
+              >
+                {monogram.text}
+              </div>
+              <h1 className="mt-6 font-display text-5xl font-medium tracking-tight text-ink sm:text-6xl">
+                {event.display_name}
+              </h1>
+              <p className="mt-3 font-mono text-xs uppercase tracking-[0.2em] text-ink/65">
+                {formatEventDate(event.event_date)}
+              </p>
+              <hr className="mx-auto mt-6 w-24 border-t border-ink/30" />
+            </div>
+          </section>
+        ) : (
+          <section className="text-center">
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+              You are invited
+            </p>
+            <div
+              aria-hidden
+              className="mx-auto mt-6 flex h-20 w-20 items-center justify-center rounded-full border-2 bg-cream font-serif text-2xl italic"
+              style={{ borderColor: monogram.color, color: monogram.color }}
+            >
+              {monogram.text}
+            </div>
+            <h1 className="mt-6 font-display text-5xl font-medium tracking-tight sm:text-6xl">
+              {event.display_name}
+            </h1>
+            <p className="mt-3 font-mono text-xs uppercase tracking-[0.2em] text-ink/60">
+              {formatEventDate(event.event_date)}
+            </p>
+            <hr className="mx-auto mt-6 w-24 border-t border-ink/20" />
+          </section>
+        )}
 
         {/* Greeting */}
         <section className="space-y-4 text-center">

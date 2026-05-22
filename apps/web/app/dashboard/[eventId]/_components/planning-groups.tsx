@@ -2,6 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import {
   CheckCircle2,
+  ChevronRight,
   Clock,
   AlertCircle,
   AlertTriangle,
@@ -277,10 +278,25 @@ export function PlanningGroups({
   // 2026-05-22). Iterate in PLAN_GROUP_TIER_ORDER so the tiers stack
   // in canonical timeline order (Foundation → Big bookings → Style +
   // program → Extras → Paper).
+  //
+  // Locked-at-bottom split (owner directive 2026-05-22, same-day
+  // refinement): groups with ANY locked pick (status at-or-past
+  // 'contracted' per CONFIRMED_VENDOR_STATUSES) get peeled OUT of the
+  // tier sections and collected into a single bottom "Locked vendors"
+  // expandable section. The 23-thing-to-lock-in list at the top stays
+  // focused on what still needs doing — locked picks live in their
+  // expandable bucket below.
+  const lockedGroups: PlanGroup[] = [];
   const cardsByTier = new Map<PlanGroupTier, PlanGroup[]>();
   for (const tier of PLAN_GROUP_TIER_ORDER) cardsByTier.set(tier, []);
   for (const group of PLAN_GROUPS) {
-    cardsByTier.get(group.tier)!.push(group);
+    const picks = bucketed.get(group.id) ?? [];
+    const isLocked = picks.some((p) => p.status === 'locked');
+    if (isLocked) {
+      lockedGroups.push(group);
+    } else {
+      cardsByTier.get(group.tier)!.push(group);
+    }
   }
 
   return (
@@ -414,6 +430,99 @@ export function PlanningGroups({
           </section>
         );
       })}
+
+      {/* Locked vendors — collapsed by default, expanded on click (owner
+          directive 2026-05-22). Uses native HTML <details>/<summary> so
+          there's no client-side JS dependency + the expand state lives in
+          the DOM (survives back-button navigation). Hidden entirely when
+          the host has zero locked vendors so the empty case doesn't add
+          chrome.
+
+          Why a separate section instead of leaving locked cards in their
+          tier slots: with 5+ locked vendors interspersed, the top
+          "23 things to lock in" header reads as "23 things still to do"
+          which is wrong — locked ones are DONE. Pulling them to a single
+          bottom bucket keeps the active to-do list honest. The host can
+          still expand to see vendor names, vendor logos, "switch vendor"
+          affordance, and the locked-card directions row. */}
+      {lockedGroups.length > 0 ? (
+        <details className="group rounded-xl border border-emerald-200/60 bg-emerald-50/40 transition-colors open:border-emerald-300/80 open:bg-emerald-50/60">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
+            <div className="flex min-w-0 flex-1 items-center gap-2.5">
+              <span
+                aria-hidden
+                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 transition-transform group-open:rotate-90"
+              >
+                <ChevronRight className="h-4 w-4" strokeWidth={2} />
+              </span>
+              <div className="min-w-0">
+                <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-emerald-700">
+                  Locked vendors
+                </p>
+                <p className="text-sm text-ink/70">
+                  <strong className="text-ink">
+                    {lockedGroups.length} locked
+                  </strong>{' '}
+                  · expand to view
+                </p>
+              </div>
+            </div>
+            <span className="hidden text-xs text-emerald-700 sm:inline">
+              <span className="group-open:hidden">Show</span>
+              <span className="hidden group-open:inline">Hide</span>
+            </span>
+          </summary>
+          <div className="border-t border-emerald-200/60 px-3 pb-4 pt-3 sm:px-4">
+            <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
+              {lockedGroups.map((group) => {
+                const picks = bucketed.get(group.id) ?? [];
+                const recommendations =
+                  crossCategoryRecommendations?.get(group.id) ?? [];
+                return (
+                  <li
+                    key={group.id}
+                    id={
+                      group.id === 'ceremony_venue'
+                        ? 'ceremony-venue-card'
+                        : undefined
+                    }
+                    className={
+                      group.id === 'ceremony_venue' ? 'scroll-mt-20' : undefined
+                    }
+                  >
+                    <CardSelectable
+                      groupId={group.id}
+                      isSelected={selectedCardId === group.id}
+                    >
+                      <GroupCard
+                        eventId={eventId}
+                        eventDate={eventDate}
+                        group={group}
+                        picks={picks}
+                        ceremonyType={resolvedCeremony}
+                        venueLatitude={venueLatitude}
+                        venueLongitude={venueLongitude}
+                        ceremonyVenueName={ceremonyVenueName}
+                        paperworkSummary={
+                          group.id === 'ceremony_venue'
+                            ? (paperworkSummary ?? null)
+                            : null
+                        }
+                        manualVendorOptions={manualVendorOptions ?? []}
+                        manualVendorsAttachedForGroup={collectAttachedForGroup(
+                          group.categories,
+                          manualVendorsAttachedByCategory,
+                        )}
+                        recommendations={recommendations}
+                      />
+                    </CardSelectable>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </details>
+      ) : null}
     </section>
   );
 }

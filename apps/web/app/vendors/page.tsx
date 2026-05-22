@@ -36,7 +36,11 @@ import {
   type WeddingFolder,
   type TaxonomyPhase,
 } from '@/lib/taxonomy';
-import { fetchVendorCountsByService } from '@/lib/vendor-counts';
+import {
+  fetchTopVendorNamesByService,
+  fetchVendorCountsByService,
+} from '@/lib/vendor-counts';
+import { FolderVendorsSection } from './_components/folder-vendors-section';
 import { fetchUserEvents, formatEventDateWithPrecision, resolvePrimaryHostEvent, type EventDatePrecision } from '@/lib/events';
 import { FollowGate } from '@/app/_components/follow-gate';
 import {
@@ -1965,15 +1969,23 @@ async function CatalogView({
 }) {
   // Single round-trip per page render — both reads are admin-scoped because
   // anonymous visitors hit this route and `vendor_profiles` is gated by RLS.
-  const [{ data: schemaRows }, vendorCounts] = await Promise.all([
+  // 2026-05-22 evening — also fetch the demo vendor ID list so the inline
+  // FolderVendorsSection + the CategoryTile "Sample: …" preview line can
+  // exclude demo vendors when the viewer isn't in demo mode (mirrors the
+  // exclusion the vendor-grid query already applies).
+  const [{ data: schemaRows }, vendorCounts, demoVendorIdsRaw] = await Promise.all([
     admin
       .from('canonical_service_schemas')
       .select('canonical_service, display_name_en, display_name_tl')
       .order('display_name_en', { ascending: true }),
     fetchVendorCountsByService(admin),
+    inDemoMode ? Promise.resolve([] as string[]) : fetchDemoVendorIds(admin),
   ]);
 
   const schemas = (schemaRows ?? []) as CatalogSchemaRow[];
+  const catalogExcludeVendorIds: ReadonlyArray<string> = inDemoMode
+    ? []
+    : demoVendorIdsRaw;
 
   // Religion-default-on: when the couple has a faith (ceremony_type maps to
   // Catholic/Christian/INC/Muslim/Cultural), hide tiles tagged for OTHER
@@ -1992,6 +2004,10 @@ async function CatalogView({
   // Bucket every schema row into its wedding folder. Rows whose canonical_service
   // is missing from TAXONOMY_MAP are dropped — same behaviour as the legacy
   // /vendors/categories page; the admin viewer surfaces drift separately.
+  // 2026-05-22 evening — also collect the populated canonical_services so
+  // we can batch-fetch top-3 vendor names per service in ONE round-trip,
+  // populating the CategoryTile "Sample: A · B · C" preview line.
+  const populatedServices: string[] = [];
   const buckets = new Map<WeddingFolder, CategoryTileData[]>();
   for (const folder of WEDDING_FOLDER_ORDER) {
     buckets.set(folder, []);
@@ -2000,13 +2016,43 @@ async function CatalogView({
     const meta = TAXONOMY_MAP[row.canonical_service];
     if (!meta) continue;
     if (!passesReligionFilter(meta)) continue;
+    const count = vendorCounts.get(row.canonical_service) ?? null;
+    if ((count?.total ?? 0) > 0) {
+      populatedServices.push(row.canonical_service);
+    }
     buckets.get(meta.folder)?.push({
       canonicalService: row.canonical_service,
       displayNameEn: row.display_name_en,
       displayNameTl: row.display_name_tl,
       meta,
-      count: vendorCounts.get(row.canonical_service) ?? null,
+      count,
     });
+  }
+
+  // 2026-05-22 evening — fetch top-3 vendor names per populated
+  // canonical_service in a single round-trip. The CategoryTile reads from
+  // this map to render the "Sample: Manila Marriott · Solaire · Conrad"
+  // preview line under the count pill. Empty map (zero rows OR query
+  // error) → tiles fall back to their existing copy without the preview
+  // line, so the catalog stays clean regardless.
+  const topVendorNamesByService = populatedServices.length > 0
+    ? await fetchTopVendorNamesByService(admin, {
+        services: populatedServices,
+        perServiceLimit: 3,
+        excludeVendorIds: catalogExcludeVendorIds,
+      })
+    : new Map<string, string[]>();
+
+  // Stamp each tile's data with the resolved sample names so CategoryTile
+  // doesn't need a side-channel prop. populatedServices guarantee covers
+  // the keys we look up here.
+  for (const tiles of buckets.values()) {
+    for (const tile of tiles) {
+      const names = topVendorNamesByService.get(tile.canonicalService);
+      if (names && names.length > 0) {
+        tile.sampleVendorNames = names;
+      }
+    }
   }
 
   // Sort each folder: populated first (highest total), then live-phase
@@ -2221,6 +2267,21 @@ async function CatalogView({
                   />
                 </>
               ) : null}
+              {/* 2026-05-22 evening — inline real-vendor cards from
+                    vendor_profiles. Mirrors the structural role
+                    CeremonyVenuesSection plays for venue_directory in
+                    Ceremony, and what ReceptionVenuesSection plays in
+                    Reception. Renders above the category tile grid so
+                    couples see actual named businesses for the folder
+                    immediately, instead of only "X listed" count pills.
+                    Empty folders (zero signed-up vendors) skip the
+                    section entirely. */}
+              <FolderVendorsSection
+                folder={folder}
+                excludeVendorIds={catalogExcludeVendorIds}
+                venueAnchor={venueAnchor}
+                currentEventId={currentEventId}
+              />
               {tiles.length > 0 ? (
                 <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {tiles.map((tile) => (

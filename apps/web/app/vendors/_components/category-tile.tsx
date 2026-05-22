@@ -10,6 +10,16 @@ export type CategoryTileData = {
   displayNameTl: string | null;
   meta: TaxonomyEntry;
   count: VendorCount | null;
+  /**
+   * Top-3 vendor business_names for this canonical_service, used to render
+   * the "Sample: A · B · C" preview line under the count pill on populated
+   * tiles. Surfaced 2026-05-22 evening to close the gap where category
+   * tiles only showed an opaque count without naming any underlying
+   * businesses. Undefined when zero vendors signed up OR when the catalog
+   * query returned no preview data (defensive — tile gracefully falls
+   * back to its existing copy).
+   */
+  sampleVendorNames?: ReadonlyArray<string>;
 };
 
 const LIVE_PHASES: ReadonlySet<TaxonomyPhase> = new Set([
@@ -85,13 +95,31 @@ export function CategoryTile({ data }: { data: CategoryTileData }) {
         <StatePill state={state} />
       </div>
 
-      <div className="mt-auto flex flex-wrap items-center gap-1">
+      <div className="flex flex-wrap items-center gap-1">
         {data.meta.faith ? <MiniBadge tone="faith">{data.meta.faith}</MiniBadge> : null}
         {data.meta.ph ? <MiniBadge tone="ph">PH</MiniBadge> : null}
         {data.meta.rental ? <MiniBadge tone="rental">Rental</MiniBadge> : null}
       </div>
 
-      <CtaLine state={state} />
+      {/* 2026-05-22 evening — sample vendor names for populated tiles so
+            couples see actual named businesses without drilling in. Three
+            most-reviewed names joined with mid-dot separator. Renders only
+            on populated tiles (recruiting / future / setnayan tiles skip
+            this for clarity). */}
+      {state.kind === 'populated' &&
+      data.sampleVendorNames &&
+      data.sampleVendorNames.length > 0 ? (
+        <p className="line-clamp-2 text-[11px] text-ink/55">
+          <span className="font-mono uppercase tracking-[0.12em] text-ink/40">
+            Sample:
+          </span>{' '}
+          {data.sampleVendorNames.join(' · ')}
+        </p>
+      ) : null}
+
+      <div className="mt-auto">
+        <CtaLine state={state} />
+      </div>
     </Link>
   );
 }

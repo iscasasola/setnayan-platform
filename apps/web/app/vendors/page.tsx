@@ -1470,9 +1470,13 @@ async function CatalogView({
             );
           }
           const tiles = buckets.get(folder) ?? [];
-          if (tiles.length === 0) return null;
-          const slug = WEDDING_FOLDER_SLUG[folder];
           const isCeremony = folder === 'ceremony';
+          // Ceremony ALWAYS renders (placeholder venues + anchor for dashboard
+          // Search deep-links per planning-groups.tsx searchHref). Other folders
+          // return null when empty — no placeholder content to show, anchor
+          // unused.
+          if (tiles.length === 0 && !isCeremony) return null;
+          const slug = WEDDING_FOLDER_SLUG[folder];
           return (
             <section
               key={folder}
@@ -1487,9 +1491,11 @@ async function CatalogView({
                 >
                   {WEDDING_FOLDER_LABEL[folder]}
                 </h2>
-                <span className="font-mono text-xs text-ink/55">
-                  {tiles.length} categories
-                </span>
+                {tiles.length > 0 ? (
+                  <span className="font-mono text-xs text-ink/55">
+                    {tiles.length} categories
+                  </span>
+                ) : null}
               </header>
               {isCeremony ? (
                 <>
@@ -1501,13 +1507,15 @@ async function CatalogView({
                   />
                 </>
               ) : null}
-              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {tiles.map((tile) => (
-                  <li key={tile.canonicalService}>
-                    <CategoryTile data={tile} />
-                  </li>
-                ))}
-              </ul>
+              {tiles.length > 0 ? (
+                <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {tiles.map((tile) => (
+                    <li key={tile.canonicalService}>
+                      <CategoryTile data={tile} />
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
             </section>
           );
         })}

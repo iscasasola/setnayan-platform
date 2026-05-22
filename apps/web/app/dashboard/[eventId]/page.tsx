@@ -418,17 +418,25 @@ export default async function EventHomePage({
   );
 
   const compatibilityFetches = await Promise.all([
+    // Finalized-vendor-photo-card (2026-05-22) — extend the existing
+    // PR-B compatibility-fetch with logo_url + business_name + city so
+    // the LockedCard variant on event home can render the marketplace
+    // vendor's photo + canonical name without a separate round-trip.
+    // Still one IN(...) per linked table — no perf regression.
     marketplaceIds.length > 0
       ? adminClient
           .from('vendor_profiles')
           .select(
-            'vendor_profile_id, compatible_ceremony_types, compatible_venue_settings',
+            'vendor_profile_id, compatible_ceremony_types, compatible_venue_settings, logo_url, business_name, city',
           )
           .in('vendor_profile_id', marketplaceIds)
       : Promise.resolve({ data: [] as Array<{
           vendor_profile_id: string;
           compatible_ceremony_types: string[] | null;
           compatible_venue_settings: string[] | null;
+          logo_url: string | null;
+          business_name: string | null;
+          city: string | null;
         }> }),
     directoryIds.length > 0
       ? adminClient
@@ -442,12 +450,23 @@ export default async function EventHomePage({
   ]);
   const marketplaceCompatMap = new Map<
     string,
-    { ceremony: string[] | null; venue: string[] | null }
+    {
+      ceremony: string[] | null;
+      venue: string[] | null;
+      logo_url: string | null;
+      business_name: string | null;
+      city: string | null;
+    }
   >();
   for (const row of compatibilityFetches[0].data ?? []) {
     marketplaceCompatMap.set(row.vendor_profile_id, {
       ceremony: (row.compatible_ceremony_types as string[] | null) ?? null,
       venue: (row.compatible_venue_settings as string[] | null) ?? null,
+      logo_url:
+        (row as { logo_url?: string | null }).logo_url ?? null,
+      business_name:
+        (row as { business_name?: string | null }).business_name ?? null,
+      city: (row as { city?: string | null }).city ?? null,
     });
   }
   const directoryCompatMap = new Map<string, string[] | null>();
@@ -470,6 +489,13 @@ export default async function EventHomePage({
       marketplace_compatible_ceremony_types: marketplace?.ceremony ?? null,
       marketplace_compatible_venue_settings: marketplace?.venue ?? null,
       directory_compatible_ceremony_types: directory,
+      // Finalized-vendor-photo-card (2026-05-22) — carry logo + canonical
+      // business_name + city from the same vendor_profiles join so the
+      // LockedCard + upgraded FinalizedChipStrip can render the photo
+      // without an extra round-trip.
+      marketplace_logo_url: marketplace?.logo_url ?? null,
+      marketplace_business_name: marketplace?.business_name ?? null,
+      marketplace_city: marketplace?.city ?? null,
     };
   });
 
@@ -763,7 +789,11 @@ export default async function EventHomePage({
         now={now}
       />
 
-      <FinalizedChipStrip eventId={eventId} vendors={eventVendorsRaw} />
+      {/* Finalized-vendor-photo-card (2026-05-22) — passes the enriched
+       *  eventVendors (with marketplace_logo_url + business_name + city
+       *  joined from vendor_profiles) so the upgraded chip can render
+       *  the vendor's logo + canonical name instead of a text-only chip. */}
+      <FinalizedChipStrip eventId={eventId} vendors={eventVendors} />
 
       {/* V1 pilot Home v2 — owner directive 2026-05-22 (Headspace
        *  single-focus pattern). The hero card replaces the previous

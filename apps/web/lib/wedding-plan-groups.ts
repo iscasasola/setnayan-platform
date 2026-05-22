@@ -426,6 +426,24 @@ export type PlanCardPick = {
    * source_venue_directory_id — we can't check what we don't know).
    */
   compatibility_issue: PlanCardCompatibilityIssue | null;
+  /**
+   * Finalized-vendor-photo-card (2026-05-22, owner directive).
+   *
+   * For marketplace-linked picks (vendor_profiles join via
+   * marketplace_vendor_id), carries the vendor's canonical logo URL +
+   * business name + city so the locked-state Home surfaces can render
+   * a photo/logo card instead of just a text chip. All three are null
+   * for off-platform / custom rows where the host typed the vendor
+   * name themselves (no vendor_profiles row to read from). Consumers
+   * fall back to initials-on-terracotta + `vendor_name` in that case.
+   *
+   * Existing surfaces that don't care about the marketplace identity
+   * (the considering/shortlisted compare drawer, the vendor tracker
+   * status chips) simply ignore these fields — they're additive.
+   */
+  marketplace_logo_url: string | null;
+  marketplace_business_name: string | null;
+  marketplace_city: string | null;
 };
 
 export type GroupedPicks = {
@@ -476,6 +494,16 @@ export type EventVendorRowInput = {
   marketplace_compatible_venue_settings?: string[] | null;
   /** From venue_directory JOIN (when source_venue_directory_id is set). */
   directory_compatible_ceremony_types?: string[] | null;
+  /**
+   * Finalized-vendor-photo-card (2026-05-22). Carries the marketplace
+   * vendor's logo URL + canonical business name + city from the same
+   * vendor_profiles join used for the compat arrays. `null` for
+   * off-platform rows. See PlanCardPick.marketplace_* for consumer
+   * fallback behavior.
+   */
+  marketplace_logo_url?: string | null;
+  marketplace_business_name?: string | null;
+  marketplace_city?: string | null;
 };
 
 /**
@@ -629,6 +657,9 @@ export function bucketVendorsByGroup(
         eventCeremonyType,
         eventVenueSetting,
       ),
+      marketplace_logo_url: v.marketplace_logo_url ?? null,
+      marketplace_business_name: v.marketplace_business_name ?? null,
+      marketplace_city: v.marketplace_city ?? null,
     };
     for (const g of PLAN_GROUPS) {
       if (g.categories.includes(v.category)) {

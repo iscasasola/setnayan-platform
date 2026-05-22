@@ -249,7 +249,7 @@ export function FinalizedChipStrip({ eventId, vendors }: Props) {
           return (
             <li key={v.vendor_id}>
               <Link
-                href={`/dashboard/${eventId}/vendors`}
+                href={`/dashboard/${eventId}/vendors/${v.vendor_id}/workspace`}
                 className="group inline-flex min-h-[44px] items-center gap-3 rounded-xl border border-terracotta/30 bg-cream px-3 py-2 transition-colors hover:border-terracotta/60 hover:bg-terracotta/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
                 aria-label={`Finalized: ${displayName} — ${categoryLabel}`}
               >

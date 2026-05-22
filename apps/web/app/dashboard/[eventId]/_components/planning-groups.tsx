@@ -750,15 +750,16 @@ function GroupCard({
  *     all locked)
  *   - Still-considering count subtitle (informational, no jump-to-
  *     compare button — switching is the only state-change path)
- *   - View contract (links into /dashboard/{eventId}/contracts)
- *   - Open thread (links into /dashboard/{eventId}/messages)
+ *   - View contract (deep-links to /vendors/{vendor_id}/workspace#documents)
+ *   - Open thread (deep-links to /vendors/{vendor_id}/workspace#conversation)
  *   - Switch vendor (opens SwitchVendorConfirm modal)
  *
- * View contract + Open thread are event-scoped landing pages. We don't
- * deep-link to a specific vendor's contract or thread because that
- * routing layer isn't built yet — the host filters down to the right
- * vendor inside the surface, which is one extra click but doesn't
- * orphan a route per [[feedback_setnayan_orphan_prevention]].
+ * View contract + Open thread now route to the per-vendor workspace page
+ * (2026-05-22) — single landing page per vendor consolidating contracts +
+ * chat + payments + schedules. Section anchors land the host directly in
+ * the right panel. Per [[feedback_setnayan_orphan_prevention]] the new
+ * routes are reachable from this LockedCard AND the FinalizedChipStrip
+ * (both updated in the same PR).
  *
  * DirectionsButtons + PaperworkSubLink stay visible — both are read-
  * only sub-features that don't conflict with the locked state. A
@@ -907,17 +908,21 @@ function LockedCard({
         />
       ) : null}
 
-      {/* Safe secondary actions — neither changes vendor state */}
+      {/* Safe secondary actions — neither changes vendor state.
+       *  Both deep-link to the per-vendor workspace page (2026-05-22 owner
+       *  directive) — section anchors land the host directly in the right
+       *  panel. Workspace page consolidates contracts + chat + payments +
+       *  schedules in one surface per vendor. */}
       <div className="flex flex-wrap gap-2">
         <Link
-          href={`/dashboard/${eventId}/contracts`}
+          href={`/dashboard/${eventId}/vendors/${featured.vendor_id}/workspace#documents`}
           className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-2 text-xs font-medium text-ink/80 transition-colors hover:border-terracotta/40 hover:text-terracotta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
         >
           <FileText aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           View contract
         </Link>
         <Link
-          href={`/dashboard/${eventId}/messages`}
+          href={`/dashboard/${eventId}/vendors/${featured.vendor_id}/workspace#conversation`}
           className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-2 text-xs font-medium text-ink/80 transition-colors hover:border-terracotta/40 hover:text-terracotta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
         >
           <MessageCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />

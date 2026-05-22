@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   Circle,
   Square,
+  Star,
   type LucideIcon,
 } from 'lucide-react';
 import { countUnread } from '@/lib/notifications';
@@ -90,6 +91,7 @@ const STAGES: Stage[] = [
 type TileKey =
   | 'hosts'
   | 'guests'
+  | 'sponsors'
   | 'invitation'
   | 'vendors'
   | 'contracts'
@@ -111,6 +113,12 @@ const TILES: Array<{
 }> = [
   { key: 'hosts', labelKey: 'nav.hosts', Icon: UserPlus, href: (id) => `/dashboard/${id}/hosts` },
   { key: 'guests', labelKey: 'nav.guests', Icon: Users, href: (id) => `/dashboard/${id}/guests` },
+  {
+    key: 'sponsors',
+    labelKey: 'nav.sponsors',
+    Icon: Star,
+    href: (id) => `/dashboard/${id}/sponsors`,
+  },
   {
     key: 'invitation',
     labelKey: 'nav.invitation',

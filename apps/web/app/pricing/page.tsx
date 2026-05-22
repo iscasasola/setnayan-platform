@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Check, ArrowRight, Sparkles, Gift } from 'lucide-react';
+import { Check, ArrowRight, Sparkles, Gift, Brush } from 'lucide-react';
 import { SiteHeader } from '@/app/_components/site-header';
 import { Logo } from '@/app/_components/logo';
 import { formatPromoEndDateShort, LAUNCH_PROMO_UNTIL } from '@/lib/sku-catalog';
@@ -40,6 +40,20 @@ type AddOn = {
   cadence: string;
   blurb: string;
   freeDuringLaunch: boolean;
+};
+
+// Personalization SKUs — paid full price (NOT in LAUNCH_PROMO_SKU_CODES).
+// Made visible on /pricing 2026-05-22 per invitation-pricing-boundary
+// memory rule audit: Monogram Hero was load-bearing but invisible; Bespoke
+// Monogram was vaguely mentioned ("Custom Monogram") risking confusion with
+// the retired CMP ₱1,999 SKU (superseded by Bespoke Monogram per CLAUDE.md
+// 2026-05-14 row).
+type PaidPersonalization = {
+  name: string;
+  sku: string;
+  price: string;
+  cadence: string;
+  blurb: string;
 };
 
 const ADD_ONS: Array<AddOn> = [
@@ -84,6 +98,25 @@ const ADD_ONS: Array<AddOn> = [
     cadence: 'per day',
     blurb: 'TikTok booth that auto-posts to your own TikTok account.',
     freeDuringLaunch: true,
+  },
+];
+
+const PERSONALIZATION: Array<PaidPersonalization> = [
+  {
+    name: 'Monogram Hero',
+    sku: 'monogram_hero_upgrade',
+    price: '₱1,999',
+    cadence: 'one-time, per event',
+    blurb:
+      'Animated SVG-trace monogram reveal + custom video OR photo background on your invitation Hero. PNG uploads convert to SVG via our Potrace preview gate before checkout.',
+  },
+  {
+    name: 'Bespoke Monogram',
+    sku: 'bespoke_monogram',
+    price: '₱2,999',
+    cadence: 'one-time, per event',
+    blurb:
+      'AI-generated custom monogram with a 30-refinement loop, then vectorized — replaces the auto-generated monogram across your QR, invitation hero, save-the-date, and post-event highlights.',
   },
 ];
 
@@ -213,8 +246,59 @@ export default function PricingPage() {
             ))}
           </ul>
           <p className="mt-8 text-sm text-ink/55">
-            Premium add-ons (Custom Monogram, AI Highlights, Save-the-Date Video Premium) live inside your event dashboard after sign-up.
+            AI Highlights and other dashboard add-ons live inside your event dashboard after sign-up.
           </p>
+        </div>
+      </section>
+
+      {/* Personalization — paid full price (not in launch promo).
+          Added 2026-05-22 per invitation-pricing-boundary memory rule audit
+          (Sweep 1 + Sweep 2 drift on /features + /pricing). These two SKUs
+          are the ONLY paid customization layers on top of the free landing
+          page + QR + Basic invitation widgets. */}
+      <section className="border-b border-ink/5">
+        <div className="mx-auto w-full max-w-5xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
+          <div className="mb-12 max-w-2xl space-y-3">
+            <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
+              Personalization
+            </p>
+            <h2 className="text-4xl font-semibold tracking-tight sm:text-5xl">
+              Make it yours.
+            </h2>
+            <p className="text-base text-ink/65">
+              Your landing page + QR + invitation widgets are{' '}
+              <strong className="text-ink">free forever</strong>. These two
+              add-ons upgrade the visual identity on top of that baseline.
+            </p>
+          </div>
+          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {PERSONALIZATION.map((item) => (
+              <li
+                key={item.sku}
+                className="flex flex-col gap-3 rounded-2xl border border-ink/15 bg-cream p-6"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+                    {item.name}
+                  </p>
+                  <Brush
+                    aria-hidden
+                    className="h-4 w-4 text-ink/45"
+                    strokeWidth={1.75}
+                  />
+                </div>
+                <p className="flex items-baseline gap-2">
+                  <span className="font-sans text-3xl font-semibold tracking-tight text-ink">
+                    {item.price}
+                  </span>
+                  <span className="text-xs text-ink/55">{item.cadence}</span>
+                </p>
+                <p className="text-sm leading-relaxed text-ink/65">
+                  {item.blurb}
+                </p>
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 

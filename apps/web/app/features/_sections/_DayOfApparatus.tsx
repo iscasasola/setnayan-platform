@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import {
   Tv,
   Camera,
@@ -17,12 +18,23 @@ import {
 // monogram-pack copy superseded by Bespoke Monogram (iteration 0037).
 // Two cards added 2026-05-22 — Patiktok (iteration 0017) + Pakanta
 // (iteration 0036) per Task #14, Sweep 5 audit rows 21 + 22.
+// Quote-per-event framing removed 2026-05-22 — pricing is fixed-SKU
+// charm-pricing per CLAUDE.md decision-log row "2026-05-12 charm-pricing
+// convention". Section header + per-card footer now point at /pricing.
+// Panood body copy: dropped "Custom monogram + Broadcast Style Pack"
+// reference (both SKUs retired alongside the 2026-05-16 BYO YouTube pivot).
 
 type Service = {
   Icon: LucideIcon;
   sku: string;
   tagline: string;
   body: string;
+  // Optional override for the per-card pricing footer.
+  // Default (omitted) → "Pricing on /pricing". Pakulay overrides with the
+  // free baseline because Mood Board V1 ships free (Composite Scene render
+  // packs are paid V1.1+; see CLAUDE.md 2026-05-22 invitation-pricing-boundary
+  // memory rule).
+  pricingLabel?: string;
 };
 
 const SERVICES: Service[] = [
@@ -30,7 +42,7 @@ const SERVICES: Service[] = [
     Icon: Tv,
     sku: 'Panood',
     tagline: 'Multi-cam live broadcast',
-    body: 'Up to five cameras, one broadcaster, broadcast on YouTube. Custom monogram + Broadcast Style Pack support. AI Highlight reels post-event. Family who can&rsquo;t make it sees every moment in 1080p, on whatever device they&rsquo;re on.',
+    body: 'Up to six cameras, one broadcaster, broadcast on your own YouTube channel via BYO OAuth. AI Highlight reels post-event. Family who can&rsquo;t make it sees every moment in 1080p, on whatever device they&rsquo;re on.',
   },
   {
     Icon: Camera,
@@ -49,6 +61,7 @@ const SERVICES: Service[] = [
     sku: 'Pakulay',
     tagline: 'Mood-board engine',
     body: 'Per-role + per-venue palettes with the Setnayan Guide rule engine catching contrast / temperature / cultural-default mistakes before they hit the printer. Vendors get a live link, not a screenshot — they always reference the latest palette.',
+    pricingLabel: 'Free baseline · Pro renders V1.1+',
   },
   {
     Icon: Lightbulb,
@@ -98,8 +111,14 @@ export function DayOfApparatus() {
             Live broadcast. Same-day edit. Paparazzi capture. Personal
             monogram. The on-the-day apparatus that turns a wedding into a
             story your guests can replay forever &mdash; built into the same
-            app you used to plan it. Quotes per event &mdash; no PHP figures
-            shown.
+            app you used to plan it. Fixed PHP prices live on{' '}
+            <Link
+              href="/pricing"
+              className="underline decoration-ink/30 underline-offset-2 hover:text-terracotta hover:decoration-terracotta"
+            >
+              /pricing
+            </Link>
+            ; this page is the feature catalog.
           </p>
         </header>
 
@@ -127,7 +146,17 @@ export function DayOfApparatus() {
                   dangerouslySetInnerHTML={{ __html: s.body }}
                 />
                 <p className="mt-auto pt-2 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">
-                  Included in your custom quote
+                  {s.pricingLabel ?? (
+                    <>
+                      Pricing on{' '}
+                      <Link
+                        href="/pricing"
+                        className="underline decoration-ink/30 underline-offset-2 hover:text-terracotta hover:decoration-terracotta"
+                      >
+                        /pricing
+                      </Link>
+                    </>
+                  )}
                 </p>
               </li>
             );

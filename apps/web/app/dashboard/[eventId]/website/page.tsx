@@ -24,8 +24,22 @@ import {
 } from '@/lib/qr';
 import { resolveMonogram } from '@/lib/monogram';
 import { CopyButton } from './_components/copy-button';
+import { SlugField } from '../invitation/_components/slug-field';
+import { ProUpgradePanel } from './_components/pro-upgrade-panel';
+import { updateEventSlugFromWebsite } from './actions';
 
 export const metadata = { title: 'Wedding website' };
+
+/** Banner copy for ?slug_error=... + ?slug_saved=1. Polite brand voice
+ *  per [[feedback_setnayan_no_dev_text_post_launch]] — no engineering
+ *  jargon, no all-caps urgency, no parens with codes. */
+const SLUG_ERROR_COPY: Record<string, string> = {
+  missing: 'Pick a slug first — your wedding URL needs one.',
+  invalid_format: 'Slugs are 3–32 characters of lowercase letters, numbers, and hyphens.',
+  invalid_chars: 'Only lowercase letters, numbers, and hyphens are allowed.',
+  reserved: 'That slug is reserved by Setnayan. Try something a touch more unique to you.',
+  taken: 'That slug is already in use — try another.',
+};
 
 /**
  * /dashboard/[eventId]/website — new V1 hub surface (CLAUDE.md 2026-05-22).
@@ -46,10 +60,13 @@ export const metadata = { title: 'Wedding website' };
  */
 export default async function WebsiteHubPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ eventId: string }>;
+  searchParams: Promise<{ slug_saved?: string; slug_error?: string }>;
 }) {
   const { eventId } = await params;
+  const { slug_saved: slugSaved, slug_error: slugError } = await searchParams;
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
@@ -64,6 +81,30 @@ export default async function WebsiteHubPage({
     .maybeSingle();
 
   if (!event) redirect(`/dashboard/${eventId}`);
+
+  // Bind eventId so <SlugField> stays a generic component that only
+  // takes saveAction(formData). Mirrors invitation/page.tsx:92.
+  const slugAction = updateEventSlugFromWebsite.bind(null, eventId);
+
+  // Owned-state for the two paid widget upgrades (CLAUDE.md 2026-05-22
+  // Pro panel). Same query shape as page.tsx:487 — exclude cancelled /
+  // refunded / lapsed so a still-in-reconciliation order locks the CTA
+  // to its post-purchase "Active" state and prevents double-buying.
+  // Graceful-degrade if the orders table is missing (42P01) — pre-bootstrap
+  // databases shouldn't crash the Website tab; surface Upgrade CTAs as
+  // the safe default per the PR #380 / #390 hotfix pattern.
+  let ownedOrders: { service_key: string | null; status: string }[] = [];
+  const { data: ordersData, error: ordersError } = await supabase
+    .from('orders')
+    .select('service_key, status')
+    .eq('event_id', eventId)
+    .in('service_key', ['monogram_hero_upgrade', 'pro_widget_schedule'])
+    .not('status', 'in', '("cancelled","refunded","lapsed")');
+  if (ordersError && ordersError.code !== '42P01' && ordersError.code !== '42703') {
+    // Real error — bubble it so the host sees a 500 not silent missing CTAs.
+    throw new Error(`Failed to load Pro upgrade order state: ${ordersError.message}`);
+  }
+  ownedOrders = (ordersData ?? []) as typeof ownedOrders;
 
   const guests = await fetchGuestsByEvent(supabase, eventId);
   const stats = computeGuestStats(guests);
@@ -92,6 +133,13 @@ export default async function WebsiteHubPage({
     ? publicLandingUrl.replace(/^https?:\/\//, '')
     : null;
 
+  const slugErrorMessage =
+    typeof slugError === 'string' && slugError in SLUG_ERROR_COPY
+      ? SLUG_ERROR_COPY[slugError]
+      : typeof slugError === 'string' && slugError.length > 0
+        ? 'We could not save that slug. Try again, or contact support if this keeps happening.'
+        : null;
+
   return (
     <section className="space-y-8">
       {/* Header strip */}
@@ -111,6 +159,30 @@ export default async function WebsiteHubPage({
           </p>
         )}
       </header>
+
+      {/* Slug save / error banner — surfaces above the public URL card so
+          the host sees the result of the inline editor without scrolling
+          the iframe out of view. Auto-clear is intentional NO-OP for V1:
+          the banner stays until the host navigates or refreshes (the
+          query param is the source of truth + the URL strip is cheap). */}
+      {slugSaved === '1' ? (
+        <div
+          role="status"
+          className="rounded-lg border border-emerald-300/70 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+        >
+          Slug saved. Your new wedding URL is live everywhere — guests, QR scans,
+          and social shares all point here now. The old URL still works for
+          90 days so anyone using a saved link can find their way over.
+        </div>
+      ) : null}
+      {slugErrorMessage ? (
+        <div
+          role="alert"
+          className="rounded-lg border border-rose-300/70 bg-rose-50 px-4 py-3 text-sm text-rose-900"
+        >
+          {slugErrorMessage}
+        </div>
+      ) : null}
 
       {/* Public URL card */}
       <section
@@ -157,6 +229,45 @@ export default async function WebsiteHubPage({
                     <span>Open in new tab</span>
                   </Link>
                 </div>
+
+                {/* Slug edit — collapsible <details> so the URL stays the
+                    headline of the card and the editor is one tap away
+                    without dominating the page. Mirrors the inline
+                    affordance pattern already used by the chrome event-
+                    switcher (lib pattern). The SlugField component is the
+                    same one used by invitation/page.tsx — debounced
+                    live-check + status pill + suggestions — bound here
+                    to the Website-tab-specific server action. */}
+                <details className="group rounded-lg border border-ink/10 bg-white/40 px-4 py-2 open:bg-white/70 open:pb-4">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 py-2 text-sm font-medium text-ink/75 hover:text-ink">
+                    <span className="flex items-center gap-2">
+                      <Pencil
+                        aria-hidden
+                        className="h-3.5 w-3.5 text-terracotta"
+                        strokeWidth={1.75}
+                      />
+                      Change your slug
+                    </span>
+                    <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-ink/45 group-open:hidden">
+                      Edit
+                    </span>
+                    <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-ink/45 hidden group-open:inline">
+                      Close
+                    </span>
+                  </summary>
+                  <div className="mt-3 space-y-2">
+                    <SlugField
+                      eventId={eventId}
+                      initialSlug={event.slug ?? ''}
+                      saveAction={slugAction}
+                    />
+                    <p className="text-xs text-ink/50">
+                      The new URL goes live everywhere right away. Your old
+                      URL keeps working for 90 days so anyone with the link
+                      still lands here.
+                    </p>
+                  </div>
+                </details>
               </>
             ) : (
               <div className="space-y-3 rounded-lg border border-amber-300/60 bg-amber-50 p-4">
@@ -164,13 +275,15 @@ export default async function WebsiteHubPage({
                   Pick a slug to publish your wedding URL. Guests will land here when they
                   scan their QR or tap their personal invitation link.
                 </p>
-                <Link
-                  href={`/dashboard/${eventId}/invitation`}
-                  className="inline-flex h-11 min-h-[44pt] items-center justify-center gap-2 rounded-md bg-terracotta px-4 text-sm font-medium text-cream transition-colors hover:bg-terracotta-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-                >
-                  <Pencil aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                  <span>Choose your slug</span>
-                </Link>
+                {/* Inline slug claim — host can pick a slug right from the
+                    Website tab without bouncing through the invitation
+                    editor. Reuses the same <SlugField> component + server
+                    action as the change-slug flow above. */}
+                <SlugField
+                  eventId={eventId}
+                  initialSlug=""
+                  saveAction={slugAction}
+                />
               </div>
             )}
           </div>
@@ -430,6 +543,14 @@ export default async function WebsiteHubPage({
           </li>
         </ul>
       </section>
+
+      {/* Free vs Pro panel — surfaces the two existing V1 paid widget
+          upgrades from iteration 0004 (Monogram Hero ₱1,999 + Live
+          Schedule ₱999). Owner directive CLAUDE.md 2026-05-22: the
+          wedding website has a Free tier and a Pro tier; surface the
+          existing SKUs, do not invent a new bundled SKU. Active-state
+          comes from ownedOrders fetched above. */}
+      <ProUpgradePanel eventId={eventId} ownedOrders={ownedOrders} />
 
       {/* RSVP stats strip */}
       <section aria-labelledby="rsvp-stats-heading" className="space-y-3">

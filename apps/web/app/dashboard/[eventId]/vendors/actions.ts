@@ -17,6 +17,7 @@ import {
   planGroupForCategory,
 } from '@/lib/wedding-plan-groups';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
+import { ensureAutoShareInvite } from '@/lib/vendor-invites';
 
 function isValidCategory(value: unknown): value is VendorCategory {
   return typeof value === 'string' && (VENDOR_CATEGORIES as readonly string[]).includes(value);
@@ -305,7 +306,7 @@ export async function finalizeVendor(
   // marketplace link being non-null.
   const { data: targetVendor, error: targetErr } = await supabase
     .from('event_vendors')
-    .select('vendor_id, category, status, vendor_name, marketplace_vendor_id')
+    .select('vendor_id, category, status, vendor_name, marketplace_vendor_id, manual_vendor_id')
     .eq('event_id', eventId)
     .eq('vendor_id', vendorId)
     .maybeSingle();
@@ -401,6 +402,51 @@ export async function finalizeVendor(
     .eq('event_id', eventId);
   if (lockErr) {
     return { status: 'error', message: lockErr.message };
+  }
+
+  // ----------------------------------------------------------------------
+  // Auto-create claim-link invite for manual vendors (CLAUDE.md 2026-05-22
+  // owner directive — verbatim: "when we lock a vendor for an event without
+  // an account here, there will be a link the host can send to the vendor
+  // to login and lock this schedule for them. they will have access to the
+  // free account for vendors.")
+  //
+  // Triggers ONLY when:
+  //   - targetVendor.manual_vendor_id IS NOT NULL  → host attached a manual
+  //     vendor (one of the event_manual_vendors entries — has photo +
+  //     business_name + contact_person + contact_number per
+  //     20260604080000), AND
+  //   - targetVendor.marketplace_vendor_id IS NULL → vendor doesn't yet have
+  //     a Setnayan vendor_profiles row (no Setnayan account).
+  //
+  // Both conditions are independent of the vendor_name being "manual-y" —
+  // a marketplace-linked row with manual_vendor_id incidentally set (rare
+  // edge case from a future UI that wraps a marketplace pick as a manual
+  // contact) shouldn't get an invite, because the vendor already has an
+  // account.
+  //
+  // Idempotent — ensureAutoShareInvite re-uses any existing pending row
+  // (partial unique index vendor_invites_auto_share_live_unique enforces
+  // one pending row per event_vendors id), so repeat finalize/switch
+  // cycles don't spam invites.
+  //
+  // Failure mode: silently swallows errors (returns null from the helper).
+  // The lock has already succeeded — failing the entire finalize because
+  // of an invite-creation hiccup would be hostile UX. The workspace page
+  // re-attempts ensure on render (via the same helper), so a transient
+  // failure here self-heals next time the host opens the workspace.
+  // ----------------------------------------------------------------------
+  if (targetVendor.manual_vendor_id && !targetVendor.marketplace_vendor_id) {
+    try {
+      await ensureAutoShareInvite(supabase, {
+        eventVendorId: vendorId,
+        invitedByUserId: user.id,
+        businessName: targetVendor.vendor_name as string,
+        serviceCategory: targetVendor.category as string,
+      });
+    } catch {
+      // Silent — see comment block above.
+    }
   }
 
   // ----------------------------------------------------------------------

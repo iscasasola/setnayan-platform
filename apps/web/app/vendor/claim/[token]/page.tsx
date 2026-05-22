@@ -86,13 +86,106 @@ export default async function VendorClaimPage({ params }: Props) {
   }
 
   // ------------------------------------------------------------------
+  // Auto-share-link branch (2026-05-22) — host locked a manual vendor.
+  // Same shape as couple-source for everything except prefill_email
+  // (no email captured at invite-create time — vendor enters their
+  // own email at signup).
+  // ------------------------------------------------------------------
+  if (invite.source === 'auto_share_link') {
+    const finalizeUrl = `/vendor/claim/${invite.claim_token}/finalize`;
+    const signupUrl = `/signup?as=vendor&next=${encodeURIComponent(finalizeUrl)}`;
+    return (
+      <ClaimShell>
+        <article className="space-y-6">
+          <header className="space-y-3">
+            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+              Setnayan · Couple invite
+            </p>
+            <h1 className="font-serif text-3xl font-medium leading-tight text-ink sm:text-4xl">
+              <strong className="font-semibold">{inviterName}</strong> locked
+              you in as their{' '}
+              <strong className="font-semibold">{categoryLabel}</strong>.
+            </h1>
+            <p className="text-base text-ink/70">
+              They&rsquo;re planning their wedding on{' '}
+              <strong className="text-ink">{eventDateLabel}</strong>.
+              Claim your free Setnayan profile to confirm the schedule and
+              keep everything in one place.
+            </p>
+          </header>
+
+          <section className="rounded-xl bg-cream p-5 ring-1 ring-inset ring-ink/10">
+            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+              What they&rsquo;ve recorded
+            </p>
+            <dl className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <SnapshotField
+                label="Business"
+                value={parentVendor?.vendor_name ?? invite.business_name}
+                bold
+              />
+              <SnapshotField label="Service" value={categoryLabel} />
+              {parentVendor?.contact_phone ? (
+                <SnapshotField
+                  label="Phone"
+                  value={parentVendor.contact_phone}
+                  icon={<Phone className="h-3.5 w-3.5" strokeWidth={1.75} />}
+                />
+              ) : null}
+            </dl>
+            <p className="mt-4 border-t border-dashed border-ink/10 pt-3 text-xs italic text-ink/55">
+              Package &amp; payment details stay private until you finish
+              signup.
+            </p>
+          </section>
+
+          <section className="space-y-2">
+            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+              What you get
+            </p>
+            <ul className="grid grid-cols-1 gap-2 text-sm text-ink/70 sm:grid-cols-2">
+              <Perk>Free vendor profile + marketplace listing</Perk>
+              <Perk>Chat with {inviterName} in-app</Perk>
+              <Perk>Calendar + payments + contracts tracking</Perk>
+              <Perk>Marketplace exposure to other PH couples</Perk>
+              <Perk className="sm:col-span-2">
+                No upfront cost · no credit card required
+              </Perk>
+            </ul>
+          </section>
+
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href={signupUrl}
+              className="inline-flex items-center justify-center rounded-md bg-terracotta px-6 py-3 text-sm font-semibold text-cream hover:bg-terracotta-700"
+            >
+              Claim &amp; sign up
+            </Link>
+            <DeclineForm token={invite.claim_token} />
+          </div>
+          <p className="text-xs text-ink/50">
+            Not the right vendor? Just ignore this page — we won&rsquo;t
+            follow up.
+          </p>
+        </article>
+      </ClaimShell>
+    );
+  }
+
+  // ------------------------------------------------------------------
   // Admin-source branch (2026-05-21) — Setnayan team pre-created the
   // account. No couple, no event, no event_vendors row to link. Simpler
   // surface: "the Setnayan team set up a profile for you, claim it".
   // ------------------------------------------------------------------
   if (invite.source === 'admin') {
     const finalizeUrl = `/vendor/claim/${invite.claim_token}/finalize`;
-    const signupUrl = `/signup?as=vendor&prefill_email=${encodeURIComponent(invite.email)}&next=${encodeURIComponent(finalizeUrl)}`;
+    // Admin invites always carry an email (enforced by the
+    // vendor_invites_source_vendor_consistency CHECK), but we defend
+    // against null just in case future drift relaxes the rule.
+    const emailQs = invite.email
+      ? `prefill_email=${encodeURIComponent(invite.email)}&`
+      : '';
+    const signupUrl = `/signup?as=vendor&${emailQs}next=${encodeURIComponent(finalizeUrl)}`;
     const signInUrl = `/login?next=${encodeURIComponent(finalizeUrl)}`;
     return (
       <ClaimShell>
@@ -196,10 +289,16 @@ export default async function VendorClaimPage({ params }: Props) {
   }
 
   // ------------------------------------------------------------------
-  // Default branch — fresh signup path.
+  // Default branch — fresh signup path (couple source).
   // ------------------------------------------------------------------
   const finalizeUrl = `/vendor/claim/${invite.claim_token}/finalize`;
-  const signupUrl = `/signup?as=vendor&prefill_email=${encodeURIComponent(invite.email)}&next=${encodeURIComponent(finalizeUrl)}`;
+  // Couple-source invites always carry an email (enforced by the
+  // vendor_invites_source_vendor_consistency CHECK), but we defend against
+  // null with a fallback to a no-prefill signup just in case.
+  const emailQs = invite.email
+    ? `prefill_email=${encodeURIComponent(invite.email)}&`
+    : '';
+  const signupUrl = `/signup?as=vendor&${emailQs}next=${encodeURIComponent(finalizeUrl)}`;
 
   return (
     <ClaimShell>

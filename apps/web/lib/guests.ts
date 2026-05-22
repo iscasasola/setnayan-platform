@@ -256,3 +256,107 @@ export async function fetchSingletonRoleHolders(
   }
   return holders;
 }
+
+// -----------------------------------------------------------------------
+// Custom guest groups · iteration 0001 V1.2 extension (locked 2026-05-22).
+//
+// Custom groups are many-to-many with guests and live alongside the
+// role-group sidebar views in apps/web/lib/role-groups.ts. They carry a
+// team_side flag so hosts can see at a glance which side of the wedding
+// a group belongs to. Schema lives in
+// supabase/migrations/20260604170000_iteration_0001_guest_groups.sql.
+// -----------------------------------------------------------------------
+
+export type GuestGroupTeamSide = 'bride' | 'groom' | 'both';
+
+export const GUEST_GROUP_TEAM_SIDES: ReadonlyArray<GuestGroupTeamSide> = [
+  'bride',
+  'groom',
+  'both',
+];
+
+export const TEAM_SIDE_LABELS: Record<GuestGroupTeamSide, string> = {
+  bride: 'Team Bride',
+  groom: 'Team Groom',
+  both: 'Both sides',
+};
+
+// Chip palette mirrors the side-of-wedding tints already used on the
+// guest Avatar + SidePill so the visual language stays consistent.
+export const TEAM_SIDE_CHIP: Record<GuestGroupTeamSide, string> = {
+  bride: 'bg-rose-100 text-rose-800 ring-1 ring-rose-200',
+  groom: 'bg-sky-100 text-sky-800 ring-1 ring-sky-200',
+  both: 'bg-amber-100 text-amber-800 ring-1 ring-amber-200',
+};
+
+export type GuestGroupRow = {
+  group_id: string;
+  public_id: string;
+  event_id: string;
+  label: string;
+  team_side: GuestGroupTeamSide;
+  created_at: string;
+  updated_at: string;
+};
+
+export type GuestGroupWithCount = GuestGroupRow & {
+  member_count: number;
+};
+
+const GUEST_GROUP_FIELDS =
+  'group_id,public_id,event_id,label,team_side,created_at,updated_at';
+
+export async function fetchGuestGroupsByEvent(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<GuestGroupWithCount[]> {
+  const [groupsRes, membershipsRes] = await Promise.all([
+    supabase
+      .from('guest_groups')
+      .select(GUEST_GROUP_FIELDS)
+      .eq('event_id', eventId)
+      .order('label', { ascending: true }),
+    // Pull all memberships for groups in this event in one round trip;
+    // join through group_id then count client-side. Avoids a per-group
+    // count(*) which would N+1.
+    supabase
+      .from('guest_group_memberships')
+      .select('group_id, guest_groups!inner(event_id)')
+      .eq('guest_groups.event_id', eventId),
+  ]);
+
+  if (groupsRes.error) {
+    throw new Error(`fetchGuestGroupsByEvent failed: ${groupsRes.error.message}`);
+  }
+  const groups = (groupsRes.data ?? []) as unknown as GuestGroupRow[];
+
+  const counts = new Map<string, number>();
+  for (const m of (membershipsRes.data ?? []) as Array<{ group_id: string }>) {
+    counts.set(m.group_id, (counts.get(m.group_id) ?? 0) + 1);
+  }
+  return groups.map((g) => ({ ...g, member_count: counts.get(g.group_id) ?? 0 }));
+}
+
+/**
+ * Fetch the guest_id → group_ids map for one event. Lets the page render
+ * group chips on each guest row + filter the visible list when the host
+ * has picked a custom-group view.
+ */
+export async function fetchGroupMembershipsByEvent(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<Map<string, string[]>> {
+  const { data, error } = await supabase
+    .from('guest_group_memberships')
+    .select('guest_id, group_id, guest_groups!inner(event_id)')
+    .eq('guest_groups.event_id', eventId);
+
+  if (error) return new Map();
+  const map = new Map<string, string[]>();
+  for (const row of (data ?? []) as Array<{ guest_id: string; group_id: string }>) {
+    const existing = map.get(row.guest_id) ?? [];
+    existing.push(row.group_id);
+    map.set(row.guest_id, existing);
+  }
+  return map;
+}

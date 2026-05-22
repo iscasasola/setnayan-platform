@@ -5,26 +5,18 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import {
   computeGuestStats,
+  fetchGroupMembershipsByEvent,
+  fetchGuestGroupsByEvent,
   fetchGuestsByEvent,
-  guestDisplayName,
-  guestInitials,
-  ROLE_LABELS,
-  RSVP_LABELS,
+  type GuestGroupWithCount,
   type GuestRow,
   type GuestStats,
   type RsvpStatus,
 } from '@/lib/guests';
-import {
-  filterByRoleGroup,
-  ROLE_GROUP_CHIP,
-  ROLE_GROUP_LABELS,
-  roleGroupOf,
-} from '@/lib/role-groups';
-import {
-  getPrimaryColor,
-  sanitizeRolePalette,
-  type RolePalette,
-} from '@/lib/mood-board';
+import { filterByRoleGroup, ROLE_GROUP_LABELS } from '@/lib/role-groups';
+import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
+import { GuestListMultiselect } from './_components/guest-list-multiselect';
+import { GroupsSidebar } from './_components/groups-sidebar';
 
 export const metadata = { title: 'Guests' };
 
@@ -64,6 +56,13 @@ type Props = {
     removed?: string;
     imported?: string;
     skipped?: string;
+    error?: string;
+    bulk_assigned?: string;
+    bulk_grouped?: string;
+    group_created?: string;
+    group_saved?: string;
+    group_deleted?: string;
+    group_member_removed?: string;
   }>;
 };
 
@@ -74,13 +73,15 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   if (!user) redirect('/login');
   const supabase = await createClient();
 
-  const [guests, eventRow] = await Promise.all([
+  const [guests, eventRow, groups, membershipsMap] = await Promise.all([
     fetchGuestsByEvent(supabase, eventId),
     supabase
       .from('events')
       .select('role_palette')
       .eq('event_id', eventId)
       .maybeSingle(),
+    fetchGuestGroupsByEvent(supabase, eventId),
+    fetchGroupMembershipsByEvent(supabase, eventId),
   ]);
   const palette: RolePalette = sanitizeRolePalette(eventRow.data?.role_palette ?? {});
 
@@ -90,17 +91,42 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   const tagFilter = (search.tag ?? '').trim();
   const sort = (search.sort ?? 'last_name') as SortKey;
 
+  // Custom-group view detection — view param is "group:<group_id>"
+  // when the host has clicked a custom group in the sidebar.
+  const currentGroupId =
+    view.startsWith('group:') ? view.slice('group:'.length) : null;
+  const groupMemberSet = currentGroupId
+    ? new Set(
+        Array.from(membershipsMap.entries())
+          .filter(([, gids]) => gids.includes(currentGroupId))
+          .map(([gid]) => gid),
+      )
+    : null;
+
   let visible = guests.filter((g) => {
     if (rsvpFilter && g.rsvp_status !== rsvpFilter) return false;
     if (tagFilter && !g.custom_tags.includes(tagFilter)) return false;
+    if (groupMemberSet && !groupMemberSet.has(g.guest_id)) return false;
     if (q) {
       const haystack = `${g.first_name} ${g.last_name} ${g.display_name ?? ''} ${g.email ?? ''} ${g.custom_tags.join(' ')}`.toLowerCase();
       if (!haystack.includes(q)) return false;
     }
     return true;
   });
-  visible = filterByRoleGroup(visible, view);
+  // The role-group sidebar only filters when view is one of the
+  // canonical role groups — custom-group views ("group:<uuid>") skip
+  // this step because the groupMemberSet filter above already narrowed
+  // the list to the group's members.
+  if (!currentGroupId) {
+    visible = filterByRoleGroup(visible, view);
+  }
   visible.sort((a, b) => sortCompare(a, b, sort));
+
+  // Convert the Map<guest_id, group_id[]> to a plain object so it
+  // serializes cleanly across the server/client component boundary.
+  const groupMemberships: Record<string, string[]> = Object.fromEntries(
+    membershipsMap.entries(),
+  );
 
   const stats = computeGuestStats(guests);
   const allTags = uniqueTags(guests);
@@ -149,6 +175,15 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         </p>
       ) : null}
 
+      {search.error ? (
+        <p
+          role="alert"
+          className="rounded-md border border-rose-300/60 bg-rose-50 px-4 py-3 text-sm text-rose-800"
+        >
+          {decodeURIComponent(search.error)}
+        </p>
+      ) : null}
+
       <StatsStrip stats={stats} eventId={eventId} active={rsvpFilter} />
 
       <Link
@@ -184,16 +219,22 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           tagFilter={tagFilter}
           tags={allTags}
           search={search}
+          groups={groups}
+          currentGroupId={currentGroupId}
         />
 
         <div className="min-w-0 space-y-4">
           {visible.length === 0 ? (
             <EmptyState hasGuests={stats.total > 0} eventId={eventId} />
           ) : (
-            <>
-              <DesktopTable guests={visible} eventId={eventId} palette={palette} />
-              <MobileCardList guests={visible} eventId={eventId} palette={palette} />
-            </>
+            <GuestListMultiselect
+              eventId={eventId}
+              guests={visible}
+              palette={palette}
+              groups={groups}
+              groupMemberships={groupMemberships}
+              currentGroupId={currentGroupId}
+            />
           )}
         </div>
       </div>
@@ -255,6 +296,12 @@ function pickFlash(search: {
   removed?: string;
   imported?: string;
   skipped?: string;
+  bulk_assigned?: string;
+  bulk_grouped?: string;
+  group_created?: string;
+  group_saved?: string;
+  group_deleted?: string;
+  group_member_removed?: string;
 }): string | null {
   if (search.added) {
     const n = Number(search.added);
@@ -270,6 +317,18 @@ function pickFlash(search: {
       return `Imported ${n} guest${n === 1 ? '' : 's'} · skipped ${s} invalid row${s === 1 ? '' : 's'}.`;
     return `Imported ${n} guest${n === 1 ? '' : 's'}.`;
   }
+  if (search.bulk_assigned) {
+    const n = Number(search.bulk_assigned);
+    return `Role assigned to ${n} guest${n === 1 ? '' : 's'}.`;
+  }
+  if (search.bulk_grouped) {
+    const n = Number(search.bulk_grouped);
+    return `Added ${n} guest${n === 1 ? '' : 's'} to the group.`;
+  }
+  if (search.group_created) return 'Group created.';
+  if (search.group_saved) return 'Group saved.';
+  if (search.group_deleted) return 'Group deleted.';
+  if (search.group_member_removed) return 'Removed from group.';
   return null;
 }
 
@@ -405,12 +464,16 @@ function FacetsSidebar({
   tagFilter,
   tags,
   search,
+  groups,
+  currentGroupId,
 }: {
   eventId: string;
   view: string;
   tagFilter: string;
   tags: string[];
   search: { q?: string; rsvp?: string; sort?: string };
+  groups: GuestGroupWithCount[];
+  currentGroupId: string | null;
 }) {
   const baseQuery = new URLSearchParams();
   if (search.q) baseQuery.set('q', search.q);
@@ -427,6 +490,11 @@ function FacetsSidebar({
     return `/dashboard/${eventId}/guests${qs ? `?${qs}` : ''}`;
   };
 
+  // The locked role-group view is "active" only when the host is on
+  // one of those keys — custom-group views (view === "group:<uuid>")
+  // should leave the role-group strip in neutral state.
+  const activeRoleView = currentGroupId ? '' : view;
+
   return (
     <aside className="hidden space-y-6 self-start lg:sticky lg:top-24 lg:block">
       <FacetGroup label="View">
@@ -436,7 +504,7 @@ function FacetsSidebar({
               <Link
                 href={buildHref({ view: v.key === 'all' ? null : v.key })}
                 className={`block rounded-md px-3 py-1.5 text-sm transition-colors ${
-                  view === v.key
+                  activeRoleView === v.key
                     ? 'bg-terracotta/10 font-medium text-terracotta-700'
                     : 'text-ink/70 hover:bg-ink/5'
                 }`}
@@ -447,6 +515,13 @@ function FacetsSidebar({
           ))}
         </ul>
       </FacetGroup>
+
+      <GroupsSidebar
+        eventId={eventId}
+        groups={groups}
+        currentGroupId={currentGroupId}
+        buildHref={buildHref}
+      />
 
       {tags.length > 0 ? (
         <FacetGroup label="Custom tags">
@@ -521,101 +596,6 @@ function EmptyState({ hasGuests, eventId }: { hasGuests: boolean; eventId: strin
   );
 }
 
-function DesktopTable({
-  guests,
-  eventId,
-  palette,
-}: {
-  guests: GuestRow[];
-  eventId: string;
-  palette: RolePalette;
-}) {
-  return (
-    <div className="hidden overflow-hidden rounded-xl border border-ink/10 sm:block">
-      <table className="w-full table-fixed text-left text-sm">
-        <thead className="bg-ink/[0.03] text-[11px] uppercase tracking-[0.12em] text-ink/55">
-          <tr>
-            <th className="px-4 py-3 font-medium">Name</th>
-            <th className="w-[24%] px-3 py-3 font-medium">Role</th>
-            <th className="w-[12%] px-3 py-3 font-medium">Side</th>
-            <th className="w-[14%] px-3 py-3 font-medium">RSVP</th>
-            <th className="w-[18%] px-3 py-3 font-medium">Contact</th>
-          </tr>
-        </thead>
-        <tbody>
-          {guests.map((guest) => (
-            <tr
-              key={guest.guest_id}
-              className="border-t border-ink/5 hover:bg-terracotta/[0.04]"
-            >
-              <td className="px-4 py-3">
-                <Link
-                  href={`/dashboard/${eventId}/guests/${guest.guest_id}`}
-                  className="flex items-center gap-3 -mx-4 -my-3 px-4 py-3"
-                >
-                  <Avatar guest={guest} />
-                  <div className="min-w-0">
-                    <p className="truncate font-medium text-ink">{guestDisplayName(guest)}</p>
-                    {guest.plus_one_allowed ? (
-                      <p className="truncate text-xs text-ink/55">
-                        + {guest.plus_one_name ?? 'TBA'}
-                      </p>
-                    ) : null}
-                  </div>
-                </Link>
-              </td>
-              <td className="px-3 py-3">
-                <RoleChip role={guest.role} palette={palette} />
-              </td>
-              <td className="px-3 py-3">
-                <SidePill side={guest.side} />
-              </td>
-              <td className="px-3 py-3">
-                <RsvpPill status={guest.rsvp_status} />
-              </td>
-              <td className="px-3 py-3 text-xs text-ink/60">
-                {guest.email ?? guest.mobile ?? '—'}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function MobileCardList({
-  guests,
-  eventId,
-  palette,
-}: {
-  guests: GuestRow[];
-  eventId: string;
-  palette: RolePalette;
-}) {
-  return (
-    <ul className="space-y-2 sm:hidden">
-      {guests.map((guest) => (
-        <li key={guest.guest_id}>
-          <Link
-            href={`/dashboard/${eventId}/guests/${guest.guest_id}`}
-            className="flex items-center gap-3 rounded-lg border border-ink/10 bg-cream p-3 hover:border-terracotta/40"
-          >
-            <Avatar guest={guest} />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-ink">{guestDisplayName(guest)}</p>
-              <div className="mt-0.5 flex items-center gap-1.5">
-                <RoleChip role={guest.role} palette={palette} />
-              </div>
-            </div>
-            <RsvpPill status={guest.rsvp_status} />
-          </Link>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 function MobileFab({ eventId }: { eventId: string }) {
   return (
     <div className="fixed bottom-20 right-4 z-30 sm:hidden">
@@ -630,71 +610,3 @@ function MobileFab({ eventId }: { eventId: string }) {
   );
 }
 
-function Avatar({ guest }: { guest: GuestRow }) {
-  const sideTint: Record<typeof guest.side, string> = {
-    bride: 'bg-rose-200/60 text-rose-900',
-    groom: 'bg-sky-200/60 text-sky-900',
-    both: 'bg-amber-200/60 text-amber-900',
-  };
-  return (
-    <span
-      aria-hidden
-      className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${sideTint[guest.side]}`}
-    >
-      {guestInitials(guest)}
-    </span>
-  );
-}
-
-function SidePill({ side }: { side: GuestRow['side'] }) {
-  const tone: Record<GuestRow['side'], string> = {
-    bride: 'bg-rose-100 text-rose-800',
-    groom: 'bg-sky-100 text-sky-800',
-    both: 'bg-amber-100 text-amber-800',
-  };
-  const label = side === 'both' ? 'Both' : side === 'bride' ? "Bride's" : "Groom's";
-  return (
-    <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${tone[side]}`}>
-      {label}
-    </span>
-  );
-}
-
-function RsvpPill({ status }: { status: RsvpStatus }) {
-  const tone: Record<RsvpStatus, string> = {
-    attending: 'bg-emerald-100 text-emerald-800',
-    pending: 'bg-amber-100 text-amber-800',
-    declined: 'bg-rose-100 text-rose-800',
-    maybe: 'bg-ink/10 text-ink/70',
-  };
-  return (
-    <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${tone[status]}`}>
-      {RSVP_LABELS[status]}
-    </span>
-  );
-}
-
-function RoleChip({
-  role,
-  palette,
-}: {
-  role: GuestRow['role'];
-  palette: RolePalette;
-}) {
-  const group = roleGroupOf(role);
-  const accent = getPrimaryColor(palette, group);
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${ROLE_GROUP_CHIP[group]}`}
-    >
-      {accent ? (
-        <span
-          aria-hidden
-          className="inline-block h-2 w-2 rounded-full ring-1 ring-ink/10"
-          style={{ backgroundColor: accent }}
-        />
-      ) : null}
-      {ROLE_LABELS[role]}
-    </span>
-  );
-}

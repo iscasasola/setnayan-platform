@@ -139,6 +139,16 @@ type Props = {
      *  /vendors/compare here with `notice=compare_v1_2`. Surfaces the
      *  "compare is coming in V1.2" banner under the marketplace header. */
     notice?: string;
+    /** Task #47 · CLAUDE.md 2026-05-22 — when present and resolves to one
+     *  of WEDDING_FOLDER_ORDER, scopes the catalog to a single folder
+     *  section. Driven by the dashboard planning-group [Search] buttons,
+     *  which set `?folder=reception#reception` (etc.) so couples landing
+     *  on Reception don't also see the entire Ceremony folder + its
+     *  church/mosque venue cards directly above. Absent on the universal
+     *  Browse entry (top-nav, sitemap, direct visit) so the full
+     *  12-folder catalog renders as before. Invalid values fall back to
+     *  unscoped catalog. */
+    folder?: string;
   }>;
 };
 
@@ -251,6 +261,11 @@ function parseFilters(
   verifiedOnly: boolean;
   matchEvent: boolean;
   eventType: EventTypeFilter | null;
+  /** Task #47 — catalog-mode folder scope. When set to one of the 12
+   *  WeddingFolder values, CatalogView renders only that single section.
+   *  Source: dashboard planning-group [Search] buttons (planning-groups.tsx).
+   *  Absent / invalid → render all 12 folders (universal Browse). */
+  folder: WeddingFolder | null;
 } {
   const q = (raw.q ?? '').trim();
   const sort = (SORT_KEYS as readonly string[]).includes(raw.sort ?? '')
@@ -285,7 +300,13 @@ function parseFilters(
   const eventType = (ALLOWED_EVENT_TYPE_FILTERS as readonly string[]).includes(raw.event_type ?? '')
     ? (raw.event_type as EventTypeFilter)
     : null;
-  return { q, category, city, sort, page, verifiedOnly, matchEvent, eventType };
+  // Task #47 — catalog-mode folder scope. Validate against the canonical
+  // 12-folder enum. Invalid / typo / null all fall back to unscoped.
+  const rawFolder = (raw.folder ?? '').trim();
+  const folder = (WEDDING_FOLDER_ORDER as readonly string[]).includes(rawFolder)
+    ? (rawFolder as WeddingFolder)
+    : null;
+  return { q, category, city, sort, page, verifiedOnly, matchEvent, eventType, folder };
 }
 
 export default async function VendorsMarketplacePage({ searchParams }: Props) {
@@ -444,6 +465,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         currentEventId={coupleEventId}
         isAuthenticated={user !== null}
         noticeKey={noticeKey}
+        scopedFolder={filters.folder}
       />
     );
   }
@@ -1441,6 +1463,7 @@ async function CatalogView({
   currentEventId,
   isAuthenticated,
   noticeKey,
+  scopedFolder,
 }: {
   admin: ReturnType<typeof createAdminClient>;
   matchableEvent: { ceremony_type: string; venue_setting: string } | null;
@@ -1457,6 +1480,15 @@ async function CatalogView({
    *  unknown. Surfaces a polite banner under the header explaining a
    *  redirected-from-deferred-feature landing. */
   noticeKey: string | null;
+  /** Task #47 — when non-null, render only the named folder section. Hides
+   *  the other 11 folders + the PairedVenuePanel (which surfaces ceremony
+   *  venues regardless of viewport position; the dashboard Reception
+   *  Search button previously landed users on Reception with the entire
+   *  Ceremony folder + paired-venue church cards rendered directly above,
+   *  reading as "the churches still showed in Reception"). Null when the
+   *  user came in via the universal Browse path (top-nav, sitemap, direct
+   *  visit) — full 12-folder catalog renders as before. */
+  scopedFolder: WeddingFolder | null;
 }) {
   // Single round-trip per page render — both reads are admin-scoped because
   // anonymous visitors hit this route and `vendor_profiles` is gated by RLS.
@@ -1611,7 +1643,16 @@ async function CatalogView({
 
         <FolderTabs tabs={tabs} totalCount={totalCategories} />
 
-        {venueAnchor ? (
+        {scopedFolder !== null ? (
+          <ScopedFolderBanner folder={scopedFolder} />
+        ) : null}
+
+        {/* PairedVenuePanel surfaces ceremony venue cards (churches /
+            mosques / civil registrars). It belongs to the Ceremony folder
+            conceptually. When the catalog is scoped to a non-ceremony
+            folder via ?folder=… (e.g. Reception), suppress it so the
+            scoped view stays single-folder per the owner directive. */}
+        {venueAnchor && (scopedFolder === null || scopedFolder === 'ceremony') ? (
           <PairedVenuePanel
             anchor={{
               lat: venueAnchor.lat,
@@ -1624,6 +1665,10 @@ async function CatalogView({
         ) : null}
 
         {WEDDING_FOLDER_ORDER.map((folder) => {
+          // Task #47 — when the catalog is scoped to a single folder, skip
+          // every other folder section so couples landing on Reception
+          // don't also see the entire Ceremony folder + its venue cards.
+          if (scopedFolder !== null && folder !== scopedFolder) return null;
           if (folder === 'reception') {
             return (
               <ReceptionSection key={folder} matchableEvent={matchableEvent} />
@@ -1747,6 +1792,34 @@ function ReceptionSection({
         ))}
       </ul>
     </section>
+  );
+}
+
+// Task #47 — scoped-folder banner. Renders when the catalog is showing
+// only one of the 12 folders (driven by ?folder=… from the dashboard
+// planning-group [Search] buttons). Tells the couple what they're looking
+// at and gives them a one-click escape to the full universal catalog if
+// they want to browse outside the locked scope. The FolderTabs strip
+// above this banner is still active — a click on any other folder chip
+// preserves scope (they want THAT folder); the "Browse all folders" link
+// drops the scope entirely.
+function ScopedFolderBanner({ folder }: { folder: WeddingFolder }) {
+  return (
+    <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-ink/15 bg-cream px-4 py-3">
+      <p className="text-sm text-ink/80">
+        Showing{' '}
+        <span className="font-medium text-ink">
+          {WEDDING_FOLDER_LABEL[folder]}
+        </span>{' '}
+        only — the other 11 folders are hidden so you can focus.
+      </p>
+      <Link
+        href="/vendors"
+        className="inline-flex shrink-0 items-center rounded-full border border-ink/20 bg-cream px-3 py-1 text-xs font-medium text-ink/75 hover:border-ink/40 hover:bg-ink/5"
+      >
+        Browse all folders
+      </Link>
+    </div>
   );
 }
 

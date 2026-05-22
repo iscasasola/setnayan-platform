@@ -19,11 +19,10 @@ type Props = {
   /** events.event_date_precision — 'year' / 'month' / 'day'. Controls
    *  how the date renders and whether days-out is meaningful. */
   eventDatePrecision: EventDatePrecision;
-  /** Optional events.estimated_budget_centavos (PHP centavos). When
-   *  null the strip surfaces a "Set your budget" CTA instead of the
-   *  three-number layout. The events table doesn't ship this column
-   *  yet (V1 schema audit 2026-05-22) — kept as an optional prop so
-   *  the column can land in a follow-up migration without a UI rev. */
+  /** events.estimated_budget_centavos (PHP centavos), populated by
+   *  the Budget Setter at /dashboard/[eventId]/budget. When NULL the
+   *  strip surfaces a "Set your budget" CTA instead of the three-
+   *  number layout. The column landed in migration 20260604030000. */
   targetCentavos: number | null;
   /** Sum of every "money committed so far" signal Setnayan can count:
    *  paid + fulfilled orders, plus contract-or-better event_vendors

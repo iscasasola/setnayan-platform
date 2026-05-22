@@ -249,7 +249,7 @@ export default async function EventHomePage({
       supabase
         .from('events')
         .select(
-          'event_id, display_name, event_date, event_date_precision, slug, venue_name, venue_latitude, venue_longitude, monogram_text, palette_finalized_at, concierge_status, concierge_tier, concierge_activated_at, concierge_expires_at, concierge_long_engagement_advised_at, event_type, ceremony_type, ceremony_type_locked_at, venue_setting',
+          'event_id, display_name, event_date, event_date_precision, slug, venue_name, venue_latitude, venue_longitude, monogram_text, palette_finalized_at, concierge_status, concierge_tier, concierge_activated_at, concierge_expires_at, concierge_long_engagement_advised_at, event_type, ceremony_type, ceremony_type_locked_at, venue_setting, estimated_budget_centavos',
         )
         .eq('event_id', eventId)
         .maybeSingle(),
@@ -548,10 +548,12 @@ export default async function EventHomePage({
   }, 0);
   const committedCentavos = Math.round((paidOrdersTotalPhp + contractedVendorsTotalPhp) * 100);
 
-  // Target budget — events table doesn't carry a budget column yet
-  // (V1 schema audit 2026-05-22). Pull defensively in case a future
-  // migration lands it; otherwise null is fine and the strip surfaces
-  // the "Set your budget" CTA.
+  // Target budget — populated by the Budget Setter at
+  // /dashboard/[eventId]/budget (migration 20260604030000 added the
+  // events.estimated_budget_centavos column). Defensive optional read
+  // in case a fresh deploy lands the SELECT before the migration
+  // applies in production; NULL surfaces the "Set your budget" CTA in
+  // BudgetCountdownHeader without crashing the page.
   const eventBudgetCentavos =
     (event as { estimated_budget_centavos?: number | null }).estimated_budget_centavos ?? null;
 

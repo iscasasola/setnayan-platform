@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import {
   useEffect,
   useRef,
@@ -8,11 +9,15 @@ import {
   type ChangeEvent,
   type FormEvent,
 } from 'react';
-import { X, Check, Camera, AlertCircle, Upload } from 'lucide-react';
+import { X, Check, Camera, AlertCircle, Upload, Sparkles, Store, ArrowLeft, MapPin } from 'lucide-react';
 import {
   createManualVendor,
   attachManualVendorToCategory,
+  attachMarketplaceVendorToCategory,
+  searchMarketplaceVendorsByName,
+  type MarketplaceVendorSuggestion,
 } from '../vendors/actions';
+import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
 
 // Modal for the "+ Add new manual vendor" path inside ManualVendorDropdown.
 //
@@ -21,11 +26,25 @@ import {
 // the schema (host can skip and add later) but the form treats it as
 // strongly encouraged — every other field is required.
 //
-// Two-step submit on Save:
+// Owner directive 2026-05-22 (extended 2026-05-23): as the host types
+// the vendor name, ALSO search the existing Setnayan marketplace.
+// Matches surface in a debounced autocomplete below the input. Picking
+// a match flips the modal into "linking" mode — the manual fields
+// collapse, a confirmation card shows the picked vendor + Cancel
+// affordance. Save inserts an event_vendors row with
+// marketplace_vendor_id (not manual_vendor_id). Cross-category vendors
+// (matched name doesn't list THIS card's category as a service) get an
+// amber notice — host can still pick them but is informed.
+//
+// Two-step submit on Save (manual fallback path · unchanged):
 //   1. createManualVendor → returns manual_vendor_id (incl. photo upload
 //      if a file was picked)
 //   2. attachManualVendorToCategory → wires the new row into the
 //      current planning card
+//
+// Marketplace-link submit (new path):
+//   1. attachMarketplaceVendorToCategory → inserts event_vendors row
+//      with marketplace_vendor_id + service_id (when available)
 //
 // On success we call onCreated() so the parent dropdown closes + the
 // page revalidates (server actions already revalidatePath the dashboard
@@ -37,7 +56,9 @@ import {
 // autoFocus on Vendor Name input; ESC closes; 44px tap targets.
 //
 // Responsive: mobile = full-width fixed bottom-sheet rising from the
-// thumb-zone; desktop = centered modal on dim backdrop.
+// thumb-zone; desktop = centered modal on dim backdrop. Autocomplete
+// dropdown scrolls if many matches; on mobile it doesn't overflow the
+// modal (max-h capped + overflow-y-auto).
 
 type Props = {
   eventId: string;
@@ -46,6 +67,16 @@ type Props = {
   onClose: () => void;
   onCreated: () => void;
 };
+
+// State machine for the modal's primary action.
+// 'manual'  = host is typing or has typed a brand-new contact name —
+//             Save creates an event_manual_vendors row + attaches.
+// 'linked'  = host clicked a marketplace match — manual fields collapse,
+//             confirmation card shows; Save inserts an event_vendors row
+//             with marketplace_vendor_id. Cancel returns to 'manual'.
+type ModalMode =
+  | { kind: 'manual' }
+  | { kind: 'linked'; vendor: MarketplaceVendorSuggestion };
 
 export function NewManualVendorModal({
   eventId,
@@ -60,6 +91,23 @@ export function NewManualVendorModal({
   const firstFieldRef = useRef<HTMLInputElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Autocomplete state — owner directive 2026-05-22.
+  // `nameQuery` is the live value of the Vendor Name input. Debounced
+  // 300ms before firing the search. `suggestions` holds the latest
+  // server response. `searching` is true while a debounced request is
+  // in flight (renders the subtle "Searching…" hint).
+  const [mode, setMode] = useState<ModalMode>({ kind: 'manual' });
+  const [nameQuery, setNameQuery] = useState('');
+  const [suggestions, setSuggestions] = useState<
+    ReadonlyArray<MarketplaceVendorSuggestion>
+  >([]);
+  const [searching, setSearching] = useState(false);
+  const [autocompleteOpen, setAutocompleteOpen] = useState(false);
+  // Bumps every time the user types so a stale in-flight response can
+  // be discarded (last-write-wins). Stronger than AbortController for
+  // server actions, which don't expose a cancel signal.
+  const queryGenerationRef = useRef(0);
+
   // Initial focus on Vendor Name + ESC closes. Tiny accessibility win.
   useEffect(() => {
     firstFieldRef.current?.focus();
@@ -69,6 +117,63 @@ export function NewManualVendorModal({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
+
+  // Debounced marketplace search. Fires 300ms after typing stops to
+  // avoid spamming the server on every keystroke. Empty / <2 chars
+  // collapses the dropdown without a server call. The
+  // queryGenerationRef pattern guarantees a slow response doesn't
+  // clobber a faster newer response.
+  useEffect(() => {
+    if (mode.kind !== 'manual') return; // skip search while in linked mode
+    const trimmed = nameQuery.trim();
+    if (trimmed.length < 2) {
+      setSuggestions([]);
+      setSearching(false);
+      setAutocompleteOpen(false);
+      return;
+    }
+    queryGenerationRef.current += 1;
+    const myGeneration = queryGenerationRef.current;
+    setSearching(true);
+    setAutocompleteOpen(true);
+    const handle = window.setTimeout(async () => {
+      const result = await searchMarketplaceVendorsByName(
+        trimmed,
+        eventId,
+        category,
+      );
+      // Discard stale response.
+      if (myGeneration !== queryGenerationRef.current) return;
+      setSearching(false);
+      if (result.status === 'ok') {
+        setSuggestions(result.matches);
+      } else {
+        // not_signed_in / invalid_input — silently collapse. The Save
+        // path will surface a hard error if the host is actually
+        // signed out.
+        setSuggestions([]);
+      }
+    }, 300);
+    return () => window.clearTimeout(handle);
+  }, [nameQuery, eventId, category, mode.kind]);
+
+  function handleNameChange(e: ChangeEvent<HTMLInputElement>) {
+    setNameQuery(e.currentTarget.value);
+  }
+
+  function handlePickMarketplaceVendor(vendor: MarketplaceVendorSuggestion) {
+    setMode({ kind: 'linked', vendor });
+    setAutocompleteOpen(false);
+    setErrorMsg(null);
+  }
+
+  function handleCancelLink() {
+    setMode({ kind: 'manual' });
+    setErrorMsg(null);
+    // Keep the typed name so the host can keep refining without
+    // re-typing.
+    setTimeout(() => firstFieldRef.current?.focus(), 0);
+  }
 
   // Photo preview lifecycle — revoke object URLs when they change OR
   // when the modal closes so we don't leak memory.
@@ -105,6 +210,51 @@ export function NewManualVendorModal({
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (pending) return;
+
+    // Linked-mode branch (NEW · marketplace vendor picked from
+    // autocomplete). Skip the manual create + attach two-step entirely
+    // and call attachMarketplaceVendorToCategory once.
+    if (mode.kind === 'linked') {
+      startTransition(async () => {
+        const linkFd = new FormData();
+        linkFd.set('event_id', eventId);
+        linkFd.set('marketplace_vendor_id', mode.vendor.vendor_profile_id);
+        linkFd.set('category', category);
+        const result = await attachMarketplaceVendorToCategory(linkFd);
+        if (result.status === 'not_signed_in') {
+          const next = encodeURIComponent(
+            window.location.pathname + window.location.search,
+          );
+          window.location.href = `/login?next=${next}`;
+          return;
+        }
+        if (result.status === 'already_attached') {
+          // The autocomplete should have filtered this out, but a
+          // stale dropdown (host has two tabs open) could submit a
+          // duplicate. Treat as success — the row exists.
+          onCreated();
+          return;
+        }
+        if (result.status === 'invalid_category' || result.status === 'invalid_input') {
+          setErrorMsg('Could not add. Try again.');
+          return;
+        }
+        if (result.status === 'marketplace_vendor_not_found') {
+          setErrorMsg('This vendor is no longer available. Try searching again.');
+          // Drop back to manual mode so the host can re-search.
+          setMode({ kind: 'manual' });
+          return;
+        }
+        if (result.status === 'error') {
+          setErrorMsg(result.message ?? 'Could not add.');
+          return;
+        }
+        onCreated();
+      });
+      return;
+    }
+
+    // Manual-mode branch (unchanged · existing two-step path).
     const fd = new FormData(e.currentTarget);
     startTransition(async () => {
       const createResult = await createManualVendor(fd);
@@ -192,103 +342,144 @@ export function NewManualVendorModal({
         >
           <input type="hidden" name="event_id" value={eventId} />
 
-          {/* Photo upload — round preview + Choose button */}
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              aria-label="Choose a photo"
-              className="group relative inline-flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-dashed border-ink/25 bg-cream transition-colors hover:border-terracotta/60"
-            >
-              {photoPreviewUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={photoPreviewUrl}
-                  alt=""
-                  className="h-full w-full object-cover"
+          {mode.kind === 'linked' ? (
+            // LINKED MODE — host picked a marketplace vendor from the
+            // autocomplete. Manual fields collapse; the picked vendor
+            // shows as a confirmation card with a Cancel affordance.
+            // Save inserts an event_vendors row with marketplace_vendor_id.
+            <LinkedVendorConfirmation
+              vendor={mode.vendor}
+              currentCategoryLabel={categoryLabel}
+              currentCategory={category}
+              onCancel={handleCancelLink}
+              disabled={pending}
+            />
+          ) : (
+            // MANUAL MODE — the full Add-a-contact form per the existing
+            // owner directive 2026-05-22. Vendor Name input now drives
+            // an autocomplete dropdown that searches the marketplace.
+            <>
+              {/* Photo upload — round preview + Choose button */}
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  aria-label="Choose a photo"
+                  className="group relative inline-flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-dashed border-ink/25 bg-cream transition-colors hover:border-terracotta/60"
+                >
+                  {photoPreviewUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={photoPreviewUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <Camera
+                      aria-hidden
+                      className="h-5 w-5 text-ink/40 transition-colors group-hover:text-terracotta"
+                      strokeWidth={1.75}
+                    />
+                  )}
+                </button>
+                <div className="flex flex-col gap-1 text-xs text-ink/65">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="inline-flex items-center gap-1.5 self-start rounded-md border border-ink/15 bg-cream px-2.5 py-1 text-xs font-medium text-ink/80 transition-colors hover:border-terracotta/40 hover:text-terracotta"
+                  >
+                    <Upload aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+                    {photoPreviewUrl ? 'Replace photo' : 'Add photo'}
+                  </button>
+                  <span className="text-[10px] text-ink/45">
+                    Optional — JPEG, PNG, WebP, or HEIC up to 6 MB.
+                  </span>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  name="photo"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={handlePhotoChange}
                 />
-              ) : (
-                <Camera
-                  aria-hidden
-                  className="h-5 w-5 text-ink/40 transition-colors group-hover:text-terracotta"
-                  strokeWidth={1.75}
-                />
-              )}
-            </button>
-            <div className="flex flex-col gap-1 text-xs text-ink/65">
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="inline-flex items-center gap-1.5 self-start rounded-md border border-ink/15 bg-cream px-2.5 py-1 text-xs font-medium text-ink/80 transition-colors hover:border-terracotta/40 hover:text-terracotta"
+              </div>
+
+              {/* Vendor name + marketplace autocomplete wrapper. The
+                  dropdown anchors to the input via absolute positioning
+                  inside this relative container so it floats above
+                  whatever sits below in the form. */}
+              <div className="relative">
+                <Field label="Vendor name" htmlFor="manual-vendor-name" required>
+                  <input
+                    ref={firstFieldRef}
+                    id="manual-vendor-name"
+                    name="business_name"
+                    type="text"
+                    required
+                    maxLength={128}
+                    disabled={pending}
+                    value={nameQuery}
+                    onChange={handleNameChange}
+                    onFocus={() => {
+                      if (nameQuery.trim().length >= 2) setAutocompleteOpen(true);
+                    }}
+                    autoComplete="off"
+                    placeholder="e.g. Tito Marcel"
+                    className="w-full rounded-md border border-ink/15 bg-cream px-3 py-2 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60"
+                  />
+                </Field>
+                {autocompleteOpen && nameQuery.trim().length >= 2 ? (
+                  <MarketplaceAutocomplete
+                    matches={suggestions}
+                    searching={searching}
+                    currentCategoryLabel={categoryLabel}
+                    currentCategory={category}
+                    onPick={handlePickMarketplaceVendor}
+                    onDismiss={() => setAutocompleteOpen(false)}
+                  />
+                ) : null}
+              </div>
+
+              <Field
+                label="Contact person"
+                htmlFor="manual-vendor-contact-person"
+                required
+                hint="Who to call · usually the same as Vendor name."
               >
-                <Upload aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-                {photoPreviewUrl ? 'Replace photo' : 'Add photo'}
-              </button>
-              <span className="text-[10px] text-ink/45">
-                Optional — JPEG, PNG, WebP, or HEIC up to 6 MB.
-              </span>
-            </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              name="photo"
-              accept="image/*"
-              className="sr-only"
-              onChange={handlePhotoChange}
-            />
-          </div>
+                <input
+                  id="manual-vendor-contact-person"
+                  name="contact_person"
+                  type="text"
+                  required
+                  maxLength={128}
+                  disabled={pending}
+                  placeholder="e.g. Marcel Santos"
+                  className="w-full rounded-md border border-ink/15 bg-cream px-3 py-2 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60"
+                />
+              </Field>
 
-          <Field label="Vendor name" htmlFor="manual-vendor-name" required>
-            <input
-              ref={firstFieldRef}
-              id="manual-vendor-name"
-              name="business_name"
-              type="text"
-              required
-              maxLength={128}
-              disabled={pending}
-              placeholder="e.g. Tito Marcel"
-              className="w-full rounded-md border border-ink/15 bg-cream px-3 py-2 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60"
-            />
-          </Field>
-
-          <Field
-            label="Contact person"
-            htmlFor="manual-vendor-contact-person"
-            required
-            hint="Who to call · usually the same as Vendor name."
-          >
-            <input
-              id="manual-vendor-contact-person"
-              name="contact_person"
-              type="text"
-              required
-              maxLength={128}
-              disabled={pending}
-              placeholder="e.g. Marcel Santos"
-              className="w-full rounded-md border border-ink/15 bg-cream px-3 py-2 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60"
-            />
-          </Field>
-
-          <Field
-            label="Contact number"
-            htmlFor="manual-vendor-contact-number"
-            required
-            hint="Mobile preferred · e.g. +63 917 555 1234"
-          >
-            <input
-              id="manual-vendor-contact-number"
-              name="contact_number"
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel"
-              required
-              maxLength={32}
-              disabled={pending}
-              placeholder="+63 9XX XXX XXXX"
-              className="w-full rounded-md border border-ink/15 bg-cream px-3 py-2 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60"
-            />
-          </Field>
+              <Field
+                label="Contact number"
+                htmlFor="manual-vendor-contact-number"
+                required
+                hint="Mobile preferred · e.g. +63 917 555 1234"
+              >
+                <input
+                  id="manual-vendor-contact-number"
+                  name="contact_number"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  required
+                  maxLength={32}
+                  disabled={pending}
+                  placeholder="+63 9XX XXX XXXX"
+                  className="w-full rounded-md border border-ink/15 bg-cream px-3 py-2 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60"
+                />
+              </Field>
+            </>
+          )}
 
           {errorMsg ? (
             <p
@@ -317,7 +508,12 @@ export function NewManualVendorModal({
               {pending ? (
                 <>
                   <Spinner />
-                  Saving…
+                  {mode.kind === 'linked' ? 'Adding…' : 'Saving…'}
+                </>
+              ) : mode.kind === 'linked' ? (
+                <>
+                  <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
+                  Add to plan
                 </>
               ) : (
                 <>
@@ -330,6 +526,327 @@ export function NewManualVendorModal({
         </form>
       </div>
     </div>
+  );
+}
+
+// ============================================================================
+// MarketplaceAutocomplete — the dropdown that surfaces below the Vendor
+// Name input when the host has typed ≥2 chars. Renders 4 states:
+//   1. searching                — subtle "Searching…" hint
+//   2. no matches               — hidden entirely (the host can keep
+//                                  typing and Save as a manual contact)
+//   3. matches · serves current — standard row with Pick CTA
+//   4. matches · cross-category — same row with amber notice listing
+//                                  the vendor's actual service categories
+//
+// Mobile-friendly: max-h capped + overflow-y-auto so a long list doesn't
+// overflow the modal. Click-outside is handled by the parent's onDismiss.
+// ============================================================================
+
+function MarketplaceAutocomplete({
+  matches,
+  searching,
+  currentCategoryLabel,
+  currentCategory,
+  onPick,
+  onDismiss,
+}: {
+  matches: ReadonlyArray<MarketplaceVendorSuggestion>;
+  searching: boolean;
+  currentCategoryLabel: string;
+  currentCategory: string;
+  onPick: (vendor: MarketplaceVendorSuggestion) => void;
+  onDismiss: () => void;
+}) {
+  // State 1 — searching with no matches yet. Subtle loading hint.
+  if (searching && matches.length === 0) {
+    return (
+      <div
+        role="listbox"
+        aria-label="Marketplace vendor matches"
+        className="absolute left-0 right-0 top-full z-30 mt-1 rounded-lg border border-ink/15 bg-cream p-3 shadow-lg"
+      >
+        <p className="flex items-center gap-2 text-[11px] text-ink/55">
+          <span
+            aria-hidden
+            className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-terracotta"
+          />
+          Searching Setnayan vendors…
+        </p>
+      </div>
+    );
+  }
+
+  // State 2 — empty (not searching, no matches). Per owner directive
+  // 2026-05-22 + [[feedback_setnayan_no_dev_text_post_launch]], the
+  // empty state is HIDDEN — the host can keep typing and Save as a
+  // manual contact. No "no results" message.
+  if (matches.length === 0) return null;
+
+  // States 3 + 4 — render rows. Sorted server-side: vendors serving
+  // the current category first, then by business_name.
+  return (
+    <div
+      role="listbox"
+      aria-label="Marketplace vendor matches"
+      className="absolute left-0 right-0 top-full z-30 mt-1 max-h-72 overflow-y-auto rounded-lg border border-ink/15 bg-cream shadow-lg"
+    >
+      <header className="sticky top-0 flex items-center justify-between border-b border-ink/10 bg-cream px-3 py-2">
+        <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+          <Sparkles aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+          Found on Setnayan
+        </p>
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label="Close suggestions"
+          className="text-[10px] uppercase tracking-[0.1em] text-ink/45 transition-colors hover:text-ink/75"
+        >
+          Hide
+        </button>
+      </header>
+      <ul className="py-1">
+        {matches.map((vendor) => (
+          <li key={vendor.vendor_profile_id}>
+            <SuggestionRow
+              vendor={vendor}
+              currentCategoryLabel={currentCategoryLabel}
+              currentCategory={currentCategory}
+              onPick={onPick}
+            />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function SuggestionRow({
+  vendor,
+  currentCategoryLabel,
+  currentCategory,
+  onPick,
+}: {
+  vendor: MarketplaceVendorSuggestion;
+  currentCategoryLabel: string;
+  currentCategory: string;
+  onPick: (vendor: MarketplaceVendorSuggestion) => void;
+}) {
+  const isCrossCategory = !vendor.serves_current_category;
+  // Compute a human-readable categories list for the cross-category
+  // notice. If the vendor offers no services at all (rare), the notice
+  // skips the list and just flags the mismatch.
+  const otherCategories = vendor.categories.filter(
+    (c) => c !== (currentCategory as VendorCategory),
+  );
+  const categoriesPretty = otherCategories
+    .map((c) => VENDOR_CATEGORY_LABEL[c])
+    .filter(Boolean)
+    .join(', ');
+
+  return (
+    <button
+      type="button"
+      role="option"
+      aria-selected="false"
+      onClick={() => onPick(vendor)}
+      className="group flex w-full items-start gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-terracotta/5"
+    >
+      <VendorLogo logoUrl={vendor.logo_url} name={vendor.business_name} />
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <span className="truncate text-sm text-ink">
+            {vendor.business_name}
+          </span>
+          {vendor.city ? (
+            <span className="inline-flex items-center gap-0.5 text-[10px] text-ink/55">
+              <MapPin aria-hidden className="h-2.5 w-2.5" strokeWidth={1.75} />
+              {vendor.city}
+            </span>
+          ) : null}
+        </div>
+        {isCrossCategory ? (
+          <p className="rounded-md border border-amber-300/45 bg-amber-50/55 px-2 py-1 text-[11px] leading-snug text-amber-900">
+            {categoriesPretty.length > 0 ? (
+              <>
+                <strong className="font-semibold">{vendor.business_name}</strong>{' '}
+                doesn&apos;t list {currentCategoryLabel} as a service —
+                they offer{' '}
+                <span className="font-medium">{categoriesPretty}</span>. Pick
+                them anyway?
+              </>
+            ) : (
+              <>
+                <strong className="font-semibold">{vendor.business_name}</strong>{' '}
+                hasn&apos;t set up services on Setnayan yet. Pick them
+                anyway?
+              </>
+            )}
+          </p>
+        ) : (
+          <span className="text-[11px] text-ink/55">
+            Pick this vendor for {currentCategoryLabel}
+          </span>
+        )}
+      </div>
+    </button>
+  );
+}
+
+function LinkedVendorConfirmation({
+  vendor,
+  currentCategoryLabel,
+  currentCategory,
+  onCancel,
+  disabled,
+}: {
+  vendor: MarketplaceVendorSuggestion;
+  currentCategoryLabel: string;
+  currentCategory: string;
+  onCancel: () => void;
+  disabled: boolean;
+}) {
+  const isCrossCategory = !vendor.serves_current_category;
+  const otherCategories = vendor.categories.filter(
+    (c) => c !== (currentCategory as VendorCategory),
+  );
+  const categoriesPretty = otherCategories
+    .map((c) => VENDOR_CATEGORY_LABEL[c])
+    .filter(Boolean)
+    .join(', ');
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-lg border border-terracotta/40 bg-terracotta/5 p-3">
+        <header className="mb-2 flex items-center justify-between gap-2">
+          <p className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
+            <Store aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+            From Setnayan marketplace
+          </p>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={disabled}
+            className="inline-flex items-center gap-1 text-[11px] font-medium text-ink/55 transition-colors hover:text-ink disabled:opacity-60"
+          >
+            <ArrowLeft aria-hidden className="h-3 w-3" strokeWidth={2} />
+            Pick different
+          </button>
+        </header>
+        <div className="flex items-start gap-3">
+          <VendorLogo logoUrl={vendor.logo_url} name={vendor.business_name} large />
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <p className="font-display text-base text-ink">
+              {vendor.business_name}
+            </p>
+            {vendor.city ? (
+              <p className="flex items-center gap-0.5 text-[11px] text-ink/55">
+                <MapPin aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+                {vendor.city}
+              </p>
+            ) : null}
+            {vendor.categories.length > 0 ? (
+              <p className="text-[11px] text-ink/65">
+                Offers{' '}
+                <span className="font-medium text-ink/80">
+                  {vendor.categories
+                    .map((c) => VENDOR_CATEGORY_LABEL[c])
+                    .filter(Boolean)
+                    .join(', ')}
+                </span>
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </div>
+      {isCrossCategory ? (
+        <p
+          role="note"
+          className="flex items-start gap-1.5 rounded-md border border-amber-300/50 bg-amber-50/55 px-2.5 py-2 text-[11px] leading-snug text-amber-900"
+        >
+          <AlertCircle
+            aria-hidden
+            className="mt-px h-3.5 w-3.5 shrink-0"
+            strokeWidth={2}
+          />
+          <span>
+            Heads up — {vendor.business_name} doesn&apos;t list{' '}
+            {currentCategoryLabel} as a service.{' '}
+            {categoriesPretty.length > 0 ? (
+              <>
+                They cover {categoriesPretty}. Add to plan anyway and message
+                them to confirm.
+              </>
+            ) : (
+              <>Add to plan anyway and message them to confirm.</>
+            )}
+          </span>
+        </p>
+      ) : (
+        <p className="text-[11px] text-ink/65">
+          Adding to your <span className="font-medium">{currentCategoryLabel}</span>{' '}
+          card as a considering pick. You can lock or remove them anytime.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * 36×36 (small) or 48×48 (large) round avatar for marketplace vendor
+ * rows. Renders logo when available, falls back to initials on a
+ * terracotta tint when not. Mirrors the avatar shape used elsewhere on
+ * the dashboard (ManualVendorAvatarSmall / LockedVendorAvatar).
+ */
+function VendorLogo({
+  logoUrl,
+  name,
+  large = false,
+}: {
+  logoUrl: string | null;
+  name: string;
+  large?: boolean;
+}) {
+  const size = large ? 48 : 36;
+  const initials =
+    name
+      .split(/\s+/)
+      .map((p) => p.charAt(0).toUpperCase())
+      .filter((c) => c.length > 0)
+      .slice(0, 2)
+      .join('') || '?';
+  const isOptimizable =
+    logoUrl &&
+    (logoUrl.startsWith('http://') ||
+      logoUrl.startsWith('https://') ||
+      logoUrl.startsWith('/'));
+  if (isOptimizable) {
+    return (
+      <span
+        className="inline-flex shrink-0 overflow-hidden rounded-full border border-ink/10 bg-cream"
+        style={{ width: size, height: size }}
+      >
+        <Image
+          src={logoUrl}
+          alt=""
+          width={size}
+          height={size}
+          loading="lazy"
+          className="h-full w-full object-cover"
+        />
+      </span>
+    );
+  }
+  return (
+    <span
+      aria-hidden
+      className={`inline-flex shrink-0 items-center justify-center rounded-full bg-terracotta/15 font-mono ${
+        large ? 'text-sm' : 'text-[10px]'
+      } font-semibold text-terracotta-700`}
+      style={{ width: size, height: size }}
+    >
+      {initials}
+    </span>
   );
 }
 

@@ -1307,3 +1307,376 @@ export async function attachManualVendorToCategory(
     manualVendorId: manualVendorIdRaw,
   };
 }
+
+// ============================================================================
+// searchMarketplaceVendorsByName (2026-05-23) — autocomplete for the
+// "Add a contact" modal's Vendor Name input.
+//
+// Owner directive 2026-05-22 (screenshot of Hair & Makeup Add modal):
+//   "When a customer types a vendor name in the manual add form, ALSO
+//    search the existing Setnayan marketplace so the host can pick from
+//    existing vendor_profiles instead of duplicating a manual entry.
+//    Search hits ALL vendors regardless of category. If the matched
+//    vendor doesn't have service for the current category, surface a
+//    polite notice so the host knows — they can still pick the vendor."
+//
+// Shape: debounced ilike against vendor_profiles.business_name + a
+// follow-up vendor_services read so the caller can render the
+// cross-category notice ("Maria's Hair Studio doesn't list Photography
+// as a service — they offer Hair & Makeup").
+//
+// Auth: host must be signed in. We use the admin client for the
+// vendor_profiles + vendor_services reads because vendor_services RLS
+// restricts to the vendor's own user_id (same pattern as
+// addRecommendedVendorToCategory at line 763). The signed-in check still
+// gates the action — anonymous browsers can't search.
+//
+// Graceful-degrade: if vendor_profiles / vendor_services / event_vendors
+// tables aren't on prod (42P01) or columns are missing (42703), the
+// search returns []. The manual-add form stays fully functional in that
+// state — the autocomplete just never surfaces matches.
+//
+// No event_vendors writes here — that's attachMarketplaceVendorToCategory
+// below. This action is a read-only lookup that powers the dropdown.
+// ============================================================================
+
+export type MarketplaceVendorSuggestion = {
+  vendor_profile_id: string;
+  business_name: string;
+  /** Pre-resolved logo URL. NULL = fall back to initials in the UI. The
+   *  display URL is resolved via displayLogoUrl so r2:// refs become
+   *  presigned GET URLs with 24h TTL — no client-side fetch needed. */
+  logo_url: string | null;
+  city: string | null;
+  /** All canonical VendorCategory values this vendor has an active
+   *  service for. May be empty if the vendor hasn't added any services
+   *  yet (rare — most published vendors have ≥1). */
+  categories: VendorCategory[];
+  /** TRUE iff `categories` includes the current card's category. Drives
+   *  the amber "Pick them anyway?" chip in the UI. */
+  serves_current_category: boolean;
+};
+
+export type SearchMarketplaceVendorsResult =
+  | { status: 'ok'; matches: ReadonlyArray<MarketplaceVendorSuggestion> }
+  | { status: 'not_signed_in' }
+  | { status: 'invalid_input' };
+
+/**
+ * Server action invoked from the Add-a-contact modal's debounced
+ * autocomplete. Returns up to 8 marketplace vendors whose business_name
+ * matches `query` (ilike, case-insensitive, partial). Vendors already
+ * linked to `eventId` are filtered out so the host never sees a duplicate
+ * suggestion.
+ */
+export async function searchMarketplaceVendorsByName(
+  query: string,
+  eventId: string,
+  currentCategory: string,
+): Promise<SearchMarketplaceVendorsResult> {
+  const trimmed = query.trim();
+  // Mirror the client-side >=2 guard. Server stays the source of truth so
+  // a curl client can't trigger a full-table scan with an empty query.
+  if (trimmed.length < 2) {
+    return { status: 'ok', matches: [] };
+  }
+  if (typeof eventId !== 'string' || eventId.length === 0) {
+    return { status: 'invalid_input' };
+  }
+  if (!isValidCategory(currentCategory)) {
+    return { status: 'invalid_input' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { status: 'not_signed_in' };
+  }
+
+  // adminClient bypasses RLS on vendor_services (restricted to vendor's
+  // own user_id) the same way addRecommendedVendorToCategory does. The
+  // signed-in check above + the per-event filter below remain the
+  // authorization gates.
+  const { createAdminClient } = await import('@/lib/supabase/admin');
+  const adminClient = createAdminClient();
+
+  // Step 1 — find vendor_profiles matching the name. PostgREST escape
+  // for ilike: % and _ are pattern chars; the marketplace page already
+  // does this raw (`%${filters.q}%`) without sanitization. We follow
+  // suit — the worst case is a host typing % matches more rows; no
+  // injection risk because Supabase parameterizes the value.
+  let profilesQuery = adminClient
+    .from('vendor_profiles')
+    .select('vendor_profile_id, business_name, logo_url, location_city')
+    .ilike('business_name', `%${trimmed}%`)
+    .eq('is_published', true)
+    .in('public_visibility', ['verified', 'coming_soon'])
+    .order('business_name', { ascending: true })
+    .limit(16); // Over-fetch — filter event-vendors below, then slice to 8.
+
+  const profilesResult = await profilesQuery;
+  if (profilesResult.error) {
+    // Graceful-degrade: 42P01 (relation does not exist) or 42703
+    // (column does not exist) mean the marketplace schema isn't on this
+    // deploy. Return empty matches so the manual-add form behaves as
+    // today.
+    const code = (profilesResult.error as { code?: string }).code;
+    if (code === '42P01' || code === '42703') {
+      return { status: 'ok', matches: [] };
+    }
+    // Other errors — also degrade silently. The autocomplete is best-
+    // effort; surfacing a server error to the host here would noise up
+    // a simple Add-contact flow.
+    return { status: 'ok', matches: [] };
+  }
+  const profiles = profilesResult.data ?? [];
+  if (profiles.length === 0) {
+    return { status: 'ok', matches: [] };
+  }
+  const profileIds = profiles.map((p) => p.vendor_profile_id);
+
+  // Step 2 — filter out vendors already attached to this event so the
+  // host never sees a duplicate suggestion. Uses the user-scoped client
+  // (not adminClient) so the per-event RLS policy gates this read — a
+  // host can only filter against their own events.
+  const { data: alreadyLinked, error: alreadyErr } = await supabase
+    .from('event_vendors')
+    .select('marketplace_vendor_id')
+    .eq('event_id', eventId)
+    .in('marketplace_vendor_id', profileIds);
+  // We don't graceful-degrade alreadyErr — if event_vendors can't be
+  // read the autocomplete is unusable. Treat as no-matches.
+  if (alreadyErr) {
+    return { status: 'ok', matches: [] };
+  }
+  const linkedIds = new Set(
+    (alreadyLinked ?? [])
+      .map((r) => r.marketplace_vendor_id)
+      .filter((id): id is string => typeof id === 'string'),
+  );
+  const candidates = profiles.filter((p) => !linkedIds.has(p.vendor_profile_id));
+  if (candidates.length === 0) {
+    return { status: 'ok', matches: [] };
+  }
+
+  // Step 3 — fetch the active service categories for the surviving
+  // candidates. Powers (a) the `categories` array, (b) the
+  // `serves_current_category` boolean that drives the cross-category
+  // notice. Bulk read keyed on vendor_profile_id.
+  const candidateIds = candidates.map((p) => p.vendor_profile_id);
+  const { data: services, error: servicesErr } = await adminClient
+    .from('vendor_services')
+    .select('vendor_profile_id, category, is_active')
+    .in('vendor_profile_id', candidateIds)
+    .eq('is_active', true);
+  // Services missing → render rows with empty categories (no cross-cat
+  // notice; the row simply offers the vendor as a stretch).
+  const servicesByVendor = new Map<string, Set<VendorCategory>>();
+  if (!servicesErr && services) {
+    for (const svc of services) {
+      const cat = svc.category;
+      if (typeof cat !== 'string') continue;
+      if (!(VENDOR_CATEGORIES as readonly string[]).includes(cat)) continue;
+      const id = svc.vendor_profile_id;
+      if (typeof id !== 'string') continue;
+      if (!servicesByVendor.has(id)) servicesByVendor.set(id, new Set());
+      servicesByVendor.get(id)!.add(cat as VendorCategory);
+    }
+  }
+
+  // Step 4 — presign logos so the dropdown rows render with the vendor's
+  // actual brand mark instead of initials. r2:// refs need a signed GET
+  // URL with 24h TTL; legacy http(s) URLs pass through unchanged.
+  const { displayLogoUrl } = await import('@/lib/uploads');
+  const presigned = await Promise.all(
+    candidates.map(async (p) => {
+      const logoUrl = await displayLogoUrl({ logo_url: p.logo_url ?? null });
+      const cats = Array.from(
+        servicesByVendor.get(p.vendor_profile_id) ?? [],
+      );
+      return {
+        vendor_profile_id: p.vendor_profile_id,
+        business_name: p.business_name,
+        logo_url: logoUrl,
+        city: p.location_city ?? null,
+        categories: cats,
+        serves_current_category: cats.includes(
+          currentCategory as VendorCategory,
+        ),
+      } satisfies MarketplaceVendorSuggestion;
+    }),
+  );
+
+  // Sort: vendors who serve the current category first, then by name.
+  // Surfaces the most directly-relevant matches at the top of the
+  // dropdown so the host's eye lands on them first.
+  presigned.sort((a, b) => {
+    if (a.serves_current_category && !b.serves_current_category) return -1;
+    if (!a.serves_current_category && b.serves_current_category) return 1;
+    return a.business_name.localeCompare(b.business_name);
+  });
+
+  return { status: 'ok', matches: presigned.slice(0, 8) };
+}
+
+// ============================================================================
+// attachMarketplaceVendorToCategory (2026-05-23) — sibling of
+// attachManualVendorToCategory; called when the host picks a marketplace
+// vendor from the autocomplete dropdown.
+//
+// Reuses the same shape as addRecommendedVendorToCategory (above at line
+// 702) — insert an event_vendors row with marketplace_vendor_id +
+// service_id (when an active service exists for the category) + status =
+// 'considering' + source = 'host_marketplace_search'. Idempotent: if
+// (event_id, marketplace_vendor_id, category) already exists, returns
+// 'already_attached' so the UI can surface a friendly toast instead of
+// a duplicate row.
+//
+// Unlike addRecommendedVendorToCategory, this action doesn't require a
+// "source pick" on the event — the host is starting from a name-search
+// in a brand-new card, not from a cross-category recommendation. The
+// service_id is best-effort: if the vendor has an active service for
+// the current category we attach it; if not, the row inserts WITHOUT a
+// service_id (matches the "no service for current category" case the
+// owner specifically called out: "pick them anyway").
+// ============================================================================
+
+export type AttachMarketplaceVendorResult =
+  | {
+      status: 'ok';
+      eventVendorId: string;
+      marketplaceVendorId: string;
+      /** TRUE if we found + attached an active vendor_services row for
+       *  the current category. FALSE means the host picked a vendor who
+       *  doesn't list this category — the row is still inserted but
+       *  `service_id` stays NULL. */
+      service_linked: boolean;
+    }
+  | { status: 'not_signed_in' }
+  | { status: 'invalid_category' }
+  | { status: 'invalid_input' }
+  | { status: 'already_attached'; eventVendorId: string }
+  | { status: 'marketplace_vendor_not_found' }
+  | { status: 'error'; message: string };
+
+export async function attachMarketplaceVendorToCategory(
+  formData: FormData,
+): Promise<AttachMarketplaceVendorResult> {
+  const eventIdRaw = formData.get('event_id');
+  const marketplaceVendorIdRaw = formData.get('marketplace_vendor_id');
+  const categoryRaw = formData.get('category');
+
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {
+    return { status: 'invalid_input' };
+  }
+  if (
+    typeof marketplaceVendorIdRaw !== 'string' ||
+    marketplaceVendorIdRaw.length === 0
+  ) {
+    return { status: 'invalid_input' };
+  }
+  if (!isValidCategory(categoryRaw)) {
+    return { status: 'invalid_category' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { status: 'not_signed_in' };
+  }
+
+  // Idempotent guard. The autocomplete already filters out
+  // already-linked vendors, but a stale dropdown render (host opens two
+  // tabs of the same event) could submit a duplicate. Surface
+  // 'already_attached' so the modal can show a friendly toast instead
+  // of inserting a second row.
+  const { data: existing, error: existingErr } = await supabase
+    .from('event_vendors')
+    .select('vendor_id')
+    .eq('event_id', eventIdRaw)
+    .eq('marketplace_vendor_id', marketplaceVendorIdRaw)
+    .eq('category', categoryRaw)
+    .is('archived_at', null)
+    .limit(1)
+    .maybeSingle();
+  if (existingErr) {
+    // archived_at column may not exist on every deploy — graceful-degrade
+    // by checking without it. If THAT also fails, fall through to the
+    // insert and let the DB enforce its own constraints.
+    const code = (existingErr as { code?: string }).code;
+    if (code !== '42703') {
+      return { status: 'error', message: existingErr.message };
+    }
+  }
+  if (existing) {
+    return { status: 'already_attached', eventVendorId: existing.vendor_id };
+  }
+
+  // Look up the marketplace vendor's canonical name + the active
+  // vendor_services row for this category. adminClient bypasses
+  // vendor_services RLS (same pattern as addRecommendedVendorToCategory
+  // line 763).
+  const { createAdminClient } = await import('@/lib/supabase/admin');
+  const adminClient = createAdminClient();
+  const { data: profile, error: profileErr } = await adminClient
+    .from('vendor_profiles')
+    .select('vendor_profile_id, business_name')
+    .eq('vendor_profile_id', marketplaceVendorIdRaw)
+    .maybeSingle();
+  if (profileErr) {
+    return { status: 'error', message: profileErr.message };
+  }
+  if (!profile) {
+    return { status: 'marketplace_vendor_not_found' };
+  }
+
+  const { data: serviceRow } = await adminClient
+    .from('vendor_services')
+    .select('vendor_service_id')
+    .eq('vendor_profile_id', marketplaceVendorIdRaw)
+    .eq('category', categoryRaw)
+    .eq('is_active', true)
+    .limit(1)
+    .maybeSingle();
+  const serviceId = serviceRow?.vendor_service_id ?? null;
+
+  // Insert. Stamp source so downstream chips (AutoCascadedChip etc.) can
+  // distinguish "host picked from marketplace name-search" from the
+  // existing 'host_manual' (typed in the form) and the recommendation
+  // / cascade paths.
+  const insertPayload: Record<string, unknown> = {
+    event_id: eventIdRaw,
+    category: categoryRaw,
+    vendor_name: profile.business_name,
+    status: 'considering',
+    marketplace_vendor_id: marketplaceVendorIdRaw,
+    source: 'host_marketplace_search',
+  };
+  if (serviceId) {
+    insertPayload.service_id = serviceId;
+  }
+  const { data: inserted, error: insertErr } = await supabase
+    .from('event_vendors')
+    .insert(insertPayload)
+    .select('vendor_id')
+    .single();
+  if (insertErr || !inserted) {
+    return {
+      status: 'error',
+      message: insertErr?.message ?? 'Insert failed',
+    };
+  }
+
+  revalidatePath(`/dashboard/${eventIdRaw}`);
+  revalidatePath(`/dashboard/${eventIdRaw}/vendors`);
+  return {
+    status: 'ok',
+    eventVendorId: inserted.vendor_id,
+    marketplaceVendorId: marketplaceVendorIdRaw,
+    service_linked: serviceId !== null,
+  };
+}

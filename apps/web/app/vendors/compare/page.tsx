@@ -1,6 +1,7 @@
 import Link from 'next/link';
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { ChevronLeft, MapPin, Star } from 'lucide-react';
+import { ChevronLeft, MapPin, Star, FlaskConical } from 'lucide-react';
 
 import { Logo as BrandLogo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -12,8 +13,9 @@ import {
   isBookable,
   type VendorPublicVisibility,
 } from '@/lib/vendor-visibility';
-import { displayServiceLabel } from '@/lib/vendors';
+import { displayServiceLabel, formatPhp } from '@/lib/vendors';
 import { haversineKm, formatDistanceKm } from '@/lib/geo';
+import { DEMO_MODE_COOKIE_NAME, isAdminProfile } from '@/lib/demo-mode';
 import { SaveVendorButton } from '../_components/save-vendor-button';
 
 export const metadata = {
@@ -45,6 +47,19 @@ type CompareRow = {
   public_visibility: VendorPublicVisibility;
   compatible_ceremony_types: string[] | null;
   compatible_venue_settings: string[] | null;
+  is_demo: boolean | null;
+};
+
+/**
+ * Pricing + package-inclusions lookup populated only when demo mode is
+ * on AND at least one row in the compare set is a demo vendor. The
+ * Pricing + Inclusions table rows render only when this map has
+ * entries — keeps existing (non-demo) compare sessions visually
+ * unchanged. PR 3 of the 2026-05-22 marketplace-simulation workstream.
+ */
+type DemoServiceRow = {
+  starting_price_php: number | null;
+  package_inclusions: unknown;
 };
 
 function parseIds(raw: string | undefined): string[] {
@@ -115,7 +130,7 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
   const { data: rowsRaw } = await admin
     .from('vendor_profiles')
     .select(
-      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_latitude,hq_longitude,public_visibility,compatible_ceremony_types,compatible_venue_settings',
+      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_latitude,hq_longitude,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo',
     )
     .in('vendor_profile_id', ids)
     .in('public_visibility', ['verified', 'coming_soon'])
@@ -161,6 +176,89 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
     );
   }
 
+  // PR 3 of the 2026-05-22 marketplace-simulation workstream — when an
+  // admin is browsing in demo mode AND at least one row is a demo
+  // vendor, surface the Pricing + Package Inclusions rows in the table
+  // (which would otherwise stay hidden per the 2026-05-16 hide-prices
+  // lock). Non-demo rows show "—" in those columns; non-demo viewers
+  // never see them at all. Mirrors the demo-mode resolution pattern
+  // from /vendors/page.tsx — cheap fast path skips the admin lookup if
+  // no cookie is present.
+  const cookieStore = await cookies();
+  const hasDemoCookie =
+    cookieStore.get(DEMO_MODE_COOKIE_NAME)?.value === '1';
+  const demoRows = rows.filter((r) => r.is_demo === true);
+  let inDemoMode = false;
+  if (hasDemoCookie && user && demoRows.length > 0) {
+    const { data: viewerProfile } = await supabase
+      .from('users')
+      .select('account_type, is_internal, is_team_member')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    inDemoMode = isAdminProfile(viewerProfile);
+  }
+
+  // Fetch starting price + package inclusions ONLY for the demo rows in
+  // the visible set. Reads vendor_services for the min starting_price_php
+  // and the first non-empty package_inclusions array. Anything else
+  // falls through as empty (rendered as "—" in the table). Non-demo
+  // rows never reach this fetch.
+  const demoServices = new Map<string, DemoServiceRow>();
+  if (inDemoMode && demoRows.length > 0) {
+    try {
+      const { data: vsData } = await admin
+        .from('vendor_services')
+        .select(
+          'vendor_profile_id, starting_price_php, package_inclusions, is_active',
+        )
+        .in(
+          'vendor_profile_id',
+          demoRows.map((r) => r.vendor_profile_id),
+        );
+      for (const row of vsData ?? []) {
+        const vpId = row.vendor_profile_id as string;
+        const isActive = (row as { is_active?: boolean }).is_active !== false;
+        if (!isActive) continue;
+        const price = (row as { starting_price_php?: number | null })
+          .starting_price_php;
+        const incl = (row as { package_inclusions?: unknown })
+          .package_inclusions;
+        const current = demoServices.get(vpId);
+        const nextPrice =
+          price !== null && price !== undefined && price > 0 ? price : null;
+        const nextInclusions =
+          Array.isArray(incl) && incl.length > 0
+            ? incl
+            : current?.package_inclusions ?? null;
+        if (!current) {
+          demoServices.set(vpId, {
+            starting_price_php: nextPrice,
+            package_inclusions: nextInclusions,
+          });
+        } else {
+          demoServices.set(vpId, {
+            starting_price_php:
+              nextPrice !== null &&
+              (current.starting_price_php === null ||
+                nextPrice < current.starting_price_php)
+                ? nextPrice
+                : current.starting_price_php,
+            package_inclusions: nextInclusions,
+          });
+        }
+      }
+    } catch (err) {
+      // Defensive: never crash the compare view because a demo-price
+      // fetch failed. The Pricing + Inclusions rows simply won't
+      // render values; existing compare rows continue to work.
+      console.warn(
+        '[compare] demo services fetch failed:',
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+  const hasDemoContent = inDemoMode && demoRows.length > 0;
+
   return (
     <main className="min-h-dvh bg-cream">
       <header className="border-b border-ink/5">
@@ -192,6 +290,31 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
             you like; their state stays in sync with your wedding shortlist.
           </p>
         </div>
+
+        {hasDemoContent ? (
+          <div
+            role="status"
+            className="mb-6 flex items-start gap-3 rounded-xl border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+          >
+            <FlaskConical
+              aria-hidden
+              className="mt-0.5 h-5 w-5 shrink-0"
+              strokeWidth={1.75}
+            />
+            <div>
+              <p className="font-medium">
+                Demo mode · {demoRows.length}{' '}
+                {demoRows.length === 1 ? 'demo vendor' : 'demo vendors'} in this
+                comparison
+              </p>
+              <p className="mt-0.5 text-xs text-amber-900/80">
+                Pricing + Package Inclusions rows below show synthetic test
+                data. Real vendor pricing stays gated per the 2026-05-16
+                hide-prices lock. Demo data cleanup deadline: Dec 1, 2026.
+              </p>
+            </div>
+          </div>
+        ) : null}
 
         <div className="overflow-x-auto rounded-2xl border border-ink/10 bg-cream">
           <table className="w-full min-w-[640px] border-collapse text-sm">
@@ -310,6 +433,97 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
                   );
                 })}
               </CompareRowEl>
+
+              {hasDemoContent ? (
+                <CompareRowEl label="Starts at">
+                  {rows.map((row) => {
+                    const svc = demoServices.get(row.vendor_profile_id);
+                    const price = svc?.starting_price_php ?? null;
+                    return (
+                      <td
+                        key={row.vendor_profile_id}
+                        className="border-b border-ink/5 px-3 py-3 align-top"
+                      >
+                        {row.is_demo === true ? (
+                          price !== null && price > 0 ? (
+                            <span className="inline-flex items-baseline gap-1">
+                              <span className="font-mono text-lg font-semibold text-ink">
+                                {formatPhp(price * 100)}
+                              </span>
+                              <span className="text-[11px] text-ink/55">
+                                starts at
+                              </span>
+                            </span>
+                          ) : (
+                            <span className="text-ink/40">—</span>
+                          )
+                        ) : (
+                          <span className="text-xs text-ink/45">
+                            Real vendor · pricing on inquiry
+                          </span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </CompareRowEl>
+              ) : null}
+
+              {hasDemoContent ? (
+                <CompareRowEl label="Included">
+                  {rows.map((row) => {
+                    const svc = demoServices.get(row.vendor_profile_id);
+                    const incl = svc?.package_inclusions;
+                    const items = Array.isArray(incl)
+                      ? (incl as unknown[])
+                          .map((it) => {
+                            if (typeof it === 'string') return it;
+                            if (
+                              typeof it === 'object' &&
+                              it !== null &&
+                              'label' in it
+                            ) {
+                              const lbl = (it as { label?: unknown }).label;
+                              return typeof lbl === 'string' ? lbl : null;
+                            }
+                            return null;
+                          })
+                          .filter((v): v is string => typeof v === 'string')
+                      : [];
+                    return (
+                      <td
+                        key={row.vendor_profile_id}
+                        className="border-b border-ink/5 px-3 py-3 align-top"
+                      >
+                        {row.is_demo === true ? (
+                          items.length > 0 ? (
+                            <ul className="space-y-0.5">
+                              {items.slice(0, 6).map((label, idx) => (
+                                <li
+                                  key={`${row.vendor_profile_id}-incl-${idx}`}
+                                  className="text-xs text-ink/75"
+                                >
+                                  · {label}
+                                </li>
+                              ))}
+                              {items.length > 6 ? (
+                                <li className="text-xs text-ink/45">
+                                  +{items.length - 6} more
+                                </li>
+                              ) : null}
+                            </ul>
+                          ) : (
+                            <span className="text-ink/40">—</span>
+                          )
+                        ) : (
+                          <span className="text-xs text-ink/45">
+                            Real vendor · ask for inclusions
+                          </span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </CompareRowEl>
+              ) : null}
 
               <CompareRowEl label="Services">
                 {rows.map((row) => (

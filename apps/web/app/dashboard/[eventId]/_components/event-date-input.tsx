@@ -13,17 +13,26 @@
  */
 
 import { useState, useTransition } from 'react';
-import { CalendarDays, Pencil } from 'lucide-react';
+import { CalendarDays, Lock, Pencil } from 'lucide-react';
 import { updateEventDate } from '../actions';
 
 type Props = {
   eventId: string;
   /** YYYY-MM-DD or null when not yet set */
   initial: string | null;
+  /**
+   * Task #37 (2026-05-22) — count of vendors at-or-past `contracted`.
+   * When ≥1, the Edit affordance is replaced with a locked tooltip
+   * pointing the host at support (mirrors the 2026-05-17 § 10 date-edit
+   * gate). Defaults to 0 to preserve the prior unlocked behavior for
+   * any caller that hasn't passed the prop yet.
+   */
+  confirmedVendorCount?: number;
 };
 
-export function EventDateInput({ eventId, initial }: Props) {
-  const [editing, setEditing] = useState(!initial);
+export function EventDateInput({ eventId, initial, confirmedVendorCount = 0 }: Props) {
+  const dateLocked = confirmedVendorCount > 0 && Boolean(initial);
+  const [editing, setEditing] = useState(!initial && !dateLocked);
   const [draft, setDraft] = useState(initial ?? '');
   const [isPending, startTransition] = useTransition();
 
@@ -42,24 +51,42 @@ export function EventDateInput({ eventId, initial }: Props) {
 
   if (!editing && initial) {
     const pretty = formatPretty(initial);
+    const noun = confirmedVendorCount === 1 ? 'vendor' : 'vendors';
+    const lockTooltip = `Date is locked — ${confirmedVendorCount} confirmed ${noun}. Contact support to discuss changes.`;
     return (
       <div className="flex items-center gap-2 text-sm text-ink/70">
         <CalendarDays aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         <span>
           Wedding date · <strong className="font-medium text-ink">{pretty}</strong>
         </span>
-        <button
-          type="button"
-          onClick={() => {
-            setDraft(initial);
-            setEditing(true);
-          }}
-          className="inline-flex items-center gap-1 rounded-md border border-ink/15 px-2 py-0.5 text-xs text-ink/70 hover:border-ink/30 hover:text-ink"
-          aria-label="Edit wedding date"
-        >
-          <Pencil aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-          Edit
-        </button>
+        {dateLocked ? (
+          <>
+            <Lock aria-hidden className="h-3.5 w-3.5 text-ink/50" strokeWidth={1.75} />
+            <button
+              type="button"
+              disabled
+              title={lockTooltip}
+              aria-label={lockTooltip}
+              className="inline-flex cursor-not-allowed items-center gap-1 rounded-md border border-ink/10 px-2 py-0.5 text-xs text-ink/45"
+            >
+              <Pencil aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+              Edit
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              setDraft(initial);
+              setEditing(true);
+            }}
+            className="inline-flex items-center gap-1 rounded-md border border-ink/15 px-2 py-0.5 text-xs text-ink/70 hover:border-ink/30 hover:text-ink"
+            aria-label="Edit wedding date"
+          >
+            <Pencil aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+            Edit
+          </button>
+        )}
       </div>
     );
   }

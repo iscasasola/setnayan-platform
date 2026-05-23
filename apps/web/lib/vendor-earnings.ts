@@ -11,6 +11,17 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  */
 export const SETNAYAN_PAY_FEE_PCT = 5.0;
 
+/**
+ * Minimum Setnayan Pay convenience-fee floor — ₱50 (locked CLAUDE.md
+ * decision-log 2026-05-17 ninth row). Crossover at ₱1,000 gross
+ * (5.0% × ₱1,000 = ₱50). Below ₱1,000 the floor wins; at or above, the
+ * percentage wins. Per-rail values live in
+ * `setnayan_pay_methods.min_fee_centavos` (migration 20260608000000); this
+ * constant is the fallback for display surfaces that don't carry a
+ * payment-method context.
+ */
+export const SETNAYAN_PAY_MIN_FEE_PHP = 50;
+
 export type VendorEarningRow = {
   order_id: string;
   public_id: string;
@@ -164,11 +175,20 @@ export function computeMonthlySubtotals(
 
 /**
  * Setnayan Pay convenience-fee line, computed at the default rail rate
- * (`SETNAYAN_PAY_FEE_PCT`). For a specific payment method, callers should
- * look up the rate in `setnayan_pay_methods`. Returned as a positive number;
- * the caller chooses how to surface it (vendor sees it as the platform's
- * slice of the gross).
+ * (`SETNAYAN_PAY_FEE_PCT`) with the ₱50 minimum floor applied (per CLAUDE.md
+ * decision-log 2026-05-17 ninth row).
+ *
+ * Formula: fee = MAX(gross × 5.0%, ₱50). Crossover at ₱1,000 gross. A
+ * zero-gross row (no earnings yet) returns 0 — the floor doesn't fire on
+ * empty rows. Returned as a positive number; the caller chooses how to
+ * surface it (vendor sees it as the platform's slice of the gross).
+ *
+ * For a specific payment method, callers should look up the rate + floor
+ * in `setnayan_pay_methods`. The canonical centavos-typed compute lives in
+ * `apps/web/lib/payouts.ts::computePayoutBreakdown`.
  */
 export function convenienceFeePhp(grossPhp: number): number {
-  return Math.round((grossPhp * SETNAYAN_PAY_FEE_PCT) / 100);
+  if (grossPhp <= 0) return 0;
+  const percentFee = Math.round((grossPhp * SETNAYAN_PAY_FEE_PCT) / 100);
+  return Math.max(percentFee, SETNAYAN_PAY_MIN_FEE_PHP);
 }

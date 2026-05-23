@@ -91,6 +91,19 @@ export const DEFAULT_DISBURSEMENT_FEE_CENTAVOS = 2000;
  */
 export const DEFAULT_SETNAYAN_FEE_BPS = 500;
 
+/**
+ * Minimum Setnayan Pay convenience-fee floor — ₱50 = 5,000 centavos (locked
+ * CLAUDE.md decision-log 2026-05-17 ninth row). Ensures sub-₱1,000 bookings
+ * still clear Setnayan's per-transaction operating cost.
+ *
+ * Crossover at exactly ₱1,000 (5.0% × ₱1,000 = ₱50). Above ₱1,000 the
+ * percentage wins; below ₱1,000 the floor wins. Per-rail config lives in
+ * `setnayan_pay_methods.min_fee_centavos` (migration 20260608000000); this
+ * constant is the fallback when an order doesn't yet carry a
+ * `payment_method_key`.
+ */
+export const DEFAULT_MIN_FEE_CENTAVOS = 5000;
+
 /** Conservative gateway fee for V1 manual reconciliation (no gateway today). */
 export const DEFAULT_GATEWAY_FEE_BPS = 0;
 
@@ -99,6 +112,13 @@ export type PayoutInputs = {
   grossCentavos: number;
   /** Setnayan convenience-fee rate (bps). Defaults to flat 5.0% across rails. */
   setnayanFeeBps?: number;
+  /**
+   * Minimum convenience-fee floor in centavos. Defaults to ₱50 (5,000
+   * centavos) per CLAUDE.md 2026-05-17 ninth row. Per-rail values live in
+   * `setnayan_pay_methods.min_fee_centavos`; the order-time snapshot lands
+   * on `orders.min_fee_centavos` once that column is wired (V1.x).
+   */
+  minFeeCentavos?: number;
   /** Gateway fee in centavos (V1 = 0 for manual reconciliation). */
   gatewayFeeCentavos?: number;
   /** Override BIR withholding bps (defaults to 50 = 0.5%). */
@@ -130,11 +150,24 @@ export type PayoutBreakdown = {
  * admin reconciles a payment. Called by the cart approval flow + the payout
  * dispatcher.
  *
+ * Setnayan Pay fee formula (canonical per CLAUDE.md 2026-05-17 ninth row):
+ *
+ *   fee = MAX(gross × setnayan_fee_bps / 10000, min_fee_centavos)
+ *
+ * The MAX ensures sub-₱1,000 bookings clear the ₱50 operating-cost floor.
+ * At ₱1,000 exactly, both halves equal 5,000 centavos (₱50). Above ₱1,000
+ * the percentage wins; below ₱1,000 the floor wins. Floor never applies to
+ * a zero-gross order (Math.max above protects that case — fee is 0).
+ *
  * All integer centavo math — no floating point in the path.
  */
 export function computePayoutBreakdown(inputs: PayoutInputs): PayoutBreakdown {
   const grossCentavos = Math.max(0, Math.round(inputs.grossCentavos));
   const setnayanFeeBps = inputs.setnayanFeeBps ?? DEFAULT_SETNAYAN_FEE_BPS;
+  const minFeeCentavos = Math.max(
+    0,
+    Math.round(inputs.minFeeCentavos ?? DEFAULT_MIN_FEE_CENTAVOS),
+  );
   const gatewayFeeCentavos = Math.max(
     0,
     Math.round(inputs.gatewayFeeCentavos ?? 0),
@@ -147,7 +180,16 @@ export function computePayoutBreakdown(inputs: PayoutInputs): PayoutBreakdown {
     ),
   );
 
-  const setnayanFeeCentavos = Math.floor((grossCentavos * setnayanFeeBps) / 10000);
+  // MAX(percent, floor) — but only when the order has a non-zero gross. A
+  // zero-gross order has zero fee (no floor applied — there's nothing to
+  // float over).
+  const setnayanFeePercentCentavos = Math.floor(
+    (grossCentavos * setnayanFeeBps) / 10000,
+  );
+  const setnayanFeeCentavos =
+    grossCentavos > 0
+      ? Math.max(setnayanFeePercentCentavos, minFeeCentavos)
+      : 0;
   const birWithholdingCentavos = Math.floor((grossCentavos * birBps) / 10000);
   const vendorNetCentavos = Math.max(
     0,

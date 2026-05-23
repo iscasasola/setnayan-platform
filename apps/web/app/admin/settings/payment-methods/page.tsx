@@ -9,6 +9,14 @@ type PaymentMethodRow = {
   display_name: string;
   gateway_fee_pct: number;
   setnayan_pay_pct: number;
+  // Minimum convenience-fee floor in centavos. Added by migration
+  // 20260608000000 per CLAUDE.md decision-log 2026-05-17 ninth row to
+  // ensure sub-₱1,000 bookings still clear Setnayan's per-transaction
+  // operating cost. Nullable in the read shape only because pre-migration
+  // envs would return NULL; post-migration every row carries 5000 (₱50)
+  // by default. We coalesce in the cell render so a NULL doesn't break
+  // the table layout.
+  min_fee_centavos: number | null;
   is_active: boolean;
   display_order: number;
   effective_at: string;
@@ -31,7 +39,7 @@ export default async function PaymentMethodsAdminPage() {
   const { data, error } = await admin
     .from('setnayan_pay_methods')
     .select(
-      'method_code,display_name,gateway_fee_pct,setnayan_pay_pct,is_active,display_order,effective_at,updated_at',
+      'method_code,display_name,gateway_fee_pct,setnayan_pay_pct,min_fee_centavos,is_active,display_order,effective_at,updated_at',
     )
     .order('display_order', { ascending: true });
 
@@ -55,11 +63,14 @@ export default async function PaymentMethodsAdminPage() {
         <p className="text-sm text-ink/65">
           Per-payment-method convenience-fee configuration. Each rail charges a
           gateway fee (passed through to the underlying processor) plus the
-          Setnayan Pay platform fee. Couples see the combined rate at checkout.
+          Setnayan Pay platform fee, with a per-rail minimum floor that
+          protects sub-₱1,000 bookings. Couples see the combined rate at
+          checkout.
         </p>
         <p className="rounded-md border border-amber-200/60 bg-amber-50/60 px-3 py-2 text-xs text-amber-900">
           <span className="font-semibold">Read-only V1.</span> Edit flow is
-          deferred — to change a rate, run a service-role SQL update against
+          deferred — to change a rate or floor, run a service-role SQL update
+          against
           <code className="mx-1 font-mono text-[11px]">setnayan_pay_methods</code>
           and the change is live everywhere.
         </p>
@@ -93,6 +104,9 @@ export default async function PaymentMethodsAdminPage() {
                   Setnayan Pay
                 </th>
                 <th className="px-3 py-2 text-right font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                  Min fee
+                </th>
+                <th className="px-3 py-2 text-right font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
                   Total
                 </th>
                 <th className="px-3 py-2 text-left font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
@@ -105,6 +119,12 @@ export default async function PaymentMethodsAdminPage() {
                 const gatewayPct = Number(m.gateway_fee_pct) * 100;
                 const setnayanPct = Number(m.setnayan_pay_pct) * 100;
                 const totalPct = gatewayPct + setnayanPct;
+                // Coalesce a NULL (pre-migration env) to the canonical ₱50
+                // floor for display — keeps the cell stable across mixed
+                // migration states. Post-migration every row carries 5000
+                // by default.
+                const minFeeCentavos = m.min_fee_centavos ?? 5000;
+                const minFeePhp = Math.round(minFeeCentavos / 100);
                 return (
                   <tr key={m.method_code} className={m.is_active ? '' : 'opacity-50'}>
                     <td className="px-3 py-2">
@@ -118,6 +138,9 @@ export default async function PaymentMethodsAdminPage() {
                     </td>
                     <td className="px-3 py-2 text-right font-mono">
                       {setnayanPct.toFixed(2)}%
+                    </td>
+                    <td className="px-3 py-2 text-right font-mono">
+                      ₱{minFeePhp.toLocaleString('en-PH')}
                     </td>
                     <td className="px-3 py-2 text-right font-mono font-semibold">
                       {totalPct.toFixed(2)}%
@@ -142,7 +165,8 @@ export default async function PaymentMethodsAdminPage() {
       )}
 
       <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-        Source · spec corpus 2026-05-16 (a0fa3c7) · table{' '}
+        Source · spec corpus 2026-05-16 (a0fa3c7) · flat 5.0% lock 2026-05-16
+        row 16 · ₱50 min-fee floor 2026-05-17 row 9 · table{' '}
         <code>setnayan_pay_methods</code>
       </p>
     </div>

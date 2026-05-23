@@ -230,26 +230,36 @@ function SelectionBar({
           selects (role + group) inside ONE form, ONE Apply button at the
           end. "+ New group..." is a sentinel option inside the Groups
           select — picking it expands the inline create form OUTSIDE
-          this form (NewGroupInlineForm has its own action). */}
-      <BulkApplyForm
-        eventId={eventId}
-        selectedIds={selectedIds}
-        groups={groups}
-        onNewGroupClick={() => setShowNewGroupForm(true)}
-        onClear={onClear}
-        count={count}
-      />
+          this form (NewGroupInlineForm has its own action).
+          *
+          *  BulkApplyForm + BulkDeleteForm are two separate <form>
+          *  elements (each has its own server action — Apply hits
+          *  bulkApplyRoleAndGroup, Delete hits bulkSoftDeleteGuests).
+          *  Wrapping them in this flex flex-wrap parent so they sit on
+          *  the SAME ROW at desktop widths instead of stacking. On
+          *  narrow screens flex-wrap kicks in and Delete drops to its
+          *  own line — natural responsive behavior. */}
+      <div className="flex flex-wrap items-center gap-3">
+        <BulkApplyForm
+          eventId={eventId}
+          selectedIds={selectedIds}
+          groups={groups}
+          onNewGroupClick={() => setShowNewGroupForm(true)}
+          onClear={onClear}
+          count={count}
+        />
 
-      {/* Delete affordance · owner directive 2026-05-23. Lives in a
-       *  separate form (different server action) below the apply
-       *  toolbar so it never accidentally fires alongside an Apply
-       *  click. Confirm dialog is intentional — soft-delete is
-       *  reversible only via direct DB write, not by host UI. */}
-      <BulkDeleteForm
-        eventId={eventId}
-        selectedIds={selectedIds}
-        count={count}
-      />
+        {/* Delete affordance · owner directive 2026-05-23. Separate
+         *  form (different server action) but inline with the apply
+         *  toolbar via the parent flex container. Confirm dialog is
+         *  intentional — soft-delete is reversible only via direct DB
+         *  write, not by host UI. */}
+        <BulkDeleteForm
+          eventId={eventId}
+          selectedIds={selectedIds}
+          count={count}
+        />
+      </div>
 
       {showNewGroupForm ? (
         <NewGroupInlineForm
@@ -279,7 +289,11 @@ function BulkDeleteForm({
   return (
     <form
       action={bulkSoftDeleteGuests.bind(null, eventId)}
-      className="mt-2 flex justify-end"
+      // Parent SelectionBar now wraps this in `flex flex-wrap
+      // items-center gap-3` so the Delete button sits inline with the
+      // Apply toolbar (owner directive 2026-05-23 — "delete button is
+      // not aligned"). No own margin / justify needed; the parent's
+      // gap handles spacing.
       onSubmit={(e) => {
         if (!confirm(confirmMessage)) {
           e.preventDefault();

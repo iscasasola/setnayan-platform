@@ -51,18 +51,89 @@ export default async function EventLayout({ children, params }: Props) {
     notFound();
   }
 
+  // 5th hotfix pass extension (2026-05-23 PM) — same defensive pattern
+  // shipped at /dashboard/layout.tsx via PR #452, applied one level
+  // deeper for event-scoped routes. Owner reported global-error STILL
+  // firing after PR #452 deployed because the /dashboard root index
+  // redirects to /dashboard/{primary.event_id} which goes through THIS
+  // layout — not the parent /dashboard/layout.tsx that #452 hardened.
+  // Three load-bearing crash sites here:
+  //   (a) events SELECT — could throw on column drift or transport error
+  //   (b) countUnread / fetchUserEvents / fetchUserRoleSummary — all
+  //       internally log errors but synchronous throws still escape
+  //   (c) getLocale() — synchronous helper, low risk but wrapped for
+  //       symmetry
+  // Each fetcher wrapped in .catch() with safe defaults so one throw
+  // can't crash the whole layout tree.
   const [eventRes, unreadCount, locale, switcherEvents, roles] = await Promise.all([
-    supabase
-      .from('events')
-      .select(
-        'event_id, public_id, display_name, event_date, archived, event_type, monogram_text, monogram_color',
-      )
-      .eq('event_id', eventId)
-      .maybeSingle(),
-    countUnread(supabase, user.id),
-    getLocale(),
-    fetchUserEvents(supabase, user.id, 'couple'),
-    fetchUserRoleSummary(supabase, user.id),
+    (async () => {
+      try {
+        const fullSelect =
+          'event_id, public_id, display_name, event_date, archived, event_type, monogram_text, monogram_color';
+        const fullRes = await supabase
+          .from('events')
+          .select(fullSelect)
+          .eq('event_id', eventId)
+          .maybeSingle();
+        if (
+          fullRes.error &&
+          /column .* does not exist|undefined_column|42703/i.test(
+            (fullRes.error as { message?: string; code?: string }).message ??
+              (fullRes.error as { code?: string }).code ??
+              '',
+          )
+        ) {
+          // Column missing on prod → migration drift. Fall back to *.
+          return await supabase
+            .from('events')
+            .select('*')
+            .eq('event_id', eventId)
+            .maybeSingle();
+        }
+        return fullRes;
+      } catch (caught) {
+        logQueryError(
+          'EventLayout (events SELECT threw)',
+          caught instanceof Error ? caught : new Error(String(caught)),
+          { event_id: eventId, user_id: user.id },
+          'graceful_degrade',
+        );
+        return { data: null, error: null };
+      }
+    })(),
+    countUnread(supabase, user.id).catch((err: unknown) => {
+      logQueryError(
+        'EventLayout (countUnread threw)',
+        err instanceof Error ? err : new Error(String(err)),
+        { event_id: eventId, user_id: user.id },
+        'graceful_degrade',
+      );
+      return 0;
+    }),
+    Promise.resolve(getLocale()).catch(() => 'en' as const),
+    fetchUserEvents(supabase, user.id, 'couple').catch((err: unknown) => {
+      logQueryError(
+        'EventLayout (fetchUserEvents threw)',
+        err instanceof Error ? err : new Error(String(err)),
+        { event_id: eventId, user_id: user.id },
+        'graceful_degrade',
+      );
+      return [] as Awaited<ReturnType<typeof fetchUserEvents>>;
+    }),
+    fetchUserRoleSummary(supabase, user.id).catch((err: unknown) => {
+      logQueryError(
+        'EventLayout (fetchUserRoleSummary threw)',
+        err instanceof Error ? err : new Error(String(err)),
+        { event_id: eventId, user_id: user.id },
+        'graceful_degrade',
+      );
+      return {
+        hasCustomerAccess: true,
+        hasVendorAccess: false,
+        hasAdminAccess: false,
+        vendorProfiles: [],
+      } as Awaited<ReturnType<typeof fetchUserRoleSummary>>;
+    }),
   ]);
   // Log silent SELECT errors before falling through to notFound().
   // Swapped from .single() (which sets PGRST116 "0 rows" as an error)

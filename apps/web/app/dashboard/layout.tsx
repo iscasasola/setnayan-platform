@@ -16,29 +16,81 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
   const supabase = await createClient();
 
-  // 4th hotfix pass (2026-05-23): the previous shape silently
-  // destructured only `data` from the users SELECT — a real PostgREST
-  // error (network blip, RLS denial, schema-cache miss on a future
-  // `users` ADD COLUMN landing on code-before-SQL) would leave the
-  // page rendering with `profile === null` AND no breadcrumb in
-  // Sentry. The bypass meant the next "/dashboard hit error.tsx"
-  // mystery had zero call_site context. Capture the error explicitly
-  // and log via the shared helper so the next crash surfaces the
-  // call_site instead of being invisible. The fallback is the same
-  // (`profile === null` → skip the vendor / deleted redirects, fall
-  // through to render), but now with a logged trail.
-  const { data: profile, error: profileError } = await supabase
-    .from('users')
-    .select('account_type, deleted_at, tour_seen_keys')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (profileError) {
+  // 5th hotfix pass (2026-05-23 PM): Defensive try/catch around the
+  // users SELECT. The 4th pass switched from silent `{data}` destructure
+  // to explicit error capture via logQueryError — that helps Sentry
+  // surface the call_site but doesn't catch synchronous throws from
+  // supabase-js itself (malformed cookie state, transport-layer
+  // exception, fetch failure on the edge runtime). Owner reported
+  // global-error firing on /login → /dashboard redirect; sweep #2
+  // pointed at this surface as the load-bearing chrome that ALL
+  // authenticated routes pass through. A throw here breaks every
+  // /dashboard/* render including the post-login landing. Wrap the
+  // await in try/catch so a thrown supabase error degrades to
+  // profile=null (same fallback the original 4th-pass had) and the
+  // layout still renders.
+  //
+  // Fallback to SELECT * on column-not-found error so a future
+  // users.* ADD COLUMN landing before its migration is pushed to prod
+  // doesn't crash the layout (matches the defensive pattern from
+  // PR #448 on /dashboard/[eventId]/page.tsx).
+  type ProfileShape = {
+    account_type?: string | null;
+    deleted_at?: string | null;
+    tour_seen_keys?: string[] | null;
+  };
+  let profile: ProfileShape | null = null;
+  try {
+    const fullRes = await supabase
+      .from('users')
+      .select('account_type, deleted_at, tour_seen_keys')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (
+      fullRes.error &&
+      /column .* does not exist|undefined_column|42703/i.test(
+        (fullRes.error as { message?: string; code?: string }).message ??
+          (fullRes.error as { code?: string }).code ??
+          '',
+      )
+    ) {
+      // Column missing on prod → migration drift. Fall back to SELECT *.
+      const fallbackRes = await supabase
+        .from('users')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      profile = (fallbackRes.data as unknown as ProfileShape) ?? null;
+      if (fallbackRes.error) {
+        logQueryError(
+          'DashboardLayout (users.profile fallback)',
+          fallbackRes.error,
+          { user_id: user.id },
+          'graceful_degrade',
+        );
+      }
+    } else if (fullRes.error) {
+      logQueryError(
+        'DashboardLayout (users.profile)',
+        fullRes.error,
+        { user_id: user.id },
+        'graceful_degrade',
+      );
+      profile = null;
+    } else {
+      profile = (fullRes.data as unknown as ProfileShape) ?? null;
+    }
+  } catch (caught) {
+    // Synchronous throw from supabase-js or its transport layer. Log
+    // via the same call_site so Sentry surfaces it, then continue with
+    // profile=null. The page still renders the chrome.
     logQueryError(
-      'DashboardLayout (users.profile)',
-      profileError,
+      'DashboardLayout (users.profile threw)',
+      caught instanceof Error ? caught : new Error(String(caught)),
       { user_id: user.id },
       'graceful_degrade',
     );
+    profile = null;
   }
 
   // Reject deleted accounts — sign them out cleanly.
@@ -62,10 +114,52 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // single-strip lock 2026-05-14 + add-event entry 2026-05-15). The nested
   // `[eventId]/layout.tsx` re-runs its own queries for the active event;
   // the duplicate cost is small and keeps the two trees decoupled.
+  //
+  // 5th hotfix pass (2026-05-23 PM) — each fetcher individually wrapped
+  // in a .catch() so a throw in ONE doesn't reject the whole Promise.all
+  // (which would crash the layout + bubble to global-error.tsx). All
+  // three helpers internally use logQueryError + return safe defaults
+  // on PostgREST errors, but synchronous throws from supabase-js / edge
+  // transport / cookie state can still escape. Owner reported global-
+  // error firing on /login → /dashboard redirect; sweep #2 traced it
+  // here. Safe defaults: empty events array, null role summary,
+  // unread=0 — chrome renders with no events visible + 0 unread bell
+  // but the user lands on the dashboard.
   const [events, roles, unreadCount] = await Promise.all([
-    fetchUserEvents(supabase, user.id, 'couple'),
-    fetchUserRoleSummary(supabase, user.id),
-    countUnread(supabase, user.id),
+    fetchUserEvents(supabase, user.id, 'couple').catch((err: unknown) => {
+      logQueryError(
+        'DashboardLayout (fetchUserEvents threw)',
+        err instanceof Error ? err : new Error(String(err)),
+        { user_id: user.id },
+        'graceful_degrade',
+      );
+      return [] as Awaited<ReturnType<typeof fetchUserEvents>>;
+    }),
+    fetchUserRoleSummary(supabase, user.id).catch((err: unknown) => {
+      logQueryError(
+        'DashboardLayout (fetchUserRoleSummary threw)',
+        err instanceof Error ? err : new Error(String(err)),
+        { user_id: user.id },
+        'graceful_degrade',
+      );
+      // Safe-default role summary matches the shape fetchUserRoleSummary
+      // returns when the user has no admin / vendor associations.
+      return {
+        hasCustomerAccess: true,
+        hasVendorAccess: false,
+        hasAdminAccess: false,
+        vendorProfiles: [],
+      } as Awaited<ReturnType<typeof fetchUserRoleSummary>>;
+    }),
+    countUnread(supabase, user.id).catch((err: unknown) => {
+      logQueryError(
+        'DashboardLayout (countUnread threw)',
+        err instanceof Error ? err : new Error(String(err)),
+        { user_id: user.id },
+        'graceful_degrade',
+      );
+      return 0;
+    }),
   ]);
   // Hide archived events from the switcher (existing behavior); then sort
   // the remaining list with active-first + expired-rightmost per the

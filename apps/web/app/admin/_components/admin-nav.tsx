@@ -65,6 +65,11 @@ const NAV: Entry[] = [
     label: 'Content',
     items: [
       { href: '/admin/taxonomy', label: 'Taxonomy' },
+      // 2026-05-23 — Add-on Management (iteration 0023 § 3.12 · CLAUDE.md
+      // 2026-05-17 row 5 lock). Lives in Content because admins curate
+      // which SKUs surface to which audience — closer to content management
+      // than to Money or Settings. Read-only V1.
+      { href: '/admin/addons', label: 'Add-ons' },
       { href: '/admin/website', label: 'Website' },
       // Concierge brain sits in Content (not Queues / not Money) because
       // it's curated knowledge feeding the Concierge LLM — closer to

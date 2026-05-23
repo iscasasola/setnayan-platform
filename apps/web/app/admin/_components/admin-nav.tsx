@@ -51,6 +51,9 @@ const NAV: Entry[] = [
     label: 'Money',
     items: [
       { href: '/admin/payouts', label: 'Payouts' },
+      // /admin/pricing — read-only catalog view of `service_catalog`.
+      // Placed between Payouts and Receipts per iteration 0023 § 3.5 spec.
+      { href: '/admin/pricing', label: 'Pricing' },
       { href: '/admin/receipts', label: 'Receipts' },
       { href: '/admin/bir/2307', label: 'BIR 2307' },
       { href: '/admin/ads', label: 'Ads' },

@@ -4,8 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown, X, UserPlus } from 'lucide-react';
 import {
-  bulkAssignGuestRole,
-  bulkAddGuestsToGroup,
+  bulkApplyRoleAndGroup,
   createGuestGroup,
   removeGuestFromGroup,
 } from '../groups-actions';
@@ -216,31 +215,21 @@ function SelectionBar({
       aria-label="Bulk actions for selected guests"
       className="sticky top-20 z-20 rounded-xl border border-terracotta/40 bg-cream/95 p-3 shadow-md backdrop-blur"
     >
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2">
-          <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-terracotta px-2 text-xs font-semibold text-cream">
-            {count}
-          </span>
-          <span className="text-sm font-medium text-ink">selected</span>
-        </div>
-
-        <BulkAssignRoleForm eventId={eventId} selectedIds={selectedIds} />
-        <BulkAddToGroupForm
-          eventId={eventId}
-          selectedIds={selectedIds}
-          groups={groups}
-          onNewGroupClick={() => setShowNewGroupForm(true)}
-        />
-
-        <button
-          type="button"
-          onClick={onClear}
-          className="inline-flex items-center gap-1 rounded-md border border-ink/20 bg-cream px-3 py-1.5 text-xs text-ink/70 hover:border-ink/40"
-        >
-          <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          Clear selection
-        </button>
-      </div>
+      {/* Single-Apply toolbar (owner directive 2026-05-23 PM verbatim:
+          "apply and add button should be 1 only and at the last, Apply.
+          New Group can be placed on the dropdown of Groups"). Two
+          selects (role + group) inside ONE form, ONE Apply button at the
+          end. "+ New group..." is a sentinel option inside the Groups
+          select — picking it expands the inline create form OUTSIDE
+          this form (NewGroupInlineForm has its own action). */}
+      <BulkApplyForm
+        eventId={eventId}
+        selectedIds={selectedIds}
+        groups={groups}
+        onNewGroupClick={() => setShowNewGroupForm(true)}
+        onClear={onClear}
+        count={count}
+      />
 
       {showNewGroupForm ? (
         <NewGroupInlineForm
@@ -253,21 +242,49 @@ function SelectionBar({
   );
 }
 
-function BulkAssignRoleForm({
+// Sentinel value for the "+ New group..." option inside the Groups
+// dropdown. Picking it doesn't submit a group_id (we strip it client-
+// side before submit) — it opens the inline create form.
+const NEW_GROUP_SENTINEL = '__new_group__';
+
+function BulkApplyForm({
   eventId,
   selectedIds,
+  groups,
+  onNewGroupClick,
+  onClear,
+  count,
 }: {
   eventId: string;
   selectedIds: string[];
+  groups: GuestGroupWithCount[];
+  onNewGroupClick: () => void;
+  onClear: () => void;
+  count: number;
 }) {
+  // Track the group select so we can intercept the sentinel and clear
+  // it from the form before submit (preventing the server from seeing
+  // a bogus group_id). Role select is fully form-managed; no state
+  // needed for it.
+  const [groupValue, setGroupValue] = useState('');
+
   return (
     <form
-      action={bulkAssignGuestRole.bind(null, eventId)}
-      className="flex items-center gap-2"
+      action={bulkApplyRoleAndGroup.bind(null, eventId)}
+      className="flex flex-wrap items-center gap-3"
     >
       {selectedIds.map((id) => (
         <input key={id} type="hidden" name="guest_ids[]" value={id} />
       ))}
+
+      <div className="flex items-center gap-2">
+        <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-terracotta px-2 text-xs font-semibold text-cream">
+          {count}
+        </span>
+        <span className="text-sm font-medium text-ink">selected</span>
+      </div>
+
+      {/* Role select */}
       <label className="sr-only" htmlFor="bulk-role">
         Assign role to selected guests
       </label>
@@ -276,12 +293,9 @@ function BulkAssignRoleForm({
           id="bulk-role"
           name="role"
           defaultValue=""
-          required
           className="h-9 appearance-none rounded-md border border-ink/20 bg-cream px-3 pr-8 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
         >
-          <option value="" disabled>
-            Assign role…
-          </option>
+          <option value="">Assign role…</option>
           {BULK_ROLE_SECTIONS.map((section) => (
             <optgroup key={section.label} label={section.label}>
               {section.roles.map((r) => (
@@ -298,35 +312,11 @@ function BulkAssignRoleForm({
           strokeWidth={1.75}
         />
       </div>
-      <button
-        type="submit"
-        className="inline-flex h-9 items-center rounded-md bg-terracotta px-3 text-xs font-medium text-cream hover:bg-terracotta-600"
-      >
-        Apply
-      </button>
-    </form>
-  );
-}
 
-function BulkAddToGroupForm({
-  eventId,
-  selectedIds,
-  groups,
-  onNewGroupClick,
-}: {
-  eventId: string;
-  selectedIds: string[];
-  groups: GuestGroupWithCount[];
-  onNewGroupClick: () => void;
-}) {
-  return (
-    <form
-      action={bulkAddGuestsToGroup.bind(null, eventId)}
-      className="flex items-center gap-2"
-    >
-      {selectedIds.map((id) => (
-        <input key={id} type="hidden" name="guest_ids[]" value={id} />
-      ))}
+      {/* Group select — owner directive 2026-05-23 PM: "New Group can be
+          placed on the dropdown of Groups". The sentinel option opens
+          the inline create form (rendered by the parent component) and
+          resets the select so the form doesn't submit a bogus value. */}
       <label className="sr-only" htmlFor="bulk-group">
         Add selected guests to a group
       </label>
@@ -334,12 +324,22 @@ function BulkAddToGroupForm({
         <select
           id="bulk-group"
           name="group_id"
-          defaultValue=""
+          value={groupValue}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (v === NEW_GROUP_SENTINEL) {
+              // Sentinel — open the create form, reset the select so
+              // the form submits an empty group_id (no-op on server
+              // side).
+              onNewGroupClick();
+              setGroupValue('');
+              return;
+            }
+            setGroupValue(v);
+          }}
           className="h-9 appearance-none rounded-md border border-ink/20 bg-cream px-3 pr-8 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
         >
-          <option value="" disabled>
-            Add to group…
-          </option>
+          <option value="">Add to group…</option>
           {groups.length > 0 ? (
             <optgroup label="Custom groups">
               {groups.map((g) => (
@@ -349,6 +349,9 @@ function BulkAddToGroupForm({
               ))}
             </optgroup>
           ) : null}
+          <optgroup label="Create">
+            <option value={NEW_GROUP_SENTINEL}>+ New group…</option>
+          </optgroup>
         </select>
         <ChevronDown
           aria-hidden
@@ -356,20 +359,22 @@ function BulkAddToGroupForm({
           strokeWidth={1.75}
         />
       </div>
+
+      {/* Single Apply button at the end · owner directive */}
       <button
         type="submit"
-        disabled={groups.length === 0}
-        className="inline-flex h-9 items-center rounded-md border border-ink/20 bg-cream px-3 text-xs font-medium text-ink hover:border-ink/40 disabled:cursor-not-allowed disabled:opacity-50"
+        className="inline-flex h-9 items-center rounded-md bg-terracotta px-4 text-xs font-medium text-cream hover:bg-terracotta-600"
       >
-        Add
+        Apply
       </button>
+
       <button
         type="button"
-        onClick={onNewGroupClick}
-        className="inline-flex h-9 items-center gap-1 rounded-md border border-ink/20 bg-cream px-3 text-xs font-medium text-ink hover:border-ink/40"
+        onClick={onClear}
+        className="inline-flex h-9 items-center gap-1 rounded-md border border-ink/20 bg-cream px-3 text-xs text-ink/70 hover:border-ink/40"
       >
-        <UserPlus aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-        New group
+        <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+        Clear selection
       </button>
     </form>
   );

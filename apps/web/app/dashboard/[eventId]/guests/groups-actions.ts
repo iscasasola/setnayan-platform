@@ -176,6 +176,107 @@ export async function bulkAddGuestsToGroup(
 }
 
 // -----------------------------------------------------------------------
+// Combined bulk apply — single Apply button on the toolbar (owner
+// directive 2026-05-23 PM: "apply and add button should be 1 only and
+// at the last, Apply").
+//
+// Reads `role` AND `group_id` from the same FormData. Each is optional;
+// the action no-ops on whichever is empty and applies the other. The
+// host's UI gives one Apply button, the server does the right thing
+// per which selects were touched.
+// -----------------------------------------------------------------------
+
+export async function bulkApplyRoleAndGroup(
+  eventId: string,
+  formData: FormData,
+): Promise<void> {
+  const rawRole = clean(formData.get('role'));
+  const rawGroupId = clean(formData.get('group_id'));
+  const guestIds = parseGuestIds(formData);
+
+  if (guestIds.length === 0) {
+    redirect(backToList(eventId, { error: 'no_selection' }));
+  }
+  if (!rawRole && !rawGroupId) {
+    // Nothing to do — Apply was clicked with both selects on placeholder.
+    // Silent return rather than red-error since the host might've meant
+    // to back out.
+    redirect(backToList(eventId, {}));
+  }
+
+  const supabase = await createClient();
+  let didRole = false;
+  let didGroup = false;
+
+  // ---- Role half ----
+  if (rawRole) {
+    const role = rawRole as GuestRole;
+    if (!ROLE_VALUES.includes(role)) {
+      redirect(backToList(eventId, { error: 'invalid_role' }));
+    }
+    if (SINGLETON_GUEST_ROLES.includes(role) && guestIds.length > 1) {
+      const label = role === 'bride' ? 'Bride' : 'Groom';
+      redirect(
+        backToList(eventId, {
+          error: encodeURIComponent(
+            `Only one ${label} per event — pick a single guest for this role.`,
+          ),
+        }),
+      );
+    }
+    const { error } = await supabase
+      .from('guests')
+      .update({ role, updated_at: new Date().toISOString() })
+      .eq('event_id', eventId)
+      .in('guest_id', guestIds);
+    if (error) {
+      const friendly =
+        (error as { code?: string }).code === '23505' &&
+        /guests_one_(bride|groom)_per_event/.test(error.message)
+          ? role === 'bride'
+            ? 'Already a Bride in this event — change theirs first.'
+            : 'Already a Groom in this event — change theirs first.'
+          : error.message;
+      redirect(backToList(eventId, { error: encodeURIComponent(friendly) }));
+    }
+    didRole = true;
+  }
+
+  // ---- Group half ----
+  if (rawGroupId) {
+    const { data: groupRow, error: groupErr } = await supabase
+      .from('guest_groups')
+      .select('event_id')
+      .eq('group_id', rawGroupId)
+      .maybeSingle();
+    if (groupErr || !groupRow || groupRow.event_id !== eventId) {
+      redirect(backToList(eventId, { error: 'invalid_group' }));
+    }
+    const rows = guestIds.map((guest_id) => ({
+      group_id: rawGroupId,
+      guest_id,
+    }));
+    const { error } = await supabase
+      .from('guest_group_memberships')
+      .upsert(rows, { onConflict: 'group_id,guest_id', ignoreDuplicates: true });
+    if (error) {
+      redirect(
+        backToList(eventId, { error: encodeURIComponent(error.message) }),
+      );
+    }
+    didGroup = true;
+  }
+
+  revalidatePath(`/dashboard/${eventId}/guests`);
+  redirect(
+    backToList(eventId, {
+      ...(didRole ? { bulk_assigned: String(guestIds.length) } : {}),
+      ...(didGroup ? { bulk_grouped: String(guestIds.length) } : {}),
+    }),
+  );
+}
+
+// -----------------------------------------------------------------------
 // Create group · also accepts an optional preselected list of guest_ids
 // to add at creation time (the multi-select bar "Add to NEW group…" path).
 // -----------------------------------------------------------------------

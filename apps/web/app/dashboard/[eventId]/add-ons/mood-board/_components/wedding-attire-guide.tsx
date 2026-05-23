@@ -191,6 +191,45 @@ function resolveTint(
 }
 
 /**
+ * Resolve the right RoleAsset for a (role, currentStyle) pair with a
+ * 4-tier fallback chain matching the AssetsByRoleAndStyle JSDoc:
+ *   1. assetsByRoleAndStyle[role][currentStyle]  (exact match · Recraft library)
+ *   2. assetsByRoleAndStyle[role]['editorial cream']  (default style fallback)
+ *   3. assetsByRoleAndStyle[role][<first populated style>]  (any-style fallback)
+ *   4. assetsByRole[role]  (legacy flat map · pre-style-themed Pexels era)
+ *   5. undefined → caller renders SVG silhouette (PR #451/#453 polished figures)
+ *
+ * Default-style fallback uses `editorial cream` because it's the
+ * neutral-aesthetic seed Setnayan curates first (per the prompt-spec
+ * doc's seed-generation ordering) — the most likely style to be
+ * populated when the library is partially seeded.
+ */
+function resolveAsset(
+  roleKey: RoleKey,
+  currentStyle: (typeof STYLE_OPTIONS)[number],
+  byRoleAndStyle: AssetsByRoleAndStyle | undefined,
+  byRole: Partial<Record<RoleKey, RoleAsset>> | undefined,
+): RoleAsset | undefined {
+  const byStyle = byRoleAndStyle?.[roleKey];
+  if (byStyle) {
+    // Exact-style match wins.
+    const exact = byStyle[currentStyle];
+    if (exact) return exact;
+    // Default-style fallback — picks the curated baseline aesthetic
+    // even if the host's picked style isn't in the library yet.
+    const defaultStyle = byStyle['editorial cream'];
+    if (defaultStyle) return defaultStyle;
+    // Any-style fallback — first populated style key wins.
+    const anyStyle = Object.values(byStyle).find(
+      (a): a is RoleAsset => Boolean(a),
+    );
+    if (anyStyle) return anyStyle;
+  }
+  // Legacy flat-map fallback (pre-Recraft seed era).
+  return byRole?.[roleKey];
+}
+
+/**
  * Map the V1 mood-board palette keys (bride / groom / wedding_party /
  * principal_sponsors / etc.) to the role keys used in this mockup so
  * the host's actual saved palette tints the figures. Falls back to the
@@ -235,6 +274,25 @@ export type RoleAsset = {
   label: string;
 };
 
+/**
+ * Nested asset map shipped by the Recraft V3 5-style × 10-role library
+ * (owner directive 2026-05-23 PM third pass · prompt template + workflow
+ * spec at 02_Specifications/Wedding_Attire_Guide_AI_Generation.md).
+ *
+ * Resolution order at render time:
+ *   1. assetsByRoleAndStyle[role.key][current_style]  (exact match)
+ *   2. assetsByRoleAndStyle[role.key]['editorial cream']  (default style fallback)
+ *   3. assetsByRoleAndStyle[role.key][<any populated style>]  (any-style fallback)
+ *   4. assetsByRole[role.key]  (legacy flat map — Pexels seed when re-enabled)
+ *   5. polished SVG silhouette (Silhouette function below)
+ *
+ * Keys are the 5 STYLE_OPTIONS strings verbatim — matching the DB
+ * style_theme CHECK constraint from migration 20260613000000.
+ */
+export type AssetsByRoleAndStyle = Partial<
+  Record<RoleKey, Partial<Record<(typeof STYLE_OPTIONS)[number], RoleAsset>>>
+>;
+
 type Props = {
   /** Event ID — used by the per-role color-picker server-action calls. */
   eventId: string;
@@ -244,14 +302,17 @@ type Props = {
   /** Host's saved per-role attire colors from events.attire_guide_palette
    *  (migration 20260610010000). Empty {} = use V1 palette + defaults. */
   attirePalette: Record<string, string>;
-  /** Optional real-photo assets keyed by role. Owner directive 2026-05-23
-   *  PM ("want something like this but Filipina face + recolorable + same
-   *  for men" — Pinterest wedding-guest-dresses collage reference). When
-   *  present for a role, Silhouette renders the photo with a CSS tint
-   *  overlay; when absent, it falls back to the polished SVG silhouette.
-   *  V1 placeholders use Pexels free-commercial stock; V1.x swaps to
-   *  Higgsfield-generated Filipino-specific figures. */
+  /** Legacy flat asset map (pre-style-themed library — Pexels seed era).
+   *  Kept for backwards compat; new content should populate
+   *  assetsByRoleAndStyle instead. When both are populated for a role,
+   *  assetsByRoleAndStyle wins. */
   assetsByRole?: Partial<Record<RoleKey, RoleAsset>>;
+  /** 5-style × 10-role nested asset map · Recraft V3 library per the
+   *  2026-05-23 PM third-pass owner direction. When the host clicks a
+   *  style chip in STYLE_OPTIONS, RoleCluster resolves the asset via
+   *  `assetsByRoleAndStyle[role.key][current_style]` and the figure SET
+   *  visibly swaps (not just the canvas backdrop + arch decoration). */
+  assetsByRoleAndStyle?: AssetsByRoleAndStyle;
 };
 
 const STYLE_OPTIONS = [
@@ -368,6 +429,7 @@ export function WeddingAttireGuide({
   rolePalette,
   attirePalette,
   assetsByRole,
+  assetsByRoleAndStyle,
 }: Props) {
   const [activeRole, setActiveRole] = useState<RoleKey | null>(null);
   const [style, setStyle] = useState<(typeof STYLE_OPTIONS)[number]>(
@@ -536,7 +598,12 @@ export function WeddingAttireGuide({
               }
               scale={0.75}
               theme={theme}
-              asset={assetsByRole?.[role.key]}
+              asset={resolveAsset(
+                role.key,
+                style,
+                assetsByRoleAndStyle,
+                assetsByRole,
+              )}
             />
           ))}
         </div>
@@ -554,7 +621,12 @@ export function WeddingAttireGuide({
               }
               scale={1}
               theme={theme}
-              asset={assetsByRole?.[role.key]}
+              asset={resolveAsset(
+                role.key,
+                style,
+                assetsByRoleAndStyle,
+                assetsByRole,
+              )}
             />
           ))}
         </div>

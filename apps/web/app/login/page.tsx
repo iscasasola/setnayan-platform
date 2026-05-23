@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { Logo } from '@/app/_components/logo';
+import { OAuthButtonRow } from '@/app/_components/oauth-button-row';
 import { safeNext } from '@/lib/auth';
 import { signInWithMagicLink, signInWithPassword } from './actions';
 
@@ -88,6 +89,25 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
         </p>
       ) : null}
 
+      {/* OAuth row first per industry-standard placement (Stripe / Linear /
+          GitHub / Notion). For Filipino hosts who default to Facebook for
+          everything, "Continue with Facebook" being the first thing they
+          see shortens the mental path to dashboard. Apple deferred V1.1
+          per owner directive 2026-05-23 — gates on Apple Developer Program
+          enrollment ($99/yr) which sits in the DTI-deferred chain. */}
+      <OAuthButtonRow next={next} />
+
+      <div className="relative">
+        <div aria-hidden className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-ink/10" />
+        </div>
+        <div className="relative flex justify-center">
+          <span className="bg-cream px-3 font-mono text-xs uppercase tracking-[0.2em] text-ink/40">
+            or continue with email
+          </span>
+        </div>
+      </div>
+
       <form action={signInWithPassword} className="space-y-4">
         <input type="hidden" name="next" value={next} />
         <div className="space-y-1.5">
@@ -125,17 +145,12 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
         </SubmitButton>
       </form>
 
-      <div className="relative">
-        <div aria-hidden className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-ink/10" />
-        </div>
-        <div className="relative flex justify-center">
-          <span className="bg-cream px-3 font-mono text-xs uppercase tracking-[0.2em] text-ink/40">
-            or
-          </span>
-        </div>
-      </div>
-
+      {/* No divider between password and magic-link forms — they're
+          both email-based, can be visually grouped. The single "or
+          continue with email" divider above already separated this
+          email block from the OAuth row. Removing the second divider
+          cleans up the visual rhythm now that we have 4 auth methods
+          (Google / Facebook / password / magic-link) instead of 2. */}
       <form action={signInWithMagicLink} className="space-y-4">
         <input type="hidden" name="next" value={next} />
         <div className="space-y-1.5">

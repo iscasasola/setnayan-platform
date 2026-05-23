@@ -480,6 +480,112 @@ If you still get bounced to `/login`, paste me a screenshot of the browser's coo
 
 ---
 
+## Phase 2D — Social login providers (30 min, Google + Facebook)
+
+**Why:** Hosts can now log in with Google or Facebook in addition to email + password / magic-link. Engineering shipped per owner directive 2026-05-23 (Apple deferred to V1.1 since it requires Apple Developer Program enrollment $99/yr). Both buttons render at the top of `/login` and `/signup` BUT they're dark until you toggle the providers ON in Supabase Studio and paste credentials. Without these steps, clicking the buttons will error.
+
+**Why Google + Facebook specifically:** Filipino market — every Android user has a Google account, and almost every Filipino uses Facebook daily. These two cover the overwhelming majority of new signups for less work than email confirmation flows.
+
+### Step 2D.1 — Google OAuth (10 min)
+
+Reuse the existing Google Cloud project from your YouTube OAuth setup (CLAUDE.md 2026-05-18 row 7 — `Setnayan` project on Google Cloud Console). The YouTube OAuth client there can be extended with Google Sign-In scopes without creating a new client.
+
+1. Open https://console.cloud.google.com → pick the **Setnayan** project
+2. Left sidebar → **APIs & Services** → **Credentials**
+3. Click the existing **Setnayan Web — Production** OAuth 2.0 Client ID (the one from YouTube work)
+4. Scroll to **Authorized redirect URIs**
+5. Click **+ ADD URI** and paste your Supabase callback URL — get it from Supabase Studio at step 2D.2 below. The format is `https://<your-project-ref>.supabase.co/auth/v1/callback`
+6. Click **SAVE**
+7. Back at the OAuth client overview, **copy the Client ID** + **copy the Client Secret** (you'll paste them in step 2D.2)
+
+> **Note:** Google Sign-In with the standard `email + profile + openid` scopes (which is what Supabase requests by default) does NOT require Google's "verified app" review. You're already past that gate for those scopes. The YouTube `youtube` + `youtube.upload` scopes from the YouTube work are a SEPARATE Verification Phase 2 review (still pending for that work, doesn't block Sign-In).
+
+### Step 2D.2 — Wire Google into Supabase
+
+1. Open https://supabase.com/dashboard → **setnayan-platform** project
+2. Left sidebar → **Authentication** → **Providers**
+3. Find **Google** in the list → click to expand
+4. Toggle **Enable Sign in with Google** ON
+5. Paste the **Client ID** from step 2D.1 step 7 into **Client ID** field
+6. Paste the **Client Secret** from step 2D.1 step 7 into **Client Secret** field
+7. **Skip Authorized Client IDs** (leave blank — that's for native iOS / Android only, not web)
+8. Click **Save**
+9. **Copy the Callback URL** Supabase shows in the same panel (looks like `https://njrupjnvkjkitfctetvi.supabase.co/auth/v1/callback`) — if you didn't paste this exact URL in step 2D.1 step 5, go back and paste it now
+
+### Step 2D.3 — Verify Google works
+
+1. Open https://www.setnayan.com/login in an incognito window
+2. You should see a **Continue with Google** button at the top
+3. Click it
+4. Google's consent screen appears → click **Continue**
+5. You should land on the Setnayan dashboard (auto-creates a `customer` account if first sign-in, signs in existing user otherwise)
+6. Sign out → repeat from a fresh incognito to confirm it works for new accounts
+
+### Step 2D.4 — Facebook OAuth (15 min)
+
+You need a Meta for Developers App for Facebook Login. Free, takes ~15 min.
+
+1. Open https://developers.facebook.com → click **My Apps** → **Create App**
+2. **Use case** = **Authenticate and request data from users with Facebook Login** → **Next**
+3. **App name** = `Setnayan` (or your preferred display name — this is what users see on the consent screen)
+4. **App contact email** = your email
+5. **Business portfolio** = pick one or **I don't want to connect a business portfolio** for now
+6. Click **Create app**
+7. After creation, in the left sidebar → **Add product** → find **Facebook Login** → click **Set up**
+8. Choose **Web** as the platform
+9. **Site URL** = `https://www.setnayan.com` → **Save** → **Continue**
+10. Left sidebar → **Facebook Login** → **Settings**
+11. **Valid OAuth Redirect URIs** = paste your Supabase callback URL (same one as Google in step 2D.2 step 9 — looks like `https://njrupjnvkjkitfctetvi.supabase.co/auth/v1/callback`)
+12. **Save changes** at the bottom
+
+### Step 2D.5 — Get Facebook credentials
+
+1. Left sidebar → **App settings** → **Basic**
+2. **Copy the App ID** (visible at the top)
+3. Next to **App secret** click **Show** → enter your Facebook password if prompted → **copy the App Secret**
+
+### Step 2D.6 — Wire Facebook into Supabase
+
+1. Back to https://supabase.com/dashboard → **setnayan-platform** project → **Authentication** → **Providers**
+2. Find **Facebook** → click to expand
+3. Toggle **Enable Sign in with Facebook** ON
+4. Paste **Facebook App ID** from step 2D.5 step 2
+5. Paste **Facebook App Secret** from step 2D.5 step 3
+6. Click **Save**
+
+### Step 2D.7 — Make the Facebook App live (for non-developer testers)
+
+By default a new Facebook App is in **Development mode** which means only people you've explicitly added as developers / testers can log in. To make it public:
+
+1. Top of dashboard → **App Mode** toggle on the right
+2. Flip from **Development** to **Live**
+3. Facebook may ask for a **Privacy Policy URL** = `https://www.setnayan.com/privacy` (already exists)
+4. Facebook may ask for **Data Deletion Instructions URL** = `https://www.setnayan.com/privacy#data-rights` (the privacy page has the data-rights section per PR #273)
+5. Confirm the switch to Live
+
+> **Note:** The Basic `email + public_profile` scopes Supabase uses do NOT require Meta App Review. You can go Live immediately. Any additional scope (friends list, posts, etc. — which Setnayan does NOT need) WOULD require review.
+
+### Step 2D.8 — Verify Facebook works
+
+1. Open https://www.setnayan.com/login in a fresh incognito window
+2. You should see a **Continue with Facebook** button below the Google button at the top
+3. Click it
+4. Facebook's consent screen appears → click **Continue as <your name>**
+5. You should land on the Setnayan dashboard
+6. Sign out → try from a fresh incognito with a different Facebook account if you have one (to confirm new-user signup works)
+
+### What if a button errors after step 2D.6?
+
+The most common cause is the redirect URI mismatch — the URL pasted in the provider console (Google Cloud / Meta Developers) must EXACTLY match what Supabase generated. If you see "redirect_uri_mismatch" or similar:
+
+1. Go back to https://supabase.com/dashboard → **setnayan-platform** → **Authentication** → **Providers** → **Google** (or Facebook)
+2. Copy the **Callback URL (for OAuth)** value from the panel
+3. Paste that EXACT URL (including the `https://` prefix and trailing path) into the provider console's redirect URI list
+4. Save in both places
+5. Wait ~2 min for the change to propagate, then retry
+
+---
+
 ## Phase 3 — Custom domain (1 hour + DNS propagation)
 
 **Why:** Right now the app lives at `setnayan-platform-web.vercel.app`. For

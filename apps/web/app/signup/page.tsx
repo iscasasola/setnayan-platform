@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { Logo } from '@/app/_components/logo';
+import { OAuthButtonRow } from '@/app/_components/oauth-button-row';
 import { safeNext } from '@/lib/auth';
 import { signUp } from './actions';
 
@@ -68,6 +69,27 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
           account.
         </p>
       ) : null}
+
+      {/* OAuth row first per industry-standard placement. Supabase auto-
+          creates the auth.users row on first OAuth callback if it doesn't
+          exist (no separate "sign up vs sign in" branching at the OAuth
+          layer). OAuth-created accounts get account_type='customer' by
+          default — they're indistinguishable from email-created hosts.
+          A V1.1 enhancement could let OAuth users pick vendor vs customer
+          on a post-callback onboarding step; for V1 the default is fine
+          since vendor signups overwhelmingly use email anyway. */}
+      <OAuthButtonRow next={next} />
+
+      <div className="relative">
+        <div aria-hidden className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-ink/10" />
+        </div>
+        <div className="relative flex justify-center">
+          <span className="bg-cream px-3 font-mono text-xs uppercase tracking-[0.2em] text-ink/40">
+            or sign up with email
+          </span>
+        </div>
+      </div>
 
       <form
         action={signUp}

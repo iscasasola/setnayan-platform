@@ -21,6 +21,7 @@ import { GuestPreload } from './_components/guest-preload';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import {
   type InvitationWidgetRow,
+  type WidgetType,
   isWidgetType,
   visibleHideableWidgets,
   widgetByType,
@@ -218,6 +219,13 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // (Note: guest-session cookie was already read above for the private-gate
   // check — reuse the same `session` reference rather than re-fetching.)
 
+  // Schedule blocks fetched here (hoisted from the InvitationSite-only
+  // branch as of 2026-05-23) so PublicLanding can also render the
+  // Schedule widget. fetchPublicScheduleBlocks already takes the admin
+  // client + event_id and returns only the rows the host has marked
+  // public — safe to show to anonymous visitors.
+  const scheduleBlocks = await fetchPublicScheduleBlocks(admin, event.event_id);
+
   if (!session) {
     return (
       <PublicLanding
@@ -226,6 +234,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         dayOfPhase={dayOfPhase}
         heroPhotoUrl={heroPhotoUrl}
         widgets={widgets}
+        scheduleBlocks={scheduleBlocks}
       />
     );
   }
@@ -240,6 +249,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         dayOfPhase={dayOfPhase}
         heroPhotoUrl={heroPhotoUrl}
         widgets={widgets}
+        scheduleBlocks={scheduleBlocks}
       />
     );
   }
@@ -261,6 +271,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         dayOfPhase={dayOfPhase}
         heroPhotoUrl={heroPhotoUrl}
         widgets={widgets}
+        scheduleBlocks={scheduleBlocks}
       />
     );
   }
@@ -283,7 +294,9 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     monogram,
   });
   const invitationUrl = buildInvitationUrl({ appUrl, slug, qrToken: guest.qr_token });
-  const scheduleBlocks = await fetchPublicScheduleBlocks(admin, event.event_id);
+  // scheduleBlocks already fetched above (hoisted 2026-05-23 so the
+  // anonymous PublicLanding path could also render the Schedule
+  // widget). Pass the same array through unchanged.
 
   return (
     <InvitationSite
@@ -387,6 +400,7 @@ function PublicLanding({
   dayOfPhase,
   heroPhotoUrl,
   widgets,
+  scheduleBlocks,
 }: {
   event: EventRow;
   reason?: 'invalid_invite' | 'wrong_event' | null;
@@ -395,16 +409,37 @@ function PublicLanding({
   // monogram-only fallback should render. See displayUrlForStoredAsset() in
   // lib/uploads.ts — caller resolves once at the top-level page.
   heroPhotoUrl?: string | null;
-  // Widget visibility registry — anonymous-browser path renders only the
-  // hero today, so the widget array passes through unused. Kept on the
-  // signature for consistency with InvitationSite + so a V1.1 "show
-  // schedule preview to anonymous browsers" lever can flip without
-  // re-threading the prop.
+  // Widget visibility registry — owner directive 2026-05-23 flipped this
+  // path from "render hero only + discard widgets" to "render hero + all
+  // public-safe hideable widgets in display order". Guest-personalized
+  // widgets (qr_card · rsvp · greeting · event_details · your_photos)
+  // still get skipped here because they need a guest session to be
+  // meaningful — the page renderer in InvitationSite handles those.
   widgets: readonly InvitationWidgetRow[];
+  // Hoisted from InvitationSite-only 2026-05-23 so this anonymous path
+  // can also render the Schedule widget. `fetchPublicScheduleBlocks`
+  // already returns host-marked-public rows only — safe for anonymous
+  // visitors to see.
+  scheduleBlocks: ScheduleBlockRow[];
 }) {
-  // Reserved for V1.1+ when anonymous-browser hero may toggle off via
-  // hero widget visibility. V1 keeps the hero unconditional here.
-  void widgets;
+  // Public-safe hideable widgets in the host's display order. The 6
+  // types below all carry event-level data (no per-guest fields) so
+  // they render correctly for anonymous visitors. Other hideable types
+  // (event_details · your_photos) need a guest object + are silently
+  // skipped here. The 4 always-on widgets (hero · greeting · qr_card ·
+  // rsvp) are NOT in visibleHideableWidgets() output.
+  const publicSafeWidgets = visibleHideableWidgets(widgets).filter((w) =>
+    (
+      [
+        'countdown',
+        'schedule',
+        'venue_map',
+        'dress_code',
+        'photo_moments',
+        'tier_comparison',
+      ] as WidgetType[]
+    ).includes(w.widget_type),
+  );
   // Task #13 — day-of-mode badge surfaces to public-landing viewers too so a
   // guest at the venue without a session cookie still sees "happening now".
   const dayOfBadge =
@@ -487,8 +522,95 @@ function PublicLanding({
           </p>
         )}
       </div>
+
+      {/* Public widgets — owner directive 2026-05-23. Renders the
+       *  host-configured hideable widgets that carry event-level data
+       *  only (no guest-personalized fields), in the display order set
+       *  via the widget editor at /dashboard/[eventId]/website. Each
+       *  widget sub-component is reused from InvitationSite — same
+       *  visual treatment, just a thinner per-type dispatcher because
+       *  the anonymous path doesn't have a guest object to pass. */}
+      {publicSafeWidgets.length > 0 ? (
+        <section className="mt-12 space-y-8">
+          {publicSafeWidgets.map((widget) => (
+            <PublicHideableWidget
+              key={widget.widget_id}
+              widget={widget}
+              event={event}
+              scheduleBlocks={scheduleBlocks}
+              isLive={dayOfPhase === 'live'}
+            />
+          ))}
+        </section>
+      ) : null}
     </InvitationShell>
   );
+}
+
+/**
+ * Per-widget renderer for the anonymous public landing path. Mirrors the
+ * `HideableWidgetRender` dispatcher used by InvitationSite but only
+ * handles the 6 widget types that don't need a guest object. The 4
+ * always-on widgets (hero · greeting · qr_card · rsvp) plus the 2
+ * guest-personalized hideable widgets (event_details · your_photos)
+ * fall through to `null` because they require a guest session to be
+ * meaningful.
+ */
+function PublicHideableWidget({
+  widget,
+  event,
+  scheduleBlocks,
+  isLive,
+}: {
+  widget: InvitationWidgetRow;
+  event: EventRow;
+  scheduleBlocks: ScheduleBlockRow[];
+  isLive: boolean;
+}) {
+  switch (widget.widget_type) {
+    case 'countdown':
+      // Match InvitationSite's per-widget skip — no event date, no
+      // countdown. The widget row stays "visible" in the editor; the
+      // renderer just skips when the data isn't available.
+      return event.event_date ? <CountdownWidget targetIso={event.event_date} /> : null;
+
+    case 'schedule':
+      // Match InvitationSite — no double-render during day-of mode (the
+      // pinned schedule block already lives at the top of the article
+      // on the authed path; the anonymous path doesn't have that pin,
+      // but we still skip the standalone widget when isLive to match
+      // the editor's "always-on pin replaces hideable" contract).
+      return !isLive && scheduleBlocks.length > 0 ? (
+        <ScheduleWidget blocks={scheduleBlocks} />
+      ) : null;
+
+    case 'venue_map':
+      return <VenueWidget event={event} />;
+
+    case 'dress_code':
+      return <DressCodeWidget config={event.dress_code_config ?? null} />;
+
+    case 'photo_moments':
+      return <PhotoMomentsWidget config={event.photo_moments_config} />;
+
+    case 'tier_comparison':
+      // limited=false on the anonymous path — anonymous visitors are
+      // never a "limited +1" by definition.
+      return <TierComparisonWidget limited={false} />;
+
+    // Always-on + guest-personalized types are intentionally skipped
+    // on the anonymous path. event_details needs guest.role + side;
+    // your_photos needs the guest's tagged photos. Any future widget
+    // type added to the catalog needs an explicit case here OR a
+    // dedicated InvitationSite-only render.
+    case 'hero':
+    case 'greeting':
+    case 'qr_card':
+    case 'rsvp':
+    case 'event_details':
+    case 'your_photos':
+      return null;
+  }
 }
 
 /**

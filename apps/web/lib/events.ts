@@ -101,19 +101,33 @@ export const fetchUserEvents = cache(async (
       );
       return [];
     }
-    // Real bug (RLS denial, auth, network) — log structured context to
-    // Sentry first so the call_site survives, then throw to let the
-    // error boundary handle it. The first two hotfixes (#380 + #390)
-    // missed this throw entirely — fetchUserEvents was on the layout's
-    // Promise.all alongside the page's own queries, so a layout-level
-    // throw bubbled to the same error.tsx as a page-level throw.
+    // 6th-pass hotfix 2026-05-23 — collapse to graceful-degrade-always.
+    //
+    // PR #404 (3rd pass) had this branch RE-THROW for "real bugs" (RLS
+    // denial / auth expiry / network failure), with structured Sentry
+    // context preserved before the throw. Sweep #1 of the 5-way parallel
+    // investigation traced Sentry digest 3284377371 to THIS specific
+    // throw — the layout-level `fetchUserEvents` on a Promise.all that
+    // bubbles to the same error.tsx as any page-level throw, crashing
+    // EVERY /dashboard/[eventId]/* surface (guests page included).
+    //
+    // PR #416 (5th pass) collapsed `fetchGuestsByEvent` to graceful-
+    // degrade-always but left this layout-level throw intact — owner
+    // hit digest 3284377371 again as predicted.
+    //
+    // The pragmatic move after 5 passes: empty event switcher >
+    // crashed event-scoped tree. The layout's separate single-event
+    // SELECT still works to render the current event; only the switcher
+    // dropdown's "other events" list becomes empty when this fires.
+    // The structured Sentry breadcrumb still surfaces the root cause
+    // for follow-up triage.
     logQueryError(
       'fetchUserEvents',
       error,
       { user_id: userId, member_type: memberType ?? null },
-      'will_throw',
+      'graceful_degrade',
     );
-    throw new Error(`Failed to fetch events: ${error.message}`);
+    return [];
   }
 
   const rows = (data ?? []) as unknown as MembershipQueryRow[];

@@ -226,49 +226,47 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
   );
 }
 
+/**
+ * Plus-one toggle — owner directive 2026-05-23 PM:
+ * "adding a plus one is a toggle to approve or not. they need to say
+ * yes if they will bring on or before date."
+ *
+ * Was a `<details>` disclosure with first name / last name / access
+ * mode fields the host filled in upfront. New shape: a single labeled
+ * checkbox the host ticks to PERMIT this guest to bring a +1. The
+ * guest's actual +1 name + confirmation lands on the public RSVP
+ * widget (PR B follow-up) — the host doesn't pre-fill +1 names anymore
+ * because they typically don't know them at create time.
+ *
+ * The auto-create-TBA-row behavior on the server action stays — when
+ * `plus_one_allowed=on` is submitted, a second guests row gets created
+ * with first_name='TBA' so it shows up in the host's list immediately
+ * AND the guest can fill in the real name later via the unconfirmed-TBA
+ * flow that's already wired on `[slug]/page.tsx` (redirects unconfirmed
+ * TBA +1s to /[slug]/welcome to set their name). Access mode defaults
+ * to 'limited' (safer — +1s are typically less-known to the couple, so
+ * gating account creation behind explicit upgrade prevents accidental
+ * accounts). Host can change the mode by editing the +1 guest row
+ * directly from the guest list.
+ */
 function PlusOneToggle() {
   return (
-    <details className="rounded-lg border border-ink/15 bg-cream open:border-terracotta/40">
-      <summary className="cursor-pointer list-none p-4 text-sm font-medium text-ink">
-        <span className="select-none">+ Add a plus-one for this guest</span>
-        <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
-          optional
+    <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-ink/15 bg-cream p-4 transition-colors has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/5 hover:border-ink/30">
+      <input
+        type="checkbox"
+        name="plus_one_allowed"
+        className="mt-0.5 h-5 w-5 flex-shrink-0 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+      />
+      <span className="space-y-1">
+        <span className="block text-sm font-medium text-ink">
+          Allow plus-one
         </span>
-      </summary>
-      <div className="space-y-4 border-t border-ink/10 p-4">
-        <input type="hidden" name="plus_one_allowed" value="on" />
-        <p className="text-xs text-ink/60">
-          A second guest row will be created for the +1, with its own QR. Leave names blank for TBA.
-        </p>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field id="plus_one_first_name" label="Plus-one first name" placeholder="(or leave blank for TBA)" />
-          <Field id="plus_one_last_name" label="Plus-one last name" />
-        </div>
-        <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-ink">Plus-one access mode</label>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <label className="flex flex-1 cursor-pointer items-start gap-3 rounded-lg border border-ink/15 bg-cream p-3 has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/5">
-              <input type="radio" name="plus_one_mode" value="full" defaultChecked className="mt-0.5" />
-              <span>
-                <span className="block text-sm font-medium text-ink">Full</span>
-                <span className="block text-xs text-ink/60">
-                  Full guest experience — own invitation site, can join Setnayan account, can use Papic / Patiktok / reels.
-                </span>
-              </span>
-            </label>
-            <label className="flex flex-1 cursor-pointer items-start gap-3 rounded-lg border border-ink/15 bg-cream p-3 has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/5">
-              <input type="radio" name="plus_one_mode" value="limited" className="mt-0.5" />
-              <span>
-                <span className="block text-sm font-medium text-ink">Limited</span>
-                <span className="block text-xs text-ink/60">
-                  Tagging + RSVP only. No Shutter / Selfie Camera / Challenges. Their tagged photos route to the inviter&rsquo;s gallery.
-                </span>
-              </span>
-            </label>
-          </div>
-        </div>
-      </div>
-    </details>
+        <span className="block text-xs text-ink/60">
+          Your guest confirms yes or no on their invitation, and fills in their
+          +1&rsquo;s name when they RSVP.
+        </span>
+      </span>
+    </label>
   );
 }
 

@@ -9,7 +9,6 @@ import {
   updateGuestGroup,
 } from '../groups-actions';
 import {
-  TEAM_SIDE_CHIP,
   TEAM_SIDE_LABELS,
   type GuestGroupTeamSide,
   type GuestGroupWithCount,
@@ -146,17 +145,23 @@ export function GroupsSidebar({ eventId, groups, currentGroupId, hrefByGroupId }
                       />
                       <span className="truncate">{g.label}</span>
                     </span>
-                    <span className="flex shrink-0 items-center gap-1">
+                    {/* Side cue is now carried by the row tint itself
+                     *  (pink/blue/purple per ROW_TINT_BY_SIDE) — owner
+                     *  directive 2026-05-23 dropped the redundant "B" /
+                     *  "G" / "B+G" letter chip. Member count stays on
+                     *  the right when non-zero, tinted to match the
+                     *  row. The TEAM_SIDE_LABELS title attribute is
+                     *  preserved on the parent Link for accessibility
+                     *  (screen-reader users still get the full side
+                     *  label on hover/focus). */}
+                    {g.member_count > 0 ? (
                       <span
-                        className={`inline-flex rounded-full px-1.5 py-0.5 text-[9px] font-medium ${TEAM_SIDE_CHIP[g.team_side]}`}
+                        className={`shrink-0 text-[10px] ${rowTint.count}`}
                         title={TEAM_SIDE_LABELS[g.team_side]}
                       >
-                        {teamSideShort(g.team_side)}
+                        {g.member_count}
                       </span>
-                      {g.member_count > 0 ? (
-                        <span className={`text-[10px] ${rowTint.count}`}>{g.member_count}</span>
-                      ) : null}
-                    </span>
+                    ) : null}
                   </Link>
                   <KebabMenu
                     groupId={g.group_id}
@@ -176,12 +181,6 @@ export function GroupsSidebar({ eventId, groups, currentGroupId, hrefByGroupId }
       </ul>
     </section>
   );
-}
-
-function teamSideShort(side: GuestGroupTeamSide): string {
-  if (side === 'bride') return 'B';
-  if (side === 'groom') return 'G';
-  return 'B+G';
 }
 
 function KebabMenu({

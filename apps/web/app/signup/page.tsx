@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { Logo } from '@/app/_components/logo';
-import { OAuthButtonRow } from '@/app/_components/oauth-button-row';
+import { ANY_OAUTH_ENABLED, OAuthButtonRow } from '@/app/_components/oauth-button-row';
 import { safeNext } from '@/lib/auth';
 import { signUp } from './actions';
 
@@ -80,16 +80,20 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
           since vendor signups overwhelmingly use email anyway. */}
       <OAuthButtonRow next={next} />
 
-      <div className="relative">
-        <div aria-hidden className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-ink/10" />
+      {/* Divider only renders when the OAuth row above has content — see
+       *  the matching block on /login/page.tsx. */}
+      {ANY_OAUTH_ENABLED ? (
+        <div className="relative">
+          <div aria-hidden className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-ink/10" />
+          </div>
+          <div className="relative flex justify-center">
+            <span className="bg-cream px-3 font-mono text-xs uppercase tracking-[0.2em] text-ink/40">
+              or sign up with email
+            </span>
+          </div>
         </div>
-        <div className="relative flex justify-center">
-          <span className="bg-cream px-3 font-mono text-xs uppercase tracking-[0.2em] text-ink/40">
-            or sign up with email
-          </span>
-        </div>
-      </div>
+      ) : null}
 
       <form
         action={signUp}

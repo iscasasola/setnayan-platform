@@ -512,7 +512,18 @@ Reuse the existing Google Cloud project from your YouTube OAuth setup (CLAUDE.md
 8. Click **Save**
 9. **Copy the Callback URL** Supabase shows in the same panel (looks like `https://njrupjnvkjkitfctetvi.supabase.co/auth/v1/callback`) — if you didn't paste this exact URL in step 2D.1 step 5, go back and paste it now
 
-### Step 2D.3 — Verify Google works
+### Step 2D.3 — Flip the Vercel env flag for Google
+
+Without this step, the Continue with Google button stays hidden — owner directive 2026-05-23 added env-flag gates so unconfigured providers don't 404 on click.
+
+1. Open https://vercel.com/icasa-offroad/setnayan-platform-web → **Settings** → **Environment Variables**
+2. Add a new variable:
+   - **Key**: `NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED`
+   - **Value**: `true`
+   - **Environments**: Production + Preview + Development (all three)
+3. **Save** → trigger a redeploy (Deployments tab → ... menu on the latest → **Redeploy** with "Use existing build cache" UNCHECKED so the new env value is picked up)
+
+### Step 2D.3b — Verify Google works
 
 1. Open https://www.setnayan.com/login in an incognito window
 2. You should see a **Continue with Google** button at the top
@@ -564,6 +575,17 @@ By default a new Facebook App is in **Development mode** which means only people
 5. Confirm the switch to Live
 
 > **Note:** The Basic `email + public_profile` scopes Supabase uses do NOT require Meta App Review. You can go Live immediately. Any additional scope (friends list, posts, etc. — which Setnayan does NOT need) WOULD require review.
+
+### Step 2D.7b — Flip the Vercel env flag for Facebook
+
+Mirror of step 2D.3 for Google. Without this, the Continue with Facebook button stays hidden.
+
+1. https://vercel.com/icasa-offroad/setnayan-platform-web → **Settings** → **Environment Variables**
+2. Add a new variable:
+   - **Key**: `NEXT_PUBLIC_OAUTH_FACEBOOK_ENABLED`
+   - **Value**: `true`
+   - **Environments**: Production + Preview + Development
+3. **Save** → trigger a redeploy with the build cache disabled
 
 ### Step 2D.8 — Verify Facebook works
 

@@ -63,7 +63,17 @@ type RoleKey =
   | 'mothers'
   | 'fathers'
   | 'guests'
-  | 'men_guests';
+  | 'men_guests'
+  // Variants added 2026-05-23 PM per owner directive — additional
+  // outfit options the host can pick instead of the default per
+  // role. Each variant has its own RoleParams entry below and
+  // generates one figure per style. WAG variant-picker UI lands V1.x;
+  // until then variants sit in the library available to admin.
+  | 'groom_tux'
+  | 'groom_3piece'
+  | 'bride_royal'
+  | 'guests_fashionista'
+  | 'guests_suittie';
 
 type StyleKey =
   | 'elegant · simple · classic'
@@ -233,6 +243,79 @@ const ROLES: Record<RoleKey, RoleParams> = {
       'young Filipino man, fair-complexion light tan skin, short black hair, clean shaven, friendly relaxed face',
     attireDetail: 'tucked-in shirt, formal leather shoes, smart casual register',
   },
+  // ----------------------------------------------------------------------
+  // Variants added 2026-05-23 PM per owner directive
+  // ----------------------------------------------------------------------
+  groom_tux: {
+    label: 'Groom · Tuxedo',
+    pose: 'standing front-facing, hands at sides, formal regal posture',
+    attireBase:
+      'classic black-tie tuxedo with satin lapels, crisp white pleated dress shirt, black bow tie, black cummerbund',
+    defaultTint: '#1A1A1A',
+    accentTint: '#FAFAFA',
+    accentLocation:
+      'white pleated dress shirt panel + crisp white pocket square at chest + white bow tie collar accent',
+    ethnicityPrecision:
+      'Filipino man, fair-complexion light tan skin, short black hair, clean shaven, formal dignified face',
+    attireDetail:
+      'formal black patent leather shoes, polished black bow tie, refined formal posture',
+  },
+  groom_3piece: {
+    label: 'Groom · 3-Piece Suit (American)',
+    pose: 'standing front-facing, hands at sides, slight confident stance',
+    attireBase:
+      'American-style three-piece suit · matching jacket plus vest plus trousers, crisp white dress shirt, long necktie',
+    defaultTint: '#4A4A4A',
+    accentTint: '#7E1F32',
+    accentLocation:
+      'burgundy long necktie + burgundy pocket square + matching boutonniere at lapel',
+    ethnicityPrecision:
+      'Filipino man, fair-complexion light tan skin, short black hair, clean shaven, polished professional face',
+    attireDetail:
+      'polished oxford dress shoes, vest visible under open jacket, long necktie not bow tie',
+  },
+  bride_royal: {
+    label: 'Bride · Royal full ball gown',
+    pose: 'standing front-facing, hands holding bouquet at waist, regal queen-like posture',
+    attireBase:
+      'full-length royal ball gown · classic princess ballgown silhouette with full skirt · long flowing cathedral train · NO cut at the waist · long-sleeved with embroidered bodice · cathedral-length veil flowing behind',
+    defaultTint: '#FAFAFA',
+    accentTint: '#C9A66B',
+    accentLocation:
+      'gold-trimmed embroidery on bodice + champagne sash at waist + matching champagne bouquet ribbon',
+    ethnicityPrecision:
+      'Filipina woman, fair-complexion light tan skin, dark brown long hair styled regal, soft feminine queenly face',
+    attireDetail:
+      'large lush bouquet of white-and-blush roses at waist, modest bateau or high neckline, full skirt with multiple layers, gold-trimmed long train flowing behind',
+  },
+  guests_fashionista: {
+    label: 'Guest woman · Fashionista',
+    pose: 'standing front-facing with confident editorial fashion pose, one hand on hip, slight elegant lean',
+    attireBase:
+      'high-fashion midi cocktail dress with editorial styling · trendy modern asymmetric cut · contemporary fashion-week silhouette',
+    defaultTint: '#7E1F32',
+    accentTint: '#C9A66B',
+    accentLocation:
+      'designer gold statement clutch + gold statement belt at waist + gold strappy heels',
+    ethnicityPrecision:
+      'young Filipina fashionista, fair-complexion light tan skin, sleek straight long dark hair, confident editorial face',
+    attireDetail:
+      'gold strappy heels, designer accessories, high-fashion editorial pose, contemporary trendy aesthetic',
+  },
+  guests_suittie: {
+    label: 'Guest · Suit and tie (formal)',
+    pose: 'standing front-facing, hands at sides, professional confident posture',
+    attireBase:
+      'tailored women\'s pant suit with formal blazer, crisp white dress shirt underneath, neat long necktie',
+    defaultTint: '#2E3F5C',
+    accentTint: '#7E1F32',
+    accentLocation:
+      'burgundy long necktie + matching burgundy pocket square + burgundy belt',
+    ethnicityPrecision:
+      'young Filipina woman, fair-complexion light tan skin, short stylish bob hair, sharp confident face',
+    attireDetail:
+      'polished oxford or low-heel dress shoes, tucked dress shirt under blazer, formal professional register',
+  },
 };
 
 const STYLES: Record<StyleKey, StyleParams> = {
@@ -291,7 +374,11 @@ function buildPrompt(role: RoleParams, style: StyleParams): string {
     role.label.toLowerCase().includes('mother') ||
     role.label.toLowerCase().includes('female') ||
     role.label.toLowerCase().includes('guest woman') ||
-    role.label.toLowerCase().includes('bridesmaid');
+    role.label.toLowerCase().includes('bridesmaid') ||
+    role.label.toLowerCase().includes('fashionista') ||
+    // guests_suittie variant is also explicitly a woman in pant suit
+    // per the RoleParams.ethnicityPrecision wording.
+    role.label.toLowerCase().includes('suit and tie');
   const hairDesc = isFemale
     ? 'sleek long dark hair flowing past shoulders'
     : 'short dark hair, clean groomed';

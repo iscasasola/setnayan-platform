@@ -31,17 +31,26 @@ const SORT_OPTIONS = [
 
 type SortKey = (typeof SORT_OPTIONS)[number]['value'];
 
+// Owner directive 2026-05-23 PM:
+//   "remove family, friends, work, and school, and wedding party? these
+//   are all groups and needs to be identified as Guests with group."
+//   "add Role: Bride's Parents, Groom's Parents, Bride's Immediate
+//   Family and Groom's Immediate Family these are VIP seating."
+//
+// VIEW is now strictly role-based. Social categories (family / friends
+// / work / school) belong in the GROUPS section below (custom
+// `guest_groups` rows). Wedding Party stays as a role-based group
+// internally — the four wedding-party roles (MoH / matron / best man /
+// bridesmaid / groomsman) still map there — but is hidden from the
+// View sidebar because owner wants those guests categorized through
+// custom groups instead.
 const VIEW_FILTERS: { key: string; label: string }[] = [
   { key: 'all', label: 'All guests' },
-  { key: 'wedding_party', label: ROLE_GROUP_LABELS.wedding_party },
+  { key: 'vip_family', label: ROLE_GROUP_LABELS.vip_family },
   { key: 'principal_sponsors', label: ROLE_GROUP_LABELS.principal_sponsors },
   { key: 'secondary_sponsors', label: ROLE_GROUP_LABELS.secondary_sponsors },
   { key: 'bearers_flower_girl', label: ROLE_GROUP_LABELS.bearers_flower_girl },
   { key: 'officiants', label: ROLE_GROUP_LABELS.officiants },
-  { key: 'family', label: 'Family' },
-  { key: 'friends', label: 'Friends' },
-  { key: 'work', label: 'Work' },
-  { key: 'school', label: 'School' },
 ];
 
 type Props = {

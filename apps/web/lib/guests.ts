@@ -8,6 +8,16 @@ export type GuestRole =
   | 'guest'
   | 'bride'
   | 'groom'
+  // VIP family — owner directive 2026-05-23 PM. The four new immediate-
+  // family roles drive iteration 0008 seating-chart auto-fill (Tier 1 =
+  // closest to stage). Not single-instance — a wedding has multiple
+  // parents (mother/father, step-parents) and any number of immediate
+  // family (siblings/grandparents) per side. Enum values added via
+  // migration 20260607040000_guest_role_add_vip_family.sql.
+  | 'bride_parents'
+  | 'groom_parents'
+  | 'bride_immediate_family'
+  | 'groom_immediate_family'
   | 'maid_of_honor'
   | 'matron_of_honor'
   | 'best_man'
@@ -110,6 +120,10 @@ export const ROLE_LABELS: Record<GuestRole, string> = {
   guest: 'Guest',
   bride: 'Bride',
   groom: 'Groom',
+  bride_parents: "Bride's Parents",
+  groom_parents: "Groom's Parents",
+  bride_immediate_family: "Bride's Immediate Family",
+  groom_immediate_family: "Groom's Immediate Family",
   maid_of_honor: 'Maid of Honor',
   matron_of_honor: 'Matron of Honor',
   best_man: 'Best Man',

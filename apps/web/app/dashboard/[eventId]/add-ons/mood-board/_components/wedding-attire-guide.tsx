@@ -237,6 +237,107 @@ const STYLE_OPTIONS = [
   'modern minimalist',
 ] as const;
 
+/**
+ * Per-style aesthetic theme. Owner feedback 2026-05-23 PM: "also the
+ * styles are not changing." The picker previously just toggled local
+ * state without changing the visual — UX failure for an interactive
+ * chip. This map binds each style to a concrete visual override set:
+ * hair color, shoe color, canvas backdrop, decorative arch style.
+ *
+ * V1.x AI engine will use the active style as part of the Higgsfield
+ * prompt (e.g., "bridgerton-regal romantic period setting with rich
+ * jewel tones"). Today this map gives couples visible feedback that
+ * the picker is real + lets them feel the aesthetic shift the AI
+ * engine will eventually render fully.
+ */
+type StyleTheme = {
+  /** Hair tint for ALL figures (single tint across the wedding party). */
+  hairTint: string;
+  /** Shoe oval tint. */
+  shoeTint: string;
+  /** CSS background string applied to the canvas. */
+  background: string;
+  /** CSS box-shadow inset string layered over the background. */
+  innerShadow: string;
+  /** Arch decoration stroke color (rgba). */
+  archStroke: string;
+  /** Arch stroke width in SVG units. */
+  archStrokeWidth: number;
+  /** Which decorative SVG pattern to render at the canvas bottom.
+   *  - 'pointed' = gothic chapel arches (default · classic)
+   *  - 'romanesque' = rounded full arches (regal)
+   *  - 'minimal' = thin horizontal ground line + tick marks (editorial)
+   *  - 'natural' = palm fronds + tropical silhouette (heritage)
+   *  - 'absent' = no decoration (minimalist)
+   */
+  archStyle: 'pointed' | 'romanesque' | 'minimal' | 'natural' | 'absent';
+  /** Body silhouette stroke opacity 0-1. Higher = more defined edges. */
+  bodyStrokeOpacity: number;
+};
+
+const STYLE_THEMES: Record<(typeof STYLE_OPTIONS)[number], StyleTheme> = {
+  'elegant · simple · classic': {
+    hairTint: '#3A2B20',
+    shoeTint: '#1F1410',
+    background:
+      'radial-gradient(ellipse at 50% 40%, #F7ECD4 0%, #EFDCB2 70%, #E5CFA0 100%)',
+    innerShadow:
+      'inset 0 1px 0 rgba(255,255,255,0.5), inset 0 0 80px rgba(120,80,30,0.08)',
+    archStroke: 'rgba(60,40,15,0.18)',
+    archStrokeWidth: 1.2,
+    archStyle: 'pointed',
+    bodyStrokeOpacity: 0.15,
+  },
+  'bridgerton · regal': {
+    hairTint: '#5C3A1C',
+    shoeTint: '#4A1A1A',
+    background:
+      'radial-gradient(ellipse at 50% 40%, #F8E5E5 0%, #ECC9C9 60%, #D4A5A5 100%)',
+    innerShadow:
+      'inset 0 1px 0 rgba(255,255,255,0.5), inset 0 0 100px rgba(120,40,40,0.12)',
+    archStroke: 'rgba(120,60,40,0.28)',
+    archStrokeWidth: 1.5,
+    archStyle: 'romanesque',
+    bodyStrokeOpacity: 0.25,
+  },
+  'editorial cream': {
+    hairTint: '#2A1E15',
+    shoeTint: '#C5B89E',
+    background:
+      'radial-gradient(ellipse at 50% 40%, #FFFBF2 0%, #F8F1E0 70%, #F0E6D0 100%)',
+    innerShadow:
+      'inset 0 1px 0 rgba(255,255,255,0.6), inset 0 0 60px rgba(200,180,140,0.06)',
+    archStroke: 'rgba(120,100,70,0.12)',
+    archStrokeWidth: 0.6,
+    archStyle: 'minimal',
+    bodyStrokeOpacity: 0.08,
+  },
+  'tropical heritage': {
+    hairTint: '#1A1A1A',
+    shoeTint: '#6B4A2A',
+    background:
+      'radial-gradient(ellipse at 50% 35%, #FDD9A8 0%, #F5B870 55%, #E89548 100%)',
+    innerShadow:
+      'inset 0 1px 0 rgba(255,255,255,0.4), inset 0 0 100px rgba(180,90,30,0.15)',
+    archStroke: 'rgba(80,40,15,0.32)',
+    archStrokeWidth: 1.4,
+    archStyle: 'natural',
+    bodyStrokeOpacity: 0.2,
+  },
+  'modern minimalist': {
+    hairTint: '#5C5C5C',
+    shoeTint: '#9A9A9A',
+    background:
+      'radial-gradient(ellipse at 50% 50%, #FAFAFA 0%, #EDEDED 70%, #DCDCDC 100%)',
+    innerShadow:
+      'inset 0 1px 0 rgba(255,255,255,0.6), inset 0 0 40px rgba(100,100,100,0.05)',
+    archStroke: 'rgba(60,60,60,0.15)',
+    archStrokeWidth: 0.4,
+    archStyle: 'absent',
+    bodyStrokeOpacity: 0.1,
+  },
+};
+
 export function WeddingAttireGuide({
   eventId,
   rolePalette,
@@ -257,6 +358,11 @@ export function WeddingAttireGuide({
 
   const back = ROLES.filter((r) => r.row === 'back');
   const front = ROLES.filter((r) => r.row === 'front');
+  // Resolve the active style theme — drives canvas backdrop, arch
+  // decoration, hair/shoe tints across all figures. Default to the
+  // first STYLE_OPTIONS entry's theme if for any reason `style` is
+  // out of sync (safety net for the union narrowing).
+  const theme = STYLE_THEMES[style];
 
   /**
    * Handle a per-role color change from a native <input type="color">.
@@ -368,12 +474,10 @@ export function WeddingAttireGuide({
           tucked behind. Click a figure cluster to highlight + reveal the
           descriptor pill below. */}
       <div
-        className="relative overflow-hidden rounded-2xl border border-ink/10 p-8 pb-16 sm:p-10 sm:pb-20"
+        className="relative overflow-hidden rounded-2xl border border-ink/10 p-8 pb-16 sm:p-10 sm:pb-20 transition-all duration-500"
         style={{
-          background:
-            'radial-gradient(ellipse at 50% 40%, #F7ECD4 0%, #EFDCB2 70%, #E5CFA0 100%)',
-          boxShadow:
-            'inset 0 1px 0 rgba(255,255,255,0.5), inset 0 0 80px rgba(120,80,30,0.08)',
+          background: theme.background,
+          boxShadow: theme.innerShadow,
         }}
       >
         {/* Inline marker that this is a preview — small, polite, doesn't
@@ -383,42 +487,15 @@ export function WeddingAttireGuide({
           Stylized preview
         </p>
 
-        {/* Decorative venue arches — line-art silhouette at the bottom of
-            the canvas suggesting a wedding venue (chapel arches, gazebo
-            colonnade). Pure SVG · subtle ink-tinted strokes at low
-            opacity so the figures stay the visual focus. Sits behind
-            the figures via z-index ordering (figures come after in DOM
-            so they paint over). */}
-        <svg
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-16 w-full"
-          viewBox="0 0 1200 80"
-          preserveAspectRatio="none"
-          aria-hidden
-        >
-          {/* Ground line */}
-          <line x1="0" y1="75" x2="1200" y2="75" stroke="rgba(60,40,15,0.18)" strokeWidth="1" />
-          {/* Three elegant arches · gothic-leaning pointed-arch profile */}
-          <path
-            d="M 100 75 L 100 50 Q 100 20 150 20 Q 200 20 200 50 L 200 75"
-            stroke="rgba(60,40,15,0.18)"
-            strokeWidth="1.2"
-            fill="none"
-          />
-          <path
-            d="M 550 75 L 550 35 Q 550 5 600 5 Q 650 5 650 35 L 650 75"
-            stroke="rgba(60,40,15,0.18)"
-            strokeWidth="1.2"
-            fill="none"
-          />
-          <path
-            d="M 1000 75 L 1000 50 Q 1000 20 1050 20 Q 1100 20 1100 50 L 1100 75"
-            stroke="rgba(60,40,15,0.18)"
-            strokeWidth="1.2"
-            fill="none"
-          />
-          {/* Center aisle line down the middle from the central arch */}
-          <line x1="600" y1="75" x2="600" y2="78" stroke="rgba(60,40,15,0.15)" strokeWidth="0.8" />
-        </svg>
+        {/* Decorative bottom-of-canvas — varies by style theme to feel
+            like the right venue archetype. Pointed arches = gothic
+            chapel (classic); romanesque = round arches (regal);
+            minimal = thin ground tick line (editorial); natural =
+            palm fronds + tropical silhouette (heritage); absent =
+            empty (minimalist). All pure SVG, low-opacity strokes per
+            the theme. Re-rendered on theme change so each style picker
+            click swaps the venue feel. */}
+        <CanvasArches theme={theme} />
 
         {/* Back row · Principal Sponsors */}
         <div className="flex flex-wrap items-end justify-center gap-1 sm:gap-2">
@@ -432,6 +509,7 @@ export function WeddingAttireGuide({
                 setActiveRole(activeRole === role.key ? null : role.key)
               }
               scale={0.75}
+              theme={theme}
             />
           ))}
         </div>
@@ -448,6 +526,7 @@ export function WeddingAttireGuide({
                 setActiveRole(activeRole === role.key ? null : role.key)
               }
               scale={1}
+              theme={theme}
             />
           ))}
         </div>
@@ -551,12 +630,16 @@ function RoleCluster({
   isActive,
   onSelect,
   scale,
+  theme,
 }: {
   role: RoleConfig;
   tint: string;
   isActive: boolean;
   onSelect: () => void;
   scale: number;
+  /** Style theme drives hair tint + shoe tint + body stroke opacity on
+   *  each Silhouette rendered inside this cluster. */
+  theme: StyleTheme;
 }) {
   // Bride figure gets a slight emphasis (taller dress, more bouquet detail
   // hinted) — matches the reference where the bride is the visual anchor.
@@ -580,6 +663,7 @@ function RoleCluster({
             tint={tint}
             scale={isBride ? scale * 1.05 : scale}
             highlighted={isActive}
+            theme={theme}
           />
         ))}
       </div>
@@ -632,19 +716,28 @@ function Silhouette({
   tint,
   scale,
   highlighted,
+  theme,
 }: {
   shape: 'dress' | 'suit' | 'barong';
   tint: string;
   scale: number;
   highlighted: boolean;
+  /** Active style theme — drives hair tint + shoe tint + body stroke
+   *  opacity. Owner directive 2026-05-23 PM: style picker must change
+   *  the visual. Each STYLE_THEMES entry binds these three properties
+   *  so each style picker click visibly shifts every figure. */
+  theme: StyleTheme;
 }) {
   // Base dimensions — viewBox 0 0 28 92 for elegant tall proportions.
   // Back row uses scale=0.75 to appear tucked behind the front.
   const width = 28 * scale;
   const height = 92 * scale;
   const skinTint = '#E8C9A8';
-  const hairTint = '#3A2B20';
-  const shoeTint = '#1F1410';
+  // Hair + shoe tints come from the active style theme, not hardcoded.
+  // Lets the bridgerton-regal style ship auburn hair + oxblood shoes;
+  // tropical heritage ship rich black hair + tan shoes; etc.
+  const hairTint = theme.hairTint;
+  const shoeTint = theme.shoeTint;
 
   // Hair shape: long flowing behind head for dress (women's roles);
   // short cropped on top for suit / barong (men's roles).
@@ -700,7 +793,7 @@ function Silhouette({
       <path
         d={bodyPath[shape]}
         fill={tint}
-        stroke="rgba(0,0,0,0.15)"
+        stroke={`rgba(0,0,0,${theme.bodyStrokeOpacity})`}
         strokeWidth="0.35"
       />
 
@@ -750,6 +843,142 @@ function Silhouette({
       {/* Shoes — small dark ovals at the figure base */}
       <ellipse cx="10" cy="86" rx="3" ry="1.5" fill={shoeTint} />
       <ellipse cx="18" cy="86" rx="3" ry="1.5" fill={shoeTint} />
+    </svg>
+  );
+}
+
+/**
+ * Decorative venue silhouette at the bottom of the canvas. Owner
+ * directive 2026-05-23 PM: style picker must visibly change the
+ * aesthetic. The CanvasArches component reads `theme.archStyle` and
+ * renders the matching venue-archetype SVG:
+ *
+ *   - 'pointed'    = gothic chapel arches (classic style · 3 pointed)
+ *   - 'romanesque' = rounded full arches (regal style · 3 rounded)
+ *   - 'minimal'    = thin ground tick line + tiny seams (editorial)
+ *   - 'natural'    = palm fronds + tropical canopy (heritage)
+ *   - 'absent'     = empty (modern minimalist · no decoration)
+ *
+ * All variants use the theme's archStroke + archStrokeWidth for the
+ * line color/thickness. The figure rows render OVER this SVG (DOM
+ * order = paint order) so the venue silhouette sits behind the
+ * wedding party.
+ */
+function CanvasArches({ theme }: { theme: StyleTheme }) {
+  if (theme.archStyle === 'absent') return null;
+
+  const stroke = theme.archStroke;
+  const sw = theme.archStrokeWidth;
+
+  return (
+    <svg
+      className="pointer-events-none absolute inset-x-0 bottom-0 h-16 w-full transition-opacity duration-500"
+      viewBox="0 0 1200 80"
+      preserveAspectRatio="none"
+      aria-hidden
+    >
+      {/* Ground line — always present except for 'absent' */}
+      <line
+        x1="0"
+        y1="75"
+        x2="1200"
+        y2="75"
+        stroke={stroke}
+        strokeWidth={Math.max(0.6, sw * 0.75)}
+      />
+
+      {theme.archStyle === 'pointed' ? (
+        // Classic gothic chapel — pointed arch profile
+        <>
+          <path
+            d="M 100 75 L 100 50 Q 100 20 150 20 Q 200 20 200 50 L 200 75"
+            stroke={stroke}
+            strokeWidth={sw}
+            fill="none"
+          />
+          <path
+            d="M 550 75 L 550 35 Q 550 5 600 5 Q 650 5 650 35 L 650 75"
+            stroke={stroke}
+            strokeWidth={sw}
+            fill="none"
+          />
+          <path
+            d="M 1000 75 L 1000 50 Q 1000 20 1050 20 Q 1100 20 1100 50 L 1100 75"
+            stroke={stroke}
+            strokeWidth={sw}
+            fill="none"
+          />
+        </>
+      ) : null}
+
+      {theme.archStyle === 'romanesque' ? (
+        // Bridgerton regal — rounded full-arch profile
+        <>
+          <path
+            d="M 100 75 L 100 45 A 50 25 0 0 1 200 45 L 200 75"
+            stroke={stroke}
+            strokeWidth={sw}
+            fill="none"
+          />
+          <path
+            d="M 525 75 L 525 30 A 75 30 0 0 1 675 30 L 675 75"
+            stroke={stroke}
+            strokeWidth={sw}
+            fill="none"
+          />
+          <path
+            d="M 1000 75 L 1000 45 A 50 25 0 0 1 1100 45 L 1100 75"
+            stroke={stroke}
+            strokeWidth={sw}
+            fill="none"
+          />
+        </>
+      ) : null}
+
+      {theme.archStyle === 'minimal' ? (
+        // Editorial cream — just a few thin tick marks on the ground line
+        <>
+          {[100, 300, 500, 700, 900, 1100].map((x) => (
+            <line
+              key={x}
+              x1={x}
+              y1="70"
+              x2={x}
+              y2="75"
+              stroke={stroke}
+              strokeWidth={sw}
+            />
+          ))}
+        </>
+      ) : null}
+
+      {theme.archStyle === 'natural' ? (
+        // Tropical heritage — palm-frond silhouettes + sun arc
+        <>
+          {/* Sun arc on the right */}
+          <path
+            d="M 950 75 A 80 80 0 0 1 1110 75"
+            stroke={stroke}
+            strokeWidth={sw * 0.7}
+            fill="none"
+          />
+          {/* Palm fronds left + center */}
+          <g stroke={stroke} strokeWidth={sw} fill="none">
+            {/* Left palm */}
+            <path d="M 140 75 L 140 35" />
+            <path d="M 140 50 Q 110 40 80 50" />
+            <path d="M 140 45 Q 170 30 200 40" />
+            <path d="M 140 38 Q 115 25 90 28" />
+            <path d="M 140 38 Q 165 22 195 26" />
+            {/* Center palm */}
+            <path d="M 600 75 L 600 30" />
+            <path d="M 600 45 Q 560 32 520 42" />
+            <path d="M 600 40 Q 640 28 685 38" />
+            <path d="M 600 33 Q 570 18 540 22" />
+            <path d="M 600 33 Q 635 18 665 22" />
+          </g>
+        </>
+      ) : null}
     </svg>
   );
 }

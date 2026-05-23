@@ -25,6 +25,7 @@ import { countUnread } from '@/lib/notifications';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
 import { computeGuestStats, fetchGuestsByEvent } from '@/lib/guests';
 import { fetchEventActivity } from '@/lib/activity';
@@ -440,10 +441,55 @@ export default async function EventHomePage({
         }
         return fullRes;
       })(),
-      fetchGuestsByEvent(supabase, eventId),
-      fetchManualStepCompletions(supabase, eventId),
-      countUnread(supabase, user.id),
-      getLocale(),
+      // 6th hotfix pass · Path B 2026-05-23 — every remaining query on
+      // this Promise.all wrapped in .catch() / IIFE try/catch with a
+      // safe default that matches the destination variable's expected
+      // shape. Mirrors the defensive pattern already shipped at
+      // /dashboard/layout.tsx (PR #452) + /dashboard/[eventId]/layout.tsx
+      // (PR #454). Owner reported a brief flash of the global-error
+      // boundary BEFORE the event-home content streams in — root cause
+      // is migration drift between local + prod (engineering is ahead
+      // of prod schema). Path A (owner runs `supabase db push --linked`
+      // from setnayan-db-push/) fixes the underlying drift; Path B
+      // (this) makes the page never crash even when drift exists, so
+      // the boundary flash disappears regardless of when the migration
+      // applies. Every catch logs via logQueryError so the next missed
+      // schema gap surfaces with the exact call site in Sentry instead
+      // of forcing another speculative hotfix pass.
+      fetchGuestsByEvent(supabase, eventId).catch((err: unknown) => {
+        logQueryError(
+          'EventHome (fetchGuestsByEvent threw)',
+          err instanceof Error ? err : new Error(String(err)),
+          { event_id: eventId, user_id: user.id },
+          'graceful_degrade',
+        );
+        return [] as Awaited<ReturnType<typeof fetchGuestsByEvent>>;
+      }),
+      // fetchManualStepCompletions returns Set<StepKey> — empty Set is
+      // the safe default. resolveStepStatuses iterates set.has() so an
+      // empty set means "no manual steps marked complete" which is the
+      // correct degraded state.
+      fetchManualStepCompletions(supabase, eventId).catch((err: unknown) => {
+        logQueryError(
+          'EventHome (fetchManualStepCompletions threw)',
+          err instanceof Error ? err : new Error(String(err)),
+          { event_id: eventId, user_id: user.id },
+          'graceful_degrade',
+        );
+        return new Set() as Awaited<
+          ReturnType<typeof fetchManualStepCompletions>
+        >;
+      }),
+      countUnread(supabase, user.id).catch((err: unknown) => {
+        logQueryError(
+          'EventHome (countUnread threw)',
+          err instanceof Error ? err : new Error(String(err)),
+          { event_id: eventId, user_id: user.id },
+          'graceful_degrade',
+        );
+        return 0;
+      }),
+      Promise.resolve(getLocale()).catch(() => 'en' as const),
       // 12-group planner needs every saved vendor for this event, bucketed
       // by category. RLS already restricts to couples on this event.
       //
@@ -464,49 +510,132 @@ export default async function EventHomePage({
       // <package>" badge on the LockedCard variant. Defensive fetch via
       // fetchEventVendorsRobust falls back to the legacy select when
       // the column is missing on a stale deploy environment.
-      fetchEventVendorsRobust(supabase, eventId),
+      // PostgrestSingleResponse-shaped safe default — downstream reads
+      // `.data ?? []` so the missing `count / status / statusText`
+      // fields are never observed at runtime. Cast through `unknown`
+      // because the strict response type carries metadata we don't need
+      // for the degraded path.
+      fetchEventVendorsRobust(supabase, eventId).catch((err: unknown) => {
+        logQueryError(
+          'EventHome (fetchEventVendorsRobust threw)',
+          err instanceof Error ? err : new Error(String(err)),
+          { event_id: eventId, user_id: user.id },
+          'graceful_degrade',
+        );
+        return { data: [], error: null } as unknown as Awaited<
+          ReturnType<typeof fetchEventVendorsRobust>
+        >;
+      }),
       // Task #37 — confirmed-vendor count drives the date-edit + ceremony-
       // type-edit lock state on event home. Same RLS scope as the vendors
       // query above; getConfirmedVendorCount returns 0 on error so a
       // count failure never blocks the dashboard render.
-      getConfirmedVendorCount(supabase, eventId),
+      getConfirmedVendorCount(supabase, eventId).catch((err: unknown) => {
+        logQueryError(
+          'EventHome (getConfirmedVendorCount threw)',
+          err instanceof Error ? err : new Error(String(err)),
+          { event_id: eventId, user_id: user.id },
+          'graceful_degrade',
+        );
+        return 0;
+      }),
       // Mood Board save count — fuels the UsefulRightNow tile subtitle.
-      supabase
-        .from('event_moodboard_saves')
-        .select('save_id', { count: 'exact', head: true })
-        .eq('event_id', eventId),
+      (async () => {
+        try {
+          return await supabase
+            .from('event_moodboard_saves')
+            .select('save_id', { count: 'exact', head: true })
+            .eq('event_id', eventId);
+        } catch (caught) {
+          logQueryError(
+            'EventHome (event_moodboard_saves count threw)',
+            caught instanceof Error ? caught : new Error(String(caught)),
+            { event_id: eventId, user_id: user.id },
+            'graceful_degrade',
+          );
+          return { data: null, error: null, count: 0 } as never;
+        }
+      })(),
       // Seat assignments — fuels the UsefulRightNow Seat Plan subtitle.
-      supabase
-        .from('event_seat_assignments')
-        .select('assignment_id', { count: 'exact', head: true })
-        .eq('event_id', eventId),
+      (async () => {
+        try {
+          return await supabase
+            .from('event_seat_assignments')
+            .select('assignment_id', { count: 'exact', head: true })
+            .eq('event_id', eventId);
+        } catch (caught) {
+          logQueryError(
+            'EventHome (event_seat_assignments count threw)',
+            caught instanceof Error ? caught : new Error(String(caught)),
+            { event_id: eventId, user_id: user.id },
+            'graceful_degrade',
+          );
+          return { data: null, error: null, count: 0 } as never;
+        }
+      })(),
       // Vendor chat threads — Inbox tile proxy until read-receipt
       // tracking lands. Counts active threads on this event regardless
       // of read state; the polite-voice subtitle works either way.
-      supabase
-        .from('chat_threads')
-        .select('thread_id', { count: 'exact', head: true })
-        .eq('event_id', eventId),
+      (async () => {
+        try {
+          return await supabase
+            .from('chat_threads')
+            .select('thread_id', { count: 'exact', head: true })
+            .eq('event_id', eventId);
+        } catch (caught) {
+          logQueryError(
+            'EventHome (chat_threads count threw)',
+            caught instanceof Error ? caught : new Error(String(caught)),
+            { event_id: eventId, user_id: user.id },
+            'graceful_degrade',
+          );
+          return { data: null, error: null, count: 0 } as never;
+        }
+      })(),
       // Paid + fulfilled orders — fuels BudgetCountdownHeader's
       // "committed" number. Pulled separately from the cart UI flow
       // because home only needs the aggregate, not the line items.
-      supabase
-        .from('orders')
-        .select('order_id, requested_total_php, confirmed_total_php, status')
-        .eq('event_id', eventId)
-        .in('status', ['paid', 'fulfilled']),
+      (async () => {
+        try {
+          return await supabase
+            .from('orders')
+            .select('order_id, requested_total_php, confirmed_total_php, status')
+            .eq('event_id', eventId)
+            .in('status', ['paid', 'fulfilled']);
+        } catch (caught) {
+          logQueryError(
+            'EventHome (paid orders SELECT threw)',
+            caught instanceof Error ? caught : new Error(String(caught)),
+            { event_id: eventId, user_id: user.id },
+            'graceful_degrade',
+          );
+          return { data: [], error: null } as never;
+        }
+      })(),
       // Paperwork pipeline rows — fuels the small "📋 Paperwork — X of Y"
       // sub-link rendered on the Ceremony venue plan card. Per CLAUDE.md
       // 2026-05-22 owner directive: surgical sub-link on the existing
       // card, no other home surface impacted. RLS scoped to host via
       // event_moderators; returns [] before the migration lands without
       // crashing thanks to defensive Supabase column-missing semantics.
-      supabase
-        .from('event_paperwork')
-        .select(
-          'id, event_id, document_type, status, requested_at, received_at, expected_completion_date, expires_at, tracking_reference, document_r2_key, notes, created_at, updated_at',
-        )
-        .eq('event_id', eventId),
+      (async () => {
+        try {
+          return await supabase
+            .from('event_paperwork')
+            .select(
+              'id, event_id, document_type, status, requested_at, received_at, expected_completion_date, expires_at, tracking_reference, document_r2_key, notes, created_at, updated_at',
+            )
+            .eq('event_id', eventId);
+        } catch (caught) {
+          logQueryError(
+            'EventHome (event_paperwork SELECT threw)',
+            caught instanceof Error ? caught : new Error(String(caught)),
+            { event_id: eventId, user_id: user.id },
+            'graceful_degrade',
+          );
+          return { data: [], error: null } as never;
+        }
+      })(),
       // Sponsors — fuels the Next 15 Steps resolver. Picks each tier
       // whose `accepted` count falls short of the cultural minimum
       // (principal = 1+ accepted pair; secondaries = 2 accepted slots
@@ -514,33 +643,81 @@ export default async function EventHomePage({
       // the resolver needs. RLS scoped via event_moderators; returns
       // [] before the migration lands without crashing thanks to
       // defensive Supabase column-missing semantics.
-      supabase
-        .from('event_sponsors')
-        .select('sponsor_tier, invitation_status')
-        .eq('event_id', eventId),
+      (async () => {
+        try {
+          return await supabase
+            .from('event_sponsors')
+            .select('sponsor_tier, invitation_status')
+            .eq('event_id', eventId);
+        } catch (caught) {
+          logQueryError(
+            'EventHome (event_sponsors SELECT threw)',
+            caught instanceof Error ? caught : new Error(String(caught)),
+            { event_id: eventId, user_id: user.id },
+            'graceful_degrade',
+          );
+          return { data: [], error: null } as never;
+        }
+      })(),
       // YOUR PLAN section reads (owner directive 2026-05-22).
       // Schedule blocks count fuels the Schedule tool tile sub-line.
-      supabase
-        .from('event_schedule_blocks')
-        .select('block_id', { count: 'exact', head: true })
-        .eq('event_id', eventId),
+      (async () => {
+        try {
+          return await supabase
+            .from('event_schedule_blocks')
+            .select('block_id', { count: 'exact', head: true })
+            .eq('event_id', eventId);
+        } catch (caught) {
+          logQueryError(
+            'EventHome (event_schedule_blocks count threw)',
+            caught instanceof Error ? caught : new Error(String(caught)),
+            { event_id: eventId, user_id: user.id },
+            'graceful_degrade',
+          );
+          return { data: null, error: null, count: 0 } as never;
+        }
+      })(),
       // Vendor contracts count (non-draft, RLS already filters). Fuels
       // the Documents tool tile + the consolidated /documents route.
-      supabase
-        .from('vendor_contracts')
-        .select('contract_id', { count: 'exact', head: true })
-        .eq('event_id', eventId),
+      (async () => {
+        try {
+          return await supabase
+            .from('vendor_contracts')
+            .select('contract_id', { count: 'exact', head: true })
+            .eq('event_id', eventId);
+        } catch (caught) {
+          logQueryError(
+            'EventHome (vendor_contracts count threw)',
+            caught instanceof Error ? caught : new Error(String(caught)),
+            { event_id: eventId, user_id: user.id },
+            'graceful_degrade',
+          );
+          return { data: null, error: null, count: 0 } as never;
+        }
+      })(),
       // Setnayan creation orders — Save-the-Date Video + Monogram Hero
       // upgrade. Drives the "Saved to your event" sub-line on the
       // Save-the-Date + Monogram tool tiles. Filter to non-cancelled
       // statuses so a cancelled order doesn't lock the CTA to its
       // post-purchase state.
-      supabase
-        .from('orders')
-        .select('service_key, status')
-        .eq('event_id', eventId)
-        .in('service_key', ['save_the_date_video', 'monogram_hero_upgrade'])
-        .not('status', 'in', '("cancelled","refunded","lapsed")'),
+      (async () => {
+        try {
+          return await supabase
+            .from('orders')
+            .select('service_key, status')
+            .eq('event_id', eventId)
+            .in('service_key', ['save_the_date_video', 'monogram_hero_upgrade'])
+            .not('status', 'in', '("cancelled","refunded","lapsed")');
+        } catch (caught) {
+          logQueryError(
+            'EventHome (creation orders SELECT threw)',
+            caught instanceof Error ? caught : new Error(String(caught)),
+            { event_id: eventId, user_id: user.id },
+            'graceful_degrade',
+          );
+          return { data: [], error: null } as never;
+        }
+      })(),
       // Manual vendors — host-managed contacts with Photo + Name +
       // Contact Person + Phone, reusable across N planning categories
       // (2026-05-22 owner directive). Read all rows for this event so
@@ -548,13 +725,25 @@ export default async function EventHomePage({
       // contact, plus we map manual_vendor_id → contact metadata for
       // the existing event_vendors picks that link to manual rows. RLS
       // scoped via event_moderators per migration 20260604080000.
-      supabase
-        .from('event_manual_vendors')
-        .select(
-          'manual_vendor_id, business_name, contact_person, contact_number, photo_r2_key',
-        )
-        .eq('event_id', eventId)
-        .order('created_at', { ascending: true }),
+      (async () => {
+        try {
+          return await supabase
+            .from('event_manual_vendors')
+            .select(
+              'manual_vendor_id, business_name, contact_person, contact_number, photo_r2_key',
+            )
+            .eq('event_id', eventId)
+            .order('created_at', { ascending: true });
+        } catch (caught) {
+          logQueryError(
+            'EventHome (event_manual_vendors SELECT threw)',
+            caught instanceof Error ? caught : new Error(String(caught)),
+            { event_id: eventId, user_id: user.id },
+            'graceful_degrade',
+          );
+          return { data: [], error: null } as never;
+        }
+      })(),
       // Viewer's event_moderators row — drives the love-quote popup
       // visibility gate (owner directive 2026-05-22). Filters by
       // removed_at IS NULL to skip revoked-host rows. RLS scoped via
@@ -562,13 +751,25 @@ export default async function EventHomePage({
       // returns null when the viewer has no moderator row (legacy
       // event_members 'couple' pattern OR not a moderator at all);
       // the popup component handles null gracefully.
-      supabase
-        .from('event_moderators')
-        .select('role_subtype')
-        .eq('event_id', eventId)
-        .eq('user_id', user.id)
-        .is('removed_at', null)
-        .maybeSingle(),
+      (async () => {
+        try {
+          return await supabase
+            .from('event_moderators')
+            .select('role_subtype')
+            .eq('event_id', eventId)
+            .eq('user_id', user.id)
+            .is('removed_at', null)
+            .maybeSingle();
+        } catch (caught) {
+          logQueryError(
+            'EventHome (event_moderators viewer-row threw)',
+            caught instanceof Error ? caught : new Error(String(caught)),
+            { event_id: eventId, user_id: user.id },
+            'graceful_degrade',
+          );
+          return { data: null, error: null } as never;
+        }
+      })(),
     ]);
   const tr = makeT(locale);
 
@@ -692,65 +893,124 @@ export default async function EventHomePage({
     ),
   );
 
+  // 6th hotfix pass · Path B 2026-05-23 — wrap each adminClient call in
+  // an async IIFE try/catch that returns the same empty-data shape the
+  // length-zero branch already returns. Same defensive rationale as the
+  // top-level Promise.all wrap above (migration drift between local +
+  // prod can crash these calls before the schema-cache catches up). All
+  // four downstream `marketplaceCompatMap` / iterators read `.data ??
+  // []` so an empty fallback is the natural safe state.
   const compatibilityFetches = await Promise.all([
     // Finalized-vendor-photo-card (2026-05-22) — extend the existing
     // PR-B compatibility-fetch with logo_url + business_name + city so
     // the LockedCard variant on event home can render the marketplace
     // vendor's photo + canonical name without a separate round-trip.
     // Still one IN(...) per linked table — no perf regression.
-    marketplaceIds.length > 0
-      ? adminClient
+    (async () => {
+      type CompatRow = {
+        vendor_profile_id: string;
+        compatible_ceremony_types: string[] | null;
+        compatible_venue_settings: string[] | null;
+        logo_url: string | null;
+        business_name: string | null;
+        city: string | null;
+      };
+      const empty: { data: CompatRow[] } = { data: [] };
+      if (marketplaceIds.length === 0) return empty;
+      try {
+        return await adminClient
           .from('vendor_profiles')
           .select(
             'vendor_profile_id, compatible_ceremony_types, compatible_venue_settings, logo_url, business_name, city',
           )
-          .in('vendor_profile_id', marketplaceIds)
-      : Promise.resolve({ data: [] as Array<{
-          vendor_profile_id: string;
-          compatible_ceremony_types: string[] | null;
-          compatible_venue_settings: string[] | null;
-          logo_url: string | null;
-          business_name: string | null;
-          city: string | null;
-        }> }),
-    directoryIds.length > 0
-      ? adminClient
+          .in('vendor_profile_id', marketplaceIds);
+      } catch (caught) {
+        logQueryError(
+          'EventHome (compatibilityFetches[0] vendor_profiles threw)',
+          caught instanceof Error ? caught : new Error(String(caught)),
+          { event_id: eventId, user_id: user.id, marketplace_ids: marketplaceIds.length },
+          'graceful_degrade',
+        );
+        return empty;
+      }
+    })(),
+    (async () => {
+      type DirectoryRow = {
+        venue_directory_id: string;
+        compatible_ceremony_types: string[] | null;
+      };
+      const empty: { data: DirectoryRow[] } = { data: [] };
+      if (directoryIds.length === 0) return empty;
+      try {
+        return await adminClient
           .from('venue_directory')
           .select('venue_directory_id, compatible_ceremony_types')
-          .in('venue_directory_id', directoryIds)
-      : Promise.resolve({ data: [] as Array<{
-          venue_directory_id: string;
-          compatible_ceremony_types: string[] | null;
-        }> }),
+          .in('venue_directory_id', directoryIds);
+      } catch (caught) {
+        logQueryError(
+          'EventHome (compatibilityFetches[1] venue_directory threw)',
+          caught instanceof Error ? caught : new Error(String(caught)),
+          { event_id: eventId, user_id: user.id, directory_ids: directoryIds.length },
+          'graceful_degrade',
+        );
+        return empty;
+      }
+    })(),
     // Finalized-card-service-photo refinement (2026-05-22) — single
     // batch fetch against vendor_services for every distinct service_id
     // on this event's picks. NULL primary_photo_r2_key just means the
     // vendor hasn't uploaded a service photo yet → consumer falls
     // through to vendor_profiles.logo_url (PR #341 priority 2).
-    serviceIds.length > 0
-      ? adminClient
+    (async () => {
+      type ServiceRow = {
+        vendor_service_id: string;
+        primary_photo_r2_key: string | null;
+      };
+      const empty: { data: ServiceRow[] } = { data: [] };
+      if (serviceIds.length === 0) return empty;
+      try {
+        return await adminClient
           .from('vendor_services')
           .select('vendor_service_id, primary_photo_r2_key')
-          .in('vendor_service_id', serviceIds)
-      : Promise.resolve({ data: [] as Array<{
-          vendor_service_id: string;
-          primary_photo_r2_key: string | null;
-        }> }),
+          .in('vendor_service_id', serviceIds);
+      } catch (caught) {
+        logQueryError(
+          'EventHome (compatibilityFetches[2] vendor_services threw)',
+          caught instanceof Error ? caught : new Error(String(caught)),
+          { event_id: eventId, user_id: user.id, service_ids: serviceIds.length },
+          'graceful_degrade',
+        );
+        return empty;
+      }
+    })(),
     // Vendor packages back-link (owner directive 2026-05-22) — resolve
     // package_name for every event_vendor_package_id on this event's
     // picks. Two-table join via Supabase nested select; falls back to
     // empty data on any error (migration unapplied, RLS quirk, etc.).
-    packageBookingIds.length > 0
-      ? adminClient
+    (async () => {
+      type PackageRow = {
+        booking_id: string;
+        vendor_packages: { package_name: string } | null;
+      };
+      const empty: { data: PackageRow[] } = { data: [] };
+      if (packageBookingIds.length === 0) return empty;
+      try {
+        return await adminClient
           .from('event_vendor_packages')
           .select(
             'booking_id, vendor_packages:package_id(package_name)',
           )
-          .in('booking_id', packageBookingIds)
-      : Promise.resolve({ data: [] as Array<{
-          booking_id: string;
-          vendor_packages: { package_name: string } | null;
-        }> }),
+          .in('booking_id', packageBookingIds);
+      } catch (caught) {
+        logQueryError(
+          'EventHome (compatibilityFetches[3] event_vendor_packages threw)',
+          caught instanceof Error ? caught : new Error(String(caught)),
+          { event_id: eventId, user_id: user.id, booking_ids: packageBookingIds.length },
+          'graceful_degrade',
+        );
+        return empty;
+      }
+    })(),
   ]);
   const marketplaceCompatMap = new Map<
     string,
@@ -1131,9 +1391,32 @@ export default async function EventHomePage({
   // + the new attributed lane (event_action_log). Attribution silently
   // returns [] when the table has no rows for this event OR a join
   // fails, so the source feed always renders.
+  //
+  // 6th hotfix pass · Path B 2026-05-23 — both fetchers wrapped in
+  // .catch() with [] safe defaults so a throw from EITHER lane (e.g.
+  // event_action_log table missing on a stale deploy) leaves the page
+  // rendering. ActivityFeed already handles an empty source array.
   const [activity, attributedActivity] = await Promise.all([
-    fetchEventActivity(supabase, eventId, 20),
-    fetchAttributedActivity(adminClient, eventId, user.id, 20),
+    fetchEventActivity(supabase, eventId, 20).catch((err: unknown) => {
+      logQueryError(
+        'EventHome (fetchEventActivity threw)',
+        err instanceof Error ? err : new Error(String(err)),
+        { event_id: eventId, user_id: user.id },
+        'graceful_degrade',
+      );
+      return [] as Awaited<ReturnType<typeof fetchEventActivity>>;
+    }),
+    fetchAttributedActivity(adminClient, eventId, user.id, 20).catch(
+      (err: unknown) => {
+        logQueryError(
+          'EventHome (fetchAttributedActivity threw)',
+          err instanceof Error ? err : new Error(String(err)),
+          { event_id: eventId, user_id: user.id },
+          'graceful_degrade',
+        );
+        return [] as Awaited<ReturnType<typeof fetchAttributedActivity>>;
+      },
+    ),
   ]);
 
   // Derived counts for the new Home v2 sections.
@@ -1224,14 +1507,46 @@ export default async function EventHomePage({
   // Owner directive 2026-05-22 — Home is the operational hub.
   // See @/lib/upcoming-items for the per-source schema audit + the
   // vendor_meetings table-doesn't-exist note.
-  const upcoming = await fetchUpcomingItems({
-    supabase,
-    eventId,
-    eventDate: event.event_date,
-    ceremonyType: (event as { ceremony_type?: string | null }).ceremony_type,
-    now,
-    limit: 10,
-  });
+  //
+  // 6th hotfix pass · Path B 2026-05-23 — fetchUpcomingItems already
+  // internally graceful-degrades each of its five sources (any single
+  // missing table returns [] for that lane). We wrap the outer call
+  // anyway because a synchronous throw from supabase-js / its
+  // transport layer would otherwise propagate and crash the page.
+  // Empty {items, paymentItemsNext30d} keeps UpcomingSchedules +
+  // MoneyInFlight rendering their empty-state copy.
+  // sourceCounts is the required 3rd field on FetchUpcomingItemsResult.
+  // Empty per-source counts is the correct degraded state — UI
+  // surfaces below this only read .items + .paymentItemsNext30d so
+  // the diagnostic counts can stay zero without changing behaviour.
+  let upcoming: Awaited<ReturnType<typeof fetchUpcomingItems>> = {
+    items: [],
+    paymentItemsNext30d: [],
+    sourceCounts: {
+      meeting: 0,
+      schedule_block: 0,
+      vendor_payment: 0,
+      setnayan_sku_expiry: 0,
+      document_deadline: 0,
+    },
+  };
+  try {
+    upcoming = await fetchUpcomingItems({
+      supabase,
+      eventId,
+      eventDate: event.event_date,
+      ceremonyType: (event as { ceremony_type?: string | null }).ceremony_type,
+      now,
+      limit: 10,
+    });
+  } catch (caught) {
+    logQueryError(
+      'EventHome (fetchUpcomingItems threw)',
+      caught instanceof Error ? caught : new Error(String(caught)),
+      { event_id: eventId, user_id: user.id },
+      'graceful_degrade',
+    );
+  }
   const upcomingItems = upcoming.items;
   const moneyInFlightItems = upcoming.paymentItemsNext30d;
 

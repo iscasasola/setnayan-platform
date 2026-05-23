@@ -9,6 +9,7 @@ import {
   Eye,
   Globe,
   ImagePlus,
+  LayoutGrid,
   Lock,
   Pencil,
   QrCode,
@@ -538,6 +539,28 @@ export default async function WebsiteHubPage({
               <p className="text-sm font-semibold text-ink">Edit dress code</p>
               <p className="text-xs text-ink/55">
                 Headline, palette, and dos &amp; don&rsquo;ts for your guests.
+              </p>
+            </Link>
+          </li>
+          {/* Widgets editor — V1 ship 2026-05-22 PM. Lets the host shape
+              which sections appear on the public landing page and in what
+              order. Hero, Greeting, QR card, and RSVP stay always-on
+              (editor enforces); the other 8 widgets are show/hide +
+              reorderable. Sibling editors above own the per-widget
+              content; this tile owns the LAYOUT on top of them. */}
+          <li>
+            <Link
+              href={`/dashboard/${eventId}/website/widgets`}
+              className="group flex h-full min-h-[44pt] flex-col gap-2 rounded-xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/40 hover:bg-white/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+            >
+              <LayoutGrid
+                aria-hidden
+                className="h-5 w-5 text-terracotta"
+                strokeWidth={1.75}
+              />
+              <p className="text-sm font-semibold text-ink">Customize widgets</p>
+              <p className="text-xs text-ink/55">
+                Show, hide, and reorder the sections on your wedding page.
               </p>
             </Link>
           </li>

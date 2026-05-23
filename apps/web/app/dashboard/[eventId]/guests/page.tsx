@@ -83,6 +83,7 @@ type Props = {
     error?: string;
     bulk_assigned?: string;
     bulk_grouped?: string;
+    bulk_deleted?: string;
     group_created?: string;
     group_saved?: string;
     group_deleted?: string;
@@ -398,6 +399,7 @@ function pickFlash(search: {
   skipped?: string;
   bulk_assigned?: string;
   bulk_grouped?: string;
+  bulk_deleted?: string;
   group_created?: string;
   group_saved?: string;
   group_deleted?: string;
@@ -424,6 +426,10 @@ function pickFlash(search: {
   if (search.bulk_grouped) {
     const n = Number(search.bulk_grouped);
     return `Added ${n} guest${n === 1 ? '' : 's'} to the group.`;
+  }
+  if (search.bulk_deleted) {
+    const n = Number(search.bulk_deleted);
+    return `Removed ${n} guest${n === 1 ? '' : 's'} · seats opened up.`;
   }
   if (search.group_created) return 'Group created.';
   if (search.group_saved) return 'Group saved.';

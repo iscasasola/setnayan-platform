@@ -201,7 +201,10 @@ export default async function AdminPricingPage({ searchParams }: Props) {
           spot anomalies (e.g. "promo count just dropped") at a glance. */}
       <section
         aria-label="Catalog summary"
-        className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-5"
+        // Per CLAUDE.md 2026-05-23 5-sweep audit (Sweep 5) — 5 pills at 640px
+        // cramped (₱799,999 truncated). Stage through 3 cols at sm: before
+        // the full 5-col layout at lg:.
+        className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5"
       >
         <StatPill label="Active" value={activeCount} />
         <StatPill label="Inactive" value={inactiveCount} />

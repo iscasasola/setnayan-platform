@@ -315,9 +315,12 @@ function CustomerGrid({
 }) {
   if (rows.length === 0) {
     return (
+      // Per CLAUDE.md 2026-05-23 5-sweep audit (Sweep 5) — polite brand voice,
+      // no schema jargon (`service_catalog` + `supabase/migrations/`) leaking
+      // into the admin empty-state surface.
       <div className="rounded-xl border border-dashed border-ink/15 bg-cream/40 p-10 text-center text-sm text-ink/60">
-        No customer SKUs found in <code>service_catalog</code>. Check the seed
-        migrations under <code>supabase/migrations/</code>.
+        No customer add-ons surfaced yet. Once active SKUs land, they appear
+        here grouped by category.
       </div>
     );
   }
@@ -593,14 +596,14 @@ function EligibilityDetail({
 }) {
   if (policy === null) {
     return (
+      // Per CLAUDE.md 2026-05-23 5-sweep audit (Sweep 5) — polite brand voice,
+      // no `feature_policy` schema name in admin-facing copy.
       <div className="mt-5 rounded-lg border border-amber-300/60 bg-amber-50/80 p-4">
         <p className="text-sm font-medium text-amber-900">No policy set</p>
         <p className="mt-1 text-sm text-amber-900/85">
-          No <code className="font-mono text-xs">feature_policy</code> row exists
-          for <code className="font-mono text-xs">{skuCode}</code>. The SKU is
-          purchasable based on default behaviour; admins should seed a policy
-          row to make eligibility explicit. Per-event overrides land in
-          /admin/pricing once that surface ships.
+          No eligibility policy is set for this SKU yet. By default it&apos;s
+          purchasable across all account types. Seed a policy when you want to
+          lock it down.
         </p>
       </div>
     );

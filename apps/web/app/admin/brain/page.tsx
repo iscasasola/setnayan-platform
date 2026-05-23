@@ -432,11 +432,14 @@ function ChunkRowView({
             surface shape is right, the affordance is visible, and admins
             don't expect a working edit flow yet.
           */}
+          {/* Per CLAUDE.md 2026-05-23 5-sweep audit (Sweep 5) — match the
+              "next refresh" pattern from /admin/disputes + /admin/pricing
+              instead of leaking engineering process into the admin tooltip. */}
           <button
             type="button"
             disabled
             aria-disabled="true"
-            title="Edit lands in a follow-up PR alongside Concierge unlock"
+            title="Edit coming with the next refresh."
             className="rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/40"
           >
             Edit

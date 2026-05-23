@@ -197,3 +197,81 @@
     will-change: transform;
   }
 }
+
+/*
+ * Service-poster motion — owner directive 2026-05-23 PM:
+ * "services must look like live/animated posters instead of cards."
+ *
+ * Three keyframe variants drive every poster on the add-ons grid. Each
+ * service picks one variant via the ServicePoster `motion` prop:
+ *   - poster-drift: slow radial gradient drift (calm services — Orders,
+ *     Photo Delivery, Landing Page)
+ *   - poster-pulse: centered scaling pulse (creative/generative services —
+ *     Papic, Music Creator, Monogram Creator)
+ *   - poster-scan: horizontal sweep line (broadcast/render services —
+ *     Panood, Save the Date Video, Patiktok, Paprint, LED Background)
+ *
+ * All three are transform/opacity-only so they composite on the GPU
+ * without forcing layout/paint. `will-change: transform` hints the
+ * compositor to promote the layer once. `prefers-reduced-motion: reduce`
+ * is already handled by the global block at line 114 — keyframe duration
+ * collapses to 0.001ms so reduced-motion users see a still poster.
+ *
+ * Color-on-poster comes from per-service `style.background` inline on
+ * the ServicePoster wrapper; this stylesheet only owns the motion
+ * primitives so adding a new service is one variant pick + one color
+ * pair, never a CSS edit.
+ */
+@keyframes poster-drift {
+  0%,
+  100% {
+    transform: translate3d(-6%, -4%, 0) scale(1.05);
+  }
+  50% {
+    transform: translate3d(4%, 6%, 0) scale(1.1);
+  }
+}
+
+@keyframes poster-pulse {
+  0%,
+  100% {
+    transform: scale(1) translate3d(0, 0, 0);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.15) translate3d(0, 0, 0);
+    opacity: 1;
+  }
+}
+
+@keyframes poster-scan {
+  0% {
+    transform: translate3d(-110%, 0, 0) skewX(-12deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.55;
+  }
+  90% {
+    opacity: 0.55;
+  }
+  100% {
+    transform: translate3d(110%, 0, 0) skewX(-12deg);
+    opacity: 0;
+  }
+}
+
+@layer utilities {
+  .poster-motion-drift {
+    animation: poster-drift 18s ease-in-out infinite;
+    will-change: transform;
+  }
+  .poster-motion-pulse {
+    animation: poster-pulse 6s ease-in-out infinite;
+    will-change: transform, opacity;
+  }
+  .poster-motion-scan {
+    animation: poster-scan 8s ease-in-out infinite;
+    will-change: transform, opacity;
+  }
+}

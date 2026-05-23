@@ -12,7 +12,10 @@ import {
   type TemplateAsset,
   type ExistingSave,
 } from './_components/visual-preview';
-import { WeddingAttireGuide } from './_components/wedding-attire-guide';
+import {
+  WeddingAttireGuide,
+  type RoleAsset,
+} from './_components/wedding-attire-guide';
 import type { ColorRangeMap } from '@/app/admin/moodboard-library/_components/color-range-manipulator';
 
 const MOODBOARD_BUCKET = 'moodboard-library';
@@ -29,7 +32,7 @@ export default async function MoodBoardPage({ params }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [eventRes, guests] = await Promise.all([
+  const [eventRes, guests, attireAssetsRes] = await Promise.all([
     supabase
       .from('events')
       .select(
@@ -42,9 +45,57 @@ export default async function MoodBoardPage({ params }: Props) {
       .eq('event_id', eventId)
       .maybeSingle(),
     fetchGuestsByEvent(supabase, eventId),
+    // Real-photo assets for Wedding Attire Guide per-role figures —
+    // owner directive 2026-05-23 PM ("want something like this but Filipina
+    // face + recolorable + same for men" · Pinterest wedding-guest-dresses
+    // collage reference). Fetches from moodboard_library_assets filtered
+    // by asset_type='figure_attire' (other rows are venue_scene); joins
+    // the slot-1 color range for the future Color Range Manipulator engine.
+    // V1 placeholder seed lives in migration 20260611000000 — Pexels
+    // free-commercial stock photos hot-linked. RLS limits this to
+    // approved + non-retired rows. WeddingAttireGuide gracefully renders
+    // SVG silhouette fallbacks for any role missing an asset.
+    supabase
+      .from('moodboard_library_assets')
+      .select(
+        `asset_subtype, label, storage_path,
+         moodboard_asset_color_ranges!inner ( slot_id, sampled_hex )`,
+      )
+      .eq('asset_type', 'figure_attire')
+      .eq('moodboard_asset_color_ranges.slot_id', 1)
+      .not('approved_at', 'is', null)
+      .is('retired_at', null),
   ]);
   const event = eventRes.data;
   if (!event) notFound();
+
+  // Build the role → asset map. Defensive against schema returning the
+  // join as an array (PostgREST nested-select shape) or as a single
+  // object — both shapes valid depending on PostgREST version.
+  type AttireAssetRow = {
+    asset_subtype: string | null;
+    label: string;
+    storage_path: string;
+    moodboard_asset_color_ranges:
+      | Array<{ slot_id: number; sampled_hex: string }>
+      | { slot_id: number; sampled_hex: string }
+      | null;
+  };
+  const attireAssetsByRole: Record<string, RoleAsset> = {};
+  for (const row of (attireAssetsRes.data ?? []) as AttireAssetRow[]) {
+    if (!row.asset_subtype) continue;
+    const ranges = Array.isArray(row.moodboard_asset_color_ranges)
+      ? row.moodboard_asset_color_ranges
+      : row.moodboard_asset_color_ranges
+        ? [row.moodboard_asset_color_ranges]
+        : [];
+    const slot1 = ranges.find((r) => r.slot_id === 1);
+    attireAssetsByRole[row.asset_subtype] = {
+      url: row.storage_path,
+      sampledHex: slot1?.sampled_hex ?? '#E8C9B8',
+      label: row.label,
+    };
+  }
 
   const palette = sanitizeRolePalette(event.role_palette ?? {});
   // Wedding Attire Guide per-role colors — JSONB column, defaults to {}.
@@ -158,6 +209,7 @@ export default async function MoodBoardPage({ params }: Props) {
         eventId={eventId}
         rolePalette={flatPalette}
         attirePalette={attireGuidePalette}
+        assetsByRole={attireAssetsByRole}
       />
 
       <section className="space-y-3 rounded-2xl border border-dashed border-ink/15 bg-cream p-5">

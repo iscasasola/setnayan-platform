@@ -7,7 +7,6 @@ import {
   guestDisplayName,
   GROUP_CATEGORY_LABELS,
   INVITED_TO_BLOCKS,
-  INVITED_TO_LABELS,
   MEAL_LABELS,
   ROLE_LABELS,
   RSVP_LABELS,
@@ -20,6 +19,7 @@ import {
   type RsvpStatus,
 } from '@/lib/guests';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { InvitedToChips } from '../_components/invited-to-chips';
 import { softDeleteGuest, updateGuest } from './actions';
 
 export const metadata = { title: 'Guest detail' };
@@ -112,7 +112,12 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
   const updateAction = updateGuest.bind(null, eventId, guestId);
   const deleteAction = softDeleteGuest.bind(null, eventId, guestId);
 
-  const invitedSet = new Set(guest.invited_to_blocks);
+  // Filter to known valid InvitedToBlock values — schema column is
+  // string[] so legacy data could contain stale block names.
+  const initialInvited = (guest.invited_to_blocks ?? []).filter(
+    (b): b is InvitedToBlock =>
+      (INVITED_TO_BLOCKS as readonly string[]).includes(b),
+  );
   const tagsValue = guest.custom_tags.join(', ');
 
   return (
@@ -209,22 +214,21 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
           </div>
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-ink">Invited to</label>
-            <div className="flex flex-wrap gap-2">
-              {INVITED_TO_BLOCKS.map((block) => (
-                <label
-                  key={block}
-                  className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-ink/15 bg-cream px-3 py-1.5 text-sm has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/10 has-[:checked]:text-terracotta-700"
-                >
-                  <input
-                    type="checkbox"
-                    name={`invited_${block}`}
-                    defaultChecked={invitedSet.has(block)}
-                    className="sr-only"
-                  />
-                  {INVITED_TO_LABELS[block]}
-                </label>
-              ))}
-            </div>
+            {/*
+              Smart defaults by role · locked 2026-05-23 PM. On the edit
+              form, chips populate from the guest's saved value (no
+              snap on initial render). If the host changes the Role
+              dropdown above after mount, the chips snap to the new
+              role's smart defaults — host's saved manual toggles
+              under the OLD role get reset, which is the intended
+              trade-off because role change implies "this person's
+              attendance scope is different now."
+            */}
+            <InvitedToChips
+              roleSelectId="role"
+              initialRole={guest.role}
+              initialBlocks={initialInvited}
+            />
           </div>
           <Field
             id="dietary_restrictions"

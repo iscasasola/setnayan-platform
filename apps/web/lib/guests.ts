@@ -106,6 +106,48 @@ export const INVITED_TO_LABELS: Record<InvitedToBlock, string> = {
   rehearsal_dinner: 'Rehearsal dinner',
 };
 
+// Inner-circle roles get all 5 event blocks by default — couple, parents,
+// immediate family, primary wedding party, principal sponsors. Filipino
+// wedding reality: rehearsal dinner attendance is essentially these same
+// people; after-party defaults skew the same way. Locked 2026-05-23 PM
+// (Path 2 from owner walkthrough on Invited-to chip smart defaults). The
+// rest of the role list (secondary sponsors · bearers · flower girl ·
+// readers · soloists · plain guest) defaults to ceremony + reception +
+// cocktails — host toggles after-party / rehearsal-dinner on per-guest
+// for the people they actually want there.
+const INNER_CIRCLE_ROLES: ReadonlySet<GuestRole> = new Set([
+  'bride',
+  'groom',
+  'bride_parents',
+  'groom_parents',
+  'bride_immediate_family',
+  'groom_immediate_family',
+  'maid_of_honor',
+  'matron_of_honor',
+  'best_man',
+  'bridesmaid',
+  'groomsman',
+  'principal_sponsor',
+]);
+
+/**
+ * Smart defaults for which event blocks a guest is invited to, given
+ * their role in the wedding. Used by the new + edit guest forms via a
+ * client-island that snaps the chip checkboxes when the role <select>
+ * changes. The host can still toggle any chip on or off after.
+ *
+ * Inner circle (couple, parents, immediate family, primary wedding
+ * party, principal sponsors) defaults to all 5 blocks. Everyone else
+ * defaults to ceremony + reception + cocktails — the 3 blocks 95-100%
+ * of guests attend regardless.
+ */
+export function defaultInvitedToForRole(role: GuestRole): InvitedToBlock[] {
+  if (INNER_CIRCLE_ROLES.has(role)) {
+    return ['ceremony', 'reception', 'cocktails', 'after_party', 'rehearsal_dinner'];
+  }
+  return ['ceremony', 'reception', 'cocktails'];
+}
+
 export const MEAL_LABELS: Record<MealPreference, string> = {
   beef: 'Beef',
   chicken: 'Chicken',

@@ -185,7 +185,6 @@ export function OuterDashboardHeader({
               hasVendorAccess={hasVendorAccess}
               hasAdminAccess={hasAdminAccess}
               vendorProfiles={vendorProfiles}
-              align="up"
             />
             <div className="flex items-center gap-2">
               <UnreadBellBadge
@@ -195,7 +194,7 @@ export function OuterDashboardHeader({
                 ariaBaseLabel="Notifications"
                 ariaUnreadSuffix="unread"
               />
-              <ProfileMenu email={email} ariaLabel="Account menu" align="up" />
+              <ProfileMenu email={email} ariaLabel="Account menu" />
             </div>
           </div>
         </div>

@@ -2,9 +2,10 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, X, UserPlus } from 'lucide-react';
+import { ChevronDown, Trash2, X, UserPlus } from 'lucide-react';
 import {
   bulkApplyRoleAndGroup,
+  bulkSoftDeleteGuests,
   createGuestGroup,
   removeGuestFromGroup,
 } from '../groups-actions';
@@ -238,6 +239,17 @@ function SelectionBar({
         count={count}
       />
 
+      {/* Delete affordance · owner directive 2026-05-23. Lives in a
+       *  separate form (different server action) below the apply
+       *  toolbar so it never accidentally fires alongside an Apply
+       *  click. Confirm dialog is intentional — soft-delete is
+       *  reversible only via direct DB write, not by host UI. */}
+      <BulkDeleteForm
+        eventId={eventId}
+        selectedIds={selectedIds}
+        count={count}
+      />
+
       {showNewGroupForm ? (
         <NewGroupInlineForm
           eventId={eventId}
@@ -246,6 +258,45 @@ function SelectionBar({
         />
       ) : null}
     </div>
+  );
+}
+
+function BulkDeleteForm({
+  eventId,
+  selectedIds,
+  count,
+}: {
+  eventId: string;
+  selectedIds: string[];
+  count: number;
+}) {
+  // Confirm prompt mentions the seat-release + RSVP-gate behavior so
+  // the host knows what's about to happen. The server still enforces
+  // both — this is informational, not authoritative.
+  const confirmMessage = `Remove ${count} guest${count === 1 ? '' : 's'} from this event? Their seat assignments (if any) will open up. Guests who have already RSVP'd will be skipped — reset their RSVP to Pending first if you want to remove them.`;
+
+  return (
+    <form
+      action={bulkSoftDeleteGuests.bind(null, eventId)}
+      className="mt-2 flex justify-end"
+      onSubmit={(e) => {
+        if (!confirm(confirmMessage)) {
+          e.preventDefault();
+        }
+      }}
+    >
+      {selectedIds.map((id) => (
+        <input key={id} type="hidden" name="guest_ids[]" value={id} />
+      ))}
+      <button
+        type="submit"
+        className="inline-flex h-8 items-center gap-1.5 rounded-md border border-rose-300/60 bg-rose-50 px-3 text-xs font-medium text-rose-700 hover:border-rose-400 hover:bg-rose-100"
+        aria-label={`Remove ${count} selected guest${count === 1 ? '' : 's'}`}
+      >
+        <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+        Delete {count}
+      </button>
+    </form>
   );
 }
 

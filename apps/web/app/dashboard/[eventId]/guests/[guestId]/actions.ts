@@ -175,6 +175,49 @@ export async function softDeleteGuest(
   _formData: FormData,
 ): Promise<void> {
   const supabase = await createClient();
+
+  // RSVP-set gate (owner directive 2026-05-23) — block delete when the
+  // guest has already responded (rsvp_status != 'pending'). 'pending' is
+  // the only "haven't replied yet" state; attending / declined / maybe
+  // are all "RSVP already set". The bulk-delete path enforces the same
+  // gate; this single-guest path mirrors it for consistency.
+  const { data: row, error: readErr } = await supabase
+    .from('guests')
+    .select('rsvp_status, first_name, last_name, display_name')
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId)
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  if (readErr) {
+    redirect(
+      `/dashboard/${eventId}/guests/${guestId}?error=${encodeURIComponent(readErr.message)}`,
+    );
+  }
+  if (!row) {
+    redirect(`/dashboard/${eventId}/guests?error=not_found`);
+  }
+  if (row.rsvp_status !== 'pending') {
+    const displayName =
+      row.display_name?.trim() || `${row.first_name} ${row.last_name}`.trim();
+    redirect(
+      `/dashboard/${eventId}/guests/${guestId}?error=${encodeURIComponent(
+        `${displayName || 'This guest'} has already RSVP'd — reset their RSVP to "Pending" before removing.`,
+      )}`,
+    );
+  }
+
+  // Release the seat assignment first (best-effort; the soft-delete
+  // proceeds even if there's no row, since event_seat_assignments
+  // doesn't have a row for every guest). Hard-delete here matches the
+  // ON DELETE CASCADE intent — soft-deleting the guest wouldn't trip
+  // the FK cascade because deleted_at is just a flag.
+  await supabase
+    .from('event_seat_assignments')
+    .delete()
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId);
+
   const { error } = await supabase
     .from('guests')
     .update({ deleted_at: new Date().toISOString() })

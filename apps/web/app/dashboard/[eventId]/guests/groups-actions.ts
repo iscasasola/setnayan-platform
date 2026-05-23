@@ -447,3 +447,102 @@ export async function removeGuestFromGroup(
     }),
   );
 }
+
+// -----------------------------------------------------------------------
+// Bulk soft-delete · owner directive 2026-05-23. Deletes the selected
+// guests AND releases their seat assignments so the seats open up for
+// other guests. Blocks when any guest has already RSVP'd
+// (rsvp_status != 'pending') — owner's phrasing: "delete cannot be
+// performed when RSVP has been already set".
+//
+// "RSVP set" = anything other than 'pending'. The 4 enum values are
+// pending / attending / declined / maybe — pending is the only "no
+// response yet" state. The other three all imply the guest engaged
+// with the invitation, so removing them silently would wipe legitimate
+// signal (an attending count drops, a declined gets re-invited, etc.).
+//
+// Seat release: event_seat_assignments has a FK to guests with ON
+// DELETE CASCADE — but we soft-delete (set deleted_at) instead of hard
+// DELETE, so the FK cascade never fires. We DELETE the assignment rows
+// explicitly to match the cascade intent. Safe to call against guests
+// with no seat assignment — DELETE just affects 0 rows.
+// -----------------------------------------------------------------------
+
+export async function bulkSoftDeleteGuests(
+  eventId: string,
+  formData: FormData,
+): Promise<void> {
+  const guestIds = parseGuestIds(formData);
+
+  if (guestIds.length === 0) {
+    redirect(backToList(eventId, { error: 'no_selection' }));
+  }
+
+  const supabase = await createClient();
+
+  // Pre-flight: load every selected guest's current RSVP status +
+  // display name. We need names for the error message + statuses for
+  // the gate. Filtering on event_id + .in('guest_id', ...) + deleted_at
+  // IS NULL is RLS-safe (couple sees their own event's guests).
+  const { data: rows, error: readErr } = await supabase
+    .from('guests')
+    .select('guest_id, rsvp_status, first_name, last_name, display_name')
+    .eq('event_id', eventId)
+    .in('guest_id', guestIds)
+    .is('deleted_at', null);
+
+  if (readErr) {
+    redirect(backToList(eventId, { error: encodeURIComponent(readErr.message) }));
+  }
+  if (!rows || rows.length === 0) {
+    redirect(backToList(eventId, { error: 'no_selection' }));
+  }
+
+  // RSVP-set gate. If ANY selected guest has a non-pending RSVP, block
+  // the entire operation + surface the first few names so the host
+  // knows which guests need their RSVP reset before they can be
+  // removed. All-or-nothing matches the spirit of "delete cannot be
+  // performed when RSVP has been already set" — we don't silently
+  // delete the deletable subset.
+  const blocked = rows.filter((r) => r.rsvp_status !== 'pending');
+  if (blocked.length > 0) {
+    const names = blocked
+      .slice(0, 3)
+      .map((r) =>
+        r.display_name?.trim() || `${r.first_name} ${r.last_name}`.trim(),
+      )
+      .filter(Boolean);
+    const tail =
+      blocked.length > 3 ? ` (and ${blocked.length - 3} more)` : '';
+    const friendly = `Can't delete — ${names.join(', ')}${tail} already RSVP'd. Reset their RSVP to "Pending" first.`;
+    redirect(backToList(eventId, { error: encodeURIComponent(friendly) }));
+  }
+
+  // Release seat assignments for the qualifying guests. Best-effort —
+  // an error here is logged via the redirect path but we don't block
+  // the soft-delete (a guest's row living past the seat-DELETE failure
+  // is recoverable; the seat will just need a manual unassign).
+  await supabase
+    .from('event_seat_assignments')
+    .delete()
+    .eq('event_id', eventId)
+    .in('guest_id', guestIds);
+
+  // Soft-delete.
+  const { error: updateErr } = await supabase
+    .from('guests')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('event_id', eventId)
+    .in('guest_id', guestIds);
+
+  if (updateErr) {
+    redirect(
+      backToList(eventId, { error: encodeURIComponent(updateErr.message) }),
+    );
+  }
+
+  revalidatePath(`/dashboard/${eventId}/guests`);
+  redirect(
+    backToList(eventId, { bulk_deleted: String(rows.length) }),
+  );
+}

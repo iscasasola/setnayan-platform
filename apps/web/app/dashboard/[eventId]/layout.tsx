@@ -110,7 +110,17 @@ export default async function EventLayout({ children, params }: Props) {
     // breakpoint gate still applies. Mobile (<lg) has no left padding
     // because the sidebar isn't rendered (BottomNav uses lg:flex);
     // body fills full width via its own px-4 / sm:px-6.
-    <div className="flex min-h-dvh flex-col bg-cream pb-16 lg:pb-0 lg:pl-[var(--sidebar-width,240px)]">
+    // Owner directive 2026-05-23 ("issue again with home"): the OUTER
+    // `dashboard/layout.tsx` server-applies `lg:pl-60` unconditionally
+    // even though its OuterDashboardHeader returns null on event-scoped
+    // routes (client-side `usePathname` check). That stacks 240px of
+    // dead padding on top of THIS layout's own variable padding —
+    // 480px total on lg+. `lg:-ml-60` cancels the outer's 240px so the
+    // event-route body sits flush against the sidebar's right border
+    // with only THIS layout's variable padding controlling the offset.
+    // Non-event routes (admin, profile, notifications) are unaffected
+    // because they don't render this inner layout.
+    <div className="flex min-h-dvh flex-col bg-cream pb-16 lg:-ml-60 lg:pb-0 lg:pl-[var(--sidebar-width,240px)]">
       <div className="sticky top-0 z-20 border-b border-ink/10 bg-cream/95 backdrop-blur">
         {/* Owner directive 2026-05-22: "why is it not maximizing the
             whole screen?" The previous cap (max-w-6xl / xl:max-w-7xl /

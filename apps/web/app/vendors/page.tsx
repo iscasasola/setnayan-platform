@@ -897,10 +897,19 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
     );
   }
 
-  // Sort chain (iteration 0006, 2026-05-21): always float Sponsored Boost +
-  // Boosted Ads to the top per iteration 0022 § 5b, then apply the user's
-  // chosen sort. All columns live on vendor_market_stats so PostgREST orders
-  // and paginates in one query — no in-memory pass.
+  // Sort chain.
+  //   1. is_setnayan_service DESC (owner directive 2026-05-22 PM) —
+  //      first-party Setnayan canonicals (Papic, Panood, Pailaw,
+  //      Patiktok, Pakanta, Concierge, Custom Monogram, Save-the-Date
+  //      Video, AI Highlights) float ABOVE everything else, including
+  //      paid sponsors. Vendor's services[] is checked at view-compute
+  //      time via the 10-canonical array in migration 20260607020000.
+  //   2. ad_rank DESC (iteration 0006, 2026-05-21) — Sponsored Boost +
+  //      Boosted Ads next, per iteration 0022 § 5b.
+  //   3. User-chosen sort below.
+  // All columns live on vendor_market_stats so PostgREST orders + paginates
+  // in one query — no in-memory pass.
+  query = query.order('is_setnayan_service', { ascending: false });
   query = query.order('ad_rank', { ascending: false });
   switch (filters.sort) {
     case 'highest_rated':

@@ -185,18 +185,17 @@ export function VendorCard({
                 : 'border-ink/10'
       }`}
     >
-      {/* Photo + badges row. Mobile stacks photo full-width on top;
-          sm+ shows photo as a square thumbnail on the left of the
-          header. Badges sit beneath the photo on mobile (overlay
-          would crowd a small image) and to the right of the photo
-          on sm+ so the badges land near the name. */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-        <VendorHero
-          photoUrl={vendor.primary_photo_url ?? null}
-          logoUrl={vendor.logo_url}
-          name={vendor.business_name}
-        />
-        <div className="min-w-0 flex-1">
+      {/* Photo full-row banner on top on ALL viewports (owner directive
+          2026-05-22 PM: "full row photo on top fill"). Earlier layout
+          shrunk the photo to a 80×80 square on sm+ which read as a small
+          avatar tile — now consistent full-width banner everywhere with
+          name + badges + price stacked below. */}
+      <VendorHero
+        photoUrl={vendor.primary_photo_url ?? null}
+        logoUrl={vendor.logo_url}
+        name={vendor.business_name}
+      />
+      <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="min-w-0 truncate text-base font-semibold text-ink">
               {vendor.business_name || 'Vendor'}
@@ -243,7 +242,6 @@ export function VendorCard({
               <VendorBadgeRow badges={badges} />
             </div>
           ) : null}
-        </div>
       </div>
 
       {vendor.tagline ? (
@@ -382,14 +380,17 @@ function VendorHero({
       ? logoUrl
       : null;
 
+  // Full-row banner on all viewports per owner directive 2026-05-22 PM.
+  // Heights step from 32 (mobile) → 40 (tablet+) → 48 (lg+) so the photo
+  // scales with the card width when the marketplace grid widens.
   if (src) {
     return (
-      <div className="relative h-32 w-full shrink-0 overflow-hidden rounded-xl bg-ink/5 sm:h-20 sm:w-20">
+      <div className="relative h-32 w-full shrink-0 overflow-hidden rounded-xl bg-ink/5 sm:h-40 lg:h-48">
         <Image
           src={src}
           alt={name}
           fill
-          sizes="(max-width: 640px) 100vw, 80px"
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
           className="object-cover"
         />
       </div>
@@ -399,9 +400,9 @@ function VendorHero({
   return (
     <div
       aria-hidden
-      className="flex h-32 w-full shrink-0 items-center justify-center rounded-xl bg-terracotta/10 sm:h-20 sm:w-20"
+      className="flex h-32 w-full shrink-0 items-center justify-center rounded-xl bg-terracotta/10 sm:h-40 lg:h-48"
     >
-      <span className="font-mono text-2xl font-semibold tracking-tight text-terracotta-700 sm:text-base">
+      <span className="font-mono text-3xl font-semibold tracking-tight text-terracotta-700 sm:text-4xl lg:text-5xl">
         {initials}
       </span>
     </div>

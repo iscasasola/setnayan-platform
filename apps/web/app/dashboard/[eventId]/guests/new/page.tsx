@@ -174,11 +174,14 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
 
         <PlusOneToggle />
 
-        <Field
-          id="custom_tags"
-          label="Custom tags (comma-separated)"
-          placeholder="vip, college-friends, ninang"
-        />
+        {/* Custom tags input RETIRED — owner directive 2026-05-23 PM:
+            "custom tags will be set by table, group, role, and side.
+            no one will create a custom tag. just what is provided."
+            Tags are now auto-derived from side / group / role / table
+            (seating) / custom group memberships at render time on the
+            guest detail page. The custom_tags TEXT[] column stays on
+            the schema as legacy storage (no migration) but no longer
+            accepts new writes from the host. */}
 
         <div className="space-y-2">
           <label className="flex items-center gap-3 text-sm text-ink">

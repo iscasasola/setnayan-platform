@@ -1,6 +1,13 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { Camera, ChevronDown, UserPlus } from 'lucide-react';
+import {
+  Armchair,
+  Camera,
+  ChevronDown,
+  Tag,
+  UserPlus,
+  Users,
+} from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import {
   fetchGuestById,
@@ -111,6 +118,17 @@ const ERROR_COPY: Record<string, string> = {
   invalid_meal: 'Invalid meal preference.',
 };
 
+// Tailwind tint per Side value, used by the auto-derived Tags Section
+// to chip-color the Side badge AND custom-group memberships (which carry
+// a team_side: bride/groom/both flag per the Custom Groups feature).
+// Matches the established side-color convention from the guest list +
+// seating chart UIs so the visual language stays consistent.
+const SIDE_CHIP_TINT: Record<GuestSide, string> = {
+  bride: 'bg-rose-50 text-rose-900 ring-1 ring-rose-200',
+  groom: 'bg-sky-50 text-sky-900 ring-1 ring-sky-200',
+  both: 'bg-violet-50 text-violet-900 ring-1 ring-violet-200',
+};
+
 // Tailwind ring-tone per RSVP value, used by the segmented pill so the
 // selected state reads at a glance. Attending = positive · Pending =
 // neutral · Maybe = caution · Declined = muted-warm. Mirrors the
@@ -192,17 +210,68 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
     (b): b is InvitedToBlock =>
       (INVITED_TO_BLOCKS as readonly string[]).includes(b),
   );
-  const tagsValue = guest.custom_tags.join(', ');
+
+  // Auto-derived tags surface — owner directive 2026-05-23 PM:
+  // "custom tags will be set by table, group, role, and side. no one
+  // will create a custom tag. just what is provided. we can place
+  // checklist. these tags will be automatic and cannot be picked."
+  //
+  // Fetch the guest's seating-chart assignment + custom group
+  // memberships so the Tags Section below can render the chips.
+  // Both queries are RLS-gated through the parent supabase client
+  // (host-scope). Empty / missing rows degrade to the chips being
+  // hidden — never throws. Two extra queries per page render is
+  // acceptable for V1 (page already runs ~4 queries; this is +2).
+  //
+  // The `event_seat_assignments` table has a FK to `event_tables` for
+  // the label lookup; embed via supabase's nested select.
+  const { data: seatRow } = await supabase
+    .from('event_seat_assignments')
+    .select('table_id, event_tables(label)')
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId)
+    .maybeSingle();
+  const seatedAt =
+    seatRow && seatRow.event_tables
+      ? // event_tables embed may come back as object OR array depending
+        // on PostgREST's FK resolution; handle both shapes defensively.
+        Array.isArray(seatRow.event_tables)
+        ? (seatRow.event_tables[0] as { label?: string } | undefined)?.label ?? null
+        : (seatRow.event_tables as { label?: string }).label ?? null
+      : null;
+
+  // Custom group memberships — many-to-many via guest_group_memberships
+  // joining to guest_groups. Returns the labels + team_side per group
+  // the guest belongs to (Team Bride / Team Groom / Both per PR earlier
+  // 2026-05-23 row).
+  const { data: groupRows } = await supabase
+    .from('guest_group_memberships')
+    .select('guest_groups(label, team_side)')
+    .eq('guest_id', guestId);
+  type GroupChip = { label: string; teamSide: 'bride' | 'groom' | 'both' };
+  const customGroups: GroupChip[] = (groupRows ?? [])
+    .map((row) => {
+      const gg = row.guest_groups;
+      const single = Array.isArray(gg) ? gg[0] : gg;
+      if (!single || typeof single !== 'object') return null;
+      return {
+        label: (single as { label?: string }).label ?? '',
+        teamSide:
+          ((single as { team_side?: string }).team_side as GroupChip['teamSide']) ?? 'both',
+      };
+    })
+    .filter((g): g is GroupChip => g !== null && g.label !== '');
 
   // Check whether ANY of the "More details" fields has a non-empty value.
   // If yes, expand the disclosure by default so existing data stays
   // visible without the host having to remember to expand it.
+  // custom_tags removed from this check (no longer host-editable per
+  // 2026-05-23 PM directive).
   const hasMoreDetails =
     !!guest.display_name?.trim() ||
     !!guest.email?.trim() ||
     !!guest.mobile?.trim() ||
     !!guest.dietary_restrictions?.trim() ||
-    guest.custom_tags.length > 0 ||
     !!guest.notes?.trim();
 
   return (
@@ -281,6 +350,53 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
               defaultValue={guest.role}
               options={availableRoles.map((v) => ({ value: v, label: ROLE_LABELS[v] }))}
             />
+          </div>
+        </Section>
+
+        {/* Tags · auto-derived from side / group / role / table /
+            custom group memberships. Owner directive 2026-05-23 PM:
+            "custom tags will be set by table, group, role, and side.
+            no one will create a custom tag. just what is provided. we
+            can place checklist. these tags will be automatic and cannot
+            be picked." Read-only display — there's NO form input here,
+            nothing to save. Changing a tag means changing the
+            underlying field (Categorization above, or the seating
+            chart / Groups sidebar elsewhere). */}
+        <Section title="Tags">
+          <p className="text-xs text-ink/55">
+            Auto-applied from the guest&rsquo;s categorization, seat assignment,
+            and group memberships. Edit the underlying fields above (or in
+            Seating / Groups) to change a tag.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <TagChip
+              icon={<Users aria-hidden className="h-3 w-3" strokeWidth={2} />}
+              label={SIDE_LABELS[guest.side]}
+              tint={SIDE_CHIP_TINT[guest.side]}
+            />
+            <TagChip
+              icon={<Tag aria-hidden className="h-3 w-3" strokeWidth={2} />}
+              label={GROUP_CATEGORY_LABELS[guest.group_category]}
+            />
+            <TagChip
+              icon={<Tag aria-hidden className="h-3 w-3" strokeWidth={2} />}
+              label={ROLE_LABELS[guest.role]}
+            />
+            {seatedAt ? (
+              <TagChip
+                icon={<Armchair aria-hidden className="h-3 w-3" strokeWidth={2} />}
+                label={seatedAt}
+                tint="bg-amber-50 text-amber-900 ring-1 ring-amber-200"
+              />
+            ) : null}
+            {customGroups.map((g) => (
+              <TagChip
+                key={g.label}
+                icon={<Users aria-hidden className="h-3 w-3" strokeWidth={2} />}
+                label={g.label}
+                tint={SIDE_CHIP_TINT[g.teamSide]}
+              />
+            ))}
           </div>
         </Section>
 
@@ -414,12 +530,9 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
               defaultValue={guest.dietary_restrictions ?? ''}
               placeholder="halal · nut allergy · …"
             />
-            <Field
-              id="custom_tags"
-              label="Custom tags (comma-separated)"
-              defaultValue={tagsValue}
-              placeholder="vip, college-friends, ninang"
-            />
+            {/* Custom tags input RETIRED — owner directive 2026-05-23 PM.
+                Tags now auto-derived from side / group / role / table /
+                custom groups in the Tags section below. */}
             <div className="space-y-1.5">
               <label className="block text-sm font-medium text-ink" htmlFor="notes">
                 Notes (private)
@@ -558,6 +671,36 @@ function PhotoConsent({ defaultChecked }: { defaultChecked: boolean }) {
         </span>
       </label>
     </div>
+  );
+}
+
+/**
+ * Auto-derived tag chip — small inline pill rendered in the Tags
+ * Section to surface what tags this guest auto-carries. Owner directive
+ * 2026-05-23 PM made these read-only (no host pick). The chip is purely
+ * visual; clicking it could deep-link to a filtered guest-list view in
+ * V1.x but for V1 it stays static so the chips don't accidentally
+ * trigger navigation when the host is mid-edit.
+ */
+function TagChip({
+  icon,
+  label,
+  tint,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  /** Default tint = neutral cream/ink for non-side tags. */
+  tint?: string;
+}) {
+  const baseClass =
+    tint ?? 'bg-cream text-ink/80 ring-1 ring-ink/15';
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${baseClass}`}
+    >
+      {icon}
+      {label}
+    </span>
   );
 }
 

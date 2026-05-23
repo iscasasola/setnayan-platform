@@ -76,7 +76,18 @@ type RoleParams = {
   label: string;
   pose: string;
   attireBase: string;
+  /** Main attire color · the dominant block (gown body, suit jacket,
+   *  dress fabric). Gets the bulk of the painted region. */
   defaultTint: string;
+  /** Accent attire color · the smaller secondary detail color (sash,
+   *  belt, tie, trim, embroidery, neckline edge, boutonniere ribbon).
+   *  Owner directive 2026-05-23 PM 4th-pass: Filipino wedding attire
+   *  conventionally has 2 visible colors — main fabric + small accent
+   *  element. Single-tone figures read as flat / unfinished. */
+  accentTint: string;
+  /** Description of where the accent appears on this specific role's
+   *  attire (informs Recraft what region to paint with accentTint). */
+  accentLocation: string;
   ethnicityPrecision: string;
   attireDetail: string;
 };
@@ -99,8 +110,11 @@ const ROLES: Record<RoleKey, RoleParams> = {
     attireBase:
       'wedding gown, A-line silhouette, fitted bodice, soft veil flowing behind shoulders',
     defaultTint: '#FAFAFA',
+    accentTint: '#D4B896',
+    accentLocation:
+      'champagne sash at waist + champagne bouquet ribbon',
     ethnicityPrecision:
-      'Filipina woman, warm brown skin, dark brown hair past shoulders',
+      'Filipina woman, fair-complexion light tan skin, dark brown long hair past shoulders, soft feminine youthful face, gentle smile',
     attireDetail:
       'small white-and-blush bouquet at waist, modest scoop neckline, no train',
   },
@@ -110,7 +124,11 @@ const ROLES: Record<RoleKey, RoleParams> = {
     attireBase:
       'barong tagalog over black trousers, traditional Filipino embroidery panel down center front',
     defaultTint: '#E8D9B8',
-    ethnicityPrecision: 'Filipino man, warm brown skin, short black hair',
+    accentTint: '#2E3F5C',
+    accentLocation:
+      'navy boutonniere ribbon at left chest + dark navy trim along barong neckline',
+    ethnicityPrecision:
+      'Filipino man, fair-complexion light tan skin, short black hair, clean shaven, friendly serious face',
     attireDetail:
       'small ribbon boutonniere at left chest, formal black trousers, formal black leather shoes',
   },
@@ -120,8 +138,11 @@ const ROLES: Record<RoleKey, RoleParams> = {
     attireBase:
       'matching A-line bridesmaid gown, sleeveless, knee-length, soft skirt flare',
     defaultTint: '#7E1F32',
+    accentTint: '#D4B896',
+    accentLocation:
+      'champagne sash at waist + champagne bouquet ribbon',
     ethnicityPrecision:
-      'young Filipina woman, warm brown skin, dark hair half-up',
+      'young Filipina woman, fair-complexion light tan skin, dark hair half-up, soft feminine face, gentle smile',
     attireDetail:
       'small matching posy bouquet, simple round neckline, low-heel pumps',
   },
@@ -131,7 +152,11 @@ const ROLES: Record<RoleKey, RoleParams> = {
     attireBase:
       'tailored navy two-piece suit, crisp white dress shirt, narrow tie',
     defaultTint: '#2E3F5C',
-    ethnicityPrecision: 'young Filipino man, warm brown skin, short black hair',
+    accentTint: '#7E1F32',
+    accentLocation:
+      'burgundy tie + burgundy pocket square + burgundy boutonniere',
+    ethnicityPrecision:
+      'young Filipino man, fair-complexion light tan skin, short black hair, clean shaven, friendly smile',
     attireDetail: 'small boutonniere at lapel, tucked shirt, polished black shoes',
   },
   female_ps: {
@@ -140,8 +165,11 @@ const ROLES: Record<RoleKey, RoleParams> = {
     attireBase:
       'formal Filipiniana terno gown with classic butterfly sleeves, full-length, refined sash',
     defaultTint: '#D4B896',
+    accentTint: '#C9A66B',
+    accentLocation:
+      'gold ceremonial sash from shoulder to hip + gold-trimmed butterfly sleeve edges',
     ethnicityPrecision:
-      'mature Filipina woman in her 50s, warm brown skin, hair styled up',
+      'mature Filipina woman in her 50s, fair-complexion light tan skin, hair styled up in soft chignon, dignified gentle face',
     attireDetail: 'shawl draped over one arm, small clutch, formal heels',
   },
   male_ps: {
@@ -150,8 +178,11 @@ const ROLES: Record<RoleKey, RoleParams> = {
     attireBase:
       'embroidered barong tagalog with prominent piña-textile pattern, formal black trousers',
     defaultTint: '#E8D9B8',
+    accentTint: '#C9A66B',
+    accentLocation:
+      'gold ceremonial lapel pin + gold-trimmed embroidery panel down center',
     ethnicityPrecision:
-      'distinguished Filipino man in his 50s, warm brown skin, salt-and-pepper hair',
+      'distinguished Filipino man in his 50s, fair-complexion light tan skin, salt-and-pepper short hair, clean shaven, dignified face',
     attireDetail: 'gold lapel pin, formal black leather shoes',
   },
   mothers: {
@@ -160,8 +191,11 @@ const ROLES: Record<RoleKey, RoleParams> = {
     attireBase:
       'midi-length formal dress with elegant shawl draped over shoulders, modest sleeves',
     defaultTint: '#C5C8CC',
+    accentTint: '#2E3F5C',
+    accentLocation:
+      'navy shawl draped over shoulders + navy small clutch',
     ethnicityPrecision:
-      'mature Filipina woman in her 60s, warm brown skin, hair styled simply',
+      'mature Filipina woman in her 60s, fair-complexion light tan skin, short hair styled simply, warm gentle motherly face',
     attireDetail: 'small clutch, low-heel formal pumps',
   },
   fathers: {
@@ -169,8 +203,11 @@ const ROLES: Record<RoleKey, RoleParams> = {
     pose: 'standing front-facing, hands at sides',
     attireBase: 'barong tagalog mature gentleman cut, formal black trousers',
     defaultTint: '#E8D9B8',
+    accentTint: '#1A1A1A',
+    accentLocation:
+      'black trim along barong collar + black-detailed embroidery panel',
     ethnicityPrecision:
-      'mature Filipino man in his 60s, warm brown skin, short white-gray hair',
+      'mature Filipino man in his 60s, fair-complexion light tan skin, short white-gray hair, clean shaven, dignified gentle face',
     attireDetail: 'formal black leather shoes',
   },
   guests: {
@@ -178,8 +215,10 @@ const ROLES: Record<RoleKey, RoleParams> = {
     pose: 'standing front-facing',
     attireBase: 'knee-length cocktail dress, fitted bodice with soft skirt',
     defaultTint: '#7E1F32',
+    accentTint: '#C9A66B',
+    accentLocation: 'gold clutch + gold belt accent at waist',
     ethnicityPrecision:
-      'young Filipina woman, warm brown skin, dark hair styled simply',
+      'young Filipina woman, fair-complexion light tan skin, dark hair styled simply, soft feminine face',
     attireDetail: 'small clutch, formal heels',
   },
   men_guests: {
@@ -188,7 +227,10 @@ const ROLES: Record<RoleKey, RoleParams> = {
     attireBase:
       'long-sleeve polo or guayabera-cut shirt, dress trousers, no tie',
     defaultTint: '#B8DCE8',
-    ethnicityPrecision: 'young Filipino man, warm brown skin, short black hair',
+    accentTint: '#2E3F5C',
+    accentLocation: 'navy dress trousers + navy belt',
+    ethnicityPrecision:
+      'young Filipino man, fair-complexion light tan skin, short black hair, clean shaven, friendly relaxed face',
     attireDetail: 'tucked-in shirt, formal leather shoes, smart casual register',
   },
 };
@@ -231,19 +273,49 @@ const STYLES: Record<StyleKey, StyleParams> = {
 // ---------------------------------------------------------------------------
 
 function buildPrompt(role: RoleParams, style: StyleParams): string {
-  return `A flat vector illustration of ${role.ethnicityPrecision}, ${role.pose}, full body view, centered composition on plain white background. Wearing ${role.attireBase} in ${role.defaultTint}. ${role.attireDetail}.
+  // Owner directive 2026-05-23 PM 5th pass: shared reference image of
+  // "WEDDING ATTIRE GUIDE · elegant · simple · classic" showing the actual
+  // target aesthetic — soft fashion-illustration / Etsy wedding clipart
+  // style, with FACELESS abstracted heads (no facial features), natural
+  // standing poses, cream warm background, 2-tone attire clearly visible.
+  //
+  // Pivoting AWAY from analytical prompting (color hex codes, ear
+  // placement instructions, gender-anti-beard negatives) which Recraft
+  // kept ignoring or mis-interpreting. New approach: lean into aesthetic
+  // reference vocabulary Recraft was trained on (Etsy wedding clipart,
+  // fashion plate, magazine editorial illustration). Skip the face
+  // entirely — matches the reference AND eliminates the beard/ear issues
+  // (no face = no facial-rendering failures).
+  const isFemale =
+    role.label.toLowerCase().includes('bride') ||
+    role.label.toLowerCase().includes('mother') ||
+    role.label.toLowerCase().includes('female') ||
+    role.label.toLowerCase().includes('guest woman') ||
+    role.label.toLowerCase().includes('bridesmaid');
+  const hairDesc = isFemale
+    ? 'sleek long dark hair flowing past shoulders'
+    : 'short dark hair, clean groomed';
+  const personDesc = isFemale ? 'Filipina woman' : 'Filipino man';
 
-Style: ${style.modifier}. Clean flat-illustration aesthetic, solid blocks of color with crisp clean outlines, no gradients, no photographic shading, no noise, no textures, no shadows. Bold simple geometry. Single subject, no background scene elements.
+  // Owner directive 2026-05-23 PM 6th pass: revert to v3 prompt (the
+  // "perfect!" iteration). Drop the v4 additions of explicit
+  // transparent-background instructions + natural-standing-pose
+  // contrapposto language — those changed the aesthetic away from
+  // what owner approved. The SVG that v3 produced is already
+  // transparent (verified via PIL pixel sampling: all 4 corner
+  // alpha=0), the cream backdrop the owner saw was a Preview-app
+  // viewer artifact, not in the file. Keep v3 prompt verbatim.
+  return `Soft fashion-illustration of a ${personDesc} in wedding attire, Etsy wedding-attire-guide clipart style, magazine editorial fashion plate aesthetic. FACELESS figure: no facial features rendered, no eyes, no nose, no mouth, no ears visible — head is an abstract simple silhouette with only the ${hairDesc} clearly defined. Fair Filipina light-tan skin tone for any visible skin (neck, hands).
 
-Color regions must be flat and distinct for clean vector output:
-- skin = warm brown #C68864
-- hair = dark brown-black #3A2B20
-- attire dominant = ${role.defaultTint}
-- accessories = subtle accent color of the prompt's style modifier
+Wearing ${role.attireBase}. Two-tone color blocking clearly visible: main attire color ${role.defaultTint} (covers most of the fabric) PLUS accent color ${role.accentTint} on ${role.accentLocation}. Both colors must be distinct flat regions on the figure, not blended.
 
-Output: single figure centered on the canvas, suitable for SVG vector rendering. Tall portrait aspect.
+${role.attireDetail}. Natural relaxed standing pose, ${role.pose}. Subtle soft shadow under the feet indicating standing on a surface.
 
-Negative: photorealism, gradients, shadows, noise, texture, multiple figures, busy backgrounds, watermarks, text, signatures, low-resolution artifacts, anime style, manga style, hyperrealistic style.`;
+Aesthetic: ${style.modifier}. Soft watercolor-meets-flat-vector style, clean fashion-plate proportions, similar to elegant Etsy/Pinterest wedding-attire-guide illustrations by independent designers. Warm cream pastel background (not pure white). Sophisticated minimalist character illustration. Full body view, single subject centered.
+
+Color blocking: solid flat regions with subtle soft transitions only at fabric folds. Skip detailed facial features, skip detailed hand features, focus all detail on the attire itself.
+
+Negative: photorealism, harsh gradients, dramatic shadows, noise, texture overlays, multiple figures, busy background scenes, watermarks, text labels, signatures, anime style, manga style, hyperrealistic, detailed face, eyes, nose, mouth, facial features, protruding ears, exaggerated features, monochrome single-color outfit, plain pure-white background, harsh outlines, cartoon outline style.`;
 }
 
 // ---------------------------------------------------------------------------
@@ -263,8 +335,6 @@ function getR2Client(): S3Client | null {
 }
 
 const R2_BUCKET = 'setnayan-media';
-const R2_PUBLIC_BASE =
-  process.env.R2_PUBLIC_BASE_URL ?? 'https://media.setnayan.com';
 
 async function uploadSvgToR2(
   client: S3Client,
@@ -280,7 +350,29 @@ async function uploadSvgToR2(
       CacheControl: 'public, max-age=31536000, immutable',
     }),
   );
-  return `${R2_PUBLIC_BASE}/${key}`;
+  // URL pattern depends on R2_PUBLIC_URL type:
+  //   r2.dev subdomain (pub-{hash}.r2.dev) → bucket name IMPLICIT in pub-{hash}
+  //     prefix → URL = `${R2_PUBLIC_URL}/${key}` (no bucket in path)
+  //   custom domain (media.setnayan.com) → bucket name may need to be in path
+  //     depending on Cloudflare Custom Domain config → URL = `${R2_PUBLIC_URL}/${bucket}/${key}`
+  // Detected via .r2.dev presence in the base URL.
+  const base = process.env.R2_PUBLIC_URL;
+  if (!base) {
+    throw new Error(
+      'R2_PUBLIC_URL env var is unset. Paste the value from Vercel (the ' +
+        'public-facing R2 URL prefix · custom domain OR r2.dev subdomain) ' +
+        'into apps/web/.env.local. Without it the script cannot construct ' +
+        'a reachable URL for the seed SQL.',
+    );
+  }
+  // Strip trailing slash from base if present to avoid `//` in the path.
+  const baseClean = base.replace(/\/$/, '');
+  // r2.dev URLs are bucket-specific (each bucket has its own pub-{hash}
+  // subdomain); custom domains MAY be account-level + need bucket in path.
+  const isR2DevUrl = baseClean.includes('.r2.dev');
+  return isR2DevUrl
+    ? `${baseClean}/${key}`
+    : `${baseClean}/${R2_BUCKET}/${key}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -347,7 +439,11 @@ async function main() {
         const gen = await generateVectorSvg({
           prompt,
           style: 'vector_illustration',
-          substyle: 'flat_2',
+          // substyle dropped — recraftv4_1_vector rejected 'flat_2' as
+          // "doesn't support style 'vector_illustration_flat_2'". V4.1
+          // renamed/removed V3 substyles. Letting Recraft pick the default
+          // substyle for vector_illustration; we can re-add a valid V4.1
+          // substyle after inspecting the default output quality.
           size: '1024x1024',
         });
         totalUsCost += 0.08;

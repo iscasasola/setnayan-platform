@@ -2,8 +2,6 @@ import Link from 'next/link';
 import {
   fetchSingletonRoleHolders,
   GROUP_CATEGORY_LABELS,
-  INVITED_TO_BLOCKS,
-  INVITED_TO_LABELS,
   MEAL_LABELS,
   ROLE_LABELS,
   RSVP_LABELS,
@@ -16,6 +14,7 @@ import {
 } from '@/lib/guests';
 import { createClient } from '@/lib/supabase/server';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { InvitedToChips } from '../_components/invited-to-chips';
 import { createGuest } from './actions';
 
 export const metadata = { title: 'Add guest' };
@@ -158,24 +157,18 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
 
         <div className="space-y-1.5">
           <label className="block text-sm font-medium text-ink">Invited to</label>
-          <div className="flex flex-wrap gap-2">
-            {INVITED_TO_BLOCKS.map((block) => (
-              <label
-                key={block}
-                className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-ink/15 bg-cream px-3 py-1.5 text-sm has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/10 has-[:checked]:text-terracotta-700"
-              >
-                <input
-                  type="checkbox"
-                  name={`invited_${block}`}
-                  defaultChecked={block === 'ceremony' || block === 'reception'}
-                  className="sr-only"
-                />
-                {INVITED_TO_LABELS[block]}
-              </label>
-            ))}
-          </div>
+          {/*
+            Smart defaults by role · locked 2026-05-23 PM. Inner-circle
+            roles (couple, parents, immediate family, primary wedding
+            party, principal sponsors) populate all 5 blocks; the rest
+            populate ceremony + reception + cocktails. Snaps when the
+            host changes the Role dropdown above — the client island
+            listens to the role <select id="role"> on this page.
+          */}
+          <InvitedToChips roleSelectId="role" initialRole="guest" />
           <p className="text-xs text-ink/50">
-            Default: ceremony + reception. Toggle off any block the guest isn&rsquo;t invited to.
+            Picks smart defaults from the Role above. Toggle any block the guest
+            isn&rsquo;t invited to.
           </p>
         </div>
 

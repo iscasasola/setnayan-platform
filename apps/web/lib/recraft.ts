@@ -1,8 +1,12 @@
-import 'server-only';
-
 /**
  * Recraft V3 API client — minimal fetch wrapper for native SVG vector
  * illustration generation.
+ *
+ * NOTE: Previously imported `server-only` to block client imports; that was
+ * removed because the offline tsx generation script needs to import this
+ * file. Runtime safety is still enforced by the RECRAFT_API_KEY env-var
+ * requirement — the key only exists in server contexts, so accidental
+ * client invocation throws a clear error before any network call.
  *
  * Why plain fetch instead of the openai SDK: Recraft is OpenAI-API-compatible
  * (`base_url='https://external.api.recraft.ai/v1'`) so the openai SDK works,

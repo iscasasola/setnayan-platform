@@ -67,13 +67,16 @@ import { toggleJourneyStep } from './actions';
 import { EventDayPrepCta } from '@/app/_components/event-day-prep-cta';
 import { AutoPreloadOnEventDay } from '@/app/_components/auto-preload-on-event-day';
 import { PlanningGroups } from './_components/planning-groups';
-import { EventHomeDetailPane } from './_components/event-home-detail-pane';
-import { EventHomeSplitView } from './_components/event-home-split-view';
-import {
-  buildCrossCategoryRecommendations,
-  PLAN_GROUPS,
-  type PlanGroupId,
-} from '@/lib/wedding-plan-groups';
+// Finder-column scaffolding (EventHomeSplitView + EventHomeDetailPane +
+// CardSelectable + ?card=<id> URL state) retired 2026-05-23 per owner
+// directive — event home renders as a single column on every
+// breakpoint. The 2-col master-detail split shipped via PR #367/#384
+// caused mobile-shape cramping on the LEFT pane (max 420px) and the
+// duplicated content on the RIGHT pane didn't earn its weight. The
+// underlying split-pane primitive lives on in the lg desktop sidebar
+// (bottom-nav.tsx + sidebar-resize-handle.tsx) — those usages are
+// unchanged.
+import { buildCrossCategoryRecommendations } from '@/lib/wedding-plan-groups';
 import {
   summarize as summarizePaperwork,
   type PaperworkRow,
@@ -313,20 +316,15 @@ export default async function EventHomePage({
   searchParams,
 }: {
   params: Promise<{ eventId: string }>;
-  searchParams?: Promise<{ concierge_trial?: string; card?: string }>;
+  searchParams?: Promise<{ concierge_trial?: string }>;
 }) {
   const { eventId } = await params;
   const search = searchParams ? await searchParams : {};
-  // Finder-column UX (CLAUDE.md 2026-05-22 lock) — desktop renders a
-  // master-detail split where the right pane mirrors the planning card
-  // the host tapped on the left. Validate the `?card=` query against the
-  // canonical PLAN_GROUPS list so stale links / typos don't crash the
-  // pane — they just fall back to the empty state.
-  const selectedCardId: PlanGroupId | null =
-    typeof search.card === 'string' &&
-    PLAN_GROUPS.some((g) => g.id === search.card)
-      ? (search.card as PlanGroupId)
-      : null;
+  // `?card=<id>` URL state retired 2026-05-23 alongside the Finder-column
+  // split-view. The PlanningGroups grid no longer renders a "selected"
+  // ring + the EventHomeDetailPane right column is gone, so there's
+  // nothing for the param to drive. Stale bookmarks land cleanly on
+  // event home with no UI affordance differences.
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
@@ -1218,25 +1216,14 @@ export default async function EventHomePage({
   }
 
   return (
-    // Finder-column UX (CLAUDE.md 2026-05-22 lock) — owner directive
-    // chain across the session:
-    //   1. "first column will be the exact mobile version, then it will
-    //      have the second column be whatever button they press · feels
-    //      like the finder in columns for macbook"
-    //   2. "columns should look like this and not compressed · there is
-    //      a divider" (50/50 split with visible divider)
-    //   3. "the column divider can be adjusted just like claude desktop"
-    //      → this PR: replace the static 50/50 split with a draggable
-    //      boundary. EventHomeSplitView is a client component that owns
-    //      the splitPct state + handles pointer drag, localStorage
-    //      persistence, double-click reset, and keyboard nudges. Mobile
-    //      (<lg) renders as a single column unchanged — the handle is
-    //      hidden and the inline `gridTemplateColumns` is a no-op
-    //      because `lg:grid` doesn't activate `display: grid` below
-    //      the breakpoint.
-    <EventHomeSplitView
-      left={
-        <>
+    // Column effect retired 2026-05-23 per owner directive — event home
+    // renders as a single column on every breakpoint. Prior shape was a
+    // mobile-shape LEFT pane (max 420px) + draggable divider + sticky
+    // EventHomeDetailPane RIGHT pane on lg+. That layout cramped the
+    // left content + the right pane duplicated content the host
+    // already saw inline. Single-column mirrors the same content
+    // density mobile hosts already enjoy.
+    <>
       <EventDayPrepCta eventId={eventId} eventDate={event.event_date} />
       <AutoPreloadOnEventDay eventId={eventId} eventDate={event.event_date} />
       {dayOfActive ? (
@@ -1414,7 +1401,6 @@ export default async function EventHomePage({
           manualVendorOptions={manualVendorOptions}
           manualVendorsAttachedByCategory={manualVendorsAttachedByCategory}
           crossCategoryRecommendations={crossCategoryRecommendations}
-          selectedCardId={selectedCardId}
         />
       </section>
 
@@ -1482,20 +1468,7 @@ export default async function EventHomePage({
         headingLabel={tr('section.recent_activity')}
         seeAllLabel={tr('cta.see_all')}
       />
-        </>
-      }
-      right={
-        <EventHomeDetailPane
-          eventId={eventId}
-          eventDate={event.event_date}
-          selectedCardId={selectedCardId}
-          vendors={eventVendors}
-          ceremonyType={eventCeremonyType}
-          venueSetting={eventVenueSetting}
-          crossCategoryRecommendations={crossCategoryRecommendations}
-        />
-      }
-    />
+    </>
   );
 }
 

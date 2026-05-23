@@ -368,6 +368,197 @@ export async function rejectPayment(formData: FormData) {
   revalidatePath('/admin/payments');
 }
 
+// ============================================================================
+// refundOrder — record an external bank-transfer reversal against a paid order
+// ============================================================================
+//
+// WHY (CLAUDE.md 2026-05-23 row "Refund action on /admin/payments"):
+// Pilot launches ~2026-06-01 with 5-20 personal/family cohort exercising real
+// BDO/GCash payments. Manual reconciliation makes duplicate transfers common
+// (couple sends GCash, doesn't see confirmation, resends). Today's only
+// recovery path is Supabase Studio under live customer pressure. This action
+// records the refund + notifies the couple in a single in-app step.
+//
+// Behavior:
+//   1. Authorize: actor must be admin/internal/team_member.
+//   2. Validate input: order_id is a string, reason ≥ 20 chars, amount > 0
+//      and ≤ a sanity ceiling (same ₱100M ceiling confirmOrderTotal uses
+//      below — refunds inherit the same paste-typo guard).
+//   3. Idempotent guard: the orders.update flips status only when the
+//      current row is in ('paid', 'fulfilled'). If the row is already
+//      'refunded' (concurrent admin, double-click, stale page), the WHERE
+//      clause returns zero rows and we surface a clean no-op message.
+//   4. Insert order_refunds (UNIQUE on order_id catches the race that
+//      slips past the WHERE filter — a 23505 unique-violation is also
+//      surfaced as "already refunded").
+//   5. admin_audit_log entry per 0023 § 2 (action='refund_order' + before/
+//      after JSON in metadata).
+//   6. emitNotification with type='payment_refunded' (newly registered in
+//      lib/notifications.ts + the notification_type enum via the same
+//      20260607060000 migration).
+//   7. Revalidate /admin/payments + the couple's order detail layout.
+//
+// Setnayan does NOT auto-credit money back; refunds happen off-platform via
+// reverse bank transfer. This action just records the truth.
+//
+// Two-admin gate per 0023 § 9.1 (refunds > ₱25K) is V1.x — this V1 action
+// is single-admin authority for the pilot cohort.
+// ============================================================================
+
+export async function refundOrder(formData: FormData) {
+  const { userId: adminUserId } = await requireAdmin();
+  const orderId = formData.get('order_id');
+  const reason = nullIfBlank(formData.get('reason'));
+  const proofUrl = nullIfBlank(formData.get('proof_url'));
+  const amountRaw = formData.get('refund_amount_php');
+
+  if (typeof orderId !== 'string') {
+    throw new Error('Refund missing order_id.');
+  }
+  if (!reason || reason.length < 20) {
+    throw new Error(
+      'Refund needs a reason (at least 20 characters) so we have a paper trail for the couple.',
+    );
+  }
+  if (typeof amountRaw !== 'string') {
+    throw new Error('Refund amount is required.');
+  }
+  const amountPhp = Number(amountRaw);
+  if (!Number.isFinite(amountPhp) || amountPhp <= 0) {
+    throw new Error('Refund amount must be a positive number.');
+  }
+  // Inherit the same ₱100M paste-typo guard confirmOrderTotal uses below —
+  // wedding totals never approach this in practice.
+  const MAX_REFUND_AMOUNT_PHP = 100_000_000;
+  if (amountPhp > MAX_REFUND_AMOUNT_PHP) {
+    throw new Error(
+      `Refund amount ${amountPhp} exceeds the ₱${MAX_REFUND_AMOUNT_PHP.toLocaleString()} sanity ceiling — double-check the input.`,
+    );
+  }
+  const refundCentavos = Math.round(amountPhp * 100);
+
+  const admin = createAdminClient();
+
+  // Step 1: read current order state so the audit-log carries before-JSON +
+  // we can surface useful messages when the idempotent flip is a no-op.
+  const { data: orderBefore, error: readErr } = await admin
+    .from('orders')
+    .select(
+      'order_id, user_id, event_id, public_id, status, requested_total_php, confirmed_total_php',
+    )
+    .eq('order_id', orderId)
+    .maybeSingle();
+  if (readErr) throw new Error(readErr.message);
+  if (!orderBefore) throw new Error('Order not found.');
+
+  // Idempotent no-op when the order is already refunded — surface a friendly
+  // message rather than re-firing the notification and audit row. The same
+  // path catches the case where a concurrent admin refunded a few seconds
+  // ago: the read here would already show status='refunded'.
+  if (orderBefore.status === 'refunded') {
+    revalidatePath('/admin/payments');
+    throw new Error(
+      `Order ${orderBefore.public_id} is already marked refunded. Nothing to do — refresh the page.`,
+    );
+  }
+
+  // Only paid / fulfilled orders can be refunded. Cancelled / draft /
+  // submitted / awaiting_payment orders shouldn't surface a refund button
+  // in the UI, but we guard server-side too so a hand-rolled form post
+  // can't slip past.
+  if (!(orderBefore.status === 'paid' || orderBefore.status === 'fulfilled')) {
+    throw new Error(
+      `Refund only applies to paid or fulfilled orders. This order is ${orderBefore.status} — cancel or close it instead.`,
+    );
+  }
+
+  // Step 2: flip the order to refunded. Conditional WHERE guards against
+  // a concurrent admin who already flipped it between the read and this
+  // update (race window is small but real).
+  const { data: orderAfter, error: updErr } = await admin
+    .from('orders')
+    .update({ status: 'refunded', updated_at: new Date().toISOString() })
+    .eq('order_id', orderId)
+    .in('status', ['paid', 'fulfilled'])
+    .select('order_id, status')
+    .maybeSingle();
+  if (updErr) throw new Error(`Order refund flip failed: ${updErr.message}`);
+  if (!orderAfter) {
+    // The WHERE filter zeroed out — another admin or a prior call beat us.
+    revalidatePath('/admin/payments');
+    throw new Error(
+      `Order ${orderBefore.public_id} was refunded by another admin or has moved out of paid/fulfilled. Refresh the page.`,
+    );
+  }
+
+  // Step 3: insert the order_refunds audit row. The UNIQUE(order_id) index
+  // is the belt-and-suspenders idempotency guard — a 23505 unique-violation
+  // here means another concurrent refund already inserted, which we surface
+  // the same way as the WHERE-clause no-op above.
+  const { error: refundInsertErr } = await admin.from('order_refunds').insert({
+    order_id: orderId,
+    refund_amount_centavos: refundCentavos,
+    reason,
+    refunded_by_admin_id: adminUserId,
+    proof_url: proofUrl,
+    status: 'sent',
+  });
+  if (refundInsertErr) {
+    // The order row already flipped to refunded above — if we can't write
+    // the audit row, the order state is inconsistent with the ledger.
+    // Re-throw so the admin sees the error and the operator can decide
+    // whether to roll the order back via Supabase Studio. This is a rare
+    // path (UNIQUE collision on a row we just guarded against above).
+    throw new Error(
+      `Order ${orderBefore.public_id} status flipped to refunded but the order_refunds row failed to insert: ${refundInsertErr.message}. Check Supabase Studio + revert the order status if needed.`,
+    );
+  }
+
+  // Step 4: admin_audit_log entry per 0023 § 2. Best-effort — a failed
+  // audit-log insert should NOT block the refund (the order_refunds row IS
+  // the load-bearing audit trail; admin_audit_log is the cross-surface
+  // stream).
+  try {
+    await admin.from('admin_audit_log').insert({
+      action: 'refund_order',
+      target_id: orderId,
+      actor_user_id: adminUserId,
+      metadata: {
+        order_public_id: orderBefore.public_id,
+        before: { status: orderBefore.status },
+        after: { status: 'refunded' },
+        refund_amount_centavos: refundCentavos,
+        refund_amount_php: amountPhp,
+        reason,
+        proof_url: proofUrl,
+      },
+    });
+  } catch (auditErr) {
+    console.error('[refundOrder] admin_audit_log insert failed (non-fatal):', auditErr);
+  }
+
+  // Step 5: notify the couple. Polite brand voice per [[feedback_setnayan_no_dev_text_post_launch]] —
+  // we tell them what landed, not what the database did.
+  await emitNotification({
+    userId: orderBefore.user_id,
+    type: 'payment_refunded',
+    title: `Refund recorded for order ${orderBefore.public_id}`,
+    body:
+      `Setnayan returned ${formatPhp(amountPhp)} to your bank or e-wallet. ` +
+      `Reach out if you don’t see the transfer within 1–3 banking days.`,
+    relatedUrl: orderBefore.event_id
+      ? `/dashboard/${orderBefore.event_id}/orders/${orderId}`
+      : null,
+  });
+
+  revalidatePath('/admin/payments');
+  revalidatePath('/admin/payouts');
+  // Couple-side dashboard re-reads the orders row + the status pill flips
+  // to "Refunded" without a hard refresh. Mirrors the layout-level
+  // revalidate approvePayment uses for the activation flip above.
+  revalidatePath('/dashboard', 'layout');
+}
+
 export async function confirmOrderTotal(formData: FormData) {
   await requireAdmin();
   const orderId = formData.get('order_id');

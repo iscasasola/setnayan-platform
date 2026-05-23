@@ -11,6 +11,11 @@ export type NotificationType =
   | 'order_paid'
   | 'payment_matched'
   | 'payment_rejected'
+  // Added 2026-06-07 alongside migration 20260607060000_iteration_0023_order_refunds.sql
+  // for the /admin/payments refund action (CLAUDE.md 2026-05-23 row). Fired
+  // from /admin/payments/actions.ts → refundOrder() after the orders row is
+  // flipped to 'refunded' + the order_refunds audit row is inserted.
+  | 'payment_refunded'
   | 'rsvp_received'
   | 'review_request'
   | 'help_ticket_replied'
@@ -25,6 +30,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   order_paid: 'Order paid',
   payment_matched: 'Payment matched',
   payment_rejected: 'Payment rejected',
+  payment_refunded: 'Refund issued',
   rsvp_received: 'RSVP received',
   review_request: 'Review request',
   help_ticket_replied: 'Help ticket reply',
@@ -40,6 +46,7 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   order_paid: 'bg-emerald-200 text-emerald-900',
   payment_matched: 'bg-emerald-100 text-emerald-800',
   payment_rejected: 'bg-rose-100 text-rose-800',
+  payment_refunded: 'bg-violet-100 text-violet-800',
   rsvp_received: 'bg-terracotta/15 text-terracotta-700',
   review_request: 'bg-amber-100 text-amber-900',
   help_ticket_replied: 'bg-indigo-100 text-indigo-800',

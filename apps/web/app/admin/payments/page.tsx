@@ -11,7 +11,7 @@ import {
   type OrderStatus,
   type PaymentStatus,
 } from '@/lib/orders';
-import { approvePayment, confirmOrderTotal, rejectPayment } from './actions';
+import { approvePayment, confirmOrderTotal, refundOrder, rejectPayment } from './actions';
 
 export const metadata = { title: 'Payments · Admin' };
 
@@ -343,7 +343,17 @@ function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
                   </SubmitButton>
                 </form>
               </div>
-            ) : p.admin_notes ? (
+            ) : p.order && (p.order.status === 'paid' || p.order.status === 'fulfilled') ? (
+              <RefundForm
+                orderId={p.order_id}
+                orderPublicId={p.order.public_id}
+                defaultAmountPhp={
+                  p.order.confirmed_total_php ?? p.order.requested_total_php
+                }
+              />
+            ) : null}
+
+            {p.status !== 'pending' && p.admin_notes ? (
               <p className="rounded-md bg-ink/[0.03] p-3 text-xs text-ink/75">
                 {p.admin_notes}
                 {p.reviewed_at ? (
@@ -357,6 +367,94 @@ function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
         );
       })}
     </ul>
+  );
+}
+
+/**
+ * RefundForm — inline refund action on a paid/fulfilled order row.
+ *
+ * WHY (CLAUDE.md 2026-05-23 row "Refund action on /admin/payments"):
+ * Pilot couples (5-20 personal/family cohort, June 1 launch) will double-pay
+ * under manual GCash reconciliation. Today's only recovery path is Supabase
+ * Studio under live customer pressure. The inline form lets the owner record
+ * the bank-transfer reversal + notify the couple in one click without
+ * leaving /admin/payments.
+ *
+ * Pre-fills the refund amount with the order's confirmed total (or requested
+ * total if not yet quoted). Reason is required (≥ 20 chars, enforced
+ * server-side too). Proof URL is optional in V1 — admin often refunds first
+ * and attaches the screenshot later.
+ *
+ * Single-admin authority for V1 per the pilot scope. Two-admin gate for
+ * refunds > ₱25,000 (per 0023 § 9.1) lands V1.x alongside the dedicated
+ * refund detail page.
+ */
+function RefundForm({
+  orderId,
+  orderPublicId,
+  defaultAmountPhp,
+}: {
+  orderId: string;
+  orderPublicId: string;
+  defaultAmountPhp: number;
+}) {
+  return (
+    <details className="border-t border-ink/10 pt-3">
+      <summary className="cursor-pointer text-xs font-medium text-violet-800 hover:text-violet-900">
+        Record a refund for order {orderPublicId}
+      </summary>
+      <form action={refundOrder} className="mt-2 space-y-2">
+        <input type="hidden" name="order_id" value={orderId} />
+        <label className="block space-y-1">
+          <span className="block font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+            Amount refunded (PHP)
+          </span>
+          <input
+            name="refund_amount_php"
+            type="number"
+            min={0.01}
+            step="0.01"
+            defaultValue={String(defaultAmountPhp)}
+            required
+            className="input-field h-9 py-0 text-sm"
+          />
+          <span className="block font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+            Pre-filled with the order total — edit if you sent back a different amount.
+          </span>
+        </label>
+        <label className="block space-y-1">
+          <span className="block font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+            Reason (at least 20 characters)
+          </span>
+          <textarea
+            name="reason"
+            required
+            minLength={20}
+            maxLength={2000}
+            placeholder="E.g. Couple double-paid via GCash on June 4 — reversed transfer GCash ref 99887766 sent back to their original number."
+            rows={2}
+            className="input-field min-h-[60px] py-2 text-sm"
+          />
+        </label>
+        <label className="block space-y-1">
+          <span className="block font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+            Proof URL (optional)
+          </span>
+          <input
+            name="proof_url"
+            type="url"
+            placeholder="Link to the reverse-transfer screenshot — you can add this later."
+            className="input-field h-9 py-0 text-sm"
+          />
+        </label>
+        <SubmitButton
+          className="inline-flex items-center justify-center rounded-md bg-violet-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-violet-800 disabled:opacity-70"
+          pendingLabel="Recording refund…"
+        >
+          Record refund · notify couple
+        </SubmitButton>
+      </form>
+    </details>
   );
 }
 

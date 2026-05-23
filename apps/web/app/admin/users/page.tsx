@@ -1,4 +1,6 @@
-import { Search, ShieldCheck, Sparkle, MailCheck, Trash2, Ban, KeyRound, Undo2 } from 'lucide-react';
+import Link from 'next/link';
+import { type ReactNode } from 'react';
+import { Search, ShieldCheck, Sparkle, MailCheck, Trash2, Ban, KeyRound, Undo2, Gift, ChevronDown, ChevronUp, XCircle } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
@@ -7,10 +9,19 @@ import {
   blacklistUser,
   confirmUserEmail,
   deleteUser,
+  issueCompGrant,
   resetUserPassword,
+  revokeCompGrant,
   toggleTeamMember,
   unblacklistEmail,
 } from './actions';
+import {
+  describeScope,
+  describeSource,
+  fetchCompGrantsForUser,
+  formatRetailValueCentavos,
+  type CompGrantRow,
+} from '@/lib/comp-grants';
 
 export const metadata = { title: 'Users · Admin' };
 
@@ -40,6 +51,17 @@ type Props = {
     filter?: string;
     temp_password?: string;
     for_email?: string;
+    /**
+     * `expand=<user_id>` opens the inline comp-grants panel below that
+     * user's row. Re-rendered as a hash-anchored deep-link so a successful
+     * issueCompGrant redirect lands the admin right where they were.
+     */
+    expand?: string;
+    /**
+     * Transient success/warning banner copy populated by issueCompGrant on
+     * a successful redirect. Cleared on the next navigation.
+     */
+    grant_banner?: string;
   }>;
 };
 
@@ -49,6 +71,8 @@ export default async function AdminUsersPage({ searchParams }: Props) {
   const filter = (search.filter ?? 'all') as Filter;
   const tempPassword = search.temp_password ?? null;
   const forEmail = search.for_email ?? null;
+  const expandUserId = search.expand ?? null;
+  const grantBanner = search.grant_banner ?? null;
 
   const admin = createAdminClient();
 
@@ -95,6 +119,18 @@ export default async function AdminUsersPage({ searchParams }: Props) {
     queryError = error?.message ?? null;
   }
 
+  // Fetch comp grants for the expanded user (if the panel is open AND the
+  // user shows up in the current list — protects against stale ?expand
+  // params after a filter change).
+  let expandedGrants: CompGrantRow[] = [];
+  if (expandUserId && userRows.some((u) => u.user_id === expandUserId)) {
+    try {
+      expandedGrants = await fetchCompGrantsForUser(admin, expandUserId);
+    } catch {
+      expandedGrants = [];
+    }
+  }
+
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
@@ -103,6 +139,15 @@ export default async function AdminUsersPage({ searchParams }: Props) {
           Latest 200 accounts (newest first). Filter or search to drill in.
         </p>
       </header>
+
+      {grantBanner ? (
+        <section
+          role="status"
+          className="mb-6 rounded-2xl border border-emerald-300/60 bg-emerald-50/80 px-5 py-4"
+        >
+          <p className="text-sm text-emerald-900">{grantBanner}</p>
+        </section>
+      ) : null}
 
       {tempPassword ? (
         <section
@@ -185,14 +230,51 @@ export default async function AdminUsersPage({ searchParams }: Props) {
       {filter === 'blacklisted' ? (
         <BlacklistTable rows={blacklistRows} />
       ) : (
-        <UsersTable rows={userRows} />
+        <UsersTable
+          rows={userRows}
+          q={q}
+          filter={filter}
+          expandUserId={expandUserId}
+          expandedGrants={expandedGrants}
+        />
       )}
       <MiniTour tourKey="admin_users_v1" />
     </div>
   );
 }
 
-function UsersTable({ rows }: { rows: UserRow[] }) {
+// Build the canonical query-string for a row's expand/collapse toggle.
+// Preserves q + filter so the panel can toggle without losing search context.
+function buildToggleHref(opts: {
+  q: string;
+  filter: Filter;
+  expandUserId: string | null;
+  rowUserId: string;
+}): string {
+  const params = new URLSearchParams();
+  if (opts.q) params.set('q', opts.q);
+  if (opts.filter !== 'all') params.set('filter', opts.filter);
+  // Toggle: if this row is already expanded, drop the param; otherwise set it.
+  if (opts.expandUserId !== opts.rowUserId) {
+    params.set('expand', opts.rowUserId);
+  }
+  const qs = params.toString();
+  return qs ? `/admin/users?${qs}#u-${opts.rowUserId}` : `/admin/users#u-${opts.rowUserId}`;
+}
+
+function UsersTable({
+  rows,
+  q,
+  filter,
+  expandUserId,
+  expandedGrants,
+}: {
+  rows: UserRow[];
+  q: string;
+  filter: Filter;
+  expandUserId: string | null;
+  expandedGrants: CompGrantRow[];
+}) {
   return (
     <div className="overflow-x-auto rounded-xl border border-ink/10">
       <table className="w-full text-left text-sm">
@@ -214,8 +296,14 @@ function UsersTable({ rows }: { rows: UserRow[] }) {
               </td>
             </tr>
           ) : (
-            rows.map((u) => (
-              <tr key={u.user_id} className="border-t border-ink/5 hover:bg-terracotta/[0.04]">
+            rows.flatMap((u) => {
+              const isExpanded = expandUserId === u.user_id;
+              const userTr = (
+              <tr
+                key={u.user_id}
+                id={`u-${u.user_id}`}
+                className="border-t border-ink/5 hover:bg-terracotta/[0.04]"
+              >
                 <td className="px-3 py-3">
                   <p className="font-medium text-ink">{u.email ?? '—'}</p>
                   {u.display_name ? (
@@ -331,12 +419,69 @@ function UsersTable({ rows }: { rows: UserRow[] }) {
                             Blacklist
                           </SubmitButton>
                         </ConfirmForm>
+                        <Link
+                          href={buildToggleHref({
+                            q,
+                            filter,
+                            expandUserId,
+                            rowUserId: u.user_id,
+                          })}
+                          title={
+                            isExpanded
+                              ? 'Hide comp grants'
+                              : 'View + issue comp grants for this user'
+                          }
+                          className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+                            isExpanded
+                              ? 'bg-terracotta/10 text-terracotta-700 hover:bg-terracotta/15'
+                              : 'bg-ink/5 text-ink/70 hover:bg-terracotta/10 hover:text-terracotta-700'
+                          }`}
+                          aria-expanded={isExpanded}
+                          aria-controls={`grants-${u.user_id}`}
+                        >
+                          <Gift className="h-3 w-3" strokeWidth={2} />
+                          Comp grants
+                          {isExpanded ? (
+                            <ChevronUp className="h-3 w-3" strokeWidth={2} />
+                          ) : (
+                            <ChevronDown className="h-3 w-3" strokeWidth={2} />
+                          )}
+                        </Link>
                       </>
                     )}
                   </div>
                 </td>
               </tr>
-            ))
+              );
+              const fragments: ReactNode[] = [userTr];
+              if (isExpanded && !u.is_internal) {
+                fragments.push(
+                  <tr key={`${u.user_id}-grants`} id={`grants-${u.user_id}`}>
+                    <td colSpan={6} className="border-t border-terracotta/15 bg-cream/40 px-3 py-5">
+                      <CompGrantsPanel
+                        userId={u.user_id}
+                        userEmail={u.email}
+                        grants={expandedGrants}
+                      />
+                    </td>
+                  </tr>,
+                );
+              }
+              if (isExpanded && u.is_internal) {
+                fragments.push(
+                  <tr key={`${u.user_id}-grants-locked`} id={`grants-${u.user_id}`}>
+                    <td colSpan={6} className="border-t border-purple-200 bg-purple-50/40 px-3 py-4">
+                      <p className="text-sm text-purple-900">
+                        This is an internal account (§ 10a) — it already carries
+                        a permanent grant for every Setnayan service. Per-SKU
+                        comps are not allowed on top.
+                      </p>
+                    </td>
+                  </tr>,
+                );
+              }
+              return fragments;
+            })
           )}
         </tbody>
       </table>
@@ -392,5 +537,242 @@ function BlacklistTable({ rows }: { rows: BlacklistRow[] }) {
         </tbody>
       </table>
     </div>
+  );
+}
+
+/**
+ * Comp grants panel — renders inline below the target user row.
+ *
+ * Layout split into two columns at md+: existing grants list (left) +
+ * issue form (right). On mobile they stack. The form is a plain
+ * <form action={issueCompGrant}> so server-action validation errors
+ * bubble through Next's built-in error UI.
+ */
+function CompGrantsPanel({
+  userId,
+  userEmail,
+  grants,
+}: {
+  userId: string;
+  userEmail: string | null;
+  grants: CompGrantRow[];
+}) {
+  const active = grants.filter((g) => g.revoked_at === null);
+  const revoked = grants.filter((g) => g.revoked_at !== null);
+  return (
+    <div className="grid gap-6 md:grid-cols-2">
+      <div>
+        <h3 className="mb-3 text-sm font-semibold text-ink">
+          Comp grants for {userEmail ?? 'this user'}
+        </h3>
+        {grants.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-ink/15 px-4 py-6 text-sm text-ink/55">
+            No comp grants on this account yet. Issue one with the form
+            on the right to gift a service.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {active.map((g) => (
+              <GrantCard key={g.grant_id} grant={g} revoked={false} />
+            ))}
+            {revoked.length > 0 ? (
+              <>
+                <p className="pt-3 text-[11px] uppercase tracking-[0.15em] text-ink/45">
+                  Revoked
+                </p>
+                {revoked.map((g) => (
+                  <GrantCard key={g.grant_id} grant={g} revoked={true} />
+                ))}
+              </>
+            ) : null}
+          </ul>
+        )}
+      </div>
+      <div>
+        <h3 className="mb-3 text-sm font-semibold text-ink">Issue a comp grant</h3>
+        <form action={issueCompGrant} className="space-y-3 rounded-xl border border-ink/10 bg-white p-4">
+          <input type="hidden" name="user_id" value={userId} />
+          <div>
+            <label
+              htmlFor={`scope-${userId}`}
+              className="mb-1 block text-xs font-medium text-ink/70"
+            >
+              Scope
+            </label>
+            <select
+              id={`scope-${userId}`}
+              name="scope"
+              required
+              defaultValue="specific_skus"
+              className="input-field"
+            >
+              <option value="specific_skus">Specific services</option>
+              <option value="all_services">Every Setnayan service</option>
+            </select>
+            <p className="mt-1 text-xs text-ink/55">
+              &ldquo;Every service&rdquo; is broad — usually reserved for goodwill remediation.
+            </p>
+          </div>
+          <div>
+            <label
+              htmlFor={`scoped-${userId}`}
+              className="mb-1 block text-xs font-medium text-ink/70"
+            >
+              Service codes (only when scope is specific services)
+            </label>
+            <textarea
+              id={`scoped-${userId}`}
+              name="scoped_skus"
+              rows={2}
+              placeholder="save_the_date_video, monogram_hero_upgrade, panood_daily_broadcast"
+              className="input-field font-mono text-xs"
+            />
+            <p className="mt-1 text-xs text-ink/55">
+              Comma- or newline-separated. SKU codes match{' '}
+              <code className="font-mono text-[11px]">service_catalog.sku_code</code>.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label
+                htmlFor={`retail-${userId}`}
+                className="mb-1 block text-xs font-medium text-ink/70"
+              >
+                Retail value (₱)
+              </label>
+              <input
+                id={`retail-${userId}`}
+                name="retail_value_php"
+                type="number"
+                min="0"
+                step="1"
+                placeholder="2499"
+                className="input-field"
+              />
+              <p className="mt-1 text-xs text-ink/55">
+                Optional but recommended for audit. Grants over ₱10,000 get
+                flagged for co-approval.
+              </p>
+            </div>
+            <div>
+              <label
+                htmlFor={`expiry-${userId}`}
+                className="mb-1 block text-xs font-medium text-ink/70"
+              >
+                Expires
+              </label>
+              <input
+                id={`expiry-${userId}`}
+                name="expiry_at"
+                type="datetime-local"
+                className="input-field"
+              />
+              <p className="mt-1 text-xs text-ink/55">
+                Leave blank to grant lifetime access.
+              </p>
+            </div>
+          </div>
+          <div>
+            <label
+              htmlFor={`rationale-${userId}`}
+              className="mb-1 block text-xs font-medium text-ink/70"
+            >
+              Rationale (min 20 characters)
+            </label>
+            <textarea
+              id={`rationale-${userId}`}
+              name="rationale"
+              rows={3}
+              required
+              minLength={20}
+              placeholder="Couple was bound to wrong test event during pilot · gifting Save-the-Date Video as remediation."
+              className="input-field"
+            />
+            <p className="mt-1 text-xs text-ink/55">
+              Audit-grade · shows up in admin_audit_log.metadata so any
+              future review can see why the comp landed.
+            </p>
+          </div>
+          <SubmitButton
+            className="inline-flex items-center gap-1.5 rounded-md bg-terracotta px-3 py-1.5 text-sm font-medium text-cream hover:bg-terracotta-700 disabled:opacity-60"
+            pendingLabel="Issuing…"
+          >
+            <Gift className="h-3.5 w-3.5" strokeWidth={2} />
+            Issue comp grant
+          </SubmitButton>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Render a single comp_grants row as a compact card. Active grants get
+ * a Revoke form (with required reason); revoked grants just render
+ * their state.
+ */
+function GrantCard({ grant, revoked }: { grant: CompGrantRow; revoked: boolean }) {
+  return (
+    <li
+      className={`rounded-lg border px-3 py-2.5 ${
+        revoked
+          ? 'border-ink/10 bg-ink/[0.02] text-ink/60'
+          : 'border-emerald-200/70 bg-emerald-50/50'
+      }`}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="space-y-1">
+          <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-ink/60">
+            {grant.public_id}
+          </p>
+          <p className="text-sm font-medium text-ink">
+            {describeScope(grant.scope, grant.scoped_skus)}
+          </p>
+          <p className="text-xs text-ink/60">
+            {describeSource(grant.source)} ·{' '}
+            {formatRetailValueCentavos(grant.retail_value_centavos)} retail value
+          </p>
+          {grant.scope === 'specific_skus' && grant.scoped_skus ? (
+            <p className="font-mono text-[11px] text-ink/55">
+              {grant.scoped_skus.join(', ')}
+            </p>
+          ) : null}
+          {grant.rationale ? (
+            <p className="text-xs text-ink/70">
+              <span className="text-ink/45">Why:</span> {grant.rationale}
+            </p>
+          ) : null}
+          <p className="text-[11px] text-ink/45">
+            Issued {grant.created_at.slice(0, 10)}
+            {grant.expiry ? ` · expires ${grant.expiry.slice(0, 10)}` : ' · no expiry'}
+            {revoked && grant.revoked_at
+              ? ` · revoked ${grant.revoked_at.slice(0, 10)}`
+              : null}
+          </p>
+        </div>
+        {!revoked ? (
+          <ConfirmForm
+            action={revokeCompGrant}
+            message={`Revoke comp grant ${grant.public_id}? This stops future uses but doesn't refund any order that's already used it. Reason is required.`}
+            className="shrink-0"
+          >
+            <input type="hidden" name="grant_id" value={grant.grant_id} />
+            <input
+              type="hidden"
+              name="reason"
+              value="Revoked from admin/users panel"
+            />
+            <SubmitButton
+              title="Revoke this grant. The audit log captures it."
+              className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-1 text-xs font-medium text-ink/70 hover:bg-rose-100 hover:text-rose-900 disabled:opacity-60"
+              pendingLabel="…"
+            >
+              <XCircle className="h-3 w-3" strokeWidth={2} />
+              Revoke
+            </SubmitButton>
+          </ConfirmForm>
+        ) : null}
+      </div>
+    </li>
   );
 }

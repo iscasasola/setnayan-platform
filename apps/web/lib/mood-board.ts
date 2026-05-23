@@ -83,6 +83,17 @@ export const PALETTE_LIMITS: Record<PaletteKey, PaletteLimits> = {
     hint: 'Bridesmaids · groomsmen · MoH · best man — 3 to 6 coordinated colors',
     family: 'role',
   },
+  // VIP family — owner directive 2026-05-23 PM. The 4 immediate-family
+  // roles (bride/groom parents + bride/groom immediate family) share
+  // one mood-board palette since they're seated as one VIP cluster on
+  // iteration 0008's Tier-1 ring.
+  vip_family: {
+    min: 1,
+    max: 3,
+    label: 'VIP · Immediate Family',
+    hint: 'Parents and immediate family of both sides — 1 to 3 colors',
+    family: 'role',
+  },
   principal_sponsors: {
     min: 1,
     max: 3,
@@ -192,6 +203,9 @@ export const DEFAULT_PALETTE_SUGGESTIONS: Record<PaletteKey, string[]> = {
   bride: ['#FAF7F2'],
   groom: ['#1A1A1A'],
   wedding_party: ['#C97B4B', '#824A2A', '#D08654'],
+  // VIP family default — deep rose pairs with the rose-200 sidebar chip
+  // tint locked in role-groups.ts.
+  vip_family: ['#BE185D'],
   principal_sponsors: ['#7C3AED'],
   secondary_sponsors: ['#D97706'],
   bearers_flower_girl: ['#059669'],

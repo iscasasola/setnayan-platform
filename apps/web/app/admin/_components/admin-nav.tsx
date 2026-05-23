@@ -66,6 +66,12 @@ const NAV: Entry[] = [
     items: [
       { href: '/admin/taxonomy', label: 'Taxonomy' },
       { href: '/admin/website', label: 'Website' },
+      // Concierge brain sits in Content (not Queues / not Money) because
+      // it's curated knowledge feeding the Concierge LLM — closer to
+      // taxonomy/website/moodboard than to operational queues. Order
+      // chosen so /admin/brain sits between Website + Moodboard library
+      // per the 2026-05-23 admin-surface alignment brief.
+      { href: '/admin/brain', label: 'Concierge brain' },
       { href: '/admin/moodboard-library', label: 'Moodboard library' },
     ],
   },

@@ -21,6 +21,7 @@ import {
   type GuestGroupWithCount,
   type GuestRole,
   type GuestRow,
+  type GuestSide,
   type RsvpStatus,
 } from '@/lib/guests';
 import { getPrimaryColor, type RolePalette } from '@/lib/mood-board';
@@ -362,6 +363,36 @@ function BulkApplyForm({
                 </option>
               ))}
             </optgroup>
+          ))}
+        </select>
+        <ChevronDown
+          aria-hidden
+          className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40"
+          strokeWidth={1.75}
+        />
+      </div>
+
+      {/* Side select · owner directive 2026-05-23 PM: "we want them to
+          pick a role, add to a group, assign sides". Sits between Role
+          and Group in the bulk toolbar. Server action accepts an
+          optional `side` field on the same bulkApplyRoleAndGroup
+          payload — applying alone, alongside Role, alongside Group, or
+          all three together is supported. */}
+      <label className="sr-only" htmlFor="bulk-side">
+        Assign side to selected guests
+      </label>
+      <div className="relative">
+        <select
+          id="bulk-side"
+          name="side"
+          defaultValue=""
+          className="h-9 appearance-none rounded-md border border-ink/20 bg-cream px-3 pr-8 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+        >
+          <option value="">Assign side…</option>
+          {(['bride', 'groom', 'both'] as GuestSide[]).map((side) => (
+            <option key={side} value={side}>
+              {SIDE_LABELS[side]}
+            </option>
           ))}
         </select>
         <ChevronDown

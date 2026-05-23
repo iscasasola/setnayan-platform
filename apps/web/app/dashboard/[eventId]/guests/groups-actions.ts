@@ -8,7 +8,13 @@ import {
   SINGLETON_GUEST_ROLES,
   type GuestGroupTeamSide,
   type GuestRole,
+  type GuestSide,
 } from '@/lib/guests';
+
+// Side enum values — owner directive 2026-05-23 added bulk Side
+// assignment to the SelectionBar. Mirrors the existing per-guest side
+// picker (GuestSide = 'bride' | 'groom' | 'both').
+const SIDE_VALUES: GuestSide[] = ['bride', 'groom', 'both'];
 
 const ROLE_VALUES: GuestRole[] = [
   'guest',
@@ -192,21 +198,23 @@ export async function bulkApplyRoleAndGroup(
 ): Promise<void> {
   const rawRole = clean(formData.get('role'));
   const rawGroupId = clean(formData.get('group_id'));
+  const rawSide = clean(formData.get('side'));
   const guestIds = parseGuestIds(formData);
 
   if (guestIds.length === 0) {
     redirect(backToList(eventId, { error: 'no_selection' }));
   }
-  if (!rawRole && !rawGroupId) {
-    // Nothing to do — Apply was clicked with both selects on placeholder.
-    // Silent return rather than red-error since the host might've meant
-    // to back out.
+  if (!rawRole && !rawGroupId && !rawSide) {
+    // Nothing to do — Apply was clicked with all three selects on
+    // placeholder. Silent return rather than red-error since the host
+    // might've meant to back out.
     redirect(backToList(eventId, {}));
   }
 
   const supabase = await createClient();
   let didRole = false;
   let didGroup = false;
+  let didSide = false;
 
   // ---- Role half ----
   if (rawRole) {
@@ -242,6 +250,23 @@ export async function bulkApplyRoleAndGroup(
     didRole = true;
   }
 
+  // ---- Side half (owner directive 2026-05-23) ----
+  if (rawSide) {
+    const side = rawSide as GuestSide;
+    if (!SIDE_VALUES.includes(side)) {
+      redirect(backToList(eventId, { error: 'invalid_side' }));
+    }
+    const { error } = await supabase
+      .from('guests')
+      .update({ side, updated_at: new Date().toISOString() })
+      .eq('event_id', eventId)
+      .in('guest_id', guestIds);
+    if (error) {
+      redirect(backToList(eventId, { error: encodeURIComponent(error.message) }));
+    }
+    didSide = true;
+  }
+
   // ---- Group half ----
   if (rawGroupId) {
     const { data: groupRow, error: groupErr } = await supabase
@@ -272,6 +297,7 @@ export async function bulkApplyRoleAndGroup(
     backToList(eventId, {
       ...(didRole ? { bulk_assigned: String(guestIds.length) } : {}),
       ...(didGroup ? { bulk_grouped: String(guestIds.length) } : {}),
+      ...(didSide ? { bulk_sided: String(guestIds.length) } : {}),
     }),
   );
 }

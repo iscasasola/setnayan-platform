@@ -23,6 +23,7 @@ import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { GuestListMultiselect } from './_components/guest-list-multiselect';
 import { GroupsSidebar } from './_components/groups-sidebar';
+import { LiveSearch } from './_components/live-search';
 
 export const metadata = { title: 'Guests' };
 
@@ -83,6 +84,7 @@ type Props = {
     error?: string;
     bulk_assigned?: string;
     bulk_grouped?: string;
+    bulk_sided?: string;
     bulk_deleted?: string;
     group_created?: string;
     group_saved?: string;
@@ -399,6 +401,7 @@ function pickFlash(search: {
   skipped?: string;
   bulk_assigned?: string;
   bulk_grouped?: string;
+  bulk_sided?: string;
   bulk_deleted?: string;
   group_created?: string;
   group_saved?: string;
@@ -426,6 +429,10 @@ function pickFlash(search: {
   if (search.bulk_grouped) {
     const n = Number(search.bulk_grouped);
     return `Added ${n} guest${n === 1 ? '' : 's'} to the group.`;
+  }
+  if (search.bulk_sided) {
+    const n = Number(search.bulk_sided);
+    return `Side updated for ${n} guest${n === 1 ? '' : 's'}.`;
   }
   if (search.bulk_deleted) {
     const n = Number(search.bulk_deleted);
@@ -530,37 +537,42 @@ function Toolbar({
   sort: SortKey;
   search: { rsvp?: string; view?: string; tag?: string };
 }) {
+  // Search input is a CLIENT ISLAND (owner directive 2026-05-23 — "no
+  // need to press enter"). It owns its own state + debounces URL
+  // updates so typing filters live. Sort + Apply remain in a native
+  // form because sort changes are infrequent and the existing
+  // form-submit pattern is fine for them.
   return (
-    <form
-      action={`/dashboard/${eventId}/guests`}
-      method="get"
-      className="flex flex-col gap-2 sm:flex-row sm:items-center"
-    >
-      <input
-        defaultValue={q}
-        name="q"
-        type="search"
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <LiveSearch
+        initialValue={q}
         placeholder="Search names, roles, groups, RSVP…"
-        className="input-field flex-1"
       />
-      {search.rsvp ? <input type="hidden" name="rsvp" value={search.rsvp} /> : null}
-      {search.view ? <input type="hidden" name="view" value={search.view} /> : null}
-      {search.tag ? <input type="hidden" name="tag" value={search.tag} /> : null}
-      <select
-        name="sort"
-        defaultValue={sort}
-        className="input-field appearance-none bg-cream pr-8 sm:w-56"
+      <form
+        action={`/dashboard/${eventId}/guests`}
+        method="get"
+        className="flex items-center gap-2"
       >
-        {SORT_OPTIONS.map((o) => (
-          <option key={o.value} value={o.value}>
-            Sort: {o.label}
-          </option>
-        ))}
-      </select>
-      <button className="button-secondary" type="submit">
-        Apply
-      </button>
-    </form>
+        {q ? <input type="hidden" name="q" value={q} /> : null}
+        {search.rsvp ? <input type="hidden" name="rsvp" value={search.rsvp} /> : null}
+        {search.view ? <input type="hidden" name="view" value={search.view} /> : null}
+        {search.tag ? <input type="hidden" name="tag" value={search.tag} /> : null}
+        <select
+          name="sort"
+          defaultValue={sort}
+          className="input-field appearance-none bg-cream pr-8 sm:w-56"
+        >
+          {SORT_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              Sort: {o.label}
+            </option>
+          ))}
+        </select>
+        <button className="button-secondary" type="submit">
+          Apply
+        </button>
+      </form>
+    </div>
   );
 }
 

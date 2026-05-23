@@ -235,7 +235,7 @@ function NewGroupForm({
         className="h-8 w-full rounded-md border border-ink/15 bg-cream px-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
         autoFocus
       />
-      <TeamSideRadios />
+      <TeamSideSelect />
       <button
         type="submit"
         className="inline-flex h-8 w-full items-center justify-center rounded-md bg-terracotta text-xs font-medium text-cream hover:bg-terracotta-600"
@@ -269,7 +269,7 @@ function EditGroupForm({
         className="h-8 w-full rounded-md border border-ink/15 bg-cream px-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
         autoFocus
       />
-      <TeamSideRadios defaultSide={group.team_side} />
+      <TeamSideSelect defaultSide={group.team_side} />
       <div className="flex gap-1">
         <button
           type="submit"
@@ -289,41 +289,29 @@ function EditGroupForm({
   );
 }
 
-function TeamSideRadios({
+// Team side picker — owner directive 2026-05-23 swapped the 3-chip
+// radio group for a native <select>. Same `name="team_side"` + same
+// 'bride' | 'groom' | 'both' values, so the createGuestGroup +
+// updateGuestGroup server actions consume them unchanged. Native
+// select keeps the create+edit forms compact; the sidebar already has
+// narrow horizontal room.
+function TeamSideSelect({
   defaultSide = 'both',
 }: {
   defaultSide?: GuestGroupTeamSide;
 }) {
   return (
-    <fieldset>
-      <legend className="sr-only">Team side</legend>
-      <div className="flex gap-1">
-        {(['bride', 'groom', 'both'] as GuestGroupTeamSide[]).map((side) => (
-          <label
-            key={side}
-            className="inline-flex flex-1 cursor-pointer items-center justify-center gap-1 rounded-md border border-ink/15 bg-cream px-2 py-1 text-[11px] text-ink/80 has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/5 has-[:checked]:text-terracotta-700"
-          >
-            <input
-              type="radio"
-              name="team_side"
-              value={side}
-              defaultChecked={side === defaultSide}
-              className="sr-only"
-            />
-            <span
-              aria-hidden
-              className={`inline-block h-2 w-2 rounded-full ${
-                side === 'bride'
-                  ? 'bg-rose-400'
-                  : side === 'groom'
-                    ? 'bg-sky-400'
-                    : 'bg-amber-400'
-              }`}
-            />
-            {TEAM_SIDE_LABELS[side]}
-          </label>
-        ))}
-      </div>
-    </fieldset>
+    <select
+      name="team_side"
+      defaultValue={defaultSide}
+      aria-label="Team side"
+      className="h-8 w-full appearance-none rounded-md border border-ink/15 bg-cream px-2 pr-7 text-[11px] text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+    >
+      {(['bride', 'groom', 'both'] as GuestGroupTeamSide[]).map((side) => (
+        <option key={side} value={side}>
+          {TEAM_SIDE_LABELS[side]}
+        </option>
+      ))}
+    </select>
   );
 }

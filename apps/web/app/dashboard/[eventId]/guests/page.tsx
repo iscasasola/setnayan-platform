@@ -541,11 +541,27 @@ function FacetsSidebar({
         </ul>
       </FacetGroup>
 
+      {/* 7th-pass hotfix 2026-05-23 — pre-compute per-group hrefs on the
+          server side and pass as a plain Record<string,string> instead
+          of the previous `buildHref` callback. React Server Components
+          can't serialize functions across the RSC → Client boundary
+          (GroupsSidebar is `'use client'`), so passing the arrow
+          function crashed with "Functions cannot be passed directly to
+          Client Components" — Sentry digest 3284377371 that PRs #380 ·
+          #390 · #404 · #413 · #416 · #417 all chased through the data
+          layer in vain. Sweep #4 of the 5-way parallel sweep pulled the
+          actual stack trace from Vercel function logs and identified
+          this surface as the root cause. */}
       <GroupsSidebar
         eventId={eventId}
         groups={groups}
         currentGroupId={currentGroupId}
-        buildHref={buildHref}
+        hrefByGroupId={Object.fromEntries(
+          groups.map((g) => [
+            g.group_id,
+            buildHref({ view: `group:${g.group_id}` }),
+          ]),
+        )}
       />
 
       {tags.length > 0 ? (

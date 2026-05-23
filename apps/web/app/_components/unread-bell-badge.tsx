@@ -11,7 +11,7 @@
 // On every (re)SUBSCRIBED — including after a network drop — we refetch
 // the unread count so we backfill any events missed while offline.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { Bell } from 'lucide-react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
@@ -33,6 +33,18 @@ export function UnreadBellBadge({
   ariaUnreadSuffix,
 }: Props) {
   const [unread, setUnread] = useState(initialUnread);
+  // 2026-05-23 — Owner reported error-boundary flash post-login: "cannot
+  // add `postgres_changes` callbacks for realtime:notif-unread-{userId}
+  // after `subscribe()`". Root cause: this component mounts in BOTH
+  // /dashboard/layout.tsx (OuterDashboardHeader) AND
+  // /dashboard/[eventId]/layout.tsx — same userId in both → Supabase
+  // Realtime returns the SAME channel singleton on the 2nd mount →
+  // calling .on() on an already-subscribed channel throws. useId() gives
+  // each component instance a unique stable suffix, so the two mounts
+  // get separate channel names ("notif-unread-{userId}-:r0:" + "-:r1:")
+  // and Supabase creates two independent channels. Cleanup still calls
+  // removeChannel per instance so no leak.
+  const instanceId = useId();
 
   useEffect(() => {
     const supabase = createClient();
@@ -49,7 +61,7 @@ export function UnreadBellBadge({
     };
 
     const channel = supabase
-      .channel(`notif-unread-${userId}`)
+      .channel(`notif-unread-${userId}-${instanceId}`)
       .on(
         'postgres_changes',
         {
@@ -87,7 +99,7 @@ export function UnreadBellBadge({
       cancelled = true;
       void supabase.removeChannel(channel);
     };
-  }, [userId]);
+  }, [userId, instanceId]);
 
   const label = unread > 0 ? `${ariaBaseLabel} · ${unread} ${ariaUnreadSuffix}` : ariaBaseLabel;
 

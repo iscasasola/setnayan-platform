@@ -96,7 +96,11 @@ export async function createGuest(eventId: string, formData: FormData) {
   const rsvp_status = (clean(formData.get('rsvp_status')) || 'pending') as RsvpStatus;
   const photo_consent = clean(formData.get('photo_consent')) === 'on';
   const notes = clean(formData.get('notes')) || null;
-  const custom_tags = parseTags(clean(formData.get('custom_tags')));
+  // Custom tags RETIRED 2026-05-23 PM — owner directive: tags now
+  // auto-derived from side/group/role/table at render time, host can't
+  // pick free-text. Legacy column stays in schema (no migration) but
+  // we no longer write from this action. New guests start with [].
+  const custom_tags: string[] = [];
   const invited_to_blocks = parseInvitedToBlocks(formData);
 
   // Plus-one fields (sub-block, only meaningful when plus_one_allowed === true)

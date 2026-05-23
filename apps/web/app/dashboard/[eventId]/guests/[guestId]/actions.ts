@@ -106,7 +106,12 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   // to a stray checkbox toggle).
   const plus_one_allowed = clean(formData.get('plus_one_allowed')) === 'on';
   const notes = clean(formData.get('notes')) || null;
-  const custom_tags = parseTags(clean(formData.get('custom_tags')));
+  // Custom tags RETIRED 2026-05-23 PM — owner directive: tags now
+  // auto-derived from side/group/role/table at render time, host can't
+  // pick free-text. Legacy column stays in schema (no migration) but
+  // we no longer read or write from this update path. Existing rows'
+  // custom_tags values are preserved (the column simply doesn't appear
+  // in the .update() call below so it's left untouched).
   const invited_to_blocks = parseInvitedToBlocks(formData);
 
   const backTo = `/dashboard/${eventId}/guests/${guestId}`;
@@ -148,7 +153,6 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
       photo_consent,
       plus_one_allowed,
       notes,
-      custom_tags,
       invited_to_blocks,
       rsvp_responded_at: ['attending', 'declined'].includes(rsvp_status) ? new Date().toISOString() : null,
       updated_at: new Date().toISOString(),

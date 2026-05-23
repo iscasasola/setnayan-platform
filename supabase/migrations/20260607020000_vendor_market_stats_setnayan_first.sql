@@ -49,10 +49,19 @@ SELECT
     WHEN vaa.tier = 'boosted'   THEN 1
     ELSE 0
   END::INT                                           AS ad_rank,
+  vaa.tier        AS ad_tier,
+  vaa.sku_code    AS ad_sku_code,
+  vaa.radius_km   AS ad_radius_km,
+  vaa.expires_at  AS ad_expires_at,
   -- 2026-05-22 PM: Setnayan-first sort key. TRUE when the vendor carries
   -- any first-party Setnayan canonical_service in its services[] array.
   -- The marketplace query orders by this DESC ahead of ad_rank so SETNAYAN
   -- vendors float above paid sponsors when both are present.
+  --
+  -- Appended AT THE END of the SELECT list because Postgres `CREATE OR
+  -- REPLACE VIEW` requires that pre-existing columns stay in the same
+  -- position (`cannot change name of view column ...`). New columns must
+  -- be added at the tail.
   (vp.services && ARRAY[
     'setnayan_concierge',
     'setnayan_papic',
@@ -64,11 +73,7 @@ SELECT
     'setnayan_save_the_date_mp4',
     'setnayan_ai_edited_highlight',
     'setnayan_ai_video_highlight'
-  ]::TEXT[]) AS is_setnayan_service,
-  vaa.tier        AS ad_tier,
-  vaa.sku_code    AS ad_sku_code,
-  vaa.radius_km   AS ad_radius_km,
-  vaa.expires_at  AS ad_expires_at
+  ]::TEXT[]) AS is_setnayan_service
 FROM public.vendor_profiles vp
 LEFT JOIN public.vendor_review_stats vrs USING (vendor_profile_id)
 LEFT JOIN public.vendor_active_ads   vaa USING (vendor_profile_id);

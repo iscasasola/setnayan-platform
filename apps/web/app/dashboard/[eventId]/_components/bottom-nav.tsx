@@ -7,13 +7,8 @@ import {
   Users,
   Globe,
   Sparkles,
-  Store,
   type LucideIcon,
 } from 'lucide-react';
-import { EventSwitcher, type SwitcherEvent, type SwitcherVendorTarget } from './event-switcher';
-import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
-import { ProfileMenu } from '@/app/_components/profile-menu';
-import { RoleSwitchPill } from '@/app/_components/role-switch-pill';
 
 // 4-tab refactor (CLAUDE.md 2026-05-22) — owner directive: bottom nav goes from
 // 5 tabs to 4. Vendors + Budget come out of the bottom (still reachable elsewhere
@@ -21,18 +16,14 @@ import { RoleSwitchPill } from '@/app/_components/role-switch-pill';
 // NavGrid). Add-ons renames to Services. New Website tab joins the lineup, hub-
 // linking the public landing page surfaces (URL + QR + RSVP + day-of preview).
 //
-// Responsive layout (CLAUDE.md 2026-05-23 · owner directive verbatim:
-// "on Desktop View, Top Nav and Bottom Nav will Combine on Side Nav.
-// Arrange them properly."):
-//   - Mobile (< lg / < 1024px): sticky bottom bar + top strip (top strip rendered
-//     by the event layout). Existing UX, unchanged tap-target heights, safe-area
-//     inset, terracotta active accent.
-//   - Desktop (>= lg / >= 1024px): single fixed left sidebar — 240px wide, cream
-//     bg, holds EVERYTHING — event switcher (top) + nav items (middle) + chrome
-//     bottom strip (marketplace link, role-switch, bell, avatar). The event
-//     layout hides its top strip on desktop so this sidebar is the single
-//     source of chrome — matches the 2026-05-15 single-strip canonical lock,
-//     just rotated 90° on wider viewports.
+// Responsive layout (CLAUDE.md 2026-05-22 · owner directive verbatim:
+// "bottom nav on mobile should be visible as sidebar on desktop"):
+//   - Mobile (< lg / < 1024px): sticky bottom bar — existing UX, unchanged tap-
+//     target heights, safe-area inset, terracotta active accent.
+//   - Desktop (>= lg / >= 1024px): fixed left sidebar — 240px wide, cream bg,
+//     vertical pill list, top-offset by 64px to clear the sticky top chrome.
+//     Active state uses a terracotta left accent bar + bg tint per brand
+//     editorial restraint (no heavy fills).
 type TabKey = 'home' | 'guests' | 'website' | 'services';
 
 type TabLabels = Record<TabKey, string>;
@@ -115,49 +106,13 @@ function activeTab(pathname: string, eventId: string): TabKey | null {
   return null;
 }
 
-type EventChromeData = {
-  /** Currently-displayed event in the switcher. */
-  currentEvent: {
-    event_id: string;
-    display_name: string;
-    event_date: string | null;
-    monogram_text: string | null;
-    monogram_color: string | null;
-  };
-  /** Other events the user has access to. */
-  switcherEvents: SwitcherEvent[];
-  /** Vendor profiles for the role-switch pill — used when the user is a
-   *  multi-role account that can hop to the shop console. */
-  vendorProfiles: SwitcherVendorTarget[];
-  /** Whether the user has a vendor grant (drives role-switch + switcher rows). */
-  hasVendorAccess: boolean;
-  /** Whether the user has an admin grant (drives role-switch + switcher rows). */
-  hasAdminAccess: boolean;
-  /** User id for the realtime unread-bell subscription. */
-  userId: string;
-  /** User email for the profile-menu trailing dropdown. */
-  userEmail: string;
-  /** Initial unread count — server-rendered so first paint is accurate. */
-  unreadCount: number;
-  /** ARIA label for the bell — translated by the server layout. */
-  bellLabel: string;
-  /** Profile-menu ARIA label — translated by the server layout. */
-  profileLabel: string;
-};
-
 export function BottomNav({
   eventId,
   labels,
-  chrome,
 }: {
   eventId: string;
   /** Server-injected translations. Falls back to English when omitted. */
   labels?: Partial<TabLabels>;
-  /** Server-injected chrome data for the desktop sidebar. When omitted
-   *  the sidebar still renders the nav items but skips the top
-   *  EventSwitcher + bottom chrome strip — used in any fallback context
-   *  where the layout hasn't computed user / role / event data. */
-  chrome?: EventChromeData;
 }) {
   const pathname = usePathname();
   const current = activeTab(pathname, eventId);
@@ -195,40 +150,14 @@ export function BottomNav({
       </nav>
 
       {/* Desktop: fixed left sidebar (>= lg / >= 1024px) — sits flush to the
-          left edge, full viewport height. The event layout offsets the main
-          content with `lg:pl-60` so it appears to the right of the sidebar.
-          The event layout's mobile top strip is hidden on desktop (lg:hidden)
-          so this sidebar is the SINGLE source of chrome on desktop, per
-          owner directive 2026-05-23 "Top Nav and Bottom Nav will Combine
-          on Side Nav. Arrange them properly." */}
+          left edge, full viewport height. The event layout offsets the top
+          chrome + main content with `lg:pl-60` so the chrome appears to the
+          right of the sidebar. */}
       <nav
-        aria-label="Event navigation"
+        aria-label="Event sections"
         className="hidden lg:fixed lg:left-0 lg:top-0 lg:bottom-0 lg:z-30 lg:flex lg:w-60 lg:flex-col lg:border-r lg:border-ink/10 lg:bg-cream"
       >
-        {/* Top: event switcher. Renders the monogram + caret + event-name pill
-            in a vertical-shape friendly container. Truncates inside its
-            existing max-w-[14rem] internal cap. */}
-        {chrome ? (
-          <div className="border-b border-ink/10 px-3 py-3">
-            <EventSwitcher
-              currentEventId={chrome.currentEvent.event_id}
-              currentEventName={chrome.currentEvent.display_name}
-              currentEventDate={chrome.currentEvent.event_date}
-              currentMonogramText={chrome.currentEvent.monogram_text}
-              currentMonogramColor={chrome.currentEvent.monogram_color}
-              events={chrome.switcherEvents}
-              hasVendorAccess={chrome.hasVendorAccess}
-              hasAdminAccess={chrome.hasAdminAccess}
-              vendorProfiles={chrome.vendorProfiles}
-            />
-          </div>
-        ) : null}
-
-        {/* Middle (flex-1): primary nav items — Home / Guests / Website /
-            Services. Same items + same active-state matching as the mobile
-            bottom bar above; just stacked vertically with the left accent
-            bar + bg tint instead of the bottom underline tone. */}
-        <ul className="flex w-full flex-1 flex-col gap-1 overflow-y-auto px-3 pt-3 pb-3">
+        <ul className="flex w-full flex-col gap-1 px-3 pt-20 pb-6">
           {TABS.map((tab) => {
             const isActive = current === tab.key;
             const { Icon } = tab;
@@ -256,56 +185,6 @@ export function BottomNav({
             );
           })}
         </ul>
-
-        {/* Bottom strip: marketplace link + role-switch + bell + profile. The
-            mobile equivalent of this strip lives in the event layout's sticky
-            top header; on desktop the layout hides that strip (lg:hidden) so
-            these elements only render once. Stacked vertically with consistent
-            tap-target heights matching the nav items above. */}
-        {chrome ? (
-          <div className="border-t border-ink/10 px-3 py-3">
-            {/* Marketplace — Browse all vendors. Mirrors the top-strip's
-                Marketplace link but rendered as a sidebar row so it visually
-                belongs with the rest of the nav items above. */}
-            <Link
-              href="/vendors"
-              aria-label="Vendor marketplace"
-              className="mb-1 flex min-h-[40px] items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink"
-            >
-              <Store aria-hidden className="h-5 w-5 shrink-0" strokeWidth={1.75} />
-              <span>Marketplace</span>
-            </Link>
-
-            {/* Three small icon-button chrome elements (role-switch + bell +
-                profile) sit in a horizontal row at the very bottom — same
-                horizontal arrangement as the mobile top strip, just inside
-                a 240px sidebar instead of a full-width header. */}
-            <div className="mt-2 flex items-center justify-between gap-2 border-t border-ink/10 pt-3">
-              <RoleSwitchPill
-                currentRole="customer"
-                hasCustomerAccess
-                hasVendorAccess={chrome.hasVendorAccess}
-                hasAdminAccess={chrome.hasAdminAccess}
-                vendorProfiles={chrome.vendorProfiles}
-                align="up"
-              />
-              <div className="flex items-center gap-2">
-                <UnreadBellBadge
-                  userId={chrome.userId}
-                  initialUnread={chrome.unreadCount}
-                  href="/dashboard/notifications"
-                  ariaBaseLabel={chrome.bellLabel}
-                  ariaUnreadSuffix="unread"
-                />
-                <ProfileMenu
-                  email={chrome.userEmail}
-                  ariaLabel={chrome.profileLabel}
-                  align="up"
-                />
-              </div>
-            </div>
-          </div>
-        ) : null}
       </nav>
     </>
   );

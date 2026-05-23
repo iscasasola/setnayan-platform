@@ -23,6 +23,16 @@ type Props = {
     verifiedOnly: boolean;
     matchEvent: boolean;
     eventType: string | null;
+    /** Folder scope (Task #47) — when the host arrived from a planning
+     *  card with `?folder=…`, keep it on the URL when the autocomplete
+     *  push fires so the marketplace stays scoped. Null = no folder set
+     *  (universal Browse). */
+    folder?: string | null;
+    /** Focused-mode flag (owner directive 2026-05-22). When set to
+     *  `'plan'`, the host arrived from a dashboard planning card; the
+     *  marketplace chrome stays hidden after the autocomplete push.
+     *  Null = direct visit (full chrome). */
+    from?: 'plan' | null;
   };
 };
 
@@ -102,6 +112,12 @@ export function TaxonomySearch({ initialQuery, options, preserve }: Props) {
     if (preserve.verifiedOnly) params.set('verified', '1');
     if (preserve.matchEvent) params.set('match', '1');
     if (preserve.eventType) params.set('event_type', preserve.eventType);
+    if (preserve.folder) params.set('folder', preserve.folder);
+    // Owner directive 2026-05-22 — keep focused-mode chrome stripped
+    // when the host picks a suggestion from a planning-card-launched
+    // marketplace visit. Null on direct visits → no `from` param → full
+    // chrome on the landed page.
+    if (preserve.from === 'plan') params.set('from', 'plan');
     setOpen(false);
     router.push('/vendors?' + params.toString());
   }

@@ -1401,23 +1401,34 @@ function formatTargetDate(d: Date): string {
  *
  * When the group has a `subcategoryHint` (e.g. live_band, host_emcee,
  * mobile_bar, photo_booth), returns
- * `/vendors?folder=<slug>&category=<canonical>` — vendor-grid mode
- * filtered to that specific canonical_service in the 192-row taxonomy.
+ * `/vendors?folder=<slug>&category=<canonical>&from=plan` — vendor-grid
+ * mode filtered to that specific canonical_service in the 192-row taxonomy.
  *
- * Otherwise returns `/vendors?folder=<slug>#<slug>` — catalog mode
- * scoped to the folder, smooth-scroll-anchored to the section header.
+ * Otherwise returns `/vendors?folder=<slug>&from=plan#<slug>` — catalog
+ * mode scoped to the folder, smooth-scroll-anchored to the section header.
  *
  * Consumed by planning-groups.tsx (the [Search] button) and todays-one-
  * thing.ts + next-steps.ts (the CTA URLs on the hero + 15-step list).
  * Keeps URL construction in one place so all three surfaces stay in
  * lock-step.
+ *
+ * `from=plan` (owner directive 2026-05-22) — flips the marketplace into
+ * focused-mode chrome: hides the "MARKETPLACE / Browse Filipino wedding
+ * vendors" headline + paragraph + "Browse all 192 categories" back-link
+ * + "SHOWING:" pill + city/sort/verified/match/apply filters. The host
+ * is already in "find a vendor for this category" flow from event home,
+ * so the filter chrome is noise on top of the silently-applied folder /
+ * category. Vendor list + search input + pagination stay; filter logic
+ * still narrows the query — only the UI surface is hidden. Direct
+ * visits to /vendors (top-nav Browse, sitemap, etc.) never set
+ * `from=plan` so they render the full chrome unchanged.
  */
 export function buildPlanGroupSearchHref(
   group: PlanGroup,
   folderSlug: string,
 ): string {
   if (group.subcategoryHint) {
-    return `/vendors?folder=${folderSlug}&category=${encodeURIComponent(group.subcategoryHint)}`;
+    return `/vendors?folder=${folderSlug}&category=${encodeURIComponent(group.subcategoryHint)}&from=plan`;
   }
-  return `/vendors?folder=${folderSlug}#${folderSlug}`;
+  return `/vendors?folder=${folderSlug}&from=plan#${folderSlug}`;
 }

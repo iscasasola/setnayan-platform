@@ -46,6 +46,12 @@ export async function FolderVendorsSection({
    *  with a stronger visual treatment. Reserved for V1.x curation; today
    *  always false and renders the standard surface. */
   featured = false,
+  /** Owner directive 2026-05-22 — when TRUE, the host arrived from a
+   *  planning card (URL has `?from=plan`). "See all" deep-link appends
+   *  `&from=plan` so the destination /vendors view stays in focused
+   *  mode (chrome stripped). Direct visits leave false → href is
+   *  unchanged from prior behavior. */
+  focusedMode = false,
 }: {
   folder: WeddingFolder;
   /** Demo-mode exclusion list, threaded through from the page-level
@@ -57,6 +63,7 @@ export async function FolderVendorsSection({
    *  Null on anonymous browse. */
   currentEventId: string | null;
   featured?: boolean;
+  focusedMode?: boolean;
 }) {
   const admin = createAdminClient();
   const vendors = await findTopVendorsByFolder(admin, {
@@ -73,7 +80,9 @@ export async function FolderVendorsSection({
 
   const folderLabel = WEDDING_FOLDER_LABEL[folder];
   const folderSlug = WEDDING_FOLDER_SLUG[folder];
-  const seeAllHref = `/vendors?folder=${folderSlug}#${folderSlug}`;
+  const seeAllHref = focusedMode
+    ? `/vendors?folder=${folderSlug}&from=plan#${folderSlug}`
+    : `/vendors?folder=${folderSlug}#${folderSlug}`;
 
   return (
     <section

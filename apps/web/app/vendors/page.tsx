@@ -230,6 +230,24 @@ type Props = {
      *  venue_setting". Composes cleanly with ?match=1/0 (religion) and
      *  ?folder=reception (catalog scope). */
     venue?: string;
+    /** Marketplace focused-mode toggle (owner directive 2026-05-22).
+     *  When set to 'plan', the host arrived from a planning card or
+     *  locked-vendor "Switch vendor" follow-up — they're already in
+     *  "find a vendor for this category" flow. Strip the marketplace
+     *  chrome: hide MARKETPLACE eyebrow + headline + paragraph + "Browse
+     *  all 192 categories" back-link + "SHOWING:" pill + City + Sort By
+     *  + Verified-only + Match-my-wedding toggles + Apply/Clear buttons.
+     *  Search box + vendor list + pagination stay always-rendered. The
+     *  folder= / category= / match= / venue= filters still narrow the
+     *  query silently — only the FILTER UI is hidden.
+     *
+     *  Set by `buildPlanGroupSearchHref` in `lib/wedding-plan-groups.ts`
+     *  (used by 4 in-dashboard surfaces: planning-groups [Search] +
+     *  todays-one-thing CTA + next-steps CTA + event-home-detail-pane
+     *  Browse vendors button). Direct visits to /vendors (top-nav
+     *  Browse, sitemap, /weddings, /venue, /waitlist, /not-found, etc.)
+     *  never set this param so the full chrome renders unchanged. */
+    from?: string;
   }>;
 };
 
@@ -396,6 +414,15 @@ function parseFilters(
    *  wins over host's default-on setting so a host who picked Garden at
    *  event creation can still browse Beach venues). */
   venueFacet: string | null;
+  /** Owner directive 2026-05-22 — focused-mode chrome toggle. TRUE when
+   *  the URL carries `?from=plan` (set by dashboard planning cards via
+   *  buildPlanGroupSearchHref). Hides the marketplace MARKETPLACE eyebrow
+   *  + headline + paragraph + "Browse all 192 categories" back-link +
+   *  "SHOWING:" pill + FilterBar (City + Sort By + Verified-only + Match-
+   *  my-wedding + Apply / Clear). Search box + vendor list + pagination
+   *  stay always-rendered. Filter logic still applies silently — host
+   *  just doesn't see the filter UI. */
+  focusedMode: boolean;
 } {
   const q = (raw.q ?? '').trim();
   const sort = (SORT_KEYS as readonly string[]).includes(raw.sort ?? '')
@@ -457,6 +484,13 @@ function parseFilters(
   const rawVenue = (raw.venue ?? '').trim();
   const venueDefault = rawVenue === '0' ? ('off' as const) : ('on' as const);
   const venueFacet = VENUE_FACET_KEYS.has(rawVenue) ? rawVenue : null;
+  // Owner directive 2026-05-22 — focused-mode flag. Only one accepted
+  // value (`plan`) so a typo or future surface adding another `from=`
+  // value doesn't accidentally trip the chrome-stripped layout. Set by
+  // 4 in-dashboard surfaces (planning cards Search, todays-one-thing,
+  // next-steps, event-home-detail-pane Browse vendors) via the canonical
+  // buildPlanGroupSearchHref helper. Direct visits never set it.
+  const focusedMode = (raw.from ?? '').trim() === 'plan';
   return {
     q,
     category,
@@ -469,6 +503,7 @@ function parseFilters(
     folder,
     venueDefault,
     venueFacet,
+    focusedMode,
   };
 }
 
@@ -741,6 +776,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         venueFilterActive={venueFilterActive}
         venueFacet={filters.venueFacet}
         inDemoMode={inDemoMode}
+        focusedMode={filters.focusedMode}
       />
     );
   }
@@ -1300,47 +1336,69 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       <NoticeBanner noticeKey={noticeKey} />
 
       <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
-        <div className="space-y-3">
-          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            Marketplace
-          </p>
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-            Browse Filipino wedding vendors.
-          </h1>
-          <p className="max-w-prose text-base text-ink/65">
-            Verified vendors who took the time to set up a Setnayan profile. Star ratings
-            come from couples who&rsquo;ve actually paid for the service.
-          </p>
-        </div>
+        {/* Focused-mode (owner directive 2026-05-22) — when ?from=plan is
+            set, the host arrived from a dashboard planning card or
+            locked-vendor follow-up and is already in "find a vendor for
+            this category" flow. The MARKETPLACE eyebrow + headline +
+            paragraph + "Browse all 192 categories" back-link + "SHOWING:"
+            pill + full FilterBar (City / Sort / Verified-only / Match-my-
+            wedding / Apply / Clear) all read as noise on top of the
+            silently-applied folder / category. Hide them in focused-mode;
+            direct visits render the full chrome unchanged. The folder /
+            category / match / venue filters still narrow the underlying
+            query — only the FILTER UI is hidden. */}
+        {!filters.focusedMode ? (
+          <>
+            <div className="space-y-3">
+              <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
+                Marketplace
+              </p>
+              <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+                Browse Filipino wedding vendors.
+              </h1>
+              <p className="max-w-prose text-base text-ink/65">
+                Verified vendors who took the time to set up a Setnayan profile. Star ratings
+                come from couples who&rsquo;ve actually paid for the service.
+              </p>
+            </div>
 
-        {/* Vendor-grid mode is reached only when a narrowing filter is set
-          * (category, search, city, verified, match). The mega-column
-          * catalog view above is unfiltered. A back-affordance is the
-          * primary way to return to the 192-category catalog. */}
-        <div className="mt-6 flex flex-wrap items-baseline justify-between gap-3">
-          <Link
-            href="/vendors?match=0"
-            className="inline-flex items-center gap-1 text-sm font-medium text-terracotta underline-offset-4 hover:underline"
-          >
-            <ChevronLeft className="h-4 w-4" strokeWidth={2} aria-hidden />
-            Browse all 192 categories
-          </Link>
-          {filters.category ? (
-            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-              Showing: {taxonomyLabel(filters.category)}
-            </p>
-          ) : filters.q ? (
-            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-              Search: &ldquo;{filters.q}&rdquo;
-            </p>
-          ) : null}
-        </div>
+            {/* Vendor-grid mode is reached only when a narrowing filter is set
+              * (category, search, city, verified, match). The mega-column
+              * catalog view above is unfiltered. A back-affordance is the
+              * primary way to return to the 192-category catalog. */}
+            <div className="mt-6 flex flex-wrap items-baseline justify-between gap-3">
+              <Link
+                href="/vendors?match=0"
+                className="inline-flex items-center gap-1 text-sm font-medium text-terracotta underline-offset-4 hover:underline"
+              >
+                <ChevronLeft className="h-4 w-4" strokeWidth={2} aria-hidden />
+                Browse all 192 categories
+              </Link>
+              {filters.category ? (
+                <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+                  Showing: {taxonomyLabel(filters.category)}
+                </p>
+              ) : filters.q ? (
+                <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+                  Search: &ldquo;{filters.q}&rdquo;
+                </p>
+              ) : null}
+            </div>
 
-        <FilterBar
-          filters={filters}
-          matchableEvent={matchableEvent}
-          hostVenueSetting={hostVenueSetting}
-        />
+            <FilterBar
+              filters={filters}
+              matchableEvent={matchableEvent}
+              hostVenueSetting={hostVenueSetting}
+            />
+          </>
+        ) : (
+          /* Focused-mode replacement: a slim search form with only the
+             search input. Submitting preserves folder + category + match
+             + venue + from=plan via hidden inputs so the host stays inside
+             focused-mode + their planning context. No labels / no
+             eyebrow / no headline / no filter chrome. */
+          <FocusedModeSearchForm filters={filters} />
+        )}
 
         {/* Task #48 — venue default-on chip. Surfaced when the venue
             filter is firing on this query (Reception scope + host's
@@ -1436,6 +1494,7 @@ function buildHref(
     eventType?: EventTypeFilter | null;
     folder?: WeddingFolder | null;
     venueDefault?: 'on' | 'off';
+    focusedMode?: boolean;
   },
   patch: Partial<{
     q: string;
@@ -1448,6 +1507,7 @@ function buildHref(
     eventType: EventTypeFilter | null;
     folder: WeddingFolder | null;
     venueDefault: 'on' | 'off';
+    focusedMode: boolean;
   }>,
 ): string {
   const merged = { ...filters, ...patch };
@@ -1466,8 +1526,106 @@ function buildHref(
   // inherit the default-on behavior unless the user has explicitly toggled
   // off via the chip.
   if (merged.venueDefault === 'off') params.set('venue', '0');
+  // Owner directive 2026-05-22 — preserve focused-mode across in-page
+  // navigation. Pagination + EmptyState "Clear all filters" + every other
+  // self-link on /vendors flows through buildHref, so emitting `from=plan`
+  // here keeps the host inside the chrome-stripped layout on every
+  // subsequent click. Direct visits never have focusedMode set, so this
+  // is a no-op for them.
+  if (merged.focusedMode) params.set('from', 'plan');
   const qs = params.toString();
   return qs.length > 0 ? `/vendors?${qs}` : '/vendors';
+}
+
+/**
+ * Focused-mode search-only form (owner directive 2026-05-22).
+ *
+ * Renders when the host arrived from a dashboard planning card (?from=plan).
+ * The full FilterBar — City + Sort by + Verified-only + Match-my-wedding +
+ * Apply / Clear — is hidden; only the TaxonomySearch input survives so the
+ * host can keep refining within their planning context.
+ *
+ * Hidden inputs carry every filter that's silently still applied
+ * (folder, category, match, venue, eventType, verified, city, sort) +
+ * the focused-mode flag itself, so submitting the form keeps the host
+ * inside focused-mode AND preserves the planning context they came from.
+ * Pagination + EmptyState's "Clear all filters" + every other self-link
+ * already pass through `buildHref`, which emits `from=plan` whenever
+ * filters.focusedMode is true (see above) — so the focused layout
+ * survives every in-page click.
+ */
+function FocusedModeSearchForm({
+  filters,
+}: {
+  filters: {
+    q: string;
+    category: string | null;
+    city: string;
+    sort: SortKey;
+    page: number;
+    verifiedOnly: boolean;
+    matchEvent: boolean;
+    eventType: EventTypeFilter | null;
+    folder: WeddingFolder | null;
+    venueDefault: 'on' | 'off';
+    focusedMode: boolean;
+  };
+}) {
+  return (
+    <form method="get" action="/vendors" className="space-y-2">
+      <label className="block">
+        <span className="sr-only">Search vendors</span>
+        {/* Reuses the same TaxonomySearch client component as FilterBar.
+            Picking a suggestion router-pushes to /vendors?category=…, so
+            we pass focusedMode through the `preserve` prop so the
+            client-side push keeps `from=plan` on the URL. */}
+        <TaxonomySearch
+          initialQuery={filters.q}
+          options={TAXONOMY_OPTIONS}
+          preserve={{
+            city: filters.city,
+            sort: filters.sort,
+            verifiedOnly: filters.verifiedOnly,
+            matchEvent: filters.matchEvent,
+            eventType: filters.eventType,
+            folder: filters.folder,
+            from: filters.focusedMode ? 'plan' : null,
+          }}
+        />
+      </label>
+
+      {/* Hidden inputs — every filter that's still silently applied,
+          plus the focused-mode flag, get carried through form submit.
+          Submitting the form (Enter on free-text search) reloads
+          /vendors?from=plan&folder=…&… so the layout stays focused and
+          the planning context the host arrived with is preserved. */}
+      {filters.category ? (
+        <input type="hidden" name="category" value={filters.category} />
+      ) : null}
+      {filters.city ? (
+        <input type="hidden" name="city" value={filters.city} />
+      ) : null}
+      {filters.sort !== 'most_reviews' ? (
+        <input type="hidden" name="sort" value={filters.sort} />
+      ) : null}
+      {filters.verifiedOnly ? (
+        <input type="hidden" name="verified" value="1" />
+      ) : null}
+      {filters.matchEvent ? (
+        <input type="hidden" name="match" value="1" />
+      ) : null}
+      {filters.eventType ? (
+        <input type="hidden" name="event_type" value={filters.eventType} />
+      ) : null}
+      {filters.folder ? (
+        <input type="hidden" name="folder" value={filters.folder} />
+      ) : null}
+      {filters.venueDefault === 'off' ? (
+        <input type="hidden" name="venue" value="0" />
+      ) : null}
+      <input type="hidden" name="from" value="plan" />
+    </form>
+  );
 }
 
 function FilterBar({
@@ -1486,6 +1644,7 @@ function FilterBar({
     eventType: EventTypeFilter | null;
     folder: WeddingFolder | null;
     venueDefault: 'on' | 'off';
+    focusedMode: boolean;
   };
   matchableEvent: { ceremony_type: string; venue_setting: string } | null;
   /** Task #48 — host's events.venue_setting (snake_case enum). Surfaces
@@ -1528,6 +1687,13 @@ function FilterBar({
             verifiedOnly: filters.verifiedOnly,
             matchEvent: filters.matchEvent,
             eventType: filters.eventType,
+            folder: filters.folder,
+            // Owner directive 2026-05-22 — when the host is in focused-
+            // mode (arrived from a planning card), keep the chrome stripped
+            // after a taxonomy autocomplete pick. Direct visits never have
+            // focusedMode set so this stays null and the full chrome
+            // renders on the destination page.
+            from: filters.focusedMode ? 'plan' : null,
           }}
         />
       </label>
@@ -1666,6 +1832,9 @@ function EmptyState({
     verifiedOnly: boolean;
     matchEvent: boolean;
     eventType: EventTypeFilter | null;
+    folder: WeddingFolder | null;
+    venueDefault: 'on' | 'off';
+    focusedMode: boolean;
   };
   broadenedCount: number | null;
 }) {
@@ -1716,7 +1885,7 @@ function EmptyState({
         </p>
         <EventTypeNotifyForm eventType={filters.eventType} label={label} />
         <Link
-          href="/vendors"
+          href={filters.focusedMode ? '/vendors?from=plan' : '/vendors'}
           className="mt-4 inline-flex items-center text-sm font-medium text-terracotta underline-offset-4 hover:underline"
         >
           Or browse all vendors instead →
@@ -1746,7 +1915,13 @@ function EmptyState({
               Show all
             </Link>
           ) : null}
-          <Link href="/vendors" className="button-secondary inline-flex h-10 px-4">
+          {/* Preserve focused-mode when clearing — host stays in the
+              chrome-stripped layout. Direct visits never set focusedMode
+              so this is a no-op for them. */}
+          <Link
+            href={filters.focusedMode ? '/vendors?from=plan' : '/vendors'}
+            className="button-secondary inline-flex h-10 px-4"
+          >
             Clear all filters
           </Link>
         </div>
@@ -1773,6 +1948,7 @@ function Pagination({
     eventType: EventTypeFilter | null;
     folder: WeddingFolder | null;
     venueDefault: 'on' | 'off';
+    focusedMode: boolean;
   };
   page: number;
   totalPages: number;
@@ -1886,6 +2062,7 @@ async function CatalogView({
   venueFilterActive,
   venueFacet,
   inDemoMode,
+  focusedMode,
 }: {
   admin: ReturnType<typeof createAdminClient>;
   matchableEvent: { ceremony_type: string; venue_setting: string } | null;
@@ -1930,6 +2107,13 @@ async function CatalogView({
    *  grid includes `is_demo=TRUE` venue_directory rows + each card
    *  surfaces a DEMO chip overlay on its hero photo. */
   inDemoMode: boolean;
+  /** Owner directive 2026-05-22 — focused-mode chrome toggle. When TRUE
+   *  (host arrived from a dashboard planning card via ?from=plan), the
+   *  catalog MARKETPLACE eyebrow + headline + paragraph + CatalogFilterBar
+   *  + ReligionBanner are all hidden. The FolderTabs + per-folder grid
+   *  STILL render so the host can browse within their planning context.
+   *  Direct visits to /vendors render the full chrome unchanged. */
+  focusedMode: boolean;
 }) {
   // Single round-trip per page render — both reads are admin-scoped because
   // anonymous visitors hit this route and `vendor_profiles` is gated by RLS.
@@ -2119,40 +2303,72 @@ async function CatalogView({
         id="all"
         className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8"
       >
-        <div className="space-y-3">
-          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            Marketplace
-          </p>
-          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-            Browse Filipino wedding vendors.
-          </h1>
-          <p className="max-w-prose text-base text-ink/65">
-            Every service Setnayan covers — {totalCategories} categories
-            organized around the Filipino wedding journey.{' '}
-            {totalLive > 0 ? (
-              <>
-                <span className="font-medium text-ink">{totalLive}</span> have
-                verified vendors today; the rest are recruiting now or rolling
-                out by phase. Tap any tile to drill in.
-              </>
-            ) : (
-              <>
-                Setnayan is in soft launch — vendor pools are filling in by
-                category each week. Tap a tile to see who&rsquo;s onboarded
-                already or get notified when a category opens.
-              </>
-            )}
-          </p>
-        </div>
+        {/* Focused-mode (owner directive 2026-05-22) — when ?from=plan is
+            set, the host arrived from a dashboard planning card. Strip
+            the MARKETPLACE eyebrow + "Browse Filipino wedding vendors"
+            headline + paragraph + ReligionBanner + CatalogFilterBar
+            (City / Match-my-wedding / Apply). The FolderTabs and per-
+            folder grid below STILL render so the host can browse within
+            their planning context. Direct visits to /vendors render the
+            full chrome unchanged. */}
+        {!focusedMode ? (
+          <>
+            <div className="space-y-3">
+              <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
+                Marketplace
+              </p>
+              <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+                Browse Filipino wedding vendors.
+              </h1>
+              <p className="max-w-prose text-base text-ink/65">
+                Every service Setnayan covers — {totalCategories} categories
+                organized around the Filipino wedding journey.{' '}
+                {totalLive > 0 ? (
+                  <>
+                    <span className="font-medium text-ink">{totalLive}</span> have
+                    verified vendors today; the rest are recruiting now or rolling
+                    out by phase. Tap any tile to drill in.
+                  </>
+                ) : (
+                  <>
+                    Setnayan is in soft launch — vendor pools are filling in by
+                    category each week. Tap a tile to see who&rsquo;s onboarded
+                    already or get notified when a category opens.
+                  </>
+                )}
+              </p>
+            </div>
 
-        {religionFilteringActive ? (
-          <ReligionBanner
-            coupleFaith={coupleFaith}
-            ceremonyType={matchableEvent!.ceremony_type}
+            {religionFilteringActive ? (
+              <ReligionBanner
+                coupleFaith={coupleFaith}
+                ceremonyType={matchableEvent!.ceremony_type}
+              />
+            ) : null}
+
+            <CatalogFilterBar matchableEvent={matchableEvent} />
+          </>
+        ) : (
+          /* Focused-mode replacement: a slim search form with only the
+             TaxonomySearch input. Submitting / suggestion-pick preserves
+             folder + from=plan via hidden inputs + the TaxonomySearch
+             preserve prop so the host stays in focused-mode. */
+          <FocusedModeSearchForm
+            filters={{
+              q: '',
+              category: null,
+              city: '',
+              sort: 'most_reviews',
+              page: 1,
+              verifiedOnly: false,
+              matchEvent,
+              eventType: null,
+              folder: scopedFolder,
+              venueDefault: 'on',
+              focusedMode: true,
+            }}
           />
-        ) : null}
-
-        <CatalogFilterBar matchableEvent={matchableEvent} />
+        )}
 
         <FolderTabs
           tabs={tabs}
@@ -2272,12 +2488,13 @@ async function CatalogView({
                 excludeVendorIds={catalogExcludeVendorIds}
                 venueAnchor={venueAnchor}
                 currentEventId={currentEventId}
+                focusedMode={focusedMode}
               />
               {tiles.length > 0 ? (
                 <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {tiles.map((tile) => (
                     <li key={tile.canonicalService}>
-                      <CategoryTile data={tile} />
+                      <CategoryTile data={tile} focusedMode={focusedMode} />
                     </li>
                   ))}
                 </ul>

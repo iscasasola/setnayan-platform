@@ -13,6 +13,7 @@ import {
   guestInitials,
   ROLE_LABELS,
   RSVP_LABELS,
+  SIDE_LABELS,
   TEAM_SIDE_CHIP,
   TEAM_SIDE_LABELS,
   type GuestGroupTeamSide,
@@ -141,10 +142,16 @@ export function GuestListMultiselect({
                 </label>
               </th>
               <th className="px-4 py-3 font-medium">Name</th>
-              <th className="w-[20%] px-3 py-3 font-medium">Role</th>
-              <th className="w-[18%] px-3 py-3 font-medium">Groups</th>
+              {/* Side column — owner directive 2026-05-23. Surfaces the
+               *  guest's bride/groom/both attribution explicitly instead
+               *  of relying on the Avatar's tint cue. Narrow 88px-ish
+               *  width is enough for the "Bride's side" / "Groom's side"
+               *  / "Both sides" label rendered as a tinted pill. */}
+              <th className="w-[10%] px-3 py-3 font-medium">Side</th>
+              <th className="w-[18%] px-3 py-3 font-medium">Role</th>
+              <th className="w-[16%] px-3 py-3 font-medium">Groups</th>
               <th className="w-[12%] px-3 py-3 font-medium">RSVP</th>
-              <th className="w-[16%] px-3 py-3 font-medium">Contact</th>
+              <th className="w-[14%] px-3 py-3 font-medium">Contact</th>
             </tr>
           </thead>
           <tbody>
@@ -411,38 +418,31 @@ function NewGroupInlineForm({
           autoFocus
         />
       </div>
-      <fieldset>
-        <legend className="block text-[11px] font-medium uppercase tracking-[0.12em] text-ink/55">
+      {/* Team side picker — owner directive 2026-05-23 swapped the
+       *  3-chip radio group for a native <select>. Same `name="team_side"`
+       *  + same 'bride' | 'groom' | 'both' values, so the server action
+       *  (createGuestGroup) consumes them unchanged. Native select is
+       *  shorter vertically + matches the form's other dropdowns. */}
+      <div>
+        <label
+          htmlFor="new-group-team-side"
+          className="block text-[11px] font-medium uppercase tracking-[0.12em] text-ink/55"
+        >
           Team side
-        </legend>
-        <div className="mt-1 flex gap-1">
+        </label>
+        <select
+          id="new-group-team-side"
+          name="team_side"
+          defaultValue="both"
+          className="mt-1 h-9 w-full appearance-none rounded-md border border-ink/20 bg-cream px-2 pr-8 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
+        >
           {(['bride', 'groom', 'both'] as GuestGroupTeamSide[]).map((side) => (
-            <label
-              key={side}
-              className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-ink/15 bg-cream px-2 py-1.5 text-xs text-ink/80 has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/5 has-[:checked]:text-terracotta-700"
-            >
-              <input
-                type="radio"
-                name="team_side"
-                value={side}
-                defaultChecked={side === 'both'}
-                className="sr-only"
-              />
-              <span
-                aria-hidden
-                className={`inline-block h-2.5 w-2.5 rounded-full ${
-                  side === 'bride'
-                    ? 'bg-rose-400'
-                    : side === 'groom'
-                      ? 'bg-sky-400'
-                      : 'bg-amber-400'
-                }`}
-              />
+            <option key={side} value={side}>
               {TEAM_SIDE_LABELS[side]}
-            </label>
+            </option>
           ))}
-        </div>
-      </fieldset>
+        </select>
+      </div>
       <div className="flex gap-2">
         <button
           type="submit"
@@ -518,6 +518,9 @@ function DesktopRow({
             ) : null}
           </div>
         </Link>
+      </td>
+      <td className="px-3 py-3">
+        <SidePill side={guest.side} />
       </td>
       <td className="px-3 py-3">
         <RoleChip role={guest.role} palette={palette} />
@@ -675,6 +678,26 @@ function Avatar({ guest }: { guest: GuestRow }) {
       className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${sideTint[guest.side]}`}
     >
       {guestInitials(guest)}
+    </span>
+  );
+}
+
+// Side pill — owner directive 2026-05-23. New column on the desktop
+// guests table. Same side-of-wedding tint as the Avatar cue (rose for
+// bride · sky for groom · amber for both) so the visual language is
+// consistent across the row + the chip is small enough to fit in a
+// ~10% column width.
+function SidePill({ side }: { side: GuestRow['side'] }) {
+  const tone: Record<GuestRow['side'], string> = {
+    bride: 'bg-rose-100 text-rose-900 ring-1 ring-rose-200',
+    groom: 'bg-sky-100 text-sky-900 ring-1 ring-sky-200',
+    both: 'bg-amber-100 text-amber-900 ring-1 ring-amber-200',
+  };
+  return (
+    <span
+      className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${tone[side]}`}
+    >
+      {SIDE_LABELS[side]}
     </span>
   );
 }

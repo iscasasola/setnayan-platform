@@ -96,6 +96,15 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   const dietary_restrictions = clean(formData.get('dietary_restrictions')) || null;
   const rsvp_status = (clean(formData.get('rsvp_status')) || 'pending') as RsvpStatus;
   const photo_consent = clean(formData.get('photo_consent')) === 'on';
+  // Plus-one toggle · owner directive 2026-05-23 PM. Host approves
+  // permission only; the +1's name + RSVP confirmation lands on the
+  // public RSVP widget (PR B follow-up). Toggling OFF is non-
+  // destructive — we unflag the primary but DO NOT soft-delete any
+  // existing +1 guest row that's already linked via plus_one_of_guest_id.
+  // That row stays on the list so the host can manually remove it if
+  // they're sure (defends against accidental loss of a real RSVP'd +1
+  // to a stray checkbox toggle).
+  const plus_one_allowed = clean(formData.get('plus_one_allowed')) === 'on';
   const notes = clean(formData.get('notes')) || null;
   const custom_tags = parseTags(clean(formData.get('custom_tags')));
   const invited_to_blocks = parseInvitedToBlocks(formData);
@@ -137,6 +146,7 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
       dietary_restrictions,
       rsvp_status,
       photo_consent,
+      plus_one_allowed,
       notes,
       custom_tags,
       invited_to_blocks,

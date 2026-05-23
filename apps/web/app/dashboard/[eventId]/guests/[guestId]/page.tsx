@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { Camera, ChevronDown } from 'lucide-react';
+import { Camera, ChevronDown, UserPlus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import {
   fetchGuestById,
@@ -151,6 +151,34 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
     (r) => !(r in singletonHolders) || r === guest.role,
   );
 
+  // Pull the +1 guest row (if any) so the edit form can show the
+  // current state of this primary's +1 — name (or TBA placeholder),
+  // whether the +1 has confirmed their name via /[slug]/welcome, etc.
+  // Owner directive 2026-05-23 PM: the +1 surface on the host's form
+  // is "approve or not"; the +1's name + RSVP confirmation lands on
+  // the guest-side RSVP widget (PR B follow-up). The host only sees
+  // the current state read-only so they know whether their guest has
+  // confirmed yet.
+  //
+  // Defensive query: filter by plus_one_of_guest_id + deleted_at IS NULL.
+  // RLS guards via the guests table's per-event policies — only fires
+  // when the user has access to this event.
+  const { data: plusOneRow } = await supabase
+    .from('guests')
+    .select('guest_id, first_name, last_name, plus_one_name_confirmed_at')
+    .eq('event_id', eventId)
+    .eq('plus_one_of_guest_id', guestId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  const plusOneStateLabel = plusOneRow
+    ? plusOneRow.plus_one_name_confirmed_at
+      ? `Bringing ${[plusOneRow.first_name, plusOneRow.last_name]
+          .filter(Boolean)
+          .join(' ')
+          .trim()}`
+      : 'Awaiting +1 to confirm their name'
+    : null;
+
   const rawError = search.error ? decodeURIComponent(search.error) : null;
   const errorMessage = rawError ? (ERROR_COPY[rawError] ?? rawError) : null;
   const saved = search.saved === '1';
@@ -291,6 +319,58 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
               initialBlocks={initialInvited}
             />
           </div>
+        </Section>
+
+        {/* Plus-one toggle · owner directive 2026-05-23 PM. Host approves
+            with a single checkbox; the guest fills in the +1's name
+            (or "not bringing") on their RSVP via PR B. When a +1 row
+            already exists, surface its current state (name + whether
+            it's TBA pending guest confirmation) right below the toggle
+            so the host knows where the loop stands without leaving
+            this page. Toggling OFF on this form is non-destructive —
+            it just unflags the primary, the +1 row stays put so the
+            host can manually remove if needed (avoids accidental loss
+            of a real RSVP'd +1 to a stray checkbox toggle). */}
+        <Section title="Plus-one">
+          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-ink/15 bg-cream p-4 transition-colors has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/5 hover:border-ink/30">
+            <input
+              type="checkbox"
+              name="plus_one_allowed"
+              defaultChecked={guest.plus_one_allowed}
+              className="mt-0.5 h-5 w-5 flex-shrink-0 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+            />
+            <span className="space-y-1">
+              <span className="flex items-center gap-2 text-sm font-medium text-ink">
+                <UserPlus aria-hidden className="h-4 w-4 text-ink/55" strokeWidth={1.75} />
+                Allow plus-one
+              </span>
+              <span className="block text-xs text-ink/60">
+                Your guest confirms yes or no on their invitation, and fills in
+                their +1&rsquo;s name when they RSVP.
+              </span>
+            </span>
+          </label>
+          {plusOneStateLabel ? (
+            <p className="rounded-md border border-emerald-200/60 bg-emerald-50/70 px-3 py-2 text-xs text-emerald-900">
+              <span className="font-medium">+1 status:</span> {plusOneStateLabel}
+              {plusOneRow ? (
+                <>
+                  {' '}
+                  ·{' '}
+                  <Link
+                    href={`/dashboard/${eventId}/guests/${plusOneRow.guest_id}`}
+                    className="font-medium underline-offset-2 hover:underline"
+                  >
+                    Open +1 detail
+                  </Link>
+                </>
+              ) : null}
+            </p>
+          ) : guest.plus_one_allowed ? (
+            <p className="rounded-md border border-amber-200/60 bg-amber-50/70 px-3 py-2 text-xs text-amber-900">
+              Allowed but no +1 has been added to the list yet.
+            </p>
+          ) : null}
         </Section>
 
         {/* More details disclosure — collapsed by default unless any

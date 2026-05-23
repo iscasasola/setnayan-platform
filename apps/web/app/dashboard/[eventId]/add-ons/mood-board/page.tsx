@@ -55,6 +55,24 @@ export default async function MoodBoardPage({ params }: Props) {
       ? (event.attire_guide_palette as Record<string, string>)
       : {};
 
+  // Flatten role_palette to {role → first color} for the visual preview
+  // pillars + Wedding Attire Guide mockup — they pick ONE accent per
+  // role for the silhouette tint, not the full multi-color list.
+  //
+  // Moved UP to the data-prep block (was inside an IIFE in the JSX) so
+  // both downstream components get a clean prop without the IIFE wrapper
+  // that was suppressing the WeddingAttireGuide section from rendering
+  // in production. IIFE wrapping an async server component + a client
+  // component children was the fragile pattern — flat top-level JSX is
+  // the React 19 + Next.js 15 reliable shape.
+  const flatPalette = Object.fromEntries(
+    Object.entries(palette).flatMap(([role, colors]) =>
+      colors && colors.length > 0 && typeof colors[0] === 'string'
+        ? [[role, colors[0]] as const]
+        : [],
+    ),
+  );
+
   // Conditional rendering: a role-family palette section only shows when at
   // least one guest exists in that group. Couples + venue palettes always show.
   const presentRoleGroups = new Set<RoleGroup>();
@@ -109,46 +127,38 @@ export default async function MoodBoardPage({ params }: Props) {
         saveAction={saveRolePalette}
       />
 
-      {/* Flatten role_palette to {role → first color} for the visual preview
-         pillars + Wedding Attire Guide mockup — they pick ONE accent per
-         role for the silhouette tint, not the full multi-color list. The
-         flatten happens once and feeds both downstream components. */}
-      {(() => {
-        const flatPalette = Object.fromEntries(
-          Object.entries(palette).flatMap(([role, colors]) =>
-            colors && colors.length > 0 && typeof colors[0] === 'string'
-              ? [[role, colors[0]] as const]
-              : [],
-          ),
-        );
-        return (
-          <>
-            <VisualPreviewSection eventId={eventId} rolePalette={flatPalette} />
-            {/* Wedding Attire Guide preview — owner directive 2026-05-23 PM.
-                Clickable mockup of the V1.x Professional Mood Board
-                group-portrait composition (2-tier wedding party with
-                annotated swatch + descriptor per role group). Uses the
-                same flattened palette as the visual preview above so
-                changes the host makes in the PaletteEditor flow through
-                automatically. See the component for the V1.x-vs-V1
-                scope reasoning.
+      <VisualPreviewSection eventId={eventId} rolePalette={flatPalette} />
 
-                attireGuidePalette = host's saved per-role attire colors
-                from the new events.attire_guide_palette JSONB column
-                (migration 20260610010000). Empty {} = component uses
-                reference defaults from its ROLES array. Per-role color
-                picker on the component persists to this column via
-                saveAttireGuidePaletteColor server action — owner
-                directive: "we want the capability to change the color
-                of the attires of each role." */}
-            <WeddingAttireGuide
-              eventId={eventId}
-              rolePalette={flatPalette}
-              attirePalette={attireGuidePalette}
-            />
-          </>
-        );
-      })()}
+      {/* Wedding Attire Guide preview — owner directive 2026-05-23 PM.
+          Clickable mockup of the V1.x Professional Mood Board
+          group-portrait composition (2-tier wedding party with
+          annotated swatch + descriptor per role group). Uses the
+          same flattened palette as the visual preview above so
+          changes the host makes in the PaletteEditor flow through
+          automatically. See the component for the V1.x-vs-V1
+          scope reasoning.
+
+          attireGuidePalette = host's saved per-role attire colors
+          from the new events.attire_guide_palette JSONB column
+          (migration 20260610010000). Empty {} = component uses
+          reference defaults from its ROLES array. Per-role color
+          picker on the component persists to this column via
+          saveAttireGuidePaletteColor server action — owner
+          directive: "we want the capability to change the color
+          of the attires of each role."
+
+          Previously wrapped in an IIFE alongside VisualPreviewSection
+          (PR #446 + #447). That IIFE pattern silently suppressed this
+          section from rendering in production — async server component
+          + client component siblings inside an IIFE-returned fragment
+          is fragile in React 19 + Next 15. Flat top-level JSX is the
+          reliable shape; flatPalette + attireGuidePalette are both
+          prepared in the data block above. */}
+      <WeddingAttireGuide
+        eventId={eventId}
+        rolePalette={flatPalette}
+        attirePalette={attireGuidePalette}
+      />
 
       <section className="space-y-3 rounded-2xl border border-dashed border-ink/15 bg-cream p-5">
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">

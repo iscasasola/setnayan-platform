@@ -14,6 +14,7 @@ import {
 } from './_components/visual-preview';
 import {
   WeddingAttireGuide,
+  type AssetsByRoleAndStyle,
   type RoleAsset,
 } from './_components/wedding-attire-guide';
 import type { ColorRangeMap } from '@/app/admin/moodboard-library/_components/color-range-manipulator';
@@ -58,7 +59,14 @@ export default async function MoodBoardPage({ params }: Props) {
     supabase
       .from('moodboard_library_assets')
       .select(
-        `asset_subtype, label, storage_path,
+        // style_theme · migration 20260613000000 · the 5-style × 10-role
+        // Recraft V3 library uses this column to bucket figures into
+        // STYLE_OPTIONS sets (elegant·simple·classic, bridgerton·regal,
+        // editorial cream, tropical heritage, modern minimalist). NULL
+        // here means a legacy pre-style-themed row (e.g., the retired
+        // Pexels seed) — falls through the resolveAsset chain in the
+        // component to the legacy flat-map path.
+        `asset_subtype, label, storage_path, style_theme,
          moodboard_asset_color_ranges!inner ( slot_id, sampled_hex )`,
       )
       .eq('asset_type', 'figure_attire')
@@ -69,19 +77,28 @@ export default async function MoodBoardPage({ params }: Props) {
   const event = eventRes.data;
   if (!event) notFound();
 
-  // Build the role → asset map. Defensive against schema returning the
-  // join as an array (PostgREST nested-select shape) or as a single
-  // object — both shapes valid depending on PostgREST version.
+  // Build the asset maps. Defensive against schema returning the join as
+  // an array (PostgREST nested-select shape) or as a single object — both
+  // shapes valid depending on PostgREST version. Two output shapes:
+  //   1. attireAssetsByRole       — legacy flat map (Pexels-seed era / no style)
+  //   2. attireAssetsByRoleAndStyle — Recraft library nested map (active)
+  // The WeddingAttireGuide component prefers (2) when both populated for
+  // a role; (1) is the backwards-compat fallback for pre-style-themed rows.
   type AttireAssetRow = {
     asset_subtype: string | null;
     label: string;
     storage_path: string;
+    style_theme: string | null;
     moodboard_asset_color_ranges:
       | Array<{ slot_id: number; sampled_hex: string }>
       | { slot_id: number; sampled_hex: string }
       | null;
   };
   const attireAssetsByRole: Record<string, RoleAsset> = {};
+  const attireAssetsByRoleAndStyle: Record<
+    string,
+    Record<string, RoleAsset>
+  > = {};
   for (const row of (attireAssetsRes.data ?? []) as AttireAssetRow[]) {
     if (!row.asset_subtype) continue;
     const ranges = Array.isArray(row.moodboard_asset_color_ranges)
@@ -90,11 +107,27 @@ export default async function MoodBoardPage({ params }: Props) {
         ? [row.moodboard_asset_color_ranges]
         : [];
     const slot1 = ranges.find((r) => r.slot_id === 1);
-    attireAssetsByRole[row.asset_subtype] = {
+    const asset: RoleAsset = {
       url: row.storage_path,
       sampledHex: slot1?.sampled_hex ?? '#E8C9B8',
       label: row.label,
     };
+    if (row.style_theme) {
+      // Recraft library row — bucket into the nested map by style.
+      // Local extraction to dodge the noUncheckedIndexedAccess error
+      // that fires on the chained access pattern.
+      const subMap =
+        attireAssetsByRoleAndStyle[row.asset_subtype] ?? {};
+      subMap[row.style_theme] = asset;
+      attireAssetsByRoleAndStyle[row.asset_subtype] = subMap;
+    } else {
+      // Legacy pre-style-themed row (Pexels seed era · retired but kept
+      // visible if admin un-retires). First-write-wins keeps the legacy
+      // path deterministic without per-row tiebreaker logic.
+      if (!attireAssetsByRole[row.asset_subtype]) {
+        attireAssetsByRole[row.asset_subtype] = asset;
+      }
+    }
   }
 
   const palette = sanitizeRolePalette(event.role_palette ?? {});
@@ -210,6 +243,9 @@ export default async function MoodBoardPage({ params }: Props) {
         rolePalette={flatPalette}
         attirePalette={attireGuidePalette}
         assetsByRole={attireAssetsByRole}
+        assetsByRoleAndStyle={
+          attireAssetsByRoleAndStyle as AssetsByRoleAndStyle
+        }
       />
 
       <section className="space-y-3 rounded-2xl border border-dashed border-ink/15 bg-cream p-5">

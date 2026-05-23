@@ -22,6 +22,37 @@ import {
 // is open?" UI state.
 // -----------------------------------------------------------------------
 
+// Per-side row tint · owner directive 2026-05-23 PM: "pink for bride,
+// blue for groom, amethyst for both". `idle` is the resting state;
+// `active` deepens the same hue when the group is the currently-viewed
+// filter. `icon` colors the Users icon to match. `count` colors the
+// member-count chip on the right.
+const ROW_TINT_BY_SIDE: Record<
+  GuestGroupTeamSide,
+  { idle: string; active: string; icon: string; count: string }
+> = {
+  bride: {
+    idle: 'bg-rose-50 text-rose-900 hover:bg-rose-100',
+    active: 'bg-rose-100 font-medium text-rose-800',
+    icon: 'text-rose-500',
+    count: 'text-rose-500/70',
+  },
+  groom: {
+    idle: 'bg-sky-50 text-sky-900 hover:bg-sky-100',
+    active: 'bg-sky-100 font-medium text-sky-800',
+    icon: 'text-sky-500',
+    count: 'text-sky-500/70',
+  },
+  // Amethyst = purple — distinct from both bride (rose/pink) and groom
+  // (sky/blue) so "Both sides" groups read as their own category.
+  both: {
+    idle: 'bg-purple-50 text-purple-900 hover:bg-purple-100',
+    active: 'bg-purple-100 font-medium text-purple-800',
+    icon: 'text-purple-500',
+    count: 'text-purple-500/70',
+  },
+};
+
 type Props = {
   eventId: string;
   groups: GuestGroupWithCount[];
@@ -82,6 +113,15 @@ export function GroupsSidebar({ eventId, groups, currentGroupId, hrefByGroupId }
         {groups.map((g) => {
           const isCurrent = currentGroupId === g.group_id;
           const editing = openKebabId === `edit:${g.group_id}`;
+          // Owner directive 2026-05-23 PM — color-code the group row
+          // itself by team_side. Pink for Team Bride, blue for Team
+          // Groom, amethyst (purple) for Both sides. The earlier
+          // "subtle chip-only" treatment didn't read at a glance —
+          // wrapping the whole row in the team tint makes Team Bride
+          // groups visually distinct from Team Groom groups in the
+          // sidebar list. Active state (isCurrent) deepens the tint
+          // for the currently-viewed group.
+          const rowTint = ROW_TINT_BY_SIDE[g.team_side];
           return (
             <li key={g.group_id} className="group">
               {editing ? (
@@ -95,15 +135,13 @@ export function GroupsSidebar({ eventId, groups, currentGroupId, hrefByGroupId }
                   <Link
                     href={hrefByGroupId[g.group_id] ?? `/dashboard/${eventId}/guests?view=group:${g.group_id}`}
                     className={`flex flex-1 items-center justify-between gap-2 rounded-md px-3 py-1.5 text-sm transition-colors ${
-                      isCurrent
-                        ? 'bg-terracotta/10 font-medium text-terracotta-700'
-                        : 'text-ink/70 hover:bg-ink/5'
+                      isCurrent ? rowTint.active : rowTint.idle
                     }`}
                   >
                     <span className="flex min-w-0 items-center gap-2">
                       <Users
                         aria-hidden
-                        className="h-3.5 w-3.5 shrink-0"
+                        className={`h-3.5 w-3.5 shrink-0 ${rowTint.icon}`}
                         strokeWidth={1.75}
                       />
                       <span className="truncate">{g.label}</span>
@@ -116,7 +154,7 @@ export function GroupsSidebar({ eventId, groups, currentGroupId, hrefByGroupId }
                         {teamSideShort(g.team_side)}
                       </span>
                       {g.member_count > 0 ? (
-                        <span className="text-[10px] text-ink/45">{g.member_count}</span>
+                        <span className={`text-[10px] ${rowTint.count}`}>{g.member_count}</span>
                       ) : null}
                     </span>
                   </Link>

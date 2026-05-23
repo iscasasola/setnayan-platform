@@ -410,10 +410,17 @@ export const TEAM_SIDE_LABELS: Record<GuestGroupTeamSide, string> = {
 
 // Chip palette mirrors the side-of-wedding tints already used on the
 // guest Avatar + SidePill so the visual language stays consistent.
+// Per-team-side chip colors · owner directive 2026-05-23 PM: "pink for
+// bride, blue for groom, amethyst for both". Aligned across surfaces:
+// the sidebar group row tint, the per-guest GroupChipList chip on the
+// table, and any future team_side chrome.
 export const TEAM_SIDE_CHIP: Record<GuestGroupTeamSide, string> = {
   bride: 'bg-rose-100 text-rose-800 ring-1 ring-rose-200',
   groom: 'bg-sky-100 text-sky-800 ring-1 ring-sky-200',
-  both: 'bg-amber-100 text-amber-800 ring-1 ring-amber-200',
+  // Amethyst (purple) — distinct from bride's rose + groom's sky.
+  // Replaces the prior amber treatment so "Both sides" reads as a
+  // distinct third option rather than a warm neutral.
+  both: 'bg-purple-100 text-purple-800 ring-1 ring-purple-200',
 };
 
 export type GuestGroupRow = {

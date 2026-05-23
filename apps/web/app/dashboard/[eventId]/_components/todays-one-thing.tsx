@@ -197,8 +197,13 @@ function DatePromptVariant({ eventId }: { eventId: string }) {
         </div>
 
         <div>
+          {/* 2026-05-23 — Owner reported this was routing to /invitation
+              (the monogram + widgets editor) instead of the Phase 0 date
+              picker. Aligned with the AuspiciousChip target at the top of
+              event home so both surfaces land on the same picker. See
+              auspicious-chip.tsx line 50 for the canonical destination. */}
           <Link
-            href={`/dashboard/${eventId}/invitation`}
+            href={`/dashboard/${eventId}/date-selection`}
             className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-terracotta px-5 py-3 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-700 focus:outline-none focus:ring-2 focus:ring-terracotta focus:ring-offset-2 focus:ring-offset-cream"
           >
             Set your date

@@ -1,5 +1,9 @@
 import { cache } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  isMissingRelationError,
+  logQueryError,
+} from '@/lib/supabase/error-detect';
 
 export type NotificationType =
   | 'chat_message'
@@ -67,22 +71,67 @@ export async function fetchOwnNotifications(
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(limit);
-  if (error) throw new Error(`fetchOwnNotifications failed: ${error.message}`);
+  if (error) {
+    // 4th hotfix pass (2026-05-23): missing-relation → graceful empty
+    // list. The notifications table + every type enum value has been in
+    // prod since 2026-05-13, but a future ADD VALUE to `NotificationType`
+    // (most recent: `photo_delivery_*` 2026-05-19) lands on code-before-
+    // SQL by 1 push cycle. The bell badge calling `fetchOwnNotifications`
+    // shouldn't crash the entire /dashboard/notifications page when the
+    // schema cache hasn't caught up. Empty list is the safer fallback.
+    if (isMissingRelationError(error)) {
+      logQueryError(
+        'fetchOwnNotifications',
+        error,
+        { user_id: userId, limit },
+        'graceful_degrade',
+      );
+      return [];
+    }
+    // Real bug (auth, RLS denial, real network failure) — log structured
+    // context BEFORE throwing so the breadcrumb survives even if the
+    // request-error hook misses it. Previous shape threw without
+    // logging, which left the call_site invisible in Sentry.
+    logQueryError(
+      'fetchOwnNotifications',
+      error,
+      { user_id: userId, limit },
+      'will_throw',
+    );
+    throw new Error(`fetchOwnNotifications failed: ${error.message}`);
+  }
   return (data ?? []) as NotificationRow[];
 }
 
 // Wrapped in React `cache()` so the dashboard chrome's unread-bell badge
 // (shown in both the outer layout AND the per-event layout AND queried again
 // inside the home page) reduces from 3 count(*) queries per nav down to one.
+//
+// 4th hotfix pass (2026-05-23): countUnread sits on the chrome path of
+// EVERY authenticated dashboard surface — outer DashboardLayout, inner
+// per-event layout, and home page bell. A silent failure here would
+// mean the badge reads 0 (acceptable), but a thrown Postgres error
+// would crash the entire /dashboard/[eventId]/* subtree including the
+// guests page that's been failing for 4 hotfix cycles. Capture the
+// error explicitly, log it, fall back to 0. Never throw from chrome.
 export const countUnread = cache(async (
   supabase: SupabaseClient,
   userId: string,
 ): Promise<number> => {
-  const { count } = await supabase
+  const { count, error } = await supabase
     .from('notifications')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
     .is('read_at', null);
+  if (error) {
+    logQueryError(
+      'countUnread',
+      error,
+      { user_id: userId },
+      'graceful_degrade',
+    );
+    return 0;
+  }
   return count ?? 0;
 });
 

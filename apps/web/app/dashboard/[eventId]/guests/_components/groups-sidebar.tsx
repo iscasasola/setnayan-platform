@@ -26,10 +26,16 @@ type Props = {
   eventId: string;
   groups: GuestGroupWithCount[];
   currentGroupId: string | null;
-  buildHref: (overrides: Record<string, string | null>) => string;
+  // 7th-pass hotfix 2026-05-23 — pre-resolved href per group_id.
+  // Replaces the previous `buildHref` callback which was a function
+  // serialized across the RSC → Client boundary, throwing
+  // "Functions cannot be passed directly to Client Components" with
+  // Sentry digest 3284377371. Plain string map crosses the boundary
+  // cleanly.
+  hrefByGroupId: Record<string, string>;
 };
 
-export function GroupsSidebar({ eventId, groups, currentGroupId, buildHref }: Props) {
+export function GroupsSidebar({ eventId, groups, currentGroupId, hrefByGroupId }: Props) {
   const [showNew, setShowNew] = useState(false);
   const [openKebabId, setOpenKebabId] = useState<string | null>(null);
 
@@ -87,7 +93,7 @@ export function GroupsSidebar({ eventId, groups, currentGroupId, buildHref }: Pr
               ) : (
                 <div className="flex items-center gap-1">
                   <Link
-                    href={buildHref({ view: `group:${g.group_id}` })}
+                    href={hrefByGroupId[g.group_id] ?? `/dashboard/${eventId}/guests?view=group:${g.group_id}`}
                     className={`flex flex-1 items-center justify-between gap-2 rounded-md px-3 py-1.5 text-sm transition-colors ${
                       isCurrent
                         ? 'bg-terracotta/10 font-medium text-terracotta-700'

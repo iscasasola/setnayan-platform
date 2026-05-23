@@ -70,9 +70,24 @@ function deriveState(data: CategoryTileData): TileState {
   return isLivePhase(data.meta.phase) ? { kind: 'recruiting' } : { kind: 'future' };
 }
 
-export function CategoryTile({ data }: { data: CategoryTileData }) {
+export function CategoryTile({
+  data,
+  focusedMode = false,
+}: {
+  data: CategoryTileData;
+  /**
+   * Owner directive 2026-05-22 — when TRUE, the host arrived from a
+   * planning card (URL has `?from=plan`). Tile drill-ins append
+   * `&from=plan` so the destination /vendors view stays in focused
+   * mode (chrome stripped). Direct visits leave this false → href is
+   * unchanged from prior behavior.
+   */
+  focusedMode?: boolean;
+}) {
   const state = deriveState(data);
-  const href = `/vendors?category=${encodeURIComponent(data.canonicalService)}`;
+  const href = focusedMode
+    ? `/vendors?category=${encodeURIComponent(data.canonicalService)}&from=plan`
+    : `/vendors?category=${encodeURIComponent(data.canonicalService)}`;
 
   const containerClass =
     state.kind === 'setnayan'

@@ -11,6 +11,7 @@ import {
   PLAN_GROUPS,
   PLAN_GROUP_TIER_LABEL,
   bucketVendorsByGroup,
+  buildPlanGroupSearchHref,
   isCeremonyType,
   resolvePlanGroupHint,
   targetDateStatus,
@@ -101,9 +102,14 @@ export function EventHomeDetailPane({
   const consideredPicks = picks.filter((p) => p.status !== 'locked');
   const recommendations = crossCategoryRecommendations?.get(selectedGroup.id) ?? [];
   const folderSlug = WEDDING_FOLDER_SLUG[selectedGroup.catalogFolder];
-  const searchHref = selectedGroup.subcategoryHint
-    ? `/vendors?folder=${folderSlug}&category=${encodeURIComponent(selectedGroup.subcategoryHint)}`
-    : `/vendors?folder=${folderSlug}#${folderSlug}`;
+  // Canonical helper (lib/wedding-plan-groups.ts) — appends `from=plan`
+  // alongside `folder` + `category` so the marketplace flips to
+  // focused-mode chrome (search box + vendor cards only, filter chrome
+  // hidden). Was hardcoded inline pre-2026-05-22 PR — now centralized so
+  // the four in-dashboard surfaces that link to /vendors (planning-groups
+  // [Search] · todays-one-thing CTA · next-steps CTA · this detail pane
+  // Browse vendors button) all stay in lock-step.
+  const searchHref = buildPlanGroupSearchHref(selectedGroup, folderSlug);
   const comparePicks = picks.filter((p) => p.status !== 'locked');
   const canCompare = comparePicks.length >= 2;
 

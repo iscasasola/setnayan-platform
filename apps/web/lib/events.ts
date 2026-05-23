@@ -1,9 +1,5 @@
 import { cache } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import {
-  isMissingRelationError,
-  logQueryError,
-} from '@/lib/supabase/error-detect';
 
 export type EventRow = {
   event_id: string;
@@ -84,35 +80,6 @@ export const fetchUserEvents = cache(async (
 
   const { data, error } = await query;
   if (error) {
-    // Graceful-degrade on missing-relation — this query is load-bearing
-    // for the entire /dashboard/[eventId]/* layout (it powers the event
-    // switcher). A missing column (e.g. `monogram_text` added 2026-05-13
-    // — pushed long ago — but parallel risk for any future events table
-    // ADD COLUMN) would crash every authenticated dashboard page, not
-    // just the surface that triggered it. Empty switcher list is the
-    // safer fallback than a hard crash; the current event still renders
-    // via the parent layout's separate `.from('events').single()` query.
-    if (isMissingRelationError(error)) {
-      logQueryError(
-        'fetchUserEvents',
-        error,
-        { user_id: userId, member_type: memberType ?? null },
-        'graceful_degrade',
-      );
-      return [];
-    }
-    // Real bug (RLS denial, auth, network) — log structured context to
-    // Sentry first so the call_site survives, then throw to let the
-    // error boundary handle it. The first two hotfixes (#380 + #390)
-    // missed this throw entirely — fetchUserEvents was on the layout's
-    // Promise.all alongside the page's own queries, so a layout-level
-    // throw bubbled to the same error.tsx as a page-level throw.
-    logQueryError(
-      'fetchUserEvents',
-      error,
-      { user_id: userId, member_type: memberType ?? null },
-      'will_throw',
-    );
     throw new Error(`Failed to fetch events: ${error.message}`);
   }
 

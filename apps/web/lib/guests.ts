@@ -1,8 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import {
-  isMissingRelationError,
-  logQueryError,
-} from '@/lib/supabase/error-detect';
 
 export type GuestRole =
   | 'guest'
@@ -175,33 +171,7 @@ export async function fetchGuestsByEvent(
     .order('last_name', { ascending: true })
     .order('first_name', { ascending: true });
 
-  // Graceful-degrade on missing-relation errors so an unpushed migration
-  // (e.g. a future ADD COLUMN to `guests` rolls out to code before the
-  // SQL lands on prod) renders an empty list instead of crashing the
-  // entire page. PR #380 + #390 had this same protection on
-  // fetchGuestGroupsByEvent but missed the primary guests query —
-  // promoting fetchGuestsByEvent to the same graceful-degrade pattern
-  // closes the third-crash gap symmetrically. See
-  // apps/web/lib/supabase/error-detect.ts for the full code/message list.
   if (error) {
-    if (isMissingRelationError(error)) {
-      logQueryError(
-        'fetchGuestsByEvent',
-        error,
-        { event_id: eventId },
-        'graceful_degrade',
-      );
-      return [];
-    }
-    // Real bug (RLS denial, auth failure, network) — log first so the
-    // structured call_site survives in Sentry even though the page is
-    // about to crash via the error boundary's auto-Sentry capture.
-    logQueryError(
-      'fetchGuestsByEvent',
-      error,
-      { event_id: eventId },
-      'will_throw',
-    );
     throw new Error(`fetchGuestsByEvent failed: ${error.message}`);
   }
 
@@ -221,26 +191,7 @@ export async function fetchGuestById(
     .is('deleted_at', null)
     .maybeSingle();
 
-  // Same graceful-degrade pattern as fetchGuestsByEvent — the guest
-  // detail page should render an empty state instead of crashing when
-  // a column referenced in GUEST_FIELDS hasn't been migrated to prod
-  // yet. notFound() upstream handles the null cleanly.
   if (error) {
-    if (isMissingRelationError(error)) {
-      logQueryError(
-        'fetchGuestById',
-        error,
-        { event_id: eventId, guest_id: guestId },
-        'graceful_degrade',
-      );
-      return null;
-    }
-    logQueryError(
-      'fetchGuestById',
-      error,
-      { event_id: eventId, guest_id: guestId },
-      'will_throw',
-    );
     throw new Error(`fetchGuestById failed: ${error.message}`);
   }
   return (data ?? null) as unknown as GuestRow | null;
@@ -297,22 +248,7 @@ export async function fetchSingletonRoleHolders(
     .in('role', SINGLETON_GUEST_ROLES as readonly string[])
     .is('deleted_at', null);
 
-  if (error) {
-    // Likely cause when this fires today: the bride/groom enum values
-    // from migration 20260530020000_guest_role_add_bride_groom haven't
-    // been pushed to prod yet, so `.in('role', ['bride', 'groom'])`
-    // returns a Postgres enum cast error. Empty `{}` keeps the role
-    // dropdown showing both singleton roles instead of crashing the
-    // page.
-    logQueryError(
-      'fetchSingletonRoleHolders',
-      error,
-      { event_id: eventId, except_guest_id: exceptGuestId ?? null },
-      isMissingRelationError(error) ? 'graceful_degrade' : 'will_throw',
-    );
-    return {};
-  }
-  if (!data) return {};
+  if (error || !data) return {};
   const holders: Partial<Record<GuestRole, string>> = {};
   for (const row of data as Array<{ guest_id: string; role: GuestRole }>) {
     if (exceptGuestId && row.guest_id === exceptGuestId) continue;
@@ -331,13 +267,47 @@ export async function fetchSingletonRoleHolders(
 // supabase/migrations/20260604170000_iteration_0001_guest_groups.sql.
 // -----------------------------------------------------------------------
 
-// `isMissingRelationError` + `logQueryError` are now imported from
-// `apps/web/lib/supabase/error-detect.ts` so the same detector covers
-// every render-path query (not just guest_groups). The shared module
-// keeps the detector docs in one place; the third hotfix pass extended
-// the code list to also cover 42704 / 42883 / PGRST116 + a wider
-// message-substring net than the inline version above had. PR #380 +
-// #390 lived inline here; this third pass extracts to a shared util.
+/**
+ * Robust missing-relation detector. Catches the case where the migration
+ * hasn't been pushed to prod yet via every variant Supabase/PostgREST
+ * can surface:
+ *
+ *   - `42P01` — Postgres `undefined_table`, returned when the SQL hits a
+ *     missing table directly (the simple SELECT path).
+ *   - `42703` — Postgres `undefined_column`, returned when a SELECT
+ *     references a column that hasn't been added yet (parallel risk for
+ *     migrations that ALTER existing tables).
+ *   - `PGRST200` / `PGRST205` — PostgREST schema-cache codes. PGRST205
+ *     fires when the table exists in Postgres but PostgREST's in-memory
+ *     schema cache hasn't reloaded yet (common right after a migration
+ *     push); PGRST200 fires when an embedded relationship (`!inner(...)`)
+ *     can't be resolved because either side of the FK is missing.
+ *   - Fallback to message-substring match for "does not exist" /
+ *     "schema cache" — defensive net for future PostgREST versions that
+ *     might rename codes.
+ *
+ * Background: PR #380 (commit 7240f05) caught only `42P01` for the
+ * `guest_groups` SELECT, but a fresh user-reported crash AFTER #380
+ * deploy showed the guests page still bouncing into the error boundary
+ * (new reference 2167755689 vs the original 1251857393). The likely
+ * unhandled-path candidates are the PostgREST PGRST20x codes when the
+ * schema cache for `guest_groups` / `guest_group_memberships` hasn't
+ * caught up to the DB yet (or when the cache reload itself raced).
+ */
+function isMissingRelationError(
+  error: { code?: string | null; message?: string | null } | null | undefined,
+): boolean {
+  if (!error) return false;
+  const code = error.code ?? '';
+  if (code === '42P01' || code === '42703') return true;
+  if (code === 'PGRST200' || code === 'PGRST205') return true;
+  const msg = (error.message ?? '').toLowerCase();
+  if (msg.includes('does not exist')) return true;
+  if (msg.includes('schema cache')) return true;
+  if (msg.includes('could not find the table')) return true;
+  if (msg.includes('could not find the function')) return true;
+  return false;
+}
 
 export type GuestGroupTeamSide = 'bride' | 'groom' | 'both';
 
@@ -398,52 +368,30 @@ export async function fetchGuestGroupsByEvent(
   ]);
 
   if (groupsRes.error) {
-    // Graceful-degrade when the migration hasn't been applied to prod
-    // yet (`supabase db push --linked` is the owner-side step) or
-    // PostgREST's schema cache hasn't caught up. The third hotfix pass
-    // (2026-05-23) added structured logging so the next crash surfaces
-    // the call site instead of forcing another speculative patch — the
-    // first two hotfixes silently swallowed and we kept guessing which
-    // query was next-narrowest.
+    // Graceful-degrade when the migration hasn't been applied to prod yet
+    // (`supabase db push --linked` is the owner-side step) or PostgREST's
+    // schema cache hasn't caught up. The detector covers every code +
+    // message variant Supabase surfaces — see `isMissingRelationError`
+    // above for the WHY. PR #380's narrower `42P01` check missed the
+    // PGRST20x codes that PostgREST returns when its schema cache is
+    // stale; this widens the net so the page renders with no custom
+    // groups instead of crashing. Any non-missing-relation error (auth,
+    // RLS denial, network) still throws so we don't silently swallow a
+    // real bug.
     if (isMissingRelationError(groupsRes.error)) {
-      logQueryError(
-        'fetchGuestGroupsByEvent (groups)',
-        groupsRes.error,
-        { event_id: eventId },
-        'graceful_degrade',
-      );
       return [];
     }
-    logQueryError(
-      'fetchGuestGroupsByEvent (groups)',
-      groupsRes.error,
-      { event_id: eventId },
-      'will_throw',
-    );
     throw new Error(`fetchGuestGroupsByEvent failed: ${groupsRes.error.message}`);
   }
   const groups = (groupsRes.data ?? []) as unknown as GuestGroupRow[];
 
-  // Same graceful-degrade for memberships. Real bugs (RLS denial, auth)
-  // are surfaced via logQueryError + throw; missing-relation is logged
-  // at the warning level and falls through to the empty-count map.
-  if (membershipsRes.error) {
-    if (!isMissingRelationError(membershipsRes.error)) {
-      logQueryError(
-        'fetchGuestGroupsByEvent (memberships)',
-        membershipsRes.error,
-        { event_id: eventId },
-        'will_throw',
-      );
-      throw new Error(
-        `fetchGuestGroupsByEvent (memberships) failed: ${membershipsRes.error.message}`,
-      );
-    }
-    logQueryError(
-      'fetchGuestGroupsByEvent (memberships)',
-      membershipsRes.error,
-      { event_id: eventId },
-      'graceful_degrade',
+  // Same graceful-degrade for memberships. The previous `?? []` was
+  // implicit-safe (no throw) but treated *every* error the same way,
+  // including real RLS denials that we'd want to surface. Explicit
+  // check matches the groupsRes treatment and keeps real bugs loud.
+  if (membershipsRes.error && !isMissingRelationError(membershipsRes.error)) {
+    throw new Error(
+      `fetchGuestGroupsByEvent (memberships) failed: ${membershipsRes.error.message}`,
     );
   }
 
@@ -468,23 +416,24 @@ export async function fetchGroupMembershipsByEvent(
     .select('guest_id, group_id, guest_groups!inner(event_id)')
     .eq('guest_groups.event_id', eventId);
 
-  // Graceful-degrade on any error — render the page with no custom-group
+  // Graceful-degrade when the migration is unpushed or PostgREST's
+  // schema cache hasn't caught up — render the page with no custom-group
   // memberships rather than crashing. We intentionally keep this
   // function's "any-error → empty Map()" fallback (vs strictening like
   // `fetchGuestGroupsByEvent` above does) because this helper sits on
-  // every guests-page render and we'd rather miss a real-bug throw than
-  // re-introduce a crash that PR #380 / #390 didn't see coming.
-  // logQueryError sends to Sentry with structured `call_site` context
-  // so real bugs (RLS, auth, network) still surface in the dashboard
-  // even though we don't throw. Missing-relation logs at warning level;
-  // real bugs at error level.
+  // every guests-page render and we'd rather miss a Sentry breadcrumb
+  // than re-introduce a crash that PR #380 didn't see coming. Errors are
+  // still logged for diagnosis. Sentry captures via the global handler
+  // in instrumentation.ts (iteration 0035 Observability) when the
+  // request flows through any other throw upstream.
   if (error) {
-    logQueryError(
-      'fetchGroupMembershipsByEvent',
-      error,
-      { event_id: eventId },
-      isMissingRelationError(error) ? 'graceful_degrade' : 'will_throw',
-    );
+    if (!isMissingRelationError(error)) {
+      // Non-missing-relation error (RLS denial, auth, network). Don't
+      // throw — the page render path is too important to crash on a
+      // best-effort enrichment query — but log it so we surface real
+      // bugs in production logs.
+      console.error('[fetchGroupMembershipsByEvent]', error);
+    }
     return new Map();
   }
   const map = new Map<string, string[]>();

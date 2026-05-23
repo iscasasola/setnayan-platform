@@ -375,18 +375,71 @@ export default async function EventHomePage({
     viewerModeratorRes,
   ] =
     await Promise.all([
-      supabase
-        .from('events')
-        .select(
-          'event_id, display_name, event_date, event_date_precision, slug, venue_name, venue_latitude, venue_longitude, monogram_text, palette_finalized_at, concierge_status, concierge_tier, concierge_activated_at, concierge_expires_at, concierge_long_engagement_advised_at, event_type, ceremony_type, ceremony_type_locked_at, venue_setting, estimated_budget_centavos, date_status, auspicious_reasons',
-        )
-        .eq('event_id', eventId)
-        .maybeSingle(),
-      supabase
-        .from('users')
-        .select('display_name, planner_mode, concierge_trial_used_at, concierge_enforcement_level')
-        .eq('user_id', user.id)
-        .maybeSingle(),
+      // Robust events SELECT (owner reported "error in creating an event"
+      // 2026-05-23 — global error boundary firing after the create-event
+      // redirect). Pre-fix this SELECT listed 22 columns; if ANY of them
+      // is missing on prod (migration drift between local + remote), the
+      // whole page crashed with "column does not exist" propagating from
+      // the server-component render. Fallback pattern mirrors
+      // fetchEventVendorsRobust above: try the full explicit list first,
+      // fall back to SELECT * on any column-not-found error. Wider net
+      // — also catches generic Postgres errors so a transient DB hiccup
+      // returns null rather than 500-ing the page.
+      (async () => {
+        const fullSelect =
+          'event_id, display_name, event_date, event_date_precision, slug, venue_name, venue_latitude, venue_longitude, monogram_text, palette_finalized_at, concierge_status, concierge_tier, concierge_activated_at, concierge_expires_at, concierge_long_engagement_advised_at, event_type, ceremony_type, ceremony_type_locked_at, venue_setting, estimated_budget_centavos, date_status, auspicious_reasons';
+        const fullRes = await supabase
+          .from('events')
+          .select(fullSelect)
+          .eq('event_id', eventId)
+          .maybeSingle();
+        if (
+          fullRes.error &&
+          /column .* does not exist|undefined_column|42703/i.test(
+            (fullRes.error as { message?: string; code?: string }).message ??
+              (fullRes.error as { code?: string }).code ??
+              '',
+          )
+        ) {
+          // Column missing on prod → migration drift. Fall back to '*'
+          // which returns whatever columns the deployed schema has;
+          // downstream code already reads columns defensively via the
+          // `(event as { ... }).column ?? fallback` pattern.
+          return supabase
+            .from('events')
+            .select('*')
+            .eq('event_id', eventId)
+            .maybeSingle();
+        }
+        return fullRes;
+      })(),
+      // Same defensive pattern on the user row read — adds protection
+      // for stale users-table columns. If concierge_* columns or
+      // planner_mode are missing, fall back to display_name only.
+      (async () => {
+        const fullUserSelect =
+          'display_name, planner_mode, concierge_trial_used_at, concierge_enforcement_level';
+        const fullRes = await supabase
+          .from('users')
+          .select(fullUserSelect)
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (
+          fullRes.error &&
+          /column .* does not exist|undefined_column|42703/i.test(
+            (fullRes.error as { message?: string; code?: string }).message ??
+              (fullRes.error as { code?: string }).code ??
+              '',
+          )
+        ) {
+          return supabase
+            .from('users')
+            .select('*')
+            .eq('user_id', user.id)
+            .maybeSingle();
+        }
+        return fullRes;
+      })(),
       fetchGuestsByEvent(supabase, eventId),
       fetchManualStepCompletions(supabase, eventId),
       countUnread(supabase, user.id),

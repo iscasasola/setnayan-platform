@@ -10,9 +10,14 @@
 //   - Headline + sub-claim
 //   - Three-column transparency strip (Free forever · À la carte ·
 //     +5.0% at checkout). Mobile collapses to single column.
-//   - Worked-example accordion (₱100,000 → +₱5,500 → ₱105,500).
+//   - Worked-example accordion (₱100,000 → +₱5,000 → ₱105,000).
 //     Native <details>/<summary> — auto-open on lg+, tap-to-expand on
 //     mobile to keep above-the-fold density readable.
+//
+// (Comment previously cited a stale ₱5,500 / ₱105,500 worked example carried
+// over from the 2026-05-16 morning 5.5% draft; the rendered data below + the
+// /pricing page already match the canonical flat 5.0% lock. Comment realigned
+// per CLAUDE.md 2026-05-23 5-sweep audit Sweep 5.)
 //
 // Server Component — no client state, all copy is static. Reuses the
 // existing Tailwind tokens already in use across the other page-sections

@@ -5,12 +5,14 @@ import {
   ArrowLeft,
   ArrowUp,
   Check,
+  ExternalLink,
   Eye,
   EyeOff,
   GripVertical,
   LayoutGrid,
   Lock,
   Pencil,
+  Sparkles,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
@@ -102,6 +104,40 @@ export default async function WidgetsEditorPage({
     .filter((row): row is InvitationWidgetRow => isWidgetType(row.widget_type))
     .map((row) => row as InvitationWidgetRow);
 
+  // Preview-as-guest data — fetch ONE guest with a valid qr_token so the
+  // host can click "Preview as guest" and see their invitation render the
+  // way a real guest sees it. The public /[slug] URL shows the privacy
+  // gate to anonymous visitors per the 2026-05-19 row 426 design
+  // (widgets only render on personalized invitation links · the public
+  // URL becomes a permanent Public Event Summary 30 days post-wedding).
+  //
+  // Surfacing this preview path directly from the widgets editor closes
+  // the verification gap the owner hit 2026-05-23 ("widgets do not apply
+  // on live website") — the editor saves were succeeding; the host was
+  // checking the anonymous public URL which deliberately hides widgets.
+  //
+  // We pick the first guest by created_at order — any guest with a
+  // qr_token is a valid preview subject. When no guests exist yet, the
+  // button is disabled with a tooltip pointing at the guest list.
+  const { data: previewGuest } = await supabase
+    .from('guests')
+    .select('guest_id, first_name, last_name, display_name, qr_token')
+    .eq('event_id', eventId)
+    .is('deleted_at', null)
+    .not('qr_token', 'is', null)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  const previewGuestName = previewGuest
+    ? (previewGuest.display_name?.trim() ||
+        `${previewGuest.first_name} ${previewGuest.last_name}`.trim() ||
+        null)
+    : null;
+  const previewUrl = previewGuest?.qr_token && event.slug
+    ? `/${event.slug}?invite=${encodeURIComponent(previewGuest.qr_token)}`
+    : null;
+
   const sorted = sortWidgetsForEditor(widgets);
   const alwaysOnRows = sorted.filter((w) => w.is_always_on);
   const hideableRows = sorted.filter((w) => !w.is_always_on);
@@ -146,6 +182,79 @@ export default async function WidgetsEditorPage({
           </p>
         </div>
       </header>
+
+      {/* Preview-as-guest banner — closes the verification confusion gap
+          (owner report 2026-05-23: "widgets do not apply on live website").
+          The public /[slug] URL deliberately shows a privacy gate to
+          anonymous visitors and does NOT render widgets. Widgets only
+          render on personalized guest invitation links carrying ?invite=
+          tokens. Surfacing the preview path here in the editor — both as
+          plain-English explanation AND as a one-click button — means the
+          host never has to puzzle through that gating again. Per
+          [[feedback_setnayan_no_dev_text_post_launch]] memory, copy stays
+          in brand voice; no "this is the gate" jargon. */}
+      <aside
+        className="rounded-xl border border-terracotta/30 bg-terracotta/5 p-5 sm:p-6"
+        aria-label="How to preview your changes"
+      >
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+          <div className="flex items-start gap-3">
+            <Sparkles
+              aria-hidden
+              className="mt-0.5 h-5 w-5 shrink-0 text-terracotta"
+              strokeWidth={1.75}
+            />
+            <div className="space-y-1.5">
+              <p className="font-medium text-ink">
+                Want to see how this looks to a guest?
+              </p>
+              <p className="max-w-prose text-sm text-ink/70">
+                The public{' '}
+                {event.slug ? (
+                  <span className="font-mono text-xs">setnayan.com/{event.slug}</span>
+                ) : (
+                  'wedding link'
+                )}{' '}
+                shows a polite &ldquo;scan your QR&rdquo; gate to anyone without an
+                invitation — your widgets only appear when a guest opens their
+                personalized link. Preview as a guest below to see your changes
+                land.
+              </p>
+            </div>
+          </div>
+          <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
+            {previewUrl && previewGuestName ? (
+              <a
+                href={previewUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-700"
+              >
+                <ExternalLink aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                Preview as {previewGuestName}
+              </a>
+            ) : (
+              <div className="space-y-1.5 text-right">
+                <button
+                  type="button"
+                  disabled
+                  className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-md border border-ink/15 bg-ink/5 px-4 py-2 text-sm font-medium text-ink/40"
+                  title="Add at least one guest to your list to enable preview"
+                >
+                  <ExternalLink aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                  Preview as guest
+                </button>
+                <Link
+                  href={`/dashboard/${eventId}/guests/new`}
+                  className="block text-xs text-terracotta hover:text-terracotta-700"
+                >
+                  + Add your first guest to enable preview
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
+      </aside>
 
       {/* Saved + error banners */}
       {saved ? (

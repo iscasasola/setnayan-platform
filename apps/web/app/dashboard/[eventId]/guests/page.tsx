@@ -15,6 +15,7 @@ import {
 } from '@/lib/guests';
 import { filterByRoleGroup, ROLE_GROUP_LABELS } from '@/lib/role-groups';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { GuestListMultiselect } from './_components/guest-list-multiselect';
 import { GroupsSidebar } from './_components/groups-sidebar';
 
@@ -83,6 +84,18 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     fetchGuestGroupsByEvent(supabase, eventId),
     fetchGroupMembershipsByEvent(supabase, eventId),
   ]);
+  // Log silent palette-read errors so a future ADD COLUMN regression
+  // would surface in Sentry instead of falling through to an empty
+  // palette. sanitizeRolePalette already handles null input cleanly, so
+  // the page still renders — but we want the breadcrumb.
+  if (eventRow.error) {
+    logQueryError(
+      'GuestsPage (events.role_palette)',
+      eventRow.error,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
   const palette: RolePalette = sanitizeRolePalette(eventRow.data?.role_palette ?? {});
 
   const q = (search.q ?? '').trim().toLowerCase();
@@ -279,11 +292,23 @@ async function fetchJoinUrl(
   supabase: Awaited<ReturnType<typeof createClient>>,
   eventId: string,
 ): Promise<string | null> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('event_join_tokens')
     .select('token')
     .eq('event_id', eventId)
     .maybeSingle();
+  // Surface silent errors so a future event_join_tokens column rename
+  // / RLS regression doesn't quietly hide the share-invite affordance
+  // from every host until someone notices. The null fallback keeps the
+  // page rendering with no Share-invite link.
+  if (error) {
+    logQueryError(
+      'GuestsPage (event_join_tokens)',
+      error,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
+  }
   if (!data?.token) return null;
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';

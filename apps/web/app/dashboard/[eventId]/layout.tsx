@@ -7,6 +7,7 @@ import { fetchUserEvents } from '@/lib/events';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { countUnread } from '@/lib/notifications';
 import { getLocale, makeT } from '@/lib/i18n';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { BottomNav } from './_components/bottom-nav';
 import { EventSwitcher } from './_components/event-switcher';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
@@ -25,12 +26,25 @@ export default async function EventLayout({ children, params }: Props) {
   const supabase = await createClient();
 
   // Authorization (per acceptance criterion: 404 for non-couples).
-  const { data: membership } = await supabase
+  const { data: membership, error: membershipError } = await supabase
     .from('event_members')
     .select('member_type')
     .eq('event_id', eventId)
     .eq('user_id', user.id)
     .maybeSingle();
+
+  // Log silent RLS / network errors so the next "user can't reach their
+  // own dashboard" mystery shows up in Sentry with the exact reason
+  // instead of just landing on notFound(). The notFound() fallback
+  // stays — better to 404 than crash — but logQueryError leaves a trail.
+  if (membershipError) {
+    logQueryError(
+      'EventLayout (event_members)',
+      membershipError,
+      { event_id: eventId, user_id: user.id },
+      'graceful_degrade',
+    );
+  }
 
   if (!membership || membership.member_type !== 'couple') {
     notFound();
@@ -43,12 +57,28 @@ export default async function EventLayout({ children, params }: Props) {
         'event_id, public_id, display_name, event_date, archived, event_type, monogram_text, monogram_color',
       )
       .eq('event_id', eventId)
-      .single(),
+      .maybeSingle(),
     countUnread(supabase, user.id),
     getLocale(),
     fetchUserEvents(supabase, user.id, 'couple'),
     fetchUserRoleSummary(supabase, user.id),
   ]);
+  // Log silent SELECT errors before falling through to notFound().
+  // Swapped from .single() (which sets PGRST116 "0 rows" as an error)
+  // to .maybeSingle() (which returns null cleanly for the no-row case)
+  // so a true row-missing surfaces as 404 and a real DB / column error
+  // surfaces as a logged graceful-degrade → 404. The third hotfix pass
+  // added this logging because the layout's .single() was previously
+  // a silent crash surface when a future events ADD COLUMN migration
+  // would land on code before SQL.
+  if (eventRes.error) {
+    logQueryError(
+      'EventLayout (events)',
+      eventRes.error,
+      { event_id: eventId, user_id: user.id },
+      'graceful_degrade',
+    );
+  }
   const event = eventRes.data;
   if (!event) notFound();
 

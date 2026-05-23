@@ -16,6 +16,7 @@
  */
 import { cache } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 export type UserRoleSummary = {
   /**
@@ -85,6 +86,35 @@ export const fetchUserRoleSummary = cache(async (
       )
       .eq('user_id', userId),
   ]);
+
+  // Log silent errors so a future column addition (e.g. users.account_type
+  // enum extension that lags prod) shows up in Sentry instead of falling
+  // through to an empty role summary that masks a real RLS / auth bug.
+  // This function never throws — it's chrome — but we want the trail.
+  if (profileRes.error) {
+    logQueryError(
+      'fetchUserRoleSummary (profile)',
+      profileRes.error,
+      { user_id: userId },
+      'graceful_degrade',
+    );
+  }
+  if (ownedRes.error) {
+    logQueryError(
+      'fetchUserRoleSummary (owned vendor_profiles)',
+      ownedRes.error,
+      { user_id: userId },
+      'graceful_degrade',
+    );
+  }
+  if (teamRes.error) {
+    logQueryError(
+      'fetchUserRoleSummary (vendor_team_members)',
+      teamRes.error,
+      { user_id: userId },
+      'graceful_degrade',
+    );
+  }
 
   const profile = profileRes.data;
   const hasAdminAccess = !!(

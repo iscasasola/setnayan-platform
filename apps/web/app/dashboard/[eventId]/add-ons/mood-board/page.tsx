@@ -12,6 +12,7 @@ import {
   type TemplateAsset,
   type ExistingSave,
 } from './_components/visual-preview';
+import { WeddingAttireGuide } from './_components/wedding-attire-guide';
 import type { ColorRangeMap } from '@/app/admin/moodboard-library/_components/color-range-manipulator';
 
 const MOODBOARD_BUCKET = 'moodboard-library';
@@ -96,21 +97,32 @@ export default async function MoodBoardPage({ params }: Props) {
       />
 
       {/* Flatten role_palette to {role → first color} for the visual preview
-         pillars — they pick ONE accent per role for the silhouette tint, not
-         the full multi-color list. The Section + downstream VisualPreview
-         both type-as Record<string, string>; we do the flatten at the call
-         site to keep the boundary type clean (and to fix the 2026-05-21
-         build that crashed when the multi-color shape leaked through). */}
-      <VisualPreviewSection
-        eventId={eventId}
-        rolePalette={Object.fromEntries(
+         pillars + Wedding Attire Guide mockup — they pick ONE accent per
+         role for the silhouette tint, not the full multi-color list. The
+         flatten happens once and feeds both downstream components. */}
+      {(() => {
+        const flatPalette = Object.fromEntries(
           Object.entries(palette).flatMap(([role, colors]) =>
             colors && colors.length > 0 && typeof colors[0] === 'string'
               ? [[role, colors[0]] as const]
               : [],
           ),
-        )}
-      />
+        );
+        return (
+          <>
+            <VisualPreviewSection eventId={eventId} rolePalette={flatPalette} />
+            {/* Wedding Attire Guide preview — owner directive 2026-05-23 PM.
+                Clickable mockup of the V1.x Professional Mood Board
+                group-portrait composition (2-tier wedding party with
+                annotated swatch + descriptor per role group). Uses the
+                same flattened palette as the visual preview above so
+                changes the host makes in the PaletteEditor flow through
+                automatically. See the component for the V1.x-vs-V1
+                scope reasoning. */}
+            <WeddingAttireGuide rolePalette={flatPalette} />
+          </>
+        );
+      })()}
 
       <section className="space-y-3 rounded-2xl border border-dashed border-ink/15 bg-cream p-5">
         <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">

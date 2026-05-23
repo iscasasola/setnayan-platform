@@ -367,13 +367,58 @@ export function WeddingAttireGuide({
           background. Front row larger figures with shadow; back row smaller
           tucked behind. Click a figure cluster to highlight + reveal the
           descriptor pill below. */}
-      <div className="relative overflow-hidden rounded-xl border border-ink/10 bg-[#F2E8D8] p-6 sm:p-8">
+      <div
+        className="relative overflow-hidden rounded-2xl border border-ink/10 p-8 pb-16 sm:p-10 sm:pb-20"
+        style={{
+          background:
+            'radial-gradient(ellipse at 50% 40%, #F7ECD4 0%, #EFDCB2 70%, #E5CFA0 100%)',
+          boxShadow:
+            'inset 0 1px 0 rgba(255,255,255,0.5), inset 0 0 80px rgba(120,80,30,0.08)',
+        }}
+      >
         {/* Inline marker that this is a preview — small, polite, doesn't
             overshadow the composition. */}
         <p className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-cream/85 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55 backdrop-blur-md">
           <Sparkles aria-hidden className="h-3 w-3" strokeWidth={1.75} />
           Stylized preview
         </p>
+
+        {/* Decorative venue arches — line-art silhouette at the bottom of
+            the canvas suggesting a wedding venue (chapel arches, gazebo
+            colonnade). Pure SVG · subtle ink-tinted strokes at low
+            opacity so the figures stay the visual focus. Sits behind
+            the figures via z-index ordering (figures come after in DOM
+            so they paint over). */}
+        <svg
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-16 w-full"
+          viewBox="0 0 1200 80"
+          preserveAspectRatio="none"
+          aria-hidden
+        >
+          {/* Ground line */}
+          <line x1="0" y1="75" x2="1200" y2="75" stroke="rgba(60,40,15,0.18)" strokeWidth="1" />
+          {/* Three elegant arches · gothic-leaning pointed-arch profile */}
+          <path
+            d="M 100 75 L 100 50 Q 100 20 150 20 Q 200 20 200 50 L 200 75"
+            stroke="rgba(60,40,15,0.18)"
+            strokeWidth="1.2"
+            fill="none"
+          />
+          <path
+            d="M 550 75 L 550 35 Q 550 5 600 5 Q 650 5 650 35 L 650 75"
+            stroke="rgba(60,40,15,0.18)"
+            strokeWidth="1.2"
+            fill="none"
+          />
+          <path
+            d="M 1000 75 L 1000 50 Q 1000 20 1050 20 Q 1100 20 1100 50 L 1100 75"
+            stroke="rgba(60,40,15,0.18)"
+            strokeWidth="1.2"
+            fill="none"
+          />
+          {/* Center aisle line down the middle from the central arch */}
+          <line x1="600" y1="75" x2="600" y2="78" stroke="rgba(60,40,15,0.15)" strokeWidth="0.8" />
+        </svg>
 
         {/* Back row · Principal Sponsors */}
         <div className="flex flex-wrap items-end justify-center gap-1 sm:gap-2">
@@ -548,11 +593,39 @@ function RoleCluster({
 }
 
 /**
- * One stylized figure silhouette. SVG with a head circle + body shape
- * tinted with the role's palette color. Shape varies by attire type:
- *   - 'dress': A-line skirt (trapezoid widening at the hem)
- *   - 'suit': vertical tapered rectangle
- *   - 'barong': vertical rectangle with relaxed open hem (no taper)
+ * One stylized figure silhouette. Significantly polished after owner
+ * feedback 2026-05-23 PM ("feels like a cheap look like a 2 yr old
+ * drew it"). The prior crude head-circle + triangle-body has been
+ * replaced with a layered figure built from:
+ *
+ *   1. Ground shadow ellipse beneath the feet — gives the figure
+ *      weight and grounding in the venue scene
+ *   2. Hair path BEHIND the head — long flowing shape for dress
+ *      attire (women); short cropped shape for suit/barong (men).
+ *      Single dark hair tint #3A2B20 (V1.1+ candidate: per-role hair
+ *      color variation)
+ *   3. Skin-tone head circle — larger radius (6 vs prior 5) for
+ *      better proportions
+ *   4. Body path with smooth bezier curves — fitted bodice on dress,
+ *      jacket+trousers silhouette on suit (with hinted leg split at
+ *      hem), loose vertical on barong. Each path has a subtle dark
+ *      stroke for definition
+ *   5. Attire detail overlays — neckline V on dress (light highlight),
+ *      lapel V + thin tie on suit (dark accents), embroidery dashed
+ *      line down center on barong
+ *   6. Two small shoe ovals at the foot — anchors the figure visually
+ *
+ * Shape variants:
+ *   - 'dress' = fitted-bodice A-line skirt (women)
+ *   - 'suit' = jacket + trousers with hinted leg split (men)
+ *   - 'barong' = loose traditional Filipino shirt over trousers
+ *
+ * All paths use viewBox 0 0 28 92 for elegant tall proportions (the
+ * prior 24 60 viewBox produced squat figures that read as cartoonish).
+ *
+ * Pure SVG, no external dependencies. Per-role tint applied to the
+ * body path via the `tint` prop. Same composition + scale + highlight
+ * model as before — only the figure rendering is upgraded.
  */
 function Silhouette({
   shape,
@@ -565,39 +638,118 @@ function Silhouette({
   scale: number;
   highlighted: boolean;
 }) {
-  // Base dimensions tuned for the front row; back row uses scale=0.75 to
-  // appear tucked behind the front.
-  const width = 24 * scale;
-  const height = 60 * scale;
-  const headR = 5 * scale;
+  // Base dimensions — viewBox 0 0 28 92 for elegant tall proportions.
+  // Back row uses scale=0.75 to appear tucked behind the front.
+  const width = 28 * scale;
+  const height = 92 * scale;
   const skinTint = '#E8C9A8';
+  const hairTint = '#3A2B20';
+  const shoeTint = '#1F1410';
 
-  // Body path varies by shape. All start at the shoulders (top) and end
-  // at the hem (bottom) — coordinates assume viewBox 0 0 24 60.
+  // Hair shape: long flowing behind head for dress (women's roles);
+  // short cropped on top for suit / barong (men's roles).
+  const hairPath =
+    shape === 'dress'
+      ? // Long flowing — wraps around head + falls past shoulders
+        'M 6 10 Q 6 4 14 4 Q 22 4 22 10 L 22 22 Q 22 25 19 24 Q 14 26 9 24 Q 6 25 6 22 Z'
+      : // Short cropped — sits on top of head
+        'M 9 6 Q 9 4 14 4 Q 19 4 19 6 L 19 10 Q 14 12 9 10 Z';
+
+  // Body path with smooth bezier curves per attire type. All coordinates
+  // assume viewBox 0 0 28 92. Hem is around y=84 leaving room for shoes
+  // + ground shadow below.
   const bodyPath: Record<typeof shape, string> = {
     dress:
-      // A-line skirt: narrow at top, widening at hem
-      'M 7 16 L 17 16 L 22 60 L 2 60 Z',
+      // Fitted bodice (narrows at waist) → flares to A-line skirt at hem
+      'M 10 19 Q 9 19 9 20 L 9 32 Q 9 34 10 35 L 5 84 Q 5 85 6 85 L 22 85 Q 23 85 23 84 L 18 35 Q 19 34 19 32 L 19 20 Q 19 19 18 19 Z',
     suit:
-      // Vertical tapered rectangle (suit jacket + trousers silhouette)
-      'M 6 16 L 18 16 L 19 60 L 5 60 Z',
+      // Jacket → trousers with hinted leg split at the hem
+      'M 9 19 Q 8 19 8 20 L 8 56 L 7 84 Q 7 85 8 85 L 13 85 Q 14 85 14 84 L 14 56 L 14 84 Q 14 85 15 85 L 20 85 Q 21 85 21 84 L 20 56 L 20 20 Q 20 19 19 19 Z',
     barong:
-      // Relaxed vertical (loose barong cut)
-      'M 5 16 L 19 16 L 19 60 L 5 60 Z',
+      // Loose vertical with subtle bell at the hem
+      'M 8 19 Q 7 19 7 20 L 6 60 L 5 84 Q 5 85 6 85 L 13 85 Q 14 85 14 84 L 14 60 L 14 84 Q 14 85 15 85 L 22 85 Q 23 85 23 84 L 22 60 L 21 20 Q 21 19 20 19 Z',
   };
 
   return (
     <svg
       width={width}
       height={height}
-      viewBox="0 0 24 60"
-      className={highlighted ? 'drop-shadow-[0_2px_4px_rgba(0,0,0,0.15)]' : ''}
+      viewBox="0 0 28 92"
+      className={
+        highlighted
+          ? 'drop-shadow-[0_4px_8px_rgba(80,40,10,0.25)]'
+          : 'drop-shadow-[0_2px_4px_rgba(80,40,10,0.12)]'
+      }
       aria-hidden
     >
-      {/* Head — skin tone, simple circle */}
-      <circle cx="12" cy={headR + 2} r={headR} fill={skinTint} />
-      {/* Body — tinted with role's palette color */}
-      <path d={bodyPath[shape]} fill={tint} stroke="#0006" strokeWidth="0.3" />
+      {/* Ground shadow — soft ellipse beneath the figure */}
+      <ellipse cx="14" cy="88" rx="11" ry="2" fill="rgba(0,0,0,0.12)" />
+
+      {/* Hair behind head — paints first so the head circle sits on top */}
+      <path d={hairPath} fill={hairTint} />
+
+      {/* Head — skin-tone circle with subtle inner shadow */}
+      <circle cx="14" cy="11" r="6" fill={skinTint} />
+      <circle cx="14" cy="11" r="6" fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth="0.3" />
+
+      {/* Neck — thin skin-tone rectangle bridging head to shoulders */}
+      <rect x="12" y="16" width="4" height="4" fill={skinTint} />
+
+      {/* Body — tinted with role's attire color + subtle dark stroke for
+          definition */}
+      <path
+        d={bodyPath[shape]}
+        fill={tint}
+        stroke="rgba(0,0,0,0.15)"
+        strokeWidth="0.35"
+      />
+
+      {/* Per-attire detail overlay — gives each role a visual signature
+          beyond just color. Light overlays on dress show a neckline V;
+          suit shows a lapel V + tie; barong shows a center embroidery
+          dashed line. All low-opacity so they don't overwhelm. */}
+      {shape === 'dress' ? (
+        <path
+          d="M 11 19 L 14 24 L 17 19"
+          stroke="rgba(255,255,255,0.45)"
+          strokeWidth="0.5"
+          fill="none"
+        />
+      ) : null}
+      {shape === 'suit' ? (
+        <>
+          {/* Lapel V */}
+          <path
+            d="M 10 19 L 14 31 L 18 19"
+            stroke="rgba(0,0,0,0.3)"
+            strokeWidth="0.45"
+            fill="none"
+          />
+          {/* Tie — thin vertical accent */}
+          <rect
+            x="13.4"
+            y="23"
+            width="1.2"
+            height="14"
+            fill="rgba(0,0,0,0.4)"
+            rx="0.3"
+          />
+        </>
+      ) : null}
+      {shape === 'barong' ? (
+        // Embroidery hint — dashed vertical line down center
+        <path
+          d="M 14 23 L 14 44"
+          stroke="rgba(255,255,255,0.35)"
+          strokeWidth="0.7"
+          fill="none"
+          strokeDasharray="1.5,2"
+        />
+      ) : null}
+
+      {/* Shoes — small dark ovals at the figure base */}
+      <ellipse cx="10" cy="86" rx="3" ry="1.5" fill={shoeTint} />
+      <ellipse cx="18" cy="86" rx="3" ry="1.5" fill={shoeTint} />
     </svg>
   );
 }

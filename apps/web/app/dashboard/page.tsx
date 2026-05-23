@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchUserEvents, formatEventDate, type EventWithRole } from '@/lib/events';
 import { fetchUserRoleSummary, type UserRoleSummary } from '@/lib/roles';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 export const metadata = {
   title: 'Your events',
@@ -15,7 +16,27 @@ export default async function DashboardIndexPage() {
   if (!user) redirect('/login');
   const supabase = await createClient();
 
-  const events = await fetchUserEvents(supabase, user.id, 'couple');
+  // 7th hotfix pass 2026-05-23 — this page runs RIGHT AFTER an OAuth
+  // callback (Google + Facebook social login). The newly-created
+  // auth.users row + the trigger-inserted public.users row can race
+  // with the JWT propagating through the supabase-js session, so the
+  // initial fetchUserEvents call can throw with PGRST 401 / RLS error
+  // for ~1-2 seconds before settling. Migration drift between local +
+  // prod (Path A pending) is a parallel risk. Shielding every query
+  // here with a graceful-degrade fallback eliminates the 5-10s flash
+  // of the global error boundary the owner saw on Facebook OAuth
+  // sign-in. Same defensive pattern as PR #452/#454/#458.
+  const events = await fetchUserEvents(supabase, user.id, 'couple').catch(
+    (err: unknown) => {
+      logQueryError(
+        'DashboardIndex (fetchUserEvents threw)',
+        err instanceof Error ? err : new Error(String(err)),
+        { user_id: user.id },
+        'graceful_degrade',
+      );
+      return [] as Awaited<ReturnType<typeof fetchUserEvents>>;
+    },
+  );
   const active = events.filter((e) => !e.archived);
   const archived = events.filter((e) => e.archived);
 
@@ -35,14 +56,50 @@ export default async function DashboardIndexPage() {
     redirect(`/dashboard/${primary.event_id}`);
   }
 
-  const [{ data: profile }, roles] = await Promise.all([
-    supabase
-      .from('users')
-      .select('display_name')
-      .eq('user_id', user.id)
-      .maybeSingle(),
-    fetchUserRoleSummary(supabase, user.id),
+  // 7th hotfix pass 2026-05-23 — same shielding rationale as the
+  // events fetch above. The users SELECT for the display_name greeting
+  // is the SAME row that supabase-auth just inserted via the auth.users
+  // → public.users sync trigger; reads can race against the trigger
+  // commit during OAuth bootstrap. Both queries graceful-degrade with
+  // safe defaults (empty profile + null-role-summary) so the page
+  // still renders the empty-state monogram instead of the global
+  // error boundary.
+  const [profileRes, roles] = await Promise.all([
+    (async () => {
+      try {
+        return await supabase
+          .from('users')
+          .select('display_name')
+          .eq('user_id', user.id)
+          .maybeSingle();
+      } catch (caught) {
+        logQueryError(
+          'DashboardIndex (users.display_name SELECT threw)',
+          caught instanceof Error ? caught : new Error(String(caught)),
+          { user_id: user.id },
+          'graceful_degrade',
+        );
+        return { data: null, error: null } as never;
+      }
+    })(),
+    fetchUserRoleSummary(supabase, user.id).catch((err: unknown) => {
+      logQueryError(
+        'DashboardIndex (fetchUserRoleSummary threw)',
+        err instanceof Error ? err : new Error(String(err)),
+        { user_id: user.id },
+        'graceful_degrade',
+      );
+      // Safe-default role summary matches the shape fetchUserRoleSummary
+      // returns when the user has no admin / vendor associations.
+      return {
+        hasCustomerAccess: true,
+        hasVendorAccess: false,
+        hasAdminAccess: false,
+        vendorProfiles: [],
+      } as Awaited<ReturnType<typeof fetchUserRoleSummary>>;
+    }),
   ]);
+  const profile = profileRes.data;
   const greeting = profile?.display_name?.split(' ')[0] ?? user.email?.split('@')[0] ?? 'there';
 
   // Zero-event branch (locked 2026-05-20).

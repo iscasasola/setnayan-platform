@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { Logo } from '@/app/_components/logo';
-import { OAuthButtonRow } from '@/app/_components/oauth-button-row';
+import { ANY_OAUTH_ENABLED, OAuthButtonRow } from '@/app/_components/oauth-button-row';
 import { safeNext } from '@/lib/auth';
 import { signInWithMagicLink, signInWithPassword } from './actions';
 
@@ -97,16 +97,23 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
           enrollment ($99/yr) which sits in the DTI-deferred chain. */}
       <OAuthButtonRow next={next} />
 
-      <div className="relative">
-        <div aria-hidden className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-ink/10" />
+      {/* "or continue with email" divider — only renders when there's an
+       *  OAuth row above to divide from. When both NEXT_PUBLIC_OAUTH_*
+       *  env flags are off, the OAuth row collapses to null and the
+       *  divider would just hang in front of the email form with
+       *  nothing above it. */}
+      {ANY_OAUTH_ENABLED ? (
+        <div className="relative">
+          <div aria-hidden className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-ink/10" />
+          </div>
+          <div className="relative flex justify-center">
+            <span className="bg-cream px-3 font-mono text-xs uppercase tracking-[0.2em] text-ink/40">
+              or continue with email
+            </span>
+          </div>
         </div>
-        <div className="relative flex justify-center">
-          <span className="bg-cream px-3 font-mono text-xs uppercase tracking-[0.2em] text-ink/40">
-            or continue with email
-          </span>
-        </div>
-      </div>
+      ) : null}
 
       <form action={signInWithPassword} className="space-y-4">
         <input type="hidden" name="next" value={next} />

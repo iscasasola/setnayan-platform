@@ -33,29 +33,60 @@ type Props = {
   next: string;
 };
 
+// Env-flag gates · owner directive 2026-05-23. Without these flags,
+// clicking the Continue with Google / Facebook buttons hits Supabase's
+// /auth/v1/authorize endpoint with a provider whose credentials aren't
+// pasted into Supabase Studio yet → 404. Hide the buttons entirely
+// until owner completes Phase 2D of OWNER_ACTIONS.md (paste OAuth
+// credentials into Supabase Studio) AND flips the matching env flag in
+// Vercel. Default both flags to "false" so a freshly-cloned dev env
+// also doesn't 404 on click.
+//
+// Why NEXT_PUBLIC_*: these are read at module scope during render of
+// the login + signup pages, which are statically generated or server-
+// rendered with no per-request auth context. Next.js inlines
+// NEXT_PUBLIC_* at build time so the flags work cleanly on both the
+// edge and the server runtime.
+const GOOGLE_ENABLED = process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED === 'true';
+const FACEBOOK_ENABLED = process.env.NEXT_PUBLIC_OAUTH_FACEBOOK_ENABLED === 'true';
+
+/**
+ * Whether at least one OAuth provider is enabled. /login + /signup
+ * check this so they can drop the "or continue with email" divider
+ * when there's no OAuth row above it to separate.
+ */
+export const ANY_OAUTH_ENABLED = GOOGLE_ENABLED || FACEBOOK_ENABLED;
+
 export function OAuthButtonRow({ next }: Props) {
+  // Both providers off → render nothing. /login + /signup also use
+  // ANY_OAUTH_ENABLED to drop the divider line when there's no row.
+  if (!GOOGLE_ENABLED && !FACEBOOK_ENABLED) return null;
   return (
     <div className="space-y-2.5">
-      <form action={signInWithGoogle}>
-        <input type="hidden" name="next" value={next} />
-        <button
-          type="submit"
-          className="flex w-full items-center justify-center gap-3 rounded-md border border-ink/20 bg-white px-4 py-2.5 text-sm font-medium text-ink/90 transition-colors hover:border-ink/40 hover:bg-ink/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40"
-        >
-          <GoogleGIcon />
-          Continue with Google
-        </button>
-      </form>
-      <form action={signInWithFacebook}>
-        <input type="hidden" name="next" value={next} />
-        <button
-          type="submit"
-          className="flex w-full items-center justify-center gap-3 rounded-md bg-[#1877F2] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#155bd1] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1877F2]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-cream"
-        >
-          <FacebookFIcon />
-          Continue with Facebook
-        </button>
-      </form>
+      {GOOGLE_ENABLED ? (
+        <form action={signInWithGoogle}>
+          <input type="hidden" name="next" value={next} />
+          <button
+            type="submit"
+            className="flex w-full items-center justify-center gap-3 rounded-md border border-ink/20 bg-white px-4 py-2.5 text-sm font-medium text-ink/90 transition-colors hover:border-ink/40 hover:bg-ink/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40"
+          >
+            <GoogleGIcon />
+            Continue with Google
+          </button>
+        </form>
+      ) : null}
+      {FACEBOOK_ENABLED ? (
+        <form action={signInWithFacebook}>
+          <input type="hidden" name="next" value={next} />
+          <button
+            type="submit"
+            className="flex w-full items-center justify-center gap-3 rounded-md bg-[#1877F2] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#155bd1] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1877F2]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-cream"
+          >
+            <FacebookFIcon />
+            Continue with Facebook
+          </button>
+        </form>
+      ) : null}
     </div>
   );
 }

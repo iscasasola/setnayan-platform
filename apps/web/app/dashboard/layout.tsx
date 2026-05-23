@@ -6,6 +6,7 @@ import { completeTour } from '@/lib/tour-actions';
 import { fetchUserEvents, sortEventsForSwitcher } from '@/lib/events';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { countUnread } from '@/lib/notifications';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { OuterDashboardHeader } from './_components/outer-dashboard-header';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -15,11 +16,30 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
   const supabase = await createClient();
 
-  const { data: profile } = await supabase
+  // 4th hotfix pass (2026-05-23): the previous shape silently
+  // destructured only `data` from the users SELECT — a real PostgREST
+  // error (network blip, RLS denial, schema-cache miss on a future
+  // `users` ADD COLUMN landing on code-before-SQL) would leave the
+  // page rendering with `profile === null` AND no breadcrumb in
+  // Sentry. The bypass meant the next "/dashboard hit error.tsx"
+  // mystery had zero call_site context. Capture the error explicitly
+  // and log via the shared helper so the next crash surfaces the
+  // call_site instead of being invisible. The fallback is the same
+  // (`profile === null` → skip the vendor / deleted redirects, fall
+  // through to render), but now with a logged trail.
+  const { data: profile, error: profileError } = await supabase
     .from('users')
     .select('account_type, deleted_at, tour_seen_keys')
     .eq('user_id', user.id)
     .maybeSingle();
+  if (profileError) {
+    logQueryError(
+      'DashboardLayout (users.profile)',
+      profileError,
+      { user_id: user.id },
+      'graceful_degrade',
+    );
+  }
 
   // Reject deleted accounts — sign them out cleanly.
   if (profile?.deleted_at) {

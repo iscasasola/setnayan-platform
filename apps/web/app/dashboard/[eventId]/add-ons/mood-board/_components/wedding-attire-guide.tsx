@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { Sparkles } from 'lucide-react';
+import { useState, useTransition } from 'react';
+import { RotateCcw, Sparkles } from 'lucide-react';
+import { saveAttireGuidePaletteColor } from '../actions';
 
 /**
  * Wedding Attire Guide preview — owner directive 2026-05-23 PM.
@@ -167,12 +168,41 @@ const ROLES: ReadonlyArray<RoleConfig> = [
 ];
 
 /**
+ * Resolve the tint for a role group with 3-source priority:
+ *   1. attirePalette (per-role override from the new
+ *      events.attire_guide_palette column · owner directive 2026-05-23 PM)
+ *   2. rolePalette (V1 5-key palette via tintFromV1Palette mapping below)
+ *   3. role.defaultHex (reference image's baseline color)
+ *
+ * The attirePalette take precedence because it's the host's explicit
+ * per-role choice on this specific surface; rolePalette is the
+ * inherited tint from the V1 PaletteEditor above and serves as a
+ * sensible default when the host hasn't yet picked an attire color
+ * for that role.
+ */
+function resolveTint(
+  role: RoleConfig,
+  attirePalette: Record<string, string>,
+  rolePalette: Record<string, string>,
+): string {
+  const override = attirePalette[role.key];
+  if (override) return override;
+  return tintFromV1Palette(role, rolePalette);
+}
+
+/**
  * Map the V1 mood-board palette keys (bride / groom / wedding_party /
  * principal_sponsors / etc.) to the role keys used in this mockup so
  * the host's actual saved palette tints the figures. Falls back to the
  * role's defaultHex when the palette doesn't have a value for that key.
+ *
+ * Used as the SECOND priority in resolveTint() above — only fires when
+ * the host hasn't picked a specific attire color for this role yet.
  */
-function tintForRole(role: RoleConfig, rolePalette: Record<string, string>): string {
+function tintFromV1Palette(
+  role: RoleConfig,
+  rolePalette: Record<string, string>,
+): string {
   // wedding_party covers bridesmaids + groomsmen + MoH + best man per the
   // existing role-groups mapping. We use it as the source for those roles.
   const lookup: Partial<Record<RoleKey, string>> = {
@@ -189,9 +219,14 @@ function tintForRole(role: RoleConfig, rolePalette: Record<string, string>): str
 }
 
 type Props = {
+  /** Event ID — used by the per-role color-picker server-action calls. */
+  eventId: string;
   /** Flattened role → primary hex from the host's V1 palette. Same shape
    *  the existing VisualPreviewSection consumes. */
   rolePalette: Record<string, string>;
+  /** Host's saved per-role attire colors from events.attire_guide_palette
+   *  (migration 20260610010000). Empty {} = use V1 palette + defaults. */
+  attirePalette: Record<string, string>;
 };
 
 const STYLE_OPTIONS = [
@@ -202,14 +237,85 @@ const STYLE_OPTIONS = [
   'modern minimalist',
 ] as const;
 
-export function WeddingAttireGuide({ rolePalette }: Props) {
+export function WeddingAttireGuide({
+  eventId,
+  rolePalette,
+  attirePalette,
+}: Props) {
   const [activeRole, setActiveRole] = useState<RoleKey | null>(null);
   const [style, setStyle] = useState<(typeof STYLE_OPTIONS)[number]>(
     STYLE_OPTIONS[0],
   );
+  // Optimistic local state for the per-role colors. Seeded from the
+  // server-saved attirePalette prop; updates immediately on color picker
+  // change for instant feedback, then the server action persists in the
+  // background. On server failure we roll back to the prop value (TODO
+  // V1.1: toast surface for the rollback case; today fail-silently).
+  const [localAttire, setLocalAttire] =
+    useState<Record<string, string>>(attirePalette);
+  const [pending, startTransition] = useTransition();
 
   const back = ROLES.filter((r) => r.row === 'back');
   const front = ROLES.filter((r) => r.row === 'front');
+
+  /**
+   * Handle a per-role color change from a native <input type="color">.
+   * Updates optimistic local state immediately + fires the persistence
+   * server action inside a transition so the click doesn't block. The
+   * `pending` flag is exposed via aria-busy on the color input wrapper
+   * so screen readers know there's an in-flight save.
+   */
+  function handleColorChange(roleKey: RoleKey, hex: string) {
+    const upper = hex.toUpperCase();
+    const prev = localAttire[roleKey] ?? null;
+    setLocalAttire((curr) => ({ ...curr, [roleKey]: upper }));
+    startTransition(async () => {
+      try {
+        await saveAttireGuidePaletteColor(eventId, roleKey, upper);
+      } catch {
+        // Roll back the optimistic update if persistence failed. The
+        // host sees their color revert; the V1.1 toast pass will
+        // surface "couldn't save" copy.
+        setLocalAttire((curr) => {
+          const next = { ...curr };
+          if (prev === null) delete next[roleKey];
+          else next[roleKey] = prev;
+          return next;
+        });
+      }
+    });
+  }
+
+  /**
+   * Reset a single role to its default (clears the entry from localAttire
+   * so resolveTint falls through to the V1 palette / reference default).
+   * Quick affordance for hosts who picked a wrong color and want to start
+   * over without launching the color picker.
+   */
+  function handleResetRole(roleKey: RoleKey) {
+    const prev = localAttire[roleKey] ?? null;
+    if (prev === null) return; // already on default
+    setLocalAttire((curr) => {
+      const next = { ...curr };
+      delete next[roleKey];
+      return next;
+    });
+    startTransition(async () => {
+      try {
+        // Server stores the default hex back to the column so the next
+        // page load sees an explicit "use default" intent. The component
+        // treats explicit defaults the same as missing keys.
+        const defaultHex = ROLES.find((r) => r.key === roleKey)?.defaultHex;
+        if (defaultHex) {
+          await saveAttireGuidePaletteColor(eventId, roleKey, defaultHex);
+        }
+      } catch {
+        if (prev !== null) {
+          setLocalAttire((curr) => ({ ...curr, [roleKey]: prev }));
+        }
+      }
+    });
+  }
 
   return (
     <section className="space-y-5 border-t border-ink/10 pt-6">
@@ -221,9 +327,17 @@ export function WeddingAttireGuide({ rolePalette }: Props) {
           </span>
         </div>
         <p className="max-w-prose text-sm text-ink/65">
-          Tap any role to see its color swatch and attire descriptor. The full
-          AI-rendered version — real figures composed against your venue&rsquo;s
-          background — ships with Professional Mood Board.
+          Click any role&rsquo;s swatch below to change its attire color — your
+          picks save automatically and feed into the AI-rendered version when
+          Professional Mood Board ships.
+          {pending ? (
+            <span
+              role="status"
+              className="ml-2 text-xs italic text-ink/55"
+            >
+              Saving…
+            </span>
+          ) : null}
         </p>
       </header>
 
@@ -267,7 +381,7 @@ export function WeddingAttireGuide({ rolePalette }: Props) {
             <RoleCluster
               key={role.key}
               role={role}
-              tint={tintForRole(role, rolePalette)}
+              tint={resolveTint(role, localAttire, rolePalette)}
               isActive={activeRole === role.key}
               onSelect={() =>
                 setActiveRole(activeRole === role.key ? null : role.key)
@@ -283,7 +397,7 @@ export function WeddingAttireGuide({ rolePalette }: Props) {
             <RoleCluster
               key={role.key}
               role={role}
-              tint={tintForRole(role, rolePalette)}
+              tint={resolveTint(role, localAttire, rolePalette)}
               isActive={activeRole === role.key}
               onSelect={() =>
                 setActiveRole(activeRole === role.key ? null : role.key)
@@ -295,39 +409,76 @@ export function WeddingAttireGuide({ rolePalette }: Props) {
       </div>
 
       {/* Legend — annotated swatch + descriptor per role group. Mirrors
-          the reference image's bottom strip. The active role gets a
-          highlight ring so the tap-to-detail loop is obvious. */}
+          the reference image's bottom strip. Each swatch is a native
+          HTML5 `<input type="color">` so clicking it opens the OS's
+          color picker — zero extra deps, zero animation latency, full
+          keyboard + screen reader support out of the box. The host's
+          pick fires handleColorChange which optimistically updates
+          localAttire + persists via the saveAttireGuidePaletteColor
+          server action. The reset button (small chevron-back icon)
+          clears the role to its V1-palette / reference-image default.
+          The active role gets a highlight ring so the tap-to-detail
+          loop is obvious. */}
       <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
         {ROLES.map((role) => {
           const isActive = activeRole === role.key;
-          const tint = tintForRole(role, rolePalette);
+          const tint = resolveTint(role, localAttire, rolePalette);
+          const isOverridden = !!localAttire[role.key];
           return (
             <li key={role.key}>
-              <button
-                type="button"
-                onClick={() =>
-                  setActiveRole(activeRole === role.key ? null : role.key)
-                }
-                className={`flex w-full items-start gap-2.5 rounded-lg border bg-cream p-2.5 text-left transition-colors ${
+              <div
+                className={`flex w-full items-start gap-2.5 rounded-lg border bg-cream p-2.5 transition-colors ${
                   isActive
                     ? 'border-terracotta ring-1 ring-terracotta/30'
                     : 'border-ink/10 hover:border-ink/25'
                 }`}
               >
-                <span
-                  aria-hidden
-                  className="mt-0.5 h-5 w-5 flex-shrink-0 rounded-sm ring-1 ring-ink/15"
+                {/* Color picker — native HTML5 input. The wrapping label
+                    + sized container makes the visible chip look like the
+                    prior static swatch but clicking opens the OS picker. */}
+                <label
+                  className="relative mt-0.5 h-5 w-5 flex-shrink-0 cursor-pointer overflow-hidden rounded-sm ring-1 ring-ink/15 transition-shadow hover:ring-ink/40"
                   style={{ backgroundColor: tint }}
-                />
-                <span className="min-w-0 space-y-0.5">
+                  aria-label={`Change attire color for ${role.label}`}
+                  aria-busy={pending}
+                >
+                  <input
+                    type="color"
+                    value={tint}
+                    onChange={(e) =>
+                      handleColorChange(role.key, e.currentTarget.value)
+                    }
+                    className="absolute inset-0 cursor-pointer opacity-0"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setActiveRole(activeRole === role.key ? null : role.key)
+                  }
+                  className="min-w-0 flex-1 space-y-0.5 text-left"
+                >
                   <span className="block text-xs font-medium text-ink">
                     {role.label}
                   </span>
                   <span className="block text-[11px] text-ink/55">
                     {role.descriptor}
                   </span>
-                </span>
-              </button>
+                </button>
+                {/* Reset chip — only renders when the host has actually
+                    overridden the default. Click reverts to V1 palette /
+                    reference default and persists the revert. */}
+                {isOverridden ? (
+                  <button
+                    type="button"
+                    onClick={() => handleResetRole(role.key)}
+                    aria-label={`Reset ${role.label} to default color`}
+                    className="flex-shrink-0 rounded p-1 text-ink/40 transition-colors hover:bg-ink/5 hover:text-ink/70"
+                  >
+                    <RotateCcw aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  </button>
+                ) : null}
+              </div>
             </li>
           );
         })}

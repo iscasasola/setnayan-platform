@@ -32,7 +32,13 @@ export default async function MoodBoardPage({ params }: Props) {
   const [eventRes, guests] = await Promise.all([
     supabase
       .from('events')
-      .select('event_id, display_name, role_palette, mood_board_updated_at')
+      .select(
+        // attire_guide_palette · migration 20260610010000 · Wedding Attire
+        // Guide per-role colors (owner directive 2026-05-23 PM). Defaults
+        // to {} per the migration; component fills with reference hexes
+        // when keys are absent.
+        'event_id, display_name, role_palette, mood_board_updated_at, attire_guide_palette',
+      )
       .eq('event_id', eventId)
       .maybeSingle(),
     fetchGuestsByEvent(supabase, eventId),
@@ -41,6 +47,13 @@ export default async function MoodBoardPage({ params }: Props) {
   if (!event) notFound();
 
   const palette = sanitizeRolePalette(event.role_palette ?? {});
+  // Wedding Attire Guide per-role colors — JSONB column, defaults to {}.
+  // Defensive cast: PostgREST returns `unknown` for JSONB, so verify
+  // shape before passing to the client component.
+  const attireGuidePalette =
+    event.attire_guide_palette && typeof event.attire_guide_palette === 'object'
+      ? (event.attire_guide_palette as Record<string, string>)
+      : {};
 
   // Conditional rendering: a role-family palette section only shows when at
   // least one guest exists in that group. Couples + venue palettes always show.
@@ -118,8 +131,21 @@ export default async function MoodBoardPage({ params }: Props) {
                 same flattened palette as the visual preview above so
                 changes the host makes in the PaletteEditor flow through
                 automatically. See the component for the V1.x-vs-V1
-                scope reasoning. */}
-            <WeddingAttireGuide rolePalette={flatPalette} />
+                scope reasoning.
+
+                attireGuidePalette = host's saved per-role attire colors
+                from the new events.attire_guide_palette JSONB column
+                (migration 20260610010000). Empty {} = component uses
+                reference defaults from its ROLES array. Per-role color
+                picker on the component persists to this column via
+                saveAttireGuidePaletteColor server action — owner
+                directive: "we want the capability to change the color
+                of the attires of each role." */}
+            <WeddingAttireGuide
+              eventId={eventId}
+              rolePalette={flatPalette}
+              attirePalette={attireGuidePalette}
+            />
           </>
         );
       })()}

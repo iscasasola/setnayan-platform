@@ -45,13 +45,18 @@ import {
   type ConciergeStatus,
 } from '@/lib/concierge';
 import { ConciergeBanner } from './_components/concierge-banner';
-import { TodaysOneThing } from './_components/todays-one-thing';
+// TodaysOneThing legacy component lives at ./_components/todays-one-thing.tsx
+// and the lib helpers (pickTodaysOneThing / countUnlockedCategories) live at
+// @/lib/todays-one-thing — both retained on disk as a quick-revert path
+// while the Concierge Active Wizard (iteration 0016 · CLAUDE.md Sixth
+// 2026-05-23 row · Phase 1 PR #467) replaces this surface with
+// <WizardHero> below.
+import { WizardHero } from './_components/wizard-hero';
 import { Next15Steps } from './_components/next-15-steps';
 import { pickNextSteps, type SponsorRowInput } from '@/lib/next-steps';
-import {
-  pickTodaysOneThing,
-  countUnlockedCategories,
-} from '@/lib/todays-one-thing';
+// pickTodaysOneThing + countUnlockedCategories lib helpers retained at
+// @/lib/todays-one-thing for the quick-revert path. Unused here now that
+// WizardHero replaces TodaysOneThing.
 import { getLocale, makeT, type TranslationKey } from '@/lib/i18n';
 import {
   STEPS,
@@ -388,7 +393,7 @@ export default async function EventHomePage({
       // returns null rather than 500-ing the page.
       (async () => {
         const fullSelect =
-          'event_id, display_name, event_date, event_date_precision, slug, venue_name, venue_latitude, venue_longitude, monogram_text, palette_finalized_at, concierge_status, concierge_tier, concierge_activated_at, concierge_expires_at, concierge_long_engagement_advised_at, event_type, ceremony_type, ceremony_type_locked_at, venue_setting, estimated_budget_centavos, date_status, auspicious_reasons';
+          'event_id, display_name, event_date, event_date_precision, slug, venue_name, venue_latitude, venue_longitude, monogram_text, palette_finalized_at, concierge_status, concierge_tier, concierge_activated_at, concierge_expires_at, concierge_long_engagement_advised_at, event_type, ceremony_type, ceremony_type_locked_at, venue_setting, estimated_budget_centavos, date_status, auspicious_reasons, wizard_state';
         const fullRes = await supabase
           .from('events')
           .select(fullSelect)
@@ -1277,12 +1282,12 @@ export default async function EventHomePage({
   // when (a) the event has no wedding_date, or (b) every category is
   // already locked — the hero card distinguishes the two via the
   // `weddingDateMissing` prop.
-  const todaysOneThing = pickTodaysOneThing(
-    eventVendors,
-    event.event_date,
-    now,
-  );
-  const unlockedCategoryCount = countUnlockedCategories(eventVendors);
+  // pickTodaysOneThing + countUnlockedCategories computations retired in
+  // the WizardHero swap (iteration 0016 · Phase 1). The wizard reads
+  // events.wizard_state JSONB to decide the active focus, not the
+  // vendor-derived heuristic. Quick-revert path: re-import the helpers
+  // above + restore these two consts + the <TodaysOneThing> JSX render.
+  // See @/lib/wizard.ts `resolveWizardFocus` for the new resolver.
 
   // Next 15 Steps — Wave 2 of the home-surface evolution. Owner
   // directive 2026-05-22 — surface a scannable ladder of the next
@@ -1719,18 +1724,30 @@ export default async function EventHomePage({
        *  the vendor's logo + canonical name instead of a text-only chip. */}
       <FinalizedChipStrip eventId={eventId} vendors={eventVendors} />
 
-      {/* V1 pilot Home v2 — owner directive 2026-05-22 (Headspace
-       *  single-focus pattern). The hero card replaces the previous
-       *  multi-card carousel concept: ONE most-urgent task surfaces
-       *  here. The 12-card PlanningGroups grid below collapses behind
-       *  a "Show all N more tasks" disclosure so a host who IS ready
-       *  to ladder through multiple categories can still see them.
-       *  Reduces decision paralysis on the home surface. */}
-      <TodaysOneThing
+      {/* Concierge Active Wizard · iteration 0016 · Phase 1 (CLAUDE.md
+       *  Sixth 2026-05-23 row). Replaces the legacy TodaysOneThing
+       *  hero with inline-completion cards. WizardHero reads
+       *  events.wizard_state, resolves the active task via the
+       *  canonical 38-task sequence in @/lib/wizard, and renders the
+       *  matching inline card variant inside <WizardCard>. Phase 1
+       *  implements Card 01 Set Wedding Date (wheel-spinner D/M/Y +
+       *  live auspicious reasoning); Phases 2-5 add the remaining 37
+       *  card variants. The host completes each task inline · no
+       *  navigation away · the card transitions in-place on save via
+       *  revalidatePath.
+       *
+       *  meaningfulDates passed as empty array in Phase 1 · client-
+       *  side reasoning shows the universal subset (day-of-week,
+       *  month, special patterns, ceremony overlays); the server
+       *  action fetches event_meaningful_dates itself on save so the
+       *  PERSISTED auspicious_reasons include host-personal
+       *  resonance even though the wheel-spinner preview doesn't. */}
+      <WizardHero
         eventId={eventId}
-        topPriorityTask={todaysOneThing}
-        weddingDateMissing={event.event_date === null}
-        totalRemainingTasks={unlockedCategoryCount}
+        wizardState={(event as { wizard_state?: unknown }).wizard_state}
+        eventDate={event.event_date}
+        ceremonyType={eventCeremonyType as Parameters<typeof WizardHero>[0]['ceremonyType']}
+        meaningfulDates={[]}
       />
 
       {/* Wave 2 of Home v2 — owner directive 2026-05-22 (Next 15 Steps

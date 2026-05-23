@@ -66,7 +66,7 @@ export function WizardCard({ task, children, footer, totalTasks = 38 }: Props) {
           id="wizard-card-heading"
           className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta"
         >
-          Today's focus
+          Today&apos;s focus
         </h2>
       </header>
 

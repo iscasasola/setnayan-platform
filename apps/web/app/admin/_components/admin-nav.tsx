@@ -24,6 +24,11 @@ const NAV: Entry[] = [
     items: [
       { href: '/admin/verify', label: 'Verification' },
       { href: '/admin/payments', label: 'Payments' },
+      // Disputes lives between Payments and Reviews on purpose — a dispute
+      // typically opens against an order/payout (Payments adjacency) and may
+      // resolve into a review override (Reviews adjacency). Keeps the queue
+      // group reading as the "money + trust + recourse" cluster.
+      { href: '/admin/disputes', label: 'Disputes' },
       { href: '/admin/reviews', label: 'Reviews' },
       { href: '/admin/help', label: 'Help inbox' },
       { href: '/admin/force-majeure', label: 'Force majeure' },

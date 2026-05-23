@@ -17,6 +17,11 @@ const ROLE_VALUES: GuestRole[] = [
   'guest',
   'bride',
   'groom',
+  // VIP family — owner directive 2026-05-23 PM (PR #424 lock).
+  'bride_parents',
+  'groom_parents',
+  'bride_immediate_family',
+  'groom_immediate_family',
   'maid_of_honor',
   'matron_of_honor',
   'best_man',

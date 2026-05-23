@@ -31,6 +31,17 @@ import { ROLE_GROUP_CHIP, ROLE_GROUP_LABELS, roleGroupOf } from '@/lib/role-grou
 type RoleSection = { label: string; roles: GuestRole[] };
 const BULK_ROLE_SECTIONS: RoleSection[] = [
   { label: ROLE_GROUP_LABELS.couple, roles: ['bride', 'groom'] },
+  // VIP family — owner directive 2026-05-23 PM (PR #424 lock).
+  // 4 roles for Tier-1 seating auto-fill per iteration 0008.
+  {
+    label: ROLE_GROUP_LABELS.vip_family,
+    roles: [
+      'bride_parents',
+      'groom_parents',
+      'bride_immediate_family',
+      'groom_immediate_family',
+    ],
+  },
   {
     label: ROLE_GROUP_LABELS.wedding_party,
     roles: ['maid_of_honor', 'matron_of_honor', 'best_man', 'bridesmaid', 'groomsman'],

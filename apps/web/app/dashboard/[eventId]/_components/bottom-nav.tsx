@@ -151,11 +151,16 @@ export function BottomNav({
 
       {/* Desktop: fixed left sidebar (>= lg / >= 1024px) — sits flush to the
           left edge, full viewport height. The event layout offsets the top
-          chrome + main content with `lg:pl-60` so the chrome appears to the
-          right of the sidebar. */}
+          chrome + main content with `lg:pl-[var(--sidebar-width,240px)]` so
+          the chrome appears to the right of the sidebar.
+          Owner directive 2026-05-23: sidebar width is now driven by the
+          `--sidebar-width` CSS variable (default 240px = lg:w-60), so the
+          host can drag the right edge to resize. SidebarResizeHandle (sister
+          component) owns the variable + localStorage. Width range 200-360px,
+          mirrors the EventHomeSplitView pattern from PR #384. */}
       <nav
         aria-label="Event sections"
-        className="hidden lg:fixed lg:left-0 lg:top-0 lg:bottom-0 lg:z-30 lg:flex lg:w-60 lg:flex-col lg:border-r lg:border-ink/10 lg:bg-cream"
+        className="hidden lg:fixed lg:left-0 lg:top-0 lg:bottom-0 lg:z-30 lg:flex lg:w-[var(--sidebar-width,240px)] lg:flex-col lg:border-r lg:border-ink/10 lg:bg-cream"
       >
         <ul className="flex w-full flex-col gap-1 px-3 pt-20 pb-6">
           {TABS.map((tab) => {

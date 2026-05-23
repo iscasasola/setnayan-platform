@@ -10,6 +10,7 @@ import { getLocale, makeT } from '@/lib/i18n';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { BottomNav } from './_components/bottom-nav';
 import { EventSwitcher } from './_components/event-switcher';
+import { SidebarResizeHandle } from './_components/sidebar-resize-handle';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { ProfileMenu } from '@/app/_components/profile-menu';
 import { RoleSwitchPill } from '@/app/_components/role-switch-pill';
@@ -93,8 +94,23 @@ export default async function EventLayout({ children, params }: Props) {
     services: tr('nav.services'),
   };
 
+  // Owner directive 2026-05-23: "make sidebar resizable also." The
+  // sidebar's width is now driven by the --sidebar-width CSS variable
+  // (default 240px) instead of a hard-coded `lg:pl-60`. Both the
+  // layout's body padding and the BottomNav sidebar width read the
+  // same variable so they update in lockstep. The SidebarResizeHandle
+  // client component (mounted at the bottom of this tree) owns the
+  // variable + writes localStorage. See sidebar-resize-handle.tsx for
+  // the full architectural rationale (CSS variable over context to
+  // avoid forcing a client boundary across this server layout).
   return (
-    <div className="flex min-h-dvh flex-col bg-cream pb-16 lg:pb-0 lg:pl-60">
+    // Outer container — body sits to the right of the sidebar on lg+
+    // via `lg:pl-[var(--sidebar-width,240px)]`. This is Tailwind's
+    // arbitrary-value syntax wrapping the CSS variable so the lg:
+    // breakpoint gate still applies. Mobile (<lg) has no left padding
+    // because the sidebar isn't rendered (BottomNav uses lg:flex);
+    // body fills full width via its own px-4 / sm:px-6.
+    <div className="flex min-h-dvh flex-col bg-cream pb-16 lg:pb-0 lg:pl-[var(--sidebar-width,240px)]">
       <div className="sticky top-0 z-20 border-b border-ink/10 bg-cream/95 backdrop-blur">
         {/* Owner directive 2026-05-22: "why is it not maximizing the
             whole screen?" The previous cap (max-w-6xl / xl:max-w-7xl /
@@ -171,6 +187,13 @@ export default async function EventLayout({ children, params }: Props) {
       </main>
 
       <BottomNav eventId={eventId} labels={navLabels} />
+
+      {/* Owner directive 2026-05-23: resizable sidebar. Client component
+          owns the --sidebar-width CSS variable + localStorage. Sits
+          adjacent to BottomNav so both render at the document root
+          level (no nested-tree constraints). Desktop-only — renders
+          nothing on <lg viewports. */}
+      <SidebarResizeHandle />
     </div>
   );
 }

@@ -8,6 +8,11 @@ import {
   fetchGroupMembershipsByEvent,
   fetchGuestGroupsByEvent,
   fetchGuestsByEvent,
+  GROUP_CATEGORY_LABELS,
+  ROLE_LABELS,
+  RSVP_LABELS,
+  SIDE_LABELS,
+  TEAM_SIDE_LABELS,
   type GuestGroupWithCount,
   type GuestRow,
   type GuestStats,
@@ -134,12 +139,64 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       )
     : null;
 
+  // Build a guest_id → group-label-blob index so the search haystack
+  // can match against custom-group labels + team_side labels (so typing
+  // "katropa" or "team bride" finds the guests in that group). Done
+  // once before the filter loop instead of inside it to avoid N×M
+  // lookups across the guests × groups cross product.
+  const groupBlobByGuestId = new Map<string, string>();
+  if (q) {
+    const groupById = new Map<string, GuestGroupWithCount>(
+      groups.map((g) => [g.group_id, g]),
+    );
+    for (const [guestId, groupIds] of membershipsMap.entries()) {
+      const parts: string[] = [];
+      for (const gid of groupIds) {
+        const grp = groupById.get(gid);
+        if (!grp) continue;
+        parts.push(grp.label);
+        parts.push(TEAM_SIDE_LABELS[grp.team_side]);
+      }
+      if (parts.length > 0) groupBlobByGuestId.set(guestId, parts.join(' '));
+    }
+  }
+
   let visible = guests.filter((g) => {
     if (rsvpFilter && g.rsvp_status !== rsvpFilter) return false;
     if (tagFilter && !g.custom_tags.includes(tagFilter)) return false;
     if (groupMemberSet && !groupMemberSet.has(g.guest_id)) return false;
     if (q) {
-      const haystack = `${g.first_name} ${g.last_name} ${g.display_name ?? ''} ${g.email ?? ''} ${g.custom_tags.join(' ')}`.toLowerCase();
+      // Haystack covers (owner directive 2026-05-23 PM):
+      //   - names · display name · email · mobile · custom tags
+      //   - role display label (e.g. "Matron of Honor") AND the raw
+      //     enum value space-normalized ("matron of honor") so typing
+      //     either form hits
+      //   - side label ("Bride's side" / "Groom's side" / "Both sides")
+      //   - group category label (Family / Friends / Work / School /
+      //     Officiant / Other)
+      //   - RSVP status label (Attending / Pending / Declined / Maybe)
+      //   - custom group labels (e.g. "Katropa") + team_side labels
+      //     ("Team Bride" / "Team Groom" / "Both sides") for every
+      //     custom group the guest belongs to
+      const roleLabel = ROLE_LABELS[g.role];
+      const roleEnumNormalized = g.role.replace(/_/g, ' ');
+      const groupBlob = groupBlobByGuestId.get(g.guest_id) ?? '';
+      const haystack = [
+        g.first_name,
+        g.last_name,
+        g.display_name ?? '',
+        g.email ?? '',
+        g.mobile ?? '',
+        g.custom_tags.join(' '),
+        roleLabel,
+        roleEnumNormalized,
+        SIDE_LABELS[g.side],
+        GROUP_CATEGORY_LABELS[g.group_category],
+        RSVP_LABELS[g.rsvp_status],
+        groupBlob,
+      ]
+        .join(' ')
+        .toLowerCase();
       if (!haystack.includes(q)) return false;
     }
     return true;
@@ -477,7 +534,7 @@ function Toolbar({
         defaultValue={q}
         name="q"
         type="search"
-        placeholder="Search by name, email, or tag…"
+        placeholder="Search names, roles, groups, RSVP…"
         className="input-field flex-1"
       />
       {search.rsvp ? <input type="hidden" name="rsvp" value={search.rsvp} /> : null}

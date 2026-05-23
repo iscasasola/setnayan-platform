@@ -218,6 +218,23 @@ function tintFromV1Palette(
   return lookup[role.key] ?? role.defaultHex;
 }
 
+/**
+ * One real-photo asset for a role — pulled from moodboard_library_assets
+ * filtered by asset_type='figure_attire' AND asset_subtype = RoleKey. When
+ * absent for a role, the Silhouette falls back to the polished SVG.
+ *
+ * `sampledHex` is the dominant attire color in the source photo (slot 1 of
+ * moodboard_asset_color_ranges). V1 placeholder uses CSS mix-blend overlay
+ * for visible recolor feedback regardless of sampledHex; V1.x Color Range
+ * Manipulator engine will do region-specific HSL substitution keyed on this
+ * value. Sourced from migration 20260611000000 seed (Pexels stock photos).
+ */
+export type RoleAsset = {
+  url: string;
+  sampledHex: string;
+  label: string;
+};
+
 type Props = {
   /** Event ID — used by the per-role color-picker server-action calls. */
   eventId: string;
@@ -227,6 +244,14 @@ type Props = {
   /** Host's saved per-role attire colors from events.attire_guide_palette
    *  (migration 20260610010000). Empty {} = use V1 palette + defaults. */
   attirePalette: Record<string, string>;
+  /** Optional real-photo assets keyed by role. Owner directive 2026-05-23
+   *  PM ("want something like this but Filipina face + recolorable + same
+   *  for men" — Pinterest wedding-guest-dresses collage reference). When
+   *  present for a role, Silhouette renders the photo with a CSS tint
+   *  overlay; when absent, it falls back to the polished SVG silhouette.
+   *  V1 placeholders use Pexels free-commercial stock; V1.x swaps to
+   *  Higgsfield-generated Filipino-specific figures. */
+  assetsByRole?: Partial<Record<RoleKey, RoleAsset>>;
 };
 
 const STYLE_OPTIONS = [
@@ -342,6 +367,7 @@ export function WeddingAttireGuide({
   eventId,
   rolePalette,
   attirePalette,
+  assetsByRole,
 }: Props) {
   const [activeRole, setActiveRole] = useState<RoleKey | null>(null);
   const [style, setStyle] = useState<(typeof STYLE_OPTIONS)[number]>(
@@ -510,6 +536,7 @@ export function WeddingAttireGuide({
               }
               scale={0.75}
               theme={theme}
+              asset={assetsByRole?.[role.key]}
             />
           ))}
         </div>
@@ -527,6 +554,7 @@ export function WeddingAttireGuide({
               }
               scale={1}
               theme={theme}
+              asset={assetsByRole?.[role.key]}
             />
           ))}
         </div>
@@ -631,6 +659,7 @@ function RoleCluster({
   onSelect,
   scale,
   theme,
+  asset,
 }: {
   role: RoleConfig;
   tint: string;
@@ -640,6 +669,11 @@ function RoleCluster({
   /** Style theme drives hair tint + shoe tint + body stroke opacity on
    *  each Silhouette rendered inside this cluster. */
   theme: StyleTheme;
+  /** Optional real-photo asset for this role. When present, renders ONE
+   *  photo (with a small "× N" count badge for role.count > 1) instead
+   *  of N stacked SVG silhouettes — same-photo-× N would Warhol-effect
+   *  the visual. When absent, renders the existing N-silhouette stack. */
+  asset?: RoleAsset;
 }) {
   // Bride figure gets a slight emphasis (taller dress, more bouquet detail
   // hinted) — matches the reference where the bride is the visual anchor.
@@ -656,16 +690,32 @@ function RoleCluster({
       }`}
     >
       <div className="flex items-end gap-0.5">
-        {Array.from({ length: role.count }).map((_, i) => (
-          <Silhouette
-            key={i}
-            shape={role.shape}
+        {asset ? (
+          // Photo mode: ONE photo per role with a count badge when role.count > 1.
+          // Multiple copies of the same Pexels photo look like a Warhol print;
+          // a single photo + "× N" badge communicates the count cleanly. The
+          // photo width scales to roughly match what role.count silhouettes
+          // would have occupied so the row layout still feels balanced.
+          <PhotoFigure
+            asset={asset}
             tint={tint}
             scale={isBride ? scale * 1.05 : scale}
+            count={role.count}
             highlighted={isActive}
-            theme={theme}
+            bodyStrokeOpacity={theme.bodyStrokeOpacity}
           />
-        ))}
+        ) : (
+          Array.from({ length: role.count }).map((_, i) => (
+            <Silhouette
+              key={i}
+              shape={role.shape}
+              tint={tint}
+              scale={isBride ? scale * 1.05 : scale}
+              highlighted={isActive}
+              theme={theme}
+            />
+          ))
+        )}
       </div>
       {isActive ? (
         <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-ink px-2 py-0.5 text-[10px] font-medium text-cream shadow-sm">
@@ -673,6 +723,101 @@ function RoleCluster({
         </span>
       ) : null}
     </button>
+  );
+}
+
+/**
+ * Photo-mode figure renderer — used when the host has a real Pexels/stock
+ * photo for the role via moodboard_library_assets. Renders the photo at a
+ * size proportional to the silhouette equivalent + applies a CSS overlay
+ * for visible recolor feedback when the host picks a tint.
+ *
+ * Recolor approach (V1):
+ *   - Photo loads as-is via plain <img> (Pexels CDN, no next/image to
+ *     avoid the next.config.ts allowlist for placeholder content)
+ *   - Absolutely-positioned overlay div with `background: tint` +
+ *     `mix-blend-mode: multiply` + opacity 0.55 — multiplies the photo
+ *     pixels by the tint, so white/light areas (dress fabric) take the
+ *     tint while darker areas (skin, hair, shadows) keep their natural
+ *     value. Imperfect (skin gets a slight color cast) but unmistakable
+ *     visual feedback that picking a color does something.
+ *
+ * V1.x Color Range Manipulator engine swaps to proper region-specific
+ * canvas-based HSL substitution keyed on asset.sampledHex per the
+ * 2026-05-21 lock. Today's CSS overlay is the V1-placeholder honest path.
+ *
+ * Width math: a base silhouette is 28×92 SVG units rendered at `scale`
+ * pixels-per-unit. A single photo for the role takes the visual budget
+ * of `role.count` silhouettes — roughly 28 × count × scale wide. We cap
+ * the photo aspect ratio at ~9:16 (vertical figure) so it doesn't
+ * stretch sideways for high-count roles.
+ */
+function PhotoFigure({
+  asset,
+  tint,
+  scale,
+  count,
+  highlighted,
+  bodyStrokeOpacity,
+}: {
+  asset: RoleAsset;
+  tint: string;
+  scale: number;
+  count: number;
+  highlighted: boolean;
+  bodyStrokeOpacity: number;
+}) {
+  // Width budget: roughly the width count silhouettes would occupy, capped
+  // at ~9:16 portrait aspect so high-count roles (Principal Sponsors × 4)
+  // don't go wider than they go tall.
+  const heightPx = 92 * scale;
+  const widthCap = heightPx * (9 / 16);
+  const widthFromCount = 28 * scale * Math.min(count, 4);
+  const widthPx = Math.min(widthFromCount, widthCap);
+
+  return (
+    <div
+      className={`relative overflow-hidden rounded-md ring-1 ring-ink/20 ${
+        highlighted
+          ? 'drop-shadow-[0_4px_8px_rgba(80,40,10,0.25)]'
+          : 'drop-shadow-[0_2px_4px_rgba(80,40,10,0.12)]'
+      }`}
+      style={{
+        width: widthPx,
+        height: heightPx,
+        // Use the theme's bodyStrokeOpacity to drive a subtle outer ring
+        // hue — keeps the photo visually consistent with the SVG figures'
+        // stroke definition on the same canvas.
+        boxShadow: `inset 0 0 0 0.5px rgba(0,0,0,${bodyStrokeOpacity * 0.7})`,
+      }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={asset.url}
+        alt={asset.label}
+        className="h-full w-full object-cover"
+        loading="lazy"
+        decoding="async"
+      />
+      {/* Tint overlay — the V1 recolor feedback. mix-blend-mode: multiply
+          tints fabric without flattening features completely. Opacity 0.55
+          balances "color picker doing something" against "photo still
+          readable." V1.x Color Range Manipulator swaps to region-tagged
+          canvas substitution per asset.sampledHex. */}
+      <div
+        aria-hidden
+        className="absolute inset-0 mix-blend-multiply transition-opacity duration-300"
+        style={{ backgroundColor: tint, opacity: 0.55 }}
+      />
+      {/* Count badge — communicates role.count without rendering N copies
+          of the same photo. Only renders when count > 1 (Bride/Groom = 1
+          each, so badge would just say "× 1" needlessly). */}
+      {count > 1 ? (
+        <span className="absolute right-1 top-1 rounded-full bg-ink/85 px-1.5 py-0.5 text-[9px] font-semibold text-cream shadow-sm">
+          × {count}
+        </span>
+      ) : null}
+    </div>
   );
 }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -39,6 +39,14 @@ export function VendorSubnavTab({
     setLiveBadge(badge);
   }, [badge]);
 
+  // 2026-05-23 — Same Realtime channel collision fix as
+  // UnreadBellBadge. Multiple VendorSubnavTab instances mount per
+  // page (one per nav tab) with the SAME liveNotificationsUserId →
+  // Supabase Realtime returns the same channel singleton → 2nd mount
+  // .on() throws on already-subscribed channel. useId() gives each tab
+  // a unique stable suffix so each gets its own channel.
+  const instanceId = useId();
+
   useEffect(() => {
     if (!liveNotificationsUserId) return;
     const supabase = createClient();
@@ -53,7 +61,7 @@ export function VendorSubnavTab({
       }
     };
     const channel = supabase
-      .channel(`notif-unread-tab-${liveNotificationsUserId}`)
+      .channel(`notif-unread-tab-${liveNotificationsUserId}-${instanceId}`)
       .on(
         'postgres_changes',
         {
@@ -83,7 +91,7 @@ export function VendorSubnavTab({
       cancelled = true;
       void supabase.removeChannel(channel);
     };
-  }, [liveNotificationsUserId]);
+  }, [liveNotificationsUserId, instanceId]);
 
   const renderBadge = liveBadge;
   return (

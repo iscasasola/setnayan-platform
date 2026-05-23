@@ -161,7 +161,12 @@ export default async function EventLayout({ children, params }: Props) {
           why (2026-05-22 owner directive). The event home's Finder-column
           layout + other event-scoped surfaces all benefit from filling
           the viewport on wide monitors. */}
-      <main className="mx-auto w-full flex-1 px-4 py-6 sm:px-6 lg:px-8">
+      {/* Owner directive 2026-05-23: "there is a gap from side nav to body."
+          On lg+ the sidebar already sits flush against the viewport edge
+          with its own border-r — the main element doesn't need the 32px
+          left padding the mobile + tablet layout uses. Drop to lg:pl-4
+          (16px) so the body sits closer to the sidebar's right border. */}
+      <main className="mx-auto w-full flex-1 px-4 py-6 sm:px-6 lg:pl-4 lg:pr-8">
         {children}
       </main>
 

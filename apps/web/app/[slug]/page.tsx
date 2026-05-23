@@ -19,6 +19,13 @@ import { NavLinksRow } from '@/app/_components/nav-links';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
 import { GuestPreload } from './_components/guest-preload';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import {
+  type InvitationWidgetRow,
+  isWidgetType,
+  visibleHideableWidgets,
+  widgetByType,
+  widgetShouldRender,
+} from '@/lib/invitation-widgets';
 
 function displayNameOf(g: {
   first_name: string;
@@ -111,6 +118,32 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     event.landing_page_hero_image_url,
   );
 
+  // Per-event widget registry from migration 20260607030000_invitation_widgets.sql.
+  // Drives which widgets render on this page and in what order. Every event
+  // has 12 rows after the backfill; pre-backfill events fall back to "render
+  // everything" via widgetShouldRender() returning true for missing rows
+  // through the always-on path. See lib/invitation-widgets.ts for the
+  // canonical widget catalog + sort/filter helpers.
+  //
+  // Read via the admin client (same as the events SELECT above) — this page
+  // is rendered for anonymous public visitors too, who have no RLS session.
+  // The admin client is fine here: invitation_widgets rows carry no PII +
+  // the only data the renderer cares about is is_visible + display_order
+  // + widget_type. No row-level filter is applied on read — we render this
+  // event's widgets only because we already constrained event_id below.
+  const { data: widgetsRaw } = await admin
+    .from('invitation_widgets')
+    .select(
+      'widget_id, event_id, widget_type, display_order, is_visible, is_always_on, tier, config_json, created_at, updated_at',
+    )
+    .eq('event_id', event.event_id);
+
+  const widgets: InvitationWidgetRow[] = ((widgetsRaw ?? []) as Array<
+    Omit<InvitationWidgetRow, 'widget_type'> & { widget_type: string }
+  >)
+    .filter((row): row is InvitationWidgetRow => isWidgetType(row.widget_type))
+    .map((row) => row as InvitationWidgetRow);
+
   // Read the guest-session cookie up-front so the private-gate below can
   // accept a session-cookie-bearing guest without re-fetching guests
   // unnecessarily. The same `session` reference is consumed by the
@@ -192,6 +225,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         reason={inviteError === 'invalid_token' ? 'invalid_invite' : null}
         dayOfPhase={dayOfPhase}
         heroPhotoUrl={heroPhotoUrl}
+        widgets={widgets}
       />
     );
   }
@@ -205,6 +239,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         reason="wrong_event"
         dayOfPhase={dayOfPhase}
         heroPhotoUrl={heroPhotoUrl}
+        widgets={widgets}
       />
     );
   }
@@ -225,6 +260,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
         reason="invalid_invite"
         dayOfPhase={dayOfPhase}
         heroPhotoUrl={heroPhotoUrl}
+        widgets={widgets}
       />
     );
   }
@@ -259,6 +295,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
       scheduleBlocks={scheduleBlocks}
       dayOfPhase={dayOfPhase}
       heroPhotoUrl={heroPhotoUrl}
+      widgets={widgets}
     />
   );
 }
@@ -349,6 +386,7 @@ function PublicLanding({
   reason,
   dayOfPhase,
   heroPhotoUrl,
+  widgets,
 }: {
   event: EventRow;
   reason?: 'invalid_invite' | 'wrong_event' | null;
@@ -357,7 +395,16 @@ function PublicLanding({
   // monogram-only fallback should render. See displayUrlForStoredAsset() in
   // lib/uploads.ts — caller resolves once at the top-level page.
   heroPhotoUrl?: string | null;
+  // Widget visibility registry — anonymous-browser path renders only the
+  // hero today, so the widget array passes through unused. Kept on the
+  // signature for consistency with InvitationSite + so a V1.1 "show
+  // schedule preview to anonymous browsers" lever can flip without
+  // re-threading the prop.
+  widgets: readonly InvitationWidgetRow[];
 }) {
+  // Reserved for V1.1+ when anonymous-browser hero may toggle off via
+  // hero widget visibility. V1 keeps the hero unconditional here.
+  void widgets;
   // Task #13 — day-of-mode badge surfaces to public-landing viewers too so a
   // guest at the venue without a session cookie still sees "happening now".
   const dayOfBadge =
@@ -514,6 +561,7 @@ function InvitationSite({
   scheduleBlocks,
   dayOfPhase,
   heroPhotoUrl,
+  widgets,
 }: {
   event: EventRow;
   guest: GuestRow;
@@ -526,6 +574,11 @@ function InvitationSite({
   // monogram-only fallback should render. Caller resolves once at the
   // top-level page so PublicLanding + InvitationSite share the result.
   heroPhotoUrl?: string | null;
+  // Widget visibility registry from migration 20260607030000. Drives
+  // which widgets render here + in what order. Always-on widgets (hero,
+  // greeting, qr_card, rsvp) render in fixed positions per the editor
+  // contract; hideable widgets render in display_order after RSVP.
+  widgets: readonly InvitationWidgetRow[];
 }) {
   const sideLabel =
     guest.side === 'both'
@@ -544,6 +597,31 @@ function InvitationSite({
   const isLive = dayOfPhase === 'live';
   const isPost = dayOfPhase === 'post';
 
+  // Widget visibility lookup. Always-on widgets render in fixed positions
+  // (hero, greeting, qr_card before RSVP) regardless of display_order +
+  // regardless of is_visible (the editor blocks hiding them). Hideable
+  // widgets render in display_order after RSVP — only the ones with
+  // is_visible = TRUE appear.
+  //
+  // Defensive: when a widget row is missing entirely (pre-backfill event
+  // during the deploy window), widgetByType returns null + widgetShouldRender
+  // returns FALSE, so the widget is hidden. The backfill in migration
+  // 20260607030000_invitation_widgets.sql ensures every event has all 12
+  // rows AFTER the migration applies — so this is a brief deploy-window
+  // safeguard, not a permanent behavior.
+  //
+  // Special-case: day-of pinned schedule (Task #13) is a SYSTEM-level
+  // surface — it shows the wedding's live schedule at T-1h to T+8h
+  // regardless of whether the host has hidden the Schedule widget. This
+  // mirrors the spec lock for 0031 day-of guest mode: the venue-WiFi
+  // safety belt is non-negotiable.
+  const heroShouldRender = widgetShouldRender(widgetByType(widgets, 'hero'));
+  const greetingShouldRender = widgetShouldRender(widgetByType(widgets, 'greeting'));
+  const qrCardShouldRender = widgetShouldRender(widgetByType(widgets, 'qr_card'));
+  const rsvpShouldRender = widgetShouldRender(widgetByType(widgets, 'rsvp'));
+
+  const hideableInOrder = visibleHideableWidgets(widgets);
+
   return (
     <InvitationShell>
       <GuestPreload eventSlug={event.slug} />
@@ -557,8 +635,11 @@ function InvitationSite({
         {/* Hero. When the host uploads a banner photo via
             /dashboard/[eventId]/website/hero-photo, render full-bleed with a
             soft overlay so the monogram + display name + date stay legible.
-            Default falls back to the cream-on-cream monogram-only treatment. */}
-        {heroPhotoUrl ? (
+            Default falls back to the cream-on-cream monogram-only treatment.
+            Gated on hero widget visibility — always-on by default (editor
+            blocks hiding), but the gate exists so V1.1 can let exhibitions /
+            private weddings drop the hero entirely if needed. */}
+        {heroShouldRender && heroPhotoUrl ? (
           <section className="relative -mx-4 overflow-hidden rounded-2xl text-center sm:-mx-0">
             {/* Full-bleed photo. eslint-disable-next-line @next/next/no-img-element —
                 presigned R2 URL expires in 24h so next/image's optimizer would
@@ -595,7 +676,7 @@ function InvitationSite({
               <hr className="mx-auto mt-6 w-24 border-t border-ink/30" />
             </div>
           </section>
-        ) : (
+        ) : heroShouldRender ? (
           <section className="text-center">
             <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
               You are invited
@@ -615,25 +696,29 @@ function InvitationSite({
             </p>
             <hr className="mx-auto mt-6 w-24 border-t border-ink/20" />
           </section>
-        )}
+        ) : null}
 
-        {/* Greeting */}
-        <section className="space-y-4 text-center">
-          <p className="text-2xl italic text-ink">Hi, {guest.first_name}.</p>
-          <p className="mx-auto max-w-prose text-base text-ink/70">
-            We&rsquo;d love to celebrate with you on{' '}
-            <span className="font-medium text-ink">{formatEventDate(event.event_date)}</span>
-            {event.venue_name ? (
-              <>
-                {' '}
-                — at <span className="font-medium text-ink">{event.venue_name}</span>
-              </>
-            ) : null}
-            . You&rsquo;re joining us as{' '}
-            <span className="font-medium text-ink">{ROLE_LABELS[guest.role]}</span> ·{' '}
-            <span className="text-ink/80">{sideLabel}</span>.
-          </p>
-        </section>
+        {/* Greeting — always-on per the editor contract; gated here so V1.1
+            can decouple if a host wants the wedding page to skip the
+            personalized welcome. */}
+        {greetingShouldRender ? (
+          <section className="space-y-4 text-center">
+            <p className="text-2xl italic text-ink">Hi, {guest.first_name}.</p>
+            <p className="mx-auto max-w-prose text-base text-ink/70">
+              We&rsquo;d love to celebrate with you on{' '}
+              <span className="font-medium text-ink">{formatEventDate(event.event_date)}</span>
+              {event.venue_name ? (
+                <>
+                  {' '}
+                  — at <span className="font-medium text-ink">{event.venue_name}</span>
+                </>
+              ) : null}
+              . You&rsquo;re joining us as{' '}
+              <span className="font-medium text-ink">{ROLE_LABELS[guest.role]}</span> ·{' '}
+              <span className="text-ink/80">{sideLabel}</span>.
+            </p>
+          </section>
+        ) : null}
 
         {/* Task #13 — day-of-mode promotes the schedule block to the top of
             the article so a guest at the venue sees "happening now" before
@@ -648,74 +733,55 @@ function InvitationSite({
           </section>
         ) : null}
 
-        {/* QR card */}
-        <section className="rounded-2xl border border-ink/10 bg-cream p-6 text-center shadow-sm sm:p-8">
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-            Your invitation QR
-          </p>
-          <h2 className="mt-2 text-2xl font-semibold tracking-tight">For tagging &amp; pickup</h2>
-          <p className="mx-auto mt-2 max-w-prose text-sm text-ink/60">
-            Save this to your phone. Wedding-day photographers will scan it to tag the
-            photos they take of you — and you&rsquo;ll be able to grab those photos here
-            after the event.
-          </p>
-          <div
-            aria-label={`QR code for ${displayNameOf(guest)}`}
-            className="mx-auto mt-6 inline-block rounded-xl bg-white p-3 shadow-sm"
-            dangerouslySetInnerHTML={{ __html: qrSvg }}
-          />
-          <p className="mt-4 break-all font-mono text-[10px] uppercase tracking-[0.1em] text-ink/40">
-            {invitationUrl}
-          </p>
-        </section>
-
-        {/* RSVP */}
-        <RsvpWidget guest={guest} eventId={event.event_id} limited={isLimitedPlusOne} />
-
-        {/* Event details */}
-        <section className="space-y-4 rounded-xl border border-ink/10 bg-cream p-6">
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
-            Event details
-          </p>
-          <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Detail label="Date" value={formatEventDate(event.event_date) || '—'} />
-            <Detail label="Venue" value={event.venue_name ?? '—'} />
-            {event.venue_address ? (
-              <Detail label="Address" value={event.venue_address} className="sm:col-span-2" />
-            ) : null}
-            <Detail label="Your role" value={ROLE_LABELS[guest.role]} />
-            <Detail label="Side" value={sideLabel} />
-          </dl>
-        </section>
-
-        {/* Countdown — client-side ticking widget. Auto-hides once the wedding starts. */}
-        {event.event_date ? <CountdownWidget targetIso={event.event_date} /> : null}
-
-        {/* Day-of schedule — public blocks with "happening now" highlight.
-            When live, this is already pinned to the top of the article (above).
-            Don't render it twice. */}
-        {!isLive && scheduleBlocks.length > 0 ? (
-          <ScheduleWidget blocks={scheduleBlocks} />
+        {/* QR card — always-on per the editor contract. Gated so V1.1 can
+            decouple if the host wants QR off (e.g., a couple who doesn't
+            want their wedding photographed). */}
+        {qrCardShouldRender ? (
+          <section className="rounded-2xl border border-ink/10 bg-cream p-6 text-center shadow-sm sm:p-8">
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+              Your invitation QR
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight">For tagging &amp; pickup</h2>
+            <p className="mx-auto mt-2 max-w-prose text-sm text-ink/60">
+              Save this to your phone. Wedding-day photographers will scan it to tag the
+              photos they take of you — and you&rsquo;ll be able to grab those photos here
+              after the event.
+            </p>
+            <div
+              aria-label={`QR code for ${displayNameOf(guest)}`}
+              className="mx-auto mt-6 inline-block rounded-xl bg-white p-3 shadow-sm"
+              dangerouslySetInnerHTML={{ __html: qrSvg }}
+            />
+            <p className="mt-4 break-all font-mono text-[10px] uppercase tracking-[0.1em] text-ink/40">
+              {invitationUrl}
+            </p>
+          </section>
         ) : null}
 
-        {/* Venues */}
-        <VenueWidget event={event} />
+        {/* RSVP — always-on per the editor contract. The wedding's
+            load-bearing form: the editor blocks hiding it, but the gate
+            below is the runtime enforcement point. */}
+        {rsvpShouldRender ? (
+          <RsvpWidget guest={guest} eventId={event.event_id} limited={isLimitedPlusOne} />
+        ) : null}
 
-        {/* Dress code — host-curated via /dashboard/[eventId]/website/dress-code
-            (CLAUDE.md 2026-05-22). Falls back to a polite brand-voice empty
-            state when the host hasn't set anything yet so guests know the
-            section is intentional. */}
-        <DressCodeWidget config={event.dress_code_config ?? null} />
-
-        {/* Photo moments — host-curated via /dashboard/[eventId]/website/photo-moments.
-            Falls back to polite brand-voice copy when the host hasn't curated yet. */}
-        <PhotoMomentsWidget config={event.photo_moments_config} />
-
-        {/* Your photos (placeholder) */}
-        <YourPhotosWidget limited={isLimitedPlusOne} />
-
-        {/* Public vs Registered tier comparison */}
-        <TierComparisonWidget limited={isLimitedPlusOne} />
+        {/* Hideable widgets render here in display_order. The host
+            controls visibility + order via the widget editor at
+            /dashboard/[eventId]/website/widgets — invitation_widgets
+            table column display_order governs the order; is_visible
+            governs which widgets render at all. */}
+        {hideableInOrder.map((widget) => (
+          <HideableWidgetRender
+            key={widget.widget_id}
+            widget={widget}
+            event={event}
+            guest={guest}
+            sideLabel={sideLabel}
+            scheduleBlocks={scheduleBlocks}
+            isLive={isLive}
+            isLimitedPlusOne={isLimitedPlusOne}
+          />
+        ))}
 
         {isLimitedPlusOne ? (
           <section className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
@@ -738,6 +804,103 @@ function InvitationSite({
       <GuestGuidedTour tourKey="guest_welcome_v1" />
     </InvitationShell>
   );
+}
+
+/**
+ * Dispatch on widget_type to render the right widget. Owns the per-widget
+ * conditional skips (Countdown hides itself when event has no date;
+ * Schedule hides when no public blocks AND not live, etc.) so the
+ * call-site stays a clean .map() over the editor's display_order.
+ *
+ * Widgets that are show/hide-only (no field-level config) get their
+ * content from existing events.* columns or from the guest record. The
+ * widget editor's job is the layer ABOVE this — which widgets render
+ * + in what order — NOT the per-widget content (which lives in
+ * sibling editors at /website/dress-code, /website/photo-moments, etc.).
+ */
+function HideableWidgetRender({
+  widget,
+  event,
+  guest,
+  sideLabel,
+  scheduleBlocks,
+  isLive,
+  isLimitedPlusOne,
+}: {
+  widget: InvitationWidgetRow;
+  event: EventRow;
+  guest: GuestRow;
+  sideLabel: string;
+  scheduleBlocks: ScheduleBlockRow[];
+  isLive: boolean;
+  isLimitedPlusOne: boolean;
+}) {
+  // The is_always_on widgets render in fixed positions in the parent
+  // function. This dispatcher only renders hideable widgets; receiving
+  // an always-on widget here is a defensive no-op (would only happen
+  // via a DB-side row that bypassed the editor's is_always_on flag).
+  if (widget.is_always_on) return null;
+
+  switch (widget.widget_type) {
+    case 'event_details':
+      return (
+        <section className="space-y-4 rounded-xl border border-ink/10 bg-cream p-6">
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55">
+            Event details
+          </p>
+          <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Detail label="Date" value={formatEventDate(event.event_date) || '—'} />
+            <Detail label="Venue" value={event.venue_name ?? '—'} />
+            {event.venue_address ? (
+              <Detail label="Address" value={event.venue_address} className="sm:col-span-2" />
+            ) : null}
+            <Detail label="Your role" value={ROLE_LABELS[guest.role]} />
+            <Detail label="Side" value={sideLabel} />
+          </dl>
+        </section>
+      );
+
+    case 'countdown':
+      // Per-widget skip: no event date → no countdown. The widget row
+      // is still "visible" in the editor; the renderer just skips when
+      // the data isn't available yet.
+      return event.event_date ? <CountdownWidget targetIso={event.event_date} /> : null;
+
+    case 'schedule':
+      // Per-widget skip: when live, the schedule is already pinned at
+      // the top of the article (Task #13 day-of-mode safety belt).
+      // Don't render the same blocks twice. When NOT live, render the
+      // standard widget only when there are public blocks to show.
+      return !isLive && scheduleBlocks.length > 0 ? (
+        <ScheduleWidget blocks={scheduleBlocks} />
+      ) : null;
+
+    case 'venue_map':
+      return <VenueWidget event={event} />;
+
+    case 'dress_code':
+      return <DressCodeWidget config={event.dress_code_config ?? null} />;
+
+    case 'photo_moments':
+      return <PhotoMomentsWidget config={event.photo_moments_config} />;
+
+    case 'your_photos':
+      return <YourPhotosWidget limited={isLimitedPlusOne} />;
+
+    case 'tier_comparison':
+      return <TierComparisonWidget limited={isLimitedPlusOne} />;
+
+    // Always-on widgets (hero, greeting, qr_card, rsvp) are not reachable
+    // here — they render in fixed positions in the parent function. The
+    // `widget.is_always_on` guard above also short-circuits these. Any
+    // future widget_type added to the catalog needs a branch here OR a
+    // dedicated fixed-position render in the parent.
+    case 'hero':
+    case 'greeting':
+    case 'qr_card':
+    case 'rsvp':
+      return null;
+  }
 }
 
 function Detail({

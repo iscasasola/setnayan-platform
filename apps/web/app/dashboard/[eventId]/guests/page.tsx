@@ -47,6 +47,15 @@ type SortKey = (typeof SORT_OPTIONS)[number]['value'];
 const VIEW_FILTERS: { key: string; label: string }[] = [
   { key: 'all', label: 'All guests' },
   { key: 'vip_family', label: ROLE_GROUP_LABELS.vip_family },
+  // Wedding Party — owner directive 2026-05-23 (post-PR #424). Distinct
+  // from the social-grouping filters (family/friends/work/school) that
+  // were retired into custom guest_groups: wedding party = a defined
+  // wedding-role cluster (MOH/MoH/best man/bridesmaid/groomsman) that
+  // mirrors the sibling role-group filters (Principal Sponsors,
+  // Secondary Sponsors, Bearers, Officiants). Position matches the
+  // BULK_ROLE_SECTIONS ordering in guest-list-multiselect.tsx for
+  // muscle-memory consistency between sidebar + bulk toolbar.
+  { key: 'wedding_party', label: ROLE_GROUP_LABELS.wedding_party },
   { key: 'principal_sponsors', label: ROLE_GROUP_LABELS.principal_sponsors },
   { key: 'secondary_sponsors', label: ROLE_GROUP_LABELS.secondary_sponsors },
   { key: 'bearers_flower_girl', label: ROLE_GROUP_LABELS.bearers_flower_girl },

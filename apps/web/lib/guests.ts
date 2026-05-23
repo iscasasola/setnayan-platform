@@ -175,34 +175,33 @@ export async function fetchGuestsByEvent(
     .order('last_name', { ascending: true })
     .order('first_name', { ascending: true });
 
-  // Graceful-degrade on missing-relation errors so an unpushed migration
-  // (e.g. a future ADD COLUMN to `guests` rolls out to code before the
-  // SQL lands on prod) renders an empty list instead of crashing the
-  // entire page. PR #380 + #390 had this same protection on
-  // fetchGuestGroupsByEvent but missed the primary guests query —
-  // promoting fetchGuestsByEvent to the same graceful-degrade pattern
-  // closes the third-crash gap symmetrically. See
-  // apps/web/lib/supabase/error-detect.ts for the full code/message list.
+  // 5th-pass hotfix 2026-05-23: collapse to "always graceful-degrade,
+  // never crash the page" — log to Sentry with structured call_site
+  // context so real bugs (RLS denial, auth failure, network, schema
+  // drift) still surface in the dashboard, but the host's page renders
+  // as an empty guest list instead of bombing through the error
+  // boundary. The prior four hotfix passes (PR #380 / #390 / #404 /
+  // #413) layered defensive guards but kept the re-throw on
+  // non-missing-relation errors. Each pass moved the crash to the next
+  // narrowest path and the same Sentry digest (3284377371) kept firing.
+  // The pragmatic move after four passes is "empty page > error page"
+  // — the host can refresh OR find an alternate path AND Sentry still
+  // has the structured breadcrumb to diagnose root cause.
   if (error) {
-    if (isMissingRelationError(error)) {
-      logQueryError(
-        'fetchGuestsByEvent',
-        error,
-        { event_id: eventId },
-        'graceful_degrade',
-      );
-      return [];
-    }
-    // Real bug (RLS denial, auth failure, network) — log first so the
-    // structured call_site survives in Sentry even though the page is
-    // about to crash via the error boundary's auto-Sentry capture.
     logQueryError(
       'fetchGuestsByEvent',
       error,
-      { event_id: eventId },
-      'will_throw',
+      {
+        event_id: eventId,
+        // Surface whether this fell into the known missing-relation
+        // bucket vs a non-classified bug (RLS denial / auth expiry /
+        // network) so the Sentry dashboard can pivot the call site
+        // by error class without needing a separate severity level.
+        missing_relation_match: isMissingRelationError(error),
+      },
+      'graceful_degrade',
     );
-    throw new Error(`fetchGuestsByEvent failed: ${error.message}`);
+    return [];
   }
 
   return (data ?? []) as unknown as GuestRow[];
@@ -397,52 +396,38 @@ export async function fetchGuestGroupsByEvent(
       .eq('guest_groups.event_id', eventId),
   ]);
 
+  // 5th-pass hotfix 2026-05-23: collapse to "always graceful-degrade,
+  // never throw" — same rationale as fetchGuestsByEvent above. The
+  // multi-select + custom groups feature added this query to the
+  // guests-page Promise.all; the third hotfix (PR #404) added
+  // re-throw-on-non-missing-relation but the same Sentry digest
+  // (3284377371) kept firing because RLS-denial / auth-expiry /
+  // network errors slip past isMissingRelationError. After four passes
+  // of speculative classification, the pragmatic move is "empty groups
+  // sidebar > crashed page". The structured Sentry log still surfaces
+  // the call site for diagnosis.
   if (groupsRes.error) {
-    // Graceful-degrade when the migration hasn't been applied to prod
-    // yet (`supabase db push --linked` is the owner-side step) or
-    // PostgREST's schema cache hasn't caught up. The third hotfix pass
-    // (2026-05-23) added structured logging so the next crash surfaces
-    // the call site instead of forcing another speculative patch — the
-    // first two hotfixes silently swallowed and we kept guessing which
-    // query was next-narrowest.
-    if (isMissingRelationError(groupsRes.error)) {
-      logQueryError(
-        'fetchGuestGroupsByEvent (groups)',
-        groupsRes.error,
-        { event_id: eventId },
-        'graceful_degrade',
-      );
-      return [];
-    }
     logQueryError(
       'fetchGuestGroupsByEvent (groups)',
       groupsRes.error,
-      { event_id: eventId },
-      'will_throw',
+      {
+        event_id: eventId,
+        missing_relation_match: isMissingRelationError(groupsRes.error),
+      },
+      'graceful_degrade',
     );
-    throw new Error(`fetchGuestGroupsByEvent failed: ${groupsRes.error.message}`);
+    return [];
   }
   const groups = (groupsRes.data ?? []) as unknown as GuestGroupRow[];
 
-  // Same graceful-degrade for memberships. Real bugs (RLS denial, auth)
-  // are surfaced via logQueryError + throw; missing-relation is logged
-  // at the warning level and falls through to the empty-count map.
   if (membershipsRes.error) {
-    if (!isMissingRelationError(membershipsRes.error)) {
-      logQueryError(
-        'fetchGuestGroupsByEvent (memberships)',
-        membershipsRes.error,
-        { event_id: eventId },
-        'will_throw',
-      );
-      throw new Error(
-        `fetchGuestGroupsByEvent (memberships) failed: ${membershipsRes.error.message}`,
-      );
-    }
     logQueryError(
       'fetchGuestGroupsByEvent (memberships)',
       membershipsRes.error,
-      { event_id: eventId },
+      {
+        event_id: eventId,
+        missing_relation_match: isMissingRelationError(membershipsRes.error),
+      },
       'graceful_degrade',
     );
   }
@@ -469,21 +454,28 @@ export async function fetchGroupMembershipsByEvent(
     .eq('guest_groups.event_id', eventId);
 
   // Graceful-degrade on any error — render the page with no custom-group
-  // memberships rather than crashing. We intentionally keep this
-  // function's "any-error → empty Map()" fallback (vs strictening like
-  // `fetchGuestGroupsByEvent` above does) because this helper sits on
-  // every guests-page render and we'd rather miss a real-bug throw than
-  // re-introduce a crash that PR #380 / #390 didn't see coming.
-  // logQueryError sends to Sentry with structured `call_site` context
-  // so real bugs (RLS, auth, network) still surface in the dashboard
-  // even though we don't throw. Missing-relation logs at warning level;
-  // real bugs at error level.
+  // memberships rather than crashing. Symmetric with the 5th-pass
+  // hotfix on `fetchGuestGroupsByEvent` and `fetchGuestsByEvent` above
+  // (2026-05-23): every async on the guests-page render path now
+  // collapses to "log loudly to Sentry, return empty, never throw."
+  // After four prior hotfix passes failed to pin down the exact call
+  // site of Sentry digest 3284377371, the pragmatic move is to stop
+  // trying to classify error types (missing-relation vs RLS denial vs
+  // auth expiry vs network) and just always render the page. Real
+  // bugs still surface in Sentry via the structured `call_site` +
+  // `missing_relation_match` context; the host doesn't see an error
+  // boundary anymore. Severity downgraded from `will_throw` to
+  // `graceful_degrade` because we no longer throw — the prior label
+  // was misleading.
   if (error) {
     logQueryError(
       'fetchGroupMembershipsByEvent',
       error,
-      { event_id: eventId },
-      isMissingRelationError(error) ? 'graceful_degrade' : 'will_throw',
+      {
+        event_id: eventId,
+        missing_relation_match: isMissingRelationError(error),
+      },
+      'graceful_degrade',
     );
     return new Map();
   }

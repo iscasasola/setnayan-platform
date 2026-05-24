@@ -20,7 +20,15 @@ import {
   type FinalizeVendorResult,
 } from '../vendors/actions';
 
-const MAX_COMPARE = 3;
+// Owner-locked 2026-05-24: comparison capped at 2 across every surface
+// (wizard Today's Focus is type-locked at 2 via CompareState; marketplace
+// + DIY adopt the same cap via vendors/compare/page.tsx; this Your Plan
+// grid adopts the same cap here). 3-way side-by-side at thumb-zone width
+// on mobile becomes too cramped to read; the 2-way A-vs-B framing forces
+// a clear decision rather than open-ended browsing. The "Showing the
+// first N of M" copy below adapts automatically since it interpolates
+// MAX_COMPARE.
+const MAX_COMPARE = 2;
 const TOAST_AUTO_DISMISS_MS = 5_000;
 const LOCKED_FLASH_MS = 800;
 

@@ -30,6 +30,7 @@ import {
   isTaskUnlocked,
   getFirstUnmetPrereq,
   type WizardTask,
+  type WizardTaskId,
   type WizardState,
 } from '@/lib/wizard';
 import { WizardCard } from './wizard-card';
@@ -44,9 +45,22 @@ type Props = {
    *  via renderCardBody dispatch (parent has the runtime context: event
    *  data, recommendations, etc.). */
   activeCardBody: React.ReactNode;
+  /** Optional per-task body map · when present, EVERY task in the
+   *  carousel renders its full active-card body instead of the peek
+   *  preview shape. Used by the temp preview-all-cards mode so the host
+   *  can walk through every card's actual content during preview · NOT
+   *  just the title + "Up next" arrow. The parent (`wizard-hero.tsx`)
+   *  decides which mode to ship based on the TEMP_WIZARD_PREVIEW_ALL_CARDS
+   *  flag in `lib/wizard.ts` and feeds this map when the flag is on. */
+  taskBodies?: ReadonlyMap<WizardTaskId, React.ReactNode>;
 };
 
-export function WizardCarousel({ tasks, state, activeCardBody }: Props) {
+export function WizardCarousel({
+  tasks,
+  state,
+  activeCardBody,
+  taskBodies,
+}: Props) {
   if (tasks.length === 0) return null;
 
   const activeTask = tasks[0]!;
@@ -76,10 +90,14 @@ export function WizardCarousel({ tasks, state, activeCardBody }: Props) {
             <WizardCard task={activeTask}>{activeCardBody}</WizardCard>
           </li>
 
-          {/* PEEK cards · subsequent slots · compact preview shapes
-              based on lock state. Same basis-full · only visible after
-              the host swipes / scrolls past the active card. */}
+          {/* PEEK cards · subsequent slots. By default (canonical mode)
+              render the compact peek preview shape based on lock state
+              · same basis-full · only visible after the host swipes /
+              scrolls past the active card. When the parent passes
+              `taskBodies`, every peek card renders its FULL active-card
+              body instead · used by the temp preview-all-cards mode. */}
           {peekTasks.map((task) => {
+            const body = taskBodies?.get(task.id);
             const unlocked = isTaskUnlocked(state, task);
             const firstUnmet = unlocked ? null : getFirstUnmetPrereq(state, task);
             return (
@@ -87,7 +105,12 @@ export function WizardCarousel({ tasks, state, activeCardBody }: Props) {
                 key={task.id}
                 className="snap-start shrink-0 basis-full"
               >
-                {unlocked ? (
+                {body ? (
+                  // Preview-all-cards mode · render the same active card
+                  // shell the parent built for this task so the host can
+                  // walk through every card's actual UI.
+                  <WizardCard task={task}>{body}</WizardCard>
+                ) : unlocked ? (
                   <PeekUnlockedPreview task={task} />
                 ) : (
                   <PeekLockedPreview task={task} blockingPrereq={firstUnmet} />

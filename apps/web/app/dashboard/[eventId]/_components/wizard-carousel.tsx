@@ -25,7 +25,7 @@
  * status only.
  */
 
-import { Lock, ArrowRight, Star } from 'lucide-react';
+import { Lock, ArrowRight } from 'lucide-react';
 import {
   isTaskUnlocked,
   getFirstUnmetPrereq,
@@ -52,44 +52,40 @@ export function WizardCarousel({ tasks, state, activeCardBody }: Props) {
   const activeTask = tasks[0]!;
   const peekTasks = tasks.slice(1);
 
+  // No section-level "Today's focus" header — the inner WizardCard
+  // shell already renders that rail. A second header here showed up as
+  // a duplicate in production. Owner directive 2026-05-24.
   return (
     <section
-      aria-labelledby="wizard-carousel-heading"
+      aria-label="Today's focus carousel"
       className="space-y-3"
     >
-      <header className="flex items-baseline gap-2">
-        <Star
-          aria-hidden
-          className="h-3.5 w-3.5 text-terracotta"
-          strokeWidth={1.75}
-        />
-        <h2
-          id="wizard-carousel-heading"
-          className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta"
-        >
-          Today&apos;s focus
-        </h2>
-      </header>
-
-      {/* Carousel track · scroll-snap-x. The negative margin + padding
-          combo lets the leftmost card sit flush left of the page content
-          while still allowing snap centering on subsequent peeks. */}
+      {/* Carousel track · scroll-snap-x. Each card claims FULL VIEWPORT
+          WIDTH (basis-full) so only ONE card is visible at a time. The
+          next/locked cards exist in the track but only become visible
+          when the host swipes horizontally. Owner directive 2026-05-24:
+          peeks should NOT show; one card fills the surface. */}
       <div className="-mx-4 sm:-mx-6 lg:mx-0">
         <ul className="flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-4 px-4 pb-4 sm:scroll-px-6 sm:px-6 sm:gap-4 lg:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-          {/* ACTIVE card · first slot · full inline-completion body. */}
-          <li className="snap-start shrink-0 basis-[95%] sm:basis-[70%] lg:basis-[55%]">
+          {/* ACTIVE card · first slot · full inline-completion body.
+           *  basis-full = consumes the full visible width on every
+           *  breakpoint. The carousel container is constrained by the
+           *  parent dashboard column width, so on desktop this means
+           *  full column · on mobile means full viewport. */}
+          <li className="snap-start shrink-0 basis-full">
             <WizardCard task={activeTask}>{activeCardBody}</WizardCard>
           </li>
 
           {/* PEEK cards · subsequent slots · compact preview shapes
-              based on lock state. */}
+              based on lock state. Same basis-full · only visible after
+              the host swipes / scrolls past the active card. */}
           {peekTasks.map((task) => {
             const unlocked = isTaskUnlocked(state, task);
             const firstUnmet = unlocked ? null : getFirstUnmetPrereq(state, task);
             return (
               <li
                 key={task.id}
-                className="snap-start shrink-0 basis-[80%] sm:basis-[55%] lg:basis-[40%]"
+                className="snap-start shrink-0 basis-full"
               >
                 {unlocked ? (
                   <PeekUnlockedPreview task={task} />

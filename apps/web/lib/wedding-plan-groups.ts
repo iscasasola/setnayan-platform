@@ -1408,9 +1408,9 @@ function formatTargetDate(d: Date): string {
  * mode scoped to the folder, smooth-scroll-anchored to the section header.
  *
  * Consumed by planning-groups.tsx (the [Search] button) and todays-one-
- * thing.ts + next-steps.ts (the CTA URLs on the hero + 15-step list).
- * Keeps URL construction in one place so all three surfaces stay in
- * lock-step.
+ * thing.ts (the CTA URL on the hero). The next-steps.ts consumer was
+ * removed 2026-05-24 alongside the Next 15 Steps surface. Keeps URL
+ * construction in one place so both surfaces stay in lock-step.
  *
  * `from=plan` (owner directive 2026-05-22) — flips the marketplace into
  * focused-mode chrome: hides the "MARKETPLACE / Browse Filipino wedding

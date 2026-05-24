@@ -57,8 +57,6 @@ import { ConciergeBanner } from './_components/concierge-banner';
 // If a future iteration needs to surface the wizard back on event-home
 // (e.g., a compact peek-card variant), re-add the import here and the
 // JSX in the section where the comment placeholder lives.
-import { Next15Steps } from './_components/next-15-steps';
-import { pickNextSteps, type SponsorRowInput } from '@/lib/next-steps';
 // pickTodaysOneThing + countUnlockedCategories lib helpers retained at
 // @/lib/todays-one-thing for the quick-revert path. Unused here now that
 // the wizard owns the Today's Focus surface (on /today, not event-home).
@@ -1304,56 +1302,18 @@ export default async function EventHomePage({
   // above + restore these two consts + the <TodaysOneThing> JSX render.
   // See @/lib/wizard.ts `resolveWizardFocus` for the new resolver.
 
-  // Next 15 Steps — Wave 2 of the home-surface evolution. Owner
-  // directive 2026-05-22 — surface a scannable ladder of the next
-  // 15 things to do, tagged with parallelizability so hosts know
-  // what they can work on right now vs what's better to wait on.
-  // The resolver is pure — passes already-fetched data in. No extra
-  // DB roundtrips beyond what the page already does for Today's One
-  // Thing + PlanningGroups + paperwork + sponsors.
-  const sponsorRowsForNextSteps: ReadonlyArray<SponsorRowInput> = (
-    (sponsorsRes.data ?? []) as Array<{
-      sponsor_tier: string | null;
-      invitation_status: string | null;
-    }>
-  )
-    .filter(
-      (s): s is { sponsor_tier: string; invitation_status: string | null } =>
-        typeof s.sponsor_tier === 'string' &&
-        (s.sponsor_tier === 'principal' ||
-          s.sponsor_tier === 'cord' ||
-          s.sponsor_tier === 'veil' ||
-          s.sponsor_tier === 'coin' ||
-          s.sponsor_tier === 'candle'),
-    )
-    .map((s) => ({
-      sponsor_tier: s.sponsor_tier as SponsorRowInput['sponsor_tier'],
-      invitation_status: s.invitation_status,
-    }));
+  // Next 15 Steps · Parallel Work Map — REMOVED 2026-05-24 (owner directive).
+  // Today's Focus carousel + the 22-card Plan grid below cover the same
+  // territory without the third ranked-ladder surface stealing attention.
+  // The resolver + JSX block + sponsorRowsForNextSteps + nextSteps variable
+  // are all gone. paperworkRowsForNextSteps is kept (used by paperwork
+  // summary later in this file) but no longer feeds the retired ladder.
+  const paperworkRowsForNextSteps = (paperworkRowsRes.data ?? []) as PaperworkRow[];
   const moodBoardLocked =
     (event as { palette_finalized_at?: string | null }).palette_finalized_at !==
       null &&
     (event as { palette_finalized_at?: string | null }).palette_finalized_at !==
       undefined;
-  // Extract paperwork rows once — both the Next 15 Steps resolver and
-  // the PlanningGroups paperwork sub-link read from the same array, so
-  // we compute it inline here. The summarization runs later
-  // (`summarizePaperwork(paperworkRowsForNextSteps, ...)`) under its
-  // existing comment block. Mirrors the deduped variable pattern
-  // already in this file for eventVendors / eventVendorsRaw.
-  const paperworkRowsForNextSteps = (paperworkRowsRes.data ?? []) as PaperworkRow[];
-  const nextSteps = pickNextSteps({
-    eventId,
-    weddingDateIso: event.event_date,
-    ceremonyType: eventCeremonyType,
-    vendors: eventVendors,
-    paperwork: paperworkRowsForNextSteps,
-    sponsors: sponsorRowsForNextSteps,
-    guestCount: stats.total,
-    moodBoardLocked,
-    now,
-    limit: 15,
-  });
 
   // Day-of mode (iteration 0031): when inside the T-1h .. T+8h window of the
   // event date, fetch the schedule + seating data needed to render the live
@@ -1750,23 +1710,19 @@ export default async function EventHomePage({
        *  WizardHero import below stays only if other components on this
        *  page consume it; otherwise it's pruned. */}
 
-      {/* Wave 2 of Home v2 — owner directive 2026-05-22 (Next 15 Steps
-       *  parallelizability surface). Lives between the single-focus
-       *  hero above and the full 12-card grid in the disclosure below.
-       *  Senior PH wedding planner intelligence encoded as data —
-       *  vendor categories + paperwork + sponsors + in-app tools all
-       *  ranked into one sortable ladder, tagged with parallelizability
-       *  so hosts can decide what to do now vs later vs in parallel. */}
-      <Next15Steps eventId={eventId} steps={nextSteps} />
+      {/* Next 15 Steps · Parallel Work Map REMOVED 2026-05-24 — Today's
+       *  Focus carousel + the 22-card Plan grid below cover the same
+       *  territory without a third ranked-ladder surface competing for
+       *  attention. The Next15Steps component + pickNextSteps resolver
+       *  + sponsorRowsForNextSteps + nextSteps variable are all gone. */}
 
       {/* Always-active rule (owner directive 2026-05-22 — "i want
        *  everything on home to be active now"). Supersedes PR #337's
        *  <details> wrapper around PlanningGroups. The 12-card planning
        *  grid renders directly as a top-level section, always visible.
        *  Decision-paralysis concern from the prior wrap is addressed
-       *  instead by the TodaysOneThing hero + Next15Steps ladder
-       *  above — both still focus the host's attention without
-       *  hiding the full plan behind a disclosure. */}
+       *  instead by the TodaysOneThing hero above (the Next15Steps
+       *  ladder was removed 2026-05-24 — see the prior comment). */}
       <section aria-labelledby="planning-groups-heading" className="space-y-4">
         <h2
           id="planning-groups-heading"

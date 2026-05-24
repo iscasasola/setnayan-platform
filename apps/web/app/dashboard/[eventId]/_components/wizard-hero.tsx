@@ -50,6 +50,14 @@ import { HairMakeupCard } from './wizard-cards/hair-makeup-card';
 import { CakeCard } from './wizard-cards/cake-card';
 import { AccommodationCard } from './wizard-cards/accommodation-card';
 import { BridalCarCard } from './wizard-cards/bridal-car-card';
+// Phase 5 batch — 7 paperwork external_process cards.
+import { CenomarCard } from './wizard-cards/cenomar-card';
+import { ChurchPaperworkCard } from './wizard-cards/church-paperwork-card';
+import { PreCanaCard } from './wizard-cards/pre-cana-card';
+import { MarriageLicenseCard } from './wizard-cards/marriage-license-card';
+import { SendThankYousCard } from './wizard-cards/send-thank-yous-card';
+import { CreateReviewsCard } from './wizard-cards/create-reviews-card';
+import { DownloadPhotosCard } from './wizard-cards/download-photos-card';
 import { PlaceholderCardBody } from './wizard-cards/placeholder-card-body';
 
 type Props = {
@@ -287,6 +295,25 @@ function renderCardBody(
           excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
         />
       );
+    // Phase 5 batch — 7 paperwork external_process cards. Each uses the
+    // <PaperworkCard> primitive + generic markTaskInFlight / markTaskDone
+    // server actions from WAVE 0 (PR #472). The in_flight CTA is what
+    // lets the wizard advance while slow paperwork (Cenomar · Pre-Cana ·
+    // Marriage License) processes in the background.
+    case 'cenomar':
+      return <CenomarCard eventId={ctx.eventId} />;
+    case 'church_paperwork':
+      return <ChurchPaperworkCard eventId={ctx.eventId} />;
+    case 'pre_cana':
+      return <PreCanaCard eventId={ctx.eventId} />;
+    case 'marriage_license':
+      return <MarriageLicenseCard eventId={ctx.eventId} />;
+    case 'send_thank_yous':
+      return <SendThankYousCard eventId={ctx.eventId} />;
+    case 'create_reviews':
+      return <CreateReviewsCard eventId={ctx.eventId} />;
+    case 'download_photos':
+      return <DownloadPhotosCard eventId={ctx.eventId} />;
     default:
       return <PlaceholderCardBody taskId={taskId} />;
   }

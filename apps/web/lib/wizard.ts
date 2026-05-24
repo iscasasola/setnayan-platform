@@ -630,6 +630,24 @@ export function parseWizardState(raw: unknown): WizardState {
 }
 
 /**
+ * TEMPORARY PREVIEW MODE flag — owner directive 2026-05-24.
+ *
+ * When `true`:
+ *   - isTaskUnlocked() always returns TRUE (no prereq gating)
+ *   - getCarouselTasks() returns ALL 38 tasks (no lookahead cap)
+ *
+ * Owner asked to disable the prereq lock + the card-count limit
+ * temporarily so they can preview every card in the carousel before
+ * reactivating the canonical flow. To turn it back on, flip this
+ * constant to `false`.
+ *
+ * Keep this constant prominent + named so it's impossible to forget
+ * to flip back. Do NOT remove the prereq / limit logic — just
+ * short-circuit it.
+ */
+export const TEMP_WIZARD_PREVIEW_ALL_CARDS = true;
+
+/**
  * Returns TRUE when the given task is recorded as completed in the wizard
  * state. A task counts as "complete" when its key exists in wizard_state
  * AND the value is an object with a `completed_at` string field. The
@@ -692,6 +710,11 @@ export function isTaskUnlocked(
   state: WizardState,
   task: WizardTask,
 ): boolean {
+  // Owner-temp 2026-05-24 preview mode: all cards report unlocked so
+  // the host can see every wizard step before reactivating the prereq
+  // gate. Flip TEMP_WIZARD_PREVIEW_ALL_CARDS back to false to restore
+  // canonical prereq enforcement.
+  if (TEMP_WIZARD_PREVIEW_ALL_CARDS) return true;
   for (const prereqId of task.prerequisites) {
     if (!isTaskSettled(state, prereqId)) return false;
   }
@@ -735,6 +758,13 @@ export function getCarouselTasks(
   state: WizardState,
   lookahead = 4,
 ): WizardTask[] {
+  // Owner-temp 2026-05-24 preview mode: return ALL 38 tasks in canonical
+  // order so the host can swipe through every card. Skips the lookahead
+  // cap + settled-filter so settled cards also appear (host can preview
+  // their post-event flow without resetting state).
+  if (TEMP_WIZARD_PREVIEW_ALL_CARDS) {
+    return [...WIZARD_TASKS];
+  }
   // Find the active focus first — same logic as resolveWizardFocus.
   let activeIndex = -1;
   for (let i = 0; i < WIZARD_TASKS.length; i++) {

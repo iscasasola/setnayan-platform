@@ -608,7 +608,16 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     // handles the actual setup. External-process kind · placeholder
     // body until inline activation UI ships V1.x.
     id: 'papic',
-    order: 17.3,
+    // 2026-05-24 owner directive ("activate papic, panood and patiktok,
+    // before we release save the date"): orders moved from 17.3/17.5/17.7
+    // (after save_the_date_video order 17) to 16.6/16.7/16.8 (BEFORE
+    // save_the_date_video). Rationale: the STD video copy can reference
+    // these services (e.g., "we'll be livestreaming · QR your photo
+    // contribution") AND it nudges couples to spend on Setnayan
+    // services earlier in the funnel. Same-Day Edit at order 17.8
+    // stays AFTER save_the_date_video — owner only specified the 3
+    // and SDE is a different purchase moment (₱9,999+ flagship).
+    order: 16.6,
     phase: 'programming',
     kind: 'external_process',
     title: 'Activate Papic',
@@ -625,7 +634,9 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     // couple's own YouTube channel · Setnayan provides broadcaster web
     // UI + multi-cam switching. T-2mo entry, T-14d floor.
     id: 'panood',
-    order: 17.5,
+    // 2026-05-24 owner directive (see papic comment above): moved from
+    // 17.5 to 16.7 · before save_the_date_video.
+    order: 16.7,
     phase: 'programming',
     kind: 'external_process',
     title: 'Activate Panood',
@@ -642,7 +653,9 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     // 40-video soft cap per booth per day + ₱49/+10 overage. T-3mo entry,
     // T-14d floor.
     id: 'patiktok',
-    order: 17.7,
+    // 2026-05-24 owner directive (see papic comment above): moved from
+    // 17.7 to 16.8 · before save_the_date_video.
+    order: 16.8,
     phase: 'programming',
     kind: 'external_process',
     title: 'Activate Patiktok',

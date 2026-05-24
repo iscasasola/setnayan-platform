@@ -255,6 +255,107 @@ function dayOfYear(date: Date): number {
 }
 
 // ----------------------------------------------------------------------------
+// Numerology layer — 2026-05-24 owner directive: dates should also surface
+// numerology, including for Catholic ceremonies (Filipino Catholic families
+// commonly observe folk numerology alongside the sacrament · framed as
+// CULTURAL overlay, not doctrinal).
+//
+// Math is classic Pythagorean numerology: digit-sum the date components,
+// reduce to a single digit, EXCEPT the master numbers 11/22/33 which stay
+// unreduced. Every reduced value has a positive framing — the library's
+// positive-only rule still holds.
+// ----------------------------------------------------------------------------
+
+const NUMEROLOGY_MEANINGS: Record<number, string> = {
+  1: 'Number 1 energy · leadership and fresh beginnings · the start of a new chapter, together',
+  2: 'Number 2 · the partnership number · balance and harmony, made for vows',
+  3: 'Number 3 · joy, creativity, expression · a celebration of voice and laughter',
+  4: 'Number 4 · the foundation number · stability and security, a home being built',
+  5: 'Number 5 · change and freedom · the adventure starts here',
+  6: 'Number 6 · the family number · love, harmony, responsibility for each other',
+  7: 'Number 7 · spirituality and intuition · the sacred witness of the day',
+  8: 'Number 8 · abundance and achievement · prosperity flowing into the marriage',
+  9: 'Number 9 · completion and compassion · old chapters closing, the new one wide open',
+  11: 'Master number 11 · spiritual awakening and illumination · this date carries extra meaning',
+  22: 'Master number 22 · the master builder · grand vision, lifelong foundation, this date carries quiet power',
+  33: 'Master number 33 · the master teacher · compassion and healing, this date is rare and beloved',
+};
+
+function digitSum(s: string): number {
+  let sum = 0;
+  for (const c of s) {
+    const n = Number(c);
+    if (!Number.isNaN(n) && c >= '0' && c <= '9') sum += n;
+  }
+  return sum;
+}
+
+/** Reduce a positive integer to a single digit, except for the master
+ *  numbers 11 / 22 / 33 which stay unreduced per classic Pythagorean
+ *  numerology. */
+function reduceToSingleOrMaster(n: number): number {
+  while (n > 9 && n !== 11 && n !== 22 && n !== 33) {
+    n = digitSum(String(n));
+  }
+  return n;
+}
+
+/** Life-path number of the date · sum all digits of YYYYMMDD, reduce
+ *  with master-number preservation. For 2026-12-18 → 2+0+2+6+1+2+1+8
+ *  = 22 (master). */
+function dateLifePath(date: Date): number {
+  const y = String(date.getFullYear());
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return reduceToSingleOrMaster(digitSum(y + m + d));
+}
+
+/** Reduced day-of-month numerology · for 18 → 9. */
+function dayNumber(date: Date): number {
+  return reduceToSingleOrMaster(date.getDate());
+}
+
+/**
+ * Returns numerology reasons for the date. Includes the life-path number
+ * AND (when distinct) the day-of-month number. Adds a Filipino-Catholic
+ * cultural note when ceremonyType === 'catholic' so the inclusion is
+ * framed honestly as folk observance, not doctrine.
+ */
+function numerologyReasons(
+  date: Date,
+  ceremonyType: CeremonyType | null,
+): string[] {
+  const reasons: string[] = [];
+
+  const lifePath = dateLifePath(date);
+  const lifePathMeaning = NUMEROLOGY_MEANINGS[lifePath];
+  if (lifePathMeaning) {
+    reasons.push(`Life-path of your date · ${lifePathMeaning}`);
+  }
+
+  const dayN = dayNumber(date);
+  // Only surface day-number when it adds new info (not just a duplicate
+  // of the life-path reduction).
+  if (dayN !== lifePath) {
+    const dayMeaning = NUMEROLOGY_MEANINGS[dayN];
+    if (dayMeaning) {
+      reasons.push(`Day ${date.getDate()} resolves to ${dayN} · ${dayMeaning}`);
+    }
+  }
+
+  // Filipino Catholic cultural overlay — honors both the sacrament and
+  // the cultural overlay many Filipino families observe. Not claiming
+  // Church doctrine.
+  if (ceremonyType === 'catholic' && reasons.length > 0) {
+    reasons.push(
+      'Many Filipino Catholic families observe folk numerology alongside the sacrament · your date carries both layers',
+    );
+  }
+
+  return reasons;
+}
+
+// ----------------------------------------------------------------------------
 // Ceremony-specific overlays — surface relevant cultural touchpoints positively
 // ----------------------------------------------------------------------------
 
@@ -514,67 +615,156 @@ function meaningfulDateResonance(date: Date, meaningfulDates: MeaningfulDate[]):
  * Caller passes `meaningfulDates` array (can be empty). Library is pure —
  * no DB access, no side effects.
  */
+/** Categorized group of reasons · drives the inline "Learn more about
+ *  this date" expander in Card 01. Order is the surface order: personal
+ *  first (most specific to host), numerology second (date-unique math),
+ *  ceremony notes third (specific cultural context), special patterns
+ *  fourth (uncommon delight), cultural fifth (always-applicable
+ *  baseline), practical last (proactive reframes of common concerns). */
+export type AuspiciousReasonCategory =
+  | 'personal'
+  | 'numerology'
+  | 'ceremony'
+  | 'special_pattern'
+  | 'cultural'
+  | 'practical';
+
+export type AuspiciousReasonGroup = {
+  category: AuspiciousReasonCategory;
+  /** Brand-voice section heading shown above the reasons in the
+   *  "Learn more" expander · keep short, editorial restraint. */
+  label: string;
+  reasons: string[];
+};
+
+/**
+ * Returns reasons GROUPED by category. Drives the Card 01 inline "Learn
+ * more about this date" expander · also feeds the legacy flat-array
+ * `computeAuspiciousReasons` below (kept for backwards compat with the
+ * server action + /date-selection page).
+ *
+ * Empty-category groups are filtered out so consumers don't render
+ * empty section headers.
+ */
+export function computeAuspiciousReasonsDetailed(
+  date: Date,
+  ceremonyType: CeremonyType | null,
+  meaningfulDates: MeaningfulDate[] = [],
+): AuspiciousReasonGroup[] {
+  const groups: AuspiciousReasonGroup[] = [];
+
+  // 1. Personal resonance (only when host flagged dates)
+  const personal = meaningfulDateResonance(date, meaningfulDates);
+  if (personal.length > 0) {
+    groups.push({
+      category: 'personal',
+      label: 'Personal resonance',
+      reasons: personal,
+    });
+  }
+
+  // 2. Numerology (always present)
+  const numerology = numerologyReasons(date, ceremonyType);
+  if (numerology.length > 0) {
+    groups.push({
+      category: 'numerology',
+      label: 'Numerology',
+      reasons: numerology,
+    });
+  }
+
+  // 3. Ceremony notes (only when ceremonyType + an applicable overlay)
+  const ceremony: string[] = [];
+  const overlay = ceremonyOverlay(date, ceremonyType);
+  if (overlay) ceremony.push(overlay);
+  if (ceremony.length > 0) {
+    groups.push({
+      category: 'ceremony',
+      label: 'Ceremony notes',
+      reasons: ceremony,
+    });
+  }
+
+  // 4. Special patterns (palindromes, holidays, equinoxes)
+  const patterns: string[] = [];
+  for (const pattern of SPECIAL_PATTERNS) {
+    if (pattern.match(date)) patterns.push(pattern.reason);
+  }
+  if (patterns.length > 0) {
+    groups.push({
+      category: 'special_pattern',
+      label: 'Special patterns',
+      reasons: patterns,
+    });
+  }
+
+  // 5. Cultural meaning (day-of-week + month variants + position-in-month).
+  //    Variants per day-of-week + per month are deterministically indexed
+  //    by day-of-year so same date → same picks AND adjacent dates pick
+  //    different combinations. +3 prime offset on month so the two
+  //    selections advance independently.
+  const cultural: string[] = [];
+  const doy = dayOfYear(date);
+  const dowVariants = DAY_OF_WEEK_VARIANTS[date.getDay()];
+  if (dowVariants && dowVariants.length > 0) {
+    const dowReason = dowVariants[doy % dowVariants.length];
+    if (dowReason) cultural.push(dowReason);
+  }
+  const monthVariants = MONTH_VARIANTS[date.getMonth() + 1];
+  if (monthVariants && monthVariants.length > 0) {
+    const monthReason = monthVariants[(doy + 3) % monthVariants.length];
+    if (monthReason) cultural.push(monthReason);
+  }
+  const positionReason = positionInMonthReason(date);
+  if (positionReason) cultural.push(positionReason);
+  if (cultural.length > 0) {
+    groups.push({
+      category: 'cultural',
+      label: 'Cultural meaning',
+      reasons: cultural,
+    });
+  }
+
+  // 6. Practical reframes (sensitive concerns turned positive)
+  const practical = sensitiveReframes(date, ceremonyType);
+  if (practical.length > 0) {
+    groups.push({
+      category: 'practical',
+      label: 'Practical notes',
+      reasons: practical,
+    });
+  }
+
+  return groups;
+}
+
+/**
+ * Backwards-compat flat-array entry point. Returns deduplicated reasons
+ * in the same surface order as the grouped function. Callers that only
+ * want a flat list (server action, /date-selection page, legacy
+ * AuspiciousChip) stay on this signature; callers that want the grouped
+ * structure (Card 01 wizard's Learn-more expander) read the new
+ * `computeAuspiciousReasonsDetailed` directly.
+ */
 export function computeAuspiciousReasons(
   date: Date,
   ceremonyType: CeremonyType | null,
   meaningfulDates: MeaningfulDate[] = [],
 ): string[] {
-  const reasons: string[] = [];
-
-  // 1. Meaningful-date resonance (most personal first)
-  reasons.push(...meaningfulDateResonance(date, meaningfulDates));
-
-  // 2. Ceremony overlay (specific cultural context)
-  const overlay = ceremonyOverlay(date, ceremonyType);
-  if (overlay) reasons.push(overlay);
-
-  // 3. Special pattern matches (delight)
-  for (const pattern of SPECIAL_PATTERNS) {
-    if (pattern.match(date)) {
-      reasons.push(pattern.reason);
-    }
+  const groups = computeAuspiciousReasonsDetailed(date, ceremonyType, meaningfulDates);
+  const flat: string[] = [];
+  for (const g of groups) {
+    for (const r of g.reasons) flat.push(r);
   }
-
-  // 4. Day-of-week + month positive — 2026-05-24 owner directive: each
-  //    date must surface a distinct combination so adjacent dates don't
-  //    read as understudied. Variant pools per day-of-week (6 framings)
-  //    and per month (5 framings) are deterministically indexed by
-  //    day-of-year, with a prime offset on the month index so the two
-  //    selections vary independently across consecutive days.
-  const doy = dayOfYear(date);
-  const dowVariants = DAY_OF_WEEK_VARIANTS[date.getDay()];
-  if (dowVariants && dowVariants.length > 0) {
-    const dowReason = dowVariants[doy % dowVariants.length];
-    if (dowReason) reasons.push(dowReason);
-  }
-  const monthVariants = MONTH_VARIANTS[date.getMonth() + 1];
-  if (monthVariants && monthVariants.length > 0) {
-    // +3 offset (prime relative to 5/6/12) so day-of-week and month
-    // variants advance on different cycles · adjacent dates rarely
-    // share both selections.
-    const monthReason = monthVariants[(doy + 3) % monthVariants.length];
-    if (monthReason) reasons.push(monthReason);
-  }
-
-  // 5. Position-in-month flavor (opening/second-week/mid-month/late) —
-  //    new date-specific signal so a Friday in week 1 of December reads
-  //    different from a Friday in week 4 of the same month.
-  const positionReason = positionInMonthReason(date);
-  if (positionReason) reasons.push(positionReason);
-
-  // 6. Sensitive reframes (proactively reframe common concerns)
-  reasons.push(...sensitiveReframes(date, ceremonyType));
-
   // Deduplicate while preserving order
   const seen = new Set<string>();
   const deduped: string[] = [];
-  for (const r of reasons) {
+  for (const r of flat) {
     if (!seen.has(r)) {
       seen.add(r);
       deduped.push(r);
     }
   }
-
   return deduped;
 }
 

@@ -59,6 +59,7 @@ export type WizardTaskId =
   | 'engagement_prenup_shoot'
   | 'catering'
   | 'customize_food'
+  | 'food_tasting'
   // Phase 2 · Style + Identity (T-9m to T-6m)
   | 'stylist'
   | 'mood_board'
@@ -68,14 +69,17 @@ export type WizardTaskId =
   | 'music_entertainment'
   | 'host_mc'
   | 'photobooths_booths'
+  | 'pakanta'
   // Phase 3 · Programming (T-6m to T-3m)
   | 'create_schedule'
+  | 'song_list'
   | 'create_website'
   | 'save_the_date_video'
   | 'attire'
   | 'hair_makeup'
   | 'principal_sponsors'
   | 'finalize_entourage'
+  | 'gift_registry'
   | 'invitations_stationery'
   | 'deploy_invitation'
   | 'second_batch_invitation'
@@ -98,6 +102,7 @@ export type WizardTaskId =
   | 'honeymoon_planning'
   | 'paprint'
   | 'all_set_readiness'
+  | 'wedding_rehearsal'
   | 'event'
   // Phase 7 · Post-event (T+1d to T+30d)
   | 'send_thank_yous'
@@ -335,26 +340,54 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     prerequisites: ['catering'],
   },
   {
+    // Added 2026-05-24 (owner directive · ❓ missing cards audit · "the
+    // rest, yes"). Filipino caterers run a kitchen tasting session at
+    // T-3 months where the couple visits the caterer's commissary,
+    // tastes the locked menu, and signs off on final portion sizing.
+    // Separate from customize_food (which is the menu-shape decision
+    // before tasting). Lands at position 13 in the sorted sequence.
+    id: 'food_tasting',
+    order: 7.55,
+    phase: 'foundation',
+    kind: 'external_process',
+    title: 'Schedule your food tasting',
+    whyItMatters:
+      "T-3 months you visit your caterer's kitchen for the tasting. Pick the date here so your caterer prepares the locked menu and you walk in confident, not curious.",
+    pillLabel: 'Foundation',
+    prerequisites: ['customize_food'],
+  },
+  {
+    // 2026-05-24 owner directive: mood_board MUST come before stylist.
+    // Per the moodboard-finalize-then-broadcast architecture (CLAUDE.md
+    // 2026-05-24 row), the locked mood board IS the palette source-of-
+    // truth that feeds 13 downstream vendors including stylist. Picking
+    // a stylist first inverts that contract — the stylist sets the
+    // palette unilaterally instead of executing on the host's locked
+    // vision. order swapped 8 → 9 (now lands at position 15).
     id: 'stylist',
-    order: 8,
+    order: 9,
     phase: 'style_identity',
     kind: 'vendor_pick',
     title: 'Lock your stylist',
     whyItMatters:
-      "Your stylist sets the visual language — palette, florals, decor, signage. They shape the mood board with you, so locking the stylist first means every choice downstream lines up.",
+      "Your stylist executes on the palette you locked in mood board. They shape florals, decor, signage, and table styling — but the color story comes from you first.",
     pillLabel: 'Style & Identity',
-    prerequisites: ['reception_venue'],
+    prerequisites: ['reception_venue', 'mood_board'],
   },
   {
+    // 2026-05-24 owner directive (see stylist comment above): mood_board
+    // promoted ahead of stylist · order swapped 9 → 8 (now lands at
+    // position 14). Also adds set_wedding_date prereq so the card
+    // doesn't fire before basic event data is in place.
     id: 'mood_board',
-    order: 9,
+    order: 8,
     phase: 'style_identity',
     kind: 'data_input',
     title: 'Set your mood board',
     whyItMatters:
       "Six colors anchor every visual choice — your florist, stationer, lighting designer, even the cake all read from this palette. Pick the feeling first; the colors follow.",
     pillLabel: 'Style & Identity',
-    prerequisites: [],
+    prerequisites: ['set_wedding_date'],
   },
   {
     id: 'lights_sound',
@@ -393,6 +426,9 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     // Website (Card 16), Deploy Invitation (Card 21), and LED Background
     // (post-event). Phase label kept as 'style_identity' for tier grouping
     // continuity even though the surface ordering reads Foundation-early.
+    //
+    // 2026-05-24 prereq fix: added `set_wedding_date` so the card doesn't
+    // fire before the event's basic data is in place.
     order: 4.7,
     phase: 'style_identity',
     kind: 'data_input',
@@ -400,7 +436,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     whyItMatters:
       "Your initials become the visual signature carried across save-the-date, invitations, signage, and the LED background. Two letters · one mark · everywhere — and bespoke monograms need 4-6 weeks of design lead-time.",
     pillLabel: 'Style & Identity',
-    prerequisites: [],
+    prerequisites: ['set_wedding_date'],
   },
   {
     // 2026-05-24 senior-planner reorder: was order 12 (position 16).
@@ -430,7 +466,8 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     whyItMatters:
       'Your emcee carries the program from cocktail hour through send-off. A great host makes the night feel effortless; book 4-6 months out.',
     pillLabel: 'Style & Identity',
-    prerequisites: [],
+    // 2026-05-24 prereq fix: host needs venue style + program shape.
+    prerequisites: ['reception_venue'],
   },
   {
     id: 'photobooths_booths',
@@ -453,6 +490,25 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
       "Ceremony · cocktails · reception · send-off. Once the major vendors are locked, the timeline writes itself — your coordinator can finalize call times for everyone.",
     pillLabel: 'Programming',
     prerequisites: ['reception_venue', 'ceremony_venue'],
+  },
+  {
+    // Added 2026-05-24 (owner directive · "where do we add the songlist").
+    // The playlist add-on surface at /dashboard/[eventId]/add-ons/playlist
+    // shipped earlier but had no wizard card pointing at it. Card sits
+    // between create_schedule (sets ceremony 3pm · cocktails 5pm ·
+    // reception 7pm) and create_website. Couples build the playlist
+    // SEGMENT-BY-SEGMENT (processional · first dance · parents' dance ·
+    // cocktail tracks · banned songs) so the DJ runs the night off it.
+    // Typical lock window T-4-6 weeks.
+    id: 'song_list',
+    order: 15.5,
+    phase: 'programming',
+    kind: 'data_input',
+    title: 'Build your DJ song list',
+    whyItMatters:
+      "Processional · first dance · parents' dance · cocktail hour · banned tracks. Your DJ runs the night off what you build here. Most couples lock the list 4-6 weeks before the wedding so the DJ has time to source and cue every entry.",
+    pillLabel: 'Programming',
+    prerequisites: ['create_schedule', 'music_entertainment'],
   },
   {
     id: 'create_website',
@@ -494,7 +550,8 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     whyItMatters:
       "Custom gowns and barongs need 3-4 months from first fitting; rentals book 6-8 weeks ahead. Either way, the clock is friendlier than you think — start the conversation now.",
     pillLabel: 'Programming',
-    prerequisites: [],
+    // 2026-05-24 prereq fix: shouldn't fire before the wedding date is set.
+    prerequisites: ['set_wedding_date'],
   },
   {
     id: 'hair_makeup',
@@ -505,7 +562,8 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     whyItMatters:
       'Your bridal glam team carries the whole entourage on the morning of. Trials happen 1-2 months before the day; lock the artist first so the trial date even makes sense.',
     pillLabel: 'Programming',
-    prerequisites: [],
+    // 2026-05-24 prereq fix: shouldn't fire before the wedding date is set.
+    prerequisites: ['set_wedding_date'],
   },
   {
     id: 'principal_sponsors',
@@ -516,7 +574,8 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     whyItMatters:
       "Your ninong and ninang stand witness — invitations and seating depend on the final list. Your coordinator schedules a meeting with each sponsor pair at their location.",
     pillLabel: 'Programming',
-    prerequisites: [],
+    // 2026-05-24 prereq fix: shouldn't fire before the wedding date is set.
+    prerequisites: ['set_wedding_date'],
   },
   {
     id: 'finalize_entourage',
@@ -528,6 +587,23 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
       "Your maids of honor · best men · bridesmaids · groomsmen · bearers · flower girls. Their attire is sized from this list, their seats are reserved at family-head tables, and their names appear on every print card you order.",
     pillLabel: 'Programming',
     prerequisites: ['principal_sponsors'],
+  },
+  {
+    // Added 2026-05-24 (owner directive · ❓ missing cards audit · "the
+    // rest, yes"). Filipino couples increasingly share gift registries
+    // (Rustans · SM · Wedding Wishlist app · cash-only Bills Manila). Card
+    // sits before invitations_stationery so the registry link can land
+    // on the printed and digital invitations. External-process kind ·
+    // host records the registry name + URL.
+    id: 'gift_registry',
+    order: 20.6,
+    phase: 'programming',
+    kind: 'external_process',
+    title: 'Set up your gift registry',
+    whyItMatters:
+      "Rustans · SM Home · cash-only Bills Manila · or a curated wishlist on a registry app. Pick one (or none — entirely optional) and capture the link here. We'll surface it on your wedding website and inside your invitation cards.",
+    pillLabel: 'Programming',
+    prerequisites: ['set_wedding_date'],
   },
   {
     // Added 2026-05-24 to align with PLAN_GROUPS.invitations_stationery.
@@ -599,6 +675,25 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     title: 'Lock your ring jeweler',
     whyItMatters:
       "Wedding bands + matching engagement-ring touch-ups need 4-6 weeks of crafting + sizing. Premium designs with engraving or heritage settings need 6-8 weeks. Most PH jewelers ship nationwide — pick by portfolio + reviews, not proximity.",
+    pillLabel: 'Style & Identity',
+    prerequisites: ['set_wedding_date'],
+  },
+  {
+    // Added 2026-05-24 (owner directive · ❓ missing cards audit · "the
+    // rest, yes"). Pakanta = custom wedding song service powered by
+    // Suno Premier per iteration 0036. 3 tiers: Basic ₱1,999 / 24-hr ·
+    // Premium ₱3,999 / 2-5 days · Wedding Suite ₱9,999 / 5-7 days.
+    // Card surfaces the intake form + tier picker; production happens
+    // through the Pakanta workflow. Lands at position 17 (between rings
+    // and lights_sound). Lead time matches Premium tier · Wedding Suite
+    // benefits from earlier lock to allow the lyric-approval gate cycle.
+    id: 'pakanta',
+    order: 9.7,
+    phase: 'style_identity',
+    kind: 'external_process',
+    title: 'Order your wedding song (Pakanta)',
+    whyItMatters:
+      "Custom wedding song by Setnayan AI music. Pick a tier — Basic ₱1,999 / 24 hr, Premium ₱3,999 / 2-5 days with lyric approval, or the Wedding Suite ₱9,999 / 5-7 days for 3 matching songs. The song saves to your event so every Setnayan-rendered video uses it.",
     pillLabel: 'Style & Identity',
     prerequisites: ['set_wedding_date'],
   },
@@ -733,6 +828,25 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
       "Final readiness checkpoint before day-of mode activates. Walk through every section · fix any last-minute gap · graduate to live with confidence.",
     pillLabel: 'Final month',
     prerequisites: ['finalize_rsvp', 'finalize_seatplan', 'finalize_catering_count', 'paprint'],
+  },
+  {
+    // Added 2026-05-24 (owner directive · ❓ missing cards audit · "the
+    // rest, yes"). Filipino Catholic weddings run a rehearsal at T-1
+    // to T-2 days · the parish priest + officiant walks the wedding
+    // party (sponsors · bearers · flower girls) through entrance order
+    // + ceremony beats. Civil weddings often skip; cultural / interfaith
+    // run their own version. Card surfaces date/time picker; the
+    // coordinator schedules vendor presence (typically just the
+    // photographer + coordinator on site).
+    id: 'wedding_rehearsal',
+    order: 33.8,
+    phase: 'final_month',
+    kind: 'external_process',
+    title: 'Wedding rehearsal',
+    whyItMatters:
+      "T-1 or T-2 days · sponsors, bearers, and the entourage walk through entrance order with your officiant. Catholic + Christian + INC ceremonies all benefit; civil weddings can skip. Most parishes assume a rehearsal even if it isn't officially scheduled — confirm with yours.",
+    pillLabel: 'Final month',
+    prerequisites: ['all_set_readiness'],
   },
   {
     id: 'event',

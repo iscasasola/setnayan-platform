@@ -75,10 +75,12 @@ export type WizardTaskId =
   | 'create_schedule'
   | 'song_list'
   | 'create_website'
+  | 'website_upgrade'
   | 'save_the_date_video'
   | 'papic'
   | 'panood'
   | 'patiktok'
+  | 'same_day_edit'
   | 'attire'
   | 'hair_makeup'
   | 'principal_sponsors'
@@ -86,6 +88,8 @@ export type WizardTaskId =
   | 'gift_registry'
   | 'invitations_stationery'
   | 'deploy_invitation'
+  | 'complete_guest_list'
+  | 'gap_fill_guest_list'
   | 'second_batch_invitation'
   // Phase 4 · Late additions (T-3m to T-2m)
   | 'cake'
@@ -112,6 +116,8 @@ export type WizardTaskId =
   | 'send_thank_yous'
   | 'create_reviews'
   | 'download_photos'
+  | 'ai_highlights'
+  | 'keepsake_bundle'
   | 'create_editorial'
   | 'claim_next_event_reward';
 
@@ -289,13 +295,22 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     // rough headcount = re-quote later when the number lands. Filipino
     // weddings routinely grow from 80 to 200 between engagement and
     // RSVP — anchoring the rough count first prevents downstream churn.
+    // 2026-05-24 owner directive (3-stage guest list split): this is
+    // STAGE 1 of three guest-list cards. Stage 1 = bride + groom +
+    // parents + principal sponsors + secondary sponsors + entourage —
+    // the VIP scaffold that the seat plan + invitation design + name-
+    // cards keys off. Filipino weddings finalize this list 9-12 months
+    // out because principal sponsors + entourage names ride the
+    // invitation design. Stages 2 + 3 (complete_guest_list at order
+    // 20.4 + gap_fill_guest_list at order 21.3) handle the broader
+    // list pre-invitation and the gap-fill post-first-invitation.
     id: 'draft_guest_list',
     order: 1.5,
     phase: 'foundation',
     kind: 'external_process',
-    title: 'Draft your guest list',
+    title: 'Add VIPs to your guest list',
     whyItMatters:
-      "A rough headcount unlocks every count-sensitive vendor pick — catering, cake, seatplan, paprint. You don't need final names yet, just enough to know what scale you're working with.",
+      "Bride + groom + parents + principal sponsors + secondary sponsors + your entourage. These names ride the invitation design and seal the family-head tables in the seat plan. Don't worry about the full guest list yet — that's two more cards down the line.",
     pillLabel: 'Foundation',
     prerequisites: ['set_wedding_date'],
   },
@@ -547,6 +562,25 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     prerequisites: ['set_wedding_date', 'reception_venue', 'ceremony_venue'],
   },
   {
+    // Added 2026-05-24 (owner directive · "upgrade website/landing
+    // page?"). Two paid Pro widgets per iteration 0004: Monogram Hero
+    // ₱1,999 (animated SVG-trace monogram + custom video/photo
+    // background) + Live Schedule ₱999 ("Happening now" highlight +
+    // auto-scroll on the day). External-process kind · placeholder
+    // body until the inline upgrade picker lands V1.x · the picker
+    // already exists at /dashboard/[eventId]/website so this card
+    // surfaces it in the Today's Focus carousel.
+    id: 'website_upgrade',
+    order: 16.5,
+    phase: 'programming',
+    kind: 'external_process',
+    title: 'Upgrade your website',
+    whyItMatters:
+      "Two paid upgrades transform your wedding website. Monogram Hero (₱1,999) gives you the animated SVG-trace monogram + custom video or photo background. Live Schedule (₱999) lights up the 'Happening now' card on the day, auto-scrolling through ceremony → cocktails → reception. Optional · the free version still ships beautifully.",
+    pillLabel: 'Programming',
+    prerequisites: ['create_website'],
+  },
+  {
     id: 'save_the_date_video',
     order: 17,
     phase: 'programming',
@@ -612,6 +646,25 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     prerequisites: ['reception_venue'],
   },
   {
+    // Added 2026-05-24 (owner directive · "what other services by our
+    // app that needs to be purchased as well"). Same-Day Edit (SDE) is
+    // the flagship cinematic edit — 3-5 minute story-arc reel edited
+    // DURING the reception by the SDE crew + AI vision, then projected
+    // at the reception's end as the reveal moment. Premium tier from
+    // ₱9,999 (positioned to underbid traditional PH SDE videographers
+    // who charge ₱50-150K). Activation is pre-event (T-2mo) so the SDE
+    // crew can plan their coverage alongside Photography + Panood.
+    id: 'same_day_edit',
+    order: 17.8,
+    phase: 'programming',
+    kind: 'external_process',
+    title: 'Activate Same-Day Edit (SDE)',
+    whyItMatters:
+      "Cinematic 3-5 minute reveal of your day, edited DURING the reception and projected before the send-off. Setnayan's SDE crew uses vision AI to surface the best moments + cut them into a story arc — from ₱9,999, dramatically under the ₱50-150K traditional PH SDE rate. T-2 months gives the crew time to plan coverage alongside your photo + Panood team.",
+    pillLabel: 'Programming',
+    prerequisites: ['reception_venue', 'photography'],
+  },
+  {
     // 2026-05-24 senior-planner reorder: was order 18 (position 22 ·
     // after deploy_invitation at T-2mo · too late for custom gowns).
     // Moved to 7.6 (position 13 · alongside catering tier in Foundation)
@@ -668,6 +721,25 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     prerequisites: ['principal_sponsors'],
   },
   {
+    // Added 2026-05-24 (owner directive · 3-stage guest list split ·
+    // STAGE 2). After the VIP scaffold (draft_guest_list) + sponsors +
+    // entourage are locked, the host fills in the broader guest list —
+    // extended family, work circle, school friends, plus-ones, kids.
+    // Sits before invitations_stationery + deploy_invitation so the
+    // print run + RSVP link rollout reads the complete list. Filipino
+    // weddings finalize this list T-3 to T-2 months out so the catering
+    // + paprint headcount lock against the same number.
+    id: 'complete_guest_list',
+    order: 20.55,
+    phase: 'programming',
+    kind: 'external_process',
+    title: 'Complete your guest list',
+    whyItMatters:
+      "Pre-invitation finalization. Fill in extended family, work circle, school friends, plus-ones, kids. Your invitations rollout reads from this list and your caterer + paprint headcount lock against the same number. Don't worry about gaps yet — there's one more pass after the first invite goes out.",
+    pillLabel: 'Programming',
+    prerequisites: ['draft_guest_list', 'principal_sponsors', 'finalize_entourage'],
+  },
+  {
     // Added 2026-05-24 (owner directive · ❓ missing cards audit · "the
     // rest, yes"). Filipino couples increasingly share gift registries
     // (Rustans · SM · Wedding Wishlist app · cash-only Bills Manila). Card
@@ -712,6 +784,24 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
       "Your monogram, your palette, your QR-encoded landing page — invitations carry it all. Each guest receives a personalized link that drives them to RSVP and discover the day.",
     pillLabel: 'Programming',
     prerequisites: ['set_wedding_date', 'reception_venue', 'ceremony_venue', 'create_website', 'principal_sponsors'],
+  },
+  {
+    // Added 2026-05-24 (owner directive · 3-stage guest list split ·
+    // STAGE 3). After the first invitation wave goes out, the host
+    // adds late additions (forgotten relatives, plus-ones that came up,
+    // colleagues the couple decided to include after seeing the
+    // RSVP-no count) + clears stale entries. The second_batch_invitation
+    // card at order 21.5 reads the updated list. Sits between deploy
+    // and second-batch so the gap-fill happens BEFORE the second wave.
+    id: 'gap_fill_guest_list',
+    order: 21.3,
+    phase: 'programming',
+    kind: 'external_process',
+    title: 'Fill the guest list gaps',
+    whyItMatters:
+      "Post-first-invitation review. Add late-additions you forgot · plus-ones that came up · colleagues you decided to include after seeing initial RSVPs. The second-batch invitation reads from this updated list — get it right here so the second wave hits everyone clean.",
+    pillLabel: 'Programming',
+    prerequisites: ['deploy_invitation'],
   },
   {
     id: 'second_batch_invitation',
@@ -970,6 +1060,42 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
       "Papic delivers candid captures to your gallery within a week. The full archive — photographer + Papic + guest contributions — lands at T+30.",
     pillLabel: 'Post-event',
     prerequisites: ['event'],
+  },
+  {
+    // Added 2026-05-24 (owner directive · "what other services by our
+    // app that needs to be purchased as well"). AI Highlights — two
+    // tier picker: AI Video Highlight 60s ₱999 (social-share teaser
+    // tier · T+24hr delivery) · AI Edited Highlight 3-min ₱2,999 (full
+    // story-arc reel · T+1 week delivery). Vision AI reads the photo +
+    // video archive after the wedding · cuts a cinematic highlight ·
+    // host picks tier within the card.
+    id: 'ai_highlights',
+    order: 37.3,
+    phase: 'post_event',
+    kind: 'external_process',
+    title: 'Order your AI highlight reel',
+    whyItMatters:
+      "Setnayan vision AI reads your full archive after the wedding and cuts it into a cinematic highlight. Pick the 60-second teaser (₱999, T+24hr) for socials · or the 3-minute story-arc reel (₱2,999, T+1 week) for the full ride. Both share the same source material; many couples get both.",
+    pillLabel: 'Post-event',
+    prerequisites: ['download_photos'],
+  },
+  {
+    // Added 2026-05-24 (owner directive · "what other services by our
+    // app that needs to be purchased as well"). Couple Keepsake Bundle
+    // ₱2,499 — single post-event SKU bundling print-ready PDF album +
+    // photo download + Panood broadcast reel + final playlist artifact.
+    // Most-requested post-event memento per the iteration 0046 Keepsake
+    // spec lock. Card sits after AI Highlights so the host has the
+    // complete archive when they buy.
+    id: 'keepsake_bundle',
+    order: 37.5,
+    phase: 'post_event',
+    kind: 'external_process',
+    title: 'Get your Couple Keepsake Bundle',
+    whyItMatters:
+      "₱2,499 · the post-event memento bundle. Print-ready PDF album + photo download + Panood broadcast reel + your final playlist as a shareable artifact. One purchase · everything that made your day comes home with you.",
+    pillLabel: 'Post-event',
+    prerequisites: ['download_photos'],
   },
   {
     id: 'create_editorial',

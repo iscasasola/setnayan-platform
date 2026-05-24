@@ -39,6 +39,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { uploadPublicAsset } from '@/lib/storage';
 import {
   computeAuspiciousReasons,
   type CeremonyType,
@@ -1491,4 +1492,316 @@ export async function completeDraftGuestListTask(
     addedGuests: guestRows.length,
     skipped,
   };
+}
+
+// ============================================================================
+// Card 15 · Set inspiration mood board · INSPIRATION INTAKE actions.
+//
+// Owner directive 2026-05-25 — the host pastes photo inspirations + uploads
+// photos of how they want the wedding to look. The card was a curated palette
+// picker before; pivoting to an inspiration-intake surface that captures
+// real-world references and auto-extracts each photo's 6-color palette
+// client-side via Canvas API.
+//
+// Two write paths:
+//   addInspirationFromUrl    — host pastes an image URL (Pinterest, Instagram,
+//                              vendor portfolio, friend's wedding photo). The
+//                              image_url is stored as-is; r2_key stays NULL.
+//   addInspirationFromUpload — host uploads a file. We hand it to
+//                              uploadPublicAsset() which writes to R2 (or
+//                              falls back to Supabase Storage when R2 isn't
+//                              configured), and persist the public URL +
+//                              r2_key.
+//
+// Palette extraction is client-side (Canvas histogram) so the action just
+// validates + stores the 6 hex values. Keeps the server stateless re: image
+// decoding (no server-side image lib dependency).
+//
+// Per CLAUDE.md 2026-05-21 row "Moodboard expanded · 3 pillars" +
+// 2026-05-24 row "V1 SCOPE EXPANSION · Moodboard becomes multi-source",
+// this is the V1 couple-inspiration foothold. The broader multi-source
+// architecture (stylist push-share, finalize-then-broadcast) lands V1.x
+// post-pilot.
+// ============================================================================
+
+const HEX_RE = /^#[0-9a-fA-F]{6}$/;
+
+function validatePalette6(raw: unknown): string[] {
+  if (!Array.isArray(raw) || raw.length !== 6) {
+    throw new Error("Couldn't read the palette — try a different photo.");
+  }
+  const out: string[] = [];
+  for (const v of raw) {
+    if (typeof v !== 'string' || !HEX_RE.test(v)) {
+      throw new Error("Couldn't read the palette — try a different photo.");
+    }
+    out.push(v.toUpperCase());
+  }
+  return out;
+}
+
+function isLikelyImageUrl(value: string): boolean {
+  if (!/^https?:\/\//i.test(value)) return false;
+  try {
+    // eslint-disable-next-line no-new
+    new URL(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Insert an inspiration row from a pasted image URL. The client has already
+ * extracted the 6-color palette via Canvas; we just validate + persist.
+ */
+export async function addInspirationFromUrl(formData: FormData): Promise<{
+  status: 'ok' | 'error';
+  inspiration_id?: string;
+  message?: string;
+}> {
+  const eventIdRaw = formData.get('event_id');
+  const imageUrlRaw = formData.get('image_url');
+  const paletteRaw = formData.get('palette_json');
+
+  if (typeof eventIdRaw !== 'string' || !eventIdRaw) {
+    return { status: 'error', message: 'event_id required' };
+  }
+  if (typeof imageUrlRaw !== 'string' || !imageUrlRaw) {
+    return { status: 'error', message: 'Paste a photo URL to continue.' };
+  }
+  if (!isLikelyImageUrl(imageUrlRaw)) {
+    return {
+      status: 'error',
+      message:
+        "That doesn't look like a direct image URL. Try right-clicking the photo and copying its image address.",
+    };
+  }
+  if (typeof paletteRaw !== 'string') {
+    return { status: 'error', message: 'Palette extraction failed — try again.' };
+  }
+
+  let paletteParsed: unknown;
+  try {
+    paletteParsed = JSON.parse(paletteRaw);
+  } catch {
+    return { status: 'error', message: 'Palette extraction failed — try again.' };
+  }
+
+  let palette: string[];
+  try {
+    palette = validatePalette6(paletteParsed);
+  } catch (err) {
+    return {
+      status: 'error',
+      message: err instanceof Error ? err.message : 'Palette invalid',
+    };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { status: 'error', message: 'Sign back in to keep adding inspiration.' };
+  }
+
+  const { data: inserted, error } = await supabase
+    .from('event_inspiration_assets')
+    .insert({
+      event_id: eventIdRaw,
+      added_by_user_id: user.id,
+      source_kind: 'url_paste',
+      image_url: imageUrlRaw,
+      r2_key: null,
+      sampled_hex_1: palette[0],
+      sampled_hex_2: palette[1],
+      sampled_hex_3: palette[2],
+      sampled_hex_4: palette[3],
+      sampled_hex_5: palette[4],
+      sampled_hex_6: palette[5],
+    })
+    .select('inspiration_id')
+    .maybeSingle();
+  if (error) {
+    return { status: 'error', message: error.message };
+  }
+  if (!inserted) {
+    return { status: 'error', message: 'Save failed — try again.' };
+  }
+
+  revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
+  return { status: 'ok', inspiration_id: inserted.inspiration_id };
+}
+
+/**
+ * Insert an inspiration row from an uploaded file. Hands the file to
+ * uploadPublicAsset (R2 with Supabase Storage fallback) and stores the
+ * public URL + r2_key. Palette is extracted client-side same as URL paste.
+ */
+export async function addInspirationFromUpload(formData: FormData): Promise<{
+  status: 'ok' | 'error';
+  inspiration_id?: string;
+  message?: string;
+}> {
+  const eventIdRaw = formData.get('event_id');
+  const fileEntry = formData.get('file');
+  const paletteRaw = formData.get('palette_json');
+
+  if (typeof eventIdRaw !== 'string' || !eventIdRaw) {
+    return { status: 'error', message: 'event_id required' };
+  }
+  if (!(fileEntry instanceof File) || fileEntry.size === 0) {
+    return { status: 'error', message: 'Drop a photo or pick a file to upload.' };
+  }
+  if (typeof paletteRaw !== 'string') {
+    return { status: 'error', message: 'Palette extraction failed — try again.' };
+  }
+
+  let paletteParsed: unknown;
+  try {
+    paletteParsed = JSON.parse(paletteRaw);
+  } catch {
+    return { status: 'error', message: 'Palette extraction failed — try again.' };
+  }
+
+  let palette: string[];
+  try {
+    palette = validatePalette6(paletteParsed);
+  } catch (err) {
+    return {
+      status: 'error',
+      message: err instanceof Error ? err.message : 'Palette invalid',
+    };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { status: 'error', message: 'Sign back in to keep adding inspiration.' };
+  }
+
+  const uploadResult = await uploadPublicAsset({
+    pathPrefix: `inspiration/${eventIdRaw}`,
+    file: fileEntry,
+  });
+  if (!uploadResult.ok) {
+    return { status: 'error', message: uploadResult.error };
+  }
+
+  const { data: inserted, error } = await supabase
+    .from('event_inspiration_assets')
+    .insert({
+      event_id: eventIdRaw,
+      added_by_user_id: user.id,
+      source_kind: 'file_upload',
+      image_url: uploadResult.publicUrl,
+      r2_key: uploadResult.key ?? null,
+      sampled_hex_1: palette[0],
+      sampled_hex_2: palette[1],
+      sampled_hex_3: palette[2],
+      sampled_hex_4: palette[3],
+      sampled_hex_5: palette[4],
+      sampled_hex_6: palette[5],
+    })
+    .select('inspiration_id')
+    .maybeSingle();
+  if (error) {
+    return { status: 'error', message: error.message };
+  }
+  if (!inserted) {
+    return { status: 'error', message: 'Save failed — try again.' };
+  }
+
+  revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
+  return { status: 'ok', inspiration_id: inserted.inspiration_id };
+}
+
+/**
+ * Soft-delete an inspiration row (stamps removed_at). Any co-host on the
+ * event can remove any item — pilot couples co-curate.
+ */
+export async function removeInspirationAsset(formData: FormData): Promise<{
+  status: 'ok' | 'error';
+  message?: string;
+}> {
+  const eventIdRaw = formData.get('event_id');
+  const inspirationIdRaw = formData.get('inspiration_id');
+
+  if (typeof eventIdRaw !== 'string' || !eventIdRaw) {
+    return { status: 'error', message: 'event_id required' };
+  }
+  if (typeof inspirationIdRaw !== 'string' || !inspirationIdRaw) {
+    return { status: 'error', message: 'inspiration_id required' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { status: 'error', message: 'Sign back in to keep curating.' };
+  }
+
+  const { error } = await supabase
+    .from('event_inspiration_assets')
+    .update({ removed_at: new Date().toISOString() })
+    .eq('inspiration_id', inspirationIdRaw)
+    .eq('event_id', eventIdRaw)
+    .is('removed_at', null);
+  if (error) {
+    return { status: 'error', message: error.message };
+  }
+
+  revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
+  return { status: 'ok' };
+}
+
+/**
+ * Server-action variant used by the Card 15 client to list its own
+ * inspiration items. Returns at most 50 active rows for the event, newest
+ * first. RLS enforces host scoping; we still pass event_id as a defense
+ * filter so a leak in RLS doesn't widen the surface.
+ */
+export async function listEventInspiration(
+  eventId: string,
+): Promise<
+  Array<{
+    inspiration_id: string;
+    image_url: string;
+    source_kind: 'url_paste' | 'file_upload';
+    sampled_hex_1: string;
+    sampled_hex_2: string;
+    sampled_hex_3: string;
+    sampled_hex_4: string;
+    sampled_hex_5: string;
+    sampled_hex_6: string;
+  }>
+> {
+  if (typeof eventId !== 'string' || !eventId) return [];
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('event_inspiration_assets')
+    .select(
+      'inspiration_id, image_url, source_kind, sampled_hex_1, sampled_hex_2, sampled_hex_3, sampled_hex_4, sampled_hex_5, sampled_hex_6',
+    )
+    .eq('event_id', eventId)
+    .is('removed_at', null)
+    .order('created_at', { ascending: false })
+    .limit(50);
+  if (error || !data) return [];
+  return data as Array<{
+    inspiration_id: string;
+    image_url: string;
+    source_kind: 'url_paste' | 'file_upload';
+    sampled_hex_1: string;
+    sampled_hex_2: string;
+    sampled_hex_3: string;
+    sampled_hex_4: string;
+    sampled_hex_5: string;
+    sampled_hex_6: string;
+  }>;
 }

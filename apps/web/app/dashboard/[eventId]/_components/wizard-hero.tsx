@@ -27,10 +27,12 @@ import {
   parseWizardState,
   resolveWizardFocus,
   countRemainingTasks,
+  listInFlightTaskIds,
   type WizardTaskId,
 } from '@/lib/wizard';
 import type { CeremonyType, MeaningfulDate } from '@/lib/auspicious-date';
 import { WizardCard } from './wizard-card';
+import { InFlightTray } from './in-flight-tray';
 import { SetWeddingDateCard } from './wizard-cards/set-wedding-date-card';
 import { ReceptionVenueCard } from './wizard-cards/reception-venue-card';
 import { CeremonyVenueCard } from './wizard-cards/ceremony-venue-card';
@@ -72,6 +74,7 @@ export function WizardHero({
   const state = parseWizardState(wizardState);
   const result = resolveWizardFocus(state);
   const remaining = countRemainingTasks(state);
+  const inFlightIds = listInFlightTaskIds(state);
 
   // All 38 cards complete · show the celebratory variant (matches the
   // structure of the legacy AllLockedVariant from TodaysOneThing).
@@ -101,6 +104,12 @@ export function WizardHero({
           {remaining - 1} more task{remaining - 1 === 1 ? '' : 's'} ahead
         </p>
       ) : null}
+      {/* IN-FLIGHT TRAY · surfaces below focus card whenever 1+ tasks are
+       *  marked in_flight. Slow paperwork (Cenomar · Pre-Cana · STD render
+       *  · etc.) stays visible + actionable here without blocking the
+       *  forward walk. Per CLAUDE.md 2026-05-23 Sixth row + owner
+       *  decision 2026-05-24 option 2A. */}
+      <InFlightTray eventId={eventId} taskIds={inFlightIds} />
     </>
   );
 }

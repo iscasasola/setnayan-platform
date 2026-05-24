@@ -37,7 +37,20 @@ import {
   type MeaningfulDateKind,
 } from '@/lib/auspicious-date';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
-import { parseWizardState, type WizardState, type WizardTaskId } from '@/lib/wizard';
+import {
+  parseWizardState,
+  WIZARD_TASKS,
+  type WizardState,
+  type WizardTaskId,
+} from '@/lib/wizard';
+
+/** Runtime WizardTaskId validator · derives from the canonical WIZARD_TASKS
+ *  array so adding a new task in lib/wizard.ts automatically widens the
+ *  accepted set. */
+const VALID_WIZARD_TASK_IDS = new Set<string>(WIZARD_TASKS.map((t) => t.id));
+function isValidWizardTaskId(value: unknown): value is WizardTaskId {
+  return typeof value === 'string' && VALID_WIZARD_TASK_IDS.has(value);
+}
 
 /** Runtime CeremonyType validator · matches the union in auspicious-date.ts.
  *  Inline here (vs imported) because the lib doesn't export a runtime
@@ -73,11 +86,42 @@ function setTaskComplete(
   taskId: WizardTaskId,
   extra: Record<string, unknown> = {},
 ): WizardState {
+  // Preserve any prior in_flight_since (audit trail) but stamp completed_at.
+  const priorEntry = prior[taskId] ?? {};
   return {
     ...prior,
     [taskId]: {
-      completed_at: new Date().toISOString(),
+      ...priorEntry,
       ...extra,
+      completed_at: new Date().toISOString(),
+    },
+  };
+}
+
+/**
+ * Mark a task as in_flight — host has signaled the process is running
+ * externally (PSA submitted · Pre-Cana scheduled · STD render queued ·
+ * etc.) but hasn't marked done yet. The resolver skips in-flight tasks
+ * so the host can keep working in parallel; the IN-FLIGHT TRAY surface
+ * gives one-click access to mark done when ready.
+ *
+ * Preserves any prior completion / metadata · stamping in_flight_since
+ * on top of completed_at is harmless (isTaskInFlight returns FALSE when
+ * completed_at is set), but normally you'd only call this on a task
+ * that's currently pending.
+ */
+function setTaskInFlight(
+  prior: WizardState,
+  taskId: WizardTaskId,
+  extra: Record<string, unknown> = {},
+): WizardState {
+  const priorEntry = prior[taskId] ?? {};
+  return {
+    ...prior,
+    [taskId]: {
+      ...priorEntry,
+      ...extra,
+      in_flight_since: new Date().toISOString(),
     },
   };
 }
@@ -545,6 +589,133 @@ export async function completePrenupTask(formData: FormData): Promise<void> {
       ...(scheduledDate ? { scheduled_date: scheduledDate } : {}),
     },
   );
+
+  const { error: updateErr } = await supabase
+    .from('events')
+    .update({ wizard_state: newWizardState })
+    .eq('event_id', eventIdRaw);
+  if (updateErr) throw new Error(updateErr.message);
+
+  revalidatePath(`/dashboard/${eventIdRaw}`);
+}
+
+// ============================================================================
+// Generic in_flight + done helpers (used by paperwork cards + IN-FLIGHT TRAY)
+// ============================================================================
+//
+// Per CLAUDE.md 2026-05-23 Sixth row + owner-2026-05-24 lock (option 2A):
+// slow paperwork tasks (Cenomar PSA · Pre-Cana · Marriage License · STD
+// video render · Paprint print run) shouldn't block the wizard while
+// they process externally. The host marks the task as in_flight, the
+// resolver skips it, and the IN-FLIGHT TRAY surface on the WizardHero
+// gives one-click access to mark done when the paperwork lands.
+//
+// These two generic helpers cover EVERY card that follows the "submit
+// to external process → wait → mark done" shape (cards 17 · 21 · 25 ·
+// 26 · 27 · 28 · 33 · 35 · 36 · 37 · 38). Individual cards may layer
+// per-task metadata (e.g., PSA reference number) on top via the
+// optional formData fields.
+
+/**
+ * Mark any wizard task as in_flight. Generic across cards · the calling
+ * client component supplies the task_id + any per-card metadata.
+ *
+ * Metadata pattern: any formData field beginning with `meta_` is passed
+ * through to the wizard_state entry's `meta` field (one nested object).
+ * Cards that need PSA reference numbers · render job IDs · checklist
+ * acks · etc. all serialize them via that prefix.
+ */
+export async function markTaskInFlight(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const taskIdRaw = formData.get('task_id');
+
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {
+    throw new Error('event_id required');
+  }
+  if (!isValidWizardTaskId(taskIdRaw)) {
+    throw new Error('Unknown wizard task');
+  }
+
+  // Collect meta_* fields into a single meta object.
+  const meta: Record<string, string> = {};
+  for (const [key, value] of formData.entries()) {
+    if (key.startsWith('meta_') && typeof value === 'string' && value.length > 0) {
+      meta[key.slice(5)] = value;
+    }
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data: priorRow, error: priorErr } = await supabase
+    .from('events')
+    .select('wizard_state')
+    .eq('event_id', eventIdRaw)
+    .maybeSingle();
+  if (priorErr) throw new Error(priorErr.message);
+  if (!priorRow) throw new Error('Event not found');
+
+  const priorWizardState = parseWizardState(priorRow.wizard_state);
+  const newWizardState = setTaskInFlight(priorWizardState, taskIdRaw, {
+    ...(Object.keys(meta).length > 0 ? { meta } : {}),
+  });
+
+  const { error: updateErr } = await supabase
+    .from('events')
+    .update({ wizard_state: newWizardState })
+    .eq('event_id', eventIdRaw);
+  if (updateErr) throw new Error(updateErr.message);
+
+  revalidatePath(`/dashboard/${eventIdRaw}`);
+}
+
+/**
+ * Mark any wizard task as done. Generic across cards · used both by
+ * paperwork cards' [Mark done] CTA and by the IN-FLIGHT TRAY surface.
+ *
+ * Same `meta_*` formData prefix as markTaskInFlight — cards stamp the
+ * relevant per-card metadata at done time (e.g., paperwork reference
+ * numbers · render output URLs).
+ */
+export async function markTaskDone(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const taskIdRaw = formData.get('task_id');
+
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {
+    throw new Error('event_id required');
+  }
+  if (!isValidWizardTaskId(taskIdRaw)) {
+    throw new Error('Unknown wizard task');
+  }
+
+  const meta: Record<string, string> = {};
+  for (const [key, value] of formData.entries()) {
+    if (key.startsWith('meta_') && typeof value === 'string' && value.length > 0) {
+      meta[key.slice(5)] = value;
+    }
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data: priorRow, error: priorErr } = await supabase
+    .from('events')
+    .select('wizard_state')
+    .eq('event_id', eventIdRaw)
+    .maybeSingle();
+  if (priorErr) throw new Error(priorErr.message);
+  if (!priorRow) throw new Error('Event not found');
+
+  const priorWizardState = parseWizardState(priorRow.wizard_state);
+  const newWizardState = setTaskComplete(priorWizardState, taskIdRaw, {
+    ...(Object.keys(meta).length > 0 ? { meta } : {}),
+  });
 
   const { error: updateErr } = await supabase
     .from('events')

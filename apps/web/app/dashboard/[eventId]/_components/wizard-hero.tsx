@@ -415,8 +415,9 @@ function renderCardBody(
     // adds per-partner upload-tracking UI; the component shows a
     // generic Cenomar status badge that works for either partner.
     case 'cenomar_bride':
+      return <CenomarCard eventId={ctx.eventId} taskId="cenomar_bride" />;
     case 'cenomar_groom':
-      return <CenomarCard eventId={ctx.eventId} />;
+      return <CenomarCard eventId={ctx.eventId} taskId="cenomar_groom" />;
     case 'church_paperwork':
       return <ChurchPaperworkCard eventId={ctx.eventId} />;
     case 'pre_cana':

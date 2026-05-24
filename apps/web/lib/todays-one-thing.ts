@@ -122,10 +122,14 @@ const WHY_IT_MATTERS: Record<PlanGroupId, string> = {
     'Your bridal glam team carries the whole entourage on the morning of. Trials happen 1-2 months before the day; lock the artist first so the trial date even makes sense.',
   florals_decor:
     'Florals and styling read the palette and theme you’ve been refining. Once your colors are settled, your florist can quote real flowers in real season — not abstract ideas.',
+  stylist:
+    'Your stylist executes on the mood board you locked — florals, decor, signage, tablescapes. PH stylists often book 6 months out · pick early to keep their attention on your day.',
   live_band:
     'A live band sets the energy of your reception. Top bands in PH book 6-9 months ahead; locking early means your favorite is still available.',
   music_entertainment:
     'DJ, string quartet, choir — the music team that carries your program. The best ones run a wedding every weekend in peak season; book early or choose from what’s left.',
+  dance_instructor:
+    'First dance · parents-and-couple dance · entourage choreography. Lessons run 2-3 months pre-wedding. Lock the choreographer early so you have time to actually learn the routine.',
   host_mc:
     'Your emcee carries the program from cocktail hour through send-off. A great host makes the night feel effortless; book 4-6 months out.',
   lights_sound:
@@ -167,8 +171,10 @@ const CTA_LABEL: Record<PlanGroupId, string> = {
   attire: 'Browse attire',
   hair_makeup: 'Browse hair & makeup',
   florals_decor: 'Browse florals & decor',
+  stylist: 'Browse stylists',
   live_band: 'Browse live bands',
   music_entertainment: 'Browse DJs & music',
+  dance_instructor: 'Browse dance instructors',
   host_mc: 'Browse hosts & emcees',
   lights_sound: 'Browse lights & sound',
   led_background: 'Browse LED suppliers',
@@ -198,8 +204,10 @@ const ACTION_TITLE: Record<PlanGroupId, string> = {
   attire: 'Lock your attire',
   hair_makeup: 'Lock your hair & makeup team',
   florals_decor: 'Lock your florals and decor',
+  stylist: 'Lock your stylist',
   live_band: 'Lock your live band',
-  music_entertainment: 'Lock your DJ + music',
+  music_entertainment: 'Lock your band / DJ / performer',
+  dance_instructor: 'Lock your dance instructor',
   host_mc: 'Lock your host / emcee',
   lights_sound: 'Lock your lights & sound',
   led_background: 'Lock your LED background',

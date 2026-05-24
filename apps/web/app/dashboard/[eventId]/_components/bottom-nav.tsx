@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
+  Focus,
   Home,
   Users,
   Globe,
@@ -24,12 +25,18 @@ import {
 //     vertical pill list, top-offset by 64px to clear the sticky top chrome.
 //     Active state uses a terracotta left accent bar + bg tint per brand
 //     editorial restraint (no heavy fills).
-type TabKey = 'home' | 'guests' | 'website' | 'services';
+// 5-tab refactor (CLAUDE.md 2026-05-24) — owner directive: Today's Focus
+// promoted from inline event-home block to its own first-class tab, placed
+// BEFORE Home. The wizard surface (Concierge Active Wizard · iteration 0016)
+// lives at /dashboard/[eventId]/today now; event-home keeps the rest of the
+// planning grid. Focus icon (Lucide) is the daily-focus semantic match.
+type TabKey = 'today' | 'home' | 'guests' | 'website' | 'services';
 
 type TabLabels = Record<TabKey, string>;
 
 // Default English labels — used if the server layout doesn't pass translations.
 const DEFAULT_LABELS: TabLabels = {
+  today: 'Today',
   home: 'Home',
   guests: 'Guests',
   website: 'Website',
@@ -37,6 +44,7 @@ const DEFAULT_LABELS: TabLabels = {
 };
 
 const TABS: { key: TabKey; Icon: LucideIcon; href: (eventId: string) => string }[] = [
+  { key: 'today', Icon: Focus, href: (id) => `/dashboard/${id}/today` },
   { key: 'home', Icon: Home, href: (id) => `/dashboard/${id}` },
   { key: 'guests', Icon: Users, href: (id) => `/dashboard/${id}/guests` },
   { key: 'website', Icon: Globe, href: (id) => `/dashboard/${id}/website` },
@@ -59,6 +67,7 @@ const TABS: { key: TabKey; Icon: LucideIcon; href: (eventId: string) => string }
 // unrelated route someday. Order matters: Guests + Website are checked before
 // Services so the Services catch-all only fires for genuinely planning-side
 // surfaces that aren't people-side or landing-page-side.
+const TODAY_UMBRELLA = ['today'];
 const GUESTS_UMBRELLA = ['guests', 'invitation', 'seating', 'hosts', 'sponsors'];
 const WEBSITE_UMBRELLA = ['website'];
 const SERVICES_UMBRELLA = [
@@ -87,6 +96,11 @@ function matchesUmbrella(pathname: string, eventId: string, umbrella: string[]):
 
 function activeTab(pathname: string, eventId: string): TabKey | null {
   const homeHref = `/dashboard/${eventId}`;
+  // Today: checked BEFORE Home so the /today sub-route doesn't fall through
+  // to the Home exact-match (which it wouldn't anyway since Home is exact,
+  // but the ordering is also load-bearing for the umbrella-style sub-routes
+  // we may add later · /today/streak, /today/recap, etc.).
+  if (matchesUmbrella(pathname, eventId, TODAY_UMBRELLA)) return 'today';
   // Home: exact match only so it doesn't catch sub-routes (every dashboard
   // URL technically starts with /dashboard/{id}, so startsWith would over-match).
   if (pathname === homeHref) return 'home';

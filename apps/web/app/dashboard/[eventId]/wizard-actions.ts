@@ -323,6 +323,16 @@ const VENDOR_PICK_CATEGORY: Partial<Record<WizardTaskId, string>> = {
   officiant: 'officiant',
   photography: 'photographer',
   catering: 'catering',
+  // Phase 3 batch — 9 standard vendor-pick cards.
+  stylist: 'reception_decor',
+  lights_sound: 'lights_and_sound',
+  music_entertainment: 'band_dj',
+  host_mc: 'host_emcee',
+  attire: 'gown_designer',
+  hair_makeup: 'makeup_artist',
+  cake: 'cake_maker',
+  accommodation: 'accommodation',
+  bridal_car: 'transportation',
 } as const;
 
 const VENDOR_PICK_TASK_IDS: ReadonlyArray<WizardTaskId> = [
@@ -331,6 +341,15 @@ const VENDOR_PICK_TASK_IDS: ReadonlyArray<WizardTaskId> = [
   'officiant',
   'photography',
   'catering',
+  'stylist',
+  'lights_sound',
+  'music_entertainment',
+  'host_mc',
+  'attire',
+  'hair_makeup',
+  'cake',
+  'accommodation',
+  'bridal_car',
 ];
 
 function isVendorPickTaskId(value: unknown): value is WizardTaskId {

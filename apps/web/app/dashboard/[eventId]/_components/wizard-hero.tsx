@@ -36,6 +36,7 @@ import { ReceptionVenueCard } from './wizard-cards/reception-venue-card';
 import { CeremonyVenueCard } from './wizard-cards/ceremony-venue-card';
 import { OfficiantCard } from './wizard-cards/officiant-card';
 import { PhotographyCard } from './wizard-cards/photography-card';
+import { PrenupCard } from './wizard-cards/prenup-card';
 import { CateringCard } from './wizard-cards/catering-card';
 import { PlaceholderCardBody } from './wizard-cards/placeholder-card-body';
 
@@ -172,6 +173,8 @@ function renderCardBody(
           excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
         />
       );
+    case 'engagement_prenup_shoot':
+      return <PrenupCard eventId={ctx.eventId} eventDate={ctx.eventDate} />;
     case 'catering':
       return (
         <CateringCard

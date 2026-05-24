@@ -471,3 +471,86 @@ export async function completeVendorPickFromCustom(
 
   revalidatePath(`/dashboard/${eventIdRaw}`);
 }
+
+// ============================================================================
+// Phase 2 · Card 06 Prenup (external_process)
+// ============================================================================
+//
+// Different shape from 02-05 + 07: prenup is a process the host TRACKS, not
+// a vendor they PICK. Per the canonical 38-task sequence (CLAUDE.md
+// 2026-05-23 Sixth row): prenup shoot is scheduled T-7m and happens ~1mo
+// before STD video render at T-6m. The actual prenup PHOTOGRAPHER was
+// locked in Card 05 (Photography); this card tracks scheduling + done.
+//
+// Photo upload is intentionally NOT part of this card — the prenup photos
+// flow into Card 17 Save-the-Date Video as input. Card 06's complete
+// state is the host confirming "we shot it" — the wizard advances on
+// that signal. Card 17 surfaces the photo-upload affordance when its
+// turn comes.
+//
+// One-action shape: [Mark prenup done] with an optional scheduled-date
+// input. Stamps wizard_state.prenup.completed_at + optional
+// scheduled_date so the wizard advances permanently. Couples who shot
+// their prenup before discovering the wizard can mark done without a
+// date — couples scheduling ahead get the date saved as audit context.
+
+/**
+ * Card 06 Prenup completion action. Stamps wizard_state.prenup.completed_at
+ * (and optional scheduled_date when supplied). Advances the wizard past
+ * Card 06 in one click — the host can mark done before OR after the
+ * shoot, since the wizard is a planning surface not an event tracker.
+ */
+export async function completePrenupTask(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const scheduledDateRaw = formData.get('scheduled_date');
+
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {
+    throw new Error('event_id required');
+  }
+
+  // Optional scheduled_date validation · 'YYYY-MM-DD' shape, real calendar
+  // date. Empty string acceptable — couples who shot before discovering
+  // the wizard don't need to backfill the date.
+  let scheduledDate: string | null = null;
+  if (typeof scheduledDateRaw === 'string' && scheduledDateRaw.length > 0) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(scheduledDateRaw)) {
+      throw new Error('Date must be in YYYY-MM-DD format');
+    }
+    const parsed = new Date(scheduledDateRaw);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new Error("That date doesn't look right — try again");
+    }
+    scheduledDate = scheduledDateRaw;
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data: priorRow, error: priorErr } = await supabase
+    .from('events')
+    .select('wizard_state')
+    .eq('event_id', eventIdRaw)
+    .maybeSingle();
+  if (priorErr) throw new Error(priorErr.message);
+  if (!priorRow) throw new Error('Event not found');
+
+  const priorWizardState = parseWizardState(priorRow.wizard_state);
+  const newWizardState = setTaskComplete(
+    priorWizardState,
+    'engagement_prenup_shoot',
+    {
+      ...(scheduledDate ? { scheduled_date: scheduledDate } : {}),
+    },
+  );
+
+  const { error: updateErr } = await supabase
+    .from('events')
+    .update({ wizard_state: newWizardState })
+    .eq('event_id', eventIdRaw);
+  if (updateErr) throw new Error(updateErr.message);
+
+  revalidatePath(`/dashboard/${eventIdRaw}`);
+}

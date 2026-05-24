@@ -1,12 +1,13 @@
 /**
  * Card 04 Officiant · Phase 2 of iteration 0016 Concierge Active Wizard.
  *
- * Server component · fetches top-15 officiant recommendations from
- * vendor_market_stats. Filters by event's ceremony_type so Catholic
- * couples see priests, Muslim see imams, INC see ministers, Christian
- * see pastors, civil see judges, etc. — the
- * vendor_profiles.compatible_ceremony_types[] gating per iteration 0043
- * handles this naturally.
+ * 2026-05-24 owner directive: migrated from the legacy list VendorPickCard
+ * to the visual VendorPickGridCard with NO distance filter. Officiants
+ * travel — Filipino couples routinely fly in their parish priest, a
+ * family-friend judge, or a personal pastor / imam from out of town.
+ * Default sort prioritises ad_rank → review_count → avg_rating_overall;
+ * that's the right anchor for picking a celebrant by trust + portfolio
+ * rather than proximity.
  *
  * Cross-iteration linkage with venue_directory (per PR #24 + #309): many
  * Catholic couples discover their officiant THROUGH their church (parish
@@ -18,35 +19,54 @@
  * who already know their officiant's name (e.g., "Fr. Tito Casasola" /
  * "Judge Maria Cruz") without going through Setnayan booking.
  *
- * Card kind: vendor_pick.
+ * Booked IDs (per fetchBookedMarketplaceVendorIdsForDate) render the
+ * affected vendor cards at 30% opacity with no action buttons — same
+ * unavailability treatment as Cards 02 / 03.
+ *
+ * Card kind: vendor_pick (per WIZARD_TASKS in lib/wizard.ts).
  */
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchWizardVendorRecommendations } from '@/lib/wizard-recommendations';
+import {
+  fetchWizardVendorRecommendations,
+  fetchBookedMarketplaceVendorIdsForDate,
+} from '@/lib/wizard-recommendations';
 import type { CeremonyType } from '@/lib/auspicious-date';
-import { VendorPickCard } from './vendor-pick-card';
+import { VendorPickGridCard } from './vendor-pick-grid-card';
 
 type Props = {
   eventId: string;
   ceremonyType: CeremonyType | null;
   venueSetting: string | null;
   excludeMarketplaceIds: ReadonlyArray<string>;
+  /** events.event_date · drives the availability filter. Officiants with
+   *  a confirmed booking on this date render at 30% opacity with no
+   *  action buttons. NULL = no availability check applied. */
+  eventDate: string | null;
 };
+
+const CANONICAL_SERVICES = ['officiant'] as const;
 
 export async function OfficiantCard({
   eventId,
   ceremonyType,
   venueSetting,
   excludeMarketplaceIds,
+  eventDate,
 }: Props) {
   const admin = createAdminClient();
-  const recs = await fetchWizardVendorRecommendations(admin, {
-    canonicalServices: ['officiant'],
-    ceremonyType,
-    venueSetting,
-    excludeVendorIds: excludeMarketplaceIds,
-    limit: 15,
-  });
+  // Limit bumped 15 → 100 so the grid's 5-row × 1-5-col pagination has
+  // multi-page depth as marketplace inventory grows.
+  const [recs, bookedIds] = await Promise.all([
+    fetchWizardVendorRecommendations(admin, {
+      canonicalServices: CANONICAL_SERVICES,
+      ceremonyType,
+      venueSetting,
+      excludeVendorIds: excludeMarketplaceIds,
+      limit: 100,
+    }),
+    fetchBookedMarketplaceVendorIdsForDate(admin, eventId, eventDate),
+  ]);
 
   // Faith-specific empty-state framing so the brand voice matches who's
   // reading. Brand voice per [[feedback_setnayan_no_dev_text_post_launch]].
@@ -74,17 +94,26 @@ export async function OfficiantCard({
       break;
     default:
       emptyCopy =
-        "We haven't curated officiants for your area yet — add yours below and we'll lock them into your plan.";
+        "We haven't curated officiants for your area yet — search by name or add yours below and we'll lock them into your plan.";
   }
 
   return (
-    <VendorPickCard
+    <VendorPickGridCard
       eventId={eventId}
       taskId="officiant"
-      recommendations={recs}
-      defaultVisible={5}
-      customAddLabel="Already have someone in mind?"
-      emptyStateCopy={emptyCopy}
+      initialRecommendations={recs}
+      searchContext={{
+        canonicalServices: CANONICAL_SERVICES,
+        ceremonyType,
+        venueSetting,
+        excludeVendorIds: excludeMarketplaceIds,
+      }}
+      copy={{
+        pluralNoun: 'officiants',
+        customAddLabel: 'Already have someone in mind?',
+        emptyStateCopy: emptyCopy,
+      }}
+      bookedMarketplaceVendorIds={bookedIds}
     />
   );
 }

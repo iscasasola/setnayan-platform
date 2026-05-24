@@ -44,6 +44,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import {
   ArrowLeftRight,
   ChevronLeft,
@@ -287,6 +288,25 @@ export function VendorPickGridCard({
   const [pendingVendorId, setPendingVendorId] = useState<string | null>(null);
   const [, startLockTransition] = useTransition();
 
+  // 2026-05-24 hotfix — owner reported Card 12 (Music + Entertainment)
+  // compare-flow lock got stuck on "Locking…" with no error surface. Root
+  // cause: the success branch of `handleLockMarketplace` never reset
+  // `pendingVendorId` — it relied on the parent server component
+  // re-rendering (via the action's `revalidatePath`) to unmount the whole
+  // grid card. If revalidation lagged or silently failed (Vercel cold
+  // start · edge cache miss · upstream JSONB write quirk · serverless
+  // function timeout near 10s), the button stayed disabled forever and
+  // the host had no way to retry except hard-refresh the page.
+  //
+  // `useRouter().refresh()` is the belt-and-suspenders force-re-fetch
+  // that fires after every successful lock; pairing it with a `finally`
+  // block on the transition (see handleLockMarketplace below) means the
+  // button ALWAYS recovers regardless of how the action resolved. If
+  // the parent does re-render cleanly, the component unmounts and the
+  // setState in finally is a no-op; if it doesn't, the host sees a
+  // working button again and can re-try or use Add Custom.
+  const router = useRouter();
+
   /* ─────────────  city options + filter derivation  ────────────── */
 
   // Unique, alphabetized city list pulled from the current result set
@@ -448,12 +468,31 @@ export function VendorPickGridCard({
     startLockTransition(async () => {
       try {
         await completeVendorPickFromMarketplace(formData);
+        // 2026-05-24 hotfix · belt-and-suspenders force-re-render. The
+        // server action already calls `revalidatePath('/dashboard/{id}')`
+        // which SHOULD invalidate the route cache + trigger the parent
+        // server component to refetch. But owner-reported Card 12
+        // lock-stuck (band / live music compare flow) revealed that
+        // revalidatePath sometimes doesn't fully propagate before the
+        // transition ends — leaving the host staring at "Locking…" on
+        // a button that succeeded server-side. Manually pinging
+        // `router.refresh()` from the client guarantees the dashboard
+        // page re-fetches even if revalidatePath lagged. Safe to call
+        // both — the framework dedupes.
+        router.refresh();
       } catch (err) {
         const message =
           err instanceof Error
             ? err.message
             : "Couldn't lock this pick. Try again or add manually below.";
         setErrorMessage(message);
+      } finally {
+        // Always reset the pending-state so the button is interactive
+        // again regardless of outcome. If the action succeeded and the
+        // parent re-render unmounts the card, this setState is a no-op
+        // on a stale component (React warns but doesn't crash). If the
+        // action failed OR the parent didn't re-render, the host sees
+        // a working button again + the error chip below.
         setPendingVendorId(null);
       }
     });
@@ -1231,6 +1270,13 @@ function CustomVendorForm({
   const [vendorName, setVendorName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [contactEmail, setContactEmail] = useState('');
+  // Same belt-and-suspenders pattern as the marketplace-lock handler
+  // (see handleLockMarketplace comment up top) — `router.refresh()` after
+  // a successful custom-vendor lock guarantees the dashboard page
+  // re-fetches even if revalidatePath in the action lagged. Without this,
+  // the host who adds a custom vendor sees the form spinning instead of
+  // the wizard advancing to the next card.
+  const router = useRouter();
 
   function handleSubmit(formEvent: React.FormEvent<HTMLFormElement>) {
     formEvent.preventDefault();
@@ -1248,6 +1294,7 @@ function CustomVendorForm({
     startTransition(async () => {
       try {
         await completeVendorPickFromCustom(formData);
+        router.refresh();
       } catch (err) {
         const message =
           err instanceof Error

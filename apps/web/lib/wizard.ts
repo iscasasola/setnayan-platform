@@ -634,7 +634,9 @@ export function parseWizardState(raw: unknown): WizardState {
  *
  * When `true`:
  *   - isTaskUnlocked() always returns TRUE (no prereq gating)
- *   - getCarouselTasks() returns ALL 38 tasks (no lookahead cap)
+ *   - getCarouselTasks() returns all UNSETTLED tasks (no lookahead cap,
+ *     but completed + in-flight still filter out per owner directive
+ *     2026-05-24: "when the focus card is complete, card hides")
  *
  * Owner asked to disable the prereq lock + the card-count limit
  * temporarily so they can preview every card in the carousel before
@@ -758,12 +760,17 @@ export function getCarouselTasks(
   state: WizardState,
   lookahead = 4,
 ): WizardTask[] {
-  // Owner-temp 2026-05-24 preview mode: return ALL 38 tasks in canonical
-  // order so the host can swipe through every card. Skips the lookahead
-  // cap + settled-filter so settled cards also appear (host can preview
-  // their post-event flow without resetting state).
+  // Owner-temp 2026-05-24 preview mode: return UNSETTLED 38 tasks in
+  // canonical order so the host can swipe through every upcoming card.
+  // Skips the lookahead cap, but the settled-filter is preserved per
+  // owner directive 2026-05-24 ("when the focus card is complete, card
+  // hides") — completed tasks must filter out so the active focus
+  // advances on completion (otherwise the carousel loops on the same
+  // card with the saved value pre-populated). In-flight tasks also
+  // filter out and surface in the IN-FLIGHT TRAY below, matching the
+  // canonical non-preview behavior.
   if (TEMP_WIZARD_PREVIEW_ALL_CARDS) {
-    return [...WIZARD_TASKS];
+    return WIZARD_TASKS.filter((task) => !isTaskSettled(state, task.id));
   }
   // Find the active focus first — same logic as resolveWizardFocus.
   let activeIndex = -1;

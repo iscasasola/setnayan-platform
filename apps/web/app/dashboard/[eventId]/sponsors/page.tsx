@@ -257,7 +257,7 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
               {declinedCount > 0 ? ` · ${declinedCount} declined` : ''}
             </p>
           </div>
-          <PairTargetPicker currentTarget={targetPairs} highestUsedPair={highestUsedPair} />
+          <PairTargetPicker eventId={eventId} currentTarget={targetPairs} highestUsedPair={highestUsedPair} />
         </div>
 
         {/* Slot meter — visual progress */}

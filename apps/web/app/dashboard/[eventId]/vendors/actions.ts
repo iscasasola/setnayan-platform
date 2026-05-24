@@ -1,5 +1,13 @@
 'use server';
 
+// Every `revalidatePath()` below uses `'layout'` mode (not default 'page')
+// so the dashboard layout invalidates too. Vendor lock/unlock/switch + custom
+// vendor add + invite + payout flows touch event_vendors rows that the
+// dashboard layout aggregates into the chrome event-switcher labels and
+// monogram refresh logic; without 'layout' the chrome stays stale until
+// manual reload. Same canonical fix as wizard-actions.ts (PR #514) — see
+// CLAUDE.md 2026-05-24 "Fix: chrome monogram (+ layout-cached fields) stay
+// stale after wizard save".
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -76,7 +84,7 @@ export async function createVendor(formData: FormData) {
   });
   if (error) throw new Error(error.message);
 
-  revalidatePath(`/dashboard/${eventId}/vendors`);
+  revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
 }
 
 // ============================================================================
@@ -141,8 +149,8 @@ export async function addCustomVendor(
     return { status: 'error', message: error?.message ?? 'Insert failed' };
   }
 
-  revalidatePath(`/dashboard/${eventId}`);
-  revalidatePath(`/dashboard/${eventId}/vendors`);
+  revalidatePath(`/dashboard/${eventId}`, 'layout');
+  revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
   return { status: 'ok', eventVendorId: inserted.vendor_id };
 }
 
@@ -197,7 +205,7 @@ export async function updateVendorStatus(formData: FormData) {
     });
   }
 
-  revalidatePath(`/dashboard/${eventId}/vendors`);
+  revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
 }
 
 export async function deleteVendor(formData: FormData) {
@@ -223,8 +231,8 @@ export async function deleteVendor(formData: FormData) {
   // Revalidate both surfaces so an incompatible-pick Remove on the event
   // home (PR B 2026-05-22) clears the chip without a hard refresh, and
   // the vendor tracker stays in sync.
-  revalidatePath(`/dashboard/${eventId}`);
-  revalidatePath(`/dashboard/${eventId}/vendors`);
+  revalidatePath(`/dashboard/${eventId}`, 'layout');
+  revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
 }
 
 // ============================================================================
@@ -653,8 +661,8 @@ export async function finalizeVendor(
   // Refresh both the event home (FinalizedChipStrip + PlanningGroups read
   // from the same event_vendors fetch) and the vendor tracker (separate
   // surface that lists every vendor + status).
-  revalidatePath(`/dashboard/${eventId}`);
-  revalidatePath(`/dashboard/${eventId}/vendors`);
+  revalidatePath(`/dashboard/${eventId}`, 'layout');
+  revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
 
   return { status: 'ok', vendorId, lockedStatus: LOCKED_STATUS };
 }
@@ -854,8 +862,8 @@ export async function addRecommendedVendorToCategory(
     // considering pick, which is the correct safe default.
   }
 
-  revalidatePath(`/dashboard/${eventId}`);
-  revalidatePath(`/dashboard/${eventId}/vendors`);
+  revalidatePath(`/dashboard/${eventId}`, 'layout');
+  revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
   return { status: 'ok', eventVendorId: inserted.vendor_id, locked };
 }
 
@@ -927,8 +935,8 @@ export async function revertVendorToConsidering(
     return { status: 'error', message: revertErr.message };
   }
 
-  revalidatePath(`/dashboard/${eventId}`);
-  revalidatePath(`/dashboard/${eventId}/vendors`);
+  revalidatePath(`/dashboard/${eventId}`, 'layout');
+  revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
 
   return { status: 'ok', vendorId };
 }
@@ -1063,8 +1071,8 @@ export async function createManualVendor(
     return { status: 'error', message: error?.message ?? 'Insert failed' };
   }
 
-  revalidatePath(`/dashboard/${eventIdRaw}`);
-  revalidatePath(`/dashboard/${eventIdRaw}/vendors`);
+  revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
+  revalidatePath(`/dashboard/${eventIdRaw}/vendors`, 'layout');
   return { status: 'ok', manualVendorId: inserted.manual_vendor_id };
 }
 
@@ -1158,8 +1166,8 @@ export async function updateManualVendor(
     return { status: 'error', message: updateErr.message };
   }
 
-  revalidatePath(`/dashboard/${existing.event_id}`);
-  revalidatePath(`/dashboard/${existing.event_id}/vendors`);
+  revalidatePath(`/dashboard/${existing.event_id}`, 'layout');
+  revalidatePath(`/dashboard/${existing.event_id}/vendors`, 'layout');
   return { status: 'ok', manualVendorId: manualVendorIdRaw };
 }
 
@@ -1208,8 +1216,8 @@ export async function deleteManualVendor(
   }
 
   if (eventIdForRevalidate) {
-    revalidatePath(`/dashboard/${eventIdForRevalidate}`);
-    revalidatePath(`/dashboard/${eventIdForRevalidate}/vendors`);
+    revalidatePath(`/dashboard/${eventIdForRevalidate}`, 'layout');
+    revalidatePath(`/dashboard/${eventIdForRevalidate}/vendors`, 'layout');
   }
   return { status: 'ok' };
 }
@@ -1299,8 +1307,8 @@ export async function attachManualVendorToCategory(
     return { status: 'error', message: insertErr?.message ?? 'Insert failed' };
   }
 
-  revalidatePath(`/dashboard/${eventIdRaw}`);
-  revalidatePath(`/dashboard/${eventIdRaw}/vendors`);
+  revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
+  revalidatePath(`/dashboard/${eventIdRaw}/vendors`, 'layout');
   return {
     status: 'ok',
     eventVendorId: inserted.vendor_id,
@@ -1671,8 +1679,8 @@ export async function attachMarketplaceVendorToCategory(
     };
   }
 
-  revalidatePath(`/dashboard/${eventIdRaw}`);
-  revalidatePath(`/dashboard/${eventIdRaw}/vendors`);
+  revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
+  revalidatePath(`/dashboard/${eventIdRaw}/vendors`, 'layout');
   return {
     status: 'ok',
     eventVendorId: inserted.vendor_id,

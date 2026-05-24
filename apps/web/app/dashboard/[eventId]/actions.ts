@@ -1,5 +1,12 @@
 'use server';
 
+// Every `revalidatePath()` below uses `'layout'` mode (not default 'page')
+// so the dashboard layout invalidates too. Event-level writes (date / name /
+// venue / settings) change fields the OuterDashboardHeader chrome reads via
+// `primaryEvent.*`; without 'layout' the chrome event-switcher + monogram
+// stay stale until manual reload. Same canonical fix as wizard-actions.ts
+// (PR #514) — see CLAUDE.md 2026-05-24 "Fix: chrome monogram (+ layout-cached
+// fields) stay stale after wizard save".
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -125,7 +132,7 @@ export async function updateEventDate(formData: FormData) {
     .eq('event_id', eventId);
   if (error) throw new Error(error.message);
 
-  revalidatePath(`/dashboard/${eventId}`);
+  revalidatePath(`/dashboard/${eventId}`, 'layout');
 }
 
 const MANUAL_KEYS = new Set<StepKey>(
@@ -167,7 +174,7 @@ export async function toggleJourneyStep(formData: FormData) {
     if (error) throw new Error(error.message);
   }
 
-  revalidatePath(`/dashboard/${eventId}`);
+  revalidatePath(`/dashboard/${eventId}`, 'layout');
 }
 
 // Task #37 (2026-05-22) — host explicitly confirms wedding ceremony_type.
@@ -334,6 +341,6 @@ export async function setEventCeremonyType(formData: FormData): Promise<SetCerem
     actor_user_id: user.id,
   });
 
-  revalidatePath(`/dashboard/${eventId}`);
+  revalidatePath(`/dashboard/${eventId}`, 'layout');
   return { ok: true, ceremony_type, updated: wasConfirmedBefore };
 }

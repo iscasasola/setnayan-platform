@@ -100,14 +100,14 @@ export type WizardTaskId =
   // Phase 5 · Legal paperwork (T-6m start, T-4m active) · REORDERED so
   // Cenomar + Church paperwork come BEFORE Marriage License which has a
   // 120-day validity window and must be issued last
-  | 'cenomar'
+  | 'cenomar_bride'
+  | 'cenomar_groom'
   | 'church_paperwork'
   | 'pre_cana'
   | 'marriage_license'
   // Phase 6 · Final month (T-30d to T-1d)
   | 'finalize_rsvp'
   | 'finalize_seatplan'
-  | 'finalize_catering_count'
   | 'honeymoon_planning'
   | 'paprint'
   | 'all_set_readiness'
@@ -327,13 +327,19 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     prerequisites: ['set_wedding_date'],
   },
   {
+    // 2026-05-24 owner directive: track 3 milestones, not just the
+    // shoot date. Filipino prenup pipeline: shoot T-6mo → teaser
+    // (15-30s) T-5mo (used for Save-the-Date video) → full prenup
+    // video (2-4min) T-3mo (used for website hero + reception roll-in).
+    // V1: external_process kind · host marks each milestone as
+    // received. V1.x: photographer-side upload triggers auto-receipt.
     id: 'engagement_prenup_shoot',
     order: 6,
     phase: 'foundation',
     kind: 'external_process',
     title: 'Schedule your prenup shoot',
     whyItMatters:
-      "A month before your save-the-date drops. Your photographer guides location and styling; the photos feed the save-the-date video, your website hero, and the editorial down the line.",
+      "Three milestones — the shoot itself at T-6mo, the teaser (15-30s) at T-5mo which feeds your save-the-date video, and the full prenup video (2-4 min) at T-3mo which lands on your website hero + reception roll-in. Lock the shoot date here; mark teaser + full video as received when your photographer delivers.",
     pillLabel: 'Foundation',
     prerequisites: ['photography'],
   },
@@ -349,32 +355,40 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     prerequisites: ['reception_venue'],
   },
   {
+    // 2026-05-24 owner directive ("shouldn't there be a food tasting
+    // first before we customize our food?"). Order swapped from 7.5 to
+    // 7.55 so the tasting card (now 7.5) lands FIRST. Logic: caterer
+    // presents an initial menu pre-tasting → host tastes at T-3mo →
+    // customize based on what landed best. Customize is the LAST mile
+    // before the catering lock-in.
     id: 'customize_food',
-    order: 7.5,
+    order: 7.55,
     phase: 'foundation',
     kind: 'external_process',
     title: 'Customize your food',
     whyItMatters:
-      'Service style, dietary accommodations, and your tasting date. PH caterers run tastings 3-4 months before the wedding — lock the menu shape now so the tasting is a confirmation, not a discovery.',
+      "Now that you've tasted the caterer's spread, tweak the final menu — swap dishes that didn't land, lock dietary accommodations, adjust portion sizing per the tasting feedback. Your caterer wraps this into the locked contract menu after.",
     pillLabel: 'Foundation',
-    prerequisites: ['catering'],
+    prerequisites: ['food_tasting'],
   },
   {
-    // Added 2026-05-24 (owner directive · ❓ missing cards audit · "the
-    // rest, yes"). Filipino caterers run a kitchen tasting session at
-    // T-3 months where the couple visits the caterer's commissary,
-    // tastes the locked menu, and signs off on final portion sizing.
-    // Separate from customize_food (which is the menu-shape decision
-    // before tasting). Lands at position 13 in the sorted sequence.
+    // 2026-05-24 owner directive: tasting comes BEFORE customize. The
+    // tasting card now sits at order 7.5 (was 7.55) and lands at
+    // position 12 in the sorted sequence · customize_food shifted to
+    // 7.55 (was 7.5) so they swap. Filipino caterers run a kitchen
+    // tasting session at T-3 months where the couple visits the
+    // commissary + tastes the initial menu the caterer prepared. The
+    // tasting INFORMS the customization → it's the entry-point to the
+    // menu-shape conversation, not a confirmation step at the end.
     id: 'food_tasting',
-    order: 7.55,
+    order: 7.5,
     phase: 'foundation',
     kind: 'external_process',
     title: 'Schedule your food tasting',
     whyItMatters:
-      "T-3 months you visit your caterer's kitchen for the tasting. Pick the date here so your caterer prepares the locked menu and you walk in confident, not curious.",
+      "T-3 months you visit your caterer's kitchen for the tasting. The caterer prepares their initial menu pitch and you taste each dish before locking the final shape on the next card. Filipino couples skip this at their peril.",
     pillLabel: 'Foundation',
-    prerequisites: ['customize_food'],
+    prerequisites: ['catering'],
   },
   {
     // 2026-05-24 owner directive: mood_board MUST come before stylist.
@@ -587,13 +601,21 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     prerequisites: ['create_website'],
   },
   {
+    // 2026-05-24 owner directive: card body should let host upload
+    // prenup photos + video → pick template → render → share + auto-
+    // add to wedding website. V1: external_process placeholder · the
+    // /add-ons/save-the-date route at /dashboard/[eventId]/add-ons
+    // surfaces the actual upload/render UI. V1.x: inline-completion
+    // body wires the upload + render + share flow directly into the
+    // card. The auto-add-to-website hook fires on render success ·
+    // updates the create_website hero block.
     id: 'save_the_date_video',
     order: 17,
     phase: 'programming',
     kind: 'external_process',
     title: 'Release your save-the-date',
     whyItMatters:
-      "Six months out · your prenup photos · a 30-second video your guests can save to their calendars. ₱199 per render so you can iterate the framing until it feels right.",
+      "Upload your prenup teaser + photos · pick a template · render at ₱199. The result auto-publishes to your wedding website hero AND gives you a shareable MP4 for IG / FB / Viber. Iterate the framing until it feels right · each render is its own purchase.",
     pillLabel: 'Programming',
     prerequisites: ['engagement_prenup_shoot'],
   },
@@ -693,27 +715,41 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     // even the rental track needs to start at T-3mo not T-2mo. Phase
     // tag stays 'programming' for plan-grid grouping continuity but the
     // order value puts it in the Foundation booking tier.
+    // 2026-05-24 owner directive: card body shows multiple sub-items
+    // the host can lock — bridal gown · bridal shoes · groom suit ·
+    // groom shoes · entourage attire · parents attire. UI conditional
+    // on the host's role (bride sees gown picker first · groom sees
+    // suit picker first · planner role sees both). V1: single vendor-
+    // pick card linking to /vendors filtered to gown_designer +
+    // suit_designer. V1.x: inline 6-item sub-picker per the locked
+    // 2026-05-21 spec.
     id: 'attire',
     order: 7.6,
     phase: 'programming',
     kind: 'vendor_pick',
     title: 'Lock your attire',
     whyItMatters:
-      "Custom gowns and barongs need 3-4 months from first fitting; rentals book 6-8 weeks ahead. Either way, the clock is friendlier than you think — start the conversation now.",
+      "Six items live here — bridal gown · bridal shoes · groom suit · groom shoes · entourage attire · parents attire. Custom gowns + barongs need 3-4 months from first fitting; rentals book 6-8 weeks ahead. Either way, the clock is friendlier than you think — start the conversation now.",
     pillLabel: 'Programming',
-    // 2026-05-24 prereq fix: shouldn't fire before the wedding date is set.
     prerequisites: ['set_wedding_date'],
   },
   {
+    // 2026-05-24 owner directive: copy clarifies the bride + entourage
+    // distinction. PH HMUA often runs two parallel tracks — a premium
+    // artist for the bride (trial · day-of) + a team for the entourage
+    // (mom · MOH · bridesmaids · flower girls). Sometimes one artist
+    // covers both with assistants; sometimes two separate vendor
+    // bookings. Card body lets host lock 1 or 2 vendors here as
+    // appropriate. V1: single vendor-pick card. V1.x: optional 2-slot
+    // sub-picker.
     id: 'hair_makeup',
     order: 19,
     phase: 'programming',
     kind: 'vendor_pick',
     title: 'Lock your hair & makeup team',
     whyItMatters:
-      'Your bridal glam team carries the whole entourage on the morning of. Trials happen 1-2 months before the day; lock the artist first so the trial date even makes sense.',
+      'Two looks here — the bride (premium artist · trial + day-of) and the entourage (mom · MOH · bridesmaids · flower girls). Sometimes one artist covers both with a team; sometimes you book separately. Trials happen 1-2 months before the day; lock the artist(s) first so the trial date makes sense.',
     pillLabel: 'Programming',
-    // 2026-05-24 prereq fix: shouldn't fire before the wedding date is set.
     prerequisites: ['set_wedding_date'],
   },
   {
@@ -927,13 +963,32 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     prerequisites: ['reception_venue', 'ceremony_venue'],
   },
   {
-    id: 'cenomar',
+    // 2026-05-24 owner directive: "Cenomar, update for groom and bride.
+    // not just 1 cenomar." PH marriage license application requires
+    // CENOMAR (Certificate of No Marriage) from BOTH partners — each
+    // partner files their own with PSA. Split into two cards so each
+    // partner can track their own request + delivery status. Both
+    // become prereqs for the marriage_license card.
+    id: 'cenomar_bride',
     order: 25,
     phase: 'legal_paperwork',
     kind: 'external_process',
-    title: 'Request your Cenomar',
+    title: "Request the bride's Cenomar",
     whyItMatters:
-      "Certificate of No Marriage from PSA. Start here — processing takes 2-3 weeks, and you cannot get your marriage license until this is in hand.",
+      "Certificate of No Marriage from PSA for the bride. Apply at any PSA outlet (or via psahelpline.ph). Processing takes 2-3 weeks. You cannot get your marriage license until this is in hand.",
+    pillLabel: 'Legal paperwork',
+    prerequisites: ['set_wedding_date'],
+  },
+  {
+    // 2026-05-24 paired with cenomar_bride above. Same flow, same lead
+    // time, separate request because each partner files their own.
+    id: 'cenomar_groom',
+    order: 25.1,
+    phase: 'legal_paperwork',
+    kind: 'external_process',
+    title: "Request the groom's Cenomar",
+    whyItMatters:
+      "Certificate of No Marriage from PSA for the groom. Apply at any PSA outlet (or via psahelpline.ph). Processing takes 2-3 weeks. The license office will ask for both Cenomars before issuing the marriage license.",
     pillLabel: 'Legal paperwork',
     prerequisites: ['set_wedding_date'],
   },
@@ -968,7 +1023,9 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     whyItMatters:
       "Last in the legal chain · 120-day validity window means you cannot apply too early. Once Cenomar and Pre-Cana are done, you apply at the city hall where either of you resides.",
     pillLabel: 'Legal paperwork',
-    prerequisites: ['cenomar'],
+    // 2026-05-24 updated for cenomar split — license requires BOTH
+    // partners' Cenomars in hand.
+    prerequisites: ['cenomar_bride', 'cenomar_groom'],
   },
   {
     id: 'finalize_rsvp',
@@ -992,17 +1049,15 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     pillLabel: 'Final month',
     prerequisites: ['finalize_rsvp'],
   },
-  {
-    id: 'finalize_catering_count',
-    order: 31,
-    phase: 'final_month',
-    kind: 'data_input',
-    title: 'Lock your catering count',
-    whyItMatters:
-      "Caterers buy ingredients 14 days out. Confirm your final headcount with the kitchen team so the food matches the room.",
-    pillLabel: 'Final month',
-    prerequisites: ['finalize_rsvp'],
-  },
+  // 2026-05-24 owner directive: removed `finalize_catering_count`
+  // card. "No need to lock catering count. once seat plan is
+  // finalized, the guest list is finalized, all PAX dependent
+  // vendors will be notified and they must confirm of the PAX
+  // update." Auto-notification system on finalize_seatplan handles
+  // catering + cake + booth headcount confirmation downstream. No
+  // separate host action needed. The auto-notification flow is
+  // tracked separately in the vendor dashboard (per iteration 0006
+  // vendor pax-dependent flag · auto-confirm prompts).
   {
     id: 'honeymoon_planning',
     order: 32,
@@ -1015,13 +1070,18 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     prerequisites: ['set_wedding_date'],
   },
   {
+    // 2026-05-24 owner directive: enumerate print items so the host
+    // sees the full scope of what Paprint covers · iteration 0050
+    // print fulfillment surface lists every item type · couples
+    // pick line-by-line. V1.x: card body shows the menu inline with
+    // QR-preview thumbnails per item.
     id: 'paprint',
     order: 33,
     phase: 'final_month',
     kind: 'external_process',
     title: 'Order your print pack',
     whyItMatters:
-      "QR-encoded table cards, place cards, schedule signs, day-of guide. Once seating and headcount are locked, the prints can ship 7-10 days before your wedding.",
+      "Setnayan QR-encoded items, shipped 7-10 days before your wedding — guest wristbands · entrance badges · table assignment cards · escort cards · place cards · hand fans · favor tags · seating chart sign · day-of guide. Pick the items you want · we print + deliver.",
     pillLabel: 'Final month',
     prerequisites: ['finalize_seatplan'],
   },
@@ -1034,7 +1094,10 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     whyItMatters:
       "Final readiness checkpoint before day-of mode activates. Walk through every section · fix any last-minute gap · graduate to live with confidence.",
     pillLabel: 'Final month',
-    prerequisites: ['finalize_rsvp', 'finalize_seatplan', 'finalize_catering_count', 'paprint'],
+    // 2026-05-24: finalize_catering_count removed from prereqs · the
+    // pax auto-notification system fires off finalize_seatplan and
+    // doesn't require a separate host-action card.
+    prerequisites: ['finalize_rsvp', 'finalize_seatplan', 'paprint'],
   },
   {
     // Added 2026-05-24 (owner directive · ❓ missing cards audit · "the

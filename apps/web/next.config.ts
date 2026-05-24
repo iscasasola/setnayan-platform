@@ -65,6 +65,23 @@ const remoteImagePatterns = [
     hostname: 'fastly.picsum.photos',
     pathname: '/**',
   },
+  // Pexels CDN — V1 pilot-polish photos for vendor_profiles (admin-owned
+  // unclaimed rows for the 59 famous PH venues + the 960 test marketplace
+  // vendors) AND venue_directory reception/garden/beach/heritage rows.
+  // Pexels License (https://www.pexels.com/license/) is functionally
+  // equivalent to CC0 — free for any use, attribution not required, no
+  // permission needed. Migration
+  // 20260617000000_iteration_0006_vendor_hero_photos_pilot_polish.sql
+  // hotlinks ~115 verified Pexels CDN URLs (all batch-curl 200 OK before
+  // ship). Retires when real vendors claim their listings and upload
+  // their own photos OR V1.5+ Higgsfield Filipino-specific batch
+  // generation (CLAUDE.md 2026-05-21 row "Moodboard expanded · 3 pillars"
+  // 3-phase asset sourcing strategy) replaces the stock pool.
+  {
+    protocol: 'https' as const,
+    hostname: 'images.pexels.com',
+    pathname: '/photos/**',
+  },
 ].filter((p): p is NonNullable<typeof p> => p !== null);
 
 const nextConfig: NextConfig = {

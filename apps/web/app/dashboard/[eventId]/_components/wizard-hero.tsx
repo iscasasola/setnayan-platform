@@ -50,6 +50,7 @@ import { HostMcCard } from './wizard-cards/host-mc-card';
 import { AttireCard } from './wizard-cards/attire-card';
 import { HairMakeupCard } from './wizard-cards/hair-makeup-card';
 import { CakeCard } from './wizard-cards/cake-card';
+import { RingsCard } from './wizard-cards/rings-card';
 import { AccommodationCard } from './wizard-cards/accommodation-card';
 import { BridalCarCard } from './wizard-cards/bridal-car-card';
 // Phase 5 batch — 7 paperwork external_process cards.
@@ -333,6 +334,16 @@ function renderCardBody(
     case 'cake':
       return (
         <CakeCard
+          eventId={ctx.eventId}
+          ceremonyType={ctx.ceremonyType}
+          venueSetting={ctx.venueSetting}
+          excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
+          eventDate={ctx.eventDate}
+        />
+      );
+    case 'rings':
+      return (
+        <RingsCard
           eventId={ctx.eventId}
           ceremonyType={ctx.ceremonyType}
           venueSetting={ctx.venueSetting}

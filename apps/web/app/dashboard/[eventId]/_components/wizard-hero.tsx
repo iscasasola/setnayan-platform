@@ -29,6 +29,7 @@ import {
   countRemainingTasks,
   listInFlightTaskIds,
   getCarouselTasks,
+  TEMP_WIZARD_PREVIEW_ALL_CARDS,
   type WizardTaskId,
 } from '@/lib/wizard';
 import type { CeremonyType, MeaningfulDate } from '@/lib/auspicious-date';
@@ -129,14 +130,29 @@ export function WizardHero({
   const activeTask = carouselTasks[0];
   if (!activeTask) return null;
 
-  const activeBody = renderCardBody(activeTask.id, {
+  const ctx = {
     eventId,
     ceremonyType,
     venueSetting,
     eventDate,
     meaningfulDates,
     excludeMarketplaceVendorIds,
-  });
+  };
+
+  const activeBody = renderCardBody(activeTask.id, ctx);
+
+  // Temp preview-all-cards mode (CLAUDE.md 2026-05-24): when the flag is
+  // on, getCarouselTasks returns all 38 tasks AND we render the full
+  // active-card body for EVERY task in the carousel · NOT just the peek
+  // preview. The host can swipe through every card's actual UI to review
+  // it before we re-enable the canonical 4-card lookahead. Heavy on the
+  // first paint (~38 server-component renders + DB queries) but acceptable
+  // for the preview window since the flag is intentionally temporary.
+  const taskBodies = TEMP_WIZARD_PREVIEW_ALL_CARDS
+    ? new Map<WizardTaskId, React.ReactNode>(
+        carouselTasks.slice(1).map((task) => [task.id, renderCardBody(task.id, ctx)]),
+      )
+    : undefined;
 
   return (
     <>
@@ -144,6 +160,7 @@ export function WizardHero({
         tasks={carouselTasks}
         state={state}
         activeCardBody={activeBody}
+        taskBodies={taskBodies}
       />
       {/* Remaining-count subtitle · matches legacy hero's "N more tasks
           below" copy so the page reads continuous through the swap. */}

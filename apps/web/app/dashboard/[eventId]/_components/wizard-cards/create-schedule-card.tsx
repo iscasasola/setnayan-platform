@@ -1,148 +1,95 @@
-'use client';
-
 /**
- * Card 15 Create Schedule · Programming tier.
+ * Card 15 Create Schedule · Programming tier · 2026-05-24 owner directive
+ * restructure.
  *
- * Inline schedule block editor INSIDE the wizard card (NO LINK to
- * /dashboard/[eventId]/schedule). Surfaces 6 default Filipino-wedding
- * blocks with editable start/end times · host can adjust each pair +
- * mark done.
+ * Replaces the previous flat 6-block hardcoded list (Preparation · Ceremony
+ * · Cocktail hour · Reception · program · First dance + open floor ·
+ * Send-off) with a two-level hierarchy persisted to event_schedule_blocks
+ * rows:
  *
- * V1 limitation: this card writes a single "rough schedule" payload to
- * wizard_state.create_schedule meta rather than the full
- * event_schedule_blocks table — the full editor stays at /schedule
- * for granular blocks (rehearsal · processional · cord ceremony · etc.).
- * Card 15's job is to give the host the LOAD-BEARING first pass so the
- * wizard advances; the schedule page picks up the refinement work.
+ *   1. Ceremony           (+ parts of the ceremony · nested · per-faith seed)
+ *   2. Cocktail Hour      (standalone)
+ *   3. Reception          (+ parts of the reception · nested · universal Filipino seed)
+ *   4. After Party        (standalone)
  *
- * Brand voice per [[feedback_setnayan_no_dev_text_post_launch]] — copy
- * reads as polite editorial Filipino, no engineering jargon.
+ * Owner directive verbatim:
+ *   "Ceremony - Parts of the ceremony
+ *    Cocktail Hour
+ *    Reception - Parts of the Reception
+ *    After Party
+ *    Can be rearranged, add a new schedule, Can be deleted"
+ *
+ * Architecture · server shell + client editor:
+ *
+ *   - This file is an ASYNC server component that:
+ *       1. Reads existing event_schedule_blocks for the event
+ *       2. If empty, fires seedDefaultScheduleBlocks (ceremony-type-aware)
+ *       3. Re-reads after seed
+ *       4. Groups rows into topLevel + childrenByParent via
+ *          groupScheduleBlocksByParent
+ *       5. Renders the client editor with the grouped payload
+ *
+ *   - <ScheduleEditor> is the 'use client' component that wires drag-to-
+ *     reorder, add-block, delete-block, inline label/time edit, and the
+ *     final "Lock the rough schedule" mark-done CTA.
+ *
+ * Persistence · rows in event_schedule_blocks. Edits write immediately via
+ * server actions (updateScheduleBlock · createScheduleBlock · deleteScheduleBlock
+ * · reorderScheduleBlocks). The /dashboard/[eventId]/schedule deep-edit
+ * page reads the same table · single source of truth across both surfaces.
+ *
+ * Brand voice per [[feedback_setnayan_no_dev_text_post_launch]] — copy reads
+ * as polite editorial Filipino, no engineering jargon.
  */
 
-import { useState, useTransition } from 'react';
-import { CheckCircle2, Clock } from 'lucide-react';
-import { markTaskDone } from '../../wizard-actions';
-
-type ScheduleBlock = {
-  id: string;
-  title: string;
-  start: string;
-  end: string;
-};
-
-const DEFAULT_BLOCKS: ReadonlyArray<ScheduleBlock> = [
-  { id: 'preparation', title: 'Preparation', start: '08:00', end: '13:00' },
-  { id: 'ceremony', title: 'Ceremony', start: '14:00', end: '15:30' },
-  { id: 'cocktails', title: 'Cocktail hour', start: '16:00', end: '17:00' },
-  { id: 'reception_program', title: 'Reception · program', start: '17:00', end: '20:00' },
-  { id: 'first_dance', title: 'First dance + open floor', start: '20:00', end: '21:00' },
-  { id: 'send_off', title: 'Send-off', start: '22:00', end: '23:00' },
-];
+import { createClient } from '@/lib/supabase/server';
+import {
+  fetchScheduleBlocks,
+  groupScheduleBlocksByParent,
+  type SeedCeremonyType,
+} from '@/lib/schedule';
+import { seedDefaultScheduleBlocks } from '../../schedule/actions';
+import { ScheduleEditor } from './create-schedule-editor';
 
 type Props = {
   eventId: string;
+  /** events.event_date · anchors seed defaults to the host's wedding day
+   *  when present; falls back to "6 months from today" when null. The
+   *  host re-edits each block's time as they refine the plan. */
+  eventDate: string | null;
+  /** events.ceremony_type · drives the per-faith seed of Ceremony parts
+   *  (Catholic gets 12 parts, Civil gets 6, Muslim gets 5, etc.). Defaults
+   *  to Catholic when null. */
+  ceremonyType: SeedCeremonyType | null;
 };
 
-export function CreateScheduleCard({ eventId }: Props) {
-  const [blocks, setBlocks] = useState<ScheduleBlock[]>([...DEFAULT_BLOCKS]);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+export async function CreateScheduleCard({
+  eventId,
+  eventDate,
+  ceremonyType,
+}: Props) {
+  const supabase = await createClient();
+  let blocks = await fetchScheduleBlocks(supabase, eventId);
 
-  function updateBlock(idx: number, field: 'start' | 'end', value: string) {
-    setBlocks((bs) => bs.map((b, i) => (i === idx ? { ...b, [field]: value } : b)));
+  // First-open seed · idempotent (server action checks existing rows
+  // and skips if any exist). Fires only when the event has zero blocks.
+  if (blocks.length === 0) {
+    try {
+      await seedDefaultScheduleBlocks(eventId, ceremonyType, eventDate);
+      blocks = await fetchScheduleBlocks(supabase, eventId);
+    } catch {
+      // Seed failure is non-fatal · the editor still renders with the
+      // empty payload so the host can [+ Add block] from scratch.
+    }
   }
 
-  function handleSubmit(formEvent: React.FormEvent<HTMLFormElement>) {
-    formEvent.preventDefault();
-    setErrorMessage(null);
-    const formData = new FormData();
-    formData.set('event_id', eventId);
-    formData.set('task_id', 'create_schedule');
-    // Stamp the rough schedule into wizard_state meta — the full editor
-    // at /schedule reads from event_schedule_blocks for granular blocks.
-    formData.set(
-      'meta_rough_schedule',
-      blocks
-        .map((b) => `${b.title}: ${b.start}–${b.end}`)
-        .join(' · '),
-    );
-    startTransition(async () => {
-      try {
-        await markTaskDone(formData);
-      } catch (err) {
-        const message =
-          err instanceof Error
-            ? err.message
-            : "Couldn't save your schedule. Try again.";
-        setErrorMessage(message);
-      }
-    });
-  }
+  const grouped = groupScheduleBlocksByParent(blocks);
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
-      <p className="text-sm leading-relaxed text-ink/75">
-        Sketch out the spine of your wedding day. You can refine the
-        granular blocks later — this is the load-bearing first pass that
-        keeps your vendors aligned on timing.
-      </p>
-
-      <div className="space-y-2">
-        {blocks.map((block, idx) => (
-          <div
-            key={block.id}
-            className="flex items-center gap-2 rounded-lg border border-ink/10 bg-white px-3 py-2.5 sm:gap-3"
-          >
-            <Clock
-              aria-hidden
-              className="h-3.5 w-3.5 flex-shrink-0 text-ink/40"
-              strokeWidth={2}
-            />
-            <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
-              {block.title}
-            </span>
-            <input
-              type="time"
-              value={block.start}
-              onChange={(e) => updateBlock(idx, 'start', e.target.value)}
-              className="w-[88px] rounded border border-ink/15 bg-cream px-2 py-1 text-xs sm:text-sm"
-            />
-            <span aria-hidden className="text-xs text-ink/40">
-              →
-            </span>
-            <input
-              type="time"
-              value={block.end}
-              onChange={(e) => updateBlock(idx, 'end', e.target.value)}
-              className="w-[88px] rounded border border-ink/15 bg-cream px-2 py-1 text-xs sm:text-sm"
-            />
-          </div>
-        ))}
-      </div>
-
-      {errorMessage ? (
-        <p
-          role="alert"
-          className="rounded-md border border-rose-300/60 bg-rose-50 px-3 py-2 text-sm text-rose-800"
-        >
-          {errorMessage}
-        </p>
-      ) : null}
-
-      <button
-        type="submit"
-        disabled={isPending}
-        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-terracotta px-5 py-3 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-700 focus:outline-none focus:ring-2 focus:ring-terracotta focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={2} />
-        {isPending ? 'Saving…' : 'Lock the rough schedule'}
-      </button>
-
-      <p className="text-xs text-ink/55">
-        Finer-grained blocks (rehearsal · processional · cord ceremony ·
-        cake cutting · etc.) live on your Schedule page for later
-        refinement.
-      </p>
-    </form>
+    <ScheduleEditor
+      eventId={eventId}
+      topLevel={grouped.topLevel}
+      childrenByParent={grouped.childrenByParent}
+    />
   );
 }

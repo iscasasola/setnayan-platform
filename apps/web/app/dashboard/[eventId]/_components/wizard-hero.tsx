@@ -411,7 +411,18 @@ function renderCardBody(
         />
       );
     case 'create_schedule':
-      return <CreateScheduleCard eventId={ctx.eventId} />;
+      // 2026-05-24 owner directive · Card 15 restructured to 4 top-level
+      // blocks + nested sub-blocks · ceremony-type-aware seed + canonical
+      // event_schedule_blocks persistence. Thread eventDate + ceremonyType
+      // so the first-open seed anchors to the host's wedding day +
+      // dispatches the right per-faith Ceremony parts.
+      return (
+        <CreateScheduleCard
+          eventId={ctx.eventId}
+          eventDate={ctx.eventDate}
+          ceremonyType={ctx.ceremonyType}
+        />
+      );
     case 'create_website':
       return (
         <CreateWebsiteCard

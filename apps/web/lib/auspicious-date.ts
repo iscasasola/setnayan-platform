@@ -60,38 +60,199 @@ export type DateSuggestion = {
 };
 
 // ----------------------------------------------------------------------------
-// Day-of-week positive framing — every day reads as a celebration of itself
+// Day-of-week variant pools — 2026-05-24 owner directive: same day-of-week
+// must NOT produce identical reasoning across two adjacent dates. Each day
+// owns multiple framings; pick is deterministic from day-of-year so:
+//   - same date → same reasons (no flicker on re-render)
+//   - adjacent dates → different combinations (no "understudied" feeling)
+// Variant 0 is the canonical headline copy that has shipped to date; new
+// variants add Filipino-textured editorial framings that ladder beside it.
 // ----------------------------------------------------------------------------
 
-const DAY_OF_WEEK_POSITIVE: Record<number, string> = {
+const DAY_OF_WEEK_VARIANTS: Record<number, ReadonlyArray<string>> = {
   // Sunday=0, Monday=1, ... Saturday=6
-  0: 'Linggo — sacred and family-centered, with the highest attendance among older relatives',
-  1: 'Lunes — the start of a new chapter, intimate weekday weddings have grown in popularity',
-  2: 'Martes ay tibay — strength and resilience for the couple',
-  3: 'Mid-week balance — vendors often offer their best rates and quieter venues',
-  4: 'Huwebes — favorite of European royal weddings, uncrowded venues at calmer pace',
-  5: 'Biyernes evening — intimate and romantic, with the weekend ahead for guests to celebrate',
-  6: 'Sabado — the traditional Filipino wedding day, most-loved by families and guests alike',
+  0: [
+    'Linggo — sacred and family-centered, with the highest attendance among older relatives',
+    'Sunday weddings carry a soft Sabbath rhythm — the day is already turned toward devotion',
+    'A Linggo ceremony catches the slow-Sunday pace · guests linger, conversations deepen',
+    'Sunday afternoons fold golden light into outdoor portraits — quiet and unhurried',
+    'Weekend capstone Linggo — guests get one last night together before flying home',
+    'A Sunday wedding is gentle and unhurried — sermons and vows in the same emotional key',
+  ],
+  1: [
+    'Lunes — the start of a new chapter, intimate weekday weddings have grown in popularity',
+    'A Lunes ceremony cuts the work week open — your forever decision becomes the week\'s first one',
+    'Off-peak Monday venues run at half capacity · the staff gives you their freshest attention',
+    'Lunes weddings carry quiet conviction — every guest is there on purpose, not because of the calendar',
+    'Pure-intent Lunes · no Saturday rush, no Sunday family-mass conflicts',
+    'Monday weddings have grown into the bold modern choice — yours alone, on your own day',
+  ],
+  2: [
+    'Martes ay tibay — strength and resilience for the couple',
+    'Tuesday weddings settle into a steady mid-week mood · neither beginning nor weekend',
+    'A Martes ceremony catches vendors at their freshest · the booking volume hasn\'t hit yet',
+    'Pinoy tradition holds Tuesday as a day of building — the perfect tempo for foundations',
+    'Off-cycle Martes · venues quiet, photographers attentive, every detail gets full focus',
+    'Tuesday weddings feel like a secret · only the people who really matter make the trip',
+  ],
+  3: [
+    'Mid-week balance — vendors often offer their best rates and quieter venues',
+    'Miyerkules ceremonies live in the calendar\'s sweet spot · enough buildup, enough breathing room',
+    'Hump-day weddings turn the dullest workday into the most-loved one · everyone needs the break',
+    'A Wednesday ceremony catches vendors mid-stride · momentum without weekend overload',
+    'Mid-week Miyerkules · the day everyone secretly waits for, made into a wedding',
+    'Wednesday weddings have a quiet confidence — they don\'t need a weekend to feel big',
+  ],
+  4: [
+    'Huwebes — favorite of European royal weddings, uncrowded venues at calmer pace',
+    'Thursday ceremonies catch the rising weekend tide · Friday becomes the honeymoon\'s first morning',
+    'Pre-Friday Huwebes · guests get a long weekend to rest, reminisce, and travel home',
+    'A Thursday wedding feels like a soft countdown · the weekend is yours from sunset',
+    'Royal-tradition Huwebes · Will and Kate picked this day for the same reason · uncrowded grace',
+    'Huwebes weddings have a built-in afterglow · two recovery days before Monday returns',
+  ],
+  5: [
+    'Biyernes evening — intimate and romantic, with the weekend ahead for guests to celebrate',
+    'TGIF Biyernes · everyone arrives already in celebration mood, no workday weight left',
+    'A Friday night ceremony catches the city slowing down · venue lights softer, hearts opening',
+    'Biyernes weddings cut beautifully into a long weekend · guests linger, the celebration breathes',
+    'Friday wedding magic — string lights, slow songs, no Monday to rush back to',
+    'A Biyernes ceremony lets the after-party become a Saturday brunch · the weekend stretches',
+  ],
+  6: [
+    'Sabado — the traditional Filipino wedding day, most-loved by families and guests alike',
+    'Saturday weddings catch the day\'s full arc · midday ceremony, golden-hour portraits, evening reception',
+    'Sabado · the classic for a reason · guests rested, venues at peak energy, no work tomorrow',
+    'A Sabado ceremony gives families the full day · brunch with cousins, vows by sunset, dancing past midnight',
+    'Wedding Saturday · the Philippines has honored this day for generations · you\'re joining a long lineage',
+    'Sabado weddings carry a built-in afterparty · breakfast Sunday with family, then everyone flies home',
+  ],
 };
 
 // ----------------------------------------------------------------------------
-// Month positive framing — every month gets a celebration of its texture
+// Month variant pools — same per-date deterministic selection as day-of-week.
+// Variant 0 is the canonical headline copy. The new variants thread different
+// angles (cultural · weather · vendor calendar · emotional tone) so adjacent
+// dates in the same month surface visibly different framings.
 // ----------------------------------------------------------------------------
 
-const MONTH_POSITIVE: Record<number, string> = {
-  1: 'Bagong taon, bagong simula — fresh-start energy and a new beginning together',
-  2: 'Buwan ng pag-ibig — romance is in the air, hearts full and open',
-  3: 'On the verge of summer — long sunset light makes for soft portraits',
-  4: 'Summer in full bloom — garden and beachside weddings shine in this season',
-  5: 'Flores de Mayo — floral abundance and the most colorful month',
-  6: 'June bride — the most celebrated wedding month worldwide',
-  7: 'Romantic showers — rain on a wedding is considered prosperity in many Filipino traditions',
-  8: 'Mid-year reset — refreshing breezes and softer vendor demand',
-  9: 'Ber months begin — Christmas spirit on the horizon, joy already gathering',
-  10: 'Crisp pre-holiday charm — photographer-favorite light and a calm atmosphere',
-  11: 'Family-gathering season — everyone is in town and ready to celebrate',
-  12: 'Wedding month of celebration — families are already in joy mode',
+const MONTH_VARIANTS: Record<number, ReadonlyArray<string>> = {
+  1: [
+    'Bagong taon, bagong simula — fresh-start energy and a new beginning together',
+    'January\'s cool clear air sharpens every photo · crisp light, longer evening receptions',
+    'Enero ceremonies catch the year fully open · twelve months of marriage still ahead of you in this calendar',
+    'Post-holiday January · guests rested, wallets refreshed, attendance peaks',
+    'A January wedding becomes the year\'s first joyful headline — yours sets the tone',
+  ],
+  2: [
+    'Buwan ng pag-ibig — romance is in the air, hearts full and open',
+    'February evenings still hold the cool dry season · last comfortable outdoor reception window before summer',
+    'Pebrero weddings carry Valentine\'s energy without the Feb-14 booking crush · all the romance, none of the rate spike',
+    'Florists pour extra romance into February bouquets · the season\'s flowers are at their most generous',
+    'A Pebrero ceremony lands inside love\'s own month · every detail reads as intentional',
+  ],
+  3: [
+    'On the verge of summer — long sunset light makes for soft portraits',
+    'Marso · transition month · the year stretches awake, photo skies at their clearest',
+    'March weddings catch the last cool month before the summer celebration peak',
+    'Pre-summer Marso · perfect outdoor reception weather, no rain to plan around',
+    'A March ceremony feels poised at the edge of summer · momentum building, but the weather still gentle',
+  ],
+  4: [
+    'Summer in full bloom — garden and beachside weddings shine in this season',
+    'Abril weddings catch summer\'s sweet spot · vacation mode for everyone, schools out',
+    'Pre-monsoon April · the year\'s peak Filipino wedding month for a reason · perfect light, perfect timing',
+    'A summer-vacation Abril ceremony · destination weddings feel easy, everyone\'s already in beach mode',
+    'April catches golden hour earlier · bridal portraits glow, ceremonies start in warm light',
+  ],
+  5: [
+    'Flores de Mayo — floral abundance and the most colorful month',
+    'Mayo ceremonies catch the year\'s warmth at its peak · classic Filipino summer wedding',
+    'Late-summer May · last big sunshine month before the rains · vendors at their seasonal peak',
+    'A Mayo wedding carries Flores de Mayo\'s floral legacy · the country is already in celebration rhythm',
+    'May weddings feel celebratory by birthright · the fiesta month, made personal',
+  ],
+  6: [
+    'June bride — the most celebrated wedding month worldwide',
+    'Hunyo ceremonies join a centuries-old tradition · paper invitations, June bouquets, classic forever',
+    'Early-rain Hunyo can be your friend · indoor receptions feel cozier, golden when it pours',
+    'A June wedding lands in the world\'s most-romantic month · floral wreaths, soft fabrics, romantic forever',
+    'Pre-school-year Hunyo · families gather before the school rhythms restart',
+  ],
+  7: [
+    'Romantic showers — rain on a wedding is considered prosperity in many Filipino traditions',
+    'Hulyo · the rainy-but-romantic month · indoor receptions glow softer when it pours',
+    'July ceremonies have the most personal energy · only the people truly invited show up',
+    'Mid-monsoon Hulyo · vendors aren\'t booked solid, every detail gets deep attention',
+    'A July wedding feels like a brave bright spot in the rains · its own kind of beauty',
+  ],
+  8: [
+    'Mid-year reset — refreshing breezes and softer vendor demand',
+    'Late-monsoon Agosto · the rains often pause for the most photogenic afternoons',
+    'August ceremonies catch the late-summer second wind · golden light, fewer crowds',
+    'A Agosto wedding lands in the strong, steady month · vendors deliver, guests show up',
+    'Pre-ber-month August · long buildup of anticipation before holiday season kicks in',
+  ],
+  9: [
+    'Ber months begin — Christmas spirit on the horizon, joy already gathering',
+    'Setyembre · the season of music · Pinoy Christmas songs begin to play across the country',
+    'September weddings catch the year\'s mood lift · the calendar officially turns festive',
+    'Cool-season Setyembre · the perfect outdoor reception weather returns after monsoon',
+    'A September ceremony feels like the year\'s emotional second act · everything brightens',
+  ],
+  10: [
+    'Crisp pre-holiday charm — photographer-favorite light and a calm atmosphere',
+    'Oktubre · the autumn glow the Filipino calendar borrows · soft, warm, golden',
+    'October ceremonies feel pre-holiday · families already in joy mode, but no Christmas chaos yet',
+    'A Oktubre wedding catches the year\'s most photogenic light · cool dry mornings, warm evenings',
+    'Mid-ber-month October · holiday energy building, vendors still flexible',
+  ],
+  11: [
+    'Family-gathering season — everyone is in town and ready to celebrate',
+    'Nobyembre · the warm-up to the holiday season · weddings here feel like the opening act',
+    'November ceremonies catch the year\'s reflective light · softer, more inward, more sentimental',
+    'A Nobyembre wedding honors All Saints meaning · family lineage, ancestor blessing, gratitude',
+    'Late-ber-month November · the year winds down, hearts open wider',
+  ],
+  12: [
+    'Wedding month of celebration — families are already in joy mode',
+    'Disyembre · the year\'s most sentimental month · vows land harder, prayers sound deeper',
+    'December ceremonies catch the warmth of every Christmas tradition · lanterns, parols, candles, songs',
+    'Filipino Disyembre · families home from work and abroad · the biggest gathering season',
+    'Year-end December · your wedding becomes the year\'s closing chapter · poetic timing, complete arc',
+  ],
 };
+
+// ----------------------------------------------------------------------------
+// Position-in-month flavor — adds a date-specific signal so first-week-of-
+// month dates read different from end-of-month ones even when day-of-week +
+// month match. Drives the "adjacent dates feel distinct" goal further.
+// ----------------------------------------------------------------------------
+
+function positionInMonthReason(date: Date): string | null {
+  const day = date.getDate();
+  if (day <= 7) {
+    return 'Opening week of the month · invitations carry full lead time, vendors arrive fresh-energy';
+  }
+  if (day <= 14) {
+    return 'Second-week pacing · the month is still wide-open, momentum just building';
+  }
+  if (day <= 21) {
+    return 'Mid-month anchor · the calendar\'s most stable wedding slot, payroll cycles aligned for guests';
+  }
+  // 22 through end-of-month
+  return 'Late-month timing · guests already in retrospective mood, the year-end energy lifts every toast';
+}
+
+/** Day-of-year (1-366) for the given date · stable in local TZ. Used as the
+ *  variant-selection seed so the same date always picks the same variant
+ *  pair AND adjacent dates pick different ones. */
+function dayOfYear(date: Date): number {
+  const start = new Date(date.getFullYear(), 0, 0);
+  const diff = date.getTime() - start.getTime();
+  const oneDay = 1000 * 60 * 60 * 24;
+  return Math.floor(diff / oneDay);
+}
 
 // ----------------------------------------------------------------------------
 // Ceremony-specific overlays — surface relevant cultural touchpoints positively
@@ -374,13 +535,32 @@ export function computeAuspiciousReasons(
     }
   }
 
-  // 4. Day-of-week positive (always present)
-  const dowReason = DAY_OF_WEEK_POSITIVE[date.getDay()];
-  if (dowReason) reasons.push(dowReason);
+  // 4. Day-of-week + month positive — 2026-05-24 owner directive: each
+  //    date must surface a distinct combination so adjacent dates don't
+  //    read as understudied. Variant pools per day-of-week (6 framings)
+  //    and per month (5 framings) are deterministically indexed by
+  //    day-of-year, with a prime offset on the month index so the two
+  //    selections vary independently across consecutive days.
+  const doy = dayOfYear(date);
+  const dowVariants = DAY_OF_WEEK_VARIANTS[date.getDay()];
+  if (dowVariants && dowVariants.length > 0) {
+    const dowReason = dowVariants[doy % dowVariants.length];
+    if (dowReason) reasons.push(dowReason);
+  }
+  const monthVariants = MONTH_VARIANTS[date.getMonth() + 1];
+  if (monthVariants && monthVariants.length > 0) {
+    // +3 offset (prime relative to 5/6/12) so day-of-week and month
+    // variants advance on different cycles · adjacent dates rarely
+    // share both selections.
+    const monthReason = monthVariants[(doy + 3) % monthVariants.length];
+    if (monthReason) reasons.push(monthReason);
+  }
 
-  // 5. Month positive (always present)
-  const monthReason = MONTH_POSITIVE[date.getMonth() + 1];
-  if (monthReason) reasons.push(monthReason);
+  // 5. Position-in-month flavor (opening/second-week/mid-month/late) —
+  //    new date-specific signal so a Friday in week 1 of December reads
+  //    different from a Friday in week 4 of the same month.
+  const positionReason = positionInMonthReason(date);
+  if (positionReason) reasons.push(positionReason);
 
   // 6. Sensitive reframes (proactively reframe common concerns)
   reasons.push(...sensitiveReframes(date, ceremonyType));

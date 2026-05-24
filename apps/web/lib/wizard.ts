@@ -53,9 +53,11 @@ export type WizardTaskId =
   | 'reception_venue'
   | 'ceremony_venue'
   | 'officiant'
+  | 'draft_guest_list'
   | 'photography'
   | 'engagement_prenup_shoot'
   | 'catering'
+  | 'customize_food'
   // Phase 2 · Style + Identity (T-9m to T-6m)
   | 'stylist'
   | 'mood_board'
@@ -71,7 +73,9 @@ export type WizardTaskId =
   | 'attire'
   | 'hair_makeup'
   | 'principal_sponsors'
+  | 'finalize_entourage'
   | 'deploy_invitation'
+  | 'second_batch_invitation'
   // Phase 4 · Late additions (T-3m to T-2m)
   | 'cake'
   | 'rings'
@@ -90,12 +94,14 @@ export type WizardTaskId =
   | 'finalize_catering_count'
   | 'honeymoon_planning'
   | 'paprint'
+  | 'all_set_readiness'
   | 'event'
   // Phase 7 · Post-event (T+1d to T+30d)
   | 'send_thank_yous'
   | 'create_reviews'
   | 'download_photos'
-  | 'create_editorial';
+  | 'create_editorial'
+  | 'claim_next_event_reward';
 
 /** Card completion patterns. Drives which inline UI the card renders. */
 export type WizardCardKind =
@@ -213,6 +219,17 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     prerequisites: ['set_wedding_date'],
   },
   {
+    id: 'draft_guest_list',
+    order: 4.5,
+    phase: 'foundation',
+    kind: 'external_process',
+    title: 'Draft your guest list',
+    whyItMatters:
+      "A rough headcount unlocks every count-sensitive vendor pick — catering, cake, seatplan, paprint. You don't need final names yet, just enough to know what scale you're working with.",
+    pillLabel: 'Foundation',
+    prerequisites: ['set_wedding_date'],
+  },
+  {
     id: 'photography',
     order: 5,
     phase: 'foundation',
@@ -244,6 +261,17 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
       'Filipino weddings live or die on the food. Tastings happen 4-6 months out, and the best teams book the same season they were booked the year before.',
     pillLabel: 'Foundation',
     prerequisites: ['reception_venue'],
+  },
+  {
+    id: 'customize_food',
+    order: 7.5,
+    phase: 'foundation',
+    kind: 'external_process',
+    title: 'Customize your food',
+    whyItMatters:
+      'Service style, dietary accommodations, and your tasting date. PH caterers run tastings 3-4 months before the wedding — lock the menu shape now so the tasting is a confirmation, not a discovery.',
+    pillLabel: 'Foundation',
+    prerequisites: ['catering'],
   },
   {
     id: 'stylist',
@@ -280,12 +308,19 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
   },
   {
     id: 'monogram',
-    order: 11,
+    // 2026-05-24 owner directive (flow diagram) · shifted earlier from
+    // order 11 to 4.7 so monogram lands in Foundation tier alongside
+    // draft_guest_list. Reasoning: bespoke monogram has 4-6 week design
+    // lead-time, and it's a hard input to Save-the-Date Video (Card 17),
+    // Website (Card 16), Deploy Invitation (Card 21), and LED Background
+    // (post-event). Phase label kept as 'style_identity' for tier grouping
+    // continuity even though the surface ordering reads Foundation-early.
+    order: 4.7,
     phase: 'style_identity',
     kind: 'data_input',
     title: 'Design your monogram',
     whyItMatters:
-      "Your initials become the visual signature carried across save-the-date, invitations, signage, and the LED background. Two letters · one mark · everywhere.",
+      "Your initials become the visual signature carried across save-the-date, invitations, signage, and the LED background. Two letters · one mark · everywhere — and bespoke monograms need 4-6 weeks of design lead-time.",
     pillLabel: 'Style & Identity',
     prerequisites: [],
   },
@@ -389,6 +424,17 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     prerequisites: [],
   },
   {
+    id: 'finalize_entourage',
+    order: 20.5,
+    phase: 'programming',
+    kind: 'external_process',
+    title: 'Finalize your entourage',
+    whyItMatters:
+      "Your maids of honor · best men · bridesmaids · groomsmen · bearers · flower girls. Their attire is sized from this list, their seats are reserved at family-head tables, and their names appear on every print card you order.",
+    pillLabel: 'Programming',
+    prerequisites: ['principal_sponsors'],
+  },
+  {
     id: 'deploy_invitation',
     order: 21,
     phase: 'programming',
@@ -398,6 +444,17 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
       "Your monogram, your palette, your QR-encoded landing page — invitations carry it all. Each guest receives a personalized link that drives them to RSVP and discover the day.",
     pillLabel: 'Programming',
     prerequisites: ['set_wedding_date', 'reception_venue', 'ceremony_venue', 'create_website', 'principal_sponsors'],
+  },
+  {
+    id: 'second_batch_invitation',
+    order: 21.5,
+    phase: 'programming',
+    kind: 'external_process',
+    title: 'Send the second-batch invitation',
+    whyItMatters:
+      "About 3 weeks after the first wave, send a second invitation to anyone who hasn't responded — plus any late-additions you missed. Filipino guests often wait for the second nudge before locking their RSVP.",
+    pillLabel: 'Programming',
+    prerequisites: ['deploy_invitation'],
   },
   {
     id: 'cake',
@@ -543,6 +600,17 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     prerequisites: ['finalize_seatplan'],
   },
   {
+    id: 'all_set_readiness',
+    order: 33.5,
+    phase: 'final_month',
+    kind: 'external_process',
+    title: "Confirm you're all set",
+    whyItMatters:
+      "Final readiness checkpoint before day-of mode activates. Walk through every section · fix any last-minute gap · graduate to live with confidence.",
+    pillLabel: 'Final month',
+    prerequisites: ['finalize_rsvp', 'finalize_seatplan', 'finalize_catering_count', 'paprint'],
+  },
+  {
     id: 'event',
     order: 34,
     phase: 'final_month',
@@ -596,6 +664,17 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
       "Thirty days after the wedding, your event becomes a magazine-style story shared on setnayan.com. Opt in to inspire other couples, or keep it private — your call.",
     pillLabel: 'Post-event',
     prerequisites: ['event'],
+  },
+  {
+    id: 'claim_next_event_reward',
+    order: 38.5,
+    phase: 'post_event',
+    kind: 'external_process',
+    title: 'Claim your next-event reward',
+    whyItMatters:
+      "Setnayan is built for every life event, not just weddings. As a thank-you for shipping a full wedding with us, your next event starts with a head-start credit. Anniversaries · christenings · birthdays · debuts — all yours.",
+    pillLabel: 'Post-event',
+    prerequisites: ['create_editorial'],
   },
 ] as const;
 

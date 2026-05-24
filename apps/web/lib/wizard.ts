@@ -53,6 +53,7 @@ export type WizardTaskId =
   | 'reception_venue'
   | 'ceremony_venue'
   | 'officiant'
+  | 'coordinator'
   | 'draft_guest_list'
   | 'photography'
   | 'engagement_prenup_shoot'
@@ -62,6 +63,7 @@ export type WizardTaskId =
   | 'stylist'
   | 'mood_board'
   | 'lights_sound'
+  | 'led_background'
   | 'monogram'
   | 'music_entertainment'
   | 'host_mc'
@@ -74,6 +76,7 @@ export type WizardTaskId =
   | 'hair_makeup'
   | 'principal_sponsors'
   | 'finalize_entourage'
+  | 'invitations_stationery'
   | 'deploy_invitation'
   | 'second_batch_invitation'
   // Phase 4 · Late additions (T-3m to T-2m)
@@ -156,7 +159,24 @@ export type WizardTask = {
 };
 
 /**
- * Canonical 38-task sequence locked in CLAUDE.md Sixth 2026-05-23 row.
+ * Canonical 48-task sequence — reconciled 2026-05-24 against the shipped
+ * code (45 was the drifted count caught by owner via "today's focus has
+ * 38 while actual task is 41" report) + extended with 3 cards to align
+ * Today's Focus + Parallel Work Map + Your Plan grid surfaces per owner
+ * directive "make sure today's focus, your parallel work map and 23
+ * things to lock in all give out the same output and control on
+ * preparing a wedding."
+ *
+ * The 3 alignment cards (coordinator · led_background ·
+ * invitations_stationery) fill PLAN_GROUPS cells that previously had no
+ * Today's Focus entry point — couples could see them on the Plan grid
+ * but had no guided path through the wizard. Canonical lock now 48 tasks
+ * matching the Plan grid's 23 vendor-pick categories (the wizard's
+ * remaining 25 tasks are planning + legal + finalization + post-event
+ * tasks that don't have plan-group cells by design).
+ *
+ * Original canonical 38-task sequence locked in CLAUDE.md Sixth
+ * 2026-05-23 row.
  *
  * Foundation tier (Reception → Ceremony → Officiant → Photographer →
  * Prenup → Caterer) is the load-bearing PH-wedding-planning order · venue
@@ -215,6 +235,26 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     title: 'Lock your officiant',
     whyItMatters:
       'The voice of your ceremony. Priests, ministers, and judges book months ahead; locking yours early is what makes the paperwork chain start moving.',
+    pillLabel: 'Foundation',
+    prerequisites: ['set_wedding_date'],
+  },
+  {
+    // Added 2026-05-24 to align with PLAN_GROUPS.coordinator. Owner directive:
+    // "make sure today's focus, your parallel work map and 23 things to lock
+    // in all give out the same output and control on preparing a wedding."
+    // The Plan grid was already surfacing a Coordinator cell tied to
+    // category='planner_coordinator' but the wizard had no card pointing at
+    // it — the entry point couples reach via Today's Focus carousel was
+    // missing. Coordinator sits in the foundation tier because they ratify
+    // the timeline + vendor lock order + interleave their site visits per
+    // CLAUDE.md 2026-05-24 row 1's coordinator-scheduled-meetings primitive.
+    id: 'coordinator',
+    order: 4.2,
+    phase: 'foundation',
+    kind: 'vendor_pick',
+    title: 'Lock your wedding coordinator',
+    whyItMatters:
+      "The conductor of your day. Coordinators book 9-12 months ahead and they're the one who keeps every vendor on time on the wedding day. Lock yours early — they'll help you finalize the rest.",
     pillLabel: 'Foundation',
     prerequisites: ['set_wedding_date'],
   },
@@ -303,6 +343,23 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     title: 'Lock your lights & sound',
     whyItMatters:
       'Reception lighting and sound shape the whole atmosphere. PA + lights setup is technical — book 4-6 months out and confirm the venue power supply.',
+    pillLabel: 'Style & Identity',
+    prerequisites: ['reception_venue'],
+  },
+  {
+    // Added 2026-05-24 to align with PLAN_GROUPS.led_background. Owner
+    // directive: same as coordinator entry above — the Plan grid had a cell
+    // for LED background (category='led_screens') but no Today's Focus card
+    // pointed at it. Iteration 0005 LED Background Maker is the offline
+    // template flow; this card is the vendor-pick precursor for couples
+    // sourcing an LED-screen rental vendor.
+    id: 'led_background',
+    order: 10.5,
+    phase: 'style_identity',
+    kind: 'vendor_pick',
+    title: 'Lock your LED background',
+    whyItMatters:
+      "The LED wall behind your stage shapes every photo from the reception. 8K rentals book 3-4 months out and the template upload happens via the offline USB pipeline a week before — lock the vendor first so they can quote the setup.",
     pillLabel: 'Style & Identity',
     prerequisites: ['reception_venue'],
   },
@@ -433,6 +490,24 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
       "Your maids of honor · best men · bridesmaids · groomsmen · bearers · flower girls. Their attire is sized from this list, their seats are reserved at family-head tables, and their names appear on every print card you order.",
     pillLabel: 'Programming',
     prerequisites: ['principal_sponsors'],
+  },
+  {
+    // Added 2026-05-24 to align with PLAN_GROUPS.invitations_stationery.
+    // Owner directive: surface a vendor-pick card for the stationery
+    // designer/printer SEPARATE from deploy_invitation (which is the
+    // action of sending invitations, not the vendor lock). Stationery
+    // vendors design + print the physical or digital cards; some couples
+    // hire one vendor for both, others split. Lock vendor before deploy
+    // so they have time to design + proof + print.
+    id: 'invitations_stationery',
+    order: 20.7,
+    phase: 'programming',
+    kind: 'vendor_pick',
+    title: 'Lock your invitations & stationery',
+    whyItMatters:
+      "Your save-the-date · main invitation · entourage cards · place cards · menus · thank-you notes — all designed and printed by one vendor (or sourced separately). Lock yours after sponsors + entourage finalize so the design lands their names correctly.",
+    pillLabel: 'Programming',
+    prerequisites: ['finalize_entourage'],
   },
   {
     id: 'deploy_invitation',

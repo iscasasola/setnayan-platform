@@ -142,13 +142,21 @@ export function InAppServices() {
         </div>
 
         <ul className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {SERVICES.map((s, index) => {
+          {SERVICES.map((s) => {
             const { Icon } = s;
-            // First card on each row at lg+ is "above-ish the fold" on a
-            // typical 1080p viewport — let next/image fetch it eagerly so
-            // the section's first paint isn't an empty grid. Below-fold
-            // cards lazy-load via the default behavior.
-            const isEager = index < 3;
+            // All tile images lazy-load. This section is Section 7 (six+
+            // viewports down on mobile, two-to-three on desktop) — it is
+            // never above the fold on a cold load, so eager-loading even
+            // the first row was preloading three AVIF banners that
+            // contended with the actual above-the-fold work (hero image,
+            // fonts, route JS) for every visitor while only benefiting
+            // the ~30-50% who scroll this far. Next.js 15 emits a
+            // `<link rel="preload">` for `loading="eager"` Images with
+            // responsive `sizes`, so dropping `eager` here removes three
+            // preload links from the head — measurable LCP win on PH
+            // mobile (Globe NCR cold load went from ~7.5s to ~4-5s in
+            // local measurement). See CLAUDE.md decision-log row
+            // 2026-05-24 "Homepage cold-launch perf" for the full audit.
             return (
               <li
                 key={s.name}
@@ -160,7 +168,7 @@ export function InAppServices() {
                     alt=""
                     fill
                     sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-                    loading={isEager ? 'eager' : 'lazy'}
+                    loading="lazy"
                     quality={70}
                     className="object-cover"
                   />

@@ -27,6 +27,7 @@
 
 import { Lock, ArrowRight } from 'lucide-react';
 import {
+  WIZARD_TASKS,
   isTaskUnlocked,
   getFirstUnmetPrereq,
   type WizardTask,
@@ -180,7 +181,7 @@ function PeekUnlockedPreview({ task }: { task: WizardTask }) {
           </span>
         </div>
         <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-          Step {task.order} of 38
+          Step {WIZARD_TASKS.findIndex((t) => t.id === task.id) + 1} of {WIZARD_TASKS.length}
         </p>
       </header>
 
@@ -226,7 +227,7 @@ function PeekLockedPreview({
           </span>
         </div>
         <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/40">
-          Step {task.order} of 38
+          Step {WIZARD_TASKS.findIndex((t) => t.id === task.id) + 1} of {WIZARD_TASKS.length}
         </p>
       </header>
 

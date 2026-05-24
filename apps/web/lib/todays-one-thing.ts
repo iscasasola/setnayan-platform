@@ -245,10 +245,9 @@ type Candidate = {
  * Lower number = wins the tiebreak. Categories not in this map fall
  * through to the existing monthsBefore tiebreak.
  *
- * The same canonical ordering lives in `next-steps.ts` via PHASE_ORDER
- * (reception_venue:0, ceremony_venue:1, coordinator:2) — verified to
- * already-be-correct via `compareSteps` + `rankWithinBucket` at lines
- * 1046-1085 of that file, so this fix is local to Today's One Thing.
+ * The Next 15 Steps ladder that historically duplicated this ordering
+ * was removed 2026-05-24 (owner directive) — this map is now the sole
+ * authority for foundation-card priority on the home surface.
  */
 const FOUNDATION_PRIORITY: Partial<Record<PlanGroupId, number>> = {
   reception_venue: 1,

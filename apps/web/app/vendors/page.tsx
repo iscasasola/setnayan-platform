@@ -242,9 +242,10 @@ type Props = {
      *  query silently — only the FILTER UI is hidden.
      *
      *  Set by `buildPlanGroupSearchHref` in `lib/wedding-plan-groups.ts`
-     *  (used by 4 in-dashboard surfaces: planning-groups [Search] +
-     *  todays-one-thing CTA + next-steps CTA + event-home-detail-pane
-     *  Browse vendors button). Direct visits to /vendors (top-nav
+     *  (used by 3 in-dashboard surfaces: planning-groups [Search] +
+     *  todays-one-thing CTA + event-home-detail-pane Browse vendors
+     *  button — the next-steps CTA was removed 2026-05-24). Direct
+     *  visits to /vendors (top-nav
      *  Browse, sitemap, /weddings, /venue, /waitlist, /not-found, etc.)
      *  never set this param so the full chrome renders unchanged. */
     from?: string;
@@ -487,9 +488,10 @@ function parseFilters(
   // Owner directive 2026-05-22 — focused-mode flag. Only one accepted
   // value (`plan`) so a typo or future surface adding another `from=`
   // value doesn't accidentally trip the chrome-stripped layout. Set by
-  // 4 in-dashboard surfaces (planning cards Search, todays-one-thing,
-  // next-steps, event-home-detail-pane Browse vendors) via the canonical
-  // buildPlanGroupSearchHref helper. Direct visits never set it.
+  // 3 in-dashboard surfaces (planning cards Search, todays-one-thing,
+  // event-home-detail-pane Browse vendors) via the canonical
+  // buildPlanGroupSearchHref helper — the next-steps surface was
+  // removed 2026-05-24. Direct visits never set it.
   const focusedMode = (raw.from ?? '').trim() === 'plan';
   return {
     q,

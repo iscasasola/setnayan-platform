@@ -58,6 +58,11 @@ import { MarriageLicenseCard } from './wizard-cards/marriage-license-card';
 import { SendThankYousCard } from './wizard-cards/send-thank-yous-card';
 import { CreateReviewsCard } from './wizard-cards/create-reviews-card';
 import { DownloadPhotosCard } from './wizard-cards/download-photos-card';
+// WAVE 1 PR C — Cards 34 Event + 38 Editorial transitions.
+// Card 14 Photobooths multi-pick deferred to WAVE 2 (needs primitive
+// extension for multi-vendor locking without auto-advance).
+import { EventCard } from './wizard-cards/event-card';
+import { CreateEditorialCard } from './wizard-cards/create-editorial-card';
 import { PlaceholderCardBody } from './wizard-cards/placeholder-card-body';
 
 type Props = {
@@ -314,6 +319,12 @@ function renderCardBody(
       return <CreateReviewsCard eventId={ctx.eventId} />;
     case 'download_photos':
       return <DownloadPhotosCard eventId={ctx.eventId} />;
+    // WAVE 1 PR C · Cards 34 Event + 38 Editorial. Card 14 Photobooths
+    // multi-pick deferred to WAVE 2.
+    case 'event':
+      return <EventCard eventId={ctx.eventId} eventDate={ctx.eventDate} />;
+    case 'create_editorial':
+      return <CreateEditorialCard eventId={ctx.eventId} />;
     default:
       return <PlaceholderCardBody taskId={taskId} />;
   }

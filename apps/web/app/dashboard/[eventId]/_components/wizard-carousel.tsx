@@ -92,8 +92,21 @@ export function WizardCarousel({
                                         page, so a fast swipe doesn't
                                         rubber-band the body
             · `touch-pan-x` (per li)  — explicit horizontal pan affordance
-                                        so iOS Safari doesn't accidentally
-                                        capture as vertical scroll */}
+                                        so iOS Safari handles both
+                                        horizontal carousel swipe AND
+                                        vertical page scroll cleanly.
+                                        2026-05-24 mobile-scroll-lock fix:
+                                        was `touch-pan-x` which BLOCKED
+                                        vertical pan inside the card —
+                                        after tapping a calendar day in
+                                        Card 01, iOS would lock vertical
+                                        page scroll until the next clean
+                                        gesture. `touch-manipulation`
+                                        (touch-action: manipulation) allows
+                                        pan-x + pan-y + pinch-zoom; the
+                                        only thing it disables is the
+                                        300ms double-tap-zoom delay, which
+                                        is fine for app UI. */}
       <div className="-mx-4 sm:-mx-6 lg:mx-0">
         <ul className="flex snap-x snap-mandatory scroll-smooth overscroll-x-contain gap-3 overflow-x-auto scroll-px-4 px-4 pb-4 sm:scroll-px-6 sm:px-6 sm:gap-4 lg:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           {/* ACTIVE card · first slot · full inline-completion body.
@@ -110,7 +123,7 @@ export function WizardCarousel({
            *      to shrink properly (fixes long-text overflow that
            *      would otherwise force horizontal scroll inside the
            *      card itself) */}
-          <li className="snap-start snap-always shrink-0 basis-full max-w-full min-w-0 touch-pan-x">
+          <li className="snap-start snap-always shrink-0 basis-full max-w-full min-w-0 touch-manipulation">
             <WizardCard task={activeTask}>{activeCardBody}</WizardCard>
           </li>
 
@@ -130,7 +143,7 @@ export function WizardCarousel({
             return (
               <li
                 key={task.id}
-                className="snap-start snap-always shrink-0 basis-full max-w-full min-w-0 touch-pan-x"
+                className="snap-start snap-always shrink-0 basis-full max-w-full min-w-0 touch-manipulation"
               >
                 {body ? (
                   // Preview-all-cards mode · render the same active card

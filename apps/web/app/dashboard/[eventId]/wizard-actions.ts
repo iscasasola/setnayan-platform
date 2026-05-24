@@ -336,6 +336,13 @@ const VENDOR_PICK_CATEGORY: Partial<Record<WizardTaskId, string>> = {
   stylist: 'reception_decor',
   lights_sound: 'lights_and_sound',
   music_entertainment: 'band_dj',
+  // 2026-05-25 owner directive ("finding after party band/dj is gone").
+  // Late-night after-party DJ · same legacy `band_dj` bucket as
+  // music_entertainment but separately tracked via wizard task_id so
+  // both cards lock independently. Hard-single conflict allowed across
+  // band_dj because event_vendors.source_task_id differentiates the
+  // two picks. Real canonical filter at card level is `dj` only.
+  after_party_music: 'band_dj',
   host_mc: 'host_emcee',
   // 2026-05-24 PR (b) stage 1 · `gown_designer` renamed to `bridal_gown`
   // per migration 20260621000000. Lock action writes the new canonical to
@@ -360,6 +367,7 @@ const VENDOR_PICK_TASK_IDS: ReadonlyArray<WizardTaskId> = [
   'stylist',
   'lights_sound',
   'music_entertainment',
+  'after_party_music',
   'host_mc',
   'attire',
   'hair_makeup',

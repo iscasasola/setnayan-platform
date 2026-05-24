@@ -68,6 +68,15 @@ export type WizardTaskId =
   | 'led_background'
   | 'monogram'
   | 'music_entertainment'
+  // 2026-05-25 owner directive ("finding after party band/dj is gone"):
+  // dedicated card for the after-party DJ that runs the late-night dance
+  // floor block. Different vibe + different DJ + different playlist from
+  // the primary band/DJ booked via music_entertainment. Soft prereq:
+  // music_entertainment locked first so the host has the main act before
+  // they think about the after-block. Canonical filter mirrors v11
+  // taxonomy entry for `dj` (the post-reception block is overwhelmingly
+  // DJ-driven · live bands rarely cover both reception + after-party).
+  | 'after_party_music'
   | 'host_mc'
   | 'photobooths_booths'
   | 'pakanta'
@@ -939,6 +948,30 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
       "First dance · parents-and-couple dance · entourage choreography. Lessons typically run 2-3 months pre-wedding, so locking the instructor at T-4 months means you have time to learn (and to stop sweating it). Most PH choreographers come to your venue or studio.",
     pillLabel: 'Style & Identity',
     prerequisites: ['set_wedding_date'],
+  },
+  {
+    // Added 2026-05-25 (owner directive · "finding after party band/dj
+    // is gone"). PH weddings increasingly run a late-night after-party
+    // block once the formal reception ends · couples often want a
+    // separate DJ to carry that vibe (high-energy dance floor music)
+    // distinct from the dinner-program performer (live band · acoustic
+    // act · cultural ensemble). Soft prereq on music_entertainment so
+    // hosts lock the primary act first. Canonical filter narrows to
+    // `dj` only — the after-party block is overwhelmingly DJ-driven,
+    // live bands rarely cover both the formal reception + the late-night
+    // block, and reusing the primary canonical set would surface the
+    // exact same vendor list as Card 12. Hard floor T-1m: most DJs hold
+    // a date with 2-4 weeks notice for an after-party slot if their
+    // calendar is clear.
+    id: 'after_party_music',
+    order: 12.5,
+    phase: 'style_identity',
+    kind: 'vendor_pick',
+    title: 'Lock your after-party DJ',
+    whyItMatters:
+      'The formal reception ends · the after-party begins. A different vibe · different DJ · different playlist for the late-night dance floor. Most couples lock 4-6 weeks before the wedding once the reception program is set.',
+    pillLabel: 'Style & Identity',
+    prerequisites: ['music_entertainment'],
   },
   {
     id: 'accommodation',

@@ -214,15 +214,31 @@ export function SetWeddingDateCard({
     () => computeAuspiciousReasonsDetailed(selectedDate, ceremonyType, meaningfulDates),
     [selectedDate, ceremonyType, meaningfulDates],
   );
-  // Flat summary list · top N reasons in surface order (personal first,
-  // then numerology, then ceremony/special/cultural/practical).
+  // 2026-05-24 owner directive: each date must show 5 distinct things,
+  // and adjacent dates must read distinctly. Round-robin selection
+  // across categories (instead of first-N-in-priority-order) guarantees
+  // the summary pulls from multiple layers — so the host always sees a
+  // mix of numerology + astrology + cultural framings, not all from one
+  // bucket. Each category's variant indexing already ensures adjacent
+  // dates pull different framings.
   const summaryReasons = useMemo(() => {
     const flat: string[] = [];
-    for (const g of reasonGroups) {
-      for (const r of g.reasons) {
-        flat.push(r);
-        if (flat.length >= SUMMARY_REASON_CAP) return flat;
+    if (reasonGroups.length === 0) return flat;
+    const cursors: number[] = reasonGroups.map(() => 0);
+    let safetyBound = SUMMARY_REASON_CAP * reasonGroups.length + 1;
+    while (flat.length < SUMMARY_REASON_CAP && safetyBound-- > 0) {
+      let pickedThisPass = false;
+      for (let gIdx = 0; gIdx < reasonGroups.length; gIdx++) {
+        const g = reasonGroups[gIdx]!;
+        const c = cursors[gIdx]!;
+        if (c < g.reasons.length) {
+          flat.push(g.reasons[c]!);
+          cursors[gIdx] = c + 1;
+          pickedThisPass = true;
+          if (flat.length >= SUMMARY_REASON_CAP) break;
+        }
       }
+      if (!pickedThisPass) break; // every group exhausted
     }
     return flat;
   }, [reasonGroups]);

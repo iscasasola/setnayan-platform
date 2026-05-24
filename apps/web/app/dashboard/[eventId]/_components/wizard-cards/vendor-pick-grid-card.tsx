@@ -89,6 +89,34 @@ function readColumnCount(): number {
   }
   return 1;
 }
+
+/** Haversine distance in km between two lat/lng pairs. Used by the
+ *  distance-filter mode on Card 03 ceremony venue. */
+function haversineKm(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+): number {
+  const R = 6371; // mean Earth radius (km)
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.asin(Math.sqrt(a));
+}
+
+/** Distance filter step (km) for the +/- stepper. */
+const DISTANCE_STEP_KM = 5;
+/** Hard floor / ceiling for the distance stepper. 5 km too narrow for
+ *  most Filipino venue+church pairs · 100 km too wide for the spirit
+ *  of "near my reception". These are couple-friendly bounds. */
+const DISTANCE_MIN_KM = 5;
+const DISTANCE_MAX_KM = 100;
 import type { WizardTaskId } from '@/lib/wizard';
 import type { WizardVendorRec } from '@/lib/wizard-recommendations';
 import {
@@ -130,6 +158,27 @@ type Props = {
     /** Hint shown when no recommendations exist for the event's filters. */
     emptyStateCopy: string;
   };
+  /** OPTIONAL distance-from-reference filter mode. When present:
+   *    · The city dropdown is HIDDEN (replaced by the +/- distance
+   *      stepper)
+   *    · Recommendations are filtered client-side by haversine distance
+   *      from the reference point (typically the host's locked
+   *      reception venue · supplied by the parent card)
+   *    · Vendors without lat/lng pass through unfiltered (treated as
+   *      "unknown location, don't hide")
+   *  When absent (default), the legacy city dropdown stays the only
+   *  location filter. Card 03 ceremony venue uses this; Card 02
+   *  reception venue does not. */
+  distanceFilter?: {
+    referenceLat: number;
+    referenceLng: number;
+    /** Initial distance value the stepper renders with (default 15 km
+     *  per 2026-05-24 owner directive for Card 03). */
+    initialKm: number;
+    /** Reference label shown beside the stepper · "Reception Venue"
+     *  for Card 03. */
+    referenceLabel: string;
+  };
 };
 
 export function VendorPickGridCard({
@@ -138,6 +187,7 @@ export function VendorPickGridCard({
   initialRecommendations,
   searchContext,
   copy,
+  distanceFilter,
 }: Props) {
   /* ─────────────────────────────  state  ───────────────────────────── */
 
@@ -162,7 +212,19 @@ export function VendorPickGridCard({
   // clear. Combined with the search bar: search narrows by name/city/
   // tagline server-side, then the city filter narrows again client-side
   // to one specific city. Both can be active together.
+  // NOTE · Card 03 ceremony venue uses the distance filter INSTEAD of
+  // the city dropdown. When `distanceFilter` is set, the city UI is
+  // hidden and this state stays at its default sentinel.
   const [selectedCity, setSelectedCity] = useState<string>(ALL_CITIES_SENTINEL);
+
+  // Distance-from-reference filter · only active when the parent passes
+  // a `distanceFilter` prop (Card 03 ceremony venue, anchored at the
+  // host's locked reception venue). Initial value comes from the prop
+  // (15 km per 2026-05-24 owner directive). Stepper bumps by
+  // DISTANCE_STEP_KM, clamped to [DISTANCE_MIN_KM, DISTANCE_MAX_KM].
+  const [distanceKm, setDistanceKm] = useState<number>(
+    distanceFilter?.initialKm ?? DISTANCE_MAX_KM,
+  );
 
   // Pagination · client-side · resets to page 0 whenever results change.
   const [pageIndex, setPageIndex] = useState(0);
@@ -226,15 +288,32 @@ export function VendorPickGridCard({
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'en-PH'));
   }, [results]);
 
-  // Apply the city filter client-side. When the picker is on the sentinel
-  // "all cities" value, this is a passthrough. The downstream pagination
-  // math operates on this filtered slice so page counts adjust correctly.
+  // Apply EITHER the distance filter (Card 03 mode) OR the city filter
+  // (Card 02 mode) · the two filters are mutually exclusive by design.
+  // Vendors without lat/lng pass through the distance filter
+  // (treated as "unknown location, don't hide") so we don't drop
+  // off-platform vendors that lack hq coordinates. Downstream
+  // pagination math operates on this filtered slice so page counts
+  // adjust correctly.
   const filteredResults = useMemo(() => {
+    if (distanceFilter) {
+      const { referenceLat, referenceLng } = distanceFilter;
+      return results.filter((r) => {
+        if (r.hq_latitude == null || r.hq_longitude == null) return true;
+        const km = haversineKm(
+          referenceLat,
+          referenceLng,
+          r.hq_latitude,
+          r.hq_longitude,
+        );
+        return km <= distanceKm;
+      });
+    }
     if (selectedCity === ALL_CITIES_SENTINEL) return results;
     return results.filter(
       (r) => (r.location_city ?? '').trim() === selectedCity,
     );
-  }, [results, selectedCity]);
+  }, [results, selectedCity, distanceFilter, distanceKm]);
 
   /* ───────────────────  pagination derivation  ────────────────────── */
 
@@ -430,13 +509,59 @@ export function VendorPickGridCard({
       </form>
       ) : null}
 
+      {/* Distance-from-reference stepper · 2026-05-24 owner directive
+          for Card 03 ceremony venue. Replaces the city dropdown when
+          `distanceFilter` is set on the parent. Hidden during comparing
+          mode (the side-by-side panel owns the surface). */}
+      {compareState.mode !== 'comparing' && distanceFilter ? (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-ink/10 bg-white px-3 py-2">
+          <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+            <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+            Distance from {distanceFilter.referenceLabel}
+          </span>
+          <div className="ml-auto inline-flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                setDistanceKm((km) =>
+                  Math.max(DISTANCE_MIN_KM, km - DISTANCE_STEP_KM),
+                )
+              }
+              disabled={distanceKm <= DISTANCE_MIN_KM}
+              aria-label={`Decrease distance by ${DISTANCE_STEP_KM} km`}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-ink/15 bg-cream text-ink transition-colors hover:bg-terracotta/10 hover:border-terracotta/30 focus:outline-none focus:ring-2 focus:ring-terracotta/30 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <span aria-hidden className="text-base font-medium">−</span>
+            </button>
+            <span className="min-w-[3.5rem] text-center text-sm font-semibold text-ink tabular-nums">
+              {distanceKm} km
+            </span>
+            <button
+              type="button"
+              onClick={() =>
+                setDistanceKm((km) =>
+                  Math.min(DISTANCE_MAX_KM, km + DISTANCE_STEP_KM),
+                )
+              }
+              disabled={distanceKm >= DISTANCE_MAX_KM}
+              aria-label={`Increase distance by ${DISTANCE_STEP_KM} km`}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-ink/15 bg-cream text-ink transition-colors hover:bg-terracotta/10 hover:border-terracotta/30 focus:outline-none focus:ring-2 focus:ring-terracotta/30 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <span aria-hidden className="text-base font-medium">+</span>
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {/* City filter · derived from the current result set so the
           dropdown only offers cities with actual vendors. Native
           <select> works on both mobile (OS-native picker sheet) and
           desktop (dropdown) per the responsive-by-default rule. Hidden
           when result set has 0 or 1 cities — nothing to filter. Also
-          hidden during full comparing mode. */}
-      {compareState.mode !== 'comparing' && cityOptions.length > 1 ? (
+          hidden during full comparing mode AND when distanceFilter is
+          active (the two filters are mutually exclusive · Card 03 uses
+          the stepper above). */}
+      {compareState.mode !== 'comparing' && !distanceFilter && cityOptions.length > 1 ? (
         <div className="flex items-center gap-2">
           <label
             htmlFor="vendor-grid-city-filter"
@@ -567,7 +692,14 @@ export function VendorPickGridCard({
             );
           })}
         </ul>
-      ) : compareState.mode === 'comparing' ? null : selectedCity !== ALL_CITIES_SENTINEL ? (
+      ) : compareState.mode === 'comparing' ? null : distanceFilter && filteredResults.length === 0 && results.length > 0 ? (
+        <p className="rounded-xl border border-dashed border-ink/15 bg-white/40 px-4 py-6 text-center text-sm leading-relaxed text-ink/70">
+          No {copy.pluralNoun} within{' '}
+          <strong className="font-medium text-ink">{distanceKm} km</strong> of your{' '}
+          {distanceFilter.referenceLabel.toLowerCase()}. Try widening the distance
+          — or add yours below.
+        </p>
+      ) : selectedCity !== ALL_CITIES_SENTINEL ? (
         <p className="rounded-xl border border-dashed border-ink/15 bg-white/40 px-4 py-6 text-center text-sm leading-relaxed text-ink/70">
           No {copy.pluralNoun} in <strong className="font-medium text-ink">{selectedCity}</strong>{' '}
           right now. Try another city — or add yours below.

@@ -54,6 +54,13 @@ export type WizardVendorRec = {
    *  badge. Read from `vendor_profiles.verification_state` (separate
    *  column from `public_visibility`). */
   verification_state: string | null;
+  /** Vendor HQ location · drives the Card 03 ceremony-venue distance
+   *  filter (kms from the host's locked reception venue). Pulled from
+   *  vendor_market_stats.hq_latitude / hq_longitude. Null when the
+   *  vendor profile hasn't set a location · those rows pass through
+   *  any distance filter unfiltered (treated as "unknown, don't hide"). */
+  hq_latitude: number | null;
+  hq_longitude: number | null;
 };
 
 type Args = {
@@ -101,7 +108,7 @@ export async function fetchWizardVendorRecommendations(
   let query = admin
     .from('vendor_market_stats')
     .select(
-      'vendor_profile_id,business_name,business_slug,logo_url,tagline,location_city,avg_rating_overall,review_count,ad_rank,public_visibility,compatible_ceremony_types,compatible_venue_settings',
+      'vendor_profile_id,business_name,business_slug,logo_url,tagline,location_city,avg_rating_overall,review_count,ad_rank,public_visibility,compatible_ceremony_types,compatible_venue_settings,hq_latitude,hq_longitude',
     )
     .in('public_visibility', ['verified', 'coming_soon'])
     .not('business_name', 'is', null)

@@ -923,10 +923,20 @@ export default async function EventHomePage({
       const empty: { data: CompatRow[] } = { data: [] };
       if (marketplaceIds.length === 0) return empty;
       try {
+        // 2026-05-24 fix: column is named `location_city` per iteration
+        // 0022 migration 20260513120000_iteration_0022_vendor_dashboard.sql,
+        // NOT `city`. The bad column name returned a PostgREST 400 on
+        // every event-home render where marketplaceIds.length > 0
+        // (existing events with picks) — the iterator at line ~1030 used
+        // `?? []` so the iteration didn't crash, but every map row landed
+        // with city=null AND emitted a 400 in Sentry breadcrumbs on every
+        // page render. Aliasing `location_city AS city` in the SELECT
+        // keeps the downstream CompatRow type + marketplaceCompatMap key
+        // unchanged while the query actually returns data.
         return await adminClient
           .from('vendor_profiles')
           .select(
-            'vendor_profile_id, compatible_ceremony_types, compatible_venue_settings, logo_url, business_name, city',
+            'vendor_profile_id, compatible_ceremony_types, compatible_venue_settings, logo_url, business_name, city:location_city',
           )
           .in('vendor_profile_id', marketplaceIds);
       } catch (caught) {

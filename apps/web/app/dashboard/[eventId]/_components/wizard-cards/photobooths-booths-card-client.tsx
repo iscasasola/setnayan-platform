@@ -3,20 +3,38 @@
 /**
  * Card 14 Photobooths + Booths · client UI · multi-pick variant.
  *
- * The host can lock multiple booth vendors (mix of photobooth + mobile_bar
- * categories) without the wizard auto-advancing. Each [Lock] click calls
- * lockBoothToEvent which inserts an event_vendors row but does NOT touch
- * wizard_state. The host clicks [I have all the booths I need] to advance
- * via the generic markTaskDone server action.
+ * 2026-05-25 (this commit) · the host now sees a labeled section PER
+ * canonical sub-type (Cocktail bars · Photobooths · Coffee stations ·
+ * Perfume bars · etc.) rather than two coarse buckets. Each section
+ * carries its own short list of top-rated vendors with a [Lock] CTA.
+ *
+ * Same-sub-type compare gate · the picked-list summary now groups
+ * locked booths by their booth_subtype snapshot (BOOTH_SUBTYPE:<canonical>
+ * in notes) so a host who locked 1 photobooth + 1 cocktail bar + 1
+ * coffee station sees three distinct groups instead of one mashed
+ * "you've locked 3 booths" pile. Mirrors the owner directive
+ * "only compare if same like photobooth to photobooth, cocktail bar to
+ * cocktail bar, coffee station to coffee station" inside the booths
+ * card's own multi-pick UX (the broader PlanCardCompare drawer doesn't
+ * mount this card).
+ *
+ * The host can lock multiple booth vendors (mix of any sub-type) without
+ * the wizard auto-advancing. Each [Lock] click calls lockBoothToEvent
+ * which inserts an event_vendors row (mapping the canonical sub-type to
+ * the coarse photobooth / mobile_bar enum + snapshotting the canonical
+ * into notes) but does NOT touch wizard_state. The host clicks [I have
+ * all the booths I need] to advance via the generic markTaskDone server
+ * action.
  *
  * Layout sections, top → bottom:
- *   1. Picked list — if the host has already locked any booths, surface a
- *      grouped summary (photobooths · bars) so they remember what's in.
- *   2. Photobooth recommendations (top 5) — Lock buttons stay on Card 14.
- *   3. Mobile-bar recommendations (top 5) — same.
- *   4. Custom booth form — toggle reveals an inline form for off-platform
- *      vendors. Category picker required (photobooth vs mobile_bar).
- *   5. [I have all the booths I need] CTA — calls markTaskDone with
+ *   1. Picked list — if the host has already locked any booths, surface
+ *      a per-sub-type grouped summary so they remember what's in.
+ *   2. Per-canonical recommendation sections — only renders sections
+ *      with ≥1 vendor in range; the rest are collapsed into the custom-
+ *      booth form's category dropdown.
+ *   3. Custom booth form — toggle reveals an inline form for off-platform
+ *      vendors. Category picker required (specific canonical sub-type).
+ *   4. [I have all the booths I need] CTA — calls markTaskDone with
  *      task_id='photobooths_booths'. Below it a polite escape hatch for
  *      hosts who intentionally go booth-less.
  *
@@ -37,41 +55,103 @@ import {
 import type { WizardVendorRec } from '@/lib/wizard-recommendations';
 import { lockBoothToEvent, markTaskDone } from '../../wizard-actions';
 
-type BoothCategory = 'photobooth' | 'mobile_bar';
+export type BoothCategory = 'photobooth' | 'mobile_bar';
+
+export type BoothSubtypeGroup = {
+  /** Canonical_service value (e.g. 'photo_booth', 'mobile_bar', 'coffee_booth'). */
+  canonical: string;
+  /** Human label rendered as the section header (e.g. "Cocktail bars"). */
+  label: string;
+  /** Coarse event_vendors.category value this canonical maps to on lock. */
+  category: BoothCategory;
+  recs: ReadonlyArray<WizardVendorRec>;
+};
 
 type PickedBooth = {
   vendor_id: string;
   vendor_name: string;
   category: BoothCategory;
   marketplace_vendor_id: string | null;
+  /** Canonical sub-type extracted from notes (BOOTH_SUBTYPE:<canonical>).
+   *  null on legacy picks where the snapshot wasn't recorded — those fall
+   *  back to a coarse-category bucket in the picked-list grouping. */
+  booth_subtype: string | null;
 };
 
 type Props = {
   eventId: string;
-  photoboothRecs: ReadonlyArray<WizardVendorRec>;
-  mobileBarRecs: ReadonlyArray<WizardVendorRec>;
+  subtypeGroups: ReadonlyArray<BoothSubtypeGroup>;
   pickedBooths: ReadonlyArray<PickedBooth>;
 };
 
+/**
+ * Best-available section label for the picked-list grouping. If we have
+ * a recorded booth_subtype snapshot we use the matching group's label;
+ * otherwise we fall back to a coarse "Photobooths" / "Cocktail bars &
+ * other stations" label per the legacy category enum.
+ */
+function labelForPickedGroup(
+  groupKey: string,
+  subtypeGroups: ReadonlyArray<BoothSubtypeGroup>,
+): string {
+  if (groupKey === '__photobooth__') return 'Photobooths (unrecorded sub-type)';
+  if (groupKey === '__mobile_bar__') return 'Cocktail bars & stations (unrecorded sub-type)';
+  const group = subtypeGroups.find((g) => g.canonical === groupKey);
+  return group?.label ?? groupKey.replace(/_/g, ' ');
+}
+
+/**
+ * Returns the icon to use for a picked-list group · capture-shaped
+ * sub-types get the Camera glyph, food/beverage sub-types get the Wine
+ * glyph. Falls back to Camera for unknown groups.
+ */
+function iconForGroupKey(groupKey: string): typeof Camera {
+  if (groupKey === '__mobile_bar__') return Wine;
+  const beverages = new Set([
+    'mobile_bar',
+    'coffee_booth',
+    'mocktail_bar',
+    'tea_bar',
+    'whiskey_cigar_bar',
+    'mocktail_booth_mini',
+    'live_cooking_station',
+    'mini_lechon_station',
+    'halo_halo_station',
+    'ice_cream_cart',
+    'sorbetes_cart',
+    'crepe_pancake_station',
+    'dessert_station',
+    'cotton_candy_cart',
+    'donut_wall_display',
+    'food_cart_generic',
+  ]);
+  return beverages.has(groupKey) ? Wine : Camera;
+}
+
 export function PhotoboothsBoothsCardClient({
   eventId,
-  photoboothRecs,
-  mobileBarRecs,
+  subtypeGroups,
   pickedBooths,
 }: Props) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [pendingMarketplaceId, setPendingMarketplaceId] = useState<string | null>(null);
+  const [pendingMarketplaceId, setPendingMarketplaceId] = useState<string | null>(
+    null,
+  );
   const [showCustom, setShowCustom] = useState(false);
   const [isMarkingDone, startMarkDoneTransition] = useTransition();
   const [, startLockTransition] = useTransition();
 
-  function handleLockMarketplace(rec: WizardVendorRec, category: BoothCategory) {
+  function handleLockMarketplace(
+    rec: WizardVendorRec,
+    group: BoothSubtypeGroup,
+  ) {
     setErrorMessage(null);
     setPendingMarketplaceId(rec.vendor_profile_id);
 
     const formData = new FormData();
     formData.set('event_id', eventId);
-    formData.set('booth_category', category);
+    formData.set('booth_category', group.category);
+    formData.set('booth_subtype', group.canonical);
     formData.set('marketplace_vendor_id', rec.vendor_profile_id);
     formData.set('vendor_name', rec.business_name);
 
@@ -109,13 +189,46 @@ export function PhotoboothsBoothsCardClient({
     });
   }
 
-  const photoboothPicks = pickedBooths.filter((b) => b.category === 'photobooth');
-  const barPicks = pickedBooths.filter((b) => b.category === 'mobile_bar');
+  // Build the picked-list grouping. Picks with a recorded booth_subtype
+  // snapshot bucket under that canonical; legacy picks (no snapshot)
+  // bucket under a coarse-category sentinel key.
+  const pickedByGroup = new Map<string, PickedBooth[]>();
+  for (const pick of pickedBooths) {
+    const key =
+      pick.booth_subtype ??
+      (pick.category === 'photobooth' ? '__photobooth__' : '__mobile_bar__');
+    const bucket = pickedByGroup.get(key) ?? [];
+    bucket.push(pick);
+    pickedByGroup.set(key, bucket);
+  }
+  // Ordered groups · honor BOOTH_CANONICALS ordering (via subtypeGroups),
+  // then coarse-category sentinels last.
+  const orderedPickedGroups: Array<{ key: string; picks: PickedBooth[] }> = [];
+  for (const grp of subtypeGroups) {
+    const picks = pickedByGroup.get(grp.canonical);
+    if (picks && picks.length > 0) {
+      orderedPickedGroups.push({ key: grp.canonical, picks });
+    }
+  }
+  for (const sentinel of ['__photobooth__', '__mobile_bar__'] as const) {
+    const picks = pickedByGroup.get(sentinel);
+    if (picks && picks.length > 0) {
+      orderedPickedGroups.push({ key: sentinel, picks });
+    }
+  }
+
+  // Sections to render · skip groups with zero recommendations so the
+  // card stays tight. Empty-state copy below the sections covers the
+  // case where ZERO groups have vendors.
+  const populatedGroups = subtypeGroups.filter((g) => g.recs.length > 0);
+  const totalRecs = populatedGroups.reduce((n, g) => n + g.recs.length, 0);
 
   return (
     <div className="space-y-5">
       {/* Picked summary — surfaces above the recommendation lists so the
-          host sees their progress at a glance. */}
+          host sees their progress at a glance. Grouped by sub-type per the
+          2026-05-25 owner directive ("only compare if same like photobooth
+          to photobooth"). */}
       {pickedBooths.length > 0 ? (
         <div className="rounded-xl border border-emerald-300/50 bg-emerald-50/50 p-4">
           <div className="flex items-center gap-2">
@@ -129,105 +242,94 @@ export function PhotoboothsBoothsCardClient({
               {pickedBooths.length === 1 ? '' : 's'}
             </p>
           </div>
-          <ul className="mt-2 flex flex-wrap gap-2">
-            {photoboothPicks.map((pick) => (
-              <li
-                key={pick.vendor_id}
-                className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/40 bg-white px-3 py-1 text-xs text-ink"
-              >
-                <Camera
-                  aria-hidden
-                  className="h-3 w-3 text-emerald-700"
-                  strokeWidth={2}
-                />
-                {pick.vendor_name}
-              </li>
-            ))}
-            {barPicks.map((pick) => (
-              <li
-                key={pick.vendor_id}
-                className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/40 bg-white px-3 py-1 text-xs text-ink"
-              >
-                <Wine
-                  aria-hidden
-                  className="h-3 w-3 text-emerald-700"
-                  strokeWidth={2}
-                />
-                {pick.vendor_name}
-              </li>
-            ))}
-          </ul>
-          <p className="mt-2 text-xs text-emerald-800/70">
+          <div className="mt-3 space-y-3">
+            {orderedPickedGroups.map((g) => {
+              const Icon = iconForGroupKey(g.key);
+              return (
+                <div key={g.key}>
+                  <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-emerald-800/80">
+                    {labelForPickedGroup(g.key, subtypeGroups)} · {g.picks.length}
+                  </p>
+                  <ul className="mt-1.5 flex flex-wrap gap-2">
+                    {g.picks.map((pick) => (
+                      <li
+                        key={pick.vendor_id}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/40 bg-white px-3 py-1 text-xs text-ink"
+                      >
+                        <Icon
+                          aria-hidden
+                          className="h-3 w-3 text-emerald-700"
+                          strokeWidth={2}
+                        />
+                        {pick.vendor_name}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-3 text-xs text-emerald-800/70">
             Manage these in your Vendors page later if you change your
             mind. Add more below or wrap up with the button at the bottom.
           </p>
         </div>
       ) : null}
 
-      {/* Photobooth section */}
-      <div>
-        <div className="mb-2 flex items-center gap-2">
-          <Camera
-            aria-hidden
-            className="h-3.5 w-3.5 text-terracotta"
-            strokeWidth={2}
-          />
-          <h4 className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-            Photobooths
-          </h4>
+      {/* Per-sub-type recommendation sections. Each section caps at 5 to
+          keep the card scannable; sub-types with zero vendors in range
+          are hidden (the host can still add them via the custom-booth
+          form below if they have an off-platform vendor in mind). */}
+      {populatedGroups.length > 0 ? (
+        <div className="space-y-5">
+          {populatedGroups.map((group) => {
+            const Icon = iconForGroupKey(group.canonical);
+            return (
+              <div key={group.canonical}>
+                <div className="mb-2 flex items-center gap-2">
+                  <Icon
+                    aria-hidden
+                    className="h-3.5 w-3.5 text-terracotta"
+                    strokeWidth={2}
+                  />
+                  <h4 className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+                    {group.label}
+                  </h4>
+                  <span className="ml-1 text-[10px] text-ink/45">
+                    {group.recs.length} vendor{group.recs.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+                <ul className="divide-y divide-ink/10 overflow-hidden rounded-xl border border-ink/10 bg-white/60">
+                  {group.recs.slice(0, 5).map((rec) => (
+                    <BoothRecRow
+                      key={rec.vendor_profile_id}
+                      rec={rec}
+                      subtypeLabel={group.label}
+                      isPending={pendingMarketplaceId === rec.vendor_profile_id}
+                      onLock={() => handleLockMarketplace(rec, group)}
+                    />
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
         </div>
-        {photoboothRecs.length > 0 ? (
-          <ul className="divide-y divide-ink/10 overflow-hidden rounded-xl border border-ink/10 bg-white/60">
-            {photoboothRecs.slice(0, 5).map((rec) => (
-              <BoothRecRow
-                key={rec.vendor_profile_id}
-                rec={rec}
-                category="photobooth"
-                isPending={pendingMarketplaceId === rec.vendor_profile_id}
-                onLock={() => handleLockMarketplace(rec, 'photobooth')}
-              />
-            ))}
-          </ul>
-        ) : (
-          <p className="rounded-xl border border-dashed border-ink/15 bg-white/40 px-4 py-4 text-sm leading-relaxed text-ink/65">
-            No photobooth vendors curated in your area yet. Add yours
-            below — classic, mirror, 360°, slow-mo, polaroid all fit.
-          </p>
-        )}
-      </div>
+      ) : (
+        <p className="rounded-xl border border-dashed border-ink/15 bg-white/40 px-4 py-4 text-sm leading-relaxed text-ink/65">
+          No booth vendors curated in your area yet across any sub-type.
+          Add yours below — photobooths, cocktail bars, coffee stations,
+          perfume bars, sorbetes carts, donut walls, and more all fit.
+        </p>
+      )}
 
-      {/* Mobile-bar / cocktail / coffee / perfume section */}
-      <div>
-        <div className="mb-2 flex items-center gap-2">
-          <Wine
-            aria-hidden
-            className="h-3.5 w-3.5 text-terracotta"
-            strokeWidth={2}
-          />
-          <h4 className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-            Cocktail bars, coffee stations & other booths
-          </h4>
-        </div>
-        {mobileBarRecs.length > 0 ? (
-          <ul className="divide-y divide-ink/10 overflow-hidden rounded-xl border border-ink/10 bg-white/60">
-            {mobileBarRecs.slice(0, 5).map((rec) => (
-              <BoothRecRow
-                key={rec.vendor_profile_id}
-                rec={rec}
-                category="mobile_bar"
-                isPending={pendingMarketplaceId === rec.vendor_profile_id}
-                onLock={() => handleLockMarketplace(rec, 'mobile_bar')}
-              />
-            ))}
-          </ul>
-        ) : (
-          <p className="rounded-xl border border-dashed border-ink/15 bg-white/40 px-4 py-4 text-sm leading-relaxed text-ink/65">
-            No bar / booth vendors curated in your area yet. Add yours
-            below — mobile bar, coffee station, perfume bar, mocktail
-            cart all fit.
-          </p>
-        )}
-      </div>
+      {totalRecs > 0 ? (
+        <p className="text-[11px] text-ink/45">
+          Showing the top vendors per sub-type within 10 km of your reception.
+          {populatedGroups.length < subtypeGroups.length
+            ? ' Other sub-types appear here once vendors join your area.'
+            : ''}
+        </p>
+      ) : null}
 
       {errorMessage ? (
         <p
@@ -252,6 +354,7 @@ export function PhotoboothsBoothsCardClient({
         ) : (
           <CustomBoothForm
             eventId={eventId}
+            subtypeGroups={subtypeGroups}
             onCancel={() => setShowCustom(false)}
             onError={(msg) => setErrorMessage(msg)}
           />
@@ -292,12 +395,12 @@ export function PhotoboothsBoothsCardClient({
  */
 function BoothRecRow({
   rec,
-  category,
+  subtypeLabel,
   isPending,
   onLock,
 }: {
   rec: WizardVendorRec;
-  category: BoothCategory;
+  subtypeLabel: string;
   isPending: boolean;
   onLock: () => void;
 }) {
@@ -361,7 +464,7 @@ function BoothRecRow({
             </span>
           ) : null}
           <span className="font-mono uppercase tracking-[0.12em] text-ink/40">
-            {category === 'photobooth' ? 'Booth' : 'Bar / station'}
+            {subtypeLabel}
           </span>
         </div>
       </div>
@@ -386,21 +489,28 @@ function BoothRecRow({
 }
 
 /**
- * Inline custom booth form · captures vendor name + category + optional
- * phone/email. Submits to lockBoothToEvent (no wizard advance).
+ * Inline custom booth form · captures vendor name + sub-type + optional
+ * phone/email. Sub-type dropdown lists every booth canonical sourced from
+ * the server-passed subtypeGroups so off-platform vendors land in the
+ * correct picked-list group + their canonical is snapshotted to notes.
  */
 function CustomBoothForm({
   eventId,
+  subtypeGroups,
   onCancel,
   onError,
 }: {
   eventId: string;
+  subtypeGroups: ReadonlyArray<BoothSubtypeGroup>;
   onCancel: () => void;
   onError: (msg: string) => void;
 }) {
   const [isPending, startTransition] = useTransition();
   const [vendorName, setVendorName] = useState('');
-  const [category, setCategory] = useState<BoothCategory>('photobooth');
+  // Default the picker to the first sub-type in the canonical ordering ·
+  // typically `mobile_bar` which is the most common off-platform booth.
+  const defaultSubtype = subtypeGroups[0]?.canonical ?? 'mobile_bar';
+  const [boothSubtype, setBoothSubtype] = useState(defaultSubtype);
   const [contactPhone, setContactPhone] = useState('');
   const [contactEmail, setContactEmail] = useState('');
 
@@ -410,9 +520,15 @@ function CustomBoothForm({
       onError('Booth vendor name is required.');
       return;
     }
+    const group = subtypeGroups.find((g) => g.canonical === boothSubtype);
+    if (!group) {
+      onError('Pick a booth type from the list.');
+      return;
+    }
     const formData = new FormData();
     formData.set('event_id', eventId);
-    formData.set('booth_category', category);
+    formData.set('booth_category', group.category);
+    formData.set('booth_subtype', group.canonical);
     formData.set('vendor_name', vendorName);
     if (contactPhone.trim()) formData.set('contact_phone', contactPhone);
     if (contactEmail.trim()) formData.set('contact_email', contactEmail);
@@ -439,19 +555,22 @@ function CustomBoothForm({
     <form onSubmit={handleSubmit} className="space-y-3 rounded-xl bg-cream/60 p-4">
       <div>
         <label
-          htmlFor="custom-booth-category"
+          htmlFor="custom-booth-subtype"
           className="block font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55"
         >
           Type
         </label>
         <select
-          id="custom-booth-category"
-          value={category}
-          onChange={(e) => setCategory(e.target.value as BoothCategory)}
-          className="mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30 sm:max-w-xs"
+          id="custom-booth-subtype"
+          value={boothSubtype}
+          onChange={(e) => setBoothSubtype(e.target.value)}
+          className="mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30 sm:max-w-md"
         >
-          <option value="photobooth">Photobooth (classic · mirror · 360° · slow-mo · polaroid)</option>
-          <option value="mobile_bar">Bar / station (cocktail · coffee · perfume · mocktail · dessert drinks)</option>
+          {subtypeGroups.map((group) => (
+            <option key={group.canonical} value={group.canonical}>
+              {group.label}
+            </option>
+          ))}
         </select>
       </div>
       <div>

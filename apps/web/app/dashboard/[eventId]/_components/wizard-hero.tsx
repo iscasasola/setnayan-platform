@@ -88,6 +88,10 @@ import { HoneymoonPlanningCard } from './wizard-cards/honeymoon-planning-card';
 import { FinalizeSeatplanCard } from './wizard-cards/finalize-seatplan-card';
 import { FinalizeRsvpCard } from './wizard-cards/finalize-rsvp-card';
 import { PaprintCard } from './wizard-cards/paprint-card';
+// 2026-05-25 owner directive · Card 17 Pakanta inline 8-question intake +
+// auto-play sample audio · saves to pakanta_intake_drafts on Skip OR
+// Purchase, Purchase additionally redirects to /orders/new for ₱1,999 Basic.
+import { PakantaCard } from './wizard-cards/pakanta-card';
 import { PlaceholderCardBody } from './wizard-cards/placeholder-card-body';
 
 type Props = {
@@ -541,6 +545,11 @@ function renderCardBody(
       return <AllSetReadinessCard eventId={ctx.eventId} />;
     case 'claim_next_event_reward':
       return <ClaimNextEventRewardCard eventId={ctx.eventId} />;
+    // 2026-05-25 owner directive · inline 8-question intake form +
+    // auto-play sample audio + Skip / Purchase CTAs. See pakanta-card.tsx
+    // for the full spec capture.
+    case 'pakanta':
+      return <PakantaCard eventId={ctx.eventId} />;
     default:
       return <PlaceholderCardBody taskId={taskId} />;
   }

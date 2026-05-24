@@ -306,6 +306,11 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   charcuterie_board:                 { folder: 'catering', phase: 'V1.1.6' },
   mini_lechon_station:               { folder: 'catering', phase: 'V1.1.6', ph: true },
   mocktail_booth_mini:               { folder: 'catering', phase: 'V1.1.6', faith: 'INC' },
+  // 3 booth sub-categories added 2026-05-24 per owner directive · CLAUDE.md
+  // 2026-05-24 row "Branch conflict coordination" + BRANCH_CONFLICTS_2026-05-24.md
+  donut_wall_display:                { folder: 'catering', phase: 'V1.1.6' },
+  sorbetes_cart:                     { folder: 'catering', phase: 'V1.1.6', ph: true },
+  food_cart_generic:                 { folder: 'catering', phase: 'V1.1.6' },
 
   // ════════════════════════════════════════════════════════════════════
   // 6. ATTIRE (23)

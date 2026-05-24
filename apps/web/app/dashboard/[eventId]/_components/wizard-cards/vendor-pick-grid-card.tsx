@@ -391,8 +391,34 @@ export function VendorPickGridCard({
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder={`Search ${copy.pluralNoun} by name or city…`}
             maxLength={64}
-            className="w-full rounded-lg border border-ink/15 bg-white py-2.5 pl-9 pr-3 text-sm placeholder-ink/40 focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30"
+            // Right padding bumped to pr-10 to reserve space for the
+            // inline clear affordance below · prevents the input text
+            // from sliding underneath the X icon when the box fills up.
+            className="w-full rounded-lg border border-ink/15 bg-white py-2.5 pl-9 pr-10 text-sm placeholder-ink/40 focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30"
           />
+          {/* Inline clear · 2026-05-24 owner directive: clear lives
+              inside the search box, replacing the standalone "Clear"
+              chip that used to sit below the input. Shows whenever
+              there's something to clear (typed text OR a committed
+              query). The button reads "Clear search" for screen readers
+              while showing a small × glyph that fades to a tinted
+              terracotta hover state · click clears typed text AND any
+              committed activeQuery in one action. */}
+          {(searchInput.length > 0 || activeQuery) ? (
+            <button
+              type="button"
+              onClick={clearSearch}
+              aria-label="Clear search"
+              title="Clear search"
+              className="group absolute right-2 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-ink/45 transition-colors hover:bg-terracotta/10 hover:text-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30"
+            >
+              <X
+                aria-hidden
+                className="h-4 w-4"
+                strokeWidth={2.25}
+              />
+            </button>
+          ) : null}
         </div>
         <button
           type="submit"
@@ -452,23 +478,16 @@ export function VendorPickGridCard({
         </div>
       ) : null}
 
-      {/* Active-search chip · shows the query + a Clear button to reset
-          to recommendations. Cleaner than hiding the search box. */}
+      {/* Active-search chip · shows the query + match count as context.
+          The Clear affordance now lives inside the search input itself
+          (the X icon · 2026-05-24 owner directive), so the chip is
+          purely informational. */}
       {activeQuery ? (
-        <div className="flex items-center gap-2 rounded-lg bg-cream/60 px-3 py-2 text-xs text-ink/70">
-          <span>
-            Showing matches for <strong className="font-medium text-ink">{activeQuery}</strong>
-            {' · '}
-            {results.length} {results.length === 1 ? 'match' : 'matches'}
-          </span>
-          <button
-            type="button"
-            onClick={clearSearch}
-            className="ml-auto inline-flex items-center gap-1 text-[11px] font-medium text-terracotta transition-colors hover:text-terracotta-700"
-          >
-            <X aria-hidden className="h-3 w-3" strokeWidth={2.5} />
-            Clear
-          </button>
+        <div className="rounded-lg bg-cream/60 px-3 py-2 text-xs text-ink/70">
+          Showing matches for{' '}
+          <strong className="font-medium text-ink">{activeQuery}</strong>
+          {' · '}
+          {results.length} {results.length === 1 ? 'match' : 'matches'}
         </div>
       ) : null}
 

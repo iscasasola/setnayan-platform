@@ -534,12 +534,32 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
   },
 ] as const;
 
-/** Shape of events.wizard_state JSONB column. */
+/** Shape of events.wizard_state JSONB column.
+ *
+ * A wizard task entry has three possible states represented by which
+ * fields are populated:
+ *   - empty / missing  →  pending. Resolver picks this as the active focus.
+ *   - in_flight_since  →  actively progressing externally (paperwork waiting
+ *                          on PSA · Pre-Cana running · STD video rendering).
+ *                          Resolver SKIPS to the next task so the host can
+ *                          keep working in parallel. The card stays visible
+ *                          in the wizard surface as "in flight" + can be
+ *                          marked done when ready.
+ *   - completed_at     →  permanently done. Resolver skips.
+ *
+ * Per the V1 SCOPE EXPANSION lock (CLAUDE.md 2026-05-23 Sixth row · owner
+ * decision 2026-05-24 picking option 2A for "in_flight" semantics): slow
+ * paperwork cards like Cenomar PSA (~2 weeks processing) can't block the
+ * wizard. The host moves the next card forward while the paperwork runs.
+ */
 export type WizardState = Partial<
   Record<
     WizardTaskId,
     {
-      completed_at: string; // ISO8601
+      completed_at?: string; // ISO8601 · empty / missing means not done
+      in_flight_since?: string; // ISO8601 · set when host marks the task
+                                // as in-progress (e.g., "PSA submitted ·
+                                // waiting for release"). Optional.
       // Card-specific metadata — added by Phase 1-7 individual cards as needed
       [key: string]: unknown;
     } | null
@@ -570,6 +590,37 @@ export function isTaskComplete(
   if (!entry) return false;
   if (typeof entry !== 'object') return false;
   return typeof entry.completed_at === 'string' && entry.completed_at.length > 0;
+}
+
+/**
+ * Returns TRUE when the given task is currently "in flight" — host marked
+ * it as actively progressing externally (paperwork submitted · render
+ * queued · etc.) but not yet done. The resolver SKIPS these so the host
+ * can move forward; the card stays accessible via the in-flight tray
+ * surface so the host can mark it done when ready.
+ */
+export function isTaskInFlight(
+  state: WizardState,
+  taskId: WizardTaskId,
+): boolean {
+  const entry = state[taskId];
+  if (!entry) return false;
+  if (typeof entry !== 'object') return false;
+  if (isTaskComplete(state, taskId)) return false;
+  return (
+    typeof entry.in_flight_since === 'string' && entry.in_flight_since.length > 0
+  );
+}
+
+/**
+ * Returns TRUE when the resolver should treat the given task as "settled" —
+ * either complete OR in-flight. Used in the active-focus walk to skip both.
+ */
+export function isTaskSettled(
+  state: WizardState,
+  taskId: WizardTaskId,
+): boolean {
+  return isTaskComplete(state, taskId) || isTaskInFlight(state, taskId);
 }
 
 /**
@@ -605,7 +656,12 @@ export function resolveWizardFocus(
   state: WizardState,
 ): WizardResolverResult {
   for (const task of WIZARD_TASKS) {
-    if (!isTaskComplete(state, task.id)) {
+    // Settled = complete OR in-flight. In-flight tasks are skipped so a
+    // slow paperwork item (Cenomar · Pre-Cana · STD video render)
+    // doesn't block the wizard for weeks. The host can still revisit
+    // the in-flight card via the IN-FLIGHT TRAY surface that the
+    // WizardHero renders below the focus card.
+    if (!isTaskSettled(state, task.id)) {
       return { kind: 'active', task };
     }
   }
@@ -613,8 +669,24 @@ export function resolveWizardFocus(
 }
 
 /**
+ * Returns the task IDs currently marked in_flight (host has signaled
+ * progress externally but hasn't marked done yet). Used by the IN-FLIGHT
+ * TRAY surface to give the host one-click access to each card so they
+ * can mark it done when their PSA / paperwork / render arrives.
+ */
+export function listInFlightTaskIds(state: WizardState): WizardTaskId[] {
+  const result: WizardTaskId[] = [];
+  for (const task of WIZARD_TASKS) {
+    if (isTaskInFlight(state, task.id)) result.push(task.id);
+  }
+  return result;
+}
+
+/**
  * Number of remaining tasks. Used by the WizardHero subtitle ("32 more
- * to go") and by the AllLocked celebratory variant.
+ * to go") and by the AllLocked celebratory variant. Counts in-flight
+ * tasks as STILL REMAINING because they haven't been marked done — the
+ * tally reflects what the host still needs to act on.
  */
 export function countRemainingTasks(state: WizardState): number {
   let count = 0;

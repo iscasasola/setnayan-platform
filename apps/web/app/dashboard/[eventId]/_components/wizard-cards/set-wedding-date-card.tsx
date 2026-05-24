@@ -83,37 +83,78 @@ function parseIsoYmd(
   };
 }
 
+/** Compare two {year, month, day} triples · returns < 0 if a < b, 0 if equal,
+ *  > 0 if a > b. Pure date arithmetic, no Date constructor needed. */
+function ymdCompare(
+  a: { year: number; month: number; day: number },
+  b: { year: number; month: number; day: number },
+): number {
+  if (a.year !== b.year) return a.year - b.year;
+  if (a.month !== b.month) return a.month - b.month;
+  return a.day - b.day;
+}
+
 export function SetWeddingDateCard({
   eventId,
   ceremonyType,
   initialDate,
   meaningfulDates,
 }: Props) {
-  // 6-year window: today's year through 5 years out · matches the
-  // [[project_setnayan_event_lifecycle]] long-engagement advisory cap
-  // (Concierge access is capped at 24 months from activation; planning
-  // runways past 5 years are exceedingly rare).
-  const currentYear = new Date().getFullYear();
+  // Owner-locked 2026-05-24: wedding date must be TODAY or later, AND
+  // at most 3 years from today. Past dates make no sense for an active
+  // wedding plan; planning runways past 3 years are exceedingly rare
+  // and align with the [[project_setnayan_event_lifecycle]] 24-month
+  // Concierge cap with a small buffer for long-engagement edge cases.
+  //
+  // `today` + `maxDate` are computed once at first render. Stable across
+  // renders even if the user keeps the tab open across midnight (a tiny
+  // edge case · fixes itself on next page load).
+  const today = useMemo(() => {
+    const now = new Date();
+    return {
+      year: now.getFullYear(),
+      month: now.getMonth() + 1,
+      day: now.getDate(),
+    };
+  }, []);
+
+  const maxDate = useMemo(() => {
+    return { ...today, year: today.year + 3 };
+  }, [today]);
+
+  // Year quick-pick options: today's year through +3. Four options total.
   const yearOptions = useMemo(
-    () => Array.from({ length: 6 }, (_, i) => currentYear + i),
-    [currentYear],
+    () => Array.from({ length: 4 }, (_, i) => today.year + i),
+    [today.year],
   );
 
-  // Default selection: existing event_date OR ~12 months out (the modal
-  // PH planning runway).
+  // Default selection · preserves saved event_date when in-range,
+  // otherwise defaults to ~12 months out (modal PH planning runway).
+  // When the saved date is in the past, clamp to today instead of
+  // re-asking for a default · the host sees their old pick disabled
+  // in the grid + the summary line shows today.
   const defaultPicked = useMemo(() => {
     const parsed = parseIsoYmd(initialDate);
-    if (parsed && parsed.year >= currentYear && parsed.year <= currentYear + 5) {
+    if (
+      parsed &&
+      ymdCompare(parsed, today) >= 0 &&
+      ymdCompare(parsed, maxDate) <= 0
+    ) {
       return parsed;
     }
     const target = new Date();
     target.setFullYear(target.getFullYear() + 1);
-    return {
+    const candidate = {
       day: target.getDate(),
       month: target.getMonth() + 1,
       year: target.getFullYear(),
     };
-  }, [initialDate, currentYear]);
+    // Safety clamp · 12 months from now is always inside [today, today+3y]
+    // but make it explicit in case the math ever drifts.
+    if (ymdCompare(candidate, maxDate) > 0) return maxDate;
+    if (ymdCompare(candidate, today) < 0) return today;
+    return candidate;
+  }, [initialDate, today, maxDate]);
 
   // Selected date · the host's current pick. Initialized to defaultPicked
   // (their saved date or 12 months out).
@@ -166,7 +207,7 @@ export function SetWeddingDateCard({
   function goPrevMonth() {
     setViewMonth((m) => {
       if (m === 1) {
-        setViewYear((y) => Math.max(currentYear, y - 1));
+        setViewYear((y) => Math.max(today.year, y - 1));
         return 12;
       }
       return m - 1;
@@ -176,7 +217,7 @@ export function SetWeddingDateCard({
   function goNextMonth() {
     setViewMonth((m) => {
       if (m === 12) {
-        setViewYear((y) => Math.min(currentYear + 5, y + 1));
+        setViewYear((y) => Math.min(maxDate.year, y + 1));
         return 1;
       }
       return m + 1;
@@ -184,20 +225,39 @@ export function SetWeddingDateCard({
   }
 
   function pickDay(day: number) {
-    setSelected({ day, month: viewMonth, year: viewYear });
+    const candidate = { day, month: viewMonth, year: viewYear };
+    // Past dates are blocked at the cell render layer (disabled buttons)
+    // but double-guard here in case the cell logic ever regresses.
+    if (ymdCompare(candidate, today) < 0) return;
+    if (ymdCompare(candidate, maxDate) > 0) return;
+    setSelected(candidate);
+  }
+
+  /** Is the given visible-month cell BEFORE today? Drives `disabled`. */
+  function isCellInPast(day: number): boolean {
+    return ymdCompare({ day, month: viewMonth, year: viewYear }, today) < 0;
+  }
+
+  /** Is the given visible-month cell AFTER the 3-year window? */
+  function isCellPastMax(day: number): boolean {
+    return ymdCompare({ day, month: viewMonth, year: viewYear }, maxDate) > 0;
   }
 
   function handleYearJump(yearString: string) {
     const year = Number.parseInt(yearString, 10);
     if (!Number.isFinite(year)) return;
-    setViewYear(year);
+    // Guard against year-jump landing outside [today.year, maxDate.year]
+    // (shouldn't happen since the <select> options are clamped, but be
+    // defensive in case a future refactor changes the option source).
+    const clampedYear = Math.max(today.year, Math.min(maxDate.year, year));
+    setViewYear(clampedYear);
     // If selected month doesn't exist (we don't gate this) the grid
     // still renders correctly because daysInMonth handles leap years.
     // Re-clamp the selected day if necessary so e.g. Feb-29 doesn't
     // persist into a non-leap year.
-    const maxDay = daysInMonth(year, selected.month);
+    const maxDay = daysInMonth(clampedYear, selected.month);
     if (selected.day > maxDay) {
-      setSelected((s) => ({ ...s, day: maxDay, year }));
+      setSelected((s) => ({ ...s, day: maxDay, year: clampedYear }));
     }
   }
 
@@ -211,9 +271,24 @@ export function SetWeddingDateCard({
     );
   }
 
+  // Selected date is out of range (past or beyond 3-year window) ·
+  // submit button stays disabled and an inline notice appears. This is
+  // belt + suspenders on top of the disabled cell rendering · the host
+  // can't reach this state through the picker, but a server action
+  // rejection on a bad payload would be a worse UX.
+  const selectedIsInRange =
+    ymdCompare(selected, today) >= 0 && ymdCompare(selected, maxDate) <= 0;
+
   function handleSubmit(formEvent: React.FormEvent<HTMLFormElement>) {
     formEvent.preventDefault();
     setErrorMessage(null);
+
+    if (!selectedIsInRange) {
+      setErrorMessage(
+        'Your wedding date needs to be today or later — and within the next 3 years.',
+      );
+      return;
+    }
 
     const formData = new FormData();
     formData.set('event_id', eventId);
@@ -256,7 +331,7 @@ export function SetWeddingDateCard({
           <button
             type="button"
             onClick={goPrevMonth}
-            disabled={viewYear === currentYear && viewMonth === 1}
+            disabled={viewYear === today.year && viewMonth === today.month}
             aria-label="Previous month"
             className="inline-flex h-9 w-9 items-center justify-center rounded-full text-ink/65 transition-colors hover:bg-cream hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
           >
@@ -282,7 +357,7 @@ export function SetWeddingDateCard({
           <button
             type="button"
             onClick={goNextMonth}
-            disabled={viewYear === currentYear + 5 && viewMonth === 12}
+            disabled={viewYear === maxDate.year && viewMonth === maxDate.month}
             aria-label="Next month"
             className="inline-flex h-9 w-9 items-center justify-center rounded-full text-ink/65 transition-colors hover:bg-cream hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
           >
@@ -304,7 +379,9 @@ export function SetWeddingDateCard({
 
         {/* Calendar cells · 7×N grid · weekends (Sat/Sun) get subtle warm
          *  tinting since they're the modal Filipino wedding days. Selected
-         *  cell has the terracotta ring + cream fill. */}
+         *  cell has the terracotta ring + cream fill. Past dates + dates
+         *  beyond the 3-year window render disabled (line-through) so the
+         *  host can SEE they're out of range, not just have nothing to tap. */}
         <div className="grid grid-cols-7 gap-1">
           {calendarCells.map((cell, idx) => {
             if (cell.isPadding) {
@@ -312,21 +389,28 @@ export function SetWeddingDateCard({
             }
             const selectedCell = isSelected(cell.day);
             const isWeekend = cell.weekday === 0 || cell.weekday === 6;
+            const isPast = isCellInPast(cell.day);
+            const isPastMax = isCellPastMax(cell.day);
+            const disabled = isPast || isPastMax;
+            const baseHeight = 'h-10';
             return (
               <button
                 key={cell.day}
                 type="button"
                 onClick={() => pickDay(cell.day)}
+                disabled={disabled}
                 aria-pressed={selectedCell}
-                aria-label={`${MONTHS_FULL[viewMonth - 1]} ${cell.day}, ${viewYear}`}
+                aria-label={`${MONTHS_FULL[viewMonth - 1]} ${cell.day}, ${viewYear}${disabled ? ' — unavailable' : ''}`}
                 className={
-                  selectedCell
-                    ? 'h-10 rounded-lg bg-terracotta text-sm font-semibold text-cream shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-terracotta focus:ring-offset-2 focus:ring-offset-cream'
-                    : `h-10 rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-terracotta/40 ${
-                        isWeekend
-                          ? 'bg-terracotta/5 text-ink hover:bg-terracotta/15'
-                          : 'text-ink/75 hover:bg-cream'
-                      }`
+                  disabled
+                    ? `${baseHeight} rounded-lg text-sm font-medium text-ink/25 line-through cursor-not-allowed`
+                    : selectedCell
+                      ? `${baseHeight} rounded-lg bg-terracotta text-sm font-semibold text-cream shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-terracotta focus:ring-offset-2 focus:ring-offset-cream`
+                      : `${baseHeight} rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-terracotta/40 ${
+                          isWeekend
+                            ? 'bg-terracotta/5 text-ink hover:bg-terracotta/15'
+                            : 'text-ink/75 hover:bg-cream'
+                        }`
                 }
               >
                 {cell.day}
@@ -387,7 +471,7 @@ export function SetWeddingDateCard({
       <div>
         <button
           type="submit"
-          disabled={isPending}
+          disabled={isPending || !selectedIsInRange}
           className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-terracotta px-5 py-3 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-700 focus:outline-none focus:ring-2 focus:ring-terracotta focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isPending ? 'Saving…' : 'Save your date'}

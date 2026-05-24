@@ -24,11 +24,25 @@
  * Entry point: the WizardHero dispatcher (wizard-hero.tsx) renders this
  * component when resolveWizardFocus returns task.id === 'photobooths_booths'.
  * No other surface mounts this component.
+ *
+ * 2026-05-24 senior-planner pass (PR follow-up · owner directive "fix
+ * the ones that should be by distance"): server-side PRE-FILTER recs to
+ * within 10 km of the reception venue. Per CLAUDE.md 2026-05-24 sixth-
+ * row "Vendor presentation pattern" spec lock, booths are Pattern B
+ * "anchored to reception" — vans transport heavy equipment for setup
+ * onsite. NULL-safe: vendors with no hq lat/lng are kept (treated as
+ * "unknown, don't hide" per the established compat-array convention).
+ * Stepper UI absent here because PhotoboothsBoothsCardClient is a custom
+ * multi-pick primitive distinct from VendorPickGridCard's stepper —
+ * widening beyond 10 km is V1.x polish once we have a multi-pick stepper.
  */
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { fetchWizardVendorRecommendations } from '@/lib/wizard-recommendations';
+import { fetchReceptionLatLng } from './_reception-lat-lng';
+import { haversineKm } from '@/lib/geo';
+import type { WizardVendorRec } from '@/lib/wizard-recommendations';
 import type { CeremonyType } from '@/lib/auspicious-date';
 import { PhotoboothsBoothsCardClient } from './photobooths-booths-card-client';
 
@@ -39,6 +53,32 @@ type Props = {
   excludeMarketplaceIds: ReadonlyArray<string>;
 };
 
+const PHOTOBOOTH_RADIUS_KM = 10;
+
+/**
+ * NULL-safe distance filter — vendors with no hq lat/lng are kept
+ * (no data ≠ far away). When the host hasn't locked a reception venue
+ * yet (no reception lat/lng), filter is a no-op (everyone passes).
+ */
+function filterWithinRadius(
+  recs: ReadonlyArray<WizardVendorRec>,
+  receptionLat: number | null,
+  receptionLng: number | null,
+  radiusKm: number,
+): WizardVendorRec[] {
+  if (receptionLat == null || receptionLng == null) return [...recs];
+  return recs.filter((r) => {
+    if (r.hq_latitude == null || r.hq_longitude == null) return true;
+    const km = haversineKm(
+      receptionLat,
+      receptionLng,
+      r.hq_latitude,
+      r.hq_longitude,
+    );
+    return km <= radiusKm;
+  });
+}
+
 export async function PhotoboothsBoothsCard({
   eventId,
   ceremonyType,
@@ -46,27 +86,45 @@ export async function PhotoboothsBoothsCard({
   excludeMarketplaceIds,
 }: Props) {
   const admin = createAdminClient();
+  const { receptionLat, receptionLng } = await fetchReceptionLatLng(
+    admin,
+    eventId,
+  );
 
   // Two separate fetches — one per canonical_service grouping. Keeps the
   // recommendation buckets distinct so the host sees photobooth vendors
   // and mobile-bar vendors as TWO labeled sections rather than one
-  // interleaved list.
-  const [photoboothRecs, mobileBarRecs] = await Promise.all([
+  // interleaved list. Bumped limit 10 → 25 so post-distance-filter we
+  // still surface ~5-10 per bucket on average.
+  const [photoboothRecsRaw, mobileBarRecsRaw] = await Promise.all([
     fetchWizardVendorRecommendations(admin, {
       canonicalServices: ['photobooth'],
       ceremonyType,
       venueSetting,
       excludeVendorIds: excludeMarketplaceIds,
-      limit: 10,
+      limit: 25,
     }),
     fetchWizardVendorRecommendations(admin, {
       canonicalServices: ['mobile_bar'],
       ceremonyType,
       venueSetting,
       excludeVendorIds: excludeMarketplaceIds,
-      limit: 10,
+      limit: 25,
     }),
   ]);
+
+  const photoboothRecs = filterWithinRadius(
+    photoboothRecsRaw,
+    receptionLat,
+    receptionLng,
+    PHOTOBOOTH_RADIUS_KM,
+  ).slice(0, 10);
+  const mobileBarRecs = filterWithinRadius(
+    mobileBarRecsRaw,
+    receptionLat,
+    receptionLng,
+    PHOTOBOOTH_RADIUS_KM,
+  ).slice(0, 10);
 
   // Already-locked booths for this event — surfaces in the picked-list
   // section above the CTA. RLS gates so a stranger can't fetch other

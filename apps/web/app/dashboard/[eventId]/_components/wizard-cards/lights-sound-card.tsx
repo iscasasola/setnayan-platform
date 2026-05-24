@@ -1,12 +1,16 @@
 /**
  * Card 10 Lights + Sound · Phase 3 · Style + Identity tier.
  *
- * 2026-05-24 owner directive: migrated from the legacy list VendorPickCard
- * to the visual VendorPickGridCard with NO distance filter. Sound +
- * lighting teams travel — many NCR-based crews cover Tagaytay and Cebu
- * destination weddings, and provincial crews equally cover their regional
- * radius. Default sort (ad_rank → review_count → avg_rating_overall)
- * anchors on reputation + portfolio, not proximity.
+ * 2026-05-24 senior-planner pass (PR follow-up · owner directive "fix
+ * the ones that should be by distance"): WIRED distance filter
+ * (initialKm=10 default · stepper to widen). Per CLAUDE.md 2026-05-24
+ * sixth-row "Vendor presentation pattern" spec lock, Lights+Sound is
+ * Pattern B "anchored to reception" → distance from reception is the
+ * canonical gate. The earlier shipped rationale ("crews travel") wasn't
+ * wrong but the stepper UX is the canonical answer to that — default
+ * tight, host widens for big NCR teams covering Tagaytay/Cebu
+ * destination jobs. Default sort still anchors reviews-first (ad_rank
+ * → review_count → avg_rating_overall) per the 5-tier ladder.
  *
  * Surfaces both lights_and_sound + led_screens coarse categories — many
  * PH wedding venues bring sound+lighting as one team and the LED wall is
@@ -19,6 +23,7 @@ import {
   fetchWizardVendorRecommendations,
   fetchBookedMarketplaceVendorIdsForDate,
 } from '@/lib/wizard-recommendations';
+import { fetchReceptionLatLng } from './_reception-lat-lng';
 import type { CeremonyType } from '@/lib/auspicious-date';
 import { VendorPickGridCard } from './vendor-pick-grid-card';
 
@@ -43,6 +48,10 @@ export async function LightsSoundCard({
   eventDate,
 }: Props) {
   const admin = createAdminClient();
+  const { receptionLat, receptionLng } = await fetchReceptionLatLng(
+    admin,
+    eventId,
+  );
   const [recs, bookedIds] = await Promise.all([
     fetchWizardVendorRecommendations(admin, {
       canonicalServices: CANONICAL_SERVICES,
@@ -53,6 +62,16 @@ export async function LightsSoundCard({
     }),
     fetchBookedMarketplaceVendorIdsForDate(admin, eventId, eventDate),
   ]);
+
+  const distanceFilter =
+    receptionLat != null && receptionLng != null
+      ? {
+          referenceLat: receptionLat,
+          referenceLng: receptionLng,
+          initialKm: 10,
+          referenceLabel: 'Reception Venue',
+        }
+      : undefined;
 
   return (
     <VendorPickGridCard
@@ -71,6 +90,7 @@ export async function LightsSoundCard({
         emptyStateCopy:
           "We haven't curated sound + lighting teams for your area yet — search by name or add yours below. We'll wire your finalized mood-board palette into their lighting cues.",
       }}
+      distanceFilter={distanceFilter}
       bookedMarketplaceVendorIds={bookedIds}
     />
   );

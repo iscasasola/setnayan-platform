@@ -259,8 +259,15 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     prerequisites: ['set_wedding_date'],
   },
   {
+    // 2026-05-24 senior-planner reorder: was order 4.5 (position 6 ·
+    // after officiant + coordinator). Moved to 1.5 (position 2 · right
+    // after set_wedding_date) because guest count drives reception
+    // venue size + catering quote. Picking reception venue without a
+    // rough headcount = re-quote later when the number lands. Filipino
+    // weddings routinely grow from 80 to 200 between engagement and
+    // RSVP — anchoring the rough count first prevents downstream churn.
     id: 'draft_guest_list',
-    order: 4.5,
+    order: 1.5,
     phase: 'foundation',
     kind: 'external_process',
     title: 'Draft your guest list',
@@ -382,8 +389,16 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     prerequisites: [],
   },
   {
+    // 2026-05-24 senior-planner reorder: was order 12 (position 16).
+    // Moved to 5.5 (position 9 · alongside photography in the
+    // Foundation tier) because top PH wedding bands + DJs (Side A,
+    // Brass Pas Pas, Tilt, top DJs) book 8-10 months ahead for peak
+    // season (Dec/Apr/May). Same high-demand vendor reality as
+    // photography — booking late = no first-choice options available.
+    // Phase tag stays 'style_identity' for plan-grid grouping continuity
+    // but the order value puts it in the Foundation-priority booking tier.
     id: 'music_entertainment',
-    order: 12,
+    order: 5.5,
     phase: 'style_identity',
     kind: 'vendor_pick',
     title: 'Lock your DJ + music',
@@ -448,8 +463,17 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     prerequisites: ['engagement_prenup_shoot'],
   },
   {
+    // 2026-05-24 senior-planner reorder: was order 18 (position 22 ·
+    // after deploy_invitation at T-2mo · too late for custom gowns).
+    // Moved to 7.6 (position 13 · alongside catering tier in Foundation)
+    // because premium PH bridal designers (Vania Romoff, Mark Bumgarner,
+    // Mak Tumang, Patricia Santos) need 4-8 months for custom gowns from
+    // first fitting through delivery. Rentals book 6-8 weeks ahead, so
+    // even the rental track needs to start at T-3mo not T-2mo. Phase
+    // tag stays 'programming' for plan-grid grouping continuity but the
+    // order value puts it in the Foundation booking tier.
     id: 'attire',
-    order: 18,
+    order: 7.6,
     phase: 'programming',
     kind: 'vendor_pick',
     title: 'Lock your attire',
@@ -543,14 +567,25 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     prerequisites: ['reception_venue'],
   },
   {
+    // 2026-05-24 senior-planner reorder: was order 22.5 (position 30 ·
+    // T-2mo zone · breaks for any couple wanting custom engraving).
+    // Moved to 9.5 (position 16 · alongside mood_board in Style & Identity)
+    // because premium PH jewelers (Suarez, Yu Eng Tai, Janina Dizon,
+    // Tiffany Manila) need 6-8 weeks for custom designs + engraving.
+    // T-2mo zone misses the engraving queue for peak-season weddings.
+    // The 4-6 week lead time in `whyItMatters` is the FAST track;
+    // the early position protects couples picking heritage settings or
+    // multi-tone designs that need full 8-week crafting. Phase tag
+    // changed late_additions → style_identity (where rings actually
+    // belong — they're identity, not late-additions polish).
     id: 'rings',
-    order: 22.5,
-    phase: 'late_additions',
+    order: 9.5,
+    phase: 'style_identity',
     kind: 'vendor_pick',
     title: 'Lock your ring jeweler',
     whyItMatters:
-      "Wedding bands + matching engagement-ring touch-ups need 4-6 weeks of crafting + sizing. Most PH jewelers ship nationwide — pick by portfolio + reviews, not proximity. Locked here so the rings arrive well before final fittings.",
-    pillLabel: 'Late additions',
+      "Wedding bands + matching engagement-ring touch-ups need 4-6 weeks of crafting + sizing. Premium designs with engraving or heritage settings need 6-8 weeks. Most PH jewelers ship nationwide — pick by portfolio + reviews, not proximity.",
+    pillLabel: 'Style & Identity',
     prerequisites: ['set_wedding_date'],
   },
   {

@@ -31,6 +31,7 @@ import {
   fetchWizardVendorRecommendations,
   fetchBookedMarketplaceVendorIdsForDate,
 } from '@/lib/wizard-recommendations';
+import { fetchReceptionLatLng } from './_reception-lat-lng';
 import type { CeremonyType } from '@/lib/auspicious-date';
 import { VendorPickGridCard } from './vendor-pick-grid-card';
 
@@ -61,42 +62,16 @@ export async function CeremonyVenueCard({
 }: Props) {
   const admin = createAdminClient();
 
-  // Fetch reception venue lat/lng IF locked. Pattern: read the host's
-  // event_vendors row whose category resolves to 'venue' (reception) +
-  // its marketplace_vendor_id, then join vendor_profiles for
-  // hq_latitude/hq_longitude. Fail-soft on any error · the grid renders
-  // without the distance filter rather than blocking the card.
-  let receptionLat: number | null = null;
-  let receptionLng: number | null = null;
-  try {
-    const { data: receptionRow } = await admin
-      .from('event_vendors')
-      .select('marketplace_vendor_id, category')
-      .eq('event_id', eventId)
-      .eq('category', 'venue')
-      .not('marketplace_vendor_id', 'is', null)
-      .maybeSingle();
-    const marketplaceVendorId = (
-      receptionRow as { marketplace_vendor_id?: string | null } | null
-    )?.marketplace_vendor_id;
-    if (marketplaceVendorId) {
-      const { data: vendorRow } = await admin
-        .from('vendor_profiles')
-        .select('hq_latitude, hq_longitude')
-        .eq('vendor_profile_id', marketplaceVendorId)
-        .maybeSingle();
-      const vp = vendorRow as {
-        hq_latitude?: number | null;
-        hq_longitude?: number | null;
-      } | null;
-      if (vp?.hq_latitude != null && vp?.hq_longitude != null) {
-        receptionLat = vp.hq_latitude;
-        receptionLng = vp.hq_longitude;
-      }
-    }
-  } catch {
-    // Distance filter just won't apply · grid still renders.
-  }
+  // Reception lat/lng resolution moved to shared helper 2026-05-24 —
+  // fetchReceptionLatLng() replaces the 30-line copy-paste that lived
+  // here AND in accommodation-card. Same fail-soft semantics · grid
+  // renders without the distance filter when reception isn't locked
+  // or the locked vendor lacks lat/lng. Now also consumed by lights-
+  // sound, led-background, and photobooths-booths cards.
+  const { receptionLat, receptionLng } = await fetchReceptionLatLng(
+    admin,
+    eventId,
+  );
 
   // Limit bumped to 100 so the 15-per-page pagination has multi-page
   // depth even after distance filtering narrows the set. Booked IDs

@@ -1,39 +1,29 @@
 'use client';
 
 /**
- * Phase 1 · Card 01 Set Wedding Date · wheel-spinner inline picker.
+ * Phase 1 · Card 01 Set Wedding Date · calendar grid picker.
  *
- * Iteration 0016 · CLAUDE.md Sixth 2026-05-23 row. UX locked in
- * [[feedback_setnayan_concierge_wizard_ux]] · Day · Month · Year wheel
- * spinner via react-mobile-picker · live auspicious reasoning below the
- * wheels · single [Save date] action that calls completeSetWeddingDateTask.
+ * Iteration 0016 · CLAUDE.md Sixth 2026-05-23 row. Owner directive
+ * 2026-05-24: wheel-spinner (react-mobile-picker) replaced with a
+ * familiar month-view calendar grid · easier to navigate than scroll
+ * wheels, taps are larger, day-of-week is visible (Saturdays + Sundays
+ * are the modal PH wedding days, weekend tinting calls them out), and
+ * prev/next-month arrows + a year quick-pick give the host fast
+ * navigation across a 6-year window.
  *
- * Pattern this card validates: every wizard card is a CLIENT component
- * that owns its own form state + computes any client-side display logic
- * (in this case auspicious reasoning), then submits via a hidden form
- * field array to the server action. The server action does its own
- * defense-in-depth validation + writes events.* + wizard_state JSONB,
- * then revalidatePath so the WizardHero re-renders with the next task.
- *
- * Auspicious reasoning runs CLIENT-SIDE on every wheel change · no server
- * round-trip · uses the same computeAuspiciousReasons function the
- * /date-selection page uses + the server action uses on save. Three
- * call-sites all agree on what makes a date auspicious — single source
- * of truth.
- *
- * Day-of-month clamping: when month or year changes, the day options
- * adjust (Feb 28/29 · Apr/Jun/Sep/Nov 30 · other months 31). If the
- * currently-selected day is out of bounds for the new month, clamp to
- * the last valid day. The wheel snaps visually to the clamped value.
+ * Auspicious reasoning runs CLIENT-SIDE on every selection · the same
+ * `computeAuspiciousReasons` helper the /date-selection page uses + the
+ * server action uses on save. Three call-sites all agree on what makes
+ * a date auspicious.
  *
  * Defaults: pre-populated with the host's prior event_date if set;
- * otherwise defaults to ~12 months out (the modal Filipino-wedding
- * planning runway).
+ * otherwise defaults to ~12 months out (modal Filipino-wedding planning
+ * runway). The visible month opens on the default's month so the host
+ * sees their tentative pick highlighted in the grid.
  */
 
-import { useEffect, useMemo, useState, useTransition } from 'react';
-import Picker from 'react-mobile-picker';
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { useMemo, useState, useTransition } from 'react';
+import { ArrowRight, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import {
   computeAuspiciousReasons,
   type CeremonyType,
@@ -67,14 +57,19 @@ const MONTHS_FULL = [
   'December',
 ];
 
-/** Days in each month for the year · accounts for leap years. */
-function daysInMonth(year: number, month: number): number {
-  // month is 1-12 here. Date(year, month, 0) returns last day of `month`.
-  return new Date(year, month, 0).getDate();
+const DAYS_OF_WEEK = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+/** Days in a given month/year. Handles leap years correctly. */
+function daysInMonth(year: number, month1Based: number): number {
+  return new Date(year, month1Based, 0).getDate();
 }
 
-/** Parse "YYYY-MM-DD" → { day, month, year } numeric components. Returns
- *  null on any parse failure so the caller can fall back to defaults. */
+/** Day-of-week (0=Sun .. 6=Sat) for the FIRST day of the given month. */
+function firstDayOfMonthWeekday(year: number, month1Based: number): number {
+  return new Date(year, month1Based - 1, 1).getDay();
+}
+
+/** Parse "YYYY-MM-DD" → { day, month, year }. Returns null on failure. */
 function parseIsoYmd(
   iso: string | null,
 ): { day: number; month: number; year: number } | null {
@@ -94,19 +89,18 @@ export function SetWeddingDateCard({
   initialDate,
   meaningfulDates,
 }: Props) {
-  // 6-year window: today's year through 5 years out. Most PH planning
-  // runways are 6-24 months · 5 years is the long tail per
-  // [[project_setnayan_event_lifecycle]] (long-engagement advisory in
-  // iteration 0016).
+  // 6-year window: today's year through 5 years out · matches the
+  // [[project_setnayan_event_lifecycle]] long-engagement advisory cap
+  // (Concierge access is capped at 24 months from activation; planning
+  // runways past 5 years are exceedingly rare).
   const currentYear = new Date().getFullYear();
   const yearOptions = useMemo(
     () => Array.from({ length: 6 }, (_, i) => currentYear + i),
     [currentYear],
   );
 
-  // Default pickerValue:
-  //   - If host already has event_date, pre-populate to that
-  //   - Else default to ~12 months out (modal planning runway)
+  // Default selection: existing event_date OR ~12 months out (the modal
+  // PH planning runway).
   const defaultPicked = useMemo(() => {
     const parsed = parseIsoYmd(initialDate);
     if (parsed && parsed.year >= currentYear && parsed.year <= currentYear + 5) {
@@ -121,61 +115,101 @@ export function SetWeddingDateCard({
     };
   }, [initialDate, currentYear]);
 
-  // pickerValue is the live state of the three wheels. react-mobile-picker
-  // expects all values to be strings even when they're conceptually numeric.
-  const [pickerValue, setPickerValue] = useState<{
-    day: string;
-    month: string;
-    year: string;
-  }>({
-    day: String(defaultPicked.day),
-    month: String(defaultPicked.month),
-    year: String(defaultPicked.year),
-  });
+  // Selected date · the host's current pick. Initialized to defaultPicked
+  // (their saved date or 12 months out).
+  const [selected, setSelected] = useState(defaultPicked);
+
+  // Visible month/year in the calendar grid. Independent from selected
+  // because the host can flip pages without re-selecting · e.g., scroll
+  // to October while their pick is in June. Initialized to the selected
+  // month so the host immediately sees their pick highlighted.
+  const [viewMonth, setViewMonth] = useState(defaultPicked.month);
+  const [viewYear, setViewYear] = useState(defaultPicked.year);
 
   const [isPending, startTransition] = useTransition();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Derived current selection · numeric for math + Date construction.
-  const selectedYear = Number.parseInt(pickerValue.year, 10);
-  const selectedMonth = Number.parseInt(pickerValue.month, 10);
-  const selectedDay = Number.parseInt(pickerValue.day, 10);
-
-  // Day options · clamps to the actual days in the picked month/year.
-  // Feb 2027 = 28 days · Feb 2028 = 29 days (leap) · Apr = 30 days · etc.
-  const maxDay = useMemo(
-    () => daysInMonth(selectedYear, selectedMonth),
-    [selectedYear, selectedMonth],
-  );
-  const dayOptions = useMemo(
-    () => Array.from({ length: maxDay }, (_, i) => i + 1),
-    [maxDay],
-  );
-
-  // When month or year changes, clamp day if it's now out of bounds.
-  // Example: host has day=31 selected · changes month to Feb · day must
-  // clamp to 28 (or 29 in leap year).
-  useEffect(() => {
-    if (selectedDay > maxDay) {
-      setPickerValue((v) => ({ ...v, day: String(maxDay) }));
-    }
-  }, [selectedDay, maxDay]);
-
-  // Construct the Date the wheels point at · for the auspicious-reason
-  // computation. Local-time construction matches the YMD parts so no
-  // timezone drift.
+  // Construct the Date object for the SELECTED date · auspicious-reason
+  // computation reads this. Local-time construction matches the YMD
+  // parts so no timezone drift.
   const selectedDate = useMemo(
-    () => new Date(selectedYear, selectedMonth - 1, Math.min(selectedDay, maxDay)),
-    [selectedYear, selectedMonth, selectedDay, maxDay],
+    () => new Date(selected.year, selected.month - 1, selected.day),
+    [selected],
   );
 
-  // Live auspicious reasoning · recomputed every time the wheels change.
-  // The function is pure + fast (<1ms typical) so calling on every render
-  // is fine. Same library /date-selection uses + the server action uses.
+  // Live auspicious reasoning · recomputed every time selection changes.
   const reasons = useMemo(
     () => computeAuspiciousReasons(selectedDate, ceremonyType, meaningfulDates),
     [selectedDate, ceremonyType, meaningfulDates],
   );
+
+  // Calendar grid cells: 7 columns × N rows. Empty cells before the
+  // first-of-the-month + trailing empties after the last-of-the-month
+  // keep the day-of-week alignment correct.
+  const calendarCells = useMemo(() => {
+    const offset = firstDayOfMonthWeekday(viewYear, viewMonth); // 0..6
+    const dayCount = daysInMonth(viewYear, viewMonth);
+    const totalCells = Math.ceil((offset + dayCount) / 7) * 7;
+    const cells: Array<{ day: number; isPadding: boolean; weekday: number }> = [];
+    for (let i = 0; i < totalCells; i++) {
+      const dayNum = i - offset + 1;
+      const isPadding = dayNum < 1 || dayNum > dayCount;
+      cells.push({
+        day: isPadding ? 0 : dayNum,
+        isPadding,
+        weekday: i % 7,
+      });
+    }
+    return cells;
+  }, [viewMonth, viewYear]);
+
+  function goPrevMonth() {
+    setViewMonth((m) => {
+      if (m === 1) {
+        setViewYear((y) => Math.max(currentYear, y - 1));
+        return 12;
+      }
+      return m - 1;
+    });
+  }
+
+  function goNextMonth() {
+    setViewMonth((m) => {
+      if (m === 12) {
+        setViewYear((y) => Math.min(currentYear + 5, y + 1));
+        return 1;
+      }
+      return m + 1;
+    });
+  }
+
+  function pickDay(day: number) {
+    setSelected({ day, month: viewMonth, year: viewYear });
+  }
+
+  function handleYearJump(yearString: string) {
+    const year = Number.parseInt(yearString, 10);
+    if (!Number.isFinite(year)) return;
+    setViewYear(year);
+    // If selected month doesn't exist (we don't gate this) the grid
+    // still renders correctly because daysInMonth handles leap years.
+    // Re-clamp the selected day if necessary so e.g. Feb-29 doesn't
+    // persist into a non-leap year.
+    const maxDay = daysInMonth(year, selected.month);
+    if (selected.day > maxDay) {
+      setSelected((s) => ({ ...s, day: maxDay, year }));
+    }
+  }
+
+  // Selected-date check for the cell · highlights only when the cell's
+  // (day, month, year) matches the selected triple.
+  function isSelected(day: number): boolean {
+    return (
+      day === selected.day &&
+      viewMonth === selected.month &&
+      viewYear === selected.year
+    );
+  }
 
   function handleSubmit(formEvent: React.FormEvent<HTMLFormElement>) {
     formEvent.preventDefault();
@@ -183,9 +217,9 @@ export function SetWeddingDateCard({
 
     const formData = new FormData();
     formData.set('event_id', eventId);
-    formData.set('day', String(Math.min(selectedDay, maxDay)));
-    formData.set('month', String(selectedMonth));
-    formData.set('year', String(selectedYear));
+    formData.set('day', String(selected.day));
+    formData.set('month', String(selected.month));
+    formData.set('year', String(selected.year));
 
     startTransition(async () => {
       try {
@@ -200,47 +234,117 @@ export function SetWeddingDateCard({
     });
   }
 
+  // Format the selected date for the summary line · "Sat, October 17, 2026"
+  // matches the brand voice (day-of-week first signals Filipino-wedding
+  // weekend preference).
+  const selectedDateLabel = useMemo(() => {
+    return new Intl.DateTimeFormat('en-PH', {
+      weekday: 'short',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    }).format(selectedDate);
+  }, [selectedDate]);
+
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      {/* Wheel spinner · 3 columns (Day · Month · Year) · react-mobile-picker
-          handles touch-drag, mouse-wheel scroll, and click-to-snap
-          interactions across mobile + desktop natively. */}
+      {/* Calendar header · month label + prev/next month arrows + year quick-pick.
+       *  The label is the source of truth for the visible month — host can
+       *  flip months without changing selection. */}
       <div className="rounded-xl border border-ink/10 bg-white/60 p-3 sm:p-4">
-        <Picker
-          value={pickerValue}
-          onChange={setPickerValue}
-          height={180}
-          itemHeight={36}
-          wheelMode="natural"
-        >
-          <Picker.Column name="day">
-            {dayOptions.map((d) => (
-              <Picker.Item key={d} value={String(d)}>
-                {String(d).padStart(2, '0')}
-              </Picker.Item>
-            ))}
-          </Picker.Column>
-          <Picker.Column name="month">
-            {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-              <Picker.Item key={m} value={String(m)}>
-                {MONTHS_FULL[m - 1]}
-              </Picker.Item>
-            ))}
-          </Picker.Column>
-          <Picker.Column name="year">
-            {yearOptions.map((y) => (
-              <Picker.Item key={y} value={String(y)}>
-                {String(y)}
-              </Picker.Item>
-            ))}
-          </Picker.Column>
-        </Picker>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={goPrevMonth}
+            disabled={viewYear === currentYear && viewMonth === 1}
+            aria-label="Previous month"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-ink/65 transition-colors hover:bg-cream hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <ChevronLeft aria-hidden className="h-4 w-4" strokeWidth={2} />
+          </button>
+          <div className="flex items-center gap-2">
+            <h3 className="font-display text-lg italic text-ink sm:text-xl">
+              {MONTHS_FULL[viewMonth - 1]}
+            </h3>
+            <select
+              value={String(viewYear)}
+              onChange={(e) => handleYearJump(e.target.value)}
+              className="rounded-md border border-ink/15 bg-white px-2 py-1 text-sm font-medium text-ink focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30"
+              aria-label="Year"
+            >
+              {yearOptions.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button
+            type="button"
+            onClick={goNextMonth}
+            disabled={viewYear === currentYear + 5 && viewMonth === 12}
+            aria-label="Next month"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-ink/65 transition-colors hover:bg-cream hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+          </button>
+        </div>
+
+        {/* Day-of-week header row · S M T W T F S */}
+        <div className="grid grid-cols-7 gap-1 pb-1.5">
+          {DAYS_OF_WEEK.map((d, i) => (
+            <div
+              key={i}
+              className="text-center font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45"
+            >
+              {d}
+            </div>
+          ))}
+        </div>
+
+        {/* Calendar cells · 7×N grid · weekends (Sat/Sun) get subtle warm
+         *  tinting since they're the modal Filipino wedding days. Selected
+         *  cell has the terracotta ring + cream fill. */}
+        <div className="grid grid-cols-7 gap-1">
+          {calendarCells.map((cell, idx) => {
+            if (cell.isPadding) {
+              return <div key={`pad-${idx}`} aria-hidden className="h-10" />;
+            }
+            const selectedCell = isSelected(cell.day);
+            const isWeekend = cell.weekday === 0 || cell.weekday === 6;
+            return (
+              <button
+                key={cell.day}
+                type="button"
+                onClick={() => pickDay(cell.day)}
+                aria-pressed={selectedCell}
+                aria-label={`${MONTHS_FULL[viewMonth - 1]} ${cell.day}, ${viewYear}`}
+                className={
+                  selectedCell
+                    ? 'h-10 rounded-lg bg-terracotta text-sm font-semibold text-cream shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-terracotta focus:ring-offset-2 focus:ring-offset-cream'
+                    : `h-10 rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-terracotta/40 ${
+                        isWeekend
+                          ? 'bg-terracotta/5 text-ink hover:bg-terracotta/15'
+                          : 'text-ink/75 hover:bg-cream'
+                      }`
+                }
+              >
+                {cell.day}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Live auspicious reasoning · positive-only per the auspicious-date
-          library's brand voice rules. Reasons can be empty for ordinary
-          dates (no special pattern, no resonance, no day-of-week magic);
-          we still surface a base line in that case to avoid a blank slot. */}
+      {/* Selected-date label · big readable summary so the host always
+       *  knows what they've picked without scanning the grid. */}
+      <p className="text-center text-base text-ink sm:text-left">
+        Picked: <strong className="font-medium">{selectedDateLabel}</strong>
+      </p>
+
+      {/* Live auspicious reasoning · pure-function recompute on selection
+       *  change · positive-only per the auspicious-date library's brand
+       *  voice rules. */}
       <div className="space-y-2 rounded-xl bg-terracotta/5 p-4">
         <div className="flex items-center gap-2">
           <Sparkles

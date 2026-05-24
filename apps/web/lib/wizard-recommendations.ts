@@ -27,8 +27,10 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { r2PublicUrl, R2_BUCKETS } from '@/lib/r2';
 
-/** Single vendor recommendation row · shape consumed by VendorPickCard. */
+/** Single vendor recommendation row · shape consumed by VendorPickCard
+ *  AND the new visual VendorPickGridCard. */
 export type WizardVendorRec = {
   vendor_profile_id: string;
   business_name: string;
@@ -40,6 +42,18 @@ export type WizardVendorRec = {
   review_count: number | null;
   ad_rank: number | null;
   public_visibility: string | null;
+  /** PRIORITY 1 hero photo for the grid card · resolved public URL of
+   *  the vendor's matching `vendor_services.primary_photo_r2_key`
+   *  (picked deterministically · first non-null match against the
+   *  canonical_services filter). Null when no service photo is set ·
+   *  grid card falls back to `logo_url` then to a monogram initial. */
+  primary_photo_url: string | null;
+  /** Drives the "Verified by Setnayan" badge + Setnayan Statement copy
+   *  on the visual grid card. Values: 'unverified' / 'pending_review' /
+   *  'verified' / 'demoted' / 'rejected'. Only 'verified' renders the
+   *  badge. Read from `vendor_profiles.verification_state` (separate
+   *  column from `public_visibility`). */
+  verification_state: string | null;
 };
 
 type Args = {
@@ -53,11 +67,17 @@ type Args = {
   /** events.venue_setting · null when not picked yet · used to filter
    *  to compatible-venue vendors. */
   venueSetting: string | null;
-  /** Cap on rows. Default 15 (5 default + 10 VIEW MORE). */
+  /** Cap on rows. Default 15 for the legacy list VendorPickCard; the
+   *  new visual VendorPickGridCard bumps to 100+ so its 15-per-page
+   *  pagination has multiple pages to walk through. */
   limit?: number;
   /** Exclude already-locked event_vendors so the host doesn't see
    *  recommendations that are already on their plan. */
   excludeVendorIds?: ReadonlyArray<string>;
+  /** Optional free-text search across business_name + location_city +
+   *  tagline. NULL/empty string = no search filter (default rank order
+   *  still applies). Used by the grid card's search submit. */
+  searchQuery?: string;
 };
 
 /**
@@ -66,6 +86,10 @@ type Args = {
  * broken — the VendorPickCard renders a polite-voice empty state when
  * recs is empty (rare · happens for very narrow ceremony_type +
  * venue_setting combos before marketplace inventory grows).
+ *
+ * The result includes the per-vendor primary service photo + verification
+ * state. The visual VendorPickGridCard reads both; the legacy list-only
+ * VendorPickCard ignores them.
  */
 export async function fetchWizardVendorRecommendations(
   admin: SupabaseClient,
@@ -102,6 +126,23 @@ export async function fetchWizardVendorRecommendations(
     );
   }
 
+  // Free-text search · ilike on business_name | location_city | tagline.
+  // Used by the grid card's [Search] submit. Maintains compatibility +
+  // exclusion filters so a host searching while in-flight on a category
+  // never sees vendors they've already locked elsewhere.
+  if (args.searchQuery && args.searchQuery.trim().length > 0) {
+    const safe = args.searchQuery
+      .trim()
+      .replace(/[%_,]/g, ' ') // strip ilike wildcards + or-syntax separators
+      .replace(/\s+/g, ' ')
+      .slice(0, 64);
+    if (safe.length > 0) {
+      query = query.or(
+        `business_name.ilike.%${safe}%,location_city.ilike.%${safe}%,tagline.ilike.%${safe}%`,
+      );
+    }
+  }
+
   if (args.excludeVendorIds && args.excludeVendorIds.length > 0) {
     type NotShape = {
       not: (column: string, op: string, value: string) => typeof query;
@@ -121,7 +162,77 @@ export async function fetchWizardVendorRecommendations(
 
   const { data, error } = await query;
   if (error || !data) return [];
-  return data as unknown as WizardVendorRec[];
+
+  // 2026-05-24: enrich with per-vendor service photo + verification state.
+  // Pattern mirrors apps/web/app/vendors/page.tsx's enrichment Promise.all
+  // · two batched IN-lookups so a 100-vendor result set hits the DB twice
+  // instead of N+1. Fail-soft on either side · the card keeps rendering
+  // the vendor row even if photos / verification can't be resolved.
+  const baseRows = data as unknown as Omit<
+    WizardVendorRec,
+    'primary_photo_url' | 'verification_state'
+  >[];
+  const vendorIds = baseRows.map((r) => r.vendor_profile_id);
+  if (vendorIds.length === 0) return [];
+
+  const [photosByVendor, verificationByVendor] = await Promise.all([
+    (async (): Promise<Map<string, string>> => {
+      const { data: rows, error: err } = await admin
+        .from('vendor_services')
+        .select(
+          'vendor_profile_id,primary_photo_r2_key,canonical_service,is_active',
+        )
+        .in('vendor_profile_id', vendorIds)
+        .in('canonical_service', args.canonicalServices as readonly string[]);
+      if (err || !rows) return new Map();
+      // Pick first non-null primary_photo_r2_key per vendor that matches
+      // the canonical_service filter · biases toward the service the host
+      // is shopping for (a venue's reception photo, not a random side gig).
+      const out = new Map<string, string>();
+      for (const row of rows as Array<{
+        vendor_profile_id: string;
+        primary_photo_r2_key: string | null;
+        is_active: boolean | null;
+      }>) {
+        if (row.is_active === false) continue;
+        if (!row.primary_photo_r2_key || row.primary_photo_r2_key.length === 0)
+          continue;
+        if (!out.has(row.vendor_profile_id)) {
+          out.set(row.vendor_profile_id, row.primary_photo_r2_key);
+        }
+      }
+      return out;
+    })(),
+    (async (): Promise<Map<string, string>> => {
+      const { data: rows, error: err } = await admin
+        .from('vendor_profiles')
+        .select('vendor_profile_id,verification_state')
+        .in('vendor_profile_id', vendorIds);
+      if (err || !rows) return new Map();
+      const out = new Map<string, string>();
+      for (const row of rows as Array<{
+        vendor_profile_id: string;
+        verification_state: string | null;
+      }>) {
+        if (row.verification_state) {
+          out.set(row.vendor_profile_id, row.verification_state);
+        }
+      }
+      return out;
+    })(),
+  ]);
+
+  return baseRows.map((row) => {
+    const photoKey = photosByVendor.get(row.vendor_profile_id) ?? null;
+    return {
+      ...row,
+      primary_photo_url: photoKey
+        ? r2PublicUrl(R2_BUCKETS.media, photoKey)
+        : null,
+      verification_state:
+        verificationByVendor.get(row.vendor_profile_id) ?? null,
+    } as WizardVendorRec;
+  });
 }
 
 /**

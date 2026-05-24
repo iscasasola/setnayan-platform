@@ -1191,3 +1191,68 @@ export async function removePrincipalSponsorPair(
 
   revalidatePath(`/dashboard/${eventIdRaw}`);
 }
+
+/* ────────────────────────────────────────────────────────────────────────
+ * 2026-05-24 · VendorPickGridCard server actions
+ *
+ * Owner directive: Card 02 Reception Venue needs a visual grid with a
+ * full-DB search bar (vs the legacy list+top-15-only VendorPickCard).
+ * `searchVendorRecommendations` is a thin auth-gated wrapper around
+ * fetchWizardVendorRecommendations that the client-side grid invokes
+ * on every search submit · returns the same WizardVendorRec[] shape so
+ * the grid can paginate the result client-side.
+ *
+ * Auth + event-membership are validated before hitting the recommendation
+ * fetch so an unauthed visitor cannot scrape the DB through this action.
+ *
+ * Per [[feedback_setnayan_orphan_prevention]] this action is consumed by
+ * `apps/web/app/dashboard/[eventId]/_components/wizard-cards/vendor-pick-grid-card.tsx`
+ * (the search button's onSubmit handler).
+ * ──────────────────────────────────────────────────────────────────────── */
+
+import { fetchWizardVendorRecommendations } from '@/lib/wizard-recommendations';
+import type { WizardVendorRec } from '@/lib/wizard-recommendations';
+
+export type SearchVendorsArgs = {
+  eventId: string;
+  canonicalServices: ReadonlyArray<string>;
+  ceremonyType: string | null;
+  venueSetting: string | null;
+  excludeVendorIds: ReadonlyArray<string>;
+  query: string;
+  /** Cap on rows. Grid card uses 100 so its 15-per-page pagination has
+   *  multiple pages to walk through for big result sets. */
+  limit?: number;
+};
+
+export async function searchVendorRecommendations(
+  args: SearchVendorsArgs,
+): Promise<WizardVendorRec[]> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // Event membership · only hosts of this event can search recs against
+  // its filters. Mirrors the auth-gate in every other wizard action above.
+  const { data: membership, error: membershipErr } = await supabase
+    .from('event_members')
+    .select('member_type')
+    .eq('event_id', args.eventId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (membershipErr || !membership) {
+    throw new Error('Not a host of this event.');
+  }
+
+  const admin = createAdminClient();
+  return fetchWizardVendorRecommendations(admin, {
+    canonicalServices: args.canonicalServices,
+    ceremonyType: args.ceremonyType,
+    venueSetting: args.venueSetting,
+    excludeVendorIds: args.excludeVendorIds,
+    searchQuery: args.query,
+    limit: args.limit ?? 100,
+  });
+}

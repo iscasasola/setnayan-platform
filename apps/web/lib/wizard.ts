@@ -62,6 +62,7 @@ export type WizardTaskId =
   | 'food_tasting'
   // Phase 2 · Style + Identity (T-9m to T-6m)
   | 'stylist'
+  | 'rendered_mood_board'
   | 'mood_board'
   | 'lights_sound'
   | 'led_background'
@@ -75,6 +76,9 @@ export type WizardTaskId =
   | 'song_list'
   | 'create_website'
   | 'save_the_date_video'
+  | 'papic'
+  | 'panood'
+  | 'patiktok'
   | 'attire'
   | 'hair_makeup'
   | 'principal_sponsors'
@@ -375,6 +379,27 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     prerequisites: ['reception_venue', 'mood_board'],
   },
   {
+    // Added 2026-05-24 (owner directive · "we will have another for the
+    // rendered mood board by stylist"). Two-mood-board model: the
+    // INSPIRATION mood board (card 'mood_board' at order 8) is what
+    // the host curates with reference photos · palette · location feel
+    // BEFORE hiring a stylist. The RENDERED mood board (this card) is
+    // what the locked stylist sends back with their curated render of
+    // the wedding's actual styling — host reviews + approves it here so
+    // it becomes the final reference all downstream vendors read.
+    // External-process kind · placeholder body until inline approval
+    // UI ships V1.x.
+    id: 'rendered_mood_board',
+    order: 9.1,
+    phase: 'style_identity',
+    kind: 'external_process',
+    title: 'Approve the rendered mood board',
+    whyItMatters:
+      "Your stylist takes the inspiration mood board and renders the real version — palette they'll source florals to, table styling photos, signage mockups, decor refs. Approve it here and it becomes the locked reference your florist, lighting team, cake-maker, and stationer all read from.",
+    pillLabel: 'Style & Identity',
+    prerequisites: ['stylist'],
+  },
+  {
     // 2026-05-24 owner directive (see stylist comment above): mood_board
     // promoted ahead of stylist · order swapped 9 → 8 (now lands at
     // position 14). Also adds set_wedding_date prereq so the card
@@ -383,9 +408,9 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     order: 8,
     phase: 'style_identity',
     kind: 'data_input',
-    title: 'Set your mood board',
+    title: 'Set your inspiration mood board',
     whyItMatters:
-      "Six colors anchor every visual choice — your florist, stationer, lighting designer, even the cake all read from this palette. Pick the feeling first; the colors follow.",
+      "Six colors plus reference photos that anchor every visual choice downstream — your florist, stationer, lighting designer, even the cake. This is your inspiration — your stylist takes it from here and sends back the rendered version for you to approve.",
     pillLabel: 'Style & Identity',
     prerequisites: ['set_wedding_date'],
   },
@@ -531,6 +556,60 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
       "Six months out · your prenup photos · a 30-second video your guests can save to their calendars. ₱199 per render so you can iterate the framing until it feels right.",
     pillLabel: 'Programming',
     prerequisites: ['engagement_prenup_shoot'],
+  },
+  {
+    // Added 2026-05-24 (owner directive · "offer all setnayan in app
+    // services also on the today's focus"). Papic = guest-paparazzi
+    // photo mesh (iteration 0012 · CLAUDE.md row 2026-05-16). Couples
+    // book the add-on, designate guest paparazzi via QR enrollment, the
+    // native app captures + auto-tags during the event. T-3mo entry,
+    // T-14d floor (final paparazzi seat assignment). Card surfaces the
+    // intake + tier picker; the add-on surface at /add-ons/papic
+    // handles the actual setup. External-process kind · placeholder
+    // body until inline activation UI ships V1.x.
+    id: 'papic',
+    order: 17.3,
+    phase: 'programming',
+    kind: 'external_process',
+    title: 'Activate Papic',
+    whyItMatters:
+      "Your guests with phones become paparazzi — Papic auto-tags every photo by face + table QR + scans, and the curated gallery lands T+24hr. Lock the pack at T-3 months so guest enrollment can start with the invitation rollout.",
+    pillLabel: 'Programming',
+    prerequisites: ['reception_venue'],
+  },
+  {
+    // Added 2026-05-24 (owner directive · same row as Papic). Panood =
+    // BYO-YouTube multi-cam livestream (iteration 0011 · CLAUDE.md row
+    // 2026-05-16). Couples buy daily SKU (₱2,499/day Setnayan-multicam)
+    // or annual (₱19,999/year vendor-tier). OAuth handshake into the
+    // couple's own YouTube channel · Setnayan provides broadcaster web
+    // UI + multi-cam switching. T-2mo entry, T-14d floor.
+    id: 'panood',
+    order: 17.5,
+    phase: 'programming',
+    kind: 'external_process',
+    title: 'Activate Panood',
+    whyItMatters:
+      "Live-stream the ceremony + reception to your overseas family on YOUR own YouTube channel — no Setnayan brand on the broadcast. Setnayan handles multi-cam switching; you keep the recordings forever. T-2 months gives the broadcaster setup time + your YouTube OAuth gate.",
+    pillLabel: 'Programming',
+    prerequisites: ['reception_venue'],
+  },
+  {
+    // Added 2026-05-24 (owner directive · same row as Papic + Panood).
+    // Patiktok = physical TikTok booth at the venue (iteration 0017 ·
+    // CLAUDE.md row 2026-05-16). Dual-tier per-day pricing: Setnayan
+    // master TikTok ₱999/day · couple's own TikTok ₱1,999/day via OAuth.
+    // 40-video soft cap per booth per day + ₱49/+10 overage. T-3mo entry,
+    // T-14d floor.
+    id: 'patiktok',
+    order: 17.7,
+    phase: 'programming',
+    kind: 'external_process',
+    title: 'Activate Patiktok',
+    whyItMatters:
+      "TikTok booth at the venue — guests step up, pick a trending sound from the printed QR menu, perform the dance, the booth auto-compiles + posts. Pick which TikTok handle owns the content (Setnayan or yours). T-3 months gives time for sound curation + booth slot reservation.",
+    pillLabel: 'Programming',
+    prerequisites: ['reception_venue'],
   },
   {
     // 2026-05-24 senior-planner reorder: was order 18 (position 22 ·

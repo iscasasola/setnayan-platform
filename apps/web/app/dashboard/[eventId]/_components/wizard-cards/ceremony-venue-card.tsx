@@ -27,7 +27,10 @@
  */
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchWizardVendorRecommendations } from '@/lib/wizard-recommendations';
+import {
+  fetchWizardVendorRecommendations,
+  fetchBookedMarketplaceVendorIdsForDate,
+} from '@/lib/wizard-recommendations';
 import type { CeremonyType } from '@/lib/auspicious-date';
 import { VendorPickGridCard } from './vendor-pick-grid-card';
 
@@ -39,6 +42,10 @@ type Props = {
    *  does), but we pass it through for vendors who tagged compat anyway. */
   venueSetting: string | null;
   excludeMarketplaceIds: ReadonlyArray<string>;
+  /** events.event_date · drives the availability filter (2026-05-24
+   *  owner directive). Ceremony venues with a confirmed booking on
+   *  this date render at 30% opacity with no action buttons. */
+  eventDate: string | null;
 };
 
 const CANONICAL_SERVICES = ['religious_venue'] as const;
@@ -48,6 +55,7 @@ export async function CeremonyVenueCard({
   ceremonyType,
   venueSetting,
   excludeMarketplaceIds,
+  eventDate,
 }: Props) {
   const admin = createAdminClient();
 
@@ -89,14 +97,18 @@ export async function CeremonyVenueCard({
   }
 
   // Limit bumped to 100 so the 15-per-page pagination has multi-page
-  // depth even after distance filtering narrows the set.
-  const recs = await fetchWizardVendorRecommendations(admin, {
-    canonicalServices: CANONICAL_SERVICES,
-    ceremonyType,
-    venueSetting,
-    excludeVendorIds: excludeMarketplaceIds,
-    limit: 100,
-  });
+  // depth even after distance filtering narrows the set. Booked IDs
+  // run in parallel · independent query.
+  const [recs, bookedIds] = await Promise.all([
+    fetchWizardVendorRecommendations(admin, {
+      canonicalServices: CANONICAL_SERVICES,
+      ceremonyType,
+      venueSetting,
+      excludeVendorIds: excludeMarketplaceIds,
+      limit: 100,
+    }),
+    fetchBookedMarketplaceVendorIdsForDate(admin, eventId, eventDate),
+  ]);
 
   // Ceremony-type-specific empty state copy — civil couples often find
   // their "ceremony venue" IS the city hall or a civil registrar, neither
@@ -111,7 +123,12 @@ export async function CeremonyVenueCard({
       ? {
           referenceLat: receptionLat,
           referenceLng: receptionLng,
-          initialKm: 15, // 2026-05-24 owner directive
+          // 2026-05-24 owner update: initial distance dropped 15 → 10 km
+          // · churches further than ~10 km from the reception start to
+          // strain the day-of logistics (guest travel, between-venue
+          // photo windows, traffic). 10 keeps the default tight; the
+          // host can widen via the stepper any time.
+          initialKm: 10,
           referenceLabel: 'Reception Venue',
         }
       : undefined;
@@ -136,6 +153,7 @@ export async function CeremonyVenueCard({
         emptyStateCopy: emptyCopy,
       }}
       distanceFilter={distanceFilter}
+      bookedMarketplaceVendorIds={bookedIds}
     />
   );
 }

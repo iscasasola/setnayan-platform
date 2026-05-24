@@ -28,6 +28,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { r2PublicUrl, R2_BUCKETS } from '@/lib/r2';
+import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 
 /** Single vendor recommendation row · shape consumed by VendorPickCard
  *  AND the new visual VendorPickGridCard. */
@@ -282,3 +283,46 @@ export const VENDOR_PICK_TASK_CANONICAL_SERVICES: Partial<
   accommodation: ['accommodation'],
   bridal_car: ['transportation'],
 } as const;
+
+/**
+ * Returns the set of `vendors.vendor_profile_id` values that are
+ * CONFIRMED-BOOKED on the given wedding date · 2026-05-24 owner directive
+ * for Cards 02 + 03. Excludes the host's OWN event so a vendor the host
+ * already locked on this event doesn't appear as "booked elsewhere".
+ *
+ * Returns an empty array on missing date, missing event, or any query
+ * error · the grid downgrades to no-availability-filter, which is the
+ * safest fallback.
+ *
+ * Confirmed statuses come from CONFIRMED_VENDOR_STATUSES in lib/events.ts:
+ *   'contracted' / 'deposit_paid' / 'delivered' / 'complete'
+ * Looser statuses ('considering', 'shortlisted') don't lock the vendor
+ * out · those couples may still change their minds.
+ */
+export async function fetchBookedMarketplaceVendorIdsForDate(
+  admin: SupabaseClient,
+  eventId: string,
+  eventDate: string | null,
+): Promise<string[]> {
+  if (!eventDate) return [];
+  try {
+    const { data, error } = await admin
+      .from('event_vendors')
+      .select(
+        'marketplace_vendor_id, event_id, events!inner(event_date, deleted_at)',
+      )
+      .eq('events.event_date', eventDate)
+      .is('events.deleted_at', null)
+      .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[])
+      .not('marketplace_vendor_id', 'is', null)
+      .neq('event_id', eventId);
+    if (error || !data) return [];
+    const out = new Set<string>();
+    for (const row of data as Array<{ marketplace_vendor_id: string | null }>) {
+      if (row.marketplace_vendor_id) out.add(row.marketplace_vendor_id);
+    }
+    return Array.from(out);
+  } catch {
+    return [];
+  }
+}

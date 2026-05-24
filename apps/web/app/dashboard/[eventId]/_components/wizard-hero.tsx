@@ -218,6 +218,7 @@ function renderCardBody(
           ceremonyType={ctx.ceremonyType}
           venueSetting={ctx.venueSetting}
           excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
+          eventDate={ctx.eventDate}
         />
       );
     case 'ceremony_venue':
@@ -227,6 +228,7 @@ function renderCardBody(
           ceremonyType={ctx.ceremonyType}
           venueSetting={ctx.venueSetting}
           excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
+          eventDate={ctx.eventDate}
         />
       );
     case 'officiant':

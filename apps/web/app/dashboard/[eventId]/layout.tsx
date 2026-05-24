@@ -155,10 +155,13 @@ export default async function EventLayout({ children, params }: Props) {
   if (!event) notFound();
 
   const tr = makeT(locale);
-  // 4-tab BottomNav per CLAUDE.md 2026-05-22 (owner directive). Vendors + Budget
-  // come out of the bottom (still reachable via planning cards on Home +
-  // top-nav Marketplace + 14-tile NavGrid). Add-ons renames to Services.
+  // 5-tab BottomNav (CLAUDE.md 2026-05-24) — Today added as new first tab,
+  // promoting the Concierge Active Wizard (iteration 0016) from inline
+  // event-home block to its own /today route. Original 4-tab refactor
+  // (2026-05-22) kept: Vendors + Budget reachable via planning cards on
+  // Home + top-nav Marketplace + 14-tile NavGrid.
   const navLabels = {
+    today: tr('nav.today'),
     home: tr('nav.home'),
     guests: tr('nav.guests'),
     website: tr('nav.website'),

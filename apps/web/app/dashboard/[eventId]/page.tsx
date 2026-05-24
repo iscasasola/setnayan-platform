@@ -49,14 +49,19 @@ import { ConciergeBanner } from './_components/concierge-banner';
 // and the lib helpers (pickTodaysOneThing / countUnlockedCategories) live at
 // @/lib/todays-one-thing — both retained on disk as a quick-revert path
 // while the Concierge Active Wizard (iteration 0016 · CLAUDE.md Sixth
-// 2026-05-23 row · Phase 1 PR #467) replaces this surface with
-// <WizardHero> below.
-import { WizardHero } from './_components/wizard-hero';
+// 2026-05-23 row · Phase 1 PR #467) replaces this surface.
+//
+// WizardHero import REMOVED 2026-05-24: the wizard surface MOVED to its
+// own /dashboard/[eventId]/today route + first BottomNav tab "Today"
+// per owner directive. Event-home no longer renders <WizardHero> inline.
+// If a future iteration needs to surface the wizard back on event-home
+// (e.g., a compact peek-card variant), re-add the import here and the
+// JSX in the section where the comment placeholder lives.
 import { Next15Steps } from './_components/next-15-steps';
 import { pickNextSteps, type SponsorRowInput } from '@/lib/next-steps';
 // pickTodaysOneThing + countUnlockedCategories lib helpers retained at
 // @/lib/todays-one-thing for the quick-revert path. Unused here now that
-// WizardHero replaces TodaysOneThing.
+// the wizard owns the Today's Focus surface (on /today, not event-home).
 import { getLocale, makeT, type TranslationKey } from '@/lib/i18n';
 import {
   STEPS,
@@ -1734,33 +1739,16 @@ export default async function EventHomePage({
        *  the vendor's logo + canonical name instead of a text-only chip. */}
       <FinalizedChipStrip eventId={eventId} vendors={eventVendors} />
 
-      {/* Concierge Active Wizard · iteration 0016 · Phase 1 (CLAUDE.md
-       *  Sixth 2026-05-23 row). Replaces the legacy TodaysOneThing
-       *  hero with inline-completion cards. WizardHero reads
-       *  events.wizard_state, resolves the active task via the
-       *  canonical 38-task sequence in @/lib/wizard, and renders the
-       *  matching inline card variant inside <WizardCard>. Phase 1
-       *  implements Card 01 Set Wedding Date (wheel-spinner D/M/Y +
-       *  live auspicious reasoning); Phases 2-5 add the remaining 37
-       *  card variants. The host completes each task inline · no
-       *  navigation away · the card transitions in-place on save via
-       *  revalidatePath.
-       *
-       *  meaningfulDates passed as empty array in Phase 1 · client-
-       *  side reasoning shows the universal subset (day-of-week,
-       *  month, special patterns, ceremony overlays); the server
-       *  action fetches event_meaningful_dates itself on save so the
-       *  PERSISTED auspicious_reasons include host-personal
-       *  resonance even though the wheel-spinner preview doesn't. */}
-      <WizardHero
-        eventId={eventId}
-        wizardState={(event as { wizard_state?: unknown }).wizard_state}
-        eventDate={event.event_date}
-        ceremonyType={eventCeremonyType as Parameters<typeof WizardHero>[0]['ceremonyType']}
-        venueSetting={eventVenueSetting}
-        meaningfulDates={[]}
-        excludeMarketplaceVendorIds={marketplaceIds}
-      />
+      {/* Concierge Active Wizard MOVED 2026-05-24 (owner directive) to its
+       *  own first-class /today route + first BottomNav tab "Today". This
+       *  was previously the inline <WizardHero> render block. Event-home
+       *  no longer hosts the wizard surface — hosts reach it via the
+       *  Today tab in the BottomNav. The /today page at
+       *  apps/web/app/dashboard/[eventId]/today/page.tsx re-fetches the
+       *  minimal field set the WizardHero consumes (wizard_state,
+       *  event_date, ceremony_type, venue_setting, marketplaceIds). The
+       *  WizardHero import below stays only if other components on this
+       *  page consume it; otherwise it's pruned. */}
 
       {/* Wave 2 of Home v2 — owner directive 2026-05-22 (Next 15 Steps
        *  parallelizability surface). Lives between the single-focus

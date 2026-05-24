@@ -37,12 +37,17 @@ export type PaperworkMetaField = {
   label: string;
   /** Optional placeholder. */
   placeholder?: string;
-  /** HTML input type · defaults to text. */
-  type?: 'text' | 'tel' | 'email' | 'url';
+  /** Field type · defaults to text. `multi_select` renders a checkbox
+   *  grid using the supplied `options[]` and joins selected values with
+   *  comma+space for the meta payload. `number` renders <input type=number>. */
+  type?: 'text' | 'tel' | 'email' | 'url' | 'number' | 'multi_select';
   /** Required when present. */
   required?: boolean;
-  /** Max chars. */
+  /** Max chars (text-shaped fields) OR max numeric value (number). */
   maxLength?: number;
+  /** Options for `type: 'multi_select'` — values stored back as a
+   *  comma-joined string when the host submits. */
+  options?: ReadonlyArray<{ value: string; label: string }>;
 };
 
 type Props = {
@@ -115,28 +120,111 @@ export function PaperworkCard({
 
       {metaFields.length > 0 ? (
         <div className="space-y-3">
-          {metaFields.map((field) => (
-            <div key={field.name}>
+          {metaFields.map((field) => {
+            const fieldId = `paperwork-meta-${field.name}`;
+            const currentValue = metaValues[field.name] ?? '';
+            const labelEl = (
               <label
-                htmlFor={`paperwork-meta-${field.name}`}
+                htmlFor={fieldId}
                 className="block font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55"
               >
                 {field.label}
                 {field.required ? <span className="ml-1 text-rose-700">*</span> : null}
               </label>
-              <input
-                id={`paperwork-meta-${field.name}`}
-                type={field.type ?? 'text'}
-                value={metaValues[field.name] ?? ''}
-                onChange={(e) =>
-                  setMetaValues((v) => ({ ...v, [field.name]: e.target.value }))
-                }
-                placeholder={field.placeholder}
-                maxLength={field.maxLength}
-                className="mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm placeholder-ink/35 focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30 sm:max-w-md"
-              />
-            </div>
-          ))}
+            );
+
+            // Multi-select renders a checkbox grid · selected values are
+            // joined with ", " in the meta payload so the admin reading
+            // wizard_state sees something like "Table QRs, Invitation QRs".
+            if (field.type === 'multi_select' && field.options) {
+              const selected = new Set(
+                currentValue.length > 0 ? currentValue.split(', ') : [],
+              );
+              return (
+                <fieldset key={field.name}>
+                  <legend className="block font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                    {field.label}
+                    {field.required ? (
+                      <span className="ml-1 text-rose-700">*</span>
+                    ) : null}
+                  </legend>
+                  <div className="mt-1 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {field.options.map((opt) => {
+                      const checked = selected.has(opt.value);
+                      return (
+                        <label
+                          key={opt.value}
+                          className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-ink/10 bg-white px-3 py-2 text-sm text-ink hover:bg-cream"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => {
+                              const next = new Set(selected);
+                              if (e.target.checked) next.add(opt.value);
+                              else next.delete(opt.value);
+                              const joined = Array.from(next).join(', ');
+                              setMetaValues((v) => ({
+                                ...v,
+                                [field.name]: joined,
+                              }));
+                            }}
+                            className="h-4 w-4 rounded border-ink/25 text-terracotta focus:ring-terracotta/30"
+                          />
+                          <span>{opt.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+              );
+            }
+
+            // Number renders <input type=number>. maxLength becomes max-value.
+            if (field.type === 'number') {
+              return (
+                <div key={field.name}>
+                  {labelEl}
+                  <input
+                    id={fieldId}
+                    type="number"
+                    value={currentValue}
+                    onChange={(e) =>
+                      setMetaValues((v) => ({
+                        ...v,
+                        [field.name]: e.target.value,
+                      }))
+                    }
+                    placeholder={field.placeholder}
+                    max={field.maxLength}
+                    min={0}
+                    className="mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm placeholder-ink/35 focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30 sm:max-w-md"
+                  />
+                </div>
+              );
+            }
+
+            // Default: text-ish inputs (text · tel · email · url).
+            return (
+              <div key={field.name}>
+                {labelEl}
+                <input
+                  id={fieldId}
+                  type={field.type ?? 'text'}
+                  value={currentValue}
+                  onChange={(e) =>
+                    setMetaValues((v) => ({
+                      ...v,
+                      [field.name]: e.target.value,
+                    }))
+                  }
+                  placeholder={field.placeholder}
+                  maxLength={field.maxLength}
+                  className="mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm placeholder-ink/35 focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30 sm:max-w-md"
+                />
+              </div>
+            );
+          })}
         </div>
       ) : null}
 

@@ -37,6 +37,11 @@ import { VendorPickGridCard } from './vendor-pick-grid-card';
 type Props = {
   eventId: string;
   ceremonyType: CeremonyType | null;
+  /** Accepted for API symmetry but INTENTIONALLY UNUSED · officiants
+   *  travel; an event's reception venue type doesn't gate which
+   *  priest / minister / imam / judge a couple can engage. See the
+   *  fetch call below for the full rationale (same rule as
+   *  ceremony-venue-card.tsx · sibling 2026-05-24 fix). */
   venueSetting: string | null;
   excludeMarketplaceIds: ReadonlyArray<string>;
   /** events.event_date · drives the availability filter. Officiants with
@@ -50,18 +55,28 @@ const CANONICAL_SERVICES = ['officiant'] as const;
 export async function OfficiantCard({
   eventId,
   ceremonyType,
-  venueSetting,
+  // venueSetting deliberately destructured-then-ignored · see Props
+  // doc + fetch comment for the why.
   excludeMarketplaceIds,
   eventDate,
 }: Props) {
   const admin = createAdminClient();
   // Limit bumped 15 → 100 so the grid's 5-row × 1-5-col pagination has
   // multi-page depth as marketplace inventory grows.
+  //
+  // venueSetting deliberately passed as NULL · 2026-05-24 defensive
+  // fix paired with ceremony-venue-card.tsx. `events.venue_setting`
+  // is the host's RECEPTION venue type — it has no business gating
+  // officiant recommendations. Today's seed marks all 40 officiants
+  // compatible with every venue_setting, so this doesn't change
+  // current behaviour; but if future seeds narrow the tags (as the
+  // religious-venue seed did, breaking Card 03), Card 04 must not
+  // inherit the same trap.
   const [recs, bookedIds] = await Promise.all([
     fetchWizardVendorRecommendations(admin, {
       canonicalServices: CANONICAL_SERVICES,
       ceremonyType,
-      venueSetting,
+      venueSetting: null,
       excludeVendorIds: excludeMarketplaceIds,
       limit: 100,
     }),
@@ -105,7 +120,8 @@ export async function OfficiantCard({
       searchContext={{
         canonicalServices: CANONICAL_SERVICES,
         ceremonyType,
-        venueSetting,
+        // NULL matches the fetch above · see comment up there.
+        venueSetting: null,
         excludeVendorIds: excludeMarketplaceIds,
       }}
       copy={{

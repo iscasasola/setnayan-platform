@@ -126,15 +126,15 @@ export default async function PlaylistPage({ params }: Props) {
             <span className="leading-relaxed">
               Synced with{' '}
               <strong className="font-medium">{bookedMusic.vendor_name}</strong>{' '}
-              — they'll see this lineup in their Setnayan workspace. Edit
-              anytime; they'll always see your latest picks.
+              — they&apos;ll see this lineup in their Setnayan workspace. Edit
+              anytime; they&apos;ll always see your latest picks.
             </span>
           </p>
         </div>
       ) : (
         <div className="mb-6 rounded-xl border border-ink/15 bg-cream/50 p-4">
           <p className="text-sm leading-relaxed text-ink/75">
-            Build the lineup whenever you're ready. The moment you lock
+            Build the lineup whenever you&apos;re ready. The moment you lock
             your DJ or band, this playlist syncs to their workspace
             automatically.
           </p>

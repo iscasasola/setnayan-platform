@@ -1,17 +1,35 @@
 /**
  * Card 18 Attire · Phase 4 · Programming tier.
  *
- * 2026-05-24 owner directive: migrated from the legacy list VendorPickCard
- * to the visual VendorPickGridCard with NO distance filter. Designers and
- * couture boutiques are picked by portfolio + fit-session quality, not
- * proximity — couples regularly fit at NCR ateliers for provincial
- * weddings. Default sort (ad_rank → review_count → avg_rating_overall)
- * anchors on portfolio + reputation.
+ * 2026-05-24 owner directive (PR b · stage 1): expanded canonical-services
+ * pool from 2 (gown_designer + suit_designer) to 6 (bridal_gown ·
+ * groom_suit · bridal_shoes · groom_shoes · entourage_attire ·
+ * parents_attire) per migration 20260621000000. Verbatim:
  *
- * Combined gown + suit card. Filipino weddings often book the bride's
- * gown and groom's suit (and increasingly the barong tagalog) from the
- * same designer or sister boutiques, so surfacing both pools at once
- * gives the host the fullest picture.
+ *   "Attire should grow on Bridal Gown, Grooms Suit, Bridal Shoes,
+ *    Grooms Shoes, possible add Entourage and Parents?"
+ *
+ * STAGE 1 (this PR): single-grid view surfacing vendors across all 6
+ * canonicals · Filipino couples see the full attire pool (gowns, suits,
+ * shoes, entourage outfits, parents' outfits) interleaved by review count
+ * + verification + ad rank · still single-pick (locking one vendor
+ * advances the wizard).
+ *
+ * STAGE 2 (follow-up PR b.2): multi-pick UX with 6 sub-tabs · custom lock
+ * action that doesn't auto-advance the wizard · "Mark attire complete" CTA
+ * when ≥2 sub-categories locked. Mirrors the Card 14 Photobooths + Booths
+ * multi-pick pattern (see `photobooths-booths-card-client.tsx`).
+ *
+ * The legacy canonicals (`gown_designer` · `suit_designer`) stay in the
+ * vendor_category enum as deprecated · the migration migrated existing
+ * event_vendors + vendor_profiles rows to the new canonical names.
+ *
+ * Filter approach: NO distance filter. Designers + couture boutiques are
+ * picked by portfolio + fit-session quality, not proximity — couples
+ * regularly fit at NCR ateliers for provincial weddings. Default sort
+ * (ad_rank → review_count → avg_rating_overall) anchors on portfolio +
+ * reputation per the [Vendor_Taxonomy_V1_Master.md § 10 spec lock]
+ * (creations pattern · reviews-first filter approach).
  *
  * Muslim couples get modest-attire vendors via the
  * compatible_ceremony_types[] filter; Cultural weddings get traditional
@@ -37,7 +55,22 @@ type Props = {
   eventDate: string | null;
 };
 
-const CANONICAL_SERVICES = ['gown_designer', 'suit_designer'] as const;
+// 2026-05-24 PR (b) stage 1 · expanded pool to all 6 attire sub-categories
+// per owner directive. Migration 20260621000000 added the 4 new canonicals
+// (bridal_shoes / groom_shoes / entourage_attire / parents_attire) and
+// renamed the existing 2 (gown_designer → bridal_gown, suit_designer →
+// groom_suit). Existing event_vendors + vendor_profiles rows were
+// data-migrated to the new names; the legacy names stay in the enum as
+// deprecated. PR (b) stage 2 will split this into 6 sub-tab views with
+// independent locking.
+const CANONICAL_SERVICES = [
+  'bridal_gown',
+  'groom_suit',
+  'bridal_shoes',
+  'groom_shoes',
+  'entourage_attire',
+  'parents_attire',
+] as const;
 
 export async function AttireCard({
   eventId,

@@ -1,55 +1,77 @@
 /**
  * Card 4b · First Draft Guest List · Phase 1 · Foundation tier.
  *
- * Owner directive 2026-05-24 (flow diagram) · adds the missing card that
- * makes the headcount real BEFORE Caterer (Card 07) so the caterer
- * picker can recommend by guest-count bucket. Lives between Officiant
- * (4) and Photography (5) so it fires early enough to influence every
- * downstream count-sensitive lock (catering · cake · seatplan · paprint).
+ * 2026-05-24 owner directive (CLAUDE.md decision-log row) · seeds the
+ * VIP scaffold (bride · groom · best man · maid of honor) + a Quick-
+ * Add chain in one inline pass. Lives between Officiant (Card 4) and
+ * Photography (Card 5) so the headcount lands EARLY enough to drive
+ * every count-sensitive downstream lock — caterer recommendations by
+ * guest-count bucket · cake sizing · seatplan capacity · paprint
+ * quantities.
  *
- * NO LINK out · the inline body surfaces current guest count + a
- * progress chip + a [Mark draft complete] CTA. Settles via markTaskDone
- * once the host reaches a threshold OR explicitly marks it done.
+ * Inline-completion · NO link out · the form is the card. Settles via
+ * completeDraftGuestListTask once bride + groom + ≥1 entourage land;
+ * stays in_flight while the host iterates so they can re-open and add
+ * more without losing progress.
+ *
+ * Reads existing VIP roles + total guest count at server-render time
+ * so the form can (a) skip already-saved roles per the spec ("only if
+ * not yet added") and (b) show a real-time total counter that adds
+ * the in-flight typing on top of the canonical persisted count.
  */
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { PaperworkCard } from './paperwork-card';
+import { DraftGuestListForm } from './draft-guest-list-form';
 
 type Props = { eventId: string };
+
+type VipRole = 'bride' | 'groom' | 'best_man' | 'maid_of_honor';
+const VIP_ROLES: ReadonlySet<string> = new Set([
+  'bride',
+  'groom',
+  'best_man',
+  'maid_of_honor',
+]);
 
 export async function DraftGuestListCard({ eventId }: Props) {
   const admin = createAdminClient();
 
-  const { count } = await admin
-    .from('guests')
-    .select('guest_id', { count: 'exact', head: true })
-    .eq('event_id', eventId);
+  // Two queries in parallel · total head count + which VIP roles
+  // already have at least one row on file (used to hide already-
+  // filled scaffold inputs).
+  const [{ count: totalCount }, { data: vipRows }] = await Promise.all([
+    admin
+      .from('guests')
+      .select('guest_id', { count: 'exact', head: true })
+      .eq('event_id', eventId),
+    admin
+      .from('guests')
+      .select('role')
+      .eq('event_id', eventId)
+      .in('role', ['bride', 'groom', 'best_man', 'maid_of_honor']),
+  ]);
 
-  const total = count ?? 0;
+  const filledRoles = Array.from(
+    new Set(
+      (vipRows ?? [])
+        .map((r) => (r as { role: string }).role)
+        .filter((r): r is VipRole => VIP_ROLES.has(r)),
+    ),
+  ) as VipRole[];
 
   return (
-    <PaperworkCard
-      eventId={eventId}
-      taskId="draft_guest_list"
-      intro={
-        <>
-          <p>
-            A rough headcount unlocks every count-sensitive vendor pick —
-            catering, cake, seatplan, paprint. You don&apos;t need final
-            names yet, just enough to know what scale you&apos;re working
-            with.
-          </p>
-          <p className="mt-2 text-ink/65">
-            You&apos;re at <strong>{total}</strong>{' '}
-            {total === 1 ? 'guest' : 'guests'} so far. Add the rest via
-            the Guests tab — once your headcount feels right, mark this
-            done and we&apos;ll surface the caterer card next.
-          </p>
-        </>
-      }
-      metaFields={[]}
-      inFlightLabel="Still adding guests"
-      doneLabel="My draft list is ready"
-    />
+    <div className="space-y-4">
+      <p className="text-sm text-ink/75">
+        Seed your guest list with the four anchor names — bride, groom,
+        best man, maid of honor. Then keep typing whoever else needs to
+        be on the list. A rough headcount unlocks every count-sensitive
+        vendor pick coming up · catering · cake · seatplan · paprint.
+      </p>
+      <DraftGuestListForm
+        eventId={eventId}
+        filledRoles={filledRoles}
+        initialTotal={totalCount ?? 0}
+      />
+    </div>
   );
 }

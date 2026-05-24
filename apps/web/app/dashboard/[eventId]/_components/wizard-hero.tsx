@@ -86,7 +86,6 @@ import { PrincipalSponsorsCard } from './wizard-cards/principal-sponsors-card';
 import { DeployInvitationCard } from './wizard-cards/deploy-invitation-card';
 import { HoneymoonPlanningCard } from './wizard-cards/honeymoon-planning-card';
 import { FinalizeSeatplanCard } from './wizard-cards/finalize-seatplan-card';
-import { FinalizeCateringCountCard } from './wizard-cards/finalize-catering-count-card';
 import { FinalizeRsvpCard } from './wizard-cards/finalize-rsvp-card';
 import { PaprintCard } from './wizard-cards/paprint-card';
 import { PlaceholderCardBody } from './wizard-cards/placeholder-card-body';
@@ -410,7 +409,13 @@ function renderCardBody(
     // server actions from WAVE 0 (PR #472). The in_flight CTA is what
     // lets the wizard advance while slow paperwork (Cenomar · Pre-Cana ·
     // Marriage License) processes in the background.
-    case 'cenomar':
+    // 2026-05-24 owner directive (PR #534): cenomar split into bride
+    // + groom · PH marriage license requires BOTH partners' Cenomars.
+    // Both cases reuse the existing CenomarCard component until V1.x
+    // adds per-partner upload-tracking UI; the component shows a
+    // generic Cenomar status badge that works for either partner.
+    case 'cenomar_bride':
+    case 'cenomar_groom':
       return <CenomarCard eventId={ctx.eventId} />;
     case 'church_paperwork':
       return <ChurchPaperworkCard eventId={ctx.eventId} />;
@@ -520,14 +525,13 @@ function renderCardBody(
           tableCount={0}
         />
       );
-    case 'finalize_catering_count':
-      return (
-        <FinalizeCateringCountCard
-          eventId={ctx.eventId}
-          rsvpAttendingCount={0}
-          rsvpTotalCount={0}
-        />
-      );
+    // 2026-05-24 owner directive (PR #534): finalize_catering_count
+    // card REMOVED. Per owner: "once seat plan is finalized, the guest
+    // list is finalized, all PAX dependent vendors will be notified
+    // and they must confirm." Auto-notification system on
+    // finalize_seatplan completion supersedes this card. The
+    // FinalizeCateringCountCard component is now an orphan · safe to
+    // delete in a V1.x cleanup PR.
     case 'finalize_rsvp':
       return <FinalizeRsvpCard eventId={ctx.eventId} />;
     case 'paprint':

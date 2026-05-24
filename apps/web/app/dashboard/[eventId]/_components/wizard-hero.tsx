@@ -52,6 +52,13 @@ import { HairMakeupCard } from './wizard-cards/hair-makeup-card';
 import { CakeCard } from './wizard-cards/cake-card';
 import { RingsCard } from './wizard-cards/rings-card';
 import { AccommodationCard } from './wizard-cards/accommodation-card';
+// 2026-05-24 7 wizard sequence gaps · 6 new external_process cards
+import { DraftGuestListCard } from './wizard-cards/draft-guest-list-card';
+import { CustomizeFoodCard } from './wizard-cards/customize-food-card';
+import { FinalizeEntourageCard } from './wizard-cards/finalize-entourage-card';
+import { SecondBatchInvitationCard } from './wizard-cards/second-batch-invitation-card';
+import { AllSetReadinessCard } from './wizard-cards/all-set-readiness-card';
+import { ClaimNextEventRewardCard } from './wizard-cards/claim-next-event-reward-card';
 import { BridalCarCard } from './wizard-cards/bridal-car-card';
 // Phase 5 batch — 7 paperwork external_process cards.
 import { CenomarCard } from './wizard-cards/cenomar-card';
@@ -261,6 +268,8 @@ function renderCardBody(
       );
     case 'engagement_prenup_shoot':
       return <PrenupCard eventId={ctx.eventId} eventDate={ctx.eventDate} />;
+    case 'draft_guest_list':
+      return <DraftGuestListCard eventId={ctx.eventId} />;
     case 'catering':
       return (
         <CateringCard
@@ -271,6 +280,8 @@ function renderCardBody(
           eventDate={ctx.eventDate}
         />
       );
+    case 'customize_food':
+      return <CustomizeFoodCard eventId={ctx.eventId} />;
     case 'stylist':
       return (
         <StylistCard
@@ -446,6 +457,8 @@ function renderCardBody(
       return <SaveTheDateVideoCard eventId={ctx.eventId} />;
     case 'principal_sponsors':
       return <PrincipalSponsorsCard eventId={ctx.eventId} />;
+    case 'finalize_entourage':
+      return <FinalizeEntourageCard eventId={ctx.eventId} />;
     case 'deploy_invitation':
       return (
         <DeployInvitationCard
@@ -455,6 +468,8 @@ function renderCardBody(
           monogramColor="#C97B4B"
         />
       );
+    case 'second_batch_invitation':
+      return <SecondBatchInvitationCard eventId={ctx.eventId} />;
     case 'honeymoon_planning':
       return (
         <HoneymoonPlanningCard
@@ -484,6 +499,10 @@ function renderCardBody(
       return <FinalizeRsvpCard eventId={ctx.eventId} />;
     case 'paprint':
       return <PaprintCard eventId={ctx.eventId} />;
+    case 'all_set_readiness':
+      return <AllSetReadinessCard eventId={ctx.eventId} />;
+    case 'claim_next_event_reward':
+      return <ClaimNextEventRewardCard eventId={ctx.eventId} />;
     default:
       return <PlaceholderCardBody taskId={taskId} />;
   }

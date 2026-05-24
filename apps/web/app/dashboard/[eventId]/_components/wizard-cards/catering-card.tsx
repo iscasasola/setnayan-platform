@@ -1,13 +1,18 @@
 /**
  * Card 07 Catering · Phase 2 of iteration 0016 Concierge Active Wizard.
  *
- * 2026-05-24 owner directive: migrated from the legacy list VendorPickCard
- * to the visual VendorPickGridCard with NO distance filter. Caterers
- * travel — most PH catering vendors deliver across NCR + nearby provinces,
- * and destination caterers fly crew to Cebu / Boracay / Bohol weddings.
- * Default sort (ad_rank → review_count → avg_rating_overall) anchors on
- * trust + portfolio first; the host can search by city if they want a
- * proximity filter.
+ * 2026-05-24 senior-planner pass (PR follow-up · owner directive
+ * "there are services that is best when the vendor is nearer the
+ * venue"): WIRED distance filter (initialKm=10 default · stepper to
+ * widen). Even though catering is technically Pattern A "creations"
+ * per CLAUDE.md 2026-05-24 sixth-row spec lock (reviews-first), it is
+ * also delivery-sensitive — hot food must arrive at the reception
+ * still hot, and >30 minutes of PH traffic between kitchen and venue
+ * compromises every dish. Caterers far from the venue route through
+ * satellite kitchens or skip the booking. The stepper lets the host
+ * widen for destination weddings (Cebu / Boracay) where the entire
+ * pool is "far" by NCR standards. Default sort still anchors reviews-
+ * first per the 5-tier ladder.
  *
  * Filters by event's ceremony_type so INC weddings see alcohol-free /
  * kosher-style options, Muslim see halal-certified, etc. — the
@@ -30,6 +35,7 @@ import {
   fetchWizardVendorRecommendations,
   fetchBookedMarketplaceVendorIdsForDate,
 } from '@/lib/wizard-recommendations';
+import { fetchReceptionLatLng } from './_reception-lat-lng';
 import type { CeremonyType } from '@/lib/auspicious-date';
 import { VendorPickGridCard } from './vendor-pick-grid-card';
 
@@ -54,6 +60,10 @@ export async function CateringCard({
   eventDate,
 }: Props) {
   const admin = createAdminClient();
+  const { receptionLat, receptionLng } = await fetchReceptionLatLng(
+    admin,
+    eventId,
+  );
   const [recs, bookedIds] = await Promise.all([
     fetchWizardVendorRecommendations(admin, {
       canonicalServices: CANONICAL_SERVICES,
@@ -64,6 +74,16 @@ export async function CateringCard({
     }),
     fetchBookedMarketplaceVendorIdsForDate(admin, eventId, eventDate),
   ]);
+
+  const distanceFilter =
+    receptionLat != null && receptionLng != null
+      ? {
+          referenceLat: receptionLat,
+          referenceLng: receptionLng,
+          initialKm: 10,
+          referenceLabel: 'Reception Venue',
+        }
+      : undefined;
 
   return (
     <VendorPickGridCard
@@ -82,6 +102,7 @@ export async function CateringCard({
         emptyStateCopy:
           "We haven't curated caterers for your area + ceremony yet — search by name or add yours below. You can capture per-head pricing and crew meals on the budget page after.",
       }}
+      distanceFilter={distanceFilter}
       bookedMarketplaceVendorIds={bookedIds}
     />
   );

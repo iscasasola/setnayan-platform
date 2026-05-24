@@ -22,13 +22,26 @@
  * sees their tentative pick highlighted in the grid.
  */
 
-import { useMemo, useState, useTransition } from 'react';
-import { ArrowRight, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import {
-  computeAuspiciousReasons,
+  ArrowRight,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  Sparkles,
+} from 'lucide-react';
+import {
+  computeAuspiciousReasonsDetailed,
   type CeremonyType,
   type MeaningfulDate,
 } from '@/lib/auspicious-date';
+
+/** Summary view caps at the top N reasons across all categories — the
+ *  full grouped breakdown lives behind the "Learn more about this date"
+ *  expander. 5 chosen as the most-the-host-can-scan-without-glazing
+ *  number that still surfaces enough variety to feel rich. */
+const SUMMARY_REASON_CAP = 5;
 import { completeSetWeddingDateTask } from '../../wizard-actions';
 
 type Props = {
@@ -196,10 +209,35 @@ export function SetWeddingDateCard({
   );
 
   // Live auspicious reasoning · recomputed every time selection changes.
-  const reasons = useMemo(
-    () => computeAuspiciousReasons(selectedDate, ceremonyType, meaningfulDates),
+  // Grouped shape drives the inline "Learn more about this date" expander.
+  const reasonGroups = useMemo(
+    () => computeAuspiciousReasonsDetailed(selectedDate, ceremonyType, meaningfulDates),
     [selectedDate, ceremonyType, meaningfulDates],
   );
+  // Flat summary list · top N reasons in surface order (personal first,
+  // then numerology, then ceremony/special/cultural/practical).
+  const summaryReasons = useMemo(() => {
+    const flat: string[] = [];
+    for (const g of reasonGroups) {
+      for (const r of g.reasons) {
+        flat.push(r);
+        if (flat.length >= SUMMARY_REASON_CAP) return flat;
+      }
+    }
+    return flat;
+  }, [reasonGroups]);
+  // Total reason count drives the "Learn more" CTA copy and visibility.
+  const totalReasonCount = useMemo(
+    () => reasonGroups.reduce((sum, g) => sum + g.reasons.length, 0),
+    [reasonGroups],
+  );
+  const hasMoreReasons = totalReasonCount > summaryReasons.length;
+  const [learnMoreOpen, setLearnMoreOpen] = useState(false);
+  // Reset expander state every time the date changes · prevents a stale
+  // "Learn more" tray from one date carrying over into another.
+  useEffect(() => {
+    setLearnMoreOpen(false);
+  }, [selectedDate]);
 
   // Calendar grid cells: 7 columns × N rows. Empty cells before the
   // first-of-the-month + trailing empties after the last-of-the-month
@@ -477,9 +515,9 @@ export function SetWeddingDateCard({
             Why this date works
           </p>
         </div>
-        {reasons.length > 0 ? (
+        {summaryReasons.length > 0 ? (
           <ul className="space-y-1.5">
-            {reasons.map((reason, idx) => (
+            {summaryReasons.map((reason, idx) => (
               <li key={idx} className="flex gap-2 text-sm text-ink/80">
                 <span aria-hidden className="select-none text-terracotta">
                   ·
@@ -494,6 +532,57 @@ export function SetWeddingDateCard({
             quietest choice is the most personal.
           </p>
         )}
+
+        {/* "Learn more about this date" inline expander · 2026-05-24
+         *  owner directive. Shows the FULL grouped breakdown by
+         *  category (Numerology · Cultural meaning · Ceremony notes ·
+         *  etc.) when expanded. Stays inside the card · no navigation
+         *  out · preserves the wizard's NO LINKS rule. */}
+        {hasMoreReasons || reasonGroups.length > 1 ? (
+          <button
+            type="button"
+            onClick={() => setLearnMoreOpen((open) => !open)}
+            aria-expanded={learnMoreOpen}
+            className="inline-flex items-center gap-1.5 pt-1 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta transition-colors hover:text-terracotta-700 focus:outline-none focus:ring-2 focus:ring-terracotta/30 rounded-md"
+          >
+            {learnMoreOpen ? (
+              <>
+                <ChevronUp aria-hidden className="h-3 w-3" strokeWidth={2.5} />
+                Hide details
+              </>
+            ) : (
+              <>
+                <ChevronDown aria-hidden className="h-3 w-3" strokeWidth={2.5} />
+                Learn more about this date
+              </>
+            )}
+          </button>
+        ) : null}
+
+        {learnMoreOpen ? (
+          <div className="mt-3 space-y-4 border-t border-terracotta/15 pt-3">
+            {reasonGroups.map((group) => (
+              <div key={group.category}>
+                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta/90">
+                  {group.label}
+                </p>
+                <ul className="mt-1.5 space-y-1.5">
+                  {group.reasons.map((reason, idx) => (
+                    <li
+                      key={`${group.category}-${idx}`}
+                      className="flex gap-2 text-sm text-ink/80"
+                    >
+                      <span aria-hidden className="select-none text-terracotta">
+                        ·
+                      </span>
+                      <span className="leading-relaxed">{reason}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       {errorMessage ? (

@@ -9,7 +9,6 @@
       "startServerCommand": "pnpm --filter @setnayan/web start",
       "numberOfRuns": 1,
       "settings": {
-        "preset": "perf",
         "emulatedFormFactor": "mobile",
         "throttlingMethod": "simulate",
         "throttling": {

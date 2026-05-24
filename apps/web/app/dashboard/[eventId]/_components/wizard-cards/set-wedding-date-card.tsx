@@ -129,10 +129,11 @@ export function SetWeddingDateCard({
   );
 
   // Default selection · preserves saved event_date when in-range,
-  // otherwise defaults to ~12 months out (modal PH planning runway).
-  // When the saved date is in the past, clamp to today instead of
-  // re-asking for a default · the host sees their old pick disabled
-  // in the grid + the summary line shows today.
+  // otherwise defaults to EXACTLY 12 months from today (2026-05-24 owner
+  // directive: this is the ideal earliest booking date — far enough out
+  // for venue / photo / coordinator inventory to be open, close enough
+  // to feel real). Host has full freedom to slide to any in-range date.
+  // When the saved date is in the past, clamp to today.
   const defaultPicked = useMemo(() => {
     const parsed = parseIsoYmd(initialDate);
     if (
@@ -155,6 +156,22 @@ export function SetWeddingDateCard({
     if (ymdCompare(candidate, today) < 0) return today;
     return candidate;
   }, [initialDate, today, maxDate]);
+
+  // 2026-05-24 owner directive: when the host has no saved date yet AND
+  // hasn't touched the picker, show explainer copy that calls out the
+  // 12-month preset as the "ideal earliest" recommendation (not a saved
+  // pick). The copy hides once the host changes the date OR if they
+  // already saved one previously — both signals mean they're decisive
+  // about their pick, no nudge needed.
+  const hasSavedDate = useMemo(() => {
+    const parsed = parseIsoYmd(initialDate);
+    return (
+      parsed !== null &&
+      ymdCompare(parsed, today) >= 0 &&
+      ymdCompare(parsed, maxDate) <= 0
+    );
+  }, [initialDate, today, maxDate]);
+  const [showPresetExplainer, setShowPresetExplainer] = useState(!hasSavedDate);
 
   // Selected date · the host's current pick. Initialized to defaultPicked
   // (their saved date or 12 months out).
@@ -231,6 +248,10 @@ export function SetWeddingDateCard({
     if (ymdCompare(candidate, today) < 0) return;
     if (ymdCompare(candidate, maxDate) > 0) return;
     setSelected(candidate);
+    // Host took agency over the preset · explainer goes away. We don't
+    // re-show it even if they slide back to the original 12-month pick
+    // because they've now confirmed intent.
+    if (showPresetExplainer) setShowPresetExplainer(false);
   }
 
   /** Is the given visible-month cell BEFORE today? Drives `disabled`. */
@@ -323,6 +344,22 @@ export function SetWeddingDateCard({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      {/* 12-month preset explainer · only shows when the host hasn't
+       *  saved a date yet AND hasn't touched the calendar. Calls out the
+       *  default as a *recommendation* — not a saved pick — so the host
+       *  knows they can slide to any in-range day. Auto-hides on first
+       *  tap of a day cell. */}
+      {showPresetExplainer ? (
+        <div className="rounded-xl border border-terracotta/25 bg-terracotta/5 p-3 text-sm leading-relaxed text-ink/80 sm:p-4">
+          <p>
+            We&apos;ve picked <strong className="font-medium text-ink">12 months from today</strong>{' '}
+            as a starting point — the ideal earliest window where most
+            venues, photographers, and coordinators still have inventory
+            open. Slide to any day that feels right for you.
+          </p>
+        </div>
+      ) : null}
+
       {/* Calendar header · month label + prev/next month arrows + year quick-pick.
        *  The label is the source of truth for the visible month — host can
        *  flip months without changing selection. */}

@@ -14,6 +14,7 @@ import {
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
 import type { PlanCardPick, PlanGroupId } from '@/lib/wedding-plan-groups';
 import {
+  deleteVendor,
   finalizeVendor,
   revertVendorToConsidering,
   type FinalizeVendorResult,
@@ -191,6 +192,58 @@ export function PlanCardCompare({
       switch (result.status) {
         case 'ok':
         case 'already_locked':
+          // ----------------------------------------------------------------
+          // CLAUDE.md 2026-05-24 owner directive — Lock-from-Compare cleanup.
+          //
+          // Owner verbatim: "when i am at card 2 and did a compare. then i
+          // locked it at compare, the 2 venues proceeded to the next card
+          // which shouldn't. when you lock a venue on compare view, it
+          // needs to uncompare both and keep the venue picked to lock."
+          //
+          // The finalizeVendor server action already soft-archives every
+          // OTHER considering/shortlisted pick in the same vendor_category
+          // (lines 480-498 of vendors/actions.ts · Task #26 2026-05-22).
+          // Soft-archive is correct for non-Compare lock flows — host may
+          // have considered other vendors without explicitly comparing
+          // them and the audit trail is useful.
+          //
+          // From Compare specifically the host has EXPLICITLY weighed the
+          // picks side-by-side and chosen one. The others are definitively
+          // rejected — not "research I might revisit." Hard-delete keeps
+          // the planning surface clean: Card 02 shows the locked vendor as
+          // the only pick · the wizard advances cleanly · Your Plan grid
+          // doesn't carry zombie considering rows that need follow-up.
+          //
+          // Per-canonical scope so a multi-canonical group (Attire = gown
+          // + suit + shoes + entourage + parents per CLAUDE.md 2026-05-24
+          // 13-item refinement bundle) doesn't lose unrelated picks when
+          // the host locks one canonical's choice. Compare dialog
+          // surfaces per-canonical sub-rows already (line 84 doc above);
+          // we mirror that scope on cleanup.
+          //
+          // Fire-and-forget — if a delete fails for any sibling, the
+          // primary lock has already succeeded. Surface-level cleanup
+          // can self-heal next time the host opens the planning surface
+          // (the soft-archive from finalize stands as fallback).
+          // ----------------------------------------------------------------
+          const targetPick = picks.find((p) => p.vendor_id === vendorId);
+          const siblingsToDelete = targetPick
+            ? picks.filter(
+                (p) =>
+                  p.vendor_id !== vendorId &&
+                  p.category === targetPick.category,
+              )
+            : [];
+          for (const sibling of siblingsToDelete) {
+            const fd2 = new FormData();
+            fd2.set('event_id', eventId);
+            fd2.set('vendor_id', sibling.vendor_id);
+            try {
+              await deleteVendor(fd2);
+            } catch {
+              // Silent — see comment block above. Lock succeeded.
+            }
+          }
           setLockState({ kind: 'just_locked', vendorId, vendorName });
           // Show toast immediately so it persists after dialog closes.
           setToast({

@@ -328,7 +328,14 @@ const VENDOR_PICK_CATEGORY: Partial<Record<WizardTaskId, string>> = {
   lights_sound: 'lights_and_sound',
   music_entertainment: 'band_dj',
   host_mc: 'host_emcee',
-  attire: 'gown_designer',
+  // 2026-05-24 PR (b) stage 1 · `gown_designer` renamed to `bridal_gown`
+  // per migration 20260621000000. Lock action writes the new canonical to
+  // event_vendors.category. Stage 2 (multi-pick) will let host pick which
+  // of the 6 sub-categories (bridal_gown / groom_suit / bridal_shoes /
+  // groom_shoes / entourage_attire / parents_attire) the lock applies to
+  // via a custom server action that doesn't auto-advance the wizard
+  // until ≥2 sub-categories are locked.
+  attire: 'bridal_gown',
   hair_makeup: 'makeup_artist',
   cake: 'cake_maker',
   accommodation: 'accommodation',

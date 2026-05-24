@@ -127,6 +127,31 @@ const ADD_ONS: ReadonlyArray<{
       iconBadgeClass: 'bg-purple-100/15 text-purple-100',
     },
   },
+  // Playlist Builder · 2026-05-24 owner directive (via AskUserQuestion)
+  // = "create your song list" for the booked DJ/band. Free utility · the
+  // booked Music vendor reads through the music-vendor RLS policy on
+  // event_playlist_picks. Live status from day 1 because the surface
+  // works even without a booked vendor (host can pre-build; sync flips
+  // active the moment a Music vendor locks).
+  {
+    key: 'playlist',
+    label: 'Playlist',
+    Icon: Music,
+    iteration: '0016',
+    status: 'web_v1',
+    blurb:
+      "Pick songs by slot · processional · first dance · dinner · open floor · don't-play list. Synced to your DJ or band the moment you book them.",
+    cta: 'Build your lineup',
+    // Drift · warm gold-on-ink — vinyl record glow feel
+    poster: {
+      motion: 'drift',
+      baseBackground:
+        'radial-gradient(ellipse at 50% 50%, #4A2E1C 0%, #1A1A1A 80%)',
+      motionBackground:
+        'radial-gradient(circle at 50% 50%, #F4D9B0 0%, transparent 55%)',
+      iconBadgeClass: 'bg-amber-100/20 text-amber-100',
+    },
+  },
   {
     key: 'monogram-creator',
     label: 'Monogram Creator',

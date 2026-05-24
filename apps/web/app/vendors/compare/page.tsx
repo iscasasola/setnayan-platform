@@ -21,12 +21,18 @@ import { SaveVendorButton } from '../_components/save-vendor-button';
 export const metadata = {
   title: 'Compare vendors — Setnayan',
   description:
-    'Side-by-side comparison of up to 3 saved Filipino wedding vendors.',
+    'Side-by-side comparison of up to 2 saved Filipino wedding vendors.',
 };
 
 export const dynamic = 'force-dynamic';
 
-const MAX_COMPARE = 3;
+// Owner-locked 2026-05-24: comparison capped at 2 across every surface
+// (wizard Today's Focus is type-locked at 2 via CompareState; marketplace
+// + DIY adopt the same cap here; Your Plan grid adopts the same cap in
+// plan-card-compare.tsx). 3-way side-by-side at thumb-zone width on mobile
+// becomes too cramped to read; the 2-way A-vs-B framing forces a clear
+// decision rather than open-ended browsing.
+const MAX_COMPARE = 2;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type Props = {

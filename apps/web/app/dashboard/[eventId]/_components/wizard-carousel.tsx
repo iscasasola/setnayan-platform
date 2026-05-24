@@ -1,0 +1,198 @@
+/**
+ * Concierge Active Wizard · horizontal carousel surface.
+ *
+ * Owner-locked 2026-05-24: today's focus becomes a horizontal scroll
+ * carousel showing the active focus card + the next few upcoming cards.
+ * Cards with unmet prerequisites render DARKENED + unactionable with
+ * "Locked until {prereq.title}" copy.
+ *
+ * Layout:
+ *   - Mobile (<sm): full-width cards, snap-x scroll, one visible at a time
+ *   - Tablet (sm-lg): ~60% width cards, snap-x scroll, 1-2 visible
+ *   - Desktop (lg+): ~40% width cards, snap-x scroll, 2-3 visible
+ *
+ * Card states (visual):
+ *   - ACTIVE (first unsettled with prereqs met): full color · interactive
+ *     · renders the full inline-completion body via renderCardBody.
+ *   - PEEK-UNLOCKED (subsequent unsettled tasks with prereqs met): lighter
+ *     · renders a compact "Up next" preview · NOT interactive (preserves
+ *     the canonical flow — host completes active before moving on).
+ *   - PEEK-LOCKED (subsequent tasks with prereqs unmet): darkened ·
+ *     unactionable · "Locked until {prereq.title}" copy.
+ *
+ * Per [[feedback_setnayan_concierge_wizard_ux]] · NO LINKS within the
+ * carousel · active card completes inline · locked / peek cards show
+ * status only.
+ */
+
+import { Lock, ArrowRight, Star } from 'lucide-react';
+import {
+  isTaskUnlocked,
+  getFirstUnmetPrereq,
+  type WizardTask,
+  type WizardState,
+} from '@/lib/wizard';
+import { WizardCard } from './wizard-card';
+
+type Props = {
+  /** Pre-resolved by parent · first entry is the ACTIVE focus, rest are
+   *  upcoming peek cards. Use lib/wizard.ts `getCarouselTasks(state, N)`. */
+  tasks: ReadonlyArray<WizardTask>;
+  /** events.wizard_state · used to compute lock state per task. */
+  state: WizardState;
+  /** The active task's inline-completion body, pre-rendered by parent
+   *  via renderCardBody dispatch (parent has the runtime context: event
+   *  data, recommendations, etc.). */
+  activeCardBody: React.ReactNode;
+};
+
+export function WizardCarousel({ tasks, state, activeCardBody }: Props) {
+  if (tasks.length === 0) return null;
+
+  const activeTask = tasks[0]!;
+  const peekTasks = tasks.slice(1);
+
+  return (
+    <section
+      aria-labelledby="wizard-carousel-heading"
+      className="space-y-3"
+    >
+      <header className="flex items-baseline gap-2">
+        <Star
+          aria-hidden
+          className="h-3.5 w-3.5 text-terracotta"
+          strokeWidth={1.75}
+        />
+        <h2
+          id="wizard-carousel-heading"
+          className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta"
+        >
+          Today&apos;s focus
+        </h2>
+      </header>
+
+      {/* Carousel track · scroll-snap-x. The negative margin + padding
+          combo lets the leftmost card sit flush left of the page content
+          while still allowing snap centering on subsequent peeks. */}
+      <div className="-mx-4 sm:-mx-6 lg:mx-0">
+        <ul className="flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-4 px-4 pb-4 sm:scroll-px-6 sm:px-6 sm:gap-4 lg:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          {/* ACTIVE card · first slot · full inline-completion body. */}
+          <li className="snap-start shrink-0 basis-[95%] sm:basis-[70%] lg:basis-[55%]">
+            <WizardCard task={activeTask}>{activeCardBody}</WizardCard>
+          </li>
+
+          {/* PEEK cards · subsequent slots · compact preview shapes
+              based on lock state. */}
+          {peekTasks.map((task) => {
+            const unlocked = isTaskUnlocked(state, task);
+            const firstUnmet = unlocked ? null : getFirstUnmetPrereq(state, task);
+            return (
+              <li
+                key={task.id}
+                className="snap-start shrink-0 basis-[80%] sm:basis-[55%] lg:basis-[40%]"
+              >
+                {unlocked ? (
+                  <PeekUnlockedPreview task={task} />
+                ) : (
+                  <PeekLockedPreview task={task} blockingPrereq={firstUnmet} />
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Preview card for an UPCOMING task whose prereqs are met but is not
+ * yet the active focus (because the active focus comes first in
+ * canonical order). Lighter visual treatment + "Up next" badge ·
+ * no interactive body.
+ */
+function PeekUnlockedPreview({ task }: { task: WizardTask }) {
+  return (
+    <article className="flex h-full flex-col gap-4 rounded-2xl border border-ink/15 bg-cream/60 p-5 opacity-90 transition-opacity hover:opacity-100 sm:p-6">
+      <header className="flex items-start justify-between gap-3">
+        <div className="inline-flex items-center gap-2 rounded-full border border-ink/15 bg-white/60 px-3 py-1">
+          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/65">
+            {task.pillLabel}
+          </span>
+        </div>
+        <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+          Step {task.order} of 38
+        </p>
+      </header>
+
+      <div className="space-y-2">
+        <h3 className="font-display text-xl italic leading-tight text-ink sm:text-2xl">
+          {task.title}
+        </h3>
+        <p className="line-clamp-3 text-sm leading-relaxed text-ink/70">
+          {task.whyItMatters}
+        </p>
+      </div>
+
+      <div className="mt-auto flex items-center gap-2 text-[11px] text-ink/55">
+        <ArrowRight aria-hidden className="h-3 w-3" strokeWidth={2} />
+        <span className="font-mono uppercase tracking-[0.12em]">Up next</span>
+      </div>
+    </article>
+  );
+}
+
+/**
+ * Preview card for an UPCOMING task whose prerequisites aren't met.
+ * Darkened · unactionable · surfaces the FIRST unmet prereq title so
+ * the host knows what they need to complete to unlock this card.
+ *
+ * Per [[feedback_setnayan_no_dev_text_post_launch]] · brand-voice
+ * "Locked until {X}" copy — no engineering jargon.
+ */
+function PeekLockedPreview({
+  task,
+  blockingPrereq,
+}: {
+  task: WizardTask;
+  blockingPrereq: WizardTask | null;
+}) {
+  return (
+    <article className="relative flex h-full flex-col gap-4 rounded-2xl border border-ink/10 bg-ink/[0.04] p-5 opacity-60 sm:p-6">
+      <span className="sr-only">Locked task.</span>
+      <header className="flex items-start justify-between gap-3">
+        <div className="inline-flex items-center gap-2 rounded-full border border-ink/15 bg-white/40 px-3 py-1">
+          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+            {task.pillLabel}
+          </span>
+        </div>
+        <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/40">
+          Step {task.order} of 38
+        </p>
+      </header>
+
+      <div className="space-y-2">
+        <h3 className="font-display text-xl italic leading-tight text-ink/60 sm:text-2xl">
+          {task.title}
+        </h3>
+        <p className="line-clamp-2 text-sm leading-relaxed text-ink/45">
+          {task.whyItMatters}
+        </p>
+      </div>
+
+      <div className="mt-auto flex items-center gap-2 rounded-lg border border-ink/10 bg-white/40 px-3 py-2 text-xs text-ink/65">
+        <Lock aria-hidden className="h-3.5 w-3.5 flex-shrink-0" strokeWidth={2} />
+        <span className="leading-snug">
+          {blockingPrereq ? (
+            <>
+              Locked until <strong className="font-medium text-ink/85">{blockingPrereq.title}</strong>{' '}
+              is done.
+            </>
+          ) : (
+            <>Locked — a prior step needs to wrap first.</>
+          )}
+        </span>
+      </div>
+    </article>
+  );
+}

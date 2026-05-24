@@ -28,10 +28,11 @@ import {
   resolveWizardFocus,
   countRemainingTasks,
   listInFlightTaskIds,
+  getCarouselTasks,
   type WizardTaskId,
 } from '@/lib/wizard';
 import type { CeremonyType, MeaningfulDate } from '@/lib/auspicious-date';
-import { WizardCard } from './wizard-card';
+import { WizardCarousel } from './wizard-carousel';
 import { InFlightTray } from './in-flight-tray';
 import { SetWeddingDateCard } from './wizard-cards/set-wedding-date-card';
 import { ReceptionVenueCard } from './wizard-cards/reception-venue-card';
@@ -107,8 +108,15 @@ export function WizardHero({
 
   if (result.kind === 'null') return null;
 
-  const task = result.task;
-  const cardBody = renderCardBody(task.id, {
+  // Owner-locked 2026-05-24: carousel surface. getCarouselTasks returns
+  // the active focus + 3 peek cards · WizardCarousel renders them in a
+  // horizontal scroll-snap track · locked peek cards render darkened
+  // with "Locked until {prereq.title}" copy.
+  const carouselTasks = getCarouselTasks(state, 4);
+  const activeTask = carouselTasks[0];
+  if (!activeTask) return null;
+
+  const activeBody = renderCardBody(activeTask.id, {
     eventId,
     ceremonyType,
     venueSetting,
@@ -119,7 +127,11 @@ export function WizardHero({
 
   return (
     <>
-      <WizardCard task={task}>{cardBody}</WizardCard>
+      <WizardCarousel
+        tasks={carouselTasks}
+        state={state}
+        activeCardBody={activeBody}
+      />
       {/* Remaining-count subtitle · matches legacy hero's "N more tasks
           below" copy so the page reads continuous through the swap. */}
       {remaining > 1 ? (
@@ -127,7 +139,7 @@ export function WizardHero({
           {remaining - 1} more task{remaining - 1 === 1 ? '' : 's'} ahead
         </p>
       ) : null}
-      {/* IN-FLIGHT TRAY · surfaces below focus card whenever 1+ tasks are
+      {/* IN-FLIGHT TRAY · surfaces below carousel whenever 1+ tasks are
        *  marked in_flight. Slow paperwork (Cenomar · Pre-Cana · STD render
        *  · etc.) stays visible + actionable here without blocking the
        *  forward walk. Per CLAUDE.md 2026-05-23 Sixth row + owner

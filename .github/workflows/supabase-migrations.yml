@@ -48,11 +48,22 @@ name: supabase-migrations
 # prefixes ARE the version identifier — duplicate timestamps cause CLI
 # errors (caught here at apply time, not at runtime).
 
+# Auto-trigger on push to main is DISABLED 2026-05-24 per owner directive.
+# Migrations push manually from ~/setnayan-db-push via `supabase db push --linked`
+# (see CLAUDE.md 2026-05-22 row 8 + 2026-05-23 row 3 + 2026-05-24 migration
+# list row). The 3 required repo secrets (SUPABASE_ACCESS_TOKEN ·
+# SUPABASE_DB_PASSWORD · SUPABASE_PROJECT_REF) are not configured and won't be
+# during the pilot window — the blast radius of an auto-applied bad migration
+# 7 days from launch is higher than the cost of one manual push per merge.
+#
+# To run on demand: Actions → supabase-migrations → Run workflow → main.
+# Re-enable auto-trigger post-pilot by un-commenting the `push:` block below
+# AND configuring the 3 secrets first.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'supabase/migrations/**'
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - 'supabase/migrations/**'
   workflow_dispatch:
 
 # Serialize applies across overlapping main pushes. `cancel-in-progress`

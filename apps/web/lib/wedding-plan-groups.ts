@@ -53,8 +53,10 @@ export type PlanGroupId =
   | 'hair_makeup'
   // Style + program tier
   | 'florals_decor'
+  | 'stylist'
   | 'live_band'
   | 'music_entertainment'
+  | 'dance_instructor'
   | 'host_mc'
   | 'lights_sound'
   | 'led_background'
@@ -391,6 +393,25 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     subcategoryHint: 'florals',
   },
   {
+    // Added 2026-05-24 (owner directive · "update things to lock in")
+    // to mirror the wizard's `stylist` card at position 16. Filipino
+    // weddings often hire a stylist umbrella vendor who coordinates
+    // florals + decor + signage + table styling — a layer above the
+    // individual florist + decor picks. Entry-point card · the host's
+    // actual pick links to the broader Decor/Florals/Sound marketplace
+    // folder filtered to stylist sub-tag. Doesn't double-count against
+    // florals_decor (countsTowardLockable: false).
+    id: 'stylist',
+    label: 'Stylist',
+    hint: 'Stylist umbrella — coordinates florals + decor + signage + tablescapes to your mood board.',
+    tier: 'style_program',
+    categories: [],
+    monthsBefore: 6,
+    catalogFolder: 'decor_florals_sound',
+    subcategoryHint: 'stylist',
+    countsTowardLockable: false,
+  },
+  {
     id: 'live_band',
     label: 'Live band',
     hint: 'Sets the energy of your reception. Top bands book 6-9 months ahead.',
@@ -404,8 +425,11 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
   },
   {
     id: 'music_entertainment',
-    label: 'DJ / Music',
-    hint: 'DJ, string quartet, choir — your music team for the program.',
+    // 2026-05-24 owner directive · matches wizard rename "Lock your DJ
+    // + music" → "Band / DJ / Performer". The card already covers
+    // band_dj + string_quartet + choir; label now matches the breadth.
+    label: 'Band / DJ / Performer',
+    hint: 'Band, DJ, string quartet, choir, acoustic duo — whichever performer carries your program.',
     tier: 'style_program',
     // host_emcee broken out to its own card in 22-card grid expansion
     // (2026-05-22). Mobile bar moved to cocktail_booths. Photobooth
@@ -414,6 +438,24 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     monthsBefore: 6,
     catalogFolder: 'music_program',
     subcategoryHint: 'dj',
+  },
+  {
+    // Added 2026-05-24 (owner directive · "also add Dance Instructor")
+    // to mirror the wizard's `dance_instructor` card at position 20.
+    // Filipino weddings hire choreographers for first dance + entourage
+    // dance + parents-and-couple dance. Lessons run T-2 to T-3 months.
+    // Entry-point card · marketplace surface filters Music & Program
+    // folder to choreographer sub-tag. No VendorCategory enum entry
+    // yet · uses entry-point pattern (countsTowardLockable: false).
+    id: 'dance_instructor',
+    label: 'Dance instructor',
+    hint: 'First dance + parents-and-couple dance + entourage choreography. Lessons run 2-3 months before the day.',
+    tier: 'style_program',
+    categories: [],
+    monthsBefore: 4,
+    catalogFolder: 'music_program',
+    subcategoryHint: 'choreographer',
+    countsTowardLockable: false,
   },
   {
     id: 'host_mc',

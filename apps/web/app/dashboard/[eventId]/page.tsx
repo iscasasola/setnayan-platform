@@ -1,24 +1,18 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import {
-  Users,
   Send,
   Briefcase,
-  Wallet,
-  LayoutGrid,
   Sparkles,
-  Palette,
   MessageSquare,
   Receipt,
   Bell,
   FileSignature,
   UserPlus,
-  CalendarClock,
   AlertTriangle,
   CheckCircle2,
   Circle,
   Square,
-  Star,
   type LucideIcon,
 } from 'lucide-react';
 import { countUnread } from '@/lib/notifications';
@@ -96,7 +90,6 @@ import { EventMetaLine } from './_components/event-meta-line';
 import { VendorAvailabilityIntersection } from './_components/vendor-availability-intersection';
 import { BudgetCountdownHeader } from './_components/budget-countdown-header';
 import { FinalizedChipStrip } from './_components/finalized-chip-strip';
-import { UsefulRightNow } from './_components/useful-right-now';
 import { UpcomingSchedules } from './_components/upcoming-schedules';
 import { MoneyInFlight } from './_components/money-in-flight';
 import { fetchUpcomingItems } from '@/lib/upcoming-items';
@@ -145,6 +138,15 @@ type TileKey =
   | 'notifications'
   | 'disputes';
 
+// Deduped 2026-05-24 (owner directive — "they are repetitive"). The
+// 6 tiles previously here (guests · sponsors · budget · seating ·
+// schedule · mood_board) are canonical in YourPlanSection ("YOUR PLAN ·
+// things you build, not book") which renders ABOVE this grid with live
+// status sub-lines. Keep only the navigation-only surfaces that YOUR
+// PLAN doesn't cover. Result: 15 tiles → 9, zero overlap with YOUR
+// PLAN. The TileKey union still carries the retired keys for backwards
+// compat with any external link/route that addresses them by key; the
+// TILES array is the only consumer that matters for the home grid.
 const TILES: Array<{
   key: TileKey;
   labelKey: TranslationKey;
@@ -152,13 +154,6 @@ const TILES: Array<{
   href: (eventId: string) => string;
 }> = [
   { key: 'hosts', labelKey: 'nav.hosts', Icon: UserPlus, href: (id) => `/dashboard/${id}/hosts` },
-  { key: 'guests', labelKey: 'nav.guests', Icon: Users, href: (id) => `/dashboard/${id}/guests` },
-  {
-    key: 'sponsors',
-    labelKey: 'nav.sponsors',
-    Icon: Star,
-    href: (id) => `/dashboard/${id}/sponsors`,
-  },
   {
     key: 'invitation',
     labelKey: 'nav.invitation',
@@ -177,24 +172,11 @@ const TILES: Array<{
     Icon: FileSignature,
     href: (id) => `/dashboard/${id}/contracts`,
   },
-  { key: 'budget', labelKey: 'nav.budget', Icon: Wallet, href: (id) => `/dashboard/${id}/budget` },
   {
     key: 'messages',
     labelKey: 'nav.messages',
     Icon: MessageSquare,
     href: (id) => `/dashboard/${id}/messages`,
-  },
-  {
-    key: 'seating',
-    labelKey: 'nav.seating',
-    Icon: LayoutGrid,
-    href: (id) => `/dashboard/${id}/seating`,
-  },
-  {
-    key: 'schedule',
-    labelKey: 'nav.schedule',
-    Icon: CalendarClock,
-    href: (id) => `/dashboard/${id}/schedule`,
   },
   { key: 'orders', labelKey: 'nav.orders', Icon: Receipt, href: (id) => `/dashboard/${id}/orders` },
   {
@@ -202,12 +184,6 @@ const TILES: Array<{
     labelKey: 'nav.notifications',
     Icon: Bell,
     href: () => `/dashboard/notifications`,
-  },
-  {
-    key: 'mood_board',
-    labelKey: 'nav.mood_board',
-    Icon: Palette,
-    href: (id) => `/dashboard/${id}/add-ons/mood-board`,
   },
   {
     key: 'add_ons',
@@ -364,7 +340,6 @@ export default async function EventHomePage({
     // one round trip wide.
     moodBoardSavesRes,
     seatAssignmentsRes,
-    vendorThreadsRes,
     paidOrdersRes,
     paperworkRowsRes,
     sponsorsRes,
@@ -547,7 +522,8 @@ export default async function EventHomePage({
         );
         return 0;
       }),
-      // Mood Board save count — fuels the UsefulRightNow tile subtitle.
+      // Mood Board save count — fuels the YourPlanSection Mood Board
+      // tile subtitle (also fed UsefulRightNow until 2026-05-24 dedupe).
       (async () => {
         try {
           return await supabase
@@ -564,7 +540,8 @@ export default async function EventHomePage({
           return { data: null, error: null, count: 0 } as never;
         }
       })(),
-      // Seat assignments — fuels the UsefulRightNow Seat Plan subtitle.
+      // Seat assignments — fuels the YourPlanSection Seat Plan tile
+      // subtitle (also fed UsefulRightNow until 2026-05-24 dedupe).
       (async () => {
         try {
           return await supabase
@@ -581,25 +558,9 @@ export default async function EventHomePage({
           return { data: null, error: null, count: 0 } as never;
         }
       })(),
-      // Vendor chat threads — Inbox tile proxy until read-receipt
-      // tracking lands. Counts active threads on this event regardless
-      // of read state; the polite-voice subtitle works either way.
-      (async () => {
-        try {
-          return await supabase
-            .from('chat_threads')
-            .select('thread_id', { count: 'exact', head: true })
-            .eq('event_id', eventId);
-        } catch (caught) {
-          logQueryError(
-            'EventHome (chat_threads count threw)',
-            caught instanceof Error ? caught : new Error(String(caught)),
-            { event_id: eventId, user_id: user.id },
-            'graceful_degrade',
-          );
-          return { data: null, error: null, count: 0 } as never;
-        }
-      })(),
+      // chat_threads count fetch removed 2026-05-24 alongside the
+      // UsefulRightNow surface (its only consumer). One fewer DB
+      // roundtrip on every home-page render.
       // Paid + fulfilled orders — fuels BudgetCountdownHeader's
       // "committed" number. Pulled separately from the cart UI flow
       // because home only needs the aggregate, not the line items.
@@ -1402,7 +1363,6 @@ export default async function EventHomePage({
   // Derived counts for the new Home v2 sections.
   const moodBoardSaveCount = moodBoardSavesRes.count ?? 0;
   const seatedGuests = seatAssignmentsRes.count ?? 0;
-  const vendorThreadCount = vendorThreadsRes.count ?? 0;
 
   // YOUR PLAN section derived stats (owner directive 2026-05-22).
   // All counts pulled from the same Promise.all above. The section is a
@@ -1780,24 +1740,14 @@ export default async function EventHomePage({
 
       <NavGrid eventId={eventId} stats={stats} unreadCount={unreadCount} tr={tr} />
 
-      {/* V1 pilot Home v2 — owner directive 2026-05-22.
-       *  UsefulRightNow + MoneyInFlight + UpcomingSchedules sit
-       *  between the 14-tile NavGrid and the activity feed. The 2×2
-       *  toolkit fast-routes to the four surfaces hosts return to
-       *  most; MoneyInFlight surfaces vendor payment milestones due
-       *  in the next 30 days (hidden when empty); UpcomingSchedules
-       *  is the merged operational stream — vendor meetings, day-of
-       *  schedule blocks, payment milestones further out, Setnayan
-       *  SKU subscription renewals, and statutory paperwork
-       *  deadlines — top 10, chronologically sorted. */}
-      <UsefulRightNow
-        eventId={eventId}
-        moodBoardSaveCount={moodBoardSaveCount}
-        totalGuests={stats.total}
-        seatedGuests={seatedGuests}
-        vendorThreadCount={vendorThreadCount}
-      />
-
+      {/* USEFUL RIGHT NOW removed 2026-05-24 (owner directive — "they
+       *  are repetitive"). The 4 tiles were Concierge (gated off for
+       *  pilot per CONCIERGE_ENABLED · invisible anyway) · Mood Board
+       *  (canonical in YourPlanSection · live status sub-line) · Seat
+       *  Plan (same) · Inbox (= Messages in NavGrid). Zero unique
+       *  value, three duplicates. MoneyInFlight + UpcomingSchedules
+       *  + ActivityFeed below stay — they cover distinct surfaces
+       *  (money / time / history) not duplicated elsewhere. */}
       <MoneyInFlight eventId={eventId} items={moneyInFlightItems} now={now} />
 
       <UpcomingSchedules eventId={eventId} items={upcomingItems} now={now} />

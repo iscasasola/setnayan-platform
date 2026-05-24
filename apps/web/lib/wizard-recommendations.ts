@@ -71,6 +71,23 @@ export type WizardVendorRec = {
    *  NULL-safe filter shape · matches the city + distance filters'
    *  treatment of NULL location fields). */
   hq_region: string | null;
+  /** Display pattern for the grid tile (V1.1 multi-photo upgrade · 2026-
+   *  05-24 owner lock). 'creations' = Pattern A · 2×2 collage of up to
+   *  4 vendor_services photos. 'locked' = Pattern B · single-hero
+   *  photo (existing behavior). NULL = unclassified → defaults to
+   *  single-hero. Per CLAUDE.md decision-log "Vendor presentation
+   *  pattern locked" + 02_Specifications/Vendor_Taxonomy_V1_Master.md
+   *  § 10. Backfilled by migration 20260623000000 from services[1]. */
+  presentation_pattern: 'creations' | 'locked' | null;
+  /** Top 3-5 vendor_services photos for Pattern A tile rendering. Only
+   *  populated when presentation_pattern === 'creations'; empty array
+   *  for Pattern B and for Pattern A vendors with < 2 service photos
+   *  (the tile falls back to single-hero in those cases · same UX as
+   *  Pattern B). Photo URLs are pre-resolved via r2PublicUrl. */
+  services_preview: ReadonlyArray<{
+    photo_url: string;
+    service_name: string | null;
+  }>;
 };
 
 type Args = {
@@ -180,20 +197,36 @@ export async function fetchWizardVendorRecommendations(
   const { data, error } = await query;
   if (error || !data) return [];
 
-  // 2026-05-24: enrich with per-vendor service photo + verification state.
-  // Pattern mirrors apps/web/app/vendors/page.tsx's enrichment Promise.all
-  // · two batched IN-lookups so a 100-vendor result set hits the DB twice
+  // 2026-05-24: enrich with per-vendor service photo + verification state
+  // + V1.1 presentation_pattern + services_preview (up to 5 photos per
+  // Pattern A vendor for the multi-photo 2×2 tile collage). Pattern
+  // mirrors apps/web/app/vendors/page.tsx's enrichment Promise.all · two
+  // batched IN-lookups so a 100-vendor result set hits the DB twice
   // instead of N+1. Fail-soft on either side · the card keeps rendering
   // the vendor row even if photos / verification can't be resolved.
   const baseRows = data as unknown as Omit<
     WizardVendorRec,
-    'primary_photo_url' | 'verification_state'
+    | 'primary_photo_url'
+    | 'verification_state'
+    | 'presentation_pattern'
+    | 'services_preview'
   >[];
   const vendorIds = baseRows.map((r) => r.vendor_profile_id);
   if (vendorIds.length === 0) return [];
 
-  const [photosByVendor, verificationByVendor] = await Promise.all([
-    (async (): Promise<Map<string, string>> => {
+  type ServicePhotoRow = {
+    vendor_profile_id: string;
+    primary_photo_r2_key: string | null;
+    canonical_service: string | null;
+    is_active: boolean | null;
+  };
+
+  const [photosByVendor, vendorMetaByVendor] = await Promise.all([
+    (async (): Promise<Map<string, ServicePhotoRow[]>> => {
+      // V1.1 · keep ALL matching active service rows so Pattern A vendors
+      // get a multi-photo collage source. Pattern B vendors only use the
+      // first photo (same behavior as before). The first 5 are surfaced
+      // to the tile; the rest are unused.
       const { data: rows, error: err } = await admin
         .from('vendor_services')
         .select(
@@ -202,52 +235,91 @@ export async function fetchWizardVendorRecommendations(
         .in('vendor_profile_id', vendorIds)
         .in('canonical_service', args.canonicalServices as readonly string[]);
       if (err || !rows) return new Map();
-      // Pick first non-null primary_photo_r2_key per vendor that matches
-      // the canonical_service filter · biases toward the service the host
-      // is shopping for (a venue's reception photo, not a random side gig).
-      const out = new Map<string, string>();
-      for (const row of rows as Array<{
-        vendor_profile_id: string;
-        primary_photo_r2_key: string | null;
-        is_active: boolean | null;
-      }>) {
+      const out = new Map<string, ServicePhotoRow[]>();
+      for (const row of rows as ServicePhotoRow[]) {
         if (row.is_active === false) continue;
         if (!row.primary_photo_r2_key || row.primary_photo_r2_key.length === 0)
           continue;
-        if (!out.has(row.vendor_profile_id)) {
-          out.set(row.vendor_profile_id, row.primary_photo_r2_key);
-        }
+        const bucket = out.get(row.vendor_profile_id) ?? [];
+        bucket.push(row);
+        out.set(row.vendor_profile_id, bucket);
       }
       return out;
     })(),
-    (async (): Promise<Map<string, string>> => {
+    (async (): Promise<
+      Map<
+        string,
+        {
+          verification_state: string | null;
+          presentation_pattern: 'creations' | 'locked' | null;
+        }
+      >
+    > => {
       const { data: rows, error: err } = await admin
         .from('vendor_profiles')
-        .select('vendor_profile_id,verification_state')
+        .select(
+          'vendor_profile_id,verification_state,presentation_pattern',
+        )
         .in('vendor_profile_id', vendorIds);
       if (err || !rows) return new Map();
-      const out = new Map<string, string>();
+      const out = new Map<
+        string,
+        {
+          verification_state: string | null;
+          presentation_pattern: 'creations' | 'locked' | null;
+        }
+      >();
       for (const row of rows as Array<{
         vendor_profile_id: string;
         verification_state: string | null;
+        presentation_pattern: string | null;
       }>) {
-        if (row.verification_state) {
-          out.set(row.vendor_profile_id, row.verification_state);
-        }
+        const pattern =
+          row.presentation_pattern === 'creations' ||
+          row.presentation_pattern === 'locked'
+            ? row.presentation_pattern
+            : null;
+        out.set(row.vendor_profile_id, {
+          verification_state: row.verification_state ?? null,
+          presentation_pattern: pattern,
+        });
       }
       return out;
     })(),
   ]);
 
   return baseRows.map((row) => {
-    const photoKey = photosByVendor.get(row.vendor_profile_id) ?? null;
+    const photos = photosByVendor.get(row.vendor_profile_id) ?? [];
+    const firstPhotoKey = photos[0]?.primary_photo_r2_key ?? null;
+    const meta = vendorMetaByVendor.get(row.vendor_profile_id);
+    const presentationPattern = meta?.presentation_pattern ?? null;
+
+    // V1.1 · only build services_preview for Pattern A vendors (multi-
+    // photo tile candidates). Pattern B + null vendors get an empty
+    // array · their tile renders single-hero from primary_photo_url.
+    // Cap at 5 photos to keep payload light + 2×2 collage shows max 4
+    // (the 5th is reserved for future hover-cycle expansion).
+    const services_preview: ReadonlyArray<{
+      photo_url: string;
+      service_name: string | null;
+    }> =
+      presentationPattern === 'creations'
+        ? photos
+            .slice(0, 5)
+            .map((p) => ({
+              photo_url: r2PublicUrl(R2_BUCKETS.media, p.primary_photo_r2_key!),
+              service_name: p.canonical_service ?? null,
+            }))
+        : [];
+
     return {
       ...row,
-      primary_photo_url: photoKey
-        ? r2PublicUrl(R2_BUCKETS.media, photoKey)
+      primary_photo_url: firstPhotoKey
+        ? r2PublicUrl(R2_BUCKETS.media, firstPhotoKey)
         : null,
-      verification_state:
-        verificationByVendor.get(row.vendor_profile_id) ?? null,
+      verification_state: meta?.verification_state ?? null,
+      presentation_pattern: presentationPattern,
+      services_preview,
     } as WizardVendorRec;
   });
 }

@@ -49,6 +49,9 @@ import { CateringCard } from './wizard-cards/catering-card';
 import { StylistCard } from './wizard-cards/stylist-card';
 import { LightsSoundCard } from './wizard-cards/lights-sound-card';
 import { MusicEntertainmentCard } from './wizard-cards/music-entertainment-card';
+// 2026-05-25 dispatcher case for `dance_instructor` wizard task (added 2026-05-24
+// per CLAUDE.md row · was falling through to PlaceholderCardBody until this PR).
+import { DanceInstructorCard } from './wizard-cards/dance-instructor-card';
 import { HostMcCard } from './wizard-cards/host-mc-card';
 import { AttireCard } from './wizard-cards/attire-card';
 import { HairMakeupCard } from './wizard-cards/hair-makeup-card';
@@ -327,6 +330,16 @@ function renderCardBody(
     case 'music_entertainment':
       return (
         <MusicEntertainmentCard
+          eventId={ctx.eventId}
+          ceremonyType={ctx.ceremonyType}
+          venueSetting={ctx.venueSetting}
+          excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
+          eventDate={ctx.eventDate}
+        />
+      );
+    case 'dance_instructor':
+      return (
+        <DanceInstructorCard
           eventId={ctx.eventId}
           ceremonyType={ctx.ceremonyType}
           venueSetting={ctx.venueSetting}

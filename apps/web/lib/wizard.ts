@@ -71,6 +71,7 @@ export type WizardTaskId =
   | 'host_mc'
   | 'photobooths_booths'
   | 'pakanta'
+  | 'dance_instructor'
   // Phase 3 · Programming (T-6m to T-3m)
   | 'create_schedule'
   | 'song_list'
@@ -491,9 +492,14 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     order: 5.5,
     phase: 'style_identity',
     kind: 'vendor_pick',
-    title: 'Lock your DJ + music',
+    // 2026-05-24 owner directive: card title broadened to "Band / DJ /
+    // Performer" so couples don't read it as DJ-only · the canonical
+    // taxonomy already surfaces live_band + dj_emcee_host +
+    // choir_quartet + acoustic_performer behind the same vendor-pick
+    // grid; the title now matches.
+    title: 'Band / DJ / Performer',
     whyItMatters:
-      'DJ, string quartet, choir — the music team that carries your program. The best ones run a wedding every weekend in peak season; book early or choose from what is left.',
+      'Live band, DJ, string quartet, choir, acoustic duo — whichever performer carries your program. The best ones run a wedding every weekend in peak season; book early or choose from what is left.',
     pillLabel: 'Style & Identity',
     prerequisites: ['reception_venue'],
   },
@@ -863,6 +869,25 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     title: 'Order your wedding song (Pakanta)',
     whyItMatters:
       "Custom wedding song by Setnayan AI music. Pick a tier — Basic ₱1,999 / 24 hr, Premium ₱3,999 / 2-5 days with lyric approval, or the Wedding Suite ₱9,999 / 5-7 days for 3 matching songs. The song saves to your event so every Setnayan-rendered video uses it.",
+    pillLabel: 'Style & Identity',
+    prerequisites: ['set_wedding_date'],
+  },
+  {
+    // Added 2026-05-24 (owner directive · "also add Dance Instructor").
+    // Filipino weddings routinely hire a dance instructor for the
+    // couple's first dance + the parents-and-couple dance + the
+    // entourage choreography. Lessons run T-2 to T-3 months. Card
+    // sits after Pakanta (so the locked wedding song is available as
+    // reference music) but doesn't HARD-require it · couples using a
+    // pre-existing song still benefit. Prereq: set_wedding_date.
+    // Canonical service: choreographer.
+    id: 'dance_instructor',
+    order: 9.8,
+    phase: 'style_identity',
+    kind: 'vendor_pick',
+    title: 'Lock your dance instructor',
+    whyItMatters:
+      "First dance · parents-and-couple dance · entourage choreography. Lessons typically run 2-3 months pre-wedding, so locking the instructor at T-4 months means you have time to learn (and to stop sweating it). Most PH choreographers come to your venue or studio.",
     pillLabel: 'Style & Identity',
     prerequisites: ['set_wedding_date'],
   },

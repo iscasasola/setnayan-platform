@@ -744,3 +744,450 @@ export async function markTaskDone(formData: FormData): Promise<void> {
 
   revalidatePath(`/dashboard/${eventIdRaw}`);
 }
+
+// ============================================================================
+// WAVE 2 · Per-card actions for Phases 3-5 inline editors
+// ============================================================================
+
+/**
+ * Card 09 Set Mood Board · saves the host's chosen palette to
+ * events.role_palette and stamps events.palette_finalized_at + wizard
+ * state. The client serializes the active palette as JSON.
+ */
+export async function completeMoodBoardTask(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const paletteJsonRaw = formData.get('palette_json');
+  const paletteNameRaw = formData.get('palette_name');
+
+  if (typeof eventIdRaw !== 'string' || !eventIdRaw) {
+    throw new Error('event_id required');
+  }
+  if (typeof paletteJsonRaw !== 'string' || !paletteJsonRaw) {
+    throw new Error('Pick a palette before saving');
+  }
+
+  let paletteObj: unknown;
+  try {
+    paletteObj = JSON.parse(paletteJsonRaw);
+  } catch {
+    throw new Error("That palette didn't save cleanly. Try again.");
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data: priorRow, error: priorErr } = await supabase
+    .from('events')
+    .select('wizard_state, role_palette')
+    .eq('event_id', eventIdRaw)
+    .maybeSingle();
+  if (priorErr) throw new Error(priorErr.message);
+  if (!priorRow) throw new Error('Event not found');
+
+  // Merge into role_palette JSONB · key the host's wizard pick under a
+  // 'wizard_default' slot so downstream per-role palettes (bride/groom/
+  // entourage/etc. tracked separately in 0010) aren't clobbered.
+  const priorPalette =
+    typeof priorRow.role_palette === 'object' && priorRow.role_palette !== null
+      ? (priorRow.role_palette as Record<string, unknown>)
+      : {};
+  const nextPalette = {
+    ...priorPalette,
+    wizard_default: {
+      colors: paletteObj,
+      name:
+        typeof paletteNameRaw === 'string' && paletteNameRaw.length > 0
+          ? paletteNameRaw
+          : null,
+      picked_at: new Date().toISOString(),
+    },
+  };
+
+  const priorWizardState = parseWizardState(priorRow.wizard_state);
+  const newWizardState = setTaskComplete(priorWizardState, 'mood_board', {
+    palette_name:
+      typeof paletteNameRaw === 'string' ? paletteNameRaw : undefined,
+  });
+
+  const { error: updateErr } = await supabase
+    .from('events')
+    .update({
+      role_palette: nextPalette,
+      palette_finalized_at: new Date().toISOString(),
+      wizard_state: newWizardState,
+    })
+    .eq('event_id', eventIdRaw);
+  if (updateErr) throw new Error(updateErr.message);
+
+  revalidatePath(`/dashboard/${eventIdRaw}`);
+}
+
+/**
+ * Card 11 Design Monogram · saves the host's initials + style + color to
+ * events.monogram_text (concatenated initials) and events.monogram_color.
+ * Style is stamped onto wizard_state.monogram.meta_style so the
+ * monogram-render pipeline (0037 Bespoke Monogram + invitation widgets)
+ * can read it later.
+ */
+export async function completeMonogramTask(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const initial1Raw = formData.get('initial_1');
+  const initial2Raw = formData.get('initial_2');
+  const styleRaw = formData.get('style');
+  const colorRaw = formData.get('color');
+
+  if (typeof eventIdRaw !== 'string' || !eventIdRaw) {
+    throw new Error('event_id required');
+  }
+  if (typeof initial1Raw !== 'string' || initial1Raw.length === 0) {
+    throw new Error('At least one initial is required');
+  }
+  if (typeof styleRaw !== 'string' || !styleRaw) {
+    throw new Error('Pick a style before saving');
+  }
+
+  const initial1 = initial1Raw.trim().slice(0, 2).toUpperCase();
+  const initial2 =
+    typeof initial2Raw === 'string' && initial2Raw.length > 0
+      ? initial2Raw.trim().slice(0, 2).toUpperCase()
+      : '';
+  const monogramText = initial2 ? `${initial1}&${initial2}` : initial1;
+
+  const color =
+    typeof colorRaw === 'string' && /^#[0-9A-Fa-f]{6}$/.test(colorRaw)
+      ? colorRaw
+      : '#C97B4B';
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data: priorRow, error: priorErr } = await supabase
+    .from('events')
+    .select('wizard_state')
+    .eq('event_id', eventIdRaw)
+    .maybeSingle();
+  if (priorErr) throw new Error(priorErr.message);
+  if (!priorRow) throw new Error('Event not found');
+
+  const priorWizardState = parseWizardState(priorRow.wizard_state);
+  const newWizardState = setTaskComplete(priorWizardState, 'monogram', {
+    style: styleRaw,
+    initials: monogramText,
+  });
+
+  const { error: updateErr } = await supabase
+    .from('events')
+    .update({
+      monogram_text: monogramText,
+      monogram_color: color,
+      wizard_state: newWizardState,
+    })
+    .eq('event_id', eventIdRaw);
+  if (updateErr) throw new Error(updateErr.message);
+
+  revalidatePath(`/dashboard/${eventIdRaw}`);
+}
+
+/**
+ * Card 30 Finalize Seatplan · stamps wizard_state with the assigned-count
+ * snapshot for audit. Doesn't modify seating data (that's owned by the
+ * full seating editor surface · this card just marks the wizard step
+ * complete when the host is happy with their plan).
+ */
+export async function completeFinalizeSeatplanTask(
+  formData: FormData,
+): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const assignedRaw = formData.get('assigned_count');
+  const totalRaw = formData.get('total_rsvp_count');
+
+  if (typeof eventIdRaw !== 'string' || !eventIdRaw) {
+    throw new Error('event_id required');
+  }
+
+  const assignedCount =
+    typeof assignedRaw === 'string' ? Number.parseInt(assignedRaw, 10) : NaN;
+  const totalCount =
+    typeof totalRaw === 'string' ? Number.parseInt(totalRaw, 10) : NaN;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data: priorRow, error: priorErr } = await supabase
+    .from('events')
+    .select('wizard_state')
+    .eq('event_id', eventIdRaw)
+    .maybeSingle();
+  if (priorErr) throw new Error(priorErr.message);
+  if (!priorRow) throw new Error('Event not found');
+
+  const priorWizardState = parseWizardState(priorRow.wizard_state);
+  const newWizardState = setTaskComplete(priorWizardState, 'finalize_seatplan', {
+    assigned_count: Number.isFinite(assignedCount) ? assignedCount : null,
+    total_rsvp_count: Number.isFinite(totalCount) ? totalCount : null,
+  });
+
+  const { error: updateErr } = await supabase
+    .from('events')
+    .update({ wizard_state: newWizardState })
+    .eq('event_id', eventIdRaw);
+  if (updateErr) throw new Error(updateErr.message);
+
+  revalidatePath(`/dashboard/${eventIdRaw}`);
+}
+
+/**
+ * Card 16 Create Website · saves the host's chosen slug + landing-page
+ * visibility to events.slug + events.landing_page_visibility. Slug
+ * validation is checked client-side via /api/slugs/check; this action
+ * trusts the client's pre-validated value (a slug conflict at insert
+ * time surfaces as a DB error and bubbles back to the host).
+ */
+export async function completeCreateWebsiteTask(
+  formData: FormData,
+): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const slugRaw = formData.get('slug');
+  const visibilityRaw = formData.get('visibility');
+
+  if (typeof eventIdRaw !== 'string' || !eventIdRaw) {
+    throw new Error('event_id required');
+  }
+  if (typeof slugRaw !== 'string' || !slugRaw) {
+    throw new Error('Slug required');
+  }
+
+  const validVisibility = ['public', 'unlisted', 'private'] as const;
+  type Visibility = (typeof validVisibility)[number];
+  const visibility: Visibility = (validVisibility as readonly string[]).includes(
+    visibilityRaw as string,
+  )
+    ? (visibilityRaw as Visibility)
+    : 'public';
+
+  const slug = slugRaw.trim().toLowerCase();
+  if (!/^[a-z0-9-]{3,32}$/.test(slug)) {
+    throw new Error('Slug must be 3–32 lowercase letters, numbers, or hyphens');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data: priorRow, error: priorErr } = await supabase
+    .from('events')
+    .select('wizard_state')
+    .eq('event_id', eventIdRaw)
+    .maybeSingle();
+  if (priorErr) throw new Error(priorErr.message);
+  if (!priorRow) throw new Error('Event not found');
+
+  const priorWizardState = parseWizardState(priorRow.wizard_state);
+  const newWizardState = setTaskComplete(priorWizardState, 'create_website', {
+    slug,
+    visibility,
+  });
+
+  const { error: updateErr } = await supabase
+    .from('events')
+    .update({
+      slug,
+      landing_page_visibility: visibility,
+      wizard_state: newWizardState,
+    })
+    .eq('event_id', eventIdRaw);
+  if (updateErr) throw new Error(updateErr.message);
+
+  revalidatePath(`/dashboard/${eventIdRaw}`);
+}
+
+/**
+ * Card 14 Photobooths multi-pick · locks a single booth vendor onto the
+ * event WITHOUT advancing the wizard. Unlike completeVendorPickFromMarketplace
+ * (which stamps wizard_state) this only inserts an event_vendors row so
+ * the host can lock multiple booths in a row. The wizard advances when
+ * the host explicitly clicks `[I have all the booths I need]` which
+ * calls markTaskDone separately.
+ *
+ * Accepts EITHER a marketplace_vendor_id (lock a Setnayan vendor) OR a
+ * vendor_name only (lock a custom off-platform booth). Both write to
+ * event_vendors with category in {'photobooth', 'mobile_bar'} per the
+ * booth_category formData field.
+ */
+export async function lockBoothToEvent(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const boothCategoryRaw = formData.get('booth_category');
+  const marketplaceVendorIdRaw = formData.get('marketplace_vendor_id');
+  const vendorNameRaw = formData.get('vendor_name');
+  const contactPhoneRaw = formData.get('contact_phone');
+  const contactEmailRaw = formData.get('contact_email');
+
+  if (typeof eventIdRaw !== 'string' || !eventIdRaw) {
+    throw new Error('event_id required');
+  }
+  if (
+    boothCategoryRaw !== 'photobooth' &&
+    boothCategoryRaw !== 'mobile_bar'
+  ) {
+    throw new Error('Unknown booth category');
+  }
+  if (typeof vendorNameRaw !== 'string' || vendorNameRaw.trim().length === 0) {
+    throw new Error('Vendor name required');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const insertPayload: Record<string, unknown> = {
+    event_id: eventIdRaw,
+    vendor_name: vendorNameRaw.trim(),
+    category: boothCategoryRaw,
+    status: 'contracted',
+  };
+  if (typeof marketplaceVendorIdRaw === 'string' && marketplaceVendorIdRaw.length > 0) {
+    insertPayload.marketplace_vendor_id = marketplaceVendorIdRaw;
+  }
+  if (typeof contactPhoneRaw === 'string' && contactPhoneRaw.trim().length > 0) {
+    insertPayload.contact_phone = contactPhoneRaw.trim();
+  }
+  if (typeof contactEmailRaw === 'string' && contactEmailRaw.trim().length > 0) {
+    insertPayload.contact_email = contactEmailRaw.trim();
+  }
+
+  const { error: insertErr } = await supabase
+    .from('event_vendors')
+    .insert(insertPayload);
+  if (insertErr) throw new Error(insertErr.message);
+
+  // Critical: do NOT advance wizard_state. Card 14 advances only when
+  // host clicks [I have all the booths I need] which fires markTaskDone.
+  revalidatePath(`/dashboard/${eventIdRaw}`);
+}
+
+/**
+ * Card 20 Principal Sponsors · adds a ninong + ninang pair into
+ * event_sponsors. Computes pair_index as MAX(existing)+1 for this event.
+ * Does NOT advance wizard_state — the host explicitly clicks [Mark
+ * sponsors done] which fires markTaskDone separately.
+ */
+export async function addPrincipalSponsorPair(
+  formData: FormData,
+): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const ninongNameRaw = formData.get('ninong_full_name');
+  const ninangNameRaw = formData.get('ninang_full_name');
+  const ninongSideRaw = formData.get('ninong_side');
+  const ninangSideRaw = formData.get('ninang_side');
+
+  if (typeof eventIdRaw !== 'string' || !eventIdRaw) {
+    throw new Error('event_id required');
+  }
+  if (typeof ninongNameRaw !== 'string' || ninongNameRaw.trim().length === 0) {
+    throw new Error('Ninong name required');
+  }
+  if (typeof ninangNameRaw !== 'string' || ninangNameRaw.trim().length === 0) {
+    throw new Error('Ninang name required');
+  }
+
+  const validSides = ['groom', 'bride', 'neutral'] as const;
+  const ninongSide = (validSides as readonly string[]).includes(ninongSideRaw as string)
+    ? (ninongSideRaw as 'groom' | 'bride' | 'neutral')
+    : 'groom';
+  const ninangSide = (validSides as readonly string[]).includes(ninangSideRaw as string)
+    ? (ninangSideRaw as 'groom' | 'bride' | 'neutral')
+    : 'bride';
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // Compute next pair_index. Read existing principal sponsors to find max.
+  const { data: existing, error: existingErr } = await supabase
+    .from('event_sponsors')
+    .select('pair_index')
+    .eq('event_id', eventIdRaw)
+    .eq('sponsor_tier', 'principal');
+  if (existingErr) throw new Error(existingErr.message);
+
+  const maxPairIndex = (existing ?? []).reduce<number>((max, row) => {
+    const pi = (row as { pair_index: number | null }).pair_index;
+    return typeof pi === 'number' && pi > max ? pi : max;
+  }, -1);
+  const nextPairIndex = maxPairIndex + 1;
+
+  // Insert both ninong + ninang as separate rows sharing pair_index.
+  const { error: insertErr } = await supabase.from('event_sponsors').insert([
+    {
+      event_id: eventIdRaw,
+      sponsor_tier: 'principal',
+      pair_index: nextPairIndex,
+      side: ninongSide,
+      full_name: ninongNameRaw.trim(),
+      invitation_status: 'pending',
+    },
+    {
+      event_id: eventIdRaw,
+      sponsor_tier: 'principal',
+      pair_index: nextPairIndex,
+      side: ninangSide,
+      full_name: ninangNameRaw.trim(),
+      invitation_status: 'pending',
+    },
+  ]);
+  if (insertErr) throw new Error(insertErr.message);
+
+  revalidatePath(`/dashboard/${eventIdRaw}`);
+}
+
+/**
+ * Card 20 Principal Sponsors · removes a ninong + ninang pair from
+ * event_sponsors by pair_index. Deletes both rows for that pair.
+ */
+export async function removePrincipalSponsorPair(
+  formData: FormData,
+): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const pairIndexRaw = formData.get('pair_index');
+
+  if (typeof eventIdRaw !== 'string' || !eventIdRaw) {
+    throw new Error('event_id required');
+  }
+
+  const pairIndex =
+    typeof pairIndexRaw === 'string' ? Number.parseInt(pairIndexRaw, 10) : NaN;
+  if (!Number.isFinite(pairIndex)) {
+    throw new Error('Invalid pair index');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { error: deleteErr } = await supabase
+    .from('event_sponsors')
+    .delete()
+    .eq('event_id', eventIdRaw)
+    .eq('sponsor_tier', 'principal')
+    .eq('pair_index', pairIndex);
+  if (deleteErr) throw new Error(deleteErr.message);
+
+  revalidatePath(`/dashboard/${eventIdRaw}`);
+}

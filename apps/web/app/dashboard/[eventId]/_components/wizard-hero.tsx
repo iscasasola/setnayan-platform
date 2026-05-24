@@ -60,10 +60,23 @@ import { SendThankYousCard } from './wizard-cards/send-thank-yous-card';
 import { CreateReviewsCard } from './wizard-cards/create-reviews-card';
 import { DownloadPhotosCard } from './wizard-cards/download-photos-card';
 // WAVE 1 PR C — Cards 34 Event + 38 Editorial transitions.
-// Card 14 Photobooths multi-pick deferred to WAVE 2 (needs primitive
-// extension for multi-vendor locking without auto-advance).
 import { EventCard } from './wizard-cards/event-card';
 import { CreateEditorialCard } from './wizard-cards/create-editorial-card';
+// WAVE 2 · 13 hard inline-editor cards (recovered from 4 parallel
+// agent branches + Cards 15 / 29 written from scratch).
+import { MoodBoardCard } from './wizard-cards/mood-board-card';
+import { MonogramCard } from './wizard-cards/monogram-card';
+import { PhotoboothsBoothsCard } from './wizard-cards/photobooths-booths-card';
+import { CreateScheduleCard } from './wizard-cards/create-schedule-card';
+import { CreateWebsiteCard } from './wizard-cards/create-website-card';
+import { SaveTheDateVideoCard } from './wizard-cards/save-the-date-video-card';
+import { PrincipalSponsorsCard } from './wizard-cards/principal-sponsors-card';
+import { DeployInvitationCard } from './wizard-cards/deploy-invitation-card';
+import { HoneymoonPlanningCard } from './wizard-cards/honeymoon-planning-card';
+import { FinalizeSeatplanCard } from './wizard-cards/finalize-seatplan-card';
+import { FinalizeCateringCountCard } from './wizard-cards/finalize-catering-count-card';
+import { FinalizeRsvpCard } from './wizard-cards/finalize-rsvp-card';
+import { PaprintCard } from './wizard-cards/paprint-card';
 import { PlaceholderCardBody } from './wizard-cards/placeholder-card-body';
 
 type Props = {
@@ -337,6 +350,83 @@ function renderCardBody(
       return <EventCard eventId={ctx.eventId} eventDate={ctx.eventDate} />;
     case 'create_editorial':
       return <CreateEditorialCard eventId={ctx.eventId} />;
+    // WAVE 2 · 13 hard inline-editor cards (Cards 09 · 11 · 14 · 15 ·
+    // 16 · 17 · 20 · 21 · 29 · 30 · 31 · 32 · 33). Initial values
+    // default to null/0 — cards handle empty state gracefully. A
+    // follow-up enrichment PR will hydrate them from the events row +
+    // related tables; for now the host picks fresh each time.
+    case 'mood_board':
+      return <MoodBoardCard eventId={ctx.eventId} initialPalette={null} />;
+    case 'monogram':
+      return (
+        <MonogramCard
+          eventId={ctx.eventId}
+          initialText={null}
+          initialColor={null}
+          initialStyle={null}
+        />
+      );
+    case 'photobooths_booths':
+      return (
+        <PhotoboothsBoothsCard
+          eventId={ctx.eventId}
+          ceremonyType={ctx.ceremonyType}
+          venueSetting={ctx.venueSetting}
+          excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
+        />
+      );
+    case 'create_schedule':
+      return <CreateScheduleCard eventId={ctx.eventId} />;
+    case 'create_website':
+      return (
+        <CreateWebsiteCard
+          eventId={ctx.eventId}
+          initialSlug={null}
+          initialVisibility="public"
+        />
+      );
+    case 'save_the_date_video':
+      return <SaveTheDateVideoCard eventId={ctx.eventId} />;
+    case 'principal_sponsors':
+      return <PrincipalSponsorsCard eventId={ctx.eventId} />;
+    case 'deploy_invitation':
+      return (
+        <DeployInvitationCard
+          eventId={ctx.eventId}
+          publicUrl={null}
+          monogramText="M&J"
+          monogramColor="#C97B4B"
+        />
+      );
+    case 'honeymoon_planning':
+      return (
+        <HoneymoonPlanningCard
+          eventId={ctx.eventId}
+          eventDate={ctx.eventDate}
+        />
+      );
+    case 'finalize_seatplan':
+      return (
+        <FinalizeSeatplanCard
+          eventId={ctx.eventId}
+          assignedCount={0}
+          totalRsvpAccepted={0}
+          totalGuests={0}
+          tableCount={0}
+        />
+      );
+    case 'finalize_catering_count':
+      return (
+        <FinalizeCateringCountCard
+          eventId={ctx.eventId}
+          rsvpAttendingCount={0}
+          rsvpTotalCount={0}
+        />
+      );
+    case 'finalize_rsvp':
+      return <FinalizeRsvpCard eventId={ctx.eventId} />;
+    case 'paprint':
+      return <PaprintCard eventId={ctx.eventId} />;
     default:
       return <PlaceholderCardBody taskId={taskId} />;
   }

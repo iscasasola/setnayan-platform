@@ -110,6 +110,13 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: '6mb',
     },
+    // Tree-shake barrel imports per Next.js 15 docs. lucide-react ships
+    // 1,500+ icons; every page on the marketing site + dashboard imports
+    // a handful via named imports from the package root. Without this
+    // flag, transitive re-exports can pull in the entire icon graph on
+    // some builds. Listing here is a no-op when SWC already tree-shakes
+    // and a meaningful TBT win when it doesn't.
+    optimizePackageImports: ['lucide-react'],
   },
   // PWA service worker + manifest must be reachable with no auth and no
   // middleware rewriting — the matcher in middleware.ts already excludes them.

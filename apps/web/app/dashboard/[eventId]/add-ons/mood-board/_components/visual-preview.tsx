@@ -143,13 +143,23 @@ export function VisualPreview({ eventId, templates, existingSaves, rolePalette }
                   key={s.save_id}
                   className="overflow-hidden rounded-lg border border-ink/15 bg-cream"
                 >
+                  {/* 2026-05-24 — figure_attire assets are PORTRAIT (full-body
+                      illustrations head-to-feet) and were getting cropped at
+                      the head by the old aspect-[4/3] + object-cover combo.
+                      Use 3:4 portrait + object-contain for figures so the
+                      whole person renders; venue_scene assets stay landscape
+                      since they're meant to be wider-than-tall mood photos. */}
                   <Image
                     src={asset.public_url}
                     alt={asset.label}
                     width={400}
-                    height={300}
+                    height={asset.asset_type === 'figure_attire' ? 533 : 300}
                     loading="lazy"
-                    className="aspect-[4/3] w-full object-cover"
+                    className={
+                      asset.asset_type === 'figure_attire'
+                        ? 'aspect-[3/4] w-full object-contain bg-cream'
+                        : 'aspect-[4/3] w-full object-cover'
+                    }
                   />
                   <div className="space-y-1 p-3">
                     <p className="text-sm font-medium text-ink">{asset.label}</p>
@@ -258,13 +268,20 @@ function TemplateCard({
         onClick={onToggle}
         className="block w-full text-left"
       >
+        {/* 2026-05-24 — figure_attire portrait fix (same as pinned-moodboard
+            grid above). Vector figures span head-to-feet; the legacy
+            aspect-[4/3] + object-cover was clipping the head. */}
         <Image
           src={asset.public_url}
           alt={asset.label}
           width={400}
-          height={300}
+          height={asset.asset_type === 'figure_attire' ? 533 : 300}
           loading="lazy"
-          className="aspect-[4/3] w-full object-cover"
+          className={
+            asset.asset_type === 'figure_attire'
+              ? 'aspect-[3/4] w-full object-contain bg-cream'
+              : 'aspect-[4/3] w-full object-cover'
+          }
         />
       </button>
       <div className="space-y-2 p-3">

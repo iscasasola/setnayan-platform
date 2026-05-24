@@ -1044,6 +1044,14 @@ export async function completeCreateWebsiteTask(
 export async function lockBoothToEvent(formData: FormData): Promise<void> {
   const eventIdRaw = formData.get('event_id');
   const boothCategoryRaw = formData.get('booth_category');
+  // 2026-05-25 · canonical sub-type from the wide-taxonomy Booths card
+  // (e.g. 'coffee_booth', 'perfume_bar', 'sorbetes_cart'). When present,
+  // it's snapshotted into event_vendors.notes as BOOTH_SUBTYPE:<canonical>
+  // so the picked-list grouping + future compare gates can read finer
+  // grain than the 2-value `category` enum carries. Backwards-compatible
+  // — old call sites that don't pass it land with `notes IS NULL` and
+  // bucket into the legacy coarse-category groups (Photobooths / Bars).
+  const boothSubtypeRaw = formData.get('booth_subtype');
   const marketplaceVendorIdRaw = formData.get('marketplace_vendor_id');
   const vendorNameRaw = formData.get('vendor_name');
   const contactPhoneRaw = formData.get('contact_phone');
@@ -1082,6 +1090,16 @@ export async function lockBoothToEvent(formData: FormData): Promise<void> {
   }
   if (typeof contactEmailRaw === 'string' && contactEmailRaw.trim().length > 0) {
     insertPayload.contact_email = contactEmailRaw.trim();
+  }
+  // Snapshot the canonical sub-type into notes when supplied. Defensive
+  // input cleanup — only accept lowercase alphanumeric + underscore (the
+  // canonical_service shape across the platform) to avoid injecting
+  // arbitrary text into the notes column.
+  if (
+    typeof boothSubtypeRaw === 'string' &&
+    /^[a-z0-9_]{1,64}$/i.test(boothSubtypeRaw)
+  ) {
+    insertPayload.notes = `BOOTH_SUBTYPE:${boothSubtypeRaw.toLowerCase()}`;
   }
 
   const { error: insertErr } = await supabase

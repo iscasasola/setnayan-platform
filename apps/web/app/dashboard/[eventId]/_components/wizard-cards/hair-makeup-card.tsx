@@ -1,13 +1,17 @@
 /**
  * Card 19 Hair + Makeup · Phase 4 · Programming tier.
  *
- * 2026-05-24 owner directive: migrated from the legacy list VendorPickCard
- * to the visual VendorPickGridCard with NO distance filter. HMUA travel
- * to the venue is standard — couples regularly fly in a Manila MUA for a
- * Cebu wedding, or book a Boracay-based artist for an island wedding.
- * Trial sessions can also happen near the artist's studio. Default sort
- * (ad_rank → review_count → avg_rating_overall) anchors on portfolio +
- * reviews, not proximity.
+ * 2026-05-24 senior-planner pass (PR follow-up · owner directive
+ * "there are services that is best when the vendor is nearer the
+ * venue"): WIRED distance filter (initialKm=10 default · stepper to
+ * widen). Even though HMUA is Pattern A "creations" per CLAUDE.md
+ * 2026-05-24 sixth-row spec lock (reviews-first), it is also morning-
+ * of timing-sensitive — the artist travels to the bride's hotel/home
+ * for prep at sunrise, and a 2-hour drive on wedding morning =
+ * compressed prep window + tired artist. Premium HMUA do fly into
+ * destination weddings; the stepper widens for Cebu/Boracay couples
+ * where the full pool is "far" by NCR standards. Default sort still
+ * anchors reviews-first per the 5-tier ladder.
  *
  * Surfaces both makeup_artist + hair_stylist coarse categories — many
  * HMUA professionals in PH offer both as a single package; surfacing
@@ -22,6 +26,7 @@ import {
   fetchWizardVendorRecommendations,
   fetchBookedMarketplaceVendorIdsForDate,
 } from '@/lib/wizard-recommendations';
+import { fetchReceptionLatLng } from './_reception-lat-lng';
 import type { CeremonyType } from '@/lib/auspicious-date';
 import { VendorPickGridCard } from './vendor-pick-grid-card';
 
@@ -46,6 +51,10 @@ export async function HairMakeupCard({
   eventDate,
 }: Props) {
   const admin = createAdminClient();
+  const { receptionLat, receptionLng } = await fetchReceptionLatLng(
+    admin,
+    eventId,
+  );
   const [recs, bookedIds] = await Promise.all([
     fetchWizardVendorRecommendations(admin, {
       canonicalServices: CANONICAL_SERVICES,
@@ -56,6 +65,16 @@ export async function HairMakeupCard({
     }),
     fetchBookedMarketplaceVendorIdsForDate(admin, eventId, eventDate),
   ]);
+
+  const distanceFilter =
+    receptionLat != null && receptionLng != null
+      ? {
+          referenceLat: receptionLat,
+          referenceLng: receptionLng,
+          initialKm: 10,
+          referenceLabel: 'Reception Venue',
+        }
+      : undefined;
 
   return (
     <VendorPickGridCard
@@ -74,6 +93,7 @@ export async function HairMakeupCard({
         emptyStateCopy:
           "We haven't curated hair + makeup artists for your area yet — search by name or add yours below. Trial sessions usually happen 2–3 months before the wedding so the look is locked in time.",
       }}
+      distanceFilter={distanceFilter}
       bookedMarketplaceVendorIds={bookedIds}
     />
   );

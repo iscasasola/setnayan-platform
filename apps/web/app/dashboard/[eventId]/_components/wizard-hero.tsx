@@ -231,6 +231,13 @@ function renderCardBody(
           eventDate={ctx.eventDate}
         />
       );
+    // 2026-05-24 owner directive · all 12 below now use VendorPickGridCard
+    // with the visual grid + search + booked-availability shading. 11 are
+    // reviews-first with NO distance filter (officiant · photography ·
+    // catering · stylist · lights_sound · music · host_mc · attire ·
+    // hair_makeup · cake · bridal_car); 1 uses distance from reception
+    // (accommodation · initialKm=10). All consume ctx.eventDate for the
+    // shared booked-vendor availability check.
     case 'officiant':
       return (
         <OfficiantCard
@@ -238,6 +245,7 @@ function renderCardBody(
           ceremonyType={ctx.ceremonyType}
           venueSetting={ctx.venueSetting}
           excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
+          eventDate={ctx.eventDate}
         />
       );
     case 'photography':
@@ -247,6 +255,7 @@ function renderCardBody(
           ceremonyType={ctx.ceremonyType}
           venueSetting={ctx.venueSetting}
           excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
+          eventDate={ctx.eventDate}
         />
       );
     case 'engagement_prenup_shoot':
@@ -258,11 +267,9 @@ function renderCardBody(
           ceremonyType={ctx.ceremonyType}
           venueSetting={ctx.venueSetting}
           excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
+          eventDate={ctx.eventDate}
         />
       );
-    // Phase 3 batch — 9 standard vendor-pick cards (08 · 10 · 12 · 13 ·
-    // 18 · 19 · 22 · 23 · 24). All compose the VendorPickCard primitive
-    // with a different canonical-service filter + brand-voice copy.
     case 'stylist':
       return (
         <StylistCard
@@ -270,6 +277,7 @@ function renderCardBody(
           ceremonyType={ctx.ceremonyType}
           venueSetting={ctx.venueSetting}
           excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
+          eventDate={ctx.eventDate}
         />
       );
     case 'lights_sound':
@@ -279,6 +287,7 @@ function renderCardBody(
           ceremonyType={ctx.ceremonyType}
           venueSetting={ctx.venueSetting}
           excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
+          eventDate={ctx.eventDate}
         />
       );
     case 'music_entertainment':
@@ -288,6 +297,7 @@ function renderCardBody(
           ceremonyType={ctx.ceremonyType}
           venueSetting={ctx.venueSetting}
           excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
+          eventDate={ctx.eventDate}
         />
       );
     case 'host_mc':
@@ -297,6 +307,7 @@ function renderCardBody(
           ceremonyType={ctx.ceremonyType}
           venueSetting={ctx.venueSetting}
           excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
+          eventDate={ctx.eventDate}
         />
       );
     case 'attire':
@@ -306,6 +317,7 @@ function renderCardBody(
           ceremonyType={ctx.ceremonyType}
           venueSetting={ctx.venueSetting}
           excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
+          eventDate={ctx.eventDate}
         />
       );
     case 'hair_makeup':
@@ -315,6 +327,7 @@ function renderCardBody(
           ceremonyType={ctx.ceremonyType}
           venueSetting={ctx.venueSetting}
           excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
+          eventDate={ctx.eventDate}
         />
       );
     case 'cake':
@@ -324,6 +337,7 @@ function renderCardBody(
           ceremonyType={ctx.ceremonyType}
           venueSetting={ctx.venueSetting}
           excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
+          eventDate={ctx.eventDate}
         />
       );
     case 'accommodation':
@@ -333,6 +347,7 @@ function renderCardBody(
           ceremonyType={ctx.ceremonyType}
           venueSetting={ctx.venueSetting}
           excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
+          eventDate={ctx.eventDate}
         />
       );
     case 'bridal_car':
@@ -342,6 +357,7 @@ function renderCardBody(
           ceremonyType={ctx.ceremonyType}
           venueSetting={ctx.venueSetting}
           excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
+          eventDate={ctx.eventDate}
         />
       );
     // Phase 5 batch — 7 paperwork external_process cards. Each uses the

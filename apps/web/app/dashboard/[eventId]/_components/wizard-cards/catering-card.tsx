@@ -1,10 +1,16 @@
 /**
  * Card 07 Catering · Phase 2 of iteration 0016 Concierge Active Wizard.
  *
- * Server component · fetches top-15 catering recommendations from
- * vendor_market_stats with services && ['catering']. Filters by event's
- * ceremony_type so INC weddings see alcohol-free / kosher-style options,
- * Muslim see halal-certified, etc. — the
+ * 2026-05-24 owner directive: migrated from the legacy list VendorPickCard
+ * to the visual VendorPickGridCard with NO distance filter. Caterers
+ * travel — most PH catering vendors deliver across NCR + nearby provinces,
+ * and destination caterers fly crew to Cebu / Boracay / Bohol weddings.
+ * Default sort (ad_rank → review_count → avg_rating_overall) anchors on
+ * trust + portfolio first; the host can search by city if they want a
+ * proximity filter.
+ *
+ * Filters by event's ceremony_type so INC weddings see alcohol-free /
+ * kosher-style options, Muslim see halal-certified, etc. — the
  * vendor_profiles.compatible_ceremony_types[] gating handles the broad
  * faith-fit check; per-attribute deep filters (halal_certified · INC-
  * friendly · etc. from iteration 0044 shared_attribute_groups) ship in
@@ -20,40 +26,63 @@
  */
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchWizardVendorRecommendations } from '@/lib/wizard-recommendations';
+import {
+  fetchWizardVendorRecommendations,
+  fetchBookedMarketplaceVendorIdsForDate,
+} from '@/lib/wizard-recommendations';
 import type { CeremonyType } from '@/lib/auspicious-date';
-import { VendorPickCard } from './vendor-pick-card';
+import { VendorPickGridCard } from './vendor-pick-grid-card';
 
 type Props = {
   eventId: string;
   ceremonyType: CeremonyType | null;
   venueSetting: string | null;
   excludeMarketplaceIds: ReadonlyArray<string>;
+  /** events.event_date · drives the availability filter. Caterers with
+   *  a confirmed booking on this date render at 30% opacity with no
+   *  action buttons. NULL = no availability check applied. */
+  eventDate: string | null;
 };
+
+const CANONICAL_SERVICES = ['catering'] as const;
 
 export async function CateringCard({
   eventId,
   ceremonyType,
   venueSetting,
   excludeMarketplaceIds,
+  eventDate,
 }: Props) {
   const admin = createAdminClient();
-  const recs = await fetchWizardVendorRecommendations(admin, {
-    canonicalServices: ['catering'],
-    ceremonyType,
-    venueSetting,
-    excludeVendorIds: excludeMarketplaceIds,
-    limit: 15,
-  });
+  const [recs, bookedIds] = await Promise.all([
+    fetchWizardVendorRecommendations(admin, {
+      canonicalServices: CANONICAL_SERVICES,
+      ceremonyType,
+      venueSetting,
+      excludeVendorIds: excludeMarketplaceIds,
+      limit: 100,
+    }),
+    fetchBookedMarketplaceVendorIdsForDate(admin, eventId, eventDate),
+  ]);
 
   return (
-    <VendorPickCard
+    <VendorPickGridCard
       eventId={eventId}
       taskId="catering"
-      recommendations={recs}
-      defaultVisible={5}
-      customAddLabel="Found your caterer already?"
-      emptyStateCopy="We haven't curated caterers for your area + ceremony yet — add yours below. You can capture per-head pricing and crew meals on the budget page after."
+      initialRecommendations={recs}
+      searchContext={{
+        canonicalServices: CANONICAL_SERVICES,
+        ceremonyType,
+        venueSetting,
+        excludeVendorIds: excludeMarketplaceIds,
+      }}
+      copy={{
+        pluralNoun: 'caterers',
+        customAddLabel: 'Found your caterer already?',
+        emptyStateCopy:
+          "We haven't curated caterers for your area + ceremony yet — search by name or add yours below. You can capture per-head pricing and crew meals on the budget page after.",
+      }}
+      bookedMarketplaceVendorIds={bookedIds}
     />
   );
 }

@@ -1272,3 +1272,223 @@ export async function searchVendorRecommendations(
     limit: args.limit ?? 100,
   });
 }
+
+// ============================================================================
+// Card 4b · Draft VIP Guest List · inline-completion action.
+//
+// 2026-05-24 owner directive · the wizard's first guest-list card seeds
+// the four-role VIP scaffold (bride · groom · best man · maid of honor)
+// plus any additional guests typed via the Continue-Adding chain. One
+// submission · roles are tagged per row so seating, invitations, and
+// entourage finalization downstream all see the canonical anchors.
+//
+// Separate from the generic Quick Add at /guests/quick (which inserts
+// `role: 'guest'` only) — this action accepts VIP-role-tagged rows AND
+// untagged guest rows in the same payload.
+//
+// Settles the task once a real scaffold lands: bride + groom + at least
+// one entourage member. Below that we mark in_flight so the host can
+// re-open the card to keep adding without losing wizard progress.
+// ============================================================================
+
+const DRAFT_VIP_ROLES = ['bride', 'groom', 'best_man', 'maid_of_honor'] as const;
+type DraftVipRole = (typeof DRAFT_VIP_ROLES)[number];
+const DRAFT_VIP_ROLES_SET: ReadonlySet<string> = new Set(DRAFT_VIP_ROLES);
+
+function isDraftVipRole(value: unknown): value is DraftVipRole {
+  return typeof value === 'string' && DRAFT_VIP_ROLES_SET.has(value);
+}
+
+type ParsedVip = { role: DraftVipRole; firstName: string; lastName: string };
+type ParsedGuest = { firstName: string; lastName: string };
+
+export type DraftGuestListResult =
+  | { ok: true; addedVips: number; addedGuests: number; skipped: number }
+  | { ok: false; error: string };
+
+export async function completeDraftGuestListTask(
+  formData: FormData,
+): Promise<DraftGuestListResult> {
+  const eventIdRaw = formData.get('event_id');
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {
+    return { ok: false, error: 'event_id required' };
+  }
+
+  const vipsRaw = formData.get('vips');
+  const guestsRaw = formData.get('guests');
+
+  let vips: ParsedVip[] = [];
+  let guests: ParsedGuest[] = [];
+
+  if (typeof vipsRaw === 'string' && vipsRaw.length > 0) {
+    try {
+      const parsed = JSON.parse(vipsRaw);
+      if (!Array.isArray(parsed)) throw new Error('not array');
+      vips = parsed
+        .map((row): ParsedVip | null => {
+          if (!isDraftVipRole(row?.role)) return null;
+          const first =
+            typeof row?.firstName === 'string' ? row.firstName.trim() : '';
+          const last =
+            typeof row?.lastName === 'string' ? row.lastName.trim() : '';
+          if (first.length === 0 && last.length === 0) return null;
+          return { role: row.role, firstName: first, lastName: last };
+        })
+        .filter((row): row is ParsedVip => row !== null);
+    } catch {
+      return { ok: false, error: 'parse_vips' };
+    }
+  }
+
+  if (typeof guestsRaw === 'string' && guestsRaw.length > 0) {
+    try {
+      const parsed = JSON.parse(guestsRaw);
+      if (!Array.isArray(parsed)) throw new Error('not array');
+      guests = parsed
+        .map((row): ParsedGuest => ({
+          firstName: typeof row?.firstName === 'string' ? row.firstName.trim() : '',
+          lastName: typeof row?.lastName === 'string' ? row.lastName.trim() : '',
+        }))
+        .filter((row) => row.firstName.length > 0 || row.lastName.length > 0);
+    } catch {
+      return { ok: false, error: 'parse_guests' };
+    }
+  }
+
+  if (vips.length === 0 && guests.length === 0) {
+    return { ok: false, error: 'empty' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // Defense · if the host re-submits and bride/groom already exist for
+  // the event, skip those rows so the partial-unique index doesn't reject
+  // the whole batch. Best man + maid of honor are not singleton at the
+  // DB level (a wedding can have two best men) so they always insert.
+  const { data: existingVips } = await supabase
+    .from('guests')
+    .select('role')
+    .eq('event_id', eventIdRaw)
+    .in('role', ['bride', 'groom']);
+  const existingRoles = new Set(
+    (existingVips ?? []).map((r) => (r as { role: string }).role),
+  );
+
+  const vipRows = vips
+    .filter(
+      (v) =>
+        !(v.role === 'bride' && existingRoles.has('bride')) &&
+        !(v.role === 'groom' && existingRoles.has('groom')),
+    )
+    .map((v) => ({
+      event_id: eventIdRaw,
+      first_name: v.firstName,
+      last_name: v.lastName,
+      side:
+        v.role === 'bride' || v.role === 'maid_of_honor'
+          ? ('bride' as const)
+          : v.role === 'groom' || v.role === 'best_man'
+            ? ('groom' as const)
+            : ('both' as const),
+      group_category: 'family' as const,
+      role: v.role,
+      rsvp_status: 'pending' as const,
+      meal_preference: 'no_preference' as const,
+      invited_to_blocks: ['ceremony', 'reception', 'cocktails'],
+      custom_tags: [] as string[],
+    }));
+
+  const guestRows = guests.map((g) => ({
+    event_id: eventIdRaw,
+    first_name: g.firstName,
+    last_name: g.lastName,
+    side: 'both' as const,
+    group_category: 'other' as const,
+    role: 'guest' as const,
+    rsvp_status: 'pending' as const,
+    meal_preference: 'no_preference' as const,
+    invited_to_blocks: ['ceremony', 'reception'],
+    custom_tags: [] as string[],
+  }));
+
+  const skipped = vips.length - vipRows.length;
+  const allRows = [...vipRows, ...guestRows];
+
+  if (allRows.length === 0) {
+    // Everything submitted was already on file (bride/groom dupes only).
+    // Treat that as a no-op success so the form clears, but don't settle
+    // the wizard task unnecessarily — let the resolver re-render with
+    // the current state of the world.
+    revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
+    return { ok: true, addedVips: 0, addedGuests: 0, skipped };
+  }
+
+  const { error: insertErr } = await supabase.from('guests').insert(allRows);
+  if (insertErr) {
+    return { ok: false, error: insertErr.message };
+  }
+
+  // Read the event's wizard_state once so we can decide between
+  // in_flight (still iterating) and complete (scaffold landed).
+  const { data: eventRow, error: eventErr } = await supabase
+    .from('events')
+    .select('wizard_state')
+    .eq('event_id', eventIdRaw)
+    .maybeSingle();
+  if (eventErr) throw new Error(eventErr.message);
+  if (!eventRow) throw new Error('Event not found');
+
+  const priorState = parseWizardState(eventRow.wizard_state);
+
+  // Auto-settle only when both anchors are present + at least one
+  // entourage member · matches the spec's "real scaffold from here"
+  // gate. Counts existing rows so a host who added bride+groom in a
+  // prior save and best_man this save still gets the settle.
+  const hasBride =
+    vipRows.some((r) => r.role === 'bride') || existingRoles.has('bride');
+  const hasGroom =
+    vipRows.some((r) => r.role === 'groom') || existingRoles.has('groom');
+  const hasEntourageFromThisSubmission = vipRows.some(
+    (r) => r.role === 'best_man' || r.role === 'maid_of_honor',
+  );
+  let hasEntourage = hasEntourageFromThisSubmission;
+  if (!hasEntourage) {
+    const { count } = await supabase
+      .from('guests')
+      .select('guest_id', { count: 'exact', head: true })
+      .eq('event_id', eventIdRaw)
+      .in('role', ['best_man', 'maid_of_honor']);
+    hasEntourage = (count ?? 0) > 0;
+  }
+
+  const newState =
+    hasBride && hasGroom && hasEntourage
+      ? setTaskComplete(priorState, 'draft_guest_list', {
+          last_added_at: new Date().toISOString(),
+          last_added_count: allRows.length,
+        })
+      : setTaskInFlight(priorState, 'draft_guest_list', {
+          last_added_at: new Date().toISOString(),
+          last_added_count: allRows.length,
+        });
+
+  const { error: updateErr } = await supabase
+    .from('events')
+    .update({ wizard_state: newState })
+    .eq('event_id', eventIdRaw);
+  if (updateErr) throw new Error(updateErr.message);
+
+  revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
+  revalidatePath(`/dashboard/${eventIdRaw}/guests`);
+
+  return {
+    ok: true,
+    addedVips: vipRows.length,
+    addedGuests: guestRows.length,
+    skipped,
+  };
+}

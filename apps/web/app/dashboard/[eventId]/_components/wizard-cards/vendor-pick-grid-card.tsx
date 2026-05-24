@@ -54,6 +54,8 @@ import {
   Star,
   X,
 } from 'lucide-react';
+
+const ALL_CITIES_SENTINEL = '__ALL__';
 import type { WizardTaskId } from '@/lib/wizard';
 import type { WizardVendorRec } from '@/lib/wizard-recommendations';
 import {
@@ -120,6 +122,13 @@ export function VendorPickGridCard({
   const [isSearching, startSearchTransition] = useTransition();
   const [searchError, setSearchError] = useState<string | null>(null);
 
+  // City filter · 2026-05-24 owner directive. Picks one location_city
+  // from the current result set OR the ALL_CITIES_SENTINEL value to
+  // clear. Combined with the search bar: search narrows by name/city/
+  // tagline server-side, then the city filter narrows again client-side
+  // to one specific city. Both can be active together.
+  const [selectedCity, setSelectedCity] = useState<string>(ALL_CITIES_SENTINEL);
+
   // Pagination · client-side · resets to page 0 whenever results change.
   const [pageIndex, setPageIndex] = useState(0);
 
@@ -130,15 +139,48 @@ export function VendorPickGridCard({
   const [pendingVendorId, setPendingVendorId] = useState<string | null>(null);
   const [, startLockTransition] = useTransition();
 
+  /* ─────────────  city options + filter derivation  ────────────── */
+
+  // Unique, alphabetized city list pulled from the current result set
+  // (post-search if a search is active, full top-100 otherwise). Empty/
+  // null cities are stripped so the picker only offers actual locations.
+  // Cap at the result set's cities — we deliberately don't list every
+  // PH city (would surface "no matches" empty states for cities with
+  // no vendors, which is worse than just not offering the option).
+  const cityOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of results) {
+      if (r.location_city && r.location_city.trim().length > 0) {
+        set.add(r.location_city.trim());
+      }
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'en-PH'));
+  }, [results]);
+
+  // Apply the city filter client-side. When the picker is on the sentinel
+  // "all cities" value, this is a passthrough. The downstream pagination
+  // math operates on this filtered slice so page counts adjust correctly.
+  const filteredResults = useMemo(() => {
+    if (selectedCity === ALL_CITIES_SENTINEL) return results;
+    return results.filter(
+      (r) => (r.location_city ?? '').trim() === selectedCity,
+    );
+  }, [results, selectedCity]);
+
   /* ───────────────────  pagination derivation  ────────────────────── */
 
-  const totalPages = Math.max(1, Math.ceil(results.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(filteredResults.length / PAGE_SIZE));
   const safePageIndex = Math.min(pageIndex, totalPages - 1);
   const pageStart = safePageIndex * PAGE_SIZE;
   const visible = useMemo(
-    () => results.slice(pageStart, pageStart + PAGE_SIZE),
-    [results, pageStart],
+    () => filteredResults.slice(pageStart, pageStart + PAGE_SIZE),
+    [filteredResults, pageStart],
   );
+
+  function handleCityChange(value: string) {
+    setSelectedCity(value);
+    setPageIndex(0); // reset to first page on filter change
+  }
 
   /* ───────────────────  search submit handler  ────────────────────── */
 
@@ -160,6 +202,10 @@ export function VendorPickGridCard({
         setResults(rows);
         setActiveQuery(trimmed.length > 0 ? trimmed : null);
         setPageIndex(0);
+        // Reset city filter on every new search so the picker's options
+        // reflect the fresh result set. The host can re-pick a city after
+        // the new grid renders.
+        setSelectedCity(ALL_CITIES_SENTINEL);
       } catch (err) {
         const message =
           err instanceof Error
@@ -176,6 +222,7 @@ export function VendorPickGridCard({
     setResults(initialRecommendations);
     setPageIndex(0);
     setSearchError(null);
+    setSelectedCity(ALL_CITIES_SENTINEL);
   }
 
   /* ──────────────────────  lock handlers  ─────────────────────────── */
@@ -239,6 +286,53 @@ export function VendorPickGridCard({
         </button>
       </form>
 
+      {/* City filter · derived from the current result set so the
+          dropdown only offers cities with actual vendors. Native
+          <select> works on both mobile (OS-native picker sheet) and
+          desktop (dropdown) per the responsive-by-default rule. Hidden
+          when result set has 0 or 1 cities — nothing to filter. */}
+      {cityOptions.length > 1 ? (
+        <div className="flex items-center gap-2">
+          <label
+            htmlFor="vendor-grid-city-filter"
+            className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55"
+          >
+            <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+            City
+          </label>
+          <select
+            id="vendor-grid-city-filter"
+            value={selectedCity}
+            onChange={(e) => handleCityChange(e.target.value)}
+            className="min-h-[36px] flex-1 rounded-md border border-ink/15 bg-white px-3 py-1.5 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30 sm:max-w-xs"
+          >
+            <option value={ALL_CITIES_SENTINEL}>
+              All cities · {results.length} {results.length === 1 ? 'result' : 'results'}
+            </option>
+            {cityOptions.map((city) => {
+              const cityCount = results.filter(
+                (r) => (r.location_city ?? '').trim() === city,
+              ).length;
+              return (
+                <option key={city} value={city}>
+                  {city} · {cityCount}
+                </option>
+              );
+            })}
+          </select>
+          {selectedCity !== ALL_CITIES_SENTINEL ? (
+            <button
+              type="button"
+              onClick={() => handleCityChange(ALL_CITIES_SENTINEL)}
+              className="inline-flex items-center gap-1 text-[11px] font-medium text-terracotta transition-colors hover:text-terracotta-700"
+            >
+              <X aria-hidden className="h-3 w-3" strokeWidth={2.5} />
+              Clear
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
       {/* Active-search chip · shows the query + a Clear button to reset
           to recommendations. Cleaner than hiding the search box. */}
       {activeQuery ? (
@@ -281,6 +375,11 @@ export function VendorPickGridCard({
             />
           ))}
         </ul>
+      ) : selectedCity !== ALL_CITIES_SENTINEL ? (
+        <p className="rounded-xl border border-dashed border-ink/15 bg-white/40 px-4 py-6 text-center text-sm leading-relaxed text-ink/70">
+          No {copy.pluralNoun} in <strong className="font-medium text-ink">{selectedCity}</strong>{' '}
+          right now. Try another city — or add yours below.
+        </p>
       ) : activeQuery ? (
         <p className="rounded-xl border border-dashed border-ink/15 bg-white/40 px-4 py-6 text-center text-sm leading-relaxed text-ink/70">
           No {copy.pluralNoun} matched <strong className="font-medium text-ink">{activeQuery}</strong>.

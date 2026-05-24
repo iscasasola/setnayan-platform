@@ -37,9 +37,9 @@ import { VendorPickGridCard } from './vendor-pick-grid-card';
 type Props = {
   eventId: string;
   ceremonyType: CeremonyType | null;
-  /** Ceremony venues aren't typically filtered by venue_setting (a Catholic
-   *  church doesn't have a "garden" attribute the way a reception venue
-   *  does), but we pass it through for vendors who tagged compat anyway. */
+  /** Accepted for API symmetry with sibling vendor-pick cards but
+   *  INTENTIONALLY UNUSED for ceremony venue recommendations · see the
+   *  query below for the rationale. */
   venueSetting: string | null;
   excludeMarketplaceIds: ReadonlyArray<string>;
   /** events.event_date · drives the availability filter (2026-05-24
@@ -53,7 +53,9 @@ const CANONICAL_SERVICES = ['religious_venue'] as const;
 export async function CeremonyVenueCard({
   eventId,
   ceremonyType,
-  venueSetting,
+  // venueSetting deliberately destructured-then-ignored · we explain
+  // why in the query below. The Props type keeps the prop so the page
+  // doesn't need a special case calling this card.
   excludeMarketplaceIds,
   eventDate,
 }: Props) {
@@ -99,11 +101,27 @@ export async function CeremonyVenueCard({
   // Limit bumped to 100 so the 15-per-page pagination has multi-page
   // depth even after distance filtering narrows the set. Booked IDs
   // run in parallel · independent query.
+  //
+  // venueSetting deliberately passed as NULL · 2026-05-24 fix.
+  // `events.venue_setting` is the host's RECEPTION venue type (banquet
+  // hall / garden / beach / heritage / etc.) — it has no business
+  // filtering CEREMONY venues. Churches are tagged by ceremony_type +
+  // faith, not by what kind of reception will follow. Passing it
+  // through previously hid every Catholic church for couples whose
+  // reception wasn't 'heritage' (the seed in
+  // 20260529000000_venue_directory_seed.sql tagged all 19 Catholic
+  // churches with compatible_venue_settings=['heritage'] — couples
+  // booking banquet-hall / garden / beach receptions matched zero
+  // churches). The data migration
+  // 20260524100000_ceremony_venue_loose_setting_compat.sql separately
+  // NULLs out the column on admin-seeded religious venues so any
+  // other consumer is also clean; this code-side belt-and-suspenders
+  // is here because architecture-by-data is fragile.
   const [recs, bookedIds] = await Promise.all([
     fetchWizardVendorRecommendations(admin, {
       canonicalServices: CANONICAL_SERVICES,
       ceremonyType,
-      venueSetting,
+      venueSetting: null,
       excludeVendorIds: excludeMarketplaceIds,
       limit: 100,
     }),
@@ -141,7 +159,11 @@ export async function CeremonyVenueCard({
       searchContext={{
         canonicalServices: CANONICAL_SERVICES,
         ceremonyType,
-        venueSetting,
+        // Same NULL as the fetch above — keeps client-side
+        // "load more / search" requests aligned with the server
+        // result set so the host doesn't see a different number on
+        // refine. See the comment above the fetch call for the why.
+        venueSetting: null,
         excludeVendorIds: excludeMarketplaceIds,
       }}
       copy={{

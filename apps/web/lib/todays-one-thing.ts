@@ -128,6 +128,8 @@ const WHY_IT_MATTERS: Record<PlanGroupId, string> = {
     'A live band sets the energy of your reception. Top bands in PH book 6-9 months ahead; locking early means your favorite is still available.',
   music_entertainment:
     'DJ, string quartet, choir — the music team that carries your program. The best ones run a wedding every weekend in peak season; book early or choose from what’s left.',
+  after_party_music:
+    'The reception ends · the after-party begins. A different DJ for the late-night dance floor — different vibe, different playlist. Lock 4-6 weeks out once your program is set.',
   dance_instructor:
     'First dance · parents-and-couple dance · entourage choreography. Lessons run 2-3 months pre-wedding. Lock the choreographer early so you have time to actually learn the routine.',
   host_mc:
@@ -174,6 +176,7 @@ const CTA_LABEL: Record<PlanGroupId, string> = {
   stylist: 'Browse stylists',
   live_band: 'Browse live bands',
   music_entertainment: 'Browse DJs & music',
+  after_party_music: 'Browse after-party DJs',
   dance_instructor: 'Browse dance instructors',
   host_mc: 'Browse hosts & emcees',
   lights_sound: 'Browse lights & sound',
@@ -207,6 +210,7 @@ const ACTION_TITLE: Record<PlanGroupId, string> = {
   stylist: 'Lock your stylist',
   live_band: 'Lock your live band',
   music_entertainment: 'Lock your band / DJ / performer',
+  after_party_music: 'Lock your after-party DJ',
   dance_instructor: 'Lock your dance instructor',
   host_mc: 'Lock your host / emcee',
   lights_sound: 'Lock your lights & sound',

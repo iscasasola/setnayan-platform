@@ -52,6 +52,10 @@ import { MusicEntertainmentCard } from './wizard-cards/music-entertainment-card'
 // 2026-05-25 dispatcher case for `dance_instructor` wizard task (added 2026-05-24
 // per CLAUDE.md row · was falling through to PlaceholderCardBody until this PR).
 import { DanceInstructorCard } from './wizard-cards/dance-instructor-card';
+// 2026-05-25 dispatcher case for `after_party_music` wizard task (owner
+// directive "finding after party band/dj is gone" · dedicated card for
+// the late-night DJ that runs after the formal reception program).
+import { AfterPartyMusicCard } from './wizard-cards/after-party-music-card';
 import { HostMcCard } from './wizard-cards/host-mc-card';
 import { AttireCard } from './wizard-cards/attire-card';
 import { HairMakeupCard } from './wizard-cards/hair-makeup-card';
@@ -344,6 +348,16 @@ function renderCardBody(
     case 'dance_instructor':
       return (
         <DanceInstructorCard
+          eventId={ctx.eventId}
+          ceremonyType={ctx.ceremonyType}
+          venueSetting={ctx.venueSetting}
+          excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
+          eventDate={ctx.eventDate}
+        />
+      );
+    case 'after_party_music':
+      return (
+        <AfterPartyMusicCard
           eventId={ctx.eventId}
           ceremonyType={ctx.ceremonyType}
           venueSetting={ctx.venueSetting}

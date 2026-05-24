@@ -57,6 +57,10 @@ export type PlanGroupId =
   | 'live_band'
   | 'music_entertainment'
   | 'dance_instructor'
+  // 2026-05-25 owner directive ("finding after party band/dj is gone").
+  // Late-night DJ for the after-party block · separate from
+  // music_entertainment (which covers the formal reception program).
+  | 'after_party_music'
   | 'host_mc'
   | 'lights_sound'
   | 'led_background'
@@ -458,6 +462,35 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     countsTowardLockable: false,
   },
   {
+    // Added 2026-05-25 (owner directive · "finding after party band/dj
+    // is gone"). PH weddings increasingly run a late-night after-party
+    // block once the formal reception ends — separate DJ, different
+    // playlist, distinct from the primary band/DJ booked under
+    // music_entertainment. Marketplace surface filters Music & Program
+    // folder to the `dj` sub-tag so vendors who self-tag both reception
+    // + after-party slots show up consistently. Picks bucket against
+    // the `band_dj` legacy enum so locked picks aggregate correctly in
+    // the plan-grid display (the wizard card's canonical filter on
+    // vendor_profiles.services narrows to `dj` only).
+    id: 'after_party_music',
+    label: 'After-party DJ',
+    hint: 'Late-night dance floor DJ for the after-party block. Lock 4-6 weeks pre-wedding once the reception program is set.',
+    tier: 'style_program',
+    // Entry-point pattern (empty categories) · mirrors live_band +
+    // dance_instructor. Picks locked via this wizard card write
+    // event_vendors.category='band_dj' (per VENDOR_PICK_CATEGORY map
+    // in wizard-actions.ts) and bucket onto the music_entertainment
+    // plan-grid cell along with the primary band/DJ. Differentiating
+    // visual cells per wizard-task source requires adding source_task_id
+    // to event_vendors — V1.x follow-up. For V1, the wizard card itself
+    // is the canonical surface; the plan-grid cell aggregates.
+    categories: [],
+    monthsBefore: 1,
+    catalogFolder: 'music_program',
+    subcategoryHint: 'dj',
+    countsTowardLockable: false,
+  },
+  {
     id: 'host_mc',
     label: 'Host / MC',
     hint: 'Carries the program from cocktail hour through send-off. Book 4-6 months out.',
@@ -664,6 +697,10 @@ export const HARD_SINGLE_PICK_GROUPS: ReadonlySet<PlanGroupId> = new Set([
   'host_mc',
   'led_background',
 ]);
+// after_party_music NOT in HARD_SINGLE — it's an entry-point card
+// (countsTowardLockable: false). Picks locked via this card aggregate
+// into the music_entertainment plan-grid cell where the existing
+// non-hard-single semantics apply (multiple band_dj picks allowed).
 
 export function isHardSinglePickGroup(groupId: PlanGroupId): boolean {
   return HARD_SINGLE_PICK_GROUPS.has(groupId);

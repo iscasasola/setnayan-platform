@@ -1096,6 +1096,109 @@ export function VendorPickGridCard({
 }
 
 /* ───────────────────────────────────────────────────────────────────────
+ * Tile photo · branches on presentation_pattern + services_preview count.
+ *
+ * 2026-05-24 V1.1 multi-photo tile per CLAUDE.md decision-log row
+ * "Vendor presentation pattern locked" + 02_Specifications/
+ * Vendor_Taxonomy_V1_Master.md § 10.
+ *
+ *   Pattern A (creations) + services_preview.length >= 2:
+ *     2×2 collage of up to 4 service photos · couples see the vendor's
+ *     portfolio range at a glance (stylist · photographer · cake · attire
+ *     · band · etc.). When there are 2-3 photos available, fills the
+ *     remaining cells with the brand-monogram initial fallback.
+ *
+ *   Pattern B (locked) OR Pattern A with < 2 photos OR null pattern:
+ *     Single-hero photo (existing V1 behavior) · photoUrl resolves via
+ *     primary_photo_url → logo_url → initial fallback.
+ *
+ * Used twice in this file · once in the main grid tile (BlockRow) and
+ * once in the CompareSide panel. Sizes prop tunes responsive image
+ * srcset per call-site.
+ * ──────────────────────────────────────────────────────────────────── */
+
+function TilePhoto({
+  rec,
+  sizes,
+  initialSizeClass,
+  children,
+}: {
+  rec: WizardVendorRec;
+  sizes: string;
+  initialSizeClass: string;
+  /** Overlays (Verified badge, etc.) positioned absolute against the
+   *  tile container. */
+  children?: React.ReactNode;
+}) {
+  const initial = rec.business_name.charAt(0).toUpperCase();
+  const isCreations =
+    rec.presentation_pattern === 'creations' &&
+    rec.services_preview.length >= 2;
+
+  if (isCreations) {
+    // 2×2 collage · up to 4 photos. Fill remaining cells (if 2-3 photos)
+    // with the initial-letter fallback so the 4-cell grid always looks
+    // intentional. CSS grid · no JS, no third-party libs.
+    const photos = rec.services_preview.slice(0, 4);
+    return (
+      <div className="relative aspect-[4/3] w-full bg-terracotta/8">
+        <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-0.5">
+          {Array.from({ length: 4 }).map((_, idx) => {
+            const photo = photos[idx];
+            return (
+              <div
+                key={idx}
+                className="relative overflow-hidden bg-terracotta/8"
+              >
+                {photo ? (
+                  <Image
+                    src={photo.photo_url}
+                    alt=""
+                    fill
+                    sizes={sizes}
+                    className="object-cover"
+                  />
+                ) : (
+                  <span
+                    className={`absolute inset-0 flex items-center justify-center font-display italic text-terracotta/40 ${initialSizeClass}`}
+                  >
+                    {initial}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        {children}
+      </div>
+    );
+  }
+
+  // Pattern B / fallback · single-hero (existing V1 behavior).
+  const photoUrl = rec.primary_photo_url ?? rec.logo_url ?? null;
+  return (
+    <div className="relative aspect-[4/3] w-full bg-terracotta/8">
+      {photoUrl ? (
+        <Image
+          src={photoUrl}
+          alt=""
+          fill
+          sizes={sizes}
+          className="object-cover"
+        />
+      ) : (
+        <span
+          className={`absolute inset-0 flex items-center justify-center font-display italic text-terracotta/40 ${initialSizeClass}`}
+        >
+          {initial}
+        </span>
+      )}
+      {children}
+    </div>
+  );
+}
+
+/* ───────────────────────────────────────────────────────────────────────
  * Single grid card · photo + Setnayan Statement (if verified) + name +
  * city + star/reviews + Lock button.
  *
@@ -1141,7 +1244,6 @@ function VendorGridCardRow({
       : null;
   const reviewCount = rec.review_count ?? 0;
   const isCertified = rec.verification_state === 'verified';
-  const photoUrl = rec.primary_photo_url ?? rec.logo_url ?? null;
 
   // 30% opacity + non-interactive when booked (2026-05-24 owner directive).
   // Owner-A highlight wins over booked styling — the host is mid-flow on
@@ -1155,22 +1257,15 @@ function VendorGridCardRow({
 
   return (
     <li className={liClass} aria-disabled={isBooked || undefined}>
-      {/* Photo · 4:3 aspect so each row stays even-height. Verified
-          badge overlays top-right when applicable. */}
-      <div className="relative aspect-[4/3] w-full bg-terracotta/8">
-        {photoUrl ? (
-          <Image
-            src={photoUrl}
-            alt=""
-            fill
-            sizes="(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 768px) 33vw, (min-width: 640px) 50vw, 100vw"
-            className="object-cover"
-          />
-        ) : (
-          <span className="absolute inset-0 flex items-center justify-center font-display text-5xl italic text-terracotta/40">
-            {rec.business_name.charAt(0).toUpperCase()}
-          </span>
-        )}
+      {/* Photo · 4:3 aspect so each row stays even-height. Verified +
+          owner-A badges overlay via <TilePhoto>'s children prop.
+          Pattern A vendors with 2+ service photos render as 2×2 collage;
+          Pattern B + fallback render single-hero (V1 behavior). */}
+      <TilePhoto
+        rec={rec}
+        sizes="(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 768px) 33vw, (min-width: 640px) 50vw, 100vw"
+        initialSizeClass="text-5xl"
+      >
         {isCertified ? (
           <span
             title="Documents reviewed and approved by Setnayan."
@@ -1196,7 +1291,7 @@ function VendorGridCardRow({
             Comparing
           </span>
         ) : null}
-      </div>
+      </TilePhoto>
 
       {/* Body · name + city + rating + Compare/Lock CTAs. */}
       <div className="flex flex-1 flex-col gap-2 p-4">
@@ -1388,24 +1483,14 @@ function CompareSide({
       : null;
   const reviewCount = rec.review_count ?? 0;
   const isCertified = rec.verification_state === 'verified';
-  const photoUrl = rec.primary_photo_url ?? rec.logo_url ?? null;
 
   return (
     <article className="flex flex-col overflow-hidden rounded-xl border border-ink/10 bg-white shadow-sm">
-      <div className="relative aspect-[4/3] w-full bg-terracotta/8">
-        {photoUrl ? (
-          <Image
-            src={photoUrl}
-            alt=""
-            fill
-            sizes="(min-width: 640px) 45vw, 100vw"
-            className="object-cover"
-          />
-        ) : (
-          <span className="absolute inset-0 flex items-center justify-center font-display text-6xl italic text-terracotta/40">
-            {rec.business_name.charAt(0).toUpperCase()}
-          </span>
-        )}
+      <TilePhoto
+        rec={rec}
+        sizes="(min-width: 640px) 45vw, 100vw"
+        initialSizeClass="text-6xl"
+      >
         {isCertified ? (
           <span
             title="Documents reviewed and approved by Setnayan."
@@ -1417,7 +1502,7 @@ function CompareSide({
             Setnayan Verified
           </span>
         ) : null}
-      </div>
+      </TilePhoto>
 
       <div className="flex flex-1 flex-col gap-2 p-4">
         <h4 className="font-display text-lg italic leading-tight text-ink sm:text-xl">

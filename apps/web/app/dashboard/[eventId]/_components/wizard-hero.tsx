@@ -39,6 +39,9 @@ import { SetWeddingDateCard } from './wizard-cards/set-wedding-date-card';
 import { ReceptionVenueCard } from './wizard-cards/reception-venue-card';
 import { CeremonyVenueCard } from './wizard-cards/ceremony-venue-card';
 import { OfficiantCard } from './wizard-cards/officiant-card';
+import { CoordinatorCard } from './wizard-cards/coordinator-card';
+import { LedBackgroundCard } from './wizard-cards/led-background-card';
+import { InvitationsStationeryCard } from './wizard-cards/invitations-stationery-card';
 import { PhotographyCard } from './wizard-cards/photography-card';
 import { PrenupCard } from './wizard-cards/prenup-card';
 import { CateringCard } from './wizard-cards/catering-card';
@@ -256,6 +259,16 @@ function renderCardBody(
           eventDate={ctx.eventDate}
         />
       );
+    case 'coordinator':
+      return (
+        <CoordinatorCard
+          eventId={ctx.eventId}
+          ceremonyType={ctx.ceremonyType}
+          venueSetting={ctx.venueSetting}
+          excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
+          eventDate={ctx.eventDate}
+        />
+      );
     case 'photography':
       return (
         <PhotographyCard
@@ -295,6 +308,16 @@ function renderCardBody(
     case 'lights_sound':
       return (
         <LightsSoundCard
+          eventId={ctx.eventId}
+          ceremonyType={ctx.ceremonyType}
+          venueSetting={ctx.venueSetting}
+          excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
+          eventDate={ctx.eventDate}
+        />
+      );
+    case 'led_background':
+      return (
+        <LedBackgroundCard
           eventId={ctx.eventId}
           ceremonyType={ctx.ceremonyType}
           venueSetting={ctx.venueSetting}
@@ -459,6 +482,16 @@ function renderCardBody(
       return <PrincipalSponsorsCard eventId={ctx.eventId} />;
     case 'finalize_entourage':
       return <FinalizeEntourageCard eventId={ctx.eventId} />;
+    case 'invitations_stationery':
+      return (
+        <InvitationsStationeryCard
+          eventId={ctx.eventId}
+          ceremonyType={ctx.ceremonyType}
+          venueSetting={ctx.venueSetting}
+          excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
+          eventDate={ctx.eventDate}
+        />
+      );
     case 'deploy_invitation':
       return (
         <DeployInvitationCard

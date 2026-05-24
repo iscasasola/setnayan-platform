@@ -1747,7 +1747,9 @@ export default async function EventHomePage({
         wizardState={(event as { wizard_state?: unknown }).wizard_state}
         eventDate={event.event_date}
         ceremonyType={eventCeremonyType as Parameters<typeof WizardHero>[0]['ceremonyType']}
+        venueSetting={eventVenueSetting}
         meaningfulDates={[]}
+        excludeMarketplaceVendorIds={marketplaceIds}
       />
 
       {/* Wave 2 of Home v2 — owner directive 2026-05-22 (Next 15 Steps

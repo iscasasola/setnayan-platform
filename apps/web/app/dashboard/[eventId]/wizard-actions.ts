@@ -247,3 +247,227 @@ export async function completeSetWeddingDateTask(
   // until Phase 2 lands its inline UI · placeholder card until then).
   revalidatePath(`/dashboard/${eventIdRaw}`);
 }
+
+// ============================================================================
+// Phase 2 · Cards 02-07 (Foundation vendor-pick tasks)
+// ============================================================================
+//
+// Vendor-pick action backing Cards 02 · 03 · 04 · 05 · 07 (Reception ·
+// Ceremony · Officiant · Photo+Video · Caterer). Card 06 Prenup is
+// external_process and ships in its own action.
+//
+// The host either:
+//   (a) Clicks [Lock this vendor] on one of the top-5 marketplace
+//       recommendations → completeVendorPickFromMarketplace
+//   (b) Fills the [Add custom vendor] form for an off-platform vendor →
+//       completeVendorPickFromCustom
+//
+// Both actions follow the same shape: insert event_vendors with
+// status='contracted' AND advance events.wizard_state.<taskId>.
+// WizardTaskId is already imported alongside parseWizardState at the top
+// of the file (Phase 1 lineage).
+
+/** Map wizard task IDs to the event_vendors.category enum value used
+ *  for that category. The category enum is V1-locked at 28 values per
+ *  iteration 0006 · the wizard maps each foundation card to one of
+ *  those 28. Custom vendor names are accepted; the category drives
+ *  hard-single conflict checks (a venue locked once blocks a second
+ *  venue lock without an explicit unlock first). */
+const VENDOR_PICK_CATEGORY: Partial<Record<WizardTaskId, string>> = {
+  reception_venue: 'venue',
+  ceremony_venue: 'religious_venue',
+  officiant: 'officiant',
+  photography: 'photographer',
+  catering: 'catering',
+} as const;
+
+const VENDOR_PICK_TASK_IDS: ReadonlyArray<WizardTaskId> = [
+  'reception_venue',
+  'ceremony_venue',
+  'officiant',
+  'photography',
+  'catering',
+];
+
+function isVendorPickTaskId(value: unknown): value is WizardTaskId {
+  return (
+    typeof value === 'string' &&
+    (VENDOR_PICK_TASK_IDS as readonly string[]).includes(value)
+  );
+}
+
+/**
+ * Lock a top-5 marketplace recommendation as the wizard's vendor-pick
+ * task answer. Atomically inserts event_vendors row with
+ * status='contracted' AND advances wizard_state.
+ *
+ * Hard-single conflict check inherited from event_vendors RLS / triggers
+ * (PR #135 lineage). If a venue is already locked, this action returns
+ * an error that the client surfaces.
+ */
+export async function completeVendorPickFromMarketplace(
+  formData: FormData,
+): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const taskIdRaw = formData.get('task_id');
+  const marketplaceVendorIdRaw = formData.get('marketplace_vendor_id');
+  const vendorNameRaw = formData.get('vendor_name');
+
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {
+    throw new Error('event_id required');
+  }
+  if (!isVendorPickTaskId(taskIdRaw)) {
+    throw new Error('Unknown wizard task');
+  }
+  if (typeof marketplaceVendorIdRaw !== 'string' || marketplaceVendorIdRaw.length === 0) {
+    throw new Error('marketplace_vendor_id required');
+  }
+  if (typeof vendorNameRaw !== 'string' || vendorNameRaw.length === 0) {
+    throw new Error('vendor_name required');
+  }
+
+  const category = VENDOR_PICK_CATEGORY[taskIdRaw];
+  if (!category) {
+    throw new Error(`No category mapping for task ${taskIdRaw}`);
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  // Read prior wizard_state for the merge.
+  const { data: priorRow, error: priorErr } = await supabase
+    .from('events')
+    .select('wizard_state')
+    .eq('event_id', eventIdRaw)
+    .maybeSingle();
+  if (priorErr) throw new Error(priorErr.message);
+  if (!priorRow) throw new Error('Event not found');
+
+  // Insert event_vendors row with status='contracted' directly · the
+  // wizard skips the considering→contracted two-step flow because the
+  // host has already committed by clicking [Lock this vendor]. Hard-
+  // single conflict check fires via the event_vendors trigger.
+  const { data: inserted, error: insertErr } = await supabase
+    .from('event_vendors')
+    .insert({
+      event_id: eventIdRaw,
+      vendor_name: vendorNameRaw,
+      category,
+      status: 'contracted',
+      marketplace_vendor_id: marketplaceVendorIdRaw,
+    })
+    .select('vendor_id')
+    .maybeSingle();
+  if (insertErr) throw new Error(insertErr.message);
+  if (!inserted) throw new Error('Could not lock vendor — try again');
+
+  // Advance wizard_state.<taskId> · re-render moves to next task.
+  const priorWizardState = parseWizardState(priorRow.wizard_state);
+  const newWizardState = setTaskComplete(priorWizardState, taskIdRaw, {
+    event_vendor_id: inserted.vendor_id,
+    marketplace_vendor_id: marketplaceVendorIdRaw,
+    kind: 'marketplace',
+  });
+
+  const { error: updateErr } = await supabase
+    .from('events')
+    .update({ wizard_state: newWizardState })
+    .eq('event_id', eventIdRaw);
+  if (updateErr) throw new Error(updateErr.message);
+
+  revalidatePath(`/dashboard/${eventIdRaw}`);
+}
+
+/**
+ * Lock a custom (off-platform) vendor as the wizard's vendor-pick task
+ * answer. Host typed the vendor's name into the [Add custom vendor]
+ * form because their pick isn't on Setnayan (yet). Inserts an
+ * event_vendors row WITHOUT marketplace_vendor_id (the row's vendor_name
+ * is the source of truth) and advances wizard_state.
+ *
+ * Same hard-single conflict + atomic-update shape as the marketplace
+ * variant.
+ */
+export async function completeVendorPickFromCustom(
+  formData: FormData,
+): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const taskIdRaw = formData.get('task_id');
+  const vendorNameRaw = formData.get('vendor_name');
+  const contactPhoneRaw = formData.get('contact_phone');
+  const contactEmailRaw = formData.get('contact_email');
+
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {
+    throw new Error('event_id required');
+  }
+  if (!isVendorPickTaskId(taskIdRaw)) {
+    throw new Error('Unknown wizard task');
+  }
+  if (
+    typeof vendorNameRaw !== 'string' ||
+    vendorNameRaw.trim().length === 0
+  ) {
+    throw new Error('Vendor name is required');
+  }
+  if (vendorNameRaw.length > 128) {
+    throw new Error('Name must be 128 chars or fewer');
+  }
+
+  const trimmedName = vendorNameRaw.trim();
+  const category = VENDOR_PICK_CATEGORY[taskIdRaw];
+  if (!category) {
+    throw new Error(`No category mapping for task ${taskIdRaw}`);
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data: priorRow, error: priorErr } = await supabase
+    .from('events')
+    .select('wizard_state')
+    .eq('event_id', eventIdRaw)
+    .maybeSingle();
+  if (priorErr) throw new Error(priorErr.message);
+  if (!priorRow) throw new Error('Event not found');
+
+  const insertPayload: Record<string, unknown> = {
+    event_id: eventIdRaw,
+    vendor_name: trimmedName,
+    category,
+    status: 'contracted',
+  };
+  if (typeof contactPhoneRaw === 'string' && contactPhoneRaw.trim().length > 0) {
+    insertPayload.contact_phone = contactPhoneRaw.trim();
+  }
+  if (typeof contactEmailRaw === 'string' && contactEmailRaw.trim().length > 0) {
+    insertPayload.contact_email = contactEmailRaw.trim();
+  }
+
+  const { data: inserted, error: insertErr } = await supabase
+    .from('event_vendors')
+    .insert(insertPayload)
+    .select('vendor_id')
+    .maybeSingle();
+  if (insertErr) throw new Error(insertErr.message);
+  if (!inserted) throw new Error('Could not save your custom vendor — try again');
+
+  const priorWizardState = parseWizardState(priorRow.wizard_state);
+  const newWizardState = setTaskComplete(priorWizardState, taskIdRaw, {
+    event_vendor_id: inserted.vendor_id,
+    kind: 'custom',
+  });
+
+  const { error: updateErr } = await supabase
+    .from('events')
+    .update({ wizard_state: newWizardState })
+    .eq('event_id', eventIdRaw);
+  if (updateErr) throw new Error(updateErr.message);
+
+  revalidatePath(`/dashboard/${eventIdRaw}`);
+}

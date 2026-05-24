@@ -32,6 +32,7 @@ import {
 import type { CeremonyType, MeaningfulDate } from '@/lib/auspicious-date';
 import { WizardCard } from './wizard-card';
 import { SetWeddingDateCard } from './wizard-cards/set-wedding-date-card';
+import { ReceptionVenueCard } from './wizard-cards/reception-venue-card';
 import { PlaceholderCardBody } from './wizard-cards/placeholder-card-body';
 
 type Props = {
@@ -40,10 +41,18 @@ type Props = {
   wizardState: unknown;
   /** events.event_date · pre-populates Card 01 when host re-edits. */
   eventDate: string | null;
-  /** events.ceremony_type · drives ceremony-specific auspicious overlays. */
+  /** events.ceremony_type · drives ceremony-specific auspicious overlays
+   *  AND per-vendor compatibility filtering on Phase 2 vendor-pick cards. */
   ceremonyType: CeremonyType | null;
+  /** events.venue_setting · filters reception_venue recs to vendors who
+   *  serve that setting. NULL = no filter (show all settings). */
+  venueSetting: string | null;
   /** event_meaningful_dates rows · fed into auspicious-reason library. */
   meaningfulDates: MeaningfulDate[];
+  /** marketplace_vendor_id values already locked on this event ·
+   *  excluded from Phase 2 recommendations so the host doesn't see a
+   *  vendor they already locked in another category. */
+  excludeMarketplaceVendorIds: ReadonlyArray<string>;
 };
 
 export function WizardHero({
@@ -51,7 +60,9 @@ export function WizardHero({
   wizardState,
   eventDate,
   ceremonyType,
+  venueSetting,
   meaningfulDates,
+  excludeMarketplaceVendorIds,
 }: Props) {
   const state = parseWizardState(wizardState);
   const result = resolveWizardFocus(state);
@@ -69,8 +80,10 @@ export function WizardHero({
   const cardBody = renderCardBody(task.id, {
     eventId,
     ceremonyType,
+    venueSetting,
     eventDate,
     meaningfulDates,
+    excludeMarketplaceVendorIds,
   });
 
   return (
@@ -88,9 +101,14 @@ export function WizardHero({
 }
 
 /**
- * Card-variant dispatcher · Phase 1 implements only set_wedding_date.
- * Phase 2-5 PRs grow this switch as each card variant lands. Until then,
- * unimplemented tasks render the placeholder body inside the same
+ * Card-variant dispatcher · grows with each Phase PR.
+ *
+ * Phase 1 (PR #467): set_wedding_date.
+ * Phase 2 (this PR): reception_venue.
+ * Phase 2 follow-ups: ceremony_venue, officiant, photography, catering.
+ * Phase 3-5: cards 08-38.
+ *
+ * Tasks not yet implemented render the placeholder body inside the same
  * WizardCard shell so the visual chrome stays consistent.
  */
 function renderCardBody(
@@ -98,8 +116,10 @@ function renderCardBody(
   ctx: {
     eventId: string;
     ceremonyType: CeremonyType | null;
+    venueSetting: string | null;
     eventDate: string | null;
     meaningfulDates: MeaningfulDate[];
+    excludeMarketplaceVendorIds: ReadonlyArray<string>;
   },
 ): React.ReactNode {
   switch (taskId) {
@@ -110,6 +130,15 @@ function renderCardBody(
           ceremonyType={ctx.ceremonyType}
           initialDate={ctx.eventDate}
           meaningfulDates={ctx.meaningfulDates}
+        />
+      );
+    case 'reception_venue':
+      return (
+        <ReceptionVenueCard
+          eventId={ctx.eventId}
+          ceremonyType={ctx.ceremonyType}
+          venueSetting={ctx.venueSetting}
+          excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
         />
       );
     default:

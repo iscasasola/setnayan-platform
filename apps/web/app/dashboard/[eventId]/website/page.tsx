@@ -575,31 +575,6 @@ export default async function WebsiteHubPage({
           comes from ownedOrders fetched above. */}
       <ProUpgradePanel eventId={eventId} ownedOrders={ownedOrders} />
 
-      {/* RSVP stats strip */}
-      <section aria-labelledby="rsvp-stats-heading" className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <h2
-            id="rsvp-stats-heading"
-            className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55"
-          >
-            RSVP at a glance
-          </h2>
-          <Link
-            href={`/dashboard/${eventId}/guests`}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-terracotta hover:text-terracotta-700"
-          >
-            View all
-            <ArrowRight aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          </Link>
-        </div>
-        <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <RsvpStat label="Attending" value={stats.attending} accent="emerald" />
-          <RsvpStat label="Pending" value={stats.pending} accent="amber" />
-          <RsvpStat label="Declined" value={stats.declined} accent="rose" />
-          <RsvpStat label="Total invited" value={stats.total} accent="ink" />
-        </dl>
-      </section>
-
       {/* Footer note */}
       <footer className="rounded-xl border border-ink/10 bg-cream/60 p-5 text-sm text-ink/65">
         Your wedding URL is live from the moment your event is created. Guests can scan the
@@ -610,50 +585,3 @@ export default async function WebsiteHubPage({
   );
 }
 
-/**
- * Single RSVP stat card. Accent picks one of four polite-brand-voice colors.
- */
-function RsvpStat({
-  label,
-  value,
-  accent,
-}: {
-  label: string;
-  value: number;
-  accent: 'emerald' | 'amber' | 'rose' | 'ink';
-}) {
-  const accentClasses: Record<typeof accent, { text: string; bg: string; border: string }> = {
-    emerald: {
-      text: 'text-emerald-700',
-      bg: 'bg-emerald-50',
-      border: 'border-emerald-200/70',
-    },
-    amber: {
-      text: 'text-amber-700',
-      bg: 'bg-amber-50',
-      border: 'border-amber-200/70',
-    },
-    rose: {
-      text: 'text-rose-700',
-      bg: 'bg-rose-50',
-      border: 'border-rose-200/70',
-    },
-    ink: {
-      text: 'text-ink/80',
-      bg: 'bg-white/60',
-      border: 'border-ink/10',
-    },
-  };
-  const palette = accentClasses[accent];
-
-  return (
-    <div className={`rounded-xl border ${palette.border} ${palette.bg} p-4`}>
-      <dt className="text-[11px] font-medium uppercase tracking-[0.14em] text-ink/55">
-        {label}
-      </dt>
-      <dd className={`mt-1 text-3xl font-semibold tabular-nums ${palette.text}`}>
-        {value}
-      </dd>
-    </div>
-  );
-}

@@ -70,7 +70,12 @@ export function WizardCard({ task, children, footer, totalTasks = 38 }: Props) {
         </h2>
       </header>
 
-      <article className="flex flex-col gap-5 rounded-2xl border-2 border-terracotta/30 bg-cream p-6 sm:p-8">
+      {/* `overflow-hidden` + `min-w-0` ensure that no child element
+       *  (long string, fixed-width image, accidental table) can push
+       *  the card width past its container. Belt-and-suspenders on top
+       *  of the carousel li's `max-w-full` · together they guarantee
+       *  the card never exceeds the screen on any viewport. */}
+      <article className="flex min-w-0 flex-col gap-5 overflow-hidden rounded-2xl border-2 border-terracotta/30 bg-cream p-6 sm:p-8">
         {/* Phase pill (left) + order badge (right) */}
         <header className="flex items-start justify-between gap-3">
           <div className="inline-flex items-center gap-2 rounded-full border border-terracotta/40 bg-terracotta/5 px-3 py-1">

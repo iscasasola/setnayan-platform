@@ -78,15 +78,39 @@ export function WizardCarousel({
           WIDTH (basis-full) so only ONE card is visible at a time. The
           next/locked cards exist in the track but only become visible
           when the host swipes horizontally. Owner directive 2026-05-24:
-          peeks should NOT show; one card fills the surface. */}
+          peeks should NOT show; one card fills the surface.
+
+          Premium-feel snap behavior (2026-05-24 owner directive):
+            · `snap-mandatory`        — every scroll position lands on a snap point
+            · `snap-always` (per li)  — a flick can NEVER skip past a card,
+                                        even with momentum (browser fling)
+            · `scroll-smooth`         — programmatic scrolls (e.g. arrow
+                                        keys or future "scroll-to-step"
+                                        helpers) ease rather than jump
+            · `overscroll-x-contain`  — horizontal scroll inside the
+                                        carousel never propagates to the
+                                        page, so a fast swipe doesn't
+                                        rubber-band the body
+            · `touch-pan-x` (per li)  — explicit horizontal pan affordance
+                                        so iOS Safari doesn't accidentally
+                                        capture as vertical scroll */}
       <div className="-mx-4 sm:-mx-6 lg:mx-0">
-        <ul className="flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-4 px-4 pb-4 sm:scroll-px-6 sm:px-6 sm:gap-4 lg:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <ul className="flex snap-x snap-mandatory scroll-smooth overscroll-x-contain gap-3 overflow-x-auto scroll-px-4 px-4 pb-4 sm:scroll-px-6 sm:px-6 sm:gap-4 lg:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           {/* ACTIVE card · first slot · full inline-completion body.
            *  basis-full = consumes the full visible width on every
            *  breakpoint. The carousel container is constrained by the
            *  parent dashboard column width, so on desktop this means
-           *  full column · on mobile means full viewport. */}
-          <li className="snap-start shrink-0 basis-full">
+           *  full column · on mobile means full viewport.
+           *
+           *  Width-containment guards (2026-05-24 owner directive ·
+           *  "card never exceeds screen size"):
+           *    · `max-w-full` — card cannot grow past parent width even
+           *      if a child element tries to set an inline pixel width
+           *    · `min-w-0`    — allows flex children of the card body
+           *      to shrink properly (fixes long-text overflow that
+           *      would otherwise force horizontal scroll inside the
+           *      card itself) */}
+          <li className="snap-start snap-always shrink-0 basis-full max-w-full min-w-0 touch-pan-x">
             <WizardCard task={activeTask}>{activeCardBody}</WizardCard>
           </li>
 
@@ -95,7 +119,10 @@ export function WizardCarousel({
               · same basis-full · only visible after the host swipes /
               scrolls past the active card. When the parent passes
               `taskBodies`, every peek card renders its FULL active-card
-              body instead · used by the temp preview-all-cards mode. */}
+              body instead · used by the temp preview-all-cards mode.
+              Each peek li carries the same snap-always + width-guards
+              so the lock-to-card behavior + screen-size containment
+              hold for every position in the carousel. */}
           {peekTasks.map((task) => {
             const body = taskBodies?.get(task.id);
             const unlocked = isTaskUnlocked(state, task);
@@ -103,7 +130,7 @@ export function WizardCarousel({
             return (
               <li
                 key={task.id}
-                className="snap-start shrink-0 basis-full"
+                className="snap-start snap-always shrink-0 basis-full max-w-full min-w-0 touch-pan-x"
               >
                 {body ? (
                   // Preview-all-cards mode · render the same active card

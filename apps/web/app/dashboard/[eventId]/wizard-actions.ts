@@ -26,6 +26,15 @@
 
 'use server';
 
+// `revalidatePath(path, 'layout')` is used for every wizard action below
+// (not the default 'page' mode) so the dashboard LAYOUT invalidates too.
+// The OuterDashboardHeader chrome reads `primaryEvent.monogram_text` +
+// `monogram_color` from the layout's events fetch; without the 'layout'
+// flag, the chrome monogram stays stale after Card 11 save (owner-reported
+// 2026-05-24). Same principle protects any future layout-cached field
+// (event name, primary flag, etc.) from silent staleness — the flag is
+// harmless when an action doesn't touch layout data, and load-bearing
+// when it does.
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -289,7 +298,7 @@ export async function completeSetWeddingDateTask(
   // revalidatePath · NOT redirect. The host stays on event home and the
   // WizardHero re-renders to show the next focus card (Reception Venue
   // until Phase 2 lands its inline UI · placeholder card until then).
-  revalidatePath(`/dashboard/${eventIdRaw}`);
+  revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
 }
 
 // ============================================================================
@@ -448,7 +457,7 @@ export async function completeVendorPickFromMarketplace(
     .eq('event_id', eventIdRaw);
   if (updateErr) throw new Error(updateErr.message);
 
-  revalidatePath(`/dashboard/${eventIdRaw}`);
+  revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
 }
 
 /**
@@ -539,7 +548,7 @@ export async function completeVendorPickFromCustom(
     .eq('event_id', eventIdRaw);
   if (updateErr) throw new Error(updateErr.message);
 
-  revalidatePath(`/dashboard/${eventIdRaw}`);
+  revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
 }
 
 // ============================================================================
@@ -622,7 +631,7 @@ export async function completePrenupTask(formData: FormData): Promise<void> {
     .eq('event_id', eventIdRaw);
   if (updateErr) throw new Error(updateErr.message);
 
-  revalidatePath(`/dashboard/${eventIdRaw}`);
+  revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
 }
 
 // ============================================================================
@@ -695,7 +704,7 @@ export async function markTaskInFlight(formData: FormData): Promise<void> {
     .eq('event_id', eventIdRaw);
   if (updateErr) throw new Error(updateErr.message);
 
-  revalidatePath(`/dashboard/${eventIdRaw}`);
+  revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
 }
 
 /**
@@ -749,7 +758,7 @@ export async function markTaskDone(formData: FormData): Promise<void> {
     .eq('event_id', eventIdRaw);
   if (updateErr) throw new Error(updateErr.message);
 
-  revalidatePath(`/dashboard/${eventIdRaw}`);
+  revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
 }
 
 // ============================================================================
@@ -829,7 +838,7 @@ export async function completeMoodBoardTask(formData: FormData): Promise<void> {
     .eq('event_id', eventIdRaw);
   if (updateErr) throw new Error(updateErr.message);
 
-  revalidatePath(`/dashboard/${eventIdRaw}`);
+  revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
 }
 
 /**
@@ -898,7 +907,7 @@ export async function completeMonogramTask(formData: FormData): Promise<void> {
     .eq('event_id', eventIdRaw);
   if (updateErr) throw new Error(updateErr.message);
 
-  revalidatePath(`/dashboard/${eventIdRaw}`);
+  revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
 }
 
 /**
@@ -949,7 +958,7 @@ export async function completeFinalizeSeatplanTask(
     .eq('event_id', eventIdRaw);
   if (updateErr) throw new Error(updateErr.message);
 
-  revalidatePath(`/dashboard/${eventIdRaw}`);
+  revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
 }
 
 /**
@@ -1016,7 +1025,7 @@ export async function completeCreateWebsiteTask(
     .eq('event_id', eventIdRaw);
   if (updateErr) throw new Error(updateErr.message);
 
-  revalidatePath(`/dashboard/${eventIdRaw}`);
+  revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
 }
 
 /**
@@ -1082,7 +1091,7 @@ export async function lockBoothToEvent(formData: FormData): Promise<void> {
 
   // Critical: do NOT advance wizard_state. Card 14 advances only when
   // host clicks [I have all the booths I need] which fires markTaskDone.
-  revalidatePath(`/dashboard/${eventIdRaw}`);
+  revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
 }
 
 /**
@@ -1159,7 +1168,7 @@ export async function addPrincipalSponsorPair(
   ]);
   if (insertErr) throw new Error(insertErr.message);
 
-  revalidatePath(`/dashboard/${eventIdRaw}`);
+  revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
 }
 
 /**
@@ -1196,7 +1205,7 @@ export async function removePrincipalSponsorPair(
     .eq('pair_index', pairIndex);
   if (deleteErr) throw new Error(deleteErr.message);
 
-  revalidatePath(`/dashboard/${eventIdRaw}`);
+  revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
 }
 
 /* ────────────────────────────────────────────────────────────────────────

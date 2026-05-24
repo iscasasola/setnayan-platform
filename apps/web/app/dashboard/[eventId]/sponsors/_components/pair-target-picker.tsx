@@ -9,9 +9,20 @@ import {
   PRINCIPAL_PAIR_MIN,
 } from '@/lib/event-sponsors';
 
-const STORAGE_KEY = 'setnayan_principal_pair_target';
+/** Per-event localStorage prefix. Owner-reported 2026-05-24: the prior
+ *  global key `setnayan_principal_pair_target` leaked pair-count picks
+ *  across events — a host who picked "8 pairs" on Event A would see Event
+ *  B's picker pre-fill to 8 instead of the default 4 on first visit. The
+ *  STORAGE_KEY is now built from eventId so each event keeps its own
+ *  history. Matches the `${STORAGE_KEY_PREFIX}${eventId}` pattern from
+ *  `apps/web/app/_components/auto-preload-on-event-day.tsx`. */
+const STORAGE_KEY_PREFIX = 'setnayan:principal_pair_target:';
+const storageKeyFor = (eventId: string) => `${STORAGE_KEY_PREFIX}${eventId}`;
 
 type Props = {
+  /** Event scope · drives the per-event localStorage key so pair-count
+   *  picks don't leak across the host's events (owner-reported 2026-05-24). */
+  eventId: string;
   /** Server-resolved target (clamped to [MIN, MAX]). The picker reads from
    *  the URL ?pairs= param; this prop is the displayed value. */
   currentTarget: number;
@@ -28,13 +39,15 @@ type Props = {
  * Persistence:
  *   - Active value lives in the URL ?pairs= query param so the count
  *     survives reload + revalidation + sharing the link with a co-host.
- *   - We also mirror to localStorage so the next visit pre-selects the
- *     host's previous pick when ?pairs= isn't supplied.
+ *   - We also mirror to localStorage (PER-EVENT key) so the next visit
+ *     pre-selects the host's previous pick when ?pairs= isn't supplied,
+ *     without leaking across events.
  *
  * No DB column — target is a UX shape, not durable data. The schema doesn't
  * care how many slots are visible; only filled rows are persisted.
  */
-export function PairTargetPicker({ currentTarget, highestUsedPair }: Props) {
+export function PairTargetPicker({ eventId, currentTarget, highestUsedPair }: Props) {
+  const STORAGE_KEY = storageKeyFor(eventId);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();

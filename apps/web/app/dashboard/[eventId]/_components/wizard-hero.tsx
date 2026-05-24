@@ -33,6 +33,10 @@ import type { CeremonyType, MeaningfulDate } from '@/lib/auspicious-date';
 import { WizardCard } from './wizard-card';
 import { SetWeddingDateCard } from './wizard-cards/set-wedding-date-card';
 import { ReceptionVenueCard } from './wizard-cards/reception-venue-card';
+import { CeremonyVenueCard } from './wizard-cards/ceremony-venue-card';
+import { OfficiantCard } from './wizard-cards/officiant-card';
+import { PhotographyCard } from './wizard-cards/photography-card';
+import { CateringCard } from './wizard-cards/catering-card';
 import { PlaceholderCardBody } from './wizard-cards/placeholder-card-body';
 
 type Props = {
@@ -135,6 +139,42 @@ function renderCardBody(
     case 'reception_venue':
       return (
         <ReceptionVenueCard
+          eventId={ctx.eventId}
+          ceremonyType={ctx.ceremonyType}
+          venueSetting={ctx.venueSetting}
+          excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
+        />
+      );
+    case 'ceremony_venue':
+      return (
+        <CeremonyVenueCard
+          eventId={ctx.eventId}
+          ceremonyType={ctx.ceremonyType}
+          venueSetting={ctx.venueSetting}
+          excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
+        />
+      );
+    case 'officiant':
+      return (
+        <OfficiantCard
+          eventId={ctx.eventId}
+          ceremonyType={ctx.ceremonyType}
+          venueSetting={ctx.venueSetting}
+          excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
+        />
+      );
+    case 'photography':
+      return (
+        <PhotographyCard
+          eventId={ctx.eventId}
+          ceremonyType={ctx.ceremonyType}
+          venueSetting={ctx.venueSetting}
+          excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
+        />
+      );
+    case 'catering':
+      return (
+        <CateringCard
           eventId={ctx.eventId}
           ceremonyType={ctx.ceremonyType}
           venueSetting={ctx.venueSetting}

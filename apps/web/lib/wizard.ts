@@ -74,6 +74,7 @@ export type WizardTaskId =
   | 'deploy_invitation'
   // Phase 4 · Late additions (T-3m to T-2m)
   | 'cake'
+  | 'rings'
   | 'accommodation'
   | 'bridal_car'
   // Phase 5 · Legal paperwork (T-6m start, T-4m active) · REORDERED so
@@ -408,6 +409,17 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
       'Tastings happen 3-4 months before the wedding. Pin a palette and a flavor direction first so the cake maker can pull samples that fit your day.',
     pillLabel: 'Late additions',
     prerequisites: ['reception_venue'],
+  },
+  {
+    id: 'rings',
+    order: 22.5,
+    phase: 'late_additions',
+    kind: 'vendor_pick',
+    title: 'Lock your ring jeweler',
+    whyItMatters:
+      "Wedding bands + matching engagement-ring touch-ups need 4-6 weeks of crafting + sizing. Most PH jewelers ship nationwide — pick by portfolio + reviews, not proximity. Locked here so the rings arrive well before final fittings.",
+    pillLabel: 'Late additions',
+    prerequisites: ['set_wedding_date'],
   },
   {
     id: 'accommodation',

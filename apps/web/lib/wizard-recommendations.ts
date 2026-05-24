@@ -62,6 +62,15 @@ export type WizardVendorRec = {
    *  any distance filter unfiltered (treated as "unknown, don't hide"). */
   hq_latitude: number | null;
   hq_longitude: number | null;
+  /** Canonical PSGC region code (NCR / CAR / I…XIII / BARMM / NIR) ·
+   *  added 2026-05-24 for Card 02 Reception Venue Region → City cascade.
+   *  Backfilled by migration 20260620000000 from `location_city` for the
+   *  ~50 most-common PH wedding cities. NULL = region unknown · the
+   *  region filter passes them through unfiltered when no region is
+   *  picked, hides them when a specific region IS picked (canonical
+   *  NULL-safe filter shape · matches the city + distance filters'
+   *  treatment of NULL location fields). */
+  hq_region: string | null;
 };
 
 type Args = {
@@ -109,7 +118,7 @@ export async function fetchWizardVendorRecommendations(
   let query = admin
     .from('vendor_market_stats')
     .select(
-      'vendor_profile_id,business_name,business_slug,logo_url,tagline,location_city,avg_rating_overall,review_count,ad_rank,public_visibility,compatible_ceremony_types,compatible_venue_settings,hq_latitude,hq_longitude',
+      'vendor_profile_id,business_name,business_slug,logo_url,tagline,location_city,hq_region,avg_rating_overall,review_count,ad_rank,public_visibility,compatible_ceremony_types,compatible_venue_settings,hq_latitude,hq_longitude',
     )
     .in('public_visibility', ['verified', 'coming_soon'])
     .not('business_name', 'is', null)

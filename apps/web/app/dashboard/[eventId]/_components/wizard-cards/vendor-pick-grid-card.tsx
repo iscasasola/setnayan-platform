@@ -44,7 +44,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import {
   ArrowLeftRight,
   ChevronLeft,
@@ -56,8 +56,14 @@ import {
   Star,
   X,
 } from 'lucide-react';
+import {
+  PH_REGIONS,
+  TOP_DESTINATIONS,
+  regionForCity,
+} from '@/lib/regions';
 
 const ALL_CITIES_SENTINEL = '__ALL__';
+const ALL_REGIONS_SENTINEL = '__ALL__';
 
 /**
  * 2026-05-24 owner directive: grid scales 1-5 columns based on viewport.
@@ -189,6 +195,26 @@ type Props = {
    *  event.event_date matches the host's pick. Empty array = no
    *  availability filter applied (preview mode / no date locked yet). */
   bookedMarketplaceVendorIds?: ReadonlyArray<string>;
+  /** OPTIONAL Region → City cascade filter · 2026-05-24 owner directive
+   *  for Card 02 Reception Venue. When TRUE:
+   *    · A top-destinations chip strip (8 chips · Metro Manila /
+   *      Tagaytay / Cebu / Boracay / Bohol / Palawan / Baguio / Davao)
+   *      renders ABOVE the dropdowns · clicking a chip jumps the
+   *      picker straight to (region, city).
+   *    · A Region dropdown renders WITH the existing City dropdown ·
+   *      city options narrow to cities in the picked region (or all
+   *      cities when region is "All regions").
+   *    · Region filter applies to `hq_region` column on results ·
+   *      vendors whose `hq_region` is NULL get the city → region
+   *      fallback via `regionForCity(location_city)` so legacy rows
+   *      not in the migration backfill still scope correctly.
+   *    · URL state `?region=<code>&city=<name>` carries the picks
+   *      across reloads + lets hosts share deep links.
+   *  Mutually exclusive with `distanceFilter` (distance mode already
+   *  replaces the city dropdown). Default FALSE keeps every other
+   *  card unchanged · only Card 02 opts in today.
+   */
+  regionFilter?: boolean;
 };
 
 export function VendorPickGridCard({
@@ -199,7 +225,19 @@ export function VendorPickGridCard({
   copy,
   distanceFilter,
   bookedMarketplaceVendorIds,
+  regionFilter = false,
 }: Props) {
+  // URL state · 2026-05-24 owner directive. Region + city picks persist
+  // across reloads + are shareable as deep-links. `useSearchParams` is a
+  // client hook · the parent passes the same eventId server-side so the
+  // URL state is purely a client-side UX layer (doesn't affect server-
+  // rendered recs). Mutually exclusive with distanceFilter: when distance
+  // mode is on, the city dropdown is replaced by the stepper and the
+  // URL params for region/city stay dormant.
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const urlRegion = searchParams?.get('region') ?? null;
+  const urlCity = searchParams?.get('city') ?? null;
   // Stable Set lookup so each row renders O(1). Memoized once per render
   // pass · the parent passes a new array reference only when bookings
   // change, which is rare.
@@ -233,7 +271,19 @@ export function VendorPickGridCard({
   // NOTE · Card 03 ceremony venue uses the distance filter INSTEAD of
   // the city dropdown. When `distanceFilter` is set, the city UI is
   // hidden and this state stays at its default sentinel.
-  const [selectedCity, setSelectedCity] = useState<string>(ALL_CITIES_SENTINEL);
+  // Initial value reads from URL `?city=` if regionFilter mode is on
+  // so deep-links + reloads preserve the host's pick.
+  const [selectedCity, setSelectedCity] = useState<string>(
+    regionFilter && urlCity ? urlCity : ALL_CITIES_SENTINEL,
+  );
+
+  // Region filter · 2026-05-24 owner directive (Card 02 cascade). Only
+  // active when regionFilter prop is TRUE. Initial value reads from URL
+  // `?region=` so deep-links preserve the pick. PSGC codes (NCR / CAR /
+  // I…XIII / BARMM / NIR) match `hq_region` on vendor_market_stats.
+  const [selectedRegion, setSelectedRegion] = useState<string>(
+    regionFilter && urlRegion ? urlRegion : ALL_REGIONS_SENTINEL,
+  );
 
   // Distance-from-reference filter · only active when the parent passes
   // a `distanceFilter` prop (Card 03 ceremony venue, anchored at the
@@ -307,23 +357,46 @@ export function VendorPickGridCard({
   // working button again and can re-try or use Add Custom.
   const router = useRouter();
 
-  /* ─────────────  city options + filter derivation  ────────────── */
+  /* ─────────────  city + region filter derivation  ────────────── */
 
-  // Unique, alphabetized city list pulled from the current result set
-  // (post-search if a search is active, full top-100 otherwise). Empty/
+  // Resolved region per vendor · 2026-05-24 cascade fallback. If the
+  // migration backfilled hq_region we trust it (canonical). Otherwise
+  // we derive from location_city using the same city → region map the
+  // migration uses (`regionForCity`) · keeps legacy off-platform
+  // vendors that pre-date the migration in the picker without forcing
+  // a manual admin patch. Returns NULL when neither path resolves a
+  // region (truly unknown · region filter treats them as "don't hide
+  // when no region picked" / "hide when specific region picked").
+  function resolveRegion(r: WizardVendorRec): string | null {
+    if (r.hq_region) return r.hq_region;
+    return regionForCity(r.location_city);
+  }
+
+  // Apply the region filter FIRST (when active) so the city dropdown
+  // only surfaces cities in the picked region. When region is "All"
+  // (default), every city in the current result set surfaces.
+  const regionScopedResults = useMemo(() => {
+    if (!regionFilter || selectedRegion === ALL_REGIONS_SENTINEL) {
+      return results;
+    }
+    return results.filter((r) => resolveRegion(r) === selectedRegion);
+  }, [results, selectedRegion, regionFilter]);
+
+  // Unique, alphabetized city list pulled from the REGION-SCOPED result
+  // set so the city dropdown narrows when a region is picked. Empty /
   // null cities are stripped so the picker only offers actual locations.
   // Cap at the result set's cities — we deliberately don't list every
   // PH city (would surface "no matches" empty states for cities with
   // no vendors, which is worse than just not offering the option).
   const cityOptions = useMemo(() => {
     const set = new Set<string>();
-    for (const r of results) {
+    for (const r of regionScopedResults) {
       if (r.location_city && r.location_city.trim().length > 0) {
         set.add(r.location_city.trim());
       }
     }
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'en-PH'));
-  }, [results]);
+  }, [regionScopedResults]);
 
   // Apply EITHER the distance filter (Card 03 mode) OR the city filter
   // (Card 02 mode) · the two filters are mutually exclusive by design.
@@ -332,6 +405,11 @@ export function VendorPickGridCard({
   // off-platform vendors that lack hq coordinates. Downstream
   // pagination math operates on this filtered slice so page counts
   // adjust correctly.
+  //
+  // When regionFilter is on, the region filter already ran via
+  // `regionScopedResults` above. The city filter then narrows further
+  // (region → city cascade). When regionFilter is off (default), the
+  // city filter applies directly to `results` matching V1 behavior.
   const filteredResults = useMemo(() => {
     if (distanceFilter) {
       const { referenceLat, referenceLng } = distanceFilter;
@@ -346,11 +424,58 @@ export function VendorPickGridCard({
         return km <= distanceKm;
       });
     }
-    if (selectedCity === ALL_CITIES_SENTINEL) return results;
-    return results.filter(
+    const base = regionFilter ? regionScopedResults : results;
+    if (selectedCity === ALL_CITIES_SENTINEL) return base;
+    return base.filter(
       (r) => (r.location_city ?? '').trim() === selectedCity,
     );
-  }, [results, selectedCity, distanceFilter, distanceKm]);
+  }, [
+    results,
+    regionScopedResults,
+    selectedCity,
+    distanceFilter,
+    distanceKm,
+    regionFilter,
+  ]);
+
+  /* ───────────  URL sync · region + city deep-links  ─────────── */
+
+  // 2026-05-24 owner directive · `?region=NCR&city=Manila` carries the
+  // host's picks across reloads + shareable links. Only fires when
+  // regionFilter is on (Card 02). Uses replaceState (not router.replace)
+  // so the URL update doesn't trigger a navigation / RSC refetch · purely
+  // a client-side bookmark update. The router.replace path would cause
+  // every filter tweak to re-run the server component, which costs the
+  // search-debounce + freshness we get from client-only filtering.
+  useEffect(() => {
+    if (!regionFilter) return;
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(searchParams?.toString() ?? '');
+    if (selectedRegion === ALL_REGIONS_SENTINEL) {
+      params.delete('region');
+    } else {
+      params.set('region', selectedRegion);
+    }
+    if (selectedCity === ALL_CITIES_SENTINEL) {
+      params.delete('city');
+    } else {
+      params.set('city', selectedCity);
+    }
+    const queryString = params.toString();
+    const nextUrl =
+      queryString.length > 0 ? `${pathname}?${queryString}` : pathname;
+    window.history.replaceState(null, '', nextUrl);
+    // pathname is stable for the dashboard route · searchParams is a
+    // reference type so we depend on its toString() implicitly via the
+    // selected* state effects below. The state values are the source of
+    // truth for filters · URL is a mirror.
+  }, [
+    regionFilter,
+    selectedRegion,
+    selectedCity,
+    pathname,
+    searchParams,
+  ]);
 
   /* ───────────────────  pagination derivation  ────────────────────── */
 
@@ -372,6 +497,26 @@ export function VendorPickGridCard({
   function handleCityChange(value: string) {
     setSelectedCity(value);
     setPageIndex(0); // reset to first page on filter change
+  }
+
+  /** Region change · resets the city pick to "All cities" within the new
+   *  region because the previous city likely isn't in the new region's
+   *  set. Also resets pagination so the host lands on page 1 of the
+   *  newly-filtered results. */
+  function handleRegionChange(value: string) {
+    setSelectedRegion(value);
+    setSelectedCity(ALL_CITIES_SENTINEL);
+    setPageIndex(0);
+  }
+
+  /** Top-destination chip click · 2026-05-24 owner directive. Jumps the
+   *  picker straight to (region, city) without forcing the host through
+   *  the dropdown ladder. The most-common path for hosts who know they
+   *  want "Tagaytay venues" or "Cebu venues" — one tap. */
+  function handleTopDestinationClick(region: string, city: string) {
+    setSelectedRegion(region);
+    setSelectedCity(city);
+    setPageIndex(0);
   }
 
   /* ─────────────────────  compare flow handlers  ───────────────────── */
@@ -432,8 +577,11 @@ export function VendorPickGridCard({
         setPageIndex(0);
         // Reset city filter on every new search so the picker's options
         // reflect the fresh result set. The host can re-pick a city after
-        // the new grid renders.
+        // the new grid renders. Region filter resets too (when active)
+        // so a search-mid-pick doesn't strand the host on a region whose
+        // results moved.
         setSelectedCity(ALL_CITIES_SENTINEL);
+        if (regionFilter) setSelectedRegion(ALL_REGIONS_SENTINEL);
       } catch (err) {
         const message =
           err instanceof Error
@@ -451,6 +599,7 @@ export function VendorPickGridCard({
     setPageIndex(0);
     setSearchError(null);
     setSelectedCity(ALL_CITIES_SENTINEL);
+    if (regionFilter) setSelectedRegion(ALL_REGIONS_SENTINEL);
   }
 
   /* ──────────────────────  lock handlers  ─────────────────────────── */
@@ -609,6 +758,91 @@ export function VendorPickGridCard({
         </div>
       ) : null}
 
+      {/* Top destinations chip strip · 2026-05-24 owner directive for
+          Card 02 Reception Venue. 8 one-tap chips for the most-searched
+          PH wedding areas (Metro Manila · Tagaytay · Cebu · Boracay ·
+          Bohol · Palawan · Baguio · Davao). Each chip jumps the picker
+          straight to (region, city) bypassing the dropdown ladder.
+          Only renders when regionFilter mode is on AND not in distance
+          mode AND not in compare mode. */}
+      {regionFilter && compareState.mode !== 'comparing' && !distanceFilter ? (
+        <div className="flex flex-wrap gap-1.5">
+          <span className="inline-flex w-full items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55 sm:w-auto sm:mr-1 sm:self-center">
+            <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+            Top areas
+          </span>
+          {TOP_DESTINATIONS.map((dest) => {
+            const isActive =
+              selectedRegion === dest.region && selectedCity === dest.city;
+            return (
+              <button
+                key={`${dest.region}:${dest.city}`}
+                type="button"
+                onClick={() =>
+                  handleTopDestinationClick(dest.region, dest.city)
+                }
+                className={
+                  isActive
+                    ? 'inline-flex min-h-[32px] items-center rounded-full bg-terracotta px-3 py-1 text-xs font-semibold text-cream shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-terracotta/30'
+                    : 'inline-flex min-h-[32px] items-center rounded-full border border-ink/15 bg-white px-3 py-1 text-xs font-medium text-ink/75 transition-colors hover:border-terracotta/40 hover:bg-terracotta/5 hover:text-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30'
+                }
+              >
+                {dest.label}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {/* Region dropdown · 2026-05-24 owner directive for Card 02. Sits
+          ABOVE the city dropdown · picking a region narrows the city
+          dropdown to cities in that region. "All regions" sentinel
+          clears the filter. Hidden in distance / compare modes — see
+          the same conditions on the city dropdown below. */}
+      {regionFilter && compareState.mode !== 'comparing' && !distanceFilter ? (
+        <div className="flex items-center gap-2">
+          <label
+            htmlFor="vendor-grid-region-filter"
+            className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55"
+          >
+            <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+            Region
+          </label>
+          <select
+            id="vendor-grid-region-filter"
+            value={selectedRegion}
+            onChange={(e) => handleRegionChange(e.target.value)}
+            className="min-h-[36px] flex-1 rounded-md border border-ink/15 bg-white px-3 py-1.5 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30 sm:max-w-md"
+          >
+            <option value={ALL_REGIONS_SENTINEL}>
+              All regions · {results.length}{' '}
+              {results.length === 1 ? 'result' : 'results'}
+            </option>
+            {PH_REGIONS.map((region) => {
+              const regionCount = results.filter(
+                (r) => resolveRegion(r) === region.code,
+              ).length;
+              if (regionCount === 0) return null;
+              return (
+                <option key={region.code} value={region.code}>
+                  {region.name} · {regionCount}
+                </option>
+              );
+            })}
+          </select>
+          {selectedRegion !== ALL_REGIONS_SENTINEL ? (
+            <button
+              type="button"
+              onClick={() => handleRegionChange(ALL_REGIONS_SENTINEL)}
+              className="inline-flex items-center gap-1 text-[11px] font-medium text-terracotta transition-colors hover:text-terracotta-700"
+            >
+              <X aria-hidden className="h-3 w-3" strokeWidth={2.5} />
+              Clear
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
       {/* City filter · derived from the current result set so the
           dropdown only offers cities with actual vendors. Native
           <select> works on both mobile (OS-native picker sheet) and
@@ -616,7 +850,11 @@ export function VendorPickGridCard({
           when result set has 0 or 1 cities — nothing to filter. Also
           hidden during full comparing mode AND when distanceFilter is
           active (the two filters are mutually exclusive · Card 03 uses
-          the stepper above). */}
+          the stepper above).
+          When regionFilter is on, cityOptions narrows to cities in the
+          picked region (handled by regionScopedResults derivation
+          above), so this dropdown becomes the second tier of the
+          cascade. */}
       {compareState.mode !== 'comparing' && !distanceFilter && cityOptions.length > 1 ? (
         <div className="flex items-center gap-2">
           <label
@@ -633,10 +871,14 @@ export function VendorPickGridCard({
             className="min-h-[36px] flex-1 rounded-md border border-ink/15 bg-white px-3 py-1.5 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30 sm:max-w-xs"
           >
             <option value={ALL_CITIES_SENTINEL}>
-              All cities · {results.length} {results.length === 1 ? 'result' : 'results'}
+              All cities · {regionScopedResults.length}{' '}
+              {regionScopedResults.length === 1 ? 'result' : 'results'}
             </option>
             {cityOptions.map((city) => {
-              const cityCount = results.filter(
+              // Count vendors per city WITHIN the region-scoped slice so
+              // the per-option count reflects the cascade. When region is
+              // "All", regionScopedResults === results so this matches V1.
+              const cityCount = regionScopedResults.filter(
                 (r) => (r.location_city ?? '').trim() === city,
               ).length;
               return (
@@ -756,6 +998,22 @@ export function VendorPickGridCard({
           <strong className="font-medium text-ink">{distanceKm} km</strong> of your{' '}
           {distanceFilter.referenceLabel.toLowerCase()}. Try widening the distance
           — or add yours below.
+        </p>
+      ) : regionFilter && selectedRegion !== ALL_REGIONS_SENTINEL && filteredResults.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-ink/15 bg-white/40 px-4 py-6 text-center text-sm leading-relaxed text-ink/70">
+          No {copy.pluralNoun} in{' '}
+          <strong className="font-medium text-ink">
+            {PH_REGIONS.find((r) => r.code === selectedRegion)?.name.split(
+              ' · ',
+            )[0] ?? selectedRegion}
+          </strong>{' '}
+          {selectedCity !== ALL_CITIES_SENTINEL ? (
+            <>
+              ·{' '}
+              <strong className="font-medium text-ink">{selectedCity}</strong>{' '}
+            </>
+          ) : null}
+          right now. Try another region or city — or add yours below.
         </p>
       ) : selectedCity !== ALL_CITIES_SENTINEL ? (
         <p className="rounded-xl border border-dashed border-ink/15 bg-white/40 px-4 py-6 text-center text-sm leading-relaxed text-ink/70">

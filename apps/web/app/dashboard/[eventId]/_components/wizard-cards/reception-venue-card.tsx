@@ -8,6 +8,17 @@
  * 15-per-page pagination (3 columns × 5 rows) so the card doesn't extend
  * to 200+ entries.
  *
+ * 2026-05-24 (second owner directive, same day): Region → City cascade
+ * filter added via `regionFilter={true}` opt-in on VendorPickGridCard.
+ * Couples now pick Region first (NCR / IV-A / VII / etc.) then City
+ * within that region, with 8 top-destination chips above the dropdowns
+ * (Metro Manila / Tagaytay / Cebu / Boracay / Bohol / Palawan / Baguio /
+ * Davao) for one-tap navigation to the most-common picks. Hosts who
+ * don't know the exact city can still scope by region. Filter persists
+ * via `?region=<code>&city=<name>` URL state. See migration
+ * 20260620000000_iteration_0006_vendor_profiles_hq_region.sql for the
+ * column-level backing.
+ *
  * Server component · fetches top-100 reception-venue recommendations from
  * vendor_market_stats (filtered by event's ceremony_type + venue_setting +
  * region) plus per-vendor service photos + verification state. Passes the
@@ -93,6 +104,11 @@ export async function ReceptionVenueCard({
           "We haven't curated reception venues for your area + ceremony yet — search by name or add yours below and we'll lock it into your plan.",
       }}
       bookedMarketplaceVendorIds={bookedIds}
+      // 2026-05-24 owner directive · enable Region → City cascade. The
+      // grid renders the 8 top-destination chips + Region dropdown +
+      // City dropdown (narrowed to picked region). URL state via
+      // ?region=&city= persists picks across reloads + share-links.
+      regionFilter
     />
   );
 }

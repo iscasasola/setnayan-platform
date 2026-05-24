@@ -42,9 +42,10 @@
  * read as polite editorial copy.
  */
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import Image from 'next/image';
 import {
+  ArrowLeftRight,
   ChevronLeft,
   ChevronRight,
   Lock,
@@ -56,6 +57,38 @@ import {
 } from 'lucide-react';
 
 const ALL_CITIES_SENTINEL = '__ALL__';
+
+/**
+ * 2026-05-24 owner directive: grid scales 1-5 columns based on viewport.
+ * Rows are locked at 5. So page size = columnCount × 5:
+ *   mobile (<sm)      → 1 col × 5 =  5
+ *   sm  (>=640px)     → 2 col × 5 = 10
+ *   md  (>=768px)     → 3 col × 5 = 15
+ *   lg  (>=1024px)    → 4 col × 5 = 20
+ *   xl  (>=1280px)    → 5 col × 5 = 25
+ *
+ * Breakpoints match Tailwind's default `sm/md/lg/xl` so the page-size
+ * math always stays in sync with the visible column count. Width >=
+ * matched first so xl wins over lg wins over md, etc.
+ */
+const COLUMN_BREAKPOINTS = [
+  { query: '(min-width: 1280px)', columns: 5 },
+  { query: '(min-width: 1024px)', columns: 4 },
+  { query: '(min-width: 768px)', columns: 3 },
+  { query: '(min-width: 640px)', columns: 2 },
+] as const;
+const ROWS_PER_PAGE = 5;
+/** SSR-safe default · 3 cols × 5 rows = 15 (matches the prior fixed size
+ *  so the initial render before hydration looks identical to V1). */
+const DEFAULT_COLUMN_COUNT = 3;
+
+function readColumnCount(): number {
+  if (typeof window === 'undefined') return DEFAULT_COLUMN_COUNT;
+  for (const bp of COLUMN_BREAKPOINTS) {
+    if (window.matchMedia(bp.query).matches) return bp.columns;
+  }
+  return 1;
+}
 import type { WizardTaskId } from '@/lib/wizard';
 import type { WizardVendorRec } from '@/lib/wizard-recommendations';
 import {
@@ -64,7 +97,9 @@ import {
   searchVendorRecommendations,
 } from '../../wizard-actions';
 
-const PAGE_SIZE = 15;
+// PAGE_SIZE is dynamic per breakpoint · computed inside the component as
+// `columnCount × ROWS_PER_PAGE`. The legacy fixed 15 was 3 cols × 5 rows;
+// the new range is 5 (mobile) to 25 (xl desktop).
 
 type Props = {
   eventId: string;
@@ -132,6 +167,40 @@ export function VendorPickGridCard({
   // Pagination · client-side · resets to page 0 whenever results change.
   const [pageIndex, setPageIndex] = useState(0);
 
+  // Compare flow · 2026-05-24 owner directive.
+  //   browsing       → default grid · each card shows [Compare] + [Lock]
+  //   picking_second → host picked vendor A, grid still visible, each
+  //                    other card's compare button picks vendor B
+  //   comparing      → side-by-side view of A vs B with Lock + Compare-
+  //                    with-another on both sides
+  // Until the host locks a vendor (via either side's Lock button), the
+  // flow loops back from comparing → picking_second when they click
+  // "Compare with another" on whichever side they want to keep.
+  type CompareState =
+    | { mode: 'browsing' }
+    | { mode: 'picking_second'; vendorA: WizardVendorRec }
+    | { mode: 'comparing'; vendorA: WizardVendorRec; vendorB: WizardVendorRec };
+  const [compareState, setCompareState] = useState<CompareState>({
+    mode: 'browsing',
+  });
+
+  // Responsive column count · matches Tailwind breakpoints so the
+  // pageSize = columnCount × ROWS_PER_PAGE math stays in lockstep with
+  // the visible grid. Window-width detection via matchMedia; resize
+  // listener keeps things in sync as the host drags the window between
+  // breakpoints. Starts at the SSR-safe default to avoid hydration
+  // mismatch flash.
+  const [columnCount, setColumnCount] = useState(DEFAULT_COLUMN_COUNT);
+  useEffect(() => {
+    function update() {
+      setColumnCount(readColumnCount());
+    }
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+  const PAGE_SIZE_DYNAMIC = columnCount * ROWS_PER_PAGE;
+
   // Lock-vendor + custom-add state · same pattern as VendorPickCard so
   // host behavior is consistent across both primitives.
   const [showCustom, setShowCustom] = useState(false);
@@ -169,17 +238,60 @@ export function VendorPickGridCard({
 
   /* ───────────────────  pagination derivation  ────────────────────── */
 
-  const totalPages = Math.max(1, Math.ceil(filteredResults.length / PAGE_SIZE));
+  // PAGE_SIZE_DYNAMIC scales with viewport breakpoint (5/10/15/20/25).
+  // When the column count changes mid-browse (resize), totalPages
+  // recomputes and safePageIndex falls back into range so the host
+  // never lands on an empty page.
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredResults.length / PAGE_SIZE_DYNAMIC),
+  );
   const safePageIndex = Math.min(pageIndex, totalPages - 1);
-  const pageStart = safePageIndex * PAGE_SIZE;
+  const pageStart = safePageIndex * PAGE_SIZE_DYNAMIC;
   const visible = useMemo(
-    () => filteredResults.slice(pageStart, pageStart + PAGE_SIZE),
-    [filteredResults, pageStart],
+    () => filteredResults.slice(pageStart, pageStart + PAGE_SIZE_DYNAMIC),
+    [filteredResults, pageStart, PAGE_SIZE_DYNAMIC],
   );
 
   function handleCityChange(value: string) {
     setSelectedCity(value);
     setPageIndex(0); // reset to first page on filter change
+  }
+
+  /* ─────────────────────  compare flow handlers  ───────────────────── */
+
+  /** Host clicked [Compare] on a card. Enter picking-second mode with
+   *  this vendor preserved. Grid stays visible so they can pick B. */
+  function handleStartCompare(rec: WizardVendorRec) {
+    setCompareState({ mode: 'picking_second', vendorA: rec });
+    setErrorMessage(null);
+  }
+
+  /** Host clicked [Pick this for compare] on a card while in
+   *  picking_second mode · vendor B is set, enter comparing mode. */
+  function handlePickSecond(rec: WizardVendorRec) {
+    if (compareState.mode !== 'picking_second') return;
+    if (compareState.vendorA.vendor_profile_id === rec.vendor_profile_id) return;
+    setCompareState({
+      mode: 'comparing',
+      vendorA: compareState.vendorA,
+      vendorB: rec,
+    });
+  }
+
+  /** Host clicked [Compare with another] inside the side-by-side
+   *  comparison · keeps the chosen side as A and reopens the picker. */
+  function handleKeepAndCompareAnother(keepSide: 'A' | 'B') {
+    if (compareState.mode !== 'comparing') return;
+    const newA =
+      keepSide === 'A' ? compareState.vendorA : compareState.vendorB;
+    setCompareState({ mode: 'picking_second', vendorA: newA });
+  }
+
+  /** Cancel the compare flow entirely · back to default grid. */
+  function handleCancelCompare() {
+    setCompareState({ mode: 'browsing' });
+    setErrorMessage(null);
   }
 
   /* ───────────────────  search submit handler  ────────────────────── */
@@ -257,7 +369,12 @@ export function VendorPickGridCard({
     <div className="space-y-5">
       {/* Search bar — submit on Enter or click · hits the full DB via
           searchVendorRecommendations(). Active-query chip shows when a
-          search is in effect so the host can clear back to recs. */}
+          search is in effect so the host can clear back to recs.
+          Hidden during the side-by-side comparing mode so the panel
+          owns the full surface; the picking_second mode keeps the
+          search visible so the host can still hunt for a second
+          vendor by name. */}
+      {compareState.mode !== 'comparing' ? (
       <form
         onSubmit={handleSearchSubmit}
         className="flex flex-col gap-2 sm:flex-row sm:items-center"
@@ -285,13 +402,15 @@ export function VendorPickGridCard({
           {isSearching ? 'Searching…' : 'Search'}
         </button>
       </form>
+      ) : null}
 
       {/* City filter · derived from the current result set so the
           dropdown only offers cities with actual vendors. Native
           <select> works on both mobile (OS-native picker sheet) and
           desktop (dropdown) per the responsive-by-default rule. Hidden
-          when result set has 0 or 1 cities — nothing to filter. */}
-      {cityOptions.length > 1 ? (
+          when result set has 0 or 1 cities — nothing to filter. Also
+          hidden during full comparing mode. */}
+      {compareState.mode !== 'comparing' && cityOptions.length > 1 ? (
         <div className="flex items-center gap-2">
           <label
             htmlFor="vendor-grid-city-filter"
@@ -362,20 +481,74 @@ export function VendorPickGridCard({
         </p>
       ) : null}
 
-      {/* Grid · 1 col mobile · 2 col sm · 3 col lg. Cards have constant
-          aspect ratio on the photo so each row stays even-height. */}
-      {visible.length > 0 ? (
-        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {visible.map((rec) => (
-            <VendorGridCardRow
-              key={rec.vendor_profile_id}
-              rec={rec}
-              isPending={pendingVendorId === rec.vendor_profile_id}
-              onLock={() => handleLockMarketplace(rec)}
-            />
-          ))}
+      {/* Comparing-mode side-by-side panel · replaces the grid + controls
+          when the host has picked both A and B. Each side has its own
+          [Lock this pick] + [Compare with another]. Per 2026-05-24 owner
+          directive. */}
+      {compareState.mode === 'comparing' ? (
+        <CompareSideBySide
+          vendorA={compareState.vendorA}
+          vendorB={compareState.vendorB}
+          isPendingId={pendingVendorId}
+          onLock={(rec) => handleLockMarketplace(rec)}
+          onKeepAndCompareAnother={handleKeepAndCompareAnother}
+          onCancel={handleCancelCompare}
+        />
+      ) : null}
+
+      {/* Picking-second banner · grid stays visible below so the host can
+          pick a vendor B. Indicates the vendor A they're comparing
+          against + a Cancel CTA. */}
+      {compareState.mode === 'picking_second' ? (
+        <div className="flex items-center gap-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-3 text-sm leading-relaxed text-ink/80">
+          <ArrowLeftRight
+            aria-hidden
+            className="h-4 w-4 flex-shrink-0 text-terracotta"
+            strokeWidth={2}
+          />
+          <span className="flex-1">
+            Pick a second one to compare with{' '}
+            <strong className="font-medium text-ink">
+              {compareState.vendorA.business_name}
+            </strong>
+            . Tap <strong className="font-medium text-ink">Pick to compare</strong> on any card below.
+          </span>
+          <button
+            type="button"
+            onClick={handleCancelCompare}
+            className="inline-flex items-center gap-1 text-[11px] font-medium text-terracotta transition-colors hover:text-terracotta-700"
+          >
+            <X aria-hidden className="h-3 w-3" strokeWidth={2.5} />
+            Cancel
+          </button>
+        </div>
+      ) : null}
+
+      {/* Grid · adaptive 1-5 cols based on viewport, 5 rows per page.
+          PAGE_SIZE_DYNAMIC = columnCount × 5. Cards have constant photo
+          aspect ratio so each row stays even-height. Hidden when in
+          full comparing mode (side-by-side already replaces it). */}
+      {compareState.mode !== 'comparing' && visible.length > 0 ? (
+        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          {visible.map((rec) => {
+            const isVendorA =
+              compareState.mode === 'picking_second' &&
+              compareState.vendorA.vendor_profile_id === rec.vendor_profile_id;
+            return (
+              <VendorGridCardRow
+                key={rec.vendor_profile_id}
+                rec={rec}
+                isPending={pendingVendorId === rec.vendor_profile_id}
+                compareMode={compareState.mode}
+                isVendorA={isVendorA}
+                onLock={() => handleLockMarketplace(rec)}
+                onStartCompare={() => handleStartCompare(rec)}
+                onPickAsSecond={() => handlePickSecond(rec)}
+              />
+            );
+          })}
         </ul>
-      ) : selectedCity !== ALL_CITIES_SENTINEL ? (
+      ) : compareState.mode === 'comparing' ? null : selectedCity !== ALL_CITIES_SENTINEL ? (
         <p className="rounded-xl border border-dashed border-ink/15 bg-white/40 px-4 py-6 text-center text-sm leading-relaxed text-ink/70">
           No {copy.pluralNoun} in <strong className="font-medium text-ink">{selectedCity}</strong>{' '}
           right now. Try another city — or add yours below.
@@ -392,8 +565,10 @@ export function VendorPickGridCard({
       )}
 
       {/* Pagination · only when more than 1 page. Page 1 of N display.
-          Buttons stay 44px tap targets for thumb-zone reach. */}
-      {totalPages > 1 ? (
+          Buttons stay 44px tap targets for thumb-zone reach. Hidden
+          during comparing mode — the side-by-side panel owns the
+          surface there. */}
+      {compareState.mode !== 'comparing' && totalPages > 1 ? (
         <div className="flex items-center justify-between gap-3 rounded-lg bg-cream/40 px-3 py-2">
           <button
             type="button"
@@ -466,11 +641,24 @@ export function VendorPickGridCard({
 function VendorGridCardRow({
   rec,
   isPending,
+  compareMode,
+  isVendorA,
   onLock,
+  onStartCompare,
+  onPickAsSecond,
 }: {
   rec: WizardVendorRec;
   isPending: boolean;
+  /** 'browsing' = default · 'picking_second' = host has chosen A and
+   *  is picking B · 'comparing' is never passed here (the side-by-side
+   *  panel replaces the grid). */
+  compareMode: 'browsing' | 'picking_second' | 'comparing';
+  /** TRUE when this row IS vendor A (host already picked it). Renders
+   *  a "Selected" pill on the photo + disables both action buttons. */
+  isVendorA: boolean;
   onLock: () => void;
+  onStartCompare: () => void;
+  onPickAsSecond: () => void;
 }) {
   const ratingDisplay =
     rec.avg_rating_overall && rec.avg_rating_overall > 0
@@ -481,7 +669,13 @@ function VendorGridCardRow({
   const photoUrl = rec.primary_photo_url ?? rec.logo_url ?? null;
 
   return (
-    <li className="group flex flex-col overflow-hidden rounded-xl border border-ink/10 bg-white shadow-sm transition-shadow hover:shadow-md">
+    <li
+      className={
+        isVendorA
+          ? 'group flex flex-col overflow-hidden rounded-xl border-2 border-terracotta bg-cream shadow-md transition-shadow'
+          : 'group flex flex-col overflow-hidden rounded-xl border border-ink/10 bg-white shadow-sm transition-shadow hover:shadow-md'
+      }
+    >
       {/* Photo · 4:3 aspect so each row stays even-height. Verified
           badge overlays top-right when applicable. */}
       <div className="relative aspect-[4/3] w-full bg-terracotta/8">
@@ -490,7 +684,7 @@ function VendorGridCardRow({
             src={photoUrl}
             alt=""
             fill
-            sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+            sizes="(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 768px) 33vw, (min-width: 640px) 50vw, 100vw"
             className="object-cover"
           />
         ) : (
@@ -513,9 +707,19 @@ function VendorGridCardRow({
             Setnayan Verified
           </span>
         ) : null}
+        {isVendorA ? (
+          <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-terracotta/95 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-cream shadow-sm backdrop-blur-sm">
+            <ArrowLeftRight
+              aria-hidden
+              className="h-3 w-3"
+              strokeWidth={2.5}
+            />
+            Comparing
+          </span>
+        ) : null}
       </div>
 
-      {/* Body · name + city + rating + Lock CTA. */}
+      {/* Body · name + city + rating + Compare/Lock CTAs. */}
       <div className="flex flex-1 flex-col gap-2 p-4">
         <p className="line-clamp-1 text-sm font-semibold leading-tight text-ink sm:text-base">
           {rec.business_name}
@@ -553,23 +757,268 @@ function VendorGridCardRow({
           )}
         </div>
 
-        <button
-          type="button"
-          onClick={onLock}
-          disabled={isPending}
-          className="mt-auto inline-flex min-h-[40px] items-center justify-center gap-1.5 rounded-lg bg-terracotta px-3 py-2 text-xs font-semibold text-cream transition-colors hover:bg-terracotta-700 focus:outline-none focus:ring-2 focus:ring-terracotta focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"
-        >
-          {isPending ? (
-            'Locking…'
+        {/* Action row · Compare on left, Lock on right (owner directive
+            2026-05-24). Picking-second mode swaps Compare for "Pick to
+            compare" (this card becomes the candidate B) and disables
+            Lock so the host can't accidentally bail out of the compare
+            flow mid-pick. Vendor-A's own card has BOTH disabled with
+            a "Selected" badge instead. */}
+        <div className="mt-auto flex items-stretch gap-2">
+          {isVendorA ? (
+            <span className="flex w-full items-center justify-center rounded-lg border border-terracotta/40 bg-cream px-3 py-2 text-xs font-medium text-terracotta sm:text-sm">
+              Selected for compare
+            </span>
+          ) : compareMode === 'picking_second' ? (
+            <button
+              type="button"
+              onClick={onPickAsSecond}
+              className="inline-flex min-h-[40px] flex-1 items-center justify-center gap-1.5 rounded-lg bg-terracotta px-3 py-2 text-xs font-semibold text-cream transition-colors hover:bg-terracotta-700 focus:outline-none focus:ring-2 focus:ring-terracotta focus:ring-offset-2 focus:ring-offset-cream sm:text-sm"
+            >
+              <ArrowLeftRight
+                aria-hidden
+                className="h-3.5 w-3.5"
+                strokeWidth={2}
+              />
+              Pick to compare
+            </button>
           ) : (
             <>
-              <Lock aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-              Lock this pick
+              <button
+                type="button"
+                onClick={onStartCompare}
+                disabled={isPending}
+                className="inline-flex min-h-[40px] flex-1 items-center justify-center gap-1.5 rounded-lg border border-terracotta/40 bg-white px-3 py-2 text-xs font-semibold text-terracotta transition-colors hover:bg-terracotta/5 focus:outline-none focus:ring-2 focus:ring-terracotta focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"
+              >
+                <ArrowLeftRight
+                  aria-hidden
+                  className="h-3.5 w-3.5"
+                  strokeWidth={2}
+                />
+                Compare
+              </button>
+              <button
+                type="button"
+                onClick={onLock}
+                disabled={isPending}
+                className="inline-flex min-h-[40px] flex-1 items-center justify-center gap-1.5 rounded-lg bg-terracotta px-3 py-2 text-xs font-semibold text-cream transition-colors hover:bg-terracotta-700 focus:outline-none focus:ring-2 focus:ring-terracotta focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"
+              >
+                {isPending ? (
+                  'Locking…'
+                ) : (
+                  <>
+                    <Lock aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                    Lock
+                  </>
+                )}
+              </button>
             </>
           )}
-        </button>
+        </div>
       </div>
     </li>
+  );
+}
+
+/* ───────────────────────────────────────────────────────────────────────
+ * Side-by-side comparison panel · replaces the grid when the host has
+ * picked both A and B. Each side has its own [Lock this pick] +
+ * [Compare with another]. "Compare with another" keeps that side as the
+ * new A and the picker loops back to picking_second mode.
+ *
+ * Layout:
+ *   - Mobile: stack vertically (A on top, B below, divider between)
+ *   - Desktop: 2-col side-by-side
+ * ──────────────────────────────────────────────────────────────────── */
+
+function CompareSideBySide({
+  vendorA,
+  vendorB,
+  isPendingId,
+  onLock,
+  onKeepAndCompareAnother,
+  onCancel,
+}: {
+  vendorA: WizardVendorRec;
+  vendorB: WizardVendorRec;
+  isPendingId: string | null;
+  onLock: (rec: WizardVendorRec) => void;
+  onKeepAndCompareAnother: (keepSide: 'A' | 'B') => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="space-y-3">
+      {/* Header strip · "Side-by-side" label + Cancel CTA. */}
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-3">
+        <span className="inline-flex items-center gap-2 text-sm text-ink/80">
+          <ArrowLeftRight
+            aria-hidden
+            className="h-4 w-4 text-terracotta"
+            strokeWidth={2}
+          />
+          <strong className="font-medium text-ink">Side-by-side compare</strong>
+        </span>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="inline-flex items-center gap-1 text-[11px] font-medium text-terracotta transition-colors hover:text-terracotta-700"
+        >
+          <X aria-hidden className="h-3 w-3" strokeWidth={2.5} />
+          Back to all
+        </button>
+      </div>
+
+      {/* Side-by-side cards · stacks on mobile, 2-col on sm+. */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <CompareSide
+          rec={vendorA}
+          isPending={isPendingId === vendorA.vendor_profile_id}
+          onLock={() => onLock(vendorA)}
+          onCompareAnother={() => onKeepAndCompareAnother('A')}
+        />
+        <CompareSide
+          rec={vendorB}
+          isPending={isPendingId === vendorB.vendor_profile_id}
+          onLock={() => onLock(vendorB)}
+          onCompareAnother={() => onKeepAndCompareAnother('B')}
+        />
+      </div>
+    </div>
+  );
+}
+
+function CompareSide({
+  rec,
+  isPending,
+  onLock,
+  onCompareAnother,
+}: {
+  rec: WizardVendorRec;
+  isPending: boolean;
+  onLock: () => void;
+  onCompareAnother: () => void;
+}) {
+  const ratingDisplay =
+    rec.avg_rating_overall && rec.avg_rating_overall > 0
+      ? rec.avg_rating_overall.toFixed(1)
+      : null;
+  const reviewCount = rec.review_count ?? 0;
+  const isCertified = rec.verification_state === 'verified';
+  const photoUrl = rec.primary_photo_url ?? rec.logo_url ?? null;
+
+  return (
+    <article className="flex flex-col overflow-hidden rounded-xl border border-ink/10 bg-white shadow-sm">
+      <div className="relative aspect-[4/3] w-full bg-terracotta/8">
+        {photoUrl ? (
+          <Image
+            src={photoUrl}
+            alt=""
+            fill
+            sizes="(min-width: 640px) 45vw, 100vw"
+            className="object-cover"
+          />
+        ) : (
+          <span className="absolute inset-0 flex items-center justify-center font-display text-6xl italic text-terracotta/40">
+            {rec.business_name.charAt(0).toUpperCase()}
+          </span>
+        )}
+        {isCertified ? (
+          <span
+            title="Documents reviewed and approved by Setnayan."
+            className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-emerald-700/95 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-cream shadow-sm backdrop-blur-sm"
+          >
+            <svg aria-hidden viewBox="0 0 12 12" className="h-3 w-3 fill-current">
+              <path d="M10.28 3.22a.75.75 0 010 1.06L5.06 9.5a.75.75 0 01-1.06 0L1.72 7.22a.75.75 0 011.06-1.06l1.75 1.75 4.69-4.69a.75.75 0 011.06 0z" />
+            </svg>
+            Setnayan Verified
+          </span>
+        ) : null}
+      </div>
+
+      <div className="flex flex-1 flex-col gap-2 p-4">
+        <h4 className="font-display text-lg italic leading-tight text-ink sm:text-xl">
+          {rec.business_name}
+        </h4>
+
+        {isCertified ? (
+          <p className="text-[11px] leading-snug text-emerald-800/85">
+            Documents reviewed by Setnayan.
+          </p>
+        ) : null}
+
+        {rec.tagline ? (
+          <p className="line-clamp-2 text-sm leading-relaxed text-ink/70">
+            {rec.tagline}
+          </p>
+        ) : null}
+
+        <dl className="grid grid-cols-1 gap-1.5 pt-1 text-xs">
+          {rec.location_city ? (
+            <div className="flex items-center gap-2">
+              <dt className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">
+                City
+              </dt>
+              <dd className="inline-flex items-center gap-1 text-ink/80">
+                <MapPin aria-hidden className="h-3 w-3" strokeWidth={2} />
+                {rec.location_city}
+              </dd>
+            </div>
+          ) : null}
+          <div className="flex items-center gap-2">
+            <dt className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">
+              Rating
+            </dt>
+            <dd className="inline-flex items-center gap-1 text-ink/80">
+              {ratingDisplay ? (
+                <>
+                  <Star
+                    aria-hidden
+                    className="h-3 w-3 fill-current text-amber-500"
+                    strokeWidth={1.5}
+                  />
+                  <strong className="font-medium text-ink">{ratingDisplay}</strong>
+                  <span className="text-ink/55">
+                    ({reviewCount} {reviewCount === 1 ? 'review' : 'reviews'})
+                  </span>
+                </>
+              ) : (
+                <span className="text-ink/45">No reviews yet</span>
+              )}
+            </dd>
+          </div>
+        </dl>
+
+        <div className="mt-auto flex flex-col gap-2 pt-2 sm:flex-row">
+          <button
+            type="button"
+            onClick={onLock}
+            disabled={isPending}
+            className="inline-flex min-h-[42px] flex-1 items-center justify-center gap-1.5 rounded-lg bg-terracotta px-3 py-2 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-700 focus:outline-none focus:ring-2 focus:ring-terracotta focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isPending ? (
+              'Locking…'
+            ) : (
+              <>
+                <Lock aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                Lock this pick
+              </>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={onCompareAnother}
+            disabled={isPending}
+            className="inline-flex min-h-[42px] flex-1 items-center justify-center gap-1.5 rounded-lg border border-terracotta/40 bg-white px-3 py-2 text-sm font-semibold text-terracotta transition-colors hover:bg-terracotta/5 focus:outline-none focus:ring-2 focus:ring-terracotta focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <ArrowLeftRight
+              aria-hidden
+              className="h-3.5 w-3.5"
+              strokeWidth={2}
+            />
+            Compare with another
+          </button>
+        </div>
+      </div>
+    </article>
   );
 }
 

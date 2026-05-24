@@ -40,6 +40,16 @@ import { OfficiantCard } from './wizard-cards/officiant-card';
 import { PhotographyCard } from './wizard-cards/photography-card';
 import { PrenupCard } from './wizard-cards/prenup-card';
 import { CateringCard } from './wizard-cards/catering-card';
+// Phase 3 batch — 9 standard vendor-pick cards.
+import { StylistCard } from './wizard-cards/stylist-card';
+import { LightsSoundCard } from './wizard-cards/lights-sound-card';
+import { MusicEntertainmentCard } from './wizard-cards/music-entertainment-card';
+import { HostMcCard } from './wizard-cards/host-mc-card';
+import { AttireCard } from './wizard-cards/attire-card';
+import { HairMakeupCard } from './wizard-cards/hair-makeup-card';
+import { CakeCard } from './wizard-cards/cake-card';
+import { AccommodationCard } from './wizard-cards/accommodation-card';
+import { BridalCarCard } from './wizard-cards/bridal-car-card';
 import { PlaceholderCardBody } from './wizard-cards/placeholder-card-body';
 
 type Props = {
@@ -187,6 +197,90 @@ function renderCardBody(
     case 'catering':
       return (
         <CateringCard
+          eventId={ctx.eventId}
+          ceremonyType={ctx.ceremonyType}
+          venueSetting={ctx.venueSetting}
+          excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
+        />
+      );
+    // Phase 3 batch — 9 standard vendor-pick cards (08 · 10 · 12 · 13 ·
+    // 18 · 19 · 22 · 23 · 24). All compose the VendorPickCard primitive
+    // with a different canonical-service filter + brand-voice copy.
+    case 'stylist':
+      return (
+        <StylistCard
+          eventId={ctx.eventId}
+          ceremonyType={ctx.ceremonyType}
+          venueSetting={ctx.venueSetting}
+          excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
+        />
+      );
+    case 'lights_sound':
+      return (
+        <LightsSoundCard
+          eventId={ctx.eventId}
+          ceremonyType={ctx.ceremonyType}
+          venueSetting={ctx.venueSetting}
+          excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
+        />
+      );
+    case 'music_entertainment':
+      return (
+        <MusicEntertainmentCard
+          eventId={ctx.eventId}
+          ceremonyType={ctx.ceremonyType}
+          venueSetting={ctx.venueSetting}
+          excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
+        />
+      );
+    case 'host_mc':
+      return (
+        <HostMcCard
+          eventId={ctx.eventId}
+          ceremonyType={ctx.ceremonyType}
+          venueSetting={ctx.venueSetting}
+          excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
+        />
+      );
+    case 'attire':
+      return (
+        <AttireCard
+          eventId={ctx.eventId}
+          ceremonyType={ctx.ceremonyType}
+          venueSetting={ctx.venueSetting}
+          excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
+        />
+      );
+    case 'hair_makeup':
+      return (
+        <HairMakeupCard
+          eventId={ctx.eventId}
+          ceremonyType={ctx.ceremonyType}
+          venueSetting={ctx.venueSetting}
+          excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
+        />
+      );
+    case 'cake':
+      return (
+        <CakeCard
+          eventId={ctx.eventId}
+          ceremonyType={ctx.ceremonyType}
+          venueSetting={ctx.venueSetting}
+          excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
+        />
+      );
+    case 'accommodation':
+      return (
+        <AccommodationCard
+          eventId={ctx.eventId}
+          ceremonyType={ctx.ceremonyType}
+          venueSetting={ctx.venueSetting}
+          excludeMarketplaceIds={ctx.excludeMarketplaceVendorIds}
+        />
+      );
+    case 'bridal_car':
+      return (
+        <BridalCarCard
           eventId={ctx.eventId}
           ceremonyType={ctx.ceremonyType}
           venueSetting={ctx.venueSetting}

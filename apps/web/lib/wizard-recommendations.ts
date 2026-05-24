@@ -145,4 +145,22 @@ export const VENDOR_PICK_TASK_CANONICAL_SERVICES: Partial<
   officiant: ['officiant'],
   photography: ['photographer', 'videographer'],
   catering: ['catering'],
+  // Phase 3 batch — 9 standard vendor-pick cards (Stylist · Lights+Sound ·
+  // Music · Host · Attire · HMUA · Cake · Accommodation · Bridal Car).
+  // Card 14 photobooths_booths uses MULTI-PICK variant (shipped in
+  // Phase 3 PR C alongside Card 20 Sponsors + 34/38 auto-transitions).
+  stylist: ['reception_decor', 'florist'],
+  lights_sound: ['lights_and_sound', 'led_screens'],
+  music_entertainment: [
+    'band_dj',
+    'choir',
+    'string_quartet',
+    'host_emcee',
+  ],
+  host_mc: ['host_emcee'],
+  attire: ['gown_designer', 'suit_designer'],
+  hair_makeup: ['makeup_artist', 'hair_stylist'],
+  cake: ['cake_maker'],
+  accommodation: ['accommodation'],
+  bridal_car: ['transportation'],
 } as const;

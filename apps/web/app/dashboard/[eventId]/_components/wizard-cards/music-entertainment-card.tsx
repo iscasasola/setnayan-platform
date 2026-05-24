@@ -8,11 +8,23 @@
  * default sort (ad_rank → review_count → avg_rating_overall) anchors on
  * sample reels + reputation, not km-from-venue.
  *
+ * 2026-05-25 owner directive ("finding band/dj is gone"): canonical filter
+ * realigned to actual v11 taxonomy entries (per 20260521040000) — the
+ * prior `['band_dj', 'choir', 'string_quartet', 'host_emcee']` filter
+ * matched ZERO vendors because (a) `band_dj`/`choir`/`string_quartet`
+ * are legacy event_vendors.category buckets, NOT vendor_profiles.services
+ * canonicals; (b) `host_emcee` belongs to the separate Host/MC card.
+ * Real canonicals from 20260521040000_iteration_0044_v11_full_taxonomy_seeds:
+ * live_band · acoustic_performer · wedding_singer · choir_string_quartet ·
+ * kulintang_ensemble · rondalla_ensemble · folk_performer · dj ·
+ * wedding_entertainment. host_emcee stays on Card 13 (its own card).
+ *
  * Wider net than Card 13 Host MC: surfaces bands · DJs · choirs · string
- * quartets — anything that fills the ceremony or reception with music.
- * INC + Muslim couples get faith-compat vendors (no DJ at a strict
- * ceremony for INC, kulintang ensembles preferred for Muslim) via the
- * compatible_ceremony_types[] filter on vendor_market_stats.
+ * quartets · acoustic acts · cultural ensembles — anything that fills
+ * the ceremony or reception with music. INC + Muslim couples get
+ * faith-compat vendors (no DJ at a strict ceremony for INC, kulintang
+ * ensembles preferred for Muslim) via the compatible_ceremony_types[]
+ * filter on vendor_market_stats.
  */
 
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -34,11 +46,21 @@ type Props = {
   eventDate: string | null;
 };
 
+// Real v11 canonical_service values from
+// 20260521040000_iteration_0044_v11_full_taxonomy_seeds.sql. Sourced
+// against vendor_profiles.services[] (NOT event_vendors.category which
+// is the legacy coarse-bucket enum). host_emcee deliberately excluded —
+// the dedicated Host/MC card (Card 13) surfaces it.
 const CANONICAL_SERVICES = [
-  'band_dj',
-  'choir',
-  'string_quartet',
-  'host_emcee',
+  'live_band',
+  'acoustic_performer',
+  'wedding_singer',
+  'choir_string_quartet',
+  'kulintang_ensemble',
+  'rondalla_ensemble',
+  'folk_performer',
+  'dj',
+  'wedding_entertainment',
 ] as const;
 
 export async function MusicEntertainmentCard({

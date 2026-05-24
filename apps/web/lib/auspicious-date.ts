@@ -266,20 +266,77 @@ function dayOfYear(date: Date): number {
 // positive-only rule still holds.
 // ----------------------------------------------------------------------------
 
-const NUMEROLOGY_MEANINGS: Record<number, string> = {
-  1: 'Number 1 energy · leadership and fresh beginnings · the start of a new chapter, together',
-  2: 'Number 2 · the partnership number · balance and harmony, made for vows',
-  3: 'Number 3 · joy, creativity, expression · a celebration of voice and laughter',
-  4: 'Number 4 · the foundation number · stability and security, a home being built',
-  5: 'Number 5 · change and freedom · the adventure starts here',
-  6: 'Number 6 · the family number · love, harmony, responsibility for each other',
-  7: 'Number 7 · spirituality and intuition · the sacred witness of the day',
-  8: 'Number 8 · abundance and achievement · prosperity flowing into the marriage',
-  9: 'Number 9 · completion and compassion · old chapters closing, the new one wide open',
-  11: 'Master number 11 · spiritual awakening and illumination · this date carries extra meaning',
-  22: 'Master number 22 · the master builder · grand vision, lifelong foundation, this date carries quiet power',
-  33: 'Master number 33 · the master teacher · compassion and healing, this date is rare and beloved',
+// 2026-05-24 owner directive: same number across dates must NOT produce
+// identical reasoning. 3 variants per number · picked by day-of-year so
+// same date → same variant, adjacent dates → different variants.
+const NUMEROLOGY_VARIANTS: Record<number, ReadonlyArray<string>> = {
+  1: [
+    'Number 1 energy · leadership and fresh beginnings · the start of a new chapter, together',
+    'Number 1 · pioneer energy · this marriage carves its own path',
+    '1 is the seed number · everything else grows from this commitment',
+  ],
+  2: [
+    'Number 2 · the partnership number · balance and harmony, made for vows',
+    'Number 2 · the diplomat\'s number · listening, patience, lifelong dialogue',
+    '2 is the bond number · two becoming one in sacred symmetry',
+  ],
+  3: [
+    'Number 3 · joy, creativity, expression · a celebration of voice and laughter',
+    'Number 3 · the storyteller · weddings here become memories told for decades',
+    '3 is the creation number · partnerships that build something beautiful',
+  ],
+  4: [
+    'Number 4 · the foundation number · stability and security, a home being built',
+    'Number 4 · the builder · brick by brick, a marriage that stands',
+    '4 is the anchor number · steady ground for everything that comes',
+  ],
+  5: [
+    'Number 5 · change and freedom · the adventure starts here',
+    'Number 5 · the explorer · this marriage will travel far together',
+    '5 is the movement number · neither partner will ever feel stuck',
+  ],
+  6: [
+    'Number 6 · the family number · love, harmony, responsibility for each other',
+    'Number 6 · the nurturer · this marriage will hold many under its wing',
+    '6 is the heart number · home, hearth, and homecoming all at once',
+  ],
+  7: [
+    'Number 7 · spirituality and intuition · the sacred witness of the day',
+    'Number 7 · the mystic · this marriage carries quiet depth',
+    '7 is the contemplative number · vows here mean what they say',
+  ],
+  8: [
+    'Number 8 · abundance and achievement · prosperity flowing into the marriage',
+    'Number 8 · the manifestor · this marriage will build wealth in every form',
+    '8 is the infinity number · endless return of love',
+  ],
+  9: [
+    'Number 9 · completion and compassion · old chapters closing, the new one wide open',
+    'Number 9 · the humanitarian · this marriage will be kind to the world',
+    '9 is the closure number · all wisdom of past loves brought into this one',
+  ],
+  11: [
+    'Master number 11 · spiritual awakening and illumination · this date carries extra meaning',
+    'Master 11 · the visionary · the union sees things others miss',
+    '11 is the messenger number · this marriage carries a higher calling',
+  ],
+  22: [
+    'Master number 22 · the master builder · grand vision, lifelong foundation, this date carries quiet power',
+    'Master 22 · the architect of dreams · what\'s built here will outlast generations',
+    '22 is the legacy number · this is a marriage that changes families',
+  ],
+  33: [
+    'Master number 33 · the master teacher · compassion and healing, this date is rare and beloved',
+    'Master 33 · the embodiment of love · few dates carry this much grace',
+    '33 is the rarest number in numerology · sacred and beloved',
+  ],
 };
+
+function pickNumerologyVariant(n: number, doy: number): string | null {
+  const variants = NUMEROLOGY_VARIANTS[n];
+  if (!variants || variants.length === 0) return null;
+  return variants[doy % variants.length]!;
+}
 
 function digitSum(s: string): number {
   let sum = 0;
@@ -326,18 +383,23 @@ function numerologyReasons(
   ceremonyType: CeremonyType | null,
 ): string[] {
   const reasons: string[] = [];
+  // Two prime offsets so life-path + day-number pull DIFFERENT variants
+  // from each pool · same date stable, adjacent dates differ across
+  // both layers.
+  const doy = dayOfYear(date);
 
   const lifePath = dateLifePath(date);
-  const lifePathMeaning = NUMEROLOGY_MEANINGS[lifePath];
+  const lifePathMeaning = pickNumerologyVariant(lifePath, doy);
   if (lifePathMeaning) {
     reasons.push(`Life-path of your date · ${lifePathMeaning}`);
   }
 
   const dayN = dayNumber(date);
   // Only surface day-number when it adds new info (not just a duplicate
-  // of the life-path reduction).
+  // of the life-path reduction). Different variant pool seed (+7 prime
+  // offset) so the day-number line doesn't echo the life-path line.
   if (dayN !== lifePath) {
-    const dayMeaning = NUMEROLOGY_MEANINGS[dayN];
+    const dayMeaning = pickNumerologyVariant(dayN, doy + 7);
     if (dayMeaning) {
       reasons.push(`Day ${date.getDate()} resolves to ${dayN} · ${dayMeaning}`);
     }
@@ -386,31 +448,68 @@ type ZodiacSign =
   | 'aquarius'
   | 'pisces';
 
-const ZODIAC_MEANINGS: Record<ZodiacSign, string> = {
-  aries:
+// 3 variants per zodiac sign · same-sign dates pick different framings.
+const ZODIAC_VARIANTS: Record<ZodiacSign, ReadonlyArray<string>> = {
+  aries: [
     'Aries season · courage, new beginnings, fire energy · weddings here carry bold momentum',
-  taurus:
+    'Aries · the first sign · this marriage begins with conviction',
+    'Fire sign Aries · passion lighting every decision',
+  ],
+  taurus: [
     'Taurus season · sensual beauty, comfort, lasting bonds · weddings here feel earthy and grounded',
-  gemini:
+    'Taurus · the steady one · slow love, deep roots',
+    'Earth sign Taurus · what\'s planted here grows for decades',
+  ],
+  gemini: [
     'Gemini season · joy, conversation, connection · weddings here are filled with laughter and stories',
-  cancer:
+    'Gemini · the twin sign · two souls finding their pair in each other',
+    'Air sign Gemini · curiosity carrying every Sunday morning',
+  ],
+  cancer: [
     'Cancer season · home, family, deep care · weddings here center on belonging and warmth',
-  leo:
+    'Cancer · the homemaker · this marriage builds a tender sanctuary',
+    'Water sign Cancer · emotional depth running through every shared meal',
+  ],
+  leo: [
     'Leo season · celebration, generosity, big love · weddings here radiate confidence',
-  virgo:
+    'Leo · the heart sign · this marriage will be loud with joy',
+    'Fire sign Leo · big-hearted love that everyone wants to be near',
+  ],
+  virgo: [
     'Virgo season · care, attention, devotion · weddings here are crafted with intention to every detail',
-  libra:
+    'Virgo · the careful one · this marriage will be thoughtful in every choice',
+    'Earth sign Virgo · steady devotion is its love language',
+  ],
+  libra: [
     'Libra season · balance, harmony, partnership · the marriage sign itself · weddings here feel inevitable',
-  scorpio:
+    'Libra · ruled by Venus · this marriage will choose beauty in every decision',
+    'Air sign Libra · grace in every shared moment',
+  ],
+  scorpio: [
     'Scorpio season · depth, intensity, transformation · weddings here carry soul-deep meaning',
-  sagittarius:
+    'Scorpio · the transformer · this marriage will change both partners profoundly',
+    'Water sign Scorpio · loyalty so deep it goes underground',
+  ],
+  sagittarius: [
     'Sagittarius season · adventure, optimism, expansion · weddings here open a big journey ahead',
-  capricorn:
+    'Sagittarius · the philosopher · this marriage is built on shared wonder',
+    'Fire sign Sagittarius · adventure as a love language',
+  ],
+  capricorn: [
     'Capricorn season · commitment, structure, legacy · weddings here are built to last generations',
-  aquarius:
+    'Capricorn · the patient one · this marriage will compound over decades',
+    'Earth sign Capricorn · slow-built love that runs the longest',
+  ],
+  aquarius: [
     'Aquarius season · innovation, friendship, vision · weddings here lead with originality and clarity',
-  pisces:
+    'Aquarius · the visionary · this marriage will live ahead of its time',
+    'Air sign Aquarius · friendship as the deepest love',
+  ],
+  pisces: [
     'Pisces season · imagination, deep love, soulful · weddings here feel poetic and dreamlike',
+    'Pisces · the dreamer · this marriage will live inside its own poetry',
+    'Water sign Pisces · empathy as the bond',
+  ],
 };
 
 function westernZodiac(date: Date): ZodiacSign {
@@ -463,26 +562,70 @@ const CHINESE_ZODIAC_ORDER: ChineseZodiacAnimal[] = [
   'pig',
 ];
 
-const CHINESE_ZODIAC_MEANINGS: Record<ChineseZodiacAnimal, string> = {
-  rat: 'Year of the Rat · cleverness, prosperity, fresh resourcefulness · weddings here begin with abundance',
-  ox: 'Year of the Ox · steadiness, dependable love, slow patient strength · weddings here build a lasting home',
-  tiger:
+// 3 variants per Chinese-year animal · adjacent same-year dates pick
+// different framings (year stays the same within a year, but the
+// day-of-year offset rotates the framing).
+const CHINESE_ZODIAC_VARIANTS: Record<ChineseZodiacAnimal, ReadonlyArray<string>> = {
+  rat: [
+    'Year of the Rat · cleverness, prosperity, fresh resourcefulness · weddings here begin with abundance',
+    'Year of the Rat · the start of the zodiac cycle · this marriage carries pioneer energy',
+    'Rat year · quick wit and warmth · this couple finds creative solutions for everything',
+  ],
+  ox: [
+    'Year of the Ox · steadiness, dependable love, slow patient strength · weddings here build a lasting home',
+    'Year of the Ox · earth-element steadiness · what\'s promised here gets kept',
+    'Ox year · the year of the patient builder · this marriage stands',
+  ],
+  tiger: [
     'Year of the Tiger · courage, vitality, fearless commitment · weddings here charge into a vivid future',
-  rabbit:
+    'Year of the Tiger · the protector\'s year · this marriage will defend each other fiercely',
+    'Tiger year · bold and unhesitating love',
+  ],
+  rabbit: [
     'Year of the Rabbit · gentleness, elegance, peaceful union · weddings here are tender and graceful',
-  dragon:
+    'Year of the Rabbit · the soft year · this marriage carries softness as strength',
+    'Rabbit year · peace, comfort, refined romance',
+  ],
+  dragon: [
     'Year of the Dragon · power, fortune, abundance · the most auspicious year for unions in Chinese tradition',
-  snake:
+    'Year of the Dragon · the most-coveted wedding year · luck flows here',
+    'Dragon year · mythic power and lasting prosperity',
+  ],
+  snake: [
     'Year of the Snake · wisdom, transformation, deep intuition · weddings here mark a thoughtful new chapter',
-  horse:
+    'Year of the Snake · the year of the philosopher · this marriage is built on shared depth',
+    'Snake year · wisdom passing between partners',
+  ],
+  horse: [
     'Year of the Horse · freedom, passion, swift forward motion · weddings here gallop into adventure together',
-  goat: 'Year of the Goat · gentleness, beauty, artistic harmony · weddings here are tender and full of grace',
-  monkey:
+    'Year of the Horse · the year of momentum · this marriage will not be still',
+    'Horse year · open road and shared horizon',
+  ],
+  goat: [
+    'Year of the Goat · gentleness, beauty, artistic harmony · weddings here are tender and full of grace',
+    'Year of the Goat · the artisan year · this marriage will craft something beautiful',
+    'Goat year · soft, refined, deeply considered love',
+  ],
+  monkey: [
     'Year of the Monkey · cleverness, joy, playful creativity · weddings here sparkle with laughter',
-  rooster:
+    'Year of the Monkey · the play year · this marriage will keep its humor',
+    'Monkey year · curious minds finding home in each other',
+  ],
+  rooster: [
     'Year of the Rooster · confidence, honesty, generous celebration · weddings here are loud with love',
-  dog: 'Year of the Dog · loyalty, devotion, family-first energy · weddings here center on steadfast love',
-  pig: 'Year of the Pig · abundance, comfort, joyful generosity · weddings here are warm and lavish in spirit',
+    'Year of the Rooster · the year of unmistakable presence · this couple shows up fully',
+    'Rooster year · direct love, no hidden corners',
+  ],
+  dog: [
+    'Year of the Dog · loyalty, devotion, family-first energy · weddings here center on steadfast love',
+    'Year of the Dog · the guardian year · this marriage will defend home and each other',
+    'Dog year · the year of unwavering trust',
+  ],
+  pig: [
+    'Year of the Pig · abundance, comfort, joyful generosity · weddings here are warm and lavish in spirit',
+    'Year of the Pig · the year of comfort · this marriage will be warm, fed, and generous',
+    'Pig year · easy joy and shared abundance',
+  ],
 };
 
 function chineseYear(date: Date): ChineseZodiacAnimal {
@@ -494,13 +637,27 @@ function chineseYear(date: Date): ChineseZodiacAnimal {
 
 type LunarPhase = 'new' | 'waxing' | 'full' | 'waning';
 
-const LUNAR_PHASE_MEANINGS: Record<LunarPhase, string> = {
-  new: 'New moon energy · fresh starts and intention-setting · the perfect lunar timing for a vow',
-  waxing:
+const LUNAR_PHASE_VARIANTS: Record<LunarPhase, ReadonlyArray<string>> = {
+  new: [
+    'New moon energy · fresh starts and intention-setting · the perfect lunar timing for a vow',
+    'New moon phase · the sky\'s invitation to begin · vows planted now grow deep',
+    'Dark sky, bright intention · the moon is starting over, just like you',
+  ],
+  waxing: [
     'Waxing moon · growth and momentum · energy building toward fullness · weddings here mark forward motion',
-  full: 'Full moon · illumination and celebration · the most luminous lunar night for a ceremony',
-  waning:
+    'Waxing crescent through gibbous · the moon expanding · the marriage starts on rising energy',
+    'Light building nightly · the sky agrees · this is a forward season',
+  ],
+  full: [
+    'Full moon · illumination and celebration · the most luminous lunar night for a ceremony',
+    'Full moon · the year\'s brightest evenings · weddings here glow under perfect natural light',
+    'Pinaka-buong buwan · everything is visible · the moment is fully here',
+  ],
+  waning: [
     'Waning moon · gratitude and settling in · weddings here carry quiet, completed energy',
+    'Waning gibbous through crescent · the moon releasing · the marriage starts in soft reflective light',
+    'Letting go to receive · the sky\'s exhale meets the start of your forever',
+  ],
 };
 
 /** Lunar phase classification via the canonical Pythagorean-lunar math:
@@ -528,13 +685,27 @@ function lunarPhase(date: Date): LunarPhase {
 /**
  * Returns astrology reasons for the date. Always includes Western zodiac
  * + Chinese year + lunar phase · they're computable from every date and
- * give the panel three more layers of meaning.
+ * give the panel three more layers of meaning. Variant pools per sign /
+ * animal / phase · adjacent dates pick different framings even when the
+ * underlying value (e.g. Sagittarius season, Year of the Horse) doesn't
+ * change.
  */
 function astrologyReasons(date: Date): string[] {
+  const doy = dayOfYear(date);
   const reasons: string[] = [];
-  reasons.push(ZODIAC_MEANINGS[westernZodiac(date)]);
-  reasons.push(CHINESE_ZODIAC_MEANINGS[chineseYear(date)]);
-  reasons.push(LUNAR_PHASE_MEANINGS[lunarPhase(date)]);
+
+  const zodiacVariants = ZODIAC_VARIANTS[westernZodiac(date)];
+  reasons.push(zodiacVariants[doy % zodiacVariants.length]!);
+
+  // Different prime offset so the Chinese-year line rotates on a
+  // different cadence than the zodiac line · adjacent dates in the
+  // same year vary both.
+  const chineseVariants = CHINESE_ZODIAC_VARIANTS[chineseYear(date)];
+  reasons.push(chineseVariants[(doy + 11) % chineseVariants.length]!);
+
+  const lunarVariants = LUNAR_PHASE_VARIANTS[lunarPhase(date)];
+  reasons.push(lunarVariants[(doy + 17) % lunarVariants.length]!);
+
   return reasons;
 }
 

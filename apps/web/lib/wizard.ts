@@ -131,6 +131,21 @@ export type WizardTask = {
   whyItMatters: string;
   /** Pill label above the title (e.g. "FIRST THINGS FIRST", "FOUNDATION"). */
   pillLabel: string;
+  /** Hard prerequisites — other wizard tasks that MUST be settled
+   *  (completed or in_flight) before this one can be acted on. Empty
+   *  array means the host can start this card any time.
+   *
+   *  Owner-locked 2026-05-24 carousel UX: cards with unmet prereqs
+   *  render DARKENED with `Locked until {prereq title}` copy in the
+   *  carousel surface. The active focus is always the first unsettled
+   *  task whose prereqs are all met.
+   *
+   *  Hard prereqs only — soft / recommended dependencies are NOT here
+   *  (e.g., Card 18 Attire benefits from a finalized mood board but
+   *  isn't blocked by it). Locking too aggressively traps hosts who
+   *  legitimately want to do things out of order.
+   */
+  prerequisites: ReadonlyArray<WizardTaskId>;
 };
 
 /**
@@ -161,6 +176,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       "The date anchors everything else — your countdown, your vendor lock-by reminders, your timeline. Even a tentative month works for now; you can sharpen it later.",
     pillLabel: 'First things first',
+    prerequisites: [],
   },
   {
     id: 'reception_venue',
@@ -171,6 +187,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       'The first domino — everything downstream waits on this. Your coordinator, caterer, and photographer all key off where your reception lives.',
     pillLabel: 'Foundation',
+    prerequisites: ['set_wedding_date'],
   },
   {
     id: 'ceremony_venue',
@@ -181,6 +198,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       'Locks the date and starts the paperwork clock. Parish documents take 4-6 weeks to gather; the marriage license has a 120-day countdown.',
     pillLabel: 'Foundation',
+    prerequisites: ['set_wedding_date'],
   },
   {
     id: 'officiant',
@@ -191,6 +209,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       'The voice of your ceremony. Priests, ministers, and judges book months ahead; locking yours early is what makes the paperwork chain start moving.',
     pillLabel: 'Foundation',
+    prerequisites: ['set_wedding_date'],
   },
   {
     id: 'photography',
@@ -201,6 +220,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       'The best PH photo and video teams book 9-12 months ahead. Locking yours early means your favorite is still available — and they start shaping the visual story now.',
     pillLabel: 'Foundation',
+    prerequisites: ['set_wedding_date'],
   },
   {
     id: 'engagement_prenup_shoot',
@@ -211,6 +231,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       "A month before your save-the-date drops. Your photographer guides location and styling; the photos feed the save-the-date video, your website hero, and the editorial down the line.",
     pillLabel: 'Foundation',
+    prerequisites: ['photography'],
   },
   {
     id: 'catering',
@@ -221,6 +242,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       'Filipino weddings live or die on the food. Tastings happen 4-6 months out, and the best teams book the same season they were booked the year before.',
     pillLabel: 'Foundation',
+    prerequisites: ['reception_venue'],
   },
   {
     id: 'stylist',
@@ -231,6 +253,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       "Your stylist sets the visual language — palette, florals, decor, signage. They shape the mood board with you, so locking the stylist first means every choice downstream lines up.",
     pillLabel: 'Style & Identity',
+    prerequisites: ['reception_venue'],
   },
   {
     id: 'mood_board',
@@ -241,6 +264,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       "Six colors anchor every visual choice — your florist, stationer, lighting designer, even the cake all read from this palette. Pick the feeling first; the colors follow.",
     pillLabel: 'Style & Identity',
+    prerequisites: [],
   },
   {
     id: 'lights_sound',
@@ -251,6 +275,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       'Reception lighting and sound shape the whole atmosphere. PA + lights setup is technical — book 4-6 months out and confirm the venue power supply.',
     pillLabel: 'Style & Identity',
+    prerequisites: ['reception_venue'],
   },
   {
     id: 'monogram',
@@ -261,6 +286,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       "Your initials become the visual signature carried across save-the-date, invitations, signage, and the LED background. Two letters · one mark · everywhere.",
     pillLabel: 'Style & Identity',
+    prerequisites: [],
   },
   {
     id: 'music_entertainment',
@@ -271,6 +297,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       'DJ, string quartet, choir — the music team that carries your program. The best ones run a wedding every weekend in peak season; book early or choose from what is left.',
     pillLabel: 'Style & Identity',
+    prerequisites: ['reception_venue'],
   },
   {
     id: 'host_mc',
@@ -281,6 +308,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       'Your emcee carries the program from cocktail hour through send-off. A great host makes the night feel effortless; book 4-6 months out.',
     pillLabel: 'Style & Identity',
+    prerequisites: [],
   },
   {
     id: 'photobooths_booths',
@@ -291,6 +319,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       "Photobooth, mobile bar, coffee station, perfume bar — the social glue of cocktail hour. Pick the types that fit your vibe; you can lock multiple at once.",
     pillLabel: 'Style & Identity',
+    prerequisites: ['reception_venue'],
   },
   {
     id: 'create_schedule',
@@ -301,6 +330,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       "Ceremony · cocktails · reception · send-off. Once the major vendors are locked, the timeline writes itself — your coordinator can finalize call times for everyone.",
     pillLabel: 'Programming',
+    prerequisites: ['reception_venue', 'ceremony_venue'],
   },
   {
     id: 'create_website',
@@ -311,6 +341,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       "Your landing page lives at setnayan.com/{your-slug}. Guests scan a QR to land here for the schedule, RSVP, gifts, and dress code. Setting it up takes minutes.",
     pillLabel: 'Programming',
+    prerequisites: ['set_wedding_date', 'reception_venue', 'ceremony_venue'],
   },
   {
     id: 'save_the_date_video',
@@ -321,6 +352,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       "Six months out · your prenup photos · a 30-second video your guests can save to their calendars. ₱199 per render so you can iterate the framing until it feels right.",
     pillLabel: 'Programming',
+    prerequisites: ['engagement_prenup_shoot'],
   },
   {
     id: 'attire',
@@ -331,6 +363,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       "Custom gowns and barongs need 3-4 months from first fitting; rentals book 6-8 weeks ahead. Either way, the clock is friendlier than you think — start the conversation now.",
     pillLabel: 'Programming',
+    prerequisites: [],
   },
   {
     id: 'hair_makeup',
@@ -341,6 +374,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       'Your bridal glam team carries the whole entourage on the morning of. Trials happen 1-2 months before the day; lock the artist first so the trial date even makes sense.',
     pillLabel: 'Programming',
+    prerequisites: [],
   },
   {
     id: 'principal_sponsors',
@@ -351,6 +385,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       "Your ninong and ninang stand witness — invitations and seating depend on the final list. Your coordinator schedules a meeting with each sponsor pair at their location.",
     pillLabel: 'Programming',
+    prerequisites: [],
   },
   {
     id: 'deploy_invitation',
@@ -361,6 +396,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       "Your monogram, your palette, your QR-encoded landing page — invitations carry it all. Each guest receives a personalized link that drives them to RSVP and discover the day.",
     pillLabel: 'Programming',
+    prerequisites: ['set_wedding_date', 'reception_venue', 'ceremony_venue', 'create_website', 'principal_sponsors'],
   },
   {
     id: 'cake',
@@ -371,6 +407,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       'Tastings happen 3-4 months before the wedding. Pin a palette and a flavor direction first so the cake maker can pull samples that fit your day.',
     pillLabel: 'Late additions',
+    prerequisites: ['reception_venue'],
   },
   {
     id: 'accommodation',
@@ -381,6 +418,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       "Where you and your wedding party rest the night before — sometimes bundled into your reception hotel package. Venue-affiliated room blocks fill fast; lock 1-2 months out.",
     pillLabel: 'Late additions',
+    prerequisites: ['reception_venue'],
   },
   {
     id: 'bridal_car',
@@ -391,6 +429,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       'Your wedding-day arrival vehicle. Vintage, luxury, classic — book about 2 months out and confirm pickup time and decoration scope.',
     pillLabel: 'Late additions',
+    prerequisites: ['reception_venue', 'ceremony_venue'],
   },
   {
     id: 'cenomar',
@@ -401,6 +440,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       "Certificate of No Marriage from PSA. Start here — processing takes 2-3 weeks, and you cannot get your marriage license until this is in hand.",
     pillLabel: 'Legal paperwork',
+    prerequisites: ['set_wedding_date'],
   },
   {
     id: 'church_paperwork',
@@ -411,6 +451,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       "Baptismal certificate, confirmation certificate, canonical interview. Each comes from your origin parish — start now so they arrive in time for Pre-Cana.",
     pillLabel: 'Legal paperwork',
+    prerequisites: ['ceremony_venue', 'officiant'],
   },
   {
     id: 'pre_cana',
@@ -421,6 +462,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       "Parish-required marriage prep · usually a one-day seminar OR a series across 2-3 weeks. Schedule 60-90 days before the ceremony.",
     pillLabel: 'Legal paperwork',
+    prerequisites: ['ceremony_venue'],
   },
   {
     id: 'marriage_license',
@@ -431,6 +473,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       "Last in the legal chain · 120-day validity window means you cannot apply too early. Once Cenomar and Pre-Cana are done, you apply at the city hall where either of you resides.",
     pillLabel: 'Legal paperwork',
+    prerequisites: ['cenomar'],
   },
   {
     id: 'finalize_rsvp',
@@ -441,6 +484,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       "Your headcount drives catering, seating, transportation, and printables. One last nudge to non-responders, then lock the final list.",
     pillLabel: 'Final month',
+    prerequisites: ['deploy_invitation'],
   },
   {
     id: 'finalize_seatplan',
@@ -451,6 +495,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       "Tables, chairs, head table, entourage seats. Your stylist and coordinator carry the final plan to set-up day; lock it once RSVPs are in.",
     pillLabel: 'Final month',
+    prerequisites: ['finalize_rsvp'],
   },
   {
     id: 'finalize_catering_count',
@@ -461,6 +506,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       "Caterers buy ingredients 14 days out. Confirm your final headcount with the kitchen team so the food matches the room.",
     pillLabel: 'Final month',
+    prerequisites: ['finalize_rsvp'],
   },
   {
     id: 'honeymoon_planning',
@@ -471,6 +517,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       "Flights, hotels, day-after activities. You will not want to plan this in the week after; lock destinations and bookings now.",
     pillLabel: 'Final month',
+    prerequisites: ['set_wedding_date'],
   },
   {
     id: 'paprint',
@@ -481,6 +528,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       "QR-encoded table cards, place cards, schedule signs, day-of guide. Once seating and headcount are locked, the prints can ship 7-10 days before your wedding.",
     pillLabel: 'Final month',
+    prerequisites: ['finalize_seatplan'],
   },
   {
     id: 'event',
@@ -491,6 +539,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       "Day-of mode activates one hour before the ceremony and stays live through the reception. Your dashboard becomes the live operations surface for the whole team.",
     pillLabel: 'The day',
+    prerequisites: [],
   },
   {
     id: 'send_thank_yous',
@@ -501,6 +550,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       "Vendors deliver final files in the week after; thank-yous go out within two weeks. A short note per vendor keeps the relationship warm for future referrals.",
     pillLabel: 'Post-event',
+    prerequisites: ['event'],
   },
   {
     id: 'create_reviews',
@@ -511,6 +561,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       "Your reviews carry vendor reputations forward — couples planning right now read every one. Take 30 seconds each to share what worked.",
     pillLabel: 'Post-event',
+    prerequisites: ['event'],
   },
   {
     id: 'download_photos',
@@ -521,6 +572,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       "Papic delivers candid captures to your gallery within a week. The full archive — photographer + Papic + guest contributions — lands at T+30.",
     pillLabel: 'Post-event',
+    prerequisites: ['event'],
   },
   {
     id: 'create_editorial',
@@ -531,6 +583,7 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     whyItMatters:
       "Thirty days after the wedding, your event becomes a magazine-style story shared on setnayan.com. Opt in to inspire other couples, or keep it private — your call.",
     pillLabel: 'Post-event',
+    prerequisites: ['event'],
   },
 ] as const;
 
@@ -624,6 +677,96 @@ export function isTaskSettled(
 }
 
 /**
+ * Owner-locked 2026-05-24 carousel UX support.
+ *
+ * Returns TRUE when ALL prerequisites of the given task are settled
+ * (completed or in-flight). False when at least one prereq is still
+ * pending. Tasks with no prereqs always return TRUE.
+ *
+ * Used by:
+ *   - resolveWizardFocus to skip tasks whose prereqs aren't met
+ *   - WizardCarousel to render locked-state styling on cards whose
+ *     prereqs aren't met
+ */
+export function isTaskUnlocked(
+  state: WizardState,
+  task: WizardTask,
+): boolean {
+  for (const prereqId of task.prerequisites) {
+    if (!isTaskSettled(state, prereqId)) return false;
+  }
+  return true;
+}
+
+/**
+ * Returns the FIRST unmet prerequisite task for the given task, or null
+ * when all prereqs are met. Used by the carousel surface to render
+ * `Locked until {firstPrereq.title}` copy on darkened cards.
+ *
+ * Order of evaluation matches the order declared in task.prerequisites,
+ * which we curate from most-blocking-to-least so the surfaced message
+ * names the heaviest dependency first.
+ */
+export function getFirstUnmetPrereq(
+  state: WizardState,
+  task: WizardTask,
+): WizardTask | null {
+  const taskMap = new Map<WizardTaskId, WizardTask>();
+  for (const t of WIZARD_TASKS) taskMap.set(t.id, t);
+
+  for (const prereqId of task.prerequisites) {
+    if (!isTaskSettled(state, prereqId)) {
+      const prereqTask = taskMap.get(prereqId);
+      if (prereqTask) return prereqTask;
+    }
+  }
+  return null;
+}
+
+/**
+ * Returns the next N upcoming tasks for the carousel surface. The active
+ * focus comes FIRST. The remaining N-1 are the tasks AFTER the active in
+ * canonical order — regardless of lock state (the carousel renders locked
+ * ones darkened in-place).
+ *
+ * `lookahead` defaults to 4 so the carousel shows 1 active + 3 peeks.
+ */
+export function getCarouselTasks(
+  state: WizardState,
+  lookahead = 4,
+): WizardTask[] {
+  // Find the active focus first — same logic as resolveWizardFocus.
+  let activeIndex = -1;
+  for (let i = 0; i < WIZARD_TASKS.length; i++) {
+    const task = WIZARD_TASKS[i]!;
+    if (!isTaskSettled(state, task.id) && isTaskUnlocked(state, task)) {
+      activeIndex = i;
+      break;
+    }
+  }
+
+  // No active focus (all settled, or all blocked) — return the first
+  // unsettled tasks as peek slots so the carousel has SOMETHING to show.
+  if (activeIndex === -1) {
+    const peeks: WizardTask[] = [];
+    for (const t of WIZARD_TASKS) {
+      if (!isTaskSettled(state, t.id)) peeks.push(t);
+      if (peeks.length >= lookahead) break;
+    }
+    return peeks;
+  }
+
+  // Active + lookahead-1 cards that follow it (skipping settled ones —
+  // already-done cards don't need to pollute the carousel).
+  const result: WizardTask[] = [WIZARD_TASKS[activeIndex]!];
+  for (let i = activeIndex + 1; i < WIZARD_TASKS.length && result.length < lookahead; i++) {
+    const task = WIZARD_TASKS[i]!;
+    if (!isTaskSettled(state, task.id)) result.push(task);
+  }
+  return result;
+}
+
+/**
  * Result of WizardSequenceResolver. Either a single active task to render
  * as Today's Focus, or null when (a) no task is implemented yet at the
  * required position OR (b) all 38 tasks are complete (celebratory state).
@@ -661,9 +804,18 @@ export function resolveWizardFocus(
     // doesn't block the wizard for weeks. The host can still revisit
     // the in-flight card via the IN-FLIGHT TRAY surface that the
     // WizardHero renders below the focus card.
-    if (!isTaskSettled(state, task.id)) {
-      return { kind: 'active', task };
-    }
+    if (isTaskSettled(state, task.id)) continue;
+    // Locked = prerequisites not yet settled. Owner-locked 2026-05-24
+    // carousel UX: locked cards render darkened in the carousel BUT
+    // resolver doesn't pick them as the active focus — the active
+    // focus is always the first unsettled task with all prereqs met.
+    // A wedding-date-less event sees set_wedding_date as active first;
+    // a host who's locked the date sees Reception Venue active next;
+    // an in-flight Cenomar doesn't block its own Marriage License
+    // dependency from being reachable because in_flight counts as
+    // settled for prereq purposes.
+    if (!isTaskUnlocked(state, task)) continue;
+    return { kind: 'active', task };
   }
   return { kind: 'null', reason: 'all_complete' };
 }

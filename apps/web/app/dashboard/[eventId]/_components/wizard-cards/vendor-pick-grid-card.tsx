@@ -172,13 +172,22 @@ type Props = {
   distanceFilter?: {
     referenceLat: number;
     referenceLng: number;
-    /** Initial distance value the stepper renders with (default 15 km
-     *  per 2026-05-24 owner directive for Card 03). */
+    /** Initial distance value the stepper renders with (10 km for
+     *  Card 03 per 2026-05-24 owner directive). */
     initialKm: number;
     /** Reference label shown beside the stepper · "Reception Venue"
      *  for Card 03. */
     referenceLabel: string;
   };
+  /** Marketplace vendor IDs that are CONFIRMED-BOOKED on the host's
+   *  chosen wedding date · 2026-05-24 owner directive. Vendors in this
+   *  set still appear in the grid (so the host knows they exist) but
+   *  render at 30% opacity, lose their action buttons, and show a small
+   *  "Booked on your date" chip in place of Compare/Lock. Parent fetches
+   *  this set by querying event_vendors for confirmed bookings whose
+   *  event.event_date matches the host's pick. Empty array = no
+   *  availability filter applied (preview mode / no date locked yet). */
+  bookedMarketplaceVendorIds?: ReadonlyArray<string>;
 };
 
 export function VendorPickGridCard({
@@ -188,7 +197,15 @@ export function VendorPickGridCard({
   searchContext,
   copy,
   distanceFilter,
+  bookedMarketplaceVendorIds,
 }: Props) {
+  // Stable Set lookup so each row renders O(1). Memoized once per render
+  // pass · the parent passes a new array reference only when bookings
+  // change, which is rare.
+  const bookedSet = useMemo(
+    () => new Set(bookedMarketplaceVendorIds ?? []),
+    [bookedMarketplaceVendorIds],
+  );
   /* ─────────────────────────────  state  ───────────────────────────── */
 
   // Live recommendation set · starts with the server-rendered top-N,
@@ -678,6 +695,7 @@ export function VendorPickGridCard({
             const isVendorA =
               compareState.mode === 'picking_second' &&
               compareState.vendorA.vendor_profile_id === rec.vendor_profile_id;
+            const isBooked = bookedSet.has(rec.vendor_profile_id);
             return (
               <VendorGridCardRow
                 key={rec.vendor_profile_id}
@@ -685,6 +703,7 @@ export function VendorPickGridCard({
                 isPending={pendingVendorId === rec.vendor_profile_id}
                 compareMode={compareState.mode}
                 isVendorA={isVendorA}
+                isBooked={isBooked}
                 onLock={() => handleLockMarketplace(rec)}
                 onStartCompare={() => handleStartCompare(rec)}
                 onPickAsSecond={() => handlePickSecond(rec)}
@@ -794,6 +813,7 @@ function VendorGridCardRow({
   isPending,
   compareMode,
   isVendorA,
+  isBooked,
   onLock,
   onStartCompare,
   onPickAsSecond,
@@ -807,6 +827,13 @@ function VendorGridCardRow({
   /** TRUE when this row IS vendor A (host already picked it). Renders
    *  a "Selected" pill on the photo + disables both action buttons. */
   isVendorA: boolean;
+  /** TRUE when this vendor is CONFIRMED-BOOKED on the host's chosen
+   *  wedding date · 2026-05-24 owner directive. The whole card renders
+   *  at 30% opacity, no action buttons, "Booked on your date" chip in
+   *  place of Compare/Lock. The host still SEES the vendor (so they
+   *  know they exist + can plan around them) but can't try to lock
+   *  someone who can't take the booking. */
+  isBooked: boolean;
   onLock: () => void;
   onStartCompare: () => void;
   onPickAsSecond: () => void;
@@ -819,14 +846,18 @@ function VendorGridCardRow({
   const isCertified = rec.verification_state === 'verified';
   const photoUrl = rec.primary_photo_url ?? rec.logo_url ?? null;
 
+  // 30% opacity + non-interactive when booked (2026-05-24 owner directive).
+  // Owner-A highlight wins over booked styling — the host is mid-flow on
+  // the comparison and shouldn't see their picked-A vendor dimmed even if
+  // the schedule shows booked elsewhere (which would be incoherent UX).
+  const liClass = isVendorA
+    ? 'group flex flex-col overflow-hidden rounded-xl border-2 border-terracotta bg-cream shadow-md transition-shadow'
+    : isBooked
+      ? 'group flex flex-col overflow-hidden rounded-xl border border-ink/10 bg-white shadow-sm opacity-30'
+      : 'group flex flex-col overflow-hidden rounded-xl border border-ink/10 bg-white shadow-sm transition-shadow hover:shadow-md';
+
   return (
-    <li
-      className={
-        isVendorA
-          ? 'group flex flex-col overflow-hidden rounded-xl border-2 border-terracotta bg-cream shadow-md transition-shadow'
-          : 'group flex flex-col overflow-hidden rounded-xl border border-ink/10 bg-white shadow-sm transition-shadow hover:shadow-md'
-      }
-    >
+    <li className={liClass} aria-disabled={isBooked || undefined}>
       {/* Photo · 4:3 aspect so each row stays even-height. Verified
           badge overlays top-right when applicable. */}
       <div className="relative aspect-[4/3] w-full bg-terracotta/8">
@@ -913,9 +944,15 @@ function VendorGridCardRow({
             compare" (this card becomes the candidate B) and disables
             Lock so the host can't accidentally bail out of the compare
             flow mid-pick. Vendor-A's own card has BOTH disabled with
-            a "Selected" badge instead. */}
+            a "Selected" badge instead. Booked vendors (vendor confirmed
+            elsewhere on the same wedding date) render a "Booked on your
+            date" chip with no actions — see isBooked branch first. */}
         <div className="mt-auto flex items-stretch gap-2">
-          {isVendorA ? (
+          {isBooked ? (
+            <span className="flex w-full items-center justify-center rounded-lg border border-ink/15 bg-cream px-3 py-2 text-xs font-medium text-ink/65 sm:text-sm">
+              Booked on your date
+            </span>
+          ) : isVendorA ? (
             <span className="flex w-full items-center justify-center rounded-lg border border-terracotta/40 bg-cream px-3 py-2 text-xs font-medium text-terracotta sm:text-sm">
               Selected for compare
             </span>

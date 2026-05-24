@@ -25,7 +25,10 @@
  */
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchWizardVendorRecommendations } from '@/lib/wizard-recommendations';
+import {
+  fetchWizardVendorRecommendations,
+  fetchBookedMarketplaceVendorIdsForDate,
+} from '@/lib/wizard-recommendations';
 import type { CeremonyType } from '@/lib/auspicious-date';
 import { VendorPickGridCard } from './vendor-pick-grid-card';
 
@@ -40,6 +43,11 @@ type Props = {
    *  event · excluded from recommendations so the host doesn't see the
    *  same vendor twice. */
   excludeMarketplaceIds: ReadonlyArray<string>;
+  /** events.event_date · drives the availability filter (2026-05-24
+   *  owner directive). Vendors with a confirmed booking on this date
+   *  render at 30% opacity with no action buttons. NULL = no
+   *  availability check applied. */
+  eventDate: string | null;
 };
 
 const CANONICAL_SERVICES = ['venue'] as const;
@@ -49,18 +57,23 @@ export async function ReceptionVenueCard({
   ceremonyType,
   venueSetting,
   excludeMarketplaceIds,
+  eventDate,
 }: Props) {
   const admin = createAdminClient();
   // Limit bumped from 15 → 100 so the grid's 15-per-page pagination has
   // multiple pages to walk through when marketplace inventory grows.
   // Search results also cap at 100 (matched in searchVendorRecommendations).
-  const recs = await fetchWizardVendorRecommendations(admin, {
-    canonicalServices: CANONICAL_SERVICES,
-    ceremonyType,
-    venueSetting,
-    excludeVendorIds: excludeMarketplaceIds,
-    limit: 100,
-  });
+  // Booked IDs run in parallel · independent query.
+  const [recs, bookedIds] = await Promise.all([
+    fetchWizardVendorRecommendations(admin, {
+      canonicalServices: CANONICAL_SERVICES,
+      ceremonyType,
+      venueSetting,
+      excludeVendorIds: excludeMarketplaceIds,
+      limit: 100,
+    }),
+    fetchBookedMarketplaceVendorIdsForDate(admin, eventId, eventDate),
+  ]);
 
   return (
     <VendorPickGridCard
@@ -79,6 +92,7 @@ export async function ReceptionVenueCard({
         emptyStateCopy:
           "We haven't curated reception venues for your area + ceremony yet — search by name or add yours below and we'll lock it into your plan.",
       }}
+      bookedMarketplaceVendorIds={bookedIds}
     />
   );
 }

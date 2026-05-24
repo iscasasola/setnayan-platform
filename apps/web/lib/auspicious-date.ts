@@ -356,6 +356,189 @@ function numerologyReasons(
 }
 
 // ----------------------------------------------------------------------------
+// Astrology layer — 2026-05-24 owner directive. Adds three computable
+// celestial signals that surface alongside numerology:
+//   1. Western zodiac (Sun sign) — by month-day boundary
+//   2. Chinese year-of-the-X — by Gregorian year (12-year cycle, anchored
+//      to a known reference year). Approximation: uses Jan 1 boundary
+//      rather than the actual Lunar New Year boundary. Acceptable for V1.
+//      Edge cases in Jan-Feb where the Lunar NY hasn't happened yet would
+//      surface the previous year's animal in folk practice. V1.1 can swap
+//      to a Lunar NY lookup table if precision is requested.
+//   3. Lunar phase (new / waxing / full / waning) — Pythagorean lunar
+//      math from a known reference new moon.
+// True planetary alignment / ephemeris-grade astrology (Mercury retrograde,
+// Saturn return, conjunctions) is out of V1 scope · those need ephemeris
+// data the library doesn't have access to.
+// ----------------------------------------------------------------------------
+
+type ZodiacSign =
+  | 'aries'
+  | 'taurus'
+  | 'gemini'
+  | 'cancer'
+  | 'leo'
+  | 'virgo'
+  | 'libra'
+  | 'scorpio'
+  | 'sagittarius'
+  | 'capricorn'
+  | 'aquarius'
+  | 'pisces';
+
+const ZODIAC_MEANINGS: Record<ZodiacSign, string> = {
+  aries:
+    'Aries season · courage, new beginnings, fire energy · weddings here carry bold momentum',
+  taurus:
+    'Taurus season · sensual beauty, comfort, lasting bonds · weddings here feel earthy and grounded',
+  gemini:
+    'Gemini season · joy, conversation, connection · weddings here are filled with laughter and stories',
+  cancer:
+    'Cancer season · home, family, deep care · weddings here center on belonging and warmth',
+  leo:
+    'Leo season · celebration, generosity, big love · weddings here radiate confidence',
+  virgo:
+    'Virgo season · care, attention, devotion · weddings here are crafted with intention to every detail',
+  libra:
+    'Libra season · balance, harmony, partnership · the marriage sign itself · weddings here feel inevitable',
+  scorpio:
+    'Scorpio season · depth, intensity, transformation · weddings here carry soul-deep meaning',
+  sagittarius:
+    'Sagittarius season · adventure, optimism, expansion · weddings here open a big journey ahead',
+  capricorn:
+    'Capricorn season · commitment, structure, legacy · weddings here are built to last generations',
+  aquarius:
+    'Aquarius season · innovation, friendship, vision · weddings here lead with originality and clarity',
+  pisces:
+    'Pisces season · imagination, deep love, soulful · weddings here feel poetic and dreamlike',
+};
+
+function westernZodiac(date: Date): ZodiacSign {
+  const m = date.getMonth() + 1;
+  const d = date.getDate();
+  // Standard Sun-sign boundaries (Western tropical zodiac).
+  if ((m === 3 && d >= 21) || (m === 4 && d <= 19)) return 'aries';
+  if ((m === 4 && d >= 20) || (m === 5 && d <= 20)) return 'taurus';
+  if ((m === 5 && d >= 21) || (m === 6 && d <= 20)) return 'gemini';
+  if ((m === 6 && d >= 21) || (m === 7 && d <= 22)) return 'cancer';
+  if ((m === 7 && d >= 23) || (m === 8 && d <= 22)) return 'leo';
+  if ((m === 8 && d >= 23) || (m === 9 && d <= 22)) return 'virgo';
+  if ((m === 9 && d >= 23) || (m === 10 && d <= 22)) return 'libra';
+  if ((m === 10 && d >= 23) || (m === 11 && d <= 21)) return 'scorpio';
+  if ((m === 11 && d >= 22) || (m === 12 && d <= 21)) return 'sagittarius';
+  if ((m === 12 && d >= 22) || (m === 1 && d <= 19)) return 'capricorn';
+  if ((m === 1 && d >= 20) || (m === 2 && d <= 18)) return 'aquarius';
+  return 'pisces'; // Feb 19 - Mar 20
+}
+
+type ChineseZodiacAnimal =
+  | 'rat'
+  | 'ox'
+  | 'tiger'
+  | 'rabbit'
+  | 'dragon'
+  | 'snake'
+  | 'horse'
+  | 'goat'
+  | 'monkey'
+  | 'rooster'
+  | 'dog'
+  | 'pig';
+
+/** Year-of-the-X · 12-year cycle. 2020 = Rat (anchor). Approximation:
+ *  uses Gregorian Jan 1 boundary, not the actual Lunar New Year.
+ *  Acceptable for V1 wedding-date copy; V1.1 can refine. */
+const CHINESE_ZODIAC_ORDER: ChineseZodiacAnimal[] = [
+  'rat',
+  'ox',
+  'tiger',
+  'rabbit',
+  'dragon',
+  'snake',
+  'horse',
+  'goat',
+  'monkey',
+  'rooster',
+  'dog',
+  'pig',
+];
+
+const CHINESE_ZODIAC_MEANINGS: Record<ChineseZodiacAnimal, string> = {
+  rat: 'Year of the Rat · cleverness, prosperity, fresh resourcefulness · weddings here begin with abundance',
+  ox: 'Year of the Ox · steadiness, dependable love, slow patient strength · weddings here build a lasting home',
+  tiger:
+    'Year of the Tiger · courage, vitality, fearless commitment · weddings here charge into a vivid future',
+  rabbit:
+    'Year of the Rabbit · gentleness, elegance, peaceful union · weddings here are tender and graceful',
+  dragon:
+    'Year of the Dragon · power, fortune, abundance · the most auspicious year for unions in Chinese tradition',
+  snake:
+    'Year of the Snake · wisdom, transformation, deep intuition · weddings here mark a thoughtful new chapter',
+  horse:
+    'Year of the Horse · freedom, passion, swift forward motion · weddings here gallop into adventure together',
+  goat: 'Year of the Goat · gentleness, beauty, artistic harmony · weddings here are tender and full of grace',
+  monkey:
+    'Year of the Monkey · cleverness, joy, playful creativity · weddings here sparkle with laughter',
+  rooster:
+    'Year of the Rooster · confidence, honesty, generous celebration · weddings here are loud with love',
+  dog: 'Year of the Dog · loyalty, devotion, family-first energy · weddings here center on steadfast love',
+  pig: 'Year of the Pig · abundance, comfort, joyful generosity · weddings here are warm and lavish in spirit',
+};
+
+function chineseYear(date: Date): ChineseZodiacAnimal {
+  // 2020 = Rat (index 0 in CHINESE_ZODIAC_ORDER)
+  const year = date.getFullYear();
+  const idx = ((year - 2020) % 12 + 12) % 12;
+  return CHINESE_ZODIAC_ORDER[idx]!;
+}
+
+type LunarPhase = 'new' | 'waxing' | 'full' | 'waning';
+
+const LUNAR_PHASE_MEANINGS: Record<LunarPhase, string> = {
+  new: 'New moon energy · fresh starts and intention-setting · the perfect lunar timing for a vow',
+  waxing:
+    'Waxing moon · growth and momentum · energy building toward fullness · weddings here mark forward motion',
+  full: 'Full moon · illumination and celebration · the most luminous lunar night for a ceremony',
+  waning:
+    'Waning moon · gratitude and settling in · weddings here carry quiet, completed energy',
+};
+
+/** Lunar phase classification via the canonical Pythagorean-lunar math:
+ *  reference new moon at 2000-01-06 18:14 UTC, synodic month 29.530588853d.
+ *  Returns 4-state phase (new/waxing/full/waning). Wide thresholds so each
+ *  phase covers ~7 calendar days, giving adjacent dates SOME lunar variety
+ *  but not flickering on every single day. */
+function lunarPhase(date: Date): LunarPhase {
+  const referenceNewMoon = Date.UTC(2000, 0, 6, 18, 14);
+  const synodicMonthDays = 29.530588853;
+  const daysSinceRef =
+    (date.getTime() - referenceNewMoon) / (1000 * 60 * 60 * 24);
+  const phasePos = ((daysSinceRef % synodicMonthDays) + synodicMonthDays) % synodicMonthDays;
+  const fraction = phasePos / synodicMonthDays;
+  // 0.00-0.06 + 0.94-1.00 = new (±2 day window around new moon)
+  if (fraction < 0.06 || fraction > 0.94) return 'new';
+  // 0.06-0.44 = waxing (~11 days)
+  if (fraction < 0.44) return 'waxing';
+  // 0.44-0.56 = full (±2 day window around full moon)
+  if (fraction < 0.56) return 'full';
+  // 0.56-0.94 = waning (~11 days)
+  return 'waning';
+}
+
+/**
+ * Returns astrology reasons for the date. Always includes Western zodiac
+ * + Chinese year + lunar phase · they're computable from every date and
+ * give the panel three more layers of meaning.
+ */
+function astrologyReasons(date: Date): string[] {
+  const reasons: string[] = [];
+  reasons.push(ZODIAC_MEANINGS[westernZodiac(date)]);
+  reasons.push(CHINESE_ZODIAC_MEANINGS[chineseYear(date)]);
+  reasons.push(LUNAR_PHASE_MEANINGS[lunarPhase(date)]);
+  return reasons;
+}
+
+// ----------------------------------------------------------------------------
 // Ceremony-specific overlays — surface relevant cultural touchpoints positively
 // ----------------------------------------------------------------------------
 
@@ -624,6 +807,7 @@ function meaningfulDateResonance(date: Date, meaningfulDates: MeaningfulDate[]):
 export type AuspiciousReasonCategory =
   | 'personal'
   | 'numerology'
+  | 'astrology'
   | 'ceremony'
   | 'special_pattern'
   | 'cultural'
@@ -673,7 +857,17 @@ export function computeAuspiciousReasonsDetailed(
     });
   }
 
-  // 3. Ceremony notes (only when ceremonyType + an applicable overlay)
+  // 3. Astrology (always present · Western zodiac + Chinese year + lunar phase)
+  const astrology = astrologyReasons(date);
+  if (astrology.length > 0) {
+    groups.push({
+      category: 'astrology',
+      label: 'Astrology · stars & moon',
+      reasons: astrology,
+    });
+  }
+
+  // 4. Ceremony notes (only when ceremonyType + an applicable overlay)
   const ceremony: string[] = [];
   const overlay = ceremonyOverlay(date, ceremonyType);
   if (overlay) ceremony.push(overlay);
@@ -685,7 +879,7 @@ export function computeAuspiciousReasonsDetailed(
     });
   }
 
-  // 4. Special patterns (palindromes, holidays, equinoxes)
+  // 5. Special patterns (palindromes, holidays, equinoxes)
   const patterns: string[] = [];
   for (const pattern of SPECIAL_PATTERNS) {
     if (pattern.match(date)) patterns.push(pattern.reason);
@@ -698,7 +892,7 @@ export function computeAuspiciousReasonsDetailed(
     });
   }
 
-  // 5. Cultural meaning (day-of-week + month variants + position-in-month).
+  // 6. Cultural meaning (day-of-week + month variants + position-in-month).
   //    Variants per day-of-week + per month are deterministically indexed
   //    by day-of-year so same date → same picks AND adjacent dates pick
   //    different combinations. +3 prime offset on month so the two
@@ -725,7 +919,7 @@ export function computeAuspiciousReasonsDetailed(
     });
   }
 
-  // 6. Practical reframes (sensitive concerns turned positive)
+  // 7. Practical reframes (sensitive concerns turned positive)
   const practical = sensitiveReframes(date, ceremonyType);
   if (practical.length > 0) {
     groups.push({

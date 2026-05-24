@@ -36,7 +36,7 @@
  */
 
 import { Star } from 'lucide-react';
-import type { WizardTask } from '@/lib/wizard';
+import { WIZARD_TASKS, type WizardTask } from '@/lib/wizard';
 
 type Props = {
   task: WizardTask;
@@ -44,11 +44,18 @@ type Props = {
   children: React.ReactNode;
   /** Optional footer · usually the [Save] button + secondary actions. */
   footer?: React.ReactNode;
-  /** Total task count for the order badge subtitle. Defaults to 38. */
+  /** Total task count override · defaults to WIZARD_TASKS.length so the
+   *  display always reflects the current sequence (was hardcoded 38 ·
+   *  fixed 2026-05-24 alongside the wizard's 38 → 64 expansion). */
   totalTasks?: number;
 };
 
-export function WizardCard({ task, children, footer, totalTasks = 38 }: Props) {
+export function WizardCard({
+  task,
+  children,
+  footer,
+  totalTasks = WIZARD_TASKS.length,
+}: Props) {
   return (
     <section
       aria-labelledby="wizard-card-heading"
@@ -85,7 +92,7 @@ export function WizardCard({ task, children, footer, totalTasks = 38 }: Props) {
             </span>
           </div>
           <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-            Step {task.order} of {totalTasks}
+            Step {WIZARD_TASKS.findIndex((t) => t.id === task.id) + 1} of {totalTasks}
           </p>
         </header>
 

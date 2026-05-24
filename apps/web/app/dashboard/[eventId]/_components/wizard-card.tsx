@@ -10,8 +10,9 @@
  *
  * Visual chrome:
  *   - ★ TODAY'S FOCUS heading rail (terracotta accent)
- *   - Pill row: phase label (e.g. "FOUNDATION") on left · order badge
- *     ("Step 2 of 38") on right
+ *   - Pill row: phase label (e.g. "FOUNDATION") on left · position badge
+ *     ("Step 2 of 48") on right · position = canonical index in
+ *     WIZARD_TASKS sorted by order field
  *   - Display-typeface title in italic Cormorant
  *   - Why-it-matters paragraph in body Manrope at 75% ink
  *   - Children slot for the card-specific inline form

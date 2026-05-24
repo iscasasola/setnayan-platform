@@ -193,7 +193,21 @@ export type WizardTask = {
  * after Cenomar + Church paperwork are in hand · Pre-Cana runs in
  * parallel · Marriage License is downstream of all three.
  */
-export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
+// 2026-05-24 CRITICAL FIX (owner-reported "guest list is still 6th card"):
+// the array was authored in source order (tasks added over time landed at
+// the bottom), and getCarouselTasks() iterated this array in declaration
+// order — so the `order` field was IGNORED at runtime. Reorders done via
+// PR #525 (draft_guest_list 4.5 → 1.5, music 12 → 5.5, attire 18 → 7.6,
+// rings 22.5 → 9.5) had zero effect because the array index is what the
+// carousel walks, not the order field.
+//
+// Fix: declare the raw literal as a private constant, then export
+// WIZARD_TASKS as a stable-sorted copy keyed on `order`. Now the `order`
+// field is truly authoritative + adding a new task anywhere in source
+// (e.g., at the bottom for readability) automatically slots it into the
+// right sequence position based on its `order` value. Future devs don't
+// have to think about source vs canonical order being separate.
+const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
   {
     id: 'set_wedding_date',
     order: 1,
@@ -786,7 +800,19 @@ export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [
     pillLabel: 'Post-event',
     prerequisites: ['create_editorial'],
   },
-] as const;
+];
+
+/**
+ * Public export · `_WIZARD_TASKS_RAW` sorted by the `order` field. This
+ * is what every consumer reads (carousel · sequence resolver · plan
+ * grid · per-card hard-floor scheduler).
+ *
+ * Sort is stable per Array.prototype.sort spec (ECMA-262 since 2019) so
+ * tasks sharing the same `order` value (none today but possible if a
+ * future spec lock adds tied positions) preserve their source order.
+ */
+export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [..._WIZARD_TASKS_RAW]
+  .sort((a, b) => a.order - b.order);
 
 /** Shape of events.wizard_state JSONB column.
  *

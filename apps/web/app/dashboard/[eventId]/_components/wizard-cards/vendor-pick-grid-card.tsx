@@ -117,8 +117,14 @@ function haversineKm(
   return R * 2 * Math.asin(Math.sqrt(a));
 }
 
-/** Distance filter step (km) for the +/- stepper. */
-const DISTANCE_STEP_KM = 5;
+/** Distance filter step (km) for the +/- stepper. Owner-locked 2026-05-24:
+ *  +15 km per increment so the host walks 10 → 25 → 40 → 55 → 70 km when
+ *  widening from the default 10 km radius. Was 5 km briefly · changed to 15
+ *  per the V1 wizard card refinement bundle lock (CLAUDE.md 2026-05-24 row
+ *  "V1 wizard card refinement bundle" item 1 Ceremony Venue · item 12
+ *  Accommodation). The decrease branch clamps to DISTANCE_MIN_KM so a single
+ *  press from 10 lands at 5 (not -5) for hosts who want a tighter radius. */
+const DISTANCE_STEP_KM = 15;
 /** Hard floor / ceiling for the distance stepper. 5 km too narrow for
  *  most Filipino venue+church pairs · 100 km too wide for the spirit
  *  of "near my reception". These are couple-friendly bounds. */
@@ -437,6 +443,31 @@ export function VendorPickGridCard({
     distanceKm,
     regionFilter,
   ]);
+
+  /** Nearest-fallback · owner-locked 2026-05-24 ("fallback to nearest with
+   *  distance label"). Fires only when distanceFilter is active AND the
+   *  current radius narrows results to zero. Surfaces the single closest
+   *  vendor beyond the radius (computed from the unfiltered `results` set)
+   *  so the host always sees a real option rather than a generic empty
+   *  state — particularly important for couples in low-density regions
+   *  where no church / accommodation falls within 10 km. The host can
+   *  widen the stepper (now visible to them via the +15 km steps) or pick
+   *  this closest match directly. Returns null in every other case so the
+   *  city / search / generic empty-state copy paths render unchanged. */
+  const nearestBeyondRadius = useMemo<{ rec: WizardVendorRec; km: number } | null>(() => {
+    if (!distanceFilter) return null;
+    if (filteredResults.length > 0) return null;
+    const { referenceLat, referenceLng } = distanceFilter;
+    let nearest: { rec: WizardVendorRec; km: number } | null = null;
+    for (const r of results) {
+      if (r.hq_latitude == null || r.hq_longitude == null) continue;
+      const km = haversineKm(referenceLat, referenceLng, r.hq_latitude, r.hq_longitude);
+      if (nearest === null || km < nearest.km) {
+        nearest = { rec: r, km };
+      }
+    }
+    return nearest;
+  }, [distanceFilter, filteredResults, results]);
 
   /* ───────────  URL sync · region + city deep-links  ─────────── */
 
@@ -1025,6 +1056,27 @@ export function VendorPickGridCard({
           No {copy.pluralNoun} matched <strong className="font-medium text-ink">{activeQuery}</strong>.
           Try a different name or area — or add yours below.
         </p>
+      ) : nearestBeyondRadius && distanceFilter ? (
+        /* Nearest-fallback · owner-locked 2026-05-24 ("fallback to nearest
+         *  with distance label"). When the distance filter narrows results
+         *  to zero, surface the single closest match beyond the radius so
+         *  the host sees a real option rather than a generic empty state.
+         *  Cream-toned card with terracotta accent · matches the brand
+         *  voice of the "Closest match" framing the spec calls out. */
+        <div className="rounded-xl border border-terracotta/30 bg-cream/60 px-5 py-5 text-sm leading-relaxed text-ink/75">
+          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-terracotta-700">
+            Closest match
+          </p>
+          <p className="mt-2 font-display text-lg italic text-ink">
+            {nearestBeyondRadius.rec.business_name}
+          </p>
+          <p className="mt-1 text-sm text-ink/70">
+            {nearestBeyondRadius.km.toFixed(1)} km from your {distanceFilter.referenceLabel.toLowerCase()} — beyond your current {distanceKm} km radius.
+          </p>
+          <p className="mt-3 text-xs text-ink/55">
+            No {copy.pluralNoun} within {distanceKm} km of your {distanceFilter.referenceLabel.toLowerCase()}. Widen the radius above with the +{DISTANCE_STEP_KM} km stepper to see more — or add your own match below.
+          </p>
+        </div>
       ) : (
         <p className="rounded-xl border border-dashed border-ink/15 bg-white/40 px-4 py-6 text-sm leading-relaxed text-ink/70">
           {copy.emptyStateCopy}

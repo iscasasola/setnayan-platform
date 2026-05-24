@@ -21,6 +21,13 @@
  * iteration 0016 § 0 anti-abuse subsection.
  */
 
+// Every `revalidatePath()` below uses `'layout'` mode (not default 'page')
+// so the dashboard layout invalidates too. Concierge state writes
+// (trial start · cancel · upgrade · downgrade) change fields the
+// OuterDashboardHeader chrome reads via `primaryEvent.*`; without
+// 'layout' the chrome stays stale until a manual reload. Same canonical
+// fix as wizard-actions.ts (PR #514) — see CLAUDE.md 2026-05-24
+// "Fix: chrome monogram (+ layout-cached fields) stay stale after wizard save".
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -148,8 +155,8 @@ export async function activateConcierge(input: {
     relatedUrl: `/dashboard/${eventId}`,
   });
 
-  revalidatePath(`/dashboard/${eventId}`);
-  revalidatePath('/dashboard/profile/concierge');
+  revalidatePath(`/dashboard/${eventId}`, 'layout');
+  revalidatePath('/dashboard/profile/concierge', 'layout');
   return { status: 'activated', expiresAt: expiresAt.toISOString() };
 }
 
@@ -168,7 +175,7 @@ export async function cancelConcierge(formData: FormData): Promise<void> {
   // V1 SIMPLIFICATION: no structural state change — the couple keeps their
   // paid access until the natural `concierge_expires_at`. Pro-rated refund
   // requests are admin-handled per 0025 § 3.7.6.
-  revalidatePath(`/dashboard/${eventId}`);
+  revalidatePath(`/dashboard/${eventId}`, 'layout');
   redirect(`/dashboard/profile/concierge?cancelled=1&event=${encodeURIComponent(eventId)}`);
 }
 
@@ -300,8 +307,8 @@ export async function startConciergeTrial(input: { eventId: string }): Promise<{
     relatedUrl: `/dashboard/${eventId}`,
   });
 
-  revalidatePath(`/dashboard/${eventId}`);
-  revalidatePath('/dashboard/profile/concierge');
+  revalidatePath(`/dashboard/${eventId}`, 'layout');
+  revalidatePath('/dashboard/profile/concierge', 'layout');
   return { status: 'started' };
 }
 
@@ -378,8 +385,8 @@ export async function recomputeConciergeExpiry(input: {
     .eq('event_id', eventId);
   if (error) throw new Error(error.message);
 
-  revalidatePath(`/dashboard/${eventId}`);
-  revalidatePath('/dashboard/profile/concierge');
+  revalidatePath(`/dashboard/${eventId}`, 'layout');
+  revalidatePath('/dashboard/profile/concierge', 'layout');
   return { status: extended ? 'extended' : 'unchanged' };
 }
 

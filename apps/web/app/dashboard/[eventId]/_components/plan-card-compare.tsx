@@ -12,7 +12,12 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
-import type { PlanCardPick, PlanGroupId } from '@/lib/wedding-plan-groups';
+import {
+  PLAN_GROUPS,
+  type PlanCardPick,
+  type PlanGroupId,
+} from '@/lib/wedding-plan-groups';
+import { WEDDING_FOLDER_SLUG } from '@/lib/taxonomy';
 import {
   deleteVendor,
   finalizeVendor,
@@ -70,6 +75,20 @@ type LockState =
       existingVendorId: string;
       existingVendorName: string;
       groupLabel: string;
+    }
+  // PR A · Rule 3 of the lock/delete/overlap architecture (CLAUDE.md
+  // 2026-05-24 row "Canonical wizard sequence reconciled 38 → 45 + Lock/
+  // delete/overlap architecture"). Surfaced when the target vendor's
+  // configured max_soft_holds_per_date is already filled by other hosts'
+  // contracted-status picks on the same event_date. UI shows a polite
+  // explanation + a Browse-similar-vendors CTA pointing at the folder
+  // the group lives in.
+  | {
+      kind: 'soft_hold_limit';
+      vendorId: string;
+      vendorName: string;
+      currentLimit: number;
+      existingHoldCount: number;
     }
   | {
       kind: 'just_locked';
@@ -275,6 +294,15 @@ export function PlanCardCompare({
             groupLabel: result.groupLabel,
           });
           return;
+        case 'soft_hold_limit_reached':
+          setLockState({
+            kind: 'soft_hold_limit',
+            vendorId,
+            vendorName,
+            currentLimit: result.currentLimit,
+            existingHoldCount: result.existingHoldCount,
+          });
+          return;
         case 'not_signed_in':
           setLockState({
             kind: 'error',
@@ -373,6 +401,16 @@ export function PlanCardCompare({
               }
               onCancel={cancelConflict}
               isPending={isPending}
+            />
+          ) : null}
+
+          {lockState.kind === 'soft_hold_limit' ? (
+            <SoftHoldLimitModal
+              vendorName={lockState.vendorName}
+              currentLimit={lockState.currentLimit}
+              existingHoldCount={lockState.existingHoldCount}
+              browseSimilarHref={resolveBrowseSimilarHref(groupId)}
+              onDismiss={() => setLockState({ kind: 'idle' })}
             />
           ) : null}
 
@@ -635,6 +673,99 @@ function ConflictModal({
       </div>
     </div>
   );
+}
+
+/**
+ * PR A · Soft-hold limit modal — Rule 3 of the lock/delete/overlap
+ * architecture (CLAUDE.md 2026-05-24 row "Canonical wizard sequence
+ * reconciled 38 → 45 + Lock/delete/overlap architecture").
+ *
+ * Surfaces when the target vendor's max_soft_holds_per_date is already
+ * filled by N other hosts' contracted-status picks on the same wedding
+ * date. Polite, non-punitive copy — vendors juggle multiple soft holds
+ * until money commits, so "try a different vendor or come back later"
+ * is the honest framing. The Browse-similar CTA deep-links to the
+ * marketplace folder for the group so the host doesn't bounce out
+ * of the planning flow.
+ */
+function SoftHoldLimitModal({
+  vendorName,
+  currentLimit,
+  existingHoldCount,
+  browseSimilarHref,
+  onDismiss,
+}: {
+  vendorName: string;
+  currentLimit: number;
+  existingHoldCount: number;
+  browseSimilarHref: string;
+  onDismiss: () => void;
+}) {
+  return (
+    <div
+      role="alertdialog"
+      aria-labelledby="soft-hold-heading"
+      aria-describedby="soft-hold-body"
+      className="space-y-3 rounded-lg border border-amber-300/60 bg-amber-50/70 px-4 py-3"
+    >
+      <div className="flex items-start gap-2">
+        <AlertTriangle
+          aria-hidden
+          className="mt-0.5 h-4 w-4 shrink-0 text-amber-700"
+          strokeWidth={2}
+        />
+        <div className="space-y-1">
+          <h3
+            id="soft-hold-heading"
+            className="text-sm font-semibold text-amber-900"
+          >
+            {vendorName} is fully booked with soft holds for your date.
+          </h3>
+          <p id="soft-hold-body" className="text-xs leading-snug text-amber-900/85">
+            {vendorName} already has {existingHoldCount} confirmed soft holds
+            for your wedding date. They only accept {currentLimit} simultaneous
+            holds at a time. Try a different vendor or come back later — they&rsquo;ll
+            free up if another couple doesn&rsquo;t downpay.
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Link
+          href={browseSimilarHref}
+          className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-terracotta px-3 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+        >
+          Browse similar vendors
+        </Link>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-amber-400/60 bg-cream px-3 py-2 text-sm font-medium text-amber-900 transition-colors hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600"
+        >
+          Dismiss
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Resolve the "Browse similar vendors" deep-link from a PlanGroupId.
+ *
+ * Reads PLAN_GROUPS to find the group's catalogFolder, then looks up the
+ * WEDDING_FOLDER_SLUG to get the URL fragment. Returns `/vendors` as a
+ * safe fallback if the group somehow isn't found (defensive — shouldn't
+ * happen in practice since groupId comes from PLAN_GROUPS itself).
+ *
+ * Doesn't use buildPlanGroupSearchHref from lib/wedding-plan-groups.ts
+ * because that helper adds `from=plan` which strips marketplace chrome —
+ * for the soft-hold-limit "try another vendor" flow the host benefits
+ * from seeing the full filter UI so they can narrow by city/radius/etc.
+ */
+function resolveBrowseSimilarHref(groupId: PlanGroupId): string {
+  const group = PLAN_GROUPS.find((g) => g.id === groupId);
+  if (!group) return '/vendors';
+  const slug = WEDDING_FOLDER_SLUG[group.catalogFolder];
+  return `/vendors?folder=${slug}#${slug}`;
 }
 
 function UndoToast({

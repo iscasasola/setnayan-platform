@@ -325,8 +325,13 @@ export async function completeSetWeddingDateTask(
  *  for that category. The category enum is V1-locked at 28 values per
  *  iteration 0006 · the wizard maps each foundation card to one of
  *  those 28. Custom vendor names are accepted; the category drives
- *  hard-single conflict checks (a venue locked once blocks a second
- *  venue lock without an explicit unlock first). */
+ *  per-card data segregation — Card 02 Reception writes 'venue', Card
+ *  03 Ceremony writes 'religious_venue' — distinct values mean per-card
+ *  picks never collide. The wizard's serial resolver hides each locked
+ *  card after one click; DB-layer hard-single uniqueness on
+ *  (event_id, category) is NOT enforced (no trigger or unique index)
+ *  and is tracked as a defense-in-depth follow-up per CLAUDE.md
+ *  2026-05-28 row. */
 const VENDOR_PICK_CATEGORY: Partial<Record<WizardTaskId, string>> = {
   reception_venue: 'venue',
   ceremony_venue: 'religious_venue',
@@ -339,10 +344,12 @@ const VENDOR_PICK_CATEGORY: Partial<Record<WizardTaskId, string>> = {
   music_entertainment: 'band_dj',
   // 2026-05-25 owner directive ("finding after party band/dj is gone").
   // Late-night after-party DJ · same legacy `band_dj` bucket as
-  // music_entertainment but separately tracked via wizard task_id so
-  // both cards lock independently. Hard-single conflict allowed across
-  // band_dj because event_vendors.source_task_id differentiates the
-  // two picks. Real canonical filter at card level is `dj` only.
+  // music_entertainment but separately tracked via wizard_state.task_id
+  // so both cards advance the wizard independently. Both inserts write
+  // category='band_dj' to event_vendors — the rows are indistinguishable
+  // at the table level until the planned source_task_id column lands
+  // (see wedding-plan-groups.ts:484). Real canonical filter at card
+  // level is `dj` only.
   after_party_music: 'band_dj',
   host_mc: 'host_emcee',
   // 2026-05-24 PR (b) stage 1 · `gown_designer` renamed to `bridal_gown`
@@ -387,11 +394,18 @@ function isVendorPickTaskId(value: unknown): value is WizardTaskId {
 /**
  * Lock a top-5 marketplace recommendation as the wizard's vendor-pick
  * task answer. Atomically inserts event_vendors row with
- * status='contracted' AND advances wizard_state.
+ * status='contracted' AND advances wizard_state.<taskId>.
  *
- * Hard-single conflict check inherited from event_vendors RLS / triggers
- * (PR #135 lineage). If a venue is already locked, this action returns
- * an error that the client surfaces.
+ * Uniqueness protection is UI-LAYER, NOT DB-layer. Once
+ * wizard_state.<taskId>.completed_at is stamped, the WizardSequenceResolver
+ * skips the task and the [Lock this vendor] button is no longer rendered.
+ * `?card=<id>` URL state was retired 2026-05-23, so the host cannot
+ * navigate back to a completed card. There is NO event_vendors trigger
+ * enforcing one-row-per-(event_id, category) for hard-single categories;
+ * the previous comment claiming a "PR #135 lineage" trigger was wrong
+ * (PR #135 was multi-host event_moderators, not event_vendors). A
+ * defense-in-depth BEFORE INSERT trigger is tracked as a follow-up
+ * per CLAUDE.md 2026-05-28 row.
  */
 export async function completeVendorPickFromMarketplace(
   formData: FormData,
@@ -436,8 +450,10 @@ export async function completeVendorPickFromMarketplace(
 
   // Insert event_vendors row with status='contracted' directly · the
   // wizard skips the considering→contracted two-step flow because the
-  // host has already committed by clicking [Lock this vendor]. Hard-
-  // single conflict check fires via the event_vendors trigger.
+  // host has already committed by clicking [Lock this vendor]. No DB
+  // trigger enforces (event_id, category) uniqueness; the wizard's
+  // serial resolver gates lock-twice at the UI layer (see action
+  // docstring above for the full uniqueness story).
   const { data: inserted, error: insertErr } = await supabase
     .from('event_vendors')
     .insert({
@@ -476,8 +492,8 @@ export async function completeVendorPickFromMarketplace(
  * event_vendors row WITHOUT marketplace_vendor_id (the row's vendor_name
  * is the source of truth) and advances wizard_state.
  *
- * Same hard-single conflict + atomic-update shape as the marketplace
- * variant.
+ * Same UI-layer uniqueness protection + atomic-update shape as the
+ * marketplace variant (no DB trigger — see that action's docstring).
  */
 export async function completeVendorPickFromCustom(
   formData: FormData,

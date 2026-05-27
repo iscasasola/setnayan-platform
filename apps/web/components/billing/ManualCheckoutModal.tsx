@@ -382,7 +382,7 @@ export default function ManualCheckoutModal({
               font-medium text-zinc-300 transition hover:border-zinc-500 hover:bg-zinc-800
             "
           >
-            I'll do this later
+            I&apos;ll do this later
           </button>
           <button
             type="button"

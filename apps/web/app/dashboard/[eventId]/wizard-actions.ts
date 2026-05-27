@@ -1521,36 +1521,58 @@ export async function completeDraftGuestListTask(
 }
 
 // ============================================================================
-// Card 15 · Set inspiration mood board · INSPIRATION INTAKE actions.
+// Card 15 · Set inspiration mood board · 13-SLOT UPLOAD actions.
 //
-// Owner directive 2026-05-25 — the host pastes photo inspirations + uploads
-// photos of how they want the wedding to look. The card was a curated palette
-// picker before; pivoting to an inspiration-intake surface that captures
-// real-world references and auto-extracts each photo's 6-color palette
-// client-side via Canvas API.
+// Owner directive 2026-05-25 (verbatim): "Make the upload. you keep deferring
+// this. We want upload photo. no url. just upload up to photos 2 for each."
 //
-// Two write paths:
-//   addInspirationFromUrl    — host pastes an image URL (Pinterest, Instagram,
-//                              vendor portfolio, friend's wedding photo). The
-//                              image_url is stored as-is; r2_key stays NULL.
-//   addInspirationFromUpload — host uploads a file. We hand it to
-//                              uploadPublicAsset() which writes to R2 (or
-//                              falls back to Supabase Storage when R2 isn't
-//                              configured), and persist the public URL +
-//                              r2_key.
+// 13 named slots × 2 photos each = 26 upload slots total:
+//   Location feel (6): venue · tunnel · stage · table · ceiling · overall
+//   Palette       (1): palette
+//   Dress codes   (6): groom · bride · principal_sponsor · entourage ·
+//                       parents · guests
 //
-// Palette extraction is client-side (Canvas histogram) so the action just
-// validates + stores the 6 hex values. Keeps the server stateless re: image
-// decoding (no server-side image lib dependency).
+// This SUPERSEDES the URL-paste + free-form upload UX shipped in PR #543.
+// The schema migration 20260627000000 nuked any leftover free-form rows
+// and added NOT NULL slot_key + slot_position columns with a partial
+// UNIQUE(event_id, slot_key, slot_position) WHERE removed_at IS NULL —
+// so each (slot, position) is single-row, and removing a photo frees
+// the slot for a fresh upload.
 //
-// Per CLAUDE.md 2026-05-21 row "Moodboard expanded · 3 pillars" +
-// 2026-05-24 row "V1 SCOPE EXPANSION · Moodboard becomes multi-source",
-// this is the V1 couple-inspiration foothold. The broader multi-source
-// architecture (stylist push-share, finalize-then-broadcast) lands V1.x
-// post-pilot.
+// Anchors:
+//   - CLAUDE.md 2026-05-25 row "Mood Board · 13-slot upload UX (supersedes
+//     PR #543's URL-paste + free-form upload)" — this row.
+//   - CLAUDE.md 2026-05-21 row "Moodboard expanded · 3 pillars" — the 3
+//     pillars (Palette · Location feel · Dress codes) the 13 slots map to.
+//   - 0010 § "Visual preview pillars" — canonical pillar lock.
 // ============================================================================
 
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
+
+const MOODBOARD_SLOT_KEYS = [
+  'venue',
+  'tunnel',
+  'stage',
+  'table',
+  'ceiling',
+  'overall',
+  'palette',
+  'groom',
+  'bride',
+  'principal_sponsor',
+  'entourage',
+  'parents',
+  'guests',
+] as const;
+
+type MoodboardSlotKey = (typeof MOODBOARD_SLOT_KEYS)[number];
+
+function isMoodboardSlotKey(value: unknown): value is MoodboardSlotKey {
+  return (
+    typeof value === 'string' &&
+    (MOODBOARD_SLOT_KEYS as readonly string[]).includes(value)
+  );
+}
 
 function validatePalette6(raw: unknown): string[] {
   if (!Array.isArray(raw) || raw.length !== 6) {
@@ -1566,119 +1588,51 @@ function validatePalette6(raw: unknown): string[] {
   return out;
 }
 
-function isLikelyImageUrl(value: string): boolean {
-  if (!/^https?:\/\//i.test(value)) return false;
-  try {
-    // eslint-disable-next-line no-new
-    new URL(value);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 /**
- * Insert an inspiration row from a pasted image URL. The client has already
- * extracted the 6-color palette via Canvas; we just validate + persist.
+ * Upload a photo to a specific (event, slot_key, slot_position). Hands the
+ * file to uploadPublicAsset (R2 with Supabase Storage fallback) and inserts
+ * an event_inspiration_assets row. If an active row already exists at the
+ * same (event, slot_key, slot_position), it's first soft-deleted so the
+ * partial UNIQUE constraint permits the new row — gives us "replace in
+ * place" semantics without needing UPSERT.
+ *
+ * Client-side has already extracted the 6-color palette via Canvas API.
  */
-export async function addInspirationFromUrl(formData: FormData): Promise<{
+export async function uploadMoodboardSlot(formData: FormData): Promise<{
   status: 'ok' | 'error';
   inspiration_id?: string;
+  image_url?: string;
+  palette?: string[];
   message?: string;
 }> {
   const eventIdRaw = formData.get('event_id');
-  const imageUrlRaw = formData.get('image_url');
-  const paletteRaw = formData.get('palette_json');
-
-  if (typeof eventIdRaw !== 'string' || !eventIdRaw) {
-    return { status: 'error', message: 'event_id required' };
-  }
-  if (typeof imageUrlRaw !== 'string' || !imageUrlRaw) {
-    return { status: 'error', message: 'Paste a photo URL to continue.' };
-  }
-  if (!isLikelyImageUrl(imageUrlRaw)) {
-    return {
-      status: 'error',
-      message:
-        "That doesn't look like a direct image URL. Try right-clicking the photo and copying its image address.",
-    };
-  }
-  if (typeof paletteRaw !== 'string') {
-    return { status: 'error', message: 'Palette extraction failed — try again.' };
-  }
-
-  let paletteParsed: unknown;
-  try {
-    paletteParsed = JSON.parse(paletteRaw);
-  } catch {
-    return { status: 'error', message: 'Palette extraction failed — try again.' };
-  }
-
-  let palette: string[];
-  try {
-    palette = validatePalette6(paletteParsed);
-  } catch (err) {
-    return {
-      status: 'error',
-      message: err instanceof Error ? err.message : 'Palette invalid',
-    };
-  }
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return { status: 'error', message: 'Sign back in to keep adding inspiration.' };
-  }
-
-  const { data: inserted, error } = await supabase
-    .from('event_inspiration_assets')
-    .insert({
-      event_id: eventIdRaw,
-      added_by_user_id: user.id,
-      source_kind: 'url_paste',
-      image_url: imageUrlRaw,
-      r2_key: null,
-      sampled_hex_1: palette[0],
-      sampled_hex_2: palette[1],
-      sampled_hex_3: palette[2],
-      sampled_hex_4: palette[3],
-      sampled_hex_5: palette[4],
-      sampled_hex_6: palette[5],
-    })
-    .select('inspiration_id')
-    .maybeSingle();
-  if (error) {
-    return { status: 'error', message: error.message };
-  }
-  if (!inserted) {
-    return { status: 'error', message: 'Save failed — try again.' };
-  }
-
-  revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
-  return { status: 'ok', inspiration_id: inserted.inspiration_id };
-}
-
-/**
- * Insert an inspiration row from an uploaded file. Hands the file to
- * uploadPublicAsset (R2 with Supabase Storage fallback) and stores the
- * public URL + r2_key. Palette is extracted client-side same as URL paste.
- */
-export async function addInspirationFromUpload(formData: FormData): Promise<{
-  status: 'ok' | 'error';
-  inspiration_id?: string;
-  message?: string;
-}> {
-  const eventIdRaw = formData.get('event_id');
+  const slotKeyRaw = formData.get('slot_key');
+  const slotPositionRaw = formData.get('slot_position');
   const fileEntry = formData.get('file');
   const paletteRaw = formData.get('palette_json');
 
   if (typeof eventIdRaw !== 'string' || !eventIdRaw) {
     return { status: 'error', message: 'event_id required' };
   }
+  if (!isMoodboardSlotKey(slotKeyRaw)) {
+    return { status: 'error', message: 'slot_key invalid' };
+  }
+  const slotPosition = Number(slotPositionRaw);
+  if (slotPosition !== 1 && slotPosition !== 2) {
+    return { status: 'error', message: 'slot_position must be 1 or 2' };
+  }
   if (!(fileEntry instanceof File) || fileEntry.size === 0) {
-    return { status: 'error', message: 'Drop a photo or pick a file to upload.' };
+    return { status: 'error', message: 'Drop a photo or click to choose.' };
+  }
+  if (fileEntry.size > 5 * 1024 * 1024) {
+    return { status: 'error', message: 'Photo must be 5MB or smaller.' };
+  }
+  const acceptedTypes = ['image/png', 'image/jpeg', 'image/webp'];
+  if (!acceptedTypes.includes(fileEntry.type)) {
+    return {
+      status: 'error',
+      message: 'Use a PNG, JPG, or WebP photo.',
+    };
   }
   if (typeof paletteRaw !== 'string') {
     return { status: 'error', message: 'Palette extraction failed — try again.' };
@@ -1706,11 +1660,22 @@ export async function addInspirationFromUpload(formData: FormData): Promise<{
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return { status: 'error', message: 'Sign back in to keep adding inspiration.' };
+    return { status: 'error', message: 'Sign back in to keep uploading.' };
   }
 
+  // Replace-in-place: soft-delete any existing active row at this slot so
+  // the UNIQUE(event_id, slot_key, slot_position) WHERE removed_at IS NULL
+  // partial index lets the new row insert cleanly.
+  await supabase
+    .from('event_inspiration_assets')
+    .update({ removed_at: new Date().toISOString() })
+    .eq('event_id', eventIdRaw)
+    .eq('slot_key', slotKeyRaw)
+    .eq('slot_position', slotPosition)
+    .is('removed_at', null);
+
   const uploadResult = await uploadPublicAsset({
-    pathPrefix: `inspiration/${eventIdRaw}`,
+    pathPrefix: `inspiration/${eventIdRaw}/${slotKeyRaw}`,
     file: fileEntry,
   });
   if (!uploadResult.ok) {
@@ -1722,6 +1687,8 @@ export async function addInspirationFromUpload(formData: FormData): Promise<{
     .insert({
       event_id: eventIdRaw,
       added_by_user_id: user.id,
+      slot_key: slotKeyRaw,
+      slot_position: slotPosition,
       source_kind: 'file_upload',
       image_url: uploadResult.publicUrl,
       r2_key: uploadResult.key ?? null,
@@ -1732,7 +1699,7 @@ export async function addInspirationFromUpload(formData: FormData): Promise<{
       sampled_hex_5: palette[4],
       sampled_hex_6: palette[5],
     })
-    .select('inspiration_id')
+    .select('inspiration_id, image_url')
     .maybeSingle();
   if (error) {
     return { status: 'error', message: error.message };
@@ -1741,44 +1708,139 @@ export async function addInspirationFromUpload(formData: FormData): Promise<{
     return { status: 'error', message: 'Save failed — try again.' };
   }
 
+  // If this is the palette slot, also write the extracted 6-color palette
+  // to events.role_palette.wizard_default so downstream cards (Save-the-Date,
+  // Invitation widgets, Paprint) consume the host's chosen palette without
+  // an explicit finalize step. The host still clicks "Finish mood board"
+  // to settle the wizard task — but the palette is live the moment they
+  // upload to the palette slot. Per owner: "as soon as ANY photo uploads
+  // to the Palette slot, run the Canvas-API palette extractor on it and
+  // save the 6-color result to events.role_palette."
+  if (slotKeyRaw === 'palette') {
+    const { data: priorRow } = await supabase
+      .from('events')
+      .select('role_palette')
+      .eq('event_id', eventIdRaw)
+      .maybeSingle();
+    const priorPalette =
+      priorRow &&
+      typeof priorRow.role_palette === 'object' &&
+      priorRow.role_palette !== null
+        ? (priorRow.role_palette as Record<string, unknown>)
+        : {};
+    const nextPalette = {
+      ...priorPalette,
+      wizard_default: {
+        colors: palette,
+        name: null,
+        picked_at: new Date().toISOString(),
+      },
+    };
+    await supabase
+      .from('events')
+      .update({ role_palette: nextPalette })
+      .eq('event_id', eventIdRaw);
+  }
+
+  // Auto-promote wizard task to in-flight on first upload across any slot.
+  // The "Finish mood board" button is what settles to done.
+  const { data: stateRow } = await supabase
+    .from('events')
+    .select('wizard_state')
+    .eq('event_id', eventIdRaw)
+    .maybeSingle();
+  if (stateRow) {
+    const priorWizardState = parseWizardState(stateRow.wizard_state);
+    const prior = priorWizardState.mood_board;
+    // Only promote to in_flight if the task is genuinely not started yet
+    // (no prior entry, or entry exists but no in_flight_since AND no
+    // completed_at). Don't clobber a completed_at if the host already
+    // finished + came back to swap photos.
+    if (!prior || (!prior.in_flight_since && !prior.completed_at)) {
+      const nextWizardState = setTaskInFlight(priorWizardState, 'mood_board');
+      await supabase
+        .from('events')
+        .update({ wizard_state: nextWizardState })
+        .eq('event_id', eventIdRaw);
+    }
+  }
+
   revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
-  return { status: 'ok', inspiration_id: inserted.inspiration_id };
+  return {
+    status: 'ok',
+    inspiration_id: inserted.inspiration_id,
+    image_url: inserted.image_url,
+    palette,
+  };
 }
 
 /**
- * Soft-delete an inspiration row (stamps removed_at). Any co-host on the
- * event can remove any item — pilot couples co-curate.
+ * Soft-delete the active row at (event, slot_key, slot_position). Hosts
+ * can remove + re-upload at will; we leave the row history in place via
+ * removed_at for audit.
  */
-export async function removeInspirationAsset(formData: FormData): Promise<{
+export async function removeMoodboardSlot(formData: FormData): Promise<{
   status: 'ok' | 'error';
   message?: string;
 }> {
   const eventIdRaw = formData.get('event_id');
-  const inspirationIdRaw = formData.get('inspiration_id');
+  const slotKeyRaw = formData.get('slot_key');
+  const slotPositionRaw = formData.get('slot_position');
 
   if (typeof eventIdRaw !== 'string' || !eventIdRaw) {
     return { status: 'error', message: 'event_id required' };
   }
-  if (typeof inspirationIdRaw !== 'string' || !inspirationIdRaw) {
-    return { status: 'error', message: 'inspiration_id required' };
+  if (!isMoodboardSlotKey(slotKeyRaw)) {
+    return { status: 'error', message: 'slot_key invalid' };
+  }
+  const slotPosition = Number(slotPositionRaw);
+  if (slotPosition !== 1 && slotPosition !== 2) {
+    return { status: 'error', message: 'slot_position must be 1 or 2' };
   }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return { status: 'error', message: 'Sign back in to keep curating.' };
-  }
-
   const { error } = await supabase
     .from('event_inspiration_assets')
     .update({ removed_at: new Date().toISOString() })
-    .eq('inspiration_id', inspirationIdRaw)
     .eq('event_id', eventIdRaw)
+    .eq('slot_key', slotKeyRaw)
+    .eq('slot_position', slotPosition)
     .is('removed_at', null);
   if (error) {
     return { status: 'error', message: error.message };
+  }
+
+  // If the removed slot was the palette slot AND no other active palette
+  // photo remains (both positions cleared), drop wizard_default from
+  // events.role_palette so we don't keep stale colors live.
+  if (slotKeyRaw === 'palette') {
+    const { data: stillActive } = await supabase
+      .from('event_inspiration_assets')
+      .select('inspiration_id')
+      .eq('event_id', eventIdRaw)
+      .eq('slot_key', 'palette')
+      .is('removed_at', null)
+      .limit(1)
+      .maybeSingle();
+    if (!stillActive) {
+      const { data: priorRow } = await supabase
+        .from('events')
+        .select('role_palette')
+        .eq('event_id', eventIdRaw)
+        .maybeSingle();
+      if (
+        priorRow &&
+        typeof priorRow.role_palette === 'object' &&
+        priorRow.role_palette !== null
+      ) {
+        const next = { ...(priorRow.role_palette as Record<string, unknown>) };
+        delete next.wizard_default;
+        await supabase
+          .from('events')
+          .update({ role_palette: next })
+          .eq('event_id', eventIdRaw);
+      }
+    }
   }
 
   revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
@@ -1786,18 +1848,58 @@ export async function removeInspirationAsset(formData: FormData): Promise<{
 }
 
 /**
- * Server-action variant used by the Card 15 client to list its own
- * inspiration items. Returns at most 50 active rows for the event, newest
- * first. RLS enforces host scoping; we still pass event_id as a defense
- * filter so a leak in RLS doesn't widen the surface.
+ * Settle Card 15 to done — host has finished uploading inspiration and
+ * wants to move on. The palette has already been written to
+ * events.role_palette.wizard_default at upload time (when the host
+ * uploaded to the palette slot). Here we just stamp the wizard task
+ * status + palette_finalized_at and revalidate.
  */
-export async function listEventInspiration(
-  eventId: string,
-): Promise<
+export async function finalizeMoodboard(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  if (typeof eventIdRaw !== 'string' || !eventIdRaw) {
+    throw new Error('event_id required');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data: priorRow, error: priorErr } = await supabase
+    .from('events')
+    .select('wizard_state')
+    .eq('event_id', eventIdRaw)
+    .maybeSingle();
+  if (priorErr) throw new Error(priorErr.message);
+  if (!priorRow) throw new Error('Event not found');
+
+  const priorWizardState = parseWizardState(priorRow.wizard_state);
+  const newWizardState = setTaskComplete(priorWizardState, 'mood_board', {});
+
+  const { error: updateErr } = await supabase
+    .from('events')
+    .update({
+      palette_finalized_at: new Date().toISOString(),
+      wizard_state: newWizardState,
+    })
+    .eq('event_id', eventIdRaw);
+  if (updateErr) throw new Error(updateErr.message);
+
+  revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
+}
+
+/**
+ * List all active moodboard slot uploads for an event. Returns one row
+ * per active (event, slot_key, slot_position). The UI groups by
+ * slot_key + slot_position client-side.
+ */
+export async function listMoodboardSlots(eventId: string): Promise<
   Array<{
     inspiration_id: string;
+    slot_key: MoodboardSlotKey;
+    slot_position: 1 | 2;
     image_url: string;
-    source_kind: 'url_paste' | 'file_upload';
     sampled_hex_1: string;
     sampled_hex_2: string;
     sampled_hex_3: string;
@@ -1812,22 +1914,25 @@ export async function listEventInspiration(
   const { data, error } = await supabase
     .from('event_inspiration_assets')
     .select(
-      'inspiration_id, image_url, source_kind, sampled_hex_1, sampled_hex_2, sampled_hex_3, sampled_hex_4, sampled_hex_5, sampled_hex_6',
+      'inspiration_id, slot_key, slot_position, image_url, sampled_hex_1, sampled_hex_2, sampled_hex_3, sampled_hex_4, sampled_hex_5, sampled_hex_6',
     )
     .eq('event_id', eventId)
     .is('removed_at', null)
-    .order('created_at', { ascending: false })
-    .limit(50);
+    .order('slot_key', { ascending: true })
+    .order('slot_position', { ascending: true });
   if (error || !data) return [];
-  return data as Array<{
-    inspiration_id: string;
-    image_url: string;
-    source_kind: 'url_paste' | 'file_upload';
-    sampled_hex_1: string;
-    sampled_hex_2: string;
-    sampled_hex_3: string;
-    sampled_hex_4: string;
-    sampled_hex_5: string;
-    sampled_hex_6: string;
-  }>;
+  return data.filter(
+    (row): row is {
+      inspiration_id: string;
+      slot_key: MoodboardSlotKey;
+      slot_position: 1 | 2;
+      image_url: string;
+      sampled_hex_1: string;
+      sampled_hex_2: string;
+      sampled_hex_3: string;
+      sampled_hex_4: string;
+      sampled_hex_5: string;
+      sampled_hex_6: string;
+    } => isMoodboardSlotKey(row.slot_key) && (row.slot_position === 1 || row.slot_position === 2),
+  );
 }

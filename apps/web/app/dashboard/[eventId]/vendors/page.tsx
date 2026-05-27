@@ -37,6 +37,10 @@ import {
 import { MiniTour } from '@/app/_components/mini-tour';
 import { createVendor, deleteVendor, updateVendorStatus } from './actions';
 import { InviteVendorButton } from './invite-modal';
+import {
+  CancelBookingButton,
+  DisputeLinkButton,
+} from './_components/cancel-booking-button';
 import { NavLinksRow } from '@/app/_components/nav-links';
 
 export const metadata = { title: 'Vendors' };
@@ -744,17 +748,56 @@ function VendorCard({
             Update
           </SubmitButton>
         </form>
-        <form action={deleteVendor}>
-          <input type="hidden" name="event_id" value={eventId} />
-          <input type="hidden" name="vendor_id" value={vendor.vendor_id} />
-          <SubmitButton
-            aria-label="Delete vendor"
-            pendingLabel=""
-            className="rounded-md p-1.5 text-ink/40 hover:bg-ink/5 hover:text-rose-700 disabled:opacity-60"
-          >
-            <Trash2 className="h-4 w-4" strokeWidth={1.75} />
-          </SubmitButton>
-        </form>
+        {/* Status-aware destructive affordance per CLAUDE.md 2026-05-24
+         *  "Lock/delete/overlap architecture" Rule 1:
+         *    considering / shortlisted → Trash2 + deleteVendor (silent)
+         *    contracted (no deposit)   → CancelBookingButton (modal +
+         *                                   vendor notification)
+         *    deposit_paid / delivered / complete OR deposit_paid_php > 0
+         *                              → DisputeLinkButton (routes to
+         *                                   /dashboard/[eventId]/disputes) */}
+        {(() => {
+          const depositValue =
+            typeof vendor.deposit_paid_php === 'string'
+              ? Number(vendor.deposit_paid_php)
+              : (vendor.deposit_paid_php ?? null);
+          const hasDeposit =
+            depositValue !== null &&
+            Number.isFinite(depositValue) &&
+            depositValue > 0;
+          const downpaid =
+            vendor.status === 'deposit_paid' ||
+            vendor.status === 'delivered' ||
+            vendor.status === 'complete';
+          if (downpaid || hasDeposit) {
+            return <DisputeLinkButton eventId={eventId} variant="pill" />;
+          }
+          if (vendor.status === 'contracted') {
+            return (
+              <CancelBookingButton
+                eventId={eventId}
+                vendorId={vendor.vendor_id}
+                vendorName={vendor.vendor_name}
+                variant="pill"
+              />
+            );
+          }
+          // `considering` / `shortlisted` — no commitment, no vendor
+          // notification needed. Keep the blunt deleteVendor path.
+          return (
+            <form action={deleteVendor}>
+              <input type="hidden" name="event_id" value={eventId} />
+              <input type="hidden" name="vendor_id" value={vendor.vendor_id} />
+              <SubmitButton
+                aria-label="Delete vendor"
+                pendingLabel=""
+                className="rounded-md p-1.5 text-ink/40 hover:bg-ink/5 hover:text-rose-700 disabled:opacity-60"
+              >
+                <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+              </SubmitButton>
+            </form>
+          );
+        })()}
       </div>
     </li>
   );

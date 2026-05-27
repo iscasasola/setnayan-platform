@@ -63,6 +63,10 @@ import {
   fetchActiveAutoShareInvite,
 } from '@/lib/vendor-invites';
 import { ClaimLinkShare } from './_components/claim-link-share';
+import {
+  CancelBookingButton,
+  DisputeLinkButton,
+} from '../../_components/cancel-booking-button';
 import { VendorItemizationCard } from '../../../_components/vendor-itemization-card';
 import {
   VendorMarketplaceInfo,
@@ -569,8 +573,18 @@ export default async function VendorWorkspacePage({ params }: Props) {
           ) : null}
         </dl>
 
-        {/* Switch vendor — destructive, links to vendor tracker for the
-         *  existing confirm-modal flow rather than building a duplicate one */}
+        {/* Action row — Switch vendor (destructive, links to vendor
+         *  tracker for the existing confirm-modal flow), cancel booking
+         *  (when no downpayment yet), or request refund / dispute (when
+         *  downpayment has landed). Per CLAUDE.md 2026-05-24
+         *  "Lock/delete/overlap architecture" Rule 1: status routes the
+         *  CTA. `contracted` + no deposit → cancel. `deposit_paid` and
+         *  beyond OR any deposit_paid_php > 0 → dispute flow.
+         *
+         *  Note: `considering` / `shortlisted` rows can't reach this
+         *  workspace page (the LockedCard variant is only rendered for
+         *  confirmed picks per planning-groups.tsx) — so we don't need
+         *  the existing Trash2 deleteVendor path here. */}
         <div className="mt-5 flex flex-wrap gap-2">
           <Link
             href={`/dashboard/${eventId}/vendors`}
@@ -578,6 +592,42 @@ export default async function VendorWorkspacePage({ params }: Props) {
           >
             All vendors
           </Link>
+          {(() => {
+            // Mirror the server-side DOWNPAID_STATUSES set + deposit
+            // signal from cancelBookingAsHost. Keep the conditional
+            // local so the workspace page stays self-contained.
+            const downpaid =
+              ev.status === 'deposit_paid' ||
+              ev.status === 'delivered' ||
+              ev.status === 'complete';
+            const depositValueNumeric =
+              typeof ev.deposit_paid_php === 'string'
+                ? Number(ev.deposit_paid_php)
+                : ev.deposit_paid_php;
+            const hasDeposit =
+              Number.isFinite(depositValueNumeric) &&
+              (depositValueNumeric ?? 0) > 0;
+
+            if (downpaid || hasDeposit) {
+              return <DisputeLinkButton eventId={eventId} variant="cta" />;
+            }
+            // `contracted` and no deposit → safe to cancel.
+            if (ev.status === 'contracted') {
+              return (
+                <CancelBookingButton
+                  eventId={eventId}
+                  vendorId={ev.vendor_id}
+                  vendorName={displayName}
+                  redirectToHomeOnSuccess
+                  variant="cta"
+                />
+              );
+            }
+            // Any other status (considering / shortlisted) shouldn't
+            // surface this page in practice — render nothing rather
+            // than the wrong CTA.
+            return null;
+          })()}
         </div>
       </section>
 

@@ -29,6 +29,22 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 
+/**
+ * Append a cache-buster query param to a QR image URL so that newly-uploaded
+ * admin QR codes are fetched on next modal-open instead of being served from
+ * a stale browser disk cache. The buster is computed ONCE per modal-open
+ * session (via `useMemo` in the consumer) — tab toggling between GCash and
+ * BDO does NOT re-fetch, but each new modal-open invalidates.
+ *
+ * Defensive against URLs that already carry a query string: uses '&' when
+ * '?' is already present.
+ */
+function appendCacheBuster(url: string, buster: number): string {
+  if (!url) return url;
+  const sep = url.includes('?') ? '&' : '?';
+  return `${url}${sep}v=${buster}`;
+}
+
 export type ManualCheckoutResponse = {
   success: boolean;
   gatewayMode: 'MANUAL_QR_OVERLAY' | 'AUTOMATED_MAYA_API';
@@ -103,6 +119,15 @@ export default function ManualCheckoutModal({
     }
   }, [isOpen, defaultChannel]);
 
+  // Cache buster computed once per modal-open session · stable across tab
+  // toggles (so switching GCash ↔ BDO does not refetch) but each new
+  // modal-open invalidates the browser cache for the QR assets.
+  const cacheBuster = useMemo(() => Date.now(), [
+    // Tying to isOpen flip ensures the buster updates if the modal is
+    // closed + reopened within the same React lifecycle.
+    isOpen,
+  ]);
+
   const channels = useMemo<Array<{
     key: PaymentChannel;
     label: string;
@@ -112,16 +137,16 @@ export default function ManualCheckoutModal({
     {
       key: 'gcash',
       label: 'GCash Network',
-      qrUrl: response.instructions.gcashQrUrl,
+      qrUrl: appendCacheBuster(response.instructions.gcashQrUrl, cacheBuster),
       accountName: response.instructions.gcashAccountName ?? response.instructions.accountName ?? 'Setnayan Wedding Platform',
     },
     {
       key: 'bdo',
       label: 'BDO Corporate Network',
-      qrUrl: response.instructions.bdoQrUrl,
+      qrUrl: appendCacheBuster(response.instructions.bdoQrUrl, cacheBuster),
       accountName: response.instructions.bdoAccountName ?? response.instructions.accountName ?? 'Setnayan Corporation',
     },
-  ], [response.instructions]);
+  ], [response.instructions, cacheBuster]);
 
   const copyRef = async () => {
     try {
@@ -450,11 +475,18 @@ function QrLayer({
           {/* External URL · img element to avoid next/image config friction
               while the QR assets live on a separate CDN. Replace with
               <Image src=... /> when assets move to R2 + next.config domains
-              get the host whitelisted. */}
+              get the host whitelisted.
+              Explicit width + height attrs reserve the box's aspect ratio
+              before the image bytes arrive · prevents CLS during the
+              opacity fade transition between channels. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={qrUrl}
             alt={`${label} QR code`}
+            width={176}
+            height={176}
+            decoding="async"
+            loading="eager"
             className="h-full w-full object-contain p-3"
           />
         </div>

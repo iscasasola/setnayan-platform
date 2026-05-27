@@ -1,880 +1,749 @@
 'use client';
 
 /**
- * WAVE 2 · Card 15 Set inspiration mood board · INSPIRATION INTAKE.
+ * WAVE 2 · Card 15 Set your inspiration mood board · 13-SLOT UPLOAD.
  *
- * Iteration 0010 Moodboard · pivot 2026-05-25 — owner directive:
- *   "what i like here is for the customer to paste in photo inspirations
- *    of how they want the wedding to look like."
+ * Iteration 0010 Moodboard · owner directive 2026-05-25 verbatim:
+ *   "Make the upload. you keep deferring this We want upload photo.
+ *    no url. just upload up to photos 2 for each."
+ *
+ * 13 named slots × 2 photos each = 26 upload tiles total, mapped to the
+ * locked 3 mood-board pillars (CLAUDE.md 2026-05-21 row "Moodboard
+ * expanded · 3 pillars"):
+ *
+ *   Location feel (6): Venue · Tunnel · Stage · Table · Ceiling · Overall
+ *   Palette       (1): Palette
+ *   Dress codes   (6): Groom · Bride · Principal Sponsor · Entourage ·
+ *                       Parents · Guests
+ *
+ * SUPERSEDES PR #543's URL-paste + free-form upload UX. The Curated
+ * palettes tab from PR #543 is retired — curated picks live in the
+ * post-pilot /add-ons/mood-board surface, not the wizard card.
+ *
+ * Each tile:
+ *   - Empty: dashed border + cloud-upload icon + "Drop a photo or click
+ *     to choose" microcopy. Drag-drop + click-to-pick both wired.
+ *   - Uploaded: photo at object-cover with hover overlay + X remove button.
+ *
+ * Auto-save behavior:
+ *   - Each upload auto-saves on completion (no global Save button).
+ *   - Removal auto-saves.
+ *   - First successful upload across any slot promotes wizard task to
+ *     in_flight (server-side).
+ *   - "Finish mood board" button at bottom settles task to done.
+ *
+ * Palette extraction (Canvas API histogram bucketing) runs client-side
+ * for every upload. The palette extracted from the dedicated Palette
+ * slot is auto-saved to events.role_palette.wizard_default at upload
+ * time so downstream cards (Save-the-Date, Invitation widgets, Paprint)
+ * consume the host's chosen palette without an explicit finalize step.
  *
  * Anchored to:
- *   - CLAUDE.md 2026-05-21 row "Moodboard expanded · 3 pillars" — Palette /
- *     Location feel / Dress codes. This card is the INSPIRATION INTAKE
- *     layer that FEEDS palette (via per-photo extracted 6-color samples
- *     merged into events.role_palette.wizard_default).
+ *   - CLAUDE.md 2026-05-25 row "Mood Board · 13-slot upload UX
+ *     (supersedes PR #543)" — this row.
+ *   - CLAUDE.md 2026-05-21 row "Moodboard expanded · 3 pillars" —
+ *     canonical 3-pillar lock; 13 slots map cleanly onto it.
  *   - CLAUDE.md 2026-05-24 row "V1 SCOPE EXPANSION · Moodboard becomes
- *     multi-source + stylist-finalized brain" — locks owner_kind ∈
- *     ('setnayan','stylist','couple') + Pinterest/Instagram URL paste +
- *     auto-extract 6-color palette + multi-source. This card ships the
- *     V1 couple-inspiration slice (URL paste + file upload); the broader
- *     stylist push-share + finalize-then-broadcast architecture lands
- *     V1.x post-pilot.
- *   - Iteration 0016 wizard contract — NO LINK to /add-ons/mood-board;
- *     inline completion only. Owner directive 2026-05-23 row 6
- *     (38-card wizard expansion): "each focus card is not a link but an
- *     actual card to complete the process."
- *
- * Two tabs at the top:
- *   A — Inspiration (default, NEW) — URL paste + drag-drop file upload.
- *       Each item shows thumbnail + extracted 6-color strip. Host can
- *       remove items. The combined active palette is built from the
- *       most-recent dominant colors across all active items.
- *   B — Curated palettes (existing) — 12 PH-wedding-canon palettes the
- *       host can pick as a fallback / second pass when they don't have
- *       inspiration on hand yet.
- *
- * Palette extraction is CLIENT-SIDE via Canvas API histogram bucketing —
- * no server-side image decode dependency. We draw the image at low
- * resolution (100×100), sample pixel buckets, pick the 6 most-populous
- * non-white/non-black buckets. Falls back to a neutral 6-color spread
- * if extraction returns <3 distinct colors (rare; happens on
- * monochrome images).
- *
- * Save advances the wizard past Card 15 to the next vendor-pick task per
- * the canonical sequence. The active palette gets written to
- * events.role_palette.wizard_default by the unchanged completeMoodBoardTask
- * server action.
+ *     multi-source + stylist-finalized brain" — broader owner_kind
+ *     architecture (stylist push-share, finalize-then-broadcast) lands
+ *     V1.x post-pilot; this card ships the V1 couple-inspiration slice.
+ *   - Iteration 0016 wizard contract — NO LINK out; inline completion only.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from 'react';
 import {
   CheckCircle2,
-  ImagePlus,
-  Link2,
+  CloudUpload,
+  Loader2,
   Palette as PaletteIcon,
-  Upload,
   X,
 } from 'lucide-react';
 import {
-  addInspirationFromUpload,
-  addInspirationFromUrl,
-  completeMoodBoardTask,
-  listEventInspiration,
-  removeInspirationAsset,
+  finalizeMoodboard,
+  listMoodboardSlots,
+  removeMoodboardSlot,
+  uploadMoodboardSlot,
 } from '../../wizard-actions';
 
 type Props = {
   eventId: string;
-  /** Pre-populate from events.role_palette.reception when set · lets
-   *  hosts re-edit if they opened the full /add-ons/mood-board surface
-   *  first and want to round-trip through the wizard. */
+  /** Pre-populate hint when wizard re-enters card 15 — not strictly
+   *  consumed by the slot UI but kept on the interface so the dispatcher
+   *  call site (wizard-hero.tsx) stays unchanged. */
   initialPalette: string[] | null;
 };
 
-type InspirationRow = {
-  inspiration_id: string;
-  image_url: string;
-  source_kind: 'url_paste' | 'file_upload';
-  sampled_hex_1: string;
-  sampled_hex_2: string;
-  sampled_hex_3: string;
-  sampled_hex_4: string;
-  sampled_hex_5: string;
-  sampled_hex_6: string;
-};
+// -----------------------------------------------------------------------
+// Slot taxonomy — the 13 owner-locked slot keys grouped into 3 pillars.
+// Order matches the owner's directive verbatim. Slot labels use the
+// owner's exact wording.
+// -----------------------------------------------------------------------
 
-type CuratedPalette = {
-  id: string;
-  name: string;
+type SlotKey =
+  | 'venue'
+  | 'tunnel'
+  | 'stage'
+  | 'table'
+  | 'ceiling'
+  | 'overall'
+  | 'palette'
+  | 'groom'
+  | 'bride'
+  | 'principal_sponsor'
+  | 'entourage'
+  | 'parents'
+  | 'guests';
+
+type PillarId = 'location_feel' | 'palette' | 'dress_codes';
+
+const PILLARS: Array<{
+  id: PillarId;
+  label: string;
   hint: string;
-  /** 3-6 hex colors · dominant first. */
-  colors: string[];
-};
-
-/**
- * 12 PH-wedding-canon palettes. First color = dominant · last 1-2 = accents.
- * Kept verbatim from the prior version of this card so hosts who don't have
- * inspiration on hand still get a tasteful fallback.
- */
-const CURATED_PALETTES: ReadonlyArray<CuratedPalette> = [
+  slots: Array<{ key: SlotKey; label: string }>;
+}> = [
   {
-    id: 'bridgerton_burgundy',
-    name: 'Bridgerton burgundy',
-    hint: 'Deep wine, dusty rose, cream',
-    colors: ['#7A1F2B', '#C29A9A', '#E8C8C0', '#FAF6F0', '#4F1019'],
+    id: 'location_feel',
+    label: 'Location feel',
+    hint: 'How the spaces look + the moments inside them.',
+    slots: [
+      { key: 'venue', label: 'Venue' },
+      { key: 'tunnel', label: 'Tunnel' },
+      { key: 'stage', label: 'Stage' },
+      { key: 'table', label: 'Table' },
+      { key: 'ceiling', label: 'Ceiling' },
+      { key: 'overall', label: 'Overall' },
+    ],
   },
   {
-    id: 'bohemian_sage',
-    name: 'Bohemian sage',
-    hint: 'Sage, terracotta, oat',
-    colors: ['#8FA68E', '#C97B4B', '#D9C2A3', '#F5F0E8', '#5C7060'],
+    id: 'palette',
+    label: 'Palette',
+    hint: 'The 6 colors that anchor every other decision. We extract the palette automatically from the photo you drop here.',
+    slots: [{ key: 'palette', label: 'Palette' }],
   },
   {
-    id: 'capiz_garden',
-    name: 'Capiz garden',
-    hint: 'Pearl ivory, soft moss, blush',
-    colors: ['#F5EBDC', '#A8B89B', '#E8C9C0', '#D4A574', '#3D4A38'],
-  },
-  {
-    id: 'tagaytay_cream',
-    name: 'Tagaytay cream',
-    hint: 'Cream, fog grey, eucalyptus',
-    colors: ['#FAF6F0', '#B8B5AC', '#9DAA9C', '#D9C9B0', '#5C5044'],
-  },
-  {
-    id: 'modern_minimalist',
-    name: 'Modern minimalist',
-    hint: 'Ink, bone, soft terracotta',
-    colors: ['#1A1A1A', '#F0EBE0', '#C97B4B', '#8C8378', '#FAF6F0'],
-  },
-  {
-    id: 'tropical_heritage',
-    name: 'Tropical heritage',
-    hint: 'Banana leaf, mango, abaca',
-    colors: ['#4A6B47', '#E8A547', '#D9C2A3', '#FAF6F0', '#2D4A3A'],
-  },
-  {
-    id: 'filipiniana_terno',
-    name: 'Filipiniana terno',
-    hint: 'Maria Clara cream, sampaguita gold, ink',
-    colors: ['#F5EBDC', '#D4A574', '#8C6D3F', '#1A1A1A', '#FAF6F0'],
-  },
-  {
-    id: 'cebu_coast',
-    name: 'Cebu coast',
-    hint: 'Sand, sea glass, coral',
-    colors: ['#E8DCC0', '#A8C0B8', '#E8A89A', '#FAF6F0', '#6B7F78'],
-  },
-  {
-    id: 'sunset_pinks',
-    name: 'Sunset pinks',
-    hint: 'Blush, peach, dusty rose',
-    colors: ['#F5D5C5', '#E8B098', '#D9A0A8', '#FAEDE5', '#B07868'],
-  },
-  {
-    id: 'monochrome_classic',
-    name: 'Monochrome classic',
-    hint: 'Ivory, charcoal, gold',
-    colors: ['#F5EFE5', '#1A1A1A', '#C9A66B', '#8C8378', '#FAF6F0'],
-  },
-  {
-    id: 'lush_emerald',
-    name: 'Lush emerald',
-    hint: 'Emerald, gold, ivory',
-    colors: ['#2D5A4A', '#C9A66B', '#F5EFE5', '#1F4038', '#E8DCC0'],
-  },
-  {
-    id: 'royal_navy',
-    name: 'Royal navy',
-    hint: 'Navy, ivory, brass',
-    colors: ['#1F2B47', '#F5EFE5', '#C9A66B', '#3D4A6B', '#D4C29A'],
+    id: 'dress_codes',
+    label: 'Dress codes',
+    hint: 'What every role wears on the day.',
+    slots: [
+      { key: 'groom', label: 'Groom' },
+      { key: 'bride', label: 'Bride' },
+      { key: 'principal_sponsor', label: 'Principal Sponsor' },
+      { key: 'entourage', label: 'Entourage' },
+      { key: 'parents', label: 'Parents' },
+      { key: 'guests', label: 'Guests' },
+    ],
   },
 ];
 
-const DEFAULT_COLORS = ['#7A1F2B', '#C29A9A', '#E8C8C0', '#FAF6F0', '#4F1019', '#3D2017'];
+// -----------------------------------------------------------------------
+// Canvas-API palette extractor — copied from PR #543 mood-board-card
+// (the helper kept its quality bar so we preserve the shape verbatim).
+// Returns 6 hex strings; pads with cream tones when the image has fewer
+// distinct colors (rare on real wedding inspiration imagery).
+// -----------------------------------------------------------------------
 
-/** Pad/truncate a color list to a 6-slot strip. Defaults missing slots
- *  to cream so the preview always shows 6 squares. */
-function pad6(colors: string[]): string[] {
-  const out = [...colors];
-  while (out.length < 6) out.push('#FAF6F0');
-  return out.slice(0, 6);
+const DEFAULT_COLORS = [
+  '#F8F1E7',
+  '#E2D5C0',
+  '#C9A87C',
+  '#9B7A4F',
+  '#5C3A1E',
+  '#2B1810',
+];
+
+function pad6(values: string[]): string[] {
+  const out: string[] = values.slice(0, 6);
+  let i = 0;
+  while (out.length < 6) {
+    out.push(DEFAULT_COLORS[i % DEFAULT_COLORS.length]!);
+    i += 1;
+  }
+  return out.map((v) => v.toUpperCase());
 }
 
-/**
- * Extract a 6-color palette from an HTMLImageElement via Canvas API.
- * Histogram bucketing: quantize each pixel to a 4-bit-per-channel bucket
- * (4096 cells), tally counts, sort, return the 6 most-populous buckets.
- *
- * Skips near-white (avg > 245) AND near-black (avg < 15) buckets unless
- * they're the only candidates. This matches what the host would describe
- * as their wedding palette — the dominant cream-vs-charcoal still
- * surfaces, but pure paper-white background pixels don't drown out a
- * Bridgerton burgundy that occupies only 15% of the frame.
- *
- * Returns 6 hex strings. Pads with cream when fewer distinct buckets
- * exist (very rare for real wedding inspiration imagery).
- */
+function rgbToHex(r: number, g: number, b: number): string {
+  const h = (n: number) =>
+    Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0');
+  return `#${h(r)}${h(g)}${h(b)}`.toUpperCase();
+}
+
 function extractPaletteFromImage(img: HTMLImageElement): string[] {
-  // 100×100 downsample keeps the work cheap on mobile while still
-  // capturing the dominant palette. 10000 pixels is plenty for k-means-
-  // style histogram bucketing.
   const SIZE = 100;
   const canvas = document.createElement('canvas');
   canvas.width = SIZE;
   canvas.height = SIZE;
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return pad6(DEFAULT_COLORS);
-
   try {
     ctx.drawImage(img, 0, 0, SIZE, SIZE);
   } catch {
-    // CORS-tainted canvas (image from a domain that doesn't send the
-    // anchor's CORS headers). The browser blocks getImageData. We can't
-    // extract; fall back to cream-tone default and let the host pick
-    // curated. Saving will still work — the URL persists; this is just
-    // the palette extraction failing on a tainted source.
+    // Cross-origin taint or other draw failure — return default.
     return pad6(DEFAULT_COLORS);
   }
-
-  let imageData: ImageData;
+  let data: Uint8ClampedArray;
   try {
-    imageData = ctx.getImageData(0, 0, SIZE, SIZE);
+    data = ctx.getImageData(0, 0, SIZE, SIZE).data;
   } catch {
     return pad6(DEFAULT_COLORS);
   }
 
-  const data = imageData.data;
-  const buckets = new Map<number, { count: number; r: number; g: number; b: number }>();
-
+  // Bucket pixels into 16-step-per-channel cubes. 16^3 = 4096 buckets;
+  // walk all pixels, count per bucket, return the top 6 distinct buckets
+  // (skipping near-white and near-black so the dominant cream/charcoal
+  // backgrounds don't drown out the real palette).
+  const buckets = new Map<string, { count: number; r: number; g: number; b: number }>();
   for (let i = 0; i < data.length; i += 4) {
-    const r = data[i] ?? 0;
-    const g = data[i + 1] ?? 0;
-    const b = data[i + 2] ?? 0;
-    const a = data[i + 3] ?? 255;
-    if (a < 64) continue; // transparent pixel; skip
-
-    // 4-bit-per-channel bucket key (4096 buckets total).
-    const key = ((r >> 4) << 8) | ((g >> 4) << 4) | (b >> 4);
-    const existing = buckets.get(key);
-    if (existing) {
-      existing.count += 1;
-      existing.r += r;
-      existing.g += g;
-      existing.b += b;
+    const r = data[i]!;
+    const g = data[i + 1]!;
+    const b = data[i + 2]!;
+    const a = data[i + 3]!;
+    if (a < 128) continue;
+    if (r > 240 && g > 240 && b > 240) continue;
+    if (r < 20 && g < 20 && b < 20) continue;
+    const key = `${(r >> 4) << 4}|${(g >> 4) << 4}|${(b >> 4) << 4}`;
+    const prior = buckets.get(key);
+    if (prior) {
+      prior.count += 1;
+      prior.r += r;
+      prior.g += g;
+      prior.b += b;
     } else {
       buckets.set(key, { count: 1, r, g, b });
     }
   }
 
-  // Average each bucket back to a representative color.
-  const candidates: Array<{ count: number; hex: string; avg: number }> = [];
-  for (const bucket of buckets.values()) {
-    const r = Math.round(bucket.r / bucket.count);
-    const g = Math.round(bucket.g / bucket.count);
-    const b = Math.round(bucket.b / bucket.count);
-    const avg = (r + g + b) / 3;
-    const hex = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`.toUpperCase();
-    candidates.push({ count: bucket.count, hex, avg });
-  }
-
-  // Sort by count desc; prefer mid-tone buckets first (avoid pure white
-  // and pure black drowning the result), then fall back to all buckets
-  // if we can't fill 6 slots with mid-tones.
-  candidates.sort((a, b) => b.count - a.count);
-  const midTones = candidates.filter((c) => c.avg > 15 && c.avg < 245);
-
+  const sorted = [...buckets.values()].sort((a, b) => b.count - a.count);
   const picks: string[] = [];
-  const seen = new Set<string>();
-  for (const c of midTones) {
-    if (seen.has(c.hex)) continue;
-    picks.push(c.hex);
-    seen.add(c.hex);
+  for (const bucket of sorted) {
     if (picks.length >= 6) break;
+    const hex = rgbToHex(
+      bucket.r / bucket.count,
+      bucket.g / bucket.count,
+      bucket.b / bucket.count,
+    );
+    picks.push(hex);
   }
-  // Fill remaining slots from the full candidate list (in case the image
-  // is mostly white/black extremes — picks up any remaining tone).
-  if (picks.length < 6) {
-    for (const c of candidates) {
-      if (seen.has(c.hex)) continue;
-      picks.push(c.hex);
-      seen.add(c.hex);
-      if (picks.length >= 6) break;
-    }
-  }
-
   return pad6(picks.length > 0 ? picks : DEFAULT_COLORS);
 }
 
-/**
- * Load an image element from a URL or File, then run extractPaletteFromImage.
- * Returns the palette + a usable display URL (object URL for File, original
- * URL for paste).
- *
- * For URL paste we set crossOrigin='anonymous' so we can read pixel data
- * back. If the remote server doesn't send Access-Control-Allow-Origin,
- * the canvas becomes tainted and we fall back to the cream-tone default
- * — the host still successfully saves the inspiration with a "best
- * guess" palette they can adjust later via curated picks.
- */
-async function loadImageAndExtract(
-  source: string | File,
-): Promise<{ palette: string[]; displayUrl: string }> {
-  let displayUrl: string;
-  if (typeof source === 'string') {
-    displayUrl = source;
-  } else {
-    displayUrl = URL.createObjectURL(source);
-  }
-
-  const palette = await new Promise<string[]>((resolve) => {
+async function extractPaletteFromFile(file: File): Promise<string[]> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
     const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => resolve(extractPaletteFromImage(img));
-    img.onerror = () => resolve(pad6(DEFAULT_COLORS));
-    img.src = displayUrl;
+    img.onload = () => {
+      const palette = extractPaletteFromImage(img);
+      URL.revokeObjectURL(url);
+      resolve(palette);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(pad6(DEFAULT_COLORS));
+    };
+    img.src = url;
   });
-
-  return { palette, displayUrl };
 }
 
-/**
- * Compute the combined active palette from inspiration items + curated
- * pick. If the host has inspiration items, we use the dominant color
- * from each (slot 1) up to 6 items, padding with the curated dominant
- * for slots beyond what inspiration provides. If no inspiration, we use
- * the curated palette directly.
- */
-function computeActivePalette(
-  items: InspirationRow[],
-  curatedColors: string[] | null,
-): string[] {
-  if (items.length === 0) {
-    return pad6(curatedColors ?? DEFAULT_COLORS);
-  }
-  // Take the dominant color from each of the first 6 inspiration items.
-  // For events with fewer than 6 inspiration items, pad with the secondary
-  // colors of the latest item so the strip still shows 6 swatches.
-  const picks: string[] = [];
-  for (const item of items) {
-    if (picks.length >= 6) break;
-    picks.push(item.sampled_hex_1);
-  }
-  if (picks.length < 6 && items.length > 0) {
-    const latest = items[0]!;
-    const secondary = [
-      latest.sampled_hex_2,
-      latest.sampled_hex_3,
-      latest.sampled_hex_4,
-      latest.sampled_hex_5,
-      latest.sampled_hex_6,
-    ];
-    for (const s of secondary) {
-      if (picks.length >= 6) break;
-      if (!picks.includes(s)) picks.push(s);
-    }
-  }
-  return pad6(picks);
+// -----------------------------------------------------------------------
+// Slot state — one entry per (slot_key, slot_position). Tile state is
+// either 'empty' or { image_url, hex[6] } (loaded from server) or
+// 'uploading' (transient during in-flight upload).
+// -----------------------------------------------------------------------
+
+type TileState =
+  | { kind: 'empty' }
+  | { kind: 'uploading' }
+  | {
+      kind: 'filled';
+      inspiration_id: string;
+      image_url: string;
+      palette: string[];
+    };
+
+type SlotStateMap = Record<SlotKey, [TileState, TileState]>;
+
+function emptySlotMap(): SlotStateMap {
+  return {
+    venue: [{ kind: 'empty' }, { kind: 'empty' }],
+    tunnel: [{ kind: 'empty' }, { kind: 'empty' }],
+    stage: [{ kind: 'empty' }, { kind: 'empty' }],
+    table: [{ kind: 'empty' }, { kind: 'empty' }],
+    ceiling: [{ kind: 'empty' }, { kind: 'empty' }],
+    overall: [{ kind: 'empty' }, { kind: 'empty' }],
+    palette: [{ kind: 'empty' }, { kind: 'empty' }],
+    groom: [{ kind: 'empty' }, { kind: 'empty' }],
+    bride: [{ kind: 'empty' }, { kind: 'empty' }],
+    principal_sponsor: [{ kind: 'empty' }, { kind: 'empty' }],
+    entourage: [{ kind: 'empty' }, { kind: 'empty' }],
+    parents: [{ kind: 'empty' }, { kind: 'empty' }],
+    guests: [{ kind: 'empty' }, { kind: 'empty' }],
+  };
 }
 
-export function MoodBoardCard({ eventId, initialPalette }: Props) {
-  const [tab, setTab] = useState<'inspiration' | 'curated'>('inspiration');
+const ALL_SLOT_KEYS: SlotKey[] = [
+  'venue',
+  'tunnel',
+  'stage',
+  'table',
+  'ceiling',
+  'overall',
+  'palette',
+  'groom',
+  'bride',
+  'principal_sponsor',
+  'entourage',
+  'parents',
+  'guests',
+];
 
-  // Inspiration tab state
-  const [items, setItems] = useState<InspirationRow[]>([]);
-  const [loadingItems, setLoadingItems] = useState<boolean>(true);
-  const [pasteUrl, setPasteUrl] = useState<string>('');
-  const [pasteError, setPasteError] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState<boolean>(false);
-  const [isDragging, setIsDragging] = useState<boolean>(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+// -----------------------------------------------------------------------
+// Card component
+// -----------------------------------------------------------------------
 
-  // Curated tab state
-  const initialCuratedId = useMemo(() => {
-    if (!initialPalette || initialPalette.length === 0) return null;
-    const match = CURATED_PALETTES.find(
-      (p) =>
-        p.colors.length === initialPalette.length &&
-        p.colors.every(
-          (c, i) => c.toUpperCase() === (initialPalette[i] ?? '').toUpperCase(),
-        ),
-    );
-    return match?.id ?? null;
-  }, [initialPalette]);
+export function MoodBoardCard({ eventId, initialPalette: _initialPalette }: Props) {
+  const [slots, setSlots] = useState<SlotStateMap>(() => emptySlotMap());
+  const [loading, setLoading] = useState(true);
+  const [globalError, setGlobalError] = useState<string | null>(null);
+  const [isFinishing, startFinishTransition] = useTransition();
 
-  const [selectedCuratedId, setSelectedCuratedId] = useState<string | null>(
-    initialCuratedId,
-  );
-
-  // Save state
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
-
-  // Load existing inspiration items on mount.
+  // Hydrate slot state from server on mount.
   useEffect(() => {
     let cancelled = false;
-    listEventInspiration(eventId)
+    listMoodboardSlots(eventId)
       .then((rows) => {
         if (cancelled) return;
-        setItems(rows);
-        setLoadingItems(false);
+        const next = emptySlotMap();
+        for (const row of rows) {
+          if (!(row.slot_key in next)) continue;
+          if (row.slot_position !== 1 && row.slot_position !== 2) continue;
+          const idx = row.slot_position - 1;
+          next[row.slot_key as SlotKey][idx] = {
+            kind: 'filled',
+            inspiration_id: row.inspiration_id,
+            image_url: row.image_url,
+            palette: [
+              row.sampled_hex_1,
+              row.sampled_hex_2,
+              row.sampled_hex_3,
+              row.sampled_hex_4,
+              row.sampled_hex_5,
+              row.sampled_hex_6,
+            ],
+          };
+        }
+        setSlots(next);
+        setLoading(false);
       })
       .catch(() => {
         if (cancelled) return;
-        setLoadingItems(false);
+        setLoading(false);
       });
     return () => {
       cancelled = true;
     };
   }, [eventId]);
 
-  const curatedColors = useMemo(() => {
-    if (!selectedCuratedId) return null;
-    return CURATED_PALETTES.find((p) => p.id === selectedCuratedId)?.colors ?? null;
-  }, [selectedCuratedId]);
-
-  const activePalette = useMemo(
-    () => computeActivePalette(items, curatedColors),
-    [items, curatedColors],
+  const updateTile = useCallback(
+    (slotKey: SlotKey, position: 1 | 2, next: TileState) => {
+      setSlots((prior) => {
+        const cloned: SlotStateMap = { ...prior };
+        const tiles = [...prior[slotKey]] as [TileState, TileState];
+        tiles[position - 1] = next;
+        cloned[slotKey] = tiles;
+        return cloned;
+      });
+    },
+    [],
   );
 
-  const handlePasteSubmit = useCallback(async () => {
-    setPasteError(null);
-    const url = pasteUrl.trim();
-    if (!url) {
-      setPasteError('Paste a photo URL to continue.');
-      return;
-    }
-    if (!/^https?:\/\//i.test(url)) {
-      setPasteError("That doesn't look like a URL. Try the full https://… address.");
-      return;
-    }
-    setIsProcessing(true);
-    try {
-      const { palette } = await loadImageAndExtract(url);
-      const formData = new FormData();
-      formData.set('event_id', eventId);
-      formData.set('image_url', url);
-      formData.set('palette_json', JSON.stringify(palette));
-      const res = await addInspirationFromUrl(formData);
-      if (res.status !== 'ok' || !res.inspiration_id) {
-        setPasteError(res.message ?? "Couldn't save that photo. Try a different URL.");
-        return;
-      }
-      // Optimistic local insert so the UI reflects the new item immediately;
-      // server has authoritative state via revalidatePath but we don't want
-      // to round-trip a refetch on every add.
-      setItems((prior) => [
-        {
-          inspiration_id: res.inspiration_id!,
-          image_url: url,
-          source_kind: 'url_paste',
-          sampled_hex_1: palette[0]!,
-          sampled_hex_2: palette[1]!,
-          sampled_hex_3: palette[2]!,
-          sampled_hex_4: palette[3]!,
-          sampled_hex_5: palette[4]!,
-          sampled_hex_6: palette[5]!,
-        },
-        ...prior,
-      ]);
-      setPasteUrl('');
-    } catch {
-      setPasteError("Couldn't load that photo — try a direct image URL (right-click → Copy Image Address).");
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [eventId, pasteUrl]);
+  const handleUpload = useCallback(
+    async (slotKey: SlotKey, position: 1 | 2, file: File) => {
+      setGlobalError(null);
 
-  const handleFileUpload = useCallback(
-    async (file: File) => {
-      setPasteError(null);
-      if (!file.type.startsWith('image/')) {
-        setPasteError('Pick an image file (PNG, JPEG, WebP).');
+      if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+        setGlobalError('Use a PNG, JPG, or WebP photo.');
         return;
       }
-      const FIVE_MB = 5 * 1024 * 1024;
-      if (file.size > FIVE_MB) {
-        setPasteError("That photo is over 5 MB — try a smaller one.");
+      if (file.size > 5 * 1024 * 1024) {
+        setGlobalError('Photo must be 5MB or smaller.');
         return;
       }
-      setIsProcessing(true);
+
+      updateTile(slotKey, position, { kind: 'uploading' });
+
       try {
-        const { palette, displayUrl } = await loadImageAndExtract(file);
+        const palette = await extractPaletteFromFile(file);
         const formData = new FormData();
         formData.set('event_id', eventId);
-        formData.set('file', file);
+        formData.set('slot_key', slotKey);
+        formData.set('slot_position', String(position));
         formData.set('palette_json', JSON.stringify(palette));
-        const res = await addInspirationFromUpload(formData);
-        if (res.status !== 'ok' || !res.inspiration_id) {
-          setPasteError(res.message ?? "Couldn't save that upload. Try again.");
+        formData.set('file', file);
+
+        const res = await uploadMoodboardSlot(formData);
+        if (res.status !== 'ok' || !res.inspiration_id || !res.image_url) {
+          setGlobalError(res.message ?? 'Upload failed — try again.');
+          updateTile(slotKey, position, { kind: 'empty' });
           return;
         }
-        setItems((prior) => [
-          {
-            inspiration_id: res.inspiration_id!,
-            image_url: displayUrl,
-            source_kind: 'file_upload',
-            sampled_hex_1: palette[0]!,
-            sampled_hex_2: palette[1]!,
-            sampled_hex_3: palette[2]!,
-            sampled_hex_4: palette[3]!,
-            sampled_hex_5: palette[4]!,
-            sampled_hex_6: palette[5]!,
-          },
-          ...prior,
-        ]);
-      } catch {
-        setPasteError("Upload failed — try again.");
-      } finally {
-        setIsProcessing(false);
+        updateTile(slotKey, position, {
+          kind: 'filled',
+          inspiration_id: res.inspiration_id,
+          image_url: res.image_url,
+          palette: res.palette ?? palette,
+        });
+      } catch (err) {
+        setGlobalError(
+          err instanceof Error ? err.message : 'Upload failed — try again.',
+        );
+        updateTile(slotKey, position, { kind: 'empty' });
       }
     },
-    [eventId],
+    [eventId, updateTile],
   );
 
   const handleRemove = useCallback(
-    async (inspirationId: string) => {
-      const formData = new FormData();
-      formData.set('event_id', eventId);
-      formData.set('inspiration_id', inspirationId);
-      const res = await removeInspirationAsset(formData);
-      if (res.status === 'ok') {
-        setItems((prior) => prior.filter((i) => i.inspiration_id !== inspirationId));
+    async (slotKey: SlotKey, position: 1 | 2) => {
+      setGlobalError(null);
+      const priorTile: TileState =
+        slots[slotKey][position - 1] ?? { kind: 'empty' };
+      // Optimistic UI flip back to empty.
+      updateTile(slotKey, position, { kind: 'empty' });
+      try {
+        const formData = new FormData();
+        formData.set('event_id', eventId);
+        formData.set('slot_key', slotKey);
+        formData.set('slot_position', String(position));
+        const res = await removeMoodboardSlot(formData);
+        if (res.status !== 'ok') {
+          setGlobalError(res.message ?? 'Remove failed — try again.');
+          // Roll back the optimistic flip so the tile reappears.
+          updateTile(slotKey, position, priorTile);
+        }
+      } catch (err) {
+        setGlobalError(
+          err instanceof Error ? err.message : 'Remove failed — try again.',
+        );
+        updateTile(slotKey, position, priorTile);
       }
     },
-    [eventId],
+    [eventId, slots, updateTile],
   );
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent<HTMLDivElement>) => {
-      e.preventDefault();
-      setIsDragging(false);
-      const file = e.dataTransfer.files?.[0];
-      if (file) handleFileUpload(file);
-    },
-    [handleFileUpload],
-  );
-
-  const handleSave = useCallback(() => {
-    setErrorMessage(null);
-    const formData = new FormData();
-    formData.set('event_id', eventId);
-    formData.set('palette_json', JSON.stringify(activePalette));
-    // Tag the source so downstream copy ("from your inspiration", "Bridgerton
-    // burgundy") can read it. inspiration-derived palettes don't have a
-    // single canonical name; pass the curated name when curated is active.
-    if (items.length === 0 && selectedCuratedId) {
-      const pal = CURATED_PALETTES.find((p) => p.id === selectedCuratedId);
-      if (pal?.name) formData.set('palette_name', pal.name);
-    } else if (items.length > 0) {
-      formData.set('palette_name', 'From your inspiration');
+  const totalFilled = useMemo(() => {
+    let n = 0;
+    for (const key of ALL_SLOT_KEYS) {
+      for (const tile of slots[key]) {
+        if (tile.kind === 'filled') n += 1;
+      }
     }
-    startTransition(async () => {
+    return n;
+  }, [slots]);
+
+  const handleFinish = useCallback(() => {
+    if (totalFilled === 0) {
+      setGlobalError('Upload at least one photo before finishing.');
+      return;
+    }
+    setGlobalError(null);
+    startFinishTransition(async () => {
       try {
-        await completeMoodBoardTask(formData);
+        const formData = new FormData();
+        formData.set('event_id', eventId);
+        await finalizeMoodboard(formData);
       } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Couldn't save your palette. Try again.";
-        setErrorMessage(message);
+        setGlobalError(
+          err instanceof Error ? err.message : 'Could not save — try again.',
+        );
       }
     });
-  }, [eventId, activePalette, items.length, selectedCuratedId]);
+  }, [eventId, totalFilled]);
 
   return (
-    <div className="space-y-5">
-      {/* Tab toggle · Inspiration (default) vs Curated palettes */}
-      <div className="inline-flex items-center gap-1 rounded-full border border-ink/10 bg-cream/60 p-1">
-        <button
-          type="button"
-          onClick={() => setTab('inspiration')}
-          className={`rounded-full px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] transition-colors ${
-            tab === 'inspiration'
-              ? 'bg-terracotta text-cream'
-              : 'text-ink/55 hover:text-ink'
-          }`}
-        >
-          Inspiration
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab('curated')}
-          className={`rounded-full px-3 py-1 font-mono text-[10px] uppercase tracking-[0.15em] transition-colors ${
-            tab === 'curated'
-              ? 'bg-terracotta text-cream'
-              : 'text-ink/55 hover:text-ink'
-          }`}
-        >
-          Curated palettes
-        </button>
-      </div>
-
-      {tab === 'inspiration' ? (
-        <div className="space-y-4">
-          <p className="text-sm leading-relaxed text-ink/70">
-            Paste photo links or drop in pictures of weddings, rooms, or
-            moods you love. We&apos;ll pull the colors from each photo so
-            your palette becomes a reflection of what actually inspires you.
+    <div className="space-y-6">
+      <header className="space-y-2">
+        <h2 className="text-2xl font-semibold tracking-tight text-ink">
+          Set your inspiration mood board
+        </h2>
+        <p className="max-w-2xl text-sm leading-relaxed text-ink-muted">
+          Upload up to 2 reference photos for each section. The look you upload
+          here drives your palette, your stylist&apos;s render, and every
+          downstream vendor brief.
+        </p>
+        {totalFilled > 0 ? (
+          <p className="text-xs font-medium text-terracotta">
+            {totalFilled} {totalFilled === 1 ? 'photo' : 'photos'} uploaded
           </p>
+        ) : null}
+      </header>
 
-          {/* URL paste row */}
-          <div className="space-y-2">
-            <label
-              htmlFor="inspiration-url"
-              className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/60"
-            >
-              <Link2 aria-hidden className="h-3 w-3" strokeWidth={2} />
-              Paste a photo link
-            </label>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <input
-                id="inspiration-url"
-                type="url"
-                value={pasteUrl}
-                onChange={(e) => setPasteUrl(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handlePasteSubmit();
-                  }
-                }}
-                placeholder="https://www.pinterest.com/pin/… or https://instagram.com/…"
-                className="flex-1 rounded-lg border border-ink/15 bg-cream px-3 py-2 text-sm text-ink placeholder:text-ink/35 focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30"
-                disabled={isProcessing}
-              />
-              <button
-                type="button"
-                onClick={handlePasteSubmit}
-                disabled={isProcessing || pasteUrl.trim().length === 0}
-                className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-lg bg-terracotta px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-700 focus:outline-none focus:ring-2 focus:ring-terracotta focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isProcessing ? 'Reading…' : 'Add to board'}
-              </button>
-            </div>
-            <p className="text-xs leading-relaxed text-ink/50">
-              For best results, right-click the photo on Pinterest or
-              Instagram and choose <em>Copy Image Address</em> — that
-              gives us the direct image URL we can sample.
-            </p>
-          </div>
+      {globalError ? (
+        <div
+          role="alert"
+          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
+          {globalError}
+        </div>
+      ) : null}
 
-          {/* Upload zone (drag-drop + click) */}
-          <div
-            onDragOver={(e) => {
-              e.preventDefault();
-              setIsDragging(true);
-            }}
-            onDragLeave={() => setIsDragging(false)}
-            onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
-            className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-6 text-center transition-colors ${
-              isDragging
-                ? 'border-terracotta bg-terracotta/5'
-                : 'border-ink/20 bg-cream/40 hover:border-ink/35'
-            }`}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                fileInputRef.current?.click();
-              }
-            }}
-            aria-label="Upload an inspiration photo"
-          >
-            <Upload aria-hidden className="h-5 w-5 text-ink/55" strokeWidth={2} />
-            <p className="text-sm font-semibold text-ink">
-              Or drop a photo here
-            </p>
-            <p className="text-xs leading-relaxed text-ink/50">
-              PNG, JPEG, or WebP — up to 5 MB.
-            </p>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handleFileUpload(file);
-                // Reset so picking the same file twice still fires onChange.
-                e.target.value = '';
-              }}
-              disabled={isProcessing}
-            />
-          </div>
-
-          {pasteError ? (
-            <p
-              role="alert"
-              className="rounded-md border border-rose-300/60 bg-rose-50 px-3 py-2 text-sm text-rose-800"
-            >
-              {pasteError}
-            </p>
-          ) : null}
-
-          {/* Inspiration grid */}
-          <div className="space-y-2">
-            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/60">
-              Your inspiration ({items.length})
-            </p>
-            {loadingItems ? (
-              <p className="text-sm text-ink/50">Loading your board…</p>
-            ) : items.length === 0 ? (
-              <div className="flex items-center gap-2 rounded-lg border border-dashed border-ink/15 bg-cream/40 px-4 py-6 text-sm text-ink/55">
-                <ImagePlus aria-hidden className="h-4 w-4" strokeWidth={2} />
-                <span>
-                  Nothing pasted yet — add a photo above and your palette
-                  builds from it.
-                </span>
-              </div>
-            ) : (
-              <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {items.map((item) => {
-                  const palette = [
-                    item.sampled_hex_1,
-                    item.sampled_hex_2,
-                    item.sampled_hex_3,
-                    item.sampled_hex_4,
-                    item.sampled_hex_5,
-                    item.sampled_hex_6,
-                  ];
-                  return (
-                    <li
-                      key={item.inspiration_id}
-                      className="overflow-hidden rounded-xl border border-ink/10 bg-cream"
-                    >
-                      <div className="relative aspect-[4/3] w-full bg-ink/5">
-                        {/* Plain img — inspiration URLs come from arbitrary
-                            third-party hosts (Pinterest, Instagram CDNs);
-                            next/image would require allowing every possible
-                            remote pattern. Plain img keeps it simple +
-                            still respects width/height via object-cover. */}
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={item.image_url}
-                          alt="Inspiration"
-                          className="h-full w-full object-cover"
-                          loading="lazy"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleRemove(item.inspiration_id)}
-                          aria-label="Remove this inspiration"
-                          className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-ink/70 text-cream backdrop-blur-sm transition-colors hover:bg-ink"
-                        >
-                          <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                        </button>
-                      </div>
-                      <div className="flex h-6 w-full">
-                        {palette.map((hex, idx) => (
-                          <span
-                            key={`${item.inspiration_id}-${idx}`}
-                            aria-hidden
-                            className="flex-1"
-                            style={{ backgroundColor: hex }}
-                          />
-                        ))}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
+      {loading ? (
+        <div className="flex items-center gap-2 text-sm text-ink-muted">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading your mood board…
         </div>
       ) : (
-        <fieldset className="space-y-3">
-          <legend className="sr-only">Pick a curated palette</legend>
-          <p className="text-sm leading-relaxed text-ink/70">
-            Pick one of these to start with — you can refine it from the
-            Mood Board surface anytime.
-          </p>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {CURATED_PALETTES.map((palette) => {
-              const isSelected = selectedCuratedId === palette.id;
-              return (
-                <button
-                  key={palette.id}
-                  type="button"
-                  onClick={() =>
-                    setSelectedCuratedId(isSelected ? null : palette.id)
-                  }
-                  aria-pressed={isSelected}
-                  className={`flex flex-col gap-2 rounded-xl border-2 bg-cream p-3 text-left transition-colors ${
-                    isSelected
-                      ? 'border-terracotta'
-                      : 'border-ink/10 hover:border-ink/25'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-semibold text-ink">
-                      {palette.name}
-                    </p>
-                    {isSelected ? (
-                      <CheckCircle2
-                        aria-hidden
-                        className="h-4 w-4 text-terracotta"
-                        strokeWidth={2}
-                      />
-                    ) : null}
-                  </div>
-                  <div className="flex h-6 w-full overflow-hidden rounded-md border border-ink/5">
-                    {palette.colors.map((color, idx) => (
-                      <span
-                        key={`${palette.id}-${idx}`}
-                        aria-hidden
-                        className="flex-1"
-                        style={{ backgroundColor: color }}
-                      />
-                    ))}
-                  </div>
-                  <p className="text-xs leading-relaxed text-ink/55">
-                    {palette.hint}
-                  </p>
-                </button>
-              );
-            })}
-          </div>
-        </fieldset>
-      )}
-
-      {/* Live preview of the active palette · always rendered so the host
-          sees what gets saved before clicking Save. */}
-      <div className="space-y-2">
-        <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/60">
-          Your palette
-        </p>
-        <div className="flex h-10 w-full overflow-hidden rounded-lg border border-ink/10">
-          {activePalette.map((color, idx) => (
-            <span
-              key={`preview-${idx}-${color}`}
-              aria-hidden
-              className="flex-1"
-              style={{ backgroundColor: color }}
+        <div className="space-y-8">
+          {PILLARS.map((pillar) => (
+            <PillarSection
+              key={pillar.id}
+              pillar={pillar}
+              slots={slots}
+              onUpload={handleUpload}
+              onRemove={handleRemove}
             />
           ))}
         </div>
-        <p className="text-xs leading-relaxed text-ink/50">
-          {items.length > 0
-            ? `Pulled from your ${items.length} inspiration photo${items.length === 1 ? '' : 's'}.`
-            : selectedCuratedId
-              ? 'From the curated palette you picked above.'
-              : 'Add inspiration or pick a curated palette to start.'}
-        </p>
-      </div>
+      )}
 
-      {errorMessage ? (
-        <p
-          role="alert"
-          className="rounded-md border border-rose-300/60 bg-rose-50 px-3 py-2 text-sm text-rose-800"
-        >
-          {errorMessage}
+      <footer className="flex flex-col gap-3 border-t border-cream-deep pt-5 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-xs text-ink-muted">
+          Each upload saves automatically. Finish when you&apos;re ready to
+          move on — you can always come back to swap photos.
         </p>
-      ) : null}
-
-      <div>
         <button
           type="button"
-          onClick={handleSave}
-          disabled={isPending || (items.length === 0 && !selectedCuratedId)}
-          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-terracotta px-5 py-3 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-700 focus:outline-none focus:ring-2 focus:ring-terracotta focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60"
+          onClick={handleFinish}
+          disabled={isFinishing || totalFilled === 0}
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-terracotta px-5 py-2.5 text-sm font-semibold text-cream shadow-sm transition-colors hover:bg-terracotta-deep disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {isPending ? (
-            'Saving…'
+          {isFinishing ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Saving…
+            </>
           ) : (
             <>
-              <PaletteIcon aria-hidden className="h-4 w-4" strokeWidth={2} />
-              Save palette
+              <CheckCircle2 className="h-4 w-4" />
+              Finish mood board
             </>
           )}
         </button>
-      </div>
-
-      <p className="text-xs leading-relaxed text-ink/55">
-        You can refine per-role palettes (bride, groom, sponsors) anytime
-        from your Mood Board surface — this is your headline palette.
-      </p>
+      </footer>
     </div>
+  );
+}
+
+// -----------------------------------------------------------------------
+// Pillar section — renders one of the 3 pillars (Location feel · Palette ·
+// Dress codes). Each pillar header surfaces a short hint copy, then the
+// pillar's slots stack vertically; inside each slot, the two upload tiles
+// sit in a 2-column grid.
+// -----------------------------------------------------------------------
+
+function PillarSection({
+  pillar,
+  slots,
+  onUpload,
+  onRemove,
+}: {
+  pillar: (typeof PILLARS)[number];
+  slots: SlotStateMap;
+  onUpload: (slotKey: SlotKey, position: 1 | 2, file: File) => void;
+  onRemove: (slotKey: SlotKey, position: 1 | 2) => void;
+}) {
+  return (
+    <section className="space-y-4">
+      <header className="space-y-1">
+        <h3 className="flex items-center gap-2 text-base font-semibold text-ink">
+          {pillar.id === 'palette' ? (
+            <PaletteIcon className="h-4 w-4 text-terracotta" />
+          ) : null}
+          {pillar.label}
+        </h3>
+        <p className="text-xs text-ink-muted">{pillar.hint}</p>
+      </header>
+
+      <div className="space-y-4">
+        {pillar.slots.map((slot) => (
+          <SlotCard
+            key={slot.key}
+            slotKey={slot.key}
+            label={slot.label}
+            tiles={slots[slot.key]}
+            onUpload={onUpload}
+            onRemove={onRemove}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// -----------------------------------------------------------------------
+// Slot card — one row per slot, label on top, then two upload tiles in
+// a 2-column grid.
+// -----------------------------------------------------------------------
+
+function SlotCard({
+  slotKey,
+  label,
+  tiles,
+  onUpload,
+  onRemove,
+}: {
+  slotKey: SlotKey;
+  label: string;
+  tiles: [TileState, TileState];
+  onUpload: (slotKey: SlotKey, position: 1 | 2, file: File) => void;
+  onRemove: (slotKey: SlotKey, position: 1 | 2) => void;
+}) {
+  return (
+    <div className="rounded-xl border border-cream-deep bg-white/40 p-4 shadow-sm">
+      <p className="mb-3 text-sm font-medium text-ink">{label}</p>
+      <div className="grid grid-cols-2 gap-3">
+        <UploadTile
+          slotKey={slotKey}
+          label={label}
+          position={1}
+          tile={tiles[0]}
+          onUpload={onUpload}
+          onRemove={onRemove}
+        />
+        <UploadTile
+          slotKey={slotKey}
+          label={label}
+          position={2}
+          tile={tiles[1]}
+          onUpload={onUpload}
+          onRemove={onRemove}
+        />
+      </div>
+    </div>
+  );
+}
+
+// -----------------------------------------------------------------------
+// Upload tile — empty / uploading / filled state machine. Click + drop
+// both wired. Hover reveals an X remove button on filled tiles.
+// -----------------------------------------------------------------------
+
+function UploadTile({
+  slotKey,
+  label,
+  position,
+  tile,
+  onUpload,
+  onRemove,
+}: {
+  slotKey: SlotKey;
+  label: string;
+  position: 1 | 2;
+  tile: TileState;
+  onUpload: (slotKey: SlotKey, position: 1 | 2, file: File) => void;
+  onRemove: (slotKey: SlotKey, position: 1 | 2) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handlePick = useCallback(() => {
+    inputRef.current?.click();
+  }, []);
+
+  const handleFiles = useCallback(
+    (files: FileList | null) => {
+      if (!files || files.length === 0) return;
+      const file = files[0]!;
+      onUpload(slotKey, position, file);
+    },
+    [onUpload, slotKey, position],
+  );
+
+  const handleDragOver = useCallback((evt: React.DragEvent<HTMLButtonElement>) => {
+    evt.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback(
+    (evt: React.DragEvent<HTMLButtonElement>) => {
+      evt.preventDefault();
+      setIsDragging(false);
+      handleFiles(evt.dataTransfer.files);
+    },
+    [handleFiles],
+  );
+
+  if (tile.kind === 'filled') {
+    return (
+      <div className="group relative aspect-square overflow-hidden rounded-lg border border-cream-deep bg-cream">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={tile.image_url}
+          alt={`${label} inspiration ${position}`}
+          className="h-full w-full object-cover"
+        />
+        <button
+          type="button"
+          onClick={() => onRemove(slotKey, position)}
+          aria-label={`Remove ${label} photo ${position}`}
+          className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-full bg-ink/80 text-cream opacity-0 transition-opacity hover:bg-ink group-hover:opacity-100 focus:opacity-100"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    );
+  }
+
+  if (tile.kind === 'uploading') {
+    return (
+      <div className="grid aspect-square place-items-center rounded-lg border border-dashed border-terracotta/50 bg-cream/50">
+        <Loader2 className="h-6 w-6 animate-spin text-terracotta" />
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        className="sr-only"
+        onChange={(evt) => {
+          handleFiles(evt.target.files);
+          evt.currentTarget.value = '';
+        }}
+      />
+      <button
+        type="button"
+        onClick={handlePick}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        aria-label={`Upload ${label} photo ${position}`}
+        className={`grid aspect-square place-items-center rounded-lg border-2 border-dashed transition-colors ${
+          isDragging
+            ? 'border-terracotta bg-terracotta/10 text-terracotta'
+            : 'border-cream-deep bg-cream/50 text-ink-muted hover:border-terracotta hover:bg-terracotta/5 hover:text-terracotta'
+        }`}
+      >
+        <span className="flex flex-col items-center gap-1.5 px-2 text-center">
+          <CloudUpload className="h-6 w-6" />
+          <span className="text-[11px] leading-tight">
+            Drop a photo or click to choose
+          </span>
+        </span>
+      </button>
+    </>
   );
 }

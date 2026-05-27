@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Download, AlertTriangle, Compass, KeyRound, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { CONCIERGE_ENABLED } from '@/lib/concierge';
 import { fetchUserEvents } from '@/lib/events';
 import { restartTour } from '@/lib/tour-actions';
@@ -40,13 +41,32 @@ export default async function ProfilePage({ searchParams }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: profile } = await supabase
+  // Use `.maybeSingle()` per the canonical guard pattern established in
+  // `apps/web/app/dashboard/[eventId]/layout.tsx` (post-third-hotfix-pass):
+  // `.single()` flags PGRST116 "0 rows" as an error which silently drops
+  // when only `data` is destructured; `.maybeSingle()` returns `null` cleanly
+  // so downstream optional chaining is the canonical handler. Log real DB /
+  // column errors via `logQueryError` so future ADD COLUMN migrations that
+  // land on code before SQL surface as logged graceful-degrade rather than
+  // a confusing UI render. Profile is allowed to be null — every downstream
+  // read uses `profile?.field` and the page renders a coherent first-load
+  // state even when the row hasn't been created yet (auth.users-vs-public.users
+  // race during signup).
+  const { data: profile, error: profileErr } = await supabase
     .from('users')
     .select(
       'public_id, email, display_name, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, theme_preference, planner_mode, marketing_opt_in, created_at',
     )
     .eq('user_id', user.id)
-    .single();
+    .maybeSingle();
+  if (profileErr) {
+    logQueryError(
+      'ProfilePage (users)',
+      profileErr,
+      { user_id: user.id },
+      'graceful_degrade',
+    );
+  }
 
   // 2026-05-22 brand pivot: theme_preference now holds 'light' | 'dark' | 'auto'.
   // Defensive fallback to 'auto' covers (a) anonymous shouldn't reach here, and

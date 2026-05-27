@@ -9,26 +9,25 @@
  *   "Attire should grow on Bridal Gown, Grooms Suit, Bridal Shoes,
  *    Grooms Shoes, possible add Entourage and Parents?"
  *
- * STAGE 1 (this PR): single-grid view surfacing vendors across all 6
- * canonicals · Filipino couples see the full attire pool (gowns, suits,
- * shoes, entourage outfits, parents' outfits) interleaved by review count
- * + verification + ad rank · still single-pick (locking one vendor
- * advances the wizard).
- *
- * STAGE 2 (follow-up PR b.2): multi-pick UX with 6 sub-tabs · custom lock
- * action that doesn't auto-advance the wizard · "Mark attire complete" CTA
- * when ≥2 sub-categories locked. Mirrors the Card 14 Photobooths + Booths
- * multi-pick pattern (see `photobooths-booths-card-client.tsx`).
+ * 2026-05-28 PR (b) stage 2 / PR (g) · sub-tabs UX shipped. Server fetches
+ * 6 collections in parallel (one per sub-canonical) and hands them to
+ * `<AttireSubTabsClient>` which renders pills + the active
+ * VendorPickGridCard. Single-pick semantics preserved · locking ANY
+ * vendor advances the wizard (existing behavior). Hosts who want to
+ * lock multiple sub-categories re-engage with the card after settle —
+ * full multi-pick semantics (custom lock that doesn't advance +
+ * "Mark complete" CTA · mirrors Card 14 Photobooths) stay V1.x scope.
  *
  * The legacy canonicals (`gown_designer` · `suit_designer`) stay in the
- * vendor_category enum as deprecated · the migration migrated existing
- * event_vendors + vendor_profiles rows to the new canonical names.
+ * vendor_category enum as deprecated · migration 20260621000000 data-
+ * migrated existing event_vendors + vendor_profiles rows to the new
+ * canonical names.
  *
  * Filter approach: NO distance filter. Designers + couture boutiques are
  * picked by portfolio + fit-session quality, not proximity — couples
  * regularly fit at NCR ateliers for provincial weddings. Default sort
  * (ad_rank → review_count → avg_rating_overall) anchors on portfolio +
- * reputation per the [Vendor_Taxonomy_V1_Master.md § 10 spec lock]
+ * reputation per the Vendor_Taxonomy_V1_Master.md § 10 spec lock
  * (creations pattern · reviews-first filter approach).
  *
  * Muslim couples get modest-attire vendors via the
@@ -40,9 +39,10 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import {
   fetchWizardVendorRecommendations,
   fetchBookedMarketplaceVendorIdsForDate,
+  type WizardVendorRec,
 } from '@/lib/wizard-recommendations';
 import type { CeremonyType } from '@/lib/auspicious-date';
-import { VendorPickGridCard } from './vendor-pick-grid-card';
+import { AttireSubTabsClient } from './attire-card-client';
 
 type Props = {
   eventId: string;
@@ -55,15 +55,10 @@ type Props = {
   eventDate: string | null;
 };
 
-// 2026-05-24 PR (b) stage 1 · expanded pool to all 6 attire sub-categories
-// per owner directive. Migration 20260621000000 added the 4 new canonicals
-// (bridal_shoes / groom_shoes / entourage_attire / parents_attire) and
-// renamed the existing 2 (gown_designer → bridal_gown, suit_designer →
-// groom_suit). Existing event_vendors + vendor_profiles rows were
-// data-migrated to the new names; the legacy names stay in the enum as
-// deprecated. PR (b) stage 2 will split this into 6 sub-tab views with
-// independent locking.
-const CANONICAL_SERVICES = [
+// 6 attire sub-canonicals · each becomes its own tab. The server fetches
+// one collection per canonical so the client can swap tabs without
+// re-fetching.
+const ATTIRE_SUB_CANONICALS = [
   'bridal_gown',
   'groom_suit',
   'bridal_shoes',
@@ -71,6 +66,8 @@ const CANONICAL_SERVICES = [
   'entourage_attire',
   'parents_attire',
 ] as const;
+
+type SubCanonical = (typeof ATTIRE_SUB_CANONICALS)[number];
 
 export async function AttireCard({
   eventId,
@@ -80,17 +77,43 @@ export async function AttireCard({
   eventDate,
 }: Props) {
   const admin = createAdminClient();
-  const [recs, bookedIds] = await Promise.all([
-    fetchWizardVendorRecommendations(admin, {
-      canonicalServices: CANONICAL_SERVICES,
-      ceremonyType,
-      venueSetting,
-      excludeVendorIds: excludeMarketplaceIds,
-      limit: 100,
-    }),
-    fetchBookedMarketplaceVendorIdsForDate(admin, eventId, eventDate),
-  ]);
 
+  // Parallel fetch · 6 per-canonical recommendation collections + the
+  // booked-on-event-date availability filter. Per-canonical limit is 50
+  // (6 × 50 = 300 total recs is comfortable headroom for any region).
+  const subRecs = await Promise.all(
+    ATTIRE_SUB_CANONICALS.map((canonical) =>
+      fetchWizardVendorRecommendations(admin, {
+        canonicalServices: [canonical],
+        ceremonyType,
+        venueSetting,
+        excludeVendorIds: excludeMarketplaceIds,
+        limit: 50,
+      }),
+    ),
+  );
+  const bookedIds = await fetchBookedMarketplaceVendorIdsForDate(
+    admin,
+    eventId,
+    eventDate,
+  );
+
+  // Position-aligned with ATTIRE_SUB_CANONICALS so the indices map cleanly.
+  // `?? []` makes the index narrowing TS-friendly under
+  // `noUncheckedIndexedAccess` — Promise.all preserves array length so
+  // every slot is guaranteed populated at runtime.
+  const recsBySubKey: Record<SubCanonical, ReadonlyArray<WizardVendorRec>> = {
+    bridal_gown: subRecs[0] ?? [],
+    groom_suit: subRecs[1] ?? [],
+    bridal_shoes: subRecs[2] ?? [],
+    groom_shoes: subRecs[3] ?? [],
+    entourage_attire: subRecs[4] ?? [],
+    parents_attire: subRecs[5] ?? [],
+  };
+
+  // Locale-adaptive empty-state copy resolved here on the server so the
+  // ceremony-type nuance (Muslim modest-attire · Cultural Filipiniana)
+  // travels with the "All attire" tab default.
   let emptyCopy: string;
   switch (ceremonyType) {
     case 'muslim':
@@ -107,22 +130,14 @@ export async function AttireCard({
   }
 
   return (
-    <VendorPickGridCard
+    <AttireSubTabsClient
       eventId={eventId}
-      taskId="attire"
-      initialRecommendations={recs}
-      searchContext={{
-        canonicalServices: CANONICAL_SERVICES,
-        ceremonyType,
-        venueSetting,
-        excludeVendorIds: excludeMarketplaceIds,
-      }}
-      copy={{
-        pluralNoun: 'attire designers',
-        customAddLabel: 'Already booked your designer or rental?',
-        emptyStateCopy: emptyCopy,
-      }}
+      ceremonyType={ceremonyType}
+      venueSetting={venueSetting}
+      excludeMarketplaceIds={excludeMarketplaceIds}
+      recsBySubKey={recsBySubKey}
       bookedMarketplaceVendorIds={bookedIds}
+      emptyStateCopy={emptyCopy}
     />
   );
 }

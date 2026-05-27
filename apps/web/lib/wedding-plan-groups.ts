@@ -557,9 +557,19 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     label: 'Bridal Car',
     hint: 'Your wedding-day arrival vehicle. Vintage, luxury, or classic.',
     tier: 'extras',
-    // Entry-point card — picks bucket under logistics (shares
-    // 'transportation' category with guest_shuttle).
-    categories: [],
+    // 2026-05-24 fix · PLAN_GROUPS.bridal_car.categories was empty until
+    // this PR, causing every 'transportation' pick (e.g., bridal-car-card.tsx
+    // which surfaces canonical='transportation' vendors) to fall through to
+    // the `logistics` catch-all PLAN_GROUP instead of bucketing into this
+    // dedicated Bridal Car cell. Per CLAUDE.md 2026-05-24 tenth row's "PR
+    // follow-1 · 1-line fix" acknowledgement — assigning 'transportation'
+    // here closes the orphan-cell loop without touching the VendorCategory
+    // enum or any migration. Guest shuttle stays orphan-cell until the
+    // V1.x split into 'transportation_bridal_car' + 'transportation_guest_shuttle'
+    // sub-categories lands (separate PR · needs new enum values + migration
+    // on event_vendors.category CHECK constraint per CLAUDE.md tenth row's
+    // PR follow-3).
+    categories: ['transportation'],
     monthsBefore: 2,
     catalogFolder: 'planning_logistics_travel',
     subcategoryHint: 'transportation_bridal_car',

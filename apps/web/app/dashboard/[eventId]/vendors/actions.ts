@@ -11,6 +11,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import { uploadPublicAsset } from '@/lib/storage';
 import {
@@ -1814,4 +1815,354 @@ export async function attachMarketplaceVendorToCategory(
     marketplaceVendorId: marketplaceVendorIdRaw,
     service_linked: serviceId !== null,
   };
+}
+
+// ============================================================================
+// cancelBookingAsHost (2026-05-24, PR B) — Host-side cancel pre-downpayment.
+//
+// CLAUDE.md decision-log row "Canonical wizard sequence reconciled 38 → 45 +
+// Lock/delete/overlap architecture" (2026-05-24). Rule 1 of 5 from the
+// lock/delete/overlap pillar — pilot-critical batch with PR A
+// (`max_soft_holds_per_date` schema + finalizeVendor extension) and PR C
+// (PLAN_GROUPS.bridal_car alignment) landing same session.
+//
+// Why this exists:
+//   Pilot couples WILL change their minds on picks (5-20 personal/family
+//   cohort exercising real BDO/GCash payment cycle 2026-06-01 onwards).
+//   Without an in-app cancel path, admin would manually delete event_vendors
+//   rows from Supabase Studio — bad UX, slow turnaround, no audit. The
+//   existing `deleteVendor` server action is a blunt hard-delete that:
+//     (a) doesn't notify the vendor (they'd discover via stale calendar +
+//         lose a soft-hold slot silently), and
+//     (b) shouldn't fire on `deposit_paid` / `delivered` / `complete` rows
+//         where real money has moved — those need the dispute flow.
+//
+// Status → action matrix (the canonical lock):
+//   considering / shortlisted     → existing deleteVendor (no notification)
+//   contracted (no payment)       → cancelBookingAsHost (this action)
+//   contracted (payment confirmed) → downpaid_use_dispute_flow → 0023 § 3.6
+//   deposit_paid / delivered / complete → downpaid_use_dispute_flow
+//
+// V1 payment-signal source: per the canonical lock, the gate is
+// "ANY row in service_order_payments exists with confirmed_at IS NOT NULL
+//  for this event_vendor". In V1, the actual `public.payments` table
+// (migration 20260513150000) is keyed on `order_id` (not event_vendor_id)
+// and the order→vendor link is via `orders.service_key` — there's no
+// direct event_vendor_id FK on payments yet (deferred to V1.x payment
+// reconciliation refactor per CLAUDE.md 2026-05-16 row 8). The canonical
+// V1 signal is instead:
+//   (a) event_vendors.status IN ('deposit_paid','delivered','complete'), OR
+//   (b) event_vendors.deposit_paid_php > 0
+// Both flip at the same time per the existing workspace status stepper
+// (workspace page.tsx:122 inferStageFromVendorStatus). We check (a) AND
+// (b) belt-and-suspenders so a host who manually entered a deposit
+// figure (via the inline contact form) without flipping the status pill
+// still triggers the dispute gate. When V1.x adds the direct payments
+// link, this check extends without changing the action signature.
+//
+// Notification trigger: PR B is scoped to "no schema migration" per the
+// batch contract (PR A owns schema changes for this lock/delete/overlap
+// arc). Two schema gaps relevant to PR B's vendor-notification step:
+//   1. `chat_messages.sender_role` has no 'system' value (enum: couple /
+//      vendor / coordinator) — inserting a system thread message would
+//      require an ADD VALUE migration. SKIPPED for PR B.
+//   2. `public.notification_type` has no 'booking_cancelled' value (per
+//      apps/web/lib/notifications.ts NotificationType union). The
+//      canonical emitNotification path would 22P02-fail on insert.
+//      SKIPPED for PR B; we send a direct Resend email instead.
+//
+// V1.x follow-up (paired with PR A's schema work) adds both enum
+// values + restores the canonical emitNotification path. For PR B
+// pilot scope, a direct email via sendEmail() + a chat-deep-link in
+// the body delivers the vendor-side signal cleanly without spec drift.
+// When RESEND_API_KEY isn't configured (dev / preview env), sendEmail
+// no-ops and returns ok:false reason:'not_configured' — we log and
+// continue. The cancel itself is the load-bearing action; the
+// notification is best-effort.
+//
+// Idempotent: re-cancel after the row is gone returns 'not_found' (not
+// an error). RLS on event_vendors gates the action to host-on-event
+// members; an outside user submitting a forged form sees 'not_found'
+// the same way (RLS-denied select == row missing from the response).
+//
+// Entry points (orphan-prevention per feedback_setnayan_orphan_prevention):
+//   - /dashboard/[eventId]/vendors/[eventVendorId]/workspace — primary
+//     detail surface (added in this PR alongside the action)
+//   - /dashboard/[eventId]/vendors list — replaces the existing Trash2
+//     icon for `contracted` rows with the new modal flow (PR B UI work)
+// ============================================================================
+
+export type CancelBookingAsHostResult =
+  | { status: 'ok'; vendorId: string; vendorName: string }
+  | { status: 'not_signed_in' }
+  | { status: 'not_found' }
+  | { status: 'downpaid_use_dispute_flow' }
+  | { status: 'error'; message: string };
+
+const DOWNPAID_STATUSES = new Set<VendorStatus>([
+  'deposit_paid',
+  'delivered',
+  'complete',
+]);
+
+/**
+ * Cancels a host's vendor booking BEFORE any downpayment lands. Hard-
+ * deletes the event_vendors row + notifies the vendor (when marketplace-
+ * linked) via the standard notification pipeline.
+ *
+ * Form fields:
+ *   - event_id: UUID of the event
+ *   - vendor_id: UUID of the event_vendors row
+ *
+ * Status routing: any row already past `contracted` (deposit_paid /
+ * delivered / complete) returns 'downpaid_use_dispute_flow' so the UI
+ * can swap to the dispute CTA. The host can't accidentally hard-delete
+ * a row where money has moved.
+ *
+ * Returns vendor name on success so the UI's confirmation toast reads
+ * "Cancelled your booking with {Vendor Name}" without an extra fetch.
+ */
+export async function cancelBookingAsHost(
+  formData: FormData,
+): Promise<CancelBookingAsHostResult> {
+  const eventIdRaw = formData.get('event_id');
+  const vendorIdRaw = formData.get('vendor_id');
+
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {
+    return { status: 'error', message: 'Missing event id' };
+  }
+  if (typeof vendorIdRaw !== 'string' || vendorIdRaw.length === 0) {
+    return { status: 'error', message: 'Missing vendor id' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { status: 'not_signed_in' };
+  }
+
+  // Read the target row — RLS gates this to host-on-event members. A
+  // forged vendor_id from outside the event will return null (RLS deny
+  // is indistinguishable from row-missing in PostgREST), which we
+  // surface as 'not_found' for the same idempotent re-cancel path.
+  const { data: vendorRow, error: readErr } = await supabase
+    .from('event_vendors')
+    .select(
+      'vendor_id, vendor_name, status, deposit_paid_php, marketplace_vendor_id, event_id',
+    )
+    .eq('vendor_id', vendorIdRaw)
+    .eq('event_id', eventIdRaw)
+    .maybeSingle();
+  if (readErr) {
+    // 42P01 / 42703 on event_vendors would mean the migration didn't
+    // land — surface a clean error instead of leaking the SQL code.
+    return { status: 'error', message: readErr.message };
+  }
+  if (!vendorRow) {
+    return { status: 'not_found' };
+  }
+
+  const ev = vendorRow as {
+    vendor_id: string;
+    vendor_name: string;
+    status: VendorStatus;
+    deposit_paid_php: number | string | null;
+    marketplace_vendor_id: string | null;
+    event_id: string;
+  };
+
+  // Downpayment gate. Any of three signals routes the host to the
+  // dispute flow instead of the silent hard-delete:
+  //   (a) Status reached deposit_paid / delivered / complete (the
+  //       canonical workspace-stepper signal — set by the vendor
+  //       tracker or the workspace surface when payment confirmed).
+  //   (b) deposit_paid_php > 0 — belt-and-suspenders for hosts who
+  //       enter a deposit figure via the inline contact form on the
+  //       vendors list WITHOUT flipping the status pill. Real money
+  //       has moved even if the enum lags behind.
+  if (DOWNPAID_STATUSES.has(ev.status)) {
+    return { status: 'downpaid_use_dispute_flow' };
+  }
+  const depositValue =
+    typeof ev.deposit_paid_php === 'string'
+      ? Number(ev.deposit_paid_php)
+      : ev.deposit_paid_php;
+  if (Number.isFinite(depositValue) && (depositValue ?? 0) > 0) {
+    return { status: 'downpaid_use_dispute_flow' };
+  }
+
+  // Resolve host display name BEFORE the delete so the notification copy
+  // reads "Maria Santos cancelled..." not "Someone cancelled...". Falls
+  // back to email-local-part when display_name is null — every signed-in
+  // user has at least one of those two via the signup flow.
+  let hostDisplay: string = 'A host';
+  {
+    const { data: hostRow } = await supabase
+      .from('users')
+      .select('display_name, email')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (hostRow) {
+      const row = hostRow as { display_name: string | null; email: string };
+      hostDisplay =
+        row.display_name?.trim() ||
+        row.email.split('@')[0] ||
+        'A host';
+    }
+  }
+
+  // Pre-resolve the event display name + date for the email body. The
+  // vendor needs context — "cancelled their booking with you for Maria
+  // & Juan's wedding on Aug 15" is more useful than the bare cancel
+  // notice. Event read is via the host's RLS — they already have
+  // membership on this event so the select succeeds.
+  let eventDisplay: string = 'their event';
+  let eventDateIso: string | null = null;
+  {
+    const { data: eventRow } = await supabase
+      .from('events')
+      .select('display_name, event_date')
+      .eq('event_id', ev.event_id)
+      .maybeSingle();
+    if (eventRow) {
+      const row = eventRow as {
+        display_name: string;
+        event_date: string | null;
+      };
+      eventDisplay = row.display_name;
+      eventDateIso = row.event_date;
+    }
+  }
+
+  // Pre-resolve chat thread (when marketplace-linked) so the
+  // notification deep-links the vendor straight to the conversation
+  // where they negotiated the booking. Best-effort: missing thread
+  // just falls back to /vendor-dashboard.
+  let vendorChatThreadId: string | null = null;
+  let vendorPrimaryUserId: string | null = null;
+  if (ev.marketplace_vendor_id) {
+    // adminClient bypasses chat_threads RLS — same pattern as
+    // notification-emit.ts uses for cross-account writes. We only
+    // need the thread_id + the vendor's user_id; no sensitive data.
+    const adminClient = createAdminClient();
+    const { data: threadRow } = await adminClient
+      .from('chat_threads')
+      .select('thread_id')
+      .eq('event_id', ev.event_id)
+      .eq('vendor_profile_id', ev.marketplace_vendor_id)
+      .maybeSingle();
+    if (threadRow) {
+      vendorChatThreadId = (threadRow as { thread_id: string }).thread_id;
+    }
+
+    const { data: profileRow } = await adminClient
+      .from('vendor_profiles')
+      .select('user_id')
+      .eq('vendor_profile_id', ev.marketplace_vendor_id)
+      .maybeSingle();
+    if (profileRow) {
+      vendorPrimaryUserId =
+        (profileRow as { user_id: string | null }).user_id ?? null;
+    }
+  }
+
+  // PRIMARY ACTION — hard-delete the event_vendors row. RLS enforces
+  // host-on-event membership. If the row vanished between our read and
+  // this delete (multi-host race), the delete affects 0 rows but doesn't
+  // throw — we still return 'ok' because the desired state (row gone) is
+  // achieved.
+  const { error: deleteErr } = await supabase
+    .from('event_vendors')
+    .delete()
+    .eq('vendor_id', vendorIdRaw)
+    .eq('event_id', eventIdRaw);
+  if (deleteErr) {
+    return { status: 'error', message: deleteErr.message };
+  }
+
+  // BEST-EFFORT NOTIFICATION — fire-and-forget. Any failure here
+  // (vendor user missing, Resend rate-limited, missing enum value, etc.)
+  // MUST NOT roll back the cancel. The host's action has already
+  // succeeded. We send a direct Resend email rather than the canonical
+  // emitNotification because `notification_type` enum has no
+  // 'booking_cancelled' value yet (see comment block above).
+  if (vendorPrimaryUserId) {
+    const formattedDate = (() => {
+      if (!eventDateIso) return null;
+      try {
+        return new Date(eventDateIso).toLocaleDateString('en-PH', {
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric',
+        });
+      } catch {
+        return null;
+      }
+    })();
+    const dateClause = formattedDate ? ` on ${formattedDate}` : '';
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL ??
+      'https://setnayan-platform-web.vercel.app';
+    const deepLinkPath = vendorChatThreadId
+      ? `/vendor-dashboard/messages/${vendorChatThreadId}`
+      : '/vendor-dashboard';
+    const deepLink = `${appUrl}${deepLinkPath}`;
+
+    try {
+      // Look up vendor's recipient email via the canonical users-table
+      // join. Uses adminClient because the recipient is a different
+      // user than the host (cross-account read; RLS would deny).
+      const adminClient = createAdminClient();
+      const { data: vendorUser } = await adminClient
+        .from('users')
+        .select('email')
+        .eq('user_id', vendorPrimaryUserId)
+        .maybeSingle();
+      const vendorEmail =
+        (vendorUser as { email: string } | null)?.email ?? null;
+
+      if (vendorEmail) {
+        // Lazy-import so the build stays clean for environments where
+        // Resend isn't wired. sendEmail() itself no-ops gracefully
+        // without RESEND_API_KEY — but we still want the import gated.
+        const { sendEmail } = await import('@/lib/email');
+        const subject = `${hostDisplay} cancelled their booking with you.`;
+        const body = [
+          `Hi from Setnayan,`,
+          ``,
+          `${hostDisplay} cancelled their booking with you for ${eventDisplay}${dateClause}.`,
+          ``,
+          `This happened before any payment was made — your soft hold has been released, and the date is open on your calendar again.`,
+          ``,
+          `If you'd like to follow up with them, open the conversation here:`,
+          deepLink,
+          ``,
+          `If anything looks off, write to us at support@setnayan.com and we'll sort it.`,
+          ``,
+          `—`,
+          `You're receiving this because the booking was made through your Setnayan vendor account.`,
+        ].join('\n');
+
+        await sendEmail({ to: vendorEmail, subject, text: body });
+      }
+    } catch (e) {
+      // Silent — the cancel itself succeeded. Log for ops visibility.
+      // eslint-disable-next-line no-console
+      console.error(
+        `[cancelBookingAsHost] vendor notification failed for vendor_id=${vendorIdRaw} event_id=${eventIdRaw}:`,
+        e,
+      );
+    }
+  }
+
+  // Revalidate both surfaces — event home + vendor tracker — so the
+  // cancelled vendor disappears from every host-facing view without a
+  // hard refresh. 'layout' mode mirrors the convention used across this
+  // file (see file-top comment block).
+  revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
+  revalidatePath(`/dashboard/${eventIdRaw}/vendors`, 'layout');
+
+  return { status: 'ok', vendorId: ev.vendor_id, vendorName: ev.vendor_name };
 }

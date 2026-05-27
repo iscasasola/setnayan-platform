@@ -279,6 +279,24 @@ export type FinalizeVendorResult =
       existingVendorId: string;
       existingVendorName: string;
     }
+  // PR A · soft-hold limit reached (Rule 3 of the lock/delete/overlap
+  // architecture — CLAUDE.md 2026-05-24 row "Canonical wizard sequence
+  // reconciled 38 → 45 + Lock/delete/overlap architecture"). Fires when the
+  // target vendor's max_soft_holds_per_date is already filled by N other
+  // hosts' contracted-status picks on the same event_date. UI surfaces a
+  // polite "{vendorName} already has {existingHoldCount} confirmed soft
+  // holds for your wedding date · they only accept {currentLimit}" copy
+  // plus a Browse-similar-vendors CTA. Off-platform / custom vendors
+  // (marketplace_vendor_id IS NULL) skip the check — no shared scheduling
+  // primitive to gate on. Events without wedding_date also skip — no date
+  // means no overlap.
+  | {
+      status: 'soft_hold_limit_reached';
+      vendorId: string;
+      vendorName: string;
+      currentLimit: number;
+      existingHoldCount: number;
+    }
   | { status: 'error'; message: string };
 
 const LOCKED_STATUS: VendorStatus = 'contracted';
@@ -400,6 +418,115 @@ export async function finalizeVendor(
       .eq('event_id', eventId);
     if (revertErr) {
       return { status: 'error', message: revertErr.message };
+    }
+  }
+
+  // PR A · Soft-hold limit gate (Rule 3 of the lock/delete/overlap
+  // architecture — CLAUDE.md 2026-05-24 row "Canonical wizard sequence
+  // reconciled 38 → 45 + Lock/delete/overlap architecture").
+  //
+  // Vendors can configure max_soft_holds_per_date on their profile (default
+  // 3, range 1-20 — see migration 20260627010000). Once that many hosts
+  // have contracted-status picks on the same wedding date, further lock
+  // attempts return 'soft_hold_limit_reached' with the vendor's current
+  // limit + existing hold count + a suggestion to browse similar vendors.
+  //
+  // The check skips when:
+  //   • Target is an off-platform / custom vendor (marketplace_vendor_id
+  //     IS NULL) — no shared scheduling primitive, hosts independently
+  //     track these themselves.
+  //   • Target event has no wedding_date set yet — no date means no
+  //     overlap; the wizard will surface the check the moment Card 01
+  //     locks a date.
+  //   • Target vendor row's marketplace_vendor_id resolution somehow
+  //     fails — degrade open (lock proceeds) rather than block on an
+  //     internal data issue. Defensive: better than crashing the lock
+  //     CTA when a vendor_profiles row is in an unexpected state.
+  //
+  // Filipino-market reality: vendors regularly juggle multiple soft holds
+  // for the same date until money commits — the limit isn't a hard ban,
+  // it's a vendor-controlled queue depth. When a downpayment confirms
+  // (Rule 4, lands in PR D), the auto-release trigger frees the other
+  // soft holds and Setnayan emails each affected host with a similar-
+  // vendors strip per [0028 template auto_released_due_to_other_booking].
+  if (targetVendor.marketplace_vendor_id) {
+    // Read wedding_date + the vendor's configured limit in parallel-friendly
+    // sequential calls. (Single round trip via .from('events').select is
+    // already cheap; the limit lookup hits a different table.)
+    const [{ data: eventRow, error: eventErr }, { data: vendorProfileRow, error: vpErr }] =
+      await Promise.all([
+        supabase
+          .from('events')
+          .select('wedding_date')
+          .eq('event_id', eventId)
+          .maybeSingle(),
+        supabase
+          .from('vendor_profiles')
+          .select('max_soft_holds_per_date')
+          .eq('vendor_profile_id', targetVendor.marketplace_vendor_id)
+          .maybeSingle(),
+      ]);
+    if (eventErr) {
+      return { status: 'error', message: eventErr.message };
+    }
+    if (vpErr) {
+      return { status: 'error', message: vpErr.message };
+    }
+
+    const weddingDate = eventRow?.wedding_date as string | null | undefined;
+    const limit = (vendorProfileRow?.max_soft_holds_per_date as number | undefined) ?? null;
+
+    // Skip the check when the event has no wedding date, OR when the
+    // vendor's profile/limit can't be resolved. Degrades open.
+    if (weddingDate && typeof limit === 'number') {
+      // Count other event_vendors rows where:
+      //   • same marketplace_vendor_id (same Setnayan vendor account)
+      //   • event_id maps to an event with the same wedding_date
+      //   • status = 'contracted' (soft hold — not 'considering', not 'paid')
+      //   • archived_at IS NULL (not soft-archived)
+      //   • vendor_id != $current_vendor_id (don't count the target row
+      //     itself even though it'll never be 'contracted' here — defensive)
+      //
+      // Two-step query: first fetch the event_ids on the same wedding_date,
+      // then count event_vendors rows scoped to those event_ids. PostgREST
+      // doesn't support a single .in('event_id', subquery) so the two-step
+      // is the canonical shape.
+      const { data: sameDateEvents, error: sdeErr } = await supabase
+        .from('events')
+        .select('event_id')
+        .eq('wedding_date', weddingDate);
+      if (sdeErr) {
+        return { status: 'error', message: sdeErr.message };
+      }
+      const sameDateEventIds = (sameDateEvents ?? [])
+        .map((r) => r.event_id as string)
+        .filter((id) => id !== eventId);
+
+      // If no OTHER events share this date, there's no way the limit can
+      // be hit (the host's own pick is the only one). Skip the count.
+      if (sameDateEventIds.length > 0) {
+        const { count, error: countErr } = await supabase
+          .from('event_vendors')
+          .select('vendor_id', { count: 'exact', head: true })
+          .eq('marketplace_vendor_id', targetVendor.marketplace_vendor_id)
+          .eq('status', 'contracted')
+          .is('archived_at', null)
+          .in('event_id', sameDateEventIds)
+          .neq('vendor_id', vendorId);
+        if (countErr) {
+          return { status: 'error', message: countErr.message };
+        }
+        const existingHoldCount = count ?? 0;
+        if (existingHoldCount >= limit) {
+          return {
+            status: 'soft_hold_limit_reached',
+            vendorId,
+            vendorName: targetVendor.vendor_name as string,
+            currentLimit: limit,
+            existingHoldCount,
+          };
+        }
+      }
     }
   }
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition } from 'react';
+import Link from 'next/link';
 import {
   AlertTriangle,
   BookmarkCheck,
@@ -8,7 +9,12 @@ import {
   Lock,
   X,
 } from 'lucide-react';
-import type { PlanCardPick, PlanGroupId } from '@/lib/wedding-plan-groups';
+import {
+  PLAN_GROUPS,
+  type PlanCardPick,
+  type PlanGroupId,
+} from '@/lib/wedding-plan-groups';
+import { WEDDING_FOLDER_SLUG } from '@/lib/taxonomy';
 import {
   finalizeVendor,
   revertVendorToConsidering,
@@ -56,6 +62,18 @@ type LockState =
       existingVendorId: string;
       existingVendorName: string;
       conflictGroupLabel: string;
+    }
+  // PR A · Rule 3 of the lock/delete/overlap architecture (CLAUDE.md
+  // 2026-05-24 row "Canonical wizard sequence reconciled 38 → 45 + Lock/
+  // delete/overlap architecture"). Surfaced when the target vendor's
+  // configured max_soft_holds_per_date is already filled by other hosts'
+  // contracted-status picks on the same event_date. UI shows a polite
+  // explanation + Browse-similar-vendors CTA. Single-pick Lock surface
+  // (this component) mirrors the Compare drawer flow (PlanCardCompare).
+  | {
+      kind: 'soft_hold_limit';
+      currentLimit: number;
+      existingHoldCount: number;
     }
   | { kind: 'error'; message: string };
 
@@ -186,6 +204,13 @@ export function PlanCardLock({ eventId, groupId, groupLabel, pick }: Props) {
             existingVendorId: result.existingVendorId,
             existingVendorName: result.existingVendorName,
             conflictGroupLabel: result.groupLabel,
+          });
+          return;
+        case 'soft_hold_limit_reached':
+          setLockState({
+            kind: 'soft_hold_limit',
+            currentLimit: result.currentLimit,
+            existingHoldCount: result.existingHoldCount,
           });
           return;
         case 'not_signed_in':
@@ -349,7 +374,59 @@ export function PlanCardLock({ eventId, groupId, groupLabel, pick }: Props) {
               </div>
             ) : null}
 
-            {lockState.kind !== 'conflict' ? (
+            {lockState.kind === 'soft_hold_limit' ? (
+              <div
+                role="alertdialog"
+                aria-labelledby="plan-card-lock-soft-hold-heading"
+                aria-describedby="plan-card-lock-soft-hold-body"
+                className="mt-3 space-y-3 rounded-lg border border-amber-300/60 bg-amber-50/70 px-3 py-3"
+              >
+                <div className="flex items-start gap-2">
+                  <AlertTriangle
+                    aria-hidden
+                    className="mt-0.5 h-4 w-4 shrink-0 text-amber-700"
+                    strokeWidth={2}
+                  />
+                  <div className="space-y-1">
+                    <h3
+                      id="plan-card-lock-soft-hold-heading"
+                      className="text-sm font-semibold text-amber-900"
+                    >
+                      {pick.vendor_name} is fully booked with soft holds for
+                      your date.
+                    </h3>
+                    <p
+                      id="plan-card-lock-soft-hold-body"
+                      className="text-xs leading-snug text-amber-900/85"
+                    >
+                      {pick.vendor_name} already has{' '}
+                      {lockState.existingHoldCount} confirmed soft holds for
+                      your wedding date. They only accept{' '}
+                      {lockState.currentLimit} simultaneous holds at a time.
+                      Try a different vendor or come back later — they&rsquo;ll
+                      free up if another couple doesn&rsquo;t downpay.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    href={resolveBrowseSimilarHref(groupId)}
+                    className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-terracotta px-3 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+                  >
+                    Browse similar vendors
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => setLockState({ kind: 'idle' })}
+                    className="inline-flex min-h-[44px] items-center justify-center rounded-md border border-amber-400/60 bg-cream px-3 py-2 text-sm font-medium text-amber-900 transition-colors hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-600"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {lockState.kind !== 'conflict' && lockState.kind !== 'soft_hold_limit' ? (
               <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
                 <button
                   ref={cancelBtnRef}
@@ -404,6 +481,21 @@ export function PlanCardLock({ eventId, groupId, groupLabel, pick }: Props) {
       ) : null}
     </>
   );
+}
+
+/**
+ * PR A · Resolve the "Browse similar vendors" deep-link from a PlanGroupId
+ * for the soft-hold-limit modal. Same shape as plan-card-compare.tsx —
+ * reads PLAN_GROUPS → catalogFolder → WEDDING_FOLDER_SLUG → /vendors URL.
+ * Falls back to /vendors if the group isn't found (defensive). Doesn't use
+ * `from=plan` because the host benefits from the full marketplace filter
+ * UI when shopping for an alternative.
+ */
+function resolveBrowseSimilarHref(groupId: PlanGroupId): string {
+  const group = PLAN_GROUPS.find((g) => g.id === groupId);
+  if (!group) return '/vendors';
+  const slug = WEDDING_FOLDER_SLUG[group.catalogFolder];
+  return `/vendors?folder=${slug}#${slug}`;
 }
 
 function UndoToast({

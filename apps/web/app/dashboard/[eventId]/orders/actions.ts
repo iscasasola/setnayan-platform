@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { uploadPublicAsset } from '@/lib/storage';
+import { sendEmail } from '@/lib/email';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -97,6 +98,12 @@ export async function createOrder(formData: FormData) {
     redirect(`/dashboard/${eventId}/orders/${orderResult.orderId}?self_comp=1`);
   }
 
+  // Mint the reference code locally so we can both store it AND pass it to
+  // the payment-instructions email below — we'd otherwise have to round-trip
+  // back to the row to read it. Same 'SN<8-hex>' shape used by the legacy
+  // generator above.
+  const referenceCode = generateReferenceCode();
+
   const { data, error } = await supabase
     .from('orders')
     .insert({
@@ -105,13 +112,102 @@ export async function createOrder(formData: FormData) {
       service_key: nullIfBlank(serviceKey),
       description: trimmedDesc,
       requested_total_php: requestedTotalPhp,
-      reference_code: generateReferenceCode(),
+      reference_code: referenceCode,
       status: 'submitted',
     })
     .select('order_id')
     .single();
 
   if (error || !data) throw new Error(error?.message ?? 'Could not create order');
+
+  // Wire payment instructions email · iteration 0034 apply-then-pay manual
+  // reconciliation flow (CLAUDE.md 2026-05-12 lock · System_Wiring_Map RED #2
+  // pre-pilot fix 2026-05-28). Pilot couples submitting a Today's Focus
+  // ₱1,499 or any cart SKU need the reference code delivered to email so
+  // they can paste it into the BDO/GCash transfer note AND retrieve it
+  // anytime via the dashboard deep-link if they close the success tab.
+  //
+  // BDO + GCash bank account details are routed via env vars (set in Vercel
+  // Production by the owner pre-pilot per OWNER_ACTIONS.md). When unset, the
+  // email renders a polite fallback line so dev/preview env doesn't break
+  // and pilot can still launch even before owner pastes the real values.
+  //
+  // Best-effort send: sendEmail returns a SendEmailResult discriminated union
+  // (no throws on the happy path), but we still wrap in try/catch as a belt-
+  // and-suspenders guard. Email failure NEVER rolls back the order — the
+  // orders row is the source of truth + the success page surfaces the
+  // reference code visually too, so a missed email degrades but doesn't
+  // strand the couple. Self-comp branch above never reaches here so we don't
+  // email payment instructions for already-paid grants.
+  try {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+    const orderUrl = `${appUrl}/dashboard/${eventId}/orders/${data.order_id}`;
+    const bdoName = process.env.SETNAYAN_BDO_ACCOUNT_NAME;
+    const bdoNumber = process.env.SETNAYAN_BDO_ACCOUNT_NUMBER;
+    const gcashName = process.env.SETNAYAN_GCASH_NAME;
+    const gcashNumber = process.env.SETNAYAN_GCASH_NUMBER;
+    const hasBdo = Boolean(bdoName && bdoNumber);
+    const hasGcash = Boolean(gcashName && gcashNumber);
+
+    const amountFormatted = requestedTotalPhp.toLocaleString('en-PH', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+    // Brand-voice editorial register · no exclamation marks · no engineering
+    // jargon · selective Filipino touch · per feedback_setnayan_no_dev_text_
+    // post_launch.
+    const lines: string[] = [
+      `Salamat — your order is in.`,
+      ``,
+      `Here are the details so you can settle the payment whenever you're ready.`,
+      ``,
+      `Order: ${trimmedDesc}`,
+      `Amount: ₱${amountFormatted}`,
+      `Reference code: ${referenceCode}`,
+      ``,
+      `Please include the reference code ${referenceCode} in the bank-transfer note so we can match your payment to this order.`,
+      ``,
+    ];
+
+    if (hasBdo || hasGcash) {
+      lines.push(`Where to send the payment:`);
+      lines.push(``);
+      if (hasBdo) {
+        lines.push(`  BDO`);
+        lines.push(`  Account name: ${bdoName}`);
+        lines.push(`  Account number: ${bdoNumber}`);
+        lines.push(``);
+      }
+      if (hasGcash) {
+        lines.push(`  GCash`);
+        lines.push(`  Name: ${gcashName}`);
+        lines.push(`  Number: ${gcashNumber}`);
+        lines.push(``);
+      }
+    } else {
+      lines.push(`Bank account details will follow via separate email.`);
+      lines.push(``);
+    }
+
+    lines.push(`Once payment lands, our team reconciles within 24 hours and your order moves to paid. We'll email again at that point.`);
+    lines.push(``);
+    lines.push(`Need to retrieve this reference code later? Open your order anytime:`);
+    lines.push(orderUrl);
+    lines.push(``);
+    lines.push(`—`);
+    lines.push(`Set na 'yan.`);
+
+    await sendEmail({
+      to: user.email ?? '',
+      subject: `Setnayan order ${referenceCode} — payment instructions`,
+      text: lines.join('\n'),
+    });
+  } catch (emailErr) {
+    // sendEmail already swallows + logs internally; this catch is defensive
+    // against import-time / env-read throws. Never block the order.
+    console.warn('[orders] payment instructions email send threw:', emailErr);
+  }
 
   revalidatePath(`/dashboard/${eventId}/orders`);
   redirect(`/dashboard/${eventId}/orders/${data.order_id}?created=1`);

@@ -6,9 +6,12 @@ import { ANY_OAUTH_ENABLED, OAuthButtonRow } from '@/app/_components/oauth-butto
 import { safeNext } from '@/lib/auth';
 import { signInWithMagicLink, signInWithPassword } from './actions';
 
+// GEO Phase G5 (2026-05-28) — canonical URL + brand-suffix title.
 export const metadata: Metadata = {
-  title: 'Sign in',
-  description: 'Sign in to your Setnayan account.',
+  title: 'Sign in · Setnayan',
+  description:
+    'Sign in to your Setnayan account. One account for couples planning their wedding and vendors selling their services.',
+  alternates: { canonical: '/login' },
 };
 
 type SearchParams = Promise<{

@@ -1,9 +1,20 @@
 import Link from 'next/link';
 import { Logo } from '@/app/_components/logo';
 
+// GEO Phase G5 (2026-05-28) — canonical URL + enriched description.
+// Description tightened from one-line generic to surface what couples +
+// vendors are agreeing to when they sign up.
 export const metadata = {
   title: 'Terms of service · Setnayan',
-  description: 'Setnayan terms of service.',
+  description:
+    'The terms couples and vendors agree to when using Setnayan. Account responsibilities, refund and dispute rules, vendor verification, and platform conduct.',
+  alternates: { canonical: '/terms' },
+  openGraph: {
+    title: 'Terms of service · Setnayan',
+    description:
+      'The terms couples and vendors agree to when using Setnayan.',
+    url: '/terms',
+  },
 };
 
 export default function TermsPage() {

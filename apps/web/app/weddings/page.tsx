@@ -17,14 +17,27 @@ import { SiteHeader } from '@/app/_components/site-header';
 // "This vendor still has no review." pattern: a single, complete sentence
 // that reads as production copy.
 
+// GEO Phase G5 (2026-05-28) — canonical URL + keywords added. Page is
+// pre-launch ("open December 1, 2026") so the description honestly states
+// status. AI engines can extract that timing for "when do real weddings
+// publish on Setnayan" queries.
 export const metadata: Metadata = {
-  title: 'Real weddings',
+  title: 'Real weddings · Setnayan',
   description:
-    'Real Filipino weddings curated by the couples who lived them. Browse by ceremony type, venue, theme, and budget — open December 1, 2026.',
+    'Real Filipino weddings curated by the couples who lived them. Browse by ceremony type, venue, theme, and budget. Editorials open December 1, 2026 with explicit couple consent per RA 10173.',
+  alternates: { canonical: '/weddings' },
+  keywords: [
+    'real Filipino weddings',
+    'Philippines wedding inspiration',
+    'Setnayan real weddings',
+    'Filipino wedding photos',
+    'wedding editorial Philippines',
+    'Filipino wedding stories',
+  ],
   openGraph: {
     title: 'Real weddings · Setnayan',
     description:
-      'Real Filipino weddings curated by the couples who lived them. Open December 1, 2026.',
+      'Real Filipino weddings curated by the couples who lived them. Editorials open December 1, 2026.',
     url: '/weddings',
   },
 };

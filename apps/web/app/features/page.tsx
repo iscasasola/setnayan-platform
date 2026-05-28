@@ -44,10 +44,29 @@ import { SiteFooter } from './_sections/_SiteFooter';
 // both reach this page from search and the header nav, so we don't
 // short-circuit signed-in users to /dashboard like the homepage does).
 
+// GEO Phase G5 (2026-05-28) — canonical URL + keywords added for AI engine
+// extraction. Title kept as-is (good descriptive coverage already).
 export const metadata = {
   title: 'Every Feature in Setnayan — Wedding & Life-Events Platform Philippines',
   description:
     'Guest list, seating, budget, mood board, schedule, vendor ledger, BIR-compliant receipts, plus day-of apparatus (Panood, Papic, Pakulay). The full feature catalog of the Filipino-first events platform.',
+  alternates: { canonical: '/features' },
+  keywords: [
+    'Filipino wedding features',
+    'wedding planning tools Philippines',
+    'Panood live streaming',
+    'Papic wedding photography',
+    'Pakulay mood board',
+    'wedding seating chart',
+    'wedding budget tracker',
+    "Today's Focus wedding wizard",
+  ],
+  openGraph: {
+    title: 'Every Feature in Setnayan — Wedding & Life-Events Platform Philippines',
+    description:
+      'Guest list, seating, budget, mood board, schedule, vendor ledger, BIR-compliant receipts, plus day-of apparatus (Panood, Papic, Pakulay).',
+    url: '/features',
+  },
 };
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(

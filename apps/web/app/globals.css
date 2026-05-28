@@ -471,6 +471,20 @@
     padding: 0 2px;
   }
 
+  /* Pulse dot — used in promo bar live indicator (v2.1 template) */
+  .m-pulse-dot {
+    animation: m-pulse-dot-anim 2s ease-in-out infinite;
+  }
+  @keyframes m-pulse-dot-anim {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.4;
+    }
+  }
+
   /* Photo placeholder — diagonal stripes in warm tone */
   .m-photo-placeholder {
     background:

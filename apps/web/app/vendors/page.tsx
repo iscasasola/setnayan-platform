@@ -119,10 +119,32 @@ const TAXONOMY_OPTIONS: ReadonlyArray<TaxonomyOption> = Object.entries(
   }))
   .sort((a, b) => a.label.localeCompare(b.label));
 
+// GEO Phase G4 (2026-05-28) — enriched marketplace metadata. Adds canonical
+// URL, keywords (AI-engine match hint), and a richer description that
+// surfaces the verified-vendor + 0% commission positioning. The per-vendor
+// LocalBusiness JSON-LD lives on /v/[slug] (same sprint, sister PR) — this
+// page is a category landing page so the metadata-only treatment is
+// proportional to the surface's role in the funnel.
 export const metadata = {
-  title: 'Vendors — Setnayan',
+  title: 'Filipino wedding vendors · Setnayan marketplace',
   description:
-    'Browse Filipino wedding vendors on Setnayan. Photographers, caterers, coordinators, florists, and more.',
+    'Browse verified Filipino wedding vendors on Setnayan. Photographers, caterers, planners, florists, hair and makeup, music, decor, and more. Free to discover. 0% commission on bookings.',
+  alternates: { canonical: '/vendors' },
+  keywords: [
+    'Filipino wedding vendors',
+    'Philippines wedding photographers',
+    'Manila wedding caterers',
+    'Cebu wedding planners',
+    'verified wedding vendors Philippines',
+    'wedding marketplace Philippines',
+    'Setnayan vendors',
+  ],
+  openGraph: {
+    title: 'Filipino wedding vendors · Setnayan marketplace',
+    description:
+      'Browse verified Filipino wedding vendors. Free to discover. 0% commission on bookings.',
+    url: '/vendors',
+  },
 };
 
 // The marketplace is public, but the underlying queries hit Supabase with a

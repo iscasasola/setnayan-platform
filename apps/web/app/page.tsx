@@ -83,13 +83,43 @@ const VendorCompat = nextDynamic(
 //   dashboard preview — for Filipino-luxe photography and final
 //   illustration per owner's art direction. Skeleton-phase only.
 
-const HOME_TITLE = 'Wedding Suppliers & Supplies Philippines';
+// GEO Phase G2 (2026-05-28) — brand-first title + value-prop description.
+// Prior title "Wedding Suppliers & Supplies Philippines" was a generic
+// SEO-keyword line that omitted the brand entirely + missed the value
+// prop. AI answer engines and SERP cards both lean on the <title> tag as
+// the primary recommendation surface, so the new title leads with the
+// brand and immediately names the two core surfaces (planning + vendor
+// marketplace). Constraint: under 60 chars so Google + ChatGPT result
+// cards don't truncate.
+//
+// Description rewritten to surface concrete features + the 0% commission
+// claim + the Today's Focus price anchor — the four extractable signals
+// AI engines pull when answering "what is X" / "how much does X cost"
+// queries. Constraint: under 160 chars per Google SERP truncation.
+const HOME_TITLE = 'Setnayan · Filipino wedding planning + verified vendors';
 const HOME_DESCRIPTION =
-  "Setnayan is the only Filipino-built platform with real operating tools for both sides — from your guest list to your same-day highlight reel. Built in the Philippines.";
+  'Filipino-first wedding planning. Free for couples. Verified vendor marketplace. 0% commission. AI-assisted Today’s Focus wizard from ₱1,499.';
 
 export const metadata = {
   title: HOME_TITLE,
   description: HOME_DESCRIPTION,
+  // Canonical URL anchors the homepage to the root path even when crawled
+  // via /index, /home, or query-string variants. Pairs with metadataBase
+  // in layout.tsx to produce the absolute URL.
+  alternates: { canonical: '/' },
+  // Keywords are NOT used by Google search ranking but ARE used by AI
+  // answer engines (ChatGPT-User, PerplexityBot) as a hint when matching
+  // user queries against site content. Keep concrete + geographic.
+  keywords: [
+    'Filipino wedding planning',
+    'Philippines wedding vendors',
+    'wedding marketplace Manila',
+    'Filipino wedding app',
+    'Setnayan',
+    'verified Filipino vendors',
+    "Set na 'yan",
+    'Filipino wedding software',
+  ],
   openGraph: {
     title: HOME_TITLE,
     description: HOME_DESCRIPTION,
@@ -121,25 +151,60 @@ const SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
 ).replace(/\/$/, '');
 
+// GEO Phase G2 (2026-05-28) — enriched JSON-LD adds Organization metadata
+// fields (address + contactPoint + knowsLanguage + audience + alternateName)
+// + a SoftwareApplication node with Offer[] entries surfacing the top 5
+// price anchors AI engines extract for "how much does X cost" queries. The
+// existing Organization + WebSite + BreadcrumbList nodes are preserved
+// (proven shape) and extended in place. Pricing in pesos as the major
+// currency unit (NOT centavos · schema.org expects the human-readable
+// price). Prices match the live /pricing page state.
 const HOMEPAGE_JSONLD = {
   '@context': 'https://schema.org',
   '@graph': [
     {
-      '@type': 'Organization',
+      '@type': ['Organization', 'ProfessionalService'],
       '@id': `${SITE_URL}/#organization`,
       name: 'Setnayan',
+      alternateName: ["Set na 'yan", 'Setnayan PH'],
       url: `${SITE_URL}/`,
-      logo: `${SITE_URL}/icon-512.svg`,
+      logo: {
+        '@type': 'ImageObject',
+        url: `${SITE_URL}/icon-512.svg`,
+        width: 512,
+        height: 512,
+      },
       description:
-        'Filipino-first wedding and life-events platform. Verified Philippine wedding suppliers and supplies with transparent PHP pricing.',
+        'Filipino-first wedding and life-events software platform. Verified Philippine wedding vendors with transparent PHP pricing and 0% commission on bookings.',
       areaServed: { '@type': 'Country', name: 'Philippines' },
+      address: {
+        '@type': 'PostalAddress',
+        addressCountry: 'PH',
+      },
+      knowsLanguage: ['en-PH', 'tl'],
+      contactPoint: {
+        '@type': 'ContactPoint',
+        contactType: 'customer support',
+        url: `${SITE_URL}/help`,
+        availableLanguage: ['en', 'tl'],
+      },
+      audience: [
+        {
+          '@type': 'Audience',
+          audienceType: 'Filipino couples planning their wedding',
+        },
+        {
+          '@type': 'Audience',
+          audienceType: 'Filipino wedding-services vendors',
+        },
+      ],
     },
     {
       '@type': 'WebSite',
       '@id': `${SITE_URL}/#website`,
       url: `${SITE_URL}/`,
       name: 'Setnayan',
-      inLanguage: 'en-PH',
+      inLanguage: ['en-PH', 'tl'],
       publisher: { '@id': `${SITE_URL}/#organization` },
       potentialAction: {
         '@type': 'SearchAction',
@@ -149,6 +214,71 @@ const HOMEPAGE_JSONLD = {
         },
         'query-input': 'required name=search_term_string',
       },
+    },
+    {
+      '@type': 'SoftwareApplication',
+      '@id': `${SITE_URL}/#app`,
+      name: 'Setnayan',
+      applicationCategory: ['WebApplication', 'LifestyleApplication'],
+      applicationSubCategory: 'Wedding Planning',
+      operatingSystem: 'Web',
+      url: `${SITE_URL}/`,
+      provider: { '@id': `${SITE_URL}/#organization` },
+      // Top-5 price anchors AI engines extract for pricing queries. Same
+      // SKUs as the lead rows in /pricing. Free baseline is listed first
+      // to surface the "is it free?" answer up top.
+      offers: [
+        {
+          '@type': 'Offer',
+          name: 'Free wedding planning baseline',
+          price: '0',
+          priceCurrency: 'PHP',
+          description:
+            'Guest list, RSVP, Pakulay mood board, vendor browse, and in-app chat. Free for couples on every event.',
+          url: `${SITE_URL}/pricing`,
+        },
+        {
+          '@type': 'Offer',
+          name: "Today's Focus",
+          price: '1499',
+          priceCurrency: 'PHP',
+          description:
+            '65-card AI-assisted wedding planning wizard. One-time purchase per event.',
+          url: `${SITE_URL}/pricing`,
+        },
+        {
+          '@type': 'Offer',
+          name: 'Pro Website',
+          price: '5499',
+          priceCurrency: 'PHP',
+          description:
+            'Premium event website with animated monogram and editorial sections.',
+          url: `${SITE_URL}/pricing`,
+        },
+        {
+          '@type': 'Offer',
+          name: 'Animated Monogram',
+          price: '2499',
+          priceCurrency: 'PHP',
+          description: 'Bespoke two-letter monogram with animation.',
+          url: `${SITE_URL}/pricing`,
+        },
+        {
+          '@type': 'Offer',
+          name: 'Pro Vendor subscription',
+          price: '1999',
+          priceCurrency: 'PHP',
+          priceSpecification: {
+            '@type': 'UnitPriceSpecification',
+            price: '1999',
+            priceCurrency: 'PHP',
+            billingDuration: 'P1M',
+          },
+          description:
+            'Monthly Pro Vendor subscription. 0% commission on bookings. Verified badge included.',
+          url: `${SITE_URL}/for-vendors`,
+        },
+      ],
     },
     {
       '@type': 'BreadcrumbList',

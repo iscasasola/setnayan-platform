@@ -61,7 +61,12 @@ export type SupplyProduct = {
   /** Unit suffix shown after the price (e.g. "per 100", "per day"). */
   readonly unit?: string;
   readonly vendor: string;
-  /** Marketplace category take rate per spec table — display-only here. */
+  /**
+   * Retired 2026-05-28 V2 cutover. Old marketplace-model take-rate field.
+   * V2 model is curated reseller (Setnayan as merchant); retail price already
+   * includes the markup. Field kept for scaffold-compile continuity only —
+   * not surfaced anywhere in V2 UI.
+   */
   readonly takeRatePct: 10 | 15;
   readonly blurb: string;
   /** Recommended-for pairing key (cross-iteration). */
@@ -69,7 +74,7 @@ export type SupplyProduct = {
 };
 
 export const SUPPLY_PRODUCTS: ReadonlyArray<SupplyProduct> = [
-  // --- Print fulfillment (10% take) ---
+  // --- Print fulfillment ---
   {
     slug: 'patiktok-background-print',
     name: 'Patiktok background print',
@@ -118,7 +123,7 @@ export const SUPPLY_PRODUCTS: ReadonlyArray<SupplyProduct> = [
       'Welcome board (A2) · menu cards (×20 A5) · numbered table tents (×12). Matching paper stock, mounted on foam board.',
   },
 
-  // --- Equipment rentals (15% take) ---
+  // --- Equipment rentals ---
   {
     slug: 'hdmi-dongle-rental',
     name: 'HDMI dongle (USB-C / Lightning)',
@@ -168,7 +173,7 @@ export const SUPPLY_PRODUCTS: ReadonlyArray<SupplyProduct> = [
       '4500-lumen projector + HDMI + power runs. Higher tier for outdoor or large halls.',
   },
 
-  // --- Backdrop + decor (15% take) ---
+  // --- Backdrop + decor ---
   {
     slug: 'velvet-backdrop-rental',
     name: 'Velvet draped backdrop (3×2.5m)',
@@ -204,7 +209,7 @@ export const SUPPLY_PRODUCTS: ReadonlyArray<SupplyProduct> = [
       '12 strands × 5m warm-white LED on copper wire. Powered by mains adapters with hidden routing.',
   },
 
-  // --- NFC + QR keepsakes (10% take) ---
+  // --- NFC + QR keepsakes ---
   {
     slug: 'qr-cards-100',
     name: 'QR cards (100-pack)',
@@ -252,7 +257,7 @@ export const SUPPLY_PRODUCTS: ReadonlyArray<SupplyProduct> = [
       'Traditional 13-coin arras set with a discreet QR on the presentation tray linking to the couple\'s hub.',
   },
 
-  // --- Specialty merch (10% take) ---
+  // --- Specialty merch ---
   {
     slug: 'qr-wristbands-50',
     name: 'QR wristbands (50-pack)',
@@ -290,8 +295,19 @@ export const SUPPLY_PRODUCTS: ReadonlyArray<SupplyProduct> = [
 
 // TODO(0018): vendor self-input via Din Phase 3 — vendors will manage their
 // own inventory rows. Today these are seeded mock listings.
-// TODO(0018): payout routing + commission distribution to vendors after
-// order fulfillment. Spec § "Pricing model" defines the take rate per
-// category; the actual ledger entries live in 0003 Billing Rail.
-// TODO(0018): PayMongo / Setnayan Pay integration on the checkout path —
-// for the scaffold, all carts route to /orders/new (apply-then-pay).
+//
+// /* Retired 2026-05-28 V2 cutover */ The original spec carried two more
+// TODOs that the V1→V2 pivot retires:
+//   - "payout routing + commission distribution to vendors" — V2 model is
+//     curated reseller (Setnayan as merchant of record), not marketplace
+//     commission. Setnayan buys wholesale, sells retail. Suppliers paid
+//     wholesale directly; no take-rate ledger needed.
+//   - "PayMongo / Setnayan Pay integration on the checkout path" — V2
+//     retires Setnayan Pay entirely (CLAUDE.md 2026-05-28 V1→V2
+//     architectural pivot lock). Hand-off to /orders/new (apply-then-pay
+//     via BDO / GCash direct to Setnayan) stays the canonical flow.
+//
+// The `takeRatePct` field on each product row below is dead under V2 —
+// preserved for now so the scaffold compiles, will be dropped in the
+// PR 3b dynamic-fetch refactor when supplier_vendor_sku_pricing replaces
+// this static catalog.

@@ -150,12 +150,12 @@ export default async function SuppliesMarketplacePage({ params }: Props) {
           <li>
             Setnayan locks the final quote at one transparent retail price (sourced
             from the lowest-available wholesale in your area, with our markup
-            included — no hidden commission lines).
+            included — no surprise add-ons, no convenience fee).
           </li>
           <li>
-            Pay via BDO, GCash, or Setnayan Pay. Your supplier delivers to your
-            venue; tracking lives on the order. Any issue, you talk to Setnayan —
-            not the supplier.
+            Pay via BDO or GCash directly to Setnayan. Your supplier delivers to
+            your venue; tracking lives on the order. Any issue, you talk to
+            Setnayan — not the supplier.
           </li>
         </ol>
       </section>

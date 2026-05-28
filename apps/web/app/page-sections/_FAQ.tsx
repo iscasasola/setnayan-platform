@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import { Plus } from 'lucide-react';
 
-// Section 12.5 — Frequently asked questions. New 2026-05-20. Sits between
-// the coverage map and the dual-CTA so visitors who scrolled this far with
-// open questions get them answered before the final convert moment.
+// Section 12.5 — Frequently asked questions. New 2026-05-20. Refreshed
+// 2026-05-28 V2 cutover (CLAUDE.md V1→V2 architectural pivot lock). Sits
+// between the coverage map and the dual-CTA so visitors who scrolled this
+// far with open questions get them answered before the final convert moment.
 //
 // Native <details>/<summary> — server-rendered, no client JS, no
 // hydration cost. Lighthouse-clean. The Plus icon rotates via the open:
@@ -14,7 +15,7 @@ import { Plus } from 'lucide-react';
 // their planning helper) reaches the bottom of the page with:
 //   1. Is the planning really free?
 //   2. Do I have to be the bride or groom?  (multi-host / iteration 0048)
-//   3. What's the 5% fee on vendor bookings?
+//   3. Do you take a percentage of what I pay vendors?  (V2: no commission)
 //   4. How do I know a vendor is legit?
 //   5. What does BIR-compliant mean?
 //   6. Do I need to download anything?
@@ -50,15 +51,15 @@ const FAQ_ITEMS: ReadonlyArray<FAQItem> = [
     ),
   },
   {
-    question: "What's the 5% fee on vendor bookings?",
+    question: 'Do you take a percentage of what I pay vendors?',
     answer: (
       <>
-        Vendors list their price. At checkout we add a 5.0% Setnayan Pay
-        convenience fee — shown clearly on the order summary before you
-        confirm. That fee powers BIR-compliant receipts, in-app messaging,
-        milestone-protected payments, and dispute handling. Your vendor
-        receives 100% of their listed price. No commission to the vendor,
-        no hidden line items.
+        No. Setnayan only sells you software at retail — the SKUs you see
+        on the pricing page. When you book a vendor, that money goes
+        directly to the vendor; we never sit between you. We keep 0%
+        commission on vendor bookings, and there&rsquo;s no convenience
+        fee at checkout. Your vendor receives 100% of their price, and
+        you pay them exactly the amount you agreed on.
       </>
     ),
   },
@@ -70,8 +71,8 @@ const FAQ_ITEMS: ReadonlyArray<FAQItem> = [
         the verified badge — business details, sample work, and platform
         rules acknowledged. Unverified vendors are marked &ldquo;Coming
         soon&rdquo; in the marketplace so you can tell the difference at a
-        glance. Once you book, payments are released on milestones, not
-        upfront — so the vendor has skin in the game.
+        glance. Verified vendors are the ones with real client history,
+        reviews you can read, and a track record on the platform.
       </>
     ),
   },
@@ -79,11 +80,13 @@ const FAQ_ITEMS: ReadonlyArray<FAQItem> = [
     question: 'What does BIR-compliant mean?',
     answer: (
       <>
-        Every vendor payment generates a proper BIR Official Receipt. EWT
-        and the 2307 withholding form are handled automatically — no
-        spreadsheets, no chasing your vendor for paperwork at year-end.
-        This matters if your wedding spans VAT-registered suppliers or if
-        your company is sponsoring part of the event.
+        Every purchase you make from Setnayan generates a proper BIR
+        Official Receipt — for the software SKUs, packages, and any
+        add-ons you buy from us. Your vendors handle their own BIR paperwork
+        for the bookings they take from you directly. This matters if
+        your wedding spans VAT-registered suppliers or if your company
+        is sponsoring part of the event — your own ORs from Setnayan are
+        in your account, ready to download.
       </>
     ),
   },

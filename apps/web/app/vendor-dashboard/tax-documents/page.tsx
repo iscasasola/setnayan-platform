@@ -70,19 +70,37 @@ export default async function VendorTaxDocumentsPage() {
   return (
     <section className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          Iteration 0026 · BIR Form 2307
-        </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
           Tax documents
         </h1>
         <p className="max-w-prose text-base text-ink/65">
-          Quarterly Certificates of Creditable Tax Withheld at Source (BIR
-          Form 2307). Setnayan generates one PDF per quarter summarizing the
-          Expanded Withholding Tax we deducted from your payouts. Download it,
-          keep it on file, and credit it against your income tax return.
+          Receipts for the Setnayan software you buy from us — subscription
+          blocks (Pro Vendor / Enterprise), token packs, and other in-app
+          purchases — show up here as official receipts.
+        </p>
+        <p className="max-w-prose text-sm text-ink/60">
+          Your direct bookings with couples stay on your own books — Setnayan
+          doesn&rsquo;t route payments between you and your clients, so we
+          can&rsquo;t issue ORs or BIR forms on those transactions. Ask your
+          bookkeeper for current-period tax treatment on direct bookings.
         </p>
       </header>
+
+      <article className="mb-6 flex items-start gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+        <AlertTriangle aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
+        <div className="space-y-1">
+          <p className="font-medium">Legacy Form 2307 records below</p>
+          <p>
+            {/* Retired 2026-05-28 V2 cutover: Setnayan-issued Form 2307 for EWT
+                on Setnayan-Pay-routed payouts retires. The filings list below
+                covers V1 records only — your direct-booking tax filings stay
+                with your accountant going forward. */}
+            Any 2307 PDFs below cover Setnayan-routed payouts from before our
+            payments model changed. New direct bookings settle outside Setnayan,
+            so we no longer generate 2307s for them.
+          </p>
+        </div>
+      </article>
 
       <BirIdentityCard vendor={vendor} />
 
@@ -129,12 +147,13 @@ export default async function VendorTaxDocumentsPage() {
             strokeWidth={1.5}
           />
           <h2 className="mb-1 text-base font-semibold text-ink">
-            No 2307s issued yet
+            No legacy 2307 records on file
           </h2>
           <p className="mx-auto max-w-sm text-sm text-ink/60">
-            Setnayan generates your quarterly 2307 the first business day after
-            each calendar quarter ends. Once you start receiving payouts via
-            Setnayan Pay, your filings will appear here.
+            Your direct bookings settle outside Setnayan, so your accountant
+            handles current-period EWT and Form 2307. Receipts for Setnayan
+            software you buy — subscriptions, token packs — appear in your
+            inbox and on your account.
           </p>
         </div>
       ) : (
@@ -208,9 +227,10 @@ function BirIdentityCard({ vendor }: { vendor: VendorIdentityRow }) {
       {missing.length > 0 ? (
         <p className="mt-3 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
           Missing on your profile:{' '}
-          <strong>{missing.join(' · ')}</strong>. Setnayan will still issue your
-          2307, but the BIR may reject it without these. Contact support@setnayan.com
-          to update — TIN changes require re-verification.
+          <strong>{missing.join(' · ')}</strong>. We use these fields on the
+          official receipts we issue for the Setnayan software you buy. Contact{' '}
+          <a className="underline" href="mailto:help@setnayan.com">help@setnayan.com</a>
+          {' '}to update — TIN changes require re-verification.
         </p>
       ) : null}
     </div>

@@ -39,7 +39,7 @@ import {
 export const metadata = {
   title: 'Verification · Vendor',
   description:
-    'Submit the 12-document vendor verification checklist to unlock Setnayan Pay, Pro Weekly, Boosted Ads, and the verified marketplace badge.',
+    'Submit the 12-document vendor verification checklist to unlock Pro Vendor, Boosted Ads, the verified marketplace badge, and 100 complimentary tokens on approval.',
 };
 
 type Props = {
@@ -129,23 +129,36 @@ export default async function VendorVerifyPage({ searchParams }: Props) {
           <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
             <ShieldCheck aria-hidden className="h-5 w-5" strokeWidth={1.75} />
           </span>
-          <span className="rounded-full bg-ink/5 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Iteration 0006 · § Vendor Verification
-          </span>
         </div>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
           Verification
         </h1>
         <p className="max-w-prose text-base text-ink/65">
-          Submit the 12-item checklist below to unlock Setnayan Pay for your
-          couples, Pro Weekly subscription, Boosted Ads, immediate payout, and
-          the verified badge on your marketplace listing. Initial verification
-          is <span className="font-medium">free</span>; annual renewal is{' '}
+          Submit the 12-item checklist below to flip your profile to{' '}
+          <span className="font-medium">Verified</span> on the marketplace.
+          Verified vendors unlock Pro Vendor and Enterprise subscriptions,
+          Boosted Ads, Sponsored Boost, and the verified badge on every listing.
+          Initial verification is{' '}
+          <span className="font-medium">free</span>; annual renewal is{' '}
           <span className="font-medium">{formatPhpCentavos(150000)}</span>;
           post-demotion re-verification is{' '}
           <span className="font-medium">{formatPhpCentavos(250000)}</span>.
         </p>
       </header>
+
+      <article className="flex items-start gap-3 rounded-2xl border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-900">
+        <CheckCircle2 aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
+        <div className="space-y-1">
+          <p className="font-medium">100 complimentary tokens on approval</p>
+          <p>
+            Every vendor verified by the Setnayan team gets{' '}
+            <span className="font-semibold">100 tokens</span> loaded into their
+            wallet on the day we approve. Tokens redeem against couple-facing
+            premium tools — your way to give clients a richer experience without
+            spending out-of-pocket on day one.
+          </p>
+        </div>
+      </article>
 
       {search.error ? (
         <p
@@ -763,9 +776,9 @@ function ApprovedCard({
       </p>
       <h2 className="text-xl font-semibold">You&rsquo;re verified.</h2>
       <p className="text-sm">
-        Setnayan Pay is now unlocked for couples booking with you, Pro Weekly
-        is available, and the verified badge is live on your marketplace
-        listing. Approved{' '}
+        Your 100 complimentary tokens are loaded into your wallet, Pro Vendor
+        and Enterprise subscriptions are available to start, and the verified
+        badge is live on your marketplace listing. Approved{' '}
         {application.decided_at
           ? new Date(application.decided_at).toLocaleString()
           : ''}

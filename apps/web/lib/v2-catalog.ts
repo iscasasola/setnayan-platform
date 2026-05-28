@@ -90,7 +90,19 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
  * Sorted by display priority · token-worthy items first.
  */
 export async function fetchV2CustomerCatalog(): Promise<V2CustomerSku[]> {
-  const admin = createAdminClient();
+  // createAdminClient throws when SUPABASE_SERVICE_ROLE_KEY is unset (CI
+  // builds run `next build` with placeholder NEXT_PUBLIC_* env only · no
+  // service-role key). Match the documented "return [] on error" semantic
+  // below so callers degrade gracefully — the page renders an empty
+  // catalog instead of failing the prerender. Defense-in-depth alongside
+  // `export const dynamic = 'force-dynamic'` in /pricing/page.tsx.
+  // CLAUDE.md 2026-05-28 row "fix endless loop error on vercel".
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch {
+    return [];
+  }
   const { data, error } = await admin
     .from('platform_retail_catalog_v2')
     .select('service_code, title, retail_price_php, saas_overhead_cost_php, is_token_able, description')
@@ -110,7 +122,13 @@ export async function fetchV2CustomerCatalog(): Promise<V2CustomerSku[]> {
 }
 
 export async function fetchV2BundleCatalog(): Promise<V2BundleSku[]> {
-  const admin = createAdminClient();
+  // Same build-time tolerance as fetchV2CustomerCatalog above — see WHY there.
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch {
+    return [];
+  }
   const { data, error } = await admin
     .from('platform_package_catalog')
     .select('package_code, title, retail_price_php')
@@ -126,7 +144,13 @@ export async function fetchV2BundleCatalog(): Promise<V2BundleSku[]> {
 }
 
 export async function fetchV2VendorCatalog(): Promise<V2VendorSku[]> {
-  const admin = createAdminClient();
+  // Same build-time tolerance as fetchV2CustomerCatalog above — see WHY there.
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch {
+    return [];
+  }
   const { data, error } = await admin
     .from('vendor_billing_catalog')
     .select('sku_code, title, price_php, offering_type, token_grant_count, max_categories, max_sub_seats, display_order')

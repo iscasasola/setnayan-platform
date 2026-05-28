@@ -1,5 +1,13 @@
 import type { Metadata, Viewport } from 'next';
-import { Cormorant_Garamond, Manrope, DM_Mono } from 'next/font/google';
+import {
+  Cormorant_Garamond,
+  Manrope,
+  DM_Mono,
+  Saira_Condensed,
+  Geist,
+  Instrument_Serif,
+  JetBrains_Mono,
+} from 'next/font/google';
 import Script from 'next/script';
 import './globals.css';
 import { Suspense } from 'react';
@@ -46,6 +54,48 @@ const dmMono = DM_Mono({
   display: 'swap',
   weight: ['400', '500'],
   variable: '--font-mono',
+});
+
+// v2.1 marketing typography (Setnayan Vendor Keynote template package · CLAUDE.md
+// 2026-05-28 11th row "v2.1 template package adoption"). Loaded alongside the
+// existing editorial stack — marketing surfaces opt-in via `var(--font-condensed)`
+// / `var(--font-sans-marketing)` / `var(--font-serif-marketing)` / `var(--font-mono-marketing)`
+// inline styles or arbitrary Tailwind classes. Dashboard chrome keeps existing
+// Cormorant / Manrope / DM Mono so the 200+ shipped components don't churn.
+//
+//   - Saira Condensed  → display headlines (WWDC keynote register · Setnayan
+//     v2 brand mark "SET NA 'YAN" wordmark). Weights 400/600/700/800.
+//   - Geist            → marketing body sans (more geometric than Manrope).
+//   - Instrument Serif → editorial accent serif (italic supported).
+//   - JetBrains Mono   → marketing mono (eyebrows, label chips, /sɛt na jan/
+//     phonetic spelling).
+const sairaCondensed = Saira_Condensed({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['400', '600', '700', '800'],
+  variable: '--font-condensed',
+});
+
+const geist = Geist({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['300', '400', '500', '600', '700'],
+  variable: '--font-sans-marketing',
+});
+
+const instrumentSerif = Instrument_Serif({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['400'],
+  style: ['normal', 'italic'],
+  variable: '--font-serif-marketing',
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['400', '500'],
+  variable: '--font-mono-marketing',
 });
 
 export const metadata: Metadata = {
@@ -116,7 +166,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en-PH"
-      className={`${cormorant.variable} ${manrope.variable} ${dmMono.variable}`}
+      className={`${cormorant.variable} ${manrope.variable} ${dmMono.variable} ${sairaCondensed.variable} ${geist.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable}`}
     >
       <head>
         {/*

@@ -37,6 +37,11 @@ type ServiceCatalogRow = {
   launch_promo_until: string | null;
 };
 
+// Retired 2026-05-28 V2 cutover — the `concierge` category here surfaces
+// retired SKU rows (₱2,499 Concierge supplanted by ₱1,499 TODAYS_FOCUS).
+// V2 catalog lives in `platform_retail_catalog_v2`; this report still reads
+// the legacy `service_catalog` so historical audit + retired rows stay
+// downloadable.
 const CUSTOMER_CATEGORIES = new Set<string>([
   'couple_addon',
   'panood',
@@ -127,7 +132,9 @@ export async function GET() {
     '',
     '---',
     '',
-    'Source of truth: `public.service_catalog`. Run again any time to refresh.',
+    'Source of truth: legacy `public.service_catalog`. The V2 canonical',
+    'catalog lives in `platform_retail_catalog_v2`; this report is being',
+    'migrated to read both. Run again any time to refresh.',
     '',
   ].join('\n');
 
@@ -145,10 +152,14 @@ function renderTable(rows: ServiceCatalogRow[]): string {
   if (rows.length === 0) {
     return '_No rows in this bucket._';
   }
+  // "Legacy promo until" → the V1 16-SKU launch-promo window retired
+  // 2026-05-28 V2 cutover (replaced by 100 complimentary vendor tokens
+  // on verification). Column kept for historical audit on rows that still
+  // carry the timestamp.
   const header =
-    '| SKU | Name | Category | Price | Billing | Multi-purchase | Promo until |';
+    '| SKU | Name | Category | Price | Billing | Multi-purchase | Legacy promo until |';
   const sep =
-    '|-----|------|----------|-------|---------|---------------|-------------|';
+    '|-----|------|----------|-------|---------|---------------|--------------------|';
   const lines = rows.map(
     (r) =>
       `| \`${r.sku_code}\` | ${escapeCell(r.display_name)} | ${r.category} | ${formatCentavosPhp(r.price_centavos)} | per ${r.unit} | ${r.multi_purchase ? 'yes' : 'no'} | ${r.launch_promo_until ? new Date(r.launch_promo_until).toISOString().slice(0, 10) : '—'} |`,

@@ -1,5 +1,5 @@
 /**
- * Admin · Concierge Abuse review queue (iteration 0023 § 3.11).
+ * Admin · Today's Focus enforcement queue (iteration 0023 § 3.11).
  *
  * Two tabs:
  *   - Queue (default): pending_review flags sorted by similarity_score DESC,
@@ -9,6 +9,15 @@
  *
  * RLS: the migration sets admin-only read/write on `concierge_abuse_flags`.
  * The page is gated by the parent admin layout (notFound for non-admins).
+ *
+ * Brand-layer rename 2026-05-28 V2 cutover — Concierge → Today's Focus.
+ * Route path + DB table names (concierge_abuse_flags, users.concierge_*)
+ * preserved so audit history + RLS policies don't break.
+ *
+ * Retired 2026-05-28 V2 cutover — the multi-account trial-cycling abuse
+ * pattern is being supplanted by the simpler V2 model. The queue stays
+ * read-only here until the V2 abuse model is locked; existing flagged
+ * users + enforcement actions remain valid for audit + appeal.
  */
 
 import Link from 'next/link';
@@ -26,7 +35,7 @@ import {
   adminLiftConciergeEnforcement,
 } from './actions';
 
-export const metadata = { title: 'Concierge Abuse · Admin' };
+export const metadata = { title: "Today's Focus enforcement · Admin" };
 
 type FlagRow = {
   flag_id: string;
@@ -131,11 +140,21 @@ export default async function ConciergeAbusePage({ searchParams }: Props) {
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Concierge Abuse</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Today&apos;s Focus enforcement
+        </h1>
         <p className="text-sm text-ink/60">
           Multi-account trial-cycling review queue (iteration 0023 § 3.11). Tiered enforcement
           ladder: strike 1 → warning · strike 2 → trial banned · strike 3+ → full banned. Single-
           admin authority per § 4.3.
+        </p>
+        <p className="rounded-md border border-amber-200/60 bg-amber-50/60 px-3 py-2 text-xs text-amber-900">
+          <span className="font-semibold">Read-only — retired as a separate concept.</span>{' '}
+          The ₱2,499 Setnayan Concierge SKU was supplanted by the ₱1,499
+          TODAYS_FOCUS one-time SKU on 2026-05-28. Existing flagged users +
+          enforcement actions remain valid here for audit + appeal; the V2
+          abuse model is being locked separately and will replace this queue
+          when it ships.
         </p>
       </header>
 
@@ -176,7 +195,8 @@ export default async function ConciergeAbusePage({ searchParams }: Props) {
           role="status"
           className="mb-4 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
         >
-          Flag cleared as false positive. The flagged user can now start their 3-day trial.
+          Flag cleared as false positive. The flagged user&apos;s account is no
+          longer under review.
         </p>
       ) : null}
       {search.confirmed ? (

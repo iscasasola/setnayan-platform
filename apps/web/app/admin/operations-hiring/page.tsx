@@ -72,7 +72,10 @@ export default async function OperationsHiringPage() {
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold text-ink">Operations & Hiring</h1>
         <p className="text-sm text-ink/60">
-          Growth Cockpit — bottleneck signals, milestone forecasts, and hiring roadmap tied to the Jan 30, 2027 sunset.
+          Growth Cockpit — bottleneck signals, milestone forecasts, and hiring
+          roadmap tied to the Jan 30, 2027 Phase 1 capacity milestone (the
+          original V1 launch-promo sunset retired 2026-05-28 V2 cutover; the
+          date stays as the canonical staffing target).
         </p>
       </header>
 
@@ -212,10 +215,12 @@ export default async function OperationsHiringPage() {
       <section className="rounded-lg border border-ink/10 bg-cream p-5">
         <div className="flex items-baseline justify-between">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-ink/50">
-            Hiring roadmap (Jan 30, 2027 sunset)
+            Hiring roadmap (Jan 30, 2027 capacity milestone)
           </h2>
           <span className="text-xs text-ink/60">
-            {sunsetDays > 0 ? `${sunsetDays} days to sunset` : 'Sunset reached'}
+            {sunsetDays > 0
+              ? `${sunsetDays} days to milestone`
+              : 'Milestone reached'}
           </span>
         </div>
         {roadmap.length > 0 ? (

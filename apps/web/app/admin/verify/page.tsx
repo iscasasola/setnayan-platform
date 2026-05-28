@@ -208,7 +208,8 @@ function FlashBanner({
   if (search.demoted === '1') {
     return (
       <p className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-        Vendor demoted — Setnayan Pay locked + 3-stage payout reinstated.
+        Vendor demoted — verified-tier perks revoked + 3-stage payout
+        reinstated for any legacy bookings still routing through Setnayan.
       </p>
     );
   }
@@ -686,7 +687,7 @@ function ActionRow({ application }: { application: ApplicationRow }) {
               required
               minLength={5}
               rows={3}
-              placeholder="e.g. 3+ disputes in 30 days; revoking Setnayan Pay access"
+              placeholder="e.g. 3+ disputes in 30 days; revoking verified-tier perks"
               className="block w-full rounded-md border border-ink/20 bg-cream px-2 py-1 text-xs text-ink"
             />
             <button

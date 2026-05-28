@@ -4,29 +4,35 @@ import { createAdminClient } from '@/lib/supabase/admin';
 // V1 MVP catalog over `public.concierge_brain_chunks` (locked 2026-05-18 via
 // migration 20260518500000_iteration_0016_wizard_architecture_schema.sql).
 //
-// WHY this surface ships now while `CONCIERGE_ENABLED=OFF` for pilot:
-//   Per CLAUDE.md 2026-05-22 row 3, the Concierge wizard is hidden behind a
-//   feature flag during the pilot cohort. But brain content authoring is the
-//   long-pole content workstream (~30+ Filipino-wedding chunks × 8 topic
-//   files) and runs in parallel with engineering. A read-only catalog lets
-//   admins audit chunk inventory + spot gaps in coverage AHEAD of the
-//   post-pilot Concierge unlock, so the AI doesn't launch into a half-stocked
-//   knowledge base.
+// Brand-layer rename 2026-05-28 V2 cutover — surface labels read as "Today's
+// Focus brain" since the ₱2,499 Setnayan Concierge SKU was supplanted by the
+// ₱1,499 TODAYS_FOCUS one-time SKU. Route path + DB table + column names
+// (concierge_brain_chunks, concierge_unanswered_questions, paid_tier_only)
+// stay as-is so the schema layer doesn't ripple through every consumer.
+//
+// WHY this surface ships now while the AI Today's Focus chat is OFF for pilot:
+//   Per CLAUDE.md 2026-05-22 row 3, the wizard's AI chat layer is hidden
+//   behind a feature flag during the pilot cohort. But brain content
+//   authoring is the long-pole content workstream (~30+ Filipino-wedding
+//   chunks × 8 topic files) and runs in parallel with engineering. A
+//   read-only catalog lets admins audit chunk inventory + spot gaps in
+//   coverage AHEAD of the post-pilot AI unlock, so the chat doesn't launch
+//   into a half-stocked knowledge base.
 //
 // Scope of this V1: list page only. No edit form. No re-embed action. No
 // Cowork sync UI. No unanswered-questions queue UI (the tab reads "Coming
 // soon"). Edit + re-embed + sync + queue all ship in a later PR alongside
-// the Concierge feature unlock.
+// the AI Today's Focus feature unlock.
 //
 // Auth: handled at /admin/layout.tsx — non-admins 404 before this page runs.
 //
 // Cross-references:
 //   • Iteration 0023 § 3.13 — canonical spec for /admin/brain
-//   • CLAUDE.md 2026-05-18 row 6 — Concierge AI Brain architecture lock
+//   • CLAUDE.md 2026-05-18 row 6 — AI brain architecture lock
 //   • 02_Specifications/18_Concierge_Brain/README.md — canonical 8 topic
 //     files + governance rules (source citations required on cultural/legal)
 
-export const metadata = { title: 'Concierge brain · Admin' };
+export const metadata = { title: "Today's Focus brain · Admin" };
 
 type ChunkRow = {
   id: string;
@@ -165,13 +171,14 @@ export default async function AdminBrainPage() {
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
         <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          Iteration 0023 § 3.13 · Concierge brain
+          Iteration 0023 § 3.13 · Today&apos;s Focus brain
         </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Concierge brain
+          Today&apos;s Focus brain
         </h1>
         <p className="text-base text-ink/65">
-          Curated Filipino-wedding knowledge feeding the AI Concierge wizard.
+          Curated Filipino-wedding knowledge feeding the AI Today&apos;s Focus
+          chat.
         </p>
       </header>
 
@@ -196,8 +203,8 @@ export default async function AdminBrainPage() {
             Pilot posture
           </p>
           <p className="text-sm text-amber-900">
-            Concierge is currently OFF for pilot. Content authoring here lands
-            ahead of post-pilot launch.
+            The AI Today&apos;s Focus chat is currently OFF for pilot. Content
+            authoring here lands ahead of the post-pilot launch.
           </p>
         </div>
       </section>
@@ -218,7 +225,7 @@ export default async function AdminBrainPage() {
         catalog, so giving them href targets would 404. Disabled chips keep
         the surface shape correct for the next PR that lights them up.
       */}
-      <nav aria-label="Brain tabs" className="mb-6 flex flex-wrap gap-2">
+      <nav aria-label="Today's Focus brain tabs" className="mb-6 flex flex-wrap gap-2">
         <span
           aria-current="page"
           className="inline-flex items-center gap-2 rounded-full bg-ink px-3 py-1 text-sm text-cream"

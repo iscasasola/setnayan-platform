@@ -64,15 +64,25 @@ export function WizardCard({
       {/* ★ TODAY'S FOCUS rail · same as legacy TodaysOneThing so the
           transition between the two during the Phase 1-5 rollout doesn't
           jar the host visually. */}
+      {/* v2.1 visual overlay (2026-05-28) — TODAY'S FOCUS rail tokens swap
+       *  from the legacy `text-terracotta` semantic class to the v2.1
+       *  sienna palette (--m-orange-2 #A84F25). Per CLAUDE.md 2026-05-28
+       *  10th row "v2.1 BRIEF LOCKED AS CANONICAL" + the couple-dashboard.jsx
+       *  template's color treatment in /tmp/setnayan-keynote-template. The
+       *  shipped wizard LOGIC stays untouched — this is a pure CSS-class
+       *  refresh keeping every button placement + state transition + 65-card
+       *  dispatcher intact. */}
       <header className="flex items-baseline gap-2">
         <Star
           aria-hidden
-          className="h-3.5 w-3.5 text-terracotta"
+          className="h-3.5 w-3.5"
+          style={{ color: 'var(--m-orange-2)' }}
           strokeWidth={1.75}
         />
         <h2
           id="wizard-card-heading"
-          className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta"
+          className="font-mono text-[11px] uppercase tracking-[0.25em]"
+          style={{ color: 'var(--m-orange-2)' }}
         >
           Today&apos;s focus
         </h2>
@@ -82,12 +92,32 @@ export function WizardCard({
        *  (long string, fixed-width image, accidental table) can push
        *  the card width past its container. Belt-and-suspenders on top
        *  of the carousel li's `max-w-full` · together they guarantee
-       *  the card never exceeds the screen on any viewport. */}
-      <article className="flex min-w-0 flex-col gap-5 overflow-hidden rounded-2xl border-2 border-terracotta/30 bg-cream p-6 sm:p-8">
-        {/* Phase pill (left) + order badge (right) */}
+       *  the card never exceeds the screen on any viewport.
+       *
+       *  v2.1 visual overlay: warmer ivory background (--m-ivory #EDE5D2)
+       *  + sienna-3 hairline border (--m-orange-3 #E8B399) replace the
+       *  prior cream + terracotta/30 treatment. Matches the template's
+       *  OverviewTab Today's-Focus card chrome. */}
+      <article
+        className="flex min-w-0 flex-col gap-5 overflow-hidden rounded-2xl border-2 p-6 sm:p-8"
+        style={{
+          background: 'var(--m-ivory)',
+          borderColor: 'var(--m-orange-3)',
+        }}
+      >
+        {/* Phase pill (left) + order badge (right) — v2.1 sienna treatment */}
         <header className="flex items-start justify-between gap-3">
-          <div className="inline-flex items-center gap-2 rounded-full border border-terracotta/40 bg-terracotta/5 px-3 py-1">
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
+          <div
+            className="inline-flex items-center gap-2 rounded-full border px-3 py-1"
+            style={{
+              borderColor: 'var(--m-orange-3)',
+              background: 'var(--m-orange-4)',
+            }}
+          >
+            <span
+              className="font-mono text-[10px] uppercase tracking-[0.18em]"
+              style={{ color: 'var(--m-orange-2)' }}
+            >
               {task.pillLabel}
             </span>
           </div>

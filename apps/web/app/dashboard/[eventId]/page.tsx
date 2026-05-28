@@ -1833,9 +1833,22 @@ function WelcomeHeader({ eventName }: { eventName: string }) {
   // carries only the event-name display so the welcome strip stays the
   // single source of "who and what" without duplicating the "when" three
   // times across the page. See _components/event-meta-line.tsx.
+  //
+  // v2.1 visual overlay (2026-05-28) — couple-dashboard.jsx template's
+  // `.display` typeface renders the couple's names as uppercase Saira
+  // Condensed at 44px. We adopt the `.m-display-tight` utility from
+  // globals.css (Saira Condensed 700 · uppercase via toUpperCase()) so
+  // the welcome header gets the v2.1 keynote treatment without changing
+  // the underlying event-name data shape. The eventName itself stays —
+  // .toUpperCase() is the typographic transform, not a content rename.
   return (
     <header className="space-y-1.5">
-      <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{eventName}</h1>
+      <h1
+        className="m-display-tight text-3xl uppercase sm:text-[44px]"
+        style={{ letterSpacing: '-0.005em' }}
+      >
+        {eventName.toUpperCase()}
+      </h1>
     </header>
   );
 }

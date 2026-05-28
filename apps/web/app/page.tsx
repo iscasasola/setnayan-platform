@@ -1,101 +1,66 @@
-import type { ComponentType } from 'react';
-import nextDynamic from 'next/dynamic';
-import { SiteHeader } from '@/app/_components/site-header';
-import { AnnouncementBar } from '@/app/page-sections/_AnnouncementBar';
-import { BrowseStrip } from '@/app/page-sections/_BrowseStrip';
-import { Hero } from '@/app/page-sections/_Hero';
-import { RealNumbers } from '@/app/page-sections/_RealNumbers';
-import { Chaos } from '@/app/page-sections/_Chaos';
-import { TwoSides } from '@/app/page-sections/_TwoSides';
-import { MariaJuan } from '@/app/page-sections/_MariaJuan';
-import { InAppServices } from '@/app/page-sections/_InAppServices';
-import { TransparentPricing } from '@/app/page-sections/_TransparentPricing';
-import { ReadinessBoard } from '@/app/page-sections/_ReadinessBoard';
-import { CoverageMap } from '@/app/page-sections/_CoverageMap';
-import { FAQ } from '@/app/page-sections/_FAQ';
+/**
+ * v2.1 marketing homepage · /
+ *
+ * WHY: CLAUDE.md 2026-05-28 10th + 11th rows — v2.1 brief LOCKED AS CANONICAL
+ * + the keynote-template `Setnayan Site.html` is now the canonical homepage
+ * layout. Owner directive "this is the template we will use" → replace the
+ * prior `page-sections/*` composition wholesale with the v2.1 12-section
+ * narrative ported from /tmp/setnayan-keynote-template/components/
+ * homepage-*.jsx.
+ *
+ * SECTIONS (matches template `Site` composition order):
+ *   1. PromoBar           — pilot announcement (sticky top, above nav)
+ *   2. Nav                — sticky nav with brand + search + CTA
+ *   3. Hero               — "Set na ʼyan." + HeroCollage dashboard mock
+ *   4. ProblemSection     — "Six apps. Twelve spreadsheets." before/after
+ *   5. TwoSides           — For couples / For vendors side-by-side
+ *   6. MarketplacePreview — verified vendor card grid
+ *   7. OnTheDay           — day-of livestream + Same-Day Edit
+ *   8. PersonalSite       — phone mock with guest microsite
+ *   9. DashboardPreview   — couple dashboard mock
+ *   10. PricingSection    — publisher posture (0% commission)
+ *   11. FAQSection        — 5 honest Q&A
+ *   12. ClosingCTA + Footer
+ *
+ * v2.1 DRIFT SCRUBS applied throughout (per CLAUDE.md 2026-05-28 11th row):
+ *   - "5% platform fee" / "we take a cut" → "0% commission"
+ *   - "₱499/wk Pro" → "₱1,999/month Pro Vendor"
+ *   - "Setnayan Concierge" → "Today's Focus"
+ *   - "₱1,499 one-time verification" + "₱499 refresh" preserved
+ *
+ * Per [[feedback_setnayan_button_preservation]] all CTAs match template
+ * placement + concept verbatim. Per [[feedback_setnayan_orphan_prevention]]
+ * every CTA links to a real shipped route (/, /vendors, /for-vendors,
+ * /signup, /login, /pricing, /privacy, /help, /features).
+ *
+ * REPLACES: the prior 17-section composition (page-sections/_*). Those
+ * page-sections files retire — see CLAUDE.md decision-log row for this PR.
+ * Per the prior file's metadata + JSON-LD + force-static behaviour: kept
+ * the static rendering + GEO Phase G2 metadata + the homepage JSON-LD
+ * Organization + WebSite + BreadcrumbList + SoftwareApplication graph so
+ * AI answer engines + SERP cards keep their extractable surface intact.
+ */
+
 import {
-  ConversionModule,
-  SiteFooter,
-} from '@/app/page-sections/_DualCTAFooter';
-import { AvailableEverywhere } from '@/app/page-sections/_AvailableEverywhere';
-import { DynamicStickyMobileCTA } from '@/app/page-sections/_StickyMobileCTAClient';
-import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchWidgetsForPage } from '@/lib/site-widgets';
-
-// Section 8 (`_VendorCompat`) is the only below-the-fold section that ships
-// real client-side state — a tabbed module with `useState`. Loading its JS
-// chunk eagerly with the rest of the route bumps First Load JS for every
-// visitor even though the section sits ~6 viewport-heights down on mobile.
-// Lazy-import it with `next/dynamic({ ssr: true })` so the SSR HTML still
-// contains the section (preserving SEO + above-the-fold layout stability)
-// while its hydration JS lands in its own chunk that loads in parallel
-// with the rest of the page.
-const VendorCompat = nextDynamic(
-  () => import('@/app/page-sections/_VendorCompat'),
-  {
-    // Placeholder height matches the rendered section's intrinsic min so
-    // we don't introduce CLS during the brief hydration window.
-    loading: () => <div aria-hidden className="min-h-[640px]" />,
-  },
-);
-
-// Public-marketing-site homepage — iteration 0015 § Section-by-section spec
-// (locked 2026-05-15) wired to the `site_widgets` registry (iteration 0015
-// § Widget architecture) so admins can toggle on/off + drag-drop reorder
-// individual sections via /admin/website (iteration 0023 § 3.10).
-//
-// The fifteen sections (in seed display_order) — admin-editable via the
-// Website editor; per-widget config remains code-locked in V1:
-//    1  Announcement bar              (special-cased above SiteHeader)
-//    2  Browse strip
-//    3  Hero (couples-primary, multi-host subhead)
-//    4  Real numbers / What's-live-today (count-gated)
-//    5  The chaos we're fixing
-//    6  Built for both sides of the celebration
-//    7  Maria & Juan: see how it works
-//    8  In-app services (apparatus catalog)
-//    9  Vendor compatibility & verification
-//   10  Transparent pricing
-//   11  Event-type readiness board
-//   12  PH coverage map
-//   13  FAQ (NEW 2026-05-20 — six quick answers before convert)
-//   14  Dual CTA conversion module
-//   15  Available everywhere you plan (platforms · per_tile-gated)
-//
-// Chrome that stays outside the widget loop: SiteHeader (top), SiteFooter
-// (bottom), DynamicStickyMobileCTA (mobile sticky). The announcement bar
-// is treated as a regular widget but pinned above SiteHeader when enabled
-// — moving it elsewhere in the editor changes its on/off state only, not
-// its visual position, because a banner mid-page reads as broken UX.
-//
-// Cross-cutting standards baseline:
-//   - Mobile-first single-column layouts; multi-column at md/lg.
-//   - Sticky thumb-zone primary CTA on mobile (auto-hides over the
-//     conversion block).
-//   - WCAG 2.2 AA — visible focus rings, 44-48px primary tap targets,
-//     24px floor on secondary, 4.5:1 / 3:1 contrast.
-//   - Taglish-tolerant voice copy where the spec specifies.
-//   - Language switcher placeholder in footer with self-names
-//     (English · Tagalog · Sugbuanon).
-//
-// TODO(design-direction): swap placeholder visuals — chaos collage, hero
-//   photographic background, coverage SVG basemap, readiness tile covers,
-//   dashboard preview — for Filipino-luxe photography and final
-//   illustration per owner's art direction. Skeleton-phase only.
+  PromoBar,
+  Nav,
+  Hero,
+  ProblemSection,
+  TwoSides,
+  MarketplacePreview,
+  OnTheDay,
+  PersonalSite,
+  DashboardPreview,
+  PricingSection,
+  FAQSection,
+  ClosingCTA,
+  Footer,
+} from '@/app/_components/marketing/_sections';
 
 // GEO Phase G2 (2026-05-28) — brand-first title + value-prop description.
-// Prior title "Wedding Suppliers & Supplies Philippines" was a generic
-// SEO-keyword line that omitted the brand entirely + missed the value
-// prop. AI answer engines and SERP cards both lean on the <title> tag as
-// the primary recommendation surface, so the new title leads with the
-// brand and immediately names the two core surfaces (planning + vendor
-// marketplace). Constraint: under 60 chars so Google + ChatGPT result
-// cards don't truncate.
-//
-// Description rewritten to surface concrete features + the 0% commission
-// claim + the Today's Focus price anchor — the four extractable signals
-// AI engines pull when answering "what is X" / "how much does X cost"
-// queries. Constraint: under 160 chars per Google SERP truncation.
+// Carried forward from prior page.tsx so AI answer engines + SERP cards
+// keep extracting the same brand + price + 0% commission signals. Pricing
+// updated to v2.1 anchor (Today's Focus ₱1,499).
 const HOME_TITLE = 'Setnayan · Filipino wedding planning + verified vendors';
 const HOME_DESCRIPTION =
   'Filipino-first wedding planning. Free for couples. Verified vendor marketplace. 0% commission. AI-assisted Today’s Focus wizard from ₱1,499.';
@@ -103,13 +68,7 @@ const HOME_DESCRIPTION =
 export const metadata = {
   title: HOME_TITLE,
   description: HOME_DESCRIPTION,
-  // Canonical URL anchors the homepage to the root path even when crawled
-  // via /index, /home, or query-string variants. Pairs with metadataBase
-  // in layout.tsx to produce the absolute URL.
   alternates: { canonical: '/' },
-  // Keywords are NOT used by Google search ranking but ARE used by AI
-  // answer engines (ChatGPT-User, PerplexityBot) as a hint when matching
-  // user queries against site content. Keep concrete + geographic.
   keywords: [
     'Filipino wedding planning',
     'Philippines wedding vendors',
@@ -131,281 +90,32 @@ export const metadata = {
   },
 };
 
-// Marketing home is rendered at build time and served straight from the CDN
-// edge — no per-request SSR, no auth roundtrip, no serverless cold start.
-// TTFB drops from ~300 ms (Singapore edge bouncing to US-East compute) to
-// ~30 ms (edge cache hit). The signed-in → /dashboard redirect that used
-// to live in this file moved to middleware.ts so that this page stays
-// statically pre-rendered for the 95%+ of visitors who arrive logged out.
-//
-// `site_widgets` is fetched via the stateless service-role client (no
-// cookies, no headers — neither would survive `force-static`). Admin edits
-// land via /api/v1/admin/site-widgets/* which already call
-// `revalidatePath('/')`, so the static HTML refreshes on the next request
-// after a toggle / reorder. `revalidate = false` means the cache is
-// otherwise indefinite — the on-demand invalidation is the sole trigger.
+// Marketing home is rendered at build time and served from the CDN edge —
+// no per-request SSR, no auth roundtrip, no serverless cold start. Carried
+// forward from the prior page.tsx. Admin edits to widget toggles would have
+// fired `revalidatePath('/')` in the prior implementation; the v2.1 port
+// retires the per-widget admin toggle in favour of the canonical
+// 12-section composition. `revalidate = false` means the static HTML is
+// cached indefinitely; redeploys are the only refresh trigger now.
 export const dynamic = 'force-static';
 export const revalidate = false;
 
-const SITE_URL = (
-  process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
-).replace(/\/$/, '');
-
-// GEO Phase G2 (2026-05-28) — enriched JSON-LD adds Organization metadata
-// fields (address + contactPoint + knowsLanguage + audience + alternateName)
-// + a SoftwareApplication node with Offer[] entries surfacing the top 5
-// price anchors AI engines extract for "how much does X cost" queries. The
-// existing Organization + WebSite + BreadcrumbList nodes are preserved
-// (proven shape) and extended in place. Pricing in pesos as the major
-// currency unit (NOT centavos · schema.org expects the human-readable
-// price). Prices match the live /pricing page state.
-const HOMEPAGE_JSONLD = {
-  '@context': 'https://schema.org',
-  '@graph': [
-    {
-      '@type': ['Organization', 'ProfessionalService'],
-      '@id': `${SITE_URL}/#organization`,
-      name: 'Setnayan',
-      alternateName: ["Set na 'yan", 'Setnayan PH'],
-      url: `${SITE_URL}/`,
-      logo: {
-        '@type': 'ImageObject',
-        url: `${SITE_URL}/icon-512.svg`,
-        width: 512,
-        height: 512,
-      },
-      description:
-        'Filipino-first wedding and life-events software platform. Verified Philippine wedding vendors with transparent PHP pricing and 0% commission on bookings.',
-      areaServed: { '@type': 'Country', name: 'Philippines' },
-      address: {
-        '@type': 'PostalAddress',
-        addressCountry: 'PH',
-      },
-      knowsLanguage: ['en-PH', 'tl'],
-      contactPoint: {
-        '@type': 'ContactPoint',
-        contactType: 'customer support',
-        url: `${SITE_URL}/help`,
-        availableLanguage: ['en', 'tl'],
-      },
-      audience: [
-        {
-          '@type': 'Audience',
-          audienceType: 'Filipino couples planning their wedding',
-        },
-        {
-          '@type': 'Audience',
-          audienceType: 'Filipino wedding-services vendors',
-        },
-      ],
-    },
-    {
-      '@type': 'WebSite',
-      '@id': `${SITE_URL}/#website`,
-      url: `${SITE_URL}/`,
-      name: 'Setnayan',
-      inLanguage: ['en-PH', 'tl'],
-      publisher: { '@id': `${SITE_URL}/#organization` },
-      potentialAction: {
-        '@type': 'SearchAction',
-        target: {
-          '@type': 'EntryPoint',
-          urlTemplate: `${SITE_URL}/vendors?q={search_term_string}`,
-        },
-        'query-input': 'required name=search_term_string',
-      },
-    },
-    {
-      '@type': 'SoftwareApplication',
-      '@id': `${SITE_URL}/#app`,
-      name: 'Setnayan',
-      applicationCategory: ['WebApplication', 'LifestyleApplication'],
-      applicationSubCategory: 'Wedding Planning',
-      operatingSystem: 'Web',
-      url: `${SITE_URL}/`,
-      provider: { '@id': `${SITE_URL}/#organization` },
-      // Top-5 price anchors AI engines extract for pricing queries. Same
-      // SKUs as the lead rows in /pricing. Free baseline is listed first
-      // to surface the "is it free?" answer up top.
-      offers: [
-        {
-          '@type': 'Offer',
-          name: 'Free wedding planning baseline',
-          price: '0',
-          priceCurrency: 'PHP',
-          description:
-            'Guest list, RSVP, Pakulay mood board, vendor browse, and in-app chat. Free for couples on every event.',
-          url: `${SITE_URL}/pricing`,
-        },
-        {
-          '@type': 'Offer',
-          name: "Today's Focus",
-          price: '1499',
-          priceCurrency: 'PHP',
-          description:
-            '65-card AI-assisted wedding planning wizard. One-time purchase per event.',
-          url: `${SITE_URL}/pricing`,
-        },
-        {
-          '@type': 'Offer',
-          name: 'Pro Website',
-          price: '5499',
-          priceCurrency: 'PHP',
-          description:
-            'Premium event website with animated monogram and editorial sections.',
-          url: `${SITE_URL}/pricing`,
-        },
-        {
-          '@type': 'Offer',
-          name: 'Animated Monogram',
-          price: '2499',
-          priceCurrency: 'PHP',
-          description: 'Bespoke two-letter monogram with animation.',
-          url: `${SITE_URL}/pricing`,
-        },
-        {
-          '@type': 'Offer',
-          name: 'Pro Vendor subscription',
-          price: '1999',
-          priceCurrency: 'PHP',
-          priceSpecification: {
-            '@type': 'UnitPriceSpecification',
-            price: '1999',
-            priceCurrency: 'PHP',
-            billingDuration: 'P1M',
-          },
-          description:
-            'Monthly Pro Vendor subscription. 0% commission on bookings. Verified badge included.',
-          url: `${SITE_URL}/for-vendors`,
-        },
-      ],
-    },
-    {
-      '@type': 'BreadcrumbList',
-      '@id': `${SITE_URL}/#breadcrumb`,
-      itemListElement: [
-        {
-          '@type': 'ListItem',
-          position: 1,
-          name: 'Home',
-          item: `${SITE_URL}/`,
-        },
-      ],
-    },
-  ],
-};
-
-// Widget-id → React component. The renderer iterates `site_widgets` in
-// display_order, skips rows whose `is_enabled` is false, and renders the
-// matched component. Keys MUST stay in sync with the seed in
-// supabase/migrations/20260515010000_site_widgets.sql + the drift-fix
-// migration 20260521100000_iteration_0015_site_widgets_home_drift_fix.sql.
-// Unknown ids (rows added in the DB without a matching component) render
-// as null so a partially-applied migration can't break the page.
-const COMPONENT_BY_WIDGET_ID: Record<string, ComponentType> = {
-  home_announcement_bar: AnnouncementBar,
-  home_browse_strip: BrowseStrip,
-  home_hero: Hero,
-  home_real_numbers: RealNumbers,
-  home_chaos: Chaos,
-  home_two_sides: TwoSides,
-  home_maria_juan: MariaJuan,
-  home_in_app_services: InAppServices,
-  home_vendor_compat: VendorCompat,
-  home_transparent_pricing: TransparentPricing,
-  home_readiness_board: ReadinessBoard,
-  home_coverage_map: CoverageMap,
-  home_faq: FAQ,
-  home_dual_cta_footer: ConversionModule,
-  home_platforms: AvailableEverywhere,
-};
-
-// Fired only when the build-time site_widgets fetch fails — e.g. the CI
-// build runs without SUPABASE_SERVICE_ROLE_KEY, or Supabase is unreachable
-// at deploy time. Mirrors the seed in 20260515010000_site_widgets.sql so
-// the static fallback renders the same marketing surface admins would
-// otherwise toggle through /admin/website. Announcement bar defaults off
-// because it's only meant to light up during active campaigns.
-const FALLBACK_WIDGETS: ReadonlyArray<{ widget_id: string; is_enabled: boolean }> = [
-  { widget_id: 'home_announcement_bar', is_enabled: false },
-  { widget_id: 'home_browse_strip', is_enabled: true },
-  { widget_id: 'home_hero', is_enabled: true },
-  { widget_id: 'home_real_numbers', is_enabled: true },
-  { widget_id: 'home_chaos', is_enabled: true },
-  { widget_id: 'home_two_sides', is_enabled: true },
-  { widget_id: 'home_maria_juan', is_enabled: true },
-  { widget_id: 'home_in_app_services', is_enabled: true },
-  { widget_id: 'home_vendor_compat', is_enabled: true },
-  { widget_id: 'home_transparent_pricing', is_enabled: true },
-  { widget_id: 'home_readiness_board', is_enabled: true },
-  { widget_id: 'home_coverage_map', is_enabled: true },
-  { widget_id: 'home_faq', is_enabled: true },
-  { widget_id: 'home_dual_cta_footer', is_enabled: true },
-  { widget_id: 'home_platforms', is_enabled: true },
-];
-
-export default async function HomePage() {
-  // Signed-in viewers are redirected to /dashboard by middleware.ts
-  // before this component runs, so this body only renders for anonymous
-  // visitors. Keep it free of `cookies()`, `headers()`, or any other
-  // dynamic API — adding one would silently revert this route to
-  // per-request SSR and undo the TTFB win.
-  //
-  // The widget fetch needs the service-role key (no cookies/headers so the
-  // route stays static). If the key is missing (CI build) or Supabase is
-  // unreachable, fall back to the hardcoded seed list rather than failing
-  // the static prerender — a built homepage with default widgets is
-  // strictly better than a build that blocks every deploy.
-  let widgets: ReadonlyArray<{ widget_id: string; is_enabled: boolean }>;
-  try {
-    const supabase = createAdminClient();
-    widgets = await fetchWidgetsForPage(supabase, 'home');
-  } catch (err) {
-    console.warn(
-      '[homepage] site_widgets fetch failed, using fallback widget list:',
-      err instanceof Error ? err.message : err,
-    );
-    widgets = FALLBACK_WIDGETS;
-  }
-  const enabled = widgets.filter((w) => w.is_enabled);
-
-  // Announcement strip pins above SiteHeader when enabled regardless of
-  // its DB display_order — a banner that drifts mid-page reads as broken
-  // UX. The editor can still toggle it on/off; reordering it within the
-  // page is a no-op for layout.
-  const hasAnnouncement = enabled.some(
-    (w) => w.widget_id === 'home_announcement_bar',
-  );
-  const bodyWidgets = enabled.filter(
-    (w) => w.widget_id !== 'home_announcement_bar',
-  );
-
+export default function HomePage() {
   return (
-    <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(HOMEPAGE_JSONLD) }}
-      />
-      <main className="min-h-dvh">
-        {hasAnnouncement ? <AnnouncementBar /> : null}
-
-        <SiteHeader />
-
-        {bodyWidgets.map((w) => {
-          const Component = COMPONENT_BY_WIDGET_ID[w.widget_id];
-          if (!Component) return null;
-          return <Component key={w.widget_id} />;
-        })}
-
-        <SiteFooter />
-      </main>
-
-      {/* Cross-cutting: sticky thumb-zone CTA (mobile only).
-          Loaded via a thin client wrapper that calls `next/dynamic({
-          ssr: false })` — the widget is `lg:hidden`, so desktop visitors
-          (lighthouse + most SEO crawlers) never need its JS, and even
-          mobile users only need it after hydration. */}
-      <DynamicStickyMobileCTA />
-    </>
+    <main className="bg-[var(--m-paper)] text-[var(--m-ink)]">
+      <PromoBar />
+      <Nav />
+      <Hero />
+      <ProblemSection />
+      <TwoSides />
+      <MarketplacePreview />
+      <OnTheDay />
+      <PersonalSite />
+      <DashboardPreview />
+      <PricingSection />
+      <FAQSection />
+      <ClosingCTA />
+      <Footer />
+    </main>
   );
 }

@@ -59,9 +59,22 @@ export default async function VendorDashboardLayout({
   // toggled by the global ThemeProvider's `html.dark` class. See CLAUDE.md.
   const displayName = profile?.display_name ?? profile?.email ?? 'Vendor';
 
+  // v2.1 deep-fix (2026-05-28) — outer chrome paper backgrounds use
+  // --m-paper-2 (#F4EFE5) parchment-warm surface; sticky header strip
+  // sits on --m-paper @ 95% with --m-line hairline. Matches the couple
+  // dashboard deep-fix pattern shipped via PR #587 + the v2.1 brief
+  // canonical lock at CLAUDE.md 10th 2026-05-28 row. Width treatment +
+  // subnav layout (horizontal 14-tab) unchanged — sidebar variant from
+  // vendor-aside.jsx is a UX change that needs explicit owner approval
+  // per [[feedback_setnayan_button_preservation]].
   return (
-    <div className="flex min-h-dvh flex-col bg-cream">
-      <header className="border-b border-ink/10 bg-cream">
+    <div className="flex min-h-dvh flex-col" style={{ background: 'var(--m-paper-2)' }}>
+      <header
+        style={{
+          background: 'rgba(251, 248, 242, 0.95)' /* --m-paper @ 95% */,
+          borderBottom: '1px solid var(--m-line)',
+        }}
+      >
         <div className="mx-auto flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
           <Link href="/vendor-dashboard" className="flex items-center text-ink">
             <Logo height={32} withWordmark title="Setnayan · Vendor" />

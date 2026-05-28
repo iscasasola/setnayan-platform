@@ -231,12 +231,22 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
         reframes around the v2.1 publisher posture: couples find vendors via
         the marketplace; Setnayan never sits in the booking-money path.
       */}
+      {/*
+        v2.1 deep-fix (2026-05-28) — Header eyebrow uses .m-eyebrow
+        utility (Saira condensed uppercase) with --m-orange-2 sienna;
+        heading uses .m-display (Instrument Serif) per v2.1 template
+        vendor-dashboard.jsx. Body copy stays since it already reads
+        the publisher posture (0% commission). Pattern mirrors couple
+        WelcomeHeader from PR #587.
+      */}
       <header className="mb-6 space-y-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+        <p className="m-eyebrow" style={{ color: 'var(--m-orange-2)' }}>
           Vendor dashboard · Public profile
         </p>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Your profile</h1>
-        <p className="text-base text-ink/65">
+        <h1 className="m-display text-3xl font-semibold tracking-tight sm:text-4xl">
+          Your profile
+        </h1>
+        <p className="text-base" style={{ color: 'var(--m-slate)' }}>
           Edit your business info. Couples find you on the marketplace and start chats from their
           dashboard — see those at Messages. Setnayan takes 0% on your bookings; everything you quote
           is yours.
@@ -284,20 +294,39 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
         </div>
       ) : null}
 
-      <section className="mb-6 space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
+      {/*
+        v2.1 deep-fix (2026-05-28) — Completion card chrome swaps to
+        --m-paper background + --m-line border + --m-shadow-sm + sienna
+        progress fill (--m-orange) over --m-line-soft track. Eyebrow
+        uses .m-label-mono (Saira condensed uppercase) per the v2.1
+        template card pattern. Logic + percentage math unchanged.
+      */}
+      <section
+        className="mb-6 space-y-3 rounded-2xl p-5"
+        style={{
+          background: 'var(--m-paper)',
+          border: '1px solid var(--m-line)',
+          boxShadow: 'var(--m-shadow-sm)',
+        }}
+      >
         <div className="flex items-center justify-between">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <h2 className="m-label-mono" style={{ color: 'var(--m-slate)' }}>
             Completion
           </h2>
-          <span className="font-mono text-sm font-semibold text-terracotta-700">{pct}%</span>
+          <span className="font-mono text-sm font-semibold" style={{ color: 'var(--m-orange-2)' }}>
+            {pct}%
+          </span>
         </div>
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink/10">
+        <div
+          className="h-1.5 w-full overflow-hidden rounded-full"
+          style={{ background: 'var(--m-line-soft)' }}
+        >
           <span
-            className="block h-full rounded-full bg-terracotta transition-all"
-            style={{ width: `${pct}%` }}
+            className="block h-full rounded-full transition-all"
+            style={{ width: `${pct}%`, background: 'var(--m-orange)' }}
           />
         </div>
-        <p className="text-xs text-ink/55">
+        <p className="text-xs" style={{ color: 'var(--m-slate)' }}>
           {completion.done} of {completion.total} fields complete
           {completion.missing.length > 0 ? ` · still needed: ${completion.missing.join(', ')}` : ''}
         </p>
@@ -536,7 +565,15 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
           </Field>
         </div>
 
-        <label className="flex items-start gap-3 rounded-xl border border-ink/10 bg-cream p-4">
+        {/*
+          v2.1 deep-fix — Published toggle card swaps to --m-paper warm
+          background + --m-line border to match the Completion card
+          chrome above. Checkbox accent + body copy unchanged.
+        */}
+        <label
+          className="flex items-start gap-3 rounded-xl p-4"
+          style={{ background: 'var(--m-paper)', border: '1px solid var(--m-line)' }}
+        >
           <input
             type="checkbox"
             name="is_published"
@@ -554,7 +591,11 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
         </label>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
+          {/* v2.1 deep-fix — Account ID label uses .m-label-mono utility
+              (Saira condensed) over --m-slate body color. Submit CTA
+              keeps button-primary class — globals.css redefines that
+              class to sienna fill via the v2.1 foundation tokens. */}
+          <p className="m-label-mono" style={{ color: 'var(--m-slate)' }}>
             Account ID · {profile?.public_id ?? '—'}
           </p>
           <SubmitButton className="button-primary" pendingLabel="Saving…">

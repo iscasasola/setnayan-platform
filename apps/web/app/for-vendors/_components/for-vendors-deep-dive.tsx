@@ -5,7 +5,7 @@
  * components/homepage-extras.jsx (lines 350-660). The 4-tier matrix
  * (Free / Verified / Pro / Enterprise) IS already in the v2.1 template —
  * the template was authored AFTER the v2.1 brief lock, so its pricing
- * (₱1,499 lifetime · ₱1,999/mo Pro · ₱5,499/mo Enterprise) matches the
+ * (₱1,499 lifetime · ₱1,999/28d Pro · ₱5,499/28d Enterprise) matches the
  * canonical CLAUDE-CODE-BRIEF-v2.1_2026-05-28.md § 3.
  *
  * DRIFT SCRUBS applied (CLAUDE.md 2026-05-28 11th row v2.1 canonical):
@@ -370,7 +370,7 @@ export function ForVendorsDeepDive() {
               }}
             >
               ₱0{' '}
-              <span style={{ fontSize: 12, color: 'var(--m-slate-2)' }}>/ mo</span>
+              <span style={{ fontSize: 12, color: 'var(--m-slate-2)' }}>/ 28d</span>
             </div>
             <div
               className="m-mono"
@@ -428,7 +428,7 @@ export function ForVendorsDeepDive() {
               }}
             >
               ₱1,999{' '}
-              <span style={{ fontSize: 12, color: 'var(--m-slate-4)' }}>/ mo</span>
+              <span style={{ fontSize: 12, color: 'var(--m-slate-4)' }}>/ 28d</span>
             </div>
             <div
               className="m-mono"
@@ -455,7 +455,7 @@ export function ForVendorsDeepDive() {
               }}
             >
               ₱5,499{' '}
-              <span style={{ fontSize: 12, color: 'var(--m-slate-2)' }}>/ mo</span>
+              <span style={{ fontSize: 12, color: 'var(--m-slate-2)' }}>/ 28d</span>
             </div>
             <div
               className="m-mono"
@@ -755,7 +755,7 @@ export function ForVendorsDeepDive() {
           ₱5,499
         </div>
         <div>
-          <div className="m-label-mono">Enterprise · ₱5,499 / month</div>
+          <div className="m-label-mono">Enterprise · ₱5,499 / 28 days</div>
           <div
             style={{
               fontSize: 14,

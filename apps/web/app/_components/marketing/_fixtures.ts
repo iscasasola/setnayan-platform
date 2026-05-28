@@ -10,7 +10,7 @@
  *
  * v2.1 DRIFT SCRUBS applied:
  *   - "5% platform fee" / "we take a cut" → "0% commission"
- *   - "₱499/wk Pro" → "₱1,999/month Pro Vendor"
+ *   - "₱499/wk Pro" → "₱1,999/28 days Pro Vendor"
  *   - "Setnayan Concierge" → "Today's Focus"
  *   - "₱1,499 one-time verification" + "₱499 refresh" preserved (v2.1-correct)
  */
@@ -142,8 +142,8 @@ export const VENDOR_FEATURES = [
   'Free listing. Profile, chat with couples, accept bookings — no monthly fee to start.',
   'Real calendar with team roles, agent privacy redaction, per-service scoping.',
   '₱1,499 one-time verification badge. ₱499 per refresh when documents change.',
-  'Pro Vendor ₱1,999/month unlocks AI proposals, analytics, custom microsite.',
-  'Enterprise ₱5,499/month unlocks multi-category listing + sub-4hr priority support.',
+  'Pro Vendor ₱1,999/28 days unlocks AI proposals, analytics, custom microsite.',
+  'Enterprise ₱5,499/28 days unlocks multi-category listing + sub-4hr priority support.',
   '100 free tokens on verification before 2027-01-31. Founder bonus for pilot vendors.',
 ];
 
@@ -171,7 +171,7 @@ export const FAQ_ITEMS = [
   },
   {
     q: 'What do vendors pay?',
-    a: 'Free to list. ₱1,499 one-time for the lifetime verification badge (₱499 per refresh when documents change). Pro Vendor ₱1,999/month unlocks visibility upgrades, AI proposals, and custom microsite. Enterprise ₱5,499/month adds multi-category listing and priority support.',
+    a: 'Free to list. ₱1,499 one-time for the lifetime verification badge (₱499 per refresh when documents change). Pro Vendor ₱1,999/28 days unlocks visibility upgrades, AI proposals, and custom microsite. Enterprise ₱5,499/28 days adds multi-category listing and priority support.',
   },
   {
     q: "What's the pilot?",

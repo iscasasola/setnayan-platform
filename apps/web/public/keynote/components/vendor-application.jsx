@@ -215,7 +215,7 @@ const VendorApplication = () => {
               </div>
             </div>
             <div className="mono" style={{ fontSize: 11, color: "var(--slate-4)", marginTop: 14, letterSpacing: "0.08em" }}>
-              No recurring charge. No monthly listing fee. You can upgrade to Pro (₱1,999/mo) or Enterprise (₱5,499/mo) any time after verification.
+              No recurring charge. No monthly listing fee. You can upgrade to Pro (₱1,999/28d) or Enterprise (₱5,499/28d) any time after verification.
             </div>
           </div>
           <div style={{ padding: 22, background: "rgba(255,255,255,0.05)", borderRadius: 12, display: "flex", flexDirection: "column", gap: 14 }}>

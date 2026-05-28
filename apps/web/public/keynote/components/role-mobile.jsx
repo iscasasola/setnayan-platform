@@ -167,7 +167,7 @@ const VMMore = () => (
         { i: "✦", label: "Services & prices", sub: "8 services live" },
         { i: "○", label: "Team & crew",       sub: "Joey + 4 captains · 18 servers" },
         { i: "↗", label: "Sponsored boost",   sub: "₱1,200/wk · 10→30km reach" },
-        { i: "◆", label: "Setnayan Pro",      sub: "₱1,999/month · founder rate available" },
+        { i: "◆", label: "Setnayan Pro",      sub: "₱1,999/28 days · founder rate available" },
         { i: "◇", label: "Settings",          sub: "Account · payouts · KYC" },
         { i: "?", label: "Help center",       sub: "Vendor docs · contact us" },
       ].map(m => (

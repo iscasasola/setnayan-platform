@@ -24,7 +24,7 @@
  *
  * v2.1 DRIFT SCRUBS applied throughout (per CLAUDE.md 2026-05-28 11th row):
  *   - "5% platform fee" / "we take a cut" → "0% commission"
- *   - "₱499/wk Pro" → "₱1,999/month Pro Vendor"
+ *   - "₱499/wk Pro" → "₱1,999/28 days Pro Vendor"
  *   - "Setnayan Concierge" → "Today's Focus"
  *   - "₱1,499 one-time verification" + "₱499 refresh" preserved
  *

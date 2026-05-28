@@ -397,7 +397,7 @@ const ForVendors = () => {
           {/* FREE */}
           <div style={{ padding: "22px 16px", borderBottom: "1px solid var(--line)", borderLeft: "1px solid var(--line-soft)" }}>
             <div className="label-mono">Free</div>
-            <div style={{ fontFamily: "var(--display)", fontWeight: 700, fontSize: 22, color: "var(--ink)", marginTop: 4 }}>₱0 <span style={{ fontSize: 12, color: "var(--slate-2)" }}>/ mo</span></div>
+            <div style={{ fontFamily: "var(--display)", fontWeight: 700, fontSize: 22, color: "var(--ink)", marginTop: 4 }}>₱0 <span style={{ fontSize: 12, color: "var(--slate-2)" }}>/ 28d</span></div>
             <div className="mono" style={{ fontSize: 10, color: "var(--slate-2)", marginTop: 4 }}>no card needed</div>
           </div>
           {/* VERIFIED */}
@@ -409,13 +409,13 @@ const ForVendors = () => {
           {/* PRO (highlighted) */}
           <div style={{ padding: "22px 16px", borderBottom: "1px solid var(--line)", background: "var(--ink)", color: "var(--paper)", position: "relative" }}>
             <div className="label-mono" style={{ color: "var(--orange-3)" }}>★ Pro</div>
-            <div style={{ fontFamily: "var(--display)", fontWeight: 700, fontSize: 22, color: "var(--paper)", marginTop: 4 }}>₱1,999 <span style={{ fontSize: 12, color: "var(--slate-4)" }}>/ mo</span></div>
+            <div style={{ fontFamily: "var(--display)", fontWeight: 700, fontSize: 22, color: "var(--paper)", marginTop: 4 }}>₱1,999 <span style={{ fontSize: 12, color: "var(--slate-4)" }}>/ 28d</span></div>
             <div className="mono" style={{ fontSize: 10, color: "var(--slate-4)", marginTop: 4 }}>1 category · 5 accounts</div>
           </div>
           {/* ENTERPRISE */}
           <div style={{ padding: "22px 16px", borderBottom: "1px solid var(--line)", borderLeft: "1px solid var(--line-soft)" }}>
             <div className="label-mono">⬢ Enterprise</div>
-            <div style={{ fontFamily: "var(--display)", fontWeight: 700, fontSize: 22, color: "var(--ink)", marginTop: 4 }}>₱5,499 <span style={{ fontSize: 12, color: "var(--slate-2)" }}>/ mo</span></div>
+            <div style={{ fontFamily: "var(--display)", fontWeight: 700, fontSize: 22, color: "var(--ink)", marginTop: 4 }}>₱5,499 <span style={{ fontSize: 12, color: "var(--slate-2)" }}>/ 28d</span></div>
             <div className="mono" style={{ fontSize: 10, color: "var(--slate-2)", marginTop: 4 }}>multi-cat · unlimited team</div>
           </div>
         </div>
@@ -610,7 +610,7 @@ const ForVendors = () => {
       <div className="card" style={{ padding: 22, marginTop: 16, display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 20, alignItems: "center", background: "var(--paper-2)" }}>
         <div className="display" style={{ fontSize: 36, color: "var(--orange-2)" }}>₱5,499</div>
         <div>
-          <div className="label-mono">Enterprise · ₱5,499 / month</div>
+          <div className="label-mono">Enterprise · ₱5,499 / 28 days</div>
           <div style={{ fontSize: 14, color: "var(--slate)", marginTop: 4, lineHeight: 1.5 }}>
             Multi-category listing + unlimited team accounts. Same Pro feature set, scaled for
             full-service event houses running coordination, florals, photo, and catering under

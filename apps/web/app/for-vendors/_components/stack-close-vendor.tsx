@@ -9,7 +9,7 @@
  * — flagged as follow-up in PR body.
  *
  * DRIFT SCRUB applied (CLAUDE.md 2026-05-28 11th row v2.1 canonical):
- *   - "Pro at ₱499/wk" (2 occurrences in template) → "Pro at ₱1,999/mo"
+ *   - "Pro at ₱499/wk" (2 occurrences in template) → "Pro at ₱1,999/28d"
  *   - Wording preserved otherwise to honor [[feedback_setnayan_button_preservation]]
  */
 import { LogoMark } from '@/app/_components/brand-marks';
@@ -403,7 +403,7 @@ export function StackCloseVendor() {
               Profile, inbox, pipeline, calendar, contracts, payments, BIR
               receipts, reviews — one login.{' '}
               <strong style={{ color: 'var(--m-paper)' }}>
-                Free forever; Pro at ₱1,999/mo
+                Free forever; Pro at ₱1,999/28d
               </strong>{' '}
               for ecosystem-locked extras.
             </div>

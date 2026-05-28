@@ -1,16 +1,19 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Wallet, Clock3, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { Wallet, Clock3, CheckCircle2, ShieldCheck, Info } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorServices } from '@/lib/vendor-services';
 import {
-  SETNAYAN_PAY_FEE_PCT,
   computeMonthlySubtotals,
-  convenienceFeePhp,
   fetchVendorEarnings,
 } from '@/lib/vendor-earnings';
+/* Retired 2026-05-28 V2 cutover: Setnayan Pay 5% convenience fee + 3-stage payout
+ * model + BIR 0.5% withholding routing through Setnayan-as-rails all retire.
+ * Historical PayoutStage labels stay so legacy V1 records render correctly;
+ * new rows stop landing once cutover migration ships per CLAUDE.md 2026-05-28
+ * V2 cutover decision-log rows. */
 import {
   PAYOUT_STAGE_LABEL,
   PAYOUT_STAGE_TONE,
@@ -126,28 +129,44 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
         </div>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Earnings</h1>
         <p className="max-w-prose text-base text-ink/65">
-          Read-only summary of paid orders that match the services on your profile.
-          Earnings post the moment Setnayan admins reconcile a couple&rsquo;s payment.
+          A log of bookings you&rsquo;ve closed through Setnayan. You keep 100% of what
+          couples pay you — Setnayan no longer routes payments between you and your
+          clients. This page is the running ledger you use to track direct bookings;
+          your Setnayan subscription invoices and token-pack purchases live on the
+          Tax documents tab.
         </p>
       </header>
+
+      <article className="flex items-start gap-3 rounded-2xl border border-ink/10 bg-cream p-4 text-sm text-ink/75">
+        <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
+        <div className="space-y-1">
+          <p className="font-medium text-ink">How earnings work now</p>
+          <p className="text-sm text-ink/70">
+            Couples pay you directly off-platform. Setnayan never sits between you
+            and your booking revenue. The rows below capture confirmed bookings on
+            your services so you have a single audit trail across events — your
+            own books still rule for tax filings on these direct bookings.
+          </p>
+        </div>
+      </article>
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Stat
           label="Year-to-date"
           value={formatPhp(ytdTotal)}
-          help={`${earnings.length} order${earnings.length === 1 ? '' : 's'} total`}
+          help={`${earnings.length} booking${earnings.length === 1 ? '' : 's'} logged`}
         />
         <Stat
           label="This month"
           value={formatPhp(months[months.length - 1]?.total_php ?? 0)}
-          help={`${months[months.length - 1]?.order_count ?? 0} order${
+          help={`${months[months.length - 1]?.order_count ?? 0} booking${
             (months[months.length - 1]?.order_count ?? 0) === 1 ? '' : 's'
           }`}
         />
         <Stat
-          label="Setnayan Pay fee"
-          value={`${SETNAYAN_PAY_FEE_PCT}%`}
-          help="Charged per booking; shown on every row."
+          label="Your share"
+          value="100%"
+          help="You keep everything couples pay you — no platform cut."
         />
       </section>
 
@@ -185,48 +204,50 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
       <section className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Payout schedule ({payouts.length})
+            Legacy payout records ({payouts.length})
           </h2>
           <span className="inline-flex items-center gap-1 rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/70">
             <ShieldCheck className="h-3 w-3" aria-hidden /> {verificationState}
           </span>
         </div>
 
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          {/* Retired 2026-05-28 V2 cutover: Setnayan Pay routed payments retire.
+              Rows below are historical only — bookings closed before V2 cutover
+              that still settled through Setnayan-as-rails. New bookings settle
+              direct between you and the couple. */}
+          These are historical records from before Setnayan stepped out of the
+          payments path. New bookings won&rsquo;t land here — you and your client
+          settle directly, and the row above tracks the booking value for your books.
+        </p>
+
         <div className="grid gap-3 sm:grid-cols-3">
           <PayoutKpi
             tone="bg-amber-100 text-amber-800"
             icon={<Clock3 className="h-4 w-4" />}
-            label={
-              verificationState === 'verified'
-                ? 'Awaiting T+1 release'
-                : 'Confirmed · not yet paid'
-            }
+            label="Pending (legacy)"
             value={formatCentavosPhp(pendingCentavos)}
             help={`${payouts.filter((r) => !r.paid_at && !r.on_hold).length} stage(s)`}
           />
           <PayoutKpi
             tone="bg-emerald-100 text-emerald-800"
             icon={<CheckCircle2 className="h-4 w-4" />}
-            label="Paid to date"
+            label="Released (legacy)"
             value={formatCentavosPhp(paidCentavos)}
             help={`${payouts.filter((r) => !!r.paid_at).length} stage(s)`}
           />
           <PayoutKpi
             tone="bg-rose-100 text-rose-800"
             icon={<Wallet className="h-4 w-4" />}
-            label="On hold (dispute)"
+            label="On hold"
             value={formatCentavosPhp(onHoldCentavos)}
             help={`${payouts.filter((r) => r.on_hold).length} stage(s)`}
           />
         </div>
 
-        <p className="rounded-md border border-ink/10 bg-cream px-3 py-2 text-xs text-ink/65">
-          {verificationState === 'verified'
-            ? 'You are verified — payouts release T+1 after each booking, less the gateway fee and BIR 0.5% withholding. Setnayan absorbs the ₱15-25 outbound fee.'
-            : 'Coming-soon vendors release in three stages: 20% on booking confirmation, 60% T+7 from event start, 20% T+7 from event end. Each post-confirmation stage has a 7-day couple-response window; silence auto-releases.'}
-        </p>
-
         {payouts.length > 0 ? (
+          /* Retired 2026-05-28 V2 cutover: legacy payouts list — display-only.
+             No new rows write here once cutover migration ships. */
           <ul className="space-y-2">
             {payouts.slice(0, 25).map((row) => {
               const stage: PayoutStage = (row.payout_stage ??
@@ -265,9 +286,10 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
                         {row.order?.description ?? '—'}
                       </p>
                       <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                        Scheduled {formatTimestamp(row.scheduled_at)} · BIR{' '}
-                        {formatCentavosPhp(row.bir_withholding_centavos)} · Gateway{' '}
-                        {formatCentavosPhp(row.gateway_fee_centavos)}
+                        {/* Retired 2026-05-28 V2 cutover: BIR + gateway breakdown
+                            kept on legacy rows for audit only; new bookings don't
+                            route through Setnayan so no rail fees apply. */}
+                        Scheduled {formatTimestamp(row.scheduled_at)}
                       </p>
                       {row.hold_reason ? (
                         <p className="text-xs text-rose-800">
@@ -290,8 +312,7 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
           </ul>
         ) : (
           <p className="rounded-xl border border-dashed border-ink/15 bg-cream p-6 text-center text-sm text-ink/55">
-            No scheduled payouts yet. Stages land here when an admin reconciles
-            a couple&rsquo;s payment for your service.
+            No legacy payout records on file. Direct-booking ledger below.
           </p>
         )}
       </section>
@@ -299,7 +320,7 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Recent paid orders ({earnings.length})
+            Booking ledger ({earnings.length})
           </h2>
           {totalPages > 1 ? (
             <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
@@ -315,17 +336,20 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
               className="mx-auto mb-2 h-6 w-6 text-ink/30"
               strokeWidth={1.5}
             />
-            <p className="text-sm font-medium text-ink">No paid orders yet.</p>
+            <p className="text-sm font-medium text-ink">No bookings logged yet.</p>
             <p className="mx-auto mt-1 max-w-md text-xs text-ink/60">
               Add services on the{' '}
               <Link href="/vendor-dashboard/services" className="text-terracotta hover:underline">
                 Services
               </Link>{' '}
-              tab. When a couple&rsquo;s order for one of your categories is marked
-              paid, it lands here.
+              tab. Once couples lock you on their event, your booked work shows
+              up here for your own records.
             </p>
           </div>
         ) : (
+          /* Retired 2026-05-28 V2 cutover: per-row Fee + Net columns dropped.
+             Vendors keep 100% of what couples pay them so the full booking
+             value is what they track. */
           <ul className="space-y-2">
             {visible.map((r) => {
               const gross = Number(
@@ -333,8 +357,6 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
                   r.confirmed_total_php ??
                   r.requested_total_php,
               );
-              const fee = convenienceFeePhp(gross);
-              const net = gross - fee;
               return (
                 <li
                   key={r.order_id}
@@ -347,7 +369,7 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
                       </p>
                       <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
                         {r.service_key ? displayServiceLabel(r.service_key) : '—'} ·{' '}
-                        Paid {r.paid_at}
+                        Booked {r.paid_at}
                       </p>
                       <p className="line-clamp-1 text-xs text-ink/65">{r.description}</p>
                     </div>
@@ -356,7 +378,7 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
                         {formatPhp(gross)}
                       </p>
                       <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                        Fee {formatPhp(fee)} · Net {formatPhp(net)}
+                        You keep 100%
                       </p>
                     </div>
                   </div>

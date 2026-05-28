@@ -90,11 +90,10 @@ export default async function VendorMarketingPage({ searchParams }: Props) {
     (r) => findAdOption(r.sku_code)?.tier === 'sponsored',
   );
 
-  // Stacked-cost worked example (spec § 5b combined-stack example):
-  //   Pro Weekly ₱499 + Boosted Ads (whichever is active) +
-  //   Sponsored Boost (annual amortized weekly).
-  // For pure marketing copy, surface a static example. Vendors with active
-  // rows see their *real* number instead.
+  // Retired 2026-05-28 V2 cutover: Pro Weekly ₱4,999/wk + Concierge bundle
+  // both retire. New stacked-cost framing covers Pro Vendor monthly + Boosted
+  // Ads + Sponsored Boost. Active rows still surface their real weekly
+  // amortized cost.
   const realActiveWeeklyCentavos = activeRows.reduce((acc, row) => {
     const opt = findAdOption(row.sku_code);
     if (!opt) return acc;
@@ -106,9 +105,6 @@ export default async function VendorMarketingPage({ searchParams }: Props) {
   return (
     <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-8 px-4 py-10 sm:px-6 lg:px-8">
       <header className="space-y-3">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          Iteration 0022 · § 5b
-        </p>
         <div className="flex items-center gap-3">
           <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
             <Megaphone aria-hidden className="h-5 w-5" strokeWidth={1.75} />
@@ -116,12 +112,24 @@ export default async function VendorMarketingPage({ searchParams }: Props) {
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Marketing</h1>
         </div>
         <p className="max-w-prose text-base text-ink/65">
-          Extend your marketplace reach. <strong>Boosted Ads</strong> push you to couples
-          searching within a wider radius for a week at a time;{' '}
-          <strong>Sponsored Boost</strong> is the long-commit premium tier with the most
-          prominent placement and a 30km catchment.
+          Reach more couples on the Setnayan marketplace. Boosted Ads widen your
+          catchment; Sponsored Boost is the premium placement tier with the most
+          prominent surface. We&rsquo;re refreshing how these tools work — see the
+          note below.
         </p>
       </header>
+
+      <article className="flex items-start gap-3 rounded-2xl border border-terracotta/30 bg-terracotta/5 p-4 text-sm text-terracotta-700">
+        <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
+        <div className="space-y-1">
+          <p className="font-medium">Marketing tools are being redesigned · check back soon</p>
+          <p>
+            Boosted Ads and Sponsored Boost are being reworked to align with the
+            new Setnayan publisher model. Existing active subscriptions keep
+            running through their term. New starts pause until the refresh ships.
+          </p>
+        </div>
+      </article>
 
       <FlashBanner search={search} />
 
@@ -138,7 +146,7 @@ export default async function VendorMarketingPage({ searchParams }: Props) {
       <TierPicker
         section="boosted"
         title="Boosted Ads — weekly by radius"
-        subtitle="Push to couples up to 20km from your pin for a single week. Stacks with Pro Weekly. Cancel anytime."
+        subtitle="Push to couples up to 20km from your pin for a single week. Cancel anytime."
         options={BOOSTED_OPTIONS}
         isVerified={isVerified}
         hasActiveOfTier={!!activeBoosted}
@@ -148,7 +156,7 @@ export default async function VendorMarketingPage({ searchParams }: Props) {
       <TierPicker
         section="sponsored"
         title="Sponsored Boost — long commit, 30km, verified only"
-        subtitle="The premium tier. 30km radius (3× the default 10km). Featured Sponsor pill on every card. Stacks with everything."
+        subtitle="The premium tier. 30km radius (3× the default 10km). Featured Sponsor pill on every card."
         options={SPONSORED_OPTIONS}
         isVerified={isVerified}
         hasActiveOfTier={!!activeSponsored}
@@ -248,8 +256,8 @@ function ActiveSubscriptions({
       <p className="text-xs text-ink/55">
         Effective marketing spend this week:{' '}
         <span className="font-mono">{formatCentavosPhp(realActiveWeeklyCentavos)}</span>{' '}
-        (sponsored boost long-commit is amortized weekly). This excludes Pro Weekly
-        (₱499/wk) and tool integrations.
+        (sponsored boost long-commit is amortized weekly). Pro Vendor and
+        Enterprise subscriptions are billed separately on your monthly invoice.
       </p>
     </section>
   );
@@ -469,18 +477,18 @@ function StackedExample({ isVerified }: { isVerified: boolean }) {
         Stacked-cost worked example
       </p>
       <p className="mt-2 text-sm text-ink/75">
-        A photographer on Pro Weekly + Mood Board + Boosted Ads 10km + Sponsored Boost
+        A photographer on Pro Vendor monthly + Boosted Ads 10km + Sponsored Boost
         Annual:{' '}
-        <span className="font-mono">₱499</span> +{' '}
-        <span className="font-mono">₱99</span> +{' '}
+        <span className="font-mono">₱1,999/mo</span> (≈ ₱461/wk) +{' '}
         <span className="font-mono">₱7,999</span> (weekly) +{' '}
         <span className="font-mono">₱799,999/yr</span> (~₱15,384/wk amortized) ≈{' '}
-        <span className="font-semibold">~₱23,981/week effective</span>.
+        <span className="font-semibold">~₱23,844/week effective</span>.
       </p>
       {!isVerified ? (
         <p className="mt-2 text-xs text-ink/55">
-          Verification unlocks Pro Weekly + both ad tiers. You can preview the math here
-          and come back once your profile is verified.
+          Verification unlocks Pro Vendor + both ad tiers, and adds 100
+          complimentary tokens to your wallet. Preview the math here and come
+          back once your profile is verified.
         </p>
       ) : null}
     </section>

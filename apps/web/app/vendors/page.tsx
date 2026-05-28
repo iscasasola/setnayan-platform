@@ -3,7 +3,7 @@ import Image from 'next/image';
 import { cookies } from 'next/headers';
 import { Star, MapPin, ChevronLeft, ChevronRight, Navigation, Sparkles } from 'lucide-react';
 import { haversineKm, formatDistanceKm } from '@/lib/geo';
-import { Logo as BrandLogo } from '@/app/_components/logo';
+import { Wordmark } from '@/app/_components/brand-marks';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { displayServiceLabel, formatPhp } from '@/lib/vendors';
@@ -1337,7 +1337,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       <header className="border-b border-ink/5">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <Link href={user ? '/dashboard' : '/'} className="flex items-center text-ink">
-            <BrandLogo height={32} withWordmark />
+            <Wordmark size={22} />
           </Link>
           {user ? (
             <Link
@@ -1377,7 +1377,13 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
               <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
                 Marketplace
               </p>
-              <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+              {/* v2.1 visual treatment per CLAUDE-CODE-BRIEF-v2.1
+                  § 8 design system + /tmp/setnayan-keynote-template
+                  marketplace.jsx headline. Italic serif accent on the
+                  predicate clause matches the homepage + /for-vendors
+                  headline rhythm; cream + ink + terracotta tokens
+                  unchanged. */}
+              <h1 className="font-serif text-4xl font-normal italic tracking-[-0.02em] text-ink sm:text-5xl">
                 Browse Filipino wedding vendors.
               </h1>
               <p className="max-w-prose text-base text-ink/65">
@@ -2301,7 +2307,7 @@ async function CatalogView({
       <header className="border-b border-ink/5">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <Link href="/" className="flex items-center text-ink">
-            <BrandLogo height={32} withWordmark />
+            <Wordmark size={22} />
           </Link>
           {isAuthenticated ? (
             <Link
@@ -2341,7 +2347,11 @@ async function CatalogView({
               <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
                 Marketplace
               </p>
-              <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+              {/* v2.1 visual treatment — italic serif headline matches
+                  the homepage + /for-vendors typography rhythm per
+                  CLAUDE-CODE-BRIEF-v2.1 § 8 + the marketplace.jsx
+                  template at /tmp/setnayan-keynote-template. */}
+              <h1 className="font-serif text-4xl font-normal italic tracking-[-0.02em] text-ink sm:text-5xl">
                 Browse Filipino wedding vendors.
               </h1>
               <p className="max-w-prose text-base text-ink/65">

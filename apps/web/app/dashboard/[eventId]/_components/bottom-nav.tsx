@@ -150,7 +150,7 @@ export function BottomNav({
                   aria-current={isActive ? 'page' : undefined}
                   className={`flex h-12 min-h-[44pt] flex-col items-center justify-center gap-0.5 rounded-md px-2 text-[11px] font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta ${
                     isActive
-                      ? 'text-terracotta'
+                      ? 'text-[var(--m-orange-2)]'
                       : 'text-ink/60 hover:text-ink'
                   }`}
                 >
@@ -185,16 +185,25 @@ export function BottomNav({
                 <Link
                   href={tab.href(eventId)}
                   aria-current={isActive ? 'page' : undefined}
-                  className={`relative flex min-h-[44pt] items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta ${
+                  className={`relative flex min-h-[44pt] items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--m-orange)] ${
                     isActive
-                      ? 'bg-terracotta/10 text-terracotta'
+                      ? ''
                       : 'text-ink/70 hover:bg-ink/5 hover:text-ink'
                   }`}
+                  style={
+                    isActive
+                      ? {
+                          background: 'var(--m-orange-4)',
+                          color: 'var(--m-orange-2)',
+                        }
+                      : undefined
+                  }
                 >
                   {isActive ? (
                     <span
                       aria-hidden
-                      className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-r-sm bg-terracotta"
+                      className="absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-r-sm"
+                      style={{ background: 'var(--m-orange)' }}
                     />
                   ) : null}
                   <Icon aria-hidden className="h-5 w-5 shrink-0" strokeWidth={1.75} />

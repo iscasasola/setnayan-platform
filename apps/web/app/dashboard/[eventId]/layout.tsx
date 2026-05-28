@@ -178,6 +178,14 @@ export default async function EventLayout({ children, params }: Props) {
   // variable + writes localStorage. See sidebar-resize-handle.tsx for
   // the full architectural rationale (CSS variable over context to
   // avoid forcing a client boundary across this server layout).
+  // v2.1 deep-fix (2026-05-28) — outer chrome paper backgrounds use
+  // --m-paper-2 (#F4EFE5) warmer than legacy `bg-cream`. The sticky top
+  // strip + sidebar background read as the template's parchment-warm
+  // surface. Hairline borders swap to --m-line so the chrome has the
+  // softer line treatment matching couple-dashboard.jsx CoupleTopbar.
+  // Width treatment + safe-area-inset-bottom + sidebar offset math
+  // unchanged — `bg-cream` legacy classes kept on inner main as
+  // fallback; CSS variable overrides take precedence.
   return (
     // Outer container — body sits to the right of the sidebar on lg+
     // via `lg:pl-[var(--sidebar-width,240px)]`. This is Tailwind's
@@ -195,8 +203,17 @@ export default async function EventLayout({ children, params }: Props) {
     // with only THIS layout's variable padding controlling the offset.
     // Non-event routes (admin, profile, notifications) are unaffected
     // because they don't render this inner layout.
-    <div className="flex min-h-dvh flex-col bg-cream pb-16 lg:-ml-60 lg:pb-0 lg:pl-[var(--sidebar-width,240px)]">
-      <div className="sticky top-0 z-20 border-b border-ink/10 bg-cream/95 backdrop-blur">
+    <div
+      className="flex min-h-dvh flex-col pb-16 lg:-ml-60 lg:pb-0 lg:pl-[var(--sidebar-width,240px)]"
+      style={{ background: 'var(--m-paper-2)' }}
+    >
+      <div
+        className="sticky top-0 z-20 backdrop-blur"
+        style={{
+          background: 'rgba(251, 248, 242, 0.95)' /* --m-paper @ 95% */,
+          borderBottom: '1px solid var(--m-line)',
+        }}
+      >
         {/* Owner directive 2026-05-22: "why is it not maximizing the
             whole screen?" The previous cap (max-w-6xl / xl:max-w-7xl /
             2xl:max-w-screen-2xl) topped out at 1536px even on wide
@@ -228,10 +245,15 @@ export default async function EventLayout({ children, params }: Props) {
             vendorProfiles={roles.vendorProfiles}
           />
           <div className="flex items-center gap-2">
+            {/* v2.1 deep-fix — Marketplace link uses sienna --m-orange-2
+                hover state to match couple-dashboard.jsx topbar's "Share
+                dashboard" + ghost button treatment. Resting state stays
+                in slate so the chrome doesn't read as a heavy CTA. */}
             <Link
               href="/vendors"
               aria-label="Vendor marketplace"
-              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-medium text-ink/70 hover:bg-ink/5 hover:text-ink sm:px-3"
+              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-medium hover:bg-[var(--m-orange-4)] sm:px-3"
+              style={{ color: 'var(--m-slate)' }}
             >
               <Store aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               <span className="hidden sm:inline">Marketplace</span>

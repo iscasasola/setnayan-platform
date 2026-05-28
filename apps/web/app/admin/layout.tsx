@@ -45,9 +45,24 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       ? { label: '🟢 Team Pool', tone: 'bg-emerald-100 text-emerald-800' }
       : { label: 'Admin', tone: 'bg-ink/10 text-ink/70' };
 
+  // v2.1 deep-fix (2026-05-28) — outer chrome paper backgrounds use
+  // --m-paper-2 (#F4EFE5) parchment-warm surface; sticky header strip
+  // sits on --m-paper @ 95% with --m-line hairline. Matches the couple
+  // dashboard deep-fix (PR #587) + vendor dashboard deep-fix (PR #588)
+  // pattern + v2.1 brief canonical lock at CLAUDE.md 10th 2026-05-28
+  // row. Width treatment + 28-surface 8-group horizontal nav layout
+  // unchanged — the template's 9-tab vertical sidebar from
+  // admin-dashboard.jsx would lose 19 of the 28 surfaces and is a UX
+  // change that needs explicit owner approval per
+  // [[feedback_setnayan_button_preservation]].
   return (
-    <div className="flex min-h-dvh flex-col bg-cream">
-      <header className="border-b border-ink/10 bg-cream">
+    <div className="flex min-h-dvh flex-col" style={{ background: 'var(--m-paper-2)' }}>
+      <header
+        style={{
+          background: 'rgba(251, 248, 242, 0.95)' /* --m-paper @ 95% */,
+          borderBottom: '1px solid var(--m-line)',
+        }}
+      >
         <div className="mx-auto flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
           <Link href="/admin" className="flex items-center text-ink">
             <Logo height={32} withWordmark title="Setnayan · Admin" />

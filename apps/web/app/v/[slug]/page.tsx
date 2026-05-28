@@ -3,7 +3,7 @@ import Image from 'next/image';
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { Mail, Phone, Globe, MapPin, Star, Sparkles } from 'lucide-react';
-import { Logo as BrandLogo } from '@/app/_components/logo';
+import { Wordmark } from '@/app/_components/brand-marks';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import {
@@ -328,8 +328,14 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
       />
       <header className="border-b border-ink/5">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+          {/* v2.1 visual treatment per CLAUDE-CODE-BRIEF-v2.1 § 8 design
+              system. Wordmark from @/app/_components/brand-marks is the
+              canonical brand mark across /, /for-vendors, /login, /signup,
+              /vendors, and all dashboard chromes after V2 cutover Phase B
+              (PRs #560-#564 + #572-#580). Matches the marketplace overlay
+              pattern from PR #580. */}
           <Link href="/" className="flex items-center text-ink">
-            <BrandLogo height={32} withWordmark />
+            <Wordmark size={22} />
           </Link>
           {user ? (
             <Link
@@ -358,7 +364,16 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
             <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
               Setnayan vendor
             </p>
-            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            {/* v2.1 visual treatment per CLAUDE-CODE-BRIEF-v2.1 § 8 design
+                system + /tmp/setnayan-keynote-template/components/vendor-
+                microsite.jsx hero typography. Italic-serif headline matches
+                the homepage + /for-vendors + /vendors marketplace headline
+                rhythm (PR #580 lineage). Cream + ink + terracotta tokens
+                unchanged. Business name stays the visual anchor — v2.1
+                publisher posture means real vendor names are always visible
+                (CLAUDE.md 2026-05-28 tenth row § 1 explicitly retires the
+                Path B lead-broker anonymization from CLAUDE.md seventh row). */}
+            <h1 className="font-serif text-4xl font-normal italic tracking-[-0.02em] text-ink sm:text-5xl">
               {vendor.business_name}
             </h1>
             {vendor.tagline ? (

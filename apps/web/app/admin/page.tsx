@@ -42,11 +42,17 @@ export default async function AdminOverview() {
 
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
+      {/*
+       * v2.1 admin chrome (overlay 2026-05-28). Eyebrow uses .m-eyebrow,
+       * heading uses .m-display-tight (Saira Condensed via the foundation
+       * tokens shipped in PR #566), supporting copy stays in the body sans
+       * stack. Mirrors couple-dashboard (PR #576) and vendor-dashboard (PR
+       * #577) overlays — same visual register across all three role surfaces.
+       * Logic + nav + per-iteration pages untouched.
+       */}
       <header className="mb-8 space-y-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-          Setnayan · Admin
-        </p>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Overview</h1>
+        <p className="m-eyebrow text-[color:var(--m-orange-2)]">Setnayan · Internal ops</p>
+        <h1 className="m-display-tight text-3xl text-[color:var(--m-ink)] sm:text-4xl">Overview</h1>
         <p className="text-base text-ink/65">
           A snapshot of the platform — counts at a glance, then jump into{' '}
           <strong className="text-ink">Queues</strong> for action work,{' '}
@@ -109,10 +115,19 @@ export default async function AdminOverview() {
 }
 
 function Stat({ label, value }: { label: string; value: number | null }) {
+  // v2.1 KPI card — .m-card chrome + .m-mono label + tabular display number.
+  // Same shape the admin-dashboard.jsx template uses for KPI strips; matches
+  // the AdminOverview template at /tmp/setnayan-keynote-template/components/
+  // admin-dashboard.jsx lines 193-199.
   return (
-    <div className="rounded-xl border border-ink/10 bg-cream p-4">
-      <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">{label}</p>
-      <p className="mt-1 text-2xl font-semibold tracking-tight text-ink">
+    <div className="m-card p-4">
+      <p className="m-mono text-[10px] uppercase tracking-[0.15em] text-[color:var(--m-slate-3)]">
+        {label}
+      </p>
+      <p
+        className="mt-1 text-2xl font-semibold tracking-tight text-[color:var(--m-ink)]"
+        style={{ fontFamily: 'var(--m-display)', fontVariantNumeric: 'tabular-nums' }}
+      >
         {value === null ? '—' : value}
       </p>
     </div>

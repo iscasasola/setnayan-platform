@@ -80,7 +80,7 @@ export default async function AdminMoodboardLibraryPage() {
       </Link>
 
       <header className="mb-6 space-y-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
+        <p className="m-eyebrow text-[color:var(--m-orange-2)]">
           Setnayan · Admin · Iteration 0010
         </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">

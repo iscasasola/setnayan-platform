@@ -29,10 +29,17 @@ import {
 //     to the existing apply-then-pay surface at /orders/new (iteration
 //     0034). Checkout itself is intentionally NOT built here.
 //
+// Pricing model (per CLAUDE.md 2026-05-19 row "Setnayan Supplies · pivot to
+// curated reseller 50% markup on wholesale"): Setnayan is the merchant of
+// record. The retail prices shown ARE Setnayan's already (wholesale × 1.5).
+// There is no separate convenience fee on top — V2 cutover retired the V1
+// Setnayan Pay 5% layer entirely (CLAUDE.md 2026-05-28 V1→V2 architectural
+// pivot lock). Cart shows retail × quantity, nothing more.
+//
 // TODO(0018): vendor inventory persistence — today the catalog is mock data.
-// TODO(0018): real checkout flow (PayMongo / Setnayan Pay) — handoff to
-// orders/new is the scaffold-safe shortcut. Cart state is in-memory only;
-// the user re-enters the description on the orders page.
+// TODO(0018): real checkout flow — handoff to orders/new is the scaffold-safe
+// shortcut. Cart state is in-memory only; the user re-enters the description
+// on the orders page.
 
 type Props = {
   eventId: string;
@@ -475,7 +482,7 @@ function CartDrawer({
                 Checkout via Orders
               </Link>
               <p className="text-center text-[11px] text-ink/45">
-                Hands off to the apply-then-pay flow · iteration 0034
+                We&rsquo;ll lock the final quote on your order before you pay.
               </p>
             </>
           ) : null}

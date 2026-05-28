@@ -32,7 +32,12 @@ const NAV: Entry[] = [
       { href: '/admin/reviews', label: 'Reviews' },
       { href: '/admin/help', label: 'Help inbox' },
       { href: '/admin/force-majeure', label: 'Force majeure' },
-      { href: '/admin/concierge-abuse', label: 'Concierge abuse' },
+      // Brand-layer rename 2026-05-28 V2 cutover — "Concierge" surfaces in admin
+      // copy as "Today's Focus" since the ₱2,499 Concierge SKU was supplanted
+      // by the ₱1,499 TODAYS_FOCUS one-time SKU. The route path + DB table
+      // names stay (see /admin/concierge-abuse + concierge_abuse_flags) so
+      // existing bookmarks + audit history don't break.
+      { href: '/admin/concierge-abuse', label: "Today's Focus abuse" },
     ],
   },
   {
@@ -71,12 +76,15 @@ const NAV: Entry[] = [
       // than to Money or Settings. Read-only V1.
       { href: '/admin/addons', label: 'Add-ons' },
       { href: '/admin/website', label: 'Website' },
-      // Concierge brain sits in Content (not Queues / not Money) because
-      // it's curated knowledge feeding the Concierge LLM — closer to
+      // Today's Focus brain sits in Content (not Queues / not Money) because
+      // it's curated knowledge feeding the AI Today's Focus chat — closer to
       // taxonomy/website/moodboard than to operational queues. Order
       // chosen so /admin/brain sits between Website + Moodboard library
       // per the 2026-05-23 admin-surface alignment brief.
-      { href: '/admin/brain', label: 'Concierge brain' },
+      // Brand-layer rename 2026-05-28 V2 cutover — Concierge → Today's Focus.
+      // Route + DB table names (concierge_brain_chunks) stay; only the
+      // surface label flips.
+      { href: '/admin/brain', label: "Today's Focus brain" },
       { href: '/admin/moodboard-library', label: 'Moodboard library' },
     ],
   },

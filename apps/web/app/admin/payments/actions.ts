@@ -152,14 +152,21 @@ export async function approvePayment(formData: FormData) {
 
     // Vendor Payout dispatcher (locked 2026-05-16). If this order is linked
     // to a vendor_profile (vendor_profile_id column on orders, populated by
-    // the Setnayan Pay cart flow), schedule the payout rows now. Verified
-    // vendors get a single T+1 immediate stage; coming_soon / demoted get
-    // the 20/60/20 staged release.
+    // the legacy Setnayan Pay cart flow), schedule the payout rows now.
+    // Verified vendors get a single T+1 immediate stage; coming_soon /
+    // demoted get the 20/60/20 staged release.
     //
     // No-op when the order isn't a vendor booking (vendor_profile_id NULL)
     // — couples buying Setnayan SKUs don't trigger vendor payouts. Failures
     // here NEVER block the payment-approval flow; payouts can be retried
     // from /admin/payouts.
+    //
+    // Retired 2026-05-28 V2 cutover — Setnayan Pay 5% convenience fee is
+    // retired entirely; Setnayan is now a software publisher, not a
+    // marketplace intermediary, and vendor bookings settle directly
+    // off-platform with 0% commission. This dispatcher stays wired for any
+    // legacy orders still carrying vendor_profile_id; new V2 orders won't
+    // route through it.
     try {
       await schedulePayoutsForOrder({
         admin,
@@ -174,10 +181,13 @@ export async function approvePayment(formData: FormData) {
   revalidatePath('/admin/payments');
   revalidatePath('/admin/payouts');
   // Force a refresh of the couple's user-facing routes so any
-  // activation-reading UI (Concierge banner, add-on pages) picks up the
+  // activation-reading UI (Today's Focus banner, add-on pages) picks up the
   // status change immediately. Full activation-cycle UI fix is queued as
   // PR B (proper per-SKU activation dispatcher); for now this at least
   // makes the couple's dashboard re-render fresh data after admin approves.
+  // (Brand-layer note 2026-05-28 V2 cutover — historical reference to the
+  // "Concierge banner" tracks the same surface; banner copy now reads
+  // "Today's Focus".)
   revalidatePath('/dashboard', 'layout');
 }
 

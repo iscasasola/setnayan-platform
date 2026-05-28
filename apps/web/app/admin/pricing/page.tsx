@@ -12,6 +12,16 @@ export const metadata = { title: 'Pricing · Admin' };
 /**
  * Read-only catalog view of `public.service_catalog`.
  *
+ * V2 cutover note (2026-05-28):
+ *   This surface reads the LEGACY V1 catalog. The V2 canonical catalog
+ *   lives in `platform_retail_catalog_v2` (per CLAUDE.md 2026-05-28 V1→V2
+ *   cutover decision-log rows — Setnayan is now a software publisher,
+ *   18 customer SKUs + 2 bundles sold at sticker price, Setnayan Pay 5%
+ *   convenience fee retired entirely). A future PR migrates this surface
+ *   to read both; until then admins audit retired SKUs alongside active
+ *   ones here, and run service-role SQL updates against either table
+ *   directly in Supabase Studio.
+ *
  * WHY this exists (and why it's read-only at V1):
  *   Pricing edits today go through Supabase Studio as raw SQL — service-role
  *   updates against `service_catalog` (per CLAUDE.md 2026-05-17 "Specialized
@@ -34,8 +44,10 @@ export const metadata = { title: 'Pricing · Admin' };
  *     verification / contract
  *   - subscription BOOLEAN — true = auto-renews on cadence; false = one-shot
  *   - multi_purchase · refundable · purchaser_role · soft_cap
- *   - is_active · launch_promo_until (nullable; non-null + future ⇒ FREE
- *     during the promo window per 2026-05-18 lock)
+ *   - is_active · launch_promo_until (nullable; the V1 launch-promo window
+ *     was retired 2026-05-28 V2 cutover. Non-null timestamps here are
+ *     historical audit rows; the V2 free-on-verification model uses 100
+ *     complimentary vendor tokens instead.)
  *
  * Mirrors entry-point + filter-strip pattern from `/admin/users` and
  * read-only-banner pattern from `/admin/settings/payment-methods`.
@@ -183,13 +195,17 @@ export default async function AdminPricingPage({ searchParams }: Props) {
         </div>
         <p className="text-sm text-ink/65">
           Every SKU in <code className="font-mono text-[11px]">service_catalog</code>{' '}
-          — what we charge for, who it&apos;s for, and whether it&apos;s currently
-          on the launch promo through {formatPromoEndDateShort()}.
+          — the legacy V1 catalog read kept here so admins can audit retired
+          SKUs alongside active ones. Rows still carrying a historical
+          launch-promo flag through {formatPromoEndDateShort()} are tagged
+          &quot;Legacy promo&quot; in the table below.
         </p>
         <p className="rounded-md border border-amber-200/60 bg-amber-50/60 px-3 py-2 text-xs text-amber-900">
-          <span className="font-semibold">Read-only V1.</span> Edit flow is
-          deferred until the price-history audit + two-admin approval gate
-          ship. To change a price today, run a service-role SQL update against{' '}
+          <span className="font-semibold">V1 catalog read.</span> This surface is
+          being migrated to <code className="mx-1 font-mono text-[11px]">platform_retail_catalog_v2</code>
+          (the V2 canonical catalog) in a future PR. Until then admins can
+          still browse + audit the legacy table here. To change a price today,
+          run a service-role SQL update against{' '}
           <code className="mx-1 font-mono text-[11px]">service_catalog</code>
           in Supabase Studio — the change is live everywhere on next page load.
         </p>
@@ -392,10 +408,18 @@ function CatalogTable({
                   )}
                 </td>
                 <td className="px-3 py-3 text-xs">
+                  {/* Legacy `launch_promo_until` flag — the V1 16-SKU
+                      free-through-launch window retired 2026-05-28 V2
+                      cutover (replaced by 100 complimentary vendor tokens
+                      on verification). Pill kept read-only on rows that
+                      still carry historical promo timestamps. */}
                   {onPromo ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-900">
+                    <span
+                      className="inline-flex items-center gap-1 rounded-full bg-ink/8 px-2 py-0.5 font-medium text-ink/65"
+                      title="Legacy launch-promo flag (retired V2)"
+                    >
                       <Sparkles className="h-3 w-3" strokeWidth={2} />
-                      FREE on launch
+                      Legacy promo
                     </span>
                   ) : (
                     <span className="text-ink/40">—</span>

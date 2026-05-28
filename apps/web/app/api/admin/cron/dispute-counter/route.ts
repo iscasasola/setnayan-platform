@@ -11,8 +11,11 @@ import { createAdminClient } from '@/lib/supabase/admin';
  *     milestone release for new bookings).
  *   • The demotion writes admin_audit_log row with before/after JSON, increments
  *     vendor_profiles.demotion_count, and sets last_demoted_at = NOW().
- *   • Setnayan Pay locks (verified-only gate per 0034 § 6.5); UI surfaces
- *     reflect this automatically via existing public_visibility read paths.
+ *   • Verified-tier perks lock (the Setnayan Pay verified-only gate per 0034
+ *     § 6.5 in V1 — Setnayan Pay 5% convenience fee retired 2026-05-28 V2
+ *     cutover, so the practical effect on V2 orders is the verified-tier
+ *     marketplace perks instead of payment-rail gating). UI surfaces reflect
+ *     this automatically via existing public_visibility read paths.
  *
  * Auth:
  *   • Requires `Authorization: Bearer <CRON_SECRET>` header.
@@ -143,7 +146,11 @@ export async function POST(request: Request) {
     // that ENUM; the canonical flow once both PRs land is:
     //   public_visibility = 'coming_soon' AND verification_state = 'demoted'
     // Today (public_visibility only), the read paths treat coming_soon as
-    // the demoted-state surface and that's enough to gate Setnayan Pay.
+    // the demoted-state surface and that's enough to gate verified-tier
+    // marketplace perks. (Retired 2026-05-28 V2 cutover note — this gate
+    // also covered Setnayan Pay access before the 5% fee was retired
+    // entirely; the same coming_soon flip still locks the verified-tier
+    // perks the V2 model carries forward.)
     const nowIso = new Date().toISOString();
     const update: Record<string, unknown> = {
       public_visibility: 'coming_soon',

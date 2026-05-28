@@ -32,6 +32,12 @@ export const metadata = { title: 'Add-ons · Admin' };
 // Source: the seed migrations under supabase/migrations/20260516000000_*,
 // 20260516230000_iteration_0017_patiktok.sql, 20260518000000_v1_concierge_*,
 // 20260520005000_v1_sku_lock_papic_seat_packs.sql.
+//
+// Retired 2026-05-28 V2 cutover — the `concierge` category surfaces here as
+// historical / retired rows (Concierge ₱2,499 SKU is_active=FALSE). The V2
+// replacement (TODAYS_FOCUS ₱1,499 one-time) lives in platform_retail_catalog_v2
+// once that view is wired into this admin surface; until then audit happens
+// in Supabase Studio. See CLAUDE.md 2026-05-28 V1→V2 cutover decision-log rows.
 // ---------------------------------------------------------------------------
 const CUSTOMER_CATEGORIES = new Set<string>([
   'couple_addon',
@@ -46,7 +52,11 @@ const CATEGORY_DISPLAY: Record<string, string> = {
   panood: 'Panood (Live stream)',
   papic: 'Papic (Candid capture)',
   patiktok: 'Patiktok (Reels)',
-  concierge: 'Setnayan Concierge',
+  // Brand-layer rename 2026-05-28 V2 cutover — "Setnayan Concierge" SKU
+  // retired (replaced by ₱1,499 TODAYS_FOCUS one-time). Category key in
+  // service_catalog still reads `concierge`; display label aligns with the
+  // V2 surface name. Retired SKUs surface here read-only with an Inactive pill.
+  concierge: "Today's Focus",
   vendor_subscription: 'Vendor subscription',
   vendor_verification: 'Vendor verification',
   vendor_ads: 'Vendor ads',
@@ -219,8 +229,11 @@ export default async function AdminAddonsPage({ searchParams }: Props) {
           </h1>
           <p className="max-w-2xl text-sm text-ink/65">
             Every Setnayan service you sell · grouped by where customers find
-            them. Read-only V1 — edit affordances ship once the two-admin
-            approval gate is wired.
+            them. Read-only audit surface. The V2 catalog (
+            <code className="mx-0.5 font-mono text-[11px]">platform_retail_catalog_v2</code>
+            ) is being wired in as the canonical source — until then this view
+            reads the legacy <code className="mx-0.5 font-mono text-[11px]">service_catalog</code>
+            so admins can audit retired SKUs alongside active ones.
           </p>
         </div>
         <a
@@ -424,9 +437,16 @@ function StatusPills({
           Active
         </span>
       )}
+      {/* Legacy `launch_promo_until` flag — the V1 16-SKU free-through window
+          retired 2026-05-28 V2 cutover (replaced by 100 complimentary vendor
+          tokens on verification). Pill kept read-only when rows still carry
+          historical promo timestamps so admins can audit the legacy data. */}
       {promoActive ? (
-        <span className="rounded-full bg-terracotta/15 px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
-          Launch promo
+        <span
+          className="rounded-full bg-ink/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-ink/55"
+          title="Legacy launch-promo flag (retired V2)"
+        >
+          Legacy promo
         </span>
       ) : null}
     </div>
@@ -535,8 +555,11 @@ function ExpandedCard({
                 {billingLabel(row.unit, row.multi_purchase)}
               </span>
               {promoActive ? (
-                <span className="rounded-full bg-terracotta/15 px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
-                  Launch promo until {new Date(row.launch_promo_until!).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}
+                <span
+                  className="rounded-full bg-ink/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] text-ink/55"
+                  title="Legacy launch-promo flag (retired V2)"
+                >
+                  Legacy promo · expires {new Date(row.launch_promo_until!).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}
                 </span>
               ) : null}
             </div>

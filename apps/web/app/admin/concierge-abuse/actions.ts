@@ -1,7 +1,7 @@
 'use server';
 
 /**
- * Admin actions for the Concierge Abuse review queue (iteration 0023 § 3.11).
+ * Admin actions for the Today's Focus enforcement queue (iteration 0023 § 3.11).
  *
  * Single-admin authority per 0023 § 4.3 — these decisions are reversible
  * (admin can lift enforcement via the appeal flow), so no two-admin gate.
@@ -10,6 +10,11 @@
  *   strike 1 → 'warning'
  *   strike 2 → 'trial_banned'
  *   strike 3+ → 'full_banned'
+ *
+ * Brand-layer rename 2026-05-28 V2 cutover — Concierge → Today's Focus.
+ * The user-facing notification titles + bodies below read in V2 brand voice.
+ * DB column names (concierge_enforcement_*, concierge_abuse_strike_count)
+ * and table names (concierge_abuse_flags) preserved — schema doesn't ripple.
  */
 
 import { revalidatePath } from 'next/cache';
@@ -83,8 +88,8 @@ export async function adminClearConciergeFlag(formData: FormData): Promise<void>
   void emitNotification({
     userId: (flagRow as { flagged_user_id: string }).flagged_user_id,
     type: 'chat_message',
-    title: 'Setnayan Concierge — flag cleared',
-    body: 'Your account was flagged for review and cleared. Your 3-day Setnayan Concierge trial is available.',
+    title: 'Account review cleared',
+    body: 'Your account was flagged for review and cleared — you can keep using Setnayan as usual.',
     relatedUrl: '/dashboard/profile/concierge',
   });
 
@@ -179,13 +184,13 @@ export async function adminConfirmConciergeAbuse(formData: FormData): Promise<vo
   void emitNotification({
     userId: flaggedUserId,
     type: 'chat_message',
-    title: `Setnayan Concierge — account flagged (${newLevel})`,
+    title: `Account flagged for review (${newLevel})`,
     body:
       newLevel === 'warning'
-        ? 'Your account was flagged once for review and cleared with a warning. Your 3-day trial remains available; further flags may limit access.'
+        ? 'Your account was flagged once for review and cleared with a warning. Further flags may limit access to Today’s Focus features.'
         : newLevel === 'trial_banned'
-          ? 'The 3-day Setnayan Concierge trial is no longer available on this account. You can still purchase Setnayan Concierge anytime. Open the help center to appeal.'
-          : 'Setnayan Concierge has been disabled on this account. Contact support if you believe this is in error.',
+          ? 'Today’s Focus trial access is no longer available on this account. You can still buy Today’s Focus anytime — open the help center to appeal.'
+          : 'Today’s Focus has been disabled on this account. Open the help center to appeal if you believe this is in error.',
     relatedUrl: '/help#concierge',
   });
 
@@ -235,8 +240,8 @@ export async function adminLiftConciergeEnforcement(formData: FormData): Promise
   void emitNotification({
     userId,
     type: 'chat_message',
-    title: 'Setnayan Concierge — access restored',
-    body: `Your appeal was reviewed and your Setnayan Concierge access has been restored. Reason: ${notes}`,
+    title: 'Today’s Focus — access restored',
+    body: `Your appeal was reviewed and your Today’s Focus access has been restored. Reason: ${notes}`,
     relatedUrl: '/dashboard/profile/concierge',
   });
 

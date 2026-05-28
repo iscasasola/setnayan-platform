@@ -24,15 +24,23 @@ type PaymentMethodRow = {
 };
 
 /**
- * Read-only scaffold for the Setnayan Pay payment methods table.
+ * Read-only scaffold for the legacy Setnayan Pay payment methods table.
  *
  * Source: `public.setnayan_pay_methods` (seeded 2026-05-16, spec corpus
- * commit a0fa3c7). The edit flow is intentionally deferred — admins
- * currently change fees via a service-role SQL update; the table here
- * exists so the values are at least visible at a glance.
+ * commit a0fa3c7).
  *
- * Follow-up engineering work tracked separately to add the edit form +
- * audit log.
+ * Retired 2026-05-28 V2 cutover — Setnayan Pay 5% convenience fee is
+ * RETIRED ENTIRELY under V2 (per CLAUDE.md 2026-05-28 V1→V2 cutover
+ * decision-log rows). Setnayan is now a software publisher, not a
+ * marketplace intermediary; vendor bookings settle directly off-platform
+ * with 0% commission, and the 18 customer software SKUs + 2 bundles sell at
+ * sticker price with no convenience fee. The fee rows below are historical
+ * configuration kept for audit; the underlying checkout flow no longer
+ * consults this table for new V2 orders.
+ *
+ * Follow-up engineering work tracked separately to either retire the table
+ * outright once legacy V1 orders have all resolved, or fold it into the
+ * V2 publisher accounting surface.
  */
 export default async function PaymentMethodsAdminPage() {
   const admin = createAdminClient();
@@ -58,21 +66,23 @@ export default async function PaymentMethodsAdminPage() {
       <header className="mb-6 space-y-2">
         <div className="flex items-center gap-2">
           <CreditCard className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
-          <h1 className="text-2xl font-semibold tracking-tight">Setnayan Pay methods</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Legacy Setnayan Pay methods
+          </h1>
         </div>
         <p className="text-sm text-ink/65">
-          Per-payment-method convenience-fee configuration. Each rail charges a
-          gateway fee (passed through to the underlying processor) plus the
-          Setnayan Pay platform fee, with a per-rail minimum floor that
-          protects sub-₱1,000 bookings. Couples see the combined rate at
-          checkout.
+          Historical configuration for the per-payment-method convenience fee
+          + per-rail minimum floor that ran during the V1 launch period. Each
+          row records the gateway fee, the Setnayan Pay platform fee, and the
+          minimum floor that protected sub-₱1,000 bookings.
         </p>
         <p className="rounded-md border border-amber-200/60 bg-amber-50/60 px-3 py-2 text-xs text-amber-900">
-          <span className="font-semibold">Read-only V1.</span> Edit flow is
-          deferred — to change a rate or floor, run a service-role SQL update
-          against
-          <code className="mx-1 font-mono text-[11px]">setnayan_pay_methods</code>
-          and the change is live everywhere.
+          <span className="font-semibold">Retired 2026-05-28 V2 cutover —
+          read-only historical view.</span> Setnayan Pay is no longer the
+          checkout rail. Setnayan is now a software publisher — customer SKUs
+          sell at sticker price with no convenience fee, and vendor bookings
+          settle directly off-platform with 0% commission. The rows below stay
+          for audit only; new V2 orders don&apos;t consult this table.
         </p>
       </header>
 
@@ -85,9 +95,8 @@ export default async function PaymentMethodsAdminPage() {
         </p>
       ) : rows.length === 0 ? (
         <p className="rounded-md border border-dashed border-ink/15 bg-cream p-3 text-sm text-ink/55">
-          No payment methods configured yet. Run the
-          <code className="mx-1 font-mono text-[11px]">setnayan_pay_methods</code>
-          migration to seed the V1 defaults.
+          No historical Setnayan Pay rows recorded. (V2 doesn&apos;t write to
+          this table; this is expected on fresh environments.)
         </p>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-ink/10 bg-cream">
@@ -167,7 +176,8 @@ export default async function PaymentMethodsAdminPage() {
       <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
         Source · spec corpus 2026-05-16 (a0fa3c7) · flat 5.0% lock 2026-05-16
         row 16 · ₱50 min-fee floor 2026-05-17 row 9 · table{' '}
-        <code>setnayan_pay_methods</code>
+        <code>setnayan_pay_methods</code> · retired 2026-05-28 V2 cutover
+        (historical audit only).
       </p>
     </div>
   );

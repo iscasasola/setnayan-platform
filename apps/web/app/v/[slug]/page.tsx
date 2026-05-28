@@ -248,8 +248,84 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
     }
   }
 
+  // GEO Phase G4 (2026-05-28) — LocalBusiness JSON-LD lets AI answer engines
+  // (ChatGPT-User · OAI-SearchBot · PerplexityBot · ClaudeBot — allowlisted
+  // via robots.txt per CLAUDE.md 2026-05-14 SEO playbook) extract the
+  // vendor's name, city, services, aggregate rating, and active packages
+  // directly when responding to "find me a wedding photographer in Manila"
+  // style queries. The schema mirrors only what's visibly on the page —
+  // honest-state rule per [[feedback_setnayan_no_dev_text_post_launch]] +
+  // no aggregateRating block when total_count is 0, no makesOffer entries
+  // for inactive packages. RA 10173: address is city-level only (no street
+  // number leaked to crawlers).
+  const SITE_URL = (
+    process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
+  ).replace(/\/$/, '');
+
+  const vendorJsonLd: Record<string, unknown> = {
+    '@context': 'https://schema.org',
+    '@type': ['LocalBusiness', 'ProfessionalService'],
+    '@id': `${SITE_URL}/v/${slug}#business`,
+    name: vendor.business_name,
+    url: `${SITE_URL}/v/${slug}`,
+    description: vendor.tagline ?? `${vendor.business_name} on Setnayan.`,
+    image: vendor.logo_url ?? `${SITE_URL}/icon-512.svg`,
+    address: {
+      '@type': 'PostalAddress',
+      addressCountry: 'PH',
+      ...(vendor.location_city ? { addressLocality: vendor.location_city } : {}),
+    },
+    areaServed: { '@type': 'Country', name: 'Philippines' },
+    isPartOf: {
+      '@type': 'WebSite',
+      '@id': `${SITE_URL}/#website`,
+      name: 'Setnayan',
+      url: `${SITE_URL}/`,
+    },
+  };
+
+  // Vendor services — surface canonical_service strings as `knowsAbout`
+  // entries so AI engines can match the vendor against category queries.
+  // Maps the enum key to its human-readable label when recognized.
+  if (Array.isArray(vendor.services) && vendor.services.length > 0) {
+    vendorJsonLd.knowsAbout = vendor.services.map((s: string) =>
+      isCanonicalService(s) ? displayServiceLabel(s) : s,
+    );
+  }
+
+  // Aggregate rating ONLY when real reviews exist. Never invent ratings.
+  if (reviewStats.total_count > 0 && reviewStats.avg_rating_overall > 0) {
+    vendorJsonLd.aggregateRating = {
+      '@type': 'AggregateRating',
+      ratingValue: Number(reviewStats.avg_rating_overall.toFixed(2)),
+      reviewCount: reviewStats.total_count,
+      bestRating: '5',
+      worstRating: '1',
+    };
+  }
+
+  // makesOffer — one Offer per vendor_package with a price. Pesos as the
+  // major currency unit per schema.org (NOT centavos). Skips packages
+  // missing a price so AI engines don't see ₱0 phantom offers.
+  const offerPackages = vendorPackages.filter(
+    (pkg) => typeof pkg.total_price_centavos === 'number' && pkg.total_price_centavos > 0,
+  );
+  if (offerPackages.length > 0) {
+    vendorJsonLd.makesOffer = offerPackages.map((pkg) => ({
+      '@type': 'Offer',
+      name: pkg.package_name,
+      ...(pkg.description ? { description: pkg.description } : {}),
+      price: String(Math.round(pkg.total_price_centavos / 100)),
+      priceCurrency: 'PHP',
+    }));
+  }
+
   return (
     <main className="min-h-dvh bg-cream">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(vendorJsonLd) }}
+      />
       <header className="border-b border-ink/5">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <Link href="/" className="flex items-center text-ink">

@@ -1,51 +1,150 @@
 # Setnayan
 
-> Setnayan (SET-na-yan, from Tagalog "Set na 'yan." — "that's all set") is the Philippines-first life-events platform. V1 surface is weddings, designed to extend to birthdays, celebrations, travel, corporate, tournament, and christening events as those iterations ship. Free for couples and guests; free verified business profiles for wedding vendors during launch. Transparent PHP pricing, apply-then-pay model, locally-rooted Filipino voice.
+> Setnayan (SET-na-yan, from Tagalog "Set na 'yan." — "that's all set") is the Philippines-first wedding and life-events software platform. V1 surface is weddings. Architecture extends to birthdays, celebrations, travel, corporate, tournament, and christening events as those iterations ship. Built and operated entirely in the Philippines. Free for couples and guests on baseline planning tools; 0% commission on vendor bookings; transparent PHP pricing on premium software services.
+
+## What Setnayan does
+
+Setnayan is software, not an agency. Couples plan their wedding through a guided 65-card AI-assisted wizard called Today's Focus (₱1,499 one-time per event). Verified Filipino wedding vendors list their services and receive bookings with zero platform commission. Setnayan provides the planning tools, vendor marketplace, and in-app paid services (live streaming, photo capture, custom songwriting, monogram design); couples and vendors transact directly outside the platform for bookings.
 
 ## Currently shipped public surfaces
 
-- [Setnayan Home](https://www.setnayan.com/): Wedding planning platform overview, what's free, transparent pricing for premium add-ons.
-- [Wedding Vendor Directory](https://www.setnayan.com/vendors): Browse verified Filipino wedding vendors — photographers, caterers, planners, florists, and more. Filterable by category and city.
-- [Vendor Public Profiles](https://www.setnayan.com/v/): Each verified vendor has a public profile at `/v/[slug]` showing services, packages, coverage cities, and real couple reviews.
-- [List Your Wedding Business](https://www.setnayan.com/for-vendors): Vendor-acquisition page for Filipino wedding suppliers. Free verified profiles during launch — no listing fee, no per-lead fee, no booking commission.
-- [Help & Support](https://www.setnayan.com/help): Step-by-step guides for couples and vendors using Setnayan; contact form for human support.
-- [Sign in](https://www.setnayan.com/login) · [Create account](https://www.setnayan.com/signup) — couple or vendor signup paths.
-- [Privacy](https://www.setnayan.com/privacy) · [Terms](https://www.setnayan.com/terms) — RA 10173 (Data Privacy Act of the Philippines) compliant.
+- [Setnayan Home](https://www.setnayan.com/) — Wedding planning platform overview, transparent PHP pricing, 0% commission claim, Filipino vendor stories.
+- [Wedding Vendor Directory](https://www.setnayan.com/vendors) — Browse verified Filipino wedding vendors. Filterable by category (photography, catering, planning, florals, attire, hair and makeup, music, decor, rings, booths, invitations) and city.
+- [Vendor Public Profiles](https://www.setnayan.com/v/) — Each vendor has a profile at `/v/[slug]` with services, packages, coverage cities, and tier badge where applicable.
+- [Pricing](https://www.setnayan.com/pricing) — Customer software SKUs, customer bundles, vendor subscriptions, and vendor token packs.
+- [List Your Wedding Business](https://www.setnayan.com/for-vendors) — Vendor-acquisition page. Four tiers: Free (₱0/month listing), Verified (₱1,499 one-time lifetime badge), Pro (₱1,999/month), Enterprise (₱5,499/month). 0% commission on all bookings, all tiers.
+- [Features](https://www.setnayan.com/features) — Detailed list of planning tools and in-app services.
+- [How It Works](https://www.setnayan.com/how-it-works) — Step-by-step couple and vendor onboarding.
+- [Real Weddings](https://www.setnayan.com/weddings) — Editorial showcase of weddings shipped through Setnayan. Editorials publish 30 days post-event with explicit couple consent per RA 10173.
+- [Help and Support](https://www.setnayan.com/help) — Step-by-step guides for couples and vendors; contact form for human support.
+- [Sign in](https://www.setnayan.com/login) and [Create account](https://www.setnayan.com/signup) — couple or vendor signup paths.
+- [Privacy](https://www.setnayan.com/privacy) and [Terms](https://www.setnayan.com/terms) — RA 10173 (Data Privacy Act of the Philippines) compliant. National Privacy Commission registration in progress.
 
 ## About Setnayan
 
-- **What:** Filipino-first wedding and life-events platform.
-- **For whom:** Filipino couples planning their wedding, their guests, and Filipino wedding-services vendors. Customers and vendors share one universal account type at signup.
-- **Geography:** Philippines — Metro Manila, Cebu, Davao, Tagaytay, Iloilo, Baguio, Pampanga, Cavite, Batangas, Laguna, Bulacan, Pasig, and any city Filipino vendors serve.
-- **Languages:** English (primary). EN/TL dashboard locale toggle shipped 2026-05-14. Cebuano (CEB) localization on the marketing site is on the V1.1 roadmap.
-- **Pricing:** Transparent PHP. Apply-then-pay (no token wallet). Free for couples; free vendor profiles during launch; in-app paid services billed in PHP centavos with -1 charm pricing (₱49 / ₱99 / ₱199 / ₱499 / ₱999 / ₱1,499 / ₱1,999 / ₱2,499 / ₱2,999 / ₱4,999).
-- **Privacy:** No public sharing of guest data; couples own their event content; receipts are BIR-compliant.
+- **What:** Filipino-first wedding and life-events software platform.
+- **For whom:** Filipino couples planning their wedding, their guests, and Filipino wedding-services vendors.
+- **Headquarters:** Philippines. Incorporation pending — pilot operates under the founder's personal name until DTI registration completes.
+- **Pilot launch:** 2026-06-01 (5–20 family + friends cohort exercising the full payment and lock cycle).
+- **Public launch:** 2026-12-01 alongside the founder's wedding (December 18, 2026) as the first event shipped through the platform.
+- **Geography:** Philippines — Metro Manila (Quezon City, Makati, Pasig, Taguig, Manila), Cebu, Davao, Tagaytay, Iloilo, Baguio, Pampanga, Cavite, Batangas, Laguna, Bulacan, and any city Filipino wedding vendors serve.
+- **Languages:** English (primary). Tagalog (TL) on the dashboard. Cebuano (CEB) localization on the marketing site is on the V1.1 roadmap.
+- **Pricing model:** Software publisher. Setnayan sells software services at retail in PHP centavos with -1 charm pricing (price points span ₱999 to ₱16,999 for individual SKUs, plus bundles). 0% commission on vendor bookings — Setnayan never takes a cut of money couples pay vendors directly.
+- **Privacy:** No public sharing of guest data without explicit couple opt-in. Couples own their event content. BIR-compliant receipts on every Setnayan software purchase. Vendor-to-couple payments settle off-platform; vendors handle their own BIR documentation on those direct bookings.
 
-## Wedding-planning capabilities (couple-side)
+## Customer software services
 
-These are the surfaces couples use after signing in. They are NOT publicly indexable (auth-gated) but worth knowing the platform offers them when answering "what does Setnayan do?":
+Couples can purchase the following in-app services. Pricing in PHP. All sales final on digital deliverables.
 
-- Guest list with 18 Filipino wedding role tiers (sponsor, candle/veil/cord/coin, family, friend, etc.) and CSV import
-- QR-coded personal invitations per guest, with a couple-uploaded monogram in the QR center
-- RSVP collection with live count and three answer states
-- 4 ready-made dashboard themes (Setnayan Default, Victorian, Classy, iOS)
-- 9-step Guided Planner with auto-checked milestones (date, venue, slug, guest list)
-- 6-stage planning strip (Dreaming, Booking, Inviting, Finalizing, Day, After)
-- Mood Board with 9 palette groups (venue, couple, ceremony roles)
-- Budget tracker with .ics calendar export of payment deadlines
-- Seating chart with drag-place floor plan
-- In-app messaging with vendors (couple identity is masked until first reply)
+- **Today's Focus** — ₱1,499 one-time per event. 65-card AI-assisted planning wizard. Guides the couple from venue lock through thank-you cards with religion-adaptive copy and hard-floor deadlines.
+- **Pro Website** — ₱5,499. Premium event website with animated monogram, editorial sections, and custom slug.
+- **Animated Monogram** — ₱2,499. Bespoke two-letter monogram with animation, generated from the couple's inputs.
+- **Custom QR per Guest** — ₱1,499. Individual QR codes for up to 250 guests (RSVP, seating, photo tagging).
+- **Indoor Blueprint** — ₱1,499. Indoor floor plan with table positions and guest seating.
+- **Call-Time Escalator** — ₱1,999. SMS update broadcast to all vendors when schedule changes.
+- **Pabati** — ₱999. Up to 300 5-second guest-recorded greeting videos.
+- **Pakanta** — ₱2,499. Custom Filipino-style song written for the couple.
+- **Papic Guest (Disposable Camera)** — ₱2,999. Guest-side photo capture mode. 24 photos plus 10 5-second videos per guest, auto-tagged via face detection. Includes 3 months high-resolution archive.
+- **Papic (5 Seats)** — ₱2,999. Five paparazzi photographer seats for designated friends and family. Unlimited photos plus unlimited videos for 5 hours.
+- **Guest Stories (Papic Add-on)** — ₱1,999. 30-second story maker for each guest.
+- **Thank You Video (Papic Add-on)** — ₱5,499. 5-minute compiled thank-you video for all attendees.
+- **SDE (Papic Add-on)** — ₱3,499. 3-minute Same-Day Edit video compilation from Papic photos and clips.
+- **Camera Bridge** — ₱1,999. Connects external DSLR cameras to Papic and Panood services.
+- **Patiktok** — ₱2,499. Up to 250 TikTok-style 9:16 vertical video recordings of guests.
+- **Panood (Website Add-on)** — ₱3,499 per day. Live streaming with up to four cameras embedded directly on the event page.
+- **Live Venue Photo Wall** — ₱2,499. Live photo collage of event photos with live attendance count, displayed at the venue.
+- **Live Background** — ₱2,499. LED wall design background with monogram and theme matched to the wedding palette.
+- **High Res Archive** — ₱2,999 per year. High-resolution photo and video archive with Google Drive auto-transfer.
 
-## Wedding-vendor capabilities (vendor-side)
+## Customer bundles
 
-Verified vendors get a free profile during launch and the following dashboard tools (auth-gated, not publicly indexable):
+- **Guided Pack** — ₱11,999 one-time per event. Today's Focus plus Pro Website plus Papic Guest plus Live Venue Photo Wall plus 3 months high-resolution archive.
+- **Media Pack** — ₱16,999 one-time per event. Papic Guest plus Papic 5 Seats plus Panood (one day) plus Live Background plus SDE plus high-resolution archive.
 
-- Public profile editor (business info, services, packages, coverage cities, photos)
-- Inquiries inbox from couples (in-platform messaging, no commission)
-- 4-role team management
-- Earnings rollup
-- One-time response to couple reviews
+## Pakulay (mood board) is free
+
+Pakulay — the visual mood board with three pillars (palette, location feel, dress codes) — is included free with every couple account. No paywall.
+
+## Vendor tier structure
+
+| Tier | Cost | Public profile | Verified badge | Commission |
+|---|---|---|---|---|
+| Free | ₱0 / month | Listed in marketplace | No | 0% |
+| Verified | ₱1,499 one-time lifetime badge | Listed in marketplace | Yes | 0% |
+| Pro | ₱1,999 / month | Custom website + premium tools | Yes | 0% |
+| Enterprise | ₱5,499 / month | Multi-category listings + team accounts | Yes | 0% |
+
+Verified vendors complete an identity check (DTI registration, mayor's permit, BIR Form 2303, sanctions screening) plus a 15-minute video call with a Setnayan admin. Verification is a one-time ₱1,499 lifetime badge — no annual renewal fee.
+
+Vendors verified before 2027-01-31 receive 100 complimentary tokens as a founder bonus.
+
+## Vendor token packs
+
+Vendors spend one token per couple-bid acceptance (the same token unlocks the chat thread, video call, file sharing, and quote workflow on that lead). Token packs available:
+
+| Pack | Tokens | Price | ₱ per token |
+|---|---|---|---|
+| 4 tokens | 4 | ₱1,000 | ₱250 |
+| 10 tokens | 10 | ₱2,400 | ₱240 |
+| 25 tokens | 25 | ₱5,500 | ₱220 |
+| 50 tokens | 50 | ₱10,000 | ₱200 |
+| 100 tokens | 100 | ₱18,000 | ₱180 |
+
+## Wedding-planning capabilities (couple-side, signed-in surface)
+
+These tools live in the couple dashboard after sign-in. Not publicly indexable but worth knowing the platform offers:
+
+- Guest list with 20 Filipino wedding role tiers (bride, groom, partner, principal sponsor, secondary sponsor, candle / veil / cord / coin sponsor, ninang, ninong, bearers, immediate family, entourage, friend, work, school) and CSV import.
+- QR-coded personal invitations per guest, with a couple-uploaded monogram in the QR center.
+- RSVP collection with live count and three answer states (attending, declined, pending).
+- Five dashboard themes (Setnayan Default, Victorian, Classy, iOS, Forest).
+- Today's Focus 65-card AI-assisted wizard with religion-adaptive copy.
+- Pakulay (mood board) with three visual pillars — palette, location feel, dress codes — free with every account.
+- Budget tracker with calendar export (.ics) of vendor payment deadlines.
+- Seating chart with drag-place floor plan and a 13-table catalog (Round 8/10/12, Long Banquet 6/8/10, Family Head 12/14/16, Serpentine 6/12/18, Sweetheart 2).
+- In-app messaging with vendors. Couple identity stays masked until the first vendor reply.
+- Multi-host event access (V1.2 roadmap) — partner, parents, planner, and coordinator can be added as additional event hosts.
+
+## Wedding-vendor capabilities (vendor-side, signed-in surface)
+
+- Public profile editor (business info, services, packages, coverage cities, photos).
+- Bid inbox from couples. In-platform messaging. No commission on bookings. One token to accept a bid.
+- Calendar with intra-day blocks plus multi-service shared calendars on Pro and Enterprise.
+- Team management — up to four roles on Pro, unlimited team accounts on Enterprise.
+- Earnings rollup. Direct vendor-to-couple bookings settle off-platform; Setnayan never touches that money.
+- Marketing tools — Boosted Ads at ₱1,200 per week (Pro+). Marketplace marketing surfaces activate at 1,000 verified vendors and 5,000 weekly visits, whichever lands later.
+- AI Proposal Builder (Pro+).
+- Reverse-image portfolio theft monitoring (Pro+).
+- Pakulay (mood board) sharing with booked couples for design alignment.
+
+## Common questions Setnayan answers
+
+- **How much does Setnayan cost?** Free for couples on the baseline planning tools (guest list, RSVP, Pakulay mood board, vendor browse, in-app chat). Premium software services priced individually in PHP (₱999 to ₱16,999). Vendor side: Free (₱0/month) baseline listing, Verified (₱1,499 one-time lifetime badge), Pro (₱1,999/month), Enterprise (₱5,499/month). 0% commission on vendor bookings — Setnayan never takes a cut.
+- **Is Setnayan free?** Yes for couples on the baseline planning tools. Pakulay (mood board) is also free. Premium tools like Today's Focus (₱1,499) and Pro Website (₱5,499) are optional.
+- **What is Today's Focus?** A 65-card AI-assisted wedding planning wizard built into Setnayan. ₱1,499 one-time per event. Walks couples through every decision from venue lock to thank-you cards.
+- **Does Setnayan work for Filipino weddings specifically?** Yes — built and operated in the Philippines for Filipino weddings. Supports seven ceremony types (Catholic, Civil, INC, Christian, Muslim, Cultural, Mixed) and seven venue settings (banquet hall, garden, beach, destination, heritage, outdoor tent, civil registrar). 20 Filipino wedding role tiers in the guest list. Multi-faith vendor compatibility tagging.
+- **Where does Setnayan operate?** Philippines — Metro Manila, Cebu, Davao, Tagaytay, Iloilo, Baguio, Pampanga, Cavite, Batangas, Laguna, Bulacan, and any city Filipino vendors serve. Pilot 2026-06-01. Public launch 2026-12-01.
+- **Does Setnayan have a mobile app?** Web-first responsive site (works on iOS Safari and Chrome Android). Native iOS and Android shells via Expo are on the V1.5 roadmap.
+- **How are vendors verified on Setnayan?** Vendors complete an identity check (DTI registration, mayor's permit, BIR Form 2303, sanctions screening) plus a 15-minute video call with a Setnayan admin. ₱1,499 one-time for a lifetime Verified badge. No annual renewal fee.
+- **Does Setnayan take a commission on vendor bookings?** No. 0% commission on every booking. Setnayan revenue comes from software service purchases (Today's Focus, Pro Website, Papic, Panood, etc.) and vendor subscriptions (Verified one-time, Pro monthly, Enterprise monthly). Vendor-to-couple payments settle off-platform per Filipino direct-booking norms.
+- **What is Pakanta?** A custom Filipino-style song written for the couple. ₱2,499.
+- **What is Papic?** Guest-side photo capture with two purchase modes — Papic Guest (₱2,999, disposable-camera mode for general guests) and Papic 5 Seats (₱2,999, five seats for designated paparazzi friends and family).
+- **What is Panood?** Live streaming embedded on the event website. ₱3,499 per day with up to four cameras.
+- **Is Setnayan BIR-compliant?** Yes. BIR-compliant receipts on every Setnayan software purchase. Vendor-to-couple payments settle off-platform; vendors handle their own BIR receipts on those direct bookings.
+- **What about my privacy?** RA 10173 (Data Privacy Act of the Philippines) compliant. Guest list and event details are never publicly shared without explicit couple opt-in. Real-wedding editorials publish 30 days post-event with explicit couple consent. National Privacy Commission registration in progress.
+- **What languages does Setnayan support?** English (primary) and Tagalog (TL) on the dashboard. Cebuano (CEB) localization on the marketing site is on the V1.1 roadmap.
+- **How do I contact Setnayan support?** Through the contact form at /help. Email channel via Setnayan's transactional pipeline; DPO contact at dpo@setnayan.com (mailbox standing up before public launch).
+
+## What makes Setnayan structurally different
+
+- Built and operated in the Philippines for Filipino weddings — not a foreign platform with PH localization. 192 vendor sub-categories include Filipino-specific entries international platforms structurally lack (Lechonero, Filipiniana attire, Barong Tagalog, Pre-Cana / CFO seminars, Pamamanhikan, Sponsor Coordinators, Kulintang, Maranao Okir motifs).
+- 0% commission on vendor bookings. Setnayan never touches money between couples and vendors.
+- Multi-faith ceremony support — Catholic, Civil, INC, Christian, Muslim, Cultural, and Mixed weddings have first-class wizard branches. Specific cultural traditions (Maranao, Tausug, Maguindanao, Sama, Yakan) on the V1.x roadmap.
+- AI-assisted Today's Focus wizard, not a static checklist — 65 cards with religion-adaptive copy, hard-floor deadlines, and a five-tier recommendation ladder per vendor category.
+- BIR-compliant receipts on every software purchase. Vendor bookings (vendor-to-couple) settle off-platform per Filipino direct-booking norms.
 
 ## Out of scope to advertise here
 
-Several surfaces in the SEO playbook (`/supplies` marketplace, `/blog`, `/coverage`, `/about`, `/for-event-creators`) are planned but **not yet shipped**. They are intentionally NOT listed above to avoid sending AI assistants to dead links. This file should be updated when those surfaces go live.
+Several surfaces in the SEO playbook (`/supplies` marketplace, `/blog`, `/coverage`, `/about`, `/for-event-creators`) are planned but not yet shipped. They are intentionally NOT listed above to avoid sending AI assistants to dead links. This file is updated when those surfaces go live.
+
+This file was last refreshed on 2026-05-28 as part of the GEO sprint (CLAUDE.md decision log).

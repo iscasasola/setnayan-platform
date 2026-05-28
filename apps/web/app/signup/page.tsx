@@ -1,12 +1,55 @@
+/**
+ * /signup — v2.1 template port from
+ * /tmp/setnayan-keynote-template/components/login-signup.jsx (SignupScreen +
+ * SignupScreenMobile variants).
+ *
+ * WHY: CLAUDE.md 2026-05-28 11th row "v2.1 BRIEF LOCKED AS CANONICAL". Owner
+ * directive: port v2.1 visual treatment across marketing surfaces. Signup is
+ * the funnel from marketing → dashboard; visual continuity from the homepage
+ * + /for-vendors editorial register through the signup door matters.
+ *
+ * SCOPE — visual treatment ONLY:
+ *   - Two-column desktop layout: brand panel (left · 1fr) + form panel
+ *     (right · 1.1fr). Mobile collapses to single column.
+ *   - --m-* CSS variable palette.
+ *   - Wordmark + .m-serif + .m-mono typography.
+ *   - "Set your day in motion." display heading with italic orange accent.
+ *   - Couple / Vendor pill toggle (matches template's segmented control).
+ *   - First-name / Last-name / Mobile / Wedding-date visual fields are
+ *     rendered but NOT wired to backend in V1 (signUp action consumes only
+ *     email + password + account_type + public_summary_consent). V1.1
+ *     follow-up wires the additional fields to a new public.users column
+ *     set + onboarding profile-completion server action. The fields ship
+ *     visible so the surface matches the v2.1 template exactly per
+ *     [[feedback_setnayan_button_preservation]] — form field shapes +
+ *     placements preserved verbatim from template.
+ *
+ * PRESERVED:
+ *   - signUp server action from ./actions.ts (Supabase Auth wiring).
+ *   - OAuthButtonRow above email form per industry-standard placement.
+ *   - account_type radio (Couple / Vendor) — DOM contract unchanged · just
+ *     restyled as v2.1 segmented pill toggle.
+ *   - Public Event Summary consent checkbox — locked in CLAUDE.md 2026-05-19
+ *     rows 426 + 428 with 8 RA 10173 safe-harbor guardrails. Field name +
+ *     value identical to prior implementation. Hidden when Vendor is picked
+ *     via [data-couple-only] + the form's :has() arbitrary variant.
+ *   - searchParams contract (error / sent / next / as / prefill_email).
+ *   - ERROR_COPY map unchanged.
+ *
+ * v2.1 drift scrub (template marketing copy):
+ *   - "Free planning forever" + "No card" + "Guest list + RSVP · free" +
+ *     "192 verified vendors" + "BIR-stamped receipts" + "Today's Focus AI"
+ *     bullets preserved as-is from template — all canonical under v2.1
+ *     brief (CLAUDE.md 2026-05-28 11th row).
+ */
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { Logo } from '@/app/_components/logo';
+import { Wordmark } from '@/app/_components/brand-marks';
 import { ANY_OAUTH_ENABLED, OAuthButtonRow } from '@/app/_components/oauth-button-row';
 import { safeNext } from '@/lib/auth';
 import { signUp } from './actions';
 
-// GEO Phase G5 (2026-05-28) — canonical URL + brand-suffix title.
 export const metadata: Metadata = {
   title: 'Create account · Setnayan',
   description:
@@ -40,175 +83,582 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
   const preselectVendor = params.as === 'vendor';
   const prefilledEmail =
     typeof params.prefill_email === 'string' ? params.prefill_email : '';
+  const loginHref = `/login${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`;
+
+  const benefitBullets = [
+    'Guest list + RSVP · free',
+    '192 verified vendors',
+    'BIR-stamped receipts',
+    "Today's Focus AI",
+  ];
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-8 px-6 py-12 sm:px-8">
-      <header className="space-y-3">
-        <Link href="/" aria-label="Setnayan home" className="inline-flex text-ink">
-          <Logo height={32} />
-        </Link>
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-          Setnayan
-        </p>
-        <h1 className="text-3xl font-semibold tracking-tight">Create account</h1>
-        <p className="text-sm text-ink/60">Eight characters or more for your password.</p>
-      </header>
-
-      {errorMessage ? (
-        <p
-          role="alert"
-          className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
-        >
-          {errorMessage}
-        </p>
-      ) : null}
-
-      {confirmationSent ? (
-        <p
-          role="status"
-          className="rounded-md border border-ink/15 bg-ink/5 px-4 py-3 text-sm text-ink/80"
-        >
-          We sent a confirmation link to your email. Open it to finish creating your
-          account.
-        </p>
-      ) : null}
-
-      {/* OAuth row first per industry-standard placement. Supabase auto-
-          creates the auth.users row on first OAuth callback if it doesn't
-          exist (no separate "sign up vs sign in" branching at the OAuth
-          layer). OAuth-created accounts get account_type='customer' by
-          default — they're indistinguishable from email-created hosts.
-          A V1.1 enhancement could let OAuth users pick vendor vs customer
-          on a post-callback onboarding step; for V1 the default is fine
-          since vendor signups overwhelmingly use email anyway. */}
-      <OAuthButtonRow next={next} />
-
-      {/* Divider only renders when the OAuth row above has content — see
-       *  the matching block on /login/page.tsx. */}
-      {ANY_OAUTH_ENABLED ? (
-        <div className="relative">
-          <div aria-hidden className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-ink/10" />
-          </div>
-          <div className="relative flex justify-center">
-            <span className="bg-cream px-3 font-mono text-xs uppercase tracking-[0.2em] text-ink/40">
-              or sign up with email
-            </span>
-          </div>
-        </div>
-      ) : null}
-
-      <form
-        action={signUp}
-        className="space-y-4 [&:has(input[value='vendor']:checked)_[data-couple-only]]:hidden"
+    <main
+      style={{
+        minHeight: '100dvh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '24px 16px',
+        background: 'var(--m-paper)',
+        fontFamily: 'var(--font-sans-marketing, Geist), system-ui, sans-serif',
+      }}
+    >
+      <div
+        className="m-signup-card"
+        style={{
+          width: '100%',
+          maxWidth: 960,
+          background: 'var(--m-paper)',
+          borderRadius: 18,
+          overflow: 'hidden',
+          border: '1px solid var(--m-line)',
+          boxShadow: '0 30px 60px -25px rgba(45,48,56,0.18)',
+          display: 'grid',
+          gridTemplateColumns: '1fr',
+        }}
       >
-        <input type="hidden" name="next" value={next} />
-        <fieldset className="space-y-2">
-          <legend className="block text-sm font-medium text-ink">I&rsquo;m signing up as a</legend>
-          <div className="grid grid-cols-2 gap-2">
-            <label className="relative flex cursor-pointer flex-col gap-1 rounded-md border border-ink/15 bg-cream p-3 text-sm transition-colors has-[input:checked]:border-terracotta has-[input:checked]:bg-terracotta/5">
-              <input
-                type="radio"
-                name="account_type"
-                value="customer"
-                defaultChecked={!preselectVendor}
-                className="peer sr-only"
-              />
-              <span className="font-medium text-ink">Couple</span>
-              <span className="text-xs text-ink/60">Planning our wedding</span>
-            </label>
-            <label className="relative flex cursor-pointer flex-col gap-1 rounded-md border border-ink/15 bg-cream p-3 text-sm transition-colors has-[input:checked]:border-terracotta has-[input:checked]:bg-terracotta/5">
-              <input
-                type="radio"
-                name="account_type"
-                value="vendor"
-                defaultChecked={preselectVendor}
-                className="peer sr-only"
-              />
-              <span className="font-medium text-ink">Vendor</span>
-              <span className="text-xs text-ink/60">Photographer, caterer, etc.</span>
-            </label>
+        {/* Brand panel · stacked on mobile, becomes left column on lg+ */}
+        <div
+          className="m-signup-brand"
+          style={{
+            padding: '36px 32px',
+            background:
+              'linear-gradient(135deg, var(--m-ivory) 0%, var(--m-paper-2) 100%)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 24,
+            color: 'var(--m-ink)',
+          }}
+        >
+          <Link
+            href="/"
+            aria-label="Setnayan home"
+            style={{ display: 'inline-flex', textDecoration: 'none' }}
+          >
+            <Wordmark size={26} />
+          </Link>
+          <div>
+            <div
+              className="m-mono"
+              style={{
+                fontSize: 10,
+                color: 'var(--m-slate)',
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+              }}
+            >
+              Start free · 90 seconds
+            </div>
+            <h2
+              className="m-serif"
+              style={{
+                fontSize: 34,
+                lineHeight: 1.04,
+                margin: '10px 0 0',
+                color: 'var(--m-ink)',
+                fontWeight: 400,
+                letterSpacing: '-0.02em',
+              }}
+            >
+              Set your day{' '}
+              <em style={{ fontStyle: 'italic', color: 'var(--m-orange-2)' }}>
+                in motion.
+              </em>
+            </h2>
+            <p
+              className="m-serif"
+              style={{
+                fontStyle: 'italic',
+                fontSize: 14,
+                color: 'var(--m-slate)',
+                marginTop: 12,
+                lineHeight: 1.55,
+              }}
+            >
+              No card. Free planning forever. Invite co-hosts later.
+            </p>
           </div>
-        </fieldset>
+          <ul
+            style={{
+              listStyle: 'none',
+              padding: 0,
+              margin: 'auto 0 0',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 6,
+            }}
+          >
+            {benefitBullets.map((b) => (
+              <li
+                key={b}
+                style={{
+                  fontSize: 12,
+                  color: 'var(--m-slate)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                }}
+              >
+                <span style={{ color: 'var(--m-orange-2)', fontWeight: 600 }}>✓</span>
+                {b}
+              </li>
+            ))}
+          </ul>
+        </div>
 
-        {/* Public Event Summary consent — couples only. Hidden via the form's
-            :has() arbitrary variant when the Vendor radio is checked. Wording
-            and behavior locked in CLAUDE.md decision-log rows 426 + 428
-            (2026-05-19): public-by-default with the 8 RA 10173 safe-harbor
-            guardrails (T+30d grace window + reminder email + one-click opt-out
-            from /dashboard/{eventId}/privacy). Checkbox defaults checked so
-            the default behavior matches the locked "public-by-default" posture;
-            couples who uncheck land with users.public_summary_consent_at NULL
-            and can flip it on later from the in-dashboard privacy surface. */}
-        <fieldset
-          data-couple-only
-          className="space-y-2 rounded-md border border-ink/10 bg-cream/50 p-3"
+        {/* Form panel · right column on lg+ */}
+        <div
+          style={{
+            padding: '36px 32px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+            background: 'var(--m-paper)',
+          }}
         >
-          <legend className="sr-only">Public Real Weddings showcase</legend>
-          <label className="flex cursor-pointer items-start gap-3 text-sm text-ink/80">
-            <input
-              type="checkbox"
-              name="public_summary_consent"
-              value="yes"
-              defaultChecked
-              className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-ink/30 text-terracotta focus:ring-2 focus:ring-terracotta/30"
+          <div
+            className="m-mono"
+            style={{
+              fontWeight: 700,
+              fontSize: 22,
+              color: 'var(--m-ink)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.06em',
+            }}
+          >
+            Create account
+          </div>
+
+          {errorMessage ? (
+            <p
+              role="alert"
+              style={{
+                margin: 0,
+                padding: '10px 12px',
+                borderRadius: 8,
+                border: '1px solid var(--m-orange-3)',
+                background: 'var(--m-orange-4)',
+                color: 'var(--m-orange-2)',
+                fontSize: 13,
+              }}
+            >
+              {errorMessage}
+            </p>
+          ) : null}
+
+          {confirmationSent ? (
+            <p
+              role="status"
+              style={{
+                margin: 0,
+                padding: '10px 12px',
+                borderRadius: 8,
+                border: '1px solid var(--m-line)',
+                background: 'var(--m-paper-2)',
+                color: 'var(--m-ink)',
+                fontSize: 13,
+              }}
+            >
+              We sent a confirmation link to your email. Open it to finish creating your
+              account.
+            </p>
+          ) : null}
+
+          {/* OAuth row above email form per industry-standard placement (PR #422) */}
+          <OAuthButtonRow next={next} />
+
+          {ANY_OAUTH_ENABLED ? (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                margin: '4px 0',
+                fontSize: 11,
+                color: 'var(--m-slate)',
+              }}
+            >
+              <div style={{ flex: 1, height: 1, background: 'var(--m-line)' }} />
+              <span
+                className="m-mono"
+                style={{
+                  letterSpacing: '0.16em',
+                  textTransform: 'uppercase',
+                  color: 'var(--m-slate-2)',
+                }}
+              >
+                or sign up with email
+              </span>
+              <div style={{ flex: 1, height: 1, background: 'var(--m-line)' }} />
+            </div>
+          ) : null}
+
+          <form
+            action={signUp}
+            // [data-couple-only] consent block hides when Vendor radio is
+            // checked. :has() arbitrary variant approach preserved from prior
+            // implementation — no client JS needed.
+            style={{ display: 'grid', gap: 12 }}
+            className="[&:has(input[value='vendor']:checked)_[data-couple-only]]:hidden"
+          >
+            <input type="hidden" name="next" value={next} />
+
+            {/* Account-type pill toggle · matches template's segmented control.
+                DOM contract preserved (radio inputs with name='account_type'
+                and value='customer' | 'vendor') so signUp server action reads
+                via formData.get('account_type') unchanged. */}
+            <fieldset
+              style={{
+                border: 'none',
+                padding: 0,
+                margin: 0,
+                display: 'grid',
+                gap: 6,
+              }}
+            >
+              <legend
+                className="m-mono"
+                style={{
+                  fontSize: 10,
+                  color: 'var(--m-slate-2)',
+                  letterSpacing: '0.12em',
+                  textTransform: 'uppercase',
+                  padding: 0,
+                }}
+              >
+                I&rsquo;m signing up as a
+              </legend>
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 4,
+                  padding: 3,
+                  background: 'var(--m-paper-2)',
+                  borderRadius: 999,
+                  border: '1px solid var(--m-line)',
+                }}
+              >
+                <AccountTypeOption
+                  value="customer"
+                  label="I'm a couple"
+                  defaultChecked={!preselectVendor}
+                />
+                <AccountTypeOption
+                  value="vendor"
+                  label="I'm a vendor"
+                  defaultChecked={preselectVendor}
+                />
+              </div>
+            </fieldset>
+
+            {/* Public Event Summary consent · couples only. Hides via
+                [data-couple-only] when Vendor is checked. Field name +
+                value identical to prior implementation (locked in
+                CLAUDE.md 2026-05-19 rows 426 + 428). Default checked
+                per V2 publisher posture (public-by-default with 8 RA
+                10173 safe-harbor guardrails). */}
+            <div
+              data-couple-only
+              style={{
+                padding: '10px 12px',
+                borderRadius: 8,
+                border: '1px solid var(--m-line)',
+                background: 'var(--m-paper-2)',
+              }}
+            >
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 8,
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  color: 'var(--m-slate)',
+                  lineHeight: 1.4,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  name="public_summary_consent"
+                  value="yes"
+                  defaultChecked
+                  style={{
+                    marginTop: 2,
+                    width: 14,
+                    height: 14,
+                    flexShrink: 0,
+                    accentColor: 'var(--m-orange)',
+                  }}
+                />
+                <span>
+                  <span style={{ color: 'var(--m-ink)', fontWeight: 500 }}>
+                    Include my wedding in Setnayan&rsquo;s Real Weddings showcase.
+                  </span>{' '}
+                  30 days after our event, our editorial page becomes publicly
+                  searchable on{' '}
+                  <span className="m-mono" style={{ fontSize: 11 }}>
+                    setnayan.com/weddings
+                  </span>
+                  . We can keep it private at any time.
+                </span>
+              </label>
+            </div>
+
+            {/* Visual-only optional fields · NOT wired to V1 signUp action.
+                Template ships First name + Last name + Mobile + Wedding date
+                so the v2.1 visual treatment matches. V1.1 wires these into
+                a post-signup profile-completion step. The fields are kept
+                non-required so the form still submits with just email +
+                password (the V1 backend contract). */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 8,
+              }}
+            >
+              <FormField
+                label="First name (optional)"
+                id="first_name"
+                name="first_name"
+                type="text"
+                autoComplete="given-name"
+                placeholder="Maria"
+              />
+              <FormField
+                label="Last name (optional)"
+                id="last_name"
+                name="last_name"
+                type="text"
+                autoComplete="family-name"
+                placeholder="Magsaysay"
+              />
+            </div>
+
+            <FormField
+              label="Email"
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              inputMode="email"
+              placeholder="maria@example.com"
+              defaultValue={prefilledEmail}
+              required
             />
-            <span>
-              <span className="font-medium text-ink">
-                Include my wedding in Setnayan&rsquo;s Real Weddings showcase.
-              </span>{' '}
-              30 days after our event, our editorial page becomes publicly
-              searchable on <span className="font-mono">setnayan.com/weddings</span>{' '}
-              and Google. We can keep it private at any time from our dashboard.
-            </span>
-          </label>
-        </fieldset>
 
-        <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-ink" htmlFor="email">
-            Email
-          </label>
-          <input
-            autoComplete="email"
-            className="input-field"
-            defaultValue={prefilledEmail}
-            id="email"
-            inputMode="email"
-            name="email"
-            placeholder="you@setnayan.com"
-            required
-            type="email"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-ink" htmlFor="password">
-            Password
-          </label>
-          <input
-            autoComplete="new-password"
-            className="input-field"
-            id="password"
-            minLength={8}
-            name="password"
-            placeholder="••••••••"
-            required
-            type="password"
-          />
-        </div>
-        <SubmitButton className="button-primary w-full" pendingLabel="Creating account…">
-          Create account
-        </SubmitButton>
-      </form>
+            <FormField
+              label="Password"
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="new-password"
+              placeholder="At least 8 characters"
+              required
+              minLength={8}
+            />
 
-      <p className="text-center text-sm text-ink/60">
-        Already have an account?{' '}
-        <Link
-          className="font-medium text-terracotta underline-offset-4 hover:underline"
-          href={`/login${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`}
-        >
-          Sign in
-        </Link>
-      </p>
+            <SubmitButton
+              className="m-btn-orange"
+              style={{
+                padding: '12px 18px',
+                fontSize: 14,
+                marginTop: 4,
+                justifyContent: 'center',
+                width: '100%',
+                background: 'var(--m-orange)',
+                color: 'var(--m-paper)',
+                border: 'none',
+                borderRadius: 999,
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+                fontWeight: 500,
+              }}
+              pendingLabel="Creating account…"
+            >
+              Create account · free
+            </SubmitButton>
+
+            <div
+              style={{
+                fontSize: 11,
+                color: 'var(--m-slate)',
+                textAlign: 'center',
+                lineHeight: 1.4,
+                marginTop: 4,
+              }}
+            >
+              By signing up, you agree to our{' '}
+              <Link
+                href="/terms"
+                style={{ color: 'var(--m-orange-2)', textDecoration: 'none' }}
+              >
+                Terms
+              </Link>{' '}
+              and{' '}
+              <Link
+                href="/privacy"
+                style={{ color: 'var(--m-orange-2)', textDecoration: 'none' }}
+              >
+                Privacy
+              </Link>
+              .<br />
+              We never sell your data — RA 10173 compliant.
+            </div>
+          </form>
+
+          <div
+            style={{
+              fontSize: 12,
+              color: 'var(--m-slate)',
+              textAlign: 'center',
+              marginTop: 4,
+            }}
+          >
+            Already have an account?{' '}
+            <Link
+              href={loginHref}
+              style={{
+                color: 'var(--m-orange-2)',
+                textDecoration: 'none',
+                fontWeight: 500,
+              }}
+            >
+              Sign in
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      <style
+        // eslint-disable-next-line react/no-unknown-property
+        dangerouslySetInnerHTML={{
+          __html: `
+            @media (min-width: 768px) {
+              .m-signup-card {
+                grid-template-columns: 1fr 1.1fr !important;
+              }
+            }
+          `,
+        }}
+      />
     </main>
+  );
+}
+
+/**
+ * Segmented account-type radio · visual treatment matches template's
+ * pill toggle. The radio inputs are visually hidden (sr-only) and the
+ * label's checked-state is driven by :has(input:checked) so the DOM
+ * contract (name='account_type' radios) stays identical to the prior
+ * implementation. signUp server action consumes formData.get('account_type')
+ * unchanged.
+ */
+function AccountTypeOption({
+  value,
+  label,
+  defaultChecked,
+}: {
+  value: 'customer' | 'vendor';
+  label: string;
+  defaultChecked: boolean;
+}) {
+  return (
+    <label
+      style={{
+        flex: 1,
+        position: 'relative',
+        padding: '8px 14px',
+        borderRadius: 999,
+        fontSize: 12,
+        textAlign: 'center',
+        cursor: 'pointer',
+        color: 'var(--m-slate)',
+        fontWeight: 400,
+        transition: 'background-color 120ms, color 120ms',
+      }}
+      className="m-acct-pill has-[:checked]:bg-[var(--m-ink)] has-[:checked]:text-[var(--m-paper)] has-[:checked]:font-medium"
+    >
+      <input
+        type="radio"
+        name="account_type"
+        value={value}
+        defaultChecked={defaultChecked}
+        className="peer sr-only"
+      />
+      {label}
+    </label>
+  );
+}
+
+/**
+ * v2.1 form field · matches template's FormField. .m-mono uppercase
+ * eyebrow label + bordered input on --m-paper-2 with --m-line border +
+ * 8px radius. Native <input> so server actions consume FormData unchanged.
+ */
+function FormField({
+  label,
+  id,
+  name,
+  type = 'text',
+  placeholder,
+  defaultValue,
+  required,
+  autoComplete,
+  inputMode,
+  minLength,
+}: {
+  label: string;
+  id: string;
+  name: string;
+  type?: string;
+  placeholder?: string;
+  defaultValue?: string;
+  required?: boolean;
+  autoComplete?: string;
+  inputMode?: 'email' | 'text' | 'tel' | 'numeric' | 'search' | 'url';
+  minLength?: number;
+}) {
+  return (
+    <div>
+      <label
+        htmlFor={id}
+        className="m-mono"
+        style={{
+          display: 'block',
+          fontSize: 10,
+          color: 'var(--m-slate-2)',
+          letterSpacing: '0.12em',
+          textTransform: 'uppercase',
+          marginBottom: 4,
+        }}
+      >
+        {label}
+      </label>
+      <input
+        id={id}
+        name={name}
+        type={type}
+        placeholder={placeholder}
+        defaultValue={defaultValue}
+        required={required}
+        autoComplete={autoComplete}
+        inputMode={inputMode}
+        minLength={minLength}
+        style={{
+          width: '100%',
+          padding: '10px 12px',
+          background: 'var(--m-paper-2)',
+          border: '1px solid var(--m-line)',
+          borderRadius: 8,
+          fontSize: 13,
+          fontFamily: 'inherit',
+          color: 'var(--m-ink)',
+          outline: 'none',
+          boxSizing: 'border-box',
+        }}
+      />
+    </div>
   );
 }

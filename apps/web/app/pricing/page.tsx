@@ -13,6 +13,31 @@ import {
 } from '@/lib/v2-catalog';
 
 /**
+ * Force dynamic rendering · skip static prerender.
+ *
+ * WHY: this page calls fetchV2CustomerCatalog / fetchV2BundleCatalog /
+ * fetchV2VendorCatalog from lib/v2-catalog.ts. Those helpers call
+ * createAdminClient (lib/supabase/admin.ts) which throws "Missing SUPABASE
+ * env vars for admin client" when SUPABASE_SERVICE_ROLE_KEY is unset — the
+ * case in GitHub Actions `production build` (.github/workflows/ci.yml runs
+ * `next build` with placeholder NEXT_PUBLIC_* env only · no service-role
+ * key). Static prerender invokes the page at build time, hits the throw,
+ * fails the build · the same failure repeats on every PR merge to main,
+ * which the owner observed as an "endless loop" of red CI runs.
+ *
+ * Per-request rendering is also semantically correct: catalog rows live in
+ * setnayan-prod and shift without a redeploy (V2 cutover-day SKU swaps,
+ * eleventh-row annual subscriptions, etc.). Baking the catalog into static
+ * HTML would stale on every catalog edit until the next deploy.
+ *
+ * Locked CLAUDE.md 2026-05-28 row "fix endless loop error on vercel".
+ * Pairs with the try/catch around createAdminClient in lib/v2-catalog.ts
+ * fetchers — if a future page forgets this directive, the fetcher still
+ * degrades to empty array instead of 500'ing the prerender.
+ */
+export const dynamic = 'force-dynamic';
+
+/**
  * /pricing — V2 customer-side pricing surface.
  *
  * Sourced live from the 3 V2 catalog tables:

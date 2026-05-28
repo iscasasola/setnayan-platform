@@ -387,8 +387,16 @@ function InvitationShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
       <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14">{children}</div>
-      <footer className="border-t border-ink/10 px-4 py-6 text-center text-xs text-ink/50">
-        Powered by Setnayan · setnayan.com
+      {/* Quiet footer signature — structural addition from v2.1 guest-microsite
+          template's "See you on the 12th." closing line. Italic serif treatment
+          gives the page an editorial sign-off without competing with the
+          functional widgets above. Couple palette tokens (terracotta · ink)
+          untouched. */}
+      <footer className="border-t border-ink/10 px-4 py-8 text-center">
+        <p className="font-serif text-lg italic text-terracotta">See you soon.</p>
+        <p className="mt-3 text-xs text-ink/50">
+          Powered by Setnayan · setnayan.com
+        </p>
       </footer>
     </main>
   );
@@ -477,7 +485,13 @@ function PublicLanding({
             <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
               You&rsquo;re invited
             </p>
-            <h1 className="font-display text-5xl font-medium tracking-tight text-ink sm:text-6xl">
+            {/* Italic serif treatment for the couple's display name —
+                structural typography enhancement from v2.1 guest-microsite
+                template (CLAUDE.md 2026-05-28 row 11 guest-microsite port,
+                couple-palette respected per globals.css guardrail). The
+                italic emphasis carries the editorial, intimate feel of the
+                template without touching color tokens. */}
+            <h1 className="font-display text-5xl font-medium italic tracking-tight text-ink sm:text-6xl">
               {event.display_name}
             </h1>
             <p className="text-base text-ink/70">
@@ -495,7 +509,10 @@ function PublicLanding({
             <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
               You&rsquo;re invited
             </p>
-            <h1 className="font-display text-5xl font-medium tracking-tight sm:text-6xl">
+            {/* Italic serif treatment — see comment on the heroPhotoUrl
+                branch above. Same structural typography enhancement from
+                v2.1 template; couple palette tokens unchanged. */}
+            <h1 className="font-display text-5xl font-medium italic tracking-tight sm:text-6xl">
               {event.display_name}
             </h1>
             <p className="text-base text-ink/60">
@@ -789,7 +806,12 @@ function InvitationSite({
               >
                 {monogram.text}
               </div>
-              <h1 className="mt-6 font-display text-5xl font-medium tracking-tight text-ink sm:text-6xl">
+              {/* Italic serif display name — structural typography from v2.1
+                  guest-microsite template (CLAUDE.md 2026-05-28 row 11).
+                  Couple palette tokens (monogram.color · cream · ink ·
+                  terracotta) untouched per globals.css wedding-landing
+                  guardrail. */}
+              <h1 className="mt-6 font-display text-5xl font-medium italic tracking-tight text-ink sm:text-6xl">
                 {event.display_name}
               </h1>
               <p className="mt-3 font-mono text-xs uppercase tracking-[0.2em] text-ink/65">
@@ -810,7 +832,10 @@ function InvitationSite({
             >
               {monogram.text}
             </div>
-            <h1 className="mt-6 font-display text-5xl font-medium tracking-tight sm:text-6xl">
+            {/* Italic serif treatment — see comment on the heroPhotoUrl
+                branch above. Same structural enhancement from v2.1
+                template; couple palette untouched. */}
+            <h1 className="mt-6 font-display text-5xl font-medium italic tracking-tight sm:text-6xl">
               {event.display_name}
             </h1>
             <p className="mt-3 font-mono text-xs uppercase tracking-[0.2em] text-ink/60">

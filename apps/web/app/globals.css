@@ -275,3 +275,213 @@
     will-change: transform, opacity;
   }
 }
+
+/*
+ * v2.1 marketing palette — Setnayan Vendor Keynote template package.
+ *
+ * WHY: CLAUDE.md 2026-05-28 11th row "v2.1 template package adoption". The
+ * v2.1 brief at corpus root (CLAUDE-CODE-BRIEF-v2.1_2026-05-28.md) § 8
+ * locks burnt sienna #C96B3A as the brand accent. The 2026-05-22 Facebook
+ * pivot above stays in force for app chrome (dashboard / admin / vendor
+ * dashboard / marketplace internal). These v2.1 tokens are SCOPED to the
+ * public marketing surfaces (/ · /for-vendors · /keynote · /signup · /login)
+ * via inline styles or arbitrary-value Tailwind classes — they do NOT
+ * collide with the Facebook --color-* tokens above.
+ *
+ * USAGE: in a marketing component, reference these via
+ *   style={{ background: 'var(--m-orange)' }}
+ * or via Tailwind arbitrary syntax
+ *   className="bg-[var(--m-orange)]"
+ *
+ * Sourced verbatim from /tmp/setnayan-keynote-template/styles.css :root
+ * block (Setnayan v2 design tokens · anchored to brand orange + slate).
+ */
+:root {
+  /* Surfaces — warm paper (marketing pages) */
+  --m-paper:      #FBF8F2;
+  --m-paper-2:    #F4EFE5;
+  --m-ivory:      #EDE5D2;
+  --m-line:       #E2D9C6;
+  --m-line-soft:  #ECE5D6;
+
+  /* Slate (primary ink, from logo) */
+  --m-ink:        #2D3038;
+  --m-slate:      #545860;
+  --m-slate-2:    #6E727A;
+  --m-slate-3:    #8A8E97;
+  --m-slate-4:    #B7B9BE;
+
+  /* Orange (brand accent — burnt sienna, v2.1 § 8 lock) */
+  --m-orange:     #C96B3A;
+  --m-orange-2:   #A84F25;
+  --m-orange-3:   #E8B399;
+  --m-orange-4:   #F8E6DC;
+
+  /* Supporting */
+  --m-blush:      #F4D7C9;
+  --m-blush-deep: #B65A3A;
+  --m-sage:       #C5D2BD;
+  --m-sage-deep:  #4F6B4A;
+
+  /* Semantic */
+  --m-accent:      var(--m-orange);
+  --m-accent-deep: var(--m-orange-2);
+
+  /* Radii */
+  --m-r-xs: 4px;
+  --m-r-sm: 8px;
+  --m-r-md: 14px;
+  --m-r-lg: 22px;
+  --m-r-xl: 36px;
+  --m-r-full: 999px;
+
+  /* Shadows (warm, paper-friendly) */
+  --m-shadow-sm: 0 1px 2px rgba(45,48,56,.05), 0 1px 1px rgba(45,48,56,.04);
+  --m-shadow-md: 0 8px 24px -10px rgba(45,48,56,.18), 0 2px 6px -2px rgba(45,48,56,.08);
+  --m-shadow-lg: 0 40px 80px -30px rgba(45,48,56,.28), 0 10px 30px -8px rgba(45,48,56,.10);
+}
+
+/*
+ * Marketing utility classes — opt-in only. Apply to a root element on a
+ * marketing surface (e.g., a wrapping `<div className="m-surface">` around
+ * the homepage hero) so child elements pick up paper background + ink color
+ * by default. Children render their own styling on top.
+ */
+@layer components {
+  .m-surface {
+    background: var(--m-paper);
+    color: var(--m-slate);
+    font-family: var(--font-sans-marketing), 'Geist', system-ui, sans-serif;
+  }
+  .m-display {
+    font-family: var(--font-condensed), 'Saira Condensed', sans-serif;
+    font-weight: 800;
+    letter-spacing: -0.005em;
+    color: var(--m-ink);
+    line-height: 1.02;
+    text-transform: uppercase;
+    padding-bottom: 0.22em;
+  }
+  .m-display-tight {
+    font-family: var(--font-condensed), 'Saira Condensed', sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.005em;
+    color: var(--m-ink);
+    line-height: 1.04;
+    padding-bottom: 0.18em;
+  }
+  .m-serif {
+    font-family: var(--font-serif-marketing), 'Instrument Serif', Georgia, serif;
+    font-weight: 400;
+    letter-spacing: -0.005em;
+  }
+  .m-mono {
+    font-family: var(--font-mono-marketing), 'JetBrains Mono', ui-monospace, monospace;
+  }
+  .m-label-mono {
+    font-family: var(--font-mono-marketing), 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--m-slate-2);
+  }
+  .m-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--font-mono-marketing), 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--m-slate-2);
+  }
+  .m-eyebrow::before {
+    content: '';
+    width: 28px;
+    height: 1px;
+    background: var(--m-orange);
+  }
+
+  .m-btn {
+    font-family: var(--font-sans-marketing), 'Geist', system-ui, sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+    padding: 12px 20px;
+    border-radius: var(--m-r-full);
+    border: 1px solid transparent;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: transform .15s cubic-bezier(.2,.7,.2,1), background .12s, border-color .12s, color .12s, box-shadow .15s;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .m-btn:hover:not(:disabled) { transform: translateY(-1px); }
+  .m-btn:active { transform: translateY(0); }
+  .m-btn-primary { background: var(--m-ink); color: var(--m-paper); }
+  .m-btn-primary:hover { background: var(--m-slate); }
+  .m-btn-orange { background: var(--m-orange); color: #fff; }
+  .m-btn-orange:hover { background: var(--m-orange-2); }
+  .m-btn-ghost {
+    background: transparent;
+    color: var(--m-ink);
+    border-color: var(--m-line);
+  }
+  .m-btn-ghost:hover {
+    border-color: var(--m-ink);
+    background: var(--m-paper);
+  }
+  .m-btn-lg { padding: 16px 28px; font-size: 15px; }
+
+  .m-card {
+    background: var(--m-paper);
+    border: 1px solid var(--m-line);
+    border-radius: var(--m-r-lg);
+    box-shadow: var(--m-shadow-sm);
+    transition: transform .25s cubic-bezier(.2,.7,.2,1), box-shadow .25s ease;
+  }
+  .m-card-lift:hover,
+  a.m-card:hover,
+  button.m-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--m-shadow-md);
+  }
+
+  .m-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 11px;
+    border-radius: var(--m-r-full);
+    border: 1px solid var(--m-line);
+    font-size: 12px;
+    background: var(--m-paper);
+    color: var(--m-slate);
+  }
+  .m-pill-orange {
+    background: var(--m-orange-4);
+    border-color: var(--m-orange-3);
+    color: var(--m-orange-2);
+  }
+
+  .m-hi {
+    background: linear-gradient(transparent 65%, var(--m-orange-3) 65%);
+    padding: 0 2px;
+  }
+
+  /* Photo placeholder — diagonal stripes in warm tone */
+  .m-photo-placeholder {
+    background:
+      repeating-linear-gradient(
+        45deg,
+        #EFE6D2,
+        #EFE6D2 8px,
+        #F4ECDB 8px,
+        #F4ECDB 16px
+      );
+    position: relative;
+    overflow: hidden;
+  }
+}

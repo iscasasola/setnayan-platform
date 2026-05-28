@@ -1,14 +1,16 @@
 import Link from 'next/link';
 import { ArrowRight, Calendar, Inbox, FileText, Star } from 'lucide-react';
-import { formatPromoEndDateShort } from '@/lib/sku-catalog';
-
-const PROMO_END_SHORT = formatPromoEndDateShort();
 
 // Vendor hero — outcome-led ("Run your wedding business in one app").
 // Different from the main homepage hero. Per iteration 0015 § Routes
 // /for-vendors is a vendor-side deep dive; this hero leads with the
 // merchant outcome (Shopify pattern) rather than the couple-side
 // "Set na 'yan." brand line.
+//
+// Rewritten 2026-05-28 (V2 cutover) — retired the "Pro tier free for 8
+// months" launch-promo framing. New thesis per the V2 lock: free to list
+// (your-slug.setnayan.com lives on signup), pay only for the subscription
+// tier you actually want.
 
 export function Hero() {
   return (
@@ -16,23 +18,23 @@ export function Hero() {
       <div className="mx-auto grid w-full max-w-6xl gap-12 px-4 pt-16 pb-24 sm:px-6 sm:pt-20 lg:grid-cols-2 lg:px-8 lg:pt-24">
         <div className="space-y-8">
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-            Pioneer vendors · Pre-launch
+            For Filipino wedding vendors
           </p>
           <h1 className="font-display text-[44px] font-medium leading-[1.02] tracking-tight text-ink sm:text-[60px] lg:text-[80px]">
             Scale your wedding business.{' '}
             <span className="text-ink/55">One app.</span>
           </h1>
           <p className="max-w-prose text-xl leading-relaxed text-ink/70 sm:text-2xl">
-            Get found by couples planning weddings across the Philippines.
-            Pro tier <strong className="text-ink">free for 8 months</strong>{' '}
-            when you pre-register today.
+            Get found by couples planning weddings across the Philippines. Keep{' '}
+            <strong className="text-ink">100% of every booking</strong> — Setnayan
+            doesn&rsquo;t take a cut.
           </p>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <Link
               className="button-primary inline-flex min-h-[52px] items-center justify-center gap-2 px-8 text-base font-semibold"
               href="/signup?as=vendor"
             >
-              Pre-register your business
+              List your business
               <ArrowRight aria-hidden className="h-5 w-5" strokeWidth={2} />
             </Link>
             <Link
@@ -43,7 +45,7 @@ export function Hero() {
             </Link>
           </div>
           <p className="text-xs text-ink/45">
-            Free forever to list · Pro &amp; All Tools FREE until {PROMO_END_SHORT} · BIR receipts handled
+            Free to list · 0% commission on bookings · BIR receipts on every software purchase
           </p>
         </div>
 

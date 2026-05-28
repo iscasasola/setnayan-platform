@@ -28,7 +28,7 @@ const ROWS: Array<{
   {
     job: 'Get the reservation paid',
     before: 'GCash screenshot, &ldquo;chineck mo na po,&rdquo; manually note in the spreadsheet',
-    after: 'Couple pays through Setnayan Pay or direct; milestones tick automatically',
+    after: 'Couple pays you directly · you log the receipt in the dashboard · milestones tick',
   },
   {
     job: 'Issue a BIR-compliant receipt',

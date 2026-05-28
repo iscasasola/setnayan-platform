@@ -32,14 +32,14 @@ import { StickyMobileCta } from './_sections/sticky-mobile-cta';
 export const metadata = {
   title: 'Run your wedding business in one app — Setnayan for vendors',
   description:
-    'List your wedding business free on Setnayan. One app for calendar, chat, proposals, payments, reviews — built for Filipino vendors. Pro at ₱4,999/week, paused anytime. BIR receipts handled.',
+    'List your wedding business free on Setnayan. Keep 100% of every booking. Pro Vendor ₱1,999/mo or Enterprise ₱5,499/mo for marketplace presence + tokens.',
   alternates: {
     canonical: '/for-vendors',
   },
   openGraph: {
     title: 'Run your wedding business in one app — Setnayan for vendors',
     description:
-      'Listing. Calendar. Chat. Proposals. Payments. Reviews. One app for Filipino wedding vendors. Free to list. Pro ₱4,999/week, paused anytime.',
+      'Free listing. 0% commission on bookings. Pro Vendor ₱1,999/mo or Enterprise ₱5,499/mo. 100 complimentary tokens on verification.',
     url: '/for-vendors',
     type: 'website',
     siteName: 'Setnayan',
@@ -48,7 +48,7 @@ export const metadata = {
     card: 'summary_large_image',
     title: 'Run your wedding business in one app — Setnayan for vendors',
     description:
-      'Listing, calendar, chat, proposals, payments, reviews. One app for Filipino wedding vendors. Free to list.',
+      'List free. Keep 100%. Pro Vendor ₱1,999/mo or Enterprise ₱5,499/mo for marketplace presence.',
   },
 };
 
@@ -96,17 +96,35 @@ const FOR_VENDORS_JSONLD = {
     },
     {
       '@type': 'Offer',
-      '@id': `${SITE_URL}/for-vendors#pro-subscription`,
-      name: 'Setnayan Pro for vendors (weekly subscription)',
+      '@id': `${SITE_URL}/for-vendors#pro-vendor-subscription`,
+      name: 'Pro Vendor (monthly subscription)',
       description:
-        'Multi-service authoring, per-service calendars + master calendar, in-app payments with auto-disbursement, proposal builder, team / agent invites, plus free Setnayan Concierge for every couple you book. Billed weekly, paused anytime.',
-      price: '4999',
+        'One marketplace category · 5 sub-seats · multi-service catalog · per-service calendars · in-app messaging · 100 complimentary tokens on verification. Pause anytime.',
+      price: '1999',
       priceCurrency: 'PHP',
       priceSpecification: {
         '@type': 'UnitPriceSpecification',
-        price: '4999',
+        price: '1999',
         priceCurrency: 'PHP',
-        unitText: 'WEEK',
+        unitText: 'MONTH',
+      },
+      availability: 'https://schema.org/InStock',
+      seller: { '@id': `${SITE_URL}/#organization` },
+      url: `${SITE_URL}/signup?as=vendor`,
+    },
+    {
+      '@type': 'Offer',
+      '@id': `${SITE_URL}/for-vendors#enterprise-subscription`,
+      name: 'Enterprise Vendor (monthly subscription)',
+      description:
+        'All marketplace categories · unlimited sub-seats · everything in Pro Vendor · priority placement.',
+      price: '5499',
+      priceCurrency: 'PHP',
+      priceSpecification: {
+        '@type': 'UnitPriceSpecification',
+        price: '5499',
+        priceCurrency: 'PHP',
+        unitText: 'MONTH',
       },
       availability: 'https://schema.org/InStock',
       seller: { '@id': `${SITE_URL}/#organization` },

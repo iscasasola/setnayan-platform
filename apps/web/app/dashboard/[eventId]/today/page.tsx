@@ -5,11 +5,13 @@ import { WizardHero } from '../_components/wizard-hero';
 /**
  * Today's Focus — first bottom-nav tab (placed BEFORE Home).
  *
- * Owner directive 2026-05-24: extract the Concierge Active Wizard surface
- * (iteration 0016 · CLAUDE.md 2026-05-23 row 6) from the event-home page
- * into its own first-class /today route. The WizardHero block + IN-FLIGHT
- * TRAY that previously rendered inline at the top of `/dashboard/[eventId]`
- * now lives here. Reachable via the "Today" tab in the BottomNav (Focus
+ * Owner directive 2026-05-24: extract the Today's Focus wizard surface
+ * (originally branded Concierge Active Wizard in V1; V2 cutover
+ * 2026-05-28 renamed the brand · iteration 0016 substrate unchanged ·
+ * CLAUDE.md 2026-05-23 row 6) from the event-home page into its own
+ * first-class /today route. The WizardHero block + IN-FLIGHT TRAY that
+ * previously rendered inline at the top of `/dashboard/[eventId]` now
+ * lives here. Reachable via the "Today" tab in the BottomNav (Focus
  * icon · first position before Home).
  *
  * Why a focused route: the wizard surface is the host's daily entry point

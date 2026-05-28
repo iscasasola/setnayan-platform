@@ -5,8 +5,13 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateUniqueSlug } from '@/lib/slugs';
 import { captureEvent } from '@/lib/analytics';
-import { startConciergeTrial } from '@/app/dashboard/profile/concierge/actions';
-import { CONCIERGE_ENABLED } from '@/lib/concierge';
+
+/* Retired 2026-05-28 V2 cutover */
+// V1 imported startConciergeTrial + CONCIERGE_ENABLED here to route
+// "trial" / "paid" choices from the create-event picker into the
+// Concierge SKU flow. V2 retires the trial mechanic entirely and
+// prices Today's Focus separately from /pricing — every new event
+// lands in DIY by default. Imports removed.
 
 // V1.1 multi-event roster (iteration 0041). Wedding is the original V1
 // type; debut (2026-05-20) is the first creatable expansion. Other 0041
@@ -22,10 +27,13 @@ import { CONCIERGE_ENABLED } from '@/lib/concierge';
 // in event-type-picker.tsx.
 const ALLOWED_TYPES = ['wedding', 'debut'] as const;
 
-// 0000 § 2.5b — DIY · Trial · Paid choice card (locked 2026-05-17).
-// `paid` lands on the dashboard then routes to checkout; `trial` invokes
-// startConciergeTrial server-side; `diy` lands on the dashboard with no
-// upgrade.
+/* Retired 2026-05-28 V2 cutover */
+// V1 had a DIY / Trial / Paid choice card at the bottom of create-event.
+// V2 has no trial mechanic; the hidden form field is retained for cutover-
+// period continuity but only accepts 'diy' from this surface. Old enum
+// values 'trial' and 'paid' kept in ALLOWED_CONCIERGE_CHOICES so a stale
+// browser tab posting the V1 form payload still validates — the choice
+// gets coerced to 'diy' downstream regardless.
 const ALLOWED_CONCIERGE_CHOICES = ['diy', 'trial', 'paid'] as const;
 type ConciergeChoice = (typeof ALLOWED_CONCIERGE_CHOICES)[number];
 
@@ -141,22 +149,15 @@ export async function createWeddingEvent(formData: FormData) {
   if (is_mixed_ceremony && !secondary_ceremony_type) {
     return redirect('/dashboard/create-event?error=missing_secondary');
   }
-  // Concierge is wedding-only in V1.1; force DIY for any other event_type
-  // so a stale conciergeChoice (e.g. couple toggled "trial" on a wedding,
-  // then changed event_type to gender_reveal without resetting the picker
-  // UI) never starts a trial or charges a non-wedding event.
-  //
-  // Owner kill-switch (2026-05-20): when CONCIERGE_ENABLED=false, every
-  // create-event call lands on DIY regardless of the form selection — the
-  // purchase + trial paths point at a flow that's being rebuilt.
-  const rawChoice: ConciergeChoice = ALLOWED_CONCIERGE_CHOICES.includes(concierge_choice)
-    ? concierge_choice
-    : 'diy';
-  const choice: ConciergeChoice = !CONCIERGE_ENABLED
-    ? 'diy'
-    : event_type === 'wedding'
-      ? rawChoice
-      : 'diy';
+  /* Retired 2026-05-28 V2 cutover */
+  // V1 routed 'trial' / 'paid' choices into Concierge SKU flows here. V2
+  // has no trial mechanic and prices Today's Focus separately from
+  // /pricing. Every new event lands in DIY; the hidden form field is
+  // still parsed for cutover-period continuity but coerced to 'diy' so
+  // the post-create redirect always lands on the dashboard.
+  void ALLOWED_CONCIERGE_CHOICES; // suppress unused-var warning
+  void concierge_choice;          // suppress unused-var warning
+  const choice: ConciergeChoice = 'diy';
 
   const supabase = await createClient();
   const {
@@ -167,7 +168,7 @@ export async function createWeddingEvent(formData: FormData) {
   }
 
   // Single-field event setup per iteration 0000 § 2.5 (locked 2026-05-14):
-  // event_name only — date + venue are deferred to Setnayan Concierge or Profile.
+  // event_name only — date + venue are deferred to Today's Focus wizard or Profile.
   // Both writes go through the admin client because the user-scoped JWT can
   // be stale or the role can resolve to anon at the edge — RLS would then
   // reject the insert even though the action already authenticated the user.
@@ -262,33 +263,14 @@ export async function createWeddingEvent(formData: FormData) {
     // analytics never breaks the user-facing flow.
   }
 
-  // 0000 § 2.5b — wire the choice card. Event is already created at this
-  // point; the trial / paid options are layered on top, never gate creation.
-  if (choice === 'trial') {
-    try {
-      const result = await startConciergeTrial({ eventId: insertedEvent.event_id });
-      // Pass the trial-attach result through the URL so the dashboard can
-      // surface the right inline status banner (started · already_used ·
-      // already_used_on_event · enforcement_blocked · under_review).
-      // already_used_on_event is the 2026-05-20 dual-scope addition — fires
-      // when a different moderator on this event already consumed the
-      // per-event trial slot (rare in V1 single-host, primary V1.2 case
-      // once iteration 0048 multi-moderator events ship).
-      return redirect(
-        `/dashboard/${insertedEvent.event_id}?concierge_trial=${result.status}`,
-      );
-    } catch (e) {
-      // Trial failures shouldn't block the user — fall through to DIY landing.
-      console.error('[create-event] trial start failed:', e);
-    }
-  } else if (choice === 'paid') {
-    // Route the couple to the Concierge order checkout page. The order flow
-    // exists in iteration 0034; until that route lands the order/new route
-    // accepts ?sku=concierge_complete and surfaces payment instructions.
-    return redirect(
-      `/dashboard/${insertedEvent.event_id}/orders/new?sku=concierge_complete&intent=concierge`,
-    );
-  }
+  /* Retired 2026-05-28 V2 cutover */
+  // V1 had two extra redirect branches here: 'trial' invoked
+  // startConciergeTrial server-side and routed to the dashboard with a
+  // banner; 'paid' redirected to Concierge order checkout. V2 lands
+  // every new event on the standard dashboard regardless of intent
+  // — hosts upgrade to Today's Focus later from /pricing if they want
+  // the daily planner.
+  void choice; // suppress unused-var warning
 
   return redirect(`/dashboard/${insertedEvent.event_id}`);
 }

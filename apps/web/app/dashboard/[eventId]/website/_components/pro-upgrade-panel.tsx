@@ -6,42 +6,31 @@ import {
   Sparkles,
   Wand2,
 } from 'lucide-react';
-import { findSku, formatCentavosPhp, isFreeNow } from '@/lib/sku-catalog';
+import { findSku, formatCentavosPhp } from '@/lib/sku-catalog';
 
 /**
  * Free vs Pro panel — Website tab.
  *
+ * RETIRED 2026-05-28 V2 cutover.
+ * V1 surfaced a "Free during launch" badge on SKUs in the launch promo
+ * set (2027-01-30 window). V2 retires the promo entirely — every paid
+ * upgrade reads at full retail. The `isFreeNow` / `LAUNCH_PROMO_UNTIL`
+ * imports are removed.
+ *
  * Per CLAUDE.md 2026-05-22 owner directive + CLAUDE.md 2026-05-16 row
  * "0004 widget pricing reset", the Pro tier of the wedding website is
- * NOT a new bundled SKU. It is the existing two paid widget upgrades
- * from iteration 0004:
+ * the existing two paid widget upgrades from iteration 0004:
  *
- *   • Monogram Hero       — apps/web/lib/sku-catalog.ts:113
- *                           ₱1,999 · per-event · no-refund · animated
- *                           SVG-stroke trace + custom video/photo hero
- *                           background. Currently NOT in the launch
- *                           promo set (CLAUDE.md 2026-05-18 row 1).
+ *   • Monogram Hero  — ₱1,999 · per-event · no-refund · animated
+ *                      SVG-stroke trace + custom video/photo hero
+ *                      background.
+ *   • Live Schedule  — ₱999 · per-event · refundable · "happening now"
+ *                      highlight + auto-scroll on the Schedule widget.
  *
- *   • Live Schedule       — apps/web/lib/sku-catalog.ts:125
- *                           ₱999 · per-event · refundable · "happening
- *                           now" highlight + auto-scroll on the
- *                           Schedule widget. INCLUDED in the launch
- *                           promo through 2027-01-30 — free during pilot
- *                           + first 10 months post-launch.
- *
- * Each card surfaces its own CTA → /dashboard/[eventId]/orders/new?service=<sku>
- * which is the canonical apply-then-pay flow (CLAUDE.md 2026-05-11 +
- * iteration 0034). If the host has ALREADY purchased one of these
- * upgrades (non-cancelled/refunded/lapsed order on this event), the
- * card flips to a "✓ Active" badge instead of the Upgrade CTA.
- *
- * Owned-detection mirrors the home-page pattern at
- * apps/web/app/dashboard/[eventId]/page.tsx:487 — query `orders` table
- * on `event_id` + `service_key IN (these two)` + exclude the three
- * inactive statuses. We DON'T require status='paid' specifically —
- * 'submitted' and 'awaiting_payment' both count because the host has
- * already opened the order; locking the CTA to its post-purchase state
- * prevents a confusing double-buy mid-reconciliation.
+ * Each card surfaces its own CTA → /dashboard/[eventId]/orders/new?service=<sku>.
+ * If the host has ALREADY purchased one of these upgrades (non-cancelled/
+ * refunded/lapsed order on this event), the card flips to a "✓ Active"
+ * badge instead of the Upgrade CTA.
  *
  * Polite brand voice throughout per [[feedback_setnayan_no_dev_text_post_launch]].
  */
@@ -70,13 +59,8 @@ export function ProUpgradePanel({ eventId, ownedOrders }: Props) {
   const monogramHeroSku = findSku(MONOGRAM_HERO_SKU);
   const liveScheduleSku = findSku(LIVE_SCHEDULE_SKU);
 
-  // Promo state — both SKUs ride the same LAUNCH_PROMO_UNTIL window
-  // (2027-01-30 per CLAUDE.md 2026-05-18 row 1). Live Schedule is in
-  // LAUNCH_PROMO_SKU_CODES; Monogram Hero is NOT. We read the promo
-  // state per-SKU so the card copy reflects reality if either gets
-  // added/removed from the promo set later.
-  const monogramHeroFree = monogramHeroSku ? isFreeNow(monogramHeroSku) : false;
-  const liveScheduleFree = liveScheduleSku ? isFreeNow(liveScheduleSku) : false;
+  /* Retired 2026-05-28 V2 cutover · launch-promo "Free during launch"
+     branding dropped. Both SKUs read at full retail. */
 
   return (
     <section aria-labelledby="free-vs-pro-heading" className="space-y-3">
@@ -134,20 +118,15 @@ export function ProUpgradePanel({ eventId, ownedOrders }: Props) {
           }
           priceSubLine="one-time, for this event"
           owned={ownsMonogramHero}
-          freeDuringPromo={monogramHeroFree}
           upgradeHref={`/dashboard/${eventId}/orders/new?service=${MONOGRAM_HERO_SKU}`}
         />
 
         {/* PRO #2 — Live Schedule ₱999. */}
         <ProUpgradeCard
           icon={CalendarClock}
-          eyebrow={liveScheduleFree ? 'Free during launch' : 'Pro upgrade'}
+          eyebrow="Pro upgrade"
           title="Live Schedule"
-          tagline={
-            liveScheduleFree
-              ? "Light up your schedule on the day — free until launch ends."
-              : "Light up the 'happening now' moment on your schedule."
-          }
+          tagline="Light up the 'happening now' moment on your schedule."
           features={[
             '"Happening now" highlight on the day-of schedule widget',
             'Auto-scrolls to the current moment for guests',
@@ -155,19 +134,12 @@ export function ProUpgradePanel({ eventId, ownedOrders }: Props) {
             'Works on phones, tablets, and the big screen',
           ]}
           priceLabel={
-            liveScheduleFree
-              ? 'Free'
-              : liveScheduleSku
-                ? formatCentavosPhp(liveScheduleSku.priceCentavos)
-                : '₱999'
+            liveScheduleSku
+              ? formatCentavosPhp(liveScheduleSku.priceCentavos)
+              : '₱999'
           }
-          priceSubLine={
-            liveScheduleFree
-              ? 'included during launch'
-              : 'one-time, for this event'
-          }
+          priceSubLine="one-time, for this event"
           owned={ownsLiveSchedule}
-          freeDuringPromo={liveScheduleFree}
           upgradeHref={`/dashboard/${eventId}/orders/new?service=${LIVE_SCHEDULE_SKU}`}
         />
       </div>
@@ -197,7 +169,6 @@ function ProUpgradeCard({
   priceLabel,
   priceSubLine,
   owned,
-  freeDuringPromo,
   upgradeHref,
 }: {
   icon: typeof Wand2;
@@ -208,7 +179,6 @@ function ProUpgradeCard({
   priceLabel: string;
   priceSubLine: string;
   owned: boolean;
-  freeDuringPromo: boolean;
   upgradeHref: string;
 }) {
   return (
@@ -216,9 +186,7 @@ function ProUpgradeCard({
       className={`flex flex-col rounded-xl border p-5 ${
         owned
           ? 'border-emerald-300/60 bg-emerald-50/60'
-          : freeDuringPromo
-            ? 'border-terracotta/30 bg-white/80'
-            : 'border-terracotta/20 bg-white/70'
+          : 'border-terracotta/20 bg-white/70'
       }`}
     >
       <header className="space-y-1">
@@ -248,11 +216,7 @@ function ProUpgradeCard({
 
       <div className="mt-5 flex flex-1 flex-col justify-end gap-3 pt-4">
         <div className="flex items-baseline justify-between gap-2">
-          <span
-            className={`text-2xl font-semibold tracking-tight ${
-              freeDuringPromo && !owned ? 'text-emerald-700' : 'text-ink'
-            }`}
-          >
+          <span className="text-2xl font-semibold tracking-tight text-ink">
             {priceLabel}
           </span>
           <span className="text-xs text-ink/55">{priceSubLine}</span>
@@ -268,7 +232,7 @@ function ProUpgradeCard({
             href={upgradeHref}
             className="inline-flex h-11 min-h-[44pt] items-center justify-center gap-2 rounded-md bg-terracotta px-4 text-sm font-medium text-cream transition-colors hover:bg-terracotta-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
           >
-            <span>{freeDuringPromo ? 'Activate' : 'Upgrade'}</span>
+            <span>Upgrade</span>
             <ArrowUpRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           </Link>
         )}

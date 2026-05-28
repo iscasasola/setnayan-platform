@@ -42,8 +42,10 @@ import { ConciergeBanner } from './_components/concierge-banner';
 // TodaysOneThing legacy component lives at ./_components/todays-one-thing.tsx
 // and the lib helpers (pickTodaysOneThing / countUnlockedCategories) live at
 // @/lib/todays-one-thing — both retained on disk as a quick-revert path
-// while the Concierge Active Wizard (iteration 0016 · CLAUDE.md Sixth
-// 2026-05-23 row · Phase 1 PR #467) replaces this surface.
+// while the Today's Focus wizard (originally branded Concierge in V1; V2
+// cutover 2026-05-28 renamed the surface · iteration 0016 substrate
+// unchanged · CLAUDE.md Sixth 2026-05-23 row · Phase 1 PR #467) replaces
+// this surface.
 //
 // WizardHero import REMOVED 2026-05-24: the wizard surface MOVED to its
 // own /dashboard/[eventId]/today route + first BottomNav tab "Today"

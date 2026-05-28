@@ -6,13 +6,24 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchCoupleThreads, formatChatTimestamp } from '@/lib/chat';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { FollowGate } from '@/app/_components/follow-gate';
+import { isFollowingVendor } from '@/lib/follow';
 import { startThreadByVendorEmail } from './actions';
 
 export const metadata = { title: 'Messages' };
 
 type Props = {
   params: Promise<{ eventId: string }>;
-  searchParams: Promise<{ error?: string; prefill_vendor_email?: string }>;
+  // `next_action` + `vendor_profile_id` are populated by `startThreadByVendorEmail`
+  // when the couple hits the iteration 0019 follow gate (anti-spam: must follow
+  // a vendor before opening a new thread). They drive the inline <FollowGate>
+  // mount below — see CLAUDE.md 2026-05-14 row 4 + 2026-05-19 row 10.
+  searchParams: Promise<{
+    error?: string;
+    prefill_vendor_email?: string;
+    next_action?: string;
+    vendor_profile_id?: string;
+  }>;
 };
 
 export default async function CoupleMessagesPage({ params, searchParams }: Props) {
@@ -23,6 +34,45 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
   const supabase = await createClient();
 
   const threads = await fetchCoupleThreads(supabase, eventId);
+
+  // Follow-gate recovery state — when `startThreadByVendorEmail` redirected us
+  // back here with `?next_action=follow&vendor_profile_id=<UUID>`, resolve the
+  // vendor's business name + contact email so the inline <FollowGate> can show
+  // brand-voice copy + arm the prefilled Message button. The follow-state
+  // re-check covers the race where the couple followed via another tab
+  // between the redirect and this render — in that case skip the gate UI.
+  // WHY: iteration 0019 follow gate is anti-spam (couples must follow before
+  // opening a new thread). The server action correctly redirects with
+  // `next_action=follow` + `vendor_profile_id` params, but this page wasn't
+  // consuming them — couple was stranded with only the generic error toast.
+  // Cross-ref CLAUDE.md 2026-05-14 row 4 + 2026-05-19 row 10 +
+  // System_Wiring_Map_2026-05-28 RED #1.
+  const showFollowGate =
+    search.next_action === 'follow' && typeof search.vendor_profile_id === 'string' && search.vendor_profile_id.length > 0;
+  let followGateVendor: { name: string; email: string | null; alreadyFollowing: boolean } | null = null;
+  if (showFollowGate && search.vendor_profile_id) {
+    const { data: vendor } = await supabase
+      .from('vendor_profiles')
+      .select('business_name, contact_email')
+      .eq('vendor_profile_id', search.vendor_profile_id)
+      .maybeSingle();
+    if (vendor) {
+      let alreadyFollowing = false;
+      try {
+        alreadyFollowing = await isFollowingVendor(supabase, user.id, search.vendor_profile_id);
+      } catch {
+        // Graceful degrade: treat lookup failure as not-following so the
+        // gate still surfaces — better to show a redundant Follow button
+        // than to silently swallow the recovery path.
+        alreadyFollowing = false;
+      }
+      followGateVendor = {
+        name: vendor.business_name ?? 'this vendor',
+        email: vendor.contact_email ?? null,
+        alreadyFollowing,
+      };
+    }
+  }
 
   return (
     <section className="space-y-6">
@@ -41,6 +91,36 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
         >
           {search.error}
         </p>
+      ) : null}
+
+      {showFollowGate && followGateVendor && search.vendor_profile_id ? (
+        <section
+          aria-labelledby="follow-gate-heading"
+          className="space-y-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-5"
+        >
+          <div className="space-y-1">
+            <h2
+              id="follow-gate-heading"
+              className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta-700"
+            >
+              Follow first, then chat
+            </h2>
+            <p className="text-sm text-ink/80">
+              Follow{' '}
+              <span className="font-semibold text-ink">{followGateVendor.name}</span>{' '}
+              first to start a thread. You&rsquo;ll be able to message them right after.
+            </p>
+          </div>
+          <FollowGate
+            vendorProfileId={search.vendor_profile_id}
+            vendorName={followGateVendor.name}
+            vendorEmail={followGateVendor.email}
+            isAuthenticated={true}
+            initialFollowing={followGateVendor.alreadyFollowing}
+            eventId={eventId}
+            revalidatePath={`/dashboard/${eventId}/messages`}
+          />
+        </section>
       ) : null}
 
       <section className="rounded-xl border border-ink/10 bg-cream p-5">

@@ -454,13 +454,16 @@ export default async function ProfilePage({ searchParams }: Props) {
       </section>
 
       <section className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+        {/* Route URL stays `/dashboard/profile/concierge` to avoid cross-iteration
+            import + spec-corpus churn. Visible label rewritten to V2 brand
+            "Today's Focus" per CLAUDE.md 2026-05-28 V1→V2 cutover row 3 lock. */}
         {CONCIERGE_ENABLED ? (
           <Link
             href="/dashboard/profile/concierge"
             className="button-secondary inline-flex items-center gap-2"
           >
             <Sparkles aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            Setnayan Concierge
+            Today&rsquo;s Focus
           </Link>
         ) : null}
         <Link href="/help" className="button-secondary">

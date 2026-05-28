@@ -1,24 +1,33 @@
 'use server';
 
 /**
- * Setnayan Concierge — couple-side server actions.
+ * Today's Focus — couple-side server actions.
  *
- * Canonical spec: iteration 0016 § 0 + iteration 0025 § 3.7 + HANDOFF_2026-05-17 § 3.
+ * RETIRED 2026-05-28 V2 cutover.
+ * The V1 Concierge ₱2,499 SKU + 3-day card-less free trial + wedding-
+ * anchored 12-mo floor / 24-mo cap expiry framework + tiered abuse
+ * enforcement are all retired per CLAUDE.md 2026-05-28 V1→V2 cutover
+ * row 3 lock + PR #560 marketing rewrite. V2 replaces them with a
+ * single TODAYS_FOCUS line item in platform_retail_catalog_v2 — one
+ * purchase per event, no trial mechanic.
  *
- * Wedding-anchored expiry formula (locked 2026-05-17):
+ * These exports are retained during the cutover so existing imports
+ * (e.g. the stress-test script) keep compiling. Visible notification
+ * strings have been rewritten to V2 brand voice; the underlying
+ * trial / wedding-anchored expiry machinery still operates against
+ * the V1 columns (`events.concierge_*`, `users.concierge_*`) which
+ * the Phase A schema migration retires alongside.
  *
+ * Function names kept (activateConcierge / startConciergeTrial /
+ * cancelConcierge / recomputeConciergeExpiry / startConciergeTrialFromForm)
+ * to avoid cross-iteration import churn during cutover. Engineering
+ * rename to activate/cancel TodaysFocus is V2.x scope.
+ *
+ * Wedding-anchored expiry formula (legacy, still operative during cutover):
  *   expires = LEAST(GREATEST(wedding_date + 30d, activated_at + 12mo), activated_at + 24mo)
  *
- * Tested cases (see lib/concierge.ts computeConciergeExpiry):
- *   - wedding=NULL              → activated_at + 12mo (12-month floor)
- *   - wedding=activated + 3mo   → activated_at + 12mo (floor wins)
- *   - wedding=activated + 12mo  → wedding + 30d (≈ activated_at + 12.5mo)
- *   - wedding=activated + 24mo  → wedding + 30d clamped to activated_at + 24mo (cap wins)
- *   - wedding=activated + 36mo  → activated_at + 24mo (cap wins → long-engagement advisory fires)
- *
- * Anti-abuse: V1 only catches the deterministic phone-match signal. Fuzzy
- * similarity (venue / couple-name / wedding-date) is deferred to V1.1 per
- * iteration 0016 § 0 anti-abuse subsection.
+ * See lib/concierge.ts computeConciergeExpiry for the canonical formula
+ * implementation.
  */
 
 // Every `revalidatePath()` below uses `'layout'` mode (not default 'page')
@@ -76,11 +85,16 @@ async function requireCoupleMembership(
 }
 
 /**
- * Activate Setnayan Concierge on a paid order. Single SKU as of 2026-05-17.
- * Computes wedding-anchored expiry; fires long-engagement advisory once if
- * the wedding is > 24mo from activation.
+ * Activate Today's Focus on a paid order.
  *
- * Refuses on `users.concierge_enforcement_level = 'full_banned'`.
+ * RETIRED 2026-05-28 V2 cutover.
+ * V1 framing was a single Concierge ₱2,499 SKU; V2 replaces with the
+ * TODAYS_FOCUS line item in platform_retail_catalog_v2 at a different
+ * price. Function name kept to avoid cross-iteration import churn.
+ * Computes wedding-anchored expiry against the legacy V1 columns;
+ * fires long-engagement advisory once if the wedding is > 24mo from
+ * activation. The 'full_banned' refusal gate is V1-only and retires
+ * alongside the Phase A schema migration.
  */
 export async function activateConcierge(input: {
   eventId: string;
@@ -135,8 +149,8 @@ export async function activateConcierge(input: {
     void emitNotification({
       userId,
       type: 'chat_message',
-      title: 'Setnayan Concierge — long-engagement advisory',
-      body: `Your wedding is more than 24 months away. Setnayan Concierge covers up to 24 months from your purchase date — you'll lose access ~${monthsBetween(expiresAt, weddingDate!)} months before your wedding day. We recommend renewing closer to your wedding for full coverage.`,
+      title: "Today's Focus — long-engagement advisory",
+      body: `Your wedding is more than 24 months away. Today's Focus runs for up to 24 months from your purchase date — you'll have ~${monthsBetween(expiresAt, weddingDate!)} months between expiry and your wedding day. Re-purchase closer to the date to keep the daily planner running through to the wedding.`,
       relatedUrl: `/dashboard/${eventId}`,
     });
   }
@@ -150,8 +164,8 @@ export async function activateConcierge(input: {
   void emitNotification({
     userId,
     type: 'order_paid',
-    title: 'Setnayan Concierge active',
-    body: 'Your Setnayan Concierge is now active. The full 9-step roadmap, daily nudges, and priority vendor matching are unlocked.',
+    title: "Today's Focus active",
+    body: "Today's Focus is now active on your event. Open your dashboard to see today's recommended step.",
     relatedUrl: `/dashboard/${eventId}`,
   });
 
@@ -161,14 +175,15 @@ export async function activateConcierge(input: {
 }
 
 /**
- * Cancel Concierge — V1 implementation (per HANDOFF_2026-05-17 § 3
- * simplification): surface "cancellation requested" client-side only. The
- * status remains 'active' until natural expiry per the lazy sweep. The
- * couple keeps the access they paid for.
+ * Cancel Today's Focus — surface "cancellation requested" client-side
+ * only. Status remains 'active' until natural expiry per the lazy sweep.
+ * The host keeps the access they paid for.
  *
- * No schema column exists for `cancellation_requested_at` (skipped per spec
- * V1 simplification). The Settings page reads a query param to confirm the
- * cancellation request landed.
+ * RETIRED 2026-05-28 V2 cutover.
+ * V1 framing was a Concierge cancel flow; V2 doesn't expose a cancel
+ * CTA in the settings UI (one-time purchase, no recurring billing to
+ * cancel). The handler stays mounted for cutover-period continuity but
+ * is no longer reachable from the UI.
  */
 export async function cancelConcierge(formData: FormData): Promise<void> {
   const { eventId } = await requireCoupleMembership(formData.get('event_id'));
@@ -180,16 +195,16 @@ export async function cancelConcierge(formData: FormData): Promise<void> {
 }
 
 /**
- * Start the 3-day card-less trial. Blocks on:
- *  (a) `users.concierge_trial_used_at IS NOT NULL` → account already used trial
- *  (b) `users.concierge_enforcement_level IN ('trial_banned', 'full_banned')`
- *  (c) Deterministic abuse signal (phone match against trial-used accounts)
+ * Start trial — V1 legacy server action.
  *
- * On (c): inserts `concierge_abuse_flags(status='pending_review')` and
- * returns `under_review` WITHOUT consuming the trial slot — a falsely-
- * flagged user later cleared by admin can still trial.
+ * RETIRED 2026-05-28 V2 cutover.
+ * V2 has no trial mechanic per CLAUDE.md 2026-05-28 row 3 lock. V1 ran
+ * a 3-day card-less trial gated on three signals (per-account trial-
+ * used flag, enforcement level, phone-match abuse signal); the handler
+ * + abuse-flag insert + per-event trial slot stamping stay mounted for
+ * cutover-period continuity but no UI surface invokes it.
  *
- * Idempotent: re-running on an event already in `'trial'` returns
+ * Idempotent: re-running on an event already in 'trial' returns
  * `already_active` (no double-stamp).
  */
 export async function startConciergeTrial(input: { eventId: string }): Promise<{
@@ -267,7 +282,7 @@ export async function startConciergeTrial(input: { eventId: string }): Promise<{
     void emitNotification({
       userId,
       type: 'chat_message',
-      title: 'Setnayan Concierge — trial under review',
+      title: "Today's Focus — account under review",
       body: 'Your account is under review. Contact support if you believe this is in error.',
       relatedUrl: `/help#concierge`,
     });
@@ -302,10 +317,14 @@ export async function startConciergeTrial(input: { eventId: string }): Promise<{
   void emitNotification({
     userId,
     type: 'chat_message',
-    title: 'Setnayan Concierge — trial started',
-    body: `You have 3 days of Setnayan Concierge. Trial ends ${expiresAt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.`,
+    title: "Today's Focus active",
+    body: `Today's Focus is now active on your event. Open your dashboard to see today's recommended step.`,
     relatedUrl: `/dashboard/${eventId}`,
   });
+  // 2026-05-28 V2 cutover note: the expiresAt timestamp above is still
+  // written to the events row for cutover-period continuity (V1 schema)
+  // but no longer surfaced as a "trial ends on" claim in the notification
+  // body. V2 has no trial mechanic.
 
   revalidatePath(`/dashboard/${eventId}`, 'layout');
   revalidatePath('/dashboard/profile/concierge', 'layout');
@@ -314,11 +333,16 @@ export async function startConciergeTrial(input: { eventId: string }): Promise<{
 
 /**
  * Recompute `concierge_expires_at` from the current wedding_date.
- * EXTEND-ONLY — never shrinks an existing expiry (couples keep the runway
- * they paid for even if they move the wedding earlier). Fires the
- * long-engagement advisory the first time `wedding_date > activated + 24mo`.
  *
- * Idempotent; safe to call on every wedding-date update.
+ * RETIRED 2026-05-28 V2 cutover.
+ * EXTEND-ONLY semantics — never shrinks an existing expiry (hosts keep
+ * the runway they paid for even if they move the wedding earlier).
+ * Fires the long-engagement advisory the first time
+ * `wedding_date > activated + 24mo`.
+ *
+ * V1 column names (`concierge_*`) retained during cutover. Phase A
+ * schema migration renames + simplifies. Idempotent; safe to call on
+ * every wedding-date update.
  */
 export async function recomputeConciergeExpiry(input: {
   eventId: string;
@@ -369,8 +393,8 @@ export async function recomputeConciergeExpiry(input: {
     void emitNotification({
       userId,
       type: 'chat_message',
-      title: 'Setnayan Concierge — long-engagement advisory',
-      body: `Your wedding is more than 24 months away. Setnayan Concierge covers up to 24 months from your purchase date — you'll lose access ~${monthsBetween(newExpires, weddingDate!)} months before your wedding day. We recommend renewing closer to your wedding for full coverage.`,
+      title: "Today's Focus — long-engagement advisory",
+      body: `Your wedding is more than 24 months away. Today's Focus runs for up to 24 months from your purchase date — you'll have ~${monthsBetween(newExpires, weddingDate!)} months between expiry and your wedding day. Re-purchase closer to the date to keep the daily planner running through to the wedding.`,
       relatedUrl: `/dashboard/${eventId}`,
     });
   }
@@ -391,7 +415,12 @@ export async function recomputeConciergeExpiry(input: {
 }
 
 /**
- * FormData wrapper for the Settings → Concierge trial button.
+ * FormData wrapper.
+ *
+ * RETIRED 2026-05-28 V2 cutover.
+ * V1 wired the Settings → Concierge trial button to this handler. V2
+ * has no trial surface in the UI. Handler retained for cutover-period
+ * continuity; engineering retirement happens alongside Phase A schema.
  */
 export async function startConciergeTrialFromForm(formData: FormData): Promise<void> {
   const rawEventId = formData.get('event_id');

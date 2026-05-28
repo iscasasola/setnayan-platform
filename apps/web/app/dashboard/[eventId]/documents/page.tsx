@@ -522,7 +522,7 @@ function OrdersSection({
       />
       {rows.length === 0 ? (
         <SectionEmpty
-          message="No paid orders yet. Setnayan Pay receipts appear here once a payment is matched by the operations team."
+          message="No paid orders yet. Receipts for your Setnayan software purchases appear here once a payment is matched by the operations team."
           ctaLabel="Open orders"
           href={`/dashboard/${eventId}/orders`}
         />

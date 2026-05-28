@@ -2,46 +2,22 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import type { CeremonyTypeKey } from '@/app/_components/ceremony-type-radio-group';
 import { createWeddingEvent } from '../actions';
 import { WeddingTypePicker, type LaunchStatusRow } from './wedding-type-picker';
 
-type ConciergeChoice = 'diy' | 'trial' | 'paid';
-
-type ConciergeOption = {
-  key: ConciergeChoice;
-  badge: string;
-  title: string;
-  bullets: string[];
-  cta: string;
-};
-
-const CONCIERGE_OPTIONS: ConciergeOption[] = [
-  {
-    key: 'diy',
-    badge: 'Free',
-    title: 'DIY mode',
-    bullets: [
-      'All dashboard tools.',
-      'Plan at your own pace.',
-      'No timeline help.',
-    ],
-    cta: 'Start Free',
-  },
-  {
-    key: 'paid',
-    badge: '₱2,499',
-    title: 'Setnayan Concierge',
-    bullets: [
-      'Full 9-step roadmap.',
-      'Daily nudges + priority vendor matching.',
-      'Less than ₱25K coordinator.',
-    ],
-    cta: 'Buy ₱2,499',
-  },
-];
+/* Retired 2026-05-28 V2 cutover */
+// V1 surfaced a DIY / Concierge ₱2,499 / 3-day-trial choice card at the
+// end of create-event. V2 retires the trial mechanic entirely and prices
+// Today's Focus separately in platform_retail_catalog_v2 (purchased
+// post-event-creation from /pricing). Every new event lands in DIY by
+// default; hosts upgrade later from the dashboard if they want the
+// daily planner. The ConciergeChoice type + hidden form field are kept
+// for cutover-period continuity with the server action signature; the
+// value is always 'diy' from this surface.
+type ConciergeChoice = 'diy';
 
 // V1 tile list (locked 2026-05-16, debut enabled 2026-05-20). The V1.1
 // multi-event roster (iteration 0041) is growing one event_type at a
@@ -70,14 +46,21 @@ type EventTypeRow = (typeof EVENT_TYPES)[number];
 
 type EventTypePickerProps = {
   launchStatus: LaunchStatusRow[];
-  conciergeEnabled: boolean;
+  /* Retired 2026-05-28 V2 cutover */
+  // V1 gated the Concierge choice card with `conciergeEnabled`. V2 has
+  // no choice card on create-event so the prop is unused; kept on the
+  // type signature for cutover-period import-source continuity with
+  // create-event/page.tsx.
+  conciergeEnabled?: boolean;
 };
 
-export function EventTypePicker({ launchStatus, conciergeEnabled }: EventTypePickerProps) {
+export function EventTypePicker({ launchStatus }: EventTypePickerProps) {
   const N = EVENT_TYPES.length;
   const [centerIdx, setCenterIdx] = useState(0);
   const [selectedKey, setSelectedKey] = useState<EventTypeKey | null>(null);
-  const [conciergeChoice, setConciergeChoice] = useState<ConciergeChoice>('diy');
+  // ConciergeChoice locked to 'diy' on every new event in V2 — hosts
+  // upgrade to Today's Focus from the dashboard post-creation.
+  const conciergeChoice: ConciergeChoice = 'diy';
   // Task #44 (2026-05-22) — track the ceremony pick so the Save button stays
   // disabled until the host explicitly chooses one. Non-wedding event_types
   // don't render the picker and are allowed to submit without it.
@@ -201,18 +184,10 @@ export function EventTypePicker({ launchStatus, conciergeEnabled }: EventTypePic
             />
           ) : null}
 
-          {/* Setnayan Concierge is wedding-themed (9-step wedding roadmap,
-              wedding vendor matching). Surface only for weddings; non-
-              wedding event_types default to DIY via the hidden input on
-              the form. Concierge for gender_reveal / etc. is V1.2+.
-              Owner kill-switch (2026-05-20): hide entirely when
-              conciergeEnabled=false — the purchase form is being rebuilt. */}
-          {selected.key === 'wedding' && conciergeEnabled ? (
-            <ConciergeChoiceCard
-              selected={conciergeChoice}
-              onSelect={setConciergeChoice}
-            />
-          ) : null}
+          {/* Retired 2026-05-28 V2 cutover — Concierge choice card removed.
+              V1 surfaced DIY / Concierge ₱2,499 / 3-day-trial here; V2 has no
+              trial mechanic and prices Today's Focus separately on /pricing.
+              Every new event lands in DIY by default. */}
 
           <div className="space-y-3">
             <div className="flex flex-col gap-3 sm:flex-row">
@@ -221,11 +196,7 @@ export function EventTypePicker({ launchStatus, conciergeEnabled }: EventTypePic
                 pendingLabel="Creating event…"
                 disabled={selected.key === 'wedding' && !ceremonyType}
               >
-                {conciergeEnabled && conciergeChoice === 'paid'
-                  ? `Create event · continue to Concierge ₱2,499`
-                  : conciergeEnabled && conciergeChoice === 'trial'
-                    ? `Create event · start 3-day Concierge trial`
-                    : `Create ${selected.label.toLowerCase()} event`}
+                Create {selected.label.toLowerCase()} event
               </SubmitButton>
               <Link className="button-secondary w-full sm:w-auto" href="/dashboard">
                 Cancel
@@ -250,97 +221,11 @@ export function EventTypePicker({ launchStatus, conciergeEnabled }: EventTypePic
   );
 }
 
-function ConciergeChoiceCard({
-  selected,
-  onSelect,
-}: {
-  selected: ConciergeChoice;
-  onSelect: (choice: ConciergeChoice) => void;
-}) {
-  return (
-    <section
-      aria-labelledby="concierge-choice-heading"
-      className="space-y-3 rounded-2xl border border-ink/10 bg-cream/40 p-4 sm:p-5"
-    >
-      <header className="space-y-1">
-        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-          Wedding coordinator ₱25,000+ · Setnayan Concierge ₱2,499
-        </p>
-        <h2
-          id="concierge-choice-heading"
-          className="text-base font-semibold tracking-tight text-ink sm:text-lg"
-        >
-          How would you like to plan?
-        </h2>
-        <p className="text-xs text-ink/55">
-          Less than your invitation suite. More than worth it.
-        </p>
-      </header>
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        {CONCIERGE_OPTIONS.map((opt) => {
-          const isActive = selected === opt.key;
-          return (
-            <button
-              key={opt.key}
-              type="button"
-              onClick={() => onSelect(opt.key)}
-              aria-pressed={isActive}
-              className={`flex h-full flex-col gap-2 rounded-xl border p-4 text-left transition-all ${
-                isActive
-                  ? opt.key === 'paid'
-                    ? 'border-terracotta bg-terracotta/[0.06] ring-2 ring-terracotta/30'
-                    : 'border-ink/30 bg-cream ring-2 ring-ink/15'
-                  : 'border-ink/15 bg-cream hover:border-terracotta/40 hover:bg-terracotta/[0.04]'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span
-                  className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
-                    opt.key === 'paid'
-                      ? 'bg-terracotta/15 text-terracotta-700'
-                      : 'bg-ink/10 text-ink/65'
-                  }`}
-                >
-                  {opt.badge}
-                </span>
-                {opt.key === 'paid' ? (
-                  <Sparkles aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-                ) : null}
-              </div>
-              <span className="text-base font-semibold text-ink">{opt.title}</span>
-              <ul className="space-y-1 text-xs text-ink/65">
-                {opt.bullets.map((b) => (
-                  <li key={b}>{b}</li>
-                ))}
-              </ul>
-              <span
-                className={`mt-auto inline-flex items-center gap-1.5 text-xs font-medium ${
-                  isActive ? 'text-terracotta-700' : 'text-ink/65'
-                }`}
-              >
-                {isActive ? '✓ Selected' : opt.cta}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      <button
-        type="button"
-        onClick={() => onSelect(selected === 'trial' ? 'diy' : 'trial')}
-        className="mx-auto block rounded-full px-3 py-1 text-xs font-medium text-terracotta hover:underline"
-      >
-        {selected === 'trial'
-          ? '✓ Try 3 days free (no card required) — tap to undo'
-          : 'Not ready to commit? Try 3 days free →'}
-      </button>
-      <p className="text-center text-[11px] text-ink/50">
-        Activate or change anytime from Settings → Setnayan Concierge.
-      </p>
-    </section>
-  );
-}
+/* Retired 2026-05-28 V2 cutover · ConciergeChoiceCard component deleted.
+   V1 surfaced a DIY / Concierge ₱2,499 / 3-day-trial picker at the
+   bottom of create-event. V2 has no trial mechanic and prices Today's
+   Focus separately on /pricing. Every new event lands in DIY by default;
+   hosts upgrade later from the dashboard if they want the daily planner. */
 
 function Tile({
   type,

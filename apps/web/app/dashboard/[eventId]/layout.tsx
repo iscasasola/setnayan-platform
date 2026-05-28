@@ -156,10 +156,11 @@ export default async function EventLayout({ children, params }: Props) {
 
   const tr = makeT(locale);
   // 5-tab BottomNav (CLAUDE.md 2026-05-24) — Today added as new first tab,
-  // promoting the Concierge Active Wizard (iteration 0016) from inline
-  // event-home block to its own /today route. Original 4-tab refactor
-  // (2026-05-22) kept: Vendors + Budget reachable via planning cards on
-  // Home + top-nav Marketplace + 14-tile NavGrid.
+  // promoting the Today's Focus wizard (originally branded Concierge in V1;
+  // V2 cutover 2026-05-28 renamed the surface · iteration 0016 substrate
+  // unchanged) from inline event-home block to its own /today route.
+  // Original 4-tab refactor (2026-05-22) kept: Vendors + Budget reachable
+  // via planning cards on Home + top-nav Marketplace + 14-tile NavGrid.
   const navLabels = {
     today: tr('nav.today'),
     home: tr('nav.home'),

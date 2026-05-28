@@ -94,22 +94,32 @@ export function VendorSubnavTab({
   }, [liveNotificationsUserId, instanceId]);
 
   const renderBadge = liveBadge;
+  // v2.1 deep-fix (2026-05-28) — active tab swaps from solid terracotta
+  // to --m-orange-2 sienna with --m-paper text; rest state uses
+  // --m-paper-2 warm parchment over --m-slate body. Mirrors the couple
+  // BottomNav active-state treatment shipped via PR #587. Tab shape +
+  // pill geometry + badge placement unchanged per
+  // [[feedback_setnayan_button_preservation]].
   return (
     <Link
       href={href}
-      className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm transition-colors ${
+      className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm transition-colors"
+      style={
         isActive
-          ? 'bg-terracotta text-cream'
-          : 'bg-ink/5 text-ink/70 hover:bg-ink/10'
-      }`}
+          ? { background: 'var(--m-orange-2)', color: 'var(--m-paper)' }
+          : { background: 'var(--m-paper-2)', color: 'var(--m-slate)' }
+      }
     >
       {icon}
       <span>{label}</span>
       {renderBadge && renderBadge > 0 ? (
         <span
-          className={`rounded-full px-1.5 font-mono text-[10px] ${
-            isActive ? 'bg-cream/20 text-cream' : 'bg-ink/10 text-ink/65'
-          }`}
+          className="rounded-full px-1.5 font-mono text-[10px]"
+          style={
+            isActive
+              ? { background: 'rgba(251, 248, 242, 0.2)', color: 'var(--m-paper)' }
+              : { background: 'var(--m-line)', color: 'var(--m-slate)' }
+          }
         >
           {renderBadge > 9 ? '9+' : renderBadge}
         </span>

@@ -37,6 +37,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/signup`, lastModified: now, changeFrequency: 'yearly', priority: 0.6 },
     { url: `${baseUrl}/privacy`, lastModified: now, changeFrequency: 'yearly', priority: 0.3 },
     { url: `${baseUrl}/terms`, lastModified: now, changeFrequency: 'yearly', priority: 0.3 },
+    // v2.1 keynote scroll decks (CLAUDE.md 2026-05-28 11th row · static
+    // React+Babel pages dropped under public/keynote/, served via
+    // next.config.ts rewrites). Indexable because they're the public
+    // pitch decks Setnayan shares with couples, vendors, and press.
+    { url: `${baseUrl}/keynote`, lastModified: now, changeFrequency: 'monthly', priority: 0.65 },
+    { url: `${baseUrl}/keynote/vendors`, lastModified: now, changeFrequency: 'monthly', priority: 0.65 },
+    { url: `${baseUrl}/keynote/engineering`, lastModified: now, changeFrequency: 'monthly', priority: 0.5 },
   ];
 
   const venueEntries = await fetchVenueSitemapEntries(baseUrl, now);

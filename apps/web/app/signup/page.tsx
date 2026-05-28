@@ -6,9 +6,12 @@ import { ANY_OAUTH_ENABLED, OAuthButtonRow } from '@/app/_components/oauth-butto
 import { safeNext } from '@/lib/auth';
 import { signUp } from './actions';
 
+// GEO Phase G5 (2026-05-28) — canonical URL + brand-suffix title.
 export const metadata: Metadata = {
-  title: 'Create account',
-  description: 'Create a Setnayan account.',
+  title: 'Create account · Setnayan',
+  description:
+    'Create a Setnayan account in seconds. Free for couples planning their wedding. Free baseline listing for Filipino wedding vendors.',
+  alternates: { canonical: '/signup' },
 };
 
 const ERROR_COPY: Record<string, string> = {

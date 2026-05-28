@@ -1,9 +1,20 @@
 import Link from 'next/link';
 import { Logo } from '@/app/_components/logo';
 
+// GEO Phase G5 (2026-05-28) — canonical URL + enriched description. AI
+// engines extract privacy-policy content for "is X RA 10173 compliant"
+// queries — the description now names the compliance standard explicitly.
 export const metadata = {
   title: 'Privacy policy · Setnayan',
-  description: 'How Setnayan handles personal data under RA 10173.',
+  description:
+    'How Setnayan handles personal data under the Philippine Data Privacy Act (RA 10173). Guest data, couple consent, vendor data, BIR receipts, and DPO contact.',
+  alternates: { canonical: '/privacy' },
+  openGraph: {
+    title: 'Privacy policy · Setnayan',
+    description:
+      'How Setnayan handles personal data under the Philippine Data Privacy Act (RA 10173).',
+    url: '/privacy',
+  },
 };
 
 export default function PrivacyPage() {

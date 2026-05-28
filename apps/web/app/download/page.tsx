@@ -12,10 +12,18 @@ import {
 import { DESKTOP_RELEASE } from '@/lib/desktop-release';
 import { SiteHeader } from '@/app/_components/site-header';
 
+// GEO Phase G5 (2026-05-28) — canonical URL + openGraph block added.
 export const metadata = {
   title: 'Download Setnayan for Mac',
   description:
-    'Install Setnayan as a native macOS app for Apple Silicon. Same Setnayan experience, in its own window.',
+    'Install Setnayan as a native macOS app for Apple Silicon. Same Setnayan experience, in its own window. iOS and Android shells on the V1.5 roadmap.',
+  alternates: { canonical: '/download' },
+  openGraph: {
+    title: 'Download Setnayan for Mac',
+    description:
+      'Install Setnayan as a native macOS app for Apple Silicon. iOS and Android on the V1.5 roadmap.',
+    url: '/download',
+  },
 };
 
 function formatMb(bytes: number) {

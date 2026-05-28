@@ -24,7 +24,7 @@ async function requireAdmin() {
 }
 
 export async function toggleTeamMember(formData: FormData) {
-  await requireAdmin();
+  const { adminUserId } = await requireAdmin();
   const targetUserId = formData.get('user_id');
   const desiredRaw = formData.get('desired');
   if (typeof targetUserId !== 'string' || typeof desiredRaw !== 'string') {
@@ -33,11 +33,39 @@ export async function toggleTeamMember(formData: FormData) {
   const desired = desiredRaw === 'true';
 
   const admin = createAdminClient();
+
+  // Capture the prior value so the audit row has clean before/after metadata.
+  // Best-effort lookup — if the read fails we still proceed with the toggle.
+  const { data: prior } = await admin
+    .from('users')
+    .select('is_team_member, email')
+    .eq('user_id', targetUserId)
+    .maybeSingle();
+
   const { error } = await admin
     .from('users')
     .update({ is_team_member: desired, updated_at: new Date().toISOString() })
     .eq('user_id', targetUserId);
   if (error) throw new Error(error.message);
+
+  // Per CLAUDE.md 2026-05-12 § 9.1 admin discipline + System_Wiring_Map_2026-05-28
+  // RED #3. Every admin mutation logs to admin_audit_log so the owner can
+  // reconstruct who-did-what during pilot. Best-effort: audit failure logs to
+  // console but does NOT roll back the toggle (matches the canonical pattern
+  // at line 408 / 502 of this file).
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
+    action: 'user_team_member_toggle',
+    target_id: targetUserId,
+    actor_user_id: adminUserId,
+    metadata: {
+      target_email: prior?.email ?? null,
+      before: prior?.is_team_member ?? null,
+      after: desired,
+    },
+  });
+  if (auditErr) {
+    console.error('[toggleTeamMember] audit log insert failed', auditErr.message);
+  }
 
   revalidatePath('/admin/users');
 }
@@ -161,7 +189,7 @@ export async function unblacklistEmail(formData: FormData) {
  * and a user can't reset their own password. Internal/team-pool only.
  */
 export async function resetUserPassword(formData: FormData) {
-  await requireAdmin();
+  const { adminUserId } = await requireAdmin();
   const targetUserId = formData.get('user_id');
   if (typeof targetUserId !== 'string') {
     throw new Error('Invalid input');
@@ -183,6 +211,24 @@ export async function resetUserPassword(formData: FormData) {
     password: tempPassword,
   });
   if (error) throw new Error(error.message);
+
+  // Per CLAUDE.md 2026-05-12 § 9.1 admin discipline + System_Wiring_Map_2026-05-28
+  // RED #3. Every admin mutation logs to admin_audit_log so the owner can
+  // reconstruct who-did-what during pilot. We intentionally do NOT include the
+  // temp password in the audit row — only the fact that a reset happened. The
+  // temp password rides the redirect query param to the surface admin and is
+  // never persisted server-side.
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
+    action: 'user_password_reset',
+    target_id: targetUserId,
+    actor_user_id: adminUserId,
+    metadata: {
+      target_email: existing.email,
+    },
+  });
+  if (auditErr) {
+    console.error('[resetUserPassword] audit log insert failed', auditErr.message);
+  }
 
   revalidatePath('/admin/users');
   redirect(
@@ -208,17 +254,41 @@ function generateTempPassword(): string {
  * Internal/team-pool only.
  */
 export async function confirmUserEmail(formData: FormData) {
-  await requireAdmin();
+  const { adminUserId } = await requireAdmin();
   const targetUserId = formData.get('user_id');
   if (typeof targetUserId !== 'string') {
     throw new Error('Invalid input');
   }
 
   const admin = createAdminClient();
+
+  // Capture the target email for the audit row before the auth-side mutation.
+  const { data: existing } = await admin
+    .from('users')
+    .select('email')
+    .eq('user_id', targetUserId)
+    .maybeSingle();
+
   const { error } = await admin.auth.admin.updateUserById(targetUserId, {
     email_confirm: true,
   });
   if (error) throw new Error(error.message);
+
+  // Per CLAUDE.md 2026-05-12 § 9.1 admin discipline + System_Wiring_Map_2026-05-28
+  // RED #3. Every admin mutation logs to admin_audit_log so the owner can
+  // reconstruct who-did-what during pilot. Manual email confirmation is
+  // particularly worth auditing — it bypasses the standard verification loop.
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
+    action: 'user_email_confirm',
+    target_id: targetUserId,
+    actor_user_id: adminUserId,
+    metadata: {
+      target_email: existing?.email ?? null,
+    },
+  });
+  if (auditErr) {
+    console.error('[confirmUserEmail] audit log insert failed', auditErr.message);
+  }
 
   revalidatePath('/admin/users');
 }

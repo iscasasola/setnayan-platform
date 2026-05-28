@@ -19,11 +19,11 @@
  *
  * v2.1 drift scrubs applied (CLAUDE.md 2026-05-28 11th row supersedes lead-broker
  * pivot from rows 7-9 same day):
- *   - "Pro at ₱499/wk" (2x in StackCloseVendor) → "Pro at ₱1,999/mo"
+ *   - "Pro at ₱499/wk" (2x in StackCloseVendor) → "Pro at ₱1,999/28d"
  *   - "Setnayan Concierge matching/matchmaking" → "Today's Focus matching/matchmaking"
  *   - 0% commission + Setnayan-never-touches-the-money preserved (V2 publisher posture)
  *   - 4-tier matrix (Free / Verified / Pro / Enterprise) intact from template
- *   - ₱1,499 one-time verification + ₱1,999/mo Pro + ₱5,499/mo Enterprise preserved
+ *   - ₱1,499 one-time verification + ₱1,999/28d Pro + ₱5,499/28d Enterprise preserved
  *   - 100-token founder bonus on verification before 31 Jan 2027 preserved
  *
  * Per [[feedback_setnayan_button_preservation]] — every CTA placement +
@@ -38,25 +38,25 @@ import { ForVendorsDeepDive } from './_components/for-vendors-deep-dive';
 import { Voices, Pricing, FAQ, ClosingCTA, Footer } from './_components/page-tail';
 
 export const metadata = {
-  title: 'Setnayan for Vendors — Free + Pro · ₱1,999/mo',
+  title: 'Setnayan for Vendors — Free + Pro · ₱1,999/28d',
   description:
-    'Free vendor profile + Pro tier ₱1,999/mo. 0% commission on bookings — we never touch the money. In-app chat, pipeline, reviews. Founder bonus 100 tokens on verification (until 31 Jan 2027).',
+    'Free vendor profile + Pro tier ₱1,999/28d. 0% commission on bookings — we never touch the money. In-app chat, pipeline, reviews. Founder bonus 100 tokens on verification (until 31 Jan 2027).',
   alternates: {
     canonical: '/for-vendors',
   },
   openGraph: {
-    title: 'Setnayan for Vendors — Free + Pro · ₱1,999/mo',
+    title: 'Setnayan for Vendors — Free + Pro · ₱1,999/28d',
     description:
-      'Free vendor profile + Pro tier ₱1,999/mo. 0% commission on bookings — we never touch the money.',
+      'Free vendor profile + Pro tier ₱1,999/28d. 0% commission on bookings — we never touch the money.',
     url: '/for-vendors',
     type: 'website',
     siteName: 'Setnayan',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Setnayan for Vendors — Free + Pro · ₱1,999/mo',
+    title: 'Setnayan for Vendors — Free + Pro · ₱1,999/28d',
     description:
-      '0% commission. Free listing. Pro ₱1,999/mo. 100 founder bonus tokens on verification.',
+      '0% commission. Free listing. Pro ₱1,999/28d. 100 founder bonus tokens on verification.',
   },
 };
 
@@ -81,7 +81,7 @@ const FOR_VENDORS_JSONLD = {
       '@type': 'WebPage',
       '@id': `${SITE_URL}/for-vendors#webpage`,
       url: `${SITE_URL}/for-vendors`,
-      name: 'Setnayan for vendors — Free + Pro · ₱1,999/mo',
+      name: 'Setnayan for vendors — Free + Pro · ₱1,999/28d',
       isPartOf: { '@id': `${SITE_URL}/#website` },
       about: { '@id': `${SITE_URL}/#organization` },
       audience: {

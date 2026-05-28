@@ -203,7 +203,7 @@ const V03 = () => (
 const V04 = () => (
   <VChapter presenter={P.MIGS}>
     <VH1 size={84} sub="Verified once. No monthly listing fees. Ever.">
-      ₱1,499 ONCE.<br />NOT ₱299/MO.
+      ₱1,499 ONCE.<br />NOT ₱299/28D.
     </VH1>
     <VBody>
       One-time vendor verification fee — instead of the monthly listing subscriptions other
@@ -301,7 +301,7 @@ const V_RULES = () => (
 const V05 = () => (
   <VChapter presenter={P.MIGS} dark>
     <VH1 color="var(--paper)" size={80} sub="Free vendor profile is plenty for most. Pro is for vendors who want the ecosystem.">
-      FREE FOREVER.<br />PRO AT ₱1,999/MO.
+      FREE FOREVER.<br />PRO AT ₱1,999/28D.
     </VH1>
     <div style={{ marginTop: 56, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
       <div style={{ padding: 28, background: "var(--paper)", borderRadius: 14 }}>
@@ -325,7 +325,7 @@ const V05 = () => (
       </div>
       <div style={{ padding: 28, background: "var(--ink)", border: "1px solid var(--orange-3)", borderRadius: 14 }}>
         <div className="mono" style={{ fontSize: 11, color: "var(--orange-3)", letterSpacing: "0.16em" }}>★ PRO</div>
-        <div style={{ fontFamily: "var(--display)", fontWeight: 800, fontSize: 36, color: "var(--paper)", marginTop: 4 }}>₱1,999<span style={{ fontSize: 16, color: "var(--slate-4)" }}>/mo</span></div>
+        <div style={{ fontFamily: "var(--display)", fontWeight: 800, fontSize: 36, color: "var(--paper)", marginTop: 4 }}>₱1,999<span style={{ fontSize: 16, color: "var(--slate-4)" }}>/28d</span></div>
         <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
           {[
             "Everything in Free",
@@ -346,7 +346,7 @@ const V05 = () => (
       </div>
     </div>
     <div className="mono" style={{ fontSize: 12, color: "var(--slate-4)", marginTop: 24, textAlign: "center", letterSpacing: "0.10em" }}>
-      Verified vendors only · Enterprise at ₱5,499/mo for multi-category + unlimited team accounts · Founder bonus 100 tokens on verification (until 31 Jan 2027)
+      Verified vendors only · Enterprise at ₱5,499/28d for multi-category + unlimited team accounts · Founder bonus 100 tokens on verification (until 31 Jan 2027)
     </div>
   </VChapter>
 );
@@ -393,8 +393,8 @@ const V_PRICING = () => (
           {[
             { name: "Vendor verification",          price: "₱1,499 once",       note: "one-time · lifetime verified badge · prerequisite for Pro" },
             { name: "Document update",              price: "₱499",              note: "only when your business docs change" },
-            { name: "Pro subscription",             price: "₱1,999/month",      note: "1 category · up to 5 team accounts" },
-            { name: "Enterprise subscription",      price: "₱5,499/month",      note: "multi-category · unlimited team accounts" },
+            { name: "Pro subscription",             price: "₱1,999/28 days",      note: "1 category · up to 5 team accounts" },
+            { name: "Enterprise subscription",      price: "₱5,499/28 days",      note: "multi-category · unlimited team accounts" },
             { name: "Bidding token packs",          price: "₱1,000–₱18,000",     note: "4 / 10 / 25 / 50 / 100 packs · ₱180–₱250 per token" },
             { name: "On-site verification + content kit", price: "vendor-set range", note: "film crew + photos + service docs · Request bid" },
             { name: "Boosted Ads · to 30km radius",  price: "₱1,200/wk",         note: "Pro+ · pausable anytime" },

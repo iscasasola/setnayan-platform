@@ -5,7 +5,7 @@
  * NOT YOUR DMS." — with the pipeline card on the right. All copy passes
  * v2.1 drift scrub per CLAUDE.md 2026-05-28 11th row:
  *   - 0% commission · we never touch the money (preserved)
- *   - Pro ₱1,999/mo (already canon — template had it right)
+ *   - Pro ₱1,999/28d (already canon — template had it right)
  *   - 100 free bidding tokens on verification before 31 Jan 2027 (preserved)
  *   - "Concierge matchmaking" copy in hero blurb → "Today's Focus matchmaking"
  *     per V2 retire of Concierge brand
@@ -91,7 +91,7 @@ export function VendorHero() {
             <strong style={{ color: 'var(--m-ink)' }}>
               0% commission · Setnayan never takes a cut of your bookings.
             </strong>{' '}
-            Pro at <strong style={{ color: 'var(--m-ink)' }}>₱1,999/month</strong>{' '}
+            Pro at <strong style={{ color: 'var(--m-ink)' }}>₱1,999/28 days</strong>{' '}
             unlocks Today&apos;s Focus matchmaking, boosted reach, AI proposal
             drafting, demand pulse. Founder bonus{' '}
             <strong style={{ color: 'var(--m-ink)' }}>

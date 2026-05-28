@@ -114,7 +114,7 @@ const IOSHandoff = () => (
             {[
               "Couple-side Pro subscription (if we ever add one)",
               "Purely-digital downloads with no real-world delivery",
-              "Vendor Pro subscription · ₱1,999/month · B2B exempt anyway",
+              "Vendor Pro subscription · ₱1,999/28 days · B2B exempt anyway",
               "Admin panel · internal tools",
               "(That's it — almost everything is exempt)",
             ].map(item => (

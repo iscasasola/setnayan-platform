@@ -23,7 +23,7 @@
  *
  * v2.1 DRIFT SCRUBS applied throughout:
  *   - "5% platform fee" / "we take a cut" → "0% commission"
- *   - "₱499/wk Pro" → "₱1,999/month Pro Vendor"
+ *   - "₱499/wk Pro" → "₱1,999/28 days Pro Vendor"
  *   - "Setnayan Concierge" → "Today's Focus"
  *   - "₱1,499 one-time" + "₱499 refresh" preserved (v2.1-correct)
  *
@@ -830,12 +830,12 @@ export function PricingSection() {
           {
             title: 'Vendors',
             price: 'Free to list',
-            sub: '₱1,999/month Pro',
+            sub: '₱1,999/28 days Pro',
             items: [
               'Free listing + 100 founder tokens',
               '₱1,499 lifetime verification badge',
-              'Pro Vendor ₱1,999/month',
-              'Enterprise ₱5,499/month',
+              'Pro Vendor ₱1,999/28 days',
+              'Enterprise ₱5,499/28 days',
             ],
             cta: 'Register your business',
             ctaHref: '/for-vendors',
@@ -967,8 +967,8 @@ export function Footer() {
       title: 'Vendors',
       links: [
         { label: 'Register your business', href: '/for-vendors' },
-        { label: 'Pro Vendor — ₱1,999/mo', href: '/for-vendors' },
-        { label: 'Enterprise — ₱5,499/mo', href: '/for-vendors' },
+        { label: 'Pro Vendor — ₱1,999/28d', href: '/for-vendors' },
+        { label: 'Enterprise — ₱5,499/28d', href: '/for-vendors' },
         { label: 'Vendor handbook', href: '/help' },
       ],
     },

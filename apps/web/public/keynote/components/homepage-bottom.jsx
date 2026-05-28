@@ -241,7 +241,7 @@ const FAQ = () => {
     },
     {
       q: "How does Setnayan make money?",
-      a: "Three ways. (1) Verified vendors pay a one-time ₱1,499 verification fee, plus an optional monthly subscription if they want extra reach — ₱1,999/mo Pro or ₱5,499/mo Enterprise. (2) Vendors buy tokens to send quotes when couples send them an inquiry. (3) Setnayan Productions — the in-app services like Pro Website, Panood livestream, Papic, SDE, Live Background — are sold by Setnayan directly to couples. We don't touch what couples pay their vendors. Zero commission, zero middleman, zero surcharge.",
+      a: "Three ways. (1) Verified vendors pay a one-time ₱1,499 verification fee, plus an optional monthly subscription if they want extra reach — ₱1,999/28d Pro or ₱5,499/28d Enterprise. (2) Vendors buy tokens to send quotes when couples send them an inquiry. (3) Setnayan Productions — the in-app services like Pro Website, Panood livestream, Papic, SDE, Live Background — are sold by Setnayan directly to couples. We don't touch what couples pay their vendors. Zero commission, zero middleman, zero surcharge.",
     },
     {
       q: "How do I know a vendor is legit?",

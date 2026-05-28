@@ -492,7 +492,7 @@ function StackedExample({ isVerified }: { isVerified: boolean }) {
       <p className="mt-2 text-sm text-ink/75">
         A photographer on Pro Vendor monthly + Boosted Ads 10km + Sponsored Boost
         Annual:{' '}
-        <span className="font-mono">₱1,999/mo</span> (≈ ₱461/wk) +{' '}
+        <span className="font-mono">₱1,999/28d</span> (≈ ₱461/wk) +{' '}
         <span className="font-mono">₱7,999</span> (weekly) +{' '}
         <span className="font-mono">₱799,999/yr</span> (~₱15,384/wk amortized) ≈{' '}
         <span className="font-semibold">~₱23,844/week effective</span>.

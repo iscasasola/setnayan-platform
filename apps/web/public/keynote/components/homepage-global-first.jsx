@@ -30,7 +30,7 @@ const GlobalFirst = () => (
         { code: "AV-002", tag: "Live + AI",         title: "Multi-cam + same-day reel", sub: "Up to 5 cams on YouTube. AI highlight reel in 28 min. In the same app you planned with.", note: "Most apps stop at planning." },
         { code: "GX-003", tag: "Guest experience",  title: "Personal QR · paparazzi crew", sub: "One QR per guest opens RSVP, seat, map, gallery, livestream. Friends become a coordinated photo crew via Papic.", note: "Live + paparazzi in one stack is new." },
         { code: "CU-004", tag: "Native culture",    title: "Tagalog, Cebuano, ninang/ninong", sub: "Roles that exist in Filipino weddings — sponsors, secondary sponsors, principal sponsors — modeled into the data, not hidden in a notes field.", note: "Foreign apps don't know what a ninong is." },
-        { code: "VO-005", tag: "Vendor operating",  title: "Free profile, 0% commission", sub: "Free tier for everyone. Verified badge at ₱1,499 once. Pro ₱1,999/mo or Enterprise ₱5,499/mo for boosted reach. We don't touch your transactions — vendor keeps 100%.", note: "Most marketplaces take 10–20%." },
+        { code: "VO-005", tag: "Vendor operating",  title: "Free profile, 0% commission", sub: "Free tier for everyone. Verified badge at ₱1,499 once. Pro ₱1,999/28d or Enterprise ₱5,499/28d for boosted reach. We don't touch your transactions — vendor keeps 100%.", note: "Most marketplaces take 10–20%." },
       ].map((p, i) => (
         <Reveal key={p.code} delay={i * 100}>
           <div style={{

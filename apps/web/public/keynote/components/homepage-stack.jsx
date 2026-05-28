@@ -398,7 +398,7 @@ const StackCloseVendor = () => {
             </div>
             <div style={{ fontSize: 13, color: "var(--slate-4)", lineHeight: 1.55 }}>
               Profile, inbox, pipeline, calendar, contracts, payments, BIR receipts, reviews —
-              one login. <strong style={{ color: "var(--paper)" }}>Free forever; Pro at ₱1,999/month</strong> for ecosystem-locked extras.
+              one login. <strong style={{ color: "var(--paper)" }}>Free forever; Pro at ₱1,999/28 days</strong> for ecosystem-locked extras.
             </div>
             <div style={{ marginTop: "auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, paddingTop: 14, borderTop: "1px solid rgba(255,255,255,0.10)" }}>
               <div>
@@ -536,7 +536,7 @@ const StackCloseVendor = () => {
               <div style={{ fontSize: 14, color: "var(--slate-4)", lineHeight: 1.55, maxWidth: 380 }}>
                 Free vendor profile, free chat, free pipeline, free BIR receipts —{" "}
                 <strong style={{ color: "var(--paper)" }}>forever.</strong>{" "}
-                Pro at ₱1,999/month only if you want the ecosystem-locked stuff.
+                Pro at ₱1,999/28 days only if you want the ecosystem-locked stuff.
               </div>
             </div>
 

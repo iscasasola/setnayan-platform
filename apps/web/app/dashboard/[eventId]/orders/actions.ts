@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { uploadPublicAsset } from '@/lib/storage';
 import { sendEmail } from '@/lib/email';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
 
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -127,10 +128,21 @@ export async function createOrder(formData: FormData) {
   // they can paste it into the BDO/GCash transfer note AND retrieve it
   // anytime via the dashboard deep-link if they close the success tab.
   //
-  // BDO + GCash bank account details are routed via env vars (set in Vercel
-  // Production by the owner pre-pilot per OWNER_ACTIONS.md). When unset, the
-  // email renders a polite fallback line so dev/preview env doesn't break
-  // and pilot can still launch even before owner pastes the real values.
+  // BDO + GCash bank account details + business identity come from
+  // public.platform_settings (singleton row · id=1 · migration
+  // 20260513230000_platform_settings.sql). The owner manages these via
+  // /admin/settings — same canonical source the BIR receipt generator
+  // already consumes (lib/bir/generator.ts:259). Public-read RLS on the
+  // table so the user's auth session can fetch it directly · no admin
+  // client needed. When the row is empty (fresh env), email renders a
+  // polite fallback line so dev/preview env doesn't break and pilot can
+  // still launch even before owner pastes the real values.
+  //
+  // 2026-05-28 follow-up to RED #2 (PR #591): original fix pulled from
+  // env vars (SETNAYAN_BDO_*/SETNAYAN_GCASH_*) which duplicated values
+  // already in platform_settings. Owner flagged that BDO + GCash are
+  // managed via /admin/settings — this refactor reads the canonical DB
+  // source instead. The 4 env stubs in .env.example get dropped here too.
   //
   // Best-effort send: sendEmail returns a SendEmailResult discriminated union
   // (no throws on the happy path), but we still wrap in try/catch as a belt-
@@ -142,12 +154,9 @@ export async function createOrder(formData: FormData) {
   try {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
     const orderUrl = `${appUrl}/dashboard/${eventId}/orders/${data.order_id}`;
-    const bdoName = process.env.SETNAYAN_BDO_ACCOUNT_NAME;
-    const bdoNumber = process.env.SETNAYAN_BDO_ACCOUNT_NUMBER;
-    const gcashName = process.env.SETNAYAN_GCASH_NAME;
-    const gcashNumber = process.env.SETNAYAN_GCASH_NUMBER;
-    const hasBdo = Boolean(bdoName && bdoNumber);
-    const hasGcash = Boolean(gcashName && gcashNumber);
+    const settings = await fetchPlatformSettings(supabase);
+    const hasBdo = Boolean(settings.bdo_account_number?.trim());
+    const hasGcash = Boolean(settings.gcash_number?.trim());
 
     const amountFormatted = requestedTotalPhp.toLocaleString('en-PH', {
       minimumFractionDigits: 2,
@@ -175,14 +184,26 @@ export async function createOrder(formData: FormData) {
       lines.push(``);
       if (hasBdo) {
         lines.push(`  BDO`);
-        lines.push(`  Account name: ${bdoName}`);
-        lines.push(`  Account number: ${bdoNumber}`);
+        if (settings.bdo_account_name) {
+          lines.push(`  Account name: ${settings.bdo_account_name}`);
+        }
+        lines.push(`  Account number: ${settings.bdo_account_number}`);
+        // QR URL surfaces when admin uploaded one — couple on mobile can
+        // scan it directly from the email instead of typing the number.
+        if (settings.bdo_qr_url) {
+          lines.push(`  QR: ${settings.bdo_qr_url}`);
+        }
         lines.push(``);
       }
       if (hasGcash) {
         lines.push(`  GCash`);
-        lines.push(`  Name: ${gcashName}`);
-        lines.push(`  Number: ${gcashNumber}`);
+        if (settings.gcash_account_name) {
+          lines.push(`  Name: ${settings.gcash_account_name}`);
+        }
+        lines.push(`  Number: ${settings.gcash_number}`);
+        if (settings.gcash_qr_url) {
+          lines.push(`  QR: ${settings.gcash_qr_url}`);
+        }
         lines.push(``);
       }
     } else {

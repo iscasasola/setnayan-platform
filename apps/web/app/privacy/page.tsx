@@ -48,7 +48,7 @@ export default function PrivacyPage() {
           <p className="pt-2">
             Cross-border data transfers — Singapore (Supabase), United States
             (Cloudflare R2 PH-region buckets), United States (Anthropic Console
-            for Concierge AI), and United States (Persona for vendor
+            for Today&rsquo;s Focus AI), and United States (Persona for vendor
             verification) — are subject to RA 10173 § 21 and the cloud
             provider&rsquo;s adequacy commitments.
           </p>
@@ -479,28 +479,24 @@ export default function PrivacyPage() {
           </ul>
         </Section>
 
-        <Section title="AI-assisted Setnayan Concierge">
+        <Section title="AI-assisted Today's Focus">
           <p>
-            Setnayan Concierge uses curated Filipino-wedding knowledge plus AI
-            synthesis. The free DIY tier (three questions per event) and the
-            three-day card-less trial route through Cloudflare Workers AI
+            Today&rsquo;s Focus uses curated Filipino-wedding knowledge plus AI
+            synthesis to surface the next planning step for your event. The
+            baseline question budget routes through Cloudflare Workers AI
             (model: Llama 3.1 8B), hosted in Cloudflare&rsquo;s regional
-            infrastructure. Paid Setnayan Concierge (₱2,499 per event,
-            wedding-anchored access) routes through Anthropic Console (model:
-            Claude Haiku 4.5; data processing terms per Anthropic&rsquo;s
-            commercial agreement).
+            infrastructure. Paid Today&rsquo;s Focus access (per the price on
+            /pricing) routes through Anthropic Console (model: Claude Haiku
+            4.5; data processing terms per Anthropic&rsquo;s commercial
+            agreement).
           </p>
           <p className="pt-2">
             Wedding data submitted to either model is processed solely to
             answer your question and populate your event plan — not used for
             model training, not shared with third parties, not retained beyond
-            the conversation thread. The paid tier persists the thread for 12
-            months for your access; you can delete it at any time.
-            Conversation logs are stored encrypted at rest in Supabase
-            (Singapore region).
-          </p>
-          <p className="pt-2 text-xs text-ink/55">
-            Per CLAUDE.md decision-log 2026-05-18 row 1.
+            the conversation thread. Paid access persists the thread for your
+            event window; you can delete it at any time. Conversation logs
+            are stored encrypted at rest in Supabase (Singapore region).
           </p>
         </Section>
 

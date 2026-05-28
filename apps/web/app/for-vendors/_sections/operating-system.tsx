@@ -14,8 +14,8 @@ const TOOLS: Array<{ Icon: LucideIcon; title: string; body: string }> = [
   },
   {
     Icon: Wallet,
-    title: 'Get paid faster',
-    body: 'Setnayan Pay routes to your bank or GCash within 24h. Flat 5.0% — same rate on every rail. BIR receipts auto-issued.',
+    title: 'Keep 100% of bookings',
+    body: 'Setnayan never sits between you and your couple at checkout. Settle direct (bank transfer, GCash, in-person) and keep every peso. We sell software — not commission.',
   },
   {
     Icon: Star,

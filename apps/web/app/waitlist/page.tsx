@@ -214,12 +214,13 @@ export default async function WaitlistPage({ searchParams }: Props) {
             What&rsquo;s already ready
           </p>
           <ul className="mt-4 space-y-2 text-sm text-ink/70">
+            <li>· Free wedding website at setnayan.com/your-slug — branded QR, RSVP, event details</li>
             <li>· Free planning tools — guest list, RSVP, seating, budget, mood board, schedule</li>
-            <li>· Marketplace browsing — see real vendor portfolios and pricing today</li>
-            <li>· Setnayan Concierge — full-service event coordination at ₱2,499, 3-day free trial</li>
+            <li>· Marketplace browsing — real vendor portfolios + free vendor subdomain at slug.setnayan.com</li>
+            <li>· Today&rsquo;s Focus — Filipino-wedding AI guide that surfaces the next step</li>
             <li>· Vendor contracts hosted in-app — both sides keep a copy alongside the chat thread</li>
-            <li>· BIR-compliant receipts on every Setnayan Pay transaction</li>
-            <li>· Most add-on services FREE until January 30, 2027 during the launch promo</li>
+            <li>· Zero commission on vendor bookings — Setnayan only sells software</li>
+            <li>· BIR-compliant receipts on every software purchase</li>
           </ul>
           <p className="mt-6 text-xs text-ink/55">
             Vendor? <Link href="/for-vendors" className="font-semibold text-terracotta underline-offset-4 hover:underline">Skip the waitlist — pre-register today</Link>.

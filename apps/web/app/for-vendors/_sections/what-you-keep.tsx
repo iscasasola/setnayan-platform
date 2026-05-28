@@ -14,17 +14,17 @@ const ITEMS: Array<{
   {
     Icon: Wallet,
     title: 'Your payouts, your accounts',
-    body: 'Default payment is direct: couple sends to your BDO or GCash. Setnayan tracks the milestone and issues the receipt — but the money never sits in our account. Zero platform fee on the booking itself.',
+    body: 'Payment is always direct: couple sends to your BDO or GCash. Setnayan tracks the milestone and helps you log the receipt — but the money never sits in our account. Zero commission on the booking, ever.',
   },
   {
     Icon: Receipt,
     title: 'BIR receipts handled',
-    body: 'Every booking generates a BIR-compliant Official Receipt with the 12% VAT split spelled out — auto-emailed to the couple, archived in your dashboard. No more booklet scribbles, no more lost ORs.',
+    body: 'Every software SKU couple purchase on Setnayan generates a BIR-compliant Official Receipt — auto-emailed to the couple, archived in your dashboard. For your own packages, the dashboard prints OR-ready PDFs you can attach to your booklet.',
   },
   {
     Icon: Percent,
-    title: 'EWT / 2307 done for you',
-    body: 'For Setnayan Pay bookings we handle the 1% creditable withholding tax and ship you a quarterly Form 2307 you can hand straight to your bookkeeper. Direct-payment bookings keep your normal flow.',
+    title: 'Tax docs ready for your bookkeeper',
+    body: 'Your monthly subscription receipt + token-pack receipts download as a single quarterly summary. Direct-payment bookings keep your normal flow — you stay in control of your VAT/EWT treatment.',
   },
   {
     Icon: FileSignature,

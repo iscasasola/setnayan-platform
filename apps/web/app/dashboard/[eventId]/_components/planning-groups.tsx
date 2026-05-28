@@ -295,13 +295,25 @@ export function PlanningGroups({
   return (
     <section aria-labelledby="planning-groups-heading" className="space-y-5">
       <header className="space-y-1.5">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
+        {/* v2.1 visual overlay (2026-05-28 deep-fix) — section eyebrow swaps
+         *  from semantic `text-terracotta` to sienna `--m-orange-2` to match
+         *  couple-dashboard.jsx template's OverviewTab section rails. The
+         *  eyebrow + heading typography uses `.m-eyebrow` + `.m-display`
+         *  inline-styled below; the SHIPPED heading semantics + heading IDs
+         *  + tier ordering all stay untouched. See CLAUDE.md 2026-05-28
+         *  10th row "v2.1 BRIEF LOCKED AS CANONICAL" + memory rule
+         *  [[feedback_setnayan_button_preservation]]. */}
+        <p
+          className="m-eyebrow font-mono text-[11px] uppercase tracking-[0.25em]"
+          style={{ color: 'var(--m-orange-2)' }}
+        >
           Your wedding plan
         </p>
         <div className="flex flex-wrap items-end justify-between gap-2">
           <h2
             id="planning-groups-heading"
-            className="text-2xl font-semibold tracking-tight sm:text-3xl"
+            className="m-display text-2xl font-semibold tracking-tight sm:text-3xl"
+            style={{ color: 'var(--m-ink)' }}
           >
             {totalCards} things to lock in.
           </h2>
@@ -347,10 +359,20 @@ export function PlanningGroups({
             aria-labelledby={tierId}
             className="space-y-3"
           >
-            <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-ink/10 pb-1.5">
+            {/* v2.1 visual overlay (2026-05-28) — tier rail uses --m-line
+             *  hairline + sienna tier label. Same pattern as the
+             *  couple-dashboard.jsx template's section dividers. The 5 tier
+             *  groupings + their labels + their ordering are SHIPPED logic
+             *  from CLAUDE.md 2026-05-22 9th row (multi-tier wizard
+             *  refactor) and stay untouched — this is pure CSS overlay. */}
+            <header
+              className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 pb-1.5"
+              style={{ borderBottom: '1px solid var(--m-line)' }}
+            >
               <h3
                 id={tierId}
-                className="font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-terracotta"
+                className="m-eyebrow font-mono text-[11px] font-semibold uppercase tracking-[0.22em]"
+                style={{ color: 'var(--m-orange-2)' }}
               >
                 {tierLabel}
               </h3>

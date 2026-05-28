@@ -1841,11 +1841,22 @@ function WelcomeHeader({ eventName }: { eventName: string }) {
   // the welcome header gets the v2.1 keynote treatment without changing
   // the underlying event-name data shape. The eventName itself stays —
   // .toUpperCase() is the typographic transform, not a content rename.
+  // 2026-05-28 deep-fix — eyebrow above the heading uses sienna so the
+  // welcome strip reads like the template's "Good evening, …" rail.
+  // .m-display-tight class is already present (Saira Condensed 700) from
+  // the shallow PR #576 overlay; deep-fix adds the eyebrow + .m-mono on
+  // a thin sub-rule beneath to match the template's typographic rhythm.
   return (
     <header className="space-y-1.5">
+      <p
+        className="m-eyebrow font-mono text-[10px] uppercase tracking-[0.22em]"
+        style={{ color: 'var(--m-orange-2)' }}
+      >
+        Your wedding
+      </p>
       <h1
         className="m-display-tight text-3xl uppercase sm:text-[44px]"
-        style={{ letterSpacing: '-0.005em' }}
+        style={{ letterSpacing: '-0.005em', color: 'var(--m-ink)' }}
       >
         {eventName.toUpperCase()}
       </h1>
@@ -1857,28 +1868,41 @@ function StageStrip({ stage }: { stage: Stage['key'] }) {
   const foundIndex = STAGES.findIndex((s) => s.key === stage);
   const activeIndex = foundIndex >= 0 ? foundIndex : 0;
   const activeLabel = STAGES[activeIndex]?.label ?? STAGES[0]?.label ?? '';
+  // v2.1 deep-fix (2026-05-28) — stage strip pills swap from terracotta
+  // semantic class to sienna --m-orange (active) + --m-orange-3 (done) +
+  // --m-line-soft (pending), matching couple-dashboard.jsx template's
+  // 6-phase rail in CoupleTopbar. Phase count + labels + activeIndex math
+  // all stay untouched — pure inline-style color overlay so the SHIPPED
+  // STAGES lookup + stage prop semantics carry through.
   return (
     <div className="space-y-2">
       <ol className="flex w-full items-center gap-1.5" aria-label="Wedding stage progress">
         {STAGES.map((s, i) => {
           const done = i < activeIndex;
           const isActive = i === activeIndex;
+          const fill = isActive
+            ? 'var(--m-orange)'
+            : done
+              ? 'var(--m-orange-3)'
+              : 'var(--m-line-soft)';
           return (
             <li key={s.key} className="flex flex-1 items-center gap-1.5">
               <span
                 aria-current={isActive ? 'step' : undefined}
                 aria-label={s.label}
-                className={`block h-1.5 flex-1 rounded-full transition-colors ${
-                  isActive ? 'bg-terracotta' : done ? 'bg-terracotta/45' : 'bg-ink/10'
-                }`}
+                className="block h-1.5 flex-1 rounded-full transition-colors"
+                style={{ background: fill }}
               />
             </li>
           );
         })}
       </ol>
-      <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+      <p
+        className="m-eyebrow font-mono text-[11px] uppercase tracking-[0.2em]"
+        style={{ color: 'var(--m-slate-3)' }}
+      >
         Stage {activeIndex + 1} of {STAGES.length} ·{' '}
-        <span className="text-ink/85">{activeLabel}</span>
+        <span style={{ color: 'var(--m-ink)' }}>{activeLabel}</span>
       </p>
     </div>
   );
@@ -1895,9 +1919,19 @@ function NavGrid({
   unreadCount: number;
   tr: (key: TranslationKey) => string;
 }) {
+  // v2.1 deep-fix (2026-05-28) — TILES grid chrome adopts template's
+  // card pattern: --m-paper background, --m-line border, sienna-tinted
+  // icon chip (--m-orange-4 bg + --m-orange-2 fg), --m-shadow-sm rest +
+  // --m-shadow-md hover. The 14-tile TILES lookup + section.plan
+  // translation key + tile.href(eventId) navigation + stats counter
+  // logic + notifications badge all stay untouched — pure styling
+  // refresh per [[feedback_setnayan_button_preservation]].
   return (
     <div className="space-y-3">
-      <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+      <h2
+        className="m-eyebrow font-mono text-[11px] uppercase tracking-[0.2em]"
+        style={{ color: 'var(--m-slate-3)' }}
+      >
         {tr('section.plan')}
       </h2>
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
@@ -1916,21 +1950,46 @@ function NavGrid({
             <li key={tile.key}>
               <Link
                 href={tile.href(eventId)}
-                className="flex h-full flex-col gap-2 rounded-xl border border-ink/10 bg-cream p-3 transition-colors hover:border-terracotta/40 hover:bg-terracotta/5 sm:gap-3 sm:p-4"
+                className="group flex h-full flex-col gap-2 rounded-xl border p-3 transition-all sm:gap-3 sm:p-4"
+                style={{
+                  background: 'var(--m-paper)',
+                  borderColor: 'var(--m-line)',
+                  boxShadow: 'var(--m-shadow-sm)',
+                }}
               >
-                <span className="relative inline-flex h-8 w-8 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta sm:h-10 sm:w-10">
+                <span
+                  className="relative inline-flex h-8 w-8 items-center justify-center rounded-lg sm:h-10 sm:w-10"
+                  style={{
+                    background: 'var(--m-orange-4)',
+                    color: 'var(--m-orange-2)',
+                  }}
+                >
                   <Icon aria-hidden className="h-4 w-4 sm:h-5 sm:w-5" strokeWidth={1.75} />
                   {showBadge ? (
-                    <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-terracotta px-1 font-mono text-[9px] font-semibold text-cream">
+                    <span
+                      className="absolute -right-1 -top-1 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full px-1 font-mono text-[9px] font-semibold"
+                      style={{
+                        background: 'var(--m-orange)',
+                        color: 'var(--m-paper)',
+                      }}
+                    >
                       {unreadCount > 9 ? '9+' : unreadCount}
                     </span>
                   ) : null}
                 </span>
-                <span className="text-xs font-semibold text-ink sm:text-sm">
+                <span
+                  className="text-xs font-semibold sm:text-sm"
+                  style={{ color: 'var(--m-ink)' }}
+                >
                   {tr(tile.labelKey)}
                 </span>
                 {counter ? (
-                  <span className="text-[10px] text-ink/55 sm:text-xs">{counter}</span>
+                  <span
+                    className="text-[10px] sm:text-xs"
+                    style={{ color: 'var(--m-slate-3)' }}
+                  >
+                    {counter}
+                  </span>
                 ) : null}
               </Link>
             </li>
@@ -1952,27 +2011,57 @@ function Checklist({
 }) {
   const progress = plannerProgress(statuses);
   const byKey = new Map(statuses.map((s) => [s.key, s]));
+  // v2.1 deep-fix (2026-05-28) — Today's Focus checklist card uses
+  // --m-paper background + --m-line border + --m-shadow-sm rest. Progress
+  // bar fill swaps from terracotta semantic class to sienna --m-orange.
+  // Track bg uses --m-line-soft so the track has the warm ivory cast
+  // (vs the cool ink/10 we had before). All percentage math + STEPS
+  // lookup + tr() translations + step.key navigation unchanged.
   return (
-    <div className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">
+    <div
+      className="space-y-3 rounded-2xl border p-5"
+      style={{
+        background: 'var(--m-paper)',
+        borderColor: 'var(--m-line)',
+        boxShadow: 'var(--m-shadow-sm)',
+      }}
+    >
       <div className="flex items-center justify-between">
         <div className="space-y-0.5">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <h2
+            className="m-eyebrow font-mono text-[11px] uppercase tracking-[0.2em]"
+            style={{ color: 'var(--m-slate-3)' }}
+          >
             {tr('section.concierge')}
           </h2>
-          <p className="text-sm text-ink/65">
+          <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
             {progress.done} of {progress.total} steps · prefer to fly solo? Switch to DIY in
             Profile.
           </p>
         </div>
-        <span className="font-mono text-sm font-semibold text-terracotta-700">{progress.pct}%</span>
-      </div>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink/10">
         <span
-          className="block h-full rounded-full bg-terracotta transition-all"
-          style={{ width: `${progress.pct}%` }}
+          className="font-mono text-sm font-semibold"
+          style={{ color: 'var(--m-orange-2)' }}
+        >
+          {progress.pct}%
+        </span>
+      </div>
+      <div
+        className="h-1.5 w-full overflow-hidden rounded-full"
+        style={{ background: 'var(--m-line-soft)' }}
+      >
+        <span
+          className="block h-full rounded-full transition-all"
+          style={{ width: `${progress.pct}%`, background: 'var(--m-orange)' }}
         />
       </div>
-      <ol className="divide-y divide-ink/10 rounded-xl border border-ink/10 bg-cream">
+      <ol
+        className="divide-y rounded-xl border"
+        style={{
+          borderColor: 'var(--m-line)',
+          background: 'var(--m-paper-2)',
+        }}
+      >
         {STEPS.map((step, i) => {
           const status = byKey.get(step.key);
           const done = status?.completed ?? false;

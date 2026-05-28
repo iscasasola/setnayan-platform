@@ -222,11 +222,24 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
+      {/*
+        v2.1 visual overlay 2026-05-28 — label-mono uppercase eyebrow above
+        the display heading mirrors vendor-dashboard.jsx template per the
+        canonical v2.1 lock at CLAUDE.md 10th 2026-05-28 row. Visual treatment
+        only; the profile form below + every button + every interaction stay
+        unchanged per [[feedback_setnayan_button_preservation]]. Body copy
+        reframes around the v2.1 publisher posture: couples find vendors via
+        the marketplace; Setnayan never sits in the booking-money path.
+      */}
       <header className="mb-6 space-y-2">
+        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          Vendor dashboard · Public profile
+        </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Your profile</h1>
         <p className="text-base text-ink/65">
-          Edit your business info. Couples find you by the contact email below and start chats from
-          their dashboard — see those at Messages.
+          Edit your business info. Couples find you on the marketplace and start chats from their
+          dashboard — see those at Messages. Setnayan takes 0% on your bookings; everything you quote
+          is yours.
         </p>
       </header>
 

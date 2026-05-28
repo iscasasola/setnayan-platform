@@ -1,54 +1,62 @@
-import Link from 'next/link';
-import { Apple } from 'lucide-react';
-import { SiteHeader } from '@/app/_components/site-header';
-import { Logo } from '@/app/_components/logo';
-import { Hero } from './_sections/hero';
-import { OperatingSystem } from './_sections/operating-system';
-import { Pricing } from './_sections/pricing';
-import { Testimonials } from './_sections/testimonials';
-import { ClosingCta } from './_sections/closing-cta';
-import { StickyMobileCta } from './_sections/sticky-mobile-cta';
+/**
+ * /for-vendors — v2.1 template port from
+ * /tmp/setnayan-keynote-template/"Setnayan For Vendors.html".
+ *
+ * WHY: CLAUDE.md 2026-05-28 11th row "v2.1 BRIEF LOCKED AS CANONICAL".
+ * Owner directive: "this is the template we will use". The prior _sections
+ * (hero/operating-system/pricing/testimonials/closing-cta/sticky-mobile-cta)
+ * are REPLACED. The template composes a custom VendorHero + VendorNav unique
+ * to this page, then shares the homepage's StackCloseVendor + ForVendors +
+ * Voices + Pricing + FAQ + ClosingCTA + Footer.
+ *
+ * Parallel-dependency: agent-homepage is porting homepage-* into
+ * apps/web/app/_components/marketing/ in parallel. As of branch-cut
+ * (origin/main @ 06983a8 · 2026-05-28), the shared marketing/* components
+ * had NOT landed. Strategy chosen per orchestrator brief: INLINE the
+ * specific sections this page needs into apps/web/app/for-vendors/_components/
+ * + flag the duplication in PR body for follow-up dedupe PR once
+ * agent-homepage's shared components land.
+ *
+ * v2.1 drift scrubs applied (CLAUDE.md 2026-05-28 11th row supersedes lead-broker
+ * pivot from rows 7-9 same day):
+ *   - "Pro at ₱499/wk" (2x in StackCloseVendor) → "Pro at ₱1,999/mo"
+ *   - "Setnayan Concierge matching/matchmaking" → "Today's Focus matching/matchmaking"
+ *   - 0% commission + Setnayan-never-touches-the-money preserved (V2 publisher posture)
+ *   - 4-tier matrix (Free / Verified / Pro / Enterprise) intact from template
+ *   - ₱1,499 one-time verification + ₱1,999/mo Pro + ₱5,499/mo Enterprise preserved
+ *   - 100-token founder bonus on verification before 31 Jan 2027 preserved
+ *
+ * Per [[feedback_setnayan_button_preservation]] — every CTA placement +
+ * interaction concept matches the template verbatim. The drift scrubs
+ * touched COPY only, not button positions.
+ */
 
-// Page trim 2026-05-18: dropped Comparison, WhatYouKeep, SponsoredBoost,
-// Verification sections to lighten the page (owner directive — "too
-// documentary, want light and powerful for vendors to scale"). 17 sections
-// → 7. Substance routed elsewhere: Sponsored Boost ladder lives on
-// /pricing; verification flow + density rules link to /help; the
-// before/after comparison content folded into the hero copy.
-
-// /for-vendors — vendor-side acquisition landing page.
-//
-// Per iteration 0015 § Routes, /for-vendors is a "vendor-side deep dive
-// (verification, payouts, marketing benefits)" page; per CLAUDE.md
-// decision log 2026-05-15, it should be at LEAST as polished as the
-// homepage and follow the Airbnb host-page convention (lead with
-// merchant outcomes, Shopify pattern). This page is the exception to
-// the homepage's hide-prices rule — vendors decide on cost, so Pro
-// pricing is shown on the page rather than gated behind apply.
-//
-// Audience: vendors / photographers / florists / planners considering
-// listing on Setnayan. Funnel target: /signup?as=vendor.
+import { VendorNav } from './_components/vendor-nav';
+import { VendorHero } from './_components/vendor-hero';
+import { StackCloseVendor } from './_components/stack-close-vendor';
+import { ForVendorsDeepDive } from './_components/for-vendors-deep-dive';
+import { Voices, Pricing, FAQ, ClosingCTA, Footer } from './_components/page-tail';
 
 export const metadata = {
-  title: 'Run your wedding business in one app — Setnayan for vendors',
+  title: 'Setnayan for Vendors — Free + Pro · ₱1,999/mo',
   description:
-    'List your wedding business free on Setnayan. Keep 100% of every booking. Pro Vendor ₱1,999/mo or Enterprise ₱5,499/mo for marketplace presence + tokens.',
+    'Free vendor profile + Pro tier ₱1,999/mo. 0% commission on bookings — we never touch the money. In-app chat, pipeline, reviews. Founder bonus 100 tokens on verification (until 31 Jan 2027).',
   alternates: {
     canonical: '/for-vendors',
   },
   openGraph: {
-    title: 'Run your wedding business in one app — Setnayan for vendors',
+    title: 'Setnayan for Vendors — Free + Pro · ₱1,999/mo',
     description:
-      'Free listing. 0% commission on bookings. Pro Vendor ₱1,999/mo or Enterprise ₱5,499/mo. 100 complimentary tokens on verification.',
+      'Free vendor profile + Pro tier ₱1,999/mo. 0% commission on bookings — we never touch the money.',
     url: '/for-vendors',
     type: 'website',
     siteName: 'Setnayan',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Run your wedding business in one app — Setnayan for vendors',
+    title: 'Setnayan for Vendors — Free + Pro · ₱1,999/mo',
     description:
-      'List free. Keep 100%. Pro Vendor ₱1,999/mo or Enterprise ₱5,499/mo for marketplace presence.',
+      '0% commission. Free listing. Pro ₱1,999/mo. 100 founder bonus tokens on verification.',
   },
 };
 
@@ -57,7 +65,7 @@ const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com')
   '',
 );
 
-// Schema.org pricing — keep in sync with /pricing page UI per CLAUDE.md 2026-05-20 vendor tier lock
+// Schema.org pricing — v2.1 4-tier vendor matrix (CLAUDE.md 2026-05-28 11th row)
 const FOR_VENDORS_JSONLD = {
   '@context': 'https://schema.org',
   '@graph': [
@@ -73,7 +81,7 @@ const FOR_VENDORS_JSONLD = {
       '@type': 'WebPage',
       '@id': `${SITE_URL}/for-vendors#webpage`,
       url: `${SITE_URL}/for-vendors`,
-      name: 'Setnayan for vendors — Run your wedding business in one app',
+      name: 'Setnayan for vendors — Free + Pro · ₱1,999/mo',
       isPartOf: { '@id': `${SITE_URL}/#website` },
       about: { '@id': `${SITE_URL}/#organization` },
       audience: {
@@ -87,9 +95,27 @@ const FOR_VENDORS_JSONLD = {
       '@id': `${SITE_URL}/for-vendors#free-listing`,
       name: 'Free vendor listing on Setnayan',
       description:
-        'Free verified business profile on the Setnayan wedding vendor directory. Includes public profile page, in-platform messaging with couples, and coverage-city visibility across the Philippines.',
+        'Free verified business profile + in-app chat + pipeline + calendar + BIR receipts. 0% commission on every booking — Setnayan never touches the money between you and your couples.',
       price: '0',
       priceCurrency: 'PHP',
+      availability: 'https://schema.org/InStock',
+      seller: { '@id': `${SITE_URL}/#organization` },
+      url: `${SITE_URL}/signup?as=vendor`,
+    },
+    {
+      '@type': 'Offer',
+      '@id': `${SITE_URL}/for-vendors#verified-vendor`,
+      name: 'Verified Vendor · one-time lifetime badge',
+      description:
+        'One-time ₱1,499 verification (DTI · BIR · Mayor’s Permit · sample work). Lifetime verified badge + unlimited bids + ratings on profile + video calls with couples.',
+      price: '1499',
+      priceCurrency: 'PHP',
+      priceSpecification: {
+        '@type': 'UnitPriceSpecification',
+        price: '1499',
+        priceCurrency: 'PHP',
+        unitText: 'ONE-TIME',
+      },
       availability: 'https://schema.org/InStock',
       seller: { '@id': `${SITE_URL}/#organization` },
       url: `${SITE_URL}/signup?as=vendor`,
@@ -99,7 +125,7 @@ const FOR_VENDORS_JSONLD = {
       '@id': `${SITE_URL}/for-vendors#pro-vendor-subscription`,
       name: 'Pro Vendor (monthly subscription)',
       description:
-        'One marketplace category · 5 sub-seats · multi-service catalog · per-service calendars · in-app messaging · 100 complimentary tokens on verification. Pause anytime.',
+        "One marketplace category · 5 team accounts · custom website + slug · Today's Focus priority matching · AI Proposal Builder · category benchmarks · 100 complimentary tokens on verification. 28-day prepaid blocks.",
       price: '1999',
       priceCurrency: 'PHP',
       priceSpecification: {
@@ -117,7 +143,7 @@ const FOR_VENDORS_JSONLD = {
       '@id': `${SITE_URL}/for-vendors#enterprise-subscription`,
       name: 'Enterprise Vendor (monthly subscription)',
       description:
-        'All marketplace categories · unlimited sub-seats · everything in Pro Vendor · priority placement.',
+        'Multiple marketplace categories · unlimited team accounts · everything in Pro + quarterly business review + sharable bid link for social media. 28-day prepaid blocks.',
       price: '5499',
       priceCurrency: 'PHP',
       priceSpecification: {
@@ -158,56 +184,17 @@ export default function ForVendorsPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(FOR_VENDORS_JSONLD) }}
       />
-      <main className="min-h-dvh pb-24 sm:pb-0">
-        <SiteHeader />
-        <Hero />
-        <OperatingSystem />
+      <main className="m-surface min-h-dvh">
+        <VendorNav />
+        <VendorHero />
+        <StackCloseVendor />
+        <ForVendorsDeepDive />
+        <Voices />
         <Pricing />
-        <Testimonials />
-        <ClosingCta />
-        <SiteFooter />
+        <FAQ />
+        <ClosingCTA />
+        <Footer />
       </main>
-      <StickyMobileCta />
     </>
-  );
-}
-
-function SiteFooter() {
-  return (
-    <footer>
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-10 text-sm text-ink/55 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-        <div className="flex items-center gap-2 text-ink">
-          <Logo height={24} />
-          <span className="font-mono text-[11px] uppercase tracking-[0.2em]">
-            Setnayan · setnayan.com
-          </span>
-        </div>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-          <span>© 2026 Setnayan</span>
-          <span aria-hidden>·</span>
-          <span>Made in the Philippines</span>
-          <span aria-hidden>·</span>
-          <Link href="/help" className="hover:text-ink">
-            Help
-          </Link>
-          <Link href="/download" className="inline-flex items-center gap-1 hover:text-ink">
-            <Apple aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-            Mac app
-          </Link>
-          <Link href="/privacy" className="hover:text-ink">
-            Privacy
-          </Link>
-          <Link href="/terms" className="hover:text-ink">
-            Terms
-          </Link>
-          <Link href="/login" className="hover:text-ink">
-            Sign in
-          </Link>
-          <Link href="/signup?as=vendor" className="hover:text-ink">
-            List your business
-          </Link>
-        </div>
-      </div>
-    </footer>
   );
 }

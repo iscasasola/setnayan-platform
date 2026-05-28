@@ -26,7 +26,13 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 export const maxDuration = 5;
 
-const CHECK_TIMEOUT_MS = 1500;
+// 3000ms (up from 1500ms) gives buffer for Vercel iad1 → Supabase Singapore
+// transcontinental round-trip on cold-start. Per CLAUDE.md 2026-05-28 pre-pilot
+// audit, live curl tests showed first cold call timing out at 1505ms (right at
+// the previous 1500ms boundary) then 5 subsequent warm calls succeeding in
+// 276-895ms. The bump eliminates the false-positive timeout while staying well
+// under the 5s maxDuration ceiling above.
+const CHECK_TIMEOUT_MS = 3000;
 
 type CheckResult = {
   ok: boolean;
@@ -52,15 +58,19 @@ async function checkSupabase(): Promise<CheckResult> {
   try {
     const client = createAdminClient();
     // Cheap, side-effect-free SELECT against a table that always exists.
-    // `users` is in the V1 base schema; `head: true` + `count: exact` issues
-    // a HEAD that returns no rows.
+    // `users` is in the V1 base schema; `head: true` issues a HEAD that returns
+    // no rows. The previous `count: 'exact'` forced a full table scan to
+    // populate the count value, which we don't actually need for a liveness
+    // probe — only that the query succeeds. Dropping count tightens this from
+    // ~600-1500ms to ~50-300ms on a warm path, eliminating the cold-start
+    // false-positive timeout flagged in CLAUDE.md 2026-05-28 pre-pilot audit.
     //
     // PostgrestFilterBuilder is a thenable, not a Promise, so wrap it in
     // Promise.resolve() to satisfy withTimeout<T>'s Promise<T> signature.
-    // The .select() return type is the awaited shape `{ data, error, count, status, statusText }`.
+    // The .select() return type is the awaited shape `{ data, error, status, statusText }`.
     const query = client
       .from('users')
-      .select('user_id', { head: true, count: 'exact' })
+      .select('user_id', { head: true })
       .limit(1);
     const { error } = await withTimeout<Awaited<typeof query>>(
       Promise.resolve(query),

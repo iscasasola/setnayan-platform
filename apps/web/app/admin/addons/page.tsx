@@ -221,7 +221,7 @@ export default async function AdminAddonsPage({ searchParams }: Props) {
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
       <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-2">
-          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
+          <p className="m-eyebrow text-[color:var(--m-orange-2)]">
             Iteration 0023 · § 3.12
           </p>
           <h1 className="text-2xl font-semibold tracking-tight">

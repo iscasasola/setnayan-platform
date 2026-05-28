@@ -53,7 +53,7 @@ export default async function EditVenuePage({ params }: Props) {
       </Link>
 
       <header className="mb-6 space-y-1">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
+        <p className="m-eyebrow text-[color:var(--m-orange-2)]">
           Edit venue
         </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">

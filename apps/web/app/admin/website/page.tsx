@@ -40,7 +40,7 @@ export default async function AdminWebsiteEditorPage({ searchParams }: Props) {
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
+        <p className="m-eyebrow text-[color:var(--m-orange-2)]">
           Iteration 0023 · § 3.10
         </p>
         <h1 className="text-2xl font-semibold tracking-tight">Website editor</h1>

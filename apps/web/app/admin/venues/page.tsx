@@ -79,7 +79,7 @@ export default async function AdminVenuesPage({ searchParams }: Props) {
     <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div className="space-y-1">
-          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
+          <p className="m-eyebrow text-[color:var(--m-orange-2)]">
             V1 directory · {totalRows} venues
           </p>
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">

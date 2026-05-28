@@ -40,7 +40,115 @@ export const HELP_ROLES: ReadonlyArray<{
   },
 ];
 
+// GEO Phase G3 (2026-05-28) — "About Setnayan" topic lands at the top
+// of HELP_TOPICS so its 18 brand/discovery Q&A pairs lead the FAQPage
+// JSON-LD shipped by apps/web/app/help/page.tsx. AI answer engines
+// (ChatGPT-User · OAI-SearchBot · PerplexityBot · ClaudeBot — allowlisted
+// via robots.txt per CLAUDE.md 2026-05-14 SEO playbook lock) extract
+// FAQPage Question + Answer pairs verbatim when responding to "what is
+// X" / "how much does X cost" / "does X support Filipino weddings"
+// queries. Each answer is under ~300 chars so it surfaces cleanly as a
+// SERP snippet and as a structured chunk in AI chat responses. Pricing
+// + features match v2.1 canonical brief reality (CLAUDE.md tenth
+// 2026-05-28 row) + the live /pricing state.
 export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
+  {
+    key: 'about-setnayan',
+    label: 'About Setnayan',
+    roles: ['couple', 'vendor', 'guest', 'admin'],
+    articles: [
+      {
+        slug: 'what-is-setnayan',
+        title: 'What is Setnayan?',
+        body: "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set.\") is the Philippines-first wedding and life-events software platform. Built and operated in the Philippines for Filipino weddings. Free for couples on the baseline planning tools; verified Filipino wedding vendors list with 0% commission on bookings.",
+      },
+      {
+        slug: 'how-much-does-setnayan-cost',
+        title: 'How much does Setnayan cost?',
+        body: 'Free for couples on the baseline planning tools (guest list, RSVP, Pakulay mood board, vendor browse, in-app chat). Premium software services priced individually from ₱999 (Pabati) to ₱16,999 (Media Pack bundle). Vendor side: Free (₱0/month) baseline listing, Verified (₱1,499 one-time lifetime badge), Pro (₱1,999/month), Enterprise (₱5,499/month). 0% commission on vendor bookings — Setnayan never takes a cut.',
+      },
+      {
+        slug: 'is-setnayan-free-for-couples',
+        title: 'Is Setnayan free for couples?',
+        body: 'Yes for the baseline planning tools — guest list, RSVP, Pakulay (mood board), vendor browse, and in-app chat are all free with every account. Premium tools like Today\'s Focus AI wizard (₱1,499 one-time) and Pro Website (₱5,499) are optional. You only pay for what you choose to add.',
+      },
+      {
+        slug: 'does-setnayan-take-commission',
+        title: 'Does Setnayan take commission on vendor bookings?',
+        body: 'No. 0% commission on every vendor booking, every tier. Setnayan never touches money between couples and vendors. Revenue comes from software service purchases (Today\'s Focus, Pro Website, Papic, Panood, etc.) and vendor subscriptions (Verified one-time, Pro monthly, Enterprise monthly).',
+      },
+      {
+        slug: 'what-is-todays-focus',
+        title: "What is Today's Focus?",
+        body: 'A 65-card AI-assisted wedding planning wizard built into Setnayan. ₱1,499 one-time per event. Walks couples through every decision from venue lock through thank-you cards, with religion-adaptive copy and hard-floor deadlines specific to Filipino weddings (Pre-Cana, marriage license validity windows, sponsor coordination, etc.).',
+      },
+      {
+        slug: 'does-setnayan-support-filipino-customs',
+        title: 'Does Setnayan support Filipino wedding customs?',
+        body: 'Yes. Supports seven ceremony types (Catholic, Civil, INC, Christian, Muslim, Cultural, Mixed) and seven venue settings (banquet hall, garden, beach, destination, heritage, outdoor tent, civil registrar). 20 Filipino wedding role tiers in the guest list including principal sponsors, candle/veil/cord/coin sponsors, ninang, ninong, and bearers. Multi-faith vendor compatibility tagging across 192 vendor sub-categories.',
+      },
+      {
+        slug: 'what-languages-does-setnayan-support',
+        title: 'What languages does Setnayan support?',
+        body: 'English (primary across the marketing site and dashboards). Tagalog (TL) on dashboard surfaces. Cebuano (CEB) localization on the marketing site is on the V1.1 roadmap.',
+      },
+      {
+        slug: 'where-does-setnayan-operate',
+        title: 'Where does Setnayan operate?',
+        body: 'Philippines — Metro Manila (Quezon City, Makati, Pasig, Taguig, Manila), Cebu, Davao, Tagaytay, Iloilo, Baguio, Pampanga, Cavite, Batangas, Laguna, Bulacan, and any city where Filipino wedding vendors serve. Pilot launches 2026-06-01. Public launch 2026-12-01.',
+      },
+      {
+        slug: 'does-setnayan-have-mobile-app',
+        title: 'Does Setnayan have a mobile app?',
+        body: 'Web-first responsive site that works on iOS Safari and Chrome Android. Native iOS and Android shells via Expo are on the V1.5 roadmap.',
+      },
+      {
+        slug: 'how-are-vendors-verified',
+        title: 'How are vendors verified on Setnayan?',
+        body: 'Vendors complete an identity check (DTI registration, mayor\'s permit, BIR Form 2303, sanctions screening) plus a 15-minute video call with a Setnayan admin. ₱1,499 one-time for a lifetime Verified badge — no annual renewal fee. Vendors verified before 2027-01-31 receive 100 complimentary tokens as a founder bonus.',
+      },
+      {
+        slug: 'what-is-pakanta',
+        title: 'What is Pakanta?',
+        body: 'A custom Filipino-style song written for the couple. ₱2,499 one-time per event. Setnayan\'s music team writes original lyrics around the couple\'s love story, records the track, and delivers it for the ceremony or reception.',
+      },
+      {
+        slug: 'what-is-papic',
+        title: 'What is Papic?',
+        body: 'Guest-side photo capture for your wedding. Two purchase modes: Papic Guest (₱2,999, disposable-camera mode for general guests, 24 photos plus 10 5-second videos per guest, auto-tagged via face detection) and Papic 5 Seats (₱2,999, five seats for designated paparazzi friends and family with unlimited photos plus unlimited videos for 5 hours).',
+      },
+      {
+        slug: 'what-is-panood',
+        title: 'What is Panood?',
+        body: 'Live streaming for your wedding, embedded directly on your event website. ₱3,499 per day with up to four cameras. Guests and family who couldn\'t attend in person can watch the ceremony and reception live without leaving Setnayan.',
+      },
+      {
+        slug: 'what-is-pakulay',
+        title: 'What is Pakulay?',
+        body: 'The visual mood board for your wedding — included free with every couple account. Three pillars: palette (colors), location feel (venue look + atmosphere), and dress codes (attire direction by role tier). Pakulay finalizes once and downstream services (catering, florals, attire, stationery) pull from the same locked vision.',
+      },
+      {
+        slug: 'is-setnayan-bir-compliant',
+        title: 'Is Setnayan BIR-compliant?',
+        body: 'Yes. BIR-compliant receipts on every Setnayan software purchase. Vendor-to-couple payments settle off-platform per Filipino direct-booking norms; vendors handle their own BIR receipts on those direct bookings.',
+      },
+      {
+        slug: 'how-does-setnayan-handle-privacy',
+        title: 'How does Setnayan handle my privacy?',
+        body: 'RA 10173 (Data Privacy Act of the Philippines) compliant. Guest list and event details are never publicly shared without your explicit opt-in. Real-wedding editorials publish 30 days post-event only with explicit couple consent. National Privacy Commission registration in progress. DPO contact at dpo@setnayan.com.',
+      },
+      {
+        slug: 'how-to-contact-support',
+        title: 'How do I contact Setnayan support?',
+        body: 'Send a message via the contact form below on this page — pick your role (couple, vendor, guest, or admin) and we\'ll route it to the right team. Response within 24 hours during business days. Privacy-related requests reach the DPO directly at dpo@setnayan.com.',
+      },
+      {
+        slug: 'when-does-setnayan-launch',
+        title: 'When does Setnayan launch?',
+        body: 'Pilot 2026-06-01 with a small family + friends cohort exercising the full payment cycle on real weddings. Public launch 2026-12-01 alongside the founder\'s wedding (December 18, 2026) — the first event shipped through the platform end-to-end.',
+      },
+    ],
+  },
   {
     key: 'getting-started',
     label: 'Getting started',

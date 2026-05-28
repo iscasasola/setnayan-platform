@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Setnayan — Vendor Keynote.</title>
+<meta name="description" content="The Setnayan vendor platform — WWDC-style walkthrough. ₱1,499 once verification, ₱1,999/month Pro, all-in pricing, AI tools, Today's Focus matchmaking." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@400;600;700;800&family=Geist:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+<link rel="stylesheet" href="styles.css" />
+
+<style>
+  body { background: var(--paper); }
+  #root:empty::before {
+    content: "Loading…";
+    display: block; padding: 96px 56px;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    color: var(--slate-3, #888); font-size: 12px; letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<template id="__bundler_thumbnail">
+  <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <rect width="100" height="100" fill="#1F1A17"/>
+    <text x="50" y="56" text-anchor="middle"
+      font-family="Saira Condensed, sans-serif" font-weight="800"
+      font-size="18" fill="#E8B399" letter-spacing="2">VENDORS.</text>
+  </svg>
+</template>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="components/mock-data.jsx"></script>
+<script type="text/babel" src="lib/stage.jsx"></script>
+<script type="text/babel" src="components/motion.jsx"></script>
+<script type="text/babel" src="components/marks.jsx"></script>
+
+<script type="text/babel" src="components/keynote-vendors.jsx"></script>
+
+<script type="text/babel">
+ReactDOM.createRoot(document.getElementById("root")).render(<VendorKeynote />);
+</script>
+</body>
+</html>

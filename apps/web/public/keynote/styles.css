@@ -1,0 +1,228 @@
+/* Setnayan v2 — design tokens (anchored to brand orange + slate) */
+:root {
+  /* Surfaces — warm paper */
+  --paper:      #FBF8F2;   /* warm off-white */
+  --paper-2:    #F4EFE5;   /* slight cream */
+  --ivory:      #EDE5D2;   /* deeper cream callouts */
+  --line:       #E2D9C6;   /* warm hairline on paper */
+  --line-soft:  #ECE5D6;
+
+  /* Slate (primary ink, from logo) */
+  --ink:        #2D3038;   /* deeper slate for headlines */
+  --slate:      #545860;   /* logo slate */
+  --slate-2:    #6E727A;
+  --slate-3:    #8A8E97;
+  --slate-4:    #B7B9BE;
+
+  /* Orange (brand accent — burnt sienna · upgraded from logo orange) */
+  --orange:     #C96B3A;
+  --orange-2:   #A84F25;   /* hover / press · deeper sienna */
+  --orange-3:   #E8B399;   /* tinted highlights · soft sienna wash */
+  --orange-4:   #F8E6DC;   /* lightest wash · paper-friendly */
+
+  /* Supporting */
+  --blush:      #F4D7C9;
+  --blush-deep: #B65A3A;
+  --sage:       #C5D2BD;
+  --sage-deep:  #4F6B4A;
+
+  /* Semantic */
+  --accent: var(--orange);
+  --accent-deep: var(--orange-2);
+
+  /* Type */
+  --display: "Saira Condensed", "Barlow Condensed", "Helvetica Neue", sans-serif;
+  --sans:    "Geist", "Plus Jakarta Sans", "Helvetica Neue", Helvetica, sans-serif;
+  --serif:   "Instrument Serif", "Cormorant Garamond", Georgia, serif;
+  --mono:    "JetBrains Mono", ui-monospace, monospace;
+
+  /* Radii */
+  --r-xs: 4px;
+  --r-sm: 8px;
+  --r-md: 14px;
+  --r-lg: 22px;
+  --r-xl: 36px;
+  --r-full: 999px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(45,48,56,.05), 0 1px 1px rgba(45,48,56,.04);
+  --shadow-md: 0 8px 24px -10px rgba(45,48,56,.18), 0 2px 6px -2px rgba(45,48,56,.08);
+  --shadow-lg: 0 40px 80px -30px rgba(45,48,56,.28), 0 10px 30px -8px rgba(45,48,56,.10);
+}
+
+/* Dark mode — kicks in on prefers-color-scheme or .dark class on body */
+@media (prefers-color-scheme: dark) {
+  body:not(.force-light) {
+    --paper:      #0F1115;
+    --paper-2:    #15181D;
+    --ivory:      #1A1E24;
+    --line:       #22262E;
+    --line-soft:  #1C2026;
+    --ink:        #FBF8F2;
+    --slate:      #B7BCC4;
+    --slate-2:    #9CA1AB;
+    --slate-3:    #7A7F89;
+    --slate-4:    #555964;
+  }
+html, body { margin: 0; padding: 0; scroll-behavior: smooth; }
+
+/* Dark mode kicks in via the @media block above */
+  --paper:      #0F1115;
+  --paper-2:    #15181D;
+  --ivory:      #1A1E24;
+  --line:       #22262E;
+  --line-soft:  #1C2026;
+  --ink:        #FBF8F2;
+  --slate:      #B7BCC4;
+  --slate-2:    #9CA1AB;
+  --slate-3:    #7A7F89;
+  --slate-4:    #555964;
+}
+body {
+  font-family: var(--sans);
+  color: var(--slate);
+  background: var(--paper);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+* { box-sizing: border-box; }
+
+/* Reusable text classes */
+.display {
+  font-family: var(--display);
+  font-weight: 800;
+  letter-spacing: -0.005em;
+  color: var(--ink);
+  line-height: 1.02;
+  text-transform: uppercase;
+  padding-bottom: 0.22em;
+}
+.display-tight { font-family: var(--display); font-weight: 700; letter-spacing: -0.005em; color: var(--ink); line-height: 1.04; padding-bottom: 0.18em; }
+.serif { font-family: var(--serif); font-weight: 400; letter-spacing: -0.005em; }
+.mono  { font-family: var(--mono); font-feature-settings: "ss01"; }
+.label-mono {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--slate-2);
+}
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--slate-2);
+}
+.eyebrow::before {
+  content: "";
+  width: 28px; height: 1px;
+  background: var(--orange);
+}
+
+/* Photo placeholder — diagonal stripes in warm tone */
+.photo-placeholder {
+  background:
+    repeating-linear-gradient(
+      45deg,
+      #EFE6D2,
+      #EFE6D2 8px,
+      #F4ECDB 8px,
+      #F4ECDB 16px
+    );
+  position: relative;
+  overflow: hidden;
+}
+.photo-placeholder .pp-label {
+  position: absolute;
+  inset: auto 12px 12px 12px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  padding: 4px 8px;
+  border-radius: var(--r-xs);
+  display: inline-block;
+  width: max-content;
+  max-width: calc(100% - 24px);
+}
+
+/* Buttons */
+.btn {
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  padding: 12px 20px;
+  border-radius: var(--r-full);
+  border: 1px solid transparent;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: transform .12s, background .12s, border-color .12s, color .12s;
+  text-decoration: none;
+  white-space: nowrap;
+  color: var(--paper);
+}
+.btn-primary { background: var(--ink); color: var(--paper); }
+.btn-primary:hover { background: var(--slate); }
+.btn-orange { background: var(--orange); color: #fff; }
+.btn-orange:hover { background: var(--orange-2); }
+.btn-ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+.btn-ghost:hover { border-color: var(--ink); background: var(--paper); }
+.btn-lg { padding: 16px 28px; font-size: 15px; }
+
+/* Cards */
+.card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+  transition: transform .25s cubic-bezier(.2,.7,.2,1), box-shadow .25s ease;
+}
+.card-lift:hover, a.card:hover, button.card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Magnetic-style button hover */
+.btn { transition: transform .15s cubic-bezier(.2,.7,.2,1), background .12s, border-color .12s, color .12s, box-shadow .15s; }
+.btn:hover:not(:disabled) { transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+
+/* Parallax frame — set via JS by adding .parallax + data-speed */
+.parallax { will-change: transform; }
+
+/* Section fade-in on scroll (used by Reveal) — keep CSS minimal so JS owns it */
+
+/* Pills */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 11px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--line);
+  font-size: 12px;
+  background: var(--paper);
+  color: var(--slate);
+}
+.pill-orange {
+  background: var(--orange-4);
+  border-color: var(--orange-3);
+  color: var(--orange-2);
+}
+
+/* Underline highlight */
+.hi {
+  background: linear-gradient(transparent 65%, var(--orange-3) 65%);
+  padding: 0 2px;
+}

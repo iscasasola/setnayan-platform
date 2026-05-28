@@ -135,6 +135,22 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // v2.1 keynote static decks · CLAUDE.md 2026-05-28 11th row "v2.1
+  // template package adoption" Phase 10 Option B. Three React+Babel
+  // scroll decks live under public/keynote/{index,vendors,engineering}.html
+  // with their JSX dependencies + styles.css + brand assets co-located.
+  // These rewrites give them clean URLs (/keynote · /keynote/vendors ·
+  // /keynote/engineering) instead of forcing the .html suffix. The static
+  // files in public/ are served directly by Next.js; the rewrite is a
+  // URL-only remap so a deep-link in marketing email or social card lands
+  // on the right slide deck without a 404 + redirect dance.
+  async rewrites() {
+    return [
+      { source: '/keynote', destination: '/keynote/index.html' },
+      { source: '/keynote/vendors', destination: '/keynote/vendors.html' },
+      { source: '/keynote/engineering', destination: '/keynote/engineering.html' },
+    ];
+  },
 };
 
 // Sentry wrapper — injects the SDK and (when SENTRY_AUTH_TOKEN is set)

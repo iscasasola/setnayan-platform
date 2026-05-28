@@ -127,6 +127,17 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
             <Wallet aria-hidden className="h-5 w-5" strokeWidth={1.75} />
           </span>
         </div>
+        {/*
+          v2.1 visual overlay 2026-05-28 — label-mono eyebrow above the
+          display heading per vendor-dashboard.jsx template (label-mono
+          uppercase eyebrow + bold display title). Visual treatment only;
+          KPI cards + ledger tabular data + pagination below preserve
+          placement and every interaction unchanged per
+          [[feedback_setnayan_button_preservation]].
+        */}
+        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          Vendor dashboard · Earnings ledger
+        </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Earnings</h1>
         <p className="max-w-prose text-base text-ink/65">
           A log of bookings you&rsquo;ve closed through Setnayan. You keep 100% of what

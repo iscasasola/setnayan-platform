@@ -104,7 +104,20 @@ export default async function VendorMarketingPage({ searchParams }: Props) {
 
   return (
     <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-8 px-4 py-10 sm:px-6 lg:px-8">
+      {/*
+        v2.1 visual overlay 2026-05-28 — label-mono eyebrow above the display
+        heading per vendor-dashboard.jsx template. Tier-picker cards + the
+        existing "marketing tools being redesigned" amber retirement banner
+        below preserve placement + every interaction unchanged per
+        [[feedback_setnayan_button_preservation]]. Body copy already reflects
+        the v2.1 publisher posture (Boosted Ads + Sponsored Boost being
+        reworked under the publisher model · Pro Weekly retired by the fifth
+        2026-05-28 row).
+      */}
       <header className="space-y-3">
+        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          Vendor dashboard · Marketing
+        </p>
         <div className="flex items-center gap-3">
           <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
             <Megaphone aria-hidden className="h-5 w-5" strokeWidth={1.75} />

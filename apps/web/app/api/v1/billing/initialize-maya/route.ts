@@ -244,6 +244,13 @@ export async function POST(request: Request) {
         }
       }
 
+      // Read the live admin-uploaded QR codes + account names from
+      // platform_settings (set via the admin dashboard's merchant-QR
+      // uploader). The env-var pattern from the prior turn is retired —
+      // admins control these values directly without a redeploy. Falls
+      // through to safe defaults if the platform_settings row is empty.
+      const instructions = await readQrInstructions();
+
       return NextResponse.json({
         success: true,
         gatewayMode: 'MANUAL_QR_OVERLAY',
@@ -253,14 +260,7 @@ export async function POST(request: Request) {
         referenceNumber,
         primaryItemDescriptor,
         lineItems: checkoutLineItems,
-        instructions: {
-          gcashQrUrl: process.env.NEXT_PUBLIC_GCASH_QR_URL ?? 'https://setnayan.com',
-          bdoQrUrl:   process.env.NEXT_PUBLIC_BDO_QR_URL   ?? 'https://setnayan.com',
-          gcashAccountName: process.env.NEXT_PUBLIC_GCASH_ACCOUNT_NAME ?? 'Setnayan Wedding Platform',
-          bdoAccountName:   process.env.NEXT_PUBLIC_BDO_ACCOUNT_NAME   ?? 'Setnayan Corporation',
-          message: 'Please scan either QR code using GCash or your BDO mobile app to settle full retail payment. Enter your Reference Number in the transaction notes. Your platform benefits will be activated manually by administration within 10-15 minutes of payment receipt confirmation.',
-          slaMinutes: 15,
-        },
+        instructions,
         audit: {
           log_persisted: dbInsertOk,
           log_error: dbInsertError,
@@ -388,4 +388,56 @@ function makeReferenceNumber(eventId: string, channel: 'QR' | 'MAYA'): string {
   const evtShort = eventId.replace(/-/g, '').slice(0, 8).toUpperCase();
   const ts = Date.now().toString(36).toUpperCase();
   return `SETNAYAN-${channel}-${evtShort}-${ts}`;
+}
+
+/**
+ * Read live admin-uploaded QR URLs + account-name copy from
+ * `public.platform_settings`. Admins update these values via the admin
+ * dashboard's merchant-QR uploader — no redeploy required when QR
+ * assets change. Falls through to placeholder strings if the row is
+ * empty (only happens in fresh staging environments).
+ */
+type ManualQrInstructions = {
+  gcashQrUrl: string;
+  bdoQrUrl: string;
+  gcashAccountName: string;
+  bdoAccountName: string;
+  message: string;
+  slaMinutes: number;
+};
+
+async function readQrInstructions(): Promise<ManualQrInstructions> {
+  const fallback: ManualQrInstructions = {
+    gcashQrUrl: '',
+    bdoQrUrl: '',
+    gcashAccountName: 'Setnayan Wedding Platform',
+    bdoAccountName:   'Setnayan Corporation',
+    message: 'Please scan either QR code using GCash or your BDO mobile app to settle full retail payment. Enter your Reference Number in the transaction notes. Your platform benefits will be activated manually by administration within 10-15 minutes of payment receipt confirmation.',
+    slaMinutes: 15,
+  };
+
+  if (DEMO_MODE) {
+    // Demo mode skips DB hit — emit placeholders so the modal renders
+    // with broken-but-non-blocking QR src attributes.
+    return { ...fallback, gcashQrUrl: 'https://setnayan.com/demo-gcash.png', bdoQrUrl: 'https://setnayan.com/demo-bdo.png' };
+  }
+
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from('platform_settings')
+      .select('gcash_qr_url, bdo_qr_url, gcash_account_name, bdo_account_name')
+      .maybeSingle();
+    if (!data) return fallback;
+    return {
+      gcashQrUrl: (data.gcash_qr_url as string | null) ?? fallback.gcashQrUrl,
+      bdoQrUrl:   (data.bdo_qr_url as string | null)   ?? fallback.bdoQrUrl,
+      gcashAccountName: (data.gcash_account_name as string | null) ?? fallback.gcashAccountName,
+      bdoAccountName:   (data.bdo_account_name as string | null)   ?? fallback.bdoAccountName,
+      message:    fallback.message,
+      slaMinutes: fallback.slaMinutes,
+    };
+  } catch {
+    return fallback;
+  }
 }

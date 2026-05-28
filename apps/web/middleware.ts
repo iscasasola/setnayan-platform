@@ -34,8 +34,60 @@ const LEGACY_SERVICES_RE =
 // removes this match. Matches GET requests with or without query params.
 const COMPARE_ORPHAN_PATH = '/vendors/compare';
 
+// Wildcard vendor subdomain support · owner directive 2026-05-28.
+// `{vendor-slug}.setnayan.com` → internal rewrite to `/v/{slug}` so the
+// existing vendor profile page renders. Skips reserved subdomains (www,
+// api, admin, status, docs, etc) that may host distinct services. Skips
+// in-dev hostnames (localhost · vercel.app preview URLs) so the rewrite
+// only fires on the production domain where wildcard DNS routes traffic.
+//
+// Operational prerequisites (owner-side):
+//   1. DNS · *.setnayan.com CNAME → cname.vercel-dns.com (or A-record IP
+//      for cname-flat setups). Once configured, Vercel auto-issues TLS
+//      via Let's Encrypt for each requested subdomain.
+//   2. Vercel · add `*.setnayan.com` as a domain on the production project
+//      (Settings → Domains → Add → wildcard).
+// Without those, real subdomain requests never reach the app and this
+// rewrite is dead code (harmless · matcher just never fires).
+const VENDOR_SUBDOMAIN_RE = /^([a-z0-9][a-z0-9-]{0,61}[a-z0-9])\.setnayan\.com$/i;
+const RESERVED_SUBDOMAINS = new Set([
+  'www',     // canonical app domain · the main marketing + customer surface
+  'api',     // reserved for future public API gateway (V2.1 per blueprint)
+  'admin',   // reserved
+  'status',  // reserved · status page if/when shipped
+  'docs',    // reserved · public API docs
+  'cdn',     // reserved · static asset CDN
+  'mail',    // reserved
+  'ftp',     // reserved
+  'app',     // reserved
+  'demo',    // reserved
+  'staging', // reserved
+  'preview', // reserved
+]);
+
+function detectVendorSubdomain(hostname: string): string | null {
+  const m = hostname.match(VENDOR_SUBDOMAIN_RE);
+  if (!m) return null;
+  const slug = m[1]!.toLowerCase();
+  if (RESERVED_SUBDOMAINS.has(slug)) return null;
+  return slug;
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
+  const hostname = (request.headers.get('host') ?? '').toLowerCase();
+
+  // Vendor subdomain rewrite · `slug.setnayan.com/<rest>` → `/v/{slug}/<rest>`.
+  // Fires BEFORE any other middleware logic because the rewrite changes
+  // pathname downstream consumers see.
+  const vendorSlug = detectVendorSubdomain(hostname);
+  if (vendorSlug) {
+    const rewrite = request.nextUrl.clone();
+    rewrite.pathname = pathname === '/'
+      ? `/v/${vendorSlug}`
+      : `/v/${vendorSlug}${pathname}`;
+    return NextResponse.rewrite(rewrite);
+  }
 
   // /vendors/compare → /vendors?notice=compare_v1_2 (Task #12). Strip the
   // visitor-supplied query string — the compare page never wired its `ids`

@@ -676,6 +676,15 @@ export const RETIRED_SKU_CODES = [
   'pro_widget_hero',                 // -> monogram_hero_upgrade
   'contract_intelligence_upgrade',   // 0032 retired 2026-05-18 (couple-side)
   'contract_intelligence_per_contract', // 0032 retired 2026-05-18 (vendor-side)
+  // V1 boost retired 2026-05-28 per owner directive ("remove the current
+  // boosting · we add it later"). V2 replacement is the token-cost-per-bid
+  // sink in the bid marketplace (blueprint Part 2 § 2 · high-valuation
+  // destination briefs cost 5-8 tokens per submission).
+  'boosted_ads_5km',
+  'boosted_ads_10km',
+  'boosted_ads_20km',
+  'sponsored_boost_quarterly_30km',
+  'sponsored_boost_annual_30km',
 ] as const;
 
 /** BIR marketplace withholding rate. 0.5% of gross booking. */

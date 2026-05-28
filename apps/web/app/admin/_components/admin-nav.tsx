@@ -189,14 +189,20 @@ function Chip({
   label: string;
   active: boolean;
 }) {
+  // v2.1 deep-fix (2026-05-28) — active leaf chip swaps from solid ink
+  // to --m-orange-2 sienna with --m-paper text · inactive uses
+  // --m-paper-2 parchment over --m-slate body. Mirrors vendor subnav-tab
+  // active-state from PR #588. Chip geometry unchanged per
+  // [[feedback_setnayan_button_preservation]].
   return (
     <Link
       href={href}
       aria-current={active ? 'page' : undefined}
-      className={
+      className="shrink-0 rounded-full px-3 py-1 transition-colors"
+      style={
         active
-          ? 'shrink-0 rounded-full bg-ink px-3 py-1 text-cream'
-          : 'shrink-0 rounded-full bg-ink/5 px-3 py-1 text-ink/70 hover:bg-ink/10 hover:text-ink'
+          ? { background: 'var(--m-orange-2)', color: 'var(--m-paper)' }
+          : { background: 'var(--m-paper-2)', color: 'var(--m-slate)' }
       }
     >
       {label}
@@ -254,11 +260,15 @@ function GroupChip({
         onClick={onToggle}
         aria-haspopup="menu"
         aria-expanded={isOpen}
-        className={
-          (active
-            ? 'bg-ink text-cream'
-            : 'bg-ink/5 text-ink/70 hover:bg-ink/10 hover:text-ink') +
-          ' inline-flex items-center gap-1 rounded-full px-3 py-1'
+        className="inline-flex items-center gap-1 rounded-full px-3 py-1 transition-colors"
+        style={
+          // v2.1 deep-fix (2026-05-28) — group dropdown trigger mirrors
+          // the leaf Chip active-state treatment · sienna fill +
+          // --m-paper text when any descendant is active · parchment +
+          // --m-slate body otherwise.
+          active
+            ? { background: 'var(--m-orange-2)', color: 'var(--m-paper)' }
+            : { background: 'var(--m-paper-2)', color: 'var(--m-slate)' }
         }
       >
         {label}
@@ -281,6 +291,12 @@ function GroupChip({
       </button>
       {isOpen && coords && mounted
         ? createPortal(
+            // v2.1 deep-fix (2026-05-28) — dropdown panel adopts
+            // --m-paper surface + --m-line hairline + --m-shadow-md
+            // for the elevation. Active item renders --m-blush
+            // (sienna tint) over --m-orange-2 text · inactive uses
+            // --m-slate body over --m-paper. Mirrors planning-groups
+            // tile chrome from PR #587 deep-fix.
             <div
               ref={portalRef}
               role="menu"
@@ -288,8 +304,11 @@ function GroupChip({
                 position: 'fixed',
                 top: coords.top,
                 left: coords.left,
+                background: 'var(--m-paper)',
+                border: '1px solid var(--m-line)',
+                boxShadow: 'var(--m-shadow-md)',
               }}
-              className="z-50 min-w-[12rem] overflow-hidden rounded-xl border border-ink/10 bg-cream shadow-lg"
+              className="z-50 min-w-[12rem] overflow-hidden rounded-xl"
             >
               {items.map((item) => {
                 const itemActive = isActiveHref(pathname, item.href);
@@ -299,10 +318,11 @@ function GroupChip({
                     href={item.href}
                     role="menuitem"
                     aria-current={itemActive ? 'page' : undefined}
-                    className={
+                    className="block px-3 py-2 text-sm transition-colors"
+                    style={
                       itemActive
-                        ? 'block bg-ink/10 px-3 py-2 text-sm text-ink'
-                        : 'block px-3 py-2 text-sm text-ink/75 hover:bg-ink/5 hover:text-ink'
+                        ? { background: 'var(--m-blush)', color: 'var(--m-orange-2)' }
+                        : { background: 'var(--m-paper)', color: 'var(--m-slate)' }
                     }
                   >
                     {item.label}

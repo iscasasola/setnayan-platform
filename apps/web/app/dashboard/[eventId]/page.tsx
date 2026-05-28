@@ -359,6 +359,16 @@ export default async function EventHomePage({
     // pre-iteration-0048 backfill); component returns null upstream
     // in that case so legacy events stay calm too.
     viewerModeratorRes,
+    // Activity + attributed activity lifted into round 1 (perf pass
+    // 2026-05-28). Both only depend on eventId + user.id which are
+    // available at the start — they were previously serialised after
+    // compatibilityFetches + crossCategoryServices + the day-of /
+    // getCommonAvailableDays conditionals, which buys us a full
+    // Singapore-region round-trip (~50-200ms) on every event-home
+    // render. Same .catch() with [] safe-default shape as the original
+    // standalone Promise.all to preserve the graceful-degrade contract.
+    activity,
+    attributedActivity,
   ] =
     await Promise.all([
       // Robust events SELECT (owner reported "error in creating an event"
@@ -741,6 +751,34 @@ export default async function EventHomePage({
           return { data: null, error: null } as never;
         }
       })(),
+      // Source activity feed — eventId-only dependency, joins round 1
+      // per the perf pass 2026-05-28. Same .catch() with [] safe default
+      // as the original standalone Promise.all.
+      fetchEventActivity(supabase, eventId, 20).catch((err: unknown) => {
+        logQueryError(
+          'EventHome (fetchEventActivity threw)',
+          err instanceof Error ? err : new Error(String(err)),
+          { event_id: eventId, user_id: user.id },
+          'graceful_degrade',
+        );
+        return [] as Awaited<ReturnType<typeof fetchEventActivity>>;
+      }),
+      // Attributed activity lane (event_action_log join via adminClient)
+      // — eventId + user.id only, joins round 1 alongside the source
+      // feed. Attribution silently returns [] when the table has no
+      // rows for this event OR a join fails, so the source feed always
+      // renders even if this lane degrades.
+      fetchAttributedActivity(adminClient, eventId, user.id, 20).catch(
+        (err: unknown) => {
+          logQueryError(
+            'EventHome (fetchAttributedActivity threw)',
+            err instanceof Error ? err : new Error(String(err)),
+            { event_id: eventId, user_id: user.id },
+            'graceful_degrade',
+          );
+          return [] as Awaited<ReturnType<typeof fetchAttributedActivity>>;
+        },
+      ),
     ]);
   const tr = makeT(locale);
 
@@ -992,6 +1030,81 @@ export default async function EventHomePage({
         return empty;
       }
     })(),
+    // Cross-category vendor services lifted into round 2 by the perf
+    // pass 2026-05-28. Only depends on `marketplaceIds` which was
+    // computed BEFORE this Promise.all from round-1 results, so it
+    // can run alongside the other compat fetches instead of waiting
+    // for them to resolve first. Saves a full Singapore round-trip on
+    // every event-home render. Same admin-client + is_active=true +
+    // graceful-degrade contract as the prior standalone serial await.
+    (async () => {
+      type ServiceRow = {
+        vendor_service_id: string;
+        vendor_profile_id: string;
+        category: string;
+        is_active: boolean;
+      };
+      const empty: { data: ServiceRow[] } = { data: [] };
+      if (marketplaceIds.length === 0) return empty;
+      try {
+        return await adminClient
+          .from('vendor_services')
+          .select(
+            'vendor_service_id, vendor_profile_id, category, is_active',
+          )
+          .in('vendor_profile_id', marketplaceIds)
+          .eq('is_active', true);
+      } catch (caught) {
+        logQueryError(
+          'EventHome (compatibilityFetches[4] vendor_services cross-category threw)',
+          caught instanceof Error ? caught : new Error(String(caught)),
+          { event_id: eventId, user_id: user.id, marketplace_ids: marketplaceIds.length },
+          'graceful_degrade',
+        );
+        return empty;
+      }
+    })(),
+    // Upcoming-items aggregation lifted into round 2 by the perf pass
+    // 2026-05-28. Depends on `event.event_date` + `event.ceremony_type`
+    // (from round-1's eventRes) which are already destructured above,
+    // so it can run alongside the compat fetches. Saves the final
+    // Singapore round-trip on every event-home render. fetchUpcomingItems
+    // already internally graceful-degrades each of its five sources;
+    // the outer try/catch here mirrors the safe-default shape the
+    // standalone serial await used so downstream readers of
+    // `.items` + `.paymentItemsNext30d` keep working unchanged.
+    (async () => {
+      try {
+        return await fetchUpcomingItems({
+          supabase,
+          eventId,
+          eventDate: event.event_date,
+          ceremonyType: (event as { ceremony_type?: string | null }).ceremony_type,
+          now,
+          limit: 10,
+        });
+      } catch (caught) {
+        logQueryError(
+          'EventHome (fetchUpcomingItems threw in round 2)',
+          caught instanceof Error ? caught : new Error(String(caught)),
+          { event_id: eventId, user_id: user.id },
+          'graceful_degrade',
+        );
+        return {
+          items: [] as Awaited<ReturnType<typeof fetchUpcomingItems>>['items'],
+          paymentItemsNext30d: [] as Awaited<
+            ReturnType<typeof fetchUpcomingItems>
+          >['paymentItemsNext30d'],
+          sourceCounts: {
+            meeting: 0,
+            schedule_block: 0,
+            vendor_payment: 0,
+            setnayan_sku_expiry: 0,
+            document_deadline: 0,
+          },
+        } satisfies Awaited<ReturnType<typeof fetchUpcomingItems>>;
+      }
+    })(),
   ]);
   const marketplaceCompatMap = new Map<
     string,
@@ -1207,33 +1320,19 @@ export default async function EventHomePage({
   // cake + cocktail bar surfaces as RECOMMENDED on the Cake card +
   // Music & Entertainment card with badge "also doing your catering."
   //
-  // Single batch fetch — one IN(...) per page render — keyed on the
-  // distinct marketplace_vendor_id set we already computed for the
-  // compatibility-mismatch path above. Graceful degradation: if
-  // vendor_services has 0 rows for any vendor (V1 marketplace not yet
-  // populated), the recommendations map is empty and no RECOMMENDED
-  // sub-section renders.
+  // The actual fetch was lifted into the `compatibilityFetches` Promise.all
+  // above by the perf pass 2026-05-28 — it only depends on `marketplaceIds`
+  // which is computed BEFORE the Promise.all from round-1 results, so it
+  // can run in parallel with the 4 compat lookups instead of waiting for
+  // them to resolve first. Same admin-client + is_active=true + graceful-
+  // degrade contract as before. See compatibilityFetches[4] above.
   //
   // adminClient used (same as the compat fetches) because vendor_services
   // RLS is restricted to the owning vendor — couples can't read other
   // vendors' service rows. The admin path is safe here because the
   // marketplace_vendor_id set is already gated by the couple's RLS read
   // on event_vendors above; we're not exposing anything they can't see.
-  const { data: crossCategoryServicesRaw } =
-    marketplaceIds.length > 0
-      ? await adminClient
-          .from('vendor_services')
-          .select(
-            'vendor_service_id, vendor_profile_id, category, is_active',
-          )
-          .in('vendor_profile_id', marketplaceIds)
-          .eq('is_active', true)
-      : { data: [] as Array<{
-          vendor_service_id: string;
-          vendor_profile_id: string;
-          category: string;
-          is_active: boolean;
-        }> };
+  const crossCategoryServicesRaw = compatibilityFetches[4]?.data ?? [];
   const crossCategoryRecommendations = buildCrossCategoryRecommendations({
     picks: eventVendors.map((v) => ({
       marketplace_vendor_id: v.marketplace_vendor_id,
@@ -1330,37 +1429,15 @@ export default async function EventHomePage({
     }
   }
 
-  // V1 pilot Home v2 — parallel fetches for the source activity feed
-  // + the new attributed lane (event_action_log). Attribution silently
-  // returns [] when the table has no rows for this event OR a join
-  // fails, so the source feed always renders.
-  //
-  // 6th hotfix pass · Path B 2026-05-23 — both fetchers wrapped in
-  // .catch() with [] safe defaults so a throw from EITHER lane (e.g.
-  // event_action_log table missing on a stale deploy) leaves the page
-  // rendering. ActivityFeed already handles an empty source array.
-  const [activity, attributedActivity] = await Promise.all([
-    fetchEventActivity(supabase, eventId, 20).catch((err: unknown) => {
-      logQueryError(
-        'EventHome (fetchEventActivity threw)',
-        err instanceof Error ? err : new Error(String(err)),
-        { event_id: eventId, user_id: user.id },
-        'graceful_degrade',
-      );
-      return [] as Awaited<ReturnType<typeof fetchEventActivity>>;
-    }),
-    fetchAttributedActivity(adminClient, eventId, user.id, 20).catch(
-      (err: unknown) => {
-        logQueryError(
-          'EventHome (fetchAttributedActivity threw)',
-          err instanceof Error ? err : new Error(String(err)),
-          { event_id: eventId, user_id: user.id },
-          'graceful_degrade',
-        );
-        return [] as Awaited<ReturnType<typeof fetchAttributedActivity>>;
-      },
-    ),
-  ]);
+  // V1 pilot Home v2 — source activity feed + the new attributed lane
+  // (event_action_log) were lifted into the top Promise.all (round 1)
+  // by the perf pass 2026-05-28. Both only depend on eventId + user.id
+  // which are available at the start; serialising them here cost a
+  // full Singapore-region round-trip on every event-home render.
+  // Attribution silently returns [] when the table has no rows OR a
+  // join fails, so the source feed always renders. Each fetcher's
+  // own .catch() with [] safe-default shape (6th hotfix pass · Path B
+  // 2026-05-23) lives inline in the top Promise.all now.
 
   // Derived counts for the new Home v2 sections.
   const moodBoardSaveCount = moodBoardSavesRes.count ?? 0;
@@ -1450,45 +1527,19 @@ export default async function EventHomePage({
   // See @/lib/upcoming-items for the per-source schema audit + the
   // vendor_meetings table-doesn't-exist note.
   //
-  // 6th hotfix pass · Path B 2026-05-23 — fetchUpcomingItems already
-  // internally graceful-degrades each of its five sources (any single
-  // missing table returns [] for that lane). We wrap the outer call
-  // anyway because a synchronous throw from supabase-js / its
-  // transport layer would otherwise propagate and crash the page.
-  // Empty {items, paymentItemsNext30d} keeps UpcomingSchedules +
-  // MoneyInFlight rendering their empty-state copy.
-  // sourceCounts is the required 3rd field on FetchUpcomingItemsResult.
-  // Empty per-source counts is the correct degraded state — UI
-  // surfaces below this only read .items + .paymentItemsNext30d so
-  // the diagnostic counts can stay zero without changing behaviour.
-  let upcoming: Awaited<ReturnType<typeof fetchUpcomingItems>> = {
-    items: [],
-    paymentItemsNext30d: [],
-    sourceCounts: {
-      meeting: 0,
-      schedule_block: 0,
-      vendor_payment: 0,
-      setnayan_sku_expiry: 0,
-      document_deadline: 0,
-    },
-  };
-  try {
-    upcoming = await fetchUpcomingItems({
-      supabase,
-      eventId,
-      eventDate: event.event_date,
-      ceremonyType: (event as { ceremony_type?: string | null }).ceremony_type,
-      now,
-      limit: 10,
-    });
-  } catch (caught) {
-    logQueryError(
-      'EventHome (fetchUpcomingItems threw)',
-      caught instanceof Error ? caught : new Error(String(caught)),
-      { event_id: eventId, user_id: user.id },
-      'graceful_degrade',
-    );
-  }
+  // The actual fetch was lifted into the `compatibilityFetches` Promise.all
+  // above by the perf pass 2026-05-28 — it only depends on `event.event_date`
+  // + `event.ceremony_type` (from round-1's eventRes), which are already
+  // destructured at this point, so it can run in parallel with the 4 compat
+  // lookups + the cross-category services fetch. The standalone serial
+  // await here was the last Singapore round-trip before render. Same
+  // 6th-hotfix-pass · Path B 2026-05-23 graceful-degrade contract as
+  // before: fetchUpcomingItems internally degrades each of its five
+  // sources, and the outer IIFE try/catch in compatibilityFetches[5]
+  // catches synchronous throws from supabase-js / its transport.
+  const upcoming = compatibilityFetches[5] as Awaited<
+    ReturnType<typeof fetchUpcomingItems>
+  >;
   const upcomingItems = upcoming.items;
   const moneyInFlightItems = upcoming.paymentItemsNext30d;
 

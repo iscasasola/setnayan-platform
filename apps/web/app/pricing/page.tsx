@@ -136,8 +136,135 @@ export default async function PricingPage() {
   const vendorSubs = vendorSkus.filter((s) => s.offering_type === 'subscription_monthly');
   const tokenPacks = vendorSkus.filter((s) => s.offering_type === 'token_pack');
 
+  // SEO/GEO Bucket 7 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — Product +
+  // Offer + Service JSON-LD reading from the V2 catalogs (lib/v2-catalog.ts ·
+  // fetches above). Each SKU becomes one entity in a single @graph block so
+  // Google + AI engines (ChatGPT, Perplexity, Claude, Gemini) can extract
+  // concrete PHP prices when couples ask "how much does Setnayan cost" or
+  // "is Setnayan free for couples".
+  //
+  // Composition rules:
+  //   - Customer SKUs (19)         → @type Product · brand → Organization
+  //   - Customer Bundles (2)       → @type Product · brand → Organization
+  //   - Vendor Monthly Subs (2)    → @type Service · provider → Organization ·
+  //                                  PriceSpecification with billingDuration P1M
+  //   - Token Packs (5)            → @type Product · brand → Organization
+  //
+  // availability:
+  //   - build_status = 'live'      → InStock
+  //   - build_status = 'partial'   → InStock (active build + already deliverable)
+  //   - build_status = 'not_built' → PreOrder (catalog-only · honest signal)
+  //
+  // Annual subscription SKUs (Pro ₱19,999/yr + Enterprise ₱54,999/yr per
+  // CLAUDE.md eleventh 2026-05-28 row) are spec-locked but NOT yet in the
+  // vendor_billing_catalog table. They lands in a follow-up PR when the
+  // catalog rows are seeded · the llms.txt v4 mention them ahead of UI
+  // (Bucket 1 PR #605) so AI engines have the price anchor regardless.
+  //
+  // All entities reference https://www.setnayan.com/#organization for
+  // brand grounding · composes with the layout-level Organization JSON-LD
+  // from Bucket 2 PR #607.
+  const SITE_URL = (
+    process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
+  ).replace(/\/$/, '');
+  const ORGANIZATION_REF = { '@id': `${SITE_URL}/#organization` };
+
+  const buildAvailability = (status: BuildStatus): string =>
+    status === 'not_built'
+      ? 'https://schema.org/PreOrder'
+      : 'https://schema.org/InStock';
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pricingJsonLd: Record<string, any> = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      // Customer software SKUs · @type Product
+      ...customerSkus.map((sku) => ({
+        '@type': 'Product',
+        '@id': `${SITE_URL}/pricing#sku-${sku.service_code}`,
+        name: sku.title,
+        description: sku.description ?? `${sku.title} on Setnayan.`,
+        brand: ORGANIZATION_REF,
+        category: 'Wedding planning software',
+        offers: {
+          '@type': 'Offer',
+          url: `${SITE_URL}/pricing`,
+          price: String(Math.round(sku.retail_price_php)),
+          priceCurrency: 'PHP',
+          availability: buildAvailability(sku.build_status),
+          seller: ORGANIZATION_REF,
+        },
+      })),
+      // Customer bundles · @type Product
+      ...bundles.map((b) => ({
+        '@type': 'Product',
+        '@id': `${SITE_URL}/pricing#bundle-${b.package_code}`,
+        name: b.title,
+        description: `${b.title} — bundled Setnayan wedding-planning services.`,
+        brand: ORGANIZATION_REF,
+        category: 'Wedding planning software bundle',
+        offers: {
+          '@type': 'Offer',
+          url: `${SITE_URL}/pricing`,
+          price: String(Math.round(b.retail_price_php)),
+          priceCurrency: 'PHP',
+          availability: 'https://schema.org/InStock',
+          seller: ORGANIZATION_REF,
+        },
+      })),
+      // Vendor monthly subscriptions · @type Service with PriceSpecification
+      ...vendorSubs.map((s) => ({
+        '@type': 'Service',
+        '@id': `${SITE_URL}/pricing#vendor-${s.sku_code}`,
+        name: s.title,
+        description: `${s.title} — Setnayan vendor subscription. 0% commission on bookings.`,
+        provider: ORGANIZATION_REF,
+        category: 'Wedding vendor subscription',
+        offers: {
+          '@type': 'Offer',
+          url: `${SITE_URL}/for-vendors`,
+          price: String(Math.round(s.price_php)),
+          priceCurrency: 'PHP',
+          availability: 'https://schema.org/InStock',
+          seller: ORGANIZATION_REF,
+          priceSpecification: {
+            '@type': 'UnitPriceSpecification',
+            price: String(Math.round(s.price_php)),
+            priceCurrency: 'PHP',
+            billingDuration: 'P1M',
+            unitText: 'monthly subscription',
+          },
+        },
+      })),
+      // Token packs · @type Product (commodity goods · vendors stockpile)
+      ...tokenPacks.map((t) => ({
+        '@type': 'Product',
+        '@id': `${SITE_URL}/pricing#tokens-${t.sku_code}`,
+        name: t.title,
+        description:
+          t.token_grant_count !== null
+            ? `${t.title} · ${t.token_grant_count} Setnayan vendor tokens.`
+            : `${t.title} — Setnayan vendor token pack.`,
+        brand: ORGANIZATION_REF,
+        category: 'Wedding vendor tokens',
+        offers: {
+          '@type': 'Offer',
+          url: `${SITE_URL}/for-vendors`,
+          price: String(Math.round(t.price_php)),
+          priceCurrency: 'PHP',
+          availability: 'https://schema.org/InStock',
+          seller: ORGANIZATION_REF,
+        },
+      })),
+    ],
+  };
+
   return (
     <div className="min-h-screen bg-cream text-ink">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingJsonLd) }}
+      />
       <SiteHeader />
 
       {/* Hero */}

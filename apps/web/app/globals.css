@@ -4,27 +4,33 @@
 
 @layer base {
   /*
-   * Theme system — brand pivot 2026-05-22 (CLAUDE.md decision-log).
+   * Theme system — Clean Editorial unification 2026-05-30 (CLAUDE.md
+   * decision-log). Supersedes 2026-05-22 Facebook palette across app chrome.
    *
-   * WHY: Owner directive verbatim — "make our default color be like facebook
-   * white and blue. and remove the personalization of colors. It will be
-   * light, dark, auto. just like ios".
+   * WHY: Owner directive 2026-05-30 verbatim — "as you can see, the app is
+   * incosistent with the background and text colors. please analyze the
+   * whole app on how it should look like and correct the colors." User
+   * shared 3 screenshots showing Today page (Clean Editorial: alabaster +
+   * obsidian + champagne gold + mulberry CTA) coexisting with Vendors + Home
+   * pages running Facebook palette (white + blue) producing visible drift.
+   * Today is the canonical reference per CLAUDE.md 2026-05-29 palette lock;
+   * this swap aligns the rest of the surface.
    *
-   * SCOPE: app chrome only (dashboard / admin / vendor / marketplace / public
-   * marketing). The wedding landing page chrome at `app/[slug]/page.tsx` is
-   * OUT OF SCOPE — that surface is driven by the couple's mood-board palette
-   * per iteration 0010 + 0002 + 2026-05-22 unified-QR-lifecycle lock. Mood
-   * board palettes (`event_palettes`) and per-couple monogram colors are
-   * untouched.
+   * SCOPE: app chrome (dashboard / admin / vendor / marketplace internal +
+   * public marketing surfaces consumed via legacy --color-* tokens). The
+   * `--m-*` Clean Editorial token family (used by Today page + /pricing +
+   * /for-vendors) is unchanged. Wedding landing page chrome at
+   * `app/[slug]/page.tsx` remains driven by the couple's mood-board palette
+   * per iteration 0010 + 0002 — out of scope for this swap.
    *
    * MODES:
-   *   Light  → Facebook white surface (#FFFFFF + #F0F2F5) + Facebook blue accent
-   *            (#1877F2 / hover #166FE5). Default for new accounts and
-   *            unauthed visitors.
-   *   Dark   → Facebook dark theme (#18191A bg + #242526 surface) + same blue
-   *            accent which reads cleanly on dark.
-   *   Auto   → Reads `prefers-color-scheme` at runtime. Default for
-   *            existing accounts whose legacy theme migrated to 'auto'.
+   *   Light  → Warm Alabaster surface (#FBFBFA) + Deep Obsidian text
+   *            (#1E2229) + Royal Champagne Gold accent (#C5A059) + Rich
+   *            Mulberry CTAs (#5C2542). Default.
+   *   Dark   → Deep Obsidian surface + Warm Alabaster text + brighter
+   *            champagne accent (#E0CCA0 reads on dark) + lighter mulberry
+   *            (#B8889C) for CTA visibility on dark surfaces.
+   *   Auto   → Reads `prefers-color-scheme` at runtime.
    *
    * IMPLEMENTATION: `darkMode: 'class'` in tailwind.config.ts. The
    * ThemeProvider client component sets `dark` class on `<html>` based on
@@ -32,46 +38,53 @@
    * layout.tsx <head> applies the class before first paint.
    *
    * LEGACY CLASS NAMES PRESERVED: Hundreds of components use `bg-cream`,
-   * `text-ink`, `text-terracotta`, `text-burgundy` etc. Renaming the call
-   * sites would touch hundreds of files. Instead the slot names stay; the
-   * VALUES remap to Facebook palette per mode. New code should prefer
-   * canonical tokens (`accent`, `surface`, `surface-soft`, `ink`, `ink-soft`)
-   * exposed below.
+   * `text-ink`, `text-terracotta`. The slot names stay; the VALUES remap to
+   * Clean Editorial per mode. Adds new `--color-mulberry` family for CTAs —
+   * `.button-primary` (below) flips from `bg-terracotta` (now gold accent)
+   * to `bg-mulberry` so primary actions read distinct from active-state
+   * pills + filter chips (which use `bg-terracotta`=gold for selected
+   * highlights per Clean Editorial accent role).
    *
-   * RETIRED 2026-05-22: 5-theme picker (Setnayan Default · Victorian ·
-   * Classy · iOS · Forest Theme) per CLAUDE.md 2026-05-15 row 5. Spec doc
-   * `02_Specifications/Theme_System_Implementation_Spec.md` retains the
-   * historical content with a retirement banner per
-   * [[feedback_setnayan_document_changes_with_why]].
+   * SUPERSEDED 2026-05-30: 2026-05-22 Facebook palette (light=#FFFFFF + blue
+   * #1877F2 / dark=#18191A + brighter blue) is retired. The 2026-05-30
+   * marketplace Airbnb-vibe row's "Facebook palette preserved" preservation
+   * lock is also retired. 5-theme picker retirement from 2026-05-22 stays
+   * retired (light/dark/auto trio survives).
    */
   :root {
-    /* Light mode — Facebook white + blue (DEFAULT) */
-    --color-cream: 255 255 255;        /* page bg → Facebook white */
-    --color-ink: 5 5 5;                /* primary text → Facebook ink */
-    --color-terracotta: 24 119 242;    /* accent → Facebook blue #1877F2 */
-    --color-terracotta-600: 22 111 229; /* accent hover → #166FE5 */
-    --color-terracotta-700: 10 88 202;  /* accent deeper still */
-    --accent: #1877f2;
-    --accent-deep: #166fe5;
-    --accent-soft: #e7f3ff;
+    /* Light mode — Clean Editorial (DEFAULT) */
+    --color-cream: 251 251 250;        /* page bg → Warm Alabaster #FBFBFA */
+    --color-ink: 30 34 41;             /* primary text → Deep Obsidian #1E2229 */
+    --color-terracotta: 197 160 89;    /* accent → Royal Champagne Gold #C5A059 */
+    --color-terracotta-600: 168 131 64; /* accent hover → #A88340 */
+    --color-terracotta-700: 140 105 50; /* accent deepest → #8C6932 */
+    --color-mulberry: 92 37 66;        /* NEW · CTA → Rich Mulberry #5C2542 */
+    --color-mulberry-600: 74 29 54;    /* NEW · CTA hover → #4A1D36 */
+    --color-mulberry-700: 58 23 41;    /* NEW · CTA deepest → #3A1729 */
+    --accent: #c5a059;
+    --accent-deep: #a88340;
+    --accent-soft: #f4ecd8;            /* Light champagne wash */
     --surface: #ffffff;
-    --surface-soft: #f0f2f5;           /* Facebook card / muted surface */
-    --ink-soft: 101 103 107;           /* Facebook secondary text */
+    --surface-soft: #f4f2ec;           /* Warm card surface */
+    --ink-soft: 79 83 91;               /* Deep slate #4F535B */
   }
 
   html.dark {
-    /* Dark mode — Facebook dark */
-    --color-cream: 24 25 26;           /* page bg → Facebook dark */
-    --color-ink: 228 230 235;          /* primary text → Facebook dark ink */
-    --color-terracotta: 45 136 255;    /* accent → brighter blue for contrast */
-    --color-terracotta-600: 24 119 242;
-    --color-terracotta-700: 22 111 229;
-    --accent: #2d88ff;
-    --accent-deep: #1877f2;
-    --accent-soft: #263951;
-    --surface: #18191a;
-    --surface-soft: #242526;
-    --ink-soft: 176 179 184;
+    /* Dark mode — Clean Editorial coherent variant */
+    --color-cream: 30 34 41;           /* page bg → Deep Obsidian #1E2229 */
+    --color-ink: 251 251 250;          /* primary text → Warm Alabaster #FBFBFA */
+    --color-terracotta: 224 204 160;   /* accent → brighter champagne #E0CCA0 */
+    --color-terracotta-600: 197 160 89; /* hover → #C5A059 */
+    --color-terracotta-700: 168 131 64; /* deepest → #A88340 */
+    --color-mulberry: 184 136 156;     /* CTA → mulberry-3 #B8889C reads on dark */
+    --color-mulberry-600: 215 175 192; /* CTA hover lighter still */
+    --color-mulberry-700: 92 37 66;    /* CTA deepest → original mulberry */
+    --accent: #e0cca0;
+    --accent-deep: #c5a059;
+    --accent-soft: #2a121e;            /* Dark mulberry tint for accent backgrounds */
+    --surface: #1e2229;
+    --surface-soft: #2a2e36;           /* Slightly lighter obsidian */
+    --ink-soft: 182 185 190;            /* Slate-3 #B6B9BE */
   }
 
   html {
@@ -124,8 +137,17 @@
 }
 
 @layer components {
+  /*
+   * .button-primary — Rich Mulberry CTA per Clean Editorial 2026-05-29 lock.
+   *
+   * WHY: Owner directive 2026-05-30 verbatim — visible inconsistency between
+   * Today page (mulberry CTAs) and rest of app (Facebook-blue CTAs via
+   * bg-terracotta). Token swap above remaps terracotta → champagne gold for
+   * accents/active states/eyebrows; this class swaps to bg-mulberry so
+   * primary actions visually distinct from active-pill highlights.
+   */
   .button-primary {
-    @apply inline-flex h-11 items-center justify-center rounded-md bg-terracotta px-6 text-sm font-medium text-cream transition-colors hover:bg-terracotta-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60;
+    @apply inline-flex h-11 items-center justify-center rounded-md bg-mulberry px-6 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mulberry focus-visible:ring-offset-2 focus-visible:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60;
   }
 
   .button-secondary {

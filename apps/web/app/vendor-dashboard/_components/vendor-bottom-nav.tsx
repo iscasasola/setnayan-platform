@@ -115,7 +115,10 @@ const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/vendor-dashboard/earnings',
       '/vendor-dashboard/tokens',
       '/vendor-dashboard/manpower',
-      '/vendor-dashboard/tax-documents',
+      // '/vendor-dashboard/tax-documents' RETIRED 2026-05-29 (BIR 2307
+      // retired under V2 publisher posture · page now redirects to
+      // /vendor-dashboard for bookmark continuity · no active route to
+      // bucket under More)
       '/vendor-dashboard/redeem-code',
       // Team group
       '/vendor-dashboard/team',

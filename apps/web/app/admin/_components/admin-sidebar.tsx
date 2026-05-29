@@ -23,7 +23,8 @@
  *                   Reviews · Help · Concierge abuse (7 surfaces)
  *   3. Directory  — Users · Vendors · Demo vendors · Events · Venues (5)
  *   4. Money      — Pricing · Discount codes · Add-ons · Payouts ·
- *                   Receipts · BIR 2307 · Payment methods (7 — Payment
+ *                   Receipts · Payment methods (6 — BIR 2307 retired
+ *                   2026-05-29 under V2 publisher posture · Payment
  *                   methods de-duplicated from Settings group per brief)
  *   5. Content    — Brain · Moodboard library · Taxonomy · Website · Ads (5)
  *   6. Operations — Operations & Hiring · Telemetry · Offline daemon (3 —
@@ -68,7 +69,6 @@ import {
   Tag as TagIcon,
   Sparkles,
   Receipt,
-  FileSpreadsheet,
   CreditCard,
   Brain,
   Palette,
@@ -252,12 +252,14 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/receipts',
         icon: Receipt,
       },
-      {
-        key: 'bir-2307',
-        label: 'BIR 2307',
-        href: '/admin/bir/2307',
-        icon: FileSpreadsheet,
-      },
+      // RETIRED 2026-05-29 · BIR Form 2307 (Certificate of Creditable Tax
+      // Withheld at Source) entry retired under V2 publisher posture per
+      // CLAUDE.md tenth 2026-05-28 row (v2.1 brief canonical lock) + V2
+      // Phase F manpower § "Setnayan has NO BIR 2307 / EWT obligation
+      // under RR 16-2023 1% Intermediary Tax exemption." Setnayan no longer
+      // sits in the booking-money path · doesn't withhold vendor tax ·
+      // doesn't issue 2307. Page redirects to /admin/money for bookmark
+      // continuity. Lib + table preserved as audit history.
       {
         // Payment methods de-duplicated from Settings group per brief.
         // Canonical home is Money (the data IS money — vendor payouts +

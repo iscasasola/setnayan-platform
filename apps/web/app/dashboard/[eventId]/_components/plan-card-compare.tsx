@@ -338,10 +338,16 @@ export function PlanCardCompare({
 
   return (
     <>
+      {/* "Compare N" trigger · `h-11` (44px) per CLAUDE.md 2026-05-30
+       *  owner button-height parity. Renders directly under the
+       *  Search/Add row when the host has 2+ considering picks · sits
+       *  visually adjacent to PlanCardCTAs's primary CTAs, so it needs
+       *  to share the same 44pt floor for the planning-card row to
+       *  read as one uniform action surface. */}
       <button
         type="button"
         onClick={openDialog}
-        className="inline-flex items-center justify-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/80 transition-colors hover:border-terracotta/50 hover:text-terracotta"
+        className="inline-flex h-11 items-center justify-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 text-xs font-medium text-ink/80 transition-colors hover:border-terracotta/50 hover:text-terracotta"
       >
         <GitCompare aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
         Compare {picks.length}

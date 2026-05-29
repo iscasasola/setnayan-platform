@@ -71,10 +71,24 @@ export function PlanCardCTAs({
        *  (2026-05-29 owner directive: "why is it just manual input of
        *  the vendors instead of looking for vendors?"). The marketplace
        *  is the canonical vendor discovery surface; this CTA should win
-       *  the visual race. */}
+       *  the visual race.
+       *
+       *  HEIGHT · `h-11` (44px exact) per CLAUDE.md 2026-05-30 owner
+       *  directive: "button height are still inconsistent. we want them
+       *  to have the same height so familiarity is easy." Matches the
+       *  MarketplaceTeaseStrip pills + locked-card "View contract" /
+       *  "Open thread" CTAs (`min-h-[44px]`) + every button in the
+       *  marketplace FilterDrawer/StickyMarketplaceHeader (CLAUDE.md
+       *  2026-05-30 Airbnb-vibe redesign 44pt uniform rule). Dropped
+       *  py-1.5 (12px) in favor of `h-11` because the fixed dimension
+       *  pairs cleanly with `inline-flex items-center` for vertical
+       *  centering and removes the ambiguity between "button big
+       *  enough to look like a button" vs "button big enough to be
+       *  tap-target accessible." Both invariants now hit the same
+       *  surface — 44pt. */}
       <Link
         href={searchHref}
-        className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-[var(--m-mulberry)] px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-[var(--m-mulberry-2)]"
+        className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-md bg-[var(--m-mulberry)] px-3 text-xs font-medium text-white shadow-sm transition-colors hover:bg-[var(--m-mulberry-2)]"
       >
         <Search aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
         Search vendors

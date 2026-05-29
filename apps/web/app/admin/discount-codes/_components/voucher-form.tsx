@@ -110,9 +110,56 @@ export function VoucherForm({
   const initialCapPesos =
     initial.cap_centavos !== null ? centavosToPesos(initial.cap_centavos) : '';
 
+  // Controlled state for pct + cap inputs so the per-service live preview
+  // below recomputes when admin types. Form still submits via FormData;
+  // controlled inputs work fine with native form submission.
+  const [pctValueStr, setPctValueStr] = useState<string>(initialPct);
+  const [capPesosStr, setCapPesosStr] = useState<string>(initialCapPesos);
+
   const initialExpiresAt = initial.expires_at
     ? isoToDatetimeLocal(initial.expires_at)
     : '';
+
+  // Live preview: given a sticker price + current form state, return the
+  // discounted price as centavos. Returns null if discount values aren't
+  // filled in yet (just show sticker price · no strikethrough).
+  // Mirrors `apps/web/lib/vouchers/calculate.ts` semantics — kept inline
+  // here as a small UI-only helper that operates on plain numbers (admin
+  // form inputs · safe for the magnitudes involved).
+  function previewDiscountedCentavos(
+    originalCentavos: number,
+    type: DiscountType,
+    pct: string,
+    capPesos: string,
+  ): number | null {
+    if (type === 'free') {
+      return 0;
+    }
+    const pctNum = Number(pct);
+    if (!Number.isFinite(pctNum) || pctNum <= 0 || pctNum > 100) return null;
+
+    if (type === 'pct_off') {
+      return Math.round((originalCentavos * (100 - pctNum)) / 100);
+    }
+
+    if (type === 'pct_off_capped') {
+      const capNum = Number(capPesos);
+      if (!Number.isFinite(capNum) || capNum <= 0) return null;
+      const rawDiscount = (originalCentavos * pctNum) / 100;
+      const capCentavos = Math.round(capNum * 100);
+      const discount = Math.min(rawDiscount, capCentavos);
+      return Math.round(originalCentavos - discount);
+    }
+
+    return null;
+  }
+
+  function formatPeso(centavos: number): string {
+    return (centavos / 100).toLocaleString('en-PH', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }
 
   // Group services by category so the multi-checkbox renders as compact
   // category-grouped sub-lists. Easier for an admin to find "all Papic
@@ -248,7 +295,8 @@ export function VoucherForm({
             min="1"
             max="100"
             step="1"
-            defaultValue={initialPct}
+            value={pctValueStr}
+            onChange={(e) => setPctValueStr(e.target.value)}
             required
             className="mt-2 block w-full max-w-xs rounded-md border px-3 py-2"
             style={{
@@ -284,7 +332,8 @@ export function VoucherForm({
             name="cap_pesos"
             min="0.01"
             step="0.01"
-            defaultValue={initialCapPesos}
+            value={capPesosStr}
+            onChange={(e) => setCapPesosStr(e.target.value)}
             required
             className="mt-2 block w-full max-w-xs rounded-md border px-3 py-2"
             style={{
@@ -412,6 +461,19 @@ export function VoucherForm({
                     const isChecked = initial.covered_service_keys.includes(
                       s.sku_code,
                     );
+                    // Live preview: compute discounted centavos if the
+                    // current form state has meaningful discount values.
+                    // null → just show sticker · admin hasn't filled in
+                    // pct (or cap for the capped path) yet.
+                    const previewCentavos = previewDiscountedCentavos(
+                      s.price_centavos,
+                      discountType,
+                      pctValueStr,
+                      capPesosStr,
+                    );
+                    const showPreview =
+                      previewCentavos !== null &&
+                      previewCentavos !== s.price_centavos;
                     return (
                       <label
                         key={s.sku_code}
@@ -434,6 +496,29 @@ export function VoucherForm({
                             style={{ color: 'var(--m-slate)' }}
                           >
                             ({s.sku_code})
+                          </span>
+                          {/* Price + live discount preview · ₱ formatted en-PH */}
+                          <span className="mt-0.5 block font-mono text-xs">
+                            {showPreview ? (
+                              <>
+                                <span
+                                  className="line-through"
+                                  style={{ color: 'var(--m-slate)' }}
+                                >
+                                  ₱{formatPeso(s.price_centavos)}
+                                </span>
+                                <span
+                                  className="ml-2 font-semibold"
+                                  style={{ color: 'var(--m-orange-2)' }}
+                                >
+                                  ₱{formatPeso(previewCentavos!)}
+                                </span>
+                              </>
+                            ) : (
+                              <span style={{ color: 'var(--m-slate)' }}>
+                                ₱{formatPeso(s.price_centavos)}
+                              </span>
+                            )}
                           </span>
                         </span>
                       </label>

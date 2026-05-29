@@ -93,8 +93,14 @@ export default function GlobalError({ error, reset }: Props) {
               onClick={() => reset()}
               style={{
                 padding: '0.75rem 1.5rem',
-                // 2026-05-22 brand pivot: Facebook blue CTA.
-                backgroundColor: '#1877F2',
+                // 2026-05-30 Clean Editorial unification: Rich Mulberry CTA
+                // (per CLAUDE.md 2026-05-29 palette lock). Supersedes the
+                // 2026-05-22 Facebook blue. global-error.tsx renders OUTSIDE
+                // Tailwind's processing pipeline (Next.js error boundary
+                // root) so colors must be inline hex literals, not utility
+                // classes. The Mulberry value matches the --color-mulberry
+                // token in apps/web/app/globals.css.
+                backgroundColor: '#5C2542',
                 color: '#FFFFFF',
                 fontSize: '0.875rem',
                 fontWeight: 500,

@@ -32,11 +32,13 @@
  * Long marketing copy retired — couples landing on /vendors want to filter
  * fast, not read a paragraph.
  *
- * THEME PRESERVED: Facebook palette via legacy `bg-cream` / `text-ink` /
- * `text-terracotta` / `border-ink/N` classes per the 2026-05-22 brand pivot
- * (globals.css:7-46). Matches the app shell visual language used across
- * dashboard / admin / vendor-dashboard. In light mode terracotta = Facebook
- * blue #1877F2. In dark mode terracotta = brighter blue #2D88FF.
+ * THEME: Clean Editorial palette via legacy `bg-cream` / `text-ink` /
+ * `text-terracotta` / `border-ink/N` classes per the 2026-05-30 unification
+ * (globals.css :root + html.dark). Matches the app shell visual language
+ * used across dashboard / admin / vendor-dashboard. In light mode terracotta
+ * = Royal Champagne Gold #C5A059. In dark mode terracotta = brighter
+ * champagne #E0CCA0. Supersedes the 2026-05-22 Facebook palette
+ * preservation lock on this component.
  *
  * UNIFORMITY: every interactive element on the header is exactly 44px tall
  * (matches global `button { min-height: 44px }` rule at globals.css:97-99)

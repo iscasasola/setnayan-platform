@@ -55,7 +55,7 @@
  * once and both surfaces stay in lockstep.
  */
 
-import { Home, Store, Users, MessageSquare, Menu } from 'lucide-react';
+import { CalendarHeart, Home, Store, Users, Menu } from 'lucide-react';
 import { BottomNav } from '@/app/_components/nav/bottom-nav';
 import type { BottomNavItem } from '@/app/_components/nav/types';
 
@@ -69,12 +69,36 @@ export function buildCustomerBottomNav(eventId: string): BottomNavItem[] {
 
   return [
     {
-      // 2026-05-29 nav-tune (2) · Today's Focus EXITS the bottom nav.
-      // Today's Focus is a paid SKU (₱1,499-9,999 per CLAUDE.md V2 pricing
-      // decisions) — making it slot 1 for everyone burned prime real
-      // estate on a surface DIY couples can't fully use. Today moves to
-      // /more under an Add-ons group + gets featured as a CTA on the
-      // Home page where it can earn the click. Home promotes to slot 1.
+      // 2026-05-30 nav-tune (3) · Today RESTORED to slot 1.
+      //
+      // The 2026-05-29 nav-tune (2) move that removed Today from primary
+      // nav assumed Today's Focus was paid-only (₱1,499-9,999) and
+      // therefore prime real estate. That assumption was invalidated by
+      // PR #644 (Wedding Essentials Free DIY surface · CLAUDE.md
+      // 2026-05-29 row) which split /today rendering per tier:
+      //
+      //   - PAID (events.concierge_status='active') → full 65-card
+      //     WizardHero with hard-floor scheduler + religion-adaptive
+      //     copy + 5-tier ranking + coordinator meetings
+      //   - FREE DIY (NULL / 'diy' / 'trial' / 'expired') → 7 Wedding
+      //     Essentials cards + soft upgrade nudge to paid wizard
+      //
+      // Today is now valuable for EVERY couple. Hiding it in /more
+      // orphaned the Wedding Essentials surface (owner 2026-05-30:
+      // "today did not show"). Restoring to slot 1 honors the surface's
+      // role as the daily planning anchor across the full runway.
+      key: 'today',
+      label: 'Today',
+      href: `${base}/today`,
+      icon: CalendarHeart,
+      activeMatch: `${base}/today`,
+    },
+    {
+      // Home demoted to slot 2 (was slot 1). Still high-frequency — the
+      // event-home dashboard surfaces budget · phase tracker · plan
+      // grid · activity feed. Couples will reach for Home daily, but
+      // Today edges it out because Today carries the actionable next
+      // step (Wedding Essential to fill OR wizard card to lock).
       key: 'home',
       label: 'Home',
       href: base,
@@ -87,12 +111,11 @@ export function buildCustomerBottomNav(eventId: string): BottomNavItem[] {
       activeMatchExact: true,
     },
     {
-      // 2026-05-29 nav-tune (2) · Vendors marketplace promoted to slot 2.
-      // Owner's framing: 'the connection of vendors and customer IS the
-      // marketplace. Without the marketplace or the vendor recommendation,
-      // we will not connect them properly.' Making Vendors slot 2 honors
-      // that — the marketplace is the platform's core connector surface,
-      // not an item buried in More.
+      // Vendors marketplace stays slot 3 (was slot 2 in PR #637). Owner
+      // framing from 2026-05-29: "the connection of vendors and customer
+      // IS the marketplace · without the marketplace or the vendor
+      // recommendation, we will not connect them properly." Vendors stays
+      // prominent in the primary nav.
       //
       // Routes to /dashboard/[eventId]/vendors (event-scoped vendor
       // management + marketplace embed) so couples land in their event's
@@ -118,16 +141,12 @@ export function buildCustomerBottomNav(eventId: string): BottomNavItem[] {
       ],
     },
     {
-      // 2026-05-29 nav-tune (1) · Messages stays in slot 4 (was slot 5
-      // before PR #637 swapped Website → Messages). Couples chat with
-      // vendors DAILY during planning.
-      key: 'messages',
-      label: 'Messages',
-      href: `${base}/messages`,
-      icon: MessageSquare,
-      activeMatch: [`${base}/messages`, `${base}/contracts`],
-    },
-    {
+      // Messages MOVED to More (from slot 4 in PR #637). The Today/Plan
+      // loop edges out Messages as the daily anchor across the full
+      // 6-18 month runway. Messages stays one tap away via /more +
+      // deep-links from chat notifications + in-thread links. Heavy
+      // chat phase (final 2-3 months) still has Messages reachable
+      // through More → Messages and through notification deep links.
       key: 'more',
       label: 'More',
       href: `${base}/more`,
@@ -136,15 +155,13 @@ export function buildCustomerBottomNav(eventId: string): BottomNavItem[] {
       // dedicated tab. Enumerated explicitly per the
       // [[feedback_setnayan_orphan_prevention]] rule — every route
       // must be reachable AND have its active tab light up correctly.
-      // New routes need an entry here OR in one of the umbrellas above.
-      // 2026-05-29 nav-tune (2) · Today's Focus moved IN (was slot 1).
-      // Vendors moved OUT (now slot 2 · the marketplace connector tab).
-      // Everything else preserved from the PR #637 layout.
+      // 2026-05-30 nav-tune (3) · Messages added (moved from slot 4).
+      // Today removed from More activeMatch (Today now lives in slot 1).
       activeMatch: [
         `${base}/more`,
-        // Today's Focus — paid SKU, now lives under More with upsell
-        // surface on Home + inline on Plan cards
-        `${base}/today`,
+        // Messages — moved here from slot 4
+        `${base}/messages`,
+        `${base}/contracts`,
         // Plan group (excluding guests + hosts which sit under Guests,
         // and vendors which has its own tab)
         `${base}/seating`,

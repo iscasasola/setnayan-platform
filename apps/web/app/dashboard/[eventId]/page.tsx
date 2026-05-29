@@ -24,8 +24,10 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
 import { computeGuestStats, fetchGuestsByEvent } from '@/lib/guests';
-import { fetchEventActivity } from '@/lib/activity';
-import { fetchAttributedActivity } from '@/lib/activity-attribution';
+// fetchEventActivity + fetchAttributedActivity moved into ActivityFeedAsync
+// (2026-05-30 Phase 2 — Suspense streaming · see _components/activity-feed-async.tsx
+// + CLAUDE.md 2026-05-30 row). Page no longer awaits these — the activity feed
+// streams in independently after the shell.
 import {
   formatEventDateWithPrecision,
   type EventDatePrecision,
@@ -95,10 +97,19 @@ import { EventMetaLine } from './_components/event-meta-line';
 import { VendorAvailabilityIntersection } from './_components/vendor-availability-intersection';
 import { BudgetCountdownHeader } from './_components/budget-countdown-header';
 import { FinalizedChipStrip } from './_components/finalized-chip-strip';
-import { UpcomingSchedules } from './_components/upcoming-schedules';
-import { MoneyInFlight } from './_components/money-in-flight';
-import { fetchUpcomingItems } from '@/lib/upcoming-items';
-import { ActivityFeed } from './_components/activity-feed';
+// MoneyInFlight + UpcomingSchedules + ActivityFeed renders now sit inside
+// Suspense boundaries via their async wrappers (2026-05-30 Phase 2 — see
+// CLAUDE.md 2026-05-30 row). Each wrapper does its own fetch and the
+// shell streams in immediately while the panels resolve independently.
+import { Suspense } from 'react';
+import {
+  MoneyAndUpcomingAsync,
+  MoneyAndUpcomingSkeleton,
+} from './_components/money-and-upcoming-async';
+import {
+  ActivityFeedAsync,
+  ActivityFeedSkeleton,
+} from './_components/activity-feed-async';
 import { YourPlanSection } from './_components/your-plan-section';
 import { getConfirmedVendorCount, isEventDateInPast } from '@/lib/events';
 import type { VendorCategory } from '@/lib/vendors';
@@ -380,16 +391,11 @@ export default async function EventHomePage({
     // pre-iteration-0048 backfill); component returns null upstream
     // in that case so legacy events stay calm too.
     viewerModeratorRes,
-    // Activity + attributed activity lifted into round 1 (perf pass
-    // 2026-05-28). Both only depend on eventId + user.id which are
-    // available at the start — they were previously serialised after
-    // compatibilityFetches + crossCategoryServices + the day-of /
-    // getCommonAvailableDays conditionals, which buys us a full
-    // Singapore-region round-trip (~50-200ms) on every event-home
-    // render. Same .catch() with [] safe-default shape as the original
-    // standalone Promise.all to preserve the graceful-degrade contract.
-    activity,
-    attributedActivity,
+    // Activity + attributed activity moved into ActivityFeedAsync
+    // (2026-05-30 Phase 2 — Suspense streaming). The feed renders as
+    // its own Suspense child below so the shell stops blocking on the
+    // 2 activity queries; total time-to-data is roughly the same since
+    // the new client does both fetches in parallel inside the wrapper.
   ] =
     await Promise.all([
       // Robust events SELECT (owner reported "error in creating an event"
@@ -772,34 +778,9 @@ export default async function EventHomePage({
           return { data: null, error: null } as never;
         }
       })(),
-      // Source activity feed — eventId-only dependency, joins round 1
-      // per the perf pass 2026-05-28. Same .catch() with [] safe default
-      // as the original standalone Promise.all.
-      fetchEventActivity(supabase, eventId, 20).catch((err: unknown) => {
-        logQueryError(
-          'EventHome (fetchEventActivity threw)',
-          err instanceof Error ? err : new Error(String(err)),
-          { event_id: eventId, user_id: user.id },
-          'graceful_degrade',
-        );
-        return [] as Awaited<ReturnType<typeof fetchEventActivity>>;
-      }),
-      // Attributed activity lane (event_action_log join via adminClient)
-      // — eventId + user.id only, joins round 1 alongside the source
-      // feed. Attribution silently returns [] when the table has no
-      // rows for this event OR a join fails, so the source feed always
-      // renders even if this lane degrades.
-      fetchAttributedActivity(adminClient, eventId, user.id, 20).catch(
-        (err: unknown) => {
-          logQueryError(
-            'EventHome (fetchAttributedActivity threw)',
-            err instanceof Error ? err : new Error(String(err)),
-            { event_id: eventId, user_id: user.id },
-            'graceful_degrade',
-          );
-          return [] as Awaited<ReturnType<typeof fetchAttributedActivity>>;
-        },
-      ),
+      // (2026-05-30 Phase 2) Activity + attributed activity lifted into
+      // ActivityFeedAsync below — the feed streams in its own Suspense
+      // boundary after the shell renders.
     ]);
   const tr = makeT(locale);
 
@@ -1085,47 +1066,11 @@ export default async function EventHomePage({
         return empty;
       }
     })(),
-    // Upcoming-items aggregation lifted into round 2 by the perf pass
-    // 2026-05-28. Depends on `event.event_date` + `event.ceremony_type`
-    // (from round-1's eventRes) which are already destructured above,
-    // so it can run alongside the compat fetches. Saves the final
-    // Singapore round-trip on every event-home render. fetchUpcomingItems
-    // already internally graceful-degrades each of its five sources;
-    // the outer try/catch here mirrors the safe-default shape the
-    // standalone serial await used so downstream readers of
-    // `.items` + `.paymentItemsNext30d` keep working unchanged.
-    (async () => {
-      try {
-        return await fetchUpcomingItems({
-          supabase,
-          eventId,
-          eventDate: event.event_date,
-          ceremonyType: (event as { ceremony_type?: string | null }).ceremony_type,
-          now,
-          limit: 10,
-        });
-      } catch (caught) {
-        logQueryError(
-          'EventHome (fetchUpcomingItems threw in round 2)',
-          caught instanceof Error ? caught : new Error(String(caught)),
-          { event_id: eventId, user_id: user.id },
-          'graceful_degrade',
-        );
-        return {
-          items: [] as Awaited<ReturnType<typeof fetchUpcomingItems>>['items'],
-          paymentItemsNext30d: [] as Awaited<
-            ReturnType<typeof fetchUpcomingItems>
-          >['paymentItemsNext30d'],
-          sourceCounts: {
-            meeting: 0,
-            schedule_block: 0,
-            vendor_payment: 0,
-            setnayan_sku_expiry: 0,
-            document_deadline: 0,
-          },
-        } satisfies Awaited<ReturnType<typeof fetchUpcomingItems>>;
-      }
-    })(),
+    // (2026-05-30 Phase 2) fetchUpcomingItems lifted into
+    // MoneyAndUpcomingAsync below — the panels stream in their own
+    // Suspense boundary after the shell renders. compatibilityFetches
+    // is now 5 entries (indices 0-4); the prior [5] upcoming slot is
+    // gone. No other code accessed compatibilityFetches[5].
   ]);
   const marketplaceCompatMap = new Map<
     string,
@@ -1540,29 +1485,15 @@ export default async function EventHomePage({
   const eventBudgetCentavos =
     (event as { estimated_budget_centavos?: number | null }).estimated_budget_centavos ?? null;
 
-  // Upcoming items — V1 Home aggregation hub. Merges five sources
-  // (vendor meetings · day-of schedule blocks · vendor payment
-  // milestones · Setnayan SKU subscription renewals · statutory
-  // document deadlines) into a single chronologically-sorted stream.
-  // Owner directive 2026-05-22 — Home is the operational hub.
-  // See @/lib/upcoming-items for the per-source schema audit + the
-  // vendor_meetings table-doesn't-exist note.
-  //
-  // The actual fetch was lifted into the `compatibilityFetches` Promise.all
-  // above by the perf pass 2026-05-28 — it only depends on `event.event_date`
-  // + `event.ceremony_type` (from round-1's eventRes), which are already
-  // destructured at this point, so it can run in parallel with the 4 compat
-  // lookups + the cross-category services fetch. The standalone serial
-  // await here was the last Singapore round-trip before render. Same
-  // 6th-hotfix-pass · Path B 2026-05-23 graceful-degrade contract as
-  // before: fetchUpcomingItems internally degrades each of its five
-  // sources, and the outer IIFE try/catch in compatibilityFetches[5]
-  // catches synchronous throws from supabase-js / its transport.
-  const upcoming = compatibilityFetches[5] as Awaited<
-    ReturnType<typeof fetchUpcomingItems>
-  >;
-  const upcomingItems = upcoming.items;
-  const moneyInFlightItems = upcoming.paymentItemsNext30d;
+  // Upcoming items + money-in-flight derivation moved into
+  // MoneyAndUpcomingAsync (2026-05-30 Phase 2 — Suspense streaming).
+  // The async wrapper does the fetchUpcomingItems call inside its own
+  // Suspense boundary so the panels render the moment the data
+  // resolves — no longer blocking the shell. See
+  // _components/money-and-upcoming-async.tsx + @/lib/upcoming-items
+  // for the per-source schema audit. Graceful-degrade contract
+  // (Path B 2026-05-23 + CLAUDE.md 2026-05-28 12th row PR #567)
+  // preserved verbatim inside the wrapper.
 
   // Concierge state for the inline banner (iteration 0021 § 2.0b).
   const eventConciergeRow = event as typeof event & {
@@ -1837,18 +1768,35 @@ export default async function EventHomePage({
        *  Plan (same) · Inbox (= Messages in NavGrid). Zero unique
        *  value, three duplicates. MoneyInFlight + UpcomingSchedules
        *  + ActivityFeed below stay — they cover distinct surfaces
-       *  (money / time / history) not duplicated elsewhere. */}
-      <MoneyInFlight eventId={eventId} items={moneyInFlightItems} now={now} />
+       *  (money / time / history) not duplicated elsewhere.
+       *
+       *  2026-05-30 Phase 2 — the 3 panels now stream into their own
+       *  Suspense boundaries via the async wrappers. Money + Upcoming
+       *  share a boundary because they read from the same
+       *  fetchUpcomingItems result (paymentItemsNext30d vs items);
+       *  ActivityFeed has its own boundary so the 2 activity lanes
+       *  can resolve independently. Shell + welcome + plan grid render
+       *  immediately while these panels populate as their queries
+       *  resolve. See CLAUDE.md 2026-05-30 row + the wrappers under
+       *  _components/. */}
+      <Suspense fallback={<MoneyAndUpcomingSkeleton />}>
+        <MoneyAndUpcomingAsync
+          eventId={eventId}
+          eventDate={event.event_date}
+          ceremonyType={(event as { ceremony_type?: string | null }).ceremony_type}
+          userId={user.id}
+          now={now}
+        />
+      </Suspense>
 
-      <UpcomingSchedules eventId={eventId} items={upcomingItems} now={now} />
-
-      <ActivityFeed
-        eventId={eventId}
-        sourceActivity={activity}
-        attributedActivity={attributedActivity}
-        headingLabel={tr('section.recent_activity')}
-        seeAllLabel={tr('cta.see_all')}
-      />
+      <Suspense fallback={<ActivityFeedSkeleton />}>
+        <ActivityFeedAsync
+          eventId={eventId}
+          userId={user.id}
+          headingLabel={tr('section.recent_activity')}
+          seeAllLabel={tr('cta.see_all')}
+        />
+      </Suspense>
     </>
   );
 }

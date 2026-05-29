@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   Circle,
   Square,
+  QrCode,
   type LucideIcon,
 } from 'lucide-react';
 import { countUnread } from '@/lib/notifications';
@@ -138,7 +139,8 @@ type TileKey =
   | 'mood_board'
   | 'orders'
   | 'notifications'
-  | 'disputes';
+  | 'disputes'
+  | 'event_qr';
 
 // Deduped 2026-05-24 (owner directive — "they are repetitive"). The
 // 6 tiles previously here (guests · sponsors · budget · seating ·
@@ -198,6 +200,12 @@ const TILES: Array<{
     labelKey: 'nav.disputes',
     Icon: AlertTriangle,
     href: (id) => `/dashboard/${id}/disputes`,
+  },
+  {
+    key: 'event_qr',
+    labelKey: 'nav.event_qr',
+    Icon: QrCode,
+    href: (id) => `/dashboard/${id}/event-qr`,
   },
 ];
 

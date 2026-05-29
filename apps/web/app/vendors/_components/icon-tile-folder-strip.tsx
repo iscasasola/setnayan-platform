@@ -114,11 +114,35 @@ export function IconTileFolderStrip({
   totalCount,
   scopedFolder = null,
 }: Props) {
+  // 2026-05-30 PM (second pass) — owner directives on strip visibility:
+  //   (a) *"rings have 0 vendors. this should be hidden"* — folders with
+  //       count === 0 don't earn a tile slot in universal browse. The
+  //       count comes from `buckets.get(folder)?.length` in page.tsx
+  //       (post-hide-empty surviving categories per folder). Reception's
+  //       hardcoded RECEPTION_FACET_COUNT (=6) means Reception always
+  //       passes this filter — intentional, venue facets ARE the
+  //       categories for Reception per the existing comment in page.tsx
+  //       around RECEPTION_FACET_COUNT.
+  //   (b) *"when a parent category is picked, we will only show that
+  //       category and the rest are hidden"* — scoped mode collapses
+  //       the strip down to just the scoped folder + the All tile
+  //       (always visible as the escape hatch). Couples in scoped mode
+  //       are focused on one folder; the other 11 tabs are noise. To
+  //       switch folders, click All to escape to universal browse,
+  //       then pick the next folder.
+  //   When scoped to a folder with count === 0 (rare — host typed
+  //   /vendors?folder=rings_accessories directly), the scoped tab still
+  //   renders so the active state has somewhere to live.
+  const visibleTabs =
+    scopedFolder !== null
+      ? tabs.filter((t) => t.folder === scopedFolder)
+      : tabs.filter((t) => t.count > 0);
+
   // Active tile defaults to the scoped folder when scoping is on; otherwise
   // start on 'all' and let IntersectionObserver take over (unscoped catalog
   // mode tracks active section on scroll, identical to retired FolderTabs).
   const initialActive = scopedFolder
-    ? (tabs.find((t) => t.folder === scopedFolder)?.slug ?? 'all')
+    ? (visibleTabs.find((t) => t.folder === scopedFolder)?.slug ?? 'all')
     : 'all';
   const [activeSlug, setActiveSlug] = useState<string>(initialActive);
   // Captured on mount in the browser so we can preserve sibling URL params
@@ -138,12 +162,18 @@ export function IconTileFolderStrip({
     // Scoped mode: only one section exists. Pin active tile to the scoped
     // folder; skip IntersectionObserver.
     if (scopedFolder !== null) {
-      const slug = tabs.find((t) => t.folder === scopedFolder)?.slug ?? 'all';
+      const slug =
+        visibleTabs.find((t) => t.folder === scopedFolder)?.slug ?? 'all';
       setActiveSlug(slug);
       return;
     }
     if (typeof window === 'undefined') return;
-    const targets = tabs
+    // Observe only the visible tabs (post zero-count filter). Sections
+    // for hidden tabs aren't in the DOM anyway (page.tsx folder loop
+    // emits sections per WEDDING_FOLDER_ORDER but the zero-count folders
+    // return null inside the map). Iterating visibleTabs avoids
+    // getElementById misses on hidden folders.
+    const targets = visibleTabs
       .map((t) => document.getElementById(t.slug))
       .filter((el): el is HTMLElement => el !== null);
     if (targets.length === 0) return;
@@ -165,7 +195,7 @@ export function IconTileFolderStrip({
     );
     targets.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
-  }, [tabs, scopedFolder]);
+  }, [visibleTabs, scopedFolder]);
 
   /**
    * Build the href for a tile. Unscoped mode → hash-only (`#<slug>`).
@@ -218,7 +248,7 @@ export function IconTileFolderStrip({
             Icon={LayoutGrid}
           />
         </li>
-        {tabs.map((tab) => {
+        {visibleTabs.map((tab) => {
           const Icon = FOLDER_ICON[tab.folder];
           const label =
             WEDDING_FOLDER_SHORT_LABEL[tab.folder] ?? tab.label;

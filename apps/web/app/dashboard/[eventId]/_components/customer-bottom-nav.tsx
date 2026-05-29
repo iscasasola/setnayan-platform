@@ -17,9 +17,14 @@
  *   3. Guests       — Guest list (single highest-value people-side surface)
  *   4. Website      — Public landing page hub
  *   5. More         — Everything else (Schedule · Vendors · Budget ·
- *                     Orders · Receipts · Messages · Contracts · Add-ons ·
- *                     Mood Board · Activity · Disputes · Event QR · Hosts ·
- *                     Profile) routed through the /more landing page.
+ *                     Messages · Contracts · Add-ons · Mood Board ·
+ *                     Activity · Disputes · Event QR · Hosts · Profile)
+ *                     routed through the /more landing page. Orders +
+ *                     Receipts retired from primary nav 2026-05-30 per
+ *                     owner directive but their routes still highlight
+ *                     More via the activeMatch list below — couples
+ *                     reaching /orders or /receipts via order-confirmation
+ *                     email deep-links still see the correct chrome.
  *
  * The 5-tab set retires the legacy "Services" catch-all from the 2026-05-22
  * 5-tab refactor. "Services" was the umbrella catch-all that contained

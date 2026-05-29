@@ -52,12 +52,15 @@ import type {
  * This strip is the DISCOVERY surface; the per-card row is the ACTION
  * surface. Both layers coexist.
  *
- * VISUAL · uses chrome's terracotta token (remaps to Facebook blue
- * #1877F2 per CLAUDE.md 2026-05-22 brand pivot). Editorial italic
- * title (font-display) for warmth. m-eyebrow + font-mono uppercase
- * tracking for section labels matching planning-groups.tsx convention.
- * Card surface uses gradient cream→terracotta-50/30 for visual
- * distinction without overwhelming the existing dashboard density.
+ * VISUAL · uses chrome's terracotta token (remaps to Royal Champagne Gold
+ * #C5A059 per CLAUDE.md 2026-05-30 Clean Editorial unification) for accent
+ * details, and bg-mulberry for the primary "Browse all vendors" CTA per
+ * Clean Editorial role split (gold for accents/eyebrows/borders/active
+ * states · mulberry for primary action buttons). Editorial italic title
+ * (font-display) for warmth. m-eyebrow + font-mono uppercase tracking for
+ * section labels matching planning-groups.tsx convention. Card surface
+ * uses gradient cream→terracotta-50/30 (alabaster → light champagne wash)
+ * for visual distinction without overwhelming dashboard density.
  *
  * Server Component · no client state · all interactivity via Link.
  * Tap targets 44px minimum on the primary CTA per mobile usability

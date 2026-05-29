@@ -22,10 +22,22 @@ import {
  * the contract.
  *
  * Brand icons are nominative-use inline SVGs (Google G in standard
- * 4-color quadrant geometry, Facebook f as white on FB-blue circle).
- * Same approach as PR #405 directions-buttons.tsx (Google Maps + Waze
- * + Apple Maps) — recognized brand marks for deep-link affordances,
+ * 4-color quadrant geometry, Facebook f as a blue disc with white f
+ * inside — the standard outward-facing Facebook brand mark). Same
+ * approach as PR #405 directions-buttons.tsx (Google Maps + Waze +
+ * Apple Maps) — recognized brand marks for deep-link affordances,
  * NOT verbatim trademarked app icon reproductions.
+ *
+ * 2026-05-30 Clean Editorial unification (CLAUDE.md decision-log).
+ * BOTH buttons now use the same neutral chrome pattern: alabaster bg
+ * + obsidian text + obsidian/20 border + champagne gold focus ring.
+ * The Facebook button flipped from solid blue (#1877F2 chrome + white
+ * text) → neutral chrome with the standard Facebook mark (blue circle
+ * + white "f") sitting on the alabaster surface. Both styles are
+ * sanctioned by Meta's Login button design portal — the neutral
+ * version is what apps use when site palette doesn't accommodate the
+ * solid blue. Resolves the Champagne Gold + Rich Mulberry CTA palette
+ * clash + makes the two OAuth buttons visually symmetric.
  */
 
 type Props = {
@@ -80,7 +92,7 @@ export function OAuthButtonRow({ next }: Props) {
           <input type="hidden" name="next" value={next} />
           <button
             type="submit"
-            className="flex w-full items-center justify-center gap-3 rounded-md bg-[#1877F2] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#155bd1] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1877F2]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-cream"
+            className="flex w-full items-center justify-center gap-3 rounded-md border border-ink/20 bg-white px-4 py-2.5 text-sm font-medium text-ink/90 transition-colors hover:border-ink/40 hover:bg-ink/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40"
           >
             <FacebookFIcon />
             Continue with Facebook
@@ -129,12 +141,22 @@ function GoogleGIcon() {
 }
 
 /**
- * Facebook f brand mark — white "f" on Facebook brand-blue circular
- * background (#1877F2 per Meta's brand portal). Standard mark used on
- * "Continue with Facebook" buttons across the web; immediately
- * recognizable on a sign-in page. Drawn at 24x24 viewBox so it scales
- * cleanly. NOT a verbatim copy of the trademarked Facebook app icon
- * — this is the nominative-use brand mark for deep-link affordances.
+ * Facebook f brand mark — Facebook brand-blue circular disc
+ * (#1877F2 per Meta's brand portal) with white "f" letterform
+ * inside. Standard outward-facing mark used on "Continue with
+ * Facebook" buttons across the web on neutral-chrome auth surfaces
+ * (Apple Sign-in companion pattern · Stripe / Linear / Notion all use
+ * this same disc on light buttons). Sits on the alabaster button
+ * surface as the only colored element so the brand reads instantly
+ * without the chrome taking over. Drawn at 24x24 viewBox so it scales
+ * cleanly at 18px display size. NOT a verbatim copy of the
+ * trademarked Facebook app icon — this is the nominative-use brand
+ * mark for deep-link affordances.
+ *
+ * Pre-2026-05-30 the disc was inverted (white circle + blue f)
+ * because it sat on a solid Facebook-blue button. The Clean Editorial
+ * unification flipped the button chrome to neutral so the disc now
+ * ships in the standard outward orientation.
  */
 function FacebookFIcon() {
   return (
@@ -145,9 +167,9 @@ function FacebookFIcon() {
       role="img"
       focusable={false}
     >
-      <circle cx="12" cy="12" r="12" fill="#fff" fillOpacity="0.95" />
+      <circle cx="12" cy="12" r="12" fill="#1877F2" />
       <path
-        fill="#1877F2"
+        fill="#ffffff"
         d="M16 8.5h-2.13c-.36 0-.6.32-.6.65V10.5H16l-.25 2.4h-2.48v6.6H10.5v-6.6H8.5v-2.4h2v-1.5c0-1.66.94-3 2.78-3H16v2.5z"
       />
     </svg>

@@ -10,6 +10,7 @@
 
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import { fetchV2CustomerCatalog, fetchV2BundleCatalog } from '@/lib/v2-catalog';
 import { ChevronLeft } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { VoucherForm, type VoucherFormInitial } from '../../_components/voucher-form';
@@ -47,8 +48,14 @@ export default async function EditDiscountCodePage({ params }: Props) {
 
   const admin = createAdminClient();
 
-  // Fetch the row + service catalog in parallel.
-  const [codeRes, servicesRes] = await Promise.all([
+  // Fetch the row + V2 customer/bundle catalogs in parallel. WHY · 2026-05-29
+  // fix: V1 service_catalog rows are mostly is_active=FALSE post V2 publisher
+  // cutover (CLAUDE.md 2026-05-28 third row). The V2 SKUs that customers
+  // actually buy live in `platform_retail_catalog_v2` + bundles in
+  // `platform_package_catalog_v2`. Day 2 inline-checkout-drawer already
+  // passes V2 service_codes as serviceKey to the validator — admin must
+  // edit vouchers using the same code namespace.
+  const [codeRes, customers, bundles] = await Promise.all([
     admin
       .from('discount_codes')
       .select(
@@ -57,12 +64,8 @@ export default async function EditDiscountCodePage({ params }: Props) {
       )
       .eq('discount_code_id', id)
       .maybeSingle(),
-    admin
-      .from('service_catalog')
-      .select('sku_code, display_name, category, price_centavos')
-      .eq('is_active', true)
-      .order('category', { ascending: true })
-      .order('display_name', { ascending: true }),
+    fetchV2CustomerCatalog(),
+    fetchV2BundleCatalog(),
   ]);
 
   if (codeRes.error) {
@@ -73,10 +76,27 @@ export default async function EditDiscountCodePage({ params }: Props) {
     notFound();
   }
 
-  if (servicesRes.error) {
-    throw new Error(`Could not load service catalog: ${servicesRes.error.message}`);
-  }
-  const services = (servicesRes.data ?? []) as ServiceRow[];
+  // Map V2 shape onto the form's ServiceRow contract. Pricing held in
+  // pesos in V2 (retail_price_php NUMERIC) — convert to centavos for the
+  // form display layer. Category derived from SKU origin.
+  const services: ServiceRow[] = [
+    ...customers.map((c) => ({
+      sku_code: c.service_code,
+      display_name: c.title,
+      category: 'Customer service',
+      price_centavos: Math.round(c.retail_price_php * 100),
+    })),
+    ...bundles.map((b) => ({
+      sku_code: b.package_code,
+      display_name: b.title,
+      category: 'Bundle',
+      price_centavos: Math.round(b.retail_price_php * 100),
+    })),
+  ].sort((a, b) =>
+    a.category === b.category
+      ? a.display_name.localeCompare(b.display_name)
+      : a.category.localeCompare(b.category),
+  );
 
   // Build initial state for the shared form.
   // pct_value is INT (returns as number) · cap_centavos is BIGINT (Supabase

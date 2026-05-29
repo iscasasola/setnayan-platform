@@ -225,6 +225,31 @@ export async function validateAndCalculateVoucher(
     };
   }
 
+  // (6b) Eligibility check (private vouchers). Per 2026-05-29 owner request:
+  // if any rows exist in discount_code_eligible_users for this code, then
+  // ONLY those user_ids can redeem. Zero rows = public (anyone-with-code).
+  // Same admin client so RLS doesn't gate (matches the lookup pattern).
+  const { data: eligibilityRows } = await admin
+    .from('discount_code_eligible_users')
+    .select('user_id')
+    .eq('discount_code_id', codeRow.discount_code_id);
+
+  if (eligibilityRows && eligibilityRows.length > 0) {
+    const isEligible = eligibilityRows.some(
+      (r) => r.user_id === args.couple_user_id,
+    );
+    if (!isEligible) {
+      return {
+        applied: false,
+        discount_centavos: 0n,
+        final_centavos: args.original_centavos,
+        discount_code_id: null,
+        code_normalized: null,
+        reason: "That code isn't for your account.",
+      };
+    }
+  }
+
   // (7) + (8) Hand off to calculate for coverage gate + math.
   const rules: VoucherRules = {
     voucher_type: codeRow.voucher_type,

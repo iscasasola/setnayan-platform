@@ -552,3 +552,114 @@ export async function enableDiscountCode(formData: FormData) {
   revalidatePath('/admin/discount-codes');
   redirect('/admin/discount-codes?enabled=' + encodeURIComponent(prior.code));
 }
+
+/**
+ * Add an eligible account to a private voucher. Looks up the user by email.
+ * Per 2026-05-29 owner request: gift mechanism for specific accounts.
+ *
+ * Form fields:
+ *   • discount_code_id — UUID
+ *   • email            — user's email (case-insensitive lookup)
+ */
+export async function addEligibleUser(formData: FormData) {
+  const { adminUserId } = await requireAdmin();
+  const codeId = formData.get('discount_code_id');
+  const emailRaw = formData.get('email');
+  if (typeof codeId !== 'string' || typeof emailRaw !== 'string') {
+    throw new Error('Invalid input.');
+  }
+  const email = emailRaw.trim().toLowerCase();
+  if (email.length === 0) throw new Error('Email is required.');
+
+  const admin = createAdminClient();
+
+  // Look up the user. Match the canonical pattern from /admin/users actions.
+  const { data: user, error: lookupErr } = await admin
+    .from('users')
+    .select('user_id, email')
+    .ilike('email', email)
+    .maybeSingle();
+  if (lookupErr) throw new Error(`User lookup failed: ${lookupErr.message}`);
+  if (!user) {
+    throw new Error(
+      `No Setnayan account found with email "${email}". They need to sign up first.`,
+    );
+  }
+
+  // Snapshot code for audit metadata.
+  const { data: code } = await admin
+    .from('discount_codes')
+    .select('code')
+    .eq('discount_code_id', codeId)
+    .maybeSingle();
+
+  // INSERT — duplicate is silent (composite PK conflict → 23505 → treat as already-added).
+  const { error: insertErr } = await admin
+    .from('discount_code_eligible_users')
+    .insert({
+      discount_code_id: codeId,
+      user_id: user.user_id,
+      added_by_admin_id: adminUserId,
+    });
+  if (insertErr && insertErr.code !== '23505') {
+    throw new Error(`Could not add account: ${insertErr.message}`);
+  }
+
+  // Audit log — canonical shape.
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
+    action: 'discount_code_eligible_user_add',
+    target_id: codeId,
+    actor_user_id: adminUserId,
+    metadata: {
+      code: code?.code ?? null,
+      added_user_id: user.user_id,
+      added_email: user.email,
+    },
+  });
+  if (auditErr) {
+    console.error('[addEligibleUser] audit log insert failed', auditErr.message);
+  }
+
+  revalidatePath(`/admin/discount-codes/${codeId}/edit`);
+}
+
+/**
+ * Remove an eligible account from a voucher. Idempotent.
+ */
+export async function removeEligibleUser(formData: FormData) {
+  const { adminUserId } = await requireAdmin();
+  const codeId = formData.get('discount_code_id');
+  const userIdRaw = formData.get('user_id');
+  if (typeof codeId !== 'string' || typeof userIdRaw !== 'string') {
+    throw new Error('Invalid input.');
+  }
+
+  const admin = createAdminClient();
+  const { data: code } = await admin
+    .from('discount_codes')
+    .select('code')
+    .eq('discount_code_id', codeId)
+    .maybeSingle();
+
+  const { error: deleteErr } = await admin
+    .from('discount_code_eligible_users')
+    .delete()
+    .eq('discount_code_id', codeId)
+    .eq('user_id', userIdRaw);
+  if (deleteErr) throw new Error(`Could not remove: ${deleteErr.message}`);
+
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
+    action: 'discount_code_eligible_user_remove',
+    target_id: codeId,
+    actor_user_id: adminUserId,
+    metadata: {
+      code: code?.code ?? null,
+      removed_user_id: userIdRaw,
+    },
+  });
+  if (auditErr) {
+    console.error('[removeEligibleUser] audit log insert failed', auditErr.message);
+  }
+
+  revalidatePath(`/admin/discount-codes/${codeId}/edit`);
+}

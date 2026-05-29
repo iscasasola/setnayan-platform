@@ -1,14 +1,17 @@
 /**
- * /admin/discount-codes — Day 1 voucher system list view.
+ * /admin/discount-codes — Day 1.5 spec-aligned voucher list view.
  *
- * WHY · Day 1 of 4-day pre-pilot voucher + inline-checkout sprint per
- *       CLAUDE.md 2026-05-29 Day 1 row. Admin manages voucher codes here ·
- *       create new + edit existing (active codes only) + disable / re-enable.
+ * WHY · Day 1.5 corrective refactor of PR #594 per CLAUDE.md 2026-05-29
+ *       Day 1.5 row. 3-type model is now pct_off / pct_off_capped / free.
+ *       The list-row value renderer reflects the new shape:
+ *         pct_off          → "10%"
+ *         pct_off_capped   → "50% up to ₱500"
+ *         free             → "Free"
  *
  * Surface contract:
  *   • Stats banner — active count · disabled count · total redemptions
  *   • Filter strip — All / Active / Disabled / Expired
- *   • Table — code · type · value · # services · expires_at · uses · status · actions
+ *   • Table — code · discount · # services · expires_at · uses · status · actions
  *   • "Create code" CTA in the page header → /admin/discount-codes/new
  *
  * Read-only display per row. All mutations go through server actions:
@@ -17,7 +20,8 @@
  *   • Disable / Enable (server action inline · ConfirmForm pattern)
  *
  * Cross-references:
- *   • Migration: 20260529010000_voucher_system_day1.sql
+ *   • Day 1.5 migration: 20260529020000_voucher_system_day1_5_spec_alignment.sql
+ *   • Day 1 migration (substrate): 20260529010000_voucher_system_day1.sql
  *   • Actions: ./actions.ts
  *   • Form: ./_components/voucher-form.tsx
  *   • Canonical list-page pattern: apps/web/app/admin/users/page.tsx
@@ -35,8 +39,13 @@ export const metadata = { title: 'Discount codes · Admin' };
 type DiscountCodeRow = {
   discount_code_id: string;
   code: string;
-  discount_type: 'amount_off' | 'pct_off' | 'free';
-  discount_value: number | null;
+  discount_type: 'pct_off' | 'pct_off_capped' | 'free';
+  // Day 1.5 spec: pct_value INT + cap_centavos BIGINT replace generic
+  // discount_value column. Both can be NULL (free type) or non-NULL
+  // (pct_off + pct_off_capped) per the DB CHECK constraint
+  // `discount_codes_value_coherence_v2`.
+  pct_value: number | null;
+  cap_centavos: number | null;
   covered_service_keys: string[];
   expires_at: string;
   max_uses: number | null;
@@ -83,15 +92,18 @@ function formatDate(iso: string): string {
 }
 
 function describeValue(row: DiscountCodeRow): string {
+  // Day 1.5 spec · 3 types · each renders differently:
+  //   pct_off          → "10%"
+  //   pct_off_capped   → "50% up to ₱500"
+  //   free             → "Free"
   switch (row.discount_type) {
-    case 'amount_off':
-      return row.discount_value !== null
-        ? `${formatPesos(row.discount_value)} off`
-        : '—';
     case 'pct_off':
-      return row.discount_value !== null ? `${row.discount_value}% off` : '—';
+      return row.pct_value !== null ? `${row.pct_value}%` : '—';
+    case 'pct_off_capped':
+      if (row.pct_value === null || row.cap_centavos === null) return '—';
+      return `${row.pct_value}% up to ${formatPesos(row.cap_centavos)}`;
     case 'free':
-      return '100% off';
+      return 'Free';
   }
 }
 
@@ -116,7 +128,8 @@ export default async function AdminDiscountCodesPage({ searchParams }: Props) {
   const { data: rowsRaw, error: rowsErr } = await admin
     .from('discount_codes')
     .select(
-      'discount_code_id, code, discount_type, discount_value, covered_service_keys, expires_at, max_uses, uses_count, is_active, created_by_admin_id, created_at, updated_at',
+      // Day 1.5 schema · pct_value + cap_centavos replace discount_value.
+      'discount_code_id, code, discount_type, pct_value, cap_centavos, covered_service_keys, expires_at, max_uses, uses_count, is_active, created_by_admin_id, created_at, updated_at',
     )
     .order('created_at', { ascending: false });
   if (rowsErr) {
@@ -410,9 +423,11 @@ export default async function AdminDiscountCodesPage({ searchParams }: Props) {
       </div>
 
       <p className="text-xs" style={{ color: 'var(--m-slate)' }}>
-        Day 1 ships admin CRUD. Day 2 wires the couple-side &ldquo;Have a code?&rdquo;
-        field at checkout. Day 3 makes the BIR receipt show the net paid
-        price (no separate discount line).
+        Day 1.5 spec-aligns admin CRUD to the refined 3-type voucher model.
+        Day 2 wires the couple-side &ldquo;Have a code?&rdquo; field at
+        checkout. Day 3 makes the BIR receipt show the net paid price
+        (no separate discount line) and writes ledger rows for every
+        order state transition.
       </p>
     </div>
   );

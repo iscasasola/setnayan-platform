@@ -1,29 +1,37 @@
 'use server';
 
 /**
- * /admin/discount-codes — Day 1 voucher system admin actions.
+ * /admin/discount-codes — Day 1.5 spec-aligned voucher CRUD actions.
  *
- * WHY · Day 1 of 4-day pre-pilot voucher + inline-checkout sprint per
- *       CLAUDE.md 2026-05-29 Day 1 row. Locked policy from owner free-text:
- *         • Multi-use codes by default · admin sets max_uses (NULL=unlimited)
- *         • expires_at REQUIRED at creation
- *         • Codes case-insensitive on input · stored UPPERCASE
- *         • 3 discount_types: amount_off (centavos), pct_off (1-100), free
- *         • 1 voucher per cart (DB CHECK on UNIQUE(order_id) in
- *           discount_code_redemptions — Day 2 wires the apply action)
- *         • Apply at order creation (Day 2 work)
- *         • BIR receipt shows net paid (Day 3 work · iteration 0026)
+ * WHY · Day 1.5 corrective refactor of PR #594 per CLAUDE.md 2026-05-29
+ *       Day 1.5 row. Owner refined the spec AFTER Day 1 merged:
+ *         • 3-type model: pct_off / pct_off_capped / free  (drops amount_off)
+ *         • pct_value INT + cap_centavos BIGINT replace generic discount_value
+ *         • Per-user uniqueness on redemptions (DB constraint added
+ *           by migration 20260529020000)
+ *         • order_ledger immutable audit trail (table created by same
+ *           migration · ledger write hooks land Day 3)
  *
- * Three actions:
+ * Locked policy carry-overs from PR #594:
+ *   • Multi-use codes by default · admin sets max_uses (NULL=unlimited)
+ *   • expires_at REQUIRED at creation
+ *   • Codes case-insensitive on input · stored UPPERCASE
+ *   • 1 voucher per cart (UNIQUE(order_id) on discount_code_redemptions)
+ *   • Apply at order creation (Day 2 work · unchanged)
+ *   • BIR receipt shows net paid (Day 3 work · iteration 0026)
+ *
+ * Four actions:
  *   • createDiscountCode    — admin creates a code
  *   • updateDiscountCode    — admin edits while is_active=TRUE
  *   • disableDiscountCode   — admin flips is_active=FALSE (audit-logged)
+ *   • enableDiscountCode    — admin re-enables a disabled code
  *
  * Every mutation writes an admin_audit_log row matching the canonical pattern
  * from apps/web/app/admin/users/actions.ts:478 (issueCompGrant).
  *
  * Cross-references:
- *   • Migration: 20260529010000_voucher_system_day1.sql (push BEFORE merge)
+ *   • Day 1.5 migration: 20260529020000_voucher_system_day1_5_spec_alignment.sql
+ *   • Day 1 migration (substrate): 20260529010000_voucher_system_day1.sql
  *   • Canonical admin auth gate: apps/web/app/admin/users/actions.ts:8
  *   • Canonical audit-log INSERT shape: apps/web/app/admin/users/actions.ts:478
  *   • Admin client helper: apps/web/lib/supabase/admin.ts
@@ -35,8 +43,19 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 const CODE_PATTERN = /^[A-Z0-9]{8}$/;
-const DISCOUNT_TYPES = ['amount_off', 'pct_off', 'free'] as const;
+const DISCOUNT_TYPES = ['pct_off', 'pct_off_capped', 'free'] as const;
 type DiscountType = (typeof DISCOUNT_TYPES)[number];
+
+/**
+ * Parsed value shape: pct_value + cap_centavos columns per Day 1.5 schema.
+ * Each discount_type has its own coherence pattern (the DB CHECK constraint
+ * `discount_codes_value_coherence_v2` is the structural guarantee · this
+ * helper is the application-level mirror).
+ */
+type ParsedValue = {
+  pct_value: number | null;
+  cap_centavos: number | null;
+};
 
 /**
  * Auth gate — only admin accounts can hit voucher CRUD.
@@ -63,45 +82,48 @@ async function requireAdmin() {
 }
 
 /**
- * Parse + validate the discount value field given a discount_type.
- * Returns the stored NUMERIC value (centavos for amount_off, integer for
- * pct_off, null for free) OR throws a brand-voice error.
+ * Parse + validate the value fields given a discount_type.
+ * Returns { pct_value, cap_centavos } per the Day 1.5 schema OR throws a
+ * brand-voice error.
  *
- * Per locked policy: amount_off is in centavos (the form sends pesos, we
- * multiply by 100). pct_off is integer 1-100. free has no value.
+ *   • pct_off        → pct_value 1-100, cap_centavos NULL
+ *   • pct_off_capped → pct_value 1-100, cap_centavos > 0
+ *   • free           → both NULL
+ *
+ * Cap is sent from the form in pesos (the input shows pesos) and we
+ * round to centavos for storage.
  */
 function parseDiscountValue(
   type: DiscountType,
-  rawPesos: FormDataEntryValue | null,
   rawPct: FormDataEntryValue | null,
-): number | null {
-  if (type === 'free') return null;
+  rawCapPesos: FormDataEntryValue | null,
+): ParsedValue {
+  if (type === 'free') {
+    return { pct_value: null, cap_centavos: null };
+  }
 
-  if (type === 'amount_off') {
-    if (typeof rawPesos !== 'string' || rawPesos.trim().length === 0) {
-      throw new Error('Enter the peso amount this voucher takes off.');
-    }
-    const pesos = Number.parseFloat(rawPesos.trim());
-    if (!Number.isFinite(pesos) || pesos <= 0) {
-      throw new Error('Amount must be a positive number of pesos.');
-    }
-    // Store as centavos (NUMERIC accepts integer values cleanly).
-    return Math.round(pesos * 100);
+  // Both pct_off and pct_off_capped require a percentage 1-100.
+  if (typeof rawPct !== 'string' || rawPct.trim().length === 0) {
+    throw new Error('Enter the percentage off (1-100).');
+  }
+  const pct = Number.parseInt(rawPct.trim(), 10);
+  if (!Number.isFinite(pct) || pct < 1 || pct > 100) {
+    throw new Error('Percentage must be a whole number between 1 and 100.');
   }
 
   if (type === 'pct_off') {
-    if (typeof rawPct !== 'string' || rawPct.trim().length === 0) {
-      throw new Error('Enter the percentage off (1-100).');
-    }
-    const pct = Number.parseInt(rawPct.trim(), 10);
-    if (!Number.isFinite(pct) || pct < 1 || pct > 100) {
-      throw new Error('Percentage must be a whole number between 1 and 100.');
-    }
-    return pct;
+    return { pct_value: pct, cap_centavos: null };
   }
 
-  // Unreachable per the DISCOUNT_TYPES typeguard caller-side.
-  throw new Error(`Unknown discount type: ${type satisfies never}`);
+  // type === 'pct_off_capped' — cap is required.
+  if (typeof rawCapPesos !== 'string' || rawCapPesos.trim().length === 0) {
+    throw new Error('Enter the maximum peso amount this voucher can take off.');
+  }
+  const capPesos = Number.parseFloat(rawCapPesos.trim());
+  if (!Number.isFinite(capPesos) || capPesos <= 0) {
+    throw new Error('Maximum discount must be a positive number of pesos.');
+  }
+  return { pct_value: pct, cap_centavos: Math.round(capPesos * 100) };
 }
 
 /**
@@ -170,9 +192,9 @@ async function validateCoveredServices(keys: string[]): Promise<string[]> {
  *
  * Form fields:
  *   • code            — 8 A-Z 0-9 chars (auto-uppercased server-side)
- *   • discount_type   — 'amount_off' | 'pct_off' | 'free'
- *   • discount_pesos  — pesos for amount_off (converted to centavos)
- *   • discount_pct    — integer 1-100 for pct_off
+ *   • discount_type   — 'pct_off' | 'pct_off_capped' | 'free'
+ *   • discount_pct    — integer 1-100 (required for pct_off + pct_off_capped)
+ *   • cap_pesos       — pesos (required ONLY for pct_off_capped)
  *   • expires_at      — datetime-local string (REQUIRED)
  *   • max_uses        — positive int or empty (empty = unlimited)
  *   • covered_services[] — multi-checkbox of service_catalog.sku_code values
@@ -194,15 +216,15 @@ export async function createDiscountCode(formData: FormData) {
   // Discount type — strict enum.
   const rawType = formData.get('discount_type');
   if (typeof rawType !== 'string' || !DISCOUNT_TYPES.includes(rawType as DiscountType)) {
-    throw new Error('Pick a discount type: Amount off, % off, or Free.');
+    throw new Error('Pick a discount type: Percentage off, Percentage off (capped), or Free.');
   }
   const discountType = rawType as DiscountType;
 
   // Discount value — shape varies by type.
-  const discountValue = parseDiscountValue(
+  const { pct_value, cap_centavos } = parseDiscountValue(
     discountType,
-    formData.get('discount_pesos'),
     formData.get('discount_pct'),
+    formData.get('cap_pesos'),
   );
 
   // Expires at — required.
@@ -226,7 +248,8 @@ export async function createDiscountCode(formData: FormData) {
     .insert({
       code,
       discount_type: discountType,
-      discount_value: discountValue,
+      pct_value,
+      cap_centavos,
       covered_service_keys: coveredServiceKeys,
       expires_at: expiresAt,
       max_uses: maxUses,
@@ -252,7 +275,8 @@ export async function createDiscountCode(formData: FormData) {
     metadata: {
       code: inserted.code,
       discount_type: discountType,
-      discount_value: discountValue,
+      pct_value,
+      cap_centavos,
       covered_service_count: coveredServiceKeys.length,
       max_uses: maxUses,
       expires_at: expiresAt,
@@ -289,7 +313,7 @@ export async function updateDiscountCode(formData: FormData) {
   const { data: prior, error: priorErr } = await admin
     .from('discount_codes')
     .select(
-      'code, discount_type, discount_value, covered_service_keys, expires_at, max_uses, is_active',
+      'code, discount_type, pct_value, cap_centavos, covered_service_keys, expires_at, max_uses, is_active',
     )
     .eq('discount_code_id', id)
     .maybeSingle();
@@ -308,10 +332,10 @@ export async function updateDiscountCode(formData: FormData) {
   }
   const discountType = rawType as DiscountType;
 
-  const discountValue = parseDiscountValue(
+  const { pct_value, cap_centavos } = parseDiscountValue(
     discountType,
-    formData.get('discount_pesos'),
     formData.get('discount_pct'),
+    formData.get('cap_pesos'),
   );
 
   const expiresAt = parseExpiresAt(formData.get('expires_at'));
@@ -326,7 +350,8 @@ export async function updateDiscountCode(formData: FormData) {
     .from('discount_codes')
     .update({
       discount_type: discountType,
-      discount_value: discountValue,
+      pct_value,
+      cap_centavos,
       covered_service_keys: coveredServiceKeys,
       expires_at: expiresAt,
       max_uses: maxUses,
@@ -344,14 +369,16 @@ export async function updateDiscountCode(formData: FormData) {
       code: prior.code,
       before: {
         discount_type: prior.discount_type,
-        discount_value: prior.discount_value,
+        pct_value: prior.pct_value,
+        cap_centavos: prior.cap_centavos,
         covered_service_keys: prior.covered_service_keys,
         expires_at: prior.expires_at,
         max_uses: prior.max_uses,
       },
       after: {
         discount_type: discountType,
-        discount_value: discountValue,
+        pct_value,
+        cap_centavos,
         covered_service_keys: coveredServiceKeys,
         expires_at: expiresAt,
         max_uses: maxUses,

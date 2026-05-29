@@ -176,9 +176,39 @@ export async function generateMetadata({ params }: Props) {
     return { title: 'Setnayan vendor' };
   }
   const suffix = vendor.public_visibility === 'coming_soon' ? ' · Coming soon' : '';
+  const siteUrl = (
+    process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
+  ).replace(/\/$/, '');
+  const canonicalUrl = `${siteUrl}/v/${vendor.business_slug ?? slug}`;
+  const titleText = `${vendor.business_name} · Setnayan vendor${suffix}`;
+  const descText = vendor.tagline ?? `${vendor.business_name} on Setnayan.`;
+  // SEO/GEO Bucket 4 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — extend the
+  // base metadata from PR #573 with canonical URL + OpenGraph profile card
+  // + Twitter summary_large_image so social shares of a vendor profile
+  // render with the vendor's logo + name instead of the layout-default
+  // /brand/og-card.webp. Falls back to logo_url when present; layout-level
+  // og:image (Bucket 2 PR #607) covers the no-logo case.
   return {
-    title: `${vendor.business_name} · Setnayan vendor${suffix}`,
-    description: vendor.tagline ?? `${vendor.business_name} on Setnayan.`,
+    title: titleText,
+    description: descText,
+    alternates: { canonical: canonicalUrl },
+    openGraph: {
+      type: 'profile',
+      url: canonicalUrl,
+      title: titleText,
+      description: descText,
+      siteName: 'Setnayan',
+      locale: 'en_PH',
+      ...(vendor.logo_url
+        ? { images: [{ url: vendor.logo_url, alt: `${vendor.business_name} logo` }] }
+        : {}),
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: titleText,
+      description: descText,
+      ...(vendor.logo_url ? { images: [vendor.logo_url] } : {}),
+    },
   };
 }
 
@@ -320,11 +350,71 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
     }));
   }
 
+  // SEO/GEO Bucket 4 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — explicit
+  // OfferCatalog wrapping the vendor's canonical_service entries. Mirrors
+  // the lighter `knowsAbout` array (kept above for AI-engine entity
+  // extraction) but uses Schema.org's marketplace-native structure:
+  // OfferCatalog → Offer → Service, each linked back to the vendor as
+  // provider. Lets Google + AI engines answer "does {vendor} do X?" with
+  // structured precision instead of fuzzy string match.
+  if (Array.isArray(vendor.services) && vendor.services.length > 0) {
+    vendorJsonLd.hasOfferCatalog = {
+      '@type': 'OfferCatalog',
+      name: `${vendor.business_name} services`,
+      itemListElement: vendor.services.map((s: string, i: number) => ({
+        '@type': 'Offer',
+        position: i + 1,
+        itemOffered: {
+          '@type': 'Service',
+          name: isCanonicalService(s) ? displayServiceLabel(s) : s,
+          provider: { '@id': `${SITE_URL}/v/${slug}#business` },
+        },
+      })),
+    };
+  }
+
+  // SEO/GEO Bucket 4 — BreadcrumbList JSON-LD. 3-level trail
+  // (Home → Wedding vendors → {vendor name}). Google surfaces breadcrumb
+  // trails in SERP under the result title, lifting CTR. The 4th level
+  // (category) is intentionally omitted — vendor.services[0] is the
+  // closest proxy but adds parsing complexity and risks misrepresenting
+  // multi-category vendors. 3 levels is the canonical breadcrumb depth
+  // for marketplace listings (Yelp, Amazon, Etsy all ship 3-level for
+  // seller pages).
+  const breadcrumbJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Home',
+        item: `${SITE_URL}/`,
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: 'Wedding vendors',
+        item: `${SITE_URL}/vendors`,
+      },
+      {
+        '@type': 'ListItem',
+        position: 3,
+        name: vendor.business_name,
+        item: `${SITE_URL}/v/${slug}`,
+      },
+    ],
+  };
+
   return (
     <main className="min-h-dvh bg-cream">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(vendorJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
       <header className="border-b border-ink/5">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">

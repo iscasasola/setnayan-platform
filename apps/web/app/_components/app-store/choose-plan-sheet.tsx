@@ -1,17 +1,29 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { CreditCard, X } from 'lucide-react';
+
+import {
+  InlineCheckoutDrawer,
+  type InlineCheckoutDrawerProps,
+} from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 
 // Client-side "Choose plan" sheet rendered as the App Store-style GET button.
 // On mobile it slides up from the bottom (single-thumb reach); on desktop
 // the same sheet docks as a right-side drawer.
 //
-// Each plan row is a Link to /dashboard/[eventId]/orders/new?service=<sku_code>
-// — i.e. it deep-links into 0034's apply-then-pay flow with the SKU prefilled.
-// The cart logic itself stays where it lives today; this component is
-// purely a discovery + hand-off surface.
+// 2026-05-29 Day 2 inline-checkout sprint (CLAUDE.md V1 SCOPE EXPANSION) ·
+// Replaces the per-plan "Add to event" link to /dashboard/[eventId]/orders/new
+// with the new <InlineCheckoutDrawer> that lands a one-page checkout
+// experience (voucher + QR + screenshot + submit) without leaving the
+// detail page. Each plan row now renders its own <InlineCheckoutDrawer>
+// trigger pre-bound to that SKU's code + price + display name. The legacy
+// /orders/new path is retired (redirect to /add-ons) per the same sprint.
+//
+// Backward-compat: pages that previously passed only the formatted `price`
+// string keep working because the drawer falls back to a free price (0
+// centavos) when `priceCentavos` is absent. Pages that want full checkout
+// must thread `priceCentavos` through the plan rows (see panood/page.tsx).
 
 export type ChoosePlanSku = {
   sku_code: string;
@@ -20,6 +32,14 @@ export type ChoosePlanSku = {
   price: string;
   unit: string;
   badge?: string;
+  /**
+   * Integer centavos for the inline checkout drawer. String-encoded so
+   * the React props tree stays BigInt-free (post-ES2020 type). Optional
+   * for backward-compat; when missing, the drawer treats the plan as ₱0
+   * which is fine for the launch-promo SKUs but should be set explicitly
+   * for paid plans so the discount math has a base.
+   */
+  priceCentavos?: string;
 };
 
 export type ChoosePlanSheetProps = {
@@ -33,6 +53,22 @@ export type ChoosePlanSheetProps = {
   // Optional footnote rendered below the plan list. Stays in-sheet,
   // useful for refund policy or capacity hints.
   footnote?: string;
+  /**
+   * Pre-fetched platform settings (BDO + GCash) that every plan's
+   * checkout drawer renders. Optional — when omitted the drawer falls
+   * back to a "Bank account details will follow" message so the
+   * page still works on dev/preview without env-bound settings.
+   */
+  settings?: InlineCheckoutDrawerProps['settings'];
+};
+
+const EMPTY_SETTINGS: InlineCheckoutDrawerProps['settings'] = {
+  bdo_account_name: null,
+  bdo_account_number: null,
+  bdo_qr_url: null,
+  gcash_account_name: null,
+  gcash_number: null,
+  gcash_qr_url: null,
 };
 
 export function ChoosePlanSheet({
@@ -42,6 +78,7 @@ export function ChoosePlanSheet({
   plans,
   introCopy,
   footnote,
+  settings,
 }: ChoosePlanSheetProps) {
   const [open, setOpen] = useState(false);
 
@@ -133,12 +170,24 @@ export function ChoosePlanSheet({
                       <span className="text-xs text-ink/55">{plan.unit}</span>
                     </p>
                   </div>
-                  <Link
-                    href={`/dashboard/${eventId}/orders/new?service=${plan.sku_code}`}
-                    className="inline-flex w-fit items-center gap-1.5 rounded-full bg-terracotta px-4 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-terracotta-600"
-                  >
-                    Add to event
-                  </Link>
+                  {/*
+                    2026-05-29 Day 2 inline-checkout · Each plan opens its own
+                    drawer pre-bound to that SKU. priceCentavos defaults to "0"
+                    when the parent page hasn't threaded it through yet — fine
+                    for free SKUs, but the drawer's voucher math expects a
+                    real centavos value so paid plans should explicitly pass.
+                    Pages using ChoosePlanSheet must thread settings + per-plan
+                    priceCentavos for full checkout to work.
+                  */}
+                  <InlineCheckoutDrawer
+                    eventId={eventId}
+                    serviceKey={plan.sku_code}
+                    displayName={plan.name}
+                    originalPriceCentavos={plan.priceCentavos ?? '0'}
+                    settings={settings ?? EMPTY_SETTINGS}
+                    triggerLabel="Add to event"
+                    triggerClassName="inline-flex w-fit items-center gap-1.5 rounded-full bg-terracotta px-4 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-terracotta-600"
+                  />
                 </li>
               ))}
             </ul>

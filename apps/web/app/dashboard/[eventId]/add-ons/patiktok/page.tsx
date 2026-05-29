@@ -30,6 +30,18 @@ import {
   type PatiktokTemplate,
 } from '@/lib/patiktok';
 import { createOrder } from '../../orders/actions';
+// 2026-05-29 Day 2 inline-checkout sprint (CLAUDE.md Day 2 row · V1 SCOPE
+// EXPANSION). The per-tier "Buy 1 day" form now opens the InlineCheckoutDrawer
+// inline instead of routing to /orders/[id]. service_key is the canonical
+// SKU code (patiktok_setnayan_tiktok or patiktok_personal_tiktok) so the
+// voucher coverage check works. The TikTok-OAuth gate stays in place — couples
+// must connect TikTok before the buy CTA shows for the Personal tier.
+// Cross-refs:
+//   • apps/web/app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx
+//   • apps/web/app/dashboard/[eventId]/checkout/actions.ts
+//   • PR #594 + PR #595 voucher schema substrate
+import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import { disconnectPatiktokTiktok } from './actions';
 
 type RenderJobRow = {
@@ -116,6 +128,10 @@ export default async function PatiktokGallery({
     .is('revoked_at', null)
     .maybeSingle();
   const tiktokGrant = (grantRaw ?? null) as TiktokGrant | null;
+
+  // 2026-05-29 Day 2 · BDO + GCash for the InlineCheckoutDrawer rendered
+  // per-tier below. Cheaper to fetch once at page level than per TierCard.
+  const settings = await fetchPlatformSettings(supabase);
 
   return (
     <section className="space-y-6">
@@ -210,6 +226,7 @@ export default async function PatiktokGallery({
         eventId={eventId}
         couplePurchasable
         tiktokGrant={tiktokGrant}
+        settings={settings}
       />
 
       <YourRenders jobs={jobs} eventId={eventId} />
@@ -354,10 +371,19 @@ function PricingTiers({
   eventId,
   couplePurchasable,
   tiktokGrant,
+  settings,
 }: {
   eventId: string;
   couplePurchasable: boolean;
   tiktokGrant: TiktokGrant | null;
+  settings: {
+    bdo_account_name: string | null;
+    bdo_account_number: string | null;
+    bdo_qr_url: string | null;
+    gcash_account_name: string | null;
+    gcash_number: string | null;
+    gcash_qr_url: string | null;
+  };
 }) {
   return (
     <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -368,6 +394,7 @@ function PricingTiers({
           tier={tier}
           purchasable={couplePurchasable}
           tiktokGrant={tier.key === 'personal' ? tiktokGrant : null}
+          settings={settings}
         />
       ))}
       <p className="sm:col-span-2 text-xs text-ink/55">
@@ -387,19 +414,32 @@ function TierCard({
   tier,
   purchasable,
   tiktokGrant,
+  settings,
 }: {
   eventId: string;
   tier: PatiktokTier;
   purchasable: boolean;
   tiktokGrant: TiktokGrant | null;
+  settings: {
+    bdo_account_name: string | null;
+    bdo_account_number: string | null;
+    bdo_qr_url: string | null;
+    gcash_account_name: string | null;
+    gcash_number: string | null;
+    gcash_qr_url: string | null;
+  };
 }) {
   const isPersonal = tier.key === 'personal';
+  // 2026-05-29 Day 2 · canonical SKU codes (matches apps/web/lib/sku-catalog.ts
+  // which sources from supabase service_catalog) so voucher coverage_service_keys
+  // lookups land. Old `patiktok:personal_daily` / `patiktok:setnayan_daily`
+  // pseudo-keys were never in service_catalog · drift cleanup.
   const serviceKey = isPersonal
-    ? 'patiktok:personal_daily'
-    : 'patiktok:setnayan_daily';
+    ? 'patiktok_personal_tiktok'
+    : 'patiktok_setnayan_tiktok';
   const description = isPersonal
-    ? `Patiktok booth — Personal TikTok tier (₱${tier.pricePhpPerDay}/day · auto-post to couple's own TikTok via OAuth · 40-video soft cap).`
-    : `Patiktok booth — Setnayan TikTok tier (₱${tier.pricePhpPerDay}/day · auto-post to @SetnayanWeddings · 40-video soft cap).`;
+    ? `Patiktok booth · Personal tier · ${tier.label}`
+    : `Patiktok booth · Setnayan tier · ${tier.label}`;
   const needsTiktokConnect = isPersonal && !tiktokGrant;
   return (
     <article className="flex h-full flex-col gap-3 rounded-2xl border border-ink/10 bg-cream p-5">
@@ -452,27 +492,30 @@ function TierCard({
       ) : null}
 
       {purchasable && !needsTiktokConnect ? (
-        <form action={createOrder} className="mt-auto pt-1">
-          <input type="hidden" name="event_id" value={eventId} />
-          <input type="hidden" name="service_key" value={serviceKey} />
-          <input type="hidden" name="description" value={description} />
-          <input
-            type="hidden"
-            name="requested_total_php"
-            value={tier.pricePhpPerDay}
+        <div className="mt-auto pt-1">
+          {/*
+            2026-05-29 Day 2 inline-checkout · replaces the legacy
+            <form action={createOrder}> that submitted to /orders/[id].
+            The drawer renders voucher + QR + screenshot + submit on
+            the same page · couples stay in the patiktok detail surface
+            through the whole flow.
+          */}
+          <InlineCheckoutDrawer
+            eventId={eventId}
+            serviceKey={serviceKey}
+            displayName={description}
+            originalPriceCentavos={String(
+              Math.round(tier.pricePhpPerDay * 100),
+            )}
+            settings={settings}
+            triggerLabel={`Buy 1 day · ${formatPhp(tier.pricePhpPerDay)}`}
+            triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-600"
           />
-          <SubmitButton
-            className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-600 disabled:opacity-70"
-            pendingLabel="Submitting…"
-          >
-            <ShoppingCart className="h-4 w-4" strokeWidth={1.75} />
-            Buy 1 day · {formatPhp(tier.pricePhpPerDay)}
-          </SubmitButton>
           <p className="pt-2 text-[11px] text-ink/55">
             Apply-then-pay · Setnayan confirms inside 24 h after BDO / GCash
             payment is logged.
           </p>
-        </form>
+        </div>
       ) : null}
     </article>
   );

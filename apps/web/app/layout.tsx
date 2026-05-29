@@ -101,11 +101,11 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'),
   title: {
-    default: 'Setnayan',
+    default: "Setnayan · Filipino wedding planning + verified vendors",
     template: '%s · Setnayan',
   },
   description:
-    "Set na 'yan. Setnayan is the Philippines-first life-events platform. V1 weddings.",
+    "Set na 'yan. Setnayan is the Philippines-first wedding planning platform — free baseline tools for couples, 0% commission on vendor bookings, verified Filipino wedding suppliers across Metro Manila, Cebu, Davao, Tagaytay, and nationwide.",
   applicationName: 'Setnayan',
   manifest: '/manifest.json',
   icons: {
@@ -120,16 +120,115 @@ export const metadata: Metadata = {
     title: 'Setnayan',
     statusBarStyle: 'default',
   },
+  // OpenGraph + Twitter Card metadata — SEO/GEO Bucket 2 (CLAUDE.md 2026-05-29
+  // SEO/GEO Sprint row). Every social share of a Setnayan URL renders this
+  // 1200×630 brand card; AI answer engines (ChatGPT, Perplexity, Claude, Gemini)
+  // ingest the same surface for grounded site descriptions. The 2026-05-28 13th
+  // row GEO sprint shipped the homepage Organization JSON-LD in PR #570 — this
+  // edit fixes the layout-level og:image (was /icon-512.svg 512×512 SVG · now
+  // /brand/og-card.webp 1200×630 brand card) and the twitter:card type
+  // (was 'summary' · now 'summary_large_image' which is the correct value for
+  // the 1.91:1 OG ratio · 'summary' renders as a tiny 144×144 thumbnail).
   openGraph: {
     type: 'website',
     siteName: 'Setnayan',
     locale: 'en_PH',
-    images: [{ url: '/icon-512.svg', width: 512, height: 512, alt: 'Setnayan' }],
+    url: 'https://www.setnayan.com',
+    title: "Setnayan · Filipino wedding planning + verified vendors",
+    description:
+      "Set na 'yan. Free baseline planning tools for couples, 0% commission on vendor bookings, verified Filipino wedding suppliers nationwide.",
+    images: [
+      {
+        url: '/brand/og-card.webp',
+        width: 1200,
+        height: 630,
+        alt: "Setnayan · Set na 'yan. · Filipino wedding planning · verified vendors · 0% commission",
+        type: 'image/webp',
+      },
+    ],
   },
   twitter: {
-    card: 'summary',
-    images: ['/icon-512.svg'],
+    card: 'summary_large_image',
+    title: "Setnayan · Filipino wedding planning + verified vendors",
+    description:
+      "Set na 'yan. Free baseline planning tools for couples, 0% commission on vendor bookings, verified Filipino wedding suppliers nationwide.",
+    images: ['/brand/og-card.webp'],
   },
+  // Robots-meta default to index,follow (we're shipping public marketing).
+  // The auth-gated dashboard routes opt out of this default at their own layer.
+  // Pre-launch (until 2026-12-01 public launch), this still applies — the pilot
+  // 2026-06-01 cohort is link-shared not indexed-discoverable so SEO is harmless.
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+};
+
+// Organization JSON-LD for the global brand entity — read by Google Knowledge
+// Graph + AI answer engines for entity grounding. The homepage Organization
+// node in page.tsx (PR #570 2026-05-28 13th row) is richer (includes
+// SoftwareApplication + Offers); this layout-level block ensures EVERY
+// public page emits the basic Organization entity so brand-name queries
+// like "Setnayan" surface a Knowledge Panel as the platform matures.
+//
+// sameAs[] is intentionally empty — owner-side action pending (Facebook Page
+// + LinkedIn Company Page creation per SEO_GEO_SPRINT_2026-05-29.md owner
+// actions list). When those URLs arrive, append to this array via a small
+// follow-up PR. AI engines tolerate empty sameAs[] gracefully.
+const organizationJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  '@id': 'https://www.setnayan.com/#organization',
+  name: 'Setnayan',
+  alternateName: ["Set na 'yan.", 'SET-na-yan'],
+  url: 'https://www.setnayan.com',
+  logo: {
+    '@type': 'ImageObject',
+    url: 'https://www.setnayan.com/icon-512.svg',
+    width: 512,
+    height: 512,
+  },
+  image: 'https://www.setnayan.com/brand/og-card.webp',
+  description:
+    "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set\") is the Philippines-first wedding and life-events software platform. Free baseline planning tools for couples, 0% commission on vendor bookings, verified Filipino wedding suppliers across Metro Manila, Cebu, Davao, Tagaytay, and nationwide.",
+  foundingDate: '2026',
+  knowsLanguage: ['en', 'tl', 'ceb'],
+  areaServed: {
+    '@type': 'Country',
+    name: 'Philippines',
+  },
+  address: {
+    '@type': 'PostalAddress',
+    addressCountry: 'PH',
+  },
+  contactPoint: [
+    {
+      '@type': 'ContactPoint',
+      contactType: 'data protection officer',
+      email: 'dpo@setnayan.com',
+      areaServed: 'PH',
+      availableLanguage: ['en', 'tl'],
+    },
+    {
+      '@type': 'ContactPoint',
+      contactType: 'customer support',
+      url: 'https://www.setnayan.com/help',
+      areaServed: 'PH',
+      availableLanguage: ['en', 'tl'],
+    },
+  ],
+  // sameAs[] pending — owner-side Facebook Page + LinkedIn Company Page
+  // creation per SEO_GEO_SPRINT_2026-05-29.md. Add URLs here when they exist:
+  //   sameAs: [
+  //     'https://www.facebook.com/setnayan',
+  //     'https://www.linkedin.com/company/setnayan',
+  //   ],
 };
 
 // 2026-05-22 brand pivot: theme-color responds to light vs dark mode so iOS
@@ -177,6 +276,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           See _components/theme-provider.tsx for the algorithm.
         */}
         <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
+        {/*
+          Organization JSON-LD — Google Knowledge Graph + AI answer engine
+          entity grounding. Renders on every public page. Page-specific JSON-LD
+          (SoftwareApplication on homepage, LocalBusiness on /v/[slug], etc.)
+          composes on top of this baseline entity via @id reference
+          https://www.setnayan.com/#organization. See metadata block above.
+        */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+        />
         {supabaseOrigin ? (
           <>
             <link rel="preconnect" href={supabaseOrigin} crossOrigin="anonymous" />

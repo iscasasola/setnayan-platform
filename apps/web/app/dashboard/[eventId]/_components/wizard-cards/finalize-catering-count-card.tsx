@@ -177,7 +177,7 @@ export function FinalizeCateringCountCard({
           type="button"
           onClick={() => handleLock(rsvpAttendingCount, 'none')}
           disabled={isPending}
-          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-terracotta px-5 py-3 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-700 focus:outline-none focus:ring-2 focus:ring-terracotta focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-mulberry px-5 py-3 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-700 focus:outline-none focus:ring-2 focus:ring-mulberry focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60"
         >
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={2} />
           {isPending ? 'Saving…' : `Lock count at ${rsvpAttendingCount}`}

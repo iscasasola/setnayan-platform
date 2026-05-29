@@ -118,7 +118,7 @@ function DiyBanner() {
       <div className="mt-3 flex flex-wrap gap-2">
         <Link
           href="/pricing"
-          className="inline-flex items-center gap-1.5 rounded-full bg-terracotta px-3 py-1.5 text-xs font-medium text-cream hover:bg-terracotta-700"
+          className="inline-flex items-center gap-1.5 rounded-full bg-mulberry px-3 py-1.5 text-xs font-medium text-cream hover:bg-mulberry-700"
         >
           See pricing
         </Link>
@@ -198,7 +198,7 @@ function ExpiredBanner({
       <div className="mt-3">
         <Link
           href="/pricing"
-          className="inline-flex items-center gap-1.5 rounded-full bg-terracotta px-3 py-1.5 text-xs font-medium text-cream hover:bg-terracotta-700"
+          className="inline-flex items-center gap-1.5 rounded-full bg-mulberry px-3 py-1.5 text-xs font-medium text-cream hover:bg-mulberry-700"
         >
           See pricing
         </Link>

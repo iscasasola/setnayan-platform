@@ -44,7 +44,7 @@ export function AddOnStateCta({
       return (
         <Link
           href={context.href ?? '#'}
-          className="inline-flex items-center gap-2 rounded-full bg-terracotta px-5 py-2 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-600"
+          className="inline-flex items-center gap-2 rounded-full bg-mulberry px-5 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600"
         >
           <Rocket aria-hidden className="h-4 w-4" strokeWidth={2} />
           {launchLabel}

@@ -231,7 +231,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
               href={publicLandingUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex shrink-0 items-center gap-2 rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta-600"
+              className="inline-flex shrink-0 items-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600"
             >
               Preview as guest
               <ExternalLink aria-hidden className="h-4 w-4" strokeWidth={1.75} />

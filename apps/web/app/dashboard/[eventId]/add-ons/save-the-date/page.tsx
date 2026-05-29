@@ -181,7 +181,7 @@ function TemplateCard({
             originalPriceCentavos={String(Math.round(STD_PRICE_PHP * 100))}
             settings={settings}
             triggerLabel="Request this template"
-            triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta-600 disabled:opacity-70"
+            triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70"
           />
         </div>
       </div>

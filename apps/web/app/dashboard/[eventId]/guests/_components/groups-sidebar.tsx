@@ -275,7 +275,7 @@ function NewGroupForm({
       <TeamSideSelect />
       <button
         type="submit"
-        className="inline-flex h-8 w-full items-center justify-center rounded-md bg-terracotta text-xs font-medium text-cream hover:bg-terracotta-600"
+        className="inline-flex h-8 w-full items-center justify-center rounded-md bg-mulberry text-xs font-medium text-cream hover:bg-mulberry-600"
       >
         Create group
       </button>
@@ -310,7 +310,7 @@ function EditGroupForm({
       <div className="flex gap-1">
         <button
           type="submit"
-          className="inline-flex h-8 flex-1 items-center justify-center rounded-md bg-terracotta text-xs font-medium text-cream hover:bg-terracotta-600"
+          className="inline-flex h-8 flex-1 items-center justify-center rounded-md bg-mulberry text-xs font-medium text-cream hover:bg-mulberry-600"
         >
           Save
         </button>

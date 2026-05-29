@@ -247,7 +247,7 @@ function DownloadCard({
       {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
       <a
         href="/api/download/mac"
-        className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-md bg-terracotta px-4 py-2.5 text-sm font-medium text-cream hover:bg-terracotta-600"
+        className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream hover:bg-mulberry-600"
       >
         <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         Download for Mac

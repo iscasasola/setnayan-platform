@@ -738,7 +738,7 @@ export function VendorPickGridCard({
         <button
           type="submit"
           disabled={isSearching}
-          className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded-lg bg-terracotta px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-700 focus:outline-none focus:ring-2 focus:ring-terracotta focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-700 focus:outline-none focus:ring-2 focus:ring-mulberry focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSearching ? 'Searching…' : 'Search'}
         </button>
@@ -1404,7 +1404,7 @@ function VendorGridCardRow({
             <button
               type="button"
               onClick={onPickAsSecond}
-              className="inline-flex min-h-[40px] flex-1 items-center justify-center gap-1.5 rounded-lg bg-terracotta px-3 py-2 text-xs font-semibold text-cream transition-colors hover:bg-terracotta-700 focus:outline-none focus:ring-2 focus:ring-terracotta focus:ring-offset-2 focus:ring-offset-cream sm:text-sm"
+              className="inline-flex min-h-[40px] flex-1 items-center justify-center gap-1.5 rounded-lg bg-mulberry px-3 py-2 text-xs font-semibold text-cream transition-colors hover:bg-mulberry-700 focus:outline-none focus:ring-2 focus:ring-mulberry focus:ring-offset-2 focus:ring-offset-cream sm:text-sm"
             >
               <ArrowLeftRight
                 aria-hidden
@@ -1432,7 +1432,7 @@ function VendorGridCardRow({
                 type="button"
                 onClick={onLock}
                 disabled={isPending}
-                className="inline-flex min-h-[40px] flex-1 items-center justify-center gap-1.5 rounded-lg bg-terracotta px-3 py-2 text-xs font-semibold text-cream transition-colors hover:bg-terracotta-700 focus:outline-none focus:ring-2 focus:ring-terracotta focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"
+                className="inline-flex min-h-[40px] flex-1 items-center justify-center gap-1.5 rounded-lg bg-mulberry px-3 py-2 text-xs font-semibold text-cream transition-colors hover:bg-mulberry-700 focus:outline-none focus:ring-2 focus:ring-mulberry focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"
               >
                 {isPending ? (
                   'Locking…'
@@ -1614,7 +1614,7 @@ function CompareSide({
             type="button"
             onClick={onLock}
             disabled={isPending}
-            className="inline-flex min-h-[42px] flex-1 items-center justify-center gap-1.5 rounded-lg bg-terracotta px-3 py-2 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-700 focus:outline-none focus:ring-2 focus:ring-terracotta focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-[42px] flex-1 items-center justify-center gap-1.5 rounded-lg bg-mulberry px-3 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-700 focus:outline-none focus:ring-2 focus:ring-mulberry focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isPending ? (
               'Locking…'
@@ -1758,7 +1758,7 @@ function CustomVendorForm({
         <button
           type="submit"
           disabled={isPending}
-          className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg bg-terracotta px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-700 focus:outline-none focus:ring-2 focus:ring-terracotta focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-700 focus:outline-none focus:ring-2 focus:ring-mulberry focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Lock aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           {isPending ? 'Locking…' : 'Lock this vendor'}

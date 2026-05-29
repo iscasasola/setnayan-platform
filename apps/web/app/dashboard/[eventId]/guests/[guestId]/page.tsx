@@ -583,7 +583,7 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
                 Cancel
               </Link>
               <SubmitButton
-                className="inline-flex h-10 items-center justify-center rounded-md bg-terracotta px-5 text-sm font-medium text-cream transition-colors hover:bg-terracotta-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-10 items-center justify-center rounded-md bg-mulberry px-5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mulberry focus-visible:ring-offset-2 focus-visible:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60"
                 pendingLabel="Saving…"
               >
                 Save changes

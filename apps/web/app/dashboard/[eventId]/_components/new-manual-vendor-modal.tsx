@@ -503,7 +503,7 @@ export function NewManualVendorModal({
             <button
               type="submit"
               disabled={pending}
-              className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-md border border-terracotta/40 bg-terracotta px-3.5 text-sm font-medium text-cream transition-colors hover:bg-terracotta-700 disabled:cursor-default disabled:opacity-60 sm:px-5"
+              className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-md border border-terracotta/40 bg-mulberry px-3.5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-700 disabled:cursor-default disabled:opacity-60 sm:px-5"
             >
               {pending ? (
                 <>

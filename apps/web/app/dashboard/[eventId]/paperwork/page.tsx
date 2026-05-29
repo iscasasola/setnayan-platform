@@ -249,7 +249,7 @@ function SeedPrompt({
         You can mark progress + upload scans as each one lands.
       </p>
       <SubmitButton
-        className="mt-3 inline-flex items-center gap-2 rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta-600 disabled:opacity-70"
+        className="mt-3 inline-flex items-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70"
         pendingLabel="Setting up…"
       >
         <ScrollText className="h-4 w-4" strokeWidth={1.75} />
@@ -546,7 +546,7 @@ function ActionsBlock({
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="paperwork_id" value={row.id} />
             <SubmitButton
-              className="inline-flex items-center gap-1.5 rounded-md bg-terracotta px-3 py-1.5 text-xs font-medium text-cream hover:bg-terracotta-600 disabled:opacity-70"
+              className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-1.5 text-xs font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70"
               pendingLabel="Saving…"
             >
               Mark as requested

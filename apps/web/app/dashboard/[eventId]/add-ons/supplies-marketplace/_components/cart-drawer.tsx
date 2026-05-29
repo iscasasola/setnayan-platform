@@ -209,7 +209,7 @@ export function SuppliesMarketplaceBrowser({ eventId, recommended }: Props) {
         <button
           type="button"
           onClick={() => setDrawerOpen(true)}
-          className="fixed bottom-20 right-4 z-30 inline-flex items-center gap-2 rounded-full bg-terracotta px-5 py-3 text-sm font-medium text-cream shadow-lg shadow-terracotta/30 transition-transform hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta lg:bottom-6"
+          className="fixed bottom-20 right-4 z-30 inline-flex items-center gap-2 rounded-full bg-mulberry px-5 py-3 text-sm font-medium text-cream shadow-lg shadow-mulberry/30 transition-transform hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry lg:bottom-6"
           aria-label={`Open cart with ${cartCount} item${cartCount === 1 ? '' : 's'}`}
         >
           <ShoppingCart aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -337,7 +337,7 @@ function ProductCard({
           <button
             type="button"
             onClick={onAdd}
-            className="inline-flex items-center gap-1.5 rounded-md bg-terracotta px-3 py-1.5 text-xs font-medium text-cream hover:bg-terracotta-600"
+            className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-1.5 text-xs font-medium text-cream hover:bg-mulberry-600"
           >
             <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             Add to cart
@@ -476,7 +476,7 @@ function CartDrawer({
 
               <Link
                 href={checkoutHref}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-terracotta px-4 py-3 text-sm font-medium text-cream hover:bg-terracotta-600"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-3 text-sm font-medium text-cream hover:bg-mulberry-600"
               >
                 <ShoppingCart aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                 Checkout via Orders

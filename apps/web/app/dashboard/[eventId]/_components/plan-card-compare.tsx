@@ -536,7 +536,7 @@ export function PlanCardCompare({
                                 performLock(p.vendor_id, p.vendor_name, false)
                               }
                               disabled={isPendingThis || lockState.kind === 'pending'}
-                              className="mt-auto inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-md bg-terracotta px-3 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-60"
+                              className="mt-auto inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-md bg-mulberry px-3 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry disabled:opacity-60"
                             >
                               {isPendingThis ? (
                                 <>
@@ -651,7 +651,7 @@ function ConflictModal({
           type="button"
           onClick={onSwitch}
           disabled={isPending}
-          className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-md bg-terracotta px-3 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-60"
+          className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-md bg-mulberry px-3 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry disabled:opacity-60"
         >
           {isPending ? (
             <>
@@ -732,7 +732,7 @@ function SoftHoldLimitModal({
       <div className="flex flex-wrap gap-2">
         <Link
           href={browseSimilarHref}
-          className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-terracotta px-3 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+          className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-mulberry px-3 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry"
         >
           Browse similar vendors
         </Link>

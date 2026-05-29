@@ -145,7 +145,7 @@ export default async function PatiktokGallery({
         </Link>
         <Link
           href={`/dashboard/${eventId}/add-ons/patiktok/booth`}
-          className="inline-flex items-center gap-1.5 rounded-md bg-terracotta px-3 py-1.5 text-xs font-medium text-cream hover:bg-terracotta-600"
+          className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-1.5 text-xs font-medium text-cream hover:bg-mulberry-600"
         >
           Open booth dashboard →
         </Link>
@@ -509,7 +509,7 @@ function TierCard({
             )}
             settings={settings}
             triggerLabel={`Buy 1 day · ${formatPhp(tier.pricePhpPerDay)}`}
-            triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-600"
+            triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
           />
           <p className="pt-2 text-[11px] text-ink/55">
             Apply-then-pay · Setnayan confirms inside 24 h after BDO / GCash
@@ -631,7 +631,7 @@ function TemplateCard({
         <p className="text-xs text-ink/70">{template.vibe}</p>
         <Link
           href={`/dashboard/${eventId}/add-ons/patiktok/${template.slug}`}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-600"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
         >
           <Film className="h-4 w-4" strokeWidth={1.75} />
           Choose template

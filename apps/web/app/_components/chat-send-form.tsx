@@ -76,7 +76,7 @@ export function ChatSendForm({ threadId, sendAction }: Props) {
       <SubmitButton
         aria-label="Send"
         pendingLabel=""
-        className="inline-flex h-11 w-11 items-center justify-center rounded-md bg-terracotta text-cream hover:bg-terracotta-600 disabled:opacity-70"
+        className="inline-flex h-11 w-11 items-center justify-center rounded-md bg-mulberry text-cream hover:bg-mulberry-600 disabled:opacity-70"
       >
         <Send className="h-4 w-4" strokeWidth={1.75} />
       </SubmitButton>

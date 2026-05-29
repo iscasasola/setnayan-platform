@@ -32,7 +32,7 @@ export default function SlugNotFound() {
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center justify-center">
           <Link
             href="/login"
-            className="inline-flex items-center justify-center px-6 py-3 bg-terracotta text-cream font-sans text-sm font-medium tracking-wide hover:bg-terracotta-600 transition-colors rounded-sm"
+            className="inline-flex items-center justify-center px-6 py-3 bg-mulberry text-cream font-sans text-sm font-medium tracking-wide hover:bg-mulberry-600 transition-colors rounded-sm"
           >
             Sign in
           </Link>

@@ -736,7 +736,7 @@ function MobileFab({ eventId }: { eventId: string }) {
       <Link
         href={`/dashboard/${eventId}/guests/new`}
         aria-label="Add guest"
-        className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-terracotta text-2xl font-light text-cream shadow-lg shadow-terracotta/30 hover:bg-terracotta-600"
+        className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-mulberry text-2xl font-light text-cream shadow-lg shadow-terracotta/30 hover:bg-mulberry-600"
       >
         +
       </Link>

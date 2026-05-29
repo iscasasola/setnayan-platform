@@ -134,7 +134,7 @@ function ResolvedTaskVariant({
         <div>
           <Link
             href={task.ctaHref}
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-terracotta px-5 py-3 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-700 focus:outline-none focus:ring-2 focus:ring-terracotta focus:ring-offset-2 focus:ring-offset-cream"
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-mulberry px-5 py-3 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-700 focus:outline-none focus:ring-2 focus:ring-mulberry focus:ring-offset-2 focus:ring-offset-cream"
           >
             {task.ctaLabel}
             <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
@@ -204,7 +204,7 @@ function DatePromptVariant({ eventId }: { eventId: string }) {
               auspicious-chip.tsx line 50 for the canonical destination. */}
           <Link
             href={`/dashboard/${eventId}/date-selection`}
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-terracotta px-5 py-3 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-700 focus:outline-none focus:ring-2 focus:ring-terracotta focus:ring-offset-2 focus:ring-offset-cream"
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-mulberry px-5 py-3 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-700 focus:outline-none focus:ring-2 focus:ring-mulberry focus:ring-offset-2 focus:ring-offset-cream"
           >
             Set your date
             <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />

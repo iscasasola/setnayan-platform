@@ -347,7 +347,7 @@ export function PlanCardLock({ eventId, groupId, groupLabel, pick }: Props) {
                     type="button"
                     onClick={() => performLock(true)}
                     disabled={isPending}
-                    className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-md bg-terracotta px-3 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-60"
+                    className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-md bg-mulberry px-3 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry disabled:opacity-60"
                   >
                     {isPending ? (
                       <>
@@ -411,7 +411,7 @@ export function PlanCardLock({ eventId, groupId, groupLabel, pick }: Props) {
                 <div className="flex flex-wrap gap-2">
                   <Link
                     href={resolveBrowseSimilarHref(groupId)}
-                    className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-terracotta px-3 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+                    className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-mulberry px-3 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry"
                   >
                     Browse similar vendors
                   </Link>
@@ -441,7 +441,7 @@ export function PlanCardLock({ eventId, groupId, groupLabel, pick }: Props) {
                   type="button"
                   onClick={() => performLock(false)}
                   disabled={isPending}
-                  className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-terracotta px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:opacity-60"
+                  className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry disabled:opacity-60"
                 >
                   {isPending ? (
                     <>

@@ -100,7 +100,7 @@ export function ChoosePlanSheet({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-2 rounded-full bg-terracotta px-5 py-2 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-600"
+        className="inline-flex items-center gap-2 rounded-full bg-mulberry px-5 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600"
       >
         <CreditCard aria-hidden className="h-4 w-4" strokeWidth={2} />
         {triggerLabel}
@@ -186,7 +186,7 @@ export function ChoosePlanSheet({
                     originalPriceCentavos={plan.priceCentavos ?? '0'}
                     settings={settings ?? EMPTY_SETTINGS}
                     triggerLabel="Add to event"
-                    triggerClassName="inline-flex w-fit items-center gap-1.5 rounded-full bg-terracotta px-4 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-terracotta-600"
+                    triggerClassName="inline-flex w-fit items-center gap-1.5 rounded-full bg-mulberry px-4 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-mulberry-600"
                   />
                 </li>
               ))}

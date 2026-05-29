@@ -300,7 +300,7 @@ export function PrincipalSponsorsCardClient({ eventId, pairs }: Props) {
             <button
               type="submit"
               disabled={isAddingPair}
-              className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg bg-terracotta px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-700 focus:outline-none focus:ring-2 focus:ring-terracotta focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-700 focus:outline-none focus:ring-2 focus:ring-mulberry focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
               {isAddingPair ? 'Adding…' : 'Add this pair'}
@@ -343,7 +343,7 @@ export function PrincipalSponsorsCardClient({ eventId, pairs }: Props) {
           type="button"
           onClick={handleMarkDone}
           disabled={isMarkingDone}
-          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-terracotta px-5 py-3 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-700 focus:outline-none focus:ring-2 focus:ring-terracotta focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-mulberry px-5 py-3 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-700 focus:outline-none focus:ring-2 focus:ring-mulberry focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60"
         >
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={2} />
           {isMarkingDone

@@ -186,7 +186,7 @@ function ErrorShell({ title, body }: { title: string; body?: string }) {
         {body ? <p className="text-sm text-ink/70">{body}</p> : null}
         <Link
           href="/login"
-          className="inline-flex items-center justify-center rounded-md bg-terracotta px-5 py-2.5 text-sm font-semibold text-cream hover:bg-terracotta-700"
+          className="inline-flex items-center justify-center rounded-md bg-mulberry px-5 py-2.5 text-sm font-semibold text-cream hover:bg-mulberry-700"
         >
           Back to sign in
         </Link>

@@ -144,7 +144,7 @@ export function MarketplaceTeaseStrip({
         </div>
         <Link
           href="/vendors"
-          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-terracotta px-4 py-2.5 text-sm font-medium text-cream shadow-sm transition-colors hover:bg-terracotta-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40"
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2.5 text-sm font-medium text-cream shadow-sm transition-colors hover:bg-mulberry-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-mulberry/40"
         >
           Browse all vendors
           <ArrowUpRight aria-hidden className="h-4 w-4" />

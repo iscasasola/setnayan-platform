@@ -187,7 +187,7 @@ function IdleState({
           {oauthReady ? (
             <Link
               href={`/api/oauth/photo-delivery/start?event_id=${encodeURIComponent(eventId)}`}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-terracotta px-5 py-3 text-sm font-medium text-cream transition hover:bg-terracotta-600 sm:w-auto"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-5 py-3 text-sm font-medium text-cream transition hover:bg-mulberry-600 sm:w-auto"
             >
               <CloudUpload aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               Connect Google Drive
@@ -371,7 +371,7 @@ function ConnectedState({
             <input type="hidden" name="event_id" value={eventId} />
             <button
               type="submit"
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream transition hover:bg-terracotta-600"
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition hover:bg-mulberry-600"
             >
               <CloudUpload aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               Release to Drive
@@ -459,7 +459,7 @@ function ConnectedState({
             <input type="hidden" name="event_id" value={eventId} />
             <button
               type="submit"
-              className="inline-flex items-center gap-1.5 rounded-md bg-terracotta px-3 py-1.5 text-xs font-medium text-cream transition hover:bg-terracotta-600"
+              className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-1.5 text-xs font-medium text-cream transition hover:bg-mulberry-600"
             >
               <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
               Retry upload

@@ -129,7 +129,7 @@ export function RenderForm({
       </div>
 
       <SubmitButton
-        className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-terracotta px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-terracotta-600 disabled:opacity-70"
+        className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600 disabled:opacity-70"
         pendingLabel="Queuing…"
       >
         <Film aria-hidden className="h-4 w-4" strokeWidth={1.75} />

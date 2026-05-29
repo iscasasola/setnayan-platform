@@ -41,7 +41,7 @@ export default function RootError({ error, reset }: Props) {
           <button
             type="button"
             onClick={() => reset()}
-            className="inline-flex items-center justify-center px-6 py-3 bg-terracotta text-cream font-sans text-sm font-medium tracking-wide hover:bg-terracotta-600 transition-colors rounded-sm"
+            className="inline-flex items-center justify-center px-6 py-3 bg-mulberry text-cream font-sans text-sm font-medium tracking-wide hover:bg-mulberry-600 transition-colors rounded-sm"
           >
             Try again
           </button>

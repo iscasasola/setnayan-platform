@@ -386,7 +386,7 @@ function LineItemSection({
               className="input-field h-9 py-0 text-xs"
             />
             <SubmitButton
-              className="col-span-2 inline-flex items-center justify-center gap-1 rounded-md bg-terracotta px-3 py-1.5 text-xs font-medium text-cream hover:bg-terracotta-600 disabled:opacity-70 sm:col-span-4"
+              className="col-span-2 inline-flex items-center justify-center gap-1 rounded-md bg-mulberry px-3 py-1.5 text-xs font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70 sm:col-span-4"
               pendingLabel="Adding…"
             >
               <Plus className="h-3.5 w-3.5" strokeWidth={2} />
@@ -430,7 +430,7 @@ function LineItemSection({
               className="input-field h-9 py-0 text-xs"
             />
             <SubmitButton
-              className="col-span-2 inline-flex items-center justify-center gap-1 rounded-md bg-terracotta px-3 py-1.5 text-xs font-medium text-cream hover:bg-terracotta-600 disabled:opacity-70 sm:col-span-4"
+              className="col-span-2 inline-flex items-center justify-center gap-1 rounded-md bg-mulberry px-3 py-1.5 text-xs font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70 sm:col-span-4"
               pendingLabel="Adding…"
             >
               <Plus className="h-3.5 w-3.5" strokeWidth={2} />

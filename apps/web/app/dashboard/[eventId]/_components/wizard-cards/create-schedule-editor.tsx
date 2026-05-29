@@ -268,7 +268,7 @@ export function ScheduleEditor({ eventId, topLevel, childrenByParent }: Props) {
         type="button"
         onClick={handleLockSchedule}
         disabled={isLocking || topLevel.length === 0}
-        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-terracotta px-5 py-3 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-700 focus:outline-none focus:ring-2 focus:ring-terracotta focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60"
+        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-mulberry px-5 py-3 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-700 focus:outline-none focus:ring-2 focus:ring-mulberry focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60"
       >
         <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={2} />
         {isLocking ? 'Saving…' : 'Lock the rough schedule'}
@@ -724,7 +724,7 @@ function AddPartForm({
         <button
           type="submit"
           disabled={isPending}
-          className="inline-flex items-center gap-1 rounded-md bg-terracotta px-3 py-1.5 text-xs font-semibold text-cream hover:bg-terracotta-700 disabled:opacity-60"
+          className="inline-flex items-center gap-1 rounded-md bg-mulberry px-3 py-1.5 text-xs font-semibold text-cream hover:bg-mulberry-700 disabled:opacity-60"
         >
           {isPending ? 'Adding…' : 'Add'}
         </button>
@@ -849,7 +849,7 @@ function AddTopLevelBlockForm({
           <button
             type="submit"
             disabled={isPending}
-            className="inline-flex items-center gap-1 rounded-md bg-terracotta px-3 py-1.5 text-xs font-semibold text-cream hover:bg-terracotta-700 disabled:opacity-60"
+            className="inline-flex items-center gap-1 rounded-md bg-mulberry px-3 py-1.5 text-xs font-semibold text-cream hover:bg-mulberry-700 disabled:opacity-60"
           >
             {isPending ? 'Adding…' : 'Add'}
           </button>

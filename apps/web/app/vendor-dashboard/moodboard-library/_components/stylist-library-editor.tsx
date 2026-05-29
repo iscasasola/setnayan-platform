@@ -187,7 +187,7 @@ export function StylistLibraryEditor({ initialAssets }: { initialAssets: Stylist
             <button
               type="submit"
               disabled={isPending}
-              className="w-full rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream disabled:opacity-50"
+              className="w-full rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream disabled:opacity-50"
             >
               {isPending ? 'Uploading…' : 'Upload + tag'}
             </button>
@@ -264,7 +264,7 @@ export function StylistLibraryEditor({ initialAssets }: { initialAssets: Stylist
                   type="button"
                   onClick={handleSaveTags}
                   disabled={isPending}
-                  className="rounded-md bg-terracotta px-3 py-1.5 text-sm font-medium text-cream disabled:opacity-50"
+                  className="rounded-md bg-mulberry px-3 py-1.5 text-sm font-medium text-cream disabled:opacity-50"
                 >
                   Save tags
                 </button>

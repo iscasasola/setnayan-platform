@@ -144,8 +144,48 @@ export const metadata = {
     description:
       'Browse verified Filipino wedding vendors. Free to discover. 0% commission on bookings.',
     url: '/vendors',
+    siteName: 'Setnayan',
+    locale: 'en_PH',
+    type: 'website',
+  },
+  // SEO/GEO Bucket 6 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) · twitter
+  // card so social shares of /vendors render with the 1200×630 layout-level
+  // /brand/og-card.webp (Bucket 2 PR #607) instead of a 144×144 thumbnail.
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Filipino wedding vendors · Setnayan marketplace',
+    description:
+      'Browse verified Filipino wedding vendors. Free to discover. 0% commission on bookings.',
   },
 };
+
+// SEO/GEO Bucket 6 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — ItemList JSON-LD
+// enumerating the 12 wedding folders. Each ListItem points at the
+// folder-scoped marketplace URL (`/vendors?folder=<slug>` per CLAUDE.md
+// 2026-05-22 row 4 PR #310 folder scope). Lets AI engines extract the
+// taxonomy hierarchy when asked "what kinds of wedding vendors does
+// Setnayan list" + powers SERP sitelink-style category breakouts.
+//
+// Build origin-aware at render time so the `item:` field carries the
+// canonical absolute URL Google + AI engines prefer (relative URLs
+// degrade extraction quality on ItemList).
+function buildVendorsItemListJsonLd(siteUrl: string): Record<string, unknown> {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: 'Filipino wedding vendor categories on Setnayan',
+    description:
+      'The 12 wedding-vendor categories Setnayan organizes its Filipino marketplace under.',
+    numberOfItems: WEDDING_FOLDER_ORDER.length,
+    itemListOrder: 'https://schema.org/ItemListOrderAscending',
+    itemListElement: WEDDING_FOLDER_ORDER.map((folder, idx) => ({
+      '@type': 'ListItem',
+      position: idx + 1,
+      name: WEDDING_FOLDER_LABEL[folder],
+      url: `${siteUrl}/vendors?folder=${WEDDING_FOLDER_SLUG[folder]}`,
+    })),
+  };
+}
 
 // The marketplace is public, but the underlying queries hit Supabase with a
 // service-role client so anonymous visitors don't need to install a per-page
@@ -782,26 +822,40 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   const venueFilterActive =
     hostVenueSetting !== null && filters.venueDefault === 'on';
 
+  // SEO/GEO Bucket 6 · ItemList JSON-LD origin computed once per render.
+  // Both return branches (catalog mode + non-catalog) inject the same JSON-LD
+  // surface so /vendors emits the taxonomy hierarchy regardless of mode.
+  const vendorsSiteUrl = (
+    process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
+  ).replace(/\/$/, '');
+  const vendorsItemListJsonLd = buildVendorsItemListJsonLd(vendorsSiteUrl);
+
   if (isCatalogMode) {
     return (
-      <CatalogView
-        admin={admin}
-        matchableEvent={matchableEvent}
-        matchEvent={filters.matchEvent}
-        coupleFaith={coupleFaith}
-        venueAnchor={venueAnchor}
-        venueAnchorName={venueAnchorName}
-        coupleCeremonyType={matchableEvent?.ceremony_type ?? null}
-        currentEventId={coupleEventId}
-        isAuthenticated={user !== null}
-        noticeKey={noticeKey}
-        scopedFolder={filters.folder}
-        hostVenueSetting={hostVenueSetting}
-        venueFilterActive={venueFilterActive}
-        venueFacet={filters.venueFacet}
-        inDemoMode={inDemoMode}
-        focusedMode={filters.focusedMode}
-      />
+      <>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(vendorsItemListJsonLd) }}
+        />
+        <CatalogView
+          admin={admin}
+          matchableEvent={matchableEvent}
+          matchEvent={filters.matchEvent}
+          coupleFaith={coupleFaith}
+          venueAnchor={venueAnchor}
+          venueAnchorName={venueAnchorName}
+          coupleCeremonyType={matchableEvent?.ceremony_type ?? null}
+          currentEventId={coupleEventId}
+          isAuthenticated={user !== null}
+          noticeKey={noticeKey}
+          scopedFolder={filters.folder}
+          hostVenueSetting={hostVenueSetting}
+          venueFilterActive={venueFilterActive}
+          venueFacet={filters.venueFacet}
+          inDemoMode={inDemoMode}
+          focusedMode={filters.focusedMode}
+        />
+      </>
     );
   }
 
@@ -1327,6 +1381,13 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
 
   return (
     <main className="min-h-dvh bg-cream">
+      {/* SEO/GEO Bucket 6 · ItemList JSON-LD also emitted on non-catalog
+          return so legacy single-page layouts continue to surface the
+          12-folder taxonomy hierarchy for AI engines + Google extraction. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(vendorsItemListJsonLd) }}
+      />
       {/* Inline marketplace header. Auth-aware CTA swap (2026-05-20): when
           a signed-in user clicks "Marketplace" from the dashboard outer
           header, we route the right-side CTA back to /dashboard instead of

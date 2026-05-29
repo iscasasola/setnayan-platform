@@ -191,9 +191,13 @@ export function IconTileFolderStrip({
       // search/filter row + py padding). When the user scrolls, the header
       // pins at top-0 first, then the folder strip pins below it at the
       // calculated offset. Both stay visible while content scrolls below.
-      // -mx-N negatives break out of the page's max-w-6xl + px-N container
-      // so the horizontal scroll feels edge-to-edge on mobile per the Airbnb
-      // pattern. backdrop-blur + bg-cream/95 keeps the glassy stack feel.
+      // -mx-N negatives break out of the page's px-N container so the
+      // horizontal scroll feels edge-to-edge per the Airbnb pattern. (The
+      // page-level max-w-6xl cap was retired 2026-05-30 per owner directive
+      // "let it maximize the full width" — content now spans the viewport
+      // minus only the responsive px-4/px-6/px-8 gutter, matching the
+      // homepage's full-bleed feel.) backdrop-blur + bg-cream/95 keeps the
+      // glassy stack feel.
       className="sticky top-[88px] z-20 -mx-4 border-b border-ink/10 bg-cream/95 backdrop-blur sm:-mx-6 lg:-mx-8"
     >
       <ul

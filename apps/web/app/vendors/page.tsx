@@ -357,7 +357,7 @@ function NoticeBanner({ noticeKey }: { noticeKey: string | null }) {
       aria-live="polite"
       className="border-b border-terracotta/15 bg-terracotta/5"
     >
-      <div className="mx-auto w-full max-w-6xl px-4 py-3 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full px-4 py-3 sm:px-6 lg:px-8">
         <p className="text-sm text-ink/80">
           <span className="font-medium text-ink">{copy.title}</span>{' '}
           <span className="text-ink/70">{copy.body}</span>
@@ -1482,7 +1482,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           `user` variable above is fetched server-side via the same
           createClient() used for the catalog filter; no extra roundtrip. */}
       <header className="border-b border-ink/5">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+        <div className="mx-auto flex w-full items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <Link href={user ? '/dashboard' : '/'} className="flex items-center text-ink">
             <Wordmark size={22} />
           </Link>
@@ -1506,7 +1506,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
 
       <NoticeBanner noticeKey={noticeKey} />
 
-      <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+      <section className="mx-auto w-full px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
         {/* Focused-mode (owner directive 2026-05-22) — when ?from=plan is
             set, the host arrived from a dashboard planning card or
             locked-vendor follow-up and is already in "find a vendor for
@@ -2463,7 +2463,7 @@ async function CatalogView({
   return (
     <main className="min-h-dvh bg-cream">
       <header className="border-b border-ink/5">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+        <div className="mx-auto flex w-full items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <Link href="/" className="flex items-center text-ink">
             <Wordmark size={22} />
           </Link>
@@ -2489,7 +2489,7 @@ async function CatalogView({
 
       <section
         id="all"
-        className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8"
+        className="mx-auto w-full px-4 py-10 sm:px-6 sm:py-14 lg:px-8"
       >
         {/* Focused-mode (owner directive 2026-05-22) — when ?from=plan is
             set, the host arrived from a dashboard planning card. Strip

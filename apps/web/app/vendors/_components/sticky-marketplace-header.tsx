@@ -44,11 +44,14 @@
  * filter count badge is a small ink/terracotta pill that surfaces only when
  * filters are active so the default state stays clean.
  *
- * COMPOSITION: drops in directly under the page max-w-6xl container. Owns
- * its own bg-cream/95 + backdrop-blur so anything underneath scrolls
- * cleanly behind it. The IconTileFolderStrip lives in a separate component
- * directly below — that strip is a sibling sticky bar that pins under this
- * one on scroll.
+ * COMPOSITION: drops in directly under the page container (responsive
+ * px-4/px-6/px-8 gutter, full-bleed since 2026-05-30 per owner directive
+ * "let it maximize the full width" — the prior max-w-6xl cap retired so
+ * the marketplace matches the homepage edge-to-edge feel). Owns its own
+ * bg-cream/95 + backdrop-blur so anything underneath scrolls cleanly
+ * behind it. The IconTileFolderStrip lives in a separate component
+ * directly below — that strip is a sibling sticky bar that pins under
+ * this one on scroll.
  */
 
 import { useState } from 'react';
@@ -148,8 +151,9 @@ export function StickyMarketplaceHeader({
     <>
       <div
         // sticky top-0 keeps the search bar pinned. -mx-N negatives let the
-        // bar break out of the page's max-w-6xl + px-N container so it spans
-        // edge-to-edge on mobile (matches Airbnb's full-bleed sticky search).
+        // bar break out of the page's px-N container so it spans edge-to-edge
+        // (matches Airbnb's full-bleed sticky search). The page-level max-w-6xl
+        // cap was retired 2026-05-30 — only the px-4/px-6/px-8 gutter remains.
         // border-b + backdrop-blur give the bar a soft glassy feel without
         // fighting content underneath.
         className="sticky top-0 z-30 -mx-4 border-b border-ink/10 bg-cream/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"

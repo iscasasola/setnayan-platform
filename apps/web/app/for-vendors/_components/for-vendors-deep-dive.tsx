@@ -436,6 +436,15 @@ export function ForVendorsDeepDive() {
             >
               1 category · 5 accounts
             </div>
+            {/* Annual alternative · added 2026-05-29 per CLAUDE.md eleventh
+                2026-05-28 row · vendor_billing_catalog row pro_vendor_annual
+                ₱19,999/yr ~17% off vs monthly × 12 = ₱23,988 (save ₱3,989) */}
+            <div
+              className="m-mono"
+              style={{ fontSize: 10, color: 'var(--m-orange-3)', marginTop: 6 }}
+            >
+              or ₱19,999/yr · save ₱3,989
+            </div>
           </div>
           {/* ENTERPRISE */}
           <div
@@ -462,6 +471,16 @@ export function ForVendorsDeepDive() {
               style={{ fontSize: 10, color: 'var(--m-slate-2)', marginTop: 4 }}
             >
               multi-cat · unlimited team
+            </div>
+            {/* Annual alternative · added 2026-05-29 per CLAUDE.md eleventh
+                2026-05-28 row · vendor_billing_catalog row
+                enterprise_vendor_annual ₱54,999/yr ~17% off vs ₱65,988
+                (save ₱10,989) */}
+            <div
+              className="m-mono"
+              style={{ fontSize: 10, color: 'var(--m-orange-2)', marginTop: 6 }}
+            >
+              or ₱54,999/yr · save ₱10,989
             </div>
           </div>
         </div>

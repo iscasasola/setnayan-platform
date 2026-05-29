@@ -42,7 +42,12 @@ export type V2VendorSku = {
   sku_code: string;
   title: string;
   price_php: number;
-  offering_type: 'subscription_monthly' | 'token_pack';
+  // `subscription_annual` added 2026-05-29 alongside the eleventh 2026-05-28
+  // amendment: Pro Vendor ₱19,999/yr + Enterprise Vendor ₱54,999/yr ·
+  // ~17% off vs monthly × 12 · charm-priced -1 endings · same per-tier
+  // capability shape as monthly equivalents (max_categories + max_sub_seats
+  // identical) · only price + billing cadence differ.
+  offering_type: 'subscription_monthly' | 'subscription_annual' | 'token_pack';
   token_grant_count: number | null;
   max_categories: number | null;
   max_sub_seats: number | null;
@@ -163,7 +168,7 @@ export async function fetchV2VendorCatalog(): Promise<V2VendorSku[]> {
     sku_code: row.sku_code as string,
     title: row.title as string,
     price_php: Number(row.price_php),
-    offering_type: row.offering_type as 'subscription_monthly' | 'token_pack',
+    offering_type: row.offering_type as 'subscription_monthly' | 'subscription_annual' | 'token_pack',
     token_grant_count: (row.token_grant_count as number | null) ?? null,
     max_categories: (row.max_categories as number | null) ?? null,
     max_sub_seats: (row.max_sub_seats as number | null) ?? null,

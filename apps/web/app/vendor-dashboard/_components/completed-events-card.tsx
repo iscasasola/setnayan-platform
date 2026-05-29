@@ -1,5 +1,37 @@
+'use client';
+
 /**
  * Completed-events stat card — public vs. private view (iteration 0022 § 2.4a).
+ *
+ * MUST BE A CLIENT COMPONENT (2026-05-29):
+ * This file renders an <input onChange={...}> handler for the "Include
+ * team bookings" toggle so the form auto-submits on tick. Server Components
+ * cannot pass function props (onChange) across the Server→Client
+ * serialization boundary — doing so throws at render time with:
+ *
+ *   Error: Event handlers cannot be passed to Client Component props.
+ *     {type: ..., name: ..., defaultChecked: ..., onChange: function onChange, ...}
+ *     digest: '1341067551'
+ *
+ * That digest matches the persistent /vendor-dashboard crash the owner has
+ * been hitting all session. PR #628, PR #631, PR #632, AND PR #633 (DB
+ * trigger drop) collectively could not catch this because:
+ *   - It happens during JSX streaming serialization, not in any try/catch
+ *     in the function body (PR #628 + #632 useless here)
+ *   - The segment error.tsx (PR #631) DOES catch it gracefully but renders
+ *     the user-facing "Your shop console is temporarily unavailable" UI
+ *     instead of the actual dashboard
+ *   - It's an app-layer bug, not a DB-layer bug (PR #633 useless here)
+ *
+ * The CompletedEventsCard only renders when the user has a vendor_profile
+ * (gated by `{profile ? <CompletedEventsCard ... /> : null}` in page.tsx).
+ * That explains why /vendor-dashboard/team /earnings /marketing all worked
+ * for the owner — those routes don't render this component. And why /v/[slug]
+ * worked too — same reason.
+ *
+ * The server action `toggleVendorBackendCount` imported below is still safe
+ * to call from a Client Component (Next.js server-action interop). The form's
+ * action={toggleVendorBackendCount} continues to work as before.
  *
  * Default render (toggle OFF):
  *   ┌─────────────────────────────┐

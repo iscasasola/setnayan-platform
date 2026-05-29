@@ -71,10 +71,12 @@ Pakulay — the visual mood board with three pillars (palette, location feel, dr
 |---|---|---|---|---|
 | Free | ₱0 / month | Listed in marketplace | No | 0% |
 | Verified | ₱1,499 one-time lifetime badge | Listed in marketplace | Yes | 0% |
-| Pro | ₱1,999 / month | Custom website + premium tools | Yes | 0% |
-| Enterprise | ₱5,499 / month | Multi-category listings + team accounts | Yes | 0% |
+| Pro | ₱1,999 / month OR ₱19,999 / year (~17% off) | Custom website + premium tools | Yes | 0% |
+| Enterprise | ₱5,499 / month OR ₱54,999 / year (~17% off) | Multi-category listings + team accounts | Yes | 0% |
 
 Verified vendors complete an identity check (DTI registration, mayor's permit, BIR Form 2303, sanctions screening) plus a 15-minute video call with a Setnayan admin. Verification is a one-time ₱1,499 lifetime badge — no annual renewal fee.
+
+Pro and Enterprise subscriptions are also available as annual prepaid blocks at roughly 17% off the monthly rate — Pro ₱19,999 per year (saves ₱3,989 vs monthly ×12) or Enterprise ₱54,999 per year (saves ₱10,989 vs monthly ×12). Vendors pick monthly or annual at signup. No recurring auto-charge in V1 — manual renewal with a 7-day email + dashboard reminder before expiry.
 
 Vendors verified before 2027-01-31 receive 100 complimentary tokens as a founder bonus.
 
@@ -121,6 +123,7 @@ These tools live in the couple dashboard after sign-in. Not publicly indexable b
 
 - **How much does Setnayan cost?** Free for couples on the baseline planning tools (guest list, RSVP, Pakulay mood board, vendor browse, in-app chat). Premium software services priced individually in PHP (₱999 to ₱16,999). Vendor side: Free (₱0/month) baseline listing, Verified (₱1,499 one-time lifetime badge), Pro (₱1,999/month), Enterprise (₱5,499/month). 0% commission on vendor bookings — Setnayan never takes a cut.
 - **Is Setnayan free?** Yes for couples on the baseline planning tools. Pakulay (mood board) is also free. Premium tools like Today's Focus (₱1,499) and Pro Website (₱5,499) are optional.
+- **Does Setnayan support discount codes or vouchers?** Yes — admins issue discount codes for promos, refunds, comp grants, or partner partnerships. Couples paste a code at checkout via the "Have a code?" field. Three voucher types are supported: percentage discount (e.g., 20% off), capped percentage (e.g., 20% off up to ₱500 max discount), and 100% free (full comp). One voucher per order, one redemption per couple per code, codes are case-insensitive 8-character alphanumeric, codes carry an expiry date and optional max-uses cap. Discounted purchases still receive BIR-compliant receipts showing the net paid amount.
 - **What is Today's Focus?** A 65-card AI-assisted wedding planning wizard built into Setnayan. ₱1,499 one-time per event. Walks couples through every decision from venue lock to thank-you cards.
 - **Does Setnayan work for Filipino weddings specifically?** Yes — built and operated in the Philippines for Filipino weddings. Supports seven ceremony types (Catholic, Civil, INC, Christian, Muslim, Cultural, Mixed) and seven venue settings (banquet hall, garden, beach, destination, heritage, outdoor tent, civil registrar). 20 Filipino wedding role tiers in the guest list. Multi-faith vendor compatibility tagging.
 - **Where does Setnayan operate?** Philippines — Metro Manila, Cebu, Davao, Tagaytay, Iloilo, Baguio, Pampanga, Cavite, Batangas, Laguna, Bulacan, and any city Filipino vendors serve. Pilot 2026-06-01. Public launch 2026-12-01.
@@ -147,4 +150,4 @@ These tools live in the couple dashboard after sign-in. Not publicly indexable b
 
 Several surfaces in the SEO playbook (`/supplies` marketplace, `/blog`, `/coverage`, `/about`, `/for-event-creators`) are planned but not yet shipped. They are intentionally NOT listed above to avoid sending AI assistants to dead links. This file is updated when those surfaces go live.
 
-This file was last refreshed on 2026-05-28 as part of the GEO sprint (CLAUDE.md decision log).
+This file was last refreshed on 2026-05-29 as part of the SEO/GEO Bucket 1 sprint (v3 → v4 · added annual vendor subscription SKUs + voucher engine Q&A · CLAUDE.md decision log).

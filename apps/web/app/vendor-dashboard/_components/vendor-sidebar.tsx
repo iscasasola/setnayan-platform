@@ -33,8 +33,10 @@
  *   3. Communicate   — Messages (single chat surface — Bell badge stays
  *                      in topbar via UnreadBellBadge, not duplicated here)
  *   4. Marketing     — Marketing · Verify · Reviews · Moodboard library (4)
- *   5. Money         — Earnings · Tokens · Manpower · Tax docs ·
- *                      Redeem code (5)
+ *   5. Money         — Earnings · Tokens · Manpower · Redeem code (4 —
+ *                      Tax docs retired 2026-05-29 under V2 publisher
+ *                      posture · Setnayan no longer withholds vendor
+ *                      income tax · no Form 2307 obligation toward vendors)
  *   6. Team          — Team & Setnayan (1)
  *
  * OMITTED PER ORPHAN-PREVENTION RULE — routes the brief enumerated but
@@ -82,7 +84,6 @@ import {
   Briefcase,
   ClipboardList,
   FileSignature,
-  FileText,
   HardHat,
   Megaphone,
   MessageSquare,
@@ -241,13 +242,14 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
         icon: HardHat,
         matchPrefix: '/vendor-dashboard/manpower',
       },
-      {
-        key: 'tax-documents',
-        label: 'Tax docs',
-        href: '/vendor-dashboard/tax-documents',
-        icon: FileText,
-        matchPrefix: '/vendor-dashboard/tax-documents',
-      },
+      // RETIRED 2026-05-29 · Vendor "Tax docs" entry removed under V2
+      // publisher posture per CLAUDE.md tenth 2026-05-28 row. The only
+      // document Setnayan ever issued vendors was Form 2307 for withheld
+      // income tax, and Setnayan no longer withholds vendor income tax
+      // under V2 (no booking commission · no payout intermediation per RR
+      // 16-2023 1% Intermediary Tax exemption). Vendors handle their own
+      // Form 2307 as the income recipient. Page redirects to /vendor-
+      // dashboard for bookmark continuity.
       {
         // Vendor-side token-pack redemption surface — sits with Tokens
         // in the Money group so the redemption + balance view are one

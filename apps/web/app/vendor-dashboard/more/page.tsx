@@ -73,8 +73,10 @@ const DESCRIPTIONS: Record<string, string> = {
     'Token wallet balance and history. Purchased plus earned vouchers, with expiry windows.',
   manpower:
     'Manpower gigs — host-paid crew assignments. ₱15k offline cash to crew, 2-token handshake to Setnayan.',
-  'tax-documents':
-    'BIR-compliant tax documents for your Setnayan subscription and per-action software purchases.',
+  // 'tax-documents' RETIRED 2026-05-29 — Setnayan no longer withholds
+  // vendor income tax under V2 publisher posture, so the only document
+  // it ever issued (Form 2307) no longer applies. Vendors handle their
+  // own Form 2307 as income recipient per RR 16-2023.
   'redeem-code':
     'Redeem a token-pack voucher code. Codes top up your purchased token balance immediately.',
 

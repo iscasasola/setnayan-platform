@@ -13,7 +13,6 @@ import {
   Sparkles,
   Wallet,
   Receipt,
-  FileSpreadsheet,
   CreditCard,
 } from 'lucide-react';
 import { MobileLandingGrid, type LandingItem } from '../_components/mobile-landing-grid';
@@ -61,14 +60,12 @@ const MONEY_ITEMS: LandingItem[] = [
     description:
       'Setnayan software receipts archive. Download per-order PDFs for couples and vendors.',
   },
-  {
-    key: 'bir-2307',
-    label: 'BIR 2307',
-    href: '/admin/bir/2307',
-    icon: FileSpreadsheet,
-    description:
-      'Quarterly Form 2307 export. Generate vendor withholding documents in eFPS-ready format.',
-  },
+  // RETIRED 2026-05-29 · BIR Form 2307 Money-landing card removed under
+  // V2 publisher posture per CLAUDE.md tenth 2026-05-28 row. Setnayan no
+  // longer withholds vendor income tax (no booking commission · no payout
+  // intermediation · vendor handles their own 2307 as income recipient per
+  // V2 Phase F manpower exemption). Page redirects to /admin/money for
+  // bookmark continuity. Lib + table preserved as audit history.
   {
     key: 'payment-methods',
     label: 'Payment methods',

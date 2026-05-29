@@ -54,7 +54,7 @@ type TelemetryRow = {
 // scan a heterogeneous list. Uses the v2.1 brand palette plus muted
 // supporting tints — no raw color hex outside the burnt-sienna family.
 const SERVICE_BADGE_CLASS: Record<StackingServiceCode, string> = {
-  papic: 'bg-[#C96B3A]/12 text-[#9C4A1E] border-[#C96B3A]/30',
+  papic: 'bg-[#C5A059]/12 text-[#A88340] border-[#C5A059]/30',
   panood: 'bg-emerald-100 text-emerald-800 border-emerald-200',
   patiktok: 'bg-violet-100 text-violet-800 border-violet-200',
   pabati: 'bg-amber-100 text-amber-800 border-amber-200',
@@ -157,8 +157,8 @@ export default async function AdminTelemetryPage({ searchParams }: Props) {
   return (
     <div className="space-y-6">
       <header className="space-y-2">
-        <p className="m-eyebrow text-[#7C5238]">V2 Phase E · read-only</p>
-        <h1 className="m-display-tight text-3xl text-[#2D3038]">Telemetry</h1>
+        <p className="m-eyebrow text-[#A88340]">V2 Phase E · read-only</p>
+        <h1 className="m-display-tight text-3xl text-[#1E2229]">Telemetry</h1>
         <p className="max-w-2xl text-sm leading-relaxed text-[#5B5B5B]">
           Service signals from Papic · Panood · Patiktok · Pabati · SDE · Camera
           Bridge · and Live Wall land here as the corresponding workers post
@@ -187,7 +187,7 @@ export default async function AdminTelemetryPage({ searchParams }: Props) {
         aria-label="Filter by service"
         className="m-card flex flex-wrap items-center gap-2 px-4 py-3"
       >
-        <span className="flex items-center gap-1.5 text-xs uppercase tracking-[0.18em] text-[#7C5238]">
+        <span className="flex items-center gap-1.5 text-xs uppercase tracking-[0.18em] text-[#A88340]">
           <FilterIcon className="h-3.5 w-3.5" aria-hidden="true" />
           Service
         </span>
@@ -205,7 +205,7 @@ export default async function AdminTelemetryPage({ searchParams }: Props) {
       {/* Results */}
       {rows.length === 0 ? (
         <div className="m-card flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
-          <Activity className="h-8 w-8 text-[#C96B3A]" aria-hidden="true" />
+          <Activity className="h-8 w-8 text-[#C5A059]" aria-hidden="true" />
           <p className="max-w-md text-sm leading-relaxed text-[#5B5B5B]">
             Telemetry signals appear here as Papic · Panood · Patiktok · Pabati ·
             SDE · Camera Bridge · and Live Wall services come online during the
@@ -216,8 +216,8 @@ export default async function AdminTelemetryPage({ searchParams }: Props) {
         <div className="m-card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
-              <thead className="bg-[#FBF8F2] text-[#7C5238]">
-                <tr className="border-b border-[#C96B3A]/20">
+              <thead className="bg-[#FBFBFA] text-[#A88340]">
+                <tr className="border-b border-[#C5A059]/20">
                   <Th>Service</Th>
                   <Th>Checkpoint</Th>
                   <Th>Event</Th>
@@ -226,9 +226,9 @@ export default async function AdminTelemetryPage({ searchParams }: Props) {
                   <Th>Received</Th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#C96B3A]/10">
+              <tbody className="divide-y divide-[#C5A059]/10">
                 {rows.map((row) => (
-                  <tr key={row.event_id} className="text-[#2D3038]">
+                  <tr key={row.event_id} className="text-[#1E2229]">
                     <td className="px-3 py-2 align-top">
                       <span
                         className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em] ${SERVICE_BADGE_CLASS[row.service_code]}`}
@@ -237,7 +237,7 @@ export default async function AdminTelemetryPage({ searchParams }: Props) {
                       </span>
                     </td>
                     <td className="px-3 py-2 align-top">
-                      <span className="m-mono break-all text-xs text-[#2D3038]">
+                      <span className="m-mono break-all text-xs text-[#1E2229]">
                         {row.checkpoint}
                       </span>
                     </td>
@@ -267,7 +267,7 @@ export default async function AdminTelemetryPage({ searchParams }: Props) {
               </tbody>
             </table>
           </div>
-          <p className="border-t border-[#C96B3A]/15 bg-[#FBF8F2]/70 px-4 py-2 text-[11px] uppercase tracking-[0.16em] text-[#7C5238]">
+          <p className="border-t border-[#C5A059]/15 bg-[#FBFBFA]/70 px-4 py-2 text-[11px] uppercase tracking-[0.16em] text-[#A88340]">
             Latest 50 · ordered newest first
           </p>
         </div>
@@ -287,10 +287,10 @@ function StatCard({
 }) {
   return (
     <div className="m-card px-4 py-3">
-      <p className="m-label-mono text-[10px] uppercase tracking-[0.18em] text-[#7C5238]">
+      <p className="m-label-mono text-[10px] uppercase tracking-[0.18em] text-[#A88340]">
         {label}
       </p>
-      <p className="mt-1 text-2xl font-semibold text-[#2D3038]">{value}</p>
+      <p className="mt-1 text-2xl font-semibold text-[#1E2229]">{value}</p>
       {hint ? <p className="mt-1 text-[11px] text-[#5B5B5B]">{hint}</p> : null}
     </div>
   );
@@ -310,8 +310,8 @@ function FilterPill({
       href={href}
       className={`inline-flex items-center rounded-full border px-3 py-1 text-xs transition ${
         active
-          ? 'border-[#C96B3A] bg-[#C96B3A] text-white'
-          : 'border-[#C96B3A]/30 bg-white text-[#2D3038] hover:bg-[#FBF8F2]'
+          ? 'border-[#C5A059] bg-[#C5A059] text-white'
+          : 'border-[#C5A059]/30 bg-white text-[#1E2229] hover:bg-[#FBFBFA]'
       }`}
     >
       {label}

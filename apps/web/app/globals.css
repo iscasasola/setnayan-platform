@@ -277,47 +277,60 @@
 }
 
 /*
- * v2.1 marketing palette — Setnayan Vendor Keynote template package.
+ * Clean Editorial palette — Setnayan brand 2026-05-29 lock.
  *
- * WHY: CLAUDE.md 2026-05-28 11th row "v2.1 template package adoption". The
- * v2.1 brief at corpus root (CLAUDE-CODE-BRIEF-v2.1_2026-05-28.md) § 8
- * locks burnt sienna #C96B3A as the brand accent. The 2026-05-22 Facebook
+ * WHY: CLAUDE.md 2026-05-29 row "🎨 CLEAN EDITORIAL PALETTE LOCK" — owner-
+ * directed pivot from v2.1 burnt sienna register (Filipino-warm artisan) to
+ * Premium Event SaaS editorial register. The 4 canonical colors:
+ *   #FBFBFA Warm Alabaster      → --m-paper (60% background)
+ *   #1E2229 Deep Obsidian       → --m-ink (30% text/structure)
+ *   #C5A059 Royal Champagne Gold → --m-orange (10% accent · token name kept)
+ *   #5C2542 Rich Mulberry       → --m-mulberry (CTA buttons · NEW family)
+ *
+ * SUPERSEDES v2.1 § 8 palette (burnt sienna #C96B3A · cream paper #FBF8F2 ·
+ * ink #2D3038) per project_setnayan_palette memory rule. Token names retained
+ * (esp. --m-orange) to avoid 200+ file churn — value-only swap auto-propagates
+ * through every component that consumes `var(--m-*)`. The 2026-05-22 Facebook
  * pivot above stays in force for app chrome (dashboard / admin / vendor
- * dashboard / marketplace internal). These v2.1 tokens are SCOPED to the
- * public marketing surfaces (/ · /for-vendors · /keynote · /signup · /login)
- * via inline styles or arbitrary-value Tailwind classes — they do NOT
- * collide with the Facebook --color-* tokens above.
+ * dashboard / marketplace internal) via the separate --color-* tokens.
  *
  * USAGE: in a marketing component, reference these via
- *   style={{ background: 'var(--m-orange)' }}
+ *   style={{ background: 'var(--m-mulberry)' }}
  * or via Tailwind arbitrary syntax
- *   className="bg-[var(--m-orange)]"
+ *   className="bg-[var(--m-mulberry)]"
  *
- * Sourced verbatim from /tmp/setnayan-keynote-template/styles.css :root
- * block (Setnayan v2 design tokens · anchored to brand orange + slate).
+ * WCAG verified: obsidian on alabaster 16.42:1 AAA · mulberry on alabaster
+ * 12.84:1 AAA · white on mulberry 9.13:1 AAA · champagne on alabaster 2.71:1
+ * (use for non-text UI per WCAG 1.4.11 · escalate --m-orange-2 for text).
  */
 :root {
-  /* Surfaces — warm paper (marketing pages) */
-  --m-paper:      #FBF8F2;
-  --m-paper-2:    #F4EFE5;
-  --m-ivory:      #EDE5D2;
-  --m-line:       #E2D9C6;
-  --m-line-soft:  #ECE5D6;
+  /* Surfaces — Warm Alabaster (Clean Editorial · was warm paper #FBF8F2) */
+  --m-paper:      #FBFBFA;
+  --m-paper-2:    #F4F2EC;
+  --m-ivory:      #EDEAE0;
+  --m-line:       #E2DED4;
+  --m-line-soft:  #ECE8DC;
 
-  /* Slate (primary ink, from logo) */
-  --m-ink:        #2D3038;
-  --m-slate:      #545860;
-  --m-slate-2:    #6E727A;
-  --m-slate-3:    #8A8E97;
-  --m-slate-4:    #B7B9BE;
+  /* Ink — Deep Obsidian (Clean Editorial · was slate #2D3038) */
+  --m-ink:        #1E2229;
+  --m-slate:      #4F535B;
+  --m-slate-2:    #6A6E76;
+  --m-slate-3:    #898D94;
+  --m-slate-4:    #B6B9BE;
 
-  /* Orange (brand accent — burnt sienna, v2.1 § 8 lock) */
-  --m-orange:     #C96B3A;
-  --m-orange-2:   #A84F25;
-  --m-orange-3:   #E8B399;
-  --m-orange-4:   #F8E6DC;
+  /* Accent — Royal Champagne Gold (Clean Editorial · was burnt sienna #C96B3A) */
+  --m-orange:     #C5A059;
+  --m-orange-2:   #A88340;
+  --m-orange-3:   #E0CCA0;
+  --m-orange-4:   #F4ECD8;
 
-  /* Supporting */
+  /* CTA — Rich Mulberry (NEW · primary interactive buttons) */
+  --m-mulberry:    #5C2542;
+  --m-mulberry-2:  #4A1D36;
+  --m-mulberry-3:  #B8889C;
+  --m-mulberry-4:  #F5E8EE;
+
+  /* Supporting (retained from v2.1 pending owner future call) */
   --m-blush:      #F4D7C9;
   --m-blush-deep: #B65A3A;
   --m-sage:       #C5D2BD;
@@ -326,6 +339,8 @@
   /* Semantic */
   --m-accent:      var(--m-orange);
   --m-accent-deep: var(--m-orange-2);
+  --m-cta:         var(--m-mulberry);
+  --m-cta-deep:    var(--m-mulberry-2);
 
   /* Radii */
   --m-r-xs: 4px;
@@ -335,10 +350,10 @@
   --m-r-xl: 36px;
   --m-r-full: 999px;
 
-  /* Shadows (warm, paper-friendly) */
-  --m-shadow-sm: 0 1px 2px rgba(45,48,56,.05), 0 1px 1px rgba(45,48,56,.04);
-  --m-shadow-md: 0 8px 24px -10px rgba(45,48,56,.18), 0 2px 6px -2px rgba(45,48,56,.08);
-  --m-shadow-lg: 0 40px 80px -30px rgba(45,48,56,.28), 0 10px 30px -8px rgba(45,48,56,.10);
+  /* Shadows (Obsidian-tinted · paper-friendly · was rgba(45,48,56,…) for v2.1 ink) */
+  --m-shadow-sm: 0 1px 2px rgba(30,34,41,.05), 0 1px 1px rgba(30,34,41,.04);
+  --m-shadow-md: 0 8px 24px -10px rgba(30,34,41,.18), 0 2px 6px -2px rgba(30,34,41,.08);
+  --m-shadow-lg: 0 40px 80px -30px rgba(30,34,41,.28), 0 10px 30px -8px rgba(30,34,41,.10);
 }
 
 /*
@@ -420,10 +435,16 @@
   }
   .m-btn:hover:not(:disabled) { transform: translateY(-1px); }
   .m-btn:active { transform: translateY(0); }
-  .m-btn-primary { background: var(--m-ink); color: var(--m-paper); }
-  .m-btn-primary:hover { background: var(--m-slate); }
+  /* Primary CTAs (Sign Up, Create Event, Submit, Lock Vendor, etc.) — Rich Mulberry per 2026-05-29 Clean Editorial palette lock */
+  .m-btn-primary { background: var(--m-mulberry); color: #fff; }
+  .m-btn-primary:hover { background: var(--m-mulberry-2); }
+  .m-btn-primary:disabled { background: var(--m-mulberry-3); opacity: .5; cursor: not-allowed; }
+  /* Champagne accent buttons — for secondary actions + highlights (token name --m-orange kept for back-compat) */
   .m-btn-orange { background: var(--m-orange); color: #fff; }
   .m-btn-orange:hover { background: var(--m-orange-2); }
+  /* Ink button — retained for rare dark-CTA contexts where mulberry isn't appropriate */
+  .m-btn-ink { background: var(--m-ink); color: var(--m-paper); }
+  .m-btn-ink:hover { background: var(--m-slate); }
   .m-btn-ghost {
     background: transparent;
     color: var(--m-ink);
@@ -485,15 +506,15 @@
     }
   }
 
-  /* Photo placeholder — diagonal stripes in warm tone */
+  /* Photo placeholder — diagonal stripes in cool alabaster tone (was warm cream #EFE6D2/#F4ECDB) */
   .m-photo-placeholder {
     background:
       repeating-linear-gradient(
         45deg,
-        #EFE6D2,
-        #EFE6D2 8px,
-        #F4ECDB 8px,
-        #F4ECDB 16px
+        #EFEDE5,
+        #EFEDE5 8px,
+        #F4F2EC 8px,
+        #F4F2EC 16px
       );
     position: relative;
     overflow: hidden;

@@ -47,19 +47,19 @@ const BrandSystem = () => (
     {/* Palette */}
     <Block title="Palette" code="02">
       <div style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 12 }}>
-        <Swatch name="Paper"  hex="#FBF8F2" color="var(--paper)" />
-        <Swatch name="Cream"  hex="#F4EFE5" color="var(--paper-2)" />
-        <Swatch name="Ivory"  hex="#EDE5D2" color="var(--ivory)" />
+        <Swatch name="Paper"  hex="#FBFBFA" color="var(--paper)" />
+        <Swatch name="Cream"  hex="#F4F2EC" color="var(--paper-2)" />
+        <Swatch name="Ivory"  hex="#EDEAE0" color="var(--ivory)" />
         <Swatch name="Slate-4"hex="#B7B9BE" color="var(--slate-4)" />
         <Swatch name="Slate-2"hex="#6E727A" color="var(--slate-2)" textColor="#fff" />
         <Swatch name="Slate"  hex="#545860 · brand" color="var(--slate)" textColor="#fff" />
-        <Swatch name="Ink"    hex="#2D3038" color="var(--ink)" textColor="#fff" />
+        <Swatch name="Ink"    hex="#1E2229" color="var(--ink)" textColor="#fff" />
         <Swatch name="Orange" hex="#E28300 · brand" color="var(--orange)" textColor="#fff" />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginTop: 12 }}>
         <Swatch name="Orange wash"  hex="#FFEACB" color="var(--orange-4)" />
         <Swatch name="Orange tint"  hex="#FFC061" color="var(--orange-3)" />
-        <Swatch name="Blush"        hex="#F4D7C9" color="var(--blush)" />
+        <Swatch name="Blush"        hex="#F4ECD8" color="var(--blush)" />
         <Swatch name="Sage"         hex="#C5D2BD" color="var(--sage)" />
       </div>
     </Block>

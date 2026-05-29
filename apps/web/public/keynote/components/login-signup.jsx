@@ -51,7 +51,7 @@ const Direction = ({ n, w, h, dark, mobile, children }) => (
 const LoginScreen = ({ mode }) => {
   const dark = mode === "dark";
   const bg = dark ? "#0F1115" : "var(--paper)";
-  const ink = dark ? "#FBF8F2" : "var(--ink)";
+  const ink = dark ? "#FBFBFA" : "var(--ink)";
   const slate = dark ? "#9CA1AB" : "var(--slate)";
   const line = dark ? "#22252B" : "var(--line)";
   const field = dark ? "#1A1C20" : "var(--paper-2)";
@@ -109,7 +109,7 @@ const LoginScreen = ({ mode }) => {
 const SignupScreen = ({ mode }) => {
   const dark = mode === "dark";
   const bg = dark ? "#0F1115" : "var(--paper)";
-  const ink = dark ? "#FBF8F2" : "var(--ink)";
+  const ink = dark ? "#FBFBFA" : "var(--ink)";
   const slate = dark ? "#9CA1AB" : "var(--slate)";
   const line = dark ? "#22252B" : "var(--line)";
   return (
@@ -139,7 +139,7 @@ const SignupScreen = ({ mode }) => {
           {["I'm a couple", "I'm a vendor"].map((r, i) => (
             <button key={r} style={{
               flex: 1, padding: "8px 14px", borderRadius: 999, fontSize: 12,
-              background: i === 0 ? (dark ? "#FBF8F2" : "var(--ink)") : "transparent",
+              background: i === 0 ? (dark ? "#FBFBFA" : "var(--ink)") : "transparent",
               color: i === 0 ? (dark ? "#0F1115" : "var(--paper)") : ink,
               border: "none", cursor: "pointer", fontFamily: "var(--sans)", fontWeight: i === 0 ? 500 : 400,
             }}>{r}</button>
@@ -166,7 +166,7 @@ const SignupScreen = ({ mode }) => {
 const LoginScreenMobile = ({ mode }) => {
   const dark = mode === "dark";
   const bg = dark ? "#0F1115" : "var(--paper)";
-  const ink = dark ? "#FBF8F2" : "var(--ink)";
+  const ink = dark ? "#FBFBFA" : "var(--ink)";
   const slate = dark ? "#9CA1AB" : "var(--slate)";
   return (
     <div style={{ height: "100%", background: bg, color: ink, padding: "44px 22px 24px", display: "flex", flexDirection: "column" }}>
@@ -193,7 +193,7 @@ const LoginScreenMobile = ({ mode }) => {
 const SignupScreenMobile = ({ mode }) => {
   const dark = mode === "dark";
   const bg = dark ? "#0F1115" : "var(--paper)";
-  const ink = dark ? "#FBF8F2" : "var(--ink)";
+  const ink = dark ? "#FBFBFA" : "var(--ink)";
   const slate = dark ? "#9CA1AB" : "var(--slate)";
   return (
     <div style={{ height: "100%", background: bg, color: ink, padding: "44px 22px 24px", display: "flex", flexDirection: "column", overflow: "auto" }}>
@@ -203,7 +203,7 @@ const SignupScreenMobile = ({ mode }) => {
         Set your day <em style={{ fontStyle: "italic", color: "var(--orange-3)" }}>in motion.</em>
       </h2>
       <div style={{ display: "flex", gap: 4, padding: 3, background: dark ? "#1A1C20" : "var(--paper-2)", borderRadius: 999, fontSize: 11, marginBottom: 14 }}>
-        <span style={{ flex: 1, padding: "6px 10px", borderRadius: 999, background: dark ? "#FBF8F2" : "var(--ink)", color: dark ? "#0F1115" : "var(--paper)", textAlign: "center", fontWeight: 500 }}>Couple</span>
+        <span style={{ flex: 1, padding: "6px 10px", borderRadius: 999, background: dark ? "#FBFBFA" : "var(--ink)", color: dark ? "#0F1115" : "var(--paper)", textAlign: "center", fontWeight: 500 }}>Couple</span>
         <span style={{ flex: 1, padding: "6px 10px", textAlign: "center", color: slate }}>Vendor</span>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -233,7 +233,7 @@ const FormField = ({ label, mode, placeholder, type = "text" }) => {
         background: dark ? "#1A1C20" : "var(--paper-2)",
         border: "1px solid " + (dark ? "#22252B" : "var(--line)"),
         borderRadius: 8, fontSize: 13, fontFamily: "var(--sans)",
-        color: dark ? "#FBF8F2" : "var(--ink)", outline: "none",
+        color: dark ? "#FBFBFA" : "var(--ink)", outline: "none",
       }} />
     </div>
   );

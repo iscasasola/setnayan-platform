@@ -1,28 +1,28 @@
 /* Setnayan v2 — design tokens (anchored to brand orange + slate) */
 :root {
   /* Surfaces — warm paper */
-  --paper:      #FBF8F2;   /* warm off-white */
-  --paper-2:    #F4EFE5;   /* slight cream */
-  --ivory:      #EDE5D2;   /* deeper cream callouts */
-  --line:       #E2D9C6;   /* warm hairline on paper */
-  --line-soft:  #ECE5D6;
+  --paper:      #FBFBFA;   /* warm off-white */
+  --paper-2:    #F4F2EC;   /* slight cream */
+  --ivory:      #EDEAE0;   /* deeper cream callouts */
+  --line:       #E2DED4;   /* warm hairline on paper */
+  --line-soft:  #ECE8DC;
 
   /* Slate (primary ink, from logo) */
-  --ink:        #2D3038;   /* deeper slate for headlines */
+  --ink:        #1E2229;   /* deeper slate for headlines */
   --slate:      #545860;   /* logo slate */
   --slate-2:    #6E727A;
   --slate-3:    #8A8E97;
   --slate-4:    #B7B9BE;
 
   /* Orange (brand accent — burnt sienna · upgraded from logo orange) */
-  --orange:     #C96B3A;
-  --orange-2:   #A84F25;   /* hover / press · deeper sienna */
-  --orange-3:   #E8B399;   /* tinted highlights · soft sienna wash */
-  --orange-4:   #F8E6DC;   /* lightest wash · paper-friendly */
+  --orange:     #C5A059;
+  --orange-2:   #A88340;   /* hover / press · deeper sienna */
+  --orange-3:   #E0CCA0;   /* tinted highlights · soft sienna wash */
+  --orange-4:   #F4ECD8;   /* lightest wash · paper-friendly */
 
   /* Supporting */
-  --blush:      #F4D7C9;
-  --blush-deep: #B65A3A;
+  --blush:      #F4ECD8;
+  --blush-deep: #A88340;
   --sage:       #C5D2BD;
   --sage-deep:  #4F6B4A;
 
@@ -58,7 +58,7 @@
     --ivory:      #1A1E24;
     --line:       #22262E;
     --line-soft:  #1C2026;
-    --ink:        #FBF8F2;
+    --ink:        #FBFBFA;
     --slate:      #B7BCC4;
     --slate-2:    #9CA1AB;
     --slate-3:    #7A7F89;
@@ -72,7 +72,7 @@ html, body { margin: 0; padding: 0; scroll-behavior: smooth; }
   --ivory:      #1A1E24;
   --line:       #22262E;
   --line-soft:  #1C2026;
-  --ink:        #FBF8F2;
+  --ink:        #FBFBFA;
   --slate:      #B7BCC4;
   --slate-2:    #9CA1AB;
   --slate-3:    #7A7F89;

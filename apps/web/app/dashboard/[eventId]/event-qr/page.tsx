@@ -63,7 +63,7 @@ export default async function EventQrPage({ params }: Props) {
     errorCorrectionLevel: 'M',
     margin: 2,
     width: 320,
-    color: { dark: '#2D3038', light: '#FBF8F2' },
+    color: { dark: '#1E2229', light: '#FBFBFA' },
   });
 
   const tokenPrefix = (event.master_qr_token as string).slice(0, 8);

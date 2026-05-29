@@ -155,7 +155,7 @@ export function RecommendedVendorRow({
               type="button"
               onClick={() => submit('considering')}
               disabled={pending}
-              className="inline-flex min-h-[34px] items-center gap-1 rounded-md border border-amber-300/60 bg-cream px-2.5 py-1 text-[11px] font-medium text-amber-900 transition-colors hover:bg-amber-100 disabled:opacity-60"
+              className="inline-flex min-h-[44px] items-center gap-1 rounded-md border border-amber-300/60 bg-cream px-2.5 py-1 text-[11px] font-medium text-amber-900 transition-colors hover:bg-amber-100 disabled:opacity-60"
             >
               Consider
             </button>
@@ -163,7 +163,7 @@ export function RecommendedVendorRow({
               type="button"
               onClick={() => submit('contracted')}
               disabled={pending}
-              className="inline-flex min-h-[34px] items-center gap-1 rounded-md border border-emerald-300/60 bg-cream px-2.5 py-1 text-[11px] font-medium text-emerald-800 transition-colors hover:bg-emerald-100 disabled:opacity-60"
+              className="inline-flex min-h-[44px] items-center gap-1 rounded-md border border-emerald-300/60 bg-cream px-2.5 py-1 text-[11px] font-medium text-emerald-800 transition-colors hover:bg-emerald-100 disabled:opacity-60"
             >
               <BookmarkCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
               Lock too

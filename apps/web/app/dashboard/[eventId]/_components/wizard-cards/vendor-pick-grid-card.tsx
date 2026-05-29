@@ -778,7 +778,7 @@ export function VendorPickGridCard({
         <button
           type="submit"
           disabled={isSearching}
-          className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-700 focus:outline-none focus:ring-2 focus:ring-mulberry focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-700 focus:outline-none focus:ring-2 focus:ring-mulberry focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSearching ? 'Searching…' : 'Search'}
         </button>
@@ -854,8 +854,8 @@ export function VendorPickGridCard({
                 }
                 className={
                   isActive
-                    ? 'inline-flex min-h-[32px] items-center rounded-full bg-terracotta px-3 py-1 text-xs font-semibold text-cream shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-terracotta/30'
-                    : 'inline-flex min-h-[32px] items-center rounded-full border border-ink/15 bg-white px-3 py-1 text-xs font-medium text-ink/75 transition-colors hover:border-terracotta/40 hover:bg-terracotta/5 hover:text-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30'
+                    ? 'inline-flex min-h-[44px] items-center rounded-full bg-terracotta px-3 py-1 text-xs font-semibold text-cream shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-terracotta/30'
+                    : 'inline-flex min-h-[44px] items-center rounded-full border border-ink/15 bg-white px-3 py-1 text-xs font-medium text-ink/75 transition-colors hover:border-terracotta/40 hover:bg-terracotta/5 hover:text-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30'
                 }
               >
                 {dest.label}
@@ -883,7 +883,7 @@ export function VendorPickGridCard({
             id="vendor-grid-region-filter"
             value={selectedRegion}
             onChange={(e) => handleRegionChange(e.target.value)}
-            className="min-h-[36px] flex-1 rounded-md border border-ink/15 bg-white px-3 py-1.5 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30 sm:max-w-md"
+            className="min-h-[44px] flex-1 rounded-md border border-ink/15 bg-white px-3 py-1.5 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30 sm:max-w-md"
           >
             <option value={ALL_REGIONS_SENTINEL}>
               All regions · {results.length}{' '}
@@ -939,7 +939,7 @@ export function VendorPickGridCard({
             id="vendor-grid-city-filter"
             value={selectedCity}
             onChange={(e) => handleCityChange(e.target.value)}
-            className="min-h-[36px] flex-1 rounded-md border border-ink/15 bg-white px-3 py-1.5 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30 sm:max-w-xs"
+            className="min-h-[44px] flex-1 rounded-md border border-ink/15 bg-white px-3 py-1.5 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30 sm:max-w-xs"
           >
             <option value={ALL_CITIES_SENTINEL}>
               All cities · {regionScopedResults.length}{' '}
@@ -1153,7 +1153,7 @@ export function VendorPickGridCard({
             type="button"
             onClick={() => setPageIndex((p) => Math.max(0, p - 1))}
             disabled={safePageIndex === 0}
-            className="inline-flex min-h-[36px] items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-cream disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-cream disabled:cursor-not-allowed disabled:opacity-40"
           >
             <ChevronLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             Prev
@@ -1165,7 +1165,7 @@ export function VendorPickGridCard({
             type="button"
             onClick={() => setPageIndex((p) => Math.min(totalPages - 1, p + 1))}
             disabled={safePageIndex >= totalPages - 1}
-            className="inline-flex min-h-[36px] items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-cream disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-cream disabled:cursor-not-allowed disabled:opacity-40"
           >
             Next
             <ChevronRight aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
@@ -1492,7 +1492,7 @@ function VendorGridCardRow({
             <button
               type="button"
               onClick={onPickAsSecond}
-              className="inline-flex min-h-[40px] flex-1 items-center justify-center gap-1.5 rounded-lg bg-mulberry px-3 py-2 text-xs font-semibold text-cream transition-colors hover:bg-mulberry-700 focus:outline-none focus:ring-2 focus:ring-mulberry focus:ring-offset-2 focus:ring-offset-cream sm:text-sm"
+              className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg bg-mulberry px-3 py-2 text-xs font-semibold text-cream transition-colors hover:bg-mulberry-700 focus:outline-none focus:ring-2 focus:ring-mulberry focus:ring-offset-2 focus:ring-offset-cream sm:text-sm"
             >
               <ArrowLeftRight
                 aria-hidden
@@ -1507,7 +1507,7 @@ function VendorGridCardRow({
                 type="button"
                 onClick={onStartCompare}
                 disabled={isPending}
-                className="inline-flex min-h-[40px] flex-1 items-center justify-center gap-1.5 rounded-lg border border-terracotta/40 bg-white px-3 py-2 text-xs font-semibold text-terracotta transition-colors hover:bg-terracotta/5 focus:outline-none focus:ring-2 focus:ring-terracotta focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"
+                className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg border border-terracotta/40 bg-white px-3 py-2 text-xs font-semibold text-terracotta transition-colors hover:bg-terracotta/5 focus:outline-none focus:ring-2 focus:ring-terracotta focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"
               >
                 <ArrowLeftRight
                   aria-hidden
@@ -1520,7 +1520,7 @@ function VendorGridCardRow({
                 type="button"
                 onClick={onLock}
                 disabled={isPending}
-                className="inline-flex min-h-[40px] flex-1 items-center justify-center gap-1.5 rounded-lg bg-mulberry px-3 py-2 text-xs font-semibold text-cream transition-colors hover:bg-mulberry-700 focus:outline-none focus:ring-2 focus:ring-mulberry focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"
+                className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg bg-mulberry px-3 py-2 text-xs font-semibold text-cream transition-colors hover:bg-mulberry-700 focus:outline-none focus:ring-2 focus:ring-mulberry focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"
               >
                 {isPending ? (
                   'Locking…'
@@ -1718,7 +1718,7 @@ function CompareSide({
             type="button"
             onClick={onLock}
             disabled={isPending}
-            className="inline-flex min-h-[42px] flex-1 items-center justify-center gap-1.5 rounded-lg bg-mulberry px-3 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-700 focus:outline-none focus:ring-2 focus:ring-mulberry focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg bg-mulberry px-3 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-700 focus:outline-none focus:ring-2 focus:ring-mulberry focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isPending ? (
               'Locking…'
@@ -1733,7 +1733,7 @@ function CompareSide({
             type="button"
             onClick={onCompareAnother}
             disabled={isPending}
-            className="inline-flex min-h-[42px] flex-1 items-center justify-center gap-1.5 rounded-lg border border-terracotta/40 bg-white px-3 py-2 text-sm font-semibold text-terracotta transition-colors hover:bg-terracotta/5 focus:outline-none focus:ring-2 focus:ring-terracotta focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg border border-terracotta/40 bg-white px-3 py-2 text-sm font-semibold text-terracotta transition-colors hover:bg-terracotta/5 focus:outline-none focus:ring-2 focus:ring-terracotta focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60"
           >
             <ArrowLeftRight
               aria-hidden
@@ -1862,7 +1862,7 @@ function CustomVendorForm({
         <button
           type="submit"
           disabled={isPending}
-          className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-700 focus:outline-none focus:ring-2 focus:ring-mulberry focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-700 focus:outline-none focus:ring-2 focus:ring-mulberry focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Lock aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           {isPending ? 'Locking…' : 'Lock this vendor'}

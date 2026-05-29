@@ -473,7 +473,7 @@ function BoothRecRow({
         type="button"
         onClick={onLock}
         disabled={isPending}
-        className="inline-flex min-h-[36px] flex-shrink-0 items-center justify-center gap-1.5 rounded-lg border border-mulberry bg-mulberry px-3 py-2 text-xs font-semibold text-cream transition-colors hover:bg-mulberry-700 focus:outline-none focus:ring-2 focus:ring-mulberry focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"
+        className="inline-flex min-h-[44px] flex-shrink-0 items-center justify-center gap-1.5 rounded-lg border border-mulberry bg-mulberry px-3 py-2 text-xs font-semibold text-cream transition-colors hover:bg-mulberry-700 focus:outline-none focus:ring-2 focus:ring-mulberry focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"
       >
         {isPending ? (
           'Locking…'
@@ -629,7 +629,7 @@ function CustomBoothForm({
         <button
           type="submit"
           disabled={isPending}
-          className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-700 focus:outline-none focus:ring-2 focus:ring-mulberry focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-700 focus:outline-none focus:ring-2 focus:ring-mulberry focus:ring-offset-2 focus:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Lock aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           {isPending ? 'Locking…' : 'Lock this booth'}

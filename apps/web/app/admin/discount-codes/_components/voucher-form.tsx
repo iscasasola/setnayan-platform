@@ -279,7 +279,7 @@ export function VoucherForm({
           ).map((opt) => (
             <label
               key={opt.v}
-              className="inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5"
+              className="inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5"
               style={{
                 background:
                   discountType === opt.v ? 'var(--m-blush)' : 'var(--m-paper)',

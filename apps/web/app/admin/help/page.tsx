@@ -162,7 +162,7 @@ export default async function AdminHelpPage({ searchParams }: Props) {
                   />
                 </label>
                 <SubmitButton
-                  className="inline-flex h-9 items-center justify-center rounded-md bg-mulberry px-3 text-xs font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70"
+                  className="inline-flex h-11 items-center justify-center rounded-md bg-mulberry px-3 text-xs font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70"
                   pendingLabel="Updating…"
                 >
                   Update

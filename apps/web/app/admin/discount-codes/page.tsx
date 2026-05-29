@@ -401,7 +401,7 @@ export default async function AdminDiscountCodesPage({ searchParams }: Props) {
                         {row.is_active && (
                           <Link
                             href={`/admin/discount-codes/${row.discount_code_id}/edit`}
-                            className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-[var(--m-orange-4)]"
+                            className="inline-flex min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-[var(--m-orange-4)]"
                             style={{
                               color: 'var(--m-orange-2)',
                               borderColor: 'var(--m-orange-3)',
@@ -423,7 +423,7 @@ export default async function AdminDiscountCodesPage({ searchParams }: Props) {
                             />
                             <button
                               type="submit"
-                              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-[var(--m-paper-2)]"
+                              className="inline-flex min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-[var(--m-paper-2)]"
                               style={{
                                 color: 'var(--m-slate)',
                                 borderColor: 'var(--m-line)',
@@ -445,7 +445,7 @@ export default async function AdminDiscountCodesPage({ searchParams }: Props) {
                             />
                             <button
                               type="submit"
-                              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-[var(--m-orange-4)]"
+                              className="inline-flex min-h-[44px] items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-[var(--m-orange-4)]"
                               style={{
                                 color: 'var(--m-orange-2)',
                                 borderColor: 'var(--m-orange-3)',

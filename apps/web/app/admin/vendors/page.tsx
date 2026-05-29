@@ -207,7 +207,7 @@ export default async function AdminVendorsPage({ searchParams }: Props) {
                   <div className="mt-auto flex items-center gap-2">
                     <Link
                       href={`/admin/vendors/${v.vendor_profile_id}/edit`}
-                      className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2.5 py-1.5 text-xs font-medium text-ink hover:bg-ink/10"
+                      className="inline-flex min-h-[44px] items-center gap-1 rounded-md bg-ink/5 px-2.5 py-1.5 text-xs font-medium text-ink hover:bg-ink/10"
                     >
                       <Pencil className="h-3 w-3" strokeWidth={2} />
                       Edit
@@ -219,7 +219,7 @@ export default async function AdminVendorsPage({ searchParams }: Props) {
                       >
                         <input type="hidden" name="invite_id" value={v.invite_id} />
                         <SubmitButton
-                          className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-2.5 py-1.5 text-xs font-medium text-ink/70 hover:bg-rose-100 hover:text-rose-900"
+                          className="inline-flex min-h-[44px] items-center gap-1 rounded-md bg-ink/5 px-2.5 py-1.5 text-xs font-medium text-ink/70 hover:bg-rose-100 hover:text-rose-900"
                           pendingLabel="Revoking…"
                         >
                           <Trash2 className="h-3 w-3" strokeWidth={2} />

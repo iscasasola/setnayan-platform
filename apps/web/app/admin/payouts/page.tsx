@@ -286,7 +286,7 @@ function FilterBar({
         </button>
         <Link
           href={makeHref({ filter, stage, vendor: '', from: '', to: '' })}
-          className="inline-flex h-9 items-center justify-center px-3 text-xs text-ink/60 hover:text-ink"
+          className="inline-flex h-11 items-center justify-center px-3 text-xs text-ink/60 hover:text-ink"
         >
           Reset
         </Link>

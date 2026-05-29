@@ -157,7 +157,7 @@ export default async function VendorContractDetailPage({ params }: Props) {
               />
             </div>
             <SubmitButton
-              className="inline-flex items-center gap-2 rounded-md bg-rose-100 px-3 py-1.5 text-xs font-medium text-rose-800 hover:bg-rose-200"
+              className="inline-flex min-h-[44px] items-center gap-2 rounded-md bg-rose-100 px-3 py-1.5 text-xs font-medium text-rose-800 hover:bg-rose-200"
               pendingLabel="Cancelling…"
             >
               <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />

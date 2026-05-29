@@ -117,7 +117,7 @@ function InFlightRow({
         type="button"
         onClick={handleMarkDone}
         disabled={isPending}
-        className="inline-flex min-h-[32px] flex-shrink-0 items-center gap-1.5 rounded-md border border-ink/15 bg-white px-2.5 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-cream focus:outline-none focus:ring-2 focus:ring-terracotta/30 disabled:cursor-not-allowed disabled:opacity-60"
+        className="inline-flex min-h-[44px] flex-shrink-0 items-center gap-1.5 rounded-md border border-ink/15 bg-white px-2.5 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-cream focus:outline-none focus:ring-2 focus:ring-terracotta/30 disabled:cursor-not-allowed disabled:opacity-60"
       >
         <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
         {isPending ? 'Marking…' : 'Mark done'}

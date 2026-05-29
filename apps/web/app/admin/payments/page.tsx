@@ -229,7 +229,7 @@ function OrdersNeedingQuote({ orders }: { orders: OrderJoined[] }) {
               />
             </label>
             <SubmitButton
-              className="inline-flex items-center justify-center rounded-md bg-mulberry px-4 py-1.5 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70 sm:col-span-3"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-mulberry px-4 py-1.5 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70 sm:col-span-3"
               pendingLabel="Confirming…"
             >
               Confirm quote · move to awaiting payment
@@ -333,7 +333,7 @@ function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
                     Also mark order as paid
                   </label>
                   <SubmitButton
-                    className="inline-flex items-center justify-center rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-emerald-800 disabled:opacity-70"
+                    className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-emerald-800 disabled:opacity-70"
                     pendingLabel="Approving…"
                   >
                     Approve · matched
@@ -359,7 +359,7 @@ function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
                     className="input-field min-h-[60px] py-2 text-sm"
                   />
                   <SubmitButton
-                    className="inline-flex items-center justify-center rounded-md bg-amber-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-amber-800 disabled:opacity-70"
+                    className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-amber-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-amber-800 disabled:opacity-70"
                     pendingLabel="Requesting resubmit…"
                   >
                     Request resubmit
@@ -373,7 +373,7 @@ function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
                     className="input-field h-9 py-0 text-sm"
                   />
                   <SubmitButton
-                    className="inline-flex items-center justify-center rounded-md bg-rose-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-rose-800 disabled:opacity-70"
+                    className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-rose-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-rose-800 disabled:opacity-70"
                     pendingLabel="Rejecting…"
                   >
                     Reject
@@ -506,7 +506,7 @@ function RefundForm({
           />
         </label>
         <SubmitButton
-          className="inline-flex items-center justify-center rounded-md bg-violet-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-violet-800 disabled:opacity-70"
+          className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-violet-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-violet-800 disabled:opacity-70"
           pendingLabel="Recording refund…"
         >
           Record refund · notify couple

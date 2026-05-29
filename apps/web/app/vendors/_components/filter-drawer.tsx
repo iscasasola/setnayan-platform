@@ -59,10 +59,35 @@ export type FilterDrawerProps = {
     folder: string | null;
     venueDefault: 'on' | 'off' | null;
     focusedMode?: boolean;
+    /**
+     * 2026-05-30 PM — current faith narrow value as the URL param string
+     * (`'catholic' | 'christian' | 'inc' | 'muslim' | 'cultural' | null`).
+     * Drives the `<select name="faith">` defaultValue inside the drawer.
+     * When null, the select defaults to the "All faiths" option (value '').
+     */
+    faith?: string | null;
   };
 
   /** Sort key + label pairs (same source-of-truth as the retired FilterBar). */
   sortOptions: ReadonlyArray<{ value: string; label: string }>;
+
+  /**
+   * 2026-05-30 PM — Faith narrow option list. Owner directive verbatim:
+   * *"why are these still showing. they should be embedded inside the filter"*.
+   * Replaces the inline `<FaithPillRow>` that PR #659 rendered above every
+   * faith-bearing folder's category grid. The drawer is the canonical home
+   * for global filters; faith joins City + Sort + Verified-only + Match-my-
+   * wedding + Show-all-venues there.
+   *
+   * Option `value` is the URL param string (`'catholic'` etc. — lowercase,
+   * matches FAITH_KEY_TO_URL on the page). Empty option `{value: '',
+   * label: 'All faiths'}` is prepended by the drawer itself — callers pass
+   * only the actively-visible faith chips. When the list is empty OR
+   * undefined, the Faith section hides entirely (folders with no faith-
+   * tagged sub-categories — Photo & Video, Reception, Rings & Accessories,
+   * Booths & Stations, Invitations & Keepsakes — don't surface the section).
+   */
+  faithOptions?: ReadonlyArray<{ value: string; label: string }>;
 
   /**
    * Host's event metadata — only present when an authenticated couple has at
@@ -89,6 +114,7 @@ export function FilterDrawer({
   onClose,
   filters,
   sortOptions,
+  faithOptions,
   matchableEvent,
   hostVenueSetting: _hostVenueSetting,
   hostVenueLabel,
@@ -98,6 +124,7 @@ export function FilterDrawer({
   const panelRef = useRef<HTMLDivElement>(null);
   const cityId = useId();
   const sortId = useId();
+  const faithId = useId();
   const verifiedId = useId();
   const matchId = useId();
   const venueId = useId();
@@ -248,6 +275,48 @@ export function FilterDrawer({
                 ))}
               </select>
             </div>
+
+            {/* Faith — 2026-05-30 PM. Owner directive *"why are these still
+                showing. they should be embedded inside the filter"*. The
+                inline FaithPillRow rendered by PRs #657 + #659 above every
+                faith-bearing folder is retired; faith narrows now live here
+                in the drawer alongside City + Sort. Section hides entirely
+                when no faith-tagged sub-categories survive the hide-empty
+                filter (Photo & Video, Reception, Rings & Accessories,
+                Booths & Stations, Invitations & Keepsakes folders OR a
+                fully unpopulated catalog). The empty `<option value="">`
+                appears first so couples can clear the narrow back to "All
+                faiths" without leaving the drawer. */}
+            {faithOptions && faithOptions.length > 0 ? (
+              <div className="flex flex-col gap-1.5">
+                <label
+                  htmlFor={faithId}
+                  className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55"
+                >
+                  Faith
+                </label>
+                <select
+                  id={faithId}
+                  name="faith"
+                  defaultValue={filters.faith ?? ''}
+                  className="input-field"
+                >
+                  <option value="">All faiths</option>
+                  {faithOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : filters.faith ? (
+              /* Edge case: host already has ?faith=… set but the current
+                 view exposes zero faith-tagged tiles (e.g., scoped to a
+                 folder with no faith categories). Preserve the existing
+                 narrow as a hidden input so the form submit doesn't
+                 silently drop it. */
+              <input type="hidden" name="faith" value={filters.faith} />
+            ) : null}
 
             {/* Verified only */}
             <div className="rounded-xl border border-ink/10 bg-cream p-3">

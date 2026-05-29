@@ -92,6 +92,16 @@ export type StickyMarketplaceHeaderProps = {
     eventType: string | null;
     folder: string | null;
     venueDefault: 'on' | 'off' | null;
+    /**
+     * 2026-05-30 PM — current faith narrow URL param (`'catholic' |
+     * 'christian' | 'inc' | 'muslim' | 'cultural' | null`). Drives the
+     * applied-filter count badge on the Filters button so couples can see
+     * at a glance whether a faith narrow is active. The actual edit UI
+     * lives in FilterDrawer (the inline FaithPillRow that PRs #657 + #659
+     * shipped is retired per owner directive *"why are these still
+     * showing. they should be embedded inside the filter"*).
+     */
+    faith?: string | null;
   };
   /** Drawer config passed through to FilterDrawer. */
   drawer: FilterDrawerProps;
@@ -125,10 +135,18 @@ function countAppliedFilters(
   if (filters.matchEvent) n += 1;
   if (filters.sort !== 'most_reviews' && filters.sort !== '') n += 1;
   if (filters.venueDefault === 'off') n += 1;
+  // 2026-05-30 PM — count the faith narrow (now lives in FilterDrawer per
+  // owner directive *"they should be embedded inside the filter"*). Any
+  // non-empty string (the URL param value: 'catholic'/'christian'/'inc'/
+  // 'muslim'/'cultural') counts as one applied filter on the badge.
+  if (filters.faith && filters.faith.length > 0) n += 1;
   // 2026-05-30 — count an active contextual narrow (Faith, Style, etc.)
   // so the applied-filter badge stays honest. The "All" option uses
   // value=null and is never active, so we count any option active where
-  // value !== null.
+  // value !== null. Today contextualPill is dead infrastructure (PR #659
+  // moved Ceremony's pill inline before this PR moved it into the drawer)
+  // but the API is kept for future per-folder narrow axes that don't fit
+  // the global drawer pattern.
   if (contextualPill) {
     const activeNarrow = contextualPill.options.find(
       (o) => o.active && o.value !== null,

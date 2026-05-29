@@ -240,9 +240,35 @@ export async function generateMetadata({ params }: Props) {
     `${venue.name} on Setnayan — ${displayVenueType(venue.venue_type)} in ${
       venue.location_city
     }. Browse availability, plan around your wedding date, and add to your plan.`;
+  // SEO/GEO Bucket 5 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — canonical URL
+  // + OpenGraph + Twitter cards so venue social shares render with the venue's
+  // hero photo + name. Hero image fallback handled by layout-level
+  // /brand/og-card.webp from Bucket 2 PR #607 when venue has no hero_image_url.
+  const siteUrl = (
+    process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
+  ).replace(/\/$/, '');
+  const canonicalUrl = `${siteUrl}/venue/${venue.slug}`;
   return {
     title: baseTitle,
     description,
+    alternates: { canonical: canonicalUrl },
+    openGraph: {
+      type: 'website',
+      url: canonicalUrl,
+      title: baseTitle,
+      description,
+      siteName: 'Setnayan',
+      locale: 'en_PH',
+      ...(venue.hero_image_url
+        ? { images: [{ url: venue.hero_image_url, alt: `${venue.name} venue hero` }] }
+        : {}),
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: baseTitle,
+      description,
+      ...(venue.hero_image_url ? { images: [venue.hero_image_url] } : {}),
+    },
   };
 }
 
@@ -297,8 +323,119 @@ export default async function VenueDetailPage({ params }: Props) {
   const venueSettings = venue.compatible_venue_settings ?? [];
   const amenities = venue.amenities ?? [];
 
+  // SEO/GEO Bucket 5 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — LocalBusiness
+  // + BreadcrumbList JSON-LD for venues. Venues are commercial entities, so
+  // unlike vendor profiles (/v/[slug]) we CAN include `streetAddress` when
+  // present — RA 10173 applies to person data, not to commercial premises.
+  // Demo venues skip JSON-LD entirely (mirrors the `robots: noindex,nofollow`
+  // gate in generateMetadata above) so crawler-discoverable structured data
+  // never carries synthetic test rows.
+  const SITE_URL = (
+    process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
+  ).replace(/\/$/, '');
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const venueJsonLd: Record<string, any> | null = isDemo
+    ? null
+    : (() => {
+        const base: Record<string, unknown> = {
+          '@context': 'https://schema.org',
+          '@type': 'LocalBusiness',
+          '@id': `${SITE_URL}/venue/${venue.slug}#business`,
+          name: venue.name,
+          url: `${SITE_URL}/venue/${venue.slug}`,
+          description: venue.description ?? `${venue.name} on Setnayan.`,
+          image: venue.hero_image_url ?? `${SITE_URL}/icon-512.svg`,
+          address: {
+            '@type': 'PostalAddress',
+            addressCountry: 'PH',
+            ...(venue.location_city ? { addressLocality: venue.location_city } : {}),
+            // Venues are commercial entities · OK to surface streetAddress
+            // when admin curated it.
+            ...(venue.hq_address ? { streetAddress: venue.hq_address } : {}),
+          },
+          areaServed: { '@type': 'Country', name: 'Philippines' },
+          isPartOf: {
+            '@type': 'WebSite',
+            '@id': `${SITE_URL}/#website`,
+            name: 'Setnayan',
+            url: `${SITE_URL}/`,
+          },
+        };
+        // Geo block — only emit when both lat + lng are real numbers.
+        if (typeof lat === 'number' && typeof lng === 'number') {
+          base.geo = {
+            '@type': 'GeoCoordinates',
+            latitude: lat,
+            longitude: lng,
+          };
+        }
+        // Price range — only emit when admin set a numeric day rate.
+        if (
+          typeof venue.day_rate_php_min === 'number' &&
+          venue.day_rate_php_min > 0
+        ) {
+          const maxRate =
+            typeof venue.day_rate_php_max === 'number' && venue.day_rate_php_max > 0
+              ? venue.day_rate_php_max
+              : venue.day_rate_php_min;
+          base.priceRange = `₱${venue.day_rate_php_min.toLocaleString()} – ₱${maxRate.toLocaleString()} per day`;
+        }
+        // Amenity feature list — surfaces as amenityFeature[] for
+        // Schema.org LocalBusiness extraction.
+        if (Array.isArray(amenities) && amenities.length > 0) {
+          base.amenityFeature = amenities.map((a: string) => ({
+            '@type': 'LocationFeatureSpecification',
+            name: a,
+            value: true,
+          }));
+        }
+        return base;
+      })();
+
+  // BreadcrumbList — 3-level trail mirrors /v/[slug] PR pattern from
+  // Bucket 4. Home → Wedding venues → {Venue name}. Demo venues skip too.
+  const venueBreadcrumbJsonLd = isDemo
+    ? null
+    : {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          {
+            '@type': 'ListItem',
+            position: 1,
+            name: 'Home',
+            item: `${SITE_URL}/`,
+          },
+          {
+            '@type': 'ListItem',
+            position: 2,
+            name: 'Wedding venues',
+            item: `${SITE_URL}/vendors?folder=reception_venue`,
+          },
+          {
+            '@type': 'ListItem',
+            position: 3,
+            name: venue.name,
+            item: `${SITE_URL}/venue/${venue.slug}`,
+          },
+        ],
+      };
+
   return (
     <main className="min-h-dvh bg-cream">
+      {venueJsonLd ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(venueJsonLd) }}
+        />
+      ) : null}
+      {venueBreadcrumbJsonLd ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(venueBreadcrumbJsonLd) }}
+        />
+      ) : null}
       <header className="border-b border-ink/5">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <Link href="/" className="flex items-center text-ink">

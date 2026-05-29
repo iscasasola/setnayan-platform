@@ -74,6 +74,7 @@ import { toggleJourneyStep } from './actions';
 import { EventDayPrepCta } from '@/app/_components/event-day-prep-cta';
 import { AutoPreloadOnEventDay } from '@/app/_components/auto-preload-on-event-day';
 import { PlanningGroups } from './_components/planning-groups';
+import { MarketplaceTeaseStrip } from './_components/marketplace-tease-strip';
 // Finder-column scaffolding (EventHomeSplitView + EventHomeDetailPane +
 // CardSelectable + ?card=<id> URL state) retired 2026-05-23 per owner
 // directive — event home renders as a single column on every
@@ -1756,6 +1757,22 @@ export default async function EventHomePage({
        *  Decision-paralysis concern from the prior wrap is addressed
        *  instead by the TodaysOneThing hero above (the Next15Steps
        *  ladder was removed 2026-05-24 — see the prior comment). */}
+      {/* MARKETPLACE TEASE STRIP · 2026-05-29 owner directive.
+       *  "the connection of vendors and customer IS the marketplace.
+       *  without the marketplace or the vendor recommendation, we will
+       *  not connect them properly." Sits ABOVE the 12-card PlanningGroups
+       *  section as the canonical above-the-fold discovery surface.
+       *  Renders 3 things in one card: editorial hero + primary CTA to
+       *  /vendors · 6-folder quick-browse chip strip · "Also worth a
+       *  look" cross-category recommendation tease (top 3 deduped).
+       *  Existing per-card RecommendedVendorRow inside PlanningGroups
+       *  stays — that's the IN-CARD action surface. This is the
+       *  DISCOVERY surface. */}
+      <MarketplaceTeaseStrip
+        eventId={eventId}
+        crossCategoryRecommendations={crossCategoryRecommendations}
+      />
+
       <section aria-labelledby="planning-groups-heading" className="space-y-4">
         <h2
           id="planning-groups-heading"

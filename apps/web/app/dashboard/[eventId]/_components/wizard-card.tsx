@@ -64,14 +64,16 @@ export function WizardCard({
       {/* ★ TODAY'S FOCUS rail · same as legacy TodaysOneThing so the
           transition between the two during the Phase 1-5 rollout doesn't
           jar the host visually. */}
-      {/* v2.1 visual overlay (2026-05-28) — TODAY'S FOCUS rail tokens swap
-       *  from the legacy `text-terracotta` semantic class to the v2.1
-       *  sienna palette (--m-orange-2 #A84F25). Per CLAUDE.md 2026-05-28
-       *  10th row "v2.1 BRIEF LOCKED AS CANONICAL" + the couple-dashboard.jsx
-       *  template's color treatment in /tmp/setnayan-keynote-template. The
-       *  shipped wizard LOGIC stays untouched — this is a pure CSS-class
-       *  refresh keeping every button placement + state transition + 65-card
-       *  dispatcher intact. */}
+      {/* Visual overlay — TODAY'S FOCUS rail tokens consume --m-orange-2
+       *  (Royal Champagne Gold deeper · #A88340 per 2026-05-29 Clean Editorial
+       *  palette lock). Originally landed 2026-05-28 with burnt sienna --m-orange-2
+       *  #A84F25 per v2.1 brief § 8; the token VALUE swapped 2026-05-29 to
+       *  champagne while the TOKEN NAME stayed --m-orange for codebase compat —
+       *  meaning this component auto-updates via the var(--m-orange-2) lookup
+       *  with zero code changes. Per CLAUDE.md 2026-05-29 row "🎨 CLEAN
+       *  EDITORIAL PALETTE LOCK". Shipped wizard LOGIC untouched — pure
+       *  CSS-class refresh keeping every button placement + state transition
+       *  + 65-card dispatcher intact. */}
       <header className="flex items-baseline gap-2">
         <Star
           aria-hidden
@@ -94,10 +96,12 @@ export function WizardCard({
        *  of the carousel li's `max-w-full` · together they guarantee
        *  the card never exceeds the screen on any viewport.
        *
-       *  v2.1 visual overlay: warmer ivory background (--m-ivory #EDE5D2)
-       *  + sienna-3 hairline border (--m-orange-3 #E8B399) replace the
-       *  prior cream + terracotta/30 treatment. Matches the template's
-       *  OverviewTab Today's-Focus card chrome. */}
+       *  Clean Editorial overlay: cool ivory background (--m-ivory #EDEAE0)
+       *  + champagne-3 hairline border (--m-orange-3 #E0CCA0) per 2026-05-29
+       *  palette lock. Original 2026-05-28 v2.1 treatment used warmer ivory
+       *  + burnt-sienna-3 — auto-updated via token value swap, no code
+       *  change needed here. Matches the template's OverviewTab Today's-Focus
+       *  card chrome. */}
       <article
         className="flex min-w-0 flex-col gap-5 overflow-hidden rounded-2xl border-2 p-6 sm:p-8"
         style={{

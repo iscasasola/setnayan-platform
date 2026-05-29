@@ -253,7 +253,7 @@ const GuestMicrosite = () => {
                   Filipiniana evening
                 </div>
                 <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
-                  {["#F4D7C9", "#E28300", "#2D3038", "#FBF8F2"].map(c => (
+                  {["#F4ECD8", "#E28300", "#1E2229", "#FBFBFA"].map(c => (
                     <div key={c} style={{ width: 36, height: 36, borderRadius: "50%", background: c, border: "1px solid var(--line)" }} />
                   ))}
                 </div>

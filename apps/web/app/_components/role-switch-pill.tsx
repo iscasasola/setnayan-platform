@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ChevronDown, ShieldCheck, Store, User } from 'lucide-react';
+import { ChevronUp, ShieldCheck, Store, User } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 /**
@@ -119,7 +119,7 @@ export function RoleSwitchPill({
       >
         <CurrentIcon aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
         <span className="hidden sm:inline">Switch view</span>
-        <ChevronDown
+        <ChevronUp
           aria-hidden
           className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`}
           strokeWidth={2}
@@ -130,7 +130,7 @@ export function RoleSwitchPill({
         <div
           role="menu"
           aria-label="Switch view"
-          className="absolute right-0 top-full z-30 mt-2 w-60 rounded-2xl border border-ink/10 bg-cream p-2 shadow-lg"
+          className="absolute right-0 bottom-full z-30 mb-2 w-60 rounded-2xl border border-ink/10 bg-cream p-2 shadow-lg"
         >
           <p className="px-3 pt-1 pb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">
             Switch to

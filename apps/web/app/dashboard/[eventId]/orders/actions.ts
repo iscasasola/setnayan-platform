@@ -213,6 +213,17 @@ export async function createOrder(formData: FormData) {
 
     lines.push(`Once payment lands, our team reconciles within 24 hours and your order moves to paid. We'll email again at that point.`);
     lines.push(``);
+    // Day 3 of the voucher + inline-checkout sprint (CLAUDE.md 2026-05-29 Day 3
+    // row · sprint brief at VOUCHER_SPRINT_BRIEF.md): mention the voucher
+    // flow in payment-instructions emails so couples with a code don't pay
+    // full price and then realize too late. Voucher application happens
+    // BEFORE order creation in the new inline-checkout drawer (PR #596 ·
+    // apps/web/app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx),
+    // so for these legacy /orders/new couples the hint is forward-looking —
+    // if they have a code they should restart via the add-on page where the
+    // drawer surfaces the "Have a code?" toggle.
+    lines.push(`If you have a special code, type it in the "Have a code?" field on the order page before paying.`);
+    lines.push(``);
     lines.push(`Need to retrieve this reference code later? Open your order anytime:`);
     lines.push(orderUrl);
     lines.push(``);

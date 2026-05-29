@@ -11,7 +11,14 @@ export type OrderStatus =
   | 'cancelled'
   | 'refunded';
 
-export type PaymentStatus = 'pending' | 'matched' | 'rejected';
+// 'resubmit_requested' added 2026-05-29 Day 3 of the voucher + inline-checkout
+// sprint alongside migration 20260529010000_voucher_system_day1.sql (which
+// already added the value to public.payment_status enum) — Day 3 wires the
+// admin 3-state action (Approve · Reject · Request resubmit) end-to-end.
+// Semantically the payment is back in the "needs more proof" state but
+// distinct from 'pending' because the admin already reviewed it once and
+// left a note for the couple at payments.admin_resubmit_notice.
+export type PaymentStatus = 'pending' | 'matched' | 'rejected' | 'resubmit_requested';
 
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   draft: 'Draft',
@@ -41,12 +48,17 @@ export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
   pending: 'Pending review',
   matched: 'Matched',
   rejected: 'Rejected',
+  resubmit_requested: 'Resubmit requested',
 };
 
 export const PAYMENT_STATUS_TONE: Record<PaymentStatus, string> = {
   pending: 'bg-amber-100 text-amber-900',
   matched: 'bg-emerald-100 text-emerald-800',
   rejected: 'bg-rose-100 text-rose-800',
+  // Amber matches the "pending review" register since the payment is back
+  // in the queue waiting for the couple's next upload — operationally
+  // adjacent to 'pending', visually distinct only via the label text.
+  resubmit_requested: 'bg-amber-100 text-amber-900',
 };
 
 export type OrderRow = {
@@ -76,6 +88,12 @@ export type PaymentRow = {
   paid_at: string;
   status: PaymentStatus;
   admin_notes: string | null;
+  // The free-text notice the admin leaves when picking "Request resubmit"
+  // (3-state action, Day 3 of the voucher + inline-checkout sprint). The
+  // couple sees this verbatim on the order detail page banner so they know
+  // what to fix on their next upload. Column added by migration
+  // 20260529010000_voucher_system_day1.sql.
+  admin_resubmit_notice: string | null;
   reviewed_by_user_id: string | null;
   reviewed_at: string | null;
   created_at: string;
@@ -85,7 +103,7 @@ const ORDER_SELECT =
   'order_id,public_id,event_id,user_id,service_key,description,requested_total_php,confirmed_total_php,status,reference_code,admin_notes,created_at,updated_at';
 
 const PAYMENT_SELECT =
-  'payment_id,order_id,user_id,amount_php,channel,reference_number,screenshot_url,paid_at,status,admin_notes,reviewed_by_user_id,reviewed_at,created_at';
+  'payment_id,order_id,user_id,amount_php,channel,reference_number,screenshot_url,paid_at,status,admin_notes,admin_resubmit_notice,reviewed_by_user_id,reviewed_at,created_at';
 
 export async function fetchOrdersForEvent(
   supabase: SupabaseClient,

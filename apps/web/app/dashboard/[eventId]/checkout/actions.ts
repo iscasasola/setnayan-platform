@@ -577,6 +577,14 @@ export async function submitOrderAction(
       `Our team will reconcile your payment within one business day. We'll email again once your order moves to approved.`,
     );
     lines.push(``);
+    // Day 3 of the voucher + inline-checkout sprint (CLAUDE.md 2026-05-29 Day 3
+    // row): forward-looking voucher reminder for the couple's NEXT purchase.
+    // Suppressed when a voucher was already applied to this order · the hint
+    // is for couples who didn't realize codes existed AND for repeat purchases.
+    if (!voucherCodeNormalized) {
+      lines.push(`If you have a special code, type it in the "Have a code?" field on the order page before paying.`);
+      lines.push(``);
+    }
     lines.push(`Track your order anytime:`);
     lines.push(orderUrl);
     lines.push(``);

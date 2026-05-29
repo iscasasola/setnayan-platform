@@ -16,6 +16,16 @@ export type NotificationType =
   // from /admin/payments/actions.ts → refundOrder() after the orders row is
   // flipped to 'refunded' + the order_refunds audit row is inserted.
   | 'payment_refunded'
+  // Added 2026-05-29 Day 3 of the voucher + inline-checkout sprint, alongside
+  // migration 20260529030000_voucher_system_day3_admin_resubmit.sql. Fired
+  // from /admin/payments/actions.ts → requestPaymentResubmit() when an admin
+  // picks the 3rd option (Approve / Reject / Request resubmit) on a pending
+  // payment that doesn't match the expected reference + needs the couple to
+  // resubmit with corrected proof (wrong amount, blurry screenshot, missing
+  // ref code). Distinct from 'payment_rejected' so the notification tray +
+  // email subject can render the right copy (a polite "can you upload again"
+  // vs. a hard "your payment did not match"). See sprint brief Day 3 scope.
+  | 'payment_resubmit_requested'
   | 'rsvp_received'
   | 'review_request'
   | 'help_ticket_replied'
@@ -31,6 +41,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   payment_matched: 'Payment matched',
   payment_rejected: 'Payment rejected',
   payment_refunded: 'Refund issued',
+  payment_resubmit_requested: 'Please resubmit payment',
   rsvp_received: 'RSVP received',
   review_request: 'Review request',
   help_ticket_replied: 'Help ticket reply',
@@ -47,6 +58,11 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   payment_matched: 'bg-emerald-100 text-emerald-800',
   payment_rejected: 'bg-rose-100 text-rose-800',
   payment_refunded: 'bg-violet-100 text-violet-800',
+  // Amber matches the "still pending · action needed" register used by
+  // payment_status='pending' (PAYMENT_STATUS_TONE in lib/orders.ts) — the
+  // resubmit-requested state is operationally a return-to-pending after
+  // admin review, not a hard rejection.
+  payment_resubmit_requested: 'bg-amber-100 text-amber-900',
   rsvp_received: 'bg-terracotta/15 text-terracotta-700',
   review_request: 'bg-amber-100 text-amber-900',
   help_ticket_replied: 'bg-indigo-100 text-indigo-800',

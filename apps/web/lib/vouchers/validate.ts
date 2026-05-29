@@ -106,10 +106,16 @@ export async function validateAndCalculateVoucher(
   // reconciliation in apps/web/app/admin/payments/actions.ts.
   const admin = createAdminClient();
 
+  // Column name is `discount_type` not `voucher_type` per migration
+  // 20260529010000 + 20260529020000. An earlier draft of this select
+  // silently passed `undefined` through to calculate.ts and tripped the
+  // default branch ("This code is not currently valid") on EVERY couple
+  // voucher apply. Renamed 2026-05-29 PM alongside the grant_tokens
+  // extension landing in migration 20260703500000.
   const { data: codeRow, error: lookupErr } = await admin
     .from('discount_codes')
     .select(
-      'discount_code_id, code, voucher_type, pct_value, cap_centavos, covered_service_keys, effective_from, expires_at, max_uses, uses_count, is_active',
+      'discount_code_id, code, discount_type, pct_value, cap_centavos, covered_service_keys, effective_from, expires_at, max_uses, uses_count, is_active',
     )
     .eq('code', normalized)
     .maybeSingle();
@@ -137,6 +143,22 @@ export async function validateAndCalculateVoucher(
       discount_code_id: null,
       code_normalized: null,
       reason: "That code doesn't look right. Double-check and try again.",
+    };
+  }
+
+  // (2b) Vendor-only voucher reject · grant_tokens vouchers redeem ONLY
+  // via /vendor-dashboard/redeem-code, never on couple checkout. Surface
+  // the same polite copy that calculate.ts would surface as a defensive
+  // fallback so couples don't see "for vendor accounts only" twice if a
+  // future caller does extra logging.
+  if (codeRow.discount_type === 'grant_tokens') {
+    return {
+      applied: false,
+      discount_centavos: 0n,
+      final_centavos: args.original_centavos,
+      discount_code_id: null,
+      code_normalized: null,
+      reason: 'This code is for vendor accounts only.',
     };
   }
 
@@ -250,9 +272,11 @@ export async function validateAndCalculateVoucher(
     }
   }
 
-  // (7) + (8) Hand off to calculate for coverage gate + math.
+  // (7) + (8) Hand off to calculate for coverage gate + math. grant_tokens
+  // is already rejected at (2b) above so we narrow to the 3 discount types
+  // calculate.ts can apply against an order.
   const rules: VoucherRules = {
-    voucher_type: codeRow.voucher_type,
+    discount_type: codeRow.discount_type,
     pct_value: codeRow.pct_value,
     cap_centavos:
       codeRow.cap_centavos === null ? null : BigInt(codeRow.cap_centavos),

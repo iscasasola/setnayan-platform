@@ -22,10 +22,13 @@ export const metadata = { title: 'Edit discount code · Admin' };
 type DiscountCodeRow = {
   discount_code_id: string;
   code: string;
-  discount_type: 'pct_off' | 'pct_off_capped' | 'free';
+  discount_type: 'pct_off' | 'pct_off_capped' | 'free' | 'grant_tokens';
   // Day 1.5 spec · pct_value + cap_centavos replace generic discount_value.
   pct_value: number | null;
   cap_centavos: number | null;
+  // 2026-05-29 grant_tokens extension · migration 20260703500000 PART 1.
+  token_grant_count: number | null;
+  token_grant_ttl_days: number | null;
   covered_service_keys: string[];
   effective_from: string | null;
   expires_at: string;
@@ -64,8 +67,8 @@ export default async function EditDiscountCodePage({ params }: Props) {
     admin
       .from('discount_codes')
       .select(
-        // Day 1.5 schema · pct_value + cap_centavos replace discount_value.
-        'discount_code_id, code, discount_type, pct_value, cap_centavos, covered_service_keys, effective_from, expires_at, max_uses, uses_count, is_active',
+        // Day 1.5 schema + 2026-05-29 grant_tokens extension columns.
+        'discount_code_id, code, discount_type, pct_value, cap_centavos, token_grant_count, token_grant_ttl_days, covered_service_keys, effective_from, expires_at, max_uses, uses_count, is_active',
       )
       .eq('discount_code_id', id)
       .maybeSingle(),
@@ -131,6 +134,9 @@ export default async function EditDiscountCodePage({ params }: Props) {
   // Build initial state for the shared form.
   // pct_value is INT (returns as number) · cap_centavos is BIGINT (Supabase
   // can return as number for V1 small magnitudes · coerce defensively).
+  // token_grant_count + token_grant_ttl_days are INT · NULL when discount_type
+  // is not grant_tokens (CHECK constraint guarantees this from migration
+  // 20260703500000).
   const initial: VoucherFormInitial = {
     discount_code_id: code.discount_code_id,
     code: code.code,
@@ -138,6 +144,12 @@ export default async function EditDiscountCodePage({ params }: Props) {
     pct_value: code.pct_value === null ? null : Number(code.pct_value),
     cap_centavos:
       code.cap_centavos === null ? null : Number(code.cap_centavos),
+    token_grant_count:
+      code.token_grant_count === null ? null : Number(code.token_grant_count),
+    token_grant_ttl_days:
+      code.token_grant_ttl_days === null
+        ? null
+        : Number(code.token_grant_ttl_days),
     covered_service_keys: code.covered_service_keys,
     effective_from: code.effective_from,
     expires_at: code.expires_at,

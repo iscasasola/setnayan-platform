@@ -71,10 +71,15 @@ export default async function NewDiscountCodePage() {
     discount_code_id: null,
     code: '',
     // Day 1.5 default: 'pct_off' (simplest case, no cap input shown).
-    // Admin flips to pct_off_capped or free via radio.
+    // Admin flips to pct_off_capped or free or grant_tokens via radio.
     discount_type: 'pct_off',
     pct_value: null,
     cap_centavos: null,
+    // grant_tokens initial state: NULL on create. Form defaults TTL display
+    // to 45 days when the admin flips the radio (matches founder-bonus
+    // convention from migration 20260703500000 PART 4).
+    token_grant_count: null,
+    token_grant_ttl_days: null,
     covered_service_keys: [],
     effective_from: null,
     expires_at: null,

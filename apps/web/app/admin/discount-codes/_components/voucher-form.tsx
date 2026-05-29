@@ -36,16 +36,20 @@ type ServiceOption = {
   price_centavos: number;
 };
 
-type DiscountType = 'pct_off' | 'pct_off_capped' | 'free';
+type DiscountType = 'pct_off' | 'pct_off_capped' | 'free' | 'grant_tokens';
 
 export type VoucherFormInitial = {
   discount_code_id: string | null; // null = create mode
   code: string;
   discount_type: DiscountType;
-  /** Integer 1-100 for pct_off + pct_off_capped, null for free. */
+  /** Integer 1-100 for pct_off + pct_off_capped, null for free + grant_tokens. */
   pct_value: number | null;
   /** Centavos (NOT pesos) cap, NOT NULL only for pct_off_capped. */
   cap_centavos: number | null;
+  /** Integer 1-10000 for grant_tokens, null otherwise. */
+  token_grant_count: number | null;
+  /** Integer 1-365 for grant_tokens (default 45), null otherwise. */
+  token_grant_ttl_days: number | null;
   covered_service_keys: string[];
   effective_from: string | null; // ISO string OR null (null = effective immediately)
   expires_at: string | null; // ISO string OR null
@@ -117,6 +121,17 @@ export function VoucherForm({
   const [pctValueStr, setPctValueStr] = useState<string>(initialPct);
   const [capPesosStr, setCapPesosStr] = useState<string>(initialCapPesos);
 
+  // grant_tokens inputs — token count + TTL days. TTL defaults to 45 to
+  // match the founder-bonus convention (migration 20260703500000 PART 4).
+  const initialTokenCount =
+    initial.token_grant_count !== null ? String(initial.token_grant_count) : '';
+  const initialTokenTtl =
+    initial.token_grant_ttl_days !== null
+      ? String(initial.token_grant_ttl_days)
+      : '45';
+  const [tokenCountStr, setTokenCountStr] = useState<string>(initialTokenCount);
+  const [tokenTtlStr, setTokenTtlStr] = useState<string>(initialTokenTtl);
+
   const initialExpiresAt = initial.expires_at
     ? isoToDatetimeLocal(initial.expires_at)
     : '';
@@ -177,10 +192,14 @@ export function VoucherForm({
 
   // pct input is shown for both pct_off and pct_off_capped (it's the same
   // underlying field per the locked schema). The cap input ONLY appears
-  // for pct_off_capped.
+  // for pct_off_capped. Token grant inputs appear ONLY for grant_tokens.
+  // Covered-services multi-checkbox hides for grant_tokens (vendor wallet
+  // credit ignores SKU coverage · admin doesn't need to pick).
   const showPctInput =
     discountType === 'pct_off' || discountType === 'pct_off_capped';
   const showCapInput = discountType === 'pct_off_capped';
+  const showTokenInputs = discountType === 'grant_tokens';
+  const showCoveredServices = discountType !== 'grant_tokens';
 
   return (
     <form action={action} className="space-y-6">
@@ -245,7 +264,9 @@ export function VoucherForm({
           style={{ color: 'var(--m-slate)' }}
         >
           Percentage off scales by percentage · Percentage off (capped) tops
-          out at a peso ceiling · Free makes covered services 100% off.
+          out at a peso ceiling · Free makes covered services 100% off · Grant
+          tokens credits a vendor&rsquo;s wallet (vendor accounts only · vendor
+          redeems at their dashboard).
         </p>
         <div className="mt-2 flex flex-wrap gap-3">
           {(
@@ -253,6 +274,7 @@ export function VoucherForm({
               { v: 'pct_off' as const, label: 'Percentage off' },
               { v: 'pct_off_capped' as const, label: 'Percentage off (capped)' },
               { v: 'free' as const, label: 'Free (100% off)' },
+              { v: 'grant_tokens' as const, label: 'Grant tokens (vendor reward)' },
             ] satisfies { v: DiscountType; label: string }[]
           ).map((opt) => (
             <label
@@ -362,6 +384,98 @@ export function VoucherForm({
         </p>
       )}
 
+      {/* Token grant inputs · shown ONLY for grant_tokens · vendor reward
+          mints earned-token-vouchers on redemption per migration
+          20260703500000. Default TTL is 45 days to match the founder-bonus
+          convention in the verified_vendor trigger (PART 4 of the same
+          migration). */}
+      {showTokenInputs && (
+        <>
+          <div>
+            <label
+              htmlFor="token_grant_count"
+              className="block text-sm font-medium"
+              style={{ color: 'var(--m-ink)' }}
+            >
+              Tokens granted per redemption (1-10,000)
+            </label>
+            <p
+              className="mt-1 text-xs"
+              style={{ color: 'var(--m-slate)' }}
+            >
+              The number of tokens credited to the vendor&rsquo;s wallet when they
+              redeem this code. Tokens spend toward telemetry boosts +
+              manpower handshake fees + future vendor add-ons.
+            </p>
+            <input
+              type="number"
+              id="token_grant_count"
+              name="token_grant_count"
+              min="1"
+              max="10000"
+              step="1"
+              value={tokenCountStr}
+              onChange={(e) => setTokenCountStr(e.target.value)}
+              required
+              className="mt-2 block w-full max-w-xs rounded-md border px-3 py-2"
+              style={{
+                background: 'var(--m-paper)',
+                borderColor: 'var(--m-line)',
+                color: 'var(--m-ink)',
+              }}
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="token_grant_ttl_days"
+              className="block text-sm font-medium"
+              style={{ color: 'var(--m-ink)' }}
+            >
+              Available for (days · 1-365)
+            </label>
+            <p
+              className="mt-1 text-xs"
+              style={{ color: 'var(--m-slate)' }}
+            >
+              Tokens expire this many days after redemption · the vendor
+              spends expiring tokens first (purchased tokens never expire).
+              Default 45 days matches the founder-bonus convention.
+            </p>
+            <input
+              type="number"
+              id="token_grant_ttl_days"
+              name="token_grant_ttl_days"
+              min="1"
+              max="365"
+              step="1"
+              value={tokenTtlStr}
+              onChange={(e) => setTokenTtlStr(e.target.value)}
+              required
+              className="mt-2 block w-full max-w-xs rounded-md border px-3 py-2"
+              style={{
+                background: 'var(--m-paper)',
+                borderColor: 'var(--m-line)',
+                color: 'var(--m-ink)',
+              }}
+            />
+          </div>
+
+          <p
+            className="rounded-md border px-3 py-2 text-sm"
+            style={{
+              background: 'var(--m-paper-2)',
+              borderColor: 'var(--m-line)',
+              color: 'var(--m-slate)',
+            }}
+          >
+            Vendor codes don&rsquo;t cover Setnayan services · they credit a wallet.
+            Skip the covered-services section below · the vendor redeems this
+            code from their dashboard.
+          </p>
+        </>
+      )}
+
       {/* Expires at · REQUIRED */}
       <div>
         <label
@@ -457,7 +571,9 @@ export function VoucherForm({
         />
       </div>
 
-      {/* Covered services · multi-checkbox grouped by category */}
+      {/* Covered services · multi-checkbox grouped by category. Hidden for
+          grant_tokens vouchers (vendor wallet credit ignores SKU coverage). */}
+      {showCoveredServices && (
       <div>
         <span
           className="block text-sm font-medium"
@@ -566,6 +682,7 @@ export function VoucherForm({
           )}
         </div>
       </div>
+      )}
 
       {/* Submit */}
       <div className="flex items-center gap-3 pt-2">

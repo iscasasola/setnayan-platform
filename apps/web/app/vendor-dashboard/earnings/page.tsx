@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Wallet, Clock3, CheckCircle2, ShieldCheck, Info } from 'lucide-react';
+import { Wallet, Clock3, CheckCircle2, ShieldCheck, Info, Coins } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -160,6 +160,29 @@ export default async function VendorEarningsPage({ searchParams }: Props) {
           </p>
         </div>
       </article>
+
+      {/* Redeem-code discovery · vendor pastes a grant_tokens voucher here
+          to credit their wallet (founder bonus + admin grants land
+          automatically). Migration 20260703500000 + vendor-dashboard/
+          redeem-code surface · CLAUDE.md 2026-05-29 vendor token grants row. */}
+      <Link
+        href="/vendor-dashboard/redeem-code"
+        className="group flex items-center justify-between gap-3 rounded-2xl border border-orange/20 bg-orange/5 p-4 text-sm text-ink/75 hover:bg-orange/10"
+      >
+        <div className="flex items-start gap-3">
+          <Coins aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-orange" strokeWidth={1.75} />
+          <div className="space-y-1">
+            <p className="font-medium text-ink">Have a Setnayan voucher code?</p>
+            <p className="text-sm text-ink/70">
+              Paste it on the redeem page to credit tokens to your wallet ·
+              tokens spend on telemetry boosts and vendor add-ons.
+            </p>
+          </div>
+        </div>
+        <span className="shrink-0 rounded-md bg-orange/15 px-3 py-1.5 text-xs font-medium text-orange group-hover:bg-orange/20">
+          Redeem a code →
+        </span>
+      </Link>
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Stat

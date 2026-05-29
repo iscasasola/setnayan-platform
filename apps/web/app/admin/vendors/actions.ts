@@ -295,3 +295,122 @@ function parseCsvList(raw: FormDataEntryValue | null): string[] {
     .filter((s) => s.length > 0 && s.length <= 64)
     .slice(0, 30);
 }
+
+/**
+ * Admin direct token grant · credits a vendor's wallet with N expiring
+ * tokens via the canonical helper grant_admin_direct_tokens (migration
+ * 20260703500000 PART 2).
+ *
+ * WHY · Owner brief 2026-05-29: admin needs a way to manually drop tokens
+ *       into a specific vendor's wallet without minting a voucher code.
+ *       Use cases: rewarding referral leads, comping a verification snafu,
+ *       seeding pilot family vendors beyond the auto-100 founder bonus.
+ *
+ * The helper function is idempotent via UNIQUE token_grants_log.idempotency_key
+ * so admin double-clicking the button is a no-op (returns the existing
+ * voucher_id). We synthesize a deterministic key per submit including the
+ * admin_id + vendor_id + token_count + ttl_days + a 1-second timestamp
+ * bucket — same logical click within the same second collapses, but the
+ * SAME admin granting the SAME tokens a minute later mints a new grant
+ * (the admin meant to grant twice).
+ *
+ * Form fields:
+ *   • vendor_id      — vendor_profiles.vendor_profile_id (UUID)
+ *   • token_count    — int 1-10000
+ *   • ttl_days       — int 1-365 (default 45 to match founder convention)
+ *   • grant_reason   — TEXT (optional, max 500 chars)
+ *
+ * Returns void; redirects back to the same /admin/vendors/[id]/tokens page
+ * with ?granted= success param so the UI flashes the toast + the recent-grants
+ * table re-renders the new row at the top.
+ */
+export async function grantTokensToVendor(formData: FormData): Promise<void> {
+  const { adminUserId } = await requireAdmin();
+
+  const vendorId = String(formData.get('vendor_id') ?? '').trim();
+  if (vendorId.length === 0) {
+    throw new Error('Missing vendor_id.');
+  }
+
+  const rawCount = formData.get('token_count');
+  if (typeof rawCount !== 'string' || rawCount.trim().length === 0) {
+    throw new Error('Enter the number of tokens (1-10,000).');
+  }
+  const tokenCount = Number.parseInt(rawCount.trim(), 10);
+  if (!Number.isFinite(tokenCount) || tokenCount < 1 || tokenCount > 10000) {
+    throw new Error('Token count must be a whole number between 1 and 10,000.');
+  }
+
+  const rawTtl = formData.get('ttl_days');
+  let ttlDays = 45;
+  if (typeof rawTtl === 'string' && rawTtl.trim().length > 0) {
+    ttlDays = Number.parseInt(rawTtl.trim(), 10);
+    if (!Number.isFinite(ttlDays) || ttlDays < 1 || ttlDays > 365) {
+      throw new Error('Available-for days must be 1-365.');
+    }
+  }
+
+  const rawReason = formData.get('grant_reason');
+  let reason: string | null = null;
+  if (typeof rawReason === 'string' && rawReason.trim().length > 0) {
+    reason = rawReason.trim().slice(0, 500);
+  }
+
+  // Deterministic idempotency key. The 1-second bucket collapses
+  // accidental double-clicks but lets the SAME admin re-grant the SAME
+  // tokens a minute later (different bucket → different key → fresh grant).
+  const secondBucket = Math.floor(Date.now() / 1000);
+  const idempotencyKey = `admin_grant:${adminUserId}:${vendorId}:${tokenCount}:${ttlDays}:${secondBucket}`;
+
+  const admin = createAdminClient();
+
+  // Snapshot vendor for audit metadata.
+  const { data: vendor } = await admin
+    .from('vendor_profiles')
+    .select('business_name, public_id')
+    .eq('vendor_profile_id', vendorId)
+    .maybeSingle();
+  if (!vendor) {
+    throw new Error('Vendor not found.');
+  }
+
+  // Call the helper. Returns the voucher_id (or NULL on key collision).
+  const { data: voucherId, error: rpcErr } = await admin.rpc(
+    'grant_admin_direct_tokens',
+    {
+      p_vendor_id: vendorId,
+      p_token_count: tokenCount,
+      p_ttl_days: ttlDays,
+      p_grant_source: 'admin_grant',
+      p_granted_by_admin_id: adminUserId,
+      p_rationale: reason ?? `Admin direct grant · ${tokenCount} tokens`,
+      p_idempotency_key: idempotencyKey,
+    },
+  );
+  if (rpcErr) {
+    throw new Error(`Could not grant tokens: ${rpcErr.message}`);
+  }
+
+  // Audit-log canonical pattern matches issueCompGrant.
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
+    action: 'vendor_token_grant',
+    target_id: vendorId,
+    actor_user_id: adminUserId,
+    metadata: {
+      business_name: vendor.business_name,
+      public_id: vendor.public_id,
+      token_count: tokenCount,
+      ttl_days: ttlDays,
+      grant_reason: reason,
+      voucher_id: voucherId,
+      idempotency_key: idempotencyKey,
+    },
+  });
+  if (auditErr) {
+    console.error('[grantTokensToVendor] audit log insert failed', auditErr.message);
+  }
+
+  revalidatePath(`/admin/vendors/${vendorId}/tokens`);
+  revalidatePath('/admin/vendors');
+  redirect(`/admin/vendors/${vendorId}/tokens?granted=${tokenCount}`);
+}

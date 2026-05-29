@@ -8,18 +8,65 @@ import { fetchUserRoleSummary } from '@/lib/roles';
 import { countUnread } from '@/lib/notifications';
 import { getLocale, makeT } from '@/lib/i18n';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { BottomNav } from './_components/bottom-nav';
 import { EventSwitcher } from './_components/event-switcher';
-import { SidebarResizeHandle } from './_components/sidebar-resize-handle';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { ProfileMenu } from '@/app/_components/profile-menu';
 import { RoleSwitchPill } from '@/app/_components/role-switch-pill';
+import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
+import { CustomerSidebar } from './_components/customer-sidebar';
+import { CustomerBottomNav } from './_components/customer-bottom-nav';
 
 type Props = {
   children: React.ReactNode;
   params: Promise<{ eventId: string }>;
 };
 
+/**
+ * Event-scoped customer layout — v2.1 Navigation Phase 1 (customer doorway).
+ *
+ * WHY: CLAUDE.md tenth 2026-05-28 row v2.1 brief canonical lock + 14th
+ * 2026-05-28 row System Wiring Map audit + 2026-05-23 row 2 admin pattern
+ * (PR #606 admin doorway shipped the SidebarShell + SidebarSection +
+ * SidebarItem + BottomNav primitives). Phase 1 retires the legacy 5-tab
+ * pill bar at apps/web/app/dashboard/[eventId]/_components/bottom-nav.tsx
+ * (the file stays on disk for historical context only — no longer imported
+ * here) and adopts the shared primitives for both desktop sidebar + mobile
+ * BottomNav.
+ *
+ * STRUCTURE: SidebarShell owns the desktop layout split (sidebar at lg+,
+ * main content area with offset). topBar slot carries the EventSwitcher
+ * + utility cluster (Marketplace link · role-switch pill · unread bell ·
+ * profile menu). Mobile chrome (CustomerBottomNav at bottom) is rendered
+ * as a sibling of SidebarShell — both auto-hide / show via their own
+ * breakpoint primitives (sidebar lg:flex, bottom-nav lg:hidden).
+ *
+ * RETIRED from the previous layout shape:
+ *   - Per-instance sticky top strip rendered inline. SidebarShell now
+ *     owns the sticky top-bar slot; we just inject the EventSwitcher +
+ *     utilities into it.
+ *   - <BottomNav> from ./_components/bottom-nav.tsx (legacy 5-tab pill +
+ *     desktop sidebar variant). The new CustomerBottomNav uses the shared
+ *     primitive and the new CustomerSidebar owns desktop nav structure.
+ *   - <SidebarResizeHandle>. The legacy custom drag handle drove
+ *     --sidebar-width on the document root for the legacy sidebar to
+ *     consume. SidebarShell ships its own collapse/expand affordance
+ *     (chevron in the sidebar footer + localStorage persistence under
+ *     `setnayan.nav.sidebar.collapsed`). Resizable freeform width is
+ *     deferred to a follow-up — the collapse toggle covers 95% of the
+ *     "give me more reading room" use case.
+ *   - `lg:-ml-60` outer-cancellation hack. The outer dashboard layout's
+ *     OuterDashboardHeader returns null on event-scoped routes (the
+ *     usePathname() check there does the right thing). With the legacy
+ *     `lg:pl-60` removed from the outer layout (Phase 0 already replaced
+ *     the outer chrome's hardcoded sidebar offset), no negative-margin
+ *     cancellation is needed. The new SidebarShell handles desktop offset
+ *     internally via --shell-main-offset.
+ *
+ * AUTHORIZATION + DATA FETCHING preserved verbatim from the prior layout
+ * — see in-flow comments at the membership check + the 5th-hotfix Promise.
+ * all defensive wrapping. Nav Phase 1 is purely a chrome refactor; no
+ * server-side semantics changed.
+ */
 export default async function EventLayout({ children, params }: Props) {
   const { eventId } = await params;
   const user = await getCurrentUser();
@@ -57,12 +104,6 @@ export default async function EventLayout({ children, params }: Props) {
   // firing after PR #452 deployed because the /dashboard root index
   // redirects to /dashboard/{primary.event_id} which goes through THIS
   // layout — not the parent /dashboard/layout.tsx that #452 hardened.
-  // Three load-bearing crash sites here:
-  //   (a) events SELECT — could throw on column drift or transport error
-  //   (b) countUnread / fetchUserEvents / fetchUserRoleSummary — all
-  //       internally log errors but synchronous throws still escape
-  //   (c) getLocale() — synchronous helper, low risk but wrapped for
-  //       symmetry
   // Each fetcher wrapped in .catch() with safe defaults so one throw
   // can't crash the whole layout tree.
   const [eventRes, unreadCount, locale, switcherEvents, roles] = await Promise.all([
@@ -155,152 +196,99 @@ export default async function EventLayout({ children, params }: Props) {
   if (!event) notFound();
 
   const tr = makeT(locale);
-  // 5-tab BottomNav (CLAUDE.md 2026-05-24) — Today added as new first tab,
-  // promoting the Today's Focus wizard (originally branded Concierge in V1;
-  // V2 cutover 2026-05-28 renamed the surface · iteration 0016 substrate
-  // unchanged) from inline event-home block to its own /today route.
-  // Original 4-tab refactor (2026-05-22) kept: Vendors + Budget reachable
-  // via planning cards on Home + top-nav Marketplace + 14-tile NavGrid.
-  const navLabels = {
-    today: tr('nav.today'),
-    home: tr('nav.home'),
-    guests: tr('nav.guests'),
-    website: tr('nav.website'),
-    services: tr('nav.services'),
-  };
 
-  // Owner directive 2026-05-23: "make sidebar resizable also." The
-  // sidebar's width is now driven by the --sidebar-width CSS variable
-  // (default 240px) instead of a hard-coded `lg:pl-60`. Both the
-  // layout's body padding and the BottomNav sidebar width read the
-  // same variable so they update in lockstep. The SidebarResizeHandle
-  // client component (mounted at the bottom of this tree) owns the
-  // variable + writes localStorage. See sidebar-resize-handle.tsx for
-  // the full architectural rationale (CSS variable over context to
-  // avoid forcing a client boundary across this server layout).
-  // v2.1 deep-fix (2026-05-28) — outer chrome paper backgrounds use
-  // --m-paper-2 (#F4EFE5) warmer than legacy `bg-cream`. The sticky top
-  // strip + sidebar background read as the template's parchment-warm
-  // surface. Hairline borders swap to --m-line so the chrome has the
-  // softer line treatment matching couple-dashboard.jsx CoupleTopbar.
-  // Width treatment + safe-area-inset-bottom + sidebar offset math
-  // unchanged — `bg-cream` legacy classes kept on inner main as
-  // fallback; CSS variable overrides take precedence.
-  return (
-    // Outer container — body sits to the right of the sidebar on lg+
-    // via `lg:pl-[var(--sidebar-width,240px)]`. This is Tailwind's
-    // arbitrary-value syntax wrapping the CSS variable so the lg:
-    // breakpoint gate still applies. Mobile (<lg) has no left padding
-    // because the sidebar isn't rendered (BottomNav uses lg:flex);
-    // body fills full width via its own px-4 / sm:px-6.
-    // Owner directive 2026-05-23 ("issue again with home"): the OUTER
-    // `dashboard/layout.tsx` server-applies `lg:pl-60` unconditionally
-    // even though its OuterDashboardHeader returns null on event-scoped
-    // routes (client-side `usePathname` check). That stacks 240px of
-    // dead padding on top of THIS layout's own variable padding —
-    // 480px total on lg+. `lg:-ml-60` cancels the outer's 240px so the
-    // event-route body sits flush against the sidebar's right border
-    // with only THIS layout's variable padding controlling the offset.
-    // Non-event routes (admin, profile, notifications) are unaffected
-    // because they don't render this inner layout.
-    <div
-      className="flex min-h-dvh flex-col pb-16 lg:-ml-60 lg:pb-0 lg:pl-[var(--sidebar-width,240px)]"
-      style={{ background: 'var(--m-paper-2)' }}
-    >
-      <div
-        className="sticky top-0 z-20 backdrop-blur"
-        style={{
-          background: 'rgba(251, 248, 242, 0.95)' /* --m-paper @ 95% */,
-          borderBottom: '1px solid var(--m-line)',
-        }}
-      >
-        {/* Owner directive 2026-05-22: "why is it not maximizing the
-            whole screen?" The previous cap (max-w-6xl / xl:max-w-7xl /
-            2xl:max-w-screen-2xl) topped out at 1536px even on wide
-            monitors, leaving significant whitespace on both sides on
-            Macbook 16" and external displays. Removing the cap lets the
-            event-scoped layout fill the full viewport with the existing
-            horizontal padding (32px each side via lg:px-8). The header
-            strip stays consistent with the main content below by
-            mirroring the same width treatment. */}
-        <div className="mx-auto flex w-full items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
-          <EventSwitcher
-            currentEventId={event.event_id}
-            currentEventName={event.display_name}
-            currentEventDate={event.event_date}
-            currentMonogramText={event.monogram_text}
-            currentMonogramColor={event.monogram_color}
-            events={switcherEvents
-              .filter((e) => !e.archived)
-              .map((e) => ({
-                event_id: e.event_id,
-                display_name: e.display_name,
-                event_date: e.event_date,
-                is_primary: e.is_primary,
-                monogram_text: e.monogram_text,
-                monogram_color: e.monogram_color,
-              }))}
-            hasVendorAccess={roles.hasVendorAccess}
-            hasAdminAccess={roles.hasAdminAccess}
-            vendorProfiles={roles.vendorProfiles}
-          />
-          <div className="flex items-center gap-2">
-            {/* v2.1 deep-fix — Marketplace link uses sienna --m-orange-2
-                hover state to match couple-dashboard.jsx topbar's "Share
-                dashboard" + ghost button treatment. Resting state stays
-                in slate so the chrome doesn't read as a heavy CTA. */}
-            <Link
-              href="/vendors"
-              aria-label="Vendor marketplace"
-              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-medium hover:bg-[var(--m-orange-4)] sm:px-3"
-              style={{ color: 'var(--m-slate)' }}
-            >
-              <Store aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              <span className="hidden sm:inline">Marketplace</span>
-            </Link>
-            <RoleSwitchPill
-              currentRole="customer"
-              hasCustomerAccess
-              hasVendorAccess={roles.hasVendorAccess}
-              hasAdminAccess={roles.hasAdminAccess}
-              vendorProfiles={roles.vendorProfiles}
-            />
-            <UnreadBellBadge
-              userId={user.id}
-              initialUnread={unreadCount}
-              href="/dashboard/notifications"
-              ariaBaseLabel={tr('nav.notifications')}
-              ariaUnreadSuffix="unread"
-            />
-            <ProfileMenu
-              email={user.email ?? ''}
-              ariaLabel={tr('common.profile')}
-            />
-          </div>
-        </div>
+  // Top bar lives inside SidebarShell's topBar slot. Carries the event-
+  // scoped utilities cluster — EventSwitcher (left), Marketplace + role-
+  // switch + unread bell + profile menu (right). Pre-Phase 1 this sat
+  // inside a <div className="sticky top-0 z-20 backdrop-blur"> wrapper
+  // owned by the layout; now SidebarShell owns the sticky chrome and we
+  // just inject the inner row.
+  const topBar = (
+    <div className="mx-auto flex w-full items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
+      <EventSwitcher
+        currentEventId={event.event_id}
+        currentEventName={event.display_name}
+        currentEventDate={event.event_date}
+        currentMonogramText={event.monogram_text}
+        currentMonogramColor={event.monogram_color}
+        events={switcherEvents
+          .filter((e) => !e.archived)
+          .map((e) => ({
+            event_id: e.event_id,
+            display_name: e.display_name,
+            event_date: e.event_date,
+            is_primary: e.is_primary,
+            monogram_text: e.monogram_text,
+            monogram_color: e.monogram_color,
+          }))}
+        hasVendorAccess={roles.hasVendorAccess}
+        hasAdminAccess={roles.hasAdminAccess}
+        vendorProfiles={roles.vendorProfiles}
+      />
+      <div className="flex items-center gap-2">
+        {/* v2.1 deep-fix — Marketplace link uses sienna --m-orange-4 hover
+            state to match couple-dashboard.jsx topbar's ghost button
+            treatment. Resting state stays in slate so the chrome doesn't
+            read as a heavy CTA. */}
+        <Link
+          href="/vendors"
+          aria-label="Vendor marketplace"
+          className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-medium hover:bg-[var(--m-orange-4)] sm:px-3"
+          style={{ color: 'var(--m-slate)' }}
+        >
+          <Store aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          <span className="hidden sm:inline">Marketplace</span>
+        </Link>
+        <RoleSwitchPill
+          currentRole="customer"
+          hasCustomerAccess
+          hasVendorAccess={roles.hasVendorAccess}
+          hasAdminAccess={roles.hasAdminAccess}
+          vendorProfiles={roles.vendorProfiles}
+        />
+        <UnreadBellBadge
+          userId={user.id}
+          initialUnread={unreadCount}
+          href="/dashboard/notifications"
+          ariaBaseLabel={tr('nav.notifications')}
+          ariaUnreadSuffix="unread"
+        />
+        <ProfileMenu
+          email={user.email ?? ''}
+          ariaLabel={tr('common.profile')}
+        />
       </div>
+    </div>
+  );
 
-      {/* Full-width main — see comment above the header strip for the
-          why (2026-05-22 owner directive). The event home's Finder-column
-          layout + other event-scoped surfaces all benefit from filling
-          the viewport on wide monitors. */}
-      {/* Owner directive 2026-05-23: "there is a gap from side nav to body."
-          On lg+ the sidebar already sits flush against the viewport edge
-          with its own border-r — the main element doesn't need the 32px
-          left padding the mobile + tablet layout uses. Drop to lg:pl-4
-          (16px) so the body sits closer to the sidebar's right border. */}
-      <main className="mx-auto w-full flex-1 px-4 py-6 sm:px-6 lg:pl-4 lg:pr-8">
-        {children}
-      </main>
-
-      <BottomNav eventId={eventId} labels={navLabels} />
-
-      {/* Owner directive 2026-05-23: resizable sidebar. Client component
-          owns the --sidebar-width CSS variable + localStorage. Sits
-          adjacent to BottomNav so both render at the document root
-          level (no nested-tree constraints). Desktop-only — renders
-          nothing on <lg viewports. */}
-      <SidebarResizeHandle />
+  // Outer-cancel: the parent /dashboard/layout.tsx applies `lg:pl-60`
+  // unconditionally even though OuterDashboardHeader (the consumer of
+  // that 240px sidebar) returns null on event-scoped routes via its
+  // usePathname() check. Without cancelling the parent's padding, the
+  // SidebarShell sidebar would render PLUS 240px of dead left padding,
+  // pushing the event-scoped main content 480px right of the viewport
+  // edge on lg+. `lg:-ml-60` cancels the outer's 240px so the event-
+  // route body sits flush against the SidebarShell sidebar's right
+  // border with only SidebarShell's own --shell-main-offset controlling
+  // the offset. Same pattern as the pre-Phase-1 layout's outer-cancel
+  // hack (the cancel still needs to live here because the outer layout
+  // is part of an unrelated chrome surface that other routes consume).
+  return (
+    <div className="lg:-ml-60">
+      <SidebarShell sidebar={<CustomerSidebar eventId={eventId} />} topBar={topBar}>
+        {/* Pad the bottom on mobile so BottomNav doesn't cover the last
+            row of content. SidebarShell already handles the desktop
+            sidebar offset via its lg:pl-[var(--shell-main-offset)] math. */}
+        <div className="pb-20 lg:pb-0">
+          <main className="mx-auto w-full px-4 py-6 sm:px-6 lg:px-8">
+            {children}
+          </main>
+        </div>
+      </SidebarShell>
+      {/* Mobile BottomNav — auto-hides at lg via lg:hidden inside the
+          BottomNav primitive. Sits outside SidebarShell so it doesn't
+          inherit the desktop sidebar offset. */}
+      <CustomerBottomNav eventId={eventId} />
     </div>
   );
 }

@@ -12,6 +12,7 @@ import {
   parseVerificationState,
   type VerificationState,
 } from '@/lib/vendor-verification';
+import { firePilotGrantHookOnVerification } from '@/lib/v2/pilot-grant-hook';
 
 /**
  * Server actions backing the admin Verification Queue. Two surfaces share
@@ -371,6 +372,27 @@ async function applyApplicationDecision(
     actor_user_id: input.actor.user_id,
   });
   if (auditErr) return { ok: false, error: auditErr.message };
+
+  // ---- Step 5: V2 Phase I · pilot grant hook (best-effort, never rolls back).
+  //
+  // Fires the welcome email + dedicated `pilot_grant_issued` audit row when
+  // the verification_state transition lands at 'verified'. The DB-side
+  // 100-token grant + 45-day-expiring earned_token_vouchers row + token_
+  // grants_log idempotent INSERT + vendor_wallets cache refresh all
+  // happen automatically inside the `grant_verified_vendor_bonus()` trigger
+  // shipped by migration 20260703500000 — the trigger fires on the Step 2
+  // UPDATE above. Idempotency is enforced TWICE inside the trigger:
+  // (a) legacy token_rewards_log existence check, (b) UNIQUE idempotency_key
+  // on token_grants_log via 'founder_bonus:<vendor>'.
+  //
+  // Spec: CLAUDE.md 2026-05-28 third row § decisions (f) +
+  // V2_Cutover_Plan_2026-05-28.md Phase I.
+  if (input.decision === 'approved') {
+    await firePilotGrantHookOnVerification(admin, {
+      vendorProfileId: vendor.vendor_profile_id,
+      actorAdminUserId: input.actor.user_id,
+    });
+  }
 
   return { ok: true };
 }

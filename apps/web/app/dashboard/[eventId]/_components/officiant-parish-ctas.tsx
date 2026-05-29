@@ -86,9 +86,13 @@ export function OfficiantParishCTAs({
   if (mode === 'added') {
     return (
       <div className="mt-auto">
+        {/* HEIGHT · `h-11` (44px) matches every other CTA slot in this
+         *  component + the PlanCardCTAs Search/Add row + the
+         *  MarketplaceTeaseStrip pills · CLAUDE.md 2026-05-30 owner
+         *  directive button-height parity. */}
         <span
           role="status"
-          className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-emerald-300/60 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-900"
+          className="inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-md border border-emerald-300/60 bg-emerald-50 px-3 text-xs font-medium text-emerald-900"
         >
           <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           Added to plan
@@ -132,6 +136,10 @@ export function OfficiantParishCTAs({
       >
         <input type="hidden" name="event_id" value={eventId} />
         <input type="hidden" name="category" value={defaultCategory} />
+        {/* INPUT + ACTION ROW · all three controls share `h-11` (44px)
+         *  for visual rhyme across the Save/Cancel row. The text input
+         *  + Save submit + Cancel X all align on the same baseline.
+         *  CLAUDE.md 2026-05-30 button-height parity. */}
         <input
           name="vendor_name"
           required
@@ -140,13 +148,13 @@ export function OfficiantParishCTAs({
           disabled={pending}
           defaultValue={ceremonyVenueName ? `Clergy from ${ceremonyVenueName}` : ''}
           placeholder={placeholder}
-          className="rounded-md border border-ink/15 bg-cream px-2.5 py-1.5 text-xs text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60"
+          className="h-11 rounded-md border border-ink/15 bg-cream px-2.5 text-xs text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60"
         />
         <div className="flex gap-1.5">
           <button
             type="submit"
             disabled={pending}
-            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border border-terracotta/40 bg-terracotta/10 px-3 py-1.5 text-xs font-medium text-terracotta transition-colors hover:bg-terracotta/15 disabled:cursor-default disabled:opacity-60"
+            className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-md border border-terracotta/40 bg-terracotta/10 px-3 text-xs font-medium text-terracotta transition-colors hover:bg-terracotta/15 disabled:cursor-default disabled:opacity-60"
           >
             {pending ? (
               <>
@@ -168,7 +176,7 @@ export function OfficiantParishCTAs({
             }}
             disabled={pending}
             aria-label="Cancel"
-            className="inline-flex items-center justify-center rounded-md border border-ink/15 bg-cream px-2 py-1.5 text-xs font-medium text-ink/65 transition-colors hover:text-ink disabled:opacity-60"
+            className="inline-flex h-11 items-center justify-center rounded-md border border-ink/15 bg-cream px-2 text-xs font-medium text-ink/65 transition-colors hover:text-ink disabled:opacity-60"
           >
             <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           </button>
@@ -199,18 +207,22 @@ export function OfficiantParishCTAs({
             the parish secretary for clergy availability + contact.
           </p>
         </div>
+        {/* CTA ROW · both buttons at `h-11` (44px) per CLAUDE.md
+         *  2026-05-30 owner button-height parity. Matches the
+         *  PlanCardCTAs Search/Add row that this entire component
+         *  REPLACES on the Catholic+parish auto-resolve variant. */}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
           <button
             type="button"
             onClick={() => setMode('adding')}
-            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border border-terracotta/30 bg-terracotta/8 px-3 py-1.5 text-xs font-medium text-terracotta transition-colors hover:bg-terracotta/12"
+            className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-md border border-terracotta/30 bg-terracotta/8 px-3 text-xs font-medium text-terracotta transition-colors hover:bg-terracotta/12"
           >
             <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             Add officiant from parish
           </button>
           <Link
             href={searchHref}
-            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/80 transition-colors hover:border-terracotta/50 hover:text-terracotta"
+            className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 text-xs font-medium text-ink/80 transition-colors hover:border-terracotta/50 hover:text-terracotta"
           >
             <Search aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             Search outside this parish
@@ -235,17 +247,22 @@ export function OfficiantParishCTAs({
           locked, we&rsquo;ll suggest officiants from there.
         </p>
       </div>
+      {/* THREE-CTA ROW · all three buttons at `h-11` (44px) per
+       *  CLAUDE.md 2026-05-30 owner button-height parity. State B
+       *  replaces the standard Search/Add row when ceremony venue
+       *  isn't locked yet — the three buttons need to look like one
+       *  uniform row, not three different sizes. */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
         <Link
           href="#ceremony-venue-card"
-          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border border-terracotta/30 bg-terracotta/8 px-3 py-1.5 text-xs font-medium text-terracotta transition-colors hover:bg-terracotta/12"
+          className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-md border border-terracotta/30 bg-terracotta/8 px-3 text-xs font-medium text-terracotta transition-colors hover:bg-terracotta/12"
         >
           <Church aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Lock ceremony venue first
         </Link>
         <Link
           href={searchHref}
-          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/80 transition-colors hover:border-terracotta/50 hover:text-terracotta"
+          className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 text-xs font-medium text-ink/80 transition-colors hover:border-terracotta/50 hover:text-terracotta"
         >
           <Search aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Search anyway
@@ -253,7 +270,7 @@ export function OfficiantParishCTAs({
         <button
           type="button"
           onClick={() => setMode('adding')}
-          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/80 transition-colors hover:border-terracotta/50 hover:text-terracotta"
+          className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 text-xs font-medium text-ink/80 transition-colors hover:border-terracotta/50 hover:text-terracotta"
         >
           <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           Add manually

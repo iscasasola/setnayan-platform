@@ -154,12 +154,21 @@ export function ManualVendorDropdown({
 
   return (
     <div ref={containerRef} className="relative inline-flex flex-1">
+      {/* HEIGHT · `h-11` (44px exact) matches the sibling Search vendors
+       *  CTA in PlanCardCTAs + the MarketplaceTeaseStrip pills + every
+       *  button in the marketplace FilterDrawer/StickyMarketplaceHeader.
+       *  Prior `min-h-[36px]` made the Add trigger 8px shorter than the
+       *  adjacent Search vendors button which itself was only ~32px tall
+       *  before this PR — the row read as two small buttons. CLAUDE.md
+       *  2026-05-30 owner directive: "button height are still
+       *  inconsistent. we want them to have the same height so
+       *  familiarity is easy." */}
       <button
         type="button"
         onClick={handleTriggerClick}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="inline-flex w-full min-h-[36px] items-center justify-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/80 transition-colors hover:border-terracotta/50 hover:text-terracotta"
+        className="inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 text-xs font-medium text-ink/80 transition-colors hover:border-terracotta/50 hover:text-terracotta"
       >
         <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
         Add

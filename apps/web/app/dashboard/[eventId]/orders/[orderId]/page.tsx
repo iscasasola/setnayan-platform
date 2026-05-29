@@ -74,7 +74,33 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
         ? 'Payment logged. The Setnayan team will reconcile within one business day.'
         : null;
 
+  // Day 3 of the voucher + inline-checkout sprint (CLAUDE.md 2026-05-29 Day 3
+  // row · sprint brief at VOUCHER_SPRINT_BRIEF.md): when the Setnayan team
+  // picks "Request resubmit" instead of Approve/Reject, the most recent
+  // payment lands at status='resubmit_requested' + carries admin_resubmit_notice.
+  // We surface that notice in an amber banner at the top of the page so the
+  // couple sees it the moment they open the order, then re-open the upload
+  // form below (which is already gated by `canLogPayment` and stays open
+  // because the order status doesn't change · only the payment status does).
+  //
+  // Payments are ordered DESC by created_at in fetchPaymentsForOrder (see
+  // lib/orders.ts:124) so payments[0] is the most recent. We only surface
+  // the banner if that most-recent payment is the one waiting for a fix.
+  const latestPayment = payments[0] ?? null;
+  const resubmitRequested =
+    latestPayment?.status === 'resubmit_requested'
+      ? {
+          notice: latestPayment.admin_resubmit_notice ?? null,
+          reviewedAt: latestPayment.reviewed_at ?? null,
+        }
+      : null;
+
   const canCancel = order.status === 'submitted' || order.status === 'awaiting_payment';
+  // canLogPayment already returns true for status='submitted' so the upload
+  // form stays open when admin requests a resubmit (order status doesn't
+  // change — only the payment row's status does). This is the "re-open the
+  // upload form" requirement in the Day 3 brief: no new logic needed because
+  // the existing gate already covers the case.
   const canLogPayment =
     order.status === 'awaiting_payment' || order.status === 'submitted' || order.status === 'paid';
 
@@ -103,6 +129,45 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
         >
           {decodeURIComponent(search.error)}
         </p>
+      ) : null}
+
+      {/*
+        Resubmit banner (Day 3 voucher sprint, 2026-05-29). Surfaces verbatim
+        the admin's note about what needs fixing on the next upload — wrong
+        amount, blurry screenshot, missing reference code, etc. The upload
+        form below stays open automatically because the order's status
+        doesn't change when admin picks "Request resubmit" — only the
+        payment row's status flips. Brand-voice copy per
+        feedback_setnayan_no_dev_text_post_launch: warm, actionable, no
+        engineering jargon.
+      */}
+      {resubmitRequested ? (
+        <div
+          role="alert"
+          className="space-y-2 rounded-2xl border border-amber-300/60 bg-amber-50 p-5 text-amber-900"
+        >
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-amber-900/70">
+            Please upload your payment again
+          </p>
+          <p className="text-sm">
+            We reviewed your earlier upload and need a fresh one before we can match the payment.
+            Here&rsquo;s what the Setnayan team flagged:
+          </p>
+          {resubmitRequested.notice ? (
+            <p className="whitespace-pre-wrap rounded-md bg-white/70 p-3 text-sm text-amber-900">
+              {resubmitRequested.notice}
+            </p>
+          ) : null}
+          <p className="text-xs text-amber-900/85">
+            Use the &ldquo;Log a payment&rdquo; form below to send a corrected screenshot or
+            reference number &mdash; you don&rsquo;t need to create a new order.
+          </p>
+          {resubmitRequested.reviewedAt ? (
+            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-amber-900/60">
+              Requested {resubmitRequested.reviewedAt.slice(0, 10)}
+            </p>
+          ) : null}
+        </div>
       ) : null}
 
       <header className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-5">

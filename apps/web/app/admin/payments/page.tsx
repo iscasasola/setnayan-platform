@@ -11,7 +11,13 @@ import {
   type OrderStatus,
   type PaymentStatus,
 } from '@/lib/orders';
-import { approvePayment, confirmOrderTotal, refundOrder, rejectPayment } from './actions';
+import {
+  approvePayment,
+  confirmOrderTotal,
+  refundOrder,
+  rejectPayment,
+  requestPaymentResubmit,
+} from './actions';
 
 export const metadata = { title: 'Payments · Admin' };
 
@@ -32,6 +38,11 @@ type PaymentJoined = {
   paid_at: string;
   status: PaymentStatus;
   admin_notes: string | null;
+  // Set when an earlier admin review picked "Request resubmit" (Day 3 of
+  // the voucher + inline-checkout sprint · 2026-05-29). Surfaces under the
+  // payment-status pill so the next reviewer sees why the couple was asked
+  // to re-upload. Column shipped by migration 20260529010000.
+  admin_resubmit_notice: string | null;
   reviewed_at: string | null;
   created_at: string;
   order: {
@@ -87,7 +98,7 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
     let paymentsQuery = admin
       .from('payments')
       .select(
-        'payment_id,order_id,user_id,amount_php,channel,reference_number,screenshot_url,paid_at,status,admin_notes,reviewed_at,created_at, order:orders(public_id, reference_code, description, requested_total_php, confirmed_total_php, status), user:users!payments_user_id_fkey(email, public_id)',
+        'payment_id,order_id,user_id,amount_php,channel,reference_number,screenshot_url,paid_at,status,admin_notes,admin_resubmit_notice,reviewed_at,created_at, order:orders(public_id, reference_code, description, requested_total_php, confirmed_total_php, status), user:users!payments_user_id_fkey(email, public_id)',
       )
       .order('created_at', { ascending: false })
       .limit(100);
@@ -328,6 +339,32 @@ function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
                     Approve · matched
                   </SubmitButton>
                 </form>
+                {/*
+                  Day 3 of the voucher + inline-checkout sprint (CLAUDE.md
+                  2026-05-29 Day 3 row): "Request resubmit" middle path. Use
+                  this when the screenshot is unclear, the reference code is
+                  missing, or the amount doesn't match — the couple can
+                  re-upload from the order detail page without starting over.
+                  The notice is required + emailed verbatim to the couple.
+                */}
+                <form action={requestPaymentResubmit} className="space-y-2">
+                  <input type="hidden" name="payment_id" value={p.payment_id} />
+                  <textarea
+                    name="admin_resubmit_notice"
+                    placeholder="What does the couple need to fix? (e.g. screenshot is blurry, reference code missing from notes)"
+                    required
+                    minLength={10}
+                    maxLength={2000}
+                    rows={2}
+                    className="input-field min-h-[60px] py-2 text-sm"
+                  />
+                  <SubmitButton
+                    className="inline-flex items-center justify-center rounded-md bg-amber-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-amber-800 disabled:opacity-70"
+                    pendingLabel="Requesting resubmit…"
+                  >
+                    Request resubmit
+                  </SubmitButton>
+                </form>
                 <form action={rejectPayment} className="space-y-2">
                   <input type="hidden" name="payment_id" value={p.payment_id} />
                   <input
@@ -353,7 +390,28 @@ function PaymentsList({ payments }: { payments: PaymentJoined[] }) {
               />
             ) : null}
 
-            {p.status !== 'pending' && p.admin_notes ? (
+            {/*
+              Surface the existing admin_resubmit_notice when the payment is
+              in 'resubmit_requested' state so a follow-up admin reviewer (or
+              the same reviewer on a fresh page load) sees the context for why
+              the couple was asked to re-upload. Distinct from the admin_notes
+              line below (which surfaces for matched / rejected payments).
+            */}
+            {p.status === 'resubmit_requested' && p.admin_resubmit_notice ? (
+              <div className="rounded-md border border-amber-300/60 bg-amber-50 p-3 text-xs text-amber-900">
+                <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-amber-900/70">
+                  Resubmit notice sent to couple
+                </p>
+                <p className="mt-1 whitespace-pre-wrap">{p.admin_resubmit_notice}</p>
+                {p.reviewed_at ? (
+                  <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.15em] text-amber-900/70">
+                    Requested {p.reviewed_at.slice(0, 10)}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
+            {p.status !== 'pending' && p.status !== 'resubmit_requested' && p.admin_notes ? (
               <p className="rounded-md bg-ink/[0.03] p-3 text-xs text-ink/75">
                 {p.admin_notes}
                 {p.reviewed_at ? (

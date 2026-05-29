@@ -1,0 +1,46 @@
+-- ============================================================================
+-- 20260529030000_voucher_system_day3_admin_resubmit.sql
+--
+-- Day 3 of the 4-day pre-pilot voucher + inline-checkout sprint (CLAUDE.md
+-- 2026-05-29 Day 3 row · V1 SCOPE EXPANSION approved by owner · pilot
+-- 2026-06-01). Adds the missing `payment_resubmit_requested` value to the
+-- notification_type enum so the new admin "Request resubmit" action can fire
+-- a labeled notification + transactional email through the canonical
+-- `emitNotification` helper (apps/web/lib/notification-emit.ts).
+--
+-- WHY a new enum value (not reuse 'payment_rejected'):
+-- The 3-state admin action (Approve · Reject · Request resubmit) is the
+-- pilot-day reconciliation safety net for couples who submitted a payment
+-- screenshot the admin can't match but isn't fraudulent — wrong amount,
+-- wrong reference code, blurry photo, missing date. A hard rejection
+-- ('payment_rejected') tells the couple "your payment did not match · try
+-- again from scratch" which is too blunt; a resubmit request says "we got
+-- you · here's what's missing · upload again." The visual + label distinction
+-- matters in the notification tray + email subject line both, so we add a
+-- dedicated enum value rather than reuse 'payment_rejected' with different
+-- copy.
+--
+-- Day 1 migration (20260529010000) already added 'resubmit_requested' to
+-- the `payment_status` enum + the `admin_resubmit_notice TEXT` column on
+-- `payments`. This Day 3 migration only adds the matching `notification_type`
+-- enum value so the admin → couple delivery channel is wired end-to-end.
+--
+-- Cross-references:
+--   • Sprint brief: VOUCHER_SPRINT_BRIEF.md (this repo)
+--   • CLAUDE.md 2026-05-29 Day 3 row (this work)
+--   • PR #594 + #595 (Day 1 + Day 1.5 voucher schema substrate)
+--   • supabase/migrations/20260529010000_voucher_system_day1.sql (the
+--     payment_status enum extension + admin_resubmit_notice column)
+--   • apps/web/lib/notifications.ts (TS-side NotificationType union — kept in
+--     sync with this enum via the Day 3 PR)
+--   • apps/web/lib/notification-emit.ts (the canonical emit helper that
+--     fires both the row insert + Resend email)
+--   • Migration pattern: 20260517020000_notification_type_force_majeure_filed
+--     (no BEGIN/COMMIT · IF NOT EXISTS · idempotent · same shape)
+--
+-- ALTER TYPE … ADD VALUE cannot run inside an explicit transaction block, so
+-- this migration is intentionally bare. IF NOT EXISTS keeps it idempotent.
+-- ============================================================================
+
+ALTER TYPE public.notification_type
+  ADD VALUE IF NOT EXISTS 'payment_resubmit_requested';

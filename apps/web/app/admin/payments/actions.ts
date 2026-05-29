@@ -14,6 +14,27 @@ import {
   phpToCentavos,
   resolveVendorVerificationState,
 } from '@/lib/payouts';
+// Day 3 of the voucher + inline-checkout sprint (CLAUDE.md 2026-05-29 Day 3
+// row). All admin payment-state transitions append a row to public.order_ledger
+// via the canonical helper. Best-effort writes — never throws, never blocks
+// the parent mutation. See lib/ledger.ts for the contract.
+import { appendLedger } from '@/lib/ledger';
+// Canonical Today's Focus activation pattern. When admin approves a payment
+// for the TF SKU (service_key === 'concierge_complete' · the V1 SKU code
+// preserved across the V2 cutover per lib/concierge.ts:8), we fire
+// activateConcierge to flip events.concierge_status='active' + stamp
+// concierge_activated_at + compute wedding-anchored concierge_expires_at.
+// Other SKUs in pilot just transition to 'paid'/'fulfilled' via the existing
+// promoteOrder branch — per-SKU activation hooks are V1.x scope.
+import { activateConcierge } from '@/app/dashboard/profile/concierge/actions';
+
+// SKU code for Today's Focus. Same string lib/concierge.ts + sku-catalog +
+// stress-test-lock-unlock.ts use. Pulled out as a constant so the brittle
+// service-key match in approvePayment below is grep-able when the post-pilot
+// rename to TODAYS_FOCUS lands (the V2 spec rename never replaced the actual
+// SKU code · the code stays 'concierge_complete' until a coordinated migration
+// flips it everywhere at once).
+const TODAYS_FOCUS_SKU_CODE = 'concierge_complete';
 
 async function requireAdmin(): Promise<{ userId: string }> {
   const supabase = await createClient();
@@ -88,6 +109,22 @@ export async function approvePayment(formData: FormData) {
     .select('event_id, public_id, service_key')
     .eq('order_id', payment.order_id)
     .maybeSingle();
+
+  // Day 3 voucher sprint: ledger write for the payment_approved transition.
+  // Snapshot the amount in centavos + the admin's userId. Best-effort —
+  // appendLedger never throws.
+  await appendLedger(admin, {
+    order_id: payment.order_id,
+    event_type: 'payment_approved',
+    actor_user_id: userId,
+    actor_role: 'admin',
+    amount_centavos: Math.round(Number(payment.amount_php) * 100),
+    payment_id: paymentId,
+    metadata: {
+      service_key: order?.service_key ?? null,
+      admin_notes: adminNotes,
+    },
+  });
 
   await emitNotification({
     userId: payment.user_id,
@@ -175,6 +212,79 @@ export async function approvePayment(formData: FormData) {
       });
     } catch (e) {
       console.error('vendor payout scheduling failed (non-fatal):', e);
+    }
+
+    // Day 3 voucher sprint · Today's Focus activation hook.
+    //
+    // When the approved order is a Today's Focus purchase, fire the canonical
+    // activateConcierge action (apps/web/app/dashboard/profile/concierge/
+    // actions.ts) so events.concierge_status flips from 'diy' → 'active' +
+    // concierge_activated_at stamps NOW + concierge_expires_at is computed
+    // from the wedding-anchored formula (lib/concierge.ts:computeConciergeExpiry).
+    // Without this hook the couple sees "Payment matched" + "Order paid" in
+    // their notifications but Today's Focus stays gated behind the upgrade
+    // banner — wired surface, broken outcome.
+    //
+    // For all OTHER SKUs in pilot we deliberately stop at order.status='paid'
+    // (the promoteOrder branch above already did this). Per-SKU activation
+    // hooks (Papic seat provisioning, Patiktok booth date claim, etc.) are
+    // V1.x scope per the sprint brief. The Today's Focus hook ships first
+    // because (a) it's the headline V1 SKU at ₱2,499 (lib/concierge.ts), (b)
+    // the activation pattern + lazy-eval expiry sweep is already shipped
+    // and tested, and (c) pilot couples buying Today's Focus need it
+    // unlocked the moment the admin approves their payment.
+    //
+    // Failure isolation: catch + log + continue. The order is already
+    // 'paid' at this point + the payment is 'matched' + the buyer
+    // notifications + receipt + payouts have all landed. A failed
+    // activateConcierge call leaves the couple in a recoverable state
+    // (admin can flip the event row manually via Supabase Studio) but
+    // MUST NOT roll back the approval. Treat activation as the cherry on
+    // top of an approved payment, not as a prerequisite for approval.
+    //
+    // Idempotency: activateConcierge is idempotent on the events row · re-
+    // running it preserves the original concierge_activated_at anchor (it
+    // reads the existing value before computing the update payload, see
+    // actions.ts line 131-133). Safe to re-fire if an admin re-approves a
+    // ghost payment (the prior approval's WHERE clause already prevents
+    // that race anyway).
+    if (order?.service_key === TODAYS_FOCUS_SKU_CODE && order.event_id) {
+      try {
+        const activationResult = await activateConcierge({
+          eventId: order.event_id,
+          orderId: payment.order_id,
+        });
+        if (activationResult.status === 'activated') {
+          // Day 3 voucher sprint: ledger write for the service_activated
+          // transition. Snapshot the service_key so a later audit can spot
+          // which SKU actually flipped the events row.
+          await appendLedger(admin, {
+            order_id: payment.order_id,
+            event_type: 'service_activated',
+            actor_user_id: userId,
+            actor_role: 'admin',
+            metadata: {
+              service_key: order.service_key,
+              event_id: order.event_id,
+              concierge_expires_at: activationResult.expiresAt ?? null,
+            },
+          });
+        } else {
+          // status === 'enforcement_blocked' — the couple's account hit
+          // 'full_banned' enforcement. The order stays 'paid' but TF
+          // doesn't activate. Surface to logs for admin follow-up · the
+          // existing dispute flow handles refund-or-clear from here.
+          console.warn(
+            '[approvePayment] Today\'s Focus activation blocked by enforcement:',
+            { order_id: payment.order_id, event_id: order.event_id },
+          );
+        }
+      } catch (e) {
+        // Non-fatal: order stays 'paid'. Admin can manually flip the
+        // events row via Supabase Studio + re-run activation. Log + move
+        // on so the parent approval flow completes.
+        console.error('[approvePayment] Today\'s Focus activation threw:', e);
+      }
     }
   }
 
@@ -365,11 +475,168 @@ export async function rejectPayment(formData: FormData) {
     .eq('order_id', payment.order_id)
     .maybeSingle();
 
+  // Day 3 voucher sprint: ledger write for the payment_rejected transition.
+  // Snapshot the rejected amount + admin reasoning.
+  await appendLedger(admin, {
+    order_id: payment.order_id,
+    event_type: 'payment_rejected',
+    actor_user_id: userId,
+    actor_role: 'admin',
+    amount_centavos: Math.round(Number(payment.amount_php) * 100),
+    payment_id: paymentId,
+    metadata: { admin_notes: adminNotes },
+  });
+
   await emitNotification({
     userId: payment.user_id,
     type: 'payment_rejected',
     title: `Payment of ${formatPhp(payment.amount_php)} couldn't be matched`,
     body: adminNotes ?? 'Please review and try again, or reach out to support.',
+    relatedUrl: order?.event_id
+      ? `/dashboard/${order.event_id}/orders/${payment.order_id}`
+      : null,
+  });
+
+  revalidatePath('/admin/payments');
+}
+
+// ============================================================================
+// requestPaymentResubmit — 3rd state of the admin payment review action
+// ============================================================================
+//
+// Day 3 of the voucher + inline-checkout sprint (CLAUDE.md 2026-05-29 Day 3
+// row · sprint brief at VOUCHER_SPRINT_BRIEF.md). The previous Approve /
+// Reject binary forces admins into a hard rejection for payments that just
+// need a clearer screenshot or a corrected reference code. This adds a
+// middle path: "Request resubmit" leaves the payment in a labeled state +
+// emails the couple with a brand-voice notice so they upload again without
+// having to start over.
+//
+// Behavior:
+//   1. Authorize: actor must be admin/internal/team_member (requireAdmin).
+//   2. Validate: payment_id is a string, admin_resubmit_notice is a non-
+//      blank string with ≥ 10 chars (so admins can't fire blank notices
+//      that leave the couple guessing what went wrong).
+//   3. State-machine guard: only flip pending → resubmit_requested. If the
+//      payment was already approved/rejected by a parallel admin, the
+//      WHERE clause zeros the update + we surface "already resolved" —
+//      same idempotent pattern approvePayment + rejectPayment use.
+//   4. Stamp payments.admin_resubmit_notice + reviewed_by_user_id +
+//      reviewed_at (analogous to the approve/reject paths).
+//   5. order_ledger 'payment_resubmit_requested' write (best-effort).
+//   6. emitNotification with type='payment_resubmit_requested' (newly
+//      added enum value via migration 20260529030000) — auto-fires both
+//      the in-app notification row AND a Resend email per
+//      lib/notification-emit.ts.
+//   7. revalidatePath('/admin/payments') so the admin's queue refreshes.
+//
+// Schema state on prod (post-migration 20260529010000_voucher_system_day1):
+//   • payment_status enum includes 'resubmit_requested'
+//   • payments.admin_resubmit_notice TEXT column exists
+//   • order_ledger event_type CHECK includes 'payment_resubmit_requested'
+//     (from 20260529020000 line 179)
+//   • notification_type enum includes 'payment_resubmit_requested' as of
+//     migration 20260529030000_voucher_system_day3_admin_resubmit.sql
+//
+// Couple recovery path: the order detail page renders the resubmit notice
+// in an amber banner + re-opens the upload form whenever payments.status =
+// 'resubmit_requested'. See apps/web/app/dashboard/[eventId]/orders/
+// [orderId]/page.tsx (Day 3 wiring).
+//
+// Single-admin authority for V1 — no two-admin gate. The action is
+// reversible (admin can flip to approved or rejected on the resubmission)
+// so the four-eyes lock from 0023 § 9.1 (two-admin for high-stakes
+// irreversible actions) doesn't apply.
+// ============================================================================
+
+export async function requestPaymentResubmit(formData: FormData) {
+  const { userId } = await requireAdmin();
+  const paymentId = formData.get('payment_id');
+  const noticeRaw = formData.get('admin_resubmit_notice');
+  if (typeof paymentId !== 'string') throw new Error('Invalid input');
+
+  // Resubmit notice is REQUIRED — the couple needs to know what was wrong
+  // so they can fix it before re-uploading. A blank notice would be worse
+  // than a hard rejection (at least rejection has a clear next-action:
+  // contact support). Enforce server-side too · the admin form already
+  // has minLength=10 client-side but a hand-rolled POST could slip past.
+  if (typeof noticeRaw !== 'string') {
+    throw new Error('Resubmit notice is required.');
+  }
+  const notice = noticeRaw.trim();
+  if (notice.length < 10) {
+    throw new Error(
+      'Resubmit notice needs at least 10 characters so the couple knows what to fix.',
+    );
+  }
+  if (notice.length > 2000) {
+    throw new Error('Resubmit notice is too long — please keep it under 2000 characters.');
+  }
+
+  const admin = createAdminClient();
+
+  // State-machine guard: only flip pending → resubmit_requested. Mirrors the
+  // race-guard pattern from approvePayment + rejectPayment above. If the
+  // payment is already matched/rejected/resubmit_requested by a parallel
+  // admin (race · double-click · stale page), surface "already resolved"
+  // instead of overwriting.
+  const { data: payment, error: pErr } = await admin
+    .from('payments')
+    .update({
+      status: 'resubmit_requested',
+      admin_resubmit_notice: notice,
+      reviewed_by_user_id: userId,
+      reviewed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('payment_id', paymentId)
+    .eq('status', 'pending')
+    .select('order_id, user_id, amount_php')
+    .maybeSingle();
+  if (pErr) throw new Error(pErr.message);
+  if (!payment) {
+    const { data: existing } = await admin
+      .from('payments')
+      .select('status')
+      .eq('payment_id', paymentId)
+      .maybeSingle();
+    if (!existing) throw new Error('Payment not found');
+    throw new Error(
+      `Payment already resolved (status: ${existing.status}). Refresh the page.`,
+    );
+  }
+
+  // Look up the order so the couple's email + in-app notification can deep-
+  // link directly to the order detail page where they re-upload.
+  const { data: order } = await admin
+    .from('orders')
+    .select('event_id, public_id')
+    .eq('order_id', payment.order_id)
+    .maybeSingle();
+
+  // Day 3 voucher sprint: ledger write for the payment_resubmit_requested
+  // transition. Snapshot the admin's reasoning in the metadata.
+  await appendLedger(admin, {
+    order_id: payment.order_id,
+    event_type: 'payment_resubmit_requested',
+    actor_user_id: userId,
+    actor_role: 'admin',
+    amount_centavos: Math.round(Number(payment.amount_php) * 100),
+    payment_id: paymentId,
+    metadata: { admin_resubmit_notice: notice },
+  });
+
+  // emitNotification auto-fires both the in-app row AND a Resend email when
+  // RESEND_API_KEY is configured (lib/notification-emit.ts:46). The email
+  // body is composed from the title + body + relatedUrl — brand-voice copy
+  // here surfaces verbatim to the couple's inbox.
+  await emitNotification({
+    userId: payment.user_id,
+    type: 'payment_resubmit_requested',
+    title: `Please re-upload your payment for order ${order?.public_id ?? ''}`.trim(),
+    // The admin's notice IS the body — they know what the couple needs to
+    // fix. We don't editorialize · we pass it through verbatim.
+    body: notice,
     relatedUrl: order?.event_id
       ? `/dashboard/${order.event_id}/orders/${payment.order_id}`
       : null,

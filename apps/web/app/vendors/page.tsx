@@ -2559,11 +2559,14 @@ async function CatalogView({
                 showVenueToggle: false, // catalog mode shows all folders; venue toggle is grid-mode + Reception folder only
                 hasActiveFilters: false,
               } as FilterDrawerProps}
-              contextualPill={
-                ceremonyPillOptions
-                  ? { label: 'Faith', options: ceremonyPillOptions }
-                  : undefined
-              }
+              // 2026-05-30 — contextualPill API kept for future per-folder
+              // axes that genuinely belong in the sticky header (e.g., the
+              // Verified-only / Sort axes that always apply across folders).
+              // Ceremony's Faith pill moved INLINE to the Ceremony section
+              // header below per owner directive "subcategories did not
+              // show on filter" — universal browse mode never set
+              // ?folder=ceremony so the sticky pill never appeared. Inline
+              // surfaces in both universal browse + scoped modes.
             />
 
             {religionFilteringActive ? (
@@ -2699,6 +2702,22 @@ async function CatalogView({
               </header>
               {isCeremony ? (
                 <>
+                  {/* 2026-05-30 — inline Faith pill row. Owner directive
+                      "subcategories did not show on filter" — the sticky-
+                      header version of the pill only fired in scoped mode
+                      (?folder=ceremony, set by dashboard planning Search
+                      buttons). On universal browse mode (`/vendors` with no
+                      query, the IconTileFolderStrip just scrolls to the
+                      anchor without scoping) the sticky pill never appeared.
+                      Inline placement surfaces the narrow in BOTH modes:
+                      anyone looking at the Ceremony folder sees the Faith
+                      chips above the venue panel + venue cards. Scrolls
+                      naturally with content so when the user scrolls past
+                      Ceremony to Catering, the pill scrolls away too
+                      (no stale narrow stuck in the sticky header). */}
+                  {ceremonyPillOptions ? (
+                    <FaithPillRow options={ceremonyPillOptions} />
+                  ) : null}
                   <CeremonyVenuePanel />
                   <CeremonyVenuesSection
                     coupleCeremonyType={coupleCeremonyType}
@@ -2858,6 +2877,59 @@ function ReligionBanner({
 // parish booking), civil registrar (LGU government), or combined venue (cross-
 // link to #2). Closes the V1 gap where ceremony venues aren't bookable in the
 // marketplace yet.
+/**
+ * Inline Faith pill row rendered at the top of the Ceremony folder section.
+ *
+ * WHY 2026-05-30 — owner directive *"subcategories did not show on filter"*.
+ * The contextual pill API on StickyMarketplaceHeader only fired when the
+ * page was scoped (?folder=ceremony, set by dashboard planning Search
+ * buttons). On the universal /vendors browse the IconTileFolderStrip just
+ * smooth-scrolls to anchors without scoping, so the sticky pill never
+ * appeared. Inline placement surfaces the narrow whenever the Ceremony
+ * section renders, regardless of URL mode. Scrolls with content so it
+ * doesn't get stuck in the sticky header when the user scrolls past
+ * Ceremony to a different folder.
+ *
+ * Composes with the existing chrome: same chip styling as the sticky
+ * pill row (terracotta filled when active, bordered cream when idle),
+ * 36px height (h-9), horizontal-scroll-snap on mobile. The pill list
+ * itself is built in CatalogView using buildHref so every chip preserves
+ * sibling URL params (folder, match, venue, q, page, sort, verified, from).
+ */
+function FaithPillRow({
+  options,
+}: {
+  options: ReadonlyArray<{ value: string | null; label: string; href: string; active: boolean }>;
+}) {
+  return (
+    <div className="mb-4 flex items-center gap-3">
+      <p className="hidden shrink-0 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55 sm:block">
+        Faith
+      </p>
+      <div
+        role="group"
+        aria-label="Narrow by faith"
+        className="flex min-w-0 flex-1 snap-x snap-mandatory items-center gap-1.5 overflow-x-auto"
+      >
+        {options.map((option) => (
+          <Link
+            key={option.value ?? '__all__'}
+            href={option.href}
+            aria-current={option.active ? 'true' : undefined}
+            className={
+              option.active
+                ? 'inline-flex h-9 shrink-0 snap-start items-center rounded-full bg-terracotta px-3 text-xs font-medium text-cream'
+                : 'inline-flex h-9 shrink-0 snap-start items-center rounded-full border border-ink/15 bg-cream px-3 text-xs font-medium text-ink hover:border-terracotta/40 hover:text-terracotta'
+            }
+          >
+            {option.label}
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function CeremonyVenuePanel() {
   return (
     <div className="mb-4 rounded-2xl border border-terracotta/20 bg-terracotta/5 p-4 sm:p-5">

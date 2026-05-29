@@ -102,7 +102,24 @@ export type BottomNavItem = {
    * string for simple cases or string[] when one bottom-nav tab claims
    * an umbrella of sub-routes (mirrors GUESTS_UMBRELLA / SERVICES_UMBRELLA
    * pattern from the existing bottom-nav.tsx).
+   *
+   * Match semantics: `pathname === prefix || pathname.startsWith(prefix + '/')`.
+   * Set `activeMatchExact: true` to suppress the startsWith branch — useful
+   * when one tab represents an exact route that is the prefix of every other
+   * tab's routes (e.g., Home `/admin` would otherwise startsWith-match every
+   * `/admin/*` route and stay perpetually active).
    */
   activeMatch: string | string[];
+  /**
+   * When true, active detection uses exact-match only (no startsWith
+   * branch). Mirrors the pattern from
+   * apps/web/app/dashboard/[eventId]/_components/bottom-nav.tsx where the
+   * Home tab needs exact `/dashboard/[id]` match because every other tab's
+   * route also begins with `/dashboard/[id]/`.
+   *
+   * Defaults to false (prefix match active — backwards compatible with
+   * Phase 0 baseline behavior).
+   */
+  activeMatchExact?: boolean;
   badge?: NavBadge;
 };

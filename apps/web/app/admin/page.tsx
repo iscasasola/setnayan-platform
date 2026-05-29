@@ -102,13 +102,13 @@ export default async function AdminOverview() {
           title="Moodboard library"
           body="Upload + tag template photos for Visual preview pillars (0010 · locked 2026-05-21)."
         />
-        <Tile
-          href="/admin"
-          icon="message-square"
-          title="Approval queue"
-          body="Two-admin approvals · ships in a follow-on revision."
-          disabled
-        />
+        {/*
+          v2.1 Nav Phase 3 cleanup — removed disabled-self-linking "Approval
+          queue" tile per the Phase 3 brief audit list (CLAUDE.md decision
+          log) + [[feedback_setnayan_no_dev_text_post_launch]]. Two-admin
+          approvals ship in a follow-on revision; surfacing a dead tile in
+          the meantime was a dev-text affordance, not a wired feature.
+        */}
       </section>
     </div>
   );

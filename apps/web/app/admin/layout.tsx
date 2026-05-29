@@ -7,10 +7,33 @@ import { RoleSwitchPill } from '@/app/_components/role-switch-pill';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { GuidedTour } from '@/app/_components/guided-tour';
 import { completeTour } from '@/lib/tour-actions';
-import { AdminNav } from './_components/admin-nav';
+import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
+import { AdminSidebar } from './_components/admin-sidebar';
+import { AdminBottomNav } from './_components/admin-bottom-nav';
 
 export const metadata = { title: 'Admin · Setnayan' };
 
+/**
+ * Admin layout — v2.1 Navigation Phase 3 (admin doorway).
+ *
+ * WHY: CLAUDE.md 2026-05-23 row 2 admin 28-surface lock + 2026-05-28 11th
+ * + 14th rows + v2.1 brief canonical lock (10th 2026-05-28 row). Replaces
+ * the prior horizontal pill bar (apps/web/app/admin/_components/admin-nav.tsx
+ * 19-110) with the shared SidebarShell + SidebarSection + SidebarItem
+ * primitives from PR #603. Mobile chrome moves to AdminBottomNav with
+ * 4 overflow landing pages at /admin/queues + /admin/directory +
+ * /admin/money + /admin/more.
+ *
+ * STRUCTURE: SidebarShell owns the desktop layout split (sidebar at lg+,
+ * main content area with offset). topBar slot carries the admin utilities
+ * cluster (brand logo · role-switch pill · admin badge · display name ·
+ * sign-out). Mobile chrome (BottomNav at bottom) is rendered as a sibling
+ * of SidebarShell — both auto-hide / show via their own breakpoint
+ * primitives (sidebar lg:flex, bottom-nav lg:hidden).
+ *
+ * GuidedTour preserved unchanged — fires on first login per the existing
+ * tour_seen_keys check.
+ */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
   if (!user) redirect(loginRedirectPath('/admin'));
@@ -36,8 +59,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // bouncing to /dashboard, which could leak the existence of /admin.
   if (!isAdmin) notFound();
 
-  // 2026-05-22 brand pivot: per-wrapper `data-theme` retired; light/dark
-  // toggled by the global ThemeProvider's `html.dark` class. See CLAUDE.md.
   const displayName = profile?.display_name ?? profile?.email ?? 'Admin';
   const badge = profile?.is_internal
     ? { label: '🟣 Internal', tone: 'bg-purple-100 text-purple-800' }
@@ -45,58 +66,54 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       ? { label: '🟢 Team Pool', tone: 'bg-emerald-100 text-emerald-800' }
       : { label: 'Admin', tone: 'bg-ink/10 text-ink/70' };
 
-  // v2.1 deep-fix (2026-05-28) — outer chrome paper backgrounds use
-  // --m-paper-2 (#F4EFE5) parchment-warm surface; sticky header strip
-  // sits on --m-paper @ 95% with --m-line hairline. Matches the couple
-  // dashboard deep-fix (PR #587) + vendor dashboard deep-fix (PR #588)
-  // pattern + v2.1 brief canonical lock at CLAUDE.md 10th 2026-05-28
-  // row. Width treatment + 28-surface 8-group horizontal nav layout
-  // unchanged — the template's 9-tab vertical sidebar from
-  // admin-dashboard.jsx would lose 19 of the 28 surfaces and is a UX
-  // change that needs explicit owner approval per
-  // [[feedback_setnayan_button_preservation]].
+  // Top bar lives inside SidebarShell's topBar slot. Carries the admin
+  // utilities cluster — brand logo (links back to overview), role-switch
+  // pill, admin badge, display name, sign-out form. Pre-Phase 3 this
+  // sat inside a <header> element above the horizontal pill nav; now it
+  // sits inside the sticky top slot above the main content scroll.
+  const topBar = (
+    <div className="flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:mx-auto lg:px-8">
+      <Link href="/admin" className="flex items-center text-ink">
+        <Logo height={32} withWordmark title="Setnayan · Admin" />
+      </Link>
+      <div className="flex items-center gap-2">
+        <RoleSwitchPill
+          currentRole="admin"
+          hasCustomerAccess={roles.hasCustomerAccess}
+          hasVendorAccess={roles.hasVendorAccess}
+          hasAdminAccess={roles.hasAdminAccess}
+          vendorProfiles={roles.vendorProfiles}
+        />
+        <span
+          className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${badge.tone}`}
+        >
+          {badge.label}
+        </span>
+        <span className="hidden text-sm text-ink/70 sm:inline">{displayName}</span>
+        <form action="/auth/sign-out" method="post">
+          <button className="button-secondary h-9 px-3 text-xs" type="submit">
+            Sign out
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="flex min-h-dvh flex-col" style={{ background: 'var(--m-paper-2)' }}>
-      <header
-        style={{
-          background: 'rgba(251, 248, 242, 0.95)' /* --m-paper @ 95% */,
-          borderBottom: '1px solid var(--m-line)',
-        }}
-      >
-        <div className="mx-auto flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
-          <Link href="/admin" className="flex items-center text-ink">
-            <Logo height={32} withWordmark title="Setnayan · Admin" />
-          </Link>
-          <div className="flex items-center gap-2">
-            <RoleSwitchPill
-              currentRole="admin"
-              hasCustomerAccess={roles.hasCustomerAccess}
-              hasVendorAccess={roles.hasVendorAccess}
-              hasAdminAccess={roles.hasAdminAccess}
-              vendorProfiles={roles.vendorProfiles}
-            />
-            <span
-              className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${badge.tone}`}
-            >
-              {badge.label}
-            </span>
-            <span className="hidden text-sm text-ink/70 sm:inline">{displayName}</span>
-            <form action="/auth/sign-out" method="post">
-              <button className="button-secondary h-9 px-3 text-xs" type="submit">
-                Sign out
-              </button>
-            </form>
-          </div>
-        </div>
-        <nav aria-label="Admin sections">
-          <AdminNav />
-        </nav>
-      </header>
-      <main className="flex-1">{children}</main>
+    <>
+      <SidebarShell sidebar={<AdminSidebar />} topBar={topBar}>
+        {/* Pad the bottom on mobile so BottomNav doesn't cover the last
+            row of content. SidebarShell already handles the desktop
+            sidebar offset via its lg:pl-[var(--shell-main-offset)] math. */}
+        <div className="pb-20 lg:pb-0">{children}</div>
+      </SidebarShell>
+      {/* Mobile BottomNav — auto-hides at lg via lg:hidden inside the
+          BottomNav primitive. Sits outside SidebarShell so it doesn't
+          inherit the desktop sidebar offset. */}
+      <AdminBottomNav />
       {!(profile?.tour_seen_keys ?? []).includes('admin_welcome_v1') ? (
         <GuidedTour tourKey="admin_welcome_v1" completeAction={completeTour} />
       ) : null}
-    </div>
+    </>
   );
 }
-

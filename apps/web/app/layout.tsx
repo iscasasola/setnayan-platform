@@ -13,6 +13,7 @@ import './globals.css';
 import { Suspense } from 'react';
 import { ClientTypeDetector } from './_components/client-type-detector';
 import { DemoModeBanner } from './_components/demo-mode-banner';
+import { OfflineDaemonMount } from './_components/offline-daemon-mount';
 import { PilotModeBanner } from './_components/pilot-mode-banner';
 import { Providers } from './providers';
 import { themeBootstrapScript } from './_components/theme-provider';
@@ -321,6 +322,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </Suspense>
         <Providers>{children}</Providers>
         <ClientTypeDetector />
+        {/*
+          V2 Cutover Phase G — offline daemon mount (IndexedDB + SW for
+          7 media services). Default OFF for pilot per CLAUDE.md
+          2026-05-28 third row so the 5-20 family cohort doesn't get
+          surprised by a second SW or Background Sync permission prompt.
+          Flip NEXT_PUBLIC_OFFLINE_DAEMON_ENABLED='true' in env to enable.
+        */}
+        {process.env.NEXT_PUBLIC_OFFLINE_DAEMON_ENABLED === 'true' ? (
+          <OfflineDaemonMount />
+        ) : null}
         <Script id="sw-register" strategy="afterInteractive">
           {`if ('serviceWorker' in navigator) {
               window.addEventListener('load', function() {

@@ -91,6 +91,7 @@ import {
   ShieldCheck,
   Star,
   Tag,
+  User,
   Users,
   Wallet,
   Coins,
@@ -117,16 +118,28 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
     label: 'Home',
     items: [
       {
-        key: 'profile',
-        label: 'Profile',
-        href: '/vendor-dashboard',
-        icon: Home,
+        // 2026-05-29 vendor home overview ship — /vendor-dashboard root
+        // route now renders the Overview (welcome header + stat tiles
+        // + upcoming events + recent activity). Profile editor moved to
+        // /vendor-dashboard/profile in the same PR.
+        //
         // Sentinel matchPrefix so the strict-prefix branch never fires;
         // every other vendor route begins with `/vendor-dashboard/`, so
-        // a default startsWith match would keep Profile perpetually
+        // a default startsWith match would keep Overview perpetually
         // active. Mirrors the Home/Overview exact-match pattern from
         // customer-sidebar.tsx + admin-bottom-nav.tsx.
-        matchPrefix: '__profile-exact__',
+        key: 'overview',
+        label: 'Overview',
+        href: '/vendor-dashboard',
+        icon: Home,
+        matchPrefix: '__overview-exact__',
+      },
+      {
+        key: 'profile',
+        label: 'Profile',
+        href: '/vendor-dashboard/profile',
+        icon: User,
+        matchPrefix: '/vendor-dashboard/profile',
       },
     ],
   },

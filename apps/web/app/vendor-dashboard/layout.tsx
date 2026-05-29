@@ -5,6 +5,7 @@ import {
   Bell,
   Briefcase,
   ClipboardList,
+  Coins,
   FileSignature,
   FileText,
   HardHat,
@@ -171,6 +172,20 @@ export default async function VendorDashboardLayout({
             href="/vendor-dashboard/earnings"
             label="Earnings"
             icon={<Wallet aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />}
+            match="prefix"
+          />
+          {/* V2 Cutover Phase C (2026-05-29) — Vendor token wallet surface.
+              Reads vendor_wallets + earned_token_vouchers + token_grants_log
+              + token_redemptions_log. Lazy-eval 45-day expiry via
+              evaluate_earned_token_expiry RPC. Per CLAUDE.md 2026-05-28 third
+              row V2 architectural pivot + 20260703 per-voucher granularity
+              migration. Inserted between Earnings + Verify per task brief
+              "additive not disruptive" instruction so Nav Phase 2 reorg
+              proceeds without conflict. */}
+          <VendorSubnavTab
+            href="/vendor-dashboard/tokens"
+            label="Tokens"
+            icon={<Coins aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />}
             match="prefix"
           />
           <VendorSubnavTab

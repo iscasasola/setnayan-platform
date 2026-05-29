@@ -147,6 +147,26 @@ function parseExpiresAt(raw: FormDataEntryValue | null): string {
 }
 
 /**
+ * Parse effective_from (OPTIONAL). NULL = effective immediately. When set,
+ * must be < expires_at (DB CHECK constraint also enforces). Owner request
+ * 2026-05-29 for gift-card scheduling use case.
+ */
+function parseEffectiveFrom(
+  raw: FormDataEntryValue | null,
+  expiresAtIso: string,
+): string | null {
+  if (typeof raw !== 'string' || raw.trim().length === 0) return null;
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error('Effective-from is not a valid datetime.');
+  }
+  if (parsed.getTime() >= new Date(expiresAtIso).getTime()) {
+    throw new Error('Effective-from must be before expires-at.');
+  }
+  return parsed.toISOString();
+}
+
+/**
  * Parse + validate max_uses (optional). NULL = unlimited within expiry.
  */
 function parseMaxUses(raw: FormDataEntryValue | null): number | null {
@@ -255,6 +275,12 @@ export async function createDiscountCode(formData: FormData) {
   // Expires at — required.
   const expiresAt = parseExpiresAt(formData.get('expires_at'));
 
+  // Effective from — optional (NULL = effective immediately).
+  const effectiveFrom = parseEffectiveFrom(
+    formData.get('effective_from'),
+    expiresAt,
+  );
+
   // Max uses — optional.
   const maxUses = parseMaxUses(formData.get('max_uses'));
 
@@ -276,6 +302,7 @@ export async function createDiscountCode(formData: FormData) {
       pct_value,
       cap_centavos,
       covered_service_keys: coveredServiceKeys,
+      effective_from: effectiveFrom,
       expires_at: expiresAt,
       max_uses: maxUses,
       created_by_admin_id: adminUserId,
@@ -304,6 +331,7 @@ export async function createDiscountCode(formData: FormData) {
       cap_centavos,
       covered_service_count: coveredServiceKeys.length,
       max_uses: maxUses,
+      effective_from: effectiveFrom,
       expires_at: expiresAt,
     },
   });
@@ -338,7 +366,7 @@ export async function updateDiscountCode(formData: FormData) {
   const { data: prior, error: priorErr } = await admin
     .from('discount_codes')
     .select(
-      'code, discount_type, pct_value, cap_centavos, covered_service_keys, expires_at, max_uses, is_active',
+      'code, discount_type, pct_value, cap_centavos, covered_service_keys, effective_from, expires_at, max_uses, is_active',
     )
     .eq('discount_code_id', id)
     .maybeSingle();
@@ -364,6 +392,10 @@ export async function updateDiscountCode(formData: FormData) {
   );
 
   const expiresAt = parseExpiresAt(formData.get('expires_at'));
+  const effectiveFrom = parseEffectiveFrom(
+    formData.get('effective_from'),
+    expiresAt,
+  );
   const maxUses = parseMaxUses(formData.get('max_uses'));
 
   const coveredServicesRaw = formData
@@ -378,6 +410,7 @@ export async function updateDiscountCode(formData: FormData) {
       pct_value,
       cap_centavos,
       covered_service_keys: coveredServiceKeys,
+      effective_from: effectiveFrom,
       expires_at: expiresAt,
       max_uses: maxUses,
       updated_at: new Date().toISOString(),
@@ -397,6 +430,7 @@ export async function updateDiscountCode(formData: FormData) {
         pct_value: prior.pct_value,
         cap_centavos: prior.cap_centavos,
         covered_service_keys: prior.covered_service_keys,
+        effective_from: prior.effective_from,
         expires_at: prior.expires_at,
         max_uses: prior.max_uses,
       },
@@ -405,6 +439,7 @@ export async function updateDiscountCode(formData: FormData) {
         pct_value,
         cap_centavos,
         covered_service_keys: coveredServiceKeys,
+        effective_from: effectiveFrom,
         expires_at: expiresAt,
         max_uses: maxUses,
       },

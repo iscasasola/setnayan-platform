@@ -47,6 +47,7 @@ type DiscountCodeRow = {
   pct_value: number | null;
   cap_centavos: number | null;
   covered_service_keys: string[];
+  effective_from: string | null;
   expires_at: string;
   max_uses: number | null;
   uses_count: number;
@@ -129,7 +130,7 @@ export default async function AdminDiscountCodesPage({ searchParams }: Props) {
     .from('discount_codes')
     .select(
       // Day 1.5 schema · pct_value + cap_centavos replace discount_value.
-      'discount_code_id, code, discount_type, pct_value, cap_centavos, covered_service_keys, expires_at, max_uses, uses_count, is_active, created_by_admin_id, created_at, updated_at',
+      'discount_code_id, code, discount_type, pct_value, cap_centavos, covered_service_keys, effective_from, expires_at, max_uses, uses_count, is_active, created_by_admin_id, created_at, updated_at',
     )
     .order('created_at', { ascending: false });
   if (rowsErr) {
@@ -353,7 +354,15 @@ export default async function AdminDiscountCodesPage({ searchParams }: Props) {
                         {row.covered_service_keys.length === 1 ? '' : 's'}
                       </span>
                     </Td>
-                    <Td>{formatDate(row.expires_at)}</Td>
+                    <Td>
+                      {row.effective_from ? (
+                        <span className="block text-xs" style={{ color: 'var(--m-slate)' }}>
+                          {formatDate(row.effective_from)} → {formatDate(row.expires_at)}
+                        </span>
+                      ) : (
+                        <span>{formatDate(row.expires_at)}</span>
+                      )}
+                    </Td>
                     <Td>{describeUses(row)}</Td>
                     <Td>
                       <StatusPill tone={statusTone}>{statusLabel}</StatusPill>

@@ -26,6 +26,7 @@ type DiscountCodeRow = {
   pct_value: number | null;
   cap_centavos: number | null;
   covered_service_keys: string[];
+  effective_from: string | null;
   expires_at: string;
   max_uses: number | null;
   uses_count: number;
@@ -55,7 +56,7 @@ export default async function EditDiscountCodePage({ params }: Props) {
       .from('discount_codes')
       .select(
         // Day 1.5 schema · pct_value + cap_centavos replace discount_value.
-        'discount_code_id, code, discount_type, pct_value, cap_centavos, covered_service_keys, expires_at, max_uses, uses_count, is_active',
+        'discount_code_id, code, discount_type, pct_value, cap_centavos, covered_service_keys, effective_from, expires_at, max_uses, uses_count, is_active',
       )
       .eq('discount_code_id', id)
       .maybeSingle(),
@@ -113,6 +114,7 @@ export default async function EditDiscountCodePage({ params }: Props) {
     cap_centavos:
       code.cap_centavos === null ? null : Number(code.cap_centavos),
     covered_service_keys: code.covered_service_keys,
+    effective_from: code.effective_from,
     expires_at: code.expires_at,
     max_uses: code.max_uses,
   };

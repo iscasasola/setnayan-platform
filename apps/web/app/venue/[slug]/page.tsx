@@ -334,8 +334,15 @@ export default async function VenueDetailPage({ params }: Props) {
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
   ).replace(/\/$/, '');
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const venueJsonLd: Record<string, any> | null = isDemo
+  // Use `Record<string, unknown>` to match the IIFE-returned `base` below
+  // — the JSON-LD payload assembles strings, nested objects, arrays. The
+  // prior `Record<string, any>` paired with a `// eslint-disable-next-line
+  // @typescript-eslint/no-explicit-any` directive caused `next build` to
+  // fail with `Definition for rule '@typescript-eslint/no-explicit-any'
+  // was not found` because the project's ESLint config (next/core-web-vitals
+  // only) doesn't register the @typescript-eslint plugin. Silently broke
+  // every Vercel deploy from PR #613 (2026-05-29 SEO/GEO Bucket 5) onward.
+  const venueJsonLd: Record<string, unknown> | null = isDemo
     ? null
     : (() => {
         const base: Record<string, unknown> = {

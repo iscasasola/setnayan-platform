@@ -2403,7 +2403,13 @@ async function CatalogView({
   // host's other state. The "All" option (value=null) emits faithFilter=null
   // through buildHref, which omits the ?faith= param entirely — clean URL
   // when the narrow is off.
-  const ceremonyFilters = {
+  // Pill-href base filter state. Every chip click flows through buildHref
+  // with this snapshot so sibling URL params (q, page, sort, verified,
+  // city, matchEvent, venue, focusedMode, eventType, folder) are
+  // preserved when the user toggles a faith narrow. `folder` stays at
+  // `scopedFolder` (which is `null` in universal browse) — chip clicks
+  // never change scope, they only add/clear the `?faith=` narrow.
+  const pillBaseFilters = {
     q: '',
     category: null as string | null,
     city: '',
@@ -2417,58 +2423,67 @@ async function CatalogView({
     focusedMode: false,
     faithFilter,
   };
-  // 2026-05-30 — owner directive *"just show what is visible"*. Count
-  // faith-tagged tiles in the Ceremony folder AFTER the hide-empty filter
-  // but BEFORE the explicit faithFilter narrow (which is what the chip
-  // would toggle). A chip surfaces only when ≥1 underlying tile exists
-  // OR the chip is currently active (so the user can see their selected
-  // narrow + escape back to "All faiths" even when it produced 0 results).
+
+  // 2026-05-30 — owner directive *"add the Religion Filter for all"*.
+  // Faith narrow now surfaces on every folder section that has at least
+  // one faith-tagged sub-category. Count per-folder so each folder's
+  // inline pill row renders only the chips with ≥1 underlying tile.
+  // Folders without any faith-tagged canonical_services (Photo & Video,
+  // Reception, Rings & Accessories, Booths & Stations, Invitations &
+  // Keepsakes) show no pill row — PR #652 "just show what is visible"
+  // rule applied per folder.
   //
-  // This deliberately ignores `passesReligionFilter` because the chip
-  // is the user's explicit override of religion-default-on — a Catholic-
-  // matched couple still needs to see the Muslim chip if Muslim has
-  // underlying tiles, so they can override into Muslim for context.
-  const ceremonyFaithCounts: Record<FaithKey, number> = {
-    Catholic: 0,
-    Christian: 0,
-    INC: 0,
-    Muslim: 0,
-    Cultural: 0,
-  };
-  if (scopedFolder === 'ceremony') {
-    for (const row of schemas) {
-      const meta = TAXONOMY_MAP[row.canonical_service];
-      if (!meta || meta.folder !== 'ceremony' || !meta.faith) continue;
-      const count = vendorCounts.get(row.canonical_service) ?? null;
-      if (!passesHideEmpty(meta, count)) continue;
-      ceremonyFaithCounts[meta.faith] += 1;
-    }
+  // Counts respect hide-empty (future-phase placeholders don't bump the
+  // count) but DELIBERATELY skip `passesReligionFilter` because the
+  // chip is the user's explicit override of religion-default-on — a
+  // Catholic-matched couple still needs to see the Muslim chip if
+  // Muslim has underlying tiles, so they can override into Muslim for
+  // context (interfaith family events, sibling weddings, etc.).
+  const faithCountsByFolder = new Map<WeddingFolder, Record<FaithKey, number>>();
+  for (const folder of WEDDING_FOLDER_ORDER) {
+    faithCountsByFolder.set(folder, {
+      Catholic: 0,
+      Christian: 0,
+      INC: 0,
+      Muslim: 0,
+      Cultural: 0,
+    });
+  }
+  for (const row of schemas) {
+    const meta = TAXONOMY_MAP[row.canonical_service];
+    if (!meta || !meta.faith) continue;
+    const count = vendorCounts.get(row.canonical_service) ?? null;
+    if (!passesHideEmpty(meta, count)) continue;
+    const folderCounts = faithCountsByFolder.get(meta.folder);
+    if (folderCounts) folderCounts[meta.faith] += 1;
   }
 
-  // Build the chip list. "All faiths" surfaces only when at least one
-  // faith chip is visible — otherwise the row reads as a single dead
-  // affordance. The entire `contextualPill` prop falls back to undefined
-  // (header hides the row) when no faith chip survives.
-  const visibleFaithKeys = FAITH_KEYS_ORDER.filter(
-    (key) => ceremonyFaithCounts[key] > 0 || faithFilter === key,
-  );
-  const ceremonyPillOptions =
-    scopedFolder === 'ceremony' && visibleFaithKeys.length > 0
-      ? [
-          {
-            value: null,
-            label: 'All faiths',
-            href: buildHref(ceremonyFilters, { faithFilter: null }),
-            active: faithFilter === null,
-          },
-          ...visibleFaithKeys.map((key) => ({
-            value: FAITH_KEY_TO_URL[key],
-            label: FAITH_KEY_TO_LABEL[key],
-            href: buildHref(ceremonyFilters, { faithFilter: key }),
-            active: faithFilter === key,
-          })),
-        ]
-      : null;
+  // Per-folder pill option builder. Returns null when the folder has no
+  // visible faith chips (entire pill row hides). "All faiths" surfaces
+  // only when at least one faith chip is visible — otherwise the row
+  // reads as a single dead affordance.
+  function buildFaithPillOptionsForFolder(folder: WeddingFolder) {
+    const folderCounts = faithCountsByFolder.get(folder);
+    if (!folderCounts) return null;
+    const visibleKeys = FAITH_KEYS_ORDER.filter(
+      (key) => folderCounts[key] > 0 || faithFilter === key,
+    );
+    if (visibleKeys.length === 0) return null;
+    return [
+      {
+        value: null,
+        label: 'All faiths',
+        href: buildHref(pillBaseFilters, { faithFilter: null }),
+        active: faithFilter === null,
+      },
+      ...visibleKeys.map((key) => ({
+        value: FAITH_KEY_TO_URL[key],
+        label: FAITH_KEY_TO_LABEL[key],
+        href: buildHref(pillBaseFilters, { faithFilter: key }),
+        active: faithFilter === key,
+      })),
+    ];
+  }
 
   return (
     <main className="min-h-dvh bg-cream">
@@ -2714,24 +2729,32 @@ async function CatalogView({
                   </span>
                 ) : null}
               </header>
+              {/* 2026-05-30 — inline Faith pill row. Owner directives:
+                  (a) PR #657 *"subcategories did not show on filter"* — the
+                      pill must surface in BOTH universal browse AND scoped
+                      mode, so it lives inline at the top of each folder
+                      section (not in the sticky header which never fires
+                      in universal browse).
+                  (b) PR #659 *"add the Religion Filter for all"* — every
+                      folder section can now host the pill, not just
+                      Ceremony. Folders without faith-tagged sub-categories
+                      (Photo & Video, Reception, Rings & Accessories,
+                      Booths & Stations, Invitations & Keepsakes) skip
+                      the row entirely per PR #652 "just show what is
+                      visible" rule (`buildFaithPillOptionsForFolder`
+                      returns null when no faith chip survives).
+                  Pill chips scroll with content so when the user scrolls
+                  past one folder to the next, the prior folder's pill
+                  scrolls away — each folder owns its own contextual narrow
+                  surface, no stale state stuck in chrome. */}
+              {(() => {
+                const folderPillOptions = buildFaithPillOptionsForFolder(folder);
+                return folderPillOptions ? (
+                  <FaithPillRow options={folderPillOptions} />
+                ) : null;
+              })()}
               {isCeremony ? (
                 <>
-                  {/* 2026-05-30 — inline Faith pill row. Owner directive
-                      "subcategories did not show on filter" — the sticky-
-                      header version of the pill only fired in scoped mode
-                      (?folder=ceremony, set by dashboard planning Search
-                      buttons). On universal browse mode (`/vendors` with no
-                      query, the IconTileFolderStrip just scrolls to the
-                      anchor without scoping) the sticky pill never appeared.
-                      Inline placement surfaces the narrow in BOTH modes:
-                      anyone looking at the Ceremony folder sees the Faith
-                      chips above the venue panel + venue cards. Scrolls
-                      naturally with content so when the user scrolls past
-                      Ceremony to Catering, the pill scrolls away too
-                      (no stale narrow stuck in the sticky header). */}
-                  {ceremonyPillOptions ? (
-                    <FaithPillRow options={ceremonyPillOptions} />
-                  ) : null}
                   <CeremonyVenuePanel />
                   <CeremonyVenuesSection
                     coupleCeremonyType={coupleCeremonyType}

@@ -55,7 +55,7 @@
  * once and both surfaces stay in lockstep.
  */
 
-import { Focus, Home, Users, Globe, Menu } from 'lucide-react';
+import { Focus, Home, Users, Globe, MessageSquare, Menu } from 'lucide-react';
 import { BottomNav } from '@/app/_components/nav/bottom-nav';
 import type { BottomNavItem } from '@/app/_components/nav/types';
 
@@ -106,12 +106,17 @@ export function buildCustomerBottomNav(eventId: string): BottomNavItem[] {
       ],
     },
     {
-      key: 'website',
-      label: 'Website',
-      href: `${base}/website`,
-      icon: Globe,
-      // Public landing surfaces — website hub + invitation editor.
-      activeMatch: [`${base}/website`, `${base}/invitation`],
+      // 2026-05-29 nav-tune — Messages promoted to bottom nav (slot 4) in
+      // place of Website. Couples chat with vendors DAILY during planning;
+      // Website is set-it-and-forget-it after the first share. Website +
+      // invitation editor moved into /more under the Share group. Per
+      // [[feedback_setnayan_orphan_prevention]] both /website + /invitation
+      // remain reachable + active-state lights via the /more landing.
+      key: 'messages',
+      label: 'Messages',
+      href: `${base}/messages`,
+      icon: MessageSquare,
+      activeMatch: [`${base}/messages`, `${base}/contracts`],
     },
     {
       key: 'more',
@@ -123,6 +128,9 @@ export function buildCustomerBottomNav(eventId: string): BottomNavItem[] {
       // [[feedback_setnayan_orphan_prevention]] rule — every route
       // must be reachable AND have its active tab light up correctly.
       // New routes need an entry here OR in one of the umbrellas above.
+      // 2026-05-29 nav-tune — Messages + Contracts moved OUT (now under
+      // the dedicated Messages tab). Website + Invitation moved IN
+      // (relocated from the prior Website tab slot which Messages took).
       activeMatch: [
         `${base}/more`,
         // Plan group (excluding guests + hosts which sit under Guests)
@@ -135,11 +143,10 @@ export function buildCustomerBottomNav(eventId: string): BottomNavItem[] {
         // /receipts is app-root scoped — added so reaching it from any
         // event-scoped route highlights More on the mobile chrome.
         '/receipts',
-        // Communicate group
-        `${base}/messages`,
-        `${base}/contracts`,
-        // Share group (Website lives in its own tab; Add-ons + Mood
-        // Board live under More)
+        // Share group — Website + invitation editor now live under More
+        // (swapped to the Messages slot in bottom nav for daily-freq use)
+        `${base}/website`,
+        `${base}/invitation`,
         `${base}/add-ons`,
         // After group
         `${base}/activity`,

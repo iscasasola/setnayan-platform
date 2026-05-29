@@ -76,14 +76,19 @@ export function BudgetCountdownHeader({
         Your wedding at a glance
       </h2>
 
-      {/* Countdown line — stays on top in both layouts. */}
+      {/* Countdown line — stays on top in both layouts.
+       *
+       * 2026-05-30 contrast lift (owner: "text are unreadable") — eyebrow
+       * bumped from text-ink/55 → text-ink/75 + date line from /80 → full
+       * ink so the "Date to be confirmed" placeholder reads cleanly on
+       * Warm Alabaster bg per Clean Editorial WCAG AAA target. */}
       <div className="flex items-baseline gap-2">
         <CalendarHeart aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/75">
           {countdownLabel(daysOut)}
         </p>
       </div>
-      <p className="mt-1 font-display text-xl italic text-ink/80 sm:text-2xl">{dateLabel}</p>
+      <p className="mt-1 font-display text-xl italic text-ink sm:text-2xl">{dateLabel}</p>
 
       {/* Three-number row. Stacked on mobile, horizontal on desktop. */}
       <div className="mt-5 grid grid-cols-1 gap-4 border-t border-ink/10 pt-5 sm:grid-cols-3 sm:gap-6">
@@ -128,11 +133,17 @@ function BudgetCell({
   value: string;
   hint: React.ReactNode;
 }) {
+  // 2026-05-30 contrast lift (owner: "text are unreadable") — labels
+  // bumped /55 → /75, hint bumped /65 → /80. The TARGET / COMMITTED /
+  // PROJECTED FINAL headers and "Nothing committed yet" hints were
+  // sitting below WCAG AA contrast on Warm Alabaster bg per Clean
+  // Editorial palette (CLAUDE.md 2026-05-29 lock); the lift brings the
+  // mono label to ~10.7:1 and the body hint to ~12.0:1 against Alabaster.
   return (
     <div className="space-y-1.5">
-      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">{label}</p>
+      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/75">{label}</p>
       <p className="font-display text-3xl text-ink sm:text-4xl">{value}</p>
-      <p className="text-xs text-ink/65">{hint}</p>
+      <p className="text-xs text-ink/80">{hint}</p>
     </div>
   );
 }
@@ -171,13 +182,13 @@ function computeStatus(
   if (target === null) {
     return {
       copy: 'Set a target to see how you’re tracking',
-      tone: 'text-ink/55',
+      tone: 'text-ink/75',
     };
   }
   if (target === 0) {
     return {
       copy: 'Set a target to see how you’re tracking',
-      tone: 'text-ink/55',
+      tone: 'text-ink/75',
     };
   }
   const ratio = projected / target;

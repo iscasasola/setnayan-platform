@@ -1934,9 +1934,14 @@ function StageStrip({ stage }: { stage: Stage['key'] }) {
           );
         })}
       </ol>
+      {/* 2026-05-30 contrast lift (owner: "text are unreadable") —
+       *  swapped --m-slate-3 (#898D94 · 3.07:1 on Alabaster · fails
+       *  WCAG AA) → --m-slate (#4F535B · 7.40:1 · passes AAA). Same
+       *  visual hierarchy (eyebrow muted, active label full ink) just
+       *  bumped above the WCAG threshold. */}
       <p
         className="m-eyebrow font-mono text-[11px] uppercase tracking-[0.2em]"
-        style={{ color: 'var(--m-slate-3)' }}
+        style={{ color: 'var(--m-slate)' }}
       >
         Stage {activeIndex + 1} of {STAGES.length} ·{' '}
         <span style={{ color: 'var(--m-ink)' }}>{activeLabel}</span>

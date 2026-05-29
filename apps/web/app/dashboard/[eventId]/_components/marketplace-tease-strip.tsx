@@ -137,7 +137,7 @@ export function MarketplaceTeaseStrip({
           >
             Browse the Setnayan marketplace
           </h2>
-          <p className="mt-2 max-w-xl text-sm text-ink/65">
+          <p className="mt-2 max-w-xl text-sm text-ink/80">
             Verified Filipino wedding vendors curated for your ceremony,
             venue, and palette. Zero commission. Real names, real reviews.
           </p>
@@ -153,7 +153,7 @@ export function MarketplaceTeaseStrip({
 
       {/* QUICK BROWSE · 6 folder chips */}
       <div className="mt-5">
-        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/75">
           Quick browse
         </p>
         <ul className="mt-2 flex flex-wrap gap-2">
@@ -191,7 +191,7 @@ export function MarketplaceTeaseStrip({
                   <p className="truncate text-sm font-medium text-ink">
                     {rec.vendor_name}
                   </p>
-                  <p className="truncate text-xs text-ink/55">
+                  <p className="truncate text-xs text-ink/75">
                     {rec.source_group_label}
                   </p>
                 </div>

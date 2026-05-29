@@ -14,6 +14,7 @@ import { fetchV2CustomerCatalog, fetchV2BundleCatalog, fetchV2VendorCatalog } fr
 import { ChevronLeft } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { VoucherForm, type VoucherFormInitial } from '../../_components/voucher-form';
+import { EligibilitySection, type EligibleRow } from '../../_components/eligibility-section';
 import { updateDiscountCode } from '../../actions';
 
 export const metadata = { title: 'Edit discount code · Admin' };
@@ -51,7 +52,15 @@ export default async function EditDiscountCodePage({ params }: Props) {
 
   // Fetch the row + V2 customer + bundle + vendor catalogs in parallel.
   // Per owner 2026-05-29 follow-up after #598: vendor SKUs voucherable too.
-  const [codeRes, customers, bundles, vendors] = await Promise.all([
+  // Eligibility rows are fetched separately because they reference users
+  // — typed inline rather than via the helpers to keep the shape strict.
+  const eligibilityResPromise = admin
+    .from('discount_code_eligible_users')
+    .select('user_id, added_at, users:user_id(email, full_name)')
+    .eq('discount_code_id', id)
+    .order('added_at', { ascending: true });
+
+  const [codeRes, customers, bundles, vendors, eligibilityRes] = await Promise.all([
     admin
       .from('discount_codes')
       .select(
@@ -63,7 +72,23 @@ export default async function EditDiscountCodePage({ params }: Props) {
     fetchV2CustomerCatalog(),
     fetchV2BundleCatalog(),
     fetchV2VendorCatalog(),
+    eligibilityResPromise,
   ]);
+
+  // Shape the eligibility rows into the EligibleRow contract.
+  type EligibilityJoinRow = {
+    user_id: string;
+    added_at: string;
+    users: { email: string; full_name: string | null } | null;
+  };
+  const eligibleUsers: EligibleRow[] = (
+    (eligibilityRes?.data as EligibilityJoinRow[] | null) ?? []
+  ).map((r) => ({
+    user_id: r.user_id,
+    email: r.users?.email ?? '(unknown email)',
+    full_name: r.users?.full_name ?? null,
+    added_at: r.added_at,
+  }));
 
   if (codeRes.error) {
     throw new Error(`Could not load code: ${codeRes.error.message}`);
@@ -166,6 +191,12 @@ export default async function EditDiscountCodePage({ params }: Props) {
           editing.
         </div>
       )}
+
+      {/* Eligibility · empty = public anyone-with-code · ≥1 = private locked */}
+      <EligibilitySection
+        discountCodeId={code.discount_code_id}
+        eligibleUsers={eligibleUsers}
+      />
 
       <VoucherForm
         initial={initial}

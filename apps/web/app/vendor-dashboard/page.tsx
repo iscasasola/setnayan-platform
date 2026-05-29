@@ -96,7 +96,33 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
   // Fire-and-forget — failures are swallowed inside the sweep itself, and
   // the admin global sweep at /admin/payments is the safety net of last
   // resort.
-  void sweepLapsedSubscriptions(createAdminClient(), { vendorUserId: user.id });
+  //
+  // Wrapped in try/catch 2026-05-29 after production /vendor-dashboard
+  // crashed into the root error boundary ("Something on our end didn't
+  // work" · Sentry digest 1341067551). Root cause: `createAdminClient()`
+  // is called outside the page's main try/catch and throws synchronously
+  // when `SUPABASE_SERVICE_ROLE_KEY` is missing (apps/web/lib/supabase/
+  // admin.ts:17). Even though the env var IS in the Vercel project
+  // settings + listed in `turbo.json`, an unhandled rejection from the
+  // returned Promise OR a synchronous throw at construction crashes the
+  // page render. This belt-and-suspenders wrapper isolates the sweep so
+  // the page renders even if the admin client can't be built · the sweep
+  // is best-effort + admin global sweep at /admin/payments is the canonical
+  // safety net.
+  try {
+    void sweepLapsedSubscriptions(createAdminClient(), {
+      vendorUserId: user.id,
+    }).catch((err) => {
+      // eslint-disable-next-line no-console
+      console.error('[/vendor-dashboard] sweep promise rejected', err);
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error(
+      '[/vendor-dashboard] sweepLapsedSubscriptions construction threw',
+      err,
+    );
+  }
 
   // Crash guard — every subsequent fetch is wrapped so a transient DB / RLS
   // / column-drift failure shows a friendly error state instead of crashing

@@ -143,7 +143,7 @@ export default async function AdminTaxonomyPage() {
             </header>
             {bucket.rows.length === 0 ? (
               <p className="rounded-lg border border-dashed border-ink/15 bg-cream/60 px-4 py-3 text-sm text-ink/55">
-                No rows yet. Add a seed migration row + a lib/taxonomy.ts entry.
+                No categories in this folder yet.
               </p>
             ) : (
               <ul className="divide-y divide-ink/10 rounded-xl border border-ink/10 bg-cream">

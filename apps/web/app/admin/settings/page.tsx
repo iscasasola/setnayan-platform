@@ -1,9 +1,9 @@
-import { Building, Wallet, Smartphone, Trash2, Activity } from 'lucide-react';
+import Link from 'next/link';
+import { Activity, ArrowRight, Building, CreditCard } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { removeMerchantQr, savePlatformSettings } from './actions';
-import { QrUploadForm } from './_components/qr-upload-form';
+import { saveBusinessIdentity } from './actions';
 import { TinInput } from './_components/tin-input';
 import { SentrySmokeTestButton } from './_components/sentry-smoke-test-button';
 
@@ -13,11 +13,27 @@ type Props = {
   searchParams: Promise<{
     saved?: string;
     error?: string;
-    qr_uploaded?: string;
-    qr_removed?: string;
   }>;
 };
 
+/**
+ * Platform settings · business identity + system health (V2).
+ *
+ * 2026-05-29 restructure: BDO/GCash account fields + Merchant QR codes used
+ * to live here too. They moved to `/admin/settings/payment-methods` per
+ * owner directive ("shouldn't this be at payment methods?") because they're
+ * payment configuration, not business identity. Couples reference those
+ * rails when transferring for an order; business identity is what's printed
+ * on every transaction receipt. Two distinct concerns, two surfaces.
+ *
+ * What stays here: business name, TIN, address, email, default VAT rate
+ * (all values printed on transaction receipts) + the Sentry prod smoke test
+ * button under System health (owner-only one-shot diagnostic).
+ *
+ * What moved: BDO + GCash account info + QR uploads + remove actions.
+ * The "Manage payment methods →" link card below carries hosts to the
+ * canonical home for those fields.
+ */
 export default async function AdminSettingsPage({ searchParams }: Props) {
   const search = await searchParams;
   const admin = createAdminClient();
@@ -28,11 +44,10 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
       <header className="mb-6 space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">Platform settings</h1>
         <p className="text-sm text-ink/60">
-          Business identity (printed on every app transaction receipt) and merchant payment
-          info (rendered on order detail + receipts). Everything here is read-everywhere
-          across the app; only internal/team-pool admins can edit. The actual BIR Official
-          Receipt for a paid order is issued separately, offline &mdash; these are not BIR
-          ORs.
+          Business identity printed on every transaction receipt. Everything
+          here is read-everywhere across the app; only internal/team-pool
+          admins can edit. The actual BIR Official Receipt for a paid order
+          is issued separately, offline &mdash; these are not BIR ORs.
         </p>
       </header>
 
@@ -52,24 +67,8 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
           Settings saved. Live changes propagate to all surfaces immediately.
         </p>
       ) : null}
-      {search.qr_uploaded ? (
-        <p
-          role="status"
-          className="mb-4 rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
-        >
-          QR code uploaded. It now shows on order detail pages for couples.
-        </p>
-      ) : null}
-      {search.qr_removed ? (
-        <p
-          role="status"
-          className="mb-4 rounded-md border border-ink/15 bg-ink/5 px-4 py-3 text-sm text-ink/80"
-        >
-          QR code removed.
-        </p>
-      ) : null}
 
-      <form action={savePlatformSettings} className="space-y-8">
+      <form action={saveBusinessIdentity} className="space-y-8">
         <section className="space-y-4">
           <div className="flex items-center gap-2">
             <Building className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
@@ -132,58 +131,6 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
           </Field>
         </section>
 
-        <section className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Wallet className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-            <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-              BDO bank transfer
-            </h2>
-          </div>
-          <Field label="Account name" htmlFor="bdo_account_name">
-            <input
-              id="bdo_account_name"
-              name="bdo_account_name"
-              defaultValue={settings.bdo_account_name ?? ''}
-              className="input-field"
-            />
-          </Field>
-          <Field label="Account number" htmlFor="bdo_account_number">
-            <input
-              id="bdo_account_number"
-              name="bdo_account_number"
-              defaultValue={settings.bdo_account_number ?? ''}
-              placeholder="000-000-000-000"
-              className="input-field font-mono"
-            />
-          </Field>
-        </section>
-
-        <section className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Smartphone className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-            <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-              GCash
-            </h2>
-          </div>
-          <Field label="Account name" htmlFor="gcash_account_name">
-            <input
-              id="gcash_account_name"
-              name="gcash_account_name"
-              defaultValue={settings.gcash_account_name ?? ''}
-              className="input-field"
-            />
-          </Field>
-          <Field label="GCash number" htmlFor="gcash_number">
-            <input
-              id="gcash_number"
-              name="gcash_number"
-              defaultValue={settings.gcash_number ?? ''}
-              placeholder="+63 917 …"
-              className="input-field font-mono"
-            />
-          </Field>
-        </section>
-
         <div className="flex items-center justify-between gap-3 border-t border-ink/10 pt-4">
           <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
             Last updated{' '}
@@ -193,34 +140,36 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
             className="button-primary inline-flex items-center gap-2"
             pendingLabel="Saving…"
           >
-            Save settings
+            Save business identity
           </SubmitButton>
         </div>
       </form>
 
-      <div className="mt-10 space-y-6 border-t border-ink/10 pt-8">
-        <header className="space-y-1">
-          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Merchant QR codes
-          </h2>
-          <p className="text-sm text-ink/60">
-            Upload a photo or screenshot of your merchant QR code (PNG, JPEG,
-            WebP, GIF, or HEIC, ≤ 6 MB). We&rsquo;ll auto-detect the QR and crop
-            it to a 512×512 square before saving so it renders clean on every
-            couple&rsquo;s order detail page.
-          </p>
-        </header>
-
-        <QrUploadBlock
-          kind="bdo"
-          label="BDO QR code"
-          currentUrl={settings.bdo_qr_url}
-        />
-        <QrUploadBlock
-          kind="gcash"
-          label="GCash QR code"
-          currentUrl={settings.gcash_qr_url}
-        />
+      <div className="mt-10 border-t border-ink/10 pt-8">
+        <Link
+          href="/admin/settings/payment-methods"
+          className="group block rounded-xl border border-ink/10 bg-cream p-5 hover:border-terracotta/30 hover:bg-terracotta/5"
+        >
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-terracotta/10 text-terracotta">
+              <CreditCard className="h-5 w-5" strokeWidth={1.75} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold text-ink">Payment methods</h3>
+                <ArrowRight
+                  aria-hidden
+                  className="h-4 w-4 text-ink/40 transition group-hover:translate-x-0.5 group-hover:text-terracotta"
+                  strokeWidth={1.75}
+                />
+              </div>
+              <p className="mt-1 text-sm text-ink/60">
+                BDO and GCash account details + QR codes the app shows to
+                couples on order detail pages.
+              </p>
+            </div>
+          </div>
+        </Link>
       </div>
 
       <div className="mt-10 space-y-4 border-t border-ink/10 pt-8">
@@ -252,53 +201,6 @@ export default async function AdminSettingsPage({ searchParams }: Props) {
         </section>
       </div>
     </div>
-  );
-}
-
-function QrUploadBlock({
-  kind,
-  label,
-  currentUrl,
-}: {
-  kind: 'bdo' | 'gcash';
-  label: string;
-  currentUrl: string | null;
-}) {
-  return (
-    <section className="space-y-3 rounded-xl border border-ink/10 bg-cream p-5">
-      <h3 className="text-sm font-semibold text-ink">{label}</h3>
-
-      {currentUrl ? (
-        <div className="flex flex-wrap items-start gap-4">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={currentUrl}
-            alt={`${label} preview`}
-            className="h-40 w-40 rounded-md border border-ink/15 bg-cream object-contain"
-          />
-          <div className="flex-1 space-y-2 text-sm text-ink/65">
-            <p>Currently shown to couples on order detail pages.</p>
-            <form action={removeMerchantQr}>
-              <input type="hidden" name="kind" value={kind} />
-              <SubmitButton
-                className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
-                pendingLabel="Removing…"
-              >
-                <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                Remove
-              </SubmitButton>
-            </form>
-          </div>
-        </div>
-      ) : (
-        <p className="rounded-md border border-dashed border-ink/15 bg-cream p-3 text-xs text-ink/55">
-          No {label} uploaded yet. Couples will see only account name +
-          number on order detail pages.
-        </p>
-      )}
-
-      <QrUploadForm kind={kind} replace={!!currentUrl} />
-    </section>
   );
 }
 

@@ -59,6 +59,14 @@ const NAV: Entry[] = [
       // /admin/pricing — read-only catalog view of `service_catalog`.
       // Placed between Payouts and Receipts per iteration 0023 § 3.5 spec.
       { href: '/admin/pricing', label: 'Pricing' },
+      // /admin/discount-codes — Day 1 voucher system per CLAUDE.md
+      // 2026-05-29 Day 1 row. Lives in Money because vouchers ARE money:
+      // they change what couples pay at order creation + show up on BIR
+      // receipts as the net-paid amount (Day 3). Placed between Pricing
+      // (where SKU stickers live) and Receipts (where the post-payment
+      // artifact lives) — workflow reads top-to-bottom: set sticker →
+      // mint code → couple pays net → receipt issues at net.
+      { href: '/admin/discount-codes', label: 'Discount codes' },
       { href: '/admin/receipts', label: 'Receipts' },
       { href: '/admin/bir/2307', label: 'BIR 2307' },
       { href: '/admin/ads', label: 'Ads' },

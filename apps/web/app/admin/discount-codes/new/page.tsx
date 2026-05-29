@@ -8,9 +8,9 @@
 
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { VoucherForm, type VoucherFormInitial } from '../_components/voucher-form';
 import { createDiscountCode } from '../actions';
+import { fetchV2CustomerCatalog, fetchV2BundleCatalog } from '@/lib/v2-catalog';
 
 export const metadata = { title: 'New discount code · Admin' };
 
@@ -22,20 +22,41 @@ type ServiceRow = {
 };
 
 export default async function NewDiscountCodePage() {
-  const admin = createAdminClient();
+  // Source: V2 customer catalog + bundle catalog · NOT V1 `service_catalog`.
+  // WHY · 2026-05-29 fix: V1 service_catalog rows are mostly is_active=FALSE
+  // post V2 publisher cutover (CLAUDE.md 2026-05-28 third row). The V2 SKUs
+  // that customers actually buy (Today's Focus, Animated Monogram, Panood,
+  // Pakanta, Papic, etc.) live in `platform_retail_catalog_v2` + bundles in
+  // `platform_package_catalog_v2`. Day 2 inline-checkout-drawer already
+  // passes V2 service_codes as serviceKey to the validator, so admin must
+  // create vouchers using the same code namespace.
+  const [customers, bundles] = await Promise.all([
+    fetchV2CustomerCatalog(),
+    fetchV2BundleCatalog(),
+  ]);
 
-  // Fetch active service_catalog rows for the multi-checkbox. Active-only
-  // because admin should not be able to attach a voucher to a retired SKU
-  // (would silently never apply at checkout).
-  const { data: services, error } = await admin
-    .from('service_catalog')
-    .select('sku_code, display_name, category, price_centavos')
-    .eq('is_active', true)
-    .order('category', { ascending: true })
-    .order('display_name', { ascending: true });
-  if (error) {
-    throw new Error(`Could not load service catalog: ${error.message}`);
-  }
+  // Map V2 shape onto the existing ServiceRow contract the form expects.
+  // Pricing held in pesos in V2 (retail_price_php NUMERIC) — convert to
+  // centavos for the form display layer. Category derived from SKU shape:
+  // bundles → 'Bundle' · standalone customer SKUs → 'Customer service'.
+  const services: ServiceRow[] = [
+    ...customers.map((c) => ({
+      sku_code: c.service_code,
+      display_name: c.title,
+      category: 'Customer service',
+      price_centavos: Math.round(c.retail_price_php * 100),
+    })),
+    ...bundles.map((b) => ({
+      sku_code: b.package_code,
+      display_name: b.title,
+      category: 'Bundle',
+      price_centavos: Math.round(b.retail_price_php * 100),
+    })),
+  ].sort((a, b) =>
+    a.category === b.category
+      ? a.display_name.localeCompare(b.display_name)
+      : a.category.localeCompare(b.category),
+  );
 
   const initial: VoucherFormInitial = {
     discount_code_id: null,
@@ -80,7 +101,7 @@ export default async function NewDiscountCodePage() {
 
       <VoucherForm
         initial={initial}
-        services={(services ?? []) as ServiceRow[]}
+        services={services}
         action={createDiscountCode}
         submitLabel="Create code"
         submitPendingLabel="Creating…"

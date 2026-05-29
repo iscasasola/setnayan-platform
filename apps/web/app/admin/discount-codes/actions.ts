@@ -159,10 +159,12 @@ function parseMaxUses(raw: FormDataEntryValue | null): number | null {
 }
 
 /**
- * Validate covered_service_keys against the live service_catalog. We accept
- * the values the admin form sends + cross-check each against an active SKU
- * — silently dropping unknown keys would be confusing, so we throw a
- * specific error naming the offender.
+ * Validate covered_service_keys against the live V2 customer + bundle
+ * catalogs. WHY · 2026-05-29 fix: V1 service_catalog rows are mostly
+ * is_active=FALSE post V2 publisher cutover (CLAUDE.md 2026-05-28 third
+ * row). Customer-facing SKUs live in platform_retail_catalog_v2 + bundles
+ * in platform_package_catalog · silently dropping unknown keys would be
+ * confusing, so we throw a specific error naming the offender.
  */
 async function validateCoveredServices(keys: string[]): Promise<string[]> {
   if (keys.length === 0) {
@@ -172,14 +174,26 @@ async function validateCoveredServices(keys: string[]): Promise<string[]> {
     throw new Error('Pick at most 50 services per code.');
   }
   const admin = createAdminClient();
-  const { data: catalog, error } = await admin
-    .from('service_catalog')
-    .select('sku_code')
-    .in('sku_code', keys);
-  if (error) {
-    throw new Error(`Service catalog lookup failed: ${error.message}`);
+  const [customersRes, bundlesRes] = await Promise.all([
+    admin
+      .from('platform_retail_catalog_v2')
+      .select('service_code')
+      .in('service_code', keys),
+    admin
+      .from('platform_package_catalog')
+      .select('package_code')
+      .in('package_code', keys),
+  ]);
+  if (customersRes.error) {
+    throw new Error(`Customer catalog lookup failed: ${customersRes.error.message}`);
   }
-  const found = new Set((catalog ?? []).map((r) => r.sku_code));
+  if (bundlesRes.error) {
+    throw new Error(`Bundle catalog lookup failed: ${bundlesRes.error.message}`);
+  }
+  const found = new Set<string>([
+    ...(customersRes.data ?? []).map((r) => r.service_code as string),
+    ...(bundlesRes.data ?? []).map((r) => r.package_code as string),
+  ]);
   const missing = keys.filter((k) => !found.has(k));
   if (missing.length > 0) {
     throw new Error(`Unknown service code(s): ${missing.join(', ')}.`);

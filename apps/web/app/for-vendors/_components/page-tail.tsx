@@ -16,9 +16,10 @@
  *   - components/homepage-bottom.jsx:311 (ClosingCTA) — Set na 'yan moment
  *   - components/homepage-bottom.jsx:345 (Footer) — 5-col compliance footer
  *
- * v2.1 DRIFT SCRUB applied:
- *   - FAQ "How does Setnayan make money?" preserved (already v2.1 canonical:
- *     ₱1,499 verification · ₱1,999/28d Pro · ₱5,499/28d Enterprise · tokens ·
+ * v2.1 DRIFT SCRUB applied (further amended 2026-05-30 row § 1(a) Pro 28-day
+ * price flip ₱1,999 → ₱2,499):
+ *   - FAQ "How does Setnayan make money?" updated (v2.1 canonical:
+ *     ₱1,499 verification · ₱2,499/28d Pro · ₱5,499/28d Enterprise · tokens ·
  *     Productions services · 0% commission)
  *   - FAQ "Setnayan iOS/Android/Mac/Windows" preserved (matches v2.1 § 11)
  *   - ClosingCTA copy preserved verbatim
@@ -473,7 +474,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'How does Setnayan make money?',
-    a: "Three ways. (1) Verified vendors pay a one-time ₱1,499 verification fee, plus an optional monthly subscription if they want extra reach — ₱1,999/28d Pro or ₱5,499/28d Enterprise. (2) Vendors buy tokens to send quotes when couples send them an inquiry. (3) Setnayan Productions — the in-app services like Pro Website, Panood livestream, Papic, SDE, Live Background — are sold by Setnayan directly to couples. We don't touch what couples pay their vendors. Zero commission, zero middleman, zero surcharge.",
+    a: "Three ways. (1) Verified vendors pay a one-time ₱1,499 verification fee, plus an optional 28-day prepaid subscription if they want extra reach — ₱2,499/28d Pro or ₱5,499/28d Enterprise. Annual prepay is also available at ~23% off. (2) Vendors buy tokens to send quotes when couples send them an inquiry, and they can spend tokens on 7-day Boosters that temporarily widen reach. (3) Setnayan Productions — the in-app services like Pro Website, Panood livestream, Papic, SDE, Live Background — are sold by Setnayan directly to couples. We don't touch what couples pay their vendors. Zero commission, zero middleman, zero surcharge.",
   },
   {
     q: 'How do I know a vendor is legit?',

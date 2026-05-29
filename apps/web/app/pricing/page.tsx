@@ -144,14 +144,20 @@ export default async function PricingPage() {
   const annualByTier = new Map(
     vendorAnnualSubs.map((a) => [a.sku_code.replace(/_annual$/, ''), a]),
   );
-  function annualFor(monthlySku: { sku_code: string; price_php: number }) {
-    const tierKey = monthlySku.sku_code.replace(/_monthly$/, '');
+  // Cadence is 28-day prepaid blocks (NOT calendar months) per CLAUDE.md
+  // 2026-05-30 "🔒 V2.1 BRIEF AMENDMENT #2 LOCKED" row § 1(a) cadence
+  // correction · 13 cycles/year (NOT 12). Sticker sum:
+  //   Pro 28-day × 13   = ₱2,499 × 13 = ₱32,487/yr · Annual ₱24,999 = ~23% off
+  //   Enterprise × 13   = ₱5,499 × 13 = ₱71,487/yr · Annual ₱54,999 = ~23% off
+  // Both tiers land symmetric at ~23% off annual vs 28-day cycle aggregate.
+  function annualFor(blockSku: { sku_code: string; price_php: number }) {
+    const tierKey = blockSku.sku_code.replace(/_monthly$/, '');
     const annual = annualByTier.get(tierKey);
     if (!annual) return null;
-    const monthlyTotal = monthlySku.price_php * 12;
-    const savings = Math.max(0, Math.round(monthlyTotal - annual.price_php));
-    const savingsPct = monthlyTotal > 0
-      ? Math.round((savings / monthlyTotal) * 100)
+    const cycleTotal = blockSku.price_php * 13; // 28-day × 13 = full year
+    const savings = Math.max(0, Math.round(cycleTotal - annual.price_php));
+    const savingsPct = cycleTotal > 0
+      ? Math.round((savings / cycleTotal) * 100)
       : 0;
     return { annual, savings, savingsPct };
   }
@@ -245,15 +251,18 @@ export default async function PricingPage() {
         },
       })),
       // Vendor subscriptions · @type Service with PriceSpecification ·
-      // both monthly + annual cadence per CLAUDE.md eleventh 2026-05-28 row.
-      // billingDuration: P1M (monthly) OR P1Y (annual) · unitText carries
-      // the cadence verbally for AI engines that don't parse ISO-8601
-      // durations.
+      // both 28-day prepaid + annual cadence per CLAUDE.md 2026-05-30 row
+      // "🔒 V2.1 BRIEF AMENDMENT #2 LOCKED" § 1(a) cadence correction +
+      // § 7(d) JSON-LD schema.org billingDuration update. Pro/Enterprise
+      // 28-day blocks (13 cycles/year · NOT calendar months).
+      // billingDuration: P28D (28-day prepaid block) OR P1Y (annual) ·
+      // unitText carries the cadence verbally for AI engines that don't
+      // parse ISO-8601 durations.
       ...[...vendorSubs, ...vendorAnnualSubs].map((s) => {
         const isAnnual = s.offering_type === 'subscription_annual';
         const cadence = isAnnual
           ? { billingDuration: 'P1Y', unitText: 'annual subscription', shortLabel: 'per year' }
-          : { billingDuration: 'P1M', unitText: 'monthly subscription', shortLabel: 'per month' };
+          : { billingDuration: 'P28D', unitText: '28-day prepaid block', shortLabel: 'per 28 days' };
         return {
           '@type': 'Service',
           '@id': `${SITE_URL}/pricing#vendor-${s.sku_code}`,
@@ -510,10 +519,13 @@ export default async function PricingPage() {
               Subscription + token packs.
             </h2>
             <p className="text-base leading-relaxed text-ink/65">
-              Vendors subscribe monthly for marketplace presence, and top up
-              tokens to redeem the same software SKUs couples buy at retail.
-              Verified vendors receive <strong className="text-ink">100 complimentary tokens</strong>{' '}
-              once their verification is approved.
+              Vendors subscribe in 28-day prepaid blocks for marketplace
+              presence, and top up tokens to redeem the same software SKUs
+              couples buy at retail. Verified vendors receive{' '}
+              <strong className="text-ink">100 complimentary tokens</strong>{' '}
+              once their verification is approved. Boost individual features
+              for 7 days · 4–100 tokens · Pro+ vendors can add branches at
+              ₱999 / 28 days each.
             </p>
           </div>
 
@@ -547,14 +559,18 @@ export default async function PricingPage() {
                       <span className="font-sans text-5xl font-semibold tracking-tight text-ink">
                         ₱{formatPeso(sub.price_php)}
                       </span>
-                      <span className="text-sm text-ink/55">/ month</span>
+                      <span className="text-sm text-ink/55">/ 28 days</span>
                     </p>
-                    {/* Annual deal callout · paired with monthly per tier ·
-                        added 2026-05-29 per CLAUDE.md eleventh 2026-05-28 row.
+                    {/* Annual deal callout · paired with 28-day per tier ·
+                        added 2026-05-29 per CLAUDE.md eleventh 2026-05-28 row ·
+                        updated 2026-05-30 per CLAUDE.md "🔒 V2.1 BRIEF
+                        AMENDMENT #2 LOCKED" row § 4 (Pro Annual ₱24,999 ·
+                        symmetric ~23% off Pro 28-day × 13 and Enterprise
+                        28-day × 13 sticker totals).
                         Renders only when annual counterpart exists in
                         vendor_billing_catalog (lookup by SKU naming
                         convention via annualFor() helper). Standard SaaS
-                        retention lever · 17% mid-range discount. */}
+                        retention lever · mid-range 23% off. */}
                     {annualDeal ? (
                       <p className="rounded-lg border border-terracotta/30 bg-terracotta/[0.06] px-3 py-2 text-xs leading-relaxed">
                         <span className="text-ink">
@@ -672,9 +688,9 @@ export default async function PricingPage() {
                 Vendor → Setnayan
               </p>
               <p className="mt-3 text-sm leading-relaxed text-ink/70">
-                Vendors pay a monthly subscription (above) for marketplace
-                presence, and top up tokens to redeem software for their own
-                events.
+                Vendors pay a 28-day prepaid subscription (above) for
+                marketplace presence, and top up tokens to redeem software
+                for their own events.
               </p>
             </div>
           </div>

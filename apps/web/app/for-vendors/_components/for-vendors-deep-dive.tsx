@@ -5,17 +5,24 @@
  * components/homepage-extras.jsx (lines 350-660). The 4-tier matrix
  * (Free / Verified / Pro / Enterprise) IS already in the v2.1 template —
  * the template was authored AFTER the v2.1 brief lock, so its pricing
- * (₱1,499 lifetime · ₱1,999/28d Pro · ₱5,499/28d Enterprise) matches the
- * canonical CLAUDE-CODE-BRIEF-v2.1_2026-05-28.md § 3.
+ * (₱1,499 lifetime · ₱2,499/28d Pro · ₱5,499/28d Enterprise · per
+ * CLAUDE.md 2026-05-30 "🔒 V2.1 BRIEF AMENDMENT #2 LOCKED" row § 1(a)
+ * Pro 28-day flip ₱1,999 → ₱2,499; canonical CLAUDE-CODE-BRIEF-v2.1_
+ * 2026-05-28.md § 3 superseded for the Pro 28-day price).
  *
- * DRIFT SCRUBS applied (CLAUDE.md 2026-05-28 11th row v2.1 canonical):
+ * DRIFT SCRUBS applied (CLAUDE.md 2026-05-28 11th row v2.1 canonical · further
+ * amended 2026-05-30 row § 1(a) + § 4 Pro 28-day price flip to ₱2,499 + Pro
+ * Annual to ₱24,999 + Boosters surface mention):
  *   - "Setnayan Concierge matching" rows → "Today's Focus matching" (V2 retire)
  *   - "Concierge matchmaking" in card titles → "Today's Focus matchmaking"
  *   - "Sponsored Boost ₱1,200/wk" preserved (matches v2.1 brief)
  *   - "Boosted Ads · ₱1,200/wk" preserved (matches v2.1 brief)
+ *   - Boosters surface mention added (CLAUDE.md 2026-05-30 row § 1(d) reinstated)
  *   - 0% commission claim preserved (V2 publisher posture per CLAUDE.md 2026-05-28 3rd row)
  *   - Founder bonus 100 tokens preserved (matches v2.1 brief § 1)
  *   - ₱1,499 one-time verification preserved (matches v2.1 § 1)
+ *   - Pro 28-day ₱1,999 → ₱2,499 (2026-05-30 § 1(a))
+ *   - Pro Annual ₱19,999 → ₱24,999 (2026-05-30 § 4)
  *
  * Per [[feedback_setnayan_button_preservation]] CTAs preserved verbatim.
  */
@@ -62,11 +69,13 @@ const MATRIX_SECTIONS: MatrixSection[] = [
   },
   {
     section: '📡 Reach & visibility',
-    note: 'Boost radius scales by tier. Higher tiers also unlock paid ad placements and a shareable bid link for social.',
+    note: 'Boost radius scales by tier. Boost individual features for 7 days · 4–100 tokens each. Higher tiers also unlock paid ad placements and a shareable bid link for social.',
     rows: [
       ['Boost radius', '10km', '20km', '50km', '100km'],
+      ['Boosters · 7-day feature unlocks · 4–100 tokens each', true, true, true, true],
       ['Sponsored Boost · top of category search', false, false, true, true],
       ['Boosted Ads · ₱1,200/wk add-on', false, false, true, true],
+      ['Add Branch · ₱999/28 days each', false, false, true, true],
       ['Sharable bid link for social media', false, false, false, true],
     ],
   },
@@ -427,7 +436,7 @@ export function ForVendorsDeepDive() {
                 marginTop: 4,
               }}
             >
-              ₱1,999{' '}
+              ₱2,499{' '}
               <span style={{ fontSize: 12, color: 'var(--m-slate-4)' }}>/ 28d</span>
             </div>
             <div
@@ -437,13 +446,15 @@ export function ForVendorsDeepDive() {
               1 category · 5 accounts
             </div>
             {/* Annual alternative · added 2026-05-29 per CLAUDE.md eleventh
-                2026-05-28 row · vendor_billing_catalog row pro_vendor_annual
-                ₱19,999/yr ~17% off vs monthly × 12 = ₱23,988 (save ₱3,989) */}
+                2026-05-28 row · price updated ₱19,999 → ₱24,999 per CLAUDE.md
+                2026-05-30 "🔒 V2.1 BRIEF AMENDMENT #2 LOCKED" row § 4.
+                vendor_billing_catalog row pro_vendor_annual ₱24,999/yr is
+                ~23% off Pro 28-day × 13 cycles = ₱32,487 sticker (save ₱7,488). */}
             <div
               className="m-mono"
               style={{ fontSize: 10, color: 'var(--m-orange-3)', marginTop: 6 }}
             >
-              or ₱19,999/yr · save ₱3,989
+              or ₱24,999/yr · save ₱7,488
             </div>
           </div>
           {/* ENTERPRISE */}

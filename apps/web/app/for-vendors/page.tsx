@@ -18,12 +18,13 @@
  * agent-homepage's shared components land.
  *
  * v2.1 drift scrubs applied (CLAUDE.md 2026-05-28 11th row supersedes lead-broker
- * pivot from rows 7-9 same day):
- *   - "Pro at ₱499/wk" (2x in StackCloseVendor) → "Pro at ₱1,999/28d"
+ * pivot from rows 7-9 same day · further amended 2026-05-30 row § 1(a) +
+ * § 4 + § 7(d) Pro 28-day price flip to ₱2,499 + Pro Annual to ₱24,999):
+ *   - "Pro at ₱499/wk" (2x in StackCloseVendor) → "Pro at ₱2,499/28d" (2026-05-30)
  *   - "Setnayan Concierge matching/matchmaking" → "Today's Focus matching/matchmaking"
  *   - 0% commission + Setnayan-never-touches-the-money preserved (V2 publisher posture)
  *   - 4-tier matrix (Free / Verified / Pro / Enterprise) intact from template
- *   - ₱1,499 one-time verification + ₱1,999/28d Pro + ₱5,499/28d Enterprise preserved
+ *   - ₱1,499 one-time verification + ₱2,499/28d Pro + ₱5,499/28d Enterprise (28-day cadence locked 2026-05-30)
  *   - 100-token founder bonus on verification before 31 Jan 2027 preserved
  *
  * Per [[feedback_setnayan_button_preservation]] — every CTA placement +
@@ -44,25 +45,25 @@ import { Voices, Pricing, FAQ, ClosingCTA, Footer } from './_components/page-tai
 export const revalidate = 3600;
 
 export const metadata = {
-  title: 'Setnayan for Vendors — Free + Pro · ₱1,999/28d',
+  title: 'Setnayan for Vendors — Free + Pro · ₱2,499/28d',
   description:
-    'Free vendor profile + Pro tier ₱1,999/28d. 0% commission on bookings — we never touch the money. In-app chat, pipeline, reviews. Founder bonus 100 tokens on verification (until 31 Jan 2027).',
+    'Free vendor profile + Pro tier ₱2,499/28d. 0% commission on bookings — we never touch the money. In-app chat, pipeline, reviews. Founder bonus 100 tokens on verification (until 31 Jan 2027).',
   alternates: {
     canonical: '/for-vendors',
   },
   openGraph: {
-    title: 'Setnayan for Vendors — Free + Pro · ₱1,999/28d',
+    title: 'Setnayan for Vendors — Free + Pro · ₱2,499/28d',
     description:
-      'Free vendor profile + Pro tier ₱1,999/28d. 0% commission on bookings — we never touch the money.',
+      'Free vendor profile + Pro tier ₱2,499/28d. 0% commission on bookings — we never touch the money.',
     url: '/for-vendors',
     type: 'website',
     siteName: 'Setnayan',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Setnayan for Vendors — Free + Pro · ₱1,999/28d',
+    title: 'Setnayan for Vendors — Free + Pro · ₱2,499/28d',
     description:
-      '0% commission. Free listing. Pro ₱1,999/28d. 100 founder bonus tokens on verification.',
+      '0% commission. Free listing. Pro ₱2,499/28d. 100 founder bonus tokens on verification.',
   },
 };
 
@@ -87,7 +88,7 @@ const FOR_VENDORS_JSONLD = {
       '@type': 'WebPage',
       '@id': `${SITE_URL}/for-vendors#webpage`,
       url: `${SITE_URL}/for-vendors`,
-      name: 'Setnayan for vendors — Free + Pro · ₱1,999/28d',
+      name: 'Setnayan for vendors — Free + Pro · ₱2,499/28d',
       isPartOf: { '@id': `${SITE_URL}/#website` },
       about: { '@id': `${SITE_URL}/#organization` },
       audience: {
@@ -129,16 +130,17 @@ const FOR_VENDORS_JSONLD = {
     {
       '@type': 'Offer',
       '@id': `${SITE_URL}/for-vendors#pro-vendor-subscription`,
-      name: 'Pro Vendor (monthly subscription)',
+      name: 'Pro Vendor (28-day prepaid block)',
       description:
-        "One marketplace category · 5 team accounts · custom website + slug · Today's Focus priority matching · AI Proposal Builder · category benchmarks · 100 complimentary tokens on verification. 28-day prepaid blocks.",
-      price: '1999',
+        "One marketplace category · 5 team accounts · custom website + slug · Today's Focus priority matching · AI Proposal Builder · category benchmarks · 100 complimentary tokens on verification. 28-day prepaid blocks (13 cycles/year).",
+      price: '2499',
       priceCurrency: 'PHP',
       priceSpecification: {
         '@type': 'UnitPriceSpecification',
-        price: '1999',
+        price: '2499',
         priceCurrency: 'PHP',
-        unitText: 'MONTH',
+        billingDuration: 'P28D',
+        unitText: '28-DAY BLOCK',
       },
       availability: 'https://schema.org/InStock',
       seller: { '@id': `${SITE_URL}/#organization` },
@@ -147,42 +149,45 @@ const FOR_VENDORS_JSONLD = {
     {
       '@type': 'Offer',
       '@id': `${SITE_URL}/for-vendors#enterprise-subscription`,
-      name: 'Enterprise Vendor (monthly subscription)',
+      name: 'Enterprise Vendor (28-day prepaid block)',
       description:
-        'Multiple marketplace categories · unlimited team accounts · everything in Pro + quarterly business review + sharable bid link for social media. 28-day prepaid blocks.',
+        'Multiple marketplace categories · unlimited team accounts · everything in Pro at extended 100km radius. 28-day prepaid blocks (13 cycles/year).',
       price: '5499',
       priceCurrency: 'PHP',
       priceSpecification: {
         '@type': 'UnitPriceSpecification',
         price: '5499',
         priceCurrency: 'PHP',
-        unitText: 'MONTH',
+        billingDuration: 'P28D',
+        unitText: '28-DAY BLOCK',
       },
       availability: 'https://schema.org/InStock',
       seller: { '@id': `${SITE_URL}/#organization` },
       url: `${SITE_URL}/signup?as=vendor`,
     },
     // Annual subscription Offers · added 2026-05-29 per CLAUDE.md eleventh
-    // 2026-05-28 row "v2.1 amendment · Pro Vendor annual ₱19,999/yr +
-    // Enterprise Vendor annual ₱54,999/yr added". Both ~17% off vs monthly
-    // × 12 · charm-priced -1 endings. Standard SaaS retention lever ·
-    // Notion 16% · Linear 20% · Shopify 25% sit adjacent · 17% lands
-    // mid-range. Backed by vendor_billing_catalog rows pro_vendor_annual +
-    // enterprise_vendor_annual seeded in migration 20260712000000.
-    // Prevents the eighth-row schema.org JSON-LD undersell trap (annual
-    // SKUs invisible to crawlers without their own Offer entries).
+    // 2026-05-28 row · Pro Annual price updated ₱19,999 → ₱24,999 per
+    // CLAUDE.md 2026-05-30 row § 4 (28-day × 13 cycles/year sticker = ₱32,487
+    // for Pro · ~23% off with ₱24,999 annual · symmetric with Enterprise
+    // ~23% off ₱71,487 sticker). Standard SaaS retention lever · Notion 16% ·
+    // Linear 20% · Shopify 25% sit adjacent · 23% lands mid-range. Backed by
+    // vendor_billing_catalog rows pro_vendor_annual + enterprise_vendor_annual
+    // (price flip via migration 20260530010000_iteration_0006_v2_1_amendment_2).
+    // Prevents the eighth-row schema.org JSON-LD undersell trap (annual SKUs
+    // invisible to crawlers without their own Offer entries).
     {
       '@type': 'Offer',
       '@id': `${SITE_URL}/for-vendors#pro-vendor-annual-subscription`,
-      name: 'Pro Vendor (annual subscription · save 17%)',
+      name: 'Pro Vendor (annual subscription · save 23%)',
       description:
-        "₱19,999/year instead of ₱1,999 × 12 = ₱23,988 · save ₱3,989. Same Pro tier · one marketplace category · 5 team accounts · custom website + slug · Today's Focus priority matching · AI Proposal Builder · category benchmarks · 100 complimentary tokens on verification. Single annual payment.",
-      price: '19999',
+        "₱24,999/year instead of ₱2,499 × 13 cycles = ₱32,487 · save ₱7,488. Same Pro tier · one marketplace category · 5 team accounts · custom website + slug · Today's Focus priority matching · AI Proposal Builder · category benchmarks · 100 complimentary tokens on verification. Single annual payment.",
+      price: '24999',
       priceCurrency: 'PHP',
       priceSpecification: {
         '@type': 'UnitPriceSpecification',
-        price: '19999',
+        price: '24999',
         priceCurrency: 'PHP',
+        billingDuration: 'P1Y',
         unitText: 'YEAR',
       },
       availability: 'https://schema.org/InStock',
@@ -192,15 +197,16 @@ const FOR_VENDORS_JSONLD = {
     {
       '@type': 'Offer',
       '@id': `${SITE_URL}/for-vendors#enterprise-annual-subscription`,
-      name: 'Enterprise Vendor (annual subscription · save 17%)',
+      name: 'Enterprise Vendor (annual subscription · save 23%)',
       description:
-        '₱54,999/year instead of ₱5,499 × 12 = ₱65,988 · save ₱10,989. Same Enterprise tier · multiple marketplace categories · unlimited team accounts · quarterly business review · sharable bid link for social media. Single annual payment.',
+        '₱54,999/year instead of ₱5,499 × 13 cycles = ₱71,487 · save ₱16,488. Same Enterprise tier · multiple marketplace categories · unlimited team accounts · extended 100km radius · Single annual payment.',
       price: '54999',
       priceCurrency: 'PHP',
       priceSpecification: {
         '@type': 'UnitPriceSpecification',
         price: '54999',
         priceCurrency: 'PHP',
+        billingDuration: 'P1Y',
         unitText: 'YEAR',
       },
       availability: 'https://schema.org/InStock',

@@ -6,15 +6,25 @@ import tailwindcssAnimate from 'tailwindcss-animate';
 // (sm 640 / md 768 / lg 1024 / xl 1280). Re-declared explicitly so a future
 // theme override can't accidentally shift them.
 //
-// 2026-05-22 BRAND PIVOT (CLAUDE.md decision-log):
+// 2026-05-30 CLEAN EDITORIAL UNIFICATION (CLAUDE.md decision-log).
+// Supersedes 2026-05-22 Facebook palette across app chrome.
+//
 //   - `darkMode: 'class'` so Tailwind respects the `dark` class on <html>
-//     toggled by the ThemeProvider client component.
-//   - Legacy slot names (`cream`, `ink`, `terracotta`) are PRESERVED but their
-//     CSS-variable values now remap to Facebook white/blue palette per
-//     `app/globals.css`. This keeps hundreds of existing class-name call sites
-//     working without a codebase-wide rename.
-//   - New canonical tokens (`accent`, `surface`, `surface-soft`, `ink-soft`)
-//     are exposed alongside for new code that wants semantic names.
+//     toggled by the ThemeProvider client component (light/dark/auto trio
+//     retained from 2026-05-22 — only palette values flip).
+//   - Legacy slot names (`cream`, `ink`, `terracotta`) PRESERVED. Token
+//     values now remap to Clean Editorial palette per `app/globals.css`:
+//       Light:  Alabaster #FBFBFA · Obsidian #1E2229 · Champagne #C5A059
+//       Dark:   Obsidian #1E2229 · Alabaster #FBFBFA · Champagne #E0CCA0
+//   - NEW `mulberry` color family added for CTAs (#5C2542 Rich Mulberry).
+//     `.button-primary` in globals.css uses `bg-mulberry` so primary
+//     actions read distinct from active-pill highlights (which stay
+//     `bg-terracotta`=gold per Clean Editorial accent role).
+//   - Static terracotta ladder (50–400, 800–900) flipped from Facebook
+//     blue hex literals to champagne gold tints derived from #C5A059.
+//   - Canonical semantic tokens (`accent`, `surface`, `surface-soft`,
+//     `ink-soft`) carry forward unchanged at the Tailwind layer; their
+//     CSS-var values flip per globals.css.
 const config: Config = {
   darkMode: 'class',
   content: ['./app/**/*.{ts,tsx}', './lib/**/*.{ts,tsx}'],
@@ -29,15 +39,21 @@ const config: Config = {
     extend: {
       colors: {
         // Themeable surface tokens — values resolve at runtime from CSS vars
-        // defined in globals.css per mode. Light mode = Facebook white +
-        // ink; dark mode (html.dark) = Facebook dark + light ink.
+        // defined in globals.css per mode. Light mode = Clean Editorial
+        // Alabaster + Obsidian + Champagne; dark mode (html.dark) = Obsidian
+        // bg + Alabaster text + brighter Champagne accent. Per CLAUDE.md
+        // 2026-05-30 row "Clean Editorial unification".
         //
         // Legacy slots preserved so existing class-name call sites work:
-        //   - `cream`      → page background (light: #FFFFFF / dark: #18191A)
-        //   - `ink`        → primary text  (light: #050505 / dark: #E4E6EB)
-        //   - `terracotta` → accent / CTA (Facebook blue #1877F2 / dark variant)
-        // The slot names are semantic ("accent / surface / ink") not literal —
-        // see CLAUDE.md 2026-05-22 row for the brand pivot rationale.
+        //   - `cream`      → page background (light: #FBFBFA / dark: #1E2229)
+        //   - `ink`        → primary text   (light: #1E2229 / dark: #FBFBFA)
+        //   - `terracotta` → ACCENT (Champagne Gold #C5A059 / dark #E0CCA0)
+        //                     — eyebrows, active filter pills, borders,
+        //                     selected-state highlights
+        //   - `mulberry`   → NEW · CTA (#5C2542 / dark #B8889C lighter wash)
+        //                     — primary action buttons via `.button-primary`
+        // The slot names stay semantic ("accent / surface / ink / cta") not
+        // literal — see CLAUDE.md 2026-05-30 row for the unification rationale.
         cream: 'rgb(var(--color-cream) / <alpha-value>)',
         ink: {
           DEFAULT: 'rgb(var(--color-ink) / <alpha-value>)',
@@ -45,19 +61,35 @@ const config: Config = {
         },
         terracotta: {
           DEFAULT: 'rgb(var(--color-terracotta) / <alpha-value>)',
-          // Static facebook-blue tint ladder for fills / hover states. Kept as
-          // raw hex (not CSS-var) because these are non-themed shades that
-          // read fine in both light and dark mode.
-          50: '#e7f3ff',
-          100: '#cfe4ff',
-          200: '#9fc8ff',
-          300: '#6fadff',
-          400: '#4791f5',
+          // Champagne Gold tint ladder for fills / hover states / soft
+          // pills. Kept as raw hex (not CSS-var) because these are
+          // non-themed shades — they read fine on alabaster (light) and
+          // obsidian (dark) surfaces alike.
+          50: '#fbf7ec',
+          100: '#f4ecd8',
+          200: '#e8d8b0',
+          300: '#dbc488',
+          400: '#cdb160',
           500: 'rgb(var(--color-terracotta) / <alpha-value>)',
           600: 'rgb(var(--color-terracotta-600) / <alpha-value>)',
           700: 'rgb(var(--color-terracotta-700) / <alpha-value>)',
-          800: '#0a4399',
-          900: '#063170',
+          800: '#6c5125',
+          900: '#4d3a1b',
+        },
+        mulberry: {
+          DEFAULT: 'rgb(var(--color-mulberry) / <alpha-value>)',
+          // Rich Mulberry tint ladder for CTA fills / hover states / soft
+          // selection backgrounds. Raw hex for non-themed shades.
+          50: '#fef6f8',
+          100: '#f5e8ee',
+          200: '#ecc8d5',
+          300: '#b8889c',
+          400: '#8e5675',
+          500: 'rgb(var(--color-mulberry) / <alpha-value>)',
+          600: 'rgb(var(--color-mulberry-600) / <alpha-value>)',
+          700: 'rgb(var(--color-mulberry-700) / <alpha-value>)',
+          800: '#2a1020',
+          900: '#1a0814',
         },
         // Canonical semantic tokens for new code. Older code referencing
         // `cream` / `ink` / `terracotta` continues to work via the slots above.

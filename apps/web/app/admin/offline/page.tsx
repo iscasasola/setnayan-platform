@@ -40,22 +40,17 @@
  *   • Decision log: CLAUDE.md 2026-05-28 third row.
  */
 
-import dynamic from 'next/dynamic';
+import { OfflineDiagnosticLoader } from './_components/offline-diagnostic-loader';
 
 export const metadata = { title: 'Offline daemon · Admin' };
 
-// Client-only because IndexedDB lives on `window`. Server-render would
-// throw on `indexedDB.open`. `ssr: false` lets Next.js render a tiny
-// loading shell during hydration; the panel mounts on the client.
-const OfflineDiagnostic = dynamic(() => import('./_components/offline-diagnostic'), {
-  ssr: false,
-  loading: () => (
-    <div className="m-card p-6 text-sm text-ink-soft">
-      Loading offline diagnostic…
-    </div>
-  ),
-});
-
+// IndexedDB is client-only (lives on `window`), so the diagnostic panel
+// loads via `next/dynamic({ ssr: false })`. Next.js 15 forbids that call
+// directly inside a Server Component, so the dynamic import lives in the
+// adjacent `<OfflineDiagnosticLoader>` Client Component which renders the
+// SSR-disabled child entirely inside the client subtree. Caught + fixed
+// 2026-05-29 — was blocking every Vercel production deploy since PR #623
+// (Phase G offline daemon) merged.
 export default function AdminOfflinePage() {
   return (
     <div className="space-y-6">
@@ -70,7 +65,7 @@ export default function AdminOfflinePage() {
         </p>
       </header>
 
-      <OfflineDiagnostic />
+      <OfflineDiagnosticLoader />
 
       <aside className="m-card border border-orange/15 bg-orange/5 p-6">
         <p className="m-eyebrow text-orange">Note</p>

@@ -14,6 +14,14 @@ import {
 } from '@/app/_components/app-store/state-cta';
 import { fetchAddOnStats } from '@/lib/add-on-stats';
 import { resolveAddOnState } from '@/lib/add-on-state';
+// 2026-05-29 Day 2 inline-checkout sprint (CLAUDE.md Day 2 row · V1 SCOPE
+// EXPANSION). The per-plan "Add to event" CTA in ChoosePlanSheet now opens
+// the InlineCheckoutDrawer · pass BDO + GCash settings from platform_settings
+// so the drawer can render the QR + account block inline. Cross-refs:
+//   • apps/web/app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx
+//   • apps/web/app/dashboard/[eventId]/checkout/actions.ts
+//   • PR #594 + PR #595 voucher schema substrate
+import { fetchPlatformSettings } from '@/lib/platform-settings';
 
 // Iteration 0011 — Panood App Store-style detail surface.
 //
@@ -127,7 +135,10 @@ export default async function PanoodAppStorePage({ params }: Props) {
     .maybeSingle();
   if (!event) notFound();
 
-  const [stats, stateCtx] = await Promise.all([
+  // Parallel-fetch the platform settings alongside stats + state. The
+  // settings feed the InlineCheckoutDrawer in ChoosePlanSheet · zero
+  // extra round-trips because we're already awaiting two things here.
+  const [stats, stateCtx, settings] = await Promise.all([
     fetchAddOnStats(supabase, 'panood'),
     resolveAddOnState(
       supabase,
@@ -136,6 +147,7 @@ export default async function PanoodAppStorePage({ params }: Props) {
       'couple',
       `/dashboard/${eventId}/add-ons/panood/setup`,
     ),
+    fetchPlatformSettings(supabase),
   ]);
   const owned = stateCtx.state === 'launch';
 
@@ -184,6 +196,10 @@ export default async function PanoodAppStorePage({ params }: Props) {
         eventId,
         triggerLabel: 'Add',
         priceFromLabel: `From ${fromPriceFormatted}`,
+        // 2026-05-29 Day 2 inline-checkout · thread priceCentavos as a string
+        // so each plan's drawer can do BigInt voucher math. Also pass
+        // settings down to the sheet so the drawer renders BDO + GCash QR
+        // inline without an extra round-trip.
         plans: PANOOD_SKUS.map((s) => ({
           sku_code: s.sku_code,
           name: s.name,
@@ -191,7 +207,9 @@ export default async function PanoodAppStorePage({ params }: Props) {
           price: formatPhp(s.centavos / 100),
           unit: s.unit,
           badge: s.badge,
+          priceCentavos: String(s.centavos),
         })),
+        settings,
         introCopy:
           'Filipino weddings often have separate event-days for prep, ceremony, and reception. Buy one day per broadcast day, or unlock the full year with an Annual plan.',
         footnote:

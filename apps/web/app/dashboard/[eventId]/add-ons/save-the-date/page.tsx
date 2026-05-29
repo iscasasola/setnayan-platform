@@ -1,15 +1,25 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Sparkles, Video } from 'lucide-react';
+import { ArrowLeft, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { SubmitButton } from '@/app/_components/submit-button';
 import {
   SAVE_THE_DATE_TEMPLATES,
   STD_PRICE_PHP,
   type SaveTheDateTemplate,
 } from '@/lib/save-the-date';
 import { formatPhp } from '@/lib/orders';
-import { createOrder } from '../../orders/actions';
+// 2026-05-29 Day 2 inline-checkout sprint (CLAUDE.md Day 2 row · V1 SCOPE
+// EXPANSION). Replaces the per-template `<form action={createOrder}>` that
+// routed to /orders/[id] with the InlineCheckoutDrawer landing on this
+// page. The template slug stays in the order's description so admin can
+// see which template the couple requested; the drawer's service_key is
+// the canonical SKU code 'save_the_date_video' so voucher coverage works.
+// Cross-refs:
+//   • apps/web/app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx
+//   • apps/web/app/dashboard/[eventId]/checkout/actions.ts
+//   • PR #594 + PR #595 voucher schema substrate
+import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 
 export const metadata = { title: 'Save the Date · Setnayan' };
 
@@ -23,11 +33,14 @@ export default async function SaveTheDateGallery({ params }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: event } = await supabase
-    .from('events')
-    .select('display_name, event_date')
-    .eq('event_id', eventId)
-    .maybeSingle();
+  const [{ data: event }, settings] = await Promise.all([
+    supabase
+      .from('events')
+      .select('display_name, event_date')
+      .eq('event_id', eventId)
+      .maybeSingle(),
+    fetchPlatformSettings(supabase),
+  ]);
 
   return (
     <section className="space-y-6">
@@ -79,6 +92,7 @@ export default async function SaveTheDateGallery({ params }: Props) {
               template={t}
               coupleName={event?.display_name ?? ''}
               eventDate={event?.event_date ?? null}
+              settings={settings}
             />
           </li>
         ))}
@@ -104,21 +118,35 @@ function TemplateCard({
   template,
   coupleName,
   eventDate,
+  settings,
 }: {
   eventId: string;
   template: SaveTheDateTemplate;
   coupleName: string;
   eventDate: string | null;
+  settings: {
+    bdo_account_name: string | null;
+    bdo_account_number: string | null;
+    bdo_qr_url: string | null;
+    gcash_account_name: string | null;
+    gcash_number: string | null;
+    gcash_qr_url: string | null;
+  };
 }) {
-  const description = [
-    `Save the Date video — ${template.name} template`,
-    coupleName ? `Couple: ${coupleName}` : null,
-    eventDate ? `Wedding date: ${eventDate}` : null,
-    'Format: 60 seconds, vertical + square + horizontal',
-    'I have 3–8 video clips to share with the team (we will coordinate handoff after the quote is confirmed).',
+  // Display name carried into the drawer (becomes orders.description). The
+  // template slug + couple name + date are bundled so admin can see what
+  // the couple picked without opening a separate metadata view.
+  // 2026-05-29 Day 2 inline-checkout migration · the legacy free-text
+  // description (with the "I have 3-8 video clips" rider) lived in
+  // orders.description previously · we keep the spirit by using a richer
+  // displayName string.
+  const displayLine = [
+    `Save the Date · ${template.name}`,
+    coupleName ? coupleName : null,
+    eventDate ? `Wedding date ${eventDate}` : null,
   ]
     .filter(Boolean)
-    .join('\n');
+    .join(' · ');
 
   return (
     <article className="flex h-full flex-col gap-3 overflow-hidden rounded-xl border border-ink/10 bg-cream">
@@ -134,23 +162,28 @@ function TemplateCard({
           </span>
         </div>
         <p className="text-xs text-ink/70">{template.vibe}</p>
-        <form action={createOrder} className="pt-2">
-          <input type="hidden" name="event_id" value={eventId} />
-          <input
-            type="hidden"
-            name="service_key"
-            value={`save-the-date:${template.slug}`}
+        <div className="pt-2">
+          {/*
+            2026-05-29 Day 2 inline-checkout · replaces the legacy
+            <form action={createOrder}> that submitted to /orders/[id].
+            The drawer renders voucher + QR + screenshot + submit in
+            one place · the couple stays on the gallery page through
+            the whole checkout. service_key is the canonical SKU code
+            'save_the_date_video' (not the per-template slug suffix
+            that the legacy form used) so voucher coverage works.
+            The template slug rides in the drawer's displayName so it
+            still shows up in orders.description for admin.
+          */}
+          <InlineCheckoutDrawer
+            eventId={eventId}
+            serviceKey="save_the_date_video"
+            displayName={displayLine}
+            originalPriceCentavos={String(Math.round(STD_PRICE_PHP * 100))}
+            settings={settings}
+            triggerLabel="Request this template"
+            triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta-600 disabled:opacity-70"
           />
-          <input type="hidden" name="description" value={description} />
-          <input type="hidden" name="requested_total_php" value={STD_PRICE_PHP} />
-          <SubmitButton
-            className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta-600 disabled:opacity-70"
-            pendingLabel="Requesting…"
-          >
-            <Video className="h-4 w-4" strokeWidth={1.75} />
-            Request this template
-          </SubmitButton>
-        </form>
+        </div>
       </div>
     </article>
   );

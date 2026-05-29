@@ -14,6 +14,11 @@ import {
 import { SiteHeader } from '@/app/_components/site-header';
 import { Logo } from '@/app/_components/logo';
 
+// SEO/GEO Bucket 8 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — 1hr Vercel
+// edge cache so static marketing routes serve Google's crawl rate-limit
+// budget without origin pressure. Each page rebuilds at most once per hour.
+export const revalidate = 3600;
+
 export const metadata = {
   title: 'How Setnayan works — couples, vendors, guests, admins',
   description:

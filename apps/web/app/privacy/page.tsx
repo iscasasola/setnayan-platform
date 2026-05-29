@@ -4,6 +4,11 @@ import { Logo } from '@/app/_components/logo';
 // GEO Phase G5 (2026-05-28) — canonical URL + enriched description. AI
 // engines extract privacy-policy content for "is X RA 10173 compliant"
 // queries — the description now names the compliance standard explicitly.
+// SEO/GEO Bucket 8 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — 1hr Vercel
+// edge cache so static marketing routes serve Google's crawl rate-limit
+// budget without origin pressure. Each page rebuilds at most once per hour.
+export const revalidate = 3600;
+
 export const metadata = {
   title: 'Privacy policy · Setnayan',
   description:

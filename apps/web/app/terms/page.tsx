@@ -4,6 +4,11 @@ import { Logo } from '@/app/_components/logo';
 // GEO Phase G5 (2026-05-28) — canonical URL + enriched description.
 // Description tightened from one-line generic to surface what couples +
 // vendors are agreeing to when they sign up.
+// SEO/GEO Bucket 8 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — 1hr Vercel
+// edge cache so static marketing routes serve Google's crawl rate-limit
+// budget without origin pressure. Each page rebuilds at most once per hour.
+export const revalidate = 3600;
+
 export const metadata = {
   title: 'Terms of service · Setnayan',
   description:

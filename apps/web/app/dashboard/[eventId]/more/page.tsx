@@ -20,7 +20,14 @@
  * no schema names, no "Coming soon" placeholders.
  */
 
-import { buildCustomerNavGroups } from '../_components/customer-sidebar';
+// Import from the neutral nav-config module (not the 'use client' sidebar
+// file) — Server Components can't safely call functions exported from a
+// 'use client' module. The import becomes a CLIENT REFERENCE that crashes
+// at server-render time. Sentry ref 19475950 was the manifestation.
+// customer-nav-config.ts holds the canonical builder; customer-sidebar.tsx
+// also re-exports it for backward compat on existing client-side callers.
+// See customer-nav-config.ts header for the full WHY block.
+import { buildCustomerNavGroups } from '../_components/customer-nav-config';
 import { CustomerMobileLanding } from '../_components/customer-mobile-landing';
 
 export const metadata = { title: 'More · Setnayan' };

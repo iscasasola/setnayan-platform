@@ -84,34 +84,30 @@
  * which IS the prefix.
  */
 
-import {
-  Focus,
-  Home,
-  Users,
-  LayoutGrid,
-  CalendarClock,
-  Briefcase,
-  Wallet,
-  ShoppingCart,
-  Receipt,
-  MessageSquare,
-  FileText,
-  Globe,
-  Sparkles,
-  Palette,
-  Activity,
-  Shield,
-  QrCode,
-  UserPlus,
-  User,
-} from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { Wordmark } from '@/app/_components/brand-marks';
 import { SidebarSection } from '@/app/_components/nav/sidebar-section';
 import { SidebarItem } from '@/app/_components/nav/sidebar-item';
-import type { NavGroup } from '@/app/_components/nav/types';
+// buildCustomerNavGroups + the lucide icon refs it consumes live in a
+// neutral (non-'use client') module — Server Components (specifically
+// /more/page.tsx) need to be able to import + call this builder, which
+// would crash if it were defined here because this file is 'use client'
+// (required for the usePathname-driven active-state highlight below).
+// See customer-nav-config.ts header for the full WHY block.
+import { buildCustomerNavGroups } from './customer-nav-config';
+
+// Re-export so existing consumers (this file's CustomerSidebar render +
+// any other client-side caller) keep their existing import paths. New
+// Server Component consumers should import directly from
+// './customer-nav-config' to avoid the 'use client' boundary trap.
+export { buildCustomerNavGroups };
 
 /**
+ * --- BEGIN historical buildCustomerNavGroups body (now lives in
+ * customer-nav-config.ts) — kept in JSDoc form as a reference for the
+ * 7-group customer IA structure. Any edits to the builder MUST land in
+ * customer-nav-config.ts; this comment is documentation only.
+ *
  * Builds the canonical customer NavGroup[] for the given eventId. Mobile-
  * overflow landing at /dashboard/[eventId]/more consumes the same builder
  * via shape introspection — single source of truth.
@@ -119,207 +115,9 @@ import type { NavGroup } from '@/app/_components/nav/types';
  * Stable group/item `key` values mean future label edits (e.g., a brand
  * polish pass on "Today" → "Today's Focus" in the heading) don't reset
  * the per-section `setnayan.nav.section.<key>.open` localStorage state.
+ * --- END historical body
  */
-export function buildCustomerNavGroups(eventId: string): NavGroup[] {
-  const base = `/dashboard/${eventId}`;
 
-  return [
-    {
-      key: 'today',
-      label: 'Today',
-      items: [
-        {
-          key: 'todays-focus',
-          label: "Today's Focus",
-          href: `${base}/today`,
-          icon: Focus,
-        },
-        {
-          key: 'home',
-          label: 'Home',
-          href: base,
-          icon: Home,
-          // Sentinel matchPrefix so the strict-prefix branch never fires.
-          // Only the exact-equality branch keeps Home lit — same pattern
-          // as bottom-nav.tsx Home tab (CLAUDE.md 2026-05-22 PR #311
-          // documents the prefix-vs-exact trap).
-          matchPrefix: '__home__',
-        },
-      ],
-    },
-    {
-      key: 'plan',
-      label: 'Plan',
-      items: [
-        {
-          key: 'guests',
-          label: 'Guests',
-          href: `${base}/guests`,
-          icon: Users,
-          matchPrefix: `${base}/guests`,
-        },
-        {
-          key: 'seating',
-          label: 'Seating',
-          href: `${base}/seating`,
-          icon: LayoutGrid,
-          matchPrefix: `${base}/seating`,
-        },
-        {
-          key: 'schedule',
-          label: 'Schedule',
-          href: `${base}/schedule`,
-          icon: CalendarClock,
-          matchPrefix: `${base}/schedule`,
-        },
-        {
-          key: 'vendors',
-          label: 'Vendors',
-          href: `${base}/vendors`,
-          icon: Briefcase,
-          matchPrefix: `${base}/vendors`,
-        },
-      ],
-    },
-    {
-      key: 'spend',
-      label: 'Spend',
-      items: [
-        {
-          key: 'budget',
-          label: 'Budget',
-          href: `${base}/budget`,
-          icon: Wallet,
-        },
-        {
-          key: 'orders',
-          label: 'Orders',
-          href: `${base}/orders`,
-          icon: ShoppingCart,
-          matchPrefix: `${base}/orders`,
-        },
-        {
-          // /receipts lives at the app root (not event-scoped) — owner can
-          // see all receipts across events from this single surface. We
-          // still bucket it under Spend on the event chrome because the
-          // host frequently lands here from a per-order flow.
-          key: 'receipts',
-          label: 'Receipts',
-          href: `/receipts`,
-          icon: Receipt,
-          matchPrefix: '/receipts',
-        },
-      ],
-    },
-    {
-      key: 'communicate',
-      label: 'Communicate',
-      items: [
-        {
-          key: 'messages',
-          label: 'Messages',
-          href: `${base}/messages`,
-          icon: MessageSquare,
-          matchPrefix: `${base}/messages`,
-        },
-        {
-          key: 'contracts',
-          label: 'Contracts',
-          href: `${base}/contracts`,
-          icon: FileText,
-          matchPrefix: `${base}/contracts`,
-        },
-      ],
-    },
-    {
-      key: 'share',
-      label: 'Share',
-      items: [
-        {
-          key: 'website',
-          label: 'Website',
-          href: `${base}/website`,
-          icon: Globe,
-          matchPrefix: `${base}/website`,
-        },
-        {
-          key: 'add-ons',
-          label: 'Add-ons',
-          href: `${base}/add-ons`,
-          icon: Sparkles,
-          // /add-ons/mood-board has its own dedicated sidebar entry so
-          // we exclude it from the Add-ons match via matching against
-          // the bare /add-ons prefix only. Both will end up lit when
-          // viewing /add-ons/mood-board because Mood Board's href IS
-          // a prefix of that path AND the Add-ons matchPrefix is too —
-          // accepted dual-highlight, mirrors the admin Payment methods
-          // dual-bucket precedent (Money + Settings groups).
-          matchPrefix: `${base}/add-ons`,
-        },
-        {
-          key: 'mood-board',
-          label: 'Mood Board',
-          href: `${base}/add-ons/mood-board`,
-          icon: Palette,
-          matchPrefix: `${base}/add-ons/mood-board`,
-        },
-      ],
-    },
-    {
-      key: 'after',
-      label: 'After',
-      items: [
-        {
-          key: 'activity',
-          label: 'Activity',
-          href: `${base}/activity`,
-          icon: Activity,
-        },
-        {
-          key: 'disputes',
-          label: 'Disputes',
-          href: `${base}/disputes`,
-          icon: Shield,
-          matchPrefix: `${base}/disputes`,
-        },
-        {
-          key: 'event-qr',
-          label: 'Event QR',
-          href: `${base}/event-qr`,
-          icon: QrCode,
-        },
-      ],
-    },
-    {
-      key: 'settings',
-      label: 'Settings',
-      // Low-traffic — collapse by default to keep the Share + After groups
-      // closer to the fold without forcing a scroll on lg-medium viewports.
-      defaultOpen: false,
-      items: [
-        {
-          key: 'hosts',
-          label: 'Hosts',
-          href: `${base}/hosts`,
-          icon: UserPlus,
-          matchPrefix: `${base}/hosts`,
-        },
-        {
-          key: 'profile',
-          label: 'Profile',
-          href: `/dashboard/profile`,
-          icon: User,
-          // Sentinel matchPrefix so the strict-prefix branch never fires;
-          // /dashboard/profile/concierge (retired surface) should not
-          // auto-light the top-level Profile entry. The Profile page
-          // itself surfaces privacy controls inline (no separate route
-          // exists in this codebase).
-          matchPrefix: '__profile-exact__',
-        },
-      ],
-    },
-  ];
-}
 
 /**
  * CustomerSidebar — renders the 7 customer nav groups using the shared

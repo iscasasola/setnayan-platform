@@ -95,9 +95,16 @@ function BottomNavTab({
   const matches = Array.isArray(item.activeMatch)
     ? item.activeMatch
     : [item.activeMatch];
-  const isActive = matches.some(
-    (prefix) => pathname === prefix || pathname.startsWith(prefix + '/'),
-  );
+  // Exact-match override for tabs whose route is a prefix of every other
+  // tab's route (e.g., admin Home `/admin` shouldn't startsWith-match
+  // `/admin/payments`). Mirrors the customer dashboard bottom-nav's
+  // home-tab pattern at /apps/web/app/dashboard/[eventId]/_components/
+  // bottom-nav.tsx:106.
+  const isActive = item.activeMatchExact
+    ? matches.some((prefix) => pathname === prefix)
+    : matches.some(
+        (prefix) => pathname === prefix || pathname.startsWith(prefix + '/'),
+      );
 
   const Icon = item.icon;
 

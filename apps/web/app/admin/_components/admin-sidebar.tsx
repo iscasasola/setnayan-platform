@@ -1,0 +1,416 @@
+'use client';
+
+/**
+ * AdminSidebar — v2.1 Navigation Phase 3 (admin doorway).
+ *
+ * WHY: CLAUDE.md 2026-05-23 row 2 locks the 28-surface admin console
+ * grouped into 8 canonical categories per iteration 0023 § 1. Pre-Phase 3
+ * the admin chrome rendered a horizontal pill bar via
+ * apps/web/app/admin/_components/admin-nav.tsx (lines 19-110 · 8 groups +
+ * 1 leaf rendered as portal-based dropdowns). The CLAUDE.md 2026-05-28
+ * 11th + 14th rows + the v2.1 brief canonical lock (10th 2026-05-28 row)
+ * established a coherent sidebar treatment across the 3 doorways using
+ * the shared primitives shipped via PR #603.
+ *
+ * This file owns the NavGroup[] array consumed by SidebarShell +
+ * SidebarSection + SidebarItem from @/app/_components/nav/*. It is the
+ * single source of truth for admin nav structure on desktop. The 5-item
+ * mobile BottomNav lives in admin-bottom-nav.tsx alongside this file.
+ *
+ * 8 GROUPS (per 0023 § 1 canonical structure):
+ *   1. Home       — Overview (/admin)
+ *   2. Queues     — Payments · Verify · Disputes · Force majeure ·
+ *                   Reviews · Help · Concierge abuse (7 surfaces)
+ *   3. Directory  — Users · Vendors · Demo vendors · Events · Venues (5)
+ *   4. Money      — Pricing · Discount codes · Add-ons · Payouts ·
+ *                   Receipts · BIR 2307 · Payment methods (7 — Payment
+ *                   methods de-duplicated from Settings group per brief)
+ *   5. Content    — Brain · Moodboard library · Taxonomy · Website · Ads (5)
+ *   6. Operations — Operations & Hiring · Telemetry · Offline daemon (3 —
+ *                   Telemetry + Offline are FORWARD-REFERENCE entries for
+ *                   parallel Phase E + Phase G sprints; routes 404 until
+ *                   those PRs land)
+ *   7. Funnels    — Funnels (/admin/funnels) (1)
+ *   8. Settings   — Settings · Demo mode (2 — Demo mode kept here so it
+ *                   stays reachable post-restructure since /admin/settings
+ *                   page.tsx doesn't currently link to it)
+ *
+ * PAYMENT METHODS DEDUP: the existing admin-nav.tsx surfaced
+ * /admin/settings/payment-methods in BOTH Money + Settings groups per
+ * iteration 0023 § 1 dual-location note. The Phase 3 brief explicitly
+ * drops the Settings duplicate and keeps the Money location only. This
+ * eliminates the confusion vector + matches the "money + trust + recourse"
+ * cluster reading of the Money group.
+ *
+ * BRAND-LAYER RENAME 2026-05-28 V2 CUTOVER: Concierge abuse remains as
+ * an admin label per PR #579 ("Today's Focus abuse") because the route
+ * path + DB table names (concierge_abuse_flags) stayed for bookmark +
+ * audit-history continuity. We label the sidebar entry "Today's Focus
+ * abuse" to match the V2 brand surface (CLAUDE.md 10th 2026-05-28 row
+ * v2.1 brief canonical lock).
+ */
+
+import {
+  Home,
+  Banknote,
+  BadgeCheck,
+  Shield,
+  AlertOctagon,
+  Star,
+  LifeBuoy,
+  Flag,
+  Users,
+  Briefcase,
+  TestTube,
+  CalendarDays,
+  MapPin,
+  DollarSign,
+  Tag as TagIcon,
+  Sparkles,
+  Receipt,
+  FileSpreadsheet,
+  CreditCard,
+  Brain,
+  Palette,
+  Tag,
+  Globe,
+  Megaphone,
+  TrendingUp,
+  Activity,
+  WifiOff,
+  BarChart3,
+  Settings,
+  Wallet,
+} from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { Wordmark } from '@/app/_components/brand-marks';
+import { SidebarSection } from '@/app/_components/nav/sidebar-section';
+import { SidebarItem } from '@/app/_components/nav/sidebar-item';
+import type { NavGroup } from '@/app/_components/nav/types';
+
+/**
+ * Canonical admin NavGroup[] export. Phases 1-3 of nav refactor each own
+ * their own NavGroup[] array; this is the admin doorway's. Mobile-overflow
+ * landing pages at /admin/queues + /admin/directory + /admin/money +
+ * /admin/more consume the same group definitions via shape introspection.
+ *
+ * Stable group/item `key` values mean future label edits (e.g., Concierge →
+ * Today's Focus brand swap) don't reset the per-section
+ * setnayan.nav.section.<key>.open localStorage state.
+ */
+export const ADMIN_NAV_GROUPS: NavGroup[] = [
+  {
+    key: 'home',
+    label: 'Home',
+    items: [
+      {
+        key: 'overview',
+        label: 'Overview',
+        href: '/admin',
+        icon: Home,
+      },
+    ],
+  },
+  {
+    key: 'queues',
+    label: 'Queues',
+    items: [
+      {
+        key: 'payments',
+        label: 'Payments',
+        href: '/admin/payments',
+        icon: Banknote,
+        // matchPrefix so /admin/payments/<orderId> + future sub-routes
+        // (e.g., /admin/payments/disputes-from-reconciliation) still light
+        // up the Payments entry.
+        matchPrefix: '/admin/payments',
+      },
+      {
+        key: 'verify',
+        label: 'Verify',
+        href: '/admin/verify',
+        icon: BadgeCheck,
+        // /admin/verify/[id] V1.x detail surface from CLAUDE.md
+        // 2026-05-28 14th row § 5 GREEN list — sidebar item bridges
+        // forward-reference when the detail route lands.
+        matchPrefix: '/admin/verify',
+      },
+      {
+        key: 'disputes',
+        label: 'Disputes',
+        href: '/admin/disputes',
+        icon: Shield,
+        // /admin/disputes/[disputeId] V1.x detail page deferred per
+        // CLAUDE.md 2026-05-28 14th row § 5 GREEN list. matchPrefix
+        // bridges forward-reference.
+        matchPrefix: '/admin/disputes',
+      },
+      {
+        key: 'force-majeure',
+        label: 'Force majeure',
+        href: '/admin/force-majeure',
+        icon: AlertOctagon,
+        matchPrefix: '/admin/force-majeure',
+      },
+      {
+        key: 'reviews',
+        label: 'Reviews',
+        href: '/admin/reviews',
+        icon: Star,
+      },
+      {
+        key: 'help',
+        label: 'Help',
+        href: '/admin/help',
+        icon: LifeBuoy,
+      },
+      {
+        key: 'concierge-abuse',
+        // Brand-layer label per CLAUDE.md 2026-05-28 5th row PR #579
+        // brand-layer rename — route + DB table names stay.
+        label: "Today's Focus abuse",
+        href: '/admin/concierge-abuse',
+        icon: Flag,
+      },
+    ],
+  },
+  {
+    key: 'directory',
+    label: 'Directory',
+    items: [
+      {
+        key: 'users',
+        label: 'Users',
+        href: '/admin/users',
+        icon: Users,
+      },
+      {
+        key: 'vendors',
+        label: 'Vendors',
+        href: '/admin/vendors',
+        icon: Briefcase,
+        // /admin/vendors/<id>/edit reachable from list — matchPrefix
+        // keeps Vendors lit on the detail surface.
+        matchPrefix: '/admin/vendors',
+      },
+      {
+        key: 'demo-vendors',
+        label: 'Demo vendors',
+        href: '/admin/demo-vendors',
+        icon: TestTube,
+      },
+      {
+        key: 'events',
+        label: 'Events',
+        href: '/admin/events',
+        icon: CalendarDays,
+        matchPrefix: '/admin/events',
+      },
+      {
+        key: 'venues',
+        label: 'Venues',
+        href: '/admin/venues',
+        icon: MapPin,
+        // /admin/venues/[id] + /admin/venues/new both reached from list —
+        // matchPrefix keeps Venues lit on detail + create surfaces.
+        matchPrefix: '/admin/venues',
+      },
+    ],
+  },
+  {
+    key: 'money',
+    label: 'Money',
+    items: [
+      {
+        key: 'pricing',
+        label: 'Pricing',
+        href: '/admin/pricing',
+        icon: DollarSign,
+      },
+      {
+        key: 'discount-codes',
+        label: 'Discount codes',
+        href: '/admin/discount-codes',
+        icon: TagIcon,
+        matchPrefix: '/admin/discount-codes',
+      },
+      {
+        key: 'addons',
+        label: 'Add-ons',
+        href: '/admin/addons',
+        icon: Sparkles,
+      },
+      {
+        key: 'payouts',
+        label: 'Payouts',
+        href: '/admin/payouts',
+        icon: Wallet,
+      },
+      {
+        key: 'receipts',
+        label: 'Receipts',
+        href: '/admin/receipts',
+        icon: Receipt,
+      },
+      {
+        key: 'bir-2307',
+        label: 'BIR 2307',
+        href: '/admin/bir/2307',
+        icon: FileSpreadsheet,
+      },
+      {
+        // Payment methods de-duplicated from Settings group per brief.
+        // Canonical home is Money (the data IS money — vendor payouts +
+        // customer payment instructions both consume it).
+        key: 'payment-methods',
+        label: 'Payment methods',
+        href: '/admin/settings/payment-methods',
+        icon: CreditCard,
+      },
+    ],
+  },
+  {
+    key: 'content',
+    label: 'Content',
+    items: [
+      {
+        key: 'brain',
+        // Brand-layer label per CLAUDE.md 2026-05-28 brand cutover.
+        label: "Today's Focus brain",
+        href: '/admin/brain',
+        icon: Brain,
+      },
+      {
+        key: 'moodboard-library',
+        label: 'Moodboard library',
+        href: '/admin/moodboard-library',
+        icon: Palette,
+      },
+      {
+        key: 'taxonomy',
+        label: 'Taxonomy',
+        href: '/admin/taxonomy',
+        icon: Tag,
+      },
+      {
+        key: 'website',
+        label: 'Website',
+        href: '/admin/website',
+        icon: Globe,
+      },
+      {
+        key: 'ads',
+        label: 'Ads',
+        href: '/admin/ads',
+        icon: Megaphone,
+      },
+    ],
+  },
+  {
+    key: 'operations',
+    label: 'Operations',
+    items: [
+      {
+        key: 'operations-hiring',
+        label: 'Operations & Hiring',
+        href: '/admin/operations-hiring',
+        icon: TrendingUp,
+      },
+      {
+        // FORWARD-REFERENCE: Phase E telemetry sprint ships this route in
+        // a parallel agent dispatch per the Phase 3 brief. Until that PR
+        // lands, link 404s — acceptable per brief for parallel sprint
+        // coordination.
+        key: 'telemetry',
+        label: 'Telemetry',
+        href: '/admin/telemetry',
+        icon: Activity,
+      },
+      {
+        // FORWARD-REFERENCE: Phase G offline-daemon sprint ships this
+        // route in a parallel agent dispatch. Until then link 404s —
+        // acceptable per brief.
+        key: 'offline',
+        label: 'Offline daemon',
+        href: '/admin/offline',
+        icon: WifiOff,
+      },
+    ],
+  },
+  {
+    key: 'funnels',
+    label: 'Funnels',
+    items: [
+      {
+        key: 'funnels',
+        label: 'Funnels',
+        href: '/admin/funnels',
+        icon: BarChart3,
+      },
+    ],
+  },
+  {
+    key: 'settings',
+    label: 'Settings',
+    // Low-traffic group — collapse by default to keep the Operations +
+    // Funnels groups closer to the fold without forcing a scroll.
+    defaultOpen: false,
+    items: [
+      {
+        key: 'settings',
+        label: 'Settings',
+        href: '/admin/settings',
+        icon: Settings,
+        // /admin/settings/payment-methods lives under Money — exclude it
+        // from the Settings matchPrefix so the Money entry stays lit when
+        // viewing payment methods.
+        matchPrefix: '/admin/settings',
+      },
+      {
+        // Demo mode kept here so it stays reachable post-restructure.
+        // /admin/settings/page.tsx doesn't currently link to it — making
+        // it a sidebar entry preserves discoverability per
+        // [[feedback_setnayan_orphan_prevention]].
+        key: 'demo-mode',
+        label: 'Demo mode',
+        href: '/admin/settings/demo-mode',
+        icon: Settings,
+      },
+    ],
+  },
+];
+
+/**
+ * AdminSidebar — renders the 8 admin nav groups using the shared
+ * SidebarSection + SidebarItem primitives. Wraps with a brand header
+ * (Wordmark) so the admin doorway reads as a separate context from
+ * customer + vendor doorways.
+ */
+export function AdminSidebar() {
+  const pathname = usePathname() ?? '/admin';
+
+  return (
+    <>
+      {/* Brand header — sits inside the sidebar's scrollable section so it
+          scrolls with the nav rather than being pinned. Matches the v2.1
+          editorial register: Wordmark + 'Admin' eyebrow in m-label-mono. */}
+      <header className="px-4 pb-4 pt-2 [[data-sidebar-collapsed='1']_&]:hidden">
+        <Wordmark className="text-ink" />
+        <p
+          className="m-label-mono mt-2"
+          style={{ color: 'var(--m-slate-2)' }}
+        >
+          Admin
+        </p>
+      </header>
+
+      {ADMIN_NAV_GROUPS.map((group) => (
+        <SidebarSection key={group.key} group={group} pathname={pathname}>
+          {group.items.map((item) => (
+            <SidebarItem key={item.key} item={item} pathname={pathname} />
+          ))}
+        </SidebarSection>
+      ))}
+    </>
+  );
+}

@@ -254,6 +254,16 @@ export default async function AdminAddonsPage({ searchParams }: Props) {
         </p>
       ) : null}
 
+      {/*
+        Tab nav — Vendor add-ons tab gated behind
+        NEXT_PUBLIC_VENDOR_ADDONS_ENABLED per Phase 3 Nav lock + CLAUDE.md
+        2026-05-28 14th row § 6 V1.x list (Add-on Management Vendor tab
+        deferred). When the flag is unset (V1 default), we render just the
+        Customer add-ons tab — no dead "Coming soon" affordance per
+        [[feedback_setnayan_no_dev_text_post_launch]]. When the flag is
+        '1' (V1.x post-launch), the Vendor tab surfaces — and the Vendor
+        grid implementation lands in the same PR.
+      */}
       <nav
         aria-label="Add-on tabs"
         className="mb-6 flex flex-wrap gap-2 border-b border-ink/10 pb-2"
@@ -263,12 +273,14 @@ export default async function AdminAddonsPage({ searchParams }: Props) {
           label="Customer add-ons"
           active={tab === 'customer'}
         />
-        <span className="inline-flex items-center gap-2 rounded-full bg-ink/5 px-3 py-1 text-sm text-ink/45">
-          Vendor add-ons
-          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-            Coming soon
+        {process.env.NEXT_PUBLIC_VENDOR_ADDONS_ENABLED === '1' ? (
+          <span className="inline-flex items-center gap-2 rounded-full bg-ink/5 px-3 py-1 text-sm text-ink/45">
+            Vendor add-ons
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+              Coming soon
+            </span>
           </span>
-        </span>
+        ) : null}
       </nav>
 
       {tab === 'customer' && selectedRow ? (

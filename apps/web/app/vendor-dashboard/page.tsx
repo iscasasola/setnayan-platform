@@ -84,6 +84,42 @@ type Props = {
 };
 
 export default async function VendorDashboardHome({ searchParams }: Props) {
+  // Top-level try/catch wrap added 2026-05-29 (PR #631 + this PR chain).
+  // PR #628 wrapped the page.tsx:99-equivalent sweep call. PR #631 added
+  // a route-segment error.tsx boundary at /vendor-dashboard/error.tsx.
+  // BOTH shipped to production (Sentry release confirmed `4df8cf3`), yet
+  // the owner still reports the same Sentry digest `1341067551` rendering
+  // through the GLOBAL `app/error.tsx` ("Something on our end didn't
+  // work · Take me home") — meaning whatever is throwing is escaping
+  // every previous guard:
+  //   - It's NOT page.tsx:99 (that's wrapped)
+  //   - It's NOT the data-fetch try/catch at 147-207 (that would render
+  //     the inline "Your vendor dashboard is temporarily unavailable"
+  //     friendly UI, not the global root error)
+  //   - It's NOT one of the child components in the JSX tree below
+  //     (those are 'use client' or pure-JSX Server Components)
+  //   - It's NOT `createAdminClient` itself — /vendor-dashboard/team and
+  //     /earnings call it unguarded and work fine for the same user
+  //
+  // What it IS, we don't yet know. Sentry shows digest only; we'd need
+  // dashboard access to see the actual stack. With pilot 3 days out,
+  // the pragmatic move is a top-level try/catch around the ENTIRE
+  // function body. Any unknown throw lands in the existing friendly
+  // fallback UI (which has a refresh hint + escape to customer view via
+  // role-pill) instead of dumping the user into the brand-voice
+  // "Something on our end didn't work" page with no path forward.
+  //
+  // CRITICAL: Next.js `redirect()` and `notFound()` throw special
+  // marker Errors with `digest` starting with `NEXT_` (NEXT_REDIRECT,
+  // NEXT_NOT_FOUND). We MUST re-throw those so navigation works.
+  // Catching them would silently break /login redirect for unauthed
+  // visitors + any future notFound() callsites.
+  //
+  // Per CLAUDE.md memory rules:
+  //   - feedback_setnayan_document_changes_with_why: WHY block above
+  //   - feedback_setnayan_no_dev_text_post_launch: friendly fallback
+  //     uses existing brand-voice copy (already at line 209 + below)
+  try {
   const search = await searchParams;
   const supabase = await createClient();
   const {
@@ -631,6 +667,47 @@ export default async function VendorDashboardHome({ searchParams }: Props) {
       </form>
     </div>
   );
+  } catch (err) {
+    // Re-throw Next.js navigation signals (NEXT_REDIRECT, NEXT_NOT_FOUND) —
+    // catching those would silently break /login redirect for unauthed
+    // visitors. See WHY block at the top of this function (lines 87-130).
+    if (err instanceof Error && 'digest' in err && typeof (err as { digest?: unknown }).digest === 'string') {
+      const digest = (err as { digest: string }).digest;
+      if (digest.startsWith('NEXT_')) throw err;
+    }
+    // Log so Sentry's nodejs runtime hook picks it up + Vercel function
+    // logs surface the actual message.
+    // eslint-disable-next-line no-console
+    console.error('[/vendor-dashboard] top-level page render failed (final guard)', err);
+    const message = err instanceof Error ? err.message : String(err);
+    return (
+      <div className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
+        <header className="mb-6 flex items-start gap-3">
+          <AlertTriangle
+            aria-hidden
+            className="mt-0.5 h-6 w-6 shrink-0 text-terracotta"
+            strokeWidth={1.75}
+          />
+          <div className="space-y-1">
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Your shop console is temporarily unavailable.
+            </h1>
+            <p className="text-sm text-ink/65">
+              We hit an unexpected error loading your dashboard. Refreshing in a
+              moment usually clears transient failures; if it persists, use the
+              role pill at the top right to switch to your customer view and
+              we&rsquo;ll dig in on our end.
+            </p>
+          </div>
+        </header>
+        {process.env.NODE_ENV !== 'production' ? (
+          <pre className="overflow-auto rounded-md border border-ink/15 bg-ink/[0.03] p-3 text-xs text-ink/65">
+            {message}
+          </pre>
+        ) : null}
+      </div>
+    );
+  }
 }
 
 function Field({

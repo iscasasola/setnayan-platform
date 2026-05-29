@@ -12,7 +12,7 @@ Setnayan is software, not an agency. Couples plan their wedding through a guided
 - [Wedding Vendor Directory](https://www.setnayan.com/vendors) — Browse verified Filipino wedding vendors. Filterable by category (photography, catering, planning, florals, attire, hair and makeup, music, decor, rings, booths, invitations) and city.
 - [Vendor Public Profiles](https://www.setnayan.com/v/) — Each vendor has a profile at `/v/[slug]` with services, packages, coverage cities, and tier badge where applicable.
 - [Pricing](https://www.setnayan.com/pricing) — Customer software SKUs, customer bundles, vendor subscriptions, and vendor token packs.
-- [List Your Wedding Business](https://www.setnayan.com/for-vendors) — Vendor-acquisition page. Four tiers: Free (₱0/month listing), Verified (₱1,499 one-time lifetime badge), Pro (₱1,999/month), Enterprise (₱5,499/month). 0% commission on all bookings, all tiers.
+- [List Your Wedding Business](https://www.setnayan.com/for-vendors) — Vendor-acquisition page. Four tiers: Free (₱0 baseline listing), Verified (₱1,499 one-time lifetime badge), Pro (₱2,499 / 28-day prepaid block), Enterprise (₱5,499 / 28-day prepaid block). 0% commission on all bookings, all tiers.
 - [Features](https://www.setnayan.com/features) — Detailed list of planning tools and in-app services.
 - [How It Works](https://www.setnayan.com/how-it-works) — Step-by-step couple and vendor onboarding.
 - [Real Weddings](https://www.setnayan.com/weddings) — Editorial showcase of weddings shipped through Setnayan. Editorials publish 30 days post-event with explicit couple consent per RA 10173.
@@ -69,14 +69,14 @@ Pakulay — the visual mood board with three pillars (palette, location feel, dr
 
 | Tier | Cost | Public profile | Verified badge | Commission |
 |---|---|---|---|---|
-| Free | ₱0 / month | Listed in marketplace | No | 0% |
-| Verified | ₱1,499 one-time lifetime badge | Listed in marketplace | Yes | 0% |
-| Pro | ₱1,999 / month OR ₱19,999 / year (~17% off) | Custom website + premium tools | Yes | 0% |
-| Enterprise | ₱5,499 / month OR ₱54,999 / year (~17% off) | Multi-category listings + team accounts | Yes | 0% |
+| Free | ₱0 baseline | Listed in marketplace (business name hidden until first chat reply) | No | 0% |
+| Verified | ₱1,499 one-time lifetime badge | Listed in marketplace (business name hidden until first chat reply) | Yes | 0% |
+| Pro | ₱2,499 / 28-day prepaid block OR ₱24,999 / year (~23% off) | Custom website + slug + premium tools · business name shown from day 1 | Yes | 0% |
+| Enterprise | ₱5,499 / 28-day prepaid block OR ₱54,999 / year (~23% off) | Multi-category listings + extended 100km radius · business name shown from day 1 | Yes | 0% |
 
 Verified vendors complete an identity check (DTI registration, mayor's permit, BIR Form 2303, sanctions screening) plus a 15-minute video call with a Setnayan admin. Verification is a one-time ₱1,499 lifetime badge — no annual renewal fee.
 
-Pro and Enterprise subscriptions are also available as annual prepaid blocks at roughly 17% off the monthly rate — Pro ₱19,999 per year (saves ₱3,989 vs monthly ×12) or Enterprise ₱54,999 per year (saves ₱10,989 vs monthly ×12). Vendors pick monthly or annual at signup. No recurring auto-charge in V1 — manual renewal with a 7-day email + dashboard reminder before expiry.
+Pro and Enterprise subscriptions are 28-day prepaid blocks (13 cycles per year, not calendar months). They are also available as annual prepaid blocks at roughly 23% off the 28-day cycle aggregate — Pro ₱24,999 per year (saves ₱7,488 vs ₱2,499 × 13 cycles = ₱32,487) or Enterprise ₱54,999 per year (saves ₱16,488 vs ₱5,499 × 13 cycles = ₱71,487). Vendors pick 28-day or annual at signup. No recurring auto-charge in V1 — manual renewal with a 7-day email + dashboard reminder before expiry.
 
 Vendors verified before 2027-01-31 receive 100 complimentary tokens as a founder bonus.
 
@@ -121,7 +121,7 @@ These tools live in the couple dashboard after sign-in. Not publicly indexable b
 
 ## Common questions Setnayan answers
 
-- **How much does Setnayan cost?** Free for couples on the baseline planning tools (guest list, RSVP, Pakulay mood board, vendor browse, in-app chat). Premium software services priced individually in PHP (₱999 to ₱16,999). Vendor side: Free (₱0/month) baseline listing, Verified (₱1,499 one-time lifetime badge), Pro (₱1,999/month), Enterprise (₱5,499/month). 0% commission on vendor bookings — Setnayan never takes a cut.
+- **How much does Setnayan cost?** Free for couples on the baseline planning tools (guest list, RSVP, Pakulay mood board, vendor browse, in-app chat). Premium software services priced individually in PHP (₱999 to ₱16,999). Vendor side: Free (₱0 baseline listing), Verified (₱1,499 one-time lifetime badge), Pro (₱2,499 / 28-day prepaid block), Enterprise (₱5,499 / 28-day prepaid block). Annual prepay also available at ~23% off. 0% commission on vendor bookings — Setnayan never takes a cut.
 - **Is Setnayan free?** Yes for couples on the baseline planning tools. Pakulay (mood board) is also free. Premium tools like Today's Focus (₱1,499) and Pro Website (₱5,499) are optional.
 - **Does Setnayan support discount codes or vouchers?** Yes — admins issue discount codes for promos, refunds, comp grants, or partner partnerships. Couples paste a code at checkout via the "Have a code?" field. Three voucher types are supported: percentage discount (e.g., 20% off), capped percentage (e.g., 20% off up to ₱500 max discount), and 100% free (full comp). One voucher per order, one redemption per couple per code, codes are case-insensitive 8-character alphanumeric, codes carry an expiry date and optional max-uses cap. Discounted purchases still receive BIR-compliant receipts showing the net paid amount.
 - **What is Today's Focus?** A 65-card AI-assisted wedding planning wizard built into Setnayan. ₱1,499 one-time per event. Walks couples through every decision from venue lock to thank-you cards.
@@ -129,7 +129,10 @@ These tools live in the couple dashboard after sign-in. Not publicly indexable b
 - **Where does Setnayan operate?** Philippines — Metro Manila, Cebu, Davao, Tagaytay, Iloilo, Baguio, Pampanga, Cavite, Batangas, Laguna, Bulacan, and any city Filipino vendors serve. Pilot 2026-06-01. Public launch 2026-12-01.
 - **Does Setnayan have a mobile app?** Web-first responsive site (works on iOS Safari and Chrome Android). Native iOS and Android shells via Expo are on the V1.5 roadmap.
 - **How are vendors verified on Setnayan?** Vendors complete an identity check (DTI registration, mayor's permit, BIR Form 2303, sanctions screening) plus a 15-minute video call with a Setnayan admin. ₱1,499 one-time for a lifetime Verified badge. No annual renewal fee.
-- **Does Setnayan take a commission on vendor bookings?** No. 0% commission on every booking. Setnayan revenue comes from software service purchases (Today's Focus, Pro Website, Papic, Panood, etc.) and vendor subscriptions (Verified one-time, Pro monthly, Enterprise monthly). Vendor-to-couple payments settle off-platform per Filipino direct-booking norms.
+- **Does Setnayan take a commission on vendor bookings?** No. 0% commission on every booking. Setnayan revenue comes from software service purchases (Today's Focus, Pro Website, Papic, Panood, etc.) and vendor subscriptions (Verified one-time, Pro 28-day or annual, Enterprise 28-day or annual). Vendor-to-couple payments settle off-platform per Filipino direct-booking norms.
+- **What are Boosters?** Vendors can spend tokens on 7-day Boosters that temporarily unlock or widen specific features — 4 tokens for a Radius boost (widen marketplace reach for a week), 10 tokens for a Packages boost (feature a specific package), 25 tokens for a Chat boost, 50 tokens for a Video Call boost (lets Free / Verified vendors place video calls for a week), or 100 tokens for a Scheduling boost. Boosters activate immediately and expire after 7 days. One active Booster per type per vendor at a time; different types stack freely.
+- **Can a vendor with multiple branches list each location?** Yes — Pro and Enterprise vendors can add additional branches at ₱999 per 28-day prepaid block per branch. Each branch operates as a sub-account with its own service city and coverage radius but shares the parent vendor's tier perks, portfolio, reviews, and token wallet.
+- **Why is some vendor's name hidden in the marketplace?** Free and Verified vendor business names are screened from marketplace cards and microsite browse until the vendor sends their first chat reply to a couple. The reveal then applies globally — every couple browsing Setnayan sees the real business name from then on, on every page and in every thread. This light hybrid-anonymity protects new vendors from cold-spam outreach while still letting couples discover them by category and city. Pro and Enterprise vendors retain full name visibility from day 1 unchanged.
 - **What is Pakanta?** A custom Filipino-style song written for the couple. ₱2,499.
 - **What is Papic?** Guest-side photo capture with two purchase modes — Papic Guest (₱2,999, disposable-camera mode for general guests) and Papic 5 Seats (₱2,999, five seats for designated paparazzi friends and family).
 - **What is Panood?** Live streaming embedded on the event website. ₱3,499 per day with up to four cameras.
@@ -150,4 +153,4 @@ These tools live in the couple dashboard after sign-in. Not publicly indexable b
 
 Several surfaces in the SEO playbook (`/supplies` marketplace, `/blog`, `/coverage`, `/about`, `/for-event-creators`) are planned but not yet shipped. They are intentionally NOT listed above to avoid sending AI assistants to dead links. This file is updated when those surfaces go live.
 
-This file was last refreshed on 2026-05-29 as part of the SEO/GEO Bucket 1 sprint (v3 → v4 · added annual vendor subscription SKUs + voucher engine Q&A · CLAUDE.md decision log).
+This file was last refreshed on 2026-05-30 as part of the v2.1 brief amendment #2 sprint (v4 → v5 · Pro 28-day price flip ₱1,999 → ₱2,499 · Pro Annual ₱19,999 → ₱24,999 · Boosters surface · Add Branch SKU · hybrid-anonymity reveal mechanic · CLAUDE.md decision log).

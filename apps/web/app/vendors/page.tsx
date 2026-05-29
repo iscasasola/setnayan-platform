@@ -1506,7 +1506,17 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
 
       <NoticeBanner noticeKey={noticeKey} />
 
-      <section className="mx-auto w-full px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+      {/* 2026-05-30 mobile pattern lock — `pb-36` on mobile gives the page
+          content 144px of bottom clearance so the last visible items don't
+          render behind the fixed bottom-pinned StickyMarketplaceHeader (which
+          can stack up to ~140px tall with eyebrow + search row + contextual
+          pill row + safe-area inset). On desktop (`sm:py-14`) the header is
+          sticky-top so no bottom clearance needed — `sm:py-14` overrides
+          mobile's pt-10 + pb-36 with a symmetric 56px both sides. Page-level
+          max-w-6xl cap retired in PR #655 earlier same day per owner
+          directive "let it maximize the full width". */}
+      <section className="mx-auto w-full px-4 pt-10 pb-36 sm:px-6 sm:py-14 lg:px-8">
+
         {/* Focused-mode (owner directive 2026-05-22) — when ?from=plan is
             set, the host arrived from a dashboard planning card or
             locked-vendor follow-up and is already in "find a vendor for
@@ -2489,7 +2499,11 @@ async function CatalogView({
 
       <section
         id="all"
-        className="mx-auto w-full px-4 py-10 sm:px-6 sm:py-14 lg:px-8"
+        // 2026-05-30 mobile pattern lock — pb-36 mobile clearance for the
+        // fixed bottom-pinned StickyMarketplaceHeader (see catalog-mode
+        // section above for full rationale). sm:py-14 overrides on desktop.
+        // Page-level max-w-6xl cap retired in PR #655 same day.
+        className="mx-auto w-full px-4 pt-10 pb-36 sm:px-6 sm:py-14 lg:px-8"
       >
         {/* Focused-mode (owner directive 2026-05-22) — when ?from=plan is
             set, the host arrived from a dashboard planning card. Strip

@@ -186,19 +186,21 @@ export function IconTileFolderStrip({
   return (
     <nav
       aria-label="Wedding folders"
-      // Stacked sticky placement — pins at top-[88px] which is the natural
-      // height of the StickyMarketplaceHeader directly above (eyebrow row +
-      // search/filter row + py padding). When the user scrolls, the header
-      // pins at top-0 first, then the folder strip pins below it at the
-      // calculated offset. Both stay visible while content scrolls below.
-      // -mx-N negatives break out of the page's px-N container so the
-      // horizontal scroll feels edge-to-edge per the Airbnb pattern. (The
-      // page-level max-w-6xl cap was retired 2026-05-30 per owner directive
-      // "let it maximize the full width" — content now spans the viewport
-      // minus only the responsive px-4/px-6/px-8 gutter, matching the
-      // homepage's full-bleed feel.) backdrop-blur + bg-cream/95 keeps the
-      // glassy stack feel.
-      className="sticky top-[88px] z-20 -mx-4 border-b border-ink/10 bg-cream/95 backdrop-blur sm:-mx-6 lg:-mx-8"
+      // Sticky placement — owner directive 2026-05-30 (later same day, PR
+      // #656) flipped the StickyMarketplaceHeader to `fixed bottom-0` on
+      // mobile (search lives at the thumb zone). With the header gone from
+      // the top on mobile, the folder strip becomes the top sticky element:
+      // `top-0` on mobile. On desktop the header is still pinned at top-0,
+      // so the strip stacks below it at `sm:top-[88px]` (header's natural
+      // height: eyebrow row + search/filter row + py padding). Both stay
+      // visible while content scrolls below on either viewport. -mx-N
+      // negatives break out of the page's px-N container so the horizontal
+      // scroll feels edge-to-edge per the Airbnb pattern. (Page-level
+      // max-w-6xl cap retired 2026-05-30 per PR #655 — content now spans
+      // the viewport minus only the responsive px-4/px-6/px-8 gutter,
+      // matching the homepage's full-bleed feel.) backdrop-blur +
+      // bg-cream/95 keeps the glassy stack feel.
+      className="sticky top-0 z-20 -mx-4 border-b border-ink/10 bg-cream/95 backdrop-blur sm:top-[88px] sm:-mx-6 lg:-mx-8"
     >
       <ul
         // snap-x snap-mandatory gives airpod-style click-to-tile snap on touch

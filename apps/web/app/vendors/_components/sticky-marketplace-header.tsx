@@ -150,13 +150,25 @@ export function StickyMarketplaceHeader({
   return (
     <>
       <div
-        // sticky top-0 keeps the search bar pinned. -mx-N negatives let the
-        // bar break out of the page's px-N container so it spans edge-to-edge
-        // (matches Airbnb's full-bleed sticky search). The page-level max-w-6xl
-        // cap was retired 2026-05-30 — only the px-4/px-6/px-8 gutter remains.
-        // border-b + backdrop-blur give the bar a soft glassy feel without
-        // fighting content underneath.
-        className="sticky top-0 z-30 -mx-4 border-b border-ink/10 bg-cream/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
+        // 2026-05-30 mobile pattern lock — owner directive *"on mobile mode.
+        // searching on market place should show the search bar at the bottom
+        // and any choices when clicking on mobile mode should show as a pop
+        // up crawling up."* On mobile (< sm) the search bar pins to the
+        // BOTTOM of the viewport via `fixed bottom-0 left-0 right-0` — thumb
+        // zone for one-handed use, matches Shopee / Lazada / mobile Airbnb.
+        // On desktop (≥ sm) the bar stays pinned to the TOP via
+        // `sm:sticky sm:top-0` (sm: responsive override of position). Border
+        // flips sides too: `border-t` on mobile (content sits above the bar
+        // → top border separates them) → `sm:border-t-0 sm:border-b` on
+        // desktop (content sits below the bar). Inline `paddingBottom`
+        // honours `env(safe-area-inset-bottom)` so iOS notch users get the
+        // bar lifted clear of the home indicator. -mx-N negatives still
+        // matter for the desktop sticky variant so the bar breaks out of the
+        // page's px-N container (page-level max-w-6xl cap retired 2026-05-30
+        // per PR #655 — only the px-4/px-6/px-8 gutter remains); on mobile
+        // `fixed left-0 right-0` already covers viewport-wide.
+        className="fixed bottom-0 left-0 right-0 z-30 border-t border-ink/10 bg-cream/95 px-4 py-3 backdrop-blur sm:sticky sm:bottom-auto sm:top-0 sm:border-b sm:border-t-0 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
+        style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
       >
         {/* Eyebrow + applied-count chip. Reads as 'MARKETPLACE · 192
             categories · 2 filters applied'. Concise replacement for the

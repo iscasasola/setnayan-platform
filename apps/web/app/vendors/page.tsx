@@ -2407,8 +2407,43 @@ async function CatalogView({
     focusedMode: false,
     faithFilter,
   };
+  // 2026-05-30 — owner directive *"just show what is visible"*. Count
+  // faith-tagged tiles in the Ceremony folder AFTER the hide-empty filter
+  // but BEFORE the explicit faithFilter narrow (which is what the chip
+  // would toggle). A chip surfaces only when ≥1 underlying tile exists
+  // OR the chip is currently active (so the user can see their selected
+  // narrow + escape back to "All faiths" even when it produced 0 results).
+  //
+  // This deliberately ignores `passesReligionFilter` because the chip
+  // is the user's explicit override of religion-default-on — a Catholic-
+  // matched couple still needs to see the Muslim chip if Muslim has
+  // underlying tiles, so they can override into Muslim for context.
+  const ceremonyFaithCounts: Record<FaithKey, number> = {
+    Catholic: 0,
+    Christian: 0,
+    INC: 0,
+    Muslim: 0,
+    Cultural: 0,
+  };
+  if (scopedFolder === 'ceremony') {
+    for (const row of schemas) {
+      const meta = TAXONOMY_MAP[row.canonical_service];
+      if (!meta || meta.folder !== 'ceremony' || !meta.faith) continue;
+      const count = vendorCounts.get(row.canonical_service) ?? null;
+      if (!passesHideEmpty(meta, count)) continue;
+      ceremonyFaithCounts[meta.faith] += 1;
+    }
+  }
+
+  // Build the chip list. "All faiths" surfaces only when at least one
+  // faith chip is visible — otherwise the row reads as a single dead
+  // affordance. The entire `contextualPill` prop falls back to undefined
+  // (header hides the row) when no faith chip survives.
+  const visibleFaithKeys = FAITH_KEYS_ORDER.filter(
+    (key) => ceremonyFaithCounts[key] > 0 || faithFilter === key,
+  );
   const ceremonyPillOptions =
-    scopedFolder === 'ceremony'
+    scopedFolder === 'ceremony' && visibleFaithKeys.length > 0
       ? [
           {
             value: null,
@@ -2416,7 +2451,7 @@ async function CatalogView({
             href: buildHref(ceremonyFilters, { faithFilter: null }),
             active: faithFilter === null,
           },
-          ...FAITH_KEYS_ORDER.map((key) => ({
+          ...visibleFaithKeys.map((key) => ({
             value: FAITH_KEY_TO_URL[key],
             label: FAITH_KEY_TO_LABEL[key],
             href: buildHref(ceremonyFilters, { faithFilter: key }),

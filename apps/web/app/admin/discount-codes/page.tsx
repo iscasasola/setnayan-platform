@@ -29,7 +29,15 @@
  */
 
 import Link from 'next/link';
-import { Plus, BadgePercent, BadgeCheck, BadgeX, Pencil } from 'lucide-react';
+import {
+  Plus,
+  BadgePercent,
+  BadgeCheck,
+  BadgeX,
+  Pencil,
+  Ban,
+  CheckCircle2,
+} from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { disableDiscountCode, enableDiscountCode } from './actions';
@@ -178,9 +186,14 @@ export default async function AdminDiscountCodesPage({ searchParams }: Props) {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
+      {/* Header — h1 left, primary CTA right, both anchored to the page gutter
+          so the rhythm under the header continues the same horizontal alignment.
+          Explicit champagne accent on the Create code button so it reads as the
+          primary surface CTA regardless of palette inheritance (the v2.1 `.m-btn`
+          base sets no color · we set it here so the button is unmistakably the
+          canonical action style for this page). */}
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
           <h1
             className="m-display-tight text-3xl"
             style={{ color: 'var(--m-ink)' }}
@@ -199,11 +212,16 @@ export default async function AdminDiscountCodesPage({ searchParams }: Props) {
         <Link
           href="/admin/discount-codes/new"
           className="m-btn inline-flex items-center gap-2 whitespace-nowrap"
+          style={{
+            color: 'var(--m-orange-2)',
+            borderColor: 'var(--m-orange-3)',
+            padding: '8px 16px',
+          }}
         >
           <Plus className="h-4 w-4" />
           Create code
         </Link>
-      </div>
+      </header>
 
       {/* Success banners — cleared on next nav */}
       {createdBanner && (
@@ -373,12 +391,21 @@ export default async function AdminDiscountCodesPage({ searchParams }: Props) {
                       </span>
                     </Td>
                     <Td>
-                      <div className="flex items-center gap-3">
+                      {/* Action buttons share the same icon+text+pill treatment as the
+                          header `+ Create code` button. Champagne accent (border + text)
+                          for affordances that progress the workflow (Edit, Enable) ·
+                          slate outline for the destructive-but-reversible Disable. Same
+                          height + same border-radius + same hover lift across the row
+                          so the actions read as one button family. */}
+                      <div className="flex flex-wrap items-center gap-2">
                         {row.is_active && (
                           <Link
                             href={`/admin/discount-codes/${row.discount_code_id}/edit`}
-                            className="inline-flex items-center gap-1 text-xs underline-offset-2 hover:underline"
-                            style={{ color: 'var(--m-orange-2)' }}
+                            className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-[var(--m-orange-4)]"
+                            style={{
+                              color: 'var(--m-orange-2)',
+                              borderColor: 'var(--m-orange-3)',
+                            }}
                           >
                             <Pencil className="h-3.5 w-3.5" />
                             Edit
@@ -396,9 +423,13 @@ export default async function AdminDiscountCodesPage({ searchParams }: Props) {
                             />
                             <button
                               type="submit"
-                              className="text-xs underline-offset-2 hover:underline"
-                              style={{ color: 'var(--m-slate)' }}
+                              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-[var(--m-paper-2)]"
+                              style={{
+                                color: 'var(--m-slate)',
+                                borderColor: 'var(--m-line)',
+                              }}
                             >
+                              <Ban className="h-3.5 w-3.5" />
                               Disable
                             </button>
                           </ConfirmForm>
@@ -414,9 +445,13 @@ export default async function AdminDiscountCodesPage({ searchParams }: Props) {
                             />
                             <button
                               type="submit"
-                              className="text-xs underline-offset-2 hover:underline"
-                              style={{ color: 'var(--m-orange-2)' }}
+                              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-[var(--m-orange-4)]"
+                              style={{
+                                color: 'var(--m-orange-2)',
+                                borderColor: 'var(--m-orange-3)',
+                              }}
                             >
+                              <CheckCircle2 className="h-3.5 w-3.5" />
                               Enable
                             </button>
                           </ConfirmForm>
@@ -432,11 +467,10 @@ export default async function AdminDiscountCodesPage({ searchParams }: Props) {
       </div>
 
       <p className="text-xs" style={{ color: 'var(--m-slate)' }}>
-        Day 1.5 spec-aligns admin CRUD to the refined 3-type voucher model.
-        Day 2 wires the couple-side &ldquo;Have a code?&rdquo; field at
-        checkout. Day 3 makes the BIR receipt show the net paid price
-        (no separate discount line) and writes ledger rows for every
-        order state transition.
+        Codes apply at checkout when couples paste them into the &ldquo;Have a
+        code?&rdquo; field. Receipts show the net paid amount — no separate
+        discount line. Disabling a code lets existing redemptions keep their
+        special price.
       </p>
     </div>
   );
@@ -509,15 +543,36 @@ function FilterChip({
   active: boolean;
   children: React.ReactNode;
 }) {
+  // Filter chips share the same border-based pill language as the table
+  // action buttons (Edit · Disable · Enable) so the whole page reads as one
+  // button family. Active chip fills champagne, inactive chip stays
+  // transparent with a slate outline and a paper-2 hover background — same
+  // height, same border-radius, same horizontal padding as the action row.
+  // NOTE on hover: inline `style=` wins over Tailwind `hover:bg-*` class
+  // specificity, so the active state must NOT carry the hover class
+  // (otherwise the orange-2 fill would persist on hover) and the inactive
+  // state intentionally omits the inline background so the hover class
+  // can drive the paper-2 hover wash.
+  const baseClasses =
+    'inline-flex items-center whitespace-nowrap rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors';
   return (
     <Link
       href={href}
       aria-current={active ? 'page' : undefined}
-      className="rounded-full px-3 py-1 transition-colors"
+      className={
+        active ? baseClasses : `${baseClasses} hover:bg-[var(--m-paper-2)]`
+      }
       style={
         active
-          ? { background: 'var(--m-orange-2)', color: 'var(--m-paper)' }
-          : { background: 'var(--m-paper-2)', color: 'var(--m-slate)' }
+          ? {
+              background: 'var(--m-orange-2)',
+              color: 'var(--m-paper)',
+              borderColor: 'var(--m-orange-2)',
+            }
+          : {
+              color: 'var(--m-slate)',
+              borderColor: 'var(--m-line)',
+            }
       }
     >
       {children}

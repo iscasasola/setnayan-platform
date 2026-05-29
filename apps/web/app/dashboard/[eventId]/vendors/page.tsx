@@ -324,7 +324,12 @@ function StatTile({
 function AddVendorForm({ eventId }: { eventId: string }) {
   return (
     <details className="rounded-xl border border-ink/10 bg-cream">
-      <summary className="flex cursor-pointer items-center gap-2 px-4 py-3 text-sm font-medium">
+      {/* HEIGHT · `min-h-[44px]` floor protects the summary toggle at the
+       *  canonical 44pt tap-target floor per CLAUDE.md 2026-05-30. The
+       *  py-3 + text-sm content already computes to ~44px; the explicit
+       *  floor enforces it across browsers + matches the FilterChip row
+       *  above + stat cards above + action buttons below. */}
+      <summary className="flex min-h-[44px] cursor-pointer items-center gap-2 px-4 py-3 text-sm font-medium">
         <Plus aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={2} />
         Add a vendor
       </summary>
@@ -485,9 +490,16 @@ function FilterChip({
       ? `/dashboard/${eventId}/vendors`
       : `/dashboard/${eventId}/vendors?status=${statusKey}`;
   return (
+    // HEIGHT · `h-11` (44px) per CLAUDE.md 2026-05-30 owner directive
+    // "vendors still not fixed" · the filter chip row sat at py-1 + text-xs
+    // (~20px tall) which read as visibly different from every other 44pt
+    // surface on the page (stat cards, Add a vendor summary, action
+    // buttons). Bringing the chips to 44pt aligns the Vendors page with
+    // every other dashboard surface + makes the filter row tap-target
+    // accessible per WCAG 2.5.5.
     <a
       href={href}
-      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
+      className={`inline-flex h-11 items-center gap-1.5 rounded-full px-4 text-sm font-medium ${
         active ? 'bg-terracotta text-cream' : 'bg-ink/5 text-ink/70 hover:bg-ink/10'
       }`}
     >
@@ -685,9 +697,10 @@ function VendorCard({
       ) : null}
 
       {reviewEligible && selfReviewSignal === null ? (
+        // HEIGHT · `min-h-[44px]` per 2026-05-30 Vendors page sweep.
         <Link
           href={`/dashboard/${eventId}/vendors/${vendor.vendor_id}/review`}
-          className="inline-flex items-center justify-center gap-1.5 rounded-md bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900 ring-1 ring-inset ring-amber-300 transition-colors hover:bg-amber-100"
+          className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-md bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900 ring-1 ring-inset ring-amber-300 transition-colors hover:bg-amber-100"
         >
           <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" strokeWidth={1.75} />
           Leave a review
@@ -730,10 +743,15 @@ function VendorCard({
           <label className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
             Status
           </label>
+          {/* HEIGHT · select + Update button both `h-11` per 2026-05-30
+           *  Vendors page sweep. Status form row was rendering at 36px
+           *  (select h-9 + button ~28px) which read as visibly smaller
+           *  than every adjacent surface (FilterChip / Add a vendor /
+           *  stat cards). Matched 44pt floor unifies the row. */}
           <select
             name="status"
             defaultValue={vendor.status}
-            className="input-field h-9 py-0 text-xs"
+            className="input-field h-11 py-0 text-xs"
           >
             {VENDOR_STATUSES.map((s) => (
               <option key={s} value={s}>
@@ -742,7 +760,7 @@ function VendorCard({
             ))}
           </select>
           <SubmitButton
-            className="rounded-md bg-ink/[0.05] px-2 py-1 text-xs font-medium text-ink/70 hover:bg-ink/10 disabled:opacity-60"
+            className="inline-flex h-11 items-center rounded-md bg-ink/[0.05] px-3 text-xs font-medium text-ink/70 hover:bg-ink/10 disabled:opacity-60"
             pendingLabel="…"
           >
             Update

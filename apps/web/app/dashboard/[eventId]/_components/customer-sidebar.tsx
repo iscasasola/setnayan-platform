@@ -27,7 +27,9 @@
  * established at PR #606, adapted to the 19 customer surfaces):
  *   1. Today         — Today's Focus · Home (the daily-driver entrypoints)
  *   2. Plan          — Guests · Seating · Schedule · Vendors
- *   3. Spend         — Budget · Orders · Receipts
+ *   3. Spend         — Budget (Orders + Receipts retired 2026-05-30
+ *                       per owner directive · routes still reachable
+ *                       via order-confirmation emails + /add-ons)
  *   4. Communicate   — Messages · Contracts
  *   5. Share         — Website · Add-ons · Mood Board
  *   6. After         — Activity · Disputes · Event QR

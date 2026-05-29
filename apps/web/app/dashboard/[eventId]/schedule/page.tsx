@@ -15,6 +15,11 @@ import {
   deleteScheduleBlock,
   toggleBlockVisibility,
 } from './actions';
+// Inline edit affordance for time/range on existing blocks, per
+// CLAUDE.md 2026-05-30 owner directive: "Customer Schedule can be
+// edited on the time." Client component owns the view → edit form
+// toggle + calls the existing updateScheduleBlock server action.
+import { BlockTimeEditor } from './_components/block-time-editor';
 
 export const metadata = { title: 'Schedule' };
 
@@ -161,16 +166,27 @@ function AddBlockForm({ eventId }: { eventId: string }) {
 }
 
 function BlockCard({ eventId, block }: { eventId: string; block: ScheduleBlockRow }) {
+  // Pre-format the time/range string the same way the prior static
+  // surface did, then hand off to the BlockTimeEditor client component
+  // which owns the view→edit toggle. Keeps the SCHEDULE_BLOCK_LABEL +
+  // formatting helpers on the server side; the client only handles
+  // interaction.
+  const viewLabel = block.end_at
+    ? formatBlockTimeRange(block.start_at, block.end_at)
+    : formatBlockTime(block.start_at);
   return (
     <article className="space-y-3 rounded-xl border border-ink/10 bg-cream p-4">
       <header className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0 space-y-0.5">
+        <div className="min-w-0 space-y-1">
           <h2 className="truncate text-base font-semibold text-ink">{block.label}</h2>
-          <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
-            {SCHEDULE_BLOCK_LABEL[block.block_type]} ·{' '}
-            {formatBlockTime(block.start_at)}
-            {block.end_at ? ` → ${formatBlockTimeRange(block.start_at, block.end_at)}` : ''}
-          </p>
+          <BlockTimeEditor
+            eventId={eventId}
+            blockId={block.block_id}
+            blockTypeLabel={SCHEDULE_BLOCK_LABEL[block.block_type]}
+            startAt={block.start_at}
+            endAt={block.end_at}
+            viewLabel={viewLabel}
+          />
         </div>
         <span
           className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${

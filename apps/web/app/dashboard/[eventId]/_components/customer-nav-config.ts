@@ -140,24 +140,19 @@ export function buildCustomerNavGroups(eventId: string): NavGroup[] {
           href: `${base}/budget`,
           icon: Wallet,
         },
-        {
-          key: 'orders',
-          label: 'Orders',
-          href: `${base}/orders`,
-          icon: ShoppingCart,
-          matchPrefix: `${base}/orders`,
-        },
-        {
-          // /receipts lives at the app root (not event-scoped) — owner can
-          // see all receipts across events from this single surface. We
-          // still bucket it under Spend on the event chrome because the
-          // host frequently lands here from a per-order flow.
-          key: 'receipts',
-          label: 'Receipts',
-          href: `/receipts`,
-          icon: Receipt,
-          matchPrefix: '/receipts',
-        },
+        // ORDERS + RECEIPTS retired from sidebar 2026-05-30 per owner
+        // directive: "Orders and receipts should be gone?". V2 publisher
+        // posture (CLAUDE.md 2026-05-28 V2 cutover) makes both surfaces
+        // low-traffic for the 5-20 family-cohort pilot launching
+        // 2026-06-01 — pilot couples won't be buying SKUs during the
+        // small test window, so the sidebar entries were sitting empty.
+        // The routes /dashboard/[eventId]/orders + /receipts STAY
+        // reachable via:
+        //   - order-confirmation emails (deep-link)
+        //   - add-ons surface (per-order flow)
+        //   - Budget page (financial overview)
+        // Future revisit: post-pilot when SKU purchase volume justifies
+        // dedicated nav surfaces, re-add to Spend section.
       ],
     },
     {

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2, Coins } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayServiceLabel } from '@/lib/vendors';
 import {
@@ -318,6 +318,21 @@ export default async function AdminVendorsPage({ searchParams }: Props) {
               <p className="mt-auto font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
                 {v.public_id}
               </p>
+
+              {/* Token grant link · admin can credit this vendor's wallet.
+                  Migration 20260703500000 + actions.ts grantTokensToVendor.
+                  Only render for CLAIMED vendors — unclaimed ones don't
+                  have wallets yet (founder-bonus trigger fires on
+                  verification which requires a claimed user_id). */}
+              {v.user_id ? (
+                <Link
+                  href={`/admin/vendors/${v.vendor_profile_id}/tokens`}
+                  className="inline-flex w-fit items-center gap-1 rounded-md bg-orange/10 px-2 py-1 text-[11px] font-medium text-orange hover:bg-orange/15"
+                >
+                  <Coins className="h-3 w-3" strokeWidth={2} />
+                  Grant tokens
+                </Link>
+              ) : null}
             </li>
           ))
         )}

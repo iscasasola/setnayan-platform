@@ -40,12 +40,27 @@
  * the fields needed for math + coverage check — other columns (is_active,
  * expires_at, max_uses, uses_count) are pre-validated upstream by
  * validate.ts before this is called.
+ *
+ * Field name `discount_type` matches the live DB column name (per migration
+ * 20260529010000 line 51 + 20260529020000 line 105). An earlier draft of
+ * this file used `voucher_type` which silently broke every couple voucher
+ * apply (the SELECT returned undefined and the switch fell through to the
+ * "not currently valid" default). Renamed 2026-05-29 PM alongside the
+ * grant_tokens extension. Keeping the JS column name aligned to the DB
+ * column name prevents the same silent-fall-through trap from recurring.
+ *
+ * `grant_tokens` is the 4th voucher type added 2026-05-29 by migration
+ * 20260703500000. It mints earned-token-vouchers (vendor wallet credit
+ * with expiry) on redemption. Couple-side checkout flow surfaces a
+ * brand-voice "vendor accounts only" reject before reaching calculate;
+ * calculate.ts here returns applied=false defensively (belt + suspenders)
+ * if a grant_tokens voucher reaches it from the couple path.
  */
 export type VoucherRules = {
-  voucher_type: 'pct_off' | 'pct_off_capped' | 'free';
-  pct_value: number | null; // 1-100 for pct_off & pct_off_capped, NULL for free
+  discount_type: 'pct_off' | 'pct_off_capped' | 'free' | 'grant_tokens';
+  pct_value: number | null; // 1-100 for pct_off & pct_off_capped, NULL for free + grant_tokens
   cap_centavos: bigint | null; // positive for pct_off_capped, NULL otherwise
-  covered_service_keys: string[]; // empty array = covers nothing
+  covered_service_keys: string[]; // empty array = covers nothing (grant_tokens ignores this)
 };
 
 /**
@@ -100,8 +115,23 @@ export function calculateVoucherDiscount(
     };
   }
 
-  // 3-type discount math.
-  switch (voucher.voucher_type) {
+  // grant_tokens vouchers SHORT-CIRCUIT before the coverage gate — they
+  // redeem to a vendor wallet, not to a couple's order. validate.ts is
+  // the canonical gatekeeper that rejects grant_tokens for couple-side
+  // checkout with "vendor accounts only" copy. This branch is a defensive
+  // belt-and-suspenders so any caller that bypasses validate doesn't
+  // accidentally let a vendor reward through the discount math path.
+  if (voucher.discount_type === 'grant_tokens') {
+    return {
+      applied: false,
+      discount_centavos: 0n,
+      final_centavos: original_centavos,
+      reason: 'This code is for vendor accounts only.',
+    };
+  }
+
+  // 3-type discount math (pct_off · pct_off_capped · free).
+  switch (voucher.discount_type) {
     case 'free': {
       // 100% off all covered services.
       return {
@@ -159,8 +189,12 @@ export function calculateVoucherDiscount(
     }
 
     default: {
-      // Defensive: exhaustive check.
-      const _unreachable: never = voucher.voucher_type;
+      // Defensive: exhaustive check. grant_tokens is handled above so the
+      // type narrowing here is 'free' | 'pct_off' | 'pct_off_capped' which
+      // is already covered by the switch arms. Reaching `default` means
+      // discount_type came in as an unknown future value (e.g. a 5th type
+      // added in a later migration without updating this file).
+      const _unreachable: never = voucher.discount_type;
       void _unreachable;
       return {
         applied: false,

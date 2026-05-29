@@ -174,8 +174,16 @@ export default async function PricingPage() {
       ? 'https://schema.org/PreOrder'
       : 'https://schema.org/InStock';
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const pricingJsonLd: Record<string, any> = {
+  // Use `Record<string, unknown>` for the JSON-LD payload (mixed strings,
+  // arrays of nested objects). Same fix pattern as
+  // app/venue/[slug]/page.tsx · the project's ESLint config (next/core-
+  // web-vitals only) doesn't register the @typescript-eslint plugin so
+  // the `eslint-disable-next-line @typescript-eslint/no-explicit-any`
+  // directive that used to wrap a `Record<string, any>` here caused
+  // `next build` to fail with `Definition for rule '@typescript-eslint/
+  // no-explicit-any' was not found` — silently breaking every Vercel
+  // deploy from PR #616 (2026-05-29 SEO/GEO Bucket 7) onward.
+  const pricingJsonLd: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@graph': [
       // Customer software SKUs · @type Product

@@ -14,6 +14,18 @@
  * *"make sure it still follow the theme and understand how the overall look
  * of the app works and keep it that way"*.
  *
+ * 2026-05-30 contextual pill addendum — owner directive *"maybe we can have
+ * a filtering to create the subcategory. main category is okay. same row as
+ * the search?"* + *"fix it now. and only show categories with vendors."* The
+ * header now optionally hosts a per-folder contextual narrow inline with
+ * search. Today the only wired axis is Ceremony.Faith
+ * (Catholic / Christian / INC / Muslim / Cultural); the prop shape supports
+ * future folder-specific axes (Reception.Style, Photo.Editing, etc.) without
+ * rewriting the header. The pill row stacks below the search+filters row so
+ * the search affordance stays at the top of the viewport. Page-level builds
+ * the href list (so we don't duplicate buildHref logic in a client comp);
+ * header just renders.
+ *
  * AIRBNB PATTERN: single rounded pill-shaped search row at the top with the
  * search input + filter trigger button + applied-count badge. The pill stays
  * pinned to the viewport top so the search affordance never scrolls away.
@@ -40,10 +52,26 @@
  */
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { SlidersHorizontal } from 'lucide-react';
 
 import { TaxonomySearch, type TaxonomyOption } from './taxonomy-search';
 import { FilterDrawer, type FilterDrawerProps } from './filter-drawer';
+
+/**
+ * One chip in the contextual pill row. `href` is pre-built by the page —
+ * always preserves sibling URL params (folder, match, venue, q, page, sort,
+ * verified, from) so toggling a faith never blows away the host's other
+ * filter state. `active` triggers the filled-pill styling; only one option
+ * should be active at a time. "All" is rendered as an option with
+ * value=null so couples can clear the narrow.
+ */
+export type ContextualPillOption = {
+  value: string | null;
+  label: string;
+  href: string;
+  active: boolean;
+};
 
 export type StickyMarketplaceHeaderProps = {
   /** The full 192-item autocomplete dataset for the search input. */
@@ -64,6 +92,18 @@ export type StickyMarketplaceHeaderProps = {
   };
   /** Drawer config passed through to FilterDrawer. */
   drawer: FilterDrawerProps;
+  /**
+   * 2026-05-30 — contextual per-folder narrow inline with search. Today
+   * only used by Ceremony (Faith axis). When omitted, the pill row hides
+   * entirely; when present, renders a chip row stacked below the search
+   * row with the supplied label + options. `label` becomes the eyebrow
+   * caption ("FAITH" / "VENUE STYLE" / etc.). The mobile pattern is
+   * horizontal-scroll-snap — same as the IconTileFolderStrip pattern.
+   */
+  contextualPill?: {
+    label: string;
+    options: ReadonlyArray<ContextualPillOption>;
+  };
 };
 
 /**
@@ -72,13 +112,26 @@ export type StickyMarketplaceHeaderProps = {
  * Search query (`q`) is excluded because the search input itself surfaces
  * that. Folder is excluded because the IconTileFolderStrip surfaces that.
  */
-function countAppliedFilters(filters: StickyMarketplaceHeaderProps['filters']) {
+function countAppliedFilters(
+  filters: StickyMarketplaceHeaderProps['filters'],
+  contextualPill?: StickyMarketplaceHeaderProps['contextualPill'],
+) {
   let n = 0;
   if (filters.city.trim().length > 0) n += 1;
   if (filters.verifiedOnly) n += 1;
   if (filters.matchEvent) n += 1;
   if (filters.sort !== 'most_reviews' && filters.sort !== '') n += 1;
   if (filters.venueDefault === 'off') n += 1;
+  // 2026-05-30 — count an active contextual narrow (Faith, Style, etc.)
+  // so the applied-filter badge stays honest. The "All" option uses
+  // value=null and is never active, so we count any option active where
+  // value !== null.
+  if (contextualPill) {
+    const activeNarrow = contextualPill.options.find(
+      (o) => o.active && o.value !== null,
+    );
+    if (activeNarrow) n += 1;
+  }
   return n;
 }
 
@@ -86,9 +139,10 @@ export function StickyMarketplaceHeader({
   taxonomyOptions,
   filters,
   drawer,
+  contextualPill,
 }: StickyMarketplaceHeaderProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const appliedCount = countAppliedFilters(filters);
+  const appliedCount = countAppliedFilters(filters, contextualPill);
 
   return (
     <>
@@ -161,6 +215,41 @@ export function StickyMarketplaceHeader({
             ) : null}
           </button>
         </div>
+
+        {/* 2026-05-30 — Contextual sub-category pill row. Today only the
+            Ceremony folder ships an axis (Faith); other folders pass
+            contextualPill=undefined → row hides. Stacks below the search
+            row so the search affordance stays at the top of the viewport
+            (most-used surface). Horizontal-scroll-snap on mobile mirrors
+            the IconTileFolderStrip pattern so the row never wraps to two
+            lines on narrow viewports. */}
+        {contextualPill ? (
+          <div className="mt-3 flex items-center gap-3">
+            <p className="hidden shrink-0 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55 sm:block">
+              {contextualPill.label}
+            </p>
+            <div
+              role="group"
+              aria-label={`Narrow by ${contextualPill.label.toLowerCase()}`}
+              className="flex min-w-0 flex-1 snap-x snap-mandatory items-center gap-1.5 overflow-x-auto"
+            >
+              {contextualPill.options.map((option) => (
+                <Link
+                  key={option.value ?? '__all__'}
+                  href={option.href}
+                  aria-current={option.active ? 'true' : undefined}
+                  className={
+                    option.active
+                      ? 'inline-flex h-9 shrink-0 snap-start items-center rounded-full bg-terracotta px-3 text-xs font-medium text-cream'
+                      : 'inline-flex h-9 shrink-0 snap-start items-center rounded-full border border-ink/15 bg-cream px-3 text-xs font-medium text-ink hover:border-terracotta/40 hover:text-terracotta'
+                  }
+                >
+                  {option.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <FilterDrawer

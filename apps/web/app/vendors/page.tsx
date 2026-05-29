@@ -50,6 +50,7 @@ import {
 import {
   fetchTopVendorNamesByService,
   fetchVendorCountsByService,
+  type VendorCount,
 } from '@/lib/vendor-counts';
 import { FolderVendorsSection } from './_components/folder-vendors-section';
 import { fetchUserEvents, formatEventDateWithPrecision, resolvePrimaryHostEvent, type EventDatePrecision } from '@/lib/events';
@@ -322,6 +323,15 @@ type Props = {
      *  Browse, sitemap, /weddings, /venue, /waitlist, /not-found, etc.)
      *  never set this param so the full chrome renders unchanged. */
     from?: string;
+    /** 2026-05-30 — Ceremony Faith pill (StickyMarketplaceHeader contextual
+     *  narrow). Lowercase faith key (`catholic` / `christian` / `inc` /
+     *  `muslim` / `cultural`). Maps to the TitleCase faith key the
+     *  TAXONOMY_MAP uses internally. Only meaningful when the catalog is
+     *  Ceremony-scoped (`folder=ceremony`); other folders ignore the
+     *  param so a stale link from a Catholic-pinned share doesn't
+     *  unexpectedly narrow Photography or Catering. Absent / typo /
+     *  unknown → no narrow applied. */
+    faith?: string;
   }>;
 };
 
@@ -497,6 +507,22 @@ function parseFilters(
    *  stay always-rendered. Filter logic still applies silently — host
    *  just doesn't see the filter UI. */
   focusedMode: boolean;
+  /** Owner directive 2026-05-30 — contextual sub-category filter inline
+   *  with search. Per-folder axis: Ceremony surfaces a Faith pill
+   *  (catholic / christian / inc / muslim / cultural) so couples narrow
+   *  the 17-tile ceremony grid to their own tradition. Null = no narrow
+   *  applied (default).
+   *
+   *  Composition with religion-default-on (matchEvent + coupleFaith):
+   *  explicit faithFilter WINS over the auto-derived coupleFaith — a host
+   *  picked Garden but exploring Beach venues should be able to do the
+   *  same for ceremonies (Catholic couple browsing Muslim Imams for a
+   *  sibling's interfaith wedding context, etc.).
+   *
+   *  Other folders' contextual filters can layer in here as new keys
+   *  (venue style for Reception, editing style for Photo & Video, etc.).
+   *  For V1 scope today we only ship Ceremony.faith. */
+  faithFilter: FaithKey | null;
 } {
   const q = (raw.q ?? '').trim();
   const sort = (SORT_KEYS as readonly string[]).includes(raw.sort ?? '')
@@ -566,6 +592,12 @@ function parseFilters(
   // buildPlanGroupSearchHref helper — the next-steps surface was
   // removed 2026-05-24. Direct visits never set it.
   const focusedMode = (raw.from ?? '').trim() === 'plan';
+  // 2026-05-30 — Ceremony Faith pill. URL value is lowercase for clean
+  // hrefs (?faith=catholic) and maps to the TitleCase faith key the
+  // taxonomy uses internally ('Catholic'). Unknown values fall back to
+  // null (no narrow applied) so typos don't break the page.
+  const rawFaith = (raw.faith ?? '').trim().toLowerCase();
+  const faithFilter = (FAITH_URL_TO_KEY[rawFaith] ?? null) as FaithKey | null;
   return {
     q,
     category,
@@ -579,8 +611,50 @@ function parseFilters(
     venueDefault,
     venueFacet,
     focusedMode,
+    faithFilter,
   };
 }
+
+/**
+ * 2026-05-30 — Ceremony Faith pill canonical lookups. The TaxonomyEntry
+ * uses TitleCase faith keys ('Catholic' / 'Christian' / 'INC' / 'Muslim'
+ * / 'Cultural') because they were authored as display labels. The URL
+ * carries lowercase so /vendors?folder=ceremony&faith=catholic stays
+ * scannable + matches the existing param style (?venue=garden, etc.).
+ * The pill UI reads `FAITH_KEY_TO_LABEL` for the chip caption.
+ *
+ * INC stays uppercase as the label (it's an organization name —
+ * Iglesia Ni Cristo) but the URL param is `inc` for consistency.
+ */
+export type FaithKey = 'Catholic' | 'Christian' | 'INC' | 'Muslim' | 'Cultural';
+const FAITH_URL_TO_KEY: Record<string, FaithKey> = {
+  catholic: 'Catholic',
+  christian: 'Christian',
+  inc: 'INC',
+  muslim: 'Muslim',
+  cultural: 'Cultural',
+};
+const FAITH_KEY_TO_URL: Record<FaithKey, string> = {
+  Catholic: 'catholic',
+  Christian: 'christian',
+  INC: 'inc',
+  Muslim: 'muslim',
+  Cultural: 'cultural',
+};
+const FAITH_KEY_TO_LABEL: Record<FaithKey, string> = {
+  Catholic: 'Catholic',
+  Christian: 'Christian',
+  INC: 'INC',
+  Muslim: 'Muslim',
+  Cultural: 'Cultural',
+};
+const FAITH_KEYS_ORDER: ReadonlyArray<FaithKey> = [
+  'Catholic',
+  'Christian',
+  'INC',
+  'Muslim',
+  'Cultural',
+];
 
 /**
  * Fetch the list of vendor_profile_id values flagged `is_demo=TRUE`.
@@ -865,6 +939,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
           venueFacet={filters.venueFacet}
           inDemoMode={inDemoMode}
           focusedMode={filters.focusedMode}
+          faithFilter={filters.faithFilter}
         />
       </>
     );
@@ -1639,6 +1714,7 @@ function buildHref(
     folder?: WeddingFolder | null;
     venueDefault?: 'on' | 'off';
     focusedMode?: boolean;
+    faithFilter?: FaithKey | null;
   },
   patch: Partial<{
     q: string;
@@ -1652,6 +1728,7 @@ function buildHref(
     folder: WeddingFolder | null;
     venueDefault: 'on' | 'off';
     focusedMode: boolean;
+    faithFilter: FaithKey | null;
   }>,
 ): string {
   const merged = { ...filters, ...patch };
@@ -1677,6 +1754,12 @@ function buildHref(
   // subsequent click. Direct visits never have focusedMode set, so this
   // is a no-op for them.
   if (merged.focusedMode) params.set('from', 'plan');
+  // 2026-05-30 — Ceremony Faith pill. Emit ?faith=catholic etc. so the
+  // contextual filter survives pagination + chip toggle + every other
+  // self-link on /vendors. Absent means "All faiths" (no narrow applied).
+  if (merged.faithFilter) {
+    params.set('faith', FAITH_KEY_TO_URL[merged.faithFilter]);
+  }
   const qs = params.toString();
   return qs.length > 0 ? `/vendors?${qs}` : '/vendors';
 }
@@ -1992,6 +2075,42 @@ const CATALOG_PHASE_RANK: Record<TaxonomyPhase, number> = {
   'V1.5+': 10,
 };
 
+/**
+ * 2026-05-30 — "Only show categories with vendors" hide-empty filter.
+ *
+ * Owner directive: the flat 17-tile Ceremony grid mixed live-phase tiles
+ * (Catholic Priest, Civil Judge — RECRUITING, vendors can sign up today)
+ * with future-phase placeholders (Born Again Pastor, Marriage License
+ * Expediting, Apostille — COMING SOON, the canonical_service exists in
+ * the spec but no signup surface is open yet). Couples don't need to see
+ * the future-phase drawers — they're admin/spec-side scaffolding.
+ *
+ * Pragmatic interpretation of "only show categories with vendors":
+ *   - populated (count.total > 0)   → SHOW
+ *   - recruiting (live phase, 0 vendors)  → SHOW (vendor-acquisition surface)
+ *   - setnayan (first-party service) → SHOW
+ *   - future (V1.2 / V1.3 / V1.4 / V1.5+, no vendors yet)  → HIDE
+ *
+ * Phases automatically promote out of HIDE as they activate — when
+ * V1.2 launches and the V1.2-tagged categories become live, the same
+ * tiles will surface as "Recruiting" without further code changes.
+ *
+ * LIVE_PHASES kept in sync with the same constant in
+ * apps/web/app/vendors/_components/category-tile.tsx (where it governs
+ * the Recruiting vs Coming Soon state pill). If you change one, change
+ * both — the tile would render "Coming soon" while the grid showed it,
+ * which would be confusing.
+ */
+const CATALOG_LIVE_PHASES: ReadonlySet<TaxonomyPhase> = new Set([
+  'V1.1 base',
+  'V1.1.1',
+  'V1.1.2',
+  'V1.1.3',
+  'V1.1.4',
+  'V1.1.5',
+  'V1.1.6',
+]);
+
 // Reception facet definitions moved into apps/web/app/vendors/_components/
 // reception-venues-section.tsx as part of the 2026-05-22 evening "Pull V1.2
 // venue directory forward" PR. The new <ReceptionVenuesSection> owns BOTH
@@ -2015,6 +2134,7 @@ async function CatalogView({
   venueFacet,
   inDemoMode,
   focusedMode,
+  faithFilter,
 }: {
   admin: ReturnType<typeof createAdminClient>;
   matchableEvent: { ceremony_type: string; venue_setting: string } | null;
@@ -2066,6 +2186,14 @@ async function CatalogView({
    *  STILL render so the host can browse within their planning context.
    *  Direct visits to /vendors render the full chrome unchanged. */
   focusedMode: boolean;
+  /** 2026-05-30 — explicit Ceremony faith narrow from the StickyMarketplaceHeader
+   *  contextual pill. When set, filter tile rendering to faith === filter OR
+   *  faith === undefined (no-faith tiles always cross-surface — civil judge,
+   *  generic officiant, marriage license expediting, CFO seminar, apostille
+   *  all stay regardless of faith pick). Null = no explicit narrow; the
+   *  pre-existing religion-default-on (matchEvent + coupleFaith) takes
+   *  precedence. */
+  faithFilter: FaithKey | null;
 }) {
   // Single round-trip per page render — both reads are admin-scoped because
   // anonymous visitors hit this route and `vendor_profiles` is gated by RLS.
@@ -2092,13 +2220,38 @@ async function CatalogView({
   // faiths. Untagged tiles always surface — they're the cross-faith base.
   // Civil couples (coupleFaith=null) keep all faith-tagged tiles hidden when
   // matchEvent is on. Anonymous visitors see everything.
+  //
+  // 2026-05-30 — explicit faithFilter (the Sticky header's Ceremony pill)
+  // wins over the auto-derived coupleFaith. Resolution order:
+  //   1. faithFilter set → use it (any visitor, signed-in or not)
+  //   2. matchEvent ON + coupleFaith → fall back to auto-derived
+  //   3. otherwise → no faith narrow (all tiles surface, modulo hide-empty)
+  // The "untagged-tiles-always-surface" rule still holds across all
+  // three branches (civil judge, generic officiant, marriage license,
+  // CFO, apostille all stay regardless of pick).
   const religionFilteringActive = matchEvent && matchableEvent !== null;
+  const activeFaith: FaithKey | null =
+    faithFilter ?? (religionFilteringActive ? (coupleFaith as FaithKey | null) : null);
   const passesReligionFilter = (
     meta: { faith?: 'Catholic' | 'Christian' | 'INC' | 'Muslim' | 'Cultural' },
   ): boolean => {
-    if (!religionFilteringActive) return true;
+    if (activeFaith === null) return true;
     if (!meta.faith) return true;
-    return meta.faith === coupleFaith;
+    return meta.faith === activeFaith;
+  };
+
+  // 2026-05-30 — "Only show categories with vendors" hide-empty filter.
+  // Future-phase tiles with zero vendors (V1.2 / V1.3 / V1.4 / V1.5+) drop
+  // off the couple-facing browse — they're admin/spec-side scaffolding
+  // until the phase activates. See CATALOG_LIVE_PHASES doc comment above
+  // for the full ruleset + auto-promotion behavior as phases launch.
+  const passesHideEmpty = (
+    meta: { phase: TaxonomyPhase; setnayan?: boolean },
+    count: VendorCount | null,
+  ): boolean => {
+    if (meta.setnayan) return true;
+    if ((count?.total ?? 0) > 0) return true;
+    return CATALOG_LIVE_PHASES.has(meta.phase);
   };
 
   // Bucket every schema row into its wedding folder. Rows whose canonical_service
@@ -2124,6 +2277,9 @@ async function CatalogView({
     if (!meta) continue;
     if (!passesReligionFilter(meta)) continue;
     const count = vendorCounts.get(row.canonical_service) ?? null;
+    // 2026-05-30 — hide future-phase placeholders. Recruiting + populated
+    // + setnayan tiles all pass through; pure "Coming soon" tiles drop.
+    if (!passesHideEmpty(meta, count)) continue;
     if ((count?.total ?? 0) > 0) {
       populatedServices.push(row.canonical_service);
     }
@@ -2199,9 +2355,14 @@ async function CatalogView({
   // Count visible categories AFTER the religion filter. Tabs and the
   // "X categories" copy reflect what the couple actually sees, not the
   // unfiltered 192.
+  // 2026-05-30 — totals now also respect the hide-empty filter so the
+  // count chip + tab badges reflect the visible tile count, not the
+  // pre-filter spec count.
   const totalCategories = schemas.filter((r) => {
     const meta = TAXONOMY_MAP[r.canonical_service];
-    return meta !== undefined && passesReligionFilter(meta);
+    if (meta === undefined || !passesReligionFilter(meta)) return false;
+    const count = vendorCounts.get(r.canonical_service) ?? null;
+    return passesHideEmpty(meta, count);
   }).length;
   const totalLive = schemas.filter((r) => {
     const meta = TAXONOMY_MAP[r.canonical_service];
@@ -2223,6 +2384,46 @@ async function CatalogView({
         ? RECEPTION_FACET_COUNT
         : buckets.get(folder)?.length ?? 0,
   }));
+
+  // 2026-05-30 — Ceremony Faith pill option list. Surfaces only when the
+  // user has scoped to the Ceremony folder (the only V1 folder that ships
+  // a contextual narrow axis). Pre-built hrefs preserve every sibling URL
+  // param (folder, match, venue, q, page, sort, verified, from) via the
+  // existing buildHref helper, so toggling Faith never blows away the
+  // host's other state. The "All" option (value=null) emits faithFilter=null
+  // through buildHref, which omits the ?faith= param entirely — clean URL
+  // when the narrow is off.
+  const ceremonyFilters = {
+    q: '',
+    category: null as string | null,
+    city: '',
+    sort: 'most_reviews' as SortKey,
+    page: 1,
+    verifiedOnly: false,
+    matchEvent,
+    eventType: null as EventTypeFilter | null,
+    folder: scopedFolder,
+    venueDefault: 'on' as const,
+    focusedMode: false,
+    faithFilter,
+  };
+  const ceremonyPillOptions =
+    scopedFolder === 'ceremony'
+      ? [
+          {
+            value: null,
+            label: 'All faiths',
+            href: buildHref(ceremonyFilters, { faithFilter: null }),
+            active: faithFilter === null,
+          },
+          ...FAITH_KEYS_ORDER.map((key) => ({
+            value: FAITH_KEY_TO_URL[key],
+            label: FAITH_KEY_TO_LABEL[key],
+            href: buildHref(ceremonyFilters, { faithFilter: key }),
+            active: faithFilter === key,
+          })),
+        ]
+      : null;
 
   return (
     <main className="min-h-dvh bg-cream">
@@ -2323,6 +2524,11 @@ async function CatalogView({
                 showVenueToggle: false, // catalog mode shows all folders; venue toggle is grid-mode + Reception folder only
                 hasActiveFilters: false,
               } as FilterDrawerProps}
+              contextualPill={
+                ceremonyPillOptions
+                  ? { label: 'Faith', options: ceremonyPillOptions }
+                  : undefined
+              }
             />
 
             {religionFilteringActive ? (

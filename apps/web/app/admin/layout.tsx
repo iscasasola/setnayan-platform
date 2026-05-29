@@ -66,24 +66,36 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       ? { label: '🟢 Team Pool', tone: 'bg-emerald-100 text-emerald-800' }
       : { label: 'Admin', tone: 'bg-ink/10 text-ink/70' };
 
-  // Top bar lives inside SidebarShell's topBar slot. Carries the admin
-  // utilities cluster — brand logo (links back to overview), role-switch
-  // pill, admin badge, display name, sign-out form. Pre-Phase 3 this
-  // sat inside a <header> element above the horizontal pill nav; now it
-  // sits inside the sticky top slot above the main content scroll.
+  // Switch View pill — lives in the desktop sidebar footer (added 2026-05-29
+  // per owner directive to standardize role-switch placement across the 3
+  // doorways instead of cramming it into the topBar). Mobile retains the
+  // pill in the topBar's right-side cluster (lg:hidden wrapper) because
+  // SidebarShell's sidebar is hidden at <lg viewports.
+  const switchViewPill = (
+    <RoleSwitchPill
+      currentRole="admin"
+      hasCustomerAccess={roles.hasCustomerAccess}
+      hasVendorAccess={roles.hasVendorAccess}
+      hasAdminAccess={roles.hasAdminAccess}
+      vendorProfiles={roles.vendorProfiles}
+    />
+  );
+
+  // Top bar — admin utilities cluster: brand logo (back to overview),
+  // mobile-only Switch View pill, admin badge, display name, sign-out form.
+  // Desktop topBar no longer carries the Switch View pill — it renders in
+  // the sidebar footer slot (sidebarFooter prop below) where it's always
+  // visible alongside the nav tree.
   const topBar = (
     <div className="flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:mx-auto lg:px-8">
       <Link href="/admin" className="flex items-center text-ink">
         <Logo height={32} withWordmark title="Setnayan · Admin" />
       </Link>
       <div className="flex items-center gap-2">
-        <RoleSwitchPill
-          currentRole="admin"
-          hasCustomerAccess={roles.hasCustomerAccess}
-          hasVendorAccess={roles.hasVendorAccess}
-          hasAdminAccess={roles.hasAdminAccess}
-          vendorProfiles={roles.vendorProfiles}
-        />
+        {/* Mobile-only Switch View pill — desktop renders it in the
+            sidebar footer slot below (avoids duplicating the affordance
+            inside the same viewport). */}
+        <div className="lg:hidden">{switchViewPill}</div>
         <span
           className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${badge.tone}`}
         >
@@ -101,7 +113,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <>
-      <SidebarShell sidebar={<AdminSidebar />} topBar={topBar}>
+      <SidebarShell sidebar={<AdminSidebar />} sidebarFooter={switchViewPill} topBar={topBar}>
         {/* Pad the bottom on mobile so BottomNav doesn't cover the last
             row of content. SidebarShell already handles the desktop
             sidebar offset via its lg:pl-[var(--shell-main-offset)] math. */}

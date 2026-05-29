@@ -72,13 +72,27 @@ export function SiteHeader({ user = null }: SiteHeaderProps = {}) {
 
   return (
     <header className="border-b border-ink/5">
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex items-center text-ink" aria-label="Setnayan home">
+      {/* Container widened from max-w-6xl (1152px) → max-w-7xl (1280px) and
+          the inline nav breakpoint pushed from md (768) → lg (1024) so the
+          6-item primary nav + Sign in/Create account cluster has enough
+          horizontal room before the hamburger fallback takes over. The
+          prior max-w-6xl/md:flex combination caused "How it works" to wrap
+          to 3 lines + the Setnayan wordmark to compress unevenly at tablet
+          viewports (~768-1023px). Per orphan-prevention every nav link
+          still reachable via the mobile sheet at <lg viewports. */}
+      <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+        {/* shrink-0 keeps the brand mark + wordmark on one line even when
+            the right-side cluster is wide — prevents "SET NA 'YAN" from
+            stacking into 3 lines under flex pressure. */}
+        <Link href="/" className="flex shrink-0 items-center text-ink" aria-label="Setnayan home">
           <Logo height={32} withWordmark />
         </Link>
 
-        {/* Desktop primary nav — inline at md+ */}
-        <nav aria-label="Primary" className="hidden items-center gap-5 md:flex">
+        {/* Desktop primary nav — inline at lg+ (was md+ pre-fix). gap-4
+            (was gap-5) tightens the cluster further; whitespace-nowrap on
+            each link prevents multi-word labels like "How it works" from
+            wrapping when the container is at its lower lg bound. */}
+        <nav aria-label="Primary" className="hidden items-center gap-4 lg:flex">
           {PRIMARY_NAV.map((link) => {
             const isActive =
               link.href === pathname ||
@@ -88,7 +102,7 @@ export function SiteHeader({ user = null }: SiteHeaderProps = {}) {
                 key={link.href}
                 href={link.href}
                 aria-current={isActive ? 'page' : undefined}
-                className={`text-sm font-medium underline-offset-4 hover:text-ink hover:underline ${
+                className={`whitespace-nowrap text-sm font-medium underline-offset-4 hover:text-ink hover:underline ${
                   isActive ? 'text-ink' : 'text-ink/65'
                 }`}
               >
@@ -100,15 +114,18 @@ export function SiteHeader({ user = null }: SiteHeaderProps = {}) {
 
         {/* Right-side actions */}
         <div className="flex items-center gap-2">
-          {/* Inline search — visible at lg+ so md (tablet) keeps the nav
-              uncluttered. Submits a GET form to /vendors so the action
-              matches the homepage SearchAction JSON-LD and the existing
-              /vendors page already reads `?q=` server-side. */}
+          {/* Inline search — visible at xl+ (1280+) so lg (1024-1279px)
+              gets the inline nav + Sign in/Create account cluster without
+              also cramming a 224px search field. lg viewports without
+              search still reach /vendors via the Marketplace nav link.
+              Submits a GET form to /vendors so the action matches the
+              homepage SearchAction JSON-LD and the existing /vendors
+              page already reads `?q=` server-side. */}
           <form
             action="/vendors"
             method="get"
             role="search"
-            className="relative hidden lg:block"
+            className="relative hidden xl:block"
           >
             <label htmlFor="site-search" className="sr-only">
               Search vendors
@@ -127,10 +144,15 @@ export function SiteHeader({ user = null }: SiteHeaderProps = {}) {
               className="h-10 w-56 rounded-md border border-ink/15 bg-white pl-9 pr-3 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30"
             />
           </form>
+          {/* Right-side actions visibility bumped from md+ → lg+ to match
+              the nav's new lg breakpoint — sm/md viewports use the
+              hamburger menu exclusively, so the inline Sign in/Create
+              account/Dashboard buttons should appear at the same
+              breakpoint as the inline nav. */}
           {signedIn ? (
             <Link
               href="/dashboard"
-              className="button-primary hidden h-10 px-5 text-sm md:inline-flex"
+              className="button-primary hidden h-10 px-5 text-sm lg:inline-flex"
             >
               Dashboard
             </Link>
@@ -138,27 +160,27 @@ export function SiteHeader({ user = null }: SiteHeaderProps = {}) {
             <>
               <Link
                 href="/login"
-                className="hidden text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline md:inline"
+                className="hidden text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline lg:inline"
               >
                 Sign in
               </Link>
               <Link
                 href={signupHref}
-                className="button-primary hidden h-10 px-5 text-sm md:inline-flex"
+                className="button-primary hidden h-10 px-5 text-sm lg:inline-flex"
               >
                 Create account
               </Link>
             </>
           )}
 
-          {/* Mobile hamburger — md:hidden */}
+          {/* Mobile/tablet hamburger — lg:hidden (was md:hidden pre-fix). */}
           <button
             type="button"
             onClick={() => setNavOpen(true)}
             aria-label="Open menu"
             aria-expanded={navOpen}
             aria-controls="site-nav-sheet"
-            className="inline-flex h-11 w-11 items-center justify-center rounded-md text-ink hover:bg-ink/5 md:hidden"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-md text-ink hover:bg-ink/5 lg:hidden"
           >
             <Menu aria-hidden className="h-5 w-5" strokeWidth={1.75} />
           </button>

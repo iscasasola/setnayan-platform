@@ -132,11 +132,51 @@ const DISTANCE_MIN_KM = 5;
 const DISTANCE_MAX_KM = 100;
 import type { WizardTaskId } from '@/lib/wizard';
 import type { WizardVendorRec } from '@/lib/wizard-recommendations';
+import { resolveVendorDisplayName } from '@/lib/vendors';
 import {
   completeVendorPickFromMarketplace,
   completeVendorPickFromCustom,
   searchVendorRecommendations,
 } from '../../wizard-actions';
+
+/**
+ * Hybrid-anonymity display-name resolver for a wizard vendor-pick row.
+ *
+ * Wraps `resolveVendorDisplayName` from lib/vendors.ts (the canonical
+ * helper that all hybrid-anonymity surfaces — vendor-card.tsx,
+ * /v/[slug], the marketplace, and this grid card — go through) with
+ * the wizard-specific bits the helper needs:
+ *
+ *   • `primary_canonical_service` is sourced from
+ *     `searchContext.canonicalServices[0]`. The grid card is always
+ *     scoped to a specific category (Photography / Reception /
+ *     Catering / etc.) so the canonical_service is unambiguous at
+ *     this surface — no need to thread it via WizardVendorRec.
+ *
+ *   • `isPaidTier` is `false` because the wizard surface doesn't
+ *     join vendor subscription state. Per the canonical migration
+ *     header pragmatic note in 20260530010000, the placeholder still
+ *     only renders while `name_revealed_at IS NULL` — once a Pro or
+ *     Enterprise vendor sends any chat reply (their first day, in
+ *     practice) the DB trigger stamps `name_revealed_at` and the
+ *     real name surfaces here anyway.
+ *
+ * Cross-references:
+ *   • CLAUDE.md 2026-05-30 row "🔒 V2.1 BRIEF AMENDMENT #2 LOCKED"
+ *     § 1(d) + § 7(f).
+ *   • [[project_setnayan_vendor_hybrid_anonymity]] memory rule.
+ */
+function vendorDisplayName(
+  rec: WizardVendorRec,
+  canonicalServices: ReadonlyArray<string>,
+): string {
+  return resolveVendorDisplayName({
+    business_name: rec.business_name,
+    name_revealed_at: rec.name_revealed_at,
+    primary_canonical_service: canonicalServices[0] ?? null,
+    location_city: rec.location_city,
+  });
+}
 
 // PAGE_SIZE is dynamic per breakpoint · computed inside the component as
 // `columnCount × ROWS_PER_PAGE`. The legacy fixed 15 was 3 cols × 5 rows;
@@ -962,6 +1002,12 @@ export function VendorPickGridCard({
         <CompareSideBySide
           vendorA={compareState.vendorA}
           vendorB={compareState.vendorB}
+          /* V2.1 amendment #2 · hybrid-anonymity. CompareSideBySide
+             renders each vendor's display name + photo initial — both
+             need to resolve against the canonical category so a hidden
+             business_name surfaces as the taxonomy + city placeholder
+             instead. */
+          canonicalServices={searchContext.canonicalServices}
           isPendingId={pendingVendorId}
           onLock={(rec) => handleLockMarketplace(rec)}
           onKeepAndCompareAnother={handleKeepAndCompareAnother}
@@ -982,7 +1028,12 @@ export function VendorPickGridCard({
           <span className="flex-1">
             Pick a second one to compare with{' '}
             <strong className="font-medium text-ink">
-              {compareState.vendorA.business_name}
+              {/* Hybrid-anonymity (V2.1 brief amendment #2 · 2026-05-30):
+                  render the same display label the card itself shows so
+                  the picking-second banner doesn't leak a hidden
+                  business_name. See lib/vendors.ts ·
+                  resolveVendorDisplayName. */}
+              {vendorDisplayName(compareState.vendorA, searchContext.canonicalServices)}
             </strong>
             . Tap <strong className="font-medium text-ink">Pick to compare</strong> on any card below.
           </span>
@@ -1012,6 +1063,12 @@ export function VendorPickGridCard({
               <VendorGridCardRow
                 key={rec.vendor_profile_id}
                 rec={rec}
+                /* V2.1 amendment #2 · hybrid-anonymity. Threading the
+                   canonical category set so the row's display name +
+                   photo initial fallback both resolve against the
+                   right taxonomy when the vendor's business_name is
+                   hidden (Free + Verified pre-first-reply). */
+                canonicalServices={searchContext.canonicalServices}
                 isPending={pendingVendorId === rec.vendor_profile_id}
                 compareMode={compareState.mode}
                 isVendorA={isVendorA}
@@ -1068,7 +1125,10 @@ export function VendorPickGridCard({
             Closest match
           </p>
           <p className="mt-2 font-display text-lg italic text-ink">
-            {nearestBeyondRadius.rec.business_name}
+            {/* Hybrid-anonymity (V2.1 brief amendment #2 · 2026-05-30):
+                same display label the host would see if the row were
+                in the grid · doesn't leak a hidden business_name. */}
+            {vendorDisplayName(nearestBeyondRadius.rec, searchContext.canonicalServices)}
           </p>
           <p className="mt-1 text-sm text-ink/70">
             {nearestBeyondRadius.km.toFixed(1)} km from your {distanceFilter.referenceLabel.toLowerCase()} — beyond your current {distanceKm} km radius.
@@ -1173,16 +1233,27 @@ function TilePhoto({
   rec,
   sizes,
   initialSizeClass,
+  displayLabel,
   children,
 }: {
   rec: WizardVendorRec;
   sizes: string;
   initialSizeClass: string;
+  /** Resolved hybrid-anonymity display label (V2.1 amendment #2 ·
+   *  2026-05-30) · drives the initial-letter photo fallback so a
+   *  vendor with a hidden business_name doesn't leak the first
+   *  letter via the placeholder tile. */
+  displayLabel?: string;
   /** Overlays (Verified badge, etc.) positioned absolute against the
    *  tile container. */
   children?: React.ReactNode;
 }) {
-  const initial = rec.business_name.charAt(0).toUpperCase();
+  // Photo initial fallback: prefer the explicitly-resolved display
+  // label (post hybrid-anonymity) when caller supplied one, falling
+  // back to the raw business_name for any caller that hasn't been
+  // migrated yet. Both paths land on a real first character because
+  // `resolveVendorDisplayName` guarantees a non-empty string.
+  const initial = (displayLabel ?? rec.business_name).charAt(0).toUpperCase();
   const isCreations =
     rec.presentation_pattern === 'creations' &&
     rec.services_preview.length >= 2;
@@ -1262,6 +1333,7 @@ function TilePhoto({
 
 function VendorGridCardRow({
   rec,
+  canonicalServices,
   isPending,
   compareMode,
   isVendorA,
@@ -1271,6 +1343,10 @@ function VendorGridCardRow({
   onPickAsSecond,
 }: {
   rec: WizardVendorRec;
+  /** Canonical category set for the parent wizard card · drives the
+   *  hybrid-anonymity placeholder taxonomy when rec.business_name is
+   *  hidden (V2.1 brief amendment #2 · 2026-05-30). */
+  canonicalServices: ReadonlyArray<string>;
   isPending: boolean;
   /** 'browsing' = default · 'picking_second' = host has chosen A and
    *  is picking B · 'comparing' is never passed here (the side-by-side
@@ -1297,6 +1373,13 @@ function VendorGridCardRow({
   const reviewCount = rec.review_count ?? 0;
   const isCertified = rec.verification_state === 'verified';
 
+  // V2.1 brief amendment #2 (2026-05-30) · hybrid-anonymity display
+  // label. Resolves to either the real business_name (when revealed
+  // post first-chat-reply OR for paid tiers) OR the taxonomy + city
+  // placeholder (Free + Verified pre-first-reply). Single helper
+  // call so the line + the photo initial fallback below stay in lock-step.
+  const displayLabel = vendorDisplayName(rec, canonicalServices);
+
   // 30% opacity + non-interactive when booked (2026-05-24 owner directive).
   // Owner-A highlight wins over booked styling — the host is mid-flow on
   // the comparison and shouldn't see their picked-A vendor dimmed even if
@@ -1315,6 +1398,11 @@ function VendorGridCardRow({
           Pattern B + fallback render single-hero (V1 behavior). */}
       <TilePhoto
         rec={rec}
+        /* Hybrid-anonymity: photo initial-letter fallback uses the
+           display label's first character so hidden vendors render
+           e.g. "M" for "Manila Wedding Photographer" instead of
+           leaking the first letter of the real business_name. */
+        displayLabel={displayLabel}
         sizes="(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 768px) 33vw, (min-width: 640px) 50vw, 100vw"
         initialSizeClass="text-5xl"
       >
@@ -1348,7 +1436,7 @@ function VendorGridCardRow({
       {/* Body · name + city + rating + Compare/Lock CTAs. */}
       <div className="flex flex-1 flex-col gap-2 p-4">
         <p className="line-clamp-1 text-sm font-semibold leading-tight text-ink sm:text-base">
-          {rec.business_name}
+          {displayLabel}
         </p>
 
         {/* Setnayan Statement · only when verified · short brand-voice
@@ -1465,6 +1553,7 @@ function VendorGridCardRow({
 function CompareSideBySide({
   vendorA,
   vendorB,
+  canonicalServices,
   isPendingId,
   onLock,
   onKeepAndCompareAnother,
@@ -1472,6 +1561,10 @@ function CompareSideBySide({
 }: {
   vendorA: WizardVendorRec;
   vendorB: WizardVendorRec;
+  /** Canonical category set · drives the hybrid-anonymity placeholder
+   *  taxonomy when either vendor's business_name is hidden (V2.1
+   *  amendment #2 · 2026-05-30). */
+  canonicalServices: ReadonlyArray<string>;
   isPendingId: string | null;
   onLock: (rec: WizardVendorRec) => void;
   onKeepAndCompareAnother: (keepSide: 'A' | 'B') => void;
@@ -1503,12 +1596,14 @@ function CompareSideBySide({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <CompareSide
           rec={vendorA}
+          canonicalServices={canonicalServices}
           isPending={isPendingId === vendorA.vendor_profile_id}
           onLock={() => onLock(vendorA)}
           onCompareAnother={() => onKeepAndCompareAnother('A')}
         />
         <CompareSide
           rec={vendorB}
+          canonicalServices={canonicalServices}
           isPending={isPendingId === vendorB.vendor_profile_id}
           onLock={() => onLock(vendorB)}
           onCompareAnother={() => onKeepAndCompareAnother('B')}
@@ -1520,11 +1615,15 @@ function CompareSideBySide({
 
 function CompareSide({
   rec,
+  canonicalServices,
   isPending,
   onLock,
   onCompareAnother,
 }: {
   rec: WizardVendorRec;
+  /** Canonical category set · drives the hybrid-anonymity placeholder
+   *  taxonomy (V2.1 amendment #2 · 2026-05-30). */
+  canonicalServices: ReadonlyArray<string>;
   isPending: boolean;
   onLock: () => void;
   onCompareAnother: () => void;
@@ -1535,11 +1634,16 @@ function CompareSide({
       : null;
   const reviewCount = rec.review_count ?? 0;
   const isCertified = rec.verification_state === 'verified';
+  // V2.1 amendment #2 · hybrid-anonymity. Resolves to real
+  // business_name once revealed (post first vendor reply) or to the
+  // taxonomy + city placeholder while hidden.
+  const displayLabel = vendorDisplayName(rec, canonicalServices);
 
   return (
     <article className="flex flex-col overflow-hidden rounded-xl border border-ink/10 bg-white shadow-sm">
       <TilePhoto
         rec={rec}
+        displayLabel={displayLabel}
         sizes="(min-width: 640px) 45vw, 100vw"
         initialSizeClass="text-6xl"
       >
@@ -1558,7 +1662,7 @@ function CompareSide({
 
       <div className="flex flex-1 flex-col gap-2 p-4">
         <h4 className="font-display text-lg italic leading-tight text-ink sm:text-xl">
-          {rec.business_name}
+          {displayLabel}
         </h4>
 
         {isCertified ? (

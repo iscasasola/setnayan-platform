@@ -12,6 +12,7 @@ import {
   displayServiceLabel,
   formatPhp,
   isCanonicalService,
+  resolveVendorDisplayName,
   serviceGroupOf,
   type ServiceGroupKey,
   type VendorCategory,
@@ -82,6 +83,20 @@ type PublicVendorRow = {
   // column hasn't been merged yet. The actual `is_demo IS NOT TRUE` filter
   // on visibility lives below (see `isDemoVendor`).
   is_demo?: boolean | null;
+  // V2.1 brief amendment #2 (locked 2026-05-30 · CLAUDE.md row
+  // "🔒 V2.1 BRIEF AMENDMENT #2 LOCKED" § 1(d) + memory rule
+  // [[project_setnayan_vendor_hybrid_anonymity]]). NULL = the vendor's
+  // business_name is hidden in the microsite hero, page title, and
+  // LocalBusiness JSON-LD name field; surfaces render the anonymized
+  // taxonomy + city placeholder via `resolveVendorDisplayName` in
+  // lib/vendors.ts. Non-NULL = name globally revealed (DB trigger
+  // `reveal_vendor_name_on_chat` stamps on first vendor chat reply ·
+  // PR #662 / migration 20260530010000). Pro + Enterprise vendors are
+  // also revealed via the app-layer `isPaidTier` flag but no
+  // subscription join exists here yet; placeholder still only renders
+  // while name_revealed_at IS NULL so once any Pro+ vendor sends a
+  // reply the real name surfaces unchanged.
+  name_revealed_at?: string | null;
 };
 
 // Iteration 0043 — labels for wedding-type compatibility badges rendered on
@@ -141,8 +156,17 @@ async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
   // column first and fall back to the legacy select — keeps this PR
   // mergeable in either order. Once both PRs are on main the fallback
   // path is dormant.
+  /* V2.1 brief amendment #2 (2026-05-30): bundle `name_revealed_at`
+     into the FULL select so the microsite resolves hybrid-anonymity
+     in a single fetch. The column ships pre-pilot via PR #662 /
+     migration 20260530010000 · the existing legacy fallback already
+     handles pre-`is_demo` deploys, and the new column lands in the
+     same migration window so any failure mode that surfaces an
+     "undefined column name_revealed_at" message routes through the
+     same legacy path with a NULL default (= hidden, which is the
+     conservative behavior). */
   const fullSelect =
-    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo';
+    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at';
   const legacySelect =
     'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings';
 
@@ -151,7 +175,7 @@ async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
     .select(fullSelect)
     .ilike('business_slug', slug)
     .maybeSingle();
-  if (error && /is_demo/i.test(error.message)) {
+  if (error && /(is_demo|name_revealed_at)/i.test(error.message)) {
     ({ data } = await admin
       .from('vendor_profiles')
       .select(legacySelect)
@@ -180,8 +204,20 @@ export async function generateMetadata({ params }: Props) {
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
   ).replace(/\/$/, '');
   const canonicalUrl = `${siteUrl}/v/${vendor.business_slug ?? slug}`;
-  const titleText = `${vendor.business_name} · Setnayan vendor${suffix}`;
-  const descText = vendor.tagline ?? `${vendor.business_name} on Setnayan.`;
+  /* V2.1 brief amendment #2 (2026-05-30) · hybrid-anonymity in
+     metadata. Page title + description + OG card all consume the
+     resolved display label so search engines + social previews
+     extract the safe placeholder (e.g., "Manila Wedding Photographer
+     · Manila") while the vendor's name is hidden, and the real
+     business_name once revealed. */
+  const displayLabel = resolveVendorDisplayName({
+    business_name: vendor.business_name,
+    name_revealed_at: vendor.name_revealed_at ?? null,
+    primary_canonical_service: vendor.services?.[0] ?? null,
+    location_city: vendor.location_city,
+  });
+  const titleText = `${displayLabel} · Setnayan vendor${suffix}`;
+  const descText = vendor.tagline ?? `${displayLabel} on Setnayan.`;
   // SEO/GEO Bucket 4 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — extend the
   // base metadata from PR #573 with canonical URL + OpenGraph profile card
   // + Twitter summary_large_image so social shares of a vendor profile
@@ -200,7 +236,17 @@ export async function generateMetadata({ params }: Props) {
       siteName: 'Setnayan',
       locale: 'en_PH',
       ...(vendor.logo_url
-        ? { images: [{ url: vendor.logo_url, alt: `${vendor.business_name} logo` }] }
+        ? {
+            images: [
+              {
+                url: vendor.logo_url,
+                /* Hybrid-anonymity (V2.1 amendment #2): alt text uses
+                   the resolved display label so social previews don't
+                   leak a hidden business_name via crawler-friendly alt. */
+                alt: `${displayLabel} logo`,
+              },
+            ],
+          }
         : {}),
     },
     twitter: {
@@ -253,6 +299,22 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
   const hasMore = reviewStats.total_count > reviews.length;
   const activeServices = allServices.filter((s) => s.is_active);
 
+  /* V2.1 brief amendment #2 (2026-05-30) · hybrid-anonymity. Resolves
+     once at the page level so the hero, "Get in touch" copy,
+     LocalBusiness JSON-LD's `name` field, BreadcrumbList's leaf
+     label, and the FollowGate vendorName all surface the same
+     display label. Real business_name when the column says revealed
+     (or when the vendor's a paid tier · no subscription join here
+     yet, so isPaidTier=false today; the placeholder still only
+     renders while name_revealed_at IS NULL so a Pro+ vendor's name
+     reveals the moment they reply). */
+  const displayLabel = resolveVendorDisplayName({
+    business_name: vendor.business_name,
+    name_revealed_at: vendor.name_revealed_at ?? null,
+    primary_canonical_service: vendor.services?.[0] ?? null,
+    location_city: vendor.location_city,
+  });
+
   // Resolve viewer state for the FollowGate (iteration 0019 § Gate). Public
   // page so the supabase client may have no user; that's fine — the gate
   // renders a "Sign in to follow" CTA in that case.
@@ -296,9 +358,14 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
     '@context': 'https://schema.org',
     '@type': ['LocalBusiness', 'ProfessionalService'],
     '@id': `${SITE_URL}/v/${slug}#business`,
-    name: vendor.business_name,
+    /* V2.1 brief amendment #2 (2026-05-30): emit the hybrid-anonymity
+       display label so AI engines + Google extract the safe
+       placeholder ("Manila Wedding Photographer · Manila") while the
+       business_name is hidden — not the real name. Once revealed,
+       the real business_name surfaces unchanged. */
+    name: displayLabel,
     url: `${SITE_URL}/v/${slug}`,
-    description: vendor.tagline ?? `${vendor.business_name} on Setnayan.`,
+    description: vendor.tagline ?? `${displayLabel} on Setnayan.`,
     image: vendor.logo_url ?? `${SITE_URL}/icon-512.svg`,
     address: {
       '@type': 'PostalAddress',
@@ -360,7 +427,11 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
   if (Array.isArray(vendor.services) && vendor.services.length > 0) {
     vendorJsonLd.hasOfferCatalog = {
       '@type': 'OfferCatalog',
-      name: `${vendor.business_name} services`,
+      /* Hybrid-anonymity (V2.1 amendment #2): the OfferCatalog's
+         own `name` field uses the display label so a hidden vendor
+         doesn't leak its real business_name through the structured
+         data tree. */
+      name: `${displayLabel} services`,
       itemListElement: vendor.services.map((s: string, i: number) => ({
         '@type': 'Offer',
         position: i + 1,
@@ -400,7 +471,10 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
       {
         '@type': 'ListItem',
         position: 3,
-        name: vendor.business_name,
+        /* Hybrid-anonymity (V2.1 amendment #2): breadcrumb leaf label
+           uses the display label so SERP breadcrumbs surface the safe
+           placeholder while the name is hidden. */
+        name: displayLabel,
         item: `${SITE_URL}/v/${slug}`,
       },
     ],
@@ -447,9 +521,13 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
 
       <article className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
         {isDemoVendor ? <DemoVendorBanner /> : null}
-        {isComingSoon ? <ComingSoonBanner vendorName={vendor.business_name} /> : null}
+        {/* Hybrid-anonymity (V2.1 amendment #2 · 2026-05-30): pass the
+            resolved display label so the ComingSoon banner copy + Logo
+            initial fallback + alt text all surface the safe placeholder
+            while the vendor's name is hidden. */}
+        {isComingSoon ? <ComingSoonBanner vendorName={displayLabel} /> : null}
         <section className="flex flex-col items-start gap-6 border-b border-ink/10 pb-8 sm:flex-row">
-          <Logo logoUrl={vendor.logo_url} name={vendor.business_name} />
+          <Logo logoUrl={vendor.logo_url} name={displayLabel} />
           <div className="min-w-0 space-y-2">
             <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
               Setnayan vendor
@@ -462,9 +540,21 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
                 unchanged. Business name stays the visual anchor — v2.1
                 publisher posture means real vendor names are always visible
                 (CLAUDE.md 2026-05-28 tenth row § 1 explicitly retires the
-                Path B lead-broker anonymization from CLAUDE.md seventh row). */}
+                Path B lead-broker anonymization from CLAUDE.md seventh row).
+
+                V2.1 brief amendment #2 (CLAUDE.md 2026-05-30 row
+                "🔒 V2.1 BRIEF AMENDMENT #2 LOCKED" § 1(d)) re-introduces
+                a hybrid mechanic for Free + Verified vendors ONLY:
+                business_name is hidden until the vendor sends their
+                first chat reply (DB trigger reveal_vendor_name_on_chat
+                stamps `name_revealed_at` on first reply · PR #662 /
+                migration 20260530010000). The render below now
+                consumes `displayLabel` from the page-level
+                resolveVendorDisplayName call so the hero surfaces the
+                taxonomy + city placeholder during the hidden window
+                and the real business_name once revealed. */}
             <h1 className="font-serif text-4xl font-normal italic tracking-[-0.02em] text-ink sm:text-5xl">
-              {vendor.business_name}
+              {displayLabel}
             </h1>
             {vendor.tagline ? (
               <p className="text-base text-ink/70">{vendor.tagline}</p>
@@ -512,7 +602,12 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
               <div className="flex flex-wrap items-center gap-3 pt-4">
                 <FollowGate
                   vendorProfileId={vendor.vendor_profile_id}
-                  vendorName={vendor.business_name}
+                  /* Hybrid-anonymity (V2.1 amendment #2 · 2026-05-30):
+                     FollowGate's "Follow {name}" copy uses the
+                     display label so hidden vendors surface as
+                     "Follow Manila Wedding Photographer · Manila"
+                     instead of leaking the real business_name. */
+                  vendorName={displayLabel}
                   vendorEmail={vendor.contact_email}
                   isAuthenticated={user !== null}
                   initialFollowing={initialFollowing}
@@ -604,9 +699,12 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
         ) : null}
 
         {activeServices.length > 0 ? (
+          /* Hybrid-anonymity (V2.1 amendment #2): pass displayLabel so
+             the services section's section heading + per-service
+             cards' "by {vendor}" copy don't leak the hidden name. */
           <ServicesPricingSection
             services={activeServices}
-            businessName={vendor.business_name}
+            businessName={displayLabel}
           />
         ) : null}
 
@@ -623,9 +721,13 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
           />
         ) : null}
 
+        {/* Hybrid-anonymity (V2.1 amendment #2): pass displayLabel so
+            the reviews section heading + per-review attribution
+            ("review of {vendor}") render the placeholder while
+            hidden, and the real business_name once revealed. */}
         <ReviewsSection
           slug={slug}
-          businessName={vendor.business_name}
+          businessName={displayLabel}
           reviewStats={reviewStats}
           reviews={reviews}
           hasMore={hasMore}
@@ -637,23 +739,28 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
             {bookable ? 'Get in touch' : 'Not yet bookable'}
           </h2>
           <p className="max-w-2xl text-sm text-ink/65">
+            {/* Hybrid-anonymity (V2.1 amendment #2 · 2026-05-30):
+                "Get in touch" copy uses displayLabel so a hidden
+                vendor surfaces as e.g. "Manila Wedding Photographer"
+                instead of leaking the real name through the
+                contact-info section. */}
             {bookable ? (
               vendor.contact_email ? (
                 <>
                   Already a Setnayan couple? Start a thread directly with{' '}
-                  <span className="font-medium text-ink">{vendor.business_name}</span> from
+                  <span className="font-medium text-ink">{displayLabel}</span> from
                   your dashboard using the contact email above. Identity stays masked
                   until you choose to share.
                 </>
               ) : (
                 <>
-                  {vendor.business_name} is on Setnayan but hasn&rsquo;t published a contact
+                  {displayLabel} is on Setnayan but hasn&rsquo;t published a contact
                   email yet. Check back soon.
                 </>
               )
             ) : (
               <>
-                <span className="font-medium text-ink">{vendor.business_name}</span> has set
+                <span className="font-medium text-ink">{displayLabel}</span> has set
                 up their Setnayan profile but is still completing verification. Bookings
                 will open as soon as the Setnayan Team finishes their review.
               </>

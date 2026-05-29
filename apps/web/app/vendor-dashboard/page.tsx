@@ -75,6 +75,21 @@ type LoaderState =
       profileExists: boolean;
       businessName: string;
       isVerified: boolean;
+      /* V2.1 brief amendment #2 (2026-05-30 · CLAUDE.md row "🔒 V2.1
+       * BRIEF AMENDMENT #2 LOCKED" § 1(d) + memory rule
+       * [[project_setnayan_vendor_hybrid_anonymity]]). NULL = the
+       * vendor's business_name is hidden in marketplace cards +
+       * microsite + browse · the vendor-dashboard surface needs this
+       * to render the canonical "Your business name is currently
+       * hidden in browse" banner pointing at the chat inbox. Non-NULL
+       * = name globally revealed (DB trigger stamps on first vendor
+       * chat reply · PR #662 / migration 20260530010000) · banner
+       * suppressed. The Pro/Enterprise paid-tier override isn't
+       * surfaced here yet (no subscription join exists); the canonical
+       * banner gate still works correctly because the trigger fires
+       * on any vendor reply regardless of tier, so a Pro vendor's
+       * first reply also stamps the column and suppresses the banner. */
+      nameRevealedAt: string | null;
       completedStats: { public_completed_count: number; full_completed_count: number };
       upcomingThreads: Awaited<ReturnType<typeof fetchVendorThreads>>;
       totalThreadsCount: number;
@@ -123,6 +138,8 @@ export default async function VendorHomePage() {
         profileExists: false,
         businessName: 'Vendor',
         isVerified: false,
+        /* No profile · banner irrelevant. */
+        nameRevealedAt: null,
         completedStats: { public_completed_count: 0, full_completed_count: 0 },
         upcomingThreads: [],
         totalThreadsCount: 0,
@@ -144,7 +161,23 @@ export default async function VendorHomePage() {
       // Both new fetches use head:true + count='exact' so we get the
       // count without pulling rows. Safe to run in parallel with the
       // existing fetches — neither depends on the others.
-      const [threadsAll, completedRes, walletRes, servicesCountRes, confirmedBookingsRes] = await Promise.all([
+      /* V2.1 brief amendment #2 (2026-05-30) · grab name_revealed_at
+         alongside the existing 5 parallel fetches so the welcome
+         header can decide whether to render the "Your business name
+         is currently hidden in browse" banner with a deep-link to
+         the chat inbox. Fail-soft via the maybeSingle + null
+         destructure · pre-migration deploys (and the rare RLS edge
+         case) collapse to "name still hidden", which is the
+         conservative default for a brand-new vendor who hasn't
+         replied to anyone yet anyway. */
+      const [
+        threadsAll,
+        completedRes,
+        walletRes,
+        servicesCountRes,
+        confirmedBookingsRes,
+        nameRevealRes,
+      ] = await Promise.all([
         fetchVendorThreads(supabase, profile.vendor_profile_id),
         fetchVendorCompletedEventStats(supabase, profile.vendor_profile_id),
         supabase
@@ -162,6 +195,11 @@ export default async function VendorHomePage() {
           .select('event_vendor_id', { count: 'exact', head: true })
           .eq('marketplace_vendor_id', profile.vendor_profile_id)
           .in('status', ['contracted', 'deposit_paid', 'delivered', 'complete']),
+        supabase
+          .from('vendor_profiles')
+          .select('name_revealed_at')
+          .eq('vendor_profile_id', profile.vendor_profile_id)
+          .maybeSingle(),
       ]);
 
       const upcomingThreads = threadsAll.filter((t) =>
@@ -174,6 +212,9 @@ export default async function VendorHomePage() {
         businessName: profile.business_name ?? 'Vendor',
         isVerified:
           (profile as { public_visibility?: string }).public_visibility === 'verified',
+        nameRevealedAt:
+          (nameRevealRes.data as { name_revealed_at?: string | null } | null)
+            ?.name_revealed_at ?? null,
         completedStats: completedRes,
         upcomingThreads,
         totalThreadsCount: threadsAll.length,
@@ -224,6 +265,7 @@ export default async function VendorHomePage() {
     profileExists,
     businessName,
     isVerified,
+    nameRevealedAt,
     completedStats,
     upcomingThreads,
     totalThreadsCount,
@@ -270,6 +312,59 @@ export default async function VendorHomePage() {
           </span>
         </div>
       </header>
+
+      {/* V2.1 brief amendment #2 (locked 2026-05-30 · CLAUDE.md row
+       *  "🔒 V2.1 BRIEF AMENDMENT #2 LOCKED" § 1(d) + memory rule
+       *  [[project_setnayan_vendor_hybrid_anonymity]]) · hybrid-
+       *  anonymity reveal explainer banner.
+       *
+       *  Surfaces ONLY when the vendor's business_name is still
+       *  hidden in browse — i.e., `nameRevealedAt IS NULL` AND the
+       *  vendor has a profile (no profile = no marketplace surface =
+       *  no banner). The DB trigger
+       *  `reveal_vendor_name_on_chat` (PR #662 / migration
+       *  20260530010000) stamps `vendor_profiles.name_revealed_at` on
+       *  the vendor's FIRST chat reply to any customer · after which
+       *  this banner is silenced forever (name cannot be re-hidden ·
+       *  see memory rule).
+       *
+       *  Per [[feedback_setnayan_no_dev_text_post_launch]] copy uses
+       *  brand-voice editorial register · no engineering jargon, no
+       *  technical column names exposed. The CTA deep-links to the
+       *  chat inbox so the vendor can reply to any pending thread —
+       *  one reply reveals their name globally across every
+       *  marketplace surface, every microsite, every wizard pick
+       *  card. Per [[feedback_setnayan_orphan_prevention]] entry
+       *  points: the banner itself is reachable from the canonical
+       *  /vendor-dashboard surface (vendor's daily HOME · the
+       *  role-pill "Shop console" target) · the CTA's destination
+       *  /vendor-dashboard/messages is the existing sidebar Messages
+       *  entry. */}
+      {profileExists && nameRevealedAt === null ? (
+        <Link
+          href="/vendor-dashboard/messages"
+          className="mb-6 flex items-center justify-between gap-4 rounded-2xl border border-amber-300/70 bg-amber-50 p-4 transition-colors hover:bg-amber-100"
+        >
+          <div className="space-y-1">
+            <p className="m-label-mono text-amber-800">
+              Your business name is currently hidden in browse
+            </p>
+            <p className="text-sm text-ink/85">
+              Send your first chat reply to any customer to reveal it
+              globally. After that, your name shows everywhere — your
+              profile, your microsite, search results.
+            </p>
+          </div>
+          <span className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-amber-800">
+            Open chat inbox
+            <ArrowRight
+              className="h-4 w-4"
+              strokeWidth={1.75}
+              aria-hidden
+            />
+          </span>
+        </Link>
+      ) : null}
 
       {/* Profile completion nudge */}
       {profileExists && completionPct < 100 ? (

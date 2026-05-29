@@ -55,6 +55,19 @@ export type WizardVendorRec = {
    *  badge. Read from `vendor_profiles.verification_state` (separate
    *  column from `public_visibility`). */
   verification_state: string | null;
+  /** Hybrid-anonymity reveal timestamp (V2.1 brief amendment #2 ·
+   *  2026-05-30 per CLAUDE.md "🔒 V2.1 BRIEF AMENDMENT #2 LOCKED"
+   *  row § 1(d) + memory rule
+   *  [[project_setnayan_vendor_hybrid_anonymity]]). NULL = vendor's
+   *  business_name is hidden in browse + microsite + grid cards;
+   *  surfaces render the anonymized taxonomy + city placeholder via
+   *  `resolveVendorDisplayName` in lib/vendors.ts. Non-NULL = name
+   *  globally revealed (everywhere from then on). DB trigger
+   *  `reveal_vendor_name_on_chat` stamps this column on first vendor
+   *  chat reply (PR #662 / migration 20260530010000). Pro + Enterprise
+   *  subscribers also render the real name unconditionally via the
+   *  app-layer `isPaidTier` flag on `resolveVendorDisplayName`. */
+  name_revealed_at: string | null;
   /** Vendor HQ location · drives the Card 03 ceremony-venue distance
    *  filter (kms from the host's locked reception venue). Pulled from
    *  vendor_market_stats.hq_latitude / hq_longitude. Null when the
@@ -208,6 +221,7 @@ export async function fetchWizardVendorRecommendations(
     WizardVendorRec,
     | 'primary_photo_url'
     | 'verification_state'
+    | 'name_revealed_at'
     | 'presentation_pattern'
     | 'services_preview'
   >[];
@@ -252,13 +266,19 @@ export async function fetchWizardVendorRecommendations(
         {
           verification_state: string | null;
           presentation_pattern: 'creations' | 'locked' | null;
+          /** Per V2.1 brief amendment #2 (2026-05-30) — hybrid-anonymity
+           *  reveal timestamp. Pulled in the same vendor_profiles batch
+           *  to keep the per-vendor read count constant. Falls through
+           *  to null when the column is absent (pre-migration deploy)
+           *  via the optional cast at the row destructure below. */
+          name_revealed_at: string | null;
         }
       >
     > => {
       const { data: rows, error: err } = await admin
         .from('vendor_profiles')
         .select(
-          'vendor_profile_id,verification_state,presentation_pattern',
+          'vendor_profile_id,verification_state,presentation_pattern,name_revealed_at',
         )
         .in('vendor_profile_id', vendorIds);
       if (err || !rows) return new Map();
@@ -267,12 +287,14 @@ export async function fetchWizardVendorRecommendations(
         {
           verification_state: string | null;
           presentation_pattern: 'creations' | 'locked' | null;
+          name_revealed_at: string | null;
         }
       >();
       for (const row of rows as Array<{
         vendor_profile_id: string;
         verification_state: string | null;
         presentation_pattern: string | null;
+        name_revealed_at?: string | null;
       }>) {
         const pattern =
           row.presentation_pattern === 'creations' ||
@@ -282,6 +304,7 @@ export async function fetchWizardVendorRecommendations(
         out.set(row.vendor_profile_id, {
           verification_state: row.verification_state ?? null,
           presentation_pattern: pattern,
+          name_revealed_at: row.name_revealed_at ?? null,
         });
       }
       return out;
@@ -318,6 +341,7 @@ export async function fetchWizardVendorRecommendations(
         ? r2PublicUrl(R2_BUCKETS.media, firstPhotoKey)
         : null,
       verification_state: meta?.verification_state ?? null,
+      name_revealed_at: meta?.name_revealed_at ?? null,
       presentation_pattern: presentationPattern,
       services_preview,
     } as WizardVendorRec;

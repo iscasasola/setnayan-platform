@@ -445,6 +445,15 @@ type VendorCardRow = {
    *  carry it pre-2026-05-22. Drives the badge engine in
    *  `lib/vendor-badges.ts`. */
   verification_state?: string | null;
+  /** V2.1 brief amendment #2 (locked 2026-05-30 · CLAUDE.md row
+   *  "🔒 V2.1 BRIEF AMENDMENT #2 LOCKED" § 1(d) + memory rule
+   *  [[project_setnayan_vendor_hybrid_anonymity]]). Pulled in the
+   *  same vendor_profiles follow-up batch as verification_state.
+   *  NULL = hide the business_name in marketplace cards (Free +
+   *  Verified pre-first-reply) · non-NULL = name globally revealed.
+   *  Card consumes via VendorCardData.name_revealed_at +
+   *  `resolveVendorDisplayName` in lib/vendors.ts. */
+  name_revealed_at?: string | null;
   /** Resolved public URL for the vendor's hero service photo
    *  (`vendor_services.primary_photo_r2_key` → r2PublicUrl). Null when
    *  the vendor has no service with a photo set. */
@@ -1353,20 +1362,41 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   const visibleVendorIds = visible.map((v) => v.vendor_profile_id);
   const [verificationByVendorId, servicesByVendorId, bookingCounts, reviewsByVendorId] =
     await Promise.all([
-      (async (): Promise<Map<string, string>> => {
+      (async (): Promise<
+        Map<string, { verification_state: string | null; name_revealed_at: string | null }>
+      > => {
         if (visibleVendorIds.length === 0) return new Map();
+        /* V2.1 brief amendment #2 (2026-05-30): bundle name_revealed_at
+           into the same fetch so the marketplace card resolves both
+           the badge engine + the hybrid-anonymity placeholder in one
+           batched read. The column ships pre-pilot via PR #662 /
+           migration 20260530010000 · the optional row destructure
+           below tolerates a pre-migration deploy where the column
+           is absent (PostgREST returns 200 with the column missing
+           silently) by defaulting to null = hidden, which is the
+           conservative behavior. */
         const { data, error } = await admin
           .from('vendor_profiles')
-          .select('vendor_profile_id, verification_state')
+          .select('vendor_profile_id, verification_state, name_revealed_at')
           .in('vendor_profile_id', visibleVendorIds);
         if (error) {
           console.error('[vendors] verification_state fetch failed', error);
           return new Map();
         }
-        const out = new Map<string, string>();
+        const out = new Map<
+          string,
+          { verification_state: string | null; name_revealed_at: string | null }
+        >();
         for (const row of data ?? []) {
-          const r = row as { vendor_profile_id: string; verification_state: string | null };
-          if (r.verification_state) out.set(r.vendor_profile_id, r.verification_state);
+          const r = row as {
+            vendor_profile_id: string;
+            verification_state: string | null;
+            name_revealed_at?: string | null;
+          };
+          out.set(r.vendor_profile_id, {
+            verification_state: r.verification_state ?? null,
+            name_revealed_at: r.name_revealed_at ?? null,
+          });
         }
         return out;
       })(),
@@ -1441,7 +1471,12 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // V1.1 candidate: surface `starting_price_php` for real vendors too
   // once the hide-prices lock is reconsidered (owner decision pending).
   for (const v of visible) {
-    v.verification_state = verificationByVendorId.get(v.vendor_profile_id) ?? null;
+    const meta = verificationByVendorId.get(v.vendor_profile_id) ?? null;
+    v.verification_state = meta?.verification_state ?? null;
+    /* V2.1 brief amendment #2 (2026-05-30) · hybrid-anonymity. NULL =
+       business_name hidden in this card (Free + Verified pre-first-
+       reply). Consumed by VendorCard via resolveVendorDisplayName. */
+    v.name_revealed_at = meta?.name_revealed_at ?? null;
     const svc = servicesByVendorId.get(v.vendor_profile_id);
     v.primary_photo_url = svc?.photoR2Key
       ? r2PublicUrl(R2_BUCKETS.media, svc.photoR2Key)

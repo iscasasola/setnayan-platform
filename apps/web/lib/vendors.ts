@@ -300,3 +300,141 @@ export function displayServiceLabel(service: string): string {
 export function isCanonicalService(service: string): boolean {
   return CATEGORY_SET.has(service);
 }
+
+/**
+ * Hybrid-anonymity display name resolver — V2.1 brief amendment #2
+ * (locked 2026-05-30 per CLAUDE.md "🔒 V2.1 BRIEF AMENDMENT #2 LOCKED"
+ * row § 1(d) + § 7(f), and the canonical
+ * `[[project_setnayan_vendor_hybrid_anonymity]]` memory rule).
+ *
+ * Rule (verbatim from canonical sources):
+ *   - Free + Verified vendors: business name HIDDEN in marketplace
+ *     cards + microsite + browse + wizard vendor-pick cards UNTIL they
+ *     send their FIRST chat reply to any customer.
+ *   - On first reply, `vendor_profiles.name_revealed_at` stamps with
+ *     NOW() (DB trigger `reveal_vendor_name_on_chat` shipped in PR
+ *     #662 / migration 20260530010000) and the name reveals GLOBALLY
+ *     — for ALL customers, ALL browse, ALL future threads, ALL
+ *     surfaces. NOT per-customer. NOT per-thread.
+ *   - Pro + Enterprise vendors: full name visibility from day 1. The
+ *     hybrid mechanic does NOT apply to them.
+ *   - Once revealed, name cannot be re-hidden (vendor downgrade Pro
+ *     → Free does NOT re-anonymize · once public, stays public).
+ *
+ * Placeholder format (verbatim from memory rule):
+ *   - `<taxonomy label>` when no `location_city` is set.
+ *   - `<taxonomy label> · <city>` when city present.
+ *   - Taxonomy label resolves from the vendor's primary canonical
+ *     service via `displayServiceLabel`. Falls back to a generic
+ *     "Wedding Vendor" string when no primary service is available
+ *     (extremely rare — only profiles with `services = []` hit this).
+ *
+ * NOT real `business_name`. NOT a generic "Verified Vendor" label.
+ * NOT a Bark-style numeric ID (CLAUDE.md tenth 2026-05-28 row
+ * explicitly retired the lead-broker `<taxonomy> #<id>` framing).
+ *
+ * Derivation contract (per migration header pragmatic note in
+ * 20260530010000):
+ *   - The canonical reveal trigger fires UNCONDITIONALLY on first
+ *     vendor reply (gated only by `name_revealed_at IS NULL`) because
+ *     the `tier_state` column the brief named was never shipped — the
+ *     7th 2026-05-28 row lead-broker pivot introduced the design but
+ *     the tenth 2026-05-28 row v2.1 brief lock retired it.
+ *   - This helper therefore takes an explicit `isPaidTier` flag the
+ *     caller derives from whatever subscription source it has
+ *     available (Pro/Enterprise subscription state in app-layer · the
+ *     marketplace surfaces have no subscription join today so they
+ *     pass `false`; the canonical hybrid contract still holds because
+ *     the placeholder only renders while `name_revealed_at IS NULL`
+ *     AND `isPaidTier === false`).
+ *
+ * Cross-references:
+ *   - CLAUDE.md 2026-05-30 row · canonical spec.
+ *   - project_setnayan_vendor_hybrid_anonymity memory rule.
+ *   - Iteration 0006 Vendors Management (canonical column home).
+ *   - Iteration 0019 Communications (DB trigger lives on
+ *     chat_messages INSERT · vendor sender_role gate).
+ *   - Iteration 0022 Vendor Dashboard (vendor-side banner explaining
+ *     the mechanic + Open chat inbox CTA).
+ */
+export type VendorAnonymityInput = {
+  /**
+   * Real business_name from vendor_profiles. Surfaced when the name
+   * is revealed; replaced by the taxonomy + city placeholder while
+   * hidden.
+   */
+  business_name: string | null;
+  /**
+   * Timestamp stamped by `reveal_vendor_name_on_chat` trigger on
+   * first vendor chat reply. NULL = name hidden (Free + Verified
+   * pre-first-reply). Non-NULL = name revealed globally.
+   */
+  name_revealed_at: string | null;
+  /**
+   * TRUE when vendor's subscription tier is Pro or Enterprise — these
+   * tiers retain full name visibility from day 1 per the canonical
+   * rule. FALSE for Free + Verified (the hybrid-anonymity mechanic
+   * applies). Defaults to FALSE if the caller has no subscription
+   * data to source from; the placeholder still renders the safe
+   * value when name_revealed_at is also NULL.
+   */
+  isPaidTier?: boolean;
+  /**
+   * vendor.services[0] — the primary canonical_service used to derive
+   * the taxonomy half of the placeholder. NULL when the vendor has no
+   * services on file (falls through to a generic 'Wedding Vendor'
+   * label so the placeholder still reads as a real category).
+   */
+  primary_canonical_service: string | null;
+  /**
+   * vendor_profiles.location_city — appended after the taxonomy
+   * label when present, separated by " · ". When NULL, only the
+   * taxonomy label renders.
+   */
+  location_city: string | null;
+};
+
+/**
+ * Derived value: TRUE when the vendor's name should render
+ * unredacted across all surfaces. FALSE when surfaces should render
+ * the anonymized placeholder (taxonomy + city).
+ *
+ * Single source of truth so /v/[slug], /vendors, the wizard grid
+ * card, and the vendor-dashboard banner all branch identically.
+ */
+export function isVendorNameRevealed(
+  input: Pick<VendorAnonymityInput, 'name_revealed_at' | 'isPaidTier'>,
+): boolean {
+  return Boolean(input.isPaidTier) || input.name_revealed_at !== null;
+}
+
+/**
+ * Resolves the display name surfaces should render for a vendor at
+ * this moment in time. Returns the real `business_name` when the
+ * hybrid-anonymity gate allows it, OR a taxonomy + city placeholder
+ * while the name is hidden.
+ *
+ * Surfaces call this helper instead of reading `vendor.business_name`
+ * directly so the hybrid mechanic stays DRY across the marketplace
+ * card · the vendor microsite hero + JSON-LD name field · the wizard
+ * vendor-pick grid card · and any future surface that joins through
+ * vendor_profiles.
+ *
+ * The empty-string `business_name` fallback ('Vendor') matches the
+ * legacy fallback the VendorCard hero used pre-2026-05-30; we keep
+ * the literal so this swap is a zero-behavior-change refactor on the
+ * already-revealed path.
+ */
+export function resolveVendorDisplayName(input: VendorAnonymityInput): string {
+  if (isVendorNameRevealed(input)) {
+    return input.business_name && input.business_name.length > 0
+      ? input.business_name
+      : 'Vendor';
+  }
+  const taxonomyLabel = input.primary_canonical_service
+    ? displayServiceLabel(input.primary_canonical_service)
+    : 'Wedding Vendor';
+  return input.location_city
+    ? `${taxonomyLabel} · ${input.location_city}`
+    : taxonomyLabel;
+}

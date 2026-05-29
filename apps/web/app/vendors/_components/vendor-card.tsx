@@ -58,7 +58,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { MapPin, Navigation, Sparkles, Star, ExternalLink } from 'lucide-react';
 
-import { displayServiceLabel, formatPhp } from '@/lib/vendors';
+import { displayServiceLabel, formatPhp, resolveVendorDisplayName } from '@/lib/vendors';
 import { formatStarRating } from '@/lib/reviews';
 import { haversineKm, formatDistanceKm } from '@/lib/distance';
 import { parseVisibility, isBookable } from '@/lib/vendor-visibility';
@@ -105,6 +105,20 @@ export type VendorCardData = {
   /** Resolved public URL for the vendor's hero service photo. Null
    *  falls through to vendor logo, then initials. */
   primary_photo_url?: string | null;
+  /** V2.1 brief amendment #2 (locked 2026-05-30 · CLAUDE.md row
+   *  "🔒 V2.1 BRIEF AMENDMENT #2 LOCKED" § 1(d) + memory rule
+   *  [[project_setnayan_vendor_hybrid_anonymity]]). NULL = the
+   *  vendor's `business_name` is hidden in marketplace cards and
+   *  surfaces render the anonymized taxonomy + city placeholder via
+   *  `resolveVendorDisplayName` from lib/vendors.ts. Non-NULL = name
+   *  globally revealed (DB trigger `reveal_vendor_name_on_chat`
+   *  stamps this on first vendor chat reply · PR #662 / migration
+   *  20260530010000). Pro + Enterprise vendors are also revealed via
+   *  the app-layer `isPaidTier` derivation but no subscription join
+   *  exists at the marketplace surface today; the placeholder still
+   *  only renders while name_revealed_at IS NULL so once any Pro+
+   *  vendor sends a reply the real name surfaces unchanged. */
+  name_revealed_at?: string | null;
 };
 
 type Props = {
@@ -136,6 +150,22 @@ export function VendorCard({
 }: Props) {
   const primaryService = vendor.services[0] ?? null;
   const serviceLabel = primaryService ? displayServiceLabel(primaryService) : null;
+  // V2.1 brief amendment #2 (2026-05-30) · hybrid-anonymity label.
+  // Free + Verified vendors render the taxonomy + city placeholder
+  // until their first chat reply stamps name_revealed_at; once
+  // revealed (or for paid tiers via the app-layer flag) the real
+  // business_name surfaces. Single resolver call so the card header,
+  // the "by ..." composition, and the VendorHero initial-letter
+  // fallback all stay in lock-step. Marketplace page doesn't join
+  // vendor subscription state today so isPaidTier defaults to false;
+  // the placeholder still only renders while name_revealed_at IS
+  // NULL so Pro+ vendors' real names surface as soon as they reply.
+  const displayLabel = resolveVendorDisplayName({
+    business_name: vendor.business_name,
+    name_revealed_at: vendor.name_revealed_at ?? null,
+    primary_canonical_service: primaryService,
+    location_city: vendor.location_city,
+  });
   const slug = vendor.business_slug ?? null;
   const href = slug ? `/v/${slug}` : `#`;
   const visibility = parseVisibility(vendor.public_visibility);
@@ -193,12 +223,21 @@ export function VendorCard({
       <VendorHero
         photoUrl={vendor.primary_photo_url ?? null}
         logoUrl={vendor.logo_url}
-        name={vendor.business_name}
+        /* Hybrid-anonymity (V2.1 amendment #2 · 2026-05-30): pass the
+           resolved display label so the photo placeholder initials
+           and the alt text both surface the taxonomy-derived label
+           when the business_name is hidden. The fallback to
+           "Vendor"/"V" still kicks in for the unrealistic case where
+           both displayLabel and business_name end up empty. */
+        name={displayLabel}
       />
       <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="min-w-0 truncate text-base font-semibold text-ink">
-              {vendor.business_name || 'Vendor'}
+              {/* Hybrid-anonymity (V2.1 amendment #2): render the resolved
+                  display label · real business_name once revealed, or
+                  the taxonomy + city placeholder while hidden. */}
+              {displayLabel}
             </h2>
             {isDemoCard ? (
               <span
@@ -228,7 +267,16 @@ export function VendorCard({
               directive. When no canonical service is on the vendor's
               services[] array we fall back to the business name alone
               (the bare row would otherwise read empty). */}
-          {serviceLabel ? (
+          {/* Hybrid-anonymity (V2.1 amendment #2 · 2026-05-30): when the
+              vendor's business_name is hidden, the displayLabel
+              already encodes "<Service Label> · <City>" (or just
+              "<Service Label>" when no city) — surfacing the "by …"
+              composition on top would be redundant + would leak the
+              "by" copy as a tell. Suppress the secondary line entirely
+              while hidden; reveal it once the name is back so the
+              originally-locked "<Service> by <Business>" framing
+              returns intact. */}
+          {serviceLabel && displayLabel === vendor.business_name ? (
             <p className="mt-0.5 text-sm text-ink/65">
               <span className="font-medium text-ink">{serviceLabel}</span>{' '}
               <span className="text-ink/55">by {vendor.business_name}</span>
@@ -297,14 +345,22 @@ export function VendorCard({
           reviews.length > 0 so we don't surface an awkward empty
           carousel. */}
       {reviews.length > 0 ? (
-        <ReviewCarousel reviews={reviews} vendorName={vendor.business_name} />
+        /* Hybrid-anonymity (V2.1 amendment #2): pass displayLabel so
+           the carousel's surrounding copy (e.g., "Reviews of {name}")
+           doesn't leak the hidden business_name through a side surface. */
+        <ReviewCarousel reviews={reviews} vendorName={displayLabel} />
       ) : null}
 
       <div className="mt-auto space-y-2 pt-2">
         {bookable ? (
           <FollowGate
             vendorProfileId={vendor.vendor_profile_id}
-            vendorName={vendor.business_name}
+            /* Hybrid-anonymity (V2.1 amendment #2 · 2026-05-30): the
+               FollowGate copy ("Follow {name}") inherits the resolved
+               display label so a hidden vendor surfaces as e.g.,
+               "Follow Manila Wedding Photographer" instead of leaking
+               the real business_name through the follow CTA. */
+            vendorName={displayLabel}
             vendorEmail={vendor.contact_email}
             isAuthenticated={isAuthenticated}
             initialFollowing={isFollowing}

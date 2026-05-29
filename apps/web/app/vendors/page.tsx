@@ -23,7 +23,18 @@ import { EventTypeNotifyForm } from './_components/event-type-notify-form';
 import { TaxonomySearch, type TaxonomyOption } from './_components/taxonomy-search';
 import { CategoryTile, type CategoryTileData } from './_components/category-tile';
 import { SaveVendorButton } from './_components/save-vendor-button';
-import { FolderTabs, type FolderTab } from './_components/mega-column-tabs';
+// 2026-05-30 Airbnb-vibe redesign — see CLAUDE.md decision log row "Marketplace ·
+// Airbnb vibe with uniform sizing". The chip-style FolderTabs is retired in the
+// non-focused catalog + vendor-grid render branches in favor of IconTileFolderStrip
+// (12 Lucide icon tiles) + StickyMarketplaceHeader (pinned search + filter button)
+// + FilterDrawer (slide-up sheet). The FolderTab TYPE is kept (re-imported as
+// type-only below) because the `tabs` const at the catalog-mode return path
+// still consumes that shape verbatim — IconTileFolderStrip accepts the same
+// structural type so the const passes through unchanged.
+import type { FolderTab } from './_components/mega-column-tabs';
+import { IconTileFolderStrip } from './_components/icon-tile-folder-strip';
+import { StickyMarketplaceHeader } from './_components/sticky-marketplace-header';
+import type { FilterDrawerProps } from './_components/filter-drawer';
 import { PairedVenuePanel } from './_components/paired-venue-panel';
 import { CeremonyVenuesSection } from './_components/ceremony-venues-section';
 import { ReceptionVenuesSection } from './_components/reception-venues-section';
@@ -1434,30 +1445,78 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
             query — only the FILTER UI is hidden. */}
         {!filters.focusedMode ? (
           <>
-            <div className="space-y-3">
-              <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-                Marketplace
-              </p>
-              {/* v2.1 visual treatment per CLAUDE-CODE-BRIEF-v2.1
-                  § 8 design system + /tmp/setnayan-keynote-template
-                  marketplace.jsx headline. Italic serif accent on the
-                  predicate clause matches the homepage + /for-vendors
-                  headline rhythm; cream + ink + terracotta tokens
-                  unchanged. */}
-              <h1 className="font-serif text-4xl font-normal italic tracking-[-0.02em] text-ink sm:text-5xl">
-                Browse Filipino wedding vendors.
-              </h1>
-              <p className="max-w-prose text-base text-ink/65">
-                Verified vendors who took the time to set up a Setnayan profile. Star ratings
-                come from couples who&rsquo;ve actually paid for the service.
-              </p>
-            </div>
+            {/* 2026-05-30 Airbnb-vibe redesign — owner directive verbatim:
+                "marketplace is doesnt feel user friendly. we want it to be
+                easy to navigate and direct. the buttons being different
+                sizes is also not appealing... vibe of shopee/zalora/airbnb"
+                + "make sure it still follow the theme and understand how
+                the overall look of the app works and keep it that way".
 
-            {/* Vendor-grid mode is reached only when a narrowing filter is set
-              * (category, search, city, verified, match). The mega-column
-              * catalog view above is unfiltered. A back-affordance is the
-              * primary way to return to the 192-category catalog. */}
-            <div className="mt-6 flex flex-wrap items-baseline justify-between gap-3">
+                Retired: italic-serif "Browse Filipino wedding vendors." H1
+                + descriptive paragraph + "Browse all 192 categories" back-
+                link + inline FilterBar (4-col labeled form). The big
+                headline pushed the actual vendor catalog below the fold
+                and the FilterBar's variable-width buttons broke uniformity.
+
+                New: sticky search header (single 44pt pill row) + filter
+                drawer (slide-up sheet on mobile / right-side panel on
+                desktop). Theme preserved — Facebook palette via legacy
+                bg-cream / text-ink / text-terracotta classes per the
+                2026-05-22 brand pivot. The "Browse all 192 categories"
+                back-link survives below as a brand-voice text link so the
+                back affordance stays reachable without competing with the
+                sticky search. */}
+            <StickyMarketplaceHeader
+              taxonomyOptions={TAXONOMY_OPTIONS}
+              filters={{
+                q: filters.q,
+                city: filters.city,
+                sort: filters.sort,
+                verifiedOnly: filters.verifiedOnly,
+                matchEvent: filters.matchEvent,
+                eventType: filters.eventType,
+                folder: filters.folder,
+                venueDefault: filters.venueDefault,
+              }}
+              drawer={{
+                filters: {
+                  q: filters.q,
+                  category: filters.category,
+                  city: filters.city,
+                  sort: filters.sort,
+                  verifiedOnly: filters.verifiedOnly,
+                  matchEvent: filters.matchEvent,
+                  eventType: filters.eventType,
+                  folder: filters.folder,
+                  venueDefault: filters.venueDefault,
+                  focusedMode: filters.focusedMode,
+                },
+                sortOptions: SORT_KEYS.map((k) => ({
+                  value: k,
+                  label: SORT_LABEL[k],
+                })),
+                matchableEvent,
+                hostVenueSetting,
+                hostVenueLabel: hostVenueSetting
+                  ? venueSettingLongLabel(hostVenueSetting)
+                  : null,
+                showVenueToggle:
+                  filters.folder === 'reception' && hostVenueSetting !== null,
+                hasActiveFilters:
+                  filters.q.length > 0 ||
+                  filters.category !== null ||
+                  filters.city.length > 0 ||
+                  filters.sort !== 'most_reviews' ||
+                  filters.verifiedOnly ||
+                  filters.matchEvent ||
+                  filters.venueDefault === 'off',
+              } as FilterDrawerProps}
+            />
+
+            {/* Compact context strip — back to catalog + current filter
+                summary. Kept below the sticky header so it doesn't bloat
+                the sticky chrome but stays reachable on every grid page. */}
+            <div className="mt-4 flex flex-wrap items-baseline justify-between gap-3">
               <Link
                 href="/vendors?match=0"
                 className="inline-flex items-center gap-1 text-sm font-medium text-terracotta underline-offset-4 hover:underline"
@@ -1475,12 +1534,6 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                 </p>
               ) : null}
             </div>
-
-            <FilterBar
-              filters={filters}
-              matchableEvent={matchableEvent}
-              hostVenueSetting={hostVenueSetting}
-            />
           </>
         ) : (
           /* Focused-mode replacement: a slim search form with only the
@@ -1718,198 +1771,6 @@ function FocusedModeSearchForm({
     </form>
   );
 }
-
-function FilterBar({
-  filters,
-  matchableEvent,
-  hostVenueSetting,
-}: {
-  filters: {
-    q: string;
-    category: string | null;
-    city: string;
-    sort: SortKey;
-    page: number;
-    verifiedOnly: boolean;
-    matchEvent: boolean;
-    eventType: EventTypeFilter | null;
-    folder: WeddingFolder | null;
-    venueDefault: 'on' | 'off';
-    focusedMode: boolean;
-  };
-  matchableEvent: { ceremony_type: string; venue_setting: string } | null;
-  /** Task #48 — host's events.venue_setting (snake_case enum). Surfaces
-   *  the Venue toggle only when the marketplace is Reception-scoped AND
-   *  the host has set a venue_setting. Null on anonymous browse or for
-   *  hosts who haven't picked one yet. */
-  hostVenueSetting: string | null;
-}) {
-  // Task #48 — venue toggle is contextual: only meaningful when the URL
-  // is Reception-scoped. Outside that scope the toggle would surprise
-  // couples ("why is there a 'Garden venues only' switch on a Photography
-  // search?"), so hide it. The catalog-mode banner above the FilterBar
-  // already explains the filter in its proper context.
-  const showVenueToggle =
-    filters.folder === 'reception' && hostVenueSetting !== null;
-  const venueLongLabel = hostVenueSetting
-    ? venueSettingLongLabel(hostVenueSetting)
-    : null;
-  return (
-    <form
-      method="get"
-      action="/vendors"
-      className="mt-4 grid gap-3 rounded-2xl border border-ink/10 bg-cream p-4 sm:grid-cols-2 lg:grid-cols-4"
-    >
-      <label className="flex flex-col gap-1 lg:col-span-2">
-        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-          Search
-        </span>
-        {/* TaxonomySearch is a client component that shows the 192-item
-          * autocomplete on type. Picking a suggestion router-pushes to a
-          * `?category=<canonical_service>` URL (bypassing this form).
-          * Typing free text + clicking "Apply filters" still submits the
-          * form normally, hitting the existing business_name ilike. */}
-        <TaxonomySearch
-          initialQuery={filters.q}
-          options={TAXONOMY_OPTIONS}
-          preserve={{
-            city: filters.city,
-            sort: filters.sort,
-            verifiedOnly: filters.verifiedOnly,
-            matchEvent: filters.matchEvent,
-            eventType: filters.eventType,
-            folder: filters.folder,
-            // Owner directive 2026-05-22 — when the host is in focused-
-            // mode (arrived from a planning card), keep the chrome stripped
-            // after a taxonomy autocomplete pick. Direct visits never have
-            // focusedMode set so this stays null and the full chrome
-            // renders on the destination page.
-            from: filters.focusedMode ? 'plan' : null,
-          }}
-        />
-      </label>
-
-      {/* Category is now controlled by the chip bar above. Carry the
-          current selection through this form so submitting q/city/sort
-          doesn't accidentally clear the active category chip. */}
-      <input type="hidden" name="category" value={filters.category ?? ''} />
-
-      <label className="flex flex-col gap-1">
-        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-          City
-        </span>
-        <input
-          type="text"
-          name="city"
-          defaultValue={filters.city}
-          placeholder="Manila, Cebu…"
-          className="input-field"
-        />
-      </label>
-
-      <label className="flex flex-col gap-1">
-        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-          Sort by
-        </span>
-        <select name="sort" defaultValue={filters.sort} className="input-field">
-          {SORT_KEYS.map((k) => (
-            <option key={k} value={k}>
-              {SORT_LABEL[k]}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <label className="flex items-center gap-2 text-sm text-ink/75 lg:col-span-4">
-        <input
-          type="checkbox"
-          name="verified"
-          value="1"
-          defaultChecked={filters.verifiedOnly}
-          className="h-4 w-4 rounded border-ink/25 text-terracotta focus:ring-terracotta/40"
-        />
-        <span>
-          <span className="font-medium">Verified only</span>
-          <span className="ml-2 text-ink/55">
-            (hide vendors who haven&rsquo;t completed verification)
-          </span>
-        </span>
-      </label>
-
-      {matchableEvent ? (
-        <label className="flex items-center gap-2 text-sm text-ink/75 lg:col-span-4">
-          <input
-            type="checkbox"
-            name="match"
-            value="1"
-            defaultChecked={filters.matchEvent}
-            className="h-4 w-4 rounded border-ink/25 text-terracotta focus:ring-terracotta/40"
-          />
-          <span>
-            <span className="font-medium">Match my wedding</span>
-            <span className="ml-2 text-ink/55">
-              (only show vendors compatible with{' '}
-              <span className="font-mono">{matchableEvent.ceremony_type}</span>{' '}
-              ceremonies)
-            </span>
-          </span>
-        </label>
-      ) : null}
-
-      {/* Task #48 — venue_setting toggle, Reception-scoped. The default-on
-          behavior means parseFilters reads "absent param" as 'on'. We can't
-          rely on the standard checked/unchecked checkbox pattern here
-          because an unchecked HTML checkbox doesn't submit any value
-          (parseFilters would see no param → default-on → toggle never
-          worked). Instead we use an inverted "Show all settings" checkbox
-          that's UNCHECKED when the filter is firing (default state); when
-          the host checks it to broaden the search, the form submits
-          ?venue=0 explicitly. Re-unchecking drops the param so the host
-          returns to default-on. */}
-      {showVenueToggle ? (
-        <label className="flex items-center gap-2 text-sm text-ink/75 lg:col-span-4">
-          <input
-            type="checkbox"
-            name="venue"
-            value="0"
-            defaultChecked={filters.venueDefault === 'off'}
-            className="h-4 w-4 rounded border-ink/25 text-terracotta focus:ring-terracotta/40"
-          />
-          <span>
-            <span className="font-medium">Show all venue settings</span>
-            <span className="ml-2 text-ink/55">
-              (uncheck to focus on{' '}
-              <span className="font-medium text-ink/75">{venueLongLabel}</span>{' '}
-              — your wedding&rsquo;s picked setting)
-            </span>
-          </span>
-        </label>
-      ) : null}
-
-      {/* Preserve folder scope (Task #47) on form submit so toggling other
-          filters doesn't drop the host back into the unscoped catalog. */}
-      {filters.folder ? (
-        <input type="hidden" name="folder" value={filters.folder} />
-      ) : null}
-
-      <div className="flex items-end gap-2 lg:col-span-4">
-        <button type="submit" className="button-primary h-11 px-5">
-          Apply filters
-        </button>
-        {filters.q ||
-        filters.category ||
-        filters.city ||
-        filters.sort !== 'most_reviews' ||
-        filters.verifiedOnly ? (
-          <Link href="/vendors" className="button-secondary h-11 px-5">
-            Clear
-          </Link>
-        ) : null}
-      </div>
-    </form>
-  );
-}
-
 function EmptyState({
   filters,
   broadenedCount,
@@ -2404,35 +2265,65 @@ async function CatalogView({
             full chrome unchanged. */}
         {!focusedMode ? (
           <>
-            <div className="space-y-3">
-              <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-terracotta">
-                Marketplace
-              </p>
-              {/* v2.1 visual treatment — italic serif headline matches
-                  the homepage + /for-vendors typography rhythm per
-                  CLAUDE-CODE-BRIEF-v2.1 § 8 + the marketplace.jsx
-                  template at /tmp/setnayan-keynote-template. */}
-              <h1 className="font-serif text-4xl font-normal italic tracking-[-0.02em] text-ink sm:text-5xl">
-                Browse Filipino wedding vendors.
-              </h1>
-              <p className="max-w-prose text-base text-ink/65">
-                Every service Setnayan covers — {totalCategories} categories
-                organized around the Filipino wedding journey.{' '}
-                {totalLive > 0 ? (
-                  <>
-                    <span className="font-medium text-ink">{totalLive}</span> have
-                    verified vendors today; the rest are recruiting now or rolling
-                    out by phase. Tap any tile to drill in.
-                  </>
-                ) : (
-                  <>
-                    Setnayan is in soft launch — vendor pools are filling in by
-                    category each week. Tap a tile to see who&rsquo;s onboarded
-                    already or get notified when a category opens.
-                  </>
-                )}
-              </p>
-            </div>
+            {/* 2026-05-30 Airbnb-vibe redesign — owner directive verbatim:
+                "marketplace is doesnt feel user friendly. we want it to be
+                easy to navigate and direct. the buttons being different
+                sizes is also not appealing... vibe of shopee/zalora/airbnb"
+                + "make sure it still follow the theme and understand how
+                the overall look of the app works and keep it that way".
+
+                Retired: italic-serif "Browse Filipino wedding vendors." H1
+                + descriptive paragraph + CatalogFilterBar (3-col formal
+                labeled form with separate Apply button). The headline +
+                paragraph pushed the catalog below the fold; the
+                CatalogFilterBar's variable-width controls broke uniformity.
+
+                New: sticky search header (single 44pt pill row) + filter
+                drawer (slide-up sheet on mobile / right-side panel on
+                desktop). Theme preserved — Facebook palette via legacy
+                bg-cream / text-ink / text-terracotta classes per the
+                2026-05-22 brand pivot. The ReligionBanner stays below the
+                sticky header so the per-event compatibility note still
+                surfaces when the host has an in-progress event with a
+                ceremony_type. */}
+            <StickyMarketplaceHeader
+              taxonomyOptions={TAXONOMY_OPTIONS}
+              filters={{
+                q: '',
+                city: '',
+                sort: 'most_reviews',
+                verifiedOnly: false,
+                matchEvent,
+                eventType: null,
+                folder: scopedFolder,
+                venueDefault: 'on',
+              }}
+              drawer={{
+                filters: {
+                  q: '',
+                  category: null,
+                  city: '',
+                  sort: 'most_reviews',
+                  verifiedOnly: false,
+                  matchEvent,
+                  eventType: null,
+                  folder: scopedFolder,
+                  venueDefault: 'on',
+                  focusedMode: false,
+                },
+                sortOptions: SORT_KEYS.map((k) => ({
+                  value: k,
+                  label: SORT_LABEL[k],
+                })),
+                matchableEvent,
+                hostVenueSetting,
+                hostVenueLabel: hostVenueSetting
+                  ? venueSettingLongLabel(hostVenueSetting)
+                  : null,
+                showVenueToggle: false, // catalog mode shows all folders; venue toggle is grid-mode + Reception folder only
+                hasActiveFilters: false,
+              } as FilterDrawerProps}
+            />
 
             {religionFilteringActive ? (
               <ReligionBanner
@@ -2440,8 +2331,6 @@ async function CatalogView({
                 ceremonyType={matchableEvent!.ceremony_type}
               />
             ) : null}
-
-            <CatalogFilterBar matchableEvent={matchableEvent} />
           </>
         ) : (
           /* Focused-mode replacement: a slim search form with only the
@@ -2465,7 +2354,15 @@ async function CatalogView({
           />
         )}
 
-        <FolderTabs
+        {/* 2026-05-30 Airbnb-vibe redesign — IconTileFolderStrip replaces the
+            chip-style FolderTabs. The 12 folders render as Lucide icon tiles
+            (uniform 96-104px × 78px) with horizontal scroll snap on mobile.
+            Behavior contract preserved verbatim from FolderTabs — same
+            scopedFolder routing, same IntersectionObserver scroll-tracking
+            on unscoped mode, same hash + sibling-param preservation on
+            scoped mode. See _components/icon-tile-folder-strip.tsx WHY
+            block. */}
+        <IconTileFolderStrip
           tabs={tabs}
           totalCount={totalCategories}
           scopedFolder={scopedFolder}
@@ -2754,76 +2651,5 @@ function CeremonyVenuePanel() {
         </li>
       </ul>
     </div>
-  );
-}
-
-// Slim filter form for catalog mode — only the inputs that make sense pre-
-// drill-in. Picking a search suggestion or submitting the form router-pushes
-// into vendor-grid mode for the matching category.
-function CatalogFilterBar({
-  matchableEvent,
-}: {
-  matchableEvent: { ceremony_type: string; venue_setting: string } | null;
-}) {
-  return (
-    <form
-      method="get"
-      action="/vendors"
-      className="mt-6 grid gap-3 rounded-2xl border border-ink/10 bg-cream p-4 sm:grid-cols-2 lg:grid-cols-3"
-    >
-      <label className="flex flex-col gap-1 lg:col-span-2">
-        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-          Search any of 192 categories
-        </span>
-        <TaxonomySearch
-          initialQuery=""
-          options={TAXONOMY_OPTIONS}
-          preserve={{
-            city: '',
-            sort: 'most_reviews',
-            verifiedOnly: false,
-            matchEvent: false,
-            eventType: null,
-          }}
-        />
-      </label>
-
-      <label className="flex flex-col gap-1">
-        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-          City (optional)
-        </span>
-        <input
-          type="text"
-          name="city"
-          placeholder="Manila, Cebu…"
-          className="input-field"
-        />
-      </label>
-
-      {matchableEvent ? (
-        <label className="flex items-center gap-2 text-sm text-ink/75 lg:col-span-3">
-          <input
-            type="checkbox"
-            name="match"
-            value="1"
-            className="h-4 w-4 rounded border-ink/25 text-terracotta focus:ring-terracotta/40"
-          />
-          <span>
-            <span className="font-medium">Match my wedding</span>
-            <span className="ml-2 text-ink/55">
-              (compatible with{' '}
-              <span className="font-mono">{matchableEvent.ceremony_type}</span>{' '}
-              ceremonies)
-            </span>
-          </span>
-        </label>
-      ) : null}
-
-      <div className="lg:col-span-3">
-        <button type="submit" className="button-primary px-5">
-          Apply filters
-        </button>
-      </div>
-    </form>
   );
 }

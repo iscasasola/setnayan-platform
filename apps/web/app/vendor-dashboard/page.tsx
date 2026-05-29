@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Coins,
   MessageSquare,
+  Sparkles,
   Star,
   ArrowRight,
 } from 'lucide-react';
@@ -32,8 +33,15 @@ import { fetchVendorThreads } from '@/lib/chat';
  * SHIPS:
  *   - Welcome header with vendor business name + verification chip
  *   - Profile completion nudge (only when < 100%)
- *   - 4 stat tiles · Upcoming bookings · Open inquiries · Completed
- *     events · Token balance
+ *   - 6 stat tiles (PR #636 shipped 4; 2026-05-29 expanded to 6 +
+ *     fixed the duplicate-tile bug · Tile 1 + Tile 2 both rendered
+ *     the same upcomingCount in PR #636).
+ *     · Upcoming events · upcomingCount (next 14 days from threads)
+ *     · Open inquiries · totalThreadsCount (all chat threads · FIXED)
+ *     · Confirmed bookings · event_vendors locked-or-past (NEW)
+ *     · Active services · vendor_services is_active=true (NEW)
+ *     · Completed events · public count
+ *     · Token balance · purchased + earned
  *   - Upcoming events strip (next 14 days from chat threads)
  *   - Recent activity placeholder (V1.x: pull notifications · chat
  *     messages · booking events · review notifications into one feed)
@@ -69,6 +77,9 @@ type LoaderState =
       isVerified: boolean;
       completedStats: { public_completed_count: number; full_completed_count: number };
       upcomingThreads: Awaited<ReturnType<typeof fetchVendorThreads>>;
+      totalThreadsCount: number;
+      activeServicesCount: number;
+      confirmedBookingsCount: number;
       tokenBalance: { purchased: number; earned: number };
       completion: { done: number; total: number; missing: string[] };
     }
@@ -114,11 +125,26 @@ export default async function VendorHomePage() {
         isVerified: false,
         completedStats: { public_completed_count: 0, full_completed_count: 0 },
         upcomingThreads: [],
+        totalThreadsCount: 0,
+        activeServicesCount: 0,
+        confirmedBookingsCount: 0,
         tokenBalance: { purchased: 0, earned: 0 },
         completion: profileCompletion(null),
       };
     } else {
-      const [threadsAll, completedRes, walletRes] = await Promise.all([
+      // Expanded data fetch (2026-05-29 · Task #10).
+      // Owner directive · "shouldn't home be a complete overview of our
+      // schedules, business, events, services, inquiries?" Pre-this-PR
+      // the 4 stat tiles double-counted inquiries (Tile 1 and Tile 2
+      // both showed the same upcomingCount). This adds:
+      //   - Active services count (vendor_services where is_active=true)
+      //   - Confirmed bookings count (event_vendors where this vendor is
+      //     locked-or-past · status IN contracted/deposit_paid/delivered/
+      //     complete · per the 2026-05-22 Lock/delete/overlap row).
+      // Both new fetches use head:true + count='exact' so we get the
+      // count without pulling rows. Safe to run in parallel with the
+      // existing fetches — neither depends on the others.
+      const [threadsAll, completedRes, walletRes, servicesCountRes, confirmedBookingsRes] = await Promise.all([
         fetchVendorThreads(supabase, profile.vendor_profile_id),
         fetchVendorCompletedEventStats(supabase, profile.vendor_profile_id),
         supabase
@@ -126,6 +152,16 @@ export default async function VendorHomePage() {
           .select('purchased_tokens, earned_tokens')
           .eq('vendor_id', profile.vendor_profile_id)
           .maybeSingle(),
+        supabase
+          .from('vendor_services')
+          .select('vendor_service_id', { count: 'exact', head: true })
+          .eq('vendor_profile_id', profile.vendor_profile_id)
+          .eq('is_active', true),
+        supabase
+          .from('event_vendors')
+          .select('event_vendor_id', { count: 'exact', head: true })
+          .eq('marketplace_vendor_id', profile.vendor_profile_id)
+          .in('status', ['contracted', 'deposit_paid', 'delivered', 'complete']),
       ]);
 
       const upcomingThreads = threadsAll.filter((t) =>
@@ -140,6 +176,9 @@ export default async function VendorHomePage() {
           (profile as { public_visibility?: string }).public_visibility === 'verified',
         completedStats: completedRes,
         upcomingThreads,
+        totalThreadsCount: threadsAll.length,
+        activeServicesCount: servicesCountRes.count ?? 0,
+        confirmedBookingsCount: confirmedBookingsRes.count ?? 0,
         tokenBalance: {
           purchased: walletRes.data?.purchased_tokens ?? 0,
           earned: walletRes.data?.earned_tokens ?? 0,
@@ -187,6 +226,9 @@ export default async function VendorHomePage() {
     isVerified,
     completedStats,
     upcomingThreads,
+    totalThreadsCount,
+    activeServicesCount,
+    confirmedBookingsCount,
     tokenBalance,
     completion,
   } = loaderState;
@@ -270,11 +312,33 @@ export default async function VendorHomePage() {
         </div>
       ) : null}
 
-      {/* 4-stat row */}
-      <section className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {/* Stat tiles row · 6 tiles (2026-05-29 · Task #10).
+       *  Pre-this-PR Tile 1 (Upcoming bookings) and Tile 2 (Open
+       *  inquiries) both rendered upcomingCount — a duplicate-count
+       *  bug shipped with PR #636. This row fixes both + adds Active
+       *  services + Confirmed bookings tiles per owner directive
+       *  "shouldn't home be a complete overview of our schedules,
+       *  business, events, services, inquiries?"
+       *
+       *  Tile semantics:
+       *    1. Upcoming events    · upcomingCount (renamed from
+       *       Upcoming bookings · these are chat threads with events
+       *       in the next 14 days).
+       *    2. Open inquiries     · totalThreadsCount (FIXED · all chat
+       *       threads regardless of date · the true inquiry count).
+       *    3. Confirmed bookings · event_vendors where this vendor is
+       *       locked-or-past · status IN contracted/deposit_paid/
+       *       delivered/complete.
+       *    4. Active services    · vendor_services where is_active=true.
+       *    5. Completed events   · public_completed_count (unchanged).
+       *    6. Token balance      · purchased + earned (unchanged).
+       *
+       *  Layout: 2 columns mobile · 3 columns sm · 6 columns lg ·
+       *  follows the existing dashboard breakpoints. */}
+      <section className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <StatTile
           icon={<Briefcase className="h-4 w-4" strokeWidth={1.75} />}
-          label="Upcoming bookings"
+          label="Upcoming events"
           value={String(upcomingCount)}
           sub="Next 14 days"
           href="/vendor-dashboard/bookings"
@@ -282,9 +346,23 @@ export default async function VendorHomePage() {
         <StatTile
           icon={<MessageSquare className="h-4 w-4" strokeWidth={1.75} />}
           label="Open inquiries"
-          value={String(upcomingCount)}
+          value={String(totalThreadsCount)}
           sub="From couples"
           href="/vendor-dashboard/messages"
+        />
+        <StatTile
+          icon={<CheckCircle2 className="h-4 w-4" strokeWidth={1.75} />}
+          label="Confirmed bookings"
+          value={String(confirmedBookingsCount)}
+          sub="Locked-in events"
+          href="/vendor-dashboard/bookings"
+        />
+        <StatTile
+          icon={<Sparkles className="h-4 w-4" strokeWidth={1.75} />}
+          label="Active services"
+          value={String(activeServicesCount)}
+          sub="What you offer"
+          href="/vendor-dashboard/services"
         />
         <StatTile
           icon={<Star className="h-4 w-4" strokeWidth={1.75} />}

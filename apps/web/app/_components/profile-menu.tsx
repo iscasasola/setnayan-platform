@@ -15,15 +15,39 @@ import { useEffect, useRef, useState } from 'react';
  *     menu rows once `/dashboard/settings` ships as a distinct route).
  *   - Sign out             →  POST /auth/sign-out (form action; preserves
  *     the existing server-side signOut + redirect flow).
+ *
+ * 2026-05-30 (CLAUDE.md decision-log): the avatar trigger button is now
+ * h-11 w-11 (44×44) instead of h-9 w-9 (36×36). WHY: the global rule in
+ * apps/web/app/globals.css `button { min-height: 44px }` (44pt touch
+ * target per the kickoff multi-platform spec) was forcibly stretching
+ * the h-9 (36px) height to 44px while leaving w-9 (36px) untouched →
+ * 44h × 36w oblong pill. UnreadBellBadge next to it renders as <Link>
+ * (an `<a>` tag) which the global rule doesn't match, so the bell
+ * stayed a perfect circle but the avatar shipped oblong. Bumping to
+ * h-11 w-11 puts both axes at 44px → true circle. Adds overflow-hidden
+ * so an uploaded profile photo crops round (the photo upload surface
+ * is V1.x; this readies the geometry for the optional `photoUrl` prop).
  */
 
 type Props = {
   email: string;
-  /** Optional notification href so callers can route the bell-less variant. */
+  /**
+   * Optional uploaded profile photo URL. When present, renders inside
+   * the avatar circle as an <img> with object-cover so the photo is
+   * cropped round. When absent, falls back to the email initial. The
+   * photo upload surface itself is V1.x scope; this prop scaffolds the
+   * contract so the wiring is one line when upload lands.
+   */
+  photoUrl?: string | null;
+  /** Optional aria-label override. */
   ariaLabel?: string;
 };
 
-export function ProfileMenu({ email, ariaLabel = 'Account menu' }: Props) {
+export function ProfileMenu({
+  email,
+  photoUrl,
+  ariaLabel = 'Account menu',
+}: Props) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const initial = email?.charAt(0).toUpperCase() || '?';
@@ -55,9 +79,23 @@ export function ProfileMenu({ email, ariaLabel = 'Account menu' }: Props) {
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-ink/15 bg-cream text-sm font-medium text-ink/70 transition-colors hover:border-terracotta/40 hover:text-terracotta focus:outline-none focus-visible:border-terracotta focus-visible:text-terracotta"
+        className="inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-ink/15 bg-cream text-sm font-medium text-ink/70 transition-colors hover:border-terracotta/40 hover:text-terracotta focus:outline-none focus-visible:border-terracotta focus-visible:text-terracotta"
       >
-        {initial}
+        {photoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          // ^ Profile photo URL points at a Supabase/R2 host that's already
+          // dimensioned for the 44×44 avatar surface — no Next.js Image
+          // optimization gain at this size, and inline <img> keeps the
+          // markup simple inside the rounded button. object-cover + the
+          // parent's overflow-hidden + rounded-full = circular crop.
+          <img
+            src={photoUrl}
+            alt=""
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <span>{initial}</span>
+        )}
       </button>
 
       {open ? (

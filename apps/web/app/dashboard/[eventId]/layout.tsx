@@ -226,10 +226,9 @@ export default async function EventLayout({ children, params }: Props) {
         vendorProfiles={roles.vendorProfiles}
       />
       <div className="flex items-center gap-2">
-        {/* v2.1 deep-fix — Marketplace link uses sienna --m-orange-4 hover
-            state to match couple-dashboard.jsx topbar's ghost button
-            treatment. Resting state stays in slate so the chrome doesn't
-            read as a heavy CTA. */}
+        {/* Marketplace link uses --m-orange-4 hover state to match the
+            v2.1 ghost button treatment. Resting state stays in slate so
+            the chrome doesn't read as a heavy CTA. */}
         <Link
           href="/vendors"
           aria-label="Vendor marketplace"
@@ -239,13 +238,19 @@ export default async function EventLayout({ children, params }: Props) {
           <Store aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           <span className="hidden sm:inline">Marketplace</span>
         </Link>
-        <RoleSwitchPill
-          currentRole="customer"
-          hasCustomerAccess
-          hasVendorAccess={roles.hasVendorAccess}
-          hasAdminAccess={roles.hasAdminAccess}
-          vendorProfiles={roles.vendorProfiles}
-        />
+        {/* Mobile-only Switch View pill — desktop renders it in the
+            sidebar footer slot via SidebarShell.sidebarFooter prop
+            (see below) per the 2026-05-29 standardization across the
+            3 doorways. */}
+        <div className="lg:hidden">
+          <RoleSwitchPill
+            currentRole="customer"
+            hasCustomerAccess
+            hasVendorAccess={roles.hasVendorAccess}
+            hasAdminAccess={roles.hasAdminAccess}
+            vendorProfiles={roles.vendorProfiles}
+          />
+        </div>
         <UnreadBellBadge
           userId={user.id}
           initialUnread={unreadCount}
@@ -273,9 +278,27 @@ export default async function EventLayout({ children, params }: Props) {
   // the offset. Same pattern as the pre-Phase-1 layout's outer-cancel
   // hack (the cancel still needs to live here because the outer layout
   // is part of an unrelated chrome surface that other routes consume).
+  // Switch View pill for the desktop sidebar footer slot — standardized
+  // 2026-05-29 across all 3 doorways. The mobile-only duplicate inside
+  // the topBar above (lg:hidden wrapper) handles <lg viewports where
+  // SidebarShell's sidebar is hidden.
+  const sidebarFooterPill = (
+    <RoleSwitchPill
+      currentRole="customer"
+      hasCustomerAccess
+      hasVendorAccess={roles.hasVendorAccess}
+      hasAdminAccess={roles.hasAdminAccess}
+      vendorProfiles={roles.vendorProfiles}
+    />
+  );
+
   return (
     <div className="lg:-ml-60">
-      <SidebarShell sidebar={<CustomerSidebar eventId={eventId} />} topBar={topBar}>
+      <SidebarShell
+        sidebar={<CustomerSidebar eventId={eventId} />}
+        sidebarFooter={sidebarFooterPill}
+        topBar={topBar}
+      >
         {/* Pad the bottom on mobile so BottomNav doesn't cover the last
             row of content. SidebarShell already handles the desktop
             sidebar offset via its lg:pl-[var(--shell-main-offset)] math. */}

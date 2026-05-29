@@ -44,13 +44,26 @@ const STORAGE_KEY = 'setnayan.nav.sidebar.collapsed';
 type Props = {
   /** Sidebar content — typically a <SidebarSection> tree. */
   sidebar: ReactNode;
+  /**
+   * Optional sidebar footer slot rendered pinned at the bottom of the
+   * desktop sidebar, just above the collapse/expand toggle. Use this for
+   * always-visible utility affordances (Switch view pill, etc.) that
+   * should live in the sidebar rather than the topBar. Added 2026-05-29
+   * per owner directive to standardize Switch View placement on the
+   * sidebar instead of the cramped topBar. Hidden when the sidebar
+   * collapses to 64px width — callers can opt the slot in/out of the
+   * collapsed render via the `data-sidebar-collapsed` attribute on the
+   * shell root, but the simpler default is to hide the entire footer
+   * block when collapsed so the toggle has full width to itself.
+   */
+  sidebarFooter?: ReactNode;
   /** Optional sticky top bar slot rendered above main content. */
   topBar?: ReactNode;
   /** Main content area — scrollable. */
   children: ReactNode;
 };
 
-export function SidebarShell({ sidebar, topBar, children }: Props) {
+export function SidebarShell({ sidebar, sidebarFooter, topBar, children }: Props) {
   // Default expanded. Hydrate from localStorage on mount so SSR + initial
   // client render agree (both render expanded), then flip if persisted
   // state says otherwise. Avoids hydration mismatch.
@@ -102,6 +115,19 @@ export function SidebarShell({ sidebar, topBar, children }: Props) {
             top-of-sidebar slot in Phase 0; callers can prepend their own
             <Wordmark>/<LogoMark> by composing inside the sidebar prop. */}
         <div className="flex-1 overflow-y-auto py-4">{sidebar}</div>
+
+        {/* Optional sidebar footer — utility affordances (Switch view pill,
+            etc.) that should always be visible but not part of the scrolling
+            section tree. Hidden when the sidebar collapses to 64px so the
+            collapse-toggle button below has clean full-width treatment. */}
+        {sidebarFooter && !collapsed ? (
+          <div
+            className="border-t px-3 py-3"
+            style={{ borderColor: 'var(--m-line)' }}
+          >
+            {sidebarFooter}
+          </div>
+        ) : null}
 
         {/* Collapse toggle — sits in the footer so the affordance moves with
             the sidebar. Uses --m-line hover border per v2.1 ghost button

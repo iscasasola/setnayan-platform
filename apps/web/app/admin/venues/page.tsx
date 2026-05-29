@@ -93,7 +93,7 @@ export default async function AdminVenuesPage({ searchParams }: Props) {
         </div>
         <Link
           href="/admin/venues/new"
-          className="inline-flex h-10 items-center gap-1.5 rounded-md bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600"
+          className="inline-flex h-11 items-center gap-1.5 rounded-md bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600"
         >
           <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
           Add venue

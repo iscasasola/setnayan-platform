@@ -76,7 +76,7 @@ export function ClaimLinkShare({ claimUrl, shareTitle, shareText }: Props) {
         <button
           type="button"
           onClick={handleCopy}
-          className="inline-flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-md border border-ink/10 bg-cream px-3 py-1.5 text-xs font-medium text-ink/80 transition-colors hover:border-ink/30 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+          className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-md border border-ink/10 bg-cream px-3 py-1.5 text-xs font-medium text-ink/80 transition-colors hover:border-ink/30 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
           aria-label={copied ? 'Copied' : 'Copy claim link'}
         >
           {copied ? (
@@ -96,7 +96,7 @@ export function ClaimLinkShare({ claimUrl, shareTitle, shareText }: Props) {
         <button
           type="button"
           onClick={handleShare}
-          className="inline-flex min-h-[40px] items-center gap-1.5 rounded-md border border-amber-400/60 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-900 transition-colors hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md border border-amber-400/60 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-900 transition-colors hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
         >
           <Share2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           Share invite link

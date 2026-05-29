@@ -108,7 +108,7 @@ function PageSelector({ currentPage }: { currentPage: SiteWidgetPage }) {
       </select>
       <button
         type="submit"
-        className="ml-2 inline-flex h-9 items-center rounded-md border border-ink/20 bg-cream px-3 text-xs text-ink/75 hover:bg-ink/5"
+        className="ml-2 inline-flex h-11 items-center rounded-md border border-ink/20 bg-cream px-3 text-xs text-ink/75 hover:bg-ink/5"
       >
         Open
       </button>

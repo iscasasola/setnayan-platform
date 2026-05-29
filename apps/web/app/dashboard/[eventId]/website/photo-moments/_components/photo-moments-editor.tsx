@@ -173,7 +173,7 @@ export function PhotoMomentsEditor({
             type="button"
             onClick={addRow}
             disabled={!canAddRow}
-            className="inline-flex h-10 items-center gap-1.5 rounded-md border border-ink/20 bg-cream px-3 text-sm font-medium text-ink transition-colors hover:border-terracotta/40 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-11 items-center gap-1.5 rounded-md border border-ink/20 bg-cream px-3 text-sm font-medium text-ink transition-colors hover:border-terracotta/40 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Plus aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
             Add a moment

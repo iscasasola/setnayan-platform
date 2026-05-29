@@ -598,7 +598,7 @@ function ActionRow({ application }: { application: ApplicationRow }) {
           />
           <button
             type="submit"
-            className="inline-flex h-9 items-center rounded-md border border-ink/20 px-3 text-xs text-ink/70 hover:bg-ink/5"
+            className="inline-flex h-11 items-center rounded-md border border-ink/20 px-3 text-xs text-ink/70 hover:bg-ink/5"
           >
             Mark in review
           </button>
@@ -653,7 +653,7 @@ function ActionRow({ application }: { application: ApplicationRow }) {
             />
             <button
               type="submit"
-              className="inline-flex h-8 items-center rounded-md bg-terracotta/15 px-3 text-xs font-medium text-terracotta-700 hover:bg-terracotta/25"
+              className="inline-flex h-11 items-center rounded-md bg-terracotta/15 px-3 text-xs font-medium text-terracotta-700 hover:bg-terracotta/25"
             >
               Confirm reject
             </button>
@@ -697,7 +697,7 @@ function ActionRow({ application }: { application: ApplicationRow }) {
             />
             <button
               type="submit"
-              className="inline-flex h-8 items-center rounded-md bg-amber-100 px-3 text-xs font-medium text-amber-900 hover:bg-amber-200"
+              className="inline-flex h-11 items-center rounded-md bg-amber-100 px-3 text-xs font-medium text-amber-900 hover:bg-amber-200"
             >
               Confirm demote
             </button>
@@ -892,7 +892,7 @@ function VerifyCard({ vendor }: { vendor: VendorVisibilityRow }) {
             <input type="hidden" name="vendor_profile_id" value={vendor.vendor_profile_id} />
             <button
               type="submit"
-              className="inline-flex h-9 items-center rounded-md border border-ink/20 px-3 text-xs text-ink/70 hover:bg-ink/5"
+              className="inline-flex h-11 items-center rounded-md border border-ink/20 px-3 text-xs text-ink/70 hover:bg-ink/5"
             >
               Archive
             </button>

@@ -205,7 +205,7 @@ export function PakantaIntakeForm({ eventId, initialResponses }: Props) {
           <button
             type="button"
             onClick={toggleMute}
-            className="inline-flex min-h-[36px] items-center justify-center gap-1.5 rounded-md border border-ink/15 bg-white px-3 py-1.5 text-xs font-medium text-ink/80 transition-colors hover:bg-cream focus:outline-none focus:ring-2 focus:ring-terracotta/30"
+            className="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-md border border-ink/15 bg-white px-3 py-1.5 text-xs font-medium text-ink/80 transition-colors hover:bg-cream focus:outline-none focus:ring-2 focus:ring-terracotta/30"
             aria-pressed={!audioMuted}
           >
             {audioMuted ? '🔇 Tap to hear' : '🔊 Sound on'}

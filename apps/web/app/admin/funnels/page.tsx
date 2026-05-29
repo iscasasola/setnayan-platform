@@ -225,7 +225,7 @@ export default async function AdminFunnelsPage({ searchParams }: Props) {
           href={postHogUrl}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-ink/10"
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-ink/10"
         >
           Open in PostHog
           <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />

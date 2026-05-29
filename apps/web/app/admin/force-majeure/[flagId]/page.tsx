@@ -273,7 +273,7 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
         <form action={takeOwnership} className="flex flex-wrap items-center gap-2">
           <input type="hidden" name="flag_id" value={row.flag_id} />
           <SubmitButton
-            className="inline-flex items-center gap-1 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-ink/10 disabled:opacity-60"
+            className="inline-flex min-h-[44px] items-center gap-1 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-ink/10 disabled:opacity-60"
             pendingLabel="…"
           >
             <ShieldCheck className="h-3.5 w-3.5" strokeWidth={2} />

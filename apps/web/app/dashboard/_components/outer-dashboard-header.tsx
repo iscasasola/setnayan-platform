@@ -172,7 +172,7 @@ export function OuterDashboardHeader({
           <Link
             href="/vendors"
             aria-label="Vendor marketplace"
-            className="mb-1 flex min-h-[40px] items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink"
+            className="mb-1 flex min-h-[44px] items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink"
           >
             <Store aria-hidden className="h-5 w-5 shrink-0" strokeWidth={1.75} />
             <span>Marketplace</span>

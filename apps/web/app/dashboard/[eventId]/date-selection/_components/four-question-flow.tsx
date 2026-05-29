@@ -659,7 +659,7 @@ function SuggestionsList({
                   type="button"
                   onClick={() => onPick(s.date)}
                   disabled={pending || isPicked}
-                  className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg bg-mulberry px-3 py-1.5 text-sm font-medium text-cream shadow-sm hover:bg-mulberry-600 focus:outline-none focus:ring-2 focus:ring-terracotta/40 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-mulberry px-3 py-1.5 text-sm font-medium text-cream shadow-sm hover:bg-mulberry-600 focus:outline-none focus:ring-2 focus:ring-terracotta/40 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {isPicked && pending ? (
                     <>

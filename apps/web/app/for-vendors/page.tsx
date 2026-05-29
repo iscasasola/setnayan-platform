@@ -37,6 +37,11 @@ import { StackCloseVendor } from './_components/stack-close-vendor';
 import { ForVendorsDeepDive } from './_components/for-vendors-deep-dive';
 import { Voices, Pricing, FAQ, ClosingCTA, Footer } from './_components/page-tail';
 
+// SEO/GEO Bucket 8 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — 1hr Vercel
+// edge cache so static marketing routes serve Google's crawl rate-limit
+// budget without origin pressure. Each page rebuilds at most once per hour.
+export const revalidate = 3600;
+
 export const metadata = {
   title: 'Setnayan for Vendors — Free + Pro · ₱1,999/28d',
   description:

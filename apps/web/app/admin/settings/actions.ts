@@ -6,6 +6,29 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { deletePublicAsset, uploadPublicAsset } from '@/lib/storage';
 
+/**
+ * Admin settings server actions — V2 publisher posture, split flows.
+ *
+ * 2026-05-29 restructure: the previous one-form-saves-everything pattern
+ * (`savePlatformSettings`) is split into two role-aligned actions:
+ *
+ *   - `saveBusinessIdentity` lives on `/admin/settings` (business name, TIN,
+ *     address, email, default VAT rate — values printed on every transaction
+ *     receipt).
+ *   - `savePaymentInstruments` lives on `/admin/settings/payment-methods`
+ *     (BDO + GCash account name / number — the active V2 customer payment
+ *     rails that couples reference when transferring for an order).
+ *
+ * Why split: BDO and GCash account fields are merchant payment configuration
+ * and conceptually belong with the active payment-methods surface, not the
+ * generic business-identity panel. Owner asked 2026-05-29 evening: "shouldn't
+ * this be at payment methods?" — yes. Splitting also lets each surface
+ * revalidate the right path on save and surface form-specific success/error
+ * messages without conflating the two concerns.
+ *
+ * `uploadMerchantQr` + `removeMerchantQr` are scoped to QR codes and now
+ * revalidate + redirect to the payment-methods surface (their canonical home).
+ */
 async function requireAdmin(): Promise<void> {
   const supabase = await createClient();
   const {
@@ -29,7 +52,7 @@ function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   return t.length > 0 ? t : null;
 }
 
-export async function savePlatformSettings(formData: FormData) {
+export async function saveBusinessIdentity(formData: FormData) {
   await requireAdmin();
 
   const vatRaw = formData.get('default_vat_rate_pct');
@@ -40,9 +63,6 @@ export async function savePlatformSettings(formData: FormData) {
     );
   }
 
-  // QR URLs are managed via the separate upload/remove actions below — they
-  // aren't included in this update, so re-saving text fields doesn't blow
-  // away an already-uploaded QR.
   const payload = {
     business_name:
       (typeof formData.get('business_name') === 'string'
@@ -51,10 +71,6 @@ export async function savePlatformSettings(formData: FormData) {
     business_tin: nullIfBlank(formData.get('business_tin')),
     business_address: nullIfBlank(formData.get('business_address')),
     business_email: nullIfBlank(formData.get('business_email')),
-    bdo_account_name: nullIfBlank(formData.get('bdo_account_name')),
-    bdo_account_number: nullIfBlank(formData.get('bdo_account_number')),
-    gcash_account_name: nullIfBlank(formData.get('gcash_account_name')),
-    gcash_number: nullIfBlank(formData.get('gcash_number')),
     default_vat_rate_pct: Math.round(vatRate * 100) / 100,
     updated_at: new Date().toISOString(),
   };
@@ -73,6 +89,36 @@ export async function savePlatformSettings(formData: FormData) {
   redirect('/admin/settings?saved=1');
 }
 
+export async function savePaymentInstruments(formData: FormData) {
+  await requireAdmin();
+
+  // QR URLs are managed via the separate upload/remove actions below — they
+  // aren't included in this update, so re-saving text fields doesn't blow
+  // away an already-uploaded QR.
+  const payload = {
+    bdo_account_name: nullIfBlank(formData.get('bdo_account_name')),
+    bdo_account_number: nullIfBlank(formData.get('bdo_account_number')),
+    gcash_account_name: nullIfBlank(formData.get('gcash_account_name')),
+    gcash_number: nullIfBlank(formData.get('gcash_number')),
+    updated_at: new Date().toISOString(),
+  };
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('platform_settings')
+    .update(payload)
+    .eq('id', 1);
+  if (error) {
+    return redirect(
+      `/admin/settings/payment-methods?error=${encodeURIComponent(error.message)}`,
+    );
+  }
+
+  revalidatePath('/admin/settings/payment-methods');
+  revalidatePath('/receipts', 'layout');
+  redirect('/admin/settings/payment-methods?saved=1');
+}
+
 type QrKind = 'bdo' | 'gcash';
 
 function qrColumn(kind: QrKind): 'bdo_qr_url' | 'gcash_qr_url' {
@@ -89,7 +135,7 @@ export async function uploadMerchantQr(formData: FormData) {
   const file = formData.get('file');
   if (!(file instanceof File) || file.size === 0) {
     return redirect(
-      `/admin/settings?error=${encodeURIComponent('Pick a file first')}`,
+      `/admin/settings/payment-methods?error=${encodeURIComponent('Pick a file first')}`,
     );
   }
 
@@ -98,7 +144,9 @@ export async function uploadMerchantQr(formData: FormData) {
     file,
   });
   if (!upload.ok) {
-    return redirect(`/admin/settings?error=${encodeURIComponent(upload.error)}`);
+    return redirect(
+      `/admin/settings/payment-methods?error=${encodeURIComponent(upload.error)}`,
+    );
   }
 
   const admin = createAdminClient();
@@ -124,15 +172,17 @@ export async function uploadMerchantQr(formData: FormData) {
     })
     .eq('id', 1);
   if (error) {
-    return redirect(`/admin/settings?error=${encodeURIComponent(error.message)}`);
+    return redirect(
+      `/admin/settings/payment-methods?error=${encodeURIComponent(error.message)}`,
+    );
   }
 
   if (existingUrl) {
     await deletePublicAsset({ publicUrl: existingUrl });
   }
 
-  revalidatePath('/admin/settings');
-  redirect('/admin/settings?qr_uploaded=1');
+  revalidatePath('/admin/settings/payment-methods');
+  redirect('/admin/settings/payment-methods?qr_uploaded=1');
 }
 
 export async function removeMerchantQr(formData: FormData) {
@@ -163,13 +213,15 @@ export async function removeMerchantQr(formData: FormData) {
     })
     .eq('id', 1);
   if (error) {
-    return redirect(`/admin/settings?error=${encodeURIComponent(error.message)}`);
+    return redirect(
+      `/admin/settings/payment-methods?error=${encodeURIComponent(error.message)}`,
+    );
   }
 
   if (existingUrl) {
     await deletePublicAsset({ publicUrl: existingUrl });
   }
 
-  revalidatePath('/admin/settings');
-  redirect('/admin/settings?qr_removed=1');
+  revalidatePath('/admin/settings/payment-methods');
+  redirect('/admin/settings/payment-methods?qr_removed=1');
 }

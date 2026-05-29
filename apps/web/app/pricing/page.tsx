@@ -134,7 +134,27 @@ export default async function PricingPage() {
 
   const grouped = groupByStatus(customerSkus);
   const vendorSubs = vendorSkus.filter((s) => s.offering_type === 'subscription_monthly');
+  const vendorAnnualSubs = vendorSkus.filter((s) => s.offering_type === 'subscription_annual');
   const tokenPacks = vendorSkus.filter((s) => s.offering_type === 'token_pack');
+
+  // Annual counterpart lookup by SKU naming convention.
+  // Convention: pro_vendor_monthly ↔ pro_vendor_annual ·
+  // enterprise_vendor_monthly ↔ enterprise_vendor_annual. Per migration
+  // 20260712000000_iteration_0006_vendor_subscription_annual_skus.sql.
+  const annualByTier = new Map(
+    vendorAnnualSubs.map((a) => [a.sku_code.replace(/_annual$/, ''), a]),
+  );
+  function annualFor(monthlySku: { sku_code: string; price_php: number }) {
+    const tierKey = monthlySku.sku_code.replace(/_monthly$/, '');
+    const annual = annualByTier.get(tierKey);
+    if (!annual) return null;
+    const monthlyTotal = monthlySku.price_php * 12;
+    const savings = Math.max(0, Math.round(monthlyTotal - annual.price_php));
+    const savingsPct = monthlyTotal > 0
+      ? Math.round((savings / monthlyTotal) * 100)
+      : 0;
+    return { annual, savings, savingsPct };
+  }
 
   // SEO/GEO Bucket 7 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — Product +
   // Offer + Service JSON-LD reading from the V2 catalogs (lib/v2-catalog.ts ·
@@ -156,10 +176,14 @@ export default async function PricingPage() {
   //   - build_status = 'not_built' → PreOrder (catalog-only · honest signal)
   //
   // Annual subscription SKUs (Pro ₱19,999/yr + Enterprise ₱54,999/yr per
-  // CLAUDE.md eleventh 2026-05-28 row) are spec-locked but NOT yet in the
-  // vendor_billing_catalog table. They lands in a follow-up PR when the
-  // catalog rows are seeded · the llms.txt v4 mention them ahead of UI
-  // (Bucket 1 PR #605) so AI engines have the price anchor regardless.
+  // CLAUDE.md eleventh 2026-05-28 row) are now live in vendor_billing_catalog
+  // as of migration 20260712000000 (2026-05-29 follow-up). Both monthly +
+  // annual surface as separate @type Service entities with their own
+  // billingDuration: P1M for monthly + P1Y for annual · unitText carries
+  // the cadence verbally for AI engines that don't parse ISO-8601
+  // durations. The llms.txt v4 (Bucket 1 PR #605) mentions annual SKUs in
+  // the tier structure paragraph so the price anchor is consistent across
+  // structured + unstructured AI extraction surfaces.
   //
   // All entities reference https://www.setnayan.com/#organization for
   // brand grounding · composes with the layout-level Organization JSON-LD
@@ -220,30 +244,40 @@ export default async function PricingPage() {
           seller: ORGANIZATION_REF,
         },
       })),
-      // Vendor monthly subscriptions · @type Service with PriceSpecification
-      ...vendorSubs.map((s) => ({
-        '@type': 'Service',
-        '@id': `${SITE_URL}/pricing#vendor-${s.sku_code}`,
-        name: s.title,
-        description: `${s.title} — Setnayan vendor subscription. 0% commission on bookings.`,
-        provider: ORGANIZATION_REF,
-        category: 'Wedding vendor subscription',
-        offers: {
-          '@type': 'Offer',
-          url: `${SITE_URL}/for-vendors`,
-          price: String(Math.round(s.price_php)),
-          priceCurrency: 'PHP',
-          availability: 'https://schema.org/InStock',
-          seller: ORGANIZATION_REF,
-          priceSpecification: {
-            '@type': 'UnitPriceSpecification',
+      // Vendor subscriptions · @type Service with PriceSpecification ·
+      // both monthly + annual cadence per CLAUDE.md eleventh 2026-05-28 row.
+      // billingDuration: P1M (monthly) OR P1Y (annual) · unitText carries
+      // the cadence verbally for AI engines that don't parse ISO-8601
+      // durations.
+      ...[...vendorSubs, ...vendorAnnualSubs].map((s) => {
+        const isAnnual = s.offering_type === 'subscription_annual';
+        const cadence = isAnnual
+          ? { billingDuration: 'P1Y', unitText: 'annual subscription', shortLabel: 'per year' }
+          : { billingDuration: 'P1M', unitText: 'monthly subscription', shortLabel: 'per month' };
+        return {
+          '@type': 'Service',
+          '@id': `${SITE_URL}/pricing#vendor-${s.sku_code}`,
+          name: s.title,
+          description: `${s.title} — Setnayan vendor subscription ${cadence.shortLabel}. 0% commission on bookings.`,
+          provider: ORGANIZATION_REF,
+          category: 'Wedding vendor subscription',
+          offers: {
+            '@type': 'Offer',
+            url: `${SITE_URL}/for-vendors`,
             price: String(Math.round(s.price_php)),
             priceCurrency: 'PHP',
-            billingDuration: 'P1M',
-            unitText: 'monthly subscription',
+            availability: 'https://schema.org/InStock',
+            seller: ORGANIZATION_REF,
+            priceSpecification: {
+              '@type': 'UnitPriceSpecification',
+              price: String(Math.round(s.price_php)),
+              priceCurrency: 'PHP',
+              billingDuration: cadence.billingDuration,
+              unitText: cadence.unitText,
+            },
           },
-        },
-      })),
+        };
+      }),
       // Token packs · @type Product (commodity goods · vendors stockpile)
       ...tokenPacks.map((t) => ({
         '@type': 'Product',
@@ -483,7 +517,7 @@ export default async function PricingPage() {
             </p>
           </div>
 
-          {/* Subscriptions */}
+          {/* Subscriptions · monthly + annual paired per tier */}
           {vendorSubs.length > 0 ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {vendorSubs.map((sub) => {
@@ -496,6 +530,7 @@ export default async function PricingPage() {
                   sub.max_categories === null
                     ? 'All categories'
                     : `${sub.max_categories} category`;
+                const annualDeal = annualFor(sub);
                 return (
                   <article
                     key={sub.sku_code}
@@ -514,6 +549,23 @@ export default async function PricingPage() {
                       </span>
                       <span className="text-sm text-ink/55">/ month</span>
                     </p>
+                    {/* Annual deal callout · paired with monthly per tier ·
+                        added 2026-05-29 per CLAUDE.md eleventh 2026-05-28 row.
+                        Renders only when annual counterpart exists in
+                        vendor_billing_catalog (lookup by SKU naming
+                        convention via annualFor() helper). Standard SaaS
+                        retention lever · 17% mid-range discount. */}
+                    {annualDeal ? (
+                      <p className="rounded-lg border border-terracotta/30 bg-terracotta/[0.06] px-3 py-2 text-xs leading-relaxed">
+                        <span className="text-ink">
+                          Or <span className="font-semibold">₱{formatPeso(annualDeal.annual.price_php)}/yr
+                          </span> billed annually
+                        </span>
+                        <span className="ml-1 text-terracotta">
+                          · save ₱{formatPeso(annualDeal.savings)} ({annualDeal.savingsPct}%)
+                        </span>
+                      </p>
+                    ) : null}
                     <ul className="space-y-2 text-sm">
                       <li className="flex items-start gap-2">
                         <Check

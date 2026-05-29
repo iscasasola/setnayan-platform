@@ -161,6 +161,51 @@ const FOR_VENDORS_JSONLD = {
       seller: { '@id': `${SITE_URL}/#organization` },
       url: `${SITE_URL}/signup?as=vendor`,
     },
+    // Annual subscription Offers · added 2026-05-29 per CLAUDE.md eleventh
+    // 2026-05-28 row "v2.1 amendment · Pro Vendor annual ₱19,999/yr +
+    // Enterprise Vendor annual ₱54,999/yr added". Both ~17% off vs monthly
+    // × 12 · charm-priced -1 endings. Standard SaaS retention lever ·
+    // Notion 16% · Linear 20% · Shopify 25% sit adjacent · 17% lands
+    // mid-range. Backed by vendor_billing_catalog rows pro_vendor_annual +
+    // enterprise_vendor_annual seeded in migration 20260712000000.
+    // Prevents the eighth-row schema.org JSON-LD undersell trap (annual
+    // SKUs invisible to crawlers without their own Offer entries).
+    {
+      '@type': 'Offer',
+      '@id': `${SITE_URL}/for-vendors#pro-vendor-annual-subscription`,
+      name: 'Pro Vendor (annual subscription · save 17%)',
+      description:
+        "₱19,999/year instead of ₱1,999 × 12 = ₱23,988 · save ₱3,989. Same Pro tier · one marketplace category · 5 team accounts · custom website + slug · Today's Focus priority matching · AI Proposal Builder · category benchmarks · 100 complimentary tokens on verification. Single annual payment.",
+      price: '19999',
+      priceCurrency: 'PHP',
+      priceSpecification: {
+        '@type': 'UnitPriceSpecification',
+        price: '19999',
+        priceCurrency: 'PHP',
+        unitText: 'YEAR',
+      },
+      availability: 'https://schema.org/InStock',
+      seller: { '@id': `${SITE_URL}/#organization` },
+      url: `${SITE_URL}/signup?as=vendor`,
+    },
+    {
+      '@type': 'Offer',
+      '@id': `${SITE_URL}/for-vendors#enterprise-annual-subscription`,
+      name: 'Enterprise Vendor (annual subscription · save 17%)',
+      description:
+        '₱54,999/year instead of ₱5,499 × 12 = ₱65,988 · save ₱10,989. Same Enterprise tier · multiple marketplace categories · unlimited team accounts · quarterly business review · sharable bid link for social media. Single annual payment.',
+      price: '54999',
+      priceCurrency: 'PHP',
+      priceSpecification: {
+        '@type': 'UnitPriceSpecification',
+        price: '54999',
+        priceCurrency: 'PHP',
+        unitText: 'YEAR',
+      },
+      availability: 'https://schema.org/InStock',
+      seller: { '@id': `${SITE_URL}/#organization` },
+      url: `${SITE_URL}/signup?as=vendor`,
+    },
     {
       '@type': 'BreadcrumbList',
       '@id': `${SITE_URL}/for-vendors#breadcrumb`,

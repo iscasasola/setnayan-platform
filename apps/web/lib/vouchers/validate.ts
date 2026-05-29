@@ -109,7 +109,7 @@ export async function validateAndCalculateVoucher(
   const { data: codeRow, error: lookupErr } = await admin
     .from('discount_codes')
     .select(
-      'discount_code_id, code, voucher_type, pct_value, cap_centavos, covered_service_keys, expires_at, max_uses, uses_count, is_active',
+      'discount_code_id, code, voucher_type, pct_value, cap_centavos, covered_service_keys, effective_from, expires_at, max_uses, uses_count, is_active',
     )
     .eq('code', normalized)
     .maybeSingle();
@@ -152,7 +152,29 @@ export async function validateAndCalculateVoucher(
     };
   }
 
-  // (4) expires_at > NOW(). Lazy-eval expiry per cron strategy memory rule.
+  // (4a) effective_from <= NOW(). Per 2026-05-29 gift-window owner request:
+  // vouchers can be scheduled to activate later (NULL = effective immediately).
+  if (
+    codeRow.effective_from !== null &&
+    new Date(codeRow.effective_from).getTime() > Date.now()
+  ) {
+    const startsAt = new Date(codeRow.effective_from);
+    const formatted = startsAt.toLocaleDateString('en-PH', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+    return {
+      applied: false,
+      discount_centavos: 0n,
+      final_centavos: args.original_centavos,
+      discount_code_id: null,
+      code_normalized: null,
+      reason: `That code starts on ${formatted}. Try again then.`,
+    };
+  }
+
+  // (4b) expires_at > NOW(). Lazy-eval expiry per cron strategy memory rule.
   if (new Date(codeRow.expires_at).getTime() < Date.now()) {
     return {
       applied: false,

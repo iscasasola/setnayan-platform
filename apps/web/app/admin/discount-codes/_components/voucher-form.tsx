@@ -47,6 +47,7 @@ export type VoucherFormInitial = {
   /** Centavos (NOT pesos) cap, NOT NULL only for pct_off_capped. */
   cap_centavos: number | null;
   covered_service_keys: string[];
+  effective_from: string | null; // ISO string OR null (null = effective immediately)
   expires_at: string | null; // ISO string OR null
   max_uses: number | null;
 };
@@ -118,6 +119,9 @@ export function VoucherForm({
 
   const initialExpiresAt = initial.expires_at
     ? isoToDatetimeLocal(initial.expires_at)
+    : '';
+  const initialEffectiveFrom = initial.effective_from
+    ? isoToDatetimeLocal(initial.effective_from)
     : '';
 
   // Live preview: given a sticker price + current form state, return the
@@ -380,6 +384,38 @@ export function VoucherForm({
           name="expires_at"
           defaultValue={initialExpiresAt}
           required
+          className="mt-2 block w-full max-w-xs rounded-md border px-3 py-2"
+          style={{
+            background: 'var(--m-paper)',
+            borderColor: 'var(--m-line)',
+            color: 'var(--m-ink)',
+          }}
+        />
+      </div>
+
+      {/* Effective FROM · optional · null = effective immediately. Owner
+          request 2026-05-29 for gift-card scheduling use case. */}
+      <div>
+        <label
+          htmlFor="effective_from"
+          className="block text-sm font-medium"
+          style={{ color: 'var(--m-ink)' }}
+        >
+          Effective from <span style={{ color: 'var(--m-slate)' }}>(optional)</span>
+        </label>
+        <p
+          className="mt-1 text-xs"
+          style={{ color: 'var(--m-slate)' }}
+        >
+          Leave blank for effective immediately · or schedule the code to
+          activate later (gift-card use case · e.g. birthday on Dec 1).
+          Must be before the effective-until.
+        </p>
+        <input
+          type="datetime-local"
+          id="effective_from"
+          name="effective_from"
+          defaultValue={initialEffectiveFrom}
           className="mt-2 block w-full max-w-xs rounded-md border px-3 py-2"
           style={{
             background: 'var(--m-paper)',

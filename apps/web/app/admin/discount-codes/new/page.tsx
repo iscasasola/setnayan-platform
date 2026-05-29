@@ -76,6 +76,7 @@ export default async function NewDiscountCodePage() {
     pct_value: null,
     cap_centavos: null,
     covered_service_keys: [],
+    effective_from: null,
     expires_at: null,
     max_uses: null,
   };

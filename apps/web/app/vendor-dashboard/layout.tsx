@@ -7,6 +7,7 @@ import {
   ClipboardList,
   FileSignature,
   FileText,
+  HardHat,
   Megaphone,
   MessageSquare,
   Palette,
@@ -163,6 +164,16 @@ export default async function VendorDashboardLayout({
             href="/vendor-dashboard/marketing"
             label="Marketing"
             icon={<Megaphone aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />}
+            match="prefix"
+          />
+          {/* V2 Phase F · Manpower ₱15k offline cash flow · CLAUDE.md
+              2026-05-28 third row § (a). 2-token handshake on accept ·
+              cash flows direct host → crew · BIR-exempt for Setnayan
+              per RR 16-2023. */}
+          <VendorSubnavTab
+            href="/vendor-dashboard/manpower"
+            label="Manpower"
+            icon={<HardHat aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />}
             match="prefix"
           />
           <VendorSubnavTab

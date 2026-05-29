@@ -14,6 +14,7 @@ import {
   Circle,
   Square,
   QrCode,
+  HardHat,
   type LucideIcon,
 } from 'lucide-react';
 import { countUnread } from '@/lib/notifications';
@@ -140,7 +141,8 @@ type TileKey =
   | 'orders'
   | 'notifications'
   | 'disputes'
-  | 'event_qr';
+  | 'event_qr'
+  | 'manpower';
 
 // Deduped 2026-05-24 (owner directive — "they are repetitive"). The
 // 6 tiles previously here (guests · sponsors · budget · seating ·
@@ -206,6 +208,16 @@ const TILES: Array<{
     labelKey: 'nav.event_qr',
     Icon: QrCode,
     href: (id) => `/dashboard/${id}/event-qr`,
+  },
+  {
+    // V2 Phase F · Manpower ₱15k offline cash flow · CLAUDE.md 2026-05-28
+    // third row § (a). Tile gives the host an entry point to post + manage
+    // day-of crew gigs · separate from vendor bookings (which run through
+    // marketplace) because the cash flows direct to the vendor's crew.
+    key: 'manpower',
+    labelKey: 'nav.manpower',
+    Icon: HardHat,
+    href: (id) => `/dashboard/${id}/manpower`,
   },
 ];
 

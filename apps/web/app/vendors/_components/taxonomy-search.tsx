@@ -175,7 +175,25 @@ export function TaxonomySearch({ initialQuery, options, preserve }: Props) {
         <div
           id="taxonomy-suggestions"
           role="listbox"
-          className="absolute left-0 right-0 top-full z-30 mt-1 max-h-72 overflow-y-auto rounded-xl border border-ink/15 bg-cream shadow-lg"
+          // 2026-05-30 mobile pattern lock — owner directive *"any choices
+          // when clicking on mobile mode should show as a pop up crawling
+          // up."* When the search bar lives at the BOTTOM of the viewport
+          // on mobile (per StickyMarketplaceHeader's `fixed bottom-0`
+          // mobile variant), suggestions can't drop down — they'd clip
+          // off-screen. Instead they rise UP above the input: `bottom-full
+          // mb-2` on mobile → panel sits flush above the input with an 8px
+          // gap. The `animate-in fade-in slide-in-from-bottom-2 duration-200`
+          // utilities (from `tailwindcss-animate`) give the "crawls up"
+          // feel — panel slides up 8px while fading in over 200ms. On
+          // desktop (≥ sm) the bar stays pinned to the TOP so suggestions
+          // drop DOWN as before: `sm:bottom-auto sm:top-full sm:mt-1
+          // sm:mb-0` overrides the mobile up-position. The `sm:slide-in-
+          // from-top-2` flips the slide direction so desktop animates
+          // top-down (drops in 8px from above), matching the visual flow
+          // of a normal dropdown. `rounded-t-2xl` on mobile gives the
+          // panel a bottom-sheet-like cap; `sm:rounded-xl` returns it to
+          // a regular dropdown radius on desktop.
+          className="absolute left-0 right-0 z-30 max-h-72 overflow-y-auto border border-ink/15 bg-cream shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-200 bottom-full mb-2 rounded-t-2xl sm:bottom-auto sm:top-full sm:mt-1 sm:mb-0 sm:rounded-xl sm:slide-in-from-top-2"
         >
           <p className="px-3 pt-2 pb-1 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/45">
             Categories ({suggestions.length})

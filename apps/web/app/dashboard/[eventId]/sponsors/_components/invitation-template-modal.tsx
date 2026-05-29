@@ -168,7 +168,7 @@ export function InvitationTemplateModal({
                 <input type="hidden" name="sponsor_id" value={sponsorId} />
                 <button
                   type="submit"
-                  className="inline-flex items-center gap-1.5 rounded-md bg-terracotta px-3 py-1.5 text-xs font-medium text-cream hover:bg-terracotta-600"
+                  className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-1.5 text-xs font-medium text-cream hover:bg-mulberry-600"
                 >
                   <Send aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                   Mark invitation sent

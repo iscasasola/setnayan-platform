@@ -157,7 +157,7 @@ export function FloorPlan({ eventId, tables, assignmentCounts, saveAction }: Pro
             type="button"
             onClick={saveAll}
             disabled={dirty.size === 0 || saving !== null}
-            className="inline-flex items-center gap-1.5 rounded-md bg-terracotta px-3 py-1.5 text-xs font-medium text-cream transition-colors hover:bg-terracotta-600 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-1.5 text-xs font-medium text-cream transition-colors hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Save className="h-3.5 w-3.5" strokeWidth={2} />
             {saving ? 'Saving…' : 'Save layout'}

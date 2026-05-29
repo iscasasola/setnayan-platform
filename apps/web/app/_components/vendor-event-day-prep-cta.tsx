@@ -140,7 +140,7 @@ export function VendorEventDayPrepCta({
           onClick={onClick}
           disabled={busy}
           aria-busy={busy}
-          className="inline-flex shrink-0 items-center gap-2 self-start rounded-full bg-terracotta px-3 py-1.5 text-xs font-medium text-cream hover:bg-terracotta-600 disabled:cursor-not-allowed disabled:opacity-60 sm:self-center"
+          className="inline-flex shrink-0 items-center gap-2 self-start rounded-full bg-mulberry px-3 py-1.5 text-xs font-medium text-cream hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-60 sm:self-center"
         >
           {busy ? (
             <>

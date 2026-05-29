@@ -213,7 +213,7 @@ export function DatePicker({
           type="button"
           onClick={handleLock}
           disabled={!selected || isInPast || pending}
-          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-terracotta px-5 py-2.5 text-base font-medium text-cream shadow-sm hover:bg-terracotta-600 focus:outline-none focus:ring-2 focus:ring-terracotta/40 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-mulberry px-5 py-2.5 text-base font-medium text-cream shadow-sm hover:bg-mulberry-600 focus:outline-none focus:ring-2 focus:ring-terracotta/40 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {pending ? (
             <>

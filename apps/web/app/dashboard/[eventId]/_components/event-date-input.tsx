@@ -331,7 +331,7 @@ export function EventDateInput({
         <button
           type="submit"
           disabled={isPending}
-          className="rounded-md bg-terracotta px-3 py-1 text-xs font-medium text-cream disabled:opacity-50"
+          className="rounded-md bg-mulberry px-3 py-1 text-xs font-medium text-cream disabled:opacity-50"
         >
           {isPending ? 'Saving…' : initial ? 'Save' : 'Save date'}
         </button>

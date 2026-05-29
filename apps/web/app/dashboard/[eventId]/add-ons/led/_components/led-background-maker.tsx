@@ -285,7 +285,7 @@ export function LedBackgroundMaker({
           type="button"
           onClick={handleRender}
           disabled={saving}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-terracotta px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-terracotta-600 disabled:cursor-wait disabled:opacity-70"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600 disabled:cursor-wait disabled:opacity-70"
         >
           <Clapperboard
             aria-hidden

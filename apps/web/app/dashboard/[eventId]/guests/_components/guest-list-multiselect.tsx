@@ -466,7 +466,7 @@ function BulkApplyForm({
       {/* Single Apply button at the end · owner directive */}
       <button
         type="submit"
-        className="inline-flex h-9 items-center rounded-md bg-terracotta px-4 text-xs font-medium text-cream hover:bg-terracotta-600"
+        className="inline-flex h-9 items-center rounded-md bg-mulberry px-4 text-xs font-medium text-cream hover:bg-mulberry-600"
       >
         Apply
       </button>
@@ -542,7 +542,7 @@ function NewGroupInlineForm({
       <div className="flex gap-2">
         <button
           type="submit"
-          className="inline-flex h-9 items-center rounded-md bg-terracotta px-3 text-xs font-medium text-cream hover:bg-terracotta-600"
+          className="inline-flex h-9 items-center rounded-md bg-mulberry px-3 text-xs font-medium text-cream hover:bg-mulberry-600"
         >
           Create + Add {selectedIds.length}
         </button>

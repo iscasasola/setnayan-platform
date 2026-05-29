@@ -694,7 +694,7 @@ function CompGrantsPanel({
             </p>
           </div>
           <SubmitButton
-            className="inline-flex items-center gap-1.5 rounded-md bg-terracotta px-3 py-1.5 text-sm font-medium text-cream hover:bg-terracotta-700 disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-1.5 text-sm font-medium text-cream hover:bg-mulberry-700 disabled:opacity-60"
             pendingLabel="Issuing…"
           >
             <Gift className="h-3.5 w-3.5" strokeWidth={2} />

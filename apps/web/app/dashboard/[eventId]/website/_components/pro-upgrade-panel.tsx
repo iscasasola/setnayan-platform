@@ -230,7 +230,7 @@ function ProUpgradeCard({
         ) : (
           <Link
             href={upgradeHref}
-            className="inline-flex h-11 min-h-[44pt] items-center justify-center gap-2 rounded-md bg-terracotta px-4 text-sm font-medium text-cream transition-colors hover:bg-terracotta-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+            className="inline-flex h-11 min-h-[44pt] items-center justify-center gap-2 rounded-md bg-mulberry px-4 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry"
           >
             <span>Upgrade</span>
             <ArrowUpRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />

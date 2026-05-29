@@ -157,7 +157,7 @@ export function InviteVendorButton({
                   <button
                     type="submit"
                     disabled={pending}
-                    className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-terracotta px-4 py-2 text-sm font-semibold text-cream hover:bg-terracotta-700 disabled:opacity-60"
+                    className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-mulberry px-4 py-2 text-sm font-semibold text-cream hover:bg-mulberry-700 disabled:opacity-60"
                   >
                     {pending ? 'Sending…' : 'Send invite'}
                   </button>
@@ -203,7 +203,7 @@ export function InviteVendorButton({
                 <button
                   type="button"
                   onClick={() => setView({ kind: 'closed' })}
-                  className="w-full rounded-md bg-terracotta px-4 py-2 text-sm font-semibold text-cream hover:bg-terracotta-700"
+                  className="w-full rounded-md bg-mulberry px-4 py-2 text-sm font-semibold text-cream hover:bg-mulberry-700"
                 >
                   Done
                 </button>
@@ -219,7 +219,7 @@ export function InviteVendorButton({
                 <button
                   type="button"
                   onClick={() => setView({ kind: 'closed' })}
-                  className="w-full rounded-md bg-terracotta px-4 py-2 text-sm font-semibold text-cream hover:bg-terracotta-700"
+                  className="w-full rounded-md bg-mulberry px-4 py-2 text-sm font-semibold text-cream hover:bg-mulberry-700"
                 >
                   Done
                 </button>
@@ -234,7 +234,7 @@ export function InviteVendorButton({
                 <button
                   type="button"
                   onClick={() => setView({ kind: 'invite-form' })}
-                  className="w-full rounded-md bg-terracotta px-4 py-2 text-sm font-semibold text-cream hover:bg-terracotta-700"
+                  className="w-full rounded-md bg-mulberry px-4 py-2 text-sm font-semibold text-cream hover:bg-mulberry-700"
                 >
                   Try again
                 </button>

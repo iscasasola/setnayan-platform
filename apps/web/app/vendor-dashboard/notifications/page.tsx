@@ -93,7 +93,7 @@ export default async function VendorNotificationsPage() {
                   {n.related_url ? (
                     <Link
                       href={n.related_url}
-                      className="rounded-md bg-terracotta px-3 py-1 text-xs font-medium text-cream hover:bg-terracotta-600"
+                      className="rounded-md bg-mulberry px-3 py-1 text-xs font-medium text-cream hover:bg-mulberry-600"
                     >
                       Open
                     </Link>

@@ -229,7 +229,7 @@ function OrdersNeedingQuote({ orders }: { orders: OrderJoined[] }) {
               />
             </label>
             <SubmitButton
-              className="inline-flex items-center justify-center rounded-md bg-terracotta px-4 py-1.5 text-sm font-medium text-cream hover:bg-terracotta-600 disabled:opacity-70 sm:col-span-3"
+              className="inline-flex items-center justify-center rounded-md bg-mulberry px-4 py-1.5 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70 sm:col-span-3"
               pendingLabel="Confirming…"
             >
               Confirm quote · move to awaiting payment

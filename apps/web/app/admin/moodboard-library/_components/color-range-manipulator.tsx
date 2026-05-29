@@ -509,7 +509,7 @@ export function ColorRangeManipulator({ imageSrc, initialMap = {}, onChange, pre
           type="button"
           onClick={saveSlot}
           disabled={!pickedHex || showPreview}
-          className="rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-cream disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream disabled:cursor-not-allowed disabled:opacity-50"
         >
           Save sample to slot {activeSlot}
         </button>

@@ -274,7 +274,7 @@ function FinalizeDayModal({
             type="button"
             onClick={handleConfirm}
             disabled={isPending}
-            className="rounded-md bg-terracotta px-3 py-1.5 text-sm font-medium text-cream disabled:opacity-50"
+            className="rounded-md bg-mulberry px-3 py-1.5 text-sm font-medium text-cream disabled:opacity-50"
           >
             {isPending ? 'Saving…' : 'Finalize'}
           </button>

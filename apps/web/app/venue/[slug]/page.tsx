@@ -838,7 +838,7 @@ function SidebarCard({
         {!isAuthenticated ? (
           <Link
             href="/signup"
-            className="inline-flex w-full items-center justify-center rounded-md bg-terracotta px-3 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-700"
+            className="inline-flex w-full items-center justify-center rounded-md bg-mulberry px-3 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-700"
           >
             Sign up to plan with Setnayan
           </Link>
@@ -988,7 +988,7 @@ function VenueNotFound({ slug }: { slug: string }) {
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           <Link
             href="/vendors?folder=reception"
-            className="inline-flex items-center justify-center rounded-md bg-terracotta px-5 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-terracotta-700"
+            className="inline-flex items-center justify-center rounded-md bg-mulberry px-5 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-700"
           >
             Browse reception venues
           </Link>

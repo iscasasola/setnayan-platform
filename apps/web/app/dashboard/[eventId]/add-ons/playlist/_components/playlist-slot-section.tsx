@@ -240,7 +240,7 @@ export function PlaylistSlotSection({
               className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-semibold text-cream transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                 isBannedSlot
                   ? 'bg-rose-700 hover:bg-rose-800'
-                  : 'bg-terracotta hover:bg-terracotta-700'
+                  : 'bg-mulberry hover:bg-mulberry-700'
               }`}
             >
               <Music aria-hidden className="h-3 w-3" strokeWidth={2.25} />

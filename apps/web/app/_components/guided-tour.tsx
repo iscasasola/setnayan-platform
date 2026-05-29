@@ -105,7 +105,7 @@ export function GuidedTour({ tourKey, completeAction }: Props) {
                   type="button"
                   onClick={dismiss}
                   disabled={pending}
-                  className="inline-flex items-center gap-1 rounded-md bg-terracotta px-4 py-1.5 text-sm font-medium text-cream hover:bg-terracotta-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex items-center gap-1 rounded-md bg-mulberry px-4 py-1.5 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Got it
                 </button>
@@ -113,7 +113,7 @@ export function GuidedTour({ tourKey, completeAction }: Props) {
                 <button
                   type="button"
                   onClick={() => setStep((s) => Math.min(slides.length - 1, s + 1))}
-                  className="inline-flex items-center gap-1 rounded-md bg-terracotta px-4 py-1.5 text-sm font-medium text-cream hover:bg-terracotta-600"
+                  className="inline-flex items-center gap-1 rounded-md bg-mulberry px-4 py-1.5 text-sm font-medium text-cream hover:bg-mulberry-600"
                 >
                   Next
                   <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />

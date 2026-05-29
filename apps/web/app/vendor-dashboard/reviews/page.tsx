@@ -251,7 +251,7 @@ function ReplyForm({ reviewId }: { reviewId: string }) {
           One-time reply, anchored under the review. Up to 2,000 characters.
         </p>
         <SubmitButton
-          className="inline-flex items-center gap-1.5 rounded-md bg-terracotta px-3 py-2 text-xs font-medium text-cream hover:bg-terracotta-600 disabled:opacity-60"
+          className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-3 py-2 text-xs font-medium text-cream hover:bg-mulberry-600 disabled:opacity-60"
           pendingLabel="Posting…"
         >
           <Reply className="h-3.5 w-3.5" strokeWidth={2} />

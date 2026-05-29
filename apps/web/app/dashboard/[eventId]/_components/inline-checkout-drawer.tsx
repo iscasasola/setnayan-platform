@@ -182,7 +182,7 @@ export function InlineCheckoutDrawer({
       onClick={() => setOpen(true)}
       className={
         triggerClassName ??
-        'inline-flex items-center gap-2 rounded-full bg-terracotta px-5 py-2 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-600'
+        'inline-flex items-center gap-2 rounded-full bg-mulberry px-5 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600'
       }
       aria-haspopup="dialog"
     >
@@ -386,7 +386,7 @@ export function InlineCheckoutDrawer({
                   <button
                     type="submit"
                     disabled={submitPending || !screenshotRef}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-terracotta px-5 py-2.5 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-600 disabled:opacity-60"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-mulberry px-5 py-2.5 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600 disabled:opacity-60"
                   >
                     {submitPending ? (
                       <>
@@ -689,7 +689,7 @@ function SubmitSuccess({
         <button
           type="button"
           onClick={onDone}
-          className="inline-flex items-center justify-center gap-1.5 rounded-full bg-terracotta px-4 py-2 text-xs font-semibold text-cream hover:bg-terracotta-600"
+          className="inline-flex items-center justify-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-xs font-semibold text-cream hover:bg-mulberry-600"
         >
           Close
         </button>

@@ -133,7 +133,7 @@ export function CeremonyTypeModal({ eventId, currentValue, onClose }: Props) {
             type="button"
             onClick={handleSave}
             disabled={pending || !selected || (isEditing && selected === initial)}
-            className="inline-flex items-center justify-center rounded-md bg-terracotta px-4 py-2 text-sm font-semibold text-cream hover:bg-terracotta-700 disabled:opacity-50"
+            className="inline-flex items-center justify-center rounded-md bg-mulberry px-4 py-2 text-sm font-semibold text-cream hover:bg-mulberry-700 disabled:opacity-50"
           >
             {pending
               ? isEditing

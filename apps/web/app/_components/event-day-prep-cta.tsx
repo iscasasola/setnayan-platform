@@ -160,7 +160,7 @@ export function EventDayPrepCta({ eventId, eventDate, now = new Date() }: Props)
           onClick={onClick}
           disabled={busy}
           aria-busy={busy}
-          className="inline-flex shrink-0 items-center gap-2 self-start rounded-full bg-terracotta px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta-600 disabled:cursor-not-allowed disabled:opacity-60 sm:self-center"
+          className="inline-flex shrink-0 items-center gap-2 self-start rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-60 sm:self-center"
         >
           {busy ? (
             <>

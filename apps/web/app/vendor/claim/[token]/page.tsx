@@ -157,7 +157,7 @@ export default async function VendorClaimPage({ params }: Props) {
           <div className="flex flex-wrap gap-3">
             <Link
               href={signupUrl}
-              className="inline-flex items-center justify-center rounded-md bg-terracotta px-6 py-3 text-sm font-semibold text-cream hover:bg-terracotta-700"
+              className="inline-flex items-center justify-center rounded-md bg-mulberry px-6 py-3 text-sm font-semibold text-cream hover:bg-mulberry-700"
             >
               Claim &amp; sign up
             </Link>
@@ -221,14 +221,14 @@ export default async function VendorClaimPage({ params }: Props) {
             {existingVendor ? (
               <Link
                 href={signInUrl}
-                className="inline-flex items-center justify-center rounded-md bg-terracotta px-6 py-3 text-sm font-semibold text-cream hover:bg-terracotta-700"
+                className="inline-flex items-center justify-center rounded-md bg-mulberry px-6 py-3 text-sm font-semibold text-cream hover:bg-mulberry-700"
               >
                 Sign in &amp; claim
               </Link>
             ) : (
               <Link
                 href={signupUrl}
-                className="inline-flex items-center justify-center rounded-md bg-terracotta px-6 py-3 text-sm font-semibold text-cream hover:bg-terracotta-700"
+                className="inline-flex items-center justify-center rounded-md bg-mulberry px-6 py-3 text-sm font-semibold text-cream hover:bg-mulberry-700"
               >
                 Claim &amp; sign up
               </Link>
@@ -277,7 +277,7 @@ export default async function VendorClaimPage({ params }: Props) {
           <div className="flex flex-wrap gap-3">
             <Link
               href={signInUrl}
-              className="inline-flex items-center justify-center rounded-md bg-terracotta px-6 py-3 text-sm font-semibold text-cream hover:bg-terracotta-700"
+              className="inline-flex items-center justify-center rounded-md bg-mulberry px-6 py-3 text-sm font-semibold text-cream hover:bg-mulberry-700"
             >
               Sign in &amp; connect
             </Link>
@@ -370,7 +370,7 @@ export default async function VendorClaimPage({ params }: Props) {
         <div className="flex flex-wrap gap-3">
           <Link
             href={signupUrl}
-            className="inline-flex items-center justify-center rounded-md bg-terracotta px-6 py-3 text-sm font-semibold text-cream hover:bg-terracotta-700"
+            className="inline-flex items-center justify-center rounded-md bg-mulberry px-6 py-3 text-sm font-semibold text-cream hover:bg-mulberry-700"
           >
             Claim &amp; sign up
           </Link>

@@ -3,17 +3,21 @@
 /**
  * VoucherForm — shared create + edit form for /admin/discount-codes.
  *
- * WHY · Day 1 voucher system per CLAUDE.md 2026-05-29 Day 1 row. Single
- *       component services both /new (create) + /[id]/edit (update) so the
- *       form shape stays in lock-step. Client component because the value
- *       row conditionally renders based on the radio selection — server-only
- *       would have meant a full re-render per radio click.
+ * WHY · Day 1.5 corrective refactor of PR #594 per CLAUDE.md 2026-05-29
+ *       Day 1.5 row. Owner refined the voucher spec AFTER Day 1 shipped:
+ *       drop amount_off in favor of pct_off_capped (percentage off up to
+ *       a fiat cap). Schema now uses pct_value INT + cap_centavos BIGINT
+ *       in place of the generic discount_value column.
+ *
+ *       Single component services both /new (create) + /[id]/edit (update)
+ *       so the form shape stays in lock-step. Client component because the
+ *       cap row conditionally renders only when type === 'pct_off_capped'.
  *
  * Field contract (mirrors apps/web/app/admin/discount-codes/actions.ts):
  *   • code              — 8 A-Z 0-9 chars · auto-uppercase on blur · readOnly on edit
- *   • discount_type     — radio: amount_off | pct_off | free
- *   • discount_pesos    — number (shown when amount_off)
- *   • discount_pct      — number 1-100 (shown when pct_off)
+ *   • discount_type     — radio: pct_off | pct_off_capped | free
+ *   • discount_pct      — number 1-100 (shown for pct_off + pct_off_capped)
+ *   • cap_pesos         — number (shown ONLY when pct_off_capped)
  *   • expires_at        — datetime-local · REQUIRED
  *   • max_uses          — number · optional (blank = unlimited)
  *   • covered_services  — multi-checkbox of service_catalog.sku_code rows
@@ -32,13 +36,16 @@ type ServiceOption = {
   price_centavos: number;
 };
 
-type DiscountType = 'amount_off' | 'pct_off' | 'free';
+type DiscountType = 'pct_off' | 'pct_off_capped' | 'free';
 
 export type VoucherFormInitial = {
   discount_code_id: string | null; // null = create mode
   code: string;
   discount_type: DiscountType;
-  discount_value: number | null; // centavos for amount_off, 1-100 for pct, null for free
+  /** Integer 1-100 for pct_off + pct_off_capped, null for free. */
+  pct_value: number | null;
+  /** Centavos (NOT pesos) cap, NOT NULL only for pct_off_capped. */
+  cap_centavos: number | null;
   covered_service_keys: string[];
   expires_at: string | null; // ISO string OR null
   max_uses: number | null;
@@ -55,8 +62,8 @@ type Props = {
 };
 
 /**
- * Format a centavos integer back to pesos (display only · the server action
- * round-trips through Number.parseFloat * 100 on save).
+ * Format a centavos integer back to pesos for the cap input default value
+ * (server round-trips through Math.round(parseFloat(input) * 100) on save).
  */
 function centavosToPesos(c: number): string {
   return (c / 100).toFixed(2);
@@ -96,16 +103,12 @@ export function VoucherForm({
     initial.discount_type,
   );
 
-  // Pre-fill the value field based on initial.discount_type.
-  // amount_off: centavos → pesos (formatted). pct_off: integer. free: nothing.
-  const initialPesos =
-    initial.discount_type === 'amount_off' && initial.discount_value !== null
-      ? centavosToPesos(initial.discount_value)
-      : '';
+  // Pre-fill the value fields based on initial.discount_type.
+  // pct_value is integer · cap_centavos round-trips through pesos display.
   const initialPct =
-    initial.discount_type === 'pct_off' && initial.discount_value !== null
-      ? String(initial.discount_value)
-      : '';
+    initial.pct_value !== null ? String(initial.pct_value) : '';
+  const initialCapPesos =
+    initial.cap_centavos !== null ? centavosToPesos(initial.cap_centavos) : '';
 
   const initialExpiresAt = initial.expires_at
     ? isoToDatetimeLocal(initial.expires_at)
@@ -120,6 +123,13 @@ export function VoucherForm({
     acc.set(s.category, arr);
     return acc;
   }, new Map());
+
+  // pct input is shown for both pct_off and pct_off_capped (it's the same
+  // underlying field per the locked schema). The cap input ONLY appears
+  // for pct_off_capped.
+  const showPctInput =
+    discountType === 'pct_off' || discountType === 'pct_off_capped';
+  const showCapInput = discountType === 'pct_off_capped';
 
   return (
     <form action={action} className="space-y-6">
@@ -183,14 +193,14 @@ export function VoucherForm({
           className="mt-1 text-xs"
           style={{ color: 'var(--m-slate)' }}
         >
-          Amount off knocks pesos off the price · % off scales by percentage ·
-          Free makes covered services 100% off.
+          Percentage off scales by percentage · Percentage off (capped) tops
+          out at a peso ceiling · Free makes covered services 100% off.
         </p>
         <div className="mt-2 flex flex-wrap gap-3">
           {(
             [
-              { v: 'amount_off' as const, label: 'Amount off (₱)' },
-              { v: 'pct_off' as const, label: '% off' },
+              { v: 'pct_off' as const, label: 'Percentage off' },
+              { v: 'pct_off_capped' as const, label: 'Percentage off (capped)' },
               { v: 'free' as const, label: 'Free (100% off)' },
             ] satisfies { v: DiscountType; label: string }[]
           ).map((opt) => (
@@ -221,35 +231,8 @@ export function VoucherForm({
         </div>
       </div>
 
-      {/* Value · conditional based on discount_type */}
-      {discountType === 'amount_off' && (
-        <div>
-          <label
-            htmlFor="discount_pesos"
-            className="block text-sm font-medium"
-            style={{ color: 'var(--m-ink)' }}
-          >
-            Amount off (₱)
-          </label>
-          <input
-            type="number"
-            id="discount_pesos"
-            name="discount_pesos"
-            min="0.01"
-            step="0.01"
-            defaultValue={initialPesos}
-            required
-            className="mt-2 block w-full max-w-xs rounded-md border px-3 py-2"
-            style={{
-              background: 'var(--m-paper)',
-              borderColor: 'var(--m-line)',
-              color: 'var(--m-ink)',
-            }}
-          />
-        </div>
-      )}
-
-      {discountType === 'pct_off' && (
+      {/* Percentage · shown for pct_off + pct_off_capped */}
+      {showPctInput && (
         <div>
           <label
             htmlFor="discount_pct"
@@ -266,6 +249,42 @@ export function VoucherForm({
             max="100"
             step="1"
             defaultValue={initialPct}
+            required
+            className="mt-2 block w-full max-w-xs rounded-md border px-3 py-2"
+            style={{
+              background: 'var(--m-paper)',
+              borderColor: 'var(--m-line)',
+              color: 'var(--m-ink)',
+            }}
+          />
+        </div>
+      )}
+
+      {/* Cap · shown ONLY for pct_off_capped */}
+      {showCapInput && (
+        <div>
+          <label
+            htmlFor="cap_pesos"
+            className="block text-sm font-medium"
+            style={{ color: 'var(--m-ink)' }}
+          >
+            Maximum discount (₱)
+          </label>
+          <p
+            className="mt-1 text-xs"
+            style={{ color: 'var(--m-slate)' }}
+          >
+            The percentage tops out at this peso amount · e.g. a 50% off code
+            with a ₱500 cap on a ₱2,000 service still takes only ₱500 off
+            (not ₱1,000).
+          </p>
+          <input
+            type="number"
+            id="cap_pesos"
+            name="cap_pesos"
+            min="0.01"
+            step="0.01"
+            defaultValue={initialCapPesos}
             required
             className="mt-2 block w-full max-w-xs rounded-md border px-3 py-2"
             style={{

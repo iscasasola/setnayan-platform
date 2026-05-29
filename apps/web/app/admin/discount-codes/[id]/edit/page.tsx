@@ -1,12 +1,11 @@
 /**
  * /admin/discount-codes/[id]/edit — edit an existing voucher code.
  *
- * WHY · Day 1 voucher system per CLAUDE.md 2026-05-29 Day 1 row. Editing
- *       is gated to is_active=TRUE rows (the list page hides the [Edit] CTA
- *       on disabled rows · this server page also enforces it as a guard).
- *       The code itself is NOT editable (would break historical redemption
- *       audit) — only the discount shape + expiry + max_uses + covered
- *       services can change.
+ * WHY · Day 1.5 spec-aligned per CLAUDE.md 2026-05-29 Day 1.5 row. Row
+ *       type + initial state now read pct_value + cap_centavos columns
+ *       (replacing the retired generic discount_value). Editing is still
+ *       gated to is_active=TRUE rows + the code identifier itself is
+ *       still immutable for historical redemption audit integrity.
  */
 
 import { notFound } from 'next/navigation';
@@ -21,8 +20,10 @@ export const metadata = { title: 'Edit discount code · Admin' };
 type DiscountCodeRow = {
   discount_code_id: string;
   code: string;
-  discount_type: 'amount_off' | 'pct_off' | 'free';
-  discount_value: number | null;
+  discount_type: 'pct_off' | 'pct_off_capped' | 'free';
+  // Day 1.5 spec · pct_value + cap_centavos replace generic discount_value.
+  pct_value: number | null;
+  cap_centavos: number | null;
   covered_service_keys: string[];
   expires_at: string;
   max_uses: number | null;
@@ -51,7 +52,8 @@ export default async function EditDiscountCodePage({ params }: Props) {
     admin
       .from('discount_codes')
       .select(
-        'discount_code_id, code, discount_type, discount_value, covered_service_keys, expires_at, max_uses, uses_count, is_active',
+        // Day 1.5 schema · pct_value + cap_centavos replace discount_value.
+        'discount_code_id, code, discount_type, pct_value, cap_centavos, covered_service_keys, expires_at, max_uses, uses_count, is_active',
       )
       .eq('discount_code_id', id)
       .maybeSingle(),
@@ -77,14 +79,15 @@ export default async function EditDiscountCodePage({ params }: Props) {
   const services = (servicesRes.data ?? []) as ServiceRow[];
 
   // Build initial state for the shared form.
-  // discount_value comes back from Supabase as a string when typed NUMERIC,
-  // so coerce defensively before passing to VoucherForm (which expects number | null).
+  // pct_value is INT (returns as number) · cap_centavos is BIGINT (Supabase
+  // can return as number for V1 small magnitudes · coerce defensively).
   const initial: VoucherFormInitial = {
     discount_code_id: code.discount_code_id,
     code: code.code,
     discount_type: code.discount_type,
-    discount_value:
-      code.discount_value === null ? null : Number(code.discount_value),
+    pct_value: code.pct_value === null ? null : Number(code.pct_value),
+    cap_centavos:
+      code.cap_centavos === null ? null : Number(code.cap_centavos),
     covered_service_keys: code.covered_service_keys,
     expires_at: code.expires_at,
     max_uses: code.max_uses,

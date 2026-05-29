@@ -1,10 +1,9 @@
 /**
  * /admin/discount-codes/new — create a new voucher code.
  *
- * WHY · Day 1 voucher system per CLAUDE.md 2026-05-29 Day 1 row.
- *       Sub-route off the list page (reached via [Create code] CTA).
- *       Reuses the shared VoucherForm with empty `initial` shape so the
- *       form renders a blank create surface.
+ * WHY · Day 1.5 spec-aligned per CLAUDE.md 2026-05-29 Day 1.5 row.
+ *       Initial state defaults to 'pct_off' (most common 3-type case) ·
+ *       both pct_value + cap_centavos null on create.
  */
 
 import Link from 'next/link';
@@ -41,8 +40,11 @@ export default async function NewDiscountCodePage() {
   const initial: VoucherFormInitial = {
     discount_code_id: null,
     code: '',
-    discount_type: 'amount_off',
-    discount_value: null,
+    // Day 1.5 default: 'pct_off' (simplest case, no cap input shown).
+    // Admin flips to pct_off_capped or free via radio.
+    discount_type: 'pct_off',
+    pct_value: null,
+    cap_centavos: null,
     covered_service_keys: [],
     expires_at: null,
     max_uses: null,

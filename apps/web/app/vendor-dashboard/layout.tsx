@@ -50,8 +50,27 @@ export default async function VendorDashboardLayout({
     redirect('/login?error=Account+deleted');
   }
 
-  // Non-vendors get bounced to the couple-side dashboard.
-  if (profile?.account_type !== 'vendor') {
+  // Vendor-access gate — canonical "do they have vendor access" rule lives in
+  // `fetchUserRoleSummary` (apps/web/lib/roles.ts:165-167): a user has access
+  // if they own a `vendor_profiles` row OR sit on any `vendor_team_members`
+  // row, regardless of `users.account_type`. This matches the rule the
+  // always-visible RoleSwitchPill uses to decide whether to offer the "Shop
+  // console" target (apps/web/app/_components/role-switch-pill.tsx:82-95).
+  //
+  // Before this 2026-05-29 fix the layout instead checked the rigid
+  // `profile?.account_type === 'vendor'` predicate, which bounced anyone
+  // whose primary account_type wasn't 'vendor' back to /dashboard — even
+  // when they legitimately owned a vendor_profile (e.g. the owner running
+  // §10a Internal Account with is_internal=TRUE who also owns a vendor
+  // profile for pilot dogfooding). The role pill would offer Shop console,
+  // the user would click it, and the layout would silently redirect them
+  // back to the customer dashboard. Per CLAUDE.md 2026-05-15 dual-role lock
+  // ("a single users row may carry account_type='vendor' AND own/host
+  // events as a customer · Vendor application is additive") + 2026-05-20
+  // Login-landing rule lock ("admin + vendor consoles reached via
+  // role-switch pill only"), the canonical access gate is the role pill,
+  // and any console layout must accept users the pill grants access to.
+  if (!roles.hasVendorAccess) {
     redirect('/dashboard');
   }
 

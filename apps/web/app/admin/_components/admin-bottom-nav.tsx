@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * AdminBottomNav — v2.1 Navigation Phase 3 (admin mobile).
  *
@@ -24,6 +26,23 @@
  * BottomNav primitive (PR #603 + Phase 3 activeMatchExact extension)
  * auto-hides at lg breakpoint via lg:hidden, so this only renders on
  * mobile + tablet. Desktop uses the SidebarShell + AdminSidebar instead.
+ *
+ * CLIENT BOUNDARY (REQUIRED): this file holds the `ADMIN_BOTTOM_NAV_ITEMS`
+ * array whose entries carry `icon: LucideIcon` references — Lucide icons
+ * are forwardRef objects with `$$typeof` + `render` properties. When a
+ * Server Component renders `<BottomNav items={ADMIN_BOTTOM_NAV_ITEMS} />`
+ * and `BottomNav` is itself a Client Component, Next.js tries to
+ * serialize `items` across the Server→Client boundary and trips on the
+ * function references inside each icon ("Only plain objects can be
+ * passed to Client Components from Server Components" + "Functions
+ * cannot be passed directly to Client Components"). Without this
+ * directive every authed admin visit to /admin throws into the root
+ * error boundary at apps/web/app/error.tsx and renders "Something on
+ * our end didn't work." Marking this file `'use client'` keeps the icon
+ * references on the client side end-to-end so the boundary is never
+ * crossed. Symmetric with `apps/web/app/admin/_components/admin-sidebar.tsx`
+ * which has been `'use client'` since PR #606 for the same reason (its
+ * sidebar items also carry LucideIcon refs). Caught + fixed 2026-05-29.
  */
 
 import { Home, LayoutList, Users, DollarSign, Menu } from 'lucide-react';

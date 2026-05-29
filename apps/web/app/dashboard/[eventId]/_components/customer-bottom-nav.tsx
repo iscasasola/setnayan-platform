@@ -55,7 +55,7 @@
  * once and both surfaces stay in lockstep.
  */
 
-import { Focus, Home, Users, Globe, MessageSquare, Menu } from 'lucide-react';
+import { Home, Store, Users, MessageSquare, Menu } from 'lucide-react';
 import { BottomNav } from '@/app/_components/nav/bottom-nav';
 import type { BottomNavItem } from '@/app/_components/nav/types';
 
@@ -69,24 +69,39 @@ export function buildCustomerBottomNav(eventId: string): BottomNavItem[] {
 
   return [
     {
-      key: 'today',
-      label: 'Today',
-      href: `${base}/today`,
-      icon: Focus,
-      activeMatch: `${base}/today`,
-    },
-    {
+      // 2026-05-29 nav-tune (2) · Today's Focus EXITS the bottom nav.
+      // Today's Focus is a paid SKU (₱1,499-9,999 per CLAUDE.md V2 pricing
+      // decisions) — making it slot 1 for everyone burned prime real
+      // estate on a surface DIY couples can't fully use. Today moves to
+      // /more under an Add-ons group + gets featured as a CTA on the
+      // Home page where it can earn the click. Home promotes to slot 1.
       key: 'home',
       label: 'Home',
       href: base,
       icon: Home,
       // Exact-match override — every other event route also begins with
       // `${base}/`, so a default startsWith match would keep Home active
-      // on every page. Same trap that bottom-nav.tsx legacy implementation
-      // documented at line 106 + that admin-bottom-nav.tsx Home tab
-      // adopted at PR #606.
+      // on every page. Same trap admin-bottom-nav.tsx Home tab adopted
+      // at PR #606.
       activeMatch: base,
       activeMatchExact: true,
+    },
+    {
+      // 2026-05-29 nav-tune (2) · Vendors marketplace promoted to slot 2.
+      // Owner's framing: 'the connection of vendors and customer IS the
+      // marketplace. Without the marketplace or the vendor recommendation,
+      // we will not connect them properly.' Making Vendors slot 2 honors
+      // that — the marketplace is the platform's core connector surface,
+      // not an item buried in More.
+      //
+      // Routes to /dashboard/[eventId]/vendors (event-scoped vendor
+      // management + marketplace embed) so couples land in their event's
+      // vendor context, not the global /vendors page.
+      key: 'vendors',
+      label: 'Vendors',
+      href: `${base}/vendors`,
+      icon: Store,
+      activeMatch: `${base}/vendors`,
     },
     {
       key: 'guests',
@@ -95,10 +110,7 @@ export function buildCustomerBottomNav(eventId: string): BottomNavItem[] {
       icon: Users,
       // People-side surfaces all bucket under Guests on the mobile
       // chrome — guests list + per-guest workspace, sponsors, hosts,
-      // and the invitation editor. The full /more landing surfaces
-      // each as its own card too; this umbrella keeps the mobile
-      // bottom-tab feeling natural when the host taps from a person
-      // sub-route.
+      // and the invitation editor.
       activeMatch: [
         `${base}/guests`,
         `${base}/sponsors`,
@@ -106,12 +118,9 @@ export function buildCustomerBottomNav(eventId: string): BottomNavItem[] {
       ],
     },
     {
-      // 2026-05-29 nav-tune — Messages promoted to bottom nav (slot 4) in
-      // place of Website. Couples chat with vendors DAILY during planning;
-      // Website is set-it-and-forget-it after the first share. Website +
-      // invitation editor moved into /more under the Share group. Per
-      // [[feedback_setnayan_orphan_prevention]] both /website + /invitation
-      // remain reachable + active-state lights via the /more landing.
+      // 2026-05-29 nav-tune (1) · Messages stays in slot 4 (was slot 5
+      // before PR #637 swapped Website → Messages). Couples chat with
+      // vendors DAILY during planning.
       key: 'messages',
       label: 'Messages',
       href: `${base}/messages`,
@@ -128,23 +137,25 @@ export function buildCustomerBottomNav(eventId: string): BottomNavItem[] {
       // [[feedback_setnayan_orphan_prevention]] rule — every route
       // must be reachable AND have its active tab light up correctly.
       // New routes need an entry here OR in one of the umbrellas above.
-      // 2026-05-29 nav-tune — Messages + Contracts moved OUT (now under
-      // the dedicated Messages tab). Website + Invitation moved IN
-      // (relocated from the prior Website tab slot which Messages took).
+      // 2026-05-29 nav-tune (2) · Today's Focus moved IN (was slot 1).
+      // Vendors moved OUT (now slot 2 · the marketplace connector tab).
+      // Everything else preserved from the PR #637 layout.
       activeMatch: [
         `${base}/more`,
-        // Plan group (excluding guests + hosts which sit under Guests)
+        // Today's Focus — paid SKU, now lives under More with upsell
+        // surface on Home + inline on Plan cards
+        `${base}/today`,
+        // Plan group (excluding guests + hosts which sit under Guests,
+        // and vendors which has its own tab)
         `${base}/seating`,
         `${base}/schedule`,
-        `${base}/vendors`,
         // Spend group
         `${base}/budget`,
         `${base}/orders`,
         // /receipts is app-root scoped — added so reaching it from any
         // event-scoped route highlights More on the mobile chrome.
         '/receipts',
-        // Share group — Website + invitation editor now live under More
-        // (swapped to the Messages slot in bottom nav for daily-freq use)
+        // Share group — Website + invitation editor live under More
         `${base}/website`,
         `${base}/invitation`,
         `${base}/add-ons`,

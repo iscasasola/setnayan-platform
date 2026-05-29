@@ -35,6 +35,7 @@ import { VendorNav } from './_components/vendor-nav';
 import { VendorHero } from './_components/vendor-hero';
 import { StackCloseVendor } from './_components/stack-close-vendor';
 import { ForVendorsDeepDive } from './_components/for-vendors-deep-dive';
+import { ProductionsCatalog } from './_components/productions-catalog';
 import { Voices, Pricing, FAQ, ClosingCTA, Footer } from './_components/page-tail';
 
 // SEO/GEO Bucket 8 (CLAUDE.md 2026-05-29 SEO/GEO Sprint row) — 1hr Vercel
@@ -241,6 +242,17 @@ export default function ForVendorsPage() {
         <ForVendorsDeepDive />
         <Voices />
         <Pricing />
+        {/*
+          ProductionsCatalog · added 2026-05-30 per CLAUDE.md row "For Vendors
+          Section 4 · The Complete Offering". Renders the 18 complimentary
+          tools + 21 Productions services live from platform_retail_catalog_v2.
+          Sits between Pricing (vendor tier comparison) and FAQ so vendors who
+          just compared Free/Verified/Pro/Enterprise see what couples actually
+          buy next — and recognise the Token-Worthy items they can recommend
+          for referral tokens. Auto-updates when admin edits a price in
+          /admin/pricing (revalidatePath fired from server action).
+        */}
+        <ProductionsCatalog />
         <FAQ />
         <ClosingCTA />
         <Footer />

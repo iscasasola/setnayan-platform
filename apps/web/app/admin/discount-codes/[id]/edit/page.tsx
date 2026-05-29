@@ -10,7 +10,7 @@
 
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { fetchV2CustomerCatalog, fetchV2BundleCatalog } from '@/lib/v2-catalog';
+import { fetchV2CustomerCatalog, fetchV2BundleCatalog, fetchV2VendorCatalog } from '@/lib/v2-catalog';
 import { ChevronLeft } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { VoucherForm, type VoucherFormInitial } from '../../_components/voucher-form';
@@ -48,14 +48,9 @@ export default async function EditDiscountCodePage({ params }: Props) {
 
   const admin = createAdminClient();
 
-  // Fetch the row + V2 customer/bundle catalogs in parallel. WHY · 2026-05-29
-  // fix: V1 service_catalog rows are mostly is_active=FALSE post V2 publisher
-  // cutover (CLAUDE.md 2026-05-28 third row). The V2 SKUs that customers
-  // actually buy live in `platform_retail_catalog_v2` + bundles in
-  // `platform_package_catalog_v2`. Day 2 inline-checkout-drawer already
-  // passes V2 service_codes as serviceKey to the validator — admin must
-  // edit vouchers using the same code namespace.
-  const [codeRes, customers, bundles] = await Promise.all([
+  // Fetch the row + V2 customer + bundle + vendor catalogs in parallel.
+  // Per owner 2026-05-29 follow-up after #598: vendor SKUs voucherable too.
+  const [codeRes, customers, bundles, vendors] = await Promise.all([
     admin
       .from('discount_codes')
       .select(
@@ -66,6 +61,7 @@ export default async function EditDiscountCodePage({ params }: Props) {
       .maybeSingle(),
     fetchV2CustomerCatalog(),
     fetchV2BundleCatalog(),
+    fetchV2VendorCatalog(),
   ]);
 
   if (codeRes.error) {
@@ -77,8 +73,7 @@ export default async function EditDiscountCodePage({ params }: Props) {
   }
 
   // Map V2 shape onto the form's ServiceRow contract. Pricing held in
-  // pesos in V2 (retail_price_php NUMERIC) — convert to centavos for the
-  // form display layer. Category derived from SKU origin.
+  // pesos in V2 — convert to centavos for the form display layer.
   const services: ServiceRow[] = [
     ...customers.map((c) => ({
       sku_code: c.service_code,
@@ -91,6 +86,15 @@ export default async function EditDiscountCodePage({ params }: Props) {
       display_name: b.title,
       category: 'Bundle',
       price_centavos: Math.round(b.retail_price_php * 100),
+    })),
+    ...vendors.map((v) => ({
+      sku_code: v.sku_code,
+      display_name: v.title,
+      category:
+        v.offering_type === 'subscription_monthly'
+          ? 'Vendor subscription'
+          : 'Vendor tokens',
+      price_centavos: Math.round(v.price_php * 100),
     })),
   ].sort((a, b) =>
     a.category === b.category

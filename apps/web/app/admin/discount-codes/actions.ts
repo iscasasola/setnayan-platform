@@ -174,7 +174,10 @@ async function validateCoveredServices(keys: string[]): Promise<string[]> {
     throw new Error('Pick at most 50 services per code.');
   }
   const admin = createAdminClient();
-  const [customersRes, bundlesRes] = await Promise.all([
+  // Per owner 2026-05-29 follow-up: vendor SKUs voucherable too. Vendor
+  // checkout UI is V1.x post-pilot — codes can be created now; activate
+  // when vendor billing surfaces ship.
+  const [customersRes, bundlesRes, vendorsRes] = await Promise.all([
     admin
       .from('platform_retail_catalog_v2')
       .select('service_code')
@@ -183,6 +186,10 @@ async function validateCoveredServices(keys: string[]): Promise<string[]> {
       .from('platform_package_catalog')
       .select('package_code')
       .in('package_code', keys),
+    admin
+      .from('vendor_billing_catalog')
+      .select('sku_code')
+      .in('sku_code', keys),
   ]);
   if (customersRes.error) {
     throw new Error(`Customer catalog lookup failed: ${customersRes.error.message}`);
@@ -190,9 +197,13 @@ async function validateCoveredServices(keys: string[]): Promise<string[]> {
   if (bundlesRes.error) {
     throw new Error(`Bundle catalog lookup failed: ${bundlesRes.error.message}`);
   }
+  if (vendorsRes.error) {
+    throw new Error(`Vendor catalog lookup failed: ${vendorsRes.error.message}`);
+  }
   const found = new Set<string>([
     ...(customersRes.data ?? []).map((r) => r.service_code as string),
     ...(bundlesRes.data ?? []).map((r) => r.package_code as string),
+    ...(vendorsRes.data ?? []).map((r) => r.sku_code as string),
   ]);
   const missing = keys.filter((k) => !found.has(k));
   if (missing.length > 0) {

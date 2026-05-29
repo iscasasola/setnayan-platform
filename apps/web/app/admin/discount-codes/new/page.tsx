@@ -10,7 +10,7 @@ import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 import { VoucherForm, type VoucherFormInitial } from '../_components/voucher-form';
 import { createDiscountCode } from '../actions';
-import { fetchV2CustomerCatalog, fetchV2BundleCatalog } from '@/lib/v2-catalog';
+import { fetchV2CustomerCatalog, fetchV2BundleCatalog, fetchV2VendorCatalog } from '@/lib/v2-catalog';
 
 export const metadata = { title: 'New discount code · Admin' };
 
@@ -22,23 +22,23 @@ type ServiceRow = {
 };
 
 export default async function NewDiscountCodePage() {
-  // Source: V2 customer catalog + bundle catalog · NOT V1 `service_catalog`.
-  // WHY · 2026-05-29 fix: V1 service_catalog rows are mostly is_active=FALSE
-  // post V2 publisher cutover (CLAUDE.md 2026-05-28 third row). The V2 SKUs
-  // that customers actually buy (Today's Focus, Animated Monogram, Panood,
-  // Pakanta, Papic, etc.) live in `platform_retail_catalog_v2` + bundles in
-  // `platform_package_catalog_v2`. Day 2 inline-checkout-drawer already
-  // passes V2 service_codes as serviceKey to the validator, so admin must
-  // create vouchers using the same code namespace.
-  const [customers, bundles] = await Promise.all([
+  // Source: V2 customer catalog + bundle catalog + vendor catalog. Per owner
+  // 2026-05-29 follow-up after #598: vendor SKUs (Pro Vendor monthly/annual,
+  // Enterprise, verification renewal, token packs) should also be voucherable
+  // even though vendor checkout UI itself is V1.x post-pilot — admin can
+  // create the codes now; they activate when vendor billing surfaces ship.
+  // Customer + bundle from #598 stay. Vendor SKUs added here.
+  const [customers, bundles, vendors] = await Promise.all([
     fetchV2CustomerCatalog(),
     fetchV2BundleCatalog(),
+    fetchV2VendorCatalog(),
   ]);
 
   // Map V2 shape onto the existing ServiceRow contract the form expects.
-  // Pricing held in pesos in V2 (retail_price_php NUMERIC) — convert to
-  // centavos for the form display layer. Category derived from SKU shape:
-  // bundles → 'Bundle' · standalone customer SKUs → 'Customer service'.
+  // Pricing held in pesos in V2 (retail_price_php / price_php NUMERIC) —
+  // convert to centavos for the form display layer. Category derived from
+  // origin table: customers → 'Customer service' · bundles → 'Bundle' ·
+  // vendor subs → 'Vendor subscription' · vendor token packs → 'Vendor tokens'.
   const services: ServiceRow[] = [
     ...customers.map((c) => ({
       sku_code: c.service_code,
@@ -51,6 +51,15 @@ export default async function NewDiscountCodePage() {
       display_name: b.title,
       category: 'Bundle',
       price_centavos: Math.round(b.retail_price_php * 100),
+    })),
+    ...vendors.map((v) => ({
+      sku_code: v.sku_code,
+      display_name: v.title,
+      category:
+        v.offering_type === 'subscription_monthly'
+          ? 'Vendor subscription'
+          : 'Vendor tokens',
+      price_centavos: Math.round(v.price_php * 100),
     })),
   ].sort((a, b) =>
     a.category === b.category

@@ -51,20 +51,28 @@
  * trips Next.js serialization. Symmetric pattern.
  */
 
-import { Home, Briefcase, MessageSquare, Megaphone, Menu } from 'lucide-react';
+import { Home, Briefcase, MessageSquare, Wallet, Menu } from 'lucide-react';
 import { BottomNav } from '@/app/_components/nav/bottom-nav';
 import type { BottomNavItem } from '@/app/_components/nav/types';
 
 const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
   {
-    key: 'profile',
-    label: 'Profile',
-    href: '/vendor-dashboard',
-    icon: Home,
+    // 2026-05-29 nav-tune — relabeled Profile → Home. Root route
+    // /vendor-dashboard now renders the Overview (per PR #636) not the
+    // profile editor. Profile editor moved to /vendor-dashboard/profile
+    // and is reachable via the sidebar Home group + /more landing.
+    //
+    // `key: 'profile'` preserved so the per-section localStorage
+    // `setnayan.nav.section.profile.open` state from existing users
+    // doesn't reset on the relabel.
+    //
     // Exact-match override — every other vendor route also begins with
     // `/vendor-dashboard/`, so a default startsWith match would keep
-    // Profile active on every page. Same trap that customer-bottom-nav
-    // + admin-bottom-nav documented (Home/Overview tabs).
+    // this tab active on every page.
+    key: 'profile',
+    label: 'Home',
+    href: '/vendor-dashboard',
+    icon: Home,
     activeMatch: '/vendor-dashboard',
     activeMatchExact: true,
   },
@@ -83,14 +91,15 @@ const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     activeMatch: '/vendor-dashboard/messages',
   },
   {
-    key: 'marketing',
-    label: 'Marketing',
-    href: '/vendor-dashboard/marketing',
-    icon: Megaphone,
-    // Marketing + Verify pair on mobile chrome — both are visibility +
-    // trust surfaces that read as one cognitive bucket on a narrow
-    // viewport. Each still has its own sidebar entry on desktop.
-    activeMatch: ['/vendor-dashboard/marketing', '/vendor-dashboard/verify'],
+    // 2026-05-29 nav-tune — Earnings promoted to bottom nav slot 4 in
+    // place of Marketing. Pilot vendors check earnings weekly (anxiety
+    // about whether payments landed); Marketing campaigns are set
+    // monthly. Marketing moves to /more under the Marketing group.
+    key: 'earnings',
+    label: 'Earnings',
+    href: '/vendor-dashboard/earnings',
+    icon: Wallet,
+    activeMatch: '/vendor-dashboard/earnings',
   },
   {
     key: 'more',
@@ -102,17 +111,24 @@ const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     // route must be reachable AND have its active tab light up
     // correctly. New routes need an entry here OR in one of the
     // dedicated tabs above.
+    // 2026-05-29 nav-tune — Marketing + Verify moved IN (relocated from
+    // the prior Marketing tab slot which Earnings took). Earnings moved
+    // OUT (now a dedicated bottom-nav tab). Profile editor moved IN
+    // (since Home tab is now the Overview; Profile sits at /profile).
     activeMatch: [
       '/vendor-dashboard/more',
+      // Home group (Profile now lives at /profile after PR #636)
+      '/vendor-dashboard/profile',
       // Pipeline group (excluding bookings which has its own tab)
       '/vendor-dashboard/contracts',
       '/vendor-dashboard/services',
       '/vendor-dashboard/attributes',
-      // Marketing group (excluding marketing + verify which pair under Marketing tab)
+      // Marketing group — Marketing + Verify moved here from bottom nav
+      '/vendor-dashboard/marketing',
+      '/vendor-dashboard/verify',
       '/vendor-dashboard/reviews',
       '/vendor-dashboard/moodboard-library',
-      // Money group
-      '/vendor-dashboard/earnings',
+      // Money group (Earnings is now a dedicated bottom-nav tab)
       '/vendor-dashboard/tokens',
       '/vendor-dashboard/manpower',
       // '/vendor-dashboard/tax-documents' RETIRED 2026-05-29 (BIR 2307

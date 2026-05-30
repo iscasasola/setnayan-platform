@@ -8,13 +8,17 @@ import { useEffect, useRef, useState } from 'react';
  * top-nav row). A custom dropdown anchored to the avatar-circle on the
  * right side of the dashboard chrome. Replaces the prior plain-Link avatar.
  *
- * Rows:
- *   - Profile & settings  →  /dashboard/profile (consolidated in V1 per
- *     iteration 0025; spec lists "Profile / Settings" as two rows but the
- *     current app exposes a single combined page — TODO: split into two
- *     menu rows once `/dashboard/settings` ships as a distinct route).
- *   - Sign out             →  POST /auth/sign-out (form action; preserves
- *     the existing server-side signOut + redirect flow).
+ * Rows (2026-05-30 split):
+ *   - Profile   →  /dashboard/profile (lands at top · Personal info +
+ *                  Change password + account-identity section).
+ *   - Settings  →  /dashboard/profile#settings (anchor-scrolls to the
+ *                  Planner mode / Display language / Appearance /
+ *                  Privacy & data preferences block · iteration 0025
+ *                  Profile + Settings tab list rendered as anchor
+ *                  sections of one page in V1 · no separate
+ *                  /dashboard/settings route exists or is needed).
+ *   - Sign out  →  POST /auth/sign-out (form action; preserves
+ *                  the existing server-side signOut + redirect flow).
  *
  * 2026-05-30 (CLAUDE.md decision-log): the avatar trigger button is now
  * h-11 w-11 (44×44) instead of h-9 w-9 (36×36). WHY: the global rule in
@@ -116,9 +120,17 @@ export function ProfileMenu({
             className="block rounded-xl px-3 py-2 text-sm text-ink/85 hover:bg-terracotta/10 hover:text-ink"
             onClick={() => setOpen(false)}
           >
-            Profile &amp; settings
+            Profile
           </Link>
-          <form action="/auth/sign-out" method="post" className="mt-0.5">
+          <Link
+            role="menuitem"
+            href="/dashboard/profile#settings"
+            className="block rounded-xl px-3 py-2 text-sm text-ink/85 hover:bg-terracotta/10 hover:text-ink"
+            onClick={() => setOpen(false)}
+          >
+            Settings
+          </Link>
+          <form action="/auth/sign-out" method="post" className="mt-2 border-t border-ink/10 pt-2">
             <button
               role="menuitem"
               type="submit"

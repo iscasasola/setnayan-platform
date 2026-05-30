@@ -29,6 +29,23 @@ export type EventRow = {
    */
   monogram_text: string | null;
   monogram_color: string | null;
+  /**
+   * Today's Focus subscription status · production column kept the
+   * concierge_status name even after the 2026-05-24 8th-row spec lock
+   * specced renaming to todays_focus_status (the rename never shipped
+   * per [[feedback_setnayan_latest_spec_priority]] · latest shipped
+   * state wins).
+   *
+   * Drives the DIY/Paid wizard surface bifurcation locked 2026-05-30:
+   *   'diy' (default · free tier) → WIZARD_TASKS_DIY 9-card Foundation
+   *   'trial' / 'active' (paid Today's Focus) → WIZARD_TASKS_PAID full 65-card
+   *   'expired' (lapsed paid) → falls back to WIZARD_TASKS_DIY
+   *
+   * Read by `getCarouselTasks` in apps/web/lib/wizard.ts. May be null
+   * for legacy rows that pre-date the column · null is treated as
+   * 'diy' (the safe default).
+   */
+  concierge_status: 'diy' | 'trial' | 'active' | 'expired' | null;
 };
 
 export type EventWithRole = EventRow & {
@@ -73,7 +90,8 @@ export const fetchUserEvents = cache(async (
          venue_name,
          venue_address,
          monogram_text,
-         monogram_color
+         monogram_color,
+         concierge_status
        )`,
     )
     .eq('user_id', userId);

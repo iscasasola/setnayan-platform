@@ -49,6 +49,20 @@
 export type WizardTaskId =
   // Phase 0 · Setup
   | 'set_wedding_date'
+  // DIY Foundation cards · added 2026-05-30 (CLAUDE.md owner directive
+  // DIY/Paid bifurcation lock). These IDs only surface in the DIY 9-card
+  // sequence (events.concierge_status='diy' OR 'expired') — paid Today's
+  // Focus continues to render the full canonical 65-task sequence
+  // WIZARD_TASKS_PAID exposes. See WIZARD_TASKS_DIY array + getCarouselTasks
+  // branch below for the dispatch.
+  | 'set_estimated_pax'
+  | 'set_estimated_budget'
+  | 'add_a_category'
+  // Dynamic vendor-pick IDs spawned by Add A Category multi-pick. Format:
+  // `custom_<canonical_service>` (e.g., `custom_florals`, `custom_bridal_car`).
+  // The template-literal union keeps TypeScript happy when getCarouselTasks
+  // appends these to the DIY sequence at render time.
+  | `custom_${string}`
   // Phase 1 · Foundation (T-12m to T-9m)
   | 'reception_venue'
   | 'ceremony_venue'
@@ -138,7 +152,14 @@ export type WizardCardKind =
   /** Top 5 vendor recommendations + inline Lock + custom add + VIEW MORE. */
   | 'vendor_pick'
   /** Multi-step external process · checklist · upload · render. */
-  | 'external_process';
+  | 'external_process'
+  /**
+   * Host-triggered action that spawns downstream tasks (e.g., Add A
+   * Category lets the host multi-pick canonical_services and each pick
+   * spawns its own vendor_pick task). Added 2026-05-30 for the DIY
+   * Foundation 9-card sequence's add_a_category surface.
+   */
+  | 'host_action';
 
 /** Phases group cards by relative timing to the wedding date. */
 export type WizardPhase =
@@ -1257,15 +1278,162 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
 
 /**
  * Public export · `_WIZARD_TASKS_RAW` sorted by the `order` field. This
- * is what every consumer reads (carousel · sequence resolver · plan
- * grid · per-card hard-floor scheduler).
+ * is the canonical PAID Today's Focus sequence — events with
+ * concierge_status='trial' or 'active' (per CLAUDE.md 2026-05-24 8th-row
+ * Today's Focus SKU lock · production column stayed concierge_status
+ * even after the rename was specced) get this full 65-task ladder.
  *
  * Sort is stable per Array.prototype.sort spec (ECMA-262 since 2019) so
  * tasks sharing the same `order` value (none today but possible if a
  * future spec lock adds tied positions) preserve their source order.
+ *
+ * Renamed from `WIZARD_TASKS` → `WIZARD_TASKS_PAID` on 2026-05-30 owner
+ * directive (DIY/Paid sequence bifurcation). `WIZARD_TASKS` retained as a
+ * backwards-compat re-export below so existing consumers (wizard-actions
+ * validator + in-flight tray + wizard-carousel step count + wizard-card
+ * step-of-N rendering) keep working with zero churn.
  */
-export const WIZARD_TASKS: ReadonlyArray<WizardTask> = [..._WIZARD_TASKS_RAW]
+export const WIZARD_TASKS_PAID: ReadonlyArray<WizardTask> = [..._WIZARD_TASKS_RAW]
   .sort((a, b) => a.order - b.order);
+
+/**
+ * Backwards-compat alias for `WIZARD_TASKS_PAID`.
+ *
+ * Every consumer (apps/web/app/dashboard/[eventId]/wizard-actions.ts
+ * validator · _components/in-flight-tray.tsx taskMap · _components/
+ * wizard-carousel.tsx step counts · _components/wizard-card.tsx
+ * findIndex-based step labels) reads this. They semantically mean "the
+ * canonical sorted task universe for step-of-N rendering + ID
+ * validation" which IS the paid 65-task ladder · DIY hosts see a
+ * subset (9 tasks) and their step labels naturally show "Step N of 9"
+ * because the consumers iterate getCarouselTasks output, not
+ * WIZARD_TASKS directly.
+ *
+ * Keeping the export shape stable avoids touching every consumer for a
+ * rename · per [[feedback_setnayan_orphan_prevention]] minimizes blast
+ * radius and per the button-preservation discipline keeps existing
+ * surfaces wired the way they shipped.
+ */
+export const WIZARD_TASKS: ReadonlyArray<WizardTask> = WIZARD_TASKS_PAID;
+
+/**
+ * DIY Foundation 9-card sequence · owner-locked 2026-05-30 (CLAUDE.md
+ * DIY/Paid bifurcation row). Free / DIY couples (events.concierge_status
+ * IN ('diy', 'expired') · default for free tier per V2 publisher posture)
+ * see this 9-card Foundation instead of the full 65-card paid sequence.
+ *
+ * The order:
+ *   01 Set your wedding date (existing)
+ *   02 Set Estimated Pax (NEW · data_input · drives downstream sizing)
+ *   03 Set Estimated Budget (NEW · data_input · drives downstream filtering)
+ *   04 Lock your reception venue (existing · reordered from #2 → #4)
+ *   05 Lock your ceremony venue (existing · reordered from #3 → #5)
+ *   06 Lock your caterer (existing · reordered from #7 → #6)
+ *   07 Lock your attire (existing · promoted from #18 → #7)
+ *   08 Lock your ring jeweler (existing · promoted from #22.5 → #8)
+ *   09 Add A Category (NEW · host_action · multi-pick from 192 canonicals)
+ *
+ * Add A Category spawns dynamic `custom_<canonical_service>` vendor_pick
+ * tasks per host pick. The dynamic tasks slot into getCarouselTasks
+ * output after the 9 baseline tasks. Agent B (sibling PR) builds the
+ * Add A Category card component + multi-pick UI + dispatcher wiring.
+ *
+ * Cherry-picks are stable references into WIZARD_TASKS_PAID rather than
+ * literal duplicates · changing copy on the source PAID definition
+ * automatically flows into the DIY view. Each cherry-pick uses a strict
+ * `find(t => t.id === '...')!` because every ID below exists in
+ * _WIZARD_TASKS_RAW (verified at code-review time · TS catches typos via
+ * the WizardTaskId union).
+ */
+export const WIZARD_TASKS_DIY: ReadonlyArray<WizardTask> = [
+  // #1 · existing
+  WIZARD_TASKS_PAID.find((t) => t.id === 'set_wedding_date')!,
+  // #2 · NEW · estimated pax · order 1.6 slots after wedding_date (1) +
+  // ahead of draft_guest_list (1.5) so the rough count is captured before
+  // any guest-list scaffolding. Order field doesn't drive the DIY sequence
+  // (declaration order does · same stable-sort guarantee as Array.sort) but
+  // we set realistic numbers so any caller that re-sorts gets the right
+  // shape.
+  {
+    id: 'set_estimated_pax',
+    order: 1.6,
+    phase: 'foundation',
+    kind: 'data_input',
+    title: 'Set your estimated guest count',
+    whyItMatters:
+      "About how many guests are you expecting? A rough number now drives the venue size your reception needs, the catering quote, and the invitation print run — Filipino weddings routinely grow from 80 to 200 between engagement and RSVP, so anchoring the headline number up-front prevents downstream churn.",
+    pillLabel: 'Foundation',
+    prerequisites: ['set_wedding_date'],
+  },
+  // #3 · NEW · estimated budget · order 1.7 keeps it after pax. Persists
+  // to existing events.wedding_budget_centavos column (no new schema for
+  // budget · added 2026-05-24 per the ShortlistBudgetCard surface).
+  {
+    id: 'set_estimated_budget',
+    order: 1.7,
+    phase: 'foundation',
+    kind: 'data_input',
+    title: 'Set your working budget',
+    whyItMatters:
+      "A working budget shapes your shortlist — once it's set, your vendor recommendations + Plan grid math respect the ceiling. Pick a comfortable range; you can adjust as quotes land.",
+    pillLabel: 'Foundation',
+    prerequisites: ['set_wedding_date'],
+  },
+  // #4 · existing · reordered from PAID position 2 → DIY position 4
+  WIZARD_TASKS_PAID.find((t) => t.id === 'reception_venue')!,
+  // #5 · existing · keep task ID `ceremony_venue` for schema stability ·
+  // owner directive: card component renders 'Ceremonial Venue' as label
+  // (Agent B handles the rename inside the card component dispatcher).
+  WIZARD_TASKS_PAID.find((t) => t.id === 'ceremony_venue')!,
+  // #6 · existing · reordered from PAID position 7 → DIY position 6
+  WIZARD_TASKS_PAID.find((t) => t.id === 'catering')!,
+  // #7 · existing · promoted from PAID position 7.6 → DIY position 7. The
+  // 6-subtab attire sub-picker from PR #546 (bridal gown · bridal shoes ·
+  // groom suit · groom shoes · entourage attire · parents attire) is
+  // already shipped on the existing attire card · do NOT touch the card
+  // component.
+  WIZARD_TASKS_PAID.find((t) => t.id === 'attire')!,
+  // #8 · existing · promoted from PAID position 9.5 → DIY position 8.
+  // Task ID is `rings` (the underlying canonical service is `wedding_rings`
+  // per Vendor_Taxonomy_V1_Master.md · the wizard task identifier is the
+  // shorter `rings` slug for backwards-compat with shipped wizard-state
+  // entries).
+  WIZARD_TASKS_PAID.find((t) => t.id === 'rings')!,
+  // #9 · NEW · add a category · host_action · always available · no
+  // prereqs other than set_wedding_date so the host can add categories
+  // any time. Multi-pick body built by Agent B reads from the 192-row
+  // canonical_service_schemas table; each pick writes back into
+  // events.wizard_state.add_a_category.picks (TEXT[]) which
+  // getCarouselTasks reads to spawn dynamic `custom_<canonical>` tasks.
+  {
+    id: 'add_a_category',
+    order: 9,
+    phase: 'foundation',
+    kind: 'host_action',
+    title: 'Add a category',
+    whyItMatters:
+      "Anything else on your mind — florals · band · DJ · cake · invitations · honeymoon · paprint? Pick from our catalog and each addition spawns its own card you can lock at your own pace. Add as many as you want.",
+    pillLabel: 'Foundation',
+    prerequisites: ['set_wedding_date'],
+  },
+];
+
+/**
+ * Returns a human-readable display name for a canonical_service key used
+ * in dynamic vendor_pick tasks spawned by Add A Category. V1 uses a
+ * simple title-case + underscore-strip; V1.x can swap to reading the
+ * canonical_service_schemas.display_name column for localized labels.
+ *
+ * Examples:
+ *   florals → 'Florals'
+ *   bridal_car → 'Bridal Car'
+ *   wedding_coordination → 'Wedding Coordination'
+ */
+function displayCanonical(canonical: string): string {
+  return canonical
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 /** Shape of events.wizard_state JSONB column.
  *
@@ -1429,18 +1597,112 @@ export function getFirstUnmetPrereq(
 }
 
 /**
+ * Optional event shape consumed by `getCarouselTasks` for DIY/Paid
+ * sequence routing. Only the two columns the branch actually reads are
+ * required — the full `EventRow` from `lib/events.ts` is a superset and
+ * fits without coercion.
+ *
+ * Added 2026-05-30 for the DIY/Paid wizard surface bifurcation. Kept
+ * structural (not nominal) so consumers can pass any object exposing
+ * the right two fields without importing the full EventRow type and
+ * tightly coupling lib/wizard.ts to lib/events.ts.
+ */
+type WizardCarouselEventInput = {
+  concierge_status: 'diy' | 'trial' | 'active' | 'expired' | null;
+  wizard_state?: unknown;
+};
+
+/**
+ * Returns the canonical task sequence the caller should walk for the
+ * carousel. Branches on events.concierge_status per the owner-locked
+ * 2026-05-30 DIY/Paid bifurcation:
+ *
+ *   - 'active' OR 'trial' → WIZARD_TASKS_PAID (full 65-card sequence)
+ *   - 'diy' | 'expired' | null | undefined → WIZARD_TASKS_DIY (9-card
+ *     Foundation) + dynamic custom_<canonical> picks from add_a_category.
+ *
+ * When `event` is undefined (back-compat callsites that didn't get
+ * updated yet · e.g., wizard-hero.tsx), defaults to WIZARD_TASKS_PAID
+ * so existing surfaces don't regress. The /today route is the canonical
+ * entry point that branches on concierge_status itself · this helper
+ * mirrors the same logic for callsites that want one source of truth.
+ *
+ * Append-after-base policy: dynamic custom_ tasks slot AFTER the base
+ * sequence so the host walks through the 9 baseline cards before
+ * landing on their custom picks. The custom tasks all carry the same
+ * `set_wedding_date` prereq so they're unlocked once the host fills in
+ * the first card.
+ */
+function getBaseSequenceForTier(
+  state: WizardState,
+  event?: WizardCarouselEventInput,
+): ReadonlyArray<WizardTask> {
+  const status = event?.concierge_status ?? null;
+  const isPaidActive = status === 'active' || status === 'trial';
+  const baseTasks = isPaidActive || event === undefined
+    ? WIZARD_TASKS_PAID
+    : WIZARD_TASKS_DIY;
+
+  // Append dynamic vendor_pick tasks from Add A Category picks. Only
+  // surfaces on the DIY tier — the PAID 65-card sequence already covers
+  // every canonical service via its named cards. Reading from
+  // state.add_a_category.picks (TEXT[]) which Agent B's card component
+  // writes when the host picks canonicals.
+  if (baseTasks === WIZARD_TASKS_PAID) return baseTasks;
+
+  const addCategoryEntry = state.add_a_category;
+  const customPicksRaw =
+    addCategoryEntry &&
+    typeof addCategoryEntry === 'object' &&
+    'picks' in addCategoryEntry
+      ? (addCategoryEntry as { picks?: unknown }).picks
+      : null;
+  const customPicks = Array.isArray(customPicksRaw)
+    ? customPicksRaw.filter((p): p is string => typeof p === 'string')
+    : [];
+
+  if (customPicks.length === 0) return baseTasks;
+
+  const customTasks: WizardTask[] = customPicks.map((canonical, index) => ({
+    // Type assertion against `custom_${string}` template literal member of
+    // the WizardTaskId union — safe because canonical comes from the
+    // 192-row canonical_service_schemas catalog and is always a string.
+    id: `custom_${canonical}` as WizardTaskId,
+    // Order 9.5+ so they slot after add_a_category (order 9) · plus the
+    // index nudge keeps stable-sort ordering across picks.
+    order: 9.5 + index * 0.01,
+    phase: 'foundation',
+    kind: 'vendor_pick',
+    title: `Lock your ${displayCanonical(canonical)}`,
+    whyItMatters: `You added ${displayCanonical(canonical)} to your plan from Add A Category. Lock a vendor when you're ready — we'll surface recommendations matching your event.`,
+    pillLabel: 'Your additions',
+    prerequisites: ['set_wedding_date'],
+  }));
+
+  return [...baseTasks, ...customTasks];
+}
+
+/**
  * Returns the next N upcoming tasks for the carousel surface. The active
  * focus comes FIRST. The remaining N-1 are the tasks AFTER the active in
  * canonical order — regardless of lock state (the carousel renders locked
  * ones darkened in-place).
  *
  * `lookahead` defaults to 4 so the carousel shows 1 active + 3 peeks.
+ *
+ * Optional `event` parameter (added 2026-05-30 for DIY/Paid bifurcation
+ * lock) drives base-sequence selection · see `getBaseSequenceForTier`
+ * doc for details. When omitted, defaults to PAID 65-card sequence so
+ * back-compat callsites don't regress.
  */
 export function getCarouselTasks(
   state: WizardState,
   lookahead = 4,
+  event?: WizardCarouselEventInput,
 ): WizardTask[] {
-  // Owner-temp 2026-05-24 preview mode: return UNSETTLED 38 tasks in
+  const sequence = getBaseSequenceForTier(state, event);
+
+  // Owner-temp 2026-05-24 preview mode: return UNSETTLED tasks in
   // canonical order so the host can swipe through every upcoming card.
   // Skips the lookahead cap, but the settled-filter is preserved per
   // owner directive 2026-05-24 ("when the focus card is complete, card
@@ -1450,12 +1712,12 @@ export function getCarouselTasks(
   // filter out and surface in the IN-FLIGHT TRAY below, matching the
   // canonical non-preview behavior.
   if (TEMP_WIZARD_PREVIEW_ALL_CARDS) {
-    return WIZARD_TASKS.filter((task) => !isTaskSettled(state, task.id));
+    return sequence.filter((task) => !isTaskSettled(state, task.id));
   }
   // Find the active focus first — same logic as resolveWizardFocus.
   let activeIndex = -1;
-  for (let i = 0; i < WIZARD_TASKS.length; i++) {
-    const task = WIZARD_TASKS[i]!;
+  for (let i = 0; i < sequence.length; i++) {
+    const task = sequence[i]!;
     if (!isTaskSettled(state, task.id) && isTaskUnlocked(state, task)) {
       activeIndex = i;
       break;
@@ -1466,7 +1728,7 @@ export function getCarouselTasks(
   // unsettled tasks as peek slots so the carousel has SOMETHING to show.
   if (activeIndex === -1) {
     const peeks: WizardTask[] = [];
-    for (const t of WIZARD_TASKS) {
+    for (const t of sequence) {
       if (!isTaskSettled(state, t.id)) peeks.push(t);
       if (peeks.length >= lookahead) break;
     }
@@ -1475,9 +1737,9 @@ export function getCarouselTasks(
 
   // Active + lookahead-1 cards that follow it (skipping settled ones —
   // already-done cards don't need to pollute the carousel).
-  const result: WizardTask[] = [WIZARD_TASKS[activeIndex]!];
-  for (let i = activeIndex + 1; i < WIZARD_TASKS.length && result.length < lookahead; i++) {
-    const task = WIZARD_TASKS[i]!;
+  const result: WizardTask[] = [sequence[activeIndex]!];
+  for (let i = activeIndex + 1; i < sequence.length && result.length < lookahead; i++) {
+    const task = sequence[i]!;
     if (!isTaskSettled(state, task.id)) result.push(task);
   }
   return result;

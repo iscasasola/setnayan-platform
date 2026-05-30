@@ -325,13 +325,47 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
               placeholder="••••••••"
               required
             />
+            {/* "Stay signed in" + "Forgot password?" row.
+                Canonical Google / Stripe / Linear / GitHub layout — checkbox
+                left, forgot link right, single row below the password field.
+                Default CHECKED — explicit opt-out only. When unchecked, the
+                signInWithPassword server action overwrites Supabase's sb-*
+                cookies to session-only so they clear on browser close
+                (shared / borrowed device scenario). See ./actions.ts. */}
             <div
               style={{
                 display: 'flex',
-                justifyContent: 'flex-end',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: 12,
                 fontSize: 12,
               }}
             >
+              <label
+                htmlFor="remember"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  cursor: 'pointer',
+                  color: 'var(--m-slate)',
+                  userSelect: 'none',
+                }}
+              >
+                <input
+                  id="remember"
+                  name="remember"
+                  type="checkbox"
+                  defaultChecked
+                  style={{
+                    width: 14,
+                    height: 14,
+                    accentColor: 'var(--m-orange)',
+                    cursor: 'pointer',
+                  }}
+                />
+                <span>Stay signed in</span>
+              </label>
               <Link
                 href="/forgot-password"
                 style={{

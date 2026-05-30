@@ -459,6 +459,39 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
               minLength={8}
             />
 
+            {/* "Stay signed in" toggle.
+                Mirrors the login form's row at /login. Default CHECKED —
+                explicit opt-out only. When unchecked, the signUp server
+                action overwrites Supabase's sb-* cookies to session-only
+                so they clear on browser close (shared / borrowed device).
+                See ./actions.ts. */}
+            <label
+              htmlFor="remember"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                cursor: 'pointer',
+                color: 'var(--m-slate)',
+                fontSize: 12,
+                userSelect: 'none',
+              }}
+            >
+              <input
+                id="remember"
+                name="remember"
+                type="checkbox"
+                defaultChecked
+                style={{
+                  width: 14,
+                  height: 14,
+                  accentColor: 'var(--m-orange)',
+                  cursor: 'pointer',
+                }}
+              />
+              <span>Stay signed in</span>
+            </label>
+
             <SubmitButton
               className="m-btn-orange"
               style={{

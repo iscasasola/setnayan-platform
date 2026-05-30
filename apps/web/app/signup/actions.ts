@@ -1,5 +1,6 @@
 'use server';
 
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { createClient } from '@/lib/supabase/server';
@@ -14,10 +15,37 @@ function parseAccountType(raw: FormDataEntryValue | null): 'customer' | 'vendor'
   return value === 'vendor' ? 'vendor' : 'customer';
 }
 
+/**
+ * "Stay signed in" cookie downgrade — mirror of the login/actions.ts
+ * helper. See that file for the full WHY block. signUp() may set sb-*
+ * session cookies when Supabase's email-confirm-required is off (the
+ * auto-confirm admin path further reinforces this) — so honoring the
+ * checkbox at signup time matches the contract on login.
+ */
+function downgradeSupabaseCookiesToSessionOnly(
+  cookieStore: Awaited<ReturnType<typeof cookies>>,
+) {
+  for (const c of cookieStore.getAll()) {
+    if (c.name.startsWith('sb-')) {
+      cookieStore.set(c.name, c.value, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        // No maxAge, no expires → session cookie that clears on browser close.
+      });
+    }
+  }
+}
+
 export async function signUp(formData: FormData) {
   const email = String(formData.get('email') ?? '').trim();
   const password = String(formData.get('password') ?? '');
   const accountType = parseAccountType(formData.get('account_type'));
+  // Checkbox defaults CHECKED in the form — browsers submit 'on' when
+  // checked, omit the field when unchecked. See login/actions.ts for the
+  // canonical HTML form contract note.
+  const remember = String(formData.get('remember') ?? '') === 'on';
   const next = safeNext(formData.get('next'));
   // Public Event Summary consent — couples only. Captured at signup per
   // CLAUDE.md decision-log rows 426 + 428 (2026-05-19) + the 8 RA 10173
@@ -140,6 +168,16 @@ export async function signUp(formData: FormData) {
       // email" path so the user has a way forward.
       if (isRedirectError(err)) throw err;
     }
+  }
+
+  // Defensive cookie downgrade. signUp() may have set sb-* session cookies
+  // when Supabase's email-confirm-required is off — honor the checkbox
+  // before redirecting. When email-confirm is on (the more common config)
+  // no session cookies were set and this is a no-op. Runs before either
+  // redirect path so both autoConfirmed + check-email branches honor it.
+  if (!remember) {
+    const cookieStore = await cookies();
+    downgradeSupabaseCookiesToSessionOnly(cookieStore);
   }
 
   if (autoConfirmed) {

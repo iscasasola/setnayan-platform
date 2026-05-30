@@ -45,6 +45,10 @@ import {
   WEDDING_ESSENTIALS,
   type WeddingEssentialId,
 } from '@/lib/wedding-essentials';
+import {
+  getOfficiantAutoResolvedHint,
+  type OfficiantAutoResolution,
+} from '@/lib/officiant-auto-resolve';
 
 /**
  * Status pill rendered on each essential card.
@@ -56,54 +60,6 @@ import {
  *     license obtained) · emerald chip with checkmark
  */
 export type WeddingEssentialStatus = 'empty' | 'in_progress' | 'done';
-
-/**
- * Auto-resolution framings · which kind of locked-venue commitment is
- * implicitly handling this essential. Drives the framing-specific hint
- * copy + provider label on the rendered card.
- *
- *   - 'catholic_parish' · Catholic ceremony at a parish church · the
- *     priest from the parish officiates · confirmed via Pre-Cana.
- *   - 'civil_registrar' · Civil ceremony at a city hall / municipal
- *     registrar · the judge or registrar officiates as part of the
- *     venue commitment.
- *   - 'inc_chapel' · INC ceremony at an INC chapel · an INC minister
- *     from the chapel officiates.
- *
- * Other ceremony × venue combinations (Christian-at-banquet · Muslim ·
- * Cultural · Mixed · Catholic-at-non-church-destination) fall through
- * to the standard vendor picker · no auto-resolution applies.
- */
-export type WeddingEssentialAutoResolutionFraming =
-  | 'catholic_parish'
-  | 'civil_registrar'
-  | 'inc_chapel';
-
-/**
- * Auto-resolution payload · passed in from the page wrapper when a
- * Wedding Essential is implicitly handled by another locked commitment
- * (today: Card 04 Officiant when Catholic+parish · Civil+civil-registrar
- * · INC+INC-chapel match per CLAUDE.md 2026-05-29 "Vendor Discovery
- * Architecture" row).
- *
- * When set, the hero renders the card with framing-specific hint copy ·
- * a "Set by your venue" pill (instead of "Not started") · the provider
- * name as the detail line · and a quieter override CTA pointing at the
- * standard picker · so the couple can still override per the spec's
- * "always-available override affordance" rule for the real PH edge
- * cases (interfaith / destination / family priest with permission
- * letter / retired pastor / hired celebrant for civil).
- */
-export type WeddingEssentialAutoResolution = {
-  framing: WeddingEssentialAutoResolutionFraming;
-  /**
-   * Public-facing name of the venue/parish/registrar that implicitly
-   * handles this essential. Surfaces in the card detail line · sourced
-   * from `venue_directory.name` (admin-seeded famous venues) OR
-   * `vendor_profiles.business_name` (marketplace-linked venues).
-   */
-  providerName: string;
-};
 
 /**
  * One essential's computed state · passed in from the page wrapper.
@@ -122,15 +78,27 @@ export type WeddingEssentialState = {
   detail?: string;
   /**
    * When set, this essential is implicitly handled by a locked venue
-   * commitment (see WeddingEssentialAutoResolution above). The hero
-   * renders an "auto-resolved" treatment · the underlying `status`
-   * may still be 'empty' (no separate vendor row for this essential
-   * exists) but the couple doesn't need to act because the venue
-   * covers it. The page wrapper only sets this when the underlying
-   * `status` is 'empty' · couples who've actually picked or considered
-   * a separate vendor see their picks instead.
+   * commitment (today: Card 04 Officiant when Catholic+parish ·
+   * Civil+civil-registrar · INC+INC-chapel match per CLAUDE.md
+   * 2026-05-29 "Vendor Discovery Architecture" row).
+   *
+   * The hero renders an "auto-resolved" treatment · framing-specific
+   * hint copy + "Set by your venue" pill + provider name detail +
+   * champagne-outline override CTA. Underlying `status` may still be
+   * 'empty' (no separate vendor row for this essential exists) but
+   * the couple doesn't need to act because the venue covers it.
+   *
+   * The page wrapper only sets this when the underlying `status` is
+   * 'empty' · couples who've actually picked or considered a separate
+   * vendor see their picks instead. The override CTA preserves agency
+   * for PH edge cases (interfaith · destination · family priest with
+   * permission letter · retired pastor · hired celebrant for civil).
+   *
+   * Type sourced from the shared lib at lib/officiant-auto-resolve.ts ·
+   * single source of truth shared with the paid-tier
+   * OfficiantAutoResolvedPanel surface.
    */
-  autoResolved?: WeddingEssentialAutoResolution;
+  autoResolved?: OfficiantAutoResolution;
 };
 
 type Props = {
@@ -193,7 +161,7 @@ export function WeddingEssentialsHero({ eventId, essentials }: Props) {
           // (Catholic parish · Civil registrar · INC chapel). Normal
           // cards keep the essential's stock hint.
           const hint = autoResolved
-            ? autoResolvedHint(autoResolved.framing)
+            ? getOfficiantAutoResolvedHint(autoResolved.framing)
             : essential.hint;
 
           // Detail line · auto-resolved cards surface the provider name
@@ -352,24 +320,6 @@ function AutoResolvedPill() {
   );
 }
 
-/**
- * Framing-specific hint copy for auto-resolved cards · brand voice
- * editorial register · names the role the venue's officiant plays
- * (Catholic priest / Civil judge / INC minister) and the gating
- * paperwork or commitment when relevant.
- *
- * Per [[feedback_setnayan_no_dev_text_post_launch]] · no engineering
- * jargon · concrete + Filipino-aware framing.
- */
-function autoResolvedHint(
-  framing: WeddingEssentialAutoResolutionFraming,
-): string {
-  switch (framing) {
-    case 'catholic_parish':
-      return 'The priest from your parish officiates. Confirmed via Pre-Cana paperwork.';
-    case 'civil_registrar':
-      return 'The judge or registrar at this venue officiates the ceremony.';
-    case 'inc_chapel':
-      return 'Your INC minister officiates from this chapel.';
-  }
-}
+// Framing-specific hint copy moved to lib/officiant-auto-resolve.ts ·
+// `getOfficiantAutoResolvedHint(framing)` is the canonical source ·
+// imported at the top of this file.

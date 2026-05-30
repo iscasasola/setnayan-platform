@@ -26,18 +26,15 @@
  * Card kind: vendor_pick (per WIZARD_TASKS in lib/wizard.ts).
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   fetchWizardVendorRecommendations,
   fetchBookedMarketplaceVendorIdsForDate,
 } from '@/lib/wizard-recommendations';
 import type { CeremonyType } from '@/lib/auspicious-date';
+import { computeOfficiantAutoResolution } from '@/lib/officiant-auto-resolve';
 import { VendorPickGridCard } from './vendor-pick-grid-card';
-import {
-  OfficiantAutoResolvedPanel,
-  type OfficiantAutoResolutionFraming,
-} from './officiant-auto-resolved-panel';
+import { OfficiantAutoResolvedPanel } from './officiant-auto-resolved-panel';
 
 type Props = {
   eventId: string;
@@ -80,18 +77,16 @@ export async function OfficiantCard({
   // Gate: only auto-resolve when no existing officiant row exists ·
   // couples who already picked or considered an officiant see their
   // picks via VendorPickGridCard (auto-resolve never overrides an
-  // explicit choice).
+  // explicit choice). Gate enforced inside the shared helper.
   //
-  // Mirrors the DIY tier auto-resolve helper in
-  // apps/web/app/dashboard/[eventId]/today/page.tsx (PR #682) ·
-  // duplicates the lookup logic intentionally to keep this PR's blast
-  // radius scoped to the wizard surface. Future refactor can extract
-  // a shared lib helper if a third surface needs the same logic.
-  const autoResolution = await computeOfficiantAutoResolution(
-    admin,
+  // Detection logic + types live in lib/officiant-auto-resolve.ts ·
+  // shared with the DIY-tier WeddingEssentialsHero surface (PR #682).
+  // Helper fetches its own event_vendors rows · no vendorRows option
+  // passed because this card doesn't already have them.
+  const autoResolution = await computeOfficiantAutoResolution(admin, {
     eventId,
     ceremonyType,
-  );
+  });
   if (autoResolution) {
     return (
       <OfficiantAutoResolvedPanel
@@ -176,133 +171,7 @@ export async function OfficiantCard({
   );
 }
 
-/**
- * Detect whether the host's locked ceremony venue implicitly handles
- * the officiant role.
- *
- * Three framings qualify per CLAUDE.md 2026-05-29 "Vendor Discovery
- * Architecture" row item (1):
- *
- *   - Catholic · locked religious_venue whose compatible_ceremony_types
- *     includes 'catholic' (parish church) · framing='catholic_parish'.
- *   - INC · locked religious_venue whose compatible_ceremony_types
- *     includes 'inc' (INC chapel) · framing='inc_chapel'.
- *   - Civil · locked venue with venue_type='civil_registrar' (admin-
- *     seeded city hall) OR compatible_venue_settings includes
- *     'civil_registrar' (marketplace-listed registrar) ·
- *     framing='civil_registrar'.
- *
- * Falls through to null (= standard vendor picker) for:
- *
- *   - Ceremony types other than catholic/civil/inc.
- *   - Events with no locked venue.
- *   - Events where the host has already picked or considered a separate
- *     officiant (event_vendors row with category='officiant' exists) ·
- *     explicit picks always win over auto-resolution.
- *   - Locked venues whose compat metadata doesn't match the host's
- *     ceremony_type (e.g., Catholic+banquet-hall destination).
- *
- * Mirrors the DIY tier helper at
- * apps/web/app/dashboard/[eventId]/today/page.tsx (PR #682). Duplicated
- * intentionally to keep this PR scoped to the wizard surface · future
- * refactor can extract a shared lib helper if a third surface needs
- * the same logic.
- */
-async function computeOfficiantAutoResolution(
-  admin: SupabaseClient,
-  eventId: string,
-  ceremonyType: string | null,
-): Promise<{
-  framing: OfficiantAutoResolutionFraming;
-  providerName: string;
-} | null> {
-  if (!ceremonyType || !['catholic', 'civil', 'inc'].includes(ceremonyType)) {
-    return null;
-  }
-
-  // Fetch event_vendors for this event · need both the gate (existing
-  // officiant row blocks auto-resolve) AND the locked venue candidates.
-  const { data: vendorRows } = await admin
-    .from('event_vendors')
-    .select('marketplace_vendor_id, source_venue_directory_id, category, status')
-    .eq('event_id', eventId);
-  if (!vendorRows) return null;
-
-  // Gate · don't override explicit officiant picks.
-  const hasOfficiantRow = vendorRows.some((v) => v.category === 'officiant');
-  if (hasOfficiantRow) return null;
-
-  // Same locked-statuses + venue categories as the DIY tier helper for
-  // consistency · couple's locked venue is the anchor.
-  const lockedStatuses = new Set([
-    'contracted',
-    'deposit_paid',
-    'delivered',
-    'complete',
-  ]);
-  const venueCategories = new Set(['religious_venue', 'venue']);
-  const candidates = vendorRows.filter(
-    (v) =>
-      venueCategories.has(v.category ?? '') &&
-      lockedStatuses.has(v.status ?? ''),
-  );
-  if (candidates.length === 0) return null;
-
-  for (const candidate of candidates) {
-    let providerName: string | null = null;
-    let compatibleTypes: ReadonlyArray<string> = [];
-    let isCivilRegistrar = false;
-
-    if (candidate.source_venue_directory_id) {
-      const { data } = await admin
-        .from('venue_directory')
-        .select('name, compatible_ceremony_types, venue_type')
-        .eq('venue_directory_id', candidate.source_venue_directory_id)
-        .maybeSingle();
-      if (data) {
-        const row = data as {
-          name?: string | null;
-          compatible_ceremony_types?: ReadonlyArray<string> | null;
-          venue_type?: string | null;
-        };
-        providerName = row.name ?? null;
-        compatibleTypes = row.compatible_ceremony_types ?? [];
-        isCivilRegistrar = row.venue_type === 'civil_registrar';
-      }
-    } else if (candidate.marketplace_vendor_id) {
-      const { data } = await admin
-        .from('vendor_profiles')
-        .select(
-          'business_name, compatible_ceremony_types, compatible_venue_settings',
-        )
-        .eq('vendor_profile_id', candidate.marketplace_vendor_id)
-        .maybeSingle();
-      if (data) {
-        const row = data as {
-          business_name?: string | null;
-          compatible_ceremony_types?: ReadonlyArray<string> | null;
-          compatible_venue_settings?: ReadonlyArray<string> | null;
-        };
-        providerName = row.business_name ?? null;
-        compatibleTypes = row.compatible_ceremony_types ?? [];
-        isCivilRegistrar = (row.compatible_venue_settings ?? []).includes(
-          'civil_registrar',
-        );
-      }
-    }
-
-    if (!providerName) continue;
-
-    if (ceremonyType === 'catholic' && compatibleTypes.includes('catholic')) {
-      return { framing: 'catholic_parish', providerName };
-    }
-    if (ceremonyType === 'inc' && compatibleTypes.includes('inc')) {
-      return { framing: 'inc_chapel', providerName };
-    }
-    if (ceremonyType === 'civil' && isCivilRegistrar) {
-      return { framing: 'civil_registrar', providerName };
-    }
-  }
-
-  return null;
-}
+// Detection helper extracted to lib/officiant-auto-resolve.ts ·
+// `computeOfficiantAutoResolution` is the canonical source · imported
+// at the top of this file · same logic as the DIY-tier
+// WeddingEssentialsHero (PR #682).

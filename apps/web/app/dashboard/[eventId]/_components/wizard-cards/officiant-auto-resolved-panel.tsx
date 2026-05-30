@@ -48,12 +48,11 @@
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Building2, CheckCircle2, Church, Scale } from 'lucide-react';
+import {
+  getOfficiantAutoResolvedHint,
+  type OfficiantAutoResolutionFraming,
+} from '@/lib/officiant-auto-resolve';
 import { markTaskDone } from '../../wizard-actions';
-
-export type OfficiantAutoResolutionFraming =
-  | 'catholic_parish'
-  | 'civil_registrar'
-  | 'inc_chapel';
 
 type Props = {
   eventId: string;
@@ -69,26 +68,25 @@ type Props = {
   overrideHref: string;
 };
 
+// Panel-specific chrome per framing · eyebrow label + icon. Hint copy
+// sourced from `getOfficiantAutoResolvedHint(framing)` in the shared
+// lib · single source of truth across DIY + paid surfaces.
 type FramingCopy = {
   eyebrow: string;
-  hint: string;
   icon: typeof Church;
 };
 
 const FRAMING_COPY: Record<OfficiantAutoResolutionFraming, FramingCopy> = {
   catholic_parish: {
     eyebrow: 'OFFICIANT · YOUR PARISH PRIEST',
-    hint: 'The priest from your parish officiates the sacrament. Confirmed via Pre-Cana paperwork.',
     icon: Church,
   },
   civil_registrar: {
     eyebrow: 'OFFICIANT · YOUR CIVIL REGISTRAR',
-    hint: 'The judge or registrar at this venue officiates the ceremony.',
     icon: Scale,
   },
   inc_chapel: {
     eyebrow: 'OFFICIANT · YOUR INC MINISTER',
-    hint: 'Your INC minister officiates from this chapel.',
     icon: Building2,
   },
 };
@@ -143,7 +141,7 @@ export function OfficiantAutoResolvedPanel({
           Provided by {providerName}
         </h3>
         <p className="max-w-prose text-sm text-ink/70 sm:text-base">
-          {copy.hint}
+          {getOfficiantAutoResolvedHint(framing)}
         </p>
       </header>
 

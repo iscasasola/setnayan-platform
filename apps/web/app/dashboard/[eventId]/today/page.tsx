@@ -1,16 +1,15 @@
 import { notFound, redirect } from 'next/navigation';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { WizardHero } from '../_components/wizard-hero';
 import {
   WeddingEssentialsHero,
   type WeddingEssentialState,
-  type WeddingEssentialAutoResolution,
 } from '../_components/wedding-essentials-hero';
 import {
   WEDDING_ESSENTIALS,
   type WeddingEssentialId,
 } from '@/lib/wedding-essentials';
+import { computeOfficiantAutoResolution } from '@/lib/officiant-auto-resolve';
 
 /**
  * Today's Focus / Wedding Essentials · per-tier rendering on the
@@ -184,10 +183,17 @@ export default async function TodaysFocusPage({
   // "Use a different officiant" CTA so the couple can opt out for the
   // real PH edge cases (interfaith · destination · family priest with
   // permission letter · retired pastor · hired celebrant).
+  // Pre-fetched vendorRows passed in to skip the helper's internal
+  // event_vendors fetch · this page already queries those rows for the
+  // multi-essential rollups above (venue · catering · officiant) so
+  // reusing them avoids a duplicate query.
   const officiantAutoResolution = await computeOfficiantAutoResolution(
     supabase,
-    eventCeremonyType,
-    vendorRows ?? [],
+    {
+      eventId,
+      ceremonyType: eventCeremonyType,
+      vendorRows: vendorRows ?? [],
+    },
   );
   if (officiantAutoResolution) {
     const officiantIdx = essentials.findIndex((e) => e.id === 'officiant');
@@ -370,129 +376,6 @@ function rollUpVendorPick(
     };
   }
   return { id, status: 'empty' };
-}
-
-/**
- * Officiant auto-resolve · detect when Card 04 Officiant is implicitly
- * handled by the host's locked ceremony venue.
- *
- * Three framings qualify per CLAUDE.md 2026-05-29 "Vendor Discovery
- * Architecture" row:
- *
- *   - Catholic · locked religious_venue whose compatible_ceremony_types
- *     includes 'catholic' (parish church) · framing='catholic_parish'.
- *   - INC · locked religious_venue whose compatible_ceremony_types
- *     includes 'inc' (INC chapel) · framing='inc_chapel'.
- *   - Civil · locked venue with venue_type='civil_registrar' (admin-
- *     seeded city hall) OR compatible_venue_settings includes
- *     'civil_registrar' (marketplace-listed registrar) ·
- *     framing='civil_registrar'.
- *
- * Falls through to null (= standard vendor picker) for all other
- * ceremony × venue combinations (Christian-at-banquet · Muslim ·
- * Cultural · Mixed · Catholic-at-non-church-destination · INC-at-
- * non-chapel · Civil-at-non-registrar).
- *
- * Looks up provider name + compat data from the two possible sources:
- * `venue_directory` (admin-seeded famous venues like Manila Cathedral ·
- * Quezon City Hall · INC Central Chapel) takes precedence when
- * source_venue_directory_id is set · `vendor_profiles` is the fallback
- * for marketplace-listed venues without a venue_directory link.
- *
- * Returns the first candidate whose compat metadata matches the host's
- * ceremony type. Multiple locked venues at once (e.g. couple with both
- * a Catholic church AND a separate reception venue locked) walk in
- * order · in practice the church will be the religious_venue category
- * row and the reception will be the venue category row.
- */
-async function computeOfficiantAutoResolution(
-  supabase: SupabaseClient,
-  ceremonyType: string | null,
-  vendorRows: ReadonlyArray<{
-    marketplace_vendor_id: string | null;
-    source_venue_directory_id: string | null;
-    category: string | null;
-    status: string | null;
-  }>,
-): Promise<WeddingEssentialAutoResolution | null> {
-  if (!ceremonyType || !['catholic', 'civil', 'inc'].includes(ceremonyType)) {
-    return null;
-  }
-
-  // Same locked-statuses + venue categories as the venue essential's
-  // rollUpVendorPick for consistency · couple's locked venue is the
-  // anchor for the officiant auto-resolve.
-  const lockedStatuses = new Set([
-    'contracted',
-    'deposit_paid',
-    'delivered',
-    'complete',
-  ]);
-  const venueCategories = new Set(['religious_venue', 'venue']);
-  const candidates = vendorRows.filter(
-    (v) =>
-      venueCategories.has(v.category ?? '') &&
-      lockedStatuses.has(v.status ?? ''),
-  );
-  if (candidates.length === 0) return null;
-
-  for (const candidate of candidates) {
-    let providerName: string | null = null;
-    let compatibleTypes: ReadonlyArray<string> = [];
-    let isCivilRegistrar = false;
-
-    if (candidate.source_venue_directory_id) {
-      const { data } = await supabase
-        .from('venue_directory')
-        .select('name, compatible_ceremony_types, venue_type')
-        .eq('venue_directory_id', candidate.source_venue_directory_id)
-        .maybeSingle();
-      if (data) {
-        const row = data as {
-          name?: string | null;
-          compatible_ceremony_types?: ReadonlyArray<string> | null;
-          venue_type?: string | null;
-        };
-        providerName = row.name ?? null;
-        compatibleTypes = row.compatible_ceremony_types ?? [];
-        isCivilRegistrar = row.venue_type === 'civil_registrar';
-      }
-    } else if (candidate.marketplace_vendor_id) {
-      const { data } = await supabase
-        .from('vendor_profiles')
-        .select(
-          'business_name, compatible_ceremony_types, compatible_venue_settings',
-        )
-        .eq('vendor_profile_id', candidate.marketplace_vendor_id)
-        .maybeSingle();
-      if (data) {
-        const row = data as {
-          business_name?: string | null;
-          compatible_ceremony_types?: ReadonlyArray<string> | null;
-          compatible_venue_settings?: ReadonlyArray<string> | null;
-        };
-        providerName = row.business_name ?? null;
-        compatibleTypes = row.compatible_ceremony_types ?? [];
-        isCivilRegistrar = (row.compatible_venue_settings ?? []).includes(
-          'civil_registrar',
-        );
-      }
-    }
-
-    if (!providerName) continue;
-
-    if (ceremonyType === 'catholic' && compatibleTypes.includes('catholic')) {
-      return { framing: 'catholic_parish', providerName };
-    }
-    if (ceremonyType === 'inc' && compatibleTypes.includes('inc')) {
-      return { framing: 'inc_chapel', providerName };
-    }
-    if (ceremonyType === 'civil' && isCivilRegistrar) {
-      return { framing: 'civil_registrar', providerName };
-    }
-  }
-
-  return null;
 }
 
 // Silence unused import warning · WEDDING_ESSENTIALS is consumed

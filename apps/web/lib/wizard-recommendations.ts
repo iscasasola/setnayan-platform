@@ -68,6 +68,21 @@ export type WizardVendorRec = {
    *  subscribers also render the real name unconditionally via the
    *  app-layer `isPaidTier` flag on `resolveVendorDisplayName`. */
   name_revealed_at: string | null;
+  /** CLAUDE.md 2026-05-30 refinement row · Bark-format stored
+   *  anonymized name like "Manila Wedding Photographer #4218" from
+   *  `vendor_profiles.screen_name` (migration `20260714000000`). When
+   *  present, `resolveVendorDisplayName` surfaces this stable
+   *  identifier instead of computing the legacy "service · city"
+   *  placeholder. Pulled in the same vendor_profiles batched read as
+   *  verification_state + presentation_pattern + name_revealed_at.
+   *  Null = pre-backfill vendor OR venue-exempt vendor where the
+   *  generator deliberately skipped (services overlap with
+   *  religious_venue + venue); resolver falls back to the legacy
+   *  computed placeholder which is fine because venue vendors don't
+   *  surface in vendor-pick cards anyway (Card 03 ceremony venue +
+   *  Card 02 reception venue land on dedicated venue-directory
+   *  surfaces, not wizard vendor picks). */
+  screen_name: string | null;
   /** Vendor HQ location · drives the Card 03 ceremony-venue distance
    *  filter (kms from the host's locked reception venue). Pulled from
    *  vendor_market_stats.hq_latitude / hq_longitude. Null when the
@@ -224,6 +239,7 @@ export async function fetchWizardVendorRecommendations(
     | 'name_revealed_at'
     | 'presentation_pattern'
     | 'services_preview'
+    | 'screen_name'
   >[];
   const vendorIds = baseRows.map((r) => r.vendor_profile_id);
   if (vendorIds.length === 0) return [];
@@ -272,13 +288,17 @@ export async function fetchWizardVendorRecommendations(
            *  to null when the column is absent (pre-migration deploy)
            *  via the optional cast at the row destructure below. */
           name_revealed_at: string | null;
+          /** Per CLAUDE.md 2026-05-30 refinement row · Bark-format stored
+           *  anonymized name. Optional in the row destructure for the
+           *  same pre-migration-deploy resilience pattern. */
+          screen_name: string | null;
         }
       >
     > => {
       const { data: rows, error: err } = await admin
         .from('vendor_profiles')
         .select(
-          'vendor_profile_id,verification_state,presentation_pattern,name_revealed_at',
+          'vendor_profile_id,verification_state,presentation_pattern,name_revealed_at,screen_name',
         )
         .in('vendor_profile_id', vendorIds);
       if (err || !rows) return new Map();
@@ -288,6 +308,7 @@ export async function fetchWizardVendorRecommendations(
           verification_state: string | null;
           presentation_pattern: 'creations' | 'locked' | null;
           name_revealed_at: string | null;
+          screen_name: string | null;
         }
       >();
       for (const row of rows as Array<{
@@ -295,6 +316,7 @@ export async function fetchWizardVendorRecommendations(
         verification_state: string | null;
         presentation_pattern: string | null;
         name_revealed_at?: string | null;
+        screen_name?: string | null;
       }>) {
         const pattern =
           row.presentation_pattern === 'creations' ||
@@ -305,6 +327,7 @@ export async function fetchWizardVendorRecommendations(
           verification_state: row.verification_state ?? null,
           presentation_pattern: pattern,
           name_revealed_at: row.name_revealed_at ?? null,
+          screen_name: row.screen_name ?? null,
         });
       }
       return out;
@@ -342,6 +365,7 @@ export async function fetchWizardVendorRecommendations(
         : null,
       verification_state: meta?.verification_state ?? null,
       name_revealed_at: meta?.name_revealed_at ?? null,
+      screen_name: meta?.screen_name ?? null,
       presentation_pattern: presentationPattern,
       services_preview,
     } as WizardVendorRec;

@@ -119,6 +119,19 @@ export type VendorCardData = {
    *  only renders while name_revealed_at IS NULL so once any Pro+
    *  vendor sends a reply the real name surfaces unchanged. */
   name_revealed_at?: string | null;
+  /** CLAUDE.md 2026-05-30 refinement row · stored Bark-format
+   *  anonymized name like "Manila Wedding Photographer #4218" from
+   *  `vendor_profiles.screen_name` (migration `20260714000000`). When
+   *  present, `resolveVendorDisplayName` surfaces this stable
+   *  identifier instead of computing the legacy taxonomy-and-city
+   *  placeholder ("Photography · Quezon City") on every render.
+   *  Hydrated by page.tsx via the same vendor_profiles batched read
+   *  that pulls verification_state + name_revealed_at. Null = pre-
+   *  backfill vendor OR venue-exempt vendor where the generator
+   *  deliberately skipped (services overlap with religious_venue +
+   *  venue); resolver falls back to the legacy computed placeholder
+   *  in that case so existing behavior preserves. */
+  screen_name?: string | null;
 };
 
 type Props = {
@@ -151,20 +164,28 @@ export function VendorCard({
   const primaryService = vendor.services[0] ?? null;
   const serviceLabel = primaryService ? displayServiceLabel(primaryService) : null;
   // V2.1 brief amendment #2 (2026-05-30) · hybrid-anonymity label.
-  // Free + Verified vendors render the taxonomy + city placeholder
-  // until their first chat reply stamps name_revealed_at; once
-  // revealed (or for paid tiers via the app-layer flag) the real
+  // Free + Verified vendors render the placeholder until their first
+  // chat reply stamps name_revealed_at; once revealed (or for paid
+  // tiers via the app-layer flag · or for venue-exempt vendors per
+  // services overlap with religious_venue / venue) the real
   // business_name surfaces. Single resolver call so the card header,
   // the "by ..." composition, and the VendorHero initial-letter
-  // fallback all stay in lock-step. Marketplace page doesn't join
-  // vendor subscription state today so isPaidTier defaults to false;
-  // the placeholder still only renders while name_revealed_at IS
-  // NULL so Pro+ vendors' real names surface as soon as they reply.
+  // fallback all stay in lock-step.
+  // Refinement landed CLAUDE.md 2026-05-30 row: pass `services` so the
+  // venue exception applies (Ceremony + Reception Venues always real-
+  // name) + pass `screen_name` so the Bark-format stable identifier
+  // surfaces when present instead of the computed "service · city"
+  // legacy placeholder. Marketplace page still doesn't join vendor
+  // subscription state so isPaidTier defaults to false; venue
+  // exception fires first if applicable, then name_revealed_at gates
+  // the rest.
   const displayLabel = resolveVendorDisplayName({
     business_name: vendor.business_name,
     name_revealed_at: vendor.name_revealed_at ?? null,
     primary_canonical_service: primaryService,
     location_city: vendor.location_city,
+    services: vendor.services,
+    screen_name: vendor.screen_name ?? null,
   });
   const slug = vendor.business_slug ?? null;
   const href = slug ? `/v/${slug}` : `#`;

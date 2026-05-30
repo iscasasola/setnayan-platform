@@ -175,6 +175,16 @@ function vendorDisplayName(
     name_revealed_at: rec.name_revealed_at,
     primary_canonical_service: canonicalServices[0] ?? null,
     location_city: rec.location_city,
+    // CLAUDE.md 2026-05-30 refinement row · pass stored screen_name
+    // (Bark format "Manila Wedding Photographer #4218" per migration
+    // `20260714000000`). The resolver prefers this over the legacy
+    // computed "service · city" placeholder when present. Services NOT
+    // passed here because the wizard's `canonicalServices` arg is the
+    // TASK'S filter, not the vendor's actual services array; venue
+    // exception fires correctly for Card 02 + Card 03 (which surface
+    // through the dedicated venue-directory components, not this
+    // wrapper) so missing services here is structurally fine.
+    screen_name: rec.screen_name,
   });
 }
 

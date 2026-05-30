@@ -83,6 +83,30 @@ export type VendorPreviewRow = {
   avg_rating_overall: number | null;
   review_count: number;
   ad_rank: number | null;
+  /**
+   * Anonymity surface fields per CLAUDE.md 2026-05-30 refinement row
+   * "V2.1 BRIEF AMENDMENT #2 LOCKED · vendor matrix · venue exception
+   * locked". Filled by a secondary batched read against `vendor_profiles`
+   * inside `findTopVendorsByFolder` — `vendor_market_stats` view doesn't
+   * surface these columns. Drives `resolveVendorDisplayName` resolution
+   * in FolderVendorsSection so Free + Verified vendors who haven't yet
+   * replied to any couple render their stored screen_name (Bark format
+   * "Manila Wedding Photographer #4218"); paid + revealed + venue-exempt
+   * vendors render real business_name.
+   *
+   * `name_revealed_at` NULL = name hidden globally (Free + Verified pre-
+   * first-reply). Non-NULL = name revealed globally per the
+   * `reveal_vendor_name_on_chat` BEFORE INSERT trigger on chat_messages
+   * (migration 20260530010000 from PR #662).
+   *
+   * `screen_name` NULL = pre-backfill vendor OR venue-exempt vendor where
+   * the generator deliberately skipped (services overlap with
+   * religious_venue + venue). Resolver falls back to the legacy computed
+   * "service · city" placeholder when present and stays canonical
+   * business_name for venues.
+   */
+  screen_name: string | null;
+  name_revealed_at: string | null;
 };
 
 /**
@@ -195,7 +219,51 @@ export async function findTopVendorsByFolder(
 
   const { data, error } = await query;
   if (error || !data) return [];
-  return data as VendorPreviewRow[];
+
+  const baseRows = data as Omit<VendorPreviewRow, 'screen_name' | 'name_revealed_at'>[];
+
+  // Secondary batched read against `vendor_profiles` for the two
+  // anonymity-surface fields `vendor_market_stats` doesn't expose.
+  // Mirrors the same pattern in `wizard-recommendations.ts` (PR #677) +
+  // `apps/web/app/vendors/page.tsx` enrichment loop — one extra IN-lookup
+  // keyed on the page-size'd vendor_profile_id list keeps round-trip
+  // count bounded at 2 instead of N+1. Fail-soft: on lookup error every
+  // row keeps a NULL anonymity pair · resolver gracefully degrades to
+  // the legacy "service · city" placeholder for hidden vendors and to
+  // business_name for paid + revealed + venue-exempt vendors.
+  const vendorIds = baseRows.map((r) => r.vendor_profile_id);
+  if (vendorIds.length === 0) return [];
+
+  const { data: anonymityRows, error: anonymityErr } = await admin
+    .from('vendor_profiles')
+    .select('vendor_profile_id, screen_name, name_revealed_at')
+    .in('vendor_profile_id', vendorIds);
+
+  const anonymityByVendor = new Map<
+    string,
+    { screen_name: string | null; name_revealed_at: string | null }
+  >();
+  if (!anonymityErr && anonymityRows) {
+    for (const row of anonymityRows as Array<{
+      vendor_profile_id: string;
+      screen_name?: string | null;
+      name_revealed_at?: string | null;
+    }>) {
+      anonymityByVendor.set(row.vendor_profile_id, {
+        screen_name: row.screen_name ?? null,
+        name_revealed_at: row.name_revealed_at ?? null,
+      });
+    }
+  }
+
+  return baseRows.map((row) => {
+    const meta = anonymityByVendor.get(row.vendor_profile_id);
+    return {
+      ...row,
+      screen_name: meta?.screen_name ?? null,
+      name_revealed_at: meta?.name_revealed_at ?? null,
+    } as VendorPreviewRow;
+  });
 }
 
 /**

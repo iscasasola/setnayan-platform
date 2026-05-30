@@ -14,6 +14,7 @@ import {
   WEDDING_FOLDER_SLUG,
   type WeddingFolder,
 } from '@/lib/taxonomy';
+import { resolveVendorDisplayName } from '@/lib/vendors';
 
 /**
  * Inline real-vendor cards for a marketplace folder, rendered in catalog
@@ -142,8 +143,24 @@ function FolderVendorCard({
 }) {
   const slug = vendor.business_slug;
   const href = slug ? `/v/${slug}` : '#';
+  // Anonymity-aware display name per CLAUDE.md 2026-05-30 row. Free +
+  // Verified vendors pre-first-reply surface as their stored screen_name
+  // (Bark format) · paid + revealed + venue-exempt vendors surface as
+  // business_name. Anonymity fields filled by `findTopVendorsByFolder`'s
+  // secondary batched read against `vendor_profiles`. Single resolver
+  // call drives the visible label, the aria-label, the Image alt, and
+  // the initials fallback so every text surface in this card stays in
+  // lock-step.
+  const displayName = resolveVendorDisplayName({
+    business_name: vendor.business_name ?? null,
+    name_revealed_at: vendor.name_revealed_at ?? null,
+    services: vendor.services ?? null,
+    screen_name: vendor.screen_name ?? null,
+    primary_canonical_service: vendor.services?.[0] ?? null,
+    location_city: vendor.location_city ?? null,
+  });
   const initials =
-    vendor.business_name
+    displayName
       .split(/\s+/)
       .map((p) => p.charAt(0).toUpperCase())
       .slice(0, 2)
@@ -164,14 +181,14 @@ function FolderVendorCard({
     <Link
       href={href}
       className="group flex h-full flex-col gap-2 rounded-xl border border-ink/10 bg-cream p-3 transition-colors hover:border-terracotta/50 hover:bg-terracotta/5"
-      aria-label={`${vendor.business_name} — view profile`}
+      aria-label={`${displayName} — view profile`}
     >
       <div className="flex items-start gap-3">
         {vendor.logo_url ? (
           <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-ink/5">
             <Image
               src={vendor.logo_url}
-              alt={vendor.business_name}
+              alt={displayName}
               fill
               sizes="48px"
               className="object-cover"
@@ -190,7 +207,7 @@ function FolderVendorCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-1.5">
             <h3 className="min-w-0 truncate text-sm font-semibold text-ink group-hover:text-terracotta">
-              {vendor.business_name}
+              {displayName}
             </h3>
             {isComingSoon ? (
               <span className="shrink-0 rounded-full bg-ink/5 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">

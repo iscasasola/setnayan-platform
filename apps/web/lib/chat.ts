@@ -16,6 +16,23 @@ export type CoupleThreadWithVendor = ChatThreadRow & {
     business_name: string;
     logo_url: string | null;
     public_id: string;
+    /**
+     * Anonymity surface fields per CLAUDE.md 2026-05-30 refinement row
+     * "V2.1 BRIEF AMENDMENT #2 LOCKED · vendor matrix · venue exception
+     * locked". Couples viewing the thread list see screen_name (Bark
+     * format "Manila Wedding Photographer #4218") for Free + Verified
+     * vendors who haven't yet replied · the real business_name for
+     * Pro/Enterprise tier vendors · revealed vendors (name_revealed_at
+     * stamped post-first-reply) · and venue vendors (services overlap
+     * with religious_venue / venue exemption). Resolution lives in
+     * `resolveVendorDisplayName(input)` — keep these in lock-step with
+     * `VendorAnonymityInput` so the helper accepts the join shape
+     * directly.
+     */
+    screen_name: string | null;
+    name_revealed_at: string | null;
+    services: string[] | null;
+    location_city: string | null;
   } | null;
 };
 
@@ -47,7 +64,9 @@ export async function fetchCoupleThreads(
 ): Promise<CoupleThreadWithVendor[]> {
   const { data, error } = await supabase
     .from('chat_threads')
-    .select(`${THREAD_SELECT}, vendor:vendor_profiles(business_name, logo_url, public_id)`)
+    .select(
+      `${THREAD_SELECT}, vendor:vendor_profiles(business_name, logo_url, public_id, screen_name, name_revealed_at, services, location_city)`,
+    )
     .eq('event_id', eventId)
     .order('updated_at', { ascending: false });
   if (error) throw new Error(`fetchCoupleThreads failed: ${error.message}`);

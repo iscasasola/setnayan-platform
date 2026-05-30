@@ -20,6 +20,7 @@ import {
   PLAN_GROUP_TIER_ORDER,
   bucketVendorsByGroup,
   buildPlanGroupSearchHref,
+  getCustomPlanGroups,
   isCeremonyType,
   resolvePlanGroupHint,
   targetDateStatus,
@@ -175,6 +176,16 @@ type Props = {
   crossCategoryRecommendations?:
     | ReadonlyMap<PlanGroupId, ReadonlyArray<CrossCategoryRecommendation>>
     | null;
+  /**
+   * Optional events.wizard_state JSONB. When set, custom plan-grid cells
+   * are appended for each Add A Category pick (per CLAUDE.md 2026-05-30
+   * DIY/Paid bifurcation lock + lib/wedding-plan-groups.ts
+   * getCustomPlanGroups helper). When omitted or null, only the canonical
+   * 12 PLAN_GROUPS render · matches pre-2026-05-30 behavior for
+   * back-compat with PAID couples whose wizard doesn't surface
+   * add_a_category.
+   */
+  wizardState?: unknown;
 };
 
 const MAX_VENDOR_PREVIEW = 3;
@@ -191,7 +202,19 @@ export function PlanningGroups({
   manualVendorOptions,
   manualVendorsAttachedByCategory,
   crossCategoryRecommendations,
+  wizardState,
 }: Props) {
+  // DIY tier · append dynamic custom cells from Add A Category picks
+  // (per CLAUDE.md 2026-05-30 lock). When wizardState is null/undefined
+  // or has no add_a_category picks, getCustomPlanGroups returns []
+  // and effectivePlanGroups === PLAN_GROUPS (no behavior change).
+  // Computed ONCE at the top of the function · all downstream loops
+  // (countable / locked / tier grouping / render) read from
+  // effectivePlanGroups so the custom cells flow through cleanly.
+  const effectivePlanGroups: ReadonlyArray<PlanGroup> = [
+    ...PLAN_GROUPS,
+    ...getCustomPlanGroups(wizardState),
+  ];
   // PR B 2026-05-22 — pass ceremony_type + venue_setting to the bucketer
   // so each pick gets a compatibility_issue field computed against the
   // host's current event settings. Null/null effectively disables the
@@ -249,7 +272,11 @@ export function PlanningGroups({
   //     the table").
   //
   // The header now reads progress, not inventory.
-  const countableGroups = PLAN_GROUPS.filter(
+  // Iterate effectivePlanGroups so custom DIY cells participate · custom
+  // cells set countsTowardLockable=false so they fall through the filter
+  // and don't pollute the locked / leftToLock math (matches the existing
+  // entry-point card pattern · live_band · bridal_car · guest_shuttle).
+  const countableGroups = effectivePlanGroups.filter(
     (g) => g.countsTowardLockable !== false,
   );
   const totalCountable = countableGroups.length;
@@ -265,7 +292,7 @@ export function PlanningGroups({
     if (groupHasLocked) lockedCards += 1;
   }
   const leftToLock = Math.max(0, totalCountable - lockedCards);
-  const totalCards = PLAN_GROUPS.length;
+  const totalCards = effectivePlanGroups.length;
 
   // Group cards by tier for the 5-tier render (owner directive
   // 2026-05-22). Iterate in PLAN_GROUP_TIER_ORDER so the tiers stack
@@ -282,7 +309,11 @@ export function PlanningGroups({
   const lockedGroups: PlanGroup[] = [];
   const cardsByTier = new Map<PlanGroupTier, PlanGroup[]>();
   for (const tier of PLAN_GROUP_TIER_ORDER) cardsByTier.set(tier, []);
-  for (const group of PLAN_GROUPS) {
+  // Iterate effectivePlanGroups so the new 'custom_picks' tier receives
+  // any custom-cell entries. Tier 'custom_picks' is added to
+  // PLAN_GROUP_TIER_ORDER in the lib · the for-loop above prepopulates
+  // its bucket so the cardsByTier.get(group.tier)! assertion stays safe.
+  for (const group of effectivePlanGroups) {
     const picks = bucketed.get(group.id) ?? [];
     const isLocked = picks.some((p) => p.status === 'locked');
     if (isLocked) {

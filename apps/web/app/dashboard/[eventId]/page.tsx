@@ -1723,6 +1723,7 @@ export default async function EventHomePage({
           manualVendorOptions={manualVendorOptions}
           manualVendorsAttachedByCategory={manualVendorsAttachedByCategory}
           crossCategoryRecommendations={crossCategoryRecommendations}
+          wizardState={(event as { wizard_state?: unknown }).wizard_state}
         />
       </section>
 

@@ -86,7 +86,12 @@ export type PlanGroupTier =
   | 'big_bookings'
   | 'style_program'
   | 'extras'
-  | 'paper';
+  | 'paper'
+  // DIY tier · added 2026-05-30 · holds dynamic plan cells spawned from
+  // Add A Category picks (lib/wedding-plan-groups.ts getCustomPlanGroups
+  // helper). Renders at the END of the planning grid as a separate
+  // subsection · keeps the 12 baseline tiers untouched.
+  | 'custom_picks';
 
 export const PLAN_GROUP_TIER_ORDER: ReadonlyArray<PlanGroupTier> = [
   'foundation',
@@ -94,6 +99,9 @@ export const PLAN_GROUP_TIER_ORDER: ReadonlyArray<PlanGroupTier> = [
   'style_program',
   'extras',
   'paper',
+  // Custom DIY picks render after the canonical 5 tiers so the host walks
+  // through the locked structure first, then sees their personal additions.
+  'custom_picks',
 ];
 
 export const PLAN_GROUP_TIER_LABEL: Record<PlanGroupTier, string> = {
@@ -102,6 +110,7 @@ export const PLAN_GROUP_TIER_LABEL: Record<PlanGroupTier, string> = {
   style_program: 'Style + program',
   extras: 'Extras',
   paper: 'Paper',
+  custom_picks: 'Your additions',
 };
 
 /**
@@ -115,6 +124,8 @@ export const PLAN_GROUP_TIER_HINT: Record<PlanGroupTier, string> = {
   style_program: 'Sets the vibe of the day. Pin the palette before locking.',
   extras: 'The atmosphere makers. Most are 2-4 months out.',
   paper: 'Stationery and the small choices that round out the day.',
+  custom_picks:
+    'Categories you added from Add A Category — browse vendors at your own pace.',
 };
 
 export type PlanGroup = {
@@ -1520,4 +1531,88 @@ export function buildPlanGroupSearchHref(
     return `/vendors?folder=${folderSlug}&category=${encodeURIComponent(group.subcategoryHint)}&from=plan`;
   }
   return `/vendors?folder=${folderSlug}&from=plan#${folderSlug}`;
+}
+
+// ============================================================================
+// DIY (Free) tier · dynamic plan groups from Add A Category picks (2026-05-30)
+// ============================================================================
+//
+// Per CLAUDE.md 2026-05-30 DIY/Paid bifurcation lock · DIY couples can add
+// arbitrary canonicals to their plan via the Add A Category wizard card
+// (apps/web/app/dashboard/[eventId]/_components/wizard-cards/add-a-category-card.tsx).
+// Each canonical pick lands in events.wizard_state.add_a_category.picks
+// (TEXT[]) and spawns:
+//   - A dynamic `custom_<canonical>` wizard task (per lib/wizard.ts
+//     getBaseSequenceForTier line 1665+)
+//   - A dynamic plan-grid cell · via the helper below.
+//
+// The plan-grid cell is intentionally an entry-point card:
+//   - categories: [] → resolveDefaultCategoryForCard returns 'misc' so the
+//     custom-vendor row store has a home.
+//   - countsTowardLockable: false → doesn't pollute the locked / total
+//     count math in planning-groups.tsx (same pattern live_band +
+//     bridal_car + guest_shuttle use).
+//   - tier: 'custom_picks' → renders in its own subsection at the end
+//     of the planning grid · clear separation from the 12 baseline cards.
+//
+// V1.x can swap the entry-point pattern to a full bucketing card once
+// the canonical → VendorCategory mapping is wired (the canonical_service
+// taxonomy in TAXONOMY_MAP doesn't directly map to event_vendors
+// category enum today).
+
+/** Shape of events.wizard_state.add_a_category we read from. */
+type AddACategoryEntry = {
+  picks?: unknown;
+};
+
+/**
+ * Returns dynamic PlanGroup cells for each canonical the host added via
+ * the Add A Category wizard card. Append result AFTER the static
+ * PLAN_GROUPS array · custom cells render in their own 'custom_picks'
+ * tier subsection.
+ *
+ * Safe to call with `null` / `undefined` / malformed wizard_state · always
+ * returns `[]` in that case.
+ */
+export function getCustomPlanGroups(
+  wizardState: unknown,
+): ReadonlyArray<PlanGroup> {
+  if (!wizardState || typeof wizardState !== 'object') return [];
+  const addCategoryEntry = (wizardState as Record<string, unknown>)
+    .add_a_category as AddACategoryEntry | undefined;
+  if (!addCategoryEntry || typeof addCategoryEntry !== 'object') return [];
+  const rawPicks = addCategoryEntry.picks;
+  if (!Array.isArray(rawPicks)) return [];
+  const picks = rawPicks.filter(
+    (p): p is string => typeof p === 'string' && p.length > 0,
+  );
+  if (picks.length === 0) return [];
+
+  return picks.map((canonical) => {
+    const displayName = canonical
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+    return {
+      // Widen via `as unknown as PlanGroupId` because PlanGroupId is a
+      // strict literal union · adding `\`custom_${string}\`` to the union
+      // would force ~50 callsites to type-narrow every read of group.id.
+      // Per [[feedback_setnayan_orphan_prevention]] the affected
+      // downstream readers (resolveDefaultCategoryForCard switch · the
+      // ceremony_venue / officiant inline checks in planning-groups.tsx)
+      // all either default-branch safely OR check for specific literal IDs
+      // we know custom cells aren't.
+      id: `custom_${canonical}` as unknown as PlanGroupId,
+      label: displayName,
+      hint: `You added ${displayName} to your plan. Browse vendors when you're ready — locking is optional and you can mark this done from your wizard whenever it fits.`,
+      tier: 'custom_picks' as PlanGroupTier,
+      // Empty categories → resolveDefaultCategoryForCard defaults to
+      // 'misc' so any manual-added vendor row attached here still buckets
+      // back into this group. countsTowardLockable: false keeps the math
+      // unaffected.
+      categories: [] as ReadonlyArray<VendorCategory>,
+      monthsBefore: 6,
+      catalogFolder: 'planning_logistics_travel' satisfies WeddingFolder,
+      countsTowardLockable: false,
+    };
+  });
 }

@@ -2,6 +2,7 @@ import {
   signInWithFacebook,
   signInWithGoogle,
 } from '@/app/auth/oauth-actions';
+import { SubmitButton } from '@/app/_components/submit-button';
 
 /**
  * OAuth provider button row — Google + Facebook (Apple deferred V1.1
@@ -14,12 +15,11 @@ import {
  * Facebook" being the first thing they see massively shortens the
  * mental path to dashboard.
  *
- * Server component — no client JS needed. Each button is a separate
- * `<form action={serverAction}>` with a hidden `next` input so the
- * post-auth redirect destination round-trips through the OAuth flow.
- * Same pattern as the existing signInWithPassword + signInWithMagicLink
- * forms on /login/page.tsx so the surrounding code already understands
- * the contract.
+ * Each button is a separate `<form action={serverAction}>` with a hidden
+ * `next` input so the post-auth redirect destination round-trips through
+ * the OAuth flow. Same pattern as the existing signInWithPassword +
+ * signInWithMagicLink forms on /login/page.tsx so the surrounding code
+ * already understands the contract.
  *
  * Brand icons are nominative-use inline SVGs (Google G in standard
  * 4-color quadrant geometry, Facebook f as a blue disc with white f
@@ -38,6 +38,24 @@ import {
  * version is what apps use when site palette doesn't accommodate the
  * solid blue. Resolves the Champagne Gold + Rich Mulberry CTA palette
  * clash + makes the two OAuth buttons visually symmetric.
+ *
+ * 2026-05-30 instant loading state (CLAUDE.md decision-log — perceived-
+ * login-lag fix). Both OAuth buttons swapped from plain `<button
+ * type="submit">` → `<SubmitButton>` so the moment the form action
+ * fires, the button:
+ *   • Disables (prevents double-tap during the 1–3s OAuth round-trip
+ *     through Supabase /auth/v1/authorize → provider consent → callback
+ *     → exchange → /dashboard → /dashboard/[eventId]).
+ *   • Swaps content for a Loader2 spinner + "Redirecting to Google…" /
+ *     "Redirecting to Facebook…" so the user has an instant "something
+ *     is happening" signal instead of a frozen button.
+ * The brand-mark SVG hides during pending — the spinner is the active
+ * visual signal — and reappears after the redirect lands. Matches the
+ * SubmitButton treatment already shipped on the password + magic-link
+ * forms (login/page.tsx:362 + :398). Since SubmitButton is a client
+ * component, this file now ships a small client-boundary at each button,
+ * but the parent `OAuthButtonRow` stays a server component so the env-
+ * flag gates at module scope still resolve at build time.
  */
 
 type Props = {
@@ -78,25 +96,25 @@ export function OAuthButtonRow({ next }: Props) {
       {GOOGLE_ENABLED ? (
         <form action={signInWithGoogle}>
           <input type="hidden" name="next" value={next} />
-          <button
-            type="submit"
+          <SubmitButton
             className="flex w-full items-center justify-center gap-3 rounded-md border border-ink/20 bg-white px-4 py-2.5 text-sm font-medium text-ink/90 transition-colors hover:border-ink/40 hover:bg-ink/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40"
+            pendingLabel="Redirecting to Google…"
           >
             <GoogleGIcon />
             Continue with Google
-          </button>
+          </SubmitButton>
         </form>
       ) : null}
       {FACEBOOK_ENABLED ? (
         <form action={signInWithFacebook}>
           <input type="hidden" name="next" value={next} />
-          <button
-            type="submit"
+          <SubmitButton
             className="flex w-full items-center justify-center gap-3 rounded-md border border-ink/20 bg-white px-4 py-2.5 text-sm font-medium text-ink/90 transition-colors hover:border-ink/40 hover:bg-ink/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta/40"
+            pendingLabel="Redirecting to Facebook…"
           >
             <FacebookFIcon />
             Continue with Facebook
-          </button>
+          </SubmitButton>
         </form>
       ) : null}
     </div>

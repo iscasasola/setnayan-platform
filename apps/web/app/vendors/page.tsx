@@ -454,6 +454,16 @@ type VendorCardRow = {
    *  Card consumes via VendorCardData.name_revealed_at +
    *  `resolveVendorDisplayName` in lib/vendors.ts. */
   name_revealed_at?: string | null;
+  /** CLAUDE.md 2026-05-30 refinement row · screen_name field. Bark-
+   *  format anonymized name like "Manila Wedding Photographer #4218"
+   *  generated at signup by `generate_screen_name_for_vendor()`
+   *  function (migration `20260714000000`). When present, surfaces use
+   *  this instead of computing the taxonomy-and-city placeholder.
+   *  Pulled in the same vendor_profiles batched read as
+   *  verification_state + name_revealed_at. Null = vendor doesn't have
+   *  a screen_name yet (pre-backfill OR venue-exempt vendor where the
+   *  generator deliberately skipped). */
+  screen_name?: string | null;
   /** Resolved public URL for the vendor's hero service photo
    *  (`vendor_services.primary_photo_r2_key` → r2PublicUrl). Null when
    *  the vendor has no service with a photo set. */
@@ -1363,7 +1373,14 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   const [verificationByVendorId, servicesByVendorId, bookingCounts, reviewsByVendorId] =
     await Promise.all([
       (async (): Promise<
-        Map<string, { verification_state: string | null; name_revealed_at: string | null }>
+        Map<
+          string,
+          {
+            verification_state: string | null;
+            name_revealed_at: string | null;
+            screen_name: string | null;
+          }
+        >
       > => {
         if (visibleVendorIds.length === 0) return new Map();
         /* V2.1 brief amendment #2 (2026-05-30): bundle name_revealed_at
@@ -1374,10 +1391,15 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
            below tolerates a pre-migration deploy where the column
            is absent (PostgREST returns 200 with the column missing
            silently) by defaulting to null = hidden, which is the
-           conservative behavior. */
+           conservative behavior.
+           CLAUDE.md 2026-05-30 refinement row extends this batch with
+           screen_name (Bark-format stored anonymized name from
+           migration `20260714000000`). When present, surfaces render
+           the stable Bark format ("Manila Wedding Photographer #4218")
+           instead of computing taxonomy-and-city on every render. */
         const { data, error } = await admin
           .from('vendor_profiles')
-          .select('vendor_profile_id, verification_state, name_revealed_at')
+          .select('vendor_profile_id, verification_state, name_revealed_at, screen_name')
           .in('vendor_profile_id', visibleVendorIds);
         if (error) {
           console.error('[vendors] verification_state fetch failed', error);
@@ -1385,17 +1407,23 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
         }
         const out = new Map<
           string,
-          { verification_state: string | null; name_revealed_at: string | null }
+          {
+            verification_state: string | null;
+            name_revealed_at: string | null;
+            screen_name: string | null;
+          }
         >();
         for (const row of data ?? []) {
           const r = row as {
             vendor_profile_id: string;
             verification_state: string | null;
             name_revealed_at?: string | null;
+            screen_name?: string | null;
           };
           out.set(r.vendor_profile_id, {
             verification_state: r.verification_state ?? null,
             name_revealed_at: r.name_revealed_at ?? null,
+            screen_name: r.screen_name ?? null,
           });
         }
         return out;
@@ -1477,6 +1505,11 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
        business_name hidden in this card (Free + Verified pre-first-
        reply). Consumed by VendorCard via resolveVendorDisplayName. */
     v.name_revealed_at = meta?.name_revealed_at ?? null;
+    /* CLAUDE.md 2026-05-30 refinement row · screen_name field. When
+       present, VendorCard's resolveVendorDisplayName surfaces this
+       Bark-format stable identifier instead of computing the legacy
+       taxonomy-and-city placeholder on every render. */
+    v.screen_name = meta?.screen_name ?? null;
     const svc = servicesByVendorId.get(v.vendor_profile_id);
     v.primary_photo_url = svc?.photoR2Key
       ? r2PublicUrl(R2_BUCKETS.media, svc.photoR2Key)

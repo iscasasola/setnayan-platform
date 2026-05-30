@@ -392,20 +392,84 @@ export type VendorAnonymityInput = {
    * taxonomy label renders.
    */
   location_city: string | null;
+  /**
+   * vendor_profiles.services full array. Used to apply the **venue
+   * exception** per CLAUDE.md 2026-05-30 refinement row: Ceremony +
+   * Reception Venues (services overlap with ['religious_venue',
+   * 'venue']) ALWAYS show real business_name regardless of tier or
+   * reveal timestamp. Physical-place + GMB-listed venues anonymizing
+   * breaks search + makes admin-seeded famous venues (Conrad · Shangri-
+   * La · Cebu Marriott · etc. from migration `20260529000000`)
+   * pointless. NULL or omitted = no venue check (legacy callers).
+   */
+  services?: ReadonlyArray<string> | null;
+  /**
+   * vendor_profiles.screen_name — Bark-format stored anonymized name
+   * per CLAUDE.md 2026-05-30 refinement row (e.g. "Manila Wedding
+   * Photographer #4218"). Generated at signup by
+   * `generate_screen_name_for_vendor()` function (migration
+   * `20260714000000`) + persists forever once stamped. When present,
+   * surfaces use this instead of the legacy computed taxonomy-and-city
+   * placeholder, giving a stable identifier with monotonic ID per
+   * (city, canonical_service) namespace. NULL or omitted = fall through
+   * to the legacy computed placeholder for backward compat with
+   * vendors that pre-date the screen_name backfill OR have empty
+   * services arrays.
+   */
+  screen_name?: string | null;
 };
+
+/**
+ * Venue canonical_services that ALWAYS show real business_name regardless
+ * of tier or reveal timestamp. Per CLAUDE.md 2026-05-30 refinement row
+ * "the only vendors that will have no screen names are the Ceremony and
+ * Reception Venues. We will let them keep their names." Reasoning:
+ * physical-place + GMB-listed venues anonymizing breaks search · couples
+ * search "Manila Cathedral" or "Conrad Manila" by name · admin-seeded
+ * famous venues from migration `20260529000000_venue_directory_seed.sql`
+ * (Cebu Marriott · Shangri-La · Solaire · Sofitel · etc.) are pointless
+ * to surface as anonymized taxonomy stubs. Multi-service vendors with
+ * venue + catering bundle stay venue (real name) since the venue role
+ * is canonical.
+ */
+const VENUE_EXEMPT_SERVICES: ReadonlyArray<string> = ['religious_venue', 'venue'];
+
+/**
+ * TRUE when vendor's services array overlaps with the venue exemption
+ * list. Internal helper for `isVendorNameRevealed` — exposed as a
+ * standalone export so callers can branch on the exception independently
+ * (e.g., admin moderation UIs that want to highlight venue rows).
+ */
+export function isVendorVenueExempt(
+  services: ReadonlyArray<string> | null | undefined,
+): boolean {
+  if (!services || services.length === 0) return false;
+  for (const s of services) {
+    if (VENUE_EXEMPT_SERVICES.includes(s)) return true;
+  }
+  return false;
+}
 
 /**
  * Derived value: TRUE when the vendor's name should render
  * unredacted across all surfaces. FALSE when surfaces should render
- * the anonymized placeholder (taxonomy + city).
+ * the anonymized placeholder (taxonomy + city OR stored screen_name).
  *
  * Single source of truth so /v/[slug], /vendors, the wizard grid
  * card, and the vendor-dashboard banner all branch identically.
+ *
+ * Order of checks (any one wins):
+ *   1. Venue exception — services overlap with religious_venue / venue
+ *      (per CLAUDE.md 2026-05-30 refinement row).
+ *   2. Paid tier flag — Pro / Enterprise day-1 reveal.
+ *   3. Reveal timestamp — first vendor chat reply stamped name_revealed_at.
  */
 export function isVendorNameRevealed(
-  input: Pick<VendorAnonymityInput, 'name_revealed_at' | 'isPaidTier'>,
+  input: Pick<VendorAnonymityInput, 'name_revealed_at' | 'isPaidTier' | 'services'>,
 ): boolean {
-  return Boolean(input.isPaidTier) || input.name_revealed_at !== null;
+  if (isVendorVenueExempt(input.services)) return true;
+  if (input.isPaidTier) return true;
+  return input.name_revealed_at !== null;
 }
 
 /**
@@ -430,6 +494,17 @@ export function resolveVendorDisplayName(input: VendorAnonymityInput): string {
     return input.business_name && input.business_name.length > 0
       ? input.business_name
       : 'Vendor';
+  }
+  // Prefer the stored screen_name (Bark format with monotonic ID per
+  // (city, canonical_service) namespace per CLAUDE.md 2026-05-30
+  // refinement row · e.g., "Manila Wedding Photographer #4218") when
+  // available. Migration `20260714000000` generates this at signup +
+  // backfills existing Free/Verified non-venue rows. Falls through to
+  // the legacy taxonomy-and-city computed placeholder for null or empty
+  // screen_name (pre-backfill rows OR vendors signed up before the
+  // migration shipped).
+  if (input.screen_name && input.screen_name.length > 0) {
+    return input.screen_name;
   }
   const taxonomyLabel = input.primary_canonical_service
     ? displayServiceLabel(input.primary_canonical_service)

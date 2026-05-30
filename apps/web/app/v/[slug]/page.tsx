@@ -97,6 +97,16 @@ type PublicVendorRow = {
   // while name_revealed_at IS NULL so once any Pro+ vendor sends a
   // reply the real name surfaces unchanged.
   name_revealed_at?: string | null;
+  // CLAUDE.md 2026-05-30 refinement row · screen_name. Bark-format
+  // stored anonymized name like "Manila Wedding Photographer #4218".
+  // Generated at signup by `generate_screen_name_for_vendor()` (migration
+  // `20260714000000`) for Free + Verified non-venue vendors · venue-
+  // exempt vendors (services overlap with religious_venue / venue) get
+  // NULL screen_name on purpose since they always show real
+  // business_name regardless. When present, `resolveVendorDisplayName`
+  // returns this as the placeholder instead of computing the legacy
+  // "service · city" string.
+  screen_name?: string | null;
 };
 
 // Iteration 0043 — labels for wedding-type compatibility badges rendered on
@@ -165,8 +175,18 @@ async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
      "undefined column name_revealed_at" message routes through the
      same legacy path with a NULL default (= hidden, which is the
      conservative behavior). */
+  // CLAUDE.md 2026-05-30 refinement row · screen_name added to the full
+  // select. Generated at signup by `generate_screen_name_for_vendor()`
+  // (migration `20260714000000`) + persists forever once stamped. When
+  // present, `resolveVendorDisplayName` surfaces this Bark-format
+  // stable identifier ("Manila Wedding Photographer #4218") instead of
+  // computing the legacy "service · city" placeholder on every render.
+  // The fallback regex below extends to detect `screen_name` undefined-
+  // column errors too · routes through the legacy select path with
+  // screen_name silently null (resolver falls back to computed
+  // placeholder).
   const fullSelect =
-    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at';
+    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name';
   const legacySelect =
     'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings';
 
@@ -175,7 +195,7 @@ async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
     .select(fullSelect)
     .ilike('business_slug', slug)
     .maybeSingle();
-  if (error && /(is_demo|name_revealed_at)/i.test(error.message)) {
+  if (error && /(is_demo|name_revealed_at|screen_name)/i.test(error.message)) {
     ({ data } = await admin
       .from('vendor_profiles')
       .select(legacySelect)
@@ -215,6 +235,15 @@ export async function generateMetadata({ params }: Props) {
     name_revealed_at: vendor.name_revealed_at ?? null,
     primary_canonical_service: vendor.services?.[0] ?? null,
     location_city: vendor.location_city,
+    // CLAUDE.md 2026-05-30 refinement row: pass services + screen_name
+    // so the venue exception (services overlap with religious_venue /
+    // venue) applies AND the stored Bark-format screen_name surfaces
+    // when present (e.g., "Manila Wedding Photographer #4218") instead
+    // of the legacy computed "service · city" placeholder. Both
+    // optional · null-safe · vendor type from generateMetadata loads
+    // them post-this-PR (see microsite vendor query below).
+    services: vendor.services ?? null,
+    screen_name: vendor.screen_name ?? null,
   });
   const titleText = `${displayLabel} · Setnayan vendor${suffix}`;
   const descText = vendor.tagline ?? `${displayLabel} on Setnayan.`;
@@ -313,6 +342,14 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
     name_revealed_at: vendor.name_revealed_at ?? null,
     primary_canonical_service: vendor.services?.[0] ?? null,
     location_city: vendor.location_city,
+    // CLAUDE.md 2026-05-30 refinement row · pass services + screen_name
+    // (Bark-format stored anonymized name from `vendor_profiles.screen_name`
+    // per migration `20260714000000`). Venue exception fires when services
+    // overlap with ['religious_venue', 'venue'] → real business_name.
+    // Stored screen_name surfaces when present instead of the legacy
+    // computed taxonomy-and-city placeholder.
+    services: vendor.services ?? null,
+    screen_name: vendor.screen_name ?? null,
   });
 
   // Resolve viewer state for the FollowGate (iteration 0019 § Gate). Public

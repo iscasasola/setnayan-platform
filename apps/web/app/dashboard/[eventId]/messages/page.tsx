@@ -8,6 +8,7 @@ import { fetchCoupleThreads, formatChatTimestamp } from '@/lib/chat';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { FollowGate } from '@/app/_components/follow-gate';
 import { isFollowingVendor } from '@/lib/follow';
+import { resolveVendorDisplayName } from '@/lib/vendors';
 import { startThreadByVendorEmail } from './actions';
 
 export const metadata = { title: 'Messages' };
@@ -51,9 +52,16 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
     search.next_action === 'follow' && typeof search.vendor_profile_id === 'string' && search.vendor_profile_id.length > 0;
   let followGateVendor: { name: string; email: string | null; alreadyFollowing: boolean } | null = null;
   if (showFollowGate && search.vendor_profile_id) {
+    // Anonymity surface fields per CLAUDE.md 2026-05-30 row — couples on
+    // the follow-gate surface see the same Free/Verified screen_name OR
+    // revealed business_name the rest of the marketplace + microsite
+    // surfaces show. Resolution via `resolveVendorDisplayName` keeps the
+    // gate copy in lock-step with VendorCard + /v/[slug].
     const { data: vendor } = await supabase
       .from('vendor_profiles')
-      .select('business_name, contact_email')
+      .select(
+        'business_name, contact_email, screen_name, name_revealed_at, services, location_city',
+      )
       .eq('vendor_profile_id', search.vendor_profile_id)
       .maybeSingle();
     if (vendor) {
@@ -66,8 +74,16 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
         // than to silently swallow the recovery path.
         alreadyFollowing = false;
       }
+      const displayName = resolveVendorDisplayName({
+        business_name: vendor.business_name ?? null,
+        name_revealed_at: vendor.name_revealed_at ?? null,
+        services: vendor.services ?? null,
+        screen_name: vendor.screen_name ?? null,
+        primary_canonical_service: vendor.services?.[0] ?? null,
+        location_city: vendor.location_city ?? null,
+      });
       followGateVendor = {
-        name: vendor.business_name ?? 'this vendor',
+        name: displayName.length > 0 ? displayName : 'this vendor',
         email: vendor.contact_email ?? null,
         alreadyFollowing,
       };
@@ -185,31 +201,48 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
         </div>
       ) : (
         <ul className="space-y-2">
-          {threads.map((t) => (
-            <li key={t.thread_id}>
-              <Link
-                href={`/dashboard/${eventId}/messages/${t.thread_id}`}
-                className="group flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/40 hover:bg-terracotta/5"
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <Avatar logoUrl={t.vendor?.logo_url ?? null} name={t.vendor?.business_name ?? '?'} />
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-ink">
-                      {t.vendor?.business_name ?? 'Vendor'}
-                    </p>
-                    <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                      Last activity {formatChatTimestamp(t.updated_at)}
-                    </p>
+          {threads.map((t) => {
+            // Anonymity-aware thread label per CLAUDE.md 2026-05-30 row.
+            // Free/Verified vendors who haven't yet replied show their
+            // screen_name (Bark format) — paid + revealed + venue vendors
+            // show real business_name. Single resolver call keeps the
+            // Avatar initials + visible label in lock-step.
+            const vendorDisplayName = t.vendor
+              ? resolveVendorDisplayName({
+                  business_name: t.vendor.business_name ?? null,
+                  name_revealed_at: t.vendor.name_revealed_at ?? null,
+                  services: t.vendor.services ?? null,
+                  screen_name: t.vendor.screen_name ?? null,
+                  primary_canonical_service: t.vendor.services?.[0] ?? null,
+                  location_city: t.vendor.location_city ?? null,
+                })
+              : 'Vendor';
+            return (
+              <li key={t.thread_id}>
+                <Link
+                  href={`/dashboard/${eventId}/messages/${t.thread_id}`}
+                  className="group flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/40 hover:bg-terracotta/5"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Avatar logoUrl={t.vendor?.logo_url ?? null} name={vendorDisplayName} />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-ink">
+                        {vendorDisplayName}
+                      </p>
+                      <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+                        Last activity {formatChatTimestamp(t.updated_at)}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <ArrowRight
-                  aria-hidden
-                  className="h-4 w-4 text-ink/40 transition-transform group-hover:translate-x-0.5 group-hover:text-terracotta"
-                  strokeWidth={1.75}
-                />
-              </Link>
-            </li>
-          ))}
+                  <ArrowRight
+                    aria-hidden
+                    className="h-4 w-4 text-ink/40 transition-transform group-hover:translate-x-0.5 group-hover:text-terracotta"
+                    strokeWidth={1.75}
+                  />
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>

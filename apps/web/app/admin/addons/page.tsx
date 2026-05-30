@@ -19,6 +19,7 @@
 import { X, Package, Sparkles, Video, Camera, Tv, Film, Music, Type, Globe2, Receipt, ImageDown, Printer, Star, Wrench, BadgeCheck, Megaphone, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatCentavosPhp } from '@/lib/sku-catalog';
 
 export const metadata = { title: 'Add-ons · Admin' };
@@ -169,6 +170,10 @@ export default async function AdminAddonsPage({ searchParams }: Props) {
     .order('category', { ascending: true })
     .order('sku_code', { ascending: true });
 
+  if (catalogError) {
+    logQueryError('AdminAddonsPage (service_catalog)', catalogError);
+  }
+
   const rows = (catalogData ?? []) as ServiceCatalogRow[];
 
   // Customer SKUs: category in CUSTOMER_CATEGORIES + purchaser_role excludes
@@ -250,7 +255,7 @@ export default async function AdminAddonsPage({ searchParams }: Props) {
           role="alert"
           className="mb-4 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
         >
-          {catalogError.message}
+          Add-ons couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment or check Sentry for the full detail.
         </p>
       ) : null}
 

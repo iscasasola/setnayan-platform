@@ -1,5 +1,6 @@
 import { Mail } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { setHelpMessageStatus } from './actions';
 
@@ -51,6 +52,9 @@ export default async function AdminHelpPage({ searchParams }: Props) {
     query = query.eq('status', filter);
 
   const { data, error } = await query;
+  if (error) {
+    logQueryError('AdminHelpPage (help_messages)', error);
+  }
   const items = (data ?? []) as HelpMessageRow[];
 
   return (
@@ -73,7 +77,7 @@ export default async function AdminHelpPage({ searchParams }: Props) {
 
       {error ? (
         <p className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
-          {error.message}
+          Help inbox couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment or check Sentry for the full detail.
         </p>
       ) : null}
 

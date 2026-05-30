@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { LibraryEditor, type LibraryAsset } from './_components/library-editor';
 import type { ColorRangeMap } from './_components/color-range-manipulator';
 
@@ -19,14 +20,15 @@ export default async function AdminMoodboardLibraryPage() {
     .order('created_at', { ascending: false });
 
   if (error) {
+    logQueryError('AdminMoodboardLibraryPage (moodboard_library_assets)', error);
     return (
       <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
         <header className="mb-6">
           <h1 className="text-3xl font-semibold tracking-tight">Moodboard Library</h1>
         </header>
         <p className="rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-          Failed to load library — {error.message}. The migration may not be applied yet
-          (run <code className="font-mono">supabase db push</code>).
+          The moodboard library couldn&apos;t load right now. We&apos;ve logged the issue —
+          refresh in a moment or check Sentry for the full detail.
         </p>
       </div>
     );

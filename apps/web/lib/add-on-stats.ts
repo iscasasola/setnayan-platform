@@ -37,10 +37,14 @@ const JUST_LAUNCHED_REVIEW_THRESHOLD = 3;
 // Keep in sync when SKUs land or retire.
 export const ADD_ON_SKU_MAP: Record<string, ReadonlyArray<string>> = {
   panood: [
+    // Active SKUs per the 2026-05-17 always-multi-cam pivot · canonical
+    // source `apps/web/lib/sku-catalog.ts`. `panood_camera_sync` +
+    // `panood_annual_streaming_plus` retired (collapsed into the
+    // always-multi-cam baseline · removed from stats counting 2026-05-30
+    // pre-pilot audit followup so the lifetime traction badge reflects
+    // current sellable SKUs only).
     'panood_daily_broadcast',
-    'panood_camera_sync',
     'panood_annual_streaming',
-    'panood_annual_streaming_plus',
     'ai_video_highlight_60s',
     'ai_edited_highlight_3min',
     'same_day_edit',

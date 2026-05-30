@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Pencil, X } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { updateRetailSku, updateBundleSku } from './actions';
 
 export const metadata = { title: 'Pricing · Admin' };
@@ -108,6 +109,13 @@ export default async function AdminPricingPage({ searchParams }: Props) {
       .order('retail_price_php', { ascending: true }),
   ]);
 
+  if (retailRes.error) {
+    logQueryError('AdminPricingPage (platform_retail_catalog_v2)', retailRes.error);
+  }
+  if (bundleRes.error) {
+    logQueryError('AdminPricingPage (platform_package_catalog)', bundleRes.error);
+  }
+
   const retailRows = ((retailRes.data ?? []) as RetailRow[]).map((row) => ({
     ...row,
     retail_price_php: Number(row.retail_price_php),
@@ -182,7 +190,8 @@ export default async function AdminPricingPage({ searchParams }: Props) {
             Catalog load error
           </p>
           <p className="mt-1 text-sm text-rose-900">
-            {retailRes.error?.message ?? bundleRes.error?.message}
+            The pricing catalog couldn&apos;t load right now. We&apos;ve logged the issue —
+            refresh in a moment or check Sentry for the full detail.
           </p>
         </div>
       )}

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Pencil, Trash2, Coins } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { displayServiceLabel } from '@/lib/vendors';
 import {
   VENDOR_PUBLIC_VISIBILITY_LABEL,
@@ -72,6 +73,9 @@ export default async function AdminVendorsPage({ searchParams }: Props) {
   }
 
   const { data, error } = await query;
+  if (error) {
+    logQueryError('AdminVendorsPage (vendor_profiles)', error);
+  }
   const vendors = (data ?? []) as VendorRow[];
 
   // 2026-05-21 — fetch the unclaimed admin-owned vendors (user_id NULL).
@@ -267,7 +271,7 @@ export default async function AdminVendorsPage({ searchParams }: Props) {
 
       {error ? (
         <p role="alert" className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
-          {error.message}
+          Vendors couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment or check Sentry for the full detail.
         </p>
       ) : null}
 

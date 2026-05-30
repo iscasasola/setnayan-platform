@@ -2,6 +2,7 @@ import { Trash2 } from 'lucide-react';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { deleteEvent } from './actions';
 
 export const metadata = { title: 'Events · Admin' };
@@ -60,6 +61,9 @@ export default async function AdminEventsPage({ searchParams }: Props) {
   }
 
   const { data, error } = await query;
+  if (error) {
+    logQueryError('AdminEventsPage (events)', error);
+  }
   const events = (data ?? []) as EventRow[];
 
   // Live guest counts from the non-deleted guests table.
@@ -131,7 +135,7 @@ export default async function AdminEventsPage({ searchParams }: Props) {
 
       {error ? (
         <p role="alert" className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
-          {error.message}
+          Events couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment or check Sentry for the full detail.
         </p>
       ) : null}
 

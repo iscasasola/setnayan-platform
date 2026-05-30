@@ -57,31 +57,22 @@ type PanoodSku = {
 const PANOOD_SKUS: ReadonlyArray<PanoodSku> = [
   {
     sku_code: 'panood_daily_broadcast',
+    // Panood always-multi-cam pivot (CLAUDE.md 2026-05-17 row) — Daily
+    // Broadcast bakes in multi-cam (up to 6) at ₱2,499. Camera Sync +
+    // Annual Streaming Plus retired same row · collapsed into the
+    // always-multi-cam SKUs. Pre-pilot audit followup 2026-05-30 ·
+    // canonical price source is `apps/web/lib/sku-catalog.ts`.
     name: 'Daily Broadcast',
-    scope: 'One day · single-cam by default · YouTube delivery + auto-archive.',
-    centavos: 49900,
+    scope: 'One day · always multi-cam (up to 6 cameras) · YouTube delivery + auto-archive.',
+    centavos: 249900,
     unit: ' / day',
     badge: 'Most popular',
   },
   {
-    sku_code: 'panood_camera_sync',
-    name: 'Camera Sync (multi-cam)',
-    scope: 'Pair with Daily Broadcast to unlock multi-cam switching for that day.',
-    centavos: 9900,
-    unit: ' / day',
-  },
-  {
     sku_code: 'panood_annual_streaming',
     name: 'Annual Streaming',
-    scope: 'Unlimited single-cam days for a year. Best for vendors streaming year-round.',
-    centavos: 299900,
-    unit: ' / year',
-  },
-  {
-    sku_code: 'panood_annual_streaming_plus',
-    name: 'Annual Streaming Plus',
-    scope: 'Unlimited multi-cam days for a year. Camera Sync included.',
-    centavos: 399900,
+    scope: 'Unlimited multi-cam streaming days for a year, across every event on your account. Best for vendors + competition organizers streaming year-round.',
+    centavos: 1999900,
     unit: ' / year',
   },
   {
@@ -322,7 +313,7 @@ export default async function PanoodAppStorePage({ params }: Props) {
         paragraphs: [
           'Panood turns five phones into a multi-cam wedding broadcast. One person runs the broadcaster on a laptop or tablet, switches between cameras, marks highlights, and decides when to cut to standby. Camera operators are friends or family with smartphones — no install, just open the link.',
           'Every broadcast goes to your own YouTube channel via a one-time OAuth grant. You control privacy (unlisted by default), you keep the archive forever, you can flip the broadcast to public after the event for sharing. Setnayan never holds the master tape.',
-          'The base plan is Daily Broadcast (₱499 / day). Filipino weddings often run across three days — prep at one venue, ceremony at another, reception at a third — and you can buy one Daily Broadcast per day. Pair with Camera Sync (₱99 / day) to unlock multi-cam switching for that day.',
+          'The base plan is Daily Broadcast (₱2,499 / day · always multi-cam, up to 6 cameras). Filipino weddings often run across three days — prep at one venue, ceremony at another, reception at a third — and you can buy one Daily Broadcast per day. Vendors + competition organizers who stream year-round can switch to Annual Streaming (₱19,999 / year · same multi-cam, every event on your account).',
         ],
         plans: PANOOD_SKUS.map(toPlan),
         notIncluded: [

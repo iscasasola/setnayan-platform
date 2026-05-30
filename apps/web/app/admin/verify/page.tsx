@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { displayServiceLabel } from '@/lib/vendors';
 import {
   VENDOR_PUBLIC_VISIBILITY_LABEL,
@@ -275,6 +276,10 @@ async function ApplicationsSurface({
     .order('submitted_at', { ascending: true, nullsFirst: false })
     .limit(200);
 
+  if (appErr) {
+    logQueryError('AdminVerifyPage (vendor_verification_applications)', appErr);
+  }
+
   const apps = (appData ?? []) as Omit<ApplicationRow, 'vendor'>[];
   const vendorIds = Array.from(new Set(apps.map((a) => a.vendor_profile_id)));
   let vendorMap: Record<string, ApplicationRow['vendor']> = {};
@@ -352,7 +357,7 @@ async function ApplicationsSurface({
           role="alert"
           className="mb-4 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
         >
-          {appErr.message}
+          Verification applications couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment or check Sentry for the full detail.
         </p>
       ) : null}
 
@@ -753,6 +758,10 @@ async function VisibilitySurface({
     .order('created_at', { ascending: false })
     .limit(200);
 
+  if (queryError) {
+    logQueryError('AdminVerifyPage (vendor_profiles visibility)', queryError);
+  }
+
   const vendors = (data ?? []) as VendorVisibilityRow[];
 
   return (
@@ -764,7 +773,7 @@ async function VisibilitySurface({
           role="alert"
           className="mb-4 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
         >
-          {queryError.message}
+          Vendor visibility queue couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment or check Sentry for the full detail.
         </p>
       ) : null}
 

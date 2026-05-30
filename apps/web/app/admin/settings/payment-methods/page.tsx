@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ArrowLeft, CreditCard, Smartphone, Trash2, Wallet } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { QrUploadForm } from '../_components/qr-upload-form';
 import { removeMerchantQr, savePaymentInstruments } from '../actions';
@@ -66,6 +67,14 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
       'method_code,display_name,gateway_fee_pct,setnayan_pay_pct,min_fee_centavos,is_active,display_order,effective_at,updated_at',
     )
     .order('display_order', { ascending: true });
+
+  // Full error → Vercel Functions log + Sentry (with call_site pivot) per
+  // the canonical pattern in lib/supabase/error-detect.ts. Brand-voice copy
+  // surfaces to the admin per [[feedback_setnayan_no_dev_text_post_launch]]
+  // — pre-pilot audit cleanup 2026-05-30.
+  if (error) {
+    logQueryError('AdminPaymentMethodsPage (setnayan_pay_methods)', error);
+  }
 
   const rows = ((data ?? []) as PaymentMethodRow[]);
 
@@ -241,7 +250,8 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
             role="alert"
             className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
           >
-            Could not load payment methods: {error.message}
+            Payment methods couldn&apos;t load right now. We&apos;ve logged the
+            issue — refresh in a moment or check Sentry for the full detail.
           </p>
         ) : rows.length === 0 ? (
           <p className="rounded-md border border-dashed border-ink/15 bg-cream p-3 text-sm text-ink/55">

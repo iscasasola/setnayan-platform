@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * POST /api/v1/admin/site-widgets/reorder
@@ -95,7 +96,16 @@ export async function POST(req: Request) {
     .select('widget_id,display_order')
     .eq('page', page);
   if (readErr) {
-    return json(500, { error: { code: 'db_error', message: readErr.message } });
+    // Sanitize → admin API still leaks if `error.message` carries Postgres
+    // detail. Full error → Sentry + Vercel Functions. Pre-pilot audit
+    // cleanup 2026-05-30.
+    logQueryError('POST reorder (site_widgets read)', readErr, { page });
+    return json(500, {
+      error: {
+        code: 'db_error',
+        message: 'Could not read site widgets right now. Try again in a moment.',
+      },
+    });
   }
   const existing = new Map<string, number>(
     (existingRows ?? []).map((r) => [r.widget_id, r.display_order]),
@@ -140,7 +150,13 @@ export async function POST(req: Request) {
     actor_user_id: auth.userId,
   });
   if (auditErr) {
-    return json(500, { error: { code: 'audit_failed', message: auditErr.message } });
+    logQueryError('POST reorder (admin_audit_log)', auditErr, { page });
+    return json(500, {
+      error: {
+        code: 'audit_failed',
+        message: 'Could not record audit row. Reorder did not apply.',
+      },
+    });
   }
 
   // Apply the UPDATEs. To avoid transient unique-constraint violations if
@@ -159,7 +175,13 @@ export async function POST(req: Request) {
       })
       .eq('widget_id', id);
     if (error) {
-      return json(500, { error: { code: 'db_error', message: error.message } });
+      logQueryError('POST reorder (park step)', error, { page, widget_id: id });
+      return json(500, {
+        error: {
+          code: 'db_error',
+          message: 'Reorder failed mid-park. Refresh and try again.',
+        },
+      });
     }
   }
   for (const id of orderedIds) {
@@ -172,7 +194,13 @@ export async function POST(req: Request) {
       })
       .eq('widget_id', id);
     if (error) {
-      return json(500, { error: { code: 'db_error', message: error.message } });
+      logQueryError('POST reorder (final step)', error, { page, widget_id: id });
+      return json(500, {
+        error: {
+          code: 'db_error',
+          message: 'Reorder failed during final step. Refresh and try again.',
+        },
+      });
     }
   }
 

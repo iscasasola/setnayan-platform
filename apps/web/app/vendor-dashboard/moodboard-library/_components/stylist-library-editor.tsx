@@ -13,6 +13,7 @@
 import { useMemo, useState, useTransition } from 'react';
 import Image from 'next/image';
 import { watermarkFile } from '@/lib/watermark';
+import { useConfirm } from '@/app/_components/confirm-dialog';
 import {
   ColorRangeManipulator,
   type ColorRangeMap,
@@ -54,6 +55,12 @@ export function StylistLibraryEditor({ initialAssets }: { initialAssets: Stylist
     Object.fromEntries(initialAssets.map((a) => [a.asset_id, a.color_ranges])),
   );
   const [previewPalette, setPreviewPalette] = useState<PalettePreview>(DEFAULT_PREVIEW_PALETTE);
+  // Shared error surface replaces the 3 prior `alert(...)` callsites per
+  // pre-pilot audit cleanup 2026-05-30. Clears on next successful action.
+  const [actionError, setActionError] = useState<string | null>(null);
+  // In-app confirm dialog replaces the 1 prior `confirm(...)` callsite.
+  // Render `{dialog}` at the editor root so the modal can mount.
+  const { confirm, dialog } = useConfirm();
 
   const selected = useMemo(
     () => assets.find((a) => a.asset_id === selectedId) ?? null,
@@ -102,7 +109,7 @@ export function StylistLibraryEditor({ initialAssets }: { initialAssets: Stylist
         setSelectedId(assetId);
         form.reset();
       } catch (err) {
-        alert(`Upload failed: ${(err as Error).message}`);
+        setActionError(`Upload failed: ${(err as Error).message}`);
       }
     });
   }
@@ -119,26 +126,50 @@ export function StylistLibraryEditor({ initialAssets }: { initialAssets: Stylist
           ),
         );
       } catch (err) {
-        alert(`Save failed: ${(err as Error).message}`);
+        setActionError(`Save failed: ${(err as Error).message}`);
       }
     });
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!selected) return;
-    if (!confirm('Delete this asset? The photo + tags will be removed.')) return;
+    const ok = await confirm({
+      title: 'Delete this asset?',
+      body: 'The photo + tags will be removed. This cannot be undone.',
+      destructive: true,
+      confirmLabel: 'Delete',
+    });
+    if (!ok) return;
     startTransition(async () => {
       try {
         await deleteStylistAsset(selected.asset_id);
         setAssets((prev) => prev.filter((a) => a.asset_id !== selected.asset_id));
         setSelectedId(null);
       } catch (err) {
-        alert(`Delete failed: ${(err as Error).message}`);
+        setActionError(`Delete failed: ${(err as Error).message}`);
       }
     });
   }
 
   return (
+    <>
+      {dialog}
+      {actionError ? (
+        <div
+          role="alert"
+          className="mb-4 flex items-start justify-between gap-3 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
+        >
+          <span>{actionError}</span>
+          <button
+            type="button"
+            onClick={() => setActionError(null)}
+            className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700 hover:text-ink"
+            aria-label="Dismiss error"
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
     <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
       {/* LEFT: upload + own-asset grid */}
       <div className="space-y-4">
@@ -324,5 +355,6 @@ export function StylistLibraryEditor({ initialAssets }: { initialAssets: Stylist
         )}
       </div>
     </div>
+    </>
   );
 }

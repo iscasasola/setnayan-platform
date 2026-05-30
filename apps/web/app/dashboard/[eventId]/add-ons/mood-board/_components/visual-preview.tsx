@@ -56,6 +56,10 @@ export function VisualPreview({ eventId, templates, existingSaves, rolePalette }
   const [openAssetId, setOpenAssetId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [saves, setSaves] = useState<ExistingSave[]>(existingSaves);
+  // In-app save error replaces the prior `alert()` per pre-pilot audit
+  // cleanup 2026-05-30. Renders inline at the top of the surface so the
+  // host sees the issue without scrolling + clears on next successful save.
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Build palette preview map for each template based on the event's rolePalette.
   // Slot 1 = primary palette color for the role/venue this asset belongs to.
@@ -116,14 +120,29 @@ export function VisualPreview({ eventId, templates, existingSaves, rolePalette }
             saved_at: new Date().toISOString(),
           },
         ]);
+        setSaveError(null);
       } catch (err) {
-        alert(`Save failed: ${(err as Error).message}`);
+        // In-app error banner replaces the prior `alert()` (pre-pilot audit
+        // cleanup 2026-05-30) — never block UI on a sync OS dialog.
+        setSaveError(
+          err instanceof Error
+            ? err.message
+            : 'Could not save right now — try again in a moment.',
+        );
       }
     });
   }
 
   return (
     <div className="space-y-6">
+      {saveError ? (
+        <p
+          role="alert"
+          className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
+        >
+          Could not save your pick: {saveError}
+        </p>
+      ) : null}
       {/* Pinned saves */}
       {saves.length > 0 && (
         <section className="space-y-3 rounded-2xl border border-terracotta/30 bg-terracotta/5 p-5">

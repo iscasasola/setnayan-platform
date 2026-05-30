@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { apiErrorResponse } from '@/lib/api-auth';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { PUBLIC_SURFACE_VISIBILITIES } from '@/lib/vendor-visibility';
 
 const DEFAULT_LIMIT = 20;
@@ -99,7 +100,17 @@ export async function GET(req: Request) {
 
   const { data, error } = await query;
   if (error) {
-    return jsonError(apiErrorResponse(500, 'database_error', error.message));
+    // Full error → server-side log only (Sentry + Vercel Functions). Public
+    // API never returns raw Postgres error messages — they leak table /
+    // column / constraint names. Pre-pilot audit cleanup 2026-05-30.
+    logQueryError('GET /api/v1/vendors (vendor_profiles list)', error);
+    return jsonError(
+      apiErrorResponse(
+        500,
+        'database_error',
+        'Vendor list could not load right now. Try again in a moment.',
+      ),
+    );
   }
 
   const rows = (data ?? []) as VendorRow[];

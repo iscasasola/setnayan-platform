@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown, Trash2, X, UserPlus } from 'lucide-react';
+import { ConfirmForm } from '@/app/_components/confirm-form';
 import {
   bulkApplyRoleAndGroup,
   bulkSoftDeleteGuests,
@@ -286,19 +287,18 @@ function BulkDeleteForm({
   // both — this is informational, not authoritative.
   const confirmMessage = `Remove ${count} guest${count === 1 ? '' : 's'} from this event? Their seat assignments (if any) will open up. Guests who have already RSVP'd will be skipped — reset their RSVP to Pending first if you want to remove them.`;
 
+  // In-app `<ConfirmForm>` (upgraded 2026-05-30) replaces the prior
+  // `<form onSubmit={confirm()}>` pattern · no UI block, brand-voice copy.
+  // Parent SelectionBar still wraps this in `flex flex-wrap items-center
+  // gap-3` so the Delete button sits inline with the Apply toolbar (owner
+  // directive 2026-05-23 — "delete button is not aligned").
   return (
-    <form
+    <ConfirmForm
       action={bulkSoftDeleteGuests.bind(null, eventId)}
-      // Parent SelectionBar now wraps this in `flex flex-wrap
-      // items-center gap-3` so the Delete button sits inline with the
-      // Apply toolbar (owner directive 2026-05-23 — "delete button is
-      // not aligned"). No own margin / justify needed; the parent's
-      // gap handles spacing.
-      onSubmit={(e) => {
-        if (!confirm(confirmMessage)) {
-          e.preventDefault();
-        }
-      }}
+      title="Remove selected guests?"
+      message={confirmMessage}
+      confirmLabel={`Delete ${count}`}
+      destructive
     >
       {selectedIds.map((id) => (
         <input key={id} type="hidden" name="guest_ids[]" value={id} />
@@ -311,7 +311,7 @@ function BulkDeleteForm({
         <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
         Delete {count}
       </button>
-    </form>
+    </ConfirmForm>
   );
 }
 

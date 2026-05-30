@@ -7,6 +7,7 @@ import {
   isAuthError,
   requireScope,
 } from '@/lib/api-auth';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
@@ -58,7 +59,17 @@ export async function GET(req: Request) {
     .eq('user_id', auth.userId);
 
   if (memberErr) {
-    return apiErrorResponse(500, 'database_error', memberErr.message);
+    // Sanitize → public API never returns raw Postgres error messages. Full
+    // detail goes to Sentry + Vercel Functions via logQueryError. Pre-pilot
+    // audit cleanup 2026-05-30.
+    logQueryError('GET /api/v1/events (event_members)', memberErr, {
+      user_id: auth.userId,
+    });
+    return apiErrorResponse(
+      500,
+      'database_error',
+      'Events could not load right now. Try again in a moment.',
+    );
   }
 
   const eventIds = Array.from(new Set((memberships ?? []).map((m) => m.event_id)));
@@ -98,7 +109,14 @@ export async function GET(req: Request) {
 
   const { data: events, error: eventsErr } = await query;
   if (eventsErr) {
-    return apiErrorResponse(500, 'database_error', eventsErr.message);
+    logQueryError('GET /api/v1/events (events)', eventsErr, {
+      user_id: auth.userId,
+    });
+    return apiErrorResponse(
+      500,
+      'database_error',
+      'Events could not load right now. Try again in a moment.',
+    );
   }
 
   const rows = (events ?? []) as EventRow[];

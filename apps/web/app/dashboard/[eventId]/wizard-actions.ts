@@ -1952,3 +1952,284 @@ export async function listMoodboardSlots(eventId: string): Promise<
     } => isMoodboardSlotKey(row.slot_key) && (row.slot_position === 1 || row.slot_position === 2),
   );
 }
+
+// ============================================================================
+// DIY (Free) tier · Foundation cards 02 · 03 · 09 (2026-05-30)
+// ============================================================================
+//
+// Owner directive 2026-05-30 verbatim · 9-card DIY Foundation locked.
+// These 4 actions back the 3 new DIY-tier cards landed in this PR:
+//
+//   - setEstimatedPax           → SetEstimatedPaxCard (Card 02)
+//   - setEstimatedBudget        → SetEstimatedBudgetCard (Card 03)
+//   - addToAddACategory         → AddACategoryCard (Card 09) · adds a pick
+//   - removeFromAddACategory    → AddACategoryCard (Card 09) · removes a pick
+//
+// The "Done adding categories" CTA on Card 09 reuses the existing
+// `markTaskDone` action above (validates against WizardTaskId which now
+// includes 'add_a_category' per Agent A PR #675).
+//
+// Each action mirrors the auth + parse + DB-update + revalidatePath
+// shape from `completeSetWeddingDateTask` · keeps the layout-mode
+// revalidate so chrome stays fresh.
+
+/**
+ * Card 02 (DIY) · Save estimated guest count.
+ *
+ * Persists to events.estimated_pax (INT 1..9999, NULL allowed; check
+ * constraint enforces the range). Stamps wizard_state
+ * .set_estimated_pax.completed_at so the resolver advances to Card 03
+ * on the next render.
+ */
+export async function setEstimatedPax(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const paxRaw = formData.get('pax');
+
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {
+    throw new Error('event_id required');
+  }
+  if (typeof paxRaw !== 'string') {
+    throw new Error('Pick a guest count before saving');
+  }
+  const pax = Number.parseInt(paxRaw, 10);
+  if (!Number.isFinite(pax) || pax < 1 || pax > 9999) {
+    throw new Error('Guest count must be between 1 and 9,999');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data: priorRow, error: priorErr } = await supabase
+    .from('events')
+    .select('wizard_state')
+    .eq('event_id', eventIdRaw)
+    .maybeSingle();
+  if (priorErr) throw new Error(priorErr.message);
+  if (!priorRow) throw new Error('Event not found');
+
+  const priorWizardState = parseWizardState(priorRow.wizard_state);
+  const newWizardState = setTaskComplete(priorWizardState, 'set_estimated_pax', {
+    pax,
+  });
+
+  const { error: updateErr } = await supabase
+    .from('events')
+    .update({
+      estimated_pax: pax,
+      wizard_state: newWizardState,
+    })
+    .eq('event_id', eventIdRaw);
+  if (updateErr) throw new Error(updateErr.message);
+
+  revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
+}
+
+/**
+ * Card 03 (DIY) · Save working budget.
+ *
+ * Takes a peso value from the client, converts to centavos at the
+ * boundary, persists to existing events.estimated_budget_centavos
+ * column (already wired into BudgetCountdownHeader +
+ * ShortlistBudgetCard surfaces · no new schema). Stamps wizard_state
+ * .set_estimated_budget.completed_at so the resolver advances to
+ * Card 04 on the next render.
+ *
+ * PHP centavos convention matches service_catalog.price_centavos
+ * storage shape platform-wide.
+ */
+export async function setEstimatedBudget(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const pesosRaw = formData.get('pesos');
+
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {
+    throw new Error('event_id required');
+  }
+  if (typeof pesosRaw !== 'string') {
+    throw new Error('Pick a budget before saving');
+  }
+  const pesos = Number.parseFloat(pesosRaw);
+  if (!Number.isFinite(pesos) || pesos < 1000 || pesos > 99_999_999) {
+    throw new Error('Budget must be between ₱1,000 and ₱99,999,999');
+  }
+  const centavos = Math.round(pesos * 100);
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data: priorRow, error: priorErr } = await supabase
+    .from('events')
+    .select('wizard_state')
+    .eq('event_id', eventIdRaw)
+    .maybeSingle();
+  if (priorErr) throw new Error(priorErr.message);
+  if (!priorRow) throw new Error('Event not found');
+
+  const priorWizardState = parseWizardState(priorRow.wizard_state);
+  const newWizardState = setTaskComplete(
+    priorWizardState,
+    'set_estimated_budget',
+    { centavos },
+  );
+
+  const { error: updateErr } = await supabase
+    .from('events')
+    .update({
+      estimated_budget_centavos: centavos,
+      wizard_state: newWizardState,
+    })
+    .eq('event_id', eventIdRaw);
+  if (updateErr) throw new Error(updateErr.message);
+
+  revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
+}
+
+/**
+ * Card 09 (DIY) · Add a canonical_service to the host's Add A Category
+ * picks list.
+ *
+ * Persists into events.wizard_state.add_a_category.picks (TEXT[] of
+ * canonical_service keys per lib/wizard.ts lines 1407 + 1665
+ * getBaseSequenceForTier custom-task spawning logic). Each pick spawns
+ * a `custom_<canonical>` task at order 9.5+ that surfaces AFTER the 9
+ * baseline DIY cards.
+ *
+ * Validation: canonical must match the kebab/snake_case ASCII shape used
+ * across TAXONOMY_MAP keys. NOT cross-referenced against TAXONOMY_MAP
+ * itself · the canonical taxonomy is extensible without code edits
+ * here.
+ *
+ * Idempotent · already-in-list = no-op.
+ */
+export async function addToAddACategory(formData: FormData): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const canonicalRaw = formData.get('canonical');
+
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {
+    throw new Error('event_id required');
+  }
+  if (typeof canonicalRaw !== 'string' || canonicalRaw.length === 0) {
+    throw new Error('canonical required');
+  }
+  if (!/^[a-z][a-z0-9_]{1,80}$/.test(canonicalRaw)) {
+    throw new Error('Invalid canonical service key');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data: priorRow, error: priorErr } = await supabase
+    .from('events')
+    .select('wizard_state')
+    .eq('event_id', eventIdRaw)
+    .maybeSingle();
+  if (priorErr) throw new Error(priorErr.message);
+  if (!priorRow) throw new Error('Event not found');
+
+  const priorWizardState = parseWizardState(priorRow.wizard_state);
+  const priorEntry =
+    (priorWizardState.add_a_category as
+      | { picks?: unknown; [k: string]: unknown }
+      | undefined) ?? {};
+  const priorPicksRaw = priorEntry.picks;
+  const priorPicks: string[] = Array.isArray(priorPicksRaw)
+    ? priorPicksRaw.filter((p): p is string => typeof p === 'string')
+    : [];
+  if (priorPicks.includes(canonicalRaw)) return;
+  const nextPicks = [...priorPicks, canonicalRaw];
+
+  const newWizardState: WizardState = {
+    ...priorWizardState,
+    add_a_category: {
+      ...priorEntry,
+      picks: nextPicks,
+    },
+  };
+
+  const { error: updateErr } = await supabase
+    .from('events')
+    .update({ wizard_state: newWizardState })
+    .eq('event_id', eventIdRaw);
+  if (updateErr) throw new Error(updateErr.message);
+
+  revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
+}
+
+/**
+ * Card 09 (DIY) · Remove a canonical_service from the host's Add A
+ * Category picks list.
+ *
+ * Removes ALL occurrences (defensive). Does NOT clear
+ * wizard_state.add_a_category.completed_at · if the host marked the
+ * card done then later removed a pick, the card stays settled · the
+ * spawned custom_<canonical> task disappears from the carousel on next
+ * render (per getBaseSequenceForTier).
+ *
+ * Idempotent · removing a non-present canonical is a no-op.
+ */
+export async function removeFromAddACategory(
+  formData: FormData,
+): Promise<void> {
+  const eventIdRaw = formData.get('event_id');
+  const canonicalRaw = formData.get('canonical');
+
+  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {
+    throw new Error('event_id required');
+  }
+  if (typeof canonicalRaw !== 'string' || canonicalRaw.length === 0) {
+    throw new Error('canonical required');
+  }
+  if (!/^[a-z][a-z0-9_]{1,80}$/.test(canonicalRaw)) {
+    throw new Error('Invalid canonical service key');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { data: priorRow, error: priorErr } = await supabase
+    .from('events')
+    .select('wizard_state')
+    .eq('event_id', eventIdRaw)
+    .maybeSingle();
+  if (priorErr) throw new Error(priorErr.message);
+  if (!priorRow) throw new Error('Event not found');
+
+  const priorWizardState = parseWizardState(priorRow.wizard_state);
+  const priorEntry =
+    (priorWizardState.add_a_category as
+      | { picks?: unknown; [k: string]: unknown }
+      | undefined) ?? {};
+  const priorPicksRaw = priorEntry.picks;
+  const priorPicks: string[] = Array.isArray(priorPicksRaw)
+    ? priorPicksRaw.filter((p): p is string => typeof p === 'string')
+    : [];
+  if (!priorPicks.includes(canonicalRaw)) return;
+  const nextPicks = priorPicks.filter((p) => p !== canonicalRaw);
+
+  const newWizardState: WizardState = {
+    ...priorWizardState,
+    add_a_category: {
+      ...priorEntry,
+      picks: nextPicks,
+    },
+  };
+
+  const { error: updateErr } = await supabase
+    .from('events')
+    .update({ wizard_state: newWizardState })
+    .eq('event_id', eventIdRaw);
+  if (updateErr) throw new Error(updateErr.message);
+
+  revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
+}

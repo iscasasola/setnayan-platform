@@ -100,6 +100,20 @@ import { PaprintCard } from './wizard-cards/paprint-card';
 // Purchase, Purchase additionally redirects to /orders/new for ₱1,999 Basic.
 import { PakantaCard } from './wizard-cards/pakanta-card';
 import { PlaceholderCardBody } from './wizard-cards/placeholder-card-body';
+// DIY (Free) tier · 3 Foundation cards added 2026-05-30. These three only
+// render on the DIY 9-card sequence · the PAID 65-card sequence doesn't
+// reference them. Adding them to the renderCardBody dispatcher means the
+// switch handles the DIY case cleanly without falling back to the
+// PlaceholderCardBody (which the host would see as "Crafting this card"
+// brand-voice copy · wrong for DIY couples who expect inline completion).
+import { SetEstimatedPaxCard } from './wizard-cards/set-estimated-pax-card';
+import { SetEstimatedBudgetCard } from './wizard-cards/set-estimated-budget-card';
+import { AddACategoryCard } from './wizard-cards/add-a-category-card';
+// Dynamic `custom_<canonical>` tasks spawned from Add A Category picks
+// route through this lightweight per-pick card · routes the host to the
+// marketplace + a [Mark done] CTA. V1.x can swap to the full
+// VendorPickGridCard inline-pick experience.
+import { CustomCategoryPickCard } from './wizard-cards/custom-category-pick-card';
 
 type Props = {
   eventId: string;
@@ -119,6 +133,21 @@ type Props = {
    *  excluded from Phase 2 recommendations so the host doesn't see a
    *  vendor they already locked in another category. */
   excludeMarketplaceVendorIds: ReadonlyArray<string>;
+  /** events.concierge_status · drives the DIY/Paid wizard sequence
+   *  bifurcation lock from CLAUDE.md 2026-05-30. When 'active' OR 'trial'
+   *  the carousel walks WIZARD_TASKS_PAID (full 65-card sequence); for
+   *  all other values (diy · expired · null) the carousel walks
+   *  WIZARD_TASKS_DIY (9-card Foundation + dynamic custom_* picks).
+   *  When omitted, defaults to PAID for back-compat (matches the
+   *  lib/wizard.ts getBaseSequenceForTier behavior). */
+  conciergeStatus?: 'diy' | 'trial' | 'active' | 'expired' | null;
+  /** events.estimated_pax · pre-populates SetEstimatedPaxCard when the
+   *  host re-edits. Optional — undefined treats it as "not set yet". */
+  estimatedPax?: number | null;
+  /** events.estimated_budget_centavos · pre-populates
+   *  SetEstimatedBudgetCard. PHP centavos · the card converts to pesos
+   *  at the input boundary. */
+  estimatedBudgetCentavos?: number | null;
 };
 
 export function WizardHero({
@@ -129,6 +158,9 @@ export function WizardHero({
   venueSetting,
   meaningfulDates,
   excludeMarketplaceVendorIds,
+  conciergeStatus,
+  estimatedPax,
+  estimatedBudgetCentavos,
 }: Props) {
   const state = parseWizardState(wizardState);
   const result = resolveWizardFocus(state);
@@ -147,9 +179,39 @@ export function WizardHero({
   // the active focus + 3 peek cards · WizardCarousel renders them in a
   // horizontal scroll-snap track · locked peek cards render darkened
   // with "Locked until {prereq.title}" copy.
-  const carouselTasks = getCarouselTasks(state, 4);
+  // DIY/Paid wizard sequence bifurcation per CLAUDE.md 2026-05-30. When
+  // the caller passes a conciergeStatus prop, thread the event input into
+  // getCarouselTasks so the resolver picks the right base sequence (PAID
+  // 65-card for 'active'|'trial' · DIY 9-card for everything else). When
+  // conciergeStatus is omitted, the helper falls back to PAID (back-compat
+  // with old callsites that haven't been updated · see
+  // lib/wizard.ts getBaseSequenceForTier doc for the full posture).
+  const carouselTasks = getCarouselTasks(
+    state,
+    4,
+    conciergeStatus !== undefined
+      ? { concierge_status: conciergeStatus ?? null, wizard_state: wizardState }
+      : undefined,
+  );
   const activeTask = carouselTasks[0];
   if (!activeTask) return null;
+
+  // Pull initial Add A Category picks out of wizard_state for the
+  // AddACategoryCard surface. The picks array is TEXT[] per
+  // lib/wizard.ts spawning logic · defensive narrowing here matches the
+  // identical pattern in lib/wizard.ts getBaseSequenceForTier.
+  const addACategoryEntry = state.add_a_category;
+  const addACategoryPicksRaw =
+    addACategoryEntry &&
+    typeof addACategoryEntry === 'object' &&
+    'picks' in addACategoryEntry
+      ? (addACategoryEntry as { picks?: unknown }).picks
+      : null;
+  const addACategoryPicks: ReadonlyArray<string> = Array.isArray(
+    addACategoryPicksRaw,
+  )
+    ? addACategoryPicksRaw.filter((p): p is string => typeof p === 'string')
+    : [];
 
   const ctx = {
     eventId,
@@ -158,6 +220,10 @@ export function WizardHero({
     eventDate,
     meaningfulDates,
     excludeMarketplaceVendorIds,
+    // DIY (Free) tier · Cards 02 + 03 + 09 consume these.
+    estimatedPax: estimatedPax ?? null,
+    estimatedBudgetCentavos: estimatedBudgetCentavos ?? null,
+    addACategoryPicks,
   };
 
   const activeBody = renderCardBody(activeTask.id, ctx);
@@ -220,6 +286,10 @@ function renderCardBody(
     eventDate: string | null;
     meaningfulDates: MeaningfulDate[];
     excludeMarketplaceVendorIds: ReadonlyArray<string>;
+    // DIY (Free) tier · pre-population for Cards 02 + 03 + 09 (2026-05-30).
+    estimatedPax: number | null;
+    estimatedBudgetCentavos: number | null;
+    addACategoryPicks: ReadonlyArray<string>;
   },
 ): React.ReactNode {
   switch (taskId) {
@@ -230,6 +300,33 @@ function renderCardBody(
           ceremonyType={ctx.ceremonyType}
           initialDate={ctx.eventDate}
           meaningfulDates={ctx.meaningfulDates}
+        />
+      );
+    // DIY (Free) tier · Cards 02 + 03 added 2026-05-30. These only appear
+    // in the DIY 9-card sequence (per WIZARD_TASKS_DIY in lib/wizard.ts);
+    // the PAID 65-card sequence skips them.
+    case 'set_estimated_pax':
+      return (
+        <SetEstimatedPaxCard
+          eventId={ctx.eventId}
+          initialPax={ctx.estimatedPax}
+        />
+      );
+    case 'set_estimated_budget':
+      return (
+        <SetEstimatedBudgetCard
+          eventId={ctx.eventId}
+          initialBudgetCentavos={ctx.estimatedBudgetCentavos}
+        />
+      );
+    // DIY (Free) tier · Card 09 added 2026-05-30. Multi-pick from the
+    // 192-row canonical taxonomy · spawns dynamic `custom_<canonical>`
+    // tasks AFTER the 9 baseline cards.
+    case 'add_a_category':
+      return (
+        <AddACategoryCard
+          eventId={ctx.eventId}
+          initialPicks={ctx.addACategoryPicks}
         />
       );
     case 'reception_venue':
@@ -578,6 +675,24 @@ function renderCardBody(
     case 'pakanta':
       return <PakantaCard eventId={ctx.eventId} />;
     default:
+      // Dynamic `custom_<canonical>` tasks spawned from AddACategoryCard
+      // picks · routes through the lightweight CustomCategoryPickCard.
+      // The wizard task title format is "Lock your <Title Cased Canonical>"
+      // per lib/wizard.ts displayCanonical helper · we reverse the title-
+      // case for display by stripping the canonical underscores.
+      if (typeof taskId === 'string' && taskId.startsWith('custom_')) {
+        const canonical = taskId.slice('custom_'.length);
+        const displayName = canonical
+          .replace(/_/g, ' ')
+          .replace(/\b\w/g, (c) => c.toUpperCase());
+        return (
+          <CustomCategoryPickCard
+            eventId={ctx.eventId}
+            canonical={canonical}
+            displayName={displayName}
+          />
+        );
+      }
       return <PlaceholderCardBody taskId={taskId} />;
   }
 }

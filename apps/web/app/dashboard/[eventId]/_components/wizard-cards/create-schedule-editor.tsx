@@ -49,7 +49,8 @@
  * fires createScheduleBlock and re-renders via revalidatePath. No modal
  * · drawer slides open inline below the [+ Add] CTA.
  *
- * Delete · trash icon per row. Confirms via window.confirm so the host
+ * Delete · trash icon per row. Confirms via the in-app `useConfirm` dialog
+ * (pre-pilot audit cleanup 2026-05-30 · was `window.confirm`) so the host
  * doesn't accidentally nuke their Ceremony. Cascade FK on parent_block_id
  * means deleting a parent removes all its children automatically.
  *
@@ -62,6 +63,7 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { CheckCircle2, GripVertical, Plus, Trash2 } from 'lucide-react';
 import type { ScheduleBlockRow } from '@/lib/schedule';
+import { useConfirm } from '@/app/_components/confirm-dialog';
 import { markTaskDone } from '../../wizard-actions';
 import {
   updateScheduleBlock,
@@ -418,6 +420,9 @@ function BlockRow({
   emphasize?: boolean;
 }) {
   const router = useRouter();
+  // In-app confirm replaces `window.confirm()` per pre-pilot audit cleanup
+  // 2026-05-30. Render `{dialog}` inside the row root so the modal mounts.
+  const { confirm, dialog } = useConfirm();
   const [label, setLabel] = useState(block.label);
   const [startInput, setStartInput] = useState(isoToTimeInput(block.start_at));
   const [endInput, setEndInput] = useState(
@@ -498,15 +503,18 @@ function BlockRow({
   }
 
   async function handleDelete() {
-    if (
-      !window.confirm(
-        `Remove "${block.label}" from your schedule?${
-          parentKey === null ? ' All parts inside it will also be removed.' : ''
-        }`,
-      )
-    ) {
-      return;
-    }
+    // In-app modal replaces the prior `window.confirm()` (pre-pilot audit
+    // cleanup 2026-05-30). Cascade-warning copy preserved verbatim so the
+    // host still sees the consequence before the trash fires.
+    const ok = await confirm({
+      title: 'Remove this block?',
+      body: `Remove "${block.label}" from your schedule?${
+        parentKey === null ? ' All parts inside it will also be removed.' : ''
+      }`,
+      destructive: true,
+      confirmLabel: 'Remove',
+    });
+    if (!ok) return;
     try {
       const formData = new FormData();
       formData.set('event_id', eventId);
@@ -529,6 +537,8 @@ function BlockRow({
   const isThisDragged = draggedId === block.block_id;
 
   return (
+    <>
+    {dialog}
     <div
       draggable
       onDragStart={() => onDragStart(block.block_id, parentKey)}
@@ -596,6 +606,7 @@ function BlockRow({
         />
       </button>
     </div>
+    </>
   );
 }
 

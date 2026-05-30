@@ -42,20 +42,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: true, stubbed: true }, { status: 200 });
   }
 
-  console.log('[veriff webhook] received (stub)', {
-    status: payload?.status,
-    verificationId: payload?.verification?.id,
-    verificationStatus: payload?.verification?.status,
-    vendorData: payload?.vendorData,
-  });
+  // Stub provider hits flow through Sentry breadcrumbs only — the prior
+  // `console.log` was redundant with this breadcrumb and polluted Vercel
+  // Functions logs without adding signal. When the integration goes live
+  // (owner action pending per App_Build_Status.md), the breadcrumb survives
+  // every real inbound for trace context. Pre-pilot audit cleanup 2026-05-30.
   Sentry.addBreadcrumb({
     category: 'webhook',
     type: 'http',
     level: 'info',
     message: 'veriff webhook received (stub)',
     data: {
+      status: payload?.status,
       verificationId: payload?.verification?.id,
       verificationStatus: payload?.verification?.status,
+      vendorData: payload?.vendorData,
     },
   });
 

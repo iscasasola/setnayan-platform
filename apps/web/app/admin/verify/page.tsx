@@ -994,7 +994,7 @@ function Avatar({ logoUrl, name }: { logoUrl: string | null; name: string }) {
       <span className="inline-flex h-10 w-10 shrink-0 overflow-hidden rounded-full border border-ink/10 bg-cream">
         <Image
           src={logoUrl}
-          alt=""
+          alt={`${name} logo`}
           width={40}
           height={40}
           loading="lazy"

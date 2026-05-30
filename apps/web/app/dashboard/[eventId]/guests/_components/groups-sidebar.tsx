@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { MoreHorizontal, Plus, Users, X } from 'lucide-react';
+import { ConfirmForm } from '@/app/_components/confirm-form';
 import {
   createGuestGroup,
   deleteGuestGroup,
@@ -220,18 +221,16 @@ function KebabMenu({
           >
             Rename / Side
           </button>
-          <form
+          {/* In-app `<ConfirmForm>` (upgraded 2026-05-30) replaces the prior
+              `<form onSubmit={confirm()}>` pattern · no UI block, brand-voice
+              copy + portaled dialog for proper focus trap + ESC. */}
+          <ConfirmForm
             action={deleteGuestGroup.bind(null, eventId, groupId)}
+            title="Delete this group?"
+            message={`Delete "${groupLabel}"? Guest assignments will be unlinked. This does not delete the guests themselves.`}
+            confirmLabel="Delete group"
+            destructive
             className="block"
-            onSubmit={(e) => {
-              if (
-                !confirm(
-                  `Delete "${groupLabel}"? Guest assignments will be unlinked. This does not delete the guests themselves.`,
-                )
-              ) {
-                e.preventDefault();
-              }
-            }}
           >
             <button
               type="submit"
@@ -239,7 +238,7 @@ function KebabMenu({
             >
               Delete group
             </button>
-          </form>
+          </ConfirmForm>
         </div>
       ) : null}
     </div>

@@ -13,6 +13,7 @@ import { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Edit3, Music, Trash2 } from 'lucide-react';
 import { deletePlaylistPick, updatePlaylistPick } from '../actions';
+import { useConfirm } from '@/app/_components/confirm-dialog';
 import type { PlaylistPickRow as PickRowType } from '@/lib/playlist';
 
 type Props = {
@@ -35,6 +36,9 @@ export function PlaylistPickRow({
   const [notes, setNotes] = useState(pick.notes ?? '');
   const [isPending, startTransition] = useTransition();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // In-app confirm replaces `window.confirm()` per pre-pilot audit cleanup
+  // 2026-05-30. Render `{dialog}` at the row root so the modal can mount.
+  const { confirm, dialog } = useConfirm();
 
   function scheduleSave() {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -61,13 +65,15 @@ export function PlaylistPickRow({
   }
 
   async function handleDelete() {
-    if (
-      !window.confirm(
-        `Remove "${pick.song_label}" from the${isBannedSlot ? ' no-play' : ''} list?`,
-      )
-    ) {
-      return;
-    }
+    // In-app modal replaces the prior `window.confirm()` (pre-pilot audit
+    // cleanup 2026-05-30) — same intent, brand-voice copy, no UI block.
+    const ok = await confirm({
+      title: 'Remove this pick?',
+      body: `Remove "${pick.song_label}" from the${isBannedSlot ? ' no-play' : ''} list?`,
+      destructive: true,
+      confirmLabel: 'Remove',
+    });
+    if (!ok) return;
     try {
       const formData = new FormData();
       formData.set('event_id', eventId);
@@ -89,6 +95,8 @@ export function PlaylistPickRow({
 
   if (editing) {
     return (
+      <>
+      {dialog}
       <li
         className={`flex flex-col gap-2 rounded-lg border ${rowTint} p-3`}
       >
@@ -141,10 +149,13 @@ export function PlaylistPickRow({
           </button>
         </div>
       </li>
+      </>
     );
   }
 
   return (
+    <>
+    {dialog}
     <li
       className={`flex items-start gap-3 rounded-lg border ${rowTint} p-3`}
     >
@@ -209,5 +220,6 @@ export function PlaylistPickRow({
         </button>
       </div>
     </li>
+    </>
   );
 }

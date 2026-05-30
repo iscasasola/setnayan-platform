@@ -67,14 +67,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     payload?.data?.attributes?.payload?.data?.attributes?.['reference-id'] ??
     null;
 
-  // V1 stub — log + 200. No DB write, no signature check (owner action
-  // pending).
-  console.log('[persona webhook] received (stub)', {
-    type: payload?.type,
-    inquiryId,
-    status,
-    referenceId,
-  });
+  // V1 stub — Sentry breadcrumb only (no DB write, no signature check ·
+  // owner action pending). The prior parallel `console.log` was redundant
+  // with this breadcrumb and polluted Vercel Functions logs without adding
+  // signal. Pre-pilot audit cleanup 2026-05-30.
   Sentry.addBreadcrumb({
     category: 'webhook',
     type: 'http',

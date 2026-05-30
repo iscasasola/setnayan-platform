@@ -14,6 +14,7 @@
 import { useMemo, useState, useTransition } from 'react';
 import Image from 'next/image';
 import { watermarkFile } from '@/lib/watermark';
+import { useConfirm } from '@/app/_components/confirm-dialog';
 import {
   ColorRangeManipulator,
   type ColorRangeMap,
@@ -60,6 +61,13 @@ export function LibraryEditor({ initialAssets }: Props) {
   const [assets, setAssets] = useState<LibraryAsset[]>(initialAssets);
   const [selectedId, setSelectedId] = useState<string | null>(initialAssets[0]?.asset_id ?? null);
   const [isPending, startTransition] = useTransition();
+  // Shared error surface for all action failures. Replaces the 6 prior
+  // `alert(...)` callsites flagged by pre-pilot audit cleanup 2026-05-30
+  // — clears on next successful action OR explicit dismiss.
+  const [actionError, setActionError] = useState<string | null>(null);
+  // In-app confirm dialog replaces the 2 prior `confirm(...)` callsites.
+  // Render `{dialog}` at the editor root so the modal can mount.
+  const { confirm, dialog } = useConfirm();
 
   const selected = useMemo(
     () => assets.find((a) => a.asset_id === selectedId) ?? null,
@@ -82,7 +90,7 @@ export function LibraryEditor({ initialAssets }: Props) {
         setRandomPrompt(p);
         setPromptCopied(false);
       } catch (err) {
-        alert(`Generate failed: ${(err as Error).message}`);
+        setActionError(`Generate failed: ${(err as Error).message}`);
       }
     });
   }
@@ -146,7 +154,7 @@ export function LibraryEditor({ initialAssets }: Props) {
         setSelectedId(assetId);
         form.reset();
       } catch (err) {
-        alert(`Upload failed: ${(err as Error).message}`);
+        setActionError(`Upload failed: ${(err as Error).message}`);
       }
     });
   }
@@ -164,7 +172,7 @@ export function LibraryEditor({ initialAssets }: Props) {
           ),
         );
       } catch (err) {
-        alert(`Save failed: ${(err as Error).message}`);
+        setActionError(`Save failed: ${(err as Error).message}`);
       }
     });
   }
@@ -182,14 +190,20 @@ export function LibraryEditor({ initialAssets }: Props) {
           ),
         );
       } catch (err) {
-        alert(`Approve failed: ${(err as Error).message}`);
+        setActionError(`Approve failed: ${(err as Error).message}`);
       }
     });
   }
 
-  function handleRetire() {
+  async function handleRetire() {
     if (!selected) return;
-    if (!confirm('Retire this asset? It will stop appearing for hosts.')) return;
+    const ok = await confirm({
+      title: 'Retire this asset?',
+      body: 'Retired assets stop appearing for hosts. The photo + tags stay in the database so you can un-retire later.',
+      destructive: true,
+      confirmLabel: 'Retire',
+    });
+    if (!ok) return;
     startTransition(async () => {
       try {
         await retireAsset(selected.asset_id);
@@ -199,26 +213,50 @@ export function LibraryEditor({ initialAssets }: Props) {
           ),
         );
       } catch (err) {
-        alert(`Retire failed: ${(err as Error).message}`);
+        setActionError(`Retire failed: ${(err as Error).message}`);
       }
     });
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!selected) return;
-    if (!confirm('Delete this asset entirely? This removes the photo and metadata.')) return;
+    const ok = await confirm({
+      title: 'Delete this asset entirely?',
+      body: 'Removes the photo + metadata. This cannot be undone — use Retire instead if you might want it back.',
+      destructive: true,
+      confirmLabel: 'Delete',
+    });
+    if (!ok) return;
     startTransition(async () => {
       try {
         await deleteAsset(selected.asset_id);
         setAssets((prev) => prev.filter((a) => a.asset_id !== selected.asset_id));
         setSelectedId(null);
       } catch (err) {
-        alert(`Delete failed: ${(err as Error).message}`);
+        setActionError(`Delete failed: ${(err as Error).message}`);
       }
     });
   }
 
   return (
+    <>
+      {dialog}
+      {actionError ? (
+        <div
+          role="alert"
+          className="mb-4 flex items-start justify-between gap-3 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
+        >
+          <span>{actionError}</span>
+          <button
+            type="button"
+            onClick={() => setActionError(null)}
+            className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700 hover:text-ink"
+            aria-label="Dismiss error"
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
     <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
       {/* LEFT: random-prompt generator + library grid + upload */}
       <div className="space-y-4">
@@ -371,7 +409,7 @@ export function LibraryEditor({ initialAssets }: Props) {
                   >
                     <Image
                       src={a.public_url}
-                      alt=""
+                      alt={a.label || `${a.asset_type} thumbnail`}
                       width={48}
                       height={48}
                       loading="lazy"
@@ -492,5 +530,6 @@ export function LibraryEditor({ initialAssets }: Props) {
         )}
       </div>
     </div>
+    </>
   );
 }

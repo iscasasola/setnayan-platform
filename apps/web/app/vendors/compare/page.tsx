@@ -454,7 +454,8 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
                           price !== null && price > 0 ? (
                             <span className="inline-flex items-baseline gap-1">
                               <span className="font-mono text-lg font-semibold text-ink">
-                                {formatPhp(price * 100)}
+                                {/* `starting_price_php` is already pesos · formatPhp expects pesos · the prior `price * 100` shipped ₱25,000 as ₱2,500,000 (pre-pilot audit cleanup 2026-05-30) */}
+                                {formatPhp(price)}
                               </span>
                               <span className="text-[11px] text-ink/55">
                                 starts at

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Flag, Gavel, ShieldOff } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
   SELF_REVIEW_SIGNAL_LABEL,
@@ -97,6 +98,9 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
   if (filter === 'pending') appealsQuery = appealsQuery.is('decided_at', null);
   else if (filter === 'decided') appealsQuery = appealsQuery.not('decided_at', 'is', null);
   const { data: appealData, error: appealError } = await appealsQuery;
+  if (appealError) {
+    logQueryError('AdminReviewsPage (vendor_review_appeals)', appealError);
+  }
   const appeals = (appealData ?? []) as AppealRow[];
 
   // ── Resolution lookups ───────────────────────────────────────────────
@@ -222,7 +226,7 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
 
         {appealError ? (
           <p className="rounded-md border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-            {appealError.message}
+            Review appeals couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment or check Sentry for the full detail.
           </p>
         ) : null}
 

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Wallet, Clock3, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
   PAYOUT_STAGE_LABEL,
@@ -116,6 +117,9 @@ export default async function AdminPayoutsPage({ searchParams }: Props) {
   if (to) query = query.lte('scheduled_at', to);
 
   const { data, error } = await query;
+  if (error) {
+    logQueryError('AdminPayoutsPage (vendor_payouts)', error);
+  }
   const rows = (data ?? []) as unknown as PayoutRow[];
 
   // Aggregate KPIs across the *current* filter selection.
@@ -182,7 +186,7 @@ export default async function AdminPayoutsPage({ searchParams }: Props) {
 
       {error ? (
         <p role="alert" className="mb-4 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
-          {error.message}
+          Payouts couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment or check Sentry for the full detail.
         </p>
       ) : null}
 

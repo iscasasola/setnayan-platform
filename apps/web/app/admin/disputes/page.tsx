@@ -1,5 +1,6 @@
 import { Gavel, Filter } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { relativeTime } from '@/lib/activity';
 
 export const metadata = { title: 'Disputes · Admin' };
@@ -140,6 +141,9 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
   if (status !== 'all') listQuery = listQuery.eq('status', status);
   if (category !== 'all') listQuery = listQuery.eq('category', category);
   const { data: listData, error: listError } = await listQuery;
+  if (listError) {
+    logQueryError('AdminDisputesPage (vendor_disputes)', listError);
+  }
   const rows = (listData ?? []) as DisputeRow[];
 
   // Resolution lookups — one round-trip per FK table, keyed on the
@@ -227,7 +231,7 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
           role="alert"
           className="mt-4 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
         >
-          Could not load disputes: {listError.message}
+          Disputes couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment or check Sentry for the full detail.
         </p>
       ) : null}
 

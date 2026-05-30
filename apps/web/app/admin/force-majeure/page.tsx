@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { AlertTriangle } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   FLAG_STATUSES,
   FLAG_STATUS_LABEL,
@@ -92,6 +93,9 @@ export default async function AdminForceMajeurePage({ searchParams }: Props) {
   }
 
   const { data, error } = await query;
+  if (error) {
+    logQueryError('AdminForceMajeurePage (force_majeure_flags)', error);
+  }
   const flags = (data ?? []) as FlagRow[];
 
   // Side queries — fetch related events + handlers once so the row map is O(1).
@@ -170,7 +174,7 @@ export default async function AdminForceMajeurePage({ searchParams }: Props) {
           role="alert"
           className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
         >
-          {error.message}
+          Force majeure flags couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment or check Sentry for the full detail.
         </p>
       ) : null}
 

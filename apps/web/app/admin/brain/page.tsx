@@ -1,5 +1,6 @@
 import { AlertCircle, BookOpen, Sparkles } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 // V1 MVP catalog over `public.concierge_brain_chunks` (locked 2026-05-18 via
 // migration 20260518500000_iteration_0016_wizard_architecture_schema.sql).
@@ -144,6 +145,10 @@ export default async function AdminBrainPage() {
     .order('topic_file', { ascending: true })
     .order('chunk_title', { ascending: true });
 
+  if (error) {
+    logQueryError('AdminBrainPage (concierge_brain_chunks)', error);
+  }
+
   // Supabase-js infers a union including a generic error row for this
   // table (no generated DB type), so cast via `unknown` per the TS hint.
   // The SELECT column list is the contract — keep it aligned with the
@@ -242,7 +247,7 @@ export default async function AdminBrainPage() {
           role="alert"
           className="mb-6 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
         >
-          Couldn&apos;t load brain chunks — {error.message}
+          Brain chunks couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment or check Sentry for the full detail.
         </p>
       ) : null}
 

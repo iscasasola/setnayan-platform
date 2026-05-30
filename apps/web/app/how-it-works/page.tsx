@@ -86,7 +86,7 @@ const ROLE_CARDS: ReadonlyArray<RoleCard> = [
     label: 'Vendor',
     entryPath: '/vendor-dashboard',
     icon: Briefcase,
-    who: 'You sell to couples. Free profile, optional Pro for ₱499/wk.',
+    who: 'You sell to couples. Free profile, optional Pro for ₱2,499 / 28 days.',
     where: [
       'Services, bookings inbox, team roles, earnings rollup',
       'Reply-only chat — couples reach out, you reply with quotes + files',
@@ -378,7 +378,8 @@ export default function HowItWorksPage() {
               </h3>
               <p className="mt-2 text-sm text-ink/70">
                 A free verified profile, in-app chat with couples, BIR-compliant receipts. Pro at
-                ₱499/wk unlocks unlimited services, auto-disbursement, proposal builder.
+                ₱2,499 / 28 days unlocks unlimited services, custom slug + bid CTA on your
+                profile, advanced proposal builder, and editorial credits on the weddings you shoot.
               </p>
               <Link
                 href="/signup?as=vendor"

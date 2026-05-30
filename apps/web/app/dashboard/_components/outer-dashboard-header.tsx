@@ -24,8 +24,9 @@ import { RoleSwitchPill } from '@/app/_components/role-switch-pill';
  *     tap routes to the primary event dashboard). With zero events the
  *     anchor renders as the empty-state "+" monogram linking to
  *     `/dashboard/create-event`.
- *   - **Right:** Notification bell + (I) ProfileMenu dropdown (Profile &
- *     settings, Sign out). The global Setnayan wordmark + standalone
+ *   - **Right:** Notification bell + (I) ProfileMenu dropdown (Profile,
+ *     Settings, Sign out · split 2026-05-30 from "Profile & settings"
+ *     into two anchor-linked rows). The global Setnayan wordmark + standalone
  *     `Sign out` button are intentionally NOT in this chrome — they were
  *     the row-1 half of the two-stacked-row drift confirmed
  *     2026-05-15.

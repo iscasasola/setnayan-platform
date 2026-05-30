@@ -267,7 +267,19 @@ export default async function ProfilePage({ searchParams }: Props) {
         />
       </dl>
 
-      <section className="mt-10 space-y-4">
+      {/*
+        Anchor target for the Settings row of the (I) menu in
+        apps/web/app/_components/profile-menu.tsx. The menu splits
+        identity rows (above this section) from preferences rows
+        (this section onward — Planner mode, Display language,
+        Appearance, Privacy & data). `scroll-mt-24` pads under the
+        sticky dashboard chrome so the section heading doesn't hide
+        behind the top bar when anchor-scrolled. WHY this lives here
+        instead of /dashboard/settings: V1 keeps a single Profile
+        page; the menu split is anchor-based, not route-based, so
+        deep links survive without a route migration.
+      */}
+      <section id="settings" className="mt-10 space-y-4 scroll-mt-24">
         <div className="space-y-1">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
             Planner mode

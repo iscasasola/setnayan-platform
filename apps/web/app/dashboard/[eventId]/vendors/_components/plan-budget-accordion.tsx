@@ -32,7 +32,7 @@
  * offsets below it on mobile via --pba-header-offset).
  */
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 
 import { formatPhp } from '@/lib/vendors';
@@ -219,6 +219,18 @@ const PBA_CSS = `
 .pba .end-stats>div:first-child{border-left:0}
 .pba .esv{font-family:var(--serif);font-style:italic;font-weight:600;font-size:24px;line-height:1;color:#fff}
 .pba .esk{font-family:var(--mono);font-size:7.5px;letter-spacing:.13em;text-transform:uppercase;color:rgba(255,255,255,.6);margin-top:5px}
+
+/* ---- Scroll-driven motion (transforms set per-frame from JS; CSS only
+   smooths + declares will-change + the reduced-motion reset). All targets
+   are always-rendered + always visible — these effects are cosmetic, so a
+   miscalc degrades to "looks flat", never "content hidden"). ---- */
+.pba .intro{transform-origin:top center;will-change:transform,opacity;transition:transform .15s var(--ease),opacity .15s var(--ease)}
+.pba .child-block{transform-origin:top center;will-change:transform,opacity;transition:transform .12s linear,opacity .12s linear}
+.pba .card{will-change:transform,opacity;transition:transform .08s linear,opacity .08s linear}
+.pba .rail{perspective:1200px}
+@media (prefers-reduced-motion:reduce){
+  .pba .intro,.pba .child-block,.pba .card{transform:none!important;opacity:1!important;transition:none!important}
+}
 `;
 
 // ── Root ────────────────────────────────────────────────────────────────
@@ -229,11 +241,110 @@ export function PlanBudgetAccordion({
   model: PlanBudgetModel;
   eventId: string;
 }) {
-  const [openFolder, setOpenFolder] = useState<string | null>(null);
   const hasAnyPick = model.recap.shortlisted > 0;
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // Scroll-driven motion (prototype Plan_Budget_Accordion_2026-05-31.html):
+  //   · sizeIntro   — the "Where your day stands" overview scales + fades as it
+  //                   scrolls up under the sticky topbar.
+  //   · syncStates  — each .child-block curve-zooms (scale + fade by distance
+  //                   from a focus line) so child categories visually merge into
+  //                   their sticky parent header as you scroll past them.
+  //   · curveRail   — per horizontal rail, cards get a coverflow rotateY/scale/
+  //                   opacity by offset from rail-center + a haptic buzz when the
+  //                   centered card changes.
+  // Fail-safe by construction: every target is always rendered + visible; these
+  // are cosmetic transforms set per-frame. A null ref / bad calc degrades to
+  // "flat", never "hidden". prefers-reduced-motion → no-op. rAF-throttled; all
+  // listeners + the pending frame are torn down on unmount / model change.
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    if (
+      typeof window === 'undefined' ||
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
+      return;
+    }
+
+    let raf = 0;
+    const snapIndex = new WeakMap<Element, number>();
+
+    const frame = () => {
+      raf = 0;
+      const vh = window.innerHeight || 1;
+
+      // sizeIntro
+      const intro = root.querySelector<HTMLElement>('.intro');
+      if (intro) {
+        const r = intro.getBoundingClientRect();
+        const p = Math.min(1, Math.max(0, -r.top / (r.height || 1)));
+        intro.style.transform = `scale(${(1 - p * 0.06).toFixed(4)})`;
+        intro.style.opacity = (1 - p * 0.55).toFixed(3);
+      }
+
+      // syncStates — child-block curve-merge into the sticky parent header
+      const focus = vh * 0.38;
+      root.querySelectorAll<HTMLElement>('.child-block').forEach((el) => {
+        const r = el.getBoundingClientRect();
+        const center = r.top + r.height / 2;
+        const norm = Math.min(1, Math.abs(center - focus) / vh);
+        el.style.transform = `scale(${(1 - norm * 0.12).toFixed(4)})`;
+        el.style.opacity = (1 - norm * 0.45).toFixed(3);
+      });
+
+      // curveRail — coverflow + snap buzz (re-query each frame so newly
+      // mounted rails are covered without re-binding listeners)
+      root.querySelectorAll<HTMLElement>('.rail').forEach((rail) => {
+        const rr = rail.getBoundingClientRect();
+        const railCenter = rr.left + rr.width / 2;
+        const half = rr.width / 2 || 1;
+        const cards = rail.querySelectorAll<HTMLElement>('.card, .add');
+        let nearest = -1;
+        let nearestDist = Infinity;
+        cards.forEach((card, i) => {
+          const cr = card.getBoundingClientRect();
+          const d = cr.left + cr.width / 2 - railCenter;
+          const n = Math.max(-1, Math.min(1, d / half));
+          card.style.transform = `perspective(1200px) rotateY(${(n * -16).toFixed(2)}deg) scale(${(1 - Math.abs(n) * 0.12).toFixed(4)})`;
+          card.style.opacity = (1 - Math.abs(n) * 0.4).toFixed(3);
+          const ad = Math.abs(d);
+          if (ad < nearestDist) {
+            nearestDist = ad;
+            nearest = i;
+          }
+        });
+        const prev = snapIndex.get(rail) ?? -1;
+        if (nearest !== -1 && nearest !== prev) {
+          snapIndex.set(rail, nearest);
+          if (prev !== -1 && 'vibrate' in navigator) {
+            try {
+              navigator.vibrate(7);
+            } catch {
+              /* vibration unsupported / blocked — ignore */
+            }
+          }
+        }
+      });
+    };
+
+    const schedule = () => {
+      if (!raf) raf = window.requestAnimationFrame(frame);
+    };
+
+    frame(); // initial paint
+    window.addEventListener('scroll', schedule, { passive: true, capture: true });
+    window.addEventListener('resize', schedule, { passive: true });
+
+    return () => {
+      window.removeEventListener('scroll', schedule, { capture: true } as EventListenerOptions);
+      window.removeEventListener('resize', schedule);
+      if (raf) window.cancelAnimationFrame(raf);
+    };
+  }, [model]);
 
   return (
-    <div className="pba">
+    <div className="pba" ref={rootRef}>
       <style>{PBA_CSS}</style>
       <TopBar model={model} />
       <div className="body">
@@ -245,12 +356,6 @@ export function PlanBudgetAccordion({
               key={folder.folder}
               folder={folder}
               eventId={eventId}
-              open={openFolder === folder.folder}
-              onToggle={() =>
-                setOpenFolder((cur) =>
-                  cur === folder.folder ? null : folder.folder,
-                )
-              }
             />
           ))}
         </div>
@@ -450,23 +555,18 @@ function DueRow({
 function FolderSection({
   folder,
   eventId,
-  open,
-  onToggle,
 }: {
   folder: AccordionFolder;
   eventId: string;
-  open: boolean;
-  onToggle: () => void;
 }) {
   const hasLocked = folder.lockedTotal > 0;
+  // Folders render always-open (the prototype model) so the scroll engine can
+  // curve-merge each .child-block into this sticky parent header as the couple
+  // scrolls past it. The .cat-head is a non-interactive sticky label, not a
+  // collapse toggle.
   return (
     <section id={`folder-${folder.folder}`} className="cat">
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={open}
-        className={`cat-head${open ? ' active' : ''}`}
-      >
+      <div className="cat-head">
         <span className="nm">{folder.label}</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span className={`amt${hasLocked ? '' : ' zero'}`}>
@@ -476,28 +576,24 @@ function FolderSection({
                 ? `${folder.pickCount} shortlisted`
                 : 'Not started'}
           </span>
-          <span className="chev" aria-hidden>
-            ▾
-          </span>
         </span>
-      </button>
+      </div>
 
-      {open && (
-        <div className="cat-body">
-          {folder.children.length === 0 ? (
-            <p className="cat-empty">Nothing here yet for your wedding.</p>
-          ) : (
-            folder.children.map((child) => (
+      <div className="cat-body">
+        {folder.children.length === 0 ? (
+          <p className="cat-empty">Nothing here yet for your wedding.</p>
+        ) : (
+          folder.children.map((child) => (
+            <div className="child-block" key={child.groupId}>
               <ChildRail
-                key={child.groupId}
                 child={child}
                 eventId={eventId}
                 folderSlug={folder.slug}
               />
-            ))
-          )}
-        </div>
-      )}
+            </div>
+          ))
+        )}
+      </div>
     </section>
   );
 }

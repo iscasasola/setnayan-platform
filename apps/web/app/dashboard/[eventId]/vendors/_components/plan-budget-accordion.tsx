@@ -36,6 +36,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 
 import { formatPhp } from '@/lib/vendors';
+import { formatDistanceKm } from '@/lib/distance';
 import { deleteVendor, updateVendorStatus } from '../actions';
 import {
   formatPesoCompact,
@@ -684,7 +685,16 @@ function VendorCardAtom({
     typeof pick.rating === 'number' && pick.rating > 0 ? pick.rating : null;
   const reviewCount =
     typeof pick.review_count === 'number' ? pick.review_count : null;
-  const city = pick.marketplace_city ?? null;
+  const distanceKm =
+    typeof pick.distance_km === 'number' && pick.distance_km > 0
+      ? pick.distance_km
+      : null;
+  // Distance slot: "X km from reception" when real coords exist; else the
+  // vendor's city; else nothing (off-platform picks with neither).
+  const distLine =
+    distanceKm !== null
+      ? `${formatDistanceKm(distanceKm)} from reception`
+      : (pick.marketplace_city ?? null);
   const verified = pick.is_verified === true;
   const setnayan = pick.is_setnayan_service === true;
   const recommendedReason =
@@ -712,7 +722,7 @@ function VendorCardAtom({
         </div>
         <div className="meta">
           <div className="vn">{displayName}</div>
-          {city && <div className="dist">{city}</div>}
+          {distLine && <div className="dist">{distLine}</div>}
 
           {stars && (
             <div className="stars" aria-label={`${rating} stars`}>

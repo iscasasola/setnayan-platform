@@ -10,9 +10,9 @@
  *
  * SCOPE: marketing surfaces only (/, /for-vendors, /keynote*, /signup,
  * /login, /pricing, /privacy, etc.). The existing `Logo` in `./logo.tsx` is
- * the temp 2026-05-23 mark used in app-chrome surfaces (dashboard, admin,
- * vendor-dashboard); both coexist intentionally until owner decides which
- * wins for app chrome too.
+ * used in app-chrome surfaces (dashboard, admin, vendor-dashboard); both
+ * coexist intentionally and now share the same canonical mark asset
+ * (/brand/setnayan-mark.svg · official gold mark, owner-supplied 2026-05-31).
  *
  * USAGE:
  *   import { Wordmark } from '@/app/_components/brand-marks';
@@ -23,7 +23,7 @@
  *   <LogoFull height={48} />      // full lockup wrapper for header use
  *
  * IMG STRATEGY: raw `<img>` with eslint-disable to skip next/image — the
- * SVG is ~600 bytes, already optimized, and serving it through next/image
+ * SVG is tiny (~2.5 KB), already optimized, and serving it through next/image
  * would add a presigning round-trip per render with zero payload win. Same
  * approach the existing `Logo` component takes.
  */

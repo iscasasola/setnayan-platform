@@ -1,13 +1,12 @@
 /* eslint-disable @next/next/no-img-element */
 //
-// Setnayan brand logo · TEMPORARY orange-red gradient + white "SET NA 'YAN"
-// lock-up (owner directive 2026-05-23 PM: "make this the temporary icon for
-// setnayan. both on website and icons").
+// Setnayan brand logo · official gold mark (owner-supplied 2026-05-31).
+// Replaces the temporary 2026-05-23 orange→red "SET NA 'YAN" gradient tile
+// with a flat champagne-gold (#cb9e4b) glyph on a transparent ground.
 //
-// Renders the canonical /brand/setnayan-mark.svg as a square 1024×1024
-// image. The prior inline `<path>` + `currentColor` treatment is retired
-// for the temp pass because the new design carries its own gradient + text
-// fill that doesn't compose with parent CSS color.
+// Renders the canonical /brand/setnayan-mark.svg as a square (1:1) image.
+// The mark carries its own fixed gold fill (not `currentColor`), so it does
+// not compose with parent CSS color — it reads the same on any background.
 //
 // Using a raw `<img>` (eslint-disable above) rather than next/image because
 // the SVG is small (~600 bytes), already optimized, and serving it through

@@ -488,8 +488,18 @@ export function PlanBudgetAccordion({
           budget bar. Hide the SidebarShell sticky top strip while the
           Vendors tab is mounted (the rule lives only in this page's DOM, so
           the nav returns the moment you navigate away). Bottom nav stays for
-          tab switching. */}
-      <style>{`.shell-topbar{display:none}`}</style>
+          tab switching.
+
+          overscroll-behavior-y:none — the page scrolls on the WINDOW
+          (SidebarShell main is min-h-screen, no inner overflow), so dragging
+          past the recap rubber-banded the document down into the bare html
+          background (a gap below the dark sheet — owner 2026-06-01 "should not
+          move up like this"). Pinning the document over-scroll stops that
+          bounce. Scoped to this tab via this injected rule (removed on nav
+          away), so pull-to-refresh elsewhere is untouched. PR #720 moved the
+          recap inside .cats (the pile fix); this is the separate over-scroll
+          half it did not cover. */}
+      <style>{`.shell-topbar{display:none}html,body{overscroll-behavior-y:none}`}</style>
       <TopBar model={model} />
       <div className="body">
         <Overview model={model} eventId={eventId} />

@@ -510,6 +510,16 @@ export function PlanBudgetAccordion({
               onOpenSearch={openSearch}
             />
           ))}
+          {/* Recap lives INSIDE .cats (not a sibling after it): the pile's
+              containing block then spans through the recap, so EVERY category
+              head — including Prints + Transport — STAYS pinned at max scroll
+              instead of un-pinning as the recap arrives. Also stops the
+              headers detaching/floating on over-scroll. (owner 2026-06-01) */}
+          {hasAnyPick && (
+            <div className="end-spacer">
+              <Recap recap={model.recap} />
+            </div>
+          )}
         </div>
 
         {compare && (
@@ -523,12 +533,6 @@ export function PlanBudgetAccordion({
             label={search.label}
             onClose={() => setSearch(null)}
           />
-        )}
-
-        {hasAnyPick && (
-          <div className="end-spacer">
-            <Recap recap={model.recap} />
-          </div>
         )}
       </div>
     </div>

@@ -32,7 +32,7 @@
  * offsets below it on mobile via --pba-header-offset).
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 
 import { formatPhp } from '@/lib/vendors';
@@ -74,7 +74,7 @@ const PBA_CSS = `
   --gold:var(--m-orange,#C5A059); --gold-deep:var(--m-orange-2,#8C6932);
   --mulberry:var(--m-mulberry,#5C2542); --mulberry-deep:var(--m-mulberry-2,#4A1D36);
   --line:rgba(30,34,41,.12); --line-soft:rgba(30,34,41,.07);
-  --topbar-h:62px; --head-h:34px;
+  --topbar-h:62px; --head-h:38px;
   /* mobile: shared app header (sticky, ~64px, lg:hidden) sits above the
      accordion; offset our sticky budget bar + category heads below it.
      desktop: header is lg:hidden, so the @media override below sets 0. */
@@ -143,7 +143,7 @@ const PBA_CSS = `
 
 /* ---- Category sticky stacking head + body ---- */
 .pba .cat{border-top:1px solid var(--line)}
-.pba .cat-head{position:sticky;top:calc(var(--pba-header-offset) + var(--topbar-h));z-index:5;width:100%;min-height:var(--head-h);background:var(--paper);display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 18px;border:0;border-bottom:1px solid var(--line);cursor:pointer;text-align:left;transition:background .4s var(--ease),box-shadow .45s var(--ease)}
+.pba .cat-head{position:sticky;top:calc(var(--pba-header-offset) + var(--topbar-h) + var(--idx,0) * var(--head-h));z-index:calc(20 + var(--idx,0));width:100%;height:var(--head-h);background:var(--paper);display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 18px;border:0;border-bottom:1px solid var(--line);text-align:left;transition:background .4s var(--ease),box-shadow .45s var(--ease)}
 .pba .cat-head .nm{font-family:var(--serif);font-style:italic;font-size:18px;font-weight:600;color:var(--ink);letter-spacing:.01em}
 .pba .cat-head .amt{font-family:var(--serif);font-style:italic;font-size:13.5px;font-weight:600;color:var(--ink)}
 .pba .cat-head .amt.zero{font-family:var(--mono);font-style:normal;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-deep)}
@@ -168,13 +168,13 @@ const PBA_CSS = `
 /* ---- Carousel rail + 300px cards ---- */
 .pba .rail{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:0 20px 6px;scrollbar-width:none}
 .pba .rail::-webkit-scrollbar{display:none}
-.pba .card{position:relative;flex:0 0 300px;scroll-snap-align:center}
-.pba .v{position:relative;display:block;background:#fff;border:1px solid var(--line);border-radius:18px;overflow:hidden;text-decoration:none;color:inherit;transition:border-color .35s var(--ease),box-shadow .35s var(--ease)}
+.pba .card{position:relative;flex:0 0 300px;scroll-snap-align:center;display:flex;flex-direction:column}
+.pba .v{position:relative;display:flex;flex-direction:column;flex:1 1 auto;min-height:300px;background:#fff;border:1px solid var(--line);border-radius:18px;overflow:hidden;text-decoration:none;color:inherit;transition:border-color .35s var(--ease),box-shadow .35s var(--ease)}
 .pba .v:hover{box-shadow:0 10px 30px -18px rgba(0,0,0,.4)}
-.pba .v .img{height:128px;background:linear-gradient(135deg,#3a3f47,#565b63);display:flex;align-items:center;justify-content:center}
+.pba .v .img{height:128px;flex:0 0 128px;background:linear-gradient(135deg,#3a3f47,#565b63);display:flex;align-items:center;justify-content:center}
 .pba .v .img img{width:100%;height:100%;object-fit:cover}
 .pba .v .img .ini{font-family:var(--serif);font-style:italic;font-size:30px;color:rgba(255,255,255,.7)}
-.pba .v .meta{padding:13px 15px 15px}
+.pba .v .meta{padding:13px 15px 15px;flex:1 1 auto;display:flex;flex-direction:column}
 .pba .v .vn{font-family:var(--sans);font-weight:700;font-size:15px;color:var(--ink)}
 .pba .v .dist{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--ink-soft);margin-top:2px}
 .pba .v .stars{color:var(--gold);font-size:15px;letter-spacing:2px;margin-top:9px}
@@ -184,8 +184,8 @@ const PBA_CSS = `
 .pba .bdg.verified{color:#2e7d4f;background:rgba(46,125,79,.1)}
 .pba .bdg.setnayan{color:var(--mulberry);background:rgba(92,37,66,.1)}
 .pba .bdg.rec{color:var(--gold-deep);background:rgba(197,160,89,.16)}
-.pba .v .price{font-family:var(--serif);font-style:italic;font-weight:600;font-size:21px;color:var(--ink);margin-top:7px}
-.pba .v .linked{margin-top:9px;font-family:var(--mono);font-size:10px;letter-spacing:.03em;color:var(--mulberry);font-weight:500;line-height:1.4}
+.pba .v .price{font-family:var(--serif);font-style:italic;font-weight:600;font-size:21px;color:var(--ink);margin-top:auto;padding-top:7px}
+.pba .v .linked{margin-top:auto;padding-top:9px;font-family:var(--mono);font-size:10px;letter-spacing:.03em;color:var(--mulberry);font-weight:500;line-height:1.4}
 .pba .v .eyeing{margin-top:9px;font-family:var(--mono);font-size:9px;letter-spacing:.02em;color:#b23b34;background:rgba(178,59,52,.08);border-radius:6px;padding:3px 7px;display:inline-block}
 /* chosen state — gold border + glow + corner badge */
 .pba .card.chosen .v{border:3px solid var(--gold);box-shadow:0 0 0 3px rgba(197,160,89,.32)}
@@ -209,9 +209,34 @@ const PBA_CSS = `
 .pba .empty-child .en{font-family:var(--sans);font-size:13.5px;font-weight:600;color:var(--mulberry)}
 .pba .empty-child .eh{margin-left:auto;font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#b8b4ac}
 
+/* ---- Compare (like-for-like; read-only — never sets the pick) ---- */
+.pba .cn-right{display:flex;align-items:center;gap:8px}
+.pba .cmpbtn{display:inline-flex;align-items:center;gap:4px;border:1px solid rgba(92,37,66,.4);background:rgba(92,37,66,.06);color:var(--mulberry);border-radius:999px;padding:4px 10px;font-family:var(--mono);font-size:8px;letter-spacing:.08em;text-transform:uppercase;font-weight:500;cursor:pointer;white-space:nowrap;transition:background .2s var(--ease)}
+.pba .cmpbtn:active{background:rgba(92,37,66,.14)}
+.pba .cmpsheet{position:fixed;inset:0;z-index:90;background:var(--paper);display:flex;flex-direction:column;animation:cmpup .3s var(--ease)}
+@keyframes cmpup{from{transform:translateY(100%)}to{transform:none}}
+.pba .cmpwrap{width:100%;max-width:620px;margin:0 auto;flex:1;display:flex;flex-direction:column;min-height:0}
+.pba .cmphead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:calc(18px + env(safe-area-inset-top)) 20px 12px;border-bottom:1px solid var(--line)}
+.pba .cmptitle{display:flex;flex-direction:column;gap:3px;min-width:0}
+.pba .cmpcat{font-family:var(--serif);font-style:italic;font-size:22px;color:var(--ink);line-height:1}
+.pba .cmpsub{font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)}
+.pba .cmpclose{border:none;background:rgba(30,34,41,.06);color:var(--ink);width:32px;height:32px;border-radius:999px;font-size:15px;cursor:pointer;flex:0 0 auto}
+.pba .cmpbody{flex:1;overflow:auto}
+.pba .cmptable{width:100%;border-collapse:collapse;font-family:var(--sans)}
+.pba .cmptable tr{border-bottom:1px solid var(--line-soft)}
+.pba .cmptable th{text-align:left;vertical-align:top;font-family:var(--mono);font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);font-weight:500;padding:12px 8px 12px 20px;width:84px;white-space:nowrap}
+.pba .cmptable td{vertical-align:top;padding:12px 14px 12px 8px;font-size:13px;color:var(--ink);line-height:1.35}
+.pba .cmptable td+td{border-left:1px solid var(--line-soft)}
+.pba .cmprow-name td{font-weight:700;font-size:13.5px}
+.pba .cmprow-price td{font-family:var(--serif);font-style:italic;font-size:16px;color:var(--mulberry)}
+.pba .cmpwin{color:var(--gold-deep);font-family:var(--mono);font-size:7.5px;letter-spacing:.1em;text-transform:uppercase;display:block;margin-top:3px}
+.pba .cmpfoot{padding:12px 20px calc(16px + env(safe-area-inset-bottom)) 20px;font-size:11px;line-height:1.45;color:var(--ink-soft);border-top:1px solid var(--line);background:rgba(197,160,89,.06)}
+
 /* ---- Recap ---- */
-.pba .end-spacer{padding:30px 18px 0}
-.pba .endcard{display:flex;flex-direction:column;align-items:center;text-align:center;gap:7px;background:var(--mulberry);color:#fff;border-radius:22px;padding:24px 22px 22px}
+/* recap fills the bottom half once all category heads are piled at top:
+   reserve viewport minus the pile zone (topbar + 10 stacked heads + offset) */
+.pba .end-spacer{padding:30px 18px 30px;display:flex;flex-direction:column;min-height:calc(100svh - var(--pba-header-offset) - var(--topbar-h) - (10 * var(--head-h)))}
+.pba .endcard{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:7px;background:var(--mulberry);color:#fff;border-radius:22px;padding:24px 22px 22px}
 .pba .end-eyebrow{font-family:var(--mono);font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.6)}
 .pba .end-h{font-family:var(--serif);font-style:italic;font-weight:600;font-size:26px;line-height:1.05;color:#fff;margin:2px 0}
 .pba .end-line{font-family:var(--sans);font-size:11.5px;line-height:1.5;color:rgba(255,255,255,.8);max-width:280px}
@@ -244,6 +269,10 @@ export function PlanBudgetAccordion({
 }) {
   const hasAnyPick = model.recap.shortlisted > 0;
   const rootRef = useRef<HTMLDivElement>(null);
+  // Compare sheet — which child category (≥2 shortlisted) is being compared.
+  // Lifted to root so the fixed-position sheet escapes the curve-transformed
+  // .child-block ancestors (a transform would make position:fixed local).
+  const [compare, setCompare] = useState<AccordionChild | null>(null);
 
   // Scroll-driven motion (prototype Plan_Budget_Accordion_2026-05-31.html):
   //   · sizeIntro   — the "Where your day stands" overview scales + fades as it
@@ -352,14 +381,20 @@ export function PlanBudgetAccordion({
         <Overview model={model} eventId={eventId} />
 
         <div>
-          {model.folders.map((folder) => (
+          {model.folders.map((folder, index) => (
             <FolderSection
               key={folder.folder}
               folder={folder}
               eventId={eventId}
+              index={index}
+              onCompare={setCompare}
             />
           ))}
         </div>
+
+        {compare && (
+          <CompareSheet child={compare} onClose={() => setCompare(null)} />
+        )}
 
         {hasAnyPick && (
           <div className="end-spacer">
@@ -556,9 +591,13 @@ function DueRow({
 function FolderSection({
   folder,
   eventId,
+  index,
+  onCompare,
 }: {
   folder: AccordionFolder;
   eventId: string;
+  index: number;
+  onCompare: (child: AccordionChild) => void;
 }) {
   const hasLocked = folder.lockedTotal > 0;
   // Folders render always-open (the prototype model) so the scroll engine can
@@ -567,7 +606,7 @@ function FolderSection({
   // collapse toggle.
   return (
     <section id={`folder-${folder.folder}`} className="cat">
-      <div className="cat-head">
+      <div className="cat-head" style={{ ['--idx']: index } as CSSProperties}>
         <span className="nm">{folder.label}</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span className={`amt${hasLocked ? '' : ' zero'}`}>
@@ -590,6 +629,7 @@ function FolderSection({
                 child={child}
                 eventId={eventId}
                 folderSlug={folder.slug}
+                onCompare={onCompare}
               />
             </div>
           ))
@@ -604,17 +644,31 @@ function ChildRail({
   child,
   eventId,
   folderSlug,
+  onCompare,
 }: {
   child: AccordionChild;
   eventId: string;
   folderSlug: string;
+  onCompare: (child: AccordionChild) => void;
 }) {
   const empty = child.picks.length === 0;
+  const canCompare = child.picks.length >= 2;
   return (
     <div id={`group-${child.groupId}`}>
       <div className="child-name">
         <span className="cn">{child.label}</span>
-        <DeadlineChip daysLeft={child.daysLeft} state={child.state} />
+        <span className="cn-right">
+          {canCompare && (
+            <button
+              type="button"
+              className="cmpbtn"
+              onClick={() => onCompare(child)}
+            >
+              ⇄ Compare {child.picks.length}
+            </button>
+          )}
+          <DeadlineChip daysLeft={child.daysLeft} state={child.state} />
+        </span>
       </div>
 
       {empty ? (
@@ -823,6 +877,160 @@ function AddCard({
         <span className="at">Find more</span>
       </span>
     </Link>
+  );
+}
+
+// ── Compare sheet — like-for-like, read-only (never sets the pick) ────────
+function CompareSheet({
+  child,
+  onClose,
+}: {
+  child: AccordionChild;
+  onClose: () => void;
+}) {
+  // Full-screen sheet: lock background scroll while open; Escape closes.
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [onClose]);
+
+  // Same field extraction as VendorCardAtom so screen-name/real-name
+  // resolution + enrichment stay identical to the cards.
+  const vendors = child.picks.map((pick) => {
+    const name = pick.marketplace_business_name ?? pick.vendor_name ?? 'Vendor';
+    const priceNum = pick.rolled_cost_php;
+    const price =
+      priceNum !== null
+        ? formatPhp(priceNum)
+        : pick.linked_to_name
+          ? `Linked with ${pick.linked_to_name}`
+          : 'On inquiry';
+    const rating =
+      typeof pick.rating === 'number' && pick.rating > 0 ? pick.rating : null;
+    const reviewCount =
+      typeof pick.review_count === 'number' ? pick.review_count : null;
+    const distanceKm =
+      typeof pick.distance_km === 'number' && pick.distance_km > 0
+        ? pick.distance_km
+        : null;
+    const dist =
+      distanceKm !== null
+        ? `${formatDistanceKm(distanceKm)} from reception`
+        : (pick.marketplace_city ?? '—');
+    const badges: string[] = [];
+    if (pick.is_verified === true) badges.push('Verified');
+    if (pick.is_setnayan_service === true) badges.push('Setnayan');
+    if (typeof pick.recommended_reason === 'string' && pick.recommended_reason) {
+      badges.push(pick.recommended_reason);
+    }
+    return {
+      id: pick.vendor_id,
+      name,
+      priceNum,
+      price,
+      rating,
+      reviewCount,
+      dist,
+      badges: badges.length ? badges.join(' · ') : '—',
+    };
+  });
+
+  const prices = vendors
+    .map((v) => v.priceNum)
+    .filter((n): n is number => n !== null);
+  const minPrice = prices.length ? Math.min(...prices) : null;
+  const ratings = vendors
+    .map((v) => v.rating)
+    .filter((n): n is number => n !== null);
+  const maxRating = ratings.length ? Math.max(...ratings) : null;
+
+  return (
+    <div
+      className="cmpsheet"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Compare ${child.label}`}
+    >
+      <div className="cmpwrap">
+        <div className="cmphead">
+          <div className="cmptitle">
+            <span className="cmpcat">{child.label}</span>
+            <span className="cmpsub">Side by side &middot; pick when you&rsquo;re ready</span>
+          </div>
+          <button
+            type="button"
+            className="cmpclose"
+            onClick={onClose}
+            aria-label="Close compare"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="cmpbody">
+          <table className="cmptable">
+            <tbody>
+              <tr className="cmprow-name">
+                <th>Vendor</th>
+                {vendors.map((v) => (
+                  <td key={v.id}>{v.name}</td>
+                ))}
+              </tr>
+              <tr className="cmprow-price">
+                <th>Price</th>
+                {vendors.map((v) => (
+                  <td key={v.id}>
+                    {v.price}
+                    {v.priceNum !== null &&
+                      v.priceNum === minPrice &&
+                      prices.length > 1 && <span className="cmpwin">Lowest</span>}
+                  </td>
+                ))}
+              </tr>
+              <tr>
+                <th>Reviews</th>
+                {vendors.map((v) => (
+                  <td key={v.id}>
+                    {v.rating !== null ? `★ ${v.rating}` : '—'}
+                    {v.reviewCount !== null ? ` · ${v.reviewCount} reviews` : ''}
+                    {v.rating !== null &&
+                      v.rating === maxRating &&
+                      ratings.length > 1 && (
+                        <span className="cmpwin">Top rated</span>
+                      )}
+                  </td>
+                ))}
+              </tr>
+              <tr>
+                <th>Distance</th>
+                {vendors.map((v) => (
+                  <td key={v.id}>{v.dist}</td>
+                ))}
+              </tr>
+              <tr>
+                <th>Highlights</th>
+                {vendors.map((v) => (
+                  <td key={v.id}>{v.badges}</td>
+                ))}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div className="cmpfoot">
+          Comparing only shows what you&rsquo;ve shortlisted — it never changes
+          your pick. Lock a vendor from its card.
+        </div>
+      </div>
+    </div>
   );
 }
 

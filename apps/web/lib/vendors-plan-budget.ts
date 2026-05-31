@@ -338,6 +338,25 @@ export function buildPlanBudgetModel(args: {
     childrenByFolder.get(group.catalogFolder)?.push(child);
   }
 
+  // Venue folder reads Reception → Ceremony → Accommodation (owner 2026-06-01):
+  // the couple locks the reception first (it anchors the day), then the
+  // ceremony venue (the officiant rides its package — usually not its own
+  // card), then guest accommodation. Any other venue-folder entry sorts after.
+  // Children otherwise order by tier; this is a targeted per-folder override.
+  const VENUE_CHILD_ORDER: Partial<Record<PlanGroupId, number>> = {
+    reception_venue: 0,
+    ceremony_venue: 1,
+    accommodation: 2,
+  };
+  const venueChildren = childrenByFolder.get('venue');
+  if (venueChildren) {
+    venueChildren.sort(
+      (a, b) =>
+        (VENUE_CHILD_ORDER[a.groupId] ?? 99) -
+        (VENUE_CHILD_ORDER[b.groupId] ?? 99),
+    );
+  }
+
   const folders: AccordionFolder[] = WEDDING_FOLDER_ORDER.map((folder) => {
     const children = childrenByFolder.get(folder) ?? [];
     const lockedTotal = children.reduce((s, c) => s + c.lockedTotal, 0);

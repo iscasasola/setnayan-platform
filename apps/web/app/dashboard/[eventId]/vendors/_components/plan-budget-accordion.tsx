@@ -482,8 +482,13 @@ function TopBar({ model }: { model: PlanBudgetModel }) {
           ? 'close to target'
           : 'on track';
 
+  // Fragment (not a wrapper <div>): the bar + meter must be DIRECT children
+  // of .pba so the sticky bar's containing block is .pba (tall, spans the
+  // whole list) and it stays pinned at top:0 for the entire scroll. A wrapper
+  // <div> would be only ~65px tall, so the sticky bar would un-stick the
+  // moment you scroll past it (the "black row goes up" bug).
   return (
-    <div>
+    <>
       <div className="topbar">
         <div className="bleft">
           <div className="fig">
@@ -516,7 +521,7 @@ function TopBar({ model }: { model: PlanBudgetModel }) {
           />
         </div>
       )}
-    </div>
+    </>
   );
 }
 

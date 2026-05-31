@@ -75,11 +75,12 @@ const PBA_CSS = `
   --line:rgba(30,34,41,.12); --line-soft:rgba(30,34,41,.07);
   --topbar-h:62px; --head-h:34px;
   /* The dashboard chrome bar (EventSwitcher + utilities) is rendered by
-     SidebarShell as `sticky top-0 z-20` on BOTH mobile and desktop (it is
-     NOT lg:hidden). So our sticky budget bar (z-30) must offset BELOW it on
-     every breakpoint, else it pins on top of the chrome at top:0. ~56px is
-     the chrome row height (py-3 + ~32px content); set as a JS-measured var
-     at runtime (see useEffect) with this as the SSR/no-JS fallback. */
+     SidebarShell as a sticky top-0 z-20 strip on BOTH mobile and desktop
+     (it is NOT lg-hidden). So our sticky budget bar (z-30) must offset BELOW
+     it on every breakpoint, else it pins on top of the chrome at top:0.
+     ~56px is the chrome row height (py-3 + ~32px content); set as a
+     JS-measured var at runtime (see useEffect) with this as the no-JS
+     fallback. */
   --pba-header-offset:56px;
   --serif:var(--font-display),"Cormorant Garamond",Georgia,serif;
   --sans:var(--font-sans),"Manrope",-apple-system,system-ui,sans-serif;

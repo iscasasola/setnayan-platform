@@ -76,6 +76,10 @@ const PBA_CSS = `
   --mulberry:var(--m-mulberry,#5C2542); --mulberry-deep:var(--m-mulberry-2,#4A1D36);
   --line:rgba(30,34,41,.12); --line-soft:rgba(30,34,41,.07);
   --topbar-h:62px; --head-h:38px;
+  /* fixed mobile bottom nav height (≈66px + iOS safe-area). The cover reserves
+     this below it so the ↓ cue snaps just above the nav, and the recap clears
+     it so its bottom sits just above the nav with no dead scroll. */
+  --botnav-h:calc(66px + env(safe-area-inset-bottom, 0px));
   /* mobile: shared app header (sticky, ~64px, lg:hidden) sits above the
      accordion; offset our sticky budget bar + category heads below it.
      desktop: header is lg:hidden, so the @media override below sets 0. */
@@ -111,14 +115,17 @@ const PBA_CSS = `
 .pba .meter .fill.over{background:#ef9a9a}
 
 /* ---- Scroll body wrap ---- */
-.pba .body{max-width:760px;margin:0 auto;padding:0 0 120px}
+/* No bottom padding: the recap is the terminal element. Its own bottom
+   padding (= --botnav-h) clears the fixed mobile nav, so the recap ends just
+   above the nav with NO dead scroll below it (owner 2026-05-31). */
+.pba .body{max-width:760px;margin:0 auto;padding:0}
 
 /* ---- Landing overview ---- */
-/* Cover page — the landing overview is the default FIRST view; it fills the
-   whole screen below the black bar (you slide up from it to begin). Bottom
-   padding clears the mobile bottom-nav so the "Scroll up to begin" cue stays
-   visible. */
-.pba .intro{display:flex;flex-direction:column;gap:14px;padding:26px 22px 88px;min-height:calc(100svh - var(--topbar-h));background:var(--paper)}
+/* Cover page — the landing overview is the default FIRST view. It fills the
+   screen BETWEEN the black bar (top) and the fixed bottom nav, so the ↓ cue
+   (margin-top:auto) snaps just above the nav's top border and is never hidden
+   behind it (owner 2026-05-31). */
+.pba .intro{display:flex;flex-direction:column;gap:14px;padding:26px 22px 16px;min-height:calc(100svh - var(--topbar-h) - var(--botnav-h));background:var(--paper)}
 .pba .intro-eyebrow{font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-deep)}
 .pba .intro-h{font-family:var(--serif);font-style:italic;font-size:29px;line-height:1.05;color:var(--ink);margin:2px 0 4px}
 .pba .intro-grid{display:flex;flex-direction:column;gap:10px}
@@ -155,6 +162,29 @@ const PBA_CSS = `
 .pba .intro-grid{animation:pba-rise .6s var(--ease) .14s both}
 .pba .intro-cta{animation:pba-rise .6s var(--ease) .24s both}
 @keyframes pba-bob{0%,100%{transform:translateY(0);opacity:.45}50%{transform:translateY(-6px);opacity:1}}
+/* Cover — empty state (no picks yet): an intro + a 3-step "how it works" that
+   gives direction instead of zeroed-out stats (owner 2026-06-01). Lives inside
+   .intro-grid so it inherits the slide-up entrance. */
+.pba .intro-lead{font-family:var(--sans);font-size:14px;line-height:1.55;color:var(--ink-soft)}
+.pba .intro-steps{display:flex;flex-direction:column;gap:12px;margin-top:4px}
+.pba .istep{display:flex;align-items:center;gap:12px}
+.pba .istep-n{flex:0 0 auto;width:27px;height:27px;border-radius:999px;background:rgba(92,37,66,.08);color:var(--mulberry);font-family:var(--serif);font-style:italic;font-weight:600;font-size:15px;display:flex;align-items:center;justify-content:center}
+.pba .istep-h{font-family:var(--sans);font-weight:700;font-size:13.5px;color:var(--ink);line-height:1.15}
+.pba .istep-d{font-family:var(--mono);font-size:9px;letter-spacing:.04em;color:var(--ink-soft);margin-top:1px}
+/* Cover — populated state: a budget progress bar (owner 2026-06-01). Tracks
+   Range-high vs target, same tone as the top-bar meter. */
+.pba .intro-meter{display:flex;flex-direction:column;gap:7px}
+.pba .intro-meter .pm-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.pba .intro-meter .pm-k{font-family:var(--mono);font-size:8.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-soft)}
+.pba .intro-meter .pm-v{font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft)}
+.pba .intro-meter .pm-v.ok{color:#2e7d4f}
+.pba .intro-meter .pm-v.near{color:var(--gold-deep)}
+.pba .intro-meter .pm-v.over{color:#b23b34}
+.pba .intro-meter .pm-track{height:7px;border-radius:999px;background:rgba(30,34,41,.07);overflow:hidden}
+.pba .intro-meter .pm-fill{height:100%;border-radius:999px;background:var(--gold);transition:width .6s var(--ease)}
+.pba .intro-meter .pm-fill.ok{background:#7fd49a}
+.pba .intro-meter .pm-fill.near{background:var(--gold)}
+.pba .intro-meter .pm-fill.over{background:#ef9a9a}
 
 /* ---- Category sticky stacking head + body ---- */
 .pba .cat{border-top:1px solid var(--line)}
@@ -232,6 +262,9 @@ const PBA_CSS = `
    former anchors did. */
 .pba .add,.pba .empty-child{appearance:none;-webkit-appearance:none;font:inherit;cursor:pointer;text-align:left;width:auto}
 .pba .add{border:0;background:none;padding:0}
+/* Empty-category "Find …" rows stretch full width (minus the 20px side
+   margins) instead of shrink-wrapping their label (owner 2026-05-31). */
+.pba .empty-child{width:calc(100% - 40px)}
 
 /* ---- Compare (like-for-like; read-only — never sets the pick) ---- */
 .pba .cn-right{display:flex;align-items:center;gap:8px}
@@ -267,7 +300,9 @@ const PBA_CSS = `
 .pba .lockbtn:active,.pba .cmpbtn:active,.pba .cmpclose:active,.pba .vx:active{transform:scale(.93)}
 
 /* ---- Recap ---- */
-.pba .end-spacer{padding:30px 18px 0}
+/* Bottom padding = nav height so the recap's bottom sits just above the fixed
+   mobile nav — recap is the terminal element, no dead scroll (owner 2026-05-31). */
+.pba .end-spacer{padding:30px 18px var(--botnav-h)}
 .pba .endcard{display:flex;flex-direction:column;align-items:center;text-align:center;gap:7px;background:var(--mulberry);color:#fff;border-radius:22px;padding:24px 22px 22px}
 .pba .end-eyebrow{font-family:var(--mono);font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.6)}
 .pba .end-h{font-family:var(--serif);font-style:italic;font-weight:600;font-size:26px;line-height:1.05;color:#fff;margin:2px 0}
@@ -277,6 +312,8 @@ const PBA_CSS = `
 .pba .end-stats>div:first-child{border-left:0}
 .pba .esv{font-family:var(--serif);font-style:italic;font-weight:600;font-size:24px;line-height:1;color:#fff}
 .pba .esk{font-family:var(--mono);font-size:7.5px;letter-spacing:.13em;text-transform:uppercase;color:rgba(255,255,255,.6);margin-top:5px}
+/* Randomized feel-good line — different on every open (owner 2026-06-01). */
+.pba .end-motivate{font-family:var(--serif);font-style:italic;font-size:17px;line-height:1.35;color:#fff;margin-top:16px;max-width:300px}
 
 /* ---- Scroll-driven motion (transforms set per-frame from JS; CSS only
    smooths + declares will-change + the reduced-motion reset). All targets
@@ -533,6 +570,73 @@ function Overview({
   model: PlanBudgetModel;
   eventId: string;
 }) {
+  // Two-state cover (owner 2026-06-01): with no picks yet, introduce the page
+  // + give direction instead of zeroed-out stats. Once there's any pick, show
+  // the budget stats (Estimated / Chosen / Range) + a progress bar + what-next.
+  const hasAnyPick = model.recap.shortlisted > 0;
+
+  if (!hasAnyPick) {
+    return (
+      <section className="intro">
+        <div>
+          <p className="intro-eyebrow">Your vendor plan</p>
+          <h1 className="intro-h">Plan every vendor, in one place.</h1>
+        </div>
+
+        <div className="intro-grid">
+          <p className="intro-lead">
+            Shortlist the vendors you love, line them up side by side, and lock
+            in your favourites. Your budget keeps count as you go — so you
+            always know where you stand.
+          </p>
+          <div className="intro-steps">
+            <div className="istep">
+              <span className="istep-n">1</span>
+              <div>
+                <div className="istep-h">Shortlist</div>
+                <div className="istep-d">Save the vendors you&rsquo;re considering</div>
+              </div>
+            </div>
+            <div className="istep">
+              <span className="istep-n">2</span>
+              <div>
+                <div className="istep-h">Compare</div>
+                <div className="istep-d">Line them up side by side</div>
+              </div>
+            </div>
+            <div className="istep">
+              <span className="istep-n">3</span>
+              <div>
+                <div className="istep-h">Lock it in</div>
+                <div className="istep-d">Choose the one — your budget updates</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p className="intro-cta">
+          Start with your reception venue
+          <span className="chev" aria-hidden>
+            ↓
+          </span>
+        </p>
+      </section>
+    );
+  }
+
+  const tone: 'ok' | 'near' | 'over' =
+    model.budgetStatus === 'over'
+      ? 'over'
+      : model.budgetStatus === 'near'
+        ? 'near'
+        : 'ok';
+  const statusWord =
+    model.budgetStatus === 'over'
+      ? 'Over budget'
+      : model.budgetStatus === 'near'
+        ? 'Getting close'
+        : 'On track';
+
   return (
     <section className="intro">
       <div>
@@ -565,6 +669,21 @@ function Overview({
             </div>
           </div>
         </div>
+
+        {model.targetCentavos !== null && (
+          <div className="intro-meter">
+            <div className="pm-top">
+              <span className="pm-k">Plan vs budget</span>
+              <span className={`pm-v ${tone}`}>{statusWord}</span>
+            </div>
+            <div className="pm-track">
+              <div
+                className={`pm-fill ${tone}`}
+                style={{ width: `${Math.round(model.meterFill * 100)}%` }}
+              />
+            </div>
+          </div>
+        )}
 
         <WhatToLockNext model={model} eventId={eventId} />
       </div>
@@ -674,7 +793,7 @@ function FolderSection({
       <div
         id={`folder-${folder.folder}`}
         className="cat-head"
-        style={{ ['--idx']: index, zIndex: 40 - index } as CSSProperties}
+        style={{ ['--idx']: index, zIndex: 25 - index } as CSSProperties}
       >
         <span className="nm">{folder.label}</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -1115,13 +1234,35 @@ function CompareSheet({
 }
 
 // ── Surface 5 · Recap ─────────────────────────────────────────────────────
+// Feel-good lines — one shown at random on every open (owner 2026-06-01:
+// "different and randomized every time… we want to make them feel good").
+const RECAP_LINES = [
+  'Every pick brings your day into focus.',
+  'You’re closer than you think.',
+  'This is your wedding, taking shape.',
+  'Look at you, making it happen.',
+  'Each choice is one less thing to carry.',
+  'It’s all coming together beautifully.',
+  'Small steps, big day.',
+  'One vendor at a time — you’ve got this.',
+  'Future-you is grateful for today.',
+  'The hard part was starting. Done.',
+  'Set na ’yan — you’re almost there.',
+];
+
 function Recap({ recap }: { recap: RecapStats }) {
+  // Default to the first line for SSR (stable → no hydration mismatch), then
+  // swap to a random one once mounted, so it's fresh on each visit.
+  const [line, setLine] = useState(RECAP_LINES[0]);
+  useEffect(() => {
+    setLine(RECAP_LINES[Math.floor(Math.random() * RECAP_LINES.length)]);
+  }, []);
   return (
     <section className="endcard">
       <p className="end-eyebrow">Look how far you&rsquo;ve come</p>
       <h2 className="end-h">~{recap.hoursSaved} hours saved so far</h2>
       <p className="end-line">
-        out of thousands of suppliers in the market — you narrowed it down.
+        roughly what it&rsquo;d take to find and vet this many vendors yourself.
       </p>
       <div className="end-stats">
         <div>
@@ -1134,9 +1275,10 @@ function Recap({ recap }: { recap: RecapStats }) {
         </div>
         <div>
           <div className="esv">{recap.finalized}</div>
-          <div className="esk">Finalized</div>
+          <div className="esk">Chosen</div>
         </div>
       </div>
+      <p className="end-motivate">{line}</p>
     </section>
   );
 }

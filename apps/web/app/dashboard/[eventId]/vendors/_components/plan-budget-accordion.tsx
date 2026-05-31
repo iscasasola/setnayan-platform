@@ -75,6 +75,7 @@ const PBA_CSS = `
   --gold:var(--m-orange,#C5A059); --gold-deep:var(--m-orange-2,#8C6932);
   --mulberry:var(--m-mulberry,#5C2542); --mulberry-deep:var(--m-mulberry-2,#4A1D36);
   --line:rgba(30,34,41,.12); --line-soft:rgba(30,34,41,.07);
+  --card:#fff; /* white card surface in light; flips to lifted obsidian in dark */
   --topbar-h:62px; --head-h:38px;
   /* fixed mobile bottom nav height (≈66px + iOS safe-area). The cover reserves
      this below it so the ↓ cue snaps just above the nav, and the recap clears
@@ -131,7 +132,7 @@ const PBA_CSS = `
 .pba .intro-grid{display:flex;flex-direction:column;gap:10px}
 .pba .irow3{display:flex;gap:10px}
 .pba .irow3 .ibox{flex:1;min-width:0}
-.pba .ibox{background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px 15px}
+.pba .ibox{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 15px}
 .pba .ik{font-family:var(--mono);font-size:8.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-soft)}
 .pba .iv{font-family:var(--serif);font-style:italic;font-weight:600;font-size:19px;line-height:1.15;color:var(--ink);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* deadline list box */
@@ -197,7 +198,7 @@ const PBA_CSS = `
 .pba .cat-head .amt{font-family:var(--serif);font-style:italic;font-size:13.5px;font-weight:600;color:var(--ink)}
 .pba .cat-head .amt.zero{font-family:var(--mono);font-style:normal;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-deep)}
 .pba .cat-head .chev{flex:0 0 auto;color:var(--ink-soft);transition:transform .3s var(--ease)}
-.pba .cat-head.active{background:#fff;box-shadow:0 6px 14px -10px rgba(0,0,0,.4)}
+.pba .cat-head.active{background:var(--card);box-shadow:0 6px 14px -10px rgba(0,0,0,.4)}
 .pba .cat-head.active .nm{color:var(--mulberry)}
 .pba .cat-head.active .chev{transform:rotate(180deg);color:var(--mulberry)}
 .pba .cat-body{padding:14px 0 22px;background:var(--paper)}
@@ -218,7 +219,7 @@ const PBA_CSS = `
 .pba .rail{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:0 20px 6px;scrollbar-width:none}
 .pba .rail::-webkit-scrollbar{display:none}
 .pba .card{position:relative;flex:0 0 300px;scroll-snap-align:center;display:flex;flex-direction:column}
-.pba .v{position:relative;display:flex;flex-direction:column;flex:1 1 auto;min-height:300px;background:#fff;border:1px solid var(--line);border-radius:18px;overflow:hidden;text-decoration:none;color:inherit;transition:border-color .35s var(--ease),box-shadow .35s var(--ease)}
+.pba .v{position:relative;display:flex;flex-direction:column;flex:1 1 auto;min-height:300px;background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;text-decoration:none;color:inherit;transition:border-color .35s var(--ease),box-shadow .35s var(--ease)}
 .pba .v:hover{box-shadow:0 10px 30px -18px rgba(0,0,0,.4)}
 .pba .v .img{height:128px;flex:0 0 128px;background:linear-gradient(135deg,#3a3f47,#565b63);display:flex;align-items:center;justify-content:center}
 .pba .v .img img{width:100%;height:100%;object-fit:cover}
@@ -327,6 +328,39 @@ const PBA_CSS = `
   .pba .intro,.pba .child-block,.pba .card{transform:none!important;opacity:1!important;transition:none!important}
   .pba .intro-eyebrow,.pba .intro-h,.pba .intro-grid,.pba .intro-cta{animation:none!important;opacity:1!important;transform:none!important}
 }
+
+/* ───────── Dark mode (owner 2026-06-01: the black budget bar — and the whole
+   sheet — flip to a light surface when the theme is dark). Light mode is
+   untouched: every rule here only ADDS under html.dark. The bar is
+   background:var(--ink)/color:var(--paper), so re-aliasing the local tokens
+   flips it (and the sheet) automatically; the rest are the hardcoded
+   light/white values that don't ride a token. ───────── */
+html.dark .pba{
+  --paper:#1E2229; --ink:#FBFBFA; --ink-soft:#B6B9BE;
+  --line:rgba(251,251,250,.16); --line-soft:rgba(251,251,250,.1);
+  --card:#2A2E36; --gold:#E0CCA0; --gold-deep:#C5A059;
+}
+/* bar is now a light surface → flip its muted white text + hairline + accents */
+html.dark .pba .topbar{border-bottom-color:rgba(30,34,41,.1)}
+html.dark .pba .topbar .figk{color:rgba(30,34,41,.5)}
+html.dark .pba .topbar .rangev{color:rgba(30,34,41,.6)}
+html.dark .pba .topbar .status{color:rgba(30,34,41,.5)}
+html.dark .pba .topbar .status.ok{color:#2e7d4f}
+html.dark .pba .topbar .status.near{color:#8C6932}
+html.dark .pba .topbar .status.over{color:#b23b34}
+/* dark-tinted tracks/buttons that vanish on a dark sheet → light-tinted */
+html.dark .pba .meter{background:rgba(251,251,250,.12)}
+html.dark .pba .intro-meter .pm-track{background:rgba(251,251,250,.1)}
+html.dark .pba .chip.next{background:rgba(251,251,250,.08)}
+html.dark .pba .cmpclose{background:rgba(251,251,250,.1)}
+html.dark .pba .cat-head.active{box-shadow:0 6px 16px -10px rgba(0,0,0,.7)}
+/* --mulberry stays dark as a FILL (recap card + CTAs keep white text); but
+   mulberry-as-TEXT needs to lighten so it reads on the dark sheet/cards */
+html.dark .pba .cat-head.active .nm,
+html.dark .pba .empty-child .en,
+html.dark .pba .istep-n,
+html.dark .pba .cmpbtn,
+html.dark .pba .cmprow-price td{color:#C99DB0}
 `;
 
 // ── Root ────────────────────────────────────────────────────────────────

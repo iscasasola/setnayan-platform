@@ -20,6 +20,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { saveVendorToPicks } from '@/app/vendors/actions';
+import { haptic } from '@/lib/haptics';
 import {
   searchCategoryVendors,
   type CategoryVendorResult,
@@ -183,6 +184,9 @@ export function CategorySearchOverlay({
 
   async function add(vendorProfileId: string) {
     if (added.has(vendorProfileId) || pendingId) return;
+    // Fire synchronously in the tap context — iOS only honors the switch-toggle
+    // haptic in-gesture, so it must run before the saveVendorToPicks await.
+    haptic('select');
     setPendingId(vendorProfileId);
     try {
       const fd = new FormData();

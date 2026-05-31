@@ -90,16 +90,32 @@ export default async function VendorsPage({ params }: Props) {
     marketplace_vendor_id: v.marketplace_vendor_id,
   }));
 
+  // 3-line cost (CLAUDE.md 2026-05-31): build the transport + food-allowance
+  // maps from the new event_vendors columns so the accordion's rolled_cost_php
+  // = Service (total_cost_php) + Transport + Food. Null columns are skipped →
+  // the model treats them as ₱0 (total = Service only until entered, never
+  // fabricated). Maps key on vendor_id, exactly what enrich() expects.
+  const transportByVendorId = new Map<string, number>();
+  const crewMealByVendorId = new Map<string, number>();
+  for (const v of vendors) {
+    if (v.transport_php != null) {
+      transportByVendorId.set(v.vendor_id, Number(v.transport_php));
+    }
+    if (v.food_allowance_php != null) {
+      crewMealByVendorId.set(v.vendor_id, Number(v.food_allowance_php));
+    }
+  }
+
   const model = buildPlanBudgetModel({
     vendorRows,
     estimatedBudgetCentavos: ev?.estimated_budget_centavos ?? null,
     daysUntilWedding,
     ceremonyType: ev?.ceremony_type ?? null,
     venueSetting: ev?.venue_setting ?? null,
-    // transportByVendorId / crewMealByVendorId / eyeingByVendorId are
-    // threaded in later stages (iteration 0007 budget lines + the same-date
-    // soft-hold count). Omitted now → 3-line budget rolls up the package
-    // price only + no eyeing chip renders (aggregate-only, never fabricated).
+    transportByVendorId,
+    crewMealByVendorId,
+    // eyeingByVendorId (same-date soft-hold count) is threaded in a later
+    // stage; omitted now → no eyeing chip renders (aggregate-only).
   });
 
   return <PlanBudgetAccordion model={model} eventId={eventId} />;

@@ -1,20 +1,31 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import {
+  Aperture,
   ArrowRight,
   Camera,
+  Cloud,
   Copy,
   Download,
   ExternalLink,
   Eye,
+  Film,
   Globe,
+  Heart,
+  Images,
   ImagePlus,
   LayoutGrid,
   Lock,
+  MonitorPlay,
+  Newspaper,
   Pencil,
   QrCode,
   Shirt,
+  Star,
+  Tv,
   Users,
+  Video,
+  Wand2,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
@@ -27,6 +38,7 @@ import { resolveMonogram } from '@/lib/monogram';
 import { CopyButton } from './_components/copy-button';
 import { SlugField } from '../invitation/_components/slug-field';
 import { ProUpgradePanel } from './_components/pro-upgrade-panel';
+import { JourneyRow, JourneySection } from './_components/journey';
 import { updateEventSlugFromWebsite } from './actions';
 
 export const metadata = { title: 'Wedding website' };
@@ -43,17 +55,32 @@ const SLUG_ERROR_COPY: Record<string, string> = {
 };
 
 /**
- * /dashboard/[eventId]/website — new V1 hub surface (CLAUDE.md 2026-05-22).
+ * /dashboard/[eventId]/website — journey-layout hub.
  *
- * Owner directive: new Website tab in the 4-tab bottom nav. Hub-links the
- * public landing page surfaces in one polite editorial frame:
- *   • Public URL card (one-tap copy + open-in-new-tab + iframe preview)
- *   • Quick actions (edit hero · download QR · manage RSVPs · day-of preview)
- *   • RSVP stats strip
+ * Restructure per CLAUDE.md 2026-05-30 "V2.1 Amendment #3" (shell PR · pulled
+ * forward pre-pilot by owner directive 2026-05-31). The page now reads
+ * top-to-bottom as the wedding's lifecycle instead of a flat tile grid:
  *
- * The underlying surfaces (invitation editor, public landing at /[slug], the
- * day-of guest portal, the RSVP-filtered guest list) already exist — this
- * page is the host's one-stop dashboard for them.
+ *   Step 1 · Your wedding address — public URL + branded QR + RSVPs + privacy
+ *   Step 2 · Save the date & invitation — page-content editors + upgrades
+ *   Step 3 · On the day — day-of preview + Panood / Papic / Patiktok
+ *   Step 4 · After the wedding — editorial keepsakes (net-new · coming soon)
+ *   Step 5 · Keep your photos — Google Drive sync
+ *   Free vs Pro — the two existing paid widget upgrades (iteration 0004)
+ *
+ * Wiring rule (blueprint §1): journey rows are NAVIGATION, not buy buttons.
+ * A clickable row deep-links to where the surface already lives — an
+ * /add-ons/<key> detail page that owns its own pricing + buy/coming-soon
+ * state, a /website/<editor> sub-route, or the guest list. There is NO
+ * duplicate purchase flow on this page. Net-new features that have no route
+ * yet render as honest "Coming soon" rows (never buyable) and flip to
+ * clickable in their own follow-up PRs.
+ *
+ * Shell scope: pure re-presentation of existing surfaces into the journey
+ * sections + coming-soon placeholders. No catalog fetch, no schema, no
+ * pricing logic. The net-new features (Pro Bundle ₱24,999 SKU, the Section-4
+ * editorial trio, Custom QR per guest, Animated Monogram, Live Photo Wall)
+ * land one PR at a time after this.
  *
  * Per 0002 unified QR lifecycle lock (CLAUDE.md 2026-05-22), the public URL
  * is canonical from event creation onward — guests, anonymous browsers,
@@ -134,6 +161,11 @@ export default async function WebsiteHubPage({
     ? publicLandingUrl.replace(/^https?:\/\//, '')
     : null;
 
+  const rsvpBlurb =
+    stats.pending > 0
+      ? `${stats.pending} guest${stats.pending === 1 ? '' : 's'} still to hear from.`
+      : 'Your guest list, one RSVP at a time.';
+
   const slugErrorMessage =
     typeof slugError === 'string' && slugError in SLUG_ERROR_COPY
       ? SLUG_ERROR_COPY[slugError]
@@ -142,7 +174,7 @@ export default async function WebsiteHubPage({
         : null;
 
   return (
-    <section className="space-y-8">
+    <section className="space-y-10">
       {/* Header strip */}
       <header className="space-y-2">
         <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
@@ -185,394 +217,410 @@ export default async function WebsiteHubPage({
         </div>
       ) : null}
 
-      {/* Public URL card */}
-      <section
-        aria-labelledby="public-url-heading"
-        className="rounded-xl border border-ink/10 bg-cream p-5 sm:p-6"
-      >
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-          <div className="min-w-0 flex-1 space-y-3">
-            <div>
-              <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/55">
-                Your public URL
-              </p>
-              <h2
-                id="public-url-heading"
-                className="mt-1 text-xl font-semibold tracking-tight"
-              >
-                Share this with every guest
-              </h2>
-            </div>
+      {/* ─────────────────────────────────────────────────────────────
+          STEP 1 · Your wedding address
+          The one link + QR every guest uses. Keeps the existing Public
+          URL card verbatim (URL · copy · open · slug editor · master QR ·
+          live preview) and adds the navigational rows that used to live
+          in the flat Quick-actions grid (RSVPs, privacy, QR download).
+          ───────────────────────────────────────────────────────────── */}
+      <div className="space-y-3">
+        <header className="space-y-1">
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
+            Step 1
+          </p>
+          <h2 className="font-serif text-2xl italic tracking-tight sm:text-[1.7rem]">
+            Your wedding address
+          </h2>
+          <p className="max-w-prose text-sm text-ink/60">
+            The one link and QR every guest uses — to RSVP, find the venue, and
+            follow along.
+          </p>
+        </header>
 
-            {publicLandingUrl ? (
-              <>
-                <div className="rounded-lg border border-ink/10 bg-white/60 px-4 py-3">
-                  <p className="break-all font-mono text-base text-ink">
-                    {publicLandingUrl}
-                  </p>
-                </div>
+        {/* Public URL card */}
+        <section
+          aria-labelledby="public-url-heading"
+          className="rounded-xl border border-ink/10 bg-cream p-5 sm:p-6"
+        >
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+            <div className="min-w-0 flex-1 space-y-3">
+              <div>
+                <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/55">
+                  Your public URL
+                </p>
+                <h2
+                  id="public-url-heading"
+                  className="mt-1 text-xl font-semibold tracking-tight"
+                >
+                  Share this with every guest
+                </h2>
+              </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <CopyButton
-                    text={publicLandingUrl}
-                    className="inline-flex h-11 min-h-[44pt] items-center justify-center gap-2 rounded-md bg-mulberry px-4 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry"
-                  >
-                    <Copy aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                    <span>Copy link</span>
-                  </CopyButton>
-                  <Link
-                    href={publicLandingUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex h-11 min-h-[44pt] items-center justify-center gap-2 rounded-md border border-ink/20 bg-cream px-4 text-sm font-medium text-ink transition-colors hover:border-ink/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-                  >
-                    <ExternalLink aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                    <span>Open in new tab</span>
-                  </Link>
-                </div>
-
-                {/* Slug edit — collapsible <details> so the URL stays the
-                    headline of the card and the editor is one tap away
-                    without dominating the page. Mirrors the inline
-                    affordance pattern already used by the chrome event-
-                    switcher (lib pattern). The SlugField component is the
-                    same one used by invitation/page.tsx — debounced
-                    live-check + status pill + suggestions — bound here
-                    to the Website-tab-specific server action. */}
-                <details className="group rounded-lg border border-ink/10 bg-white/40 px-4 py-2 open:bg-white/70 open:pb-4">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 py-2 text-sm font-medium text-ink/75 hover:text-ink">
-                    <span className="flex items-center gap-2">
-                      <Pencil
-                        aria-hidden
-                        className="h-3.5 w-3.5 text-terracotta"
-                        strokeWidth={1.75}
-                      />
-                      Change your slug
-                    </span>
-                    <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-ink/45 group-open:hidden">
-                      Edit
-                    </span>
-                    <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-ink/45 hidden group-open:inline">
-                      Close
-                    </span>
-                  </summary>
-                  <div className="mt-3 space-y-2">
-                    <SlugField
-                      eventId={eventId}
-                      initialSlug={event.slug ?? ''}
-                      saveAction={slugAction}
-                    />
-                    <p className="text-xs text-ink/50">
-                      The new URL goes live everywhere right away. Your old
-                      URL keeps working for 90 days so anyone with the link
-                      still lands here.
+              {publicLandingUrl ? (
+                <>
+                  <div className="rounded-lg border border-ink/10 bg-white/60 px-4 py-3">
+                    <p className="break-all font-mono text-base text-ink">
+                      {publicLandingUrl}
                     </p>
                   </div>
-                </details>
-              </>
-            ) : (
-              <div className="space-y-3 rounded-lg border border-amber-300/60 bg-amber-50 p-4">
-                <p className="text-sm text-amber-900">
-                  Pick a slug to publish your wedding URL. Guests will land here when they
-                  scan their QR or tap their personal invitation link.
-                </p>
-                {/* Inline slug claim — host can pick a slug right from the
-                    Website tab without bouncing through the invitation
-                    editor. Reuses the same <SlugField> component + server
-                    action as the change-slug flow above. */}
-                <SlugField
-                  eventId={eventId}
-                  initialSlug=""
-                  saveAction={slugAction}
+
+                  <div className="flex flex-wrap gap-2">
+                    <CopyButton
+                      text={publicLandingUrl}
+                      className="inline-flex h-11 min-h-[44pt] items-center justify-center gap-2 rounded-md bg-mulberry px-4 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry"
+                    >
+                      <Copy aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                      <span>Copy link</span>
+                    </CopyButton>
+                    <Link
+                      href={publicLandingUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex h-11 min-h-[44pt] items-center justify-center gap-2 rounded-md border border-ink/20 bg-cream px-4 text-sm font-medium text-ink transition-colors hover:border-ink/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+                    >
+                      <ExternalLink aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                      <span>Open in new tab</span>
+                    </Link>
+                  </div>
+
+                  {/* Slug edit — collapsible <details> so the URL stays the
+                      headline of the card and the editor is one tap away
+                      without dominating the page. Mirrors the inline
+                      affordance pattern already used by the chrome event-
+                      switcher (lib pattern). The SlugField component is the
+                      same one used by invitation/page.tsx — debounced
+                      live-check + status pill + suggestions — bound here
+                      to the Website-tab-specific server action. */}
+                  <details className="group rounded-lg border border-ink/10 bg-white/40 px-4 py-2 open:bg-white/70 open:pb-4">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-2 py-2 text-sm font-medium text-ink/75 hover:text-ink">
+                      <span className="flex items-center gap-2">
+                        <Pencil
+                          aria-hidden
+                          className="h-3.5 w-3.5 text-terracotta"
+                          strokeWidth={1.75}
+                        />
+                        Change your slug
+                      </span>
+                      <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-ink/45 group-open:hidden">
+                        Edit
+                      </span>
+                      <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-ink/45 hidden group-open:inline">
+                        Close
+                      </span>
+                    </summary>
+                    <div className="mt-3 space-y-2">
+                      <SlugField
+                        eventId={eventId}
+                        initialSlug={event.slug ?? ''}
+                        saveAction={slugAction}
+                      />
+                      <p className="text-xs text-ink/50">
+                        The new URL goes live everywhere right away. Your old
+                        URL keeps working for 90 days so anyone with the link
+                        still lands here.
+                      </p>
+                    </div>
+                  </details>
+                </>
+              ) : (
+                <div className="space-y-3 rounded-lg border border-amber-300/60 bg-amber-50 p-4">
+                  <p className="text-sm text-amber-900">
+                    Pick a slug to publish your wedding URL. Guests will land here when they
+                    scan their QR or tap their personal invitation link.
+                  </p>
+                  {/* Inline slug claim — host can pick a slug right from the
+                      Website tab without bouncing through the invitation
+                      editor. Reuses the same <SlugField> component + server
+                      action as the change-slug flow above. */}
+                  <SlugField
+                    eventId={eventId}
+                    initialSlug=""
+                    saveAction={slugAction}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Master QR — same code used by social shares + vendor venue scan. */}
+            {masterQrSvg ? (
+              <div className="shrink-0 self-start">
+                <div
+                  aria-label="Wedding website QR code with your monogram in the center"
+                  className="h-32 w-32 overflow-hidden rounded-lg border border-ink/10 bg-white p-2 sm:h-40 sm:w-40 [&_svg]:h-full [&_svg]:w-full"
+                  dangerouslySetInnerHTML={{ __html: masterQrSvg }}
                 />
+                <p className="mt-2 text-center text-[11px] uppercase tracking-[0.14em] text-ink/50">
+                  Public QR
+                </p>
               </div>
-            )}
+            ) : null}
           </div>
 
-          {/* Master QR — same code used by social shares + vendor venue scan. */}
-          {masterQrSvg ? (
-            <div className="shrink-0 self-start">
-              <div
-                aria-label="Wedding website QR code with your monogram in the center"
-                className="h-32 w-32 overflow-hidden rounded-lg border border-ink/10 bg-white p-2 sm:h-40 sm:w-40 [&_svg]:h-full [&_svg]:w-full"
-                dangerouslySetInnerHTML={{ __html: masterQrSvg }}
-              />
-              <p className="mt-2 text-center text-[11px] uppercase tracking-[0.14em] text-ink/50">
-                Public QR
+          {/* Inline preview — lazy-loaded iframe of the public landing page. */}
+          {publicLandingUrl ? (
+            <div className="mt-6">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/55">
+                  Live preview
+                </p>
+                <Link
+                  href={publicLandingUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-terracotta hover:text-terracotta-700"
+                >
+                  Open full preview
+                  <ArrowRight aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                </Link>
+              </div>
+              <div className="overflow-hidden rounded-lg border border-ink/10 bg-white shadow-sm">
+                {/*
+                  Sandbox tokens — WHY this set, in this order:
+                    • allow-scripts        — required so the public landing page
+                      (a Next.js route with client-hydrated countdown · schedule
+                      widget · guided-tour · nav-links · RSVP SubmitButton)
+                      can actually render. Without it the iframe boots into
+                      server-HTML and React never hydrates → blank white box.
+                    • allow-same-origin    — required so the preview can read
+                      its own cookies / Supabase auth / guest-session for the
+                      accurate "this is what every guest sees" promise.
+                    • allow-forms          — preserves the RSVP form inside
+                      the preview (host can sanity-check the submit flow
+                      without leaving the dashboard).
+                    • allow-popups + allow-popups-to-escape-sandbox — keeps
+                      any "Open map" / "Add to calendar" / external links in
+                      the public landing page working from the preview.
+                  MDN caveat: `allow-scripts` + `allow-same-origin` together
+                  let same-origin iframe content remove its own sandbox. This
+                  is YOUR OWN public landing page on the same origin — we
+                  already trust it; the sandbox here is a defense-in-depth
+                  marker, not a security boundary against hostile content.
+                */}
+                <iframe
+                  src={publicLandingUrl}
+                  title="Public landing page preview"
+                  loading="lazy"
+                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+                  className="block h-[400px] w-full bg-white sm:h-[480px]"
+                />
+              </div>
+              <p className="mt-2 text-xs text-ink/50">
+                This is what every guest sees when they scan their QR.
               </p>
             </div>
           ) : null}
-        </div>
+        </section>
 
-        {/* Inline preview — lazy-loaded iframe of the public landing page. */}
-        {publicLandingUrl ? (
-          <div className="mt-6">
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink/55">
-                Live preview
-              </p>
-              <Link
-                href={publicLandingUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-terracotta hover:text-terracotta-700"
-              >
-                Open full preview
-                <ArrowRight aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-              </Link>
-            </div>
-            <div className="overflow-hidden rounded-lg border border-ink/10 bg-white shadow-sm">
-              {/*
-                Sandbox tokens — WHY this set, in this order:
-                  • allow-scripts        — required so the public landing page
-                    (a Next.js route with client-hydrated countdown · schedule
-                    widget · guided-tour · nav-links · RSVP SubmitButton)
-                    can actually render. Without it the iframe boots into
-                    server-HTML and React never hydrates → blank white box.
-                  • allow-same-origin    — required so the preview can read
-                    its own cookies / Supabase auth / guest-session for the
-                    accurate "this is what every guest sees" promise.
-                  • allow-forms          — preserves the RSVP form inside
-                    the preview (host can sanity-check the submit flow
-                    without leaving the dashboard).
-                  • allow-popups + allow-popups-to-escape-sandbox — keeps
-                    any "Open map" / "Add to calendar" / external links in
-                    the public landing page working from the preview.
-                MDN caveat: `allow-scripts` + `allow-same-origin` together
-                let same-origin iframe content remove its own sandbox. This
-                is YOUR OWN public landing page on the same origin — we
-                already trust it; the sandbox here is a defense-in-depth
-                marker, not a security boundary against hostile content.
-              */}
-              <iframe
-                src={publicLandingUrl}
-                title="Public landing page preview"
-                loading="lazy"
-                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
-                className="block h-[400px] w-full bg-white sm:h-[480px]"
-              />
-            </div>
-            <p className="mt-2 text-xs text-ink/50">
-              This is what every guest sees when they scan their QR.
-            </p>
-          </div>
-        ) : null}
-      </section>
-
-      {/* Quick actions grid */}
-      <section aria-labelledby="quick-actions-heading" className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <h2
-            id="quick-actions-heading"
-            className="font-mono text-xs uppercase tracking-[0.2em] text-ink/55"
-          >
-            Quick actions
-          </h2>
-        </div>
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <li>
-            <Link
-              href={`/dashboard/${eventId}/invitation`}
-              className="group flex h-full min-h-[44pt] flex-col gap-2 rounded-xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/40 hover:bg-white/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-            >
-              <Pencil
-                aria-hidden
-                className="h-5 w-5 text-terracotta"
-                strokeWidth={1.75}
-              />
-              <p className="text-sm font-semibold text-ink">Edit hero</p>
-              <p className="text-xs text-ink/55">
-                Monogram, slug, and your invitation site branding.
-              </p>
-            </Link>
-          </li>
-          <li>
-            {event.slug ? (
-              <a
-                href={`/api/website/qr/${event.slug}`}
-                download={`${event.slug}-wedding-qr.png`}
-                className="group flex h-full min-h-[44pt] flex-col gap-2 rounded-xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/40 hover:bg-white/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-              >
-                <Download
-                  aria-hidden
-                  className="h-5 w-5 text-terracotta"
-                  strokeWidth={1.75}
-                />
-                <p className="text-sm font-semibold text-ink">Download QR</p>
-                <p className="text-xs text-ink/55">
-                  PNG with your monogram — print, post, share.
-                </p>
-              </a>
-            ) : (
-              <div className="flex h-full min-h-[44pt] flex-col gap-2 rounded-xl border border-ink/10 bg-cream/60 p-4 opacity-60">
-                <QrCode
-                  aria-hidden
-                  className="h-5 w-5 text-ink/40"
-                  strokeWidth={1.75}
-                />
-                <p className="text-sm font-semibold text-ink/50">Download QR</p>
-                <p className="text-xs text-ink/45">
-                  Pick a slug first to unlock your wedding QR.
-                </p>
-              </div>
-            )}
-          </li>
-          <li>
-            <Link
-              href={`/dashboard/${eventId}/guests?rsvp=pending`}
-              className="group flex h-full min-h-[44pt] flex-col gap-2 rounded-xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/40 hover:bg-white/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-            >
-              <Users
-                aria-hidden
-                className="h-5 w-5 text-terracotta"
-                strokeWidth={1.75}
-              />
-              <p className="text-sm font-semibold text-ink">Manage RSVPs</p>
-              <p className="text-xs text-ink/55">
-                {stats.pending > 0
-                  ? `${stats.pending} guest${stats.pending === 1 ? '' : 's'} still to hear from.`
-                  : 'Your guest list, one RSVP at a time.'}
-              </p>
-            </Link>
-          </li>
-          <li>
-            {publicLandingUrl ? (
-              <Link
-                href={`${publicLandingUrl}?preview=day_of`}
-                target="_blank"
-                rel="noreferrer"
-                className="group flex h-full min-h-[44pt] flex-col gap-2 rounded-xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/40 hover:bg-white/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-              >
-                <Eye
-                  aria-hidden
-                  className="h-5 w-5 text-terracotta"
-                  strokeWidth={1.75}
-                />
-                <p className="text-sm font-semibold text-ink">Day-of preview</p>
-                <p className="text-xs text-ink/55">
-                  See what your guests see from T-1h to T+8h.
-                </p>
-              </Link>
-            ) : (
-              <div className="flex h-full min-h-[44pt] flex-col gap-2 rounded-xl border border-ink/10 bg-cream/60 p-4 opacity-60">
-                <Eye aria-hidden className="h-5 w-5 text-ink/40" strokeWidth={1.75} />
-                <p className="text-sm font-semibold text-ink/50">Day-of preview</p>
-                <p className="text-xs text-ink/45">Pick a slug first.</p>
-              </div>
-            )}
-          </li>
-          {/* CLAUDE.md 2026-05-22 — four sibling landing-page editors merged
-              cleanly: Hero Photo (this PR · direct ship) · Photo Moments
-              (PR #383) · Privacy (PR #381) · Dress Code (PR #382). Each adds
-              one tile to the Quick Actions grid in append-only fashion. */}
-          {/* Hero Photo upload — direct ship 2026-05-22 (agents hit session
-              limits before reaching this; built inline). Routes to
-              /dashboard/[eventId]/website/hero-photo for the file uploader.
-              Reads + writes events.landing_page_hero_image_url via
-              migration 20260605020000. */}
-          <li>
-            <Link
-              href={`/dashboard/${eventId}/website/hero-photo`}
-              className="group flex h-full min-h-[44pt] flex-col gap-2 rounded-xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/40 hover:bg-white/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-            >
-              <ImagePlus
-                aria-hidden
-                className="h-5 w-5 text-terracotta"
-                strokeWidth={1.75}
-              />
-              <p className="text-sm font-semibold text-ink">Edit hero photo</p>
-              <p className="text-xs text-ink/55">
-                Upload the full-bleed banner for your public landing page.
-              </p>
-            </Link>
-          </li>
-          {/* Photo Moments editor — PR #383 landing-page-photo-moments. */}
-          <li>
-            <Link
-              href={`/dashboard/${eventId}/website/photo-moments`}
-              className="group flex h-full min-h-[44pt] flex-col gap-2 rounded-xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/40 hover:bg-white/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-            >
-              <Camera
-                aria-hidden
-                className="h-5 w-5 text-terracotta"
-                strokeWidth={1.75}
-              />
-              <p className="text-sm font-semibold text-ink">Edit photo moments</p>
-              <p className="text-xs text-ink/55">
-                Phone-down, cameras welcome, or reserved for your paparazzo.
-              </p>
-            </Link>
-          </li>
-          {/* Privacy tile — PR #381 landing-page-privacy-toggle. Routes to
-              /dashboard/[eventId]/website/privacy for the Public / Unlisted
-              / Private picker (V1 minimum-viable privacy lever for the
-              Phase 4 RA 10173 work-stream in iteration 0046). */}
-          <li>
-            <Link
-              href={`/dashboard/${eventId}/website/privacy`}
-              className="group flex h-full min-h-[44pt] flex-col gap-2 rounded-xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/40 hover:bg-white/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-            >
-              <Lock
-                aria-hidden
-                className="h-5 w-5 text-terracotta"
-                strokeWidth={1.75}
-              />
-              <p className="text-sm font-semibold text-ink">Set who can view</p>
-              <p className="text-xs text-ink/55">
-                Public, unlisted, or private — change anytime.
-              </p>
-            </Link>
-          </li>
-          {/* Dress Code tile — PR #382 landing-page-dress-code. Host curates
-              copy + palette + dos/donts; landing page renders from
-              events.dress_code_config (migration 20260605030000). */}
-          <li>
-            <Link
-              href={`/dashboard/${eventId}/website/dress-code`}
-              className="group flex h-full min-h-[44pt] flex-col gap-2 rounded-xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/40 hover:bg-white/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-            >
-              <Shirt
-                aria-hidden
-                className="h-5 w-5 text-terracotta"
-                strokeWidth={1.75}
-              />
-              <p className="text-sm font-semibold text-ink">Edit dress code</p>
-              <p className="text-xs text-ink/55">
-                Headline, palette, and dos &amp; don&rsquo;ts for your guests.
-              </p>
-            </Link>
-          </li>
-          {/* Widgets editor — V1 ship 2026-05-22 PM. Lets the host shape
-              which sections appear on the public landing page and in what
-              order. Hero, Greeting, QR card, and RSVP stay always-on
-              (editor enforces); the other 8 widgets are show/hide +
-              reorderable. Sibling editors above own the per-widget
-              content; this tile owns the LAYOUT on top of them. */}
-          <li>
-            <Link
-              href={`/dashboard/${eventId}/website/widgets`}
-              className="group flex h-full min-h-[44pt] flex-col gap-2 rounded-xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/40 hover:bg-white/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-            >
-              <LayoutGrid
-                aria-hidden
-                className="h-5 w-5 text-terracotta"
-                strokeWidth={1.75}
-              />
-              <p className="text-sm font-semibold text-ink">Customize widgets</p>
-              <p className="text-xs text-ink/55">
-                Show, hide, and reorder the sections on your wedding page.
-              </p>
-            </Link>
-          </li>
+        {/* Step-1 navigational rows. */}
+        <ul className="space-y-2">
+          <JourneyRow
+            icon={Users}
+            title="Manage RSVPs"
+            blurb={rsvpBlurb}
+            href={`/dashboard/${eventId}/guests?rsvp=pending`}
+          />
+          <JourneyRow
+            icon={Lock}
+            title="Set who can view"
+            blurb="Public, unlisted, or private — change anytime."
+            href={`/dashboard/${eventId}/website/privacy`}
+          />
+          {event.slug ? (
+            <JourneyRow
+              icon={Download}
+              title="Download your QR"
+              blurb="PNG with your monogram — print it, post it, share it."
+              href={`/api/website/qr/${event.slug}`}
+              download={`${event.slug}-wedding-qr.png`}
+            />
+          ) : (
+            <JourneyRow
+              icon={QrCode}
+              title="Download your QR"
+              blurb="Pick a slug above first to unlock your wedding QR."
+              comingSoon
+            />
+          )}
         </ul>
-      </section>
+      </div>
+
+      {/* ─────────────────────────────────────────────────────────────
+          STEP 2 · Save the date & your invitation
+          The page guests see before the day. Free content editors link to
+          their existing /website/<editor> sub-routes; the Save-the-Date
+          video links to its add-on detail page. Animated Monogram + Custom
+          QR per guest are net-new (no route yet) → coming-soon rows.
+          ───────────────────────────────────────────────────────────── */}
+      <JourneySection
+        step="2"
+        title="Save the date & your invitation"
+        blurb="Shape the page your guests see before the big day."
+      >
+        <JourneyRow
+          icon={Pencil}
+          title="Edit your branding"
+          blurb="Monogram, names, and your invitation-site styling."
+          href={`/dashboard/${eventId}/invitation`}
+        />
+        <JourneyRow
+          icon={ImagePlus}
+          title="Edit your hero photo"
+          blurb="The full-bleed banner at the top of your page."
+          href={`/dashboard/${eventId}/website/hero-photo`}
+        />
+        <JourneyRow
+          icon={Camera}
+          title="Edit photo moments"
+          blurb="Phone-down, cameras welcome, or reserved for your paparazzo."
+          href={`/dashboard/${eventId}/website/photo-moments`}
+        />
+        <JourneyRow
+          icon={Shirt}
+          title="Edit dress code"
+          blurb="Headline, palette, and dos & don’ts for your guests."
+          href={`/dashboard/${eventId}/website/dress-code`}
+        />
+        <JourneyRow
+          icon={LayoutGrid}
+          title="Customize widgets"
+          blurb="Show, hide, and reorder the sections on your page."
+          href={`/dashboard/${eventId}/website/widgets`}
+        />
+        <JourneyRow
+          icon={Video}
+          title="Save-the-Date video"
+          blurb="A 60-second teaser from the template gallery."
+          href={`/dashboard/${eventId}/add-ons/save-the-date`}
+        />
+        <JourneyRow
+          icon={Wand2}
+          title="Animated monogram"
+          blurb="Your monogram draws itself in over a custom video or photo."
+          comingSoon
+        />
+        <JourneyRow
+          icon={QrCode}
+          title="Custom QR for every guest"
+          blurb="A personal QR per guest that opens their own invitation."
+          comingSoon
+        />
+      </JourneySection>
+
+      {/* ─────────────────────────────────────────────────────────────
+          STEP 3 · On the day
+          What goes live while guests are celebrating. Day-of preview opens
+          the public page in its T-1h..T+8h mode; Panood / Papic / Patiktok
+          link to their add-on detail pages. Live Photo Wall is net-new.
+          ───────────────────────────────────────────────────────────── */}
+      <JourneySection
+        step="3"
+        title="On the day"
+        blurb="What goes live while your guests are celebrating."
+      >
+        {publicLandingUrl ? (
+          <JourneyRow
+            icon={Eye}
+            title="Preview day-of mode"
+            blurb="See exactly what guests see from one hour before to eight after."
+            href={`${publicLandingUrl}?preview=day_of`}
+            external
+          />
+        ) : null}
+        <JourneyRow
+          icon={Tv}
+          title="Live stream — Panood"
+          blurb="Broadcast your ceremony to the guests who can’t be there."
+          href={`/dashboard/${eventId}/add-ons/panood`}
+        />
+        <JourneyRow
+          icon={MonitorPlay}
+          title="Live photo wall"
+          blurb="Guest photos on the venue screen as they’re taken."
+          comingSoon
+        />
+        <JourneyRow
+          icon={Camera}
+          title="Candid capture — Papic for guests"
+          blurb="Turn your guests’ phones into a shared candid camera."
+          href={`/dashboard/${eventId}/add-ons/papic`}
+        />
+        <JourneyRow
+          icon={Aperture}
+          title="Paparazzo seats — Papic"
+          blurb="Dedicated capture seats for the shooters you pick."
+          href={`/dashboard/${eventId}/add-ons/papic`}
+        />
+        <JourneyRow
+          icon={Film}
+          title="Patiktok booth"
+          blurb="A vertical-reel booth your guests can play with."
+          href={`/dashboard/${eventId}/add-ons/patiktok`}
+        />
+      </JourneySection>
+
+      {/* ─────────────────────────────────────────────────────────────
+          STEP 4 · After the wedding
+          Turn the day into a keepsake. All net-new (no routes yet) → these
+          render as honest coming-soon rows and become clickable in their
+          own follow-up PRs (editorial = iteration 0046 Phase 4).
+          ───────────────────────────────────────────────────────────── */}
+      <JourneySection
+        step="4"
+        title="After the wedding"
+        blurb="Turn your day into a keepsake — coming soon."
+      >
+        <JourneyRow
+          icon={Newspaper}
+          title="Create your editorial"
+          blurb="A magazine-style story of your wedding, right on your page."
+          comingSoon
+        />
+        <JourneyRow
+          icon={Star}
+          title="Collect reviews"
+          blurb="Invite your guests and vendors to leave a note."
+          comingSoon
+        />
+        <JourneyRow
+          icon={Images}
+          title="Pick your photos"
+          blurb="Curate the gallery your guests get to keep."
+          comingSoon
+        />
+        <JourneyRow
+          icon={Heart}
+          title="Thank-you video"
+          blurb="A short thank-you to everyone who celebrated with you."
+          comingSoon
+        />
+      </JourneySection>
+
+      {/* ─────────────────────────────────────────────────────────────
+          STEP 5 · Keep your photos
+          Save the full album to the host's own Google Drive — links to the
+          existing Photo Delivery add-on (0009).
+          ───────────────────────────────────────────────────────────── */}
+      <JourneySection
+        step="5"
+        title="Keep your photos"
+        blurb="Save the full album to your own Google Drive."
+      >
+        <JourneyRow
+          icon={Cloud}
+          title="Sync to Google Drive"
+          blurb="Connect Drive so every photo lands in your own folder."
+          href={`/dashboard/${eventId}/add-ons/photo-delivery`}
+        />
+      </JourneySection>
 
       {/* Free vs Pro panel — surfaces the two existing V1 paid widget
           upgrades from iteration 0004 (Monogram Hero ₱1,999 + Live
           Schedule ₱999). Owner directive CLAUDE.md 2026-05-22: the
           wedding website has a Free tier and a Pro tier; surface the
-          existing SKUs, do not invent a new bundled SKU. Active-state
-          comes from ownedOrders fetched above. */}
+          existing SKUs, do not invent a new bundled SKU. The Pro Bundle
+          ₱24,999 comparison (blueprint §6) lands in its own feature PR.
+          Active-state comes from ownedOrders fetched above. */}
       <ProUpgradePanel eventId={eventId} ownedOrders={ownedOrders} />
 
       {/* Footer note */}
@@ -584,4 +632,3 @@ export default async function WebsiteHubPage({
     </section>
   );
 }
-

@@ -83,7 +83,9 @@ const PBA_CSS = `
   --sans:var(--font-sans),"Manrope",-apple-system,system-ui,sans-serif;
   --mono:var(--font-mono),"DM Mono",ui-monospace,Menlo,monospace;
   --spring:cubic-bezier(.34,1.3,.5,1); --ease:cubic-bezier(.22,.61,.36,1);
-  position:relative; background:var(--paper); color:var(--ink); font-family:var(--sans);
+  /* Full-bleed top: the dashboard <main> adds py-6 (24px) above us; pull up so
+     the budget bar sits flush under the sticky app header (no gap on top). */
+  position:relative; margin-top:-24px; background:var(--paper); color:var(--ink); font-family:var(--sans);
 }
 @media (min-width:1024px){.pba{--pba-header-offset:0px}}
 .pba *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -143,7 +145,11 @@ const PBA_CSS = `
 
 /* ---- Category sticky stacking head + body ---- */
 .pba .cat{border-top:1px solid var(--line)}
-.pba .cat-head{position:sticky;top:calc(var(--pba-header-offset) + var(--topbar-h) + var(--idx,0) * var(--head-h));z-index:calc(20 + var(--idx,0));width:100%;height:var(--head-h);background:var(--paper);display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 18px;border:0;border-bottom:1px solid var(--line);text-align:left;transition:background .4s var(--ease),box-shadow .45s var(--ease)}
+/* Single-sticky folder header: pins one line below the budget bar while its
+   section is in view, then the next folder's header replaces it. A true
+   stack-and-stay pile needs the sections flattened into one scroll container —
+   CSS sticky can't persist across separate bounded <section>s. (follow-up) */
+.pba .cat-head{position:sticky;top:calc(var(--pba-header-offset) + var(--topbar-h));z-index:25;width:100%;height:var(--head-h);background:var(--paper);display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 18px;border:0;border-bottom:1px solid var(--line);text-align:left;transition:background .4s var(--ease),box-shadow .45s var(--ease)}
 .pba .cat-head .nm{font-family:var(--serif);font-style:italic;font-size:18px;font-weight:600;color:var(--ink);letter-spacing:.01em}
 .pba .cat-head .amt{font-family:var(--serif);font-style:italic;font-size:13.5px;font-weight:600;color:var(--ink)}
 .pba .cat-head .amt.zero{font-family:var(--mono);font-style:normal;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-deep)}
@@ -233,10 +239,8 @@ const PBA_CSS = `
 .pba .cmpfoot{padding:12px 20px calc(16px + env(safe-area-inset-bottom)) 20px;font-size:11px;line-height:1.45;color:var(--ink-soft);border-top:1px solid var(--line);background:rgba(197,160,89,.06)}
 
 /* ---- Recap ---- */
-/* recap fills the bottom half once all category heads are piled at top:
-   reserve viewport minus the pile zone (topbar + 10 stacked heads + offset) */
-.pba .end-spacer{padding:30px 18px 30px;display:flex;flex-direction:column;min-height:calc(100svh - var(--pba-header-offset) - var(--topbar-h) - (10 * var(--head-h)))}
-.pba .endcard{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:7px;background:var(--mulberry);color:#fff;border-radius:22px;padding:24px 22px 22px}
+.pba .end-spacer{padding:30px 18px 0}
+.pba .endcard{display:flex;flex-direction:column;align-items:center;text-align:center;gap:7px;background:var(--mulberry);color:#fff;border-radius:22px;padding:24px 22px 22px}
 .pba .end-eyebrow{font-family:var(--mono);font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.6)}
 .pba .end-h{font-family:var(--serif);font-style:italic;font-weight:600;font-size:26px;line-height:1.05;color:#fff;margin:2px 0}
 .pba .end-line{font-family:var(--sans);font-size:11.5px;line-height:1.5;color:rgba(255,255,255,.8);max-width:280px}

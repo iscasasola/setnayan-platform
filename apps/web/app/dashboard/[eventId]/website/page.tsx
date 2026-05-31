@@ -175,6 +175,29 @@ export default async function WebsiteHubPage({
 
   return (
     <section className="space-y-10">
+      {/* New full-screen editor entry — additive + pilot-safe. The journey
+          page below stays the working surface; this opens the Reels-style
+          full-screen editor (live preview + swipe tools). The Website tab
+          flips to open it directly once the editor is complete (later PR).
+          Per CLAUDE.md 2026-05-31 "Reels-style editor" build. */}
+      <Link
+        href={`/site-editor/${eventId}`}
+        className="flex items-center justify-between gap-3 rounded-2xl border border-terracotta/30 bg-terracotta/10 px-4 py-3.5 transition hover:bg-terracotta/15"
+      >
+        <span className="flex items-center gap-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-terracotta/20 text-terracotta">
+            <Wand2 aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.75} />
+          </span>
+          <span>
+            <span className="block text-sm font-semibold">Open the full-screen editor</span>
+            <span className="block text-xs text-ink/60">
+              Edit your site with a live preview — new
+            </span>
+          </span>
+        </span>
+        <ArrowRight aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+      </Link>
+
       {/* Header strip */}
       <header className="space-y-2">
         <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-terracotta">

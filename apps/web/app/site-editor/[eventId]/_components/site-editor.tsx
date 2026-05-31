@@ -1,0 +1,591 @@
+'use client';
+
+import Link from 'next/link';
+import { useCallback, useRef, useState, type ReactNode } from 'react';
+import {
+  ArrowUpRight,
+  CalendarCheck,
+  Camera,
+  Check,
+  CheckCircle2,
+  Clock,
+  Copy,
+  Download,
+  Heart,
+  ImagePlus,
+  Images,
+  Laptop,
+  LayoutGrid,
+  Link2,
+  List,
+  Lock,
+  MailCheck,
+  Moon,
+  Newspaper,
+  Palette,
+  PartyPopper,
+  Pencil,
+  QrCode,
+  Settings,
+  Share2,
+  Shirt,
+  Star,
+  Sun,
+  Users,
+  Video,
+  X,
+} from 'lucide-react';
+import { useTheme, type ThemeMode } from '@/app/_components/theme-provider';
+
+/**
+ * Site Editor — full-screen, Reels-style wedding-website editor.
+ *
+ * WHY this is a top-level route (`/site-editor/[eventId]`) and not a child of
+ * the dashboard layout: Next.js nested layouts COMPOSE — a child route cannot
+ * strip its parent's sidebar / bottom-nav chrome. The owner's spec (CLAUDE.md
+ * 2026-05-31, "Reels-style editor") requires a full-screen takeover that
+ * leaves all dashboard nav behind, with a ✕ top-left to return — exactly the
+ * Facebook Reels pattern. The only clean way to escape `EventLayout`'s chrome
+ * is to live OUTSIDE its route subtree. The root layout (app/layout.tsx) still
+ * wraps this route, so ThemeProvider + the FOUC theme script are intact —
+ * which is what makes the Theme card here flip the whole app live.
+ *
+ * THEME ADAPTS (owner directive "the whole website to adapt to light and dark
+ * theme"): every surface uses the legacy Clean-Editorial Tailwind classes
+ * (bg-cream / text-ink / text-terracotta / bg-mulberry / bg-surface) whose
+ * underlying `--color-*` tokens carry `html.dark` overrides in globals.css —
+ * so the editor reskins automatically when the Theme card calls
+ * useTheme().setMode(). NOTE: the `--m-*` tokens are light-only and are
+ * deliberately NOT used here. The guest-facing landing page (/[slug]) stays
+ * mood-board-styled, not dark-mode, per the 0010/0002 lock — that's why the
+ * live preview iframe renders the couple's palette, not this editor's theme.
+ *
+ * LAYOUT: mobile = column (preview on top ~44vh, tab nav pinned to the
+ * bottom, swipe carousel above it). Desktop = row (preview on the left,
+ * tab nav on top of the right panel, carousel below). Responsive via Tailwind
+ * `lg:` — no device toggle (that was a review-only prototype affordance).
+ *
+ * PR #1 (foundation) scope: the Reels shell + the Theme card wired inline to
+ * the live app theme system + QR display + every other tool card deep-linking
+ * to its existing editor surface. Preview shows the live site; making it jump
+ * to the RSVP / Event sections is the PR #2 follow-up (the public /[slug] page
+ * needs section targeting, which it does not have yet). Editorial = honest
+ * coming-soon (Phase 4 not built).
+ */
+
+type Tab = 'settings' | 'rsvp' | 'event' | 'editorial';
+
+const TAB_TITLE: Record<Tab, string> = {
+  settings: 'Settings',
+  rsvp: 'RSVP',
+  event: 'Event',
+  editorial: 'Editorial',
+};
+
+export type SiteEditorProps = {
+  eventId: string;
+  slug: string | null;
+  publicLandingUrl: string | null;
+  slugDisplay: string | null;
+  masterQrSvg: string | null;
+  stats: { attending: number; pending: number; declined: number };
+};
+
+export function SiteEditor(props: SiteEditorProps) {
+  const { eventId, publicLandingUrl } = props;
+  const [tab, setTab] = useState<Tab>('settings');
+
+  const backHref = `/dashboard/${eventId}/website`;
+
+  return (
+    <div className="flex h-dvh w-full flex-col overflow-hidden bg-cream text-ink transition-colors lg:flex-row">
+      {/* ── LIVE PREVIEW ── */}
+      <div className="relative shrink-0 basis-[44%] overflow-hidden border-b border-ink/10 lg:basis-0 lg:grow-[1.45] lg:border-b-0 lg:border-r">
+        <Link
+          href={backHref}
+          aria-label="Close editor and return to your dashboard"
+          className="absolute left-3 top-3 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-ink/40 text-cream backdrop-blur-sm transition hover:bg-ink/60"
+        >
+          <X aria-hidden className="h-5 w-5" strokeWidth={2} />
+        </Link>
+        <span className="absolute right-3 top-4 z-30 flex items-center gap-1.5 rounded-full bg-ink/40 px-2.5 py-1 font-mono text-[9.5px] uppercase tracking-[0.16em] text-cream backdrop-blur-sm">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-rose-400" />
+          Live preview
+        </span>
+
+        {tab === 'editorial' ? (
+          <PreviewSoon />
+        ) : publicLandingUrl ? (
+          <iframe
+            title="Live preview of your wedding website"
+            src={publicLandingUrl}
+            className="pointer-events-none h-full w-full border-0 bg-white"
+            sandbox="allow-scripts allow-same-origin"
+            loading="lazy"
+          />
+        ) : (
+          <PreviewNoSlug eventId={eventId} />
+        )}
+      </div>
+
+      {/* ── PANEL (tab nav + carousel) ── */}
+      <div className="flex min-h-0 flex-1 flex-col">
+        {/* Editor area — order-first on mobile (above the bottom tab bar),
+            order-last on desktop (below the top tab bar). */}
+        <div className="order-1 flex min-h-0 flex-1 flex-col lg:order-2">
+          <div className="flex items-baseline justify-between px-4 pb-1 pt-3">
+            <span className="font-serif text-xl italic">{TAB_TITLE[tab]}</span>
+            <span className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-ink/40">
+              Swipe →
+            </span>
+          </div>
+          {tab === 'settings' && <Carousel cards={settingsCards(props)} />}
+          {tab === 'rsvp' && <Carousel cards={rsvpCards(props)} />}
+          {tab === 'event' && <Carousel cards={eventCards(props)} />}
+          {tab === 'editorial' && <Carousel cards={editorialCards()} />}
+        </div>
+
+        {/* Tab nav — bottom on mobile, top on desktop. */}
+        <nav className="order-2 grid shrink-0 grid-cols-4 border-t border-ink/10 bg-surface lg:order-1 lg:border-b lg:border-t-0">
+          <TabButton active={tab === 'settings'} onClick={() => setTab('settings')} label="Settings" icon={<Settings aria-hidden />} />
+          <TabButton active={tab === 'rsvp'} onClick={() => setTab('rsvp')} label="RSVP" icon={<MailCheck aria-hidden />} />
+          <TabButton active={tab === 'event'} onClick={() => setTab('event')} label="Event" icon={<PartyPopper aria-hidden />} />
+          <TabButton active={tab === 'editorial'} onClick={() => setTab('editorial')} label="Editorial" icon={<Newspaper aria-hidden />} />
+        </nav>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────── tab nav ─────────────────────────── */
+
+function TabButton({
+  active,
+  onClick,
+  label,
+  icon,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  icon: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`flex flex-col items-center gap-1 py-2 text-[10px] font-semibold transition-colors [&_svg]:h-[21px] [&_svg]:w-[21px] ${
+        active ? 'text-terracotta' : 'text-ink/40'
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+/* ─────────────────────────── carousel ─────────────────────────── */
+
+function Carousel({ cards }: { cards: ReactNode[] }) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState(0);
+
+  const onScroll = useCallback(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    const center = track.scrollLeft + track.clientWidth / 2;
+    let best = Number.POSITIVE_INFINITY;
+    let idx = 0;
+    Array.from(track.children).forEach((child, i) => {
+      const el = child as HTMLElement;
+      const cc = el.offsetLeft + el.clientWidth / 2;
+      const d = Math.abs(cc - center);
+      if (d < best) {
+        best = d;
+        idx = i;
+      }
+    });
+    setActive(idx);
+  }, []);
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div
+        ref={trackRef}
+        onScroll={onScroll}
+        className="flex flex-1 gap-3 overflow-x-auto overflow-y-hidden px-4 pb-1 pt-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
+      >
+        {cards.map((card, i) => (
+          <div
+            key={i}
+            className="shrink-0 basis-[84%] overflow-y-auto lg:basis-[330px]"
+            style={{ scrollSnapAlign: 'center' }}
+          >
+            {card}
+          </div>
+        ))}
+      </div>
+      <div className="flex justify-center gap-1.5 py-2.5">
+        {cards.map((_, i) => (
+          <span
+            key={i}
+            className={`h-1.5 rounded-full transition-all ${
+              i === active ? 'w-4 bg-terracotta' : 'w-1.5 bg-ink/20'
+            }`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────── card shell ─────────────────────────── */
+
+function Card({
+  icon,
+  title,
+  sub,
+  children,
+  soon = false,
+}: {
+  icon: ReactNode;
+  title: string;
+  sub: string;
+  children: ReactNode;
+  soon?: boolean;
+}) {
+  return (
+    <div className="flex h-full flex-col gap-3 rounded-2xl border border-ink/10 bg-surface p-4">
+      <div className="flex items-center gap-2.5">
+        <span
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg [&_svg]:h-[18px] [&_svg]:w-[18px] ${
+            soon ? 'bg-ink/10 text-ink/40' : 'bg-terracotta/15 text-terracotta'
+          }`}
+        >
+          {icon}
+        </span>
+        <span className="text-[14.5px] font-bold leading-tight">
+          {title}
+          <small className="mt-0.5 block text-[11px] font-medium text-ink/55">{sub}</small>
+        </span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/* CTA — deep-links a card to its existing editor surface (full nav out). */
+function CardLink({
+  href,
+  children,
+  ghost = false,
+  external = false,
+  download,
+}: {
+  href: string;
+  children: ReactNode;
+  ghost?: boolean;
+  external?: boolean;
+  download?: string;
+}) {
+  const base =
+    'inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg text-[12.5px] font-semibold transition [&_svg]:h-[15px] [&_svg]:w-[15px]';
+  const skin = ghost
+    ? 'border border-ink/20 text-ink hover:bg-ink/5'
+    : 'bg-mulberry text-cream hover:bg-mulberry-600';
+  if (external || download) {
+    return (
+      <a
+        href={href}
+        download={download}
+        {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+        className={`${base} ${skin}`}
+      >
+        {children}
+      </a>
+    );
+  }
+  return (
+    <Link href={href} className={`${base} ${skin}`}>
+      {children}
+    </Link>
+  );
+}
+
+function Desc({ children }: { children: ReactNode }) {
+  return <p className="text-[12px] leading-relaxed text-ink/55">{children}</p>;
+}
+
+function StatRow({ icon, label, value }: { icon: ReactNode; label: string; value: number }) {
+  return (
+    <div className="flex items-center gap-2.5 rounded-lg border border-ink/10 px-3 py-2">
+      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-terracotta/15 text-terracotta [&_svg]:h-4 [&_svg]:w-4">
+        {icon}
+      </span>
+      <span className="flex-1 text-[12.5px] font-semibold">{label}</span>
+      <span className="text-[13px] font-bold text-terracotta">{value}</span>
+    </div>
+  );
+}
+
+/* ─────────────────────────── SETTINGS cards ─────────────────────────── */
+
+function settingsCards(p: SiteEditorProps): ReactNode[] {
+  return [
+    <Card key="url" icon={<Link2 />} title="Subdomain name" sub="Your public wedding URL">
+      {p.slugDisplay ? (
+        <>
+          <div className="flex items-center justify-between gap-2 rounded-lg border border-ink/10 bg-cream px-3 py-2.5">
+            <span className="truncate font-mono text-[12px] text-ink/70">{p.slugDisplay}</span>
+            {p.publicLandingUrl && <CopyUrl url={p.publicLandingUrl} />}
+          </div>
+          <div className="flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400">
+            <CheckCircle2 aria-hidden className="h-3.5 w-3.5" /> Live — this URL is yours.
+          </div>
+          <CardLink href={`/dashboard/${p.eventId}/website`} ghost>
+            <Pencil aria-hidden /> Manage URL
+          </CardLink>
+        </>
+      ) : (
+        <>
+          <Desc>Pick your wedding URL — it&rsquo;s how guests find your page and what your QR points to.</Desc>
+          <CardLink href={`/dashboard/${p.eventId}/website`}>
+            <Pencil aria-hidden /> Set your URL
+          </CardLink>
+        </>
+      )}
+    </Card>,
+    <Card key="qr" icon={<QrCode />} title="QR code" sub="With your monogram in the center">
+      {p.masterQrSvg && p.slug ? (
+        <>
+          <div
+            className="mx-auto flex h-[108px] w-[108px] items-center justify-center rounded-xl border border-ink/10 bg-white p-2 [&_svg]:h-full [&_svg]:w-full"
+            // QR is a trusted server-rendered SVG from renderEventLandingQrSvg.
+            dangerouslySetInnerHTML={{ __html: p.masterQrSvg }}
+          />
+          <CardLink href={`/api/website/qr/${p.slug}`} download={`${p.slug}-wedding-qr.png`}>
+            <Download aria-hidden /> Download PNG
+          </CardLink>
+          {p.publicLandingUrl && <ShareUrl url={p.publicLandingUrl} />}
+        </>
+      ) : (
+        <Desc>Set your wedding URL first — your QR code is generated from it.</Desc>
+      )}
+    </Card>,
+    <ThemeCard key="theme" />,
+  ];
+}
+
+function ThemeCard() {
+  const { mode, setMode } = useTheme();
+  const options: { m: ThemeMode; label: string; icon: ReactNode }[] = [
+    { m: 'light', label: 'Light', icon: <Sun aria-hidden /> },
+    { m: 'dark', label: 'Dark', icon: <Moon aria-hidden /> },
+    { m: 'auto', label: 'Auto', icon: <Laptop aria-hidden /> },
+  ];
+  return (
+    <Card icon={<Palette />} title="Theme" sub="How your whole Setnayan adapts">
+      <div className="flex gap-1.5">
+        {options.map((o) => (
+          <button
+            key={o.m}
+            type="button"
+            onClick={() => setMode(o.m)}
+            aria-pressed={mode === o.m}
+            className={`flex flex-1 flex-col items-center gap-1 rounded-lg border py-2 text-[12px] font-semibold transition [&_svg]:h-4 [&_svg]:w-4 ${
+              mode === o.m
+                ? 'border-terracotta bg-terracotta text-cream'
+                : 'border-ink/20 text-ink hover:bg-ink/5'
+            }`}
+          >
+            {o.icon}
+            {o.label}
+          </button>
+        ))}
+      </div>
+      <Desc>
+        Light &amp; dark flow across your dashboard and this editor. Auto follows your device. Your guests&rsquo;
+        live page keeps its own palette.
+      </Desc>
+      <div className="mt-0.5 flex gap-1.5">
+        <span className="h-6 flex-1 rounded-md border border-ink/10 bg-cream" />
+        <span className="h-6 flex-1 rounded-md bg-terracotta" />
+        <span className="h-6 flex-1 rounded-md bg-mulberry" />
+        <span className="h-6 flex-1 rounded-md bg-ink" />
+      </div>
+    </Card>
+  );
+}
+
+/* ─────────────────────────── RSVP cards ─────────────────────────── */
+
+function rsvpCards(p: SiteEditorProps): ReactNode[] {
+  const pendingNote =
+    p.stats.pending > 0
+      ? `${p.stats.pending} still to hear from`
+      : 'Everyone has responded';
+  return [
+    <Card key="manage" icon={<Users />} title="Manage RSVPs" sub={pendingNote}>
+      <StatRow icon={<Check />} label="Attending" value={p.stats.attending} />
+      <StatRow icon={<Clock />} label="Pending" value={p.stats.pending} />
+      <StatRow icon={<X />} label="Declined" value={p.stats.declined} />
+      <CardLink href={`/dashboard/${p.eventId}/guests`} ghost>
+        <List aria-hidden /> Open guest list
+      </CardLink>
+    </Card>,
+    <Card key="view" icon={<Lock />} title="Who can view" sub="Control your page's reach">
+      <Desc>
+        Choose who reaches your page — anyone with the link, or only invited guests. Changes take effect right
+        away.
+      </Desc>
+      <CardLink href={`/dashboard/${p.eventId}/website/privacy`} ghost>
+        <Lock aria-hidden /> Manage visibility
+      </CardLink>
+    </Card>,
+    <Card key="deadline" icon={<CalendarCheck />} title="RSVP deadline" sub="When the form closes">
+      <Desc>Set the date your RSVP form stops accepting responses, and toggle +1s and meal choices.</Desc>
+      <CardLink href={`/dashboard/${p.eventId}/guests?rsvp=pending`} ghost>
+        <CalendarCheck aria-hidden /> Manage RSVP settings
+      </CardLink>
+    </Card>,
+  ];
+}
+
+/* ─────────────────────────── EVENT cards ─────────────────────────── */
+
+function eventCards(p: SiteEditorProps): ReactNode[] {
+  return [
+    <Card key="branding" icon={<Pencil />} title="Branding" sub="Monogram & names">
+      <Desc>Your monogram and how your names appear across your invitation and live page.</Desc>
+      <CardLink href={`/dashboard/${p.eventId}/invitation`} ghost>
+        <Pencil aria-hidden /> Open invitation editor
+      </CardLink>
+    </Card>,
+    <Card key="hero" icon={<ImagePlus />} title="Hero photo" sub="Full-bleed banner">
+      <Desc>The first thing guests see — a full-width photo behind your monogram.</Desc>
+      <CardLink href={`/dashboard/${p.eventId}/website/hero-photo`} ghost>
+        <ImagePlus aria-hidden /> Edit hero photo
+      </CardLink>
+    </Card>,
+    <Card key="moments" icon={<Camera />} title="Photo moments" sub="Set the guest vibe">
+      <Desc>Tell guests how you&rsquo;d like the day captured — cameras welcome, phones down, or paparazzo only.</Desc>
+      <CardLink href={`/dashboard/${p.eventId}/website/photo-moments`} ghost>
+        <Camera aria-hidden /> Edit photo moments
+      </CardLink>
+    </Card>,
+    <Card key="dress" icon={<Shirt />} title="Dress code" sub="Palette & guidance">
+      <Desc>A headline and a palette so guests know exactly what to wear.</Desc>
+      <CardLink href={`/dashboard/${p.eventId}/website/dress-code`} ghost>
+        <Shirt aria-hidden /> Edit dress code
+      </CardLink>
+    </Card>,
+    <Card key="widgets" icon={<LayoutGrid />} title="Widgets" sub="Show, hide & reorder">
+      <Desc>Turn page sections on or off — countdown, our story, venue map and more.</Desc>
+      <CardLink href={`/dashboard/${p.eventId}/website/widgets`} ghost>
+        <LayoutGrid aria-hidden /> Customize widgets
+      </CardLink>
+    </Card>,
+    <Card key="std" icon={<Video />} title="Save-the-Date video" sub="From the template gallery">
+      <Desc>Pick a template; we render a short save-the-date from your photos.</Desc>
+      <CardLink href={`/dashboard/${p.eventId}/add-ons/save-the-date`} ghost>
+        <ArrowUpRight aria-hidden /> Browse templates
+      </CardLink>
+    </Card>,
+  ];
+}
+
+/* ─────────────────────────── EDITORIAL cards (coming soon) ─────────────────────────── */
+
+function editorialCards(): ReactNode[] {
+  const items: { icon: ReactNode; title: string; sub: string; desc: string }[] = [
+    { icon: <Newspaper />, title: 'Create editorial', sub: 'Your wedding, as a story', desc: 'A magazine-style page of your day, right on your site.' },
+    { icon: <Star />, title: 'Collect reviews', sub: 'From guests & vendors', desc: 'Invite everyone who celebrated to leave a note.' },
+    { icon: <Images />, title: 'Pick photos', sub: 'Curate the gallery', desc: 'Choose the album your guests get to keep.' },
+    { icon: <Heart />, title: 'Thank-you video', sub: 'A note to everyone', desc: 'A short thank-you to all who shared the day.' },
+  ];
+  return items.map((it) => (
+    <Card key={it.title} icon={it.icon} title={it.title} sub={it.sub} soon>
+      <Desc>{it.desc}</Desc>
+      <span className="self-start rounded-full border border-ink/10 px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.14em] text-ink/40">
+        Coming soon
+      </span>
+    </Card>
+  ));
+}
+
+/* ─────────────────────────── preview placeholders ─────────────────────────── */
+
+function PreviewSoon() {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-2.5 px-6 text-center">
+      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-terracotta/15 text-terracotta [&_svg]:h-6 [&_svg]:w-6">
+        <Newspaper aria-hidden />
+      </span>
+      <p className="font-serif text-2xl italic">Your story, after the day</p>
+      <p className="max-w-[280px] text-[12px] leading-relaxed text-ink/55">
+        Your wedding editorial appears here once the celebration is over. Coming soon.
+      </p>
+    </div>
+  );
+}
+
+function PreviewNoSlug({ eventId }: { eventId: string }) {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-terracotta/15 text-terracotta [&_svg]:h-6 [&_svg]:w-6">
+        <Link2 aria-hidden />
+      </span>
+      <p className="font-serif text-2xl italic">Set your URL to preview</p>
+      <p className="max-w-[280px] text-[12px] leading-relaxed text-ink/55">
+        Once you pick your wedding URL in Settings, your live page shows up right here.
+      </p>
+      <Link
+        href={`/dashboard/${eventId}/website`}
+        className="inline-flex h-10 items-center gap-2 rounded-lg bg-mulberry px-5 text-[12.5px] font-semibold text-cream transition hover:bg-mulberry-600"
+      >
+        <Pencil aria-hidden className="h-4 w-4" /> Set your URL
+      </Link>
+    </div>
+  );
+}
+
+/* ─────────────────────────── clipboard helpers ─────────────────────────── */
+
+function CopyUrl({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      aria-label={copied ? 'Copied' : 'Copy URL'}
+      onClick={() => {
+        navigator.clipboard?.writeText(url).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1600);
+        });
+      }}
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-ink/55 transition hover:bg-ink/5 [&_svg]:h-4 [&_svg]:w-4"
+    >
+      {copied ? <Check aria-hidden className="text-emerald-600" /> : <Copy aria-hidden />}
+    </button>
+  );
+}
+
+function ShareUrl({ url }: { url: string }) {
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        if (navigator.share) {
+          void navigator.share({ url }).catch(() => {});
+        } else {
+          void navigator.clipboard?.writeText(url);
+        }
+      }}
+      className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-ink/20 text-[12.5px] font-semibold text-ink transition hover:bg-ink/5 [&_svg]:h-[15px] [&_svg]:w-[15px]"
+    >
+      <Share2 aria-hidden /> Share
+    </button>
+  );
+}

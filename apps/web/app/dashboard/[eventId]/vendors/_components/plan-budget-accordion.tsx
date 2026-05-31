@@ -489,7 +489,14 @@ export function PlanBudgetAccordion({
           Vendors tab is mounted (the rule lives only in this page's DOM, so
           the nav returns the moment you navigate away). Bottom nav stays for
           tab switching. */}
-      <style>{`.shell-topbar{display:none}`}</style>
+      {/* Hide the app top strip while mounted (returns on nav away). Also pin
+          the document scroll to its bounds: the page scrolls on the WINDOW
+          (SidebarShell main is min-h-screen, no inner overflow), so dragging
+          past the recap rubber-banded into the bare html background (a white
+          gap below the dark sheet). overscroll-behavior-y:none stops that
+          bounce on this tab only. Owner report 2026-06-01 ("should not move
+          up like this"). */}
+      <style>{`.shell-topbar{display:none}html,body{overscroll-behavior-y:none}`}</style>
       <TopBar model={model} />
       <div className="body">
         <Overview model={model} eventId={eventId} />
@@ -510,6 +517,19 @@ export function PlanBudgetAccordion({
               onOpenSearch={openSearch}
             />
           ))}
+          {/* Recap lives INSIDE .cats so the sticky-pile containing block
+              extends THROUGH it. With the recap outside .cats, a collapsed /
+              locked .cats was too short to sustain the full pile — the last
+              heads (Prints / Transport) dropped off at max scroll because
+              .cats ended before their pin points. Inside, .cats always
+              extends ~one recap-height past the last head, so every head
+              stays pinned to the bottom. (Verified in the _pba_verify mirror:
+              6→10 heads pinned at max scroll. Owner report 2026-06-01.) */}
+          {hasAnyPick && (
+            <div className="end-spacer">
+              <Recap recap={model.recap} />
+            </div>
+          )}
         </div>
 
         {compare && (
@@ -523,12 +543,6 @@ export function PlanBudgetAccordion({
             label={search.label}
             onClose={() => setSearch(null)}
           />
-        )}
-
-        {hasAnyPick && (
-          <div className="end-spacer">
-            <Recap recap={model.recap} />
-          </div>
         )}
       </div>
     </div>

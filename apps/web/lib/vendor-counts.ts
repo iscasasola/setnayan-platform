@@ -1,6 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { TAXONOMY_MAP, type WeddingFolder } from './taxonomy';
+import {
+  TAXONOMY_MAP,
+  TILE_PARENT,
+  FILIPINIANA_BARONG_CANONICALS,
+  type WeddingFolder,
+  type WeddingTile,
+} from './taxonomy';
 import type { VendorPublicVisibility } from './vendor-visibility';
 
 /**
@@ -18,9 +24,9 @@ export type VendorCount = {
  * Catalog-mode aggregate: for every canonical_service that has at least one
  * eligible vendor, how many vendors list it in their `services[]` array.
  *
- * The marketplace catalog renders 192 tiles regardless of whether any vendor
- * has stocked the category yet; this helper drives the per-tile "3 verified"
- * vs "Recruiting" copy. Returns an empty Map when zero vendors are eligible.
+ * The marketplace catalog renders all tiles regardless of whether any vendor
+ * has stocked the category yet; this drives the per-tile "3 verified" vs
+ * "Recruiting" copy. Returns an empty Map when zero vendors are eligible.
  *
  * One query, aggregated in process — `services[]` is denormalized so a single
  * vendor row contributes to multiple buckets. RLS-bypassed admin client is
@@ -37,7 +43,7 @@ export async function fetchVendorCountsByService(
     .neq('business_name', '');
 
   if (error) {
-    // Soft-fail to an empty map so the catalog still renders 192 tiles
+    // Soft-fail to an empty map so the catalog still renders every tile
     // labeled "Recruiting" — better UX than a 500 on the marketplace.
     return new Map();
   }
@@ -60,14 +66,10 @@ export async function fetchVendorCountsByService(
 }
 
 /**
- * Top vendor preview row used by both:
- *   • FolderVendorsSection (inline real-vendor cards in catalog mode)
- *   • CategoryTile (subtle "Vendor A · Vendor B · …" preview strip below
- *     populated tiles — closes the gap surfaced 2026-05-22 where category
- *     tiles only showed an "X listed" count without naming any of the X).
- *
- * Mirrors the columns vendor_market_stats already exposes — no new query
- * shape needed beyond the FROM clause.
+ * Top vendor preview row used by FolderVendorsSection (inline real-vendor
+ * cards in catalog mode) and the per-tile preview strips. Mirrors the
+ * columns vendor_market_stats already exposes — no new query shape needed
+ * beyond the FROM clause.
  */
 export type VendorPreviewRow = {
   vendor_profile_id: string;
@@ -83,66 +85,39 @@ export type VendorPreviewRow = {
   avg_rating_overall: number | null;
   review_count: number;
   ad_rank: number | null;
-  /**
-   * Anonymity surface fields per CLAUDE.md 2026-05-30 refinement row
-   * "V2.1 BRIEF AMENDMENT #2 LOCKED · vendor matrix · venue exception
-   * locked". Filled by a secondary batched read against `vendor_profiles`
-   * inside `findTopVendorsByFolder` — `vendor_market_stats` view doesn't
-   * surface these columns. Drives `resolveVendorDisplayName` resolution
-   * in FolderVendorsSection so Free + Verified vendors who haven't yet
-   * replied to any couple render their stored screen_name (Bark format
-   * "Manila Wedding Photographer #4218"); paid + revealed + venue-exempt
-   * vendors render real business_name.
-   *
-   * `name_revealed_at` NULL = name hidden globally (Free + Verified pre-
-   * first-reply). Non-NULL = name revealed globally per the
-   * `reveal_vendor_name_on_chat` BEFORE INSERT trigger on chat_messages
-   * (migration 20260530010000 from PR #662).
-   *
-   * `screen_name` NULL = pre-backfill vendor OR venue-exempt vendor where
-   * the generator deliberately skipped (services overlap with
-   * religious_venue + venue). Resolver falls back to the legacy computed
-   * "service · city" placeholder when present and stays canonical
-   * business_name for venues.
-   */
+  // 2026-05-30 vendor hybrid-anonymity (CLAUDE.md amendment #2). The
+  // `vendor_market_stats` view does NOT expose these — they're filled by a
+  // secondary batched read against `vendor_profiles` inside
+  // `topVendorsByServices`. Drives `resolveVendorDisplayName` in
+  // FolderVendorsSection so Free + Verified vendors who haven't replied yet
+  // render their stored screen_name ("Manila Wedding Photographer #4218");
+  // paid + revealed + venue-exempt vendors render real business_name.
   screen_name: string | null;
   name_revealed_at: string | null;
 };
 
 /**
- * Compute the inverse of TAXONOMY_MAP — folder → canonical_services list.
- * Cached at module load (192 entries × ~50 bytes = negligible). Used by
- * `findTopVendorsByFolder` to translate a folder request into a `.overlaps()`
- * predicate against the vendor's `services[]` array.
- *
- * 2026-05-22 cross-listing — honors `secondary_folders` on TaxonomyEntry
- * so a service registered under a primary folder ALSO surfaces under any
- * declared secondary folders. PH wedding reality: hotels (accommodation,
- * primary planning_logistics_travel) bundle catering, so they appear in
- * the catering folder's FolderVendorsSection inline vendor preview AND
- * the catering folder's vendor-grid query when a host scopes catalog
- * mode via `?folder=catering`. Owner directive: "most hotels also provide
- * catering." Map values stay deduplicated implicitly because a service
- * appears once per (primary OR secondary) folder.
+ * canonical_services for a PARENT (folder), excluding marketplaceHidden
+ * canonicals (officiants / paperwork never get a vendor query). Honors
+ * `secondary_tiles` cross-listing at the parent granularity — a canonical
+ * whose secondary tile lives under a different parent surfaces there too
+ * (PH reality: hotels/accommodation bundle catering, so they appear under
+ * the Feast parent as well as Venue). Cached at module load.
  */
 const CANONICAL_SERVICES_BY_FOLDER: Map<WeddingFolder, string[]> = (() => {
   const map = new Map<WeddingFolder, string[]>();
   for (const [canonical, meta] of Object.entries(TAXONOMY_MAP)) {
-    // Primary folder placement (unchanged 2026-05-20 behavior).
+    if (meta.marketplaceHidden) continue;
     const primaryArr = map.get(meta.folder) ?? [];
     primaryArr.push(canonical);
     map.set(meta.folder, primaryArr);
-    // Secondary folder cross-listing (new 2026-05-22). Empty/undefined
-    // secondary_folders is the common case — no behavior change for the
-    // 191 services that don't declare cross-listing.
-    if (meta.secondary_folders) {
-      for (const secondary of meta.secondary_folders) {
-        // Defensive: never duplicate-add to the same folder if a misconfigured
-        // entry lists its own primary folder in secondary_folders.
-        if (secondary === meta.folder) continue;
-        const secondaryArr = map.get(secondary) ?? [];
-        secondaryArr.push(canonical);
-        map.set(secondary, secondaryArr);
+    if (meta.secondary_tiles) {
+      for (const secondaryTile of meta.secondary_tiles) {
+        const secondaryFolder = TILE_PARENT[secondaryTile];
+        if (secondaryFolder === meta.folder) continue;
+        const arr = map.get(secondaryFolder) ?? [];
+        if (!arr.includes(canonical)) arr.push(canonical);
+        map.set(secondaryFolder, arr);
       }
     }
   }
@@ -150,87 +125,134 @@ const CANONICAL_SERVICES_BY_FOLDER: Map<WeddingFolder, string[]> = (() => {
 })();
 
 /**
- * Top N vendor_market_stats rows for a folder's canonical_services. Used to
- * surface real vendor cards inline in catalog mode for every folder that
- * has at least one signed-up vendor — closes the gap surfaced 2026-05-22
- * where 10 of the 12 folders showed only count-pill tiles without naming
- * any of the underlying vendors.
- *
- * Sort chain mirrors the vendor-grid sort (ad_rank → review_count → rating)
- * so the "Featured vendors" preview reads the same shape couples will see
- * when they click into the full folder grid. Excludes demo vendors unless
- * the caller passes `includeDemoIds`. Excludes coming_soon vendors with
- * empty business_name (same publishing gate as the main vendor list).
- *
- * Returns [] on any query error so the catalog stays clean rather than
- * partially-broken — the section render guards on empty array.
+ * canonical_services for a TILE, excluding marketplaceHidden canonicals.
+ * Honors `secondary_tiles` cross-listing and the Filipiniana & Barongs
+ * cross-view (the same terno/barong vendors as the four attire tiles,
+ * surfaced via the tradition facet — categorized once, two discovery paths).
+ * Cached at module load. Exported because the marketplace queries + counts
+ * are tile-scoped in the 10-parent model.
  */
-export async function findTopVendorsByFolder(
+export const CANONICAL_SERVICES_BY_TILE: Map<WeddingTile, string[]> = (() => {
+  const map = new Map<WeddingTile, string[]>();
+  for (const [canonical, meta] of Object.entries(TAXONOMY_MAP)) {
+    if (meta.marketplaceHidden || !meta.tile) continue;
+    const primaryArr = map.get(meta.tile) ?? [];
+    primaryArr.push(canonical);
+    map.set(meta.tile, primaryArr);
+    if (meta.secondary_tiles) {
+      for (const secondaryTile of meta.secondary_tiles) {
+        if (secondaryTile === meta.tile) continue;
+        const arr = map.get(secondaryTile) ?? [];
+        if (!arr.includes(canonical)) arr.push(canonical);
+        map.set(secondaryTile, arr);
+      }
+    }
+  }
+  // Filipiniana & Barongs cross-view (explicit list; same vendors as the
+  // attire tiles). The canonicals keep their primary attire tile too.
+  map.set('filipiniana_barongs', [...FILIPINIANA_BARONG_CANONICALS]);
+  return map;
+})();
+
+/** All marketplace-visible canonicals for a parent (read-only accessor). */
+export function canonicalServicesForFolder(folder: WeddingFolder): string[] {
+  return CANONICAL_SERVICES_BY_FOLDER.get(folder) ?? [];
+}
+
+/** All marketplace-visible canonicals for a tile (read-only accessor). */
+export function canonicalServicesForTile(tile: WeddingTile): string[] {
+  return CANONICAL_SERVICES_BY_TILE.get(tile) ?? [];
+}
+
+/**
+ * Roll a per-canonical count map (fetchVendorCountsByService) up to per-tile
+ * totals. A vendor that lists multiple canonicals inside the same tile is
+ * counted once per tile via a vendor-set would be ideal, but since we only
+ * have aggregate per-canonical counts here we sum the canonicals — the
+ * catalog copy ("N vendors") is a soft signal, not an exact distinct count.
+ * For the Filipiniana cross-view the same vendors appear under their attire
+ * tiles too; that double-surfacing is intentional (two discovery paths).
+ */
+export function rollUpCountsToTile(
+  perCanonical: Map<string, VendorCount>,
+): Map<WeddingTile, VendorCount> {
+  const out = new Map<WeddingTile, VendorCount>();
+  for (const [tile, canonicals] of CANONICAL_SERVICES_BY_TILE.entries()) {
+    let verified = 0;
+    let coming_soon = 0;
+    for (const c of canonicals) {
+      const v = perCanonical.get(c);
+      if (!v) continue;
+      verified += v.verified;
+      coming_soon += v.coming_soon;
+    }
+    out.set(tile, { verified, coming_soon, total: verified + coming_soon });
+  }
+  return out;
+}
+
+/**
+ * Shared query: top N vendor_market_stats rows whose `services[]` overlap a
+ * canonical set. Sort chain mirrors the vendor-grid default (ad_rank →
+ * review_count → rating → recency) so previews read consistently with the
+ * full grid. Returns [] on any query error so the catalog stays clean.
+ */
+async function topVendorsByServices(
   admin: SupabaseClient,
-  args: {
-    folder: WeddingFolder;
-    /** Cap on rows returned. Default 9 — fits 3 columns × 3 rows on desktop. */
-    limit?: number;
-    /** When provided, EXCLUDES these vendor_profile_ids (demo-mode off). */
+  services: string[],
+  opts: {
+    limit: number;
     excludeVendorIds?: ReadonlyArray<string>;
-    /** When provided, RESTRICTS to these visibilities. Default both. */
-    visibilities?: ReadonlyArray<VendorPublicVisibility>;
+    visibilities: ReadonlyArray<VendorPublicVisibility>;
   },
 ): Promise<VendorPreviewRow[]> {
-  const limit = args.limit ?? 9;
-  const visibilities = args.visibilities ?? ['verified', 'coming_soon'];
-  const folderServices = CANONICAL_SERVICES_BY_FOLDER.get(args.folder) ?? [];
-  if (folderServices.length === 0) return [];
+  if (services.length === 0) return [];
 
   let query = admin
     .from('vendor_market_stats')
     .select(
       'vendor_profile_id,business_name,business_slug,logo_url,tagline,services,location_city,hq_latitude,hq_longitude,public_visibility,avg_rating_overall,review_count,ad_rank',
     )
-    .in('public_visibility', visibilities as readonly string[])
+    .in('public_visibility', opts.visibilities as readonly string[])
     .not('business_name', 'is', null)
     .neq('business_name', '')
-    .overlaps('services', folderServices);
+    .overlaps('services', services);
 
-  if (args.excludeVendorIds && args.excludeVendorIds.length > 0) {
+  if (opts.excludeVendorIds && opts.excludeVendorIds.length > 0) {
     // PostgREST NOT IN with parenthesised comma list — same shape the
-    // vendor-grid query uses for demo exclusion at vendors/page.tsx:740.
-    // Cast via `unknown` to a narrowed shape to dodge the TS recursion
-    // ceiling on chained PostgREST query types (mirrors the broadened-
-    // count pattern at vendors/page.tsx:928-937).
+    // vendor-grid query uses for demo exclusion. Cast via `unknown` to a
+    // narrowed shape to dodge the TS recursion ceiling on chained PostgREST
+    // query types.
     type NotShape = {
       not: (column: string, op: string, value: string) => typeof query;
     };
     query = (query as unknown as NotShape).not(
       'vendor_profile_id',
       'in',
-      `(${args.excludeVendorIds.join(',')})`,
+      `(${opts.excludeVendorIds.join(',')})`,
     );
   }
 
-  // Sort: ad_rank first (Boosted Ads + Sponsored Boost float to top), then
-  // review_count (social proof), then rating, then most-recent. Mirrors the
-  // vendor-grid default sort so the inline preview reads consistently.
   query = query
     .order('ad_rank', { ascending: false, nullsFirst: false })
     .order('review_count', { ascending: false, nullsFirst: false })
     .order('avg_rating_overall', { ascending: false, nullsFirst: false })
-    .limit(limit);
+    .limit(opts.limit);
 
   const { data, error } = await query;
   if (error || !data) return [];
 
-  const baseRows = data as Omit<VendorPreviewRow, 'screen_name' | 'name_revealed_at'>[];
+  const baseRows = data as Omit<
+    VendorPreviewRow,
+    'screen_name' | 'name_revealed_at'
+  >[];
 
   // Secondary batched read against `vendor_profiles` for the two
-  // anonymity-surface fields `vendor_market_stats` doesn't expose.
-  // Mirrors the same pattern in `wizard-recommendations.ts` (PR #677) +
-  // `apps/web/app/vendors/page.tsx` enrichment loop — one extra IN-lookup
-  // keyed on the page-size'd vendor_profile_id list keeps round-trip
-  // count bounded at 2 instead of N+1. Fail-soft: on lookup error every
-  // row keeps a NULL anonymity pair · resolver gracefully degrades to
-  // the legacy "service · city" placeholder for hidden vendors and to
-  // business_name for paid + revealed + venue-exempt vendors.
+  // anonymity-surface fields `vendor_market_stats` doesn't expose (one
+  // extra IN-lookup keeps round-trips bounded at 2, not N+1). Fail-soft:
+  // on lookup error every row keeps a NULL anonymity pair — the resolver
+  // degrades to the legacy "service · city" placeholder for hidden vendors
+  // and to business_name for paid + revealed + venue-exempt vendors.
   const vendorIds = baseRows.map((r) => r.vendor_profile_id);
   if (vendorIds.length === 0) return [];
 
@@ -267,13 +289,54 @@ export async function findTopVendorsByFolder(
 }
 
 /**
- * Top-3 vendor names per canonical_service, used by the CategoryTile
- * "Sample: A · B · C" preview line surfaced 2026-05-22. Single round-trip
- * for the full visible service set so the catalog page stays at one query
- * for previews regardless of how many services render.
+ * Top N vendors for a PARENT's canonical_services. Drives the per-parent
+ * "Top X vendors right now" preview strip in catalog mode.
+ */
+export async function findTopVendorsByFolder(
+  admin: SupabaseClient,
+  args: {
+    folder: WeddingFolder;
+    /** Cap on rows returned. Default 9 — fits 3 columns × 3 rows on desktop. */
+    limit?: number;
+    /** When provided, EXCLUDES these vendor_profile_ids (demo-mode off). */
+    excludeVendorIds?: ReadonlyArray<string>;
+    /** When provided, RESTRICTS to these visibilities. Default both. */
+    visibilities?: ReadonlyArray<VendorPublicVisibility>;
+  },
+): Promise<VendorPreviewRow[]> {
+  return topVendorsByServices(admin, CANONICAL_SERVICES_BY_FOLDER.get(args.folder) ?? [], {
+    limit: args.limit ?? 9,
+    excludeVendorIds: args.excludeVendorIds,
+    visibilities: args.visibilities ?? ['verified', 'coming_soon'],
+  });
+}
+
+/**
+ * Top N vendors for a TILE's canonical_services. Drives the per-tile inline
+ * vendor preview + the tile-scoped vendor grid (`?tile=`).
+ */
+export async function findTopVendorsByTile(
+  admin: SupabaseClient,
+  args: {
+    tile: WeddingTile;
+    limit?: number;
+    excludeVendorIds?: ReadonlyArray<string>;
+    visibilities?: ReadonlyArray<VendorPublicVisibility>;
+  },
+): Promise<VendorPreviewRow[]> {
+  return topVendorsByServices(admin, CANONICAL_SERVICES_BY_TILE.get(args.tile) ?? [], {
+    limit: args.limit ?? 9,
+    excludeVendorIds: args.excludeVendorIds,
+    visibilities: args.visibilities ?? ['verified', 'coming_soon'],
+  });
+}
+
+/**
+ * Top-N vendor names per canonical_service, used by the CategoryTile
+ * "Sample: A · B · C" preview line. Single round-trip for the full visible
+ * service set so the catalog page stays at one query for previews.
  *
- * Returns a Map keyed on canonical_service → array of business_names
- * (deduplicated, ordered same as findTopVendorsByFolder).
+ * Returns a Map keyed on canonical_service → array of business_names.
  */
 export async function fetchTopVendorNamesByService(
   admin: SupabaseClient,

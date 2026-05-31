@@ -38,7 +38,12 @@
  */
 
 import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
-import type { WeddingFolder } from '@/lib/taxonomy';
+import {
+  TAXONOMY_MAP,
+  WEDDING_TILE_SLUG,
+  type WeddingFolder,
+  type WeddingTile,
+} from '@/lib/taxonomy';
 
 export type PlanGroupId =
   // Foundation tier
@@ -146,7 +151,15 @@ export type PlanGroup = {
    */
   catalogFolder: WeddingFolder;
   /**
-   * Optional canonical_service hint (from the 192-row taxonomy at
+   * Optional tile (10-parent model, 2026-05-31). When set, the planner
+   * card's [Search] button deep-links to `/vendors?tile=<tile-slug>` —
+   * the tile-scoped vendor grid (overlaps the tile's canonical set). Takes
+   * precedence over `subcategoryHint`. Omit for cards that should browse
+   * the whole parent (e.g. Attire → all LOOK tiles).
+   */
+  catalogTile?: WeddingTile;
+  /**
+   * Optional canonical_service hint (from the taxonomy at
    * `TAXONOMY_MAP` in apps/web/lib/taxonomy.ts). When set, the planner
    * card's [Search] button deep-links to
    * `/vendors?folder=<slug>&category=<hint>` — vendor-grid mode filtered
@@ -322,7 +335,8 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     // reception-side hint.
     categories: ['religious_venue', 'church_fees'],
     monthsBefore: 12,
-    catalogFolder: 'ceremony',
+    catalogFolder: 'venue',
+    catalogTile: 'ceremony_venue',
   },
   {
     id: 'reception_venue',
@@ -331,7 +345,8 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     tier: 'foundation',
     categories: ['venue'],
     monthsBefore: 12,
-    catalogFolder: 'reception',
+    catalogFolder: 'venue',
+    catalogTile: 'reception',
   },
   {
     id: 'coordinator',
@@ -340,7 +355,8 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     tier: 'foundation',
     categories: ['planner_coordinator'],
     monthsBefore: 12,
-    catalogFolder: 'planning_logistics_travel',
+    catalogFolder: 'planning',
+    catalogTile: 'coordinator',
     subcategoryHint: 'wedding_coordination',
   },
 
@@ -352,7 +368,8 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     tier: 'big_bookings',
     categories: ['officiant'],
     monthsBefore: 9,
-    catalogFolder: 'ceremony',
+    catalogFolder: 'venue',
+    catalogTile: 'ceremony_venue',
     subcategoryHint: 'officiant_priest_minister',
   },
   {
@@ -362,7 +379,8 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     tier: 'big_bookings',
     categories: ['catering'],
     monthsBefore: 9,
-    catalogFolder: 'catering',
+    catalogFolder: 'feast',
+    catalogTile: 'catering',
     subcategoryHint: 'catering',
   },
   {
@@ -372,7 +390,8 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     tier: 'big_bookings',
     categories: ['photographer', 'videographer'],
     monthsBefore: 9,
-    catalogFolder: 'photo_video',
+    catalogFolder: 'documentary',
+    catalogTile: 'photo_video',
   },
   {
     id: 'attire',
@@ -383,7 +402,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     // attire now owns gown + suit + designers only.
     categories: ['gown_designer', 'suit_designer'],
     monthsBefore: 8,
-    catalogFolder: 'attire',
+    catalogFolder: 'look',
   },
   {
     id: 'hair_makeup',
@@ -392,7 +411,8 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     tier: 'big_bookings',
     categories: ['makeup_artist', 'hair_stylist'],
     monthsBefore: 6,
-    catalogFolder: 'hair_makeup',
+    catalogFolder: 'look',
+    catalogTile: 'hmua',
     subcategoryHint: 'bridal_hmua',
   },
 
@@ -404,7 +424,8 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     tier: 'style_program',
     categories: ['florist', 'reception_decor'],
     monthsBefore: 6,
-    catalogFolder: 'decor_florals_sound',
+    catalogFolder: 'design',
+    catalogTile: 'florist',
     subcategoryHint: 'florals',
   },
   {
@@ -422,7 +443,8 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     tier: 'style_program',
     categories: [],
     monthsBefore: 6,
-    catalogFolder: 'decor_florals_sound',
+    catalogFolder: 'design',
+    catalogTile: 'stylist_decorator',
     subcategoryHint: 'stylist',
     countsTowardLockable: false,
   },
@@ -434,7 +456,8 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     // Entry-point card — picks bucket under music_entertainment.
     categories: [],
     monthsBefore: 6,
-    catalogFolder: 'music_program',
+    catalogFolder: 'program',
+    catalogTile: 'live_band',
     subcategoryHint: 'live_band',
     countsTowardLockable: false,
   },
@@ -451,7 +474,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     // moved to its own card.
     categories: ['band_dj', 'string_quartet', 'choir'],
     monthsBefore: 6,
-    catalogFolder: 'music_program',
+    catalogFolder: 'program',
     subcategoryHint: 'dj',
   },
   {
@@ -468,7 +491,8 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     tier: 'style_program',
     categories: [],
     monthsBefore: 4,
-    catalogFolder: 'music_program',
+    catalogFolder: 'program',
+    catalogTile: 'choreographer',
     subcategoryHint: 'choreographer',
     countsTowardLockable: false,
   },
@@ -497,7 +521,8 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     // is the canonical surface; the plan-grid cell aggregates.
     categories: [],
     monthsBefore: 1,
-    catalogFolder: 'music_program',
+    catalogFolder: 'program',
+    catalogTile: 'dj',
     subcategoryHint: 'dj',
     countsTowardLockable: false,
   },
@@ -508,7 +533,8 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     tier: 'style_program',
     categories: ['host_emcee'],
     monthsBefore: 5,
-    catalogFolder: 'music_program',
+    catalogFolder: 'program',
+    catalogTile: 'host_mc',
     subcategoryHint: 'host_emcee',
   },
   {
@@ -518,7 +544,8 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     tier: 'style_program',
     categories: ['lights_and_sound'],
     monthsBefore: 5,
-    catalogFolder: 'decor_florals_sound',
+    catalogFolder: 'design',
+    catalogTile: 'lights_sound',
     subcategoryHint: 'lights_sound',
   },
   {
@@ -528,7 +555,8 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     tier: 'style_program',
     categories: ['led_screens'],
     monthsBefore: 3,
-    catalogFolder: 'decor_florals_sound',
+    catalogFolder: 'design',
+    catalogTile: 'led_wall',
     subcategoryHint: 'setnayan_pailaw',
   },
 
@@ -540,7 +568,8 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     tier: 'extras',
     categories: ['mobile_bar'],
     monthsBefore: 4,
-    catalogFolder: 'catering',
+    catalogFolder: 'booths',
+    catalogTile: 'mobile_bar',
     subcategoryHint: 'mobile_bar',
   },
   {
@@ -550,7 +579,8 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     tier: 'extras',
     categories: ['photobooth'],
     monthsBefore: 3,
-    catalogFolder: 'booths_stations',
+    catalogFolder: 'booths',
+    catalogTile: 'photo_booth',
     subcategoryHint: 'photo_booth',
   },
   {
@@ -560,7 +590,8 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     tier: 'extras',
     categories: ['cake_maker'],
     monthsBefore: 4,
-    catalogFolder: 'catering',
+    catalogFolder: 'feast',
+    catalogTile: 'cake',
     subcategoryHint: 'wedding_cake',
   },
   {
@@ -582,7 +613,8 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     // PR follow-3).
     categories: ['transportation'],
     monthsBefore: 2,
-    catalogFolder: 'planning_logistics_travel',
+    catalogFolder: 'transport',
+    catalogTile: 'bridal_car',
     subcategoryHint: 'transportation_bridal_car',
     countsTowardLockable: false,
   },
@@ -594,7 +626,8 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     // Entry-point card — picks bucket under logistics.
     categories: [],
     monthsBefore: 2,
-    catalogFolder: 'planning_logistics_travel',
+    catalogFolder: 'transport',
+    catalogTile: 'guest_shuttle',
     subcategoryHint: 'transportation_guest_shuttle',
     countsTowardLockable: false,
   },
@@ -605,7 +638,8 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     tier: 'extras',
     categories: ['rings'],
     monthsBefore: 3,
-    catalogFolder: 'rings_accessories',
+    catalogFolder: 'look',
+    catalogTile: 'jewelleries_accessories',
     subcategoryHint: 'wedding_ring',
   },
   {
@@ -627,7 +661,8 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     tier: 'extras',
     categories: ['accommodation'],
     monthsBefore: 2,
-    catalogFolder: 'planning_logistics_travel',
+    catalogFolder: 'venue',
+    catalogTile: 'reception',
     subcategoryHint: 'accommodation',
   },
 
@@ -639,7 +674,8 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     tier: 'paper',
     categories: ['invitations_stationery'],
     monthsBefore: 4,
-    catalogFolder: 'invitations_keepsakes',
+    catalogFolder: 'prints',
+    catalogTile: 'printing',
     subcategoryHint: 'invitation_print',
   },
   {
@@ -654,7 +690,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
       'misc',
     ],
     monthsBefore: 2,
-    catalogFolder: 'planning_logistics_travel',
+    catalogFolder: 'transport',
   },
 ];
 
@@ -1527,6 +1563,22 @@ export function buildPlanGroupSearchHref(
   group: PlanGroup,
   folderSlug: string,
 ): string {
+  // 10-parent model (2026-05-31): when the group maps to a single tile,
+  // land the host on exactly that tile's vendor grid (`?tile=`). Takes
+  // precedence over the legacy `subcategoryHint` canonical filter.
+  if (group.catalogTile) {
+    // Venue tiles (Reception · Ceremony) are venue_directory / venue_setting
+    // backed — they have no vendor-grid canonicals, so route them to the
+    // catalog Venue section anchored to the right sub-block instead of an
+    // empty `?tile=` grid.
+    if (
+      group.catalogTile === 'reception' ||
+      group.catalogTile === 'ceremony_venue'
+    ) {
+      return `/vendors?folder=venue&from=plan#${WEDDING_TILE_SLUG[group.catalogTile]}`;
+    }
+    return `/vendors?tile=${WEDDING_TILE_SLUG[group.catalogTile]}&from=plan`;
+  }
   if (group.subcategoryHint) {
     return `/vendors?folder=${folderSlug}&category=${encodeURIComponent(group.subcategoryHint)}&from=plan`;
   }
@@ -1611,7 +1663,8 @@ export function getCustomPlanGroups(
       // unaffected.
       categories: [] as ReadonlyArray<VendorCategory>,
       monthsBefore: 6,
-      catalogFolder: 'planning_logistics_travel' satisfies WeddingFolder,
+      catalogFolder: (TAXONOMY_MAP[canonical]?.folder ?? 'planning') satisfies WeddingFolder,
+      catalogTile: TAXONOMY_MAP[canonical]?.tile,
       countsTowardLockable: false,
     };
   });

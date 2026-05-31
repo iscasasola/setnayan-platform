@@ -80,12 +80,12 @@ import type {
  * couples do via the full marketplace catalog, not a chip.
  */
 const FEATURED_FOLDERS: ReadonlyArray<WeddingFolder> = [
-  'photo_video',
-  'catering',
-  'decor_florals_sound',
-  'music_program',
-  'booths_stations',
-  'attire',
+  'documentary',
+  'feast',
+  'design',
+  'program',
+  'booths',
+  'look',
 ];
 
 type Props = {

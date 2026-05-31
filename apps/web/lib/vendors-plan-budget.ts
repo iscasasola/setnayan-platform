@@ -110,6 +110,27 @@ export type AccordionPick = PlanCardPick & {
   is_setnayan_service?: boolean;
   recommended_reason?: string | null;
   linked_to_name?: string | null;
+  /**
+   * Haversine distance (km) from the couple's reception venue. Renders
+   * "Xkm from reception" in the card's distance slot; absent → the card
+   * falls back to the city line. Populated from the vendor_market_stats
+   * hq coords vs the events venue coords (page fetch).
+   */
+  distance_km?: number | null;
+};
+
+/**
+ * Per-vendor card enrichment from the marketplace join (vendor_market_stats
+ * + vendor_profiles), keyed by event_vendors.vendor_id. Every field is
+ * optional + rendered only when present — the card never fabricates a
+ * rating / badge / distance it wasn't handed.
+ */
+export type VendorEnrichment = {
+  rating?: number | null;
+  review_count?: number | null;
+  is_verified?: boolean;
+  is_setnayan_service?: boolean;
+  distance_km?: number | null;
 };
 
 /** One plan-group rail inside a folder (e.g. "Attire" inside Look). */
@@ -217,6 +238,8 @@ export function buildPlanBudgetModel(args: {
   crewMealByVendorId?: ReadonlyMap<string, number>;
   /** vendor_id → same-date soft-hold count (aggregate, real). */
   eyeingByVendorId?: ReadonlyMap<string, number>;
+  /** vendor_id → card enrichment (reviews / badges / distance) from the join. */
+  enrichmentByVendorId?: ReadonlyMap<string, VendorEnrichment>;
 }): PlanBudgetModel {
   const {
     vendorRows,
@@ -227,6 +250,7 @@ export function buildPlanBudgetModel(args: {
     transportByVendorId,
     crewMealByVendorId,
     eyeingByVendorId,
+    enrichmentByVendorId,
   } = args;
 
   // Bucket raw rows into the 26 plan groups (reuses the canonical bucketer
@@ -256,10 +280,19 @@ export function buildPlanBudgetModel(args: {
     const rolled = pick.total_cost_php === null && transport === 0 && crew === 0
       ? null
       : pkg + transport + crew;
+    const ext = enrichmentByVendorId?.get(pick.vendor_id);
     return {
       ...pick,
       rolled_cost_php: rolled,
       eyeing: eyeingByVendorId?.get(pick.vendor_id) ?? 0,
+      // Card-enrichment from the marketplace join. Each field is set ONLY
+      // when the map actually carries it — absent → the card renders bare
+      // for that field, never a fabricated rating / badge / distance.
+      ...(ext?.rating != null ? { rating: ext.rating } : {}),
+      ...(ext?.review_count != null ? { review_count: ext.review_count } : {}),
+      ...(ext?.is_verified ? { is_verified: true } : {}),
+      ...(ext?.is_setnayan_service ? { is_setnayan_service: true } : {}),
+      ...(ext?.distance_km != null ? { distance_km: ext.distance_km } : {}),
     };
   };
 

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Setnayan APP ICON — owner-supplied 2026-05-31 ("this will be the app icon").
+  The same champagne-gold (#cb9e4b) S/Y monogram as /brand/setnayan-mark.svg,
+  but on a FULL-BLEED white tile with ~14% breathing room so it survives the
+  maskable safe zone (Android adaptive squircle) and iOS apple-touch rounding.
+
+  Why a separate asset: the transparent glyph (setnayan-mark.svg / icon-*.svg)
+  is the website logo + browser-tab favicon — it sits on the page/tab bg. An
+  INSTALLED app / home-screen icon needs an opaque tile (iOS composites
+  transparency onto black; Android crops to a squircle), so this filled,
+  padded version is the canonical app-icon source. A 512px PNG is rendered
+  from this file for the manifest maskable + apple-touch entries.
+
+  Geometry is the owner's exported monogram verbatim (path + matrix + clip);
+  margin is added purely via the padded viewBox + an oversized backing rect,
+  so the artwork coordinates are never re-mathed.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-574 -574 6481.5 6481.5" width="1024" height="1024" role="img" aria-label="Setnayan">
+  <title>Setnayan</title>
+  <rect x="-2000" y="-2000" width="10000" height="10000" fill="#ffffff" />
+  <defs>
+    <clipPath id="setnayan-app-icon-clip" clipPathUnits="userSpaceOnUse">
+      <path d="M 0,0 H 4000 V 4000 H 0 Z" />
+    </clipPath>
+  </defs>
+  <path
+     d="M 1859.526,3749.781 C 1458.028,3717.757 1065.454,3548.554 758.3406,3241.44 451.2286,2934.328 282.2397,2541.742 250.2195,2140.255 l 1326.8215,1.536 V 661.7647 C 1368.543,727.4195 1172.067,841.5416 1006.804,1006.804 768.3191,1245.29 633.8543,1548.261 602.7217,1859.526 H 250 C 282.024,1458.028 451.2265,1065.455 758.3406,758.3406 1065.453,451.2287 1458.039,282.2396 1859.526,250.2195 V 2422.739 H 661.7647 c 65.6549,208.498 179.7773,404.975 345.0393,570.237 238.486,238.486 541.457,372.95 852.722,404.083 z m 280.948,0 1.537,-1609.307 h 280.948 v 1197.761 c 208.498,-65.655 404.974,-179.776 570.237,-345.039 238.485,-238.486 372.95,-541.457 404.082,-852.722 H 3750 c -32.024,401.498 -201.226,794.071 -508.341,1101.185 -307.112,307.112 -699.697,476.101 -1101.185,508.122 z m 0,-1890.255 c 32.025,-401.498 201.227,-794.073 508.341,-1101.1854 0.658,-0.6584 1.316,-1.3173 1.975,-1.9754 -80.395,-42.041 -163.892,-76.0428 -249.331,-101.7389 -85.439,-25.696 -172.821,-43.0864 -260.985,-51.9046 V 250.2195 c 401.497,32.0253 794.073,201.0094 1101.185,508.1211 307.114,307.1134 476.317,699.6874 508.341,1101.1854 h -352.722 c -31.132,-311.265 -165.597,-614.236 -404.082,-852.722 -15.719,-15.7189 -32.464,-29.741 -48.727,-44.5564 -15.975,14.4789 -31.774,29.1397 -47.191,44.5564 -238.485,238.486 -372.95,541.457 -404.082,852.722 z"
+     fill="#cb9e4b" fill-rule="nonzero"
+     transform="matrix(1.3333333,0,0,-1.3333333,0,5333.3333)"
+     clip-path="url(#setnayan-app-icon-clip)" />
+</svg>

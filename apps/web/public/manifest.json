@@ -22,6 +22,12 @@
       "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "any"
+    },
+    {
+      "src": "/brand/setnayan-app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

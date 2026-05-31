@@ -44,12 +44,20 @@ import {
   WEDDING_FOLDER_ORDER,
   WEDDING_FOLDER_SHORT_LABEL,
   WEDDING_FOLDER_SLUG,
+  WEDDING_TILE_LABEL,
+  WEDDING_TILE_SLUG,
+  WEDDING_TILE_ORDER,
+  WEDDING_TILES_BY_PARENT,
+  TILE_PARENT,
   type WeddingFolder,
+  type WeddingTile,
+  type TaxonomyEntry,
   type TaxonomyPhase,
 } from '@/lib/taxonomy';
 import {
   fetchTopVendorNamesByService,
   fetchVendorCountsByService,
+  CANONICAL_SERVICES_BY_TILE,
   type VendorCount,
 } from '@/lib/vendor-counts';
 import { FolderVendorsSection } from './_components/folder-vendors-section';
@@ -292,6 +300,10 @@ type Props = {
      *  12-folder catalog renders as before. Invalid values fall back to
      *  unscoped catalog. */
     folder?: string;
+    /** 10-parent model (2026-05-31) — tile-scoped vendor grid. `?tile=<slug>`
+     *  filters the grid to that tile's canonical set. Set by dashboard
+     *  planning-group [Search] buttons + catalog tile cards. */
+    tile?: string;
     /** Task #48 · CLAUDE.md 2026-05-22 — venue_setting default-on filter
      *  for the Reception folder. When the host's primary event has a
      *  picked `events.venue_setting` AND they're viewing Reception (catalog
@@ -475,6 +487,13 @@ type VendorCardRow = {
   starting_price_php?: number | null;
 };
 
+/** Reverse map: tile URL slug (e.g. `photo-video`) → WeddingTile key. */
+const SLUG_TO_TILE: Map<string, WeddingTile> = new Map(
+  (Object.entries(WEDDING_TILE_SLUG) as [WeddingTile, string][]).map(
+    ([tile, slug]) => [slug, tile],
+  ),
+);
+
 function parseFilters(
   raw: Awaited<Props['searchParams']>,
 ): {
@@ -497,8 +516,13 @@ function parseFilters(
   /** Task #47 — catalog-mode folder scope. When set to one of the 12
    *  WeddingFolder values, CatalogView renders only that single section.
    *  Source: dashboard planning-group [Search] buttons (planning-groups.tsx).
-   *  Absent / invalid → render all 12 folders (universal Browse). */
+   *  Absent / invalid → render all 10 parents (universal Browse). */
   folder: WeddingFolder | null;
+  /** 10-parent model (2026-05-31) — tile-scoped vendor grid. When set to a
+   *  valid WeddingTile (decoded from `?tile=<slug>`), the vendor grid filters
+   *  to that tile's canonical set (overlaps). Set by dashboard planning-group
+   *  [Search] buttons + catalog tile cards. Absent / invalid → no tile scope. */
+  tile: WeddingTile | null;
   /** Task #48 — venue_setting default-on toggle. Three states:
    *   - `'on'` (default when absent OR `?venue=1`): apply the host's
    *     `events.venue_setting` as a filter on `compatible_venue_settings`
@@ -582,6 +606,10 @@ function parseFilters(
   const folder = (WEDDING_FOLDER_ORDER as readonly string[]).includes(rawFolder)
     ? (rawFolder as WeddingFolder)
     : null;
+  // 10-parent model — tile scope from `?tile=<slug>`. Decode the hyphenated
+  // slug back to the WeddingTile key; invalid / typo / absent → null.
+  const rawTile = (raw.tile ?? '').trim();
+  const tile = SLUG_TO_TILE.get(rawTile) ?? null;
   // Task #48 — venue default-on toggle. Default 'on' (apply host's
   // venue_setting when applicable). `?venue=0` explicit opt-out. Anything
   // else collapses to 'on'. The "applicable" check (host has a
@@ -627,6 +655,7 @@ function parseFilters(
     matchEvent,
     eventType,
     folder,
+    tile,
     venueDefault,
     venueFacet,
     focusedMode,
@@ -1023,39 +1052,26 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   if (filters.q.length > 0) {
     query = query.ilike('business_name', `%${filters.q}%`);
   }
-  if (filters.category) {
-    // `services` is a text[] in the DB; the contains operator matches when
-    // the array includes the canonical category key. Custom service strings
-    // are not indexed by canonical key, so a category filter won't match
-    // vendors who only listed a custom service — that's correct V1 behavior.
-    //
-    // 2026-05-22 cross-listing — when (a) the host arrived via a planning-
-    // card [Search] button (filters.folder is set), AND (b) the picked
-    // category is a generic catch-all that matches the folder (e.g.
-    // ?folder=catering&category=catering), ALSO include vendors whose
-    // services[] holds any service cross-listed into this folder via
-    // `secondary_folders`. The owner-locked example: hotels (services[]
-    // contains 'accommodation', which has `secondary_folders: ['catering']`)
-    // surface in catering search alongside dedicated caterers.
-    //
-    // We only expand when filters.category EXACTLY equals filters.folder
-    // because that's the "generic folder catch-all" pattern the dashboard
-    // planning cards emit (subcategoryHint='catering' for the Catering
-    // card). Specific drill-ins like `?category=halal_catering` don't get
-    // the expansion — those couples picked a narrow service for a reason.
-    const isGenericFolderCatchall =
-      filters.folder !== null && filters.category === filters.folder;
-    if (isGenericFolderCatchall) {
-      const crossListed = Object.entries(TAXONOMY_MAP)
-        .filter(([, meta]) =>
-          meta.secondary_folders?.includes(filters.folder as WeddingFolder),
-        )
-        .map(([key]) => key);
-      const services = [filters.category, ...crossListed];
-      query = query.overlaps('services', services);
-    } else {
-      query = query.contains('services', [filters.category]);
+  // 10-parent model (2026-05-31) — tile-scoped grid. `?tile=<slug>` overlaps
+  // the tile's canonical set, which ALREADY includes any cross-listed
+  // canonicals (e.g. `accommodation` rolls into the Catering tile via
+  // `secondary_tiles`, and the Filipiniana & Barongs cross-view pulls the
+  // terno/barong canonicals). This replaces the old folder+category
+  // catch-all expansion — one overlaps clause handles both the tile's own
+  // canonicals and its cross-listings. Takes precedence over `?category=`.
+  if (filters.tile) {
+    const tileServices = CANONICAL_SERVICES_BY_TILE.get(filters.tile) ?? [];
+    if (tileServices.length > 0) {
+      query = query.overlaps('services', tileServices);
     }
+  } else if (filters.category) {
+    // Single canonical_service filter (taxonomy autocomplete + the
+    // /vendors/categories canonical browser). `services` is a text[]; the
+    // contains operator matches when the array includes the canonical key.
+    // Custom service strings aren't indexed by canonical key, so a category
+    // filter won't match vendors who only listed a custom service — correct
+    // V1 behavior.
+    query = query.contains('services', [filters.category]);
   }
   if (filters.eventType) {
     // Iteration 0041 — vendor_profiles.event_types[] gates which event_types
@@ -1108,7 +1124,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   const effectiveVenueSetting = filters.venueFacet ?? hostVenueSetting;
   if (
     effectiveVenueSetting &&
-    filters.folder === 'reception' &&
+    (filters.tile === 'reception' || filters.folder === 'venue') &&
     filters.venueDefault === 'on'
   ) {
     query = query.or(
@@ -1199,7 +1215,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // broadening flow still fires correctly.
   const venueFilterFiring =
     (venueFilterActive || filters.venueFacet !== null) &&
-    filters.folder === 'reception' &&
+    (filters.tile === 'reception' || filters.folder === 'venue') &&
     filters.venueDefault === 'on';
   const hasStrictFilter =
     filters.matchEvent || filters.verifiedOnly || venueFilterFiring;
@@ -1672,7 +1688,8 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
                   ? venueSettingLongLabel(hostVenueSetting)
                   : null,
                 showVenueToggle:
-                  filters.folder === 'reception' && hostVenueSetting !== null,
+                  (filters.tile === 'reception' || filters.folder === 'venue') &&
+                  hostVenueSetting !== null,
                 hasActiveFilters:
                   filters.q.length > 0 ||
                   filters.category !== null ||
@@ -1812,6 +1829,7 @@ function buildHref(
     matchEvent: boolean;
     eventType?: EventTypeFilter | null;
     folder?: WeddingFolder | null;
+    tile?: WeddingTile | null;
     venueDefault?: 'on' | 'off';
     focusedMode?: boolean;
     faithFilter?: FaithKey | null;
@@ -1826,6 +1844,7 @@ function buildHref(
     matchEvent: boolean;
     eventType: EventTypeFilter | null;
     folder: WeddingFolder | null;
+    tile: WeddingTile | null;
     venueDefault: 'on' | 'off';
     focusedMode: boolean;
     faithFilter: FaithKey | null;
@@ -1842,6 +1861,8 @@ function buildHref(
   if (merged.matchEvent) params.set('match', '1');
   if (merged.eventType) params.set('event_type', merged.eventType);
   if (merged.folder) params.set('folder', merged.folder);
+  // 10-parent model — preserve tile scope across pagination + filter toggles.
+  if (merged.tile) params.set('tile', WEDDING_TILE_SLUG[merged.tile]);
   // Task #48 — only emit ?venue=0 (explicit opt-out). The 'on' default is
   // implicit, so omitting the param keeps URLs short AND means new clicks
   // inherit the default-on behavior unless the user has explicitly toggled
@@ -2372,52 +2393,100 @@ async function CatalogView({
   for (const folder of WEDDING_FOLDER_ORDER) {
     buckets.set(folder, []);
   }
-  for (const row of schemas) {
-    const meta = TAXONOMY_MAP[row.canonical_service];
-    if (!meta) continue;
-    if (!passesReligionFilter(meta)) continue;
-    const count = vendorCounts.get(row.canonical_service) ?? null;
-    // 2026-05-30 — hide future-phase placeholders. Recruiting + populated
-    // + setnayan tiles all pass through; pure "Coming soon" tiles drop.
-    if (!passesHideEmpty(meta, count)) continue;
-    if ((count?.total ?? 0) > 0) {
-      populatedServices.push(row.canonical_service);
-    }
-    // Primary folder placement (unchanged).
-    buckets.get(meta.folder)?.push({
-      canonicalService: row.canonical_service,
-      displayNameEn: row.display_name_en,
-      displayNameTl: row.display_name_tl,
-      meta,
-      count,
-    });
-    // Secondary folder cross-listings (new 2026-05-22). Same tile data,
-    // flagged with `primaryFolderHint` so the CategoryTile renders a
-    // muted "Primary folder · Planning" line under the count pill — gives
-    // couples the context "this vendor's home is the Planning folder but
-    // they also do catering." Empty for the 191 services without
-    // `secondary_folders` declared, so 0 behavior change for them.
-    if (meta.secondary_folders) {
-      for (const secondary of meta.secondary_folders) {
-        if (secondary === meta.folder) continue;
-        buckets.get(secondary)?.push({
-          canonicalService: row.canonical_service,
-          displayNameEn: row.display_name_en,
-          displayNameTl: row.display_name_tl,
-          meta,
-          count,
-          primaryFolderHint: meta.folder,
-        });
+  // 10-parent model (2026-05-31) — build ONE card per TILE (a group of
+  // canonicals), grouped under its parent. The same canonical KEYS still
+  // back the vendor queries (vendors keep their services[] tags); a tile
+  // just aggregates several canonicals into one shopping decision. Venue-
+  // parent tiles (Reception, Ceremony) render via the venue pickers below,
+  // not as category cards, so they're skipped here. Tiles with zero
+  // canonicals (e.g. Editorial, no canonical yet) or whose canonicals are
+  // all hidden / filtered out don't render.
+  const tileCanonicalsForSamples = new Map<WeddingTile, string[]>();
+  for (const tile of WEDDING_TILE_ORDER) {
+    const parent = TILE_PARENT[tile];
+    if (parent === 'venue') continue;
+    const canonicals = CANONICAL_SERVICES_BY_TILE.get(tile) ?? [];
+    if (canonicals.length === 0) continue;
+
+    // 10-parent tile model (2026-05-31): a tile shows if ANY of its
+    // canonicals passes the religion filter. The hide-empty rule that
+    // suppressed future-phase placeholder CANONICALS in the old 196-row
+    // model is intentionally NOT applied at tile granularity — all ~48
+    // curated tiles are first-class V1 browse categories the owner wants
+    // visible, even when their underlying canonicals are V1.2-phase (e.g.
+    // Jewelleries, Grooming, Wellness, Outdoor, Fireworks, Orchestra). An
+    // empty tile renders as "Recruiting" (vendor-acquisition surface), not
+    // "Coming soon" — so the tile-level phase is pinned live below.
+    const visible = canonicals
+      .map((c) => ({ c, m: TAXONOMY_MAP[c], cnt: vendorCounts.get(c) ?? null }))
+      .filter(
+        (x): x is { c: string; m: TaxonomyEntry; cnt: VendorCount | null } =>
+          x.m !== undefined && passesReligionFilter(x.m),
+      );
+    if (visible.length === 0) continue;
+
+    // Aggregate count + facet flags across the surviving canonicals.
+    let verified = 0;
+    let comingSoon = 0;
+    let anyPh = false;
+    const faiths = new Set<string>();
+    let hasFaithless = false;
+    // Tile rolls up to its most-launched (lowest-rank) phase across its
+    // surviving canonicals, so a tile with any live-phase service reads as
+    // live/recruiting under the hide-empty filter (CATALOG_LIVE_PHASES).
+    // `visible.length === 0` is guarded above, so visible[0] always exists.
+    let bestPhase: TaxonomyPhase = visible[0]!.m.phase;
+    for (const { c, m, cnt } of visible) {
+      if (CATALOG_PHASE_RANK[m.phase] < CATALOG_PHASE_RANK[bestPhase]) {
+        bestPhase = m.phase;
       }
+      if (m.ph) anyPh = true;
+      if (m.faith) faiths.add(m.faith);
+      else hasFaithless = true;
+      if (cnt) {
+        verified += cnt.verified;
+        comingSoon += cnt.coming_soon;
+      }
+      if ((cnt?.total ?? 0) > 0) populatedServices.push(c);
     }
+    const total = verified + comingSoon;
+    // Tile-level faith badge: only when the whole tile is one faith (no
+    // faithless canonical + exactly one distinct faith). Mixed-faith tiles
+    // (e.g. Bride's Attire = neutral + Muslim + INC variants) show no badge.
+    const tileFaith =
+      !hasFaithless && faiths.size === 1
+        ? (Array.from(faiths)[0] as TaxonomyEntry['faith'])
+        : undefined;
+    // Synthesized tile-level meta. `setnayan` is intentionally FALSE —
+    // tiles never carry a "Setnayan" label; first-party services surface as
+    // an option inside the tile's grid (flagged on the canonical).
+    const meta: TaxonomyEntry = {
+      folder: parent,
+      tile,
+      phase: bestPhase,
+      ...(tileFaith ? { faith: tileFaith } : {}),
+      ...(anyPh ? { ph: true as const } : {}),
+    };
+    buckets.get(parent)?.push({
+      // `canonicalService` holds the tile key for tile cards — used as the
+      // React key + the sample-name lookup. The drill-in uses `tileSlug`.
+      canonicalService: tile,
+      tileSlug: WEDDING_TILE_SLUG[tile],
+      displayNameEn: WEDDING_TILE_LABEL[tile],
+      displayNameTl: null,
+      meta,
+      count: total > 0 ? { verified, coming_soon: comingSoon, total } : null,
+    });
+    tileCanonicalsForSamples.set(
+      tile,
+      visible.map((x) => x.c),
+    );
   }
 
   // 2026-05-22 evening — fetch top-3 vendor names per populated
-  // canonical_service in a single round-trip. The CategoryTile reads from
-  // this map to render the "Sample: Manila Marriott · Solaire · Conrad"
-  // preview line under the count pill. Empty map (zero rows OR query
-  // error) → tiles fall back to their existing copy without the preview
-  // line, so the catalog stays clean regardless.
+  // canonical_service in a single round-trip, then aggregate per tile.
+  // Empty map (zero rows OR query error) → tiles fall back to their
+  // existing copy without the preview line, so the catalog stays clean.
   const topVendorNamesByService = populatedServices.length > 0
     ? await fetchTopVendorNamesByService(admin, {
         services: populatedServices,
@@ -2426,62 +2495,57 @@ async function CatalogView({
       })
     : new Map<string, string[]>();
 
-  // Stamp each tile's data with the resolved sample names so CategoryTile
-  // doesn't need a side-channel prop. populatedServices guarantee covers
-  // the keys we look up here.
+  // Stamp each tile card with up to 3 sample vendor names aggregated across
+  // the tile's surviving canonicals (deduped, design order).
   for (const tiles of buckets.values()) {
-    for (const tile of tiles) {
-      const names = topVendorNamesByService.get(tile.canonicalService);
-      if (names && names.length > 0) {
-        tile.sampleVendorNames = names;
+    for (const card of tiles) {
+      const cs = tileCanonicalsForSamples.get(card.canonicalService as WeddingTile);
+      if (!cs) continue;
+      const names: string[] = [];
+      for (const c of cs) {
+        for (const n of topVendorNamesByService.get(c) ?? []) {
+          if (!names.includes(n)) names.push(n);
+          if (names.length >= 3) break;
+        }
+        if (names.length >= 3) break;
       }
+      if (names.length > 0) card.sampleVendorNames = names;
     }
   }
 
-  // Sort each folder: populated first (highest total), then live-phase
-  // recruiting, then future-phase. Inside each tier, alphabetical.
+  // Sort each parent: populated tiles first; stable sort preserves the
+  // curated WEDDING_TILE_ORDER within each tier (so the design order holds
+  // for the sparse-data pilot rather than scrambling alphabetically).
   for (const tiles of buckets.values()) {
     tiles.sort((a, b) => {
-      const aTotal = a.count?.total ?? 0;
-      const bTotal = b.count?.total ?? 0;
-      if (aTotal !== bTotal) return bTotal - aTotal;
-      const aRank = CATALOG_PHASE_RANK[a.meta.phase] ?? 99;
-      const bRank = CATALOG_PHASE_RANK[b.meta.phase] ?? 99;
-      if (aRank !== bRank) return aRank - bRank;
-      return a.displayNameEn.localeCompare(b.displayNameEn);
+      const aPop = (a.count?.total ?? 0) > 0 ? 0 : 1;
+      const bPop = (b.count?.total ?? 0) > 0 ? 0 : 1;
+      return aPop - bPop;
     });
   }
 
-  // Count visible categories AFTER the religion filter. Tabs and the
-  // "X categories" copy reflect what the couple actually sees, not the
-  // unfiltered 192.
-  // 2026-05-30 — totals now also respect the hide-empty filter so the
-  // count chip + tab badges reflect the visible tile count, not the
-  // pre-filter spec count.
-  const totalCategories = schemas.filter((r) => {
-    const meta = TAXONOMY_MAP[r.canonical_service];
-    if (meta === undefined || !passesReligionFilter(meta)) return false;
-    const count = vendorCounts.get(r.canonical_service) ?? null;
-    return passesHideEmpty(meta, count);
-  }).length;
-  const totalLive = schemas.filter((r) => {
-    const meta = TAXONOMY_MAP[r.canonical_service];
-    if (!meta || !passesReligionFilter(meta)) return false;
-    return (vendorCounts.get(r.canonical_service)?.total ?? 0) > 0;
-  }).length;
+  // Count visible TILES across all parents (10-parent model). Reflects what
+  // the couple actually sees after the religion + hide-empty filters. Venue's
+  // 2 tiles (Reception, Ceremony) render via the venue pickers rather than
+  // buckets, so add them explicitly.
+  let totalCategories = WEDDING_TILES_BY_PARENT.venue.length;
+  let totalLive = 0;
+  for (const tiles of buckets.values()) {
+    totalCategories += tiles.length;
+    for (const c of tiles) if ((c.count?.total ?? 0) > 0) totalLive += 1;
+  }
+  void totalLive; // computed for parity; surfaced in future copy if needed
 
-  // Tab strip — 12 chips. Reception (zero canonical_services) gets the count
-  // of its venue facets instead of zero so the chip badge reads accurately.
-  // 6 reception-side venue settings: banquet_hall · garden · beach ·
-  // destination · heritage · outdoor_tent. (civil_registrar is ceremony-only.)
-  const RECEPTION_FACET_COUNT = 6;
+  // Tab strip — 10 parent chips. Venue's badge counts its 2 venue tiles
+  // (Reception + Ceremony) since those render via the venue pickers, not
+  // category buckets.
   const tabs: FolderTab[] = WEDDING_FOLDER_ORDER.map((folder) => ({
     folder,
     label: WEDDING_FOLDER_SHORT_LABEL[folder],
     slug: WEDDING_FOLDER_SLUG[folder],
     count:
-      folder === 'reception'
-        ? RECEPTION_FACET_COUNT
+      folder === 'venue'
+        ? WEDDING_TILES_BY_PARENT.venue.length
         : buckets.get(folder)?.length ?? 0,
   }));
 
@@ -2717,7 +2781,7 @@ async function CatalogView({
             conceptually. When the catalog is scoped to a non-ceremony
             folder via ?folder=… (e.g. Reception), suppress it so the
             scoped view stays single-folder per the owner directive. */}
-        {venueAnchor && (scopedFolder === null || scopedFolder === 'ceremony') ? (
+        {venueAnchor && (scopedFolder === null || scopedFolder === 'venue') ? (
           <PairedVenuePanel
             anchor={{
               lat: venueAnchor.lat,
@@ -2730,51 +2794,78 @@ async function CatalogView({
         ) : null}
 
         {WEDDING_FOLDER_ORDER.map((folder) => {
-          // Task #47 — when the catalog is scoped to a single folder, skip
-          // every other folder section so couples landing on Reception
-          // don't also see the entire Ceremony folder + its venue cards.
+          // Task #47 — when the catalog is scoped to a single parent, skip
+          // every other parent section so couples landing on one parent
+          // (e.g. Venue) don't also see the rest.
           if (scopedFolder !== null && folder !== scopedFolder) return null;
-          if (folder === 'reception') {
-            // 2026-05-22 evening upgrade — ReceptionVenuesSection now owns
-            // BOTH the chip filter bar AND the venue card grid. The old
-            // inline ReceptionSection wrapper that rendered the 7-chip
-            // stub above ReceptionVenuesSection was retired with this PR.
+
+          // VENUE parent — Reception + Ceremony are venue_directory /
+          // venue_setting backed, NOT category cards. Render the two venue
+          // pickers (Ceremony venue panel + cards, Reception facet picker +
+          // cards). Officiants auto-resolve from the ceremony venue (Card 04,
+          // 2026-05-29); pre-marriage paperwork lives in the Today's Focus
+          // wizard. The PairedVenuePanel (church/mosque/civil cards near the
+          // host's venue) renders above this loop. Sub-block ids match
+          // WEDDING_TILE_SLUG so dashboard venue [Search] deep-links anchor
+          // to the right picker (?folder=venue#reception / #ceremony-venue).
+          if (folder === 'venue') {
             return (
               <section
                 key={folder}
-                id={WEDDING_FOLDER_SLUG.reception}
+                id={WEDDING_FOLDER_SLUG.venue}
                 className="scroll-mt-20 pt-8 sm:pt-10"
-                aria-labelledby="reception-heading"
+                aria-labelledby="venue-heading"
               >
                 <header className="mb-4 flex items-baseline justify-between gap-3 border-b border-ink/10 pb-2">
                   <h2
-                    id="reception-heading"
+                    id="venue-heading"
                     className="text-xl font-semibold tracking-tight text-ink sm:text-2xl"
                   >
-                    {WEDDING_FOLDER_LABEL.reception}
+                    {WEDDING_FOLDER_LABEL.venue}
                   </h2>
                   <span className="font-mono text-xs text-ink/55">
-                    6 venue settings
+                    Ceremony &amp; reception
                   </span>
                 </header>
-                <ReceptionVenuesSection
-                  hostVenueSetting={hostVenueSetting}
-                  venueFilterActive={venueFilterActive}
-                  activeFacet={venueFacet}
-                  venueAnchor={venueAnchor}
-                  currentEventId={currentEventId}
-                  isDemoMode={inDemoMode}
-                />
+
+                <div className="mb-10 scroll-mt-24" id={WEDDING_TILE_SLUG.ceremony_venue}>
+                  <h3 className="mb-3 text-base font-semibold tracking-tight text-ink">
+                    {WEDDING_TILE_LABEL.ceremony_venue}
+                  </h3>
+                  <CeremonyVenuePanel />
+                  <CeremonyVenuesSection
+                    coupleCeremonyType={coupleCeremonyType}
+                    venueAnchor={venueAnchor}
+                    currentEventId={currentEventId}
+                  />
+                </div>
+
+                <div className="scroll-mt-24" id={WEDDING_TILE_SLUG.reception}>
+                  <div className="mb-3 flex items-baseline justify-between gap-3">
+                    <h3 className="text-base font-semibold tracking-tight text-ink">
+                      {WEDDING_TILE_LABEL.reception}
+                    </h3>
+                    <span className="font-mono text-xs text-ink/55">
+                      6 venue settings
+                    </span>
+                  </div>
+                  <ReceptionVenuesSection
+                    hostVenueSetting={hostVenueSetting}
+                    venueFilterActive={venueFilterActive}
+                    activeFacet={venueFacet}
+                    venueAnchor={venueAnchor}
+                    currentEventId={currentEventId}
+                    isDemoMode={inDemoMode}
+                  />
+                </div>
               </section>
             );
           }
+
           const tiles = buckets.get(folder) ?? [];
-          const isCeremony = folder === 'ceremony';
-          // Ceremony ALWAYS renders (placeholder venues + anchor for dashboard
-          // Search deep-links per planning-groups.tsx searchHref). Other folders
-          // return null when empty — no placeholder content to show, anchor
-          // unused.
-          if (tiles.length === 0 && !isCeremony) return null;
+          // Non-venue parents return null when they have zero visible tiles —
+          // no placeholder content to show.
+          if (tiles.length === 0) return null;
           const slug = WEDDING_FOLDER_SLUG[folder];
           return (
             <section
@@ -2790,40 +2881,14 @@ async function CatalogView({
                 >
                   {WEDDING_FOLDER_LABEL[folder]}
                 </h2>
-                {tiles.length > 0 ? (
-                  <span className="font-mono text-xs text-ink/55">
-                    {tiles.length} categories
-                  </span>
-                ) : null}
+                <span className="font-mono text-xs text-ink/55">
+                  {tiles.length} {tiles.length === 1 ? 'category' : 'categories'}
+                </span>
               </header>
-              {/* 2026-05-30 PM — inline FaithPillRow RETIRED per owner
-                  directive *"why are these still showing. they should be
-                  embedded inside the filter"*. Faith filtering now lives
-                  in FilterDrawer (see crossFolderFaithOptions wired into
-                  the catalog-mode StickyMarketplaceHeader render above).
-                  Lineage: PR #657 sticky-header pill → PR #659 inline per-
-                  folder pill → this PR drawer select. Each iteration
-                  narrowed where faith lives; the drawer is the canonical
-                  global filter home. */}
-              {isCeremony ? (
-                <>
-                  <CeremonyVenuePanel />
-                  <CeremonyVenuesSection
-                    coupleCeremonyType={coupleCeremonyType}
-                    venueAnchor={venueAnchor}
-                    currentEventId={currentEventId}
-                  />
-                </>
-              ) : null}
-              {/* 2026-05-22 evening — inline real-vendor cards from
-                    vendor_profiles. Mirrors the structural role
-                    CeremonyVenuesSection plays for venue_directory in
-                    Ceremony, and what ReceptionVenuesSection plays in
-                    Reception. Renders above the category tile grid so
-                    couples see actual named businesses for the folder
-                    immediately, instead of only "X listed" count pills.
-                    Empty folders (zero signed-up vendors) skip the
-                    section entirely. */}
+              {/* Inline real-vendor preview cards from vendor_profiles
+                  (parent-level top vendors). Renders above the tile grid so
+                  couples see actual named businesses immediately. Empty
+                  parents (zero signed-up vendors) skip the section. */}
               <FolderVendorsSection
                 folder={folder}
                 excludeVendorIds={catalogExcludeVendorIds}
@@ -2831,15 +2896,13 @@ async function CatalogView({
                 currentEventId={currentEventId}
                 focusedMode={focusedMode}
               />
-              {tiles.length > 0 ? (
-                <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {tiles.map((tile) => (
-                    <li key={tile.canonicalService}>
-                      <CategoryTile data={tile} focusedMode={focusedMode} />
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
+              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {tiles.map((tile) => (
+                  <li key={tile.canonicalService}>
+                    <CategoryTile data={tile} focusedMode={focusedMode} />
+                  </li>
+                ))}
+              </ul>
             </section>
           );
         })}
@@ -3001,7 +3064,7 @@ function CeremonyVenuePanel() {
           </span>{' '}
           — pick a garden / beach / destination / heritage / outdoor venue from{' '}
           <a
-            href={`#${WEDDING_FOLDER_SLUG.reception}`}
+            href={`#${WEDDING_TILE_SLUG.reception}`}
             className="font-medium text-terracotta underline-offset-4 hover:underline"
           >
             Reception

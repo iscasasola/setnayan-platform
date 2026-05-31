@@ -36,18 +36,16 @@
 
 import { useEffect, useState, type ComponentType } from 'react';
 import {
-  Church,
-  UtensilsCrossed,
+  Building2,
   ClipboardList,
-  Camera,
-  ChefHat,
-  Shirt,
-  Sparkles,
-  Music,
+  UtensilsCrossed,
   Flower2,
-  Gem,
+  Music,
+  Camera,
+  Shirt,
   Tent,
   Mail,
+  Car,
   LayoutGrid,
   type LucideProps,
 } from 'lucide-react';
@@ -80,35 +78,30 @@ type Props = {
 };
 
 /**
- * Lucide icon per folder. Hand-picked to evoke the folder's spirit at glance
- * while staying within Lucide's iconography (avoids inconsistency that comes
- * from mixing icon families). Cross-references:
- *   - Ceremony → Church (covers parish / mosque / chapel / civil registrar)
- *   - Reception → UtensilsCrossed (banquet / garden / beach / tent venues)
- *   - Planning → ClipboardList (coordinators · logistics · stationery)
- *   - Photo & Video → Camera
- *   - Catering → ChefHat
- *   - Attire → Shirt (bridal gown + groom suit + entourage)
- *   - HMUA → Sparkles
- *   - Music & Program → Music
- *   - Decor & Sound → Flower2 (florals dominate the icon)
- *   - Rings → Gem
- *   - Booths & Stations → Tent (cocktail / photobooth / experiential)
- *   - Invites → Mail
+ * Lucide icon per parent (10-parent model, 2026-05-31). Hand-picked to evoke
+ * the parent's spirit at a glance while staying within Lucide's iconography:
+ *   - Venue → Building2 (reception + ceremony venues)
+ *   - Planning → ClipboardList (coordinators)
+ *   - Feast → UtensilsCrossed (cake · catering · stations)
+ *   - Design → Flower2 (stylist · florals · lights · LED · fireworks)
+ *   - Program → Music (band · choir · DJ · performers · host)
+ *   - Documentary → Camera (photo & video · editorial · livestream)
+ *   - Look → Shirt (attire · HMUA · grooming · jewellery)
+ *   - Booths → Tent (food carts · photo booths · experiential)
+ *   - Prints → Mail (printing · souvenirs)
+ *   - Transport → Car (bridal car · shuttle · escort)
  */
 const FOLDER_ICON: Record<WeddingFolder, ComponentType<LucideProps>> = {
-  ceremony: Church,
-  reception: UtensilsCrossed,
-  planning_logistics_travel: ClipboardList,
-  photo_video: Camera,
-  catering: ChefHat,
-  attire: Shirt,
-  hair_makeup: Sparkles,
-  music_program: Music,
-  decor_florals_sound: Flower2,
-  rings_accessories: Gem,
-  booths_stations: Tent,
-  invitations_keepsakes: Mail,
+  venue: Building2,
+  planning: ClipboardList,
+  feast: UtensilsCrossed,
+  design: Flower2,
+  program: Music,
+  documentary: Camera,
+  look: Shirt,
+  booths: Tent,
+  prints: Mail,
+  transport: Car,
 };
 
 export function IconTileFolderStrip({

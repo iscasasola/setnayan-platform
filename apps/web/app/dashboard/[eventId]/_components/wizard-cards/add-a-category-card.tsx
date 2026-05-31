@@ -71,25 +71,26 @@ const EXCLUDED_CANONICALS: ReadonlySet<string> = new Set([
   'parents_attire',
 ]);
 
-/** Group all 192 canonicals by their primary folder, computed once at
- *  module load. Each folder's array stays in TAXONOMY_MAP insertion
- *  order which matches the human-curated grouping inside the file. */
+/** Group all marketplace-visible canonicals by their primary parent (10-parent
+ *  model, 2026-05-31), computed once at module load. Each parent's array stays
+ *  in TAXONOMY_MAP insertion order which matches the human-curated grouping
+ *  inside the file. marketplaceHidden canonicals (officiants / paperwork) are
+ *  skipped — they're not addable categories. */
 const CANONICALS_BY_FOLDER: Record<WeddingFolder, string[]> = (() => {
   const out = {
-    ceremony: [],
-    reception: [],
-    planning_logistics_travel: [],
-    photo_video: [],
-    catering: [],
-    attire: [],
-    hair_makeup: [],
-    music_program: [],
-    decor_florals_sound: [],
-    rings_accessories: [],
-    booths_stations: [],
-    invitations_keepsakes: [],
+    venue: [],
+    planning: [],
+    feast: [],
+    design: [],
+    program: [],
+    documentary: [],
+    look: [],
+    booths: [],
+    prints: [],
+    transport: [],
   } as Record<WeddingFolder, string[]>;
   for (const [canonical, meta] of Object.entries(TAXONOMY_MAP)) {
+    if (meta.marketplaceHidden) continue;
     if (EXCLUDED_CANONICALS.has(canonical)) continue;
     out[meta.folder].push(canonical);
   }

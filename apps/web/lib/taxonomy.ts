@@ -1,116 +1,465 @@
 /**
- * V1.1 vendor-taxonomy metadata map. Used by the public marketplace at
- * `/vendors` to render the 192-category catalog grouped by the 12 wedding-
- * folder structure documented in `02_Specifications/Vendor_Taxonomy_V1_Master.md`.
+ * V1 vendor-taxonomy metadata map. Powers the public marketplace at
+ * `/vendors`, the dashboard planning grid, and the admin taxonomy viewer.
  *
- * The DB table (canonical_service_schemas) doesn't have a column for
- * folder placement or phase, so this lives in code. Keep in sync with the
- * master taxonomy doc when adding rows: each new canonical_service needs an
- * entry here OR the admin viewer drops it into the "Unmapped" bucket.
+ * 2026-05-31 — Shrunk from the 12-folder / ~196-tile structure to a
+ * **10-parent / ~53-tile** wedding taxonomy (design lock:
+ * `Vendor_Taxonomy_Shrink_2026-05-30.md`; CLAUDE.md decision log
+ * 2026-05-30/31 "Vendor taxonomy shrink" rows). The shrink is a RE-GROUPING:
  *
- * 2026-05-20: Migrated from 5-column mega-menu to 12-folder PH-grounded
- * structure (see CLAUDE.md decision log). The legacy `MegaMenuColumn` alias
- * is preserved below as a no-op so any external import that hasn't migrated
- * yet still compiles — but new code should use `WeddingFolder`.
+ *   - The same ~200 canonical_service keys stay in the DB and in vendors'
+ *     `services[]` arrays — NOTHING is re-tagged. Each canonical just gets
+ *     re-pointed to one of 10 PARENTS plus one of ~53 visible TILES.
+ *   - A tile groups several canonicals into one shopping decision (e.g.
+ *     Bride's Attire = custom gown + rental + Filipiniana + modest variants).
+ *     Religion / tradition / rental / dietary / shoot-type / cart-type are
+ *     FACETS underneath a tile, never their own tile.
+ *   - Officiants + pre-marriage paperwork LEAVE the marketplace
+ *     (`marketplaceHidden`): officiants auto-resolve from the ceremony venue
+ *     (Card 04, shipped 2026-05-29); paperwork lives in the Today's Focus
+ *     wizard. The keys stay in the map so admin/lookup consumers don't drop
+ *     them into "Unmapped".
+ *   - Setnayan first-party services fold UNDER their parent's tiles as an
+ *     option (flagged `setnayan`), never as a standalone "★ Setnayan" tile.
+ *
+ * The DB table (canonical_service_schemas) has no folder/tile/phase column,
+ * so this placement lives in code. Add a row here whenever a canonical is
+ * added to the DB or the admin viewer drops it into "Unmapped".
+ *
+ * The legacy `MegaMenuColumn` (pre-2026-05-20) alias is kept below so any
+ * straggler import still compiles; `WeddingFolder` now names the 10 parents.
  */
 
+// ─── 10 parents ─────────────────────────────────────────────────────────────
 /**
- * The 12 catalog folders, ordered by PH wedding booking timeline.
- *
- *   #1  ceremony                       — book 12-18+ months
- *   #2  reception                      — filter-only (no canonical_services)
- *   #3  planning_logistics_travel      — 12-18 months (planner first)
- *   #4  photo_video                    — 12+ months
- *   #5  catering                       — 9-12 months
- *   #6  attire                         — 6-9 months
- *   #7  hair_makeup                    — 6-12 months
- *   #8  music_program                  — 6-9 months
- *   #9  decor_florals_sound            — 4-6 months
- *   #10 rings_accessories              — 3-4 months
- *   #11 booths_stations                — 2-3 months
- *   #12 invitations_keepsakes          — 3-6 months
+ * The 10 marketplace parents, ordered as the wedding's build sequence:
+ * the place → who runs it → what's served → how it looks → the show →
+ * capturing it → how you look → the extras → the paper → getting there.
+ * (Locked 2026-05-31.) Browse order ≠ booking urgency — Photo & Video
+ * (Documentary, #6) still books early via the Today's Focus deadlines.
  */
 export type WeddingFolder =
-  | 'ceremony'
-  | 'reception'
-  | 'planning_logistics_travel'
-  | 'photo_video'
-  | 'catering'
-  | 'attire'
-  | 'hair_makeup'
-  | 'music_program'
-  | 'decor_florals_sound'
-  | 'rings_accessories'
-  | 'booths_stations'
-  | 'invitations_keepsakes';
+  | 'venue'
+  | 'planning'
+  | 'feast'
+  | 'design'
+  | 'program'
+  | 'documentary'
+  | 'look'
+  | 'booths'
+  | 'prints'
+  | 'transport';
 
-/** Canonical render order for the catalog. */
+/** Canonical render order for the catalog (parent tabs). */
 export const WEDDING_FOLDER_ORDER: ReadonlyArray<WeddingFolder> = [
-  'ceremony',
-  'reception',
-  'planning_logistics_travel',
-  'photo_video',
-  'catering',
-  'attire',
-  'hair_makeup',
-  'music_program',
-  'decor_florals_sound',
-  'rings_accessories',
-  'booths_stations',
-  'invitations_keepsakes',
+  'venue',
+  'planning',
+  'feast',
+  'design',
+  'program',
+  'documentary',
+  'look',
+  'booths',
+  'prints',
+  'transport',
 ];
 
-/** Long human-readable label rendered as the section heading on `/vendors`. */
+/** Long human-readable label rendered as the parent section heading. */
 export const WEDDING_FOLDER_LABEL: Record<WeddingFolder, string> = {
-  ceremony: 'Ceremony',
-  reception: 'Reception',
-  planning_logistics_travel: 'Planning, Logistics & Travel',
-  photo_video: 'Photo & Video',
-  catering: 'Catering',
-  attire: 'Attire',
-  hair_makeup: 'Hair & Makeup',
-  music_program: 'Music & Program',
-  decor_florals_sound: 'Decor, Florals & Sound',
-  rings_accessories: 'Rings & Accessories',
-  booths_stations: 'Booths & Stations',
-  invitations_keepsakes: 'Invitations & Keepsakes',
+  venue: 'Venue',
+  planning: 'Planning',
+  feast: 'Feast',
+  design: 'Design',
+  program: 'Program',
+  documentary: 'Documentary',
+  look: 'Look',
+  booths: 'Booths',
+  prints: 'Prints',
+  transport: 'Transport',
 };
 
-/** Short label rendered in the folder-tabs chip strip + autocomplete dropdown. */
+/** Short label rendered in the icon-tile strip + autocomplete dropdown. */
 export const WEDDING_FOLDER_SHORT_LABEL: Record<WeddingFolder, string> = {
-  ceremony: 'Ceremony',
-  reception: 'Reception',
-  planning_logistics_travel: 'Planning',
-  photo_video: 'Photo & Video',
-  catering: 'Catering',
-  attire: 'Attire',
-  hair_makeup: 'Hair & Makeup',
-  music_program: 'Music',
-  decor_florals_sound: 'Decor & Sound',
-  rings_accessories: 'Rings',
-  booths_stations: 'Booths',
-  invitations_keepsakes: 'Invites',
+  venue: 'Venue',
+  planning: 'Planning',
+  feast: 'Feast',
+  design: 'Design',
+  program: 'Program',
+  documentary: 'Documentary',
+  look: 'Look',
+  booths: 'Booths',
+  prints: 'Prints',
+  transport: 'Transport',
 };
 
-/** URL hash slug for catalog scroll-anchoring. */
+/** URL slug for catalog scroll-anchoring + `?folder=` scoping. */
 export const WEDDING_FOLDER_SLUG: Record<WeddingFolder, string> = {
-  ceremony: 'ceremony',
-  reception: 'reception',
-  planning_logistics_travel: 'planning',
-  photo_video: 'photo-video',
-  catering: 'catering',
-  attire: 'attire',
-  hair_makeup: 'hair-makeup',
-  music_program: 'music',
-  decor_florals_sound: 'decor-sound',
-  rings_accessories: 'rings',
-  booths_stations: 'booths',
-  invitations_keepsakes: 'invitations',
+  venue: 'venue',
+  planning: 'planning',
+  feast: 'feast',
+  design: 'design',
+  program: 'program',
+  documentary: 'documentary',
+  look: 'look',
+  booths: 'booths',
+  prints: 'prints',
+  transport: 'transport',
 };
 
-// ─── Legacy 5-column alias (pre-2026-05-20) ─────────────────────────────────
-// Kept so external consumers that haven't migrated to WeddingFolder yet still
-// compile. New code: use WeddingFolder + WEDDING_FOLDER_LABEL above.
+// ─── ~53 tiles ──────────────────────────────────────────────────────────────
+/**
+ * The visible shopping tiles. Each tile groups one or more canonical_services
+ * into a single decision. `filipiniana_barongs` is a CROSS-VIEW (the same
+ * terno/barong vendors as the attire tiles, surfaced via the tradition facet —
+ * see FILIPINIANA_BARONG_CANONICALS), not a separate bucket.
+ */
+export type WeddingTile =
+  // VENUE
+  | 'reception'
+  | 'ceremony_venue'
+  // PLANNING
+  | 'coordinator'
+  // FEAST
+  | 'cake'
+  | 'catering'
+  | 'stations'
+  // DESIGN
+  | 'stylist_decorator'
+  | 'florist'
+  | 'lights_sound'
+  | 'dance_floor'
+  | 'outdoor'
+  | 'fireworks'
+  | 'led_wall'
+  // PROGRAM
+  | 'live_band'
+  | 'choir'
+  | 'orchestra'
+  | 'wedding_singer'
+  | 'dj'
+  | 'choreographer'
+  | 'performers'
+  | 'host_mc'
+  // DOCUMENTARY
+  | 'photo_video'
+  | 'editorial'
+  | 'livestream'
+  // LOOK
+  | 'brides_attire'
+  | 'grooms_attire'
+  | 'womens_attire'
+  | 'mens_attire'
+  | 'filipiniana_barongs'
+  | 'hmua'
+  | 'grooming'
+  | 'wellness_fitness'
+  | 'jewelleries_accessories'
+  // BOOTHS
+  | 'mobile_bar'
+  | 'coffee_espresso'
+  | 'mocktail'
+  | 'food_truck'
+  | 'dessert'
+  | 'massage_chair'
+  | 'food_cart'
+  | 'photo_booth'
+  | 'perfume_bar'
+  | 'arcade_games'
+  | 'henna_tattoo'
+  | 'mini_nail_bar'
+  | 'tarot_astrology_palmistry'
+  | 'caricature_calligraphy_painting'
+  | 'engraving_embroidery'
+  // PRINTS
+  | 'printing'
+  | 'souvenir_giveaways'
+  // TRANSPORT
+  | 'bridal_car'
+  | 'guest_shuttle'
+  | 'escort';
+
+/** Tile → its parent. */
+export const TILE_PARENT: Record<WeddingTile, WeddingFolder> = {
+  reception: 'venue',
+  ceremony_venue: 'venue',
+  coordinator: 'planning',
+  cake: 'feast',
+  catering: 'feast',
+  stations: 'feast',
+  stylist_decorator: 'design',
+  florist: 'design',
+  lights_sound: 'design',
+  dance_floor: 'design',
+  outdoor: 'design',
+  fireworks: 'design',
+  led_wall: 'design',
+  live_band: 'program',
+  choir: 'program',
+  orchestra: 'program',
+  wedding_singer: 'program',
+  dj: 'program',
+  choreographer: 'program',
+  performers: 'program',
+  host_mc: 'program',
+  photo_video: 'documentary',
+  editorial: 'documentary',
+  livestream: 'documentary',
+  brides_attire: 'look',
+  grooms_attire: 'look',
+  womens_attire: 'look',
+  mens_attire: 'look',
+  filipiniana_barongs: 'look',
+  hmua: 'look',
+  grooming: 'look',
+  wellness_fitness: 'look',
+  jewelleries_accessories: 'look',
+  mobile_bar: 'booths',
+  coffee_espresso: 'booths',
+  mocktail: 'booths',
+  food_truck: 'booths',
+  dessert: 'booths',
+  massage_chair: 'booths',
+  food_cart: 'booths',
+  photo_booth: 'booths',
+  perfume_bar: 'booths',
+  arcade_games: 'booths',
+  henna_tattoo: 'booths',
+  mini_nail_bar: 'booths',
+  tarot_astrology_palmistry: 'booths',
+  caricature_calligraphy_painting: 'booths',
+  engraving_embroidery: 'booths',
+  printing: 'prints',
+  souvenir_giveaways: 'prints',
+  bridal_car: 'transport',
+  guest_shuttle: 'transport',
+  escort: 'transport',
+};
+
+/** Tile render order (grouped by parent, in parent order). */
+export const WEDDING_TILE_ORDER: ReadonlyArray<WeddingTile> = [
+  // VENUE
+  'reception',
+  'ceremony_venue',
+  // PLANNING
+  'coordinator',
+  // FEAST
+  'cake',
+  'catering',
+  'stations',
+  // DESIGN
+  'stylist_decorator',
+  'florist',
+  'lights_sound',
+  'dance_floor',
+  'outdoor',
+  'fireworks',
+  'led_wall',
+  // PROGRAM
+  'live_band',
+  'choir',
+  'orchestra',
+  'wedding_singer',
+  'dj',
+  'choreographer',
+  'performers',
+  'host_mc',
+  // DOCUMENTARY
+  'photo_video',
+  'editorial',
+  'livestream',
+  // LOOK
+  'brides_attire',
+  'grooms_attire',
+  'womens_attire',
+  'mens_attire',
+  'filipiniana_barongs',
+  'hmua',
+  'grooming',
+  'wellness_fitness',
+  'jewelleries_accessories',
+  // BOOTHS
+  'mobile_bar',
+  'coffee_espresso',
+  'mocktail',
+  'food_truck',
+  'dessert',
+  'massage_chair',
+  'food_cart',
+  'photo_booth',
+  'perfume_bar',
+  'arcade_games',
+  'henna_tattoo',
+  'mini_nail_bar',
+  'tarot_astrology_palmistry',
+  'caricature_calligraphy_painting',
+  'engraving_embroidery',
+  // PRINTS
+  'printing',
+  'souvenir_giveaways',
+  // TRANSPORT
+  'bridal_car',
+  'guest_shuttle',
+  'escort',
+];
+
+/** Tile heading + card label. */
+export const WEDDING_TILE_LABEL: Record<WeddingTile, string> = {
+  reception: 'Reception',
+  ceremony_venue: 'Ceremony',
+  coordinator: 'Coordinator / Planner',
+  cake: 'Cake',
+  catering: 'Catering',
+  stations: 'Stations',
+  stylist_decorator: 'Stylist / Decorator',
+  florist: 'Florist',
+  lights_sound: 'Lights & Sound',
+  dance_floor: 'Dance Floor',
+  outdoor: 'Outdoor',
+  fireworks: 'Fireworks',
+  led_wall: 'LED Wall',
+  live_band: 'Live Band',
+  choir: 'Choir',
+  orchestra: 'Orchestra',
+  wedding_singer: 'Wedding Singer',
+  dj: 'DJ',
+  choreographer: 'Choreographer',
+  performers: 'Performers',
+  host_mc: 'Host / MC',
+  photo_video: 'Photo & Video',
+  editorial: 'Editorial',
+  livestream: 'Livestream',
+  brides_attire: "Bride's Attire",
+  grooms_attire: "Groom's Attire",
+  womens_attire: "Women's Attire",
+  mens_attire: "Men's Attire",
+  filipiniana_barongs: 'Filipiniana & Barongs',
+  hmua: 'HMUA',
+  grooming: 'Grooming',
+  wellness_fitness: 'Wellness & Fitness',
+  jewelleries_accessories: 'Jewelleries & Accessories',
+  mobile_bar: 'Mobile Bar',
+  coffee_espresso: 'Coffee / Espresso',
+  mocktail: 'Mocktail',
+  food_truck: 'Food Truck',
+  dessert: 'Dessert',
+  massage_chair: 'Massage Chair',
+  food_cart: 'Food Cart',
+  photo_booth: 'Photo Booth',
+  perfume_bar: 'Perfume Bar',
+  arcade_games: 'Arcade / Games',
+  henna_tattoo: 'Henna / Tattoo',
+  mini_nail_bar: 'Mini Nail Bar',
+  tarot_astrology_palmistry: 'Tarot / Astrology / Palmistry',
+  caricature_calligraphy_painting: 'Caricature / Calligraphy / Painting',
+  engraving_embroidery: 'Engraving / Embroidery',
+  printing: 'Printing',
+  souvenir_giveaways: 'Souvenir / Giveaways',
+  bridal_car: 'Bridal Car',
+  guest_shuttle: 'Guest Shuttle',
+  escort: 'Escort',
+};
+
+/** URL slug for tile-scoped vendor-grid (`?tile=`). */
+export const WEDDING_TILE_SLUG: Record<WeddingTile, string> = {
+  reception: 'reception',
+  ceremony_venue: 'ceremony-venue',
+  coordinator: 'coordinator',
+  cake: 'cake',
+  catering: 'catering',
+  stations: 'stations',
+  stylist_decorator: 'stylist-decorator',
+  florist: 'florist',
+  lights_sound: 'lights-sound',
+  dance_floor: 'dance-floor',
+  outdoor: 'outdoor',
+  fireworks: 'fireworks',
+  led_wall: 'led-wall',
+  live_band: 'live-band',
+  choir: 'choir',
+  orchestra: 'orchestra',
+  wedding_singer: 'wedding-singer',
+  dj: 'dj',
+  choreographer: 'choreographer',
+  performers: 'performers',
+  host_mc: 'host-mc',
+  photo_video: 'photo-video',
+  editorial: 'editorial',
+  livestream: 'livestream',
+  brides_attire: 'brides-attire',
+  grooms_attire: 'grooms-attire',
+  womens_attire: 'womens-attire',
+  mens_attire: 'mens-attire',
+  filipiniana_barongs: 'filipiniana-barongs',
+  hmua: 'hmua',
+  grooming: 'grooming',
+  wellness_fitness: 'wellness-fitness',
+  jewelleries_accessories: 'jewelleries-accessories',
+  mobile_bar: 'mobile-bar',
+  coffee_espresso: 'coffee-espresso',
+  mocktail: 'mocktail',
+  food_truck: 'food-truck',
+  dessert: 'dessert',
+  massage_chair: 'massage-chair',
+  food_cart: 'food-cart',
+  photo_booth: 'photo-booth',
+  perfume_bar: 'perfume-bar',
+  arcade_games: 'arcade-games',
+  henna_tattoo: 'henna-tattoo',
+  mini_nail_bar: 'mini-nail-bar',
+  tarot_astrology_palmistry: 'tarot-astrology-palmistry',
+  caricature_calligraphy_painting: 'caricature-calligraphy-painting',
+  engraving_embroidery: 'engraving-embroidery',
+  printing: 'printing',
+  souvenir_giveaways: 'souvenir-giveaways',
+  bridal_car: 'bridal-car',
+  guest_shuttle: 'guest-shuttle',
+  escort: 'escort',
+};
+
+/** Tiles grouped under each parent (derived from WEDDING_TILE_ORDER). */
+export const WEDDING_TILES_BY_PARENT: Record<WeddingFolder, WeddingTile[]> =
+  (() => {
+    const map: Record<WeddingFolder, WeddingTile[]> = {
+      venue: [],
+      planning: [],
+      feast: [],
+      design: [],
+      program: [],
+      documentary: [],
+      look: [],
+      booths: [],
+      prints: [],
+      transport: [],
+    };
+    for (const tile of WEDDING_TILE_ORDER) {
+      map[TILE_PARENT[tile]].push(tile);
+    }
+    return map;
+  })();
+
+/**
+ * `filipiniana_barongs` is a cross-view, not a primary bucket: these
+ * canonicals keep their primary role tile (Bride's / Groom's / Women's /
+ * Men's Attire) AND surface under the Filipiniana & Barongs tile via the
+ * tradition facet. vendor-counts.ts adds these to the tile's canonical set
+ * explicitly so a vendor shows in both places — categorized once, two
+ * discovery paths.
+ */
+export const FILIPINIANA_BARONG_CANONICALS: ReadonlyArray<string> = [
+  'filipiniana_terno',
+  'filipiniana_maria_clara',
+  'filipiniana_balintawak',
+  'barong_tagalog_custom',
+  'barong_tagalog_rental',
+  'maranao_wedding_attire',
+  'tausug_wedding_attire',
+  'yakan_wedding_attire',
+  'muslim_modest_bridal',
+  'inc_modest_bridal',
+];
+
+// ─── Legacy alias (pre-2026-05-20) ──────────────────────────────────────────
+// Kept so any straggler import still compiles. New code: WeddingFolder above.
 export type MegaMenuColumn = 1 | 2 | 3 | 4 | 5;
 export const MEGA_MENU_COLUMN_LABEL: Record<MegaMenuColumn, string> = {
   1: 'Capture (Visual)',
@@ -121,9 +470,9 @@ export const MEGA_MENU_COLUMN_LABEL: Record<MegaMenuColumn, string> = {
 };
 
 /**
- * Phase tags from the master taxonomy doc § "phase" column. Used for the
- * launch-phase badge in the admin viewer. Not exhaustively typed — admins
- * may see a stray string if a new phase value isn't pre-declared here.
+ * Phase tags from the master taxonomy doc. Used for the launch-phase badge
+ * in the admin viewer. Not exhaustively typed — admins may see a stray
+ * string if a new phase value isn't pre-declared here.
  */
 export type TaxonomyPhase =
   | 'V1.1 base'
@@ -139,328 +488,316 @@ export type TaxonomyPhase =
   | 'V1.5+';
 
 export type TaxonomyEntry = {
-  /** 12-folder placement (since 2026-05-20). */
+  /** Parent placement (10-parent model, since 2026-05-31). */
   folder: WeddingFolder;
+  /**
+   * Visible tile this canonical rolls up into. Omitted when
+   * `marketplaceHidden` is true (officiants / paperwork / deferred).
+   */
+  tile?: WeddingTile;
+  /**
+   * Pulled from the public marketplace. The key stays in the map so admin +
+   * lookup consumers resolve it, but the catalog never renders it as a tile
+   * and the vendor-grid never queries it. Officiants auto-resolve from the
+   * ceremony venue (Card 04); paperwork lives in the Today's Focus wizard.
+   */
+  marketplaceHidden?: true;
   phase: TaxonomyPhase;
-  /** Surfaces conditionally per events.ceremony_type — null = surfaces for everyone. */
+  /** Surfaces conditionally per events.ceremony_type — null = everyone. */
   faith?: 'Catholic' | 'Christian' | 'INC' | 'Muslim' | 'Cultural';
   /** PH-specific category WedMeGood structurally lacks. */
   ph?: true;
-  /** First-party Setnayan service insert. */
+  /** First-party Setnayan service insert (rendered as an option, never a tile). */
   setnayan?: true;
-  /** Rental variant of a category. */
+  /** Rental variant of a category (facet). */
   rental?: true;
+  /** Dietary attribute (facet, pre-set by the couple's faith). */
+  dietary?: 'halal' | 'alcohol_free';
+  /** Filipiniana / cultural attire or decor (tradition facet). */
+  tradition?: true;
   /**
-   * Cross-listed folders the service ALSO surfaces under, beyond its primary
-   * `folder`. Locked 2026-05-22 per owner directive *"most hotels also provide
-   * catering"* — when a host searches Catering on the dashboard planning card,
-   * hotel vendors (whose primary folder is planning_logistics_travel via the
-   * `accommodation` canonical_service) should ALSO show up because Filipino
-   * weddings routinely bundle catering with the hotel reception package.
-   *
-   * Bucketing consumers (apps/web/app/vendors/page.tsx CatalogView buckets +
-   * apps/web/lib/vendor-counts.ts CANONICAL_SERVICES_BY_FOLDER) honor this
-   * field by emitting the service into BOTH the primary folder and every
-   * secondary folder — so a vendor whose services[] contains 'accommodation'
-   * surfaces in the catering folder's FolderVendorsSection vendor query.
-   *
-   * Stay pragmatic: only add a cross-listing when it represents a real bundle
-   * Filipino couples expect (hotel→catering, hotel→reception venue setting).
-   * Speculative cross-listings (e.g. florist→stylist) belong in the vendor's
-   * own services[] array, not in the taxonomy map.
+   * Tiles the service ALSO surfaces under beyond its primary `tile`. PH
+   * reality: hotels (accommodation) bundle catering, so they cross-list into
+   * the Catering tile. Bucketing consumers emit the canonical into both the
+   * primary tile and every secondary tile.
    */
-  secondary_folders?: ReadonlyArray<WeddingFolder>;
+  secondary_tiles?: ReadonlyArray<WeddingTile>;
 };
 
 /**
- * canonical_service → metadata. Add a row here whenever a row is added to
+ * canonical_service → metadata. Add a row whenever a row is added to
  * canonical_service_schemas; the admin viewer drops unmapped keys into an
  * "Unmapped" bucket so you can spot drift.
  *
- * 192 entries total · zero new canonical_services in the 12-folder remap.
+ * 200 entries (197 carried over from the 12-folder map + 3 new:
+ * `orchestra`, `fireworks_pyro`, `led_video_wall`). The same canonical KEYS
+ * are unchanged — vendors keep their `services[]` tags; this is a re-grouping.
  */
 export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   // ════════════════════════════════════════════════════════════════════
-  // 1. CEREMONY — officiants + pre-marriage + paperwork (17)
-  //    Faith-spine of the PH wedding. Couples lock this 12-18+ months out.
+  // VENUE — Reception + Ceremony are venue_directory / venue_setting backed.
+  //   Officiants + pre-marriage + paperwork stay in the map but are
+  //   marketplaceHidden (officiant auto-resolves from the ceremony venue;
+  //   paperwork → Today's Focus wizard).
   // ════════════════════════════════════════════════════════════════════
-  catholic_priest:                   { folder: 'ceremony', phase: 'V1.1 base', faith: 'Catholic' },
-  civil_judge:                       { folder: 'ceremony', phase: 'V1.1 base' },
-  civil_mayor:                       { folder: 'ceremony', phase: 'V1.1 base' },
-  civil_justice_of_peace:            { folder: 'ceremony', phase: 'V1.1 base' },
-  inc_minister:                      { folder: 'ceremony', phase: 'V1.3', faith: 'INC' },
-  born_again_pastor:                 { folder: 'ceremony', phase: 'V1.2', faith: 'Christian' },
-  charismatic_pastor:                { folder: 'ceremony', phase: 'V1.2', faith: 'Christian' },
-  mainline_protestant_pastor:        { folder: 'ceremony', phase: 'V1.2', faith: 'Christian' },
-  muslim_imam:                       { folder: 'ceremony', phase: 'V1.4', faith: 'Muslim' },
-  cultural_tribal_elder:             { folder: 'ceremony', phase: 'V1.5+', faith: 'Cultural' },
-  officiant_priest_minister:         { folder: 'ceremony', phase: 'V1.1 base' },
-  pre_cana_seminar:                  { folder: 'ceremony', phase: 'V1.2', ph: true, faith: 'Catholic' },
-  cfo_seminar:                       { folder: 'ceremony', phase: 'V1.2', ph: true },
-  inc_counseling:                    { folder: 'ceremony', phase: 'V1.3', ph: true, faith: 'INC' },
-  muslim_pre_wedding_counseling:     { folder: 'ceremony', phase: 'V1.4', ph: true, faith: 'Muslim' },
-  marriage_license_expediting:       { folder: 'ceremony', phase: 'V1.2', ph: true },
-  apostille_dfa_authentication:      { folder: 'ceremony', phase: 'V1.3', ph: true },
+  catholic_priest:                   { folder: 'venue', marketplaceHidden: true, phase: 'V1.1 base', faith: 'Catholic' },
+  civil_judge:                       { folder: 'venue', marketplaceHidden: true, phase: 'V1.1 base' },
+  civil_mayor:                       { folder: 'venue', marketplaceHidden: true, phase: 'V1.1 base' },
+  civil_justice_of_peace:            { folder: 'venue', marketplaceHidden: true, phase: 'V1.1 base' },
+  inc_minister:                      { folder: 'venue', marketplaceHidden: true, phase: 'V1.3', faith: 'INC' },
+  born_again_pastor:                 { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', faith: 'Christian' },
+  charismatic_pastor:                { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', faith: 'Christian' },
+  mainline_protestant_pastor:        { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', faith: 'Christian' },
+  muslim_imam:                       { folder: 'venue', marketplaceHidden: true, phase: 'V1.4', faith: 'Muslim' },
+  cultural_tribal_elder:             { folder: 'venue', marketplaceHidden: true, phase: 'V1.5+', faith: 'Cultural' },
+  officiant_priest_minister:         { folder: 'venue', marketplaceHidden: true, phase: 'V1.1 base' },
+  pre_cana_seminar:                  { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', ph: true, faith: 'Catholic' },
+  cfo_seminar:                       { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', ph: true },
+  inc_counseling:                    { folder: 'venue', marketplaceHidden: true, phase: 'V1.3', ph: true, faith: 'INC' },
+  muslim_pre_wedding_counseling:     { folder: 'venue', marketplaceHidden: true, phase: 'V1.4', ph: true, faith: 'Muslim' },
+  marriage_license_expediting:       { folder: 'venue', marketplaceHidden: true, phase: 'V1.2', ph: true },
+  apostille_dfa_authentication:      { folder: 'venue', marketplaceHidden: true, phase: 'V1.3', ph: true },
+  // Hotels = reception venues; keep the catering cross-list ("most hotels
+  // also provide catering", owner directive 2026-05-22).
+  accommodation:                     { folder: 'venue', tile: 'reception', phase: 'V1.1 base', secondary_tiles: ['catering'] },
 
   // ════════════════════════════════════════════════════════════════════
-  // 2. RECEPTION — 0 canonical_services (filter-only via venue_setting enum)
-  //    Reception folder surfaces venue_setting filter facets (banquet_hall ·
-  //    garden · beach · destination · heritage · outdoor_tent · civil_registrar)
-  //    without backing canonical_services. V1.2 venue iteration adds dedicated
-  //    venue records with per-location calendars + day-rates.
+  // PLANNING — Coordinator / Planner (one tile; faith + service-type facets).
   // ════════════════════════════════════════════════════════════════════
+  wedding_coordination:              { folder: 'planning', tile: 'coordinator', phase: 'V1.1 base' },
+  wedding_planner_partial:           { folder: 'planning', tile: 'coordinator', phase: 'V1.2' },
+  day_of_coordinator:                { folder: 'planning', tile: 'coordinator', phase: 'V1.1 base' },
+  destination_wedding_specialist:    { folder: 'planning', tile: 'coordinator', phase: 'V1.2' },
+  pamamanhikan_coordinator:          { folder: 'planning', tile: 'coordinator', phase: 'V1.2', ph: true },
+  despedida_planner:                 { folder: 'planning', tile: 'coordinator', phase: 'V1.2', ph: true },
+  sponsor_coordinator:               { folder: 'planning', tile: 'coordinator', phase: 'V1.2', ph: true },
+  gender_separated_reception_coordinator: { folder: 'planning', tile: 'coordinator', phase: 'V1.4', faith: 'Muslim' },
+  religious_venue_coordinator:       { folder: 'planning', tile: 'coordinator', phase: 'V1.3', ph: true },
+  inc_wedding_coordinator:           { folder: 'planning', tile: 'coordinator', phase: 'V1.3', faith: 'INC' },
+  mahr_coordination:                 { folder: 'planning', tile: 'coordinator', phase: 'V1.4', faith: 'Muslim' },
+  setnayan_concierge:                { folder: 'planning', tile: 'coordinator', phase: 'V1.1 base', setnayan: true },
+  // Travel + niche logistics leave the marketplace (wizard host-task / deferred).
+  honeymoon_planner:                 { folder: 'planning', marketplaceHidden: true, phase: 'V1.1 base' },
+  destination_wedding_travel_coordinator: { folder: 'planning', marketplaceHidden: true, phase: 'V1.2' },
+  visa_wedding_logistics:            { folder: 'planning', marketplaceHidden: true, phase: 'V1.5+', ph: true },
 
   // ════════════════════════════════════════════════════════════════════
-  // 3. PLANNING, LOGISTICS & TRAVEL (28)
-  //    Coordinators + transport + outdoor rentals + travel. Planners book
-  //    12-18 months out; rentals/travel slip into 1-3 months.
+  // FEAST — the catered meal. Cake · Catering · Stations.
+  //   Carts/booths/bars moved to BOOTHS (standalone hired experiences).
   // ════════════════════════════════════════════════════════════════════
-  // Coordinators
-  wedding_coordination:              { folder: 'planning_logistics_travel', phase: 'V1.1 base' },
-  wedding_planner_partial:           { folder: 'planning_logistics_travel', phase: 'V1.2' },
-  day_of_coordinator:                { folder: 'planning_logistics_travel', phase: 'V1.1 base' },
-  destination_wedding_specialist:    { folder: 'planning_logistics_travel', phase: 'V1.2' },
-  pamamanhikan_coordinator:          { folder: 'planning_logistics_travel', phase: 'V1.2', ph: true },
-  despedida_planner:                 { folder: 'planning_logistics_travel', phase: 'V1.2', ph: true },
-  sponsor_coordinator:               { folder: 'planning_logistics_travel', phase: 'V1.2', ph: true },
-  gender_separated_reception_coordinator: { folder: 'planning_logistics_travel', phase: 'V1.4', faith: 'Muslim' },
-  religious_venue_coordinator:       { folder: 'planning_logistics_travel', phase: 'V1.3', ph: true },
-  inc_wedding_coordinator:           { folder: 'planning_logistics_travel', phase: 'V1.3', faith: 'INC' },
-  mahr_coordination:                 { folder: 'planning_logistics_travel', phase: 'V1.4', faith: 'Muslim' },
-  setnayan_concierge:                { folder: 'planning_logistics_travel', phase: 'V1.1 base', setnayan: true },
-  // Transport
-  transportation_bridal_car:         { folder: 'planning_logistics_travel', phase: 'V1.1 base' },
-  vintage_classic_vehicle:           { folder: 'planning_logistics_travel', phase: 'V1.2' },
-  transportation_guest_shuttle:      { folder: 'planning_logistics_travel', phase: 'V1.1 base' },
-  motorcycle_escort:                 { folder: 'planning_logistics_travel', phase: 'V1.5+' },
-  horse_drawn_carriage:              { folder: 'planning_logistics_travel', phase: 'V1.5+' },
-  bridal_boat_yacht:                 { folder: 'planning_logistics_travel', phase: 'V1.5+' },
-  // Outdoor rentals & infrastructure
-  generator_rental:                  { folder: 'planning_logistics_travel', phase: 'V1.2', rental: true },
-  tent_rental:                       { folder: 'planning_logistics_travel', phase: 'V1.2', rental: true },
-  mobile_restroom_rental:            { folder: 'planning_logistics_travel', phase: 'V1.2', rental: true },
-  cooling_fans_misters:              { folder: 'planning_logistics_travel', phase: 'V1.2', rental: true },
-  bug_repellent_station:             { folder: 'planning_logistics_travel', phase: 'V1.2' },
-  wedding_day_weather_forecaster:    { folder: 'planning_logistics_travel', phase: 'V1.2', ph: true },
-  parasol_hat_rental:                { folder: 'planning_logistics_travel', phase: 'V1.2', rental: true },
-  // Travel & accommodation
-  honeymoon_planner:                 { folder: 'planning_logistics_travel', phase: 'V1.1 base' },
-  destination_wedding_travel_coordinator: { folder: 'planning_logistics_travel', phase: 'V1.2' },
-  visa_wedding_logistics:            { folder: 'planning_logistics_travel', phase: 'V1.5+', ph: true },
-  // 23rd planning-card (2026-05-22) — hotels + room blocks. Some hotels
-  // include accommodation in their vendor_packages cascade (see
-  // 20260604110000 hotel-package seed + the 2026-05-22 follow-up seed that
-  // adds the 'accommodation' line item to Sofitel · Shangri-La · Conrad ·
-  // Marriott · Discovery Primea · Manila Hotel).
-  //
-  // 2026-05-22 (catering cross-listing) — `secondary_folders: ['catering']`
-  // surfaces hotel/accommodation vendors under the Catering folder too.
-  // PH wedding reality: most hotels bundle catering with the reception
-  // package, so couples searching catering on the dashboard planning card
-  // should see Manila Marriott, Sofitel, Shangri-La etc. inline with the
-  // dedicated catering vendors. Owner directive verbatim: "most hotels also
-  // provide catering."
-  accommodation:                     { folder: 'planning_logistics_travel', phase: 'V1.1 base', secondary_folders: ['catering'] },
+  wedding_cake:                      { folder: 'feast', tile: 'cake', phase: 'V1.1 base' },
+  catering:                          { folder: 'feast', tile: 'catering', phase: 'V1.1 base' },
+  lechonero:                         { folder: 'feast', tile: 'catering', phase: 'V1.1 base', ph: true },
+  halal_catering:                    { folder: 'feast', tile: 'catering', phase: 'V1.1.1', faith: 'Muslim', dietary: 'halal' },
+  live_cooking_station:              { folder: 'feast', tile: 'stations', phase: 'V1.1.1' },
 
   // ════════════════════════════════════════════════════════════════════
-  // 4. PHOTO & VIDEO (15)
-  //    Couples book 12+ months out — top suppliers are scarcest.
+  // DESIGN — Stylist · Florist · Lights & Sound · Dance Floor · Outdoor ·
+  //   Fireworks · LED Wall.
   // ════════════════════════════════════════════════════════════════════
-  photography:                       { folder: 'photo_video', phase: 'V1.1 base' },
-  pre_nup_photographer:              { folder: 'photo_video', phase: 'V1.1 base' },
-  engagement_photographer:           { folder: 'photo_video', phase: 'V1.1.2' },
-  drone:                             { folder: 'photo_video', phase: 'V1.1 base' },
-  same_day_edit:                     { folder: 'photo_video', phase: 'V1.1 base' },
-  family_day2_photographer:          { folder: 'photo_video', phase: 'V1.1.2' },
-  boudoir_photographer:              { folder: 'photo_video', phase: 'V1.1.2' },
-  studio_portrait_photographer:      { folder: 'photo_video', phase: 'V1.1.2' },
-  setnayan_papic:                    { folder: 'photo_video', phase: 'V1.1 base', setnayan: true },
-  videography:                       { folder: 'photo_video', phase: 'V1.1 base' },
-  drone_videographer:                { folder: 'photo_video', phase: 'V1.1 base' },
-  highlight_reel_specialist:         { folder: 'photo_video', phase: 'V1.1.2' },
-  setnayan_ai_edited_highlight:      { folder: 'photo_video', phase: 'V1.1 base', setnayan: true },
-  setnayan_save_the_date_mp4:        { folder: 'photo_video', phase: 'V1.1 base', setnayan: true },
-  pre_nup_shoot_locations:           { folder: 'photo_video', phase: 'V1.2', ph: true },
+  stylist_decorator:                 { folder: 'design', tile: 'stylist_decorator', phase: 'V1.1 base' },
+  decorator_general:                 { folder: 'design', tile: 'stylist_decorator', phase: 'V1.1 base' },
+  capiz_native_decor:                { folder: 'design', tile: 'stylist_decorator', phase: 'V1.2', ph: true, tradition: true },
+  hacienda_heritage_decor:           { folder: 'design', tile: 'stylist_decorator', phase: 'V1.2', ph: true, tradition: true },
+  maranao_okir_decor:                { folder: 'design', tile: 'stylist_decorator', phase: 'V1.4', faith: 'Muslim', tradition: true },
+  setnayan_custom_monogram:          { folder: 'design', tile: 'stylist_decorator', phase: 'V1.1 base', setnayan: true },
+  florals:                           { folder: 'design', tile: 'florist', phase: 'V1.1 base' },
+  garden_wedding_florist:            { folder: 'design', tile: 'florist', phase: 'V1.2' },
+  beach_wedding_florist:             { folder: 'design', tile: 'florist', phase: 'V1.2' },
+  bridal_bouquet_specialty:          { folder: 'design', tile: 'florist', phase: 'V1.2' },
+  lights_sound:                      { folder: 'design', tile: 'lights_sound', phase: 'V1.1 base' },
+  led_dance_floor:                   { folder: 'design', tile: 'dance_floor', phase: 'V1.1.6' },
+  generator_rental:                  { folder: 'design', tile: 'outdoor', phase: 'V1.2', rental: true },
+  tent_rental:                       { folder: 'design', tile: 'outdoor', phase: 'V1.2', rental: true },
+  mobile_restroom_rental:            { folder: 'design', tile: 'outdoor', phase: 'V1.2', rental: true },
+  cooling_fans_misters:              { folder: 'design', tile: 'outdoor', phase: 'V1.2', rental: true },
+  bug_repellent_station:             { folder: 'design', tile: 'outdoor', phase: 'V1.2' },
+  wedding_day_weather_forecaster:    { folder: 'design', tile: 'outdoor', phase: 'V1.2', ph: true },
+  parasol_hat_rental:                { folder: 'design', tile: 'outdoor', phase: 'V1.2', rental: true },
+  outdoor_sound_system:              { folder: 'design', tile: 'outdoor', phase: 'V1.2' },
+  outdoor_lighting_specialist:       { folder: 'design', tile: 'outdoor', phase: 'V1.2' },
+  fireworks_pyro:                    { folder: 'design', tile: 'fireworks', phase: 'V1.2' },
+  led_video_wall:                    { folder: 'design', tile: 'led_wall', phase: 'V1.2' },
+  setnayan_pailaw:                   { folder: 'design', tile: 'led_wall', phase: 'V1.1 base', setnayan: true },
 
   // ════════════════════════════════════════════════════════════════════
-  // 5. CATERING (20)
-  //    PH weddings are food-first. Lechonero is a named cultural anchor.
+  // PROGRAM — Live Band · Choir · Orchestra · Wedding Singer · DJ ·
+  //   Choreographer · Performers · Host / MC. Setnayan music folds in.
   // ════════════════════════════════════════════════════════════════════
-  catering:                          { folder: 'catering', phase: 'V1.1 base' },
-  lechonero:                         { folder: 'catering', phase: 'V1.1 base', ph: true },
-  live_cooking_station:              { folder: 'catering', phase: 'V1.1.1' },
-  halal_catering:                    { folder: 'catering', phase: 'V1.1.1', faith: 'Muslim' },
-  mocktail_only_caterer:             { folder: 'catering', phase: 'V1.1.1', faith: 'INC' },
-  food_truck:                        { folder: 'catering', phase: 'V1.1.1' },
-  wedding_cake:                      { folder: 'catering', phase: 'V1.1 base' },
-  dessert_station:                   { folder: 'catering', phase: 'V1.1.1' },
-  mobile_bar:                        { folder: 'catering', phase: 'V1.1 base' },
-  mocktail_bar:                      { folder: 'catering', phase: 'V1.1.1', faith: 'INC' },
-  coffee_booth:                      { folder: 'catering', phase: 'V1.1 base' },
-  tea_bar:                           { folder: 'catering', phase: 'V1.1.6' },
-  whiskey_cigar_bar:                 { folder: 'catering', phase: 'V1.1.6' },
-  halo_halo_station:                 { folder: 'catering', phase: 'V1.1.6', ph: true },
-  ice_cream_cart:                    { folder: 'catering', phase: 'V1.1.6' },
-  crepe_pancake_station:             { folder: 'catering', phase: 'V1.1.6' },
-  cotton_candy_cart:                 { folder: 'catering', phase: 'V1.1.6' },
-  charcuterie_board:                 { folder: 'catering', phase: 'V1.1.6' },
-  mini_lechon_station:               { folder: 'catering', phase: 'V1.1.6', ph: true },
-  mocktail_booth_mini:               { folder: 'catering', phase: 'V1.1.6', faith: 'INC' },
-  // 3 booth sub-categories added 2026-05-24 per owner directive · CLAUDE.md
-  // 2026-05-24 row "Branch conflict coordination" + BRANCH_CONFLICTS_2026-05-24.md
-  donut_wall_display:                { folder: 'catering', phase: 'V1.1.6' },
-  sorbetes_cart:                     { folder: 'catering', phase: 'V1.1.6', ph: true },
-  food_cart_generic:                 { folder: 'catering', phase: 'V1.1.6' },
+  live_band:                         { folder: 'program', tile: 'live_band', phase: 'V1.1.3' },
+  band_live_music:                   { folder: 'program', tile: 'live_band', phase: 'V1.1.3' },
+  choir_string_quartet:              { folder: 'program', tile: 'choir', phase: 'V1.1.3' },
+  orchestra:                         { folder: 'program', tile: 'orchestra', phase: 'V1.2' },
+  wedding_singer:                    { folder: 'program', tile: 'wedding_singer', phase: 'V1.1.3' },
+  setnayan_pakanta:                  { folder: 'program', tile: 'wedding_singer', phase: 'V1.1 base', setnayan: true },
+  dj:                                { folder: 'program', tile: 'dj', phase: 'V1.1.3' },
+  entourage_choreographer:           { folder: 'program', tile: 'choreographer', phase: 'V1.2', ph: true },
+  first_dance_choreographer:         { folder: 'program', tile: 'choreographer', phase: 'V1.2' },
+  pre_cana_dance_trainer:            { folder: 'program', tile: 'choreographer', phase: 'V1.2', ph: true },
+  acoustic_performer:                { folder: 'program', tile: 'performers', phase: 'V1.1.3' },
+  wedding_entertainment:             { folder: 'program', tile: 'performers', phase: 'V1.1.3' },
+  kulintang_ensemble:                { folder: 'program', tile: 'performers', phase: 'V1.4', ph: true, faith: 'Muslim' },
+  rondalla_ensemble:                 { folder: 'program', tile: 'performers', phase: 'V1.5+', ph: true },
+  folk_performer:                    { folder: 'program', tile: 'performers', phase: 'V1.5+', ph: true },
+  host_emcee:                        { folder: 'program', tile: 'host_mc', phase: 'V1.1 base' },
 
   // ════════════════════════════════════════════════════════════════════
-  // 6. ATTIRE (23)
-  //    Bridal + groom + sponsors + faith-modest variants. Custom orders
-  //    take 3-6 months — couples book 6-9 months ahead.
+  // DOCUMENTARY — Photo & Video · Editorial · Livestream.
+  //   Photographer / videographer / drone / SDE / pre-nup = facets inside
+  //   Photo & Video. Setnayan capture/livestream fold in. Editorial is the
+  //   published real-wedding feature (facet/info-backed, no canonical yet).
   // ════════════════════════════════════════════════════════════════════
-  bridal_gown_custom:                { folder: 'attire', phase: 'V1.1 base' },
-  bridal_gown_rental:                { folder: 'attire', phase: 'V1.1.4', rental: true },
-  filipiniana_terno:                 { folder: 'attire', phase: 'V1.1.4', ph: true },
-  filipiniana_maria_clara:           { folder: 'attire', phase: 'V1.1.4', ph: true },
-  filipiniana_balintawak:            { folder: 'attire', phase: 'V1.1.4', ph: true },
-  muslim_modest_bridal:              { folder: 'attire', phase: 'V1.4', faith: 'Muslim' },
-  inc_modest_bridal:                 { folder: 'attire', phase: 'V1.3', faith: 'INC' },
-  maranao_wedding_attire:            { folder: 'attire', phase: 'V1.4', faith: 'Muslim' },
-  tausug_wedding_attire:             { folder: 'attire', phase: 'V1.4', faith: 'Muslim' },
-  yakan_wedding_attire:              { folder: 'attire', phase: 'V1.4', faith: 'Muslim' },
-  bridesmaid_dress:                  { folder: 'attire', phase: 'V1.1 base' },
-  junior_bridesmaid_dress:           { folder: 'attire', phase: 'V1.1.4' },
-  mother_of_bride_gown:              { folder: 'attire', phase: 'V1.1 base' },
-  flower_girl_dress:                 { folder: 'attire', phase: 'V1.1 base' },
-  ninang_attire:                     { folder: 'attire', phase: 'V1.1.4', ph: true },
-  ninong_attire:                     { folder: 'attire', phase: 'V1.1.4', ph: true },
-  groom_suit_custom:                 { folder: 'attire', phase: 'V1.1 base' },
-  groom_suit_rental:                 { folder: 'attire', phase: 'V1.1.4', rental: true },
-  barong_tagalog_custom:             { folder: 'attire', phase: 'V1.1.4', ph: true },
-  barong_tagalog_rental:             { folder: 'attire', phase: 'V1.1.4', ph: true, rental: true },
-  groomsman_set:                     { folder: 'attire', phase: 'V1.1.4' },
-  junior_groomsman:                  { folder: 'attire', phase: 'V1.1.4' },
-  ring_bearer_suit:                  { folder: 'attire', phase: 'V1.1.4' },
+  photography:                       { folder: 'documentary', tile: 'photo_video', phase: 'V1.1 base' },
+  videography:                       { folder: 'documentary', tile: 'photo_video', phase: 'V1.1 base' },
+  pre_nup_photographer:              { folder: 'documentary', tile: 'photo_video', phase: 'V1.1 base' },
+  engagement_photographer:           { folder: 'documentary', tile: 'photo_video', phase: 'V1.1.2' },
+  drone:                             { folder: 'documentary', tile: 'photo_video', phase: 'V1.1 base' },
+  drone_videographer:                { folder: 'documentary', tile: 'photo_video', phase: 'V1.1 base' },
+  same_day_edit:                     { folder: 'documentary', tile: 'photo_video', phase: 'V1.1 base' },
+  family_day2_photographer:          { folder: 'documentary', tile: 'photo_video', phase: 'V1.1.2' },
+  boudoir_photographer:              { folder: 'documentary', tile: 'photo_video', phase: 'V1.1.2' },
+  studio_portrait_photographer:      { folder: 'documentary', tile: 'photo_video', phase: 'V1.1.2' },
+  highlight_reel_specialist:         { folder: 'documentary', tile: 'photo_video', phase: 'V1.1.2' },
+  pre_nup_shoot_locations:           { folder: 'documentary', tile: 'photo_video', phase: 'V1.2', ph: true },
+  setnayan_papic:                    { folder: 'documentary', tile: 'photo_video', phase: 'V1.1 base', setnayan: true },
+  setnayan_ai_edited_highlight:      { folder: 'documentary', tile: 'photo_video', phase: 'V1.1 base', setnayan: true },
+  setnayan_save_the_date_mp4:        { folder: 'documentary', tile: 'photo_video', phase: 'V1.1 base', setnayan: true },
+  setnayan_panood:                   { folder: 'documentary', tile: 'livestream', phase: 'V1.1 base', setnayan: true },
 
   // ════════════════════════════════════════════════════════════════════
-  // 7. HAIR & MAKEUP (13)
-  //    Top PH MUAs book 6-12 months out. Family makeup is PH-distinct
-  //    (multi-generational glam for mothers, sisters, aunts).
+  // LOOK — attire (4 role tiles + Filipiniana cross-view) + HMUA + Grooming
+  //   + Wellness & Fitness + Jewelleries & Accessories.
   // ════════════════════════════════════════════════════════════════════
-  bridal_hmua:                       { folder: 'hair_makeup', phase: 'V1.1 base' },
-  family_mua:                        { folder: 'hair_makeup', phase: 'V1.1 base' },
-  bridal_hair_stylist:               { folder: 'hair_makeup', phase: 'V1.1 base' },
-  touchup_mua:                       { folder: 'hair_makeup', phase: 'V1.1.5' },
-  bridal_spa:                        { folder: 'hair_makeup', phase: 'V1.2' },
-  bridal_fitness:                    { folder: 'hair_makeup', phase: 'V1.2' },
-  bridal_nutritionist:               { folder: 'hair_makeup', phase: 'V1.2' },
-  bridal_dermatology:                { folder: 'hair_makeup', phase: 'V1.2' },
-  bridal_dental:                     { folder: 'hair_makeup', phase: 'V1.2' },
-  groom_grooming:                    { folder: 'hair_makeup', phase: 'V1.2' },
-  muslim_henna_artist:               { folder: 'hair_makeup', phase: 'V1.4', faith: 'Muslim' },
-  maternity_bride_mua:               { folder: 'hair_makeup', phase: 'V1.2' },
-  mature_bride_mua:                  { folder: 'hair_makeup', phase: 'V1.2' },
+  // Bride's Attire
+  bridal_gown_custom:                { folder: 'look', tile: 'brides_attire', phase: 'V1.1 base' },
+  bridal_gown_rental:                { folder: 'look', tile: 'brides_attire', phase: 'V1.1.4', rental: true },
+  filipiniana_terno:                 { folder: 'look', tile: 'brides_attire', phase: 'V1.1.4', ph: true, tradition: true },
+  filipiniana_maria_clara:           { folder: 'look', tile: 'brides_attire', phase: 'V1.1.4', ph: true, tradition: true },
+  filipiniana_balintawak:            { folder: 'look', tile: 'brides_attire', phase: 'V1.1.4', ph: true, tradition: true },
+  muslim_modest_bridal:              { folder: 'look', tile: 'brides_attire', phase: 'V1.4', faith: 'Muslim', tradition: true },
+  inc_modest_bridal:                 { folder: 'look', tile: 'brides_attire', phase: 'V1.3', faith: 'INC', tradition: true },
+  maranao_wedding_attire:            { folder: 'look', tile: 'brides_attire', phase: 'V1.4', faith: 'Muslim', tradition: true },
+  tausug_wedding_attire:             { folder: 'look', tile: 'brides_attire', phase: 'V1.4', faith: 'Muslim', tradition: true },
+  yakan_wedding_attire:              { folder: 'look', tile: 'brides_attire', phase: 'V1.4', faith: 'Muslim', tradition: true },
+  // Groom's Attire
+  groom_suit_custom:                 { folder: 'look', tile: 'grooms_attire', phase: 'V1.1 base' },
+  groom_suit_rental:                 { folder: 'look', tile: 'grooms_attire', phase: 'V1.1.4', rental: true },
+  barong_tagalog_custom:             { folder: 'look', tile: 'grooms_attire', phase: 'V1.1.4', ph: true, tradition: true },
+  barong_tagalog_rental:             { folder: 'look', tile: 'grooms_attire', phase: 'V1.1.4', ph: true, rental: true, tradition: true },
+  // Women's Attire (entourage + family)
+  bridesmaid_dress:                  { folder: 'look', tile: 'womens_attire', phase: 'V1.1 base' },
+  junior_bridesmaid_dress:           { folder: 'look', tile: 'womens_attire', phase: 'V1.1.4' },
+  mother_of_bride_gown:              { folder: 'look', tile: 'womens_attire', phase: 'V1.1 base' },
+  flower_girl_dress:                 { folder: 'look', tile: 'womens_attire', phase: 'V1.1 base' },
+  ninang_attire:                     { folder: 'look', tile: 'womens_attire', phase: 'V1.1.4', ph: true },
+  // Men's Attire (entourage + family)
+  groomsman_set:                     { folder: 'look', tile: 'mens_attire', phase: 'V1.1.4' },
+  junior_groomsman:                  { folder: 'look', tile: 'mens_attire', phase: 'V1.1.4' },
+  ninong_attire:                     { folder: 'look', tile: 'mens_attire', phase: 'V1.1.4', ph: true },
+  ring_bearer_suit:                  { folder: 'look', tile: 'mens_attire', phase: 'V1.1.4' },
+  // HMUA
+  bridal_hmua:                       { folder: 'look', tile: 'hmua', phase: 'V1.1 base' },
+  family_mua:                        { folder: 'look', tile: 'hmua', phase: 'V1.1 base' },
+  bridal_hair_stylist:               { folder: 'look', tile: 'hmua', phase: 'V1.1 base' },
+  touchup_mua:                       { folder: 'look', tile: 'hmua', phase: 'V1.1.5' },
+  maternity_bride_mua:               { folder: 'look', tile: 'hmua', phase: 'V1.2' },
+  mature_bride_mua:                  { folder: 'look', tile: 'hmua', phase: 'V1.2' },
+  // Grooming
+  groom_grooming:                    { folder: 'look', tile: 'grooming', phase: 'V1.2' },
+  // Wellness & Fitness
+  bridal_fitness:                    { folder: 'look', tile: 'wellness_fitness', phase: 'V1.2' },
+  bridal_nutritionist:               { folder: 'look', tile: 'wellness_fitness', phase: 'V1.2' },
+  bridal_dental:                     { folder: 'look', tile: 'wellness_fitness', phase: 'V1.2' },
+  bridal_spa:                        { folder: 'look', tile: 'wellness_fitness', phase: 'V1.2' },
+  bridal_dermatology:                { folder: 'look', tile: 'wellness_fitness', phase: 'V1.2' },
+  // Jewelleries & Accessories
+  engagement_ring:                   { folder: 'look', tile: 'jewelleries_accessories', phase: 'V1.2' },
+  wedding_ring:                      { folder: 'look', tile: 'jewelleries_accessories', phase: 'V1.2' },
+  bridal_jewellery:                  { folder: 'look', tile: 'jewelleries_accessories', phase: 'V1.2' },
+  bridal_jewellery_rental:           { folder: 'look', tile: 'jewelleries_accessories', phase: 'V1.2', rental: true },
+  floral_jewellery:                  { folder: 'look', tile: 'jewelleries_accessories', phase: 'V1.2' },
+  wedding_veil:                      { folder: 'look', tile: 'jewelleries_accessories', phase: 'V1.2' },
+  wedding_garter:                    { folder: 'look', tile: 'jewelleries_accessories', phase: 'V1.2' },
+  bridal_headpiece:                  { folder: 'look', tile: 'jewelleries_accessories', phase: 'V1.2' },
+  flower_girl_tiara:                 { folder: 'look', tile: 'jewelleries_accessories', phase: 'V1.2' },
+  sponsor_corsage:                   { folder: 'look', tile: 'jewelleries_accessories', phase: 'V1.2', ph: true },
 
   // ════════════════════════════════════════════════════════════════════
-  // 8. MUSIC & PROGRAM (16)
-  //    Live performers + DJ + MC + choreographers + cultural ensembles.
-  //    host_emcee lives here (folded with Music per Option A).
+  // BOOTHS — standalone hired experiences (food carts, photo booths,
+  //   wellness, mystic, craft). Setnayan Patiktok folds into Photo Booth.
   // ════════════════════════════════════════════════════════════════════
-  live_band:                         { folder: 'music_program', phase: 'V1.1.3' },
-  band_live_music:                   { folder: 'music_program', phase: 'V1.1.3' },
-  acoustic_performer:                { folder: 'music_program', phase: 'V1.1.3' },
-  choir_string_quartet:              { folder: 'music_program', phase: 'V1.1.3' },
-  wedding_singer:                    { folder: 'music_program', phase: 'V1.1.3' },
-  dj:                                { folder: 'music_program', phase: 'V1.1.3' },
-  wedding_entertainment:             { folder: 'music_program', phase: 'V1.1.3' },
-  host_emcee:                        { folder: 'music_program', phase: 'V1.1 base' },
-  kulintang_ensemble:                { folder: 'music_program', phase: 'V1.4', ph: true, faith: 'Muslim' },
-  rondalla_ensemble:                 { folder: 'music_program', phase: 'V1.5+', ph: true },
-  folk_performer:                    { folder: 'music_program', phase: 'V1.5+', ph: true },
-  entourage_choreographer:           { folder: 'music_program', phase: 'V1.2', ph: true },
-  first_dance_choreographer:         { folder: 'music_program', phase: 'V1.2' },
-  pre_cana_dance_trainer:            { folder: 'music_program', phase: 'V1.2', ph: true },
-  setnayan_pakanta:                  { folder: 'music_program', phase: 'V1.1 base', setnayan: true },
-  setnayan_panood:                   { folder: 'music_program', phase: 'V1.1 base', setnayan: true },
+  // Drinks
+  mobile_bar:                        { folder: 'booths', tile: 'mobile_bar', phase: 'V1.1 base' },
+  whiskey_cigar_bar:                 { folder: 'booths', tile: 'mobile_bar', phase: 'V1.1.6' },
+  coffee_booth:                      { folder: 'booths', tile: 'coffee_espresso', phase: 'V1.1 base' },
+  tea_bar:                           { folder: 'booths', tile: 'coffee_espresso', phase: 'V1.1.6' },
+  mocktail_bar:                      { folder: 'booths', tile: 'mocktail', phase: 'V1.1.1', faith: 'INC', dietary: 'alcohol_free' },
+  mocktail_only_caterer:             { folder: 'booths', tile: 'mocktail', phase: 'V1.1.1', faith: 'INC', dietary: 'alcohol_free' },
+  mocktail_booth_mini:               { folder: 'booths', tile: 'mocktail', phase: 'V1.1.6', faith: 'INC', dietary: 'alcohol_free' },
+  // Food carts (cart-type facet)
+  food_truck:                        { folder: 'booths', tile: 'food_truck', phase: 'V1.1.1' },
+  dessert_station:                   { folder: 'booths', tile: 'dessert', phase: 'V1.1.1' },
+  halo_halo_station:                 { folder: 'booths', tile: 'food_cart', phase: 'V1.1.6', ph: true },
+  ice_cream_cart:                    { folder: 'booths', tile: 'food_cart', phase: 'V1.1.6' },
+  crepe_pancake_station:             { folder: 'booths', tile: 'food_cart', phase: 'V1.1.6' },
+  cotton_candy_cart:                 { folder: 'booths', tile: 'food_cart', phase: 'V1.1.6' },
+  charcuterie_board:                 { folder: 'booths', tile: 'food_cart', phase: 'V1.1.6' },
+  mini_lechon_station:               { folder: 'booths', tile: 'food_cart', phase: 'V1.1.6', ph: true },
+  donut_wall_display:                { folder: 'booths', tile: 'food_cart', phase: 'V1.1.6' },
+  sorbetes_cart:                     { folder: 'booths', tile: 'food_cart', phase: 'V1.1.6', ph: true },
+  food_cart_generic:                 { folder: 'booths', tile: 'food_cart', phase: 'V1.1.6' },
+  // Photo / tech booths (booth-type facet)
+  photo_booth:                       { folder: 'booths', tile: 'photo_booth', phase: 'V1.1 base' },
+  gif_booth:                         { folder: 'booths', tile: 'photo_booth', phase: 'V1.1.6' },
+  polaroid_booth:                    { folder: 'booths', tile: 'photo_booth', phase: 'V1.1.6' },
+  booth_360:                         { folder: 'booths', tile: 'photo_booth', phase: 'V1.1.6' },
+  selfie_magic_mirror:               { folder: 'booths', tile: 'photo_booth', phase: 'V1.1.6' },
+  setnayan_patiktok:                 { folder: 'booths', tile: 'photo_booth', phase: 'V1.1 base', setnayan: true },
+  arcade_retro_games:                { folder: 'booths', tile: 'arcade_games', phase: 'V1.1.6' },
+  vr_ar_station:                     { folder: 'booths', tile: 'arcade_games', phase: 'V1.1.6' },
+  // Wellness / beauty booths
+  perfume_bar:                       { folder: 'booths', tile: 'perfume_bar', phase: 'V1.1.6' },
+  henna_tattoo_booth:                { folder: 'booths', tile: 'henna_tattoo', phase: 'V1.1.6' },
+  muslim_henna_artist:               { folder: 'booths', tile: 'henna_tattoo', phase: 'V1.4', faith: 'Muslim' },
+  massage_chair_station:             { folder: 'booths', tile: 'massage_chair', phase: 'V1.1.6' },
+  hair_touchup_station:              { folder: 'booths', tile: 'massage_chair', phase: 'V1.1.6' },
+  aromatherapy_station:              { folder: 'booths', tile: 'massage_chair', phase: 'V1.1.6' },
+  mini_nail_bar:                     { folder: 'booths', tile: 'mini_nail_bar', phase: 'V1.1.6' },
+  // Mystic
+  tarot_astrology:                   { folder: 'booths', tile: 'tarot_astrology_palmistry', phase: 'V1.1.6' },
+  palmistry_reader:                  { folder: 'booths', tile: 'tarot_astrology_palmistry', phase: 'V1.1.6' },
+  // Craft (live artists, moved from Invitations & Keepsakes)
+  wedding_portrait_painter:          { folder: 'booths', tile: 'caricature_calligraphy_painting', phase: 'V1.1.6' },
+  caricature_artist:                 { folder: 'booths', tile: 'caricature_calligraphy_painting', phase: 'V1.1.6' },
+  silhouette_artist:                 { folder: 'booths', tile: 'caricature_calligraphy_painting', phase: 'V1.1.6' },
+  live_calligraphy:                  { folder: 'booths', tile: 'caricature_calligraphy_painting', phase: 'V1.1.6' },
+  poetry_typewriter:                 { folder: 'booths', tile: 'caricature_calligraphy_painting', phase: 'V1.1.6' },
+  keychain_engraving:                { folder: 'booths', tile: 'engraving_embroidery', phase: 'V1.1.6' },
+  live_embroidery:                   { folder: 'booths', tile: 'engraving_embroidery', phase: 'V1.1.6' },
 
   // ════════════════════════════════════════════════════════════════════
-  // 9. DECOR, FLORALS & SOUND (14)
-  //    Stylist + florals + cultural décor + lights/sound. All event-design.
+  // PRINTS — Printing (stationery, print-item facet) · Souvenir / Giveaways.
   // ════════════════════════════════════════════════════════════════════
-  stylist_decorator:                 { folder: 'decor_florals_sound', phase: 'V1.1 base' },
-  decorator_general:                 { folder: 'decor_florals_sound', phase: 'V1.1 base' },
-  florals:                           { folder: 'decor_florals_sound', phase: 'V1.1 base' },
-  garden_wedding_florist:            { folder: 'decor_florals_sound', phase: 'V1.2' },
-  beach_wedding_florist:             { folder: 'decor_florals_sound', phase: 'V1.2' },
-  capiz_native_decor:                { folder: 'decor_florals_sound', phase: 'V1.2', ph: true },
-  hacienda_heritage_decor:           { folder: 'decor_florals_sound', phase: 'V1.2', ph: true },
-  maranao_okir_decor:                { folder: 'decor_florals_sound', phase: 'V1.4', faith: 'Muslim' },
-  setnayan_pailaw:                   { folder: 'decor_florals_sound', phase: 'V1.1 base', setnayan: true },
-  setnayan_custom_monogram:          { folder: 'decor_florals_sound', phase: 'V1.1 base', setnayan: true },
-  lights_sound:                      { folder: 'decor_florals_sound', phase: 'V1.1 base' },
-  outdoor_sound_system:              { folder: 'decor_florals_sound', phase: 'V1.2' },
-  outdoor_lighting_specialist:       { folder: 'decor_florals_sound', phase: 'V1.2' },
-  led_dance_floor:                   { folder: 'decor_florals_sound', phase: 'V1.1.6' },
+  invitation_print:                  { folder: 'prints', tile: 'printing', phase: 'V1.1 base' },
+  invitation_digital:                { folder: 'prints', tile: 'printing', phase: 'V1.2' },
+  wedding_cards_designer:            { folder: 'prints', tile: 'printing', phase: 'V1.2' },
+  save_the_date_digital:             { folder: 'prints', tile: 'printing', phase: 'V1.2' },
+  ceremony_program:                  { folder: 'prints', tile: 'printing', phase: 'V1.2' },
+  place_card:                        { folder: 'prints', tile: 'printing', phase: 'V1.2' },
+  menu_card:                         { folder: 'prints', tile: 'printing', phase: 'V1.2' },
+  stationery_signage:                { folder: 'prints', tile: 'printing', phase: 'V1.1 base' },
+  souvenirs_giveaways:               { folder: 'prints', tile: 'souvenir_giveaways', phase: 'V1.1 base' },
+  pasalubong_box:                    { folder: 'prints', tile: 'souvenir_giveaways', phase: 'V1.2', ph: true },
+  sponsor_token:                     { folder: 'prints', tile: 'souvenir_giveaways', phase: 'V1.2', ph: true },
+  godchild_token:                    { folder: 'prints', tile: 'souvenir_giveaways', phase: 'V1.2', ph: true },
 
   // ════════════════════════════════════════════════════════════════════
-  // 10. RINGS & ACCESSORIES (11)
-  //     Rings + bridal jewellery + sponsor corsage (PH-specific).
+  // TRANSPORT — Bridal Car (vehicle-type facet) · Guest Shuttle · Escort.
   // ════════════════════════════════════════════════════════════════════
-  engagement_ring:                   { folder: 'rings_accessories', phase: 'V1.2' },
-  wedding_ring:                      { folder: 'rings_accessories', phase: 'V1.2' },
-  bridal_jewellery:                  { folder: 'rings_accessories', phase: 'V1.2' },
-  bridal_jewellery_rental:           { folder: 'rings_accessories', phase: 'V1.2', rental: true },
-  wedding_veil:                      { folder: 'rings_accessories', phase: 'V1.2' },
-  bridal_bouquet_specialty:          { folder: 'rings_accessories', phase: 'V1.2' },
-  wedding_garter:                    { folder: 'rings_accessories', phase: 'V1.2' },
-  bridal_headpiece:                  { folder: 'rings_accessories', phase: 'V1.2' },
-  sponsor_corsage:                   { folder: 'rings_accessories', phase: 'V1.2', ph: true },
-  flower_girl_tiara:                 { folder: 'rings_accessories', phase: 'V1.2' },
-  floral_jewellery:                  { folder: 'rings_accessories', phase: 'V1.2' },
-
-  // ════════════════════════════════════════════════════════════════════
-  // 11. BOOTHS & STATIONS (16) — Setnayan signature category
-  //     Photo / tech / wellness / mystic booths. Carved out from old col 3
-  //     so couples browsing for catering don't see VR/AR & tarot readers.
-  // ════════════════════════════════════════════════════════════════════
-  photo_booth:                       { folder: 'booths_stations', phase: 'V1.1 base' },
-  gif_booth:                         { folder: 'booths_stations', phase: 'V1.1.6' },
-  polaroid_booth:                    { folder: 'booths_stations', phase: 'V1.1.6' },
-  booth_360:                         { folder: 'booths_stations', phase: 'V1.1.6' },
-  selfie_magic_mirror:               { folder: 'booths_stations', phase: 'V1.1.6' },
-  vr_ar_station:                     { folder: 'booths_stations', phase: 'V1.1.6' },
-  arcade_retro_games:                { folder: 'booths_stations', phase: 'V1.1.6' },
-  perfume_bar:                       { folder: 'booths_stations', phase: 'V1.1.6' },
-  henna_tattoo_booth:                { folder: 'booths_stations', phase: 'V1.1.6' },
-  massage_chair_station:             { folder: 'booths_stations', phase: 'V1.1.6' },
-  mini_nail_bar:                     { folder: 'booths_stations', phase: 'V1.1.6' },
-  hair_touchup_station:              { folder: 'booths_stations', phase: 'V1.1.6' },
-  aromatherapy_station:              { folder: 'booths_stations', phase: 'V1.1.6' },
-  tarot_astrology:                   { folder: 'booths_stations', phase: 'V1.1.6' },
-  palmistry_reader:                  { folder: 'booths_stations', phase: 'V1.1.6' },
-  setnayan_patiktok:                 { folder: 'booths_stations', phase: 'V1.1 base', setnayan: true },
-
-  // ════════════════════════════════════════════════════════════════════
-  // 12. INVITATIONS & KEEPSAKES (19)
-  //     Stationery + live craft booths + souvenirs/tokens. Sponsor + godchild
-  //     tokens are PH-distinct keepsake traditions.
-  // ════════════════════════════════════════════════════════════════════
-  invitation_print:                  { folder: 'invitations_keepsakes', phase: 'V1.1 base' },
-  invitation_digital:                { folder: 'invitations_keepsakes', phase: 'V1.2' },
-  wedding_cards_designer:            { folder: 'invitations_keepsakes', phase: 'V1.2' },
-  save_the_date_digital:             { folder: 'invitations_keepsakes', phase: 'V1.2' },
-  ceremony_program:                  { folder: 'invitations_keepsakes', phase: 'V1.2' },
-  place_card:                        { folder: 'invitations_keepsakes', phase: 'V1.2' },
-  menu_card:                         { folder: 'invitations_keepsakes', phase: 'V1.2' },
-  stationery_signage:                { folder: 'invitations_keepsakes', phase: 'V1.1 base' },
-  wedding_portrait_painter:          { folder: 'invitations_keepsakes', phase: 'V1.1.6' },
-  caricature_artist:                 { folder: 'invitations_keepsakes', phase: 'V1.1.6' },
-  silhouette_artist:                 { folder: 'invitations_keepsakes', phase: 'V1.1.6' },
-  live_calligraphy:                  { folder: 'invitations_keepsakes', phase: 'V1.1.6' },
-  keychain_engraving:                { folder: 'invitations_keepsakes', phase: 'V1.1.6' },
-  live_embroidery:                   { folder: 'invitations_keepsakes', phase: 'V1.1.6' },
-  poetry_typewriter:                 { folder: 'invitations_keepsakes', phase: 'V1.1.6' },
-  souvenirs_giveaways:               { folder: 'invitations_keepsakes', phase: 'V1.1 base' },
-  pasalubong_box:                    { folder: 'invitations_keepsakes', phase: 'V1.2', ph: true },
-  sponsor_token:                     { folder: 'invitations_keepsakes', phase: 'V1.2', ph: true },
-  godchild_token:                    { folder: 'invitations_keepsakes', phase: 'V1.2', ph: true },
+  transportation_bridal_car:         { folder: 'transport', tile: 'bridal_car', phase: 'V1.1 base' },
+  vintage_classic_vehicle:           { folder: 'transport', tile: 'bridal_car', phase: 'V1.2' },
+  horse_drawn_carriage:              { folder: 'transport', tile: 'bridal_car', phase: 'V1.5+' },
+  bridal_boat_yacht:                 { folder: 'transport', tile: 'bridal_car', phase: 'V1.5+' },
+  transportation_guest_shuttle:      { folder: 'transport', tile: 'guest_shuttle', phase: 'V1.1 base' },
+  motorcycle_escort:                 { folder: 'transport', tile: 'escort', phase: 'V1.5+' },
 };

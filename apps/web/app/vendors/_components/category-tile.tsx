@@ -11,6 +11,14 @@ import type { VendorCount } from '@/lib/vendor-counts';
 
 export type CategoryTileData = {
   canonicalService: string;
+  /**
+   * 10-parent model (2026-05-31). When set, this card represents a TILE
+   * (a group of canonicals) rather than a single canonical_service, and the
+   * drill-in links to `/vendors?tile=<slug>` (the tile-scoped vendor grid).
+   * When omitted, the card links to `/vendors?category=<canonicalService>`
+   * as before (used by the /vendors/categories canonical browser).
+   */
+  tileSlug?: string;
   displayNameEn: string;
   displayNameTl: string | null;
   meta: TaxonomyEntry;
@@ -85,9 +93,14 @@ export function CategoryTile({
   focusedMode?: boolean;
 }) {
   const state = deriveState(data);
+  // 10-parent model: tile cards drill into the tile-scoped grid (?tile=);
+  // legacy canonical cards keep the ?category= drill-in.
+  const drillParam = data.tileSlug
+    ? `tile=${encodeURIComponent(data.tileSlug)}`
+    : `category=${encodeURIComponent(data.canonicalService)}`;
   const href = focusedMode
-    ? `/vendors?category=${encodeURIComponent(data.canonicalService)}&from=plan`
-    : `/vendors?category=${encodeURIComponent(data.canonicalService)}`;
+    ? `/vendors?${drillParam}&from=plan`
+    : `/vendors?${drillParam}`;
 
   const containerClass =
     state.kind === 'setnayan'

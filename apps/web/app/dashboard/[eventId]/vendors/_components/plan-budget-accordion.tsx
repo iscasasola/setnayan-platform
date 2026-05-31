@@ -238,6 +238,16 @@ const PBA_CSS = `
 .pba .cmpwin{color:var(--gold-deep);font-family:var(--mono);font-size:7.5px;letter-spacing:.1em;text-transform:uppercase;display:block;margin-top:3px}
 .pba .cmpfoot{padding:12px 20px calc(16px + env(safe-area-inset-bottom)) 20px;font-size:11px;line-height:1.45;color:var(--ink-soft);border-top:1px solid var(--line);background:rgba(197,160,89,.06)}
 
+/* ---- Press feedback (owner 2026-05-31: taps must feel responsive). The
+   tap-highlight is killed globally, so the link-cards (.v/.add/.empty-child,
+   which are <a> and miss the global button rule) + the in-card buttons get a
+   quick scale-down on :active. .card itself carries the coverflow transform, so
+   we scale the inner .v — never the .card — to avoid fighting it. ---- */
+.pba .v,.pba .add,.pba .empty-child{transition:transform .13s cubic-bezier(.2,.7,.2,1),border-color .35s var(--ease),box-shadow .35s var(--ease)}
+.pba .lockbtn,.pba .cmpbtn,.pba .cmpclose,.pba .vx{transition:transform .13s cubic-bezier(.2,.7,.2,1),background .2s var(--ease)}
+.pba .v:active,.pba .add:active,.pba .empty-child:active{transform:scale(.98)}
+.pba .lockbtn:active,.pba .cmpbtn:active,.pba .cmpclose:active,.pba .vx:active{transform:scale(.93)}
+
 /* ---- Recap ---- */
 .pba .end-spacer{padding:30px 18px 0}
 .pba .endcard{display:flex;flex-direction:column;align-items:center;text-align:center;gap:7px;background:var(--mulberry);color:#fff;border-radius:22px;padding:24px 22px 22px}

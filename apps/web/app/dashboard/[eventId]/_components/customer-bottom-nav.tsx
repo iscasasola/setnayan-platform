@@ -11,15 +11,16 @@
  * geometry constraint the admin doorway (PR #606) ran into and solved
  * with the 5-tab + /more landing pattern.
  *
- * 5 TABS (owner reorder 2026-05-31):
+ * 6 TABS (owner reorder 2026-05-31):
  *   1. Home         — Event-home (dashboard root for this event)
  *   2. Guests       — Guest list (single highest-value people-side surface)
  *   3. Vendors      — Marketplace + event-scoped vendor management
  *   4. Website      — Public landing-page hub (promoted from /more)
- *   5. More         — Everything else (Today's Focus · Schedule · Budget ·
- *                     Messages · Contracts · Add-ons · Mood Board ·
- *                     Activity · Disputes · Event QR · Hosts · Profile)
- *                     routed through the /more landing page.
+ *   5. Add-ons      — Paid Setnayan services hub (promoted from /more)
+ *   6. More         — Everything else (Today's Focus · Schedule · Budget ·
+ *                     Messages · Contracts · Mood Board · Activity ·
+ *                     Disputes · Event QR · Hosts · Profile) routed
+ *                     through the /more landing page.
  *
  * 2026-05-31 owner directive ("menu should be Home · Guests · Vendor ·
  * Website · More"):
@@ -64,12 +65,12 @@
  * once and both surfaces stay in lockstep.
  */
 
-import { Home, Users, Store, Globe, Menu } from 'lucide-react';
+import { Home, Users, Store, Globe, LayoutGrid, Menu } from 'lucide-react';
 import { BottomNav } from '@/app/_components/nav/bottom-nav';
 import type { BottomNavItem } from '@/app/_components/nav/types';
 
 /**
- * Builds the 5-tab BottomNav items array for the given eventId.
+ * Builds the 6-tab BottomNav items array for the given eventId.
  * Mirror of buildCustomerNavGroups — single source of truth on the
  * customer-side mobile chrome.
  */
@@ -123,7 +124,20 @@ export function buildCustomerBottomNav(eventId: string): BottomNavItem[] {
       activeMatch: [`${base}/website`, `${base}/invitation`],
     },
     {
-      // Slot 5 · More — catch-all for everything event-planning-side that
+      // Slot 5 · Add-ons — paid Setnayan services hub (Papic · Panood ·
+      // Patiktok · Pailaw · Pakanta · Save-the-Date video · Mood Board ·
+      // etc.). Promoted to its own tab per owner directive 2026-05-31
+      // (6-tab menu: Home · Guests · Vendors · Website · Add-ons · More).
+      // Mood Board sub-routes live under /add-ons/mood-board so they bucket
+      // here too. Icon matches the desktop sidebar Add-ons entry (LayoutGrid).
+      key: 'add-ons',
+      label: 'Add-ons',
+      href: `${base}/add-ons`,
+      icon: LayoutGrid,
+      activeMatch: `${base}/add-ons`,
+    },
+    {
+      // Slot 6 · More — catch-all for everything event-planning-side that
       // isn't a dedicated tab. Enumerated explicitly per the
       // [[feedback_setnayan_orphan_prevention]] rule — every route must be
       // reachable AND have its active tab light up correctly.
@@ -149,8 +163,6 @@ export function buildCustomerBottomNav(eventId: string): BottomNavItem[] {
         // /receipts is app-root scoped — added so reaching it from any
         // event-scoped route highlights More on the mobile chrome.
         '/receipts',
-        // Add-ons / Mood Board live under More
-        `${base}/add-ons`,
         // After group
         `${base}/activity`,
         `${base}/disputes`,
@@ -169,7 +181,7 @@ export function buildCustomerBottomNav(eventId: string): BottomNavItem[] {
 
 /**
  * CustomerBottomNav — wraps the shared BottomNav primitive with the
- * customer-doorway 5-tab config. Renders nothing on lg+ (sidebar takes
+ * customer-doorway 6-tab config. Renders nothing on lg+ (sidebar takes
  * over). Per [[feedback_setnayan_orphan_prevention]] each tab's destination
  * route is verified to exist on the codebase.
  */

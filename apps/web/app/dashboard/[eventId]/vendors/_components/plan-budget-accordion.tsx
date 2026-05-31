@@ -603,7 +603,7 @@ function VendorCardAtom({
   return (
     <div className={`card${locked ? ' chosen' : ''}`}>
       <Link
-        href={`/dashboard/${eventId}/vendors/${pick.vendor_id}`}
+        href={`/dashboard/${eventId}/vendors/${pick.vendor_id}/workspace`}
         className="v"
       >
         <div className="img">

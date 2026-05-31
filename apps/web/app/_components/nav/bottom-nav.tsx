@@ -12,9 +12,10 @@
  * mobile bottom equivalent). This primitive lets Phases 1-3 ship a
  * coherent v2.1 mobile chrome across all 3 doorways.
  *
- * SCOPE: mobile-only (`lg:hidden`). Fixed bottom strip. 5-tab evenly
- * distributed grid. Caller passes BottomNavItem[]. Renders nothing if
- * empty; warns to console if > 5 items.
+ * SCOPE: mobile-only (`lg:hidden`). Fixed bottom strip. Evenly
+ * distributed grid, one column per item up to 6 (the customer doorway's
+ * 6-tab row). Caller passes BottomNavItem[]. Renders nothing if empty;
+ * warns to console if > 6 items.
  *
  * ACTIVE DETECTION: each item's `activeMatch` accepts a single prefix
  * string OR an array of prefixes (any-of). Match is exact-equal OR
@@ -47,15 +48,17 @@ type Props = {
 export function BottomNav({ items }: Props) {
   const pathname = usePathname() ?? '';
 
-  // Surface a console warning in dev when callers exceed the 5-tab budget.
-  // Hard-rendering all items would result in cramped 6px-wide labels at
-  // common PH mobile widths (360-414px) — better to flag during Phase
-  // adoption so callers consolidate before merging.
+  // Surface a console warning in dev when callers exceed the 6-tab budget.
+  // The customer doorway uses 6 tabs (Home · Guests · Vendors · Website ·
+  // Add-ons · More) and the owner wants them on ONE row, not wrapped to
+  // two (CLAUDE.md 2026-05-31). Vendor + admin doorways have 5 items and
+  // stay at 5 columns. Beyond 6, labels get cramped at common PH mobile
+  // widths (360-414px) — flag so callers consolidate into a "More" tab.
   useEffect(() => {
-    if (items.length > 5) {
+    if (items.length > 6) {
       // eslint-disable-next-line no-console
       console.warn(
-        `BottomNav: rendering ${items.length} items — > 5 will not fit gracefully on mobile.`,
+        `BottomNav: rendering ${items.length} items — > 6 will not fit gracefully on mobile.`,
       );
     }
   }, [items.length]);
@@ -71,10 +74,13 @@ export function BottomNav({ items }: Props) {
         borderColor: 'var(--m-line)',
       }}
     >
+      {/* Columns driven entirely by the inline gridTemplateColumns below —
+          one column per item up to 6, so the customer's 6 tabs flow in a
+          single row instead of wrapping the 6th onto a second row. */}
       <ul
-        className="grid grid-cols-5 px-1 py-1"
+        className="grid px-1 py-1"
         style={{
-          gridTemplateColumns: `repeat(${Math.min(items.length, 5)}, minmax(0, 1fr))`,
+          gridTemplateColumns: `repeat(${Math.min(items.length, 6)}, minmax(0, 1fr))`,
         }}
       >
         {items.map((item) => (
@@ -131,7 +137,7 @@ function BottomNavTab({
           ) : null}
         </span>
         <span
-          className="text-[10px] tracking-wide"
+          className="whitespace-nowrap text-[10px] tracking-wide"
           style={{ fontWeight: isActive ? 600 : 400 }}
         >
           {item.label}

@@ -87,11 +87,11 @@ const PBA_CSS = `
      the budget bar sits flush under the sticky app header (no gap on top). */
   position:relative; margin-top:-24px; background:var(--paper); color:var(--ink); font-family:var(--sans);
 }
-@media (min-width:1024px){.pba{--pba-header-offset:0px}}
+@media (min-width:1024px){.pba{--pba-header-offset:0px}.pba .topbar,.pba .meter{margin-left:0;margin-right:0}}
 .pba *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 
 /* ---- Dark top budget bar ---- */
-.pba .topbar{position:sticky;top:var(--pba-header-offset);z-index:30;background:var(--ink);color:var(--paper);display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:var(--topbar-h);padding:0 18px;border-bottom:1px solid rgba(255,255,255,.08)}
+.pba .topbar{position:sticky;top:0;z-index:60;background:var(--ink);color:var(--paper);display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:var(--topbar-h);padding:0 18px;border-bottom:1px solid rgba(255,255,255,.08);margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw)}
 .pba .topbar .bleft{display:flex;flex-direction:column;gap:3px;min-width:0;padding:9px 0}
 .pba .topbar .fig{display:flex;align-items:baseline;gap:7px;white-space:nowrap;line-height:1.18}
 .pba .topbar .figk{font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.45);width:46px;flex:0 0 auto}
@@ -103,7 +103,7 @@ const PBA_CSS = `
 .pba .topbar .status.ok{color:#7fd49a}
 .pba .topbar .status.near{color:var(--gold)}
 .pba .topbar .status.over{color:#ef9a9a}
-.pba .meter{position:relative;height:3px;background:rgba(30,34,41,.1)}
+.pba .meter{position:relative;height:3px;background:rgba(30,34,41,.1);margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw)}
 .pba .meter .fill{height:100%;width:0;background:var(--gold);transition:width .55s var(--ease),background .4s var(--ease)}
 .pba .meter .fill.ok{background:#7fd49a}
 .pba .meter .fill.near{background:var(--gold)}
@@ -149,7 +149,7 @@ const PBA_CSS = `
    section is in view, then the next folder's header replaces it. A true
    stack-and-stay pile needs the sections flattened into one scroll container —
    CSS sticky can't persist across separate bounded <section>s. (follow-up) */
-.pba .cat-head{position:sticky;top:calc(var(--pba-header-offset) + var(--topbar-h));z-index:25;width:100%;height:var(--head-h);background:var(--paper);display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 18px;border:0;border-bottom:1px solid var(--line);text-align:left;transition:background .4s var(--ease),box-shadow .45s var(--ease)}
+.pba .cat-head{position:sticky;top:calc(var(--topbar-h) + var(--idx,0) * var(--head-h));z-index:25;width:100%;height:var(--head-h);background:var(--paper);display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 18px;border:0;border-bottom:1px solid var(--line);text-align:left;transition:background .4s var(--ease),box-shadow .45s var(--ease)}
 .pba .cat-head .nm{font-family:var(--serif);font-style:italic;font-size:18px;font-weight:600;color:var(--ink);letter-spacing:.01em}
 .pba .cat-head .amt{font-family:var(--serif);font-style:italic;font-size:13.5px;font-weight:600;color:var(--ink)}
 .pba .cat-head .amt.zero{font-family:var(--mono);font-style:normal;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-deep)}
@@ -394,7 +394,12 @@ export function PlanBudgetAccordion({
       <div className="body">
         <Overview model={model} eventId={eventId} />
 
-        <div>
+        {/* Single shared scroll container: every category head + body is a
+            flat sibling here, so each sticky head piles UNDER the black bar
+            (top = topbar-h + idx*head-h) and STAYS — a true stack-and-stay
+            pile (Venue→…→Transport). Bounded per-folder <section>s would
+            un-stick each head the moment its own section scrolled out. */}
+        <div className="cats">
           {model.folders.map((folder, index) => (
             <FolderSection
               key={folder.folder}
@@ -619,8 +624,12 @@ function FolderSection({
   // scrolls past it. The .cat-head is a non-interactive sticky label, not a
   // collapse toggle.
   return (
-    <section id={`folder-${folder.folder}`} className="cat">
-      <div className="cat-head" style={{ ['--idx']: index } as CSSProperties}>
+    <>
+      <div
+        id={`folder-${folder.folder}`}
+        className="cat-head"
+        style={{ ['--idx']: index, zIndex: 40 - index } as CSSProperties}
+      >
         <span className="nm">{folder.label}</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span className={`amt${hasLocked ? '' : ' zero'}`}>
@@ -649,7 +658,7 @@ function FolderSection({
           ))
         )}
       </div>
-    </section>
+    </>
   );
 }
 

@@ -11,37 +11,41 @@
  * geometry constraint the admin doorway (PR #606) ran into and solved
  * with the 5-tab + /more landing pattern.
  *
- * 5 TABS:
- *   1. Today        — Today's Focus wizard route
- *   2. Home         — Event-home (dashboard root for this event)
- *   3. Guests       — Guest list (single highest-value people-side surface)
- *   4. Website      — Public landing page hub
- *   5. More         — Everything else (Schedule · Vendors · Budget ·
+ * 5 TABS (owner reorder 2026-05-31):
+ *   1. Home         — Event-home (dashboard root for this event)
+ *   2. Guests       — Guest list (single highest-value people-side surface)
+ *   3. Vendors      — Marketplace + event-scoped vendor management
+ *   4. Website      — Public landing-page hub (promoted from /more)
+ *   5. More         — Everything else (Today's Focus · Schedule · Budget ·
  *                     Messages · Contracts · Add-ons · Mood Board ·
  *                     Activity · Disputes · Event QR · Hosts · Profile)
- *                     routed through the /more landing page. Orders +
- *                     Receipts retired from primary nav 2026-05-30 per
- *                     owner directive but their routes still highlight
- *                     More via the activeMatch list below — couples
- *                     reaching /orders or /receipts via order-confirmation
- *                     email deep-links still see the correct chrome.
+ *                     routed through the /more landing page.
  *
- * The 5-tab set retires the legacy "Services" catch-all from the 2026-05-22
- * 5-tab refactor. "Services" was the umbrella catch-all that contained
- * 12 different sub-routes — replacing it with a literal "More" tab that
- * routes to a card grid with all of them surfaced as first-class entries
- * is cleaner + matches the admin doorway pattern.
+ * 2026-05-31 owner directive ("menu should be Home · Guests · Vendor ·
+ * Website · More"):
+ *   - DROPPED the Today tab from primary nav (was slot 1 per the 2026-05-30
+ *     nav-tune (3)). The /today route still ships — Today's Focus / Wedding
+ *     Essentials remains reachable via /more (added to the More activeMatch
+ *     list) + the event-home plan grid + notification deep links. Per
+ *     [[feedback_setnayan_orphan_prevention]] the route is not orphaned: it
+ *     lights up the More tab and is linked from the /more landing grid.
+ *   - PROMOTED Website to its own slot 4 (was buried in /more). The
+ *     /website + /invitation routes move out of the More activeMatch list
+ *     into the Website tab so they don't double-light.
+ *   - Home → slot 1, Guests → slot 2, Vendors → slot 3 (was Vendors slot 3,
+ *     Guests slot 4 — Guests + Vendors swap so the order matches the owner's
+ *     stated Home · Guests · Vendor · Website · More).
  *
  * activeMatch RULES per tab:
- *   - Today    — /dashboard/{eventId}/today (exact + prefix)
  *   - Home     — /dashboard/{eventId} EXACT (activeMatchExact:true)
  *                because every other event-scoped route shares this prefix
  *                — startsWith would keep Home perpetually active.
  *   - Guests   — /dashboard/{eventId}/guests + sponsors + hosts (people
  *                surfaces map to the Guests tab on mobile)
+ *   - Vendors  — /dashboard/{eventId}/vendors
  *   - Website  — /dashboard/{eventId}/website + invitation
- *   - More     — /dashboard/{eventId}/more landing OR any of the 14
- *                surfaces that aren't surfaced as a dedicated tab.
+ *   - More     — /dashboard/{eventId}/more landing OR any of the surfaces
+ *                that aren't surfaced as a dedicated tab (incl. Today).
  *
  * BottomNav primitive (PR #603 + Phase 3 activeMatchExact extension)
  * auto-hides at lg breakpoint via lg:hidden, so this only renders on
@@ -60,7 +64,7 @@
  * once and both surfaces stay in lockstep.
  */
 
-import { CalendarHeart, Home, Store, Users, Menu } from 'lucide-react';
+import { Home, Users, Store, Globe, Menu } from 'lucide-react';
 import { BottomNav } from '@/app/_components/nav/bottom-nav';
 import type { BottomNavItem } from '@/app/_components/nav/types';
 
@@ -74,36 +78,8 @@ export function buildCustomerBottomNav(eventId: string): BottomNavItem[] {
 
   return [
     {
-      // 2026-05-30 nav-tune (3) · Today RESTORED to slot 1.
-      //
-      // The 2026-05-29 nav-tune (2) move that removed Today from primary
-      // nav assumed Today's Focus was paid-only (₱1,499-9,999) and
-      // therefore prime real estate. That assumption was invalidated by
-      // PR #644 (Wedding Essentials Free DIY surface · CLAUDE.md
-      // 2026-05-29 row) which split /today rendering per tier:
-      //
-      //   - PAID (events.concierge_status='active') → full 65-card
-      //     WizardHero with hard-floor scheduler + religion-adaptive
-      //     copy + 5-tier ranking + coordinator meetings
-      //   - FREE DIY (NULL / 'diy' / 'trial' / 'expired') → 7 Wedding
-      //     Essentials cards + soft upgrade nudge to paid wizard
-      //
-      // Today is now valuable for EVERY couple. Hiding it in /more
-      // orphaned the Wedding Essentials surface (owner 2026-05-30:
-      // "today did not show"). Restoring to slot 1 honors the surface's
-      // role as the daily planning anchor across the full runway.
-      key: 'today',
-      label: 'Today',
-      href: `${base}/today`,
-      icon: CalendarHeart,
-      activeMatch: `${base}/today`,
-    },
-    {
-      // Home demoted to slot 2 (was slot 1). Still high-frequency — the
-      // event-home dashboard surfaces budget · phase tracker · plan
-      // grid · activity feed. Couples will reach for Home daily, but
-      // Today edges it out because Today carries the actionable next
-      // step (Wedding Essential to fill OR wizard card to lock).
+      // Slot 1 · Home — the event-home dashboard surfaces budget · phase
+      // tracker · plan grid · activity feed. Highest-frequency daily landing.
       key: 'home',
       label: 'Home',
       href: base,
@@ -116,15 +92,19 @@ export function buildCustomerBottomNav(eventId: string): BottomNavItem[] {
       activeMatchExact: true,
     },
     {
-      // Vendors marketplace stays slot 3 (was slot 2 in PR #637). Owner
-      // framing from 2026-05-29: "the connection of vendors and customer
-      // IS the marketplace · without the marketplace or the vendor
-      // recommendation, we will not connect them properly." Vendors stays
-      // prominent in the primary nav.
-      //
-      // Routes to /dashboard/[eventId]/vendors (event-scoped vendor
-      // management + marketplace embed) so couples land in their event's
-      // vendor context, not the global /vendors page.
+      // Slot 2 · Guests — people-side surfaces all bucket here on mobile:
+      // guests list + per-guest workspace, sponsors, hosts.
+      key: 'guests',
+      label: 'Guests',
+      href: `${base}/guests`,
+      icon: Users,
+      activeMatch: [`${base}/guests`, `${base}/sponsors`, `${base}/hosts`],
+    },
+    {
+      // Slot 3 · Vendors — marketplace + event-scoped vendor management.
+      // Owner framing 2026-05-29: "the connection of vendors and customer
+      // IS the marketplace." Routes to /dashboard/[eventId]/vendors so
+      // couples land in their event's vendor context, not global /vendors.
       key: 'vendors',
       label: 'Vendors',
       href: `${base}/vendors`,
@@ -132,43 +112,35 @@ export function buildCustomerBottomNav(eventId: string): BottomNavItem[] {
       activeMatch: `${base}/vendors`,
     },
     {
-      key: 'guests',
-      label: 'Guests',
-      href: `${base}/guests`,
-      icon: Users,
-      // People-side surfaces all bucket under Guests on the mobile
-      // chrome — guests list + per-guest workspace, sponsors, hosts,
-      // and the invitation editor.
-      activeMatch: [
-        `${base}/guests`,
-        `${base}/sponsors`,
-        `${base}/hosts`,
-      ],
+      // Slot 4 · Website — public landing-page hub (promoted from /more
+      // per owner directive 2026-05-31). The hub links the invitation
+      // editor + public landing page + QR surfaces. /invitation buckets
+      // here too (it's the editor behind the public website).
+      key: 'website',
+      label: 'Website',
+      href: `${base}/website`,
+      icon: Globe,
+      activeMatch: [`${base}/website`, `${base}/invitation`],
     },
     {
-      // Messages MOVED to More (from slot 4 in PR #637). The Today/Plan
-      // loop edges out Messages as the daily anchor across the full
-      // 6-18 month runway. Messages stays one tap away via /more +
-      // deep-links from chat notifications + in-thread links. Heavy
-      // chat phase (final 2-3 months) still has Messages reachable
-      // through More → Messages and through notification deep links.
+      // Slot 5 · More — catch-all for everything event-planning-side that
+      // isn't a dedicated tab. Enumerated explicitly per the
+      // [[feedback_setnayan_orphan_prevention]] rule — every route must be
+      // reachable AND have its active tab light up correctly.
       key: 'more',
       label: 'More',
       href: `${base}/more`,
       icon: Menu,
-      // Catch-all for everything event-planning-side that isn't a
-      // dedicated tab. Enumerated explicitly per the
-      // [[feedback_setnayan_orphan_prevention]] rule — every route
-      // must be reachable AND have its active tab light up correctly.
-      // 2026-05-30 nav-tune (3) · Messages added (moved from slot 4).
-      // Today removed from More activeMatch (Today now lives in slot 1).
       activeMatch: [
         `${base}/more`,
-        // Messages — moved here from slot 4
+        // Today's Focus / Wedding Essentials — dropped as a dedicated tab
+        // 2026-05-31 but the route still ships; it lives under More now.
+        `${base}/today`,
+        // Messages + Contracts
         `${base}/messages`,
         `${base}/contracts`,
-        // Plan group (excluding guests + hosts which sit under Guests,
-        // and vendors which has its own tab)
+        // Plan group (excluding guests + hosts under Guests, vendors own tab,
+        // website + invitation under the Website tab)
         `${base}/seating`,
         `${base}/schedule`,
         // Spend group
@@ -177,9 +149,7 @@ export function buildCustomerBottomNav(eventId: string): BottomNavItem[] {
         // /receipts is app-root scoped — added so reaching it from any
         // event-scoped route highlights More on the mobile chrome.
         '/receipts',
-        // Share group — Website + invitation editor live under More
-        `${base}/website`,
-        `${base}/invitation`,
+        // Add-ons / Mood Board live under More
         `${base}/add-ons`,
         // After group
         `${base}/activity`,

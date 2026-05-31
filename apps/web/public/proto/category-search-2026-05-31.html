@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex,nofollow" />
+<title>Setnayan · Category Search Overlay (prototype)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --paper:#FBFBFA; --ink:#1E2229; --ink-soft:#4F535B;
+    --gold:#C5A059; --gold-deep:#8C6932;
+    --mulberry:#5C2542; --mulberry-2:#4A1D36; --mulberry-soft:#B8889C;
+    --line:rgba(30,34,41,.12); --line-soft:rgba(30,34,41,.07);
+    --serif:"Cormorant Garamond",Georgia,serif;
+    --sans:"Manrope",-apple-system,system-ui,sans-serif;
+    --mono:"DM Mono",ui-monospace,Menlo,monospace;
+    --ease:cubic-bezier(.22,.61,.36,1);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:#e9e6df;font-family:var(--sans);color:var(--ink);padding:28px 16px 60px;display:flex;flex-direction:column;align-items:center;gap:14px}
+  .cap{max-width:430px;width:100%;font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#8a857c;text-align:center}
+  .cap b{color:#3a362f}
+
+  /* phone frame */
+  .frame{position:relative;width:393px;max-width:100%;height:812px;border-radius:30px;overflow:hidden;background:var(--paper);box-shadow:0 24px 60px -28px rgba(0,0,0,.5);border:1px solid rgba(0,0,0,.12)}
+
+  /* dimmed plan behind the overlay (just a hint of the budget bar + a card) */
+  .behind{position:absolute;inset:0;filter:blur(2px) brightness(.96);opacity:.5}
+  .behind .bar{height:62px;background:var(--ink)}
+  .behind .body{padding:18px 20px;display:flex;flex-direction:column;gap:12px}
+  .behind .ln{height:13px;border-radius:7px;background:rgba(30,34,41,.12)}
+  .behind .ln.s{width:55%} .behind .ln.m{width:80%}
+  .behind .cardghost{height:150px;border-radius:16px;background:rgba(30,34,41,.08);margin-top:6px}
+  .scrim{position:absolute;inset:0;background:rgba(30,34,41,.28)}
+
+  /* ===== Category Search overlay ===== */
+  .sheet{position:absolute;inset:0;display:flex;flex-direction:column;background:var(--paper);animation:up .32s var(--ease)}
+  @keyframes up{from{transform:translateY(100%)}to{transform:none}}
+
+  /* header: X upper-left + scoped title */
+  .head{flex:0 0 auto;display:flex;align-items:flex-start;gap:14px;padding:18px 18px 14px;border-bottom:1px solid var(--line)}
+  .x{flex:0 0 auto;width:38px;height:38px;border:0;border-radius:999px;background:rgba(30,34,41,.06);color:var(--ink);font-size:18px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:transform .13s var(--ease),background .15s}
+  .x:active{transform:scale(.9);background:rgba(30,34,41,.12)}
+  .htext{display:flex;flex-direction:column;gap:3px;min-width:0;padding-top:2px}
+  .eyebrow{font-family:var(--mono);font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold-deep)}
+  .title{font-family:var(--serif);font-style:italic;font-weight:600;font-size:25px;line-height:1;color:var(--ink)}
+  .scope{font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;color:var(--ink-soft);margin-top:4px}
+  .scope b{color:var(--mulberry)}
+
+  /* results — scoped to the one category */
+  .results{flex:1;overflow:auto;padding:14px 16px 8px;display:flex;flex-direction:column;gap:12px}
+  .r{display:flex;gap:12px;border:1px solid var(--line);border-radius:16px;background:#fff;padding:12px;align-items:stretch;transition:transform .13s var(--ease),border-color .2s,box-shadow .2s}
+  .r:active{transform:scale(.99)}
+  .r .img{flex:0 0 78px;height:78px;border-radius:12px;background:linear-gradient(135deg,#efe9df,#e4dccd);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-style:italic;font-size:22px;color:var(--gold-deep);overflow:hidden}
+  .r .img img{width:100%;height:100%;object-fit:cover}
+  .r .meta{flex:1;min-width:0;display:flex;flex-direction:column}
+  .r .vn{font-weight:700;font-size:14.5px;color:var(--ink);line-height:1.2}
+  .r .sub{font-family:var(--mono);font-size:9px;letter-spacing:.04em;color:var(--ink-soft);margin-top:3px}
+  .r .stars{color:var(--gold);font-size:13px;letter-spacing:1.5px;margin-top:6px}
+  .r .stars .rc{font-family:var(--mono);font-size:8px;color:var(--ink-soft);margin-left:5px;vertical-align:1px}
+  .r .bottom{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:8px}
+  .r .price{font-family:var(--serif);font-style:italic;font-weight:600;font-size:16px;color:var(--ink)}
+  .r .price.q{font-size:12px;color:var(--ink-soft);font-style:normal;font-family:var(--mono);letter-spacing:.03em}
+  .addbtn{flex:0 0 auto;border:1px solid var(--mulberry);background:var(--mulberry);color:#fff;border-radius:999px;padding:8px 16px;font-family:var(--sans);font-weight:700;font-size:12px;cursor:pointer;transition:transform .13s var(--ease),background .15s}
+  .addbtn:active{transform:scale(.94)}
+  .r.added{border-color:var(--gold);box-shadow:0 0 0 2px rgba(197,160,89,.3)}
+  .r.added .addbtn{background:#fff;color:var(--gold-deep);border-color:var(--gold)}
+  .bdg{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:7.5px;letter-spacing:.07em;text-transform:uppercase;padding:2px 7px;border-radius:999px;background:rgba(46,125,79,.1);color:#2e7d4f;margin-top:6px;width:fit-content}
+
+  .scoped-note{font-family:var(--mono);font-size:8.5px;letter-spacing:.05em;color:var(--ink-soft);text-align:center;padding:6px 20px 2px}
+  .scoped-note b{color:var(--gold-deep)}
+
+  /* bottom: search bar + filter */
+  .foot{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:12px 16px calc(14px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:var(--paper)}
+  .searchwrap{flex:1;display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:#fff;border-radius:999px;padding:0 14px;height:46px}
+  .searchwrap input{flex:1;border:0;outline:0;font-family:var(--sans);font-size:14px;color:var(--ink);background:transparent}
+  .searchwrap input::placeholder{color:var(--ink-soft)}
+  .searchwrap .mag{color:var(--ink-soft);font-size:15px}
+  .filterbtn{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;height:46px;padding:0 16px;border:1px solid var(--ink);background:var(--paper);color:var(--ink);border-radius:999px;font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;font-weight:500;cursor:pointer;transition:transform .13s var(--ease),background .15s}
+  .filterbtn:active{transform:scale(.95);background:rgba(30,34,41,.05)}
+  .filterbtn .dot{width:6px;height:6px;border-radius:999px;background:var(--gold);display:none}
+  .filterbtn.on .dot{display:block}
+
+  .toast{position:absolute;left:50%;bottom:84px;transform:translateX(-50%) translateY(8px);background:var(--ink);color:var(--paper);font-size:12px;padding:9px 15px;border-radius:999px;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;white-space:nowrap;z-index:5}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+  <div class="cap"><b>Category Search overlay</b> — opens in place from "Find ceremony venue / Search / Add". X upper-left · results <b>only</b> for this one category · search bar + filter at the bottom.</div>
+
+  <div class="frame">
+    <!-- hint of the plan behind, dimmed -->
+    <div class="behind">
+      <div class="bar"></div>
+      <div class="body">
+        <div class="ln s"></div><div class="ln m"></div>
+        <div class="cardghost"></div>
+      </div>
+    </div>
+    <div class="scrim"></div>
+
+    <!-- the overlay -->
+    <div class="sheet">
+      <div class="head">
+        <button class="x" aria-label="Close">✕</button>
+        <div class="htext">
+          <span class="eyebrow">Add to your plan</span>
+          <span class="title">Ceremony venue</span>
+          <span class="scope">Showing only <b>Ceremony venue</b> vendors · 6 near you</span>
+        </div>
+      </div>
+
+      <div class="scoped-note">This list <b>only</b> shows vendors registered for Ceremony venue — search + filter stay inside this category.</div>
+
+      <div class="results">
+        <div class="r" data-name="Mary the Queen Parish — Greenhills">
+          <div class="img">MG</div>
+          <div class="meta">
+            <div class="vn">Mary the Queen Parish — Greenhills</div>
+            <div class="sub">San Juan · 8 km from reception</div>
+            <div class="stars">★★★★☆<span class="rc">52</span></div>
+            <div class="bottom"><span class="price q">Price on inquiry</span><button class="addbtn">Add</button></div>
+          </div>
+        </div>
+
+        <div class="r" data-name="Santuario de San Jose Parish">
+          <div class="img">SP</div>
+          <div class="meta">
+            <div class="vn">Santuario de San Jose Parish</div>
+            <div class="sub">Mandaluyong · 6 km from reception</div>
+            <div class="stars">★★★★★<span class="rc">88</span></div>
+            <div class="bottom"><span class="price q">Price on inquiry</span><button class="addbtn">Add</button></div>
+          </div>
+        </div>
+
+        <div class="r" data-name="National Shrine of Our Lady of Guadalupe">
+          <div class="img">NS</div>
+          <div class="meta">
+            <div class="vn">National Shrine of Our Lady of Guadalupe</div>
+            <div class="sub">Makati · 4 km from reception</div>
+            <span class="bdg">✓ Verified</span>
+            <div class="bottom"><span class="price q">Price on inquiry</span><button class="addbtn">Add</button></div>
+          </div>
+        </div>
+
+        <div class="r" data-name="San Antonio de Padua Parish">
+          <div class="img">SA</div>
+          <div class="meta">
+            <div class="vn">San Antonio de Padua Parish</div>
+            <div class="sub">Pasig · 11 km from reception</div>
+            <div class="stars">★★★★☆<span class="rc">31</span></div>
+            <div class="bottom"><span class="price q">Price on inquiry</span><button class="addbtn">Add</button></div>
+          </div>
+        </div>
+
+        <div class="r" data-name="Our Lady of the Abandoned Parish">
+          <div class="img">OA</div>
+          <div class="meta">
+            <div class="vn">Our Lady of the Abandoned Parish</div>
+            <div class="sub">Marikina · 14 km from reception</div>
+            <div class="stars">★★★★★<span class="rc">120</span></div>
+            <div class="bottom"><span class="price q">Price on inquiry</span><button class="addbtn">Add</button></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="foot">
+        <label class="searchwrap"><span class="mag">⌕</span><input type="text" placeholder="Search ceremony venues…" /></label>
+        <button class="filterbtn"><span class="dot"></span>Filter</button>
+      </div>
+
+      <div class="toast" id="toast"></div>
+    </div>
+  </div>
+
+  <div class="cap" style="max-width:430px">Tap <b>Add</b> to shortlist (stays open so you can add more) · <b>X</b> closes with no change · <b>Filter</b> refines within this category only (distance · verified).</div>
+
+<script>
+  document.querySelectorAll('.addbtn').forEach(function(b){
+    b.addEventListener('click',function(){
+      var card=b.closest('.r');
+      if(card.classList.contains('added')){ card.classList.remove('added'); b.textContent='Add'; return; }
+      card.classList.add('added'); b.textContent='✓ Added';
+      var t=document.getElementById('toast'); t.textContent='Added to your plan — '+card.getAttribute('data-name'); t.classList.add('show');
+      setTimeout(function(){t.classList.remove('show');},2200);
+    });
+  });
+  document.querySelector('.filterbtn').addEventListener('click',function(){ this.classList.toggle('on'); });
+</script>
+</body>
+</html>

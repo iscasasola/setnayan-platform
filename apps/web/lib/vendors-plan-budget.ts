@@ -96,6 +96,20 @@ export type AccordionPick = PlanCardPick & {
   rolled_cost_php: number | null;
   /** Same-date competition count (aggregate, never identities). 0 = none. */
   eyeing: number;
+  /**
+   * Optional card-enrichment — populated only once the page fetch joins
+   * vendor_profiles for picked marketplace vendors (spec §13, post-pilot).
+   * The 300px card renders each of these ONLY when present, never
+   * fabricated — so on the current build they stay undefined and the
+   * stars / verified+Setnayan badges / linked-vendor rows simply don't
+   * appear until the join lands.
+   */
+  rating?: number | null;
+  review_count?: number | null;
+  is_verified?: boolean;
+  is_setnayan_service?: boolean;
+  recommended_reason?: string | null;
+  linked_to_name?: string | null;
 };
 
 /** One plan-group rail inside a folder (e.g. "Attire" inside Look). */

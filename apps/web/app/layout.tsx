@@ -110,11 +110,16 @@ export const metadata: Metadata = {
   applicationName: 'Setnayan',
   manifest: '/manifest.json',
   icons: {
+    // Browser-tab favicon = the transparent gold S/Y glyph (sits on the tab bg).
     icon: [
       { url: '/icon-192.svg', type: 'image/svg+xml', sizes: '192x192' },
       { url: '/icon-512.svg', type: 'image/svg+xml', sizes: '512x512' },
     ],
-    apple: [{ url: '/icon-192.svg', sizes: '192x192' }],
+    // iOS home-screen icon = the filled white app-icon tile (owner 2026-05-31).
+    // iOS composites transparency onto black, so apple-touch needs the opaque
+    // padded PNG, not the transparent glyph. PWA maskable entry lives in
+    // manifest.json pointing at the same /brand/setnayan-app-icon-512.png.
+    apple: [{ url: '/brand/setnayan-app-icon-512.png', sizes: '512x512' }],
   },
   appleWebApp: {
     capable: true,

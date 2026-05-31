@@ -555,23 +555,18 @@ function DueRow({
 function FolderSection({
   folder,
   eventId,
-  open,
-  onToggle,
 }: {
   folder: AccordionFolder;
   eventId: string;
-  open: boolean;
-  onToggle: () => void;
 }) {
   const hasLocked = folder.lockedTotal > 0;
+  // Folders render always-open (the prototype model) so the scroll engine can
+  // curve-merge each .child-block into this sticky parent header as the couple
+  // scrolls past it. The .cat-head is a non-interactive sticky label, not a
+  // collapse toggle.
   return (
     <section id={`folder-${folder.folder}`} className="cat">
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={open}
-        className={`cat-head${open ? ' active' : ''}`}
-      >
+      <div className="cat-head">
         <span className="nm">{folder.label}</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span className={`amt${hasLocked ? '' : ' zero'}`}>
@@ -581,28 +576,24 @@ function FolderSection({
                 ? `${folder.pickCount} shortlisted`
                 : 'Not started'}
           </span>
-          <span className="chev" aria-hidden>
-            ▾
-          </span>
         </span>
-      </button>
+      </div>
 
-      {open && (
-        <div className="cat-body">
-          {folder.children.length === 0 ? (
-            <p className="cat-empty">Nothing here yet for your wedding.</p>
-          ) : (
-            folder.children.map((child) => (
+      <div className="cat-body">
+        {folder.children.length === 0 ? (
+          <p className="cat-empty">Nothing here yet for your wedding.</p>
+        ) : (
+          folder.children.map((child) => (
+            <div className="child-block" key={child.groupId}>
               <ChildRail
-                key={child.groupId}
                 child={child}
                 eventId={eventId}
                 folderSlug={folder.slug}
               />
-            ))
-          )}
-        </div>
-      )}
+            </div>
+          ))
+        )}
+      </div>
     </section>
   );
 }

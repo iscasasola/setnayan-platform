@@ -38,6 +38,7 @@ import Link from 'next/link';
 import { formatPhp } from '@/lib/vendors';
 import { formatDistanceKm } from '@/lib/distance';
 import { deleteVendor, updateVendorStatus } from '../actions';
+import { haptic } from '@/lib/haptics';
 import { CategorySearchOverlay } from './category-search-overlay';
 import {
   formatPesoCompact,
@@ -455,13 +456,9 @@ export function PlanBudgetAccordion({
         const prev = snapIndex.get(rail) ?? -1;
         if (nearest !== -1 && nearest !== prev) {
           snapIndex.set(rail, nearest);
-          if (prev !== -1 && 'vibrate' in navigator) {
-            try {
-              navigator.vibrate(7);
-            } catch {
-              /* vibration unsupported / blocked — ignore */
-            }
-          }
+          // Rail-snap tick. Scroll context (not a tap), so iOS-switch is skipped
+          // — Android-only here; iOS scroll haptics need the native app (0052).
+          if (prev !== -1) haptic('tick', { iosSwitch: false });
         }
       });
     };
@@ -1064,7 +1061,12 @@ function VendorCardAtom({
             <form action={deleteVendor} style={{ display: 'contents' }}>
               <input type="hidden" name="event_id" value={eventId} />
               <input type="hidden" name="vendor_id" value={pick.vendor_id} />
-              <button type="submit" className="vx armed" aria-label="Confirm remove">
+              <button
+                type="submit"
+                className="vx armed"
+                aria-label="Confirm remove"
+                onClick={() => haptic('select')}
+              >
                 Remove
               </button>
             </form>
@@ -1081,7 +1083,10 @@ function VendorCardAtom({
             type="button"
             className="vx"
             aria-label="Remove from shortlist"
-            onClick={() => setConfirmRemove(true)}
+            onClick={() => {
+              haptic('tick');
+              setConfirmRemove(true);
+            }}
           >
             ×
           </button>
@@ -1094,7 +1099,11 @@ function VendorCardAtom({
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="vendor_id" value={pick.vendor_id} />
             <input type="hidden" name="status" value="contracted" />
-            <button type="submit" className="lockbtn">
+            <button
+              type="submit"
+              className="lockbtn"
+              onClick={() => haptic('confirm')}
+            >
               Lock this pick
             </button>
           </form>

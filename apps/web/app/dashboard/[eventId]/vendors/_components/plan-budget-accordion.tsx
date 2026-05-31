@@ -152,6 +152,7 @@ const PBA_CSS = `
 .pba .dl-dot{width:7px;height:7px;border-radius:50%;flex:none}
 .pba .dl-row.over .dl-dot{background:#b23b34}
 .pba .dl-row.soon .dl-dot{background:var(--gold)}
+.pba .dl-row.start .dl-dot{background:var(--gold)}
 .pba .dl-row.next .dl-dot{background:var(--ink-soft)}
 .pba .dl-main{flex:1;min-width:0}
 .pba .dl-name{font-family:var(--serif);font-style:italic;font-weight:600;font-size:15px;line-height:1.1;color:var(--ink)}
@@ -159,6 +160,7 @@ const PBA_CSS = `
 .pba .dl-when{flex:none;text-align:right;font-family:var(--mono);font-size:8px;line-height:1.3;letter-spacing:.05em;text-transform:uppercase}
 .pba .dl-when.over{color:#b23b34;font-weight:500}
 .pba .dl-when.soon{color:var(--gold-deep)}
+.pba .dl-when.start{color:var(--gold-deep)}
 .pba .dl-when.next{color:var(--ink-soft)}
 .pba .dl-empty{font-family:var(--serif);font-style:italic;font-size:14px;color:var(--ink-soft);padding:6px 2px}
 .pba .intro-cta{margin-top:auto;display:flex;flex-direction:column;align-items:center;gap:2px;font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft)}
@@ -222,6 +224,7 @@ const PBA_CSS = `
 .pba .chip.locked{color:var(--gold-deep);background:rgba(197,160,89,.16)}
 .pba .chip.over{color:#b23b34;background:rgba(178,59,52,.1)}
 .pba .chip.soon{color:var(--gold-deep);background:rgba(197,160,89,.16)}
+.pba .chip.start{color:var(--gold-deep);background:rgba(197,160,89,.1);box-shadow:inset 0 0 0 1px rgba(197,160,89,.4)}
 .pba .chip.next{color:var(--ink-soft);background:rgba(30,34,41,.06)}
 
 /* ---- Carousel rail + 300px cards ---- */
@@ -361,6 +364,7 @@ html.dark .pba .topbar .status.over{color:#b23b34}
 html.dark .pba .meter{background:rgba(251,251,250,.12)}
 html.dark .pba .intro-meter .pm-track{background:rgba(251,251,250,.1)}
 html.dark .pba .chip.next{background:rgba(251,251,250,.08)}
+html.dark .pba .chip.start{background:rgba(197,160,89,.14)}
 html.dark .pba .cmpclose{background:rgba(251,251,250,.1)}
 html.dark .pba .cat-head.active{box-shadow:0 6px 16px -10px rgba(0,0,0,.7)}
 /* --mulberry stays dark as a FILL (recap card + CTAs keep white text); but
@@ -795,16 +799,25 @@ function DueRow({
   eventId: string;
   calm?: boolean;
 }) {
-  const overdue = !calm && item.daysLeft < 0;
-  const soon = !calm && item.daysLeft >= 0 && item.daysLeft <= 20;
-  const rowTone = overdue ? 'over' : soon ? 'soon' : 'next';
+  const status = item.timelineStatus;
+  const rowTone = calm
+    ? 'next'
+    : status === 'overdue'
+      ? 'over'
+      : status === 'due_soon'
+        ? 'soon'
+        : status === 'start_now'
+          ? 'start'
+          : 'next';
   const when = calm
     ? 'Coming up'
-    : overdue
+    : status === 'overdue'
       ? `${Math.abs(item.daysLeft)}d overdue`
-      : soon
+      : status === 'due_soon'
         ? `${item.daysLeft}d left`
-        : `${item.daysLeft}d`;
+        : status === 'start_now'
+          ? 'Time to start'
+          : `${item.daysLeft}d`;
   return (
     <Link
       href={`/dashboard/${eventId}/vendors#group-${item.groupId}`}
@@ -911,7 +924,7 @@ function ChildRail({
               ⇄ Compare {child.picks.length}
             </button>
           )}
-          <DeadlineChip daysLeft={child.daysLeft} state={child.state} />
+          <DeadlineChip status={child.timelineStatus} daysLeft={child.daysLeft} />
         </span>
       </div>
 
@@ -941,26 +954,30 @@ function ChildRail({
   );
 }
 
+// Per-category timeline chip. Quiet while the category is still 'upcoming';
+// nudges "Start now" the moment its START window opens; counts down through
+// 'due_soon'; warns clearly once 'overdue'. Reads timelineStatus so the chip,
+// the cover's "What to lock next" row, and the model stay one source of truth.
 function DeadlineChip({
+  status,
   daysLeft,
-  state,
 }: {
+  status: AccordionChild['timelineStatus'];
   daysLeft: number | null;
-  state: AccordionChild['state'];
 }) {
-  if (state === 'finalized') {
+  if (status === 'locked') {
     return <span className="chip locked">✓ Locked</span>;
   }
-  if (daysLeft === null) return null;
-  const overdue = daysLeft < 0;
-  const soon = daysLeft >= 0 && daysLeft <= 20;
-  const tone = overdue ? 'over' : soon ? 'soon' : 'next';
-  const label = overdue
-    ? `${Math.abs(daysLeft)}d overdue`
-    : soon
-      ? `${daysLeft}d left`
-      : `${daysLeft}d`;
-  return <span className={`chip ${tone}`}>{label}</span>;
+  if (status === 'overdue' && daysLeft !== null) {
+    return <span className="chip over">⚠ {Math.abs(daysLeft)}d overdue</span>;
+  }
+  if (status === 'due_soon' && daysLeft !== null) {
+    return <span className="chip soon">{daysLeft}d left</span>;
+  }
+  if (status === 'start_now') {
+    return <span className="chip start">Start now</span>;
+  }
+  return null; // upcoming → stay quiet until the START window opens
 }
 
 // ── The §4 vendor card atom (300px prototype card) ────────────────────────

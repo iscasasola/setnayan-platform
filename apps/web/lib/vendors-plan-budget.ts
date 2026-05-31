@@ -44,12 +44,27 @@ import {
   type WeddingFolder,
 } from '@/lib/taxonomy';
 
-// ── Finalize deadlines ──────────────────────────────────────────────────
-// Days-before-the-wedding each plan group should be locked. Grounded in the
-// locked Today's Focus per-card hard-floor table (CLAUDE.md 2026-05-24
-// "Today's Focus SKU lock" + "Home is the guide"): venue / caterer / photo
-// book earliest; day-of bits latest. Keyed by PlanGroupId so the accordion's
-// "What to lock next" list + per-child deadline chips read one source.
+// ── Category timeline · START window + LOCK-BY floor ─────────────────────
+// Two numbers per plan group, both in days-before-the-wedding, from the
+// 2026-06-01 taxonomy-timeline deep-dive (CLAUDE.md row + that study; grounded
+// in the locked Today's Focus per-card hard-floor table + the Concierge Brain
+// 04_Planning_Timelines.md windows + PH wedding reality):
+//
+//   START_DAYS — when the app STARTS recommending the couple begin shopping
+//                this category (begin shortlisting). Surfaces a "Start now"
+//                nudge in "What to lock next" + the per-child chip.
+//   LEAD_DAYS  — the LOCK-BY hard floor. Past it with nothing locked = the
+//                couple is warned "overdue" (first-choice options are gone /
+//                lead-time can't be met).
+//
+// The gap between them is the research→decide→inquire window. Keyed by
+// PlanGroupId so the accordion's "What to lock next" + per-child chips read
+// one source. All render-time (no cron) — computed against daysUntilWedding.
+
+// LOCK-BY hard floors (days before the wedding). venue / caterer / photo book
+// earliest; day-of bits latest. 2026-06-01 reconcile: hair_makeup 95→165 +
+// attire 130→165 — the deep-dive flags both as too late at the old values (a
+// lead MUA + custom couture book out for peak Saturdays well before 3-4mo).
 const LEAD_DAYS: Partial<Record<PlanGroupId, number>> = {
   reception_venue: 270,
   ceremony_venue: 270,
@@ -57,8 +72,8 @@ const LEAD_DAYS: Partial<Record<PlanGroupId, number>> = {
   catering: 240,
   photography: 240,
   cake: 75,
-  attire: 130,
-  hair_makeup: 95,
+  attire: 165,
+  hair_makeup: 165,
   florals_decor: 175,
   stylist: 175,
   live_band: 185,
@@ -80,6 +95,42 @@ const LEAD_DAYS: Partial<Record<PlanGroupId, number>> = {
 };
 const DEFAULT_LEAD_DAYS = 90;
 
+// START windows (days before the wedding) — when the app begins recommending
+// the category. Every entry sits earlier than its LEAD_DAYS floor; the gap is
+// the shop-around runway. For a 12-month engagement, the anchors (venue / photo
+// / caterer) open at ~12mo, the day-of extras at ~3-4mo. Peak season (Ber +
+// Apr/May) effectively pulls everything earlier — couples who set a peak date
+// are already inside the start window the moment they create the event.
+const START_DAYS: Partial<Record<PlanGroupId, number>> = {
+  reception_venue: 360,
+  ceremony_venue: 360,
+  coordinator: 300,
+  officiant: 270,
+  catering: 330,
+  photography: 360,
+  attire: 240,
+  hair_makeup: 285,
+  florals_decor: 210,
+  stylist: 270,
+  live_band: 300,
+  music_entertainment: 240,
+  dance_instructor: 120,
+  after_party_music: 60,
+  host_mc: 180,
+  lights_sound: 150,
+  led_background: 120,
+  cocktail_booths: 120,
+  photobooth: 120,
+  cake: 180,
+  bridal_car: 120,
+  guest_shuttle: 90,
+  rings: 180,
+  accommodation: 60,
+  invitations_stationery: 150,
+  logistics: 120,
+};
+const DEFAULT_START_DAYS = 150;
+
 // Locked statuses = a pick the couple has committed to (drives "Chosen").
 const LOCKED_STATUSES = new Set([
   'contracted',
@@ -89,6 +140,23 @@ const LOCKED_STATUSES = new Set([
 ]);
 
 export type ChildState = 'empty' | 'considering' | 'finalized';
+
+/**
+ * Where a category sits on the planning clock, derived from the wedding date
+ * vs START_DAYS + LEAD_DAYS. Drives the per-child chip + the "What to lock
+ * next" nudge.
+ *   upcoming  — too early; the app stays quiet (no chip).
+ *   start_now — the START window is open: "Start now / Time to start".
+ *   due_soon  — within 20 days of the lock-by floor: "Nd left".
+ *   overdue   — past the floor with nothing locked: WARN "Nd overdue".
+ *   locked    — the couple has finalized a pick here.
+ */
+export type TimelineStatus =
+  | 'upcoming'
+  | 'start_now'
+  | 'due_soon'
+  | 'overdue'
+  | 'locked';
 
 /** One pick row inside the accordion, enriched with budget + competition. */
 export type AccordionPick = PlanCardPick & {
@@ -140,8 +208,10 @@ export type AccordionChild = {
   hint: string;
   picks: AccordionPick[];
   state: ChildState;
-  /** Days until this group should be locked. <0 overdue · 0-20 soon · >20 upcoming. */
+  /** Days until this group should be locked (LEAD_DAYS floor). <0 overdue. */
   daysLeft: number | null;
+  /** Where this category sits on the planning clock (drives chip + nudge). */
+  timelineStatus: TimelineStatus;
   /** Σ of locked picks in this child. */
   lockedTotal: number;
   /** Whether the group is hard-single (one pick max). */
@@ -166,6 +236,7 @@ export type DueItem = {
   label: string;
   daysLeft: number;
   state: ChildState;
+  timelineStatus: TimelineStatus;
   optionCount: number;
   maxEyeing: number;
 };
@@ -206,11 +277,33 @@ function pickCostCentavos(pick: AccordionPick): number {
   return Math.round(pkg * PESO);
 }
 
-/** Build the deadline list helper. */
+/** Days until the lock-by floor (negative = overdue). */
 function deadlineFor(groupId: PlanGroupId, daysUntilWedding: number | null): number | null {
   if (daysUntilWedding === null) return null;
   const lead = LEAD_DAYS[groupId] ?? DEFAULT_LEAD_DAYS;
   return daysUntilWedding - lead;
+}
+
+/**
+ * Place a category on the planning clock. Past the floor with nothing locked =
+ * overdue (warn); inside the START window but not yet near the floor =
+ * start_now (the app's recommend-to-begin signal); before the START window =
+ * upcoming (quiet). No date set yet → upcoming (nothing to warn about).
+ */
+function timelineStatusOf(
+  groupId: PlanGroupId,
+  daysUntilWedding: number | null,
+  state: ChildState,
+): TimelineStatus {
+  if (state === 'finalized') return 'locked';
+  if (daysUntilWedding === null) return 'upcoming';
+  const floor = LEAD_DAYS[groupId] ?? DEFAULT_LEAD_DAYS;
+  const start = START_DAYS[groupId] ?? DEFAULT_START_DAYS;
+  const daysToFloor = daysUntilWedding - floor;
+  if (daysToFloor < 0) return 'overdue';
+  if (daysToFloor <= 20) return 'due_soon';
+  if (daysUntilWedding <= start) return 'start_now';
+  return 'upcoming';
 }
 
 function childStateOf(picks: AccordionPick[], hardSingle: boolean): ChildState {
@@ -332,6 +425,7 @@ export function buildPlanBudgetModel(args: {
       picks,
       state,
       daysLeft: deadlineFor(group.id, daysUntilWedding),
+      timelineStatus: timelineStatusOf(group.id, daysUntilWedding, state),
       lockedTotal,
       hardSingle,
     };
@@ -419,8 +513,10 @@ export function buildPlanBudgetModel(args: {
 
   // ── What to lock next ──────────────────────────────────────────────────
   // Every non-finalized child with a deadline, ordered overdue-first then
-  // soonest. Top 3 surface in the overview; a "Next up" fallback covers the
-  // calm case (nothing overdue/soon).
+  // soonest floor. "Actionable" = the app actively recommends moving on it now:
+  // overdue (warn) → due_soon → start_now (its START window has opened). Top 3
+  // surface in the overview; a "Next up" fallback covers the calm case where
+  // nothing's actionable yet (everything still 'upcoming').
   const due: DueItem[] = [];
   for (const folder of folders) {
     for (const child of folder.children) {
@@ -431,15 +527,21 @@ export function buildPlanBudgetModel(args: {
         label: child.label,
         daysLeft: child.daysLeft,
         state: child.state,
+        timelineStatus: child.timelineStatus,
         optionCount: child.picks.length,
         maxEyeing: child.picks.reduce((m, p) => Math.max(m, p.eyeing), 0),
       });
     }
   }
   due.sort((a, b) => a.daysLeft - b.daysLeft);
-  const urgent = due.filter((d) => d.daysLeft <= 20);
-  const dueList = urgent.slice(0, 3);
-  const upNext = urgent.length === 0 && due.length > 0 ? (due[0] ?? null) : null;
+  const actionable = due.filter(
+    (d) =>
+      d.timelineStatus === 'overdue' ||
+      d.timelineStatus === 'due_soon' ||
+      d.timelineStatus === 'start_now',
+  );
+  const dueList = actionable.slice(0, 3);
+  const upNext = actionable.length === 0 && due.length > 0 ? (due[0] ?? null) : null;
 
   // ── Recap ──────────────────────────────────────────────────────────────
   // shortlisted = Σ vendor cards. searched/hours are a transparent, tunable

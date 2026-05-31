@@ -118,7 +118,17 @@ export default async function VendorsPage({ params }: Props) {
     // stage; omitted now → no eyeing chip renders (aggregate-only).
   });
 
-  return <PlanBudgetAccordion model={model} eventId={eventId} />;
+  // Full-bleed: cancel the shared dashboard <main> padding (px-4 py-6 /
+  // sm:px-6 / lg:px-8) so the accordion sits edge-to-edge directly under the
+  // sticky chrome bar. This makes the cover screen full-width AND lets the
+  // accordion measure the true chrome height (its top edge = chrome bottom at
+  // scroll-top). The -my-6 also removes the top gap so the budget bar docks
+  // flush beneath the chrome. CLAUDE.md 2026-05-31 (cover + sticky-stack fix).
+  return (
+    <div className="-mx-4 -my-6 sm:-mx-6 lg:-mx-8">
+      <PlanBudgetAccordion model={model} eventId={eventId} />
+    </div>
+  );
 }
 
 /**

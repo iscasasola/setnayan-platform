@@ -74,17 +74,19 @@ const PBA_CSS = `
   --mulberry:var(--m-mulberry,#5C2542); --mulberry-deep:var(--m-mulberry-2,#4A1D36);
   --line:rgba(30,34,41,.12); --line-soft:rgba(30,34,41,.07);
   --topbar-h:62px; --head-h:34px;
-  /* mobile: shared app header (sticky, ~64px, lg:hidden) sits above the
-     accordion; offset our sticky budget bar + category heads below it.
-     desktop: header is lg:hidden, so the @media override below sets 0. */
-  --pba-header-offset:64px;
+  /* The dashboard chrome bar (EventSwitcher + utilities) is rendered by
+     SidebarShell as `sticky top-0 z-20` on BOTH mobile and desktop (it is
+     NOT lg:hidden). So our sticky budget bar (z-30) must offset BELOW it on
+     every breakpoint, else it pins on top of the chrome at top:0. ~56px is
+     the chrome row height (py-3 + ~32px content); set as a JS-measured var
+     at runtime (see useEffect) with this as the SSR/no-JS fallback. */
+  --pba-header-offset:56px;
   --serif:var(--font-display),"Cormorant Garamond",Georgia,serif;
   --sans:var(--font-sans),"Manrope",-apple-system,system-ui,sans-serif;
   --mono:var(--font-mono),"DM Mono",ui-monospace,Menlo,monospace;
   --spring:cubic-bezier(.34,1.3,.5,1); --ease:cubic-bezier(.22,.61,.36,1);
   position:relative; background:var(--paper); color:var(--ink); font-family:var(--sans);
 }
-@media (min-width:1024px){.pba{--pba-header-offset:0px}}
 .pba *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 
 /* ---- Dark top budget bar ---- */
@@ -110,7 +112,7 @@ const PBA_CSS = `
 .pba .body{max-width:760px;margin:0 auto;padding:0 0 120px}
 
 /* ---- Landing overview ---- */
-.pba .intro{display:flex;flex-direction:column;gap:14px;padding:26px 22px 24px;background:var(--paper)}
+.pba .intro{display:flex;flex-direction:column;justify-content:center;gap:14px;padding:26px 22px 30px;background:var(--paper);min-height:calc(100svh - var(--pba-header-offset) - var(--topbar-h))}
 .pba .intro-eyebrow{font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-deep)}
 .pba .intro-h{font-family:var(--serif);font-style:italic;font-size:29px;line-height:1.05;color:var(--ink);margin:2px 0 4px}
 .pba .intro-grid{display:flex;flex-direction:column;gap:10px}
@@ -243,6 +245,33 @@ export function PlanBudgetAccordion({
 }) {
   const hasAnyPick = model.recap.shortlisted > 0;
   const rootRef = useRef<HTMLDivElement>(null);
+
+  // Measure the real dashboard chrome height so the budget bar + category
+  // heads stack BELOW it instead of guessing a fixed px. The dashboard's
+  // EventSwitcher bar is rendered by SidebarShell as `sticky top-0` on every
+  // breakpoint; with this route full-bleed, at scroll-top the accordion's own
+  // top edge sits exactly at the chrome's bottom — so `rect.top` (captured
+  // while scrolled to the top) IS the chrome height. We write it to
+  // --pba-header-offset. Runs independent of the motion effect below so the
+  // sticky stack is correct even under prefers-reduced-motion. The 56px CSS
+  // fallback covers SSR / pre-measure / mid-scroll mount. Re-measures on resize
+  // (breakpoint flips chrome height). Self-correcting → no per-breakpoint @media.
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root || typeof window === 'undefined') return;
+    const measure = () => {
+      if (window.scrollY > 4) return; // only trustworthy at the top
+      const top = Math.max(0, Math.round(root.getBoundingClientRect().top));
+      if (top > 0) root.style.setProperty('--pba-header-offset', `${top}px`);
+    };
+    // rAF so the measure runs after the chrome bar has laid out.
+    const id = window.requestAnimationFrame(measure);
+    window.addEventListener('resize', measure, { passive: true });
+    return () => {
+      window.cancelAnimationFrame(id);
+      window.removeEventListener('resize', measure);
+    };
+  }, []);
 
   // Scroll-driven motion (prototype Plan_Budget_Accordion_2026-05-31.html):
   //   · sizeIntro   — the "Where your day stands" overview scales + fades as it

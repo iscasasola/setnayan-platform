@@ -181,7 +181,11 @@ export function SidebarShell({ sidebar, sidebarFooter, topBar, children }: Props
               same offset as the rest of the column. */}
           {topBar ? (
             <div
-              className="sticky top-0 z-20"
+              // `shell-topbar` is a stable hook so an individual page can
+              // hide the sticky top strip (e.g. the Vendors tab renders its
+              // own full-bleed black budget bar in its place). Purely a
+              // styling hook — no behavior here.
+              className="shell-topbar sticky top-0 z-20"
               style={{
                 background: 'var(--m-paper)',
                 borderBottom: '1px solid var(--m-line)',

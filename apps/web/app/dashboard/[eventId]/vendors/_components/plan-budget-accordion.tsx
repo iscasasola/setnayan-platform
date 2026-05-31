@@ -114,7 +114,11 @@ const PBA_CSS = `
 .pba .body{max-width:760px;margin:0 auto;padding:0 0 120px}
 
 /* ---- Landing overview ---- */
-.pba .intro{display:flex;flex-direction:column;gap:14px;padding:26px 22px 24px;background:var(--paper)}
+/* Cover page — the landing overview is the default FIRST view; it fills the
+   whole screen below the black bar (you slide up from it to begin). Bottom
+   padding clears the mobile bottom-nav so the "Scroll up to begin" cue stays
+   visible. */
+.pba .intro{display:flex;flex-direction:column;gap:14px;padding:26px 22px 88px;min-height:calc(100svh - var(--topbar-h));background:var(--paper)}
 .pba .intro-eyebrow{font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-deep)}
 .pba .intro-h{font-family:var(--serif);font-style:italic;font-size:29px;line-height:1.05;color:var(--ink);margin:2px 0 4px}
 .pba .intro-grid{display:flex;flex-direction:column;gap:10px}
@@ -140,8 +144,16 @@ const PBA_CSS = `
 .pba .dl-when.soon{color:var(--gold-deep)}
 .pba .dl-when.next{color:var(--ink-soft)}
 .pba .dl-empty{font-family:var(--serif);font-style:italic;font-size:14px;color:var(--ink-soft);padding:6px 2px}
-.pba .intro-cta{margin-top:4px;display:flex;flex-direction:column;align-items:center;gap:2px;font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft)}
+.pba .intro-cta{margin-top:auto;display:flex;flex-direction:column;align-items:center;gap:2px;font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft)}
 .pba .intro-cta .chev{font-size:18px;line-height:1;animation:pba-bob 1.5s var(--ease) infinite}
+/* Slide-up "to start" entrance — the cover's content rises in on arrival,
+   staggered. (Targets the children, not .intro itself, so it never fights
+   the scroll-linked shrink/fade on .intro.) */
+@keyframes pba-rise{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+.pba .intro-eyebrow{animation:pba-rise .5s var(--ease) both}
+.pba .intro-h{animation:pba-rise .55s var(--ease) .07s both}
+.pba .intro-grid{animation:pba-rise .6s var(--ease) .14s both}
+.pba .intro-cta{animation:pba-rise .6s var(--ease) .24s both}
 @keyframes pba-bob{0%,100%{transform:translateY(0);opacity:.45}50%{transform:translateY(-6px);opacity:1}}
 
 /* ---- Category sticky stacking head + body ---- */
@@ -276,6 +288,7 @@ const PBA_CSS = `
 .pba .rail{perspective:1200px}
 @media (prefers-reduced-motion:reduce){
   .pba .intro,.pba .child-block,.pba .card{transform:none!important;opacity:1!important;transition:none!important}
+  .pba .intro-eyebrow,.pba .intro-h,.pba .intro-grid,.pba .intro-cta{animation:none!important;opacity:1!important;transform:none!important}
 }
 `;
 
@@ -400,6 +413,12 @@ export function PlanBudgetAccordion({
   return (
     <div className="pba" ref={rootRef}>
       <style>{PBA_CSS}</style>
+      {/* This page replaces the app top-nav with its own persistent black
+          budget bar. Hide the SidebarShell sticky top strip while the
+          Vendors tab is mounted (the rule lives only in this page's DOM, so
+          the nav returns the moment you navigate away). Bottom nav stays for
+          tab switching. */}
+      <style>{`.shell-topbar{display:none}`}</style>
       <TopBar model={model} />
       <div className="body">
         <Overview model={model} eventId={eventId} />

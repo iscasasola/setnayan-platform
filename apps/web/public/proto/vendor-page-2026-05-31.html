@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex,nofollow" />
+<title>Setnayan · Vendor Page Prototype (Couple ↔ Vendor)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  /* ============================================================
+     SETNAYAN — VENDOR PAGE PROTOTYPE
+     Throwaway design canvas. NOT production code.
+       · LEFT  — Couple's "Vendor menu" (Plan + Budget accordion)
+       · RIGHT — Vendor's "Pipeline" (same shell, mapped content)
+     PILE: parent category headers stack at stepped offsets
+     (top = topbar + idx*headH) so all 10 compile on top into a
+     sticky index filling ~half the screen; recap fills the rest.
+     Palette: Clean Editorial (locked 2026-05-29).
+     ============================================================ */
+  :root{
+    --paper:#FBFBFA; --ink:#1E2229; --ink-soft:#4F535B;
+    --gold:#C5A059; --gold-deep:#8C6932;
+    --mulberry:#5C2542; --mulberry-deep:#4A1D36;
+    --line:rgba(30,34,41,.12); --line-soft:rgba(30,34,41,.07);
+    --serif:"Cormorant Garamond",Georgia,serif;
+    --sans:"Manrope",-apple-system,system-ui,sans-serif;
+    --mono:"DM Mono",ui-monospace,Menlo,monospace;
+    --ease:cubic-bezier(.22,.61,.36,1);
+    --topbar-h:60px; --head-h:38px; /* 10 × 38 ≈ 380px ≈ half a 780 frame */
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:#EDEAE3;font-family:var(--sans);color:var(--ink);padding:28px 18px 60px}
+
+  /* ---- Page chrome ---- */
+  .pagehead{max-width:880px;margin:0 auto 22px;text-align:center}
+  .pagehead .eb{font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold-deep)}
+  .pagehead h1{font-family:var(--serif);font-style:italic;font-weight:600;font-size:34px;margin:6px 0 8px;color:var(--ink)}
+  .pagehead p{max-width:640px;margin:0 auto;font-size:13.5px;line-height:1.6;color:var(--ink-soft)}
+  .pagehead .legend{display:inline-flex;gap:16px;margin-top:14px;flex-wrap:wrap;justify-content:center;font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--ink-soft)}
+  .pagehead .legend b{color:var(--ink);font-weight:600}
+
+  .demobar{max-width:880px;margin:0 auto 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center;background:var(--ink);border-radius:16px;padding:14px 18px}
+  .demobar .dlabel{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.55)}
+  .demobtn{border:0;border-radius:999px;background:var(--gold);color:var(--ink);font-family:var(--sans);font-weight:700;font-size:13px;padding:10px 18px;cursor:pointer}
+  .demobtn:active{transform:scale(.97)}
+  .demobtn.reset{background:transparent;color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.25);font-weight:500}
+  .demostep{font-family:var(--sans);font-size:12px;line-height:1.5;color:rgba(255,255,255,.82);flex-basis:100%;text-align:center;min-height:16px}
+  .demostep b{color:var(--gold)}
+
+  .frames{max-width:880px;margin:0 auto;display:flex;gap:26px;justify-content:center;align-items:flex-start;flex-wrap:wrap}
+  .framewrap{flex:0 0 auto;width:393px;max-width:100%}
+  .framelabel{display:flex;align-items:center;gap:8px;margin:0 4px 9px;font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .framelabel .dot{width:9px;height:9px;border-radius:50%}
+  .framelabel.couple .dot{background:var(--mulberry)}
+  .framelabel.vendor .dot{background:var(--gold)}
+  .framelabel .who{color:var(--ink);font-weight:600}
+  .framelabel .what{color:var(--ink-soft)}
+
+  .frame{position:relative;width:393px;max-width:100%;height:780px;border-radius:30px;overflow:hidden;background:var(--paper);
+    box-shadow:0 30px 60px -28px rgba(0,0,0,.5),0 0 0 9px #14171c,0 0 0 10px rgba(255,255,255,.06)}
+  .scroll{height:100%;overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
+  .scroll::-webkit-scrollbar{display:none}
+
+  /* ============ SHARED DESIGN SYSTEM (.pba) ============ */
+  .pba{position:relative;background:var(--paper);color:var(--ink);font-family:var(--sans);min-height:100%}
+
+  /* ---- Dark top stats bar ---- */
+  .topbar{position:sticky;top:0;z-index:60;background:var(--ink);color:var(--paper);display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:var(--topbar-h);padding:0 18px;border-bottom:1px solid rgba(255,255,255,.08)}
+  .topbar .bleft{display:flex;flex-direction:column;gap:3px;min-width:0;padding:9px 0}
+  .topbar .fig{display:flex;align-items:baseline;gap:8px;white-space:nowrap;line-height:1.18}
+  .topbar .figk{font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.45);width:52px;flex:0 0 auto}
+  .topbar .figv{font-family:var(--serif);font-style:italic;font-size:19px;font-weight:600;color:var(--paper)}
+  .topbar .rangev{font-family:var(--serif);font-style:italic;font-size:13px;font-weight:600;color:rgba(255,255,255,.62)}
+  .topbar .bright{text-align:right;flex:0 0 auto;padding:9px 0}
+  .topbar .tgt{font-family:var(--serif);font-style:italic;font-size:14px;font-weight:600;color:var(--paper);white-space:nowrap}
+  .topbar .status{font-family:var(--mono);font-size:8px;letter-spacing:.06em;text-transform:uppercase;margin-top:3px;white-space:nowrap;color:rgba(255,255,255,.55)}
+  .topbar .status.ok{color:#7fd49a}.topbar .status.near{color:var(--gold)}.topbar .status.over{color:#ef9a9a}
+  .meter{position:sticky;top:var(--topbar-h);z-index:59;height:3px;background:rgba(30,34,41,.1)}
+  .meter .fill{height:100%;background:var(--gold);transition:width .55s var(--ease)}
+  .meter .fill.ok{background:#7fd49a}.meter .fill.near{background:var(--gold)}.meter .fill.over{background:#ef9a9a}
+
+  /* ---- Landing overview ---- */
+  .intro{display:flex;flex-direction:column;gap:14px;padding:22px 20px 20px}
+  .intro-eyebrow{font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-deep)}
+  .intro-h{font-family:var(--serif);font-style:italic;font-size:27px;line-height:1.05;color:var(--ink);margin:2px 0}
+  .irow3{display:flex;gap:9px}
+  .ibox{flex:1;min-width:0;background:#fff;border:1px solid var(--line);border-radius:15px;padding:11px 13px}
+  .ik{font-family:var(--mono);font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft)}
+  .iv{font-family:var(--serif);font-style:italic;font-weight:600;font-size:18px;line-height:1.15;color:var(--ink);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .dl{background:#fff;border:1px solid var(--line);border-radius:15px;padding:12px 14px}
+  .dl-tag{font-family:var(--mono);font-size:8.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:2px}
+  .dl-row{display:flex;align-items:center;gap:9px;padding:9px 0;border-top:1px solid var(--line)}
+  .dl-row:first-of-type{border-top:0}
+  .dl-dot{width:7px;height:7px;border-radius:50%;flex:none}
+  .dl-row.over .dl-dot{background:#b23b34}.dl-row.soon .dl-dot{background:var(--gold)}.dl-row.next .dl-dot{background:var(--ink-soft)}
+  .dl-main{flex:1;min-width:0}
+  .dl-name{font-family:var(--serif);font-style:italic;font-weight:600;font-size:15px;line-height:1.1;color:var(--ink)}
+  .dl-sub{font-family:var(--mono);font-size:8px;letter-spacing:.02em;color:var(--ink-soft);margin-top:2px}
+  .dl-when{flex:none;text-align:right;font-family:var(--mono);font-size:8px;line-height:1.3;letter-spacing:.05em;text-transform:uppercase}
+  .dl-when.over{color:#b23b34;font-weight:500}.dl-when.soon{color:var(--gold-deep)}.dl-when.next{color:var(--ink-soft)}
+  .intro-cta{margin-top:2px;text-align:center;font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft)}
+  .intro-cta .chev{display:block;font-size:18px;margin-top:2px;animation:bob 1.5s var(--ease) infinite}
+  @keyframes bob{0%,100%{transform:translateY(0);opacity:.45}50%{transform:translateY(-5px);opacity:1}}
+  .interest{display:flex;align-items:center;gap:9px;background:rgba(197,160,89,.12);border:1px solid rgba(197,160,89,.4);border-radius:12px;padding:10px 13px}
+  .interest .istar{font-size:16px;color:var(--gold)}
+  .interest .itxt{font-family:var(--sans);font-size:12px;color:var(--ink);line-height:1.35}
+  .interest .itxt b{font-family:var(--serif);font-style:italic;font-weight:600;font-size:15px}
+  .interest.pulse{animation:pulse 1s var(--ease)}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(197,160,89,.55)}100%{box-shadow:0 0 0 15px rgba(197,160,89,0)}}
+
+  /* ---- Category / stage sticky-stacking head (THE PILE) ---- */
+  .cat{border-top:1px solid var(--line)}
+  .cat-head{position:sticky;top:calc(var(--topbar-h) + var(--idx,0) * var(--head-h));z-index:calc(10 + var(--idx,0));height:var(--head-h);background:var(--paper);display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 18px;border-bottom:1px solid var(--line)}
+  .cat-head .nm{font-family:var(--serif);font-style:italic;font-size:17px;font-weight:600;color:var(--ink)}
+  .cat-head .ix{font-family:var(--mono);font-size:8px;color:var(--gold-deep);margin-right:8px}
+  .cat-head .amt{font-family:var(--serif);font-style:italic;font-size:13.5px;font-weight:600;color:var(--ink)}
+  .cat-head .amt.zero{font-family:var(--mono);font-style:normal;font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-deep)}
+  .cat-head .amt.none{color:var(--ink-soft)}
+  .cat-body{padding:13px 0 20px}
+
+  /* ---- Child row header + deadline chip ---- */
+  .child-name{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 20px 8px}
+  .child-name .cn{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft)}
+  .chip{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:3px 8px;font-family:var(--mono);font-size:8px;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+  .chip.locked{color:var(--gold-deep);background:rgba(197,160,89,.16)}
+  .chip.over{color:#b23b34;background:rgba(178,59,52,.1)}
+  .chip.soon{color:var(--gold-deep);background:rgba(197,160,89,.16)}
+  .chip.next{color:var(--ink-soft);background:rgba(30,34,41,.06)}
+
+  /* ---- Card rail + 300px cards ---- */
+  .rail{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:0 20px 6px;scrollbar-width:none}
+  .rail::-webkit-scrollbar{display:none}
+  .card{position:relative;flex:0 0 296px;scroll-snap-align:center;display:flex;flex-direction:column}
+  .v{position:relative;display:flex;flex-direction:column;flex:1 1 auto;min-height:300px;background:#fff;border:1px solid var(--line);border-radius:18px;overflow:hidden}
+  .v .img{height:124px;flex:0 0 124px;background:linear-gradient(135deg,#3a3f47,#565b63);display:flex;align-items:center;justify-content:center;position:relative}
+  .v .img img{width:100%;height:100%;object-fit:cover}
+  .v .img .ini{font-family:var(--serif);font-style:italic;font-size:30px;color:rgba(255,255,255,.75)}
+  .v .meta{padding:13px 15px 15px;flex:1 1 auto;display:flex;flex-direction:column}
+  .v .vn{font-family:var(--sans);font-weight:700;font-size:15px;color:var(--ink)}
+  .v .dist{font-family:var(--mono);font-size:9.5px;letter-spacing:.05em;color:var(--ink-soft);margin-top:3px}
+  .v .stars{color:var(--gold);font-size:15px;letter-spacing:2px;margin-top:9px}
+  .v .stars .empty{color:rgba(30,34,41,.16)}
+  .v .stars .rcount{font-family:var(--mono);font-size:8px;letter-spacing:.03em;color:var(--ink-soft);margin-left:6px;vertical-align:1px}
+  .badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+  .bdg{font-family:var(--mono);font-size:7.5px;letter-spacing:.07em;text-transform:uppercase;padding:3px 7px;border-radius:999px;background:rgba(30,34,41,.06);color:var(--ink-soft);white-space:nowrap}
+  .bdg.verified{color:#2e7d4f;background:rgba(46,125,79,.1)}
+  .bdg.setnayan{color:var(--mulberry);background:rgba(92,37,66,.1)}
+  .bdg.rec{color:var(--gold-deep);background:rgba(197,160,89,.16)}
+  .v .price{font-family:var(--serif);font-style:italic;font-weight:600;font-size:21px;color:var(--ink);margin-top:auto;padding-top:8px}
+  .v .price small{font-family:var(--mono);font-style:normal;font-size:9px;letter-spacing:.03em;color:var(--ink-soft)}
+  .v .linked{margin-top:auto;padding-top:9px;font-family:var(--mono);font-size:10px;letter-spacing:.03em;color:var(--mulberry);font-weight:500}
+  .v .eyeing{margin-top:9px;font-family:var(--mono);font-size:9px;letter-spacing:.02em;color:#b23b34;background:rgba(178,59,52,.08);border-radius:6px;padding:3px 7px;display:inline-block}
+  .card.chosen .v{border:3px solid var(--gold);box-shadow:0 0 0 3px rgba(197,160,89,.3)}
+  .card.justadded .v{animation:flashin .9s var(--ease)}
+  @keyframes flashin{0%{opacity:0;transform:translateX(28px) scale(.94)}60%{box-shadow:0 0 0 3px rgba(197,160,89,.45)}100%{opacity:1;transform:none}}
+  .pcorner{position:absolute;top:10px;right:10px;z-index:3;font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:var(--mulberry);border-radius:999px;padding:5px 9px;box-shadow:0 2px 10px rgba(0,0,0,.28)}
+  .vx{position:absolute;top:10px;left:10px;z-index:4;width:26px;height:26px;border:0;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:rgba(30,34,41,.5);color:#fff;font-size:16px;line-height:1;cursor:pointer;backdrop-filter:blur(2px)}
+  .lockbar{margin-top:10px}
+  .lockbtn{width:100%;border:0;border-radius:11px;background:var(--mulberry);color:#fff;font-family:var(--sans);font-weight:700;font-size:12.5px;padding:11px;cursor:pointer}
+  .lockbtn:active{background:var(--mulberry-deep)}
+  .lockbtn.ghost{background:#fff;color:var(--mulberry);border:1.5px solid rgba(92,37,66,.4)}
+  .add{flex:0 0 130px;scroll-snap-align:center;display:flex}
+  .add .inner{flex:1;min-height:186px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:7px;background:rgba(92,37,66,.05);border:1.5px dashed rgba(92,37,66,.4);border-radius:18px;color:var(--mulberry)}
+  .add .plus{font-size:26px;font-weight:300;line-height:1}
+  .add .at{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;line-height:1.4}
+  .empty-child{display:flex;align-items:center;gap:10px;margin:0 20px 8px;padding:11px 14px;border:1.5px dashed rgba(92,37,66,.3);border-radius:12px;background:rgba(92,37,66,.03)}
+  .empty-child .ep{font-size:17px;color:var(--mulberry);font-weight:300}
+  .empty-child .en{font-family:var(--sans);font-size:13.5px;font-weight:600;color:var(--mulberry)}
+  .empty-child .eh{margin-left:auto;font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#b8b4ac}
+
+  /* ---- Recap — fills the bottom half once the 10 heads are piled ---- */
+  /* recap fills the last space — the viewport left below the piled stack:
+     frame(780) − topbar − 10 piled heads. Flex-column so the card grows to fill. */
+  .end-spacer{padding:14px 18px 20px;min-height:calc(780px - var(--topbar-h) - (10 * var(--head-h)));display:flex;flex-direction:column}
+  .endcard{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:7px;background:var(--mulberry);color:#fff;border-radius:22px;padding:26px 22px}
+  .end-eyebrow{font-family:var(--mono);font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.6)}
+  .end-h{font-family:var(--serif);font-style:italic;font-weight:600;font-size:26px;line-height:1.05;color:#fff;margin:2px 0}
+  .end-line{font-family:var(--sans);font-size:11.5px;line-height:1.5;color:rgba(255,255,255,.8);max-width:270px}
+  .end-stats{display:flex;width:100%;margin-top:12px;padding-top:14px;border-top:1px solid rgba(255,255,255,.2)}
+  .end-stats>div{flex:1;border-left:1px solid rgba(255,255,255,.14)}
+  .end-stats>div:first-child{border-left:0}
+  .esv{font-family:var(--serif);font-style:italic;font-weight:600;font-size:24px;line-height:1;color:#fff}
+  .esk{font-family:var(--mono);font-size:7.5px;letter-spacing:.13em;text-transform:uppercase;color:rgba(255,255,255,.6);margin-top:5px}
+
+  .toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;font-family:var(--sans);font-size:13px;font-weight:600;padding:12px 20px;border-radius:999px;box-shadow:0 12px 30px -10px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .3s,transform .3s;z-index:99}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast b{color:var(--gold)}
+
+  /* ---- Compare (trigger + overlay) ---- */
+  .cn-right{display:flex;align-items:center;gap:8px}
+  .cmpbtn{display:inline-flex;align-items:center;gap:4px;border:1px solid rgba(92,37,66,.4);background:rgba(92,37,66,.05);color:var(--mulberry);border-radius:999px;padding:3px 9px;font-family:var(--mono);font-size:8px;letter-spacing:.08em;text-transform:uppercase;font-weight:500;cursor:pointer;white-space:nowrap}
+  .cmpsheet{position:absolute;inset:0;z-index:80;background:var(--paper);display:flex;flex-direction:column;transform:translateY(101%);transition:transform .32s var(--ease);pointer-events:none}
+  .cmpsheet.open{transform:translateY(0);pointer-events:auto}
+  .cmphead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 20px 12px;border-bottom:1px solid rgba(30,34,41,.08)}
+  .cmptitle{display:flex;flex-direction:column;gap:3px}
+  .cmpcat{font-family:var(--serif);font-style:italic;font-size:21px;color:var(--ink);line-height:1}
+  .cmpsub{font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)}
+  .cmpclose{border:none;background:rgba(30,34,41,.06);color:var(--ink);width:30px;height:30px;border-radius:999px;font-size:14px;cursor:pointer;flex:0 0 auto}
+  .cmpbody{flex:1;overflow:auto;padding:4px 0 0}
+  .cmptable{width:100%;border-collapse:collapse;font-family:var(--sans)}
+  .cmptable tr{border-bottom:1px solid rgba(30,34,41,.06)}
+  .cmptable th{text-align:left;vertical-align:top;font-family:var(--mono);font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);font-weight:500;padding:11px 8px 11px 20px;width:88px;white-space:nowrap}
+  .cmptable td{vertical-align:top;padding:11px 14px 11px 8px;font-size:12.5px;color:var(--ink);line-height:1.35}
+  .cmptable td+td{border-left:1px solid rgba(30,34,41,.06)}
+  .cmprow-name td{font-weight:600;font-size:13px}
+  .cmprow-price td{font-family:var(--serif);font-style:italic;font-size:16px;color:var(--mulberry)}
+  .cmpwin{color:var(--gold-deep,#8a6d2e);font-family:var(--mono);font-size:7.5px;letter-spacing:.1em;text-transform:uppercase;display:block;margin-top:3px}
+  .cmpfoot{padding:12px 20px 18px;font-size:11px;line-height:1.45;color:var(--ink-soft);border-top:1px solid rgba(30,34,41,.08);background:rgba(197,160,89,.05)}
+  .cmp-head{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:0 18px;min-height:var(--topbar-h);background:var(--ink);color:#fff}
+  .cmp-title{font-family:var(--serif);font-style:italic;font-weight:600;font-size:18px}
+  .cmp-x{border:0;background:rgba(255,255,255,.15);color:#fff;width:30px;height:30px;border-radius:999px;font-size:18px;line-height:1;cursor:pointer}
+  .cmp-cols{flex:1;display:flex;gap:10px;overflow-x:auto;padding:16px;scrollbar-width:none}
+  .cmp-cols::-webkit-scrollbar{display:none}
+  .cmp-col{flex:0 0 160px;display:flex;flex-direction:column;background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden}
+  .cmp-col.best{border:2px solid var(--gold);box-shadow:0 0 0 3px rgba(197,160,89,.22)}
+  .cmp-photo{height:78px;background:linear-gradient(135deg,#3a3f47,#565b63);display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.75);font-family:var(--serif);font-style:italic;font-size:22px}
+  .cmp-photo img{width:100%;height:100%;object-fit:cover}
+  .cmp-name{font-family:var(--sans);font-weight:700;font-size:12.5px;line-height:1.2;padding:10px 12px 6px;color:var(--ink)}
+  .cmp-tag{margin:0 12px 8px;align-self:flex-start;font-family:var(--mono);font-size:7px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-deep);background:rgba(197,160,89,.18);border-radius:999px;padding:3px 7px}
+  .cmp-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 12px;border-top:1px solid var(--line-soft)}
+  .cmp-row span{font-family:var(--mono);font-size:8px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft)}
+  .cmp-row b{font-family:var(--sans);font-weight:700;font-size:12px;color:var(--ink)}
+  .cmp-row.total b{font-family:var(--serif);font-style:italic;font-size:15px}
+  .cmp-actions{margin-top:auto;display:flex;flex-direction:column;gap:6px;padding:10px 12px 12px}
+  .cmp-view{text-align:center;font-family:var(--mono);font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--mulberry);padding:7px;border:1px solid rgba(92,37,66,.3);border-radius:8px;cursor:pointer}
+  .cmp-remove{border:0;background:transparent;color:var(--ink-soft);font-family:var(--mono);font-size:8px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;padding:3px}
+  .cmp-foot{flex:0 0 auto;padding:12px 18px 16px;font-family:var(--mono);font-size:9px;letter-spacing:.03em;color:var(--ink-soft);border-top:1px solid var(--line);text-align:center;line-height:1.55}
+
+  .footnote{max-width:880px;margin:30px auto 0;font-size:12px;line-height:1.65;color:var(--ink-soft);background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px 20px}
+  .footnote b{color:var(--ink)}
+  .footnote .k{font-family:var(--mono);font-size:11px;color:var(--mulberry)}
+
+  @media(max-width:840px){.frames{gap:34px}}
+</style>
+</head>
+<body>
+
+  <div class="pagehead">
+    <div class="eb">Setnayan · Prototype canvas</div>
+    <h1>Vendor menu — the 10 categories pile into a half-screen index</h1>
+    <p>As you scroll, each <b>parent category compiles on top</b> — pinning below the last into a growing sticky index. With all 10 stacked they fill the <b>top half</b> of the screen; the accomplishment recap fills the bottom half. Same shell maps to the vendor's pipeline on the right.</p>
+    <div class="legend">
+      <span><b style="color:var(--mulberry)">●</b> &nbsp;Couple — 10 category folders</span>
+      <span><b style="color:var(--gold-deep)">●</b> &nbsp;Vendor — pipeline stages (same pile)</span>
+      <span>Scroll a frame to the bottom to see the full stack</span>
+    </div>
+  </div>
+
+  <div class="demobar">
+    <span class="dlabel">Flow demo</span>
+    <button class="demobtn" id="demoAdd">▶ Sofia &amp; Marco shortlist Lumina Films</button>
+    <button class="demobtn reset" id="demoReset">Reset</button>
+    <div class="demostep" id="demoStep">A shortlist is the couple's private plan — press the button and watch both frames update.</div>
+  </div>
+
+  <div class="frames">
+
+    <!-- ============================ COUPLE ============================ -->
+    <div class="framewrap">
+      <div class="framelabel couple"><span class="dot"></span><span class="who">Sofia &amp; Marco</span><span class="what">· Dashboard → Vendor menu</span></div>
+      <div class="frame"><div class="scroll"><div class="pba">
+
+        <div class="topbar">
+          <div class="bleft">
+            <div class="fig"><span class="figk">Chosen</span><span class="figv">₱385K</span></div>
+            <div class="fig"><span class="figk">Range</span><span class="rangev">₱1.2M–₱1.8M</span></div>
+          </div>
+          <div class="bright"><div class="tgt">of ₱2M</div><div class="status ok">on track</div></div>
+        </div>
+        <div class="meter"><div class="fill ok" style="width:90%"></div></div>
+
+        <section class="intro">
+          <div><div class="intro-eyebrow">Your budget &amp; plan</div><div class="intro-h">Where your day stands</div></div>
+          <div class="irow3">
+            <div class="ibox"><div class="ik">Estimate</div><div class="iv">₱2,000,000</div></div>
+            <div class="ibox"><div class="ik">Chosen</div><div class="iv">₱385,000</div></div>
+            <div class="ibox"><div class="ik">Could land</div><div class="iv">₱1.2M–₱1.8M</div></div>
+          </div>
+          <div class="dl">
+            <div class="dl-tag">What to lock next</div>
+            <div class="dl-row over"><span class="dl-dot"></span><span class="dl-main"><span class="dl-name">Photographer</span><span class="dl-sub">1 option in play</span></span><span class="dl-when over">12d overdue</span></div>
+            <div class="dl-row soon"><span class="dl-dot"></span><span class="dl-main"><span class="dl-name">Caterer</span><span class="dl-sub">👀 3 eyeing your date</span></span><span class="dl-when soon">8d left</span></div>
+            <div class="dl-row next"><span class="dl-dot"></span><span class="dl-main"><span class="dl-name">Coordinator</span><span class="dl-sub">no vendor picked yet</span></span><span class="dl-when next">15d</span></div>
+          </div>
+          <div class="intro-cta">10 categories below — scroll to stack them<span class="chev">↓</span></div>
+        </section>
+
+        <!-- 1 VENUE -->
+        <section class="cat">
+          <div class="cat-head" style="--idx:0"><span class="nm"><span class="ix">1</span>Venue</span><span class="amt">₱205K</span></div>
+          <div class="cat-body">
+            <div class="child-name"><span class="cn">Ceremony venue</span><span class="chip locked">✓ Locked</span></div>
+            <div class="rail">
+              <div class="card chosen"><div class="v"><div class="img"><span class="ini">MC</span></div><div class="meta"><div class="vn">Manila Cathedral</div><div class="dist">1.2 km from reception</div><div class="stars">★★★★★<span class="rcount">340</span></div><div class="badges"><span class="bdg verified">Verified</span></div><div class="price">₱25,000 <small>church fees</small></div></div></div><span class="pcorner">★ Chosen</span></div>
+            </div>
+            <div class="child-name"><span class="cn">Reception venue</span><span class="chip locked">✓ Locked</span></div>
+            <div class="rail">
+              <div class="card chosen"><div class="v"><div class="img"><img src="https://images.pexels.com/photos/169198/pexels-photo-169198.jpeg?auto=compress&cs=tinysrgb&w=600" alt=""></div><div class="meta"><div class="vn">The Glass Garden</div><div class="dist">3 km from reception</div><div class="stars">★★★★★<span class="rcount">212</span></div><div class="badges"><span class="bdg verified">Verified</span></div><div class="price">₱180,000</div></div></div><span class="pcorner">★ Chosen</span></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2 PLANNING -->
+        <section class="cat">
+          <div class="cat-head" style="--idx:1"><span class="nm"><span class="ix">2</span>Planning</span><span class="amt zero none">Not started</span></div>
+          <div class="cat-body">
+            <div class="child-name"><span class="cn">Coordinator</span><span class="chip next">15d</span></div>
+            <div class="empty-child"><span class="ep">＋</span><span class="en">Find a coordinator</span><span class="eh">Browse</span></div>
+          </div>
+        </section>
+
+        <!-- 3 FEAST -->
+        <section class="cat">
+          <div class="cat-head" style="--idx:2"><span class="nm"><span class="ix">3</span>Feast</span><span class="amt zero">2 shortlisted</span></div>
+          <div class="cat-body">
+            <div class="child-name"><span class="cn">Caterer</span><span class="cn-right"><button class="cmpbtn" data-cmp="caterer">⇄ Compare 2</button><span class="chip soon">8d left</span></span></div>
+            <div class="rail" data-rail="caterer">
+              <div class="card"><div class="v"><div class="img"><img src="https://images.pexels.com/photos/958545/pexels-photo-958545.jpeg?auto=compress&cs=tinysrgb&w=600" alt=""></div><div class="meta"><div class="vn">Casa Manila Catering</div><div class="dist">12 km from reception</div><div class="stars">★★★★★<span class="rcount">210</span></div><div class="badges"><span class="bdg verified">Verified</span></div><div class="price">₱1,200 <small>per head</small></div><div class="eyeing">👀 3 also eyeing your date</div></div></div><button class="vx">×</button><div class="lockbar"><button class="lockbtn">Lock this pick</button></div></div>
+              <div class="card"><div class="v"><div class="img"><span class="ini">HF</span></div><div class="meta"><div class="vn">Hearth &amp; Feast</div><div class="dist">9 km from reception</div><div class="stars">★★★★☆<span class="empty"></span><span class="rcount">74</span></div><div class="badges"><span class="bdg verified">Verified</span></div><div class="price">₱980 <small>per head</small></div></div></div><button class="vx">×</button><div class="lockbar"><button class="lockbtn">Lock this pick</button></div></div>
+              <a class="add"><span class="inner"><span class="plus">＋</span><span class="at">Find more</span></span></a>
+            </div>
+          </div>
+        </section>
+
+        <!-- 4 DESIGN -->
+        <section class="cat">
+          <div class="cat-head" style="--idx:3"><span class="nm"><span class="ix">4</span>Design</span><span class="amt zero none">Not started</span></div>
+          <div class="cat-body">
+            <div class="child-name"><span class="cn">Florals</span></div>
+            <div class="empty-child"><span class="ep">＋</span><span class="en">Find florals &amp; styling</span><span class="eh">Browse</span></div>
+            <div class="child-name"><span class="cn">Lights &amp; sound</span></div>
+            <div class="empty-child"><span class="ep">＋</span><span class="en">Find lights &amp; sound</span><span class="eh">Browse</span></div>
+          </div>
+        </section>
+
+        <!-- 5 PROGRAM -->
+        <section class="cat">
+          <div class="cat-head" style="--idx:4"><span class="nm"><span class="ix">5</span>Program</span><span class="amt zero none">Not started</span></div>
+          <div class="cat-body">
+            <div class="child-name"><span class="cn">Band / DJ</span></div>
+            <div class="empty-child"><span class="ep">＋</span><span class="en">Find your music</span><span class="eh">Browse</span></div>
+            <div class="child-name"><span class="cn">Host / emcee</span></div>
+            <div class="empty-child"><span class="ep">＋</span><span class="en">Find a host</span><span class="eh">Browse</span></div>
+          </div>
+        </section>
+
+        <!-- 6 DOCUMENTARY (shortlist demo target) -->
+        <section class="cat">
+          <div class="cat-head" style="--idx:5"><span class="nm"><span class="ix">6</span>Documentary</span><span class="amt zero">2 shortlisted</span></div>
+          <div class="cat-body">
+            <div class="child-name" id="photoChild"><span class="cn">Photographer</span><span class="cn-right"><span class="chip over">12d overdue</span></span></div>
+            <div class="rail" id="photoRail" data-rail="photographer">
+              <div class="card"><div class="v"><div class="img"><span class="ini">MW</span></div><div class="meta"><div class="vn">Manila Wedding Photographer #4218</div><div class="dist">8 km from reception</div><div class="stars">★★★★☆<span class="empty"></span><span class="rcount">52</span></div><div class="badges"><span class="bdg">Replies to unlock name</span></div><div class="price">₱60,000</div></div></div><button class="vx">×</button><div class="lockbar"><button class="lockbtn">Lock this pick</button></div></div>
+              <a class="add" id="photoAdd"><span class="inner"><span class="plus">＋</span><span class="at">Find more</span></span></a>
+            </div>
+            <div class="child-name"><span class="cn">Videographer</span><span class="chip soon">6d left</span></div>
+            <div class="rail">
+              <div class="card"><div class="v"><div class="img"><img src="https://images.pexels.com/photos/2253879/pexels-photo-2253879.jpeg?auto=compress&cs=tinysrgb&w=600" alt=""></div><div class="meta"><div class="vn">Storyteller Studios</div><div class="dist">7 km from reception</div><div class="stars">★★★★★<span class="rcount">96</span></div><div class="badges"><span class="bdg verified">Verified</span></div><div class="price">₱70,000</div></div></div><button class="vx">×</button><div class="lockbar"><button class="lockbtn">Lock this pick</button></div></div>
+              <a class="add"><span class="inner"><span class="plus">＋</span><span class="at">Find more</span></span></a>
+            </div>
+          </div>
+        </section>
+
+        <!-- 7 LOOK -->
+        <section class="cat">
+          <div class="cat-head" style="--idx:6"><span class="nm"><span class="ix">7</span>Look</span><span class="amt zero none">Not started</span></div>
+          <div class="cat-body">
+            <div class="child-name"><span class="cn">Bride's attire</span></div>
+            <div class="empty-child"><span class="ep">＋</span><span class="en">Find bride's attire</span><span class="eh">Browse</span></div>
+            <div class="child-name"><span class="cn">Hair &amp; makeup</span></div>
+            <div class="empty-child"><span class="ep">＋</span><span class="en">Find hair &amp; makeup</span><span class="eh">Browse</span></div>
+          </div>
+        </section>
+
+        <!-- 8 BOOTHS -->
+        <section class="cat">
+          <div class="cat-head" style="--idx:7"><span class="nm"><span class="ix">8</span>Booths</span><span class="amt zero">1 shortlisted</span></div>
+          <div class="cat-body">
+            <div class="child-name"><span class="cn">Photo booth</span><span class="chip next">90d</span></div>
+            <div class="rail">
+              <div class="card"><div class="v"><div class="img"><span class="ini">SC</span></div><div class="meta"><div class="vn">Snap &amp; Co</div><div class="dist">6 km from reception</div><div class="stars">★★★★☆<span class="empty"></span><span class="rcount">88</span></div><div class="badges"><span class="bdg setnayan">Setnayan</span></div><div class="price">₱18,000</div></div></div><button class="vx">×</button><div class="lockbar"><button class="lockbtn">Lock this pick</button></div></div>
+              <a class="add"><span class="inner"><span class="plus">＋</span><span class="at">Find more</span></span></a>
+            </div>
+          </div>
+        </section>
+
+        <!-- 9 PRINTS -->
+        <section class="cat">
+          <div class="cat-head" style="--idx:8"><span class="nm"><span class="ix">9</span>Prints</span><span class="amt zero none">Not started</span></div>
+          <div class="cat-body">
+            <div class="child-name"><span class="cn">Invitations &amp; printing</span></div>
+            <div class="empty-child"><span class="ep">＋</span><span class="en">Find printing</span><span class="eh">Browse</span></div>
+          </div>
+        </section>
+
+        <!-- 10 TRANSPORT -->
+        <section class="cat">
+          <div class="cat-head" style="--idx:9"><span class="nm"><span class="ix">10</span>Transport</span><span class="amt zero none">Not started</span></div>
+          <div class="cat-body">
+            <div class="child-name"><span class="cn">Bridal car</span><span class="chip next">50d</span></div>
+            <div class="empty-child"><span class="ep">＋</span><span class="en">Find a bridal car</span><span class="eh">Browse</span></div>
+          </div>
+        </section>
+
+        <div class="end-spacer">
+          <section class="endcard">
+            <div class="end-eyebrow">Look how far you've come</div>
+            <div class="end-h">~42 hours saved so far</div>
+            <div class="end-line">out of thousands of suppliers in the market — you narrowed it down to the ones that fit your day.</div>
+            <div class="end-stats">
+              <div><div class="esv">96</div><div class="esk">Searched</div></div>
+              <div><div class="esv">11</div><div class="esk">Shortlisted</div></div>
+              <div><div class="esv">3</div><div class="esk">Finalized</div></div>
+            </div>
+          </section>
+        </div>
+
+      </div></div>
+      <!-- Compare sheet (couple-side, like-for-like, never sets primary) -->
+      <div class="cmpsheet" id="cmpSheet" aria-hidden="true">
+        <div class="cmphead">
+          <div class="cmptitle"><span class="cmpcat" id="cmpCat">Caterer</span><span class="cmpsub">Side by side · pick when you're ready</span></div>
+          <button class="cmpclose" id="cmpClose">✕</button>
+        </div>
+        <div class="cmpbody"><table class="cmptable"><tbody id="cmpRows"></tbody></table></div>
+        <div class="cmpfoot">Comparing only shows what you've shortlisted — it never changes your pick. Lock a vendor from its card.</div>
+      </div>
+      </div>
+    </div>
+
+    <!-- ============================ VENDOR ============================ -->
+    <div class="framewrap">
+      <div class="framelabel vendor"><span class="dot"></span><span class="who">Lumina Films</span><span class="what">· Shop console → Pipeline</span></div>
+      <div class="frame"><div class="scroll"><div class="pba">
+
+        <div class="topbar">
+          <div class="bleft">
+            <div class="fig"><span class="figk">Booked</span><span class="figv">₱520K</span></div>
+            <div class="fig"><span class="figk">In talks</span><span class="rangev">₱310K–₱640K</span></div>
+          </div>
+          <div class="bright"><div class="tgt">3 of 6 dates</div><div class="status near">half-booked</div></div>
+        </div>
+        <div class="meter"><div class="fill near" style="width:50%"></div></div>
+
+        <section class="intro">
+          <div><div class="intro-eyebrow">Lumina Films · this season</div><div class="intro-h">Where your studio stands</div></div>
+          <div class="irow3">
+            <div class="ibox"><div class="ik">Confirmed</div><div class="iv">3 weddings</div></div>
+            <div class="ibox"><div class="ik">Open leads</div><div class="iv">5</div></div>
+            <div class="ibox"><div class="ik">Next event</div><div class="iv">12 days</div></div>
+          </div>
+          <div class="interest" id="vendorInterest">
+            <span class="istar">★</span>
+            <span class="itxt"><b id="interestCount">12</b> couples saved you this week · <span style="color:var(--ink-soft)">you see who once they message</span></span>
+          </div>
+          <div class="dl">
+            <div class="dl-tag">Who to answer next</div>
+            <div class="dl-row over"><span class="dl-dot"></span><span class="dl-main"><span class="dl-name">Maria &amp; Juan</span><span class="dl-sub">👀 also talking to 2 photographers</span></span><span class="dl-when over">waiting 2d</span></div>
+            <div class="dl-row soon"><span class="dl-dot"></span><span class="dl-main"><span class="dl-name">Andrea &amp; Paolo</span><span class="dl-sub">prenup + day-of</span></span><span class="dl-when soon">waiting 5h</span></div>
+            <div class="dl-row next"><span class="dl-dot"></span><span class="dl-main"><span class="dl-name">Carlo &amp; Ria</span><span class="dl-sub">quote follow-up</span></span><span class="dl-when next">due 1d</span></div>
+          </div>
+          <div class="intro-cta">Your pipeline stages below<span class="chev">↓</span></div>
+        </section>
+
+        <!-- 1 NEW INQUIRIES -->
+        <section class="cat">
+          <div class="cat-head" style="--idx:0"><span class="nm"><span class="ix">1</span>New inquiries</span><span class="amt zero">2 waiting</span></div>
+          <div class="cat-body">
+            <div class="child-name"><span class="cn">Awaiting your reply</span><span class="chip over">2d waiting</span></div>
+            <div class="rail">
+              <div class="card"><div class="v"><div class="img"><span class="ini">MJ</span></div><div class="meta"><div class="vn">Maria &amp; Juan</div><div class="dist">Dec 18, 2026 · Tagaytay</div><div class="badges"><span class="bdg verified">Verified couple</span><span class="bdg">Budget ₱80–120K</span></div><div class="linked">Wants: full-day photo + same-day edit</div><div class="eyeing">👀 also talking to 2 photographers</div></div></div><div class="lockbar"><button class="lockbtn">Respond · 1 token</button></div></div>
+              <div class="card"><div class="v"><div class="img"><span class="ini">AP</span></div><div class="meta"><div class="vn">Andrea &amp; Paolo</div><div class="dist">Feb 14, 2027 · Manila</div><div class="badges"><span class="bdg verified">Verified couple</span></div><div class="linked">Wants: prenup shoot + day-of</div></div></div><div class="lockbar"><button class="lockbtn">Respond · 1 token</button></div></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2 IN CONVERSATION -->
+        <section class="cat">
+          <div class="cat-head" style="--idx:1"><span class="nm"><span class="ix">2</span>In conversation</span><span class="amt zero">1 active</span></div>
+          <div class="cat-body">
+            <div class="child-name"><span class="cn">Chatting</span><span class="chip soon">reply 1d</span></div>
+            <div class="rail">
+              <div class="card"><div class="v"><div class="img"><span class="ini">BM</span></div><div class="meta"><div class="vn">Bea &amp; Mark</div><div class="dist">Jan 24, 2027 · Cavite</div><div class="badges"><span class="bdg verified">Verified couple</span></div><div class="linked">Last message: "Can you do 2 shooters?" · 1d ago</div></div></div><div class="lockbar"><button class="lockbtn ghost">Reply in chat</button></div></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 3 QUOTED -->
+        <section class="cat">
+          <div class="cat-head" style="--idx:2"><span class="nm"><span class="ix">3</span>Quoted</span><span class="amt">₱95K</span></div>
+          <div class="cat-body">
+            <div class="child-name"><span class="cn">Awaiting their decision</span><span class="chip soon">follow up 3d</span></div>
+            <div class="rail">
+              <div class="card"><div class="v"><div class="img"><span class="ini">CR</span></div><div class="meta"><div class="vn">Carlo &amp; Ria</div><div class="dist">Mar 7, 2027 · Batangas</div><div class="badges"><span class="bdg verified">Verified couple</span></div><div class="price">₱95,000 <small>quote sent</small></div></div></div><div class="lockbar"><button class="lockbtn ghost">Follow up</button></div></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 4 BOOKED -->
+        <section class="cat">
+          <div class="cat-head" style="--idx:3"><span class="nm"><span class="ix">4</span>Booked</span><span class="amt">₱520K</span></div>
+          <div class="cat-body">
+            <div class="child-name"><span class="cn">Confirmed weddings</span><span class="chip locked">✓ 3 booked</span></div>
+            <div class="rail">
+              <div class="card chosen"><div class="v"><div class="img"><span class="ini">LB</span></div><div class="meta"><div class="vn">Liza &amp; Ben</div><div class="dist">Nov 8, 2026 · 12 days away</div><div class="badges"><span class="bdg verified">Verified couple</span></div><div class="price">₱180,000</div></div></div><span class="pcorner">★ Booked</span></div>
+              <div class="card chosen"><div class="v"><div class="img"><span class="ini">GE</span></div><div class="meta"><div class="vn">Grace &amp; Eli</div><div class="dist">Dec 6, 2026</div><div class="badges"><span class="bdg verified">Verified couple</span></div><div class="price">₱160,000</div></div></div><span class="pcorner">★ Booked</span></div>
+              <div class="card chosen"><div class="v"><div class="img"><span class="ini">NT</span></div><div class="meta"><div class="vn">Nina &amp; Theo</div><div class="dist">Jan 31, 2027</div><div class="badges"><span class="bdg verified">Verified couple</span></div><div class="price">₱180,000</div></div></div><span class="pcorner">★ Booked</span></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 5 DELIVERED -->
+        <section class="cat">
+          <div class="cat-head" style="--idx:4"><span class="nm"><span class="ix">5</span>Delivered</span><span class="amt zero none">2 done</span></div>
+          <div class="cat-body">
+            <div class="child-name"><span class="cn">Past weddings</span><span class="chip locked">✓ Delivered</span></div>
+            <div class="rail">
+              <div class="card"><div class="v"><div class="img"><span class="ini">RK</span></div><div class="meta"><div class="vn">Rhea &amp; Kit</div><div class="dist">Oct 4, 2026</div><div class="badges"><span class="bdg verified">★ Reviewed 5.0</span></div><div class="price">₱150,000</div></div></div></div>
+              <div class="card"><div class="v"><div class="img"><span class="ini">JM</span></div><div class="meta"><div class="vn">Joy &amp; Migs</div><div class="dist">Sep 20, 2026</div><div class="badges"><span class="bdg verified">★ Reviewed 4.8</span></div><div class="price">₱140,000</div></div></div></div>
+            </div>
+          </div>
+        </section>
+
+        <div class="end-spacer">
+          <section class="endcard">
+            <div class="end-eyebrow">Your month so far</div>
+            <div class="end-h">You won 3 of 9 leads</div>
+            <div class="end-line">★4.9 from 180 couples · average reply time 4 hours. Faster replies win more dates.</div>
+            <div class="end-stats">
+              <div><div class="esv">9</div><div class="esk">Answered</div></div>
+              <div><div class="esv">3</div><div class="esk">Won</div></div>
+              <div><div class="esv">4h</div><div class="esk">Avg reply</div></div>
+            </div>
+          </section>
+        </div>
+
+      </div></div></div>
+    </div>
+
+  </div>
+
+  <div class="footnote">
+    <p style="margin:0 0 9px"><b>The pile (what changed).</b> Each parent category header now pins at a stepped offset (<span class="k">top = bar + index × 38px</span>) so they <b>compile on top</b> instead of replacing each other. All 10 stacked ≈ <b>half the frame</b>; the recap fills the bottom half. The vendor's 5 pipeline stages pile the same way.</p>
+    <p style="margin:0 0 6px">· <span class="k">Top stats bar</span> → couple: <b>Chosen / Range vs budget</b> · vendor: <b>Booked / In-talks vs dates</b>.</p>
+    <p style="margin:0 0 6px">· <span class="k">300px card</span> → couple: <b>a vendor</b> · vendor: <b>a couple</b>. <span class="k">Gold "chosen"</span> → locked pick / booked wedding.</p>
+    <p style="margin:0 0 6px">· <span class="k">⇄ Compare</span> appears on any category with <b>2+ shortlisted</b> (Caterer now; Photographer after the ▶ demo). Opens a like-for-like sheet — price / reviews / distance / highlights, cheapest + top-rated flagged. It <b>never changes your pick</b> — you still lock from the card.</p>
+    <p style="margin:9px 0 0"><b>When the couple shortlists (the ▶ demo):</b> couple sees the card land in their plan; vendor sees an <b>aggregate</b> "saved by N couples" tick — <span class="k">never the name/contact</span> (RA 10173). It becomes a named "New inquiry" only when they <b>message</b>. <b>Decisions to confirm:</b> (1) is the half-screen stack the right height, or do you want it taller/shorter? (2) shortlist interest to the vendor — aggregate, named, or none? Tell me and I'll edit the prototype.</p>
+  </div>
+
+  <script>
+    // Prototype-only interactions. Visual only — no data, no network.
+    function wireCards(scope){
+      (scope||document).querySelectorAll('.vx').forEach(function(x){
+        if(x._wired) return; x._wired=1;
+        x.addEventListener('click',function(e){
+          e.preventDefault(); e.stopPropagation();
+          var card=x.closest('.card');
+          if(x.classList.contains('armed')){ card.style.transition='opacity .25s,transform .25s'; card.style.opacity='0'; card.style.transform='scale(.92)'; setTimeout(function(){card.remove();},250); }
+          else { x.classList.add('armed'); x.textContent='Remove?'; x.style.width='auto'; x.style.padding='0 9px'; x.style.fontFamily='var(--mono)'; x.style.fontSize='8px'; x.style.letterSpacing='.1em'; x.style.textTransform='uppercase'; x.style.background='var(--mulberry)';
+            setTimeout(function(){ if(x.classList.contains('armed')){x.classList.remove('armed'); x.textContent='×'; x.style.width='26px'; x.style.padding='0'; x.style.fontSize='16px'; x.style.background='rgba(30,34,41,.5)';} },2600); }
+        });
+      });
+      (scope||document).querySelectorAll('.lockbtn:not(.ghost)').forEach(function(b){
+        if(b._wired) return; b._wired=1;
+        if(b.textContent.indexOf('token')>-1) return; // vendor "Respond" — leave as-is in proto
+        b.addEventListener('click',function(e){
+          e.preventDefault();
+          var card=b.closest('.card'); if(!card) return;
+          card.classList.add('chosen');
+          var lb=card.querySelector('.lockbar'); if(lb) lb.remove();
+          var vx=card.querySelector('.vx'); if(vx) vx.remove();
+          if(!card.querySelector('.pcorner')){ var p=document.createElement('span'); p.className='pcorner'; p.textContent='★ Chosen'; card.appendChild(p); }
+          var ey=card.querySelector('.eyeing'); if(ey) ey.remove();
+        });
+      });
+    }
+    wireCards(document);
+
+    // ---- Shortlist flow demo: couple adds Lumina Films to shortlist ----
+    var LUMINA = '<div class="card justadded" data-demo="lumina"><div class="v"><div class="img"><img src="https://images.pexels.com/photos/1444442/pexels-photo-1444442.jpeg?auto=compress&cs=tinysrgb&w=600" alt=""></div><div class="meta"><div class="vn">Lumina Films</div><div class="dist">5 km from reception</div><div class="stars">★★★★★<span class="rcount">180</span></div><div class="badges"><span class="bdg verified">Verified</span><span class="bdg rec">Best review</span></div><div class="price">₱85,000</div><div class="eyeing">👀 3 also eyeing your date</div></div></div><button class="vx">×</button><div class="lockbar"><button class="lockbtn">Lock this pick</button></div></div>';
+    var added=false;
+    var addBtn=document.getElementById('demoAdd');
+    var resetBtn=document.getElementById('demoReset');
+    var step=document.getElementById('demoStep');
+    function toast(html){ var t=document.createElement('div'); t.className='toast'; t.innerHTML=html; document.body.appendChild(t); requestAnimationFrame(function(){t.classList.add('show');}); setTimeout(function(){t.classList.remove('show'); setTimeout(function(){t.remove();},350);},2800); }
+    addBtn.addEventListener('click',function(){
+      if(added) return; added=true;
+      var rail=document.getElementById('photoRail');
+      var addCard=document.getElementById('photoAdd');
+      var tmp=document.createElement('div'); tmp.innerHTML=LUMINA;
+      var node=tmp.firstChild;
+      rail.insertBefore(node,addCard);
+      wireCards(rail);
+      try{ node.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'}); }catch(e){}
+      var c=document.getElementById('interestCount'); if(c) c.textContent='13';
+      var box=document.getElementById('vendorInterest');
+      if(box){ box.classList.remove('pulse'); void box.offsetWidth; box.classList.add('pulse'); }
+      step.innerHTML='<b>Couple:</b> Lumina is now on their shortlist (considering). &nbsp; <b>Vendor:</b> their saved-count ticked 12 → 13 — aggregate only, never who. Lumina becomes a named “New inquiry” only when the couple messages.';
+      toast('Added to your shortlist — <b>Lumina Films</b>');
+    });
+    resetBtn.addEventListener('click',function(){
+      added=false;
+      var node=document.querySelector('[data-demo="lumina"]'); if(node) node.remove();
+      var c=document.getElementById('interestCount'); if(c) c.textContent='12';
+      var pc=document.querySelector('#photoChild .cmpbtn'); if(pc) pc.remove();
+      step.textContent="A shortlist is the couple's private plan — press the button and watch both frames update.";
+    });
+
+    // ---- Compare (couple-side, like-for-like, never sets primary) ----
+    // After the demo adds Lumina the Photographer rail has 2 cards → reveal its Compare button.
+    addBtn.addEventListener('click',function(){
+      var pchild=document.querySelector('#photoChild .cn-right');
+      if(pchild && !pchild.querySelector('.cmpbtn')){
+        var b=document.createElement('button'); b.className='cmpbtn'; b.setAttribute('data-cmp','photographer'); b.textContent='⇄ Compare 2';
+        pchild.insertBefore(b, pchild.firstChild);
+      }
+    });
+    function cmpNum(t){ var m=(t||'').replace(/[, ]/g,'').match(/\d+/); return m?parseInt(m[0],10):null; }
+    function cmpStars(el){ if(!el) return null; var s=el.cloneNode(true); var rc=s.querySelector('.rcount'); if(rc) rc.remove(); var em=s.querySelector('.empty'); if(em) em.remove(); return (s.textContent.match(/★/g)||[]).length + ((s.textContent.match(/½/g)||[]).length?0.5:0); }
+    function openCompare(railKey){
+      var rail=document.querySelector('[data-rail="'+railKey+'"]'); if(!rail) return;
+      var cards=[].slice.call(rail.querySelectorAll('.card'));
+      if(cards.length<2) return;
+      var vs=cards.map(function(c){
+        return {
+          name:(c.querySelector('.vn')||{}).textContent||'—',
+          price:(c.querySelector('.price')||{}).textContent||'—',
+          priceNum:cmpNum((c.querySelector('.price')||{}).textContent),
+          dist:(c.querySelector('.dist')||{}).textContent||'—',
+          stars:cmpStars(c.querySelector('.stars')),
+          rcount:cmpNum((c.querySelector('.rcount')||{}).textContent),
+          badges:[].slice.call(c.querySelectorAll('.badges .bdg')).map(function(b){return b.textContent;}).join(' · ')||'—'
+        };
+      });
+      var prices=vs.map(function(v){return v.priceNum;}).filter(function(n){return n!=null;});
+      var minP=prices.length?Math.min.apply(null,prices):null;
+      var rats=vs.map(function(v){return v.stars;}).filter(function(n){return n!=null;});
+      var maxR=rats.length?Math.max.apply(null,rats):null;
+      function cells(get){ return vs.map(function(v){return '<td>'+get(v)+'</td>';}).join(''); }
+      var rows='';
+      rows+='<tr class="cmprow-name"><th>Vendor</th>'+cells(function(v){return v.name;})+'</tr>';
+      rows+='<tr class="cmprow-price"><th>Price</th>'+cells(function(v){return v.price+(v.priceNum!=null&&v.priceNum===minP&&prices.length>1?'<span class="cmpwin">Lowest</span>':'');})+'</tr>';
+      rows+='<tr><th>Reviews</th>'+cells(function(v){return (v.stars!=null?'★ '+v.stars:'—')+(v.rcount!=null?' · '+v.rcount+' reviews':'')+(v.stars!=null&&v.stars===maxR&&rats.length>1?'<span class="cmpwin">Top rated</span>':'');})+'</tr>';
+      rows+='<tr><th>Distance</th>'+cells(function(v){return v.dist;})+'</tr>';
+      rows+='<tr><th>Highlights</th>'+cells(function(v){return v.badges;})+'</tr>';
+      document.getElementById('cmpRows').innerHTML=rows;
+      document.getElementById('cmpCat').textContent=railKey.charAt(0).toUpperCase()+railKey.slice(1);
+      var sh=document.getElementById('cmpSheet'); sh.classList.add('open'); sh.setAttribute('aria-hidden','false');
+    }
+    function closeCompare(){ var sh=document.getElementById('cmpSheet'); sh.classList.remove('open'); sh.setAttribute('aria-hidden','true'); }
+    document.addEventListener('click',function(e){
+      var btn=e.target.closest && e.target.closest('.cmpbtn');
+      if(btn){ e.preventDefault(); openCompare(btn.getAttribute('data-cmp')); return; }
+    });
+    document.getElementById('cmpClose').addEventListener('click',closeCompare);
+  </script>
+
+</body>
+</html>

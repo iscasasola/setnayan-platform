@@ -89,6 +89,42 @@ export async function createVendor(formData: FormData) {
 }
 
 // ============================================================================
+// 3-line cost edit (CLAUDE.md 2026-05-31): Service + Transport + Food allowance.
+// The couple edits all three together in the vendor workspace Costing section;
+// the accordion then rolls them into the card/topbar total via
+// buildPlanBudgetModel. Blank field → null (₱0). RLS scopes the update to the
+// couple's own event; same auth + parseMoney pattern as createVendor.
+// ============================================================================
+
+export async function updateVendorCosts(formData: FormData) {
+  const eventId = formData.get('event_id');
+  const vendorId = formData.get('vendor_id');
+  if (typeof eventId !== 'string' || typeof vendorId !== 'string') {
+    throw new Error('Invalid input');
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { error } = await supabase
+    .from('event_vendors')
+    .update({
+      total_cost_php: parseMoney(formData.get('total_cost_php')),
+      transport_php: parseMoney(formData.get('transport_php')),
+      food_allowance_php: parseMoney(formData.get('food_allowance_php')),
+    })
+    .eq('vendor_id', vendorId)
+    .eq('event_id', eventId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
+  revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`, 'layout');
+}
+
+// ============================================================================
 // Inline custom-vendor add from the home-page planner cards (2026-05-21).
 //
 // Same insert shape as createVendor but returns a Result so the client

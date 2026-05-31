@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Website editor — Reels-style prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:'Manrope',system-ui,sans-serif;
+    background:#0e0f13;color:#e7e3da;min-height:100vh;
+    padding:22px 14px 56px;display:flex;flex-direction:column;align-items:center;gap:14px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .stage-label{text-align:center;max-width:460px}
+  .stage-label .eyebrow{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#C5A059}
+  .stage-label h1{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:600;font-size:24px;margin-top:3px;color:#FBFBFA}
+  .stage-label p{font-size:12px;color:#9a958c;margin-top:5px;line-height:1.55}
+
+  /* device + hint controls */
+  .controls{display:flex;flex-direction:column;align-items:center;gap:9px}
+  .devtoggle{display:flex;gap:0;background:#1b1d22;border:1px solid #2c2f37;border-radius:999px;padding:4px}
+  .devtoggle button{display:flex;align-items:center;gap:7px;border:0;background:none;color:#9a958c;font:inherit;font-size:12.5px;font-weight:600;padding:8px 18px;border-radius:999px;cursor:pointer}
+  .devtoggle button svg{width:15px;height:15px}
+  .devtoggle button.sel{background:#C5A059;color:#1A1D23}
+  .hint{display:inline-flex;gap:6px;align-items:center;font-size:11px;color:#C5A059;background:rgba(197,160,89,.12);border:1px solid rgba(197,160,89,.3);padding:5px 11px;border-radius:999px}
+  .hint svg{width:13px;height:13px}
+
+  /* ── shared theme tokens (on #stage) ── */
+  #stage[data-theme="light"]{
+    --paper:#FBFBFA;--surface:#FFFFFF;--surface-2:#F4F2EC;
+    --ink:#1E2229;--ink-70:rgba(30,34,41,.72);--ink-55:rgba(30,34,41,.55);--ink-40:rgba(30,34,41,.4);
+    --line:rgba(30,34,41,.1);--line-2:rgba(30,34,41,.16);
+    --gold:#C5A059;--gold-soft:rgba(197,160,89,.14);
+    --mulberry:#5C2542;--mulberry-fg:#FBFBFA;
+    --preview-grad:linear-gradient(165deg,#FBF6EC 0%,#F1E4CF 100%);
+    --preview-card:#FFFFFF;--scrim:rgba(17,19,26,.32);
+  }
+  #stage[data-theme="dark"]{
+    --paper:#1A1D23;--surface:#23272F;--surface-2:#2C313A;
+    --ink:#FBFBFA;--ink-70:rgba(251,251,250,.74);--ink-55:rgba(251,251,250,.56);--ink-40:rgba(251,251,250,.4);
+    --line:rgba(251,251,250,.12);--line-2:rgba(251,251,250,.2);
+    --gold:#E0CCA0;--gold-soft:rgba(224,204,160,.16);
+    --mulberry:#B8889C;--mulberry-fg:#1A1D23;
+    --preview-grad:linear-gradient(165deg,#20242C 0%,#14171C 100%);
+    --preview-card:#23272F;--scrim:rgba(0,0,0,.45);
+  }
+
+  /* ── frame (device-aware) ── */
+  .frame{overflow:hidden;position:relative;display:flex;flex-direction:column;background:var(--paper);color:var(--ink);transition:background .35s ease,color .35s ease,width .25s ease,height .25s ease}
+  #stage[data-device="mobile"] .frame{width:393px;max-width:100%;height:852px;border:11px solid #000;border-radius:46px;box-shadow:0 26px 64px rgba(0,0,0,.45)}
+  #stage[data-device="desktop"] .frame{width:min(1060px,97vw);height:680px;border:1px solid #2a2d35;border-radius:14px;box-shadow:0 26px 64px rgba(0,0,0,.45)}
+
+  /* chrome: phone vs browser */
+  .notch{position:absolute;top:9px;left:50%;transform:translateX(-50%);width:118px;height:30px;background:#000;border-radius:18px;z-index:60}
+  .statusbar{height:46px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 5px;font-size:13px;font-weight:600;color:var(--ink);flex:0 0 auto}
+  .browserbar{flex:0 0 auto;height:44px;display:flex;align-items:center;gap:12px;padding:0 16px;border-bottom:1px solid var(--line);background:var(--surface)}
+  .browserbar .lights{display:flex;gap:7px}
+  .browserbar .lights i{width:11px;height:11px;border-radius:50%}
+  .browserbar .url{flex:1;background:var(--paper);border:1px solid var(--line);border-radius:8px;height:26px;display:flex;align-items:center;padding:0 12px;font-family:'DM Mono',monospace;font-size:11px;color:var(--ink-55)}
+  #stage[data-device="mobile"] .browserbar{display:none}
+  #stage[data-device="desktop"] .notch,#stage[data-device="desktop"] .statusbar{display:none}
+
+  /* ── layout wrap ── */
+  .editor-wrap{flex:1;display:flex;min-height:0;min-width:0}
+  #stage[data-device="mobile"] .editor-wrap{flex-direction:column}
+  #stage[data-device="desktop"] .editor-wrap{flex-direction:row}
+
+  /* preview */
+  .preview{position:relative;overflow:hidden;background:var(--preview-grad);transition:background .35s ease}
+  #stage[data-device="mobile"] .preview{flex:0 0 44%;border-bottom:1px solid var(--line)}
+  #stage[data-device="desktop"] .preview{flex:1.45 1 0;border-right:1px solid var(--line)}
+  .close{position:absolute;top:13px;left:13px;z-index:30;width:38px;height:38px;border-radius:50%;border:0;background:var(--scrim);backdrop-filter:blur(8px);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .close svg{width:20px;height:20px}
+  .livepill{position:absolute;top:17px;right:15px;z-index:30;display:flex;align-items:center;gap:6px;background:var(--scrim);backdrop-filter:blur(8px);color:#fff;border-radius:999px;padding:5px 10px;font-family:'DM Mono',monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase}
+  .livedot{width:6px;height:6px;border-radius:50%;background:#ff5a5a;animation:lp 1.6s infinite}
+  @keyframes lp{0%{box-shadow:0 0 0 0 rgba(255,90,90,.55)}70%{box-shadow:0 0 0 7px rgba(255,90,90,0)}100%{box-shadow:0 0 0 0 rgba(255,90,90,0)}}
+  .pv{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:9px;padding:34px 24px;text-align:center}
+  .pv.on{display:flex;animation:fade .35s ease}
+  @keyframes fade{from{opacity:0;transform:scale(.985)}to{opacity:1;transform:none}}
+  .pv .mono{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:600;font-size:58px;color:var(--gold);line-height:.95}
+  #stage[data-device="desktop"] .pv .mono{font-size:84px}
+  .pv .names{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:25px;color:var(--ink)}
+  #stage[data-device="desktop"] .pv .names{font-size:34px}
+  .pv .date{font-family:'DM Mono',monospace;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-55)}
+  .pv .cd{display:flex;gap:10px;margin-top:4px}
+  .pv .cd div{background:var(--preview-card);border:1px solid var(--line);border-radius:10px;padding:7px 12px;min-width:48px}
+  .pv .cd b{display:block;font-size:18px;font-weight:700;color:var(--ink)}
+  .pv .cd span{font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-40)}
+  .pv .pill{margin-top:8px;background:var(--mulberry);color:var(--mulberry-fg);border-radius:999px;padding:9px 24px;font-size:13px;font-weight:600}
+  .pv .pcard{background:var(--preview-card);border:1px solid var(--line);border-radius:14px;padding:20px 18px;width:100%;max-width:320px;text-align:left}
+  .pv .pcard h4{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:21px;margin-bottom:12px;text-align:center;color:var(--ink)}
+  .pv .row2{display:flex;gap:8px;margin-bottom:8px}
+  .pv .gbtn{flex:1;text-align:center;border:1px solid var(--line-2);border-radius:9px;padding:9px;font-size:12px;font-weight:600;color:var(--ink)}
+  .pv .gbtn.sel{background:var(--mulberry);color:var(--mulberry-fg);border-color:var(--mulberry)}
+  .pv .inp{border:1px solid var(--line);border-radius:9px;padding:10px 12px;font-size:11px;color:var(--ink-40);background:var(--surface)}
+  .pv .sched{width:100%;max-width:340px;display:flex;flex-direction:column;gap:8px}
+  .pv .sitem{display:flex;align-items:center;gap:11px;background:var(--preview-card);border:1px solid var(--line);border-radius:11px;padding:10px 13px}
+  .pv .sitem .t{font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);width:56px}
+  .pv .sitem .n{font-size:12.5px;font-weight:600;color:var(--ink)}
+  .pv .soon-ic{width:50px;height:50px;border-radius:15px;background:var(--gold-soft);display:flex;align-items:center;justify-content:center;color:var(--gold)}
+  .pv .soon-ic svg{width:26px;height:26px}
+  .pv .soon-t{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:23px;color:var(--ink)}
+  .pv .soon-b{font-size:12px;color:var(--ink-55);max-width:280px;line-height:1.5}
+
+  /* panel (holds tabnav + editor) */
+  .panel{display:flex;min-height:0;min-width:0;background:var(--paper);transition:background .35s ease}
+  #stage[data-device="mobile"] .panel{flex:1;flex-direction:column}
+  #stage[data-device="mobile"] .editor{order:0;flex:1;min-height:0;display:flex;flex-direction:column}
+  #stage[data-device="mobile"] .tabnav{order:1}
+  #stage[data-device="desktop"] .panel{flex:1 1 0;flex-direction:column}
+  #stage[data-device="desktop"] .tabnav{order:0}
+  #stage[data-device="desktop"] .editor{order:1;flex:1;min-height:0;display:flex;flex-direction:column}
+
+  .editor{display:flex;flex-direction:column;min-height:0}
+  .editor-head{display:flex;align-items:baseline;justify-content:space-between;padding:13px 18px 4px}
+  .editor-head .ttl{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:600;font-size:21px;color:var(--ink)}
+  .editor-head .sub{font-family:'DM Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-40)}
+
+  .carousel{display:none;flex-direction:column;min-height:0;flex:1}
+  .carousel.on{display:flex}
+  .track{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:8px 18px 4px;flex:1;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .track::-webkit-scrollbar{display:none}
+  .tcard{flex:0 0 84%;scroll-snap-align:center;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:11px;overflow-y:auto}
+  #stage[data-device="desktop"] .tcard{flex-basis:330px}
+  .tcard .ch{display:flex;align-items:center;gap:9px}
+  .tcard .ch .ci{width:34px;height:34px;border-radius:9px;background:var(--gold-soft);display:flex;align-items:center;justify-content:center;color:var(--gold);flex:0 0 auto}
+  .tcard .ch .ci svg{width:18px;height:18px}
+  .tcard .ch .ct{font-size:14.5px;font-weight:700;color:var(--ink)}
+  .tcard .ch .ct small{display:block;font-weight:500;font-size:11px;color:var(--ink-55);margin-top:1px}
+  .tcard .desc{font-size:12px;color:var(--ink-55);line-height:1.5}
+  .field{border:1px solid var(--line);background:var(--paper);border-radius:10px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .field .lab{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-40)}
+  .field .val{font-size:13px;font-weight:600;color:var(--ink)}
+  .field input{border:0;background:transparent;font:inherit;color:var(--ink);width:100%;outline:none}
+  .ok{font-size:11px;color:#3a9d6e;display:flex;align-items:center;gap:5px}
+  .ok svg{width:13px;height:13px}
+  .qr{width:108px;height:108px;background:#fff;border:1px solid var(--line);border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto}
+  .qr svg{width:78px;height:78px;color:#1E2229}
+  .btn{height:40px;border:0;border-radius:9px;background:var(--mulberry);color:var(--mulberry-fg);font:inherit;font-weight:600;font-size:12.5px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;width:100%}
+  .btn svg{width:15px;height:15px}
+  .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line-2)}
+  .seg{display:flex;gap:6px}
+  .seg button{flex:1;border:1px solid var(--line-2);background:var(--paper);color:var(--ink);border-radius:9px;padding:9px 4px;font:inherit;font-size:12px;font-weight:600;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px}
+  .seg button svg{width:16px;height:16px}
+  .seg button.sel{background:var(--gold);color:#1E2229;border-color:var(--gold)}
+  .swatches{display:flex;gap:6px;margin-top:2px}
+  .swatches span{flex:1;height:26px;border-radius:7px;border:1px solid var(--line)}
+  .chiprow{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{font-size:11px;border:1px solid var(--line-2);border-radius:999px;padding:5px 11px;color:var(--ink-70)}
+  .chip.on{background:var(--gold);color:#1E2229;border-color:var(--gold)}
+  .soonbadge{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-40);border:1px solid var(--line);border-radius:999px;padding:4px 9px;align-self:flex-start}
+  .tcard.soon{opacity:.85}.tcard.soon .ci{background:var(--line);color:var(--ink-40)}
+  .togglerow{display:flex;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:10px;padding:9px 12px}
+  .togglerow .nm{font-size:12.5px;font-weight:600;color:var(--ink)}
+  .tg{width:38px;height:22px;border-radius:999px;background:var(--line-2);position:relative;flex:0 0 auto}
+  .tg.on{background:var(--gold)}
+  .tg::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .2s}
+  .tg.on::after{left:18px}
+  .vrow{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:8px 11px}
+  .vrow .vi{width:30px;height:30px;border-radius:8px;background:var(--gold-soft);color:var(--gold);display:flex;align-items:center;justify-content:center}
+  .vrow .vi svg{width:16px;height:16px}
+  .vrow .vn{font-size:12.5px;font-weight:600;color:var(--ink);flex:1}
+
+  .dots{display:flex;justify-content:center;gap:6px;padding:8px 0 10px}
+  .dots span{width:6px;height:6px;border-radius:50%;background:var(--line-2);transition:all .2s}
+  .dots span.on{background:var(--gold);width:18px;border-radius:3px}
+
+  /* tab nav — bottom row on mobile, top row on desktop */
+  .tabnav{flex:0 0 auto;display:grid;grid-template-columns:repeat(4,1fr);background:var(--surface);transition:background .35s ease}
+  #stage[data-device="mobile"] .tabnav{border-top:1px solid var(--line);padding:7px 0 calc(7px + env(safe-area-inset-bottom,0px))}
+  #stage[data-device="desktop"] .tabnav{border-bottom:1px solid var(--line);padding:8px 0}
+  .tabnav button{background:none;border:0;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--ink-40);font:inherit;font-size:10px;font-weight:600}
+  .tabnav button svg{width:21px;height:21px}
+  .tabnav button.sel{color:var(--gold)}
+</style>
+  <meta name="robots" content="noindex, nofollow" />
+</head>
+<body>
+
+  <div class="stage-label">
+    <p class="eyebrow">Interactive prototype · post-pilot build</p>
+    <h1>Website editor · Reels-style</h1>
+    <p>Switch <b>Mobile / Desktop</b> below. Tap the tabs — preview + tools follow. Swipe the cards. Open <b>Settings → Theme</b> and flip Light/Dark/Auto to watch the whole thing reskin.</p>
+  </div>
+
+  <div class="controls">
+    <div class="devtoggle" id="devtoggle">
+      <button data-device="mobile" class="sel"><i data-lucide="smartphone"></i>Mobile</button>
+      <button data-device="desktop"><i data-lucide="monitor"></i>Desktop</button>
+    </div>
+    <span class="hint"><i data-lucide="hand"></i> Everything is clickable / swipeable</span>
+  </div>
+
+  <div id="stage" data-device="mobile" data-theme="light">
+    <div class="frame">
+      <!-- mobile chrome -->
+      <div class="notch"></div>
+      <div class="statusbar"><span>9:41</span><span>&#9679;&#9679;&#9679; &#9650; &#9737;</span></div>
+      <!-- desktop chrome -->
+      <div class="browserbar">
+        <span class="lights"><i style="background:#ff5f56"></i><i style="background:#ffbd2e"></i><i style="background:#27c93f"></i></span>
+        <span class="url">setnayan.com/dashboard · website</span>
+      </div>
+
+      <div class="editor-wrap">
+        <!-- ── PREVIEW ── -->
+        <div class="preview">
+          <button class="close" title="Back to dashboard" onclick="closeMsg()"><i data-lucide="x"></i></button>
+          <div class="livepill"><span class="livedot"></span> Live preview</div>
+
+          <div class="pv on" data-pv="settings">
+            <div class="mono">M&amp;J</div>
+            <div class="names">Maria &amp; Juan</div>
+            <div class="date">December 18, 2026 · Manila</div>
+            <div class="cd"><div><b>200</b><span>days</span></div><div><b>14</b><span>hrs</span></div><div><b>32</b><span>min</span></div></div>
+            <div class="pill">RSVP</div>
+          </div>
+          <div class="pv" data-pv="rsvp">
+            <div class="pcard">
+              <h4>Will you celebrate with us?</h4>
+              <div class="row2"><div class="gbtn sel">Joyfully yes</div><div class="gbtn">Regretfully no</div></div>
+              <div class="inp">Your name</div>
+            </div>
+          </div>
+          <div class="pv" data-pv="event">
+            <div class="names" style="margin-bottom:4px">The day, hour by hour</div>
+            <div class="sched">
+              <div class="sitem"><span class="t">3:00 PM</span><span class="n">Ceremony · San Agustin</span></div>
+              <div class="sitem"><span class="t">5:30 PM</span><span class="n">Cocktails</span></div>
+              <div class="sitem"><span class="t">6:30 PM</span><span class="n">Reception · The Peninsula</span></div>
+            </div>
+          </div>
+          <div class="pv" data-pv="editorial">
+            <div class="soon-ic"><i data-lucide="newspaper"></i></div>
+            <div class="soon-t">Your story, after the day</div>
+            <div class="soon-b">Your wedding editorial appears here once the celebration is over. Coming soon.</div>
+          </div>
+        </div>
+
+        <!-- ── PANEL (tabnav + carousels) ── -->
+        <div class="panel">
+          <nav class="tabnav" id="tabnav">
+            <button data-tab="settings" class="sel"><i data-lucide="settings"></i>Settings</button>
+            <button data-tab="rsvp"><i data-lucide="mail-check"></i>RSVP</button>
+            <button data-tab="event"><i data-lucide="party-popper"></i>Event</button>
+            <button data-tab="editorial"><i data-lucide="newspaper"></i>Editorial</button>
+          </nav>
+
+          <div class="editor">
+            <div class="editor-head"><span class="ttl" id="ed-title">Settings</span><span class="sub">Swipe →</span></div>
+
+            <!-- SETTINGS -->
+            <div class="carousel on" data-car="settings">
+              <div class="track">
+                <div class="tcard">
+                  <div class="ch"><span class="ci"><i data-lucide="link"></i></span><span class="ct">Subdomain name<small>Your public wedding URL</small></span></div>
+                  <div class="field"><span class="lab">setnayan.com/</span><input value="maria-and-juan" /></div>
+                  <div class="ok"><i data-lucide="check-circle-2"></i> Available — this is yours.</div>
+                  <button class="btn"><i data-lucide="check"></i> Save URL</button>
+                </div>
+                <div class="tcard">
+                  <div class="ch"><span class="ci"><i data-lucide="qr-code"></i></span><span class="ct">QR code<small>With your monogram in the center</small></span></div>
+                  <div class="qr"><i data-lucide="qr-code"></i></div>
+                  <button class="btn"><i data-lucide="download"></i> Download PNG</button>
+                  <button class="btn ghost"><i data-lucide="share-2"></i> Share</button>
+                </div>
+                <div class="tcard">
+                  <div class="ch"><span class="ci"><i data-lucide="palette"></i></span><span class="ct">Theme<small>How your whole Setnayan adapts</small></span></div>
+                  <div class="seg" id="themeseg">
+                    <button data-mode="light" class="sel"><i data-lucide="sun"></i>Light</button>
+                    <button data-mode="dark"><i data-lucide="moon"></i>Dark</button>
+                    <button data-mode="auto"><i data-lucide="laptop"></i>Auto</button>
+                  </div>
+                  <div class="desc">Light &amp; dark flow across your dashboard, your editor, and your guests&rsquo; live site. Auto follows the device.</div>
+                  <div class="swatches"><span style="background:var(--paper)"></span><span style="background:var(--gold)"></span><span style="background:var(--mulberry)"></span><span style="background:var(--ink)"></span></div>
+                </div>
+              </div>
+              <div class="dots"></div>
+            </div>
+
+            <!-- RSVP -->
+            <div class="carousel" data-car="rsvp">
+              <div class="track">
+                <div class="tcard">
+                  <div class="ch"><span class="ci"><i data-lucide="users"></i></span><span class="ct">Manage RSVPs<small>7 still to hear from</small></span></div>
+                  <div class="vrow"><span class="vi"><i data-lucide="check"></i></span><span class="vn">Attending</span><span style="font-weight:700;color:var(--gold)">94</span></div>
+                  <div class="vrow"><span class="vi"><i data-lucide="clock"></i></span><span class="vn">Pending</span><span style="font-weight:700;color:var(--gold)">7</span></div>
+                  <div class="vrow"><span class="vi"><i data-lucide="x"></i></span><span class="vn">Declined</span><span style="font-weight:700;color:var(--gold)">3</span></div>
+                  <button class="btn ghost"><i data-lucide="list"></i> Open guest list</button>
+                </div>
+                <div class="tcard">
+                  <div class="ch"><span class="ci"><i data-lucide="lock"></i></span><span class="ct">Who can view<small>Control your page&rsquo;s reach</small></span></div>
+                  <div class="chiprow"><span class="chip on">Public</span><span class="chip">Unlisted</span><span class="chip">Private</span></div>
+                  <div class="desc">Public shows up to anyone with the link or QR. Change anytime — it takes effect right away.</div>
+                </div>
+                <div class="tcard">
+                  <div class="ch"><span class="ci"><i data-lucide="calendar-check"></i></span><span class="ct">RSVP deadline<small>When the form closes</small></span></div>
+                  <div class="field"><span class="lab">Closes</span><span class="val">Nov 18, 2026</span></div>
+                  <div class="togglerow"><span class="nm">Allow +1 guests</span><span class="tg on"></span></div>
+                  <div class="togglerow"><span class="nm">Ask for meal choice</span><span class="tg"></span></div>
+                </div>
+              </div>
+              <div class="dots"></div>
+            </div>
+
+            <!-- EVENT -->
+            <div class="carousel" data-car="event">
+              <div class="track">
+                <div class="tcard">
+                  <div class="ch"><span class="ci"><i data-lucide="pencil"></i></span><span class="ct">Branding<small>Monogram &amp; names</small></span></div>
+                  <div class="field"><span class="lab">Monogram</span><span class="val">M &amp; J</span></div>
+                  <div class="field"><span class="lab">Display</span><span class="val">Maria &amp; Juan</span></div>
+                  <button class="btn ghost"><i data-lucide="wand-2"></i> Open monogram studio</button>
+                </div>
+                <div class="tcard">
+                  <div class="ch"><span class="ci"><i data-lucide="image-plus"></i></span><span class="ct">Hero photo<small>Full-bleed banner</small></span></div>
+                  <div class="qr" style="width:100%;height:84px;background:var(--preview-grad)"><i data-lucide="image" style="color:var(--gold)"></i></div>
+                  <button class="btn"><i data-lucide="upload"></i> Upload photo</button>
+                </div>
+                <div class="tcard">
+                  <div class="ch"><span class="ci"><i data-lucide="camera"></i></span><span class="ct">Photo moments<small>Set the guest vibe</small></span></div>
+                  <div class="chiprow"><span class="chip on">Cameras welcome</span><span class="chip">Phone-down</span><span class="chip">Paparazzo only</span></div>
+                </div>
+                <div class="tcard">
+                  <div class="ch"><span class="ci"><i data-lucide="shirt"></i></span><span class="ct">Dress code<small>Palette &amp; guidance</small></span></div>
+                  <div class="field"><span class="lab">Headline</span><span class="val">Garden formal</span></div>
+                  <div class="swatches"><span style="background:#7C8C6B"></span><span style="background:#C8B49A"></span><span style="background:#9C6B4E"></span><span style="background:#E6D8C3"></span></div>
+                </div>
+                <div class="tcard">
+                  <div class="ch"><span class="ci"><i data-lucide="layout-grid"></i></span><span class="ct">Widgets<small>Show, hide &amp; reorder</small></span></div>
+                  <div class="togglerow"><span class="nm">Countdown</span><span class="tg on"></span></div>
+                  <div class="togglerow"><span class="nm">Our story</span><span class="tg on"></span></div>
+                  <div class="togglerow"><span class="nm">Venue map</span><span class="tg"></span></div>
+                </div>
+                <div class="tcard">
+                  <div class="ch"><span class="ci"><i data-lucide="video"></i></span><span class="ct">Save-the-Date video<small>From the template gallery</small></span></div>
+                  <div class="desc">Pick a 60-second template; we render it from your photos.</div>
+                  <button class="btn ghost"><i data-lucide="arrow-up-right"></i> Browse templates</button>
+                </div>
+              </div>
+              <div class="dots"></div>
+            </div>
+
+            <!-- EDITORIAL -->
+            <div class="carousel" data-car="editorial">
+              <div class="track">
+                <div class="tcard soon"><div class="ch"><span class="ci"><i data-lucide="newspaper"></i></span><span class="ct">Create editorial<small>Your wedding, as a story</small></span></div><div class="desc">A magazine-style page of your day, right on your site.</div><span class="soonbadge">Coming soon</span></div>
+                <div class="tcard soon"><div class="ch"><span class="ci"><i data-lucide="star"></i></span><span class="ct">Collect reviews<small>From guests &amp; vendors</small></span></div><div class="desc">Invite everyone who celebrated to leave a note.</div><span class="soonbadge">Coming soon</span></div>
+                <div class="tcard soon"><div class="ch"><span class="ci"><i data-lucide="images"></i></span><span class="ct">Pick photos<small>Curate the gallery</small></span></div><div class="desc">Choose the album your guests get to keep.</div><span class="soonbadge">Coming soon</span></div>
+                <div class="tcard soon"><div class="ch"><span class="ci"><i data-lucide="heart"></i></span><span class="ct">Thank-you video<small>A note to everyone</small></span></div><div class="desc">A short thank-you to all who shared the day.</div><span class="soonbadge">Coming soon</span></div>
+              </div>
+              <div class="dots"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  lucide.createIcons();
+  const stage = document.getElementById('stage');
+  const TITLES = {settings:'Settings', rsvp:'RSVP', event:'Event', editorial:'Editorial'};
+
+  /* device toggle */
+  document.querySelectorAll('#devtoggle button').forEach(b=>{
+    b.addEventListener('click',()=>{
+      stage.dataset.device=b.dataset.device;
+      document.querySelectorAll('#devtoggle button').forEach(x=>x.classList.toggle('sel',x===b));
+      document.querySelectorAll('.carousel').forEach(refreshDots);
+    });
+  });
+
+  /* tab switching */
+  function setTab(tab){
+    document.querySelectorAll('#tabnav button').forEach(b=>b.classList.toggle('sel', b.dataset.tab===tab));
+    document.querySelectorAll('.pv').forEach(p=>p.classList.toggle('on', p.dataset.pv===tab));
+    document.querySelectorAll('.carousel').forEach(c=>c.classList.toggle('on', c.dataset.car===tab));
+    document.getElementById('ed-title').textContent = TITLES[tab];
+    const car = document.querySelector('.carousel.on');
+    car.querySelector('.track').scrollTo({left:0,behavior:'auto'});
+    refreshDots(car);
+  }
+  document.querySelectorAll('#tabnav button').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
+
+  /* carousel dots */
+  function refreshDots(car){
+    const track=car.querySelector('.track'),cards=track.querySelectorAll('.tcard'),dots=car.querySelectorAll('.dots span');
+    let idx=0,best=1e9,center=track.scrollLeft+track.clientWidth/2;
+    cards.forEach((c,i)=>{const cc=c.offsetLeft+c.clientWidth/2,d=Math.abs(cc-center);if(d<best){best=d;idx=i;}});
+    dots.forEach((s,i)=>s.classList.toggle('on',i===idx));
+  }
+  document.querySelectorAll('.carousel').forEach(car=>{
+    const track=car.querySelector('.track'),dots=car.querySelector('.dots'),n=track.querySelectorAll('.tcard').length;
+    for(let i=0;i<n;i++){const s=document.createElement('span');if(i===0)s.classList.add('on');dots.appendChild(s);}
+    track.addEventListener('scroll',()=>refreshDots(car),{passive:true});
+    /* drag-to-swipe with a mouse */
+    let down=false,sx,sl;
+    track.addEventListener('mousedown',e=>{down=true;sx=e.pageX;sl=track.scrollLeft;track.style.cursor='grabbing';});
+    window.addEventListener('mouseup',()=>{down=false;track.style.cursor='';});
+    track.addEventListener('mouseleave',()=>{down=false;});
+    track.addEventListener('mousemove',e=>{if(!down)return;e.preventDefault();track.scrollLeft=sl-(e.pageX-sx);});
+  });
+
+  /* theme toggle reskins everything */
+  const mq=window.matchMedia('(prefers-color-scheme: dark)');let mode='light';
+  function applyTheme(){const dark=mode==='dark'||(mode==='auto'&&mq.matches);stage.dataset.theme=dark?'dark':'light';}
+  document.querySelectorAll('#themeseg button').forEach(b=>b.addEventListener('click',()=>{
+    mode=b.dataset.mode;document.querySelectorAll('#themeseg button').forEach(x=>x.classList.toggle('sel',x===b));applyTheme();
+  }));
+  mq.addEventListener('change',()=>{if(mode==='auto')applyTheme();});
+
+  function closeMsg(){
+    const old=document.getElementById('ct');if(old)old.remove();
+    const t=document.createElement('div');t.id='ct';
+    t.style.cssText='position:absolute;top:60px;left:13px;z-index:50;background:var(--scrim);backdrop-filter:blur(8px);color:#fff;font-size:11.5px;padding:8px 12px;border-radius:10px;max-width:240px;line-height:1.4';
+    t.textContent='✕ returns you to the dashboard — sidebar, nav, everything comes back.';
+    document.querySelector('.preview').appendChild(t);setTimeout(()=>t.remove(),2600);
+  }
+</script>
+</body>
+</html>

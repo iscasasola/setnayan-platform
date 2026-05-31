@@ -56,6 +56,7 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
+import { updateVendorCosts } from '../../actions';
 import { fetchBudgetSnapshot } from '@/lib/budget';
 import {
   buildClaimUrl,
@@ -219,7 +220,7 @@ export default async function VendorWorkspacePage({ params }: Props) {
   const { data: vendorRow, error: vendorErr } = await supabase
     .from('event_vendors')
     .select(
-      'vendor_id, event_id, category, vendor_name, contact_email, contact_phone, status, workspace_status, total_cost_php, deposit_paid_php, notes, marketplace_vendor_id, manual_vendor_id, created_at',
+      'vendor_id, event_id, category, vendor_name, contact_email, contact_phone, status, workspace_status, total_cost_php, transport_php, food_allowance_php, deposit_paid_php, notes, marketplace_vendor_id, manual_vendor_id, event_vendor_package_id, created_at',
     )
     .eq('vendor_id', eventVendorId)
     .eq('event_id', eventId)
@@ -237,10 +238,13 @@ export default async function VendorWorkspacePage({ params }: Props) {
     status: string;
     workspace_status: string | null;
     total_cost_php: number | string | null;
+    transport_php: number | string | null;
+    food_allowance_php: number | string | null;
     deposit_paid_php: number | string | null;
     notes: string | null;
     marketplace_vendor_id: string | null;
     manual_vendor_id: string | null;
+    event_vendor_package_id: string | null;
     created_at: string;
   };
 
@@ -478,6 +482,47 @@ export default async function VendorWorkspacePage({ params }: Props) {
   const planTotalFormatted =
     lineItems.length > 0 ? formatPHP(milestonesTotal) : totalCostFormatted;
 
+  // What's included (CLAUDE.md 2026-05-31): when this booking was locked from a
+  // marketplace package, surface the package's line items so the couple sees
+  // exactly what it covers. Two-hop FK: event_vendors.event_vendor_package_id →
+  // event_vendor_packages.booking_id → .package_id → vendor_package_items.
+  // Best-effort (public-read marketplace data) — empty result falls back to the
+  // booking notes in the JSX below.
+  let packageItems: {
+    service_description: string;
+    is_default_included: boolean;
+  }[] = [];
+  if (ev.event_vendor_package_id) {
+    const { data: bookingPkg } = await supabase
+      .from('event_vendor_packages')
+      .select('package_id')
+      .eq('booking_id', ev.event_vendor_package_id)
+      .maybeSingle();
+    const pkgId = (bookingPkg as { package_id: string } | null)?.package_id;
+    if (pkgId) {
+      const { data: items } = await supabase
+        .from('vendor_package_items')
+        .select('service_description, is_default_included, display_order')
+        .eq('package_id', pkgId)
+        .order('display_order', { ascending: true });
+      packageItems = (
+        (items ?? []) as Array<{
+          service_description: string;
+          is_default_included: boolean;
+        }>
+      ).map((it) => ({
+        service_description: it.service_description,
+        is_default_included: it.is_default_included,
+      }));
+    }
+  }
+
+  // 3-line total = Service + Transport + Food allowance (nulls → ₱0).
+  const serviceCostNum = Number(ev.total_cost_php ?? 0) || 0;
+  const transportNum = Number(ev.transport_php ?? 0) || 0;
+  const foodNum = Number(ev.food_allowance_php ?? 0) || 0;
+  const rolledTotalNum = serviceCostNum + transportNum + foodNum;
+
   // Conversation deep-link target
   const conversationHref = chatThread
     ? `/dashboard/${eventId}/messages/${chatThread.thread_id}`
@@ -629,6 +674,108 @@ export default async function VendorWorkspacePage({ params }: Props) {
             return null;
           })()}
         </div>
+      </section>
+
+      {/* ============================================================== */}
+      {/* Section 1a — What's included (package inclusions / notes)        */}
+      {/* ============================================================== */}
+      {packageItems.length > 0 || ev.notes ? (
+        <section
+          aria-labelledby="included-heading"
+          className="rounded-2xl border border-ink/10 bg-white/60 p-5 sm:p-6"
+        >
+          <h2
+            id="included-heading"
+            className="mb-3 font-display text-lg italic text-ink"
+          >
+            What&apos;s included
+          </h2>
+          {packageItems.length > 0 ? (
+            <ul className="space-y-2">
+              {packageItems.map((it, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-ink/80">
+                  <CheckCircle2
+                    aria-hidden
+                    className={`mt-0.5 h-4 w-4 shrink-0 ${it.is_default_included ? 'text-terracotta' : 'text-ink/30'}`}
+                    strokeWidth={1.75}
+                  />
+                  <span>
+                    {it.service_description}
+                    {it.is_default_included ? '' : ' (optional add-on)'}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="whitespace-pre-line text-sm text-ink/70">{ev.notes}</p>
+          )}
+        </section>
+      ) : null}
+
+      {/* ============================================================== */}
+      {/* Section 1c — Costing (3-line total the couple edits)            */}
+      {/* ============================================================== */}
+      <section
+        aria-labelledby="costing-heading"
+        className="rounded-2xl border border-ink/10 bg-white/60 p-5 sm:p-6"
+      >
+        <h2
+          id="costing-heading"
+          className="mb-1 font-display text-lg italic text-ink"
+        >
+          Costing
+        </h2>
+        <p className="mb-4 text-xs text-ink/55">
+          The amount you&apos;ll budget is the service price + transport + food
+          allowance. Leave a line blank to count it as ₱0.
+        </p>
+        <form action={updateVendorCosts} className="space-y-3">
+          <input type="hidden" name="event_id" value={eventId} />
+          <input type="hidden" name="vendor_id" value={ev.vendor_id} />
+
+          {[
+            { name: 'total_cost_php', label: 'Service price', value: ev.total_cost_php },
+            { name: 'transport_php', label: 'Transport cost', value: ev.transport_php },
+            { name: 'food_allowance_php', label: 'Food allowance', value: ev.food_allowance_php },
+          ].map((line) => (
+            <label
+              key={line.name}
+              className="flex items-center justify-between gap-3 text-sm"
+            >
+              <span className="text-ink/65">{line.label}</span>
+              <span className="inline-flex items-center gap-1">
+                <span className="text-ink/40">₱</span>
+                <input
+                  name={line.name}
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  inputMode="decimal"
+                  defaultValue={line.value ?? ''}
+                  className="w-32 rounded-md border border-ink/15 bg-white px-2 py-1 text-right font-medium text-ink focus:border-terracotta focus:outline-none"
+                />
+              </span>
+            </label>
+          ))}
+
+          <div className="flex items-center justify-between border-t border-ink/10 pt-3">
+            <span className="text-sm font-medium text-ink">Total</span>
+            <span className="font-display text-lg italic text-ink">
+              {formatPHP(rolledTotalNum) ?? '₱0'}
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-ink/65">Deposit paid</span>
+            <span className="font-medium text-ink">{depositPaidFormatted ?? '—'}</span>
+          </div>
+
+          <button
+            type="submit"
+            className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+          >
+            Save costs
+          </button>
+        </form>
       </section>
 
       {/* ============================================================== */}

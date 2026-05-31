@@ -143,6 +143,11 @@ export type EventVendorRow = {
   contact_phone: string | null;
   status: VendorStatus;
   total_cost_php: number | null;
+  // 3-line cost (CLAUDE.md 2026-05-31): couple-facing total = total_cost_php
+  // (Service) + transport_php (Transport) + food_allowance_php (Food). Both
+  // nullable → treated as ₱0 until the couple enters them in the workspace.
+  transport_php: number | null;
+  food_allowance_php: number | null;
   deposit_paid_php: number | null;
   notes: string | null;
   created_at: string;
@@ -169,7 +174,7 @@ export async function fetchEventVendors(
   const { data, error } = await supabase
     .from('event_vendors')
     .select(
-      'vendor_id,public_id,event_id,category,vendor_name,contact_email,contact_phone,status,total_cost_php,deposit_paid_php,notes,created_at,marketplace_vendor_id',
+      'vendor_id,public_id,event_id,category,vendor_name,contact_email,contact_phone,status,total_cost_php,transport_php,food_allowance_php,deposit_paid_php,notes,created_at,marketplace_vendor_id',
     )
     .eq('event_id', eventId)
     .order('created_at', { ascending: true });

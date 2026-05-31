@@ -112,6 +112,47 @@
   }
 
   /*
+   * Press feedback (owner directive 2026-05-31 — "buttons don't feel like
+   * buttons; no animation when pressed"). We kill the default mobile
+   * tap-highlight above, so every button-like control needs its own press
+   * response or taps feel dead. Give a quick scale-down + slight darken on
+   * :active and pointer cursor. Excludes :disabled / [aria-disabled].
+   * `.m-btn` (template utility) carries its own more-specific hover/active —
+   * left intact. prefers-reduced-motion (block below) snaps it instantly,
+   * which is still felt as feedback.
+   */
+  button,
+  [role='button'],
+  a.button,
+  input[type='submit'],
+  input[type='button'],
+  summary {
+    transition: transform 0.13s cubic-bezier(0.2, 0.7, 0.2, 1),
+      filter 0.13s ease;
+  }
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  a.button,
+  input[type='submit']:not(:disabled),
+  input[type='button']:not(:disabled),
+  summary {
+    cursor: pointer;
+  }
+  button:not(:disabled):active,
+  [role='button']:not([aria-disabled='true']):active,
+  a.button:active,
+  input[type='submit']:not(:disabled):active,
+  input[type='button']:not(:disabled):active,
+  summary:active {
+    transform: scale(0.96);
+    filter: brightness(0.97);
+  }
+  button:disabled,
+  [aria-disabled='true'] {
+    cursor: not-allowed;
+  }
+
+  /*
    * Accessibility — `prefers-reduced-motion` (WCAG 2.2 § 2.3.3 Animation
    * from Interactions, AAA). Disable transitions, scroll-snap, transforms,
    * and any tailwindcss-animate-driven motion when the OS-level setting
@@ -147,11 +188,11 @@
    * primary actions visually distinct from active-pill highlights.
    */
   .button-primary {
-    @apply inline-flex h-11 items-center justify-center rounded-md bg-mulberry px-6 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mulberry focus-visible:ring-offset-2 focus-visible:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60;
+    @apply inline-flex h-11 items-center justify-center rounded-md bg-mulberry px-6 text-sm font-medium text-cream transition hover:bg-mulberry-600 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mulberry focus-visible:ring-offset-2 focus-visible:ring-offset-cream disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100;
   }
 
   .button-secondary {
-    @apply inline-flex h-11 items-center justify-center rounded-md border border-ink/20 bg-cream px-6 text-sm font-medium text-ink transition-colors hover:border-ink/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60;
+    @apply inline-flex h-11 items-center justify-center rounded-md border border-ink/20 bg-cream px-6 text-sm font-medium text-ink transition hover:border-ink/40 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100;
   }
 
   .input-field {

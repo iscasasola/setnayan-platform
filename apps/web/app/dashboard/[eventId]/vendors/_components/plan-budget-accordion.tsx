@@ -38,6 +38,7 @@ import Link from 'next/link';
 import { formatPhp } from '@/lib/vendors';
 import { formatDistanceKm } from '@/lib/distance';
 import { deleteVendor, updateVendorStatus } from '../actions';
+import { CategorySearchOverlay } from './category-search-overlay';
 import {
   formatPesoCompact,
   formatPesoPrecise,
@@ -214,6 +215,11 @@ const PBA_CSS = `
 .pba .empty-child .ep{font-size:17px;color:var(--mulberry);font-weight:300;line-height:1}
 .pba .empty-child .en{font-family:var(--sans);font-size:13.5px;font-weight:600;color:var(--mulberry)}
 .pba .empty-child .eh{margin-left:auto;font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#b8b4ac}
+/* .add + .empty-child are <button>s (open the in-place Category Search
+   overlay) — neutralize UA button chrome so they render exactly as the
+   former anchors did. */
+.pba .add,.pba .empty-child{appearance:none;-webkit-appearance:none;font:inherit;cursor:pointer;text-align:left;width:auto}
+.pba .add{border:0;background:none;padding:0}
 
 /* ---- Compare (like-for-like; read-only — never sets the pick) ---- */
 .pba .cn-right{display:flex;align-items:center;gap:8px}
@@ -287,6 +293,10 @@ export function PlanBudgetAccordion({
   // Lifted to root so the fixed-position sheet escapes the curve-transformed
   // .child-block ancestors (a transform would make position:fixed local).
   const [compare, setCompare] = useState<AccordionChild | null>(null);
+  // Category-search overlay: opened in-place from the Find / Add buttons
+  // (replaces the marketplace jump). Scoped to one plan group.
+  const [search, setSearch] = useState<{ groupId: string; label: string } | null>(null);
+  const openSearch = (groupId: string, label: string) => setSearch({ groupId, label });
 
   // Scroll-driven motion (prototype Plan_Budget_Accordion_2026-05-31.html):
   //   · sizeIntro   — the "Where your day stands" overview scales + fades as it
@@ -407,12 +417,22 @@ export function PlanBudgetAccordion({
               eventId={eventId}
               index={index}
               onCompare={setCompare}
+              onOpenSearch={openSearch}
             />
           ))}
         </div>
 
         {compare && (
           <CompareSheet child={compare} onClose={() => setCompare(null)} />
+        )}
+
+        {search && (
+          <CategorySearchOverlay
+            eventId={eventId}
+            groupId={search.groupId}
+            label={search.label}
+            onClose={() => setSearch(null)}
+          />
         )}
 
         {hasAnyPick && (
@@ -612,11 +632,13 @@ function FolderSection({
   eventId,
   index,
   onCompare,
+  onOpenSearch,
 }: {
   folder: AccordionFolder;
   eventId: string;
   index: number;
   onCompare: (child: AccordionChild) => void;
+  onOpenSearch: (groupId: string, label: string) => void;
 }) {
   const hasLocked = folder.lockedTotal > 0;
   // Folders render always-open (the prototype model) so the scroll engine can
@@ -653,6 +675,7 @@ function FolderSection({
                 eventId={eventId}
                 folderSlug={folder.slug}
                 onCompare={onCompare}
+                onOpenSearch={onOpenSearch}
               />
             </div>
           ))
@@ -668,11 +691,13 @@ function ChildRail({
   eventId,
   folderSlug,
   onCompare,
+  onOpenSearch,
 }: {
   child: AccordionChild;
   eventId: string;
   folderSlug: string;
   onCompare: (child: AccordionChild) => void;
+  onOpenSearch: (groupId: string, label: string) => void;
 }) {
   const empty = child.picks.length === 0;
   const canCompare = child.picks.length >= 2;
@@ -695,20 +720,25 @@ function ChildRail({
       </div>
 
       {empty ? (
-        <Link
-          href={`/vendors?folder=${folderSlug}&from=plan&group=${child.groupId}`}
+        <button
+          type="button"
           className="empty-child"
+          onClick={() => onOpenSearch(child.groupId, child.label)}
         >
           <span className="ep">＋</span>
           <span className="en">Find {child.label.toLowerCase()}</span>
-          <span className="eh">Browse</span>
-        </Link>
+          <span className="eh">Search</span>
+        </button>
       ) : (
         <div className="rail">
           {child.picks.map((pick) => (
             <VendorCardAtom key={pick.vendor_id} pick={pick} eventId={eventId} />
           ))}
-          <AddCard folderSlug={folderSlug} groupId={child.groupId} />
+          <AddCard
+            label={child.label}
+            groupId={child.groupId}
+            onOpenSearch={onOpenSearch}
+          />
         </div>
       )}
     </div>
@@ -884,22 +914,25 @@ function VendorCardAtom({
 }
 
 function AddCard({
-  folderSlug,
+  label,
   groupId,
+  onOpenSearch,
 }: {
-  folderSlug: string;
+  label: string;
   groupId: string;
+  onOpenSearch: (groupId: string, label: string) => void;
 }) {
   return (
-    <Link
-      href={`/vendors?folder=${folderSlug}&from=plan&group=${groupId}`}
+    <button
+      type="button"
       className="add"
+      onClick={() => onOpenSearch(groupId, label)}
     >
       <span className="inner">
         <span className="plus">＋</span>
         <span className="at">Find more</span>
       </span>
-    </Link>
+    </button>
   );
 }
 

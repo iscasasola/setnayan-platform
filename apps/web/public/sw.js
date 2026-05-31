@@ -4,10 +4,10 @@
 // (02_Specifications/Caching_and_Offline_Strategy.md § 3.2). Hand-rolled on
 // the raw Cache + Fetch APIs; no Workbox bundle.
 //
-// Caches (each with its own LRU + max-age expiration):
-//   - setnayan-images-v1   CacheFirst        500 entries, 30-day max-age
-//   - setnayan-static-v1   StaleWhileReval.  100 entries,  7-day max-age
-//   - setnayan-fonts-v1    CacheFirst         20 entries,  1-year max-age
+// Caches (each with its own LRU + max-age expiration · suffixed by VERSION):
+//   - setnayan-images-v2   CacheFirst        500 entries, 30-day max-age
+//   - setnayan-static-v2   StaleWhileReval.  100 entries,  7-day max-age
+//   - setnayan-fonts-v2    CacheFirst         20 entries,  1-year max-age
 //
 // Preserves the existing exclusions (/auth/, /api/, /health, cross-origin,
 // non-GET) and the shell-cache navigation fallback so the app shell still
@@ -15,11 +15,20 @@
 //
 // Listens for `{ type: 'CACHE_BUST' }` postMessages to drop every cache —
 // used by the schema-buster pattern when NEXT_PUBLIC_CACHE_BUSTER bumps.
+//
+// CACHE VERSION — bump this whenever a same-named static asset changes in
+// place (logo, favicon, app icon, shell). Images are served CacheFirst from a
+// long-lived cache, so without a version bump returning visitors keep serving
+// the OLD asset off-device until the 30-day max-age lapses. Bumping VERSION
+// renames every cache; the `activate` handler then deletes the prior-version
+// caches (they fall out of KNOWN_CACHES) and the SW re-fetches fresh.
+//   v1 -> v2: 2026-05-31 brand-logo + app-icon swap (gold S/Y monogram).
 
-const SHELL_CACHE = 'setnayan-v1';
-const IMAGE_CACHE = 'setnayan-images-v1';
-const STATIC_CACHE = 'setnayan-static-v1';
-const FONT_CACHE = 'setnayan-fonts-v1';
+const VERSION = 'v2';
+const SHELL_CACHE = `setnayan-${VERSION}`;
+const IMAGE_CACHE = `setnayan-images-${VERSION}`;
+const STATIC_CACHE = `setnayan-static-${VERSION}`;
+const FONT_CACHE = `setnayan-fonts-${VERSION}`;
 
 const KNOWN_CACHES = [SHELL_CACHE, IMAGE_CACHE, STATIC_CACHE, FONT_CACHE];
 

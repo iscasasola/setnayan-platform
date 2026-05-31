@@ -90,10 +90,18 @@ const PBA_CSS = `
   --mono:var(--font-mono),"DM Mono",ui-monospace,Menlo,monospace;
   --spring:cubic-bezier(.34,1.3,.5,1); --ease:cubic-bezier(.22,.61,.36,1);
   /* Full-bleed top: the dashboard <main> adds py-6 (24px) above us; pull up so
-     the budget bar sits flush under the sticky app header (no gap on top). */
-  position:relative; margin-top:-24px; background:var(--paper); color:var(--ink); font-family:var(--sans);
+     the budget bar sits flush under the sticky app header (no gap on top).
+     Full-bleed bottom: cancel the <main> py-6 bottom (24px) AND the EventLayout
+     wrapper's pb-20 (80px) so the recap is the TERMINAL element and snaps flush
+     above the fixed bottom nav. The page already provides its own exact nav
+     clearance via the end-spacer's --botnav-h; without cancelling the outer
+     pair the clearance was DOUBLED, leaving ~104px of white dead space below
+     the recap ("snap under Transport, not go past it" — owner 2026-06-01).
+     Verified in the _pba_verify mirror: gapAboveNav 104 → 0. The lg block
+     below resets to -24px (desktop has no pb-20 + no fixed bottom nav). */
+  position:relative; margin-top:-24px; margin-bottom:-104px; background:var(--paper); color:var(--ink); font-family:var(--sans);
 }
-@media (min-width:1024px){.pba{--pba-header-offset:0px}.pba .topbar,.pba .meter{margin-left:0;margin-right:0}}
+@media (min-width:1024px){.pba{--pba-header-offset:0px;margin-bottom:-24px}.pba .topbar,.pba .meter{margin-left:0;margin-right:0}.pba .end-spacer{padding-bottom:30px}}
 .pba *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 
 /* ---- Dark top budget bar ---- */

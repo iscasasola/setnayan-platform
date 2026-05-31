@@ -225,7 +225,13 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   const flash = pickFlash(search);
 
   return (
-    <section className="space-y-6">
+    /* Owner directive 2026-06-01: top nav removed on Guests (mobile-first),
+       matching the Vendors tab treatment. .shell-topbar{display:none} is
+       scoped to this page via the injected <style> tag — the nav returns
+       the moment the host navigates away. -mt-6 cancels the <main py-6>
+       top-padding so the page content sits flush under the bottom-nav. */
+    <section className="-mt-6 space-y-6">
+      <style>{`.shell-topbar{display:none}`}</style>
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">

@@ -1,0 +1,806 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="robots" content="noindex,nofollow" />
+<title>Setnayan · Guests (redesign 2026-06-02)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&family=Cormorant+Garamond:ital,wght@0,600;1,500;1,600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   Setnayan — Customer Dashboard · Guests (redesign prototype)
+   Clean Editorial palette (alabaster/obsidian/champagne/mulberry).
+   Responsive: ≥1024px = desktop table + sidebar facets.
+                <1024px  = mobile cards + chip rail + bottom-sheet
+                           filters (covers tablet too — fixes the
+                           640–1023 "table-but-no-filters" dead zone).
+   ============================================================ */
+:root{
+  --paper:#FBFBFA; --surface:#FFFFFF;
+  --ink:#1E2229; --ink-soft:#5C6066; --ink-faint:#8A8F96;
+  --line:rgba(30,34,41,.10); --line-strong:rgba(30,34,41,.16);
+  --gold:#C5A059; --gold-deep:#A88340; --gold-wash:#F6EFDD;
+  --mulberry:#5C2542; --mulberry-deep:#4A1D36; --mulberry-wash:#F5E8EE;
+  /* RSVP semantics */
+  --go:#047857; --go-bg:#D9F3E6; --pend:#9A6213; --pend-bg:#FBEFD3;
+  --dec:#A1213C; --dec-bg:#FBE2E6; --may:#5C6066; --may-bg:rgba(30,34,41,.07);
+  /* side tints (avatar) */
+  --bride:#A1213C; --bride-bg:#FCE5EA; --groom:#0B5A8A; --groom-bg:#E1F0FA;
+  --both:#6B3FA0; --both-bg:#EFE7F7;
+  --r-card:14px; --r-pill:999px;
+  --font:'Manrope',system-ui,sans-serif; --mono:'DM Mono',ui-monospace,monospace;
+  --serif:'Cormorant Garamond',Georgia,serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--paper);color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased}
+body{padding-bottom:96px} /* clearance for mobile bottom nav */
+button,input,select{font-family:inherit;color:inherit}
+a{color:inherit;text-decoration:none}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-deep)}
+.muted{color:var(--ink-soft)}
+
+/* ---- shell ---- */
+.wrap{max-width:1180px;margin:0 auto;padding:20px 18px 0}
+@media(min-width:1024px){ .wrap{padding:30px 28px 0} body{padding-bottom:30px} }
+
+/* ---- header ---- */
+.head{display:flex;flex-direction:column;gap:14px}
+.head-top{display:flex;align-items:flex-end;justify-content:space-between;gap:14px}
+.h1{font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1}
+.h1 .n{font-family:var(--serif);font-weight:600;font-size:38px;font-style:italic;margin-right:4px}
+.actions{display:none;gap:8px;align-items:center}
+@media(min-width:1024px){ .actions{display:flex} .h1{font-size:34px} }
+.btn{height:42px;display:inline-flex;align-items:center;gap:7px;border-radius:11px;padding:0 16px;font-size:13.5px;font-weight:600;cursor:pointer;border:1px solid transparent;white-space:nowrap;transition:.15s}
+.btn-primary{background:var(--mulberry);color:#fff}
+.btn-primary:hover{background:var(--mulberry-deep)}
+.btn-ghost{background:var(--surface);border-color:var(--line-strong);color:var(--ink)}
+.btn-ghost:hover{border-color:var(--ink-soft)}
+.icon-btn{height:42px;width:42px;display:inline-flex;align-items:center;justify-content:center;border-radius:11px;background:var(--surface);border:1px solid var(--line-strong);cursor:pointer}
+.icon-btn:hover{border-color:var(--ink-soft)}
+.icon-btn svg{width:18px;height:18px}
+/* compact seating + share chips in header */
+.chip-link{height:42px;display:inline-flex;align-items:center;gap:8px;border-radius:11px;padding:0 13px;background:var(--surface);border:1px solid var(--line-strong);font-size:13px;font-weight:500;color:var(--ink)}
+.chip-link:hover{border-color:var(--gold)}
+.chip-link .ic{width:30px;height:30px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;background:var(--gold-wash);color:var(--gold-deep)}
+.chip-link svg{width:15px;height:15px}
+.chip-link .sub{font-size:10.5px;color:var(--ink-faint)}
+/* overflow menu */
+.menu-wrap{position:relative}
+.menu{position:absolute;right:0;top:48px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 34px rgba(30,34,41,.14);padding:6px;min-width:188px;z-index:60;display:none}
+.menu.open{display:block}
+.menu a,.menu button{display:flex;width:100%;align-items:center;gap:9px;padding:9px 10px;border-radius:8px;font-size:13.5px;background:none;border:none;text-align:left;cursor:pointer}
+.menu a:hover,.menu button:hover{background:var(--gold-wash)}
+.menu svg{width:15px;height:15px;color:var(--ink-soft)}
+
+/* ---- stats strip ---- */
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:18px}
+@media(min-width:560px){ .stats{grid-template-columns:repeat(3,1fr)} }
+@media(min-width:1024px){ .stats{grid-template-columns:repeat(5,1fr)} }
+.stat{display:flex;flex-direction:column;gap:6px;padding:11px 13px;border-radius:12px;border:1px solid var(--line);background:var(--surface);cursor:pointer;transition:.15s}
+.stat:hover{border-color:var(--line-strong)}
+.stat.on{border-color:var(--gold);background:var(--gold-wash)}
+.stat.readonly{cursor:default}
+.stat .lbl{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint)}
+.stat .v{align-self:flex-start;font-weight:700;font-size:16px;padding:1px 9px;border-radius:var(--r-pill)}
+.v.t-total{background:rgba(30,34,41,.06);color:var(--ink)}
+.v.t-go{background:var(--go-bg);color:var(--go)} .v.t-pend{background:var(--pend-bg);color:var(--pend)}
+.v.t-dec{background:var(--dec-bg);color:var(--dec)} .v.t-plus{background:var(--gold-wash);color:var(--gold-deep)}
+
+/* ---- toolbar ---- */
+.toolbar{display:flex;gap:8px;margin-top:16px;align-items:center}
+.search{flex:1;position:relative}
+.search svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);width:17px;height:17px;color:var(--ink-faint)}
+.search input{width:100%;height:44px;border-radius:12px;border:1px solid var(--line-strong);background:var(--surface);padding:0 14px 0 40px;font-size:14px}
+.search input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(197,160,89,.18)}
+.sortsel{height:44px;border-radius:12px;border:1px solid var(--line-strong);background:var(--surface);padding:0 34px 0 14px;font-size:13.5px;font-weight:500;cursor:pointer;-webkit-appearance:none;appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238A8F96' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
+.sortsel.desk{display:none} @media(min-width:1024px){ .sortsel.desk{display:block} }
+.filter-btn{display:inline-flex} @media(min-width:1024px){ .filter-btn{display:none} }
+.filter-btn .badge{margin-left:6px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--gold);color:#fff;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+.filter-btn .badge[hidden]{display:none}
+
+/* ---- mobile chip rail ---- */
+.chiprail{display:flex;gap:8px;overflow-x:auto;margin-top:12px;padding-bottom:4px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.chiprail::-webkit-scrollbar{display:none}
+@media(min-width:1024px){ .chiprail{display:none} }
+.fchip{flex:0 0 auto;height:36px;display:inline-flex;align-items:center;gap:6px;padding:0 14px;border-radius:var(--r-pill);border:1px solid var(--line-strong);background:var(--surface);font-size:13px;font-weight:500;white-space:nowrap;cursor:pointer}
+.fchip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.fchip.more{border-style:dashed;color:var(--gold-deep);border-color:var(--gold)}
+
+/* ---- body grid ---- */
+.body{display:grid;grid-template-columns:1fr;gap:22px;margin-top:18px}
+@media(min-width:1024px){ .body{grid-template-columns:236px 1fr;gap:26px} }
+
+/* ---- sidebar (desktop) ---- */
+.side{display:none}
+@media(min-width:1024px){ .side{display:block;position:sticky;top:24px;align-self:start} }
+.facet{margin-bottom:22px}
+.facet h3{display:flex;align-items:center;justify-content:space-between;font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:8px}
+.facet h3 button{width:24px;height:24px;border-radius:7px;border:none;background:none;cursor:pointer;color:var(--ink-soft)}
+.facet h3 button:hover{background:var(--gold-wash)}
+.facet ul{list-style:none;display:flex;flex-direction:column;gap:2px}
+.vlink{display:flex;align-items:center;justify-content:space-between;padding:7px 11px;border-radius:9px;font-size:13.5px;color:var(--ink-soft);cursor:pointer}
+.vlink:hover{background:rgba(30,34,41,.04)}
+.vlink.on{background:var(--gold-wash);color:var(--gold-deep);font-weight:600}
+.vlink .ct{font-size:11px;color:var(--ink-faint)}
+.grow{display:flex;flex-direction:column;gap:3px}
+.glink{display:flex;align-items:center;justify-content:space-between;padding:7px 11px;border-radius:9px;font-size:13px;cursor:pointer}
+.glink .lbl{display:flex;align-items:center;gap:7px}
+.glink .dot{width:8px;height:8px;border-radius:50%}
+.glink .ct{font-size:11px;opacity:.7}
+.g-bride{background:#FCE9ED;color:#8E2740} .g-bride .dot{background:var(--bride)}
+.g-groom{background:#E4F1FB;color:#0B5A8A} .g-groom .dot{background:var(--groom)}
+.g-both{background:#F0E9F8;color:#5A3490} .g-both .dot{background:var(--both)}
+.tags{display:flex;flex-wrap:wrap;gap:7px}
+.tag{padding:4px 10px;border-radius:var(--r-pill);font-size:12px;background:rgba(30,34,41,.05);color:var(--ink-soft);cursor:pointer}
+.tag.on{background:var(--gold);color:#fff}
+
+/* ---- desktop table ---- */
+.tablecard{display:none;border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden;background:var(--surface)}
+@media(min-width:1024px){ .tablecard{display:block} }
+table{width:100%;border-collapse:collapse;table-layout:fixed}
+thead th{background:rgba(30,34,41,.025);font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);text-align:left;font-weight:500;padding:12px 12px}
+tbody td{padding:11px 12px;border-top:1px solid rgba(30,34,41,.06);vertical-align:middle;font-size:14px}
+tbody tr:hover{background:rgba(197,160,89,.05)}
+tbody tr.sel{background:rgba(197,160,89,.09)}
+.col-chk{width:42px} .col-role{width:23%} .col-grp{width:20%} .col-rsvp{width:128px} .col-act{width:48px}
+.namecell{display:flex;align-items:center;gap:11px;min-width:0}
+.av{width:36px;height:36px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.av.s-bride{background:var(--bride-bg);color:var(--bride)} .av.s-groom{background:var(--groom-bg);color:var(--groom)} .av.s-both{background:var(--both-bg);color:var(--both)}
+.namecell .nm{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.namecell .p1{font-size:11.5px;color:var(--ink-faint)}
+.chk{width:17px;height:17px;border-radius:5px;border:1.5px solid var(--line-strong);cursor:pointer;appearance:none;-webkit-appearance:none;display:inline-block;position:relative;background:var(--surface)}
+.chk:checked{background:var(--gold);border-color:var(--gold)}
+.chk:checked::after{content:"";position:absolute;left:5px;top:1.5px;width:5px;height:9px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.grpchips{display:flex;flex-wrap:wrap;gap:4px}
+.gchip{font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:var(--r-pill);max-width:13ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gchip.g-bride{background:#FCE9ED;color:#8E2740} .gchip.g-groom{background:#E4F1FB;color:#0B5A8A} .gchip.g-both{background:#F0E9F8;color:#5A3490}
+.dash{color:var(--ink-faint)}
+
+/* inline-editable pills (RSVP + role) — the new feature */
+.pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:var(--r-pill);font-size:11.5px;font-weight:600;cursor:pointer;border:1px solid transparent;line-height:1.4;transition:.12s}
+.pill .car{width:11px;height:11px;opacity:.55}
+.pill:hover{filter:brightness(.97);box-shadow:0 0 0 2px rgba(30,34,41,.05)}
+.p-go{background:var(--go-bg);color:var(--go)} .p-pend{background:var(--pend-bg);color:var(--pend)}
+.p-dec{background:var(--dec-bg);color:var(--dec)} .p-may{background:var(--may-bg);color:var(--may)}
+.rolepill{background:rgba(30,34,41,.05);color:var(--ink)}
+.rolepill .swatch{width:8px;height:8px;border-radius:50%;border:1px solid rgba(30,34,41,.1)}
+.row-act{width:30px;height:30px;border-radius:8px;border:none;background:none;cursor:pointer;color:var(--ink-faint);display:inline-flex;align-items:center;justify-content:center}
+.row-act:hover{background:rgba(30,34,41,.06);color:var(--ink)}
+.row-act svg{width:17px;height:17px}
+
+/* popover (inline edit + row kebab) */
+.pop{position:fixed;z-index:80;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 16px 40px rgba(30,34,41,.18);padding:6px;min-width:178px;display:none}
+.pop.open{display:block}
+.pop .ph{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);padding:6px 9px 4px}
+.popitem{display:flex;width:100%;align-items:center;gap:9px;padding:8px 9px;border-radius:8px;font-size:13.5px;background:none;border:none;text-align:left;cursor:pointer}
+.popitem:hover{background:var(--gold-wash)}
+.popitem .swatch{width:9px;height:9px;border-radius:50%}
+.popitem .ck{margin-left:auto;width:14px;height:14px;color:var(--gold-deep)}
+.popdiv{height:1px;background:var(--line);margin:5px 6px}
+.popsub{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);padding:7px 9px 3px}
+
+/* ---- mobile cards ---- */
+.mlist{display:flex;flex-direction:column;gap:8px}
+@media(min-width:1024px){ .mlist{display:none} }
+.sectionhdr{display:flex;align-items:center;gap:8px;margin:14px 2px 4px}
+.sectionhdr:first-child{margin-top:0}
+.sectionhdr .t{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint)}
+.sectionhdr .ln{flex:1;height:1px;background:var(--line)}
+.card{display:flex;align-items:center;gap:11px;padding:12px;border-radius:13px;border:1px solid var(--line);background:var(--surface)}
+.card.sel{border-color:var(--gold);background:var(--gold-wash)}
+.card .strip{width:4px;align-self:stretch;border-radius:3px;margin:-2px 2px -2px -4px}
+.strip.s-bride{background:var(--bride)} .strip.s-groom{background:var(--groom)} .strip.s-both{background:var(--both)}
+.card .mid{flex:1;min-width:0}
+.card .nm{font-weight:600;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
+.card .rolemini{font-size:11px;color:var(--ink-soft);display:inline-flex;align-items:center;gap:5px}
+.card .rolemini .swatch{width:7px;height:7px;border-radius:50%}
+.card-chk{display:none}
+body.selmode .card-chk{display:inline-flex}
+body.selmode .card .rsvp-tap{pointer-events:none;opacity:.5}
+
+/* ---- floating + bottom sheet scaffolding ---- */
+.fab{position:fixed;right:18px;bottom:88px;width:56px;height:56px;border-radius:50%;background:var(--mulberry);color:#fff;border:none;font-size:28px;font-weight:300;cursor:pointer;box-shadow:0 10px 26px rgba(92,37,66,.4);z-index:40}
+@media(min-width:1024px){ .fab{display:none} }
+.botnav{position:fixed;left:0;right:0;bottom:0;height:72px;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);z-index:45;padding-bottom:env(safe-area-inset-bottom)}
+@media(min-width:1024px){ .botnav{display:none} }
+.navtab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10px;color:var(--ink-faint);cursor:pointer}
+.navtab svg{width:21px;height:21px}
+.navtab.on{color:var(--gold-deep)}
+
+.scrim{position:fixed;inset:0;background:rgba(30,34,41,.42);z-index:90;opacity:0;pointer-events:none;transition:.2s}
+.scrim.open{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:95;background:var(--surface);border-radius:20px 20px 0 0;transform:translateY(110%);transition:transform .26s cubic-bezier(.2,.8,.2,1);max-height:86vh;display:flex;flex-direction:column}
+.sheet.open{transform:translateY(0)}
+.sheet .grip{width:42px;height:4px;border-radius:2px;background:var(--line-strong);margin:10px auto 4px}
+.sheet .shead{display:flex;align-items:center;justify-content:space-between;padding:8px 18px 12px;border-bottom:1px solid var(--line)}
+.sheet .shead h2{font-size:17px;font-weight:700}
+.sheet .sclose{background:none;border:none;cursor:pointer;color:var(--ink-soft);width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.sheet .sbody{overflow-y:auto;padding:16px 18px 20px}
+.sheet .sfoot{padding:12px 18px calc(14px + env(safe-area-inset-bottom));border-top:1px solid var(--line);display:flex;gap:10px}
+.sheet .sfoot .btn{flex:1;justify-content:center}
+
+.fgroup{margin-bottom:18px}
+.fgroup .fh{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:9px}
+.fopts{display:flex;flex-wrap:wrap;gap:8px}
+.fopt{height:38px;padding:0 14px;border-radius:var(--r-pill);border:1px solid var(--line-strong);background:var(--surface);font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:7px}
+.fopt.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.fopt .dot{width:8px;height:8px;border-radius:50%}
+
+/* rsvp mobile sheet options */
+.rsvpopt{display:flex;width:100%;align-items:center;gap:12px;padding:14px;border-radius:12px;border:1px solid var(--line);background:var(--surface);cursor:pointer;margin-bottom:8px;font-size:15px;font-weight:600}
+.rsvpopt .badge{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px}
+.rsvpopt .ck{margin-left:auto;color:var(--gold-deep)}
+
+/* ---- bulk action bar ---- */
+.bulkbar{position:fixed;left:0;right:0;bottom:0;z-index:70;background:var(--ink);color:var(--paper);display:none;align-items:center;gap:12px;padding:12px 16px calc(12px + env(safe-area-inset-bottom));box-shadow:0 -8px 28px rgba(30,34,41,.25)}
+body.selmode .bulkbar{display:flex}
+@media(min-width:1024px){
+  .bulkbar{left:auto;right:auto;bottom:auto;position:sticky;top:14px;margin:0 0 14px;border-radius:14px;border:1px solid var(--gold);background:rgba(251,251,250,.96);backdrop-filter:blur(6px);color:var(--ink);box-shadow:0 8px 24px rgba(30,34,41,.1);flex-wrap:wrap}
+}
+.bulkbar .cnt{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:13.5px}
+.bulkbar .cnt .num{min-width:24px;height:24px;padding:0 7px;border-radius:var(--r-pill);background:var(--gold);color:#fff;font-weight:700;display:inline-flex;align-items:center;justify-content:center;font-size:12px}
+.bulkbar .bsel{height:36px;border-radius:9px;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.06);color:inherit;padding:0 30px 0 12px;font-size:13px;-webkit-appearance:none;appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' opacity='.7'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}
+@media(min-width:1024px){ .bulkbar .bsel{border-color:var(--line-strong);background:var(--surface);color:var(--ink);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238A8F96' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") } }
+.bulkbar .bapply{height:36px;border-radius:9px;border:none;background:var(--gold);color:#fff;font-weight:600;font-size:13px;padding:0 16px;cursor:pointer}
+.bulkbar .bdel{height:36px;border-radius:9px;border:1px solid rgba(255,120,140,.4);background:rgba(255,120,140,.12);color:#ffd9df;font-weight:600;font-size:13px;padding:0 13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+@media(min-width:1024px){ .bulkbar .bdel{border-color:#F1B6BE;background:#FBE2E6;color:#A1213C} }
+.bulkbar .bdel svg{width:14px;height:14px}
+.bulkbar .bclear{margin-left:auto;background:none;border:none;color:inherit;opacity:.8;cursor:pointer;font-size:13px;display:inline-flex;align-items:center;gap:5px}
+.bulkbar .bclear svg{width:14px;height:14px}
+.bulkbar .scroll{display:flex;align-items:center;gap:10px;overflow-x:auto;flex:1;scrollbar-width:none}
+.bulkbar .scroll::-webkit-scrollbar{display:none}
+
+.empty{border:1px dashed var(--line-strong);border-radius:14px;background:var(--surface);padding:34px 20px;text-align:center;color:var(--ink-soft)}
+
+/* tiny screen-reader-ish note pill at very top for reviewers */
+.protonote{max-width:1180px;margin:0 auto;padding:8px 18px 0;font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)}
+</style>
+</head>
+<body>
+<div class="protonote">Setnayan · Guests redesign · prototype 2026-06-02 · resize or open on phone</div>
+
+<div class="wrap">
+  <!-- ============ HEADER ============ -->
+  <header class="head">
+    <div class="head-top">
+      <div>
+        <p class="eyebrow">Guest list · Maria &amp; Juan</p>
+        <h1 class="h1"><span class="n" id="hCount">20</span> guests</h1>
+      </div>
+      <div class="actions">
+        <a class="chip-link" href="#" title="Seating chart">
+          <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
+          <span><span style="font-weight:600;font-size:13px;display:block">Seating</span><span class="sub">who sits where</span></span>
+        </a>
+        <button class="icon-btn" id="shareBtn" title="Share invite link" aria-label="Share invite link">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+        </button>
+        <div class="menu-wrap">
+          <button class="icon-btn" id="moreBtn" aria-label="More actions">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+          </button>
+          <div class="menu" id="moreMenu">
+            <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Import CSV</a>
+            <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Quick add list</a>
+          </div>
+        </div>
+        <button class="btn btn-primary"><span style="font-size:17px;line-height:0;margin-top:-1px">+</span> Add guest</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ STATS / RSVP FILTERS ============ -->
+  <ul class="stats" id="stats">
+    <li><button class="stat readonly" data-rsvp=""><span class="lbl">Invited</span><span class="v t-total" id="sTotal">20</span></button></li>
+    <li><button class="stat" data-rsvp="attending"><span class="lbl">Attending</span><span class="v t-go" id="sGo">11</span></button></li>
+    <li><button class="stat" data-rsvp="pending"><span class="lbl">Pending</span><span class="v t-pend" id="sPend">7</span></button></li>
+    <li><button class="stat" data-rsvp="declined"><span class="lbl">Declined</span><span class="v t-dec" id="sDec">1</span></button></li>
+    <li><button class="stat readonly"><span class="lbl">Plus-ones</span><span class="v t-plus" id="sPlus">3</span></button></li>
+  </ul>
+
+  <!-- ============ TOOLBAR ============ -->
+  <div class="toolbar">
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input id="search" type="text" placeholder="Search names, roles, groups, RSVP…" autocomplete="off">
+    </div>
+    <select class="sortsel desk" id="sort">
+      <option value="last">Sort: Last name (A–Z)</option>
+      <option value="first">Sort: First name (A–Z)</option>
+      <option value="rsvp">Sort: RSVP status</option>
+      <option value="role">Sort: Role</option>
+      <option value="newest">Sort: Newest first</option>
+    </select>
+    <button class="btn btn-ghost filter-btn" id="openFilters">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="17" height="17"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+      Filters<span class="badge" id="fbadge" hidden>1</span>
+    </button>
+  </div>
+
+  <!-- ============ MOBILE CHIP RAIL ============ -->
+  <div class="chiprail" id="chiprail">
+    <button class="fchip on" data-view="all">All</button>
+    <button class="fchip" data-rsvp="pending">Pending</button>
+    <button class="fchip" data-rsvp="attending">Going</button>
+    <button class="fchip" data-view="vip_family">VIP family</button>
+    <button class="fchip" data-view="wedding_party">Wedding party</button>
+    <button class="fchip" data-view="principal_sponsors">Sponsors</button>
+    <button class="fchip more" id="openFilters2">+ More filters</button>
+  </div>
+
+  <!-- ============ BODY ============ -->
+  <div class="body">
+    <!-- sidebar facets (desktop) -->
+    <aside class="side">
+      <div class="facet">
+        <h3>View</h3>
+        <ul id="viewList">
+          <li><span class="vlink on" data-view="all">All guests <span class="ct">20</span></span></li>
+          <li><span class="vlink" data-view="vip_family">VIP family <span class="ct">3</span></span></li>
+          <li><span class="vlink" data-view="wedding_party">Wedding party <span class="ct">4</span></span></li>
+          <li><span class="vlink" data-view="principal_sponsors">Principal sponsors <span class="ct">2</span></span></li>
+          <li><span class="vlink" data-view="secondary_sponsors">Secondary sponsors <span class="ct">3</span></span></li>
+          <li><span class="vlink" data-view="bearers_flower_girl">Bearers &amp; flower girl <span class="ct">2</span></span></li>
+          <li><span class="vlink" data-view="officiants">Officiants <span class="ct">1</span></span></li>
+        </ul>
+      </div>
+      <div class="facet">
+        <h3><span>Groups</span><button title="New group">＋</button></h3>
+        <div class="grow">
+          <span class="glink g-bride" data-view="group:cf"><span class="lbl"><span class="dot"></span>College Friends</span><span class="ct">2</span></span>
+          <span class="glink g-groom" data-view="group:bk"><span class="lbl"><span class="dot"></span>Barkada</span><span class="ct">2</span></span>
+          <span class="glink g-both" data-view="group:wk"><span class="lbl"><span class="dot"></span>Work</span><span class="ct">1</span></span>
+        </div>
+      </div>
+      <div class="facet">
+        <h3>Custom tags</h3>
+        <div class="tags">
+          <span class="tag">VIP</span><span class="tag">Flying in</span><span class="tag">Needs ride</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- main list -->
+    <div style="min-width:0">
+      <!-- bulk bar (sticky desktop / fixed-bottom mobile) -->
+      <div class="bulkbar" id="bulkbar">
+        <div class="scroll">
+          <span class="cnt"><span class="num" id="bulkCount">0</span> selected</span>
+          <select class="bsel" id="bulkRole"><option value="">Assign role…</option>
+            <optgroup label="Couple"><option>Bride</option><option>Groom</option></optgroup>
+            <optgroup label="Wedding party"><option>Maid of Honor</option><option>Best Man</option><option>Bridesmaid</option><option>Groomsman</option></optgroup>
+            <optgroup label="Sponsors"><option>Principal Sponsor</option><option>Candle Sponsor</option><option>Veil Sponsor</option></optgroup>
+          </select>
+          <select class="bsel" id="bulkSide"><option value="">Assign side…</option><option>Bride's side</option><option>Groom's side</option><option>Both sides</option></select>
+          <select class="bsel" id="bulkGroup"><option value="">Add to group…</option><option>College Friends</option><option>Barkada</option><option>Work</option><option>+ New group…</option></select>
+          <button class="bapply">Apply</button>
+          <button class="bdel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Delete</button>
+        </div>
+        <button class="bclear" id="bulkClear"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Clear</button>
+      </div>
+
+      <!-- DESKTOP TABLE -->
+      <div class="tablecard">
+        <table>
+          <thead><tr>
+            <th class="col-chk"><input type="checkbox" class="chk" id="checkAll" aria-label="Select all"></th>
+            <th>Name</th>
+            <th class="col-role">Role</th>
+            <th class="col-grp">Groups</th>
+            <th class="col-rsvp">RSVP</th>
+            <th class="col-act"></th>
+          </tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+
+      <!-- MOBILE CARDS -->
+      <div class="mlist" id="mlist"></div>
+
+      <div class="empty" id="empty" hidden>No guests match your filters.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MOBILE FAB + BOTTOM NAV ============ -->
+<button class="fab" aria-label="Add guest">+</button>
+<nav class="botnav">
+  <a class="navtab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Today</a>
+  <a class="navtab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Home</a>
+  <a class="navtab on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Guests</a>
+  <a class="navtab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/></svg>Website</a>
+  <a class="navtab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>More</a>
+</nav>
+
+<!-- ============ SCRIM + SHEETS ============ -->
+<div class="scrim" id="scrim"></div>
+
+<!-- Filter sheet (mobile) -->
+<div class="sheet" id="filterSheet">
+  <div class="grip"></div>
+  <div class="shead"><h2>Filter guests</h2><button class="sclose" data-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <div class="sbody">
+    <div class="fgroup"><div class="fh">RSVP</div><div class="fopts" data-grp="rsvp">
+      <button class="fopt on" data-rsvp="">Any</button><button class="fopt" data-rsvp="attending">Attending</button><button class="fopt" data-rsvp="pending">Pending</button><button class="fopt" data-rsvp="declined">Declined</button><button class="fopt" data-rsvp="maybe">Maybe</button>
+    </div></div>
+    <div class="fgroup"><div class="fh">Side</div><div class="fopts" data-grp="side">
+      <button class="fopt on" data-side="">Any</button><button class="fopt" data-side="bride"><span class="dot" style="background:var(--bride)"></span>Bride's</button><button class="fopt" data-side="groom"><span class="dot" style="background:var(--groom)"></span>Groom's</button><button class="fopt" data-side="both"><span class="dot" style="background:var(--both)"></span>Both</button>
+    </div></div>
+    <div class="fgroup"><div class="fh">Role group</div><div class="fopts" data-grp="view">
+      <button class="fopt on" data-view="all">All</button><button class="fopt" data-view="vip_family">VIP family</button><button class="fopt" data-view="wedding_party">Wedding party</button><button class="fopt" data-view="principal_sponsors">Principal sponsors</button><button class="fopt" data-view="secondary_sponsors">Secondary sponsors</button><button class="fopt" data-view="bearers_flower_girl">Bearers &amp; flower girl</button><button class="fopt" data-view="officiants">Officiants</button>
+    </div></div>
+    <div class="fgroup"><div class="fh">Groups</div><div class="fopts" data-grp="view">
+      <button class="fopt" data-view="group:cf"><span class="dot" style="background:var(--bride)"></span>College Friends</button><button class="fopt" data-view="group:bk"><span class="dot" style="background:var(--groom)"></span>Barkada</button><button class="fopt" data-view="group:wk"><span class="dot" style="background:var(--both)"></span>Work</button>
+    </div></div>
+    <div class="fgroup"><div class="fh">Custom tags</div><div class="fopts">
+      <button class="fopt">VIP</button><button class="fopt">Flying in</button><button class="fopt">Needs ride</button>
+    </div></div>
+  </div>
+  <div class="sfoot"><button class="btn btn-ghost" id="filterClear">Clear all</button><button class="btn btn-primary" data-close>Show <span id="filterCount">20</span></button></div>
+</div>
+
+<!-- RSVP edit sheet (mobile) -->
+<div class="sheet" id="rsvpSheet">
+  <div class="grip"></div>
+  <div class="shead"><h2 id="rsvpSheetTitle">Set RSVP</h2><button class="sclose" data-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <div class="sbody">
+    <button class="rsvpopt" data-set="attending"><span class="badge" style="background:var(--go-bg);color:var(--go)">✓</span>Attending</button>
+    <button class="rsvpopt" data-set="pending"><span class="badge" style="background:var(--pend-bg);color:var(--pend)">⏳</span>Pending</button>
+    <button class="rsvpopt" data-set="declined"><span class="badge" style="background:var(--dec-bg);color:var(--dec)">✕</span>Declined</button>
+    <button class="rsvpopt" data-set="maybe"><span class="badge" style="background:var(--may-bg);color:var(--may)">?</span>Maybe</button>
+  </div>
+</div>
+
+<!-- Inline popover (desktop RSVP + role edit, + row kebab) -->
+<div class="pop" id="pop"></div>
+
+<script>
+/* ---------------- data ---------------- */
+const RSVP = {
+  attending:{l:'Attending',c:'p-go',i:'✓'}, pending:{l:'Pending',c:'p-pend',i:'⏳'},
+  declined:{l:'Declined',c:'p-dec',i:'✕'}, maybe:{l:'Maybe',c:'p-may',i:'?'}
+};
+const ROLE_GROUPS = {
+  couple:{l:'Couple', sw:'#C5A059'}, vip_family:{l:'VIP family', sw:'#A88340'},
+  wedding_party:{l:'Wedding party', sw:'#6B3FA0'}, principal_sponsors:{l:'Principal sponsors', sw:'#0B5A8A'},
+  secondary_sponsors:{l:'Secondary sponsors', sw:'#1E7F6E'}, bearers_flower_girl:{l:'Bearers & flower girl', sw:'#C2643A'},
+  officiants:{l:'Officiants', sw:'#5C6066'}, guest:{l:'Guests', sw:'#9AA0A6'}
+};
+const ROLE = {
+  bride:{l:'Bride',g:'couple'}, groom:{l:'Groom',g:'couple'},
+  bride_parents:{l:"Bride's Parents",g:'vip_family'}, groom_parents:{l:"Groom's Parents",g:'vip_family'},
+  bride_immediate_family:{l:"Bride's Family",g:'vip_family'}, groom_immediate_family:{l:"Groom's Family",g:'vip_family'},
+  maid_of_honor:{l:'Maid of Honor',g:'wedding_party'}, best_man:{l:'Best Man',g:'wedding_party'},
+  bridesmaid:{l:'Bridesmaid',g:'wedding_party'}, groomsman:{l:'Groomsman',g:'wedding_party'},
+  principal_sponsor:{l:'Principal Sponsor',g:'principal_sponsors'},
+  candle_sponsor:{l:'Candle Sponsor',g:'secondary_sponsors'}, veil_sponsor:{l:'Veil Sponsor',g:'secondary_sponsors'},
+  cord_sponsor:{l:'Cord Sponsor',g:'secondary_sponsors'}, coin_sponsor:{l:'Coin Sponsor',g:'secondary_sponsors'},
+  ring_bearer:{l:'Ring Bearer',g:'bearers_flower_girl'}, flower_girl:{l:'Flower Girl',g:'bearers_flower_girl'},
+  officiant:{l:'Officiant',g:'officiants'}, guest:{l:'Guest',g:'guest'}
+};
+const SIDE = {bride:"Bride's side", groom:"Groom's side", both:'Both sides'};
+let G = [
+  {id:1, fn:'Maria', ln:'Santos', side:'bride', role:'bride', rsvp:'attending', groups:[]},
+  {id:2, fn:'Juan', ln:'Cruz', side:'groom', role:'groom', rsvp:'attending', groups:[]},
+  {id:3, fn:'Elena', ln:'Santos', side:'bride', role:'bride_parents', rsvp:'attending', groups:[]},
+  {id:4, fn:'Roberto', ln:'Santos', side:'bride', role:'bride_parents', rsvp:'attending', groups:[]},
+  {id:5, fn:'Carmen', ln:'Cruz', side:'groom', role:'groom_parents', rsvp:'pending', groups:[]},
+  {id:6, fn:'Boy', ln:'Reyes', dn:'Tito Boy & Tita Cora', side:'both', role:'principal_sponsor', rsvp:'attending', groups:[]},
+  {id:7, fn:'Ramon', ln:'Lim', dn:'Ramon & Mia Lim', side:'both', role:'principal_sponsor', rsvp:'pending', groups:[]},
+  {id:8, fn:'Carla', ln:'Mendoza', side:'bride', role:'maid_of_honor', rsvp:'attending', groups:['cf']},
+  {id:9, fn:'Marco', ln:'Reyes', side:'groom', role:'best_man', rsvp:'attending', groups:['bk']},
+  {id:10, fn:'Sofia', ln:'Reyes', side:'bride', role:'bridesmaid', rsvp:'pending', groups:['cf']},
+  {id:11, fn:'Liam', ln:'De la Cruz', side:'groom', role:'groomsman', rsvp:'attending', groups:['bk']},
+  {id:12, fn:'Patricia', ln:'Cruz', side:'groom', role:'candle_sponsor', rsvp:'attending', groups:[]},
+  {id:13, fn:'Adela', ln:'Reyes', dn:'Lola Adela', side:'bride', role:'bride_immediate_family', rsvp:'attending', plus:'+ Andres T.', groups:[]},
+  {id:14, fn:'Joaquin', ln:'Tan', side:'groom', role:'veil_sponsor', rsvp:'pending', groups:[]},
+  {id:15, fn:'Sofia', ln:'Tan', side:'groom', role:'cord_sponsor', rsvp:'pending', groups:[]},
+  {id:16, fn:'Andres', ln:'Bautista', side:'groom', role:'ring_bearer', rsvp:'attending', groups:[]},
+  {id:17, fn:'Jenny', ln:'Bautista', side:'groom', role:'flower_girl', rsvp:'attending', groups:[]},
+  {id:18, fn:'Jose', ln:'Aquino', dn:'Fr. Jose Aquino', side:'both', role:'officiant', rsvp:'attending', groups:[]},
+  {id:19, fn:'Paolo', ln:'Santos', dn:'Paolo & Anna Santos', side:'bride', role:'guest', rsvp:'declined', groups:['wk']},
+  {id:20, fn:'Diego', ln:'Ramos', side:'groom', role:'guest', rsvp:'pending', plus:'+ TBA', groups:[]},
+];
+const GROUP_LABEL = {cf:{l:'College Friends',s:'bride'}, bk:{l:'Barkada',s:'groom'}, wk:{l:'Work',s:'both'}};
+
+/* ---------------- state ---------------- */
+const state = {q:'', rsvp:'', side:'', view:'all', sort:'last'};
+const selected = new Set();
+
+const disp = g => g.dn || (g.fn+' '+g.ln);
+const initials = g => ((g.fn[0]||'')+(g.ln[0]||'')).toUpperCase();
+const grpOf = g => ROLE[g.role].g;
+
+function matches(g){
+  if(state.rsvp && g.rsvp!==state.rsvp) return false;
+  if(state.side && g.side!==state.side) return false;
+  if(state.view!=='all'){
+    if(state.view.startsWith('group:')){ if(!g.groups.includes(state.view.slice(6))) return false; }
+    else if(grpOf(g)!==state.view) return false;
+  }
+  if(state.q){
+    const hay=[g.fn,g.ln,g.dn||'',ROLE[g.role].l,SIDE[g.side],RSVP[g.rsvp].l,
+      ...g.groups.map(gid=>GROUP_LABEL[gid].l)].join(' ').toLowerCase();
+    if(!hay.includes(state.q)) return false;
+  }
+  return true;
+}
+function sortFn(a,b){
+  switch(state.sort){
+    case 'first': return a.fn.localeCompare(b.fn);
+    case 'rsvp': { const r={attending:0,pending:1,maybe:2,declined:3}; return r[a.rsvp]-r[b.rsvp]; }
+    case 'role': return a.role.localeCompare(b.role);
+    case 'newest': return b.id-a.id;
+    default: return a.ln.localeCompare(b.ln) || a.fn.localeCompare(b.fn);
+  }
+}
+
+/* ---------------- render ---------------- */
+function rolePillHTML(g){
+  const grp=ROLE[g.role].g;
+  return `<span class="pill rolepill" data-edit="role" data-id="${g.id}"><span class="swatch" style="background:${ROLE_GROUPS[grp].sw}"></span>${ROLE[g.role].l}<svg class="car" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></span>`;
+}
+function rsvpPillHTML(g, tapClass=''){
+  const r=RSVP[g.rsvp];
+  return `<span class="pill ${r.c} ${tapClass}" data-edit="rsvp" data-id="${g.id}">${r.l}<svg class="car" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></span>`;
+}
+function grpChipsHTML(g){
+  if(!g.groups.length) return '<span class="dash">—</span>';
+  return '<div class="grpchips">'+g.groups.map(gid=>{
+    const gr=GROUP_LABEL[gid]; return `<span class="gchip g-${gr.s}">${gr.l}</span>`;
+  }).join('')+'</div>';
+}
+
+function render(){
+  const rows=G.filter(matches).sort(sortFn);
+  // counts
+  document.getElementById('hCount').textContent=G.length;
+  document.getElementById('sTotal').textContent=G.length;
+  document.getElementById('sGo').textContent=G.filter(g=>g.rsvp==='attending').length;
+  document.getElementById('sPend').textContent=G.filter(g=>g.rsvp==='pending').length;
+  document.getElementById('sDec').textContent=G.filter(g=>g.rsvp==='declined').length;
+  document.getElementById('sPlus').textContent=G.filter(g=>g.plus).length;
+  document.getElementById('filterCount').textContent=rows.length;
+
+  // desktop tbody (flat sorted)
+  const tb=document.getElementById('tbody');
+  tb.innerHTML=rows.map(g=>`
+    <tr class="${selected.has(g.id)?'sel':''}">
+      <td><input type="checkbox" class="chk rowchk" data-id="${g.id}" ${selected.has(g.id)?'checked':''} aria-label="Select ${disp(g)}"></td>
+      <td><div class="namecell"><span class="av s-${g.side}">${initials(g)}</span><div style="min-width:0"><div class="nm">${disp(g)}</div>${g.plus?`<div class="p1">${g.plus}</div>`:''}</div></div></td>
+      <td>${rolePillHTML(g)}</td>
+      <td>${grpChipsHTML(g)}</td>
+      <td>${rsvpPillHTML(g)}</td>
+      <td><button class="row-act" data-edit="kebab" data-id="${g.id}" aria-label="Row actions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></button></td>
+    </tr>`).join('');
+
+  // mobile cards (grouped by role-group section)
+  const ml=document.getElementById('mlist');
+  if(state.view.startsWith('group:') || ['rsvp','newest','first'].includes(state.sort)){
+    ml.innerHTML=rows.map(cardHTML).join('');
+  } else {
+    const order=Object.keys(ROLE_GROUPS);
+    let html='';
+    for(const grp of order){
+      const seg=rows.filter(g=>grpOf(g)===grp);
+      if(!seg.length) continue;
+      html+=`<div class="sectionhdr"><span class="t">${ROLE_GROUPS[grp].l} · ${seg.length}</span><span class="ln"></span></div>`;
+      html+=seg.map(cardHTML).join('');
+    }
+    ml.innerHTML=html;
+  }
+
+  const none=rows.length===0;
+  document.getElementById('empty').hidden=!none;
+  document.querySelector('.tablecard').style.display=none?'none':'';
+  syncBulk(); updateFilterBadge();
+}
+function cardHTML(g){
+  return `<div class="card ${selected.has(g.id)?'sel':''}">
+    <span class="strip s-${g.side}"></span>
+    <input type="checkbox" class="chk rowchk card-chk" data-id="${g.id}" ${selected.has(g.id)?'checked':''} aria-label="Select ${disp(g)}">
+    <span class="av s-${g.side}">${initials(g)}</span>
+    <div class="mid">
+      <div class="nm">${disp(g)}</div>
+      <div class="meta">
+        <span class="rolemini"><span class="swatch" style="background:${ROLE_GROUPS[grpOf(g)].sw}"></span>${ROLE[g.role].l}</span>
+        ${g.groups.map(gid=>`<span class="gchip g-${GROUP_LABEL[gid].s}">${GROUP_LABEL[gid].l}</span>`).join('')}
+      </div>
+    </div>
+    ${rsvpPillHTML(g,'rsvp-tap')}
+  </div>`;
+}
+
+/* ---------------- bulk ---------------- */
+function syncBulk(){
+  document.body.classList.toggle('selmode', selected.size>0);
+  document.getElementById('bulkCount').textContent=selected.size;
+  const all=document.getElementById('checkAll');
+  const vis=G.filter(matches);
+  all.checked = vis.length>0 && vis.every(g=>selected.has(g.id));
+  all.indeterminate = !all.checked && vis.some(g=>selected.has(g.id));
+}
+
+/* ---------------- popovers (desktop inline edit) ---------------- */
+const pop=document.getElementById('pop');
+function closePop(){ pop.classList.remove('open'); pop.innerHTML=''; }
+function positionPop(){
+  const el=pop._anchor; if(!el) return;
+  const r=el.getBoundingClientRect();
+  // close if the anchor scrolled out of view
+  if(r.bottom<0||r.top>window.innerHeight){ closePop(); return; }
+  const pr=pop.getBoundingClientRect();
+  let left=r.left, top=r.bottom+6;
+  if(left+pr.width>window.innerWidth-10) left=window.innerWidth-pr.width-10;
+  if(top+pr.height>window.innerHeight-10) top=r.top-pr.height-6;
+  pop.style.left=Math.max(10,left)+'px'; pop.style.top=Math.max(10,top)+'px';
+}
+function openPopAt(el, html){
+  pop.innerHTML=html; pop._anchor=el; pop.classList.add('open'); positionPop();
+}
+function rsvpPop(g){
+  return `<div class="ph">Set RSVP</div>`+Object.entries(RSVP).map(([k,v])=>
+    `<button class="popitem" data-act="rsvp" data-id="${g.id}" data-val="${k}"><span class="swatch" style="background:var(--${k==='attending'?'go':k==='pending'?'pend':k==='declined'?'dec':'may'})"></span>${v.l}${g.rsvp===k?'<svg class="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>':''}</button>`).join('');
+}
+function rolePop(g){
+  const order=['couple','vip_family','wedding_party','principal_sponsors','secondary_sponsors','bearers_flower_girl','officiants','guest'];
+  let h=`<div class="ph">Assign role</div>`;
+  for(const grp of order){
+    const roles=Object.entries(ROLE).filter(([,v])=>v.g===grp);
+    if(!roles.length) continue;
+    h+=`<div class="popsub">${ROLE_GROUPS[grp].l}</div>`;
+    h+=roles.map(([k,v])=>`<button class="popitem" data-act="role" data-id="${g.id}" data-val="${k}"><span class="swatch" style="background:${ROLE_GROUPS[grp].sw}"></span>${v.l}${g.role===k?'<svg class="ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>':''}</button>`).join('');
+  }
+  return h;
+}
+function kebabPop(g){
+  return `<div class="ph">${disp(g)}</div>
+    <button class="popitem">✎ Edit details</button>
+    <button class="popitem">✉ Resend invitation</button>
+    <div class="popdiv"></div>
+    <button class="popitem" style="color:var(--dec)">🗑 Remove guest</button>`;
+}
+
+/* ---------------- events ---------------- */
+let rsvpTarget=null;
+document.addEventListener('click', e=>{
+  const editEl=e.target.closest('[data-edit]');
+  // inline pills / kebab
+  if(editEl){
+    const g=G.find(x=>x.id==editEl.dataset.id);
+    const kind=editEl.dataset.edit;
+    const isMobile=window.innerWidth<1024;
+    if(kind==='rsvp'){
+      if(document.body.classList.contains('selmode')) return;
+      if(isMobile){ rsvpTarget=g; document.getElementById('rsvpSheetTitle').textContent='RSVP · '+disp(g); openSheet('rsvpSheet'); }
+      else openPopAt(editEl, rsvpPop(g));
+      e.stopPropagation(); return;
+    }
+    if(kind==='role'){ if(!isMobile){ openPopAt(editEl, rolePop(g)); e.stopPropagation(); return; } }
+    if(kind==='kebab'){ openPopAt(editEl, kebabPop(g)); e.stopPropagation(); return; }
+  }
+  // popover item chosen
+  const pi=e.target.closest('.popitem[data-act]');
+  if(pi){
+    const g=G.find(x=>x.id==pi.dataset.id);
+    if(pi.dataset.act==='rsvp') g.rsvp=pi.dataset.val;
+    if(pi.dataset.act==='role') g.role=pi.dataset.val;
+    closePop(); render(); return;
+  }
+  // row checkbox
+  const rc=e.target.closest('.rowchk');
+  if(rc){ const id=+rc.dataset.id; if(rc.checked) selected.add(id); else selected.delete(id); render(); return; }
+  // close popover on outside click
+  if(!e.target.closest('.pop')) closePop();
+});
+
+document.getElementById('checkAll').addEventListener('change', e=>{
+  const vis=G.filter(matches);
+  if(e.target.checked) vis.forEach(g=>selected.add(g.id)); else vis.forEach(g=>selected.delete(g.id));
+  render();
+});
+document.getElementById('bulkClear').addEventListener('click', ()=>{ selected.clear(); render(); });
+
+// search (live)
+let t; document.getElementById('search').addEventListener('input', e=>{
+  clearTimeout(t); t=setTimeout(()=>{ state.q=e.target.value.trim().toLowerCase(); render(); }, 120);
+});
+// sort (live)
+document.getElementById('sort').addEventListener('change', e=>{ state.sort=e.target.value; render(); });
+
+// stat cards
+document.getElementById('stats').addEventListener('click', e=>{
+  const b=e.target.closest('.stat'); if(!b||b.classList.contains('readonly')&&b.dataset.rsvp===undefined) {}
+  if(!b) return;
+  if(b.dataset.rsvp!==undefined && !b.classList.contains('readonly')){
+    state.rsvp = state.rsvp===b.dataset.rsvp ? '' : b.dataset.rsvp;
+    syncStatUI(); render();
+  } else if(b.dataset.rsvp===''){ state.rsvp=''; syncStatUI(); render(); }
+});
+function syncStatUI(){
+  document.querySelectorAll('#stats .stat').forEach(s=>{
+    s.classList.toggle('on', s.dataset.rsvp!==undefined && s.dataset.rsvp===state.rsvp && !s.classList.contains('readonly') || (s.dataset.rsvp==='' && state.rsvp===''));
+  });
+}
+
+// desktop sidebar views + groups
+document.querySelectorAll('.side [data-view]').forEach(el=>{
+  el.addEventListener('click', ()=>{ state.view=el.dataset.view; syncViewUI(); render(); });
+});
+function syncViewUI(){
+  document.querySelectorAll('.side [data-view]').forEach(el=>el.classList.toggle('on', el.dataset.view===state.view || (el.dataset.view==='all' && state.view==='all')));
+}
+
+// mobile chip rail
+document.getElementById('chiprail').addEventListener('click', e=>{
+  const c=e.target.closest('.fchip'); if(!c||c.classList.contains('more')) return;
+  if(c.dataset.rsvp!==undefined){ state.rsvp = state.rsvp===c.dataset.rsvp?'':c.dataset.rsvp; state.view='all'; }
+  else if(c.dataset.view!==undefined){ state.view = c.dataset.view; state.rsvp=''; }
+  syncChips(); syncStatUI(); render();
+});
+function syncChips(){
+  document.querySelectorAll('#chiprail .fchip').forEach(c=>{
+    if(c.classList.contains('more')) return;
+    let on=false;
+    if(c.dataset.view==='all') on = state.view==='all' && !state.rsvp && !state.side; // "All" = truly unfiltered
+    else if(c.dataset.rsvp!==undefined) on = c.dataset.rsvp===state.rsvp;
+    else if(c.dataset.view!==undefined) on = c.dataset.view===state.view;
+    c.classList.toggle('on', on);
+  });
+}
+
+/* ---------------- sheets ---------------- */
+function openSheet(id){ document.getElementById('scrim').classList.add('open'); document.getElementById(id).classList.add('open'); document.body.style.overflow='hidden'; }
+function closeSheets(){ document.querySelectorAll('.sheet').forEach(s=>s.classList.remove('open')); document.getElementById('scrim').classList.remove('open'); document.body.style.overflow=''; }
+document.getElementById('scrim').addEventListener('click', closeSheets);
+document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click', closeSheets));
+document.getElementById('openFilters').addEventListener('click', ()=>openSheet('filterSheet'));
+document.getElementById('openFilters2').addEventListener('click', ()=>openSheet('filterSheet'));
+
+// filter sheet options
+document.querySelectorAll('#filterSheet .fopts').forEach(grp=>{
+  grp.addEventListener('click', e=>{
+    const o=e.target.closest('.fopt'); if(!o) return;
+    const g=grp.dataset.grp;
+    grp.querySelectorAll('.fopt').forEach(x=>x.classList.remove('on'));
+    o.classList.add('on');
+    if(g==='rsvp'){ state.rsvp=o.dataset.rsvp||''; }
+    if(g==='side'){ state.side=o.dataset.side||''; }
+    if(g==='view'){ state.view=o.dataset.view||'all'; }
+    updateFilterBadge(); syncChips(); syncStatUI(); render();
+  });
+});
+document.getElementById('filterClear').addEventListener('click', ()=>{
+  state.rsvp=''; state.side=''; state.view='all';
+  document.querySelectorAll('#filterSheet .fopt').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('#filterSheet .fopts').forEach(grp=>{ const first=grp.querySelector('.fopt'); if(first&&(first.dataset.rsvp===''||first.dataset.side===''||first.dataset.view==='all')) first.classList.add('on'); });
+  updateFilterBadge(); syncChips(); syncStatUI(); render();
+});
+function updateFilterBadge(){
+  let n=0; if(state.rsvp)n++; if(state.side)n++; if(state.view!=='all')n++;
+  const b=document.getElementById('fbadge'); b.hidden=n===0; b.textContent=n;
+}
+
+// rsvp mobile sheet
+document.querySelectorAll('#rsvpSheet .rsvpopt').forEach(o=>{
+  o.addEventListener('click', ()=>{ if(rsvpTarget){ rsvpTarget.rsvp=o.dataset.set; } closeSheets(); render(); });
+});
+
+// header overflow menu
+const moreMenu=document.getElementById('moreMenu');
+document.getElementById('moreBtn').addEventListener('click', e=>{ e.stopPropagation(); moreMenu.classList.toggle('open'); });
+document.addEventListener('click', e=>{ if(!e.target.closest('.menu-wrap')) moreMenu.classList.remove('open'); });
+
+window.addEventListener('resize', closePop);
+window.addEventListener('scroll', ()=>{ if(pop.classList.contains('open')) positionPop(); }, true);
+
+render(); syncStatUI(); syncChips();
+</script>
+</body>
+</html>

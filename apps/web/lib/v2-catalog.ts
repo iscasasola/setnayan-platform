@@ -74,7 +74,7 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   ANIMATED_MONOGRAM:   'live',     // drawn-live monogram bound to the SKU · PR #729 · 2026-06-01
   PANOOD_SYSTEM:       'partial',  // OAuth + UI shipped · pending YouTube verified-app
   PATIKTOK_COMPILER:   'partial',  // booth scaffold · TikTok app review pending
-  PAPIC_GUEST:         'partial',  // web capture exists · quota enforcement not wired
+  PAPIC_GUEST:         'live',     // guest camera end-to-end: cookie identity + server quota (150) + capture · 2026-06-02
   PAPIC_SEATS:         'live',     // photo crew end-to-end: provision + claim + capture · PR #731 + migration 20260718000000 · 2026-06-01
   HIGH_RES_ARCHIVE:    'partial',  // 0009 photo delivery partial
   LIVE_BACKGROUND:     'partial',  // 0005 Pailaw engineering brief · code not verified

@@ -10,6 +10,7 @@ import { ROLE_LABELS, type GuestRole } from '@/lib/guests';
 import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { resolveMonogram, type MonogramConfig } from '@/lib/monogram';
 import { eventOwnsAnimatedMonogram } from '@/lib/animated-monogram';
+import { eventOwnsPapicGuest } from '@/lib/papic-guest';
 import { AnimatedMonogramHero } from '@/app/_components/animated-monogram-hero';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { submitRsvp } from './actions';
@@ -317,19 +318,35 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
   // anonymous PublicLanding path could also render the Schedule
   // widget). Pass the same array through unchanged.
 
+  // Papic guest camera (PAPIC_GUEST) — when the couple owns the pack, give the
+  // cookie-bearing guest a floating "be a candid camera" CTA into /papic/guest.
+  // Gated, admin read, graceful-degrade so the anonymous public path is untouched.
+  const papicGuestActive = await eventOwnsPapicGuest(admin, event.event_id);
+
   return (
-    <InvitationSite
-      event={event}
-      guest={guest}
-      qrSvg={qrSvg}
-      invitationUrl={invitationUrl}
-      monogram={monogram}
-      animatedMonogram={animatedMonogram}
-      scheduleBlocks={scheduleBlocks}
-      dayOfPhase={dayOfPhase}
-      heroPhotoUrl={heroPhotoUrl}
-      widgets={widgets}
-    />
+    <>
+      <InvitationSite
+        event={event}
+        guest={guest}
+        qrSvg={qrSvg}
+        invitationUrl={invitationUrl}
+        monogram={monogram}
+        animatedMonogram={animatedMonogram}
+        scheduleBlocks={scheduleBlocks}
+        dayOfPhase={dayOfPhase}
+        heroPhotoUrl={heroPhotoUrl}
+        widgets={widgets}
+      />
+      {papicGuestActive && (
+        <Link
+          href="/papic/guest"
+          className="fixed bottom-5 left-1/2 z-50 inline-flex -translate-x-1/2 items-center gap-2 rounded-full bg-mulberry px-5 py-3 text-sm font-semibold text-cream shadow-lg transition hover:bg-mulberry-600"
+        >
+          <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
+          Be a candid camera
+        </Link>
+      )}
+    </>
   );
 }
 

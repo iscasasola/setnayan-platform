@@ -38,8 +38,12 @@ import { resolveMonogram } from '@/lib/monogram';
 import { CopyButton } from './_components/copy-button';
 import { SlugField } from '../invitation/_components/slug-field';
 import { ProUpgradePanel } from './_components/pro-upgrade-panel';
+import { ProWebsitePanel } from './_components/pro-website-panel';
 import { JourneyRow, JourneySection } from './_components/journey';
 import { updateEventSlugFromWebsite } from './actions';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { eventOwnsProWebsite, PRO_WEBSITE_SERVICE_KEY } from '@/lib/pro-website';
+import { fetchV2CustomerCatalog } from '@/lib/v2-catalog';
 
 export const metadata = { title: 'Wedding website' };
 
@@ -133,6 +137,34 @@ export default async function WebsiteHubPage({
     throw new Error(`Failed to load Pro upgrade order state: ${ordersError.message}`);
   }
   ownedOrders = (ordersData ?? []) as typeof ownedOrders;
+
+  // ── Pro Website upgrade gating ──────────────────────────────────────────
+  // Resolve whether the event already owns the paid PRO_WEBSITE SKU, and pull
+  // its price + live build-status from the V2 catalog (single source of truth
+  // · no hardcoded values). The InlineCheckoutDrawer needs the platform
+  // payment settings (BDO/GCash) to render its checkout step.
+  //
+  // SAFETY: this all runs behind auth on the Website tab — never on the public
+  // ISR-cached landing page. eventOwnsProWebsite degrades to false on a
+  // missing orders table; fetchV2CustomerCatalog degrades to [] without a
+  // service-role key (CI builds). The Pro buy path stays DARK while the V2
+  // catalog marks PRO_WEBSITE 'partial' — it activates only when build_status
+  // flips to 'live', keeping the upgrade consistent with /pricing.
+  const [proWebsiteOwned, platformSettings, v2Customer] = await Promise.all([
+    eventOwnsProWebsite(supabase, eventId),
+    fetchPlatformSettings(supabase),
+    fetchV2CustomerCatalog(),
+  ]);
+  const proWebsiteSku = v2Customer.find(
+    (s) => s.service_code === PRO_WEBSITE_SERVICE_KEY,
+  );
+  // Fall back to the catalog-locked ₱5,499 if the row is unreachable (no
+  // service-role key in CI) so the panel can still render a price. build_status
+  // defaults to 'partial' (the honest "coming soon" teaser) when unknown.
+  const proWebsitePriceCentavos = String(
+    Math.round((proWebsiteSku?.retail_price_php ?? 5499) * 100),
+  );
+  const proWebsiteBuildStatus = proWebsiteSku?.build_status ?? 'partial';
 
   const guests = await fetchGuestsByEvent(supabase, eventId);
   const stats = computeGuestStats(guests);
@@ -636,6 +668,19 @@ export default async function WebsiteHubPage({
           href={`/dashboard/${eventId}/add-ons/photo-delivery`}
         />
       </JourneySection>
+
+      {/* Pro Website upgrade — the flagship paid website tier (PRO_WEBSITE
+          ₱5,499 · "Your wedding, on its own website"). Owned-state + price +
+          live build-status resolved above; the buy path stays dark until the
+          V2 catalog flips PRO_WEBSITE → 'live'. CLAUDE.md 2026-05-30 "V2.1
+          Amendment #3" + Onboarding Blueprint §3.3. */}
+      <ProWebsitePanel
+        eventId={eventId}
+        owned={proWebsiteOwned}
+        priceCentavos={proWebsitePriceCentavos}
+        buildStatus={proWebsiteBuildStatus}
+        settings={platformSettings}
+      />
 
       {/* Free vs Pro panel — surfaces the two existing V1 paid widget
           upgrades from iteration 0004 (Monogram Hero ₱1,999 + Live

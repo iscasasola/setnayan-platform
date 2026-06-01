@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex,nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Setnayan · Monogram Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Playfair+Display:ital,wght@0,600;1,600&family=Cinzel:wght@500;600&family=Great+Vibes&family=Marcellus&family=Manrope:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FBFBFA; --ink:#1E2229; --ink-soft:#4F535B; --line:#E7E1D6; --line-2:#D9D2C4;
+    --gold:#C5A059; --gold-deep:#8C6932; --mulberry:#5C2542; --surface:#FFFFFF;
+    --serif:'Cormorant Garamond',serif; --sans:'Manrope',sans-serif; --mono:'DM Mono',monospace;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:#ECE7DD;font-family:var(--sans);color:var(--ink);-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:460px;margin:0 auto;min-height:100vh;background:var(--paper);box-shadow:0 0 40px rgba(0,0,0,.06);}
+  header{display:flex;align-items:center;gap:9px;padding:14px 20px 10px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--paper);z-index:5;}
+  header svg{width:24px;height:24px;display:block;}
+  header .wm{font-family:var(--mono);font-size:12px;letter-spacing:.32em;color:var(--ink);font-weight:500;}
+  header .tag{margin-left:auto;font-family:var(--mono);font-size:10px;letter-spacing:.22em;color:var(--gold-deep);text-transform:uppercase;}
+
+  /* ===== live stage ===== */
+  .stage{padding:24px 20px 18px;display:flex;align-items:center;justify-content:center;min-height:300px;transition:background .25s;}
+  .stage[data-bg="paper"]{background:var(--paper);}
+  .stage[data-bg="white"]{background:#fff;}
+  .stage[data-bg="dark"]{background:#1E2229;}
+  .stage[data-bg="gold"]{background:linear-gradient(135deg,#efe6d3,#ddccab);}
+  .mono{position:relative;width:clamp(220px,72vw,300px);aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+    background-repeat:no-repeat;background-position:center;background-size:contain;filter:drop-shadow(0 3px 8px rgba(140,105,50,.18));}
+  .mono[data-frame="none"]{background-image:none;filter:none;}
+  .mono[data-frame="wreath"]{background-image:url(assets/mono/wreath.webp);}
+  .mono[data-frame="crest"]{background-image:url(assets/mono/crest.webp);}
+  .mono[data-frame="square"]{background-image:url(assets/mono/square.webp);}
+  .mono[data-frame="oval"]{background-image:url(assets/mono/oval.webp);}
+  .mono[data-frame="flourish"]{background-image:url(assets/mono/flourish.webp);}
+  .mono[data-frame="art_deco"]{background-image:url(assets/mono/art_deco.webp);}
+  .mono[data-frame="laurel"]{background-image:url(assets/mono/laurel.webp);}
+  .mono[data-frame="baroque"]{background-image:url(assets/mono/baroque.webp);}
+  .mono[data-frame="ribbon"]{background-image:url(assets/mono/ribbon.webp);}
+  .mono[data-frame="botanical"]{background-image:url(assets/mono/botanical.webp);}
+  .mono[data-frame="deco_diamond"]{background-image:url(assets/mono/deco_diamond.webp);}
+
+  .letters{position:relative;display:flex;align-items:center;justify-content:center;line-height:1;white-space:nowrap;}
+  .g{display:inline-block;transition:transform .08s linear;will-change:transform;}
+  /* glyph color */
+  .mono[data-ink="mulberry"] .g{color:var(--mulberry);}
+  .mono[data-ink="gold"] .g{color:var(--gold-deep);}
+  .mono[data-ink="ink"] .g{color:var(--ink);}
+  .mono[data-ink="white"] .g{color:#fff;}
+  /* fonts */
+  .mono[data-font="cormorant"] .g{font-family:var(--serif);font-style:italic;font-weight:600;}
+  .mono[data-font="playfair"] .g{font-family:'Playfair Display',serif;font-style:italic;font-weight:600;}
+  .mono[data-font="cinzel"] .g{font-family:'Cinzel',serif;font-weight:600;text-transform:uppercase;}
+  .mono[data-font="script"] .g{font-family:'Great Vibes',cursive;font-weight:400;}
+  .mono[data-font="marcellus"] .g{font-family:'Marcellus',serif;font-weight:400;}
+
+  /* ===== control panel ===== */
+  .panel{padding:4px 18px 40px;}
+  .sec{margin-top:18px;}
+  .sec-h{font-family:var(--mono);font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-deep);margin:0 0 9px;}
+  .field{display:flex;flex-direction:column;gap:5px;margin-bottom:10px;}
+  .field input[type=text]{border:1px solid var(--line-2);background:var(--surface);border-radius:10px;padding:11px 13px;font-family:var(--sans);font-size:15px;color:var(--ink);}
+  .field input[type=text]:focus{outline:none;border-color:var(--gold);}
+  .hint{font-size:11.5px;color:var(--ink-soft);}
+
+  /* frame gallery */
+  .frames{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+  .fr{position:relative;border:2px solid var(--line);border-radius:12px;background:var(--surface);aspect-ratio:1;cursor:pointer;display:flex;align-items:center;justify-content:center;overflow:hidden;-webkit-tap-highlight-color:transparent;}
+  .fr img{width:84%;height:84%;object-fit:contain;}
+  .fr .none-x{font-family:var(--serif);font-style:italic;font-size:22px;color:var(--ink-soft);}
+  .fr .lbl{position:absolute;bottom:0;left:0;right:0;font-family:var(--mono);font-size:8px;letter-spacing:.04em;text-align:center;padding:2px 0;background:rgba(251,251,250,.92);color:var(--ink-soft);text-transform:uppercase;}
+  .fr.sel{border-color:var(--mulberry);box-shadow:0 0 0 2px rgba(92,37,66,.15);}
+
+  /* font + chip rows */
+  .chips{display:flex;flex-wrap:wrap;gap:8px;}
+  .chip{border:1px solid var(--line-2);background:var(--surface);border-radius:999px;padding:9px 15px;font-size:13px;font-weight:600;color:var(--ink-soft);cursor:pointer;-webkit-tap-highlight-color:transparent;}
+  .chip.sel{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+  .chip.fp{font-size:17px;padding:7px 17px;}
+  .chip.fp[data-f="cormorant"]{font-family:var(--serif);font-style:italic;}
+  .chip.fp[data-f="playfair"]{font-family:'Playfair Display',serif;font-style:italic;}
+  .chip.fp[data-f="cinzel"]{font-family:'Cinzel',serif;}
+  .chip.fp[data-f="script"]{font-family:'Great Vibes',cursive;font-size:22px;}
+  .chip.fp[data-f="marcellus"]{font-family:'Marcellus',serif;}
+
+  /* sliders */
+  .glyphrow{margin-bottom:14px;}
+  .glyphrow .gname{font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--ink);font-weight:500;margin-bottom:6px;display:flex;align-items:center;gap:8px;}
+  .glyphrow .gname b{font-family:var(--serif);font-style:italic;font-size:18px;color:var(--mulberry);font-weight:600;min-width:18px;}
+  .sl{display:grid;grid-template-columns:24px 1fr 44px;align-items:center;gap:8px;margin-bottom:5px;}
+  .sl label{font-family:var(--mono);font-size:10px;color:var(--ink-soft);text-transform:uppercase;}
+  .sl input[type=range]{width:100%;accent-color:var(--mulberry);}
+  .sl .val{font-family:var(--mono);font-size:11px;color:var(--ink);text-align:right;}
+
+  .row2{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .minibtn{border:1px solid var(--line-2);background:var(--surface);border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;color:var(--ink-soft);cursor:pointer;-webkit-tap-highlight-color:transparent;}
+  .minibtn:active{transform:scale(.96);}
+
+  .readout{margin-top:14px;border:1px dashed var(--line-2);border-radius:10px;background:#FAF7F0;padding:11px 13px;}
+  .readout .rt{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-deep);margin-bottom:6px;}
+  .readout pre{margin:0;font-family:var(--mono);font-size:11px;line-height:1.5;color:var(--ink);white-space:pre-wrap;word-break:break-word;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <svg viewBox="0 0 200 200" aria-hidden="true"><path fill="#cb9e4b" d="M100 18c-45 0-82 37-82 82s37 82 82 82 82-37 82-82-37-82-82-82zm0 18c35 0 64 29 64 64s-29 64-64 64-64-29-64-64 29-64 64-64zm-20 30c-13 0-24 9-24 22 0 11 8 17 20 21l9 3c7 2 10 4 10 8 0 5-5 8-12 8-8 0-13-3-16-9l-15 7c5 12 16 18 31 18 16 0 28-9 28-23 0-12-9-18-21-22l-9-3c-6-2-9-4-9-7 0-4 4-7 11-7 6 0 11 3 13 8l15-7c-5-10-15-16-29-16z"/></svg>
+    <span class="wm">SETNAYAN</span>
+    <span class="tag">Monogram Lab</span>
+  </header>
+
+  <div class="stage" id="stage" data-bg="paper">
+    <div class="mono" id="mono" data-frame="wreath" data-font="cormorant" data-ink="mulberry">
+      <span class="letters" id="letters">
+        <span class="g gl" id="gl">M</span><span class="g ga" id="ga">&amp;</span><span class="g gr" id="gr">J</span>
+      </span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <!-- names -->
+    <div class="sec">
+      <div class="field">
+        <input type="text" id="names" value="Maria & Juan" placeholder="Maria & Juan" autocomplete="off">
+        <span class="hint">The monogram itself — no background, no fill. Pick a frame below, or tap “None” to keep just the letters.</span>
+      </div>
+    </div>
+
+    <!-- frames -->
+    <div class="sec">
+      <div class="sec-h">Frame · choose one</div>
+      <div class="frames" id="frames"></div>
+    </div>
+
+    <!-- fonts -->
+    <div class="sec">
+      <div class="sec-h">Font · 5 to choose from</div>
+      <div class="chips" id="fonts"></div>
+    </div>
+
+    <!-- color + stage -->
+    <div class="sec">
+      <div class="sec-h">Letter color · backdrop (preview only)</div>
+      <div class="row2" style="margin-bottom:8px;">
+        <span class="hint" style="min-width:42px;">Ink</span>
+        <div class="chips" id="inks"></div>
+      </div>
+      <div class="row2">
+        <span class="hint" style="min-width:42px;">Behind</span>
+        <div class="chips" id="bgs"></div>
+      </div>
+    </div>
+
+    <!-- per-glyph positioning -->
+    <div class="sec">
+      <div class="sec-h">Position each letter · X · Y · Size</div>
+      <div id="glyphs"></div>
+      <div class="row2" style="margin-top:4px;">
+        <button class="minibtn" id="resetBtn">Reset position</button>
+        <button class="minibtn" id="spaceMinus">– spacing</button>
+        <button class="minibtn" id="spacePlus">+ spacing</button>
+      </div>
+    </div>
+
+    <div class="readout">
+      <div class="rt">Current values (to bake into the build)</div>
+      <pre id="readout"></pre>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var FRAMES=[
+    {k:'none',label:'None'},
+    {k:'wreath',label:'Wreath'},
+    {k:'crest',label:'Crest'},
+    {k:'oval',label:'Oval'},
+    {k:'square',label:'Deco sq.'},
+    {k:'flourish',label:'Flourish'},
+    {k:'art_deco',label:'Art deco'},
+    {k:'laurel',label:'Laurel'},
+    {k:'baroque',label:'Baroque'},
+    {k:'ribbon',label:'Ribbon'},
+    {k:'botanical',label:'Botanical'},
+    {k:'deco_diamond',label:'Diamond'}
+  ];
+  var FONTS=[
+    {k:'cormorant',label:'Cormorant'},
+    {k:'playfair',label:'Playfair'},
+    {k:'cinzel',label:'Cinzel'},
+    {k:'script',label:'Script'},
+    {k:'marcellus',label:'Marcellus'}
+  ];
+  var INKS=[{k:'mulberry',label:'Mulberry'},{k:'gold',label:'Gold'},{k:'ink',label:'Ink'},{k:'white',label:'White'}];
+  var BGS=[{k:'paper',label:'Paper'},{k:'white',label:'White'},{k:'gold',label:'Cream'},{k:'dark',label:'Dark'}];
+
+  var mono=document.getElementById('mono'), stage=document.getElementById('stage');
+  var gl=document.getElementById('gl'), ga=document.getElementById('ga'), gr=document.getElementById('gr');
+  var letters=document.getElementById('letters'), readout=document.getElementById('readout');
+  var baseSize=54, spacing=2;
+  // per-glyph: {x,y,s}
+  var pos={ l:{x:0,y:0,s:100}, a:{x:0,y:0,s:62}, r:{x:0,y:0,s:100} };
+
+  function deriveGlyphs(){
+    var v=(document.getElementById('names').value||'').trim();
+    var parts=v.split(/\s*(?:&|\+|\band\b)\s*/i).filter(Boolean);
+    var L,R,A='&';
+    if(parts.length>=2){ L=parts[0][0]; R=parts[1][0]; }
+    else if(parts.length===1){ L=parts[0][0]||'M'; R=(parts[0][1]||''); A=''; }
+    else { L='M'; R='J'; }
+    gl.textContent=(L||'').toUpperCase();
+    ga.textContent=A; ga.style.display=A?'inline-block':'none';
+    gr.textContent=(R||'').toUpperCase();
+  }
+  function applyPos(){
+    letters.style.fontSize=baseSize+'px';
+    letters.style.gap=spacing+'px';
+    gl.style.transform='translate('+pos.l.x+'px,'+pos.l.y+'px) scale('+(pos.l.s/100)+')';
+    ga.style.transform='translate('+pos.a.x+'px,'+pos.a.y+'px) scale('+(pos.a.s/100)+')';
+    gr.style.transform='translate('+pos.r.x+'px,'+pos.r.y+'px) scale('+(pos.r.s/100)+')';
+    writeReadout();
+  }
+  function writeReadout(){
+    readout.textContent =
+      'frame: '+mono.dataset.frame+'   font: '+mono.dataset.font+'   ink: '+mono.dataset.ink+'\n'+
+      'base '+baseSize+'px · spacing '+spacing+'px\n'+
+      'left   x:'+pos.l.x+' y:'+pos.l.y+' size:'+pos.l.s+'%\n'+
+      'amp &  x:'+pos.a.x+' y:'+pos.a.y+' size:'+pos.a.s+'%\n'+
+      'right  x:'+pos.r.x+' y:'+pos.r.y+' size:'+pos.r.s+'%';
+  }
+
+  // build frame gallery
+  var fw=document.getElementById('frames');
+  FRAMES.forEach(function(f){
+    var el=document.createElement('div'); el.className='fr'+(f.k==='wreath'?' sel':''); el.dataset.k=f.k;
+    if(f.k==='none'){ el.innerHTML='<span class="none-x">M&amp;J</span><span class="lbl">'+f.label+'</span>'; }
+    else { el.innerHTML='<img src="assets/mono/'+f.k+'.webp" alt="" loading="lazy"><span class="lbl">'+f.label+'</span>'; }
+    el.addEventListener('click',function(){ mono.dataset.frame=f.k; [].forEach.call(fw.children,function(c){c.classList.toggle('sel',c.dataset.k===f.k);}); writeReadout(); });
+    fw.appendChild(el);
+  });
+  // fonts
+  var fo=document.getElementById('fonts');
+  FONTS.forEach(function(f){
+    var el=document.createElement('div'); el.className='chip fp'+(f.k==='cormorant'?' sel':''); el.dataset.f=f.k; el.textContent=f.label;
+    el.addEventListener('click',function(){ mono.dataset.font=f.k; [].forEach.call(fo.children,function(c){c.classList.toggle('sel',c.dataset.f===f.k);}); writeReadout(); });
+    fo.appendChild(el);
+  });
+  // inks
+  var iw=document.getElementById('inks');
+  INKS.forEach(function(o){ var el=document.createElement('div'); el.className='chip'+(o.k==='mulberry'?' sel':''); el.dataset.k=o.k; el.textContent=o.label;
+    el.addEventListener('click',function(){ mono.dataset.ink=o.k; [].forEach.call(iw.children,function(c){c.classList.toggle('sel',c.dataset.k===o.k);}); writeReadout(); }); iw.appendChild(el); });
+  // bgs
+  var bw=document.getElementById('bgs');
+  BGS.forEach(function(o){ var el=document.createElement('div'); el.className='chip'+(o.k==='paper'?' sel':''); el.dataset.k=o.k; el.textContent=o.label;
+    el.addEventListener('click',function(){ stage.dataset.bg=o.k; [].forEach.call(bw.children,function(c){c.classList.toggle('sel',c.dataset.k===o.k);}); }); bw.appendChild(el); });
+
+  // per-glyph sliders
+  var glyphs=document.getElementById('glyphs');
+  var defs=[{k:'l',name:'Left',ch:'M'},{k:'a',name:'And &',ch:'&'},{k:'r',name:'Right',ch:'J'}];
+  var axes=[{a:'x',lab:'X',min:-80,max:80},{a:'y',lab:'Y',min:-80,max:80},{a:'s',lab:'Sz',min:20,max:180}];
+  defs.forEach(function(d){
+    var row=document.createElement('div'); row.className='glyphrow';
+    var h='<div class="gname"><b>'+d.ch+'</b> '+d.name+'</div>';
+    axes.forEach(function(ax){
+      h+='<div class="sl"><label>'+ax.lab+'</label><input type="range" data-g="'+d.k+'" data-a="'+ax.a+'" min="'+ax.min+'" max="'+ax.max+'" value="'+pos[d.k][ax.a]+'"><span class="val" id="v-'+d.k+'-'+ax.a+'">'+pos[d.k][ax.a]+'</span></div>';
+    });
+    row.innerHTML=h; glyphs.appendChild(row);
+  });
+  glyphs.addEventListener('input',function(e){
+    var t=e.target; if(t.type!=='range') return;
+    var g=t.dataset.g, a=t.dataset.a; pos[g][a]=parseInt(t.value,10);
+    document.getElementById('v-'+g+'-'+a).textContent=t.value; applyPos();
+  });
+
+  document.getElementById('names').addEventListener('input',function(){ deriveGlyphs(); });
+  document.getElementById('resetBtn').addEventListener('click',function(){
+    pos={ l:{x:0,y:0,s:100}, a:{x:0,y:0,s:62}, r:{x:0,y:0,s:100} };
+    [].forEach.call(glyphs.querySelectorAll('input[type=range]'),function(inp){ inp.value=pos[inp.dataset.g][inp.dataset.a]; document.getElementById('v-'+inp.dataset.g+'-'+inp.dataset.a).textContent=inp.value; });
+    applyPos();
+  });
+  document.getElementById('spaceMinus').addEventListener('click',function(){ spacing=Math.max(-30,spacing-4); applyPos(); });
+  document.getElementById('spacePlus').addEventListener('click',function(){ spacing=Math.min(60,spacing+4); applyPos(); });
+
+  deriveGlyphs(); applyPos();
+})();
+</script>
+</body>
+</html>

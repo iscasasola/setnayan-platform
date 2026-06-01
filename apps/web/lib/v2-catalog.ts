@@ -75,7 +75,7 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   PANOOD_SYSTEM:       'partial',  // OAuth + UI shipped · pending YouTube verified-app
   PATIKTOK_COMPILER:   'partial',  // booth scaffold · TikTok app review pending
   PAPIC_GUEST:         'partial',  // web capture exists · quota enforcement not wired
-  PAPIC_SEATS:         'partial',  // web capture exists · seat provisioning not wired
+  PAPIC_SEATS:         'live',     // photo crew end-to-end: provision + claim + capture · PR #731 + migration 20260718000000 · 2026-06-01
   HIGH_RES_ARCHIVE:    'partial',  // 0009 photo delivery partial
   LIVE_BACKGROUND:     'partial',  // 0005 Pailaw engineering brief · code not verified
 

@@ -503,9 +503,9 @@ export default async function WebsiteHubPage({
       {/* ─────────────────────────────────────────────────────────────
           STEP 2 · Save the date & your invitation
           The page guests see before the day. Free content editors link to
-          their existing /website/<editor> sub-routes; the Save-the-Date
-          video links to its add-on detail page. Animated Monogram + Custom
-          QR per guest are net-new (no route yet) → coming-soon rows.
+          their existing /website/<editor> sub-routes; the Save-the-Date video,
+          Animated Monogram, and Custom QR per guest each link to their own
+          /add-ons detail page (which owns pricing + buy/coming-soon state).
           ───────────────────────────────────────────────────────────── */}
       <JourneySection
         step="2"
@@ -551,8 +551,8 @@ export default async function WebsiteHubPage({
         <JourneyRow
           icon={Wand2}
           title="Animated monogram"
-          blurb="Your monogram draws itself in over a custom video or photo."
-          comingSoon
+          blurb="Your initials draw themselves in on your wedding website."
+          href={`/dashboard/${eventId}/add-ons/animated-monogram`}
         />
         <JourneyRow
           icon={QrCode}

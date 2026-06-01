@@ -181,6 +181,11 @@
   .byo-tx{display:flex;flex-direction:column;gap:3px;}
   .byo-tx b{font-size:14px;color:var(--ink);}
   .byo-tx span{font-size:12px;line-height:1.45;color:var(--ink-soft);}
+  .byo-form{margin-top:10px;display:flex;flex-direction:column;gap:8px;}
+  .byo-l{display:flex;flex-direction:column;gap:3px;}
+  .byo-lk{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-deep);}
+  .byo-send{margin-top:4px;background:var(--mulberry);color:#fff;border:none;border-radius:11px;padding:12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;}
+  .byo-done{margin-top:10px;font-size:12.5px;color:#2D4A3A;background:rgba(45,74,58,.08);border:1px solid rgba(45,74,58,.25);border-radius:11px;padding:11px 12px;line-height:1.5;}
   /* welcome */
   .welcome{text-align:center;padding-top:40px;}
   .mark{width:64px;height:64px;border-radius:18px;background:var(--gold-wash);display:flex;align-items:center;justify-content:center;margin:0 auto 26px;font-family:var(--serif);font-style:italic;font-size:30px;font-weight:600;color:var(--gold-deep);}
@@ -860,9 +865,18 @@
           </div>
         </div>
       </div>
-      <div class="byo">
-        <div class="byo-ic">+</div>
-        <div class="byo-tx"><b>Already have a vendor you love?</b><span>Add your own — and invite them to Setnayan. Then run chat, files, your wedding website &amp; day-of in one place, and use Papic, Panood &amp; more with them.</span></div>
+      <div class="byowrap">
+        <div class="byo" id="byoCard" onclick="toggleByo()">
+          <div class="byo-ic">+</div>
+          <div class="byo-tx"><b>Already have a vendor you love?</b><span>Add your own — and invite them to Setnayan. Then run chat, files, your wedding website &amp; day-of in one place, and use Papic, Panood &amp; more with them.</span></div>
+        </div>
+        <div class="byo-form" id="byoForm" hidden>
+          <label class="byo-l"><span class="byo-lk">Vendor name</span><input class="field byo-f" id="byoName" placeholder="e.g. Bloom &amp; Co. Florals"></label>
+          <label class="byo-l"><span class="byo-lk">Contact person</span><input class="field byo-f" id="byoPerson" placeholder="Who you talk to"></label>
+          <label class="byo-l"><span class="byo-lk">Email address</span><input class="field byo-f" id="byoEmail" type="email" placeholder="name@email.com"></label>
+          <button class="byo-send" id="byoSend" onclick="sendByo(event)">Send their invite</button>
+        </div>
+        <div class="byo-done" id="byoDone" hidden></div>
       </div>
     </section>
 
@@ -970,7 +984,10 @@
     { key:'grand',      name:'Grand Bundle',        add:['panood','live_background','live_photowall','indoor_blueprint'] },   // + big-venue wayfinding
     { key:'grandfiesta',name:'Grand Fiesta Bundle', add:['high_res'] }
   ];
-  // Per-service prices for the bundle math. out = market-equivalent if hired separately (owner-supplied guidance, from the §3.3 vs-elsewhere comparison · NOT Setnayan SKU prices). set = Setnayan à la carte (locked flat prices; pax-dependent items use the 100-pax floor — they scale up per guest, per-50 owner-to-set · ILLUSTRATIVE for the demo).
+  // ⚠ STAND-IN for the admin pricing menu — bundles are PRICE-FOLLOWERS, not price-setters.
+  // In production the bundle reads each service's live price from the admin Add-on Management menu (iteration 0023 §3.12 / service_catalog),
+  // so an admin price change updates every bundle automatically — this hardcoded table is only the prototype demo source.
+  // out = market-equivalent "if hired separately" (an admin-editable per-service field) · set = Setnayan price (pax items scale per guest, per-50 set in admin).
   const SVC={ today_focus:{out:20000,set:1499}, advanced_website:{out:25000,set:5499}, papic_guest:{out:32000,set:2999}, sde:{out:35000,set:3499}, guest_stories:{out:8000,set:1999}, pabati:{out:12000,set:999}, papic_seats:{out:75000,set:2999}, animated_monogram:{out:15500,set:2499}, thank_you:{out:60000,set:5499}, pakanta:{out:12500,set:2499}, custom_qr:{out:5000,set:1499}, panood:{out:17500,set:3499}, live_background:{out:20000,set:2499}, live_photowall:{out:18000,set:2499}, indoor_blueprint:{out:12500,set:1499}, high_res:{out:5000,set:0} };
   function pesoB(n){ return '₱'+Math.round(n).toLocaleString('en-US'); }
   const BUNDLE_INDEX={ essential:0, simple:1, classic:2, grand:3, grandfiesta:4 };
@@ -995,6 +1012,23 @@
       +'<div class="mb-sub">'+pesoB(setTotal)+' à la carte · the extra 20% holds only if you add it now</div>'
       +'</div>';
     host.innerHTML='<div class="mbundle"><div class="mb-h"><span class="mb-name">'+tier.name+'</span><span class="mb-tag">'+items.length+' picks</span></div><div class="mb-line">'+BUNDLE_TAGLINE[bk]+'</div><div class="mb-items">'+lis+'</div>'+priceBlock+'</div>';
+  }
+  // Bring-your-own vendor → the couple-initiated off-platform invite (vendor_invites · CLAUDE.md 2026-05-19). Tap the card → fill name/contact/email → we email them to join.
+  function toggleByo(){
+    var d=document.getElementById('byoDone'); if(d && !d.hidden) return;   // already sent
+    var f=document.getElementById('byoForm'); if(!f) return;
+    f.hidden=!f.hidden;
+    if(!f.hidden){ var n=document.getElementById('byoName'); if(n) n.focus(); }
+  }
+  function sendByo(e){
+    if(e) e.stopPropagation();
+    var name=(document.getElementById('byoName').value||'').trim();
+    var email=(document.getElementById('byoEmail').value||'').trim();
+    if(!name){ document.getElementById('byoName').focus(); return; }
+    document.getElementById('byoForm').hidden=true;
+    var card=document.getElementById('byoCard'); if(card){ card.querySelector('.byo-tx b').textContent='Vendor added'; card.style.cursor='default'; }
+    var d=document.getElementById('byoDone'); d.hidden=false;
+    d.innerHTML='✓ <b>'+name+'</b> is on your list. We\'ll email '+(email?('<b>'+email+'</b>'):'them')+' an invite to join Setnayan — once they\'re in, your chat, files, website &amp; day-of all run in one place.';
   }
   function render(){
     screens.forEach((s,n)=>s.classList.toggle('active',n===i));

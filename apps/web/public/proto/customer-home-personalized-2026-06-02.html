@@ -83,7 +83,7 @@
   .mv .t b{font-weight:700}
   .mv .when{font-size:11px;color:var(--ink-faint);margin-top:1px}
 
-  .botnav{position:sticky;bottom:0;display:grid;grid-template-columns:repeat(6,1fr);background:rgba(251,251,250,.95);backdrop-filter:blur(8px);border-top:1px solid var(--line);padding:7px 4px 9px}
+  .botnav{position:sticky;bottom:0;display:grid;grid-template-columns:repeat(4,1fr);background:rgba(251,251,250,.95);backdrop-filter:blur(8px);border-top:1px solid var(--line);padding:7px 4px 9px}
   .bn{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:9px;color:var(--ink-faint)}
   .bn svg{width:18px;height:18px;stroke:var(--ink-faint);fill:none;stroke-width:1.7}
   .bn.on{color:var(--mulberry)} .bn.on svg{stroke:var(--mulberry)}
@@ -96,7 +96,7 @@
   <div class="stage-cap">
     <div class="k">Prototype · 2026-06-02</div>
     <div class="t">Couple event home — personalized + activity</div>
-    <div class="s">Two things only: your personalized menu (built from onboarding) and your activity. Today · Plan · Spend · Communicate · Share all live in their own tabs.</div>
+    <div class="s">Two things only: your personalized menu (built from onboarding) and your activity. Nav drops to Home · For you · Activity · More — everything else lives under More.</div>
   </div>
 
   <div class="phone">
@@ -159,18 +159,16 @@
     </div>
 
     <nav class="botnav">
-      <span class="bn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>Today</span>
       <span class="bn on"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>Home</span>
-      <span class="bn"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.2"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>Guests</span>
-      <span class="bn"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>Vendors</span>
-      <span class="bn"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Messages</span>
+      <span class="bn"><svg viewBox="0 0 24 24"><path d="M12 3l1.9 4.6L18.5 9l-3.8 3.2 1.2 4.8L12 14.6 8.1 17l1.2-4.8L5.5 9l4.6-1.4z"/></svg>For you</span>
+      <span class="bn"><svg viewBox="0 0 24 24"><path d="M3 12h4l2 6 4-14 2 8h6"/></svg>Activity</span>
       <span class="bn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="1.6"/><circle cx="5" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>More</span>
     </nav>
 
   </div>
 
   <p class="footnote">
-    Home is now just <b>your personalized menu</b> (taste + the services you picked in onboarding, each linking into its tab) and <b>your activity</b>. Today's Focus, the full plan/budget, messages, website and add-ons are reached from the nav — Home doesn't repeat them.
+    Home is just <b>your personalized menu</b> (taste + the services you picked in onboarding) and <b>your activity</b>. The bottom nav is reduced to <b>Home · For you · Activity · More</b> — Today's Focus, plan/budget, guests, messages, website and add-ons move under <b>More</b>.
   </p>
 
 </body>

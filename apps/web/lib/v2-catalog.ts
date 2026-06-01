@@ -68,7 +68,7 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   TODAYS_FOCUS:        'live',     // 65-card wizard live at /today
   PRO_WEBSITE:         'partial',  // free baseline live · Pro gating not built
   CUSTOM_QR_GUEST:     'live',     // branded per-guest QR (monogram + palette + print) · PR #727 · 2026-06-01
-  INDOOR_BLUEPRINT:    'partial',  // seating chart live · entrance-to-table nav not built
+  INDOOR_BLUEPRINT:    'live',     // entrance→table wayfinding end-to-end: couple studio + guest find-my-table · migration 20260717000000 · 2026-06-02
 
   // Partially working
   ANIMATED_MONOGRAM:   'live',     // drawn-live monogram bound to the SKU · PR #729 · 2026-06-01

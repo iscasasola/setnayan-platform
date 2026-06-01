@@ -163,6 +163,11 @@
   .mbundle .mb-amt{font-family:var(--serif);font-style:italic;font-size:27px;font-weight:700;color:var(--gold-deep);line-height:1;}
   .mbundle .mb-off{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--mulberry);background:var(--paper);border:1px solid var(--gold);border-radius:999px;padding:3px 8px;}
   .mbundle .mb-sub{font-size:10.5px;color:var(--ink-faint);margin-top:5px;line-height:1.4;}
+  /* Total savings hero — the headline number ("save ₱X vs hiring everything separately"). Bigger than the bundle price so it reads as the dominant value (owner 2026-06-02: "show total savings with plan"). */
+  .mbundle .mb-save{margin:8px 0 6px;display:flex;flex-direction:column;align-items:flex-start;}
+  .mbundle .mb-save .ms-lbl{font-family:var(--mono);font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-deep);font-weight:600;}
+  .mbundle .mb-save .ms-amt{font-family:var(--serif);font-style:italic;font-size:31px;font-weight:700;color:var(--gold-deep);line-height:1.04;letter-spacing:-.005em;}
+  .mbundle .mb-save .ms-vs{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint);margin-top:2px;}
   /* Bundle item rows — benefit-led, not bare product pills (so a couple seeing them for the first time understands what they're paying for) */
   .mbundle .mb-items{display:flex;flex-direction:column;gap:7px;margin-top:2px;}
   .mbundle .bli-rich{display:flex;flex-direction:column;gap:2px;padding:9px 11px;background:rgba(255,255,255,.55);border-left:2px solid var(--gold);border-radius:0 9px 9px 0;}
@@ -1060,13 +1065,16 @@
     var outTotal=0, setTotal=0;
     items.forEach(function(k){ var p=SVC[k]||{out:0,set:0}; outTotal+=p.out; setTotal+=p.set; });
     var bundlePrice=Math.round(setTotal*0.7/100)*100-1;   // 30% off à la carte, charm-rounded
+    var totalSavings=outTotal-bundlePrice;                // the headline savings — what the couple saves vs hiring everything elsewhere (owner 2026-06-02 "show total savings with plan")
+    var saveBlock='<div class="mb-save"><span class="ms-lbl">★ You save</span><span class="ms-amt">'+pesoB(totalSavings)+'</span><span class="ms-vs">vs hiring everything separately</span></div>';
     var priceBlock='<div class="mb-price">'
       +'<span class="mb-out">'+pesoB(outTotal)+' if hired separately</span>'
+      +saveBlock
       +'<div class="mb-now"><b class="mb-amt">'+pesoB(bundlePrice)+'</b><span class="mb-off">−30% bundle · book now</span></div>'
       +'<div class="mb-sub">'+pesoB(setTotal)+' à la carte · the extra 30% holds only if you add it now</div>'
       +'</div>';
-    // The action we want the couple to take — prominent mulberry CTA inside the bundle card itself. Free-plan escape demoted to a quiet whisper below (owner 2026-06-02 "we want to purchase the bundle more than continuing free").
-    var addBtn='<button class="mb-add" id="mbAddBtn" type="button" onclick="addBundleToPlan()" aria-label="Add this bundle to my plan"><span class="mb-add-h">Add this to my plan <b>'+pesoB(bundlePrice)+'</b></span><span class="mb-add-sub">Save '+pesoB(setTotal-bundlePrice)+' · book now</span></button>';
+    // The action we want the couple to take — prominent mulberry CTA inside the bundle card itself. Free-plan escape demoted to a quiet whisper below (owner 2026-06-02 "we want to purchase the bundle more than continuing free"). Sub repeats the TOTAL savings (₱278K) at the point of action — the headline emotional win, not the smaller book-now savings.
+    var addBtn='<button class="mb-add" id="mbAddBtn" type="button" onclick="addBundleToPlan()" aria-label="Add this bundle to my plan"><span class="mb-add-h">Add this to my plan <b>'+pesoB(bundlePrice)+'</b></span><span class="mb-add-sub">Save '+pesoB(totalSavings)+' · book now</span></button>';
     host.innerHTML='<div class="mbundle"><div class="mb-h"><span class="mb-name">'+tier.name+'</span><span class="mb-tag">'+items.length+' picks</span></div><div class="mb-line">'+BUNDLE_TAGLINE[bk]+'</div><div class="mb-items">'+lis+'</div>'+priceBlock+addBtn+'</div>';
   }
   // Add-to-plan acknowledgement — prototype-local (the production build writes the bundle into the couple's pending order + routes Continue to payment).

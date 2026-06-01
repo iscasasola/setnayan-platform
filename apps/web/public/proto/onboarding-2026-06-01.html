@@ -181,11 +181,20 @@
   .byo-tx{display:flex;flex-direction:column;gap:3px;}
   .byo-tx b{font-size:14px;color:var(--ink);}
   .byo-tx span{font-size:12px;line-height:1.45;color:var(--ink-soft);}
-  .byo-form{margin-top:10px;display:flex;flex-direction:column;gap:8px;}
+  .byo-add{margin-top:11px;width:100%;background:var(--mulberry);color:#fff;border:none;border-radius:11px;padding:13px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;}
   .byo-l{display:flex;flex-direction:column;gap:3px;}
   .byo-lk{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-deep);}
-  .byo-send{margin-top:4px;background:var(--mulberry);color:#fff;border:none;border-radius:11px;padding:12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;}
+  .byo-send{margin-top:5px;background:var(--mulberry);color:#fff;border:none;border-radius:11px;padding:13px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;}
   .byo-done{margin-top:10px;font-size:12.5px;color:#2D4A3A;background:rgba(45,74,58,.08);border:1px solid rgba(45,74,58,.25);border-radius:11px;padding:11px 12px;line-height:1.5;}
+  /* BYO bottom sheet */
+  .sheet-backdrop{position:absolute;inset:0;z-index:40;background:rgba(18,16,22,.45);opacity:0;pointer-events:none;transition:opacity .25s;}
+  .sheet-backdrop.open{opacity:1;pointer-events:auto;}
+  .sheet{position:absolute;left:0;right:0;bottom:0;z-index:41;background:var(--paper);border-radius:22px 22px 0 0;padding:8px 22px 24px;transform:translateY(102%);transition:transform .32s cubic-bezier(.2,.7,.3,1);box-shadow:0 -10px 34px rgba(0,0,0,.2);display:flex;flex-direction:column;gap:9px;}
+  .sheet.open{transform:translateY(0);}
+  .sheet-handle{width:38px;height:4px;border-radius:3px;background:var(--line-2);margin:6px auto 8px;}
+  .sheet-h{font-family:var(--serif);font-style:italic;font-size:22px;font-weight:600;color:var(--ink);}
+  .sheet-sub{font-size:12px;color:var(--ink-soft);margin:-4px 0 4px;}
+  .sheet-cancel{background:none;border:none;color:var(--ink-faint);font-size:13px;cursor:pointer;padding:6px;font-family:inherit;}
   /* welcome */
   .welcome{text-align:center;padding-top:40px;}
   .mark{width:64px;height:64px;border-radius:18px;background:var(--gold-wash);display:flex;align-items:center;justify-content:center;margin:0 auto 26px;font-family:var(--serif);font-style:italic;font-size:30px;font-weight:600;color:var(--gold-deep);}
@@ -866,16 +875,11 @@
         </div>
       </div>
       <div class="byowrap">
-        <div class="byo" id="byoCard" onclick="toggleByo()">
+        <div class="byo">
           <div class="byo-ic">+</div>
-          <div class="byo-tx"><b>Already have a vendor you love?</b><span>Add your own — and invite them to Setnayan. Then run chat, files, your wedding website &amp; day-of in one place, and use Papic, Panood &amp; more with them.</span></div>
+          <div class="byo-tx"><b>Already have a vendor you love?</b><span>Add your own and we'll connect you on Setnayan — chat, files, your wedding website &amp; day-of in one place, plus Papic, Panood &amp; more.</span></div>
         </div>
-        <div class="byo-form" id="byoForm" hidden>
-          <label class="byo-l"><span class="byo-lk">Vendor name</span><input class="field byo-f" id="byoName" placeholder="e.g. Bloom &amp; Co. Florals"></label>
-          <label class="byo-l"><span class="byo-lk">Contact person</span><input class="field byo-f" id="byoPerson" placeholder="Who you talk to"></label>
-          <label class="byo-l"><span class="byo-lk">Email address</span><input class="field byo-f" id="byoEmail" type="email" placeholder="name@email.com"></label>
-          <button class="byo-send" id="byoSend" onclick="sendByo(event)">Send their invite</button>
-        </div>
+        <button class="byo-add" id="byoAdd" onclick="openByoSheet()">+ Add your own vendor</button>
         <div class="byo-done" id="byoDone" hidden></div>
       </div>
     </section>
@@ -932,6 +936,19 @@
 
   <div class="bottom">
     <button class="btn btn-primary" id="nextbtn" onclick="go(1)">Continue</button>
+  </div>
+
+  <!-- BYO vendor — bottom-sheet popup (nudges up from the bottom) -->
+  <div class="sheet-backdrop" id="byoBackdrop" onclick="closeByoSheet()"></div>
+  <div class="sheet" id="byoSheet" role="dialog" aria-label="Add your own vendor">
+    <div class="sheet-handle"></div>
+    <div class="sheet-h">Add your own vendor</div>
+    <div class="sheet-sub">We'll connect you to them on Setnayan.</div>
+    <label class="byo-l"><span class="byo-lk">Vendor name</span><input class="field" id="byoName" placeholder="e.g. Bloom &amp; Co. Florals"></label>
+    <label class="byo-l"><span class="byo-lk">Contact person</span><input class="field" id="byoPerson" placeholder="Who you talk to"></label>
+    <label class="byo-l"><span class="byo-lk">Email address</span><input class="field" id="byoEmail" type="email" placeholder="name@email.com"></label>
+    <button class="byo-send" id="byoSend" onclick="sendByo(event)">Send invite &amp; connect</button>
+    <button class="sheet-cancel" onclick="closeByoSheet()">Cancel</button>
   </div>
 </div>
 
@@ -1001,30 +1018,35 @@
     // outside (if hired separately) vs Setnayan à la carte vs bundle (à la carte − extra 20% if booked now)
     var outTotal=0, setTotal=0;
     items.forEach(function(k){ var p=SVC[k]||{out:0,set:0}; outTotal+=p.out; setTotal+=p.set; });
-    var bundlePrice=Math.round(setTotal*0.8/100)*100-1;   // 20% off à la carte, charm-rounded
+    var bundlePrice=Math.round(setTotal*0.7/100)*100-1;   // 30% off à la carte, charm-rounded
     var priceBlock='<div class="mb-price">'
       +'<span class="mb-out">'+pesoB(outTotal)+' if hired separately</span>'
-      +'<div class="mb-now"><b class="mb-amt">'+pesoB(bundlePrice)+'</b><span class="mb-off">−20% bundle · book now</span></div>'
-      +'<div class="mb-sub">'+pesoB(setTotal)+' à la carte · the extra 20% holds only if you add it now</div>'
+      +'<div class="mb-now"><b class="mb-amt">'+pesoB(bundlePrice)+'</b><span class="mb-off">−30% bundle · book now</span></div>'
+      +'<div class="mb-sub">'+pesoB(setTotal)+' à la carte · the extra 30% holds only if you add it now</div>'
       +'</div>';
     host.innerHTML='<div class="mbundle"><div class="mb-h"><span class="mb-name">'+tier.name+'</span><span class="mb-tag">'+items.length+' picks</span></div><div class="mb-line">'+BUNDLE_TAGLINE[bk]+'</div><div class="mb-items">'+lis+'</div>'+priceBlock+'</div>';
   }
-  // Bring-your-own vendor → the couple-initiated off-platform invite (vendor_invites · CLAUDE.md 2026-05-19). Tap the card → fill name/contact/email → we email them to join.
-  function toggleByo(){
-    var d=document.getElementById('byoDone'); if(d && !d.hidden) return;   // already sent
-    var f=document.getElementById('byoForm'); if(!f) return;
-    f.hidden=!f.hidden;
-    if(!f.hidden){ var n=document.getElementById('byoName'); if(n) n.focus(); }
+  // Bring-your-own vendor → the couple-initiated off-platform invite + auto-connect (vendor_invites · CLAUDE.md 2026-05-19).
+  // "Add your own vendor" is a button → bottom-sheet popup (name/contact/email) → Send auto-connects the couple to the vendor's main Setnayan account.
+  function openByoSheet(){
+    var s=document.getElementById('byoSheet'), b=document.getElementById('byoBackdrop');
+    if(b) b.classList.add('open'); if(s) s.classList.add('open');
+    var n=document.getElementById('byoName'); if(n) setTimeout(function(){ n.focus(); },130);
+  }
+  function closeByoSheet(){
+    var s=document.getElementById('byoSheet'), b=document.getElementById('byoBackdrop');
+    if(s) s.classList.remove('open'); if(b) b.classList.remove('open');
   }
   function sendByo(e){
     if(e) e.stopPropagation();
     var name=(document.getElementById('byoName').value||'').trim();
     var email=(document.getElementById('byoEmail').value||'').trim();
     if(!name){ document.getElementById('byoName').focus(); return; }
-    document.getElementById('byoForm').hidden=true;
-    var card=document.getElementById('byoCard'); if(card){ card.querySelector('.byo-tx b').textContent='Vendor added'; card.style.cursor='default'; }
+    closeByoSheet();
     var d=document.getElementById('byoDone'); d.hidden=false;
-    d.innerHTML='✓ <b>'+name+'</b> is on your list. We\'ll email '+(email?('<b>'+email+'</b>'):'them')+' an invite to join Setnayan — once they\'re in, your chat, files, website &amp; day-of all run in one place.';
+    d.innerHTML='✓ <b>'+name+'</b> connected to your wedding. We\'ve linked you on their Setnayan account'+(email?(' and emailed <b>'+email+'</b>'):'')+' — chat, files, your website &amp; day-of all run with them here.';
+    var add=document.getElementById('byoAdd'); if(add) add.textContent='+ Add another vendor';
+    ['byoName','byoPerson','byoEmail'].forEach(function(id){ var el=document.getElementById(id); if(el) el.value=''; });
   }
   function render(){
     screens.forEach((s,n)=>s.classList.toggle('active',n===i));

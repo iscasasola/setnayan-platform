@@ -138,7 +138,11 @@ AS $$
     FROM public.orders o
     WHERE o.event_id = p_event_id
       AND o.service_key = p_service_key
-      AND COALESCE(o.status, '') NOT IN ('cancelled', 'refunded', 'lapsed')
+      -- orders.status is the order_status ENUM, so cast to text BEFORE the
+      -- COALESCE (coalescing an enum with '' raises 22P02 invalid_text_repr).
+      -- A null/blank status counts as owned — matches the app-side
+      -- eventOwnsPapicSeats() `.not('status','in',...)` semantics.
+      AND COALESCE(o.status::text, '') NOT IN ('cancelled', 'refunded', 'lapsed')
   );
 $$;
 

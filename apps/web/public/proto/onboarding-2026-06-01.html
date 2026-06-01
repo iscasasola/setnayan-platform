@@ -163,6 +163,26 @@
   .mbundle .mb-amt{font-family:var(--serif);font-style:italic;font-size:27px;font-weight:700;color:var(--gold-deep);line-height:1;}
   .mbundle .mb-off{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--mulberry);background:var(--paper);border:1px solid var(--gold);border-radius:999px;padding:3px 8px;}
   .mbundle .mb-sub{font-size:10.5px;color:var(--ink-faint);margin-top:5px;line-height:1.4;}
+  /* Bundle item rows — benefit-led, not bare product pills (so a couple seeing them for the first time understands what they're paying for) */
+  .mbundle .mb-items{display:flex;flex-direction:column;gap:7px;margin-top:2px;}
+  .mbundle .bli-rich{display:flex;flex-direction:column;gap:2px;padding:9px 11px;background:rgba(255,255,255,.55);border-left:2px solid var(--gold);border-radius:0 9px 9px 0;}
+  .mbundle .bli-rich .bli-bene{font-size:12.5px;line-height:1.45;color:var(--ink);}
+  .mbundle .bli-rich .bli-prod{font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);}
+  .mbundle .bli-rich.free{border-left-color:#2D4A3A;background:rgba(45,74,58,.05);}
+  .mbundle .bli-rich.free .bli-prod{color:#2D4A3A;}
+  /* The prominent "Add this bundle" CTA — the action we want them to take */
+  .mb-add{display:flex;flex-direction:column;align-items:center;gap:2px;width:100%;background:var(--mulberry);color:#fff;border:none;border-radius:13px;padding:15px 16px 13px;font-family:inherit;cursor:pointer;margin-top:14px;box-shadow:0 6px 18px rgba(92,37,66,.22);transition:transform .15s,box-shadow .15s,background .25s;}
+  .mb-add:hover{transform:translateY(-1px);box-shadow:0 9px 22px rgba(92,37,66,.28);}
+  .mb-add:active{transform:translateY(0);}
+  .mb-add .mb-add-h{font-size:15.5px;font-weight:600;letter-spacing:.005em;}
+  .mb-add .mb-add-h b{font-family:var(--serif);font-style:italic;font-weight:700;margin-left:4px;}
+  .mb-add .mb-add-sub{font-family:var(--mono);font-size:9px;letter-spacing:.18em;text-transform:uppercase;opacity:.88;margin-top:2px;}
+  .mb-add.added{background:#2D4A3A;cursor:default;box-shadow:0 4px 12px rgba(45,74,58,.2);}
+  .mb-add.added:hover{transform:none;box-shadow:0 4px 12px rgba(45,74,58,.2);}
+  /* The free-plan escape — now a quiet whisper, not a competing offer */
+  .plan-skip{text-align:center;margin:14px 0 4px;font-size:11px;color:var(--ink-faint);letter-spacing:.01em;}
+  .plan-skip u{cursor:pointer;text-decoration-color:var(--line);text-underline-offset:3px;}
+  .plan-skip u:hover{color:var(--ink-soft);text-decoration-color:var(--ink-faint);}
   /* recap */
   .recap{border:1px solid var(--line-2);border-radius:16px;padding:18px;background:var(--surface);}
   .recapline{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px;}
@@ -925,7 +945,8 @@
       <div class="grouplbl">Matched to your wedding</div>
       <div id="matchedhost"></div>
 
-      <div class="ghost"><u>Continue with the free plan</u></div>
+      <!-- Free escape demoted to a quiet whisper — the prominent mulberry "Add to my plan" CTA inside the bundle card is now the primary action (owner 2026-06-02 "we want to purchase the bundle more than continuing free"). -->
+      <div class="plan-skip" id="planSkip">or <u>continue with the free plan</u></div>
     </section>
 
   </div>
@@ -984,6 +1005,25 @@
   // ── Budget-matched bundle (owner 2026-06-01): one curated bundle keyed to the working budget. ──
   // Cumulative ladder (each tier adds to the one below). Item display labels:
   const BUNDLE_ITEMS={ today_focus:"Today's Focus · planning", advanced_website:'Advanced Website', papic_guest:'Papic for guests', sde:'Same-Day Edit', guest_stories:'Guest Stories', pabati:'Pabati guestbook', papic_seats:'Papic · 5 seats', animated_monogram:'Animated Monogram', thank_you:'Thank-You Video', pakanta:'Pakanta · your song', custom_qr:'Custom QR per guest', panood:'Panood livestream', live_background:'Live Background', live_photowall:'Live Photo Wall', indoor_blueprint:'Indoor Blueprint', high_res:'High-Res Archive' };
+  // Plain-language benefit copy — so a couple who's never heard the product names ("Papic", "Pakanta", "SDE") understands what they're paying for (owner 2026-06-02).
+  const BUNDLE_BENEFIT={
+    today_focus:      "A week-by-week plan that tells you what to do next, all the way to the wedding.",
+    advanced_website: "Your wedding website — RSVP, schedule, dress code, photos, everything in one place.",
+    papic_guest:      "Every guest's phone becomes a camera — their candids land in your gallery, live.",
+    sde:              "A 3-minute highlight reel, edited and screened the same night at your reception.",
+    guest_stories:    "Short video greetings collected from your guests at the event.",
+    pabati:           "A video guestbook — short wishes from everyone, kept forever.",
+    papic_seats:      "Five dedicated phone cameras for friends or family roaming the venue.",
+    animated_monogram:"Your monogram, animated — drawn live on invites, screens, and keepsakes.",
+    thank_you:        "A personalised thank-you video to send after the wedding — beats handwriting cards.",
+    pakanta:          "An original song written just for your wedding. Yours, forever.",
+    custom_qr:        "A custom QR per guest — opens their table, schedule, and photos with one tap.",
+    panood:           "Livestream your day to family abroad — multi-camera, broadcast quality.",
+    live_background:  "An LED stage backdrop — your visuals fill the reception's main screen.",
+    live_photowall:   "A live photo wall at the venue — guest pictures appear as the night happens.",
+    indoor_blueprint: "A venue floor map — guests find their seats in seconds.",
+    high_res:         "Full-quality archive of all your originals, stored safely. Free with Setnayan."
+  };
   const HIGH_RES_FREE={ high_res:1 };   // already a free baseline (2026-06-01) — flagged on the card
   const BUNDLE_TIERS=[
     // Today's Focus (Setnayan's coordination/planning anchor — the "coordinator") added at the base so every bundle carries it (owner 2026-06-01).
@@ -1010,8 +1050,13 @@
     var bk=BAND_TO_BUNDLE[band]||'classic';
     var tier=BUNDLE_TIERS[BUNDLE_INDEX[bk]];
     var items=bundleItemsFor(bk);
-    var lis=items.map(function(k){ return '<span class="bli'+(HIGH_RES_FREE[k]?' free':'')+'">'+BUNDLE_ITEMS[k]+(HIGH_RES_FREE[k]?' · free':'')+'</span>'; }).join('');
-    // outside (if hired separately) vs Setnayan à la carte vs bundle (à la carte − extra 20% if booked now)
+    // Benefit-led rows (was bare product pills) — each row leads with what the couple GETS, with the product name as a small mono tag underneath.
+    var lis=items.map(function(k){
+      var ben=BUNDLE_BENEFIT[k]||'';
+      var prod=BUNDLE_ITEMS[k]+(HIGH_RES_FREE[k]?' · free':'');
+      return '<div class="bli-rich'+(HIGH_RES_FREE[k]?' free':'')+'"><div class="bli-bene">'+ben+'</div><div class="bli-prod">'+prod+'</div></div>';
+    }).join('');
+    // outside (if hired separately) vs Setnayan à la carte vs bundle (à la carte − extra 30% if booked now)
     var outTotal=0, setTotal=0;
     items.forEach(function(k){ var p=SVC[k]||{out:0,set:0}; outTotal+=p.out; setTotal+=p.set; });
     var bundlePrice=Math.round(setTotal*0.7/100)*100-1;   // 30% off à la carte, charm-rounded
@@ -1020,7 +1065,17 @@
       +'<div class="mb-now"><b class="mb-amt">'+pesoB(bundlePrice)+'</b><span class="mb-off">−30% bundle · book now</span></div>'
       +'<div class="mb-sub">'+pesoB(setTotal)+' à la carte · the extra 30% holds only if you add it now</div>'
       +'</div>';
-    host.innerHTML='<div class="mbundle"><div class="mb-h"><span class="mb-name">'+tier.name+'</span><span class="mb-tag">'+items.length+' picks</span></div><div class="mb-line">'+BUNDLE_TAGLINE[bk]+'</div><div class="mb-items">'+lis+'</div>'+priceBlock+'</div>';
+    // The action we want the couple to take — prominent mulberry CTA inside the bundle card itself. Free-plan escape demoted to a quiet whisper below (owner 2026-06-02 "we want to purchase the bundle more than continuing free").
+    var addBtn='<button class="mb-add" id="mbAddBtn" type="button" onclick="addBundleToPlan()" aria-label="Add this bundle to my plan"><span class="mb-add-h">Add this to my plan <b>'+pesoB(bundlePrice)+'</b></span><span class="mb-add-sub">Save '+pesoB(setTotal-bundlePrice)+' · book now</span></button>';
+    host.innerHTML='<div class="mbundle"><div class="mb-h"><span class="mb-name">'+tier.name+'</span><span class="mb-tag">'+items.length+' picks</span></div><div class="mb-line">'+BUNDLE_TAGLINE[bk]+'</div><div class="mb-items">'+lis+'</div>'+priceBlock+addBtn+'</div>';
+  }
+  // Add-to-plan acknowledgement — prototype-local (the production build writes the bundle into the couple's pending order + routes Continue to payment).
+  function addBundleToPlan(){
+    var b=document.getElementById('mbAddBtn'); if(!b||b.classList.contains('added')) return;
+    b.classList.add('added');
+    b.innerHTML='<span class="mb-add-h">✓ Added to your plan</span><span class="mb-add-sub">You can review it before checkout</span>';
+    var sk=document.getElementById('planSkip'); if(sk) sk.style.display='none';
+    var nb=document.getElementById('nextbtn'); if(nb) nb.textContent='Continue to checkout';
   }
   // Bring-your-own vendor → the couple-initiated off-platform invite + auto-connect (vendor_invites · CLAUDE.md 2026-05-19).
   // "Add your own vendor" is a button → bottom-sheet popup (name/contact/email) → Send auto-connects the couple to the vendor's main Setnayan account.

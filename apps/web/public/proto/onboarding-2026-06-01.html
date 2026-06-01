@@ -1,0 +1,1643 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex,nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Setnayan · Wedding Onboarding Flow (2026-06-01)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=Great+Vibes&family=Cinzel:wght@500;600&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet">
+<!-- Rule 7: preload onboarding imagery so screens never wait on a fetch (brand mark is inlined SVG in the top bar — no fetch) -->
+<link rel="preload" as="image" href="assets/welcome.webp">
+<link rel="preload" as="image" href="assets/role.webp">
+<link rel="preload" as="image" href="assets/wed_catholic.webp">
+<link rel="preload" as="image" href="assets/pax/t3.webp">
+<link rel="preload" as="image" href="assets/budget/t3_classic.webp">
+<link rel="preload" as="image" href="assets/mono/wreath.webp">
+<link rel="preload" as="image" href="assets/picker/reception.webp">
+<style>
+  :root{
+    --paper:#FBFBFA; --ink:#1E2229; --ink-soft:#4F535B; --ink-faint:#8A8F97;
+    --gold:#C5A059; --gold-deep:#A88340; --gold-wash:#F4ECD8;
+    --mulberry:#5C2542; --mulberry-deep:#4A1D36; --mulberry-wash:#F5E8EE;
+    --line:rgba(30,34,41,.1); --line-2:rgba(30,34,41,.18); --surface:#fff;
+    --sans:'Manrope',-apple-system,system-ui,sans-serif;
+    --serif:'Cormorant Garamond',Georgia,serif;
+    --mono:'DM Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#E9E6DF;font-family:var(--sans);color:var(--ink);
+    -webkit-font-smoothing:antialiased;display:flex;justify-content:center;
+    min-height:100vh;padding:0;}
+  /* phone frame */
+  .phone{width:100%;max-width:430px;height:100vh;height:100dvh;background:var(--paper);overflow:hidden;
+    display:flex;flex-direction:column;position:relative;box-shadow:0 0 60px rgba(0,0,0,.12);}
+  @media(min-width:480px){.phone{margin:24px 0;height:880px;
+    border-radius:34px;border:1px solid var(--line-2);}}
+  /* top bar */
+  .top{padding:16px 22px 10px;flex:0 0 auto;background:var(--paper);position:sticky;top:0;z-index:5;}
+  .brandrow{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+  .brandlock{display:inline-flex;align-items:center;gap:8px;}
+  .blmark{width:22px;height:22px;border-radius:6px;background:var(--gold);color:var(--paper);display:inline-flex;align-items:center;justify-content:center;font-family:var(--serif);font-style:italic;font-weight:600;font-size:14px;line-height:1;box-shadow:0 1px 3px rgba(168,131,64,.4);}
+  .blmark-img{width:26px;height:26px;display:block;flex:0 0 auto;}  /* official gold Setnayan mark (PR #695) */
+  .wm{font-family:var(--mono);font-size:12px;letter-spacing:.34em;color:var(--gold-deep);font-weight:500;}
+  .stepc{font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--ink-faint);}
+  .bar{height:3px;background:var(--line);border-radius:3px;overflow:hidden;}
+  .barfill{height:100%;background:var(--gold);width:6%;transition:width .35s cubic-bezier(.4,0,.2,1);border-radius:3px;}
+  /* screen body */
+  .body{flex:1 1 auto;min-height:0;overflow-y:auto;padding:14px 20px 18px;display:flex;flex-direction:column;}
+  .screen{display:none;animation:rise .4s cubic-bezier(.2,.7,.3,1) both;}
+  /* Golden Rule 6: upper half = viewing/commentary · lower half = interactive controls (thumb zone).
+     Active screen fills the body as a flex column; .tapzone is pushed to the bottom. */
+  .screen.active{display:flex;flex-direction:column;flex:1 0 auto;}
+  .viewzone{flex:0 0 auto;}
+  .tapzone{flex:0 0 auto;margin-top:auto;padding-top:8px;}
+  @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold-deep);margin-bottom:9px;display:flex;align-items:center;gap:8px;}
+  .tag{font-family:var(--mono);font-size:9px;letter-spacing:.1em;padding:2px 7px;border-radius:20px;text-transform:uppercase;}
+  .tag.new{background:var(--mulberry);color:#fff;}
+  .tag.cond{background:var(--gold-wash);color:var(--gold-deep);}
+  .tag.derive{background:rgba(45,74,58,.12);color:#2D4A3A;}
+  h1.q{font-family:var(--serif);font-style:italic;font-weight:600;font-size:33px;line-height:1.06;letter-spacing:-.01em;margin-bottom:7px;}
+  .sub{font-size:14px;line-height:1.45;color:var(--ink-soft);margin-bottom:16px;max-width:34ch;}
+  /* chips */
+  .chips{display:flex;flex-wrap:wrap;gap:9px;margin-bottom:8px;}
+  .chip{border:1px solid var(--line-2);background:var(--surface);border-radius:30px;
+    padding:11px 16px;font-size:14px;font-weight:500;cursor:pointer;transition:.15s;
+    min-height:44px;display:inline-flex;flex:1 1 auto;justify-content:center;align-items:center;gap:7px;user-select:none;}
+  .chip:hover{border-color:var(--gold);}
+  .chip.sel{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+  .chip .soon{font-family:var(--mono);font-size:9px;letter-spacing:.08em;color:var(--ink-faint);text-transform:uppercase;}
+  .chip.sel .soon{color:rgba(255,255,255,.6);}
+  /* pre-locked dietary chip (HALAL / alcohol-free auto-set by faith — can't toggle off) */
+  .chip.locked{background:rgba(45,74,58,.12);border-color:rgba(45,74,58,.3);color:#2D4A3A;cursor:default;font-weight:600;}
+  .chip.locked .lk{font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;opacity:.7;margin-left:5px;}
+  .addhint{color:var(--ink-faint);font-size:12px;font-style:normal;font-family:var(--sans);}
+  /* big stacked cards (role/kind/pool) */
+  .stack{display:flex;flex-direction:column;gap:11px;}
+  .opt{border:1px solid var(--line-2);background:var(--surface);border-radius:16px;padding:16px 18px;cursor:pointer;transition:.15s;}
+  .opt:hover{border-color:var(--gold);}
+  .opt.sel{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink) inset;}
+  .opt .ot{font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px;}
+  .opt .od{font-size:13px;color:var(--ink-soft);line-height:1.45;margin-top:5px;}
+  .check{margin-left:auto;width:20px;height:20px;border-radius:50%;border:1.5px solid var(--line-2);flex:0 0 auto;}
+  .opt.sel .check{background:var(--gold);border-color:var(--gold);box-shadow:inset 0 0 0 3px var(--surface);}
+  .opt .otrow{display:flex;align-items:center;}
+  /* input */
+  .field{width:100%;border:1px solid var(--line-2);border-radius:14px;padding:15px 16px;
+    font-size:18px;font-family:var(--serif);font-style:italic;background:var(--surface);color:var(--ink);}
+  .field:focus{outline:none;border-color:var(--gold);}
+  .ghost{margin-top:12px;font-size:13px;color:var(--ink-faint);text-align:center;cursor:pointer;}
+  .ghost u{text-decoration-color:var(--line-2);}
+  /* preference blocks (screen 11) */
+  .pblock{border-top:1px solid var(--line);padding:16px 0 4px;}
+  .pblock:first-of-type{border-top:0;padding-top:0;}
+  .plabel{font-size:13px;font-weight:700;margin-bottom:9px;display:flex;align-items:center;gap:8px;}
+  .picon{width:24px;height:24px;border-radius:7px;background:var(--gold-wash);display:inline-flex;align-items:center;justify-content:center;font-size:13px;}
+  .micro{font-size:11.5px;color:var(--ink-faint);margin:8px 0 2px;}
+  /* swatches */
+  .sw{width:34px;height:34px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:.15s;}
+  .sw.sel{border-color:var(--ink);transform:scale(1.08);}
+  /* note */
+  .note{background:var(--gold-wash);border-radius:12px;padding:12px 14px;font-size:12.5px;color:#6b5a2e;line-height:1.5;margin-top:14px;display:flex;gap:9px;}
+  .note.mul{background:var(--mulberry-wash);color:#5c2542;}
+  .note b{font-weight:700;}
+  /* vendor cards (screen 14) */
+  .grouplbl{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold-deep);margin:18px 0 10px;display:flex;align-items:center;gap:8px;}
+  .grouplbl::after{content:"";flex:1;height:1px;background:var(--line);}
+  .grouplbl.muted{color:var(--ink-faint);}
+  .vcard{border:1px solid var(--line-2);border-radius:16px;overflow:hidden;background:var(--surface);margin-bottom:11px;cursor:pointer;transition:.15s;}
+  .vcard:hover{border-color:var(--gold);}
+  .vcard.short{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset;}
+  .vimg{height:96px;background:linear-gradient(135deg,#cdbfa0,#a88340);position:relative;display:flex;align-items:flex-end;}
+  .vbadges{position:absolute;top:8px;left:8px;display:flex;gap:5px;flex-wrap:wrap;}
+  .vbadge{font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;background:rgba(255,255,255,.92);color:var(--ink);padding:3px 7px;border-radius:20px;font-weight:500;}
+  .vbadge.gold{background:var(--gold);color:#fff;}
+  .vbadge.green{background:#2D4A3A;color:#fff;}
+  .vbody{padding:12px 14px;}
+  .vname{font-family:var(--serif);font-style:italic;font-size:19px;font-weight:600;}
+  .vmeta{font-size:12px;color:var(--ink-soft);margin-top:2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .stars{color:var(--gold-deep);font-size:12px;letter-spacing:1px;}
+  .vrow{display:flex;align-items:center;justify-content:space-between;margin-top:9px;}
+  .vprice{font-family:var(--serif);font-style:italic;font-size:17px;font-weight:600;}
+  .inbudget{font-family:var(--mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;background:rgba(45,74,58,.12);color:#2D4A3A;padding:3px 7px;border-radius:20px;}
+  .eyeing{font-size:11px;color:var(--ink-faint);margin-top:6px;}
+  .shortpill{display:none;font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;background:var(--gold);color:#fff;padding:3px 8px;border-radius:20px;}
+  .vcard.short .shortpill{display:inline-block;}
+  .expand{width:100%;border:1px dashed var(--line-2);background:transparent;border-radius:14px;padding:14px;font-size:13.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;margin-top:6px;min-height:48px;}
+  .expand:hover{border-color:var(--gold);color:var(--ink);}
+  .reason{font-family:var(--mono);font-size:9px;letter-spacing:.05em;background:rgba(30,34,41,.07);color:var(--ink-soft);padding:3px 7px;border-radius:20px;text-transform:uppercase;}
+  #expandset{display:none;}
+  /* plan (screen 16) */
+  .planfree{background:rgba(45,74,58,.07);border:1px solid rgba(45,74,58,.18);border-radius:16px;padding:16px;margin-bottom:16px;}
+  .planfree .ph{font-family:var(--serif);font-style:italic;font-size:21px;font-weight:600;color:#2D4A3A;margin-bottom:4px;}
+  .planfree .pp{font-size:12px;color:#3a5746;margin-bottom:10px;}
+  .freeli{font-size:12.5px;color:var(--ink-soft);line-height:1.9;}
+  .freeli b{color:var(--ink);}
+  .booster{border:1px solid var(--line-2);border-radius:16px;padding:14px 15px;margin-bottom:10px;background:var(--surface);}
+  .booster .br{display:flex;align-items:baseline;justify-content:space-between;}
+  .booster .bn{font-family:var(--serif);font-style:italic;font-size:18px;font-weight:600;}
+  .booster .bpr{font-family:var(--mono);font-size:13px;color:var(--ink);font-weight:500;}
+  .booster .bwhy{font-size:12px;color:var(--ink-soft);line-height:1.45;margin-top:4px;}
+  .bundle{background:var(--mulberry);color:#fff;border-radius:16px;padding:16px 17px;margin-top:6px;}
+  .bundle .bt{font-family:var(--serif);font-style:italic;font-size:20px;font-weight:600;}
+  .bundle .bd{font-size:12.5px;color:rgba(255,255,255,.8);margin-top:4px;line-height:1.45;}
+  /* recap */
+  .recap{border:1px solid var(--line-2);border-radius:16px;padding:18px;background:var(--surface);}
+  .recapline{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px;}
+  .recapline:last-child{border-bottom:0;}
+  .recapline .rk{color:var(--ink-soft);}
+  .recapline .rv{font-weight:600;font-family:var(--serif);font-style:italic;font-size:16px;}
+  .recap.tight{padding:13px 16px;}
+  .recap.tight .recapline{padding:6.5px 0;}
+  .statstrip{display:flex;gap:8px;margin:14px 0 4px;}
+  .stat{flex:1;background:var(--gold-wash);border-radius:14px;padding:12px 9px;text-align:center;}
+  .stat b{display:block;font-family:var(--serif);font-style:italic;font-size:23px;font-weight:600;color:var(--gold-deep);line-height:1;}
+  .stat span{display:block;margin-top:5px;font-size:10px;line-height:1.3;color:var(--ink-soft);}
+  /* bring-your-own vendor — add a vendor not on Setnayan + invite them (the locked vendor_invites flow) */
+  .byo{display:flex;gap:11px;align-items:flex-start;margin-top:14px;padding:14px;border:1.5px dashed var(--gold);border-radius:14px;background:var(--gold-wash);cursor:pointer;}
+  .byo-ic{flex:0 0 30px;width:30px;height:30px;border-radius:50%;background:var(--gold);color:#fff;display:flex;align-items:center;justify-content:center;font-size:21px;font-weight:600;line-height:1;}
+  .byo-tx{display:flex;flex-direction:column;gap:3px;}
+  .byo-tx b{font-size:14px;color:var(--ink);}
+  .byo-tx span{font-size:12px;line-height:1.45;color:var(--ink-soft);}
+  /* welcome */
+  .welcome{text-align:center;padding-top:40px;}
+  .mark{width:64px;height:64px;border-radius:18px;background:var(--gold-wash);display:flex;align-items:center;justify-content:center;margin:0 auto 26px;font-family:var(--serif);font-style:italic;font-size:30px;font-weight:600;color:var(--gold-deep);}
+  .welcome h1{font-family:var(--serif);font-style:italic;font-weight:600;font-size:40px;line-height:1.05;margin-bottom:14px;}
+  .welcome p{font-size:15px;color:var(--ink-soft);line-height:1.55;max-width:30ch;margin:0 auto;}
+  /* Welcome = full-bleed couple hero (owner 2026-06-01 "use this as the onboarding"). Photo fills the body; headline on a bottom scrim. */
+  .welcomescreen{padding:0;}
+  .welcomehero{position:relative;flex:1 1 auto;min-height:0;margin:-14px -20px -18px;overflow:hidden;display:flex;align-items:flex-end;background:linear-gradient(150deg,#e7d9c0,#c9a978 65%,#a88340);}
+  .welcomehero img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+  .welcomeoverlay{position:relative;z-index:2;width:100%;padding:32px 24px 30px;background:linear-gradient(to top,rgba(18,16,22,.86) 0%,rgba(18,16,22,.5) 44%,rgba(18,16,22,0) 100%);}
+  .welcomeoverlay h1{font-family:var(--serif);font-style:italic;font-weight:600;font-size:38px;line-height:1.05;color:#fff;margin-bottom:10px;text-shadow:0 2px 14px rgba(0,0,0,.45);}
+  .welcomeoverlay p{font-size:14.5px;color:rgba(255,255,255,.93);line-height:1.55;max-width:33ch;}
+  .welcomeoverlay p i{color:#e7cf9b;font-style:italic;}
+  /* calendar (screen 6) */
+  .cal{border:1px solid var(--line-2);border-radius:16px;background:var(--surface);padding:10px 12px 12px;}
+  .calhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+  .calmonth{font-family:var(--serif);font-style:italic;font-size:20px;font-weight:600;}
+  .calnav{width:38px;height:38px;border-radius:50%;border:1px solid var(--line-2);background:var(--surface);font-size:18px;cursor:pointer;color:var(--ink);line-height:1;}
+  .calnav:hover:not(:disabled){border-color:var(--gold);}
+  .calnav:disabled{opacity:.28;cursor:not-allowed;}
+  .caldow{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:5px;}
+  .caldow span{text-align:center;font-family:var(--mono);font-size:10px;letter-spacing:.03em;color:var(--ink-faint);padding:3px 0;}
+  .calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+  .calday{height:31px;display:flex;align-items:center;justify-content:center;border-radius:9px;font-size:13.5px;cursor:pointer;color:var(--ink);transition:.12s;border:1px solid transparent;}
+  .calday:hover:not(.disabled):not(.empty){border-color:var(--gold);}
+  .calday.empty{cursor:default;}
+  .calday.disabled{color:var(--ink-faint);opacity:.3;cursor:not-allowed;}
+  .calday.sel{background:var(--mulberry);color:#fff;font-weight:700;}
+  .calday.today:not(.sel){box-shadow:inset 0 0 0 1px var(--gold);}
+  /* date-or-range mode */
+  .calmode{display:flex;gap:6px;background:var(--gold-wash);border:1px solid var(--line-2);border-radius:12px;padding:4px;margin-bottom:9px;}
+  .calmode button{flex:1;border:0;background:transparent;font-family:inherit;font-size:13px;font-weight:600;color:var(--ink-soft);padding:9px 6px;border-radius:9px;cursor:pointer;transition:.15s;line-height:1.15;}
+  .calmode button.on{background:var(--surface);color:var(--ink);box-shadow:0 2px 7px rgba(30,34,41,.1);}
+  .calmode button .ms{display:block;font-family:var(--mono);font-size:8.5px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-faint);margin-top:2px;}
+  .calday.inrange{background:rgba(92,37,66,.12);border-radius:0;}
+  .calday.rstart{background:var(--mulberry);color:#fff;font-weight:700;border-radius:10px 0 0 10px;}
+  .calday.rend{background:var(--mulberry);color:#fff;font-weight:700;border-radius:0 10px 10px 0;}
+  .calday.rstart.rend{border-radius:10px;}
+  .rangewarn{margin-top:9px;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-deep);}
+  /* per-pax cost guidance (screen 9) */
+  .budgetguide{border:1px solid var(--gold);background:var(--gold-wash);border-radius:14px;padding:14px 16px;margin-bottom:16px;animation:rise .38s cubic-bezier(.2,.7,.3,1) both;}
+  .budgetguide .bgtag{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-deep);display:block;margin-bottom:8px;}
+  .budgetguide .bgest{font-family:var(--serif);font-style:italic;font-weight:600;font-size:22px;line-height:1.15;color:var(--ink);}
+  .budgetguide .bgest small{font-family:var(--sans);font-style:normal;font-weight:600;font-size:13px;color:var(--ink-soft);display:block;margin-top:3px;}
+  .budgetguide .bgnote{font-size:12.5px;line-height:1.5;color:#5c4a28;margin-top:11px;padding-top:11px;border-top:1px solid rgba(168,131,64,.25);}
+  .budgetguide.nug{border-color:var(--mulberry);background:#f7eef2;}
+  .budgetguide.nug .bgtag{color:var(--mulberry);}
+  .budgetguide .verdict{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;display:inline-block;padding:3px 8px;border-radius:20px;margin-bottom:7px;}
+  .budgetguide .verdict.ok{background:rgba(45,74,58,.13);color:#2D4A3A;}
+  .budgetguide .verdict.lean{background:rgba(168,131,64,.18);color:var(--gold-deep);}
+  .budgetguide .verdict.rich{background:rgba(92,37,66,.13);color:var(--mulberry);}
+  .moreback{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-deep);cursor:pointer;padding:3px 0 2px;}
+  .regiongrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px;}
+  .regopt{border:1.5px solid var(--line-2);background:var(--paper);border-radius:11px;padding:11px 13px;font-size:13.5px;font-weight:600;color:var(--ink);cursor:pointer;transition:.12s;text-align:center;}
+  .regopt:hover{border-color:var(--gold);}
+  .regopt.sel{border-color:var(--gold);background:var(--gold-wash);}
+  .opt.expanded{border-color:var(--gold);background:var(--gold-wash);}
+  .budgetguide .nugline{border:0;margin:0;padding:0;font-size:13px;line-height:1.5;color:#5c4a28;}
+  /* step 8 — guest-count: vibe photo + drag line */
+  .paxphoto{position:relative;width:100%;height:clamp(244px,38vh,296px);border-radius:16px;overflow:hidden;margin-bottom:0;box-shadow:0 8px 26px rgba(30,34,41,.18);animation:rise .4s cubic-bezier(.2,.7,.3,1) both;}
+  .paxphoto[data-tier="t1"]{background:linear-gradient(135deg,#f3e3df,#e6d0cb);}
+  .paxphoto[data-tier="t2"]{background:linear-gradient(135deg,#e6ebe1,#d6cdbb);}
+  .paxphoto[data-tier="t3"]{background:linear-gradient(135deg,#f0e3c7,#e1cd9d);}
+  .paxphoto[data-tier="t4"]{background:linear-gradient(135deg,#e4ba9b,#c98e69);}
+  .paxphoto[data-tier="t5"]{background:linear-gradient(135deg,#7c4659,#54213e);}
+  #paxphotoimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .45s ease;}
+  #paxphotoimg.loaded{opacity:1;}
+  /* auto monogram (name screen) — a free mark made live from the couple's names, set in a luxurious gold wedding frame (premium-only fonts) */
+  .monogram{display:flex;justify-content:center;margin:clamp(6px,3vh,24px) auto 0;animation:rise .45s cubic-bezier(.2,.7,.3,1) both;}
+  .mono-mark{position:relative;width:clamp(170px,48vw,200px);aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+    background-repeat:no-repeat;background-position:center;background-size:contain;filter:drop-shadow(0 3px 7px rgba(165,131,89,.16));transition:transform .15s ease;}
+  /* luxurious gold frames — tap the Frame button to cycle (the image's clear center holds the initials) */
+  .mono-mark[data-frame="wreath"]{background-image:url(assets/mono/wreath.webp);}
+  .mono-mark[data-frame="crest"]{background-image:url(assets/mono/crest.webp);}
+  .mono-mark[data-frame="square"]{background-image:url(assets/mono/square.webp);}
+  .mono-mark[data-frame="oval"]{background-image:url(assets/mono/oval.webp);}
+  .mono-letters{color:var(--mulberry);line-height:1;white-space:nowrap;display:block;text-align:center;}
+  /* the crest's clear area sits below the crown → nudge the initials down into the shield */
+  .mono-mark[data-frame="crest"] .mono-letters{transform:translateY(11%);}
+  /* premium-only fonts (the free tier stays elegant — no basic fonts); .long shrinks the 5-char "M & J" vs a 2-char "MA" */
+  .mono-mark[data-font="cormorant"] .mono-letters{font-family:var(--serif);font-style:italic;font-weight:600;letter-spacing:.01em;font-size:38px;}
+  .mono-mark[data-font="cormorant"].long .mono-letters{font-size:28px;}
+  .mono-mark[data-font="cinzel"] .mono-letters{font-family:'Cinzel',serif;font-weight:600;text-transform:uppercase;letter-spacing:.04em;font-size:26px;}
+  .mono-mark[data-font="cinzel"].long .mono-letters{font-size:19px;}
+  .mono-mark[data-font="playfair"] .mono-letters{font-family:'Playfair Display',serif;font-style:italic;font-weight:600;letter-spacing:.01em;font-size:34px;}
+  .mono-mark[data-font="playfair"].long .mono-letters{font-size:24px;}
+  .mono-mark[data-font="script"] .mono-letters{font-family:'Great Vibes',cursive;font-weight:400;font-size:34px;}
+  .mono-mark[data-font="script"].long .mono-letters{font-size:22px;}
+  .mono-mark:active{transform:scale(.97);}
+  /* the 2 style buttons */
+  .mono-controls{display:flex;gap:10px;justify-content:center;margin-bottom:12px;}
+  .mono-btn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line-2);background:var(--surface);border-radius:999px;padding:9px 16px;font-size:12.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;transition:border-color .15s,color .15s,transform .12s;-webkit-tap-highlight-color:transparent;}
+  .mono-btn:hover{border-color:var(--gold);color:var(--ink);}
+  .mono-btn:active{transform:scale(.95);}
+  .mono-btn .ic{font-size:12px;font-weight:700;color:var(--gold-deep);min-width:14px;text-align:center;}
+  /* budget look-photo (budget screen) — shows how each spend band looks; updates per pick */
+  .budgetphoto{position:relative;width:100%;height:clamp(196px,30vh,224px);border-radius:16px;overflow:hidden;box-shadow:0 8px 26px rgba(30,34,41,.18);animation:rise .4s cubic-bezier(.2,.7,.3,1) both;}
+  .budgetphoto[data-band="essentials"]{background:linear-gradient(135deg,#f3efe6,#e6ddc9);}
+  .budgetphoto[data-band="simple"]{background:linear-gradient(135deg,#efe6d3,#ddccab);}
+  .budgetphoto[data-band="classic"]{background:linear-gradient(135deg,#f0e3c7,#e1cd9d);}
+  .budgetphoto[data-band="elevated"]{background:linear-gradient(135deg,#e9d3a8,#c9a86a);}
+  .budgetphoto[data-band="premium"]{background:linear-gradient(135deg,#d8b178,#b07f3f);}
+  .budgetphoto[data-band="luxury"]{background:linear-gradient(135deg,#7c4659,#54213e);}
+  #budgetphotoimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .45s ease;}
+  #budgetphotoimg.loaded{opacity:1;}
+  .budgetcap{position:absolute;left:0;right:0;bottom:0;padding:32px 16px 13px;background:linear-gradient(to top,rgba(18,16,22,.84) 0%,rgba(18,16,22,.5) 50%,transparent 100%);text-align:left;}
+  .budgetcaptag{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#e7cf9b;display:block;margin-bottom:3px;}
+  .budgetcaprange{font-family:var(--serif);font-style:italic;font-weight:600;font-size:18px;line-height:1.25;color:#fff;display:block;text-shadow:0 1px 8px rgba(0,0,0,.35);}
+  /* Photo hero (role / kind / faith) — a wedding-type photo fills the viewzone; cards/chips dock low (Rule 6) */
+  .faithphoto,.rolephoto,.kindphoto{position:relative;width:100%;border-radius:16px;overflow:hidden;background:linear-gradient(135deg,#f0e3c7,#e1cd9d);box-shadow:0 8px 26px rgba(30,34,41,.18);animation:rise .4s cubic-bezier(.2,.7,.3,1) both;margin-top:14px;}
+  #faithphotoimg,#rolephotoimg,#kindphotoimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .45s ease;}
+  #faithphotoimg.loaded,#rolephotoimg.loaded,#kindphotoimg.loaded{opacity:1;}
+  .faithcap,.rolecap,.kindcap{position:absolute;left:0;right:0;bottom:0;padding:32px 16px 13px;background:linear-gradient(to top,rgba(18,16,22,.84) 0%,rgba(18,16,22,.5) 50%,transparent 100%);text-align:left;}
+  .faithcapline,.rolecapline,.kindcapline{font-family:var(--serif);font-style:italic;font-weight:600;font-size:18px;line-height:1.25;color:#fff;display:block;text-shadow:0 1px 8px rgba(0,0,0,.35);}
+  /* Budget screen: let the look-photo GROW to fill the dead space between the sub and the chips
+     (object-fit:cover → just reveals more of the image, no distortion). Scoped so the picker stays its set size. */
+  #screen-budget .viewzone{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;}
+  #screen-budget .budgetphoto{flex:1 1 auto;height:auto;min-height:210px;margin-bottom:4px;}
+  /* Role / Kind / Faith: the photo fills the viewzone; the cards/chips dock low in the thumb zone (default .tapzone margin-top:auto) */
+  #screen-role .viewzone,#screen-kind .viewzone,#screen-faith .viewzone{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;}
+  #screen-role .rolephoto,#screen-kind .kindphoto,#screen-faith .faithphoto{flex:1 1 auto;min-height:172px;margin-bottom:0;}
+  #screen-role .opt, #screen-kind .opt{padding:14px 16px;}
+  #screen-faith .chip{padding:12px 16px;font-size:14px;}
+  #screen-name{position:relative;}
+  #screen-name .viewzone{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;position:relative;z-index:1;}
+  #screen-name .tapzone{position:relative;z-index:1;}
+  #screen-name .monogram{flex:1 1 auto;align-items:center;margin-top:8px;}
+  #screen-name .mono-mark{width:clamp(200px,58vw,272px);}
+  /* Full-screen, almost-invisible (10%), blurred version of the actual monogram behind everything */
+  .mono-bg{position:absolute;inset:0;z-index:0;display:flex;align-items:center;justify-content:center;overflow:hidden;pointer-events:none;}
+  #monoBg{font-size:min(82vw,440px);line-height:1;white-space:nowrap;color:var(--mulberry);opacity:.10;filter:blur(7px);}
+  .mono-bg[data-font="cormorant"] #monoBg{font-family:var(--serif);font-style:italic;font-weight:600;}
+  .mono-bg[data-font="cinzel"] #monoBg{font-family:'Cinzel',serif;font-weight:600;text-transform:uppercase;}
+  .mono-bg[data-font="playfair"] #monoBg{font-family:'Playfair Display',serif;font-style:italic;font-weight:600;}
+  .mono-bg[data-font="script"] #monoBg{font-family:'Great Vibes',cursive;font-weight:400;}
+  /* picker — sticky preview + description of the last-tapped service */
+  /* picker upper preview — a PROMINENT photo of the tapped service (category + name overlaid) + its definition below, pinned at the top while the chips scroll under it (opaque + a soft bottom edge + a paper cap so nothing peeks through) */
+  .picker-preview{position:sticky;top:0;z-index:8;background:var(--paper);
+    padding:8px 0 12px;margin-bottom:4px;border-bottom:1px solid var(--line);box-shadow:0 10px 12px -8px rgba(30,34,41,.16);}
+  /* paper cap covering the .body 14px top-padding band — when the preview pins it sits exactly under the brand bar so no chip peeks above it */
+  .picker-preview::before{content:"";position:absolute;left:0;right:0;top:-14px;height:14px;background:var(--paper);}
+  .pp-photo{position:relative;width:100%;height:clamp(196px,30vh,224px);border-radius:15px;overflow:hidden;background:var(--gold-wash);box-shadow:0 7px 18px rgba(165,131,89,.20);animation:rise .35s cubic-bezier(.2,.7,.3,1) both;}
+  .pp-photo img{width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity .4s ease;}
+  .pp-photo img.loaded{opacity:1;}
+  .pp-cap{position:absolute;left:0;right:0;bottom:0;padding:30px 16px 12px;background:linear-gradient(to top,rgba(18,16,22,.86) 0%,rgba(18,16,22,.45) 55%,transparent 100%);}
+  .pp-cat{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#e7cf9b;margin-bottom:3px;}
+  .pp-name{font-family:var(--serif);font-style:italic;font-weight:600;font-size:22px;color:#fff;line-height:1.1;text-shadow:0 1px 8px rgba(0,0,0,.35);transition:opacity .15s ease;}
+  .pp-desc{font-size:12.5px;color:var(--ink-soft);line-height:1.42;margin-top:9px;}
+  .picker-sub{font-size:12.5px;color:var(--ink-faint);margin:10px 0 16px;}
+  /* picker chips stretch to fill each row equally — 1 → full row · 2 → halves · 3 → thirds (flex-wrap distributes per row, lone item grows full) */
+  #screen-picker .chips .chip{flex:1 1 150px;justify-content:center;}
+  .paxcap{position:absolute;left:0;right:0;bottom:0;padding:34px 16px 14px;background:linear-gradient(to top,rgba(18,16,22,.82) 0%,rgba(18,16,22,.5) 48%,transparent 100%);text-align:left;}
+  .paxcaptag{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#e7cf9b;display:block;margin-bottom:4px;}
+  .paxcapline{font-family:var(--serif);font-style:italic;font-weight:600;font-size:16.5px;line-height:1.3;color:#fff;display:block;text-shadow:0 1px 8px rgba(0,0,0,.35);}
+  .paxreadout{font-family:var(--serif);font-style:italic;font-weight:600;font-size:32px;line-height:1;color:var(--ink);text-align:center;margin-bottom:5px;}
+  .paxreadout small{font-family:var(--sans);font-style:normal;font-weight:600;font-size:14px;color:var(--ink-soft);margin-left:4px;}
+  .paxslider{-webkit-appearance:none;appearance:none;width:100%;height:8px;border-radius:8px;background:#e7dfce;outline:none;cursor:pointer;}
+  .paxslider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:30px;height:30px;border-radius:50%;background:var(--mulberry);border:3px solid var(--paper);box-shadow:0 2px 9px rgba(92,37,66,.45);cursor:grab;}
+  .paxslider:active::-webkit-slider-thumb{cursor:grabbing;}
+  .paxslider::-moz-range-thumb{width:28px;height:28px;border-radius:50%;background:var(--mulberry);border:3px solid var(--paper);box-shadow:0 2px 9px rgba(92,37,66,.45);cursor:grab;}
+  .paxends{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--ink-soft);margin-top:9px;}
+  .paxexactwrap{display:flex;align-items:center;gap:9px;margin-top:9px;padding-top:9px;border-top:1px dashed rgba(168,131,64,.4);animation:rise .3s ease both;}
+  .paxexactwrap[hidden]{display:none;}  /* class display:flex would otherwise override the UA [hidden] rule */
+  .paxexactlbl{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-deep);white-space:nowrap;}
+  .paxexactinput{flex:1;min-width:0;font-family:var(--sans);font-size:15px;font-weight:600;color:var(--ink);background:var(--paper);border:1px solid var(--gold);border-radius:10px;padding:9px 12px;outline:none;-moz-appearance:textfield;}
+  .paxexactinput::-webkit-inner-spin-button,.paxexactinput::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
+  .paxexactinput:focus{border-color:var(--mulberry);}
+  .calpick{margin-top:10px;font-size:13.5px;color:var(--ink-soft);}
+  .calpick b{font-family:var(--serif);font-style:italic;font-size:17px;color:var(--ink);font-weight:600;}
+  /* why-this-date panel (screen 6) */
+  .whydate{margin-top:9px;border:1px solid var(--gold);background:var(--gold-wash);border-radius:13px;padding:10px 13px;animation:rise .38s cubic-bezier(.2,.7,.3,1) both;}
+  .whydate .wtone{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:20px;margin-bottom:7px;}
+  .whydate .wtone.good{background:rgba(45,74,58,.14);color:#2D4A3A;}
+  .whydate .wtone.note{background:rgba(168,131,64,.2);color:var(--gold-deep);}
+  .whydate .wsum{font-size:12.5px;line-height:1.42;color:#5c4a28;}
+  .whydate .wsum b{color:var(--ink);font-weight:700;}
+  .whydate .wmore{font-size:11px;color:var(--gold-deep);font-weight:600;letter-spacing:.01em;}
+  /* premium micro-interactions */
+  .chip,.opt,.sw,.btn,.calnav,.expand,.vcard{will-change:transform;}
+  .chip:active{transform:scale(.95);}
+  .opt:active,.vcard:active{transform:scale(.992);}
+  .sw:active{transform:scale(.92);}
+  .btn-primary{box-shadow:0 7px 20px rgba(92,37,66,.26);}
+  .btn-primary:active{transform:translateY(1px);box-shadow:0 3px 10px rgba(92,37,66,.24);}
+  .btn-back:active,.calnav:active:not(:disabled){transform:scale(.92);}
+  .chip.sel{animation:chippop .22s cubic-bezier(.2,.8,.3,1.3);}
+  @keyframes chippop{0%{transform:scale(.9)}55%{transform:scale(1.06)}100%{transform:scale(1)}}
+  .calday.sel{animation:pop .26s cubic-bezier(.2,.8,.3,1.4);}
+  @keyframes pop{0%{transform:scale(.6)}55%{transform:scale(1.14)}100%{transform:scale(1)}}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+  /* photo placeholders + photo-chips (premium, content-hinting · real assets drop in later) */
+  .imgph{background:linear-gradient(135deg,#efe7d6,#d9c49c);position:relative;display:flex;align-items:center;justify-content:center;}
+  .imgph .g{opacity:.5;line-height:1;}
+  .pgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;}
+  .pcard{border:1px solid var(--line-2);border-radius:14px;overflow:hidden;cursor:pointer;background:var(--surface);transition:.15s;}
+  .pcard:hover{border-color:var(--gold);transform:translateY(-1px);}
+  .pcard.sel{border-color:var(--ink);box-shadow:0 0 0 1.5px var(--ink) inset;}
+  .pcard:active{transform:scale(.985);}
+  .pcard .pimg{height:58px;}
+  .pcard .pimg .g{font-size:23px;}
+  .pcard .pimg.haspic{background-size:cover;background-position:center;}
+  .pcard .plbl{padding:8px 11px;font-size:12.5px;font-weight:600;display:flex;align-items:center;justify-content:space-between;gap:6px;line-height:1.2;}
+  .pcard .ck{width:15px;height:15px;border-radius:50%;border:1.5px solid var(--line-2);flex:0 0 auto;}
+  .pcard.sel .ck{background:var(--gold);border-color:var(--gold);box-shadow:inset 0 0 0 3px var(--surface);}
+  .insp{display:flex;gap:7px;margin-top:9px;}
+  .insp .imgph{width:54px;height:40px;border-radius:9px;}
+  /* step 11 palette — feel example photo + its suggested colors (swaps per feel) */
+  .feelphoto{position:relative;width:100%;height:clamp(196px,30vh,224px);border-radius:16px;overflow:hidden;background:var(--gold-wash);box-shadow:0 8px 24px rgba(30,34,41,.18);animation:rise .4s cubic-bezier(.2,.7,.3,1) both;}
+  #feelphotoimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .45s ease;}
+  #feelphotoimg.loaded{opacity:1;}
+  .feelcap{position:absolute;left:0;right:0;bottom:0;padding:18px 16px 11px;background:linear-gradient(transparent,rgba(0,0,0,.5));font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#fff;}
+  .feelsw{display:flex;gap:8px;justify-content:center;margin:11px 0 2px;flex-wrap:wrap;}
+  .fsw{width:30px;height:30px;border-radius:50%;border:1.5px solid rgba(255,255,255,.85);box-shadow:0 1px 4px rgba(30,34,41,.18);}
+  .feelnote{font-size:13px;color:var(--ink-soft);text-align:center;padding:14px 8px;}
+  /* Setnayan logo watermark on every photo (owner 2026-06-01 "each photo overlayed with a setnayan logo") */
+  .paxphoto::after,.budgetphoto::after,.pp-photo::after,.feelphoto::after,.faithphoto::after,.rolephoto::after,.kindphoto::after{
+    content:'SETNAYAN';position:absolute;top:9px;right:11px;z-index:4;pointer-events:none;
+    font-family:var(--mono);font-size:8.5px;font-weight:500;letter-spacing:.2em;
+    color:rgba(255,255,255,.66);text-shadow:0 1px 3px rgba(0,0,0,.5);}
+  .pcard .pimg{position:relative;}
+  .pcard .pimg.haspic::after{
+    content:'SETNAYAN';position:absolute;top:5px;right:6px;z-index:4;pointer-events:none;
+    font-family:var(--mono);font-size:6px;letter-spacing:.13em;
+    color:rgba(255,255,255,.62);text-shadow:0 1px 2px rgba(0,0,0,.55);}
+  /* horizontal "film-strip" of photo cards (photo/video looks · catering cuisines) — keeps the screen to one viewport (owner 2026-06-01) */
+  .pgrid.strip{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:10px;padding:2px 2px 7px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;}
+  .pgrid.strip::-webkit-scrollbar{height:0;}
+  .pgrid.strip .pcard{flex:0 0 46%;scroll-snap-align:start;}
+  /* music — top-50 song picker · checked songs stack to top (Rule 6: list scrolls, count bar pins) */
+  .songpick{display:flex;flex-direction:column;}
+  .songhead{position:sticky;top:0;z-index:4;background:var(--paper);border-bottom:1px solid rgba(30,34,41,.08);}
+  .songbar{padding:9px 2px 7px;font:600 13px/1.3 'Manrope',sans-serif;color:var(--ink);}
+  .songsearch{padding:0 0 9px;}
+  #songq{width:100%;box-sizing:border-box;padding:10px 14px;border:1px solid rgba(30,34,41,.16);border-radius:11px;background:#fff;font:500 13.5px/1.2 'Manrope',sans-serif;color:var(--ink);outline:none;}
+  #songq:focus{border-color:var(--gold);}
+  #songq::placeholder{color:var(--ink-soft);}
+  .songbar b{color:var(--mulberry);font-weight:800;}
+  .songbar #songgoal{color:var(--ink-soft);font-weight:500;}
+  .songbar #songgoal.done{color:#1f7a4d;font-weight:700;}
+  .songlist{display:flex;flex-direction:column;gap:6px;padding:9px 2px 2px;}
+  .song{display:flex;align-items:center;gap:11px;padding:10px 13px;border:1px solid rgba(30,34,41,.12);border-radius:13px;background:#fff;cursor:pointer;transition:background .15s,border-color .15s,transform .12s;}
+  .song:active{transform:scale(.985);}
+  .song.sel{background:#faf3ea;border-color:var(--gold);}
+  .song .sck{flex:0 0 19px;width:19px;height:19px;border:1.7px solid rgba(30,34,41,.28);border-radius:50%;position:relative;transition:background .15s,border-color .15s;}
+  .song.sel .sck{background:var(--gold);border-color:var(--gold);}
+  .song.sel .sck::after{content:'✓';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:800;}
+  .song .stxt{display:flex;flex-direction:column;gap:1px;min-width:0;}
+  .song .st{font:600 14px/1.25 'Manrope',sans-serif;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .song .sa{font:500 11.5px/1.2 'Manrope',sans-serif;color:var(--ink-soft);}
+  /* step 11 — one focused style screen at a time (sub-stepper inside #screen-prefs) */
+  #prefhost{flex:1 0 auto;display:flex;flex-direction:column;min-height:0;}
+  .prefstep{display:none;flex-direction:column;flex:1 0 auto;min-height:0;}
+  .prefprog{display:flex;align-items:center;justify-content:space-between;margin-bottom:15px;}
+  .prefcount{font-family:var(--mono);font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-faint);}
+  .prefdots{display:flex;gap:6px;}
+  .prefdots i{width:7px;height:7px;border-radius:50%;background:var(--line-2);transition:background .2s;}
+  .prefdots i.on{background:var(--gold);}
+  .prefmicro{font-size:11.5px;line-height:1.45;color:var(--ink-faint);margin-top:12px;display:flex;gap:6px;}
+  .prefmicro span{color:var(--gold);}
+  .prefstep .pblock:first-of-type{padding-top:4px;}
+  .prefstep .pcard .pimg{height:74px;}           /* bigger photo cards on the focused screen */
+  .prefstep .pcard .pimg .g{font-size:27px;}
+  .prefstep .prefprog{margin-bottom:12px;}
+  .prefstep .viewzone .q{font-size:26px;margin:2px 0 5px;}
+  .prefstep .viewzone .sub{margin-bottom:6px;font-size:13.5px;}
+  /* welcome hero placeholder */
+  .heroph{height:190px;margin:-18px -22px 4px;background:linear-gradient(150deg,#e7d9c0,#c9a978 65%,#a88340);position:relative;display:flex;}
+  .heroph .g{position:absolute;top:46%;left:50%;transform:translate(-50%,-50%);font-size:42px;opacity:.42;}
+  .heroph .pl{position:absolute;bottom:9px;right:13px;font-family:var(--mono);font-size:8px;letter-spacing:.1em;color:rgba(255,255,255,.7);text-transform:uppercase;}
+  /* region card thumbnail */
+  .opt.rowimg{display:flex;align-items:center;}
+  .othumb{width:50px;height:50px;border-radius:11px;flex:0 0 auto;margin-right:13px;}
+  .othumb .g{font-size:21px;}
+  /* region screen: 6 fixed options must fit one screen (Golden Rule 1) */
+  #screen-region .stack{gap:9px;}
+  #screen-region .opt{padding:10px 14px;border-radius:13px;}
+  #screen-region .othumb{width:42px;height:42px;border-radius:10px;margin-right:11px;}
+  #screen-region .othumb .g{font-size:18px;}
+  #screen-region .opt .ot{font-size:15px;}
+  #screen-region .opt .od{font-size:12px;margin-top:2px;}
+  #screen-region #optElsewhere{margin-top:9px;}
+  .otcol{flex:1;min-width:0;}
+  /* bottom */
+  .bottom{flex:0 0 auto;padding:14px 22px calc(18px + env(safe-area-inset-bottom));background:var(--paper);
+    border-top:1px solid var(--line);display:flex;gap:10px;align-items:center;position:sticky;bottom:0;}
+  .btn{flex:1;border:none;border-radius:30px;padding:15px;font-size:15px;font-weight:700;cursor:pointer;font-family:var(--sans);min-height:50px;transition:.15s;}
+  .btn-primary{background:var(--mulberry);color:#fff;}
+  .btn-primary:hover{background:var(--mulberry-deep);}
+  .btn-back{flex:0 0 auto;width:34px;height:34px;padding:0;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:transparent;border:1px solid var(--line-2);color:var(--ink);font-size:18px;line-height:1;cursor:pointer;}
+  .btn-back:hover{border-color:var(--ink);}
+  .skip{flex:0 0 auto;margin-left:auto;background:transparent;border:none;color:var(--ink-faint);font-size:13px;font-weight:600;cursor:pointer;padding:0 8px;}
+  .annot{font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--ink-faint);background:rgba(197,160,89,.1);border-left:2px solid var(--gold);padding:7px 10px;margin-bottom:16px;border-radius:0 8px 8px 0;line-height:1.5;}
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="top">
+    <div class="brandrow">
+      <button class="btn-back" id="backbtn" onclick="go(-1)" style="display:none">‹</button>
+      <span class="brandlock"><svg class="blmark-img" viewBox="0 0 5333.3335 5333.3335" role="img" aria-label="Setnayan"><path d="M 1859.526,3749.781 C 1458.028,3717.757 1065.454,3548.554 758.3406,3241.44 451.2286,2934.328 282.2397,2541.742 250.2195,2140.255 l 1326.8215,1.536 V 661.7647 C 1368.543,727.4195 1172.067,841.5416 1006.804,1006.804 768.3191,1245.29 633.8543,1548.261 602.7217,1859.526 H 250 C 282.024,1458.028 451.2265,1065.455 758.3406,758.3406 1065.453,451.2287 1458.039,282.2396 1859.526,250.2195 V 2422.739 H 661.7647 c 65.6549,208.498 179.7773,404.975 345.0393,570.237 238.486,238.486 541.457,372.95 852.722,404.083 z m 280.948,0 1.537,-1609.307 h 280.948 v 1197.761 c 208.498,-65.655 404.974,-179.776 570.237,-345.039 238.485,-238.486 372.95,-541.457 404.082,-852.722 H 3750 c -32.024,401.498 -201.226,794.071 -508.341,1101.185 -307.112,307.112 -699.697,476.101 -1101.185,508.122 z m 0,-1890.255 c 32.025,-401.498 201.227,-794.073 508.341,-1101.1854 0.658,-0.6584 1.316,-1.3173 1.975,-1.9754 -80.395,-42.041 -163.892,-76.0428 -249.331,-101.7389 -85.439,-25.696 -172.821,-43.0864 -260.985,-51.9046 V 250.2195 c 401.497,32.0253 794.073,201.0094 1101.185,508.1211 307.114,307.1134 476.317,699.6874 508.341,1101.1854 h -352.722 c -31.132,-311.265 -165.597,-614.236 -404.082,-852.722 -15.719,-15.7189 -32.464,-29.741 -48.727,-44.5564 -15.975,14.4789 -31.774,29.1397 -47.191,44.5564 -238.485,238.486 -372.95,541.457 -404.082,852.722 z" fill="#cb9e4b" fill-rule="nonzero" transform="matrix(1.3333333,0,0,-1.3333333,0,5333.3333)"/></svg><span class="wm">SETNAYAN</span></span>
+      <button class="skip" id="skipbtn" onclick="go(1)" style="display:none">Skip</button>
+    </div>
+    <div class="bar"><div class="barfill" id="barfill"></div></div>
+  </div>
+
+  <div class="body" id="bodyscroll">
+
+    <!-- 1 WELCOME — full-bleed couple hero (owner's photo; Recraft stand-in in the prototype) -->
+    <section class="screen active welcomescreen">
+      <div class="welcomehero">
+        <img id="welcomeimg" src="assets/welcome.webp" alt="">
+        <div class="welcomeoverlay">
+          <h1>Let's plan your wedding.</h1>
+          <p>A few quick questions and we'll build a plan made for <i>your</i> day — every vendor sorted to fit. Free to start, always.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2 ROLE -->
+    <section class="screen" id="screen-role">
+      <div class="viewzone">
+        <div class="eyebrow">About you</div>
+        <h1 class="q">Who are you in this wedding?</h1>
+        <p class="sub">This account is just you — your partner can join as a co-host anytime.</p>
+        <figure class="rolephoto">
+          <img id="rolephotoimg" src="assets/role.webp" class="loaded" alt="" />
+          <figcaption class="rolecap"><span class="rolecapline">You and your people.</span></figcaption>
+        </figure>
+      </div>
+      <div class="tapzone">
+        <div class="stack" data-single>
+          <div class="opt" data-role="bride"><div class="otrow"><div class="ot">Bride</div><span class="check"></span></div><div class="od">Walking down the aisle.</div></div>
+          <div class="opt" data-role="groom"><div class="otrow"><div class="ot">Groom</div><span class="check"></span></div><div class="od">Waiting at the altar.</div></div>
+          <div class="opt" data-role="helper"><div class="otrow"><div class="ot">Someone helping</div><span class="check"></span></div><div class="od">A parent, planner, or part of the entourage.</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3 KIND -->
+    <section class="screen" id="screen-kind">
+      <div class="viewzone">
+        <div class="eyebrow">Your wedding</div>
+        <h1 class="q">What kind of wedding?</h1>
+        <p class="sub">This shapes your timeline, your paperwork, and which vendors we show.</p>
+        <figure class="kindphoto" id="kindphoto">
+          <img id="kindphotoimg" alt="" />
+          <figcaption class="kindcap"><span class="kindcapline" id="kindcapline"></span></figcaption>
+        </figure>
+      </div>
+      <div class="tapzone">
+        <div class="stack" data-single>
+          <div class="opt" data-kind="religious"><div class="otrow"><div class="ot">Religious</div><span class="check"></span></div><div class="od">One faith — church, mosque, chapel, or temple.</div></div>
+          <div class="opt" data-kind="civil"><div class="otrow"><div class="ot">Civil</div><span class="check"></span></div><div class="od">A judge or registrar officiates.</div></div>
+          <div class="opt" data-kind="mixed"><div class="otrow"><div class="ot">Mixed</div><span class="check"></span></div><div class="od">Two faith traditions — an interfaith wedding (e.g. Catholic &amp; Muslim).</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4 RELIGION (adaptive: single if Religious · multi-select if Mixed · skipped if Civil) -->
+    <section class="screen" id="screen-faith">
+      <div class="viewzone">
+        <div class="eyebrow" id="faitheyebrow">Your tradition <span class="tag cond">Adapts to step 3</span></div>
+        <h1 class="q" id="faithh1">Your ceremony tradition</h1>
+        <p class="sub" id="faithsub">We'll match vendors who know your faith's protocols — and pre-set things like halal catering.</p>
+        <figure class="faithphoto" id="faithphoto">
+          <img id="faithphotoimg" alt="" />
+          <figcaption class="faithcap"><span class="faithcapline" id="faithcapline">However you say “I do.”</span></figcaption>
+        </figure>
+      </div>
+      <div class="tapzone">
+        <div class="chips" data-single id="faithchips">
+          <span class="chip sel" data-faith="catholic">Catholic</span>
+          <span class="chip" data-faith="christian">Christian <span class="soon">soon</span></span>
+          <span class="chip" data-faith="inc">INC <span class="soon">soon</span></span>
+          <span class="chip" data-faith="muslim">Muslim <span class="soon">soon</span></span>
+          <span class="chip" data-faith="cultural">Cultural <span class="soon">soon</span></span>
+        </div>
+        <div class="note" id="faithcivil" style="display:none"><span>✦</span><div><b>Civil ceremony</b> — no religious tradition to set. We'll skip this step in the real flow.</div></div>
+      </div>
+    </section>
+
+    <!-- 5 NAME -->
+    <section class="screen" id="screen-name">
+      <div class="mono-bg" id="monoBgWrap" data-font="cormorant" aria-hidden="true"><span id="monoBg">M &amp; J</span></div>
+      <div class="viewzone">
+        <div class="eyebrow">Your wedding</div>
+        <h1 class="q">What should we call it?</h1>
+        <p class="sub">It goes on your website, your monogram, and your plan.</p>
+        <figure class="monogram">
+          <div class="mono-mark" id="monoMark" data-frame="wreath" data-font="cormorant"><span class="mono-letters" id="monoLetters">M &amp; J</span></div>
+        </figure>
+      </div>
+      <div class="tapzone">
+        <div class="mono-controls">
+          <button type="button" class="mono-btn" id="monoFrameBtn"><span class="ic" aria-hidden="true">&#9711;</span> Frame</button>
+          <button type="button" class="mono-btn" id="monoFontBtn"><span class="ic" aria-hidden="true">Aa</span> Font</button>
+        </div>
+        <input class="field" id="nameField" placeholder="Maria &amp; Juan" value="Maria &amp; Juan">
+      </div>
+    </section>
+
+    <!-- 6 DATE -->
+    <section class="screen">
+      <div class="viewzone">
+        <div class="eyebrow">Your wedding</div>
+        <h1 class="q">When's the big day?</h1>
+        <div class="whydate" id="whydate"></div>
+      </div>
+      <div class="tapzone">
+        <div class="calpick" id="calpick">Selected: <b>—</b></div>
+        <div class="rangewarn" id="rangewarn" style="display:none"></div>
+        <div class="micro" id="calrange"></div>
+        <div class="calmode">
+          <button id="modespecific" class="on">Specific dates<span class="ms">1–4 days</span></button>
+          <button id="moderange">Flexible window<span class="ms">a range</span></button>
+        </div>
+        <div class="cal">
+          <div class="calhead">
+            <button class="calnav" id="calprev" aria-label="Previous month">‹</button>
+            <div class="calmonth" id="calmonth">—</div>
+            <button class="calnav" id="calnext" aria-label="Next month">›</button>
+          </div>
+          <div class="caldow"><span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span></div>
+          <div class="calgrid" id="calgrid"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7 REGION -->
+    <section class="screen" id="screen-region">
+      <div class="viewzone">
+        <div class="eyebrow">Where</div>
+        <h1 class="q">Where will it be?</h1>
+        <p class="sub">Top PH wedding regions — or open the full list. We only show vendors who cover your area.</p>
+      </div>
+      <div class="tapzone">
+      <div class="stack" id="regionTop">
+        <div class="opt rowimg sel" data-region="ncr"><div class="othumb imgph"><span class="g">🏙️</span></div><div class="otcol"><div class="ot">Metro Manila · NCR</div><div class="od">Quezon City · Makati · Manila · Pasig</div></div><span class="check"></span></div>
+        <div class="opt rowimg" data-region="calabarzon"><div class="othumb imgph"><span class="g">🌿</span></div><div class="otcol"><div class="ot">CALABARZON</div><div class="od">Tagaytay · Batangas · Laguna · Cavite</div></div><span class="check"></span></div>
+        <div class="opt rowimg" data-region="c-visayas"><div class="othumb imgph"><span class="g">🐠</span></div><div class="otcol"><div class="ot">Central Visayas</div><div class="od">Cebu · Bohol</div></div><span class="check"></span></div>
+        <div class="opt rowimg" data-region="w-visayas"><div class="othumb imgph"><span class="g">🏖️</span></div><div class="otcol"><div class="ot">Western Visayas</div><div class="od">Boracay · Iloilo · Bacolod</div></div><span class="check"></span></div>
+        <div class="opt rowimg" data-region="c-luzon"><div class="othumb imgph"><span class="g">🛕</span></div><div class="otcol"><div class="ot">Central Luzon</div><div class="od">Pampanga · Bulacan · Subic</div></div><span class="check"></span></div>
+      </div>
+      <div class="opt rowimg" id="optElsewhere"><div class="othumb imgph"><span class="g">🗺️</span></div><div class="otcol"><div class="ot">Somewhere else</div><div class="od">Open every region — match by area.</div></div><span class="check"></span></div>
+      <div id="regionMore" style="display:none">
+        <div class="moreback" id="regionBack">‹ Show top regions</div>
+        <div class="regiongrid">
+          <span class="regopt" data-region="ilocos">Ilocos</span>
+          <span class="regopt" data-region="cagayan">Cagayan Valley</span>
+          <span class="regopt" data-region="bicol">Bicol</span>
+          <span class="regopt" data-region="mimaropa">MIMAROPA</span>
+          <span class="regopt" data-region="e-visayas">Eastern Visayas</span>
+          <span class="regopt" data-region="zamboanga">Zamboanga</span>
+          <span class="regopt" data-region="n-mindanao">Northern Mindanao</span>
+          <span class="regopt" data-region="davao">Davao</span>
+          <span class="regopt" data-region="soccsksargen">SOCCSKSARGEN</span>
+          <span class="regopt" data-region="caraga">Caraga</span>
+          <span class="regopt" data-region="barmm">BARMM</span>
+          <span class="regopt" data-region="car">Cordillera · CAR</span>
+          <span class="regopt" data-region="abroad">Outside PH</span>
+        </div>
+      </div>
+      </div>
+    </section>
+
+    <!-- 8 PAX -->
+    <section class="screen" id="screen-pax">
+      <div class="viewzone">
+        <div class="eyebrow">The day</div>
+        <h1 class="q">How many guests?</h1>
+        <p class="sub">Your starting headcount, shared with vendors — be as specific as you can for the best matches.</p>
+        <figure class="paxphoto" id="paxphoto" data-tier="t3">
+          <img id="paxphotoimg" alt="" />
+          <figcaption class="paxcap">
+            <span class="paxcaptag" id="paxcaptag">The classic size</span>
+            <span class="paxcapline" id="paxcapline"></span>
+          </figcaption>
+        </figure>
+      </div>
+      <div class="tapzone">
+        <div class="paxreadout"><span id="paxnum">150</span> <small id="paxunit">guests</small></div>
+        <input type="range" min="10" max="500" value="150" id="paxslider" class="paxslider" aria-label="Guest count slider">
+        <div class="paxends"><span>10&minus;</span><span>500+</span></div>
+        <div class="paxexactwrap">
+          <span class="paxexactlbl">Exact count</span>
+          <input type="number" id="paxexact" min="1" step="1" inputmode="numeric" value="150" placeholder="type your count" class="paxexactinput">
+        </div>
+      </div>
+    </section>
+
+    <!-- 9 BUDGET -->
+    <section class="screen" id="screen-budget">
+      <div class="viewzone">
+        <div class="eyebrow">The day</div>
+        <h1 class="q">Your working budget?</h1>
+        <p class="sub">Pick the feel you're going for — see how it looks, and we'll size it to your guests.</p>
+        <figure class="budgetphoto" id="budgetphoto" data-band="classic">
+          <img id="budgetphotoimg" alt="" />
+          <figcaption class="budgetcap">
+            <span class="budgetcaptag" id="budgetcaptag">The sweet spot</span>
+            <span class="budgetcaprange" id="budgetcaprange"></span>
+          </figcaption>
+        </figure>
+      </div>
+      <div class="tapzone">
+        <div class="chips" data-single id="budgetchips">
+          <span class="chip" data-band="essentials">Essentials</span><span class="chip" data-band="simple">Simple</span><span class="chip" data-band="classic">Classic</span>
+          <span class="chip" data-band="elevated">Elevated</span><span class="chip" data-band="premium">Premium</span><span class="chip" data-band="luxury">Luxury</span>
+          <span class="chip" data-band="nolimit">No limit</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10 PICKER (all child categories, grouped by the 10 parents) -->
+    <section class="screen" id="screen-picker">
+      <div class="eyebrow">What you're after</div>
+      <h1 class="q" style="margin-bottom:18px">What would you love?</h1>
+      <div class="picker-preview" id="pickerPreview" data-cat="reception">
+        <div class="pp-photo">
+          <img id="ppImg" src="assets/picker/reception.webp" alt="">
+          <div class="pp-cap">
+            <div class="pp-cat" id="ppCat">VENUE</div>
+            <div class="pp-name" id="ppName">Reception venue</div>
+          </div>
+        </div>
+        <div class="pp-desc" id="ppDesc">Where your celebration happens — the dinner, the program, and the dancing.</div>
+      </div>
+      <p class="picker-sub">Tap everything you want — preview what each one provides above.</p>
+
+      <div class="grouplbl">Venue</div>
+      <div class="chips"><span class="chip sel" data-cat="reception">Reception venue</span><span class="chip" data-cat="ceremony">Ceremony venue</span></div>
+
+      <div class="grouplbl">Planning</div>
+      <div class="chips"><span class="chip" data-cat="coordinator">Coordinator / planner</span></div>
+
+      <div class="grouplbl">Feast</div>
+      <div class="chips"><span class="chip sel" data-cat="catering">Catering</span></div>
+      <div class="chips"><span class="chip sel" data-cat="cake">Cake</span><span class="chip" data-cat="stations">Food stations</span></div>
+
+      <div class="grouplbl">Design</div>
+      <div class="chips"><span class="chip" data-cat="stylist">Stylist / decorator</span></div>
+      <div class="chips"><span class="chip" data-cat="lights_sound">Lights &amp; sound</span><span class="chip sel" data-cat="florist">Florist</span></div>
+      <div class="chips"><span class="chip" data-cat="dance_floor">Dance floor</span><span class="chip" data-cat="led_wall">LED wall</span></div>
+      <div class="chips"><span class="chip" data-cat="fireworks">Fireworks</span><span class="chip" data-cat="outdoor">Outdoor setup</span></div>
+
+      <div class="grouplbl">Program</div>
+      <div class="chips"><span class="chip" data-cat="host_mc">Host / MC</span></div>
+      <div class="chips"><span class="chip sel" data-cat="live_band">Live band</span><span class="chip" data-cat="orchestra">Orchestra</span></div>
+      <div class="chips"><span class="chip" data-cat="choir">Choir</span><span class="chip" data-cat="wedding_singer">Wedding singer</span></div>
+      <div class="chips"><span class="chip" data-cat="dj">DJ</span><span class="chip" data-cat="choreographer">Choreographer</span></div>
+      <div class="chips"><span class="chip" data-cat="performers">Performers</span></div>
+
+      <div class="grouplbl">Documentary</div>
+      <div class="chips"><span class="chip sel" data-cat="photo_video">Photo &amp; Video</span></div>
+      <div class="chips"><span class="chip" data-cat="livestream">Livestream</span><span class="chip" data-cat="editorial">Editorial feature</span></div>
+
+      <div class="grouplbl">Look</div>
+      <div class="chips"><span class="chip sel" data-cat="bride_attire">Bride's attire</span></div>
+      <div class="chips"><span class="chip" data-cat="groom_attire">Groom's attire</span><span class="chip" data-cat="grooming">Grooming</span></div>
+      <div class="chips"><span class="chip" data-cat="hmua">Hair &amp; makeup</span><span class="chip" data-cat="wellness">Wellness &amp; fitness</span></div>
+      <div class="chips"><span class="chip" data-cat="filipiniana">Filipiniana &amp; Barong</span></div>
+      <div class="chips"><span class="chip" data-cat="women_attire">Women's attire</span><span class="chip" data-cat="men_attire">Men's attire</span></div>
+      <div class="chips"><span class="chip" data-cat="jewelry">Jewellery &amp; accessories</span></div>
+
+      <div class="grouplbl">Booths</div>
+      <div class="chips"><span class="chip sel" data-cat="photo_booth">Photo booth</span></div>
+      <div class="chips"><span class="chip" data-cat="coffee">Coffee / espresso</span><span class="chip" data-cat="mocktail">Mocktail bar</span></div>
+      <div class="chips"><span class="chip" data-cat="mobile_bar">Mobile bar</span><span class="chip" data-cat="dessert">Dessert</span></div>
+      <div class="chips"><span class="chip" data-cat="food_cart">Food cart</span><span class="chip" data-cat="food_truck">Food truck</span></div>
+      <div class="chips"><span class="chip" data-cat="massage_chair">Massage chair</span><span class="chip" data-cat="nail_bar">Mini nail bar</span></div>
+      <div class="chips"><span class="chip" data-cat="caricature">Calligraphy / Caricature / Live Art</span><span class="chip" data-cat="tarot">Tarot / astrology</span></div>
+      <div class="chips"><span class="chip" data-cat="perfume_bar">Perfume bar</span><span class="chip" data-cat="arcade">Arcade / games</span></div>
+      <div class="chips"><span class="chip" data-cat="henna">Henna / tattoo</span><span class="chip" data-cat="engraving">Engraving / embroidery</span></div>
+
+      <div class="grouplbl">Prints</div>
+      <div class="chips"><span class="chip" data-cat="printing">Printing</span><span class="chip" data-cat="souvenirs">Souvenirs / giveaways</span></div>
+
+      <div class="grouplbl">Transport</div>
+      <div class="chips"><span class="chip sel" data-cat="bridal_car">Bridal car</span></div>
+      <div class="chips"><span class="chip" data-cat="guest_shuttle">Guest shuttle</span><span class="chip" data-cat="escort">Escort</span></div>
+    </section>
+
+    <!-- 11 PREFERENCES · one FOCUSED screen per picked style dimension (sub-stepper) · multi-pick · lean set only -->
+    <section class="screen" id="screen-prefs">
+      <div id="prefhost"></div>
+    </section>
+
+    <!-- 12 ACCOUNT -->
+    <section class="screen">
+      <div class="welcome" style="padding-top:24px">
+        <div class="mark">✓</div>
+        <h1 style="font-size:34px">Your plan is ready.</h1>
+        <p style="margin-bottom:24px">Create your free account to keep it — and start finding your vendors.</p>
+      </div>
+      <div class="stack">
+        <div class="opt" style="text-align:center;justify-content:center"><div class="ot" style="justify-content:center;width:100%">Continue with Google</div></div>
+        <div class="opt" style="text-align:center;justify-content:center"><div class="ot" style="justify-content:center;width:100%">Continue with Facebook</div></div>
+      </div>
+      <div style="margin:14px 0 4px"><input class="field" style="font-family:var(--sans);font-style:normal;font-size:15px" placeholder="your@email.com"></div>
+      <div class="ghost"><u>Use email instead</u></div>
+    </section>
+
+    <!-- 13 FIND FIRST VENDOR (demo) -->
+    <section class="screen">
+      <div class="eyebrow">Find your first vendor</div>
+      <h1 class="q" style="font-size:30px">Garden venues that fit your wedding.</h1>
+      <p class="sub">Sorted for you: your style first, then everyone available. <b>Tap one to shortlist.</b></p>
+
+      <div class="grouplbl">★ Matches your preference</div>
+
+      <div class="vcard" onclick="this.classList.toggle('short')">
+        <div class="vimg"><div class="vbadges"><span class="vbadge gold">Matches: Garden</span><span class="vbadge green">Verified</span></div></div>
+        <div class="vbody">
+          <div class="vname">Sonya's Garden</div>
+          <div class="vmeta"><span class="stars">★★★★★</span> 4.9 (128) · <span>12 km · Tagaytay</span></div>
+          <div class="vrow"><span class="vprice">₱180,000</span><span class="inbudget">In your range</span></div>
+          <div class="eyeing">👀 3 couples also eyeing Dec 18 · <span class="shortpill">Shortlisted</span></div>
+        </div>
+      </div>
+
+      <div class="vcard" onclick="this.classList.toggle('short')">
+        <div class="vimg" style="background:linear-gradient(135deg,#b8c9bf,#3a5746)"><div class="vbadges"><span class="vbadge gold">Matches: Garden, Outdoor</span></div></div>
+        <div class="vbody">
+          <div class="vname">Hillcreek Gardens</div>
+          <div class="vmeta"><span class="stars">★★★★☆</span> 4.6 (74) · <span>18 km · Tagaytay</span></div>
+          <div class="vrow"><span class="vprice">₱150,000</span><span class="inbudget">In your range</span></div>
+          <div class="eyeing">👀 1 couple also eyeing your date · <span class="shortpill">Shortlisted</span></div>
+        </div>
+      </div>
+
+      <div class="grouplbl muted">More to consider</div>
+
+      <div class="vcard" onclick="this.classList.toggle('short')">
+        <div class="vimg" style="background:linear-gradient(135deg,#cdbfa0,#8a7a52)"><div class="vbadges"><span class="vbadge green">Verified</span></div></div>
+        <div class="vbody">
+          <div class="vname">The Glass Garden</div>
+          <div class="vmeta"><span class="stars">★★★★★</span> 4.8 (92) · <span>9 km · Pasig</span></div>
+          <div class="vrow"><span class="vprice">₱210,000</span></div>
+          <div class="eyeing"><span class="shortpill">Shortlisted</span></div>
+        </div>
+      </div>
+
+      <button class="expand" onclick="document.getElementById('expandset').style.display='block';this.style.display='none'">Expand search — see 18 more ↓</button>
+
+      <div id="expandset">
+        <div class="grouplbl muted">Held back — tap to see why</div>
+        <div class="vcard">
+          <div class="vimg" style="background:linear-gradient(135deg,#c9b8a0,#9a8a6a)"><div class="vbadges"><span class="vbadge">New</span></div></div>
+          <div class="vbody">
+            <div class="vname">Casa Verde Events</div>
+            <div class="vmeta"><span class="reason">Not yet verified</span></div>
+            <div class="vrow"><span class="vprice">₱120,000</span><span class="inbudget">In your range</span></div>
+          </div>
+        </div>
+        <div class="vcard">
+          <div class="vimg" style="background:linear-gradient(135deg,#b0a48a,#7a6e54)"></div>
+          <div class="vbody">
+            <div class="vname">Antonio's Tagaytay</div>
+            <div class="vmeta"><span class="reason">May not be free Dec 18</span> <span class="reason">Above your range</span></div>
+            <div class="vrow"><span class="vprice">₱380,000</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="byo">
+        <div class="byo-ic">+</div>
+        <div class="byo-tx"><b>Already have a vendor you love?</b><span>Add your own — and invite them to Setnayan. Then run chat, files, your wedding website &amp; day-of in one place, and use Papic, Panood &amp; more with them.</span></div>
+      </div>
+    </section>
+
+    <!-- 14 STARTING PLAN -->
+    <section class="screen">
+      <div class="eyebrow">You did the hard part</div>
+      <h1 class="q" style="font-size:29px">Congratulations,<br>Maria &amp; Juan.</h1>
+      <p class="sub">You've done the most crucial part — your whole wedding is on track. From here, we help you finish, so you can focus on everything else.</p>
+      <!-- STATS: 200+ hrs + 48-of-2,400 are PLACEHOLDERS — owner to confirm the real benchmark + curation counts (Vendors Plan+Budget §6). days ≈ real (to Dec 18 2026). -->
+      <div class="statstrip">
+        <div class="stat"><b>200+</b><span>hrs the average couple spends deciding all this</span></div>
+        <div class="stat"><b>48</b><span>best-fit vendors curated from 2,400+</span></div>
+        <div class="stat"><b>200</b><span>days to finalize — you're ahead</span></div>
+      </div>
+      <div class="recap tight">
+        <div class="recapline"><span class="rk">Wedding</span><span class="rv">Maria &amp; Juan</span></div>
+        <div class="recapline"><span class="rk">Date</span><span class="rv">Dec 18, 2026</span></div>
+        <div class="recapline"><span class="rk">Where</span><span class="rv">Metro Manila</span></div>
+        <div class="recapline"><span class="rk">Guests</span><span class="rv">200</span></div>
+        <div class="recapline"><span class="rk">Style</span><span class="rv">Garden · Timeless</span></div>
+        <div class="recapline"><span class="rk">Shortlisted</span><span class="rv">1 venue</span></div>
+      </div>
+      <div class="note mul"><span>✦</span><div>Change or switch off any of your personalization anytime in <b>Personalize my matches</b> on your Home.</div></div>
+    </section>
+
+    <!-- 15 YOUR PLAN -->
+    <section class="screen">
+      <div class="eyebrow">Your plan</div>
+      <h1 class="q" style="font-size:30px">Your wedding, planned.</h1>
+
+      <div class="planfree">
+        <div class="ph">Everything you get free</div>
+        <div class="pp">All of this is yours — ₱0.</div>
+        <div class="freeli">
+          <b>Your dashboard</b> · <b>marketplace + shortlist</b> · <b>free wedding website</b> · mood board · guest list · budget tracker · seat plan · compare quotes · real reviews · <b>verified-vendor safety</b>.
+        </div>
+      </div>
+
+      <div class="grouplbl">Matched to your wedding</div>
+      <div class="booster">
+        <div class="br"><span class="bn">Today's Focus</span><span class="bpr">₱1,499</span></div>
+        <div class="bwhy">Never wonder what to do next — your whole wedding in guided steps. Everyone's anchor.</div>
+      </div>
+      <div class="booster">
+        <div class="br"><span class="bn">Panood livestream</span><span class="bpr">₱3,499/day</span></div>
+        <div class="bwhy">Catholic weddings draw family from everywhere — stream it live for the ones who can't come.</div>
+      </div>
+
+      <div class="bundle">
+        <div class="bt">Or get it all → Pro Bundle</div>
+        <div class="bd">Every upgrade for your day, one payment — <b>₱24,999</b> (~50% off à la carte).</div>
+      </div>
+      <div class="ghost"><u>Continue with the free plan</u></div>
+    </section>
+
+  </div>
+
+  <div class="bottom">
+    <button class="btn btn-primary" id="nextbtn" onclick="go(1)">Continue</button>
+  </div>
+</div>
+
+<script>
+  const screens=[...document.querySelectorAll('.screen')];
+  const total=screens.length;
+  let i=0;
+  const bar=document.getElementById('barfill'),
+        back=document.getElementById('backbtn'), next=document.getElementById('nextbtn'),
+        skip=document.getElementById('skipbtn'), bodyscroll=document.getElementById('bodyscroll');
+  const isCivil=()=>document.querySelector('#screen-kind .opt.sel')?.dataset.kind==='civil';
+  // labels per screen for the primary button
+  const nextLabel=['Let’s go','Continue','Continue','Continue','Continue','Continue','Continue','Continue','Continue','Continue','Looks good','Create account','Continue','Continue','Done'];
+  // which screens show a Skip button
+  const canSkip=[false,false,false,true,false,true,false,true,true,false,true,false,true,false,false];
+  function render(){
+    screens.forEach((s,n)=>s.classList.toggle('active',n===i));
+    bar.style.width=((i+1)/total*100)+'%';
+    back.style.display=i===0?'none':'inline-flex';
+    next.textContent=nextLabel[i]||'Continue';
+    skip.style.display=canSkip[i]?'inline-block':'none';
+    bodyscroll.scrollTop=0;
+    // builders run AFTER the base chrome so the prefs sub-stepper's showPref() owns the Continue label
+    const id=screens[i].id;
+    if(id==='screen-name') buildMonogram();
+    if(id==='screen-kind') setKindPhoto();
+    if(id==='screen-faith') buildFaith();
+    if(id==='screen-prefs') buildPrefs();
+    if(id==='screen-pax') buildPax();
+    if(id==='screen-budget') buildBudget();
+  }
+  function go(d){
+    // Style step is an internal sub-stepper: walk its focused screens before leaving to the account screen.
+    if(d!==0 && screens[i] && screens[i].id==='screen-prefs' && prefStep(d)) return;
+    let n=Math.max(0,Math.min(total-1,i+d));
+    // Civil weddings have no faith/tradition — skip step 4 entirely.
+    if(d!==0 && screens[n] && screens[n].id==='screen-faith' && isCivil()){
+      n=Math.max(0,Math.min(total-1,n+(d>0?1:-1)));
+    }
+    i=n; render();
+  }
+  // advance/retreat within the style sub-stepper; returns false at the edges so go() leaves to the prev/next global screen
+  function prefStep(d){
+    const PQ=window.PQ; if(!PQ||!PQ.len) return false;
+    const ni=PQ.idx+d; if(ni<0||ni>=PQ.len) return false;
+    showPref(ni); return true;
+  }
+  function showPref(idx){
+    const host=document.getElementById('prefhost'); const PQ=window.PQ||{len:0,idx:0}; if(!host) return;
+    const steps=[...host.querySelectorAll('.prefstep')]; PQ.idx=idx; window.PQ=PQ;
+    steps.forEach((s,k)=>s.style.display = k===idx?'flex':'none');
+    const cur=steps[idx]; if(cur) cur.querySelectorAll('.prefdots i').forEach((dt,k)=>dt.classList.toggle('on',k<=idx));
+    next.textContent = idx>=PQ.len-1 ? 'Looks good' : 'Continue';
+    if(typeof bodyscroll!=='undefined' && bodyscroll) bodyscroll.scrollTop=0;
+  }
+  // chip / option selection (single-select groups vs multi)
+  document.addEventListener('click',e=>{
+    const song=e.target.closest('.song');               // top-50 music picker — picked songs PIN to the top (stable, pick order); at 10 the unpicked choices hide; search filters
+    if(song){
+      if(song.classList.contains('sel')){ song.classList.remove('sel'); delete song.dataset.pick; }
+      else { window.__sp=(window.__sp||0)+1; song.classList.add('sel'); song.dataset.pick=window.__sp; }
+      applySongs();
+      return;
+    }
+    const pc=e.target.closest('.pcard');
+    if(pc){ const sg=pc.closest('[data-single]');     // [data-single] wrapper (ceremony) = pick ONE place; else photo-cards are MULTI-pick (sort, never exclude · the .ck checkmark shows each)
+      if(sg){ sg.querySelectorAll('.pcard').forEach(c=>c.classList.remove('sel')); pc.classList.add('sel'); }
+      else pc.classList.toggle('sel');
+      return; }
+    const chip=e.target.closest('.chip');
+    if(chip){
+      if(chip.classList.contains('locked')) return;                 // pre-locked dietary chip (HALAL / alcohol-free) — can't toggle off
+      const grp=chip.closest('[data-single]');
+      if(grp){ grp.querySelectorAll('.chip').forEach(c=>c.classList.remove('sel')); chip.classList.add('sel'); if(chip.dataset.feel) setFeel(chip.dataset.feel); if(chip.dataset.faith) setFaithPhoto(chip); return; }
+      const mgrp=chip.closest('.chips[data-max]');                  // multi group with a cap (e.g. Mixed faith = 2)
+      if(mgrp && !chip.classList.contains('sel')){
+        const max=+mgrp.dataset.max||99, picked=[...mgrp.querySelectorAll('.chip.sel:not(.locked)')];
+        if(picked.length>=max) picked[0].classList.remove('sel');   // rolling: drop the first-picked to make room
+      }
+      chip.classList.toggle('sel'); if(chip.dataset.faith) setFaithPhoto(chip); return;
+    }
+    const opt=e.target.closest('.opt');
+    if(opt){ const grp=opt.closest('[data-single]');
+      if(grp){ grp.querySelectorAll('.opt').forEach(o=>o.classList.remove('sel')); opt.classList.add('sel'); } if(opt.closest('#screen-kind')) setKindPhoto(); return; }
+    const sw=e.target.closest('.sw');
+    if(sw){ sw.parentElement.querySelectorAll('.sw').forEach(s=>s.classList.remove('sel')); sw.classList.add('sel'); }
+  });
+  // music picker: picked pin to top (stable pick-order, they STAY on top), at 10 the unpicked choices hide, search filters the 50
+  function applySongs(){
+    const list=document.querySelector('.songlist'); if(!list) return;
+    const q=(document.getElementById('songq')?.value||'').trim().toLowerCase();
+    const rows=[...list.children];
+    const n=rows.filter(r=>r.classList.contains('sel')).length;
+    rows.sort((a,b)=>{
+      const as=a.classList.contains('sel'), bs=b.classList.contains('sel');
+      if(as!==bs) return as?-1:1;                              // picked first
+      if(as) return (+a.dataset.pick||0)-(+b.dataset.pick||0); // picked: stable pick order — earlier picks stay put
+      return (+a.dataset.i||0)-(+b.dataset.i||0);              // the rest: original top-50 order
+    });
+    rows.forEach(r=>{ list.appendChild(r);
+      const sel=r.classList.contains('sel');
+      const show = q ? r.textContent.toLowerCase().includes(q) : (sel || n<10);   // searching → matches; else picked + (choices only until 10)
+      r.style.display = show ? '' : 'none';
+    });
+    const nEl=document.getElementById('songn'), gEl=document.getElementById('songgoal');
+    if(nEl) nEl.textContent=n;
+    if(gEl){ gEl.textContent = n>=10 ? '✓ we’ll build the rest of your playlist' : ('pick at least '+(10-n)+' more'); gEl.classList.toggle('done',n>=10); }
+  }
+  document.addEventListener('input',e=>{ if(e.target&&e.target.id==='songq') applySongs(); });   // live filter — no Enter needed
+  document.addEventListener('keydown',e=>{ if(e.target&&e.target.id==='songq'&&e.key==='Enter') e.preventDefault(); });  // Enter is a no-op (pure type-to-filter)
+  // ---- wedding-date calendar: limited from today through +3 years ----
+  (function initCal(){
+    const grid=document.getElementById('calgrid'); if(!grid) return;
+    const mlbl=document.getElementById('calmonth'), prev=document.getElementById('calprev'),
+          nxt=document.getElementById('calnext'), pick=document.getElementById('calpick'),
+          rangeEl=document.getElementById('calrange'), whyEl=document.getElementById('whydate'),
+          warnEl=document.getElementById('rangewarn'),
+          bSp=document.getElementById('modespecific'), bRg=document.getElementById('moderange');
+    const M=['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const DOW=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    const DAY=86400000, MAXSPAN=29, MAXMULTI=4, CLUSTER=90;  // window ≤30 days inclusive · specific ≤4 dates within a 90-day cluster
+    const today=new Date(); today.setHours(0,0,0,0);
+    const minD=new Date(today);
+    const maxD=new Date(today); maxD.setFullYear(maxD.getFullYear()+3);   // hard cap: 3 years out
+    let mode='specific';
+    let sel=new Date(today); sel.setMonth(sel.getMonth()+6);              // default seed ~6 months out
+    if(sel>maxD) sel=new Date(maxD);
+    let rStart=null, rEnd=null, pickingEnd=false;                        // flexible-window state
+    let multi=[];                                                        // "specific dates" — 1–4 candidate Dates, clustered ≤90 days
+    let vY=sel.getFullYear(), vM=sel.getMonth();
+    const key=d=>d.getFullYear()+'-'+d.getMonth()+'-'+d.getDate();
+    const fmt=d=>M[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear();
+    const fmtShort=d=>M[d.getMonth()].slice(0,3)+' '+d.getDate();
+    const days=(a,b)=>Math.round((b-a)/DAY);
+    const clampMax=d=>d>maxD?new Date(maxD):d;
+    const atMin=()=>vY===minD.getFullYear()&&vM===minD.getMonth();
+    const atMax=()=>vY===maxD.getFullYear()&&vM===maxD.getMonth();
+    const season=m=>(m>=6&&m<=9)?'rainy':((m>=2&&m<=4)?'dry':'cool-and-clear');   // PH seasons (mirrors single-date logic)
+    function setRange(){ rangeEl.textContent =
+        mode==='specific' ? 'Up to 4 dates within ~3 months — we lock the one all your vendors share.'
+      : 'Tap a start + end (≤30 days) — we lock the shared date inside it.'; }
+    // single date — a taste of the 5-layer date-selection logic (liturgical · numerology · folklore · weather · astrology)
+    function dateReasons(d){
+      const dow=d.getDay(), m=d.getMonth(), n=d.getDate(); const r=[]; let note=false;
+      if(dow===6) r.push(['Saturday','the day most Filipino weddings are held.']);
+      else if(dow===5) r.push(['Friday','Venus’s day — the day for love.']);
+      else if(dow===0) r.push(['Sunday','intimate, and vendors often cost a little less.']);
+      else r.push(['A weekday','lower vendor rates and easier venue booking.']);
+      if(m===11){r.push(['December','peak season — family’s home for the holidays, so lock vendors early.']);note=true;}
+      else if(m>=6&&m<=9){r.push(['Rainy / typhoon window','lush and dramatic, but plan a wet-weather backup.']);note=true;}
+      else if(m>=2&&m<=4) r.push(['Dry season','outdoor-friendly — just mind the summer heat.']);
+      else r.push(['Cool, clear months','comfortable for an outdoor celebration.']);
+      if(n===8||n===18||n===28) r.push(['The '+n+'th','a number of prosperity in Chinese-Filipino tradition.']);
+      else if(n===4||n===14||n===24){r.push(['The '+n+'th','some families avoid 4 — worth a quick word with the elders.']);note=true;}
+      return {tone:note?'note':'good', reasons:r.slice(0,3)};
+    }
+    // why a flexible window works — the date follows vendor availability, not preference
+    function rangeReasons(a,b){
+      const r=[]; let note=false, sat=0; const mid=new Date(a.getTime()+(b-a)/2);
+      for(let t=a.getTime();t<=b.getTime();t+=DAY){ if(new Date(t).getDay()===6) sat++; }
+      r.push(['We lock the date, not you','we pick the day in this window every chosen vendor is free — nobody’s double-booked.']);
+      if(sat>0) r.push([sat+' Saturday'+(sat>1?'s':'')+' in here','the prime wedding days — best shot your shortlist lines up.']);
+      const mm=mid.getMonth();
+      if(mm===11){r.push(['Crosses December','peak — a wider window helps you land popular vendors.']);note=true;}
+      else if(mm>=6&&mm<=9){r.push(['Rainy-season window','flexibility lets us dodge the worst weather too.']);note=true;}
+      else r.push(['Good-weather window','comfortable months — easy on outdoor plans.']);
+      return {tone:note?'note':'good', reasons:r.slice(0,3)};
+    }
+    // what a set of dates SHARE — the nugget bank (all Saturdays / same month / same season / cluster) framed around vendor schedules
+    function commonReasons(ds){
+      const r=[]; let note=false;
+      const dows=ds.map(d=>d.getDay()), months=ds.map(d=>d.getMonth()), nums=ds.map(d=>d.getDate());
+      const allSame=a=>a.every(x=>x===a[0]);
+      const span=days(ds[0],ds[ds.length-1]);                       // ds is sorted asc
+      if(allSame(dows)){ r.push(['All '+DOW[dows[0]]+'s', dows[0]===6?'the prime wedding day — vendors’ busiest slot, so options really help.':'one weekday pattern — easier for a vendor to hold one of them.']); }
+      else if(dows.every(x=>x===0||x===6)){ r.push(['All weekends','the days most vendors work — best odds your shortlist lines up.']); }
+      if(allSame(months)){ r.push(['All in '+M[months[0]],'one month to staff — a vendor only needs one open slot in it.']); }
+      else if(allSame(ds.map(d=>season(d.getMonth())))){ const s=season(ds[0].getMonth()); r.push(['All in the '+s+' season', s==='rainy'?'plan a wet-weather backup — but vendors book easier off-peak.':'consistent weather across your options.']); }
+      if(allSame(nums)&&[8,18,28].includes(nums[0])){ r.push(['All land on the '+nums[0]+'th','a prosperity number in Chinese-Filipino tradition.']); }
+      r.push([(span===0?'same':'within '+span)+' days', 'tight enough that one vendor’s calendar can cover them — as schedules fill, we lock the one they all share.']);
+      if(months.includes(11)) note=true;
+      return {tone:note?'note':'good', reasons:r.slice(0,3)};
+    }
+    function renderWhy(tone, title, reasons, more){
+      whyEl.style.display='';
+      const top=reasons[0];
+      whyEl.innerHTML='<span class="wtone '+tone+'">'+title+'</span>'
+        +'<div class="wsum"><b>'+top[0]+'</b> — '+top[1]+' <span class="wmore">'+more+'</span></div>';
+      whyEl.style.animation='none'; void whyEl.offsetWidth; whyEl.style.animation='';
+    }
+    function updatePick(){
+      if(mode==='specific'){
+        warnEl.style.display='none';
+        if(multi.length===0){ pick.innerHTML='Pick your date — or up to 4 within 3 months'; whyEl.innerHTML=''; whyEl.style.display='none'; return; }
+        const sorted=[...multi].sort((a,b)=>a-b); const locked=multi.length>=MAXMULTI;
+        if(multi.length===1){
+          const dd=days(today,sorted[0]);
+          pick.innerHTML='Your date: <b>'+fmt(sorted[0])+'</b> · '+(dd<=0?'today':dd+' days')+' <span class="addhint">· or add up to 3 nearby</span>';
+          const wr=dateReasons(sorted[0]);
+          renderWhy(wr.tone, wr.tone==='good'?'✦ Why this date works':'✦ A few things to note', wr.reasons, 'See all 5 layers — liturgical · numerology · folklore · weather · astrology — with Setnayan Concierge →');
+        } else {
+          pick.innerHTML='Your dates: <b>'+sorted.map(fmtShort).join(' · ')+'</b> <span class="addhint">· '+(locked?'4 set':'add '+(MAXMULTI-multi.length)+' more')+'</span>';
+          const wr=commonReasons(sorted);
+          renderWhy(wr.tone, '✦ What your dates share', wr.reasons, 'As vendors book up, your day settles on whichever of these stays open for all of them.');
+          if(locked){ warnEl.style.display=''; warnEl.textContent='4 dates set — tap one to swap.'; }
+        }
+      } else {
+        if(!rEnd){ pick.innerHTML='Window start: <b>'+fmt(rStart)+'</b> · tap an end date'; whyEl.innerHTML=''; whyEl.style.display='none'; return; }
+        const span=days(rStart,rEnd)+1;
+        pick.innerHTML='Your window: <b>'+fmtShort(rStart)+' – '+fmtShort(rEnd)+'</b> · '+span+' days <span class="addhint">· we find the shared date</span>';
+        const wr=rangeReasons(rStart,rEnd);
+        renderWhy(wr.tone, '✦ Why a flexible window works', wr.reasons, 'As you shortlist vendors, your day settles on the date they’re all open inside this window.');
+      }
+    }
+    function clickDay(cur){
+      if(mode==='specific'){
+        const k=key(cur); const idx=multi.findIndex(d=>key(d)===k);
+        if(idx>=0) multi.splice(idx,1);                         // tap a picked date → remove (works even when locked)
+        else if(multi.length<MAXMULTI) multi.push(new Date(cur));
+        build(); updatePick(); return;
+      }
+      // flexible-window two-tap selection
+      if(!pickingEnd){ rStart=cur; rEnd=null; pickingEnd=true; warnEl.style.display='none'; build(); updatePick(); return; }
+      if(cur<=rStart){ rStart=cur; rEnd=null; warnEl.style.display='none'; build(); updatePick(); return; }   // before start → restart
+      const span=days(rStart,cur);
+      if(span>MAXSPAN){ rEnd=clampMax(new Date(rStart.getTime()+MAXSPAN*DAY)); warnEl.style.display=''; warnEl.textContent='30-day max — we trimmed your window to '+fmtShort(rEnd)+'.'; }
+      else { rEnd=cur; warnEl.style.display='none'; }
+      pickingEnd=false; build(); updatePick();
+    }
+    function setMode(m){
+      mode=m; warnEl.style.display='none';
+      bSp.classList.toggle('on',m==='specific'); bRg.classList.toggle('on',m==='range');
+      if(m==='range'){ if(!rStart){ rStart=new Date(sel); rEnd=clampMax(new Date(sel.getTime()+13*DAY)); } pickingEnd=false; }
+      else { if(multi.length===0) multi=[new Date(sel)]; }     // specific: seed one date
+      setRange(); build(); updatePick();
+    }
+    function build(){
+      mlbl.textContent=M[vM]+' '+vY;
+      prev.disabled=atMin(); nxt.disabled=atMax();
+      // specific mode: live cluster window — all picks stay within CLUSTER days; locks at MAXMULTI
+      let clo=minD, chi=maxD, locked=false;
+      if(mode==='specific'&&multi.length>=1){
+        const ts=multi.map(d=>d.getTime()); const mn=Math.min(...ts), mx=Math.max(...ts);
+        clo=new Date(Math.max(minD.getTime(), mx-CLUSTER*DAY));
+        chi=new Date(Math.min(maxD.getTime(), mn+CLUSTER*DAY));
+        locked=multi.length>=MAXMULTI;
+      }
+      grid.innerHTML='';
+      const first=new Date(vY,vM,1).getDay(), dim=new Date(vY,vM+1,0).getDate();
+      for(let i=0;i<first;i++){const e=document.createElement('div');e.className='calday empty';grid.appendChild(e);}
+      for(let d=1;d<=dim;d++){
+        const cur=new Date(vY,vM,d); const cell=document.createElement('div');
+        cell.className='calday'; cell.textContent=d;
+        const isPicked = mode==='specific' && multi.some(x=>key(x)===key(cur));
+        let disabled = cur<minD||cur>maxD;
+        if(mode==='specific'&&!disabled&&!isPicked){
+          if(locked) disabled=true;                              // 4 set → calendar locked (non-picked greyed)
+          else if(multi.length>=1&&(cur<clo||cur>chi)) disabled=true;   // outside the live 3-month cluster
+        }
+        if(disabled) cell.classList.add('disabled');
+        if(key(cur)===key(today)) cell.classList.add('today');
+        if(mode==='specific'){ if(isPicked) cell.classList.add('sel'); }
+        else if(rStart){
+          if(key(cur)===key(rStart)) cell.classList.add('rstart');
+          if(rEnd&&key(cur)===key(rEnd)) cell.classList.add('rend');
+          if(rEnd&&cur>rStart&&cur<rEnd) cell.classList.add('inrange');
+        }
+        if(!disabled) cell.addEventListener('click',()=>clickDay(cur));
+        grid.appendChild(cell);
+      }
+    }
+    prev.addEventListener('click',()=>{if(atMin())return;vM--;if(vM<0){vM=11;vY--;}build();});
+    nxt.addEventListener('click',()=>{if(atMax())return;vM++;if(vM>11){vM=0;vY++;}build();});
+    bSp.addEventListener('click',()=>setMode('specific'));
+    bRg.addEventListener('click',()=>setMode('range'));
+    multi=[new Date(sel)];                                      // seed one specific date so the why-panel shows immediately
+    setRange(); build(); updatePick();
+  })();
+
+  // ---- step 11: adaptive preferences, rendered ONLY for what was picked on step 10 ----
+  const MUSIC_CATS=['live_band','choir','orchestra','wedding_singer','dj','performers'];
+  const ATTIRE_CATS=['bride_attire','groom_attire','women_attire','men_attire','filipiniana'];
+  const AESTHETIC_CATS=['stylist','florist','cake','led_wall','printing','bride_attire','groom_attire','women_attire','men_attire'];
+  const PB=(icon,label,rows)=>`<div class="pblock"><div class="plabel"><span class="picon">${icon}</span> ${label}</div>${rows}</div>`;
+  const ROW=(opts,single,sel)=>`<div class="chips"${single?' data-single':''}>`+opts.map((o,j)=>`<span class="chip${j===sel?' sel':''}">${o}</span>`).join('')+`</div>`;
+  // photo-chip grid (visual style picks) + inspiration strip
+  // photo-card grid — it[2] (optional) = a real photo key in assets/prefs/<key>.webp; falls back to gradient + emoji
+  const PGRID=(items,sel,cls)=>`<div class="pgrid${cls?' '+cls:''}">`+items.map((it,j)=>`<div class="pcard${j===sel?' sel':''}"><div class="pimg ${it[2]?'haspic':'imgph'}"${it[2]?` style="background-image:url(assets/prefs/${it[2]}.webp)"`:''}>${it[2]?'':`<span class="g">${it[0]}</span>`}</div><div class="plbl">${it[1]}<span class="ck"></span></div></div>`).join('')+`</div>`;
+  const INSP=(gl)=>`<div class="insp">`+gl.map(g=>`<span class="imgph"><span class="g">${g}</span></span>`).join('')+`</div>`;
+  // dietary row — HALAL / alcohol-free; buildPrefs() pre-checks + LOCKS these per the couple's faith (Muslim → HALAL, INC → alcohol-free)
+  const DIETROW=()=>`<div class="chips" data-diet-row><span class="chip" data-diet="halal">🕌 HALAL-certified</span><span class="chip" data-diet="alcohol_free">Alcohol-free</span></div>`;
+  // Top-100 most-popular Filipino-wedding songs (OPM + international staples). Couple taps ≥10; checked songs
+  // PIN to the top (stable pick order), the rest stay in original order. Setnayan builds the full playlist from the seed.
+  const MUSIC100=`Ikaw|Yeng Constantino
+Perfect|Ed Sheeran
+A Thousand Years|Christina Perri
+Beautiful in White|Shane Filan
+Forevermore|Side A
+Kahit Maputi Na Ang Buhok Ko|Moira Dela Torre
+Thinking Out Loud|Ed Sheeran
+Can't Help Falling in Love|Elvis Presley
+All of Me|John Legend
+Especially for You|MYMP
+Now That I Have You|Side A
+Hawak Kamay|Yeng Constantino
+Marry You|Bruno Mars
+Marry Me|Train
+Til My Heartaches End|Ella Mae Saison
+Just the Way You Are|Bruno Mars
+I'm Yours|Jason Mraz
+You Are My Song|Martin Nievera
+The Way You Look at Me|Christian Bautista
+Since I Found You|Christian Bautista
+Araw-Araw|Ben&Ben
+Pagsamo|Arthur Nery
+With a Smile|Eraserheads
+Buko|Jireh Lim
+Tuwing Umuulan|Basil Valdez
+Saan Darating Ang Umaga|Rey Valera
+Sa'Yo|Silent Sanctuary
+Say You Won't Let Go|James Arthur
+Make You Feel My Love|Adele
+From This Moment On|Shania Twain
+I Don't Want to Miss a Thing|Aerosmith
+Truly Madly Deeply|Savage Garden
+Endless Love|Lionel Richie & Diana Ross
+At Last|Etta James
+Lucky|Jason Mraz & Colbie Caillat
+I Do (Cherish You)|98 Degrees
+Eternal Flame|The Bangles
+The Power of Love|Celine Dion
+Because You Loved Me|Celine Dion
+Got to Believe in Magic|David Pomeranz
+On the Wings of Love|Jeffrey Osborne
+Two Less Lonely People in the World|Air Supply
+Could I Have This Dance|Anne Murray
+(I've Had) The Time of My Life|Medley &amp; Warnes
+I Finally Found Someone|Barbra Streisand
+Always|Atlantic Starr
+Kailan|MYMP
+You|Basil Valdez
+Maybe This Time|Sarah Geronimo
+Pangako|Regine Velasquez
+The Prayer|Celine Dion & Andrea Bocelli
+When You Say Nothing at All|Ronan Keating
+Everything|Michael Bublé
+L-O-V-E|Nat King Cole
+Better Together|Jack Johnson
+First Day of My Life|Bright Eyes
+Speechless|Dan + Shay
+10,000 Hours|Dan + Shay & Justin Bieber
+Die a Happy Man|Thomas Rhett
+Lover|Taylor Swift
+Love Story|Taylor Swift
+Amazed|Lonestar
+This I Promise You|NSYNC
+I Swear|All-4-One
+Wonderful Tonight|Eric Clapton
+Your Song|Elton John
+Have I Told You Lately|Rod Stewart
+Grow Old With You|Adam Sandler
+God Gave Me You|Blake Shelton
+Can You Feel the Love Tonight|Elton John
+Unchained Melody|The Righteous Brothers
+Stand by Me|Ben E. King
+Isn't She Lovely|Stevie Wonder
+Signed, Sealed, Delivered|Stevie Wonder
+Sway|Michael Bublé
+Fly Me to the Moon|Frank Sinatra
+The Way You Look Tonight|Frank Sinatra
+Can't Take My Eyes Off You|Frankie Valli
+You're Still the One|Shania Twain
+Photograph|Ed Sheeran
+Until I Found You|Stephen Sanchez
+A Whole New World|Peabo Bryson & Regina Belle
+My Girl|The Temptations
+How Sweet It Is|James Taylor
+Die With a Smile|Bruno Mars & Lady Gaga
+Best Part|Daniel Caesar & H.E.R.
+Adore You|Harry Styles
+At My Worst|Pink Sweat$
+Beautiful Crazy|Luke Combs
+Heaven|Bryan Adams
+Crazy Little Thing Called Love|Queen
+Three Times a Lady|Commodores
+Tadhana|Up Dharma Down
+Mundo|IV of Spades
+Tahanan|Adie
+Paraluman|Adie
+Maybe the Night|Ben&Ben
+Kathang Isip|Ben&Ben
+Bakit Ngayon Ka Lang|Ariel Rivera
+Kahit Kailan|South Border`.trim().split('\n').map(l=>l.split('|'));
+  // LEAN style set — one FOCUSED screen each. Only the high-value visual dimensions; the long tail
+  // (cake/stations/florals/lights/host/hmua/booths/bar/car/attire) lives in "Personalize my matches" on Home.
+  // Each: {eb eyebrow · q question (the screen's h1) · sub · body (multi-pick photo-cards / chips for the tapzone)}.
+  const LEANPREF={
+    reception:{eb:'Reception',q:'What setting do you love?',sub:'Open to a few? Tap them all — we float matching venues to the top.',
+      body:PGRID([['✨','Hotel ballroom','setting_ballroom'],['🎪','Events place','setting_events_place'],['🏛️','Heritage','setting_heritage'],['🍽️','Restaurant','setting_restaurant'],['🌿','Garden','setting_garden'],['🏖️','Beach','setting_beach'],['🌴','Resort / destination','setting_resort']],0)},
+    ceremony:{eb:'Ceremony',q:'Where will you say “I do”?',sub:'We’ll match officiants and venues that fit.',
+      body:'<div data-single>'+PGRID([['⛪','Church','ceremony_church'],['🌿','Garden','ceremony_garden'],['🏖️','Beach','ceremony_beach'],['🏛️','Civil registrar','ceremony_civil'],['🎪','Same as reception','ceremony_same_reception']],0)+'</div>'},
+    catering:{eb:'Catering',q:'Pick your cuisine',sub:'Open to a few cuisines? Tap them all.',
+      body:PGRID([['🍲','Filipino','cuisine_filipino'],['🥢','Asian','cuisine_asian'],['🌍','International','cuisine_international'],['🥘','Spanish','cuisine_spanish'],['🍝','Italian','cuisine_italian'],['✨','Fusion','cuisine_fusion']],0,'strip')+PB('','Service style',ROW(['Plated','Buffet','Family-style','Stations'],1,1)+DIETROW())+'<div class="micro" style="margin-top:6px" data-diet-note></div>'},
+    photo_video:{eb:'Photo &amp; Video',q:'Your look',sub:'Mix a couple — we’ll match teams who shoot that way.',
+      body:PGRID([['📸','Photojournalistic','pv_photojournalistic'],['🤍','Classic','pv_classic'],['📰','Editorial','pv_editorial'],['🎞️','Fine-art / film','pv_fineart'],['🎬','Cinematic','pv_cinematic']],0,'strip')+PB('','What do you need?',ROW(['Both photo &amp; video','Photo only','Video only'],1,0))+PB('','What’s included?',ROW(['Pre-nup','Wedding day','Same-day edit','Drone','Save-the-date','Album'],0,1))},
+    music:{eb:'Music',q:'Your songs',sub:'Tap the ones you love — they jump to the top. Pick at least 10; we’ll build the rest of your playlist.',
+      body:'<div class="songpick"><div class="songhead"><div class="songbar">Picked <b id="songn">0</b> · <span id="songgoal">pick at least 10</span></div><div class="songsearch"><input id="songq" type="search" placeholder="Search songs or artists…" autocomplete="off"></div></div><div class="songlist">'+MUSIC100.map((s,j)=>`<div class="song" data-i="${j}"><span class="sck"></span><span class="stxt"><span class="st">${s[0]}</span><span class="sa">${s[1]}</span></span></div>`).join('')+'</div></div>'},
+    coordinator:{eb:'Coordinator',q:'How much help do you want?',sub:'From soup-to-nuts to just the big day.',
+      body:ROW(['Full planning','Partial','On-the-day'],1,0)},
+    palette:{eb:'Your overall feel',q:'Set the mood',sub:'Pick a feel — see it in its colors. It guides your stylist, florist, cake &amp; gown.',
+      body:'<figure class="feelphoto" id="feelphoto"><img id="feelphotoimg" src="assets/prefs/feel_timeless.webp" class="loaded" alt=""><figcaption class="feelcap"><span id="feelcaptag">Timeless</span></figcaption></figure><div class="feelsw" id="feelsw"><span class="fsw" style="background:#f3ece0"></span><span class="fsw" style="background:#e8d6b8"></span><span class="fsw" style="background:#c5a059"></span><span class="fsw" style="background:#8a6d3b"></span><span class="fsw" style="background:#ffffff"></span></div>'+PB('','The feel','<div class="chips" data-single data-feel><span class="chip sel" data-feel="timeless">Timeless</span><span class="chip" data-feel="modern">Modern</span><span class="chip" data-feel="boho">Boho</span><span class="chip" data-feel="rustic">Rustic</span><span class="chip" data-feel="glam">Glam</span><span class="chip" data-feel="royalty">Royalty</span><span class="chip" data-feel="filipiniana">Filipiniana</span><span class="chip" data-feel="others">Others</span></div>')}
+  };
+  // builds the queue of focused style screens from the picks (lean set · de-duped music + aesthetic→palette),
+  // renders one .prefstep per dimension, then shows the first. The Back/Continue/Skip buttons walk them via prefStep().
+  function buildPrefs(){
+    const host=document.getElementById('prefhost'); if(!host) return;
+    const picks=[...document.querySelectorAll('#screen-picker .chip.sel')].map(c=>c.dataset.cat);
+    const want=new Set();
+    picks.forEach(c=>{
+      if(c==='reception'||c==='ceremony'||c==='catering'||c==='photo_video'||c==='coordinator') want.add(c);
+      else if(MUSIC_CATS.includes(c)) want.add('music');
+    });
+    if(picks.some(c=>AESTHETIC_CATS.includes(c))) want.add('palette');
+    const queue=['reception','ceremony','catering','photo_video','music','palette'].filter(k=>want.has(k)); // coordinator removed — settled after booking a coordinator (owner 2026-06-01)
+    const faiths=[...document.querySelectorAll('#faithchips .chip.sel')].map(c=>c.dataset.faith);
+    const sig=queue.join(',')+'|'+faiths.join(',');
+    if(host.dataset.sig===sig && host.querySelector('.prefstep')){ window.PQ={len:queue.length,idx:0}; showPref(0); return; }  // unchanged → keep selections
+    host.dataset.sig=sig;
+    if(!queue.length){
+      host.innerHTML='<div class="prefstep" data-pi="0" style="display:flex"><div class="viewzone"><div class="eyebrow">Your style <span class="tag new">New</span></div><h1 class="q">You’re all set on style.</h1><p class="sub">Nothing to fine-tune yet — we’ll sort your matches by date, area, budget and reviews. Add a look anytime in <b>Personalize my matches</b> on your Home.</p></div></div>';
+      window.PQ={len:0,idx:0}; next.textContent='Looks good'; return;
+    }
+    host.innerHTML=queue.map((k,idx)=>{
+      const p=LEANPREF[k];
+      return '<div class="prefstep" data-pi="'+idx+'">'
+        +'<div class="viewzone"><div class="prefprog"><span class="prefcount">Style '+(idx+1)+' of '+queue.length+'</span><span class="prefdots">'+queue.map(()=>'<i></i>').join('')+'</span></div>'
+        +'<div class="eyebrow">'+p.eb+' <span class="tag new">New</span></div><h1 class="q">'+p.q+'</h1><p class="sub">'+p.sub+'</p></div>'
+        +'<div class="tapzone">'+p.body+'<div class="prefmicro"><span>✦</span>Tap all that fit — refine anytime on your Home.</div></div>'
+        +'</div>';
+    }).join('');
+    window.PQ={len:queue.length,idx:0};
+    // HALAL / alcohol-free pre-LOCK by faith: Muslim → halal (+ no alcohol) · INC → alcohol-free. Locked = can't toggle off.
+    const lockHalal=faiths.includes('muslim'), lockAlcoholFree=faiths.includes('muslim')||faiths.includes('inc');
+    const lockChip=(c,why)=>{ c.classList.add('sel','locked'); if(!c.querySelector('.lk')) c.insertAdjacentHTML('beforeend',' <span class="lk">'+why+'</span>'); };
+    if(lockHalal) host.querySelectorAll('.chip[data-diet="halal"]').forEach(c=>lockChip(c,'Muslim'));
+    if(lockAlcoholFree) host.querySelectorAll('.chip[data-diet="alcohol_free"]').forEach(c=>lockChip(c,faiths.includes('muslim')?'Muslim':'INC'));
+    const faithLabel=faiths.includes('muslim')?'Muslim':(faiths.includes('inc')?'INC':null);
+    host.querySelectorAll('[data-diet-note]').forEach(n=>{ n.innerHTML = faithLabel ? 'Locked on for your <b>'+faithLabel+'</b> ceremony — every food vendor is pre-filtered.' : 'Tap HALAL / alcohol-free if any guests need it.'; });
+    showPref(0);
+  }
+
+  // ---- step 4: faith step adapts to step 3 (single if Religious · multi if Mixed · skip if Civil) ----
+  // ---- wedding-type hero photos: shared by Kind (step 3, by kind) + Faith (step 4, by tradition); Catholic is shared ----
+  function setHero(img,src){ if(!img||img.getAttribute('src')===src) return;
+    img.classList.remove('loaded'); img.onload=()=>img.classList.add('loaded'); img.onerror=()=>img.classList.remove('loaded'); img.src=src; }
+  function setKindPhoto(){
+    const img=document.getElementById('kindphotoimg'), cap=document.getElementById('kindcapline'); if(!img) return;
+    const sel=document.querySelector('#screen-kind .opt.sel'), k=sel?sel.dataset.kind:'religious';
+    const map={religious:'wed_catholic',civil:'wed_civil',mixed:'wed_mixed'};
+    const lab={religious:'A church wedding',civil:'A city-hall ceremony',mixed:'A blended celebration'};
+    setHero(img,'assets/'+(map[k]||'wed_catholic')+'.webp'); if(cap) cap.textContent=lab[k]||'';
+  }
+  function setFaithPhoto(chip){
+    const img=document.getElementById('faithphotoimg'), cap=document.getElementById('faithcapline'); if(!img) return;
+    let f = chip && chip.dataset.faith;
+    if(!f){ const sel=document.querySelector('#faithchips .chip.sel'); f = sel ? sel.dataset.faith : 'catholic'; }
+    const map={catholic:'wed_catholic',christian:'wed_christian',inc:'wed_inc',muslim:'wed_muslim',cultural:'wed_cultural'};
+    const lab={catholic:'A Catholic wedding',christian:'A garden Christian wedding',inc:'An INC wedding',muslim:'A Muslim wedding',cultural:'A traditional Filipino wedding'};
+    setHero(img,'assets/'+(map[f]||'wed_catholic')+'.webp'); if(cap) cap.textContent=lab[f]||'However you say “I do.”';
+  }
+  function buildFaith(){
+    const sec=document.getElementById('screen-faith'); if(!sec) return;
+    const ksel=document.querySelector('#screen-kind .opt.sel');
+    const kind=(ksel&&ksel.dataset.kind)||'religious';
+    const eyebrow=document.getElementById('faitheyebrow'), h1=document.getElementById('faithh1'),
+          sub=document.getElementById('faithsub'), chips=document.getElementById('faithchips'),
+          civil=document.getElementById('faithcivil'),
+          img=document.getElementById('faithphotoimg'), cap=document.getElementById('faithcapline');
+    if(kind==='civil'){
+      eyebrow.innerHTML='Civil ceremony';
+      h1.textContent='No tradition to set';
+      sub.textContent='A judge or registrar officiates — we’ll skip the faith step.';
+      chips.style.display='none'; civil.style.display='';
+      setHero(img,'assets/wed_civil.webp'); if(cap) cap.textContent='A civil ceremony';
+      return;
+    }
+    chips.style.display=''; civil.style.display='none';
+    chips.querySelectorAll('.chip').forEach(c=>c.classList.remove('sel'));
+    if(kind==='mixed'){
+      chips.removeAttribute('data-single'); chips.setAttribute('data-max','2');    // → pick exactly 2
+      eyebrow.innerHTML='Your two traditions <span class="tag new">Interfaith</span>';
+      h1.textContent='Which two traditions?';
+      sub.textContent='Pick the two faiths you’ll both honor — we’ll match vendors for each and pre-set dietary + protocols for both.';
+      setHero(img,'assets/wed_mixed.webp'); if(cap) cap.textContent='An interfaith wedding';   // tap a tradition to swap
+    } else {
+      chips.setAttribute('data-single',''); chips.removeAttribute('data-max');      // → single-select
+      chips.querySelector('.chip').classList.add('sel');          // pre-pick Catholic
+      eyebrow.innerHTML='Your tradition';
+      h1.textContent='Your ceremony tradition';
+      sub.textContent='We’ll match vendors who know your faith’s protocols — and pre-set things like halal catering.';
+      setFaithPhoto();   // Catholic pre-selected
+    }
+  }
+  // ---- pax read: slider (50–500) + an always-on exact box that can go below 50 / above 500 ----
+  function currentPax(){
+    const box=document.getElementById('paxexact'), s=document.getElementById('paxslider'); if(!s) return null;
+    const bv = box && box.value!=='' ? parseInt(box.value,10) : NaN;
+    if(!isNaN(bv) && bv>=1) return { n:bv, raw:bv, label:String(bv), open:false };   // an exact number is in the box (synced or typed · can be <slider-min or >500)
+    const v=+s.value, max=+s.max, min=+s.min;                                        // box blank → read the slider's open end
+    if(v>=max) return { n:max, raw:max, label:'500+',       open:'high' };
+    if(v<=min) return { n:min, raw:min, label:'Under '+min, open:'low'  };
+    return { n:v, raw:v, label:String(v), open:false };
+  }
+  // ---- step 8: live readout + gold-fill track + a vibe PHOTO of what a wedding this size feels like ----
+  const PAXTIERS=[
+    {max:25,  t:'t1', tag:'Intimate · civil', line:'Just you and your closest few — an unhurried, personal day.'},
+    {max:80,  t:'t2', tag:'Warm & intimate',  line:'Family and close friends, in a room where you can greet everyone.'},
+    {max:200, t:'t3', tag:'The classic size', line:'The most-loved Filipino wedding — full, lively, complete.'},
+    {max:400, t:'t4', tag:'Grand',            line:'Extended family and the whole barkada — a big, joyful day.'},
+    {max:1e9, t:'t5', tag:'A grand fiesta',   line:'A community-scale celebration — the whole town, it feels like.'}
+  ];
+  function buildPax(){
+    const s=document.getElementById('paxslider'); const p=currentPax(); if(!s||!p) return;
+    const num=document.getElementById('paxnum'); if(num) num.textContent=p.label;
+    const unit=document.getElementById('paxunit'); if(unit) unit.textContent=(p.open===false&&p.n===1)?'guest':'guests';
+    const pct=((+s.value-+s.min)/((+s.max)-(+s.min)))*100;          // gold fill up to the thumb
+    s.style.background='linear-gradient(to right,var(--gold) 0%,var(--gold) '+pct+'%,#e7dfce '+pct+'%,#e7dfce 100%)';
+    const tier=PAXTIERS.find(x=>p.n<=x.max)||PAXTIERS[PAXTIERS.length-1];
+    const fig=document.getElementById('paxphoto'), img=document.getElementById('paxphotoimg'),
+          tag=document.getElementById('paxcaptag'), cl=document.getElementById('paxcapline');
+    if(fig) fig.dataset.tier=tier.t;
+    if(tag) tag.textContent=tier.tag;
+    if(cl)  cl.textContent=tier.line;
+    if(img){ const src='assets/pax/'+tier.t+'.webp';                // real photo fades in over the palette gradient; falls back to the gradient if missing
+      if(img.getAttribute('src')!==src){ img.classList.remove('loaded'); img.onload=()=>img.classList.add('loaded'); img.onerror=()=>img.classList.remove('loaded'); img.src=src; } }
+  }
+  // ---- step 11 palette: each FEEL shows an example photo + its suggested colors (owner 2026-06-01) ----
+  const FEELS={
+    timeless:['#f3ece0','#e8d6b8','#c5a059','#8a6d3b','#ffffff'],
+    modern:['#ffffff','#1e2229','#cfd3d6','#3a5746','#9aa0a6'],
+    boho:['#c98a5e','#9c6b4f','#d9b8a0','#8a9a6b','#e6d6c0'],
+    rustic:['#8a9a6b','#b5a285','#d9cbb0','#6b7a8a','#efe7d6'],
+    glam:['#7a1f2b','#c5a059','#1e2229','#d9b8bd','#f3ece0'],
+    royalty:['#3a5746','#c5a059','#5c2542','#1e2540','#e8d6b8'],
+    filipiniana:['#e8d6b8','#c5a059','#7a1f2b','#3a5746','#ffffff'],
+    others:null
+  };
+  const FEELLBL={timeless:'Timeless',modern:'Modern',boho:'Boho',rustic:'Rustic',glam:'Glam',royalty:'Royalty',filipiniana:'Filipiniana',others:'Others'};
+  function setFeel(key){
+    const fig=document.getElementById('feelphoto'), img=document.getElementById('feelphotoimg'),
+          tag=document.getElementById('feelcaptag'), sw=document.getElementById('feelsw');
+    if(!fig||!sw) return;
+    const cols=FEELS[key];
+    if(!cols){                                  // "Others" — no preset look; the couple builds it later in the mood board
+      fig.style.display='none';
+      sw.innerHTML='<div class="feelnote">We’ll build your palette together in the mood board.</div>';
+      return;
+    }
+    fig.style.display='';
+    if(tag) tag.textContent=FEELLBL[key]||'';
+    if(img){ const src='assets/prefs/feel_'+key+'.webp';
+      if(img.getAttribute('src')!==src){ img.classList.remove('loaded'); img.onload=()=>img.classList.add('loaded'); img.onerror=()=>img.classList.remove('loaded'); img.src=src; } }
+    sw.innerHTML=cols.map(c=>`<span class="fsw" style="background:${c}"></span>`).join('');
+  }
+  // ---- step 9: a budget-feel ladder · each band = a MEDIAN per head, shown range = median ±20% (owner 2026-06-01) ----
+  function buildBudget(){
+    const fig=document.getElementById('budgetphoto'); if(!fig) return;
+    const round50=n=>Math.round(n/50000)*50000;                                                   // nearest ₱50k
+    const fmt=n=>{ if(n>=1e6) return (n/1e6).toFixed(2).replace(/\.?0+$/,'')+'M'; return (n/1000)+'K'; };
+    const total=(lo,hi)=>{ let a=round50(lo), z=round50(hi); if(z<=a) z=a+50000; return '₱'+fmt(a)+' – ₱'+fmt(z); }; // 50k-rounded, never collapses
+    const p=currentPax();
+    const pax = p ? p.n : null;
+    const gl  = p ? (p.open==='high' ? '500+' : p.open==='low' ? 'under 50' : '~'+p.n) : null;
+    // the photo shows how this budget LOOKS at the couple's pax tier — same band looks lean at 500 guests, lavish at 25
+    const tier = p ? (PAXTIERS.find(x=>p.n<=x.max)||PAXTIERS[PAXTIERS.length-1]) : null;
+    const tk = tier ? tier.t+'_' : '';
+    // each band = a MEDIAN all-in cost per head (PH 2026 data); shown range = ±20% of that median × pax
+    const B={
+      essentials:{tag:'Lean & intentional', med:2000},
+      simple    :{tag:'Comfortable',        med:3500},
+      classic   :{tag:'The sweet spot',     med:5000},   // ← the ideal default
+      elevated  :{tag:'Polished',           med:7500},
+      premium   :{tag:'Entry luxury',       med:11000},
+      luxury    :{tag:'No-compromise',      med:15000}
+    };
+    const lo=m=>m*0.8, hi=m=>m*1.2;
+    let bc=document.querySelector('#budgetchips .chip.sel');
+    // default-highlight the IDEAL band (Classic) on first entry; "No limit" clears the bands → a no-ceiling state
+    if(!bc){ const c=document.querySelector('#budgetchips .chip[data-band="classic"]'); if(c){ c.classList.add('sel'); bc=c; } }
+    const b=bc ? bc.dataset.band : 'classic';
+    const img=document.getElementById('budgetphotoimg'),
+          tag=document.getElementById('budgetcaptag'), rng=document.getElementById('budgetcaprange');
+    function setImg(key){ const src='assets/budget/'+key+'.webp';
+      if(img.getAttribute('src')!==src){ img.classList.remove('loaded'); img.onload=()=>img.classList.add('loaded'); img.onerror=()=>img.classList.remove('loaded'); img.src=src; } }
+    if(b==='nolimit'){                                                  // No limit → the grandest look at THIS pax tier (no-ceiling ≈ luxury for their count)
+      fig.dataset.band='luxury'; setImg(tier ? tier.t+'_luxury' : 'nolimit');
+      tag.textContent='No ceiling'; rng.textContent='The best of everything';
+      return;
+    }
+    const d=B[b]||B.classic;
+    fig.dataset.band=b; setImg(tk+b);
+    tag.textContent=d.tag;
+    rng.textContent = pax
+      ? total(lo(d.med)*pax, hi(d.med)*pax)+' · '+gl+' guests'
+      : '₱'+lo(d.med).toLocaleString()+' – ₱'+hi(d.med).toLocaleString()+' a head';
+  }
+  // budget: rough compass → nugget on pick (live, no screen change). Bound on document so it runs
+  // AFTER the generic single-select handler (registered earlier) applies .sel — synchronous, no timeout.
+  document.addEventListener('click',e=>{
+    if(e.target.closest('#budgetchips .chip')) buildBudget();
+  });
+  // picker — the sticky upper card previews + describes the service the couple just tapped (what it provides)
+  const PICK_INFO={
+    reception:{g:'Venue',d:'Where your celebration happens — the dinner, the program, and the dancing.'},
+    ceremony:{g:'Venue',d:'The church, chapel, or garden where you say "I do."'},
+    coordinator:{g:'Planning',d:'Runs your timeline and vendors so you can just enjoy the day.'},
+    catering:{g:'Feast',d:'Food and service for your guests — buffet, plated, or family-style.'},
+    cake:{g:'Feast',d:'Your wedding cake and dessert centerpiece.'},
+    stations:{g:'Feast',d:'Live food stations — carving, pasta, lechon, and more.'},
+    stylist:{g:'Design',d:'Designs and styles the whole look — venue, stage, and tables.'},
+    florist:{g:'Design',d:'Bouquets, centerpieces, and floral styling throughout.'},
+    lights_sound:{g:'Design',d:'Lighting design and the sound system for the day.'},
+    dance_floor:{g:'Design',d:'A proper dance floor for the first dance and the party.'},
+    outdoor:{g:'Design',d:'Tents, draping, and setup for an outdoor celebration.'},
+    fireworks:{g:'Design',d:'A fireworks or pyro send-off for the big moment.'},
+    led_wall:{g:'Design',d:'An LED video wall for visuals, the live feed, and your monogram.'},
+    live_band:{g:'Program',d:'A live band to play your reception.'},
+    choir:{g:'Program',d:'A choir for your ceremony.'},
+    orchestra:{g:'Program',d:'A string ensemble or orchestra for an elegant ceremony.'},
+    wedding_singer:{g:'Program',d:'A soloist for your processional and special moments.'},
+    dj:{g:'Program',d:'A DJ to keep the party going all night.'},
+    choreographer:{g:'Program',d:'Choreographs your first dance or entourage number.'},
+    performers:{g:'Program',d:'Special performers — cultural acts, dancers, or a surprise.'},
+    host_mc:{g:'Program',d:'A host or emcee to run your reception program.'},
+    photo_video:{g:'Documentary',d:'Photo and video teams to capture the whole day.'},
+    editorial:{g:'Documentary',d:'A styled editorial feature of your wedding.'},
+    livestream:{g:'Documentary',d:'Livestream the ceremony for guests who cannot be there.'},
+    bride_attire:{g:'Look',d:'The bride’s gown — bought, made, or rented.'},
+    groom_attire:{g:'Look',d:'The groom’s suit or formalwear.'},
+    women_attire:{g:'Look',d:'Gowns for your bridesmaids and women’s entourage.'},
+    men_attire:{g:'Look',d:'Suits for your groomsmen and men’s entourage.'},
+    filipiniana:{g:'Look',d:'Filipiniana gowns and Barong Tagalog for a heritage look.'},
+    hmua:{g:'Look',d:'Hair and makeup for the bride and the entourage.'},
+    grooming:{g:'Look',d:'Grooming for the groom and the men.'},
+    wellness:{g:'Look',d:'Skin, fitness, and wellness prep before the day.'},
+    jewelry:{g:'Look',d:'Rings, veil, and the finishing accessories.'},
+    photo_booth:{g:'Booths',d:'A photo booth for instant guest keepsakes.'},
+    mobile_bar:{g:'Booths',d:'A mobile bar serving cocktails and drinks.'},
+    coffee:{g:'Booths',d:'A coffee and espresso cart for your guests.'},
+    mocktail:{g:'Booths',d:'A mocktail bar — alcohol-free, all the fun.'},
+    food_truck:{g:'Booths',d:'A food truck for a fun late-night bite.'},
+    dessert:{g:'Booths',d:'A dessert cart or a sweets table.'},
+    food_cart:{g:'Booths',d:'A classic Filipino food cart — fishball, ice cream, and more.'},
+    massage_chair:{g:'Booths',d:'Massage chairs to pamper your guests.'},
+    perfume_bar:{g:'Booths',d:'A perfume bar — guests blend a scent to take home.'},
+    arcade:{g:'Booths',d:'Arcade and games to keep the crowd entertained.'},
+    henna:{g:'Booths',d:'A henna or temporary-tattoo station.'},
+    nail_bar:{g:'Booths',d:'A mini nail bar for quick pampering.'},
+    tarot:{g:'Booths',d:'Tarot, astrology, or palm reading — just for fun.'},
+    caricature:{g:'Booths',d:'A live caricature or calligraphy artist.'},
+    engraving:{g:'Booths',d:'On-the-spot engraving or embroidery favors.'},
+    printing:{g:'Prints',d:'Invitations, signage, and printed pieces.'},
+    souvenirs:{g:'Prints',d:'Giveaways and souvenirs for your guests.'},
+    bridal_car:{g:'Transport',d:'The bridal car for your grand entrance and exit.'},
+    guest_shuttle:{g:'Transport',d:'Shuttles to bring your guests to the venue.'},
+    escort:{g:'Transport',d:'A security or motorcade escort for the convoy.'}
+  };
+  function setPickerImg(key){
+    const img=document.getElementById('ppImg'); if(!img) return;
+    const src='assets/picker/'+key+'.webp';
+    if(img.getAttribute('src')!==src){ img.classList.remove('loaded'); img.onload=()=>img.classList.add('loaded'); img.src=src; }
+  }
+  document.addEventListener('click',e=>{
+    const c=e.target.closest('#screen-picker .chip'); if(!c) return;
+    const info=PICK_INFO[c.dataset.cat]; if(!info) return;
+    const cat=document.getElementById('ppCat'), nm=document.getElementById('ppName'), ds=document.getElementById('ppDesc');
+    if(cat) cat.textContent=info.g.toUpperCase();
+    if(nm) nm.textContent=c.textContent;
+    if(ds) ds.textContent=info.d;
+    setPickerImg(c.dataset.cat);                                         // a distinct photo per SERVICE (reception ≠ ceremony, catering ≠ cake, …)
+  });
+  (function(){ const img=document.getElementById('ppImg'); if(img){ if(img.complete) img.classList.add('loaded'); else img.onload=()=>img.classList.add('loaded'); } })();
+  (function(){
+    const s=document.getElementById('paxslider'), box=document.getElementById('paxexact');
+    if(!s||!box) return;
+    s.addEventListener('input',function(){                       // drag → mirror into the box, or BLANK it at an open end
+      const v=+this.value, max=+this.max, min=+this.min;
+      if(v>=max){ box.value=''; box.placeholder='type your 500+ count'; }
+      else if(v<=min){ box.value=''; box.placeholder='type your '+min+'-or-fewer count'; }
+      else { box.value=v; }
+      buildPax();
+    });
+    box.addEventListener('input',function(){                     // type → move the slider in real time, or park it at an end
+      const v=parseInt(this.value,10);
+      if(!isNaN(v)) s.value = v>(+s.max) ? s.max : v<(+s.min) ? s.min : v;
+      buildPax();
+    });
+  })();
+  // region: "Somewhere else" reveals the full region list (top 5 collapse, elsewhere rises)
+  (function(){
+    const top=document.getElementById('regionTop'), el=document.getElementById('optElsewhere'),
+          more=document.getElementById('regionMore'), back=document.getElementById('regionBack');
+    if(!top) return;
+    const clear=()=>{ top.querySelectorAll('.opt.sel').forEach(o=>o.classList.remove('sel')); el.classList.remove('sel'); more.querySelectorAll('.regopt.sel').forEach(o=>o.classList.remove('sel')); };
+    const expand=()=>{ top.style.display='none'; more.style.display=''; el.classList.add('expanded'); };
+    const collapse=()=>{ top.style.display=''; more.style.display='none'; el.classList.remove('expanded'); };
+    top.addEventListener('click',e=>{ const o=e.target.closest('.opt'); if(!o) return; clear(); o.classList.add('sel'); });
+    el.addEventListener('click',()=>{ if(more.style.display==='none'){ clear(); expand(); } else { collapse(); } });
+    back.addEventListener('click',collapse);
+    more.addEventListener('click',e=>{ const r=e.target.closest('.regopt'); if(!r) return; clear(); r.classList.add('sel'); });
+  })();
+  // monogram: a free mark made live from the couple's names (styling + Animated/Bespoke upgrades live later — dashboard website editor + Today's Focus "Design Monogram" card)
+  const MONO_FRAMES=['wreath','crest','square','oval'];                 // luxurious gold frames — tap Frame to cycle
+  const MONO_FONTS=['cormorant','cinzel','playfair','script'];          // premium-only fonts — no basic fonts even on the free tier
+  let monoFrame=0, monoFont=0;
+  function monoPop(){ const m=document.getElementById('monoMark'); if(m){ m.style.transform='scale(1.05)'; setTimeout(()=>{m.style.transform='';},170); } }
+  function buildMonogram(){
+    const f=document.getElementById('nameField'), m=document.getElementById('monoMark'), L=document.getElementById('monoLetters');
+    if(!f||!m||!L) return;
+    const n=(f.value||'').trim();
+    const parts=n.split(/\s*(?:&|\+|\band\b)\s*/i).map(s=>s.trim()).filter(Boolean);
+    let mark='··';
+    if(parts.length>=2 && parts[0] && parts[1]) mark=parts[0][0].toUpperCase()+' & '+parts[1][0].toUpperCase();
+    else { const w=n.replace(/[^A-Za-z]/g,''); if(w) mark=w.slice(0,2).toUpperCase(); }
+    L.textContent=mark;
+    m.dataset.frame=MONO_FRAMES[monoFrame];
+    m.dataset.font=MONO_FONTS[monoFont];
+    m.classList.toggle('long', mark.length>2);   // font-size handled per-font in CSS via .long ("M & J" vs "MA")
+    const bg=document.getElementById('monoBg'), bgw=document.getElementById('monoBgWrap');   // faint blurred full-screen version of the same monogram
+    if(bg){ bg.textContent=mark; } if(bgw){ bgw.dataset.font=MONO_FONTS[monoFont]; }
+  }
+  (function(){
+    const f=document.getElementById('nameField');
+    if(f) f.addEventListener('input',function(){ buildMonogram(); monoPop(); });
+    const fb=document.getElementById('monoFrameBtn'), tb=document.getElementById('monoFontBtn');
+    if(fb) fb.addEventListener('click',function(){ monoFrame=(monoFrame+1)%MONO_FRAMES.length; buildMonogram(); monoPop(); });
+    if(tb) tb.addEventListener('click',function(){ monoFont=(monoFont+1)%MONO_FONTS.length; buildMonogram(); monoPop(); });
+  })();
+  // Rule 7 — preload the whole onboarding's imagery on first load so a screen never waits on a fetch
+  (function(){
+    { const im=new Image(); im.src='assets/welcome.webp'; }                                                   // welcome hero (real couple photo · step 1)
+    { const im=new Image(); im.src='assets/role.webp'; }                                                       // role hero — bride + groom + friend (step 2)
+    ['catholic','civil','mixed','christian','inc','muslim','cultural'].forEach(w=>{ const im=new Image(); im.src='assets/wed_'+w+'.webp'; }); // wedding-type heroes (Kind step 3 + Faith step 4)
+    ['t1','t2','t3','t4','t5'].forEach(t=>{ const im=new Image(); im.src='assets/pax/'+t+'.webp'; });
+    ['essentials','simple','classic','elevated','premium','luxury','nolimit'].forEach(b=>{ const im=new Image(); im.src='assets/budget/'+b+'.webp'; });
+    ['t1','t2','t3','t4','t5'].forEach(t=>['essentials','simple','classic','elevated','premium','luxury'].forEach(b=>{ const im=new Image(); im.src='assets/budget/'+t+'_'+b+'.webp'; })); // pax-tier × band budget looks
+    ['wreath','crest','square','oval'].forEach(fr=>{ const im=new Image(); im.src='assets/mono/'+fr+'.webp'; });           // luxurious monogram frames
+    try{ Object.keys(PICK_INFO).forEach(c=>{ const im=new Image(); im.src='assets/picker/'+c+'.webp'; }); }catch(e){} // a distinct photo per service — preload all
+    ['setting_garden','setting_ballroom','setting_events_place','setting_beach','setting_resort','setting_heritage','setting_restaurant','cuisine_filipino','cuisine_international','cuisine_asian','cuisine_spanish','pv_photojournalistic','pv_classic','pv_editorial','pv_fineart','pv_cinematic','feel_timeless','feel_modern','feel_boho','feel_rustic','feel_glam','feel_royalty','feel_filipiniana','ceremony_church','ceremony_garden','ceremony_beach','ceremony_civil','ceremony_same_reception','cuisine_italian','cuisine_fusion'].forEach(k=>{ const im=new Image(); im.src='assets/prefs/'+k+'.webp'; }); // step-11 style-card + feel + ceremony + cuisine photos (music is now a text song-picker — no images)
+    try{ if(document.fonts&&document.fonts.load){ ["400 40px 'Great Vibes'","600 40px 'Cinzel'","italic 600 40px 'Playfair Display'"].forEach(s=>document.fonts.load(s)); } }catch(e){}   // warm the premium monogram fonts
+  })();
+  render();
+</script>
+</body>
+</html>

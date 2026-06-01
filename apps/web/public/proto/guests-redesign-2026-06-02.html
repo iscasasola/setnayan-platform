@@ -116,10 +116,17 @@ a{color:inherit;text-decoration:none}
 @media(max-width:1023px){
   .stats{display:none}        /* no stats strip — the list owns the screen */
   .chiprail{display:none}     /* no chip rail — search + sort do the work  */
-  .fab{display:none}          /* quick-add lives in the toolbar instead    */
+  .fab{display:none}          /* quick-add lives in the docked bar instead  */
   .m-only{display:inline-flex}
-  .toolbar{margin-top:14px}
   .head{gap:10px}
+  body{padding-bottom:152px}  /* clear the docked bar + bottom nav          */
+  /* search + sort + quick-add dock to the bottom, right above the nav */
+  .toolbar{
+    position:fixed; left:0; right:0; bottom:72px; z-index:46; margin:0;
+    padding:10px 16px; gap:8px;
+    background:var(--surface); border-top:1px solid var(--line);
+    box-shadow:0 -8px 22px rgba(30,34,41,.07);
+  }
 }
 /* .tbtn/.addbtn carry no display — .m-only owns visibility so they stay mobile-only */
 .tbtn{height:44px;width:44px;border-radius:12px;background:var(--surface);border:1px solid var(--line-strong);align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto}

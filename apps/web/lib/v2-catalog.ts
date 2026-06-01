@@ -67,11 +67,11 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   // Live and working today
   TODAYS_FOCUS:        'live',     // 65-card wizard live at /today
   PRO_WEBSITE:         'partial',  // free baseline live · Pro gating not built
-  CUSTOM_QR_GUEST:     'partial',  // default QR works · branded QR not built
+  CUSTOM_QR_GUEST:     'live',     // branded per-guest QR (monogram + palette + print) · PR #727 · 2026-06-01
   INDOOR_BLUEPRINT:    'partial',  // seating chart live · entrance-to-table nav not built
 
   // Partially working
-  ANIMATED_MONOGRAM:   'partial',  // V1 monogram tools exist · not bound to this SKU
+  ANIMATED_MONOGRAM:   'live',     // drawn-live monogram bound to the SKU · PR #729 · 2026-06-01
   PANOOD_SYSTEM:       'partial',  // OAuth + UI shipped · pending YouTube verified-app
   PATIKTOK_COMPILER:   'partial',  // booth scaffold · TikTok app review pending
   PAPIC_GUEST:         'partial',  // web capture exists · quota enforcement not wired

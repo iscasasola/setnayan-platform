@@ -130,6 +130,11 @@
   .reason{font-family:var(--mono);font-size:9px;letter-spacing:.05em;background:rgba(30,34,41,.07);color:var(--ink-soft);padding:3px 7px;border-radius:20px;text-transform:uppercase;}
   #expandset{display:none;}
   /* plan (screen 16) */
+  /* animated savings banner (Your Plan) */
+  .plansave{background:var(--gold-wash);border:1px solid var(--line);border-radius:14px;padding:13px 16px;text-align:center;margin:2px 0 14px;animation:rise .4s cubic-bezier(.2,.7,.3,1) both;}
+  .plansave .ps-amt{font-family:var(--serif);font-style:italic;font-weight:600;font-size:27px;line-height:1;color:var(--gold-deep);}
+  .plansave .ps-and{color:var(--gold);font-style:normal;margin:0 3px;}
+  .plansave .ps-lbl{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin-top:6px;}
   .planfree{background:rgba(45,74,58,.07);border:1px solid rgba(45,74,58,.18);border-radius:16px;padding:16px;margin-bottom:16px;}
   .planfree .ph{font-family:var(--serif);font-style:italic;font-size:21px;font-weight:600;color:#2D4A3A;margin-bottom:4px;}
   .planfree .pp{font-size:12px;color:#3a5746;margin-bottom:10px;}
@@ -143,6 +148,21 @@
   .bundle{background:var(--mulberry);color:#fff;border-radius:16px;padding:16px 17px;margin-top:6px;}
   .bundle .bt{font-family:var(--serif);font-style:italic;font-size:20px;font-weight:600;}
   .bundle .bd{font-size:12.5px;color:rgba(255,255,255,.8);margin-top:4px;line-height:1.45;}
+  /* budget-matched bundle (keyed to the working budget) */
+  .mbundle{border:1.5px solid var(--gold);border-radius:16px;padding:15px 16px;background:var(--gold-wash);}
+  .mbundle .mb-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px;}
+  .mbundle .mb-name{font-family:var(--serif);font-style:italic;font-size:20px;font-weight:600;color:var(--gold-deep);}
+  .mbundle .mb-tag{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);white-space:nowrap;}
+  .mbundle .mb-line{font-size:12px;color:var(--ink-soft);line-height:1.4;margin:3px 0 11px;}
+  .mbundle .mb-items{display:flex;flex-wrap:wrap;gap:6px;}
+  .mbundle .bli{font-size:11.5px;background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:5px 10px;color:var(--ink);}
+  .mbundle .bli.free{border-color:rgba(45,74,58,.3);color:#2D4A3A;background:rgba(45,74,58,.06);}
+  .mbundle .mb-price{margin-top:12px;padding-top:11px;border-top:1px solid var(--gold);}
+  .mbundle .mb-out{font-size:11px;color:var(--ink-faint);text-decoration:line-through;}
+  .mbundle .mb-now{display:flex;align-items:baseline;gap:9px;margin-top:2px;flex-wrap:wrap;}
+  .mbundle .mb-amt{font-family:var(--serif);font-style:italic;font-size:27px;font-weight:700;color:var(--gold-deep);line-height:1;}
+  .mbundle .mb-off{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--mulberry);background:var(--paper);border:1px solid var(--gold);border-radius:999px;padding:3px 8px;}
+  .mbundle .mb-sub{font-size:10.5px;color:var(--ink-faint);margin-top:5px;line-height:1.4;}
   /* recap */
   .recap{border:1px solid var(--line-2);border-radius:16px;padding:18px;background:var(--surface);}
   .recapline{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px;}
@@ -161,6 +181,11 @@
   .byo-tx{display:flex;flex-direction:column;gap:3px;}
   .byo-tx b{font-size:14px;color:var(--ink);}
   .byo-tx span{font-size:12px;line-height:1.45;color:var(--ink-soft);}
+  .byo-form{margin-top:10px;display:flex;flex-direction:column;gap:8px;}
+  .byo-l{display:flex;flex-direction:column;gap:3px;}
+  .byo-lk{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-deep);}
+  .byo-send{margin-top:4px;background:var(--mulberry);color:#fff;border:none;border-radius:11px;padding:12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;}
+  .byo-done{margin-top:10px;font-size:12.5px;color:#2D4A3A;background:rgba(45,74,58,.08);border:1px solid rgba(45,74,58,.25);border-radius:11px;padding:11px 12px;line-height:1.5;}
   /* welcome */
   .welcome{text-align:center;padding-top:40px;}
   .mark{width:64px;height:64px;border-radius:18px;background:var(--gold-wash);display:flex;align-items:center;justify-content:center;margin:0 auto 26px;font-family:var(--serif);font-style:italic;font-size:30px;font-weight:600;color:var(--gold-deep);}
@@ -228,6 +253,9 @@
   .paxphoto[data-tier="t5"]{background:linear-gradient(135deg,#7c4659,#54213e);}
   #paxphotoimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .45s ease;}
   #paxphotoimg.loaded{opacity:1;}
+  /* pax photo stretches to fill the frame — up below the question, above the slider (owner 2026-06-01); one .paxphoto figure covers all 5 guest tiers */
+  #screen-pax .viewzone{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;}
+  #screen-pax .paxphoto{flex:1 1 auto;height:auto;min-height:200px;margin-top:auto;}
   /* auto monogram (name screen) — a free mark made live from the couple's names, set in a luxurious gold wedding frame (premium-only fonts) */
   .monogram{display:flex;justify-content:center;margin:clamp(6px,3vh,24px) auto 0;animation:rise .45s cubic-bezier(.2,.7,.3,1) both;}
   .mono-mark{position:relative;width:clamp(170px,48vw,200px);aspect-ratio:1;display:flex;align-items:center;justify-content:center;
@@ -256,6 +284,11 @@
   .mono-btn:hover{border-color:var(--gold);color:var(--ink);}
   .mono-btn:active{transform:scale(.95);}
   .mono-btn .ic{font-size:12px;font-weight:700;color:var(--gold-deep);min-width:14px;text-align:center;}
+  /* bride + groom name pair — captured distinctly (vital for invitation, website, monogram) */
+  .namepair{display:flex;flex-direction:column;gap:9px;}
+  .namepair .nl{display:flex;align-items:center;gap:11px;}
+  .namepair .nlk{flex:0 0 50px;font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold-deep);}
+  .namepair .nf{flex:1;}
   /* budget look-photo (budget screen) — shows how each spend band looks; updates per pick */
   .budgetphoto{position:relative;width:100%;height:clamp(196px,30vh,224px);border-radius:16px;overflow:hidden;box-shadow:0 8px 26px rgba(30,34,41,.18);animation:rise .4s cubic-bezier(.2,.7,.3,1) both;}
   .budgetphoto[data-band="essentials"]{background:linear-gradient(135deg,#f3efe6,#e6ddc9);}
@@ -290,12 +323,7 @@
   #screen-name .monogram{flex:1 1 auto;align-items:center;margin-top:8px;}
   #screen-name .mono-mark{width:clamp(200px,58vw,272px);}
   /* Full-screen, almost-invisible (10%), blurred version of the actual monogram behind everything */
-  .mono-bg{position:absolute;inset:0;z-index:0;display:flex;align-items:center;justify-content:center;overflow:hidden;pointer-events:none;}
-  #monoBg{font-size:min(82vw,440px);line-height:1;white-space:nowrap;color:var(--mulberry);opacity:.10;filter:blur(7px);}
-  .mono-bg[data-font="cormorant"] #monoBg{font-family:var(--serif);font-style:italic;font-weight:600;}
-  .mono-bg[data-font="cinzel"] #monoBg{font-family:'Cinzel',serif;font-weight:600;text-transform:uppercase;}
-  .mono-bg[data-font="playfair"] #monoBg{font-family:'Playfair Display',serif;font-style:italic;font-weight:600;}
-  .mono-bg[data-font="script"] #monoBg{font-family:'Great Vibes',cursive;font-weight:400;}
+  /* (removed the faint full-screen blurred-monogram backdrop — owner: "just keep the monogram") */
   /* picker — sticky preview + description of the last-tapped service */
   /* picker upper preview — a PROMINENT photo of the tapped service (category + name overlaid) + its definition below, pinned at the top while the chips scroll under it (opaque + a soft bottom edge + a paper cap so nothing peeks through) */
   .picker-preview{position:sticky;top:0;z-index:8;background:var(--paper);
@@ -371,12 +399,16 @@
   .feelphoto{position:relative;width:100%;height:clamp(196px,30vh,224px);border-radius:16px;overflow:hidden;background:var(--gold-wash);box-shadow:0 8px 24px rgba(30,34,41,.18);animation:rise .4s cubic-bezier(.2,.7,.3,1) both;}
   #feelphotoimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .45s ease;}
   #feelphotoimg.loaded{opacity:1;}
+  /* viewzone hero on style steps (catering → caterer photo · photo&video → its photo) + stretched feel photo — fills the dead spot (owner 2026-06-01) */
+  .prefstep .viewzone.has-hero{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;}
+  .styhero{width:100%;border-radius:16px;overflow:hidden;background:var(--gold-wash) center/cover no-repeat;box-shadow:0 8px 24px rgba(30,34,41,.16);animation:rise .4s cubic-bezier(.2,.7,.3,1) both;position:relative;}
+  .viewzone.has-hero .styhero,.viewzone.has-hero .feelphoto{flex:1 1 auto;height:auto;min-height:120px;margin-top:auto;}
   .feelcap{position:absolute;left:0;right:0;bottom:0;padding:18px 16px 11px;background:linear-gradient(transparent,rgba(0,0,0,.5));font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#fff;}
   .feelsw{display:flex;gap:8px;justify-content:center;margin:11px 0 2px;flex-wrap:wrap;}
   .fsw{width:30px;height:30px;border-radius:50%;border:1.5px solid rgba(255,255,255,.85);box-shadow:0 1px 4px rgba(30,34,41,.18);}
   .feelnote{font-size:13px;color:var(--ink-soft);text-align:center;padding:14px 8px;}
   /* Setnayan logo watermark on every photo (owner 2026-06-01 "each photo overlayed with a setnayan logo") */
-  .paxphoto::after,.budgetphoto::after,.pp-photo::after,.feelphoto::after,.faithphoto::after,.rolephoto::after,.kindphoto::after{
+  .paxphoto::after,.budgetphoto::after,.pp-photo::after,.feelphoto::after,.faithphoto::after,.rolephoto::after,.kindphoto::after,.styhero::after{
     content:'SETNAYAN';position:absolute;top:9px;right:11px;z-index:4;pointer-events:none;
     font-family:var(--mono);font-size:8.5px;font-weight:500;letter-spacing:.2em;
     color:rgba(255,255,255,.66);text-shadow:0 1px 3px rgba(0,0,0,.5);}
@@ -442,6 +474,12 @@
   #screen-region .opt .ot{font-size:15px;}
   #screen-region .opt .od{font-size:12px;margin-top:2px;}
   #screen-region #optElsewhere{margin-top:9px;}
+  /* per-region "why wed here" nugget — fills the viewzone, sits just above the cards */
+  #screen-region .viewzone{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;}
+  .regnug{margin-top:auto;display:flex;gap:11px;align-items:flex-start;background:var(--gold-wash);border:1px solid var(--line);border-radius:14px;padding:14px 15px;animation:rise .4s cubic-bezier(.2,.7,.3,1) both;}
+  .regnug .ic{color:var(--gold-deep);font-size:13px;line-height:1.6;flex:none;}
+  .regnug .rt{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold-deep);margin-bottom:5px;}
+  .regnug .rl{font-family:var(--serif);font-style:italic;font-weight:600;font-size:16.5px;line-height:1.34;color:var(--ink);}
   .otcol{flex:1;min-width:0;}
   /* bottom */
   .bottom{flex:0 0 auto;padding:14px 22px calc(18px + env(safe-area-inset-bottom));background:var(--paper);
@@ -544,11 +582,10 @@
 
     <!-- 5 NAME -->
     <section class="screen" id="screen-name">
-      <div class="mono-bg" id="monoBgWrap" data-font="cormorant" aria-hidden="true"><span id="monoBg">M &amp; J</span></div>
       <div class="viewzone">
         <div class="eyebrow">Your wedding</div>
-        <h1 class="q">What should we call it?</h1>
-        <p class="sub">It goes on your website, your monogram, and your plan.</p>
+        <h1 class="q">The two of you.</h1>
+        <p class="sub">Bride &amp; groom — it goes on your invitation, website &amp; monogram.</p>
         <figure class="monogram">
           <div class="mono-mark" id="monoMark" data-frame="wreath" data-font="cormorant"><span class="mono-letters" id="monoLetters">M &amp; J</span></div>
         </figure>
@@ -558,7 +595,10 @@
           <button type="button" class="mono-btn" id="monoFrameBtn"><span class="ic" aria-hidden="true">&#9711;</span> Frame</button>
           <button type="button" class="mono-btn" id="monoFontBtn"><span class="ic" aria-hidden="true">Aa</span> Font</button>
         </div>
-        <input class="field" id="nameField" placeholder="Maria &amp; Juan" value="Maria &amp; Juan">
+        <div class="namepair">
+          <label class="nl"><span class="nlk">Bride</span><input class="field nf" id="brideField" placeholder="Maria" value="Maria"></label>
+          <label class="nl"><span class="nlk">Groom</span><input class="field nf" id="groomField" placeholder="Juan" value="Juan"></label>
+        </div>
       </div>
     </section>
 
@@ -595,16 +635,17 @@
         <div class="eyebrow">Where</div>
         <h1 class="q">Where will it be?</h1>
         <p class="sub">Top PH wedding regions — or open the full list. We only show vendors who cover your area.</p>
+        <div class="regnug" id="regNug"><span class="ic" aria-hidden="true">✦</span><div class="regnug-tx"><div class="rt" id="regNugT">Why Metro Manila</div><div class="rl" id="regNugL"></div></div></div>
       </div>
       <div class="tapzone">
       <div class="stack" id="regionTop">
-        <div class="opt rowimg sel" data-region="ncr"><div class="othumb imgph"><span class="g">🏙️</span></div><div class="otcol"><div class="ot">Metro Manila · NCR</div><div class="od">Quezon City · Makati · Manila · Pasig</div></div><span class="check"></span></div>
-        <div class="opt rowimg" data-region="calabarzon"><div class="othumb imgph"><span class="g">🌿</span></div><div class="otcol"><div class="ot">CALABARZON</div><div class="od">Tagaytay · Batangas · Laguna · Cavite</div></div><span class="check"></span></div>
-        <div class="opt rowimg" data-region="c-visayas"><div class="othumb imgph"><span class="g">🐠</span></div><div class="otcol"><div class="ot">Central Visayas</div><div class="od">Cebu · Bohol</div></div><span class="check"></span></div>
-        <div class="opt rowimg" data-region="w-visayas"><div class="othumb imgph"><span class="g">🏖️</span></div><div class="otcol"><div class="ot">Western Visayas</div><div class="od">Boracay · Iloilo · Bacolod</div></div><span class="check"></span></div>
-        <div class="opt rowimg" data-region="c-luzon"><div class="othumb imgph"><span class="g">🛕</span></div><div class="otcol"><div class="ot">Central Luzon</div><div class="od">Pampanga · Bulacan · Subic</div></div><span class="check"></span></div>
+        <div class="opt rowimg sel" data-region="ncr"><div class="otcol"><div class="ot">Metro Manila · NCR</div><div class="od">Quezon City · Makati · Manila · Pasig</div></div><span class="check"></span></div>
+        <div class="opt rowimg" data-region="calabarzon"><div class="otcol"><div class="ot">CALABARZON</div><div class="od">Tagaytay · Batangas · Laguna · Cavite</div></div><span class="check"></span></div>
+        <div class="opt rowimg" data-region="c-visayas"><div class="otcol"><div class="ot">Central Visayas</div><div class="od">Cebu · Bohol</div></div><span class="check"></span></div>
+        <div class="opt rowimg" data-region="w-visayas"><div class="otcol"><div class="ot">Western Visayas</div><div class="od">Boracay · Iloilo · Bacolod</div></div><span class="check"></span></div>
+        <div class="opt rowimg" data-region="c-luzon"><div class="otcol"><div class="ot">Central Luzon</div><div class="od">Pampanga · Bulacan · Subic</div></div><span class="check"></span></div>
       </div>
-      <div class="opt rowimg" id="optElsewhere"><div class="othumb imgph"><span class="g">🗺️</span></div><div class="otcol"><div class="ot">Somewhere else</div><div class="od">Open every region — match by area.</div></div><span class="check"></span></div>
+      <div class="opt rowimg" id="optElsewhere"><div class="otcol"><div class="ot">Somewhere else</div><div class="od">Open every region — match by area.</div></div><span class="check"></span></div>
       <div id="regionMore" style="display:none">
         <div class="moreback" id="regionBack">‹ Show top regions</div>
         <div class="regiongrid">
@@ -824,25 +865,34 @@
           </div>
         </div>
       </div>
-      <div class="byo">
-        <div class="byo-ic">+</div>
-        <div class="byo-tx"><b>Already have a vendor you love?</b><span>Add your own — and invite them to Setnayan. Then run chat, files, your wedding website &amp; day-of in one place, and use Papic, Panood &amp; more with them.</span></div>
+      <div class="byowrap">
+        <div class="byo" id="byoCard" onclick="toggleByo()">
+          <div class="byo-ic">+</div>
+          <div class="byo-tx"><b>Already have a vendor you love?</b><span>Add your own — and invite them to Setnayan. Then run chat, files, your wedding website &amp; day-of in one place, and use Papic, Panood &amp; more with them.</span></div>
+        </div>
+        <div class="byo-form" id="byoForm" hidden>
+          <label class="byo-l"><span class="byo-lk">Vendor name</span><input class="field byo-f" id="byoName" placeholder="e.g. Bloom &amp; Co. Florals"></label>
+          <label class="byo-l"><span class="byo-lk">Contact person</span><input class="field byo-f" id="byoPerson" placeholder="Who you talk to"></label>
+          <label class="byo-l"><span class="byo-lk">Email address</span><input class="field byo-f" id="byoEmail" type="email" placeholder="name@email.com"></label>
+          <button class="byo-send" id="byoSend" onclick="sendByo(event)">Send their invite</button>
+        </div>
+        <div class="byo-done" id="byoDone" hidden></div>
       </div>
     </section>
 
     <!-- 14 STARTING PLAN -->
     <section class="screen">
       <div class="eyebrow">You did the hard part</div>
-      <h1 class="q" style="font-size:29px">Congratulations,<br>Maria &amp; Juan.</h1>
+      <h1 class="q" style="font-size:29px">Congratulations,<br><span data-couple-name>Maria &amp; Juan</span>.</h1>
       <p class="sub">You've done the most crucial part — your whole wedding is on track. From here, we help you finish, so you can focus on everything else.</p>
-      <!-- STATS: 200+ hrs + 48-of-2,400 are PLACEHOLDERS — owner to confirm the real benchmark + curation counts (Vendors Plan+Budget §6). days ≈ real (to Dec 18 2026). -->
+      <!-- SAVINGS — computed live in production from the couple's event (categories · shortlisted · runway · design vendors · expos) per Time_and_Money_Saved_Model_2026-06-01.md. Demo = typical couple (dashboard 0.5h/day · Today's Focus excluded · 4 expos). Counts up on entry. -->
       <div class="statstrip">
-        <div class="stat"><b>200+</b><span>hrs the average couple spends deciding all this</span></div>
-        <div class="stat"><b>48</b><span>best-fit vendors curated from 2,400+</span></div>
-        <div class="stat"><b>200</b><span>days to finalize — you're ahead</span></div>
+        <div class="stat"><b data-count="42992" data-prefix="₱">₱0</b><span>saved with Setnayan — free</span></div>
+        <div class="stat"><b data-count="745">0</b><span>hours saved vs planning alone</span></div>
+        <div class="stat"><b data-count="48">0</b><span>best-fit vendors from 2,400+</span></div>
       </div>
       <div class="recap tight">
-        <div class="recapline"><span class="rk">Wedding</span><span class="rv">Maria &amp; Juan</span></div>
+        <div class="recapline"><span class="rk">Wedding</span><span class="rv" data-couple-name>Maria &amp; Juan</span></div>
         <div class="recapline"><span class="rk">Date</span><span class="rv">Dec 18, 2026</span></div>
         <div class="recapline"><span class="rk">Where</span><span class="rv">Metro Manila</span></div>
         <div class="recapline"><span class="rk">Guests</span><span class="rv">200</span></div>
@@ -853,31 +903,31 @@
     </section>
 
     <!-- 15 YOUR PLAN -->
-    <section class="screen">
+    <section class="screen" id="screen-plan">
       <div class="eyebrow">Your plan</div>
-      <h1 class="q" style="font-size:30px">Your wedding, planned.</h1>
+      <h1 class="q" style="font-size:31px;line-height:1.08"><span data-couple-name>Maria &amp; Juan</span></h1>
+      <p class="sub" style="margin-top:-3px">Your wedding, planned.</p>
+
+      <!-- animated savings — computed live in production per Time_and_Money_Saved_Model_2026-06-01.md -->
+      <div class="plansave">
+        <div class="ps-amt"><b data-count="42992" data-prefix="₱">₱0</b> <span class="ps-and">·</span> <b data-count="745" data-suffix=" hrs">0 hrs</b></div>
+        <div class="ps-lbl">already saved — free, just by planning here</div>
+      </div>
 
       <div class="planfree">
-        <div class="ph">Everything you get free</div>
-        <div class="pp">All of this is yours — ₱0.</div>
+        <div class="ph">All your freebies</div>
+        <div class="pp">Everything below is yours — ₱0, forever.</div>
         <div class="freeli">
-          <b>Your dashboard</b> · <b>marketplace + shortlist</b> · <b>free wedding website</b> · mood board · guest list · budget tracker · seat plan · compare quotes · real reviews · <b>verified-vendor safety</b>.
+          <b>Your dashboard</b> · <b>vendor marketplace</b> + shortlist + side-by-side compare · <b>free wedding website</b> (RSVP · event site · editorial) · <b>mood board</b> · guest list · seat plan · budget tracker · basic monogram · smart vendor matching · real reviews · <b>verified-vendor safety</b> · in-app vendor chat · day-of guest portal · multi-host co-planning · <b>photos synced to your Google Drive</b>.
         </div>
       </div>
 
       <div class="grouplbl">Matched to your wedding</div>
-      <div class="booster">
-        <div class="br"><span class="bn">Today's Focus</span><span class="bpr">₱1,499</span></div>
-        <div class="bwhy">Never wonder what to do next — your whole wedding in guided steps. Everyone's anchor.</div>
-      </div>
-      <div class="booster">
-        <div class="br"><span class="bn">Panood livestream</span><span class="bpr">₱3,499/day</span></div>
-        <div class="bwhy">Catholic weddings draw family from everywhere — stream it live for the ones who can't come.</div>
-      </div>
+      <div id="matchedhost"></div>
 
       <div class="bundle">
-        <div class="bt">Or get it all → Pro Bundle</div>
-        <div class="bd">Every upgrade for your day, one payment — <b>₱24,999</b> (~50% off à la carte).</div>
+        <div class="bt">Or the complete all-in → Pro Bundle</div>
+        <div class="bd">Every upgrade for your day, one payment — <b>₱24,999</b> (save ~₱6,500 vs à la carte).</div>
       </div>
       <div class="ghost"><u>Continue with the free plan</u></div>
     </section>
@@ -901,6 +951,85 @@
   const nextLabel=['Let’s go','Continue','Continue','Continue','Continue','Continue','Continue','Continue','Continue','Continue','Looks good','Create account','Continue','Continue','Done'];
   // which screens show a Skip button
   const canSkip=[false,false,false,true,false,true,false,true,true,false,true,false,true,false,false];
+  // "What would you love?" auto-highlights a budget-appropriate starter set — essentials first, then scale up as the working budget rises (owner 2026-06-01).
+  // Cumulative priority ladder: each band unions all tiers up to its level; luxury/nolimit = as many as possible (all).
+  const PRIORITY_TIERS=[
+    ['reception','ceremony','photo_video','bride_attire'],            // T0 — the bare minimum (venues are a must, then photo+video, then bride's attire)
+    ['catering','groom_attire','hmua'],                              // T1 — food + groom + glam (was home/family at the floor)
+    ['cake','coordinator','florist','host_mc'],                      // T2 — celebration essentials
+    ['lights_sound','bridal_car','printing','dj'],                  // T3 — the experience
+    ['mobile_bar','photo_booth','women_attire','men_attire','stylist'] // T4 — the extras
+    // T5 (luxury / no limit) = every category
+  ];
+  const BAND_LEVEL={essentials:0,simple:1,classic:2,elevated:3,premium:4,luxury:5,nolimit:5};
+  function applyBudgetHighlight(){
+    var picker=document.getElementById('screen-picker'); if(!picker) return;
+    var band=(document.querySelector('#budgetchips .chip.sel')||{dataset:{}}).dataset.band||'classic';
+    var lvl=BAND_LEVEL[band]; if(lvl===undefined) lvl=2;
+    var all=[].slice.call(picker.querySelectorAll('.chip[data-cat]'));
+    all.forEach(c=>c.classList.remove('sel'));
+    if(lvl>=5){ all.forEach(c=>c.classList.add('sel')); return; }     // luxury — as many vendors as possible
+    var set={}; for(var t=0;t<=lvl;t++) PRIORITY_TIERS[t].forEach(k=>set[k]=1);
+    all.forEach(c=>{ if(set[c.dataset.cat]) c.classList.add('sel'); });
+  }
+  // ── Budget-matched bundle (owner 2026-06-01): one curated bundle keyed to the working budget. ──
+  // Cumulative ladder (each tier adds to the one below). Item display labels:
+  const BUNDLE_ITEMS={ today_focus:"Today's Focus · planning", advanced_website:'Advanced Website', papic_guest:'Papic for guests', sde:'Same-Day Edit', guest_stories:'Guest Stories', pabati:'Pabati guestbook', papic_seats:'Papic · 5 seats', animated_monogram:'Animated Monogram', thank_you:'Thank-You Video', pakanta:'Pakanta · your song', custom_qr:'Custom QR per guest', panood:'Panood livestream', live_background:'Live Background', live_photowall:'Live Photo Wall', indoor_blueprint:'Indoor Blueprint', high_res:'High-Res Archive' };
+  const HIGH_RES_FREE={ high_res:1 };   // already a free baseline (2026-06-01) — flagged on the card
+  const BUNDLE_TIERS=[
+    // Today's Focus (Setnayan's coordination/planning anchor — the "coordinator") added at the base so every bundle carries it (owner 2026-06-01).
+    { key:'essential',  name:'Essential Bundle',    add:['today_focus','advanced_website','papic_guest','sde'] },
+    { key:'simple',     name:'Simple Bundle',       add:['guest_stories','pabati'] },
+    { key:'classic',    name:'Classic Bundle',      add:['papic_seats','animated_monogram','thank_you','pakanta','custom_qr'] },
+    { key:'grand',      name:'Grand Bundle',        add:['panood','live_background','live_photowall','indoor_blueprint'] },   // + big-venue wayfinding
+    { key:'grandfiesta',name:'Grand Fiesta Bundle', add:['high_res'] }
+  ];
+  // ⚠ STAND-IN for the admin pricing menu — bundles are PRICE-FOLLOWERS, not price-setters.
+  // In production the bundle reads each service's live price from the admin Add-on Management menu (iteration 0023 §3.12 / service_catalog),
+  // so an admin price change updates every bundle automatically — this hardcoded table is only the prototype demo source.
+  // out = market-equivalent "if hired separately" (an admin-editable per-service field) · set = Setnayan price (pax items scale per guest, per-50 set in admin).
+  const SVC={ today_focus:{out:20000,set:1499}, advanced_website:{out:25000,set:5499}, papic_guest:{out:32000,set:2999}, sde:{out:35000,set:3499}, guest_stories:{out:8000,set:1999}, pabati:{out:12000,set:999}, papic_seats:{out:75000,set:2999}, animated_monogram:{out:15500,set:2499}, thank_you:{out:60000,set:5499}, pakanta:{out:12500,set:2499}, custom_qr:{out:5000,set:1499}, panood:{out:17500,set:3499}, live_background:{out:20000,set:2499}, live_photowall:{out:18000,set:2499}, indoor_blueprint:{out:12500,set:1499}, high_res:{out:5000,set:0} };
+  function pesoB(n){ return '₱'+Math.round(n).toLocaleString('en-US'); }
+  const BUNDLE_INDEX={ essential:0, simple:1, classic:2, grand:3, grandfiesta:4 };
+  const BUNDLE_TAGLINE={ essential:'Plan it and capture it — the must-haves.', simple:'A fuller set so every guest is part of the story.', classic:'The complete celebration — planned, captured, scored, styled.', grand:'A production: planned, livestreamed, lit, and easy to navigate.', grandfiesta:'Everything, nothing held back — your grandest day.' };
+  // 7 budget bands → 5 bundles (essentials/simple/classic match by name · elevated+premium→Grand · luxury+nolimit→Grand Fiesta) — FLAGGED for owner.
+  const BAND_TO_BUNDLE={ essentials:'essential', simple:'simple', classic:'classic', elevated:'grand', premium:'grand', luxury:'grandfiesta', nolimit:'grandfiesta' };
+  function bundleItemsFor(bk){ var idx=BUNDLE_INDEX[bk]; if(idx===undefined) idx=2; var out=[]; for(var t=0;t<=idx;t++) BUNDLE_TIERS[t].add.forEach(k=>out.push(k)); return out; }
+  function renderMatchedBundle(){
+    var host=document.getElementById('matchedhost'); if(!host) return;
+    var band=(document.querySelector('#budgetchips .chip.sel')||{dataset:{}}).dataset.band||'classic';
+    var bk=BAND_TO_BUNDLE[band]||'classic';
+    var tier=BUNDLE_TIERS[BUNDLE_INDEX[bk]];
+    var items=bundleItemsFor(bk);
+    var lis=items.map(function(k){ return '<span class="bli'+(HIGH_RES_FREE[k]?' free':'')+'">'+BUNDLE_ITEMS[k]+(HIGH_RES_FREE[k]?' · free':'')+'</span>'; }).join('');
+    // outside (if hired separately) vs Setnayan à la carte vs bundle (à la carte − extra 20% if booked now)
+    var outTotal=0, setTotal=0;
+    items.forEach(function(k){ var p=SVC[k]||{out:0,set:0}; outTotal+=p.out; setTotal+=p.set; });
+    var bundlePrice=Math.round(setTotal*0.8/100)*100-1;   // 20% off à la carte, charm-rounded
+    var priceBlock='<div class="mb-price">'
+      +'<span class="mb-out">'+pesoB(outTotal)+' if hired separately</span>'
+      +'<div class="mb-now"><b class="mb-amt">'+pesoB(bundlePrice)+'</b><span class="mb-off">−20% bundle · book now</span></div>'
+      +'<div class="mb-sub">'+pesoB(setTotal)+' à la carte · the extra 20% holds only if you add it now</div>'
+      +'</div>';
+    host.innerHTML='<div class="mbundle"><div class="mb-h"><span class="mb-name">'+tier.name+'</span><span class="mb-tag">'+items.length+' picks</span></div><div class="mb-line">'+BUNDLE_TAGLINE[bk]+'</div><div class="mb-items">'+lis+'</div>'+priceBlock+'</div>';
+  }
+  // Bring-your-own vendor → the couple-initiated off-platform invite (vendor_invites · CLAUDE.md 2026-05-19). Tap the card → fill name/contact/email → we email them to join.
+  function toggleByo(){
+    var d=document.getElementById('byoDone'); if(d && !d.hidden) return;   // already sent
+    var f=document.getElementById('byoForm'); if(!f) return;
+    f.hidden=!f.hidden;
+    if(!f.hidden){ var n=document.getElementById('byoName'); if(n) n.focus(); }
+  }
+  function sendByo(e){
+    if(e) e.stopPropagation();
+    var name=(document.getElementById('byoName').value||'').trim();
+    var email=(document.getElementById('byoEmail').value||'').trim();
+    if(!name){ document.getElementById('byoName').focus(); return; }
+    document.getElementById('byoForm').hidden=true;
+    var card=document.getElementById('byoCard'); if(card){ card.querySelector('.byo-tx b').textContent='Vendor added'; card.style.cursor='default'; }
+    var d=document.getElementById('byoDone'); d.hidden=false;
+    d.innerHTML='✓ <b>'+name+'</b> is on your list. We\'ll email '+(email?('<b>'+email+'</b>'):'them')+' an invite to join Setnayan — once they\'re in, your chat, files, website &amp; day-of all run in one place.';
+  }
   function render(){
     screens.forEach((s,n)=>s.classList.toggle('active',n===i));
     bar.style.width=((i+1)/total*100)+'%';
@@ -916,6 +1045,9 @@
     if(id==='screen-prefs') buildPrefs();
     if(id==='screen-pax') buildPax();
     if(id==='screen-budget') buildBudget();
+    if(id==='screen-picker' && !window.pickerTouched) applyBudgetHighlight();   // budget-appropriate starter set (essentials first, scale with budget)
+    if(id==='screen-plan') renderMatchedBundle();   // budget-matched bundle in "Matched to your wedding"
+    runCounters(screens[i]);   // animate the savings tiles on Congrats + Your Plan entry
   }
   function go(d){
     // Style step is an internal sub-stepper: walk its focused screens before leaving to the account screen.
@@ -937,7 +1069,14 @@
     const host=document.getElementById('prefhost'); const PQ=window.PQ||{len:0,idx:0}; if(!host) return;
     const steps=[...host.querySelectorAll('.prefstep')]; PQ.idx=idx; window.PQ=PQ;
     steps.forEach((s,k)=>s.style.display = k===idx?'flex':'none');
-    const cur=steps[idx]; if(cur) cur.querySelectorAll('.prefdots i').forEach((dt,k)=>dt.classList.toggle('on',k<=idx));
+    const cur=steps[idx];
+    if(cur){
+      cur.querySelectorAll('.prefdots i').forEach((dt,k)=>dt.classList.toggle('on',k<=idx));
+      if(cur.querySelector('#feelphoto')){      // palette step — (re)load the feel photo at the couple's current budget tier
+        const sc=cur.querySelector('.chip.sel[data-feel]');
+        setFeel(sc?sc.dataset.feel:'timeless');
+      }
+    }
     next.textContent = idx>=PQ.len-1 ? 'Looks good' : 'Continue';
     if(typeof bodyscroll!=='undefined' && bodyscroll) bodyscroll.scrollTop=0;
   }
@@ -965,7 +1104,9 @@
         const max=+mgrp.dataset.max||99, picked=[...mgrp.querySelectorAll('.chip.sel:not(.locked)')];
         if(picked.length>=max) picked[0].classList.remove('sel');   // rolling: drop the first-picked to make room
       }
-      chip.classList.toggle('sel'); if(chip.dataset.faith) setFaithPhoto(chip); return;
+      chip.classList.toggle('sel'); if(chip.dataset.faith) setFaithPhoto(chip);
+      if(chip.closest('#screen-picker')) window.pickerTouched=true;   // once edited, stop budget auto-highlight from overriding their picks
+      return;
     }
     const opt=e.target.closest('.opt');
     if(opt){ const grp=opt.closest('[data-single]');
@@ -1288,15 +1429,18 @@ Kahit Kailan|South Border`.trim().split('\n').map(l=>l.split('|'));
     ceremony:{eb:'Ceremony',q:'Where will you say “I do”?',sub:'We’ll match officiants and venues that fit.',
       body:'<div data-single>'+PGRID([['⛪','Church','ceremony_church'],['🌿','Garden','ceremony_garden'],['🏖️','Beach','ceremony_beach'],['🏛️','Civil registrar','ceremony_civil'],['🎪','Same as reception','ceremony_same_reception']],0)+'</div>'},
     catering:{eb:'Catering',q:'Pick your cuisine',sub:'Open to a few cuisines? Tap them all.',
+      vhero:'<figure class="styhero" style="background-image:url(assets/picker/catering.webp)" aria-hidden="true"></figure>',
       body:PGRID([['🍲','Filipino','cuisine_filipino'],['🥢','Asian','cuisine_asian'],['🌍','International','cuisine_international'],['🥘','Spanish','cuisine_spanish'],['🍝','Italian','cuisine_italian'],['✨','Fusion','cuisine_fusion']],0,'strip')+PB('','Service style',ROW(['Plated','Buffet','Family-style','Stations'],1,1)+DIETROW())+'<div class="micro" style="margin-top:6px" data-diet-note></div>'},
     photo_video:{eb:'Photo &amp; Video',q:'Your look',sub:'Mix a couple — we’ll match teams who shoot that way.',
+      vhero:'<figure class="styhero" style="background-image:url(assets/picker/photo_video.webp)" aria-hidden="true"></figure>',
       body:PGRID([['📸','Photojournalistic','pv_photojournalistic'],['🤍','Classic','pv_classic'],['📰','Editorial','pv_editorial'],['🎞️','Fine-art / film','pv_fineart'],['🎬','Cinematic','pv_cinematic']],0,'strip')+PB('','What do you need?',ROW(['Both photo &amp; video','Photo only','Video only'],1,0))+PB('','What’s included?',ROW(['Pre-nup','Wedding day','Same-day edit','Drone','Save-the-date','Album'],0,1))},
     music:{eb:'Music',q:'Your songs',sub:'Tap the ones you love — they jump to the top. Pick at least 10; we’ll build the rest of your playlist.',
       body:'<div class="songpick"><div class="songhead"><div class="songbar">Picked <b id="songn">0</b> · <span id="songgoal">pick at least 10</span></div><div class="songsearch"><input id="songq" type="search" placeholder="Search songs or artists…" autocomplete="off"></div></div><div class="songlist">'+MUSIC100.map((s,j)=>`<div class="song" data-i="${j}"><span class="sck"></span><span class="stxt"><span class="st">${s[0]}</span><span class="sa">${s[1]}</span></span></div>`).join('')+'</div></div>'},
     coordinator:{eb:'Coordinator',q:'How much help do you want?',sub:'From soup-to-nuts to just the big day.',
       body:ROW(['Full planning','Partial','On-the-day'],1,0)},
     palette:{eb:'Your overall feel',q:'Set the mood',sub:'Pick a feel — see it in its colors. It guides your stylist, florist, cake &amp; gown.',
-      body:'<figure class="feelphoto" id="feelphoto"><img id="feelphotoimg" src="assets/prefs/feel_timeless.webp" class="loaded" alt=""><figcaption class="feelcap"><span id="feelcaptag">Timeless</span></figcaption></figure><div class="feelsw" id="feelsw"><span class="fsw" style="background:#f3ece0"></span><span class="fsw" style="background:#e8d6b8"></span><span class="fsw" style="background:#c5a059"></span><span class="fsw" style="background:#8a6d3b"></span><span class="fsw" style="background:#ffffff"></span></div>'+PB('','The feel','<div class="chips" data-single data-feel><span class="chip sel" data-feel="timeless">Timeless</span><span class="chip" data-feel="modern">Modern</span><span class="chip" data-feel="boho">Boho</span><span class="chip" data-feel="rustic">Rustic</span><span class="chip" data-feel="glam">Glam</span><span class="chip" data-feel="royalty">Royalty</span><span class="chip" data-feel="filipiniana">Filipiniana</span><span class="chip" data-feel="others">Others</span></div>')}
+      vhero:'<figure class="feelphoto" id="feelphoto"><img id="feelphotoimg" src="assets/prefs/feel_timeless.webp" class="loaded" alt=""><figcaption class="feelcap"><span id="feelcaptag">Timeless</span></figcaption></figure>',
+      body:'<div class="feelsw" id="feelsw"><span class="fsw" style="background:#f3ece0"></span><span class="fsw" style="background:#e8d6b8"></span><span class="fsw" style="background:#c5a059"></span><span class="fsw" style="background:#8a6d3b"></span><span class="fsw" style="background:#ffffff"></span></div>'+PB('','The feel','<div class="chips" data-single data-feel><span class="chip sel" data-feel="timeless">Timeless</span><span class="chip" data-feel="modern">Modern</span><span class="chip" data-feel="boho">Boho</span><span class="chip" data-feel="rustic">Rustic</span><span class="chip" data-feel="glam">Glam</span><span class="chip" data-feel="royalty">Royalty</span><span class="chip" data-feel="filipiniana">Filipiniana</span><span class="chip" data-feel="others">Others</span></div>')}
   };
   // builds the queue of focused style screens from the picks (lean set · de-duped music + aesthetic→palette),
   // renders one .prefstep per dimension, then shows the first. The Back/Continue/Skip buttons walk them via prefStep().
@@ -1321,8 +1465,8 @@ Kahit Kailan|South Border`.trim().split('\n').map(l=>l.split('|'));
     host.innerHTML=queue.map((k,idx)=>{
       const p=LEANPREF[k];
       return '<div class="prefstep" data-pi="'+idx+'">'
-        +'<div class="viewzone"><div class="prefprog"><span class="prefcount">Style '+(idx+1)+' of '+queue.length+'</span><span class="prefdots">'+queue.map(()=>'<i></i>').join('')+'</span></div>'
-        +'<div class="eyebrow">'+p.eb+' <span class="tag new">New</span></div><h1 class="q">'+p.q+'</h1><p class="sub">'+p.sub+'</p></div>'
+        +'<div class="viewzone'+(p.vhero?' has-hero':'')+'"><div class="prefprog"><span class="prefcount">Style '+(idx+1)+' of '+queue.length+'</span><span class="prefdots">'+queue.map(()=>'<i></i>').join('')+'</span></div>'
+        +'<div class="eyebrow">'+p.eb+' <span class="tag new">New</span></div><h1 class="q">'+p.q+'</h1><p class="sub">'+p.sub+'</p>'+(p.vhero||'')+'</div>'
         +'<div class="tapzone">'+p.body+'<div class="prefmicro"><span>✦</span>Tap all that fit — refine anytime on your Home.</div></div>'
         +'</div>';
     }).join('');
@@ -1434,6 +1578,18 @@ Kahit Kailan|South Border`.trim().split('\n').map(l=>l.split('|'));
     others:null
   };
   const FEELLBL={timeless:'Timeless',modern:'Modern',boho:'Boho',rustic:'Rustic',glam:'Glam',royalty:'Royalty',filipiniana:'Filipiniana',others:'Others'};
+  // the feel photo follows the working budget — 6 bands map to 3 lavishness tiers so the look is clearly different (owner 2026-06-01)
+  function budgetTier(){
+    const sel=document.querySelector('#budgetchips .chip.sel');
+    const band=sel?sel.dataset.band:'classic';
+    if(band==='essentials'||band==='simple') return 'lean';
+    if(band==='premium'||band==='luxury'||band==='nolimit') return 'lavish';
+    return 'mid';                               // classic, elevated
+  }
+  function budgetBandLabel(){
+    const sel=document.querySelector('#budgetchips .chip.sel');
+    return sel?sel.textContent.trim():'Classic';
+  }
   function setFeel(key){
     const fig=document.getElementById('feelphoto'), img=document.getElementById('feelphotoimg'),
           tag=document.getElementById('feelcaptag'), sw=document.getElementById('feelsw');
@@ -1445,8 +1601,8 @@ Kahit Kailan|South Border`.trim().split('\n').map(l=>l.split('|'));
       return;
     }
     fig.style.display='';
-    if(tag) tag.textContent=FEELLBL[key]||'';
-    if(img){ const src='assets/prefs/feel_'+key+'.webp';
+    if(tag) tag.textContent=(FEELLBL[key]||'')+' · '+budgetBandLabel();   // show the feel AT their budget
+    if(img){ const src='assets/prefs/feel_'+key+'_'+budgetTier()+'.webp'; // feel × budget tier (lean / mid / lavish)
       if(img.getAttribute('src')!==src){ img.classList.remove('loaded'); img.onload=()=>img.classList.add('loaded'); img.onerror=()=>img.classList.remove('loaded'); img.src=src; } }
     sw.innerHTML=cols.map(c=>`<span class="fsw" style="background:${c}"></span>`).join('');
   }
@@ -1589,40 +1745,89 @@ Kahit Kailan|South Border`.trim().split('\n').map(l=>l.split('|'));
     const top=document.getElementById('regionTop'), el=document.getElementById('optElsewhere'),
           more=document.getElementById('regionMore'), back=document.getElementById('regionBack');
     if(!top) return;
+    const REGLABEL={ncr:'Metro Manila',calabarzon:'CALABARZON','c-visayas':'Central Visayas','w-visayas':'Western Visayas','c-luzon':'Central Luzon',ilocos:'Ilocos',cagayan:'Cagayan Valley',bicol:'Bicol',mimaropa:'MIMAROPA','e-visayas':'Eastern Visayas',zamboanga:'Zamboanga','n-mindanao':'Northern Mindanao',davao:'Davao',soccsksargen:'SOCCSKSARGEN',caraga:'Caraga',barmm:'BARMM',car:'Cordillera · CAR',abroad:'Outside the PH'};
+    const REGNUG={
+      ncr:'The grandest ballrooms and the most-booked names — every vendor you could dream of, minutes away.',
+      calabarzon:"Tagaytay's cool ridge and lakeside views — the country's favourite garden escape, an hour out.",
+      'c-visayas':'Heritage churches and island resorts — a destination wedding without the passport.',
+      'w-visayas':"Boracay's powder-white sand and Iloilo's grand old churches — beach and heritage in one region.",
+      'c-luzon':"Kapampangan kitchens and Bulacan's grand halls — where Filipino feasting runs deepest.",
+      ilocos:"Centuries-old Vigan stone and Paoay's UNESCO church — vows wrapped in living history.",
+      cagayan:"Batanes' rolling hills and Ivatan stone houses, or Cagayan's Callao caves — wild, dramatic, far-north backdrops.",
+      bicol:"Mayon's perfect cone on the horizon — a volcano view no venue could ever fake.",
+      mimaropa:"Palawan's hidden lagoons and Puerto Princesa coves — the most cinematic island 'I do'.",
+      'e-visayas':'San Juanico sunsets and quiet island chapels — intimate, and far from the crowds.',
+      zamboanga:"Vinta-sail colour and Asia's Latin City warmth — a wedding with real character.",
+      'n-mindanao':"Cagayan de Oro's rivers and Camiguin's volcanic isle — adventure meets celebration.",
+      davao:'Mount Apo air, fine local fare and polished city venues — relaxed and grand at once.',
+      soccsksargen:"Lake Sebu's highland calm and Gen San's fresh feast — serene and generous.",
+      caraga:"Siargao's surf-town cool and golden island light — a laid-back, barefoot kind of beautiful.",
+      barmm:'Lake Lanao heritage and rich Maranao artistry — a wedding with deep cultural soul.',
+      car:"Baguio pines and Sagada's cool highlands — crisp mountain air and evergreen views.",
+      abroad:"Getting married overseas? We'll still plan it with you — and bring your vendors on board."
+    };
+    const nt=document.getElementById('regNugT'), nl=document.getElementById('regNugL');
+    function setNug(key){ if(!nl) return; if(key&&REGNUG[key]){ nt.textContent='Why '+(REGLABEL[key]||'here'); nl.textContent=REGNUG[key]; } }
     const clear=()=>{ top.querySelectorAll('.opt.sel').forEach(o=>o.classList.remove('sel')); el.classList.remove('sel'); more.querySelectorAll('.regopt.sel').forEach(o=>o.classList.remove('sel')); };
-    const expand=()=>{ top.style.display='none'; more.style.display=''; el.classList.add('expanded'); };
+    const expand=()=>{ top.style.display='none'; more.style.display=''; el.classList.add('expanded'); if(nt){ nt.textContent='Anywhere in the Philippines'; nl.textContent='Pick your region below — we match you with vendors who cover your area.'; } };
     const collapse=()=>{ top.style.display=''; more.style.display='none'; el.classList.remove('expanded'); };
-    top.addEventListener('click',e=>{ const o=e.target.closest('.opt'); if(!o) return; clear(); o.classList.add('sel'); });
+    top.addEventListener('click',e=>{ const o=e.target.closest('.opt'); if(!o) return; clear(); o.classList.add('sel'); setNug(o.dataset.region); });
     el.addEventListener('click',()=>{ if(more.style.display==='none'){ clear(); expand(); } else { collapse(); } });
     back.addEventListener('click',collapse);
-    more.addEventListener('click',e=>{ const r=e.target.closest('.regopt'); if(!r) return; clear(); r.classList.add('sel'); });
+    more.addEventListener('click',e=>{ const r=e.target.closest('.regopt'); if(!r) return; clear(); r.classList.add('sel'); setNug(r.dataset.region); });
+    setNug('ncr');
   })();
   // monogram: a free mark made live from the couple's names (styling + Animated/Bespoke upgrades live later — dashboard website editor + Today's Focus "Design Monogram" card)
   const MONO_FRAMES=['wreath','crest','square','oval'];                 // luxurious gold frames — tap Frame to cycle
   const MONO_FONTS=['cormorant','cinzel','playfair','script'];          // premium-only fonts — no basic fonts even on the free tier
   let monoFrame=0, monoFont=0;
   function monoPop(){ const m=document.getElementById('monoMark'); if(m){ m.style.transform='scale(1.05)'; setTimeout(()=>{m.style.transform='';},170); } }
+  // animated savings counter — counts each [data-count] up on screen entry (Congrats + Your Plan). Production computes the targets live from the event per Time_and_Money_Saved_Model.
+  function countUp(el){
+    var target=parseFloat(el.dataset.count||'0'), pre=el.dataset.prefix||'', suf=el.dataset.suffix||'', dur=1150, t0=null;
+    var fmt=function(n){ return pre+Math.round(n).toLocaleString('en-US')+suf; };
+    el.dataset.counting='1'; el.textContent=fmt(0);
+    function step(ts){ if(!t0)t0=ts; var p=Math.min(1,(ts-t0)/dur), e=1-Math.pow(1-p,3); el.textContent=fmt(target*e); if(p<1){ requestAnimationFrame(step); } else { el.textContent=fmt(target); el.dataset.counting='0'; } }
+    requestAnimationFrame(step);
+  }
+  function runCounters(scope){ if(!scope) return; scope.querySelectorAll('[data-count]').forEach(function(el){ if(el.dataset.counting!=='1') countUp(el); }); }
+  function coupleParts(){
+    const b=((document.getElementById('brideField')||{}).value||'').trim();
+    const g=((document.getElementById('groomField')||{}).value||'').trim();
+    return [b,g];
+  }
+  function coupleDisplay(){
+    const [b,g]=coupleParts();
+    if(b&&g) return b+' & '+g;
+    return b||g||'Your wedding';
+  }
+  function firstInitial(s){ const w=(s||'').replace(/[^A-Za-z]/g,''); return w?w[0].toUpperCase():''; }
+  function propagateNames(){                       // the couple's names are vital — carry them everywhere (Congrats h1, recap, Your Plan hero)
+    const d=coupleDisplay();
+    document.querySelectorAll('[data-couple-name]').forEach(el=>{ el.textContent=d; });
+  }
   function buildMonogram(){
-    const f=document.getElementById('nameField'), m=document.getElementById('monoMark'), L=document.getElementById('monoLetters');
-    if(!f||!m||!L) return;
-    const n=(f.value||'').trim();
-    const parts=n.split(/\s*(?:&|\+|\band\b)\s*/i).map(s=>s.trim()).filter(Boolean);
+    const m=document.getElementById('monoMark'), L=document.getElementById('monoLetters');
+    if(!m||!L) return;
+    const [b,g]=coupleParts();
     let mark='··';
-    if(parts.length>=2 && parts[0] && parts[1]) mark=parts[0][0].toUpperCase()+' & '+parts[1][0].toUpperCase();
-    else { const w=n.replace(/[^A-Za-z]/g,''); if(w) mark=w.slice(0,2).toUpperCase(); }
+    const bi=firstInitial(b), gi=firstInitial(g);
+    if(bi&&gi) mark=bi+' & '+gi;
+    else if(bi||gi) mark=(bi||gi);
     L.textContent=mark;
     m.dataset.frame=MONO_FRAMES[monoFrame];
     m.dataset.font=MONO_FONTS[monoFont];
-    m.classList.toggle('long', mark.length>2);   // font-size handled per-font in CSS via .long ("M & J" vs "MA")
-    const bg=document.getElementById('monoBg'), bgw=document.getElementById('monoBgWrap');   // faint blurred full-screen version of the same monogram
-    if(bg){ bg.textContent=mark; } if(bgw){ bgw.dataset.font=MONO_FONTS[monoFont]; }
+    m.classList.toggle('long', mark.length>2);   // font-size handled per-font in CSS via .long ("M & J" vs single)
+    propagateNames();
   }
   (function(){
-    const f=document.getElementById('nameField');
-    if(f) f.addEventListener('input',function(){ buildMonogram(); monoPop(); });
+    const bf=document.getElementById('brideField'), gf=document.getElementById('groomField');
+    if(bf) bf.addEventListener('input',function(){ buildMonogram(); monoPop(); });
+    if(gf) gf.addEventListener('input',function(){ buildMonogram(); monoPop(); });
     const fb=document.getElementById('monoFrameBtn'), tb=document.getElementById('monoFontBtn');
     if(fb) fb.addEventListener('click',function(){ monoFrame=(monoFrame+1)%MONO_FRAMES.length; buildMonogram(); monoPop(); });
     if(tb) tb.addEventListener('click',function(){ monoFont=(monoFont+1)%MONO_FONTS.length; buildMonogram(); monoPop(); });
+    buildMonogram();   // sync the live names → Congrats + Your Plan from the start
   })();
   // Rule 7 — preload the whole onboarding's imagery on first load so a screen never waits on a fetch
   (function(){
@@ -1634,7 +1839,8 @@ Kahit Kailan|South Border`.trim().split('\n').map(l=>l.split('|'));
     ['t1','t2','t3','t4','t5'].forEach(t=>['essentials','simple','classic','elevated','premium','luxury'].forEach(b=>{ const im=new Image(); im.src='assets/budget/'+t+'_'+b+'.webp'; })); // pax-tier × band budget looks
     ['wreath','crest','square','oval'].forEach(fr=>{ const im=new Image(); im.src='assets/mono/'+fr+'.webp'; });           // luxurious monogram frames
     try{ Object.keys(PICK_INFO).forEach(c=>{ const im=new Image(); im.src='assets/picker/'+c+'.webp'; }); }catch(e){} // a distinct photo per service — preload all
-    ['setting_garden','setting_ballroom','setting_events_place','setting_beach','setting_resort','setting_heritage','setting_restaurant','cuisine_filipino','cuisine_international','cuisine_asian','cuisine_spanish','pv_photojournalistic','pv_classic','pv_editorial','pv_fineart','pv_cinematic','feel_timeless','feel_modern','feel_boho','feel_rustic','feel_glam','feel_royalty','feel_filipiniana','ceremony_church','ceremony_garden','ceremony_beach','ceremony_civil','ceremony_same_reception','cuisine_italian','cuisine_fusion'].forEach(k=>{ const im=new Image(); im.src='assets/prefs/'+k+'.webp'; }); // step-11 style-card + feel + ceremony + cuisine photos (music is now a text song-picker — no images)
+    ['setting_garden','setting_ballroom','setting_events_place','setting_beach','setting_resort','setting_heritage','setting_restaurant','cuisine_filipino','cuisine_international','cuisine_asian','cuisine_spanish','pv_photojournalistic','pv_classic','pv_editorial','pv_fineart','pv_cinematic','ceremony_church','ceremony_garden','ceremony_beach','ceremony_civil','ceremony_same_reception','cuisine_italian','cuisine_fusion'].forEach(k=>{ const im=new Image(); im.src='assets/prefs/'+k+'.webp'; }); // step-11 style-card + ceremony + cuisine photos (music is a text song-picker — no images)
+    ['timeless','modern','boho','rustic','glam','royalty','filipiniana'].forEach(f=>['lean','mid','lavish'].forEach(t=>{ const im=new Image(); im.src='assets/prefs/feel_'+f+'_'+t+'.webp'; })); // Set-the-Mood feels × budget tier (21)
     try{ if(document.fonts&&document.fonts.load){ ["400 40px 'Great Vibes'","600 40px 'Cinzel'","italic 600 40px 'Playfair Display'"].forEach(s=>document.fonts.load(s)); } }catch(e){}   // warm the premium monogram fonts
   })();
   render();

@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="robots" content="noindex,nofollow" />
+<title>Setnayan · Couple Home (optimized) — prototype 2026-06-02</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@600;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --paper:#FBFBFA;        /* Warm Alabaster */
+    --ink:#1E2229;          /* Deep Obsidian */
+    --ink-soft:#4F535B;
+    --ink-faint:#8A8E96;
+    --line:#E7E3DA;
+    --surface:#FFFFFF;
+    --surface-soft:#F4F2EC;
+    --gold:#C5A059;         /* Royal Champagne Gold */
+    --gold-deep:#A88340;
+    --gold-wash:#F7F0E0;
+    --mulberry:#5C2542;     /* Rich Mulberry — CTAs */
+    --mulberry-deep:#4A1D36;
+    --mulberry-wash:#F5E8EE;
+    --emerald:#2F7D5B;
+    --emerald-wash:#EAF3EE;
+    --display:'Saira Condensed',sans-serif;
+    --serif:'Cormorant Garamond',Georgia,serif;
+    --sans:'Manrope',system-ui,sans-serif;
+    --mono:'DM Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{
+    font-family:var(--sans);
+    background:
+      radial-gradient(1200px 600px at 50% -200px, #efece4 0%, #e6e2d8 60%, #ded9cd 100%);
+    color:var(--ink);
+    min-height:100vh;
+    padding:34px 0 60px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .stage-cap{
+    max-width:430px;margin:0 auto 18px;padding:0 18px;text-align:center;
+  }
+  .stage-cap .k{font-family:var(--mono);font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold-deep)}
+  .stage-cap .t{font-family:var(--serif);font-style:italic;font-size:19px;color:var(--ink);margin-top:3px}
+  .stage-cap .s{font-size:12px;color:var(--ink-soft);margin-top:5px;line-height:1.5}
+
+  /* Phone frame */
+  .phone{
+    width:392px;max-width:calc(100vw - 24px);margin:0 auto;
+    background:var(--paper);
+    border-radius:34px;
+    box-shadow:0 30px 70px -28px rgba(30,34,41,.45), 0 0 0 1px rgba(30,34,41,.06);
+    overflow:hidden;
+    position:relative;
+  }
+
+  /* Top bar (sticky chrome) */
+  .topbar{
+    position:sticky;top:0;z-index:20;
+    display:flex;align-items:center;gap:9px;
+    padding:13px 18px 12px;
+    background:rgba(251,251,250,.92);
+    backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line);
+  }
+  .brandmark{width:22px;height:22px;flex:0 0 auto}
+  .brandwm{font-family:var(--display);font-weight:700;letter-spacing:.04em;font-size:15px;color:var(--ink)}
+  .topbar .spacer{flex:1}
+  .switch{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);border:1px solid var(--line);border-radius:999px;padding:5px 9px;background:var(--surface)}
+  .bell{position:relative;width:30px;height:30px;border-radius:999px;display:grid;place-items:center;border:1px solid var(--line);background:var(--surface)}
+  .bell svg{width:15px;height:15px;stroke:var(--ink);fill:none;stroke-width:1.7}
+  .bell .dot{position:absolute;top:-3px;right:-3px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--mulberry);color:#fff;font-size:9.5px;font-weight:700;display:grid;place-items:center;border:2px solid var(--paper)}
+
+  .scroll{padding:16px 18px 26px}
+  .scroll > * + *{margin-top:14px}
+
+  /* Identity strip */
+  .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold-deep)}
+  .couple{font-family:var(--display);font-weight:700;text-transform:uppercase;font-size:34px;line-height:.98;letter-spacing:-.005em;color:var(--ink);margin-top:5px}
+  .meta{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:9px;font-size:13px;color:var(--ink-soft)}
+  .meta .pencil{color:var(--ink-faint)}
+  .meta .dotsep{color:var(--ink-faint)}
+  .auspicious{margin-top:10px;display:inline-flex;align-items:center;gap:7px;background:var(--gold-wash);border:1px solid #ecdfc2;border-radius:999px;padding:6px 11px;font-size:11.5px;color:var(--gold-deep)}
+  .auspicious b{font-weight:700;color:#7a5c1f}
+
+  /* Stage strip */
+  .stage{margin-top:14px}
+  .pips{display:flex;align-items:center;gap:0}
+  .pip{flex:1;height:4px;border-radius:999px;background:var(--line)}
+  .pip.done{background:var(--gold)}
+  .pip.now{background:var(--gold);box-shadow:0 0 0 3px var(--gold-wash)}
+  .pip + .pip{margin-left:5px}
+  .stage .lbl{margin-top:7px;font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft)}
+
+  hr.sec{border:0;border-top:1px solid var(--line);margin:4px 0}
+
+  /* Card */
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:14px 15px}
+  .card.flush{padding:13px 14px}
+  .card-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px}
+  .card-h .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-soft)}
+  .seeall{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-deep);text-decoration:none}
+
+  /* What's moved feed */
+  .mv{display:flex;align-items:flex-start;gap:10px;padding:9px 0}
+  .mv + .mv{border-top:1px solid var(--surface-soft)}
+  .mv .tdot{width:8px;height:8px;border-radius:999px;margin-top:5px;flex:0 0 auto;background:var(--ink-faint)}
+  .mv .tdot.ok{background:var(--emerald)}
+  .mv .tdot.gold{background:var(--gold)}
+  .mv .tdot.mul{background:var(--mulberry)}
+  .mv .body{flex:1;min-width:0}
+  .mv .t{font-size:13px;color:var(--ink);line-height:1.35}
+  .mv .t b{font-weight:700}
+  .mv .when{font-size:11px;color:var(--ink-faint);margin-top:1px}
+
+  /* Needs you */
+  .needs{border-left:3px solid var(--mulberry)}
+  .needs .card-h .k{color:var(--mulberry)}
+  .nu{display:flex;align-items:center;gap:10px;padding:9px 0}
+  .nu + .nu{border-top:1px solid var(--surface-soft)}
+  .nu .nb{flex:1;min-width:0}
+  .nu .t{font-size:13px;color:var(--ink);line-height:1.3}
+  .nu .sub{font-size:11px;color:var(--ink-faint);margin-top:1px}
+  .btn{flex:0 0 auto;border:0;border-radius:999px;font-family:var(--sans);font-weight:700;font-size:11.5px;padding:7px 13px;cursor:pointer}
+  .btn.mul{background:var(--mulberry);color:#fff}
+  .btn.out{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
+
+  /* Personalize */
+  .pz{background:var(--gold-wash);border:1px solid #ecdfc2}
+  .pz .card-h .k{color:var(--gold-deep)}
+  .pz .lede{font-size:12.5px;color:#6f5a2c;line-height:1.45;margin-bottom:10px}
+  .chips{display:flex;flex-wrap:wrap;gap:7px}
+  .chip{background:var(--surface);border:1px solid #ecdfc2;border-radius:999px;padding:6px 11px;font-size:11.5px;color:var(--ink);font-weight:600}
+  .pz .foot{margin-top:11px;font-size:11px;color:#7a5c1f;display:flex;align-items:center;gap:6px}
+
+  /* Budget */
+  .bud .row1{display:flex;align-items:baseline;justify-content:space-between}
+  .bud .now{font-family:var(--serif);font-style:italic;font-size:20px;color:var(--ink)}
+  .bud .tgt{font-size:12px;color:var(--ink-soft)}
+  .bar{height:8px;border-radius:999px;background:var(--surface-soft);margin-top:10px;overflow:hidden}
+  .bar > i{display:block;height:100%;width:30%;border-radius:999px;background:linear-gradient(90deg,var(--gold),var(--gold-deep))}
+  .bud .cd{margin-top:8px;font-size:11.5px;color:var(--ink-soft);display:flex;justify-content:space-between}
+
+  /* Locked-in chips */
+  .locked .vrow{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+  .locked .vrow::-webkit-scrollbar{display:none}
+  .vchip{flex:0 0 auto;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:7px 11px 7px 7px}
+  .vinit{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:12px;color:#fff;background:var(--ink)}
+  .vchip .vn{font-size:12px;font-weight:600;color:var(--ink);white-space:nowrap}
+  .vchip .vc{font-size:10px;color:var(--ink-faint)}
+
+  /* Receding section header */
+  .recede-h{display:flex;align-items:center;gap:10px;margin:8px 2px 2px}
+  .recede-h .k{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-faint)}
+  .recede-h .ln{flex:1;border-top:1px solid var(--line)}
+  .recede{opacity:.92}
+
+  /* Marketplace tease */
+  .mkt{background:var(--ink);color:#fff;border:0}
+  .mkt .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold)}
+  .mkt .t{font-family:var(--serif);font-style:italic;font-size:18px;margin-top:5px;line-height:1.2}
+  .mkt .browse{margin-top:11px;display:inline-block;background:var(--gold);color:#2b210e;border-radius:999px;font-weight:700;font-size:12px;padding:8px 15px}
+
+  /* Mini plan grid */
+  .gridmini{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .gcell{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:9px 6px;text-align:center;position:relative}
+  .gcell .gi{font-size:17px;line-height:1}
+  .gcell .gl{font-size:9.5px;color:var(--ink-soft);margin-top:5px;line-height:1.15}
+  .gcell .gdot{position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:999px;background:var(--line)}
+  .gcell .gdot.ok{background:var(--emerald)}
+  .gcell .gdot.warn{background:var(--gold)}
+
+  /* tools row */
+  .tools{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .tcell{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:10px 8px}
+  .tcell .ti{font-size:15px}
+  .tcell .tl{font-size:10.5px;font-weight:700;color:var(--ink);margin-top:5px}
+  .tcell .ts{font-size:9.5px;color:var(--ink-faint);margin-top:1px}
+
+  /* bottom nav */
+  .botnav{position:sticky;bottom:0;display:grid;grid-template-columns:repeat(6,1fr);gap:0;background:rgba(251,251,250,.95);backdrop-filter:blur(8px);border-top:1px solid var(--line);padding:7px 4px 9px}
+  .bn{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:9px;color:var(--ink-faint)}
+  .bn svg{width:18px;height:18px;stroke:var(--ink-faint);fill:none;stroke-width:1.7}
+  .bn.on{color:var(--mulberry)}
+  .bn.on svg{stroke:var(--mulberry)}
+  .bn .bdg{position:relative}
+  .bn .bdg::after{content:"2";position:absolute;top:-5px;right:-9px;background:var(--mulberry);color:#fff;font-size:8px;font-weight:700;width:13px;height:13px;border-radius:999px;display:grid;place-items:center}
+
+  .footnote{max-width:430px;margin:18px auto 0;padding:0 22px;text-align:center;font-size:11px;color:#7c776c;line-height:1.6}
+</style>
+</head>
+<body>
+
+  <div class="stage-cap">
+    <div class="k">Prototype · 2026-06-02</div>
+    <div class="t">Couple event home — optimized</div>
+    <div class="s">What's moved · Needs you · Personalize promoted above the planning grids. The grids recede below.</div>
+  </div>
+
+  <div class="phone">
+
+    <!-- TOP BAR -->
+    <div class="topbar">
+      <svg class="brandmark" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3.5c4.6 2.9 7.4 4.2 11.8 4.6 .4 6.7-1.1 13.7-11.8 20.4C5.3 21.8 3.8 14.8 4.2 8.1 8.6 7.7 11.4 6.4 16 3.5Z" fill="none" stroke="#C5A059" stroke-width="1.6"/><path d="M16 9.5l1.6 3.4 3.7.4-2.8 2.5.8 3.6L16 17.6l-3.3 1.8.8-3.6-2.8-2.5 3.7-.4z" fill="#C5A059"/></svg>
+      <span class="brandwm">SETNAYAN</span>
+      <span class="spacer" style="flex:1"></span>
+      <span class="switch">Switch view</span>
+      <span class="bell" aria-label="3 notifications">
+        <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+        <span class="dot">3</span>
+      </span>
+    </div>
+
+    <div class="scroll">
+
+      <!-- IDENTITY STRIP (kept as lead) -->
+      <section>
+        <p class="eyebrow">Your wedding</p>
+        <h1 class="couple">Maria &amp; Juan</h1>
+        <div class="meta">
+          <span>Dec 18, 2026</span><span class="dotsep">·</span>
+          <span>199 days to go</span><span class="dotsep">·</span>
+          <span>Catholic ceremony</span><span class="pencil">✎</span>
+        </div>
+        <div class="auspicious">✦ <span><b>A Saturday in December</b> — peak wedding season, family home for the holidays</span></div>
+        <div class="stage">
+          <div class="pips">
+            <i class="pip done"></i><i class="pip done"></i><i class="pip now"></i><i class="pip"></i><i class="pip"></i><i class="pip"></i>
+          </div>
+          <div class="lbl">Stage 3 of 6 · Building your team</div>
+        </div>
+      </section>
+
+      <hr class="sec" />
+
+      <!-- WHAT'S MOVED (promoted from the very bottom) -->
+      <section class="card">
+        <div class="card-h">
+          <span class="k">What's moved</span>
+          <a class="seeall" href="#">See all →</a>
+        </div>
+        <div class="mv"><span class="tdot ok"></span><div class="body"><div class="t"><b>Tita Lita</b> confirmed — attending</div><div class="when">2h ago · guest</div></div></div>
+        <div class="mv"><span class="tdot ok"></span><div class="body"><div class="t"><b>Casa Manila Catering</b> → Deposit paid</div><div class="when">5h ago · vendor</div></div></div>
+        <div class="mv"><span class="tdot gold"></span><div class="body"><div class="t"><b>Bloom &amp; Co.</b> sent a quote · ₱45,000</div><div class="when">Yesterday · vendor</div></div></div>
+        <div class="mv"><span class="tdot"></span><div class="body"><div class="t">3 guests added to your list</div><div class="when">Yesterday · guests</div></div></div>
+      </section>
+
+      <!-- NEEDS YOU -->
+      <section class="card needs">
+        <div class="card-h"><span class="k">Needs you · 3</span></div>
+        <div class="nu"><div class="nb"><div class="t">₱25,000 payment to confirm</div><div class="sub">Casa Manila Catering · awaiting your screenshot</div></div><button class="btn mul">Review</button></div>
+        <div class="nu"><div class="nb"><div class="t">2 unread messages</div><div class="sub">from Lens &amp; Co. and Bloom &amp; Co.</div></div><button class="btn out">Open</button></div>
+        <div class="nu"><div class="nb"><div class="t">Lock your photographer</div><div class="sub">14 days left to stay on schedule</div></div><button class="btn out">Browse</button></div>
+      </section>
+
+      <!-- PERSONALIZE -->
+      <section class="card pz">
+        <div class="card-h"><span class="k">Personalize my matches</span><a class="seeall" href="#" style="color:var(--gold-deep)">Edit</a></div>
+        <p class="lede">We sort your best-fit vendors first using your taste.</p>
+        <div class="chips">
+          <span class="chip">Classic feel</span>
+          <span class="chip">Garden venue</span>
+          <span class="chip">₱650K–₱950K</span>
+          <span class="chip">Manila</span>
+          <span class="chip">150 guests</span>
+          <span class="chip">HALAL</span>
+        </div>
+        <div class="foot">✦ 12 vendors match your style right now</div>
+      </section>
+
+      <hr class="sec" />
+
+      <!-- SHAPING UP: budget -->
+      <section class="card bud">
+        <div class="card-h"><span class="k">Budget</span><a class="seeall" href="#">Open →</a></div>
+        <div class="row1"><span class="now">₱180,000</span><span class="tgt">of ₱600,000</span></div>
+        <div class="bar"><i></i></div>
+        <div class="cd"><span>30% committed</span><span>199 days to go</span></div>
+      </section>
+
+      <!-- SHAPING UP: locked in -->
+      <section class="card locked">
+        <div class="card-h"><span class="k">Locked in · 4</span><a class="seeall" href="#">All →</a></div>
+        <div class="vrow">
+          <div class="vchip"><span class="vinit">CM</span><div><div class="vn">Casa Manila</div><div class="vc">Catering</div></div></div>
+          <div class="vchip"><span class="vinit">B</span><div><div class="vn">Bloom &amp; Co.</div><div class="vc">Florist</div></div></div>
+          <div class="vchip"><span class="vinit">L</span><div><div class="vn">Lens &amp; Co.</div><div class="vc">Photo</div></div></div>
+          <div class="vchip"><span class="vinit">CM</span><div><div class="vn">Cebu Marriott</div><div class="vc">Venue</div></div></div>
+        </div>
+      </section>
+
+      <!-- RECEDING: plan & tools -->
+      <div class="recede-h"><span class="k">Plan &amp; tools</span><span class="ln"></span></div>
+
+      <section class="card mkt recede">
+        <span class="k">The marketplace</span>
+        <div class="t">Find the vendors who fit your day.</div>
+        <span class="browse">Browse vendors →</span>
+      </section>
+
+      <section class="recede">
+        <p class="eyebrow" style="color:var(--ink-faint);margin:2px 2px 8px">Your wedding plan · 12 to lock in</p>
+        <div class="gridmini">
+          <div class="gcell"><span class="gdot ok"></span><div class="gi">⛪</div><div class="gl">Ceremony</div></div>
+          <div class="gcell"><span class="gdot ok"></span><div class="gi">🥂</div><div class="gl">Reception</div></div>
+          <div class="gcell"><span class="gdot ok"></span><div class="gi">📷</div><div class="gl">Photo</div></div>
+          <div class="gcell"><span class="gdot warn"></span><div class="gi">🎥</div><div class="gl">Video</div></div>
+          <div class="gcell"><span class="gdot ok"></span><div class="gi">🍽️</div><div class="gl">Catering</div></div>
+          <div class="gcell"><span class="gdot warn"></span><div class="gi">💐</div><div class="gl">Florals</div></div>
+          <div class="gcell"><span class="gdot"></span><div class="gi">🎶</div><div class="gl">Music</div></div>
+          <div class="gcell"><span class="gdot"></span><div class="gi">🎂</div><div class="gl">Cake</div></div>
+          <div class="gcell"><span class="gdot"></span><div class="gi">👗</div><div class="gl">Attire</div></div>
+          <div class="gcell"><span class="gdot"></span><div class="gi">💄</div><div class="gl">HMUA</div></div>
+          <div class="gcell"><span class="gdot"></span><div class="gi">🚗</div><div class="gl">Car</div></div>
+          <div class="gcell"><span class="gdot"></span><div class="gi">✉️</div><div class="gl">Invites</div></div>
+        </div>
+      </section>
+
+      <section class="recede">
+        <p class="eyebrow" style="color:var(--ink-faint);margin:2px 2px 8px">Your plan · tools you build</p>
+        <div class="tools">
+          <div class="tcell"><div class="ti">🎨</div><div class="tl">Mood board</div><div class="ts">8 saved</div></div>
+          <div class="tcell"><div class="ti">🪑</div><div class="tl">Seat plan</div><div class="ts">0 / 150</div></div>
+          <div class="tcell"><div class="ti">👥</div><div class="tl">Guests</div><div class="ts">62 added</div></div>
+          <div class="tcell"><div class="ti">📅</div><div class="tl">Schedule</div><div class="ts">4 blocks</div></div>
+          <div class="tcell"><div class="ti">💸</div><div class="tl">Budget</div><div class="ts">set</div></div>
+          <div class="tcell"><div class="ti">✦</div><div class="tl">Monogram</div><div class="ts">draft</div></div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- BOTTOM NAV -->
+    <nav class="botnav">
+      <span class="bn on"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>Home</span>
+      <span class="bn"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.2"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>Guests</span>
+      <span class="bn"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>Vendors</span>
+      <span class="bn"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6M9 13h4"/></svg>Website</span>
+      <span class="bn"><span class="bdg"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>Messages</span>
+      <span class="bn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="1.6"/><circle cx="5" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>More</span>
+    </nav>
+
+  </div>
+
+  <p class="footnote">
+    Movement feed (guests · vendors · orders · schedule), Needs-you actions, and the Personalize hub now lead — the 12-card plan grid and the 9 tools recede below. Same data, reprioritized. On desktop the top three cards sit two-up; mobile stacks as shown.
+  </p>
+
+</body>
+</html>

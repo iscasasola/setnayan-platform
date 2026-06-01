@@ -11,6 +11,16 @@ const QR_OPTIONS = {
 };
 
 /**
+ * Render an arbitrary URL as an inline QR SVG string (no monogram). Used for
+ * the Papic seat-claim links a couple shares + prints so a friend can scan to
+ * claim their photo-crew seat. Same level-H error correction + quiet zone +
+ * ink/cream palette as the invitation QRs, so it scans + prints cleanly.
+ */
+export async function renderUrlQrSvg(url: string, width = 200): Promise<string> {
+  return QRCode.toString(url, { ...QR_OPTIONS, type: 'svg', width });
+}
+
+/**
  * Render a guest's invitation QR as an inline SVG string. Encodes the HTTPS
  * fallback URL per spec § Token format and URI scheme — `setnayan://` is the
  * parsing convenience inside native apps, never embedded in printed QRs.

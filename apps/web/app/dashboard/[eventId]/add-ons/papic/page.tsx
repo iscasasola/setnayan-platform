@@ -32,6 +32,14 @@ import {
   getDriveOAuthConfig,
   PAPIC_DRIVE_SUBFOLDERS,
 } from '@/lib/papic-drive';
+import {
+  eventOwnsPapicSeats,
+  PAPIC_SEATS_PRICE_PHP,
+  PAPIC_SEATS_SERVICE_KEY,
+} from '@/lib/papic-seats';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import { setPapicStorageDrive, setPapicStorageR2 } from './actions';
 
 // Iteration 0012 — Papic (V1 setup surface)
@@ -252,6 +260,16 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   const driveConfig = getDriveOAuthConfig();
   const driveOAuthReady = driveConfig.ready;
 
+  // --- Papic photo-crew (PAPIC_SEATS) ownership + buy-CTA inputs ---
+  // The crew card below routes owners to the real /crew management surface and
+  // non-owners into apply-then-pay checkout. eventOwnsPapicSeats graceful-
+  // degrades to false on a missing table, and the price/settings reads tolerate
+  // failure (.catch), so this never breaks the always-rendered Papic page.
+  const ownsPapicSeats = await eventOwnsPapicSeats(supabase, eventId);
+  const papicSeatsSku = await formatV2Sku(PAPIC_SEATS_SERVICE_KEY).catch(() => null);
+  const papicSeatsPricePhp = papicSeatsSku?.price_php ?? PAPIC_SEATS_PRICE_PHP;
+  const platformSettings = await fetchPlatformSettings(supabase).catch(() => null);
+
   const totalSeats = MOCK_SEATS.length;
   const claimedSeats = MOCK_SEATS.filter((s) => s.claimedBy !== null).length;
   const unclaimedSeats = totalSeats - claimedSeats;
@@ -283,6 +301,52 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           manage your crew, camera bridges, and gallery settings.
         </p>
       </header>
+
+      {/* ----------------------------------------------------------------
+          Papic · your photo crew (PAPIC_SEATS) — the real entry point.
+          Owners → the /crew management surface (provision + claim links +
+          QR + reissue). Non-owners → apply-then-pay checkout via the
+          InlineCheckoutDrawer. The mock crew illustration further down on
+          this page stays as an explainer.
+          ---------------------------------------------------------------- */}
+      <section className="rounded-2xl border border-terracotta/25 bg-terracotta/[0.04] p-5 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1.5">
+            <p className="flex items-center gap-2 text-lg font-semibold tracking-tight text-ink">
+              <Smartphone aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />
+              Your photo crew · 5 seats
+            </p>
+            <p className="max-w-prose text-sm text-ink/65">
+              {ownsPapicSeats
+                ? 'Your photo-crew pack is active. Set up your five seats and share a claim link with each friend.'
+                : 'Turn five friends into your candid camera crew — each shoots from their own phone, and every photo lands in your gallery in real time.'}
+            </p>
+          </div>
+          <div className="shrink-0">
+            {ownsPapicSeats ? (
+              <Link
+                href={`/dashboard/${eventId}/add-ons/papic/crew`}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 sm:w-auto"
+              >
+                Manage my 5 seats
+                <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+              </Link>
+            ) : platformSettings ? (
+              <InlineCheckoutDrawer
+                eventId={eventId}
+                serviceKey={PAPIC_SEATS_SERVICE_KEY}
+                displayName={`Papic · 5 Seats${event.display_name ? ` · ${event.display_name}` : ''}`}
+                originalPriceCentavos={String(Math.round(papicSeatsPricePhp * 100))}
+                settings={platformSettings}
+                triggerLabel={`Get the crew pack · ${formatPhp(papicSeatsPricePhp)}`}
+                triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70 sm:w-auto"
+              />
+            ) : (
+              <span className="text-sm font-mono text-ink/60">{formatPhp(papicSeatsPricePhp)}</span>
+            )}
+          </div>
+        </div>
+      </section>
 
       <StatusBanners
         driveConnected={!!driveConnected}

@@ -97,7 +97,7 @@ a{color:inherit;text-decoration:none}
 .sortsel{height:44px;border-radius:12px;border:1px solid var(--line-strong);background:var(--surface);padding:0 34px 0 14px;font-size:13.5px;font-weight:500;cursor:pointer;-webkit-appearance:none;appearance:none;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238A8F96' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
 .sortsel.desk{display:none} @media(min-width:1024px){ .sortsel.desk{display:block} }
-.filter-btn{display:inline-flex} @media(min-width:1024px){ .filter-btn{display:none} }
+.filter-btn{display:none} /* mobile is list-first (search+sort+quick-add); desktop uses sidebar facets */
 .filter-btn .badge{margin-left:6px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--gold);color:#fff;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
 .filter-btn .badge[hidden]{display:none}
 
@@ -108,6 +108,26 @@ a{color:inherit;text-decoration:none}
 .fchip{flex:0 0 auto;height:36px;display:inline-flex;align-items:center;gap:6px;padding:0 14px;border-radius:var(--r-pill);border:1px solid var(--line-strong);background:var(--surface);font-size:13px;font-weight:500;white-space:nowrap;cursor:pointer}
 .fchip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
 .fchip.more{border-style:dashed;color:var(--gold-deep);border-color:var(--gold)}
+
+/* ---- mobile: list-first (owner 2026-06-02) ----
+   The whole screen is the guest list. Header = search + sort + quick-add.
+   Each row = First Last + role; tapping a row opens the guest's info. */
+.m-only{display:none}
+@media(max-width:1023px){
+  .stats{display:none}        /* no stats strip — the list owns the screen */
+  .chiprail{display:none}     /* no chip rail — search + sort do the work  */
+  .fab{display:none}          /* quick-add lives in the toolbar instead    */
+  .m-only{display:inline-flex}
+  .toolbar{margin-top:14px}
+  .head{gap:10px}
+}
+/* .tbtn/.addbtn carry no display — .m-only owns visibility so they stay mobile-only */
+.tbtn{height:44px;width:44px;border-radius:12px;background:var(--surface);border:1px solid var(--line-strong);align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto}
+.tbtn:active{border-color:var(--ink-soft);background:rgba(30,34,41,.03)}
+.tbtn svg{width:19px;height:19px;color:var(--ink)}
+.addbtn{height:44px;border-radius:12px;padding:0 15px;background:var(--mulberry);color:#fff;border:none;font-size:13.5px;font-weight:600;align-items:center;gap:6px;cursor:pointer;flex:0 0 auto;white-space:nowrap}
+.addbtn:active{background:var(--mulberry-deep)}
+.addbtn .pl{font-size:18px;line-height:0;margin-top:-1px}
 
 /* ---- body grid ---- */
 .body{display:grid;grid-template-columns:1fr;gap:22px;margin-top:18px}
@@ -189,18 +209,19 @@ tbody tr.sel{background:rgba(197,160,89,.09)}
 .sectionhdr:first-child{margin-top:0}
 .sectionhdr .t{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint)}
 .sectionhdr .ln{flex:1;height:1px;background:var(--line)}
-.card{display:flex;align-items:center;gap:11px;padding:12px;border-radius:13px;border:1px solid var(--line);background:var(--surface)}
+.card{display:flex;align-items:center;gap:11px;padding:13px 12px;border-radius:13px;border:1px solid var(--line);background:var(--surface);cursor:pointer;transition:background .12s,border-color .12s}
+.card:active{background:rgba(197,160,89,.07)}
 .card.sel{border-color:var(--gold);background:var(--gold-wash)}
-.card .strip{width:4px;align-self:stretch;border-radius:3px;margin:-2px 2px -2px -4px}
+.card .strip{width:4px;align-self:stretch;border-radius:3px;margin:-3px 2px -3px -4px}
 .strip.s-bride{background:var(--bride)} .strip.s-groom{background:var(--groom)} .strip.s-both{background:var(--both)}
 .card .mid{flex:1;min-width:0}
-.card .nm{font-weight:600;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.card .meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
-.card .rolemini{font-size:11px;color:var(--ink-soft);display:inline-flex;align-items:center;gap:5px}
-.card .rolemini .swatch{width:7px;height:7px;border-radius:50%}
+.card .nm{font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .rolemini{font-size:12px;color:var(--ink-soft);display:inline-flex;align-items:center;gap:6px;margin-top:3px}
+.card .rolemini .swatch{width:7px;height:7px;border-radius:50%;flex:0 0 auto}
+.card .chev{width:18px;height:18px;color:var(--ink-faint);flex:0 0 auto}
+body.selmode .card .chev{display:none}
 .card-chk{display:none}
 body.selmode .card-chk{display:inline-flex}
-body.selmode .card .rsvp-tap{pointer-events:none;opacity:.5}
 
 /* ---- floating + bottom sheet scaffolding ---- */
 .fab{position:fixed;right:18px;bottom:88px;width:56px;height:56px;border-radius:50%;background:var(--mulberry);color:#fff;border:none;font-size:28px;font-weight:300;cursor:pointer;box-shadow:0 10px 26px rgba(92,37,66,.4);z-index:40}
@@ -234,6 +255,31 @@ body.selmode .card .rsvp-tap{pointer-events:none;opacity:.5}
 .rsvpopt{display:flex;width:100%;align-items:center;gap:12px;padding:14px;border-radius:12px;border:1px solid var(--line);background:var(--surface);cursor:pointer;margin-bottom:8px;font-size:15px;font-weight:600}
 .rsvpopt .badge{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px}
 .rsvpopt .ck{margin-left:auto;color:var(--gold-deep)}
+.rsvpopt.act{border-color:var(--gold);background:var(--gold-wash)}
+.rsvpopt.act::after{content:"✓";margin-left:auto;color:var(--gold-deep);font-weight:700}
+
+/* ---- guest detail + quick-add sheet form ---- */
+.dhead{display:flex;align-items:center;gap:13px;padding:2px 0 6px}
+.dhead .av{width:48px;height:48px;font-size:15px}
+.dhead .nm{font-size:18px;font-weight:700;line-height:1.15;letter-spacing:-.01em}
+.dhead .sub{font-size:12.5px;color:var(--ink-soft);margin-top:3px}
+.drow{padding:15px 0;border-top:1px solid var(--line)}
+.drow:first-child{border-top:none;padding-top:6px}
+.drow .dl{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:10px}
+.dchips{display:flex;flex-wrap:wrap;gap:8px}
+.dchip{height:40px;padding:0 15px;border-radius:var(--r-pill);border:1px solid var(--line-strong);background:var(--surface);font-size:13.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:.12s}
+.dchip:active{transform:scale(.97)}
+.dchip .dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+.dchip.on{border-color:transparent;color:#fff}
+.dchip.on.r-go{background:var(--go-bg);color:var(--go)} .dchip.on.r-pend{background:var(--pend-bg);color:var(--pend)}
+.dchip.on.r-dec{background:var(--dec-bg);color:var(--dec)} .dchip.on.r-may{background:var(--may-bg);color:var(--may)}
+.dchip.on.s-on{background:var(--ink);color:var(--paper)}
+.dselect,.dinput{width:100%;height:46px;border-radius:12px;border:1px solid var(--line-strong);background:var(--surface);font-size:14px;color:var(--ink)}
+.dinput{padding:0 14px}
+.dselect{font-weight:500;padding:0 36px 0 14px;-webkit-appearance:none;appearance:none;cursor:pointer;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238A8F96' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
+.dselect:focus,.dinput:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(197,160,89,.18)}
+.dinput::placeholder{color:var(--ink-faint)}
 
 /* ---- bulk action bar ---- */
 .bulkbar{position:fixed;left:0;right:0;bottom:0;z-index:70;background:var(--ink);color:var(--paper);display:none;align-items:center;gap:12px;padding:12px 16px calc(12px + env(safe-area-inset-bottom));box-shadow:0 -8px 28px rgba(30,34,41,.25)}
@@ -308,19 +354,26 @@ body.selmode .bulkbar{display:flex}
   <div class="toolbar">
     <div class="search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input id="search" type="text" placeholder="Search names, roles, groups, RSVP…" autocomplete="off">
+      <input id="search" type="text" placeholder="Search guests…" autocomplete="off">
     </div>
+    <!-- desktop: inline sort select -->
     <select class="sortsel desk" id="sort">
+      <option value="role">Sort: By role</option>
       <option value="last">Sort: Last name (A–Z)</option>
       <option value="first">Sort: First name (A–Z)</option>
       <option value="rsvp">Sort: RSVP status</option>
-      <option value="role">Sort: Role</option>
       <option value="newest">Sort: Newest first</option>
     </select>
+    <!-- desktop: filters opener (mobile uses the filter sheet too if needed) -->
     <button class="btn btn-ghost filter-btn" id="openFilters">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="17" height="17"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
       Filters<span class="badge" id="fbadge" hidden>1</span>
     </button>
+    <!-- mobile: sort + quick-add -->
+    <button class="tbtn m-only" id="mSort" aria-label="Sort guests" title="Sort">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M3 6h13M3 12h9M3 18h5"/><path d="m17 16 3 3 3-3M20 19V8"/></svg>
+    </button>
+    <button class="addbtn m-only" id="mAdd"><span class="pl">+</span> Add</button>
   </div>
 
   <!-- ============ MOBILE CHIP RAIL ============ -->
@@ -457,6 +510,46 @@ body.selmode .bulkbar{display:flex}
   </div>
 </div>
 
+<!-- Guest detail sheet (mobile) — opened by tapping a row -->
+<div class="sheet" id="guestSheet">
+  <div class="grip"></div>
+  <div class="shead"><h2 id="guestTitle">Guest</h2><button class="sclose" data-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <div class="sbody" id="guestBody"></div>
+  <div class="sfoot"><button class="btn btn-ghost" id="guestRemove" style="color:var(--dec);border-color:#F1B6BE"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" width="16"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Remove</button><button class="btn btn-primary" data-close>Done</button></div>
+</div>
+
+<!-- Quick-add sheet (mobile) -->
+<div class="sheet" id="addSheet">
+  <div class="grip"></div>
+  <div class="shead"><h2>Quick add guest</h2><button class="sclose" data-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <div class="sbody">
+    <div class="drow"><div class="dl">Name</div>
+      <input class="dinput" id="addFn" placeholder="First name" autocomplete="off" style="margin-bottom:9px">
+      <input class="dinput" id="addLn" placeholder="Last name" autocomplete="off">
+    </div>
+    <div class="drow"><div class="dl">Role in the wedding</div><select class="dselect" id="addRole"></select></div>
+    <div class="drow"><div class="dl">Side</div><div class="dchips" id="addSide">
+      <button class="dchip on s-on" data-side="bride"><span class="dot" style="background:var(--bride)"></span>Bride's</button>
+      <button class="dchip" data-side="groom"><span class="dot" style="background:var(--groom)"></span>Groom's</button>
+      <button class="dchip" data-side="both"><span class="dot" style="background:var(--both)"></span>Both</button>
+    </div></div>
+  </div>
+  <div class="sfoot"><button class="btn btn-ghost" data-close>Cancel</button><button class="btn btn-primary" id="addSave">Add guest</button></div>
+</div>
+
+<!-- Sort sheet (mobile) -->
+<div class="sheet" id="sortSheet">
+  <div class="grip"></div>
+  <div class="shead"><h2>Sort guests</h2><button class="sclose" data-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <div class="sbody">
+    <button class="rsvpopt sortopt" data-sort="role">By role group</button>
+    <button class="rsvpopt sortopt" data-sort="first">First name (A–Z)</button>
+    <button class="rsvpopt sortopt" data-sort="last">Last name (A–Z)</button>
+    <button class="rsvpopt sortopt" data-sort="rsvp">RSVP status</button>
+    <button class="rsvpopt sortopt" data-sort="newest">Recently added</button>
+  </div>
+</div>
+
 <!-- Inline popover (desktop RSVP + role edit, + row kebab) -->
 <div class="pop" id="pop"></div>
 
@@ -510,7 +603,7 @@ let G = [
 const GROUP_LABEL = {cf:{l:'College Friends',s:'bride'}, bk:{l:'Barkada',s:'groom'}, wk:{l:'Work',s:'both'}};
 
 /* ---------------- state ---------------- */
-const state = {q:'', rsvp:'', side:'', view:'all', sort:'last'};
+const state = {q:'', rsvp:'', side:'', view:'all', sort:'role'};
 const selected = new Set();
 
 const disp = g => g.dn || (g.fn+' '+g.ln);
@@ -535,7 +628,7 @@ function sortFn(a,b){
   switch(state.sort){
     case 'first': return a.fn.localeCompare(b.fn);
     case 'rsvp': { const r={attending:0,pending:1,maybe:2,declined:3}; return r[a.rsvp]-r[b.rsvp]; }
-    case 'role': return a.role.localeCompare(b.role);
+    case 'role': { const ord=Object.keys(ROLE_GROUPS); return (ord.indexOf(grpOf(a))-ord.indexOf(grpOf(b))) || a.ln.localeCompare(b.ln) || a.fn.localeCompare(b.fn); }
     case 'newest': return b.id-a.id;
     default: return a.ln.localeCompare(b.ln) || a.fn.localeCompare(b.fn);
   }
@@ -580,9 +673,10 @@ function render(){
       <td><button class="row-act" data-edit="kebab" data-id="${g.id}" aria-label="Row actions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></button></td>
     </tr>`).join('');
 
-  // mobile cards (grouped by role-group section)
+  // mobile cards — grouped into role-group sections only when sorting "By role";
+  // every other sort renders a clean flat list.
   const ml=document.getElementById('mlist');
-  if(state.view.startsWith('group:') || ['rsvp','newest','first'].includes(state.sort)){
+  if(state.sort!=='role' || state.view.startsWith('group:')){
     ml.innerHTML=rows.map(cardHTML).join('');
   } else {
     const order=Object.keys(ROLE_GROUPS);
@@ -602,18 +696,16 @@ function render(){
   syncBulk(); updateFilterBadge();
 }
 function cardHTML(g){
-  return `<div class="card ${selected.has(g.id)?'sel':''}">
+  // Mobile row: First Last + role. Tapping the row opens the guest's info.
+  return `<div class="card ${selected.has(g.id)?'sel':''}" data-card="${g.id}">
     <span class="strip s-${g.side}"></span>
     <input type="checkbox" class="chk rowchk card-chk" data-id="${g.id}" ${selected.has(g.id)?'checked':''} aria-label="Select ${disp(g)}">
     <span class="av s-${g.side}">${initials(g)}</span>
     <div class="mid">
       <div class="nm">${disp(g)}</div>
-      <div class="meta">
-        <span class="rolemini"><span class="swatch" style="background:${ROLE_GROUPS[grpOf(g)].sw}"></span>${ROLE[g.role].l}</span>
-        ${g.groups.map(gid=>`<span class="gchip g-${GROUP_LABEL[gid].s}">${GROUP_LABEL[gid].l}</span>`).join('')}
-      </div>
+      <div class="rolemini"><span class="swatch" style="background:${ROLE_GROUPS[grpOf(g)].sw}"></span>${ROLE[g.role].l}</div>
     </div>
-    ${rsvpPillHTML(g,'rsvp-tap')}
+    <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
   </div>`;
 }
 
@@ -668,8 +760,10 @@ function kebabPop(g){
 }
 
 /* ---------------- events ---------------- */
-let rsvpTarget=null;
+let rsvpTarget=null, suppressTap=false;
 document.addEventListener('click', e=>{
+  // swallow the click that immediately follows a long-press select
+  if(suppressTap){ suppressTap=false; if(e.target.closest('.card[data-card]')) return; }
   const editEl=e.target.closest('[data-edit]');
   // inline pills / kebab
   if(editEl){
@@ -696,6 +790,15 @@ document.addEventListener('click', e=>{
   // row checkbox
   const rc=e.target.closest('.rowchk');
   if(rc){ const id=+rc.dataset.id; if(rc.checked) selected.add(id); else selected.delete(id); render(); return; }
+  // mobile card tap → open the guest's info (toggle selection in select-mode)
+  const cardEl=e.target.closest('.card[data-card]');
+  if(cardEl){
+    const id=+cardEl.dataset.card, g=G.find(x=>x.id===id);
+    if(document.body.classList.contains('selmode')){
+      if(selected.has(id)) selected.delete(id); else selected.add(id); render();
+    } else openGuest(g);
+    return;
+  }
   // close popover on outside click
   if(!e.target.closest('.pop')) closePop();
 });
@@ -712,7 +815,7 @@ let t; document.getElementById('search').addEventListener('input', e=>{
   clearTimeout(t); t=setTimeout(()=>{ state.q=e.target.value.trim().toLowerCase(); render(); }, 120);
 });
 // sort (live)
-document.getElementById('sort').addEventListener('change', e=>{ state.sort=e.target.value; render(); });
+document.getElementById('sort').addEventListener('change', e=>{ state.sort=e.target.value; markSort(); render(); });
 
 // stat cards
 document.getElementById('stats').addEventListener('click', e=>{
@@ -792,6 +895,99 @@ document.querySelectorAll('#rsvpSheet .rsvpopt').forEach(o=>{
   o.addEventListener('click', ()=>{ if(rsvpTarget){ rsvpTarget.rsvp=o.dataset.set; } closeSheets(); render(); });
 });
 
+/* ---------------- mobile: guest detail + quick-add + sort ---------------- */
+function roleOptions(cur){
+  const order=['couple','vip_family','wedding_party','principal_sponsors','secondary_sponsors','bearers_flower_girl','officiants','guest'];
+  return order.map(grp=>{
+    const roles=Object.entries(ROLE).filter(([,v])=>v.g===grp);
+    if(!roles.length) return '';
+    return `<optgroup label="${ROLE_GROUPS[grp].l}">`+roles.map(([k,v])=>`<option value="${k}" ${k===cur?'selected':''}>${v.l}</option>`).join('')+`</optgroup>`;
+  }).join('');
+}
+const RCLS={attending:'r-go',pending:'r-pend',declined:'r-dec',maybe:'r-may'};
+const esc=s=>(s||'').replace(/"/g,'&quot;');
+
+// --- guest detail (tap a row) ---
+let detailG=null;
+function openGuest(g){ detailG=g; renderGuest(); openSheet('guestSheet'); }
+function renderGuest(){
+  const g=detailG; if(!g) return;
+  document.getElementById('guestTitle').textContent='Guest details';
+  document.getElementById('guestBody').innerHTML=`
+    <div class="dhead">
+      <span class="av s-${g.side}">${initials(g)}</span>
+      <div><div class="nm">${disp(g)}</div><div class="sub">${ROLE[g.role].l} · ${SIDE[g.side]}</div></div>
+    </div>
+    <div class="drow"><div class="dl">RSVP</div><div class="dchips">
+      ${['attending','pending','declined','maybe'].map(k=>`<button class="dchip ${g.rsvp===k?'on '+RCLS[k]:''}" data-rsvp-set="${k}">${RSVP[k].l}</button>`).join('')}
+    </div></div>
+    <div class="drow"><div class="dl">Role in the wedding</div><select class="dselect" id="guestRole">${roleOptions(g.role)}</select></div>
+    <div class="drow"><div class="dl">Side</div><div class="dchips">
+      ${['bride','groom','both'].map(s=>`<button class="dchip ${g.side===s?'on s-on':''}" data-side-set="${s}"><span class="dot" style="background:var(--${s})"></span>${SIDE[s]}</button>`).join('')}
+    </div></div>
+    <div class="drow"><div class="dl">Groups</div><div class="dchips">
+      ${Object.entries(GROUP_LABEL).map(([gid,gr])=>`<button class="dchip ${g.groups.includes(gid)?'on s-on':''}" data-grp-toggle="${gid}"><span class="dot" style="background:var(--${gr.s})"></span>${gr.l}</button>`).join('')}
+    </div></div>
+    <div class="drow"><div class="dl">Plus-one</div><input class="dinput" id="guestPlus" placeholder="Add a +1 (name or “TBA”)" value="${esc(g.plus)}"></div>
+    <div class="drow"><div class="dl">Contact</div>
+      <input class="dinput" id="guestEmail" placeholder="Email address" value="${esc(g.email)}" style="margin-bottom:9px">
+      <input class="dinput" id="guestPhone" placeholder="Mobile number" value="${esc(g.phone)}">
+    </div>`;
+}
+const guestSheet=document.getElementById('guestSheet');
+guestSheet.addEventListener('click', e=>{
+  const g=detailG; if(!g) return;
+  const rs=e.target.closest('[data-rsvp-set]'); if(rs){ g.rsvp=rs.dataset.rsvpSet; renderGuest(); render(); return; }
+  const sd=e.target.closest('[data-side-set]'); if(sd){ g.side=sd.dataset.sideSet; renderGuest(); render(); return; }
+  const gt=e.target.closest('[data-grp-toggle]'); if(gt){ const gid=gt.dataset.grpToggle, i=g.groups.indexOf(gid); if(i>=0) g.groups.splice(i,1); else g.groups.push(gid); renderGuest(); render(); return; }
+});
+guestSheet.addEventListener('change', e=>{ const g=detailG; if(g && e.target.id==='guestRole'){ g.role=e.target.value; renderGuest(); render(); } });
+guestSheet.addEventListener('input', e=>{ const g=detailG; if(!g) return;
+  if(e.target.id==='guestPlus') g.plus=e.target.value.trim()||undefined;
+  if(e.target.id==='guestEmail') g.email=e.target.value.trim()||undefined;
+  if(e.target.id==='guestPhone') g.phone=e.target.value.trim()||undefined;
+});
+document.getElementById('guestRemove').addEventListener('click', ()=>{
+  if(detailG){ const i=G.indexOf(detailG); if(i>=0) G.splice(i,1); selected.delete(detailG.id); detailG=null; }
+  closeSheets(); render();
+});
+
+// --- quick-add ---
+document.getElementById('addRole').innerHTML=roleOptions('guest');
+document.getElementById('addSide').addEventListener('click', e=>{ const c=e.target.closest('.dchip'); if(!c) return;
+  document.querySelectorAll('#addSide .dchip').forEach(x=>x.classList.remove('on','s-on')); c.classList.add('on','s-on'); });
+document.getElementById('addSave').addEventListener('click', ()=>{
+  const fn=document.getElementById('addFn').value.trim(), ln=document.getElementById('addLn').value.trim();
+  if(!fn && !ln){ document.getElementById('addFn').focus(); return; }
+  const role=document.getElementById('addRole').value;
+  const side=document.querySelector('#addSide .dchip.on')?.dataset.side||'bride';
+  const id=Math.max(0,...G.map(x=>x.id))+1;
+  G.push({id, fn:fn||ln, ln:fn?ln:'', side, role, rsvp:'pending', groups:[]});
+  document.getElementById('addFn').value=''; document.getElementById('addLn').value='';
+  closeSheets(); render();
+});
+
+// --- sort sheet ---
+function markSort(){ document.querySelectorAll('#sortSheet .sortopt').forEach(o=>o.classList.toggle('act', o.dataset.sort===state.sort)); }
+document.querySelectorAll('#sortSheet .sortopt').forEach(o=>o.addEventListener('click', ()=>{
+  state.sort=o.dataset.sort; document.getElementById('sort').value=state.sort; markSort(); closeSheets(); render();
+}));
+
+// --- toolbar mobile buttons ---
+document.getElementById('mSort').addEventListener('click', ()=>{ markSort(); openSheet('sortSheet'); });
+document.getElementById('mAdd').addEventListener('click', ()=>openSheet('addSheet'));
+
+// --- long-press a row → select-mode ---
+const mlistEl=document.getElementById('mlist');
+let lpTimer=null;
+mlistEl.addEventListener('pointerdown', e=>{
+  const c=e.target.closest('.card[data-card]'); if(!c || e.target.closest('.rowchk')) return;
+  const id=+c.dataset.card;
+  lpTimer=setTimeout(()=>{ lpTimer=null; if(!selected.has(id)){ selected.add(id); suppressTap=true; render(); if(navigator.vibrate) navigator.vibrate(8); } }, 420);
+});
+['pointerup','pointercancel','pointerleave'].forEach(ev=>mlistEl.addEventListener(ev, ()=>clearTimeout(lpTimer)));
+mlistEl.addEventListener('scroll', ()=>clearTimeout(lpTimer), true);
+
 // header overflow menu
 const moreMenu=document.getElementById('moreMenu');
 document.getElementById('moreBtn').addEventListener('click', e=>{ e.stopPropagation(); moreMenu.classList.toggle('open'); });
@@ -800,7 +996,8 @@ document.addEventListener('click', e=>{ if(!e.target.closest('.menu-wrap')) more
 window.addEventListener('resize', closePop);
 window.addEventListener('scroll', ()=>{ if(pop.classList.contains('open')) positionPop(); }, true);
 
-render(); syncStatUI(); syncChips();
+document.getElementById('sort').value=state.sort;
+render(); syncStatUI(); syncChips(); markSort();
 </script>
 </body>
 </html>

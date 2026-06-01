@@ -127,7 +127,24 @@ a{color:inherit;text-decoration:none}
     background:var(--surface); border-top:1px solid var(--line);
     box-shadow:0 -8px 22px rgba(30,34,41,.07);
   }
+  /* in select-mode the docked search bar becomes the selection bar */
+  body.selmode .toolbar{display:none}
+  body.selmode .mselbar{display:flex}
+  body.selmode .bulkbar{display:none}   /* mobile uses .mselbar, not the desktop bar */
+  body.selmode .hsel{display:none}
 }
+/* mobile header "Select" button + bottom selection bar */
+.hsel{height:34px;padding:0 13px;border-radius:9px;border:1px solid var(--line-strong);background:var(--surface);font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;align-items:center;gap:6px}
+.hsel svg{width:15px;height:15px;color:var(--gold-deep)}
+.mselbar{position:fixed;left:0;right:0;bottom:72px;z-index:47;display:none;align-items:center;gap:10px;padding:10px 16px;background:var(--surface);border-top:1px solid var(--line);box-shadow:0 -8px 22px rgba(30,34,41,.08)}
+.msel-x{width:38px;height:38px;border-radius:10px;border:1px solid var(--line-strong);background:var(--surface);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;color:var(--ink)}
+.msel-x svg{width:17px;height:17px}
+.msel-cnt{font-size:13.5px;font-weight:600}
+.msel-cnt b{color:var(--gold-deep)}
+.msel-act{height:38px;border-radius:10px;border:none;cursor:pointer;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;padding:0 14px}
+.msel-act.primary{background:var(--mulberry);color:#fff;margin-left:auto}
+.msel-act.primary:active{background:var(--mulberry-deep)}
+.msel-act.danger{background:var(--dec-bg);color:var(--dec);padding:0 13px}
 /* .tbtn/.addbtn carry no display — .m-only owns visibility so they stay mobile-only */
 .tbtn{height:44px;width:44px;border-radius:12px;background:var(--surface);border:1px solid var(--line-strong);align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto}
 .tbtn:active{border-color:var(--ink-soft);background:rgba(30,34,41,.03)}
@@ -290,7 +307,7 @@ body.selmode .card-chk{display:inline-flex}
 
 /* ---- bulk action bar ---- */
 .bulkbar{position:fixed;left:0;right:0;bottom:0;z-index:70;background:var(--ink);color:var(--paper);display:none;align-items:center;gap:12px;padding:12px 16px calc(12px + env(safe-area-inset-bottom));box-shadow:0 -8px 28px rgba(30,34,41,.25)}
-body.selmode .bulkbar{display:flex}
+@media(min-width:1024px){body.selmode .bulkbar{display:flex}}
 @media(min-width:1024px){
   .bulkbar{left:auto;right:auto;bottom:auto;position:sticky;top:14px;margin:0 0 14px;border-radius:14px;border:1px solid var(--gold);background:rgba(251,251,250,.96);backdrop-filter:blur(6px);color:var(--ink);box-shadow:0 8px 24px rgba(30,34,41,.1);flex-wrap:wrap}
 }
@@ -326,6 +343,7 @@ body.selmode .bulkbar{display:flex}
         <p class="eyebrow">Guest list · Maria &amp; Juan</p>
         <h1 class="h1"><span class="n" id="hCount">20</span> guests</h1>
       </div>
+      <button class="hsel m-only" id="enterSelBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Select</button>
       <div class="actions">
         <a class="chip-link" href="#" title="Seating chart">
           <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
@@ -478,6 +496,14 @@ body.selmode .bulkbar{display:flex}
   <a class="navtab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>More</a>
 </nav>
 
+<!-- Mobile selection bar — replaces the docked search bar in select-mode -->
+<div class="mselbar" id="mselbar">
+  <button class="msel-x" id="mselCancel" aria-label="Cancel selection"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  <span class="msel-cnt"><b id="mselCount">0</b> selected</span>
+  <button class="msel-act primary" id="mselGroup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add to group</button>
+  <button class="msel-act danger" id="mselDelete" aria-label="Delete selected"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" width="16" height="16"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+</div>
+
 <!-- ============ SCRIM + SHEETS ============ -->
 <div class="scrim" id="scrim"></div>
 
@@ -557,6 +583,19 @@ body.selmode .bulkbar{display:flex}
   </div>
 </div>
 
+<!-- Add-to-group sheet (mobile, bulk) -->
+<div class="sheet" id="groupSheet">
+  <div class="grip"></div>
+  <div class="shead"><h2 id="groupTitle">Add to group</h2><button class="sclose" data-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+  <div class="sbody">
+    <div id="groupOpts"></div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <input class="dinput" id="newGroupName" placeholder="New group name…" autocomplete="off" style="flex:1">
+      <button class="btn btn-primary" id="newGroupAdd" style="flex:0 0 auto">Create</button>
+    </div>
+  </div>
+</div>
+
 <!-- Inline popover (desktop RSVP + role edit, + row kebab) -->
 <div class="pop" id="pop"></div>
 
@@ -612,6 +651,7 @@ const GROUP_LABEL = {cf:{l:'College Friends',s:'bride'}, bk:{l:'Barkada',s:'groo
 /* ---------------- state ---------------- */
 const state = {q:'', rsvp:'', side:'', view:'all', sort:'role'};
 const selected = new Set();
+let selMode=false; // mobile: explicit multi-select mode (also true while any selected)
 
 const disp = g => g.dn || (g.fn+' '+g.ln);
 const initials = g => ((g.fn[0]||'')+(g.ln[0]||'')).toUpperCase();
@@ -718,8 +758,9 @@ function cardHTML(g){
 
 /* ---------------- bulk ---------------- */
 function syncBulk(){
-  document.body.classList.toggle('selmode', selected.size>0);
+  document.body.classList.toggle('selmode', selMode || selected.size>0);
   document.getElementById('bulkCount').textContent=selected.size;
+  const mc=document.getElementById('mselCount'); if(mc) mc.textContent=selected.size;
   const all=document.getElementById('checkAll');
   const vis=G.filter(matches);
   all.checked = vis.length>0 && vis.every(g=>selected.has(g.id));
@@ -984,13 +1025,36 @@ document.querySelectorAll('#sortSheet .sortopt').forEach(o=>o.addEventListener('
 document.getElementById('mSort').addEventListener('click', ()=>{ markSort(); openSheet('sortSheet'); });
 document.getElementById('mAdd').addEventListener('click', ()=>openSheet('addSheet'));
 
-// --- long-press a row → select-mode ---
+// --- multi-select mode ---
+function enterSel(){ selMode=true; document.body.classList.add('selmode'); syncBulk(); }
+function exitSel(){ selMode=false; selected.clear(); document.body.classList.remove('selmode'); render(); }
+document.getElementById('enterSelBtn').addEventListener('click', enterSel);
+document.getElementById('mselCancel').addEventListener('click', exitSel);
+document.getElementById('mselDelete').addEventListener('click', ()=>{ if(!selected.size) return; G=G.filter(g=>!selected.has(g.id)); exitSel(); });
+
+// add selected guests to a group
+function addSelectedToGroup(gid){ G.forEach(g=>{ if(selected.has(g.id) && !g.groups.includes(gid)) g.groups.push(gid); }); closeSheets(); exitSel(); }
+const GW={bride:'#FCE9ED',groom:'#E4F1FB',both:'#F0E9F8'}, GI={bride:'#8E2740',groom:'#0B5A8A',both:'#5A3490'};
+function renderGroupSheet(){
+  document.getElementById('groupTitle').textContent=`Add ${selected.size} ${selected.size===1?'guest':'guests'} to a group`;
+  document.getElementById('groupOpts').innerHTML=Object.entries(GROUP_LABEL).map(([gid,gr])=>
+    `<button class="rsvpopt grpopt" data-gid="${gid}"><span class="badge" style="background:${GW[gr.s]};color:${GI[gr.s]}">${gr.l[0]}</span>${gr.l}</button>`).join('');
+}
+document.getElementById('mselGroup').addEventListener('click', ()=>{ if(!selected.size) return; renderGroupSheet(); openSheet('groupSheet'); });
+document.getElementById('groupOpts').addEventListener('click', e=>{ const o=e.target.closest('.grpopt'); if(o) addSelectedToGroup(o.dataset.gid); });
+let groupSeq=1;
+document.getElementById('newGroupAdd').addEventListener('click', ()=>{
+  const f=document.getElementById('newGroupName'), name=f.value.trim(); if(!name){ f.focus(); return; }
+  const gid='g'+(groupSeq++); GROUP_LABEL[gid]={l:name, s:'both'}; f.value=''; addSelectedToGroup(gid);
+});
+
+// --- long-press a row → enter select-mode ---
 const mlistEl=document.getElementById('mlist');
 let lpTimer=null;
 mlistEl.addEventListener('pointerdown', e=>{
   const c=e.target.closest('.card[data-card]'); if(!c || e.target.closest('.rowchk')) return;
   const id=+c.dataset.card;
-  lpTimer=setTimeout(()=>{ lpTimer=null; if(!selected.has(id)){ selected.add(id); suppressTap=true; render(); if(navigator.vibrate) navigator.vibrate(8); } }, 420);
+  lpTimer=setTimeout(()=>{ lpTimer=null; enterSel(); if(!selected.has(id)){ selected.add(id); } suppressTap=true; render(); if(navigator.vibrate) navigator.vibrate(8); }, 420);
 });
 ['pointerup','pointercancel','pointerleave'].forEach(ev=>mlistEl.addEventListener(ev, ()=>clearTimeout(lpTimer)));
 mlistEl.addEventListener('scroll', ()=>clearTimeout(lpTimer), true);

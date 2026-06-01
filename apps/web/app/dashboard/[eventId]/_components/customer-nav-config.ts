@@ -94,6 +94,17 @@ export function buildCustomerNavGroups(eventId: string): NavGroup[] {
           // documents the prefix-vs-exact trap).
           matchPrefix: '__home__',
         },
+        {
+          // For you — the personalized menu (taste + services). Owner
+          // directive 2026-06-02 (lean-home + nav lock). Mirrors the
+          // mobile bottom-nav "For you" tab so desktop has parity.
+          // Sparkles matches the bottom-nav For-you icon.
+          key: 'for-you',
+          label: 'For you',
+          href: `${base}/for-you`,
+          icon: Sparkles,
+          matchPrefix: `${base}/for-you`,
+        },
       ],
     },
     {

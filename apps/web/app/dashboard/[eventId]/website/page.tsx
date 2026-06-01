@@ -557,8 +557,8 @@ export default async function WebsiteHubPage({
         <JourneyRow
           icon={QrCode}
           title="Custom QR for every guest"
-          blurb="A personal QR per guest that opens their own invitation."
-          comingSoon
+          blurb="A personal QR per guest, dressed in your monogram and colors."
+          href={`/dashboard/${eventId}/add-ons/custom-qr-guest`}
         />
       </JourneySection>
 

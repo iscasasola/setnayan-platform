@@ -10,6 +10,7 @@ import {
   Film,
   Printer,
   ImageDown,
+  QrCode,
   type LucideIcon,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -168,6 +169,25 @@ const ADD_ONS: ReadonlyArray<{
         'linear-gradient(135deg, #1A1A1A 0%, #2B2B2B 50%, #3F3F3F 100%)',
       motionBackground:
         'radial-gradient(ellipse at 50% 40%, #FAF6F0 0%, transparent 55%)',
+      iconBadgeClass: 'bg-cream/20 text-cream',
+    },
+  },
+  {
+    key: 'custom-qr-guest',
+    label: 'Custom QR per guest',
+    Icon: QrCode,
+    iteration: '0002',
+    status: 'web_v1',
+    blurb:
+      'A branded QR for every guest · your monogram + palette colors · print-ready',
+    cta: 'Brand my QRs',
+    // Drift · terracotta-on-cream — QR module grid feel
+    poster: {
+      motion: 'drift',
+      baseBackground:
+        'linear-gradient(135deg, #2B1810 0%, #5A2818 55%, #C97B4B 100%)',
+      motionBackground:
+        'radial-gradient(circle at 50% 50%, #FAF6F0 0%, transparent 50%)',
       iconBadgeClass: 'bg-cream/20 text-cream',
     },
   },

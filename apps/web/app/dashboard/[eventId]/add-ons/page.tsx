@@ -11,6 +11,7 @@ import {
   Printer,
   ImageDown,
   QrCode,
+  MapPin,
   type LucideIcon,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -299,6 +300,25 @@ const ADD_ONS: ReadonlyArray<{
       motionBackground:
         'radial-gradient(circle at 50% 50%, #4FFFE0 0%, rgba(80, 200, 255, 0.5) 25%, transparent 55%)',
       iconBadgeClass: 'bg-cyan-100/20 text-cyan-50',
+    },
+  },
+  {
+    key: 'indoor-blueprint',
+    label: 'Indoor Blueprint',
+    Icon: MapPin,
+    iteration: '0008',
+    status: 'web_v1',
+    blurb:
+      'Your seating chart, turned into wayfinding · each guest finds their table from the entrance',
+    cta: 'Map my venue',
+    // Drift · deep terracotta-on-ink — venue floor-plan / aisle path feel
+    poster: {
+      motion: 'drift',
+      baseBackground:
+        'linear-gradient(135deg, #1A1410 0%, #3A281C 55%, #6B4A30 100%)',
+      motionBackground:
+        'radial-gradient(circle at 50% 60%, #F4D9B0 0%, transparent 50%)',
+      iconBadgeClass: 'bg-amber-100/20 text-amber-100',
     },
   },
 ];

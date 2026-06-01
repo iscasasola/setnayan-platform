@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { Camera, CircleSlash, Lock, Sparkles } from 'lucide-react';
+import { Camera, CircleSlash, Lock, MapPin, Sparkles } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
@@ -902,6 +902,18 @@ function InvitationSite({
             <p className="mt-4 break-all font-mono text-[10px] uppercase tracking-[0.1em] text-ink/40">
               {invitationUrl}
             </p>
+            {/* Indoor Blueprint entry point — pure navigation (no DB query on
+                this always-rendered landing). The /find-my-table route does its
+                own SKU gating: it shows a friendly "ask the couple" prompt when
+                the event hasn't bought Indoor Blueprint, so this link is safe to
+                always render. */}
+            <Link
+              href={`/${event.slug}/find-my-table`}
+              className="mt-5 inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 hover:border-terracotta hover:text-terracotta"
+            >
+              <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+              Find my table
+            </Link>
           </section>
         ) : null}
 

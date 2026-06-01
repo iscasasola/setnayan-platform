@@ -9,6 +9,8 @@ import { formatEventDate } from '@/lib/events';
 import { ROLE_LABELS, type GuestRole } from '@/lib/guests';
 import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { resolveMonogram, type MonogramConfig } from '@/lib/monogram';
+import { eventOwnsAnimatedMonogram } from '@/lib/animated-monogram';
+import { AnimatedMonogramHero } from '@/app/_components/animated-monogram-hero';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { submitRsvp } from './actions';
 import { CountdownWidget } from './_components/countdown';
@@ -109,6 +111,17 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
 
   const monogram = resolveMonogram(event);
 
+  // Paid ANIMATED_MONOGRAM upgrade (₱2,499 · "Your initials, drawn live").
+  // When the event owns it, the monogram hero circle DRAWS ITSELF IN with an
+  // SVG stroke-trace reveal on load instead of rendering static. Resolved once
+  // here via the admin client (this page renders for anonymous visitors with
+  // no RLS session) + threaded into the hero render branches below. Degrades
+  // to `false` (static monogram) on any orders-table shape error — see
+  // lib/animated-monogram.ts. Binds the V2 catalog SKU that v2-catalog.ts
+  // marked 'partial'; the separate 0004 monogram_hero_upgrade widget path is
+  // untouched.
+  const animatedMonogram = await eventOwnsAnimatedMonogram(admin, event.event_id);
+
   // Resolve the hero photo's display URL up-front so it's available to both
   // PublicLanding (anonymous browsers) and InvitationSite (guest-cookie
   // visitors). Resolves to a presigned 24h GET URL when the host has uploaded
@@ -203,7 +216,13 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
     }
 
     if (!guestSessionMatches && !isAuthedHost) {
-      return <PrivateLanding event={event} monogram={monogram} />;
+      return (
+        <PrivateLanding
+          event={event}
+          monogram={monogram}
+          animatedMonogram={animatedMonogram}
+        />
+      );
     }
     // Otherwise fall through — public / unlisted rendering path below
     // handles the rest of the page exactly as it would for a public event.
@@ -305,6 +324,7 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
       qrSvg={qrSvg}
       invitationUrl={invitationUrl}
       monogram={monogram}
+      animatedMonogram={animatedMonogram}
       scheduleBlocks={scheduleBlocks}
       dayOfPhase={dayOfPhase}
       heroPhotoUrl={heroPhotoUrl}
@@ -642,20 +662,35 @@ function PublicHideableWidget({
 function PrivateLanding({
   event,
   monogram,
+  animatedMonogram,
 }: {
   event: EventRow;
   monogram: MonogramConfig;
+  // True when the event owns the paid ANIMATED_MONOGRAM upgrade — the monogram
+  // circle draws itself in instead of rendering static. See [slug]/page.tsx
+  // resolution + lib/animated-monogram.ts.
+  animatedMonogram: boolean;
 }) {
   return (
     <InvitationShell>
       <div className="space-y-8 text-center">
-        <div
-          aria-hidden
-          className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border-2 bg-cream font-serif text-2xl italic"
-          style={{ borderColor: monogram.color, color: monogram.color }}
-        >
-          {monogram.text}
-        </div>
+        {animatedMonogram ? (
+          <div className="flex justify-center">
+            <AnimatedMonogramHero
+              text={monogram.text}
+              color={monogram.color}
+              size="md"
+            />
+          </div>
+        ) : (
+          <div
+            aria-hidden
+            className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border-2 bg-cream font-serif text-2xl italic"
+            style={{ borderColor: monogram.color, color: monogram.color }}
+          >
+            {monogram.text}
+          </div>
+        )}
         <div className="space-y-3">
           <h1 className="font-display text-4xl font-medium tracking-tight sm:text-5xl">
             {event.display_name}
@@ -697,6 +732,7 @@ function InvitationSite({
   qrSvg,
   invitationUrl,
   monogram,
+  animatedMonogram,
   scheduleBlocks,
   dayOfPhase,
   heroPhotoUrl,
@@ -707,6 +743,10 @@ function InvitationSite({
   qrSvg: string;
   invitationUrl: string;
   monogram: MonogramConfig;
+  // True when the event owns the paid ANIMATED_MONOGRAM upgrade — the hero
+  // monogram circle draws itself in instead of rendering static. See
+  // [slug]/page.tsx resolution + lib/animated-monogram.ts.
+  animatedMonogram: boolean;
   scheduleBlocks: ScheduleBlockRow[];
   dayOfPhase: DayOfPhase;
   // Presigned GET URL for the host's uploaded hero photo, or null when the
@@ -799,13 +839,24 @@ function InvitationSite({
               <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
                 You are invited
               </p>
-              <div
-                aria-hidden
-                className="mx-auto mt-6 flex h-20 w-20 items-center justify-center rounded-full border-2 bg-cream font-serif text-2xl italic shadow-sm"
-                style={{ borderColor: monogram.color, color: monogram.color }}
-              >
-                {monogram.text}
-              </div>
+              {animatedMonogram ? (
+                <div className="mt-6 flex justify-center">
+                  <AnimatedMonogramHero
+                    text={monogram.text}
+                    color={monogram.color}
+                    size="md"
+                    shadow
+                  />
+                </div>
+              ) : (
+                <div
+                  aria-hidden
+                  className="mx-auto mt-6 flex h-20 w-20 items-center justify-center rounded-full border-2 bg-cream font-serif text-2xl italic shadow-sm"
+                  style={{ borderColor: monogram.color, color: monogram.color }}
+                >
+                  {monogram.text}
+                </div>
+              )}
               {/* Italic serif display name — structural typography from v2.1
                   guest-microsite template (CLAUDE.md 2026-05-28 row 11).
                   Couple palette tokens (monogram.color · cream · ink ·
@@ -825,13 +876,23 @@ function InvitationSite({
             <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
               You are invited
             </p>
-            <div
-              aria-hidden
-              className="mx-auto mt-6 flex h-20 w-20 items-center justify-center rounded-full border-2 bg-cream font-serif text-2xl italic"
-              style={{ borderColor: monogram.color, color: monogram.color }}
-            >
-              {monogram.text}
-            </div>
+            {animatedMonogram ? (
+              <div className="mt-6 flex justify-center">
+                <AnimatedMonogramHero
+                  text={monogram.text}
+                  color={monogram.color}
+                  size="md"
+                />
+              </div>
+            ) : (
+              <div
+                aria-hidden
+                className="mx-auto mt-6 flex h-20 w-20 items-center justify-center rounded-full border-2 bg-cream font-serif text-2xl italic"
+                style={{ borderColor: monogram.color, color: monogram.color }}
+              >
+                {monogram.text}
+              </div>
+            )}
             {/* Italic serif treatment — see comment on the heroPhotoUrl
                 branch above. Same structural enhancement from v2.1
                 template; couple palette untouched. */}

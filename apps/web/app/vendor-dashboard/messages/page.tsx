@@ -59,6 +59,15 @@ export default async function VendorMessagesPage() {
                   <p className="truncate text-sm font-semibold text-ink">
                     {t.event?.display_name ?? 'Event'}
                   </p>
+                  {t.inquiry_status === 'pending' ? (
+                    <span className="mt-0.5 inline-block rounded-full bg-mulberry/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-mulberry">
+                      New inquiry · accept to reply
+                    </span>
+                  ) : t.inquiry_status === 'declined' ? (
+                    <span className="mt-0.5 inline-block rounded-full bg-ink/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
+                      Declined
+                    </span>
+                  ) : null}
                   <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
                     {t.event?.event_date
                       ? `${t.event.event_date} · `

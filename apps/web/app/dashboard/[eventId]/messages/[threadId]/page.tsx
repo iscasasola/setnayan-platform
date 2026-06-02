@@ -81,7 +81,31 @@ export default async function CoupleThreadPage({ params }: Props) {
         counterpartyLabel={vendorLabel}
       />
 
-      <ChatSendForm threadId={threadId} sendAction={sendChatMessage} />
+      {thread.inquiry_status === 'accepted' ||
+      (thread.inquiry_status === 'pending' && initialMessages.length === 0) ? (
+        <ChatSendForm threadId={threadId} sendAction={sendChatMessage} />
+      ) : thread.inquiry_status === 'pending' ? (
+        <div className="rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
+          <p className="text-sm text-ink">
+            <span className="font-semibold">Inquiry sent.</span> Waiting for{' '}
+            {vendorLabel} to accept before your chat opens. We&rsquo;ll notify you
+            the moment they reply.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3 rounded-xl border border-ink/10 bg-ink/[0.03] p-4">
+          <p className="text-sm text-ink">
+            {vendorLabel} isn&rsquo;t available for your date. Browse similar
+            vendors to keep your options open.
+          </p>
+          <Link
+            href={`/dashboard/${eventId}/vendors`}
+            className="inline-flex h-11 items-center rounded-md bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-600"
+          >
+            See similar vendors
+          </Link>
+        </div>
+      )}
     </section>
   );
 }

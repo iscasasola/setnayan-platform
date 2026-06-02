@@ -2,6 +2,15 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type ChatSenderRole = 'couple' | 'vendor' | 'coordinator';
 
+/**
+ * Accept-gate state per CLAUDE.md 2026-06-02 ("the chat will only reveal when
+ * the vendor accepts the inquiry"). A thread starts `pending` (couple's inquiry
+ * waiting); the vendor flips it to `accepted` (chat open both ways, name
+ * revealed) or `declined` (couple shown alternatives). Pre-migration threads
+ * were backfilled to `accepted`.
+ */
+export type ChatInquiryStatus = 'pending' | 'accepted' | 'declined';
+
 export type ChatThreadRow = {
   thread_id: string;
   public_id: string;
@@ -9,6 +18,10 @@ export type ChatThreadRow = {
   vendor_profile_id: string;
   created_at: string;
   updated_at: string;
+  inquiry_status: ChatInquiryStatus;
+  accepted_at: string | null;
+  declined_at: string | null;
+  decline_reason: string | null;
 };
 
 export type CoupleThreadWithVendor = ChatThreadRow & {
@@ -56,7 +69,7 @@ export type ChatMessageRow = {
 };
 
 const THREAD_SELECT =
-  'thread_id,public_id,event_id,vendor_profile_id,created_at,updated_at';
+  'thread_id,public_id,event_id,vendor_profile_id,created_at,updated_at,inquiry_status,accepted_at,declined_at,decline_reason';
 
 export async function fetchCoupleThreads(
   supabase: SupabaseClient,

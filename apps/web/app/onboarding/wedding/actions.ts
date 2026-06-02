@@ -154,6 +154,17 @@ export type OnboardingCommitPayload = {
    * services list"). Each is a verified marketplace reception → name-exempt.
    */
   shortlist: { vendorId: string; name: string }[];
+  /**
+   * screen-10 style sub-stepper prefs blob (reception · ceremony · cuisine ·
+   * serviceStyle · dietary · pvLook · pvNeed · pvIncluded · music · feel).
+   * Persisted to events.style_preferences (migration 20260724000000) for
+   * DISPLAY on the Home "Personalized for you" card (owner 2026-06-02: "we want
+   * everything there ... the features that matter for the different services").
+   * NOT a vendor-match write — that's event_vendor_preferences, gated on the
+   * canonical_service FK + vendor facet-tagging (CLAUDE.md 2026-06-02 Phase A2
+   * BLOCKED). This is a free-form blob, no FK, display-only.
+   */
+  stylePreferences: Record<string, unknown>;
 };
 
 export type OnboardingCommitResult =
@@ -262,6 +273,9 @@ export async function commitOnboardingWedding(
         ? payload.musicPlaylistSeed
         : null,
       estimated_pax: typeof payload.pax === 'number' ? payload.pax : null,
+      // Display-only style blob for the Home "Personalized for you" card
+      // (migration 20260724000000). NOT vendor matching — see the payload doc.
+      style_preferences: payload.stylePreferences ?? {},
     })
     // events.id is BIGSERIAL (internal) — every FK + the dashboard route use
     // events.event_id (UUID). Select + thread event_id, matching the canonical

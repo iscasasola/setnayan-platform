@@ -1219,6 +1219,61 @@ function MatchedBundle({ band, added, onAdd }: { band: string; added: boolean; o
   );
 }
 
+/* ── Live savings compute (Time_and_Money_Saved_Model_2026-06-01.md §D) ──
+   Per-couple from the onboarding state — REPLACES the hardcoded demo strip
+   (₱42,992 / 745 / 48 · owner 2026-06-02: "why is this the same for everybody?
+   we tried different input and it still gave the same data"). Free-feature money
+   is flat (everyone gets the same free features → ₱32,992) + ₱2,500 × expos; the
+   hours + curated-vendor counts scale with the couple's actual picks · shortlist ·
+   runway · design categories · expos. Today's Focus EXCLUDED (paid SKU, not a free
+   saving). "2,400+" stays a platform figure in the label, not the counter. */
+const SAVINGS_FLAT_PESOS = 32992; // sum of the 8 flat free-feature money values (model §D table)
+const SAVINGS_PER_EXPO_PESOS = 2500; // marketplace — money per bridal expo replaced
+const VENDORS_PER_CATEGORY = 5; // best-fit vendors surfaced per picked category
+function computeOnboardingSavings(state: OnboardingState, now: Date): { money: number; hours: number; vendors: number } {
+  const categories = state.picks.length;
+  const shortlisted = state.shortlist.length;
+  const designVendors = state.picks.filter((p) => AESTHETIC_CATS.includes(p)).length;
+  const exposReplaced = Math.min(5, Math.max(1, Math.ceil(Math.max(categories, 1) / 3)));
+  // runway = earliest committed/candidate date (or window start) − today, clamped ≥0
+  const iso =
+    state.dateMode === 'window' && state.windowStart
+      ? state.windowStart
+      : ((state.dateCandidates ?? []).filter(Boolean).slice().sort()[0] ?? null);
+  let runwayDays = 365; // 12-mo default when no date yet (the date screen gates, so rare)
+  if (iso) {
+    const days = Math.round((new Date(iso + 'T00:00:00').getTime() - now.getTime()) / 86400000);
+    if (Number.isFinite(days)) runwayDays = Math.max(0, days);
+  }
+  const money = SAVINGS_FLAT_PESOS + SAVINGS_PER_EXPO_PESOS * exposReplaced;
+  const hours = Math.round(
+    3 * categories + // filtering — 3h/category
+      8 + // monogram
+      350 + // website (triple site)
+      12 + // guest planner
+      12 + // budget tracker
+      3 * shortlisted + // vendor comparison — 3h/shortlisted
+      0.5 * runwayDays + // dashboard — 0.5h/day
+      2 * designVendors + // mood board — 2h/design vendor
+      24 * exposReplaced, // marketplace — 24h/expo replaced
+  );
+  const vendors = Math.max(categories * VENDORS_PER_CATEGORY, 12);
+  return { money, hours, vendors };
+}
+
+/* Onboarding-completion overlay (owner 2026-06-02). Once the couple taps the final
+   button we lock the whole screen with a "creating your dashboard" overlay so they
+   can't touch anything, preload the dashboard + its tabs, then navigate. The hold
+   is a deliberate beat that lets the prefetches warm before we release — the
+   dashboard then appears warm + instant ("make sure everything is preloaded before
+   we release the loading screen to make it feel fast"). */
+const ANALYZING_HOLD_MS = 2200;
+const ANALYZING_STAGES = [
+  'Analyzing your preferences…',
+  'Matching your vendors…',
+  'Building your personalized dashboard…',
+];
+
 /* Savings counter — counts up on screen entry (prototype countUp/runCounters · cubic ease-out ~1.15s). */
 function CountUp({ value, prefix = '', suffix = '', active }: { value: number; prefix?: string; suffix?: string; active: boolean }) {
   const [disp, setDisp] = useState(0);
@@ -1279,6 +1334,11 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
   const [committing, setCommitting] = useState(false);
   const [commitError, setCommitError] = useState<string | null>(null);
   const committingRef = useRef(false);
+  /* Finishing overlay — blocking "creating your dashboard" screen shown the instant
+     the couple taps the final button (owner 2026-06-02). finStage cycles the status
+     line for a premium "analyzing" feel while the dashboard preloads. */
+  const [finishing, setFinishing] = useState(false);
+  const [finStage, setFinStage] = useState(0);
 
   /* Hydrate from localStorage on mount (30-day TTL auto-clear). */
   useEffect(() => {
@@ -1648,6 +1708,8 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
   const recapGuests = state.pax != null ? String(state.pax) : '—';
   const recapStyle = [findSettingLabel, cap(state.prefs.feel)].filter(Boolean).join(' · ') || '—';
   const shortlistCount = state.shortlist.length;
+  /* live per-couple savings — replaces the hardcoded demo strip (owner 2026-06-02) */
+  const savings = computeOnboardingSavings(state, new Date());
 
   /* ── Phase-5 lazy DB commit (events + event_members), then to the dashboard ──
      The account gate's OAuth/email actions round-trip back here via this `next`. */
@@ -1687,20 +1749,56 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
     [],
   );
 
+  /* Cycle the analyzing-overlay status line while finishing (reads as real work). */
+  useEffect(() => {
+    if (!finishing) {
+      setFinStage(0);
+      return;
+    }
+    const id = window.setInterval(() => {
+      setFinStage((s) => Math.min(s + 1, ANALYZING_STAGES.length - 1));
+    }, 720);
+    return () => window.clearInterval(id);
+  }, [finishing]);
+
   const handleFinish = useCallback(async () => {
     if (committingRef.current) return;
     setCommitError(null);
-    // Idempotent: if the event already exists (e.g. user navigated back then
-    // forward), don't create a second one — just go.
+
+    // Preload the dashboard + every tab the couple might click, then hold the
+    // analyzing overlay a beat so the prefetches warm before we navigate. The
+    // overlay covers everything until the dashboard actually swaps in — no flash
+    // of the onboarding underneath + no click-lag on Home/Guests/Services/Website/
+    // More once they land (owner 2026-06-02).
+    const goToDashboard = (eventId: string) => {
+      const base = `/dashboard/${eventId}`;
+      try {
+        router.prefetch(base); // Home
+        router.prefetch(`${base}/guests`); // Guests
+        router.prefetch(`${base}/vendors`); // Services
+        router.prefetch(`${base}/website`); // Website
+        router.prefetch(`${base}/more`); // More
+      } catch {
+        /* prefetch is best-effort */
+      }
+      window.setTimeout(() => router.push(base), ANALYZING_HOLD_MS);
+    };
+
+    // Idempotent: event already exists (back-then-forward) — show the overlay + go.
     if (committedEventId) {
+      setFinishing(true);
       try {
         localStorage.removeItem(ONBOARDING_DRAFT_KEY);
       } catch {
         /* non-fatal */
       }
-      router.push(`/dashboard/${committedEventId}`);
+      goToDashboard(committedEventId);
       return;
     }
+
+    // Lock the screen the instant they tap finish — the overlay covers the whole
+    // commit + preload so the customer can't touch anything (owner 2026-06-02).
+    setFinishing(true);
     committingRef.current = true;
     setCommitting(true);
     const res = await commitOnboardingWedding(buildCommitPayload(state));
@@ -1713,25 +1811,47 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
       } catch {
         /* non-fatal */
       }
-      // The event is created + complete — reset the WHOLE onboarding to blank
-      // so a re-open (or a second wedding via Add event → Wedding) starts
-      // fresh, never the just-made one (owner 2026-06-02: "make sure the whole
-      // onboarding will reset since the event has been made and complete").
-      // The committedEventId guard keeps the persist effect from re-writing the
-      // cleared draft; the blank seed is what a remount then hydrates.
-      setState({ ...EMPTY_ONBOARDING_STATE });
-      router.push(`/dashboard/${res.eventId}`);
+      // DON'T reset the in-memory state here. setState({...EMPTY_ONBOARDING_STATE})
+      // flips step→0, which flashed the welcome screen under the overlay before
+      // navigation (owner 2026-06-02: "it initially loaded to the first screen of
+      // the onboarding before it proceeded to the dashboard"). Clearing the draft
+      // above already makes a re-open blank; the committedEventId guard keeps the
+      // persist effect from re-writing it. The overlay stays up, then we navigate.
+      goToDashboard(res.eventId);
     } else if (res.error === 'not_authenticated') {
-      // Session lost mid-flow — bounce to the account gate to re-auth.
+      // Session lost mid-flow — drop the overlay + bounce to the account gate.
+      setFinishing(false);
       setCommitError('Please create your account to save your plan.');
       setState((s) => ({ ...s, step: 11 }));
     } else {
+      // Surface the error + let them retry — don't strand them on the overlay.
+      setFinishing(false);
       setCommitError('Something went wrong saving your plan. Please try again.');
     }
   }, [committedEventId, state, buildCommitPayload, router]);
 
   return (
     <div className="pba">
+      {/* Blocking completion overlay — covers the whole viewport so the customer
+          can't touch anything while we create the event + preload the dashboard
+          (owner 2026-06-02). Stays up until the dashboard navigation swaps in. */}
+      {finishing && (
+        <div className="fin-overlay" role="status" aria-live="polite" aria-busy="true">
+          <div className="fin-inner">
+            <svg className="fin-mark" viewBox="0 0 5333.3335 5333.3335" role="img" aria-label="Setnayan">
+              <path
+                d="M 1859.526,3749.781 C 1458.028,3717.757 1065.454,3548.554 758.3406,3241.44 451.2286,2934.328 282.2397,2541.742 250.2195,2140.255 l 1326.8215,1.536 V 661.7647 C 1368.543,727.4195 1172.067,841.5416 1006.804,1006.804 768.3191,1245.29 633.8543,1548.261 602.7217,1859.526 H 250 C 282.024,1458.028 451.2265,1065.455 758.3406,758.3406 1065.453,451.2287 1458.039,282.2396 1859.526,250.2195 V 2422.739 H 661.7647 c 65.6549,208.498 179.7773,404.975 345.0393,570.237 238.486,238.486 541.457,372.95 852.722,404.083 z m 280.948,0 1.537,-1609.307 h 280.948 v 1197.761 c 208.498,-65.655 404.974,-179.776 570.237,-345.039 238.485,-238.486 372.95,-541.457 404.082,-852.722 H 3750 c -32.024,401.498 -201.226,794.071 -508.341,1101.185 -307.112,307.112 -699.697,476.101 -1101.185,508.122 z m 0,-1890.255 c 32.025,-401.498 201.227,-794.073 508.341,-1101.1854 0.658,-0.6584 1.316,-1.3173 1.975,-1.9754 -80.395,-42.041 -163.892,-76.0428 -249.331,-101.7389 -85.439,-25.696 -172.821,-43.0864 -260.985,-51.9046 V 250.2195 c 401.497,32.0253 794.073,201.0094 1101.185,508.1211 307.114,307.1134 476.317,699.6874 508.341,1101.1854 h -352.722 c -31.132,-311.265 -165.597,-614.236 -404.082,-852.722 -15.719,-15.7189 -32.464,-29.741 -48.727,-44.5564 -15.975,14.4789 -31.774,29.1397 -47.191,44.5564 -238.485,238.486 -372.95,541.457 -404.082,852.722 z"
+                fill="#cb9e4b"
+                fillRule="nonzero"
+                transform="matrix(1.3333333,0,0,-1.3333333,0,5333.3333)"
+              />
+            </svg>
+            <div className="fin-spinner" aria-hidden="true" />
+            <div className="fin-title">Creating your personalized dashboard</div>
+            <div className="fin-sub">{ANALYZING_STAGES[finStage]}</div>
+          </div>
+        </div>
+      )}
       <div className="phone">
         {/* top — brand + progress */}
         <div className="top">
@@ -2325,11 +2445,11 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
             <div className="eyebrow">You did the hard part</div>
             <h1 className="q" style={{ fontSize: 29 }}>Congratulations,<br /><span>{coupleDisplay}</span>.</h1>
             <p className="sub">You&apos;ve done the most crucial part — your whole wedding is on track. From here, we help you finish, so you can focus on everything else.</p>
-            {/* SAVINGS — computed live in production per Time_and_Money_Saved_Model_2026-06-01.md. Demo = typical couple. */}
+            {/* SAVINGS — computed live per couple from their picks · shortlist · runway · design categories · expos (Time_and_Money_Saved_Model_2026-06-01.md §D). */}
             <div className="statstrip">
-              <div className="stat"><CountUp value={42992} prefix="₱" active={step === 13} /><span>saved with Setnayan — free</span></div>
-              <div className="stat"><CountUp value={745} active={step === 13} /><span>hours saved vs planning alone</span></div>
-              <div className="stat"><CountUp value={48} active={step === 13} /><span>best-fit vendors from 2,400+</span></div>
+              <div className="stat"><CountUp value={savings.money} prefix="₱" active={step === 13} /><span>saved with Setnayan — free</span></div>
+              <div className="stat"><CountUp value={savings.hours} active={step === 13} /><span>hours saved vs planning alone</span></div>
+              <div className="stat"><CountUp value={savings.vendors} active={step === 13} /><span>best-fit vendors from 2,400+</span></div>
             </div>
             <div className="recap tight">
               <div className="recapline"><span className="rk">Wedding</span><span className="rv">{coupleDisplay}</span></div>
@@ -2348,7 +2468,7 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
             <h1 className="q" style={{ fontSize: 31, lineHeight: 1.08 }}><span>{coupleDisplay}</span></h1>
             <p className="sub" style={{ marginTop: -3 }}>Your wedding, planned.</p>
             <div className="plansave">
-              <div className="ps-amt"><CountUp value={42992} prefix="₱" active={step === 14} /> <span className="ps-and">·</span> <CountUp value={745} suffix=" hrs" active={step === 14} /></div>
+              <div className="ps-amt"><CountUp value={savings.money} prefix="₱" active={step === 14} /> <span className="ps-and">·</span> <CountUp value={savings.hours} suffix=" hrs" active={step === 14} /></div>
               <div className="ps-lbl">already saved — free, just by planning here</div>
             </div>
             <div className="planfree">

@@ -395,6 +395,14 @@ export function buildPlanBudgetModel(args: {
   eyeingByVendorId?: ReadonlyMap<string, number>;
   /** vendor_id → card enrichment (reviews / badges / distance) from the join. */
   enrichmentByVendorId?: ReadonlyMap<string, VendorEnrichment>;
+  /**
+   * Real count of marketplace-published vendors (verified + coming_soon)
+   * across the couple's ACTIVE categories — the recap's "Searched" stat + the
+   * basis for hoursSaved (spec §6 + Time & Money Saved model, 2026-06-02). The
+   * page computes it (re-bucket → active folders → canonical services →
+   * distinct count); 0 when unknown → the recap never fabricates a number.
+   */
+  marketPoolCount?: number;
 }): PlanBudgetModel {
   const {
     vendorRows,
@@ -406,6 +414,7 @@ export function buildPlanBudgetModel(args: {
     crewMealByVendorId,
     eyeingByVendorId,
     enrichmentByVendorId,
+    marketPoolCount = 0,
   } = args;
 
   // Bucket raw rows into the 26 plan groups (reuses the canonical bucketer
@@ -589,8 +598,14 @@ export function buildPlanBudgetModel(args: {
   const upNext = actionable.length === 0 && due.length > 0 ? (due[0] ?? null) : null;
 
   // ── Recap ──────────────────────────────────────────────────────────────
-  // shortlisted = Σ vendor cards. searched/hours are a transparent, tunable
-  // estimate (spec §6: replace with a real benchmark before public launch).
+  // Real numbers (2026-06-02 · owner "no mockups" · spec §6 resolved via the
+  // Time & Money Saved model). shortlisted/finalized/touched = live from the
+  // picks. searched = the page-supplied real count of marketplace-published
+  // vendors across the couple's ACTIVE categories (what Setnayan combed so
+  // they didn't have to). hoursSaved keys off the model's vendor-search
+  // terms: filtering 3h/active-category + comparison 3h/shortlisted + market
+  // search 24h per ~50-vendor "expo" (capped at 5). No fabricated figure —
+  // 0 in, 0 out.
   let shortlisted = 0;
   let finalized = 0;
   let touched = 0;
@@ -601,8 +616,12 @@ export function buildPlanBudgetModel(args: {
       if (child.state === 'finalized') finalized += 1;
     }
   }
-  const searched = shortlisted * 6 + 12;
-  const hoursSaved = Math.round(searched * 0.25 + shortlisted * 1.5);
+  const searched = marketPoolCount;
+  const exposEquivalent =
+    marketPoolCount > 0 ? Math.min(5, Math.ceil(marketPoolCount / 50)) : 0;
+  const hoursSaved = Math.round(
+    3 * touched + 3 * shortlisted + 24 * exposEquivalent,
+  );
 
   return {
     folders,

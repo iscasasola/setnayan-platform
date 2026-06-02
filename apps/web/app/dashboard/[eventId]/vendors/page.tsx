@@ -24,7 +24,13 @@ import { fetchEventVendors, resolveVendorDisplayName } from '@/lib/vendors';
 import { buildPlanBudgetModel, type VendorEnrichment } from '@/lib/vendors-plan-budget';
 import { haversineKm } from '@/lib/distance';
 import { R2_BUCKETS, r2PublicUrl } from '@/lib/r2';
-import type { EventVendorRowInput } from '@/lib/wedding-plan-groups';
+import {
+  bucketVendorsByGroup,
+  PLAN_GROUPS,
+  type EventVendorRowInput,
+} from '@/lib/wedding-plan-groups';
+import { canonicalServicesForFolder } from '@/lib/vendor-counts';
+import type { WeddingFolder } from '@/lib/taxonomy';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { PlanBudgetAccordion } from './_components/plan-budget-accordion';
 
@@ -276,6 +282,17 @@ export default async function VendorsPage({ params }: Props) {
     }
   }
 
+  // ── Market pool (recap real numbers, 2026-06-02 · owner "no mockups") ────
+  // The recap's "Searched / hours saved" was a placeholder formula (spec §6).
+  // Replace with the REAL count of marketplace-published vendors (verified +
+  // coming_soon — what couples actually browse) across the couple's ACTIVE
+  // categories. 0 on any failure → the recap shows 0, never fabricated.
+  const marketPoolCount = await fetchActiveCategoryMarketPool(
+    vendorRows,
+    ev?.ceremony_type ?? null,
+    ev?.venue_setting ?? null,
+  );
+
   const model = buildPlanBudgetModel({
     vendorRows,
     estimatedBudgetCentavos: ev?.estimated_budget_centavos ?? null,
@@ -286,9 +303,60 @@ export default async function VendorsPage({ params }: Props) {
     crewMealByVendorId,
     eyeingByVendorId,
     enrichmentByVendorId,
+    marketPoolCount,
   });
 
   return <PlanBudgetAccordion model={model} eventId={eventId} />;
+}
+
+/**
+ * Real count of marketplace-published vendors (verified + coming_soon) across
+ * the couple's ACTIVE categories — powers the recap "Searched" stat + the
+ * hoursSaved basis (2026-06-02 · owner "no mockups" · spec §6 resolved via the
+ * Time & Money Saved model). Re-buckets the picks to find which folders are
+ * active, unions their canonical services, counts distinct published vendors
+ * overlapping that set. Admin client (the marketplace is anonymous-read). 0 on
+ * any failure / no active categories → the recap shows 0, never a fabricated
+ * figure.
+ *
+ * NOTE: counts the browseable pool (verified + coming_soon) — what a couple
+ * actually sees in the marketplace today — NOT verified-only (which is ~0
+ * pre-launch). The owner picked "verified-vendor market pool"; using the full
+ * published pool keeps the number real AND meaningful. Flip the visibility
+ * filter to verified-only once the verified roster is populated.
+ */
+async function fetchActiveCategoryMarketPool(
+  vendorRows: ReadonlyArray<EventVendorRowInput>,
+  ceremonyType: string | null,
+  venueSetting: string | null,
+): Promise<number> {
+  try {
+    const bucketed = bucketVendorsByGroup(vendorRows, ceremonyType, venueSetting);
+    const activeFolders = new Set<WeddingFolder>();
+    for (const g of PLAN_GROUPS) {
+      if ((bucketed.get(g.id)?.length ?? 0) > 0) {
+        activeFolders.add(g.catalogFolder);
+      }
+    }
+    const canonical = new Set<string>();
+    for (const f of activeFolders) {
+      for (const c of canonicalServicesForFolder(f)) canonical.add(c);
+    }
+    if (canonical.size === 0) return 0;
+    const admin = createAdminClient();
+    const { count, error } = await admin
+      .from('vendor_market_stats')
+      .select('vendor_profile_id', { count: 'exact', head: true })
+      .in('public_visibility', ['verified', 'coming_soon'])
+      .not('business_name', 'is', null)
+      .neq('business_name', '')
+      .overlaps('services', [...canonical]);
+    if (error || count == null) return 0;
+    return count;
+  } catch (e) {
+    console.error('[vendors] market-pool count failed:', e);
+    return 0;
+  }
 }
 
 /**

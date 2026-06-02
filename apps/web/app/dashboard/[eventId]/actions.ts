@@ -19,6 +19,16 @@ import {
   type EventDatePrecision,
 } from '@/lib/events';
 import { ALLOWED_REGIONS, ALLOWED_FEELS, MAX_BUDGET_PESOS } from '@/lib/match-criteria';
+import {
+  computeCompatibilityIssue,
+  type EventVendorRowInput,
+} from '@/lib/wedding-plan-groups';
+import { getVendorAvailableDays } from '@/lib/vendor-availability';
+import {
+  type ConflictField,
+  type ConflictService,
+  isCapacityBound,
+} from '@/lib/personalization-conflicts';
 
 const ALLOWED_PRECISIONS = ['year', 'month', 'day'] as const;
 
@@ -493,4 +503,369 @@ export async function updateEventMatchCriteria(
   revalidatePath(`/dashboard/${eventId}`, 'layout');
   revalidatePath(`/dashboard/${eventId}/details`, 'layout');
   return { ok: true };
+}
+
+// ============================================================================
+// Governed-field editors + conflict preview (CLAUDE.md 2026-06-02 directive 4)
+//
+// Owner: "When the data are changed on their personalization. we must notify
+// which vendors will be in conflict if they proceed with these changes. show
+// the cards of each services picked." Scope answer: "All four fields now" —
+// ceremony · venue · guest-count · date.
+//
+// ceremony + date already had governed editors (setEventCeremonyType above +
+// updateEventDate above), both vendor-lock-gated at confirmed>0. This adds the
+// two MISSING editors (venue + guest-count) plus a single conflict-preview
+// action the Personalization page's client editor calls BEFORE committing any
+// of the four. The preview is read-only; the field actions are the write.
+//
+// venue + guest-count carry NO hard vendor-lock gate here (no booking model
+// ties a confirmed vendor to a specific venue_setting/headcount). The
+// Personalization page itself only exposes these editors when
+// confirmedVendorCount === 0 (mirroring the ceremony/date gates), so a
+// confirmed-vendor event keeps every governed field locked-to-support. The
+// conflict preview is the soft warning for the editable (0-confirmed) state.
+// ============================================================================
+
+/** Shared host check — member (couple/coordinator) OR accepted moderator. */
+async function isEventHost(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+  userId: string,
+): Promise<boolean> {
+  const { data: memberRow } = await supabase
+    .from('event_members')
+    .select('member_type')
+    .eq('event_id', eventId)
+    .eq('user_id', userId)
+    .in('member_type', ['couple', 'coordinator'])
+    .maybeSingle();
+  if (memberRow) return true;
+  const { data: modRow } = await supabase
+    .from('event_moderators')
+    .select('moderator_id')
+    .eq('event_id', eventId)
+    .eq('user_id', userId)
+    .is('removed_at', null)
+    .not('accepted_at', 'is', null)
+    .maybeSingle();
+  return !!modRow;
+}
+
+type GovernedFieldResult =
+  | { ok: true }
+  | { ok: false; code: 'invalid_input' | 'unauthorized' | 'db_error'; message: string };
+
+// events.venue_setting CHECK (migration 20260521000000) — the only 7 values
+// the DB accepts for a wedding. The editor offers exactly these; the richer
+// VENUE_LABEL keys (hotel_ballroom, etc.) are display-only legacy and would
+// violate the CHECK on write.
+const ALLOWED_VENUE_SETTINGS = [
+  'banquet_hall',
+  'garden',
+  'beach',
+  'destination',
+  'heritage',
+  'outdoor_tent',
+  'civil_registrar',
+] as const;
+type AllowedVenueSetting = (typeof ALLOWED_VENUE_SETTINGS)[number];
+
+export async function updateVenueSetting(formData: FormData): Promise<GovernedFieldResult> {
+  const eventId = formData.get('event_id');
+  const venueRaw = formData.get('venue_setting');
+  if (typeof eventId !== 'string' || !eventId) {
+    return { ok: false, code: 'invalid_input', message: 'event_id required' };
+  }
+  if (
+    typeof venueRaw !== 'string' ||
+    !ALLOWED_VENUE_SETTINGS.includes(venueRaw as AllowedVenueSetting)
+  ) {
+    return { ok: false, code: 'invalid_input', message: 'Invalid venue setting' };
+  }
+  const venue_setting = venueRaw as AllowedVenueSetting;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, code: 'unauthorized', message: 'Sign in required' };
+  if (!(await isEventHost(supabase, eventId, user.id))) {
+    return { ok: false, code: 'unauthorized', message: 'You are not a host on this event' };
+  }
+
+  const admin = createAdminClient();
+  const { data: before } = await admin
+    .from('events')
+    .select('venue_setting')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const { error } = await admin
+    .from('events')
+    .update({ venue_setting })
+    .eq('event_id', eventId);
+  if (error) return { ok: false, code: 'db_error', message: error.message };
+
+  await admin.from('admin_audit_log').insert({
+    action: 'venue_setting_updated',
+    target_table: 'events',
+    target_id: eventId,
+    before_json: before ?? null,
+    after_json: { venue_setting },
+    actor_user_id: user.id,
+  });
+
+  revalidatePath(`/dashboard/${eventId}`, 'layout');
+  revalidatePath(`/dashboard/${eventId}/details`, 'layout');
+  return { ok: true };
+}
+
+export async function updateGuestCount(formData: FormData): Promise<GovernedFieldResult> {
+  const eventId = formData.get('event_id');
+  const paxRaw = formData.get('estimated_pax');
+  if (typeof eventId !== 'string' || !eventId) {
+    return { ok: false, code: 'invalid_input', message: 'event_id required' };
+  }
+  const paxStr = typeof paxRaw === 'string' ? paxRaw.trim().replace(/[, ]/g, '') : '';
+  let pax: number | null = null;
+  if (paxStr !== '') {
+    const n = Number(paxStr);
+    if (!Number.isInteger(n) || n < 1 || n > 100000) {
+      return { ok: false, code: 'invalid_input', message: 'Enter a whole number of guests (1–100,000)' };
+    }
+    pax = n;
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, code: 'unauthorized', message: 'Sign in required' };
+  if (!(await isEventHost(supabase, eventId, user.id))) {
+    return { ok: false, code: 'unauthorized', message: 'You are not a host on this event' };
+  }
+
+  const admin = createAdminClient();
+  const { data: before } = await admin
+    .from('events')
+    .select('estimated_pax')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const { error } = await admin
+    .from('events')
+    .update({ estimated_pax: pax })
+    .eq('event_id', eventId);
+  if (error) return { ok: false, code: 'db_error', message: error.message };
+
+  await admin.from('admin_audit_log').insert({
+    action: 'guest_count_updated',
+    target_table: 'events',
+    target_id: eventId,
+    before_json: before ?? null,
+    after_json: { estimated_pax: pax },
+    actor_user_id: user.id,
+  });
+
+  revalidatePath(`/dashboard/${eventId}`, 'layout');
+  revalidatePath(`/dashboard/${eventId}/details`, 'layout');
+  return { ok: true };
+}
+
+type PreviewConflictsResult =
+  | { ok: true; conflicts: ConflictService[] }
+  | { ok: false; code: 'invalid_input' | 'unauthorized' | 'db_error'; message: string };
+
+/**
+ * Compute which currently-picked services would be in conflict if the host
+ * changes a governed field to `proposed_value`. Read-only — no write.
+ *
+ *   ceremony / venue → computeCompatibilityIssue() run against the PROPOSED
+ *     value (the unchanged axis stays current). Only the issue the change
+ *     introduces is reported (a ceremony change reports religion/directory
+ *     issues; a venue change reports venue_setting issues).
+ *   date → the vendor-availability engine for the proposed day; a marketplace
+ *     pick is in conflict when it has zero available days in the [day, day]
+ *     window (blocked). Off-platform picks can't be checked → not flagged.
+ *   pax → best-effort: capacity-bound categories (caterers, food stations,
+ *     bars, cakes) get a "may need to re-quote" note. No capacity model exists,
+ *     so this is an approximate warning, not a precise per-vendor conflict.
+ */
+export async function previewPersonalizationConflicts(
+  formData: FormData,
+): Promise<PreviewConflictsResult> {
+  const eventId = formData.get('event_id');
+  const fieldRaw = formData.get('field');
+  const proposedRaw = formData.get('proposed_value');
+  if (typeof eventId !== 'string' || !eventId) {
+    return { ok: false, code: 'invalid_input', message: 'event_id required' };
+  }
+  const field = fieldRaw as ConflictField;
+  if (field !== 'ceremony' && field !== 'venue' && field !== 'date' && field !== 'pax') {
+    return { ok: false, code: 'invalid_input', message: 'Invalid field' };
+  }
+  const proposed = typeof proposedRaw === 'string' ? proposedRaw.trim() : '';
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, code: 'unauthorized', message: 'Sign in required' };
+  if (!(await isEventHost(supabase, eventId, user.id))) {
+    return { ok: false, code: 'unauthorized', message: 'You are not a host on this event' };
+  }
+
+  const admin = createAdminClient();
+
+  const { data: eventRow } = await admin
+    .from('events')
+    .select('ceremony_type, venue_setting')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  const currentCeremony = (eventRow?.ceremony_type as string | null) ?? null;
+  const currentVenue = (eventRow?.venue_setting as string | null) ?? null;
+
+  const { data: picksRaw, error: picksErr } = await admin
+    .from('event_vendors')
+    .select(
+      'vendor_id, vendor_name, category, status, marketplace_vendor_id, source_venue_directory_id',
+    )
+    .eq('event_id', eventId);
+  if (picksErr) return { ok: false, code: 'db_error', message: picksErr.message };
+  const picks = (picksRaw ?? []) as Array<{
+    vendor_id: string;
+    vendor_name: string | null;
+    category: string | null;
+    status: string | null;
+    marketplace_vendor_id: string | null;
+    source_venue_directory_id: string | null;
+  }>;
+  if (picks.length === 0) return { ok: true, conflicts: [] };
+
+  const marketplaceIds = Array.from(
+    new Set(picks.map((p) => p.marketplace_vendor_id).filter((id): id is string => !!id)),
+  );
+  const directoryIds = Array.from(
+    new Set(picks.map((p) => p.source_venue_directory_id).filter((id): id is string => !!id)),
+  );
+
+  const marketMap = new Map<
+    string,
+    { ceremony: string[] | null; venue: string[] | null; logo: string | null; name: string | null }
+  >();
+  if (marketplaceIds.length > 0) {
+    const { data } = await admin
+      .from('vendor_profiles')
+      .select(
+        'vendor_profile_id, compatible_ceremony_types, compatible_venue_settings, logo_url, business_name',
+      )
+      .in('vendor_profile_id', marketplaceIds);
+    for (const r of (data ?? []) as Array<Record<string, unknown>>) {
+      marketMap.set(r.vendor_profile_id as string, {
+        ceremony: (r.compatible_ceremony_types as string[] | null) ?? null,
+        venue: (r.compatible_venue_settings as string[] | null) ?? null,
+        logo: (r.logo_url as string | null) ?? null,
+        name: (r.business_name as string | null) ?? null,
+      });
+    }
+  }
+
+  const directoryMap = new Map<string, { ceremony: string[] | null }>();
+  if (directoryIds.length > 0) {
+    const { data } = await admin
+      .from('venue_directory')
+      .select('venue_directory_id, compatible_ceremony_types')
+      .in('venue_directory_id', directoryIds);
+    for (const r of (data ?? []) as Array<Record<string, unknown>>) {
+      directoryMap.set(r.venue_directory_id as string, {
+        ceremony: (r.compatible_ceremony_types as string[] | null) ?? null,
+      });
+    }
+  }
+
+  // Date availability — for a single-day [day, day] window, getVendorAvailableDays
+  // returns a 1-element set when free and an empty set when blocked, so set.size
+  // is the membership test (no day-key format-matching needed).
+  const availabilityByVendor = new Map<string, boolean>();
+  let proposedDateLabel = '';
+  if (field === 'date' && /^\d{4}-\d{2}-\d{2}$/.test(proposed)) {
+    const day = new Date(`${proposed}T00:00:00`);
+    if (!Number.isNaN(day.getTime())) {
+      proposedDateLabel = day.toLocaleDateString('en-PH', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      });
+      const results = await Promise.all(
+        marketplaceIds.map(async (id) => {
+          try {
+            const set = await getVendorAvailableDays(admin, id, day, day);
+            return [id, set.size > 0] as const;
+          } catch {
+            return [id, true] as const; // fail-open on a calendar read error
+          }
+        }),
+      );
+      for (const [id, available] of results) availabilityByVendor.set(id, available);
+    }
+  }
+
+  const conflicts: ConflictService[] = [];
+  for (const p of picks) {
+    const market = p.marketplace_vendor_id ? marketMap.get(p.marketplace_vendor_id) : undefined;
+    const dir = p.source_venue_directory_id ? directoryMap.get(p.source_venue_directory_id) : undefined;
+    const displayName =
+      market?.name ??
+      (p.vendor_name && p.vendor_name.trim() !== '' ? p.vendor_name : 'This service');
+    const base = {
+      vendor_id: p.vendor_id,
+      vendor_name: displayName,
+      category: p.category ?? 'service',
+      raw_status: p.status,
+      logo_url: market?.logo ?? null,
+    };
+
+    if (field === 'ceremony' || field === 'venue') {
+      const row: EventVendorRowInput = {
+        vendor_id: p.vendor_id,
+        vendor_name: displayName,
+        category: (p.category ?? 'other') as EventVendorRowInput['category'],
+        status: p.status,
+        marketplace_vendor_id: p.marketplace_vendor_id,
+        source_venue_directory_id: p.source_venue_directory_id,
+        marketplace_compatible_ceremony_types: market?.ceremony ?? null,
+        marketplace_compatible_venue_settings: market?.venue ?? null,
+        directory_compatible_ceremony_types: dir?.ceremony ?? null,
+      };
+      const proposedCeremony = field === 'ceremony' ? proposed || null : currentCeremony;
+      const proposedVenue = field === 'venue' ? proposed || null : currentVenue;
+      const issue = computeCompatibilityIssue(row, proposedCeremony, proposedVenue);
+      if (issue) {
+        const relevant =
+          (field === 'ceremony' && (issue.kind === 'religion' || issue.kind === 'directory')) ||
+          (field === 'venue' && issue.kind === 'venue_setting');
+        if (relevant) conflicts.push({ ...base, reason: issue.label });
+      }
+    } else if (field === 'date') {
+      if (
+        p.marketplace_vendor_id &&
+        availabilityByVendor.get(p.marketplace_vendor_id) === false
+      ) {
+        conflicts.push({
+          ...base,
+          reason: `Not available on ${proposedDateLabel || 'the new date'}.`,
+        });
+      }
+    } else if (field === 'pax') {
+      if (isCapacityBound(p.category)) {
+        const n = Number(proposed);
+        const guests = Number.isInteger(n) && n > 0 ? `${n} guests` : 'the new guest count';
+        conflicts.push({
+          ...base,
+          reason: `Priced by headcount — may need to re-quote for ${guests}.`,
+        });
+      }
+    }
+  }
+
+  return { ok: true, conflicts };
 }

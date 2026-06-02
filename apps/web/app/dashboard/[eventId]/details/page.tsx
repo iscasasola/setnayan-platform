@@ -1,12 +1,12 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { CalendarDays, ArrowRight, Store } from 'lucide-react';
+import { ArrowRight, Store } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getConfirmedVendorCount } from '@/lib/events';
-import { CEREMONY_LABEL, VENUE_LABEL, REGION_LABEL, titleCase } from '@/lib/personalized-menu';
-import { CeremonyTypeChip } from '../_components/ceremony-type-chip';
+import { titleCase } from '@/lib/personalized-menu';
 import { DetailsForm } from './_components/details-form';
+import { GovernedFields } from './_components/governed-fields';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,13 +23,14 @@ export const metadata = { title: 'Personalization · Setnayan' };
  * Three bands:
  *   1. The basics — names · region · style/feel · budget. GOVERNANCE-FREE
  *      (bind no vendor) → edited inline via DetailsForm + updateEventMatchCriteria.
- *   2. Your wedding — wedding type + wedding date. GOVERNED (a booked vendor
- *      can lock these) → surfaced through their existing gated editors: the
- *      CeremonyTypeChip (vendor-lock-aware modal) and a deep-link to the
- *      governed date editor (/date-selection). NOT raw-edited here.
- *   3. From your onboarding — guest count · venue · monogram · music · budget
- *      band. Documented read-only. Guest-count + venue editors carry the
- *      change-flow conflict gate (directive 4) and land with that work.
+ *   2. Your wedding — wedding type · venue setting · guest count · date.
+ *      GOVERNED (a booked vendor can lock these) → edited inline via
+ *      <GovernedFields>, which runs the conflict preview first and warns which
+ *      picked services would clash before the change commits (directive 4).
+ *      All four lock to support once a vendor is confirmed.
+ *   3. From your onboarding — budget band · monogram · music. Documented
+ *      read-only (region + style/feel are in band 1; guest count + venue are
+ *      band 2's governed editors).
  *
  * Route kept as /details (relabel-not-rename, per the Vendors→Services
  * precedent) so the Home "Personalize" link + the More-tab activeMatch stay
@@ -94,6 +95,12 @@ export default async function PersonalizationPage({
     : [];
 
   const dateDoc = formatWeddingDate(e);
+  // The date <input type="date"> prefills only from a committed day-precision
+  // date; month/year-precision + window/candidate modes leave it blank so the
+  // host picks deliberately (the governed editor stamps full precision).
+  const eventDateRaw = str('event_date');
+  const datePrecision = str('event_date_precision') ?? 'day';
+  const dateValue = eventDateRaw && datePrecision === 'day' ? eventDateRaw : null;
 
   const monogramDoc =
     monogramText || monogramFrame || monogramFont
@@ -139,59 +146,36 @@ export default async function PersonalizationPage({
         />
       </div>
 
-      {/* Band 2 — your wedding (governed, edited via gated editors) */}
-      <div className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-4 sm:p-5">
-        <div>
+      {/* Band 2 — your wedding (governed: ceremony · venue · guest count · date).
+          Editable inline, but a change runs the conflict preview first and
+          warns which picked services would clash before it commits (directive
+          4). All four lock to support once a vendor is confirmed. */}
+      <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-5">
+        <div className="mb-3">
           <h2 className="m-display-tight text-base uppercase tracking-[0.02em] text-ink">
             Your wedding
           </h2>
           <p className="mt-0.5 text-sm text-ink/55">
-            These shape vendor availability and your paperwork. Once a vendor’s locked in, changes
-            go through support.
+            These shape vendor availability and your paperwork. Change one and we’ll flag any
+            services it would affect before you confirm.
           </p>
         </div>
 
-        <div className="space-y-2.5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <span className="text-sm text-ink/70">Wedding type</span>
-            <CeremonyTypeChip
-              eventId={eventId}
-              eventType={str('event_type') ?? 'wedding'}
-              ceremonyType={ceremonyType}
-              ceremonyTypeLockedAt={str('ceremony_type_locked_at')}
-              confirmedVendorCount={confirmedVendorCount}
-            />
-          </div>
-
-          {secondaryCeremony ? (
-            <p className="text-xs text-ink/55">
-              Also honoring a{' '}
-              <strong className="font-medium text-ink/75">
-                {(CEREMONY_LABEL[secondaryCeremony] ?? `${titleCase(secondaryCeremony)} ceremony`).toLowerCase()}
-              </strong>
-              .
-            </p>
-          ) : null}
-
-          {/* Wedding date keeps its own governed editor (vendor-confirmed gate +
-              change-flow). Deep-link rather than raw-edit it here. */}
-          <Link
-            href={`${base}/date-selection`}
-            className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-paper px-3.5 py-2.5 transition-colors hover:bg-cream"
-          >
-            <span className="flex items-center gap-2.5">
-              <CalendarDays aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-              <span className="text-sm text-ink/80">
-                Wedding date
-                <span className="ml-1.5 text-ink/55">· {dateDoc ?? 'Not set yet'}</span>
-              </span>
-            </span>
-            <ArrowRight aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={1.75} />
-          </Link>
-        </div>
+        <GovernedFields
+          eventId={eventId}
+          confirmedVendorCount={confirmedVendorCount}
+          ceremony={ceremonyType}
+          secondaryCeremony={secondaryCeremony}
+          venue={venueSetting}
+          pax={pax}
+          dateDisplay={dateDoc}
+          dateValue={dateValue}
+        />
       </div>
 
-      {/* Band 3 — from your onboarding (documented, read-only) */}
+      {/* Band 3 — from your onboarding (documented, read-only). Guest count +
+          venue moved up to band 2's governed editors; region + style/feel live
+          in band 1. This keeps only what isn't editable elsewhere. */}
       <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-5">
         <h2 className="m-display-tight text-base uppercase tracking-[0.02em] text-ink">
           From your onboarding
@@ -200,10 +184,6 @@ export default async function PersonalizationPage({
           The rest of what you told us, on the record.
         </p>
         <dl className="divide-y divide-ink/5">
-          <DocRow label="Region" value={regionLabel(str('region'))} />
-          <DocRow label="Guest count" value={pax != null && pax > 0 ? `${pax} guests` : null} />
-          <DocRow label="Venue setting" value={venueLabel(venueSetting)} />
-          <DocRow label="Style / feel" value={moodFeel ? `${titleCase(moodFeel)} style` : null} />
           <DocRow label="Budget band" value={budgetBand ? titleCase(budgetBand) : null} />
           <DocRow label="Monogram" value={monogramDoc} />
           <DocRow
@@ -239,16 +219,6 @@ function DocRow({ label, value }: { label: string; value: ReactNode }) {
       </dd>
     </div>
   );
-}
-
-function regionLabel(region: string | null): string | null {
-  if (!region) return null;
-  return REGION_LABEL[region] ?? titleCase(region);
-}
-
-function venueLabel(venue: string | null): string | null {
-  if (!venue) return null;
-  return VENUE_LABEL[venue] ?? titleCase(venue);
 }
 
 /**

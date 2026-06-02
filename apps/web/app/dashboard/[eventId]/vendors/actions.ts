@@ -25,7 +25,7 @@ import {
   canonicalServiceToPlanGroupId,
   planGroupForCategory,
 } from '@/lib/wedding-plan-groups';
-import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
+import { CONFIRMED_VENDOR_STATUSES, recomputeReceptionAnchor } from '@/lib/events';
 import { ensureAutoShareInvite } from '@/lib/vendor-invites';
 
 function isValidCategory(value: unknown): value is VendorCategory {
@@ -258,12 +258,30 @@ export async function deleteVendor(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // Read the category before deleting so we know whether removing this pick
+  // frees the reception "ground 0" anchor (CLAUDE.md 2026-06-02 directive 3).
+  const { data: removing } = await supabase
+    .from('event_vendors')
+    .select('category')
+    .eq('vendor_id', vendorId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+
   const { error } = await supabase
     .from('event_vendors')
     .delete()
     .eq('vendor_id', vendorId)
     .eq('event_id', eventId);
   if (error) throw new Error(error.message);
+
+  // Re-anchor "ground 0" if a RECEPTION venue pick was just removed — the
+  // distance chips for every other vendor fall back to the next reception
+  // (or leave the existing anchor untouched if none has resolvable coords,
+  // never blanking distance). recomputeReceptionAnchor reads coords across
+  // RLS, so it takes the service client. Best-effort — never throws.
+  if (removing?.category === 'venue') {
+    await recomputeReceptionAnchor(createAdminClient(), eventId);
+  }
 
   // Revalidate both surfaces so an incompatible-pick Remove on the event
   // home (PR B 2026-05-22) clears the chip without a hard refresh, and
@@ -820,6 +838,18 @@ export async function finalizeVendor(
     } catch {
       // Silent cascade failure — preserves the successful lock.
     }
+  }
+
+  // Re-anchor "ground 0" when a RECEPTION venue is the thing just locked.
+  // A LOCKED reception wins the anchor over any 'considering' one, so every
+  // other vendor's marketplace distance chip now re-measures from the
+  // reception the couple actually committed to (CLAUDE.md 2026-06-02
+  // directive 3 · "reception will be ground 0 for the distance of other
+  // vendors"). recomputeReceptionAnchor reads coords across RLS
+  // (marketplace + venue_directory) so it takes the service client.
+  // Best-effort — never throws; the lock already succeeded.
+  if (targetCategory === 'venue') {
+    await recomputeReceptionAnchor(createAdminClient(), eventId);
   }
 
   // Refresh both the event home (FinalizedChipStrip + PlanningGroups read

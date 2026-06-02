@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import { resolvePrimaryHostEvent } from '@/lib/events';
+import { resolvePrimaryHostEvent, recomputeReceptionAnchor } from '@/lib/events';
 import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
 
 // Iteration 0041 — email capture for Coming-Soon event_type interest.
@@ -194,23 +194,16 @@ export async function saveVendorToPicks(formData: FormData): Promise<SaveVendorR
     return { status: 'error', message: iError?.message ?? 'Insert failed' };
   }
 
-  // 5. 2026-05-21 — anchor the event's reception venue when this save
-  // is a venue pick. First-saved-wins: we only set venue_latitude when
-  // it's currently NULL so the couple doesn't lose a manually-set
-  // anchor (or one they pinned by saving a different venue earlier).
-  // Admin can override via /admin/events. Distance chips on the
-  // marketplace key off this column.
-  const vendorHasCoords =
-    vendor.hq_latitude !== null && vendor.hq_longitude !== null;
-  if (category === 'venue' && vendorHasCoords) {
-    await admin
-      .from('events')
-      .update({
-        venue_latitude: vendor.hq_latitude,
-        venue_longitude: vendor.hq_longitude,
-      })
-      .eq('event_id', primaryEvent.event_id)
-      .is('venue_latitude', null);
+  // 5. Re-anchor "ground 0" — the reception venue every other vendor's
+  // distance is measured from (CLAUDE.md 2026-06-02 directive 3 · the anchor
+  // column was locked 2026-05-20). When this save is a reception pick
+  // (category='venue'), recompute events.venue_latitude/longitude from the
+  // current reception picks: a LOCKED reception wins, else the oldest
+  // 'considering' (stable first-saved-wins). recomputeReceptionAnchor also
+  // resolves admin-seeded venues (venue_directory.hq_*), which the old inline
+  // first-saved path missed. Best-effort — never throws.
+  if (category === 'venue') {
+    await recomputeReceptionAnchor(admin, primaryEvent.event_id);
   }
 
   // Repaint both the marketplace (button → "Saved" · distance chips

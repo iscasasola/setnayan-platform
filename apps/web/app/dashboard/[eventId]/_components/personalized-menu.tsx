@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Sparkles, ArrowRight, Pencil } from 'lucide-react';
+import type { ServiceFeature } from '@/lib/personalized-menu';
 
 /**
  * PersonalizedMenu — the couple's match-criteria surface.
@@ -35,13 +36,22 @@ export function PersonalizedMenu({
   eventId,
   variant: _variant,
   tasteChips,
+  serviceFeatures = [],
 }: {
   eventId: string;
   variant: 'preview' | 'full';
   tasteChips: TasteChip[];
+  /**
+   * "What matters for your services" — per-service style picks from
+   * onboarding (events.style_preferences → buildServiceFeatures). Display
+   * only; defaults to [] so existing call sites that don't pass it (and
+   * events with no captured style prefs) render the chips alone.
+   */
+  serviceFeatures?: ServiceFeature[];
 }) {
   const base = `/dashboard/${eventId}`;
   const hasCriteria = tasteChips.length > 0;
+  const hasFeatures = serviceFeatures.length > 0;
 
   return (
     <section
@@ -91,6 +101,31 @@ export function PersonalizedMenu({
         <p className="rounded-xl border border-dashed border-ink/20 bg-paper px-3 py-3 text-sm text-ink/70">
           Add your wedding details and we&apos;ll match services to them.
         </p>
+      )}
+
+      {/* What matters for your services — the per-service style picks from
+       *  onboarding (events.style_preferences). Display only; surfaces "the
+       *  features that matter for the different services" the owner asked
+       *  for (2026-06-02). Renders only when style prefs were captured. */}
+      {hasFeatures && (
+        <div className="space-y-2 border-t border-ink/10 pt-3">
+          <h3 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+            What matters for your services
+          </h3>
+          <dl className="space-y-1.5">
+            {serviceFeatures.map((feature) => (
+              <div
+                key={feature.dimension}
+                className="flex items-baseline justify-between gap-3"
+              >
+                <dt className="shrink-0 text-xs text-ink/55">{feature.label}</dt>
+                <dd className="text-right text-xs font-medium text-ink/80">
+                  {feature.values}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
       )}
 
       {/* Access this — open the matched, sorted vendor results. The

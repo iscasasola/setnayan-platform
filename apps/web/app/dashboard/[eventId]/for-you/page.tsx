@@ -4,7 +4,7 @@ import {
   formatEventDateWithPrecision,
   type EventDatePrecision,
 } from '@/lib/events';
-import { buildTasteChips } from '@/lib/personalized-menu';
+import { buildTasteChips, buildServiceFeatures } from '@/lib/personalized-menu';
 import { PersonalizedMenu } from '../_components/personalized-menu';
 
 export const dynamic = 'force-dynamic';
@@ -42,7 +42,7 @@ export default async function ForYouPage({
   const { data: event, error: eventError } = await supabase
     .from('events')
     .select(
-      'event_id, display_name, event_date, event_date_precision, ceremony_type, secondary_ceremony_type, venue_setting, estimated_pax, estimated_budget_centavos, region, mood_feel_key',
+      'event_id, display_name, event_date, event_date_precision, ceremony_type, secondary_ceremony_type, venue_setting, estimated_pax, estimated_budget_centavos, region, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, style_preferences',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -59,6 +59,9 @@ export default async function ForYouPage({
     : null;
 
   const tasteChips = buildTasteChips(event, formattedDate);
+  const serviceFeatures = buildServiceFeatures(
+    (event as { style_preferences?: Record<string, unknown> | null }).style_preferences ?? null,
+  );
 
   const eventName =
     (event as { display_name?: string | null }).display_name?.trim() || 'Your wedding';
@@ -80,7 +83,12 @@ export default async function ForYouPage({
         </h1>
       </header>
 
-      <PersonalizedMenu eventId={eventId} variant="full" tasteChips={tasteChips} />
+      <PersonalizedMenu
+        eventId={eventId}
+        variant="full"
+        tasteChips={tasteChips}
+        serviceFeatures={serviceFeatures}
+      />
     </section>
   );
 }

@@ -478,21 +478,21 @@ export function buildPlanBudgetModel(args: {
     return ra - rb;
   });
 
-  // Active-categories model (owner 2026-06-02): the Vendors page shows ONLY
-  // categories the couple has a vendor in. A group with no picks is "not yet
-  // added" — it lives on the Unlock-more-categories page, not here. We tally
-  // the addable (non-entry-point) empties so the recap can offer
-  // "Unlock N more categories".
-  let inactiveCategoryCount = 0;
+  // Full-pile model (owner 2026-06-02 evening — restores the signature
+  // vertical accordion). The Services tab renders cover → drag-up → ALL
+  // categories pile up → summary. Picked categories show their carousel of
+  // vendor cards; empty categories show a slim "Find {category}" add-row
+  // (ChildRail branches on child.picks.length). Earlier today the
+  // active-categories model (PR #774) skipped empty categories with
+  // `continue`, which collapsed the pile to a short stub whenever few picks
+  // existed — the owner asked for the full pile back, so every category is
+  // included again. Nothing is "inactive" now: inactiveCategoryCount stays 0
+  // so the recap's "Unlock N more categories" CTA no longer shows (the
+  // Unlock-more page route remains but is simply no longer linked from here).
+  const inactiveCategoryCount = 0;
   for (const group of orderedGroups) {
     const rawPicks = bucketed.get(group.id) ?? [];
     const picks = rawPicks.map(enrich);
-    if (picks.length === 0) {
-      // Entry-point-only groups (countsTowardLockable false) were never
-      // unlockable categories; don't offer them on the Unlock page.
-      if (group.countsTowardLockable !== false) inactiveCategoryCount += 1;
-      continue;
-    }
 
     const hardSingle = HARD_SINGLE_PICK_GROUPS.has(group.id);
     const state = childStateOf(picks, hardSingle);

@@ -101,7 +101,7 @@ export function Nav() {
         <Link href="/login" className="text-sm text-[var(--m-slate)] hover:text-[var(--m-ink)]">
           Sign in
         </Link>
-        <Link href="/signup" className="m-btn m-btn-primary px-[18px] py-2.5 text-[13px]">
+        <Link href="/onboarding/wedding" className="m-btn m-btn-primary px-[18px] py-2.5 text-[13px]">
           Start planning
         </Link>
       </div>
@@ -172,7 +172,7 @@ export function Hero() {
             </div>
           </div>
           <div className="flex gap-3 mt-8 flex-wrap">
-            <Link href="/signup" className="m-btn m-btn-primary m-btn-lg">
+            <Link href="/onboarding/wedding" className="m-btn m-btn-primary m-btn-lg">
               Start planning <span className="text-[var(--m-orange-3)]">· free</span>
             </Link>
             <Link href="/for-vendors" className="m-btn m-btn-ghost m-btn-lg">
@@ -418,7 +418,7 @@ export function TwoSides() {
       </p>
       <div className="grid lg:grid-cols-2 gap-6 mt-14">
         <Reveal>
-          <SideColumn audience="For couples" tone="paper" items={COUPLE_FEATURES} headline="Plan it once. Together." cta="Start planning — free" ctaHref="/signup" />
+          <SideColumn audience="For couples" tone="paper" items={COUPLE_FEATURES} headline="Plan it once. Together." cta="Start planning — free" ctaHref="/onboarding/wedding" />
         </Reveal>
         <Reveal delay={150}>
           <SideColumn
@@ -940,7 +940,7 @@ export function ClosingCTA() {
           commission, ever.
         </p>
         <div className="flex gap-3 justify-center flex-wrap">
-          <Link href="/signup" className="m-btn m-btn-orange m-btn-lg">
+          <Link href="/onboarding/wedding" className="m-btn m-btn-orange m-btn-lg">
             Start planning — free
           </Link>
           <Link href="/for-vendors" className="m-btn m-btn-ghost m-btn-lg" style={{ color: 'var(--m-paper)', borderColor: 'rgba(255,255,255,0.2)' }}>

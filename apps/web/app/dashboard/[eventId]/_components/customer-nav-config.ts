@@ -58,6 +58,7 @@ import {
   QrCode,
   UserPlus,
   User,
+  SlidersHorizontal,
 } from 'lucide-react';
 import type { NavGroup } from '@/app/_components/nav/types';
 
@@ -251,6 +252,17 @@ export function buildCustomerNavGroups(eventId: string): NavGroup[] {
       // closer to the fold without forcing a scroll on lg-medium viewports.
       defaultOpen: false,
       items: [
+        {
+          // Personalization — the curated onboarding record + match criteria
+          // (CLAUDE.md 2026-06-02 directive 2). Route stays /details
+          // (relabel-not-rename). Reached here in the sidebar/More AND from
+          // the Home "Personalized" block's Personalize button.
+          key: 'personalization',
+          label: 'Personalization',
+          href: `${base}/details`,
+          icon: SlidersHorizontal,
+          matchPrefix: `${base}/details`,
+        },
         {
           key: 'hosts',
           label: 'Hosts',

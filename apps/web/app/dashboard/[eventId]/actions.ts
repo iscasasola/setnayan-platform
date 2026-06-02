@@ -403,6 +403,24 @@ export async function updateEventMatchCriteria(
     budgetCentavos = pesos === 0 ? null : Math.round(pesos * 100);
   }
 
+  // Couple names (governance-free identity, edited on the Personalization page,
+  // CLAUDE.md 2026-06-02 Phase B). Names bind no vendor → no change-flow gate.
+  // '' clears the field to NULL; cap length so junk can't be stored. When at
+  // least one name is present we recompute display_name the same way
+  // commitOnboardingWedding does ("{bride} & {groom}") so the chrome label +
+  // the Personalization header stay in sync; if both clear we leave the
+  // existing display_name untouched (don't blank the chrome label).
+  const brideRaw = formData.get('bride_name');
+  const groomRaw = formData.get('groom_name');
+  const brideStr = typeof brideRaw === 'string' ? brideRaw.trim() : '';
+  const groomStr = typeof groomRaw === 'string' ? groomRaw.trim() : '';
+  if (brideStr.length > 80 || groomStr.length > 80) {
+    return { ok: false, code: 'invalid_input', message: 'Name is too long (max 80 characters)' };
+  }
+  const brideName = brideStr === '' ? null : brideStr;
+  const groomName = groomStr === '' ? null : groomStr;
+  const recomputedDisplay = [brideName, groomName].filter(Boolean).join(' & ');
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -438,17 +456,26 @@ export async function updateEventMatchCriteria(
   const admin = createAdminClient();
   const { data: before } = await admin
     .from('events')
-    .select('region, mood_feel_key, estimated_budget_centavos')
+    .select('region, mood_feel_key, estimated_budget_centavos, bride_name, groom_name, display_name')
     .eq('event_id', eventId)
     .maybeSingle();
 
+  const updatePatch: Record<string, unknown> = {
+    region,
+    mood_feel_key: moodFeelKey,
+    estimated_budget_centavos: budgetCentavos,
+    bride_name: brideName,
+    groom_name: groomName,
+  };
+  // Recompute the chrome/display label from the names only when at least one
+  // is present — never blank an existing display_name.
+  if (recomputedDisplay !== '') {
+    updatePatch.display_name = recomputedDisplay;
+  }
+
   const { error: updateError } = await admin
     .from('events')
-    .update({
-      region,
-      mood_feel_key: moodFeelKey,
-      estimated_budget_centavos: budgetCentavos,
-    })
+    .update(updatePatch)
     .eq('event_id', eventId);
   if (updateError) {
     return { ok: false, code: 'db_error', message: updateError.message };
@@ -459,11 +486,7 @@ export async function updateEventMatchCriteria(
     target_table: 'events',
     target_id: eventId,
     before_json: before ?? null,
-    after_json: {
-      region,
-      mood_feel_key: moodFeelKey,
-      estimated_budget_centavos: budgetCentavos,
-    },
+    after_json: updatePatch,
     actor_user_id: user.id,
   });
 

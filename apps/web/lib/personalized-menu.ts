@@ -14,7 +14,11 @@ import type { TasteChip } from '@/app/dashboard/[eventId]/_components/personaliz
  * music vibe / dietary detail) are V1.x — they feed in here when captured.
  */
 
-const CEREMONY_LABEL: Record<string, string> = {
+// Exported so the Personalization page (/dashboard/[eventId]/details) renders
+// the SAME labels the Home block does — one source of truth (CLAUDE.md
+// 2026-06-02 Phase B). "ceremony" suffix dropped on the bare type for the
+// page's documentation rows; the chip-style suffix stays in buildTasteChips.
+export const CEREMONY_LABEL: Record<string, string> = {
   catholic: 'Catholic ceremony',
   civil: 'Civil ceremony',
   inc: 'INC ceremony',
@@ -24,7 +28,7 @@ const CEREMONY_LABEL: Record<string, string> = {
   mixed: 'Mixed ceremony',
 };
 
-const VENUE_LABEL: Record<string, string> = {
+export const VENUE_LABEL: Record<string, string> = {
   banquet_hall: 'Banquet hall',
   hotel_ballroom: 'Hotel ballroom',
   garden: 'Garden',
@@ -43,7 +47,7 @@ const VENUE_LABEL: Record<string, string> = {
 
 // region keys may be sparse in production until onboarding V2 ships fully;
 // titleCase fallback keeps unknown keys readable (acronyms get a small map).
-const REGION_LABEL: Record<string, string> = {
+export const REGION_LABEL: Record<string, string> = {
   ncr: 'Metro Manila',
   metro_manila: 'Metro Manila',
   calabarzon: 'CALABARZON',
@@ -66,7 +70,7 @@ const REGION_LABEL: Record<string, string> = {
   outside_ph: 'Outside the Philippines',
 };
 
-function titleCase(raw: string): string {
+export function titleCase(raw: string): string {
   return raw.replace(/[_-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 

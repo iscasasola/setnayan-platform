@@ -92,6 +92,8 @@ const DESCRIPTIONS: Record<string, string> = {
     'The master QR code. Crew scans this on arrival to register their device for capture.',
 
   // Settings group
+  personalization:
+    'Everything from your onboarding — names, region, style, budget, date, and more. Refine what we match on.',
   hosts:
     'Invite parents, planner, or maid-of-honor as moderators. Set per-host permissions.',
   profile:

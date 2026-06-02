@@ -61,14 +61,16 @@ export function PersonalizedMenu({
             What we match &amp; sort your services by — from your wedding details.
           </p>
         </div>
-        {/* Edit affordance — correct/refine the governance-free match criteria
-            (region · feel · budget). CLAUDE.md 2026-06-02 "do both" · step 1. */}
+        {/* Personalize — opens the full Personalization page where ALL the
+            onboarding data is documented + the governance-free basics
+            (names · region · feel · budget) are editable. CLAUDE.md
+            2026-06-02 directive 2. */}
         <Link
           href={`${base}/details`}
           className="inline-flex shrink-0 items-center gap-1 rounded-full border border-ink/12 bg-paper px-2.5 py-1 text-[11px] font-medium text-terracotta transition-colors hover:bg-cream"
         >
           <Pencil aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-          Edit
+          Personalize
         </Link>
       </div>
 

@@ -1227,6 +1227,14 @@ function MatchedBundle({ band, added, onAdd }: { band: string; added: boolean; o
    hours + curated-vendor counts scale with the couple's actual picks · shortlist ·
    runway · design categories · expos. Today's Focus EXCLUDED (paid SKU, not a free
    saving). "2,400+" stays a platform figure in the label, not the counter. */
+/* Name fields (bride/groom · screen 4) accept letters only — no digits, no symbols
+   (owner 2026-06-02). Allows Unicode letters (Filipino ñ + accents), spaces (compound
+   names + spaced surnames like "Dela Cruz"/"De Leon"), hyphens ("Anne-Marie") and
+   apostrophes ("D'Souza"); strips everything else live as the couple types. */
+function sanitizeName(raw: string): string {
+  return (raw || '').replace(/[^\p{L}\s'-]/gu, '');
+}
+
 const SAVINGS_FLAT_PESOS = 32992; // sum of the 8 flat free-feature money values (model §D table)
 const SAVINGS_PER_EXPO_PESOS = 2500; // marketplace — money per bridal expo replaced
 const VENDORS_PER_CATEGORY = 5; // best-fit vendors surfaced per picked category
@@ -1614,7 +1622,14 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
       case 3:
         return isCivil ? true : faith.length >= 1;
       case 4:
-        return state.brideFirstName.trim().length > 0 || state.groomFirstName.trim().length > 0;
+        // All four name fields required — they auto-register the couple as the
+        // bride + groom guests at commit, and go on the invitation/website/monogram.
+        return (
+          state.brideFirstName.trim().length > 0 &&
+          state.brideLastName.trim().length > 0 &&
+          state.groomFirstName.trim().length > 0 &&
+          state.groomLastName.trim().length > 0
+        );
       case 5:
         return state.dateMode === 'specific' ? state.dateCandidates.length >= 1 : state.windowStart !== null && state.windowEnd !== null;
       case 6:
@@ -2038,9 +2053,13 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
                     className="field nf"
                     placeholder="First"
                     autoComplete="off"
+                    autoCapitalize="words"
+                    inputMode="text"
+                    required
+                    aria-required="true"
                     value={state.brideFirstName}
                     onChange={(e) => {
-                      patch({ brideFirstName: e.target.value });
+                      patch({ brideFirstName: sanitizeName(e.target.value) });
                       bumpMono();
                     }}
                   />
@@ -2048,8 +2067,12 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
                     className="field nf"
                     placeholder="Last"
                     autoComplete="off"
+                    autoCapitalize="words"
+                    inputMode="text"
+                    required
+                    aria-required="true"
                     value={state.brideLastName}
-                    onChange={(e) => patch({ brideLastName: e.target.value })}
+                    onChange={(e) => patch({ brideLastName: sanitizeName(e.target.value) })}
                   />
                 </label>
                 <label className="nl">
@@ -2058,9 +2081,13 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
                     className="field nf"
                     placeholder="First"
                     autoComplete="off"
+                    autoCapitalize="words"
+                    inputMode="text"
+                    required
+                    aria-required="true"
                     value={state.groomFirstName}
                     onChange={(e) => {
-                      patch({ groomFirstName: e.target.value });
+                      patch({ groomFirstName: sanitizeName(e.target.value) });
                       bumpMono();
                     }}
                   />
@@ -2068,8 +2095,12 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
                     className="field nf"
                     placeholder="Last"
                     autoComplete="off"
+                    autoCapitalize="words"
+                    inputMode="text"
+                    required
+                    aria-required="true"
                     value={state.groomLastName}
-                    onChange={(e) => patch({ groomLastName: e.target.value })}
+                    onChange={(e) => patch({ groomLastName: sanitizeName(e.target.value) })}
                   />
                 </label>
               </div>

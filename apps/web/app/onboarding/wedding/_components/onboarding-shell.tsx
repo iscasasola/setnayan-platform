@@ -46,19 +46,21 @@ import {
   type OnboardingState,
 } from '../types';
 
-/* Screens shipped so far (welcome..budget..picker..prefs). */
-const PHASE_SCREENS = 11;
+/* Full 15-screen flow (welcome..budget..picker..prefs..account..find..congrats..plan). */
+const PHASE_SCREENS = 15;
 
 /* Primary-button label per screen (prototype nextLabel[]). Index 10 (prefs) is
- * overridden at render time by the sub-stepper ("Continue" / "Looks good"). */
-const NEXT_LABEL = ['Let’s go', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue'];
-/* Which screens show a Skip button (prototype canSkip[]): picker not skippable, prefs is. */
-const CAN_SKIP = [false, false, false, true, true, true, true, true, true, false, true];
+ * overridden at render time by the sub-stepper ("Continue" / "Looks good"); index
+ * 14 (plan) flips to "Continue to checkout" once the bundle is added. */
+const NEXT_LABEL = ['Let’s go', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Create account', 'Continue', 'Continue', 'Done'];
+/* Which screens show a Skip button (prototype canSkip[]): picker/name/region/account/congrats/plan not skippable, prefs/find are. */
+const CAN_SKIP = [false, false, false, true, false, true, false, true, true, false, true, false, true, false, false];
 
 const ASSET = (name: string) => `/onboarding/${name}.webp`;
-/* picker per-service photo + prefs photo subdirs (mirror the pax/budget/mono pattern). */
+/* picker per-service photo + prefs photo + bundle thumbnail subdirs (mirror the pax/budget/mono pattern). */
 const PICKER_ASSET = (key: string) => `/onboarding/picker/${key}.webp`;
 const PREFS_ASSET = (key: string) => `/onboarding/prefs/${key}.webp`;
+const BUNDLE_ASSET = (key: string) => `/onboarding/bundle/${key}.webp`;
 
 /* Kind → hero photo + caption (prototype setKindPhoto). */
 const KIND_PHOTO: Record<OnboardingKind, { img: string; cap: string }> = {
@@ -1020,6 +1022,167 @@ function DateCalendar({
   );
 }
 
+/* ── Budget-matched bundle (prototype BUNDLE_* + SVC + renderMatchedBundle · owner 2026-06-01/02) ──
+   One curated bundle keyed to the working budget. Cumulative ladder (each tier adds to the one below).
+   PRICE-FOLLOWER: in production the bundle reads each service's live price from the admin Add-on
+   Management menu (iteration 0023 §3.12 / service_catalog); SVC below is the prototype demo stand-in. */
+const BUNDLE_ITEMS: Record<string, string> = {
+  today_focus: "Today's Focus · planning", advanced_website: 'Advanced Website', papic_guest: 'Papic for guests', sde: 'Same-Day Edit', guest_stories: 'Guest Stories', pabati: 'Pabati guestbook', papic_seats: 'Papic · 5 seats', animated_monogram: 'Animated Monogram', thank_you: 'Thank-You Video', pakanta: 'Pakanta · your song', custom_qr: 'Custom QR per guest', panood: 'Panood livestream', live_background: 'Live Background', live_photowall: 'Live Photo Wall', indoor_blueprint: 'Indoor Blueprint', high_res: 'High-Res Archive',
+};
+/* Plain-language benefit copy — functional outcome + emotional anchor (JTBD · Bundle_Benefits_Best_Practices_2026-06-02.md). */
+const BUNDLE_BENEFIT: Record<string, string> = {
+  today_focus: "A week-by-week plan that tells you exactly what to do next — so you're never the bride lying awake at 2am wondering if you forgot something.",
+  advanced_website: "One link replaces 200 group-chat messages. RSVP, schedule, dress code, photos — your guests find their own answers, you stay present.",
+  papic_guest: "Every guest's phone becomes a camera — their candids land in your gallery live, so you keep the unposed moments a single photographer would miss.",
+  sde: "A 3-minute wedding film, edited and screened the same night at your reception — the rare gift of reliving your day with the people who lived it with you.",
+  guest_stories: "Tito Boy's joke, Lola's blessing, your maid of honor's tears — short video greetings captured at the event, before the night blurs.",
+  pabati: "A video guestbook — short wishes from everyone you love, kept forever. Better than a signed card you'll file away and forget.",
+  papic_seats: "Five trusted friends, five cameras roaming the venue — the candid angles a single photographer can't catch from the front of the aisle.",
+  animated_monogram: "Your monogram drawn in gold the moment a guest opens the invite — the small detail that says we took our wedding seriously.",
+  thank_you: "A personalised thank-you video to send after the wedding — beats handwriting 200 cards, feels more like you.",
+  pakanta: "An original song written just for your wedding. Yours, forever — the only couple in the world who'll ever dance to it.",
+  custom_qr: "A custom QR per guest opens their table, schedule, and photos with one tap — no awkward 'which table am I at?' for anyone, all night.",
+  panood: "Livestream your day to family abroad — multi-camera, broadcast quality, so Lolo in California feels like he was in the front row.",
+  live_background: "An LED stage backdrop with your palette and monogram — your story on the wall, instead of generic venue draping.",
+  live_photowall: "A live photo wall at the venue — the night writes itself, guest pictures appearing on the wall minutes after each moment.",
+  indoor_blueprint: "A venue floor map — guests find their seats in seconds. Zero confused tito wandering around looking for table 7.",
+  high_res: "Full-quality archive of all your originals, stored safely. Free with Setnayan — yours to keep, no subscription fees.",
+};
+/* JTBD grouping — preparation → the day → memories (research Finding #4). */
+const BUNDLE_GROUPS: Record<string, string> = {
+  today_focus: 'plan', advanced_website: 'plan', custom_qr: 'plan', indoor_blueprint: 'plan', animated_monogram: 'plan',
+  papic_guest: 'celebrate', papic_seats: 'celebrate', sde: 'celebrate', guest_stories: 'celebrate', pabati: 'celebrate', panood: 'celebrate', live_background: 'celebrate', live_photowall: 'celebrate',
+  thank_you: 'remember', pakanta: 'remember', high_res: 'remember',
+};
+const BUNDLE_GROUP_ORDER = ['plan', 'celebrate', 'remember'] as const;
+const BUNDLE_GROUP_LABEL: Record<string, string> = { plan: 'Plan it', celebrate: 'Capture & celebrate', remember: 'Remember & share' };
+const BUNDLE_GROUP_INTRO: Record<string, string> = {
+  plan: 'Behind-the-scenes so you arrive ready, not exhausted.',
+  celebrate: "Every angle of the day itself — what you'll feel, what you'll want to look back at.",
+  remember: 'What stays with you long after the lights come down.',
+};
+const HIGH_RES_FREE: Record<string, boolean> = { high_res: true }; // free baseline (2026-06-01) — flagged on the card
+const BUNDLE_TIERS: { key: string; name: string; add: string[] }[] = [
+  { key: 'essential', name: 'Essential Bundle', add: ['today_focus', 'advanced_website', 'papic_guest', 'sde'] },
+  { key: 'simple', name: 'Simple Bundle', add: ['guest_stories', 'pabati'] },
+  { key: 'classic', name: 'Classic Bundle', add: ['papic_seats', 'animated_monogram', 'thank_you', 'pakanta', 'custom_qr'] },
+  { key: 'grand', name: 'Grand Bundle', add: ['panood', 'live_background', 'live_photowall', 'indoor_blueprint'] },
+  { key: 'grandfiesta', name: 'Grand Fiesta Bundle', add: ['high_res'] },
+];
+/* out = market-equivalent "if hired separately" (admin-editable) · set = Setnayan price (pax items scale in admin). */
+const SVC: Record<string, { out: number; set: number }> = {
+  today_focus: { out: 20000, set: 1499 }, advanced_website: { out: 25000, set: 5499 }, papic_guest: { out: 32000, set: 2999 }, sde: { out: 35000, set: 3499 }, guest_stories: { out: 8000, set: 1999 }, pabati: { out: 12000, set: 999 }, papic_seats: { out: 75000, set: 2999 }, animated_monogram: { out: 15500, set: 2499 }, thank_you: { out: 60000, set: 5499 }, pakanta: { out: 12500, set: 2499 }, custom_qr: { out: 5000, set: 1499 }, panood: { out: 17500, set: 3499 }, live_background: { out: 20000, set: 2499 }, live_photowall: { out: 18000, set: 2499 }, indoor_blueprint: { out: 12500, set: 1499 }, high_res: { out: 5000, set: 0 },
+};
+const pesoB = (n: number) => '₱' + Math.round(n).toLocaleString('en-US');
+const BUNDLE_INDEX: Record<string, number> = { essential: 0, simple: 1, classic: 2, grand: 3, grandfiesta: 4 };
+const BUNDLE_TAGLINE: Record<string, string> = {
+  essential: 'Plan it and capture it — the must-haves.', simple: 'A fuller set so every guest is part of the story.', classic: 'The complete celebration — planned, captured, scored, styled.', grand: 'A production: planned, livestreamed, lit, and easy to navigate.', grandfiesta: 'Everything, nothing held back — your grandest day.',
+};
+/* 7 budget bands → 5 bundles (elevated+premium→Grand · luxury+nolimit→Grand Fiesta) — FLAGGED for owner. */
+const BAND_TO_BUNDLE: Record<string, string> = { essentials: 'essential', simple: 'simple', classic: 'classic', elevated: 'grand', premium: 'grand', luxury: 'grandfiesta', nolimit: 'grandfiesta' };
+function bundleItemsFor(bk: string): string[] {
+  const idx = BUNDLE_INDEX[bk] ?? 2;
+  const out: string[] = [];
+  for (let t = 0; t <= idx; t++) { const tier = BUNDLE_TIERS[t]; if (tier) tier.add.forEach((k) => out.push(k)); }
+  return out;
+}
+
+/* The budget-matched bundle card (prototype renderMatchedBundle). Pure on `band`; Add CTA calls onAdd. */
+function MatchedBundle({ band, added, onAdd }: { band: string; added: boolean; onAdd: () => void }) {
+  const bk = BAND_TO_BUNDLE[band] ?? 'classic';
+  const tier = BUNDLE_TIERS[BUNDLE_INDEX[bk] ?? 2] ?? BUNDLE_TIERS[2]!;
+  const items = bundleItemsFor(bk);
+  let outTotal = 0;
+  let setTotal = 0;
+  items.forEach((k) => { const p = SVC[k] ?? { out: 0, set: 0 }; outTotal += p.out; setTotal += p.set; });
+  const bundlePrice = Math.round((setTotal * 0.7) / 100) * 100 - 1; // 30% off à la carte, charm-rounded
+  const totalSavings = outTotal - bundlePrice; // headline savings — vs hiring everything elsewhere
+  return (
+    <div className="mbundle">
+      <span className="mb-badge" data-prod-stat="Most-picked at this guest count"><span className="mbb-star">★</span>Picked for your wedding</span>
+      <div className="mb-h"><span className="mb-name">{tier.name}</span><span className="mb-tag">{items.length} picks</span></div>
+      <div className="mb-line">{BUNDLE_TAGLINE[bk] ?? ''}</div>
+      <div className="mb-items">
+        {BUNDLE_GROUP_ORDER.map((g) => {
+          const rows = items.filter((k) => BUNDLE_GROUPS[k] === g);
+          if (rows.length === 0) return null;
+          return (
+            <section className="bli-group" key={g}>
+              <header className="bli-group-head"><span className="bgh-lbl">{BUNDLE_GROUP_LABEL[g] ?? ''}</span><span className="bgh-intro">{BUNDLE_GROUP_INTRO[g] ?? ''}</span></header>
+              {rows.map((k) => (
+                <div className={`bli-rich${HIGH_RES_FREE[k] ? ' free' : ''}`} key={k}>
+                  <div className="bli-thumb" style={{ backgroundImage: `url('${BUNDLE_ASSET(k)}')` }} />
+                  <div className="bli-body"><div className="bli-bene">{BUNDLE_BENEFIT[k] ?? ''}</div><div className="bli-prod">{(BUNDLE_ITEMS[k] ?? '') + (HIGH_RES_FREE[k] ? ' · free' : '')}</div></div>
+                </div>
+              ))}
+            </section>
+          );
+        })}
+      </div>
+      <div className="mb-price">
+        <span className="mb-out">{pesoB(outTotal)} if hired separately</span>
+        <div className="mb-save"><span className="ms-lbl">★ You save</span><span className="ms-amt">{pesoB(totalSavings)}</span><span className="ms-vs">vs hiring everything separately</span></div>
+        <div className="mb-now"><b className="mb-amt">{pesoB(bundlePrice)}</b><span className="mb-off">−30% bundle · book now</span></div>
+        <div className="mb-sub">{pesoB(setTotal)} à la carte · the extra 30% holds only if you add it now</div>
+      </div>
+      <button className={`mb-add${added ? ' added' : ''}`} type="button" onClick={onAdd} aria-label="Add this bundle to my plan">
+        {added ? (
+          <>
+            <span className="mb-add-h">✓ Added to your plan</span>
+            <span className="mb-add-sub">You can review it before checkout</span>
+          </>
+        ) : (
+          <>
+            <span className="mb-add-h">Add this to my plan <b>{pesoB(bundlePrice)}</b></span>
+            <span className="mb-add-sub">Save {pesoB(totalSavings)} · book now</span>
+          </>
+        )}
+      </button>
+    </div>
+  );
+}
+
+/* Savings counter — counts up on screen entry (prototype countUp/runCounters · cubic ease-out ~1.15s). */
+function CountUp({ value, prefix = '', suffix = '', active }: { value: number; prefix?: string; suffix?: string; active: boolean }) {
+  const [disp, setDisp] = useState(0);
+  const raf = useRef<number | null>(null);
+  useEffect(() => {
+    if (!active) {
+      setDisp(0);
+      return;
+    }
+    const dur = 1150;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / dur);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setDisp(Math.round(value * eased));
+      if (t < 1) raf.current = requestAnimationFrame(tick);
+    };
+    raf.current = requestAnimationFrame(tick);
+    return () => {
+      if (raf.current) cancelAnimationFrame(raf.current);
+    };
+  }, [active, value]);
+  return (
+    <b>
+      {prefix}
+      {disp.toLocaleString('en-US')}
+      {suffix}
+    </b>
+  );
+}
+
+/* Find-vendor demo card — taps toggle the prototype `.short` collapse. */
+function Vcard({ children }: { children: ReactNode }) {
+  const [short, setShort] = useState(false);
+  return (
+    <div className={`vcard${short ? ' short' : ''}`} onClick={() => setShort((s) => !s)}>
+      {children}
+    </div>
+  );
+}
+
 export function OnboardingShell() {
   const [state, setState] = useState<OnboardingState>(EMPTY_ONBOARDING_STATE);
   const [hydrated, setHydrated] = useState(false);
@@ -1029,6 +1192,15 @@ export function OnboardingShell() {
   /* picker sticky-preview (local UI) + style sub-stepper index (local UI) */
   const [pickerPreview, setPickerPreview] = useState<{ cat: string; name: string }>({ cat: 'reception', name: 'Reception venue' });
   const [prefIdx, setPrefIdx] = useState(0);
+  /* Phase-4 local UI: budget-matched bundle add (screen 14) · find-vendor expand (12) · BYO bottom-sheet (12) */
+  const [bundleAdded, setBundleAdded] = useState(false);
+  const [showExpand, setShowExpand] = useState(false);
+  const [byoOpen, setByoOpen] = useState(false);
+  const [byoDone, setByoDone] = useState<string | null>(null);
+  const [byoAdded, setByoAdded] = useState(false);
+  const [byoName, setByoName] = useState('');
+  const [byoPerson, setByoPerson] = useState('');
+  const [byoEmail, setByoEmail] = useState('');
 
   /* Hydrate from localStorage on mount (30-day TTL auto-clear). */
   useEffect(() => {
@@ -1152,6 +1324,24 @@ export function OnboardingShell() {
     if (popTimer.current) clearTimeout(popTimer.current);
     popTimer.current = setTimeout(() => setMonoPop(false), 170);
   };
+
+  /* Couple display name for screens 13 (congrats) + 14 (Your Plan) — prototype [data-couple-name]. */
+  const coupleDisplay = [state.brideName.trim(), state.groomName.trim()].filter(Boolean).join(' & ') || 'Maria & Juan';
+
+  /* BYO vendor send (prototype sendByo) — name required → confirmation + relabel the add button. */
+  const sendByo = () => {
+    const name = byoName.trim();
+    if (!name) return;
+    const email = byoEmail.trim();
+    setByoOpen(false);
+    setByoDone(
+      `✓ ${name} connected to your wedding. We've linked you on their Setnayan account${email ? ` and emailed ${email}` : ''} — chat, files, your website & day-of all run with them here.`,
+    );
+    setByoAdded(true);
+    setByoName('');
+    setByoPerson('');
+    setByoEmail('');
+  };
   const cycleFrame = () => {
     patch({ monogramFrame: (state.monogramFrame + 1) % MONO_FRAMES.length });
     bumpMono();
@@ -1222,7 +1412,8 @@ export function OnboardingShell() {
 
   /* Continue label: prefs sub-stepper shows "Looks good" on its last focused screen (prototype showPref). */
   const prefsLabel = prefQueue.length === 0 || prefIdx >= prefQueue.length - 1 ? 'Looks good' : 'Continue';
-  const nextLabel = step === 10 ? prefsLabel : NEXT_LABEL[step] ?? 'Continue';
+  const nextLabel =
+    step === 10 ? prefsLabel : step === 14 && bundleAdded ? 'Continue to checkout' : NEXT_LABEL[step] ?? 'Continue';
 
   /* ── kind hero ── */
   const kindPhoto = KIND_PHOTO[kind ?? 'religious'];
@@ -1665,6 +1856,129 @@ export function OnboardingShell() {
               onPrefs={patchPrefs}
             />
           </section>
+
+          {/* 11 ACCOUNT — demo-faithful (Google/Facebook/email are placeholders; real auth + the
+              events-row commit land in Phase 5 alongside the /signup + /dashboard/create-event entry points). */}
+          <section className={`screen${step === 11 ? ' active' : ''}`} id="screen-account">
+            <div className="welcome" style={{ paddingTop: 24 }}>
+              <div className="mark">✓</div>
+              <h1 style={{ fontSize: 34 }}>Your plan is ready.</h1>
+              <p style={{ marginBottom: 24 }}>Create your free account to keep it — and start finding your vendors.</p>
+            </div>
+            <div className="stack">
+              <div className="opt" style={{ textAlign: 'center', justifyContent: 'center' }}><div className="ot" style={{ justifyContent: 'center', width: '100%' }}>Continue with Google</div></div>
+              <div className="opt" style={{ textAlign: 'center', justifyContent: 'center' }}><div className="ot" style={{ justifyContent: 'center', width: '100%' }}>Continue with Facebook</div></div>
+            </div>
+            <div style={{ margin: '14px 0 4px' }}><input className="field" style={{ fontFamily: 'var(--sans)', fontStyle: 'normal', fontSize: 15 }} placeholder="your@email.com" /></div>
+            <div className="ghost"><u>Use email instead</u></div>
+          </section>
+
+          {/* 12 FIND FIRST VENDOR (demo) */}
+          <section className={`screen${step === 12 ? ' active' : ''}`} id="screen-find">
+            <div className="eyebrow">Find your first vendor</div>
+            <h1 className="q" style={{ fontSize: 30 }}>Garden venues that fit your wedding.</h1>
+            <p className="sub">Sorted for you: your style first, then everyone available. <b>Tap one to shortlist.</b></p>
+            <div className="grouplbl">★ Matches your preference</div>
+            <Vcard>
+              <div className="vimg"><div className="vbadges"><span className="vbadge gold">Matches: Garden</span><span className="vbadge green">Verified</span></div></div>
+              <div className="vbody">
+                <div className="vname">Sonya&apos;s Garden</div>
+                <div className="vmeta"><span className="stars">★★★★★</span> 4.9 (128) · <span>12 km · Tagaytay</span></div>
+                <div className="vrow"><span className="vprice">₱180,000</span><span className="inbudget">In your range</span></div>
+                <div className="eyeing">👀 3 couples also eyeing Dec 18 · <span className="shortpill">Shortlisted</span></div>
+              </div>
+            </Vcard>
+            <Vcard>
+              <div className="vimg" style={{ background: 'linear-gradient(135deg,#b8c9bf,#3a5746)' }}><div className="vbadges"><span className="vbadge gold">Matches: Garden, Outdoor</span></div></div>
+              <div className="vbody">
+                <div className="vname">Hillcreek Gardens</div>
+                <div className="vmeta"><span className="stars">★★★★☆</span> 4.6 (74) · <span>18 km · Tagaytay</span></div>
+                <div className="vrow"><span className="vprice">₱150,000</span><span className="inbudget">In your range</span></div>
+                <div className="eyeing">👀 1 couple also eyeing your date · <span className="shortpill">Shortlisted</span></div>
+              </div>
+            </Vcard>
+            <div className="grouplbl muted">More to consider</div>
+            <Vcard>
+              <div className="vimg" style={{ background: 'linear-gradient(135deg,#cdbfa0,#8a7a52)' }}><div className="vbadges"><span className="vbadge green">Verified</span></div></div>
+              <div className="vbody">
+                <div className="vname">The Glass Garden</div>
+                <div className="vmeta"><span className="stars">★★★★★</span> 4.8 (92) · <span>9 km · Pasig</span></div>
+                <div className="vrow"><span className="vprice">₱210,000</span></div>
+                <div className="eyeing"><span className="shortpill">Shortlisted</span></div>
+              </div>
+            </Vcard>
+            {!showExpand && (
+              <button className="expand" type="button" onClick={() => setShowExpand(true)}>Expand search — see 18 more ↓</button>
+            )}
+            {showExpand && (
+              <div id="expandset">
+                <div className="grouplbl muted">Held back — tap to see why</div>
+                <div className="vcard">
+                  <div className="vimg" style={{ background: 'linear-gradient(135deg,#c9b8a0,#9a8a6a)' }}><div className="vbadges"><span className="vbadge">New</span></div></div>
+                  <div className="vbody">
+                    <div className="vname">Casa Verde Events</div>
+                    <div className="vmeta"><span className="reason">Not yet verified</span></div>
+                    <div className="vrow"><span className="vprice">₱120,000</span><span className="inbudget">In your range</span></div>
+                  </div>
+                </div>
+                <div className="vcard">
+                  <div className="vimg" style={{ background: 'linear-gradient(135deg,#b0a48a,#7a6e54)' }} />
+                  <div className="vbody">
+                    <div className="vname">Antonio&apos;s Tagaytay</div>
+                    <div className="vmeta"><span className="reason">May not be free Dec 18</span> <span className="reason">Above your range</span></div>
+                    <div className="vrow"><span className="vprice">₱380,000</span></div>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div className="byowrap">
+              <button className="byo-add" type="button" onClick={() => setByoOpen(true)}>{byoAdded ? '+ Add another vendor' : '+ Add your own vendor'}</button>
+              {byoDone && <div className="byo-done">{byoDone}</div>}
+            </div>
+          </section>
+
+          {/* 13 STARTING PLAN — congrats + savings counter (counts up on entry) */}
+          <section className={`screen${step === 13 ? ' active' : ''}`} id="screen-congrats">
+            <div className="eyebrow">You did the hard part</div>
+            <h1 className="q" style={{ fontSize: 29 }}>Congratulations,<br /><span>{coupleDisplay}</span>.</h1>
+            <p className="sub">You&apos;ve done the most crucial part — your whole wedding is on track. From here, we help you finish, so you can focus on everything else.</p>
+            {/* SAVINGS — computed live in production per Time_and_Money_Saved_Model_2026-06-01.md. Demo = typical couple. */}
+            <div className="statstrip">
+              <div className="stat"><CountUp value={42992} prefix="₱" active={step === 13} /><span>saved with Setnayan — free</span></div>
+              <div className="stat"><CountUp value={745} active={step === 13} /><span>hours saved vs planning alone</span></div>
+              <div className="stat"><CountUp value={48} active={step === 13} /><span>best-fit vendors from 2,400+</span></div>
+            </div>
+            <div className="recap tight">
+              <div className="recapline"><span className="rk">Wedding</span><span className="rv">{coupleDisplay}</span></div>
+              <div className="recapline"><span className="rk">Date</span><span className="rv">Dec 18, 2026</span></div>
+              <div className="recapline"><span className="rk">Where</span><span className="rv">Metro Manila</span></div>
+              <div className="recapline"><span className="rk">Guests</span><span className="rv">200</span></div>
+              <div className="recapline"><span className="rk">Style</span><span className="rv">Garden · Timeless</span></div>
+              <div className="recapline"><span className="rk">Shortlisted</span><span className="rv">1 venue</span></div>
+            </div>
+            <div className="note mul"><span>✦</span><div>Change or switch off any of your personalization anytime in <b>Personalize my matches</b> on your Home.</div></div>
+          </section>
+
+          {/* 14 YOUR PLAN — freebies + the budget-matched bundle */}
+          <section className={`screen${step === 14 ? ' active' : ''}`} id="screen-plan">
+            <div className="eyebrow">Your plan</div>
+            <h1 className="q" style={{ fontSize: 31, lineHeight: 1.08 }}><span>{coupleDisplay}</span></h1>
+            <p className="sub" style={{ marginTop: -3 }}>Your wedding, planned.</p>
+            <div className="plansave">
+              <div className="ps-amt"><CountUp value={42992} prefix="₱" active={step === 14} /> <span className="ps-and">·</span> <CountUp value={745} suffix=" hrs" active={step === 14} /></div>
+              <div className="ps-lbl">already saved — free, just by planning here</div>
+            </div>
+            <div className="planfree">
+              <div className="ph">All your freebies</div>
+              <div className="pp">Everything below is yours — ₱0, forever.</div>
+              <div className="freeli">
+                <b>Your dashboard</b> · <b>vendor marketplace</b> + shortlist + side-by-side compare · <b>free wedding website</b> (RSVP · event site · editorial) · <b>mood board</b> · guest list · seat plan · budget tracker · basic monogram · smart vendor matching · real reviews · <b>verified-vendor safety</b> · in-app vendor chat · day-of guest portal · multi-host co-planning · <b>photos synced to your Google Drive</b>.
+              </div>
+            </div>
+            <div className="grouplbl">Matched to your wedding</div>
+            <MatchedBundle band={state.budgetBand ?? 'classic'} added={bundleAdded} onAdd={() => setBundleAdded(true)} />
+            {!bundleAdded && <div className="plan-skip" id="planSkip">or <u>continue with the free plan</u></div>}
+          </section>
         </div>
 
         {/* bottom — primary CTA */}
@@ -1678,6 +1992,19 @@ export function OnboardingShell() {
           >
             {nextLabel}
           </button>
+        </div>
+
+        {/* BYO vendor — bottom-sheet popup (prototype #byoSheet/#byoBackdrop · vendor_invites auto-connect, CLAUDE.md 2026-05-19) */}
+        <div className={`sheet-backdrop${byoOpen ? ' open' : ''}`} onClick={() => setByoOpen(false)} />
+        <div className={`sheet${byoOpen ? ' open' : ''}`} role="dialog" aria-label="Add your own vendor">
+          <div className="sheet-handle" />
+          <div className="sheet-h">Add your own vendor</div>
+          <div className="sheet-sub">We&apos;ll connect you to them on Setnayan.</div>
+          <label className="byo-l"><span className="byo-lk">Vendor name</span><input className="field" value={byoName} onChange={(e) => setByoName(e.target.value)} placeholder="e.g. Bloom & Co. Florals" /></label>
+          <label className="byo-l"><span className="byo-lk">Contact person</span><input className="field" value={byoPerson} onChange={(e) => setByoPerson(e.target.value)} placeholder="Who you talk to" /></label>
+          <label className="byo-l"><span className="byo-lk">Email address</span><input className="field" type="email" value={byoEmail} onChange={(e) => setByoEmail(e.target.value)} placeholder="name@email.com" /></label>
+          <button className="byo-send" type="button" onClick={sendByo}>Send invite &amp; connect</button>
+          <button className="sheet-cancel" type="button" onClick={() => setByoOpen(false)}>Cancel</button>
         </div>
       </div>
     </div>

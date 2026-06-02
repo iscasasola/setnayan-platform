@@ -339,6 +339,12 @@ const PBA_CSS = `
 /* Bottom padding = nav height so the recap's bottom sits just above the fixed
    mobile nav — recap is the terminal element, no dead scroll (owner 2026-05-31). */
 .pba .end-spacer{padding:30px 18px var(--botnav-h)}
+/* Unlock-more-categories affordance — under the recap (has picks) and in the
+   empty-state cover (no picks). Owner 2026-06-02: keep the Vendors page to the
+   categories the couple is shopping; this is the door to add the rest. */
+.pba .catunlock{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:16px;padding:15px 18px;border-radius:16px;border:1.5px solid var(--gold);background:transparent;color:var(--ink);font-family:var(--sans);font-size:14px;font-weight:600;text-decoration:none;cursor:pointer;transition:background .15s ease,border-color .15s ease}
+.pba .catunlock:hover{background:rgba(197,160,89,0.12);border-color:var(--gold-deep)}
+.pba .catunlock .cu-ico{font-size:17px;line-height:1;color:var(--gold-deep)}
 .pba .endcard{display:flex;flex-direction:column;align-items:center;text-align:center;gap:7px;background:var(--mulberry);color:#fff;border-radius:22px;padding:24px 22px 22px}
 .pba .end-eyebrow{font-family:var(--mono);font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.6)}
 .pba .end-h{font-family:var(--serif);font-style:italic;font-weight:600;font-size:26px;line-height:1.05;color:#fff;margin:2px 0}
@@ -577,6 +583,15 @@ export function PlanBudgetAccordion({
           {hasAnyPick && (
             <div className="end-spacer">
               <Recap recap={model.recap} />
+              {model.inactiveCategoryCount > 0 && (
+                <a className="catunlock" href={`/dashboard/${eventId}/vendors/categories`}>
+                  <span className="cu-ico" aria-hidden>
+                    +
+                  </span>
+                  Unlock {model.inactiveCategoryCount} more categor
+                  {model.inactiveCategoryCount === 1 ? 'y' : 'ies'}
+                </a>
+              )}
             </div>
           )}
         </div>
@@ -711,12 +726,12 @@ function Overview({
           </div>
         </div>
 
-        <p className="intro-cta">
-          Start with your reception venue
-          <span className="chev" aria-hidden>
-            ↓
+        <a className="catunlock" href={`/dashboard/${eventId}/vendors/categories`}>
+          <span className="cu-ico" aria-hidden>
+            +
           </span>
-        </p>
+          Add your first category
+        </a>
       </section>
     );
   }

@@ -121,9 +121,24 @@ const FAITH_CHIPS: { value: OnboardingFaith; label: string; soon: boolean }[] = 
   { value: 'cultural', label: 'Cultural', soon: true },
 ];
 
-/* ── monogram (prototype MONO_FRAMES/MONO_FONTS) ── */
-const MONO_FRAMES = ['wreath', 'crest', 'square', 'oval'];
-const MONO_FONTS = ['cormorant', 'cinzel', 'playfair', 'script'];
+/* ── monogram designs (owner 2026-06-02 — single "Generate another design" cycles
+   10 curated {frame + font + ink} presets; replaced the separate Frame/Font cyclers).
+   frame → /onboarding/mono/{frame}.webp · font → [data-font] CSS · ink → [data-ink] CSS.
+   The couple's live initials render inside; commit derives monogram_frame/font_key from
+   the active design. Library set — refine the 10 with the owner's inspirations later. */
+type MonoDesign = { frame: string; font: string; ink: string };
+const MONO_DESIGNS: MonoDesign[] = [
+  { frame: 'wreath', font: 'cormorant', ink: 'mulberry' }, // floral · italic serif · wine
+  { frame: 'oval', font: 'playfair', ink: 'ink' },         // oval cartouche · Playfair · ink
+  { frame: 'crest', font: 'cinzel', ink: 'gold' },         // heraldic crest · engraved caps · gold
+  { frame: 'botanical', font: 'script', ink: 'mulberry' }, // botanical · Great Vibes · wine
+  { frame: 'laurel', font: 'cormorant', ink: 'gold' },     // laurel · italic serif · gold
+  { frame: 'ribbon', font: 'playfair', ink: 'mulberry' },  // ribbon · Playfair · wine
+  { frame: 'flourish', font: 'script', ink: 'ink' },       // flourish · script · ink
+  { frame: 'square', font: 'cinzel', ink: 'ink' },         // deco square · caps · ink
+  { frame: 'art_deco', font: 'cinzel', ink: 'gold' },      // art-deco · caps · gold
+  { frame: 'baroque', font: 'cormorant', ink: 'mulberry' },// baroque · italic serif · wine
+];
 
 /* ── pax tier photos (prototype PAXTIERS) ── */
 const PAXTIERS = [
@@ -1447,12 +1462,9 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
     setByoPerson('');
     setByoEmail('');
   };
-  const cycleFrame = () => {
-    patch({ monogramFrame: (state.monogramFrame + 1) % MONO_FRAMES.length });
-    bumpMono();
-  };
-  const cycleFont = () => {
-    patch({ monogramFont: (state.monogramFont + 1) % MONO_FONTS.length });
+  const monoDesign = MONO_DESIGNS[state.monogramDesign] ?? MONO_DESIGNS[0]!;
+  const cycleDesign = () => {
+    patch({ monogramDesign: (state.monogramDesign + 1) % MONO_DESIGNS.length });
     bumpMono();
   };
 
@@ -1652,8 +1664,8 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
       dateCandidates: s.dateCandidates,
       windowStart: s.windowStart,
       windowEnd: s.windowEnd,
-      monogramFrameKey: MONO_FRAMES[s.monogramFrame] ?? null,
-      monogramFontKey: MONO_FONTS[s.monogramFont] ?? null,
+      monogramFrameKey: MONO_DESIGNS[s.monogramDesign]?.frame ?? null,
+      monogramFontKey: MONO_DESIGNS[s.monogramDesign]?.font ?? null,
       moodFeelKey: s.prefs.feel,
       musicPlaylistSeed: s.prefs.music,
       // Phase A: persist the picker selections (auto-inquired best-fit per
@@ -1873,8 +1885,9 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
               <figure className="monogram">
                 <div
                   className={`mono-mark${monoMark.length > 2 ? ' long' : ''}`}
-                  data-frame={MONO_FRAMES[state.monogramFrame]}
-                  data-font={MONO_FONTS[state.monogramFont]}
+                  data-frame={monoDesign.frame}
+                  data-font={monoDesign.font}
+                  data-ink={monoDesign.ink}
                   style={monoPop ? { transform: 'scale(1.05)' } : undefined}
                 >
                   <span className="mono-letters">{monoMark}</span>
@@ -1883,12 +1896,12 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
             </div>
             <div className="tapzone">
               <div className="mono-controls">
-                <button type="button" className="mono-btn" onClick={cycleFrame}>
-                  <span className="ic" aria-hidden="true">{'◯'}</span> Frame
+                <button type="button" className="mono-btn mono-gen" onClick={cycleDesign}>
+                  <span className="ic" aria-hidden="true">{'↻'}</span> Generate another design
                 </button>
-                <button type="button" className="mono-btn" onClick={cycleFont}>
-                  <span className="ic" aria-hidden="true">Aa</span> Font
-                </button>
+                <span className="mono-count" aria-hidden="true">
+                  {state.monogramDesign + 1} / {MONO_DESIGNS.length}
+                </span>
               </div>
               <div className="namepair">
                 <label className="nl">

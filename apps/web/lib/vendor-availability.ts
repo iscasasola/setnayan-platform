@@ -436,7 +436,7 @@ export async function filterVendorsByAvailabilityIntersection(
  * `filterVendorsByAvailabilityIntersection` above. Same correctness
  * as N calls to `getVendorAvailableDays`; one round trip.
  */
-async function getBatchVendorAvailableDays(
+export async function getBatchVendorAvailableDays(
   supabase: SupabaseClient,
   vendorProfileIds: string[],
   rangeStart: Date,

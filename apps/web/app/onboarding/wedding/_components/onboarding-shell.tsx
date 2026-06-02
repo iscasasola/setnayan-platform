@@ -1653,6 +1653,9 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
       // category at commit) + the reception setting (seeds venue_setting).
       picks: s.picks,
       receptionSettings: s.prefs.reception,
+      // The find-vendor shortlist (real reception venues the couple tapped) —
+      // persisted as event_vendors 'considering' so they show on the Services tab.
+      shortlist: s.shortlist.map((v) => ({ vendorId: v.vendorId, name: v.name })),
     }),
     [],
   );

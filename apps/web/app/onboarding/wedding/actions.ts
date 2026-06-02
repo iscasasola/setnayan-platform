@@ -6,6 +6,7 @@ import { generateUniqueSlug } from '@/lib/slugs';
 import { captureEvent } from '@/lib/analytics';
 import { unlockCategoryWithInquiry } from '@/app/dashboard/[eventId]/vendors/_actions/unlock-category';
 import { fetchWizardVendorRecommendations } from '@/lib/wizard-recommendations';
+import { recomputeReceptionAnchor } from '@/lib/events';
 
 /**
  * commitOnboardingWedding — the single lazy DB commit for the /onboarding/wedding
@@ -141,6 +142,14 @@ export type OnboardingCommitPayload = {
   picks: string[];
   /** screen-10 reception "setting" multi-pick — the first one seeds venue_setting */
   receptionSettings: string[];
+  /**
+   * screen-12 find-vendor shortlist — the REAL reception venues the couple tapped
+   * (vendor_profiles.vendor_profile_id + display name). Persisted at commit as
+   * event_vendors 'considering' picks so they show on the dashboard Services tab
+   * (owner 2026-06-02: "i shortlisted 3 ... only shows 1" / "what happened to my
+   * services list"). Each is a verified marketplace reception → name-exempt.
+   */
+  shortlist: { vendorId: string; name: string }[];
 };
 
 export type OnboardingCommitResult =
@@ -279,6 +288,37 @@ export async function commitOnboardingWedding(
       budget_band: payload.budgetBand,
     },
   });
+
+  // Persist the find-vendor shortlist — the REAL reception venues the couple
+  // tapped on screen 12 — as event_vendors 'considering' picks so they show on
+  // the dashboard Services tab (owner 2026-06-02: "i shortlisted 3 ... only
+  // shows 1" / "what happened to my services list"). Admin-client insert
+  // (matches the events/members inserts above + saveVendorToPicks' shape);
+  // dedup by vendor id; best-effort — a shortlist failure must NEVER fail the
+  // commit (the event + membership are already saved). Inserted BEFORE the
+  // auto-inquire loop so a 'reception' pick short-circuits as already_active
+  // (no duplicate reception). Then recompute the reception distance anchor
+  // (directive 3 · "reception = ground 0").
+  const shortlistSeen = new Set<string>();
+  const shortlistRows = (payload.shortlist ?? [])
+    .filter((v) => v && typeof v.vendorId === 'string' && v.vendorId.length > 0)
+    .filter((v) => (shortlistSeen.has(v.vendorId) ? false : (shortlistSeen.add(v.vendorId), true)))
+    .map((v) => ({
+      event_id: insertedEvent.event_id,
+      marketplace_vendor_id: v.vendorId,
+      category: 'venue' as const,
+      vendor_name: v.name || 'Reception venue',
+      status: 'considering' as const,
+      source: 'host_manual' as const,
+    }));
+  if (shortlistRows.length > 0) {
+    const { error: shortlistError } = await admin
+      .from('event_vendors')
+      .insert(shortlistRows);
+    if (!shortlistError) {
+      await recomputeReceptionAnchor(admin, insertedEvent.event_id);
+    }
+  }
 
   // Auto-inquire a best-fit vendor for each picked category (owner 2026-06-02:
   // "auto-inquire best-fit per category"). Resolve the picker keys → UNIQUE

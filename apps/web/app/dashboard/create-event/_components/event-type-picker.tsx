@@ -84,6 +84,10 @@ export function EventTypePicker({ launchStatus }: EventTypePickerProps) {
   const selected = selectedKey
     ? (EVENT_TYPES.find((t) => t.key === selectedKey) ?? null)
     : null;
+  // Branch on a WIDENED string (not a literal-typed boolean) so TS does NOT
+  // alias-narrow selected.key inside the inline create form's else-branch — the
+  // form keeps its own wedding-vs-non-wedding checks against the full union.
+  const selectedKeyStr: string = selected?.key ?? '';
 
   function handleSelect(type: EventTypeRow) {
     if (!type.enabled) return;
@@ -147,6 +151,28 @@ export function EventTypePicker({ launchStatus }: EventTypePickerProps) {
       </section>
 
       {selected ? (
+        selectedKeyStr === 'wedding' ? (
+          /* Cutover 2026-06-02 (CLAUDE.md Phase 5): Wedding routes to the
+             /onboarding/wedding flow — it captures names/date/region/pax/budget/
+             style and commits the event (commitOnboardingWedding). Non-wedding
+             types (debut) keep the inline create form below. */
+          <div className="mt-10 space-y-6">
+            <div className="rounded-2xl border border-ink/10 bg-ink/[0.03] p-5">
+              <p className="text-sm text-ink/70">
+                Beautiful — let&apos;s set up your wedding. A few quick questions and
+                we&apos;ll build a plan made for your day, with every vendor sorted to fit.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Link className="button-primary w-full sm:w-auto" href="/onboarding/wedding">
+                Continue &rarr;
+              </Link>
+              <Link className="button-secondary w-full sm:w-auto" href="/dashboard">
+                Cancel
+              </Link>
+            </div>
+          </div>
+        ) : (
         <form action={createWeddingEvent} className="mt-10 space-y-6">
           <input type="hidden" name="event_type" value={selected.key} />
           <input type="hidden" name="concierge_choice" value={conciergeChoice} />
@@ -212,6 +238,7 @@ export function EventTypePicker({ launchStatus }: EventTypePickerProps) {
             ) : null}
           </div>
         </form>
+        )
       ) : (
         <p className="mt-10 rounded-md border border-dashed border-ink/15 px-4 py-6 text-center text-sm text-ink/55">
           Pick an event type above to name it.

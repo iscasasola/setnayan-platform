@@ -104,9 +104,9 @@ import { FinalizedChipStrip } from './_components/finalized-chip-strip';
 // shell streams in immediately while the panels resolve independently.
 import { Suspense } from 'react';
 import {
-  MoneyAndUpcomingAsync,
-  MoneyAndUpcomingSkeleton,
-} from './_components/money-and-upcoming-async';
+  UpcomingSchedulesAsync,
+  UpcomingSchedulesSkeleton,
+} from './_components/upcoming-schedules-async';
 import {
   ActivityFeedAsync,
   ActivityFeedSkeleton,
@@ -1575,59 +1575,38 @@ export default async function EventHomePage({
         />
       ) : null}
 
-      <WelcomeHeader eventName={event.display_name} />
-
-      {/* Phase 0 Date Selection entry point — CLAUDE.md 2026-05-22 lock.
-       *  'locked' → chosen date + auspicious reasoning link; otherwise a
-       *  soft "Pick your date" prompt. Leads the date conversation above
-       *  the consolidated meta line. See _components/auspicious-chip.tsx. */}
-      <AuspiciousChip
-        eventId={eventId}
-        eventDate={event.event_date}
-        dateStatus={(event as { date_status?: string | null }).date_status ?? null}
-      />
-
-      {/* Consolidated meta line: "{date} · {N days to go} · {ceremony}"
-       *  with subtle pencil edit affordances. See event-meta-line.tsx. */}
-      <EventMetaLine
-        eventId={eventId}
-        eventDate={event.event_date}
-        eventDatePrecision={eventDatePrecision}
-        eventType={(event as { event_type?: string | null }).event_type ?? 'wedding'}
-        ceremonyType={(event as { ceremony_type?: string | null }).ceremony_type ?? null}
-        ceremonyTypeLockedAt={
-          (event as { ceremony_type_locked_at?: string | null }).ceremony_type_locked_at ?? null
-        }
-        confirmedVendorCount={confirmedVendorCount}
-        now={now}
-      />
-
-      {event.event_date && isEventDateInPast(event.event_date, eventDatePrecision, now) ? (
-        // Muted warning when the stored wedding date is in the past.
-        // Editorial-restraint tone — the EventMetaLine pencil fixes it.
-        <p className="flex items-center gap-1.5 text-xs text-ink/55">
-          <AlertTriangle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Wedding date is in the past — please update.
-        </p>
-      ) : null}
-
-      <StageStrip stage={stage} />
-
       {/* Lean home (owner directive 2026-06-02 · CLAUDE.md). Home keeps
-       *  exactly two content blocks: the personalized menu (the couple's
-       *  wedding shape + the services they've added) and the activity feed
-       *  below. Everything that used to render here — budget countdown,
-       *  finalized chips, marketplace tease, the 12-card plan grid, the
-       *  9-tool "Your Plan", the nav grid, money-in-flight, upcoming
-       *  schedules — owns its own tab/route and is reachable via the
-       *  bottom-nav More tab + the desktop sidebar. The FULL personalized
-       *  menu lives at /for-you (the "For you" tab); this is its preview. */}
+       *  exactly THREE content blocks: (1) the personalized menu (the
+       *  couple's wedding shape from onboarding + the services they've
+       *  added), (2) upcoming schedules, (3) the activity feed. Everything
+       *  else that used to render here — the welcome header, date/ceremony
+       *  meta line, stage strip, budget countdown, finalized chips,
+       *  marketplace tease, the 12-card plan grid, the 9-tool "Your Plan",
+       *  the nav grid, money-in-flight — owns its own tab/route and is
+       *  reachable via the bottom-nav More tab + the desktop sidebar. (The
+       *  couple name + event date live in the persistent top chrome.) The
+       *  FULL personalized menu lives at /for-you (the home preview's
+       *  "See all" target). The day-of trio above stays — it's the
+       *  wedding-day takeover (iteration 0031), null in normal planning. */}
       <PersonalizedMenu
         eventId={eventId}
         variant="preview"
         tasteChips={personalizedTaste}
         services={personalizedServices}
       />
+
+      {/* Block 2 · Upcoming schedules — streams independently; renders only
+       *  the schedules panel (not money-in-flight). See
+       *  _components/upcoming-schedules-async.tsx. */}
+      <Suspense fallback={<UpcomingSchedulesSkeleton />}>
+        <UpcomingSchedulesAsync
+          eventId={eventId}
+          eventDate={event.event_date}
+          ceremonyType={(event as { ceremony_type?: string | null }).ceremony_type ?? null}
+          userId={user.id}
+          now={now}
+        />
+      </Suspense>
 
       <Suspense fallback={<ActivityFeedSkeleton />}>
         <ActivityFeedAsync

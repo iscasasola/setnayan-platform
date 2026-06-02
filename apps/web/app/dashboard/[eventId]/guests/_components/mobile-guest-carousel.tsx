@@ -11,17 +11,22 @@
  *
  * Layout: the guest list scrolls in the top region; this component docks a
  * fixed, ~one-third-height carousel above the customer bottom nav. It is
- * three swipeable panels:
- *   1. Find     — LiveSearch (writes ?q=, debounced) + Sort pills
- *   2. Add      — opens the existing QuickAddSheet (rapid add + dup detect
+ * four swipeable panels (owner directive 2026-06-02 — the top is now JUST
+ * the guest list, so the RSVP counts that used to sit in the page's top
+ * StatsStrip move into the Summary panel here):
+ *   1. Summary  — [Total][Attending][Pending][Declined] as boxed,
+ *                 animated count-up boxes; each box is also an RSVP filter
+ *                 link, so mobile keeps RSVP filtering (Total clears it)
+ *   2. Find     — LiveSearch (writes ?q=, debounced) + Sort pills
+ *   3. Add      — opens the existing QuickAddSheet (rapid add + dup detect
  *                 + multi-role) + Quick-add list + Import CSV
- *   3. Customize — View / Groups / Tags filters that customize what the
+ *   4. Customize — View / Groups / Tags filters that customize what the
  *                 list shows (the desktop FacetsSidebar facets, otherwise
  *                 lg:block-only and unreachable on a phone)
  *
  * Supersedes the single docked MobileActionBar. Tabs at the top jump
  * between panels; horizontal swipe works too. All `lg:hidden` — desktop
- * keeps the inline Toolbar + sticky FacetsSidebar untouched.
+ * keeps the inline Toolbar + sticky FacetsSidebar + StatsStrip untouched.
  *
  * Height comes from `--gcar-h` set on the page <section>; the component
  * renders an in-flow spacer of the same height so the guest list's last
@@ -29,7 +34,7 @@
  * bottom nav is z-30 below it.
  */
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Plus, Upload, ListPlus, X } from 'lucide-react';
@@ -39,6 +44,7 @@ type Opt = { key: string; label: string };
 type Group = { group_id: string; label: string; member_count?: number };
 
 const PANELS = [
+  { key: 'summary', label: 'Summary' },
   { key: 'find', label: 'Search & sort' },
   { key: 'add', label: 'Add' },
   { key: 'customize', label: 'Customize' },
@@ -55,6 +61,10 @@ export function MobileGuestCarousel({
   currentGroupId,
   tags,
   activeTag,
+  total,
+  attending,
+  pending,
+  declined,
 }: {
   eventId: string;
   q: string;
@@ -66,6 +76,10 @@ export function MobileGuestCarousel({
   currentGroupId: string | null;
   tags: string[];
   activeTag: string;
+  total: number;
+  attending: number;
+  pending: number;
+  declined: number;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
@@ -108,6 +122,8 @@ export function MobileGuestCarousel({
     (Boolean(activeView) && activeView !== 'all') ||
     Boolean(activeTag);
 
+  const currentRsvp = searchParams.get('rsvp') ?? '';
+
   return (
     <>
       {/* in-flow spacer so the guest list clears the fixed carousel */}
@@ -133,13 +149,47 @@ export function MobileGuestCarousel({
           ))}
         </div>
 
-        {/* swipe track — 3 panels, scroll-snap */}
+        {/* swipe track — 4 panels, scroll-snap */}
         <div
           ref={trackRef}
           onScroll={onScroll}
           className="flex h-[calc(var(--gcar-h)-2.5rem)] snap-x snap-mandatory overflow-x-auto overflow-y-hidden scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
-          {/* 1 — Find: search + sort */}
+          {/* 1 — Summary: animated RSVP counts (also filter links) */}
+          <section className="w-full shrink-0 snap-center overflow-y-auto px-4 py-3">
+            <div className="grid h-full grid-cols-2 content-center gap-2.5">
+              <StatBox
+                label="Total"
+                value={total}
+                tint="text-ink"
+                href={buildHref({ rsvp: null })}
+                active={!currentRsvp}
+              />
+              <StatBox
+                label="Attending"
+                value={attending}
+                tint="text-emerald-700"
+                href={buildHref({ rsvp: 'attending' })}
+                active={currentRsvp === 'attending'}
+              />
+              <StatBox
+                label="Pending"
+                value={pending}
+                tint="text-amber-700"
+                href={buildHref({ rsvp: 'pending' })}
+                active={currentRsvp === 'pending'}
+              />
+              <StatBox
+                label="Declined"
+                value={declined}
+                tint="text-rose-700"
+                href={buildHref({ rsvp: 'declined' })}
+                active={currentRsvp === 'declined'}
+              />
+            </div>
+          </section>
+
+          {/* 2 — Find: search + sort */}
           <section className="w-full shrink-0 snap-center space-y-3 overflow-y-auto px-4 py-3">
             <LiveSearch initialValue={q} placeholder="Search guests…" />
             <div>
@@ -156,7 +206,7 @@ export function MobileGuestCarousel({
             </div>
           </section>
 
-          {/* 2 — Add */}
+          {/* 3 — Add */}
           <section className="flex w-full shrink-0 snap-center flex-col justify-center gap-2 overflow-y-auto px-4 py-3">
             <button
               type="button"
@@ -182,7 +232,7 @@ export function MobileGuestCarousel({
             </Link>
           </section>
 
-          {/* 3 — Customize: view / groups / tags */}
+          {/* 4 — Customize: view / groups / tags */}
           <section className="w-full shrink-0 snap-center space-y-4 overflow-y-auto px-4 py-3">
             <div>
               <div className="mb-2 flex items-center justify-between">
@@ -278,4 +328,56 @@ function Pill({
       {children}
     </Link>
   );
+}
+
+function StatBox({
+  label,
+  value,
+  tint,
+  href,
+  active,
+}: {
+  label: string;
+  value: number;
+  tint: string;
+  href: string;
+  active: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`flex flex-col justify-center rounded-xl border px-3.5 py-2 transition-colors ${
+        active ? 'border-terracotta bg-terracotta/5' : 'border-ink/10 hover:border-ink/25'
+      }`}
+    >
+      <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-ink/50">
+        {label}
+      </span>
+      <span className={`mt-0.5 text-[26px] font-semibold leading-tight tabular-nums ${tint}`}>
+        <AnimatedCount value={value} />
+      </span>
+    </Link>
+  );
+}
+
+function AnimatedCount({ value }: { value: number }) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    if (value <= 0) {
+      setN(0);
+      return;
+    }
+    let raf = 0;
+    const dur = 700;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / dur);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setN(Math.round(value * eased));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value]);
+  return <>{n.toLocaleString('en-US')}</>;
 }

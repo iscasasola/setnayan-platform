@@ -279,7 +279,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
             {stats.total} {stats.total === 1 ? 'guest' : 'guests'}
           </h1>
         </div>
-        <div className="hidden flex-col gap-2 self-start sm:flex sm:flex-row sm:self-auto">
+        <div className="hidden flex-col gap-2 self-start lg:flex lg:flex-row lg:self-auto">
           <Link
             href={`/dashboard/${eventId}/guests/import`}
             className="button-secondary"
@@ -314,14 +314,22 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         </p>
       ) : null}
 
-      <TeamSegment
-        eventId={eventId}
-        team={teamFilter}
-        counts={teamCounts}
-        search={search}
-      />
+      {/* Desktop-only chrome — owner directive 2026-06-02: on mobile the top
+          is JUST the guest list. The Team segment, RSVP stats strip, seating
+          shortcut, share-invite link, and the search/sort toolbar all move to
+          lg+ only. On mobile the counts + search/sort/add/filters all live in
+          the lower-third MobileGuestCarousel (Summary · Search & sort · Add ·
+          Customize); seating + share stay reachable from the planning nav /
+          QR surfaces. */}
+      <div className="hidden space-y-6 lg:block">
+        <TeamSegment
+          eventId={eventId}
+          team={teamFilter}
+          counts={teamCounts}
+          search={search}
+        />
 
-      <StatsStrip stats={stats} eventId={eventId} active={rsvpFilter} />
+        <StatsStrip stats={stats} eventId={eventId} active={rsvpFilter} />
 
       <Link
         href={`/dashboard/${eventId}/seating`}
@@ -347,10 +355,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
 
       {joinUrl ? <ShareInvite joinUrl={joinUrl} /> : null}
 
-      {/* desktop: inline search + sort. Mobile/tablet use the lower-third
-          MobileGuestCarousel (search&sort / add / customize) docked above
-          the bottom nav. */}
-      <div className="hidden lg:block">
+        {/* inline search + sort — desktop only; mobile uses the carousel's
+            Search & sort panel. */}
         <Toolbar eventId={eventId} q={q} sort={sort} search={search} />
       </div>
 
@@ -387,9 +393,13 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         groups={quickAddGroups}
       />
 
-      {/* mobile/tablet only — lower-third 3-panel carousel (search&sort /
-          add / customize) docked above the bottom nav. It renders its own
-          in-flow spacer so the guest list clears the fixed carousel. */}
+      {/* mobile/tablet only — lower-third 4-panel carousel (summary /
+          search&sort / add / customize) docked above the bottom nav. It
+          renders its own in-flow spacer so the guest list clears the fixed
+          carousel. The Summary panel carries the [Total][Attending][Pending]
+          [Declined] counts (animated) that used to sit in the top StatsStrip
+          — each box is also an RSVP filter link, so mobile keeps RSVP
+          filtering. */}
       <MobileGuestCarousel
         eventId={eventId}
         q={q}
@@ -401,6 +411,10 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         currentGroupId={currentGroupId}
         tags={allTags}
         activeTag={tagFilter}
+        total={stats.total}
+        attending={stats.attending}
+        pending={stats.pending}
+        declined={stats.declined}
       />
     </section>
   );

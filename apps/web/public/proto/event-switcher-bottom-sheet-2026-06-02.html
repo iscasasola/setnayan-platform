@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="robots" content="noindex,nofollow" />
+<title>Event Switcher · Bottom Sheet — 2026-06-02</title>
+<style>
+  :root{
+    --paper:#FBFBFA; --surface:#FFFFFF; --ink:#1E2229; --ink-soft:#4F535B;
+    --gold:#C5A059; --gold-deep:#8C6932; --gold-wash:rgba(197,160,89,.12);
+    --mulberry:#5C2542; --mulberry-2:#4A1D36;
+    --line:rgba(30,34,41,.10); --line-2:rgba(30,34,41,.06);
+    --sans:'Manrope',system-ui,sans-serif; --serif:'Cormorant Garamond',Georgia,serif;
+    --mono:'DM Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#e9e7e2;font-family:var(--sans);color:var(--ink);
+       min-height:100vh;display:flex;flex-direction:column;align-items:center;gap:14px;padding:18px 0 60px}
+  .note{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#6b6f76;text-align:center;max-width:520px;padding:0 16px}
+
+  /* ---- chrome (top bar) ---- */
+  .stage{width:100%;max-width:1100px;padding:0 16px}
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;
+          background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:10px 14px;position:relative;z-index:5}
+  .util{display:flex;align-items:center;gap:10px}
+  .icbtn{width:36px;height:36px;border-radius:999px;border:1px solid var(--line);background:var(--surface);
+         display:inline-flex;align-items:center;justify-content:center;color:var(--ink-soft);cursor:pointer;font-size:15px}
+  .pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:6px 12px;background:var(--surface);font-size:13px;color:var(--ink-soft);cursor:pointer}
+
+  /* ---- the switcher anchor ---- */
+  .switcher{position:relative;display:inline-flex;align-items:center;gap:4px;min-width:0}
+  .mono{width:38px;height:38px;border-radius:999px;background:var(--mulberry);color:#fff;
+        display:inline-flex;align-items:center;justify-content:center;font-family:var(--serif);font-style:italic;font-size:15px;cursor:pointer;flex:0 0 auto}
+  .caret{width:28px;height:28px;border-radius:999px;border:0;background:transparent;color:var(--ink-soft);
+         display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+  .caret svg{transition:transform .2s}
+  .switcher.open .caret svg{transform:rotate(180deg)}
+  .namepill{display:none;margin-left:4px;align-items:center;gap:8px;border-radius:999px;background:var(--gold-wash);
+            padding:5px 12px;font-size:13px;color:var(--gold-deep)}
+  .namepill b{font-weight:600}
+  @media(min-width:640px){ .namepill{display:inline-flex} }
+
+  /* ---- menu content (shared by sheet + dropdown) ---- */
+  .menu{ }
+  .menuscroll{max-height:60vh;overflow-y:auto}
+  .row{display:flex;align-items:center;gap:12px;border-radius:12px;padding:9px 10px;font-size:14px;color:var(--ink);
+       text-decoration:none;cursor:pointer;border:0;background:transparent;width:100%;text-align:left}
+  .row:hover{background:var(--gold-wash)}
+  .row .m{width:28px;height:28px;border-radius:999px;background:var(--mulberry);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-family:var(--serif);font-style:italic;font-size:12px;flex:0 0 auto}
+  .row.add{color:var(--gold-deep);font-weight:600}
+  .row.add .plus{width:28px;height:28px;border-radius:999px;border:1px dashed rgba(197,160,89,.5);display:inline-flex;align-items:center;justify-content:center;font-size:17px;color:var(--gold-deep)}
+  .row .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;display:flex;align-items:center;gap:5px}
+  .row .star{color:var(--gold)}
+  .row .date{flex:0 0 auto;font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:rgba(30,34,41,.45)}
+  .row.current{background:rgba(197,160,89,.07)}
+
+  .sheethdr{display:flex;align-items:center;gap:8px;padding:2px 4px 8px}
+  .sheethdr .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:rgba(30,34,41,.45);flex:1}
+  .backbtn{border:0;background:transparent;color:var(--gold-deep);font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:4px 6px;border-radius:8px}
+  .backbtn:hover{background:var(--gold-wash)}
+
+  /* ---- event-type carousel (addtype view) ---- */
+  .carousel{display:flex;align-items:stretch;gap:8px;padding:4px 0}
+  .arrow{width:38px;flex:0 0 auto;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink-soft);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;align-self:center;height:38px}
+  .tiles{flex:1;min-width:0;display:grid;grid-template-columns:1fr;gap:8px}
+  @media(min-width:640px){ .tiles{grid-template-columns:1fr 1fr 1fr} }
+  .tile{position:relative;border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:14px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:6px;transition:all .15s}
+  .tile:hover{border-color:rgba(197,160,89,.5);background:var(--gold-wash)}
+  .tile.peek{display:none}
+  @media(min-width:640px){ .tile.peek{display:flex;transform:scale(.92);opacity:.7} }
+  .tile .emoji{font-size:22px}
+  .tile .tl{font-size:15px;font-weight:600}
+  .tile .badge{position:absolute;right:10px;top:10px;border-radius:999px;background:var(--gold-wash);color:var(--gold-deep);font-family:var(--mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;padding:2px 7px}
+  .tile.soon{opacity:.55;cursor:not-allowed}
+  .tile.soon:hover{border-color:var(--line);background:var(--surface)}
+  .tile.soon .badge{background:rgba(30,34,41,.08);color:rgba(30,34,41,.55)}
+  .dots{display:flex;justify-content:center;gap:6px;padding-top:6px}
+  .dot{height:7px;width:7px;border-radius:999px;background:rgba(30,34,41,.2);border:0;cursor:pointer}
+  .dot.on{width:18px;background:var(--gold)}
+  .typehint{font-size:12px;color:var(--ink-soft);padding:8px 4px 2px;text-align:center}
+
+  /* ===== MOBILE: bottom sheet ===== */
+  .backdrop{position:fixed;inset:0;z-index:40;background:rgba(30,34,41,.42);opacity:0;animation:fade .18s ease-out forwards}
+  .sheet{position:fixed;left:0;right:0;bottom:0;z-index:50;background:var(--paper);
+         border-top:1px solid var(--line);border-radius:18px 18px 0 0;box-shadow:0 -10px 40px rgba(0,0,0,.18);
+         padding:8px 14px calc(env(safe-area-inset-bottom) + 16px);max-height:85vh;overflow:hidden;
+         animation:up .22s cubic-bezier(.22,.61,.36,1) forwards}
+  .grab{width:38px;height:4px;border-radius:999px;background:rgba(30,34,41,.18);margin:4px auto 8px}
+  @keyframes up{from{transform:translateY(100%)}to{transform:translateY(0)}}
+  @keyframes fade{to{opacity:1}}
+
+  /* ===== DESKTOP: anchored dropdown ===== */
+  .dropdown{position:absolute;left:0;top:calc(100% + 8px);z-index:30;width:min(22rem,calc(100vw - 2rem));
+            background:var(--paper);border:1px solid var(--line);border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.14);padding:8px}
+  .desktop-only{display:none}
+  .mobile-only{display:block}
+  @media(min-width:640px){ .desktop-only{display:block} .mobile-only{display:none} .grab{display:none} }
+
+  .pagecontent{padding:22px 4px;color:var(--ink-soft);font-size:14px;line-height:1.6}
+  h1.pg{font-family:var(--serif);font-style:italic;font-size:28px;color:var(--ink);margin:0 0 6px}
+</style>
+</head>
+<body>
+  <div class="note">Event switcher · bottom-sheet (mobile) ↔ dropdown (desktop) · resize to test both · 2026-06-02</div>
+
+  <div class="stage">
+    <div class="topbar">
+      <div class="switcher" id="sw">
+        <span class="mono" id="monoBtn" title="Open M &amp; J dashboard">M &amp; J</span>
+        <button class="caret" id="caretBtn" aria-label="Switch events" aria-expanded="false">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <span class="namepill"><b>Maria &amp; Juan</b> <span style="opacity:.8">· Dec 18, 2026</span></span>
+        <!-- dropdown (desktop) injected here -->
+        <div id="dropdownHost"></div>
+      </div>
+      <div class="util">
+        <button class="icbtn" title="Marketplace">🏬</button>
+        <button class="pill">Switch view ⌄</button>
+        <button class="icbtn" title="Notifications">🔔</button>
+        <button class="icbtn" title="Account">I</button>
+      </div>
+    </div>
+
+    <div class="pagecontent">
+      <h1 class="pg">Maria &amp; Juan</h1>
+      Your wedding dashboard. Tap the ▾ in the top-left to open the event switcher — it slides up from the bottom on a phone, drops down on desktop. Inside, “+ Add event” swaps to the event-type picker (also a bottom sheet on mobile).
+    </div>
+  </div>
+
+  <!-- mobile sheet host -->
+  <div id="sheetHost"></div>
+
+<script>
+(function(){
+  var open=false, view='events', cidx=0;
+  var EVENTS=[
+    {id:'mj', name:'Maria & Juan', date:'Dec 18, 2026', primary:true, current:true},
+    {id:'sb', name:'Sara & Ben', date:'date TBD', primary:false, current:false}
+  ];
+  var TYPES=[
+    {key:'wedding',label:'Wedding',emoji:'💍',enabled:true},
+    {key:'debut',label:'Debut',emoji:'👑',enabled:true},
+    {key:'birthday',label:'Birthday',emoji:'🎂',enabled:false},
+    {key:'travel',label:'Travel',emoji:'✈️',enabled:false},
+    {key:'corporate',label:'Corporate',emoji:'🏢',enabled:false}
+  ];
+  var N=TYPES.length;
+  var sw=document.getElementById('sw');
+  var caret=document.getElementById('caretBtn');
+  var dropdownHost=document.getElementById('dropdownHost');
+  var sheetHost=document.getElementById('sheetHost');
+
+  function at(i){ return TYPES[((i%N)+N)%N]; }
+
+  function menuInner(){
+    if(view==='events'){
+      var rows='<button class="row add" data-act="addtype"><span class="plus">+</span>Add event</button>';
+      rows+='<div style="height:2px"></div>';
+      EVENTS.forEach(function(e){
+        rows+='<a class="row '+(e.current?'current':'')+'" data-act="goevent" data-id="'+e.id+'">'
+          +'<span class="m">'+e.name.split(' ').map(function(w){return w[0]}).slice(0,3).join(' ').replace(/&/g,'&amp;')+'</span>'
+          +'<span class="name">'+(e.primary?'<span class="star">★</span>':'')+'<span>'+e.name+'</span></span>'
+          +'<span class="date">'+e.date+'</span></a>';
+      });
+      return '<div class="menuscroll">'+rows+'</div>';
+    }
+    // addtype
+    var prev=at(cidx-1),cur=at(cidx),next=at(cidx+1);
+    function tile(t,cls){
+      var soon=t.enabled?'':' soon';
+      var badge=t.enabled?'<span class="badge">V1</span>':'<span class="badge">Soon</span>';
+      return '<button class="tile'+soon+' '+(cls||'')+'" data-act="picktype" data-key="'+t.key+'" '+(t.enabled?'':'disabled')+'>'
+        +'<span class="emoji">'+t.emoji+'</span><span class="tl">'+t.label+'</span>'+badge+'</button>';
+    }
+    var dots='';
+    for(var i=0;i<N;i++){ dots+='<button class="dot '+(i===cidx?'on':'')+'" data-act="dot" data-i="'+i+'"></button>'; }
+    return '<div class="sheethdr">'
+      +'<button class="backbtn" data-act="back">‹ Back</button>'
+      +'<span class="eyebrow">What kind of event?</span></div>'
+      +'<div class="carousel">'
+        +'<button class="arrow" data-act="prev" aria-label="Previous">‹</button>'
+        +'<div class="tiles">'+tile(prev,'peek')+tile(cur,'')+tile(next,'peek')+'</div>'
+        +'<button class="arrow" data-act="next" aria-label="Next">›</button>'
+      +'</div>'
+      +'<div class="dots">'+dots+'</div>'
+      +'<div class="typehint">Pick Wedding to start planning — we&rsquo;ll take you through a few quick questions.</div>';
+  }
+
+  function render(){
+    caret.setAttribute('aria-expanded', open?'true':'false');
+    sw.classList.toggle('open', open);
+    if(!open){ dropdownHost.innerHTML=''; sheetHost.innerHTML=''; return; }
+    var inner='<div class="menu">'+menuInner()+'</div>';
+    // desktop dropdown
+    dropdownHost.innerHTML='<div class="dropdown desktop-only" role="menu">'+inner+'</div>';
+    // mobile sheet
+    sheetHost.innerHTML='<div class="mobile-only"><div class="backdrop" data-act="close"></div>'
+      +'<div class="sheet" id="sheet"><div class="grab"></div>'+inner+'</div></div>';
+  }
+
+  function setOpen(v){ open=v; if(v){view='events';} render(); }
+
+  document.addEventListener('click',function(ev){
+    var t=ev.target.closest('[data-act]');
+    if(t){
+      var act=t.getAttribute('data-act');
+      if(act==='addtype'){ view='addtype'; cidx=0; render(); return; }
+      if(act==='back'){ view='events'; render(); return; }
+      if(act==='close'){ setOpen(false); return; }
+      if(act==='prev'){ cidx=(cidx-1+N)%N; render(); return; }
+      if(act==='next'){ cidx=(cidx+1)%N; render(); return; }
+      if(act==='dot'){ cidx=parseInt(t.getAttribute('data-i'),10); render(); return; }
+      if(act==='goevent'){ setOpen(false); alert('→ /dashboard/'+t.getAttribute('data-id')); return; }
+      if(act==='picktype'){
+        var k=t.getAttribute('data-key');
+        setOpen(false);
+        if(k==='wedding') alert('→ /onboarding/wedding');
+        else if(k==='debut') alert('→ /dashboard/create-event?type=debut');
+        return;
+      }
+    }
+    // caret toggles
+    if(ev.target.closest('#caretBtn')){ setOpen(!open); return; }
+    if(ev.target.closest('#monoBtn')){ if(!open) alert('→ /dashboard/mj'); return; }
+    // click-away (desktop): close if outside the switcher AND outside any open sheet/dropdown
+    if(open && !ev.target.closest('.switcher') && !ev.target.closest('.sheet') && !ev.target.closest('.dropdown') && !ev.target.closest('.backdrop')){
+      setOpen(false);
+    }
+  });
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&open) setOpen(false); });
+})();
+</script>
+</body>
+</html>

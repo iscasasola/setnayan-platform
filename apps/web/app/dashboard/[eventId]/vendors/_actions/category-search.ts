@@ -119,7 +119,9 @@ export async function searchCategoryVendors(input: {
 
   const { data: ev } = await supabase
     .from('events')
-    .select('venue_latitude, venue_longitude, ceremony_type, venue_setting')
+    .select(
+      'venue_latitude, venue_longitude, ceremony_type, secondary_ceremony_type, venue_setting',
+    )
     .eq('event_id', eventId)
     .maybeSingle();
   if (!ev) return EMPTY; // not a member of this event
@@ -146,6 +148,9 @@ export async function searchCategoryVendors(input: {
   const recs = await fetchWizardVendorRecommendations(admin, {
     canonicalServices: canonicals,
     ceremonyType: (ev.ceremony_type as string | null) ?? null,
+    // Mixed/interfaith weddings: admit vendors fit for the secondary rite too
+    // (additive — never excludes). CLAUDE.md 2026-06-01 + 2026-06-02.
+    secondaryCeremonyType: (ev.secondary_ceremony_type as string | null) ?? null,
     venueSetting: (ev.venue_setting as string | null) ?? null,
     searchQuery: input.query,
     limit: 60,

@@ -814,7 +814,13 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   }
 
   let coupleEventId: string | null = null;
-  let matchableEvent: { ceremony_type: string; venue_setting: string } | null = null;
+  let matchableEvent: {
+    ceremony_type: string;
+    // Mixed/interfaith weddings (CLAUDE.md 2026-06-01) carry a second rite;
+    // the religion-match filter admits vendors fit for EITHER (additive).
+    secondary_ceremony_type: string | null;
+    venue_setting: string;
+  } | null = null;
   let coupleEventType: string | null = null;
   // 2026-05-21 — reception venue anchor (lat/lng) for the distance chip on
   // every vendor card. Populated by saveVendorToPicks when the couple saves
@@ -847,7 +853,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       const { data: ev } = await admin
         .from('events')
         .select(
-          'ceremony_type, venue_setting, event_type, venue_latitude, venue_longitude, venue_name, event_date, event_date_precision',
+          'ceremony_type, secondary_ceremony_type, venue_setting, event_type, venue_latitude, venue_longitude, venue_name, event_date, event_date_precision',
         )
         .eq('event_id', coupleEventId)
         .maybeSingle();
@@ -869,6 +875,8 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
       if (ev?.ceremony_type && ev?.venue_setting) {
         matchableEvent = {
           ceremony_type: ev.ceremony_type as string,
+          secondary_ceremony_type:
+            (ev.secondary_ceremony_type as string | null) ?? null,
           venue_setting: ev.venue_setting as string,
         };
       }
@@ -1098,8 +1106,22 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // Previously had a per-category opt-out for religious_venue + church_fees;
   // now the venue_setting filter never fires regardless of category.
   if (filters.matchEvent && matchableEvent) {
+    // Admit vendors fit for the primary OR (for Mixed/interfaith weddings)
+    // the secondary rite — additive, NULL-safe, only ADMITS more, never
+    // excludes. Collapses to the single-ceremony clause when there's no
+    // secondary. CLAUDE.md 2026-06-01 + 2026-06-02.
+    const matchCeremonies = Array.from(
+      new Set(
+        [matchableEvent.ceremony_type, matchableEvent.secondary_ceremony_type]
+          .map((v) => (typeof v === 'string' ? v.trim() : ''))
+          .filter((v) => v.length > 0),
+      ),
+    );
     query = query.or(
-      `compatible_ceremony_types.is.null,compatible_ceremony_types.cs.{${matchableEvent.ceremony_type}}`,
+      [
+        'compatible_ceremony_types.is.null',
+        ...matchCeremonies.map((v) => `compatible_ceremony_types.cs.{${v}}`),
+      ].join(','),
     );
   }
 

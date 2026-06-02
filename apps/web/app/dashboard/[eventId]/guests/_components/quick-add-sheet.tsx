@@ -169,11 +169,17 @@ const ROLE_OPTS: GuestRole[] = [
   'soloist_musician',
 ];
 
-const SIDES: { value: GuestSide; label: string; dot: string; on: string }[] = [
-  { value: 'bride', label: 'Team Bride', dot: 'bg-rose-500', on: 'border-rose-500 bg-rose-600 text-white' },
-  { value: 'groom', label: 'Team Groom', dot: 'bg-sky-500', on: 'border-sky-600 bg-sky-700 text-white' },
-  { value: 'both', label: 'Both', dot: 'bg-violet-500', on: 'border-violet-500 bg-violet-600 text-white' },
-];
+/* the Side picker carries its team colour on the control border */
+const SIDE_BORDER: Record<GuestSide, string> = {
+  bride: 'border-rose-400',
+  groom: 'border-sky-500',
+  both: 'border-violet-400',
+};
+const SIDE_SHORT: Record<GuestSide, string> = {
+  bride: 'Bride',
+  groom: 'Groom',
+  both: 'Both',
+};
 
 type GroupOpt = { group_id: string; label: string };
 
@@ -224,7 +230,6 @@ export function QuickAddSheet({
     [fn, ln, pool, dupDismissed],
   );
   const dupActive = dups.length > 0;
-  const hasBoth = norm(fn).length >= 1 && norm(ln).length >= 1;
 
   /* open via the desktop button + body scroll lock */
   useEffect(() => {
@@ -321,11 +326,16 @@ export function QuickAddSheet({
     [dupActive, skipDuplicate, doSave],
   );
 
-  const primaryLabel = dupActive
-    ? 'Skip — already added'
-    : hasBoth
-      ? 'Add guest'
-      : 'Done';
+  /* single [Done] button — save the current name (if any) then close.
+     With a dup showing we don't add it; the dup box has its own
+     "add as a different person" path, so Done just closes. */
+  const done = useCallback(() => {
+    if (dupActive) {
+      setOpen(false);
+      return;
+    }
+    doSave(false);
+  }, [dupActive, doSave]);
 
   return (
     <>
@@ -350,7 +360,7 @@ export function QuickAddSheet({
           <div className="absolute inset-x-0 bottom-0 flex max-h-[92vh] flex-col rounded-t-2xl bg-cream shadow-2xl sm:inset-auto sm:left-1/2 sm:top-1/2 sm:max-h-[86vh] sm:w-[440px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl">
             {/* header */}
             <div className="flex items-center justify-between border-b border-ink/10 px-5 py-4">
-              <h2 className="text-lg font-semibold text-ink">Quick add guest</h2>
+              <h2 className="text-lg font-semibold text-ink">Quick add</h2>
               <button
                 type="button"
                 aria-label="Close"
@@ -362,87 +372,68 @@ export function QuickAddSheet({
             </div>
 
             {/* body */}
-            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5">
-              <p className="rounded-lg bg-terracotta/10 px-3 py-2 text-xs leading-relaxed text-ink/70">
-                Set the team, role{groups.length > 0 ? ' & group' : ''} once — every
-                name you add keeps them. Change the chips to start a new batch.
-              </p>
-
-              {/* side */}
-              <div className="space-y-2">
-                <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
-                  Side · team
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {SIDES.map((s) => (
-                    <button
-                      key={s.value}
-                      type="button"
-                      onClick={() => setSide(s.value)}
-                      className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
-                        side === s.value ? s.on : 'border-ink/15 text-ink/70 hover:border-ink/30'
-                      }`}
-                    >
-                      <span className={`h-2 w-2 rounded-full ${s.dot}`} />
-                      {s.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* role */}
-              <div className="space-y-2">
-                <label
-                  htmlFor="qa-role"
-                  className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50"
-                >
-                  Role in the wedding
-                </label>
-                <select
-                  id="qa-role"
-                  value={role}
-                  onChange={(e) => setRole(e.target.value as GuestRole)}
-                  className="input-field w-full appearance-none bg-cream pr-8"
-                >
-                  {ROLE_OPTS.map((r) => (
-                    <option key={r} value={r}>
-                      {ROLE_LABELS[r]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* group (only when the host already has custom groups) */}
-              {groups.length > 0 ? (
-                <div className="space-y-2">
-                  <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
-                    Group <span className="ml-1 normal-case text-ink/35">optional</span>
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setGroupId('')}
-                      className={`rounded-full border px-3.5 py-1.5 text-sm transition-colors ${
-                        groupId === '' ? 'border-ink bg-ink text-cream' : 'border-ink/15 text-ink/70 hover:border-ink/30'
-                      }`}
-                    >
-                      None
-                    </button>
-                    {groups.map((g) => (
-                      <button
-                        key={g.group_id}
-                        type="button"
-                        onClick={() => setGroupId(g.group_id)}
-                        className={`rounded-full border px-3.5 py-1.5 text-sm transition-colors ${
-                          groupId === g.group_id ? 'border-ink bg-ink text-cream' : 'border-ink/15 text-ink/70 hover:border-ink/30'
-                        }`}
-                      >
-                        {g.label}
-                      </button>
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-5">
+              {/* sticky context — Side · Role · Group are picked once and
+                  stay locked across rapid adds until you change them */}
+              <div className="grid grid-cols-4 gap-2">
+                {/* side (1 col) — the control border carries the team colour */}
+                <label className="col-span-1 block space-y-1">
+                  <span className="block font-mono text-[9px] uppercase tracking-[0.14em] text-ink/45">
+                    Side
+                  </span>
+                  <select
+                    aria-label="Side"
+                    value={side}
+                    onChange={(e) => setSide(e.target.value as GuestSide)}
+                    className={`w-full rounded-lg border-2 bg-cream px-2 py-2 text-sm text-ink focus:outline-none ${SIDE_BORDER[side]}`}
+                  >
+                    {(['bride', 'groom', 'both'] as GuestSide[]).map((s) => (
+                      <option key={s} value={s}>
+                        {SIDE_SHORT[s]}
+                      </option>
                     ))}
-                  </div>
-                </div>
-              ) : null}
+                  </select>
+                </label>
+
+                {/* role (2 cols — the long labels need the room) */}
+                <label className="col-span-2 block space-y-1">
+                  <span className="block font-mono text-[9px] uppercase tracking-[0.14em] text-ink/45">
+                    Role
+                  </span>
+                  <select
+                    aria-label="Role"
+                    value={role}
+                    onChange={(e) => setRole(e.target.value as GuestRole)}
+                    className="w-full rounded-lg border border-ink/20 bg-cream px-2 py-2 text-sm text-ink focus:border-ink/40 focus:outline-none"
+                  >
+                    {ROLE_OPTS.map((r) => (
+                      <option key={r} value={r}>
+                        {ROLE_LABELS[r]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                {/* group (1 col — always present; "No group" by default) */}
+                <label className="col-span-1 block space-y-1">
+                  <span className="block font-mono text-[9px] uppercase tracking-[0.14em] text-ink/45">
+                    Group
+                  </span>
+                  <select
+                    aria-label="Group"
+                    value={groupId}
+                    onChange={(e) => setGroupId(e.target.value)}
+                    className="w-full rounded-lg border border-ink/20 bg-cream px-2 py-2 text-sm text-ink focus:border-ink/40 focus:outline-none"
+                  >
+                    <option value="">No group</option>
+                    {groups.map((g) => (
+                      <option key={g.group_id} value={g.group_id}>
+                        {g.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
 
               {/* names */}
               <div className="space-y-2">
@@ -542,25 +533,15 @@ export function QuickAddSheet({
               </div>
             </div>
 
-            {/* footer */}
-            <div className="flex items-center gap-3 border-t border-ink/10 px-5 py-4">
+            {/* footer — one button; the ↵ loop does the rapid adds */}
+            <div className="border-t border-ink/10 px-5 py-4">
               <button
                 type="button"
-                onClick={() => primary(true)}
+                onClick={done}
                 disabled={isPending}
-                className="text-sm font-semibold text-mulberry hover:text-mulberry-600 disabled:opacity-50"
+                className="w-full rounded-lg bg-mulberry px-5 py-3 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600 disabled:opacity-60"
               >
-                + Save &amp; add another
-              </button>
-              <button
-                type="button"
-                onClick={() => primary(false)}
-                disabled={isPending}
-                className={`ml-auto rounded-lg px-5 py-2.5 text-sm font-semibold text-cream transition-colors disabled:opacity-60 ${
-                  dupActive ? 'bg-terracotta-700 hover:opacity-90' : 'bg-mulberry hover:bg-mulberry-600'
-                }`}
-              >
-                {isPending ? 'Adding…' : primaryLabel}
+                {isPending ? 'Adding…' : 'Done'}
               </button>
             </div>
           </div>

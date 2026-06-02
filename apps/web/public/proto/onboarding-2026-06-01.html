@@ -1,7 +1,6 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="robots" content="noindex,nofollow">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Setnayan · Wedding Onboarding Flow (2026-06-01)</title>
@@ -743,7 +742,7 @@
         <div class="paxends"><span>10&minus;</span><span>500+</span></div>
         <div class="paxexactwrap">
           <span class="paxexactlbl">Exact count</span>
-          <input type="number" id="paxexact" min="1" step="1" inputmode="numeric" value="150" placeholder="type your count" class="paxexactinput">
+          <input type="text" id="paxexact" inputmode="numeric" value="150" placeholder="type your count" class="paxexactinput">
         </div>
       </div>
     </section>
@@ -770,7 +769,7 @@
           <div class="paxends"><span id="budgetfloorlbl">min</span><span id="budgetceillbl"></span></div>
           <div class="paxexactwrap">
             <span class="paxexactlbl">Exact budget</span>
-            <input type="number" id="budgetexact" min="0" step="1000" inputmode="numeric" value="900000" placeholder="type your budget" class="paxexactinput">
+            <input type="text" id="budgetexact" inputmode="numeric" value="900,000" placeholder="type your budget" class="paxexactinput">
           </div>
           <button type="button" id="budgetnolimitpill" class="bdg-nolimit">No limit</button>
         </div>
@@ -1669,10 +1668,13 @@ Kahit Kailan|South Border`.trim().split('\n').map(l=>l.split('|'));
       setFaithPhoto();   // Catholic pre-selected
     }
   }
+  // comma thousands-separators for the numeric text boxes (owner 2026-06-02): gd = digits-only, gc = grouped "1,355,000"
+  function gd(v){ return String(v==null?'':v).replace(/[^\d]/g,''); }
+  function gc(n){ const d=gd(n); return d?Number(d).toLocaleString('en-US'):''; }
   // ---- pax read: slider (50–500) + an always-on exact box that can go below 50 / above 500 ----
   function currentPax(){
     const box=document.getElementById('paxexact'), s=document.getElementById('paxslider'); if(!s) return null;
-    const bv = box && box.value!=='' ? parseInt(box.value,10) : NaN;
+    const bv = box && gd(box.value)!=='' ? parseInt(gd(box.value),10) : NaN;
     if(!isNaN(bv) && bv>=1) return { n:bv, raw:bv, label:String(bv), open:false };   // an exact number is in the box (synced or typed · can be <slider-min or >500)
     const v=+s.value, max=+s.max, min=+s.min;                                        // box blank → read the slider's open end
     if(v>=max) return { n:max, raw:max, label:'500+',       open:'high' };
@@ -1787,12 +1789,12 @@ Kahit Kailan|South Border`.trim().split('\n').map(l=>l.split('|'));
     if(slider){ slider.min=floor; slider.max=ceil; slider.step=10000; }            // slider bounds follow the guest count
     // amount: the couple's value once touched, else default to the ideal (Classic band MAX × pax); clamped floor..ceiling
     let amt;
-    if(window.budgetTouched){ amt=(box && box.value!=='') ? parseInt(box.value,10) : (slider?+slider.value:floor); if(isNaN(amt)) amt=floor; }
+    if(window.budgetTouched){ amt=(box && gd(box.value)!=='') ? parseInt(gd(box.value),10) : (slider?+slider.value:floor); if(isNaN(amt)) amt=floor; }
     else { amt=round50(BBANDS[2].med*1.2*pax); }                      // Classic band MAX = the ideal default (matches shipped React PR #791)
     if(amt<floor) amt=floor;
     if(amt>ceil) amt=ceil;                                            // clamp to ceiling — no-limit is the pill, not a typed-above value
     if(slider) slider.value=amt;
-    if(box && document.activeElement!==box) box.value=amt;
+    if(box && document.activeElement!==box) box.value=gc(amt);
     if(slider){ const pct=((+slider.value-floor)/Math.max(1,ceil-floor))*100;
       slider.style.background='linear-gradient(to right,var(--gold) 0%,var(--gold) '+pct+'%,#e7dfce '+pct+'%,#e7dfce 100%)'; }
     const read=document.getElementById('budgetnum'); if(read) read.textContent='₱'+Math.round(amt).toLocaleString('en-US');
@@ -1812,9 +1814,10 @@ Kahit Kailan|South Border`.trim().split('\n').map(l=>l.split('|'));
     const s=document.getElementById('budgetslider'), box=document.getElementById('budgetexact');
     const pill=document.getElementById('budgetnolimitpill'), exit=document.getElementById('budgetnolimitexit');
     if(s&&box){
-      s.addEventListener('input',function(){ window.budgetTouched=true; window.budgetNolimit=false; box.value=this.value; buildBudget(); });
+      s.addEventListener('input',function(){ window.budgetTouched=true; window.budgetNolimit=false; box.value=gc(this.value); buildBudget(); });
       box.addEventListener('input',function(){ window.budgetTouched=true; window.budgetNolimit=false;
-        const v=parseInt(this.value,10);
+        const v=parseInt(gd(this.value),10);
+        this.value=gc(this.value);                                          // reformat with commas live
         if(!isNaN(v)){ const min=+s.min,max=+s.max; s.value = v<min?min : v>max?max : v; }
         buildBudget();
       });
@@ -1901,11 +1904,12 @@ Kahit Kailan|South Border`.trim().split('\n').map(l=>l.split('|'));
       const v=+this.value, max=+this.max, min=+this.min;
       if(v>=max){ box.value=''; box.placeholder='type your 500+ count'; }
       else if(v<=min){ box.value=''; box.placeholder='type your '+min+'-or-fewer count'; }
-      else { box.value=v; }
+      else { box.value=gc(v); }
       buildPax();
     });
     box.addEventListener('input',function(){                     // type → move the slider in real time, or park it at an end
-      const v=parseInt(this.value,10);
+      const v=parseInt(gd(this.value),10);
+      this.value=gc(this.value);                                 // reformat with commas live (cursor to end — fine for append typing)
       if(!isNaN(v)) s.value = v>(+s.max) ? s.max : v<(+s.min) ? s.min : v;
       buildPax();
     });

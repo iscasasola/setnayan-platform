@@ -1277,9 +1277,14 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
     setHydrated(true);
   }, []);
 
-  /* Persist on every change (after hydration, so we don't clobber the draft on mount). */
+  /* Persist on every change (after hydration, so we don't clobber the draft on mount).
+     Once committed (committedEventId set in handleFinish, right before navigating to the
+     dashboard), STOP persisting — otherwise a late re-render during the soft navigation
+     could resurrect the draft we just removed, and re-opening onboarding would show the
+     just-created wedding's data (owner 2026-06-02: "the data on the onboarding still
+     persisted"). handleFinish removes the key; this guard keeps it removed. */
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || committedEventId) return;
     try {
       localStorage.setItem(
         ONBOARDING_DRAFT_KEY,
@@ -1288,7 +1293,7 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
     } catch {
       /* storage full / blocked — non-fatal */
     }
-  }, [state, hydrated]);
+  }, [state, hydrated, committedEventId]);
 
   /* Phase-5 resume: an anonymous visitor authenticated at the account gate (11)
      and bounced back via ?resume=1. The hydrate effect restored their draft

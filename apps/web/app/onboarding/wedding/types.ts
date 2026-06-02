@@ -70,6 +70,13 @@ export interface OnboardingState {
   lastSavedAt: string;
 }
 
+/**
+ * Progress-bar denominator. The bar reflects the FULL eventual 15-screen flow
+ * (Blueprint §3.1a) — not just the screens shipped this phase — so it doesn't
+ * read "complete" at the Phase-1 boundary. Phase 1 renders 4 of these 15.
+ */
+export const FLOW_TOTAL = 15;
+
 /** Localstorage key for the in-flight draft. Single namespace per browser. */
 export const ONBOARDING_DRAFT_KEY = 'setnayan_onboarding_wedding_draft_v1';
 

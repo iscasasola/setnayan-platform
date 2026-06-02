@@ -24,6 +24,10 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { GuestListMultiselect } from './_components/guest-list-multiselect';
 import { GroupsSidebar } from './_components/groups-sidebar';
 import { LiveSearch } from './_components/live-search';
+import {
+  OpenQuickAddButton,
+  QuickAddSheet,
+} from './_components/quick-add-sheet';
 
 export const metadata = { title: 'Guests' };
 
@@ -74,6 +78,7 @@ type Props = {
     q?: string;
     rsvp?: string;
     view?: string;
+    team?: string;
     tag?: string;
     sort?: string;
     added?: string;
@@ -127,6 +132,9 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   const q = (search.q ?? '').trim().toLowerCase();
   const rsvpFilter = (search.rsvp ?? '') as RsvpStatus | '';
   const view = search.view ?? 'all';
+  const teamRaw = search.team ?? 'all';
+  const teamFilter: 'all' | 'bride' | 'groom' =
+    teamRaw === 'bride' || teamRaw === 'groom' ? teamRaw : 'all';
   const tagFilter = (search.tag ?? '').trim();
   const sort = (search.sort ?? 'last_name') as SortKey;
 
@@ -165,6 +173,10 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   }
 
   let visible = guests.filter((g) => {
+    if (teamFilter === 'bride' && !(g.side === 'bride' || g.side === 'both'))
+      return false;
+    if (teamFilter === 'groom' && !(g.side === 'groom' || g.side === 'both'))
+      return false;
     if (rsvpFilter && g.rsvp_status !== rsvpFilter) return false;
     if (tagFilter && !g.custom_tags.includes(tagFilter)) return false;
     if (groupMemberSet && !groupMemberSet.has(g.guest_id)) return false;
@@ -224,6 +236,26 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   const joinUrl = await fetchJoinUrl(supabase, eventId);
   const flash = pickFlash(search);
 
+  // Team Bride / Team Groom counts — "both" counts to both sides on
+  // purpose (a guest invited by both shows in either team view).
+  const teamCounts = {
+    all: guests.length,
+    bride: guests.filter((g) => g.side === 'bride' || g.side === 'both').length,
+    groom: guests.filter((g) => g.side === 'groom' || g.side === 'both').length,
+  };
+  // Minimal pool the quick-add sheet matches new names against for the
+  // duplicate check — full unfiltered list, not the filtered `visible`.
+  const quickAddPool = guests.map((g) => ({
+    first_name: g.first_name,
+    last_name: g.last_name,
+    side: g.side,
+    role: g.role,
+  }));
+  const quickAddGroups = groups.map((g) => ({
+    group_id: g.group_id,
+    label: g.label,
+  }));
+
   return (
     /* Owner directive 2026-06-01: top nav removed on Guests (mobile-first),
        matching the Vendors tab treatment. .shell-topbar{display:none} is
@@ -254,12 +286,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           >
             Quick add list
           </Link>
-          <Link
-            href={`/dashboard/${eventId}/guests/new`}
-            className="button-primary"
-          >
-            + Add guest
-          </Link>
+          <OpenQuickAddButton />
         </div>
       </header>
 
@@ -280,6 +307,13 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           {decodeURIComponent(search.error)}
         </p>
       ) : null}
+
+      <TeamSegment
+        eventId={eventId}
+        team={teamFilter}
+        counts={teamCounts}
+        search={search}
+      />
 
       <StatsStrip stats={stats} eventId={eventId} active={rsvpFilter} />
 
@@ -336,7 +370,11 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         </div>
       </div>
 
-      <MobileFab eventId={eventId} />
+      <QuickAddSheet
+        eventId={eventId}
+        existingGuests={quickAddPool}
+        groups={quickAddGroups}
+      />
     </section>
   );
 }
@@ -736,16 +774,81 @@ function EmptyState({ hasGuests, eventId }: { hasGuests: boolean; eventId: strin
   );
 }
 
-function MobileFab({ eventId }: { eventId: string }) {
+// Team Bride / Team Groom / Everyone — side filter (iteration 0001,
+// 2026-06-02). Orthogonal to the role-group `view` filter: a guest can
+// be Team Bride AND a Principal Sponsor. Server-rendered Links so the
+// filter works with no client JS; preserves the other active params.
+function TeamSegment({
+  eventId,
+  team,
+  counts,
+  search,
+}: {
+  eventId: string;
+  team: 'all' | 'bride' | 'groom';
+  counts: { all: number; bride: number; groom: number };
+  search: { q?: string; rsvp?: string; view?: string; sort?: string; tag?: string };
+}) {
+  const buildHref = (value: 'all' | 'bride' | 'groom') => {
+    const params = new URLSearchParams();
+    if (search.q) params.set('q', search.q);
+    if (search.rsvp) params.set('rsvp', search.rsvp);
+    if (search.view) params.set('view', search.view);
+    if (search.sort) params.set('sort', search.sort);
+    if (search.tag) params.set('tag', search.tag);
+    if (value !== 'all') params.set('team', value);
+    const qs = params.toString();
+    return `/dashboard/${eventId}/guests${qs ? `?${qs}` : ''}`;
+  };
+
+  const segs: {
+    key: 'all' | 'bride' | 'groom';
+    label: string;
+    count: number;
+    dot?: string;
+    on: string;
+  }[] = [
+    { key: 'all', label: 'Everyone', count: counts.all, on: 'bg-ink text-cream' },
+    {
+      key: 'bride',
+      label: 'Team Bride',
+      count: counts.bride,
+      dot: 'bg-rose-500',
+      on: 'bg-rose-600 text-cream',
+    },
+    {
+      key: 'groom',
+      label: 'Team Groom',
+      count: counts.groom,
+      dot: 'bg-sky-600',
+      on: 'bg-sky-700 text-cream',
+    },
+  ];
+
   return (
-    <div className="fixed bottom-20 right-4 z-30 sm:hidden">
-      <Link
-        href={`/dashboard/${eventId}/guests/new`}
-        aria-label="Add guest"
-        className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-mulberry text-2xl font-light text-cream shadow-lg shadow-terracotta/30 hover:bg-mulberry-600"
-      >
-        +
-      </Link>
+    <div className="flex gap-2">
+      {segs.map((s) => {
+        const active = team === s.key;
+        return (
+          <Link
+            key={s.key}
+            href={buildHref(s.key)}
+            className={`inline-flex flex-1 items-center justify-center gap-2 rounded-full border px-3 py-2.5 text-sm font-medium transition-colors sm:max-w-[170px] sm:flex-none ${
+              active
+                ? `border-transparent ${s.on}`
+                : 'border-ink/15 text-ink/70 hover:border-ink/30'
+            }`}
+          >
+            {s.dot ? <span className={`h-2 w-2 rounded-full ${s.dot}`} /> : null}
+            {s.label}
+            <span
+              className={`text-xs font-semibold ${active ? 'opacity-80' : 'text-ink/40'}`}
+            >
+              {s.count}
+            </span>
+          </Link>
+        );
+      })}
     </div>
   );
 }

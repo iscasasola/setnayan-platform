@@ -49,6 +49,7 @@ import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { uploadPublicAsset } from '@/lib/storage';
 import { validateAndCalculateVoucher } from '@/lib/vouchers/validate';
 import { appendLedger } from '@/lib/ledger';
+import { resolvePaxPricedOrderCentavos } from '@/lib/v2-catalog';
 
 /**
  * Same reference-code shape as createOrder · 'SN' prefix + 8 uppercase hex.
@@ -265,6 +266,23 @@ export async function submitOrderAction(
   } = await supabase.auth.getUser();
   if (!user) {
     return { ok: false, reason: 'Please sign in to submit your order.' };
+  }
+
+  // ---- Pax-priced authority (PAPIC_GUEST · migration 20260720000000) ----
+  //
+  // The base price originates client-side (the add-on page passes
+  // original_centavos). For a PAX-PRICED SKU we DO NOT trust it: re-resolve the
+  // authoritative charge from the catalog config + events.estimated_pax,
+  // server-side, and override originalCentavos BEFORE the voucher math so any
+  // discount applies to the correct base. Same defence-in-depth posture as the
+  // voucher re-check below — a couple can't tamper the base price, and the
+  // displayed price always equals the charged price because both read the same
+  // engine (lib/v2-catalog.ts computePaxPriceCentavos). Flat SKUs + non-catalog
+  // SKUs (resolved.is_pax_priced === false / resolved === null) keep the client
+  // value, so every other checkout path stays byte-identical to today.
+  const paxResolved = await resolvePaxPricedOrderCentavos(eventId, serviceKey);
+  if (paxResolved?.is_pax_priced) {
+    originalCentavos = BigInt(paxResolved.centavos);
   }
 
   // Re-validate the voucher server-side EVEN THOUGH the apply step already

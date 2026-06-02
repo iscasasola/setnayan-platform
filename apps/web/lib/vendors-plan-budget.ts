@@ -266,6 +266,13 @@ export type PlanBudgetModel = {
   dueList: DueItem[];
   upNext: DueItem | null;
   recap: RecapStats;
+  /**
+   * How many addable categories the couple has NOT added yet (active-
+   * categories model, owner 2026-06-02). The Vendors page shows only
+   * categories with ≥1 vendor; this drives the "Unlock N more categories"
+   * affordance under the recap → the Unlock-more page.
+   */
+  inactiveCategoryCount: number;
 };
 
 const PESO = 100; // centavos per peso
@@ -449,14 +456,21 @@ export function buildPlanBudgetModel(args: {
     return ra - rb;
   });
 
+  // Active-categories model (owner 2026-06-02): the Vendors page shows ONLY
+  // categories the couple has a vendor in. A group with no picks is "not yet
+  // added" — it lives on the Unlock-more-categories page, not here. We tally
+  // the addable (non-entry-point) empties so the recap can offer
+  // "Unlock N more categories".
+  let inactiveCategoryCount = 0;
   for (const group of orderedGroups) {
     const rawPicks = bucketed.get(group.id) ?? [];
     const picks = rawPicks.map(enrich);
-    // Skip groups that are entry-point-only (countsTowardLockable false) AND
-    // have no picks — they'd render as noise. Keep them if the couple has
-    // picks (rare, but possible via direct category match).
-    const isEntryPoint = group.countsTowardLockable === false;
-    if (isEntryPoint && picks.length === 0) continue;
+    if (picks.length === 0) {
+      // Entry-point-only groups (countsTowardLockable false) were never
+      // unlockable categories; don't offer them on the Unlock page.
+      if (group.countsTowardLockable !== false) inactiveCategoryCount += 1;
+      continue;
+    }
 
     const hardSingle = HARD_SINGLE_PICK_GROUPS.has(group.id);
     const state = childStateOf(picks, hardSingle);
@@ -601,6 +615,7 @@ export function buildPlanBudgetModel(args: {
     dueList,
     upNext,
     recap: { shortlisted, searched, finalized, touched, hoursSaved },
+    inactiveCategoryCount,
   };
 }
 

@@ -1143,6 +1143,14 @@ const SVC: Record<string, { out: number; set: number }> = {
   today_focus: { out: 20000, set: 1499 }, advanced_website: { out: 25000, set: 5499 }, papic_guest: { out: 32000, set: 2999 }, sde: { out: 35000, set: 3499 }, guest_stories: { out: 8000, set: 1999 }, pabati: { out: 12000, set: 999 }, papic_seats: { out: 75000, set: 2999 }, animated_monogram: { out: 15500, set: 2499 }, thank_you: { out: 60000, set: 5499 }, pakanta: { out: 12500, set: 2499 }, custom_qr: { out: 5000, set: 1499 }, panood: { out: 17500, set: 3499 }, live_background: { out: 20000, set: 2499 }, live_photowall: { out: 18000, set: 2499 }, indoor_blueprint: { out: 12500, set: 1499 }, high_res: { out: 5000, set: 0 },
 };
 const pesoB = (n: number) => '₱' + Math.round(n).toLocaleString('en-US');
+/* Comma thousands-separators for the numeric text boxes (guest count + budget).
+   Strips non-digits then groups, so the box shows "1,355,000" live while typing
+   (owner 2026-06-02). Native type="number" can't render commas — those boxes are
+   type="text" + inputMode="numeric" so the digits-only buffer formats on display. */
+const groupDigits = (raw: string) => {
+  const d = raw.replace(/[^\d]/g, '');
+  return d ? Number(d).toLocaleString('en-US') : '';
+};
 const BUNDLE_INDEX: Record<string, number> = { essential: 0, simple: 1, classic: 2, grand: 3, grandfiesta: 4 };
 const BUNDLE_TAGLINE: Record<string, string> = {
   essential: 'Plan it and capture it — the must-haves.', simple: 'A fuller set so every guest is part of the story.', classic: 'The complete celebration — planned, captured, scored, styled.', grand: 'A production: planned, livestreamed, lit, and easy to navigate.', grandfiesta: 'Everything, nothing held back — your grandest day.',
@@ -2058,16 +2066,14 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
               <div className="paxexactwrap">
                 <span className="paxexactlbl">Exact count</span>
                 <input
-                  type="number"
-                  min={1}
-                  step={1}
+                  type="text"
                   inputMode="numeric"
                   className="paxexactinput"
                   placeholder="type your count"
-                  value={state.pax ?? ''}
+                  value={state.pax == null ? '' : state.pax.toLocaleString('en-US')}
                   onChange={(e) => {
-                    const v = e.target.value === '' ? null : parseInt(e.target.value, 10);
-                    patch({ pax: v === null || isNaN(v) ? null : v });
+                    const d = e.target.value.replace(/[^\d]/g, '');
+                    patch({ pax: d === '' ? null : parseInt(d, 10) });
                   }}
                 />
               </div>
@@ -2130,12 +2136,12 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
                       inputMode="numeric"
                       className="paxexactinput bdg-amtinput"
                       aria-label="Working budget in pesos"
-                      value={budgetFocused ? budgetInput : budgetSliderVal.toLocaleString('en-PH')}
+                      value={budgetFocused ? groupDigits(budgetInput) : budgetSliderVal.toLocaleString('en-US')}
                       onFocus={() => {
                         setBudgetFocused(true);
                         setBudgetInput(String(budgetSliderVal));
                       }}
-                      onChange={(e) => setBudgetInput(e.target.value)}
+                      onChange={(e) => setBudgetInput(e.target.value.replace(/[^\d]/g, ''))}
                       onBlur={commitBudgetInput}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') (e.target as HTMLInputElement).blur();

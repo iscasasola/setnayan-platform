@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { generateUniqueSlug } from '@/lib/slugs';
 import { captureEvent } from '@/lib/analytics';
 import { unlockCategoryWithInquiry } from '@/app/dashboard/[eventId]/vendors/_actions/unlock-category';
+import { fetchWizardVendorRecommendations } from '@/lib/wizard-recommendations';
 
 /**
  * commitOnboardingWedding — the single lazy DB commit for the /onboarding/wedding
@@ -303,4 +304,87 @@ export async function commitOnboardingWedding(
   }
 
   return { ok: true, eventId: insertedEvent.event_id };
+}
+
+/**
+ * searchOnboardingReceptionVenues — REAL reception venues for the find-vendor
+ * screen (step 12), replacing the prototype's hardcoded demo cards (owner
+ * 2026-06-02: "the reception venues listed are still not from the result of our
+ * services list of reception venues").
+ *
+ * Criteria-based — the event doesn't exist yet (it's created at the commit), so
+ * this can't take an eventId. It calls fetchWizardVendorRecommendations directly
+ * with canonicalServices:['venue'] + the in-flight onboarding criteria (ceremony
+ * derived the same way the commit does · venue_setting from the couple's first
+ * reception "setting" pick). That's the SAME engine + sort the dashboard reception
+ * search (category-search.ts) and the public /vendors marketplace use, so
+ * onboarding surfaces the same verified set — not fake demo venues.
+ *
+ * Reads vendor_market_stats (already public via /vendors) → no auth gate needed.
+ * Never throws — returns [] on error so the screen degrades to its empty state +
+ * the BYO "add your own". Reception venues are name-exempt from hybrid-anonymity
+ * (the venue exception, [[project_setnayan_vendor_hybrid_anonymity]]), so
+ * business_name is always safe to surface here.
+ */
+export type OnboardingVenueResult = {
+  vendorId: string;
+  name: string;
+  city: string | null;
+  rating: number | null;
+  reviewCount: number | null;
+  photoUrl: string | null;
+  verified: boolean;
+};
+
+export async function searchOnboardingReceptionVenues(input: {
+  kind: 'religious' | 'civil' | 'mixed' | null;
+  faith: string[];
+  receptionSettings: string[];
+}): Promise<OnboardingVenueResult[]> {
+  // Derive ceremony_type + secondary the SAME way the commit does, so the
+  // NULL-safe ceremony filter admits faith-agnostic reception venues.
+  let ceremonyType: string | null = null;
+  let secondary: string | null = null;
+  if (input.kind === 'civil') {
+    ceremonyType = 'civil';
+  } else if (input.kind === 'mixed') {
+    ceremonyType = 'mixed';
+    secondary =
+      input.faith.find((f) => (ALLOWED_SECONDARY as readonly string[]).includes(f)) ?? null;
+  } else if (input.kind === 'religious') {
+    const primary = input.faith[0];
+    ceremonyType =
+      primary && (ALLOWED_CEREMONIES as readonly string[]).includes(primary)
+        ? primary
+        : 'catholic';
+  }
+
+  // venue_setting from the couple's first reception "setting" pick (screen-10);
+  // null → no setting filter, show all reception venues.
+  const venueSetting =
+    (input.receptionSettings ?? [])
+      .map((k) => RECEPTION_TO_VENUE_SETTING[k])
+      .find((v): v is string => Boolean(v)) ?? null;
+
+  const admin = createAdminClient();
+  try {
+    const recs = await fetchWizardVendorRecommendations(admin, {
+      canonicalServices: ['venue'],
+      ceremonyType,
+      secondaryCeremonyType: secondary,
+      venueSetting,
+      limit: 8,
+    });
+    return recs.map((r) => ({
+      vendorId: r.vendor_profile_id,
+      name: r.business_name,
+      city: r.location_city,
+      rating: r.avg_rating_overall,
+      reviewCount: r.review_count,
+      photoUrl: r.primary_photo_url ?? r.logo_url,
+      verified: r.verification_state === 'verified',
+    }));
+  } catch {
+    return [];
+  }
 }

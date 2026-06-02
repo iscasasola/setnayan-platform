@@ -1,10 +1,11 @@
-import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
-import { Logo } from '@/app/_components/logo';
 import { RoleSwitchPill } from '@/app/_components/role-switch-pill';
+import { DashboardEventSwitcher } from '@/app/_components/dashboard-event-switcher';
 import { fetchUserRoleSummary } from '@/lib/roles';
+import { fetchUserEvents, sortEventsForSwitcher } from '@/lib/events';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { GuidedTour } from '@/app/_components/guided-tour';
 import { completeTour } from '@/lib/tour-actions';
 import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
@@ -39,7 +40,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!user) redirect(loginRedirectPath('/admin'));
   const supabase = await createClient();
 
-  const [{ data: profile }, roles] = await Promise.all([
+  const [{ data: profile }, roles, events] = await Promise.all([
     supabase
       .from('users')
       .select(
@@ -48,6 +49,20 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       .eq('user_id', user.id)
       .maybeSingle(),
     fetchUserRoleSummary(supabase, user.id),
+    // Couple events for the top-left EventSwitcher (owner directive
+    // 2026-06-02: switcher visible on all 3 dashboards, same top-left spot
+    // as the customer doorway). Defensive .catch() so a throw in this
+    // non-critical chrome fetch can't crash the admin layout — degrade to
+    // the empty "+" monogram. Mirrors DashboardLayout's 5th-hotfix pattern.
+    fetchUserEvents(supabase, user.id, 'couple').catch((err: unknown) => {
+      logQueryError(
+        'AdminLayout (fetchUserEvents threw)',
+        err instanceof Error ? err : new Error(String(err)),
+        { user_id: user.id },
+        'graceful_degrade',
+      );
+      return [] as Awaited<ReturnType<typeof fetchUserEvents>>;
+    }),
   ]);
 
   const isAdmin =
@@ -60,6 +75,23 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!isAdmin) notFound();
 
   const displayName = profile?.display_name ?? profile?.email ?? 'Admin';
+
+  // EventSwitcher data — same shape DashboardLayout feeds OuterDashboardHeader.
+  // Hide archived events; active-first + expired-rightmost; primary (or first
+  // active) is the anchor monogram. Zero events → the wrapper renders the
+  // empty "+" monogram linking to /dashboard/create-event.
+  const visibleEvents = events.filter((e) => !e.archived);
+  const activeEvents = sortEventsForSwitcher(visibleEvents);
+  const primaryEvent = visibleEvents.find((e) => e.is_primary) ?? activeEvents[0] ?? null;
+  const switcherEvents = activeEvents.map((e) => ({
+    event_id: e.event_id,
+    display_name: e.display_name,
+    event_date: e.event_date,
+    is_primary: e.is_primary,
+    monogram_text: e.monogram_text,
+    monogram_color: e.monogram_color,
+  }));
+
   const badge = profile?.is_internal
     ? { label: '🟣 Internal', tone: 'bg-purple-100 text-purple-800' }
     : profile?.is_team_member
@@ -88,9 +120,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // visible alongside the nav tree.
   const topBar = (
     <div className="flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:mx-auto lg:px-8">
-      <Link href="/admin" className="flex items-center text-ink">
-        <Logo height={32} withWordmark title="Setnayan · Admin" />
-      </Link>
+      {/* Top-left EventSwitcher — replaces the "Setnayan · Admin" brand
+          wordmark that sat here, so the switcher occupies the same top-left
+          corner it holds on the customer doorway (owner directive 2026-06-02).
+          Customer chrome carries no brand wordmark in this corner either
+          (2026-05-15 chrome lock), so all three doorways read consistently.
+          Cross-console hopping stays with the RoleSwitchPill on the right. */}
+      <DashboardEventSwitcher primaryEvent={primaryEvent} switcherEvents={switcherEvents} />
       <div className="flex items-center gap-2">
         {/* Mobile-only Switch View pill — desktop renders it in the
             sidebar footer slot below (avoids duplicating the affordance

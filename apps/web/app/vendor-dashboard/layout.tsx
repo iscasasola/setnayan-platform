@@ -1,11 +1,12 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Logo } from '@/app/_components/logo';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { countUnread } from '@/lib/notifications';
 import { fetchUserRoleSummary } from '@/lib/roles';
+import { fetchUserEvents, sortEventsForSwitcher } from '@/lib/events';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { RoleSwitchPill } from '@/app/_components/role-switch-pill';
+import { DashboardEventSwitcher } from '@/app/_components/dashboard-event-switcher';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
 import { VendorSidebar } from './_components/vendor-sidebar';
@@ -68,7 +69,7 @@ export default async function VendorDashboardLayout({
   if (!user) redirect(loginRedirectPath('/vendor-dashboard'));
   const supabase = await createClient();
 
-  const [profileRes, unreadCount, roles] = await Promise.all([
+  const [profileRes, unreadCount, roles, events] = await Promise.all([
     supabase
       .from('users')
       .select('account_type, email, display_name, deleted_at')
@@ -76,6 +77,20 @@ export default async function VendorDashboardLayout({
       .maybeSingle(),
     countUnread(supabase, user.id),
     fetchUserRoleSummary(supabase, user.id),
+    // Couple events for the top-left EventSwitcher (owner directive
+    // 2026-06-02: switcher visible on all 3 dashboards, same top-left spot
+    // as the customer doorway). Defensive .catch() so a throw in this
+    // non-critical chrome fetch can't crash the vendor layout — degrade to
+    // the empty "+" monogram. Mirrors DashboardLayout's 5th-hotfix pattern.
+    fetchUserEvents(supabase, user.id, 'couple').catch((err: unknown) => {
+      logQueryError(
+        'VendorDashboardLayout (fetchUserEvents threw)',
+        err instanceof Error ? err : new Error(String(err)),
+        { user_id: user.id },
+        'graceful_degrade',
+      );
+      return [] as Awaited<ReturnType<typeof fetchUserEvents>>;
+    }),
   ]);
   const profile = profileRes.data;
 
@@ -110,6 +125,22 @@ export default async function VendorDashboardLayout({
 
   const displayName = profile?.display_name ?? profile?.email ?? 'Vendor';
 
+  // EventSwitcher data — same shape DashboardLayout feeds OuterDashboardHeader.
+  // Hide archived events; active-first + expired-rightmost; primary (or first
+  // active) is the anchor monogram. Zero events → the wrapper renders the
+  // empty "+" monogram linking to /dashboard/create-event.
+  const visibleEvents = events.filter((e) => !e.archived);
+  const activeEvents = sortEventsForSwitcher(visibleEvents);
+  const primaryEvent = visibleEvents.find((e) => e.is_primary) ?? activeEvents[0] ?? null;
+  const switcherEvents = activeEvents.map((e) => ({
+    event_id: e.event_id,
+    display_name: e.display_name,
+    event_date: e.event_date,
+    is_primary: e.is_primary,
+    monogram_text: e.monogram_text,
+    monogram_color: e.monogram_color,
+  }));
+
   // Switch View pill — lives in the desktop sidebar footer (added 2026-05-29
   // per owner directive to standardize role-switch placement across the 3
   // doorways instead of cramming it into the topBar). Mobile retains the
@@ -131,9 +162,13 @@ export default async function VendorDashboardLayout({
   // slot (sidebarFooter prop below).
   const topBar = (
     <div className="flex w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:mx-auto lg:px-8">
-      <Link href="/vendor-dashboard" className="flex items-center text-ink">
-        <Logo height={32} withWordmark title="Setnayan · Vendor" />
-      </Link>
+      {/* Top-left EventSwitcher — replaces the "Setnayan · Vendor" brand
+          wordmark that sat here, so the switcher occupies the same top-left
+          corner it holds on the customer doorway (owner directive 2026-06-02).
+          Customer chrome carries no brand wordmark in this corner either
+          (2026-05-15 chrome lock), so all three doorways read consistently.
+          Cross-console hopping stays with the RoleSwitchPill on the right. */}
+      <DashboardEventSwitcher primaryEvent={primaryEvent} switcherEvents={switcherEvents} />
       <div className="flex items-center gap-2">
         {/* Mobile-only Switch View pill — desktop renders it in the
             sidebar footer slot below. */}

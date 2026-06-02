@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex,nofollow" />
+<title>Event switcher · all 3 dashboards — Setnayan prototype 2026-06-02</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --paper:#FBFBFA; --ink:#1E2229; --ink-soft:#5C6168;
+    --line:rgba(30,34,41,.10); --line-2:rgba(30,34,41,.06);
+    --gold:#C5A059; --gold-deep:#A8843F; --gold-wash:#F6EFE0;
+    --mulberry:#5C2542; --mulberry-2:#4A1D36; --mulberry-wash:#F4EAEE;
+    --card:#FFFFFF;
+    --sans:'Manrope',-apple-system,system-ui,sans-serif;
+    --serif:'Cormorant Garamond',Georgia,serif;
+    --mono:'DM Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%}
+  body{
+    font-family:var(--sans); color:var(--ink);
+    background:radial-gradient(120% 90% at 50% 0%, #EFEAE1 0%, #E6E0D5 60%, #DED7C9 100%);
+    min-height:100%; display:flex; flex-direction:column; align-items:center;
+    padding:30px 16px 54px; gap:18px;
+  }
+
+  /* ---- intro ---- */
+  .intro{max-width:460px;text-align:center}
+  .intro .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold-deep);margin:0 0 8px}
+  .intro h1{font-family:var(--serif);font-style:italic;font-weight:600;font-size:26px;line-height:1.12;margin:0 0 6px}
+  .intro p{margin:0;color:var(--ink-soft);font-size:13.5px;line-height:1.5}
+
+  /* ---- context segmented control (the DEMO control, sits above the phone) ---- */
+  .ctxbar{display:inline-flex;gap:4px;background:rgba(255,255,255,.62);border:1px solid var(--line);border-radius:999px;padding:5px}
+  .ctxbtn{font-family:var(--sans);font-weight:600;font-size:12.5px;color:var(--ink-soft);background:none;border:none;cursor:pointer;border-radius:999px;padding:8px 16px;display:flex;align-items:center;gap:7px;transition:background .14s,color .14s}
+  .ctxbtn .d{width:7px;height:7px;border-radius:50%}
+  .ctxbtn[data-ctx="customer"] .d{background:var(--gold)}
+  .ctxbtn[data-ctx="vendor"] .d{background:var(--mulberry)}
+  .ctxbtn[data-ctx="admin"] .d{background:#6D3FB0}
+  .ctxbtn.on{color:var(--ink);background:#fff;box-shadow:0 1px 3px rgba(40,30,15,.12)}
+  .ctxhint{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;color:var(--ink-soft);text-align:center;margin-top:-4px}
+  .ctxhint b{color:var(--gold-deep);font-weight:500}
+
+  /* ---- phone ---- */
+  .phone{position:relative;width:390px;height:844px;flex:0 0 auto;background:var(--paper);border-radius:46px;
+    box-shadow:0 2px 0 rgba(255,255,255,.5) inset,0 30px 70px -28px rgba(40,30,15,.5),0 8px 26px -14px rgba(40,30,15,.35);
+    border:1px solid rgba(30,34,41,.14);overflow:hidden}
+  .notch{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:128px;height:30px;background:#0c0e12;border-radius:18px;z-index:70}
+
+  /* ---- dashboard behind ---- */
+  .dash{position:absolute;inset:0;display:flex;flex-direction:column;transition:transform .42s cubic-bezier(.22,.61,.36,1),filter .42s ease}
+  .dash.dim{transform:scale(.965) translateY(-4px);filter:brightness(.92)}
+
+  /* topbar — IDENTICAL on all 3: monogram ▾ event switcher pinned top-left */
+  .topbar{padding:54px 16px 12px;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--line-2);position:relative;z-index:20}
+  .mono-chip{width:34px;height:34px;border-radius:50%;flex:0 0 auto;display:grid;place-items:center;
+    background:#fff;border:1.5px solid var(--gold);color:var(--gold-deep);font-family:var(--sans);font-weight:700;font-size:11.5px;letter-spacing:.02em;cursor:pointer;
+    box-shadow:0 1px 2px rgba(0,0,0,.06)}
+  .caret{width:24px;height:26px;border:none;background:transparent;border-radius:50%;display:grid;place-items:center;color:var(--ink-soft);cursor:pointer;font-size:13px;line-height:0;transition:background .12s,transform .2s}
+  .caret:hover{background:var(--gold-wash);color:var(--gold-deep)}
+  .caret.up{transform:rotate(180deg)}
+  .ev-name{margin-left:3px;font-size:13px;font-weight:600;color:var(--ink);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.15}
+  .ev-name small{display:block;font-weight:500;color:var(--ink-soft);font-size:10.5px}
+  .topbar .switch{margin-left:auto;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);border:1px solid var(--line);border-radius:999px;padding:5px 9px;display:flex;align-items:center;gap:5px}
+  .topbar .switch .sd{width:6px;height:6px;border-radius:50%;background:var(--gold)}
+  .topbar.vendor .switch .sd{background:var(--mulberry)}
+  .topbar.admin .switch .sd{background:#6D3FB0}
+
+  .dash-body{flex:1;overflow:hidden;padding:22px 20px 0}
+  .dash-greet{font-family:var(--serif);font-style:italic;font-weight:600;font-size:24px;margin:0 0 2px}
+  .dash-sub{margin:0 0 20px;color:var(--ink-soft);font-size:13px}
+  .ev-card{border:1px solid var(--line);border-radius:18px;background:var(--card);padding:15px;display:flex;align-items:center;gap:13px;margin-bottom:11px}
+  .ev-card .ic{width:42px;height:42px;border-radius:12px;background:var(--gold-wash);display:grid;place-items:center;font-size:20px;flex:0 0 auto}
+  .ev-card .meta{min-width:0}
+  .ev-card .meta b{display:block;font-size:14.5px;font-weight:600}
+  .ev-card .meta span{font-size:12px;color:var(--ink-soft)}
+  .ev-card .stat{margin-left:auto;font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-deep);background:var(--gold-wash);border-radius:999px;padding:4px 9px;flex:0 0 auto}
+  .vendor .ev-card .ic,.admin .ev-card .ic{background:var(--gold-wash)}
+  .hint{margin:18px 2px 0;color:var(--ink-soft);font-size:12px;text-align:center;line-height:1.5}
+  .hint b{color:var(--ink);font-weight:600}
+
+  .ctx-body{display:none}
+  .ctx-body.on{display:block}
+
+  /* bottom nav */
+  .botnav{height:78px;border-top:1px solid var(--line);background:var(--paper);align-items:center;padding-bottom:18px;position:relative;z-index:20;display:none;grid-template-columns:repeat(5,1fr)}
+  .botnav.on{display:grid}
+  .tab{display:flex;flex-direction:column;align-items:center;gap:4px;font-family:var(--mono);font-size:8px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft);background:none;border:none;cursor:pointer}
+  .tab .g{font-size:17px}
+  .tab.on{color:var(--ink)}
+  .tab.more.flash{color:var(--gold-deep)}
+
+  /* ---- shared backdrop ---- */
+  .backdrop{position:absolute;inset:0;background:rgba(20,16,12,.34);opacity:0;pointer-events:none;transition:opacity .4s ease;z-index:40;backdrop-filter:blur(1px)}
+  .backdrop.show{opacity:1;pointer-events:auto}
+
+  /* ---- bottom sheets ---- */
+  .sheet{position:absolute;left:0;right:0;bottom:0;z-index:50;background:var(--paper);border-radius:26px 26px 0 0;
+    box-shadow:0 -20px 50px -24px rgba(40,30,15,.5);transform:translateY(106%);transition:transform .46s cubic-bezier(.22,.61,.36,1);
+    max-height:88%;display:flex;flex-direction:column;border-top:1px solid var(--line)}
+  .sheet.open{transform:translateY(0)}
+  .grip-wrap{display:flex;justify-content:center;padding:11px 0 4px;cursor:pointer}
+  .grip{width:42px;height:5px;border-radius:999px;background:rgba(30,34,41,.18)}
+  .sheet-head{padding:6px 22px 14px;border-bottom:1px solid var(--line-2)}
+  .sheet-head .row{display:flex;align-items:flex-start;gap:12px}
+  .sheet-head h2{font-family:var(--serif);font-style:italic;font-weight:600;font-size:25px;line-height:1.08;margin:0;flex:1}
+  .sheet-head p{margin:5px 0 0;color:var(--ink-soft);font-size:12.5px;line-height:1.45}
+  .x{border:1px solid var(--line);background:var(--card);width:34px;height:34px;border-radius:50%;display:grid;place-items:center;cursor:pointer;color:var(--ink-soft);font-size:17px;line-height:0;flex:0 0 auto}
+
+  /* ---- switcher sheet body ---- */
+  .menu-body{overflow-y:auto;padding:12px 16px calc(18px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch}
+  .sw-row{display:flex;align-items:center;gap:13px;border:none;background:none;width:100%;text-align:left;cursor:pointer;
+    border-radius:14px;padding:12px;font-family:var(--sans);font-size:14.5px;color:var(--ink);transition:background .12s}
+  .sw-row:hover{background:var(--gold-wash)}
+  .sw-add{color:var(--gold-deep);font-weight:600}
+  .sw-add .pl{width:34px;height:34px;border-radius:11px;border:1.5px dashed var(--gold);display:grid;place-items:center;font-size:18px;line-height:0;flex:0 0 auto}
+  .sw-ev .m{width:34px;height:34px;border-radius:50%;background:#fff;border:1.5px solid var(--gold);color:var(--gold-deep);display:grid;place-items:center;font-size:11px;font-weight:700;flex:0 0 auto}
+  .sw-ev .nm{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+  .sw-ev .nm .ttl{display:flex;align-items:center;gap:6px;min-width:0}
+  .sw-ev .nm .star{color:var(--gold);flex:0 0 auto}
+  .sw-ev .nm b{font-weight:600;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sw-ev .nm .dt{font-size:11.5px;color:var(--ink-soft)}
+  .sw-ev .cur{font-family:var(--mono);font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-deep);background:var(--gold-wash);border-radius:999px;padding:4px 8px;flex:0 0 auto}
+  .sw-ev .open{font-size:16px;color:var(--ink-soft);flex:0 0 auto}
+  .sw-ev.current{background:var(--gold-wash)}
+  .sw-div{height:1px;background:var(--line-2);margin:10px 6px 4px}
+  .sw-lbl{font-family:var(--mono);font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);padding:4px 12px 6px}
+  .sw-row.console .m{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:700;flex:0 0 auto;background:var(--gold-wash);color:var(--gold-deep)}
+  .sw-row.console.adm .m{background:#EFE7F8;color:#6D3FB0}
+  .sw-row.console.cust .m{background:var(--gold-wash);color:var(--gold-deep)}
+  .sw-row.console.shop .m{background:var(--mulberry-wash);color:var(--mulberry)}
+  .sw-row.console .sub{display:block;font-size:11px;color:var(--ink-soft)}
+  .ctx-switch{display:none}
+  .ctx-switch.on{display:block}
+  .cur-only{display:none}
+  .open-only{display:none}
+  .menu-body.scoped .cur-only{display:flex}
+  .menu-body.unscoped .open-only{display:block}
+
+  /* ---- More sheet ---- */
+  .more-sheet{position:absolute;left:0;right:0;bottom:0;z-index:50;background:var(--paper);border-radius:26px 26px 0 0;
+    box-shadow:0 -20px 50px -24px rgba(40,30,15,.5);transform:translateY(106%);transition:transform .46s cubic-bezier(.22,.61,.36,1);
+    display:flex;flex-direction:column;border-top:1px solid var(--line);max-height:78%}
+  .more-sheet.open{transform:translateY(0)}
+  .more-sheet h3{font-family:var(--serif);font-style:italic;font-weight:600;font-size:22px;margin:2px 22px 2px}
+  .more-body{padding:10px 16px calc(20px + env(safe-area-inset-bottom));overflow-y:auto}
+  .more-row{display:flex;align-items:center;gap:13px;width:100%;text-align:left;border:none;background:none;cursor:pointer;
+    border-radius:14px;padding:13px 12px;font-family:var(--sans);font-size:14.5px;color:var(--ink);transition:background .12s}
+  .more-row:hover{background:var(--gold-wash)}
+  .more-row .mi{width:36px;height:36px;border-radius:11px;background:var(--gold-wash);display:grid;place-items:center;font-size:17px;flex:0 0 auto}
+  .more-row.create{font-weight:600;color:var(--gold-deep)}
+  .more-row.create .mi{background:#fff;border:1.5px dashed var(--gold);color:var(--gold-deep);font-size:17px}
+  .more-row .ch{margin-left:auto;color:var(--ink-soft)}
+  .ctx-more{display:none}
+  .ctx-more.on{display:block}
+
+  /* ---- event-type sheet ---- */
+  .sheet-body{overflow-y:auto;padding:14px 18px 6px;-webkit-overflow-scrolling:touch}
+  .grouplbl{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);margin:6px 4px 9px}
+  .grouplbl.spaced{margin-top:18px}
+  .opt{width:100%;text-align:left;cursor:pointer;font-family:var(--sans);border:1.5px solid var(--line);background:var(--card);border-radius:16px;padding:14px;display:flex;align-items:center;gap:13px;margin-bottom:10px;transition:border-color .14s,background .14s,transform .1s}
+  .opt:active{transform:scale(.992)}
+  .opt .ic{width:46px;height:46px;border-radius:13px;background:var(--gold-wash);display:grid;place-items:center;font-size:23px;flex:0 0 auto}
+  .opt .tx{flex:1;min-width:0}
+  .opt .tx b{display:block;font-size:15.5px;font-weight:600;color:var(--ink)}
+  .opt .tx span{display:block;font-size:11.5px;color:var(--ink-soft);margin-top:2px}
+  .opt .right{flex:0 0 auto;display:flex;align-items:center;gap:8px}
+  .chev{color:var(--ink-soft);font-size:17px;line-height:0}
+  .opt.live:hover{border-color:rgba(197,160,89,.55)}
+  .opt.live.sel{border-color:var(--gold);background:var(--gold-wash)}
+  .opt.live.sel .ic{background:#fff}
+  .tag-live{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-deep);background:var(--gold-wash);border-radius:999px;padding:4px 9px}
+  .opt.live.sel .tag-live{background:#fff}
+  .opt.live.sel .check{display:grid}
+  .check{display:none;width:22px;height:22px;border-radius:50%;background:var(--gold);place-items:center;color:#fff;font-size:13px;line-height:0}
+  .opt.soon{border-color:var(--line-2);background:rgba(30,34,41,.012);cursor:default}
+  .opt.soon .ic{background:rgba(30,34,41,.05);filter:grayscale(.25);opacity:.85}
+  .opt.soon .tx b{color:var(--ink-soft)}
+  .tag-soon{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);background:rgba(30,34,41,.06);border-radius:999px;padding:4px 9px}
+  .sheet-foot{padding:12px 18px calc(14px + env(safe-area-inset-bottom));border-top:1px solid var(--line-2);background:var(--paper);
+    transform:translateY(120%);max-height:0;opacity:0;overflow:hidden;transition:transform .34s ease,max-height .34s ease,opacity .26s ease}
+  .sheet-foot.show{transform:translateY(0);max-height:120px;opacity:1}
+  .cont{width:100%;border:none;cursor:pointer;font-family:var(--sans);font-weight:600;font-size:15.5px;color:#fff;background:var(--mulberry);border-radius:14px;padding:15px;display:flex;align-items:center;justify-content:center;gap:9px;box-shadow:0 10px 22px -10px rgba(92,37,66,.55);transition:background .12s,transform .1s}
+  .cont:active{transform:translateY(1px)}
+  .cont:hover{background:var(--mulberry-2)}
+
+  /* note under the phone */
+  .note{max-width:460px;border:1px dashed var(--line);border-radius:14px;background:rgba(255,255,255,.5);padding:14px 16px;color:var(--ink-soft);font-size:12px;line-height:1.6}
+  .note b{color:var(--ink);font-weight:600}
+  .note .k{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-deep);display:block;margin-bottom:6px}
+  .note ul{margin:6px 0 0;padding-left:18px}
+  .note li{margin:4px 0}
+  .note .flag{color:var(--mulberry);font-weight:600}
+</style>
+</head>
+<body>
+
+  <div class="intro">
+    <p class="eyebrow">Setnayan · prototype · 2026-06-02</p>
+    <h1>Event switcher — same top-left spot, all 3 dashboards</h1>
+    <p>The monogram <b style="color:var(--ink)">▾</b> event switcher sits <b style="color:var(--ink)">top-left</b> on Customer, Vendor &amp; Admin alike. Tapping it slides up the same <b style="color:var(--ink)">bottom sheet</b> on mobile. Flip the contexts below.</p>
+  </div>
+
+  <div class="ctxbar" role="tablist" aria-label="Dashboard context">
+    <button class="ctxbtn on" data-ctx="customer" onclick="setCtx('customer')"><span class="d"></span>Customer</button>
+    <button class="ctxbtn" data-ctx="vendor" onclick="setCtx('vendor')"><span class="d"></span>Vendor</button>
+    <button class="ctxbtn" data-ctx="admin" onclick="setCtx('admin')"><span class="d"></span>Admin</button>
+  </div>
+  <p class="ctxhint">Same control, same corner — only the surface behind it changes. Tap <b>▾</b> on each.</p>
+
+  <div class="phone">
+    <div class="notch"></div>
+
+    <!-- dashboard behind -->
+    <div class="dash" id="dash">
+      <div class="topbar" id="topbar">
+        <div class="mono-chip" onclick="openSwitcher()">MJ</div>
+        <button class="caret" id="caret" aria-label="Switch events" onclick="openSwitcher()">▾</button>
+        <span class="ev-name">Maria &amp; Juan<small>Wedding · Dec 18</small></span>
+        <span class="switch"><span class="sd"></span>Switch view</span>
+      </div>
+
+      <div class="dash-body">
+        <!-- CUSTOMER body -->
+        <div class="ctx-body on" data-ctx="customer">
+          <p class="dash-greet">Your events</p>
+          <p class="dash-sub">Everything you're planning, in one place.</p>
+          <div class="ev-card">
+            <div class="ic">💍</div>
+            <div class="meta"><b>Maria &amp; Juan</b><span>Wedding · Dec 18, 2026</span></div>
+            <div class="stat">Planning</div>
+          </div>
+          <p class="hint">Planning something else too? Add it from the <b>monogram ▾</b> up top.</p>
+        </div>
+        <!-- VENDOR body -->
+        <div class="ctx-body" data-ctx="vendor">
+          <p class="dash-greet">Bloom &amp; Co. Florals</p>
+          <p class="dash-sub">Your shop at a glance.</p>
+          <div class="ev-card">
+            <div class="ic">📋</div>
+            <div class="meta"><b>3 new inquiries</b><span>Waiting on your reply</span></div>
+            <div class="stat">Respond</div>
+          </div>
+          <div class="ev-card">
+            <div class="ic">💬</div>
+            <div class="meta"><b>5 active chats</b><span>This week</span></div>
+            <div class="stat">Open</div>
+          </div>
+          <p class="hint">Your own events live up top in the <b>monogram ▾</b> — hop over anytime.</p>
+        </div>
+        <!-- ADMIN body -->
+        <div class="ctx-body" data-ctx="admin">
+          <p class="dash-greet">Admin overview</p>
+          <p class="dash-sub">Setnayan internal operations.</p>
+          <div class="ev-card">
+            <div class="ic">✅</div>
+            <div class="meta"><b>12 verifications</b><span>Vendor queue</span></div>
+            <div class="stat">Review</div>
+          </div>
+          <div class="ev-card">
+            <div class="ic">💸</div>
+            <div class="meta"><b>4 payments</b><span>To reconcile</span></div>
+            <div class="stat">Open</div>
+          </div>
+          <p class="hint">Hosting your own event? It's up top in the <b>monogram ▾</b>.</p>
+        </div>
+      </div>
+
+      <!-- bottom navs -->
+      <div class="botnav on" data-ctx="customer">
+        <button class="tab on"><span class="g">🏠</span>Home</button>
+        <button class="tab"><span class="g">🧾</span>Services</button>
+        <button class="tab"><span class="g">🗓️</span>Activity</button>
+        <button class="tab"><span class="g">💬</span>Inbox</button>
+        <button class="tab more" onclick="openMore()"><span class="g">⋯</span>More</button>
+      </div>
+      <div class="botnav" data-ctx="vendor">
+        <button class="tab on"><span class="g">🏠</span>Home</button>
+        <button class="tab"><span class="g">📋</span>Pipeline</button>
+        <button class="tab"><span class="g">💬</span>Messages</button>
+        <button class="tab"><span class="g">📣</span>Market</button>
+        <button class="tab more" onclick="openMore()"><span class="g">⋯</span>More</button>
+      </div>
+      <div class="botnav" data-ctx="admin">
+        <button class="tab on"><span class="g">🏠</span>Overview</button>
+        <button class="tab"><span class="g">🗂️</span>Queues</button>
+        <button class="tab"><span class="g">📁</span>Directory</button>
+        <button class="tab"><span class="g">💵</span>Money</button>
+        <button class="tab more" onclick="openMore()"><span class="g">⋯</span>More</button>
+      </div>
+    </div>
+
+    <!-- shared backdrop -->
+    <div class="backdrop" id="backdrop" onclick="closeAll()"></div>
+
+    <!-- event switcher SHEET -->
+    <div class="sheet menu-sheet" id="switcherSheet" role="dialog" aria-label="Your events">
+      <div class="grip-wrap" onclick="closeAll()"><div class="grip"></div></div>
+      <div class="sheet-head">
+        <div class="row">
+          <h2>Your events</h2>
+          <button class="x" aria-label="Close" onclick="closeAll()">✕</button>
+        </div>
+      </div>
+      <div class="menu-body scoped" id="menuBody">
+        <button class="sw-row sw-add" onclick="openEventSheet()">
+          <span class="pl">＋</span> Add event
+        </button>
+        <button class="sw-row sw-ev current" id="evRow">
+          <span class="m">MJ</span>
+          <span class="nm">
+            <span class="ttl"><span class="star">★</span><b>Maria &amp; Juan</b></span>
+            <span class="dt">Wedding · Dec 18, 2026</span>
+          </span>
+          <span class="cur cur-only">Current</span>
+          <span class="open open-only">›</span>
+        </button>
+        <div class="sw-div"></div>
+        <div class="sw-lbl">Switch view</div>
+
+        <!-- CUSTOMER: other consoles -->
+        <div class="ctx-switch on" data-ctx="customer">
+          <button class="sw-row console shop">
+            <span class="m">S</span>
+            <span><b style="font-weight:600">Shop console</b><span class="sub">Bloom &amp; Co. Florals</span></span>
+          </button>
+          <button class="sw-row console adm">
+            <span class="m">A</span>
+            <span><b style="font-weight:600">Admin console</b><span class="sub">Setnayan internal</span></span>
+          </button>
+        </div>
+        <!-- VENDOR: other consoles -->
+        <div class="ctx-switch" data-ctx="vendor">
+          <button class="sw-row console cust">
+            <span class="m">C</span>
+            <span><b style="font-weight:600">Customer view</b><span class="sub">Your events</span></span>
+          </button>
+          <button class="sw-row console adm">
+            <span class="m">A</span>
+            <span><b style="font-weight:600">Admin console</b><span class="sub">Setnayan internal</span></span>
+          </button>
+        </div>
+        <!-- ADMIN: other consoles -->
+        <div class="ctx-switch" data-ctx="admin">
+          <button class="sw-row console cust">
+            <span class="m">C</span>
+            <span><b style="font-weight:600">Customer view</b><span class="sub">Your events</span></span>
+          </button>
+          <button class="sw-row console shop">
+            <span class="m">S</span>
+            <span><b style="font-weight:600">Shop console</b><span class="sub">Bloom &amp; Co. Florals</span></span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- More sheets (per ctx) -->
+    <div class="more-sheet" id="moreSheet" role="dialog" aria-label="More">
+      <div class="grip-wrap" onclick="closeAll()"><div class="grip"></div></div>
+      <h3>More</h3>
+      <div class="more-body">
+        <div class="ctx-more on" data-ctx="customer">
+          <button class="more-row create" onclick="openEventSheet()"><span class="mi">＋</span> Create event <span class="ch">›</span></button>
+          <button class="more-row"><span class="mi">🎟️</span> Add-ons &amp; services <span class="ch">›</span></button>
+          <button class="more-row"><span class="mi">🪪</span> Personalization <span class="ch">›</span></button>
+          <button class="more-row"><span class="mi">⚙️</span> Settings <span class="ch">›</span></button>
+        </div>
+        <div class="ctx-more" data-ctx="vendor">
+          <button class="more-row create" onclick="openEventSheet()"><span class="mi">＋</span> Create your own event <span class="ch">›</span></button>
+          <button class="more-row"><span class="mi">🧾</span> Services &amp; packages <span class="ch">›</span></button>
+          <button class="more-row"><span class="mi">🪙</span> Tokens &amp; billing <span class="ch">›</span></button>
+          <button class="more-row"><span class="mi">⚙️</span> Settings <span class="ch">›</span></button>
+        </div>
+        <div class="ctx-more" data-ctx="admin">
+          <button class="more-row create" onclick="openEventSheet()"><span class="mi">＋</span> Create your own event <span class="ch">›</span></button>
+          <button class="more-row"><span class="mi">🛡️</span> Disputes <span class="ch">›</span></button>
+          <button class="more-row"><span class="mi">📊</span> Pricing &amp; catalog <span class="ch">›</span></button>
+          <button class="more-row"><span class="mi">⚙️</span> Settings <span class="ch">›</span></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- event-type bottom sheet -->
+    <div class="sheet" id="sheet" role="dialog" aria-label="Choose an event type">
+      <div class="grip-wrap" onclick="closeAll()"><div class="grip"></div></div>
+      <div class="sheet-head">
+        <div class="row">
+          <h2>What are you planning?</h2>
+          <button class="x" aria-label="Close" onclick="closeAll()">✕</button>
+        </div>
+        <p>Pick an event to begin. More types are on their way.</p>
+      </div>
+      <div class="sheet-body">
+        <div class="grouplbl">Available now</div>
+        <button class="opt live" data-key="wedding" data-label="wedding" onclick="selectEvent(this)">
+          <span class="ic">💍</span>
+          <span class="tx"><b>Wedding</b><span>Vendors, guests, website &amp; day-of — fully planned.</span></span>
+          <span class="right"><span class="tag-live">Live</span><span class="check">✓</span><span class="chev">›</span></span>
+        </button>
+        <button class="opt live" data-key="debut" data-label="debut" onclick="selectEvent(this)">
+          <span class="ic">👑</span>
+          <span class="tx"><b>Debut</b><span>Your 18th — court, program, vendors &amp; guests.</span></span>
+          <span class="right"><span class="tag-live">Live</span><span class="check">✓</span><span class="chev">›</span></span>
+        </button>
+        <div class="grouplbl spaced">Coming soon</div>
+        <div class="opt soon"><span class="ic">🎈</span><span class="tx"><b>Gender Reveal</b></span><span class="right"><span class="tag-soon">Soon</span></span></div>
+        <div class="opt soon"><span class="ic">🎂</span><span class="tx"><b>Birthday</b></span><span class="right"><span class="tag-soon">Soon</span></span></div>
+        <div class="opt soon"><span class="ic">🥂</span><span class="tx"><b>Celebration</b></span><span class="right"><span class="tag-soon">Soon</span></span></div>
+        <div class="opt soon"><span class="ic">✈️</span><span class="tx"><b>Travel</b></span><span class="right"><span class="tag-soon">Soon</span></span></div>
+        <div class="opt soon"><span class="ic">🏢</span><span class="tx"><b>Corporate</b></span><span class="right"><span class="tag-soon">Soon</span></span></div>
+        <div class="opt soon"><span class="ic">🏆</span><span class="tx"><b>Tournament</b></span><span class="right"><span class="tag-soon">Soon</span></span></div>
+        <div class="opt soon"><span class="ic">🕯️</span><span class="tx"><b>Christening</b></span><span class="right"><span class="tag-soon">Soon</span></span></div>
+      </div>
+      <div class="sheet-foot" id="foot">
+        <button class="cont" id="contBtn" onclick="proceed()">Continue to wedding setup →</button>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="note">
+    <span class="k">What this shows · 2026-06-02</span>
+    The <b>event switcher</b> (monogram <b>▾</b>) is pinned <b>top-left on all three dashboards</b> — the same corner it holds on Customer. Tapping it opens the same bottom sheet: <b>+ Add event</b>, your events, and <b>Switch view</b> rows to the other consoles.
+    <ul>
+      <li><span class="flag">Decision to confirm —</span> on <b>Vendor &amp; Admin there is no "current" event</b>, so your event shows an <b>Open ›</b> affordance (tap = jump into it) instead of the <b>Current</b> badge.</li>
+      <li><span class="flag">Decision to confirm —</span> placing the switcher top-left <b>replaces the "Setnayan · Vendor / · Admin" brand logo</b> that sits there today (matches Customer, which carries no brand wordmark in-chrome by the 2026-05-15 lock).</li>
+      <li>A vendor/admin with <b>zero events of their own</b> sees the empty <b>＋</b> monogram → opens the event-type sheet (create first event).</li>
+      <li>On <b>desktop</b>, the switcher keeps its anchored dropdown — bottom sheets are mobile-only.</li>
+    </ul>
+  </div>
+
+<script>
+  const dash = document.getElementById('dash');
+  const backdrop = document.getElementById('backdrop');
+  const caret = document.getElementById('caret');
+  const topbar = document.getElementById('topbar');
+  const switcherSheet = document.getElementById('switcherSheet');
+  const moreSheet = document.getElementById('moreSheet');
+  const sheet = document.getElementById('sheet');
+  const foot = document.getElementById('foot');
+  const contBtn = document.getElementById('contBtn');
+  const menuBody = document.getElementById('menuBody');
+  const evRow = document.getElementById('evRow');
+
+  let ctx = 'customer';
+
+  function setCtx(c){
+    ctx = c;
+    document.querySelectorAll('.ctxbtn').forEach(b=>b.classList.toggle('on', b.dataset.ctx===c));
+    document.querySelectorAll('.ctx-body').forEach(b=>b.classList.toggle('on', b.dataset.ctx===c));
+    document.querySelectorAll('.botnav').forEach(b=>b.classList.toggle('on', b.dataset.ctx===c));
+    document.querySelectorAll('.ctx-switch').forEach(b=>b.classList.toggle('on', b.dataset.ctx===c));
+    document.querySelectorAll('.ctx-more').forEach(b=>b.classList.toggle('on', b.dataset.ctx===c));
+    topbar.className = 'topbar' + (c==='customer' ? '' : ' ' + c);
+    // customer surface IS event-scoped -> "Current"; vendor/admin are not -> "Open ›"
+    const scoped = c === 'customer';
+    menuBody.classList.toggle('scoped', scoped);
+    menuBody.classList.toggle('unscoped', !scoped);
+    evRow.classList.toggle('current', scoped);
+    closeAll();
+  }
+
+  function dimOn(){ backdrop.classList.add('show'); dash.classList.add('dim'); }
+  function openSwitcher(){
+    moreSheet.classList.remove('open'); sheet.classList.remove('open');
+    caret.classList.add('up'); switcherSheet.classList.add('open'); dimOn();
+  }
+  function openMore(){
+    switcherSheet.classList.remove('open'); sheet.classList.remove('open');
+    caret.classList.remove('up'); moreSheet.classList.add('open'); dimOn();
+  }
+  function openEventSheet(){
+    switcherSheet.classList.remove('open'); moreSheet.classList.remove('open');
+    caret.classList.remove('up'); sheet.classList.add('open'); dimOn();
+  }
+  function closeAll(){
+    backdrop.classList.remove('show');
+    switcherSheet.classList.remove('open'); moreSheet.classList.remove('open'); sheet.classList.remove('open');
+    dash.classList.remove('dim'); caret.classList.remove('up');
+  }
+  function selectEvent(el){
+    document.querySelectorAll('.opt.live').forEach(o=>o.classList.remove('sel'));
+    el.classList.add('sel');
+    contBtn.textContent = 'Continue to ' + el.getAttribute('data-label') + ' setup →';
+    foot.classList.add('show');
+  }
+  function proceed(){
+    const sel = document.querySelector('.opt.live.sel');
+    contBtn.textContent = 'Opening ' + (sel ? sel.getAttribute('data-label') : 'event') + '…';
+    contBtn.style.background = '#4A1D36';
+  }
+</script>
+</body>
+</html>

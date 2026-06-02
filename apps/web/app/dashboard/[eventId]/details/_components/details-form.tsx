@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { Check } from 'lucide-react';
 import { updateEventMatchCriteria } from '../../actions';
-import { REGION_OPTIONS, FEEL_OPTIONS } from '@/lib/match-criteria';
+import { REGION_OPTIONS, FEEL_OPTIONS, sanitizeName } from '@/lib/match-criteria';
 
 /**
  * DetailsForm — edits the governance-free basics on the Personalization page:
@@ -22,21 +22,27 @@ import { REGION_OPTIONS, FEEL_OPTIONS } from '@/lib/match-criteria';
  */
 export function DetailsForm({
   eventId,
-  initialBride,
-  initialGroom,
+  initialBrideFirst,
+  initialBrideLast,
+  initialGroomFirst,
+  initialGroomLast,
   initialRegion,
   initialFeel,
   initialBudgetPesos,
 }: {
   eventId: string;
-  initialBride: string;
-  initialGroom: string;
+  initialBrideFirst: string;
+  initialBrideLast: string;
+  initialGroomFirst: string;
+  initialGroomLast: string;
   initialRegion: string;
   initialFeel: string;
   initialBudgetPesos: string;
 }) {
-  const [bride, setBride] = useState(initialBride);
-  const [groom, setGroom] = useState(initialGroom);
+  const [brideFirst, setBrideFirst] = useState(initialBrideFirst);
+  const [brideLast, setBrideLast] = useState(initialBrideLast);
+  const [groomFirst, setGroomFirst] = useState(initialGroomFirst);
+  const [groomLast, setGroomLast] = useState(initialGroomLast);
   const [region, setRegion] = useState(initialRegion);
   const [feel, setFeel] = useState(initialFeel);
   const [budget, setBudget] = useState(initialBudgetPesos);
@@ -53,8 +59,10 @@ export function DetailsForm({
     setSaved(false);
     const fd = new FormData();
     fd.set('event_id', eventId);
-    fd.set('bride_name', bride.trim());
-    fd.set('groom_name', groom.trim());
+    fd.set('bride_first', brideFirst.trim());
+    fd.set('bride_last', brideLast.trim());
+    fd.set('groom_first', groomFirst.trim());
+    fd.set('groom_last', groomLast.trim());
     fd.set('region', region);
     fd.set('mood_feel_key', feel);
     fd.set('budget_pesos', budget.replace(/[, ]/g, ''));
@@ -71,40 +79,72 @@ export function DetailsForm({
   return (
     <form onSubmit={onSubmit} className="space-y-5">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <label htmlFor="bride_name" className="block text-xs font-medium text-ink/70">
-            Bride
-          </label>
-          <input
-            id="bride_name"
-            type="text"
-            maxLength={80}
-            value={bride}
-            onChange={(ev) => {
-              setBride(ev.target.value);
-              setSaved(false);
-            }}
-            placeholder="First name"
-            className={selectClass}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <label htmlFor="groom_name" className="block text-xs font-medium text-ink/70">
-            Groom
-          </label>
-          <input
-            id="groom_name"
-            type="text"
-            maxLength={80}
-            value={groom}
-            onChange={(ev) => {
-              setGroom(ev.target.value);
-              setSaved(false);
-            }}
-            placeholder="First name"
-            className={selectClass}
-          />
-        </div>
+        <fieldset className="space-y-1.5">
+          <legend className="mb-1.5 block text-xs font-medium text-ink/70">Bride</legend>
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              id="bride_first"
+              type="text"
+              maxLength={80}
+              value={brideFirst}
+              onChange={(ev) => {
+                setBrideFirst(sanitizeName(ev.target.value));
+                setSaved(false);
+              }}
+              placeholder="First name"
+              autoCapitalize="words"
+              aria-label="Bride first name"
+              className={selectClass}
+            />
+            <input
+              id="bride_last"
+              type="text"
+              maxLength={80}
+              value={brideLast}
+              onChange={(ev) => {
+                setBrideLast(sanitizeName(ev.target.value));
+                setSaved(false);
+              }}
+              placeholder="Last name"
+              autoCapitalize="words"
+              aria-label="Bride last name"
+              className={selectClass}
+            />
+          </div>
+        </fieldset>
+        <fieldset className="space-y-1.5">
+          <legend className="mb-1.5 block text-xs font-medium text-ink/70">Groom</legend>
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              id="groom_first"
+              type="text"
+              maxLength={80}
+              value={groomFirst}
+              onChange={(ev) => {
+                setGroomFirst(sanitizeName(ev.target.value));
+                setSaved(false);
+              }}
+              placeholder="First name"
+              autoCapitalize="words"
+              aria-label="Groom first name"
+              className={selectClass}
+            />
+            <input
+              id="groom_last"
+              type="text"
+              maxLength={80}
+              value={groomLast}
+              onChange={(ev) => {
+                setGroomLast(sanitizeName(ev.target.value));
+                setSaved(false);
+              }}
+              placeholder="Last name"
+              autoCapitalize="words"
+              aria-label="Groom last name"
+              className={selectClass}
+            />
+          </div>
+        </fieldset>
       </div>
 
       <div className="space-y-1.5">

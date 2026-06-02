@@ -63,3 +63,19 @@ export const ALLOWED_FEELS: ReadonlySet<string> = new Set(
 
 /** ₱100M ceiling — a sane upper bound for a wedding-budget peso figure. */
 export const MAX_BUDGET_PESOS = 100_000_000;
+
+/**
+ * Alphabet-only name sanitizer (owner 2026-06-02, PR #806). Allows Unicode
+ * letters (Filipino ñ + accents), spaces (compound names + spaced surnames
+ * like "Dela Cruz" / "De Leon"), hyphens ("Anne-Marie") and apostrophes
+ * ("D'Souza"); strips digits + symbols. Shared by the Personalization edit
+ * form (client, live as the host types) and updateEventMatchCriteria (server,
+ * defense-in-depth) so the two never drift — mirrors the onboarding
+ * name-screen rule in onboarding-shell.tsx.
+ */
+export function sanitizeName(raw: string): string {
+  return (raw || '').replace(/[^\p{L}\s'-]/gu, '');
+}
+
+/** Per-field name length cap (matches the form input maxLength). */
+export const MAX_NAME_LEN = 80;

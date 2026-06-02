@@ -145,6 +145,12 @@ function formatPrice(sku: V2CustomerSku): string {
   if (sku.service_code === 'PANOOD_SYSTEM') {
     return `₱${formatPeso(sku.retail_price_php)} / day`;
   }
+  // Pax-priced SKUs (PAPIC_GUEST · migration 20260720000000) scale with guest
+  // count — no event context here, so anchor on the floor with a "from" prefix
+  // (₱2,999 @ 100 pax · +₱350 / 50). Owner-locked 2026-06-02.
+  if (sku.is_pax_priced) {
+    return `from ₱${formatPeso(sku.retail_price_php)}`;
+  }
   return `₱${formatPeso(sku.retail_price_php)}`;
 }
 

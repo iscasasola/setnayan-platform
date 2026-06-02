@@ -7,6 +7,7 @@ import {
   fetchV2BundleCatalog,
   fetchV2VendorCatalog,
   formatPeso,
+  formatSkuPriceLabel,
   BUILD_STATUS_LABEL,
   type V2CustomerSku,
   type BuildStatus,
@@ -447,7 +448,10 @@ export default async function PricingPage() {
                               status === 'not_built' ? 'text-ink/40' : 'text-ink'
                             }`}
                           >
-                            ₱{formatPeso(sku.retail_price_php)}
+                            {/* Pax-priced SKUs (PAPIC_GUEST) show "from ₱X" off
+                                the floor — no event context on the public page.
+                                Flat SKUs render "₱X" exactly as before. */}
+                            {formatSkuPriceLabel(sku)}
                           </span>
                         </p>
                         {sku.description ? (

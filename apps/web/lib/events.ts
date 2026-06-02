@@ -436,6 +436,164 @@ export async function getConfirmedVendorCount(
 }
 
 // ----------------------------------------------------------------------------
+// Reception anchor — "ground 0" for vendor distance (CLAUDE.md 2026-06-02
+// directive 3 · owner: "reception will be ground 0 for the distance of other
+// vendors"). The reception venue (event_vendors.category='venue') is the
+// origin every other vendor's distance is measured from;
+// events.venue_latitude/venue_longitude hold it (the anchor schema + the
+// initial first-saved-wins population were locked 2026-05-20).
+//
+// These helpers re-anchor it to the reception the couple actually commits to
+// — a LOCKED reception over a 'considering' one, stable first-saved among
+// considering — and resolve coords from EITHER a marketplace pick
+// (vendor_profiles.hq_*) OR an admin-seeded venue (venue_directory.hq_*),
+// which the original inline first-saved path in saveVendorToPicks missed.
+// ----------------------------------------------------------------------------
+
+export type ReceptionAnchor = {
+  lat: number;
+  lng: number;
+  /** locked = reception is contracted+; considering = a provisional pick. */
+  source: 'locked' | 'considering';
+} | null;
+
+/** event_vendors.category value for the reception venue. */
+const RECEPTION_CATEGORY = 'venue';
+
+/**
+ * Resolve the reception venue the couple is anchoring distance on, reading
+ * coords across RLS (needs an admin/service client, like the wizard-rec +
+ * category-search reads). Priority: a LOCKED reception (most-recently locked)
+ * → else the oldest 'considering' reception (stable first-saved-wins so the
+ * anchor doesn't thrash while the couple is still exploring). Skips picks
+ * whose coords can't be resolved. Returns null when no reception pick has
+ * coords, and never throws (returns null on any read error).
+ */
+export async function resolveReceptionAnchor(
+  admin: SupabaseClient,
+  eventId: string,
+): Promise<ReceptionAnchor> {
+  try {
+    const { data: picks, error } = await admin
+      .from('event_vendors')
+      .select(
+        'status, marketplace_vendor_id, source_venue_directory_id, created_at, updated_at',
+      )
+      .eq('event_id', eventId)
+      .eq('category', RECEPTION_CATEGORY)
+      .is('archived_at', null);
+    if (error || !picks || picks.length === 0) return null;
+
+    type Pick = {
+      status: string | null;
+      marketplace_vendor_id: string | null;
+      source_venue_directory_id: string | null;
+      created_at: string | null;
+      updated_at: string | null;
+    };
+    const rows = picks as Pick[];
+    const confirmed = new Set<string>(CONFIRMED_VENDOR_STATUSES as unknown as string[]);
+
+    // Ordered candidates: locked first (most-recent lock), then considering
+    // (oldest first — stable anchor while the couple is still exploring).
+    const locked = rows
+      .filter((r) => r.status != null && confirmed.has(r.status))
+      .sort((a, b) => (b.updated_at ?? '').localeCompare(a.updated_at ?? ''));
+    const considering = rows
+      .filter((r) => !(r.status != null && confirmed.has(r.status)))
+      .sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? ''));
+    const ordered: Array<{ pick: Pick; source: 'locked' | 'considering' }> = [
+      ...locked.map((pick) => ({ pick, source: 'locked' as const })),
+      ...considering.map((pick) => ({ pick, source: 'considering' as const })),
+    ];
+
+    // Batch-resolve coords for both id sets (one read each).
+    const marketIds = [
+      ...new Set(rows.map((r) => r.marketplace_vendor_id).filter((v): v is string => !!v)),
+    ];
+    const dirIds = [
+      ...new Set(rows.map((r) => r.source_venue_directory_id).filter((v): v is string => !!v)),
+    ];
+
+    const marketCoords = new Map<string, { lat: number; lng: number }>();
+    if (marketIds.length > 0) {
+      const { data } = await admin
+        .from('vendor_profiles')
+        .select('vendor_profile_id, hq_latitude, hq_longitude')
+        .in('vendor_profile_id', marketIds);
+      for (const v of data ?? []) {
+        const row = v as {
+          vendor_profile_id: string;
+          hq_latitude: number | null;
+          hq_longitude: number | null;
+        };
+        if (row.hq_latitude != null && row.hq_longitude != null) {
+          marketCoords.set(row.vendor_profile_id, { lat: row.hq_latitude, lng: row.hq_longitude });
+        }
+      }
+    }
+    const dirCoords = new Map<string, { lat: number; lng: number }>();
+    if (dirIds.length > 0) {
+      const { data } = await admin
+        .from('venue_directory')
+        .select('venue_directory_id, hq_latitude, hq_longitude')
+        .in('venue_directory_id', dirIds);
+      for (const v of data ?? []) {
+        const row = v as {
+          venue_directory_id: string;
+          hq_latitude: number | null;
+          hq_longitude: number | null;
+        };
+        if (row.hq_latitude != null && row.hq_longitude != null) {
+          dirCoords.set(row.venue_directory_id, { lat: row.hq_latitude, lng: row.hq_longitude });
+        }
+      }
+    }
+
+    for (const { pick, source } of ordered) {
+      const c =
+        (pick.marketplace_vendor_id
+          ? marketCoords.get(pick.marketplace_vendor_id)
+          : undefined) ??
+        (pick.source_venue_directory_id
+          ? dirCoords.get(pick.source_venue_directory_id)
+          : undefined);
+      if (c) return { lat: c.lat, lng: c.lng, source };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Re-anchor + persist events.venue_latitude/longitude from the current
+ * reception picks. Call after a reception venue is locked or a reception pick
+ * is removed so "ground 0" follows the couple's actual chosen reception (not
+ * just the first they saved). When no reception pick has resolvable coords,
+ * leaves the existing anchor untouched (preserves an onboarding/admin fallback
+ * rather than blanking distance chips). Best-effort: never throws — a failed
+ * re-anchor must not fail the lock/delete it follows. Returns the resolved
+ * anchor (or null when nothing changed).
+ */
+export async function recomputeReceptionAnchor(
+  admin: SupabaseClient,
+  eventId: string,
+): Promise<ReceptionAnchor> {
+  const anchor = await resolveReceptionAnchor(admin, eventId);
+  if (!anchor) return null;
+  try {
+    await admin
+      .from('events')
+      .update({ venue_latitude: anchor.lat, venue_longitude: anchor.lng })
+      .eq('event_id', eventId);
+  } catch {
+    /* best-effort — a failed re-anchor must not fail the caller. */
+  }
+  return anchor;
+}
+
+// ----------------------------------------------------------------------------
 // resolvePrimaryHostEvent (2026-05-22 — Task #46)
 // ----------------------------------------------------------------------------
 // Returns the user's primary event_id across BOTH host membership models:

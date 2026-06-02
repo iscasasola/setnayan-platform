@@ -6,29 +6,37 @@ import { updateEventMatchCriteria } from '../../actions';
 import { REGION_OPTIONS, FEEL_OPTIONS } from '@/lib/match-criteria';
 
 /**
- * DetailsForm — edits the governance-free curated match criteria (region,
- * mood/feel, budget) the Home "Personalized" block shows. CLAUDE.md
- * 2026-06-02 "do both" · step 1.
+ * DetailsForm — edits the governance-free basics on the Personalization page:
+ * couple names + the curated match criteria (region, mood/feel, budget) the
+ * Home "Personalized" block shows. CLAUDE.md 2026-06-02 "do both" step 1 +
+ * Phase B (names added).
  *
  * Date / ceremony / venue / guest-count are NOT here — they carry the
  * booked-vendor change-flow governance and keep their own governed editors
- * (the parent page deep-links the date to /date-selection). These three bind
- * no vendor, so this is a plain save.
+ * (the parent page surfaces the CeremonyTypeChip + deep-links the date to
+ * /date-selection). Everything in THIS form binds no vendor, so it's a plain
+ * save; names also recompute the display label (chrome) server-side.
  *
  * Calls the result-returning `updateEventMatchCriteria` server action via
  * useTransition; shows inline saved/error states. Clean Editorial palette.
  */
 export function DetailsForm({
   eventId,
+  initialBride,
+  initialGroom,
   initialRegion,
   initialFeel,
   initialBudgetPesos,
 }: {
   eventId: string;
+  initialBride: string;
+  initialGroom: string;
   initialRegion: string;
   initialFeel: string;
   initialBudgetPesos: string;
 }) {
+  const [bride, setBride] = useState(initialBride);
+  const [groom, setGroom] = useState(initialGroom);
   const [region, setRegion] = useState(initialRegion);
   const [feel, setFeel] = useState(initialFeel);
   const [budget, setBudget] = useState(initialBudgetPesos);
@@ -45,6 +53,8 @@ export function DetailsForm({
     setSaved(false);
     const fd = new FormData();
     fd.set('event_id', eventId);
+    fd.set('bride_name', bride.trim());
+    fd.set('groom_name', groom.trim());
     fd.set('region', region);
     fd.set('mood_feel_key', feel);
     fd.set('budget_pesos', budget.replace(/[, ]/g, ''));
@@ -60,6 +70,43 @@ export function DetailsForm({
 
   return (
     <form onSubmit={onSubmit} className="space-y-5">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <label htmlFor="bride_name" className="block text-xs font-medium text-ink/70">
+            Bride
+          </label>
+          <input
+            id="bride_name"
+            type="text"
+            maxLength={80}
+            value={bride}
+            onChange={(ev) => {
+              setBride(ev.target.value);
+              setSaved(false);
+            }}
+            placeholder="First name"
+            className={selectClass}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label htmlFor="groom_name" className="block text-xs font-medium text-ink/70">
+            Groom
+          </label>
+          <input
+            id="groom_name"
+            type="text"
+            maxLength={80}
+            value={groom}
+            onChange={(ev) => {
+              setGroom(ev.target.value);
+              setSaved(false);
+            }}
+            placeholder="First name"
+            className={selectClass}
+          />
+        </div>
+      </div>
+
       <div className="space-y-1.5">
         <label htmlFor="region" className="block text-xs font-medium text-ink/70">
           Region
@@ -137,7 +184,7 @@ export function DetailsForm({
           disabled={pending}
           className="inline-flex items-center justify-center rounded-xl bg-mulberry px-5 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
         >
-          {pending ? 'Saving…' : 'Save details'}
+          {pending ? 'Saving…' : 'Save basics'}
         </button>
         {saved && !pending ? (
           <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700">

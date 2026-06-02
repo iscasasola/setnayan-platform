@@ -1,32 +1,41 @@
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { CalendarDays, ArrowRight } from 'lucide-react';
+import { CalendarDays, ArrowRight, Store } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { getConfirmedVendorCount } from '@/lib/events';
+import { CEREMONY_LABEL, VENUE_LABEL, REGION_LABEL, titleCase } from '@/lib/personalized-menu';
+import { CeremonyTypeChip } from '../_components/ceremony-type-chip';
 import { DetailsForm } from './_components/details-form';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = { title: 'Wedding details' };
+export const metadata = { title: 'Personalization · Setnayan' };
 
 /**
- * Wedding details · /dashboard/[eventId]/details
+ * Personalization · /dashboard/[eventId]/details
  *
- * The edit surface for the couple's GOVERNANCE-FREE curated match criteria —
- * region, style/feel, budget — the ones the Home "Personalized" block shows.
- * CLAUDE.md 2026-06-02 "do both" · step 1: "couples can correct/refine what
- * we match on."
+ * The single place every piece of the couple's onboarding lives — documented
+ * and, where it's safe to, editable. CLAUDE.md 2026-06-02 directive 2:
+ * "all the information from the onboarding to be documented and editable on
+ * the 'Personalization' Page ... this is where all the data will be preserved."
  *
- * Date / ceremony / venue / guest-count are NOT raw-edited here — they carry
- * the booked-vendor change-flow governance (iteration 0021 §10/§11/§12 + the
- * setEventCeremonyType / updateEventDate vendor-confirmed gates). The wedding
- * date deep-links to its governed editor (/date-selection); ceremony keeps its
- * existing governed chip on the dashboard.
+ * Three bands:
+ *   1. The basics — names · region · style/feel · budget. GOVERNANCE-FREE
+ *      (bind no vendor) → edited inline via DetailsForm + updateEventMatchCriteria.
+ *   2. Your wedding — wedding type + wedding date. GOVERNED (a booked vendor
+ *      can lock these) → surfaced through their existing gated editors: the
+ *      CeremonyTypeChip (vendor-lock-aware modal) and a deep-link to the
+ *      governed date editor (/date-selection). NOT raw-edited here.
+ *   3. From your onboarding — guest count · venue · monogram · music · budget
+ *      band. Documented read-only. Guest-count + venue editors carry the
+ *      change-flow conflict gate (directive 4) and land with that work.
  *
- * Guard mirrors /for-you (getUser → redirect; maybeSingle → notFound).
- * Reachable via the "Edit details" link on the Personalized block (Home +
- * /for-you) and the More tab.
+ * Route kept as /details (relabel-not-rename, per the Vendors→Services
+ * precedent) so the Home "Personalize" link + the More-tab activeMatch stay
+ * valid. Guard mirrors /for-you (getUser → redirect; maybeSingle → notFound).
  */
-export default async function DetailsPage({
+export default async function PersonalizationPage({
   params,
 }: {
   params: Promise<{ eventId: string }>;
@@ -42,20 +51,56 @@ export default async function DetailsPage({
   const { data: event, error: eventError } = await supabase
     .from('events')
     .select(
-      'event_id, display_name, region, mood_feel_key, estimated_budget_centavos',
+      'event_id, display_name, event_type, bride_name, groom_name, region, mood_feel_key, ' +
+        'estimated_budget_centavos, budget_band, ceremony_type, secondary_ceremony_type, ' +
+        'ceremony_type_locked_at, event_date, event_date_precision, date_mode, date_candidates, ' +
+        'date_window_start, date_window_end, estimated_pax, venue_setting, ' +
+        'monogram_text, monogram_frame_key, monogram_font_key, music_playlist_seed',
     )
     .eq('event_id', eventId)
     .maybeSingle();
   if (eventError) throw new Error(eventError.message);
   if (!event) notFound();
 
+  const e = event as unknown as Record<string, unknown>;
   const base = `/dashboard/${eventId}`;
-  const budgetCentavos =
-    (event as { estimated_budget_centavos?: number | null }).estimated_budget_centavos ?? null;
+  const str = (k: string): string | null => {
+    const v = e[k];
+    return typeof v === 'string' && v.trim() !== '' ? v : null;
+  };
+  const num = (k: string): number | null => {
+    const v = e[k];
+    return typeof v === 'number' ? v : null;
+  };
+
+  const confirmedVendorCount = await getConfirmedVendorCount(supabase, eventId);
+
+  const budgetCentavos = num('estimated_budget_centavos');
   const initialBudgetPesos =
-    budgetCentavos != null && budgetCentavos > 0
-      ? String(Math.round(budgetCentavos / 100))
-      : '';
+    budgetCentavos != null && budgetCentavos > 0 ? String(Math.round(budgetCentavos / 100)) : '';
+
+  // --- Documented values (band 3) -------------------------------------------
+  const ceremonyType = str('ceremony_type');
+  const secondaryCeremony = str('secondary_ceremony_type');
+  const venueSetting = str('venue_setting');
+  const pax = num('estimated_pax');
+  const moodFeel = str('mood_feel_key');
+  const budgetBand = str('budget_band');
+  const monogramText = str('monogram_text');
+  const monogramFrame = str('monogram_frame_key');
+  const monogramFont = str('monogram_font_key');
+  const playlist = Array.isArray(e.music_playlist_seed)
+    ? (e.music_playlist_seed as unknown[]).filter((s) => typeof s === 'string')
+    : [];
+
+  const dateDoc = formatWeddingDate(e);
+
+  const monogramDoc =
+    monogramText || monogramFrame || monogramFont
+      ? [monogramText, monogramFrame ? `${titleCase(monogramFrame)} frame` : null, monogramFont ? titleCase(monogramFont) : null]
+          .filter(Boolean)
+          .join(' · ')
+      : null;
 
   return (
     <section className="space-y-5">
@@ -64,40 +109,180 @@ export default async function DetailsPage({
           className="font-mono text-[10px] uppercase tracking-[0.22em]"
           style={{ color: 'var(--m-orange-2)' }}
         >
-          Wedding details
+          Your wedding
         </p>
         <h1
           className="m-display-tight text-2xl uppercase sm:text-3xl"
           style={{ letterSpacing: '-0.005em', color: 'var(--m-ink)' }}
         >
-          What we match on
+          Personalization
         </h1>
         <p className="text-sm text-ink/60">
-          Refine these anytime — they tune the vendors we surface for you.
+          Everything from your onboarding lives here. Refine it anytime — it tunes the services we
+          match and sort for you.
         </p>
       </header>
 
+      {/* Band 1 — the basics (governance-free, editable inline) */}
       <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-5">
+        <h2 className="m-display-tight text-base uppercase tracking-[0.02em] text-ink">The basics</h2>
+        <p className="mb-3 mt-0.5 text-sm text-ink/55">
+          Your names, where you’re celebrating, the feel you’re after, and your working budget.
+        </p>
         <DetailsForm
           eventId={eventId}
-          initialRegion={(event as { region?: string | null }).region ?? ''}
-          initialFeel={(event as { mood_feel_key?: string | null }).mood_feel_key ?? ''}
+          initialBride={str('bride_name') ?? ''}
+          initialGroom={str('groom_name') ?? ''}
+          initialRegion={str('region') ?? ''}
+          initialFeel={moodFeel ?? ''}
           initialBudgetPesos={initialBudgetPesos}
         />
       </div>
 
-      {/* Wedding date keeps its own governed editor (vendor-confirmed gate +
-          change-flow). Deep-link rather than raw-edit it here. */}
+      {/* Band 2 — your wedding (governed, edited via gated editors) */}
+      <div className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-4 sm:p-5">
+        <div>
+          <h2 className="m-display-tight text-base uppercase tracking-[0.02em] text-ink">
+            Your wedding
+          </h2>
+          <p className="mt-0.5 text-sm text-ink/55">
+            These shape vendor availability and your paperwork. Once a vendor’s locked in, changes
+            go through support.
+          </p>
+        </div>
+
+        <div className="space-y-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span className="text-sm text-ink/70">Wedding type</span>
+            <CeremonyTypeChip
+              eventId={eventId}
+              eventType={str('event_type') ?? 'wedding'}
+              ceremonyType={ceremonyType}
+              ceremonyTypeLockedAt={str('ceremony_type_locked_at')}
+              confirmedVendorCount={confirmedVendorCount}
+            />
+          </div>
+
+          {secondaryCeremony ? (
+            <p className="text-xs text-ink/55">
+              Also honoring a{' '}
+              <strong className="font-medium text-ink/75">
+                {(CEREMONY_LABEL[secondaryCeremony] ?? `${titleCase(secondaryCeremony)} ceremony`).toLowerCase()}
+              </strong>
+              .
+            </p>
+          ) : null}
+
+          {/* Wedding date keeps its own governed editor (vendor-confirmed gate +
+              change-flow). Deep-link rather than raw-edit it here. */}
+          <Link
+            href={`${base}/date-selection`}
+            className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-paper px-3.5 py-2.5 transition-colors hover:bg-cream"
+          >
+            <span className="flex items-center gap-2.5">
+              <CalendarDays aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+              <span className="text-sm text-ink/80">
+                Wedding date
+                <span className="ml-1.5 text-ink/55">· {dateDoc ?? 'Not set yet'}</span>
+              </span>
+            </span>
+            <ArrowRight aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={1.75} />
+          </Link>
+        </div>
+      </div>
+
+      {/* Band 3 — from your onboarding (documented, read-only) */}
+      <div className="rounded-2xl border border-ink/10 bg-cream p-4 sm:p-5">
+        <h2 className="m-display-tight text-base uppercase tracking-[0.02em] text-ink">
+          From your onboarding
+        </h2>
+        <p className="mb-3 mt-0.5 text-sm text-ink/55">
+          The rest of what you told us, on the record.
+        </p>
+        <dl className="divide-y divide-ink/5">
+          <DocRow label="Region" value={regionLabel(str('region'))} />
+          <DocRow label="Guest count" value={pax != null && pax > 0 ? `${pax} guests` : null} />
+          <DocRow label="Venue setting" value={venueLabel(venueSetting)} />
+          <DocRow label="Style / feel" value={moodFeel ? `${titleCase(moodFeel)} style` : null} />
+          <DocRow label="Budget band" value={budgetBand ? titleCase(budgetBand) : null} />
+          <DocRow label="Monogram" value={monogramDoc} />
+          <DocRow
+            label="Music"
+            value={playlist.length > 0 ? `${playlist.length} song${playlist.length === 1 ? '' : 's'} picked` : null}
+          />
+        </dl>
+      </div>
+
+      {/* The picks become real shortlisted services with their own tab. */}
       <Link
-        href={`${base}/date-selection`}
+        href={`${base}/vendors`}
         className="flex items-center justify-between gap-3 rounded-2xl border border-ink/10 bg-paper px-4 py-3 transition-colors hover:bg-cream"
       >
         <span className="flex items-center gap-2.5">
-          <CalendarDays aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-          <span className="text-sm text-ink/80">Edit your wedding date</span>
+          <Store aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+          <span className="text-sm text-ink/80">The services you picked</span>
         </span>
         <ArrowRight aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={1.75} />
       </Link>
     </section>
   );
+}
+
+// ---------------------------------------------------------------------------
+
+function DocRow({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-4 py-2.5">
+      <dt className="text-sm text-ink/60">{label}</dt>
+      <dd className="text-right text-sm font-medium text-ink/85">
+        {value ?? <span className="font-normal text-ink/40">Not set</span>}
+      </dd>
+    </div>
+  );
+}
+
+function regionLabel(region: string | null): string | null {
+  if (!region) return null;
+  return REGION_LABEL[region] ?? titleCase(region);
+}
+
+function venueLabel(venue: string | null): string | null {
+  if (!venue) return null;
+  return VENUE_LABEL[venue] ?? titleCase(venue);
+}
+
+/**
+ * Documents the couple's date the way onboarding captured it: a committed date
+ * (formatted to its precision), a flexible window, a candidate-date set, or
+ * not-set-yet. The governed editor at /date-selection is where it changes.
+ */
+function formatWeddingDate(e: Record<string, unknown>): string | null {
+  const eventDate = typeof e.event_date === 'string' ? e.event_date : null;
+  const precision = typeof e.event_date_precision === 'string' ? e.event_date_precision : 'day';
+  if (eventDate) {
+    const d = new Date(`${eventDate}T00:00:00`);
+    if (Number.isNaN(d.getTime())) return null;
+    if (precision === 'year') return String(d.getFullYear());
+    if (precision === 'month')
+      return d.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
+    return d.toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' });
+  }
+
+  const mode = typeof e.date_mode === 'string' ? e.date_mode : null;
+  if (mode === 'window') {
+    const start = typeof e.date_window_start === 'string' ? e.date_window_start : null;
+    const end = typeof e.date_window_end === 'string' ? e.date_window_end : null;
+    if (start && end) return `Flexible · ${fmtShort(start)}–${fmtShort(end)}`;
+  }
+  if (mode === 'specific' && Array.isArray(e.date_candidates)) {
+    const n = (e.date_candidates as unknown[]).filter((c) => typeof c === 'string').length;
+    if (n > 0) return `${n} candidate date${n === 1 ? '' : 's'}`;
+  }
+  return null;
+}
+
+function fmtShort(dateStr: string): string {
+  const d = new Date(`${dateStr}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return dateStr;
+  return d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
 }

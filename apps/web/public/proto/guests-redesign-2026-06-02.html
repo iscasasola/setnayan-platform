@@ -318,6 +318,27 @@ body.selmode .card-chk{display:inline-flex}
 .dchip.on.s-on{background:var(--ink);color:var(--paper)}
 .dselect,.dinput{width:100%;height:46px;border-radius:12px;border:1px solid var(--line-strong);background:var(--surface);font-size:14px;color:var(--ink)}
 .dinput{padding:0 14px}
+/* ---- possible-duplicate warning (smart quick-add) ---- */
+.dupwarn{margin:13px 0 2px;border:1px solid var(--gold);background:var(--gold-wash);border-radius:13px;padding:12px 13px}
+.dw-head{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--gold-deep);margin-bottom:9px;line-height:1.3}
+.dw-head svg{width:17px;height:17px;flex:0 0 auto}
+.dw-row{display:flex;align-items:center;gap:11px;padding:8px 9px;border-radius:10px;background:var(--surface);border:1px solid var(--line);margin-bottom:7px}
+.dw-row .av{width:38px;height:38px;font-size:12.5px;flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;font-weight:700}
+.dw-mid{min-width:0;flex:1}
+.dw-nm{font-size:14px;font-weight:650;color:var(--ink);line-height:1.2}
+.dw-sub{font-size:11.5px;color:var(--ink-soft);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dw-tag{flex:0 0 auto;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:var(--r-pill)}
+.dw-exact{background:var(--bride-bg);color:var(--bride)} .dw-nick{background:var(--both-bg);color:var(--both)} .dw-typo{background:rgba(197,160,89,.20);color:var(--gold-deep)}
+.dw-dismiss{margin-top:2px;background:none;border:none;color:var(--gold-deep);font-size:12.5px;font-weight:600;cursor:pointer;padding:5px 2px;text-decoration:underline;text-underline-offset:2px}
+.btn-primary.warn{background:var(--gold-deep)} .btn-primary.warn:hover{background:#8c6c2f}
+.sfoot .addmore{margin-right:auto;background:none;border:none;color:var(--mulberry);font-weight:700;font-size:13px;cursor:pointer;padding:8px 2px}
+.add-toast{position:fixed;left:50%;bottom:150px;transform:translateX(-50%) translateY(8px);z-index:90;background:var(--ink);color:var(--paper);font-size:13px;font-weight:600;padding:10px 16px;border-radius:var(--r-pill);box-shadow:0 8px 22px rgba(30,34,41,.22);opacity:0;pointer-events:none;transition:opacity .18s,transform .18s}
+.add-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.addhint-top{font-size:12px;line-height:1.45;color:var(--ink-soft);background:var(--gold-wash);border:1px solid #ECE0C2;border-radius:11px;padding:9px 12px;margin:0 0 4px}
+.dl-opt{font-family:var(--sans,inherit);font-weight:500;font-size:9.5px;letter-spacing:.04em;color:var(--ink-faint);text-transform:none;margin-left:5px}
+.dl-hint{display:block;font-family:var(--sans,inherit);font-weight:500;font-size:11px;letter-spacing:0;text-transform:none;color:var(--ink-faint);margin-top:4px}
+.gnew{height:40px;border-radius:var(--r-pill);border:1px dashed var(--gold);color:var(--gold-deep);background:var(--surface);font-size:13px;font-weight:600;padding:0 14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.gnew-input{height:40px;border-radius:var(--r-pill);border:1px solid var(--gold);background:var(--surface);font-size:13px;color:var(--ink);padding:0 14px;width:150px;outline:none}
 .dselect{font-weight:500;padding:0 36px 0 14px;-webkit-appearance:none;appearance:none;cursor:pointer;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238A8F96' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
 .dselect:focus,.dinput:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(197,160,89,.18)}
@@ -379,7 +400,7 @@ body.selmode .card-chk{display:inline-flex}
             <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Quick add list</a>
           </div>
         </div>
-        <button class="btn btn-primary"><span style="font-size:17px;line-height:0;margin-top:-1px">+</span> Add guest</button>
+        <button class="btn btn-primary" id="dAdd"><span style="font-size:17px;line-height:0;margin-top:-1px">+</span> Add guest</button>
       </div>
     </div>
   </header>
@@ -512,7 +533,7 @@ body.selmode .card-chk{display:inline-flex}
 </div>
 
 <!-- ============ MOBILE FAB + BOTTOM NAV ============ -->
-<button class="fab" aria-label="Add guest">+</button>
+<button class="fab" id="fab" aria-label="Add guest">+</button>
 <nav class="botnav">
   <a class="navtab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Today</a>
   <a class="navtab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>Home</a>
@@ -581,19 +602,23 @@ body.selmode .card-chk{display:inline-flex}
   <div class="grip"></div>
   <div class="shead"><h2>Quick add guest</h2><button class="sclose" data-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
   <div class="sbody">
-    <div class="drow"><div class="dl">Name</div>
-      <input class="dinput" id="addFn" placeholder="First name" autocomplete="off" style="margin-bottom:9px">
-      <input class="dinput" id="addLn" placeholder="Last name" autocomplete="off">
-    </div>
-    <div class="drow"><div class="dl">Role in the wedding</div><select class="dselect" id="addRole"></select></div>
-    <div class="drow"><div class="dl">Side</div><div class="dchips" id="addSide">
-      <button class="dchip on s-on" data-side="bride"><span class="dot" style="background:var(--bride)"></span>Bride's</button>
-      <button class="dchip" data-side="groom"><span class="dot" style="background:var(--groom)"></span>Groom's</button>
+    <p class="addhint-top">Set the team, role &amp; group once — every name you add below keeps them. Change the chips to start a new batch.</p>
+    <div class="drow"><div class="dl">Side · team</div><div class="dchips" id="addSide">
+      <button class="dchip on s-on" data-side="bride"><span class="dot" style="background:var(--bride)"></span>Team Bride</button>
+      <button class="dchip" data-side="groom"><span class="dot" style="background:var(--groom)"></span>Team Groom</button>
       <button class="dchip" data-side="both"><span class="dot" style="background:var(--both)"></span>Both</button>
     </div></div>
+    <div class="drow"><div class="dl">Role in the wedding</div><select class="dselect" id="addRole"></select></div>
+    <div class="drow"><div class="dl">Group <span class="dl-opt">optional</span></div><div class="dchips" id="addGroup"></div></div>
+    <div class="drow"><div class="dl">Name <span class="dl-hint">↵ jumps to last name · ↵ again saves &amp; starts the next</span></div>
+      <input class="dinput" id="addFn" placeholder="First name" autocomplete="off" enterkeyhint="next" style="margin-bottom:9px">
+      <input class="dinput" id="addLn" placeholder="Last name" autocomplete="off" enterkeyhint="done">
+      <div class="dupwarn" id="dupWarn" hidden></div>
+    </div>
   </div>
-  <div class="sfoot"><button class="btn btn-ghost" data-close>Cancel</button><button class="btn btn-primary" id="addSave">Add guest</button></div>
+  <div class="sfoot"><button class="addmore" id="addAnother">＋ Save &amp; add another</button><button class="btn btn-primary" id="addSave">Add guest</button></div>
 </div>
+<div class="add-toast" id="addToast"></div>
 
 <!-- Sort sheet (mobile) -->
 <div class="sheet" id="sortSheet">
@@ -1043,16 +1068,116 @@ document.getElementById('guestRemove').addEventListener('click', ()=>{
 document.getElementById('addRole').innerHTML=roleOptions('guest');
 document.getElementById('addSide').addEventListener('click', e=>{ const c=e.target.closest('.dchip'); if(!c) return;
   document.querySelectorAll('#addSide .dchip').forEach(x=>x.classList.remove('on','s-on')); c.classList.add('on','s-on'); });
-document.getElementById('addSave').addEventListener('click', ()=>{
+
+/* ===== possible-duplicate detection ===== */
+// Canonical first-name map so nicknames collapse: Mike → michael, Bob → robert …
+const NICKMAP=(()=>{
+  const groups={
+    michael:['mike','mikey','mick','micky'], robert:['rob','bob','bobby','robbie','bert'],
+    william:['will','bill','billy','willy'], richard:['rich','rick','dick','richie','ricky'],
+    james:['jim','jimmy','jamie'], john:['johnny','jon','jack'], joseph:['joe','joey','pepe'],
+    charles:['charlie','chuck'], thomas:['tom','tommy'], christopher:['chris','toby'],
+    daniel:['dan','danny'], matthew:['matt','matty'], nicholas:['nick','nico','nicky'],
+    anthony:['tony','tonio'], andrew:['andy','drew'], edward:['ed','eddie','ted','teddy'],
+    benjamin:['ben','benny','benji'], alexander:['alex','xander'], patrick:['pat','paddy'],
+    samuel:['sam','sammy'], david:['dave','davey'], stephen:['steve','steven'], peter:['pete','petey'],
+    francisco:['cisco','paco','frank','kiko'], antonio:['tony','tonio'], ricardo:['ricky','rick','ric'],
+    eduardo:['ed','eddie'], emmanuel:['emman','manny','noel'], juan:['johnny'],
+    elizabeth:['liz','beth','betty','eliza','lizzy','liza','betsy'], margaret:['maggie','meg','peggy','marge'],
+    katherine:['kate','katie','kathy','kat','cathy','catherine'], jennifer:['jen','jenny','jenna'],
+    patricia:['pat','patty','tricia','trish'], jessica:['jess','jessie'], christina:['tina','christine'],
+    rebecca:['becca','becky'], victoria:['vicky','tori','vic'], alexandra:['alex','sandra','lexi','sandy'],
+    maria:['marie','mary','mia','ria'], teresa:['tess','tessa','terry'], rosa:['rose','rosie'],
+    cristina:['tin','tina','cris'], angelica:['angel','angie','gel'], catalina:['cathy','lina'],
+  };
+  const m={}; for(const [canon,nicks] of Object.entries(groups)){ m[canon]=canon; nicks.forEach(n=>m[n]=canon); } return m;
+})();
+const norm=s=>(s||'').trim().toLowerCase().replace(/[^a-z]/g,'');
+const canonFirst=s=>{ const n=norm(s); return NICKMAP[n]||n; };
+function lev(a,b){ a=norm(a); b=norm(b); const m=a.length,n=b.length; if(!m)return n; if(!n)return m;
+  let prev=Array.from({length:n+1},(_,i)=>i);
+  for(let i=1;i<=m;i++){ const cur=[i]; for(let j=1;j<=n;j++){ cur[j]=Math.min(prev[j]+1, cur[j-1]+1, prev[j-1]+(a[i-1]===b[j-1]?0:1)); } prev=cur; }
+  return prev[n];
+}
+const lenTol=s=>{ const L=norm(s).length; return L<=4?1:(L<=7?2:3); }; // typo tolerance scales with length
+function nameMatch(a,b,allowNick){ const na=norm(a),nb=norm(b); if(!na||!nb)return false;
+  if(na===nb)return 'exact';
+  if(allowNick && canonFirst(a)===canonFirst(b))return 'nick';
+  if(lev(a,b)<=Math.min(lenTol(a),lenTol(b)))return 'typo';
+  return false;
+}
+function findDuplicates(fn,ln){
+  if(norm(fn).length<2 || norm(ln).length<2) return [];
+  const ord={exact:0,nick:1,typo:2}, out=[];
+  for(const g of G){ const f=nameMatch(fn,g.fn,true), l=nameMatch(ln,g.ln,false);
+    if(f && l){ const kind=(f==='exact'&&l==='exact')?'exact':(f==='nick'||l==='nick')?'nick':'typo'; out.push({g,kind}); } }
+  return out.sort((a,b)=>ord[a.kind]-ord[b.kind]).slice(0,3);
+}
+let dupDismissed=false;
+const sideLabel=s=> s==='both'?'Both sides' : s==='bride'?"Bride's side" : "Groom's side";
+/* ===== batch group picker (sticky across rapid adds) ===== */
+let addGroupSel=null;
+function renderAddGroups(){
+  const box=document.getElementById('addGroup');
+  box.innerHTML=`<button class="dchip ${addGroupSel===null?'on s-on':''}" data-g="">None</button>`
+    + Object.entries(GROUP_LABEL).map(([gid,gr])=>`<button class="dchip ${addGroupSel===gid?'on s-on':''}" data-g="${gid}"><span class="dot" style="background:var(--${gr.s})"></span>${gr.l}</button>`).join('')
+    + `<button class="gnew" id="addGroupNew">＋ New</button>`;
+}
+document.getElementById('addGroup').addEventListener('click', e=>{
+  const nw=e.target.closest('#addGroupNew');
+  if(nw){
+    nw.outerHTML=`<input class="gnew-input" id="addGroupNewInput" placeholder="New group name…" enterkeyhint="done">`;
+    const inp=document.getElementById('addGroupNewInput'); inp.focus();
+    const commit=()=>{ const name=inp.value.trim(); if(name){ const gid='g'+(groupSeq++); GROUP_LABEL[gid]={l:name, s:(document.querySelector('#addSide .dchip.on')?.dataset.side)||'both'}; addGroupSel=gid; } renderAddGroups(); };
+    inp.addEventListener('keydown', ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); commit(); } else if(ev.key==='Escape'){ renderAddGroups(); } });
+    inp.addEventListener('blur', commit);
+    return;
+  }
+  const c=e.target.closest('.dchip[data-g]'); if(!c) return;
+  addGroupSel=c.dataset.g||null; renderAddGroups();
+});
+
+/* ===== smart add state: Done / Add guest / Add anyway + duplicate warning ===== */
+function renderAddState(){
+  const fn=document.getElementById('addFn').value, ln=document.getElementById('addLn').value;
+  const hasName=!!(norm(fn)||norm(ln));
+  const box=document.getElementById('dupWarn'), btn=document.getElementById('addSave');
+  const dups=(hasName && !dupDismissed)?findDuplicates(fn,ln):[];
+  if(dups.length){
+    const TAG={exact:'Already added',nick:'Same person?',typo:'Typo?'};
+    box.innerHTML=`<div class="dw-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>You may have already added ${dups.length>1?'these guests':'this guest'}</div>`
+      + dups.map(({g,kind})=>`<div class="dw-row"><span class="av s-${g.side}">${initials(g)}</span><div class="dw-mid"><div class="dw-nm">${disp(g)}</div><div class="dw-sub">${(ROLE[g.role]?.l)||'Guest'} · ${sideLabel(g.side)}</div></div><span class="dw-tag dw-${kind}">${TAG[kind]}</span></div>`).join('')
+      + `<button class="dw-dismiss" id="dupDismiss">No — this is a different person</button>`;
+    box.hidden=false; btn.textContent='Add anyway'; btn.classList.add('warn');
+  } else {
+    box.hidden=true; btn.classList.remove('warn'); btn.textContent=hasName?'Add guest':'Done';
+  }
+}
+['addFn','addLn'].forEach(id=>document.getElementById(id).addEventListener('input', ()=>{ dupDismissed=false; renderAddState(); }));
+document.getElementById('dupWarn').addEventListener('click', e=>{ if(e.target.closest('#dupDismiss')){ dupDismissed=true; renderAddState(); } });
+
+/* ===== keyboard fast-add: ↵ first→last, ↵ last→save & start the next ===== */
+document.getElementById('addFn').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); document.getElementById('addLn').focus(); } });
+document.getElementById('addLn').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); saveGuest(true); } });
+
+/* ===== save — names clear, batch context (team · role · group) stays sticky ===== */
+let addToastT=null;
+function addToast(msg){ const t=document.getElementById('addToast'); t.textContent=msg; t.classList.add('show'); clearTimeout(addToastT); addToastT=setTimeout(()=>t.classList.remove('show'),1700); }
+function clearNames(){ document.getElementById('addFn').value=''; document.getElementById('addLn').value=''; dupDismissed=false; renderAddState(); }
+function saveGuest(keepOpen){
   const fn=document.getElementById('addFn').value.trim(), ln=document.getElementById('addLn').value.trim();
-  if(!fn && !ln){ document.getElementById('addFn').focus(); return; }
+  if(!fn && !ln){ if(keepOpen) document.getElementById('addFn').focus(); else closeSheets(); return; }
   const role=document.getElementById('addRole').value;
   const side=document.querySelector('#addSide .dchip.on')?.dataset.side||'bride';
   const id=Math.max(0,...G.map(x=>x.id))+1;
-  G.push({id, fn:fn||ln, ln:fn?ln:'', side, role, rsvp:'pending', groups:[]});
-  document.getElementById('addFn').value=''; document.getElementById('addLn').value='';
-  closeSheets(); render();
-});
+  G.push({id, fn:fn||ln, ln:fn?ln:'', side, role, rsvp:'pending', groups:addGroupSel?[addGroupSel]:[]});
+  render(); clearNames();
+  if(keepOpen){ addToast(`${(fn||ln)} added`); document.getElementById('addFn').focus(); }
+  else closeSheets();
+}
+document.getElementById('addSave').addEventListener('click', ()=>saveGuest(false));
+document.getElementById('addAnother').addEventListener('click', ()=>saveGuest(true));
+renderAddGroups(); renderAddState();
 
 // --- sort sheet ---
 function markSort(){ document.querySelectorAll('#sortSheet .sortopt').forEach(o=>o.classList.toggle('act', o.dataset.sort===state.sort)); }
@@ -1062,7 +1187,10 @@ document.querySelectorAll('#sortSheet .sortopt').forEach(o=>o.addEventListener('
 
 // --- toolbar mobile buttons ---
 document.getElementById('mSort').addEventListener('click', ()=>{ markSort(); openSheet('sortSheet'); });
-document.getElementById('mAdd').addEventListener('click', ()=>openSheet('addSheet'));
+function openAddSheet(){ clearNames(); openSheet('addSheet'); setTimeout(()=>document.getElementById('addFn').focus(),90); }
+document.getElementById('mAdd').addEventListener('click', openAddSheet);
+document.getElementById('dAdd')?.addEventListener('click', openAddSheet);
+document.getElementById('fab')?.addEventListener('click', openAddSheet);
 
 // --- multi-select mode ---
 function enterSel(){ selMode=true; document.body.classList.add('selmode'); syncBulk(); }

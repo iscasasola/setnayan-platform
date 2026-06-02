@@ -71,6 +71,7 @@ export type GuestRow = {
   side: GuestSide;
   group_category: GuestGroupCategory;
   role: GuestRole;
+  extra_roles: GuestRole[];
   plus_one_allowed: boolean;
   plus_one_name: string | null;
   plus_one_of_guest_id: string | null;
@@ -217,7 +218,7 @@ export type GuestStats = {
 };
 
 const GUEST_FIELDS =
-  'guest_id,public_id,event_id,first_name,last_name,display_name,side,group_category,role,plus_one_allowed,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,invited_to_blocks,rsvp_status,notes,qr_token,custom_tags,created_at';
+  'guest_id,public_id,event_id,first_name,last_name,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,invited_to_blocks,rsvp_status,notes,qr_token,custom_tags,created_at';
 
 export async function fetchGuestsByEvent(
   supabase: SupabaseClient,

@@ -619,7 +619,7 @@ function DesktopRow({
         <SidePill side={guest.side} />
       </td>
       <td className="px-3 py-3">
-        <RoleChip role={guest.role} palette={palette} />
+        <RoleChips guest={guest} palette={palette} />
       </td>
       <td className="px-3 py-3">
         <GroupChipList
@@ -684,7 +684,7 @@ function MobileCard({
             {guestDisplayName(guest)}
           </p>
           <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-            <RoleChip role={guest.role} palette={palette} />
+            <RoleChips guest={guest} palette={palette} />
             <GroupChipList
               eventId={eventId}
               guestId={guest.guest_id}
@@ -829,6 +829,26 @@ function RoleChip({ role, palette }: { role: GuestRole; palette: RolePalette }) 
         />
       ) : null}
       {ROLE_LABELS[role]}
+    </span>
+  );
+}
+
+/* primary role chip + smaller secondary chips for any extra roles
+   (multi-role guests, iteration 0001 2026-06-02) */
+function RoleChips({ guest, palette }: { guest: GuestRow; palette: RolePalette }) {
+  const extras = guest.extra_roles ?? [];
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1">
+      <RoleChips guest={guest} palette={palette} />
+      {extras.map((r) => (
+        <span
+          key={r}
+          title={`Also ${ROLE_LABELS[r]}`}
+          className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${ROLE_GROUP_CHIP[roleGroupOf(r)]}`}
+        >
+          +{ROLE_LABELS[r]}
+        </span>
+      ))}
     </span>
   );
 }

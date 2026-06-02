@@ -16,7 +16,7 @@ import {
   type GuestRole,
   type GuestSide,
 } from '@/lib/guests';
-import { quickAddGuest } from '../quick-add-actions';
+import { quickAddGuest, quickCreateGroup } from '../quick-add-actions';
 
 /* ------------------------------------------------------------------ */
 /* Cross-component opener — one sheet, two triggers (desktop header    */
@@ -197,6 +197,12 @@ export function QuickAddSheet({
   const [side, setSide] = useState<GuestSide>('bride');
   const [role, setRole] = useState<GuestRole>('guest');
   const [groupId, setGroupId] = useState<string>('');
+  // groups created during this session, surfaced in the picker right away
+  const [localGroups, setLocalGroups] = useState<GroupOpt[]>([]);
+  const [newGroupMode, setNewGroupMode] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [groupError, setGroupError] = useState<string | null>(null);
+  const [isGroupPending, startGroupTransition] = useTransition();
   const [fn, setFn] = useState('');
   const [ln, setLn] = useState('');
   const [dupDismissed, setDupDismissed] = useState(false);
@@ -209,7 +215,21 @@ export function QuickAddSheet({
 
   const fnRef = useRef<HTMLInputElement>(null);
   const lnRef = useRef<HTMLInputElement>(null);
+  const groupRef = useRef<HTMLInputElement>(null);
   const toastT = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // existing groups + ones created this session (deduped by id), so a
+  // just-created group shows in the picker before router.refresh() lands
+  const allGroups = useMemo(() => {
+    const seen = new Set<string>();
+    const merged: GroupOpt[] = [];
+    for (const g of [...groups, ...localGroups]) {
+      if (seen.has(g.group_id)) continue;
+      seen.add(g.group_id);
+      merged.push(g);
+    }
+    return merged;
+  }, [groups, localGroups]);
 
   // Merge the server snapshot with this session's just-added guests
   // (router.refresh() is async, so addedLocal covers the gap), deduped
@@ -337,6 +357,45 @@ export function QuickAddSheet({
     doSave(false);
   }, [dupActive, doSave]);
 
+  /* inline "create a new group" from the Group picker */
+  const startNewGroup = useCallback(() => {
+    setGroupError(null);
+    setNewGroupName('');
+    setNewGroupMode(true);
+    setTimeout(() => groupRef.current?.focus(), 0);
+  }, []);
+  const cancelNewGroup = useCallback(() => {
+    setNewGroupMode(false);
+    setNewGroupName('');
+    setGroupError(null);
+  }, []);
+  const createGroup = useCallback(() => {
+    const label = newGroupName.trim();
+    if (!label) {
+      cancelNewGroup();
+      return;
+    }
+    setGroupError(null);
+    startGroupTransition(async () => {
+      const res = await quickCreateGroup(eventId, label);
+      if (!res.ok) {
+        setGroupError(res.error);
+        return;
+      }
+      setLocalGroups((prev) =>
+        prev.some((g) => g.group_id === res.group.group_id)
+          ? prev
+          : [...prev, { group_id: res.group.group_id, label: res.group.label }],
+      );
+      setGroupId(res.group.group_id); // lock the new group for the next adds
+      setNewGroupMode(false);
+      setNewGroupName('');
+      router.refresh();
+      // back to the names so the rapid loop keeps going
+      setTimeout(() => fnRef.current?.focus(), 0);
+    });
+  }, [newGroupName, eventId, cancelNewGroup, router]);
+
   return (
     <>
       {/* mobile FAB trigger */}
@@ -421,19 +480,79 @@ export function QuickAddSheet({
                   </span>
                   <select
                     aria-label="Group"
-                    value={groupId}
-                    onChange={(e) => setGroupId(e.target.value)}
+                    value={newGroupMode ? '__new__' : groupId}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === '__new__') {
+                        startNewGroup();
+                      } else {
+                        setGroupId(v);
+                        if (newGroupMode) cancelNewGroup();
+                      }
+                    }}
                     className="w-full rounded-lg border border-ink/20 bg-cream px-2 py-2 text-sm text-ink focus:border-ink/40 focus:outline-none"
                   >
                     <option value="">No group</option>
-                    {groups.map((g) => (
+                    {allGroups.map((g) => (
                       <option key={g.group_id} value={g.group_id}>
                         {g.label}
                       </option>
                     ))}
+                    <option value="__new__">＋ New group…</option>
                   </select>
                 </label>
               </div>
+
+              {/* inline create-group strip — only while naming a new group */}
+              {newGroupMode ? (
+                <div className="space-y-1.5 rounded-lg border border-terracotta/40 bg-terracotta/10 p-2.5">
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={groupRef}
+                      value={newGroupName}
+                      onChange={(e) => {
+                        setNewGroupName(e.target.value);
+                        setGroupError(null);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          createGroup();
+                        } else if (e.key === 'Escape') {
+                          e.preventDefault();
+                          cancelNewGroup();
+                        }
+                      }}
+                      placeholder="New group name"
+                      autoComplete="off"
+                      maxLength={64}
+                      className="input-field min-w-0 flex-1"
+                    />
+                    <button
+                      type="button"
+                      onClick={createGroup}
+                      disabled={isGroupPending || !newGroupName.trim()}
+                      className="flex-none rounded-lg bg-mulberry px-3 py-2 text-sm font-semibold text-cream hover:bg-mulberry-600 disabled:opacity-50"
+                    >
+                      {isGroupPending ? '…' : 'Create'}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Cancel new group"
+                      onClick={cancelNewGroup}
+                      disabled={isGroupPending}
+                      className="flex-none text-ink/45 hover:text-ink"
+                    >
+                      <X aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+                    </button>
+                  </div>
+                  {groupError ? (
+                    <p role="alert" className="text-xs text-rose-700">
+                      {groupError}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
 
               {/* names */}
               <div className="space-y-2">

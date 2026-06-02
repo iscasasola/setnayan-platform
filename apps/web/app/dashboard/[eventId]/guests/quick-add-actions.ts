@@ -160,3 +160,60 @@ export async function quickAddGuest(
     guest: { guest_id: inserted.guest_id, first_name, last_name, side, role },
   };
 }
+
+export type QuickGroupResult =
+  | { ok: true; group: { group_id: string; label: string } }
+  | { ok: false; error: string };
+
+/**
+ * Create a custom guest group from the quick-add sheet's Group picker
+ * (iteration 0001 — additive, 2026-06-02). Mirrors createGuestGroup
+ * (groups-actions.ts) but RETURNS the new row instead of redirecting,
+ * so the sheet stays open and can lock the new group for the next adds.
+ *
+ * team_side defaults to 'both' on this fast path (the host refines it in
+ * the Groups sidebar). The case-insensitive unique index is treated as
+ * idempotent: if a group with that name already exists for the event we
+ * return it as success — the host wanted that group, it's already there.
+ */
+export async function quickCreateGroup(
+  eventId: string,
+  rawLabel: string,
+): Promise<QuickGroupResult> {
+  const label = (rawLabel ?? '').trim();
+  if (!label) return { ok: false, error: 'Type a group name.' };
+  if (label.length > 64) return { ok: false, error: 'Keep it under 64 characters.' };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Your session expired — sign in again.' };
+
+  const { data: inserted, error } = await supabase
+    .from('guest_groups')
+    .insert({ event_id: eventId, label, team_side: 'both' })
+    .select('group_id, label')
+    .single();
+
+  if (error || !inserted) {
+    // 23505 from the case-insensitive unique index → reuse the existing
+    // group of that name rather than erroring.
+    if (error && (error as { code?: string }).code === '23505') {
+      const { data: existing } = await supabase
+        .from('guest_groups')
+        .select('group_id, label')
+        .eq('event_id', eventId)
+        .ilike('label', label)
+        .maybeSingle();
+      if (existing) {
+        return { ok: true, group: { group_id: existing.group_id, label: existing.label } };
+      }
+      return { ok: false, error: 'A group with that name already exists.' };
+    }
+    return { ok: false, error: error?.message ?? 'Couldn’t create that group.' };
+  }
+
+  revalidatePath(`/dashboard/${eventId}/guests`);
+  return { ok: true, group: { group_id: inserted.group_id, label: inserted.label } };
+}

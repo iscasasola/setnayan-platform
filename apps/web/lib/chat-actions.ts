@@ -78,6 +78,22 @@ export async function sendChatMessage(formData: FormData) {
     isFirstMessage = (count ?? 0) === 0;
   }
 
+  // Accept-gate (CLAUDE.md 2026-06-02) — a couple→vendor chat only opens both
+  // ways once the vendor accepts. The couple may post their FIRST message (the
+  // inquiry) into a pending thread; everything after waits for acceptance. The
+  // vendor cannot post until they have accepted. Defense-in-depth — the UI
+  // hides the composer in these states; this also guards the no-JS form path.
+  if (senderRole === 'couple') {
+    if (thread.inquiry_status === 'declined') {
+      throw new Error('This vendor declined the inquiry — browse similar vendors instead.');
+    }
+    if (thread.inquiry_status === 'pending' && !isFirstMessage) {
+      throw new Error('Inquiry sent — waiting for the vendor to accept before you can chat.');
+    }
+  } else if (thread.inquiry_status !== 'accepted') {
+    throw new Error('Accept the inquiry first to reply.');
+  }
+
   const { error } = await supabase.from('chat_messages').insert({
     thread_id: thread.thread_id,
     event_id: thread.event_id,
@@ -180,6 +196,147 @@ async function notifyOtherParty(args: {
       title: `New message from ${vendorName}`,
       body: preview,
       relatedUrl: `/dashboard/${args.eventId}/messages/${args.threadId}`,
+    });
+  }
+}
+
+// ── Accept-gate vendor actions (CLAUDE.md 2026-06-02) ───────────────────────
+// A vendor accepts a pending inquiry (chat opens both ways; the
+// reveal_vendor_name_on_thread_accept trigger stamps name_revealed_at) or
+// declines it (the couple is told + pointed at alternatives). Only the vendor
+// on the thread may respond — a couple calling these fails the vendor check.
+
+async function loadVendorThreadForActor(threadId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const thread = await fetchThreadById(supabase, threadId);
+  if (!thread) throw new Error('Thread not found');
+
+  const { data: vendor } = await supabase
+    .from('vendor_profiles')
+    .select('vendor_profile_id')
+    .eq('vendor_profile_id', thread.vendor_profile_id)
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (!vendor) throw new Error('Only the vendor can respond to this inquiry');
+
+  return { supabase, thread };
+}
+
+export async function acceptInquiry(formData: FormData) {
+  const threadId = formData.get('thread_id');
+  const returnTo = formData.get('return_to');
+  if (typeof threadId !== 'string') throw new Error('Invalid input');
+
+  const { supabase, thread } = await loadVendorThreadForActor(threadId);
+
+  if (thread.inquiry_status !== 'accepted') {
+    const { error } = await supabase
+      .from('chat_threads')
+      .update({ inquiry_status: 'accepted', accepted_at: new Date().toISOString() })
+      .eq('thread_id', thread.thread_id);
+    if (error) throw new Error(error.message);
+    // The reveal_vendor_name_on_thread_accept trigger stamps name_revealed_at.
+    await notifyCoupleOfInquiryOutcome({
+      eventId: thread.event_id,
+      vendorProfileId: thread.vendor_profile_id,
+      threadId: thread.thread_id,
+      type: 'inquiry_accepted',
+    });
+  }
+
+  if (typeof returnTo === 'string' && returnTo.startsWith('/')) {
+    revalidatePath(returnTo);
+    redirect(returnTo);
+  }
+  revalidatePath('/vendor-dashboard/messages');
+}
+
+export async function declineInquiry(formData: FormData) {
+  const threadId = formData.get('thread_id');
+  const returnTo = formData.get('return_to');
+  const reasonRaw = formData.get('reason');
+  const reason =
+    typeof reasonRaw === 'string' && reasonRaw.trim().length > 0
+      ? reasonRaw.trim().slice(0, 500)
+      : null;
+  if (typeof threadId !== 'string') throw new Error('Invalid input');
+
+  const { supabase, thread } = await loadVendorThreadForActor(threadId);
+
+  if (thread.inquiry_status === 'pending') {
+    const { error } = await supabase
+      .from('chat_threads')
+      .update({
+        inquiry_status: 'declined',
+        declined_at: new Date().toISOString(),
+        decline_reason: reason,
+      })
+      .eq('thread_id', thread.thread_id);
+    if (error) throw new Error(error.message);
+    await notifyCoupleOfInquiryOutcome({
+      eventId: thread.event_id,
+      vendorProfileId: thread.vendor_profile_id,
+      threadId: thread.thread_id,
+      type: 'inquiry_declined',
+    });
+  }
+
+  if (typeof returnTo === 'string' && returnTo.startsWith('/')) {
+    revalidatePath(returnTo);
+    redirect(returnTo);
+  }
+  revalidatePath('/vendor-dashboard/messages');
+}
+
+/**
+ * Notify every couple member of the inquiry outcome. ACCEPTED reveals the
+ * vendor's name (trigger), so it's safe to surface business_name + link to the
+ * now-open thread. DECLINED keeps the vendor anonymous (no name leak per
+ * hybrid-anonymity) and points the couple at alternatives on the Services tab.
+ */
+async function notifyCoupleOfInquiryOutcome(args: {
+  eventId: string;
+  vendorProfileId: string;
+  threadId: string;
+  type: 'inquiry_accepted' | 'inquiry_declined';
+}): Promise<void> {
+  const admin = createAdminClient();
+  const accepted = args.type === 'inquiry_accepted';
+
+  let vendorName = 'A vendor';
+  if (accepted) {
+    const { data } = await admin
+      .from('vendor_profiles')
+      .select('business_name')
+      .eq('vendor_profile_id', args.vendorProfileId)
+      .maybeSingle();
+    vendorName = data?.business_name?.trim() || 'A vendor';
+  }
+
+  const { data: members } = await admin
+    .from('event_members')
+    .select('user_id')
+    .eq('event_id', args.eventId)
+    .eq('member_type', 'couple');
+
+  for (const m of members ?? []) {
+    await emitNotification({
+      userId: m.user_id,
+      type: args.type,
+      title: accepted
+        ? `${vendorName} accepted your inquiry`
+        : 'A vendor declined your inquiry',
+      body: accepted
+        ? 'Your chat is open — send a message to keep planning together.'
+        : 'They are not available — browse similar vendors to keep your options open.',
+      relatedUrl: accepted
+        ? `/dashboard/${args.eventId}/messages/${args.threadId}`
+        : `/dashboard/${args.eventId}/vendors`,
     });
   }
 }

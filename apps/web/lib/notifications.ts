@@ -30,6 +30,14 @@ export type NotificationType =
   | 'review_request'
   | 'help_ticket_replied'
   | 'vendor_inquiry_received'
+  // Added 2026-06-02 alongside migration 20260722000000_chat_inquiry_accept_gate.sql
+  // for the chat accept-gate (CLAUDE.md 2026-06-02: "the chat will only reveal
+  // when the vendor accepts the inquiry"). Fired from lib/chat-actions.ts →
+  // acceptInquiry()/declineInquiry() to tell the couple the vendor's decision.
+  // accepted → chat opens + vendor name revealed; declined → no name leak +
+  // pointed at alternatives on the Services tab.
+  | 'inquiry_accepted'
+  | 'inquiry_declined'
   | 'force_majeure_filed'
   | 'photo_delivery_complete'
   | 'photo_delivery_failed';
@@ -46,6 +54,8 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   review_request: 'Review request',
   help_ticket_replied: 'Help ticket reply',
   vendor_inquiry_received: 'New booking inquiry',
+  inquiry_accepted: 'Inquiry accepted',
+  inquiry_declined: 'Inquiry declined',
   force_majeure_filed: 'Force-majeure flag filed',
   photo_delivery_complete: 'Photos delivered',
   photo_delivery_failed: 'Photo delivery failed',
@@ -67,6 +77,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   review_request: 'bg-amber-100 text-amber-900',
   help_ticket_replied: 'bg-indigo-100 text-indigo-800',
   vendor_inquiry_received: 'bg-fuchsia-100 text-fuchsia-800',
+  inquiry_accepted: 'bg-emerald-100 text-emerald-800',
+  inquiry_declined: 'bg-ink/10 text-ink/70',
   force_majeure_filed: 'bg-rose-100 text-rose-800',
   photo_delivery_complete: 'bg-emerald-100 text-emerald-800',
   photo_delivery_failed: 'bg-rose-100 text-rose-800',

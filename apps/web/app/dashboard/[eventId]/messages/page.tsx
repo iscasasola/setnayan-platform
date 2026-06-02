@@ -229,6 +229,15 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
                       <p className="truncate text-sm font-semibold text-ink">
                         {vendorDisplayName}
                       </p>
+                      {t.inquiry_status === 'pending' ? (
+                        <span className="mt-0.5 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
+                          Waiting for reply
+                        </span>
+                      ) : t.inquiry_status === 'declined' ? (
+                        <span className="mt-0.5 inline-block rounded-full bg-ink/10 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
+                          Not available
+                        </span>
+                      ) : null}
                       <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
                         Last activity {formatChatTimestamp(t.updated_at)}
                       </p>

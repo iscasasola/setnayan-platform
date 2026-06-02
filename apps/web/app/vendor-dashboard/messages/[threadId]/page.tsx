@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchMessages, fetchThreadById } from '@/lib/chat';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { sendChatMessage } from '@/lib/chat-actions';
+import { sendChatMessage, acceptInquiry, declineInquiry } from '@/lib/chat-actions';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
@@ -67,7 +67,53 @@ export default async function VendorThreadPage({ params }: Props) {
         counterpartyLabel={coupleLabel}
       />
 
-      <ChatSendForm threadId={threadId} sendAction={sendChatMessage} />
+      {thread.inquiry_status === 'accepted' ? (
+        <ChatSendForm threadId={threadId} sendAction={sendChatMessage} />
+      ) : thread.inquiry_status === 'pending' ? (
+        <div className="space-y-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
+          <p className="text-sm text-ink">
+            <span className="font-semibold">New inquiry.</span> Accept to open the
+            chat and reply, or decline if you&rsquo;re not available for this date.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <form action={acceptInquiry}>
+              <input type="hidden" name="thread_id" value={threadId} />
+              <input
+                type="hidden"
+                name="return_to"
+                value={`/vendor-dashboard/messages/${threadId}`}
+              />
+              <button
+                type="submit"
+                className="inline-flex h-11 items-center rounded-md bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-600"
+              >
+                Accept inquiry
+              </button>
+            </form>
+            <form action={declineInquiry}>
+              <input type="hidden" name="thread_id" value={threadId} />
+              <input
+                type="hidden"
+                name="return_to"
+                value={`/vendor-dashboard/messages/${threadId}`}
+              />
+              <button
+                type="submit"
+                className="inline-flex h-11 items-center rounded-md border border-ink/20 px-5 text-sm font-semibold text-ink hover:bg-ink/5"
+              >
+                Decline
+              </button>
+            </form>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-ink/10 bg-ink/[0.03] p-4">
+          <p className="text-sm text-ink/70">
+            You declined this inquiry. The couple has been notified and pointed to
+            other vendors.
+          </p>
+        </div>
+      )}
     </section>
   );
 }

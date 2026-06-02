@@ -334,6 +334,11 @@ body.selmode .card-chk{display:inline-flex}
 .sfoot .addmore{margin-right:auto;background:none;border:none;color:var(--mulberry);font-weight:700;font-size:13px;cursor:pointer;padding:8px 2px}
 .add-toast{position:fixed;left:50%;bottom:150px;transform:translateX(-50%) translateY(8px);z-index:90;background:var(--ink);color:var(--paper);font-size:13px;font-weight:600;padding:10px 16px;border-radius:var(--r-pill);box-shadow:0 8px 22px rgba(30,34,41,.22);opacity:0;pointer-events:none;transition:opacity .18s,transform .18s}
 .add-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.addhint-top{font-size:12px;line-height:1.45;color:var(--ink-soft);background:var(--gold-wash);border:1px solid #ECE0C2;border-radius:11px;padding:9px 12px;margin:0 0 4px}
+.dl-opt{font-family:var(--sans,inherit);font-weight:500;font-size:9.5px;letter-spacing:.04em;color:var(--ink-faint);text-transform:none;margin-left:5px}
+.dl-hint{display:block;font-family:var(--sans,inherit);font-weight:500;font-size:11px;letter-spacing:0;text-transform:none;color:var(--ink-faint);margin-top:4px}
+.gnew{height:40px;border-radius:var(--r-pill);border:1px dashed var(--gold);color:var(--gold-deep);background:var(--surface);font-size:13px;font-weight:600;padding:0 14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.gnew-input{height:40px;border-radius:var(--r-pill);border:1px solid var(--gold);background:var(--surface);font-size:13px;color:var(--ink);padding:0 14px;width:150px;outline:none}
 .dselect{font-weight:500;padding:0 36px 0 14px;-webkit-appearance:none;appearance:none;cursor:pointer;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238A8F96' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
 .dselect:focus,.dinput:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(197,160,89,.18)}
@@ -597,17 +602,19 @@ body.selmode .card-chk{display:inline-flex}
   <div class="grip"></div>
   <div class="shead"><h2>Quick add guest</h2><button class="sclose" data-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
   <div class="sbody">
-    <div class="drow"><div class="dl">Name</div>
-      <input class="dinput" id="addFn" placeholder="First name" autocomplete="off" style="margin-bottom:9px">
-      <input class="dinput" id="addLn" placeholder="Last name" autocomplete="off">
-      <div class="dupwarn" id="dupWarn" hidden></div>
-    </div>
-    <div class="drow"><div class="dl">Role in the wedding</div><select class="dselect" id="addRole"></select></div>
-    <div class="drow"><div class="dl">Side</div><div class="dchips" id="addSide">
-      <button class="dchip on s-on" data-side="bride"><span class="dot" style="background:var(--bride)"></span>Bride's</button>
-      <button class="dchip" data-side="groom"><span class="dot" style="background:var(--groom)"></span>Groom's</button>
+    <p class="addhint-top">Set the team, role &amp; group once — every name you add below keeps them. Change the chips to start a new batch.</p>
+    <div class="drow"><div class="dl">Side · team</div><div class="dchips" id="addSide">
+      <button class="dchip on s-on" data-side="bride"><span class="dot" style="background:var(--bride)"></span>Team Bride</button>
+      <button class="dchip" data-side="groom"><span class="dot" style="background:var(--groom)"></span>Team Groom</button>
       <button class="dchip" data-side="both"><span class="dot" style="background:var(--both)"></span>Both</button>
     </div></div>
+    <div class="drow"><div class="dl">Role in the wedding</div><select class="dselect" id="addRole"></select></div>
+    <div class="drow"><div class="dl">Group <span class="dl-opt">optional</span></div><div class="dchips" id="addGroup"></div></div>
+    <div class="drow"><div class="dl">Name <span class="dl-hint">↵ jumps to last name · ↵ again saves &amp; starts the next</span></div>
+      <input class="dinput" id="addFn" placeholder="First name" autocomplete="off" enterkeyhint="next" style="margin-bottom:9px">
+      <input class="dinput" id="addLn" placeholder="Last name" autocomplete="off" enterkeyhint="done">
+      <div class="dupwarn" id="dupWarn" hidden></div>
+    </div>
   </div>
   <div class="sfoot"><button class="addmore" id="addAnother">＋ Save &amp; add another</button><button class="btn btn-primary" id="addSave">Add guest</button></div>
 </div>
@@ -1108,39 +1115,69 @@ function findDuplicates(fn,ln){
 }
 let dupDismissed=false;
 const sideLabel=s=> s==='both'?'Both sides' : s==='bride'?"Bride's side" : "Groom's side";
-function setAddBtn(dup){ const b=document.getElementById('addSave'); b.textContent=dup?'Add anyway':'Add guest'; b.classList.toggle('warn',dup); }
-function renderDupWarn(){
-  const fn=document.getElementById('addFn').value, ln=document.getElementById('addLn').value;
-  const box=document.getElementById('dupWarn');
-  const dups=dupDismissed?[]:findDuplicates(fn,ln);
-  if(!dups.length){ box.hidden=true; setAddBtn(false); return; }
-  const TAG={exact:'Already added',nick:'Same person?',typo:'Typo?'};
-  box.innerHTML=`<div class="dw-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>You may have already added ${dups.length>1?'these guests':'this guest'}</div>`
-    + dups.map(({g,kind})=>`<div class="dw-row"><span class="av s-${g.side}">${initials(g)}</span><div class="dw-mid"><div class="dw-nm">${disp(g)}</div><div class="dw-sub">${(ROLE[g.role]?.l)||'Guest'} · ${sideLabel(g.side)}</div></div><span class="dw-tag dw-${kind}">${TAG[kind]}</span></div>`).join('')
-    + `<button class="dw-dismiss" id="dupDismiss">No — this is a different person</button>`;
-  box.hidden=false; setAddBtn(true);
+/* ===== batch group picker (sticky across rapid adds) ===== */
+let addGroupSel=null;
+function renderAddGroups(){
+  const box=document.getElementById('addGroup');
+  box.innerHTML=`<button class="dchip ${addGroupSel===null?'on s-on':''}" data-g="">None</button>`
+    + Object.entries(GROUP_LABEL).map(([gid,gr])=>`<button class="dchip ${addGroupSel===gid?'on s-on':''}" data-g="${gid}"><span class="dot" style="background:var(--${gr.s})"></span>${gr.l}</button>`).join('')
+    + `<button class="gnew" id="addGroupNew">＋ New</button>`;
 }
-['addFn','addLn'].forEach(id=>document.getElementById(id).addEventListener('input', ()=>{ dupDismissed=false; renderDupWarn(); }));
-document.getElementById('dupWarn').addEventListener('click', e=>{ if(e.target.closest('#dupDismiss')){ dupDismissed=true; renderDupWarn(); } });
+document.getElementById('addGroup').addEventListener('click', e=>{
+  const nw=e.target.closest('#addGroupNew');
+  if(nw){
+    nw.outerHTML=`<input class="gnew-input" id="addGroupNewInput" placeholder="New group name…" enterkeyhint="done">`;
+    const inp=document.getElementById('addGroupNewInput'); inp.focus();
+    const commit=()=>{ const name=inp.value.trim(); if(name){ const gid='g'+(groupSeq++); GROUP_LABEL[gid]={l:name, s:(document.querySelector('#addSide .dchip.on')?.dataset.side)||'both'}; addGroupSel=gid; } renderAddGroups(); };
+    inp.addEventListener('keydown', ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); commit(); } else if(ev.key==='Escape'){ renderAddGroups(); } });
+    inp.addEventListener('blur', commit);
+    return;
+  }
+  const c=e.target.closest('.dchip[data-g]'); if(!c) return;
+  addGroupSel=c.dataset.g||null; renderAddGroups();
+});
 
-/* ===== save (× keep-open variant for rapid entry) ===== */
+/* ===== smart add state: Done / Add guest / Add anyway + duplicate warning ===== */
+function renderAddState(){
+  const fn=document.getElementById('addFn').value, ln=document.getElementById('addLn').value;
+  const hasName=!!(norm(fn)||norm(ln));
+  const box=document.getElementById('dupWarn'), btn=document.getElementById('addSave');
+  const dups=(hasName && !dupDismissed)?findDuplicates(fn,ln):[];
+  if(dups.length){
+    const TAG={exact:'Already added',nick:'Same person?',typo:'Typo?'};
+    box.innerHTML=`<div class="dw-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>You may have already added ${dups.length>1?'these guests':'this guest'}</div>`
+      + dups.map(({g,kind})=>`<div class="dw-row"><span class="av s-${g.side}">${initials(g)}</span><div class="dw-mid"><div class="dw-nm">${disp(g)}</div><div class="dw-sub">${(ROLE[g.role]?.l)||'Guest'} · ${sideLabel(g.side)}</div></div><span class="dw-tag dw-${kind}">${TAG[kind]}</span></div>`).join('')
+      + `<button class="dw-dismiss" id="dupDismiss">No — this is a different person</button>`;
+    box.hidden=false; btn.textContent='Add anyway'; btn.classList.add('warn');
+  } else {
+    box.hidden=true; btn.classList.remove('warn'); btn.textContent=hasName?'Add guest':'Done';
+  }
+}
+['addFn','addLn'].forEach(id=>document.getElementById(id).addEventListener('input', ()=>{ dupDismissed=false; renderAddState(); }));
+document.getElementById('dupWarn').addEventListener('click', e=>{ if(e.target.closest('#dupDismiss')){ dupDismissed=true; renderAddState(); } });
+
+/* ===== keyboard fast-add: ↵ first→last, ↵ last→save & start the next ===== */
+document.getElementById('addFn').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); document.getElementById('addLn').focus(); } });
+document.getElementById('addLn').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); saveGuest(true); } });
+
+/* ===== save — names clear, batch context (team · role · group) stays sticky ===== */
 let addToastT=null;
 function addToast(msg){ const t=document.getElementById('addToast'); t.textContent=msg; t.classList.add('show'); clearTimeout(addToastT); addToastT=setTimeout(()=>t.classList.remove('show'),1700); }
-function resetAddForm(){ document.getElementById('addFn').value=''; document.getElementById('addLn').value='';
-  document.getElementById('addRole').value='guest'; dupDismissed=false; renderDupWarn(); }
+function clearNames(){ document.getElementById('addFn').value=''; document.getElementById('addLn').value=''; dupDismissed=false; renderAddState(); }
 function saveGuest(keepOpen){
   const fn=document.getElementById('addFn').value.trim(), ln=document.getElementById('addLn').value.trim();
-  if(!fn && !ln){ document.getElementById('addFn').focus(); return; }
+  if(!fn && !ln){ if(keepOpen) document.getElementById('addFn').focus(); else closeSheets(); return; }
   const role=document.getElementById('addRole').value;
   const side=document.querySelector('#addSide .dchip.on')?.dataset.side||'bride';
   const id=Math.max(0,...G.map(x=>x.id))+1;
-  G.push({id, fn:fn||ln, ln:fn?ln:'', side, role, rsvp:'pending', groups:[]});
-  render();
-  if(keepOpen){ resetAddForm(); addToast(`${(fn||ln)} added`); document.getElementById('addFn').focus(); }
-  else { resetAddForm(); closeSheets(); }
+  G.push({id, fn:fn||ln, ln:fn?ln:'', side, role, rsvp:'pending', groups:addGroupSel?[addGroupSel]:[]});
+  render(); clearNames();
+  if(keepOpen){ addToast(`${(fn||ln)} added`); document.getElementById('addFn').focus(); }
+  else closeSheets();
 }
 document.getElementById('addSave').addEventListener('click', ()=>saveGuest(false));
 document.getElementById('addAnother').addEventListener('click', ()=>saveGuest(true));
+renderAddGroups(); renderAddState();
 
 // --- sort sheet ---
 function markSort(){ document.querySelectorAll('#sortSheet .sortopt').forEach(o=>o.classList.toggle('act', o.dataset.sort===state.sort)); }
@@ -1150,7 +1187,7 @@ document.querySelectorAll('#sortSheet .sortopt').forEach(o=>o.addEventListener('
 
 // --- toolbar mobile buttons ---
 document.getElementById('mSort').addEventListener('click', ()=>{ markSort(); openSheet('sortSheet'); });
-function openAddSheet(){ resetAddForm(); openSheet('addSheet'); setTimeout(()=>document.getElementById('addFn').focus(),90); }
+function openAddSheet(){ clearNames(); openSheet('addSheet'); setTimeout(()=>document.getElementById('addFn').focus(),90); }
 document.getElementById('mAdd').addEventListener('click', openAddSheet);
 document.getElementById('dAdd')?.addEventListener('click', openAddSheet);
 document.getElementById('fab')?.addEventListener('click', openAddSheet);

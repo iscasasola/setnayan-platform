@@ -219,7 +219,10 @@ export const SCREEN_SEQUENCE = [
   'budget',   // 8
   'picker',   // 9   "What would you love?"
   'prefs',    // 10  style sub-stepper (one focused screen per picked dimension)
-  // 11-14 land in Phase 4 (find-vendor · bundle · congrats · plan)
+  'account',  // 11  account-or-skip gate (demo in onboarding; real auth + events-row commit in Phase 5)
+  'find',     // 12  find-your-first-vendor demo + BYO-vendor bottom-sheet
+  'congrats', // 13  "You did the hard part" — savings counter
+  'plan',     // 14  Your Plan — freebies + the budget-matched bundle
 ] as const;
 
 export type ScreenId = (typeof SCREEN_SEQUENCE)[number];

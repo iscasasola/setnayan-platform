@@ -1106,6 +1106,19 @@ function VendorCardAtom({
       : null;
   const linked = pick.linked_to_name ?? null;
 
+  // Accept-gate status (#1c, CLAUDE.md 2026-06-02). Surfaces where the
+  // auto-inquiry for this marketplace vendor stands. pending → gold (in
+  // flight, matches the eyeing register); accepted → emerald; declined →
+  // muted ink. Absent (off-platform / custom / no thread) → no badge.
+  const inquiryBadge =
+    pick.inquiry_status === 'pending'
+      ? { label: '⏳ Inquiry sent · waiting for vendor', color: null as string | null, bg: null as string | null }
+      : pick.inquiry_status === 'accepted'
+        ? { label: '✓ Vendor accepted · chat open', color: '#2f6f4e', bg: 'rgba(47,111,78,.12)' }
+        : pick.inquiry_status === 'declined'
+          ? { label: 'Not available — see similar', color: 'rgba(30,34,41,.6)', bg: 'rgba(30,34,41,.08)' }
+          : null;
+
   const stars = rating !== null ? '★★★★★'.slice(0, Math.round(rating)) : null;
   const starsEmpty = rating !== null ? '★★★★★'.slice(Math.round(rating)) : '';
 
@@ -1155,6 +1168,19 @@ function VendorCardAtom({
 
           {pick.eyeing > 0 && (
             <div className="eyeing">👀 {pick.eyeing} also eyeing your date</div>
+          )}
+
+          {inquiryBadge && (
+            <div
+              className="eyeing"
+              style={
+                inquiryBadge.color
+                  ? { color: inquiryBadge.color, background: inquiryBadge.bg ?? undefined }
+                  : undefined
+              }
+            >
+              {inquiryBadge.label}
+            </div>
           )}
         </div>
       </Link>

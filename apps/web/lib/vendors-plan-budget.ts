@@ -38,6 +38,7 @@ import {
   type PlanCardPick,
   type EventVendorRowInput,
 } from '@/lib/wedding-plan-groups';
+import type { ChatInquiryStatus } from '@/lib/chat';
 import {
   WEDDING_FOLDER_ORDER,
   WEDDING_FOLDER_LABEL,
@@ -186,6 +187,15 @@ export type AccordionPick = PlanCardPick & {
    * hq coords vs the events venue coords (page fetch).
    */
   distance_km?: number | null;
+  /**
+   * Accept-gate state (CLAUDE.md 2026-06-02 · #1c). The chat thread for this
+   * marketplace vendor: 'pending' = the couple's auto-inquiry is waiting for
+   * the vendor to accept; 'accepted' = chat open; 'declined' = vendor not
+   * available. Absent when the pick has no thread yet (off-platform / custom
+   * picks, or a marketplace pick whose inquiry hasn't been created). Drives a
+   * status badge on the accordion card.
+   */
+  inquiry_status?: ChatInquiryStatus | null;
 };
 
 /**
@@ -200,6 +210,8 @@ export type VendorEnrichment = {
   is_verified?: boolean;
   is_setnayan_service?: boolean;
   distance_km?: number | null;
+  /** Accept-gate state for this vendor's chat thread (#1c). */
+  inquiry_status?: ChatInquiryStatus | null;
 };
 
 /** One plan-group rail inside a folder (e.g. "Attire" inside Look). */
@@ -448,6 +460,7 @@ export function buildPlanBudgetModel(args: {
       ...(ext?.is_verified ? { is_verified: true } : {}),
       ...(ext?.is_setnayan_service ? { is_setnayan_service: true } : {}),
       ...(ext?.distance_km != null ? { distance_km: ext.distance_km } : {}),
+      ...(ext?.inquiry_status != null ? { inquiry_status: ext.inquiry_status } : {}),
     };
   };
 

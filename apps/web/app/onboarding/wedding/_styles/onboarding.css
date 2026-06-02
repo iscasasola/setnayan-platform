@@ -60,3 +60,8 @@
 .pba .regopt.sel{background:var(--gold);color:var(--ink);border-color:var(--gold);}
 /* song picker: cover the .body top-padding gap so no song peeks above the pinned count bar */
 .pba .songhead::before{content:'';position:absolute;left:0;right:0;top:-18px;height:18px;background:var(--paper);}
+/* ── 2026-06-02 WAVE 2 · find-vendor real reception results ── */
+.pba .vcard.picked{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset;}
+.pba .vcard .shorthint{color:var(--ink-faint);font-size:12px;}
+.pba .vload{padding:24px 4px;color:var(--ink-soft);font-size:14px;text-align:center;}
+.pba .vempty{padding:18px;border:1px dashed var(--line-2);border-radius:14px;color:var(--ink-soft);font-size:13.5px;line-height:1.5;background:var(--surface);}

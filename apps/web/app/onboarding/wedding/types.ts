@@ -126,8 +126,26 @@ export interface OnboardingState {
    */
   prefs: OnboardingPrefs;
 
+  /**
+   * Find-vendor shortlist (screen 12) — the REAL reception venues the couple
+   * tapped to shortlist (from the criteria-based marketplace search, no longer
+   * the prototype's hardcoded demo cards). Powers the recap count on screen 13
+   * (owner 2026-06-02: "i shortlisted 3 ... only shows 1"). Persisting the exact
+   * ids as event_vendors 'considering' picks at commit is a flagged follow-on
+   * (CLAUDE.md WAVE 2); for now it's captured so the recap reflects the truth.
+   */
+  shortlist: ShortlistVenue[];
+
   /** ISO timestamp of last save — for debugging stale drafts. */
   lastSavedAt: string;
+}
+
+/** A reception venue shortlisted on the find-vendor screen (screen 12). */
+export interface ShortlistVenue {
+  /** vendor_profiles.vendor_profile_id of the shortlisted reception venue. */
+  vendorId: string;
+  /** Display name at shortlist time (venues are name-exempt from anonymization). */
+  name: string;
 }
 
 /** Per-dimension style picks captured by the screen-10 sub-stepper. */
@@ -197,6 +215,7 @@ export const EMPTY_ONBOARDING_STATE: OnboardingState = {
     music: [],
     feel: 'timeless',
   },
+  shortlist: [],
   lastSavedAt: '',
 };
 

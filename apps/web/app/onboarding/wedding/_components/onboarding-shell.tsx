@@ -38,7 +38,12 @@ import { useRouter } from 'next/navigation';
 import '../_styles/onboarding.css';
 // Phase-5 cutover: the lazy DB commit + the existing auth server actions reused
 // at the account gate (no new auth code — same OAuth/signup the marketing site uses).
-import { commitOnboardingWedding, type OnboardingCommitPayload } from '../actions';
+import {
+  commitOnboardingWedding,
+  searchOnboardingReceptionVenues,
+  type OnboardingCommitPayload,
+  type OnboardingVenueResult,
+} from '../actions';
 import { signInWithGoogle, signInWithFacebook } from '@/app/auth/oauth-actions';
 import { signUp } from '@/app/signup/actions';
 import {
@@ -95,6 +100,18 @@ const KIND_OPTIONS: { value: OnboardingKind; title: string; desc: string }[] = [
   { value: 'civil', title: 'Civil', desc: 'A judge or registrar officiates.' },
   { value: 'mixed', title: 'Mixed', desc: 'Two faith traditions — an interfaith wedding (e.g. Catholic & Muslim).' },
 ];
+
+/* Reception "setting" pref key (screen-10 multi-pick) → friendly label for the
+ * find-vendor heading (step 12). Mirrors actions.ts RECEPTION_TO_VENUE_SETTING. */
+const RECEPTION_SETTING_LABEL: Record<string, string> = {
+  setting_ballroom: 'Hotel ballroom',
+  setting_events_place: 'Events-place',
+  setting_heritage: 'Heritage',
+  setting_restaurant: 'Restaurant',
+  setting_garden: 'Garden',
+  setting_beach: 'Beach',
+  setting_resort: 'Resort',
+};
 
 const FAITH_CHIPS: { value: OnboardingFaith; label: string; soon: boolean }[] = [
   { value: 'catholic', label: 'Catholic', soon: false },
@@ -1179,16 +1196,6 @@ function CountUp({ value, prefix = '', suffix = '', active }: { value: number; p
   );
 }
 
-/* Find-vendor demo card — taps toggle the prototype `.short` collapse. */
-function Vcard({ children }: { children: ReactNode }) {
-  const [short, setShort] = useState(false);
-  return (
-    <div className={`vcard${short ? ' short' : ''}`} onClick={() => setShort((s) => !s)}>
-      {children}
-    </div>
-  );
-}
-
 export function OnboardingShell({ authed, resume }: { authed: boolean; resume: boolean }) {
   const router = useRouter();
   const [state, setState] = useState<OnboardingState>(EMPTY_ONBOARDING_STATE);
@@ -1199,9 +1206,13 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
   /* picker sticky-preview (local UI) + style sub-stepper index (local UI) */
   const [pickerPreview, setPickerPreview] = useState<{ cat: string; name: string }>({ cat: 'reception', name: 'Reception venue' });
   const [prefIdx, setPrefIdx] = useState(0);
-  /* Phase-4 local UI: budget-matched bundle add (screen 14) · find-vendor expand (12) · BYO bottom-sheet (12) */
+  /* Phase-4 local UI: budget-matched bundle add (screen 14) · BYO bottom-sheet (12) */
   const [bundleAdded, setBundleAdded] = useState(false);
-  const [showExpand, setShowExpand] = useState(false);
+  /* WAVE 2 (find-vendor, step 12): REAL reception venues, fetched once on entry
+     (criteria-based search — the event doesn't exist yet). null = not loaded. */
+  const [venues, setVenues] = useState<OnboardingVenueResult[] | null>(null);
+  const [venuesLoading, setVenuesLoading] = useState(false);
+  // (find-vendor "Expand search" demo set removed — replaced by the real reception query)
   const [byoOpen, setByoOpen] = useState(false);
   const [byoDone, setByoDone] = useState<string | null>(null);
   const [byoAdded, setByoAdded] = useState(false);
@@ -1305,6 +1316,22 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
     }
   }, [step, state.pickerTouched, state.budgetBand, patch]);
 
+  /* Find-vendor (step 12): fetch REAL reception venues once on entry — the same
+     criteria-based engine the dashboard reception search uses (no eventId). Cached
+     after the first load (no re-fetch on back/forward) so the screen doesn't flicker. */
+  useEffect(() => {
+    if (step !== 12 || venues !== null || venuesLoading) return;
+    setVenuesLoading(true);
+    searchOnboardingReceptionVenues({
+      kind: state.kind,
+      faith: state.faith,
+      receptionSettings: state.prefs.reception,
+    })
+      .then((rows) => setVenues(rows))
+      .catch(() => setVenues([]))
+      .finally(() => setVenuesLoading(false));
+  }, [step, venues, venuesLoading, state.kind, state.faith, state.prefs.reception]);
+
   /* picker chip tap — toggles the pick (multi), latches pickerTouched, updates the sticky preview. */
   const pickChip = (cat: string, label: string) => {
     setPickerPreview({ cat, name: label });
@@ -1318,6 +1345,20 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
     (p: Partial<OnboardingState['prefs']>) => setState((s) => ({ ...s, prefs: { ...s.prefs, ...p } })),
     [],
   );
+
+  /* find-vendor (step 12): toggle a reception venue in the shortlist (powers the
+     recap count on screen 13). */
+  const toggleShortlist = useCallback((vendorId: string, name: string) => {
+    setState((s) => {
+      const has = s.shortlist.some((v) => v.vendorId === vendorId);
+      return {
+        ...s,
+        shortlist: has
+          ? s.shortlist.filter((v) => v.vendorId !== vendorId)
+          : [...s.shortlist, { vendorId, name }],
+      };
+    });
+  }, []);
 
   const selectRole = (r: OnboardingRole) => patch({ role: r });
 
@@ -1481,6 +1522,35 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
   const regionNug = { title: `Why ${REGLABEL[regionKey] ?? 'here'}`, line: REGNUG[regionKey] ?? '' };
 
   const sel = (cond: boolean) => (cond ? ' sel' : '');
+
+  /* ── find-vendor (step 12) + recap (step 13) derived values · WAVE 2 real data ── */
+  const receptionKey = state.prefs.reception[0];
+  const findSettingLabel = receptionKey ? (RECEPTION_SETTING_LABEL[receptionKey] ?? null) : null;
+  const findHeading = findSettingLabel
+    ? `${findSettingLabel} venues that fit your wedding.`
+    : 'Reception venues that fit your wedding.';
+  const starStr = (r: number) => {
+    const full = Math.max(0, Math.min(5, Math.round(r)));
+    return '★★★★★'.slice(0, full) + '☆☆☆☆☆'.slice(0, 5 - full);
+  };
+  const cap = (s: string | null | undefined) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : null);
+  const recapDate = (() => {
+    if (state.dateMode === 'window' && state.windowStart && state.windowEnd) return 'A flexible window';
+    const cands = (state.dateCandidates ?? []).filter(Boolean);
+    if (cands.length === 1) {
+      try {
+        return new Date(cands[0]! + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      } catch {
+        return cands[0]!;
+      }
+    }
+    if (cands.length > 1) return `${cands.length} possible dates`;
+    return 'To be set';
+  })();
+  const recapWhere = REGLABEL[state.region ?? 'ncr'] ?? 'Philippines';
+  const recapGuests = state.pax != null ? String(state.pax) : '—';
+  const recapStyle = [findSettingLabel, cap(state.prefs.feel)].filter(Boolean).join(' · ') || '—';
+  const shortlistCount = state.shortlist.length;
 
   /* ── Phase-5 lazy DB commit (events + event_members), then to the dashboard ──
      The account gate's OAuth/email actions round-trip back here via this `next`. */
@@ -2019,66 +2089,60 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
             )}
           </section>
 
-          {/* 12 FIND FIRST VENDOR (demo) */}
+          {/* 12 FIND FIRST VENDOR — REAL reception venues from the marketplace
+              (criteria search, no eventId · WAVE 2). Tap to shortlist → recap count. */}
           <section className={`screen${step === 12 ? ' active' : ''}`} id="screen-find">
             <div className="eyebrow">Find your first vendor</div>
-            <h1 className="q" style={{ fontSize: 30 }}>Garden venues that fit your wedding.</h1>
+            <h1 className="q" style={{ fontSize: 30 }}>{findHeading}</h1>
             <p className="sub">Sorted for you: your style first, then everyone available. <b>Tap one to shortlist.</b></p>
-            <div className="grouplbl">★ Matches your preference</div>
-            <Vcard>
-              <div className="vimg"><div className="vbadges"><span className="vbadge gold">Matches: Garden</span><span className="vbadge green">Verified</span></div></div>
-              <div className="vbody">
-                <div className="vname">Sonya&apos;s Garden</div>
-                <div className="vmeta"><span className="stars">★★★★★</span> 4.9 (128) · <span>12 km · Tagaytay</span></div>
-                <div className="vrow"><span className="vprice">₱180,000</span><span className="inbudget">In your range</span></div>
-                <div className="eyeing">👀 3 couples also eyeing Dec 18 · <span className="shortpill">Shortlisted</span></div>
-              </div>
-            </Vcard>
-            <Vcard>
-              <div className="vimg" style={{ background: 'linear-gradient(135deg,#b8c9bf,#3a5746)' }}><div className="vbadges"><span className="vbadge gold">Matches: Garden, Outdoor</span></div></div>
-              <div className="vbody">
-                <div className="vname">Hillcreek Gardens</div>
-                <div className="vmeta"><span className="stars">★★★★☆</span> 4.6 (74) · <span>18 km · Tagaytay</span></div>
-                <div className="vrow"><span className="vprice">₱150,000</span><span className="inbudget">In your range</span></div>
-                <div className="eyeing">👀 1 couple also eyeing your date · <span className="shortpill">Shortlisted</span></div>
-              </div>
-            </Vcard>
-            <div className="grouplbl muted">More to consider</div>
-            <Vcard>
-              <div className="vimg" style={{ background: 'linear-gradient(135deg,#cdbfa0,#8a7a52)' }}><div className="vbadges"><span className="vbadge green">Verified</span></div></div>
-              <div className="vbody">
-                <div className="vname">The Glass Garden</div>
-                <div className="vmeta"><span className="stars">★★★★★</span> 4.8 (92) · <span>9 km · Pasig</span></div>
-                <div className="vrow"><span className="vprice">₱210,000</span></div>
-                <div className="eyeing"><span className="shortpill">Shortlisted</span></div>
-              </div>
-            </Vcard>
-            {!showExpand && (
-              <button className="expand" type="button" onClick={() => setShowExpand(true)}>Expand search — see 18 more ↓</button>
+            {venuesLoading && (
+              <div className="vload">Finding reception venues that fit your wedding…</div>
             )}
-            {showExpand && (
-              <div id="expandset">
-                <div className="grouplbl muted">Held back — tap to see why</div>
-                <div className="vcard">
-                  <div className="vimg" style={{ background: 'linear-gradient(135deg,#c9b8a0,#9a8a6a)' }}><div className="vbadges"><span className="vbadge">New</span></div></div>
-                  <div className="vbody">
-                    <div className="vname">Casa Verde Events</div>
-                    <div className="vmeta"><span className="reason">Not yet verified</span></div>
-                    <div className="vrow"><span className="vprice">₱120,000</span><span className="inbudget">In your range</span></div>
-                  </div>
-                </div>
-                <div className="vcard">
-                  <div className="vimg" style={{ background: 'linear-gradient(135deg,#b0a48a,#7a6e54)' }} />
-                  <div className="vbody">
-                    <div className="vname">Antonio&apos;s Tagaytay</div>
-                    <div className="vmeta"><span className="reason">May not be free Dec 18</span> <span className="reason">Above your range</span></div>
-                    <div className="vrow"><span className="vprice">₱380,000</span></div>
-                  </div>
-                </div>
+            {!venuesLoading && venues && venues.length > 0 && (
+              <>
+                <div className="grouplbl">★ Matches your preference</div>
+                {venues.map((v) => {
+                  const picked = state.shortlist.some((s) => s.vendorId === v.vendorId);
+                  const hasRating = v.rating != null && v.reviewCount != null && v.reviewCount > 0;
+                  return (
+                    <div
+                      key={v.vendorId}
+                      className={`vcard${picked ? ' picked' : ''}`}
+                      onClick={() => toggleShortlist(v.vendorId, v.name)}
+                    >
+                      <div
+                        className="vimg"
+                        style={v.photoUrl ? { backgroundImage: `url(${v.photoUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
+                      >
+                        <div className="vbadges">{v.verified && <span className="vbadge green">Verified</span>}</div>
+                      </div>
+                      <div className="vbody">
+                        <div className="vname">{v.name}</div>
+                        <div className="vmeta">
+                          {hasRating && (
+                            <>
+                              <span className="stars">{starStr(v.rating!)}</span> {v.rating!.toFixed(1)} ({v.reviewCount})
+                              {v.city ? ' · ' : ''}
+                            </>
+                          )}
+                          {v.city && <span>{v.city}</span>}
+                        </div>
+                        <div className="eyeing">
+                          {picked ? <span className="shortpill">✓ Shortlisted</span> : <span className="shorthint">Tap to shortlist</span>}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            )}
+            {!venuesLoading && venues && venues.length === 0 && (
+              <div className="vempty">
+                We{'’'}re still onboarding reception venues for your area. Add your own below, or browse the full marketplace from your dashboard anytime.
               </div>
             )}
             <div className="byowrap">
-              <button className="byo-add" type="button" onClick={() => setByoOpen(true)}>{byoAdded ? '+ Add another vendor' : '+ Add your own vendor'}</button>
+              <button className="byo-add" type="button" onClick={() => setByoOpen(true)}>{byoAdded ? '+ Add another venue' : '+ Add your own venue'}</button>
               {byoDone && <div className="byo-done">{byoDone}</div>}
             </div>
           </section>
@@ -2096,11 +2160,11 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
             </div>
             <div className="recap tight">
               <div className="recapline"><span className="rk">Wedding</span><span className="rv">{coupleDisplay}</span></div>
-              <div className="recapline"><span className="rk">Date</span><span className="rv">Dec 18, 2026</span></div>
-              <div className="recapline"><span className="rk">Where</span><span className="rv">Metro Manila</span></div>
-              <div className="recapline"><span className="rk">Guests</span><span className="rv">200</span></div>
-              <div className="recapline"><span className="rk">Style</span><span className="rv">Garden · Timeless</span></div>
-              <div className="recapline"><span className="rk">Shortlisted</span><span className="rv">1 venue</span></div>
+              <div className="recapline"><span className="rk">Date</span><span className="rv">{recapDate}</span></div>
+              <div className="recapline"><span className="rk">Where</span><span className="rv">{recapWhere}</span></div>
+              <div className="recapline"><span className="rk">Guests</span><span className="rv">{recapGuests}</span></div>
+              <div className="recapline"><span className="rk">Style</span><span className="rv">{recapStyle}</span></div>
+              <div className="recapline"><span className="rk">Shortlisted</span><span className="rv">{shortlistCount} {shortlistCount === 1 ? 'venue' : 'venues'}</span></div>
             </div>
             <div className="note mul"><span>✦</span><div>Change or switch off any of your personalization anytime in <b>Personalize my matches</b> on your Home.</div></div>
           </section>

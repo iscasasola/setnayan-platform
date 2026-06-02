@@ -80,6 +80,13 @@ export default async function PersonalizationPage({
   const initialBudgetPesos =
     budgetCentavos != null && budgetCentavos > 0 ? String(Math.round(budgetCentavos / 100)) : '';
 
+  // bride_name/groom_name are combined "First Last" strings (onboarding PR #796
+  // stores [first, last].join(' ')); split them back for the First+Last inputs.
+  // splitName is lossless round-trip (first token = first name, rest = last) and
+  // handles pre-#796 events that stored a first-name-only value.
+  const brideName = splitName(str('bride_name'));
+  const groomName = splitName(str('groom_name'));
+
   // --- Documented values (band 3) -------------------------------------------
   const ceremonyType = str('ceremony_type');
   const secondaryCeremony = str('secondary_ceremony_type');
@@ -138,8 +145,10 @@ export default async function PersonalizationPage({
         </p>
         <DetailsForm
           eventId={eventId}
-          initialBride={str('bride_name') ?? ''}
-          initialGroom={str('groom_name') ?? ''}
+          initialBrideFirst={brideName.first}
+          initialBrideLast={brideName.last}
+          initialGroomFirst={groomName.first}
+          initialGroomLast={groomName.last}
           initialRegion={str('region') ?? ''}
           initialFeel={moodFeel ?? ''}
           initialBudgetPesos={initialBudgetPesos}
@@ -209,6 +218,19 @@ export default async function PersonalizationPage({
 }
 
 // ---------------------------------------------------------------------------
+
+/**
+ * Splits a stored combined name into first + last for the edit form. First
+ * token is the first name, the rest is the last name — lossless round-trip
+ * with onboarding's [first, last].join(' '), and safe for pre-#796 events that
+ * stored a first-name-only value (→ { first, last: '' }).
+ */
+function splitName(full: string | null): { first: string; last: string } {
+  const t = (full ?? '').trim();
+  if (!t) return { first: '', last: '' };
+  const parts = t.split(/\s+/);
+  return { first: parts[0] ?? '', last: parts.slice(1).join(' ') };
+}
 
 function DocRow({ label, value }: { label: string; value: ReactNode }) {
   return (

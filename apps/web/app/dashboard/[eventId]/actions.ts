@@ -18,7 +18,13 @@ import {
   isEventDateInPast,
   type EventDatePrecision,
 } from '@/lib/events';
-import { ALLOWED_REGIONS, ALLOWED_FEELS, MAX_BUDGET_PESOS } from '@/lib/match-criteria';
+import {
+  ALLOWED_REGIONS,
+  ALLOWED_FEELS,
+  MAX_BUDGET_PESOS,
+  MAX_NAME_LEN,
+  sanitizeName,
+} from '@/lib/match-criteria';
 import {
   computeCompatibilityIssue,
   type EventVendorRowInput,
@@ -415,21 +421,41 @@ export async function updateEventMatchCriteria(
 
   // Couple names (governance-free identity, edited on the Personalization page,
   // CLAUDE.md 2026-06-02 Phase B). Names bind no vendor → no change-flow gate.
-  // '' clears the field to NULL; cap length so junk can't be stored. When at
-  // least one name is present we recompute display_name the same way
-  // commitOnboardingWedding does ("{bride} & {groom}") so the chrome label +
-  // the Personalization header stay in sync; if both clear we leave the
-  // existing display_name untouched (don't blank the chrome label).
-  const brideRaw = formData.get('bride_name');
-  const groomRaw = formData.get('groom_name');
-  const brideStr = typeof brideRaw === 'string' ? brideRaw.trim() : '';
-  const groomStr = typeof groomRaw === 'string' ? groomRaw.trim() : '';
-  if (brideStr.length > 80 || groomStr.length > 80) {
-    return { ok: false, code: 'invalid_input', message: 'Name is too long (max 80 characters)' };
+  // Bride/groom each capture First + Last; bride_name/groom_name store the
+  // combined "First Last" (matching commitOnboardingWedding PR #796) and
+  // display_name is the FIRST names only ("{brideFirst} & {groomFirst}") — the
+  // warm chrome label, again matching onboarding. Server-side sanitizeName is
+  // defense-in-depth (the form sanitizes live; a direct POST can't smuggle
+  // digits/symbols). When at least one first name is present we recompute
+  // display_name; if everything clears we leave the existing display_name
+  // untouched (don't blank the chrome label).
+  //
+  // Falls back to the legacy single bride_name/groom_name fields if the split
+  // first/last keys aren't present (protects a stale client during the deploy
+  // window from wiping names).
+  let brideName: string | null;
+  let groomName: string | null;
+  let recomputedDisplay: string;
+  if (formData.has('bride_first') || formData.has('groom_first')) {
+    const cap = (v: FormDataEntryValue | null) =>
+      (typeof v === 'string' ? sanitizeName(v).trim() : '').slice(0, MAX_NAME_LEN);
+    const brideFirst = cap(formData.get('bride_first'));
+    const brideLast = cap(formData.get('bride_last'));
+    const groomFirst = cap(formData.get('groom_first'));
+    const groomLast = cap(formData.get('groom_last'));
+    brideName = [brideFirst, brideLast].filter(Boolean).join(' ') || null;
+    groomName = [groomFirst, groomLast].filter(Boolean).join(' ') || null;
+    recomputedDisplay = [brideFirst, groomFirst].filter(Boolean).join(' & ');
+  } else {
+    // Legacy path (pre-split form). Combined names, display from full names.
+    const brideRaw = formData.get('bride_name');
+    const groomRaw = formData.get('groom_name');
+    const brideStr = (typeof brideRaw === 'string' ? sanitizeName(brideRaw).trim() : '').slice(0, MAX_NAME_LEN);
+    const groomStr = (typeof groomRaw === 'string' ? sanitizeName(groomRaw).trim() : '').slice(0, MAX_NAME_LEN);
+    brideName = brideStr === '' ? null : brideStr;
+    groomName = groomStr === '' ? null : groomStr;
+    recomputedDisplay = [brideName, groomName].filter(Boolean).join(' & ');
   }
-  const brideName = brideStr === '' ? null : brideStr;
-  const groomName = groomStr === '' ? null : groomStr;
-  const recomputedDisplay = [brideName, groomName].filter(Boolean).join(' & ');
 
   const supabase = await createClient();
   const {

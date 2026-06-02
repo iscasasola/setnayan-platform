@@ -48,3 +48,15 @@
 /* 2026-06-02 — faith/role/kind hero photos fill their frame. PR #779 gave budget/pax/feel the absolute-inset-cover fill but skipped these three; they are flex-stretched in their viewzone (#screen-{role,kind,faith} .{role,kind,faith}photo{flex:1 1 auto;min-height:172px}), so without this the <img> sat at natural aspect over the gold gradient. Mirrors .welcomehero img. */
 .pba .faithphoto img,.pba .rolephoto img,.pba .kindphoto img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .45s ease;}
 .pba .faithphoto img.loaded,.pba .rolephoto img.loaded,.pba .kindphoto img.loaded{opacity:1;}
+
+/* ── 2026-06-02 selection convention (owner): chosen = gold fill, unselected text a bit lighter ── */
+.pba .chip{color:var(--ink-soft);}
+.pba .chip.sel{background:var(--gold);color:var(--ink);border-color:var(--gold);}
+.pba .chip.sel .soon{color:rgba(30,34,41,.55);}
+.pba .chip.is-soon{opacity:.5;cursor:not-allowed;}
+.pba .chip.is-soon .soon{opacity:1;}
+.pba .opt.sel{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset;background:var(--gold-wash);}
+.pba .regopt{color:var(--ink-soft);}
+.pba .regopt.sel{background:var(--gold);color:var(--ink);border-color:var(--gold);}
+/* song picker: cover the .body top-padding gap so no song peeks above the pinned count bar */
+.pba .songhead::before{content:'';position:absolute;left:0;right:0;top:-18px;height:18px;background:var(--paper);}

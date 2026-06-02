@@ -194,22 +194,33 @@ export const ONBOARDING_DRAFT_KEY = 'setnayan_onboarding_wedding_draft_v1';
 /** localStorage TTL: drafts older than this (in days) are auto-cleared on load. */
 export const ONBOARDING_DRAFT_TTL_DAYS = 30;
 
+/**
+ * Production-blank seed. The /proto prototype (Onboarding_Wedding_Flow_2026-06-01.html)
+ * seeds demo data (Maria/Juan · ncr · 150 · classic · timeless) so reviewers see a
+ * populated flow — but the LIVE shell must start EMPTY so a fresh onboarding (and a
+ * re-opened one after a couple has already created a wedding) shows blank fields, not a
+ * stranger's pre-filled wedding (owner 2026-06-02: "the data on the onboarding still
+ * persisted"). Names → '' (no "Maria & Juan"); region/pax/budgetBand/feel → null so the
+ * couple actively picks each (canContinue locks each screen until they do; the screens
+ * still render via `?? fallback` for slider/photo positions). The draft is also cleared
+ * on commit (handleFinish) — these blank defaults are what a cleared/fresh draft restores.
+ */
 export const EMPTY_ONBOARDING_STATE: OnboardingState = {
   step: 0,
   role: null,
   kind: null,
   faith: [],
-  brideName: 'Maria',
-  groomName: 'Juan',
+  brideName: '',
+  groomName: '',
   monogramFrame: 0,
   monogramFont: 0,
   dateMode: 'specific',
   dateCandidates: [],
   windowStart: null,
   windowEnd: null,
-  region: 'ncr',
-  pax: 150,
-  budgetBand: 'classic',
+  region: null,
+  pax: null,
+  budgetBand: null,
   budgetAmount: null,
   picks: [],
   pickerTouched: false,
@@ -217,13 +228,13 @@ export const EMPTY_ONBOARDING_STATE: OnboardingState = {
     reception: [],
     ceremony: null,
     cuisine: [],
-    serviceStyle: 'Buffet',
+    serviceStyle: null,
     dietary: [],
     pvLook: [],
-    pvNeed: 'Both photo & video',
-    pvIncluded: ['Wedding day'],
+    pvNeed: null,
+    pvIncluded: [],
     music: [],
-    feel: 'timeless',
+    feel: null,
   },
   shortlist: [],
   lastSavedAt: '',

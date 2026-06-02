@@ -1685,7 +1685,12 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
               ) : (
                 <div className="chips" {...(faithView.mode === 'religious' ? { 'data-single': '' } : { 'data-max': '2' })}>
                   {FAITH_CHIPS.map((c) => (
-                    <span key={c.value} className={`chip${sel(faith.includes(c.value))}`} onClick={() => selectFaith(c.value)}>
+                    <span
+                      key={c.value}
+                      className={`chip${sel(faith.includes(c.value))}${c.soon ? ' is-soon' : ''}`}
+                      onClick={c.soon ? undefined : () => selectFaith(c.value)}
+                      aria-disabled={c.soon || undefined}
+                    >
                       {c.label}
                       {c.soon && <span className="soon">soon</span>}
                     </span>
@@ -1776,8 +1781,8 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
               <div className="regnug">
                 <span className="ic" aria-hidden="true">{'✦'}</span>
                 <div className="regnug-tx">
-                  <div className="rt">{regionExpanded ? 'Anywhere in the Philippines' : regionNug.title}</div>
-                  <div className="rl">{regionExpanded ? 'Pick your region below — we match you with vendors who cover your area.' : regionNug.line}</div>
+                  <div className="rt">{regionExpanded && !REGION_MORE.includes(regionKey) ? 'Anywhere in the Philippines' : regionNug.title}</div>
+                  <div className="rl">{regionExpanded && !REGION_MORE.includes(regionKey) ? 'Pick your region below — we match you with vendors who cover your area.' : regionNug.line}</div>
                 </div>
               </div>
             </div>

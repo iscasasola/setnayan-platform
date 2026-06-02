@@ -64,10 +64,14 @@ export interface OnboardingState {
 
   // -- Phase 2 fields (screens 4-8: name · date · region · pax · budget) --
 
-  /** Bride first name (screen 4). Maps to events.bride_name. */
-  brideName: string;
-  /** Groom first name (screen 4). Maps to events.groom_name. */
-  groomName: string;
+  /** Bride first name (screen 4) — monogram initial + seeds the guest list (first guest). */
+  brideFirstName: string;
+  /** Bride last name (screen 4) — joined into events.bride_name + the guest-list row. */
+  brideLastName: string;
+  /** Groom first name (screen 4) — monogram initial + seeds the guest list (second guest). */
+  groomFirstName: string;
+  /** Groom last name (screen 4) — joined into events.groom_name + the guest-list row. */
+  groomLastName: string;
   /** Monogram frame index into MONO_FRAMES (screen 4 · free styling). */
   monogramFrame: number;
   /** Monogram font index into MONO_FONTS (screen 4). */
@@ -210,8 +214,10 @@ export const EMPTY_ONBOARDING_STATE: OnboardingState = {
   role: null,
   kind: null,
   faith: [],
-  brideName: '',
-  groomName: '',
+  brideFirstName: '',
+  brideLastName: '',
+  groomFirstName: '',
+  groomLastName: '',
   monogramFrame: 0,
   monogramFont: 0,
   dateMode: 'specific',

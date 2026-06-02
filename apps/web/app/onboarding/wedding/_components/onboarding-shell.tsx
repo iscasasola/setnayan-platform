@@ -1419,8 +1419,8 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
     return w ? w[0]!.toUpperCase() : '';
   };
   const monoMark = (() => {
-    const bi = firstInitial(state.brideName);
-    const gi = firstInitial(state.groomName);
+    const bi = firstInitial(state.brideFirstName);
+    const gi = firstInitial(state.groomFirstName);
     if (bi && gi) return `${bi} & ${gi}`;
     return bi || gi || '··';
   })();
@@ -1431,7 +1431,7 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
   };
 
   /* Couple display name for screens 13 (congrats) + 14 (Your Plan) — prototype [data-couple-name]. */
-  const coupleDisplay = [state.brideName.trim(), state.groomName.trim()].filter(Boolean).join(' & ') || 'Maria & Juan';
+  const coupleDisplay = [state.brideFirstName.trim(), state.groomFirstName.trim()].filter(Boolean).join(' & ') || 'Maria & Juan';
 
   /* BYO vendor send (prototype sendByo) — name required → confirmation + relabel the add button. */
   const sendByo = () => {
@@ -1534,7 +1534,7 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
       case 3:
         return isCivil ? true : faith.length >= 1;
       case 4:
-        return state.brideName.trim().length > 0 || state.groomName.trim().length > 0;
+        return state.brideFirstName.trim().length > 0 || state.groomFirstName.trim().length > 0;
       case 5:
         return state.dateMode === 'specific' ? state.dateCandidates.length >= 1 : state.windowStart !== null && state.windowEnd !== null;
       case 6:
@@ -1634,8 +1634,10 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
   const RESUME_NEXT = '/onboarding/wedding?resume=1';
   const buildCommitPayload = useCallback(
     (s: OnboardingState): OnboardingCommitPayload => ({
-      brideName: s.brideName,
-      groomName: s.groomName,
+      brideFirstName: s.brideFirstName,
+      brideLastName: s.brideLastName,
+      groomFirstName: s.groomFirstName,
+      groomLastName: s.groomLastName,
       kind: s.kind,
       faith: s.faith,
       region: s.region,
@@ -1691,6 +1693,13 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
       } catch {
         /* non-fatal */
       }
+      // The event is created + complete — reset the WHOLE onboarding to blank
+      // so a re-open (or a second wedding via Add event → Wedding) starts
+      // fresh, never the just-made one (owner 2026-06-02: "make sure the whole
+      // onboarding will reset since the event has been made and complete").
+      // The committedEventId guard keeps the persist effect from re-writing the
+      // cleared draft; the blank seed is what a remount then hydrates.
+      setState({ ...EMPTY_ONBOARDING_STATE });
       router.push(`/dashboard/${res.eventId}`);
     } else if (res.error === 'not_authenticated') {
       // Session lost mid-flow — bounce to the account gate to re-auth.
@@ -1886,24 +1895,40 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
                   <span className="nlk">Bride</span>
                   <input
                     className="field nf"
-                    placeholder="Maria"
-                    value={state.brideName}
+                    placeholder="First"
+                    autoComplete="off"
+                    value={state.brideFirstName}
                     onChange={(e) => {
-                      patch({ brideName: e.target.value });
+                      patch({ brideFirstName: e.target.value });
                       bumpMono();
                     }}
+                  />
+                  <input
+                    className="field nf"
+                    placeholder="Last"
+                    autoComplete="off"
+                    value={state.brideLastName}
+                    onChange={(e) => patch({ brideLastName: e.target.value })}
                   />
                 </label>
                 <label className="nl">
                   <span className="nlk">Groom</span>
                   <input
                     className="field nf"
-                    placeholder="Juan"
-                    value={state.groomName}
+                    placeholder="First"
+                    autoComplete="off"
+                    value={state.groomFirstName}
                     onChange={(e) => {
-                      patch({ groomName: e.target.value });
+                      patch({ groomFirstName: e.target.value });
                       bumpMono();
                     }}
+                  />
+                  <input
+                    className="field nf"
+                    placeholder="Last"
+                    autoComplete="off"
+                    value={state.groomLastName}
+                    onChange={(e) => patch({ groomLastName: e.target.value })}
                   />
                 </label>
               </div>

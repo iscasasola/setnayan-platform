@@ -7,6 +7,7 @@ import { captureEvent } from '@/lib/analytics';
 import { unlockCategoryWithInquiry } from '@/app/dashboard/[eventId]/vendors/_actions/unlock-category';
 import { fetchWizardVendorRecommendations } from '@/lib/wizard-recommendations';
 import { recomputeReceptionAnchor } from '@/lib/events';
+import { defaultInvitedToForRole } from '@/lib/guests';
 
 /**
  * commitOnboardingWedding — the single lazy DB commit for the /onboarding/wedding
@@ -120,8 +121,11 @@ const PICK_TO_GROUP: Record<string, string> = {
 };
 
 export type OnboardingCommitPayload = {
-  brideName: string;
-  groomName: string;
+  /** bride/groom first + last (screen 4) → events.bride_name/groom_name (joined) + the first two guest-list rows */
+  brideFirstName: string;
+  brideLastName: string;
+  groomFirstName: string;
+  groomLastName: string;
   kind: 'religious' | 'civil' | 'mixed' | null;
   /** faith picks: [primary] for religious, [primary, secondary] for mixed, [] for civil */
   faith: string[];
@@ -191,10 +195,16 @@ export async function commitOnboardingWedding(
         : 'catholic';
   }
 
+  // Names: first names drive the warm display ("Maria & Juan"); first + last
+  // join into events.bride_name/groom_name AND seed the guest list below.
+  const brideFirst = payload.brideFirstName?.trim() ?? '';
+  const brideLast = payload.brideLastName?.trim() ?? '';
+  const groomFirst = payload.groomFirstName?.trim() ?? '';
+  const groomLast = payload.groomLastName?.trim() ?? '';
+  const brideFullName = [brideFirst, brideLast].filter(Boolean).join(' ');
+  const groomFullName = [groomFirst, groomLast].filter(Boolean).join(' ');
   const displayName =
-    [payload.brideName?.trim(), payload.groomName?.trim()]
-      .filter(Boolean)
-      .join(' & ') || 'Our Wedding';
+    [brideFirst, groomFirst].filter(Boolean).join(' & ') || 'Our Wedding';
 
   const admin = createAdminClient();
   const slug = await generateUniqueSlug(admin, displayName);
@@ -235,8 +245,8 @@ export async function commitOnboardingWedding(
       ceremony_type_locked_at: now,
       ceremony_type_locked_by: user.id,
       // -- onboarding-v2 columns (migration 20260719000000) --
-      bride_name: payload.brideName?.trim() || null,
-      groom_name: payload.groomName?.trim() || null,
+      bride_name: brideFullName || null,
+      groom_name: groomFullName || null,
       region: payload.region,
       date_mode: dateMode,
       date_candidates: candidates.length ? candidates : null,
@@ -318,6 +328,44 @@ export async function commitOnboardingWedding(
     if (!shortlistError) {
       await recomputeReceptionAnchor(admin, insertedEvent.event_id);
     }
+  }
+
+  // Seed the guest list with the bride + groom as the first two entries
+  // (owner 2026-06-02: "this will also be used as the first inputs on the
+  // guest list"). They're the two singleton guest roles (iteration 0001 + the
+  // one-per-event partial unique indexes, migration 20260531010000) — a fresh
+  // event has no conflict. Best-effort: a guest-seed failure must NEVER fail
+  // the commit (the event + membership are already saved). guests.last_name is
+  // NOT NULL → fall back to '' (the couple fills it on the guest list). Each
+  // side seeds only when its first name is present (canContinue requires ≥1).
+  // Mirrors the canonical quickAddGuest insert shape.
+  if (brideFirst) {
+    await admin.from('guests').insert({
+      event_id: insertedEvent.event_id,
+      first_name: brideFirst,
+      last_name: brideLast,
+      side: 'bride',
+      group_category: 'other',
+      role: 'bride',
+      rsvp_status: 'pending',
+      photo_consent: true,
+      invited_to_blocks: defaultInvitedToForRole('bride'),
+      custom_tags: [],
+    });
+  }
+  if (groomFirst) {
+    await admin.from('guests').insert({
+      event_id: insertedEvent.event_id,
+      first_name: groomFirst,
+      last_name: groomLast,
+      side: 'groom',
+      group_category: 'other',
+      role: 'groom',
+      rsvp_status: 'pending',
+      photo_consent: true,
+      invited_to_blocks: defaultInvitedToForRole('groom'),
+      custom_tags: [],
+    });
   }
 
   // Auto-inquire a best-fit vendor for each picked category (owner 2026-06-02:

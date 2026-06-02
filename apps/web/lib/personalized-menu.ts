@@ -1,17 +1,17 @@
-import type {
-  TasteChip,
-  ServiceRow,
-  ServiceTone,
-} from '@/app/dashboard/[eventId]/_components/personalized-menu';
+import type { TasteChip } from '@/app/dashboard/[eventId]/_components/personalized-menu';
 
 /**
- * Mappers for the PersonalizedMenu surface (home preview + /for-you).
+ * Mapper for the PersonalizedMenu surface (home + /for-you).
  *
- * WHY: keeps the event-row → taste-chips and event_vendors → service-rows
- * mapping in ONE place so the lean home preview and the full /for-you page
- * render identical data (no drift). Built only from production data
- * (events + event_vendors); the onboarding "taste" (feel/dietary/style)
- * is not captured in production yet and is intentionally absent.
+ * WHAT (owner correction 2026-06-02): turns the `events` row into the
+ * couple's CURATED MATCH CRITERIA — the information they gave at
+ * onboarding/event-creation that Setnayan filters + sorts the vendor
+ * search by. NOT their shortlisted vendors (that's the Vendors tab).
+ *
+ * Kept in ONE place so the home block and the /for-you page render
+ * identical criteria. Built only from production `events` columns; the
+ * richer per-category onboarding preferences (cuisine / photo-video style /
+ * music vibe / dietary detail) are V1.x — they feed in here when captured.
  */
 
 const CEREMONY_LABEL: Record<string, string> = {
@@ -41,10 +41,33 @@ const VENUE_LABEL: Record<string, string> = {
   multi_purpose_hall: 'Function hall',
 };
 
+// region keys may be sparse in production until onboarding V2 ships fully;
+// titleCase fallback keeps unknown keys readable (acronyms get a small map).
+const REGION_LABEL: Record<string, string> = {
+  ncr: 'Metro Manila',
+  metro_manila: 'Metro Manila',
+  calabarzon: 'CALABARZON',
+  central_luzon: 'Central Luzon',
+  central_visayas: 'Central Visayas',
+  western_visayas: 'Western Visayas',
+  eastern_visayas: 'Eastern Visayas',
+  ilocos: 'Ilocos Region',
+  cagayan_valley: 'Cagayan Valley',
+  bicol: 'Bicol Region',
+  mimaropa: 'MIMAROPA',
+  zamboanga: 'Zamboanga Peninsula',
+  northern_mindanao: 'Northern Mindanao',
+  davao: 'Davao Region',
+  soccsksargen: 'SOCCSKSARGEN',
+  caraga: 'Caraga',
+  barmm: 'BARMM',
+  car: 'Cordillera (CAR)',
+  cordillera: 'Cordillera (CAR)',
+  outside_ph: 'Outside the Philippines',
+};
+
 function titleCase(raw: string): string {
-  return raw
-    .replace(/[_-]+/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return raw.replace(/[_-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function formatBudget(centavos: number | null | undefined): string | null {
@@ -56,11 +79,20 @@ function formatBudget(centavos: number | null | undefined): string | null {
 export type EventTasteSource = {
   event_date?: string | null;
   ceremony_type?: string | null;
+  secondary_ceremony_type?: string | null;
   venue_setting?: string | null;
   estimated_pax?: number | null;
   estimated_budget_centavos?: number | null;
+  region?: string | null;
+  mood_feel_key?: string | null;
 };
 
+/**
+ * Builds the curated match-criteria chips, in the order they read
+ * naturally: date · region · ceremony (+ secondary) · venue · guests ·
+ * style/feel · budget. Each chip is a real filter/sort axis on the vendor
+ * search. Only present criteria render — no fabricated chips.
+ */
 export function buildTasteChips(
   event: EventTasteSource,
   formattedDate: string | null,
@@ -69,62 +101,31 @@ export function buildTasteChips(
 
   if (formattedDate) chips.push({ label: formattedDate });
 
+  const region = event.region ?? null;
+  if (region) chips.push({ label: REGION_LABEL[region] ?? titleCase(region) });
+
   const ceremony = event.ceremony_type ?? null;
   if (ceremony) {
     chips.push({ label: CEREMONY_LABEL[ceremony] ?? `${titleCase(ceremony)} ceremony` });
   }
 
-  const venue = event.venue_setting ?? null;
-  if (venue) {
-    chips.push({ label: VENUE_LABEL[venue] ?? titleCase(venue) });
+  const secondary = event.secondary_ceremony_type ?? null;
+  if (secondary) {
+    chips.push({ label: CEREMONY_LABEL[secondary] ?? `${titleCase(secondary)} ceremony` });
   }
+
+  const venue = event.venue_setting ?? null;
+  if (venue) chips.push({ label: VENUE_LABEL[venue] ?? titleCase(venue) });
 
   if (event.estimated_pax != null && event.estimated_pax > 0) {
     chips.push({ label: `${event.estimated_pax} guests` });
   }
 
+  const feel = event.mood_feel_key ?? null;
+  if (feel) chips.push({ label: `${titleCase(feel)} style` });
+
   const budget = formatBudget(event.estimated_budget_centavos ?? null);
   if (budget) chips.push({ label: budget });
 
   return chips;
-}
-
-type VendorStatusInfo = { label: string; tone: ServiceTone };
-
-const VENDOR_STATUS: Record<string, VendorStatusInfo> = {
-  considering: { label: 'Shortlisted', tone: 'shortlisted' },
-  contracted: { label: 'Booked', tone: 'locked' },
-  deposit_paid: { label: 'Deposit paid', tone: 'locked' },
-  delivered: { label: 'Delivered', tone: 'locked' },
-  complete: { label: 'Complete', tone: 'locked' },
-  cancelled: { label: 'Cancelled', tone: 'neutral' },
-  declined: { label: 'Declined', tone: 'neutral' },
-};
-
-export type VendorRowSource = {
-  vendor_id: string;
-  vendor_name: string | null;
-  category: string | null;
-  status: string | null;
-};
-
-export function mapServices(
-  eventId: string,
-  rows: VendorRowSource[],
-): ServiceRow[] {
-  return rows.map((v) => {
-    const status = (v.status ?? '').toLowerCase();
-    const info = VENDOR_STATUS[status] ?? {
-      label: status ? titleCase(status) : 'Added',
-      tone: 'neutral' as ServiceTone,
-    };
-    return {
-      id: v.vendor_id,
-      name: v.vendor_name?.trim() || 'Vendor',
-      category: v.category ? titleCase(v.category) : 'Service',
-      statusLabel: info.label,
-      tone: info.tone,
-      href: `/dashboard/${eventId}/vendors`,
-    };
-  });
 }

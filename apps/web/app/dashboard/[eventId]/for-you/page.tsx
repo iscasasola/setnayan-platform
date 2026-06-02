@@ -4,11 +4,7 @@ import {
   formatEventDateWithPrecision,
   type EventDatePrecision,
 } from '@/lib/events';
-import {
-  buildTasteChips,
-  mapServices,
-  type VendorRowSource,
-} from '@/lib/personalized-menu';
+import { buildTasteChips } from '@/lib/personalized-menu';
 import { PersonalizedMenu } from '../_components/personalized-menu';
 
 export const dynamic = 'force-dynamic';
@@ -18,14 +14,15 @@ export const metadata = { title: 'For you' };
 /**
  * For you · /dashboard/[eventId]/for-you
  *
- * The full personalized menu — the couple's wedding shape (taste chips
- * from the event row) + every service they've added (event_vendors with
- * status pills). The lean event-home renders a preview of this; this is
- * the "See all" destination + the "For you" bottom-nav tab target.
+ * The couple's full match-criteria view — the curated information from
+ * onboarding/event-creation that Setnayan filters + sorts the vendor
+ * search by (date · region · ceremony + secondary · reception venue ·
+ * guest count · style/feel · budget). Home surfaces the same block; this
+ * is its deep-link target (reachable via the More tab).
  *
- * Owner directive 2026-06-02 (CLAUDE.md) — lean home + 4-tab nav
- * (Home · For you · Activity · More). Built from production data only;
- * onboarding "taste" (feel/dietary/style) fills in when onboarding ships.
+ * Owner correction 2026-06-02 (CLAUDE.md): "Personalized" = the curated
+ * match criteria, NOT the couple's shortlisted vendors (those live on the
+ * Vendors tab). Built from production `events` columns only.
  *
  * Guard mirrors /today/page.tsx (maybeSingle → notFound).
  */
@@ -45,18 +42,12 @@ export default async function ForYouPage({
   const { data: event, error: eventError } = await supabase
     .from('events')
     .select(
-      'event_id, display_name, event_date, event_date_precision, ceremony_type, venue_setting, estimated_pax, estimated_budget_centavos',
+      'event_id, display_name, event_date, event_date_precision, ceremony_type, secondary_ceremony_type, venue_setting, estimated_pax, estimated_budget_centavos, region, mood_feel_key',
     )
     .eq('event_id', eventId)
     .maybeSingle();
   if (eventError) throw new Error(eventError.message);
   if (!event) notFound();
-
-  const { data: vendorRows } = await supabase
-    .from('event_vendors')
-    .select('vendor_id, vendor_name, category, status, created_at')
-    .eq('event_id', eventId)
-    .order('created_at', { ascending: false });
 
   const precision =
     ((event as { event_date_precision?: string | null }).event_date_precision as
@@ -68,7 +59,6 @@ export default async function ForYouPage({
     : null;
 
   const tasteChips = buildTasteChips(event, formattedDate);
-  const services = mapServices(eventId, (vendorRows ?? []) as VendorRowSource[]);
 
   const eventName =
     (event as { display_name?: string | null }).display_name?.trim() || 'Your wedding';
@@ -90,12 +80,7 @@ export default async function ForYouPage({
         </h1>
       </header>
 
-      <PersonalizedMenu
-        eventId={eventId}
-        variant="full"
-        tasteChips={tasteChips}
-        services={services}
-      />
+      <PersonalizedMenu eventId={eventId} variant="full" tasteChips={tasteChips} />
     </section>
   );
 }

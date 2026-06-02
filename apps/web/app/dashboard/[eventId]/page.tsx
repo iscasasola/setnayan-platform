@@ -93,7 +93,7 @@ import {
 } from '@/lib/paperwork';
 import { AuspiciousChip } from './_components/auspicious-chip';
 import { PersonalizedMenu } from './_components/personalized-menu';
-import { buildTasteChips, mapServices } from '@/lib/personalized-menu';
+import { buildTasteChips } from '@/lib/personalized-menu';
 import { EventMetaLine } from './_components/event-meta-line';
 import { VendorAvailabilityIntersection } from './_components/vendor-availability-intersection';
 import { BudgetCountdownHeader } from './_components/budget-countdown-header';
@@ -411,7 +411,7 @@ export default async function EventHomePage({
       // returns null rather than 500-ing the page.
       (async () => {
         const fullSelect =
-          'event_id, display_name, event_date, event_date_precision, slug, venue_name, venue_latitude, venue_longitude, monogram_text, palette_finalized_at, concierge_status, concierge_tier, concierge_activated_at, concierge_expires_at, concierge_long_engagement_advised_at, event_type, ceremony_type, ceremony_type_locked_at, venue_setting, estimated_budget_centavos, date_status, auspicious_reasons, wizard_state';
+          'event_id, display_name, event_date, event_date_precision, slug, venue_name, venue_latitude, venue_longitude, monogram_text, palette_finalized_at, concierge_status, concierge_tier, concierge_activated_at, concierge_expires_at, concierge_long_engagement_advised_at, event_type, ceremony_type, ceremony_type_locked_at, secondary_ceremony_type, venue_setting, estimated_pax, estimated_budget_centavos, region, mood_feel_key, date_status, auspicious_reasons, wizard_state';
         const fullRes = await supabase
           .from('events')
           .select(fullSelect)
@@ -1537,17 +1537,24 @@ export default async function EventHomePage({
   const personalizedDate = event.event_date
     ? formatEventDateWithPrecision(event.event_date, eventDatePrecision)
     : null;
+  // Curated match criteria (owner correction 2026-06-02) — the onboarding/
+  // event-creation info we FILTER + SORT the vendor search by (date · region
+  // · ceremony + secondary · venue · guests · style · budget). NOT the
+  // couple's shortlisted vendors (that's the Vendors tab).
   const personalizedTaste = buildTasteChips(
     {
       event_date: event.event_date,
       ceremony_type: eventCeremonyType,
+      secondary_ceremony_type:
+        (event as { secondary_ceremony_type?: string | null }).secondary_ceremony_type ?? null,
       venue_setting: eventVenueSetting,
       estimated_pax: (event as { estimated_pax?: number | null }).estimated_pax ?? null,
       estimated_budget_centavos: eventBudgetCentavos,
+      region: (event as { region?: string | null }).region ?? null,
+      mood_feel_key: (event as { mood_feel_key?: string | null }).mood_feel_key ?? null,
     },
     personalizedDate,
   );
-  const personalizedServices = mapServices(eventId, eventVendorsRaw);
 
   return (
     // Column effect retired 2026-05-23 per owner directive — event home
@@ -1592,7 +1599,6 @@ export default async function EventHomePage({
         eventId={eventId}
         variant="preview"
         tasteChips={personalizedTaste}
-        services={personalizedServices}
       />
 
       {/* Block 2 · Upcoming schedules — streams independently; renders only

@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateUniqueSlug } from '@/lib/slugs';
 import { captureEvent } from '@/lib/analytics';
+import { unlockCategoryWithInquiry } from '@/app/dashboard/[eventId]/vendors/_actions/unlock-category';
 
 /**
  * commitOnboardingWedding — the single lazy DB commit for the /onboarding/wedding
@@ -23,11 +24,23 @@ import { captureEvent } from '@/lib/analytics';
  * CHECK constraint (migration 20260521080000: wedding events must populate
  * ceremony_type + venue_setting).
  *
- * Scope note: per-category picks/prefs (picker + style sub-stepper) are NOT
- * persisted here — the event_vendor_preferences table does not exist yet
- * (deferred to a V1.x migration). Only mood_feel_key has a column, so that one
- * preference is committed; everything else stays client-side until the prefs
- * table lands. estimated_pax is an existing column and is committed.
+ * Persists (CLAUDE.md 2026-06-02 Phase A · "all the data will be preserved"):
+ *   - the 12 onboarding-v2 columns + estimated_pax + the wedding-type columns;
+ *   - venue_setting DERIVED from the couple's first reception "setting" pick
+ *     (screen-10) instead of a blind default — so the marketplace reception
+ *     filter is right out of the gate;
+ *   - the screen-9 picker selections, AUTO-INQUIRED best-fit per category
+ *     (owner: "auto-inquire best-fit per category") — each resolved planning
+ *     group fires the dashboard unlock-category flow (best-fit pick →
+ *     event_vendors 'considering' → follow → chat thread → first inquiry), so
+ *     the couple lands on the dashboard with a started shortlist + inbox.
+ *
+ * Deferred to Phase A2: the screen-10 STYLE prefs (cuisine / ceremony-where /
+ * pv-look / dietary) → event_vendor_preferences. That table's canonical_service
+ * FK must be verified against canonical_service_schemas before writing, and the
+ * table is FOUNDATION-ONLY (unread by matching yet, CLAUDE.md 2026-06-02), so
+ * it's low-urgency vs the certain wins above. mood_feel_key + music_playlist_seed
+ * already persist as columns.
  */
 
 const ALLOWED_CEREMONIES = ['catholic', 'civil', 'mixed'] as const;
@@ -39,11 +52,70 @@ const ALLOWED_SECONDARY = [
   'muslim',
   'cultural',
 ] as const;
-// venue_setting has no clean onboarding source — the reception "setting" is a
-// style multi-pick (screen 10 prefs), not a single committed venue. The CHECK
-// constraint requires a value for wedding events, so we default to the most
-// common PH reception type; the couple refines it later from event settings.
+// Fallback when the couple skipped the reception "setting" pick. The CHECK
+// constraint requires a value for wedding events; the couple refines it later.
 const DEFAULT_VENUE = 'banquet_hall';
+
+// Reception "setting" pref (screen-10 multi-pick) → events.venue_setting enum.
+// The couple's first reception setting seeds venue_setting (which drives the
+// marketplace reception filter). No clean enum for events-place / private-
+// restaurant → banquet_hall (an indoor function space).
+const RECEPTION_TO_VENUE_SETTING: Record<string, string> = {
+  setting_ballroom: 'banquet_hall',
+  setting_events_place: 'banquet_hall',
+  setting_heritage: 'heritage',
+  setting_restaurant: 'banquet_hall',
+  setting_garden: 'garden',
+  setting_beach: 'beach',
+  setting_resort: 'destination',
+};
+
+// Picker key (53 fine taxonomy services, screen-9) → PLAN_GROUP id (26 planning
+// groups). The auto-inquire loop resolves each pick to its group, then fires
+// ONE best-fit inquiry per UNIQUE group (the dashboard unlock-category model).
+// Picks with no clean planning group are intentionally omitted so a pick never
+// fires a wrong-category inquiry — fireworks · outdoor · livestream · editorial ·
+// wellness · escort, and the niche booths (coffee/mocktail/dessert/food_cart/
+// food_truck/massage_chair/nail_bar/caricature/tarot/perfume_bar/arcade/henna/
+// engraving): the Booths folder only has cocktail_booths[=mobile_bar] +
+// photobooth as planning groups. The couple adds those from the dashboard
+// Unlock-categories page (same limitation, by design).
+const PICK_TO_GROUP: Record<string, string> = {
+  reception: 'reception_venue',
+  ceremony: 'ceremony_venue',
+  coordinator: 'coordinator',
+  catering: 'catering',
+  stations: 'catering',
+  cake: 'cake',
+  stylist: 'stylist',
+  lights_sound: 'lights_sound',
+  florist: 'florals_decor',
+  dance_floor: 'florals_decor',
+  led_wall: 'led_background',
+  host_mc: 'host_mc',
+  live_band: 'live_band',
+  orchestra: 'live_band',
+  choir: 'music_entertainment',
+  wedding_singer: 'music_entertainment',
+  dj: 'music_entertainment',
+  performers: 'music_entertainment',
+  choreographer: 'dance_instructor',
+  photo_video: 'photography',
+  bride_attire: 'attire',
+  groom_attire: 'attire',
+  women_attire: 'attire',
+  men_attire: 'attire',
+  filipiniana: 'attire',
+  grooming: 'hair_makeup',
+  hmua: 'hair_makeup',
+  jewelry: 'rings',
+  photo_booth: 'photobooth',
+  mobile_bar: 'cocktail_booths',
+  printing: 'invitations_stationery',
+  souvenirs: 'invitations_stationery',
+  bridal_car: 'bridal_car',
+  guest_shuttle: 'guest_shuttle',
+};
 
 export type OnboardingCommitPayload = {
   brideName: string;
@@ -62,6 +134,10 @@ export type OnboardingCommitPayload = {
   monogramFontKey: string | null;
   moodFeelKey: string | null;
   musicPlaylistSeed: string[];
+  /** screen-9 picker selections (data-cat keys) — auto-inquired best-fit per resolved group */
+  picks: string[];
+  /** screen-10 reception "setting" multi-pick — the first one seeds venue_setting */
+  receptionSettings: string[];
 };
 
 export type OnboardingCommitResult =
@@ -121,6 +197,13 @@ export async function commitOnboardingWedding(
   const windowStart = dateMode === 'window' ? payload.windowStart : null;
   const windowEnd = dateMode === 'window' ? payload.windowEnd : null;
 
+  // venue_setting from the couple's first reception "setting" pick (drives the
+  // marketplace reception filter); fall back to banquet_hall if none picked.
+  const venueSetting =
+    (payload.receptionSettings ?? [])
+      .map((k) => RECEPTION_TO_VENUE_SETTING[k])
+      .find((v): v is string => Boolean(v)) ?? DEFAULT_VENUE;
+
   const { data: insertedEvent, error: insertError } = await admin
     .from('events')
     .insert({
@@ -133,7 +216,7 @@ export async function commitOnboardingWedding(
       is_primary: true,
       // Iteration 0043 wedding-type columns (CHECK-constraint-required for weddings)
       ceremony_type: ceremonyType,
-      venue_setting: DEFAULT_VENUE,
+      venue_setting: venueSetting,
       ceremony_sub_type: null,
       is_mixed_ceremony: isMixed,
       secondary_ceremony_type: secondary,
@@ -156,7 +239,11 @@ export async function commitOnboardingWedding(
         : null,
       estimated_pax: typeof payload.pax === 'number' ? payload.pax : null,
     })
-    .select('id')
+    // events.id is BIGSERIAL (internal) — every FK + the dashboard route use
+    // events.event_id (UUID). Select + thread event_id, matching the canonical
+    // createWeddingEvent. (Selecting 'id' shipped a latent bug: event_members.
+    // event_id is UUID, so inserting the bigint crashed the commit.)
+    .select('event_id')
     .single();
 
   if (insertError || !insertedEvent) {
@@ -167,7 +254,7 @@ export async function commitOnboardingWedding(
   }
 
   const { error: memberError } = await admin.from('event_members').insert({
-    event_id: insertedEvent.id,
+    event_id: insertedEvent.event_id,
     user_id: user.id,
     member_type: 'couple',
     joined_via: 'created_event',
@@ -180,7 +267,7 @@ export async function commitOnboardingWedding(
     distinctId: user.id,
     event: 'onboarding_wedding_committed',
     properties: {
-      event_id: insertedEvent.id,
+      event_id: insertedEvent.event_id,
       kind: payload.kind,
       region: payload.region,
       pax: payload.pax,
@@ -188,5 +275,32 @@ export async function commitOnboardingWedding(
     },
   });
 
-  return { ok: true, eventId: insertedEvent.id };
+  // Auto-inquire a best-fit vendor for each picked category (owner 2026-06-02:
+  // "auto-inquire best-fit per category"). Resolve the picker keys → UNIQUE
+  // PLAN_GROUP ids, then fire one inquiry per group via the dashboard
+  // unlock-category flow (best-fit pick → event_vendors 'considering' →
+  // follow → chat thread → first inquiry message). Best-effort + parallel: an
+  // inquiry failure must NEVER fail the commit — the event + membership are
+  // already saved, and the couple can add categories from the dashboard. The
+  // event_members row above is committed, so unlockCategoryWithInquiry's
+  // user-scoped RLS membership read resolves.
+  const groupIds = Array.from(
+    new Set(
+      (payload.picks ?? [])
+        .map((p) => PICK_TO_GROUP[p])
+        .filter((g): g is string => Boolean(g)),
+    ),
+  );
+  if (groupIds.length > 0) {
+    await Promise.allSettled(
+      groupIds.map((groupId) =>
+        unlockCategoryWithInquiry({
+          eventId: insertedEvent.event_id,
+          groupId,
+        }),
+      ),
+    );
+  }
+
+  return { ok: true, eventId: insertedEvent.event_id };
 }

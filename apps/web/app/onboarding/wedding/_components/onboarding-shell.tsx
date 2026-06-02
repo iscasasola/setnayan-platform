@@ -1502,6 +1502,10 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
       monogramFontKey: MONO_FONTS[s.monogramFont] ?? null,
       moodFeelKey: s.prefs.feel,
       musicPlaylistSeed: s.prefs.music,
+      // Phase A: persist the picker selections (auto-inquired best-fit per
+      // category at commit) + the reception setting (seeds venue_setting).
+      picks: s.picks,
+      receptionSettings: s.prefs.reception,
     }),
     [],
   );

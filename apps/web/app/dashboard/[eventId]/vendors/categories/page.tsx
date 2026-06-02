@@ -94,7 +94,7 @@ export default async function UnlockCategoriesPage({ params }: Props) {
         className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink/55 transition hover:text-ink"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden />
-        Back to your vendors
+        Back to your services
       </Link>
 
       <header className="mb-6 mt-3">

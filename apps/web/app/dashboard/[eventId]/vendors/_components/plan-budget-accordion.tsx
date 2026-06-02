@@ -691,8 +691,8 @@ function Overview({
     return (
       <section className="intro">
         <div>
-          <p className="intro-eyebrow">Your vendor plan</p>
-          <h1 className="intro-h">Plan every vendor, in one place.</h1>
+          <p className="intro-eyebrow">Your service plan</p>
+          <h1 className="intro-h">Plan every service, in one place.</h1>
         </div>
 
         <div className="intro-grid">

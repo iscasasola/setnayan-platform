@@ -75,9 +75,13 @@ export function buildCustomerBottomNav(eventId: string): BottomNavItem[] {
       activeMatch: [`${base}/guests`, `${base}/sponsors`, `${base}/hosts`],
     },
     {
-      // Slot 3 · Vendors — marketplace + event-scoped vendor management.
+      // Slot 3 · Services — the couple's chosen services (the services
+      // their vendors provide) + the marketplace. Renamed from "Vendors"
+      // 2026-06-02 (owner: the tab shows SERVICES, not vendor profiles).
+      // key stays 'vendors' (changing it resets nav localStorage); the
+      // route path stays /vendors (internal, not menu-visible).
       key: 'vendors',
-      label: 'Vendors',
+      label: 'Services',
       href: `${base}/vendors`,
       icon: Store,
       activeMatch: `${base}/vendors`,

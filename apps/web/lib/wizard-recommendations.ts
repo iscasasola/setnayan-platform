@@ -126,6 +126,12 @@ type Args = {
   /** events.ceremony_type · null for civil/no-religion events · used to
    *  filter to compatible-ceremony vendors. */
   ceremonyType: string | null;
+  /** events.secondary_ceremony_type · set for Mixed/interfaith weddings
+   *  (e.g. Catholic + Muslim). When present, vendors compatible with the
+   *  primary OR the secondary ceremony match — additive, only ADMITS more,
+   *  never excludes. Undefined/null = behaves exactly as before (primary
+   *  only). Reliable: same value space as compatible_ceremony_types. */
+  secondaryCeremonyType?: string | null;
   /** events.venue_setting · null when not picked yet · used to filter
    *  to compatible-venue vendors. */
   venueSetting: string | null;
@@ -174,9 +180,26 @@ export async function fetchWizardVendorRecommendations(
   // an OR clause that admits both NULL-compat vendors and explicit
   // overlaps. Same shape as the religion-default-on filter from
   // CLAUDE.md 2026-05-22 row · PR #305.
-  if (args.ceremonyType) {
+  //
+  // Mixed/interfaith weddings (CLAUDE.md 2026-06-01) carry BOTH rites in
+  // ceremony_type + secondary_ceremony_type (e.g. Catholic + Muslim). A
+  // vendor fit for EITHER should match, so we admit the union — additive,
+  // only ADMITS more, never excludes. Same value space as
+  // compatible_ceremony_types (reliable). When only the primary is set this
+  // collapses to the exact pre-existing single-ceremony clause.
+  const ceremonyValues = Array.from(
+    new Set(
+      [args.ceremonyType, args.secondaryCeremonyType]
+        .map((v) => (typeof v === 'string' ? v.trim() : ''))
+        .filter((v) => v.length > 0),
+    ),
+  );
+  if (ceremonyValues.length > 0) {
     query = query.or(
-      `compatible_ceremony_types.is.null,compatible_ceremony_types.cs.{${args.ceremonyType}}`,
+      [
+        'compatible_ceremony_types.is.null',
+        ...ceremonyValues.map((v) => `compatible_ceremony_types.cs.{${v}}`),
+      ].join(','),
     );
   }
 

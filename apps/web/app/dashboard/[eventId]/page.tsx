@@ -93,7 +93,7 @@ import {
 } from '@/lib/paperwork';
 import { AuspiciousChip } from './_components/auspicious-chip';
 import { PersonalizedMenu } from './_components/personalized-menu';
-import { buildTasteChips } from '@/lib/personalized-menu';
+import { buildTasteChips, buildServiceFeatures } from '@/lib/personalized-menu';
 import { EventMetaLine } from './_components/event-meta-line';
 import { VendorAvailabilityIntersection } from './_components/vendor-availability-intersection';
 import { BudgetCountdownHeader } from './_components/budget-countdown-header';
@@ -411,7 +411,7 @@ export default async function EventHomePage({
       // returns null rather than 500-ing the page.
       (async () => {
         const fullSelect =
-          'event_id, display_name, event_date, event_date_precision, slug, venue_name, venue_latitude, venue_longitude, monogram_text, palette_finalized_at, concierge_status, concierge_tier, concierge_activated_at, concierge_expires_at, concierge_long_engagement_advised_at, event_type, ceremony_type, ceremony_type_locked_at, secondary_ceremony_type, venue_setting, estimated_pax, estimated_budget_centavos, region, mood_feel_key, date_status, auspicious_reasons, wizard_state';
+          'event_id, display_name, event_date, event_date_precision, slug, venue_name, venue_latitude, venue_longitude, monogram_text, palette_finalized_at, concierge_status, concierge_tier, concierge_activated_at, concierge_expires_at, concierge_long_engagement_advised_at, event_type, ceremony_type, ceremony_type_locked_at, secondary_ceremony_type, venue_setting, estimated_pax, estimated_budget_centavos, region, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, style_preferences, date_status, auspicious_reasons, wizard_state';
         const fullRes = await supabase
           .from('events')
           .select(fullSelect)
@@ -1552,8 +1552,23 @@ export default async function EventHomePage({
       estimated_budget_centavos: eventBudgetCentavos,
       region: (event as { region?: string | null }).region ?? null,
       mood_feel_key: (event as { mood_feel_key?: string | null }).mood_feel_key ?? null,
+      // Onboarding-v2 date capture — the date chip falls back to candidate
+      // date(s)/window when event_date hasn't settled (onboarding events).
+      date_mode: (event as { date_mode?: string | null }).date_mode ?? null,
+      date_candidates: (event as { date_candidates?: string[] | null }).date_candidates ?? null,
+      date_window_start:
+        (event as { date_window_start?: string | null }).date_window_start ?? null,
+      date_window_end: (event as { date_window_end?: string | null }).date_window_end ?? null,
     },
     personalizedDate,
+  );
+
+  // "What matters for your services" — per-service style picks captured at
+  // onboarding (events.style_preferences). Display only (owner 2026-06-02:
+  // "the features that matter for the different services"). Empty for events
+  // with no captured prefs → the card renders the chips alone.
+  const personalizedFeatures = buildServiceFeatures(
+    (event as { style_preferences?: Record<string, unknown> | null }).style_preferences ?? null,
   );
 
   return (
@@ -1599,6 +1614,7 @@ export default async function EventHomePage({
         eventId={eventId}
         variant="preview"
         tasteChips={personalizedTaste}
+        serviceFeatures={personalizedFeatures}
       />
 
       {/* Block 2 · Upcoming schedules — streams independently; renders only

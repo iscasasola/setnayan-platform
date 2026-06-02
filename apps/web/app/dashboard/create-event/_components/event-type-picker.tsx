@@ -7,6 +7,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import type { CeremonyTypeKey } from '@/app/_components/ceremony-type-radio-group';
 import { createWeddingEvent } from '../actions';
 import { WeddingTypePicker, type LaunchStatusRow } from './wedding-type-picker';
+import { EVENT_TYPES, type EventTypeKey, type EventTypeRow } from './event-types';
 
 /* Retired 2026-05-28 V2 cutover */
 // V1 surfaced a DIY / Concierge ₱2,499 / 3-day-trial choice card at the
@@ -19,30 +20,10 @@ import { WeddingTypePicker, type LaunchStatusRow } from './wedding-type-picker';
 // value is always 'diy' from this surface.
 type ConciergeChoice = 'diy';
 
-// V1 tile list (locked 2026-05-16, debut enabled 2026-05-20). The V1.1
-// multi-event roster (iteration 0041) is growing one event_type at a
-// time; the rest render as "Coming soon" placeholders so couples can see
-// what is on the roadmap without being able to pick it yet.
-//
-// gender_reveal was briefly enabled on 2026-05-20 (PR #177) then reverted
-// to "Coming soon" the same day per owner decision. The enum value stays
-// in the DB (migration 20260521050000) — it's idempotent and harmless
-// when unused; re-enabling later is a one-line flip of `enabled` here +
-// ALLOWED_TYPES in actions.ts.
-const EVENT_TYPES = [
-  { key: 'wedding', label: 'Wedding', emoji: '💍', enabled: true },
-  { key: 'debut', label: 'Debut', emoji: '👑', enabled: true },
-  { key: 'gender_reveal', label: 'Gender Reveal', emoji: '🎈', enabled: false },
-  { key: 'birthday', label: 'Birthday', emoji: '🎂', enabled: false },
-  { key: 'celebration', label: 'Celebration', emoji: '🥂', enabled: false },
-  { key: 'travel', label: 'Travel', emoji: '✈️', enabled: false },
-  { key: 'corporate', label: 'Corporate', emoji: '🏢', enabled: false },
-  { key: 'tournament', label: 'Tournament', emoji: '🏆', enabled: false },
-  { key: 'christening', label: 'Christening', emoji: '🕯️', enabled: false },
-] as const;
-
-type EventTypeKey = (typeof EVENT_TYPES)[number]['key'];
-type EventTypeRow = (typeof EVENT_TYPES)[number];
+// EVENT_TYPES / EventTypeKey / EventTypeRow now live in ./event-types so the
+// full-page picker (here) and the in-chrome add-event bottom sheet inside
+// EventSwitcher share one roster. See that file for the V1 tile-list history
+// (locked 2026-05-16, debut enabled 2026-05-20, gender_reveal reverted).
 
 type EventTypePickerProps = {
   launchStatus: LaunchStatusRow[];

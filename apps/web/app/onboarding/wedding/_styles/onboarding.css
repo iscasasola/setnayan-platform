@@ -67,9 +67,13 @@
 .pba .vempty{padding:18px;border:1px dashed var(--line-2);border-radius:14px;color:var(--ink-soft);font-size:13.5px;line-height:1.5;background:var(--surface);}
 
 /* Budget v2 (owner 2026-06-02): text box + line picker + band-on-photo.
-   Override the grow-to-fill #screen-budget .budgetphoto rule with a compact
-   fixed height so the amount box + slider + ends all fit one viewport. */
-.pba #screen-budget .budgetphoto.budgetphoto--compact{flex:0 0 auto;height:clamp(150px,21vh,188px);min-height:0;margin-bottom:0;}
+   Owner 2026-06-03: "increase the height of the cards so it can cover the whole
+   screen ... stretch the frame and photo to see more and remove dead space."
+   The photo grows to fill the viewzone (eating the gap above the docked slider/
+   amount-box tapzone), mirroring the #screen-pax photo-fill. flex:1 1 auto so it
+   absorbs the remaining space; the tapzone stays docked via margin-top:auto so
+   the controls never get pushed off (Golden Rule 1: still one viewport). */
+.pba #screen-budget .budgetphoto.budgetphoto--compact{flex:1 1 auto;height:auto;min-height:210px;margin-bottom:8px;}
 .pba .budgetcapsub{font-family:var(--serif);font-style:italic;font-weight:500;font-size:14px;line-height:1.2;color:#f3e6cf;display:block;margin:1px 0 3px;}
 .pba .bdg-amtwrap{display:flex;align-items:center;gap:8px;margin-bottom:13px;}
 .pba .bdg-amtwrap .paxexactlbl{flex:0 0 auto;}
@@ -93,3 +97,19 @@
 .pba .fin-title{font-family:var(--serif);font-style:italic;font-weight:600;font-size:23px;line-height:1.22;color:var(--ink);}
 .pba .fin-sub{font-family:var(--sans);font-size:13.5px;color:var(--ink-soft);margin-top:9px;line-height:1.5;min-height:2.7em;}
 @media(prefers-reduced-motion:reduce){.pba .fin-spinner{animation:none}.pba .fin-overlay{animation:none}}
+
+/* 2026-06-03 — reception (Style 1) + ceremony (Style 2) prefs: grow the docked
+   card grid + its card photos to fill the gap above the headline. Owner: "stretch
+   the height of the cards to fill it up" / "this is still not fixed". Those steps
+   render a plain .pgrid of PCards inside the .tapzone (margin-top:auto → docked at
+   the bottom, big empty gap above). Scoped to .pgrid:not(.strip) so the catering /
+   photo_video film-strip steps (which carry a .styhero and a horizontal .strip)
+   stay untouched. grid-auto-rows:1fr distributes the rows evenly, bounded by the
+   viewport (Golden Rule 1: reception 4 rows / ceremony 3 rows → ~500px grid on a
+   665px viewport, no overflow). :has() is baseline-supported; where unsupported it
+   simply no-ops back to the current docked layout (the gap), so it degrades safely. */
+.pba .prefstep .tapzone:has(.pgrid:not(.strip)){display:flex;flex-direction:column;flex:1 1 auto;min-height:0;margin-top:0;}
+.pba .prefstep .tapzone:has(.pgrid:not(.strip)) > [data-single]{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;}
+.pba .prefstep .pgrid:not(.strip){flex:1 1 auto;grid-auto-rows:1fr;align-content:stretch;min-height:0;}
+.pba .prefstep .pgrid:not(.strip) .pcard{display:flex;flex-direction:column;}
+.pba .prefstep .pgrid:not(.strip) .pcard .pimg{flex:1 1 auto;height:auto;min-height:74px;}

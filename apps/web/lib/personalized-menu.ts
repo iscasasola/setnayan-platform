@@ -80,6 +80,57 @@ function formatBudget(centavos: number | null | undefined): string | null {
   return `₱${pesos.toLocaleString('en-PH', { maximumFractionDigits: 0 })} budget`;
 }
 
+// Format an ISO yyyy-mm-dd as "Aug 15, 2026" (or "Aug 15" without year).
+// Parts are parsed manually (not `new Date(iso)`) to avoid the UTC-midnight
+// off-by-one a timezone shift would cause.
+function fmtISODate(iso: string | null | undefined, withYear = true): string | null {
+  if (!iso) return null;
+  const parts = iso.split('-');
+  if (parts.length !== 3) return null;
+  const y = Number(parts[0]);
+  const m = Number(parts[1]);
+  const d = Number(parts[2]);
+  if (Number.isNaN(y) || Number.isNaN(m) || Number.isNaN(d)) return null;
+  const date = new Date(y, m - 1, d);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString('en-PH', {
+    month: 'short',
+    day: 'numeric',
+    ...(withYear ? { year: 'numeric' as const } : {}),
+  });
+}
+
+/**
+ * Wedding-date label for the Home card. The committed exact `event_date` is
+ * handled by the caller's `formattedDate` arg; THIS covers onboarding events
+ * (event_date is null — the date lives in date_mode/candidates/window):
+ *   - flexible window → "Aug 1 – Aug 30, 2026"
+ *   - single candidate → "Aug 15, 2026"
+ *   - multiple candidates → "3 possible dates"
+ * Returns null when there's nothing to show.
+ */
+export function formatWeddingDateLabel(event: EventTasteSource): string | null {
+  if (
+    event.date_mode === 'window' &&
+    event.date_window_start &&
+    event.date_window_end
+  ) {
+    const start = fmtISODate(event.date_window_start, false);
+    const end = fmtISODate(event.date_window_end, true);
+    if (start && end) return `${start} – ${end}`;
+    return end ?? start;
+  }
+  const candidates = (event.date_candidates ?? []).filter(Boolean);
+  if (candidates.length === 1) {
+    const single = fmtISODate(candidates[0], true);
+    if (single) return single;
+  }
+  if (candidates.length > 1) {
+    return `${candidates.length} possible dates`;
+  }
+  return null;
+}
+
 export type EventTasteSource = {
   event_date?: string | null;
   ceremony_type?: string | null;
@@ -89,7 +140,63 @@ export type EventTasteSource = {
   estimated_budget_centavos?: number | null;
   region?: string | null;
   mood_feel_key?: string | null;
+  // Onboarding-v2 date capture (migration 20260719000000). Onboarding events
+  // have a null event_date — the date lives here as candidate date(s) or a
+  // flexible window until it settles on vendor availability. formatWeddingDateLabel
+  // surfaces it so the Home card's date chip isn't blank.
+  date_mode?: string | null;
+  date_candidates?: string[] | null;
+  date_window_start?: string | null;
+  date_window_end?: string | null;
+  // Display-only per-service style blob (migration 20260724000000) — feeds
+  // buildServiceFeatures for the "What matters for your services" list. NOT
+  // vendor matching (CLAUDE.md 2026-06-02 Phase A2).
+  style_preferences?: Record<string, unknown> | null;
 };
+
+/**
+ * A "what matters for your services" row on the Home Personalized card — built
+ * from events.style_preferences (the onboarding style sub-stepper picks). One
+ * row per non-empty preference dimension. Display only.
+ */
+export type ServiceFeature = {
+  /** The pref key (reception/cuisine/pvLook/…) — stable for React keys. */
+  dimension: string;
+  /** Human label (e.g. "Reception look", "Photo & video style"). */
+  label: string;
+  /** Cleaned, joined value(s) (e.g. "Garden · Beach"). */
+  values: string;
+};
+
+// Dimension → human label. Owner-specified map (2026-06-02). Unknown keys fall
+// back to titleCase so a future onboarding dimension still renders.
+const SERVICE_FEATURE_LABELS: Record<string, string> = {
+  feel: 'Overall style',
+  reception: 'Reception look',
+  ceremony: 'Ceremony setting',
+  cuisine: 'Cuisine',
+  serviceStyle: 'Catering style',
+  dietary: 'Dietary',
+  pvLook: 'Photo & video style',
+  pvNeed: 'Photo & video',
+  pvIncluded: 'Coverage includes',
+  music: 'Music vibe',
+};
+
+// Natural reading order — overall style leads, then service-by-service. Any
+// key not listed here is appended (titleCased) so nothing is silently dropped.
+const SERVICE_FEATURE_ORDER = [
+  'feel',
+  'reception',
+  'ceremony',
+  'cuisine',
+  'serviceStyle',
+  'dietary',
+  'pvLook',
+  'pvNeed',
+  'pvIncluded',
+  'music',
+];
 
 /**
  * Builds the curated match-criteria chips, in the order they read
@@ -103,7 +210,10 @@ export function buildTasteChips(
 ): TasteChip[] {
   const chips: TasteChip[] = [];
 
-  if (formattedDate) chips.push({ label: formattedDate });
+  // Committed exact date wins; else fall back to the onboarding candidate/window
+  // capture so the date chip isn't blank for onboarding events (null event_date).
+  const dateLabel = formattedDate ?? formatWeddingDateLabel(event);
+  if (dateLabel) chips.push({ label: dateLabel });
 
   const region = event.region ?? null;
   if (region) chips.push({ label: REGION_LABEL[region] ?? titleCase(region) });
@@ -132,4 +242,74 @@ export function buildTasteChips(
   if (budget) chips.push({ label: budget });
 
   return chips;
+}
+
+// Strip the onboarding key prefixes (setting_garden → Garden, feel_timeless →
+// Timeless, cuisine_filipino → Filipino, pv_classic → Classic) then titleCase.
+function cleanFeatureValue(raw: string): string {
+  return titleCase(raw.replace(/^(setting_|feel_|cuisine_|pv_)/, ''));
+}
+
+// One pref value → a display string (or null to skip). Arrays join with " · ";
+// the music seed (a list of "Title|Artist" picks, not a vibe descriptor) is
+// summarized as a count rather than dumped. Anything that isn't a non-empty
+// string / non-empty string-array is skipped.
+function featureValueString(key: string, raw: unknown): string | null {
+  if (raw == null) return null;
+  if (Array.isArray(raw)) {
+    const vals = raw.filter(
+      (v): v is string => typeof v === 'string' && v.trim().length > 0,
+    );
+    if (vals.length === 0) return null;
+    if (key === 'music') {
+      return `${vals.length} song${vals.length === 1 ? '' : 's'} picked`;
+    }
+    return vals.map(cleanFeatureValue).join(' · ');
+  }
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+    return cleanFeatureValue(trimmed);
+  }
+  return null;
+}
+
+/**
+ * Turns the onboarding style_preferences blob into "what matters for your
+ * services" rows for the Home Personalized card (owner 2026-06-02: "the
+ * features that matter for the different services"). One row per non-empty
+ * dimension, known dimensions first in reading order, unknown keys appended
+ * titleCased. Robust: missing/empty/non-string values are skipped, never thrown.
+ */
+export function buildServiceFeatures(
+  stylePrefs: Record<string, unknown> | null | undefined,
+): ServiceFeature[] {
+  if (!stylePrefs || typeof stylePrefs !== 'object') return [];
+  const rows: ServiceFeature[] = [];
+  const seen = new Set<string>();
+
+  for (const key of SERVICE_FEATURE_ORDER) {
+    if (!(key in stylePrefs)) continue;
+    const values = featureValueString(key, stylePrefs[key]);
+    if (!values) continue;
+    rows.push({
+      dimension: key,
+      label: SERVICE_FEATURE_LABELS[key] ?? titleCase(key),
+      values,
+    });
+    seen.add(key);
+  }
+
+  for (const key of Object.keys(stylePrefs)) {
+    if (seen.has(key)) continue;
+    const values = featureValueString(key, stylePrefs[key]);
+    if (!values) continue;
+    rows.push({
+      dimension: key,
+      label: SERVICE_FEATURE_LABELS[key] ?? titleCase(key),
+      values,
+    });
+  }
+
+  return rows;
 }

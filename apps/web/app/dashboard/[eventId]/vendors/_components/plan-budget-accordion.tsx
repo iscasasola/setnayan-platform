@@ -413,7 +413,6 @@ export function PlanBudgetAccordion({
   model: PlanBudgetModel;
   eventId: string;
 }) {
-  const hasAnyPick = model.recap.shortlisted > 0;
   const rootRef = useRef<HTMLDivElement>(null);
   // Compare sheet — which child category (≥2 shortlisted) is being compared.
   // Lifted to root so the fixed-position sheet escapes the curve-transformed
@@ -580,20 +579,22 @@ export function PlanBudgetAccordion({
               head — including Prints + Transport — STAYS pinned at max scroll
               instead of un-pinning as the recap arrives. Also stops the
               headers detaching/floating on over-scroll. (owner 2026-06-01) */}
-          {hasAnyPick && (
-            <div className="end-spacer">
-              <Recap recap={model.recap} />
-              {model.inactiveCategoryCount > 0 && (
-                <a className="catunlock" href={`/dashboard/${eventId}/vendors/categories`}>
-                  <span className="cu-ico" aria-hidden>
-                    +
-                  </span>
-                  Unlock {model.inactiveCategoryCount} more categor
-                  {model.inactiveCategoryCount === 1 ? 'y' : 'ies'}
-                </a>
-              )}
-            </div>
-          )}
+          {/* Recap always caps the pile (owner 2026-06-02): the summary is the
+              terminal element regardless of picks. searched + hoursSaved derive
+              from the market pool, so a no-pick event still shows a meaningful
+              summary instead of nothing. */}
+          <div className="end-spacer">
+            <Recap recap={model.recap} />
+            {model.inactiveCategoryCount > 0 && (
+              <a className="catunlock" href={`/dashboard/${eventId}/vendors/categories`}>
+                <span className="cu-ico" aria-hidden>
+                  +
+                </span>
+                Unlock {model.inactiveCategoryCount} more categor
+                {model.inactiveCategoryCount === 1 ? 'y' : 'ies'}
+              </a>
+            )}
+          </div>
         </div>
 
         {compare && (
@@ -732,6 +733,13 @@ function Overview({
           </span>
           Add your first category
         </a>
+
+        <p className="intro-cta">
+          Swipe to start viewing the services
+          <span className="chev" aria-hidden>
+            ↓
+          </span>
+        </p>
       </section>
     );
   }
@@ -801,7 +809,7 @@ function Overview({
       </div>
 
       <p className="intro-cta">
-        Your categories below
+        Swipe to start viewing the services
         <span className="chev" aria-hidden>
           ↓
         </span>

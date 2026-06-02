@@ -62,9 +62,41 @@ export interface OnboardingState {
    */
   faith: OnboardingFaith[];
 
-  // -- Phase 2+ fields (declared here for state-shape stability; not written yet)
+  // -- Phase 2 fields (screens 4-8: name · date · region · pax · budget) --
+
+  /** Bride first name (screen 4). Maps to events.bride_name. */
   brideName: string;
+  /** Groom first name (screen 4). Maps to events.groom_name. */
   groomName: string;
+  /** Monogram frame index into MONO_FRAMES (screen 4 · free styling). */
+  monogramFrame: number;
+  /** Monogram font index into MONO_FONTS (screen 4). */
+  monogramFont: number;
+
+  /**
+   * Wedding-date capture mode (screen 5). 'specific' = 1-4 candidate dates within
+   * a 90-day cluster; 'window' = a flexible range ≤30 days inclusive. The final
+   * events.event_date settles later on vendor availability. Maps to events.date_mode.
+   */
+  dateMode: 'specific' | 'window';
+  /** Specific-mode candidate dates, ISO yyyy-mm-dd, sorted asc (≤4). Maps to events.date_candidates. */
+  dateCandidates: string[];
+  /** Flexible-window start, ISO yyyy-mm-dd (null in specific mode). Maps to events.date_window_start. */
+  windowStart: string | null;
+  /** Flexible-window end, ISO yyyy-mm-dd (null until the end is picked). Maps to events.date_window_end. */
+  windowEnd: string | null;
+
+  /** Region key (screen 6) — area match for vendor coverage. Maps to events.region. */
+  region: string | null;
+
+  /** Exact guest count (screen 7) — may be <50 or >500. Maps to events.estimated_pax. */
+  pax: number | null;
+
+  /**
+   * Working-budget feel band (screen 8) — essentials/simple/classic/elevated/premium/
+   * luxury/nolimit. Maps to events.budget_band. Couple-side compass, NOT a Setnayan SKU price.
+   */
+  budgetBand: string | null;
 
   /** ISO timestamp of last save — for debugging stale drafts. */
   lastSavedAt: string;
@@ -88,8 +120,17 @@ export const EMPTY_ONBOARDING_STATE: OnboardingState = {
   role: null,
   kind: null,
   faith: [],
-  brideName: '',
-  groomName: '',
+  brideName: 'Maria',
+  groomName: 'Juan',
+  monogramFrame: 0,
+  monogramFont: 0,
+  dateMode: 'specific',
+  dateCandidates: [],
+  windowStart: null,
+  windowEnd: null,
+  region: 'ncr',
+  pax: 150,
+  budgetBand: 'classic',
   lastSavedAt: '',
 };
 
@@ -104,8 +145,13 @@ export const SCREEN_SEQUENCE = [
   'welcome',  // 0
   'role',     // 1
   'kind',     // 2
-  'faith',    // 3
-  // 4-14 land in Phase 2-4
+  'faith',    // 3  (skipped when kind=civil — shell go() logic)
+  'name',     // 4
+  'date',     // 5
+  'region',   // 6
+  'pax',      // 7
+  'budget',   // 8
+  // 9-14 land in Phase 3-4 (picker · style · find-vendor · bundle · congrats · plan)
 ] as const;
 
 export type ScreenId = (typeof SCREEN_SEQUENCE)[number];

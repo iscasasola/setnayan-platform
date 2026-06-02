@@ -72,10 +72,13 @@ export interface OnboardingState {
   groomFirstName: string;
   /** Groom last name (screen 4) — joined into events.groom_name + the guest-list row. */
   groomLastName: string;
-  /** Monogram frame index into MONO_FRAMES (screen 4 · free styling). */
-  monogramFrame: number;
-  /** Monogram font index into MONO_FONTS (screen 4). */
-  monogramFont: number;
+  /**
+   * Monogram design index into MONO_DESIGNS (screen 4 · free styling). Each design
+   * is a curated {frame + font + ink} preset; the "Generate another design" button
+   * cycles through 10 (owner 2026-06-02 — replaced the separate Frame/Font cyclers).
+   * Commit derives events.monogram_frame_key + monogram_font_key from the active design.
+   */
+  monogramDesign: number;
 
   /**
    * Wedding-date capture mode (screen 5). 'specific' = 1-4 candidate dates within
@@ -218,8 +221,7 @@ export const EMPTY_ONBOARDING_STATE: OnboardingState = {
   brideLastName: '',
   groomFirstName: '',
   groomLastName: '',
-  monogramFrame: 0,
-  monogramFont: 0,
+  monogramDesign: 0,
   dateMode: 'specific',
   dateCandidates: [],
   windowStart: null,

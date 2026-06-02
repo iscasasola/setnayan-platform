@@ -330,6 +330,8 @@ body.selmode .card-chk{display:inline-flex}
 .dw-tag{flex:0 0 auto;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:var(--r-pill)}
 .dw-exact{background:var(--bride-bg);color:var(--bride)} .dw-nick{background:var(--both-bg);color:var(--both)} .dw-typo{background:rgba(197,160,89,.20);color:var(--gold-deep)}
 .dw-dismiss{margin-top:2px;background:none;border:none;color:var(--gold-deep);font-size:12.5px;font-weight:600;cursor:pointer;padding:5px 2px;text-decoration:underline;text-underline-offset:2px}
+.dw-add2{margin-top:6px;width:100%;height:40px;border:1.5px solid var(--line);border-radius:11px;background:#fff;color:var(--ink-soft);font-size:13px;font-weight:650;cursor:pointer}
+.dw-add2:active{transform:scale(.985)}
 .btn-primary.warn{background:var(--gold-deep)} .btn-primary.warn:hover{background:#8c6c2f}
 .sfoot .addmore{margin-right:auto;background:none;border:none;color:var(--mulberry);font-weight:700;font-size:13px;cursor:pointer;padding:8px 2px}
 .add-toast{position:fixed;left:50%;bottom:150px;transform:translateX(-50%) translateY(8px);z-index:90;background:var(--ink);color:var(--paper);font-size:13px;font-weight:600;padding:10px 16px;border-radius:var(--r-pill);box-shadow:0 8px 22px rgba(30,34,41,.22);opacity:0;pointer-events:none;transition:opacity .18s,transform .18s}
@@ -1147,23 +1149,29 @@ function renderAddState(){
     const TAG={exact:'Already added',nick:'Same person?',typo:'Typo?'};
     box.innerHTML=`<div class="dw-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>You may have already added ${dups.length>1?'these guests':'this guest'}</div>`
       + dups.map(({g,kind})=>`<div class="dw-row"><span class="av s-${g.side}">${initials(g)}</span><div class="dw-mid"><div class="dw-nm">${disp(g)}</div><div class="dw-sub">${(ROLE[g.role]?.l)||'Guest'} · ${sideLabel(g.side)}</div></div><span class="dw-tag dw-${kind}">${TAG[kind]}</span></div>`).join('')
-      + `<button class="dw-dismiss" id="dupDismiss">No — this is a different person</button>`;
-    box.hidden=false; btn.textContent='Add anyway'; btn.classList.add('warn');
+      + `<button class="dw-add2" id="dupAdd">＋ No — add as a different person</button>`;
+    box.hidden=false; btn.textContent='Skip — already added'; btn.classList.add('warn');
   } else {
     box.hidden=true; btn.classList.remove('warn'); btn.textContent=hasName?'Add guest':'Done';
   }
 }
 ['addFn','addLn'].forEach(id=>document.getElementById(id).addEventListener('input', ()=>{ dupDismissed=false; renderAddState(); }));
-document.getElementById('dupWarn').addEventListener('click', e=>{ if(e.target.closest('#dupDismiss')){ dupDismissed=true; renderAddState(); } });
+document.getElementById('dupWarn').addEventListener('click', e=>{ if(e.target.closest('#dupAdd')){ forceAdd(true); } });
 
 /* ===== keyboard fast-add: ↵ first→last, ↵ last→save & start the next ===== */
 document.getElementById('addFn').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); document.getElementById('addLn').focus(); } });
-document.getElementById('addLn').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); saveGuest(true); } });
+document.getElementById('addLn').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); if(dupActive()){ skipDuplicate(); } else { saveGuest(true); } } });
 
 /* ===== save — names clear, batch context (team · role · group) stays sticky ===== */
 let addToastT=null;
 function addToast(msg){ const t=document.getElementById('addToast'); t.textContent=msg; t.classList.add('show'); clearTimeout(addToastT); addToastT=setTimeout(()=>t.classList.remove('show'),1700); }
 function clearNames(){ document.getElementById('addFn').value=''; document.getElementById('addLn').value=''; dupDismissed=false; renderAddState(); }
+/* a flagged duplicate is showing right now */
+function dupActive(){ const fn=document.getElementById('addFn').value, ln=document.getElementById('addLn').value; return !!(norm(fn)||norm(ln)) && !dupDismissed && findDuplicates(fn,ln).length>0; }
+/* agree it's a duplicate: DON'T add, clear the inputs, start again */
+function skipDuplicate(){ clearNames(); addToast('Skipped — already on your list'); document.getElementById('addFn').focus(); }
+/* override: it's genuinely a different person — add despite the match */
+function forceAdd(keepOpen){ dupDismissed=true; saveGuest(keepOpen); }
 function saveGuest(keepOpen){
   const fn=document.getElementById('addFn').value.trim(), ln=document.getElementById('addLn').value.trim();
   if(!fn && !ln){ if(keepOpen) document.getElementById('addFn').focus(); else closeSheets(); return; }
@@ -1175,8 +1183,8 @@ function saveGuest(keepOpen){
   if(keepOpen){ addToast(`${(fn||ln)} added`); document.getElementById('addFn').focus(); }
   else closeSheets();
 }
-document.getElementById('addSave').addEventListener('click', ()=>saveGuest(false));
-document.getElementById('addAnother').addEventListener('click', ()=>saveGuest(true));
+document.getElementById('addSave').addEventListener('click', ()=>{ if(dupActive()){ skipDuplicate(); } else { saveGuest(false); } });
+document.getElementById('addAnother').addEventListener('click', ()=>{ if(dupActive()){ skipDuplicate(); } else { saveGuest(true); } });
 renderAddGroups(); renderAddState();
 
 // --- sort sheet ---

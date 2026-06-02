@@ -1,10 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { formatEventDate } from '@/lib/events';
 import { EventMonogram } from '@/app/_components/event-monogram';
+import { EVENT_TYPES } from '@/app/dashboard/create-event/_components/event-types';
 
 /**
  * Event switcher — iteration 0000 chrome (locked 2026-05-14 single-strip
@@ -16,18 +18,31 @@ import { EventMonogram } from '@/app/_components/event-monogram';
  *   - **Long-press monogram (mobile)** → opens the switcher.
  *   - **Caret ▾ (desktop)** → opens the switcher popover.
  *
- * Switcher contents (top to bottom):
- *   1. `+ Add event` row at top.
- *   2. Event list — primary first, marked with ★; each row monogram + name
- *      + date pill (or "date TBD" when event_date is null).
- *   3. Role-switch rows separated by a thin border:
- *        - Shop console (visible when user has vendor access)
- *        - Admin console (visible when user has admin grant)
+ * Responsive popover (2026-06-02, "Both"): the open switcher renders as an
+ * **anchored dropdown on desktop (≥ sm)** and a **bottom sheet that slides up
+ * from the bottom on mobile (< sm)**. The same `renderMenu()` body feeds both
+ * surfaces — exactly one is visible per breakpoint (`hidden sm:block` on the
+ * dropdown, `sm:hidden` on the portaled sheet). The mobile sheet is
+ * `createPortal`-ed to `document.body` so its `fixed` positioning is robust
+ * against any ancestor transforms in the chrome.
  *
- * Set-primary affordance is **scope-cut to V1.1** — the existing `events.is_primary`
- * column already drives the ★ marker on the most recent / primary event,
- * but the long-press-row / kebab UI to flip the flag from the switcher is
- * not in this PR. Couples can still set primary via the existing
+ * Two in-place views inside the popover:
+ *   - `events` — the default. `+ Add event` row, then the event list (primary
+ *     first, ★-marked), then the role-switch rows ("Switch view": Shop / Admin
+ *     consoles, gated on access).
+ *   - `addtype` — `+ Add event` swaps the popover body to a carousel of event
+ *     types (the same roster the full /dashboard/create-event page uses, shared
+ *     from `event-types.ts`). Picking **Wedding** continues to
+ *     `/onboarding/wedding`; **Debut** continues to `/dashboard/create-event`;
+ *     coming-soon types render disabled. `‹ Back` returns to the event list.
+ *   The whole add-event path is therefore sheet-based on mobile without
+ *   navigating away — but `/dashboard/create-event` stays un-orphaned (the
+ *   empty-state monogram "+" still links to it, and Debut routes there).
+ *
+ * Set-primary affordance is **scope-cut to V1.1** — the existing
+ * `events.is_primary` column already drives the ★ marker on the most recent /
+ * primary event, but the long-press-row / kebab UI to flip the flag from the
+ * switcher is not in this PR. Couples can still set primary via the existing
  * `/dashboard/profile`-side controls until V1.1 ships.
  */
 
@@ -58,6 +73,8 @@ type Props = {
   vendorProfiles: SwitcherVendorTarget[];
 };
 
+type View = 'events' | 'addtype';
+
 export function EventSwitcher({
   currentEventId,
   currentEventName,
@@ -70,20 +87,42 @@ export function EventSwitcher({
   vendorProfiles,
 }: Props) {
   const [open, setOpen] = useState(false);
+  const [view, setView] = useState<View>('events');
+  const [typeIdx, setTypeIdx] = useState(0);
+  const [mounted, setMounted] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const sheetRef = useRef<HTMLDivElement | null>(null);
   const longPressTimerRef = useRef<number | null>(null);
   const isLongPressFiredRef = useRef(false);
+
+  // SSR-safe portal: only render the mobile sheet portal after mount so
+  // `document.body` is guaranteed to exist (avoids a hydration/SSR crash).
+  useEffect(() => setMounted(true), []);
+
+  // Closing always resets the popover back to the event list so the next open
+  // starts on `events`, never mid-carousel.
+  const closeMenu = () => {
+    setOpen(false);
+    setView('events');
+  };
 
   useEffect(() => {
     if (!open) return;
     const onClickAway = (e: MouseEvent) => {
-      if (!containerRef.current) return;
-      if (!containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      const target = e.target as Node;
+      // Taps inside the anchored dropdown (in `containerRef`) or inside the
+      // portaled mobile sheet (`sheetRef`) keep the menu open; everything else
+      // — including the sheet backdrop — closes it.
+      if (containerRef.current?.contains(target)) return;
+      if (sheetRef.current?.contains(target)) return;
+      setOpen(false);
+      setView('events');
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === 'Escape') {
+        setOpen(false);
+        setView('events');
+      }
     };
     document.addEventListener('mousedown', onClickAway);
     document.addEventListener('keydown', onKey);
@@ -99,6 +138,7 @@ export function EventSwitcher({
     isLongPressFiredRef.current = false;
     longPressTimerRef.current = window.setTimeout(() => {
       isLongPressFiredRef.current = true;
+      setView('events');
       setOpen(true);
     }, 400);
   };
@@ -117,6 +157,256 @@ export function EventSwitcher({
       isLongPressFiredRef.current = false;
     }
   };
+
+  // Carousel modulo helper — keeps the index in [0, N-1] so rewinding past 0
+  // wraps to the last tile and advancing past the last wraps to 0. The `!` is
+  // what tells TS (under noUncheckedIndexedAccess) the lookup is non-null.
+  const N = EVENT_TYPES.length;
+  const at = (i: number) => EVENT_TYPES[((i % N) + N) % N]!;
+  const centerType = at(typeIdx);
+  const goPrevType = () => setTypeIdx((i) => (i - 1 + N) % N);
+  const goNextType = () => setTypeIdx((i) => (i + 1) % N);
+
+  // Shared popover body — rendered into BOTH the desktop dropdown and the
+  // mobile bottom sheet. Exactly one wrapper is visible per breakpoint.
+  function renderMenu() {
+    if (view === 'addtype') {
+      // Enabled tiles route: Wedding → the onboarding flow (captures
+      // names/date/region/pax/budget/style + commits the event); every other
+      // enabled type (debut) → the full create-event page. Coming-soon types
+      // are non-interactive.
+      const href =
+        centerType.key === 'wedding' ? '/onboarding/wedding' : '/dashboard/create-event';
+
+      return (
+        <div className="max-h-[72vh] overflow-y-auto p-1">
+          <button
+            type="button"
+            onClick={() => setView('events')}
+            className="font-mono text-xs uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta"
+          >
+            ‹ Back to events
+          </button>
+
+          <p className="mt-2 px-1 text-sm font-medium text-ink">
+            What kind of event are you planning?
+          </p>
+          <p className="mb-3 px-1 text-xs text-ink/55">
+            Weddings are live today. Swipe through to see what&apos;s on the way — tap
+            an upcoming tile to be notified when it opens.
+          </p>
+
+          <div className="flex items-stretch gap-2">
+            <button
+              type="button"
+              onClick={goPrevType}
+              aria-label="Previous event type"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center self-center rounded-full border border-ink/15 bg-cream text-ink/70 transition-colors hover:border-terracotta/40 hover:bg-terracotta/10 hover:text-terracotta"
+            >
+              <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
+            </button>
+
+            <div className="min-w-0 flex-1">
+              {centerType.enabled ? (
+                <Link
+                  href={href}
+                  onClick={closeMenu}
+                  className="relative flex flex-col items-center gap-2 rounded-2xl border border-terracotta/40 bg-terracotta/5 px-4 py-6 text-center transition-colors hover:bg-terracotta/10"
+                >
+                  <span aria-hidden className="text-3xl">
+                    {centerType.emoji}
+                  </span>
+                  <span className="text-base font-medium text-ink">{centerType.label}</span>
+                  <span className="rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta">
+                    Continue &rarr;
+                  </span>
+                </Link>
+              ) : (
+                <div
+                  aria-disabled
+                  className="relative flex cursor-not-allowed flex-col items-center gap-2 rounded-2xl border border-ink/10 bg-ink/[0.03] px-4 py-6 text-center opacity-70"
+                >
+                  <span aria-hidden className="text-3xl">
+                    {centerType.emoji}
+                  </span>
+                  <span className="text-base font-medium text-ink">{centerType.label}</span>
+                  <span className="rounded-full bg-ink/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/60">
+                    Coming soon
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={goNextType}
+              aria-label="Next event type"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center self-center rounded-full border border-ink/15 bg-cream text-ink/70 transition-colors hover:border-terracotta/40 hover:bg-terracotta/10 hover:text-terracotta"
+            >
+              <ChevronRight aria-hidden className="h-5 w-5" strokeWidth={2} />
+            </button>
+          </div>
+
+          <div className="mt-3 flex justify-center gap-2" role="tablist" aria-label="Event type pages">
+            {EVENT_TYPES.map((t, i) => {
+              const active = i === typeIdx;
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  aria-label={`Show ${t.label}`}
+                  onClick={() => setTypeIdx(i)}
+                  className={`h-2 rounded-full transition-all ${
+                    active ? 'w-6 bg-terracotta' : 'w-2 bg-ink/20 hover:bg-ink/40'
+                  }`}
+                />
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    // Default: the event list.
+    return (
+      <div className="max-h-[72vh] overflow-y-auto">
+        <button
+          type="button"
+          onClick={() => {
+            setTypeIdx(0);
+            setView('addtype');
+          }}
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-medium text-terracotta-700 hover:bg-terracotta/10"
+        >
+          <span
+            aria-hidden
+            className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-dashed border-terracotta/40 text-base leading-none"
+          >
+            +
+          </span>
+          Add event
+        </button>
+
+        {events.length > 0 ? (
+          <ul className="mt-1 space-y-0.5">
+            {events.map((ev) => {
+              const isCurrent = ev.event_id === currentEventId;
+              return (
+                <li key={ev.event_id} role="none">
+                  <Link
+                    role="menuitem"
+                    href={`/dashboard/${ev.event_id}`}
+                    aria-current={isCurrent ? 'page' : undefined}
+                    className={`flex items-center justify-between gap-2 rounded-xl px-2 py-2 text-sm transition-colors hover:bg-terracotta/10 ${
+                      isCurrent ? 'bg-terracotta/5 text-ink' : 'text-ink/85'
+                    }`}
+                    onClick={closeMenu}
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <EventMonogram
+                        event={{
+                          display_name: ev.display_name,
+                          monogram_text: ev.monogram_text,
+                          monogram_color: ev.monogram_color,
+                        }}
+                        size="sm"
+                      />
+                      <span className="flex min-w-0 items-center gap-1">
+                        {ev.is_primary ? (
+                          <span
+                            aria-label="Primary event"
+                            title="Primary event"
+                            className="text-terracotta"
+                          >
+                            ★
+                          </span>
+                        ) : null}
+                        <span className="truncate font-medium">{ev.display_name}</span>
+                      </span>
+                    </span>
+                    <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+                      {ev.event_date ? formatEventDate(ev.event_date) : 'date TBD'}
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
+
+        {hasVendorAccess || hasAdminAccess ? (
+          <div className="mt-2 border-t border-ink/10 pt-2">
+            <p className="px-3 py-1 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/40">
+              Switch view
+            </p>
+            {hasVendorAccess && vendorProfiles.length === 1 ? (
+              <Link
+                role="menuitem"
+                href="/vendor-dashboard"
+                className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-ink/85 hover:bg-terracotta/10"
+                onClick={closeMenu}
+              >
+                <span
+                  aria-hidden
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-terracotta/15 text-xs font-semibold text-terracotta-700"
+                >
+                  S
+                </span>
+                <span className="flex flex-col">
+                  <span className="font-medium">Shop console</span>
+                  <span className="text-[11px] text-ink/55">
+                    {vendorProfiles[0]?.business_name ?? 'Vendor profile'}
+                  </span>
+                </span>
+              </Link>
+            ) : hasVendorAccess && vendorProfiles.length > 1 ? (
+              <div className="space-y-0.5">
+                <p className="px-3 text-xs text-ink/55">Shop console</p>
+                {vendorProfiles.map((vp) => (
+                  <Link
+                    role="menuitem"
+                    key={vp.vendor_profile_id}
+                    href="/vendor-dashboard"
+                    className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-ink/85 hover:bg-terracotta/10"
+                    onClick={closeMenu}
+                  >
+                    <span
+                      aria-hidden
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-terracotta/15 text-xs font-semibold text-terracotta-700"
+                    >
+                      {vp.business_name.charAt(0).toUpperCase() || 'V'}
+                    </span>
+                    <span className="truncate">{vp.business_name}</span>
+                  </Link>
+                ))}
+              </div>
+            ) : null}
+            {hasAdminAccess ? (
+              <Link
+                role="menuitem"
+                href="/admin"
+                className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-ink/85 hover:bg-purple-50"
+                onClick={closeMenu}
+              >
+                <span
+                  aria-hidden
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-purple-100 text-xs font-semibold text-purple-800"
+                >
+                  S
+                </span>
+                <span className="flex flex-col">
+                  <span className="font-medium">Admin console</span>
+                  <span className="text-[11px] text-ink/55">Setnayan admin</span>
+                </span>
+              </Link>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div ref={containerRef} className="relative flex min-w-0 items-center gap-1">
@@ -144,7 +434,13 @@ export function EventSwitcher({
         aria-label="Switch events"
         aria-expanded={open}
         aria-haspopup="menu"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          if (open) closeMenu();
+          else {
+            setView('events');
+            setOpen(true);
+          }
+        }}
         className="inline-flex h-7 w-7 items-center justify-center rounded-full text-ink/60 hover:bg-terracotta/10 hover:text-terracotta"
       >
         <ChevronDown
@@ -166,146 +462,45 @@ export function EventSwitcher({
         ) : null}
       </span>
 
+      {/* Desktop (≥ sm): anchored dropdown. */}
       {open ? (
         <div
           role="menu"
           aria-label="Switch event or console"
-          className="absolute left-0 top-full z-30 mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-2xl border border-ink/10 bg-cream p-2 shadow-lg"
+          className="absolute left-0 top-full z-30 mt-2 hidden w-[min(22rem,calc(100vw-2rem))] rounded-2xl border border-ink/10 bg-cream p-2 shadow-lg sm:block"
         >
-          <div className="max-h-[60vh] overflow-y-auto">
-            <Link
-              role="menuitem"
-              href="/dashboard/create-event"
-              className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-terracotta-700 hover:bg-terracotta/10"
-              onClick={() => setOpen(false)}
-            >
-              <span
-                aria-hidden
-                className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-dashed border-terracotta/40 text-base leading-none"
-              >
-                +
-              </span>
-              Add event
-            </Link>
-
-            {events.length > 0 ? (
-              <ul className="mt-1 space-y-0.5">
-                {events.map((ev) => {
-                  const isCurrent = ev.event_id === currentEventId;
-                  return (
-                    <li key={ev.event_id} role="none">
-                      <Link
-                        role="menuitem"
-                        href={`/dashboard/${ev.event_id}`}
-                        aria-current={isCurrent ? 'page' : undefined}
-                        className={`flex items-center justify-between gap-2 rounded-xl px-2 py-2 text-sm transition-colors hover:bg-terracotta/10 ${
-                          isCurrent ? 'bg-terracotta/5 text-ink' : 'text-ink/85'
-                        }`}
-                        onClick={() => setOpen(false)}
-                      >
-                        <span className="flex min-w-0 items-center gap-2">
-                          <EventMonogram
-                            event={{
-                              display_name: ev.display_name,
-                              monogram_text: ev.monogram_text,
-                              monogram_color: ev.monogram_color,
-                            }}
-                            size="sm"
-                          />
-                          <span className="flex min-w-0 items-center gap-1">
-                            {ev.is_primary ? (
-                              <span
-                                aria-label="Primary event"
-                                title="Primary event"
-                                className="text-terracotta"
-                              >
-                                ★
-                              </span>
-                            ) : null}
-                            <span className="truncate font-medium">{ev.display_name}</span>
-                          </span>
-                        </span>
-                        <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-                          {ev.event_date ? formatEventDate(ev.event_date) : 'date TBD'}
-                        </span>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : null}
-
-            {hasVendorAccess || hasAdminAccess ? (
-              <div className="mt-2 border-t border-ink/10 pt-2">
-                <p className="px-3 py-1 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/40">
-                  Switch view
-                </p>
-                {hasVendorAccess && vendorProfiles.length === 1 ? (
-                  <Link
-                    role="menuitem"
-                    href="/vendor-dashboard"
-                    className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-ink/85 hover:bg-terracotta/10"
-                    onClick={() => setOpen(false)}
-                  >
-                    <span
-                      aria-hidden
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-terracotta/15 text-xs font-semibold text-terracotta-700"
-                    >
-                      S
-                    </span>
-                    <span className="flex flex-col">
-                      <span className="font-medium">Shop console</span>
-                      <span className="text-[11px] text-ink/55">
-                        {vendorProfiles[0]?.business_name ?? 'Vendor profile'}
-                      </span>
-                    </span>
-                  </Link>
-                ) : hasVendorAccess && vendorProfiles.length > 1 ? (
-                  <div className="space-y-0.5">
-                    <p className="px-3 text-xs text-ink/55">Shop console</p>
-                    {vendorProfiles.map((vp) => (
-                      <Link
-                        role="menuitem"
-                        key={vp.vendor_profile_id}
-                        href="/vendor-dashboard"
-                        className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-ink/85 hover:bg-terracotta/10"
-                        onClick={() => setOpen(false)}
-                      >
-                        <span
-                          aria-hidden
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-terracotta/15 text-xs font-semibold text-terracotta-700"
-                        >
-                          {vp.business_name.charAt(0).toUpperCase() || 'V'}
-                        </span>
-                        <span className="truncate">{vp.business_name}</span>
-                      </Link>
-                    ))}
-                  </div>
-                ) : null}
-                {hasAdminAccess ? (
-                  <Link
-                    role="menuitem"
-                    href="/admin"
-                    className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-ink/85 hover:bg-purple-50"
-                    onClick={() => setOpen(false)}
-                  >
-                    <span
-                      aria-hidden
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-purple-100 text-xs font-semibold text-purple-800"
-                    >
-                      S
-                    </span>
-                    <span className="flex flex-col">
-                      <span className="font-medium">Admin console</span>
-                      <span className="text-[11px] text-ink/55">Setnayan admin</span>
-                    </span>
-                  </Link>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
+          {renderMenu()}
         </div>
       ) : null}
+
+      {/* Mobile (< sm): bottom sheet that slides up from the bottom. Portaled
+          to document.body so `fixed` positioning ignores any ancestor
+          transform in the chrome. The whole subtree is `sm:hidden` so it never
+          shows on desktop (where the anchored dropdown above is used). */}
+      {open && mounted && typeof document !== 'undefined'
+        ? createPortal(
+            <div className="sm:hidden">
+              <button
+                type="button"
+                aria-label="Close menu"
+                onClick={closeMenu}
+                className="fixed inset-0 z-40 bg-ink/40"
+              />
+              <div
+                ref={sheetRef}
+                role="menu"
+                aria-label="Switch event or console"
+                className="fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-2xl border-t border-ink/10 bg-cream p-3 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl"
+                style={{ animation: 'sn-sheet-up 0.22s ease-out' }}
+              >
+                <style>{`@keyframes sn-sheet-up{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
+                <div aria-hidden className="mx-auto mb-2 h-1 w-10 rounded-full bg-ink/15" />
+                {renderMenu()}
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

@@ -1760,6 +1760,10 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
       // The find-vendor shortlist (real reception venues the couple tapped) —
       // persisted as event_vendors 'considering' so they show on the Services tab.
       shortlist: s.shortlist.map((v) => ({ vendorId: v.vendorId, name: v.name })),
+      // Style sub-stepper preferences (screen 11) — persisted to
+      // events.style_preferences (migration 20260724000000) for the Home
+      // "Personalized for you" card.
+      stylePreferences: s.prefs as unknown as Record<string, unknown>,
     }),
     [],
   );

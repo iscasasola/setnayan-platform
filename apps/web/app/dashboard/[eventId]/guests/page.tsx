@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Link2, X, LayoutGrid, ArrowRight } from 'lucide-react';
@@ -400,22 +401,27 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           [Declined] counts (animated) that used to sit in the top StatsStrip
           — each box is also an RSVP filter link, so mobile keeps RSVP
           filtering. */}
-      <MobileGuestCarousel
-        eventId={eventId}
-        q={q}
-        sorts={SORT_OPTIONS.map((o) => ({ key: o.value, label: o.label }))}
-        currentSort={sort}
-        views={VIEW_FILTERS}
-        activeView={currentGroupId ? '' : view}
-        groups={groups}
-        currentGroupId={currentGroupId}
-        tags={allTags}
-        activeTag={tagFilter}
-        total={stats.total}
-        attending={stats.attending}
-        pending={stats.pending}
-        declined={stats.declined}
-      />
+      {/* Suspense required: MobileGuestCarousel uses useSearchParams() which
+          must be wrapped in a Suspense boundary in a Server Component parent
+          (Next.js 15 hard requirement — without it the route throws a 500). */}
+      <Suspense fallback={null}>
+        <MobileGuestCarousel
+          eventId={eventId}
+          q={q}
+          sorts={SORT_OPTIONS.map((o) => ({ key: o.value, label: o.label }))}
+          currentSort={sort}
+          views={VIEW_FILTERS}
+          activeView={currentGroupId ? '' : view}
+          groups={groups}
+          currentGroupId={currentGroupId}
+          tags={allTags}
+          activeTag={tagFilter}
+          total={stats.total}
+          attending={stats.attending}
+          pending={stats.pending}
+          declined={stats.declined}
+        />
+      </Suspense>
     </section>
   );
 }
@@ -629,10 +635,13 @@ function Toolbar({
   // form-submit pattern is fine for them.
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-      <LiveSearch
-        initialValue={q}
-        placeholder="Search names, roles, groups, RSVP…"
-      />
+      {/* Suspense required: LiveSearch uses useSearchParams() */}
+      <Suspense fallback={null}>
+        <LiveSearch
+          initialValue={q}
+          placeholder="Search names, roles, groups, RSVP…"
+        />
+      </Suspense>
       <form
         action={`/dashboard/${eventId}/guests`}
         method="get"

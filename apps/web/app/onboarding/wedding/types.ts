@@ -98,8 +98,60 @@ export interface OnboardingState {
    */
   budgetBand: string | null;
 
+  // -- Phase 3 fields (screens 9-10: picker · style sub-stepper) --
+
+  /**
+   * "What would you love?" picker (screen 9) — the selected service category keys
+   * (53 across the 10 taxonomy parents · `data-cat` values). Drives the style
+   * sub-stepper queue, the Phase-4 find-vendor demo, and the budget-matched bundle.
+   * Seeded by applyBudgetHighlight() (budget-appropriate starter set) until the
+   * couple first edits a chip (then pickerTouched latches and we stop overriding).
+   * Maps to event_vendor_preferences (the wanted categories).
+   */
+  picks: string[];
+
+  /**
+   * True once the couple edits any picker chip — stops applyBudgetHighlight from
+   * re-seeding the budget-appropriate starter set over their picks (prototype
+   * window.pickerTouched). Persisted so a resumed draft isn't clobbered on reload.
+   */
+  pickerTouched: boolean;
+
+  /**
+   * Style preferences (screen 10 sub-stepper) — one focused screen per dimension
+   * derived from the picks (reception/ceremony/catering/photo_video/music + palette
+   * when any aesthetic category is picked). Preferences SORT vendor matches, never
+   * exclude. Maps to event_vendor_preferences. Dietary halal/alcohol_free is
+   * pre-LOCKED by faith (Muslim → halal, INC → alcohol-free) at render.
+   */
+  prefs: OnboardingPrefs;
+
   /** ISO timestamp of last save — for debugging stale drafts. */
   lastSavedAt: string;
+}
+
+/** Per-dimension style picks captured by the screen-10 sub-stepper. */
+export interface OnboardingPrefs {
+  /** Reception setting keys — multi-pick (ballroom/garden/beach/…). */
+  reception: string[];
+  /** Ceremony where — single-pick (church/garden/beach/civil/same_reception). */
+  ceremony: string | null;
+  /** Catering cuisine keys — multi-pick (filipino/asian/…). */
+  cuisine: string[];
+  /** Catering service style — single (Plated/Buffet/Family-style/Stations). */
+  serviceStyle: string | null;
+  /** Dietary needs — halal / alcohol_free (faith pre-locks some). */
+  dietary: string[];
+  /** Photo/video look keys — multi-pick (photojournalistic/classic/…). */
+  pvLook: string[];
+  /** Photo/video need — single (both/photo/video). */
+  pvNeed: string | null;
+  /** Photo/video inclusions — multi-pick (pre-nup/wedding-day/sde/drone/std/album). */
+  pvIncluded: string[];
+  /** Music — the song seed (≥10 "Title|Artist" picks, pick order). */
+  music: string[];
+  /** Palette feel — single (timeless/modern/boho/rustic/glam/royalty/filipiniana/others). */
+  feel: string | null;
 }
 
 /**
@@ -131,6 +183,20 @@ export const EMPTY_ONBOARDING_STATE: OnboardingState = {
   region: 'ncr',
   pax: 150,
   budgetBand: 'classic',
+  picks: [],
+  pickerTouched: false,
+  prefs: {
+    reception: [],
+    ceremony: null,
+    cuisine: [],
+    serviceStyle: 'Buffet',
+    dietary: [],
+    pvLook: [],
+    pvNeed: 'Both photo & video',
+    pvIncluded: ['Wedding day'],
+    music: [],
+    feel: 'timeless',
+  },
   lastSavedAt: '',
 };
 
@@ -151,7 +217,9 @@ export const SCREEN_SEQUENCE = [
   'region',   // 6
   'pax',      // 7
   'budget',   // 8
-  // 9-14 land in Phase 3-4 (picker · style · find-vendor · bundle · congrats · plan)
+  'picker',   // 9   "What would you love?"
+  'prefs',    // 10  style sub-stepper (one focused screen per picked dimension)
+  // 11-14 land in Phase 4 (find-vendor · bundle · congrats · plan)
 ] as const;
 
 export type ScreenId = (typeof SCREEN_SEQUENCE)[number];

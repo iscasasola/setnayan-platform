@@ -153,6 +153,24 @@ a{color:inherit;text-decoration:none}
 .addbtn:active{background:var(--mulberry-deep)}
 .addbtn .pl{font-size:18px;line-height:0;margin-top:-1px}
 
+/* ---- team bride / team groom segmented control ---- */
+.teamseg{display:flex;gap:6px;margin:16px 0 2px}
+.tseg{flex:1;min-width:0;height:44px;border-radius:13px;border:1px solid var(--line-strong);background:var(--surface);
+  display:inline-flex;align-items:center;justify-content:center;gap:5px;cursor:pointer;
+  font-size:12.5px;font-weight:600;color:var(--ink);white-space:nowrap;padding:0 4px;
+  transition:background .14s ease,border-color .14s ease,color .14s ease}
+.tseg:active{transform:translateY(1px)}
+.tseg .tdot{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+.tseg .tdot.s-bride{background:var(--bride)} .tseg .tdot.s-groom{background:var(--groom)}
+.tseg .tc{font-style:normal;font-weight:700;font-size:11.5px;color:var(--ink-soft);margin-left:1px}
+@media(min-width:1024px){ .teamseg{max-width:420px} .tseg{font-size:13.5px;gap:7px;padding:0 10px} }
+.tseg.on{color:#fff;border-color:transparent}
+.tseg.on[data-team="all"]{background:var(--ink)}
+.tseg.on[data-team="bride"]{background:var(--bride)}
+.tseg.on[data-team="groom"]{background:var(--groom)}
+.tseg.on .tc{color:rgba(255,255,255,.82)}
+.tseg.on .tdot{box-shadow:0 0 0 2px rgba(255,255,255,.55)}
+
 /* ---- body grid ---- */
 .body{display:grid;grid-template-columns:1fr;gap:22px;margin-top:18px}
 @media(min-width:1024px){ .body{grid-template-columns:236px 1fr;gap:26px} }
@@ -365,6 +383,13 @@ body.selmode .card-chk{display:inline-flex}
       </div>
     </div>
   </header>
+
+  <!-- ============ TEAM BRIDE / TEAM GROOM ============ -->
+  <div class="teamseg" id="teamSeg" role="tablist" aria-label="Filter by side">
+    <button class="tseg on" data-team="all" role="tab" aria-selected="true">Everyone<i class="tc" id="tcAll">20</i></button>
+    <button class="tseg" data-team="bride" role="tab" aria-selected="false"><span class="tdot s-bride"></span>Team Bride<i class="tc" id="tcBride">0</i></button>
+    <button class="tseg" data-team="groom" role="tab" aria-selected="false"><span class="tdot s-groom"></span>Team Groom<i class="tc" id="tcGroom">0</i></button>
+  </div>
 
   <!-- ============ STATS / RSVP FILTERS ============ -->
   <ul class="stats" id="stats">
@@ -649,7 +674,7 @@ let G = [
 const GROUP_LABEL = {cf:{l:'College Friends',s:'bride'}, bk:{l:'Barkada',s:'groom'}, wk:{l:'Work',s:'both'}};
 
 /* ---------------- state ---------------- */
-const state = {q:'', rsvp:'', side:'', view:'all', sort:'role'};
+const state = {q:'', rsvp:'', side:'', view:'all', sort:'role', team:'all'};
 const selected = new Set();
 let selMode=false; // mobile: explicit multi-select mode (also true while any selected)
 
@@ -660,6 +685,9 @@ const grpOf = g => ROLE[g.role].g;
 function matches(g){
   if(state.rsvp && g.rsvp!==state.rsvp) return false;
   if(state.side && g.side!==state.side) return false;
+  // Team Bride / Team Groom — shared ('both') guests belong to each team
+  if(state.team==='bride' && !(g.side==='bride'||g.side==='both')) return false;
+  if(state.team==='groom' && !(g.side==='groom'||g.side==='both')) return false;
   if(state.view!=='all'){
     if(state.view.startsWith('group:')){ if(!g.groups.includes(state.view.slice(6))) return false; }
     else if(grpOf(g)!==state.view) return false;
@@ -707,6 +735,11 @@ function render(){
   document.getElementById('sDec').textContent=G.filter(g=>g.rsvp==='declined').length;
   document.getElementById('sPlus').textContent=G.filter(g=>g.plus).length;
   document.getElementById('filterCount').textContent=rows.length;
+  // team bride / team groom counts (shared 'both' guests count on each team)
+  document.getElementById('tcAll').textContent=G.length;
+  document.getElementById('tcBride').textContent=G.filter(g=>g.side==='bride'||g.side==='both').length;
+  document.getElementById('tcGroom').textContent=G.filter(g=>g.side==='groom'||g.side==='both').length;
+  document.querySelectorAll('#teamSeg .tseg').forEach(t=>{const on=t.dataset.team===state.team;t.classList.toggle('on',on);t.setAttribute('aria-selected',on);});
 
   // desktop tbody (flat sorted)
   const tb=document.getElementById('tbody');
@@ -879,6 +912,12 @@ function syncStatUI(){
     s.classList.toggle('on', s.dataset.rsvp!==undefined && s.dataset.rsvp===state.rsvp && !s.classList.contains('readonly') || (s.dataset.rsvp==='' && state.rsvp===''));
   });
 }
+
+// team bride / team groom segmented control
+document.getElementById('teamSeg').addEventListener('click', e=>{
+  const t=e.target.closest('.tseg'); if(!t) return;
+  state.team=t.dataset.team; render();
+});
 
 // desktop sidebar views + groups
 document.querySelectorAll('.side [data-view]').forEach(el=>{

@@ -148,6 +148,37 @@ const BUDGET_BANDS: { value: string; label: string; tag: string; med: number }[]
 const budgetTierBand = (band: string) =>
   band === 'essentials' || band === 'simple' ? 'lean' : band === 'premium' || band === 'luxury' || band === 'nolimit' ? 'lavish' : 'mid';
 
+/* ── budget AMOUNT math (owner 2026-06-02: text box + line picker + min-floor + max-of-range) ──
+   Per-head median × pax, ±20%, rounded to the nearest ₱50k. Floor = the essentials low
+   (the recommended-lowest for that guest count — the text box can't go below it).
+   Ceiling = the luxury high. nolimit has no amount (med 0). */
+const PRICED_BANDS = BUDGET_BANDS.filter((b) => b.med > 0);
+const round50k = (n: number) => Math.round(n / 50000) * 50000;
+const bandLo = (med: number, pax: number) => round50k(med * 0.8 * pax);
+const bandHi = (med: number, pax: number) => {
+  const a = round50k(med * 0.8 * pax);
+  let z = round50k(med * 1.2 * pax);
+  if (z <= a) z = a + 50000;
+  return z;
+};
+const budgetFloor = (pax: number) => bandLo(2000, pax); // essentials low = recommended floor
+const budgetCeiling = (pax: number) => bandHi(15000, pax); // luxury high
+const nearestBand = (amount: number, pax: number) =>
+  PRICED_BANDS.reduce(
+    (best, b) => (Math.abs(b.med * pax - amount) < Math.abs(best.med * pax - amount) ? b : best),
+    PRICED_BANDS[2] ?? PRICED_BANDS[0]!,
+  );
+const fmtPeso = (n: number) =>
+  n >= 1e6 ? `₱${(n / 1e6).toFixed(2).replace(/\.?0+$/, '')}M` : `₱${Math.round(n / 1000)}K`;
+/* the working-budget value the couple effectively chose: their typed/dragged amount,
+   else the current band's MAX for the pax (the "set to max of the range chosen" default). */
+function effectiveBudgetPesos(band: string, amount: number | null, pax: number): number | null {
+  if (band === 'nolimit') return null;
+  if (typeof amount === 'number' && amount > 0) return amount;
+  const b = PRICED_BANDS.find((x) => x.value === band) ?? PRICED_BANDS[2] ?? PRICED_BANDS[0]!;
+  return bandHi(b.med, pax);
+}
+
 /* ── region labels + nuggets (prototype REGLABEL/REGNUG) ── */
 const REGLABEL: Record<string, string> = {
   ncr: 'Metro Manila', calabarzon: 'CALABARZON', 'c-visayas': 'Central Visayas', 'w-visayas': 'Western Visayas',
@@ -1425,25 +1456,66 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
   const paxTier = paxTierFor(pax);
   const paxFill = ((Math.min(500, Math.max(10, pax)) - 10) / (500 - 10)) * 100;
 
-  /* ── budget (prototype buildBudget) ── */
+  /* ── budget (text box + line picker + band-on-photo · owner 2026-06-02) ── */
+  const budgetBandValue = state.budgetBand ?? 'classic';
+  const budgetFloorV = budgetFloor(pax); // recommended-lowest for this guest count
+  const budgetCeilingV = budgetCeiling(pax);
   const budgetView = (() => {
-    const band = state.budgetBand ?? 'classic';
     const tier = paxTier.t;
-    const round50 = (n: number) => Math.round(n / 50000) * 50000;
-    const fmt = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(2).replace(/\.?0+$/, '')}M` : `${n / 1000}K`);
-    const total = (lo: number, hi: number) => {
-      const a = round50(lo);
-      let z = round50(hi);
-      if (z <= a) z = a + 50000;
-      return `₱${fmt(a)} – ₱${fmt(z)}`;
-    };
-    if (band === 'nolimit') {
-      return { dataBand: 'luxury', img: `budget/${tier}_luxury`, tag: 'No ceiling', range: 'The best of everything' };
+    if (budgetBandValue === 'nolimit') {
+      return { dataBand: 'luxury', img: `budget/${tier}_luxury`, label: 'No limit', tag: 'No ceiling', rangeText: 'The best of everything' };
     }
-    const b = BUDGET_BANDS.find((x) => x.value === band) ?? BUDGET_BANDS[2]!;
-    const range = total(b.med * 0.8 * pax, b.med * 1.2 * pax) + ` · ~${pax} guests`;
-    return { dataBand: band, img: `budget/${tier}_${band}`, tag: b.tag, range };
+    const b = BUDGET_BANDS.find((x) => x.value === budgetBandValue) ?? BUDGET_BANDS[2]!;
+    const lo = bandLo(b.med, pax);
+    const hi = bandHi(b.med, pax);
+    return { dataBand: budgetBandValue, img: `budget/${tier}_${budgetBandValue}`, label: b.label, tag: b.tag, rangeText: `${fmtPeso(lo)} – ${fmtPeso(hi)}` };
   })();
+  /* The working-budget value shown in the text box + slider. Their typed/dragged
+     amount, else the current band's MAX for the pax (the "set to max of range" default). */
+  const budgetEff = effectiveBudgetPesos(budgetBandValue, state.budgetAmount, pax);
+  const budgetSliderVal = Math.min(budgetCeilingV, Math.max(budgetFloorV, budgetEff ?? bandHi(5000, pax)));
+  const budgetFill =
+    budgetCeilingV > budgetFloorV
+      ? ((budgetSliderVal - budgetFloorV) / (budgetCeilingV - budgetFloorV)) * 100
+      : 0;
+  /* Apply a budget choice. Re-seeds the picker (cascade) only when the BAND changes —
+     "when i press back and click a new working budget, the recommended on what you love
+     need to change as well" (owner 2026-06-02). Amount nudges within a band don't re-seed. */
+  const applyBudget = useCallback(
+    (band: string, amount: number | null) => {
+      const bandChanged = (state.budgetBand ?? 'classic') !== band;
+      patch({
+        budgetBand: band,
+        budgetAmount: amount,
+        ...(bandChanged ? { pickerTouched: false } : {}),
+      });
+    },
+    [patch, state.budgetBand],
+  );
+  const onBudgetBandPill = useCallback(
+    (b: { value: string; med: number }) => {
+      applyBudget(b.value, b.value === 'nolimit' ? null : bandHi(b.med, pax));
+    },
+    [applyBudget, pax],
+  );
+  const onBudgetAmount = useCallback(
+    (raw: number) => {
+      if (!Number.isFinite(raw)) return;
+      const clamped = Math.max(budgetFloorV, Math.min(budgetCeilingV, Math.round(raw)));
+      applyBudget(nearestBand(clamped, pax).value, clamped);
+    },
+    [applyBudget, budgetFloorV, budgetCeilingV, pax],
+  );
+  /* Text-box buffer: free typing while focused, clamp-to-floor on commit (blur/Enter)
+     so the box "won't accept anything lower than the recommended floor" without
+     fighting the keystrokes (owner 2026-06-02). When unfocused it mirrors the slider. */
+  const [budgetInput, setBudgetInput] = useState('');
+  const [budgetFocused, setBudgetFocused] = useState(false);
+  const commitBudgetInput = useCallback(() => {
+    setBudgetFocused(false);
+    const n = Number(budgetInput.replace(/[^\d]/g, ''));
+    if (budgetInput.trim() !== '' && Number.isFinite(n) && n > 0) onBudgetAmount(n);
+  }, [budgetInput, onBudgetAmount]);
 
   /* ── per-step chrome ── */
   const canContinue = (() => {
@@ -1564,6 +1636,11 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
       region: s.region,
       pax: s.pax,
       budgetBand: s.budgetBand,
+      budgetAmountCentavos:
+        (() => {
+          const pesos = effectiveBudgetPesos(s.budgetBand ?? 'classic', s.budgetAmount, s.pax ?? 150);
+          return pesos == null ? null : Math.round(pesos * 100);
+        })(),
       dateMode: s.dateMode,
       dateCandidates: s.dateCandidates,
       windowStart: s.windowStart,
@@ -1956,27 +2033,68 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
             <div className="viewzone">
               <div className="eyebrow">The day</div>
               <h1 className="q">Your working budget?</h1>
-              <p className="sub">Pick the feel you{'’'}re going for — see how it looks, and we{'’'}ll size it to your guests.</p>
-              <figure className="budgetphoto" data-band={budgetView.dataBand}>
+              <p className="sub">Set your number — we{'’'}ll show the feel it buys for ~{pax} guests.</p>
+              <figure className="budgetphoto budgetphoto--compact" data-band={budgetView.dataBand}>
                 <HeroImg src={ASSET(budgetView.img)} />
                 <figcaption className="budgetcap">
-                  <span className="budgetcaptag">{budgetView.tag}</span>
-                  <span className="budgetcaprange">{budgetView.range}</span>
+                  <span className="budgetcaptag">{budgetView.label} budget · {pax} pax</span>
+                  <span className="budgetcapsub">{budgetView.tag}</span>
+                  <span className="budgetcaprange">{budgetView.rangeText}</span>
                 </figcaption>
               </figure>
             </div>
             <div className="tapzone">
-              <div className="chips" data-single="">
-                {BUDGET_BANDS.map((b) => (
-                  <span
-                    key={b.value}
-                    className={`chip${sel(state.budgetBand === b.value)}`}
-                    onClick={() => patch({ budgetBand: b.value })}
-                  >
-                    {b.label}
-                  </span>
-                ))}
-              </div>
+              {budgetBandValue === 'nolimit' ? (
+                <div className="bdg-nolimit-row">
+                  <span className="bdg-nolimit-note">No ceiling — the best of everything.</span>
+                  <button type="button" className="bdg-nolimit-exit" onClick={() => onBudgetAmount(budgetCeilingV)}>
+                    Set a budget instead
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="paxexactwrap bdg-amtwrap">
+                    <span className="paxexactlbl">Your budget</span>
+                    <span className="bdg-peso">₱</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      className="paxexactinput bdg-amtinput"
+                      aria-label="Working budget in pesos"
+                      value={budgetFocused ? budgetInput : budgetSliderVal.toLocaleString('en-PH')}
+                      onFocus={() => {
+                        setBudgetFocused(true);
+                        setBudgetInput(String(budgetSliderVal));
+                      }}
+                      onChange={(e) => setBudgetInput(e.target.value)}
+                      onBlur={commitBudgetInput}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                      }}
+                    />
+                  </div>
+                  <input
+                    type="range"
+                    min={budgetFloorV}
+                    max={budgetCeilingV}
+                    step={10000}
+                    value={budgetSliderVal}
+                    className="paxslider"
+                    aria-label="Working budget slider"
+                    style={{
+                      background: `linear-gradient(to right,var(--gold) 0%,var(--gold) ${budgetFill}%,#e7dfce ${budgetFill}%,#e7dfce 100%)`,
+                    }}
+                    onChange={(e) => onBudgetAmount(Number(e.target.value))}
+                  />
+                  <div className="paxends">
+                    <span>{fmtPeso(budgetFloorV)} min</span>
+                    <button type="button" className="bdg-nolimit" onClick={() => applyBudget('nolimit', null)}>
+                      No limit
+                    </button>
+                    <span>{fmtPeso(budgetCeilingV)}+</span>
+                  </div>
+                </>
+              )}
             </div>
           </section>
 

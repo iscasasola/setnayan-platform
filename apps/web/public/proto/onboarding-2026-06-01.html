@@ -344,11 +344,19 @@
   .budgetphoto[data-band="elevated"]{background:linear-gradient(135deg,#e9d3a8,#c9a86a);}
   .budgetphoto[data-band="premium"]{background:linear-gradient(135deg,#d8b178,#b07f3f);}
   .budgetphoto[data-band="luxury"]{background:linear-gradient(135deg,#7c4659,#54213e);}
+  .budgetphoto[data-band="nolimit"]{background:linear-gradient(135deg,#7c4659,#54213e);}
   #budgetphotoimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .45s ease;}
   #budgetphotoimg.loaded{opacity:1;}
   .budgetcap{position:absolute;left:0;right:0;bottom:0;padding:32px 16px 13px;background:linear-gradient(to top,rgba(18,16,22,.84) 0%,rgba(18,16,22,.5) 50%,transparent 100%);text-align:left;}
   .budgetcaptag{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#e7cf9b;display:block;margin-bottom:3px;}
-  .budgetcaprange{font-family:var(--serif);font-style:italic;font-weight:600;font-size:18px;line-height:1.25;color:#fff;display:block;text-shadow:0 1px 8px rgba(0,0,0,.35);}
+  .budgetcapdesc{font-family:var(--serif);font-style:italic;font-weight:600;font-size:18px;line-height:1.25;color:#fff;display:block;text-shadow:0 1px 8px rgba(0,0,0,.35);margin:1px 0 3px;}
+  .budgetcaprange{font-family:var(--sans);font-weight:600;font-size:13px;letter-spacing:.02em;color:#fff;display:block;opacity:.93;}
+  /* "No limit" pill + no-ceiling row (matches shipped React PR #791) */
+  .bdg-nolimit{display:block;width:100%;margin-top:9px;padding:9px;border:1px dashed rgba(30,34,41,.25);border-radius:11px;background:transparent;font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft,#5c6168);cursor:pointer;transition:border-color .15s,color .15s;}
+  .bdg-nolimit:hover{border-color:var(--gold);color:var(--ink);}
+  .bdg-nolimit-row{display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 12px;text-align:center;}
+  .bdg-nolimit-note{font-family:var(--serif);font-style:italic;font-size:17px;color:var(--ink);}
+  .bdg-nolimit-exit{padding:8px 16px;border:1px solid var(--gold);border-radius:999px;background:transparent;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink);cursor:pointer;}
   /* Photo hero (role / kind / faith) — a wedding-type photo fills the viewzone; cards/chips dock low (Rule 6) */
   .faithphoto,.rolephoto,.kindphoto{position:relative;width:100%;border-radius:16px;overflow:hidden;background:linear-gradient(135deg,#f0e3c7,#e1cd9d);box-shadow:0 8px 26px rgba(30,34,41,.18);animation:rise .4s cubic-bezier(.2,.7,.3,1) both;margin-top:14px;}
   #faithphotoimg,#rolephotoimg,#kindphotoimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .45s ease;}
@@ -358,7 +366,8 @@
   /* Budget screen: let the look-photo GROW to fill the dead space between the sub and the chips
      (object-fit:cover → just reveals more of the image, no distortion). Scoped so the picker stays its set size. */
   #screen-budget .viewzone{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;}
-  #screen-budget .budgetphoto{flex:1 1 auto;height:auto;min-height:210px;margin-bottom:4px;}
+  /* budget photo is COMPACT (matches shipped React .budgetphoto--compact) so the readout + slider + exact box fit one viewport */
+  #screen-budget .budgetphoto{flex:0 0 auto;height:clamp(150px,26vh,190px);margin-bottom:6px;}
   /* Role / Kind / Faith: the photo fills the viewzone; the cards/chips dock low in the thumb zone (default .tapzone margin-top:auto) */
   #screen-role .viewzone,#screen-kind .viewzone,#screen-faith .viewzone{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;}
   #screen-role .rolephoto,#screen-kind .kindphoto,#screen-faith .faithphoto{flex:1 1 auto;min-height:172px;margin-bottom:0;}
@@ -744,20 +753,30 @@
       <div class="viewzone">
         <div class="eyebrow">The day</div>
         <h1 class="q">Your working budget?</h1>
-        <p class="sub">Pick the feel you're going for — see how it looks, and we'll size it to your guests.</p>
+        <p class="sub">Set what you're planning to spend — we'll show what it can do for your guests, and never go below what a wedding your size realistically needs.</p>
         <figure class="budgetphoto" id="budgetphoto" data-band="classic">
           <img id="budgetphotoimg" alt="" />
           <figcaption class="budgetcap">
-            <span class="budgetcaptag" id="budgetcaptag">The sweet spot</span>
+            <span class="budgetcaptag" id="budgetcaptag"></span>
+            <span class="budgetcapdesc" id="budgetcapdesc"></span>
             <span class="budgetcaprange" id="budgetcaprange"></span>
           </figcaption>
         </figure>
       </div>
       <div class="tapzone">
-        <div class="chips" data-single id="budgetchips">
-          <span class="chip" data-band="essentials">Essentials</span><span class="chip" data-band="simple">Simple</span><span class="chip" data-band="classic">Classic</span>
-          <span class="chip" data-band="elevated">Elevated</span><span class="chip" data-band="premium">Premium</span><span class="chip" data-band="luxury">Luxury</span>
-          <span class="chip" data-band="nolimit">No limit</span>
+        <div id="budgetctrls">
+          <div class="paxreadout"><span id="budgetnum">₱900,000</span></div>
+          <input type="range" min="160000" max="1800000" value="900000" id="budgetslider" class="paxslider" aria-label="Working budget slider">
+          <div class="paxends"><span id="budgetfloorlbl">min</span><span id="budgetceillbl"></span></div>
+          <div class="paxexactwrap">
+            <span class="paxexactlbl">Exact budget</span>
+            <input type="number" id="budgetexact" min="0" step="1000" inputmode="numeric" value="900000" placeholder="type your budget" class="paxexactinput">
+          </div>
+          <button type="button" id="budgetnolimitpill" class="bdg-nolimit">No limit</button>
+        </div>
+        <div id="budgetnolimitrow" class="bdg-nolimit-row" style="display:none">
+          <span class="bdg-nolimit-note">No ceiling — the best of everything.</span>
+          <button type="button" id="budgetnolimitexit" class="bdg-nolimit-exit">Set a budget instead</button>
         </div>
       </div>
     </section>
@@ -1012,7 +1031,7 @@
   const BAND_LEVEL={essentials:0,simple:1,classic:2,elevated:3,premium:4,luxury:5,nolimit:5};
   function applyBudgetHighlight(){
     var picker=document.getElementById('screen-picker'); if(!picker) return;
-    var band=(document.querySelector('#budgetchips .chip.sel')||{dataset:{}}).dataset.band||'classic';
+    var band=currentBudgetBand();
     var lvl=BAND_LEVEL[band]; if(lvl===undefined) lvl=2;
     var all=[].slice.call(picker.querySelectorAll('.chip[data-cat]'));
     all.forEach(c=>c.classList.remove('sel'));
@@ -1077,7 +1096,7 @@
   function bundleItemsFor(bk){ var idx=BUNDLE_INDEX[bk]; if(idx===undefined) idx=2; var out=[]; for(var t=0;t<=idx;t++) BUNDLE_TIERS[t].add.forEach(k=>out.push(k)); return out; }
   function renderMatchedBundle(){
     var host=document.getElementById('matchedhost'); if(!host) return;
-    var band=(document.querySelector('#budgetchips .chip.sel')||{dataset:{}}).dataset.band||'classic';
+    var band=currentBudgetBand();
     var bk=BAND_TO_BUNDLE[band]||'classic';
     var tier=BUNDLE_TIERS[BUNDLE_INDEX[bk]];
     var items=bundleItemsFor(bk);
@@ -1696,16 +1715,31 @@ Kahit Kailan|South Border`.trim().split('\n').map(l=>l.split('|'));
   };
   const FEELLBL={timeless:'Timeless',modern:'Modern',boho:'Boho',rustic:'Rustic',glam:'Glam',royalty:'Royalty',filipiniana:'Filipiniana',others:'Others'};
   // the feel photo follows the working budget — 6 bands map to 3 lavishness tiers so the look is clearly different (owner 2026-06-01)
+  // ── working-budget bands · PH-2026 per-head medians — the ONE source the feel-photo tier, picker auto-highlight + the Your-Plan bundle all read ──
+  const BBANDS=[
+    {key:'essentials',name:'Essential',desc:'Lean & Intentional',med:2000},
+    {key:'simple',    name:'Simple',   desc:'Comfortable',       med:3500},
+    {key:'classic',   name:'Classic',  desc:'The sweet spot',    med:5000},   // ← the ideal default
+    {key:'elevated',  name:'Elevated', desc:'Polished',          med:7500},
+    {key:'premium',   name:'Premium',  desc:'Entry luxury',      med:11000},
+    {key:'luxury',    name:'Luxury',   desc:'No-compromise',     med:15000}
+  ];
+  const BUDGET_FLOOR_MED=BBANDS[0].med*0.8;                 // ₱1,600/head — the lowest a wedding realistically runs
+  const BUDGET_CEIL_MED =BBANDS[BBANDS.length-1].med*1.2;   // ₱18,000/head — top of luxury
+  function budgetFloorFor(pax){ return Math.round(BUDGET_FLOOR_MED*pax); }
+  function budgetCeilFor(pax){ return Math.round(BUDGET_CEIL_MED*pax); }
+  function budgetBandForPerHead(ph){ for(let i=0;i<BBANDS.length-1;i++){ if(ph<(BBANDS[i].med+BBANDS[i+1].med)/2) return BBANDS[i]; } return BBANDS[BBANDS.length-1]; }
+  function currentBudgetBand(){ return (document.getElementById('budgetphoto')||{dataset:{}}).dataset.band||'classic'; }
+  // the feel photo follows the working budget — 6 bands map to 3 lavishness tiers so the look is clearly different (owner 2026-06-01)
   function budgetTier(){
-    const sel=document.querySelector('#budgetchips .chip.sel');
-    const band=sel?sel.dataset.band:'classic';
+    const band=currentBudgetBand();
     if(band==='essentials'||band==='simple') return 'lean';
     if(band==='premium'||band==='luxury'||band==='nolimit') return 'lavish';
     return 'mid';                               // classic, elevated
   }
   function budgetBandLabel(){
-    const sel=document.querySelector('#budgetchips .chip.sel');
-    return sel?sel.textContent.trim():'Classic';
+    const b=BBANDS.find(x=>x.key===currentBudgetBand());
+    return b?b.name:'Classic';
   }
   function setFeel(key){
     const fig=document.getElementById('feelphoto'), img=document.getElementById('feelphotoimg'),
@@ -1723,53 +1757,72 @@ Kahit Kailan|South Border`.trim().split('\n').map(l=>l.split('|'));
       if(img.getAttribute('src')!==src){ img.classList.remove('loaded'); img.onload=()=>img.classList.add('loaded'); img.onerror=()=>img.classList.remove('loaded'); img.src=src; } }
     sw.innerHTML=cols.map(c=>`<span class="fsw" style="background:${c}"></span>`).join('');
   }
-  // ---- step 9: a budget-feel ladder · each band = a MEDIAN per head, shown range = median ±20% (owner 2026-06-01) ----
+  // ---- step 9: working budget — a slider + an exact ₱ box (mirrors the pax screen); the amount derives the band, floor = lowest recommended for the pax (owner 2026-06-02) ----
   function buildBudget(){
     const fig=document.getElementById('budgetphoto'); if(!fig) return;
+    const slider=document.getElementById('budgetslider'), box=document.getElementById('budgetexact');
+    const ctrls=document.getElementById('budgetctrls'), nolimitRow=document.getElementById('budgetnolimitrow');
     const round50=n=>Math.round(n/50000)*50000;                                                   // nearest ₱50k
-    const fmt=n=>{ if(n>=1e6) return (n/1e6).toFixed(2).replace(/\.?0+$/,'')+'M'; return (n/1000)+'K'; };
-    const total=(lo,hi)=>{ let a=round50(lo), z=round50(hi); if(z<=a) z=a+50000; return '₱'+fmt(a)+' – ₱'+fmt(z); }; // 50k-rounded, never collapses
-    const p=currentPax();
-    const pax = p ? p.n : null;
-    const gl  = p ? (p.open==='high' ? '500+' : p.open==='low' ? 'under 50' : '~'+p.n) : null;
-    // the photo shows how this budget LOOKS at the couple's pax tier — same band looks lean at 500 guests, lavish at 25
-    const tier = p ? (PAXTIERS.find(x=>p.n<=x.max)||PAXTIERS[PAXTIERS.length-1]) : null;
-    const tk = tier ? tier.t+'_' : '';
-    // each band = a MEDIAN all-in cost per head (PH 2026 data); shown range = ±20% of that median × pax
-    const B={
-      essentials:{tag:'Lean & intentional', med:2000},
-      simple    :{tag:'Comfortable',        med:3500},
-      classic   :{tag:'The sweet spot',     med:5000},   // ← the ideal default
-      elevated  :{tag:'Polished',           med:7500},
-      premium   :{tag:'Entry luxury',       med:11000},
-      luxury    :{tag:'No-compromise',      med:15000}
-    };
-    const lo=m=>m*0.8, hi=m=>m*1.2;
-    let bc=document.querySelector('#budgetchips .chip.sel');
-    // default-highlight the IDEAL band (Classic) on first entry; "No limit" clears the bands → a no-ceiling state
-    if(!bc){ const c=document.querySelector('#budgetchips .chip[data-band="classic"]'); if(c){ c.classList.add('sel'); bc=c; } }
-    const b=bc ? bc.dataset.band : 'classic';
+    const fmt=n=>{ if(n>=1e6) return '₱'+(n/1e6).toFixed(2).replace(/\.?0+$/,'')+'M'; return '₱'+Math.round(n/1000)+'K'; };
+    const rangeStr=(lo,hi)=>{ let a=round50(lo), z=round50(hi); if(z<=a) z=a+50000; return fmt(a)+' – '+fmt(z); };
+    const p=currentPax(); const pax=(p&&p.n)?p.n:150;
+    const tier=PAXTIERS.find(x=>pax<=x.max)||PAXTIERS[PAXTIERS.length-1];
     const img=document.getElementById('budgetphotoimg'),
-          tag=document.getElementById('budgetcaptag'), rng=document.getElementById('budgetcaprange');
+          tag=document.getElementById('budgetcaptag'), desc=document.getElementById('budgetcapdesc'), rng=document.getElementById('budgetcaprange');
     function setImg(key){ const src='assets/budget/'+key+'.webp';
       if(img.getAttribute('src')!==src){ img.classList.remove('loaded'); img.onload=()=>img.classList.add('loaded'); img.onerror=()=>img.classList.remove('loaded'); img.src=src; } }
-    if(b==='nolimit'){                                                  // No limit → the grandest look at THIS pax tier (no-ceiling ≈ luxury for their count)
-      fig.dataset.band='luxury'; setImg(tier ? tier.t+'_luxury' : 'nolimit');
-      tag.textContent='No ceiling'; rng.textContent='The best of everything';
+    // ── No-limit state: an explicit choice (the pill), NOT reached by typing — matches shipped React PR #791 ──
+    if(window.budgetNolimit){
+      if(ctrls) ctrls.style.display='none';
+      if(nolimitRow) nolimitRow.style.display='flex';
+      fig.dataset.band='nolimit'; setImg(tier.t+'_luxury');         // band 'nolimit' → picker auto-highlight + Your-Plan bundle read it (BAND_LEVEL/BAND_TO_BUNDLE)
+      if(tag)  tag.textContent='No limit budget · '+pax+' pax';
+      if(desc) desc.textContent='No ceiling';
+      if(rng)  rng.textContent='The best of everything';
       return;
     }
-    const d=B[b]||B.classic;
-    fig.dataset.band=b; setImg(tk+b);
-    tag.textContent=d.tag;
-    rng.textContent = pax
-      ? total(lo(d.med)*pax, hi(d.med)*pax)+' · '+gl+' guests'
-      : '₱'+lo(d.med).toLocaleString()+' – ₱'+hi(d.med).toLocaleString()+' a head';
+    if(ctrls) ctrls.style.display='';
+    if(nolimitRow) nolimitRow.style.display='none';
+    const floor=round50(budgetFloorFor(pax)), ceil=round50(budgetCeilFor(pax));   // round so the thumb + the floor label sit on clean ₱50k marks
+    if(slider){ slider.min=floor; slider.max=ceil; slider.step=10000; }            // slider bounds follow the guest count
+    // amount: the couple's value once touched, else default to the ideal (Classic band MAX × pax); clamped floor..ceiling
+    let amt;
+    if(window.budgetTouched){ amt=(box && box.value!=='') ? parseInt(box.value,10) : (slider?+slider.value:floor); if(isNaN(amt)) amt=floor; }
+    else { amt=round50(BBANDS[2].med*1.2*pax); }                      // Classic band MAX = the ideal default (matches shipped React PR #791)
+    if(amt<floor) amt=floor;
+    if(amt>ceil) amt=ceil;                                            // clamp to ceiling — no-limit is the pill, not a typed-above value
+    if(slider) slider.value=amt;
+    if(box && document.activeElement!==box) box.value=amt;
+    if(slider){ const pct=((+slider.value-floor)/Math.max(1,ceil-floor))*100;
+      slider.style.background='linear-gradient(to right,var(--gold) 0%,var(--gold) '+pct+'%,#e7dfce '+pct+'%,#e7dfce 100%)'; }
+    const read=document.getElementById('budgetnum'); if(read) read.textContent='₱'+Math.round(amt).toLocaleString('en-US');
+    const fl=document.getElementById('budgetfloorlbl'), cl=document.getElementById('budgetceillbl');
+    if(fl) fl.textContent='min '+fmt(floor);
+    if(cl) cl.textContent=fmt(ceil)+'+';
+    // the photo shows how this budget LOOKS at the couple's pax tier — same band looks lean at 500 guests, lavish at 25
+    const ph=amt/pax;
+    const band=budgetBandForPerHead(ph);
+    fig.dataset.band=band.key; setImg(tier.t+'_'+band.key);
+    if(tag)  tag.textContent=band.name+' budget · '+pax+' pax';
+    if(desc) desc.textContent=band.desc;
+    if(rng)  rng.textContent=rangeStr(band.med*0.8*pax, band.med*1.2*pax);
   }
-  // budget: rough compass → nugget on pick (live, no screen change). Bound on document so it runs
-  // AFTER the generic single-select handler (registered earlier) applies .sel — synchronous, no timeout.
-  document.addEventListener('click',e=>{
-    if(e.target.closest('#budgetchips .chip')) buildBudget();
-  });
+  // budget: slider + exact ₱ box, two-way synced (mirrors the pax screen); the amount derives the band, never below the floor
+  (function(){
+    const s=document.getElementById('budgetslider'), box=document.getElementById('budgetexact');
+    const pill=document.getElementById('budgetnolimitpill'), exit=document.getElementById('budgetnolimitexit');
+    if(s&&box){
+      s.addEventListener('input',function(){ window.budgetTouched=true; window.budgetNolimit=false; box.value=this.value; buildBudget(); });
+      box.addEventListener('input',function(){ window.budgetTouched=true; window.budgetNolimit=false;
+        const v=parseInt(this.value,10);
+        if(!isNaN(v)){ const min=+s.min,max=+s.max; s.value = v<min?min : v>max?max : v; }
+        buildBudget();
+      });
+      box.addEventListener('change',function(){ window.budgetTouched=true; window.budgetNolimit=false; buildBudget(); });   // blur → snap into floor..ceiling
+    }
+    if(pill) pill.addEventListener('click',function(){ window.budgetTouched=true; window.budgetNolimit=true; buildBudget(); });   // explicit "No limit"
+    if(exit) exit.addEventListener('click',function(){ window.budgetNolimit=false; window.budgetTouched=true; buildBudget(); }); // back to a set budget
+  })();
   // picker — the sticky upper card previews + describes the service the couple just tapped (what it provides)
   const PICK_INFO={
     reception:{g:'Venue',d:'Where your celebration happens — the dinner, the program, and the dancing.'},

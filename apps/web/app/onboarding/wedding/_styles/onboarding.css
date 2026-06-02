@@ -65,3 +65,19 @@
 .pba .vcard .shorthint{color:var(--ink-faint);font-size:12px;}
 .pba .vload{padding:24px 4px;color:var(--ink-soft);font-size:14px;text-align:center;}
 .pba .vempty{padding:18px;border:1px dashed var(--line-2);border-radius:14px;color:var(--ink-soft);font-size:13.5px;line-height:1.5;background:var(--surface);}
+
+/* Budget v2 (owner 2026-06-02): text box + line picker + band-on-photo.
+   Override the grow-to-fill #screen-budget .budgetphoto rule with a compact
+   fixed height so the amount box + slider + ends all fit one viewport. */
+.pba #screen-budget .budgetphoto.budgetphoto--compact{flex:0 0 auto;height:clamp(150px,21vh,188px);min-height:0;margin-bottom:0;}
+.pba .budgetcapsub{font-family:var(--serif);font-style:italic;font-weight:500;font-size:14px;line-height:1.2;color:#f3e6cf;display:block;margin:1px 0 3px;}
+.pba .bdg-amtwrap{display:flex;align-items:center;gap:8px;margin-bottom:13px;}
+.pba .bdg-amtwrap .paxexactlbl{flex:0 0 auto;}
+.pba .bdg-peso{font-family:var(--serif);font-weight:600;font-size:19px;color:var(--ink);margin-left:auto;}
+.pba .bdg-amtinput{width:128px;text-align:right;font-variant-numeric:tabular-nums;}
+.pba .paxends .bdg-nolimit{border:1px solid var(--line-2);background:var(--surface);border-radius:999px;padding:5px 13px;font-size:11.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;transition:border-color .15s,color .15s;-webkit-tap-highlight-color:transparent;}
+.pba .paxends .bdg-nolimit:hover{border-color:var(--gold);color:var(--ink);}
+.pba .bdg-nolimit-row{display:flex;flex-direction:column;align-items:center;gap:13px;padding:18px 8px;text-align:center;}
+.pba .bdg-nolimit-note{font-family:var(--serif);font-style:italic;font-size:16px;color:var(--ink-soft);}
+.pba .bdg-nolimit-exit{border:1px solid var(--line-2);background:var(--surface);border-radius:999px;padding:9px 18px;font-size:13px;font-weight:600;color:var(--ink-soft);cursor:pointer;transition:border-color .15s,color .15s;-webkit-tap-highlight-color:transparent;}
+.pba .bdg-nolimit-exit:hover{border-color:var(--gold);color:var(--ink);}

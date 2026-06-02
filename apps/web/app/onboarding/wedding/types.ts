@@ -98,6 +98,15 @@ export interface OnboardingState {
    */
   budgetBand: string | null;
 
+  /**
+   * Working-budget AMOUNT in pesos (screen 8) — the editable text-box value + the
+   * slider position (owner 2026-06-02: "a text box like how many guests, and a line
+   * picker"). null until the couple touches it → the screen derives the band's MAX
+   * for the pax as the default ("set to the max of the budget range chosen"). Cannot
+   * go below the recommended floor for the guest count. Maps to events.estimated_budget_centavos.
+   */
+  budgetAmount: number | null;
+
   // -- Phase 3 fields (screens 9-10: picker · style sub-stepper) --
 
   /**
@@ -201,6 +210,7 @@ export const EMPTY_ONBOARDING_STATE: OnboardingState = {
   region: 'ncr',
   pax: 150,
   budgetBand: 'classic',
+  budgetAmount: null,
   picks: [],
   pickerTouched: false,
   prefs: {

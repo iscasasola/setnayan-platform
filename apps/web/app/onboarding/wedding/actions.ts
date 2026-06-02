@@ -127,6 +127,8 @@ export type OnboardingCommitPayload = {
   region: string | null;
   pax: number | null;
   budgetBand: string | null;
+  /** working-budget amount in centavos (band MAX for pax unless the couple typed/dragged a value) → events.estimated_budget_centavos */
+  budgetAmountCentavos: number | null;
   dateMode: 'specific' | 'window';
   dateCandidates: string[];
   windowStart: string | null;
@@ -232,6 +234,8 @@ export async function commitOnboardingWedding(
       date_window_start: windowStart,
       date_window_end: windowEnd,
       budget_band: payload.budgetBand,
+      estimated_budget_centavos:
+        typeof payload.budgetAmountCentavos === 'number' ? payload.budgetAmountCentavos : null,
       monogram_frame_key: payload.monogramFrameKey,
       monogram_font_key: payload.monogramFontKey,
       mood_feel_key: payload.moodFeelKey,

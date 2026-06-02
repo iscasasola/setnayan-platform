@@ -2086,26 +2086,9 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
                 </div>
               ) : (
                 <>
-                  <div className="paxexactwrap bdg-amtwrap">
-                    <span className="paxexactlbl">Your budget</span>
-                    <span className="bdg-peso">₱</span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      className="paxexactinput bdg-amtinput"
-                      aria-label="Working budget in pesos"
-                      value={budgetFocused ? budgetInput : budgetSliderVal.toLocaleString('en-PH')}
-                      onFocus={() => {
-                        setBudgetFocused(true);
-                        setBudgetInput(String(budgetSliderVal));
-                      }}
-                      onChange={(e) => setBudgetInput(e.target.value)}
-                      onBlur={commitBudgetInput}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                      }}
-                    />
-                  </div>
+                  {/* Swapped 2026-06-02 (owner): line picker (slider + its min/No-limit/max
+                      labels) on top, precise amount text box below — matches the guest-count
+                      screen's slider→ends→exact-box order. */}
                   <input
                     type="range"
                     min={budgetFloorV}
@@ -2125,6 +2108,26 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
                       No limit
                     </button>
                     <span>{fmtPeso(budgetCeilingV)}+</span>
+                  </div>
+                  <div className="paxexactwrap bdg-amtwrap">
+                    <span className="paxexactlbl">Your budget</span>
+                    <span className="bdg-peso">₱</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      className="paxexactinput bdg-amtinput"
+                      aria-label="Working budget in pesos"
+                      value={budgetFocused ? budgetInput : budgetSliderVal.toLocaleString('en-PH')}
+                      onFocus={() => {
+                        setBudgetFocused(true);
+                        setBudgetInput(String(budgetSliderVal));
+                      }}
+                      onChange={(e) => setBudgetInput(e.target.value)}
+                      onBlur={commitBudgetInput}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                      }}
+                    />
                   </div>
                 </>
               )}

@@ -354,7 +354,7 @@ export async function commitOnboardingWedding(
   // side seeds only when its first name is present (canContinue requires ≥1).
   // Mirrors the canonical quickAddGuest insert shape.
   if (brideFirst) {
-    await admin.from('guests').insert({
+    const { error: brideErr } = await admin.from('guests').insert({
       event_id: insertedEvent.event_id,
       first_name: brideFirst,
       last_name: brideLast,
@@ -366,9 +366,17 @@ export async function commitOnboardingWedding(
       invited_to_blocks: defaultInvitedToForRole('bride'),
       custom_tags: [],
     });
+    if (brideErr) {
+      console.error(
+        '[commitOnboardingWedding] bride guest seed failed:',
+        brideErr.message,
+        '| event_id:',
+        insertedEvent.event_id,
+      );
+    }
   }
   if (groomFirst) {
-    await admin.from('guests').insert({
+    const { error: groomErr } = await admin.from('guests').insert({
       event_id: insertedEvent.event_id,
       first_name: groomFirst,
       last_name: groomLast,
@@ -380,6 +388,14 @@ export async function commitOnboardingWedding(
       invited_to_blocks: defaultInvitedToForRole('groom'),
       custom_tags: [],
     });
+    if (groomErr) {
+      console.error(
+        '[commitOnboardingWedding] groom guest seed failed:',
+        groomErr.message,
+        '| event_id:',
+        insertedEvent.event_id,
+      );
+    }
   }
 
   // Auto-inquire a best-fit vendor for each picked category (owner 2026-06-02:

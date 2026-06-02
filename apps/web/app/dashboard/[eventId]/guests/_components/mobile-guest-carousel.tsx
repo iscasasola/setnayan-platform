@@ -374,24 +374,36 @@ function QuickAddInlineForm({ eventId }: { eventId: string }) {
   const [busy, setBusy] = useState(false);
   const [count, setCount] = useState(0);
   const [done, setDone] = useState(false);
+  const [addError, setAddError] = useState('');
   const firstRef = useRef<HTMLInputElement>(null);
   const lastRef = useRef<HTMLInputElement>(null);
 
   const addGuest = async () => {
-    if (!first.trim() || busy) return;
+    // Both names are required (the server enforces this too, but check
+    // client-side first so the user gets instant feedback).
+    if (!first.trim() || !last.trim() || busy) return;
+    setAddError('');
     setBusy(true);
     try {
-      await quickAddGuest(eventId, {
+      const result = await quickAddGuest(eventId, {
         first_name: first.trim(),
         last_name: last.trim(),
         side: 'both',
         role: 'guest',
       });
+      if (!result.ok) {
+        // Server returned a specific error (validation, DB constraint, etc.).
+        // Surface it immediately rather than silently clearing the form.
+        setAddError(result.error);
+        return;
+      }
       setCount((n) => n + 1);
       setFirst('');
       setLast('');
       router.refresh();
       firstRef.current?.focus();
+    } catch {
+      setAddError('Something went wrong — try again.');
     } finally {
       setBusy(false);
     }
@@ -411,6 +423,8 @@ function QuickAddInlineForm({ eventId }: { eventId: string }) {
   const handleLastKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== 'Enter') return;
     e.preventDefault();
+    // Require last name before submitting — don't fire addGuest on an empty field.
+    if (!last.trim()) return;
     void addGuest();
   };
 
@@ -468,12 +482,16 @@ function QuickAddInlineForm({ eventId }: { eventId: string }) {
         />
       </div>
 
-      <p className="text-center text-[11px] leading-snug text-ink/40">
-        Enter after first name moves to last name · Enter after last name adds &amp; loops back ·
-        Double Enter on empty first name to finish
-      </p>
+      {addError ? (
+        <p className="text-center text-xs font-medium text-rose-600">{addError}</p>
+      ) : (
+        <p className="text-center text-[11px] leading-snug text-ink/40">
+          Enter after first name moves to last name · Enter after last name adds &amp; loops back ·
+          Double Enter on empty first name to finish
+        </p>
+      )}
 
-      {count > 0 && (
+      {count > 0 && !addError && (
         <p className="text-center text-xs text-ink/50">
           {count} {count === 1 ? 'guest' : 'guests'} added this session
         </p>

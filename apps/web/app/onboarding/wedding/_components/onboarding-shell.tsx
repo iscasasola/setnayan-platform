@@ -34,7 +34,13 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 import '../_styles/onboarding.css';
+// Phase-5 cutover: the lazy DB commit + the existing auth server actions reused
+// at the account gate (no new auth code — same OAuth/signup the marketing site uses).
+import { commitOnboardingWedding, type OnboardingCommitPayload } from '../actions';
+import { signInWithGoogle, signInWithFacebook } from '@/app/auth/oauth-actions';
+import { signUp } from '@/app/signup/actions';
 import {
   EMPTY_ONBOARDING_STATE,
   FLOW_TOTAL,
@@ -1183,7 +1189,8 @@ function Vcard({ children }: { children: ReactNode }) {
   );
 }
 
-export function OnboardingShell() {
+export function OnboardingShell({ authed, resume }: { authed: boolean; resume: boolean }) {
+  const router = useRouter();
   const [state, setState] = useState<OnboardingState>(EMPTY_ONBOARDING_STATE);
   const [hydrated, setHydrated] = useState(false);
   const [regionExpanded, setRegionExpanded] = useState(false);
@@ -1201,6 +1208,12 @@ export function OnboardingShell() {
   const [byoName, setByoName] = useState('');
   const [byoPerson, setByoPerson] = useState('');
   const [byoEmail, setByoEmail] = useState('');
+  /* Phase-5 cutover: account-gate email-mode toggle + the single lazy DB commit. */
+  const [emailMode, setEmailMode] = useState(false);
+  const [committedEventId, setCommittedEventId] = useState<string | null>(null);
+  const [committing, setCommitting] = useState(false);
+  const [commitError, setCommitError] = useState<string | null>(null);
+  const committingRef = useRef(false);
 
   /* Hydrate from localStorage on mount (30-day TTL auto-clear). */
   useEffect(() => {
@@ -1235,6 +1248,15 @@ export function OnboardingShell() {
     }
   }, [state, hydrated]);
 
+  /* Phase-5 resume: an anonymous visitor authenticated at the account gate (11)
+     and bounced back via ?resume=1. The hydrate effect restored their draft
+     (step was 11); now authed, advance past the now-satisfied gate to find-vendor. */
+  useEffect(() => {
+    if (hydrated && resume && authed) {
+      setState((s) => (s.step <= 11 ? { ...s, step: 12 } : s));
+    }
+  }, [hydrated, resume, authed]);
+
   const { step, role, kind, faith } = state;
   const patch = useCallback((p: Partial<OnboardingState>) => setState((s) => ({ ...s, ...p })), []);
 
@@ -1261,12 +1283,18 @@ export function OnboardingShell() {
         if (n === 3 && s.kind === 'civil') {
           n = Math.max(0, Math.min(PHASE_SCREENS - 1, n + (d > 0 ? 1 : -1)));
         }
+        // Phase-5: signed-in customers (dashboard "Add event → Wedding") skip the
+        // account gate (11) — they're already authenticated. Anonymous marketing
+        // visitors hit it and authenticate there. Same skip mechanic as Civil/faith.
+        if (n === 11 && authed) {
+          n = Math.max(0, Math.min(PHASE_SCREENS - 1, n + (d > 0 ? 1 : -1)));
+        }
         return { ...s, step: n };
       });
       // entering the prefs sub-stepper forward (from the picker) → start at its first screen
       if (d > 0 && state.step === 9) setPrefIdx(0);
     },
-    [state.step, prefIdx, prefQueue.length],
+    [state.step, prefIdx, prefQueue.length, authed],
   );
 
   /* "What would you love?" auto-highlights a budget-appropriate starter set (prototype applyBudgetHighlight),
@@ -1453,6 +1481,66 @@ export function OnboardingShell() {
   const regionNug = { title: `Why ${REGLABEL[regionKey] ?? 'here'}`, line: REGNUG[regionKey] ?? '' };
 
   const sel = (cond: boolean) => (cond ? ' sel' : '');
+
+  /* ── Phase-5 lazy DB commit (events + event_members), then to the dashboard ──
+     The account gate's OAuth/email actions round-trip back here via this `next`. */
+  const RESUME_NEXT = '/onboarding/wedding?resume=1';
+  const buildCommitPayload = useCallback(
+    (s: OnboardingState): OnboardingCommitPayload => ({
+      brideName: s.brideName,
+      groomName: s.groomName,
+      kind: s.kind,
+      faith: s.faith,
+      region: s.region,
+      pax: s.pax,
+      budgetBand: s.budgetBand,
+      dateMode: s.dateMode,
+      dateCandidates: s.dateCandidates,
+      windowStart: s.windowStart,
+      windowEnd: s.windowEnd,
+      monogramFrameKey: MONO_FRAMES[s.monogramFrame] ?? null,
+      monogramFontKey: MONO_FONTS[s.monogramFont] ?? null,
+      moodFeelKey: s.prefs.feel,
+      musicPlaylistSeed: s.prefs.music,
+    }),
+    [],
+  );
+
+  const handleFinish = useCallback(async () => {
+    if (committingRef.current) return;
+    setCommitError(null);
+    // Idempotent: if the event already exists (e.g. user navigated back then
+    // forward), don't create a second one — just go.
+    if (committedEventId) {
+      try {
+        localStorage.removeItem(ONBOARDING_DRAFT_KEY);
+      } catch {
+        /* non-fatal */
+      }
+      router.push(`/dashboard/${committedEventId}`);
+      return;
+    }
+    committingRef.current = true;
+    setCommitting(true);
+    const res = await commitOnboardingWedding(buildCommitPayload(state));
+    committingRef.current = false;
+    setCommitting(false);
+    if (res.ok) {
+      setCommittedEventId(res.eventId);
+      try {
+        localStorage.removeItem(ONBOARDING_DRAFT_KEY);
+      } catch {
+        /* non-fatal */
+      }
+      router.push(`/dashboard/${res.eventId}`);
+    } else if (res.error === 'not_authenticated') {
+      // Session lost mid-flow — bounce to the account gate to re-auth.
+      setCommitError('Please create your account to save your plan.');
+      setState((s) => ({ ...s, step: 11 }));
+    } else {
+      setCommitError('Something went wrong saving your plan. Please try again.');
+    }
+  }, [committedEventId, state, buildCommitPayload, router]);
 
   return (
     <div className="pba">
@@ -1857,20 +1945,69 @@ export function OnboardingShell() {
             />
           </section>
 
-          {/* 11 ACCOUNT — demo-faithful (Google/Facebook/email are placeholders; real auth + the
-              events-row commit land in Phase 5 alongside the /signup + /dashboard/create-event entry points). */}
+          {/* 11 ACCOUNT — the auth gate for anonymous marketing visitors. Signed-in
+              customers (dashboard "Add event → Wedding") skip this screen (see go()).
+              Reuses the site's existing OAuth + signup server actions; `next`
+              round-trips back to /onboarding/wedding?resume=1 so the shell restores
+              the localStorage draft + advances to find-vendor. The DB commit fires
+              later at the final button (handleFinish), always with an authed user. */}
           <section className={`screen${step === 11 ? ' active' : ''}`} id="screen-account">
             <div className="welcome" style={{ paddingTop: 24 }}>
               <div className="mark">✓</div>
               <h1 style={{ fontSize: 34 }}>Your plan is ready.</h1>
-              <p style={{ marginBottom: 24 }}>Create your free account to keep it — and start finding your vendors.</p>
+              <p style={{ marginBottom: 24 }}>Create your free account to keep it {'—'} and start finding your vendors.</p>
             </div>
             <div className="stack">
-              <div className="opt" style={{ textAlign: 'center', justifyContent: 'center' }}><div className="ot" style={{ justifyContent: 'center', width: '100%' }}>Continue with Google</div></div>
-              <div className="opt" style={{ textAlign: 'center', justifyContent: 'center' }}><div className="ot" style={{ justifyContent: 'center', width: '100%' }}>Continue with Facebook</div></div>
+              <form action={signInWithGoogle}>
+                <input type="hidden" name="next" value={RESUME_NEXT} />
+                <button
+                  className="opt"
+                  type="submit"
+                  style={{ width: '100%', font: 'inherit', cursor: 'pointer', textAlign: 'center', justifyContent: 'center' }}
+                >
+                  <div className="ot" style={{ justifyContent: 'center', width: '100%' }}>Continue with Google</div>
+                </button>
+              </form>
+              <form action={signInWithFacebook}>
+                <input type="hidden" name="next" value={RESUME_NEXT} />
+                <button
+                  className="opt"
+                  type="submit"
+                  style={{ width: '100%', font: 'inherit', cursor: 'pointer', textAlign: 'center', justifyContent: 'center' }}
+                >
+                  <div className="ot" style={{ justifyContent: 'center', width: '100%' }}>Continue with Facebook</div>
+                </button>
+              </form>
             </div>
-            <div style={{ margin: '14px 0 4px' }}><input className="field" style={{ fontFamily: 'var(--sans)', fontStyle: 'normal', fontSize: 15 }} placeholder="your@email.com" /></div>
-            <div className="ghost"><u>Use email instead</u></div>
+            {emailMode ? (
+              <form action={signUp} style={{ margin: '14px 0 4px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <input type="hidden" name="next" value={RESUME_NEXT} />
+                <input type="hidden" name="account_type" value="customer" />
+                <input type="hidden" name="public_summary_consent" value="yes" />
+                <input
+                  className="field"
+                  name="email"
+                  type="email"
+                  required
+                  placeholder="your@email.com"
+                  style={{ fontFamily: 'var(--sans)', fontStyle: 'normal', fontSize: 15 }}
+                />
+                <input
+                  className="field"
+                  name="password"
+                  type="password"
+                  required
+                  minLength={8}
+                  placeholder="Create a password (8+ characters)"
+                  style={{ fontFamily: 'var(--sans)', fontStyle: 'normal', fontSize: 15 }}
+                />
+                <button className="byo-send" type="submit">Create account</button>
+              </form>
+            ) : (
+              <div className="ghost" onClick={() => setEmailMode(true)} style={{ cursor: 'pointer' }}>
+                <u>Use email instead</u>
+              </div>
+            )}
           </section>
 
           {/* 12 FIND FIRST VENDOR (demo) */}
@@ -1981,17 +2118,35 @@ export function OnboardingShell() {
           </section>
         </div>
 
-        {/* bottom — primary CTA */}
+        {/* bottom — primary CTA. Phase-5: step 14 (Your Plan) is terminal — it
+            commits the event + redirects to the dashboard (handleFinish). The
+            account gate (11) hides the primary button for anonymous visitors —
+            the screen's own OAuth/email forms carry the action; authed users
+            skip 11 entirely so its button never renders. */}
         <div className="bottom">
-          <button
-            className="btn btn-primary"
-            type="button"
-            onClick={() => canContinue && go(1)}
-            disabled={!canContinue}
-            style={!canContinue ? { opacity: 0.45, cursor: 'not-allowed' } : undefined}
-          >
-            {nextLabel}
-          </button>
+          {commitError && (
+            <p style={{ color: 'var(--mulberry)', fontSize: 13, margin: '0 0 8px', textAlign: 'center' }}>
+              {commitError}
+            </p>
+          )}
+          {!(step === 11 && !authed) && (
+            <button
+              className="btn btn-primary"
+              type="button"
+              onClick={() => {
+                if (!canContinue || committing) return;
+                if (step === 14) {
+                  void handleFinish();
+                  return;
+                }
+                go(1);
+              }}
+              disabled={!canContinue || committing}
+              style={!canContinue || committing ? { opacity: 0.45, cursor: 'not-allowed' } : undefined}
+            >
+              {committing ? 'Creating your plan…' : nextLabel}
+            </button>
+          )}
         </div>
 
         {/* BYO vendor — bottom-sheet popup (prototype #byoSheet/#byoBackdrop · vendor_invites auto-connect, CLAUDE.md 2026-05-19) */}

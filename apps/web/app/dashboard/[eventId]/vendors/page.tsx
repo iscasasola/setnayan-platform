@@ -22,6 +22,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import { fetchEventVendors, resolveVendorDisplayName } from '@/lib/vendors';
 import { buildPlanBudgetModel, type VendorEnrichment } from '@/lib/vendors-plan-budget';
+import type { ChatInquiryStatus } from '@/lib/chat';
 import { haversineKm } from '@/lib/distance';
 import { R2_BUCKETS, r2PublicUrl } from '@/lib/r2';
 import {
@@ -109,7 +110,7 @@ export default async function VendorsPage({ params }: Props) {
   const enrichmentByVendorId = new Map<string, VendorEnrichment>();
 
   if (marketplaceIds.length > 0) {
-    const [statsRes, profRes] = await Promise.all([
+    const [statsRes, profRes, threadsRes] = await Promise.all([
       supabase
         .from('vendor_market_stats')
         .select(
@@ -119,6 +120,16 @@ export default async function VendorsPage({ params }: Props) {
       supabase
         .from('vendor_profiles')
         .select('vendor_profile_id, name_revealed_at, screen_name')
+        .in('vendor_profile_id', marketplaceIds),
+      // Accept-gate state (#1c, CLAUDE.md 2026-06-02) — the chat thread per
+      // picked marketplace vendor for THIS event. Surfaces a Waiting / Open /
+      // Not-available badge on the accordion card so the couple sees where each
+      // auto-inquiry stands. RLS: the couple is an event member → reads its own
+      // event's threads.
+      supabase
+        .from('chat_threads')
+        .select('vendor_profile_id, inquiry_status')
+        .eq('event_id', eventId)
         .in('vendor_profile_id', marketplaceIds),
     ]);
 
@@ -148,6 +159,12 @@ export default async function VendorsPage({ params }: Props) {
     const anonByProfile = new Map<string, ProfRow>();
     for (const p of (profRes.data as ProfRow[] | null) ?? []) {
       anonByProfile.set(p.vendor_profile_id, p);
+    }
+    const inquiryByProfile = new Map<string, ChatInquiryStatus>();
+    for (const t of (threadsRes.data as
+      | { vendor_profile_id: string; inquiry_status: ChatInquiryStatus }[]
+      | null) ?? []) {
+      inquiryByProfile.set(t.vendor_profile_id, t.inquiry_status);
     }
 
     const venueLat = ev?.venue_latitude ?? null;
@@ -194,6 +211,7 @@ export default async function VendorsPage({ params }: Props) {
         is_verified: s.public_visibility === 'verified',
         is_setnayan_service: s.is_setnayan_service === true,
         distance_km: distanceKm,
+        inquiry_status: inquiryByProfile.get(pid) ?? null,
       });
     }
   }

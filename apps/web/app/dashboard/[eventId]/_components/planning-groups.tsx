@@ -371,7 +371,7 @@ export function PlanningGroups({
               </p>
             ) : (
               <p className="text-xs text-ink/55">
-                Browse vendors below — picks land here automatically.
+                Browse services below — picks land here automatically.
               </p>
             )}
           </div>
@@ -815,7 +815,7 @@ function GroupCard({
         <div className="space-y-2">
           <h4 className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-amber-700/90">
             <span aria-hidden>⭐</span>
-            <span>Recommended — vendors you’ve already chosen</span>
+            <span>Recommended — services you’ve already chosen</span>
           </h4>
           <ul className="space-y-1.5">
             {recommendations.slice(0, 3).map((rec) => (

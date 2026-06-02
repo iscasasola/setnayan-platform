@@ -58,7 +58,7 @@ export function PersonalizedMenu({
             Personalized for you
           </h2>
           <p className="text-xs text-ink/55">
-            What we match &amp; sort your vendors by — from your wedding details.
+            What we match &amp; sort your services by — from your wedding details.
           </p>
         </div>
         {/* Edit affordance — correct/refine the governance-free match criteria
@@ -87,7 +87,7 @@ export function PersonalizedMenu({
       ) : (
         // Honest empty state — no criteria captured yet.
         <p className="rounded-xl border border-dashed border-ink/20 bg-paper px-3 py-3 text-sm text-ink/70">
-          Add your wedding details and we&apos;ll match vendors to them.
+          Add your wedding details and we&apos;ll match services to them.
         </p>
       )}
 
@@ -99,7 +99,7 @@ export function PersonalizedMenu({
         href={`${base}/vendors`}
         className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-mulberry px-4 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90"
       >
-        Browse your matched vendors
+        Browse your matched services
         <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
       </Link>
     </section>

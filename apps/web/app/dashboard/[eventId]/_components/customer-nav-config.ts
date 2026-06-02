@@ -123,8 +123,10 @@ export function buildCustomerNavGroups(eventId: string): NavGroup[] {
           matchPrefix: `${base}/schedule`,
         },
         {
+          // Renamed "Vendors" → "Services" 2026-06-02 (owner: the tab shows
+          // the SERVICES the vendors provide). key + route path unchanged.
           key: 'vendors',
-          label: 'Vendors',
+          label: 'Services',
           href: `${base}/vendors`,
           icon: Briefcase,
           matchPrefix: `${base}/vendors`,

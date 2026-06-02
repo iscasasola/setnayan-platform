@@ -124,7 +124,7 @@ export function UnlockCategoriesList({
                     <p className="mt-2 text-[13px] text-ink/60">
                       {d.inquired && d.vendorName
                         ? `We've inquired ${d.vendorName} for you — they're in your plan and your inbox.`
-                        : "It's in your plan. Open it on your Vendors page to inquire."}
+                        : "It's in your plan. Open it on your Services page to inquire."}
                     </p>
                   )}
                   {err && <p className="mt-2 text-[13px] text-rose-600">{err}</p>}

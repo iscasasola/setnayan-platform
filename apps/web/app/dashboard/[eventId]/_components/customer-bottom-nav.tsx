@@ -108,6 +108,9 @@ export function buildCustomerBottomNav(eventId: string): BottomNavItem[] {
         `${base}/activity`,
         // For-you full personalized menu ("see all" from the Home preview).
         `${base}/for-you`,
+        // Edit match criteria (region · feel · budget) — "Edit" on the
+        // Personalized block. CLAUDE.md 2026-06-02 "do both" · step 1.
+        `${base}/details`,
         // Messages + Contracts
         `${base}/messages`,
         `${base}/contracts`,

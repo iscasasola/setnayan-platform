@@ -18,6 +18,7 @@ import {
   isEventDateInPast,
   type EventDatePrecision,
 } from '@/lib/events';
+import { ALLOWED_REGIONS, ALLOWED_FEELS, MAX_BUDGET_PESOS } from '@/lib/match-criteria';
 
 const ALLOWED_PRECISIONS = ['year', 'month', 'day'] as const;
 
@@ -343,4 +344,130 @@ export async function setEventCeremonyType(formData: FormData): Promise<SetCerem
 
   revalidatePath(`/dashboard/${eventId}`, 'layout');
   return { ok: true, ceremony_type, updated: wasConfirmedBefore };
+}
+
+// ============================================================================
+// Edit match criteria (CLAUDE.md 2026-06-02 "do both" · step 1)
+//
+// The Home "Personalized" block shows the couple's curated match criteria;
+// this action lets them correct/refine the GOVERNANCE-FREE ones: region,
+// mood/feel, and budget. Date + ceremony + venue + guest-count are NOT here —
+// they carry the booked-vendor change-flow governance (the setEventCeremonyType
+// vendor-confirmed gate above + updateEventDate + iteration 0021 §10/§11/§12),
+// so they keep their own governed editors. These three bind no vendor, so no
+// vendor gate is needed.
+//
+// Host-auth mirrors setEventCeremonyType (event_members couple/coordinator OR
+// an accepted event_moderators row · iteration 0048 multi-host). Admin client
+// for the write because RLS can strip columns on narrowed reads; the explicit
+// host check is the authorization.
+// ============================================================================
+type UpdateMatchCriteriaResult =
+  | { ok: true }
+  | { ok: false; code: 'invalid_input' | 'unauthorized' | 'db_error'; message: string };
+
+export async function updateEventMatchCriteria(
+  formData: FormData,
+): Promise<UpdateMatchCriteriaResult> {
+  const eventId = formData.get('event_id');
+  if (typeof eventId !== 'string' || !eventId) {
+    return { ok: false, code: 'invalid_input', message: 'event_id required' };
+  }
+
+  // Region — '' clears to NULL; otherwise must be a canonical slug.
+  const regionRaw = formData.get('region');
+  const regionStr = typeof regionRaw === 'string' ? regionRaw.trim() : '';
+  if (regionStr !== '' && !ALLOWED_REGIONS.has(regionStr)) {
+    return { ok: false, code: 'invalid_input', message: 'Invalid region' };
+  }
+  const region = regionStr === '' ? null : regionStr;
+
+  // Feel — '' clears to NULL; otherwise must be one of the 8 CHECK values.
+  const feelRaw = formData.get('mood_feel_key');
+  const feelStr = typeof feelRaw === 'string' ? feelRaw.trim() : '';
+  if (feelStr !== '' && !ALLOWED_FEELS.has(feelStr)) {
+    return { ok: false, code: 'invalid_input', message: 'Invalid feel' };
+  }
+  const moodFeelKey = feelStr === '' ? null : feelStr;
+
+  // Budget — peso amount → centavos. '' clears to NULL. Non-negative integer
+  // within the ₱100M ceiling.
+  const budgetRaw = formData.get('budget_pesos');
+  const budgetStr = typeof budgetRaw === 'string' ? budgetRaw.trim().replace(/[, ]/g, '') : '';
+  let budgetCentavos: number | null = null;
+  if (budgetStr !== '') {
+    const pesos = Number(budgetStr);
+    if (!Number.isFinite(pesos) || pesos < 0 || pesos > MAX_BUDGET_PESOS || !Number.isInteger(pesos)) {
+      return { ok: false, code: 'invalid_input', message: 'Enter a whole peso amount' };
+    }
+    budgetCentavos = pesos === 0 ? null : Math.round(pesos * 100);
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { ok: false, code: 'unauthorized', message: 'Sign in required' };
+  }
+
+  // Host check — member (couple/coordinator) OR accepted moderator.
+  const { data: memberRow } = await supabase
+    .from('event_members')
+    .select('member_type')
+    .eq('event_id', eventId)
+    .eq('user_id', user.id)
+    .in('member_type', ['couple', 'coordinator'])
+    .maybeSingle();
+  let isHost = !!memberRow;
+  if (!isHost) {
+    const { data: modRow } = await supabase
+      .from('event_moderators')
+      .select('moderator_id')
+      .eq('event_id', eventId)
+      .eq('user_id', user.id)
+      .is('removed_at', null)
+      .not('accepted_at', 'is', null)
+      .maybeSingle();
+    isHost = !!modRow;
+  }
+  if (!isHost) {
+    return { ok: false, code: 'unauthorized', message: 'You are not a host on this event' };
+  }
+
+  const admin = createAdminClient();
+  const { data: before } = await admin
+    .from('events')
+    .select('region, mood_feel_key, estimated_budget_centavos')
+    .eq('event_id', eventId)
+    .maybeSingle();
+
+  const { error: updateError } = await admin
+    .from('events')
+    .update({
+      region,
+      mood_feel_key: moodFeelKey,
+      estimated_budget_centavos: budgetCentavos,
+    })
+    .eq('event_id', eventId);
+  if (updateError) {
+    return { ok: false, code: 'db_error', message: updateError.message };
+  }
+
+  await admin.from('admin_audit_log').insert({
+    action: 'event_match_criteria_updated',
+    target_table: 'events',
+    target_id: eventId,
+    before_json: before ?? null,
+    after_json: {
+      region,
+      mood_feel_key: moodFeelKey,
+      estimated_budget_centavos: budgetCentavos,
+    },
+    actor_user_id: user.id,
+  });
+
+  revalidatePath(`/dashboard/${eventId}`, 'layout');
+  revalidatePath(`/dashboard/${eventId}/details`, 'layout');
+  return { ok: true };
 }

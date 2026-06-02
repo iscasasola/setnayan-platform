@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Sparkles, ArrowRight } from 'lucide-react';
+import { Sparkles, ArrowRight, Pencil } from 'lucide-react';
 
 /**
  * PersonalizedMenu — the couple's match-criteria surface.
@@ -48,17 +48,28 @@ export function PersonalizedMenu({
       aria-labelledby="personalized-menu-heading"
       className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-4 sm:p-5"
     >
-      <div className="space-y-1">
-        <h2
-          id="personalized-menu-heading"
-          className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55"
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h2
+            id="personalized-menu-heading"
+            className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55"
+          >
+            <Sparkles aria-hidden className="h-3.5 w-3.5 text-terracotta" strokeWidth={1.75} />
+            Personalized for you
+          </h2>
+          <p className="text-xs text-ink/55">
+            What we match &amp; sort your vendors by — from your wedding details.
+          </p>
+        </div>
+        {/* Edit affordance — correct/refine the governance-free match criteria
+            (region · feel · budget). CLAUDE.md 2026-06-02 "do both" · step 1. */}
+        <Link
+          href={`${base}/details`}
+          className="inline-flex shrink-0 items-center gap-1 rounded-full border border-ink/12 bg-paper px-2.5 py-1 text-[11px] font-medium text-terracotta transition-colors hover:bg-cream"
         >
-          <Sparkles aria-hidden className="h-3.5 w-3.5 text-terracotta" strokeWidth={1.75} />
-          Personalized for you
-        </h2>
-        <p className="text-xs text-ink/55">
-          What we match &amp; sort your vendors by — from your wedding details.
-        </p>
+          <Pencil aria-hidden className="h-3 w-3" strokeWidth={1.75} />
+          Edit
+        </Link>
       </div>
 
       {/* The curated match criteria — what filters + sorts the vendor search. */}

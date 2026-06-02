@@ -24,7 +24,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { GuestListMultiselect } from './_components/guest-list-multiselect';
 import { GroupsSidebar } from './_components/groups-sidebar';
 import { LiveSearch } from './_components/live-search';
-import { MobileActionBar } from './_components/mobile-action-bar';
+import { MobileGuestCarousel } from './_components/mobile-guest-carousel';
 import {
   OpenQuickAddButton,
   QuickAddSheet,
@@ -265,7 +265,10 @@ export default async function GuestsPage({ params, searchParams }: Props) {
        scoped to this page via the injected <style> tag — the nav returns
        the moment the host navigates away. -mt-6 cancels the <main py-6>
        top-padding so the page content sits flush under the bottom-nav. */
-    <section className="-mt-6 space-y-6">
+    <section
+      className="-mt-6 space-y-6"
+      style={{ ['--gcar-h' as string]: 'clamp(208px, 33vh, 288px)' }}
+    >
       <style>{`.shell-topbar{display:none}`}</style>
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
@@ -344,8 +347,9 @@ export default async function GuestsPage({ params, searchParams }: Props) {
 
       {joinUrl ? <ShareInvite joinUrl={joinUrl} /> : null}
 
-      {/* desktop: inline search + sort. Mobile/tablet use the docked
-          MobileActionBar (search + filter + add) above the bottom nav. */}
+      {/* desktop: inline search + sort. Mobile/tablet use the lower-third
+          MobileGuestCarousel (search&sort / add / customize) docked above
+          the bottom nav. */}
       <div className="hidden lg:block">
         <Toolbar eventId={eventId} q={q} sort={sort} search={search} />
       </div>
@@ -383,10 +387,11 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         groups={quickAddGroups}
       />
 
-      {/* mobile/tablet only — docked search + filter + add above the
-          bottom nav. Spacer keeps the last rows clear of the fixed bar. */}
-      <div aria-hidden className="h-16 lg:hidden" />
-      <MobileActionBar
+      {/* mobile/tablet only — lower-third 3-panel carousel (search&sort /
+          add / customize) docked above the bottom nav. It renders its own
+          in-flow spacer so the guest list clears the fixed carousel. */}
+      <MobileGuestCarousel
+        eventId={eventId}
         q={q}
         sorts={SORT_OPTIONS.map((o) => ({ key: o.value, label: o.label }))}
         currentSort={sort}

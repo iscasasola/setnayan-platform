@@ -23,7 +23,9 @@ import { emitNotification } from '@/lib/notification-emit';
 import { fetchEventVendors, resolveVendorDisplayName } from '@/lib/vendors';
 import { buildPlanBudgetModel, type VendorEnrichment } from '@/lib/vendors-plan-budget';
 import { haversineKm } from '@/lib/distance';
+import { R2_BUCKETS, r2PublicUrl } from '@/lib/r2';
 import type { EventVendorRowInput } from '@/lib/wedding-plan-groups';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { PlanBudgetAccordion } from './_components/plan-budget-accordion';
 
 export const metadata = { title: 'Vendors' };
@@ -55,7 +57,7 @@ export default async function VendorsPage({ params }: Props) {
   // a review_request. Idempotent — flipped rows no longer match.
   await sweepRipeReviewRequests(eventId, user.id);
 
-  const [vendors, eventCtx] = await Promise.all([
+  const [vendors, eventCtx, photoMaps] = await Promise.all([
     fetchEventVendors(supabase, eventId),
     supabase
       .from('events')
@@ -64,6 +66,11 @@ export default async function VendorsPage({ params }: Props) {
       )
       .eq('id', eventId)
       .maybeSingle(),
+    // Hero photos (CLAUDE.md 2026-05-31 "finish the data wiring" · #8). The
+    // card's photo ladder is service_primary_photo_url → manual_vendor_photo_url
+    // → marketplace_logo_url → initials, but the page never populated the first
+    // two. Resolve them here (mirrors event-home's locked-card avatar pass).
+    fetchVendorPhotoMaps(supabase, eventId),
   ]);
 
   const ev = (eventCtx.data as EventBudgetRow | null) ?? null;
@@ -205,6 +212,13 @@ export default async function VendorsPage({ params }: Props) {
       marketplace_business_name: mk?.name ?? null,
       marketplace_logo_url: mk?.logo ?? null,
       marketplace_city: mk?.city ?? null,
+      // Hero photo (#8) — vendor's own service photo wins, then a manual
+      // contact's uploaded photo; both null for off-platform picks with
+      // neither → card falls through to logo → initials. Never fabricated.
+      service_primary_photo_url:
+        photoMaps.servicePhotoByVendor.get(v.vendor_id) ?? null,
+      manual_vendor_photo_url:
+        photoMaps.manualPhotoByVendor.get(v.vendor_id) ?? null,
     };
   });
 
@@ -275,6 +289,124 @@ export default async function VendorsPage({ params }: Props) {
   });
 
   return <PlanBudgetAccordion model={model} eventId={eventId} />;
+}
+
+/**
+ * Resolve each pick's hero photo (CLAUDE.md 2026-05-31 "finish the data
+ * wiring" · #8). Two sources, in card-ladder priority:
+ *   1. vendor_services.primary_photo_r2_key — the vendor's own service photo
+ *      (marketplace picks, linked by event_vendors.service_id).
+ *   2. event_manual_vendors.photo_r2_key — a photo the host uploaded for an
+ *      off-platform contact (linked by event_vendors.manual_vendor_id).
+ * Returns vendor_id → public URL maps for the page to thread into the row
+ * shape. Everything degrades to empty (card keeps logo → initials) — never
+ * throws, never fabricates a photo.
+ *
+ * WHY a separate event_vendors read instead of extending fetchEventVendors:
+ * the shared helper has many callers, and manual_vendor_id may be absent on a
+ * pre-migration DB (event-home does the same defensive select). Keeping the
+ * id-map local contains the blast radius to this page + the fallback.
+ *
+ * Client split mirrors event-home: vendor_services via the admin client (RLS
+ * doesn't expose arbitrary service photo keys to couples), event_manual_vendors
+ * via the RLS client (the couple owns its own event's manual rows).
+ */
+async function fetchVendorPhotoMaps(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<{
+  servicePhotoByVendor: Map<string, string>;
+  manualPhotoByVendor: Map<string, string>;
+}> {
+  const servicePhotoByVendor = new Map<string, string>();
+  const manualPhotoByVendor = new Map<string, string>();
+
+  // 1. vendor_id → service_id / manual_vendor_id. Falls back to a service_id-
+  //    only select when manual_vendor_id isn't migrated yet.
+  type IdRow = {
+    vendor_id: string;
+    service_id: string | null;
+    manual_vendor_id?: string | null;
+  };
+  let idRows: IdRow[] = [];
+  const full = await supabase
+    .from('event_vendors')
+    .select('vendor_id, service_id, manual_vendor_id')
+    .eq('event_id', eventId);
+  if (!full.error) {
+    idRows = (full.data ?? []) as IdRow[];
+  } else if (/manual_vendor_id/i.test(full.error.message)) {
+    const reduced = await supabase
+      .from('event_vendors')
+      .select('vendor_id, service_id')
+      .eq('event_id', eventId);
+    idRows = (reduced.data ?? []) as IdRow[];
+  } else {
+    // Any other error → no photos; the plan still renders.
+    return { servicePhotoByVendor, manualPhotoByVendor };
+  }
+
+  const serviceIdByVendor = new Map<string, string>();
+  const manualIdByVendor = new Map<string, string>();
+  for (const r of idRows) {
+    if (r.service_id) serviceIdByVendor.set(r.vendor_id, r.service_id);
+    if (r.manual_vendor_id) manualIdByVendor.set(r.vendor_id, r.manual_vendor_id);
+  }
+  const serviceIds = Array.from(new Set(serviceIdByVendor.values()));
+  const manualIds = Array.from(new Set(manualIdByVendor.values()));
+  if (serviceIds.length === 0 && manualIds.length === 0) {
+    return { servicePhotoByVendor, manualPhotoByVendor };
+  }
+
+  // 2. Batch-fetch the r2 keys (one round trip per table, only when needed).
+  type SvcRow = { vendor_service_id: string; primary_photo_r2_key: string | null };
+  type ManRow = { manual_vendor_id: string; photo_r2_key: string | null };
+  const admin = createAdminClient();
+  const [svcRes, manRes] = await Promise.all([
+    serviceIds.length > 0
+      ? admin
+          .from('vendor_services')
+          .select('vendor_service_id, primary_photo_r2_key')
+          .in('vendor_service_id', serviceIds)
+      : Promise.resolve({ data: [] as SvcRow[] }),
+    manualIds.length > 0
+      ? supabase
+          .from('event_manual_vendors')
+          .select('manual_vendor_id, photo_r2_key')
+          .in('manual_vendor_id', manualIds)
+      : Promise.resolve({ data: [] as ManRow[] }),
+  ]);
+
+  // 3. r2 key → public URL, keyed first by the source id, then resolved to
+  //    vendor_id (what the row map consumes). NULL keys skip (no photo yet).
+  const svcUrlByServiceId = new Map<string, string>();
+  for (const row of (svcRes.data ?? []) as SvcRow[]) {
+    if (row.primary_photo_r2_key) {
+      svcUrlByServiceId.set(
+        row.vendor_service_id,
+        r2PublicUrl(R2_BUCKETS.media, row.primary_photo_r2_key),
+      );
+    }
+  }
+  const manualUrlByManualId = new Map<string, string>();
+  for (const row of (manRes.data ?? []) as ManRow[]) {
+    if (row.photo_r2_key) {
+      manualUrlByManualId.set(
+        row.manual_vendor_id,
+        r2PublicUrl(R2_BUCKETS.media, row.photo_r2_key),
+      );
+    }
+  }
+  for (const [vendorId, serviceId] of serviceIdByVendor) {
+    const url = svcUrlByServiceId.get(serviceId);
+    if (url) servicePhotoByVendor.set(vendorId, url);
+  }
+  for (const [vendorId, manualId] of manualIdByVendor) {
+    const url = manualUrlByManualId.get(manualId);
+    if (url) manualPhotoByVendor.set(vendorId, url);
+  }
+
+  return { servicePhotoByVendor, manualPhotoByVendor };
 }
 
 /**

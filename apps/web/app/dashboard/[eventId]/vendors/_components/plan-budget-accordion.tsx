@@ -19,12 +19,14 @@
  *   5. Bottom recap "Look how far you've come".
  *
  * REAL DATA / REAL ACTIONS: tap card → detail route, × → deleteVendor
- * (tap-to-confirm), Lock → updateVendorStatus(status=contracted). Stars /
- * verified+Setnayan badges / distance render only when the model carries
- * them (vendor_profiles join is a later page-fetch pass) — never fabricated.
- * The long-press finalize gesture + curve-zoom coverflow + compare drawer
- * are the §4 interaction-polish pass; the Lock button is the accessible
- * Stage-now equivalent.
+ * (tap-to-confirm), Lock → finalizeVendor (the canonical lock — hard-single
+ * conflict gate · soft-hold gate · auto-archive losers · auto-cascade ·
+ * claim-invite; see accordion-lock.tsx), "↩ Change pick" →
+ * revertVendorToConsidering. Stars / verified+Setnayan badges / distance
+ * render only when the model carries them (vendor_profiles join is a later
+ * page-fetch pass) — never fabricated. On a hard-single finalize the rail
+ * collapses to the chosen card (the losers are auto-archived); the curve-zoom
+ * coverflow + compare drawer are the §4 interaction-polish pass.
  *
  * The page returns this component directly; the dashboard layout provides the
  * tab chrome + outer <main>. The sticky budget bar pins at top-0 of the
@@ -37,9 +39,11 @@ import Link from 'next/link';
 
 import { formatPhp } from '@/lib/vendors';
 import { formatDistanceKm } from '@/lib/distance';
-import { deleteVendor, updateVendorStatus } from '../actions';
+import { deleteVendor } from '../actions';
 import { haptic } from '@/lib/haptics';
 import { CategorySearchOverlay } from './category-search-overlay';
+import { AccordionLockButton, ChangePickButton } from './accordion-lock';
+import type { PlanGroupId } from '@/lib/wedding-plan-groups';
 import {
   formatPesoCompact,
   formatPesoPrecise,
@@ -200,11 +204,18 @@ const PBA_CSS = `
 
 /* ---- Category sticky stacking head + body ---- */
 .pba .cat{border-top:1px solid var(--line)}
-/* Single-sticky folder header: pins one line below the budget bar while its
-   section is in view, then the next folder's header replaces it. A true
-   stack-and-stay pile needs the sections flattened into one scroll container —
-   CSS sticky can't persist across separate bounded <section>s. (follow-up) */
-.pba .cat-head{position:sticky;top:calc(var(--topbar-h) + var(--idx,0) * var(--head-h));z-index:25;width:100%;height:var(--head-h);background:var(--paper);display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 18px;border:0;border-bottom:1px solid var(--line);text-align:left;transition:background .4s var(--ease),box-shadow .45s var(--ease)}
+/* Stack-and-stay folder pile: every folder head + body is a flat sibling in
+   one shared .cats scroll container (see the render), so each head pins at
+   top = topbar-h + idx*head-h and STAYS — heads stack under the budget bar
+   as you scroll (Venue→…→Transport) rather than replacing one another.
+   scroll-margin-top clears the bar + the heads piled above this one so a
+   folder anchor (#folder-*) jump lands the head just below them, never hidden. */
+.pba .cat-head{position:sticky;top:calc(var(--topbar-h) + var(--idx,0) * var(--head-h));z-index:25;width:100%;height:var(--head-h);background:var(--paper);display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 18px;border:0;border-bottom:1px solid var(--line);text-align:left;transition:background .4s var(--ease),box-shadow .45s var(--ease);scroll-margin-top:calc(var(--pba-header-offset) + var(--topbar-h) + var(--idx,0) * var(--head-h) + 2px)}
+/* Group anchor jumps (#group-* from "What to lock next") land the child rail
+   just below the budget bar + the folder heads piled above it. --folder-idx is
+   set inline on each group wrapper (ChildRail) = its folder's index, so the
+   offset is exact per folder (heads 0..idx are all pinned at that scroll). */
+.pba [id^="group-"]{scroll-margin-top:calc(var(--pba-header-offset) + var(--topbar-h) + (var(--folder-idx,0) + 1) * var(--head-h) + 8px)}
 .pba .cat-head .nm{font-family:var(--serif);font-style:italic;font-size:18px;font-weight:600;color:var(--ink);letter-spacing:.01em}
 .pba .cat-head .amt{font-family:var(--serif);font-style:italic;font-size:13.5px;font-weight:600;color:var(--ink)}
 .pba .cat-head .amt.zero{font-family:var(--mono);font-style:normal;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-deep)}
@@ -248,7 +259,10 @@ const PBA_CSS = `
 .pba .bdg.rec{color:var(--gold-deep);background:rgba(197,160,89,.16)}
 .pba .v .price{font-family:var(--serif);font-style:italic;font-weight:600;font-size:21px;color:var(--ink);margin-top:auto;padding-top:7px}
 .pba .v .linked{margin-top:auto;padding-top:9px;font-family:var(--mono);font-size:10px;letter-spacing:.03em;color:var(--mulberry);font-weight:500;line-height:1.4}
-.pba .v .eyeing{margin-top:9px;font-family:var(--mono);font-size:9px;letter-spacing:.02em;color:#b23b34;background:rgba(178,59,52,.08);border-radius:6px;padding:3px 7px;display:inline-block}
+/* "👀 N also eyeing your date" — an interest/in-demand cue, NOT an error. Gentle
+   gold (not the overdue/danger red it used to share) so it reads as gentle
+   social proof, never alarming. Aggregate-only + never fabricated (model §6a). */
+.pba .v .eyeing{margin-top:9px;font-family:var(--mono);font-size:9px;letter-spacing:.02em;color:var(--gold-deep);background:rgba(197,160,89,.12);border-radius:6px;padding:3px 7px;display:inline-block}
 /* chosen state — gold border + glow + corner badge */
 .pba .card.chosen .v{border:3px solid var(--gold);box-shadow:0 0 0 3px rgba(197,160,89,.32)}
 .pba .pcorner{position:absolute;top:10px;right:10px;z-index:3;font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:var(--mulberry);border-radius:999px;padding:5px 9px;box-shadow:0 2px 10px rgba(0,0,0,.28)}
@@ -260,6 +274,10 @@ const PBA_CSS = `
 .pba .lockbar{margin-top:10px;padding:0 1px}
 .pba .lockbtn{width:100%;border:0;border-radius:11px;background:var(--mulberry);color:#fff;font-family:var(--sans);font-weight:700;font-size:12.5px;padding:11px;cursor:pointer;transition:background .2s var(--ease)}
 .pba .lockbtn:active{background:var(--mulberry-deep)}
+.pba .lockbtn:disabled{opacity:.6;cursor:default}
+.pba .changebtn{width:100%;border:1px solid color-mix(in srgb,var(--mulberry) 45%,transparent);border-radius:11px;background:transparent;color:var(--mulberry);font-family:var(--sans);font-weight:600;font-size:11.5px;padding:9px;cursor:pointer;transition:background .2s var(--ease)}
+.pba .changebtn:active{background:color-mix(in srgb,var(--mulberry) 9%,transparent)}
+.pba .changebtn:disabled{opacity:.6;cursor:default}
 /* dashed find-more card */
 .pba .add{flex:0 0 132px;scroll-snap-align:center;display:flex;text-decoration:none}
 .pba .add .inner{flex:1;min-height:191px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:7px;background:rgba(92,37,66,.05);border:1.5px dashed rgba(92,37,66,.4);border-radius:18px;color:var(--mulberry)}
@@ -308,9 +326,14 @@ const PBA_CSS = `
    quick scale-down on :active. .card itself carries the coverflow transform, so
    we scale the inner .v — never the .card — to avoid fighting it. ---- */
 .pba .v,.pba .add,.pba .empty-child{transition:transform .13s cubic-bezier(.2,.7,.2,1),border-color .35s var(--ease),box-shadow .35s var(--ease)}
-.pba .lockbtn,.pba .cmpbtn,.pba .cmpclose,.pba .vx{transition:transform .13s cubic-bezier(.2,.7,.2,1),background .2s var(--ease)}
+.pba .lockbtn,.pba .changebtn,.pba .cmpbtn,.pba .cmpclose,.pba .vx{transition:transform .13s cubic-bezier(.2,.7,.2,1),background .2s var(--ease)}
 .pba .v:active,.pba .add:active,.pba .empty-child:active{transform:scale(.98)}
-.pba .lockbtn:active,.pba .cmpbtn:active,.pba .cmpclose:active,.pba .vx:active{transform:scale(.93)}
+.pba .lockbtn:active,.pba .changebtn:active,.pba .cmpbtn:active,.pba .cmpclose:active,.pba .vx:active{transform:scale(.93)}
+/* Keyboard focus ring (a11y) — the global tap-highlight is killed, so define a
+   visible :focus-visible outline for every interactive element (cards, lock,
+   compare, remove, find, due-rows). Gold accent at 2px offset; the outline
+   auto-rounds to each element's border-radius. */
+.pba a:focus-visible,.pba button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 
 /* ---- Recap ---- */
 /* Bottom padding = nav height so the recap's bottom sits just above the fixed
@@ -421,12 +444,27 @@ export function PlanBudgetAccordion({
     let raf = 0;
     const snapIndex = new WeakMap<Element, number>();
 
+    // Cache the scroll-driven targets ONCE per effect-run. The folders + rails
+    // all render up-front (no lazy mount), and the effect re-runs on [model]
+    // change — the only time the set changes — so per-frame querySelectorAll +
+    // tree-walks (3 of them, plus a `.card,.add` query per rail) were pure
+    // waste. Each rail's cards are cached too (the heaviest per-frame loop).
+    const intro = root.querySelector<HTMLElement>('.intro');
+    const childBlocks = Array.from(
+      root.querySelectorAll<HTMLElement>('.child-block'),
+    );
+    const rails = Array.from(root.querySelectorAll<HTMLElement>('.rail')).map(
+      (rail) => ({
+        rail,
+        cards: Array.from(rail.querySelectorAll<HTMLElement>('.card, .add')),
+      }),
+    );
+
     const frame = () => {
       raf = 0;
       const vh = window.innerHeight || 1;
 
       // sizeIntro
-      const intro = root.querySelector<HTMLElement>('.intro');
       if (intro) {
         const r = intro.getBoundingClientRect();
         const p = Math.min(1, Math.max(0, -r.top / (r.height || 1)));
@@ -436,21 +474,23 @@ export function PlanBudgetAccordion({
 
       // syncStates — child-block curve-merge into the sticky parent header
       const focus = vh * 0.38;
-      root.querySelectorAll<HTMLElement>('.child-block').forEach((el) => {
+      for (const el of childBlocks) {
         const r = el.getBoundingClientRect();
         const center = r.top + r.height / 2;
         const norm = Math.min(1, Math.abs(center - focus) / vh);
         el.style.transform = `scale(${(1 - norm * 0.12).toFixed(4)})`;
         el.style.opacity = (1 - norm * 0.45).toFixed(3);
-      });
+      }
 
-      // curveRail — coverflow + snap buzz (re-query each frame so newly
-      // mounted rails are covered without re-binding listeners)
-      root.querySelectorAll<HTMLElement>('.rail').forEach((rail) => {
+      // curveRail — coverflow + snap buzz
+      for (const { rail, cards } of rails) {
         const rr = rail.getBoundingClientRect();
+        // Off-screen rail → skip its per-card transforms (the heaviest work).
+        // Its cards keep their last transform until it re-enters view; the
+        // effect is cosmetic, so a stale-while-offscreen transform is harmless.
+        if (rr.bottom < 0 || rr.top > vh) continue;
         const railCenter = rr.left + rr.width / 2;
         const half = rr.width / 2 || 1;
-        const cards = rail.querySelectorAll<HTMLElement>('.card, .add');
         let nearest = -1;
         let nearestDist = Infinity;
         cards.forEach((card, i) => {
@@ -472,7 +512,7 @@ export function PlanBudgetAccordion({
           // — Android-only here; iOS scroll haptics need the native app (0052).
           if (prev !== -1) haptic('tick', { iosSwitch: false });
         }
-      });
+      }
     };
 
     const schedule = () => {
@@ -883,6 +923,7 @@ function FolderSection({
                 child={child}
                 eventId={eventId}
                 folderSlug={folder.slug}
+                folderIndex={index}
                 onCompare={onCompare}
                 onOpenSearch={onOpenSearch}
               />
@@ -899,19 +940,27 @@ function ChildRail({
   child,
   eventId,
   folderSlug,
+  folderIndex,
   onCompare,
   onOpenSearch,
 }: {
   child: AccordionChild;
   eventId: string;
   folderSlug: string;
+  /** Index of the parent folder (0-based). Used by CSS --folder-idx so the
+   *  scroll-margin-top on #group-* IDs clears the piled headers above this
+   *  group (topbar + folderIndex+1 category heads). */
+  folderIndex: number;
   onCompare: (child: AccordionChild) => void;
   onOpenSearch: (groupId: string, label: string) => void;
 }) {
   const empty = child.picks.length === 0;
   const canCompare = child.picks.length >= 2;
   return (
-    <div id={`group-${child.groupId}`}>
+    <div
+      id={`group-${child.groupId}`}
+      style={{ ['--folder-idx']: folderIndex } as CSSProperties}
+    >
       <div className="child-name">
         <span className="cn">{child.label}</span>
         <span className="cn-right">
@@ -935,19 +984,34 @@ function ChildRail({
           onClick={() => onOpenSearch(child.groupId, child.label)}
         >
           <span className="ep">＋</span>
-          <span className="en">Find {child.label.toLowerCase()}</span>
+          {/* Keep the label's own casing — lowercasing mangles acronym/proper
+              category names ("LED Background"→"led background", "DJ"→"dj"). */}
+          <span className="en">Find {child.label}</span>
           <span className="eh">Search</span>
         </button>
       ) : (
         <div className="rail">
           {child.picks.map((pick) => (
-            <VendorCardAtom key={pick.vendor_id} pick={pick} eventId={eventId} />
+            <VendorCardAtom
+              key={pick.vendor_id}
+              pick={pick}
+              eventId={eventId}
+              groupId={child.groupId}
+              groupLabel={child.label}
+            />
           ))}
-          <AddCard
-            label={child.label}
-            groupId={child.groupId}
-            onOpenSearch={onOpenSearch}
-          />
+          {/* Collapse on a hard-single finalize: the slot is filled (one
+              venue/officiant/coordinator/host/LED), and finalizeVendor already
+              auto-archived the losing shortlist — so drop the Find-more card.
+              "↩ Change pick" on the chosen card re-opens it. Multi-pick groups
+              keep Find-more (co-locks are the happy path there). */}
+          {!(child.state === 'finalized' && child.hardSingle) && (
+            <AddCard
+              label={child.label}
+              groupId={child.groupId}
+              onOpenSearch={onOpenSearch}
+            />
+          )}
         </div>
       )}
     </div>
@@ -984,9 +1048,13 @@ function DeadlineChip({
 function VendorCardAtom({
   pick,
   eventId,
+  groupId,
+  groupLabel,
 }: {
   pick: AccordionPick;
   eventId: string;
+  groupId: PlanGroupId;
+  groupLabel: string;
 }) {
   const [confirmRemove, setConfirmRemove] = useState(false);
   const locked = isLocked(pick);
@@ -1117,22 +1185,21 @@ function VendorCardAtom({
           </button>
         ))}
 
-      {/* Lock CTA — accessible Stage-now equivalent of long-press finalize */}
+      {/* Lock CTA — the canonical finalizeVendor (conflict + soft-hold gates +
+          auto-archive + cascade), one-tap happy path, exception modals. */}
       {!locked && (
-        <div className="lockbar">
-          <form action={updateVendorStatus}>
-            <input type="hidden" name="event_id" value={eventId} />
-            <input type="hidden" name="vendor_id" value={pick.vendor_id} />
-            <input type="hidden" name="status" value="contracted" />
-            <button
-              type="submit"
-              className="lockbtn"
-              onClick={() => haptic('confirm')}
-            >
-              Lock this pick
-            </button>
-          </form>
-        </div>
+        <AccordionLockButton
+          eventId={eventId}
+          groupId={groupId}
+          groupLabel={groupLabel}
+          vendorId={pick.vendor_id}
+          vendorName={displayName}
+        />
+      )}
+
+      {/* Locked → "↩ Change pick" reverts to considering (re-expands the rail). */}
+      {locked && (
+        <ChangePickButton eventId={eventId} vendorId={pick.vendor_id} />
       )}
     </div>
   );

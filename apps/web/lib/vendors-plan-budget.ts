@@ -31,6 +31,7 @@
 import {
   PLAN_GROUPS,
   PLAN_GROUP_TIER_ORDER,
+  HARD_SINGLE_PICK_GROUPS,
   bucketVendorsByGroup,
   type PlanGroup,
   type PlanGroupId,
@@ -277,6 +278,60 @@ function pickCostCentavos(pick: AccordionPick): number {
   return Math.round(pkg * PESO);
 }
 
+/**
+ * Range (cheapest→priciest) contribution for ONE plan-group child, in centavos.
+ *
+ * The couple makes ONE decision per distinct service — but a single plan group
+ * legitimately holds SEVERAL distinct services they keep TOGETHER (Documentary
+ * = photographer + videographer; Look = gown + suit; Design = florist + stylist;
+ * Catering = main caterer + dessert bar — see lib/wedding-plan-groups.ts lines
+ * 735-748). So we sub-bucket by canonical service (`pick.category`): WITHIN a
+ * service the couple picks ONE (its cheapest→priciest option span, or the
+ * locked price once decided), and we SUM ACROSS the distinct services.
+ *
+ * This is correct for BOTH shapes the old code got wrong:
+ *   • "3 competing photographers → pick one" → one `photographer` bucket →
+ *     min..max  (the old code summed all 3, over-counting by ~2×).
+ *   • "photographer + videographer → keep both" → two buckets → summed
+ *     (unchanged — still correct).
+ * The hard-single groups (one canonical service each) fall out naturally:
+ * a single bucket → min..max, or fixed once locked. No special-casing needed.
+ *
+ * Picks with no recorded price (cost ≤ 0) drop out of the span — same as the
+ * prior `costs.filter(c => c > 0)` guard.
+ */
+function rangeForChild(picks: ReadonlyArray<AccordionPick>): {
+  lo: number;
+  hi: number;
+} {
+  const byService = new Map<string, AccordionPick[]>();
+  for (const p of picks) {
+    if (pickCostCentavos(p) <= 0) continue;
+    const arr = byService.get(p.category);
+    if (arr) arr.push(p);
+    else byService.set(p.category, [p]);
+  }
+  let lo = 0;
+  let hi = 0;
+  for (const group of byService.values()) {
+    const lockedCosts = group
+      .filter((p) => p.raw_status && LOCKED_STATUSES.has(p.raw_status))
+      .map(pickCostCentavos);
+    if (lockedCosts.length > 0) {
+      // Decided within this service → fixed point (sum the locked picks;
+      // normally one, but a couple could lock two complementary picks).
+      const fixed = lockedCosts.reduce((s, c) => s + c, 0);
+      lo += fixed;
+      hi += fixed;
+    } else {
+      const costs = group.map(pickCostCentavos);
+      lo += Math.min(...costs);
+      hi += Math.max(...costs);
+    }
+  }
+  return { lo, hi };
+}
+
 /** Days until the lock-by floor (negative = overdue). */
 function deadlineFor(groupId: PlanGroupId, daysUntilWedding: number | null): number | null {
   if (daysUntilWedding === null) return null;
@@ -350,20 +405,11 @@ export function buildPlanBudgetModel(args: {
   // so compatibility chips + status all stay consistent with event-home).
   const bucketed = bucketVendorsByGroup(vendorRows, ceremonyType, venueSetting);
 
-  const hardSingleIds = new Set(
-    PLAN_GROUPS.filter((g) =>
-      (
-        [
-          'ceremony_venue',
-          'reception_venue',
-          'officiant',
-          'coordinator',
-          'host_mc',
-          'led_background',
-        ] as PlanGroupId[]
-      ).includes(g.id),
-    ).map((g) => g.id),
-  );
+  // Canonical hard-single set (lib/wedding-plan-groups.ts) — one pick max
+  // (ceremony/reception venue, officiant, coordinator, host/MC, LED). Drives
+  // ONLY the per-child `hardSingle` display flag now; the Range math keys off
+  // the canonical-service sub-bucketing in rangeForChild() instead (so
+  // multi-service groups like Documentary/Look/Catering are handled correctly).
 
   // Enrich every pick with rolled cost + eyeing.
   const enrich = (pick: PlanCardPick): AccordionPick => {
@@ -412,7 +458,7 @@ export function buildPlanBudgetModel(args: {
     const isEntryPoint = group.countsTowardLockable === false;
     if (isEntryPoint && picks.length === 0) continue;
 
-    const hardSingle = hardSingleIds.has(group.id);
+    const hardSingle = HARD_SINGLE_PICK_GROUPS.has(group.id);
     const state = childStateOf(picks, hardSingle);
     const lockedTotal = picks
       .filter((p) => p.raw_status && LOCKED_STATUSES.has(p.raw_status))
@@ -476,28 +522,13 @@ export function buildPlanBudgetModel(args: {
   for (const folder of folders) {
     for (const child of folder.children) {
       chosenCentavos += child.lockedTotal;
-      const costs = child.picks
-        .map(pickCostCentavos)
-        .filter((c) => c > 0);
-      if (costs.length === 0) continue;
-      const lockedCosts = child.picks
-        .filter((p) => p.raw_status && LOCKED_STATUSES.has(p.raw_status))
-        .map(pickCostCentavos);
-      if (lockedCosts.length > 0 && child.hardSingle) {
-        // Hard-single + locked → fixed point.
-        const fixed = lockedCosts.reduce((s, c) => s + c, 0);
-        rangeLo += fixed;
-        rangeHi += fixed;
-      } else if (child.hardSingle) {
-        // Hard-single, undecided → cheapest..priciest of the options.
-        rangeLo += Math.min(...costs);
-        rangeHi += Math.max(...costs);
-      } else {
-        // Multi-pick → all shortlisted picks contribute (couple may keep many).
-        const sum = costs.reduce((s, c) => s + c, 0);
-        rangeLo += sum;
-        rangeHi += sum;
-      }
+      // Range = Σ over children of each child's per-service span. rangeForChild
+      // sub-buckets by canonical service so competing options (pick one) give a
+      // cheapest→priciest span while genuinely-distinct services (kept together)
+      // sum — see rangeForChild() for the full reasoning.
+      const { lo, hi } = rangeForChild(child.picks);
+      rangeLo += lo;
+      rangeHi += hi;
     }
   }
 

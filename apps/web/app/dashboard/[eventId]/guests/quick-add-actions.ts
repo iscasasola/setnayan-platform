@@ -217,3 +217,126 @@ export async function quickCreateGroup(
   revalidatePath(`/dashboard/${eventId}/guests`);
   return { ok: true, group: { group_id: inserted.group_id, label: inserted.label } };
 }
+
+export type QuickRoleResult =
+  | {
+      ok: true;
+      guest: { guest_id: string; role: GuestRole; extra_roles: GuestRole[] };
+    }
+  | { ok: false; error: string };
+
+const SINGLETON_ROLES: GuestRole[] = ['bride', 'groom'];
+
+/**
+ * Multi-role (iteration 0001 — 2026-06-02). When the quick-add finds a
+ * same-name guest with a DIFFERENT role, the resolver can give that guest
+ * a SECOND role instead of creating a duplicate. The primary `role` is
+ * untouched (it keeps driving the seating tier + invite defaults); the
+ * new role is appended to `extra_roles`.
+ *
+ * Bride/Groom are one-per-event singletons — guarded by the partial-
+ * unique indexes on the primary `role` column AND the
+ * guests_extra_roles_no_singletons CHECK — so they can't be a second
+ * role here.
+ */
+export async function addRoleToGuest(
+  eventId: string,
+  guestId: string,
+  rawRole: string,
+): Promise<QuickRoleResult> {
+  const role = rawRole as GuestRole;
+  if (!ROLE_VALUES.includes(role)) {
+    return { ok: false, error: 'That role isn’t valid.' };
+  }
+  if (SINGLETON_ROLES.includes(role)) {
+    return {
+      ok: false,
+      error:
+        role === 'bride'
+          ? 'Bride can only be one person — change their primary role instead.'
+          : 'Groom can only be one person — change their primary role instead.',
+    };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Your session expired — sign in again.' };
+
+  const { data: g, error: readErr } = await supabase
+    .from('guests')
+    .select('guest_id, event_id, role, extra_roles')
+    .eq('guest_id', guestId)
+    .maybeSingle();
+  if (readErr || !g || g.event_id !== eventId) {
+    return { ok: false, error: 'Couldn’t find that guest.' };
+  }
+
+  const current: GuestRole[] = (g.extra_roles ?? []) as GuestRole[];
+  // Already has it (as primary or extra) → no-op success.
+  if (g.role === role || current.includes(role)) {
+    return { ok: true, guest: { guest_id: g.guest_id, role: g.role, extra_roles: current } };
+  }
+  const next = [...current, role];
+
+  const { error: updErr } = await supabase
+    .from('guests')
+    .update({ extra_roles: next })
+    .eq('guest_id', guestId);
+  if (updErr) return { ok: false, error: updErr.message ?? 'Couldn’t add that role.' };
+
+  revalidatePath(`/dashboard/${eventId}/guests`);
+  return { ok: true, guest: { guest_id: g.guest_id, role: g.role, extra_roles: next } };
+}
+
+/**
+ * Change a guest's PRIMARY role (the seating-tier / invite-defaults one).
+ * If the new role was sitting in extra_roles, it's removed from there to
+ * avoid a duplicate. Bride/Groom singletons surface the friendly 23505.
+ */
+export async function setGuestPrimaryRole(
+  eventId: string,
+  guestId: string,
+  rawRole: string,
+): Promise<QuickRoleResult> {
+  const role = rawRole as GuestRole;
+  if (!ROLE_VALUES.includes(role)) {
+    return { ok: false, error: 'That role isn’t valid.' };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Your session expired — sign in again.' };
+
+  const { data: g, error: readErr } = await supabase
+    .from('guests')
+    .select('guest_id, event_id, role, extra_roles')
+    .eq('guest_id', guestId)
+    .maybeSingle();
+  if (readErr || !g || g.event_id !== eventId) {
+    return { ok: false, error: 'Couldn’t find that guest.' };
+  }
+
+  const nextExtras = ((g.extra_roles ?? []) as GuestRole[]).filter((r) => r !== role);
+
+  const { error: updErr } = await supabase
+    .from('guests')
+    .update({ role, extra_roles: nextExtras })
+    .eq('guest_id', guestId);
+  if (updErr) {
+    const friendly =
+      (updErr as { code?: string }).code === '23505' &&
+      /guests_one_(bride|groom)_per_event/.test(updErr.message)
+        ? role === 'bride'
+          ? 'There’s already a Bride — change theirs first.'
+          : 'There’s already a Groom — change theirs first.'
+        : (updErr.message ?? 'Couldn’t change that role.');
+    return { ok: false, error: friendly };
+  }
+
+  revalidatePath(`/dashboard/${eventId}/guests`);
+  return { ok: true, guest: { guest_id: g.guest_id, role, extra_roles: nextExtras } };
+}

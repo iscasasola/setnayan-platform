@@ -16,7 +16,12 @@ import {
   type GuestRole,
   type GuestSide,
 } from '@/lib/guests';
-import { quickAddGuest, quickCreateGroup } from '../quick-add-actions';
+import {
+  quickAddGuest,
+  quickCreateGroup,
+  addRoleToGuest,
+  setGuestPrimaryRole,
+} from '../quick-add-actions';
 
 /* ------------------------------------------------------------------ */
 /* Cross-component opener — one sheet, two triggers (desktop header    */
@@ -107,10 +112,12 @@ function nameMatch(a: string, b: string, allowNick: boolean): MatchKind {
 }
 
 export type ExistingGuest = {
+  guest_id: string;
   first_name: string;
   last_name: string;
   side: GuestSide;
   role: GuestRole;
+  extra_roles: GuestRole[];
 };
 
 type Dup = { g: ExistingGuest; kind: 'exact' | 'nick' | 'typo' };
@@ -210,6 +217,11 @@ export function QuickAddSheet({
   // Guests added during this session, so back-to-back adds dedupe
   // against names that aren't in the server snapshot yet.
   const [addedLocal, setAddedLocal] = useState<ExistingGuest[]>([]);
+  // role changes applied this session (add-role / change-role), keyed by
+  // guest_id, so the resolver reflects them before router.refresh() lands
+  const [roleOverrides, setRoleOverrides] = useState<
+    Record<string, { role: GuestRole; extra_roles: GuestRole[] }>
+  >({});
   const [toast, setToast] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -241,10 +253,11 @@ export function QuickAddSheet({
       const key = `${norm(g.first_name)}|${norm(g.last_name)}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      merged.push(g);
+      const ov = roleOverrides[g.guest_id];
+      merged.push(ov ? { ...g, ...ov } : g);
     }
     return merged;
-  }, [existingGuests, addedLocal]);
+  }, [existingGuests, addedLocal, roleOverrides]);
   const dups = useMemo(
     () => (dupDismissed ? [] : findDuplicates(fn, ln, pool)),
     [fn, ln, pool, dupDismissed],
@@ -314,7 +327,7 @@ export function QuickAddSheet({
           return;
         }
         // dedupe back-to-back rapid adds against the just-saved name
-        setAddedLocal((prev) => [...prev, res.guest]);
+        setAddedLocal((prev) => [...prev, { ...res.guest, extra_roles: [] }]);
         clearNames();
         router.refresh();
         if (keepOpen) {
@@ -356,6 +369,58 @@ export function QuickAddSheet({
     }
     doSave(false);
   }, [dupActive, doSave]);
+
+  /* multi-role resolver — same name, different role. Give the existing
+     guest the picked role TOO (extra_roles), or change their primary
+     role to it. Either way we clear the names + keep the rapid loop. */
+  const applyAddRole = useCallback(
+    (g: ExistingGuest) => {
+      setError(null);
+      startTransition(async () => {
+        const res = await addRoleToGuest(eventId, g.guest_id, role);
+        if (!res.ok) {
+          setError(res.error);
+          return;
+        }
+        setRoleOverrides((prev) => ({
+          ...prev,
+          [g.guest_id]: { role: res.guest.role, extra_roles: res.guest.extra_roles },
+        }));
+        clearNames();
+        router.refresh();
+        showToast(`${g.first_name} is now also ${ROLE_LABELS[role]}`);
+        setTimeout(() => fnRef.current?.focus(), 0);
+      });
+    },
+    [eventId, role, clearNames, router, showToast],
+  );
+  const applyChangeRole = useCallback(
+    (g: ExistingGuest) => {
+      setError(null);
+      startTransition(async () => {
+        const res = await setGuestPrimaryRole(eventId, g.guest_id, role);
+        if (!res.ok) {
+          setError(res.error);
+          return;
+        }
+        setRoleOverrides((prev) => ({
+          ...prev,
+          [g.guest_id]: { role: res.guest.role, extra_roles: res.guest.extra_roles },
+        }));
+        clearNames();
+        router.refresh();
+        showToast(`${g.first_name} → ${ROLE_LABELS[role]}`);
+        setTimeout(() => fnRef.current?.focus(), 0);
+      });
+    },
+    [eventId, role, clearNames, router, showToast],
+  );
+
+  /* resolver state for the TOP name match (dups are sorted best-first) */
+  const target = dups[0]?.g ?? null;
+  const targetRoles = target ? [target.role, ...target.extra_roles] : [];
+  const pickedIsSingleton = role === 'bride' || role === 'groom';
+  const targetHasPicked = targetRoles.includes(role);
 
   /* inline "create a new group" from the Group picker */
   const startNewGroup = useCallback(() => {
@@ -605,7 +670,9 @@ export function QuickAddSheet({
                   <div className="space-y-2 rounded-xl border border-amber-300/70 bg-amber-50 p-3">
                     <p className="flex items-center gap-2 text-sm font-semibold leading-tight text-amber-800">
                       <AlertTriangle aria-hidden className="h-4 w-4 flex-none" strokeWidth={1.9} />
-                      You may have already added {dups.length > 1 ? 'these guests' : 'this guest'}
+                      {target && !targetHasPicked
+                        ? `${target.first_name} is already on your list — with a different role`
+                        : `You may have already added ${dups.length > 1 ? 'these guests' : 'this guest'}`}
                     </p>
                     {dups.map(({ g, kind }, i) => (
                       <div
@@ -617,7 +684,9 @@ export function QuickAddSheet({
                             {g.first_name} {g.last_name}
                           </span>
                           <span className="block truncate text-[11px] text-ink/55">
-                            {ROLE_LABELS[g.role]} · {SIDE_LABELS[g.side]}
+                            {[g.role, ...g.extra_roles].map((r) => ROLE_LABELS[r]).join(' · ')}
+                            {' · '}
+                            {SIDE_LABELS[g.side]}
                           </span>
                         </span>
                         <span
@@ -633,14 +702,68 @@ export function QuickAddSheet({
                         </span>
                       </div>
                     ))}
-                    <button
-                      type="button"
-                      onClick={() => forceAdd(true)}
-                      disabled={isPending}
-                      className="mt-1 w-full rounded-lg border border-ink/15 bg-cream py-2 text-sm font-medium text-ink/70 hover:border-ink/30"
-                    >
-                      ＋ No — add as a different person
-                    </button>
+
+                    {target && !targetHasPicked ? (
+                      /* same name, different role — resolve, don't dupe */
+                      <div className="space-y-1.5 pt-0.5">
+                        {!pickedIsSingleton ? (
+                          <button
+                            type="button"
+                            onClick={() => applyAddRole(target)}
+                            disabled={isPending}
+                            className="w-full rounded-lg bg-mulberry py-2 text-sm font-semibold text-cream hover:bg-mulberry-600 disabled:opacity-60"
+                          >
+                            ＋ Add {ROLE_LABELS[role]} too — keep both roles
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => applyChangeRole(target)}
+                          disabled={isPending}
+                          className="w-full rounded-lg border border-ink/20 bg-cream py-2 text-sm font-medium text-ink hover:border-ink/40 disabled:opacity-60"
+                        >
+                          Change {target.first_name} to {ROLE_LABELS[role]}
+                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => forceAdd(true)}
+                            disabled={isPending}
+                            className="flex-1 rounded-lg border border-ink/15 bg-cream py-2 text-xs font-medium text-ink/70 hover:border-ink/30"
+                          >
+                            Different person
+                          </button>
+                          <button
+                            type="button"
+                            onClick={skipDuplicate}
+                            disabled={isPending}
+                            className="flex-1 rounded-lg py-2 text-xs font-medium text-ink/55 hover:text-ink"
+                          >
+                            Keep as is
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      /* already on the list with this same role — a true dup */
+                      <div className="flex gap-2 pt-0.5">
+                        <button
+                          type="button"
+                          onClick={() => forceAdd(true)}
+                          disabled={isPending}
+                          className="flex-1 rounded-lg border border-ink/15 bg-cream py-2 text-sm font-medium text-ink/70 hover:border-ink/30"
+                        >
+                          ＋ Different person
+                        </button>
+                        <button
+                          type="button"
+                          onClick={skipDuplicate}
+                          disabled={isPending}
+                          className="flex-1 rounded-lg py-2 text-sm font-medium text-ink/55 hover:text-ink"
+                        >
+                          Keep as is
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ) : null}
 

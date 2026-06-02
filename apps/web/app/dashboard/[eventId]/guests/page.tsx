@@ -24,6 +24,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { GuestListMultiselect } from './_components/guest-list-multiselect';
 import { GroupsSidebar } from './_components/groups-sidebar';
 import { LiveSearch } from './_components/live-search';
+import { MobileActionBar } from './_components/mobile-action-bar';
 import {
   OpenQuickAddButton,
   QuickAddSheet,
@@ -246,10 +247,12 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // Minimal pool the quick-add sheet matches new names against for the
   // duplicate check — full unfiltered list, not the filtered `visible`.
   const quickAddPool = guests.map((g) => ({
+    guest_id: g.guest_id,
     first_name: g.first_name,
     last_name: g.last_name,
     side: g.side,
     role: g.role,
+    extra_roles: g.extra_roles ?? [],
   }));
   const quickAddGroups = groups.map((g) => ({
     group_id: g.group_id,
@@ -341,7 +344,11 @@ export default async function GuestsPage({ params, searchParams }: Props) {
 
       {joinUrl ? <ShareInvite joinUrl={joinUrl} /> : null}
 
-      <Toolbar eventId={eventId} q={q} sort={sort} search={search} />
+      {/* desktop: inline search + sort. Mobile/tablet use the docked
+          MobileActionBar (search + filter + add) above the bottom nav. */}
+      <div className="hidden lg:block">
+        <Toolbar eventId={eventId} q={q} sort={sort} search={search} />
+      </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[240px_1fr]">
         <FacetsSidebar
@@ -374,6 +381,21 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         eventId={eventId}
         existingGuests={quickAddPool}
         groups={quickAddGroups}
+      />
+
+      {/* mobile/tablet only — docked search + filter + add above the
+          bottom nav. Spacer keeps the last rows clear of the fixed bar. */}
+      <div aria-hidden className="h-16 lg:hidden" />
+      <MobileActionBar
+        q={q}
+        sorts={SORT_OPTIONS.map((o) => ({ key: o.value, label: o.label }))}
+        currentSort={sort}
+        views={VIEW_FILTERS}
+        activeView={currentGroupId ? '' : view}
+        groups={groups}
+        currentGroupId={currentGroupId}
+        tags={allTags}
+        activeTag={tagFilter}
       />
     </section>
   );

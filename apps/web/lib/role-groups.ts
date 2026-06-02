@@ -74,10 +74,14 @@ export const ROLE_GROUP_CHIP: Record<RoleGroup | 'guest', string> = {
 // directive 2026-05-23 PM removed the social-category filters
 // (family/friends/work/school) — those live in the GROUPS section of
 // the sidebar (custom guest_groups) rather than as role-based views.
-export function filterByRoleGroup<T extends { role: GuestRole }>(
-  guests: T[],
-  view: string | null,
-): T[] {
+export function filterByRoleGroup<
+  T extends { role: GuestRole; extra_roles?: GuestRole[] },
+>(guests: T[], view: string | null): T[] {
   if (!view || view === 'all') return guests;
-  return guests.filter((g) => roleGroupOf(g.role) === view);
+  // multi-role: a guest matches the view if ANY of their roles (primary
+  // or extra) maps to it — so filtering "Principal Sponsors" surfaces a
+  // Bridesmaid who is also a principal sponsor.
+  return guests.filter((g) =>
+    [g.role, ...(g.extra_roles ?? [])].some((r) => roleGroupOf(r) === view),
+  );
 }

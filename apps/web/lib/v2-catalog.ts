@@ -30,6 +30,16 @@ export type V2CustomerSku = {
   is_token_able: boolean;
   description: string | null;
   build_status: BuildStatus;
+  // Pax-based pricing — migration 20260720000000 · owner-locked 2026-06-02.
+  // is_pax_priced=false → retail_price_php is the flat charge (every SKU but
+  // PAPIC_GUEST today · byte-identical to the pre-pax path). When true, the
+  // four pax_* fields drive computePaxPriceCentavos() keyed to
+  // events.estimated_pax (floor ₱2,999 @ 100 pax · +₱350 / 50 for PAPIC_GUEST).
+  is_pax_priced: boolean;
+  pax_floor: number | null;
+  pax_floor_price_php: number | null;
+  pax_increment_size: number | null;
+  pax_increment_price_php: number | null;
 };
 
 export type V2BundleSku = {
@@ -110,7 +120,7 @@ export async function fetchV2CustomerCatalog(): Promise<V2CustomerSku[]> {
   }
   const { data, error } = await admin
     .from('platform_retail_catalog_v2')
-    .select('service_code, title, retail_price_php, saas_overhead_cost_php, is_token_able, description')
+    .select('service_code, title, retail_price_php, saas_overhead_cost_php, is_token_able, description, is_pax_priced, pax_floor, pax_floor_price_php, pax_increment_size, pax_increment_price_php')
     .order('service_code', { ascending: true });
 
   if (error || !data) return [];
@@ -123,6 +133,14 @@ export async function fetchV2CustomerCatalog(): Promise<V2CustomerSku[]> {
     is_token_able: Boolean(row.is_token_able),
     description: (row.description as string | null) ?? null,
     build_status: BUILD_STATUS[row.service_code as string] ?? 'not_built',
+    is_pax_priced: Boolean(row.is_pax_priced),
+    pax_floor: row.pax_floor == null ? null : Number(row.pax_floor),
+    pax_floor_price_php:
+      row.pax_floor_price_php == null ? null : Number(row.pax_floor_price_php),
+    pax_increment_size:
+      row.pax_increment_size == null ? null : Number(row.pax_increment_size),
+    pax_increment_price_php:
+      row.pax_increment_price_php == null ? null : Number(row.pax_increment_price_php),
   }));
 }
 
@@ -191,3 +209,153 @@ export const BUILD_STATUS_LABEL: Record<BuildStatus, string> = {
   partial: 'Partial · in active build',
   not_built: 'Coming soon',
 };
+
+// ─────────────────────────────────────────────────────────────────────────
+// Pax-based pricing engine · owner-locked 2026-06-02 (CLAUDE.md "📸 Papic
+// Guest pax-curve increment LOCKED at ₱350/50"). Backed by the pax_* columns
+// on platform_retail_catalog_v2 (migration 20260720000000). First + only
+// pax-priced SKU today: PAPIC_GUEST (floor ₱2,999 @ 100 pax · +₱350 / 50).
+// Every other SKU is is_pax_priced=FALSE → these helpers return the flat
+// retail price, byte-identical to the pre-pax path.
+// ─────────────────────────────────────────────────────────────────────────
+
+/** The pax-config subset needed to price a row. */
+export type PaxPricingConfig = Pick<
+  V2CustomerSku,
+  | 'retail_price_php'
+  | 'is_pax_priced'
+  | 'pax_floor'
+  | 'pax_floor_price_php'
+  | 'pax_increment_size'
+  | 'pax_increment_price_php'
+>;
+
+/**
+ * Authoritative price for a customer SKU at a given guest count, in CENTAVOS
+ * (integer · the charge unit · matches submitOrderAction's BigInt(original_centavos)).
+ *
+ * Flat SKUs (is_pax_priced=false · everything but PAPIC_GUEST today) — or any
+ * row with an incomplete pax config (the DB CHECK prevents this, but never
+ * trust a half-config at runtime) — return retail_price_php × 100.
+ *
+ * Pax-priced SKUs scale per the locked model:
+ *   floor_price + increment_price × ceil(max(0, pax − floor) / block)
+ * Guests at/below the floor — or an unknown (null) pax — charge the floor
+ * price (the "nothing prices below the floor" rule). Couples between two
+ * increments round UP to the next block (the SKU covers *up to* that count).
+ *
+ * PAPIC_GUEST verification (floor 100 @ ₱2,999 · block 50 · +₱350):
+ *   100→299900 · 150→334900 · 200→369900 · 250→404900 · 300→439900 · 500→579900
+ */
+export function computePaxPriceCentavos(
+  sku: PaxPricingConfig,
+  pax: number | null | undefined,
+): number {
+  if (
+    !sku.is_pax_priced ||
+    sku.pax_floor == null ||
+    sku.pax_floor_price_php == null ||
+    sku.pax_increment_size == null ||
+    sku.pax_increment_size <= 0 ||
+    sku.pax_increment_price_php == null
+  ) {
+    return Math.round(sku.retail_price_php * 100);
+  }
+
+  const guests =
+    typeof pax === 'number' && Number.isFinite(pax) ? pax : sku.pax_floor;
+  const above = Math.max(0, guests - sku.pax_floor);
+  const blocks = Math.ceil(above / sku.pax_increment_size);
+  const pesos = sku.pax_floor_price_php + blocks * sku.pax_increment_price_php;
+  return Math.round(pesos * 100);
+}
+
+/**
+ * Human price label for a customer SKU.
+ *   • Pax-priced SKU + NO event context (e.g. /pricing, for-vendors catalog)
+ *     → "from ₱X" off the floor (the price genuinely starts there + rises with
+ *     guests · honest, not the old bare "₱2,999").
+ *   • Pax-priced SKU + a known event pax → the exact "₱X" for that wedding.
+ *   • Flat SKU → "₱X".
+ */
+export function formatSkuPriceLabel(
+  sku: PaxPricingConfig,
+  pax?: number | null,
+): string {
+  if (sku.is_pax_priced && (pax === undefined || pax === null)) {
+    return `from ₱${formatPeso(sku.retail_price_php)}`;
+  }
+  const centavos = computePaxPriceCentavos(sku, pax ?? null);
+  return `₱${formatPeso(centavos / 100)}`;
+}
+
+/**
+ * Server-side AUTHORITATIVE price for an order line, in centavos — the keystone
+ * for tamper-proof pax pricing. submitOrderAction calls this; when the SKU is
+ * pax-priced it recomputes the charge from events.estimated_pax + the catalog
+ * config, IGNORING the client-supplied original_centavos (defence-in-depth ·
+ * mirrors the voucher re-validation in the same action).
+ *
+ * Returns:
+ *   • { is_pax_priced: true,  centavos } — caller MUST override the price.
+ *   • { is_pax_priced: false, centavos } — caller keeps trusting the client
+ *     (every flat V2-customer SKU · byte-identical charge path preserved).
+ *   • null — SKU not in platform_retail_catalog_v2 (vendor / bundle / legacy
+ *     SKUs) OR any DB error → caller falls back to the client price, so a
+ *     transient read failure NEVER blocks an order.
+ *
+ * Uses the admin client for both reads (catalog is admin-read; the event is the
+ * couple's own — we compute THEIR price). Graceful-degrades to the floor (pax
+ * null) if estimated_pax is missing / the column is absent in a stale env.
+ */
+export async function resolvePaxPricedOrderCentavos(
+  eventId: string,
+  serviceCode: string,
+): Promise<{ is_pax_priced: boolean; centavos: number } | null> {
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch {
+    return null;
+  }
+
+  const { data: sku, error: skuErr } = await admin
+    .from('platform_retail_catalog_v2')
+    .select(
+      'retail_price_php, is_pax_priced, pax_floor, pax_floor_price_php, pax_increment_size, pax_increment_price_php',
+    )
+    .eq('service_code', serviceCode)
+    .maybeSingle();
+
+  if (skuErr || !sku) return null;
+
+  const config: PaxPricingConfig = {
+    retail_price_php: Number(sku.retail_price_php),
+    is_pax_priced: Boolean(sku.is_pax_priced),
+    pax_floor: sku.pax_floor == null ? null : Number(sku.pax_floor),
+    pax_floor_price_php:
+      sku.pax_floor_price_php == null ? null : Number(sku.pax_floor_price_php),
+    pax_increment_size:
+      sku.pax_increment_size == null ? null : Number(sku.pax_increment_size),
+    pax_increment_price_php:
+      sku.pax_increment_price_php == null
+        ? null
+        : Number(sku.pax_increment_price_php),
+  };
+
+  let pax: number | null = null;
+  if (config.is_pax_priced) {
+    const { data: event } = await admin
+      .from('events')
+      .select('estimated_pax')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    pax =
+      event && event.estimated_pax != null ? Number(event.estimated_pax) : null;
+  }
+
+  return {
+    is_pax_priced: config.is_pax_priced,
+    centavos: computePaxPriceCentavos(config, pax),
+  };
+}

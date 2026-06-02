@@ -733,6 +733,13 @@ function Overview({
           </span>
           Add your first category
         </a>
+
+        <p className="intro-cta">
+          Swipe to start viewing the services
+          <span className="chev" aria-hidden>
+            ↓
+          </span>
+        </p>
       </section>
     );
   }
@@ -802,7 +809,7 @@ function Overview({
       </div>
 
       <p className="intro-cta">
-        Your categories below
+        Swipe to start viewing the services
         <span className="chev" aria-hidden>
           ↓
         </span>

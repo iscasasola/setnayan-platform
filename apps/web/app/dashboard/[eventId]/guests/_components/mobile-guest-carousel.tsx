@@ -36,9 +36,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
-import { Plus, Upload, ListPlus, X } from 'lucide-react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { X } from 'lucide-react';
 import { LiveSearch } from './live-search';
+import { quickAddGuest } from '../quick-add-actions';
 
 type Opt = { key: string; label: string };
 type Group = { group_id: string; label: string; member_count?: number };
@@ -113,9 +114,6 @@ export function MobileGuestCarousel({
     const i = Math.round(track.scrollLeft / track.clientWidth);
     if (i !== active) setActive(i);
   };
-
-  const openAdd = () =>
-    window.dispatchEvent(new CustomEvent('setnayan:quick-add-open'));
 
   const hasActiveFilter =
     Boolean(currentGroupId) ||
@@ -206,30 +204,9 @@ export function MobileGuestCarousel({
             </div>
           </section>
 
-          {/* 3 — Add */}
-          <section className="flex w-full shrink-0 snap-center flex-col justify-center gap-2 overflow-y-auto px-4 py-3">
-            <button
-              type="button"
-              onClick={openAdd}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-mulberry px-4 py-3 text-sm font-semibold text-cream hover:bg-mulberry-600"
-            >
-              <Plus className="h-4 w-4" strokeWidth={2} aria-hidden />
-              Add a guest
-            </button>
-            <Link
-              href={`/dashboard/${eventId}/guests/quick`}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-ink/15 bg-cream px-4 py-2.5 text-sm font-medium text-ink hover:border-ink/30"
-            >
-              <ListPlus className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-              Quick-add list
-            </Link>
-            <Link
-              href={`/dashboard/${eventId}/guests/import`}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-ink/15 bg-cream px-4 py-2.5 text-sm font-medium text-ink hover:border-ink/30"
-            >
-              <Upload className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-              Import CSV
-            </Link>
+          {/* 3 — Add: inline quick-entry form */}
+          <section className="flex w-full shrink-0 snap-center flex-col justify-center px-4 py-3">
+            <QuickAddInlineForm eventId={eventId} />
           </section>
 
           {/* 4 — Customize: view / groups / tags */}
@@ -380,4 +357,127 @@ function AnimatedCount({ value }: { value: number }) {
     return () => cancelAnimationFrame(raf);
   }, [value]);
   return <>{n.toLocaleString('en-US')}</>;
+}
+
+/**
+ * Inline quick-entry form for the Add carousel panel.
+ *
+ * Flow:
+ *   Enter on first name  → moves focus to last name (or ends if field is empty)
+ *   Enter on last name   → adds the guest, clears both fields, loops to first name
+ *   Enter on empty first name field after adding ≥ 1 guest → "double Enter" → done
+ */
+function QuickAddInlineForm({ eventId }: { eventId: string }) {
+  const router = useRouter();
+  const [first, setFirst] = useState('');
+  const [last, setLast] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [count, setCount] = useState(0);
+  const [done, setDone] = useState(false);
+  const firstRef = useRef<HTMLInputElement>(null);
+  const lastRef = useRef<HTMLInputElement>(null);
+
+  const addGuest = async () => {
+    if (!first.trim() || busy) return;
+    setBusy(true);
+    try {
+      await quickAddGuest(eventId, {
+        first_name: first.trim(),
+        last_name: last.trim(),
+        side: 'both',
+        role: 'guest',
+      });
+      setCount((n) => n + 1);
+      setFirst('');
+      setLast('');
+      router.refresh();
+      firstRef.current?.focus();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleFirstKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    if (!first.trim()) {
+      // Empty first name + Enter = "double Enter" = finish session
+      if (count > 0) setDone(true);
+      return;
+    }
+    lastRef.current?.focus();
+  };
+
+  const handleLastKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    void addGuest();
+  };
+
+  const inputCls =
+    'w-full rounded-xl border border-ink/15 bg-cream px-4 py-3 text-sm text-ink placeholder:text-ink/35 focus:border-terracotta focus:outline-none disabled:opacity-50';
+
+  if (done) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+        <span className="text-3xl">✓</span>
+        <p className="text-sm font-medium text-ink">
+          {count} {count === 1 ? 'guest' : 'guests'} added
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            setDone(false);
+            setCount(0);
+            setTimeout(() => firstRef.current?.focus(), 50);
+          }}
+          className="rounded-lg border border-ink/15 px-4 py-2 text-sm text-ink/70 hover:bg-ink/5"
+        >
+          Add more
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-full flex-col justify-center gap-3">
+      <div className="space-y-2">
+        <input
+          ref={firstRef}
+          type="text"
+          inputMode="text"
+          autoCapitalize="words"
+          placeholder="First name"
+          value={first}
+          onChange={(e) => setFirst(e.target.value)}
+          onKeyDown={handleFirstKeyDown}
+          disabled={busy}
+          className={inputCls}
+        />
+        <input
+          ref={lastRef}
+          type="text"
+          inputMode="text"
+          autoCapitalize="words"
+          placeholder="Last name"
+          value={last}
+          onChange={(e) => setLast(e.target.value)}
+          onKeyDown={handleLastKeyDown}
+          disabled={busy}
+          className={inputCls}
+        />
+      </div>
+
+      <p className="text-center text-[11px] leading-snug text-ink/40">
+        Enter after first name moves to last name · Enter after last name adds &amp; loops back ·
+        Double Enter on empty first name to finish
+      </p>
+
+      {count > 0 && (
+        <p className="text-center text-xs text-ink/50">
+          {count} {count === 1 ? 'guest' : 'guests'} added this session
+        </p>
+      )}
+    </div>
+  );
 }

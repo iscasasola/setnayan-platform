@@ -92,7 +92,8 @@ import {
   type PaperworkRow,
 } from '@/lib/paperwork';
 import { AuspiciousChip } from './_components/auspicious-chip';
-import { LoveQuoteOfTheDay } from './_components/love-quote-of-the-day';
+import { PersonalizedMenu } from './_components/personalized-menu';
+import { buildTasteChips, mapServices } from '@/lib/personalized-menu';
 import { EventMetaLine } from './_components/event-meta-line';
 import { VendorAvailabilityIntersection } from './_components/vendor-availability-intersection';
 import { BudgetCountdownHeader } from './_components/budget-countdown-header';
@@ -1528,6 +1529,26 @@ export default async function EventHomePage({
       .then(() => undefined);
   }
 
+  // Lean home (owner directive 2026-06-02 · CLAUDE.md) — the personalized
+  // menu preview is built from production data the page already loaded
+  // (the events row + event_vendors). No new fetches. The onboarding
+  // "taste" (feel/dietary/style) is not captured in production yet, so it
+  // is intentionally not fabricated here.
+  const personalizedDate = event.event_date
+    ? formatEventDateWithPrecision(event.event_date, eventDatePrecision)
+    : null;
+  const personalizedTaste = buildTasteChips(
+    {
+      event_date: event.event_date,
+      ceremony_type: eventCeremonyType,
+      venue_setting: eventVenueSetting,
+      estimated_pax: (event as { estimated_pax?: number | null }).estimated_pax ?? null,
+      estimated_budget_centavos: eventBudgetCentavos,
+    },
+    personalizedDate,
+  );
+  const personalizedServices = mapServices(eventId, eventVendorsRaw);
+
   return (
     // Column effect retired 2026-05-23 per owner directive — event home
     // renders as a single column on every breakpoint. Prior shape was a
@@ -1554,58 +1575,20 @@ export default async function EventHomePage({
         />
       ) : null}
 
-      <ConciergeBanner
-        eventId={eventId}
-        status={conciergeStatus}
-        expiresAt={eventConciergeRow.concierge_expires_at ?? null}
-        activatedAt={eventConciergeRow.concierge_activated_at ?? null}
-        weddingDate={event.event_date}
-        longEngagementAdvisedAt={eventConciergeRow.concierge_long_engagement_advised_at ?? null}
-        enforcementLevel={conciergeEnforcementLevel}
-        trialUsedAt={conciergeTrialUsedAt}
-        trialResultStatus={search.concierge_trial ?? null}
-      />
-
       <WelcomeHeader eventName={event.display_name} />
 
-      {/* Love-quote-of-the-day — 2026-05-22 owner directive (refined same-
-       *  day): "pops up for 5 seconds ONCE per day · disappears after ·
-       *  reappears next day just once" + "Visibility scoped to bride · groom
-       *  · partner1 · partner2" + "TWO parallel 365-day quote sets, one for
-       *  the BRIDE · one for the GROOM" + pressure-aware tone rewrite of
-       *  every entry. Returns null when `daysOut` is null (no real day
-       *  picked yet) OR when `viewerRoleSubtype` is not in the couple set
-       *  (parents, planners, MOH, best man, ninong, ninang, family_helper,
-       *  viewer all see nothing — the quote is the couple's intimate
-       *  moment). See _components/love-quote-of-the-day.tsx +
-       *  lib/love-quotes.ts. */}
-      <LoveQuoteOfTheDay
-        daysToWedding={daysOut}
-        roleSubtype={viewerModeratorRes.data?.role_subtype ?? null}
-      />
-
       {/* Phase 0 Date Selection entry point — CLAUDE.md 2026-05-22 lock.
-       *  Renders one of two states based on events.date_status:
-       *    - 'locked' → shows the host's chosen date + invitation to
-       *      review the auspicious reasoning at /date-selection.
-       *    - other   → soft "Pick your date" prompt routing to /date-selection.
-       *  See _components/auspicious-chip.tsx + date-selection/page.tsx.
-       *
-       *  Sits between <WelcomeHeader> and <EventMetaLine> so the cultural-
-       *  intelligence chip leads the date conversation; the consolidated
-       *  meta line beneath surfaces the chosen date + countdown + ceremony
-       *  with the subtle pencil edit affordances. */}
+       *  'locked' → chosen date + auspicious reasoning link; otherwise a
+       *  soft "Pick your date" prompt. Leads the date conversation above
+       *  the consolidated meta line. See _components/auspicious-chip.tsx. */}
       <AuspiciousChip
         eventId={eventId}
         eventDate={event.event_date}
         dateStatus={(event as { date_status?: string | null }).date_status ?? null}
       />
 
-      {/* Task #65 (2026-05-22) — consolidated meta line replaces the
-       *  prior 3-redundant-date layout (welcome strip date + standalone
-       *  Wedding-date row + standalone Wedding-type chip). Single line:
-       *  "{date} · {N days to go} · {Catholic} ceremony [✎ date] [✎ type]"
-       *  with subtle pencil edit affordances. See _components/event-meta-line.tsx. */}
+      {/* Consolidated meta line: "{date} · {N days to go} · {ceremony}"
+       *  with subtle pencil edit affordances. See event-meta-line.tsx. */}
       <EventMetaLine
         eventId={eventId}
         eventDate={event.event_date}
@@ -1620,175 +1603,31 @@ export default async function EventHomePage({
       />
 
       {event.event_date && isEventDateInPast(event.event_date, eventDatePrecision, now) ? (
-        // Task #41 (2026-05-22) — muted warning when the stored wedding
-        // date is already in the past (e.g. the "Bonbon and Chihuahua"
-        // event that originally surfaced this bug). Editorial-restraint
-        // tone per brand voice — no exclamation marks, no red panic
-        // styling, no all-caps. The Edit pencil on EventMetaLine above
-        // still works to fix the value.
+        // Muted warning when the stored wedding date is in the past.
+        // Editorial-restraint tone — the EventMetaLine pencil fixes it.
         <p className="flex items-center gap-1.5 text-xs text-ink/55">
           <AlertTriangle aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Wedding date is in the past — please update.
         </p>
       ) : null}
 
-      {availabilityVendorCount > 0 && availabilityWindowLabel ? (
-        <VendorAvailabilityIntersection
-          eventId={eventId}
-          availableDays={availabilityDays}
-          confirmedVendorCount={availabilityVendorCount}
-          windowLabel={availabilityWindowLabel}
-          totalDaysInRange={availabilityTotalDays}
-        />
-      ) : null}
-
       <StageStrip stage={stage} />
 
-      {/* V1 pilot Home v2 — owner directive 2026-05-22.
-       *  BudgetCountdownHeader + FinalizedChipStrip sit between the
-       *  StageStrip and the 12-card PlanningGroups so the host sees
-       *  their countdown + money state + locked vendors before they
-       *  scroll into category-by-category planning. */}
-      <BudgetCountdownHeader
-        eventDate={event.event_date}
-        eventDatePrecision={eventDatePrecision}
-        targetCentavos={eventBudgetCentavos}
-        committedCentavos={committedCentavos}
-        settingsHref={`/dashboard/${eventId}/budget`}
-        now={now}
-      />
-
-      {/* Finalized-vendor-photo-card (2026-05-22) — passes the enriched
-       *  eventVendors (with marketplace_logo_url + business_name + city
-       *  joined from vendor_profiles) so the upgraded chip can render
-       *  the vendor's logo + canonical name instead of a text-only chip. */}
-      <FinalizedChipStrip eventId={eventId} vendors={eventVendors} />
-
-      {/* Concierge Active Wizard MOVED 2026-05-24 (owner directive) to its
-       *  own first-class /today route + first BottomNav tab "Today". This
-       *  was previously the inline <WizardHero> render block. Event-home
-       *  no longer hosts the wizard surface — hosts reach it via the
-       *  Today tab in the BottomNav. The /today page at
-       *  apps/web/app/dashboard/[eventId]/today/page.tsx re-fetches the
-       *  minimal field set the WizardHero consumes (wizard_state,
-       *  event_date, ceremony_type, venue_setting, marketplaceIds). The
-       *  WizardHero import below stays only if other components on this
-       *  page consume it; otherwise it's pruned. */}
-
-      {/* Next 15 Steps · Parallel Work Map REMOVED 2026-05-24 — Today's
-       *  Focus carousel + the 22-card Plan grid below cover the same
-       *  territory without a third ranked-ladder surface competing for
-       *  attention. The Next15Steps component + pickNextSteps resolver
-       *  + sponsorRowsForNextSteps + nextSteps variable are all gone. */}
-
-      {/* Always-active rule (owner directive 2026-05-22 — "i want
-       *  everything on home to be active now"). Supersedes PR #337's
-       *  <details> wrapper around PlanningGroups. The 12-card planning
-       *  grid renders directly as a top-level section, always visible.
-       *  Decision-paralysis concern from the prior wrap is addressed
-       *  instead by the TodaysOneThing hero above (the Next15Steps
-       *  ladder was removed 2026-05-24 — see the prior comment). */}
-      {/* MARKETPLACE TEASE STRIP · 2026-05-29 owner directive.
-       *  "the connection of vendors and customer IS the marketplace.
-       *  without the marketplace or the vendor recommendation, we will
-       *  not connect them properly." Sits ABOVE the 12-card PlanningGroups
-       *  section as the canonical above-the-fold discovery surface.
-       *  Renders 3 things in one card: editorial hero + primary CTA to
-       *  /vendors · 6-folder quick-browse chip strip · "Also worth a
-       *  look" cross-category recommendation tease (top 3 deduped).
-       *  Existing per-card RecommendedVendorRow inside PlanningGroups
-       *  stays — that's the IN-CARD action surface. This is the
-       *  DISCOVERY surface. */}
-      <MarketplaceTeaseStrip
+      {/* Lean home (owner directive 2026-06-02 · CLAUDE.md). Home keeps
+       *  exactly two content blocks: the personalized menu (the couple's
+       *  wedding shape + the services they've added) and the activity feed
+       *  below. Everything that used to render here — budget countdown,
+       *  finalized chips, marketplace tease, the 12-card plan grid, the
+       *  9-tool "Your Plan", the nav grid, money-in-flight, upcoming
+       *  schedules — owns its own tab/route and is reachable via the
+       *  bottom-nav More tab + the desktop sidebar. The FULL personalized
+       *  menu lives at /for-you (the "For you" tab); this is its preview. */}
+      <PersonalizedMenu
         eventId={eventId}
-        crossCategoryRecommendations={crossCategoryRecommendations}
+        variant="preview"
+        tasteChips={personalizedTaste}
+        services={personalizedServices}
       />
-
-      <section aria-labelledby="planning-groups-heading" className="space-y-4">
-        <h2
-          id="planning-groups-heading"
-          className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55"
-        >
-          Your wedding plan · 12 things to lock in
-        </h2>
-        <PlanningGroups
-          eventId={eventId}
-          eventDate={event.event_date}
-          venueLatitude={(event as { venue_latitude?: number | null }).venue_latitude ?? null}
-          venueLongitude={(event as { venue_longitude?: number | null }).venue_longitude ?? null}
-          ceremonyType={eventCeremonyType}
-          venueSetting={eventVenueSetting}
-          vendors={eventVendors}
-          paperworkSummary={paperworkSummary}
-          manualVendorOptions={manualVendorOptions}
-          manualVendorsAttachedByCategory={manualVendorsAttachedByCategory}
-          crossCategoryRecommendations={crossCategoryRecommendations}
-          wizardState={(event as { wizard_state?: unknown }).wizard_state}
-        />
-      </section>
-
-      {/* YOUR PLAN section — owner directive 2026-05-22.
-       *  Sits between the vendor grid above (PlanningGroups · "what you
-       *  book") and the legacy NavGrid below. Surfaces the nine tools
-       *  the host BUILDS personally — Mood Board, Seat Plan, Guest List,
-       *  Sponsors, Schedule, Budget, Documents, Save-the-Date, Monogram.
-       *  Each tile shows a live progress sub-line.
-       *
-       *  Documents tile routes to the consolidated /documents page
-       *  (this PR ships both together). */}
-      <YourPlanSection
-        eventId={eventId}
-        locale={locale}
-        stats={{
-          moodBoardSaveCount,
-          totalGuests: stats.total,
-          seatedGuests,
-          attendingGuests: stats.attending,
-          pendingGuests: stats.pending,
-          sponsorCount,
-          acceptedSponsorCount,
-          scheduleBlockCount,
-          hasBudgetTarget: eventBudgetCentavos !== null && eventBudgetCentavos > 0,
-          paperworkInProgressCount,
-          contractCount,
-          hasSaveTheDateOrder,
-          hasMonogramOrder,
-        }}
-      />
-
-      {plannerMode === 'guided' ? (
-        <Checklist eventId={eventId} statuses={stepStatuses} tr={tr} />
-      ) : null}
-
-      <NavGrid eventId={eventId} stats={stats} unreadCount={unreadCount} tr={tr} />
-
-      {/* USEFUL RIGHT NOW removed 2026-05-24 (owner directive — "they
-       *  are repetitive"). The 4 tiles were Concierge (gated off for
-       *  pilot per CONCIERGE_ENABLED · invisible anyway) · Mood Board
-       *  (canonical in YourPlanSection · live status sub-line) · Seat
-       *  Plan (same) · Inbox (= Messages in NavGrid). Zero unique
-       *  value, three duplicates. MoneyInFlight + UpcomingSchedules
-       *  + ActivityFeed below stay — they cover distinct surfaces
-       *  (money / time / history) not duplicated elsewhere.
-       *
-       *  2026-05-30 Phase 2 — the 3 panels now stream into their own
-       *  Suspense boundaries via the async wrappers. Money + Upcoming
-       *  share a boundary because they read from the same
-       *  fetchUpcomingItems result (paymentItemsNext30d vs items);
-       *  ActivityFeed has its own boundary so the 2 activity lanes
-       *  can resolve independently. Shell + welcome + plan grid render
-       *  immediately while these panels populate as their queries
-       *  resolve. See CLAUDE.md 2026-05-30 row + the wrappers under
-       *  _components/. */}
-      <Suspense fallback={<MoneyAndUpcomingSkeleton />}>
-        <MoneyAndUpcomingAsync
-          eventId={eventId}
-          eventDate={event.event_date}
-          ceremonyType={(event as { ceremony_type?: string | null }).ceremony_type}
-          userId={user.id}
-          now={now}
-        />
-      </Suspense>
 
       <Suspense fallback={<ActivityFeedSkeleton />}>
         <ActivityFeedAsync

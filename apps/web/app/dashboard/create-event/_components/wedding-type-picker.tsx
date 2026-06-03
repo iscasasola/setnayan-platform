@@ -79,6 +79,7 @@ const SECONDARY_LABELS: Record<Exclude<CeremonyType, 'mixed'>, string> = {
   christian: 'Christian',
   muslim: 'Muslim',
   cultural: 'Cultural',
+  chinese: 'Chinese',
 };
 
 type Props = {

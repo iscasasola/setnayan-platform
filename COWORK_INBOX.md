@@ -8,6 +8,21 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Chinese wedding added as a coming-soon ceremony type (0043)
+
+**Why:** Owner-directed ("on weddings, also add chinese wedding"). Chinese (Tsinoy — tea ceremony + Chinese customs) joins the wedding-type lineup as **coming soon** — shown everywhere but gated until vendor density can cater it (owner: "show them and prepare these … when the vendors are enough"). It's the lone coming_soon faith now that the others were unlocked the same day.
+
+**Spec corpus update (owner walks via Cowork):**
+1. **The iteration-0043 wedding-type-picker spec** (the doc covering `ceremony_type` + `wedding_type_launch_status`) — add `chinese` to the ceremony-type roster: label "Chinese", description "Tea ceremony and Chinese customs, often with a church or civil rite", status **coming soon** (surfaced + notify-me; not yet selectable). Note the activation gate = vendor density (the same model the other faiths used before they were unlocked), and that admins can already tag Chinese-compatible venues/vendors to build that supply.
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "feat(0043): add Chinese wedding…". New hero `public/onboarding/wed_chinese.webp`.
+
+**Owner action:** push migration `20260804000000_add_chinese_ceremony_type.sql` (`supabase db push`).
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — In-app service tiles made clickable for checking (0004/0010/0021)
 
 **Why:** Owner directive — *"for now we want to unlock all to check."* The 3 remaining "coming soon" in-app service tiles are now clickable: Monogram Creator repointed to the real `animated-monogram` studio (0004), Mood Board surfaced from its real route (0010), and Landing Page + Music Creator made clickable to their polite info pages. Catalog-only (`lib/add-ons-catalog.ts`). The bigger locks (8 not-built pricing SKUs, Concierge kill-switch, OAuth credentials, offline daemon) were intentionally NOT flipped — they hide unbuilt/partial features and would surface stubs/broken flows.

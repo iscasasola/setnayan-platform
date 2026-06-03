@@ -4,6 +4,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(0043): add Chinese wedding as a coming-soon ceremony type
+
+**Context:** Owner-directed — *"on weddings, also add chinese wedding."* The same-day "unlock all religions" change made Catholic/Civil/Christian/INC/Muslim/Cultural all active. Chinese (Tsinoy — tea ceremony + Chinese customs, often paired with a church/civil rite) joins the lineup as **coming soon**: surfaced everywhere but gated until vendor density can cater it (owner: "show them and prepare these … when the vendors are enough to cater their service"). It's the lone coming_soon faith now.
+
+**What changed:**
+- **Migration `20260804000000_add_chinese_ceremony_type.sql` (owner-push):** widens the four enum-style CHECK constraints (`events.ceremony_type` — NULL allowance preserved — `events.secondary_ceremony_type`, `wedding_type_launch_status`, `couple_wedding_type_notify_signups`) to PERMIT `chinese`, and seeds the launch-status row `coming_soon`. Inline-CHECK drops use catalog lookup (robust to auto-name truncation / IN→ANY normalisation). Widening-only → activation later needs no further migration.
+- **Shared `ceremony-type-radio-group.tsx`:** `chinese` added to `CeremonyTypeKey` + `CEREMONY_TYPE_OPTIONS`.
+- **create-event picker:** appears greyed "Coming soon" with the existing notify-me capture (`NOTIFY_FAITHS` += chinese; launch-status fallback array += chinese coming_soon; `SECONDARY_LABELS` += chinese so it also greys as a Mixed secondary). NOT in `ALLOWED_CEREMONIES` → not submittable.
+- **Onboarding:** `OnboardingFaith` += chinese; `FAITH_PHOTO` += chinese (new hero `public/onboarding/wed_chinese.webp`); `FAITH_CHIPS` += chinese `soon:true` (greyed, non-clickable).
+- **Edit modal (`ceremony-type-modal.tsx`):** chinese disabled + "Coming soon" badge (the modal renders all options ungated; `setEventCeremonyType` also rejects it server-side).
+- **Admin venue form (`_constants.ts` + `venue-form.tsx`):** `chinese` added to `CEREMONY_TYPES` (+ its label map) so admins can tag Chinese-compatible venues/vendors now — building the supply that justifies activating it later.
+
+**Activation (when vendors are enough):** flip the chinese `wedding_type_launch_status` row to `active` (admin console) + add `chinese` to both `ALLOWED_CEREMONIES` lists + onboarding chip `soon:false` + drop the modal disable. No migration needed.
+
+**Verification:** `tsc --noEmit` exit 0 (caught + fixed a missing `venue-form` label-map entry) · `next lint` clean on all 9 touched files. Hero image eyeballed. Shipped from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** Yes — iteration **0043** (wedding-type picker) gains a Chinese ceremony type (coming-soon). See `COWORK_INBOX.md`.
+
 ## 2026-06-03 · feat(0021,0010,0004): make all in-app service tiles clickable (unlock-all-to-check)
 
 **Commit:** see merge commit on this PR.

@@ -301,7 +301,7 @@ export async function createWeddingEvent(formData: FormData) {
 // plain { ok } object instead of redirecting because the picker calls this
 // from a client component over fetch and uses the result to flip the inline
 // UI between "submitting → sent → error" states without leaving the form.
-const NOTIFY_FAITHS = ['catholic', 'civil', 'inc', 'christian', 'muslim', 'cultural'] as const;
+const NOTIFY_FAITHS = ['catholic', 'civil', 'inc', 'christian', 'muslim', 'cultural', 'chinese'] as const;
 
 export async function notifyWhenWeddingTypeLaunches(
   formData: FormData,

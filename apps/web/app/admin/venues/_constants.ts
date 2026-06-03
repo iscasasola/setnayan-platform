@@ -26,6 +26,7 @@ export const CEREMONY_TYPES = [
   'inc',
   'muslim',
   'cultural',
+  'chinese',
   'civil',
 ] as const;
 export type CeremonyType = (typeof CEREMONY_TYPES)[number];

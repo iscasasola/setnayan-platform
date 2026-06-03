@@ -46,6 +46,121 @@ export function resolveMonogram(event: {
   };
 }
 
+/* ──────────────────────────────────────────────────────────────────────────
+ * Onboarding free-monogram → switcher icon (owner-locked 2026-06-03).
+ *
+ * The wedding onboarding (app/onboarding/wedding) lets the couple pick one of
+ * 10 curated {frame · font · ink} presets and persists the active design as
+ * `events.monogram_frame_key` + `events.monogram_font_key`. This mirror lets
+ * the dashboard chrome (the event switcher) render the SAME design as the
+ * couple's icon instead of a plain initials circle. Kept in sync with
+ * MONO_DESIGNS in app/onboarding/wedding/_components/onboarding-shell.tsx
+ * (a single shared source is a later refactor).
+ *
+ * At chrome size (~28–36px) the ornate frame webp is illegible, so the switcher
+ * renders LETTERS-FORWARD: the couple's initials in their chosen font + ink,
+ * no frame (per the 0000 § event-switcher spec note). The frame reads in the
+ * larger onboarding medallion + the Website-editor monogram.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+type MonoFontKey = 'cormorant' | 'playfair' | 'cinzel' | 'script';
+type MonoInkKey = 'mulberry' | 'gold' | 'ink';
+
+const MONO_DESIGNS: { frame: string; font: MonoFontKey; ink: MonoInkKey }[] = [
+  { frame: 'wreath', font: 'cormorant', ink: 'mulberry' },
+  { frame: 'oval', font: 'playfair', ink: 'ink' },
+  { frame: 'crest', font: 'cinzel', ink: 'gold' },
+  { frame: 'botanical', font: 'script', ink: 'mulberry' },
+  { frame: 'laurel', font: 'cormorant', ink: 'gold' },
+  { frame: 'ribbon', font: 'playfair', ink: 'mulberry' },
+  { frame: 'flourish', font: 'script', ink: 'ink' },
+  { frame: 'square', font: 'cinzel', ink: 'ink' },
+  { frame: 'art_deco', font: 'cinzel', ink: 'gold' },
+  { frame: 'baroque', font: 'cormorant', ink: 'mulberry' },
+];
+
+// Ink hexes mirror app/onboarding/wedding/_styles/onboarding.css :root.
+const MONO_INK_HEX: Record<MonoInkKey, string> = {
+  mulberry: '#5C2542',
+  gold: '#A88340', // --gold-deep
+  ink: '#1E2229',
+};
+
+// Font-family stacks. Cormorant is loaded app-wide (var(--font-display));
+// Playfair / Cinzel / Great Vibes are not yet loaded on the dashboard, so the
+// stacks degrade gracefully (elegant serif / system cursive). Loading the
+// exact display faces into the chrome is a follow-up polish.
+const MONO_FONT_STACK: Record<
+  MonoFontKey,
+  { fontFamily: string; fontStyle: 'italic' | 'normal'; letterSpacing: string }
+> = {
+  cormorant: {
+    fontFamily: "var(--font-display), 'Cormorant Garamond', Georgia, serif",
+    fontStyle: 'italic',
+    letterSpacing: '0.01em',
+  },
+  playfair: {
+    fontFamily: "'Playfair Display', var(--font-display), Georgia, serif",
+    fontStyle: 'italic',
+    letterSpacing: '0.01em',
+  },
+  cinzel: {
+    fontFamily: "'Cinzel', var(--font-display), Georgia, serif",
+    fontStyle: 'normal',
+    letterSpacing: '0.04em',
+  },
+  script: {
+    fontFamily: "'Great Vibes', 'Snell Roundhand', cursive",
+    fontStyle: 'normal',
+    letterSpacing: '0.02em',
+  },
+};
+
+export type MonogramDesignStyle = {
+  color: string;
+  fontFamily: string;
+  fontStyle: 'italic' | 'normal';
+  letterSpacing: string;
+};
+
+/**
+ * Resolve the couple's onboarding-designed monogram into CSS for the switcher
+ * icon. Returns null when the event has no designed monogram (older or non-
+ * onboarding events) — callers fall back to the legacy text+color rendering.
+ *
+ * Ink is recovered from the (frame, font) preset; the font key drives the
+ * family. Defensive fallbacks keep it total for any unexpected key value.
+ */
+export function resolveMonogramDesign(input: {
+  monogram_frame_key?: string | null;
+  monogram_font_key?: string | null;
+}): MonogramDesignStyle | null {
+  const frameKey = input.monogram_frame_key ?? null;
+  const fontKey = input.monogram_font_key ?? null;
+  if (!frameKey && !fontKey) return null;
+
+  const design =
+    MONO_DESIGNS.find((d) => d.frame === frameKey && d.font === fontKey) ??
+    MONO_DESIGNS.find((d) => d.frame === frameKey) ??
+    MONO_DESIGNS.find((d) => d.font === fontKey) ??
+    null;
+
+  const ink: MonoInkKey = design?.ink ?? 'mulberry';
+  const font: MonoFontKey =
+    design?.font ??
+    (fontKey === 'playfair' || fontKey === 'cinzel' || fontKey === 'script'
+      ? fontKey
+      : 'cormorant');
+  const stack = MONO_FONT_STACK[font];
+
+  return {
+    color: MONO_INK_HEX[ink],
+    fontFamily: stack.fontFamily,
+    fontStyle: stack.fontStyle,
+    letterSpacing: stack.letterSpacing,
+  };
+}
+
 /**
  * Build the SVG fragment that composites a monogram into the center of a QR
  * code rendered in module-unit coordinates. The QR generator we use

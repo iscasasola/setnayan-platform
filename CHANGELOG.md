@@ -4,6 +4,25 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(0000): onboarding free monogram → event-switcher icon
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner directive 2026-06-03 — *"on customer onboarding, we have a free monogram logo for the customer. this monogram will be used as their icon for the switcher"* + *"our onboarding needs to be live on our app now."* The wedding onboarding (`app/onboarding/wedding`, a live 2570-line flow) already lets the couple design a free monogram and persists it (`events.monogram_frame_key` + `events.monogram_font_key`), but the event-switcher chrome rendered only a plain initials + color circle — `EventMonogram` read `monogram_text`/`monogram_color` and **ignored** the design. So a couple picked a gold-framed monogram in onboarding but never saw it in the app. This wires the designed monogram through to the switcher icon.
+
+**What changed:**
+- `lib/monogram.ts` — new `resolveMonogramDesign({monogram_frame_key, monogram_font_key})` → `{color, fontFamily, fontStyle, letterSpacing} | null`. Mirrors the 10 onboarding `MONO_DESIGNS` presets (frame · font · ink) + font-family stacks + ink hexes (mulberry `#5C2542` · gold-deep `#A88340` · ink `#1E2229`); recovers ink from the (frame, font) preset. Returns null for events with no design → legacy fallback.
+- `app/_components/event-monogram.tsx` — `EventMonogram` renders **letters-forward** when a design is present: initials in the couple's chosen font + ink (no frame — the ornate webp is illegible at ~28px). Backward compatible: no design keys → unchanged serif-italic + color badge.
+- Threaded `monogram_frame_key` + `monogram_font_key` (optional) through the switcher data path: `lib/events.ts` (`EventRow` + `fetchUserEvents` SELECT), `app/dashboard/[eventId]/layout.tsx` (events SELECT + current* props + switcherEvents map), `app/dashboard/layout.tsx` (primaryEvent + switcherEvents → OuterDashboardHeader), `outer-dashboard-header.tsx` (PrimaryEventData + pass-through), `event-switcher.tsx` (SwitcherEvent + props + both EventMonogram usages). All new fields optional → admin chrome + older / non-onboarding events compile + render unchanged.
+
+**Verification:** `pnpm -F web typecheck` clean · `pnpm -F web lint` clean (only pre-existing warnings in unrelated files) · `pnpm -F web build` succeeds (full route manifest). Rendered across all 10 designs in a throwaway dev route (removed before commit); the in-context switcher sits behind auth — flagged for owner eyeball on deploy.
+
+**Open product fork:** at icon size the switcher shows initials in the couple's font + ink, NOT the gold FRAME (invisible at 28px). If the owner wants the literal framed mini-monogram (reads better in the larger dropdown rows), that's a fast follow. **Font fidelity (follow-up):** Cormorant is loaded app-wide; Playfair / Cinzel / Great Vibes are not yet loaded on the dashboard, so those designs fall back to elegant serif / system cursive — loading the exact faces into the chrome is a small follow-up.
+
+**SPEC IMPACT:** Iteration **0000** (event switcher) + Onboarding Blueprint + corpus `DECISION_LOG.md`. The 2026-06-03 corpus row + 0000 § Monogram note name the persisted column `events.monogram_svg`; the ACTUAL schema/code is `events.monogram_frame_key` + `events.monogram_font_key` (migration `20260719000000_onboarding_v2_event_columns.sql`) — there is no `monogram_svg`. Spec must be corrected to the real column names, note the switcher renders letters-forward (font+ink) with the frame deferred at icon size, and reflect that this is **shipped** (not a "V1.x build task" / "prototype HTML"). Logged in `COWORK_INBOX.md`.
+
+---
+
 ## 2026-06-03 · feat(0001): keep the couple detail simple — remove the editorial live-view iframe
 
 **Commit:** to be filled after commit.

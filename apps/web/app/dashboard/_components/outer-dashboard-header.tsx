@@ -51,6 +51,8 @@ type PrimaryEventData = {
   event_date: string | null;
   monogram_text: string | null;
   monogram_color: string | null;
+  monogram_frame_key?: string | null;
+  monogram_font_key?: string | null;
 };
 
 type Props = {
@@ -92,6 +94,8 @@ export function OuterDashboardHeader({
       currentEventDate={primaryEvent.event_date}
       currentMonogramText={primaryEvent.monogram_text}
       currentMonogramColor={primaryEvent.monogram_color}
+      currentMonogramFrameKey={primaryEvent.monogram_frame_key}
+      currentMonogramFontKey={primaryEvent.monogram_font_key}
       events={switcherEvents}
       hasVendorAccess={hasVendorAccess}
       hasAdminAccess={hasAdminAccess}

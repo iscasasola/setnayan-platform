@@ -8,6 +8,25 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Correct monogram→switcher spec to real column names (binding now SHIPPED)
+
+**Why:** The onboarding free-monogram → event-switcher icon binding is now LIVE in code (the couple's chosen font + ink renders as their switcher icon). Two corrections to the corpus rows written earlier today:
+
+1. **Column names.** The 2026-06-03 corpus `DECISION_LOG.md` row ("🪙🔀 Onboarding free auto-monogram IS the couple's switcher icon") + `0000_app_shell_and_navigation.md` § Monogram (left) + `Onboarding_Blueprint_2026-05-30.md` screen-5 all name the persisted field **`events.monogram_svg`**. The ACTUAL schema is **`events.monogram_frame_key` + `events.monogram_font_key`** (migration `20260719000000_onboarding_v2_event_columns.sql`) — there is no `monogram_svg` column. Replace `events.monogram_svg` with the two real columns in all three places.
+2. **Status.** Those rows framed onboarding as "prototype HTML / V1.x build task." Onboarding is LIVE (`app/onboarding/wedding`, 2570-line flow) and the switcher binding is **shipped 2026-06-03**. Update "build target" → "shipped."
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/DECISION_LOG.md`** — the "🪙🔀 Onboarding free auto-monogram IS the couple's switcher icon" row: `events.monogram_svg` → `events.monogram_frame_key` + `events.monogram_font_key`; note SHIPPED, rendered letters-forward (initials in chosen font + ink) at icon size, ornate frame deferred (illegible at ~28px).
+2. **`~/Documents/Claude/Projects/Setnayan/0000_app_shell_and_navigation/0000_app_shell_and_navigation.md`** § Monogram (left) — same column rename; the auto-generated icon = the onboarding free monogram, rendered letters-forward.
+3. **`~/Documents/Claude/Projects/Setnayan/Onboarding_Blueprint_2026-05-30.md`** screen-5 — same column rename.
+
+**Open product fork (for owner):** the switcher shows initials-in-font+ink, not the gold frame at icon size — confirm, or request the framed mini-monogram as a fast follow.
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "feat(0000): onboarding free monogram → event-switcher icon".
+
+---
+
 ## [PENDING] 2026-06-03 — Home: compact "Your wedding details" card (chrome redesign delta #1)
 
 **Why:** Delta #1 of the 2026-06-03 customer-dashboard chrome redesign landed in code — event Home now shows a compact "Your wedding details" card (Location · Venue · Guests · Budget · Style · Cuisine · Photo & video) built from onboarding data, with a "See all wedding settings →" link to `/details`. It reshapes the existing Home "Personalized" block (chips → kv card); `/for-you` keeps the chip view.

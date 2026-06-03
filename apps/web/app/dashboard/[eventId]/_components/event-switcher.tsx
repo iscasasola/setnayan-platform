@@ -53,6 +53,10 @@ export type SwitcherEvent = {
   is_primary: boolean;
   monogram_text: string | null;
   monogram_color: string | null;
+  // Onboarding free-monogram design (owner-locked 2026-06-03) — optional so
+  // older / non-onboarding events and the admin chrome stay backward-compatible.
+  monogram_frame_key?: string | null;
+  monogram_font_key?: string | null;
 };
 
 export type SwitcherVendorTarget = {
@@ -67,6 +71,8 @@ type Props = {
   currentEventDate: string | null;
   currentMonogramText: string | null;
   currentMonogramColor: string | null;
+  currentMonogramFrameKey?: string | null;
+  currentMonogramFontKey?: string | null;
   events: SwitcherEvent[];
   hasVendorAccess: boolean;
   hasAdminAccess: boolean;
@@ -81,6 +87,8 @@ export function EventSwitcher({
   currentEventDate,
   currentMonogramText,
   currentMonogramColor,
+  currentMonogramFrameKey,
+  currentMonogramFontKey,
   events,
   hasVendorAccess,
   hasAdminAccess,
@@ -310,6 +318,8 @@ export function EventSwitcher({
                           display_name: ev.display_name,
                           monogram_text: ev.monogram_text,
                           monogram_color: ev.monogram_color,
+                          monogram_frame_key: ev.monogram_frame_key,
+                          monogram_font_key: ev.monogram_font_key,
                         }}
                         size="sm"
                       />
@@ -425,6 +435,8 @@ export function EventSwitcher({
             display_name: currentEventName,
             monogram_text: currentMonogramText,
             monogram_color: currentMonogramColor,
+            monogram_frame_key: currentMonogramFrameKey,
+            monogram_font_key: currentMonogramFontKey,
           }}
           size="md"
         />

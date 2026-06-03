@@ -12,17 +12,29 @@
 
 **Why:** Finishes the 3-PR admin deadline build (owner: "ship this both" / "do both"). The Home recommended-deadline reminders now read `planning_deadlines`; admins edit the deadlines in `/admin/taxonomy`.
 
-**What landed (code):** `lib/upcoming-items.ts` reads `planning_deadlines` (service category rows) with `PLAN_GROUPS.monthsBefore` as fallback (incl. when the table isn't applied). `/admin/taxonomy` gains a "Recommended deadlines" editor (inline offset_value/offset_unit edit · `updatePlanningDeadline` action · RLS-gated) + a category-level coverage/"missing deadline" flag.
-
-**Owner action:** push migration `20260802000000_planning_deadlines.sql` so the table exists (reminders + editor run on code fallback until then).
+**What landed (code):** `lib/upcoming-items.ts` reads `planning_deadlines` (service category rows) with `PLAN_GROUPS.monthsBefore` as fallback. `/admin/taxonomy` gains a "Recommended deadlines" editor (inline offset edit · `updatePlanningDeadline` action · RLS-gated) + a category-level coverage/"missing deadline" flag.
 
 **Spec corpus update (owner walks via Cowork):**
-1. **`~/Documents/Claude/Projects/Setnayan/0023_admin_console/`** — record the `/admin/taxonomy` "Recommended deadlines" editor (admin sets the lock-by deadline per category/document · coverage flag · per-leaf overrides are a noted follow-up).
+1. **`0023_admin_console/`** — record the `/admin/taxonomy` "Recommended deadlines" editor (admin sets the lock-by deadline per category/document · coverage flag · per-leaf overrides a noted follow-up).
 2. **The planning/deadline spec** — the Home reminders' deadline source is now the admin `planning_deadlines` table (code = fallback).
 
-**Noted follow-up (not built):** per-leaf deadline overrides + leaf-level missing-flag in `/admin/taxonomy` (needs the leaf→category map, which is in code `TAXONOMY_MAP`, not the DB).
+**Noted follow-up (not built):** per-leaf deadline overrides + leaf-level missing-flag (needs the leaf→category map, in code `TAXONOMY_MAP`, not the DB).
 
 **When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+**Why:** Owner directive (mobile screenshot, both icons circled): *"remove these 2 on top nav."* The 🏪 Marketplace link and the 👤﹀ Switch View (role-switch) pill are gone from the customer **top bar** — event-scoped (`[eventId]/layout.tsx`) AND non-event routes (`outer-dashboard-header.tsx`). The desktop **left sidebar** intentionally KEEPS both (owner scope: "non-event top bar", not the desktop sidebar). Nothing orphaned (Marketplace via the home tease-strip / "Browse matched services" / plan cards / sidebar; role-switch via the event-switcher dropdown's "Switch view" rows + sidebar).
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`0000_app_shell_and_navigation/0000_app_shell_and_navigation.md`** — the "single-strip top-nav (locked 2026-05-14)" description should drop the Marketplace link + the always-visible Switch View pill from the **top strip**; note both now live only in the desktop sidebar, and role-switch is also in the event-switcher dropdown.
+2. **`0021_couple_dashboard_fully_purchased/0021_*.md`** — update the couple-dashboard chrome/top-bar description to match: top bar = event-switcher monogram · Messages · Bell · Profile-monogram (no Marketplace, no Switch View pill).
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "chore(0000,0021): remove Marketplace (Store) + Switch View…". No migration, no SKU.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
+## [PENDING] 2026-06-03 — Admin song dedup tool + compatibility build COMPLETE (0023/0006)
 
 **Why:** PR 6 (final) — an admin surface to merge near-duplicate master songs + remove junk, keeping the compatibility overlap clean. The whole compatibility build (PRs 1–6) is now shipped.
 

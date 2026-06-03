@@ -8,13 +8,31 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **Context:** Completes the admin deadline table (after PR 1's schema). The Home reminders now read the admin-set deadlines, and admins edit them in `/admin/taxonomy`. Owner: "do both."
 
-**Wiring (`lib/upcoming-items.ts` · the `recommended_deadline` source):** `fetchRecommendedDeadlineItems` reads `planning_deadlines` (kind='service', scope='category', is_active) into a map and uses each category's admin-set offset (month/week/day) for the reminder date + copy. **Falls back to `PLAN_GROUPS.monthsBefore`** per-category when there's no row — and if the table doesn't exist yet (migration unapplied), the query errors → empty map → every category falls back to code, no crash.
+**Wiring (`lib/upcoming-items.ts`):** `fetchRecommendedDeadlineItems` reads `planning_deadlines` (service category rows) and uses each category's admin-set offset (month/week/day) for the reminder; **falls back to `PLAN_GROUPS.monthsBefore`** per-category (incl. if the table isn't applied → empty map → code, no crash).
 
-**Admin editor (`/admin/taxonomy`):** a new "Recommended deadlines" section above the taxonomy viewer — lists the `planning_deadlines` rows (services + documents), each with an inline `offset_value` + `offset_unit` (days/weeks/months) edit via `updatePlanningDeadline` (new `actions.ts`; RLS `is_admin()` gates the write). Plus a **coverage flag**: which reminder categories have no deadline (using code fallback) — the category-level "missing deadline" surface. Per-leaf overrides + a leaf-level missing-flag are a noted follow-up (the leaf→category map lives in code, `TAXONOMY_MAP`, not the DB).
+**Admin editor (`/admin/taxonomy`):** a "Recommended deadlines" section — lists the rows (services + documents) with inline `offset_value`/`offset_unit` edit via `updatePlanningDeadline` (new `actions.ts`, RLS-gated) + a category-level coverage/"missing deadline" flag. Per-leaf overrides are a noted follow-up (the leaf→category map is in code `TAXONOMY_MAP`, not the DB).
 
-**Verification:** `tsc --noEmit` green (exit 0). Admin route is auth-gated + needs the table applied — CI build is the gate; degrades gracefully pre-migration ("migration not applied yet" notice). **⚠️ Owner must `supabase db push` migration `20260802`.**
+**Verification:** `tsc --noEmit` green. Admin route auth-gated + needs the table — CI build is the gate; degrades gracefully pre-migration.
 
-**SPEC IMPACT:** Yes — 0023 admin gains the deadline editor; the Home reminders' deadline source becomes the admin table (was hardcoded). Inbox note added.
+**SPEC IMPACT:** Yes — 0023 admin gains the deadline editor; the Home reminders' deadline source becomes the admin table. Inbox note added.
+
+## 2026-06-03 · chore(0000,0021): remove Marketplace (Store) + Switch View (role-switch) icons from the customer top nav
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner directive (mobile screenshot, both icons circled): *"remove these 2 on top nav."* The customer top bar carried a 🏪 **Marketplace** link (`/vendors`) and the 👤﹀ **Switch View** `RoleSwitchPill` (the always-visible role-switch). Owner scope choice: remove from BOTH the event-scoped top bar AND the non-event customer top bar; **keep** the desktop left-sidebar instances.
+
+**What changed:**
+- **`app/dashboard/[eventId]/layout.tsx`** — dropped the Marketplace `<Link>` + the mobile (`lg:hidden`) `RoleSwitchPill` from the event-scoped `topBar`; removed the now-unused `Link` + `Store` imports. The top bar is now: event-switcher monogram · Messages · Bell · Profile-monogram. The desktop sidebar-footer `RoleSwitchPill` (`sidebarFooterPill`) is untouched.
+- **`app/dashboard/_components/outer-dashboard-header.tsx`** — dropped the same two from the mobile `<header>` strip (non-event routes: Profile / Notifications / Create-event). The desktop left-sidebar bottom strip keeps both per the owner's scope choice; all three imports (`Store`, `Link`, `RoleSwitchPill`) remain in use there.
+
+**Nothing orphaned:** Marketplace `/vendors` stays reachable via the home marketplace-tease-strip CTA, the "Browse your matched services" button, every plan-card folder link, and the desktop sidebar. Role-switching stays in the EventSwitcher dropdown's "Switch view" rows (Shop / Admin consoles) + the desktop sidebar.
+
+**Verification:** `next lint` clean on both files · `tsc --noEmit` exit 0 (full project, 0 errors). Shipped from an isolated worktree off `origin/main` to keep unrelated in-progress changes out of the diff.
+
+**SPEC IMPACT:** Yes — the iteration **0000** "single-strip top-nav (locked 2026-05-14)" + the **0021** couple-dashboard chrome described a top nav that included the Marketplace link and the always-visible Switch View pill. Both are now removed from the top bar (retained in the desktop sidebar). See `COWORK_INBOX.md`.
+
+---
 
 ## 2026-06-03 · feat(0023,0006): admin song dedup/merge tool — master-catalogue hygiene (compatibility PR 6)
 

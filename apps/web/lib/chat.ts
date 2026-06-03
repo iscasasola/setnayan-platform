@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 
 export type ChatSenderRole = 'couple' | 'vendor' | 'coordinator';
 
@@ -70,6 +71,55 @@ export type ChatMessageRow = {
 
 const THREAD_SELECT =
   'thread_id,public_id,event_id,vendor_profile_id,created_at,updated_at,inquiry_status,accepted_at,declined_at,decline_reason';
+
+/**
+ * Count of message threads with at least one unread message for the current
+ * user — drives the unread badge on the Messages icon (the MessageSquare link
+ * shipped icon-only in PR #837). Delegates the per-thread "is there a message
+ * from someone else newer than my last_read_at?" math to the SQL function
+ * `count_unread_message_threads()` (migration 20260728000000_chat_thread_reads.sql),
+ * which is SECURITY DEFINER + scoped to the caller via auth.uid().
+ *
+ * GRACEFUL DEGRADE (mirrors countUnread in lib/notifications.ts): this sits on
+ * the dashboard-chrome render path, so a thrown error would crash the whole
+ * /dashboard/[eventId]/* subtree. The migration is owner-pushed and may not be
+ * applied yet — when the function/table is absent the RPC returns a
+ * missing-relation error (42883 undefined_function / PGRST202 etc.). On ANY
+ * error we log + return 0 so the deploy is safe before the migration lands; the
+ * badge simply reads 0 until the owner pushes it.
+ *
+ * `userId` is accepted for parity with countUnread + for the log context; the
+ * SQL resolves the user from auth.uid() server-side, so it isn't passed to the RPC.
+ */
+export async function countUnreadMessages(
+  supabase: SupabaseClient,
+  userId?: string,
+): Promise<number> {
+  try {
+    const { data, error } = await supabase.rpc('count_unread_message_threads');
+    if (error) {
+      logQueryError(
+        'countUnreadMessages',
+        error,
+        { user_id: userId ?? null, missing_relation: isMissingRelationError(error) },
+        'graceful_degrade',
+      );
+      return 0;
+    }
+    const n = typeof data === 'number' ? data : Number(data ?? 0);
+    return Number.isFinite(n) ? n : 0;
+  } catch (caught) {
+    // Network / client throw (not a PostgREST error object) — never let the
+    // chrome badge take down the dashboard. Log + fall back to 0.
+    logQueryError(
+      'countUnreadMessages (threw)',
+      caught instanceof Error ? caught : new Error(String(caught)),
+      { user_id: userId ?? null },
+      'graceful_degrade',
+    );
+    return 0;
+  }
+}
 
 export async function fetchCoupleThreads(
   supabase: SupabaseClient,

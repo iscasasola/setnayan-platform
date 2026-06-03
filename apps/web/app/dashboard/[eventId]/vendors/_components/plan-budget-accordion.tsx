@@ -4,7 +4,7 @@
  * PlanBudgetAccordion — the couple-side Vendors tab (FULL VISUAL MATCH).
  *
  * Ports the design prototype Plan_Budget_Accordion_2026-05-31.html into the
- * live surface. Scoped CSS (PBA_CSS, under `.pba`) reproduces the prototype
+ * live surface. Scoped CSS (PBA_CSS, under `.pbacc`) reproduces the prototype
  * look, with the prototype's bare design vars (--paper/--ink/--gold/
  * --mulberry/--serif/--sans/--mono) aliased to the app's Clean Editorial
  * `--m-*` tokens + next/font families so it inherits the platform palette.
@@ -71,11 +71,20 @@ function initials(name: string): string {
 /**
  * Scoped CSS ported from the prototype. Prototype design vars are aliased to
  * the app's Clean Editorial `--m-*` tokens (already loaded in globals.css)
- * + next/font CSS vars. Everything is namespaced under `.pba` so it can't
- * leak into the rest of the dashboard.
+ * + next/font CSS vars. Everything is namespaced under `.pbacc`
+ * (Plan-Budget-ACCordion) so it can't leak into the rest of the dashboard.
+ *
+ * ⚠ The scope class is `.pbacc`, NOT `.pba`, on purpose — do NOT rename it
+ * back. The wedding onboarding flow ships a *global* stylesheet
+ * (apps/web/app/onboarding/wedding/_styles/onboarding.css) that was scoped
+ * under `.pba` with `.pba{display:flex;justify-content:center}` on its root.
+ * That CSS loads once and persists app-wide, so sharing `.pba` leaked the flex
+ * in and turned this surface's sticky top budget bar into a left-hand side-nav
+ * column (2026-06-03). Onboarding now scopes under `.onbw` and this surface
+ * under `.pbacc` — two unique, collision-proof scopes. Keep them distinct.
  */
 const PBA_CSS = `
-.pba{
+.pbacc{
   --paper:var(--m-paper,#FBFBFA); --ink:var(--m-ink,#1E2229); --ink-soft:#4F535B;
   --gold:var(--m-orange,#C5A059); --gold-deep:var(--m-orange-2,#8C6932);
   --mulberry:var(--m-mulberry,#5C2542); --mulberry-deep:var(--m-mulberry-2,#4A1D36);
@@ -106,268 +115,272 @@ const PBA_CSS = `
      below resets to -24px (desktop has no pb-20 + no fixed bottom nav). */
   position:relative; margin-top:-24px; margin-bottom:-104px; background:var(--paper); color:var(--ink); font-family:var(--sans);
 }
-@media (min-width:1024px){.pba{--pba-header-offset:0px;margin-bottom:-24px}.pba .topbar,.pba .meter{margin-left:0;margin-right:0}.pba .end-spacer{padding-bottom:30px}}
-.pba *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+@media (min-width:1024px){.pbacc{--pba-header-offset:0px;margin-bottom:-24px}.pbacc .topbar,.pbacc .meter{margin-left:0;margin-right:0}.pbacc .end-spacer{padding-bottom:30px}}
+.pbacc *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 
 /* ---- Dark top budget bar ---- */
-.pba .topbar{position:sticky;top:0;z-index:60;background:var(--ink);color:var(--paper);display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:var(--topbar-h);padding:0 18px;border-bottom:1px solid rgba(255,255,255,.08);margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw)}
-.pba .topbar .bleft{display:flex;flex-direction:column;gap:3px;min-width:0;padding:9px 0}
-.pba .topbar .fig{display:flex;align-items:baseline;gap:7px;white-space:nowrap;line-height:1.18}
-.pba .topbar .figk{font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.45);width:46px;flex:0 0 auto}
-.pba .topbar .figv{font-family:var(--serif);font-style:italic;font-size:19px;font-weight:600;color:var(--paper)}
-.pba .topbar .rangev{font-family:var(--serif);font-style:italic;font-size:13px;font-weight:600;color:rgba(255,255,255,.6)}
-.pba .topbar .bright{text-align:right;flex:0 0 auto;padding:9px 0}
-.pba .topbar .tgt{font-family:var(--serif);font-style:italic;font-size:14px;font-weight:600;color:var(--paper);white-space:nowrap}
-.pba .topbar .status{font-family:var(--mono);font-size:8px;letter-spacing:.06em;text-transform:uppercase;margin-top:3px;white-space:nowrap;color:rgba(255,255,255,.55)}
-.pba .topbar .status.ok{color:#7fd49a}
-.pba .topbar .status.near{color:var(--gold)}
-.pba .topbar .status.over{color:#ef9a9a}
-.pba .meter{position:relative;height:3px;background:rgba(30,34,41,.1);margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw)}
-.pba .meter .fill{height:100%;width:0;background:var(--gold);transition:width .55s var(--ease),background .4s var(--ease)}
-.pba .meter .fill.ok{background:#7fd49a}
-.pba .meter .fill.near{background:var(--gold)}
-.pba .meter .fill.over{background:#ef9a9a}
+.pbacc .topbar{position:sticky;top:0;z-index:60;background:var(--ink);color:var(--paper);display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:var(--topbar-h);padding:0 18px;border-bottom:1px solid rgba(255,255,255,.08);margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw)}
+.pbacc .topbar .bleft{display:flex;flex-direction:column;gap:3px;min-width:0;padding:9px 0}
+.pbacc .topbar .fig{display:flex;align-items:baseline;gap:7px;white-space:nowrap;line-height:1.18}
+.pbacc .topbar .figk{font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.45);width:46px;flex:0 0 auto}
+.pbacc .topbar .figv{font-family:var(--serif);font-style:italic;font-size:19px;font-weight:600;color:var(--paper)}
+.pbacc .topbar .rangev{font-family:var(--serif);font-style:italic;font-size:13px;font-weight:600;color:rgba(255,255,255,.6)}
+.pbacc .topbar .bright{text-align:right;flex:0 0 auto;padding:9px 0}
+.pbacc .topbar .tgt{font-family:var(--serif);font-style:italic;font-size:14px;font-weight:600;color:var(--paper);white-space:nowrap}
+.pbacc .topbar .status{font-family:var(--mono);font-size:8px;letter-spacing:.06em;text-transform:uppercase;margin-top:3px;white-space:nowrap;color:rgba(255,255,255,.55)}
+.pbacc .topbar .status.ok{color:#7fd49a}
+.pbacc .topbar .status.near{color:var(--gold)}
+.pbacc .topbar .status.over{color:#ef9a9a}
+.pbacc .meter{position:relative;height:3px;background:rgba(30,34,41,.1);margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw)}
+.pbacc .meter .fill{height:100%;width:0;background:var(--gold);transition:width .55s var(--ease),background .4s var(--ease)}
+.pbacc .meter .fill.ok{background:#7fd49a}
+.pbacc .meter .fill.near{background:var(--gold)}
+.pbacc .meter .fill.over{background:#ef9a9a}
 
 /* ---- Scroll body wrap ---- */
 /* No bottom padding: the recap is the terminal element. Its own bottom
    padding (= --botnav-h) clears the fixed mobile nav, so the recap ends just
    above the nav with NO dead scroll below it (owner 2026-05-31). */
-.pba .body{max-width:760px;margin:0 auto;padding:0}
+.pbacc .body{max-width:760px;margin:0 auto;padding:0}
 
 /* ---- Landing overview ---- */
 /* Cover page — the landing overview is the default FIRST view. It fills the
    screen BETWEEN the black bar (top) and the fixed bottom nav, so the ↓ cue
    (margin-top:auto) snaps just above the nav's top border and is never hidden
    behind it (owner 2026-05-31). */
-.pba .intro{display:flex;flex-direction:column;gap:14px;padding:26px 22px 16px;min-height:calc(100svh - var(--topbar-h) - var(--botnav-h));background:var(--paper)}
-.pba .intro-eyebrow{font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-deep)}
-.pba .intro-h{font-family:var(--serif);font-style:italic;font-size:29px;line-height:1.05;color:var(--ink);margin:2px 0 4px}
-.pba .intro-grid{display:flex;flex-direction:column;gap:10px}
-.pba .irow3{display:flex;gap:10px}
-.pba .irow3 .ibox{flex:1;min-width:0}
-.pba .ibox{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 15px}
-.pba .ik{font-family:var(--mono);font-size:8.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-soft)}
-.pba .iv{font-family:var(--serif);font-style:italic;font-weight:600;font-size:19px;line-height:1.15;color:var(--ink);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pbacc .intro{display:flex;flex-direction:column;gap:14px;padding:26px 22px 16px;min-height:calc(100svh - var(--topbar-h) - var(--botnav-h));background:var(--paper)}
+.pbacc .intro-eyebrow{font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-deep)}
+.pbacc .intro-h{font-family:var(--serif);font-style:italic;font-size:29px;line-height:1.05;color:var(--ink);margin:2px 0 4px}
+.pbacc .intro-grid{display:flex;flex-direction:column;gap:10px}
+.pbacc .irow3{display:flex;gap:10px}
+.pbacc .irow3 .ibox{flex:1;min-width:0}
+.pbacc .ibox{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 15px}
+.pbacc .ik{font-family:var(--mono);font-size:8.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-soft)}
+.pbacc .iv{font-family:var(--serif);font-style:italic;font-weight:600;font-size:19px;line-height:1.15;color:var(--ink);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* deadline list box */
-.pba .ibox.dl{padding:13px 15px}
-.pba .dl-tag{font-family:var(--mono);font-size:8.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:2px}
-.pba .dl-row{display:flex;align-items:center;gap:9px;padding:9px 0;border-top:1px solid var(--line);text-decoration:none;color:inherit}
-.pba .dl-row:first-of-type{border-top:0}
-.pba .dl-dot{width:7px;height:7px;border-radius:50%;flex:none}
-.pba .dl-row.over .dl-dot{background:#b23b34}
-.pba .dl-row.soon .dl-dot{background:var(--gold)}
-.pba .dl-row.start .dl-dot{background:var(--gold)}
-.pba .dl-row.next .dl-dot{background:var(--ink-soft)}
-.pba .dl-main{flex:1;min-width:0}
-.pba .dl-name{font-family:var(--serif);font-style:italic;font-weight:600;font-size:15px;line-height:1.1;color:var(--ink)}
-.pba .dl-sub{font-family:var(--mono);font-size:8px;letter-spacing:.02em;color:var(--ink-soft);margin-top:2px}
-.pba .dl-when{flex:none;text-align:right;font-family:var(--mono);font-size:8px;line-height:1.3;letter-spacing:.05em;text-transform:uppercase}
-.pba .dl-when.over{color:#b23b34;font-weight:500}
-.pba .dl-when.soon{color:var(--gold-deep)}
-.pba .dl-when.start{color:var(--gold-deep)}
-.pba .dl-when.next{color:var(--ink-soft)}
-.pba .dl-empty{font-family:var(--serif);font-style:italic;font-size:14px;color:var(--ink-soft);padding:6px 2px}
-.pba .intro-cta{margin-top:auto;display:flex;flex-direction:column;align-items:center;gap:2px;font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft)}
-.pba .intro-cta .chev{font-size:18px;line-height:1;animation:pba-bob 1.5s var(--ease) infinite}
+.pbacc .ibox.dl{padding:13px 15px}
+.pbacc .dl-tag{font-family:var(--mono);font-size:8.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:2px}
+.pbacc .dl-row{display:flex;align-items:center;gap:9px;padding:9px 0;border-top:1px solid var(--line);text-decoration:none;color:inherit}
+.pbacc .dl-row:first-of-type{border-top:0}
+.pbacc .dl-dot{width:7px;height:7px;border-radius:50%;flex:none}
+.pbacc .dl-row.over .dl-dot{background:#b23b34}
+.pbacc .dl-row.soon .dl-dot{background:var(--gold)}
+.pbacc .dl-row.start .dl-dot{background:var(--gold)}
+.pbacc .dl-row.next .dl-dot{background:var(--ink-soft)}
+.pbacc .dl-main{flex:1;min-width:0}
+.pbacc .dl-name{font-family:var(--serif);font-style:italic;font-weight:600;font-size:15px;line-height:1.1;color:var(--ink)}
+.pbacc .dl-sub{font-family:var(--mono);font-size:8px;letter-spacing:.02em;color:var(--ink-soft);margin-top:2px}
+.pbacc .dl-when{flex:none;text-align:right;font-family:var(--mono);font-size:8px;line-height:1.3;letter-spacing:.05em;text-transform:uppercase}
+.pbacc .dl-when.over{color:#b23b34;font-weight:500}
+.pbacc .dl-when.soon{color:var(--gold-deep)}
+.pbacc .dl-when.start{color:var(--gold-deep)}
+.pbacc .dl-when.next{color:var(--ink-soft)}
+.pbacc .dl-empty{font-family:var(--serif);font-style:italic;font-size:14px;color:var(--ink-soft);padding:6px 2px}
+.pbacc .intro-cta{margin-top:auto;display:flex;flex-direction:column;align-items:center;gap:2px;font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft)}
+.pbacc .intro-cta .chev{font-size:18px;line-height:1;animation:pba-bob 1.5s var(--ease) infinite}
 /* Slide-up "to start" entrance — the cover's content rises in on arrival,
    staggered. (Targets the children, not .intro itself, so it never fights
    the scroll-linked shrink/fade on .intro.) */
 @keyframes pba-rise{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
-.pba .intro-eyebrow{animation:pba-rise .5s var(--ease) both}
-.pba .intro-h{animation:pba-rise .55s var(--ease) .07s both}
-.pba .intro-grid{animation:pba-rise .6s var(--ease) .14s both}
-.pba .intro-cta{animation:pba-rise .6s var(--ease) .24s both}
+.pbacc .intro-eyebrow{animation:pba-rise .5s var(--ease) both}
+.pbacc .intro-h{animation:pba-rise .55s var(--ease) .07s both}
+.pbacc .intro-grid{animation:pba-rise .6s var(--ease) .14s both}
+.pbacc .intro-cta{animation:pba-rise .6s var(--ease) .24s both}
 @keyframes pba-bob{0%,100%{transform:translateY(0);opacity:.45}50%{transform:translateY(-6px);opacity:1}}
 /* Cover — empty state (no picks yet): an intro + a 3-step "how it works" that
    gives direction instead of zeroed-out stats (owner 2026-06-01). Lives inside
    .intro-grid so it inherits the slide-up entrance. */
-.pba .intro-lead{font-family:var(--sans);font-size:14px;line-height:1.55;color:var(--ink-soft)}
-.pba .intro-steps{display:flex;flex-direction:column;gap:12px;margin-top:4px}
-.pba .istep{display:flex;align-items:center;gap:12px}
-.pba .istep-n{flex:0 0 auto;width:27px;height:27px;border-radius:999px;background:rgba(92,37,66,.08);color:var(--mulberry);font-family:var(--serif);font-style:italic;font-weight:600;font-size:15px;display:flex;align-items:center;justify-content:center}
-.pba .istep-h{font-family:var(--sans);font-weight:700;font-size:13.5px;color:var(--ink);line-height:1.15}
-.pba .istep-d{font-family:var(--mono);font-size:9px;letter-spacing:.04em;color:var(--ink-soft);margin-top:1px}
+.pbacc .intro-lead{font-family:var(--sans);font-size:14px;line-height:1.55;color:var(--ink-soft)}
+.pbacc .intro-steps{display:flex;flex-direction:column;gap:12px;margin-top:4px}
+.pbacc .istep{display:flex;align-items:center;gap:12px}
+.pbacc .istep-n{flex:0 0 auto;width:27px;height:27px;border-radius:999px;background:rgba(92,37,66,.08);color:var(--mulberry);font-family:var(--serif);font-style:italic;font-weight:600;font-size:15px;display:flex;align-items:center;justify-content:center}
+.pbacc .istep-h{font-family:var(--sans);font-weight:700;font-size:13.5px;color:var(--ink);line-height:1.15}
+.pbacc .istep-d{font-family:var(--mono);font-size:9px;letter-spacing:.04em;color:var(--ink-soft);margin-top:1px}
 /* Cover — populated state: a budget progress bar (owner 2026-06-01). Tracks
    Range-high vs target, same tone as the top-bar meter. */
-.pba .intro-meter{display:flex;flex-direction:column;gap:7px}
-.pba .intro-meter .pm-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
-.pba .intro-meter .pm-k{font-family:var(--mono);font-size:8.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-soft)}
-.pba .intro-meter .pm-v{font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft)}
-.pba .intro-meter .pm-v.ok{color:#2e7d4f}
-.pba .intro-meter .pm-v.near{color:var(--gold-deep)}
-.pba .intro-meter .pm-v.over{color:#b23b34}
-.pba .intro-meter .pm-track{height:7px;border-radius:999px;background:rgba(30,34,41,.07);overflow:hidden}
-.pba .intro-meter .pm-fill{height:100%;border-radius:999px;background:var(--gold);transition:width .6s var(--ease)}
-.pba .intro-meter .pm-fill.ok{background:#7fd49a}
-.pba .intro-meter .pm-fill.near{background:var(--gold)}
-.pba .intro-meter .pm-fill.over{background:#ef9a9a}
+.pbacc .intro-meter{display:flex;flex-direction:column;gap:7px}
+.pbacc .intro-meter .pm-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.pbacc .intro-meter .pm-k{font-family:var(--mono);font-size:8.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-soft)}
+.pbacc .intro-meter .pm-v{font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft)}
+.pbacc .intro-meter .pm-v.ok{color:#2e7d4f}
+.pbacc .intro-meter .pm-v.near{color:var(--gold-deep)}
+.pbacc .intro-meter .pm-v.over{color:#b23b34}
+.pbacc .intro-meter .pm-track{height:7px;border-radius:999px;background:rgba(30,34,41,.07);overflow:hidden}
+.pbacc .intro-meter .pm-fill{height:100%;border-radius:999px;background:var(--gold);transition:width .6s var(--ease)}
+.pbacc .intro-meter .pm-fill.ok{background:#7fd49a}
+.pbacc .intro-meter .pm-fill.near{background:var(--gold)}
+.pbacc .intro-meter .pm-fill.over{background:#ef9a9a}
 
 /* ---- Category sticky stacking head + body ---- */
-.pba .cat{border-top:1px solid var(--line)}
+.pbacc .cat{border-top:1px solid var(--line)}
 /* Stack-and-stay folder pile: every folder head + body is a flat sibling in
    one shared .cats scroll container (see the render), so each head pins at
    top = topbar-h + idx*head-h and STAYS — heads stack under the budget bar
    as you scroll (Venue→…→Transport) rather than replacing one another.
    scroll-margin-top clears the bar + the heads piled above this one so a
    folder anchor (#folder-*) jump lands the head just below them, never hidden. */
-.pba .cat-head{position:sticky;top:calc(var(--topbar-h) + var(--idx,0) * var(--head-h));z-index:25;width:100%;height:var(--head-h);background:var(--paper);display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 18px;border:0;border-bottom:1px solid var(--line);text-align:left;transition:background .4s var(--ease),box-shadow .45s var(--ease);scroll-margin-top:calc(var(--pba-header-offset) + var(--topbar-h) + var(--idx,0) * var(--head-h) + 2px)}
+.pbacc .cat-head{position:sticky;top:calc(var(--topbar-h) + var(--idx,0) * var(--head-h));z-index:25;width:100%;height:var(--head-h);background:var(--paper);display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 18px;border:0;border-bottom:1px solid var(--line);text-align:left;transition:background .4s var(--ease),box-shadow .45s var(--ease);scroll-margin-top:calc(var(--pba-header-offset) + var(--topbar-h) + var(--idx,0) * var(--head-h) + 2px)}
 /* Group anchor jumps (#group-* from "What to lock next") land the child rail
    just below the budget bar + the folder heads piled above it. --folder-idx is
    set inline on each group wrapper (ChildRail) = its folder's index, so the
    offset is exact per folder (heads 0..idx are all pinned at that scroll). */
-.pba [id^="group-"]{scroll-margin-top:calc(var(--pba-header-offset) + var(--topbar-h) + (var(--folder-idx,0) + 1) * var(--head-h) + 8px)}
-.pba .cat-head .nm{font-family:var(--serif);font-style:italic;font-size:18px;font-weight:600;color:var(--ink);letter-spacing:.01em}
-.pba .cat-head .amt{font-family:var(--serif);font-style:italic;font-size:13.5px;font-weight:600;color:var(--ink)}
-.pba .cat-head .amt.zero{font-family:var(--mono);font-style:normal;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-deep)}
-.pba .cat-head .chev{flex:0 0 auto;color:var(--ink-soft);transition:transform .3s var(--ease)}
-.pba .cat-head.active{background:var(--card);box-shadow:0 6px 14px -10px rgba(0,0,0,.4)}
-.pba .cat-head.active .nm{color:var(--mulberry)}
-.pba .cat-head.active .chev{transform:rotate(180deg);color:var(--mulberry)}
-.pba .cat-body{padding:14px 0 22px;background:var(--paper)}
-.pba .cat-empty{font-family:var(--serif);font-style:italic;font-size:14px;color:var(--ink-soft);padding:6px 20px 4px}
+.pbacc [id^="group-"]{scroll-margin-top:calc(var(--pba-header-offset) + var(--topbar-h) + (var(--folder-idx,0) + 1) * var(--head-h) + 8px)}
+.pbacc .cat-head .nm{font-family:var(--serif);font-style:italic;font-size:18px;font-weight:600;color:var(--ink);letter-spacing:.01em}
+.pbacc .cat-head .amt{font-family:var(--serif);font-style:italic;font-size:13.5px;font-weight:600;color:var(--ink)}
+.pbacc .cat-head .amt.zero{font-family:var(--mono);font-style:normal;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-deep)}
+.pbacc .cat-head .chev{flex:0 0 auto;color:var(--ink-soft);transition:transform .3s var(--ease)}
+.pbacc .cat-head.active{background:var(--card);box-shadow:0 6px 14px -10px rgba(0,0,0,.4)}
+.pbacc .cat-head.active .nm{color:var(--mulberry)}
+.pbacc .cat-head.active .chev{transform:rotate(180deg);color:var(--mulberry)}
+.pbacc .cat-body{padding:14px 0 22px;background:var(--paper)}
+.pbacc .cat-empty{font-family:var(--serif);font-style:italic;font-size:14px;color:var(--ink-soft);padding:6px 20px 4px}
 
 /* ---- Child row header ---- */
-.pba .child-name{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 20px 8px}
-.pba .child-name .cn{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft)}
+.pbacc .child-name{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 20px 8px}
+.pbacc .child-name .cn{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft)}
 
 /* deadline chip */
-.pba .chip{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:3px 8px;font-family:var(--mono);font-size:8px;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
-.pba .chip.locked{color:var(--gold-deep);background:rgba(197,160,89,.16)}
-.pba .chip.over{color:#b23b34;background:rgba(178,59,52,.1)}
-.pba .chip.soon{color:var(--gold-deep);background:rgba(197,160,89,.16)}
-.pba .chip.start{color:var(--gold-deep);background:rgba(197,160,89,.1);box-shadow:inset 0 0 0 1px rgba(197,160,89,.4)}
-.pba .chip.next{color:var(--ink-soft);background:rgba(30,34,41,.06)}
+.pbacc .chip{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:3px 8px;font-family:var(--mono);font-size:8px;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+.pbacc .chip.locked{color:var(--gold-deep);background:rgba(197,160,89,.16)}
+.pbacc .chip.over{color:#b23b34;background:rgba(178,59,52,.1)}
+.pbacc .chip.soon{color:var(--gold-deep);background:rgba(197,160,89,.16)}
+.pbacc .chip.start{color:var(--gold-deep);background:rgba(197,160,89,.1);box-shadow:inset 0 0 0 1px rgba(197,160,89,.4)}
+.pbacc .chip.next{color:var(--ink-soft);background:rgba(30,34,41,.06)}
 
-/* ---- Carousel rail + 300px cards ---- */
-.pba .rail{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:0 20px 6px;scrollbar-width:none}
-.pba .rail::-webkit-scrollbar{display:none}
-.pba .card{position:relative;flex:0 0 300px;scroll-snap-align:center;display:flex;flex-direction:column}
-.pba .v{position:relative;display:flex;flex-direction:column;flex:1 1 auto;min-height:300px;background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;text-decoration:none;color:inherit;transition:border-color .35s var(--ease),box-shadow .35s var(--ease)}
-.pba .v:hover{box-shadow:0 10px 30px -18px rgba(0,0,0,.4)}
-.pba .v .img{height:128px;flex:0 0 128px;background:linear-gradient(135deg,#3a3f47,#565b63);display:flex;align-items:center;justify-content:center}
-.pba .v .img img{width:100%;height:100%;object-fit:cover}
-.pba .v .img .ini{font-family:var(--serif);font-style:italic;font-size:30px;color:rgba(255,255,255,.7)}
-.pba .v .meta{padding:13px 15px 15px;flex:1 1 auto;display:flex;flex-direction:column}
-.pba .v .vn{font-family:var(--sans);font-weight:700;font-size:15px;color:var(--ink)}
-.pba .v .dist{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--ink-soft);margin-top:2px}
-.pba .v .stars{color:var(--gold);font-size:15px;letter-spacing:2px;margin-top:9px}
-.pba .v .stars .rcount{font-family:var(--mono);font-size:8px;letter-spacing:.03em;color:var(--ink-soft);margin-left:6px;vertical-align:1px}
-.pba .v .badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
-.pba .bdg{font-family:var(--mono);font-size:7.5px;letter-spacing:.07em;text-transform:uppercase;padding:3px 7px;border-radius:999px;background:rgba(30,34,41,.06);color:var(--ink-soft);white-space:nowrap}
-.pba .bdg.verified{color:#2e7d4f;background:rgba(46,125,79,.1)}
-.pba .bdg.setnayan{color:var(--mulberry);background:rgba(92,37,66,.1)}
-.pba .bdg.rec{color:var(--gold-deep);background:rgba(197,160,89,.16)}
-.pba .v .price{font-family:var(--serif);font-style:italic;font-weight:600;font-size:21px;color:var(--ink);margin-top:auto;padding-top:7px}
-.pba .v .linked{margin-top:auto;padding-top:9px;font-family:var(--mono);font-size:10px;letter-spacing:.03em;color:var(--mulberry);font-weight:500;line-height:1.4}
+/* ---- Carousel rail + 300px cards ----
+   Leading/trailing runway = max(20px, calc(50% - 150px)) (150px = half a 300px
+   card) so the FIRST and LAST cards have room to scroll to the CENTER snap. The
+   old flat 20px gave no runway, so edge cards stuck at the left/right and could
+   never reach scroll-snap-align:center. */
+.pbacc .rail{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:0 max(20px, calc(50% - 150px)) 6px;scrollbar-width:none}
+.pbacc .rail::-webkit-scrollbar{display:none}
+.pbacc .card{position:relative;flex:0 0 300px;scroll-snap-align:center;display:flex;flex-direction:column}
+.pbacc .v{position:relative;display:flex;flex-direction:column;flex:1 1 auto;min-height:300px;background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;text-decoration:none;color:inherit;transition:border-color .35s var(--ease),box-shadow .35s var(--ease)}
+.pbacc .v:hover{box-shadow:0 10px 30px -18px rgba(0,0,0,.4)}
+.pbacc .v .img{height:128px;flex:0 0 128px;background:linear-gradient(135deg,#3a3f47,#565b63);display:flex;align-items:center;justify-content:center}
+.pbacc .v .img img{width:100%;height:100%;object-fit:cover}
+.pbacc .v .img .ini{font-family:var(--serif);font-style:italic;font-size:30px;color:rgba(255,255,255,.7)}
+.pbacc .v .meta{padding:13px 15px 15px;flex:1 1 auto;display:flex;flex-direction:column}
+.pbacc .v .vn{font-family:var(--sans);font-weight:700;font-size:15px;color:var(--ink)}
+.pbacc .v .dist{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--ink-soft);margin-top:2px}
+.pbacc .v .stars{color:var(--gold);font-size:15px;letter-spacing:2px;margin-top:9px}
+.pbacc .v .stars .rcount{font-family:var(--mono);font-size:8px;letter-spacing:.03em;color:var(--ink-soft);margin-left:6px;vertical-align:1px}
+.pbacc .v .badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.pbacc .bdg{font-family:var(--mono);font-size:7.5px;letter-spacing:.07em;text-transform:uppercase;padding:3px 7px;border-radius:999px;background:rgba(30,34,41,.06);color:var(--ink-soft);white-space:nowrap}
+.pbacc .bdg.verified{color:#2e7d4f;background:rgba(46,125,79,.1)}
+.pbacc .bdg.setnayan{color:var(--mulberry);background:rgba(92,37,66,.1)}
+.pbacc .bdg.rec{color:var(--gold-deep);background:rgba(197,160,89,.16)}
+.pbacc .v .price{font-family:var(--serif);font-style:italic;font-weight:600;font-size:21px;color:var(--ink);margin-top:auto;padding-top:7px}
+.pbacc .v .linked{margin-top:auto;padding-top:9px;font-family:var(--mono);font-size:10px;letter-spacing:.03em;color:var(--mulberry);font-weight:500;line-height:1.4}
 /* "👀 N also eyeing your date" — an interest/in-demand cue, NOT an error. Gentle
    gold (not the overdue/danger red it used to share) so it reads as gentle
    social proof, never alarming. Aggregate-only + never fabricated (model §6a). */
-.pba .v .eyeing{margin-top:9px;font-family:var(--mono);font-size:9px;letter-spacing:.02em;color:var(--gold-deep);background:rgba(197,160,89,.12);border-radius:6px;padding:3px 7px;display:inline-block}
+.pbacc .v .eyeing{margin-top:9px;font-family:var(--mono);font-size:9px;letter-spacing:.02em;color:var(--gold-deep);background:rgba(197,160,89,.12);border-radius:6px;padding:3px 7px;display:inline-block}
 /* chosen state — gold border + glow + corner badge */
-.pba .card.chosen .v{border:3px solid var(--gold);box-shadow:0 0 0 3px rgba(197,160,89,.32)}
-.pba .pcorner{position:absolute;top:10px;right:10px;z-index:3;font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:var(--mulberry);border-radius:999px;padding:5px 9px;box-shadow:0 2px 10px rgba(0,0,0,.28)}
+.pbacc .card.chosen .v{border:3px solid var(--gold);box-shadow:0 0 0 3px rgba(197,160,89,.32)}
+.pbacc .pcorner{position:absolute;top:10px;right:10px;z-index:3;font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:var(--mulberry);border-radius:999px;padding:5px 9px;box-shadow:0 2px 10px rgba(0,0,0,.28)}
 /* remove × (top-left), hidden once chosen */
-.pba .vx{position:absolute;top:10px;left:10px;z-index:4;min-width:26px;height:26px;padding:0 8px;border:0;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:rgba(30,34,41,.5);color:#fff;font-family:var(--sans);font-size:16px;line-height:1;cursor:pointer;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);transition:background .2s var(--ease)}
-.pba .vx.armed{font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;background:var(--mulberry)}
-.pba .vx-keep{position:absolute;top:10px;left:62px;z-index:4;height:26px;padding:0 10px;border:0;border-radius:999px;background:rgba(30,34,41,.5);color:#fff;font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
+.pbacc .vx{position:absolute;top:10px;left:10px;z-index:4;min-width:26px;height:26px;padding:0 8px;border:0;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:rgba(30,34,41,.5);color:#fff;font-family:var(--sans);font-size:16px;line-height:1;cursor:pointer;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);transition:background .2s var(--ease)}
+.pbacc .vx.armed{font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;background:var(--mulberry)}
+.pbacc .vx-keep{position:absolute;top:10px;left:62px;z-index:4;height:26px;padding:0 10px;border:0;border-radius:999px;background:rgba(30,34,41,.5);color:#fff;font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
 /* lock CTA */
-.pba .lockbar{margin-top:10px;padding:0 1px}
-.pba .lockbtn{width:100%;border:0;border-radius:11px;background:var(--mulberry);color:#fff;font-family:var(--sans);font-weight:700;font-size:12.5px;padding:11px;cursor:pointer;transition:background .2s var(--ease)}
-.pba .lockbtn:active{background:var(--mulberry-deep)}
-.pba .lockbtn:disabled{opacity:.6;cursor:default}
-.pba .changebtn{width:100%;border:1px solid color-mix(in srgb,var(--mulberry) 45%,transparent);border-radius:11px;background:transparent;color:var(--mulberry);font-family:var(--sans);font-weight:600;font-size:11.5px;padding:9px;cursor:pointer;transition:background .2s var(--ease)}
-.pba .changebtn:active{background:color-mix(in srgb,var(--mulberry) 9%,transparent)}
-.pba .changebtn:disabled{opacity:.6;cursor:default}
+.pbacc .lockbar{margin-top:10px;padding:0 1px}
+.pbacc .lockbtn{width:100%;border:0;border-radius:11px;background:var(--mulberry);color:#fff;font-family:var(--sans);font-weight:700;font-size:12.5px;padding:11px;cursor:pointer;transition:background .2s var(--ease)}
+.pbacc .lockbtn:active{background:var(--mulberry-deep)}
+.pbacc .lockbtn:disabled{opacity:.6;cursor:default}
+.pbacc .changebtn{width:100%;border:1px solid color-mix(in srgb,var(--mulberry) 45%,transparent);border-radius:11px;background:transparent;color:var(--mulberry);font-family:var(--sans);font-weight:600;font-size:11.5px;padding:9px;cursor:pointer;transition:background .2s var(--ease)}
+.pbacc .changebtn:active{background:color-mix(in srgb,var(--mulberry) 9%,transparent)}
+.pbacc .changebtn:disabled{opacity:.6;cursor:default}
 /* dashed find-more card */
-.pba .add{flex:0 0 132px;scroll-snap-align:center;display:flex;text-decoration:none}
-.pba .add .inner{flex:1;min-height:191px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:7px;background:rgba(92,37,66,.05);border:1.5px dashed rgba(92,37,66,.4);border-radius:18px;color:var(--mulberry)}
-.pba .add .plus{font-size:26px;line-height:1;font-weight:300}
-.pba .add .at{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;line-height:1.4}
+.pbacc .add{flex:0 0 132px;scroll-snap-align:center;display:flex;text-decoration:none}
+.pbacc .add .inner{flex:1;min-height:191px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:7px;background:rgba(92,37,66,.05);border:1.5px dashed rgba(92,37,66,.4);border-radius:18px;color:var(--mulberry)}
+.pbacc .add .plus{font-size:26px;line-height:1;font-weight:300}
+.pbacc .add .at{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;line-height:1.4}
 /* empty child — slim one-line row */
-.pba .empty-child{display:flex;align-items:center;gap:10px;margin:0 20px 8px;padding:11px 14px;border:1.5px dashed rgba(92,37,66,.3);border-radius:12px;background:rgba(92,37,66,.03);text-decoration:none;color:inherit}
-.pba .empty-child .ep{font-size:17px;color:var(--mulberry);font-weight:300;line-height:1}
-.pba .empty-child .en{font-family:var(--sans);font-size:13.5px;font-weight:600;color:var(--mulberry)}
-.pba .empty-child .eh{margin-left:auto;font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#b8b4ac}
+.pbacc .empty-child{display:flex;align-items:center;gap:10px;margin:0 20px 8px;padding:11px 14px;border:1.5px dashed rgba(92,37,66,.3);border-radius:12px;background:rgba(92,37,66,.03);text-decoration:none;color:inherit}
+.pbacc .empty-child .ep{font-size:17px;color:var(--mulberry);font-weight:300;line-height:1}
+.pbacc .empty-child .en{font-family:var(--sans);font-size:13.5px;font-weight:600;color:var(--mulberry)}
+.pbacc .empty-child .eh{margin-left:auto;font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#b8b4ac}
 /* .add + .empty-child are <button>s (open the in-place Category Search
    overlay) — neutralize UA button chrome so they render exactly as the
    former anchors did. */
-.pba .add,.pba .empty-child{appearance:none;-webkit-appearance:none;font:inherit;cursor:pointer;text-align:left;width:auto}
-.pba .add{border:0;background:none;padding:0}
+.pbacc .add,.pbacc .empty-child{appearance:none;-webkit-appearance:none;font:inherit;cursor:pointer;text-align:left;width:auto}
+.pbacc .add{border:0;background:none;padding:0}
 /* Empty-category "Find …" rows stretch full width (minus the 20px side
    margins) instead of shrink-wrapping their label (owner 2026-05-31). */
-.pba .empty-child{width:calc(100% - 40px)}
+.pbacc .empty-child{width:calc(100% - 40px)}
 
 /* ---- Compare (like-for-like; read-only — never sets the pick) ---- */
-.pba .cn-right{display:flex;align-items:center;gap:8px}
-.pba .cmpbtn{display:inline-flex;align-items:center;gap:4px;border:1px solid rgba(92,37,66,.4);background:rgba(92,37,66,.06);color:var(--mulberry);border-radius:999px;padding:4px 10px;font-family:var(--mono);font-size:8px;letter-spacing:.08em;text-transform:uppercase;font-weight:500;cursor:pointer;white-space:nowrap;transition:background .2s var(--ease)}
-.pba .cmpbtn:active{background:rgba(92,37,66,.14)}
-.pba .cmpsheet{position:fixed;inset:0;z-index:90;background:var(--paper);display:flex;flex-direction:column;animation:cmpup .3s var(--ease)}
+.pbacc .cn-right{display:flex;align-items:center;gap:8px}
+.pbacc .cmpbtn{display:inline-flex;align-items:center;gap:4px;border:1px solid rgba(92,37,66,.4);background:rgba(92,37,66,.06);color:var(--mulberry);border-radius:999px;padding:4px 10px;font-family:var(--mono);font-size:8px;letter-spacing:.08em;text-transform:uppercase;font-weight:500;cursor:pointer;white-space:nowrap;transition:background .2s var(--ease)}
+.pbacc .cmpbtn:active{background:rgba(92,37,66,.14)}
+.pbacc .cmpsheet{position:fixed;inset:0;z-index:90;background:var(--paper);display:flex;flex-direction:column;animation:cmpup .3s var(--ease)}
 @keyframes cmpup{from{transform:translateY(100%)}to{transform:none}}
-.pba .cmpwrap{width:100%;max-width:620px;margin:0 auto;flex:1;display:flex;flex-direction:column;min-height:0}
-.pba .cmphead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:calc(18px + env(safe-area-inset-top)) 20px 12px;border-bottom:1px solid var(--line)}
-.pba .cmptitle{display:flex;flex-direction:column;gap:3px;min-width:0}
-.pba .cmpcat{font-family:var(--serif);font-style:italic;font-size:22px;color:var(--ink);line-height:1}
-.pba .cmpsub{font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)}
-.pba .cmpclose{border:none;background:rgba(30,34,41,.06);color:var(--ink);width:32px;height:32px;border-radius:999px;font-size:15px;cursor:pointer;flex:0 0 auto}
-.pba .cmpbody{flex:1;overflow:auto}
-.pba .cmptable{width:100%;border-collapse:collapse;font-family:var(--sans)}
-.pba .cmptable tr{border-bottom:1px solid var(--line-soft)}
-.pba .cmptable th{text-align:left;vertical-align:top;font-family:var(--mono);font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);font-weight:500;padding:12px 8px 12px 20px;width:84px;white-space:nowrap}
-.pba .cmptable td{vertical-align:top;padding:12px 14px 12px 8px;font-size:13px;color:var(--ink);line-height:1.35}
-.pba .cmptable td+td{border-left:1px solid var(--line-soft)}
-.pba .cmprow-name td{font-weight:700;font-size:13.5px}
-.pba .cmprow-price td{font-family:var(--serif);font-style:italic;font-size:16px;color:var(--mulberry)}
-.pba .cmpwin{color:var(--gold-deep);font-family:var(--mono);font-size:7.5px;letter-spacing:.1em;text-transform:uppercase;display:block;margin-top:3px}
-.pba .cmpfoot{padding:12px 20px calc(16px + env(safe-area-inset-bottom)) 20px;font-size:11px;line-height:1.45;color:var(--ink-soft);border-top:1px solid var(--line);background:rgba(197,160,89,.06)}
+.pbacc .cmpwrap{width:100%;max-width:620px;margin:0 auto;flex:1;display:flex;flex-direction:column;min-height:0}
+.pbacc .cmphead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:calc(18px + env(safe-area-inset-top)) 20px 12px;border-bottom:1px solid var(--line)}
+.pbacc .cmptitle{display:flex;flex-direction:column;gap:3px;min-width:0}
+.pbacc .cmpcat{font-family:var(--serif);font-style:italic;font-size:22px;color:var(--ink);line-height:1}
+.pbacc .cmpsub{font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)}
+.pbacc .cmpclose{border:none;background:rgba(30,34,41,.06);color:var(--ink);width:32px;height:32px;border-radius:999px;font-size:15px;cursor:pointer;flex:0 0 auto}
+.pbacc .cmpbody{flex:1;overflow:auto}
+.pbacc .cmptable{width:100%;border-collapse:collapse;font-family:var(--sans)}
+.pbacc .cmptable tr{border-bottom:1px solid var(--line-soft)}
+.pbacc .cmptable th{text-align:left;vertical-align:top;font-family:var(--mono);font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);font-weight:500;padding:12px 8px 12px 20px;width:84px;white-space:nowrap}
+.pbacc .cmptable td{vertical-align:top;padding:12px 14px 12px 8px;font-size:13px;color:var(--ink);line-height:1.35}
+.pbacc .cmptable td+td{border-left:1px solid var(--line-soft)}
+.pbacc .cmprow-name td{font-weight:700;font-size:13.5px}
+.pbacc .cmprow-price td{font-family:var(--serif);font-style:italic;font-size:16px;color:var(--mulberry)}
+.pbacc .cmpwin{color:var(--gold-deep);font-family:var(--mono);font-size:7.5px;letter-spacing:.1em;text-transform:uppercase;display:block;margin-top:3px}
+.pbacc .cmpfoot{padding:12px 20px calc(16px + env(safe-area-inset-bottom)) 20px;font-size:11px;line-height:1.45;color:var(--ink-soft);border-top:1px solid var(--line);background:rgba(197,160,89,.06)}
 
 /* ---- Press feedback (owner 2026-05-31: taps must feel responsive). The
    tap-highlight is killed globally, so the link-cards (.v/.add/.empty-child,
    which are <a> and miss the global button rule) + the in-card buttons get a
    quick scale-down on :active. .card itself carries the coverflow transform, so
    we scale the inner .v — never the .card — to avoid fighting it. ---- */
-.pba .v,.pba .add,.pba .empty-child{transition:transform .13s cubic-bezier(.2,.7,.2,1),border-color .35s var(--ease),box-shadow .35s var(--ease)}
-.pba .lockbtn,.pba .changebtn,.pba .cmpbtn,.pba .cmpclose,.pba .vx{transition:transform .13s cubic-bezier(.2,.7,.2,1),background .2s var(--ease)}
-.pba .v:active,.pba .add:active,.pba .empty-child:active{transform:scale(.98)}
-.pba .lockbtn:active,.pba .changebtn:active,.pba .cmpbtn:active,.pba .cmpclose:active,.pba .vx:active{transform:scale(.93)}
+.pbacc .v,.pbacc .add,.pbacc .empty-child{transition:transform .13s cubic-bezier(.2,.7,.2,1),border-color .35s var(--ease),box-shadow .35s var(--ease)}
+.pbacc .lockbtn,.pbacc .changebtn,.pbacc .cmpbtn,.pbacc .cmpclose,.pbacc .vx{transition:transform .13s cubic-bezier(.2,.7,.2,1),background .2s var(--ease)}
+.pbacc .v:active,.pbacc .add:active,.pbacc .empty-child:active{transform:scale(.98)}
+.pbacc .lockbtn:active,.pbacc .changebtn:active,.pbacc .cmpbtn:active,.pbacc .cmpclose:active,.pbacc .vx:active{transform:scale(.93)}
 /* Keyboard focus ring (a11y) — the global tap-highlight is killed, so define a
    visible :focus-visible outline for every interactive element (cards, lock,
    compare, remove, find, due-rows). Gold accent at 2px offset; the outline
    auto-rounds to each element's border-radius. */
-.pba a:focus-visible,.pba button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.pbacc a:focus-visible,.pbacc button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 
 /* ---- Recap ---- */
 /* Bottom padding = nav height so the recap's bottom sits just above the fixed
    mobile nav — recap is the terminal element, no dead scroll (owner 2026-05-31). */
-.pba .end-spacer{padding:30px 18px var(--botnav-h)}
+.pbacc .end-spacer{padding:30px 18px var(--botnav-h)}
 /* Unlock-more-categories affordance — under the recap (has picks) and in the
    empty-state cover (no picks). Owner 2026-06-02: keep the Vendors page to the
    categories the couple is shopping; this is the door to add the rest. */
-.pba .catunlock{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:16px;padding:15px 18px;border-radius:16px;border:1.5px solid var(--gold);background:transparent;color:var(--ink);font-family:var(--sans);font-size:14px;font-weight:600;text-decoration:none;cursor:pointer;transition:background .15s ease,border-color .15s ease}
-.pba .catunlock:hover{background:rgba(197,160,89,0.12);border-color:var(--gold-deep)}
-.pba .catunlock .cu-ico{font-size:17px;line-height:1;color:var(--gold-deep)}
-.pba .endcard{display:flex;flex-direction:column;align-items:center;text-align:center;gap:7px;background:var(--mulberry);color:#fff;border-radius:22px;padding:24px 22px 22px}
-.pba .end-eyebrow{font-family:var(--mono);font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.6)}
-.pba .end-h{font-family:var(--serif);font-style:italic;font-weight:600;font-size:26px;line-height:1.05;color:#fff;margin:2px 0}
-.pba .end-line{font-family:var(--sans);font-size:11.5px;line-height:1.5;color:rgba(255,255,255,.8);max-width:280px}
-.pba .end-stats{display:flex;width:100%;margin-top:10px;padding-top:14px;border-top:1px solid rgba(255,255,255,.2)}
-.pba .end-stats>div{flex:1;border-left:1px solid rgba(255,255,255,.14)}
-.pba .end-stats>div:first-child{border-left:0}
-.pba .esv{font-family:var(--serif);font-style:italic;font-weight:600;font-size:24px;line-height:1;color:#fff}
-.pba .esk{font-family:var(--mono);font-size:7.5px;letter-spacing:.13em;text-transform:uppercase;color:rgba(255,255,255,.6);margin-top:5px}
+.pbacc .catunlock{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:16px;padding:15px 18px;border-radius:16px;border:1.5px solid var(--gold);background:transparent;color:var(--ink);font-family:var(--sans);font-size:14px;font-weight:600;text-decoration:none;cursor:pointer;transition:background .15s ease,border-color .15s ease}
+.pbacc .catunlock:hover{background:rgba(197,160,89,0.12);border-color:var(--gold-deep)}
+.pbacc .catunlock .cu-ico{font-size:17px;line-height:1;color:var(--gold-deep)}
+.pbacc .endcard{display:flex;flex-direction:column;align-items:center;text-align:center;gap:7px;background:var(--mulberry);color:#fff;border-radius:22px;padding:24px 22px 22px}
+.pbacc .end-eyebrow{font-family:var(--mono);font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.6)}
+.pbacc .end-h{font-family:var(--serif);font-style:italic;font-weight:600;font-size:26px;line-height:1.05;color:#fff;margin:2px 0}
+.pbacc .end-line{font-family:var(--sans);font-size:11.5px;line-height:1.5;color:rgba(255,255,255,.8);max-width:280px}
+.pbacc .end-stats{display:flex;width:100%;margin-top:10px;padding-top:14px;border-top:1px solid rgba(255,255,255,.2)}
+.pbacc .end-stats>div{flex:1;border-left:1px solid rgba(255,255,255,.14)}
+.pbacc .end-stats>div:first-child{border-left:0}
+.pbacc .esv{font-family:var(--serif);font-style:italic;font-weight:600;font-size:24px;line-height:1;color:#fff}
+.pbacc .esk{font-family:var(--mono);font-size:7.5px;letter-spacing:.13em;text-transform:uppercase;color:rgba(255,255,255,.6);margin-top:5px}
 /* Randomized feel-good line — different on every open (owner 2026-06-01). */
-.pba .end-motivate{font-family:var(--serif);font-style:italic;font-size:17px;line-height:1.35;color:#fff;margin-top:16px;max-width:300px}
+.pbacc .end-motivate{font-family:var(--serif);font-style:italic;font-size:17px;line-height:1.35;color:#fff;margin-top:16px;max-width:300px}
 
 /* ---- Scroll-driven motion (transforms set per-frame from JS; CSS only
    smooths + declares will-change + the reduced-motion reset). All targets
    are always-rendered + always visible — these effects are cosmetic, so a
    miscalc degrades to "looks flat", never "content hidden"). ---- */
-.pba .intro{transform-origin:top center;will-change:transform,opacity;transition:transform .15s var(--ease),opacity .15s var(--ease)}
-.pba .child-block{transform-origin:top center;will-change:transform,opacity;transition:transform .12s linear,opacity .12s linear}
-.pba .card{will-change:transform,opacity;transition:transform .08s linear,opacity .08s linear}
-.pba .rail{perspective:1200px}
+.pbacc .intro{transform-origin:top center;will-change:transform,opacity;transition:transform .15s var(--ease),opacity .15s var(--ease)}
+.pbacc .child-block{transform-origin:top center;will-change:transform,opacity;transition:transform .12s linear,opacity .12s linear}
+.pbacc .card{will-change:transform,opacity;transition:transform .08s linear,opacity .08s linear}
+.pbacc .rail{perspective:1200px}
 @media (prefers-reduced-motion:reduce){
-  .pba .intro,.pba .child-block,.pba .card{transform:none!important;opacity:1!important;transition:none!important}
-  .pba .intro-eyebrow,.pba .intro-h,.pba .intro-grid,.pba .intro-cta{animation:none!important;opacity:1!important;transform:none!important}
+  .pbacc .intro,.pbacc .child-block,.pbacc .card{transform:none!important;opacity:1!important;transition:none!important}
+  .pbacc .intro-eyebrow,.pbacc .intro-h,.pbacc .intro-grid,.pbacc .intro-cta{animation:none!important;opacity:1!important;transform:none!important}
 }
 
 /* ───────── Dark mode (owner 2026-06-01: the black budget bar — and the whole
@@ -376,33 +389,33 @@ const PBA_CSS = `
    background:var(--ink)/color:var(--paper), so re-aliasing the local tokens
    flips it (and the sheet) automatically; the rest are the hardcoded
    light/white values that don't ride a token. ───────── */
-html.dark .pba{
+html.dark .pbacc{
   --paper:#1E2229; --ink:#FBFBFA; --ink-soft:#B6B9BE;
   --line:rgba(251,251,250,.16); --line-soft:rgba(251,251,250,.1);
   --card:#2A2E36; --gold:#E0CCA0; --gold-deep:#C5A059;
 }
 /* bar is now a light surface → flip its muted white text + hairline + accents */
-html.dark .pba .topbar{border-bottom-color:rgba(30,34,41,.1)}
-html.dark .pba .topbar .figk{color:rgba(30,34,41,.5)}
-html.dark .pba .topbar .rangev{color:rgba(30,34,41,.6)}
-html.dark .pba .topbar .status{color:rgba(30,34,41,.5)}
-html.dark .pba .topbar .status.ok{color:#2e7d4f}
-html.dark .pba .topbar .status.near{color:#8C6932}
-html.dark .pba .topbar .status.over{color:#b23b34}
+html.dark .pbacc .topbar{border-bottom-color:rgba(30,34,41,.1)}
+html.dark .pbacc .topbar .figk{color:rgba(30,34,41,.5)}
+html.dark .pbacc .topbar .rangev{color:rgba(30,34,41,.6)}
+html.dark .pbacc .topbar .status{color:rgba(30,34,41,.5)}
+html.dark .pbacc .topbar .status.ok{color:#2e7d4f}
+html.dark .pbacc .topbar .status.near{color:#8C6932}
+html.dark .pbacc .topbar .status.over{color:#b23b34}
 /* dark-tinted tracks/buttons that vanish on a dark sheet → light-tinted */
-html.dark .pba .meter{background:rgba(251,251,250,.12)}
-html.dark .pba .intro-meter .pm-track{background:rgba(251,251,250,.1)}
-html.dark .pba .chip.next{background:rgba(251,251,250,.08)}
-html.dark .pba .chip.start{background:rgba(197,160,89,.14)}
-html.dark .pba .cmpclose{background:rgba(251,251,250,.1)}
-html.dark .pba .cat-head.active{box-shadow:0 6px 16px -10px rgba(0,0,0,.7)}
+html.dark .pbacc .meter{background:rgba(251,251,250,.12)}
+html.dark .pbacc .intro-meter .pm-track{background:rgba(251,251,250,.1)}
+html.dark .pbacc .chip.next{background:rgba(251,251,250,.08)}
+html.dark .pbacc .chip.start{background:rgba(197,160,89,.14)}
+html.dark .pbacc .cmpclose{background:rgba(251,251,250,.1)}
+html.dark .pbacc .cat-head.active{box-shadow:0 6px 16px -10px rgba(0,0,0,.7)}
 /* --mulberry stays dark as a FILL (recap card + CTAs keep white text); but
    mulberry-as-TEXT needs to lighten so it reads on the dark sheet/cards */
-html.dark .pba .cat-head.active .nm,
-html.dark .pba .empty-child .en,
-html.dark .pba .istep-n,
-html.dark .pba .cmpbtn,
-html.dark .pba .cmprow-price td{color:#C99DB0}
+html.dark .pbacc .cat-head.active .nm,
+html.dark .pbacc .empty-child .en,
+html.dark .pbacc .istep-n,
+html.dark .pbacc .cmpbtn,
+html.dark .pbacc .cmprow-price td{color:#C99DB0}
 `;
 
 // ── Root ────────────────────────────────────────────────────────────────
@@ -536,7 +549,7 @@ export function PlanBudgetAccordion({
   }, [model]);
 
   return (
-    <div className="pba" ref={rootRef}>
+    <div className="pbacc" ref={rootRef}>
       <style>{PBA_CSS}</style>
       {/* This page replaces the app top-nav with its own persistent black
           budget bar. Hide the SidebarShell sticky top strip while the
@@ -633,7 +646,7 @@ function TopBar({ model }: { model: PlanBudgetModel }) {
           : 'on track';
 
   // Fragment (not a wrapper <div>): the bar + meter must be DIRECT children
-  // of .pba so the sticky bar's containing block is .pba (tall, spans the
+  // of .pbacc so the sticky bar's containing block is .pbacc (tall, spans the
   // whole list) and it stays pinned at top:0 for the entire scroll. A wrapper
   // <div> would be only ~65px tall, so the sticky bar would un-stick the
   // moment you scroll past it (the "black row goes up" bug).

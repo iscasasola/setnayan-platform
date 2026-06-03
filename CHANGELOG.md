@@ -23,6 +23,452 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · refactor(customer-more): de-dupe the mobile /more grid + brand-voice copy polish
+
+**Context:** "Less stressful" pass on the customer dashboard. The mobile `/more` overflow page (the 5th bottom-nav tab's landing) rendered EVERY entry from `buildCustomerNavGroups` — including the four surfaces that are already permanent bottom tabs (Home · Guests · Services · Website). So a host saw those four (plus Home a second time under the "Today" group) repeated as cards on `/more`, contradicting the page's own subtitle ("the rest live here") and padding the grid with ~5 redundant cards.
+
+**What changed (`apps/web/app/dashboard/[eventId]/more/page.tsx` — one file):**
+
+- **De-dupe.** A `BOTTOM_NAV_KEYS` set (`home · guests · vendors · website`) filters the bottom-nav tabs out of the `/more` grid; groups the filter leaves empty are dropped (the "Today" group now keeps only Today's Focus). The shared `buildCustomerNavGroups` builder is untouched, so the **desktop sidebar still shows every surface** — the de-dupe is mobile-only.
+- **Today's Focus intentionally KEPT.** The bottom bar has no Today tab and event-home stopped linking to `/today` when `WizardHero` was lifted out of event-home (2026-05-24), so the `/more` card is the **only** mobile entry point to the Today's Focus wizard. Removing it would orphan `/today` on mobile — forbidden by the orphan-prevention lock. (To fully remove it from `/more`, a Home→`/today` entry point must be added first.)
+- **Copy polish.** Added the missing `find-date` card description; removed the dead `orders`/`receipts` description keys (those items were already pulled from the nav 2026-05-30); de-jargoned three cards per the no-dev-text rule — `profile` ("OAuth providers" → "sign-in methods"), `add-ons` ("Setnayan apparatus … software services we publish" → "Extra Setnayan services … Papic, Panood, Save-the-Date"), `disputes` ("force-majeure" → "raise an issue with a vendor"). Tightened the subtitle to match the new, truthful scope.
+
+**Verification:** `tsc --noEmit` green (exit 0). The dashboard is auth-gated (needs a Supabase session + a real event), so it can't render in a local preview; the PR's required CI build is the gate before merge. This is a pure server-component data-filter + copy change — `CustomerMobileLanding`'s props/contract are unchanged.
+
+**SPEC IMPACT:** Minor — nav-presentation refinement on the 0021 couple dashboard's mobile `/more` surface. No SKU, schema, route, or workflow change (every route stays reachable). A one-line decision-log row should be recorded — see `COWORK_INBOX.md`.
+
+## 2026-06-03 · feat(marketplace): demo vendors get reviews/ratings, district addresses & real names
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Follow-up to the demo-vendor enrichment. Owner wants demo vendors realistic enough to test the real flows — **find → compare → "pick the best service for the customer."** Gaps that remained: demo vendors had **0 reviews / 0 stars** (so any "best"/compare ranking couldn't differentiate them), addresses were city-level only, and names carried a `Demo ·` prefix.
+
+**What ships (`scripts/seed-demo-vendors.ts`, seed-only — no migration):**
+
+1. **Synthetic reviews + ratings.** Each demo vendor gets a hidden baseline quality + 0–10 reviews (~15% get none) with five 1-5 sub-axis ratings drawn around the baseline, a Filipino-voice `body` (~60%), and an occasional `vendor_reply` (~20%). Reviews set `couple_user_id = NULL` (the self-review trigger `20260515030000` short-circuits on NULL) and reuse the archived `TEST-REVIEW · %` event pool from migration `20260607000000` for the NOT-NULL `event_id` FK (skipped with a logged warning if that pool is absent). Accumulated across categories + bulk-inserted in 1000-row chunks so the `vendor_review_stats` matview (refreshed per INSERT statement) refreshes only a few times. Ratings surface via that view; reviews cascade-delete with the batch's vendors.
+2. **District-level addresses.** New per-city district pool (Makati→Poblacion/Salcedo/…, Cebu→Lahug/Banilad/…); `hq_address` becomes `"{District}, {City}, Philippines"` (real lat-lng unchanged).
+3. **Real-looking names.** Dropped the `Demo ·` business-name prefix. `is_demo=TRUE` (the flag, not the name) still drives `/admin/demo-vendors`, marketplace exclusion, and `?demo=1`; slugs still start `demo-`.
+
+**SPEC IMPACT:** None — synthetic demo/simulation data only (no schema, SKU, or workflow change; reuses the existing `vendor_reviews` table + `TEST-REVIEW · %` event pool).
+
+**Verification:** `tsc --noEmit` + `next lint` green. Offline harness (400 vendors): clean invariants (ratings 1-5, `couple_user_id` null, `event_id` from pool, reply/reply_at consistent), 15% zero-review vendors, per-vendor mean ⭐ spread 3.0–5.0 (clear differentiation), positive skew. **Owner-actionable:** run the seed on **staging** then check `/vendors?demo=1&sort=highest_rated` + the compare view's Rating row + a demo `/v/[slug]` (no prefix, district address). The "best match" recommender (the 4th owner ask) is a separate follow-up that builds on these ratings.
+
+## 2026-06-03 · feat(guests): draggable panel sheet — snap-to-close + per-panel content height
+
+**Context:** Owner — "I want the collapse to animate and also draggable with snap to close. Opening it will only open up the needed height of the carousel, depends on the input included." The sheet collapsed/expanded via a tap on the grabber to a fixed height (`--gcar-h` 280px). Two upgrades requested: a real drag gesture, and an open height that fits each panel rather than a fixed third of the screen.
+
+**What changed (`apps/web/app/dashboard/[eventId]/guests/_components/mobile-guest-carousel.tsx`):**
+- **Per-panel open height** — the sheet now opens to a height sized to the active panel (`PANEL_OPEN_H = [200, 108, 196, 196]` for Summary · Search · Add · Customize, incl. the 36px grabber), instead of a single `--gcar-h`. Search (one compose-bar row) opens short; Summary (2×2 count grid) opens taller. Switching panels animates the height. Each panel is `overflow-y-auto` so content never clips if a height is slightly tight.
+- **Draggable grabber with snap** — pointer-drag on the grabber tracks the finger live (transition disabled mid-drag), and on release snaps to whichever end (open or collapsed/grabber-only) the drag finished nearer; a tap still toggles. `touch-none` on the grabber stops the page scrolling mid-drag; `setPointerCapture` keeps the drag tracking past the handle.
+- **List reflows in sync** — the in-flow spacer mirrors the sheet's resting height, so the guest list bottom-padding tracks the panel (builds on #857).
+- **Keyboard path preserved** — the `kbOpen` docked heights (190/84) + the iOS tap-delivery fix (spacer not collapsed when the keyboard is up) are untouched. Horizontal swipe between panels is unchanged.
+
+**Verification:** Reviewed for type-soundness (`React.PointerEvent` handlers mirror the file's existing `React.KeyboardEvent` usage; all heights are deterministic constants — no runtime measurement). CI (typecheck + production build) is the gate before merge; on-device feel (drag threshold, per-panel heights) to be confirmed by owner on the Vercel prod deploy, since the dashboard is auth-gated and can't render without Supabase env locally.
+
+**SPEC IMPACT:** None — interaction polish on an existing surface; no SKU, schema, copy, or workflow change.
+
+---
+
+## 2026-06-03 · feat(marketplace): demo vendors get real per-category details, richer packages & images
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner — the admin **Demo Vendors** tool (`/admin/demo-vendors`) seeds ~1,500 synthetic vendors to dogfood the marketplace. They flagged that demo vendors should *"provide the details and customization for each of the categories as well."* The seed (`scripts/seed-demo-vendors.ts`) was writing **one identical 5-field blob** for all 192 canonical_services and **hard-coding** `completeness_score:75` + `meets_visibility_minimum:true` — bypassing the iteration-0044 per-category schema entirely. The blob even filled a key named `geographic_service_areas` (a shared-*group* name) instead of the real `service_regions` minimum field, so honestly scored every demo row was 0% complete / below the visibility minimum.
+
+**What ships:**
+
+1. **Schema-driven attribute generator (`scripts/seed-demo-vendors.ts`).** New `fetchResolvedSchemas()` loads every `canonical_service_schemas` row + its inherited `shared_attribute_groups` and merges them exactly like `lib/vendor-service-attributes.ts#fetchSchemaWithSharedGroups`. `generateAttributePayload()` emits realistic, schema-valid values per field type (enum→one option · multi_select→a subset · int→field-name-aware bands with `*_centavos` aligned to the vendor's package price · text→category snippet · `*_urls`→real YouTube/Vimeo that pass the showcase validator · `required_if` honored). `completeness_score` + `meets_visibility_minimum` are now computed **honestly** (mirroring `compute_attribute_completeness` + the write-side visibility gate); minimum/required fields are always filled (so vendors stay visible — now *earned*) while ~18% of optional fields are left unset for realistic ~80-100 variance.
+2. **Broader package coverage (`priceProfileFor()`).** Seven new category buckets (beauty/wellness · experiential booths & stations · live-craft keepsakes · bridal accessories · ceremony prep/paperwork · rentals & site infra · food carts/dessert stations) so niche services get category-appropriate package tiers + inclusions instead of the generic "Standard/Premium" catch-all. (Third-party vendor prices, not Setnayan SKUs.)
+3. **Demo images.** The seed sets `logo_url` + `portfolio_r2_keys[]` to deterministic picsum URLs. `app/vendors/_components/vendor-card.tsx`'s `isOptimizableImageUrl()` now allows `picsum.photos` / `fastly.picsum.photos` (already whitelisted in `next.config.ts` + used by the moodboard seed) so demo logos render as the card banner instead of falling back to initials. (`finalized-chip-strip.tsx` already accepted any https host — no change.)
+4. **Public vendor profile render (`app/v/[slug]/page.tsx`).** Added a **Details** section (per-category attributes as label→value facts + true-boolean capability chips; pricing-signal keys omitted as redundant with Packages) and a **Portfolio** gallery (resolves `portfolio_r2_keys` via `displayUrlForStoredAsset`). Reuses `fetchVendorServiceAttributes` + `fetchSchemaWithSharedGroups`; both fetches are best-effort (degrade to empty). Benefits real vendors too — `attribute_payload` previously had no public render at all (filter/compare only).
+
+**SPEC IMPACT:** Minor. The public vendor profile (`/v/[slug]`) now renders a per-category **Details** section + a **Portfolio** gallery — iteration **0044** (per-category schemas) + **0022** (vendor dashboard/profile) specs should note these surfaces. Demo-data generation + the picsum card-guard allowance are dev/staging tooling (non-spec). `[PENDING]` logged in `COWORK_INBOX.md`.
+
+**Verification:** `tsc --noEmit` + `next lint` green in-worktree. An offline generator harness (catering schema + the 5 shared groups, 8 vendors) confirmed: every visibility-minimum field filled incl. `service_regions`, avg completeness ~82, `required_if` enforced (paid_tasting⇒tasting_fee, willing_to_travel⇒dest_fee). **Owner-actionable:** the full seed run is on **staging** (script refuses prod via the project-ref guard; needs a non-prod `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`) — then visual-check `/admin/demo-vendors`, `/vendors?demo=1` (logos on cards), and a demo `/v/[slug]` (Details + gallery). CI gates types/lint/production build.
+
+---
+
+## 2026-06-03 · polish(guests): collapse/expand animates the guest list in sync with the panel sheet
+
+**Context:** Owner — "we want the collapse to have animation and expansion." The panel sheet already animated its own height (`transition-[height] duration-200 ease-out`, #854), but the **in-flow spacer** that reserves room for the sheet had no transition — so on collapse/expand the sheet slid smoothly while the guest list area *snapped* instantly. The gesture read as half-animated.
+
+**What changed (`apps/web/app/dashboard/[eventId]/guests/_components/mobile-guest-carousel.tsx`):** Added the same `transition-[height] duration-200 ease-out` to the spacer `<div>` so its height animates in lockstep with the sheet. Now both the sheet and the list reflow ease over the same 200ms — collapse and expand are one cohesive motion. The keyboard-open path is untouched (the spacer still holds full height when `kbOpen`, preserving the iOS tap-delivery fix from earlier today).
+
+**Verification:** Confirmed the sheet's existing height transition fires both directions (concrete 280px ↔ 2.25rem, not `auto`, so it animates); the spacer's only height change is collapse↔expand, so the added transition animates exactly that and nothing else. Visual confirmation via the Vercel prod deploy (auth-gated page; no local Supabase env).
+
+**SPEC IMPACT:** None — animation polish; no SKU, schema, copy, or workflow change.
+
+---
+
+## 2026-06-03 · fix(guests): remove the redundant mobile "+" add FAB (leftover behind the panel sheet)
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner screenshot — a mulberry "+" floating action button was still rendering on the mobile Guests page, peeking out from behind the collapsed panel sheet near the **Customize** nav item. It's a leftover: the FAB (`fixed bottom-20 right-4 z-30 … bg-mulberry … sm:hidden`) was the old mobile trigger for `QuickAddSheet`, but mobile adding is now handled by the carousel's **Add** panel (`QuickAddInlineForm`). At `z-30` it sat *behind* the `z-40` sheet, so only a sliver showed.
+
+**What changed (`apps/web/app/dashboard/[eventId]/guests/_components/quick-add-sheet.tsx`):** Removed the mobile FAB `<button>` (and its now-unused `Plus` import). `QuickAddSheet` itself is unchanged and still opens on **desktop** via `OpenQuickAddButton` → `OPEN_EVENT` (the header is `lg:flex`, desktop-only), so desktop add is untouched; mobile add continues through the carousel Add panel. Replaced the removed markup with a comment documenting why there is no mobile FAB.
+
+**Verification:** Confirmed the FAB was the only `setOpen(true)` on mobile and that the desktop event-listener trigger remains; grep confirms no other `Plus` reference and no second bottom-anchored FAB in the guests dir. Visual confirmation via the Vercel prod deploy (auth-gated page; no local Supabase env).
+
+**SPEC IMPACT:** None — dead-UI removal; no SKU, schema, copy, or workflow change.
+
+---
+
+## 2026-06-03 · fix(guests): clearer collapse grabber — chevron + animated height
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Follow-up to the collapsible Guests panel (PR #850). The collapse mechanism works (verified in an isolated repro — tap → sheet shrinks to the handle, guest list stretches), but the grabber was a single faint `bg-ink/15` pill with an instant (un-animated) height change, so the affordance was easy to miss and the collapse hard to notice ("does not collapse"). Make it unmistakable.
+
+**What ships (`mobile-guest-carousel.tsx`):** (1) the grabber gains a **chevron** (`ChevronDown`, rotates 180° when collapsed) beside a more-visible `bg-ink/25` pill, in `text-ink/40` with an `active:` press state — clearly a tap-to-collapse control; (2) the sheet **animates** its height (`transition-[height] duration-200 ease-out`) so collapse/expand visibly slides — gated on `!kbOpen` so the iOS keyboard-pin (PR #841) stays instant with no typing jank.
+
+**SPEC IMPACT:** None (affordance + animation polish on the PR #850 collapse).
+
+**Verification:** Type-safe by inspection (chevron import + a rotate class + a conditional transition class). Flagged for owner preview check. CI gates types/lint/build.
+
+## 2026-06-03 · refactor(onboarding): unique `.onbw` CSS scope for the wedding onboarding flow (was global `.pba`) — kills the collision at the source
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Follow-up hardening to the `fix(services)` entry below. The wedding onboarding flow ships a **global** stylesheet (`apps/web/app/onboarding/wedding/_styles/onboarding.css`, imported in `onboarding-shell.tsx`) that scoped every rule under the generic class `.pba` — including `.pba{display:flex;justify-content:center}` plus a `.pba *{margin:0;padding:0}` reset on its root. A plain `.css` import in the App Router is global and persists app-wide, so that `.pba` could leak onto any other surface using the same class. It already did once (the Services Plan+Budget accordion, fixed by renaming that surface to `.pbacc`). This change removes the root cause so it can't recur.
+
+**What changed:**
+
+- **`onboarding.css`** — renamed the scope `.pba` → `.onbw` (onboarding-wedding) across all 525 selectors (whole-token swap; verified there are no `.pba`-prefixed substring classes like `.pblock`, so nothing else was touched). Expanded the file header to document the `.onbw` scope, the collision history, and the re-scope instruction ("prepend `.onbw` to every rule") for future ports.
+- **`onboarding-shell.tsx`** — the single root `className="pba"` → `"onbw"`; updated its two header-comment references.
+- The locked prototype `Onboarding_Wedding_Flow_2026-06-01.html` is **unchanged** — it never used `.pba` (it scopes under `.phone`/`body`); the `.pba` prefix was only added during the manual re-scope/port step, so just the code + its porter-facing comments needed updating. No Cowork edit required.
+
+**Verification:** `tsc --noEmit` clean; `next lint` clean for the onboarding files. Real-browser render check (the actual renamed CSS inlined against a representative `.onbw > .phone > .top/.body/.bottom` structure): the `.onbw` scope correctly styles the phone frame (430px), gold progress bar, the screen heading + chips, and the mulberry Continue CTA — rendering is identical to before (same rules, new scope name). App-wide grep confirms `.pba` is dead as a live class (remaining mentions are explanatory comments only); `.onbw` (onboarding) and `.pbacc` (accordion) are now distinct, collision-proof scopes.
+
+**SPEC IMPACT:** None — pure CSS-scoping refactor; no SKU, schema, copy, or workflow change. Resolves the latent architecture risk flagged in the `fix(services)` entry below.
+
+---
+
+## 2026-06-03 · fix(services): Plan+Budget budget-bar rendered as a left side-nav — `.pba` CSS scope collided with onboarding's global stylesheet
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner reported the couple **Services** tab's dark "budget bar" rendering as a vertical **side-nav on the left** instead of a top row (mobile screenshot, setnayan.com). Root cause is a global-CSS class-name collision. The Plan+Budget accordion (`plan-budget-accordion.tsx`) scopes its injected `<style>` under `.pba`. The wedding onboarding flow's **global** stylesheet (`apps/web/app/onboarding/wedding/_styles/onboarding.css`, imported in `onboarding-shell.tsx`) *also* scoped under `.pba` and set `.pba{display:flex;justify-content:center}` plus a `.pba *{margin:0;padding:0}` reset on its root. A plain `.css` import in the App Router is global and persists app-wide once loaded, so that leaked `display:flex` turned the accordion's sticky top budget bar into a stretched flex-**column** on the left (the cover content became the right column). The accordion's own `.pba` rule set `position:relative` but never `display`, so it could not override the leak.
+
+**What changed (`plan-budget-accordion.tsx`):** Renamed the accordion's CSS scope `.pba` → `.pbacc` (Plan-Budget-ACCordion) — every selector in the injected `PBA_CSS` string (226 scope tokens) plus the root element's `className`. `.pba` and `.pbacc` are distinct class tokens, so onboarding's `.pba{display:flex}` / `.pba *{…}` no longer match the accordion root or its descendants, and the surface reverts to its intended block layout with the budget bar pinned on top. Added a prominent header comment documenting why it must NOT be renamed back. (The onboarding side is hardened separately in the `refactor(onboarding)` entry above — both surfaces now own unique scopes.)
+
+**Verification:** Reproduced the exact bug and confirmed the fix in a real browser — an isolated repro of onboarding's global `.pba` leak against the accordion's real top-bar markup: root `.pba` → black bar becomes a left column (matches the report); root `.pbacc` → black bar correctly on top. `tsc --noEmit` clean; `next lint` clean for the changed file.
+
+**SPEC IMPACT:** None — pure CSS-scoping bugfix; no SKU, schema, copy, or workflow change.
+
+---
+
+## 2026-06-03 · tweak(guests): fixed 280px height for the mobile panel sheet (was a screen-proportion clamp)
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner — set the lower carousel (the 4-panel sheet on the mobile Guests page) to a concrete height instead of a fraction of the screen. The previous value `clamp(208px, 33vh, 288px)` only approximated "a third": it capped at 288px on tall phones (less than a third) and floored at 208px on short ones (more than a third), so the sheet height drifted by device.
+
+**What changed (`apps/web/app/dashboard/[eventId]/guests/page.tsx`):** `--gcar-h` (the sheet's *expanded* height — the collapse feature from the entry below still toggles between this and the 2.25rem grabber) is now a fixed `280px`. Sized to the tallest panel (**Find**: search + Side/RSVP toggles + Role/Group + Sort), which the design requires to fit without vertical scroll; 280px sits right at the old clamp's upper bound, so it's a proven-good size. The sheet's own 36px grabber leaves ~244px of panel area — enough for the Find panel in the common (no custom tags) case; the rarer with-tags variant falls back to the panel's existing internal scroll.
+
+**Verification:** Type-trivial string-literal swap inside an existing `style` object (no logic/type surface). Visual confirmation deferred to the Vercel PR preview (local dev can't render the auth-gated dashboard without Supabase env).
+
+**SPEC IMPACT:** None — sizing tweak only; no SKU, schema, copy, or workflow change. Aligns with the existing "lower-third carousel" owner directive captured in the component header.
+
+---
+
+## 2026-06-03 · feat(guests): collapsible mobile panel — tap the grabber to stretch the guest list
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner — the mobile Guests panel sheet (the 4-panel carousel docked at the bottom) eats ~⅓ of the screen even when you just want to read the list. Add a **collapse** so the sheet drops back to its grabber handle and the **guest list above stretches**.
+
+**What ships (`mobile-guest-carousel.tsx` · mobile-only):** a `collapsed` state + a **tappable grabber handle** at the top of the sheet. Collapsed → the fixed sheet shrinks to the 36px (`2.25rem`) handle and the in-flow spacer shrinks to match (`calc(2.25rem + 4rem + safe-area)`), so the guest list reclaims the freed height; tap again to expand back to `--gcar-h`. The sheet became `flex flex-col` (grabber `shrink-0` + the swipe track now `flex-1 min-h-0`). **Keyboard state still wins** — the grabber is hidden and collapse is ignored while typing (the `kbOpen` branch is checked first in both the sheet + spacer style, and the handle is gated on `!kbOpen`), so the iOS-keyboard pin (PR #841) is untouched. Desktop unaffected (the sheet is `lg:hidden`).
+
+**SPEC IMPACT:** None (additive mobile UX on an existing surface; the 0001/0021 specs don't pin the panel height).
+
+**Verification:** Type-safe by inspection (one `useState<boolean>`; the style branches return valid `CSSProperties`; `aria-expanded` boolean). The collapse interaction is flagged for **owner check on the Vercel preview**. Local typecheck not runnable in this worktree → CI gates types/lint/build.
+
+## 2026-06-03 · fix(services): center-snap runway so the first & last category cards can reach center
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner report — on the couple's **Services** list (the Plan+Budget accordion category rails), the **first and last cards could never snap to center**. With `scroll-snap-align: center` and a flat `padding: 0 20px` on the rail, the first card stuck at the left edge and the last at the right — neither had the scroll runway to reach the center snap point.
+
+**What ships (`plan-budget-accordion.tsx` · 1 CSS rule):** `.pba .rail` inline padding `0 20px` → **`0 max(20px, calc(50% - 150px))`** (150px = half a 300px `.card`). That gives each rail half-a-rail-minus-half-a-card of leading/trailing runway, so the first and last cards now have room to scroll to `scroll-snap-align: center`. `max(20px, …)` preserves the old 20px minimum on narrow rails where the calc goes ≤ 0. No JS / markup / snap-type change — `scroll-snap-type: x mandatory` + the per-card `center` align are untouched.
+
+**SPEC IMPACT:** None (CSS-only snap-runway fix on an existing surface).
+
+**Verification:** CSS-only; `calc()` / `max()` are valid padding values. The visual snap is flagged for owner check on the Vercel preview (first/last card now reach center). Local typecheck not runnable in this worktree (no `node_modules`) → CI gates types/lint/build.
+
+## 2026-06-03 · feat(schedule): typed Preparation items — vendors/couples place meeting & payment schedules
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner follow-up to PR #845 (hybrid Preparation items). #845 let couples + booked vendors place **generic** dated tasks on the couple's `/dashboard/[eventId]/schedule` **Preparation** agenda (backed by `event_preparation_items`, with working RLS: couple full CRUD via `current_couple_event_ids()`; booked vendors INSERT/manage their own via `current_vendor_ids()` gated to accepted `chat_threads`). The owner asked that those hand-added items be able to be **typed** — specifically **meeting schedules** and **payment schedules**, not only generic tasks — so they read on the agenda with the same Meeting / Payment vocabulary as the autofilled `vendor_meetings` / vendor-payment rows.
+
+**What ships:**
+
+- **Typed items end-to-end.** A couple or a booked vendor can now place a **Task** (as before), a **Meeting**, or a **Payment** on the Preparation schedule. Meeting items render with the SAME Meeting tag/icon (indigo `Users`) as the autofilled `vendor_meetings`; Payment items render with the SAME Payment tag/icon (amber `Wallet`) **plus the ₱ amount**, formatted exactly like the autofilled vendor-payment rows; Task items keep the prior manual style (mulberry `ListPlus`, "Added by you" / "From {vendor}" chip).
+- **`lib/preparation.ts`** — `fetchManualItems` + `fetchVendorPreparationItemsByEvent` now `SELECT *` (so the new columns can't error a pre-migration query) and read `kind = row.kind ?? 'task'` + `amount = row.amount_php ?? null`. New `PreparationItemKind` type + `kind`/`amountPhp` on the existing `PreparationItem` shape; the `isManual`/`canDelete`/`itemId`/`sourceLabel` logic from #845 is preserved verbatim. **GRACEFUL DEGRADE preserved twice over:** if the new columns are absent (pre-migration) every row coalesces to `kind='task'`/`amount=null`; if the whole table is absent (pre-#845) the source still catches `42P01` and returns `[]` (autofill-only).
+- **Agenda rendering (`preparation-agenda.tsx`)** — a presentational `displaySourceFor()` maps a manual row's `kind` to the autofill visual (meeting→Meeting, payment→Payment, task→manual) and `chipLabelFor()` labels typed rows "Meeting"/"Payment" (their "added by you / a vendor" context moves to the subtitle); the amount renders through the existing `amountPhp` slot. The row stays `source:'manual'` so the delete control still shows on manual/vendor rows only. Autofill rows are visually unchanged.
+- **Couple add UI (`prep-item-controls.tsx`)** + **Vendor add UI (`vendor-prep-add.tsx`)** — both modals gain a shared **Task / Meeting / Payment** segmented picker (new `prep-kind-picker.tsx`, imported across the dashboard↔vendor boundary so there's one source of truth) and a conditional **Amount (₱)** field shown only for Payment. Field copy adapts per type (e.g. "Meeting title" / "What is this payment for?" + "Due date"). The vendor's "already added" list now shows a Meeting/Payment glyph + the amount inline.
+- **Server actions** — `addPreparationItem` (couple) + `vendorAddPreparationItem` (vendor) gain `kind` + optional `amountPhp`; they stamp `kind` and `amount_php` (payment only), validate amount **> 0** for payments, and keep the existing label/date validation, `source_tag` stamping (`couple_manual` / `vendor_prep`), own-`vendor_profile_id` stamping, RLS-reliant authz + accepted-thread gate, and `revalidatePath`.
+
+**NEW migration — `supabase/migrations/20260730000000_event_preparation_item_kinds.sql` (owner-push; graceful-degrade until applied):** additive `ALTER TABLE public.event_preparation_items ADD COLUMN IF NOT EXISTS kind VARCHAR(16) NOT NULL DEFAULT 'task' CHECK (kind IN ('task','meeting','payment'))` + `amount_php NUMERIC(12,2) CHECK (amount_php IS NULL OR amount_php >= 0)`. **No RLS change** — #845's existing row-level policies already cover the new columns. Confirmed `20260729000000_event_preparation_items.sql` was the latest migration before this, so `20260730000000` is correctly the newest. **Do NOT auto-push** — owner pushes.
+
+**Schema reason (why this is on `event_preparation_items`, not the budget / meetings tables):** the existing `event_vendor_line_items` (budget payments) and `vendor_meetings` tables both key to `event_vendors` (the couple's TEXT-named vendor record) via `vendor_id`, **not** to the platform `vendor_profile_id`. A platform vendor cannot be RLS-scoped to those rows, so a vendor can't safely write to them. `event_preparation_items` already carries the correct `vendor_profile_id` RLS from #845, so typed items live there.
+
+**Known limitation (possible follow-up):** a vendor- or couple-placed **payment** here shows on the **Preparation schedule** only — it does **NOT** post to the couple's **Budget ledger** (`event_vendor_line_items` / `event_vendor_payments`, iteration 0007). It's a planning reminder, not an accounting entry. Wiring prep-payments into the budget ledger (or vice-versa) is a deliberate non-goal of this PR and a candidate fast-follow.
+
+**Files:**
+- `supabase/migrations/20260730000000_event_preparation_item_kinds.sql` (new — additive ALTER)
+- `apps/web/lib/preparation.ts` (`kind`/`amountPhp` on `PreparationItem` + `VendorAddedPrepItem`; `SELECT *` + coalesced reads)
+- `apps/web/app/dashboard/[eventId]/schedule/_components/preparation-agenda.tsx` (`displaySourceFor`/`chipLabelFor` typed rendering)
+- `apps/web/app/dashboard/[eventId]/schedule/_components/prep-kind-picker.tsx` (new — shared Task/Meeting/Payment segmented control)
+- `apps/web/app/dashboard/[eventId]/schedule/_components/prep-item-controls.tsx` (couple modal: picker + amount field)
+- `apps/web/app/dashboard/[eventId]/schedule/prep-actions.ts` (couple action: `kind` + `amountPhp`)
+- `apps/web/app/vendor-dashboard/bookings/_components/vendor-prep-add.tsx` (vendor modal: picker + amount field + typed "added" list)
+- `apps/web/app/vendor-dashboard/bookings/actions.ts` (vendor action: `kind` + `amountPhp`)
+- `apps/web/app/vendor-dashboard/bookings/page.tsx` (map `kind`/`amountPhp` through to the vendor control)
+
+**Verification:** `pnpm -F web typecheck` → 0 errors. `pnpm exec next lint --file <all 8 changed files>` → clean. `pnpm -F web build` → compiled successfully. (Pre-existing build warnings in untouched files — `<img>`, exhaustive-deps, sitemap/vendor-dashboard env-var notes — are unrelated to these changes.)
+
+**SPEC IMPACT:** Yes — 0021 (Schedule surface: Preparation items can now be typed Meeting/Payment), 0022 (vendor can place typed meeting/payment items from Bookings), and a 0007 note (prep-payments are NOT budget-ledger entries). Logged in `COWORK_INBOX.md`.
+
+---
+
+## 2026-06-03 · fix(onboarding): congrats vendor stat → real marketplace counts
+
+**Commit:** see merge commit on this PR.
+
+**Context:** The `/onboarding/wedding` congrats screen (step 13, "You did the hard part") rendered a third stat tile reading **"N best-fit vendors from 2,400+"** where `N` was fabricated as `max(picked_categories × 5, 12)` and "2,400+" was a hardcoded string — neither was a real count. Owner 2026-06-03, re-raised from a live screenshot showing "30 … from 2,400+": *"30 vendors and total 2400+ vendors is not actual results. want true results only."* This ships the **never-merged** fix originally written on `claude/onb-real-vendor-counts` (commit `4af4f6c` — it had no PR and went 66 commits stale, which is why the live site still showed the fake numbers); cherry-picked clean onto current `main` and re-verified.
+
+**What ships:**
+
+- **NEW server action `getOnboardingVendorCounts` (`app/onboarding/wedding/actions.ts`)** — criteria-based (NO `eventId`; congrats renders before the event row is committed, mirroring `searchOnboardingReceptionVenues`). Two exact head-counts off `vendor_market_stats`: `total` = published vendors (`public_visibility ∈ {verified, coming_soon}` + non-empty `business_name`) across the canonical services of the couple's picked categories; `matched` = that same pool narrowed by NULL-safe ceremony/venue compatibility (admit-never-exclude). This is the **identical published-pool definition** the `/vendors` marketplace + Services tab use (`lib/vendor-counts.ts`), so the tile agrees with what the couple actually sees in the marketplace.
+- **Tile now renders real counts** — `{matched}` + "that fit your wedding · from {total}" (thousands-formatted). **AUTO-HIDES** when a count can't be computed (query error, or `total ≤ 0`, or `matched ≤ 0` so it never shows a discouraging "0 fit you") — never fabricates (RA 10173 honesty).
+- **Removed the fabricated source** — dropped `VENDORS_PER_CATEGORY` + the `vendors` field from `computeOnboardingSavings`. The **money + hours** tiles are UNCHANGED (approved Time & Money Saved model; owner objected only to the vendor tile). Fetched once on step-13 entry via a guarded `useEffect`.
+
+**Files:**
+- `apps/web/app/onboarding/wedding/actions.ts` (new `getOnboardingVendorCounts` + canonical-service resolver)
+- `apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx` (fetch on step-13, real-count tile w/ auto-hide, drop fabricated field)
+
+**Verification:** `pnpm -F web typecheck` → 0 errors. `pnpm -F web lint` → no new warnings (remaining are pre-existing, in untouched files). Dependency + column audit on current `main`: `PLAN_GROUPS`, `canonicalServicesForTile/Folder`, `ALLOWED_CEREMONIES/SECONDARY`, `RECEPTION_TO_VENUE_SETTING`, `PICK_TO_GROUP`, `createAdminClient` all present; `vendor_market_stats` published-pool columns match `lib/vendor-counts.ts`. No migration.
+
+**SPEC IMPACT: Yes.** The fabricated copy lives in the spec corpus (`Onboarding_Wedding_Flow_2026-06-01.html` tile + `Time_and_Money_Saved_Model_2026-06-01.md` "2,400-vendor pool" / "filtered N vendors" notes). Cowork worklist entry appended.
+
+---
+
+## 2026-06-03 · fix(photo-delivery): make "Release to Drive" actually copy — cron-free via after()
+
+**Commit:** to be filled after commit.
+
+**Context:** Follow-up to the Drive-copy phases. The 0009 Photo Delivery "Release to Drive" button enqueued photos but relied on `/api/cron/photo-delivery-tick` to copy them — and **that cron has no scheduler wired** (no `vercel.json` crons, no scheduled Actions), so in prod the release never actually delivered. Same dormant-cron problem the Phase 2 rework fixed for capture auto-sync.
+
+**What ships:**
+
+- **`releasePhotoDelivery`** (`add-ons/photo-delivery/actions.ts`) — after `enqueueRelease`, drains the release in the **background with `after()`** (loops `processBatchForEvent` up to 40 batches, then returns; any remainder drains on the next release or a capture's own auto-sync). The action returns immediately; best-effort, never blocks the UI.
+- **`oauth-refresh` cron** — left as-is, documented as **redundant**: the Drive token consumers (`getEventDriveAccessToken`, `ensureFreshAccessToken`) already refresh the access token **on-demand**, which is the cron-free equivalent. Not relied upon.
+
+**Net:** the whole Drive surface is now genuinely cron-free — capture auto-sync (Phase 2) and manual release (this PR) both copy via `after()`; the 2 dormant cron endpoints are unused.
+
+**Pilot-safe:** one server action gains a bounded background drain; no schema, no new owner action, no cron.
+
+**SPEC IMPACT:** Minor — closes the gap that 0009 Photo Delivery never actually copied in prod. COWORK note for the 0009 cron→`after()` wording.
+
+---
+
+## 2026-06-03 · feat(schedule): hybrid Preparation — couple + vendor manual items
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Completes the Preparation hybrid the owner asked for after the 2026-06-03 chrome-redesign delta #3 (PR #840). #840 shipped the couple's `/schedule` **Preparation** mode as a READ-ONLY auto-aggregation (`lib/preparation.ts` merges vendor payment due dates, paperwork deadlines, vendor meetings, statutory milestones) and explicitly DEFERRED manual entry to a fast-follow needing a new table (logged in `COWORK_INBOX.md` [PENDING] 2026-06-03). This PR ships that deferred manual-entry layer **and** adds a vendor-add path: (a) the couple can add their own dated prep items + delete items (incl. dismissing vendor-added ones); (b) booked vendors can push items onto the couple's prep schedule from their Bookings view. The autofill is untouched; the new rows merge into the same date-sorted, month-grouped agenda.
+
+**What ships:**
+
+- **NEW source in `lib/preparation.ts`** — `fetchManualItems(eventId)` reads `event_preparation_items` and maps each row to the EXISTING `PreparationItem` shape (`date`=`due_date`, `label`→`title`, per-row chip `sourceLabel`: "Added by you" for `couple_manual` / "From {vendor business name}" for `vendor_prep` — `vendor_profiles.business_name` joined; carries `itemId` + `isManual` so the agenda renders a delete control). Merged into `fetchPreparationAgenda`'s `Promise.all` + `sourceCounts`. New `'manual'` member on `PreparationSource` (icon `ListPlus`, mulberry accent). **GRACEFUL DEGRADE:** the new source catches `42P01` (and any error) → returns `[]`, so the agenda still renders autofill-only before the migration is pushed.
+- **Couple add/delete UI** — a "+ Add to schedule" control on the Preparation agenda (+ in the empty state) opens the canonical Setnayan modal (bottom-sheet on mobile via `items-end → sm:items-center`, ESC + backdrop dismiss) with fields label / date / optional notes → `addPreparationItem`. Deletable rows (the `event_preparation_items` rows only — NOT autofill rows) get an inline `Trash2` → `deletePreparationItem`.
+- **Vendor add/delete UI** — on `/vendor-dashboard/bookings`, each **accepted** booking gets an "Add to prep schedule" control + a list of the items that vendor has added (with per-item delete). `vendorAddPreparationItem` stamps `source_tag='vendor_prep'` + the vendor's own `vendor_profile_id`; gated to accepted threads in the action (RLS also enforces). `vendorDeletePreparationItem` removes the vendor's own rows.
+- **Server actions** — input validation (label 1–200, valid `YYYY-MM-DD`; past dates allowed so they surface as "overdue"), correct field stamping, RLS-reliant authz, `revalidatePath`, graceful error surfacing to the form.
+- **Token fix (incidental):** swapped three latent `bg-paper` classes (undefined token, silently no-op'd in #840) → `bg-cream` in the agenda month-header + meeting/milestone row + empty-state buttons. Purely additive cosmetics.
+
+**NEW migration — `supabase/migrations/20260729000000_event_preparation_items.sql` (owner-push; graceful-degrade until applied):** additive `event_preparation_items` table (`item_id` PK, `event_id`→`events`, nullable `vendor_profile_id`→`vendor_profiles` (NULL = couple-added), `due_date`, `label` CHECK 1–200, `notes`, `source_tag` default `couple_manual`, `created_by`→`users`, timestamps), 2 indexes, RLS-at-create. **RLS model:** couple = full CRUD on their own event's items via `current_couple_event_ids()` (incl. deleting vendor-added rows); vendor = SELECT items they authored OR for events with an `accepted` `chat_threads` row; INSERT only for accepted-thread events stamping their own `vendor_profile_id`; UPDATE/DELETE only their own rows (all via `current_vendor_ids()`). **Schema verified against migrations** — all column/helper names in the supplied SQL matched the live schema (`events(event_id)`, `vendor_profiles(vendor_profile_id)`, `users(user_id)`, `current_couple_event_ids()` + `current_vendor_ids()` both GRANTed to authenticated, `chat_threads.vendor_profile_id` + `inquiry_status='accepted'`); **no column-name fixes needed.** Wrapped in `BEGIN/COMMIT` + idempotent guards to match repo migration convention. **Do NOT auto-push** — owner pushes.
+
+**Files:**
+- `supabase/migrations/20260729000000_event_preparation_items.sql` (new)
+- `apps/web/lib/preparation.ts` (new `manual` source + `fetchManualItems` + `fetchVendorPreparationItemsByEvent` + type extensions)
+- `apps/web/app/dashboard/[eventId]/schedule/prep-actions.ts` (new — couple add/delete actions)
+- `apps/web/app/dashboard/[eventId]/schedule/_components/prep-item-controls.tsx` (new — couple add modal + delete button)
+- `apps/web/app/dashboard/[eventId]/schedule/_components/preparation-agenda.tsx` (wire controls + `manual` styling + per-row delete + chip override)
+- `apps/web/app/vendor-dashboard/bookings/actions.ts` (new — vendor add/delete actions)
+- `apps/web/app/vendor-dashboard/bookings/_components/vendor-prep-add.tsx` (new — vendor add modal + per-item delete)
+- `apps/web/app/vendor-dashboard/bookings/page.tsx` (fetch vendor items + render control on accepted bookings)
+
+**Verification:** `pnpm -F web typecheck` → 0 errors. `pnpm exec next lint --file <changed>` → no warnings or errors. `pnpm -F web build` → ✓ Compiled successfully, 113/113 pages generated (remaining warnings are all pre-existing, in untouched files: `<img>`, exhaustive-deps, a11y on other pages; the sitemap/`vendor-dashboard` "dynamic server usage / missing SUPABASE env" lines are expected env-less static-gen noise).
+
+**SPEC IMPACT: Yes.** New `event_preparation_items` table + hybrid Preparation behavior touches: **0021** (couple dashboard / Schedule surface — Preparation is now hybrid, not read-only); **0007** (budget) + **0016** (Concierge) schedule cross-refs; **0006** (vendors) + **0022** (vendor dashboard — booked vendors can add prep items). Cowork worklist entry appended; supersedes the deferral in the #840 [PENDING].
+
+---
+
+## 2026-06-03 · feat(drive-copy): Phase 2 — Papic auto-sync feeder (cron-free, via after())
+
+**Commit:** to be filled after commit.
+
+**Context:** Phase 2 of the storage build plan. **Finding:** 5 of the 6 source services (Patiktok, Pabati, Pakanta, Monogram, QR) have no R2-artifact pipeline yet (stubs / client-side), so there is nothing to feed for them — one-line `pushToDriveCopy(...)` calls land with each future pipeline. **Papic** is the one real producer and is wired now.
+
+**Cron-free** — the repo's 2 existing cron endpoints have no scheduler (no `vercel.json` crons, no scheduled Actions), so a polling cron would've been dead on arrival. The drain runs in the background of the capture request via Next 15 `after()`.
+
+**What ships:**
+
+- **Papic auto-sync feeders** — `papic/actions.ts` (paparazzo capture) + `api/papic/guest-capture` (guest disposable camera): `enqueueDriveCopy('papic', …)` then `after(() => runDriveCopyBatch({ eventId }))`. The response returns immediately; the R2→Drive copy runs in the background. No-op until Drive is connected; best-effort (never fails a capture).
+- **Folder unify** — `drive-copy.ts` routes `papic` artifacts to the couple's existing `events.photo_delivery_folder_id` (same folder as the manual "Release to Drive" worker).
+- **Dedup** — `enqueueRelease` skips photos already auto-synced (matched on `r2_object_key`); it also backfills anything a dropped background task missed.
+- **Latent fix** — `readR2Object` strips a leading `r2://<bucket>/` prefix (also fixes the existing release worker for prefixed papic keys).
+
+**Pilot-safe:** best-effort + enqueue-first (the row persists even if the background copy is dropped); manual release still works + dedups. No migration. No cron. No new owner action.
+
+**SPEC IMPACT:** Yes (minor). Papic auto-syncs to Drive (the pax-pricing "photos land in your Drive" behavior), cron-free. The other 5 feeders attach as their pipelines land.
+
+---
+
+## 2026-06-03 · feat(messages): unread badge on the Messages icon
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Follow-up to chrome-redesign **delta #2** (PR #837), which shipped the `MessageSquare` link in the couple top bar **icon-only** — its own comment flagged "No unread badge: chat_messages has no per-message read tracking column in V1 … Badge can be added in a follow-up once a read-receipts migration lands." This PR is that follow-up: it adds the per-user/per-thread read marker chat never had, computes an unread-thread count from it, and lights the Messages icon the same way the bell is lit.
+
+**What ships:**
+
+- **Unread badge on the Messages icon** in the event-scoped couple top bar (`app/dashboard/[eventId]/layout.tsx`). New client component `app/_components/unread-messages-badge.tsx` mirrors `unread-bell-badge.tsx` exactly — same pill styling (terracotta dot, `9+` cap, `font-mono text-[9px]`), `aria-label "Messages · N unread messages"`, server-rendered initial count + Supabase Realtime resync on `chat_messages` INSERT (the table is already in the `supabase_realtime` publication per `20260514140000`, and Realtime honors RLS so a client only gets events for threads it can SELECT).
+- **Read-state that didn't exist before.** `countUnreadMessages(supabase, userId?)` in `lib/chat.ts` calls the new `count_unread_message_threads()` RPC; a thread is unread when it has a message from *someone else* (`sender_user_id IS DISTINCT FROM auth.uid()`) newer than the viewer's `last_read_at` (or they've never read it).
+- **Mark-read on open.** Server action `markThreadRead(threadId)` in `lib/chat-actions.ts` upserts `chat_thread_reads (thread_id, user_id=auth.uid(), last_read_at=now())` on `onConflict (thread_id,user_id)`. Called on render in the couple thread page **and** the vendor thread page (parity).
+- **Graceful-degrade is the whole safety story.** Both `countUnreadMessages` and `markThreadRead` log + no-op/return-0 on ANY error — most importantly when the table/function isn't in the schema yet (`isMissingRelationError`). The deploy is therefore safe **before** the migration is applied: the badge simply reads 0 and opening a thread never fails. Mirrors `countUnread`'s graceful-to-0 in `lib/notifications.ts`.
+
+**NEW migration — `supabase/migrations/20260728000000_chat_thread_reads.sql` (OWNER-PUSH):**
+
+- Additive only. `CREATE TABLE IF NOT EXISTS public.chat_thread_reads (thread_id, user_id, last_read_at, PK(thread_id,user_id))` with FKs to `chat_threads(thread_id)` + `users(user_id)` ON DELETE CASCADE; index on `user_id`; **RLS enabled at create**; `chat_thread_reads_self_all` policy = a user manages only `user_id = auth.uid()` rows. Plus `count_unread_message_threads()` (SECURITY DEFINER · STABLE · `GRANT EXECUTE … authenticated`).
+- **One correction vs the drafted SQL:** the draft scoped vendor-side threads with `current_vendor_ids()`, but that helper is a **NULL-returning stub** in `20260512000000_setnayan_base.sql` (vendor_team_members lands in 0022, stub never repointed). The helper the 0019 chat RLS actually uses for vendor-thread scoping is **`current_vendor_profile_ids()`** (`vendor_profiles WHERE user_id = auth.uid()`), matching `chat_threads.vendor_profile_id → vendor_profiles(vendor_profile_id)`. Swapped to that so the vendor-side count actually works. All other column names (`users.user_id`, `chat_threads.{thread_id,event_id,vendor_profile_id}`, `chat_messages.{thread_id,sender_user_id,created_at}`, `current_couple_event_ids()`) matched the live schema verbatim.
+- **Do NOT `supabase db push`** — owner applies migrations. Until then the badge shows 0.
+
+**Files:**
+
+- `supabase/migrations/20260728000000_chat_thread_reads.sql` (new)
+- `apps/web/lib/chat.ts` — `countUnreadMessages()` + error-detect import
+- `apps/web/lib/chat-actions.ts` — `markThreadRead()` + error-detect import
+- `apps/web/app/_components/unread-messages-badge.tsx` (new)
+- `apps/web/app/dashboard/[eventId]/layout.tsx` — fetch `initialUnread`, swap icon-only link → `<UnreadMessagesBadge>` (dropped now-unused `MessageSquare` import)
+- `apps/web/app/dashboard/[eventId]/messages/[threadId]/page.tsx` — `markThreadRead` on render
+- `apps/web/app/vendor-dashboard/messages/[threadId]/page.tsx` — `markThreadRead` on render
+
+**Verification:** `pnpm -F web typecheck` → 0 errors. `pnpm exec next lint --file <6 changed app/lib files>` → no warnings/errors. `pnpm -F web build` → ✓ Compiled successfully · 113/113 static pages (the only build warnings are pre-existing + in untouched routes: sitemap `Missing SUPABASE env vars` locally, `/vendor-dashboard` dynamic-server `cookies`/`searchParams` notices).
+
+**SPEC IMPACT: Yes** — iteration **0019** (Communications: chat gains a per-user/per-thread read marker `chat_thread_reads` + `count_unread_message_threads()` RPC; previously "Read receipts … deferred") and **0021** (couple dashboard chrome: the Messages icon now carries an unread badge alongside the bell). `[PENDING]` logged in `COWORK_INBOX.md`.
+
+---
+
+## 2026-06-03 · feat(schedule): Preparation ⇄ Event Day toggle
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Delta #3 of the 2026-06-03 customer-dashboard chrome redesign (corpus `DECISION_LOG.md` "Customer dashboard chrome RE-LOCKED"). The redesign asked for the couple's `/schedule` page to carry a **Preparation ⇄ Event Day** toggle: "Event Day" = the existing editable day-of timeline, "Preparation" = a NEW read-only agenda of dated planning items leading up to the wedding that auto-fills from payments + concierge milestones. This is a **net-new V1 surface** — the prototype intent, shipped with only the data real tables support. No new table, no migration: Preparation is pure read-only aggregation of EXISTING dated data.
+
+**What ships:**
+
+- **URL-driven segmented toggle** at the top of `/schedule` — `Preparation | Event Day` via `?view=preparation` / `?view=event-day` (bookmarkable, SSR-resolved, works without JS — each segment is a real prefetched `<Link>`). With no param the page defaults to **Preparation when there are prep items**, else opens straight on **Event Day** so empty-prep couples aren't met with a blank agenda. The Preparation segment carries a live count badge.
+- **Event Day mode = the existing blocks UI, untouched.** The add-block form, per-block cards (inline time editor + visibility toggle + delete), and empty state were lifted verbatim into an `EventDayView` helper — behavior is byte-for-byte identical to before.
+- **Preparation mode = a date-sorted, read-only agenda grouped by month.** Each row: date · label · a source chip (Payment / Paperwork / Meeting / Milestone) · optional amount, with overdue rows flagged in rose so a couple sees what slipped. A small legend explains that the agenda auto-fills (couples don't add rows by hand here). Honest empty state with deep-links to Budget + Paperwork (date-aware copy when no wedding date is set yet). Clean Editorial tokens (cream/ink/terracotta/mulberry + amber/blue/indigo source accents) consistent with Home's "Upcoming" surface.
+
+**Data sources — exactly what was wired vs deferred** (`lib/preparation.ts` `fetchPreparationAgenda`, each source graceful-degrades independently):
+
+- ✅ **Payment** — `event_vendor_line_items.due_date` (host-entered vendor payment milestones). Amount + vendor name + label; fully-paid lines dropped (sums `event_vendor_payments` per line, mirroring `renderBudgetIcs`). Deep-links to `/budget`.
+- ✅ **Paperwork** — `event_paperwork` rows with the "complete by" date derived via `lib/paperwork.ts` `completeByDate(document_type, event_date)`; `received` docs dropped. Deep-links to `/paperwork`.
+- ✅ **Meeting** — `vendor_meetings.starts_at` (consultations, tastings, fittings, site visits). Deep-links to the vendor's page.
+- ✅ **Milestone** (the "concierge"-flavored derived dates) — computed statutory windows from `events.event_date` + `ceremony_type`: PSA/CENOMAR −180d, marriage-license window −120d, Pre-Cana cutoff −60d (Catholic only). Same thresholds as `lib/upcoming-items.ts`. Deep-links to `/paperwork`.
+- ❌ **DEFERRED — manual / user-added prep items.** Would require a NEW table (couple-authored agenda rows). Out of scope for this additive, no-migration PR. Documented as a fast-follow in `COWORK_INBOX.md`.
+- ❌ **ABSENT — orders due dates.** The `orders` table has **no due-date column** (only `created_at` / `paid_at` / `reviewed_at` / `expires_at`). `expires_at` is a *subscription-renewal* date, already surfaced on Home + Orders; it is **not** a wedding-preparation milestone, so it is intentionally omitted from Preparation.
+- ❌ **ABSENT — Concierge / Today's Focus per-step milestones.** The 0016 wizard (`/today`) is an ordered card list with **no per-step due/target date column**. The only concierge-adjacent dated data is the statutory windows, wired above as the Milestone source.
+
+**Home untouched.** The lean-home 3-block rule (PersonalizedMenu · UpcomingSchedules · ActivityFeed, owner-locked 2026-06-02) is fully respected — `apps/web/app/dashboard/[eventId]/page.tsx` was **not modified**. The `/schedule` toggle is the entire deliverable; the existing `UpcomingSchedules` block already aggregates the same kinds of dated items for Home via `lib/upcoming-items.ts` and needed no change.
+
+**Files:**
+
+- `apps/web/lib/preparation.ts` — NEW. The aggregator + types (`PreparationItem` / `PreparationGroup` / `PreparationAgenda`, `fetchPreparationAgenda`). Source map + deferred-sources rationale documented in the file header.
+- `apps/web/app/dashboard/[eventId]/schedule/_components/schedule-mode-toggle.tsx` — NEW. Client segmented control (URL-driven, count badge).
+- `apps/web/app/dashboard/[eventId]/schedule/_components/preparation-agenda.tsx` — NEW. Read-only presentational agenda view + legend + empty state.
+- `apps/web/app/dashboard/[eventId]/schedule/page.tsx` — wired the toggle + view resolution + event-row fetch (`event_date` + `ceremony_type` for the agenda math); extracted the existing blocks UI into `EventDayView` (behavior unchanged).
+
+**Verification:** `pnpm -F web typecheck` clean (0 errors); `next lint` clean ("No ESLint warnings or errors") on all four changed files.
+
+**SPEC IMPACT:** **Yes.** Iteration **0021** (couple dashboard — Schedule surface gains the Preparation⇄Event Day mode) plus the cross-refs to the schedule spec / iteration **0007** (budget payment due dates feed Preparation) and iteration **0016** (Concierge has no per-step dated milestone — only statutory windows feed Preparation; manual prep entry deferred). Logged as `[PENDING] 2026-06-03` in `COWORK_INBOX.md`.
+
+---
+
+## 2026-06-03 · feat(services): surface in-app add-ons inside the Services tab
+
+**Commit:** see merge commit.
+
+**Context:** Delta #4 of the 2026-06-03 customer-dashboard chrome redesign (corpus `DECISION_LOG.md` "Customer dashboard chrome RE-LOCKED"). Vendors + in-app services should live in one tab so couples never need to jump to a separate Add-ons route to discover features.
+
+**What ships:**
+- **`apps/web/lib/add-ons-catalog.ts`** — new shared catalog module extracted from add-ons/page.tsx. Exports `ADD_ONS`, `AddOnEntry`, `AddOnStatus`, and the `addOnHref()` helper. Single source of truth consumed by both the full poster grid and the new compact section.
+- **`apps/web/app/dashboard/[eventId]/add-ons/page.tsx`** — refactored to import `ADD_ONS` + `addOnHref` from the shared catalog. Behaviour is byte-for-byte identical; no duplicated list.
+- **`apps/web/app/dashboard/[eventId]/vendors/_components/in-app-services-section.tsx`** — new server component: "In-app services & add-ons" section with a compact landscape mini-card grid (horizontal-scroll on mobile, 4-col on desktop). Cards reuse the per-service animated poster backgrounds (base + motion layers + lower-third gradient mask) from the shared catalog. Filters to live + web_v1 add-ons only; coming-soon items discoverable on the full `/add-ons` page. "See all" + "View all add-ons" links keep the canonical route reachable.
+- **`apps/web/app/dashboard/[eventId]/vendors/page.tsx`** — wraps the return in a fragment; renders `<InAppServicesSection eventId={eventId} />` below `<PlanBudgetAccordion>`.
+
+**Verification:** `pnpm -F web typecheck` — 0 errors. `next lint` on all 4 changed files — 0 warnings/errors.
+
+**SPEC IMPACT:** Yes.
+- **Iteration 0006** (`0006_vendors_management/`) — the Vendors tab (renamed Services in the chrome redesign) now also surfaces in-app services. Spec should note the dual-entry-point pattern.
+- **Add-ons hub** (`0021_couple_dashboard_fully_purchased/`) — record that the compact add-ons grid now lives inside the Services tab as a second entry point (canonical `/add-ons` route unchanged).
+
+---
+
+## 2026-06-03 · feat(drive-copy): Phase 0 — consolidate the two Drive OAuth flows into one per-event connect
+
+**Commit:** to be filled after commit.
+
+**Context:** Phase 0 of the storage build plan (`Storage_and_Drive_Copy_Architecture_2026-06-03.md` § 8), following the Phase 1 keystone. An event could previously hold **two** Google Drive connections — `oauth_grants(provider='drive')` (Papic connect) and `provider='drive_photo_delivery'` (Photo Delivery connect) — each its own consent, redirect URI, and folder. The Phase-1 drive-copy layer reads `provider='drive'`, so a couple who connected only via Photo Delivery was invisible to it. This unifies them into **one** per-event "Connect Drive".
+
+**What ships:**
+
+- **`/api/oauth/photo-delivery/start`** — now uses the canonical Drive OAuth config (`getDriveOAuthConfig`), so the Photo Delivery connect goes through the **same Google consent + redirect URI** as Papic (→ `/api/oauth/drive/callback`). It still writes an `oauth_state` row with `provider='drive_photo_delivery'` purely as a **return-page marker**.
+- **`/api/oauth/drive/callback`** — now serves **both** connects: accepts `oauth_state.provider ∈ {drive, drive_photo_delivery}`, always upserts the grant as `provider='drive'`, **mirrors `events.photo_delivery_*`** connected-state, and redirects back to the right panel.
+- **`photo-delivery-release.ts`** + **`/api/photo-delivery/disconnect`** + **photo-delivery `actions.ts`** — read/revoke the unified `provider='drive'` grant.
+- **`/api/oauth/drive/disconnect`** — the shared Drive disconnect now also clears `events.photo_delivery_*`.
+- **`/api/oauth/photo-delivery/callback`** — marked **DEPRECATED** (unreachable post-consolidation).
+- **Migration `20260727000000_drive_oauth_consolidation.sql`** — safety-net data backfill: renames pre-existing `'drive_photo_delivery'` grants → `'drive'` (conflict-safe). **No schema change; code does not depend on it.**
+
+**Net result:** one consent, one registered redirect URI, one `provider='drive'` grant per event — powering Papic capture, Photo Delivery, and the drive-copy layer.
+
+**Pilot-safe:** no real Drive grants exist yet (#19g pending). Disconnect now means "disconnect Drive entirely" from either panel.
+
+**Verification:** full GitHub Actions suite green (typecheck+lint, production build, macOS/Windows build, e2e, lighthouse, bundle, secret scan).
+
+**SPEC IMPACT:** Yes. The owner now registers only **one** Drive redirect URI (`GOOGLE_DRIVE_OAUTH_REDIRECT_URI`); `PHOTO_DELIVERY_OAUTH_REDIRECT_URI` is retired. COWORK_INBOX item appended.
+
+---
+
+## 2026-06-03 · feat(chrome): Messages icon in the dashboard top bar
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Delta #2 of the 2026-06-03 customer-dashboard chrome redesign (corpus `DECISION_LOG.md` "Customer dashboard chrome RE-LOCKED"). Adds a Facebook-pattern Messages icon to the couple dashboard top bar right cluster, adjacent to the notifications bell.
+
+**What ships:**
+
+- `MessageSquare` (lucide-react) icon link added to the right cluster of the event-scoped top bar in `apps/web/app/dashboard/[eventId]/layout.tsx`, placed between the `RoleSwitchPill` (mobile-only) and `UnreadBellBadge`.
+- Links to `/dashboard/${eventId}/messages` (the couple's vendor thread list, iteration 0019).
+- `aria-label="Messages"` for accessibility.
+- Styled exactly like `UnreadBellBadge`: `h-9 w-9 rounded-full border border-ink/15 bg-cream text-ink/70 hover:border-terracotta/40 hover:text-terracotta` — Clean Editorial tokens throughout.
+- **No unread badge:** `chat_messages` has no per-message `read_at` / `is_read` column in V1. There is no clean count source without a DB migration. Badge can be added once a read-receipts migration lands in a follow-up PR.
+- Renders on both mobile and desktop (the top bar is shared across all breakpoints).
+
+**Files changed:**
+
+- `apps/web/app/dashboard/[eventId]/layout.tsx` — added `MessageSquare` to the lucide import; inserted the Messages `<Link>` element.
+
+**Verification:** `pnpm -F web typecheck` → 0 errors. `next lint --file app/dashboard/[eventId]/layout.tsx` → No ESLint warnings or errors.
+
+**SPEC IMPACT:** Yes — **iteration 0021** (couple dashboard chrome) and **iteration 0019** (communications / messages). The top bar now carries a Messages shortcut. Spec corpus should record this icon's presence in the couple dashboard chrome description. See `COWORK_INBOX.md [PENDING] 2026-06-03 — Messages icon` for the worklist entry.
+
+---
+
 ## 2026-06-03 · feat(0001): keep the couple detail simple — remove the editorial live-view iframe
 
 **Commit:** to be filled after commit.
@@ -54,6 +500,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `pnpm -F web typecheck` ✓ · `pnpm -F web lint` (3 files) ✓ No ESLint warnings or errors. (Rebased onto current `main`, which already carries PR #830's `e.touches[0]` guard — the earlier `tsc` red on the stale base is gone.)
 
 **SPEC IMPACT:** Yes — iteration 0021 (couple dashboard Home) gains the "Your wedding details" card. The model is already locked in corpus `DECISION_LOG.md` ("Customer dashboard chrome RE-LOCKED", 2026-06-03); logged as a `[PENDING]` COWORK_INBOX item to update 0021's Home-surface section.
+
+---
+
+## 2026-06-03 · feat(taxonomy): add Design › Digital Services tile + re-group the 3 Setnayan digital canonicals
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner directive (2026-06-03) — surface a new **Digital Services** child tile under the DESIGN parent in the marketplace taxonomy, the home for Setnayan's digital/AI productions (Pakanta · Animated Monogram · Pro Website · Live Venue Photo Wall · Live Background/Pailaw). Code-only re-grouping (mirrors the 2026-05-31 shrink — no migration, every canonical preserved).
+
+**What ships (`apps/web/lib/taxonomy.ts` only):**
+
+- **New tile `digital_services`** added to the `WeddingTile` union, `WEDDING_TILE_ORDER` (after `led_wall`), `TILE_PARENT` (`→ 'design'`), `WEDDING_TILE_LABEL` (`'Digital Services'`) and `WEDDING_TILE_SLUG` (`'digital-services'`). DESIGN now has 8 tiles.
+- **Re-pointed 3 existing Setnayan canonicals** to it: `setnayan_custom_monogram` (was `stylist_decorator`), `setnayan_pailaw` (was `led_wall`), `setnayan_pakanta` (was `program / wedding_singer` → now `design / digital_services`). Pakanta leaves the Program music shelf. `LED Wall` reverts to 3rd-party walls only; `Stylist / Decorator` loses the monogram option.
+- **No new canonicals, no DB migration.** `setnayan_patiktok` already sits under `photo_booth` (no change). The V2 retail catalog (`platform_retail_catalog_v2`) is flat (no category column) and already carries these SKUs at owner-locked prices — nothing to seed.
+
+**SPEC IMPACT:** Already reflected in the spec corpus this session (no Cowork action pending) — `Digital_Services_Cross_Surface_Map_2026-06-03.md` (new authoritative map) + `Vendor_Taxonomy_Shrink_2026-05-30.md` + `Service_Specifications_2026-06-02.md` + the `0006/0022/0023/0015/0021` + `Onboarding_Blueprint` surface specs + the `DECISION_LOG.md` 2026-06-03 rows. Open item flagged to owner: a Pailaw/Live-Background V2 SKU is absent from `platform_retail_catalog_v2` (needs an owner-confirmed price — not invented here); the dashboard/website/onboarding HTML prototypes update separately.
+
+**Verification:** Additive tile + 3 re-points; all exhaustive `Record<WeddingTile,…>` maps (`TILE_PARENT` · `WEDDING_TILE_LABEL` · `WEDDING_TILE_SLUG`) updated so `tsc` stays exhaustive; a repo-wide grep found no other exhaustive `WeddingTile` map or tile-icon map. Local typecheck not runnable in this worktree (no `node_modules`) → CI clean-install runs typecheck/lint/build/Lighthouse/Vercel-preview.
 
 ---
 

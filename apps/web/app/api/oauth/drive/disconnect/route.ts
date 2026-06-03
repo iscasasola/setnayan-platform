@@ -83,7 +83,17 @@ export async function POST(req: NextRequest) {
   if (!grant) {
     await admin
       .from('events')
-      .update({ papic_storage_target: 'setnayan_r2' })
+      .update({
+        papic_storage_target: 'setnayan_r2',
+        // Phase 0: this is now the shared Drive disconnect — clear the Photo
+        // Delivery panel state too so both surfaces return to idle together.
+        photo_delivery_provider: null,
+        photo_delivery_oauth_expires_at: null,
+        photo_delivery_folder_id: null,
+        photo_delivery_folder_name: null,
+        photo_delivery_account_email: null,
+        photo_delivery_status: 'idle',
+      })
       .eq('event_id', eventId);
     const target = new URL(`/dashboard/${eventId}/add-ons/papic`, req.url);
     target.searchParams.set('drive_disconnected', '1');
@@ -109,7 +119,17 @@ export async function POST(req: NextRequest) {
       .eq('grant_id', grant.grant_id),
     admin
       .from('events')
-      .update({ papic_storage_target: 'setnayan_r2' })
+      .update({
+        papic_storage_target: 'setnayan_r2',
+        // Phase 0: this is now the shared Drive disconnect — clear the Photo
+        // Delivery panel state too so both surfaces return to idle together.
+        photo_delivery_provider: null,
+        photo_delivery_oauth_expires_at: null,
+        photo_delivery_folder_id: null,
+        photo_delivery_folder_name: null,
+        photo_delivery_account_email: null,
+        photo_delivery_status: 'idle',
+      })
       .eq('event_id', eventId),
   ]);
 

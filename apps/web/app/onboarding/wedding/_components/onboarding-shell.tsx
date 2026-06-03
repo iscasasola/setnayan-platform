@@ -5,10 +5,13 @@
  *
  * PROTOTYPE-DIRECT PORT (owner directive 2026-06-02: "port the prototype's
  * actual CSS/HTML, not a Tailwind rewrite"). This mirrors the locked prototype
- * Onboarding_Wedding_Flow_2026-06-01.html one-for-one: the same .pba > .phone >
+ * Onboarding_Wedding_Flow_2026-06-01.html one-for-one: the same .onbw > .phone >
  * .top / .body / .bottom chrome, the same .screen sections with verbatim class
  * names, the same gold SETNAYAN mark + progress bar + Continue CTA. The CSS in
- * ../_styles/onboarding.css IS the prototype CSS, scoped under .pba.
+ * ../_styles/onboarding.css IS the prototype CSS, scoped under `.onbw`
+ * (onboarding-wedding). NOT `.pba` — that generic scope collided with the
+ * Services Plan+Budget accordion's own global `.pba` styles (2026-06-03); each
+ * surface now owns a unique root class. When re-porting, scope under `.onbw`.
  *
  * What changed vs the prototype: the imperative JS state machine (screens[] +
  * go()/render() + DOM toggles + buildFaith()/buildPax()/buildBudget()/initCal())
@@ -41,6 +44,7 @@ import '../_styles/onboarding.css';
 import {
   commitOnboardingWedding,
   searchOnboardingReceptionVenues,
+  getOnboardingVendorCounts,
   type OnboardingCommitPayload,
   type OnboardingVenueResult,
 } from '../actions';
@@ -1224,9 +1228,10 @@ function MatchedBundle({ band, added, onAdd }: { band: string; added: boolean; o
    (₱42,992 / 745 / 48 · owner 2026-06-02: "why is this the same for everybody?
    we tried different input and it still gave the same data"). Free-feature money
    is flat (everyone gets the same free features → ₱32,992) + ₱2,500 × expos; the
-   hours + curated-vendor counts scale with the couple's actual picks · shortlist ·
-   runway · design categories · expos. Today's Focus EXCLUDED (paid SKU, not a free
-   saving). "2,400+" stays a platform figure in the label, not the counter. */
+   hours scale with the couple's actual picks · shortlist · runway · design
+   categories · expos. Today's Focus EXCLUDED (paid SKU, not a free saving). The
+   vendor stat tile is NOT computed here — it uses REAL marketplace counts from
+   getOnboardingVendorCounts (owner 2026-06-03), not a fabricated formula. */
 /* Name fields (bride/groom · screen 4) accept letters only — no digits, no symbols
    (owner 2026-06-02). Allows Unicode letters (Filipino ñ + accents), spaces (compound
    names + spaced surnames like "Dela Cruz"/"De Leon"), hyphens ("Anne-Marie") and
@@ -1237,8 +1242,7 @@ function sanitizeName(raw: string): string {
 
 const SAVINGS_FLAT_PESOS = 32992; // sum of the 8 flat free-feature money values (model §D table)
 const SAVINGS_PER_EXPO_PESOS = 2500; // marketplace — money per bridal expo replaced
-const VENDORS_PER_CATEGORY = 5; // best-fit vendors surfaced per picked category
-function computeOnboardingSavings(state: OnboardingState, now: Date): { money: number; hours: number; vendors: number } {
+function computeOnboardingSavings(state: OnboardingState, now: Date): { money: number; hours: number } {
   const categories = state.picks.length;
   const shortlisted = state.shortlist.length;
   const designVendors = state.picks.filter((p) => AESTHETIC_CATS.includes(p)).length;
@@ -1265,8 +1269,7 @@ function computeOnboardingSavings(state: OnboardingState, now: Date): { money: n
       2 * designVendors + // mood board — 2h/design vendor
       24 * exposReplaced, // marketplace — 24h/expo replaced
   );
-  const vendors = Math.max(categories * VENDORS_PER_CATEGORY, 12);
-  return { money, hours, vendors };
+  return { money, hours };
 }
 
 /* Onboarding-completion overlay (owner 2026-06-02). Once the couple taps the final
@@ -1330,6 +1333,11 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
   const [venues, setVenues] = useState<OnboardingVenueResult[] | null>(null);
   const [venuesLoading, setVenuesLoading] = useState(false);
   // (find-vendor "Expand search" demo set removed — replaced by the real reception query)
+  /* Congrats stat tile #3 (step 13): REAL marketplace counts, fetched once on
+     entry (criteria-based — the event doesn't exist yet). null = uncomputed →
+     the tile auto-hides (owner 2026-06-03: "we want real numbers only"). */
+  const [vendorCounts, setVendorCounts] = useState<{ matched: number; total: number } | null>(null);
+  const [vendorCountsTried, setVendorCountsTried] = useState(false);
   const [byoOpen, setByoOpen] = useState(false);
   const [byoDone, setByoDone] = useState<string | null>(null);
   const [byoAdded, setByoAdded] = useState(false);
@@ -1458,6 +1466,22 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
       .catch(() => setVenues([]))
       .finally(() => setVenuesLoading(false));
   }, [step, venues, venuesLoading, state.kind, state.faith, state.prefs.reception]);
+
+  /* Congrats stat tile #3 — REAL marketplace counts (owner 2026-06-03: "we want
+     real numbers only", replacing the fabricated max(categories×5,12) + "2,400+").
+     Fires once on step-13 entry; a null result → the tile auto-hides. */
+  useEffect(() => {
+    if (step !== 13 || vendorCountsTried) return;
+    setVendorCountsTried(true);
+    getOnboardingVendorCounts({
+      kind: state.kind,
+      faith: state.faith,
+      receptionSettings: state.prefs.reception,
+      picks: state.picks,
+    })
+      .then((c) => setVendorCounts(c))
+      .catch(() => setVendorCounts(null));
+  }, [step, vendorCountsTried, state.kind, state.faith, state.prefs.reception, state.picks]);
 
   /* picker chip tap — toggles the pick (multi), latches pickerTouched, updates the sticky preview. */
   const pickChip = (cat: string, label: string) => {
@@ -1852,7 +1876,7 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
   }, [committedEventId, state, buildCommitPayload, router]);
 
   return (
-    <div className="pba">
+    <div className="onbw">
       {/* Blocking completion overlay — covers the whole viewport so the customer
           can't touch anything while we create the event + preload the dashboard
           (owner 2026-06-02). Stays up until the dashboard navigation swaps in. */}
@@ -2482,11 +2506,14 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
             <div className="eyebrow">You did the hard part</div>
             <h1 className="q" style={{ fontSize: 29 }}>Congratulations,<br /><span>{coupleDisplay}</span>.</h1>
             <p className="sub">You&apos;ve done the most crucial part — your whole wedding is on track. From here, we help you finish, so you can focus on everything else.</p>
-            {/* SAVINGS — computed live per couple from their picks · shortlist · runway · design categories · expos (Time_and_Money_Saved_Model_2026-06-01.md §D). */}
+            {/* SAVINGS — money + hours computed live per couple (Time_and_Money_Saved_Model_2026-06-01.md §D).
+                Vendor tile = REAL marketplace counts (owner 2026-06-03: "we want real numbers only"); auto-hides when uncomputable. */}
             <div className="statstrip">
               <div className="stat"><CountUp value={savings.money} prefix="₱" active={step === 13} /><span>saved with Setnayan — free</span></div>
               <div className="stat"><CountUp value={savings.hours} active={step === 13} /><span>hours saved vs planning alone</span></div>
-              <div className="stat"><CountUp value={savings.vendors} active={step === 13} /><span>best-fit vendors from 2,400+</span></div>
+              {vendorCounts && (
+                <div className="stat"><CountUp value={vendorCounts.matched} active={step === 13} /><span>that fit your wedding · from {vendorCounts.total.toLocaleString()}</span></div>
+              )}
             </div>
             <div className="recap tight">
               <div className="recapline"><span className="rk">Wedding</span><span className="rv">{coupleDisplay}</span></div>

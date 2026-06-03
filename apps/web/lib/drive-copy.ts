@@ -25,12 +25,12 @@ import {
 // Byte primitives: lib/drive-upload.ts (shared with 0009 Photo Delivery).
 //
 // OAuth grant: this layer reads the per-event Drive grant at
-// oauth_grants(provider='drive') — the original Papic Drive connection. The
-// live 0009 Photo Delivery flow still uses its own provider='drive_photo_delivery'
-// grant + folder; collapsing both into a single per-event "Connect Drive" is
-// Phase 0 of the build plan (a later PR). Until then this layer is a no-op for
-// events that have only ever connected via the Photo Delivery flow — feeders
-// still enqueue, and the copy runs the moment a 'drive' grant exists.
+// oauth_grants(provider='drive'). As of Phase 0 (drive-oauth-consolidation)
+// this is the SINGLE per-event Drive connection — the Papic connect and the
+// Photo Delivery connect both flow through the canonical Drive consent +
+// /api/oauth/drive/callback and write provider='drive'. Any event with a
+// connected Drive is visible here; feeders that run before a connect just
+// enqueue, and the copy runs the moment the grant exists.
 // ============================================================================
 
 export const DRIVE_COPY_ARTIFACT_TYPES = [
@@ -271,10 +271,18 @@ export async function ensureArtifactFolder(input: {
 
   const { data: ev } = await admin
     .from('events')
-    .select('display_name, event_date')
+    .select('display_name, event_date, photo_delivery_folder_id')
     .eq('event_id', input.eventId)
     .maybeSingle();
   if (!ev) return null;
+
+  // Papic shares the couple's existing Photo Delivery folder so the manual
+  // "Release to Drive" worker and this auto-sync feeder write to the SAME
+  // Drive folder (dedup is per drive_copy_artifacts.r2_object_key). The other
+  // artifact types each get their own subfolder under the event root.
+  if (input.artifactType === 'papic' && ev.photo_delivery_folder_id) {
+    return ev.photo_delivery_folder_id as string;
+  }
 
   const rootName = buildPhotoDeliveryFolderName({
     displayName: (ev.display_name as string | null) ?? 'Setnayan Event',

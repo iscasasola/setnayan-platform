@@ -58,14 +58,27 @@ export async function enqueueRelease(input: {
   }
 
   // 2. List deliverable photos.
-  const { data: photos, error: photosErr } = await admin
+  const { data: allPhotos, error: photosErr } = await admin
     .from('papic_photos')
     .select('photo_id, r2_object_key, size_bytes')
     .eq('event_id', input.eventId)
     .is('hidden_at', null);
   if (photosErr) return { ok: false, reason: `papic_photos_query:${photosErr.message.slice(0, 64)}` };
 
-  const totalFiles = photos?.length ?? 0;
+  // Phase 2 dedup: skip photos the Drive-copy auto-sync feeder already copied
+  // (both write to the same events.photo_delivery_folder_id), so a manual
+  // "Release to Drive" never produces a duplicate file. Match on r2_object_key.
+  const { data: copiedRows } = await admin
+    .from('drive_copy_artifacts')
+    .select('r2_object_key')
+    .eq('event_id', input.eventId)
+    .not('drive_file_id', 'is', null);
+  const copiedKeys = new Set((copiedRows ?? []).map((r) => r.r2_object_key as string));
+  const photos = (allPhotos ?? []).filter(
+    (p) => !copiedKeys.has(p.r2_object_key as string),
+  );
+
+  const totalFiles = photos.length;
   const totalBytes = (photos ?? []).reduce(
     (acc, p) => acc + (Number(p.size_bytes) || 0),
     0,
@@ -425,11 +438,13 @@ async function ensureFreshAccessToken(input: {
   eventId: string;
 }): Promise<string | null> {
   const admin = createAdminClient();
+  // Phase 0: Photo Delivery now reads the single unified Drive grant
+  // (provider='drive'), shared with Papic + the drive-copy layer.
   const { data: grant } = await admin
     .from('oauth_grants')
     .select('grant_id, refresh_token, access_token, access_token_expires_at, revoked_at')
     .eq('event_id', input.eventId)
-    .eq('provider', 'drive_photo_delivery')
+    .eq('provider', 'drive')
     .maybeSingle();
   if (!grant || grant.revoked_at) return null;
 

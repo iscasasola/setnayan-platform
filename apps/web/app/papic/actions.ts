@@ -1,7 +1,9 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { enqueueDriveCopy, runDriveCopyBatch } from '@/lib/drive-copy';
 
 // Papic · paparazzo (claimer) actions — the public photo-crew surface.
 //
@@ -128,6 +130,32 @@ export async function recordSeatCapture(
 
   if (insertError) {
     return { ok: false, error: insertError.message.slice(0, 80) };
+  }
+
+  // Auto-sync this capture into the couple's Google Drive (Phase 2), cron-free:
+  // enqueue the artifact, then copy it in the BACKGROUND with after() so the
+  // action returns immediately. No-op until the couple connects Drive;
+  // best-effort (a sync hiccup never fails a capture); dedup is per
+  // drive_copy_artifacts.r2_object_key. The manual "Release to Drive" backfills
+  // anything a dropped background task missed.
+  try {
+    await enqueueDriveCopy({
+      eventId: seat.event_id as string,
+      artifactType: 'papic',
+      files: [
+        {
+          r2ObjectKey: cleanKey,
+          fileName: cleanKey.split('/').pop() || 'papic.jpg',
+          mimeType: 'image/jpeg',
+          sourceTable: 'papic_photos',
+        },
+      ],
+    });
+    after(() =>
+      runDriveCopyBatch({ eventId: seat.event_id as string }).catch(() => {}),
+    );
+  } catch {
+    // best-effort
   }
 
   const { count } = await supabase

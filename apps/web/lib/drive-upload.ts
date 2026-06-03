@@ -34,8 +34,12 @@ export async function readR2Object(
 ): Promise<Uint8Array> {
   const client = getR2Client();
   if (!client) throw new Error('r2_not_configured');
+  // Some rows (e.g. papic guest captures) persist the key as a full
+  // `r2://<bucket>/<path>` URI; the S3 GetObject wants the bare object path.
+  // Strip the scheme+bucket prefix if present (no-op for already-bare keys).
+  const objectKey = key.replace(/^r2:\/\/[^/]+\//, '');
   const res = await client.send(
-    new GetObjectCommand({ Bucket: bucket, Key: key }),
+    new GetObjectCommand({ Bucket: bucket, Key: objectKey }),
   );
   if (!res.Body) throw new Error('r2_empty_body');
   const stream = res.Body as unknown as {

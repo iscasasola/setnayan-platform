@@ -2,9 +2,10 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { enqueueRelease } from '@/lib/photo-delivery-release';
+import { enqueueRelease, processBatchForEvent } from '@/lib/photo-delivery-release';
 import { revokeDriveToken } from '@/lib/papic-drive';
 
 // Iteration 0009 Photo Delivery — sync-mode server actions.
@@ -154,6 +155,23 @@ export async function releasePhotoDelivery(formData: FormData) {
     );
   }
 
+  // Cron-free drain (replaces the dormant /api/cron/photo-delivery-tick, which
+  // never ran — no scheduler was ever wired): copy the released photos to the
+  // couple's Drive in the BACKGROUND with after(), so this action returns
+  // immediately. Bounded per click; any remainder drains on the next release
+  // (or a papic capture's own auto-sync). Best-effort — never blocks the UI.
+  if (!result.alreadyComplete) {
+    const eventId = auth.eventId;
+    after(async () => {
+      for (let i = 0; i < 40; i++) {
+        const tick = await processBatchForEvent({ eventId, batchSize: 6 }).catch(
+          () => null,
+        );
+        if (!tick || tick.status !== 'running') break;
+      }
+    });
+  }
+
   revalidatePath(`/dashboard/${auth.eventId}/add-ons/photo-delivery`);
   redirect(
     `/dashboard/${auth.eventId}/add-ons/photo-delivery?release_started=1${
@@ -180,11 +198,13 @@ export async function disconnectPhotoDelivery(formData: FormData) {
   const admin = createAdminClient();
 
   // Revoke at Google + mark grant revoked (best-effort).
+  // Phase 0: revokes the single shared Drive grant (provider='drive') — see the
+  // matching note in /api/photo-delivery/disconnect.
   const { data: grant } = await admin
     .from('oauth_grants')
     .select('grant_id, refresh_token, revoked_at')
     .eq('event_id', auth.eventId)
-    .eq('provider', 'drive_photo_delivery')
+    .eq('provider', 'drive')
     .maybeSingle();
 
   if (grant && !grant.revoked_at && grant.refresh_token) {

@@ -47,7 +47,7 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { BarChart3, Check, ChevronLeft, Search, SlidersHorizontal, UserPlus, X } from 'lucide-react';
+import { ArrowUpDown, BarChart3, Check, ChevronDown, ChevronLeft, Search, SlidersHorizontal, UserPlus, X } from 'lucide-react';
 import {
   ROLE_LABELS,
   SIDE_LABELS,
@@ -71,6 +71,37 @@ const PANELS = [
 ] as const;
 
 const SIDES: GuestSide[] = ['bride', 'groom', 'both'];
+
+// useKeyboardInset — the on-screen keyboard's height in px (0 when closed) via
+// the VisualViewport API. iOS Safari keeps window.innerHeight at the full
+// LAYOUT height and shrinks visualViewport when the keyboard opens, so the gap
+// below the visual viewport IS the keyboard (+ its accessory bar). We use it to
+// pin the fixed sheet directly above the keyboard instead of letting iOS float
+// it into the middle of the screen with dead space (owner-reported 2026-06-03).
+function useKeyboardInset(): number {
+  const [inset, setInset] = useState(0);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    let raf = 0;
+    const update = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const gap = window.innerHeight - vv.height - vv.offsetTop;
+        setInset(gap > 0 ? Math.round(gap) : 0);
+      });
+    };
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    update();
+    return () => {
+      cancelAnimationFrame(raf);
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+    };
+  }, []);
+  return inset;
+}
 
 export function MobileGuestCarousel({
   eventId,
@@ -110,9 +141,23 @@ export function MobileGuestCarousel({
   const trackRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
   const [assignOpen, setAssignOpen] = useState(false);
+  // Collapse the panel sheet down to just its grabber handle so the guest list
+  // above stretches (owner 2026-06-03). The keyboard state takes precedence.
+  const [collapsed, setCollapsed] = useState(false);
+  // Filter / sort bottom sheets opened from the search compose-bar icons
+  // (owner directive 2026-06-03 — Messenger-style icons left of the search).
+  const [filterSheet, setFilterSheet] = useState(false);
+  const [sortSheet, setSortSheet] = useState(false);
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
+
+  // When the keyboard is open, pin the sheet right above it (and hide the
+  // bottom nav) so typing in Add/Search isn't shoved into the middle of the
+  // screen — the guest list keeps the rest of the height. The > 100 guard
+  // ignores small visual-viewport jitters so only a real keyboard triggers it.
+  const kbInset = useKeyboardInset();
+  const kbOpen = kbInset > 100;
 
   // Belt-and-suspenders: after a bulk apply redirects back with a flash, make
   // sure the Assign sheet is closed (the apply handler already closes it +
@@ -163,13 +208,63 @@ export function MobileGuestCarousel({
 
   const currentRsvp = searchParams.get('rsvp') ?? '';
 
+  // --- Bottom-sheet height + drag-to-close (owner 2026-06-03) ---
+  // The sheet opens to ONLY the height the active panel needs — Summary's 2×2
+  // count grid is taller than Search's single compose bar, etc. — instead of a
+  // fixed third of the screen. The grabber is also draggable: drag down to snap
+  // closed (grabber only), up to snap open; a tap toggles. The keyboard-docked
+  // heights (kbOpen) are unchanged.
+  const GRABBER_H = 36; // h-9 grabber strip
+  // Per-panel open heights incl. the grabber — Summary · Search · Add · Customize.
+  const PANEL_OPEN_H = [200, 108, 196, 196];
+  const openH = PANEL_OPEN_H[active] ?? 200;
+  const [dragH, setDragH] = useState<number | null>(null);
+  const dragRef = useRef<{ startY: number; startH: number; moved: boolean } | null>(null);
+  const restingH = collapsed ? GRABBER_H : openH;
+
+  const onGrabberDown = (e: React.PointerEvent) => {
+    if (kbOpen) return;
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+    dragRef.current = { startY: e.clientY, startH: restingH, moved: false };
+    setDragH(restingH);
+  };
+  const onGrabberMove = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+    if (Math.abs(e.clientY - d.startY) > 3) d.moved = true;
+    setDragH(Math.max(GRABBER_H, Math.min(d.startH - (e.clientY - d.startY), openH)));
+  };
+  const onGrabberUp = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+    dragRef.current = null;
+    if (!d.moved) {
+      // A tap (no real drag) just toggles open/closed.
+      setCollapsed((c) => !c);
+    } else {
+      // Snap to whichever end the drag finished closer to.
+      const finalH = Math.max(GRABBER_H, Math.min(d.startH - (e.clientY - d.startY), openH));
+      setCollapsed(finalH < (GRABBER_H + openH) / 2);
+    }
+    setDragH(null);
+  };
+
   return (
     <>
       {/* in-flow spacer covering the panel sheet + the bottom-nav strip so the
           guest list's last rows clear both fixed elements */}
       <div
         aria-hidden
-        className="h-[calc(var(--gcar-h)+4rem+env(safe-area-inset-bottom))] lg:hidden"
+        className="h-[calc(var(--gcar-h)+4rem+env(safe-area-inset-bottom))] transition-[height] duration-200 ease-out lg:hidden"
+        style={
+          // Mirror the sheet's resting height so the guest list's bottom padding
+          // tracks the panel exactly (per-panel open height, or just the grabber
+          // when collapsed). NOT collapsed when the keyboard is up — that
+          // 348px→0 reflow was the iOS tap-delivery bug (owner-reported 2026-06-03).
+          kbOpen
+            ? undefined
+            : { height: `calc(${restingH}px + 4rem + env(safe-area-inset-bottom))` }
+        }
       />
 
       {/* Panel content sheet — docked directly ABOVE the guest bottom nav (the
@@ -178,13 +273,41 @@ export function MobileGuestCarousel({
           below". Owner directive 2026-06-03: the 4 menus moved OUT of the top
           of this sheet and BECAME the bottom nav, so this sheet now holds only
           the active panel. */}
-      <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 h-[var(--gcar-h)] overflow-hidden rounded-t-2xl bg-cream shadow-[0_-12px_30px_-18px_rgba(30,34,41,0.28)] ring-1 ring-ink/10 lg:hidden">
+      <div
+        className={`fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 flex h-[var(--gcar-h)] max-h-[85dvh] flex-col overflow-hidden rounded-t-2xl bg-cream shadow-[0_-12px_30px_-18px_rgba(30,34,41,0.28)] ring-1 ring-ink/10 lg:hidden ${kbOpen || dragH !== null ? '' : 'transition-[height] duration-200 ease-out'}`}
+        style={
+          kbOpen
+            ? { bottom: kbInset, height: active === 2 ? 190 : active === 1 ? 84 : undefined }
+            : { height: dragH ?? restingH }
+        }
+      >
+        {/* Grabber — tap to collapse the panel down to this handle so the guest
+            list above stretches; tap again to expand. Hidden while typing. */}
+        {!kbOpen && (
+          <button
+            type="button"
+            onPointerDown={onGrabberDown}
+            onPointerMove={onGrabberMove}
+            onPointerUp={onGrabberUp}
+            onPointerCancel={onGrabberUp}
+            aria-label={collapsed ? 'Expand panel' : 'Collapse panel'}
+            aria-expanded={!collapsed}
+            className="flex h-9 shrink-0 touch-none cursor-grab items-center justify-center gap-2 text-ink/40 transition-colors active:cursor-grabbing active:text-ink/70"
+          >
+            <span aria-hidden className="h-1.5 w-9 rounded-full bg-ink/25" />
+            <ChevronDown
+              aria-hidden
+              strokeWidth={2.5}
+              className={`h-4 w-4 transition-transform ${collapsed ? 'rotate-180' : ''}`}
+            />
+          </button>
+        )}
         {/* swipe track — 4 panels, scroll-snap; full sheet height now that the
             tab strip moved to the bottom nav. Tap a nav item OR swipe to jump. */}
         <div
           ref={trackRef}
           onScroll={onScroll}
-          className="flex h-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {/* 1 — Summary: animated RSVP counts (also filter links) */}
           <section className="w-full shrink-0 snap-center overflow-y-auto px-4 py-3">
@@ -220,104 +343,53 @@ export function MobileGuestCarousel({
             </div>
           </section>
 
-          {/* 2 — Find: search + the 4-dimension filter (Side · RSVP · Role ·
-              Group), laid out to fit WITHOUT vertical scroll (owner directive
-              2026-06-03 — "show all of these without scrolling"). Side + RSVP
-              are inline segmented toggles (small fixed sets); Role + Group are
-              dropdowns (larger/variable), two-up to save height; Sort is a
-              compact dropdown. Tags stay searchable via the box above + get an
-              optional dropdown only when the couple added custom tags. */}
-          <section className="w-full shrink-0 snap-center space-y-2.5 overflow-y-auto px-4 py-3">
-            <LiveSearch initialValue={q} placeholder="Name, side, role, group…" />
-
-            {/* SIDE — segmented. "Bride"/"Groom" include both-side guests,
-                matching the desktop team filter, so there's no separate Both. */}
-            <SegRow label="Side">
-              <Seg href={buildHref({ team: null })} active={teamFilter === 'all'}>
-                All
-              </Seg>
-              <Seg href={buildHref({ team: 'bride' })} active={teamFilter === 'bride'}>
-                Bride
-              </Seg>
-              <Seg href={buildHref({ team: 'groom' })} active={teamFilter === 'groom'}>
-                Groom
-              </Seg>
-            </SegRow>
-
-            {/* RSVP — segmented */}
-            <SegRow label="RSVP">
-              <Seg href={buildHref({ rsvp: null })} active={!currentRsvp}>
-                All
-              </Seg>
-              <Seg href={buildHref({ rsvp: 'attending' })} active={currentRsvp === 'attending'}>
-                Going
-              </Seg>
-              <Seg href={buildHref({ rsvp: 'pending' })} active={currentRsvp === 'pending'}>
-                Pending
-              </Seg>
-              <Seg href={buildHref({ rsvp: 'declined' })} active={currentRsvp === 'declined'}>
-                Declined
-              </Seg>
-            </SegRow>
-
-            {/* ROLE + GROUP — dropdowns. They share the ?view param, so picking
-                one resets the other to "All" (the server filters by one at a
-                time). Two-up to keep the whole panel within one screen. */}
-            <div className="grid grid-cols-2 gap-2">
-              <SelectFilter
-                label="Role"
-                allLabel="All roles"
-                value={!currentGroupId && activeView !== 'all' ? activeView : ''}
-                options={views
-                  .filter((v) => v.key !== 'all')
-                  .map((v) => ({ value: v.key, label: v.label }))}
-                onChange={(v) => router.push(buildHref({ view: v || null }))}
-              />
-              <SelectFilter
-                label="Group"
-                allLabel="All groups"
-                value={currentGroupId ?? ''}
-                disabled={groups.length === 0}
-                options={groups.map((g) => ({ value: g.group_id, label: g.label }))}
-                onChange={(v) => router.push(buildHref({ view: v ? `group:${v}` : null }))}
-              />
-            </div>
-
-            {/* TAGS — optional dropdown, only when custom tags exist. */}
-            {tags.length > 0 ? (
-              <SelectFilter
-                label="Tags"
-                allLabel="All tags"
-                value={activeTag}
-                options={tags.map((t) => ({ value: t, label: t }))}
-                onChange={(v) => router.push(buildHref({ tag: v || null }))}
-              />
-            ) : null}
-
-            {/* SORT dropdown + Clear-all */}
-            <div className="flex items-center gap-2">
-              <SelectFilter
-                className="flex-1"
-                label="Sort"
-                value={currentSort}
-                options={sorts.map((s) => ({ value: s.key, label: s.label }))}
-                onChange={(v) => router.push(buildHref({ sort: v }))}
-              />
-              {hasActiveFilter || teamFilter !== 'all' || currentRsvp ? (
-                <Link
-                  href={buildHref({ team: null, rsvp: null, view: null, tag: null })}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-2 text-[11px] font-medium text-ink/55 hover:bg-ink/5 hover:text-ink"
-                >
-                  <X className="h-3 w-3" strokeWidth={2} aria-hidden />
-                  Clear
-                </Link>
-              ) : null}
+          {/* 2 — Find: Messenger-style compose bar — the search input with
+              filter + sort as icons on its LEFT (owner directive 2026-06-03 —
+              "filtering and sorting will be similar to the icons on the left of
+              the search bar"). The filters + sort live in bottom sheets opened
+              from the icons; the input docks flush above the keyboard. */}
+          <section
+            className={`flex w-full shrink-0 snap-center flex-col overflow-y-auto px-4 py-3 ${
+              kbOpen ? 'justify-end' : 'justify-start'
+            }`}
+          >
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setFilterSheet(true)}
+                aria-label="Filter guests"
+                className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink/55 hover:bg-ink/5 hover:text-ink"
+              >
+                <SlidersHorizontal className="h-[22px] w-[22px]" strokeWidth={1.75} aria-hidden />
+                {hasActiveFilter || teamFilter !== 'all' || currentRsvp ? (
+                  <span
+                    aria-hidden
+                    className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-terracotta ring-2 ring-cream"
+                  />
+                ) : null}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSortSheet(true)}
+                aria-label="Sort guests"
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink/55 hover:bg-ink/5 hover:text-ink"
+              >
+                <ArrowUpDown className="h-[22px] w-[22px]" strokeWidth={1.75} aria-hidden />
+              </button>
+              <div className="flex-1">
+                <LiveSearch initialValue={q} placeholder="Search names, roles…" />
+              </div>
             </div>
           </section>
 
-          {/* 3 — Add: inline quick-entry form */}
-          <section className="flex w-full shrink-0 snap-center flex-col justify-center px-4 py-3">
-            <QuickAddInlineForm eventId={eventId} />
+          {/* 3 — Add: inline quick-entry form. justify-end when the keyboard is
+              up so the two inputs sit flush above it. */}
+          <section
+            className={`flex w-full shrink-0 snap-center flex-col overflow-y-auto px-4 py-3 ${
+              kbOpen ? 'justify-end' : 'justify-center'
+            }`}
+          >
+            <QuickAddInlineForm eventId={eventId} kbOpen={kbOpen} />
           </section>
 
           {/* 4 — Customize: select guests + bulk-assign (owner directive
@@ -338,7 +410,9 @@ export function MobileGuestCarousel({
           sheet above to that panel; the active panel highlights here. */}
       <nav
         aria-label="Guest panels"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-ink/10 bg-cream/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+        className={`fixed inset-x-0 bottom-0 z-40 border-t border-ink/10 bg-cream/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden ${
+          kbOpen ? 'hidden' : ''
+        }`}
       >
         <ul className="grid grid-cols-4 px-1 py-1">
           {PANELS.map((p, i) => {
@@ -379,6 +453,155 @@ export function MobileGuestCarousel({
         eventId={eventId}
         groups={groups}
       />
+
+      {/* Filter bottom sheet — opened from the compose-bar filter icon. Reuses
+          the SegRow/Seg/SelectFilter controls; each writes a URL param so the
+          list updates live behind the sheet (owner directive 2026-06-03). */}
+      {filterSheet ? (
+        <div
+          className="fixed inset-0 z-50 lg:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Filter guests"
+        >
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={() => setFilterSheet(false)}
+            className="absolute inset-0 bg-ink/40 backdrop-blur-[1px]"
+          />
+          <div className="absolute inset-x-0 bottom-0 max-h-[80vh] space-y-4 overflow-y-auto rounded-t-2xl border-t border-ink/10 bg-cream p-4 pb-[calc(16px+env(safe-area-inset-bottom))] shadow-[0_-16px_40px_-20px_rgba(30,34,41,0.4)]">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold text-ink">Filter</h2>
+              {hasActiveFilter || teamFilter !== 'all' || currentRsvp ? (
+                <Link
+                  href={buildHref({ team: null, rsvp: null, view: null, tag: null })}
+                  onClick={() => setFilterSheet(false)}
+                  className="ml-auto inline-flex items-center gap-1 text-[12px] font-medium text-ink/55 hover:text-ink"
+                >
+                  <X className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+                  Clear all
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setFilterSheet(false)}
+                  aria-label="Close"
+                  className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-full text-ink/60 hover:bg-ink/5"
+                >
+                  <X className="h-4 w-4" strokeWidth={2} aria-hidden />
+                </button>
+              )}
+            </div>
+
+            <SegRow label="Side">
+              <Seg href={buildHref({ team: null })} active={teamFilter === 'all'}>
+                All
+              </Seg>
+              <Seg href={buildHref({ team: 'bride' })} active={teamFilter === 'bride'}>
+                Bride
+              </Seg>
+              <Seg href={buildHref({ team: 'groom' })} active={teamFilter === 'groom'}>
+                Groom
+              </Seg>
+            </SegRow>
+
+            <SegRow label="RSVP">
+              <Seg href={buildHref({ rsvp: null })} active={!currentRsvp}>
+                All
+              </Seg>
+              <Seg href={buildHref({ rsvp: 'attending' })} active={currentRsvp === 'attending'}>
+                Going
+              </Seg>
+              <Seg href={buildHref({ rsvp: 'pending' })} active={currentRsvp === 'pending'}>
+                Pending
+              </Seg>
+              <Seg href={buildHref({ rsvp: 'declined' })} active={currentRsvp === 'declined'}>
+                Declined
+              </Seg>
+            </SegRow>
+
+            <div className="grid grid-cols-2 gap-2">
+              <SelectFilter
+                label="Role"
+                allLabel="All roles"
+                value={!currentGroupId && activeView !== 'all' ? activeView : ''}
+                options={views
+                  .filter((v) => v.key !== 'all')
+                  .map((v) => ({ value: v.key, label: v.label }))}
+                onChange={(v) => router.push(buildHref({ view: v || null }))}
+              />
+              <SelectFilter
+                label="Group"
+                allLabel="All groups"
+                value={currentGroupId ?? ''}
+                disabled={groups.length === 0}
+                options={groups.map((g) => ({ value: g.group_id, label: g.label }))}
+                onChange={(v) => router.push(buildHref({ view: v ? `group:${v}` : null }))}
+              />
+            </div>
+
+            {tags.length > 0 ? (
+              <SelectFilter
+                label="Tags"
+                allLabel="All tags"
+                value={activeTag}
+                options={tags.map((t) => ({ value: t, label: t }))}
+                onChange={(v) => router.push(buildHref({ tag: v || null }))}
+              />
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Sort bottom sheet — opened from the compose-bar sort icon. */}
+      {sortSheet ? (
+        <div
+          className="fixed inset-0 z-50 lg:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Sort guests"
+        >
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={() => setSortSheet(false)}
+            className="absolute inset-0 bg-ink/40 backdrop-blur-[1px]"
+          />
+          <div className="absolute inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto rounded-t-2xl border-t border-ink/10 bg-cream p-4 pb-[calc(16px+env(safe-area-inset-bottom))] shadow-[0_-16px_40px_-20px_rgba(30,34,41,0.4)]">
+            <div className="mb-3 flex items-center gap-2">
+              <h2 className="text-sm font-semibold text-ink">Sort by</h2>
+              <button
+                type="button"
+                onClick={() => setSortSheet(false)}
+                aria-label="Close"
+                className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-full text-ink/60 hover:bg-ink/5"
+              >
+                <X className="h-4 w-4" strokeWidth={2} aria-hidden />
+              </button>
+            </div>
+            <div className="grid gap-1">
+              {sorts.map((s) => (
+                <Link
+                  key={s.key}
+                  href={buildHref({ sort: s.key })}
+                  onClick={() => setSortSheet(false)}
+                  className={`flex items-center justify-between rounded-xl px-4 py-3 text-sm transition-colors ${
+                    currentSort === s.key
+                      ? 'bg-terracotta/10 font-semibold text-terracotta-700'
+                      : 'text-ink/80 hover:bg-ink/5'
+                  }`}
+                >
+                  {s.label}
+                  {currentSort === s.key ? (
+                    <Check className="h-4 w-4" strokeWidth={2} aria-hidden />
+                  ) : null}
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }
@@ -527,7 +750,7 @@ function AnimatedCount({ value }: { value: number }) {
  *   Enter on first name  → moves focus to last name (no-op if first is empty)
  *   Enter on last name   → adds the guest, clears both fields, loops to first name
  */
-function QuickAddInlineForm({ eventId }: { eventId: string }) {
+function QuickAddInlineForm({ eventId, kbOpen }: { eventId: string; kbOpen: boolean }) {
   const router = useRouter();
   const [first, setFirst] = useState('');
   const [last, setLast] = useState('');
@@ -560,7 +783,13 @@ function QuickAddInlineForm({ eventId }: { eventId: string }) {
       setFirst('');
       setLast('');
       router.refresh();
-      firstRef.current?.focus();
+      // Return the cursor to First name for the next rapid entry. DEFERRED a
+      // tick on purpose: at this point the inputs are still disabled={busy}
+      // (busy resets in the finally below, which hasn't run yet), and focus()
+      // is a no-op on a disabled element — so a synchronous call here silently
+      // failed to loop back (owner-reported 2026-06-03). The timeout lets React
+      // flush busy=false + re-enable the field first. Mirrors QuickAddSheet.
+      setTimeout(() => firstRef.current?.focus(), 0);
     } catch {
       setAddError('Something went wrong — try again.');
     } finally {
@@ -589,34 +818,15 @@ function QuickAddInlineForm({ eventId }: { eventId: string }) {
     'w-full rounded-xl border border-ink/15 bg-cream px-4 py-3 text-sm text-ink placeholder:text-ink/35 focus:border-terracotta focus:outline-none disabled:opacity-50';
 
   return (
-    <div className="flex h-full flex-col justify-center gap-3">
-      <div className="space-y-2">
-        <input
-          ref={firstRef}
-          type="text"
-          inputMode="text"
-          autoCapitalize="words"
-          placeholder="First name"
-          value={first}
-          onChange={(e) => setFirst(e.target.value)}
-          onKeyDown={handleFirstKeyDown}
-          disabled={busy}
-          className={inputCls}
-        />
-        <input
-          ref={lastRef}
-          type="text"
-          inputMode="text"
-          autoCapitalize="words"
-          placeholder="Last name"
-          value={last}
-          onChange={(e) => setLast(e.target.value)}
-          onKeyDown={handleLastKeyDown}
-          disabled={busy}
-          className={inputCls}
-        />
-      </div>
-
+    // Inputs LAST so they sit flush above the keyboard (owner directive
+    // 2026-06-03 — "keyboard then straight to the text box"); the helper +
+    // session count move above them. justify-end docks the stack to the
+    // bottom while the keyboard is up.
+    <div
+      className={`flex h-full flex-col gap-3 ${
+        kbOpen ? 'justify-end' : 'justify-center'
+      }`}
+    >
       {addError ? (
         <p className="text-center text-xs font-medium text-rose-600">{addError}</p>
       ) : (
@@ -630,6 +840,39 @@ function QuickAddInlineForm({ eventId }: { eventId: string }) {
           {count} {count === 1 ? 'guest' : 'guests'} added this session
         </p>
       )}
+
+      <div className="space-y-2">
+        <input
+          ref={firstRef}
+          type="text"
+          inputMode="text"
+          autoCapitalize="words"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+          placeholder="First name"
+          value={first}
+          onChange={(e) => setFirst(e.target.value)}
+          onKeyDown={handleFirstKeyDown}
+          disabled={busy}
+          className={inputCls}
+        />
+        <input
+          ref={lastRef}
+          type="text"
+          inputMode="text"
+          autoCapitalize="words"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+          placeholder="Last name"
+          value={last}
+          onChange={(e) => setLast(e.target.value)}
+          onKeyDown={handleLastKeyDown}
+          disabled={busy}
+          className={inputCls}
+        />
+      </div>
     </div>
   );
 }
@@ -658,7 +901,7 @@ function CustomizePanel({
   // the selection isn't stranded behind the entry button.
   if (!selectMode && count === 0) {
     return (
-      <section className="flex w-full shrink-0 snap-center flex-col items-center justify-center gap-3 px-6 py-3 text-center">
+      <section className="flex w-full shrink-0 snap-center flex-col items-center justify-center gap-3 overflow-y-auto px-6 py-3 text-center">
         <p className="text-sm font-semibold text-ink">Select &amp; assign</p>
         <p className="max-w-[260px] text-xs leading-snug text-ink/55">
           Pick several guests, then set their side, role, or group in one go.
@@ -676,7 +919,7 @@ function CustomizePanel({
   }
 
   return (
-    <section className="flex w-full shrink-0 snap-center flex-col justify-center gap-3 px-4 py-3">
+    <section className="flex w-full shrink-0 snap-center flex-col justify-center gap-3 overflow-y-auto px-4 py-3">
       <div className="flex items-center justify-between gap-3">
         <label className="inline-flex items-center gap-2 text-sm text-ink">
           <input

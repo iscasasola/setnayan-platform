@@ -131,6 +131,7 @@ export type WeddingTile =
   | 'outdoor'
   | 'fireworks'
   | 'led_wall'
+  | 'digital_services'
   // PROGRAM
   | 'live_band'
   | 'choir'
@@ -193,6 +194,7 @@ export const TILE_PARENT: Record<WeddingTile, WeddingFolder> = {
   outdoor: 'design',
   fireworks: 'design',
   led_wall: 'design',
+  digital_services: 'design',
   live_band: 'program',
   choir: 'program',
   orchestra: 'program',
@@ -254,6 +256,7 @@ export const WEDDING_TILE_ORDER: ReadonlyArray<WeddingTile> = [
   'outdoor',
   'fireworks',
   'led_wall',
+  'digital_services',
   // PROGRAM
   'live_band',
   'choir',
@@ -317,6 +320,7 @@ export const WEDDING_TILE_LABEL: Record<WeddingTile, string> = {
   outdoor: 'Outdoor',
   fireworks: 'Fireworks',
   led_wall: 'LED Wall',
+  digital_services: 'Digital Services',
   live_band: 'Live Band',
   choir: 'Choir',
   orchestra: 'Orchestra',
@@ -374,6 +378,7 @@ export const WEDDING_TILE_SLUG: Record<WeddingTile, string> = {
   outdoor: 'outdoor',
   fireworks: 'fireworks',
   led_wall: 'led-wall',
+  digital_services: 'digital-services',
   live_band: 'live-band',
   choir: 'choir',
   orchestra: 'orchestra',
@@ -600,7 +605,7 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   capiz_native_decor:                { folder: 'design', tile: 'stylist_decorator', phase: 'V1.2', ph: true, tradition: true },
   hacienda_heritage_decor:           { folder: 'design', tile: 'stylist_decorator', phase: 'V1.2', ph: true, tradition: true },
   maranao_okir_decor:                { folder: 'design', tile: 'stylist_decorator', phase: 'V1.4', faith: 'Muslim', tradition: true },
-  setnayan_custom_monogram:          { folder: 'design', tile: 'stylist_decorator', phase: 'V1.1 base', setnayan: true },
+  setnayan_custom_monogram:          { folder: 'design', tile: 'digital_services', phase: 'V1.1 base', setnayan: true },
   florals:                           { folder: 'design', tile: 'florist', phase: 'V1.1 base' },
   garden_wedding_florist:            { folder: 'design', tile: 'florist', phase: 'V1.2' },
   beach_wedding_florist:             { folder: 'design', tile: 'florist', phase: 'V1.2' },
@@ -618,7 +623,7 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   outdoor_lighting_specialist:       { folder: 'design', tile: 'outdoor', phase: 'V1.2' },
   fireworks_pyro:                    { folder: 'design', tile: 'fireworks', phase: 'V1.2' },
   led_video_wall:                    { folder: 'design', tile: 'led_wall', phase: 'V1.2' },
-  setnayan_pailaw:                   { folder: 'design', tile: 'led_wall', phase: 'V1.1 base', setnayan: true },
+  setnayan_pailaw:                   { folder: 'design', tile: 'digital_services', phase: 'V1.1 base', setnayan: true },
 
   // ════════════════════════════════════════════════════════════════════
   // PROGRAM — Live Band · Choir · Orchestra · Wedding Singer · DJ ·
@@ -629,7 +634,7 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   choir_string_quartet:              { folder: 'program', tile: 'choir', phase: 'V1.1.3' },
   orchestra:                         { folder: 'program', tile: 'orchestra', phase: 'V1.2' },
   wedding_singer:                    { folder: 'program', tile: 'wedding_singer', phase: 'V1.1.3' },
-  setnayan_pakanta:                  { folder: 'program', tile: 'wedding_singer', phase: 'V1.1 base', setnayan: true },
+  setnayan_pakanta:                  { folder: 'design', tile: 'digital_services', phase: 'V1.1 base', setnayan: true },  // re-grouped Program → Design › Digital Services (2026-06-03)
   dj:                                { folder: 'program', tile: 'dj', phase: 'V1.1.3' },
   entourage_choreographer:           { folder: 'program', tile: 'choreographer', phase: 'V1.2', ph: true },
   first_dance_choreographer:         { folder: 'program', tile: 'choreographer', phase: 'V1.2' },

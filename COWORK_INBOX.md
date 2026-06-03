@@ -27,6 +27,214 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Customer mobile /more de-duped (bottom-nav tabs removed from the overflow grid)
+
+**Why:** "Less stressful" pass on the customer dashboard. The mobile `/more` overflow grid was re-listing the four permanent bottom-nav tabs (Home · Guests · Services · Website) as cards. They're now filtered out so `/more` shows true overflow only; **Today's Focus is kept** (it's the sole mobile entry to `/today` — event-home no longer links it since `WizardHero` moved out 2026-05-24). The desktop sidebar is unchanged (still shows every surface). Small nav-presentation refinement, worth a decision-log row for continuity with the other 2026-06-02/03 customer-nav rows.
+
+**Spec corpus update (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/DECISION_LOG.md`** — append a dated row:
+   `| 2026-06-03 | Customer mobile /more grid de-duped — the 4 bottom-nav tabs (Home·Guests·Services·Website) no longer repeat as cards; Today's Focus retained as the only mobile entry to /today; desktop sidebar unchanged. Copy polish: added find-date description, dropped dead orders/receipts keys, de-jargoned profile/add-ons/disputes cards. | apps/web/app/dashboard/[eventId]/more/page.tsx |`
+
+**Not spec-impacting (no action):** the copy/jargon polish + dead-key removal are presentation-only.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
+## [PENDING] 2026-06-03 — Public vendor profile now renders a per-category Details section + Portfolio gallery
+
+**Why:** Owner asked that the admin Demo Vendors seed make synthetic vendors *"provide the details and customization for each of the categories."* Implementing that surfaced that the iteration-0044 per-category attribute payloads (`vendor_service_attributes.attribute_payload`) had **no public render** at all — they only powered (future) filters/compare. To make the details visible, the public vendor profile gained two new sections. This is a small user-facing addition to the live `/v/[slug]` surface, so the specs should record it.
+
+**What landed (code):**
+
+1. **`/v/[slug]` Details section.** For each canonical_service the vendor offers, the profile now lists the filled per-category attributes (label → value facts; true booleans rendered as capability chips). Pricing-signal keys (`starting_price_centavos`, `price_model`, etc.) are intentionally omitted as redundant with the Packages section + the marketplace price filter.
+2. **`/v/[slug]` Portfolio gallery.** Renders `vendor_profiles.portfolio_r2_keys` (resolved through the existing `displayUrlForStoredAsset` R2/legacy-URL resolver). Both fetches are best-effort and degrade to empty if the table/column is absent.
+3. **Demo-data tooling (non-spec, dev/staging only).** `scripts/seed-demo-vendors.ts` now fills realistic schema-valid per-category attribute payloads + richer packages + picsum logo/portfolio images; `vendor-card.tsx`'s image guard allows the (already-whitelisted) picsum host so demo logos render on cards. These are simulation tooling, not product spec.
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/0044_*` (per-category schemas iteration — locate the folder/doc)** — note that a vendor's filled per-category attributes now surface publicly on `/v/[slug]` in a **Details** section (label → value + capability chips), not only in marketplace filters/compare.
+2. **`~/Documents/Claude/Projects/Setnayan/0022_vendor_dashboard/0022_vendor_dashboard.md`** — record that the public vendor profile renders a **Portfolio** gallery from the vendor's uploaded portfolio images + the per-category **Details** section described above.
+
+**Not spec-impacting (no action):** the demo-vendor seed enrichment + the picsum card-guard allowance are dev/staging simulation tooling.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
+## [PENDING] 2026-06-03 — Preparation items can now be TYPED (meeting + payment schedules)
+
+**Why:** Owner follow-up to PR #845. #845 let couples + booked vendors place **generic** dated tasks on the couple's `/schedule` **Preparation** agenda. The owner asked that those items be able to be **typed** — **meeting schedules** and **payment schedules**, not only tasks. This extends the hybrid Preparation surface; it does not change the four autofill sources.
+
+**What landed (code):**
+
+1. **Typed items, couple + vendor.** Both the couple's "+ Add to schedule" modal and the vendor's "Add to prep schedule" modal (on each accepted booking in `/vendor-dashboard/bookings`) gain a **Task / Meeting / Payment** picker. **Meeting** items show on the agenda with the same Meeting tag/icon as the autofilled vendor meetings; **Payment** items show with the same Payment tag/icon **plus a ₱ amount** (amount required, validated > 0); **Task** items are unchanged from #845. A vendor's own added items list shows the type glyph + amount inline.
+2. **Schema reason (record this — it's a deliberate design constraint).** Typed items are stored on `event_preparation_items` (the #845 table), **NOT** on `event_vendor_line_items` (budget) or `vendor_meetings`. Those two tables key to the couple's **TEXT-named** `event_vendors.vendor_id`, not the platform `vendor_profile_id`, so a platform vendor can't be RLS-scoped to write them. `event_preparation_items` already has the correct `vendor_profile_id` RLS.
+3. **Limitation (record this).** A payment placed on the Preparation schedule is a **planning reminder only** — it does **NOT** post to the couple's **Budget ledger** (iteration 0007 `event_vendor_line_items` / `event_vendor_payments`). Surfacing prep-payments in the budget (or vice-versa) is a possible future enhancement.
+
+**NEW migration — `20260730000000_event_preparation_item_kinds.sql` (owner must push):** additive `ALTER TABLE event_preparation_items ADD COLUMN kind VARCHAR(16) DEFAULT 'task' CHECK (kind IN ('task','meeting','payment'))` + `amount_php NUMERIC(12,2) CHECK (amount_php IS NULL OR amount_php >= 0)`. **No RLS change** (the #845 row policies already cover the new columns). The app **graceful-degrades** until it's applied: existing rows read as plain tasks (`SELECT *` + `kind ?? 'task'` / `amount_php ?? null`), and the whole manual source still returns empty if the #845 table itself isn't pushed.
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/0021_couple_dashboard_fully_purchased/0021_couple_dashboard_fully_purchased.md`** — update the Schedule → Preparation surface: hand-added prep items can now be **typed** (Task / Meeting / Payment). Document that a couple-added Meeting renders like an autofilled vendor meeting and a couple-added Payment renders like an autofilled payment (with a ₱ amount).
+2. **`~/Documents/Claude/Projects/Setnayan/0022_vendor_dashboard/0022_vendor_dashboard.md`** — record that a booked vendor (accepted chat thread) can place a **meeting** or **payment** schedule (not just a generic task) on the couple's Preparation schedule from their Bookings view, including the required amount on payments.
+3. **`~/Documents/Claude/Projects/Setnayan/0007_budget_expenses/0007_budget_expenses.md`** — add a note: a payment placed on the Preparation schedule (0021) is a **planning reminder only** and does NOT appear in the Budget ledger; the two surfaces are not yet linked. Flag the link-up as a possible future enhancement.
+
+**Cross-ref:** supersedes nothing in the #845 entry below — it's strictly additive on top of it. See `CHANGELOG.md` 2026-06-03 "typed Preparation items" for the full file list + verification.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
+## [PENDING] 2026-06-03 — Onboarding congrats vendor stat is now REAL marketplace counts (not "best-fit vendors from 2,400+")
+
+**Why:** The `/onboarding/wedding` congrats screen's third stat tile previously showed a fabricated **"N best-fit vendors from 2,400+"** (`N` = picked-categories × 5, floored at 12; "2,400+" hardcoded). Owner 2026-06-03: *"30 vendors and total 2400+ vendors is not actual results. want true results only."* Code now renders REAL `vendor_market_stats` head-counts — **"{matched} that fit your wedding · from {total}"** — using the same published-pool + compatibility definition as the `/vendors` marketplace, and **auto-hides** the tile when no real count can be computed. The money + hours tiles are unchanged.
+
+**What landed (code):** new server action `getOnboardingVendorCounts`; tile rewritten to real counts with auto-hide; fabricated `VENDORS_PER_CATEGORY` + `vendors` savings field removed (`apps/web/app/onboarding/wedding/{actions.ts, _components/onboarding-shell.tsx}`). No migration.
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/Onboarding_Wedding_Flow_2026-06-01.html`** (line ~949) — the congrats stat tile reads `best-fit vendors from 2,400+` with a hardcoded `data-count="48"`. Update the prototype copy + behavior to the shipped version: **"{matched} that fit your wedding · from {total}"** sourced from real marketplace counts, and note that it **auto-hides** when uncomputable. Drop the fabricated "2,400+" platform string from this tile.
+2. **`~/Documents/Claude/Projects/Setnayan/Time_and_Money_Saved_Model_2026-06-01.md`** — the "filtered N vendors for you" display wow-stat (row 1) and the "2,400-vendor pool" references should clarify that the **onboarding congrats vendor tile now uses real `vendor_market_stats` counts** (matched / total), not a per-category multiplier or the platform-pool figure. The money + hours model is untouched.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
+## [PENDING] 2026-06-03 — Drive surface is cron-free (0009 release + token refresh)
+
+**Why:** Both Drive-surface crons were dormant (no scheduler wired). Capture auto-sync (Phase 2) + the "Release to Drive" action now drain via Next 15 `after()`; OAuth tokens refresh on-demand. No crons.
+
+**Spec updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/0009_photo_delivery/0009_photo_delivery.md`** — replace any "Cloudflare Queue worker / external cron runner / photo-delivery-tick" copy-mechanism language with: the release + capture auto-sync copy to Drive via Next 15 `after()` background tasks (no cron); access tokens refresh on-demand in the consumers.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
+## [PENDING] 2026-06-03 — Schedule Preparation is now HYBRID (couple + booked-vendor manual items)
+
+**Why:** The manual-prep-items fast-follow that the #840 [PENDING] (below) called out as DEFERRED has now landed in code — **and** a vendor-add path was added on top. The couple's `/schedule` **Preparation** agenda is no longer read-only: it is **hybrid**. This supersedes the "manual prep items — DEFERRED" bullet in the #840 entry below (that bullet's predicted `event_preparation_items` table is exactly what shipped, except host-scope uses the canonical `current_couple_event_ids()` helper rather than `event_moderators`).
+
+**What landed (code):**
+
+1. **Couple can add + delete prep items.** A "+ Add to schedule" control on the Preparation agenda (and in its empty state) opens a small modal (label / date / optional notes) → inserts a `couple_manual` row. Couples can delete any `event_preparation_items` row on their own event — including dismissing vendor-added ones. (Autofill rows stay read-only, edited on their own surface as before.)
+2. **Booked vendors can add items to the couple's prep schedule.** On `/vendor-dashboard/bookings`, each **accepted** booking shows an "Add to prep schedule" control + the list of items that vendor has added (each with delete). Inserts a `vendor_prep` row stamped with the vendor's `vendor_profile_id`. Vendors can only add to bookings whose chat thread is `accepted`, and can only edit/delete their own rows.
+
+**NEW table — `event_preparation_items`** (migration `20260729000000_event_preparation_items.sql`, **owner must push**): `item_id`, `event_id`→`events`, nullable `vendor_profile_id`→`vendor_profiles` (NULL = couple-added), `due_date`, `label` (1–200), `notes`, `source_tag` (`couple_manual` | `vendor_prep`), `created_by`→`users`, timestamps. **RLS:** couple full CRUD via `current_couple_event_ids()`; vendor SELECT on accepted-thread events, INSERT only for accepted threads (own `vendor_profile_id`), UPDATE/DELETE own rows only via `current_vendor_ids()`. The aggregator graceful-degrades (autofill-only) until the migration is pushed.
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/0021_couple_dashboard_fully_purchased/0021_couple_dashboard_fully_purchased.md`** — update the Schedule surface: Preparation is now **hybrid** (read-only autofill + couple-added items + booked-vendor-added items), not read-only. Document the couple add/delete flow and that couples can dismiss vendor-added items.
+2. **`~/Documents/Claude/Projects/Setnayan/0022_vendor_dashboard/0022_vendor_dashboard.md`** (+ `0006`) — record that a **booked vendor** (accepted chat thread) can add dated items to the couple's Preparation schedule from their Bookings view, and manage (delete) their own additions. Note the accepted-thread gate.
+3. **`0007` (budget) + `0016` (Concierge)** — keep the existing cross-ref note from the #840 entry; the four autofill sources are unchanged. Optionally note the new `event_preparation_items` table as the home for hand-entered dated steps that those surfaces don't own.
+
+**Cross-ref:** corpus `DECISION_LOG.md` "Customer dashboard chrome RE-LOCKED" (2026-06-03). This is the hybrid completion of the Preparation surface the owner asked for after delta #3.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]` (and you may flip/strike the "manual prep items — DEFERRED" bullet in the #840 entry below, since it's now shipped).
+
+---
+
+## [PENDING] 2026-06-03 — Drive-copy Phase 2: Papic auto-sync (cron-free)
+
+**Why:** Papic captures now auto-sync to the couple's Google Drive — cron-free, via Next 15 `after()` (background copy in the capture request). The 5 other artifact feeders await their services' render/generation pipelines.
+
+**Spec updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/0012_paparazzi/0012_papic.md`** + pax-pricing docs — note Papic photos **auto-sync** to the couple's Drive on capture (background `after()` copy, no cron); the manual "Release to Drive" remains as a backfill and dedups against auto-synced photos.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
+## [PENDING] 2026-06-03 — Messages icon unread badge + chat read-state (delta #2 follow-up)
+
+**Why:** The Messages icon shipped icon-only in PR #837 (chrome-redesign delta #2). This PR adds the unread badge — which required giving chat a read-state it never had. A new per-user/per-thread read marker (`chat_thread_reads`) + an unread-thread count function (`count_unread_message_threads()`) land via additive migration `20260728000000_chat_thread_reads.sql` (RLS-at-create; **owner-push**). The badge mirrors the bell and graceful-degrades to 0 until the migration is applied.
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/0019_communications/0019_communications.md`** — chat now has a **per-user/per-thread read marker** `chat_thread_reads (thread_id, user_id, last_read_at, PK(thread_id,user_id))` (RLS: a user manages only their own rows) and a `count_unread_message_threads()` RPC (SECURITY DEFINER) returning the count of threads with a message from someone else newer than the viewer's `last_read_at`. A thread is marked read (`last_read_at = now()`) when the user opens it (both the couple and vendor thread pages). This is the first slice of the "Read receipts / read state" item the 0019 spec previously listed as **deferred** — it's a per-thread *last-read marker* (drives the unread badge), **not** per-message receipts or per-message "seen" ticks, which remain deferred.
+2. **`~/Documents/Claude/Projects/Setnayan/0021_couple_dashboard_fully_purchased/0021_couple_dashboard_fully_purchased.md`** — the couple top-bar **Messages icon now carries an unread badge** (terracotta dot, `9+` cap), alongside the existing notification bell. Server-rendered initial count + Realtime resync on new messages.
+
+**Implementation note for the spec:** the vendor-side thread scoping in the count function uses the existing `current_vendor_profile_ids()` helper (NOT the `current_vendor_ids()` stub, which returns NULL because `vendor_team_members` is a 0022 concern). No new helper was introduced.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
+## [PENDING] 2026-06-03 — Schedule Preparation⇄Event Day toggle (chrome redesign delta #3)
+
+**Why:** Delta #3 of the 2026-06-03 customer-dashboard chrome redesign landed in code. The couple's `/schedule` page now has a `Preparation | Event Day` toggle. **Event Day** = the existing editable day-of timeline (unchanged). **Preparation** = a NEW read-only, month-grouped agenda that auto-fills from existing dated data — no new table.
+
+**Sources WIRED into the Preparation agenda (real data today):**
+
+1. **Payment** — vendor payment due dates (`event_vendor_line_items.due_date`, fully-paid lines dropped).
+2. **Paperwork** — government/parish "complete by" deadlines (`event_paperwork` + `lib/paperwork.ts`).
+3. **Meeting** — vendor meetings / tastings / fittings (`vendor_meetings.starts_at`).
+4. **Milestone** — statutory windows computed from the wedding date + ceremony type (PSA/CENOMAR −180d, marriage license −120d, Pre-Cana −60d for Catholic).
+
+**Deferred / absent (so the spec records the honest gap):**
+
+- **Manual prep items — DEFERRED (fast-follow).** Letting couples ADD their own dated prep rows (e.g. "book hair & makeup trial") needs a NEW table + write path + RLS — out of scope for this additive, no-migration PR. **This is the documented fast-follow:** when prioritized, add an `event_preparation_items` table (host-scoped RLS via `event_moderators`), a create/edit/delete server action, and merge those rows into `lib/preparation.ts` as a `manual` source. The current Preparation tab is read-only aggregation only.
+- **Orders — ABSENT.** The `orders` table has no due-date column; its `expires_at` is subscription-renewal billing (already on Home + Orders), not wedding prep — intentionally omitted.
+- **Concierge / Today's Focus — ABSENT.** The 0016 wizard has no per-step dated milestone; only the statutory windows feed Preparation.
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/0021_couple_dashboard_fully_purchased/0021_couple_dashboard_fully_purchased.md`** — record that the Schedule surface now has a Preparation⇄Event Day toggle; document the four wired Preparation sources, that Preparation is read-only, and that manual prep entry is a deferred fast-follow needing a new table.
+2. **Schedule / day-of spec note + iteration `0007` (budget) + `0016` (Concierge)** — cross-ref that vendor payment due dates (0007) and statutory milestones feed the new Preparation agenda, and that Concierge has no per-step dated milestone to surface there.
+
+**Cross-ref:** corpus `DECISION_LOG.md` "Customer dashboard chrome RE-LOCKED" (2026-06-03) locks the model; this records the code landing of delta #3 of the 4-delta chrome-redesign port.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
+## [PENDING] 2026-06-03 — In-app add-ons surfaced inside Services tab (chrome redesign delta #4)
+
+**Why:** Delta #4 of the 2026-06-03 customer-dashboard chrome redesign shipped — the couple's "Services" tab (`/dashboard/[eventId]/vendors`) now includes a compact "In-app services & add-ons" section (mini-card grid, reusing `lib/add-ons-catalog.ts`) below the vendor plan+budget accordion. The canonical `/add-ons` route is unchanged; this is a second entry point only.
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/0006_vendors_management/0006_vendors_management.md`** — note that the Services tab (Vendors route, renamed in chrome redesign) now also surfaces in-app add-ons as a compact section below the vendor accordion. The full add-ons hub at `/add-ons` remains canonical; the Services tab carries a second entry point.
+2. **`~/Documents/Claude/Projects/Setnayan/0021_couple_dashboard_fully_purchased/0021_couple_dashboard_fully_purchased.md`** — record the dual-entry-point pattern: in-app add-ons are accessible both from the dedicated "Add-ons" surface (`/add-ons`) AND from within the "Services" tab (compact grid). Catalog is now in `lib/add-ons-catalog.ts` (shared between both surfaces).
+
+**Cross-ref:** corpus `DECISION_LOG.md` "Customer dashboard chrome RE-LOCKED" (2026-06-03) is the design authority. This is the final (delta #4) of the four chrome-redesign PRs.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
+## [PENDING] 2026-06-03 — Drive OAuth consolidated to one per-event connect (Phase 0)
+
+**Why:** Phase 0 collapsed the two Google Drive connections (Papic `provider='drive'` + Photo Delivery `provider='drive_photo_delivery'`) into one. The owner-facing setup + the 0009 spec change as a result.
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/API_Integration_Checklist.md`** — Google Drive OAuth now needs **one** redirect URI only (`GOOGLE_DRIVE_OAUTH_REDIRECT_URI` → `…/api/oauth/drive/callback`). **Remove `PHOTO_DELIVERY_OAUTH_REDIRECT_URI`** (retired).
+2. **`~/Documents/Claude/Projects/Setnayan/0009_photo_delivery/0009_photo_delivery.md`** — note the OAuth model is now the single shared Drive connection (one consent, one grant `provider='drive'`); disconnecting Drive from either panel disconnects the shared connection.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
+## [PENDING] 2026-06-03 — Messages icon in dashboard top bar (chrome redesign delta #2)
+
+**Why:** Delta #2 of the 2026-06-03 customer-dashboard chrome redesign landed in code — a `MessageSquare` icon link is now in the top bar right cluster (adjacent to the notifications bell), linking to the couple's vendor thread list (`/dashboard/[eventId]/messages`). No unread badge (V1 has no read-tracking column on `chat_messages`).
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/0021_couple_dashboard_fully_purchased/0021_couple_dashboard_fully_purchased.md`** — add to the top bar chrome description: a Messages icon (`MessageSquare`, same styling as the bell, aria-label "Messages") sits between the role-switch pill and the notifications bell. Links to the couple's thread list. No unread badge in V1; badge deferred pending a `read_at` migration on `chat_messages`.
+2. **`~/Documents/Claude/Projects/Setnayan/0019_communications/0019_communications.md`** — note that the couple can access their thread list from the persistent top bar icon (not only from the sidebar nav item).
+
+**Cross-ref:** corpus `DECISION_LOG.md` "Customer dashboard chrome RE-LOCKED" (2026-06-03).
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Home: compact "Your wedding details" card (chrome redesign delta #1)
 
 **Why:** Delta #1 of the 2026-06-03 customer-dashboard chrome redesign landed in code — event Home now shows a compact "Your wedding details" card (Location · Venue · Guests · Budget · Style · Cuisine · Photo & video) built from onboarding data, with a "See all wedding settings →" link to `/details`. It reshapes the existing Home "Personalized" block (chips → kv card); `/for-you` keeps the chip view.

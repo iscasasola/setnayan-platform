@@ -277,7 +277,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
        top-padding so the page content sits flush under the bottom-nav. */
     <section
       className="-mt-6 space-y-6 pt-[calc(env(safe-area-inset-top)+3.25rem)] lg:pt-0"
-      style={{ ['--gcar-h' as string]: 'clamp(208px, 33vh, 288px)' }}
+      style={{ ['--gcar-h' as string]: '280px' }}
     >
       <style>{`.shell-topbar{display:none}`}</style>
 

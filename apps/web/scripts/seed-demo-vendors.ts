@@ -944,6 +944,233 @@ function priceProfileFor(service: string): PricingProfile {
     };
   }
 
+  // Beauty & wellness (bridal prep adjacent to HMUA) — ₱3k-25k
+  if (/(bridal_spa|fitness|nutritionist|dermatology|dental|grooming|henna|family_mua|maternity_bride_mua|mature_bride_mua|touchup_mua)/i.test(s)) {
+    return {
+      packages: [
+        {
+          tierLabel: 'Single session',
+          minCentavos: 300_000,
+          maxCentavos: 900_000,
+          inclusions: [
+            'one bridal-prep session',
+            'consultation included',
+            'personalized plan',
+          ],
+        },
+        {
+          tierLabel: 'Bridal program',
+          minCentavos: 1_200_000,
+          maxCentavos: 2_500_000,
+          inclusions: [
+            '4-session bridal program',
+            'progress tracking',
+            'event-week touch-up',
+            'partner add-on option',
+          ],
+        },
+      ],
+      crewSize: () => [1, 2],
+      crewMealRequired: false,
+      numPackagesRange: [1, 2],
+    };
+  }
+
+  // Experiential booths & wellness stations — ₱15k-50k
+  if (/(magic_mirror|selfie|vr_ar|arcade|perfume_bar|massage_chair|mini_nail|nail_bar|aromatherapy|tarot|palmistry|astrology|retro_games|led_dance|hair_touchup_station)/i.test(s)) {
+    return {
+      packages: [
+        {
+          tierLabel: '4-hour station',
+          minCentavos: 1_500_000,
+          maxCentavos: 2_800_000,
+          inclusions: [
+            '4 hours of station service',
+            '1 attendant',
+            'setup + teardown',
+            'props / consumables included',
+          ],
+        },
+        {
+          tierLabel: 'Full reception',
+          minCentavos: 3_200_000,
+          maxCentavos: 5_000_000,
+          inclusions: [
+            '6 hours of station service',
+            '2 attendants',
+            'premium setup + branding',
+            'digital sharing / keepsakes',
+          ],
+        },
+      ],
+      crewSize: () => [1, 3],
+      crewMealRequired: false,
+      numPackagesRange: [1, 2],
+    };
+  }
+
+  // Live craft & keepsakes (on-site artists + souvenirs/tokens) — ₱8k-40k
+  if (/(portrait_painter|caricature|silhouette|calligraphy|keychain_engraving|embroidery|poetry_typewriter|souvenir|giveaway|_token|pasalubong)/i.test(s)) {
+    return {
+      packages: [
+        {
+          tierLabel: 'Per 50 guests',
+          minCentavos: 800_000,
+          maxCentavos: 1_800_000,
+          inclusions: [
+            'live craft station for ~50 guests',
+            '1 artist',
+            'materials included',
+            'take-home keepsakes',
+          ],
+        },
+        {
+          tierLabel: 'Full event',
+          minCentavos: 2_200_000,
+          maxCentavos: 4_000_000,
+          inclusions: [
+            'full-reception coverage',
+            '2 artists',
+            'premium materials + packaging',
+            'custom monogram option',
+          ],
+        },
+      ],
+      crewSize: () => [1, 2],
+      crewMealRequired: false,
+      numPackagesRange: [1, 2],
+    };
+  }
+
+  // Bridal accessories (veil / garter / headpiece / corsage / tiara) — ₱2k-20k
+  if (/(veil|garter|headpiece|corsage|tiara)/i.test(s)) {
+    return {
+      packages: [
+        {
+          tierLabel: 'Ready-to-wear',
+          minCentavos: 200_000,
+          maxCentavos: 800_000,
+          inclusions: [
+            'ready-to-wear piece',
+            'standard colorway',
+            'one fitting / sizing',
+          ],
+        },
+        {
+          tierLabel: 'Made-to-order',
+          minCentavos: 1_000_000,
+          maxCentavos: 2_000_000,
+          inclusions: [
+            'made-to-order design',
+            'material + finish consultation',
+            '2 fittings',
+            'matching entourage option',
+          ],
+        },
+      ],
+      crewSize: () => [1, 1],
+      crewMealRequired: false,
+      numPackagesRange: [1, 2],
+    };
+  }
+
+  // Ceremony prep & paperwork (seminars + license/document logistics) — ₱2k-15k
+  if (/(pre_cana|cfo_seminar|counseling|license_expediting|apostille|dfa_authentication|visa_wedding)/i.test(s)) {
+    return {
+      packages: [
+        {
+          tierLabel: 'Standard processing',
+          minCentavos: 200_000,
+          maxCentavos: 600_000,
+          inclusions: [
+            'requirements checklist',
+            'standard processing',
+            'document review',
+          ],
+        },
+        {
+          tierLabel: 'Assisted / expedited',
+          minCentavos: 800_000,
+          maxCentavos: 1_500_000,
+          inclusions: [
+            'end-to-end assistance',
+            'expedited processing',
+            'appointment scheduling',
+            'follow-up coordination',
+          ],
+        },
+      ],
+      crewSize: () => [1, 2],
+      crewMealRequired: false,
+      numPackagesRange: [1, 2],
+    };
+  }
+
+  // Rentals & site infrastructure — ₱5k-45k
+  if (/(generator_rental|restroom_rental|cooling_fans|misters|bug_repellent|parasol|tent_rental)/i.test(s)) {
+    return {
+      packages: [
+        {
+          tierLabel: 'Day rental',
+          minCentavos: 500_000,
+          maxCentavos: 1_500_000,
+          inclusions: [
+            'event-day rental',
+            'delivery + pickup (Metro Manila)',
+            'on-site setup',
+          ],
+        },
+        {
+          tierLabel: 'Full-event + standby crew',
+          minCentavos: 2_000_000,
+          maxCentavos: 4_500_000,
+          inclusions: [
+            'extended rental window',
+            'standby technician on-site',
+            'fuel / consumables included',
+            'destination delivery option',
+          ],
+        },
+      ],
+      crewSize: () => [1, 3],
+      crewMealRequired: true,
+      numPackagesRange: [1, 2],
+    };
+  }
+
+  // Food carts & dessert stations (snack / drink stations) — ₱8k-45k
+  if (/(halo_halo|mini_lechon|ice_cream_cart|cotton_candy|crepe|pancake|charcuterie|tea_bar|whiskey_cigar)/i.test(s)) {
+    return {
+      packages: [
+        {
+          tierLabel: 'Station for 80 pax',
+          minCentavos: 800_000,
+          maxCentavos: 1_800_000,
+          inclusions: [
+            'station service for ~80 guests',
+            '1-2 attendants',
+            'unlimited servings (3 hrs)',
+            'setup + styling',
+          ],
+        },
+        {
+          tierLabel: 'Station for 150 pax',
+          minCentavos: 2_200_000,
+          maxCentavos: 4_500_000,
+          inclusions: [
+            'station service for ~150 guests',
+            '2-3 attendants',
+            'unlimited servings (4 hrs)',
+            'premium cart styling + signage',
+          ],
+        },
+      ],
+      crewSize: () => [2, 4],
+      crewMealRequired: false,
+      numPackagesRange: [1, 2],
+    };
+  }
+
   // Default (catch-all for less common services) — ₱10k-40k
   return {
     packages: [
@@ -1116,6 +1343,399 @@ function buildDescription(rng: () => number, name: string, kindWord: string): st
 }
 
 // ===========================================================================
+// PER-CATEGORY ATTRIBUTE GENERATION (iteration 0044 schema-driven)
+// ===========================================================================
+//
+// Demo vendors fill the SAME per-category attribute schema a real vendor fills
+// via /vendor-dashboard/attributes. We load every canonical_service_schemas
+// row + the shared_attribute_groups it inherits, merge them exactly like
+// lib/vendor-service-attributes.ts#fetchSchemaWithSharedGroups, then generate
+// realistic, schema-valid values per field. completeness_score +
+// meets_visibility_minimum are computed HONESTLY (mirroring the SQL helper
+// public.compute_attribute_completeness + the write-side visibility gate in
+// app/vendor-dashboard/attributes/actions.ts) instead of the old hard-coded
+// 75 / true — which never even filled the real `service_regions` minimum field.
+
+type AttributeFieldDef = {
+  type:
+    | 'boolean'
+    | 'int'
+    | 'text_short'
+    | 'text_long'
+    | 'enum'
+    | 'multi_select'
+    | 'multi_select_open';
+  label?: string;
+  required?: boolean;
+  options?: readonly string[];
+  default?: unknown;
+  min?: number;
+  max?: number;
+  required_if?: string;
+};
+
+type ResolvedDemoSchema = {
+  schemaVersion: number;
+  /** category_specific_attributes merged with inherited shared groups. */
+  fields: Record<string, AttributeFieldDef>;
+  minimumFields: string[];
+};
+
+type DemoAttrContext = {
+  startsCentavos: number;
+  kindWord: string;
+  coarse: string;
+  city: string;
+};
+
+type SchemaRow = {
+  canonical_service: string;
+  schema_version: number | null;
+  category_specific_attributes: Record<string, AttributeFieldDef> | null;
+  shared_attribute_groups: string[] | null;
+  required_for_visibility: { minimum_fields?: string[] } | null;
+};
+
+type GroupRow = {
+  group_name: string;
+  attributes: Record<string, AttributeFieldDef> | null;
+};
+
+// Resolve every canonical_service's full field map once. Merge order mirrors
+// fetchSchemaWithSharedGroups: category-specific fields first, then each shared
+// group in declaration order; category-specific wins on key collision.
+async function fetchResolvedSchemas(
+  admin: SupabaseClient,
+): Promise<Map<string, ResolvedDemoSchema>> {
+  const [{ data: schemaRows, error: e1 }, { data: groupRows, error: e2 }] =
+    await Promise.all([
+      admin
+        .from('canonical_service_schemas')
+        .select(
+          'canonical_service, schema_version, category_specific_attributes, shared_attribute_groups, required_for_visibility',
+        ),
+      admin.from('shared_attribute_groups').select('group_name, attributes'),
+    ]);
+  if (e1) throw new Error(`load canonical_service_schemas: ${e1.message}`);
+  if (e2) throw new Error(`load shared_attribute_groups: ${e2.message}`);
+
+  const groups = new Map<string, Record<string, AttributeFieldDef>>();
+  for (const g of (groupRows ?? []) as GroupRow[]) {
+    groups.set(g.group_name, g.attributes ?? {});
+  }
+
+  const out = new Map<string, ResolvedDemoSchema>();
+  for (const row of (schemaRows ?? []) as SchemaRow[]) {
+    const fields: Record<string, AttributeFieldDef> = {};
+    for (const [key, def] of Object.entries(row.category_specific_attributes ?? {})) {
+      fields[key] = def;
+    }
+    const sharedNames = Array.isArray(row.shared_attribute_groups)
+      ? row.shared_attribute_groups
+      : [];
+    for (const name of sharedNames) {
+      const groupFields = groups.get(name);
+      if (!groupFields) continue;
+      for (const [key, def] of Object.entries(groupFields)) {
+        if (key in fields) continue; // category-specific wins
+        fields[key] = def;
+      }
+    }
+    const minimumFields = Array.isArray(row.required_for_visibility?.minimum_fields)
+      ? row.required_for_visibility!.minimum_fields!
+      : [];
+    out.set(row.canonical_service, {
+      schemaVersion: row.schema_version ?? 1,
+      fields,
+      minimumFields,
+    });
+  }
+  return out;
+}
+
+// Real YouTube/Vimeo URLs — must satisfy the showcase-URL validator
+// (YOUTUBE_VIMEO_URL_RE) in app/vendor-dashboard/attributes/actions.ts so a
+// vendor saving over this demo data wouldn't be rejected.
+const SAMPLE_VIDEO_URLS: readonly string[] = [
+  'https://www.youtube.com/watch?v=ScMzIvxBSi4',
+  'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+  'https://youtu.be/2Vv-BfVoq4g',
+  'https://vimeo.com/76979871',
+  'https://vimeo.com/148751763',
+];
+
+const FREEFORM_DRONE_MODELS: readonly string[] = [
+  'DJI Mavic 3 Pro',
+  'DJI Air 3',
+  'DJI Mini 4 Pro',
+  'Autel EVO II',
+];
+
+const FREEFORM_LOCATIONS: readonly string[] = [
+  'Tagaytay Highlands',
+  'Fernwood Gardens',
+  'Blue Leaf Filipinas',
+  'Balai Taal',
+  'Shangri-La Mactan',
+  'Las Casas Filipinas',
+  "Antonio's Tagaytay",
+];
+
+function genIntValue(
+  key: string,
+  def: AttributeFieldDef,
+  rng: () => number,
+  startsCentavos: number,
+): number {
+  const k = key.toLowerCase();
+  let v: number;
+  if (k.includes('centavos')) {
+    if (k.includes('max')) v = startsCentavos * intBetween(rng, 2, 4);
+    else if (k.includes('fee') || k.includes('travel')) v = intBetween(rng, 50_000, 300_000);
+    else v = startsCentavos; // starting_price / typical_range_min
+  } else if (k.includes('year')) v = intBetween(rng, 2, 20);
+  else if (k.includes('headcount') && k.includes('max')) v = intBetween(rng, 200, 600);
+  else if (k.includes('headcount')) v = intBetween(rng, 30, 100);
+  else if (k.includes('radius') || k.endsWith('_km')) v = intBetween(rng, 20, 200);
+  else if (k.includes('altitude')) v = intBetween(rng, 50, 120);
+  else if (k.includes('hour') || k.includes('duration')) v = intBetween(rng, 2, 12);
+  else if (k.includes('minute')) v = intBetween(rng, 2, 8);
+  else if (k.includes('week') || k.includes('turnaround')) v = intBetween(rng, 1, 8);
+  else if (k.includes('tier')) v = intBetween(rng, 2, 6);
+  else if (k.includes('count') || k.includes('upload')) {
+    const lo = def.min ?? 5;
+    v = intBetween(rng, lo, lo + 15);
+  } else v = intBetween(rng, 1, 10);
+  if (typeof def.min === 'number') v = Math.max(v, def.min);
+  if (typeof def.max === 'number') v = Math.min(v, def.max);
+  return v;
+}
+
+function genFieldValue(
+  key: string,
+  def: AttributeFieldDef,
+  rng: () => number,
+  ctx: DemoAttrContext,
+): unknown {
+  switch (def.type) {
+    case 'boolean':
+      return rng() < 0.65;
+    case 'int':
+      return genIntValue(key, def, rng, ctx.startsCentavos);
+    case 'enum': {
+      const opts = def.options ?? [];
+      return opts.length > 0 ? pickFrom(rng, opts) : null;
+    }
+    case 'multi_select': {
+      const opts = def.options ?? [];
+      if (opts.length === 0) return null;
+      const shuffled = [...opts].sort(() => rng() - 0.5);
+      const count = 1 + Math.floor(rng() * Math.min(4, opts.length));
+      return shuffled.slice(0, count);
+    }
+    case 'text_short':
+    case 'text_long': {
+      const k = key.toLowerCase();
+      if (k.includes('client')) {
+        return 'Reyes–Santos (2024) · Cruz–Garcia (Tagaytay, 2023)';
+      }
+      const base = `${ctx.kindWord} for Filipino weddings, based in ${ctx.city}.`;
+      return def.type === 'text_long'
+        ? `${base} Owner-led team with a clear contract and clearly-stated revision rounds.`
+        : base;
+    }
+    case 'multi_select_open': {
+      const k = key.toLowerCase();
+      if (k.endsWith('_video_urls') || k.endsWith('_audio_urls')) {
+        const pool = [...SAMPLE_VIDEO_URLS].sort(() => rng() - 0.5);
+        return pool.slice(0, 1 + Math.floor(rng() * 2));
+      }
+      let pool: readonly string[];
+      if (k.includes('drone') || k.includes('model')) pool = FREEFORM_DRONE_MODELS;
+      else if (k.includes('location')) pool = FREEFORM_LOCATIONS;
+      else pool = [`${ctx.kindWord} portfolio`, 'Nationwide service', 'Custom packages available'];
+      const shuffled = [...pool].sort(() => rng() - 0.5);
+      return shuffled.slice(0, 2 + Math.floor(rng() * 2));
+    }
+    default:
+      return null;
+  }
+}
+
+function isFilledValue(v: unknown): boolean {
+  if (v === null || v === undefined) return false;
+  if (typeof v === 'string') return v.trim().length > 0;
+  if (Array.isArray(v)) return v.length > 0;
+  return true;
+}
+
+// Build a realistic, schema-valid payload. Required + visibility-minimum fields
+// are always filled; ~18% of purely-optional fields are left unset so the
+// completeness score varies realistically (~80-100) instead of a flat 100.
+function generateAttributePayload(
+  resolved: ResolvedDemoSchema,
+  rng: () => number,
+  ctx: DemoAttrContext,
+): Record<string, unknown> {
+  const payload: Record<string, unknown> = {};
+  const minimumSet = new Set(resolved.minimumFields);
+  for (const [key, def] of Object.entries(resolved.fields)) {
+    let mustFill = def.required === true || minimumSet.has(key);
+    // required_if "other=value": when the (already-generated) controlling
+    // field matches, this field is genuinely required — the write-side
+    // validator treats it so — so always fill it; when it doesn't match the
+    // field is not applicable, so skip it entirely. Insertion order puts
+    // controllers (category fields, then shared groups) before dependents.
+    if (def.required_if) {
+      const [otherKey, expected] = def.required_if.split('=');
+      const actual = payload[otherKey ?? ''];
+      const met = Array.isArray(actual)
+        ? actual.includes(expected ?? '')
+        : String(actual ?? '') === (expected ?? '');
+      if (!met) continue;
+      mustFill = true;
+    }
+    // Leave ~18% of purely-optional fields unset for realistic completeness
+    // variance (~80-100) instead of a flat 100.
+    if (!mustFill && rng() < 0.18) continue;
+    const value = genFieldValue(key, def, rng, ctx);
+    if (isFilledValue(value)) payload[key] = value;
+  }
+  return payload;
+}
+
+// Mirror public.compute_attribute_completeness: filled / total over the merged
+// field map, 0-100.
+function computeCompleteness(
+  fields: Record<string, AttributeFieldDef>,
+  payload: Record<string, unknown>,
+): number {
+  const keys = Object.keys(fields);
+  if (keys.length === 0) return 0;
+  const filled = keys.filter((k) => isFilledValue(payload[k])).length;
+  return Math.round((filled * 100) / keys.length);
+}
+
+// ===========================================================================
+// LOCATION DETAIL + SYNTHETIC REVIEWS (demo realism)
+// ===========================================================================
+//
+// District-level addresses + synthetic reviews/ratings so demo vendors can
+// exercise search, compare, and "best match" ranking. Reviews reuse the
+// archived `TEST-REVIEW · %` synthetic-event pool created by
+// migrations/20260607000000_seed_vendor_reviews.sql (vendor_reviews.event_id is
+// NOT NULL) and set couple_user_id = NULL — the self-review trigger
+// (20260515030000) short-circuits on NULL, so service-role inserts pass.
+// Ratings surface via the vendor_review_stats matview (refreshed per INSERT
+// statement) so reviews are accumulated + bulk-inserted in large chunks → the
+// matview refreshes only a handful of times, not once per category.
+
+const CITY_DISTRICTS: Record<string, readonly string[]> = {
+  manila: ['Malate', 'Ermita', 'Binondo', 'Intramuros', 'Sampaloc'],
+  'quezon-city': ['Diliman', 'Cubao', 'Kamuning', 'Loyola Heights', 'Tomas Morato'],
+  makati: ['Poblacion', 'Salcedo Village', 'Legazpi Village', 'San Lorenzo', 'Rockwell'],
+  pasig: ['Ortigas Center', 'Kapitolyo', 'San Antonio', 'Ugong'],
+  bgc: ['Uptown BGC', 'Forbes Town', 'Serendra', 'McKinley Hill'],
+  taguig: ['Western Bicutan', 'Signal Village', 'FTI Complex', 'Lower Bicutan'],
+  'cebu-city': ['Lahug', 'Banilad', 'Capitol Site', 'Guadalupe', 'IT Park'],
+  mactan: ['Punta Engaño', 'Maribago', 'Marigondon'],
+  'lapu-lapu': ['Basak', 'Gun-ob', 'Pajo'],
+  'davao-city': ['Poblacion', 'Lanang', 'Matina', 'Buhangin', 'Talomo'],
+  tagaytay: ['Kaybagal', 'Maharlika', 'Silang Junction', 'Mendez Crossing'],
+  boracay: ['Station 1', 'Station 2', 'Station 3', 'Diniwid'],
+};
+
+function pickDistrict(rng: () => number, city: CityRow): string {
+  const pool = CITY_DISTRICTS[city.slug];
+  return pool && pool.length > 0 ? pickFrom(rng, pool) : city.name;
+}
+
+const REVIEW_BODIES_POSITIVE: readonly string[] = [
+  'Sobrang ganda ng output — super worth it! Highly recommend to other couples.',
+  'So professional and accommodating from start to finish. Salamat!',
+  'Grabe, the team really delivered — our guests kept complimenting them.',
+  'On time, organized, and the quality exceeded our expectations. 10/10.',
+  'Best decision for our wedding. Galing nila talaga, no regrets.',
+  'Communication was smooth and they really listened to what we wanted.',
+  'Worth every peso. Will definitely recommend to friends getting married.',
+  'Ang bait ng buong team and very patient with all our requests. Thank you!',
+];
+
+const REVIEW_BODIES_MIXED: readonly string[] = [
+  'Maganda naman ang final output, na-delay lang nang konti ang communication.',
+  'Decent service overall, but the coordination could be a little better.',
+  'Okay naman — though we expected a bit more for the price.',
+  'Good quality, pero medyo mabagal ang responses during prep.',
+];
+
+const VENDOR_REVIEW_REPLIES: readonly string[] = [
+  'Maraming salamat! It was a pleasure working with you both. Congrats!',
+  'Thank you for trusting us with your big day!',
+  'Salamat sa review — we loved being part of your celebration.',
+  'Thank you! Sana makasama namin kayo ulit sa future events.',
+];
+
+function clampStar(n: number): number {
+  return Math.max(1, Math.min(5, Math.round(n)));
+}
+
+// Synthetic-event pool that satisfies vendor_reviews.event_id (NOT NULL FK).
+// Reuses the archived `TEST-REVIEW · %` events from migration 20260607000000.
+// Returns [] (→ reviews skipped) if that migration isn't on the target DB.
+async function fetchReviewEventPool(admin: SupabaseClient): Promise<string[]> {
+  const { data, error } = await admin
+    .from('events')
+    .select('event_id')
+    .like('display_name', 'TEST-REVIEW · %')
+    .limit(60);
+  if (error) {
+    console.warn(`Review event pool fetch failed (skipping reviews): ${error.message}`);
+    return [];
+  }
+  return (data ?? []).map((r) => (r as { event_id: string }).event_id);
+}
+
+// Generate 0-10 reviews for one vendor. Each vendor gets a hidden baseline
+// quality so vendors genuinely differ (for compare + ranking). Every row uses
+// couple_user_id = NULL + a random event from the pool; the five 1-5 ratings
+// are drawn around the baseline.
+function generateVendorReviews(
+  rng: () => number,
+  vendorProfileId: string,
+  eventPool: string[],
+): Array<Record<string, unknown>> {
+  const baseline = 3.6 + rng() * 1.3; // mean ⭐ in [3.6, 4.9]
+  const count = rng() < 0.15 ? 0 : 1 + Math.floor(rng() * 10); // ~15% have none
+  const rows: Array<Record<string, unknown>> = [];
+  for (let n = 0; n < count; n++) {
+    const overall = clampStar(baseline + (rng() - 0.5) * 1.6);
+    const sub = () => clampStar(overall + (rng() < 0.6 ? 0 : rng() < 0.5 ? -1 : 1));
+    const daysAgo = 1 + Math.floor(rng() * 364);
+    const createdAt = new Date(Date.now() - daysAgo * 86_400_000).toISOString();
+    const hasReply = rng() < 0.2;
+    rows.push({
+      vendor_profile_id: vendorProfileId,
+      event_id: pickFrom(rng, eventPool),
+      couple_user_id: null,
+      rating_overall: overall,
+      rating_communication: sub(),
+      rating_quality: sub(),
+      rating_value: sub(),
+      rating_on_time: sub(),
+      body:
+        rng() < 0.6
+          ? pickFrom(rng, overall >= 4 ? REVIEW_BODIES_POSITIVE : REVIEW_BODIES_MIXED)
+          : null,
+      vendor_reply: hasReply ? pickFrom(rng, VENDOR_REVIEW_REPLIES) : null,
+      vendor_reply_at: hasReply ? createdAt : null,
+      created_at: createdAt,
+      updated_at: createdAt,
+    });
+  }
+  return rows;
+}
+
+// ===========================================================================
 // SEED RUNNER
 // ===========================================================================
 
@@ -1246,10 +1866,28 @@ async function seed(args: SeedArgs): Promise<void> {
     return;
   }
 
+  // Load per-category attribute schemas once (category_specific_attributes +
+  // inherited shared groups) so each vendor below can fill a realistic,
+  // schema-valid attribute payload instead of one generic blob.
+  const schemaMap = await fetchResolvedSchemas(admin);
+  console.log(`Attribute schemas resolved: ${schemaMap.size}`);
+
+  // Synthetic-event pool for reviews (empty → reviews skipped, logged).
+  const reviewEventPool = await fetchReviewEventPool(admin);
+  console.log(
+    reviewEventPool.length > 0
+      ? `Review event pool: ${reviewEventPool.length} synthetic events`
+      : `Review event pool EMPTY — demo reviews skipped (apply migration 20260607000000 to enable).`,
+  );
+  // Reviews are accumulated across all categories, then bulk-inserted after the
+  // loop so the vendor_review_stats matview refreshes only a few times.
+  const allReviews: Array<Record<string, unknown>> = [];
+
   // 4. Iterate canonical services, build vendor rows + child rows
   let totalVendorsCreated = 0;
   let totalServicesCreated = 0;
   let totalAttrsCreated = 0;
+  let totalReviewsCreated = 0;
 
   for (const service of services) {
     // Seeded RNG per (batchId, service) for stable repro within a run
@@ -1279,6 +1917,7 @@ async function seed(args: SeedArgs): Promise<void> {
       // pin to the same coordinates
       const jitterLat = (rng() - 0.5) * 0.024;
       const jitterLng = (rng() - 0.5) * 0.024;
+      const district = pickDistrict(rng, city);
       const businessName = buildBusinessName(rng, service, kindWord);
       // Slug: demo-<batch-prefix>-<service>-<i>-<city>
       const slug = `demo-${batchId.slice(0, 8)}-${service.replace(/_/g, '-')}-${i + 1}-${city.slug}`;
@@ -1296,16 +1935,26 @@ async function seed(args: SeedArgs): Promise<void> {
         created_by_admin_user_id: null,
         is_demo: true,
         demo_batch_id: batchId,
-        business_name: `Demo · ${businessName}`,
+        business_name: businessName,
         business_slug: slug,
         tagline: `${kindWord} for Filipino weddings, based in ${city.name}.`,
         services: [service, coarse],
         location_city: city.name,
-        hq_address: `${city.name}, Philippines`,
+        hq_address: `${district}, ${city.name}, Philippines`,
         hq_latitude: Number((city.lat + jitterLat).toFixed(7)),
         hq_longitude: Number((city.lng + jitterLng).toFixed(7)),
         is_published: true,
         public_visibility: 'verified',
+        // Deterministic picsum placeholders. The host is whitelisted in
+        // next.config.ts + the vendor-card image guard; plain https URLs pass
+        // through parseStoredAsset as legacy_url so the gallery resolver
+        // renders them unchanged (no R2 upload needed for demo data).
+        logo_url: `https://picsum.photos/seed/setnayan-demo-${coarse}-${batchId.slice(0, 8)}-${i}/800/600`,
+        portfolio_r2_keys: Array.from(
+          { length: 4 + (i % 3) },
+          (_v, j) =>
+            `https://picsum.photos/seed/setnayan-demo-${coarse}-${batchId.slice(0, 8)}-${i}-p${j}/1200/800`,
+        ),
         // Leave faith/venue arrays at default — civil + catholic + christian
         // ceremonies pass through the default filter set. Faith-specific
         // services (muslim_imam, inc_minister, etc.) get an override below
@@ -1405,34 +2054,63 @@ async function seed(args: SeedArgs): Promise<void> {
     }
     totalServicesCreated += servicesToInsert.length;
 
-    // 6. Build vendor_service_attributes — minimal payload that
-    //    satisfies meets_visibility_minimum=TRUE so Agent 2's gate-respecting
-    //    marketplace filter still surfaces these.
-    //
-    //    The completeness_score is set generously (75) so the rows clear
-    //    most visibility minimums (categories that require specific fields
-    //    will still fall short — that's accurate to a real onboarding
-    //    where vendors don't fill 100% of every category's optional fields).
+    // 6. Build vendor_service_attributes — schema-driven per-category payloads.
+    //    Each vendor fills its canonical_service's merged schema (category-
+    //    specific attributes + inherited shared groups) with realistic,
+    //    schema-valid values; completeness_score + meets_visibility_minimum
+    //    are then computed honestly (mirroring compute_attribute_completeness
+    //    + the write-side visibility gate) — replacing the old hard-coded
+    //    75/true blob that never even filled the real `service_regions`
+    //    minimum field.
+    const resolvedSchema = schemaMap.get(service);
+    if (resolvedSchema) {
+      const undefinedMins = resolvedSchema.minimumFields.filter(
+        (f) => !(f in resolvedSchema.fields),
+      );
+      if (undefinedMins.length > 0) {
+        process.stdout.write(
+          `  ! ${service}: minimum field(s) absent from schema, excluded from visibility gate: ${undefinedMins.join(', ')}\n`,
+        );
+      }
+    }
     const attrsToInsert: Array<Record<string, unknown>> = [];
     for (let i = 0; i < insertedIds.length; i++) {
       const vendorProfileId = insertedIds[i]!;
+      if (!resolvedSchema) {
+        // No schema row for this canonical_service (shouldn't happen — the
+        // service list is sourced from canonical_service_schemas).
+        attrsToInsert.push({
+          vendor_profile_id: vendorProfileId,
+          canonical_service: service,
+          attribute_payload: { bio_blurb: `Demo seed vendor for ${kindWord.toLowerCase()}.` },
+          schema_version_at_fill: 1,
+          completeness_score: 0,
+          meets_visibility_minimum: false,
+        });
+        continue;
+      }
+      const startsCentavos =
+        (servicesToInsert[i]?.starts_at_centavos as number | undefined) ??
+        profile.packages[0]!.minCentavos;
+      const city =
+        (vendorRows[i]?.location_city as string | undefined) ?? 'the Philippines';
+      const payload = generateAttributePayload(resolvedSchema, rng, {
+        startsCentavos,
+        kindWord,
+        coarse,
+        city,
+      });
+      const definableMins = resolvedSchema.minimumFields.filter(
+        (f) => f in resolvedSchema.fields,
+      );
+      const meetsVisibility = definableMins.every((f) => isFilledValue(payload[f]));
       attrsToInsert.push({
         vendor_profile_id: vendorProfileId,
         canonical_service: service,
-        attribute_payload: {
-          // Common fields populated regardless of category. The category-
-          // specific schemas validate these at write time when going through
-          // the real vendor onboarding flow; the seed bypasses that
-          // validation via service-role.
-          geographic_service_areas: ['ncr', 'tagaytay', 'cebu'],
-          pricing_signal: 'mid_range',
-          vendor_credentials: ['business_registered', 'years_active_3plus'],
-          response_time: 'within_24h',
-          bio_blurb: `Demo seed vendor for ${kindWord.toLowerCase()}.`,
-        },
-        schema_version_at_fill: 1,
-        completeness_score: 75,
-        meets_visibility_minimum: true,
+        attribute_payload: payload,
+        schema_version_at_fill: resolvedSchema.schemaVersion,
+        completeness_score: computeCompleteness(resolvedSchema.fields, payload),
+        meets_visibility_minimum: meetsVisibility,
       });
     }
     for (let chunk = 0; chunk < attrsToInsert.length; chunk += 500) {
@@ -1453,10 +2131,33 @@ async function seed(args: SeedArgs): Promise<void> {
     }
     totalAttrsCreated += attrsToInsert.length;
 
+    // 7. Generate per-vendor reviews (accumulated; bulk-inserted after the loop).
+    if (reviewEventPool.length > 0) {
+      for (const vendorProfileId of insertedIds) {
+        for (const review of generateVendorReviews(rng, vendorProfileId, reviewEventPool)) {
+          allReviews.push(review);
+        }
+      }
+    }
+
     // Compact progress line
     process.stdout.write(
       `  ${service.padEnd(40)} ${String(insertedIds.length).padStart(3)} vendors\n`,
     );
+  }
+
+  // 8. Bulk-insert all accumulated reviews in large chunks (the matview refresh
+  //    trigger is per-statement, so fewer/larger statements = fewer refreshes).
+  for (let chunk = 0; chunk < allReviews.length; chunk += 1000) {
+    const slice = allReviews.slice(chunk, chunk + 1000);
+    const { error } = await admin.from('vendor_reviews').insert(slice);
+    if (error) {
+      if (!String(error.message).match(/duplicate key/i)) {
+        throw new Error(`Insert vendor_reviews chunk ${chunk}: ${error.message}`);
+      }
+    } else {
+      totalReviewsCreated += slice.length;
+    }
   }
 
   console.log(`\n=== Seed complete ===`);
@@ -1464,6 +2165,7 @@ async function seed(args: SeedArgs): Promise<void> {
   console.log(`Vendor rows:    ${totalVendorsCreated}`);
   console.log(`Service rows:   ${totalServicesCreated}`);
   console.log(`Attr rows:      ${totalAttrsCreated}`);
+  console.log(`Review rows:    ${totalReviewsCreated}`);
   console.log(
     `\nTo view in admin: /admin/demo-vendors\n` +
       `To preview in marketplace: /vendors?demo=1  (Agent 2 ships this flag)\n` +

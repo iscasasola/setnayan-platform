@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchMessages, fetchThreadById } from '@/lib/chat';
-import { sendChatMessage } from '@/lib/chat-actions';
+import { sendChatMessage, markThreadRead } from '@/lib/chat-actions';
 import { resolveVendorDisplayName } from '@/lib/vendors';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
@@ -22,6 +22,12 @@ export default async function CoupleThreadPage({ params }: Props) {
 
   const thread = await fetchThreadById(supabase, threadId);
   if (!thread || thread.event_id !== eventId) notFound();
+
+  // Mark this thread read for the couple viewer so the Messages-icon unread
+  // badge clears (migration 20260728000000_chat_thread_reads.sql). No-op +
+  // logged if the read-marker table isn't pushed yet — opening the thread is
+  // never blocked by this.
+  await markThreadRead(threadId);
 
   // Anonymity surface per CLAUDE.md 2026-05-30 row — pull screen_name +
   // name_revealed_at + services + location_city so the header label and

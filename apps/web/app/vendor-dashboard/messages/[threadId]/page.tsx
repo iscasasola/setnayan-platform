@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchMessages, fetchThreadById } from '@/lib/chat';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { sendChatMessage, acceptInquiry, declineInquiry } from '@/lib/chat-actions';
+import { sendChatMessage, acceptInquiry, declineInquiry, markThreadRead } from '@/lib/chat-actions';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
@@ -25,6 +25,10 @@ export default async function VendorThreadPage({ params }: Props) {
 
   const thread = await fetchThreadById(supabase, threadId);
   if (!thread || thread.vendor_profile_id !== profile.vendor_profile_id) notFound();
+
+  // Mark read for the vendor viewer (parity with the couple side). No-op +
+  // logged if migration 20260728000000_chat_thread_reads.sql isn't pushed yet.
+  await markThreadRead(threadId);
 
   // Identity-masking source of truth: never expose the couple's email or
   // personal name; show only the event's display_name + date.

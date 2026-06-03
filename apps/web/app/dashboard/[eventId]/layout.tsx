@@ -6,10 +6,12 @@ import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { fetchUserEvents } from '@/lib/events';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { countUnread } from '@/lib/notifications';
+import { countUnreadMessages } from '@/lib/chat';
 import { getLocale, makeT } from '@/lib/i18n';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { EventSwitcher } from './_components/event-switcher';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
+import { UnreadMessagesBadge } from '@/app/_components/unread-messages-badge';
 import { ProfileMenu } from '@/app/_components/profile-menu';
 import { RoleSwitchPill } from '@/app/_components/role-switch-pill';
 import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
@@ -106,7 +108,7 @@ export default async function EventLayout({ children, params }: Props) {
   // layout — not the parent /dashboard/layout.tsx that #452 hardened.
   // Each fetcher wrapped in .catch() with safe defaults so one throw
   // can't crash the whole layout tree.
-  const [eventRes, unreadCount, locale, switcherEvents, roles] = await Promise.all([
+  const [eventRes, unreadCount, unreadMessages, locale, switcherEvents, roles] = await Promise.all([
     (async () => {
       try {
         const fullSelect =
@@ -145,6 +147,19 @@ export default async function EventLayout({ children, params }: Props) {
     countUnread(supabase, user.id).catch((err: unknown) => {
       logQueryError(
         'EventLayout (countUnread threw)',
+        err instanceof Error ? err : new Error(String(err)),
+        { event_id: eventId, user_id: user.id },
+        'graceful_degrade',
+      );
+      return 0;
+    }),
+    // Unread-message count for the Messages-icon badge. countUnreadMessages
+    // already graceful-degrades to 0 internally (incl. when the read-marker
+    // migration isn't pushed yet); the .catch here is the same belt-and-braces
+    // wrapper every other chrome fetcher in this Promise.all carries.
+    countUnreadMessages(supabase, user.id).catch((err: unknown) => {
+      logQueryError(
+        'EventLayout (countUnreadMessages threw)',
         err instanceof Error ? err : new Error(String(err)),
         { event_id: eventId, user_id: user.id },
         'graceful_degrade',
@@ -255,6 +270,18 @@ export default async function EventLayout({ children, params }: Props) {
             vendorProfiles={roles.vendorProfiles}
           />
         </div>
+        {/* Messages icon + unread badge (iteration 0019; badge follow-up to
+            the icon-only link from PR #837). Read-state lands via the
+            chat_thread_reads marker (migration
+            20260728000000_chat_thread_reads.sql) + count_unread_message_threads()
+            RPC. countUnreadMessages graceful-degrades to 0 pre-migration, so
+            the badge is safe before the owner pushes it. Styled to match
+            UnreadBellBadge exactly. */}
+        <UnreadMessagesBadge
+          userId={user.id}
+          initialUnread={unreadMessages}
+          href={`/dashboard/${eventId}/messages`}
+        />
         <UnreadBellBadge
           userId={user.id}
           initialUnread={unreadCount}

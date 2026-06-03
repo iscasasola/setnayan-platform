@@ -16,6 +16,7 @@ import {
   TEAM_SIDE_LABELS,
   type GuestGroupWithCount,
   type GuestRow,
+  type GuestSide,
   type GuestStats,
   type RsvpStatus,
 } from '@/lib/guests';
@@ -36,8 +37,12 @@ export const metadata = { title: 'Guests' };
 const SORT_OPTIONS = [
   { value: 'last_name', label: 'Last name (A–Z)' },
   { value: 'first_name', label: 'First name (A–Z)' },
-  { value: 'rsvp', label: 'RSVP status' },
+  // Side / Role / Group — owner directive 2026-06-03 ("sort by side, role or
+  // group"), added alongside the existing alphabetical / RSVP / newest sorts.
+  { value: 'side', label: 'Side' },
   { value: 'role', label: 'Role' },
+  { value: 'group', label: 'Group' },
+  { value: 'rsvp', label: 'RSVP status' },
   { value: 'newest', label: 'Newest first' },
 ] as const;
 
@@ -225,7 +230,11 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   if (!currentGroupId) {
     visible = filterByRoleGroup(visible, view);
   }
-  visible.sort((a, b) => sortCompare(a, b, sort));
+  // Group sort needs each guest's first (alphabetical) group label — build
+  // the lookup once. Ungrouped guests sort last (handled in sortCompare).
+  const sortGroupKey =
+    sort === 'group' ? buildGroupSortKey(groups, membershipsMap) : undefined;
+  visible.sort((a, b) => sortCompare(a, b, sort, sortGroupKey));
 
   // Convert the Map<guest_id, group_id[]> to a plain object so it
   // serializes cleanly across the server/client component boundary.
@@ -271,7 +280,10 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       style={{ ['--gcar-h' as string]: 'clamp(208px, 33vh, 288px)' }}
     >
       <style>{`.shell-topbar{display:none}`}</style>
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      {/* Header is DESKTOP-ONLY (owner directive 2026-06-03 — "remove GUEST
+          LIST / N guests since we already have Summary below"). On mobile the
+          carousel's Summary panel carries the count; the top is just the list. */}
+      <header className="hidden flex-col gap-3 lg:flex lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
             Guest list
@@ -416,6 +428,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           currentGroupId={currentGroupId}
           tags={allTags}
           activeTag={tagFilter}
+          allVisibleIds={visible.map((g) => g.guest_id)}
           total={stats.total}
           attending={stats.attending}
           pending={stats.pending}
@@ -426,7 +439,21 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   );
 }
 
-function sortCompare(a: GuestRow, b: GuestRow, sort: SortKey): number {
+const SIDE_SORT_RANK: Record<GuestSide, number> = { bride: 0, groom: 1, both: 2 };
+
+function lastNameThenFirst(a: GuestRow, b: GuestRow): number {
+  return (
+    a.last_name.localeCompare(b.last_name) ||
+    a.first_name.localeCompare(b.first_name)
+  );
+}
+
+function sortCompare(
+  a: GuestRow,
+  b: GuestRow,
+  sort: SortKey,
+  groupKey?: Map<string, string>,
+): number {
   const rsvpRank: Record<RsvpStatus, number> = {
     attending: 0,
     pending: 1,
@@ -436,6 +463,19 @@ function sortCompare(a: GuestRow, b: GuestRow, sort: SortKey): number {
   switch (sort) {
     case 'first_name':
       return a.first_name.localeCompare(b.first_name);
+    case 'side':
+      return (
+        SIDE_SORT_RANK[a.side] - SIDE_SORT_RANK[b.side] || lastNameThenFirst(a, b)
+      );
+    case 'group': {
+      // Ungrouped guests sort last (after every group), then by name.
+      const ka = groupKey?.get(a.guest_id);
+      const kb = groupKey?.get(b.guest_id);
+      if (ka === undefined && kb === undefined) return lastNameThenFirst(a, b);
+      if (ka === undefined) return 1;
+      if (kb === undefined) return -1;
+      return ka.localeCompare(kb) || lastNameThenFirst(a, b);
+    }
     case 'rsvp':
       return rsvpRank[a.rsvp_status] - rsvpRank[b.rsvp_status];
     case 'role':
@@ -444,11 +484,29 @@ function sortCompare(a: GuestRow, b: GuestRow, sort: SortKey): number {
       return b.created_at.localeCompare(a.created_at);
     case 'last_name':
     default:
-      return (
-        a.last_name.localeCompare(b.last_name) ||
-        a.first_name.localeCompare(b.first_name)
-      );
+      return lastNameThenFirst(a, b);
   }
+}
+
+// First (alphabetical) custom-group label per guest, lowercased, for the
+// Group sort. Guests in no group get no entry → sorted last by the caller.
+function buildGroupSortKey(
+  groups: GuestGroupWithCount[],
+  membershipsMap: Map<string, string[]>,
+): Map<string, string> {
+  const labelById = new Map(
+    groups.map((g) => [g.group_id, g.label.toLowerCase()]),
+  );
+  const out = new Map<string, string>();
+  for (const [guestId, groupIds] of membershipsMap.entries()) {
+    let best: string | undefined;
+    for (const gid of groupIds) {
+      const label = labelById.get(gid);
+      if (label && (best === undefined || label < best)) best = label;
+    }
+    if (best !== undefined) out.set(guestId, best);
+  }
+  return out;
 }
 
 function uniqueTags(guests: GuestRow[]): string[] {

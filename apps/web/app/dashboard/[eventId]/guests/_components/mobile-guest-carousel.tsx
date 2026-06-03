@@ -34,12 +34,21 @@
  * bottom nav is z-30 below it.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { X } from 'lucide-react';
+import { Check, ChevronLeft, X } from 'lucide-react';
+import {
+  ROLE_LABELS,
+  SIDE_LABELS,
+  type GuestRole,
+  type GuestSide,
+} from '@/lib/guests';
 import { LiveSearch } from './live-search';
 import { quickAddGuest } from '../quick-add-actions';
+import { bulkApplyRoleAndGroup, createGuestGroup } from '../groups-actions';
+import { BULK_ROLE_SECTIONS } from './guest-list-multiselect';
+import { guestSelection, useGuestSelection } from './guest-selection-store';
 
 type Opt = { key: string; label: string };
 type Group = { group_id: string; label: string; member_count?: number };
@@ -50,6 +59,8 @@ const PANELS = [
   { key: 'add', label: 'Add' },
   { key: 'customize', label: 'Customize' },
 ] as const;
+
+const SIDES: GuestSide[] = ['bride', 'groom', 'both'];
 
 export function MobileGuestCarousel({
   eventId,
@@ -62,6 +73,7 @@ export function MobileGuestCarousel({
   currentGroupId,
   tags,
   activeTag,
+  allVisibleIds,
   total,
   attending,
   pending,
@@ -77,6 +89,7 @@ export function MobileGuestCarousel({
   currentGroupId: string | null;
   tags: string[];
   activeTag: string;
+  allVisibleIds: string[];
   total: number;
   attending: number;
   pending: number;
@@ -84,8 +97,23 @@ export function MobileGuestCarousel({
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
+  const [assignOpen, setAssignOpen] = useState(false);
   const pathname = usePathname();
   const searchParams = useSearchParams();
+
+  // Belt-and-suspenders: after a bulk apply redirects back with a flash, make
+  // sure the Assign sheet is closed (the apply handler already closes it +
+  // clears the selection optimistically; this covers any path that didn't).
+  useEffect(() => {
+    if (
+      searchParams.get('bulk_assigned') ||
+      searchParams.get('bulk_sided') ||
+      searchParams.get('bulk_grouped') ||
+      searchParams.get('group_created')
+    ) {
+      setAssignOpen(false);
+    }
+  }, [searchParams]);
 
   // Client mirror of the server FacetsSidebar buildHref so active state +
   // clearing stay in sync with the live URL.
@@ -127,9 +155,15 @@ export function MobileGuestCarousel({
       {/* in-flow spacer so the guest list clears the fixed carousel */}
       <div aria-hidden className="h-[var(--gcar-h)] lg:hidden" />
 
-      <div className="fixed inset-x-0 bottom-[calc(64px+env(safe-area-inset-bottom))] z-40 h-[var(--gcar-h)] border-t border-ink/10 bg-cream lg:hidden">
-        {/* panel tabs (tap to jump; swipe also works) */}
-        <div className="flex h-10 items-stretch gap-1 border-b border-ink/10 px-2 py-1.5">
+      {/* The carousel is a raised sheet docked above the bottom nav: one soft
+          upward shadow + a single hairline ring + rounded top reads as a clear
+          "window above / panel below" separation (owner directive 2026-06-03,
+          fixes the old doubled border-t + tab border-b that looked like two
+          overlapping lines). */}
+      <div className="fixed inset-x-0 bottom-[calc(64px+env(safe-area-inset-bottom))] z-40 h-[var(--gcar-h)] overflow-hidden rounded-t-2xl bg-cream shadow-[0_-12px_30px_-18px_rgba(30,34,41,0.28)] ring-1 ring-ink/10 lg:hidden">
+        {/* panel tabs (tap to jump; swipe also works) — no bottom border; the
+            active pill + the panels' own padding delineate the strip. */}
+        <div className="flex h-10 items-stretch gap-1 px-2 pb-1.5 pt-2">
           {PANELS.map((p, i) => (
             <button
               key={p.key}
@@ -187,9 +221,13 @@ export function MobileGuestCarousel({
             </div>
           </section>
 
-          {/* 2 — Find: search + sort */}
-          <section className="w-full shrink-0 snap-center space-y-3 overflow-y-auto px-4 py-3">
-            <LiveSearch initialValue={q} placeholder="Search guests…" />
+          {/* 2 — Find: search + sort + filters. Search matches name · side ·
+              role · group · RSVP (server haystack). Sort + the View / Groups /
+              Tags filters fold in here now that Customize is select-and-assign
+              (owner directive 2026-06-03). */}
+          <section className="w-full shrink-0 snap-center space-y-4 overflow-y-auto px-4 py-3">
+            <LiveSearch initialValue={q} placeholder="Name, side, role, group…" />
+
             <div>
               <h3 className="mb-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
                 Sort
@@ -202,19 +240,11 @@ export function MobileGuestCarousel({
                 ))}
               </div>
             </div>
-          </section>
 
-          {/* 3 — Add: inline quick-entry form */}
-          <section className="flex w-full shrink-0 snap-center flex-col justify-center px-4 py-3">
-            <QuickAddInlineForm eventId={eventId} />
-          </section>
-
-          {/* 4 — Customize: view / groups / tags */}
-          <section className="w-full shrink-0 snap-center space-y-4 overflow-y-auto px-4 py-3">
             <div>
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
-                  View
+                  Filter
                 </h3>
                 {hasActiveFilter ? (
                   <Link
@@ -280,8 +310,31 @@ export function MobileGuestCarousel({
               </div>
             ) : null}
           </section>
+
+          {/* 3 — Add: inline quick-entry form */}
+          <section className="flex w-full shrink-0 snap-center flex-col justify-center px-4 py-3">
+            <QuickAddInlineForm eventId={eventId} />
+          </section>
+
+          {/* 4 — Customize: select guests + bulk-assign (owner directive
+              2026-06-03). Tap "Select" → checkboxes appear on the cards; the
+              select-all + live count + Assign live here; Assign opens the
+              bottom sheet (Side / Role / Group, with a create-new text box). */}
+          <CustomizePanel
+            allVisibleIds={allVisibleIds}
+            onAssign={() => setAssignOpen(true)}
+          />
         </div>
       </div>
+
+      {/* Assign bottom sheet — sibling of the carousel (not a child) so the
+          carousel's overflow-hidden doesn't clip it. */}
+      <AssignSheet
+        open={assignOpen}
+        onClose={() => setAssignOpen(false)}
+        eventId={eventId}
+        groups={groups}
+      />
     </>
   );
 }
@@ -497,5 +550,336 @@ function QuickAddInlineForm({ eventId }: { eventId: string }) {
         </p>
       )}
     </div>
+  );
+}
+
+// -----------------------------------------------------------------------
+// Customize panel — select guests + bulk-assign (owner directive
+// 2026-06-03). Reads/writes the shared selection store so the card
+// checkboxes (in GuestListMultiselect) and this panel stay in lockstep.
+// `selectMode` off → a "Select guests" entry button; on → select-all +
+// live count + Assign (which opens the bottom sheet).
+// -----------------------------------------------------------------------
+function CustomizePanel({
+  allVisibleIds,
+  onAssign,
+}: {
+  allVisibleIds: string[];
+  onAssign: () => void;
+}) {
+  const { selectMode, ids: selectedIds } = useGuestSelection();
+  const count = selectedIds.length;
+  const allSelected = allVisibleIds.length > 0 && count === allVisibleIds.length;
+  const someSelected = count > 0 && !allSelected;
+
+  // Entry button only when nothing is going on. If anything is selected (e.g.
+  // via the always-on desktop/tablet table checkboxes) show the select bar so
+  // the selection isn't stranded behind the entry button.
+  if (!selectMode && count === 0) {
+    return (
+      <section className="flex w-full shrink-0 snap-center flex-col items-center justify-center gap-3 px-6 py-3 text-center">
+        <p className="text-sm font-semibold text-ink">Select &amp; assign</p>
+        <p className="max-w-[260px] text-xs leading-snug text-ink/55">
+          Pick several guests, then set their side, role, or group in one go.
+        </p>
+        <button
+          type="button"
+          onClick={() => guestSelection.enter()}
+          className="inline-flex items-center gap-2 rounded-xl bg-mulberry px-4 py-2.5 text-sm font-semibold text-cream hover:bg-mulberry-600"
+        >
+          <Check className="h-4 w-4" strokeWidth={2} aria-hidden />
+          Select guests
+        </button>
+      </section>
+    );
+  }
+
+  return (
+    <section className="flex w-full shrink-0 snap-center flex-col justify-center gap-3 px-4 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <label className="inline-flex items-center gap-2 text-sm text-ink">
+          <input
+            type="checkbox"
+            checked={allSelected}
+            ref={(el) => {
+              if (el) el.indeterminate = someSelected;
+            }}
+            onChange={() =>
+              allSelected
+                ? guestSelection.clear()
+                : guestSelection.setAll(allVisibleIds)
+            }
+            aria-label={allSelected ? 'Deselect all' : 'Select all guests in view'}
+            className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+          />
+          Select all
+        </label>
+        <button
+          type="button"
+          onClick={() => guestSelection.exit()}
+          className="text-[11px] font-medium text-ink/55 hover:text-ink"
+        >
+          Done
+        </button>
+      </div>
+
+      <p className="text-center text-sm">
+        <span className="text-base font-semibold text-terracotta-700">{count}</span>{' '}
+        <span className="text-ink/60">selected</span>
+      </p>
+
+      <button
+        type="button"
+        onClick={onAssign}
+        disabled={count === 0}
+        className="inline-flex items-center justify-center gap-2 rounded-xl bg-mulberry px-4 py-3 text-sm font-semibold text-cream hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        Assign{count > 0 ? ` ${count}` : ''}
+      </button>
+    </section>
+  );
+}
+
+// -----------------------------------------------------------------------
+// Assign bottom sheet — Side / Role / Group, with a create-new-group text
+// box under Group (owner directive 2026-06-03). Two-step: pick a dimension,
+// then a value. Each value dispatches the existing bulk server action with
+// the current selection, then optimistically clears selection + closes.
+// -----------------------------------------------------------------------
+function AssignSheet({
+  open,
+  onClose,
+  eventId,
+  groups,
+}: {
+  open: boolean;
+  onClose: () => void;
+  eventId: string;
+  groups: Group[];
+}) {
+  const { ids: selectedIds } = useGuestSelection();
+  const count = selectedIds.length;
+  const [step, setStep] = useState<'menu' | 'side' | 'role' | 'group'>('menu');
+  const [newGroup, setNewGroup] = useState('');
+  const [, startTransition] = useTransition();
+
+  // Reset to the menu each time the sheet opens.
+  useEffect(() => {
+    if (open) {
+      setStep('menu');
+      setNewGroup('');
+    }
+  }, [open]);
+
+  if (!open) return null;
+
+  const dispatch = (
+    build: (fd: FormData) => void,
+    action: (eventId: string, formData: FormData) => Promise<void>,
+  ) => {
+    if (selectedIds.length === 0) return;
+    const fd = new FormData();
+    for (const id of selectedIds) fd.append('guest_ids[]', id);
+    build(fd);
+    startTransition(async () => {
+      await action(eventId, fd);
+    });
+    // Optimistic: the FormData snapshot already holds the ids, so clearing
+    // the selection + closing now is safe and feels instant. The server
+    // action revalidates the list either way.
+    guestSelection.exit();
+    onClose();
+  };
+
+  const applySide = (side: GuestSide) =>
+    dispatch((fd) => fd.set('side', side), bulkApplyRoleAndGroup);
+  const applyRole = (role: GuestRole) =>
+    dispatch((fd) => fd.set('role', role), bulkApplyRoleAndGroup);
+  const applyGroup = (groupId: string) =>
+    dispatch((fd) => fd.set('group_id', groupId), bulkApplyRoleAndGroup);
+  const createAndAdd = () => {
+    const label = newGroup.trim();
+    if (!label) return;
+    dispatch((fd) => {
+      fd.set('label', label);
+      fd.set('team_side', 'both');
+    }, createGuestGroup);
+  };
+
+  const title =
+    step === 'side'
+      ? 'Set side'
+      : step === 'role'
+        ? 'Set role'
+        : step === 'group'
+          ? 'Add to group'
+          : `Assign ${count} guest${count === 1 ? '' : 's'}`;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 lg:hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Assign to selected guests"
+    >
+      <button
+        type="button"
+        aria-label="Close"
+        onClick={onClose}
+        className="absolute inset-0 bg-ink/40 backdrop-blur-[1px]"
+      />
+      <div className="absolute inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto rounded-t-2xl border-t border-ink/10 bg-cream p-4 pb-[calc(16px+env(safe-area-inset-bottom))] shadow-[0_-16px_40px_-20px_rgba(30,34,41,0.4)]">
+        <div className="mb-3 flex items-center gap-2">
+          {step !== 'menu' ? (
+            <button
+              type="button"
+              onClick={() => setStep('menu')}
+              aria-label="Back"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-full text-ink/60 hover:bg-ink/5"
+            >
+              <ChevronLeft className="h-4 w-4" strokeWidth={2} aria-hidden />
+            </button>
+          ) : null}
+          <h2 className="text-sm font-semibold text-ink">{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-full text-ink/60 hover:bg-ink/5"
+          >
+            <X className="h-4 w-4" strokeWidth={2} aria-hidden />
+          </button>
+        </div>
+
+        {step === 'menu' ? (
+          <div className="grid gap-2">
+            <SheetChoice
+              label="Side"
+              hint="Bride · Groom · Both"
+              onClick={() => setStep('side')}
+            />
+            <SheetChoice
+              label="Role"
+              hint="Wedding party, sponsors, family…"
+              onClick={() => setStep('role')}
+            />
+            <SheetChoice
+              label="Group"
+              hint="Add to a group or create a new one"
+              onClick={() => setStep('group')}
+            />
+          </div>
+        ) : null}
+
+        {step === 'side' ? (
+          <div className="flex flex-wrap gap-2">
+            {SIDES.map((s) => (
+              <SheetPill key={s} onClick={() => applySide(s)}>
+                {SIDE_LABELS[s]}
+              </SheetPill>
+            ))}
+          </div>
+        ) : null}
+
+        {step === 'role' ? (
+          <div className="space-y-3">
+            {BULK_ROLE_SECTIONS.map((section) => (
+              <div key={section.label}>
+                <h3 className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
+                  {section.label}
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {section.roles.map((r) => (
+                    <SheetPill key={r} onClick={() => applyRole(r)}>
+                      {ROLE_LABELS[r]}
+                    </SheetPill>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {step === 'group' ? (
+          <div className="space-y-3">
+            {groups.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {groups.map((g) => (
+                  <SheetPill key={g.group_id} onClick={() => applyGroup(g.group_id)}>
+                    {g.label}
+                  </SheetPill>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-ink/50">No groups yet — create one below.</p>
+            )}
+            <div className="flex items-center gap-2 border-t border-ink/10 pt-3">
+              <input
+                type="text"
+                value={newGroup}
+                onChange={(e) => setNewGroup(e.target.value)}
+                maxLength={64}
+                placeholder="New group name"
+                className="flex-1 rounded-xl border border-ink/15 bg-cream px-3 py-2.5 text-sm text-ink placeholder:text-ink/35 focus:border-terracotta focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={createAndAdd}
+                disabled={!newGroup.trim()}
+                className="inline-flex items-center rounded-xl bg-mulberry px-4 py-2.5 text-sm font-semibold text-cream hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Create
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function SheetChoice({
+  label,
+  hint,
+  onClick,
+}: {
+  label: string;
+  hint: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center justify-between rounded-xl border border-ink/15 bg-cream px-4 py-3 text-left hover:border-ink/30"
+    >
+      <span className="flex flex-col">
+        <span className="text-sm font-semibold text-ink">{label}</span>
+        <span className="text-[11px] text-ink/50">{hint}</span>
+      </span>
+      <ChevronLeft
+        className="h-4 w-4 rotate-180 text-ink/40"
+        strokeWidth={1.75}
+        aria-hidden
+      />
+    </button>
+  );
+}
+
+function SheetPill({
+  onClick,
+  children,
+}: {
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex items-center rounded-full border border-ink/15 bg-ink/5 px-3 py-1.5 text-sm text-ink/80 hover:border-terracotta/40 hover:bg-terracotta/10 hover:text-terracotta-700"
+    >
+      {children}
+    </button>
   );
 }

@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(marketplace): demo-vendor testing tools — calendar blocks, claim helper, 20–50 default
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Follow-up so the owner can exercise two real flows with demo data — the **mutual-schedule narrowing** (`lib/vendor-availability.ts`, already shipped) and the **customer↔vendor inquiry round-trip** (iteration 0019). Both were untestable with demo vendors: the seed created no calendar blocks (vendors read as always-free → the schedule intersection never narrows), and demo vendors are unclaimed (`user_id=NULL` → no vendor receives an inquiry).
+
+**What ships (seed/scripts only — no migration):**
+
+1. **Calendar blocks (`scripts/seed-demo-vendors.ts`).** Each demo vendor gets 2–8 full-day `vendor_calendar_blocks` (busy dates) over the next ~12 months — sparse so the availability intersection narrows as a couple locks more vendors without collapsing to "no days work." UTC-midnight timestamps satisfy the 30-min/zero-second CHECKs; blocks cascade-delete with their vendor on cleanup. Bulk-inserted in 1000-row chunks.
+2. **Claim helper (`scripts/claim-demo-vendors.ts`, new).** Claims ONE demo vendor to a vendor user (`--to-email=` / `--to=`, optional `--category`/`--slug`): sets `user_id` + `is_demo=false` + `demo_batch_id=null` + a unique `contact_email` (all demo vendors share one, which would make the couple's `startThreadByVendorEmail` lookup ambiguous). Refuses if the user already owns a profile (vendor→user is 1:1 via `fetchOwnVendorProfile`'s `.maybeSingle()`). That vendor can then receive + reply to inquiries.
+3. **Default 20–50 per service.** `parseArgs` defaults bumped 5–10 → 20–50 vendors/category (the owner's testing target). `--min/--max/--limit` still override; expect ~4,000–9,600 vendors + proportional reviews/blocks per run (a few minutes).
+
+**SPEC IMPACT:** None — demo/simulation tooling (reuses existing `vendor_calendar_blocks` + `vendor_profiles`; no schema/SKU/workflow change).
+
+**Verification:** `tsc` + `next lint` green. Offline harness: calendar blocks satisfy minute∈{0,30}/second=0 across UTC/PH/IST timezones, 2–8 per vendor, valid ordering. **Owner-actionable:** re-seed staging (now defaulting to 20–50/category), then (Q5) lock 2–3 demo vendors and watch the mutual schedule narrow; (Q4) `claim-demo-vendors.ts --to-email=<vendor test account>` then run the inquiry round-trip.
+
 ## 2026-06-03 · feat(marketplace): demo vendors get reviews/ratings, district addresses & real names
 
 **Commit:** see merge commit on this PR.

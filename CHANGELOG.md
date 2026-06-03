@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(0001): keep the couple detail simple — remove the editorial live-view iframe
+
+**Commit:** to be filled after commit.
+
+**Context:** Owner clarification 2026-06-03 — "editorial" is just the same `/[slug]` page, which only becomes the editorial/recap view **after** the wedding (the existing day-of lifecycle's post/recap phase — nothing new to build). The couple's guest-detail should just show **their information, like any other guest. Keep it simple.**
+
+**What changed (`guests/[guestId]/page.tsx`):** Removed the `CoupleEditorialPreview` live-view iframe shipped in the prior PR — the `events.slug` fetch, the render block, the component, and the now-unused `ArrowUpRight` import. The couple's detail is back to the standard info form. The couple-foundation rules are **retained** (auto-Attending, can't-delete, role + RSVP locked, renamable) — those are correctness behavior, separate from the editorial page. The unrelated `e.touches[0]` typecheck guard stays (already on `main`).
+
+**Verification:** `tsc --noEmit` clean; `next lint` clean.
+
+**SPEC IMPACT:** Iteration **0001** — reverts the editorial-live-view spec note. "Editorial" = the `/[slug]` page's post-wedding recap state (day-of lifecycle, 0031), activating at end of wedding; couple detail = plain info. The prior `COWORK_INBOX.md` live-view entry is rewritten accordingly.
+
+---
+
 ## 2026-06-03 · feat(home): compact "Your wedding details" card from onboarding data
 
 **Commit:** see merge commit on this PR.

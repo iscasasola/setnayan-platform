@@ -4,6 +4,38 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · refactor(onboarding): unique `.onbw` CSS scope for the wedding onboarding flow (was global `.pba`) — kills the collision at the source
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Follow-up hardening to the `fix(services)` entry below. The wedding onboarding flow ships a **global** stylesheet (`apps/web/app/onboarding/wedding/_styles/onboarding.css`, imported in `onboarding-shell.tsx`) that scoped every rule under the generic class `.pba` — including `.pba{display:flex;justify-content:center}` plus a `.pba *{margin:0;padding:0}` reset on its root. A plain `.css` import in the App Router is global and persists app-wide, so that `.pba` could leak onto any other surface using the same class. It already did once (the Services Plan+Budget accordion, fixed by renaming that surface to `.pbacc`). This change removes the root cause so it can't recur.
+
+**What changed:**
+
+- **`onboarding.css`** — renamed the scope `.pba` → `.onbw` (onboarding-wedding) across all 525 selectors (whole-token swap; verified there are no `.pba`-prefixed substring classes like `.pblock`, so nothing else was touched). Expanded the file header to document the `.onbw` scope, the collision history, and the re-scope instruction ("prepend `.onbw` to every rule") for future ports.
+- **`onboarding-shell.tsx`** — the single root `className="pba"` → `"onbw"`; updated its two header-comment references.
+- The locked prototype `Onboarding_Wedding_Flow_2026-06-01.html` is **unchanged** — it never used `.pba` (it scopes under `.phone`/`body`); the `.pba` prefix was only added during the manual re-scope/port step, so just the code + its porter-facing comments needed updating. No Cowork edit required.
+
+**Verification:** `tsc --noEmit` clean; `next lint` clean for the onboarding files. Real-browser render check (the actual renamed CSS inlined against a representative `.onbw > .phone > .top/.body/.bottom` structure): the `.onbw` scope correctly styles the phone frame (430px), gold progress bar, the screen heading + chips, and the mulberry Continue CTA — rendering is identical to before (same rules, new scope name). App-wide grep confirms `.pba` is dead as a live class (remaining mentions are explanatory comments only); `.onbw` (onboarding) and `.pbacc` (accordion) are now distinct, collision-proof scopes.
+
+**SPEC IMPACT:** None — pure CSS-scoping refactor; no SKU, schema, copy, or workflow change. Resolves the latent architecture risk flagged in the `fix(services)` entry below.
+
+---
+
+## 2026-06-03 · fix(services): Plan+Budget budget-bar rendered as a left side-nav — `.pba` CSS scope collided with onboarding's global stylesheet
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner reported the couple **Services** tab's dark "budget bar" rendering as a vertical **side-nav on the left** instead of a top row (mobile screenshot, setnayan.com). Root cause is a global-CSS class-name collision. The Plan+Budget accordion (`plan-budget-accordion.tsx`) scopes its injected `<style>` under `.pba`. The wedding onboarding flow's **global** stylesheet (`apps/web/app/onboarding/wedding/_styles/onboarding.css`, imported in `onboarding-shell.tsx`) *also* scoped under `.pba` and set `.pba{display:flex;justify-content:center}` plus a `.pba *{margin:0;padding:0}` reset on its root. A plain `.css` import in the App Router is global and persists app-wide once loaded, so that leaked `display:flex` turned the accordion's sticky top budget bar into a stretched flex-**column** on the left (the cover content became the right column). The accordion's own `.pba` rule set `position:relative` but never `display`, so it could not override the leak.
+
+**What changed (`plan-budget-accordion.tsx`):** Renamed the accordion's CSS scope `.pba` → `.pbacc` (Plan-Budget-ACCordion) — every selector in the injected `PBA_CSS` string (226 scope tokens) plus the root element's `className`. `.pba` and `.pbacc` are distinct class tokens, so onboarding's `.pba{display:flex}` / `.pba *{…}` no longer match the accordion root or its descendants, and the surface reverts to its intended block layout with the budget bar pinned on top. Added a prominent header comment documenting why it must NOT be renamed back. (The onboarding side is hardened separately in the `refactor(onboarding)` entry above — both surfaces now own unique scopes.)
+
+**Verification:** Reproduced the exact bug and confirmed the fix in a real browser — an isolated repro of onboarding's global `.pba` leak against the accordion's real top-bar markup: root `.pba` → black bar becomes a left column (matches the report); root `.pbacc` → black bar correctly on top. `tsc --noEmit` clean; `next lint` clean for the changed file.
+
+**SPEC IMPACT:** None — pure CSS-scoping bugfix; no SKU, schema, copy, or workflow change.
+
+---
+
 ## 2026-06-03 · fix(services): center-snap runway so the first & last category cards can reach center
 
 **Commit:** see merge commit on this PR.

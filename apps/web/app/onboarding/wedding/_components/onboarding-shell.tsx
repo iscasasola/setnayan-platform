@@ -5,10 +5,13 @@
  *
  * PROTOTYPE-DIRECT PORT (owner directive 2026-06-02: "port the prototype's
  * actual CSS/HTML, not a Tailwind rewrite"). This mirrors the locked prototype
- * Onboarding_Wedding_Flow_2026-06-01.html one-for-one: the same .pba > .phone >
+ * Onboarding_Wedding_Flow_2026-06-01.html one-for-one: the same .onbw > .phone >
  * .top / .body / .bottom chrome, the same .screen sections with verbatim class
  * names, the same gold SETNAYAN mark + progress bar + Continue CTA. The CSS in
- * ../_styles/onboarding.css IS the prototype CSS, scoped under .pba.
+ * ../_styles/onboarding.css IS the prototype CSS, scoped under `.onbw`
+ * (onboarding-wedding). NOT `.pba` — that generic scope collided with the
+ * Services Plan+Budget accordion's own global `.pba` styles (2026-06-03); each
+ * surface now owns a unique root class. When re-porting, scope under `.onbw`.
  *
  * What changed vs the prototype: the imperative JS state machine (screens[] +
  * go()/render() + DOM toggles + buildFaith()/buildPax()/buildBudget()/initCal())
@@ -1873,7 +1876,7 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
   }, [committedEventId, state, buildCommitPayload, router]);
 
   return (
-    <div className="pba">
+    <div className="onbw">
       {/* Blocking completion overlay — covers the whole viewport so the customer
           can't touch anything while we create the event + preload the dashboard
           (owner 2026-06-02). Stays up until the dashboard navigation swaps in. */}

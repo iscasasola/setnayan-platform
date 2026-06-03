@@ -8,6 +8,29 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Schedule Preparation is now HYBRID (couple + booked-vendor manual items)
+
+**Why:** The manual-prep-items fast-follow that the #840 [PENDING] (below) called out as DEFERRED has now landed in code — **and** a vendor-add path was added on top. The couple's `/schedule` **Preparation** agenda is no longer read-only: it is **hybrid**. This supersedes the "manual prep items — DEFERRED" bullet in the #840 entry below (that bullet's predicted `event_preparation_items` table is exactly what shipped, except host-scope uses the canonical `current_couple_event_ids()` helper rather than `event_moderators`).
+
+**What landed (code):**
+
+1. **Couple can add + delete prep items.** A "+ Add to schedule" control on the Preparation agenda (and in its empty state) opens a small modal (label / date / optional notes) → inserts a `couple_manual` row. Couples can delete any `event_preparation_items` row on their own event — including dismissing vendor-added ones. (Autofill rows stay read-only, edited on their own surface as before.)
+2. **Booked vendors can add items to the couple's prep schedule.** On `/vendor-dashboard/bookings`, each **accepted** booking shows an "Add to prep schedule" control + the list of items that vendor has added (each with delete). Inserts a `vendor_prep` row stamped with the vendor's `vendor_profile_id`. Vendors can only add to bookings whose chat thread is `accepted`, and can only edit/delete their own rows.
+
+**NEW table — `event_preparation_items`** (migration `20260729000000_event_preparation_items.sql`, **owner must push**): `item_id`, `event_id`→`events`, nullable `vendor_profile_id`→`vendor_profiles` (NULL = couple-added), `due_date`, `label` (1–200), `notes`, `source_tag` (`couple_manual` | `vendor_prep`), `created_by`→`users`, timestamps. **RLS:** couple full CRUD via `current_couple_event_ids()`; vendor SELECT on accepted-thread events, INSERT only for accepted threads (own `vendor_profile_id`), UPDATE/DELETE own rows only via `current_vendor_ids()`. The aggregator graceful-degrades (autofill-only) until the migration is pushed.
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/0021_couple_dashboard_fully_purchased/0021_couple_dashboard_fully_purchased.md`** — update the Schedule surface: Preparation is now **hybrid** (read-only autofill + couple-added items + booked-vendor-added items), not read-only. Document the couple add/delete flow and that couples can dismiss vendor-added items.
+2. **`~/Documents/Claude/Projects/Setnayan/0022_vendor_dashboard/0022_vendor_dashboard.md`** (+ `0006`) — record that a **booked vendor** (accepted chat thread) can add dated items to the couple's Preparation schedule from their Bookings view, and manage (delete) their own additions. Note the accepted-thread gate.
+3. **`0007` (budget) + `0016` (Concierge)** — keep the existing cross-ref note from the #840 entry; the four autofill sources are unchanged. Optionally note the new `event_preparation_items` table as the home for hand-entered dated steps that those surfaces don't own.
+
+**Cross-ref:** corpus `DECISION_LOG.md` "Customer dashboard chrome RE-LOCKED" (2026-06-03). This is the hybrid completion of the Preparation surface the owner asked for after delta #3.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]` (and you may flip/strike the "manual prep items — DEFERRED" bullet in the #840 entry below, since it's now shipped).
+
+---
+
 ## [PENDING] 2026-06-03 — Drive-copy Phase 2: Papic auto-sync (cron-free)
 
 **Why:** Papic captures now auto-sync to the couple's Google Drive — cron-free, via Next 15 `after()` (background copy in the capture request). The 5 other artifact feeders await their services' render/generation pipelines.

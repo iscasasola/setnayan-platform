@@ -52,11 +52,14 @@ export default async function RepertoirePage({ searchParams }: Props) {
     );
   }
 
-  const repertoire = await fetchVendorSongs(supabase, profile.vendor_profile_id);
+  // The vendor's own repertoire + the browse/search results are independent
+  // (results keys off `query`, not the repertoire) — one parallel batch instead
+  // of two serial reads (owner perf pass 2026-06-03).
+  const [repertoire, results] = await Promise.all([
+    fetchVendorSongs(supabase, profile.vendor_profile_id),
+    query ? searchSongs(supabase, query) : fetchCuratedSongs(supabase),
+  ]);
   const repertoireIds = new Set(repertoire.map((s) => s.song_id));
-  const results: Song[] = query
-    ? await searchSongs(supabase, query)
-    : await fetchCuratedSongs(supabase);
 
   return (
     <section className="mx-auto w-full max-w-5xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">

@@ -8,7 +8,18 @@
 
 ---
 
-## [PENDING] 2026-06-03 — Drive-copy layer keystone (R2 = system of record · 6-artifact Drive copy)
+## [PENDING] 2026-06-03 — Site Editor: Website-tab flip (Phase 2) — editor is now the page, journey scroll retired
+
+**Why:** Phase 2 of the flip sequence shipped — tapping "Website" now opens `/site-editor/[eventId]` (mobile + desktop), and the journey route `/dashboard/[eventId]/website` redirects to the editor. The spec corpus needs this recorded so future sessions know the journey scroll is retired and the editor is the canonical Website surface.
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/DECISION_LOG.md`** — append a 2026-06-03 row (date order):
+   > **🪟 Website-tab flip (Phase ④ of the 2026-06-01 sequence).** The couple "Website" doorway (`customer-nav-config.ts` desktop sidebar + `customer-bottom-nav.tsx` mobile slot 4) now opens the full-screen Reels editor `/site-editor/[eventId]` directly; the journey scroll `/dashboard/[eventId]/website` (PR #704) is **retired → redirects** to the editor (bookmarks / deep-links / animated-monogram back-links / onboarding prefetch all preserved). Editor ✕ → dashboard home (`/dashboard/[eventId]`); Settings "Manage URL"/"Set your URL" + the no-slug preview CTA → the invitation editor (`/dashboard/[eventId]/invitation`, canonical shared `SlugField` + `updateEventSlug`). Now-dead (follow-up cleanup): `website/_components/{journey,pro-upgrade-panel,pro-website-panel,copy-button}.tsx` + `website/actions.ts`. Incidental: fixed `main`'s `tsc` break from PR #827 (unguarded `e.touches[0]` in `guest-list-multiselect.tsx`). Files: `customer-nav-config.ts` · `customer-bottom-nav.tsx` · `site-editor.tsx` · `website/page.tsx` (→ redirect) · `guest-list-multiselect.tsx` (touch null-guard).
+
+2. **`~/Documents/Claude/Projects/Setnayan/0021_couple_dashboard_fully_purchased/0021_couple_dashboard_fully_purchased.md`** — update the Website-tab section: the canonical Website surface is now the full-screen Reels editor (`/site-editor/[eventId]`), reached by tapping the "Website" nav doorway on mobile + desktop; the journey-scroll hub is retired (redirects to the editor). Slug/URL management lives in the invitation editor. Supersedes the Phase-1 card-parity note.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]` here.
 
 **Why:** Code shipped Phase 1 (keystone) of the 2026-06-03 storage lock — the universal Google-Drive copy layer (`lib/drive-copy.ts` + `drive_copy_*` schema). The architecture, retention model, and the exact per-file iteration edits are already written up in the corpus design doc; this item is the reminder to walk that worklist via Cowork.
 

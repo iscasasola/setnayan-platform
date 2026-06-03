@@ -4,6 +4,26 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(services): surface in-app add-ons inside the Services tab
+
+**Commit:** see merge commit.
+
+**Context:** Delta #4 of the 2026-06-03 customer-dashboard chrome redesign (corpus `DECISION_LOG.md` "Customer dashboard chrome RE-LOCKED"). Vendors + in-app services should live in one tab so couples never need to jump to a separate Add-ons route to discover features.
+
+**What ships:**
+- **`apps/web/lib/add-ons-catalog.ts`** — new shared catalog module extracted from add-ons/page.tsx. Exports `ADD_ONS`, `AddOnEntry`, `AddOnStatus`, and the `addOnHref()` helper. Single source of truth consumed by both the full poster grid and the new compact section.
+- **`apps/web/app/dashboard/[eventId]/add-ons/page.tsx`** — refactored to import `ADD_ONS` + `addOnHref` from the shared catalog. Behaviour is byte-for-byte identical; no duplicated list.
+- **`apps/web/app/dashboard/[eventId]/vendors/_components/in-app-services-section.tsx`** — new server component: "In-app services & add-ons" section with a compact landscape mini-card grid (horizontal-scroll on mobile, 4-col on desktop). Cards reuse the per-service animated poster backgrounds (base + motion layers + lower-third gradient mask) from the shared catalog. Filters to live + web_v1 add-ons only; coming-soon items discoverable on the full `/add-ons` page. "See all" + "View all add-ons" links keep the canonical route reachable.
+- **`apps/web/app/dashboard/[eventId]/vendors/page.tsx`** — wraps the return in a fragment; renders `<InAppServicesSection eventId={eventId} />` below `<PlanBudgetAccordion>`.
+
+**Verification:** `pnpm -F web typecheck` — 0 errors. `next lint` on all 4 changed files — 0 warnings/errors.
+
+**SPEC IMPACT:** Yes.
+- **Iteration 0006** (`0006_vendors_management/`) — the Vendors tab (renamed Services in the chrome redesign) now also surfaces in-app services. Spec should note the dual-entry-point pattern.
+- **Add-ons hub** (`0021_couple_dashboard_fully_purchased/`) — record that the compact add-ons grid now lives inside the Services tab as a second entry point (canonical `/add-ons` route unchanged).
+
+---
+
 ## 2026-06-03 · feat(0001): keep the couple detail simple — remove the editorial live-view iframe
 
 **Commit:** to be filled after commit.

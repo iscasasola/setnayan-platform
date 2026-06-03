@@ -8,6 +8,21 @@
 
 ---
 
+## [PENDING] 2026-06-03 — In-app add-ons surfaced inside Services tab (chrome redesign delta #4)
+
+**Why:** Delta #4 of the 2026-06-03 customer-dashboard chrome redesign shipped — the couple's "Services" tab (`/dashboard/[eventId]/vendors`) now includes a compact "In-app services & add-ons" section (mini-card grid, reusing `lib/add-ons-catalog.ts`) below the vendor plan+budget accordion. The canonical `/add-ons` route is unchanged; this is a second entry point only.
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/0006_vendors_management/0006_vendors_management.md`** — note that the Services tab (Vendors route, renamed in chrome redesign) now also surfaces in-app add-ons as a compact section below the vendor accordion. The full add-ons hub at `/add-ons` remains canonical; the Services tab carries a second entry point.
+2. **`~/Documents/Claude/Projects/Setnayan/0021_couple_dashboard_fully_purchased/0021_couple_dashboard_fully_purchased.md`** — record the dual-entry-point pattern: in-app add-ons are accessible both from the dedicated "Add-ons" surface (`/add-ons`) AND from within the "Services" tab (compact grid). Catalog is now in `lib/add-ons-catalog.ts` (shared between both surfaces).
+
+**Cross-ref:** corpus `DECISION_LOG.md` "Customer dashboard chrome RE-LOCKED" (2026-06-03) is the design authority. This is the final (delta #4) of the four chrome-redesign PRs.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Home: compact "Your wedding details" card (chrome redesign delta #1)
 
 **Why:** Delta #1 of the 2026-06-03 customer-dashboard chrome redesign landed in code — event Home now shows a compact "Your wedding details" card (Location · Venue · Guests · Budget · Style · Cuisine · Photo & video) built from onboarding data, with a "See all wedding settings →" link to `/details`. It reshapes the existing Home "Personalized" block (chips → kv card); `/for-you` keeps the chip view.

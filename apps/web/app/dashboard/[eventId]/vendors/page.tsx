@@ -34,6 +34,7 @@ import { canonicalServicesForFolder } from '@/lib/vendor-counts';
 import type { WeddingFolder } from '@/lib/taxonomy';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { PlanBudgetAccordion } from './_components/plan-budget-accordion';
+import { InAppServicesSection } from './_components/in-app-services-section';
 
 export const metadata = { title: 'Vendors' };
 
@@ -324,7 +325,12 @@ export default async function VendorsPage({ params }: Props) {
     marketPoolCount,
   });
 
-  return <PlanBudgetAccordion model={model} eventId={eventId} />;
+  return (
+    <>
+      <PlanBudgetAccordion model={model} eventId={eventId} />
+      <InAppServicesSection eventId={eventId} />
+    </>
+  );
 }
 
 /**

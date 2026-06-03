@@ -313,3 +313,62 @@ export function buildServiceFeatures(
 
   return rows;
 }
+
+// ── Compact "Your wedding details" card (Home) ──────────────────────────────
+
+export type WeddingDetailRow = { key: string; label: string; value: string };
+
+// Budget as a bare "₱650,000" (no " budget" suffix) for the kv-card value cell.
+function budgetValueBare(centavos: number | null | undefined): string | null {
+  if (centavos == null || centavos <= 0) return null;
+  const pesos = Math.round(centavos / 100);
+  return `₱${pesos.toLocaleString('en-PH', { maximumFractionDigits: 0 })}`;
+}
+
+// One style_preferences dimension → its cleaned display value (or null),
+// reusing the same cleaning as the "what matters" list (cuisine_filipino →
+// "Filipino", pv_editorial → "Editorial").
+function stylePrefValue(
+  stylePrefs: Record<string, unknown> | null | undefined,
+  key: string,
+): string | null {
+  if (!stylePrefs || typeof stylePrefs !== 'object') return null;
+  return featureValueString(key, (stylePrefs as Record<string, unknown>)[key]);
+}
+
+/**
+ * The compact "Your wedding details" rows for the Home card (owner 2026-06-03).
+ * A keyed label→value list that MERGES the events-row basics (location · venue ·
+ * guests · budget · style) with the two most service-defining onboarding style
+ * picks (cuisine · photo & video). Date + ceremony are intentionally omitted —
+ * the persistent top chrome (BudgetCountdownHeader) already shows them. Only
+ * present fields render; nothing is fabricated, so the card never shows blanks.
+ */
+export function buildWeddingDetailRows(event: EventTasteSource): WeddingDetailRow[] {
+  const rows: WeddingDetailRow[] = [];
+  const push = (key: string, label: string, value: string | null | undefined) => {
+    if (value && value.trim()) rows.push({ key, label, value: value.trim() });
+  };
+
+  const region = event.region ?? null;
+  push('location', 'Location', region ? REGION_LABEL[region] ?? titleCase(region) : null);
+
+  const venue = event.venue_setting ?? null;
+  push('venue', 'Venue', venue ? VENUE_LABEL[venue] ?? titleCase(venue) : null);
+
+  push(
+    'guests',
+    'Guests',
+    event.estimated_pax != null && event.estimated_pax > 0 ? `${event.estimated_pax}` : null,
+  );
+
+  push('budget', 'Budget', budgetValueBare(event.estimated_budget_centavos ?? null));
+
+  const feel = event.mood_feel_key ?? null;
+  push('style', 'Style', feel ? titleCase(feel) : null);
+
+  push('cuisine', 'Cuisine', stylePrefValue(event.style_preferences, 'cuisine'));
+  push('photo', 'Photo & video', stylePrefValue(event.style_preferences, 'pvLook'));
+
+  return rows;
+}

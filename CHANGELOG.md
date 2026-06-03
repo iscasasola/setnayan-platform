@@ -16,6 +16,28 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** Iteration **0001** — reverts the editorial-live-view spec note. "Editorial" = the `/[slug]` page's post-wedding recap state (day-of lifecycle, 0031), activating at end of wedding; couple detail = plain info. The prior `COWORK_INBOX.md` live-view entry is rewritten accordingly.
 
+---
+
+## 2026-06-03 · feat(home): compact "Your wedding details" card from onboarding data
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Delta #1 of the 2026-06-03 customer-dashboard chrome redesign (corpus `DECISION_LOG.md` "Customer dashboard chrome RE-LOCKED"). An audit found most of the redesign is already live (5-tab nav, Website tab, `/details` settings, Messages, top-bar Switch/bell), so this ports only the genuine new bits — starting with surfacing the couple's onboarding wedding details as one glanceable card on event Home.
+
+**What ships:**
+
+- **Compact "Your wedding details" card** on event Home — a keyed label→value list MERGING the events-row basics (Location · Venue · Guests · Budget · Style) with the two most service-defining onboarding style picks (Cuisine · Photo & video), plus a **"See all wedding settings →"** link to `/details`. Date + ceremony are omitted (the persistent top chrome already carries them).
+- **Reshapes the existing `PersonalizedMenu` `preview` variant** — the live Home already rendered this onboarding data as chips; it now renders the kv card. `/for-you` (the `full` variant) is byte-for-byte unchanged (chips + the full "what matters" dl). Gated on `variant === 'preview' && detailRows.length > 0`, so behavior is unchanged when rows aren't passed.
+- **New `buildWeddingDetailRows()` in `lib/personalized-menu.ts`** — reuses the existing `REGION_LABEL`/`VENUE_LABEL` maps + `style_preferences` cleaning; only present fields render, so the card never shows blanks.
+
+**Files:** `lib/personalized-menu.ts` · `app/dashboard/[eventId]/_components/personalized-menu.tsx` · `app/dashboard/[eventId]/page.tsx`.
+
+**Verification:** `pnpm -F web typecheck` ✓ · `pnpm -F web lint` (3 files) ✓ No ESLint warnings or errors. (Rebased onto current `main`, which already carries PR #830's `e.touches[0]` guard — the earlier `tsc` red on the stale base is gone.)
+
+**SPEC IMPACT:** Yes — iteration 0021 (couple dashboard Home) gains the "Your wedding details" card. The model is already locked in corpus `DECISION_LOG.md` ("Customer dashboard chrome RE-LOCKED", 2026-06-03); logged as a `[PENDING]` COWORK_INBOX item to update 0021's Home-surface section.
+
+---
+
 ## 2026-06-03 · feat(site-editor): flip the Website doorway to the editor + retire the journey scroll (Phase 2)
 
 **Commit:** see merge commit on this PR.

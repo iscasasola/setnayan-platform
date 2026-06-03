@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Sparkles, ArrowRight, Pencil } from 'lucide-react';
-import type { ServiceFeature } from '@/lib/personalized-menu';
+import type { ServiceFeature, WeddingDetailRow } from '@/lib/personalized-menu';
 
 /**
  * PersonalizedMenu — the couple's match-criteria surface.
@@ -34,9 +34,10 @@ export type TasteChip = { label: string };
 
 export function PersonalizedMenu({
   eventId,
-  variant: _variant,
+  variant,
   tasteChips,
   serviceFeatures = [],
+  detailRows = [],
 }: {
   eventId: string;
   variant: 'preview' | 'full';
@@ -48,10 +49,22 @@ export function PersonalizedMenu({
    * events with no captured style prefs) render the chips alone.
    */
   serviceFeatures?: ServiceFeature[];
+  /**
+   * Compact "Your wedding details" rows (events-row basics + cuisine/photo).
+   * When present on the `preview` (Home) variant, the card renders this keyed
+   * kv list + a "See all wedding settings" link instead of the chips. The
+   * `full` (/for-you) variant ignores it and keeps the chips + "what matters"
+   * dl. Defaults to [] so existing behavior is unchanged when not passed.
+   */
+  detailRows?: WeddingDetailRow[];
 }) {
   const base = `/dashboard/${eventId}`;
   const hasCriteria = tasteChips.length > 0;
   const hasFeatures = serviceFeatures.length > 0;
+  // Home (preview) renders the compact wedding-details kv card; /for-you (full)
+  // keeps the chips + full "what matters" dl. Falls back to chips if the rows
+  // weren't passed (e.g. an event with no captured details).
+  const showDetailCard = variant === 'preview' && detailRows.length > 0;
 
   return (
     <section
@@ -65,10 +78,12 @@ export function PersonalizedMenu({
             className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55"
           >
             <Sparkles aria-hidden className="h-3.5 w-3.5 text-terracotta" strokeWidth={1.75} />
-            Personalized for you
+            {showDetailCard ? 'Your wedding details' : 'Personalized for you'}
           </h2>
           <p className="text-xs text-ink/55">
-            What we match &amp; sort your services by — from your wedding details.
+            {showDetailCard
+              ? 'What Setnayan matches & sorts your services by.'
+              : 'What we match & sort your services by — from your wedding details.'}
           </p>
         </div>
         {/* Personalize — opens the full Personalization page where ALL the
@@ -84,8 +99,22 @@ export function PersonalizedMenu({
         </Link>
       </div>
 
-      {/* The curated match criteria — what filters + sorts the vendor search. */}
-      {hasCriteria ? (
+      {showDetailCard ? (
+        /* Compact "Your wedding details" kv list (owner 2026-06-03) — the
+           events-row basics + cuisine/photo merged into one glanceable record. */
+        <dl className="divide-y divide-ink/10">
+          {detailRows.map((row) => (
+            <div
+              key={row.key}
+              className="flex items-baseline justify-between gap-3 py-2 first:pt-0 last:pb-0"
+            >
+              <dt className="shrink-0 text-xs text-ink/55">{row.label}</dt>
+              <dd className="text-right text-sm font-medium text-ink/85">{row.value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : hasCriteria ? (
+        /* The curated match criteria — what filters + sorts the vendor search. */
         <ul className="flex flex-wrap gap-2">
           {tasteChips.map((chip) => (
             <li
@@ -107,7 +136,7 @@ export function PersonalizedMenu({
        *  onboarding (events.style_preferences). Display only; surfaces "the
        *  features that matter for the different services" the owner asked
        *  for (2026-06-02). Renders only when style prefs were captured. */}
-      {hasFeatures && (
+      {!showDetailCard && hasFeatures && (
         <div className="space-y-2 border-t border-ink/10 pt-3">
           <h3 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
             What matters for your services
@@ -139,6 +168,17 @@ export function PersonalizedMenu({
         Browse your matched services
         <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
       </Link>
+
+      {/* See all wedding settings — the full onboarding record + editor at
+          /details. Preview (Home) only; the page itself is the "See all". */}
+      {showDetailCard && (
+        <Link
+          href={`${base}/details`}
+          className="block border-t border-ink/10 pt-3 text-center font-mono text-[10px] uppercase tracking-[0.1em] text-terracotta transition-colors hover:text-mulberry"
+        >
+          See all wedding settings →
+        </Link>
+      )}
     </section>
   );
 }

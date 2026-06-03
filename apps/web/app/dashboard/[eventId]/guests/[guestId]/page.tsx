@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import {
   Armchair,
   Camera,
+  Check,
   ChevronDown,
   Tag,
   UserPlus,
@@ -165,8 +166,14 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
   // them — DB partial unique indexes enforce this regardless, but the UI
   // shouldn't offer an option that will fail on save.
   const singletonHolders = await fetchSingletonRoleHolders(supabase, eventId, guestId);
+  // Bride & groom are the foundation of the event (owner directive
+  // 2026-06-03): renamable, never deletable, always Attending, and their role
+  // is locked (shown read-only, not a re-pickable select). For everyone else,
+  // hide bride/groom from the role picker entirely — the couple is set at
+  // event creation, never (re)assigned from the guest list.
+  const isCouple = guest.role === 'bride' || guest.role === 'groom';
   const availableRoles = ROLE_OPTIONS.filter(
-    (r) => !(r in singletonHolders) || r === guest.role,
+    (r) => r !== 'bride' && r !== 'groom' && !(r in singletonHolders),
   );
 
   // Pull the +1 guest row (if any) so the edit form can show the
@@ -344,12 +351,25 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
               defaultValue={guest.group_category}
               options={GROUP_OPTIONS.map((v) => ({ value: v, label: GROUP_CATEGORY_LABELS[v] }))}
             />
-            <Select
-              id="role"
-              label="Role in wedding"
-              defaultValue={guest.role}
-              options={availableRoles.map((v) => ({ value: v, label: ROLE_LABELS[v] }))}
-            />
+            {isCouple ? (
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-ink">
+                  Role in wedding
+                </label>
+                <div className="flex h-10 items-center justify-between rounded-md border border-ink/15 bg-ink/[0.03] px-3 text-sm">
+                  <span className="font-medium text-ink">{ROLE_LABELS[guest.role]}</span>
+                  <span className="text-xs text-ink/45">Foundation · locked</span>
+                </div>
+                <input type="hidden" name="role" value={guest.role} />
+              </div>
+            ) : (
+              <Select
+                id="role"
+                label="Role in wedding"
+                defaultValue={guest.role}
+                options={availableRoles.map((v) => ({ value: v, label: ROLE_LABELS[v] }))}
+              />
+            )}
           </div>
         </Section>
 
@@ -409,7 +429,20 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
             <label className="block text-sm font-medium text-ink">
               RSVP status
             </label>
-            <SegmentedRsvp current={guest.rsvp_status} />
+            {isCouple ? (
+              <>
+                <div className="inline-flex h-11 items-center gap-2 rounded-md border border-emerald-300 bg-emerald-50 px-4 text-sm font-medium text-emerald-800">
+                  <Check className="h-4 w-4" strokeWidth={2.5} aria-hidden />
+                  Attending · always
+                </div>
+                <p className="text-xs text-ink/50">
+                  The couple is the foundation of the event — always attending.
+                </p>
+                <input type="hidden" name="rsvp_status" value="attending" />
+              </>
+            ) : (
+              <SegmentedRsvp current={guest.rsvp_status} />
+            )}
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Select
@@ -567,14 +600,20 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
             <1s so the dual-pending window is invisible in practice. */}
         <div className="sticky bottom-0 z-10 -mx-4 border-t border-ink/10 bg-cream/95 px-4 py-3 backdrop-blur sm:-mx-0 sm:rounded-lg sm:border sm:px-4 sm:shadow-sm">
           <div className="flex items-center justify-between gap-3">
-            <SubmitButton
-              formAction={deleteAction}
-              className="text-sm font-medium text-terracotta-700 underline-offset-4 hover:underline disabled:opacity-60"
-              aria-label={`Remove ${guestDisplayName(guest)}`}
-              pendingLabel="Removing…"
-            >
-              Remove guest
-            </SubmitButton>
+            {isCouple ? (
+              <span className="text-xs text-ink/50">
+                Foundation of the event — can&rsquo;t be removed
+              </span>
+            ) : (
+              <SubmitButton
+                formAction={deleteAction}
+                className="text-sm font-medium text-terracotta-700 underline-offset-4 hover:underline disabled:opacity-60"
+                aria-label={`Remove ${guestDisplayName(guest)}`}
+                pendingLabel="Removing…"
+              >
+                Remove guest
+              </SubmitButton>
+            )}
             <div className="flex items-center gap-2">
               <Link
                 href={`/dashboard/${eventId}/guests`}

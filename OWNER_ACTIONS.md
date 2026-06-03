@@ -20,6 +20,16 @@
 > Engineering work has landed and is awaiting these owner actions to be
 > production-effective. Numbered in recommended execution order.
 
+### 2026-06-03 — push the couple-attending migration (~2 min · recommended)
+
+A new migration `supabase/migrations/20260725000000_guests_couple_attending.sql` makes the **bride & groom always Attending** at the database level (a trigger) and backfills existing couples. The app already coerces this on read, so the Guests page is correct without it — but push it so the **stored** RSVP value + every write path (CSV import, the public RSVP widget) stay consistent:
+
+```bash
+supabase db push --db-url "$SUPABASE_DB_URL"
+```
+
+**Check it worked:** open the Guests page for any event — the bride & groom show **Attending** (not Pending) and the Pending count drops. (They already show Attending in the UI via read-coercion; this makes the database agree.)
+
 ### Today's 17 merges (for awareness)
 
 | Area | PR | What it shipped |

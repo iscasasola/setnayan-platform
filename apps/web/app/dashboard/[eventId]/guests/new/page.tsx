@@ -76,7 +76,12 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
   // pick fail anyway, so don't offer the option in the first place.
   const supabase = await createClient();
   const singletonHolders = await fetchSingletonRoleHolders(supabase, eventId);
-  const availableRoles = ROLE_OPTIONS.filter((r) => !(r in singletonHolders));
+  // Bride & groom are set at event creation and are the foundation of the
+  // event (owner directive 2026-06-03) — not assignable from the guest list,
+  // so hide them from the role picker entirely.
+  const availableRoles = ROLE_OPTIONS.filter(
+    (r) => r !== 'bride' && r !== 'groom' && !(r in singletonHolders),
+  );
 
   const action = createGuest.bind(null, eventId);
 

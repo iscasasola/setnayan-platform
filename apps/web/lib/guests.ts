@@ -220,6 +220,17 @@ export type GuestStats = {
 const GUEST_FIELDS =
   'guest_id,public_id,event_id,first_name,last_name,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,invited_to_blocks,rsvp_status,notes,qr_token,custom_tags,created_at';
 
+// Bride & groom are the foundation of the event — always Attending, never
+// Pending (owner directive 2026-06-03). The DB trigger from migration
+// 20260725000000_guests_couple_attending is the source of truth; we also
+// coerce on read so the UI is correct the instant this ships, even before the
+// migration is pushed to prod and for any row the trigger hasn't rewritten.
+function coupleAttending(row: GuestRow): GuestRow {
+  return row.role === 'bride' || row.role === 'groom'
+    ? { ...row, rsvp_status: 'attending' }
+    : row;
+}
+
 export async function fetchGuestsByEvent(
   supabase: SupabaseClient,
   eventId: string,
@@ -261,7 +272,7 @@ export async function fetchGuestsByEvent(
     return [];
   }
 
-  return (data ?? []) as unknown as GuestRow[];
+  return ((data ?? []) as unknown as GuestRow[]).map(coupleAttending);
 }
 
 export async function fetchGuestById(
@@ -299,7 +310,8 @@ export async function fetchGuestById(
     );
     throw new Error(`fetchGuestById failed: ${error.message}`);
   }
-  return (data ?? null) as unknown as GuestRow | null;
+  const row = (data ?? null) as unknown as GuestRow | null;
+  return row ? coupleAttending(row) : null;
 }
 
 export function computeGuestStats(guests: GuestRow[]): GuestStats {

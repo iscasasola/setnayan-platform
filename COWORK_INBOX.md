@@ -8,6 +8,25 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Iteration 0001: bride & groom are the event's foundation (auto-Attending · undeletable · role-locked)
+
+**Why:** Owner directive 2026-06-03 — the couple (bride & groom) are foundational: auto-Attending, can't be deleted, renamable, and hidden from the assignable role pickers. The 0001 spec should capture these rules.
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/0001_creating_guest_list/0001_creating_guest_list.md`** — add a "Bride & Groom (foundation of the event)" rule block:
+   - RSVP is **always Attending**, never Pending — enforced by DB trigger `guests_couple_force_attending` (migration `20260725000000`) + app read-coercion; excluded from the Pending count.
+   - **Cannot be deleted** (single + bulk) — a "foundation of the event" guard runs before the RSVP gate; the detail page hides the Remove button.
+   - **Can be renamed** — name fields stay editable.
+   - **Bride/Groom hidden from the role pickers** (new-guest form, edit-form select, bulk-assign picker). The couple's own role shows read-only ("Foundation · locked"). The couple is established at event creation, never reassigned from the guest list.
+   - Clicking the bride/groom opens their full detail; a richer "album / custom data" surface is a planned follow-up (pending owner spec on what the album links to).
+
+2. **`~/Documents/Claude/Projects/Setnayan/DECISION_LOG.md`** (corpus root) — append a 2026-06-03 row: "Bride & groom = event foundation: auto-Attending (trigger 20260725000000 + read-coercion), undeletable (single+bulk guard), renamable, hidden from role pickers, role/RSVP locked on detail. Files: migration + apps/web/lib/guests.ts + guests/[guestId]/{actions.ts,page.tsx} + groups-actions.ts + new/page.tsx + _components/guest-list-multiselect.tsx."
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Iteration 0001: mobile Guests carousel — select-and-assign Customize + folded filters + side/role/group sort
 
 **Why:** Owner directives 2026-06-03 reshaped the mobile Guests page (the lower-third 4-panel carousel). The shipped behavior now differs from how iteration 0001 describes the mobile guest-list controls, so the spec should be updated to match.

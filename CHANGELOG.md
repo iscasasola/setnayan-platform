@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(admin+home): planning_deadlines goes live — reminders read it + admin editor (PR 2+3 of 3)
+
+**Context:** Completes the admin deadline table (after PR 1's schema). The Home reminders now read the admin-set deadlines, and admins edit them in `/admin/taxonomy`. Owner: "do both."
+
+**Wiring (`lib/upcoming-items.ts`):** `fetchRecommendedDeadlineItems` reads `planning_deadlines` (service category rows) and uses each category's admin-set offset (month/week/day) for the reminder; **falls back to `PLAN_GROUPS.monthsBefore`** per-category (incl. if the table isn't applied → empty map → code, no crash).
+
+**Admin editor (`/admin/taxonomy`):** a "Recommended deadlines" section — lists the rows (services + documents) with inline `offset_value`/`offset_unit` edit via `updatePlanningDeadline` (new `actions.ts`, RLS-gated) + a category-level coverage/"missing deadline" flag. Per-leaf overrides are a noted follow-up (the leaf→category map is in code `TAXONOMY_MAP`, not the DB).
+
+**Verification:** `tsc --noEmit` green. Admin route auth-gated + needs the table — CI build is the gate; degrades gracefully pre-migration.
+
+**SPEC IMPACT:** Yes — 0023 admin gains the deadline editor; the Home reminders' deadline source becomes the admin table. Inbox note added.
+
 ## 2026-06-03 · chore(0000,0021): remove Marketplace (Store) + Switch View (role-switch) icons from the customer top nav
 
 **Commit:** see merge commit on this PR.

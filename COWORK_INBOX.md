@@ -8,7 +8,19 @@
 
 ---
 
-## [PENDING] 2026-06-03 — Top nav: Marketplace + Switch View icons removed from the customer top bar (0000/0021)
+## [PENDING] 2026-06-03 — Admin deadline table COMPLETE — reminders read it + admin editor (PR 2+3/3)
+
+**Why:** Finishes the 3-PR admin deadline build (owner: "ship this both" / "do both"). The Home recommended-deadline reminders now read `planning_deadlines`; admins edit the deadlines in `/admin/taxonomy`.
+
+**What landed (code):** `lib/upcoming-items.ts` reads `planning_deadlines` (service category rows) with `PLAN_GROUPS.monthsBefore` as fallback. `/admin/taxonomy` gains a "Recommended deadlines" editor (inline offset edit · `updatePlanningDeadline` action · RLS-gated) + a category-level coverage/"missing deadline" flag.
+
+**Spec corpus update (owner walks via Cowork):**
+1. **`0023_admin_console/`** — record the `/admin/taxonomy` "Recommended deadlines" editor (admin sets the lock-by deadline per category/document · coverage flag · per-leaf overrides a noted follow-up).
+2. **The planning/deadline spec** — the Home reminders' deadline source is now the admin `planning_deadlines` table (code = fallback).
+
+**Noted follow-up (not built):** per-leaf deadline overrides + leaf-level missing-flag (needs the leaf→category map, in code `TAXONOMY_MAP`, not the DB).
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
 
 **Why:** Owner directive (mobile screenshot, both icons circled): *"remove these 2 on top nav."* The 🏪 Marketplace link and the 👤﹀ Switch View (role-switch) pill are gone from the customer **top bar** — event-scoped (`[eventId]/layout.tsx`) AND non-event routes (`outer-dashboard-header.tsx`). The desktop **left sidebar** intentionally KEEPS both (owner scope: "non-event top bar", not the desktop sidebar). Nothing orphaned (Marketplace via the home tease-strip / "Browse matched services" / plan cards / sidebar; role-switch via the event-switcher dropdown's "Switch view" rows + sidebar).
 

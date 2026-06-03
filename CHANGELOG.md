@@ -22,6 +22,40 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** Yes — iteration **0043** (wedding-type picker) gains a Chinese ceremony type (coming-soon). See `COWORK_INBOX.md`.
 
+## 2026-06-03 · feat(0021,0010,0004): make all in-app service tiles clickable (unlock-all-to-check)
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner directive — *"for now we want to unlock all to check."* After religions + events, the only user-facing "coming soon" gates left in the in-app services catalog were 3 non-clickable tiles. Two map to REAL, already-built routes that simply weren't surfaced. (The bigger remaining locks — 8 not-built pricing SKUs, Concierge kill-switch, OAuth credentials, offline daemon — hide unbuilt/partial features and were intentionally left alone; flipping them surfaces stubs/broken flows, not checkable features.)
+
+**What changed (catalog-only — `lib/add-ons-catalog.ts`):**
+- **Monogram Creator** — repointed `monogram-creator` (dead route) → `animated-monogram` (the real iteration-0004 monogram studio) + `coming_soon → web_v1`.
+- **Mood Board** — added a catalog entry (`web_v1`) surfacing the real `/add-ons/mood-board` route (0010), which was built but absent from the services grid.
+- **Landing Page** + **Music Creator** — `coming_soon → web_v1` so they're clickable; they land on their polite `[addon]` info pages (no 404).
+
+Propagates to both the `/add-ons` launcher grid and the Services-tab in-category rails (both import the catalog). Both real routes verified to render for any couple — ownership only changes content (no purchase gate / notFound for non-owners).
+
+**Verification:** `tsc --noEmit` exit 0.
+
+**SPEC IMPACT:** Minor — iterations 0004 (monogram) / 0010 (mood board) / 0021 (services tab): Monogram Creator + Mood Board are now reachable from the in-app services grid; Landing Page + Music Creator are clickable-to-placeholder. No SKU/pricing change. See `COWORK_INBOX.md`.
+
+---
+
+## 2026-06-03 · feat(admin): one-click "Create demo vendors" (chunked seed) on /admin/demo-vendors
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Creating demo vendors was CLI-only — the "Regenerate" button just cleaned up + printed the terminal command (a full seed exceeds one serverless request's envelope). Owner wanted a real one-click Create. Solution: the browser clicks once, then loops category-by-category against a small per-chunk API until done, with a progress bar — no single long request.
+
+**What ships (no migration):**
+1. **Seed core refactor (`scripts/seed-demo-vendors.ts`) — importable, not moved.** `export async function seedCategory()` (seeds one canonical_service's profiles/services/refinements, returns its review+block rows for the caller to bulk-insert); exported `fetchCanonicalServices`/`fetchResolvedSchemas`/`fetchReviewEventPool`/`cleanupBatch`/`findLatestDemoBatch` + `isNonProdUrl`; **guarded CLI entrypoint** so importing never auto-runs. CLI `seed()` calls `seedCategory` + keeps its end-of-run bulk insert — **behavior preserved** (per-category RNG keyed on `(batchId, service)` ⇒ chunked == CLI output).
+2. **Chunked seed API (`app/api/admin/demo/seed/route.ts`, nodejs).** `phase:'start'` (requireAdmin + **non-prod 403** + cleanup + return `{batchId, services, total}`); `phase:'chunk'` (seed `services[offset..offset+limit)` + insert that chunk's reviews/blocks + return progress). Mirrors the regenerate route's auth/audit.
+3. **One-click button (`demo-vendor-actions.tsx`).** "Create demo vendors" + vendors/category control → POSTs `start`, then loops `chunk` (3 categories/request) with a progress bar. Confirm-gated; surfaces the prod 403; `router.refresh()` on completion.
+
+**SPEC IMPACT:** Minor — `/admin/demo-vendors` (admin console, 0023) gains one-click demo seeding (was CLI-only). `[PENDING]` in `COWORK_INBOX.md`.
+
+**Verification:** `tsc --noEmit` + `next lint` green. Refactor-safety smoke tests: exports resolve (`seedCategory` etc.; `isNonProdUrl` staging→true / prod-ref→false), importing the module does **not** auto-run the seed, the CLI entrypoint still fires when run directly. CI gates the production build (route bundles `@/scripts/seed-demo-vendors`; fallback = lift the core to `lib/`). **Owner, on staging:** `/admin/demo-vendors` → Create demo vendors → progress bar → `/vendors?demo=1`; prod-pointed deploy returns 403.
+
 ## 2026-06-03 · fix(0016): onboarding completion overlay can no longer strand the couple ("Creating your personalized dashboard" hang)
 
 **Commit:** see merge commit on this PR.

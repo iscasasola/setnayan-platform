@@ -23,6 +23,34 @@
 
 ---
 
+## [PENDING] 2026-06-03 — In-app service tiles made clickable for checking (0004/0010/0021)
+
+**Why:** Owner directive — *"for now we want to unlock all to check."* The 3 remaining "coming soon" in-app service tiles are now clickable: Monogram Creator repointed to the real `animated-monogram` studio (0004), Mood Board surfaced from its real route (0010), and Landing Page + Music Creator made clickable to their polite info pages. Catalog-only (`lib/add-ons-catalog.ts`). The bigger locks (8 not-built pricing SKUs, Concierge kill-switch, OAuth credentials, offline daemon) were intentionally NOT flipped — they hide unbuilt/partial features and would surface stubs/broken flows.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **Iteration 0021 (couple Services tab) + the Digital Services rail** — the in-app services grid now surfaces Monogram Creator (→ animated-monogram, 0004) + Mood Board (0010) as clickable `web_v1` services; Landing Page + Music Creator are clickable placeholders pending their real tools (website editor / Pakanta music).
+2. **CLAUDE.md decision log** — append a 2026-06-03 row: *"Unlock-all-to-check (services): 3 coming-soon service tiles made clickable; Monogram→animated-monogram + Mood Board surfaced from real routes. 8 not-built SKUs / Concierge / OAuth / offline-daemon left gated (unbuilt)."*
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "make all in-app service tiles clickable". No migration.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
+## [PENDING] 2026-06-03 — Admin console gains one-click "Create demo vendors" (chunked seed · demo tooling)
+
+**Why:** Demo-vendor creation was terminal-only; the owner wanted a one-click button. `/admin/demo-vendors` now has a **Create demo vendors** button that seeds the marketplace category-by-category (chunked) via a new `/api/admin/demo/seed` route, with a progress bar. Non-prod-gated (refuses prod). Demo/testing tooling in the admin console — the 0023 spec should note it alongside Cleanup / Regenerate / Demo-inquiries.
+
+**What landed (code):** refactored `scripts/seed-demo-vendors.ts` to export `seedCategory` + helpers (CLI behavior preserved, entrypoint guarded); new chunked `POST /api/admin/demo/seed` (start + chunk, admin + non-prod gated); Create button + per-category control + progress loop in `demo-vendor-actions.tsx`.
+
+**Spec corpus update (owner via Cowork):** `~/Documents/Claude/Projects/Setnayan/0023_admin_console/` — note the Demo Vendors tooling now includes a one-click chunked **Create** (was CLI-only). Staging-only (prod-refused).
+
+**Not spec-impacting:** the seed-core refactor + chunk protocol are implementation.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — All event types unlocked: all 9 now creatable (0000/0041)
 
 **Why:** Owner directive — *"unlock all events."* Wedding + Debut were the only selectable event types; the other seven (Gender Reveal · Birthday · Celebration · Travel · Corporate · Tournament · Christening) shipped as "Coming soon." Now all nine are creatable. Two code gates flipped (`EVENT_TYPES[].enabled` in event-types.ts + `ALLOWED_TYPES` in create-event/actions.ts); the `public.event_type` enum already had all nine values — no migration.

@@ -27,6 +27,7 @@ import {
   ImageDown,
   QrCode,
   MapPin,
+  Palette,
   type LucideIcon,
 } from 'lucide-react';
 import type { PosterStyle } from '@/app/dashboard/[eventId]/add-ons/_components/service-poster';
@@ -117,7 +118,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     label: 'Landing Page',
     Icon: Globe2,
     iteration: '0002',
-    status: 'coming_soon',
+    status: 'web_v1',
     category: 'tool',
     blurb:
       'Customize the public landing page guests see when they scan your QR or open your link',
@@ -136,7 +137,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     label: 'Music Creator',
     Icon: Music,
     iteration: '0034',
-    status: 'coming_soon',
+    status: 'web_v1',
     category: 'tool',
     blurb:
       'Pick from Setnayan-owned music or generate a custom track for your event reels',
@@ -170,11 +171,11 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     },
   },
   {
-    key: 'monogram-creator',
+    key: 'animated-monogram',
     label: 'Monogram Creator',
     Icon: Type,
     iteration: '0004',
-    status: 'coming_soon',
+    status: 'web_v1',
     category: 'digital_services',
     blurb:
       'Design your wedding monogram · animated SVG trace · custom hero background',
@@ -334,6 +335,25 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
       motionBackground:
         'radial-gradient(circle at 50% 60%, #F4D9B0 0%, transparent 50%)',
       iconBadgeClass: 'bg-amber-100/20 text-amber-100',
+    },
+  },
+  {
+    key: 'mood-board',
+    label: 'Mood Board',
+    Icon: Palette,
+    iteration: '0010',
+    status: 'web_v1',
+    category: 'tool',
+    blurb:
+      'Your event palette · role + venue color stories · curated theme templates',
+    cta: 'Open board',
+    poster: {
+      motion: 'drift',
+      baseBackground:
+        'linear-gradient(135deg, #3A2B4F 0%, #5C3A6B 50%, #8A5A8F 100%)',
+      motionBackground:
+        'radial-gradient(circle at 50% 50%, #F4C8E0 0%, transparent 55%)',
+      iconBadgeClass: 'bg-fuchsia-100/15 text-fuchsia-50',
     },
   },
 ];

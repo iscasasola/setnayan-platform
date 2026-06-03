@@ -76,8 +76,14 @@ import { randomUUID } from 'node:crypto';
 const PROD_PROJECT_REF =
   process.env.DEMO_VENDORS_PROD_REF ?? 'njrupjnvkjkitfctetvi';
 
+// Shared prod-safety check. The API route (server-side) uses this to return a
+// 403 instead of process.exit; the CLI keeps the hard exit in assertNotProd.
+export function isNonProdUrl(supabaseUrl: string | undefined | null): boolean {
+  return !!supabaseUrl && !supabaseUrl.includes(PROD_PROJECT_REF);
+}
+
 function assertNotProd(supabaseUrl: string): void {
-  if (supabaseUrl.includes(PROD_PROJECT_REF)) {
+  if (!isNonProdUrl(supabaseUrl)) {
     console.error(
       `\nREFUSING TO RUN. Detected prod project ref "${PROD_PROJECT_REF}" in SUPABASE_URL.\n` +
         `Demo vendors are for non-prod environments only. Set SUPABASE_URL to a test/staging project,\n` +
@@ -1374,7 +1380,7 @@ type AttributeFieldDef = {
   required_if?: string;
 };
 
-type ResolvedDemoSchema = {
+export type ResolvedDemoSchema = {
   schemaVersion: number;
   /** category_specific_attributes merged with inherited shared groups. */
   fields: Record<string, AttributeFieldDef>;
@@ -1404,7 +1410,7 @@ type GroupRow = {
 // Resolve every canonical_service's full field map once. Merge order mirrors
 // fetchSchemaWithSharedGroups: category-specific fields first, then each shared
 // group in declaration order; category-specific wins on key collision.
-async function fetchResolvedSchemas(
+export async function fetchResolvedSchemas(
   admin: SupabaseClient,
 ): Promise<Map<string, ResolvedDemoSchema>> {
   const [{ data: schemaRows, error: e1 }, { data: groupRows, error: e2 }] =
@@ -1682,7 +1688,7 @@ function clampStar(n: number): number {
 // Synthetic-event pool that satisfies vendor_reviews.event_id (NOT NULL FK).
 // Reuses the archived `TEST-REVIEW · %` events from migration 20260607000000.
 // Returns [] (→ reviews skipped) if that migration isn't on the target DB.
-async function fetchReviewEventPool(admin: SupabaseClient): Promise<string[]> {
+export async function fetchReviewEventPool(admin: SupabaseClient): Promise<string[]> {
   const { data, error } = await admin
     .from('events')
     .select('event_id')
@@ -1807,7 +1813,7 @@ function parseArgs(argv: string[]): SeedArgs {
   return args;
 }
 
-async function fetchCanonicalServices(
+export async function fetchCanonicalServices(
   admin: SupabaseClient,
   limit: number | null,
 ): Promise<string[]> {
@@ -1821,7 +1827,7 @@ async function fetchCanonicalServices(
   return limit !== null && Number.isFinite(limit) ? all.slice(0, limit) : all;
 }
 
-async function findLatestDemoBatch(admin: SupabaseClient): Promise<string | null> {
+export async function findLatestDemoBatch(admin: SupabaseClient): Promise<string | null> {
   // Pick the most-recently-created non-legacy batch (excludes the
   // deterministic 2026-06-01 legacy batch UUID).
   const LEGACY = '00000000-0000-0000-0000-000000000001';
@@ -1837,13 +1843,258 @@ async function findLatestDemoBatch(admin: SupabaseClient): Promise<string | null
   return (data?.[0]?.demo_batch_id as string | null) ?? null;
 }
 
-async function cleanupBatch(admin: SupabaseClient, batchId: string): Promise<number> {
+export async function cleanupBatch(admin: SupabaseClient, batchId: string): Promise<number> {
   const { count, error } = await admin
     .from('vendor_profiles')
     .delete({ count: 'exact' })
     .eq('demo_batch_id', batchId);
   if (error) throw new Error(`Cleanup of batch ${batchId} failed: ${error.message}`);
   return count ?? 0;
+}
+
+export type SeedConfig = { vendorsMin: number; vendorsMax: number };
+
+export type SeedCategoryResult = {
+  vendorsCreated: number;
+  servicesCreated: number;
+  attrsCreated: number;
+  /** Caller bulk-inserts these (the CLI accumulates across all categories;
+   *  the chunked API inserts per chunk) so the vendor_review_stats matview
+   *  refreshes a few times, not once per category. */
+  reviewRows: Array<Record<string, unknown>>;
+  blockRows: Array<Record<string, unknown>>;
+};
+
+// Seed ONE canonical_service: insert its vendor_profiles + vendor_services +
+// vendor_service_attributes, and RETURN the generated review + calendar-block
+// rows for the caller to bulk-insert. Shared by the CLI `seed()` below and the
+// chunked admin API (/api/admin/demo/seed). RNG is keyed on (batchId, service)
+// so output is identical regardless of how categories are chunked.
+export async function seedCategory(
+  admin: SupabaseClient,
+  opts: {
+    service: string;
+    batchId: string;
+    schemaMap: Map<string, ResolvedDemoSchema>;
+    reviewEventPool: string[];
+    cfg: SeedConfig;
+  },
+): Promise<SeedCategoryResult> {
+  const { service, batchId, schemaMap, reviewEventPool, cfg } = opts;
+
+  // Seeded RNG per (batchId, service) for stable repro within a run.
+  const rngSeed = hashStringToInt(`${batchId}|${service}`);
+  const rng = mulberry32(rngSeed);
+
+  const profile = priceProfileFor(service);
+  const coarse = coarseCategoryFor(service);
+  const kindWord = kindWordFor(service);
+
+  const numVendors = intBetween(rng, cfg.vendorsMin, cfg.vendorsMax);
+
+  // Build vendor_profiles rows
+  const vendorRows: Array<Record<string, unknown>> = [];
+  type LocalVendor = {
+    business_name: string;
+    service: string;
+    pkgRanges: PricingProfile;
+    packagesCount: number;
+  };
+  const local: LocalVendor[] = [];
+
+  for (let i = 0; i < numVendors; i++) {
+    const city = pickWeightedCity(rng);
+    const jitterLat = (rng() - 0.5) * 0.024;
+    const jitterLng = (rng() - 0.5) * 0.024;
+    const district = pickDistrict(rng, city);
+    const businessName = buildBusinessName(rng, service, kindWord);
+    const slug = `demo-${batchId.slice(0, 8)}-${service.replace(/_/g, '-')}-${i + 1}-${city.slug}`;
+    // Consume RNG to keep the stream identical to the pre-refactor loop (and
+    // keep buildDescription referenced); the seed doesn't store a description.
+    void buildDescription(rng, businessName, kindWord);
+    const packagesCount = intBetween(
+      rng,
+      profile.numPackagesRange[0],
+      profile.numPackagesRange[1],
+    );
+
+    vendorRows.push({
+      user_id: null,
+      created_by_admin_user_id: null,
+      is_demo: true,
+      demo_batch_id: batchId,
+      business_name: businessName,
+      business_slug: slug,
+      tagline: `${kindWord} for Filipino weddings, based in ${city.name}.`,
+      services: [service, coarse],
+      location_city: city.name,
+      hq_address: `${district}, ${city.name}, Philippines`,
+      hq_latitude: Number((city.lat + jitterLat).toFixed(7)),
+      hq_longitude: Number((city.lng + jitterLng).toFixed(7)),
+      is_published: true,
+      public_visibility: 'verified',
+      logo_url: `https://picsum.photos/seed/setnayan-demo-${coarse}-${batchId.slice(0, 8)}-${i}/800/600`,
+      portfolio_r2_keys: Array.from(
+        { length: 4 + (i % 3) },
+        (_v, j) =>
+          `https://picsum.photos/seed/setnayan-demo-${coarse}-${batchId.slice(0, 8)}-${i}-p${j}/1200/800`,
+      ),
+      compatible_ceremony_types: ['catholic', 'civil', 'christian'],
+      compatible_venue_settings: ['banquet_hall', 'garden', 'heritage'],
+      event_types: ['wedding'],
+      contact_email: `${slug}@demo.setnayan.local`,
+    });
+
+    local.push({ business_name: businessName, service, pkgRanges: profile, packagesCount });
+  }
+
+  // Insert profiles (chunked to 500), service-role bypasses RLS.
+  const insertedIds: string[] = [];
+  for (let chunk = 0; chunk < vendorRows.length; chunk += 500) {
+    const slice = vendorRows.slice(chunk, chunk + 500);
+    const { data, error } = await admin
+      .from('vendor_profiles')
+      .insert(slice)
+      .select('vendor_profile_id, business_slug');
+    if (error) {
+      throw new Error(
+        `Insert vendor_profiles for ${service} failed at chunk ${chunk}: ${error.message}`,
+      );
+    }
+    for (const row of data ?? []) {
+      insertedIds.push((row as { vendor_profile_id: string }).vendor_profile_id);
+    }
+  }
+
+  // vendor_services (1 row per vendor, collapsed packages).
+  const servicesToInsert: Array<Record<string, unknown>> = [];
+  for (let i = 0; i < insertedIds.length; i++) {
+    const vendorProfileId = insertedIds[i]!;
+    const v = local[i]!;
+    const allPackages = [...v.pkgRanges.packages];
+    const startIdx = intBetween(rng, 0, Math.max(0, allPackages.length - v.packagesCount));
+    const chosenPackages = allPackages.slice(startIdx, startIdx + v.packagesCount);
+    const lowestStart = chosenPackages.reduce(
+      (min, p) => Math.min(min, intBetween(rng, p.minCentavos, p.maxCentavos)),
+      Number.POSITIVE_INFINITY,
+    );
+    const startsCentavos = Number.isFinite(lowestStart)
+      ? lowestStart
+      : v.pkgRanges.packages[0]!.minCentavos;
+    const inclusions: string[] = [];
+    for (const p of chosenPackages) {
+      inclusions.push(`— ${p.tierLabel} —`);
+      for (const inc of p.inclusions) inclusions.push(inc);
+    }
+    const [crewLo, crewHi] = v.pkgRanges.crewSize();
+    const crewSize = intBetween(rng, crewLo, crewHi);
+    servicesToInsert.push({
+      vendor_profile_id: vendorProfileId,
+      category: service,
+      starting_price_php: Math.floor(startsCentavos / 100),
+      starts_at_centavos: startsCentavos,
+      package_inclusions: inclusions,
+      crew_size: crewSize,
+      crew_meal_required: v.pkgRanges.crewMealRequired,
+      is_active: true,
+    });
+  }
+  for (let chunk = 0; chunk < servicesToInsert.length; chunk += 500) {
+    const slice = servicesToInsert.slice(chunk, chunk + 500);
+    const { error } = await admin.from('vendor_services').insert(slice);
+    if (error) {
+      throw new Error(
+        `Insert vendor_services for ${service} failed at chunk ${chunk}: ${error.message}`,
+      );
+    }
+  }
+
+  // vendor_service_attributes — schema-driven refinements + honest scoring.
+  const resolvedSchema = schemaMap.get(service);
+  if (resolvedSchema) {
+    const undefinedMins = resolvedSchema.minimumFields.filter(
+      (f) => !(f in resolvedSchema.fields),
+    );
+    if (undefinedMins.length > 0) {
+      process.stdout.write(
+        `  ! ${service}: minimum field(s) absent from schema, excluded from visibility gate: ${undefinedMins.join(', ')}\n`,
+      );
+    }
+  }
+  const attrsToInsert: Array<Record<string, unknown>> = [];
+  for (let i = 0; i < insertedIds.length; i++) {
+    const vendorProfileId = insertedIds[i]!;
+    if (!resolvedSchema) {
+      attrsToInsert.push({
+        vendor_profile_id: vendorProfileId,
+        canonical_service: service,
+        attribute_payload: { bio_blurb: `Demo seed vendor for ${kindWord.toLowerCase()}.` },
+        schema_version_at_fill: 1,
+        completeness_score: 0,
+        meets_visibility_minimum: false,
+      });
+      continue;
+    }
+    const startsCentavos =
+      (servicesToInsert[i]?.starts_at_centavos as number | undefined) ??
+      profile.packages[0]!.minCentavos;
+    const city =
+      (vendorRows[i]?.location_city as string | undefined) ?? 'the Philippines';
+    const payload = generateAttributePayload(resolvedSchema, rng, {
+      startsCentavos,
+      kindWord,
+      coarse,
+      city,
+    });
+    const definableMins = resolvedSchema.minimumFields.filter(
+      (f) => f in resolvedSchema.fields,
+    );
+    const meetsVisibility = definableMins.every((f) => isFilledValue(payload[f]));
+    attrsToInsert.push({
+      vendor_profile_id: vendorProfileId,
+      canonical_service: service,
+      attribute_payload: payload,
+      schema_version_at_fill: resolvedSchema.schemaVersion,
+      completeness_score: computeCompleteness(resolvedSchema.fields, payload),
+      meets_visibility_minimum: meetsVisibility,
+    });
+  }
+  for (let chunk = 0; chunk < attrsToInsert.length; chunk += 500) {
+    const slice = attrsToInsert.slice(chunk, chunk + 500);
+    const { error } = await admin.from('vendor_service_attributes').insert(slice);
+    if (error) {
+      if (!String(error.message).match(/duplicate key/i)) {
+        throw new Error(
+          `Insert vendor_service_attributes for ${service} chunk ${chunk}: ${error.message}`,
+        );
+      }
+    }
+  }
+
+  // Reviews + calendar blocks — generated here, RETURNED for the caller to
+  // bulk-insert (CLI accumulates across all categories; API inserts per chunk).
+  const reviewRows: Array<Record<string, unknown>> = [];
+  if (reviewEventPool.length > 0) {
+    for (const vendorProfileId of insertedIds) {
+      for (const review of generateVendorReviews(rng, vendorProfileId, reviewEventPool)) {
+        reviewRows.push(review);
+      }
+    }
+  }
+  const blockRows: Array<Record<string, unknown>> = [];
+  for (const vendorProfileId of insertedIds) {
+    for (const block of generateCalendarBlocks(rng, vendorProfileId)) {
+      blockRows.push(block);
+    }
+  }
+
+  return {
+    vendorsCreated: insertedIds.length,
+    servicesCreated: servicesToInsert.length,
+    attrsCreated: attrsToInsert.length,
+    reviewRows,
+    blockRows,
+  };
 }
 
 async function seed(args: SeedArgs): Promise<void> {
@@ -1934,271 +2185,22 @@ async function seed(args: SeedArgs): Promise<void> {
   let totalBlocksCreated = 0;
 
   for (const service of services) {
-    // Seeded RNG per (batchId, service) for stable repro within a run
-    const seed = hashStringToInt(`${batchId}|${service}`);
-    const rng = mulberry32(seed);
-
-    const profile = priceProfileFor(service);
-    const coarse = coarseCategoryFor(service);
-    const kindWord = kindWordFor(service);
-
-    const numVendors = intBetween(rng, args.vendorsMin, args.vendorsMax);
-
-    // Build vendor_profiles rows
-    const vendorRows: Array<Record<string, unknown>> = [];
-    type LocalVendor = {
-      vendor_profile_id?: string;
-      business_name: string;
-      service: string;
-      pkgRanges: PricingProfile;
-      packagesCount: number;
-    };
-    const local: LocalVendor[] = [];
-
-    for (let i = 0; i < numVendors; i++) {
-      const city = pickWeightedCity(rng);
-      // ±0.012° jitter (~1.3km) so multiple vendors in the same city don't
-      // pin to the same coordinates
-      const jitterLat = (rng() - 0.5) * 0.024;
-      const jitterLng = (rng() - 0.5) * 0.024;
-      const district = pickDistrict(rng, city);
-      const businessName = buildBusinessName(rng, service, kindWord);
-      // Slug: demo-<batch-prefix>-<service>-<i>-<city>
-      const slug = `demo-${batchId.slice(0, 8)}-${service.replace(/_/g, '-')}-${i + 1}-${city.slug}`;
-
-      const description = buildDescription(rng, businessName, kindWord);
-
-      const packagesCount = intBetween(
-        rng,
-        profile.numPackagesRange[0],
-        profile.numPackagesRange[1],
-      );
-
-      vendorRows.push({
-        user_id: null,
-        created_by_admin_user_id: null,
-        is_demo: true,
-        demo_batch_id: batchId,
-        business_name: businessName,
-        business_slug: slug,
-        tagline: `${kindWord} for Filipino weddings, based in ${city.name}.`,
-        services: [service, coarse],
-        location_city: city.name,
-        hq_address: `${district}, ${city.name}, Philippines`,
-        hq_latitude: Number((city.lat + jitterLat).toFixed(7)),
-        hq_longitude: Number((city.lng + jitterLng).toFixed(7)),
-        is_published: true,
-        public_visibility: 'verified',
-        // Deterministic picsum placeholders. The host is whitelisted in
-        // next.config.ts + the vendor-card image guard; plain https URLs pass
-        // through parseStoredAsset as legacy_url so the gallery resolver
-        // renders them unchanged (no R2 upload needed for demo data).
-        logo_url: `https://picsum.photos/seed/setnayan-demo-${coarse}-${batchId.slice(0, 8)}-${i}/800/600`,
-        portfolio_r2_keys: Array.from(
-          { length: 4 + (i % 3) },
-          (_v, j) =>
-            `https://picsum.photos/seed/setnayan-demo-${coarse}-${batchId.slice(0, 8)}-${i}-p${j}/1200/800`,
-        ),
-        // Leave faith/venue arrays at default — civil + catholic + christian
-        // ceremonies pass through the default filter set. Faith-specific
-        // services (muslim_imam, inc_minister, etc.) get an override below
-        // after the insert lands so we can layer extras per row.
-        compatible_ceremony_types: ['catholic', 'civil', 'christian'],
-        compatible_venue_settings: ['banquet_hall', 'garden', 'heritage'],
-        event_types: ['wedding'],
-        // Unique per vendor (slug is unique, no `_`/LIKE-metachars) so a
-        // couple's "Message" flow (startThreadByVendorEmail → .maybeSingle()
-        // on contact_email) resolves to exactly this demo vendor. A shared
-        // address made that lookup ambiguous → couples couldn't inquire.
-        contact_email: `${slug}@demo.setnayan.local`,
-      });
-
-      local.push({
-        business_name: businessName,
-        service,
-        pkgRanges: profile,
-        packagesCount,
-      });
-    }
-
-    // Insert profiles in a single batch — bypass RLS via service-role client.
-    // chunk to 500 to stay under PG insert limits comfortably
-    const insertedIds: string[] = [];
-    for (let chunk = 0; chunk < vendorRows.length; chunk += 500) {
-      const slice = vendorRows.slice(chunk, chunk + 500);
-      const { data, error } = await admin
-        .from('vendor_profiles')
-        .insert(slice)
-        .select('vendor_profile_id, business_slug');
-      if (error) {
-        throw new Error(
-          `Insert vendor_profiles for ${service} failed at chunk ${chunk}: ${error.message}`,
-        );
-      }
-      for (const row of data ?? []) {
-        insertedIds.push((row as { vendor_profile_id: string }).vendor_profile_id);
-      }
-    }
-    totalVendorsCreated += insertedIds.length;
-
-    // 5. Build vendor_services rows (per vendor: 1-3 packages)
-    const servicesToInsert: Array<Record<string, unknown>> = [];
-    for (let i = 0; i < insertedIds.length; i++) {
-      const vendorProfileId = insertedIds[i]!;
-      const v = local[i]!;
-      const allPackages = [...v.pkgRanges.packages];
-      // Take a random contiguous slice of the packages list, length = v.packagesCount
-      const startIdx = intBetween(rng, 0, Math.max(0, allPackages.length - v.packagesCount));
-      const chosenPackages = allPackages.slice(startIdx, startIdx + v.packagesCount);
-
-      // vendor_services has UNIQUE (vendor_profile_id, category) — so only
-      // one row per (vendor, canonical_service) is allowed. We collapse all
-      // chosen packages into a single row (highest starts_at_centavos wins
-      // for the marketplace "from ₱X" display, with all packages' inclusions
-      // concatenated). The vendor_services row records the LOWEST start
-      // price (most attractive marketplace display) and the union of
-      // inclusions across chosen packages.
-      //
-      // V1.1 candidate: introduce a separate vendor_packages table for
-      // multi-tier display on /v/[slug]. For demo data we stay within the
-      // single-row schema.
-      const lowestStart = chosenPackages.reduce(
-        (min, p) =>
-          Math.min(min, intBetween(rng, p.minCentavos, p.maxCentavos)),
-        Number.POSITIVE_INFINITY,
-      );
-      const startsCentavos = Number.isFinite(lowestStart)
-        ? lowestStart
-        : v.pkgRanges.packages[0]!.minCentavos;
-
-      const inclusions: string[] = [];
-      for (const p of chosenPackages) {
-        inclusions.push(`— ${p.tierLabel} —`);
-        for (const inc of p.inclusions) inclusions.push(inc);
-      }
-
-      const [crewLo, crewHi] = v.pkgRanges.crewSize();
-      const crewSize = intBetween(rng, crewLo, crewHi);
-
-      servicesToInsert.push({
-        vendor_profile_id: vendorProfileId,
-        category: service,
-        starting_price_php: Math.floor(startsCentavos / 100),
-        starts_at_centavos: startsCentavos,
-        package_inclusions: inclusions,
-        crew_size: crewSize,
-        crew_meal_required: v.pkgRanges.crewMealRequired,
-        is_active: true,
-      });
-    }
-    for (let chunk = 0; chunk < servicesToInsert.length; chunk += 500) {
-      const slice = servicesToInsert.slice(chunk, chunk + 500);
-      const { error } = await admin.from('vendor_services').insert(slice);
-      if (error) {
-        throw new Error(
-          `Insert vendor_services for ${service} failed at chunk ${chunk}: ${error.message}`,
-        );
-      }
-    }
-    totalServicesCreated += servicesToInsert.length;
-
-    // 6. Build vendor_service_attributes — schema-driven per-category payloads.
-    //    Each vendor fills its canonical_service's merged schema (category-
-    //    specific attributes + inherited shared groups) with realistic,
-    //    schema-valid values; completeness_score + meets_visibility_minimum
-    //    are then computed honestly (mirroring compute_attribute_completeness
-    //    + the write-side visibility gate) — replacing the old hard-coded
-    //    75/true blob that never even filled the real `service_regions`
-    //    minimum field.
-    const resolvedSchema = schemaMap.get(service);
-    if (resolvedSchema) {
-      const undefinedMins = resolvedSchema.minimumFields.filter(
-        (f) => !(f in resolvedSchema.fields),
-      );
-      if (undefinedMins.length > 0) {
-        process.stdout.write(
-          `  ! ${service}: minimum field(s) absent from schema, excluded from visibility gate: ${undefinedMins.join(', ')}\n`,
-        );
-      }
-    }
-    const attrsToInsert: Array<Record<string, unknown>> = [];
-    for (let i = 0; i < insertedIds.length; i++) {
-      const vendorProfileId = insertedIds[i]!;
-      if (!resolvedSchema) {
-        // No schema row for this canonical_service (shouldn't happen — the
-        // service list is sourced from canonical_service_schemas).
-        attrsToInsert.push({
-          vendor_profile_id: vendorProfileId,
-          canonical_service: service,
-          attribute_payload: { bio_blurb: `Demo seed vendor for ${kindWord.toLowerCase()}.` },
-          schema_version_at_fill: 1,
-          completeness_score: 0,
-          meets_visibility_minimum: false,
-        });
-        continue;
-      }
-      const startsCentavos =
-        (servicesToInsert[i]?.starts_at_centavos as number | undefined) ??
-        profile.packages[0]!.minCentavos;
-      const city =
-        (vendorRows[i]?.location_city as string | undefined) ?? 'the Philippines';
-      const payload = generateAttributePayload(resolvedSchema, rng, {
-        startsCentavos,
-        kindWord,
-        coarse,
-        city,
-      });
-      const definableMins = resolvedSchema.minimumFields.filter(
-        (f) => f in resolvedSchema.fields,
-      );
-      const meetsVisibility = definableMins.every((f) => isFilledValue(payload[f]));
-      attrsToInsert.push({
-        vendor_profile_id: vendorProfileId,
-        canonical_service: service,
-        attribute_payload: payload,
-        schema_version_at_fill: resolvedSchema.schemaVersion,
-        completeness_score: computeCompleteness(resolvedSchema.fields, payload),
-        meets_visibility_minimum: meetsVisibility,
-      });
-    }
-    for (let chunk = 0; chunk < attrsToInsert.length; chunk += 500) {
-      const slice = attrsToInsert.slice(chunk, chunk + 500);
-      const { error } = await admin
-        .from('vendor_service_attributes')
-        .insert(slice);
-      if (error) {
-        // Treat duplicate-key as OK — re-run with --append against an
-        // existing batch where the same (vendor_id, canonical_service)
-        // pair was already inserted.
-        if (!String(error.message).match(/duplicate key/i)) {
-          throw new Error(
-            `Insert vendor_service_attributes for ${service} chunk ${chunk}: ${error.message}`,
-          );
-        }
-      }
-    }
-    totalAttrsCreated += attrsToInsert.length;
-
-    // 7. Generate per-vendor reviews (accumulated; bulk-inserted after the loop).
-    if (reviewEventPool.length > 0) {
-      for (const vendorProfileId of insertedIds) {
-        for (const review of generateVendorReviews(rng, vendorProfileId, reviewEventPool)) {
-          allReviews.push(review);
-        }
-      }
-    }
-
-    // 7b. Generate per-vendor calendar blocks (busy dates) so the mutual-
-    //     schedule narrowing (lib/vendor-availability.ts) is testable.
-    for (const vendorProfileId of insertedIds) {
-      for (const block of generateCalendarBlocks(rng, vendorProfileId)) {
-        allBlocks.push(block);
-      }
-    }
+    const r = await seedCategory(admin, {
+      service,
+      batchId,
+      schemaMap,
+      reviewEventPool,
+      cfg: { vendorsMin: args.vendorsMin, vendorsMax: args.vendorsMax },
+    });
+    allReviews.push(...r.reviewRows);
+    allBlocks.push(...r.blockRows);
+    totalVendorsCreated += r.vendorsCreated;
+    totalServicesCreated += r.servicesCreated;
+    totalAttrsCreated += r.attrsCreated;
 
     // Compact progress line
     process.stdout.write(
-      `  ${service.padEnd(40)} ${String(insertedIds.length).padStart(3)} vendors\n`,
+      `  ${service.padEnd(40)} ${String(r.vendorsCreated).padStart(3)} vendors\n`,
     );
   }
 
@@ -2240,8 +2242,19 @@ async function seed(args: SeedArgs): Promise<void> {
   );
 }
 
-const args = parseArgs(process.argv);
-seed(args).catch((err) => {
-  console.error('\nFATAL:', err.message ?? err);
-  process.exit(1);
-});
+// CLI entrypoint — only auto-runs when executed directly (e.g.
+// `tsx scripts/seed-demo-vendors.ts`), NOT when imported. The admin chunked-
+// seed API (/api/admin/demo/seed) imports `seedCategory` + the helpers above;
+// under the Next server runtime process.argv[1] is the server entry, so this
+// guard stays false and nothing auto-runs on import.
+const invokedPath = (process.argv[1] ?? '').replace(/\\/g, '/');
+if (
+  invokedPath.endsWith('/seed-demo-vendors.ts') ||
+  invokedPath.endsWith('/seed-demo-vendors.js')
+) {
+  const args = parseArgs(process.argv);
+  seed(args).catch((err) => {
+    console.error('\nFATAL:', err.message ?? err);
+    process.exit(1);
+  });
+}

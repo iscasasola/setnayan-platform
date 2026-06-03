@@ -20,7 +20,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Trash2, RotateCcw, Loader2, Check, X } from 'lucide-react';
+import { Trash2, RotateCcw, Loader2, Check, X, Sparkles } from 'lucide-react';
 
 type Props = {
   totalCount: number;
@@ -34,13 +34,22 @@ type ResultState =
   | { kind: 'done'; deleted: number; nextStep?: { command: string; message: string } }
   | { kind: 'error'; message: string };
 
+// One-click chunked create — drives /api/admin/demo/seed category-by-category.
+type CreateState =
+  | { kind: 'idle' }
+  | { kind: 'running'; offset: number; total: number; vendors: number }
+  | { kind: 'done'; vendors: number }
+  | { kind: 'error'; message: string };
+
 export function DemoVendorActions({ totalCount, batchId, compact }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<ResultState>({ kind: 'idle' });
-  const [confirming, setConfirming] = useState<'all' | 'batch' | 'regen' | null>(
-    null,
-  );
+  const [confirming, setConfirming] = useState<
+    'all' | 'batch' | 'regen' | 'create' | null
+  >(null);
+  const [perCategory, setPerCategory] = useState(25);
+  const [create, setCreate] = useState<CreateState>({ kind: 'idle' });
 
   async function runCleanup() {
     setResult({ kind: 'busy' });
@@ -104,6 +113,54 @@ export function DemoVendorActions({ totalCount, batchId, compact }: Props) {
     }
   }
 
+  async function postSeed(payload: Record<string, unknown>) {
+    const res = await fetch('/api/admin/demo/seed', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body?.error ?? `HTTP ${res.status}`);
+    return body;
+  }
+
+  // One click → cleanup + seed the whole marketplace category-by-category so
+  // no single request runs long enough to hit the serverless timeout.
+  async function runCreate() {
+    setConfirming(null);
+    setResult({ kind: 'idle' });
+    setCreate({ kind: 'running', offset: 0, total: 0, vendors: 0 });
+    try {
+      const start = await postSeed({ phase: 'start' });
+      const batchId = String(start.batchId ?? '');
+      const total = Number(start.total ?? 0);
+      let offset = 0;
+      let vendors = 0;
+      setCreate({ kind: 'running', offset: 0, total, vendors: 0 });
+      while (offset < total) {
+        const chunk = await postSeed({
+          phase: 'chunk',
+          batchId,
+          offset,
+          limit: 3,
+          vendorsMin: perCategory,
+          vendorsMax: perCategory,
+        });
+        offset = Number(chunk.nextOffset ?? total);
+        vendors += Number(chunk.seeded?.vendors ?? 0);
+        setCreate({ kind: 'running', offset, total, vendors });
+        if (chunk.done) break;
+      }
+      setCreate({ kind: 'done', vendors });
+      startTransition(() => router.refresh());
+    } catch (err) {
+      setCreate({
+        kind: 'error',
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
   // ───────────── Compact (per-batch row) ─────────────
   if (compact && batchId) {
     if (confirming === 'batch') {
@@ -159,10 +216,49 @@ export function DemoVendorActions({ totalCount, batchId, compact }: Props) {
   }
 
   // ───────────── Standalone (global actions) ─────────────
+  const isCreating = create.kind === 'running';
   return (
     <div className="space-y-3">
+      {isCreating ? (
+        <div className="space-y-2 rounded-md border border-mulberry/30 bg-mulberry/5 p-3">
+          <p className="flex items-center gap-2 text-sm font-medium text-ink">
+            <Loader2 className="h-4 w-4 animate-spin text-mulberry" />
+            Creating demo vendors… {create.offset}/{create.total || '…'} categories ·{' '}
+            {create.vendors.toLocaleString()} vendors
+          </p>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-ink/10">
+            <div
+              className="h-full rounded-full bg-mulberry transition-[width] duration-300"
+              style={{
+                width: `${create.total > 0 ? Math.round((create.offset / create.total) * 100) : 5}%`,
+              }}
+            />
+          </div>
+          <p className="text-[11px] text-ink/55">
+            Keep this tab open — it seeds category-by-category so no single request times out.
+          </p>
+        </div>
+      ) : (
       <div className="flex flex-wrap items-center gap-3">
-        {confirming === 'all' ? (
+        {confirming === 'create' ? (
+          <>
+            <button
+              type="button"
+              onClick={runCreate}
+              className="inline-flex items-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-semibold text-cream hover:bg-mulberry-600"
+            >
+              <Check className="h-4 w-4" />
+              Confirm: delete existing + create (~{perCategory}/category)
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirming(null)}
+              className="rounded-md bg-ink/5 px-4 py-2 text-sm text-ink/65 hover:bg-ink/10"
+            >
+              Cancel
+            </button>
+          </>
+        ) : confirming === 'all' ? (
           <>
             <button
               type="button"
@@ -218,6 +314,27 @@ export function DemoVendorActions({ totalCount, batchId, compact }: Props) {
           </>
         ) : (
           <>
+            <label className="inline-flex items-center gap-1.5 text-sm text-ink/70">
+              <span className="text-ink/55">Vendors/category</span>
+              <input
+                type="number"
+                min={5}
+                max={80}
+                value={perCategory}
+                onChange={(e) =>
+                  setPerCategory(Math.max(5, Math.min(80, Number(e.target.value) || 5)))
+                }
+                className="w-16 rounded-md border border-ink/15 bg-cream px-2 py-1.5 text-sm"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() => setConfirming('create')}
+              className="inline-flex items-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-semibold text-cream hover:bg-mulberry-600"
+            >
+              <Sparkles className="h-4 w-4" />
+              Create demo vendors
+            </button>
             <button
               type="button"
               onClick={() => setConfirming('all')}
@@ -239,6 +356,25 @@ export function DemoVendorActions({ totalCount, batchId, compact }: Props) {
           </>
         )}
       </div>
+      )}
+
+      {/* Create result */}
+      {create.kind === 'done' && (
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+          <p className="font-medium">
+            Created {create.vendors.toLocaleString()} demo vendors across the marketplace.
+            Preview at <code className="rounded bg-emerald-100 px-1">/vendors?demo=1</code>.
+          </p>
+        </div>
+      )}
+      {create.kind === 'error' && (
+        <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+          <p className="flex items-start gap-2 font-medium">
+            <X className="mt-0.5 h-4 w-4 flex-shrink-0" />
+            {create.message}
+          </p>
+        </div>
+      )}
 
       {/* Result banner */}
       {result.kind === 'done' && (

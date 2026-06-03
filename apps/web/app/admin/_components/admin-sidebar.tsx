@@ -198,6 +198,8 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: 'Demo vendors',
         href: '/admin/demo-vendors',
         icon: TestTube,
+        // Keep "Demo vendors" lit on the /admin/demo-vendors/inquiries responder.
+        matchPrefix: '/admin/demo-vendors',
       },
       {
         key: 'events',

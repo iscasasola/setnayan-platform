@@ -4,6 +4,25 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(0022,0006): vendor "Your repertoire" — music acts build their song set list (compatibility PR 2)
+
+**Commit:** see merge commit on this PR.
+
+**Context:** PR 2 of the vendor-compatibility build (PR 1 = the master-songlist foundation `20260731000000`). Music vendors (band / choir / orchestra / singer / DJ) now have a "Your repertoire" surface to build the set list they perform — the vendor side of the music compatibility overlap (`|couple picks ∩ vendor repertoire| / |couple picks|`).
+
+**What changed:**
+- **`lib/songs.ts`** — `MUSIC_CANONICALS` (the `program`-folder song acts: live_band / choir / orchestra / wedding_singer / dj) + `isMusicVendor()`; `fetchVendorSongs` · `searchSongs` (title ilike, curated-first) · `fetchCuratedSongs` (the seeded MUSIC100) · `findOrCreateSongId` (**select-then-insert**, NOT upsert-on-conflict — the `songs` UPDATE policy is admin-only, so a DO-UPDATE fallthrough would be RLS-denied; dedup via the generated `normalized_key`).
+- **`app/vendor-dashboard/repertoire/{page,actions}.ts(x)`** — search the master library + add (an existing `song_id`, or a typed new song that joins the catalogue) + the current set list with remove. Server-action forms preserve the search query across the redirect. Gated to music vendors (a clear "this is for music acts" explainer for everyone else, not a silent 404). Reuses the `services/` editor pattern (`ensureProfile`, `SubmitButton`, RLS-scoped writes via `current_vendor_ids()`).
+- **`vendor-sidebar.tsx`** — a "Repertoire" nav item (Music icon) in the Pipeline group; the mobile `/more` page picks it up automatically.
+
+**Verification:** `pnpm -F web typecheck` clean · `pnpm -F web lint` clean (my files) · `pnpm -F web build` ✓ (the `/vendor-dashboard/repertoire` route built; the dynamic-server / sitemap-env notices in the log are pre-existing, unrelated).
+
+**SPEC IMPACT:** Iteration **0022** (vendor dashboard) gains the "Your repertoire" surface; **0006/0044** (the compatibility build). No new SKU. Nav-level hiding for non-music vendors is a noted follow-up (the vendor layout doesn't currently pass `services` to the sidebar). See `COWORK_INBOX.md`.
+
+**Next (compatibility build):** onboarding picker → `event_song_picks` (couple side) → the compatibility score in `fetchWizardVendorRecommendations` → the 90% "Best / Next best" split + cards.
+
+---
+
 ## 2026-06-03 · feat(0000): chrome monogram = the full framed onboarding monogram + exact fonts + event logo
 
 **Commit:** see merge commit on this PR.

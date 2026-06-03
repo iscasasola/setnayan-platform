@@ -8,6 +8,18 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Vendor "Your repertoire" surface added (0022 spec)
+
+**Why:** PR 2 of the compatibility build landed a new vendor-dashboard surface — music vendors build their song set list (the vendor side of the master-songlist compatibility overlap).
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`0022_vendor_dashboard.md`** — add the **"Your repertoire"** surface (`/vendor-dashboard/repertoire`, Pipeline nav): music acts (band/choir/orchestra/singer/DJ) search the master song catalogue + add existing/new songs + manage their set list. Gated to music vendors. Part of the compatibility model (`Vendor_Compatibility_and_Master_Songlist_2026-06-03`).
+2. Note the open follow-up: **nav-level hiding** for non-music vendors (the page currently gates with an explainer; the sidebar shows the item to all because the vendor layout doesn't pass `services` to the sidebar).
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "feat(0022,0006): vendor 'Your repertoire'…". Builds on the master-songlist foundation migration `20260731000000`.
+
+---
+
 ## [PENDING] 2026-06-03 — Monogram chrome UPGRADED to the full framed onboarding look (supersedes "letters-forward")
 
 **Why:** Follow-up PR to the monogram → switcher work. The owner chose the FULL framed monogram + exact fonts + the avatar-as-event-logo, superseding the "letters-forward" framing from the prior monogram COWORK item.

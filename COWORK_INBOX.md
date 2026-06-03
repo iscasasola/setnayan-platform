@@ -8,6 +8,21 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Spec 0000 event-type picker: reconcile to "all event types live, no notify" (0000/0041)
+
+**Why:** Owner chose "keep everything live" (don't re-gate #884's all-events-live). So spec 0000's picker section — which the #882 carousel update left describing "only Wedding+Debut live, the other nine coming-soon, 11 types, tap-to-be-notified" — is now wrong and should be reconciled to the shipped code.
+
+**Spec corpus update (owner walks via Cowork):**
+1. **`0000_app_shell_and_navigation.md`** — the event-type picker section + its acceptance-criteria checklist + the per-type table should reflect: **all 9 event types LIVE / tappable** (Wedding → onboarding; Debut + the other 7 → create-event form), **no "coming soon" tier**, **no notify-me flow** (none exists). The live roster is the 9 in `event-types.ts` (wedding, debut, gender_reveal, birthday, celebration, travel, corporate, tournament, christening) — note this does NOT match the spec's earlier 11 (which dropped gender_reveal + added anniversary/graduation/reunion). `anniversary`/`graduation`/`reunion` are enum-seedable (migration 20260805000000) but NOT in the picker; add picker cards (needs 3 hero images) only if you want them shown as coming-soon.
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "chore(0000,0041): event_type enum guarantee + create-event copy". Supersedes the live/coming-soon split described in the earlier #882 carousel inbox note.
+
+**Owner action:** push migration `20260805000000_event_type_enum_guarantee.sql` (`supabase db push`).
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Chinese wedding added as a coming-soon ceremony type (0043)
 
 **Why:** Owner-directed ("on weddings, also add chinese wedding"). Chinese (Tsinoy — tea ceremony + Chinese customs) joins the wedding-type lineup as **coming soon** — shown everywhere but gated until vendor density can cater it (owner: "show them and prepare these … when the vendors are enough"). It's the lone coming_soon faith now that the others were unlocked the same day.

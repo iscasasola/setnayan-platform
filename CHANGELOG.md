@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · chore(0000,0041): event_type enum guarantee + create-event copy (all-live)
+
+**Context:** Follow-up to the owner's "keep everything live" decision + the spec-0000 reconciliation. Two small gaps: (1) belt-and-suspenders the `event_type` enum so a Debut insert can never fail + add 3 roadmap types as seedable; (2) the create-event page still carried "only weddings live / tap to be notified" copy.
+
+**What changed:**
+- **Migration `20260805000000_event_type_enum_guarantee.sql` (owner-push):** `ALTER TYPE public.event_type ADD VALUE IF NOT EXISTS` for `debut` + `gender_reveal` (already in prod per #884 — harmless re-add) and NEW seedable `anniversary` / `graduation` / `reunion`. The 3 new ones are NOT in the UI roster — surfacing them later is a picker-config change, no migration. Mirrors the applied 20260621000000 attire-enum migration (BEGIN/COMMIT + per-value IF NOT EXISTS).
+- **`create-event/page.tsx`:** killed the stale strings — header subtext ("Weddings are live today … tap one to be notified") → "Swipe through and pick the kind of event you're planning"; the `invalid_type` error's notify / "one event type at a time" language → a neutral "That event type isn't available yet — pick one from the carousel."
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean. Shipped from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** Yes — spec 0000's event-type-picker section still describes "only Wedding+Debut live, nine coming-soon, 11 types, tap-to-be-notified" — superseded by "keep everything live" (all 9 live, no notify). See `COWORK_INBOX.md`.
+
 ## 2026-06-03 · feat(0043): add Chinese wedding as a coming-soon ceremony type
 
 **Context:** Owner-directed — *"on weddings, also add chinese wedding."* The same-day "unlock all religions" change made Catholic/Civil/Christian/INC/Muslim/Cultural all active. Chinese (Tsinoy — tea ceremony + Chinese customs, often paired with a church/civil rite) joins the lineup as **coming soon**: surfaced everywhere but gated until vendor density can cater it (owner: "show them and prepare these … when the vendors are enough to cater their service"). It's the lone coming_soon faith now.

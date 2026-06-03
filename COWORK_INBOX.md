@@ -8,16 +8,18 @@
 
 ---
 
-## [PENDING] 2026-06-03 — Free "start looking" vendor reminders now SHIP (Today's Focus replacement)
+## [PENDING] 2026-06-03 — Free recommended-deadline vendor reminders now SHIP (Today's Focus replacement)
 
-**Why:** The retired Today's Focus wizard's "best time to start looking" job is now delivered free in the Home "Upcoming" stream — full vendor set, on by default, no fork/paywall (owner-confirmed model). Code is live; the planning spec should record the concrete behavior.
+**Why:** The retired Today's Focus wizard's "recommended deadline to book each vendor" job is now delivered free in the Home "Upcoming" stream — full vendor set, on by default, no fork/paywall (owner-confirmed model). Code is live; the planning spec should record the concrete behavior.
 
-**What landed (code):** new `start_looking` source in `lib/upcoming-items.ts` — for each plan-group category the couple hasn't LOCKED a vendor in, a reminder dated `wedding_date − monthsBefore`, reusing the owner-authored `PLAN_GROUPS.monthsBefore` lead-times. Forward-looking, capped at 5, rendered with a Search/violet style in `upcoming-schedules.tsx`.
+**What landed (code):** new `recommended_deadline` source in `lib/upcoming-items.ts` — for each plan-group category the couple hasn't LOCKED a vendor in, a reminder dated `wedding_date − monthsBefore` (the recommended LOCK-BY deadline), reusing the owner-authored `PLAN_GROUPS.monthsBefore`. Forward-looking, capped at 5, rendered with a CalendarClock/violet style in `upcoming-schedules.tsx`.
 
 **Spec corpus update (owner walks via Cowork):**
-1. **`~/Documents/Claude/Projects/Setnayan/0016_step_by_step_plan_builder/`** (and/or the planning/deadline spec) — record that the free per-service "start looking" reminders ship in the Home deadline-timeline surface, sourced from `PLAN_GROUPS.monthsBefore`, shown only for not-yet-booked categories. Pairs with the Today's-Focus-retired decision-log row already queued.
+1. **`~/Documents/Claude/Projects/Setnayan/0016_step_by_step_plan_builder/`** (and/or the planning/deadline spec) — record that the free per-service recommended-deadline reminders ship in the Home deadline-timeline surface, sourced from `PLAN_GROUPS.monthsBefore` (the lock-by deadline), shown only for not-yet-booked categories. Pairs with the Today's-Focus-retired decision-log row already queued.
 
-**Follow-up (not yet built):** the Settings "Planning reminders: on/off" opt-out toggle (default-on shipped).
+**Follow-ups (designed 2026-06-03, not yet built):**
+- **Admin-managed per-leaf deadline table** (owner directive) — a unified `planning_deadlines` table (`kind` = service / milestone / document · `ref_key` · `offset_days` · optional `applies_to`), managed in `/admin/taxonomy`, **inheritance-with-override**, with a **"missing deadline" flag** on any leaf lacking one (its own or inherited). The reminders read from it once it lands; the code `PLAN_GROUPS.monthsBefore` values are the seed + fallback. This is the couple's *lock-by* deadline — distinct from the vendor's own *delivery plan* (Service Schedule). Spec: extend 0023 (admin) + the planning/deadline spec.
+- Settings "Planning reminders: on/off" opt-out toggle (default-on shipped).
 
 **When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
 

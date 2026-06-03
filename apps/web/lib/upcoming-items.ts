@@ -64,7 +64,7 @@ export type UpcomingItemSource =
   | 'vendor_payment'
   | 'setnayan_sku_expiry'
   | 'document_deadline'
-  | 'start_looking';
+  | 'recommended_deadline';
 
 export type UpcomingItemCategory =
   | 'meeting'
@@ -72,7 +72,7 @@ export type UpcomingItemCategory =
   | 'document'
   | 'renewal'
   | 'schedule'
-  | 'start_looking';
+  | 'recommended_deadline';
 
 export type UpcomingItem = {
   /** Stable id — unique per source + row. Used as React key. */
@@ -520,26 +520,31 @@ export type FetchUpcomingItemsResult = {
 };
 
 // ----------------------------------------------------------------------------
-// Source 6 — "start looking" reminders (free planning guidance)
+// Source 6 — recommended-deadline reminders (free planning guidance)
 //
 // For each plan-group category the couple hasn't LOCKED a vendor in yet,
-// surface a forward-looking nudge timed at wedding_date − monthsBefore — the
-// owner-authored lead-time already on PLAN_GROUPS, so the reminder and the
-// home plan-grid advertise the same windows. This is the free replacement for
-// the retired Today's Focus wizard's "best time to start looking" job
-// ([[project_setnayan_todays_focus_retired]]) — no fork, no paywall.
+// surface the recommended LOCK-BY deadline, dated at wedding_date −
+// monthsBefore. PLAN_GROUPS.monthsBefore IS that deadline ("aim to have this
+// locked N months before the wedding"), the same date the home plan-grid
+// advertises — so the reminder and the grid never disagree. This is the free
+// replacement for the retired Today's Focus wizard's "recommended deadline"
+// job ([[project_setnayan_todays_focus_retired]]) — no fork, no paywall.
 //
-// Forward-looking only: windows already open are dropped by the merged
-// stream's future filter (an "overdue / look now" variant is a clean V2).
-// Entry-point plan cards (countsTowardLockable === false — Live band, Stylist,
-// Dance instructor, After-party DJ, Bridal car, Guest shuttle) are skipped;
-// their picks bucket under a primary card that already carries the reminder.
-// Capped at START_LOOKING_CAP so it never floods the stream.
+// SEED NOTE: these code values are the initial seed for the admin-managed
+// per-leaf deadline table (V1.x · inheritance-with-override). Once that table
+// lands, this source reads from it with these PLAN_GROUPS values as the
+// fallback. Until then, the owner-authored code values drive the reminders.
+//
+// Forward-looking only: deadlines already passed are dropped by the merged
+// stream's future filter. Entry-point plan cards (countsTowardLockable ===
+// false — Live band, Stylist, Dance instructor, After-party DJ, Bridal car,
+// Guest shuttle) are skipped; their picks bucket under a primary card that
+// already carries the reminder. Capped so it never floods the stream.
 // ----------------------------------------------------------------------------
 
-const START_LOOKING_CAP = 5;
+const RECOMMENDED_DEADLINE_CAP = 5;
 
-async function fetchStartLookingItems(
+async function fetchRecommendedDeadlineItems(
   supabase: SupabaseClient,
   eventId: string,
   eventDate: string | null,
@@ -549,7 +554,7 @@ async function fetchStartLookingItems(
   const wedding = new Date(`${eventDate}T12:00:00`);
   if (Number.isNaN(wedding.getTime())) return [];
 
-  // Plan-groups that already have a LOCKED vendor → don't nudge those.
+  // Plan-groups that already have a LOCKED vendor → no deadline reminder.
   const { data: vendors } = await supabase
     .from('event_vendors')
     .select('category, status')
@@ -575,15 +580,15 @@ async function fetchStartLookingItems(
     })
     .filter(({ date }) => date.getTime() > now.getTime())
     .sort((a, b) => a.date.getTime() - b.date.getTime())
-    .slice(0, START_LOOKING_CAP)
+    .slice(0, RECOMMENDED_DEADLINE_CAP)
     .map(({ g, date }) => ({
-      id: `start_looking:${g.id}`,
-      source: 'start_looking' as const,
-      category: 'start_looking' as const,
+      id: `recommended_deadline:${g.id}`,
+      source: 'recommended_deadline' as const,
+      category: 'recommended_deadline' as const,
       date,
       daysFromNow: daysBetween(date, now),
-      title: `Start looking for your ${g.label}`,
-      subtitle: `Most couples lock this about ${g.monthsBefore} months before the wedding.`,
+      title: `Book your ${g.label}`,
+      subtitle: `Recommended deadline — most couples have this booked about ${g.monthsBefore} months before the wedding.`,
       href: `/dashboard/${eventId}/vendors`,
     }));
 }
@@ -594,13 +599,13 @@ export async function fetchUpcomingItems(
   const { supabase, eventId, eventDate, ceremonyType, now } = input;
   const limit = input.limit ?? 10;
 
-  const [meetings, scheduleBlocks, vendorPayments, skuRenewals, startLooking] =
+  const [meetings, scheduleBlocks, vendorPayments, skuRenewals, recommendedDeadlines] =
     await Promise.all([
       fetchVendorMeetings(supabase, eventId, now),
       fetchScheduleBlockItems(supabase, eventId, now),
       fetchVendorPaymentItems(supabase, eventId, now),
       fetchSkuRenewalItems(supabase, eventId, now),
-      fetchStartLookingItems(supabase, eventId, eventDate, now),
+      fetchRecommendedDeadlineItems(supabase, eventId, eventDate, now),
     ]);
 
   // Source 5 — pure-computed, no fetch.
@@ -612,7 +617,7 @@ export async function fetchUpcomingItems(
     ...vendorPayments,
     ...skuRenewals,
     ...documentDeadlines,
-    ...startLooking,
+    ...recommendedDeadlines,
   ]
     .filter((item) => item.date.getTime() > now.getTime())
     .sort((a, b) => a.date.getTime() - b.date.getTime());
@@ -636,7 +641,7 @@ export async function fetchUpcomingItems(
     vendor_payment: vendorPayments.length,
     setnayan_sku_expiry: skuRenewals.length,
     document_deadline: documentDeadlines.length,
-    start_looking: startLooking.length,
+    recommended_deadline: recommendedDeadlines.length,
   };
 
   return { items, paymentItemsNext30d, sourceCounts };

@@ -12,16 +12,27 @@
 
 **Why:** The retired Today's Focus wizard's "recommended deadline to book each vendor" job is now delivered free in the Home "Upcoming" stream — full vendor set, on by default, no fork/paywall (owner-confirmed model). Code is live; the planning spec should record the concrete behavior.
 
-**What landed (code):** new `recommended_deadline` source in `lib/upcoming-items.ts` — for each plan-group category the couple hasn't LOCKED a vendor in, a reminder dated `wedding_date − monthsBefore` (the recommended LOCK-BY deadline), reusing the owner-authored `PLAN_GROUPS.monthsBefore`. Forward-looking, capped at 5, rendered with a CalendarClock/violet style in `upcoming-schedules.tsx`.
+**What landed (code):** new `recommended_deadline` source in `lib/upcoming-items.ts` — for each plan-group category the couple hasn't LOCKED a vendor in, a reminder dated `wedding_date − monthsBefore` (the recommended LOCK-BY deadline), reusing the owner-authored `PLAN_GROUPS.monthsBefore`. Forward-looking, capped at 5, rendered with a CalendarClock/violet style.
 
 **Spec corpus update (owner walks via Cowork):**
-1. **`~/Documents/Claude/Projects/Setnayan/0016_step_by_step_plan_builder/`** (and/or the planning/deadline spec) — record that the free per-service recommended-deadline reminders ship in the Home deadline-timeline surface, sourced from `PLAN_GROUPS.monthsBefore` (the lock-by deadline), shown only for not-yet-booked categories. Pairs with the Today's-Focus-retired decision-log row already queued.
+1. **`~/Documents/Claude/Projects/Setnayan/0016_step_by_step_plan_builder/`** (and/or the planning/deadline spec) — record that the free per-service recommended-deadline reminders ship in the Home deadline-timeline surface, sourced from `PLAN_GROUPS.monthsBefore` (the lock-by deadline), shown only for not-yet-booked categories.
 
-**Follow-ups (designed 2026-06-03, not yet built):**
-- **Admin-managed per-leaf deadline table** (owner directive) — a unified `planning_deadlines` table (`kind` = service / milestone / document · `ref_key` · `offset_days` · optional `applies_to`), managed in `/admin/taxonomy`, **inheritance-with-override**, with a **"missing deadline" flag** on any leaf lacking one (its own or inherited). The reminders read from it once it lands; the code `PLAN_GROUPS.monthsBefore` values are the seed + fallback. This is the couple's *lock-by* deadline — distinct from the vendor's own *delivery plan* (Service Schedule). Spec: extend 0023 (admin) + the planning/deadline spec.
-- Settings "Planning reminders: on/off" opt-out toggle (default-on shipped).
+**Follow-ups (designed 2026-06-03, owner: "ship this both" — building):**
+- **Admin-managed per-leaf deadline table** — a unified `planning_deadlines` table (`kind` = service / milestone / document · `ref_key` = canonical_service leaf / milestone / document key · `offset_days` · optional `applies_to`), managed in `/admin/taxonomy`, **inheritance-with-override**, with a **"missing deadline" flag** on leaves lacking one. Reminders read from it once it lands; code `PLAN_GROUPS.monthsBefore` = seed + fallback. Couple's *lock-by* deadline — distinct from the vendor's *delivery plan* (Service Schedule). Spec: extend 0023 (admin) + the planning/deadline spec.
+- **Settings "Planning reminders: on/off" toggle** (`users.reminders_enabled`, default TRUE) — couple opt-out; the `recommended_deadline` source skips when off.
 
 **When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
+## [PENDING] 2026-06-03 — Onboarding writes couple song picks to event_song_picks (0016)
+
+**Why:** PR 3 of the compatibility build — the couple's onboarding music picks now persist to `event_song_picks` (the match-read source), not just the display-only `music_playlist_seed`.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`0016_step_by_step_plan_builder.md`** (or the Onboarding Blueprint music-picker step) — note that the picker now writes `event_song_picks` (couple ↔ master songs) at commit, in addition to `music_playlist_seed`. This is the couple side of the music compatibility overlap (`Vendor_Compatibility_and_Master_Songlist_2026-06-03`).
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "feat(0016,0006): couple onboarding music picks → event_song_picks". Pairs with PR 2 (vendor repertoire). Needs migration `20260731000000` pushed to function.
 
 ---
 

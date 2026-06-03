@@ -8,6 +8,18 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Drive-copy Phase 2: Papic auto-sync (cron-free)
+
+**Why:** Papic captures now auto-sync to the couple's Google Drive — cron-free, via Next 15 `after()` (background copy in the capture request). The 5 other artifact feeders await their services' render/generation pipelines.
+
+**Spec updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/0012_paparazzi/0012_papic.md`** + pax-pricing docs — note Papic photos **auto-sync** to the couple's Drive on capture (background `after()` copy, no cron); the manual "Release to Drive" remains as a backfill and dedups against auto-synced photos.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Messages icon unread badge + chat read-state (delta #2 follow-up)
 
 **Why:** The Messages icon shipped icon-only in PR #837 (chrome-redesign delta #2). This PR adds the unread badge — which required giving chat a read-state it never had. A new per-user/per-thread read marker (`chat_thread_reads`) + an unread-thread count function (`count_unread_message_threads()`) land via additive migration `20260728000000_chat_thread_reads.sql` (RLS-at-create; **owner-push**). The badge mirrors the bell and graceful-degrades to 0 until the migration is applied.

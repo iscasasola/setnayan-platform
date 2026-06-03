@@ -1,8 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isR2Configured, r2Upload, R2_BUCKETS } from '@/lib/r2';
 import { fetchGuestQuota } from '@/lib/papic-guest';
+import { enqueueDriveCopy, runDriveCopyBatch } from '@/lib/drive-copy';
 
 // POST /api/papic/guest-capture
 //
@@ -87,6 +88,29 @@ export async function POST(req: Request) {
   };
 
   if (result.status === 'ok') {
+    // Auto-sync this guest capture into the couple's Google Drive (Phase 2),
+    // cron-free: enqueue the artifact, then copy it in the BACKGROUND with
+    // after() so the response returns immediately. No-op until Drive is
+    // connected; best-effort; dedup is per drive_copy_artifacts.r2_object_key.
+    try {
+      await enqueueDriveCopy({
+        eventId: session.event_id,
+        artifactType: 'papic',
+        files: [
+          {
+            r2ObjectKey: r2Ref,
+            fileName: key.split('/').pop() || 'papic.jpg',
+            mimeType: 'image/jpeg',
+            sourceTable: 'papic_photos',
+          },
+        ],
+      });
+      after(() =>
+        runDriveCopyBatch({ eventId: session.event_id }).catch(() => {}),
+      );
+    } catch {
+      // best-effort
+    }
     return NextResponse.json(result);
   }
   return NextResponse.json(result, {

@@ -4,6 +4,27 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(drive-copy): Phase 2 — Papic auto-sync feeder (cron-free, via after())
+
+**Commit:** to be filled after commit.
+
+**Context:** Phase 2 of the storage build plan. **Finding:** 5 of the 6 source services (Patiktok, Pabati, Pakanta, Monogram, QR) have no R2-artifact pipeline yet (stubs / client-side), so there is nothing to feed for them — one-line `pushToDriveCopy(...)` calls land with each future pipeline. **Papic** is the one real producer and is wired now.
+
+**Cron-free** — the repo's 2 existing cron endpoints have no scheduler (no `vercel.json` crons, no scheduled Actions), so a polling cron would've been dead on arrival. The drain runs in the background of the capture request via Next 15 `after()`.
+
+**What ships:**
+
+- **Papic auto-sync feeders** — `papic/actions.ts` (paparazzo capture) + `api/papic/guest-capture` (guest disposable camera): `enqueueDriveCopy('papic', …)` then `after(() => runDriveCopyBatch({ eventId }))`. The response returns immediately; the R2→Drive copy runs in the background. No-op until Drive is connected; best-effort (never fails a capture).
+- **Folder unify** — `drive-copy.ts` routes `papic` artifacts to the couple's existing `events.photo_delivery_folder_id` (same folder as the manual "Release to Drive" worker).
+- **Dedup** — `enqueueRelease` skips photos already auto-synced (matched on `r2_object_key`); it also backfills anything a dropped background task missed.
+- **Latent fix** — `readR2Object` strips a leading `r2://<bucket>/` prefix (also fixes the existing release worker for prefixed papic keys).
+
+**Pilot-safe:** best-effort + enqueue-first (the row persists even if the background copy is dropped); manual release still works + dedups. No migration. No cron. No new owner action.
+
+**SPEC IMPACT:** Yes (minor). Papic auto-syncs to Drive (the pax-pricing "photos land in your Drive" behavior), cron-free. The other 5 feeders attach as their pipelines land.
+
+---
+
 ## 2026-06-03 · feat(messages): unread badge on the Messages icon
 
 **Commit:** see merge commit on this PR.

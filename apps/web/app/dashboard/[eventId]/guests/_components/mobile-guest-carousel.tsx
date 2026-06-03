@@ -141,6 +141,9 @@ export function MobileGuestCarousel({
   const trackRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
   const [assignOpen, setAssignOpen] = useState(false);
+  // Collapse the panel sheet down to just its grabber handle so the guest list
+  // above stretches (owner 2026-06-03). The keyboard state takes precedence.
+  const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -151,25 +154,6 @@ export function MobileGuestCarousel({
   // ignores small visual-viewport jitters so only a real keyboard triggers it.
   const kbInset = useKeyboardInset();
   const kbOpen = kbInset > 100;
-
-  // Broadcast the keyboard state to the page so the guest list (a sibling, not
-  // a child of this component) can shrink into a scroll zone above the sheet
-  // instead of having its top rows pushed off-screen. The page's injected
-  // <style> reads html[data-kb-open] + --kb-inset (owner-reported 2026-06-03).
-  useEffect(() => {
-    const el = document.documentElement;
-    if (kbOpen) {
-      el.style.setProperty('--kb-inset', `${kbInset}px`);
-      el.setAttribute('data-kb-open', '');
-    } else {
-      el.style.removeProperty('--kb-inset');
-      el.removeAttribute('data-kb-open');
-    }
-    return () => {
-      el.style.removeProperty('--kb-inset');
-      el.removeAttribute('data-kb-open');
-    };
-  }, [kbInset, kbOpen]);
 
   // Belt-and-suspenders: after a bulk apply redirects back with a flash, make
   // sure the Assign sheet is closed (the apply handler already closes it +
@@ -227,7 +211,14 @@ export function MobileGuestCarousel({
       <div
         aria-hidden
         className="h-[calc(var(--gcar-h)+4rem+env(safe-area-inset-bottom))] lg:hidden"
-        style={kbOpen ? { height: 0 } : undefined}
+        style={
+          // Keep the collapse-grabber feature, but do NOT collapse this spacer
+          // when the keyboard opens — that 348px→0 shift was the reflow that
+          // made iOS deliver the tap to a guest card (owner-reported 2026-06-03).
+          !kbOpen && collapsed
+            ? { height: 'calc(2.25rem + 4rem + env(safe-area-inset-bottom))' }
+            : undefined
+        }
       />
 
       {/* Panel content sheet — docked directly ABOVE the guest bottom nav (the
@@ -237,19 +228,34 @@ export function MobileGuestCarousel({
           of this sheet and BECAME the bottom nav, so this sheet now holds only
           the active panel. */}
       <div
-        className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 h-[var(--gcar-h)] overflow-hidden rounded-t-2xl bg-cream shadow-[0_-12px_30px_-18px_rgba(30,34,41,0.28)] ring-1 ring-ink/10 lg:hidden"
+        className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 flex h-[var(--gcar-h)] flex-col overflow-hidden rounded-t-2xl bg-cream shadow-[0_-12px_30px_-18px_rgba(30,34,41,0.28)] ring-1 ring-ink/10 lg:hidden"
         style={
           kbOpen
             ? { bottom: kbInset, height: active === 2 ? 190 : undefined }
-            : undefined
+            : collapsed
+              ? { height: '2.25rem' }
+              : undefined
         }
       >
+        {/* Grabber — tap to collapse the panel down to this handle so the guest
+            list above stretches; tap again to expand. Hidden while typing. */}
+        {!kbOpen && (
+          <button
+            type="button"
+            onClick={() => setCollapsed((c) => !c)}
+            aria-label={collapsed ? 'Expand panel' : 'Collapse panel'}
+            aria-expanded={!collapsed}
+            className="flex h-9 shrink-0 items-center justify-center"
+          >
+            <span aria-hidden className="h-1.5 w-10 rounded-full bg-ink/15" />
+          </button>
+        )}
         {/* swipe track — 4 panels, scroll-snap; full sheet height now that the
             tab strip moved to the bottom nav. Tap a nav item OR swipe to jump. */}
         <div
           ref={trackRef}
           onScroll={onScroll}
-          className="flex h-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {/* 1 — Summary: animated RSVP counts (also filter links) */}
           <section className="w-full shrink-0 snap-center overflow-y-auto px-4 py-3">
@@ -292,9 +298,11 @@ export function MobileGuestCarousel({
               dropdowns (larger/variable), two-up to save height; Sort is a
               compact dropdown. Tags stay searchable via the box above + get an
               optional dropdown only when the couple added custom tags. */}
-          <section className="w-full shrink-0 snap-center space-y-2.5 overflow-y-auto px-4 py-3">
-            <LiveSearch initialValue={q} placeholder="Name, side, role, group…" />
-
+          <section
+            className={`flex w-full shrink-0 snap-center flex-col gap-2.5 overflow-y-auto px-4 py-3 ${
+              kbOpen ? 'justify-end' : 'justify-start'
+            }`}
+          >
             {/* SIDE — segmented. "Bride"/"Groom" include both-side guests,
                 matching the desktop team filter, so there's no separate Both. */}
             <SegRow label="Side">
@@ -378,11 +386,21 @@ export function MobileGuestCarousel({
                 </Link>
               ) : null}
             </div>
+
+            {/* Search box LAST so it sits flush above the keyboard (owner
+                directive 2026-06-03 — "place the search box at the bottom and
+                above it are the filters"). */}
+            <LiveSearch initialValue={q} placeholder="Name, side, role, group…" />
           </section>
 
-          {/* 3 — Add: inline quick-entry form */}
-          <section className="flex w-full shrink-0 snap-center flex-col justify-center px-4 py-3">
-            <QuickAddInlineForm eventId={eventId} />
+          {/* 3 — Add: inline quick-entry form. justify-end when the keyboard is
+              up so the two inputs sit flush above it. */}
+          <section
+            className={`flex w-full shrink-0 snap-center flex-col px-4 py-3 ${
+              kbOpen ? 'justify-end' : 'justify-center'
+            }`}
+          >
+            <QuickAddInlineForm eventId={eventId} kbOpen={kbOpen} />
           </section>
 
           {/* 4 — Customize: select guests + bulk-assign (owner directive
@@ -594,7 +612,7 @@ function AnimatedCount({ value }: { value: number }) {
  *   Enter on first name  → moves focus to last name (no-op if first is empty)
  *   Enter on last name   → adds the guest, clears both fields, loops to first name
  */
-function QuickAddInlineForm({ eventId }: { eventId: string }) {
+function QuickAddInlineForm({ eventId, kbOpen }: { eventId: string; kbOpen: boolean }) {
   const router = useRouter();
   const [first, setFirst] = useState('');
   const [last, setLast] = useState('');
@@ -662,7 +680,29 @@ function QuickAddInlineForm({ eventId }: { eventId: string }) {
     'w-full rounded-xl border border-ink/15 bg-cream px-4 py-3 text-sm text-ink placeholder:text-ink/35 focus:border-terracotta focus:outline-none disabled:opacity-50';
 
   return (
-    <div className="flex h-full flex-col justify-center gap-3">
+    // Inputs LAST so they sit flush above the keyboard (owner directive
+    // 2026-06-03 — "keyboard then straight to the text box"); the helper +
+    // session count move above them. justify-end docks the stack to the
+    // bottom while the keyboard is up.
+    <div
+      className={`flex h-full flex-col gap-3 ${
+        kbOpen ? 'justify-end' : 'justify-center'
+      }`}
+    >
+      {addError ? (
+        <p className="text-center text-xs font-medium text-rose-600">{addError}</p>
+      ) : (
+        <p className="text-center text-[11px] leading-snug text-ink/40">
+          Enter after first name moves to last name · Enter after last name adds &amp; loops back
+        </p>
+      )}
+
+      {count > 0 && !addError && (
+        <p className="text-center text-xs text-ink/50">
+          {count} {count === 1 ? 'guest' : 'guests'} added this session
+        </p>
+      )}
+
       <div className="space-y-2">
         <input
           ref={firstRef}
@@ -695,20 +735,6 @@ function QuickAddInlineForm({ eventId }: { eventId: string }) {
           className={inputCls}
         />
       </div>
-
-      {addError ? (
-        <p className="text-center text-xs font-medium text-rose-600">{addError}</p>
-      ) : (
-        <p className="text-center text-[11px] leading-snug text-ink/40">
-          Enter after first name moves to last name · Enter after last name adds &amp; loops back
-        </p>
-      )}
-
-      {count > 0 && !addError && (
-        <p className="text-center text-xs text-ink/50">
-          {count} {count === 1 ? 'guest' : 'guests'} added this session
-        </p>
-      )}
     </div>
   );
 }

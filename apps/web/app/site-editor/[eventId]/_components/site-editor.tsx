@@ -198,7 +198,7 @@ function TabButton({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`flex flex-col items-center gap-1 py-2 text-[10px] font-semibold transition-colors [&_svg]:h-[21px] [&_svg]:w-[21px] ${
+      className={`flex min-h-[56px] min-h-[44pt] flex-col items-center justify-center gap-0.5 py-1 text-[10px] font-semibold transition-colors [&_svg]:h-[22px] [&_svg]:w-[22px] ${
         active ? 'text-terracotta' : 'text-ink/40'
       }`}
     >

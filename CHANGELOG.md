@@ -4,6 +4,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(0000,0041): unlock all event types (all 9 now creatable)
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner directive — *"unlock all events."* The create-event picker shipped only **Wedding + Debut** as selectable; the other seven (Gender Reveal · Birthday · Celebration · Travel · Corporate · Tournament · Christening) rendered as "Coming soon" placeholders. The code's own comments flagged the unlock as a "one-line flip" — done here.
+
+**What changed:**
+- **`app/dashboard/create-event/_components/event-types.ts`** — `EVENT_TYPES[].enabled` flipped `false → true` for all seven coming-soon types. This single roster drives BOTH the full-page create-event picker AND the in-chrome add-event sheet.
+- **`app/dashboard/create-event/actions.ts`** — `ALLOWED_TYPES` widened from `['wedding','debut']` to all nine (server validation; a non-allowed type was redirected with an error).
+
+**No DB change:** the `public.event_type` enum already carries all nine values (verified by direct prod query: wedding · debut · gender_reveal · birthday · celebration · travel · corporate · tournament · christening). The create-event `isWedding` branch already writes NULL wedding-only fields (ceremony_type/venue_setting/etc.) for non-wedding events, and they redirect to the standard `/dashboard/{event_id}` — the path `debut` already exercises live.
+
+**Verification:** `tsc --noEmit` exit 0.
+
+**SPEC IMPACT:** Yes — iteration **0000** (event-type roster "V1: wedding + debut") + **0041** (multi-event roster "grows one event_type at a time") now describe all nine event types as live. The deliberate one-at-a-time rollout gate is removed. **Downstream caveat:** non-wedding events get the wedding-tailored dashboard/planning surfaces until per-type flows land (V1.2+) — the same rough edge `debut` has today. See `COWORK_INBOX.md`.
+
+---
+
 ## 2026-06-03 · feat(0043,0016): unlock all wedding faiths (Christian / INC / Muslim / Cultural now active)
 
 **Commit:** see merge commit on this PR.

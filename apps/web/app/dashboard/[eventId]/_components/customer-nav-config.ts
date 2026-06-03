@@ -192,10 +192,13 @@ export function buildCustomerNavGroups(eventId: string): NavGroup[] {
       items: [
         {
           key: 'website',
+          // Flipped 2026-06-03: the "Website" doorway opens the full-screen
+          // Reels editor (/site-editor) directly. The journey scroll at
+          // /website is retired (now redirects to the editor).
           label: 'Website',
-          href: `${base}/website`,
+          href: `/site-editor/${eventId}`,
           icon: Globe,
-          matchPrefix: `${base}/website`,
+          matchPrefix: `/site-editor/${eventId}`,
         },
         {
           key: 'add-ons',

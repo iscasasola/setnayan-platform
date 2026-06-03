@@ -8,26 +8,63 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **Commit:** to be filled after commit.
 
-**Context:** Phase 0 of the storage build plan (`Storage_and_Drive_Copy_Architecture_2026-06-03.md` § 8), following the Phase 1 keystone (PR #825). An event could previously hold **two** Google Drive connections — `oauth_grants(provider='drive')` (Papic connect) and `provider='drive_photo_delivery'` (Photo Delivery connect) — each its own consent, redirect URI, and folder. The Phase-1 drive-copy layer reads `provider='drive'`, so a couple who connected only via Photo Delivery was invisible to it. This unifies them into **one** per-event "Connect Drive".
+**Context:** Phase 0 of the storage build plan (`Storage_and_Drive_Copy_Architecture_2026-06-03.md` § 8), following the Phase 1 keystone. An event could previously hold **two** Google Drive connections — `oauth_grants(provider='drive')` (Papic connect) and `provider='drive_photo_delivery'` (Photo Delivery connect) — each its own consent, redirect URI, and folder. The Phase-1 drive-copy layer reads `provider='drive'`, so a couple who connected only via Photo Delivery was invisible to it. This unifies them into **one** per-event "Connect Drive".
 
 **What ships:**
 
 - **`/api/oauth/photo-delivery/start`** — now uses the canonical Drive OAuth config (`getDriveOAuthConfig`), so the Photo Delivery connect goes through the **same Google consent + redirect URI** as Papic (→ `/api/oauth/drive/callback`). It still writes an `oauth_state` row with `provider='drive_photo_delivery'` purely as a **return-page marker**.
-- **`/api/oauth/drive/callback`** — now serves **both** connects: accepts `oauth_state.provider ∈ {drive, drive_photo_delivery}`, always upserts the grant as `provider='drive'`, **mirrors `events.photo_delivery_*`** connected-state (so the Photo Delivery panel + release worker light up from the one connect), and redirects back to the right panel (`papic` vs `photo-delivery`).
-- **`photo-delivery-release.ts`** + **`/api/photo-delivery/disconnect`** + **photo-delivery `actions.ts`** — all read/revoke the unified `provider='drive'` grant.
-- **`/api/oauth/drive/disconnect`** — the shared Drive disconnect now also clears `events.photo_delivery_*` so both surfaces return to idle together.
-- **`/api/oauth/photo-delivery/callback`** — marked **DEPRECATED** (unreachable post-consolidation; retained until the owner removes `PHOTO_DELIVERY_OAUTH_REDIRECT_URI` from Google Cloud — full deletion is a follow-up).
-- **Migration `20260727000000_drive_oauth_consolidation.sql`** — safety-net data backfill: renames pre-existing `'drive_photo_delivery'` grants → `'drive'` (conflict-safe), drops redundant ones, cleans stale `oauth_state`. **No schema change; the code does not depend on it** (Photo Delivery OAuth was gated on the pending verified-app review, so ~zero real grants exist).
+- **`/api/oauth/drive/callback`** — now serves **both** connects: accepts `oauth_state.provider ∈ {drive, drive_photo_delivery}`, always upserts the grant as `provider='drive'`, **mirrors `events.photo_delivery_*`** connected-state, and redirects back to the right panel.
+- **`photo-delivery-release.ts`** + **`/api/photo-delivery/disconnect`** + **photo-delivery `actions.ts`** — read/revoke the unified `provider='drive'` grant.
+- **`/api/oauth/drive/disconnect`** — the shared Drive disconnect now also clears `events.photo_delivery_*`.
+- **`/api/oauth/photo-delivery/callback`** — marked **DEPRECATED** (unreachable post-consolidation).
+- **Migration `20260727000000_drive_oauth_consolidation.sql`** — safety-net data backfill: renames pre-existing `'drive_photo_delivery'` grants → `'drive'` (conflict-safe). **No schema change; code does not depend on it** (Photo Delivery OAuth was gated on the pending verified-app review, so ~zero real grants exist).
 
-**Net result:** one consent screen, one registered redirect URI, one `provider='drive'` grant per event — the single connection that powers Papic capture, Photo Delivery, and the drive-copy layer.
+**Net result:** one consent, one registered redirect URI, one `provider='drive'` grant per event — powering Papic capture, Photo Delivery, and the drive-copy layer.
 
-**Pilot-safe:** no real Drive grants exist yet (verified-app review #19g pending). Disconnect semantics now mean "disconnect Drive entirely" from either panel — a deliberate consequence of one connect.
+**Pilot-safe:** no real Drive grants exist yet (#19g pending). Disconnect now means "disconnect Drive entirely" from either panel.
 
-**Verification:** `pnpm -F web` typecheck/lint/build run in CI (no `node_modules` in the `/tmp` worktree). Admin Supabase client is untyped → no generated-type risk on the new selects/updates.
+**Verification:** `pnpm -F web` typecheck/lint/build run in CI. Admin Supabase client is untyped → no generated-type risk on the new selects/updates.
 
-**SPEC IMPACT:** Yes. The owner now registers only **one** Drive redirect URI (`GOOGLE_DRIVE_OAUTH_REDIRECT_URI`); `PHOTO_DELIVERY_OAUTH_REDIRECT_URI` is retired. Folds into the existing `[PENDING] 2026-06-03 — Drive-copy layer keystone` COWORK item (0009 rescope) + `API_Integration_Checklist.md`. COWORK note appended.
+**SPEC IMPACT:** Yes. The owner now registers only **one** Drive redirect URI (`GOOGLE_DRIVE_OAUTH_REDIRECT_URI`); `PHOTO_DELIVERY_OAUTH_REDIRECT_URI` is retired. COWORK_INBOX item appended; folds into the existing Drive-copy keystone item (0009 rescope) + `API_Integration_Checklist.md`.
 
 ---
+
+## 2026-06-03 · feat(site-editor): flip the Website doorway to the editor + retire the journey scroll (Phase 2)
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Phase 2 of the 2026-06-01 flip sequence (Phase 1 = card-parity, shipped PR #821). Owner directive: "make the editor the page and remove everything else." The full-screen Reels editor (`/site-editor/[eventId]`) is now the canonical wedding-website surface; the journey scroll (`/dashboard/[eventId]/website`, PR #704) is retired.
+
+**What ships:**
+
+- **Nav doorway → editor.** `customer-nav-config.ts` (desktop sidebar) + `customer-bottom-nav.tsx` (mobile slot 4) "Website" now point to `/site-editor/${eventId}` (was `${base}/website`). Tapping Website opens the full-screen editor directly, on mobile and desktop.
+- **Journey route retired → redirect.** `/dashboard/[eventId]/website/page.tsx` is now a thin server redirect to `/site-editor/[eventId]` (not a 404), so bookmarks, deep-links, the animated-monogram back-links, and the onboarding prefetch all land on the editor. The former journey render (Steps 1–5 + Free-vs-Pro) is gone.
+- **Editor wiring updated for the flip.** ✕ now closes to the event dashboard home (`/dashboard/[eventId]`) instead of the (now-redirecting) journey page — no loop. The Settings "Manage URL / Set your URL" cards + the no-slug preview CTA now deep-link to the **invitation editor** (`/dashboard/[eventId]/invitation`), which hosts the canonical shared `SlugField` + `updateEventSlug` action — so slug/URL management is fully preserved.
+- **Incidental build-unblock (NOT part of the flip):** `main` was red on `tsc` from PR #827's swipe-delete (`e.touches[0].clientX/Y` unguarded under `noUncheckedIndexedAccess`, in `guest-list-multiselect.tsx`). Added a behavior-preserving null-guard so this PR — and `main` — typecheck green again. Flagged separately because it's unrelated to the flip but was blocking CI for every in-flight PR.
+
+**Dead code (safe to delete in a follow-up cleanup):** `website/_components/{journey,pro-upgrade-panel,pro-website-panel,copy-button}.tsx` + `website/actions.ts` (`updateEventSlugFromWebsite`) — nothing imports them now.
+
+**Verification:** `pnpm -F web typecheck` ✓ · `pnpm -F web lint` ✓ (no new warnings on edited files) · `pnpm -F web build` ✓.
+
+**SPEC IMPACT:** Yes. The couple's "Website" doorway now opens the Reels editor; the journey scroll is retired (redirects). Iteration 0021 (couple dashboard Website tab) + the 2026-06-01 "Reels-style editor" decision-log row need the Phase-2 flip recorded. Logged as a `[PENDING]` COWORK_INBOX item.
+
+---
+
+
+## 2026-06-03 · feat(0001): couple detail shows a LIVE VIEW of their editorial (wedding) page + touches[0] typecheck fix
+
+**Commit:** to be filled after commit.
+
+**Context:** Owner directive 2026-06-03 (completes the deferred couple "album / custom data" item) — clicking the bride or groom shows **their future editorial page as a live view**. Their "editorial page" is their public wedding page at `/[slug]`.
+
+**What shipped:**
+
+1. **Editorial live view (`guests/[guestId]/page.tsx`).** Couple-only: fetch `events.slug`, then render a phone-framed, **same-origin** `<iframe src="/{slug}">` ("Editorial page" · live) above the edit form, with **Open** (new tab) + **Edit** (→ `/dashboard/[eventId]/website`) links. `loading="lazy"` keeps it off first paint. When no slug is set yet, a "Their wedding page isn't set up yet → Set up their page" fallback. Same-origin framing is safe — `next.config.ts` `headers()` sets no `X-Frame-Options` / CSP `frame-ancestors` (only touches `/sw.js` + `/manifest.json`).
+2. **Pre-existing typecheck fix (`_components/guest-list-multiselect.tsx`).** `main` was red on `tsc`: the mobile swipe-to-delete card read `e.touches[0].clientX` (possibly-undefined under `noUncheckedIndexedAccess`). Guarded with `const t = e.touches[0]; if (t) …` — also hardens a real runtime crash. (Slipped onto `main` because merges aren't gated on the typecheck check.)
+
+**Verification:** `tsc --noEmit` clean (it was *failing* on `main` before the touch guard); `next lint` clean for changed files. Visual confirmation via the PR's Vercel preview.
+
+**SPEC IMPACT:** Iteration **0001** — the couple's guest-detail now embeds a live view of their `/[slug]` page (touches 0002/0015/0021). Completes the "album / custom data" follow-up flagged in the 2026-06-03 couple-foundation entry. Logged in `COWORK_INBOX.md` `[PENDING] 2026-06-03 (couple editorial live view)`.
 
 ## 2026-06-03 · feat(drive-copy): keystone — universal Google-Drive copy layer (R2 = system of record)
 

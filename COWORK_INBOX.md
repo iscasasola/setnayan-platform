@@ -14,8 +14,38 @@
 
 **Spec corpus updates (owner walks via Cowork):**
 
-1. **`~/Documents/Claude/Projects/Setnayan/API_Integration_Checklist.md`** — Google Drive OAuth now needs **one** redirect URI only (`GOOGLE_DRIVE_OAUTH_REDIRECT_URI` → `…/api/oauth/drive/callback`). **Remove `PHOTO_DELIVERY_OAUTH_REDIRECT_URI`** from the checklist (it's retired; the Photo Delivery connect routes through the Drive consent).
-2. **`~/Documents/Claude/Projects/Setnayan/0009_photo_delivery/0009_photo_delivery.md`** — note the OAuth model is now the single shared Drive connection (one consent, one grant `provider='drive'`); disconnecting Drive from either the Papic or Photo Delivery panel disconnects the shared connection. (Folds into the broader 0009 → universal Drive-copy-layer rescope already listed in the keystone item below.)
+1. **`~/Documents/Claude/Projects/Setnayan/API_Integration_Checklist.md`** — Google Drive OAuth now needs **one** redirect URI only (`GOOGLE_DRIVE_OAUTH_REDIRECT_URI` → `…/api/oauth/drive/callback`). **Remove `PHOTO_DELIVERY_OAUTH_REDIRECT_URI`** (retired; the Photo Delivery connect routes through the Drive consent).
+2. **`~/Documents/Claude/Projects/Setnayan/0009_photo_delivery/0009_photo_delivery.md`** — note the OAuth model is now the single shared Drive connection (one consent, one grant `provider='drive'`); disconnecting Drive from either the Papic or Photo Delivery panel disconnects the shared connection. (Folds into the broader 0009 → universal Drive-copy-layer rescope in the keystone item below.)
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
+## [PENDING] 2026-06-03 — Site Editor: Website-tab flip (Phase 2) — editor is now the page, journey scroll retired
+
+**Why:** Phase 2 of the flip sequence shipped — tapping "Website" now opens `/site-editor/[eventId]` (mobile + desktop), and the journey route `/dashboard/[eventId]/website` redirects to the editor. The spec corpus needs this recorded so future sessions know the journey scroll is retired and the editor is the canonical Website surface.
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/DECISION_LOG.md`** — append a 2026-06-03 row (date order):
+   > **🪟 Website-tab flip (Phase ④ of the 2026-06-01 sequence).** The couple "Website" doorway (`customer-nav-config.ts` desktop sidebar + `customer-bottom-nav.tsx` mobile slot 4) now opens the full-screen Reels editor `/site-editor/[eventId]` directly; the journey scroll `/dashboard/[eventId]/website` (PR #704) is **retired → redirects** to the editor (bookmarks / deep-links / animated-monogram back-links / onboarding prefetch all preserved). Editor ✕ → dashboard home (`/dashboard/[eventId]`); Settings "Manage URL"/"Set your URL" + the no-slug preview CTA → the invitation editor (`/dashboard/[eventId]/invitation`, canonical shared `SlugField` + `updateEventSlug`). Now-dead (follow-up cleanup): `website/_components/{journey,pro-upgrade-panel,pro-website-panel,copy-button}.tsx` + `website/actions.ts`. Incidental: fixed `main`'s `tsc` break from PR #827 (unguarded `e.touches[0]` in `guest-list-multiselect.tsx`). Files: `customer-nav-config.ts` · `customer-bottom-nav.tsx` · `site-editor.tsx` · `website/page.tsx` (→ redirect) · `guest-list-multiselect.tsx` (touch null-guard).
+
+2. **`~/Documents/Claude/Projects/Setnayan/0021_couple_dashboard_fully_purchased/0021_couple_dashboard_fully_purchased.md`** — update the Website-tab section: the canonical Website surface is now the full-screen Reels editor (`/site-editor/[eventId]`), reached by tapping the "Website" nav doorway on mobile + desktop; the journey-scroll hub is retired (redirects to the editor). Slug/URL management lives in the invitation editor. Supersedes the Phase-1 card-parity note.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]` here.
+
+---
+
+
+## [PENDING] 2026-06-03 — Iteration 0001: couple detail embeds a LIVE VIEW of their editorial (wedding) page
+
+**Why:** Owner directive 2026-06-03 — clicking the bride/groom shows "their future editorial page, as live view." Built: a phone-framed, same-origin iframe of their public `/[slug]` page on the couple's guest-detail. This **completes the "album / custom data" follow-up** parked in the couple-foundation entry below.
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/0001_creating_guest_list/0001_creating_guest_list.md`** — under the "Bride & Groom (foundation of the event)" block, replace the "album / custom data is a planned follow-up" note with: "Opening the bride or groom shows a **live view of their editorial page** — a phone-framed, same-origin iframe of their public wedding page (`/[slug]`) with Open (new tab) + Edit (→ Website surface) links, and a 'set it up' fallback when no slug exists yet. It reflects the page's current draft/live state ('their future page')."
+
+2. **`~/Documents/Claude/Projects/Setnayan/DECISION_LOG.md`** (corpus root) — append a 2026-06-03 row: "Couple guest-detail embeds a live-view iframe of their `/[slug]` editorial page (Open + Edit links · no-slug fallback). Completes the parked couple album/custom-data item. Bundled a pre-existing `e.touches[0]` typecheck fix in guest-list-multiselect.tsx (main was red; merges aren't CI-gated). File: apps/web/app/dashboard/[eventId]/guests/[guestId]/page.tsx."
 
 **When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
 

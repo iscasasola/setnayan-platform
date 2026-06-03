@@ -164,7 +164,7 @@ export function MobileGuestCarousel({
           guest list's last rows clear both fixed elements */}
       <div
         aria-hidden
-        className="h-[calc(var(--gcar-h)+3.5rem+env(safe-area-inset-bottom))] lg:hidden"
+        className="h-[calc(var(--gcar-h)+4rem+env(safe-area-inset-bottom))] lg:hidden"
       />
 
       {/* Panel content sheet — docked directly ABOVE the guest bottom nav (the
@@ -173,7 +173,7 @@ export function MobileGuestCarousel({
           below". Owner directive 2026-06-03: the 4 menus moved OUT of the top
           of this sheet and BECAME the bottom nav, so this sheet now holds only
           the active panel. */}
-      <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-40 h-[var(--gcar-h)] overflow-hidden rounded-t-2xl bg-cream shadow-[0_-12px_30px_-18px_rgba(30,34,41,0.28)] ring-1 ring-ink/10 lg:hidden">
+      <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 h-[var(--gcar-h)] overflow-hidden rounded-t-2xl bg-cream shadow-[0_-12px_30px_-18px_rgba(30,34,41,0.28)] ring-1 ring-ink/10 lg:hidden">
         {/* swipe track — 4 panels, scroll-snap; full sheet height now that the
             tab strip moved to the bottom nav. Tap a nav item OR swipe to jump. */}
         <div
@@ -340,7 +340,7 @@ export function MobileGuestCarousel({
                   type="button"
                   onClick={() => goTo(i)}
                   aria-current={isActive ? 'true' : undefined}
-                  className="flex min-h-[3rem] w-full flex-col items-center justify-center gap-0.5 rounded-md px-1 py-1.5 transition-colors hover:bg-ink/5"
+                  className="flex min-h-[56px] min-h-[44pt] w-full flex-col items-center justify-center gap-0.5 rounded-md px-1 py-1 transition-colors hover:bg-ink/5"
                 >
                   <Icon
                     aria-hidden

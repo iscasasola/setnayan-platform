@@ -118,7 +118,10 @@ export function SiteEditor(props: SiteEditorProps) {
   const { eventId, publicLandingUrl } = props;
   const [tab, setTab] = useState<Tab>('settings');
 
-  const backHref = `/dashboard/${eventId}/website`;
+  // ✕ closes the full-screen editor back to the event dashboard home. (It used
+  // to return to the /website journey scroll, but that page now redirects to
+  // this editor — flipped 2026-06-03 — so home is the correct close target.)
+  const backHref = `/dashboard/${eventId}`;
 
   return (
     <div className="flex h-dvh w-full flex-col overflow-hidden bg-cream text-ink transition-colors lg:flex-row">
@@ -198,7 +201,7 @@ function TabButton({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`flex flex-col items-center gap-1 py-2 text-[10px] font-semibold transition-colors [&_svg]:h-[21px] [&_svg]:w-[21px] ${
+      className={`flex min-h-[56px] min-h-[44pt] flex-col items-center justify-center gap-0.5 py-1 text-[10px] font-semibold transition-colors [&_svg]:h-[22px] [&_svg]:w-[22px] ${
         active ? 'text-terracotta' : 'text-ink/40'
       }`}
     >
@@ -411,14 +414,14 @@ function settingsCards(p: SiteEditorProps): ReactNode[] {
           <div className="flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400">
             <CheckCircle2 aria-hidden className="h-3.5 w-3.5" /> Live — this URL is yours.
           </div>
-          <CardLink href={`/dashboard/${p.eventId}/website`} ghost>
+          <CardLink href={`/dashboard/${p.eventId}/invitation`} ghost>
             <Pencil aria-hidden /> Manage URL
           </CardLink>
         </>
       ) : (
         <>
           <Desc>Pick your wedding URL — it&rsquo;s how guests find your page and what your QR points to.</Desc>
-          <CardLink href={`/dashboard/${p.eventId}/website`}>
+          <CardLink href={`/dashboard/${p.eventId}/invitation`}>
             <Pencil aria-hidden /> Set your URL
           </CardLink>
         </>
@@ -683,7 +686,7 @@ function PreviewNoSlug({ eventId }: { eventId: string }) {
         Once you pick your wedding URL in Settings, your live page shows up right here.
       </p>
       <Link
-        href={`/dashboard/${eventId}/website`}
+        href={`/dashboard/${eventId}/invitation`}
         className="inline-flex h-10 items-center gap-2 rounded-lg bg-mulberry px-5 text-[12.5px] font-semibold text-cream transition hover:bg-mulberry-600"
       >
         <Pencil aria-hidden className="h-4 w-4" /> Set your URL

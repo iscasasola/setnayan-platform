@@ -117,12 +117,16 @@ const RECEPTION_SETTING_LABEL: Record<string, string> = {
   setting_resort: 'Resort',
 };
 
+// All faiths unlocked (owner-directed 2026-06-03 "unlock all religions").
+// Previously catholic-only with the other four behind `soon: true`. The DB
+// `wedding_type_launch_status` rows are flipped to 'active' in the same change
+// (migration 20260803000000) so create-event mirrors this.
 const FAITH_CHIPS: { value: OnboardingFaith; label: string; soon: boolean }[] = [
   { value: 'catholic', label: 'Catholic', soon: false },
-  { value: 'christian', label: 'Christian', soon: true },
-  { value: 'inc', label: 'INC', soon: true },
-  { value: 'muslim', label: 'Muslim', soon: true },
-  { value: 'cultural', label: 'Cultural', soon: true },
+  { value: 'christian', label: 'Christian', soon: false },
+  { value: 'inc', label: 'INC', soon: false },
+  { value: 'muslim', label: 'Muslim', soon: false },
+  { value: 'cultural', label: 'Cultural', soon: false },
 ];
 
 /* ── monogram designs (owner 2026-06-02 — single "Generate another design" cycles

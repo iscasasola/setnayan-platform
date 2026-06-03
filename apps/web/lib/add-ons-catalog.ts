@@ -30,8 +30,26 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { PosterStyle } from '@/app/dashboard/[eventId]/add-ons/_components/service-poster';
+import type { PlanGroupId } from '@/lib/wedding-plan-groups';
 
 export type AddOnStatus = 'live' | 'web_v1' | 'coming_soon';
+
+/**
+ * Where this in-app service nests on the couple-side Vendors/Services tab
+ * (Digital_Services_Cross_Surface_Map_2026-06-03.md §2 — "the Services tab
+ * surfaces the services inside their canonical category, each with the ✦
+ * Setnayan badge"). Resolves the 2026-06-03 lock that retired the standalone
+ * launcher grid in favour of in-category placement:
+ *   • a PlanGroupId → nests as a ✦ Setnayan supplementary card at the TOP of
+ *     that category's rail (float-to-top), alongside the couple's vendor picks.
+ *     Supplementary + non-saturating — never a "pick", no Lock/Remove.
+ *   • 'digital_services' → grouped under the synthetic Design › Digital
+ *     Services rail (Pakanta / Animated Monogram / Pro Website home).
+ *   • 'tool' → a couple tool, not a category service (Orders / Playlist / QR /
+ *     Blueprint / …). Stays out of the category pile; renders in the compact
+ *     "Tools & extras" strip instead.
+ */
+export type InAppServiceCategory = PlanGroupId | 'digital_services' | 'tool';
 
 export type AddOnEntry = {
   key: string;
@@ -39,6 +57,8 @@ export type AddOnEntry = {
   Icon: LucideIcon;
   iteration: string;
   status: AddOnStatus;
+  /** Couple-side category placement — see InAppServiceCategory. */
+  category: InAppServiceCategory;
   blurb: string;
   cta: string;
   poster: PosterStyle;
@@ -61,6 +81,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     Icon: Receipt,
     iteration: '0034',
     status: 'live',
+    category: 'tool',
     blurb: 'View your in-app purchases · reference codes · payment status',
     cta: 'View orders',
     poster: {
@@ -78,6 +99,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     Icon: Video,
     iteration: '0024',
     status: 'live',
+    category: 'photography',
     blurb:
       '12-template gallery · 60s video · vertical + square + horizontal · ₱99 per render',
     cta: 'Browse templates',
@@ -96,6 +118,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     Icon: Globe2,
     iteration: '0002',
     status: 'coming_soon',
+    category: 'tool',
     blurb:
       'Customize the public landing page guests see when they scan your QR or open your link',
     cta: 'Customize',
@@ -114,6 +137,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     Icon: Music,
     iteration: '0034',
     status: 'coming_soon',
+    category: 'tool',
     blurb:
       'Pick from Setnayan-owned music or generate a custom track for your event reels',
     cta: 'Browse music',
@@ -132,6 +156,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     Icon: Music,
     iteration: '0016',
     status: 'web_v1',
+    category: 'tool',
     blurb:
       "Pick songs by slot · processional · first dance · dinner · open floor · don't-play list. Synced to your DJ or band the moment you book them.",
     cta: 'Build your lineup',
@@ -150,6 +175,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     Icon: Type,
     iteration: '0004',
     status: 'coming_soon',
+    category: 'digital_services',
     blurb:
       'Design your wedding monogram · animated SVG trace · custom hero background',
     cta: 'Open studio',
@@ -168,6 +194,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     Icon: QrCode,
     iteration: '0002',
     status: 'web_v1',
+    category: 'tool',
     blurb:
       'A branded QR for every guest · your monogram + palette colors · print-ready',
     cta: 'Brand my QRs',
@@ -186,6 +213,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     Icon: Camera,
     iteration: '0012',
     status: 'web_v1',
+    category: 'photography',
     blurb: 'Candid capture · gesture shutter · QR tagging · personal reels',
     cta: 'Set up',
     poster: {
@@ -203,6 +231,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     Icon: Tv,
     iteration: '0011',
     status: 'web_v1',
+    category: 'photography',
     blurb: 'Live stream · YouTube delivery · AI Highlights · Same-Day Edit',
     cta: 'Set up',
     poster: {
@@ -220,6 +249,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     Icon: ImageDown,
     iteration: '0009',
     status: 'web_v1',
+    category: 'tool',
     blurb:
       'Connect Google Drive · photographer post-event handoff · share albums with guests',
     cta: 'Set up',
@@ -238,6 +268,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     Icon: Film,
     iteration: '0017',
     status: 'web_v1',
+    category: 'photobooth',
     blurb: 'Vertical-reel template gallery · render-on-demand · 9:16 1080p MP4',
     cta: 'Browse templates',
     poster: {
@@ -255,6 +286,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     Icon: Printer,
     iteration: '0018',
     status: 'web_v1',
+    category: 'tool',
     blurb:
       'Wedding-day print pack + favors from vetted PH suppliers — direct to your venue',
     cta: 'Browse Paprint',
@@ -273,6 +305,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     Icon: Sparkles,
     iteration: '0005',
     status: 'web_v1',
+    category: 'led_background',
     blurb: '8K template render · Photo Pool blend · USB delivery',
     cta: 'Choose template',
     poster: {
@@ -290,6 +323,7 @@ export const ADD_ONS: ReadonlyArray<AddOnEntry> = [
     Icon: MapPin,
     iteration: '0008',
     status: 'web_v1',
+    category: 'tool',
     blurb:
       'Your seating chart, turned into wayfinding · each guest finds their table from the entrance',
     cta: 'Map my venue',

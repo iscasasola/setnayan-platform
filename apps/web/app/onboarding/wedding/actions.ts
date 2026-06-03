@@ -49,7 +49,27 @@ import { canonicalServicesForTile, canonicalServicesForFolder } from '@/lib/vend
  * already persist as columns.
  */
 
-const ALLOWED_CEREMONIES = ['catholic', 'civil', 'mixed'] as const;
+// All faiths unlocked (owner-directed 2026-06-03 "unlock all religions").
+// Previously ['catholic','civil','mixed'] — any other primary pick was silently
+// coerced to 'catholic' on commit. muslim/cultural also require a non-null
+// ceremony_sub_type (DB CHECK events_sub_type_required_when_muslim_or_cultural);
+// the onboarding flow has no sub-type step, so it defaults below.
+const ALLOWED_CEREMONIES = [
+  'catholic',
+  'civil',
+  'mixed',
+  'christian',
+  'inc',
+  'muslim',
+  'cultural',
+] as const;
+// Default tradition for the two sub-type-requiring faiths, since onboarding
+// doesn't collect a specific tradition (create-event does). The couple can
+// refine the exact tradition later from the dashboard.
+const DEFAULT_SUB_TYPE: Record<string, string> = {
+  muslim: 'general_muslim',
+  cultural: 'other',
+};
 const ALLOWED_SECONDARY = [
   'catholic',
   'civil',
@@ -253,7 +273,9 @@ export async function commitOnboardingWedding(
       // Iteration 0043 wedding-type columns (CHECK-constraint-required for weddings)
       ceremony_type: ceremonyType,
       venue_setting: venueSetting,
-      ceremony_sub_type: null,
+      // muslim/cultural require a non-null sub_type per the DB CHECK; onboarding
+      // has no tradition picker, so default and let the couple refine later.
+      ceremony_sub_type: DEFAULT_SUB_TYPE[ceremonyType] ?? null,
       is_mixed_ceremony: isMixed,
       secondary_ceremony_type: secondary,
       ceremony_type_locked_at: now,

@@ -23,6 +23,120 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(0000,0041): unlock all event types (all 9 now creatable)
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner directive — *"unlock all events."* The create-event picker shipped only **Wedding + Debut** as selectable; the other seven (Gender Reveal · Birthday · Celebration · Travel · Corporate · Tournament · Christening) rendered as "Coming soon" placeholders. The code's own comments flagged the unlock as a "one-line flip" — done here.
+
+**What changed:**
+- **`app/dashboard/create-event/_components/event-types.ts`** — `EVENT_TYPES[].enabled` flipped `false → true` for all seven coming-soon types. This single roster drives BOTH the full-page create-event picker AND the in-chrome add-event sheet.
+- **`app/dashboard/create-event/actions.ts`** — `ALLOWED_TYPES` widened from `['wedding','debut']` to all nine (server validation; a non-allowed type was redirected with an error).
+
+**No DB change:** the `public.event_type` enum already carries all nine values (verified by direct prod query: wedding · debut · gender_reveal · birthday · celebration · travel · corporate · tournament · christening). The create-event `isWedding` branch already writes NULL wedding-only fields (ceremony_type/venue_setting/etc.) for non-wedding events, and they redirect to the standard `/dashboard/{event_id}` — the path `debut` already exercises live.
+
+**Verification:** `tsc --noEmit` exit 0.
+
+**SPEC IMPACT:** Yes — iteration **0000** (event-type roster "V1: wedding + debut") + **0041** (multi-event roster "grows one event_type at a time") now describe all nine event types as live. The deliberate one-at-a-time rollout gate is removed. **Downstream caveat:** non-wedding events get the wedding-tailored dashboard/planning surfaces until per-type flows land (V1.2+) — the same rough edge `debut` has today. See `COWORK_INBOX.md`.
+
+---
+
+## 2026-06-03 · feat(0043,0016): unlock all wedding faiths (Christian / INC / Muslim / Cultural now active)
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner directive — *"unlock all religions first."* Iteration 0043 shipped only **catholic + civil** as active faiths; **christian / inc / muslim / cultural** rendered as "Coming Soon" (gated behind per-region vendor density). Religions were gated in **five** places — the onboarding faith chips, two `ALLOWED_CEREMONIES` server constants (onboarding + create-event), the create-event launch-status fallback, and the canonical `wedding_type_launch_status` table. All five are now opened.
+
+**What changed:**
+- **`app/onboarding/wedding/_components/onboarding-shell.tsx`** — `FAITH_CHIPS` flips Christian/INC/Muslim/Cultural `soon: true → false` (selectable, no "soon" badge).
+- **`app/onboarding/wedding/actions.ts`** — widened `ALLOWED_CEREMONIES` (non-Catholic primaries were silently **coerced to `catholic`** on commit) + new `DEFAULT_SUB_TYPE` so the insert defaults `ceremony_sub_type` for Muslim→`general_muslim` / Cultural→`other`. **Avoids a constraint trap:** the DB CHECK `events_sub_type_required_when_muslim_or_cultural` requires a non-null sub-type, and onboarding has no tradition picker — without the default every Muslim/Cultural commit would fail with a Postgres error.
+- **`app/dashboard/create-event/actions.ts`** — widened `ALLOWED_CEREMONIES`. The picker is data-driven by `wedding_type_launch_status` and already collects + validates the Muslim/Cultural tradition sub-type, so this completes that path.
+- **`app/dashboard/create-event/page.tsx`** — launch-status fallback flipped all-active.
+- **`supabase/migrations/20260803000000_unlock_all_wedding_types.sql`** — idempotent UPDATE flipping every `wedding_type_launch_status` row to `active` (stamps `activated_at` only where still NULL).
+
+**Verification:** `tsc --noEmit` exit 0 (full project, 0 errors) + full CI green (production build · Playwright e2e · Lighthouse · desktop builds). Prod `wedding_type_launch_status` verified all-`active` by direct query (migration auto-applied on file-write).
+
+**Owner action:** none for the migration — already applied to prod (verified).
+
+**SPEC IMPACT:** Yes — iteration **0043** (`wedding_type_launch_status` "V1.1: catholic + civil active") + the **0016** onboarding faith step + the CLAUDE.md decision log now describe all six ceremony types as active. The per-region vendor-density activation gate is overridden globally (owner's choice). See `COWORK_INBOX.md`.
+
+---
+
+## 2026-06-03 · feat(0021,0006): nest in-app Setnayan services INSIDE the Vendors-tab category rails
+
+**Context:** In-app services rendered as a standalone launcher grid (`InAppServicesSection`) BELOW the Plan+Budget accordion — i.e. not inside the categories (owner, twice: "in app services are still not inside the categories"). `Digital_Services_Cross_Surface_Map_2026-06-03.md` §2-3 locks them INTO their canonical category with a ✦ Setnayan badge, floated to the top. This is the **presentation-nest** step (owner-picked over the full vendor-model convergence).
+
+**What changed:**
+- **`lib/add-ons-catalog.ts`** — new `category: InAppServiceCategory` (`PlanGroupId | 'digital_services' | 'tool'`) on every entry, the single placement source. Save-the-Date / Papic / Panood → `photography` · Patiktok → `photobooth` · LED (Pailaw) → `led_background` · Animated Monogram → `digital_services` · the rest (Orders / Playlist / QR / Photo Delivery / Paprint / Indoor Blueprint / Landing Page / Music Creator) → `tool`.
+- **`plan-budget-accordion.tsx`** — module maps (`SVC_BY_GROUP` / `DIGITAL_SVCS` / `TOOL_SVCS`); a full-bleed poster `InAppServiceCard` **prepended (float-to-top)** into each matching category rail as a supplementary ✦ Setnayan card (live/web_v1 link to setup; coming_soon static, never linked — its `/add-ons` route may not exist); a synthetic **Design › Digital Services** rail; a compact **"Tools & extras"** strip in the end-spacer above the recap. Supplementary + non-saturating — never a pick, no Lock/Remove, budget rollup + Compare untouched. A category with a Setnayan service but no picks now shows its rail (not the slim empty row).
+- **`vendors/page.tsx`** — dropped the standalone `<InAppServicesSection>`; **deleted** `in-app-services-section.tsx`.
+
+**Verification:** `tsc --noEmit` clean (whole app) · `next lint` clean (changed files; only pre-existing warnings elsewhere) · a runtime `tsx` partition check confirmed the grouping + that nested links resolve to real routes. The authed couple-dashboard surface isn't renderable locally (no env / seed / running server) — visual check belongs on the PR's Vercel preview.
+
+**SPEC IMPACT:** Iteration **0021** couple-dashboard Services tab + the Digital Services cross-surface map §2. Presentation step only; the full **vendor-model convergence** (§3 — source the list from the first-party Setnayan vendor account + choice-driven pre-add on category selection) and **fleshing out Digital Services** (add Pakanta / Pro Website / Live Venue Photo Wall to the catalog with valid setup routes — only the coming-soon Animated Monogram is present today) remain follow-ups. See `COWORK_INBOX.md`.
+## 2026-06-03 · feat(0000): event-type picker → swipeable hero-photo carousel (shared)
+
+**Context:** Owner ask (mobile screenshot of the event-switcher add-event sheet): *"change how events look like. we want a carousel but like hero photos. let them scroll all the possible events."* The picker rendered emoji tiles (💍 Wedding, 👑 Debut, …) one-at-a-time behind prev/next arrows.
+
+**What changed:**
+- **New `app/dashboard/create-event/_components/event-type-carousel.tsx`** — a shared client component: a horizontal scroll-snap **filmstrip** of full-bleed hero-photo cards, one per `EVENT_TYPES` entry. Native swipe/scroll *is* the "scroll all the possible events" interaction; arrows + dots below track the centred card (rAF-throttled nearest-centre). Live types show a gold "Available" badge; coming-soon types render **grayscale** + inert with a "Coming soon" badge; the full-page picker adds a gold selected ring + "Selected" badge.
+- **`app/dashboard/[eventId]/_components/event-switcher.tsx`** (the screenshot's sheet) + **`app/dashboard/create-event/_components/event-type-picker.tsx`** (full page) now both render the shared carousel — the old per-surface emoji-tile carousels (`Tile` / `ArrowButton` / manual index state) are deleted. Switcher cards route on tap (Wedding → `/onboarding/wedding` · Debut → `/dashboard/create-event`); full-page cards select-then-reveal the name form as before.
+- Switcher subtitle copy corrected: the prior *"tap an upcoming tile to be notified"* promised a notify flow that was never built (the disabled tile was inert) → now *"Weddings and debuts are live now. Swipe through to see what's on the way — more event types unlock over time."*
+- **9 new hero photos** at `public/event-types/{key}.webp` (Recraft, Filipino-context, warm-editorial grade, 4:5; recompressed 15.5 MB → 541 KB, in line with the onboarding webp set).
+
+**Verification:** `tsc --noEmit` exit 0 + `next lint` clean on all touched files; no dangling refs; no dependent tests. All 9 photos eyeballed (premium + cohesive). Live in-browser preview NOT run — the surfaces are auth+DB-gated and this env lacks `NEXT_PUBLIC_SUPABASE_*` (middleware builds the Supabase client per request), so the dev server 500s. Shipped from an isolated worktree off `origin/main` to keep unrelated in-progress changes out of the diff. No migration, no SKU.
+
+**SPEC IMPACT:** Yes — iteration **0000** describes the event-type picker as emoji tiles; it's now a hero-photo carousel, with the switcher copy change. See `COWORK_INBOX.md`.
+
+## 2026-06-03 · fix(0000,0021,0022,0023): event-logo monogram in vendor/admin switcher + customer non-event avatar
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner reported that the event switcher on the **vendor + admin** doorways rendered the *basic* serif-italic monogram instead of the couple's customized onboarding monogram, and that the **customer non-event** upper-right avatar showed the account initial rather than the event logo. `EventMonogram` only renders the couple's real design when it receives `monogram_frame_key` + `monogram_font_key`; the customer event-scoped chrome forwarded them, but three chrome paths dropped them.
+
+**What changed:**
+- **`app/_components/dashboard-event-switcher.tsx`** — the shared vendor/admin switcher wrapper now types + forwards `monogram_frame_key`/`monogram_font_key` to the `EventSwitcher` anchor (was silently omitted → legacy basic badge).
+- **`app/admin/layout.tsx` + `app/vendor-dashboard/layout.tsx`** — the `switcherEvents` map now carries both keys, so the anchor **and** the dropdown rows render the customized monogram.
+- **`app/dashboard/_components/outer-dashboard-header.tsx`** — the customer *non-event* chrome (`/dashboard` root, `/profile`, `/notifications`, `/create-event`, `/api-keys`) now passes the **primary event's** monogram to `ProfileMenu`, so the upper-right avatar is the event logo (falls back to the account initial only when there's no event / no designed monogram). The event-scoped customer chrome already did this; this closes the gap.
+
+**Scope note:** Vendor/admin upper-right keeps its display-name + Sign-out cluster (owner choice 2026-06-03 — no avatar added there). Data was already fetched — `fetchUserEvents` selects both columns; the fix only threads them through. No schema / query change.
+
+**Verification:** `tsc --noEmit` clean · `next lint` clean (the 4 files). Logged-in browser check not run (dashboards are auth-gated; the running preview is the spec-corpus prototype server, not the app) — the fix feeds the same data into the same `EventMonogram` / `ProfileMenu` paths already proven on the customer event-scoped chrome.
+
+**SPEC IMPACT:** None — brings code in line with the already-locked 2026-06-03 decisions ("the switcher renders the couple's customized onboarding monogram" + "the avatar IS the event's logo"). No Cowork action.
+
+---
+
+## 2026-06-03 · feat(admin+home): planning_deadlines goes live — reminders read it + admin editor (PR 2+3 of 3)
+
+**Context:** Completes the admin deadline table (after PR 1's schema). The Home reminders now read the admin-set deadlines, and admins edit them in `/admin/taxonomy`. Owner: "do both."
+
+**Wiring (`lib/upcoming-items.ts`):** `fetchRecommendedDeadlineItems` reads `planning_deadlines` (service category rows) and uses each category's admin-set offset (month/week/day) for the reminder; **falls back to `PLAN_GROUPS.monthsBefore`** per-category (incl. if the table isn't applied → empty map → code, no crash).
+
+**Admin editor (`/admin/taxonomy`):** a "Recommended deadlines" section — lists the rows (services + documents) with inline `offset_value`/`offset_unit` edit via `updatePlanningDeadline` (new `actions.ts`, RLS-gated) + a category-level coverage/"missing deadline" flag. Per-leaf overrides are a noted follow-up (the leaf→category map is in code `TAXONOMY_MAP`, not the DB).
+
+**Verification:** `tsc --noEmit` green. Admin route auth-gated + needs the table — CI build is the gate; degrades gracefully pre-migration.
+
+**SPEC IMPACT:** Yes — 0023 admin gains the deadline editor; the Home reminders' deadline source becomes the admin table. Inbox note added.
+
+## 2026-06-03 · chore(0000,0021): remove Marketplace (Store) + Switch View (role-switch) icons from the customer top nav
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner directive (mobile screenshot, both icons circled): *"remove these 2 on top nav."* The customer top bar carried a 🏪 **Marketplace** link (`/vendors`) and the 👤﹀ **Switch View** `RoleSwitchPill` (the always-visible role-switch). Owner scope choice: remove from BOTH the event-scoped top bar AND the non-event customer top bar; **keep** the desktop left-sidebar instances.
+
+**What changed:**
+- **`app/dashboard/[eventId]/layout.tsx`** — dropped the Marketplace `<Link>` + the mobile (`lg:hidden`) `RoleSwitchPill` from the event-scoped `topBar`; removed the now-unused `Link` + `Store` imports. The top bar is now: event-switcher monogram · Messages · Bell · Profile-monogram. The desktop sidebar-footer `RoleSwitchPill` (`sidebarFooterPill`) is untouched.
+- **`app/dashboard/_components/outer-dashboard-header.tsx`** — dropped the same two from the mobile `<header>` strip (non-event routes: Profile / Notifications / Create-event). The desktop left-sidebar bottom strip keeps both per the owner's scope choice; all three imports (`Store`, `Link`, `RoleSwitchPill`) remain in use there.
+
+**Nothing orphaned:** Marketplace `/vendors` stays reachable via the home marketplace-tease-strip CTA, the "Browse your matched services" button, every plan-card folder link, and the desktop sidebar. Role-switching stays in the EventSwitcher dropdown's "Switch view" rows (Shop / Admin consoles) + the desktop sidebar.
+
+**Verification:** `next lint` clean on both files · `tsc --noEmit` exit 0 (full project, 0 errors). Shipped from an isolated worktree off `origin/main` to keep unrelated in-progress changes out of the diff.
+
+**SPEC IMPACT:** Yes — the iteration **0000** "single-strip top-nav (locked 2026-05-14)" + the **0021** couple-dashboard chrome described a top nav that included the Marketplace link and the always-visible Switch View pill. Both are now removed from the top bar (retained in the desktop sidebar). See `COWORK_INBOX.md`.
+
+---
+
 ## 2026-06-03 · feat(0023,0006): admin song dedup/merge tool — master-catalogue hygiene (compatibility PR 6)
 
 **Commit:** see merge commit on this PR.

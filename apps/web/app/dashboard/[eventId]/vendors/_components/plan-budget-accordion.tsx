@@ -43,6 +43,7 @@ import { deleteVendor } from '../actions';
 import { haptic } from '@/lib/haptics';
 import { CategorySearchOverlay } from './category-search-overlay';
 import { AccordionLockButton, ChangePickButton } from './accordion-lock';
+import { ADD_ONS, addOnHref, type AddOnEntry } from '@/lib/add-ons-catalog';
 import type { PlanGroupId } from '@/lib/wedding-plan-groups';
 import {
   formatPesoCompact,
@@ -67,6 +68,34 @@ function initials(name: string): string {
   if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
   return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
 }
+
+// ── In-app Setnayan services, mapped into the category pile ───────────────
+// Digital_Services_Cross_Surface_Map_2026-06-03.md §2: Setnayan services live
+// INSIDE their canonical category (✦ Setnayan badge, float-to-top), not in a
+// standalone launcher grid. Sourced from the single add-ons catalog — the
+// `category` field decides placement (see InAppServiceCategory). Computed once
+// at module load (the catalog is static).
+//   · SVC_BY_GROUP — PlanGroupId → services, prepended to that category's rail.
+//   · DIGITAL_SVCS — the synthetic Design › Digital Services rail.
+//   · TOOL_SVCS    — couple tools (not category services) → "Tools & extras"
+//                    strip. coming_soon tools are omitted (discoverable on the
+//                    full /add-ons page), matching the retired launcher's rule.
+const SVC_BY_GROUP: ReadonlyMap<PlanGroupId, AddOnEntry[]> = (() => {
+  const m = new Map<PlanGroupId, AddOnEntry[]>();
+  for (const a of ADD_ONS) {
+    if (a.category === 'tool' || a.category === 'digital_services') continue;
+    const arr = m.get(a.category);
+    if (arr) arr.push(a);
+    else m.set(a.category, [a]);
+  }
+  return m;
+})();
+const DIGITAL_SVCS: ReadonlyArray<AddOnEntry> = ADD_ONS.filter(
+  (a) => a.category === 'digital_services',
+);
+const TOOL_SVCS: ReadonlyArray<AddOnEntry> = ADD_ONS.filter(
+  (a) => a.category === 'tool' && a.status !== 'coming_soon',
+);
 
 /**
  * Scoped CSS ported from the prototype. Prototype design vars are aliased to
@@ -416,6 +445,52 @@ html.dark .pbacc .empty-child .en,
 html.dark .pbacc .istep-n,
 html.dark .pbacc .cmpbtn,
 html.dark .pbacc .cmprow-price td{color:#C99DB0}
+
+/* ---- In-app Setnayan service cards (nested, supplementary, float-to-top) ----
+   Rendered as the FIRST cards in a category rail (Papic/Panood/Save-the-Date →
+   Photography & Video · Patiktok → Photobooth · LED → LED Background) + in the
+   synthetic Design › Digital Services rail. A full-bleed cinema poster (not the
+   white vendor card) so they read instantly as a Setnayan first-party
+   production, distinct from external-vendor picks — same 300px rail-card sizing
+   so the coverflow snap stays aligned. Supplementary + non-saturating: never a
+   "pick", no Lock / Remove (Digital_Services_Cross_Surface_Map §2-3). */
+.pbacc .card.svc .v{padding:0;border:1px solid var(--line);color:#fff}
+.pbacc .card.svc .v:hover{box-shadow:0 12px 32px -16px rgba(0,0,0,.5)}
+.pbacc .svc-poster,.pbacc .svc-motion,.pbacc .svc-scrim{position:absolute;inset:0}
+.pbacc .svc-motion{mix-blend-mode:screen}
+.pbacc .svc-scrim{background:linear-gradient(to top,rgba(18,16,14,.92) 4%,rgba(18,16,14,.5) 44%,rgba(18,16,14,.08) 80%)}
+.pbacc .svc-top{position:absolute;top:12px;left:12px;right:12px;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.pbacc .svc-badge{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:#fff;background:rgba(92,37,66,.62);border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:4px 9px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.pbacc .svc-pill{font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:rgba(255,255,255,.18);border-radius:999px;padding:4px 8px;white-space:nowrap;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.pbacc .svc-body{position:absolute;left:0;right:0;bottom:0;z-index:2;padding:14px 16px 16px}
+.pbacc .svc-name{font-family:var(--serif);font-style:italic;font-weight:600;font-size:21px;line-height:1.08;color:#fff}
+.pbacc .svc-blurb{font-family:var(--sans);font-size:11px;line-height:1.4;color:rgba(255,255,255,.82);margin-top:5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pbacc .svc-cta{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:#fff;margin-top:10px}
+.pbacc .card.svc.soon .v{filter:saturate(.9)}
+.pbacc .svc-cta.soon{color:rgba(255,255,255,.72)}
+/* Digital Services synthetic rail header — same row as .child-name. */
+.pbacc .ds-tag{color:var(--mulberry)}
+html.dark .pbacc .ds-tag{color:#C99DB0}
+
+/* ---- Tools & extras strip (inside the end-spacer, above the recap) ----
+   Couple tools that aren't category services (Orders / Playlist / QR / Indoor
+   Blueprint / Photo Delivery / Paprint). A compact horizontal chip row so they
+   stay reachable without competing with the category pile. */
+.pbacc .tools{margin:2px 0 24px}
+.pbacc .tools-tag{font-family:var(--mono);font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);margin:0 2px 11px}
+.pbacc .tools-row{display:flex;gap:9px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.pbacc .tools-row::-webkit-scrollbar{display:none}
+.pbacc .tool{flex:0 0 auto;display:inline-flex;align-items:center;gap:9px;padding:10px 13px;border-radius:13px;border:1px solid var(--line);background:var(--card);text-decoration:none;color:var(--ink)}
+.pbacc .tool:hover{border-color:rgba(92,37,66,.35)}
+.pbacc .tool-ico{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:9px;background:rgba(92,37,66,.08);color:var(--mulberry)}
+html.dark .pbacc .tool-ico{color:#C99DB0;background:rgba(201,157,176,.14)}
+.pbacc .tool-tx{display:flex;flex-direction:column;line-height:1.2}
+.pbacc .tool-nm{font-family:var(--sans);font-weight:600;font-size:13px;color:var(--ink)}
+.pbacc .tool-cta{font-family:var(--mono);font-size:8px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft);margin-top:2px}
+.pbacc .tools-all{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;padding:0 16px;border-radius:13px;border:1.5px dashed rgba(92,37,66,.4);background:transparent;color:var(--mulberry);font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;white-space:nowrap}
+html.dark .pbacc .tools-all{color:#C99DB0}
+.pbacc .tool,.pbacc .tools-all{transition:transform .13s cubic-bezier(.2,.7,.2,1),border-color .2s var(--ease)}
+.pbacc .tool:active,.pbacc .tools-all:active{transform:scale(.97)}
 `;
 
 // ── Root ────────────────────────────────────────────────────────────────
@@ -597,6 +672,7 @@ export function PlanBudgetAccordion({
               from the market pool, so a no-pick event still shows a meaningful
               summary instead of nothing. */}
           <div className="end-spacer">
+            <InAppToolsStrip eventId={eventId} />
             <Recap recap={model.recap} />
             {model.inactiveCategoryCount > 0 && (
               <a className="catunlock" href={`/dashboard/${eventId}/vendors/categories`}>
@@ -951,7 +1027,12 @@ function FolderSection({
 
       <div className="cat-body">
         {folder.children.length === 0 ? (
-          <p className="cat-empty">Nothing here yet for your wedding.</p>
+          // Design always has children + the Digital Services rail below, so
+          // skip the "nothing here" line for it even in the (unreachable) empty
+          // case — the rail still renders.
+          folder.folder === 'design' ? null : (
+            <p className="cat-empty">Nothing here yet for your wedding.</p>
+          )
         ) : (
           folder.children.map((child) => (
             <div className="child-block" key={child.groupId}>
@@ -965,6 +1046,15 @@ function FolderSection({
               />
             </div>
           ))
+        )}
+        {/* Setnayan's digital/AI productions (Animated Monogram · Pakanta · Pro
+            Website) group under a synthetic Design › Digital Services rail —
+            the couple-side reflection of the marketplace's Digital Services
+            tile (Digital_Services_Cross_Surface_Map §2). */}
+        {folder.folder === 'design' && DIGITAL_SVCS.length > 0 && (
+          <div className="child-block">
+            <DigitalServicesRail eventId={eventId} services={DIGITAL_SVCS} />
+          </div>
         )}
       </div>
     </>
@@ -990,7 +1080,14 @@ function ChildRail({
   onCompare: (child: AccordionChild) => void;
   onOpenSearch: (groupId: string, label: string) => void;
 }) {
-  const empty = child.picks.length === 0;
+  // Setnayan in-app services that belong to this category — prepended to the
+  // rail as supplementary ✦ Setnayan cards (float-to-top). A category with a
+  // Setnayan service but no vendor picks still shows its rail (not the slim
+  // empty row) so the service stays visible (Digital_Services_Cross_Surface_Map
+  // §2). Supplementary: the service never counts as a pick, so Compare + the
+  // budget rollup are unaffected.
+  const inApp = SVC_BY_GROUP.get(child.groupId) ?? [];
+  const empty = child.picks.length === 0 && inApp.length === 0;
   const canCompare = child.picks.length >= 2;
   return (
     <div
@@ -1027,6 +1124,14 @@ function ChildRail({
         </button>
       ) : (
         <div className="rail">
+          {/* Setnayan first-party services float to the TOP of the rail. */}
+          {inApp.map((addon) => (
+            <InAppServiceCard
+              key={`svc-${addon.key}`}
+              addon={addon}
+              eventId={eventId}
+            />
+          ))}
           {child.picks.map((pick) => (
             <VendorCardAtom
               key={pick.vendor_id}
@@ -1287,6 +1392,143 @@ function AddCard({
         <span className="at">Find more</span>
       </span>
     </button>
+  );
+}
+
+// ── In-app Setnayan service card (rail atom) ──────────────────────────────
+// A full-bleed cinema-poster card that sits among the vendor cards in a
+// category rail (and in the Digital Services rail). Reuses the .card/.v rail
+// sizing so the coverflow snap + stretch stay aligned, but renders the
+// service's animated poster + a ✦ Setnayan badge instead of the white vendor
+// layout. live / web_v1 → a Link to the service's setup page; coming_soon →
+// a static card (its /add-ons route may not exist yet, so it is never linked).
+function InAppServiceCard({
+  addon,
+  eventId,
+}: {
+  addon: AddOnEntry;
+  eventId: string;
+}) {
+  const motionClass =
+    addon.poster.motion === 'drift'
+      ? 'poster-motion-drift'
+      : addon.poster.motion === 'pulse'
+        ? 'poster-motion-pulse'
+        : 'poster-motion-scan';
+  const soon = addon.status === 'coming_soon';
+
+  const inner = (
+    <>
+      <div
+        aria-hidden
+        className="svc-poster"
+        style={{ background: addon.poster.baseBackground }}
+      />
+      <div
+        aria-hidden
+        className={`svc-motion ${motionClass}`}
+        style={{ background: addon.poster.motionBackground }}
+      />
+      <div aria-hidden className="svc-scrim" />
+      <div className="svc-top">
+        <span className="svc-badge">✦ Setnayan</span>
+        {soon ? (
+          <span className="svc-pill">Coming soon</span>
+        ) : addon.status === 'web_v1' ? (
+          <span className="svc-pill">Web V1</span>
+        ) : null}
+      </div>
+      <div className="svc-body">
+        <div className="svc-name">{addon.label}</div>
+        <div className="svc-blurb">{addon.blurb}</div>
+        <div className={`svc-cta${soon ? ' soon' : ''}`}>
+          {soon ? 'In the works' : addon.cta}
+          {!soon && <span aria-hidden>→</span>}
+        </div>
+      </div>
+    </>
+  );
+
+  return (
+    <div className={`card svc${soon ? ' soon' : ''}`}>
+      {soon ? (
+        <div className="v" aria-label={`${addon.label} — coming soon`}>
+          {inner}
+        </div>
+      ) : (
+        <Link
+          className="v"
+          href={addOnHref(addon.key, eventId)}
+          aria-label={addon.label}
+        >
+          {inner}
+        </Link>
+      )}
+    </div>
+  );
+}
+
+// ── Design › Digital Services rail (synthetic) ────────────────────────────
+// Groups Setnayan's digital/AI productions under one rail at the foot of the
+// Design folder. Lighter than ChildRail (no picks / compare / deadline) — just
+// the in-app service cards.
+function DigitalServicesRail({
+  eventId,
+  services,
+}: {
+  eventId: string;
+  services: ReadonlyArray<AddOnEntry>;
+}) {
+  if (services.length === 0) return null;
+  return (
+    <div>
+      <div className="child-name">
+        <span className="cn ds-tag">✦ Digital Services</span>
+      </div>
+      <div className="rail">
+        {services.map((addon) => (
+          <InAppServiceCard
+            key={`svc-${addon.key}`}
+            addon={addon}
+            eventId={eventId}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Tools & extras strip (end-spacer) ─────────────────────────────────────
+// Couple tools that aren't category services (Orders / Playlist / QR / Indoor
+// Blueprint / Photo Delivery / Paprint). A compact chip row above the recap so
+// they stay one tap away without crowding the category pile. coming_soon tools
+// are omitted (the full /add-ons page lists them); "See all" links there.
+function InAppToolsStrip({ eventId }: { eventId: string }) {
+  if (TOOL_SVCS.length === 0) return null;
+  return (
+    <section className="tools" aria-label="Tools & extras">
+      <div className="tools-tag">Tools &amp; extras</div>
+      <div className="tools-row">
+        {TOOL_SVCS.map((addon) => (
+          <Link
+            key={addon.key}
+            className="tool"
+            href={addOnHref(addon.key, eventId)}
+          >
+            <span className="tool-ico">
+              <addon.Icon aria-hidden size={16} strokeWidth={1.75} />
+            </span>
+            <span className="tool-tx">
+              <span className="tool-nm">{addon.label}</span>
+              <span className="tool-cta">{addon.cta}</span>
+            </span>
+          </Link>
+        ))}
+        <Link className="tools-all" href={`/dashboard/${eventId}/add-ons`}>
+          See all →
+        </Link>
+      </div>
+    </section>
   );
 }
 

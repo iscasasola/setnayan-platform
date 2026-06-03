@@ -10,12 +10,13 @@
  * the list / changing details."
  *
  * Layout: the guest list scrolls in the top region; this component docks a
- * fixed, ~one-third-height carousel at the bottom of the screen. In FOCUS
- * MODE (owner directive 2026-06-03) the global 5-tab bottom nav is hidden on
- * the Guests page, so this carousel's tab strip IS the page's bottom
- * navigation — it docks flush to the bottom safe-area (no longer offset 64px
- * above the nav). It is four swipeable panels (owner directive 2026-06-02 —
- * the top is now JUST
+ * fixed, ~one-third-height panel sheet at the bottom of the screen, with the
+ * 4 guest menus rendered as a real bottom-nav bar pinned to the very bottom
+ * edge BELOW the sheet (owner directive 2026-06-03 — "place the 4 menus of
+ * guest as bottom nav, not on the top of carousel"). In FOCUS MODE the global
+ * 5-tab nav is already hidden on the Guests page, so this 4-item menu IS the
+ * page's bottom navigation. It is four swipeable panels (owner directive
+ * 2026-06-02 — the top is now JUST
  * the guest list, so the RSVP counts that used to sit in the page's top
  * StatsStrip move into the Summary panel here):
  *   1. Summary  — [Total][Attending][Pending][Declined] as boxed,
@@ -28,21 +29,23 @@
  *                 list shows (the desktop FacetsSidebar facets, otherwise
  *                 lg:block-only and unreachable on a phone)
  *
- * Supersedes the single docked MobileActionBar. Tabs at the top jump
- * between panels; horizontal swipe works too. All `lg:hidden` — desktop
- * keeps the inline Toolbar + sticky FacetsSidebar + StatsStrip untouched.
+ * Supersedes the single docked MobileActionBar. The 4-item bottom nav (the
+ * guest menus, rendered below the sheet) jumps between panels; horizontal
+ * swipe works too. All `lg:hidden` — desktop keeps the inline Toolbar +
+ * sticky FacetsSidebar + StatsStrip untouched.
  *
- * Height comes from `--gcar-h` set on the page <section>; the component
- * renders an in-flow spacer of the same height so the guest list's last
- * rows clear the fixed carousel. Sits at z-40 (above page content). The
- * global bottom nav is suppressed on the Guests route (CustomerBottomNav
- * returns null in focus mode), so nothing renders beneath the carousel.
+ * Sheet height comes from `--gcar-h` set on the page <section>; the component
+ * renders an in-flow spacer covering the sheet + the bottom-nav strip so the
+ * guest list's last rows clear both. Sheet + nav sit at z-40 (above page
+ * content). The global 5-tab nav is suppressed on the Guests route
+ * (CustomerBottomNav returns null in focus mode), so the only bottom chrome
+ * is this panel sheet + its 4-item menu nav.
  */
 
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Check, ChevronLeft, X } from 'lucide-react';
+import { BarChart3, Check, ChevronLeft, Search, SlidersHorizontal, UserPlus, X } from 'lucide-react';
 import {
   ROLE_LABELS,
   SIDE_LABELS,
@@ -59,10 +62,10 @@ type Opt = { key: string; label: string };
 type Group = { group_id: string; label: string; member_count?: number };
 
 const PANELS = [
-  { key: 'summary', label: 'Summary' },
-  { key: 'find', label: 'Search & sort' },
-  { key: 'add', label: 'Add' },
-  { key: 'customize', label: 'Customize' },
+  { key: 'summary', label: 'Summary', icon: BarChart3 },
+  { key: 'find', label: 'Search', icon: Search },
+  { key: 'add', label: 'Add', icon: UserPlus },
+  { key: 'customize', label: 'Customize', icon: SlidersHorizontal },
 ] as const;
 
 const SIDES: GuestSide[] = ['bride', 'groom', 'both'];
@@ -157,40 +160,26 @@ export function MobileGuestCarousel({
 
   return (
     <>
-      {/* in-flow spacer so the guest list clears the fixed carousel */}
-      <div aria-hidden className="h-[var(--gcar-h)] lg:hidden" />
+      {/* in-flow spacer covering the panel sheet + the bottom-nav strip so the
+          guest list's last rows clear both fixed elements */}
+      <div
+        aria-hidden
+        className="h-[calc(var(--gcar-h)+3.5rem+env(safe-area-inset-bottom))] lg:hidden"
+      />
 
-      {/* The carousel is a raised sheet docked above the bottom nav: one soft
-          upward shadow + a single hairline ring + rounded top reads as a clear
-          "window above / panel below" separation (owner directive 2026-06-03,
-          fixes the old doubled border-t + tab border-b that looked like two
-          overlapping lines). */}
-      <div className="fixed inset-x-0 bottom-[env(safe-area-inset-bottom)] z-40 h-[var(--gcar-h)] overflow-hidden rounded-t-2xl bg-cream shadow-[0_-12px_30px_-18px_rgba(30,34,41,0.28)] ring-1 ring-ink/10 lg:hidden">
-        {/* panel tabs (tap to jump; swipe also works) — no bottom border; the
-            active pill + the panels' own padding delineate the strip. */}
-        <div className="flex h-10 items-stretch gap-1 px-2 pb-1.5 pt-2">
-          {PANELS.map((p, i) => (
-            <button
-              key={p.key}
-              type="button"
-              onClick={() => goTo(i)}
-              aria-pressed={active === i}
-              className={`flex-1 rounded-lg text-xs font-medium transition-colors ${
-                active === i
-                  ? 'bg-terracotta/10 text-terracotta-700'
-                  : 'text-ink/55 hover:bg-ink/5'
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-
-        {/* swipe track — 4 panels, scroll-snap */}
+      {/* Panel content sheet — docked directly ABOVE the guest bottom nav (the
+          4-menu strip rendered after this block). One soft upward shadow + a
+          single hairline ring + rounded top reads as "window above / nav
+          below". Owner directive 2026-06-03: the 4 menus moved OUT of the top
+          of this sheet and BECAME the bottom nav, so this sheet now holds only
+          the active panel. */}
+      <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-40 h-[var(--gcar-h)] overflow-hidden rounded-t-2xl bg-cream shadow-[0_-12px_30px_-18px_rgba(30,34,41,0.28)] ring-1 ring-ink/10 lg:hidden">
+        {/* swipe track — 4 panels, scroll-snap; full sheet height now that the
+            tab strip moved to the bottom nav. Tap a nav item OR swipe to jump. */}
         <div
           ref={trackRef}
           onScroll={onScroll}
-          className="flex h-[calc(var(--gcar-h)-2.5rem)] snap-x snap-mandatory overflow-x-auto overflow-y-hidden scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="flex h-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {/* 1 — Summary: animated RSVP counts (also filter links) */}
           <section className="w-full shrink-0 snap-center overflow-y-auto px-4 py-3">
@@ -331,6 +320,46 @@ export function MobileGuestCarousel({
           />
         </div>
       </div>
+
+      {/* The 4 guest menus AS a bottom nav (owner directive 2026-06-03 — "place
+          the 4 menus of guest as bottom nav, not on the top of carousel").
+          Pinned to the very bottom edge, it mirrors the global BottomNav visual
+          language (icon + label · terracotta active). Tapping an item jumps the
+          sheet above to that panel; the active panel highlights here. */}
+      <nav
+        aria-label="Guest panels"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-ink/10 bg-cream/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+      >
+        <ul className="grid grid-cols-4 px-1 py-1">
+          {PANELS.map((p, i) => {
+            const Icon = p.icon;
+            const isActive = active === i;
+            return (
+              <li key={p.key}>
+                <button
+                  type="button"
+                  onClick={() => goTo(i)}
+                  aria-current={isActive ? 'true' : undefined}
+                  className="flex min-h-[3rem] w-full flex-col items-center justify-center gap-0.5 rounded-md px-1 py-1.5 transition-colors hover:bg-ink/5"
+                >
+                  <Icon
+                    aria-hidden
+                    strokeWidth={1.75}
+                    className={`h-[22px] w-[22px] ${isActive ? 'text-terracotta' : 'text-ink/45'}`}
+                  />
+                  <span
+                    className={`text-[10px] tracking-wide ${
+                      isActive ? 'font-semibold text-ink' : 'text-ink/55'
+                    }`}
+                  >
+                    {p.label}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
 
       {/* Assign bottom sheet — sibling of the carousel (not a child) so the
           carousel's overflow-hidden doesn't clip it. */}

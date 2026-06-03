@@ -25,6 +25,22 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Chinese wedding is now ACTIVE / fully selectable (0043) — supersedes the coming-soon item below
+
+**Why:** Owner reviewed the live onboarding "ceremony tradition" screen and decided Chinese ships **fully selectable**, not coming-soon. This reverses the same-day coming-soon decision captured in the `[PENDING] … Chinese wedding added as a coming-soon ceremony type` item further down. A lone gated faith was inconsistent now that the other six are active.
+
+**Spec corpus update (owner walks via Cowork):**
+1. Wherever the wedding-type / ceremony-tradition lineup is specified (iteration **0043** wedding-types + spec **0000** onboarding "ceremony tradition" screen), list **Chinese (Tsinoy — tea ceremony + Chinese customs, often with a church or civil rite) as an ACTIVE, selectable tradition**, alongside Catholic / Civil / Christian / INC / Muslim / Cultural. Remove any "coming soon" / "gated until vendor density" framing for Chinese.
+2. **`DECISION_LOG.md`** — append: `| 2026-06-03 | Chinese wedding activated as a fully selectable ceremony type (supersedes same-day coming-soon) | onboarding + create-event + dashboard-modal allow-lists + migration 20260806000000 |`
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "feat(0043): activate Chinese wedding — fully selectable". **Supersedes** the `[PENDING] 2026-06-03 — Chinese wedding added as a coming-soon ceremony type (0043)` item below — action both as one edit (make Chinese active, drop the coming-soon language entirely).
+
+**Owner action:** push migration `20260806000000_activate_chinese_ceremony_type.sql` (`supabase db push`).
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Spec 0000 event-type picker: reconcile to "all event types live, no notify" (0000/0041)
 
 **Why:** Owner chose "keep everything live" (don't re-gate #884's all-events-live). So spec 0000's picker section — which the #882 carousel update left describing "only Wedding+Debut live, the other nine coming-soon, 11 types, tap-to-be-notified" — is now wrong and should be reconciled to the shipped code.

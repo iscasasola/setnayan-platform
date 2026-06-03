@@ -9,14 +9,32 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Context:** Owner-directed — *"create onboarding that follows the traditions of each religion."* The per-religion document + deadline engine already exists (`lib/paperwork.ts` `DOCUMENTS_BY_CEREMONY_TYPE` — Catholic Pre-Cana/banns/canonical-interview, Muslim Sharia counseling, INC counseling, each with lead-time deadlines that already flow into /paperwork + the /schedule Preparation agenda + Home reminders). The missing piece was the human-readable "what to expect" overview per religion.
 
 **What changed:**
-- **New `lib/wedding-traditions.ts`:** `WEDDING_TRADITIONS_GUIDE` keyed by ceremony_type (catholic/civil/christian/inc/muslim/cultural/chinese/mixed/unknown). Each carries an overview + signature items tagged by the owner's dimensions — **officiant · ceremony · food · custom · paperwork** — + a "confirm with {officiant}" line. Chinese is seeded for forward-compat (coming-soon; never rendered until activated).
-- **`/paperwork` page:** a "What to expect — your {religion} wedding" guide section above the document checklist, rendered from the guide (renders nothing for an unset ceremony).
+- **New `lib/wedding-traditions.ts`:** `WEDDING_TRADITIONS_GUIDE` keyed by ceremony_type (catholic/civil/christian/inc/muslim/cultural/chinese/mixed/unknown). Each carries an overview + signature items tagged by the owner's dimensions — **officiant · ceremony · food · custom · paperwork** — + a "confirm with {officiant}" line. (Chinese was activated the same day in PR #889, so its guide now serves real couples.)
+- **`/paperwork` page:** a "What to expect — your {religion} wedding" guide section above the document checklist (renders nothing for an unset ceremony).
 
 **Honesty:** content is framed as general guidance ("traditions vary by family, parish, and region — confirm with your {officiant}"). The module header flags it NEEDS owner/clergy validation (especially INC / Muslim / Cultural / Chinese) and is a candidate to move to an admin-editable table once the copy is confirmed.
 
 **Verification:** `tsc --noEmit` exit 0 · `next lint` clean. Shipped from an isolated worktree off `origin/main`. No migration, no SKU.
 
 **SPEC IMPACT:** Yes — iteration **0043** gains a per-religion traditions guide on the paperwork surface (companion to the existing per-religion document/deadline engine). See `COWORK_INBOX.md`.
+
+## 2026-06-03 · feat(0043): activate Chinese wedding — fully selectable (supersedes same-day coming-soon)
+
+**Context:** Owner reviewed the live onboarding "ceremony tradition" screen and decided Chinese should ship as a **fully selectable** tradition, not "coming soon." Reverses the same-day #885 decision that seeded Chinese as the lone gated faith — inconsistent now that Catholic/Civil/Christian/INC/Muslim/Cultural are all active. UX call: a couple planning a Tsinoy wedding picks "Chinese" and continues, exactly like every other tradition.
+
+**What changed:**
+- **Migration `20260806000000_activate_chinese_ceremony_type.sql`:** `UPDATE wedding_type_launch_status SET status='active'` for the `chinese`/`all` row (idempotent — only flips if not already active; `activated_at = COALESCE(activated_at, now())`) + an `ON CONFLICT DO NOTHING` active-insert safety net. No CHECK-constraint change — `20260804000000` already permits `chinese`.
+- **Onboarding (`onboarding-shell.tsx`):** `FAITH_CHIPS` chinese `soon:true → false` — chip now clickable.
+- **Onboarding commit (`onboarding/wedding/actions.ts`):** `chinese` added to `ALLOWED_CEREMONIES` (was silently coerced to `catholic` on submit) + `ALLOWED_SECONDARY` (Mixed, e.g. Catholic + Chinese tea ceremony).
+- **Create-event picker (`create-event/page.tsx`):** launch-status fallback baseline chinese `coming_soon → active` (picker is data-driven by `wedding_type_launch_status`; the DB-row flip and this fallback together make it selectable).
+- **Create-event commit (`create-event/actions.ts`):** `chinese` added to `ALLOWED_CEREMONIES` + `ALLOWED_SECONDARY`.
+- **Edit modal (`ceremony-type-modal.tsx`):** removed the `isOptionDisabled`/`renderOptionBadge` chinese coming-soon gating (both props optional) — chinese now selectable on existing events.
+- **Edit-modal commit (`[eventId]/actions.ts`):** `chinese` added to `ALLOWED_CEREMONY_TYPES` (`setEventCeremonyType`).
+- Left correct/untouched: shared `ceremony-type-radio-group.tsx` (chinese option already present from #885), `NOTIFY_FAITHS` (chinese stays — same as every other active faith), admin venue form, `wed_chinese.webp` hero.
+
+**Verification:** Type-trivial change (string literals into unions already widened with `chinese` by #885, one boolean flip, removed optional props, one SQL file). No local typecheck — the fresh worktree has no installed deps; relying on the PR's required `typecheck + lint` + `production build` checks and the Vercel preview deploy (which renders the real onboarding flow). Shipped from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** Yes — supersedes the same-day "Chinese = coming soon" note. Chinese is now an **active** wedding ceremony type everywhere it's offered. See `COWORK_INBOX.md` (updates the prior coming-soon PENDING item).
 
 ## 2026-06-03 · chore(0000,0041): event_type enum guarantee + create-event copy (all-live)
 

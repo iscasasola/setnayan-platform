@@ -10,13 +10,29 @@
 
 ## [PENDING] 2026-06-03 — Admin console gains one-click "Create demo vendors" (chunked seed · demo tooling)
 
-**Why:** Demo-vendor creation was terminal-only; the owner wanted a one-click button. `/admin/demo-vendors` now has a **Create demo vendors** button that seeds the marketplace category-by-category (chunked) via a new `/api/admin/demo/seed` route, with a progress bar. Non-prod-gated (refuses prod). It's demo/testing tooling living in the admin console, so the 0023 spec should note it alongside the existing Cleanup / Regenerate / Demo-inquiries surfaces.
+**Why:** Demo-vendor creation was terminal-only; the owner wanted a one-click button. `/admin/demo-vendors` now has a **Create demo vendors** button that seeds the marketplace category-by-category (chunked) via a new `/api/admin/demo/seed` route, with a progress bar. Non-prod-gated (refuses prod). Demo/testing tooling in the admin console — the 0023 spec should note it alongside Cleanup / Regenerate / Demo-inquiries.
 
 **What landed (code):** refactored `scripts/seed-demo-vendors.ts` to export `seedCategory` + helpers (CLI behavior preserved, entrypoint guarded); new chunked `POST /api/admin/demo/seed` (start + chunk, admin + non-prod gated); Create button + per-category control + progress loop in `demo-vendor-actions.tsx`.
 
-**Spec corpus update (owner via Cowork):** `~/Documents/Claude/Projects/Setnayan/0023_admin_console/` — note the Demo Vendors tooling now includes a one-click chunked **Create** (was CLI-only), in addition to Cleanup ALL / Cleanup batch / Regenerate / Demo inquiries. Staging-only (prod-refused).
+**Spec corpus update (owner via Cowork):** `~/Documents/Claude/Projects/Setnayan/0023_admin_console/` — note the Demo Vendors tooling now includes a one-click chunked **Create** (was CLI-only). Staging-only (prod-refused).
 
-**Not spec-impacting:** the seed-core refactor + the chunk protocol are implementation.
+**Not spec-impacting:** the seed-core refactor + chunk protocol are implementation.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
+## [PENDING] 2026-06-03 — All event types unlocked: all 9 now creatable (0000/0041)
+
+**Why:** Owner directive — *"unlock all events."* Wedding + Debut were the only selectable event types; the other seven (Gender Reveal · Birthday · Celebration · Travel · Corporate · Tournament · Christening) shipped as "Coming soon." Now all nine are creatable. Two code gates flipped (`EVENT_TYPES[].enabled` in event-types.ts + `ALLOWED_TYPES` in create-event/actions.ts); the `public.event_type` enum already had all nine values — no migration.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **Iteration 0000 (event-type roster) + 0041 (multi-event roster)** — the "V1: wedding + debut; rest grow one event_type at a time as Coming soon" note is superseded: **all nine event types are live/creatable.**
+2. **CLAUDE.md decision log (corpus root)** — append a 2026-06-03 row: *"Unlock all events — all 9 event_type values flipped live (EVENT_TYPES.enabled + ALLOWED_TYPES); removes the one-at-a-time roadmap gate. Non-wedding planning surfaces remain wedding-tailored until V1.2+."*
+
+**Downstream note (track, not a blocker):** non-wedding events land on the wedding-tailored dashboard/planning experience until per-type surfaces are built — the same rough edge `debut` already has. To re-gate any type, flip its `enabled` back to `false` + drop it from `ALLOWED_TYPES`.
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "feat(0000,0041): unlock all event types". No migration.
 
 **When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
 

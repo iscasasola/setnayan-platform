@@ -32,20 +32,33 @@ export async function captureEvent(args: CaptureEventArgs): Promise<void> {
 
   try {
     const endpoint = `${host.replace(/\/+$/, '')}/capture/`;
-    await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        api_key: apiKey,
-        event,
-        distinct_id: distinctId,
-        properties: properties ?? {},
-      }),
-      // Best-effort — never let analytics block the response.
-      cache: 'no-store',
-    });
+    // Bound the call. This is awaited inside request paths (e.g. the onboarding
+    // commit), so an unbounded hang here can drag the whole serverless function
+    // to its timeout — which surfaces to the user as a failed action (the
+    // onboarding "Creating your dashboard" overlay stranded the couple this way,
+    // owner report 2026-06-03). A 2s abort keeps telemetry from ever blocking the
+    // response, which is this module's stated contract.
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), 2000);
+    try {
+      await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          api_key: apiKey,
+          event,
+          distinct_id: distinctId,
+          properties: properties ?? {},
+        }),
+        // Best-effort — never let analytics block the response.
+        cache: 'no-store',
+        signal: ctrl.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
   } catch {
     // Swallow. The whole point of telemetry being fire-and-forget is
-    // that a failure here is invisible to the user.
+    // that a failure here is invisible to the user (an abort lands here too).
   }
 }

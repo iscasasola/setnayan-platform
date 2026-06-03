@@ -14,16 +14,23 @@
 // in the DB (migration 20260521050000) — it's idempotent and harmless when
 // unused; re-enabling later is a one-line flip of `enabled` here +
 // ALLOWED_TYPES in create-event/actions.ts.
+// All event types unlocked (owner-directed 2026-06-03 "unlock all events").
+// Previously wedding + debut only; the other seven were "Coming soon"
+// placeholders. The DB `public.event_type` enum already carries all nine keys,
+// and the create-event action's isWedding branch writes NULL wedding fields for
+// non-wedding events — so this is the documented one-line flip (+ ALLOWED_TYPES
+// in create-event/actions.ts). Non-wedding events land on the standard dashboard
+// (wedding-tailored planning surfaces fill in per-type in V1.2+).
 export const EVENT_TYPES = [
   { key: 'wedding', label: 'Wedding', emoji: '💍', enabled: true },
   { key: 'debut', label: 'Debut', emoji: '👑', enabled: true },
-  { key: 'gender_reveal', label: 'Gender Reveal', emoji: '🎈', enabled: false },
-  { key: 'birthday', label: 'Birthday', emoji: '🎂', enabled: false },
-  { key: 'celebration', label: 'Celebration', emoji: '🥂', enabled: false },
-  { key: 'travel', label: 'Travel', emoji: '✈️', enabled: false },
-  { key: 'corporate', label: 'Corporate', emoji: '🏢', enabled: false },
-  { key: 'tournament', label: 'Tournament', emoji: '🏆', enabled: false },
-  { key: 'christening', label: 'Christening', emoji: '🕯️', enabled: false },
+  { key: 'gender_reveal', label: 'Gender Reveal', emoji: '🎈', enabled: true },
+  { key: 'birthday', label: 'Birthday', emoji: '🎂', enabled: true },
+  { key: 'celebration', label: 'Celebration', emoji: '🥂', enabled: true },
+  { key: 'travel', label: 'Travel', emoji: '✈️', enabled: true },
+  { key: 'corporate', label: 'Corporate', emoji: '🏢', enabled: true },
+  { key: 'tournament', label: 'Tournament', emoji: '🏆', enabled: true },
+  { key: 'christening', label: 'Christening', emoji: '🕯️', enabled: true },
 ] as const;
 
 export type EventTypeKey = (typeof EVENT_TYPES)[number]['key'];

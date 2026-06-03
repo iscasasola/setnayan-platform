@@ -20,6 +20,35 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **Verification:** `tsc` + `next lint` green. Offline harness: calendar blocks satisfy minute∈{0,30}/second=0 across UTC/PH/IST timezones, 2–8 per vendor, valid ordering. **Owner-actionable:** re-seed staging (now defaulting to 20–50/category), then (Q5) lock 2–3 demo vendors and watch the mutual schedule narrow; (Q4) `claim-demo-vendors.ts --to-email=<vendor test account>` then run the inquiry round-trip.
 
+## 2026-06-03 · fix(guests): mobile panel hugs its content (minimum height) → maximum guest list
+
+**Context:** Owner — the per-panel fixed heights barely differed (200/196/196), so the sheet looked uniform and ate a third of the screen. "Keep the height at minimum so we can have maximum visual for the guest list," and keep the focused text input docked to the bottom near the keyboard.
+
+**What changed (`apps/web/app/dashboard/[eventId]/guests/_components/mobile-guest-carousel.tsx`):**
+- **Measured content height** — replaced the fixed `PANEL_OPEN_H` array with a runtime measurement: the open sheet is now `grabber + the active panel's scrollHeight`, capped at 60% of the screen (taller content scrolls inside the panel). Each panel hugs its own content, so Search (one compose bar) is far shorter than Summary (2×2 count grid), and the guest list above gets the most room. A `ResizeObserver` re-measures on panel switch + content changes.
+- **Hug, don't stretch** — the track is `items-start` (keyboard closed) and every panel `max-h-full overflow-y-auto`, so `scrollHeight` reports true content height in all cases; Summary's grid dropped `h-full content-center`; the Add form dropped its `h-full`/`justify-center` so it hugs.
+- **Keyboard docking preserved** — when an input is focused, the sheet still docks above the keyboard (`bottom: kbInset`) with the inputs rendered last + `justify-end`, so the lowest text field sits flush against the keyboard. (Add form keeps `h-full justify-end` only while `kbOpen`.)
+
+**Verification:** Reviewed for type-soundness + RO-loop safety (height set is idempotent; `scrollHeight` is invariant to the sheet height with `items-start`+`max-h-full`). CI typecheck + production build green before merge; per-panel feel confirmed by owner on the Vercel prod deploy (auth-gated page, no local Supabase env).
+
+**SPEC IMPACT:** None — interaction sizing polish; no SKU, schema, copy, or workflow change.
+
+---
+
+## 2026-06-03 · refactor(customer-more): de-dupe the mobile /more grid + brand-voice copy polish
+
+**Context:** "Less stressful" pass on the customer dashboard. The mobile `/more` overflow page (the 5th bottom-nav tab's landing) rendered EVERY entry from `buildCustomerNavGroups` — including the four surfaces that are already permanent bottom tabs (Home · Guests · Services · Website). So a host saw those four (plus Home a second time under the "Today" group) repeated as cards on `/more`, contradicting the page's own subtitle ("the rest live here") and padding the grid with ~5 redundant cards.
+
+**What changed (`apps/web/app/dashboard/[eventId]/more/page.tsx` — one file):**
+
+- **De-dupe.** A `BOTTOM_NAV_KEYS` set (`home · guests · vendors · website`) filters the bottom-nav tabs out of the `/more` grid; groups the filter leaves empty are dropped (the "Today" group now keeps only Today's Focus). The shared `buildCustomerNavGroups` builder is untouched, so the **desktop sidebar still shows every surface** — the de-dupe is mobile-only.
+- **Today's Focus intentionally KEPT.** The bottom bar has no Today tab and event-home stopped linking to `/today` when `WizardHero` was lifted out of event-home (2026-05-24), so the `/more` card is the **only** mobile entry point to the Today's Focus wizard. Removing it would orphan `/today` on mobile — forbidden by the orphan-prevention lock. (To fully remove it from `/more`, a Home→`/today` entry point must be added first.)
+- **Copy polish.** Added the missing `find-date` card description; removed the dead `orders`/`receipts` description keys (those items were already pulled from the nav 2026-05-30); de-jargoned three cards per the no-dev-text rule — `profile` ("OAuth providers" → "sign-in methods"), `add-ons` ("Setnayan apparatus … software services we publish" → "Extra Setnayan services … Papic, Panood, Save-the-Date"), `disputes` ("force-majeure" → "raise an issue with a vendor"). Tightened the subtitle to match the new, truthful scope.
+
+**Verification:** `tsc --noEmit` green (exit 0). The dashboard is auth-gated (needs a Supabase session + a real event), so it can't render in a local preview; the PR's required CI build is the gate before merge. This is a pure server-component data-filter + copy change — `CustomerMobileLanding`'s props/contract are unchanged.
+
+**SPEC IMPACT:** Minor — nav-presentation refinement on the 0021 couple dashboard's mobile `/more` surface. No SKU, schema, route, or workflow change (every route stays reachable). A one-line decision-log row should be recorded — see `COWORK_INBOX.md`.
+
 ## 2026-06-03 · feat(marketplace): demo vendors get reviews/ratings, district addresses & real names
 
 **Commit:** see merge commit on this PR.

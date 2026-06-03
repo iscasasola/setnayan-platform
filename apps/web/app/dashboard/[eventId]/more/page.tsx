@@ -1,93 +1,95 @@
 /**
  * /dashboard/[eventId]/more — customer mobile overflow landing.
  *
- * WHY: CLAUDE.md tenth 2026-05-28 row v2.1 brief canonical lock + 14th
- * 2026-05-28 row System Wiring Map audit + this PR's Nav Phase 1 brief.
- * The customer doorway's 5-item mobile BottomNav (Today · Home · Guests ·
- * Website · More) lands here when the host taps More. We surface every
- * group + item from the canonical buildCustomerNavGroups so this is one
- * tap away from every surface that isn't a dedicated bottom tab.
+ * WHY: the customer doorway's 5-item mobile BottomNav (Home · Guests ·
+ * Services · Website · More) lands here when the host taps More. This grid
+ * surfaces every event surface that ISN'T already one of those four
+ * always-visible tabs — true overflow only.
  *
- * Desktop redirects implicit via lg:hidden on CustomerMobileLanding —
- * desktop users see the sidebar tree directly and never land here. We
- * still ship a desktop-safe render (the landing surface is reachable
- * by direct URL on any viewport per orphan-prevention) but it stays
- * inside the lg:hidden block so it's purely a mobile affordance.
+ * DE-DUPE (owner directive 2026-06-03 · "less stressful" pass): the four
+ * bottom-nav destinations (Home · Guests · Services · Website) used to
+ * render as cards here too, which contradicted this page's own "the rest
+ * live here" promise and doubled the visual load on a host who's already
+ * stretched. They're filtered out via BOTTOM_NAV_KEYS below.
  *
- * Per [[feedback_setnayan_orphan_prevention]] every card on this surface
- * maps 1:1 to a sidebar entry. The descriptions are brand-voice per
- * [[feedback_setnayan_no_dev_text_post_launch]] — no engineering jargon,
- * no schema names, no "Coming soon" placeholders.
+ * Today's Focus is intentionally KEPT. The bottom bar has no Today tab and
+ * event-home no longer links to /today (WizardHero was lifted out of
+ * event-home 2026-05-24), so this card is the SOLE mobile entry point to
+ * the Today's Focus wizard. Removing it would orphan /today on mobile,
+ * which the orphan-prevention lock forbids
+ * ([[feedback_setnayan_orphan_prevention]]).
+ *
+ * Desktop never lands here — CustomerMobileLanding is lg:hidden and desktop
+ * users get the full sidebar tree (customer-sidebar.tsx), which still shows
+ * EVERY surface including the four tabs. The de-dupe is mobile-only.
+ *
+ * Server-Component note: import buildCustomerNavGroups from the NEUTRAL
+ * customer-nav-config module, not the 'use client' sidebar file — a Server
+ * Component importing from a 'use client' module turns the import into a
+ * CLIENT REFERENCE that crashes at server-render (Sentry ref 19475950). For
+ * the same reason BOTTOM_NAV_KEYS is mirrored here as plain strings rather
+ * than imported from customer-bottom-nav.tsx (also a 'use client' module) —
+ * keep it in sync with buildCustomerBottomNav there.
+ *
+ * Brand-voice descriptions per [[feedback_setnayan_no_dev_text_post_launch]]
+ * — no engineering jargon, no schema names, no "Coming soon" placeholders.
  */
 
-// Import from the neutral nav-config module (not the 'use client' sidebar
-// file) — Server Components can't safely call functions exported from a
-// 'use client' module. The import becomes a CLIENT REFERENCE that crashes
-// at server-render time. Sentry ref 19475950 was the manifestation.
-// customer-nav-config.ts holds the canonical builder; customer-sidebar.tsx
-// also re-exports it for backward compat on existing client-side callers.
-// See customer-nav-config.ts header for the full WHY block.
+import type { NavGroup } from '@/app/_components/nav/types';
 import { buildCustomerNavGroups } from '../_components/customer-nav-config';
 import { CustomerMobileLanding } from '../_components/customer-mobile-landing';
 
 export const metadata = { title: 'More · Setnayan' };
 
 /**
- * Brand-voice descriptions for the /more landing cards. Keyed by
- * NavItem.key from buildCustomerNavGroups so a future label rename
- * (orange-line tone preserved) doesn't desync the description.
- *
- * Today + Home appear in the BottomNav as dedicated tabs but the /more
- * surface intentionally includes them too — host who lands here from
- * deep links or shared URLs gets a complete view of every surface,
- * not just the overflow. Mirrors the admin pattern where each landing
- * page (queues/directory/money) includes ALL group items even though
- * BottomNav also surfaces some at the strip level.
+ * NavItem keys already surfaced as always-visible bottom-nav tabs
+ * (customer-bottom-nav.tsx · buildCustomerBottomNav). Filtered out of the
+ * /more grid so it shows ONLY true overflow. Mirror of the bottom-nav key
+ * set; 'todays-focus' is deliberately NOT here (see header WHY — it's the
+ * only mobile path to /today).
+ */
+const BOTTOM_NAV_KEYS = new Set(['home', 'guests', 'vendors', 'website']);
+
+/**
+ * Brand-voice descriptions for the /more landing cards, keyed by
+ * NavItem.key from buildCustomerNavGroups so a label rename doesn't desync
+ * the description. Covers exactly the items that render after the
+ * BOTTOM_NAV_KEYS filter — the four bottom-tab keys carry no entry here.
  */
 const DESCRIPTIONS: Record<string, string> = {
   // Today group
   'todays-focus':
-    "The 65-card wizard. Today's pick plus a few coming up — the daily working surface.",
-  home:
-    'Event home — plan grid, activity feed, next 15 steps, and the upcoming-week tray.',
+    "Your daily planning focus — today's one step, plus a peek at what's coming up.",
 
   // Plan group
-  guests:
-    'Guest list, RSVPs, dietary needs, +1s, and per-guest workspace with chat + history.',
   seating:
-    "Tables, place cards, and the seating chart editor. Drag to swap, long-press for guest details.",
+    'Tables, place cards, and the seating chart editor. Drag to swap, long-press for guest details.',
   schedule:
     'Day-of timeline. Blocks for ceremony, reception, vendor windows, and crew set-up.',
-  vendors:
-    'Your booked vendors and the per-vendor workspaces — chat, payment plan, files, and the day-of brief.',
+  'find-date':
+    'Weigh auspicious dates, long weekends, and guest availability to settle on the day.',
 
   // Spend group
   budget:
     'Per-vendor budget plus Setnayan add-ons. Track what is paid, due, and still on the table.',
-  orders:
-    'Your Setnayan add-on orders. Status, reference codes, and reconciliation timelines.',
-  receipts:
-    'BIR-compliant receipts for every Setnayan purchase across all your events.',
 
   // Communicate group
   messages:
     'Vendor chat threads, file shares, and the per-vendor message inbox.',
   contracts:
-    'Vendor contracts uploaded for your reference. Setnayan hosts the PDFs — signatures stay with you.',
+    'Vendor contracts kept for your reference. Setnayan stores the PDFs — signatures stay with you.',
 
   // Share group
-  website:
-    'Your public event website — URL, QR, RSVP form, and day-of guest landing preview.',
   'add-ons':
-    'Setnayan apparatus you can add to your event — software services we publish.',
+    'Extra Setnayan services for your day — Papic, Panood, Save-the-Date, and more.',
   'mood-board':
     'Palette, location feel, and dress codes. The styling brain for the whole day.',
 
   // After group
   activity:
-    'A full event log — every action across hosts, vendors, and Setnayan, in order.',
+    'A running history — every action across hosts, vendors, and Setnayan, in order.',
   disputes:
-    'Open a refund, request a dispute, or flag a force-majeure. Setnayan mediates.',
+    'Open a refund or raise an issue with a vendor — Setnayan steps in to help.',
   'event-qr':
     'The master QR code. Crew scans this on arrival to register their device for capture.',
 
@@ -97,7 +99,7 @@ const DESCRIPTIONS: Record<string, string> = {
   hosts:
     'Invite parents, planner, or maid-of-honor as moderators. Set per-host permissions.',
   profile:
-    'Your account, password, OAuth providers, privacy controls, and Today’s Focus settings.',
+    'Your account, password, sign-in methods, and privacy controls.',
 };
 
 type Props = {
@@ -106,12 +108,21 @@ type Props = {
 
 export default async function CustomerMoreLanding({ params }: Props) {
   const { eventId } = await params;
-  const groups = buildCustomerNavGroups(eventId);
+
+  // De-dupe: drop the four always-visible bottom-nav tabs from the grid,
+  // then drop any group the filter leaves empty. The shared builder stays
+  // intact for the desktop sidebar, which still surfaces every entry.
+  const groups: NavGroup[] = buildCustomerNavGroups(eventId)
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => !BOTTOM_NAV_KEYS.has(item.key)),
+    }))
+    .filter((group) => group.items.length > 0);
 
   return (
     <CustomerMobileLanding
       title="More"
-      subtitle="Every event surface, one tap away. Tabs at the bottom cover the daily driver — the rest live here."
+      subtitle="Everything that isn't a bottom tab — one tap away."
       groups={groups}
       descriptions={DESCRIPTIONS}
     />

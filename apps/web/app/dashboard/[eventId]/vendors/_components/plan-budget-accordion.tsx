@@ -276,14 +276,24 @@ const PBA_CSS = `
 .pbacc .chip.start{color:var(--gold-deep);background:rgba(197,160,89,.1);box-shadow:inset 0 0 0 1px rgba(197,160,89,.4)}
 .pbacc .chip.next{color:var(--ink-soft);background:rgba(30,34,41,.06)}
 
-/* ---- Carousel rail + 300px cards ----
-   Leading/trailing runway = max(20px, calc(50% - 150px)) (150px = half a 300px
-   card) so the FIRST and LAST cards have room to scroll to the CENTER snap. The
-   old flat 20px gave no runway, so edge cards stuck at the left/right and could
-   never reach scroll-snap-align:center. */
-.pbacc .rail{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:0 max(20px, calc(50% - 150px)) 6px;scrollbar-width:none}
+/* ---- Carousel rail + peek cards ----
+   Card width = min(300px, calc(100vw - 96px)). On phones the card is the
+   viewport minus ~96px, so the PREVIOUS + NEXT cards always peek ~20px at each
+   edge — the "there's more to swipe" cue (owner 2026-06-03). Applies to EVERY
+   rail card: vendor picks (.card), in-app Setnayan service cards (.card.svc) and
+   the Digital Services rail, since they all share .card. The old fixed 300px
+   filled the rail (rail width = 100vw - 32px, the <main> px-4 inset) — and on the
+   narrowest phones OVERFLOWED it — leaving no peek. Capped at 300px so on the
+   760px .body (tablet/desktop) the design width is unchanged and several cards
+   show at once.
+   Leading/trailing runway = max(32px, calc(50% - 150px)) so the FIRST + LAST
+   cards still reach the CENTER snap: on phones the card is 64px narrower than the
+   rail, so 32px (half that gap) centers the end cards exactly; calc(50% - 150px)
+   takes over once the card hits its 300px cap. (Was max(20px, …) for the 300px
+   card; the 20px floor under-ran the runway for the now-narrower phone card.) */
+.pbacc .rail{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:0 max(32px, calc(50% - 150px)) 6px;scrollbar-width:none}
 .pbacc .rail::-webkit-scrollbar{display:none}
-.pbacc .card{position:relative;flex:0 0 300px;scroll-snap-align:center;display:flex;flex-direction:column}
+.pbacc .card{position:relative;flex:0 0 min(300px, calc(100vw - 96px));scroll-snap-align:center;display:flex;flex-direction:column}
 .pbacc .v{position:relative;display:flex;flex-direction:column;flex:1 1 auto;min-height:300px;background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;text-decoration:none;color:inherit;transition:border-color .35s var(--ease),box-shadow .35s var(--ease)}
 .pbacc .v:hover{box-shadow:0 10px 30px -18px rgba(0,0,0,.4)}
 .pbacc .v .img{height:128px;flex:0 0 128px;background:linear-gradient(135deg,#3a3f47,#565b63);display:flex;align-items:center;justify-content:center}

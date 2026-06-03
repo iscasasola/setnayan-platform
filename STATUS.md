@@ -11,6 +11,8 @@
 
 V1 web surface is **functionally complete**. Pre-launch sprint closed 2026-05-13 (19 iterations). 2026-05-14 then landed **28 PRs** across two waves.
 
+**2026-06-03 — In-app add-ons surfaced inside Services tab (chrome redesign delta #4 · 0006/0021).** The "Services" tab (`/vendors`) now shows a compact "In-app services & add-ons" section (horizontal-scroll mini-card grid on mobile, 4-col on desktop) below the vendor plan+budget accordion. Reuses shared `lib/add-ons-catalog.ts` (extracted from add-ons/page.tsx). Canonical `/add-ons` route untouched. All 4 chrome-redesign deltas are now shipped. typecheck + lint green.
+
 **2026-06-03 — Drive-copy Phase 0 (OAuth consolidation).** Collapsed the two per-event Google Drive connections (Papic `provider='drive'` + Photo Delivery `provider='drive_photo_delivery'`) into ONE: the Photo Delivery connect now routes through the canonical Drive consent + redirect URI + `provider='drive'` grant; release worker + disconnect + the drive-copy layer all read the one grant. Migration `20260727000000` is a safety-net data backfill. **Owner action:** push `20260727000000`; register only `GOOGLE_DRIVE_OAUTH_REDIRECT_URI` (retire `PHOTO_DELIVERY_OAUTH_REDIRECT_URI`). Next: Phase 2 (wire the 6 feeders).
 
 **2026-06-03 — Messages icon in top bar (chrome redesign delta #2 · 0019/0021).** `MessageSquare` link added to the event-scoped top bar right cluster, adjacent to the bell, linking to `/dashboard/[eventId]/messages`. No unread badge (no `read_at` column in `chat_messages` in V1 — badge deferred to a follow-up). typecheck + lint green.

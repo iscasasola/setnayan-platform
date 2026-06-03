@@ -8,6 +8,34 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Schedule Preparation⇄Event Day toggle (chrome redesign delta #3)
+
+**Why:** Delta #3 of the 2026-06-03 customer-dashboard chrome redesign landed in code. The couple's `/schedule` page now has a `Preparation | Event Day` toggle. **Event Day** = the existing editable day-of timeline (unchanged). **Preparation** = a NEW read-only, month-grouped agenda that auto-fills from existing dated data — no new table.
+
+**Sources WIRED into the Preparation agenda (real data today):**
+
+1. **Payment** — vendor payment due dates (`event_vendor_line_items.due_date`, fully-paid lines dropped).
+2. **Paperwork** — government/parish "complete by" deadlines (`event_paperwork` + `lib/paperwork.ts`).
+3. **Meeting** — vendor meetings / tastings / fittings (`vendor_meetings.starts_at`).
+4. **Milestone** — statutory windows computed from the wedding date + ceremony type (PSA/CENOMAR −180d, marriage license −120d, Pre-Cana −60d for Catholic).
+
+**Deferred / absent (so the spec records the honest gap):**
+
+- **Manual prep items — DEFERRED (fast-follow).** Letting couples ADD their own dated prep rows (e.g. "book hair & makeup trial") needs a NEW table + write path + RLS — out of scope for this additive, no-migration PR. **This is the documented fast-follow:** when prioritized, add an `event_preparation_items` table (host-scoped RLS via `event_moderators`), a create/edit/delete server action, and merge those rows into `lib/preparation.ts` as a `manual` source. The current Preparation tab is read-only aggregation only.
+- **Orders — ABSENT.** The `orders` table has no due-date column; its `expires_at` is subscription-renewal billing (already on Home + Orders), not wedding prep — intentionally omitted.
+- **Concierge / Today's Focus — ABSENT.** The 0016 wizard has no per-step dated milestone; only the statutory windows feed Preparation.
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/0021_couple_dashboard_fully_purchased/0021_couple_dashboard_fully_purchased.md`** — record that the Schedule surface now has a Preparation⇄Event Day toggle; document the four wired Preparation sources, that Preparation is read-only, and that manual prep entry is a deferred fast-follow needing a new table.
+2. **Schedule / day-of spec note + iteration `0007` (budget) + `0016` (Concierge)** — cross-ref that vendor payment due dates (0007) and statutory milestones feed the new Preparation agenda, and that Concierge has no per-step dated milestone to surface there.
+
+**Cross-ref:** corpus `DECISION_LOG.md` "Customer dashboard chrome RE-LOCKED" (2026-06-03) locks the model; this records the code landing of delta #3 (of 4 — remaining: Service+Add-ons merge).
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Home: compact "Your wedding details" card (chrome redesign delta #1)
 
 **Why:** Delta #1 of the 2026-06-03 customer-dashboard chrome redesign landed in code — event Home now shows a compact "Your wedding details" card (Location · Venue · Guests · Budget · Style · Cuisine · Photo & video) built from onboarding data, with a "See all wedding settings →" link to `/details`. It reshapes the existing Home "Personalized" block (chips → kv card); `/for-you` keeps the chip view.

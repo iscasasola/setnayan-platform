@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { ChevronDown, Trash2, X, UserPlus } from 'lucide-react';
 import { ConfirmForm } from '@/app/_components/confirm-form';
@@ -666,8 +666,8 @@ function MobileCard({
   groupsById: Record<string, GuestGroupWithCount>;
   currentGroupId: string | null;
 }) {
-  return (
-    <li
+  const cardInner = (
+    <div
       className={`flex items-center gap-3 rounded-lg border bg-cream p-3 ${
         selected ? 'border-terracotta/60 bg-terracotta/[0.05]' : 'border-ink/10'
       }`}
@@ -708,7 +708,143 @@ function MobileCard({
         </div>
         <RsvpPill status={guest.rsvp_status} />
       </Link>
+    </div>
+  );
+
+  // Swipe-left-to-delete (owner directive 2026-06-03) — only when NOT in select
+  // mode (there the row is for checkbox bulk ops) and not the couple (the bride
+  // & groom can't be removed; bulkSoftDeleteGuests blocks them server-side, so
+  // don't dangle a Delete that will always fail).
+  const swipeable =
+    !selectMode && guest.role !== 'bride' && guest.role !== 'groom';
+
+  return (
+    <li className="list-none">
+      {swipeable ? (
+        <SwipeToDelete
+          eventId={eventId}
+          guestId={guest.guest_id}
+          guestName={guestDisplayName(guest)}
+        >
+          {cardInner}
+        </SwipeToDelete>
+      ) : (
+        cardInner
+      )}
     </li>
+  );
+}
+
+// -----------------------------------------------------------------------
+// SwipeToDelete — wraps a mobile guest card so a left-swipe reveals a Delete
+// action (owner directive 2026-06-03). The swipe-then-tap IS the confirmation
+// (iOS-style), and deletion reuses bulkSoftDeleteGuests, so the same gates
+// apply (couple blocked upstream · RSVP'd guests get the reset-first message)
+// and it's a recoverable SOFT delete. Touch-only — the desktop table keeps
+// its own row affordances; rendered only in the `sm:hidden` card list.
+// -----------------------------------------------------------------------
+function SwipeToDelete({
+  eventId,
+  guestId,
+  guestName,
+  children,
+}: {
+  eventId: string;
+  guestId: string;
+  guestName: string;
+  children: ReactNode;
+}) {
+  const REVEAL = 84; // px width of the revealed Delete action
+  const [tx, setTx] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  // Gesture state in a ref so the touch handlers never read a stale closure.
+  const drag = useRef({ x: 0, y: 0, tx: 0, horiz: false, moved: false, active: false });
+
+  const begin = (x: number, y: number) => {
+    drag.current = { x, y, tx, horiz: false, moved: false, active: true };
+    setDragging(true);
+  };
+  const move = (x: number, y: number) => {
+    const d = drag.current;
+    if (!d.active) return;
+    const dx = x - d.x;
+    const dy = y - d.y;
+    if (!d.horiz) {
+      // Lock the axis on first real movement: vertical intent releases the
+      // gesture so the list scrolls; horizontal intent is ours.
+      if (Math.abs(dy) > 8 && Math.abs(dy) >= Math.abs(dx)) {
+        d.active = false;
+        setDragging(false);
+        return;
+      }
+      if (Math.abs(dx) > 8) d.horiz = true;
+      else return;
+    }
+    d.moved = true;
+    setTx(Math.max(-REVEAL, Math.min(0, d.tx + dx)));
+  };
+  const end = () => {
+    const d = drag.current;
+    d.active = false;
+    setDragging(false);
+    // Snap open (revealed) past the halfway point, else snap closed.
+    if (d.horiz) setTx((t) => (t < -REVEAL / 2 ? -REVEAL : 0));
+  };
+
+  return (
+    <div className="relative overflow-hidden rounded-lg">
+      {/* Delete action, revealed behind the card on a left-swipe. */}
+      <form
+        action={bulkSoftDeleteGuests.bind(null, eventId)}
+        className="absolute inset-y-0 right-0 flex"
+        style={{ width: REVEAL }}
+      >
+        <input type="hidden" name="guest_ids[]" value={guestId} />
+        <button
+          type="submit"
+          aria-label={`Delete ${guestName}`}
+          tabIndex={tx === 0 ? -1 : 0}
+          className="flex w-full flex-col items-center justify-center gap-0.5 bg-rose-600 text-cream"
+        >
+          <Trash2 aria-hidden className="h-5 w-5" strokeWidth={2} />
+          <span className="text-[11px] font-semibold">Delete</span>
+        </button>
+      </form>
+
+      {/* Front card — translates on swipe; opaque (bg-cream on the child) so it
+          fully covers the Delete action when closed. */}
+      <div
+        onTouchStart={(e) => begin(e.touches[0].clientX, e.touches[0].clientY)}
+        onTouchMove={(e) => move(e.touches[0].clientX, e.touches[0].clientY)}
+        onTouchEnd={end}
+        onTouchCancel={end}
+        onClickCapture={(e) => {
+          if (drag.current.moved) {
+            // Click synthesized right after a drag — ignore it and keep the
+            // snapped position (don't navigate, don't toggle).
+            e.preventDefault();
+            e.stopPropagation();
+            drag.current.moved = false;
+            return;
+          }
+          if (tx !== 0) {
+            // Genuine tap on an OPEN row → close it instead of navigating.
+            e.preventDefault();
+            e.stopPropagation();
+            setTx(0);
+          }
+          // Genuine tap on a closed row → let the inner <Link> navigate.
+        }}
+        className="relative z-10"
+        style={{
+          transform: `translateX(${tx}px)`,
+          transition: dragging ? 'none' : 'transform 0.2s ease',
+          touchAction: 'pan-y',
+        }}
+      >
+        {children}
+      </div>
+    </div>
   );
 }
 

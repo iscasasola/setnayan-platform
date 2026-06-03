@@ -87,6 +87,7 @@ import {
   HardHat,
   Megaphone,
   MessageSquare,
+  Music,
   Palette,
   ShieldCheck,
   Star,
@@ -174,6 +175,16 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
         href: '/vendor-dashboard/attributes',
         icon: Tag,
         matchPrefix: '/vendor-dashboard/attributes',
+      },
+      {
+        // Music acts (band / choir / orchestra / singer / DJ) build their song
+        // set list here — the master-songlist compatibility signal. The page
+        // gates non-music vendors with an explainer; nav-level hiding TODO.
+        key: 'repertoire',
+        label: 'Repertoire',
+        href: '/vendor-dashboard/repertoire',
+        icon: Music,
+        matchPrefix: '/vendor-dashboard/repertoire',
       },
     ],
   },

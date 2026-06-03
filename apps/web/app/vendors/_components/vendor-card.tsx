@@ -508,6 +508,12 @@ function isOptimizableImageUrl(url: string): boolean {
     host.endsWith('.r2.dev') ||
     host.endsWith('.r2.cloudflarestorage.com') ||
     host.endsWith('.supabase.co') ||
-    host.endsWith('.supabase.in')
+    host.endsWith('.supabase.in') ||
+    // Demo/seed placeholder host. Already whitelisted in next.config.ts
+    // remotePatterns + used by the moodboard library seed; aligning the card
+    // guard lets synthetic demo-vendor logos render as a card banner instead
+    // of falling back to initials. Real vendors never store picsum URLs.
+    host === 'picsum.photos' ||
+    host === 'fastly.picsum.photos'
   );
 }

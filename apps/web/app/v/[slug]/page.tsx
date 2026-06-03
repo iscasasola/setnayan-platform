@@ -49,6 +49,12 @@ import {
   DEMO_MODE_COOKIE_NAME,
   isAdminProfile,
 } from '@/lib/demo-mode';
+import {
+  fetchVendorServiceAttributes,
+  fetchSchemaWithSharedGroups,
+} from '@/lib/vendor-service-attributes';
+import type { AttributeFieldDef } from '@/lib/marketplaces/schemas';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,6 +72,7 @@ type PublicVendorRow = {
   business_slug: string | null;
   tagline: string | null;
   logo_url: string | null;
+  portfolio_r2_keys: string[] | null;
   services: string[];
   location_city: string | null;
   hq_address: string | null;
@@ -186,9 +193,9 @@ async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
   // screen_name silently null (resolver falls back to computed
   // placeholder).
   const fullSelect =
-    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name';
+    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name';
   const legacySelect =
-    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings';
+    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,contact_email,contact_phone,public_visibility,compatible_ceremony_types,compatible_venue_settings';
 
   let { data, error } = await admin
     .from('vendor_profiles')
@@ -287,6 +294,117 @@ export async function generateMetadata({ params }: Props) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Iteration 0044 — per-category attribute display + portfolio gallery.
+// Surfaces the vendor's filled vendor_service_attributes (the "details &
+// customization" they declared per category) + their portfolio images on the
+// public profile. Best-effort: the table / column may be unapplied in a given
+// deploy env, so both fetchers swallow errors and degrade to empty.
+// ---------------------------------------------------------------------------
+
+type AttrDetailGroup = {
+  canonicalService: string;
+  displayName: string;
+  /** Non-boolean fields rendered as label → value. */
+  facts: Array<{ label: string; value: string }>;
+  /** True booleans rendered as capability chips. */
+  flags: string[];
+};
+
+// pricing_signal shared-group keys — redundant with the Packages section + the
+// marketplace price filter, so they're omitted from the Details list.
+const DETAIL_SKIP_KEYS = new Set<string>([
+  'starting_price_centavos',
+  'typical_range_min_centavos',
+  'typical_range_max_centavos',
+  'price_model',
+  'show_prices_publicly',
+]);
+
+function humanizeAttrLabel(key: string): string {
+  return key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function humanizeAttrToken(token: string): string {
+  if (/^https?:\/\//i.test(token)) return token;
+  return token.replace(/_/g, ' ');
+}
+
+function formatAttrFactValue(
+  key: string,
+  raw: unknown,
+): string | null {
+  if (Array.isArray(raw)) {
+    const parts = raw
+      .map((v) => humanizeAttrToken(String(v)))
+      .filter((v) => v.length > 0);
+    return parts.length > 0 ? parts.join(', ') : null;
+  }
+  if (typeof raw === 'number') {
+    return /centavos/i.test(key)
+      ? `₱${Math.round(raw / 100).toLocaleString('en-PH')}`
+      : String(raw);
+  }
+  if (typeof raw === 'string') {
+    return raw.trim().length > 0 ? humanizeAttrToken(raw) : null;
+  }
+  return null;
+}
+
+async function fetchVendorAttributeDetails(
+  admin: ReturnType<typeof createAdminClient>,
+  vendorProfileId: string,
+): Promise<AttrDetailGroup[]> {
+  try {
+    const rows = await fetchVendorServiceAttributes(admin, vendorProfileId);
+    const groups: AttrDetailGroup[] = [];
+    for (const row of rows) {
+      const payload = (row.attribute_payload ?? {}) as Record<string, unknown>;
+      if (Object.keys(payload).length === 0) continue;
+      const schema = await fetchSchemaWithSharedGroups(admin, row.canonical_service);
+      if (!schema) continue;
+      const facts: Array<{ label: string; value: string }> = [];
+      const flags: string[] = [];
+      for (const [key, def] of Object.entries(schema.fields)) {
+        if (DETAIL_SKIP_KEYS.has(key) || key.endsWith('_urls')) continue;
+        const raw = payload[key];
+        if (raw === null || raw === undefined) continue;
+        const label = def.label ?? humanizeAttrLabel(key);
+        if (def.type === 'boolean') {
+          if (raw === true) flags.push(label);
+          continue;
+        }
+        const value = formatAttrFactValue(key, raw);
+        if (value) facts.push({ label, value });
+      }
+      if (facts.length > 0 || flags.length > 0) {
+        groups.push({
+          canonicalService: row.canonical_service,
+          displayName:
+            schema.display_name_en || displayServiceLabel(row.canonical_service),
+          facts,
+          flags,
+        });
+      }
+    }
+    return groups;
+  } catch {
+    return [];
+  }
+}
+
+async function resolvePortfolioUrls(keys: string[] | null): Promise<string[]> {
+  if (!keys || keys.length === 0) return [];
+  try {
+    const resolved = await Promise.all(
+      keys.slice(0, 12).map((k) => displayUrlForStoredAsset(k)),
+    );
+    return resolved.filter((u): u is string => Boolean(u));
+  } catch {
+    return [];
+  }
+}
+
 export default async function PublicVendorPage({ params, searchParams }: Props) {
   const { slug } = await params;
   const search = await searchParams;
@@ -327,6 +445,12 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
   ]);
   const hasMore = reviewStats.total_count > reviews.length;
   const activeServices = allServices.filter((s) => s.is_active);
+
+  // Per-category attribute details + portfolio gallery (iteration 0044).
+  const [attributeDetails, portfolioUrls] = await Promise.all([
+    fetchVendorAttributeDetails(admin, vendor.vendor_profile_id),
+    resolvePortfolioUrls(vendor.portfolio_r2_keys),
+  ]);
 
   /* V2.1 brief amendment #2 (2026-05-30) · hybrid-anonymity. Resolves
      once at the page level so the hero, "Get in touch" copy,
@@ -674,6 +798,30 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
           </div>
         </section>
 
+        {portfolioUrls.length > 0 ? (
+          <section className="space-y-3 border-b border-ink/10 py-8">
+            <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+              Portfolio
+            </h2>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {portfolioUrls.map((url, idx) => (
+                <div
+                  key={url}
+                  className="relative aspect-[4/3] overflow-hidden rounded-xl bg-ink/5"
+                >
+                  <Image
+                    src={url}
+                    alt={`${displayLabel} portfolio ${idx + 1}`}
+                    fill
+                    sizes="(max-width: 640px) 50vw, 33vw"
+                    className="object-cover"
+                  />
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         {vendor.services.length > 0 ? (
           <section className="space-y-3 border-b border-ink/10 py-8">
             <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
@@ -689,6 +837,45 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
                 </li>
               ))}
             </ul>
+          </section>
+        ) : null}
+
+        {attributeDetails.length > 0 ? (
+          <section className="space-y-6 border-b border-ink/10 py-8">
+            <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+              Details
+            </h2>
+            <div className="space-y-6">
+              {attributeDetails.map((group) => (
+                <div key={group.canonicalService} className="space-y-3">
+                  <h3 className="text-sm font-medium text-ink">{group.displayName}</h3>
+                  {group.flags.length > 0 ? (
+                    <ul className="flex flex-wrap gap-2">
+                      {group.flags.map((flag) => (
+                        <li
+                          key={flag}
+                          className="rounded-full bg-ink/5 px-3 py-1 text-xs text-ink/70"
+                        >
+                          {flag}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {group.facts.length > 0 ? (
+                    <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
+                      {group.facts.map((fact) => (
+                        <div key={fact.label} className="flex flex-col">
+                          <dt className="text-xs uppercase tracking-wide text-ink/45">
+                            {fact.label}
+                          </dt>
+                          <dd className="text-sm text-ink/80">{fact.value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  ) : null}
+                </div>
+              ))}
+            </div>
           </section>
         ) : null}
 

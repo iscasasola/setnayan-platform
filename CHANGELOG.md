@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(marketplace): demo vendors get real per-category details, richer packages & images
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner — the admin **Demo Vendors** tool (`/admin/demo-vendors`) seeds ~1,500 synthetic vendors to dogfood the marketplace. They flagged that demo vendors should *"provide the details and customization for each of the categories as well."* The seed (`scripts/seed-demo-vendors.ts`) was writing **one identical 5-field blob** for all 192 canonical_services and **hard-coding** `completeness_score:75` + `meets_visibility_minimum:true` — bypassing the iteration-0044 per-category schema entirely. The blob even filled a key named `geographic_service_areas` (a shared-*group* name) instead of the real `service_regions` minimum field, so honestly scored every demo row was 0% complete / below the visibility minimum.
+
+**What ships:**
+
+1. **Schema-driven attribute generator (`scripts/seed-demo-vendors.ts`).** New `fetchResolvedSchemas()` loads every `canonical_service_schemas` row + its inherited `shared_attribute_groups` and merges them exactly like `lib/vendor-service-attributes.ts#fetchSchemaWithSharedGroups`. `generateAttributePayload()` emits realistic, schema-valid values per field type (enum→one option · multi_select→a subset · int→field-name-aware bands with `*_centavos` aligned to the vendor's package price · text→category snippet · `*_urls`→real YouTube/Vimeo that pass the showcase validator · `required_if` honored). `completeness_score` + `meets_visibility_minimum` are now computed **honestly** (mirroring `compute_attribute_completeness` + the write-side visibility gate); minimum/required fields are always filled (so vendors stay visible — now *earned*) while ~18% of optional fields are left unset for realistic ~80-100 variance.
+2. **Broader package coverage (`priceProfileFor()`).** Seven new category buckets (beauty/wellness · experiential booths & stations · live-craft keepsakes · bridal accessories · ceremony prep/paperwork · rentals & site infra · food carts/dessert stations) so niche services get category-appropriate package tiers + inclusions instead of the generic "Standard/Premium" catch-all. (Third-party vendor prices, not Setnayan SKUs.)
+3. **Demo images.** The seed sets `logo_url` + `portfolio_r2_keys[]` to deterministic picsum URLs. `app/vendors/_components/vendor-card.tsx`'s `isOptimizableImageUrl()` now allows `picsum.photos` / `fastly.picsum.photos` (already whitelisted in `next.config.ts` + used by the moodboard seed) so demo logos render as the card banner instead of falling back to initials. (`finalized-chip-strip.tsx` already accepted any https host — no change.)
+4. **Public vendor profile render (`app/v/[slug]/page.tsx`).** Added a **Details** section (per-category attributes as label→value facts + true-boolean capability chips; pricing-signal keys omitted as redundant with Packages) and a **Portfolio** gallery (resolves `portfolio_r2_keys` via `displayUrlForStoredAsset`). Reuses `fetchVendorServiceAttributes` + `fetchSchemaWithSharedGroups`; both fetches are best-effort (degrade to empty). Benefits real vendors too — `attribute_payload` previously had no public render at all (filter/compare only).
+
+**SPEC IMPACT:** Minor. The public vendor profile (`/v/[slug]`) now renders a per-category **Details** section + a **Portfolio** gallery — iteration **0044** (per-category schemas) + **0022** (vendor dashboard/profile) specs should note these surfaces. Demo-data generation + the picsum card-guard allowance are dev/staging tooling (non-spec). `[PENDING]` logged in `COWORK_INBOX.md`.
+
+**Verification:** `tsc --noEmit` + `next lint` green in-worktree. An offline generator harness (catering schema + the 5 shared groups, 8 vendors) confirmed: every visibility-minimum field filled incl. `service_regions`, avg completeness ~82, `required_if` enforced (paid_tasting⇒tasting_fee, willing_to_travel⇒dest_fee). **Owner-actionable:** the full seed run is on **staging** (script refuses prod via the project-ref guard; needs a non-prod `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`) — then visual-check `/admin/demo-vendors`, `/vendors?demo=1` (logos on cards), and a demo `/v/[slug]` (Details + gallery). CI gates types/lint/production build.
+
 ## 2026-06-03 · feat(guests): collapsible mobile panel — tap the grabber to stretch the guest list
 
 **Commit:** see merge commit on this PR.

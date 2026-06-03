@@ -8,6 +8,21 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Free "start looking" vendor reminders now SHIP (Today's Focus replacement)
+
+**Why:** The retired Today's Focus wizard's "best time to start looking" job is now delivered free in the Home "Upcoming" stream — full vendor set, on by default, no fork/paywall (owner-confirmed model). Code is live; the planning spec should record the concrete behavior.
+
+**What landed (code):** new `start_looking` source in `lib/upcoming-items.ts` — for each plan-group category the couple hasn't LOCKED a vendor in, a reminder dated `wedding_date − monthsBefore`, reusing the owner-authored `PLAN_GROUPS.monthsBefore` lead-times. Forward-looking, capped at 5, rendered with a Search/violet style in `upcoming-schedules.tsx`.
+
+**Spec corpus update (owner walks via Cowork):**
+1. **`~/Documents/Claude/Projects/Setnayan/0016_step_by_step_plan_builder/`** (and/or the planning/deadline spec) — record that the free per-service "start looking" reminders ship in the Home deadline-timeline surface, sourced from `PLAN_GROUPS.monthsBefore`, shown only for not-yet-booked categories. Pairs with the Today's-Focus-retired decision-log row already queued.
+
+**Follow-up (not yet built):** the Settings "Planning reminders: on/off" opt-out toggle (default-on shipped).
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Commit the vendor-compatibility design lock in the corpus
 
 **Why:** The compatibility build started (code PR 1 = the master-song-list foundation migration). Its design lock was authored directly in the corpus this session but is **uncommitted** (co-mingled with other in-progress Cowork work):

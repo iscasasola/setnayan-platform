@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(home): free "start looking" vendor reminders — the Today's Focus replacement
+
+**Context:** The retired Today's Focus wizard's job — telling couples *when to start looking* for each vendor — is now delivered free, no fork and no paywall, inside the existing Home "Upcoming" stream. Owner direction: full vendor set, on by default.
+
+**The data already existed.** Rather than inventing lead-time claims, this reuses the owner-authored `monthsBefore` already on every `PLAN_GROUPS` entry ([wedding-plan-groups.ts](apps/web/lib/wedding-plan-groups.ts)) — ceremony venue/coordinator 12mo · officiant/catering/photography 9 · attire 8 · HMUA/florals 6 · host 5 · cake/cocktail/invites 4 · LED/photobooth/rings 3 · accommodation/logistics 2. Same numbers the plan-grid advertises, so the reminder and the grid never disagree.
+
+**What ships:**
+- **New `start_looking` source in `lib/upcoming-items.ts`** (`fetchStartLookingItems`): for each plan-group category the couple hasn't **locked** a vendor in (resolved via `statusOfVendor` + `canonicalServiceToPlanGroupId` against `event_vendors`), emits a reminder dated `wedding_date − monthsBefore`. Forward-looking only (past windows drop via the stream's existing future filter), sorted soonest-first, **capped at 5** so it never floods. Entry-point cards (`countsTowardLockable === false` — Live band, Stylist, etc.) are skipped so a category isn't double-nudged. Skips events with no wedding date.
+- **Renderer** (`upcoming-schedules.tsx`): a `Search` icon + gentle violet styling for the new category — distinct from payments/documents/meetings, calm not urgent.
+- **Graceful-degrade fallbacks** in the two async wrappers gain the new `sourceCounts` key.
+
+**Behavior:** an early couple (~12mo out) sees "Start looking for your Venue / Coordinator / Officiant / Caterer / Photographer"; as they lock each, it drops and the next window surfaces. Reuses the existing Home surface — no new screen.
+
+**Verification:** `tsc --noEmit` green (exit 0). The dashboard is auth-gated (needs a session + an event with a wedding date), so no local preview render — CI build is the gate; runtime visible on the couple's Home once a dated event has unbooked categories.
+
+**SPEC IMPACT:** Implements the free "best time to start looking" guidance from the Today's-Focus-retired decision already queued in `COWORK_INBOX.md` (the per-service deadline timeline). Inbox note added for the 0016 spec. Follow-up (separate): the Settings "Planning reminders: on/off" opt-out toggle — default-on ships here.
+
 ## 2026-06-03 · refactor(onboarding): drop ₱1,499 "Today's Focus" from the Your-Plan bundles (it's free now)
 
 **Context:** Follow-through on the Today's Focus retirement ([PR #866]) — owner confirmed the planning guidance (deadline + "start-looking" reminders) is **free**, not a paid tier. But onboarding's "Your Plan" Essential Bundle still listed **"Today's Focus · planning" at ₱1,499**, selling a surface that no longer exists.

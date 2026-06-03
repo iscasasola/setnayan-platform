@@ -7,6 +7,7 @@ import {
   RefreshCw,
   FileText,
   Users,
+  Search,
   ArrowRight,
   ArrowDown,
   type LucideIcon,
@@ -138,6 +139,8 @@ function iconFor(category: UpcomingItemCategory): LucideIcon {
       return RefreshCw;
     case 'document':
       return FileText;
+    case 'start_looking':
+      return Search;
     default:
       return CalendarDays;
   }
@@ -155,6 +158,10 @@ function iconStylesFor(category: UpcomingItemCategory): string {
       return 'bg-blue-50 text-blue-700';
     case 'meeting':
       return 'bg-indigo-50 text-indigo-700';
+    case 'start_looking':
+      // Gentle violet — distinct from payment-amber / document-blue /
+      // meeting-indigo / renewal-emerald. Soft guidance, not urgency.
+      return 'bg-violet-50 text-violet-700';
     case 'schedule':
     default:
       return 'bg-terracotta/10 text-terracotta';

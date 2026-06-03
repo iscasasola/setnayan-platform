@@ -141,6 +141,9 @@ export function MobileGuestCarousel({
   const trackRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
   const [assignOpen, setAssignOpen] = useState(false);
+  // Collapse the panel sheet down to just its grabber handle so the guest list
+  // above stretches (owner 2026-06-03). The keyboard state takes precedence.
+  const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -208,6 +211,14 @@ export function MobileGuestCarousel({
       <div
         aria-hidden
         className="h-[calc(var(--gcar-h)+4rem+env(safe-area-inset-bottom))] lg:hidden"
+        style={
+          // Keep the collapse-grabber feature, but do NOT collapse this spacer
+          // when the keyboard opens — that 348px→0 shift was the reflow that
+          // made iOS deliver the tap to a guest card (owner-reported 2026-06-03).
+          !kbOpen && collapsed
+            ? { height: 'calc(2.25rem + 4rem + env(safe-area-inset-bottom))' }
+            : undefined
+        }
       />
 
       {/* Panel content sheet — docked directly ABOVE the guest bottom nav (the
@@ -217,19 +228,34 @@ export function MobileGuestCarousel({
           of this sheet and BECAME the bottom nav, so this sheet now holds only
           the active panel. */}
       <div
-        className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 h-[var(--gcar-h)] overflow-hidden rounded-t-2xl bg-cream shadow-[0_-12px_30px_-18px_rgba(30,34,41,0.28)] ring-1 ring-ink/10 lg:hidden"
+        className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 flex h-[var(--gcar-h)] flex-col overflow-hidden rounded-t-2xl bg-cream shadow-[0_-12px_30px_-18px_rgba(30,34,41,0.28)] ring-1 ring-ink/10 lg:hidden"
         style={
           kbOpen
             ? { bottom: kbInset, height: active === 2 ? 190 : undefined }
-            : undefined
+            : collapsed
+              ? { height: '2.25rem' }
+              : undefined
         }
       >
+        {/* Grabber — tap to collapse the panel down to this handle so the guest
+            list above stretches; tap again to expand. Hidden while typing. */}
+        {!kbOpen && (
+          <button
+            type="button"
+            onClick={() => setCollapsed((c) => !c)}
+            aria-label={collapsed ? 'Expand panel' : 'Collapse panel'}
+            aria-expanded={!collapsed}
+            className="flex h-9 shrink-0 items-center justify-center"
+          >
+            <span aria-hidden className="h-1.5 w-10 rounded-full bg-ink/15" />
+          </button>
+        )}
         {/* swipe track — 4 panels, scroll-snap; full sheet height now that the
             tab strip moved to the bottom nav. Tap a nav item OR swipe to jump. */}
         <div
           ref={trackRef}
           onScroll={onScroll}
-          className="flex h-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {/* 1 — Summary: animated RSVP counts (also filter links) */}
           <section className="w-full shrink-0 snap-center overflow-y-auto px-4 py-3">

@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(guests): collapsible mobile panel — tap the grabber to stretch the guest list
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner — the mobile Guests panel sheet (the 4-panel carousel docked at the bottom) eats ~⅓ of the screen even when you just want to read the list. Add a **collapse** so the sheet drops back to its grabber handle and the **guest list above stretches**.
+
+**What ships (`mobile-guest-carousel.tsx` · mobile-only):** a `collapsed` state + a **tappable grabber handle** at the top of the sheet. Collapsed → the fixed sheet shrinks to the 36px (`2.25rem`) handle and the in-flow spacer shrinks to match (`calc(2.25rem + 4rem + safe-area)`), so the guest list reclaims the freed height; tap again to expand back to `--gcar-h`. The sheet became `flex flex-col` (grabber `shrink-0` + the swipe track now `flex-1 min-h-0`). **Keyboard state still wins** — the grabber is hidden and collapse is ignored while typing (the `kbOpen` branch is checked first in both the sheet + spacer style, and the handle is gated on `!kbOpen`), so the iOS-keyboard pin (PR #841) is untouched. Desktop unaffected (the sheet is `lg:hidden`).
+
+**SPEC IMPACT:** None (additive mobile UX on an existing surface; the 0001/0021 specs don't pin the panel height).
+
+**Verification:** Type-safe by inspection (one `useState<boolean>`; the style branches return valid `CSSProperties`; `aria-expanded` boolean). The collapse interaction is flagged for **owner check on the Vercel preview**. Local typecheck not runnable in this worktree → CI gates types/lint/build.
+
 ## 2026-06-03 · fix(services): center-snap runway so the first & last category cards can reach center
 
 **Commit:** see merge commit on this PR.

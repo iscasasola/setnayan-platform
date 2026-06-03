@@ -8,6 +8,35 @@
 
 ---
 
+## [PENDING] 2026-06-03 — All wedding faiths unlocked: Christian / INC / Muslim / Cultural now active (0043/0016)
+
+**Why:** Owner directive — *"unlock all religions first."* The four faiths that shipped as "Coming Soon" in iteration 0043 (gated behind per-region vendor density via `wedding_type_launch_status`) are now **active** everywhere: the onboarding faith chips, both `ALLOWED_CEREMONIES` server constants, the create-event launch-status fallback, and the `wedding_type_launch_status` table (migration `20260803000000`). Onboarding has no tradition picker, so Muslim/Cultural commits default `ceremony_sub_type` (`general_muslim` / `other`) to satisfy the DB CHECK `events_sub_type_required_when_muslim_or_cultural`; create-event collects the specific tradition.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **The `wedding_type_launch_status` design (iteration 0043) + any "V1.1 visible faiths: catholic + civil active" note** — superseded: **all six ceremony types are active.** Record that the per-region vendor-density threshold gate is overridden (owner chose a global unlock); a future re-gate would flip rows back to `coming_soon`.
+2. **`0016_step_by_step_plan_builder` / the onboarding faith step (`OnboardingFaith`)** — no longer marks four faiths "Coming Soon"; all five chips selectable. Note the onboarding-side default sub-type for Muslim/Cultural (onboarding has no tradition picker; create-event does) — couples refine the exact tradition later from the dashboard.
+3. **CLAUDE.md decision log (corpus root)** — append a 2026-06-03 row: *"Unlock all religions — christian/inc/muslim/cultural flipped to active in `wedding_type_launch_status` + the onboarding/create-event hardcoded mirrors; overrides the per-region vendor-density activation gate."*
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "feat(0043,0016): unlock all wedding faiths". Migration `20260803000000` (applied as part of this ship).
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
+## [PENDING] 2026-06-03 — Top nav: Marketplace + Switch View icons removed from the customer top bar (0000/0021)
+
+**Why:** Owner directive (mobile screenshot, both icons circled): *"remove these 2 on top nav."* The 🏪 Marketplace link and the 👤﹀ Switch View (role-switch) pill are gone from the customer **top bar** — event-scoped (`[eventId]/layout.tsx`) AND non-event routes (`outer-dashboard-header.tsx`). The desktop **left sidebar** intentionally KEEPS both (owner scope: "non-event top bar", not the desktop sidebar). Nothing orphaned (Marketplace via the home tease-strip / "Browse matched services" / plan cards / sidebar; role-switch via the event-switcher dropdown's "Switch view" rows + sidebar).
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`0000_app_shell_and_navigation/0000_app_shell_and_navigation.md`** — the "single-strip top-nav (locked 2026-05-14)" description should drop the Marketplace link + the always-visible Switch View pill from the **top strip**; note both now live only in the desktop sidebar, and role-switch is also in the event-switcher dropdown.
+2. **`0021_couple_dashboard_fully_purchased/0021_*.md`** — update the couple-dashboard chrome/top-bar description to match: top bar = event-switcher monogram · Messages · Bell · Profile-monogram (no Marketplace, no Switch View pill).
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "chore(0000,0021): remove Marketplace (Store) + Switch View…". No migration, no SKU.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Admin song dedup tool + compatibility build COMPLETE (0023/0006)
 
 **Why:** PR 6 (final) — an admin surface to merge near-duplicate master songs + remove junk, keeping the compatibility overlap clean. The whole compatibility build (PRs 1–6) is now shipped.

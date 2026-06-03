@@ -3,6 +3,7 @@ import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isR2Configured, r2Upload, R2_BUCKETS } from '@/lib/r2';
 import { fetchGuestQuota } from '@/lib/papic-guest';
+import { enqueueDriveCopy } from '@/lib/drive-copy';
 
 // POST /api/papic/guest-capture
 //
@@ -87,6 +88,25 @@ export async function POST(req: Request) {
   };
 
   if (result.status === 'ok') {
+    // Auto-sync this guest capture into the couple's Google Drive (Phase 2).
+    // Enqueue only — /api/cron/drive-copy-tick does the R2->Drive copy; no-op
+    // until Drive is connected. Best-effort; dedup is per r2_object_key.
+    try {
+      await enqueueDriveCopy({
+        eventId: session.event_id,
+        artifactType: 'papic',
+        files: [
+          {
+            r2ObjectKey: r2Ref,
+            fileName: key.split('/').pop() || 'papic.jpg',
+            mimeType: 'image/jpeg',
+            sourceTable: 'papic_photos',
+          },
+        ],
+      });
+    } catch {
+      // best-effort
+    }
     return NextResponse.json(result);
   }
   return NextResponse.json(result, {

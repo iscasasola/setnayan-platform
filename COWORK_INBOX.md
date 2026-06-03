@@ -8,6 +8,19 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Drive-copy Phase 2: Papic auto-sync + drain cron (owner cron trigger)
+
+**Why:** Papic captures now auto-sync to the couple's Google Drive; a new cron endpoint does the copy. The 5 other artifact feeders await their services' render/generation pipelines.
+
+**Owner / spec updates:**
+
+1. **Infra (OWNER_ACTIONS):** point an external cron (Cloudflare Cron Trigger / Vercel Cron) at **`POST /api/cron/drive-copy-tick`** (header `x-cron-secret: $OAUTH_REFRESH_CRON_SECRET`) on a 1–2 min cadence. Until then captures enqueue but don't copy.
+2. **`~/Documents/Claude/Projects/Setnayan/0012_paparazzi/0012_papic.md`** + pax-pricing docs — note Papic photos **auto-sync** to the couple's Drive on capture (enqueue → drain cron); the manual "Release to Drive" remains as a backfill and dedups against auto-synced photos.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Drive OAuth consolidated to one per-event connect (Phase 0)
 
 **Why:** Phase 0 collapsed the two Google Drive connections (Papic `provider='drive'` + Photo Delivery `provider='drive_photo_delivery'`) into one. The owner-facing setup + the 0009 spec change as a result.

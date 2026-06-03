@@ -4,6 +4,26 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(drive-copy): Phase 2 — Papic auto-sync feeder + drive-copy drain cron
+
+**Commit:** to be filled after commit.
+
+**Context:** Phase 2 of the storage build plan, after Phase 0's OAuth consolidation. **Finding:** 5 of the 6 source services (Patiktok, Pabati, Pakanta, Monogram, QR) have no R2-artifact pipeline yet (stubs / client-side), so there is nothing to feed for them — their feeders are one-line `pushToDriveCopy(...)` calls added when each render/generation pipeline lands. **Papic** is the one real producer and is wired now (owner-chosen "auto-sync now").
+
+**What ships:**
+
+- **`/api/cron/drive-copy-tick`** (new) — drain worker: finds events with pending `drive_copy_artifacts` and copies one batch each into the couple's Drive (`x-cron-secret` gated, reuses `OAUTH_REFRESH_CRON_SECRET`, models on `photo-delivery-tick`). **Owner action:** point an external cron (Cloudflare/Vercel) at it on a 1–2 min cadence.
+- **Papic auto-sync feeders** — `papic/actions.ts` (paparazzo capture) + `api/papic/guest-capture` (guest disposable camera) now `enqueueDriveCopy('papic', …)` on every capture. Enqueue-only (fast); the cron does the R2→Drive copy. No-op until Drive is connected.
+- **Folder unify** — `drive-copy.ts` routes `papic` artifacts to the couple's existing `events.photo_delivery_folder_id` (the same folder the manual "Release to Drive" worker uses).
+- **Dedup** — `enqueueRelease` now skips photos already auto-synced (matched on `r2_object_key` against copied `drive_copy_artifacts`), so a photo is never copied twice.
+- **Latent fix** — `readR2Object` strips a leading `r2://<bucket>/` prefix, so prefixed papic keys (guest captures) read correctly (also fixes the existing release worker for those keys).
+
+**Pilot-safe:** auto-sync is best-effort + enqueue-only (never fails a capture); the manual release path keeps working and now dedups. No migration. No real Drive grants exist yet (#19g pending).
+
+**SPEC IMPACT:** Yes (minor). Papic now auto-syncs to Drive (the pax-pricing "photos land in your Drive" behavior). New owner action: external cron trigger for `/api/cron/drive-copy-tick`. The other 5 feeders attach as their pipelines land.
+
+---
+
 ## 2026-06-03 · feat(drive-copy): Phase 0 — consolidate the two Drive OAuth flows into one per-event connect
 
 **Commit:** to be filled after commit.

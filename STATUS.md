@@ -11,6 +11,8 @@
 
 V1 web surface is **functionally complete**. Pre-launch sprint closed 2026-05-13 (19 iterations). 2026-05-14 then landed **28 PRs** across two waves.
 
+**2026-06-03 — Drive-copy Phase 2 (Papic auto-sync + drain cron).** Papic captures (paparazzo + guest camera) now `enqueueDriveCopy('papic')` on finalize; new `/api/cron/drive-copy-tick` drains the queue → couple's Drive (same folder as the manual release, deduped). 5 other feeders await their services' pipelines (stubs today). `readR2Object` now strips `r2://` prefixes (latent fix). **Owner action:** wire an external cron trigger for `/api/cron/drive-copy-tick`.
+
 **2026-06-03 — Drive-copy Phase 0 (OAuth consolidation).** Collapsed the two per-event Google Drive connections (Papic `provider='drive'` + Photo Delivery `provider='drive_photo_delivery'`) into ONE: the Photo Delivery connect now routes through the canonical Drive consent + redirect URI + `provider='drive'` grant; release worker + disconnect + the drive-copy layer all read the one grant. Migration `20260727000000` is a safety-net data backfill. **Owner action:** push `20260727000000`; register only `GOOGLE_DRIVE_OAUTH_REDIRECT_URI` (retire `PHOTO_DELIVERY_OAUTH_REDIRECT_URI`). Next: Phase 2 (wire the 6 feeders).
 
 **2026-06-03 — Messages icon in top bar (chrome redesign delta #2 · 0019/0021).** `MessageSquare` link added to the event-scoped top bar right cluster, adjacent to the bell, linking to `/dashboard/[eventId]/messages`. No unread badge (no `read_at` column in `chat_messages` in V1 — badge deferred to a follow-up). typecheck + lint green.

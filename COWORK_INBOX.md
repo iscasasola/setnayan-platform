@@ -8,6 +8,53 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Wedding onboarding faith-adaptive ceremony venue + de-churched copy (0016)
+
+**Why:** Owner — "fix all gaps… cater all different religious weddings." Faith-adaptive ceremony venue (Church/Chapel/Mosque/Temple by faith + universal Garden/Beach/Civil/Same) + de-churched copy. (Chinese activation = #889, deduped on merge.)
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **0016 onboarding** — the ceremony-venue step is now faith-adaptive (each faith's house of worship; Cultural = outdoor/ancestral) + universal settings; copy de-churched.
+2. **CLAUDE.md decision log** — 2026-06-03 row: *"Wedding onboarding faith-inclusive — faith-adaptive ceremony venue (mosque/temple photos via Recraft) + de-churched copy."*
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "wedding onboarding caters all faiths".
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
+## [PENDING] 2026-06-03 — Per-religion wedding traditions guide (0043) — VALIDATE CONTENT
+
+**Why:** Owner-directed ("create onboarding that follows the traditions of each religion"). New `lib/wedding-traditions.ts` drives a "What to expect — your {religion} wedding" guide on /paperwork (overview + officiant/ceremony/food/custom items per religion), companion to the existing per-religion document/deadline engine.
+
+**⚠️ NEEDS VALIDATION (the important part):** the per-religion content is STARTER guidance drafted from general PH knowledge. Before launch, validate each religion's specifics — **especially INC, Muslim, Cultural, and Chinese** — ideally with clergy / an official source. The user-facing copy already says "general guidance — confirm with your {officiant}," so it's honest, but the specifics should be confirmed/corrected.
+
+**Spec corpus update (owner walks via Cowork):**
+1. **The iteration-0043 wedding spec** — record the per-religion traditions guide (officiant/ceremony/food/custom dimensions, surfaced on /paperwork) alongside the existing per-religion document/deadline engine.
+
+**To apply validated edits:** correct the per-religion items in `apps/web/lib/wedding-traditions.ts` (or, when ready, we move it to an admin-editable table — mirrors the planning_deadlines pattern). Send corrections and I'll apply them.
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "feat(0043): per-religion wedding traditions guide". No migration.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
+## [PENDING] 2026-06-03 — Chinese wedding is now ACTIVE / fully selectable (0043) — supersedes the coming-soon item below
+
+**Why:** Owner reviewed the live onboarding "ceremony tradition" screen and decided Chinese ships **fully selectable**, not coming-soon. This reverses the same-day coming-soon decision captured in the `[PENDING] … Chinese wedding added as a coming-soon ceremony type` item further down. A lone gated faith was inconsistent now that the other six are active.
+
+**Spec corpus update (owner walks via Cowork):**
+1. Wherever the wedding-type / ceremony-tradition lineup is specified (iteration **0043** wedding-types + spec **0000** onboarding "ceremony tradition" screen), list **Chinese (Tsinoy — tea ceremony + Chinese customs, often with a church or civil rite) as an ACTIVE, selectable tradition**, alongside Catholic / Civil / Christian / INC / Muslim / Cultural. Remove any "coming soon" / "gated until vendor density" framing for Chinese.
+2. **`DECISION_LOG.md`** — append: `| 2026-06-03 | Chinese wedding activated as a fully selectable ceremony type (supersedes same-day coming-soon) | onboarding + create-event + dashboard-modal allow-lists + migration 20260806000000 |`
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "feat(0043): activate Chinese wedding — fully selectable". **Supersedes** the `[PENDING] 2026-06-03 — Chinese wedding added as a coming-soon ceremony type (0043)` item below — action both as one edit (make Chinese active, drop the coming-soon language entirely).
+
+**Owner action:** push migration `20260806000000_activate_chinese_ceremony_type.sql` (`supabase db push`).
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Spec 0000 event-type picker: reconcile to "all event types live, no notify" (0000/0041)
 
 **Why:** Owner chose "keep everything live" (don't re-gate #884's all-events-live). So spec 0000's picker section — which the #882 carousel update left describing "only Wedding+Debut live, the other nine coming-soon, 11 types, tap-to-be-notified" — is now wrong and should be reconciled to the shipped code.

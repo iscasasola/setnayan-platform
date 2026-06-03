@@ -29,6 +29,31 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(chrome): Messages icon in the dashboard top bar
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Delta #2 of the 2026-06-03 customer-dashboard chrome redesign (corpus `DECISION_LOG.md` "Customer dashboard chrome RE-LOCKED"). Adds a Facebook-pattern Messages icon to the couple dashboard top bar right cluster, adjacent to the notifications bell.
+
+**What ships:**
+
+- `MessageSquare` (lucide-react) icon link added to the right cluster of the event-scoped top bar in `apps/web/app/dashboard/[eventId]/layout.tsx`, placed between the `RoleSwitchPill` (mobile-only) and `UnreadBellBadge`.
+- Links to `/dashboard/${eventId}/messages` (the couple's vendor thread list, iteration 0019).
+- `aria-label="Messages"` for accessibility.
+- Styled exactly like `UnreadBellBadge`: `h-9 w-9 rounded-full border border-ink/15 bg-cream text-ink/70 hover:border-terracotta/40 hover:text-terracotta` — Clean Editorial tokens throughout.
+- **No unread badge:** `chat_messages` has no per-message `read_at` / `is_read` column in V1. There is no clean count source without a DB migration. Badge can be added once a read-receipts migration lands in a follow-up PR.
+- Renders on both mobile and desktop (the top bar is shared across all breakpoints).
+
+**Files changed:**
+
+- `apps/web/app/dashboard/[eventId]/layout.tsx` — added `MessageSquare` to the lucide import; inserted the Messages `<Link>` element.
+
+**Verification:** `pnpm -F web typecheck` → 0 errors. `next lint --file app/dashboard/[eventId]/layout.tsx` → No ESLint warnings or errors.
+
+**SPEC IMPACT:** Yes — **iteration 0021** (couple dashboard chrome) and **iteration 0019** (communications / messages). The top bar now carries a Messages shortcut. Spec corpus should record this icon's presence in the couple dashboard chrome description. See `COWORK_INBOX.md [PENDING] 2026-06-03 — Messages icon` for the worklist entry.
+
+---
+
 ## 2026-06-03 · feat(0001): keep the couple detail simple — remove the editorial live-view iframe
 
 **Commit:** to be filled after commit.

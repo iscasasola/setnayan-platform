@@ -180,7 +180,7 @@ export function GuestListMultiselect({
       </div>
 
       {/* Mobile · stacked cards with leading checkbox. */}
-      <ul className="space-y-2 sm:hidden">
+      <ul className="space-y-2 sm:hidden gc-mobile-list">
         {guests.map((guest) => (
           <MobileCard
             key={guest.guest_id}

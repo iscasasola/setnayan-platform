@@ -8,6 +8,19 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Drive OAuth consolidated to one per-event connect (Phase 0)
+
+**Why:** Phase 0 collapsed the two Google Drive connections (Papic `provider='drive'` + Photo Delivery `provider='drive_photo_delivery'`) into one. The owner-facing setup + the 0009 spec change as a result.
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/API_Integration_Checklist.md`** — Google Drive OAuth now needs **one** redirect URI only (`GOOGLE_DRIVE_OAUTH_REDIRECT_URI` → `…/api/oauth/drive/callback`). **Remove `PHOTO_DELIVERY_OAUTH_REDIRECT_URI`** from the checklist (it's retired; the Photo Delivery connect routes through the Drive consent).
+2. **`~/Documents/Claude/Projects/Setnayan/0009_photo_delivery/0009_photo_delivery.md`** — note the OAuth model is now the single shared Drive connection (one consent, one grant `provider='drive'`); disconnecting Drive from either the Papic or Photo Delivery panel disconnects the shared connection. (Folds into the broader 0009 → universal Drive-copy-layer rescope already listed in the keystone item below.)
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Drive-copy layer keystone (R2 = system of record · 6-artifact Drive copy)
 
 **Why:** Code shipped Phase 1 (keystone) of the 2026-06-03 storage lock — the universal Google-Drive copy layer (`lib/drive-copy.ts` + `drive_copy_*` schema). The architecture, retention model, and the exact per-file iteration edits are already written up in the corpus design doc; this item is the reminder to walk that worklist via Cowork.

@@ -4,6 +4,31 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(drive-copy): Phase 0 — consolidate the two Drive OAuth flows into one per-event connect
+
+**Commit:** to be filled after commit.
+
+**Context:** Phase 0 of the storage build plan (`Storage_and_Drive_Copy_Architecture_2026-06-03.md` § 8), following the Phase 1 keystone (PR #825). An event could previously hold **two** Google Drive connections — `oauth_grants(provider='drive')` (Papic connect) and `provider='drive_photo_delivery'` (Photo Delivery connect) — each its own consent, redirect URI, and folder. The Phase-1 drive-copy layer reads `provider='drive'`, so a couple who connected only via Photo Delivery was invisible to it. This unifies them into **one** per-event "Connect Drive".
+
+**What ships:**
+
+- **`/api/oauth/photo-delivery/start`** — now uses the canonical Drive OAuth config (`getDriveOAuthConfig`), so the Photo Delivery connect goes through the **same Google consent + redirect URI** as Papic (→ `/api/oauth/drive/callback`). It still writes an `oauth_state` row with `provider='drive_photo_delivery'` purely as a **return-page marker**.
+- **`/api/oauth/drive/callback`** — now serves **both** connects: accepts `oauth_state.provider ∈ {drive, drive_photo_delivery}`, always upserts the grant as `provider='drive'`, **mirrors `events.photo_delivery_*`** connected-state (so the Photo Delivery panel + release worker light up from the one connect), and redirects back to the right panel (`papic` vs `photo-delivery`).
+- **`photo-delivery-release.ts`** + **`/api/photo-delivery/disconnect`** + **photo-delivery `actions.ts`** — all read/revoke the unified `provider='drive'` grant.
+- **`/api/oauth/drive/disconnect`** — the shared Drive disconnect now also clears `events.photo_delivery_*` so both surfaces return to idle together.
+- **`/api/oauth/photo-delivery/callback`** — marked **DEPRECATED** (unreachable post-consolidation; retained until the owner removes `PHOTO_DELIVERY_OAUTH_REDIRECT_URI` from Google Cloud — full deletion is a follow-up).
+- **Migration `20260727000000_drive_oauth_consolidation.sql`** — safety-net data backfill: renames pre-existing `'drive_photo_delivery'` grants → `'drive'` (conflict-safe), drops redundant ones, cleans stale `oauth_state`. **No schema change; the code does not depend on it** (Photo Delivery OAuth was gated on the pending verified-app review, so ~zero real grants exist).
+
+**Net result:** one consent screen, one registered redirect URI, one `provider='drive'` grant per event — the single connection that powers Papic capture, Photo Delivery, and the drive-copy layer.
+
+**Pilot-safe:** no real Drive grants exist yet (verified-app review #19g pending). Disconnect semantics now mean "disconnect Drive entirely" from either panel — a deliberate consequence of one connect.
+
+**Verification:** `pnpm -F web` typecheck/lint/build run in CI (no `node_modules` in the `/tmp` worktree). Admin Supabase client is untyped → no generated-type risk on the new selects/updates.
+
+**SPEC IMPACT:** Yes. The owner now registers only **one** Drive redirect URI (`GOOGLE_DRIVE_OAUTH_REDIRECT_URI`); `PHOTO_DELIVERY_OAUTH_REDIRECT_URI` is retired. Folds into the existing `[PENDING] 2026-06-03 — Drive-copy layer keystone` COWORK item (0009 rescope) + `API_Integration_Checklist.md`. COWORK note appended.
+
+---
+
 ## 2026-06-03 · feat(drive-copy): keystone — universal Google-Drive copy layer (R2 = system of record)
 
 **Commit:** to be filled after commit.

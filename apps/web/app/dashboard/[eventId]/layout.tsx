@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { Store } from 'lucide-react';
+import { MessageSquare, Store } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { fetchUserEvents } from '@/lib/events';
@@ -251,6 +251,18 @@ export default async function EventLayout({ children, params }: Props) {
             vendorProfiles={roles.vendorProfiles}
           />
         </div>
+        {/* Messages icon — links to the couple's vendor thread list (iteration
+            0019). No unread badge: chat_messages has no per-message read
+            tracking column in V1, so there is no clean count source.
+            Badge can be added in a follow-up once a read-receipts migration
+            lands. Styled to match UnreadBellBadge exactly. */}
+        <Link
+          href={`/dashboard/${eventId}/messages`}
+          aria-label="Messages"
+          className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-ink/15 bg-cream text-ink/70 hover:border-terracotta/40 hover:text-terracotta"
+        >
+          <MessageSquare className="h-4 w-4" strokeWidth={1.75} />
+        </Link>
         <UnreadBellBadge
           userId={user.id}
           initialUnread={unreadCount}

@@ -447,6 +447,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           attending={stats.attending}
           pending={stats.pending}
           declined={stats.declined}
+          teamFilter={teamFilter}
         />
       </Suspense>
     </section>

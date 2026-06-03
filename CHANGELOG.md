@@ -4,6 +4,43 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(schedule): Preparation ⇄ Event Day toggle
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Delta #3 of the 2026-06-03 customer-dashboard chrome redesign (corpus `DECISION_LOG.md` "Customer dashboard chrome RE-LOCKED"). The redesign asked for the couple's `/schedule` page to carry a **Preparation ⇄ Event Day** toggle: "Event Day" = the existing editable day-of timeline, "Preparation" = a NEW read-only agenda of dated planning items leading up to the wedding that auto-fills from payments + concierge milestones. This is a **net-new V1 surface** — the prototype intent, shipped with only the data real tables support. No new table, no migration: Preparation is pure read-only aggregation of EXISTING dated data.
+
+**What ships:**
+
+- **URL-driven segmented toggle** at the top of `/schedule` — `Preparation | Event Day` via `?view=preparation` / `?view=event-day` (bookmarkable, SSR-resolved, works without JS — each segment is a real prefetched `<Link>`). With no param the page defaults to **Preparation when there are prep items**, else opens straight on **Event Day** so empty-prep couples aren't met with a blank agenda. The Preparation segment carries a live count badge.
+- **Event Day mode = the existing blocks UI, untouched.** The add-block form, per-block cards (inline time editor + visibility toggle + delete), and empty state were lifted verbatim into an `EventDayView` helper — behavior is byte-for-byte identical to before.
+- **Preparation mode = a date-sorted, read-only agenda grouped by month.** Each row: date · label · a source chip (Payment / Paperwork / Meeting / Milestone) · optional amount, with overdue rows flagged in rose so a couple sees what slipped. A small legend explains that the agenda auto-fills (couples don't add rows by hand here). Honest empty state with deep-links to Budget + Paperwork (date-aware copy when no wedding date is set yet). Clean Editorial tokens (cream/ink/terracotta/mulberry + amber/blue/indigo source accents) consistent with Home's "Upcoming" surface.
+
+**Data sources — exactly what was wired vs deferred** (`lib/preparation.ts` `fetchPreparationAgenda`, each source graceful-degrades independently):
+
+- ✅ **Payment** — `event_vendor_line_items.due_date` (host-entered vendor payment milestones). Amount + vendor name + label; fully-paid lines dropped (sums `event_vendor_payments` per line, mirroring `renderBudgetIcs`). Deep-links to `/budget`.
+- ✅ **Paperwork** — `event_paperwork` rows with the "complete by" date derived via `lib/paperwork.ts` `completeByDate(document_type, event_date)`; `received` docs dropped. Deep-links to `/paperwork`.
+- ✅ **Meeting** — `vendor_meetings.starts_at` (consultations, tastings, fittings, site visits). Deep-links to the vendor's page.
+- ✅ **Milestone** (the "concierge"-flavored derived dates) — computed statutory windows from `events.event_date` + `ceremony_type`: PSA/CENOMAR −180d, marriage-license window −120d, Pre-Cana cutoff −60d (Catholic only). Same thresholds as `lib/upcoming-items.ts`. Deep-links to `/paperwork`.
+- ❌ **DEFERRED — manual / user-added prep items.** Would require a NEW table (couple-authored agenda rows). Out of scope for this additive, no-migration PR. Documented as a fast-follow in `COWORK_INBOX.md`.
+- ❌ **ABSENT — orders due dates.** The `orders` table has **no due-date column** (only `created_at` / `paid_at` / `reviewed_at` / `expires_at`). `expires_at` is a *subscription-renewal* date, already surfaced on Home + Orders; it is **not** a wedding-preparation milestone, so it is intentionally omitted from Preparation.
+- ❌ **ABSENT — Concierge / Today's Focus per-step milestones.** The 0016 wizard (`/today`) is an ordered card list with **no per-step due/target date column**. The only concierge-adjacent dated data is the statutory windows, wired above as the Milestone source.
+
+**Home untouched.** The lean-home 3-block rule (PersonalizedMenu · UpcomingSchedules · ActivityFeed, owner-locked 2026-06-02) is fully respected — `apps/web/app/dashboard/[eventId]/page.tsx` was **not modified**. The `/schedule` toggle is the entire deliverable; the existing `UpcomingSchedules` block already aggregates the same kinds of dated items for Home via `lib/upcoming-items.ts` and needed no change.
+
+**Files:**
+
+- `apps/web/lib/preparation.ts` — NEW. The aggregator + types (`PreparationItem` / `PreparationGroup` / `PreparationAgenda`, `fetchPreparationAgenda`). Source map + deferred-sources rationale documented in the file header.
+- `apps/web/app/dashboard/[eventId]/schedule/_components/schedule-mode-toggle.tsx` — NEW. Client segmented control (URL-driven, count badge).
+- `apps/web/app/dashboard/[eventId]/schedule/_components/preparation-agenda.tsx` — NEW. Read-only presentational agenda view + legend + empty state.
+- `apps/web/app/dashboard/[eventId]/schedule/page.tsx` — wired the toggle + view resolution + event-row fetch (`event_date` + `ceremony_type` for the agenda math); extracted the existing blocks UI into `EventDayView` (behavior unchanged).
+
+**Verification:** `pnpm -F web typecheck` clean (0 errors); `next lint` clean ("No ESLint warnings or errors") on all four changed files.
+
+**SPEC IMPACT:** **Yes.** Iteration **0021** (couple dashboard — Schedule surface gains the Preparation⇄Event Day mode) plus the cross-refs to the schedule spec / iteration **0007** (budget payment due dates feed Preparation) and iteration **0016** (Concierge has no per-step dated milestone — only statutory windows feed Preparation; manual prep entry deferred). Logged as `[PENDING] 2026-06-03` in `COWORK_INBOX.md`.
+
+---
+
 ## 2026-06-03 · feat(services): surface in-app add-ons inside the Services tab
 
 **Commit:** see merge commit.

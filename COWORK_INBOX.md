@@ -8,6 +8,27 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Public vendor profile now renders a per-category Details section + Portfolio gallery
+
+**Why:** Owner asked that the admin Demo Vendors seed make synthetic vendors *"provide the details and customization for each of the categories."* Implementing that surfaced that the iteration-0044 per-category attribute payloads (`vendor_service_attributes.attribute_payload`) had **no public render** at all — they only powered (future) filters/compare. To make the details visible, the public vendor profile gained two new sections. This is a small user-facing addition to the live `/v/[slug]` surface, so the specs should record it.
+
+**What landed (code):**
+
+1. **`/v/[slug]` Details section.** For each canonical_service the vendor offers, the profile now lists the filled per-category attributes (label → value facts; true booleans rendered as capability chips). Pricing-signal keys (`starting_price_centavos`, `price_model`, etc.) are intentionally omitted as redundant with the Packages section + the marketplace price filter.
+2. **`/v/[slug]` Portfolio gallery.** Renders `vendor_profiles.portfolio_r2_keys` (resolved through the existing `displayUrlForStoredAsset` R2/legacy-URL resolver). Both fetches are best-effort and degrade to empty if the table/column is absent.
+3. **Demo-data tooling (non-spec, dev/staging only).** `scripts/seed-demo-vendors.ts` now fills realistic schema-valid per-category attribute payloads + richer packages + picsum logo/portfolio images; `vendor-card.tsx`'s image guard allows the (already-whitelisted) picsum host so demo logos render on cards. These are simulation tooling, not product spec.
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/0044_*` (per-category schemas iteration — locate the folder/doc)** — note that a vendor's filled per-category attributes now surface publicly on `/v/[slug]` in a **Details** section (label → value + capability chips), not only in marketplace filters/compare.
+2. **`~/Documents/Claude/Projects/Setnayan/0022_vendor_dashboard/0022_vendor_dashboard.md`** — record that the public vendor profile renders a **Portfolio** gallery from the vendor's uploaded portfolio images + the per-category **Details** section described above.
+
+**Not spec-impacting (no action):** the demo-vendor seed enrichment + the picsum card-guard allowance are dev/staging simulation tooling.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Preparation items can now be TYPED (meeting + payment schedules)
 
 **Why:** Owner follow-up to PR #845. #845 let couples + booked vendors place **generic** dated tasks on the couple's `/schedule` **Preparation** agenda. The owner asked that those items be able to be **typed** — **meeting schedules** and **payment schedules**, not only tasks. This extends the hybrid Preparation surface; it does not change the four autofill sources.

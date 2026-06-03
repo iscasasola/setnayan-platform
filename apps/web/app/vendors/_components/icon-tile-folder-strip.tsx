@@ -34,7 +34,7 @@
  * exact behavior of the retired `FolderTabs` component this strip replaces.
  */
 
-import { useEffect, useState, type ComponentType } from 'react';
+import { useEffect, useMemo, useState, type ComponentType } from 'react';
 import {
   Building2,
   ClipboardList,
@@ -112,6 +112,16 @@ export function IconTileFolderStrip({
   // Active tile defaults to the scoped folder when scoping is on; otherwise
   // start on 'all' and let IntersectionObserver take over (unscoped catalog
   // mode tracks active section on scroll, identical to retired FolderTabs).
+  // Hide empty folder tiles (count === 0) so the strip only surfaces folders
+  // that actually have vendors — owner directive 2026-06-03 (TASK 3). The
+  // scoped folder is always kept so its active tile still renders even if its
+  // own count reads 0 in scoped mode. Used by the observer + the render so the
+  // active tile is never one we've hidden.
+  const visibleTabs = useMemo(
+    () => tabs.filter((t) => t.count > 0 || t.folder === scopedFolder),
+    [tabs, scopedFolder],
+  );
+
   const initialActive = scopedFolder
     ? (tabs.find((t) => t.folder === scopedFolder)?.slug ?? 'all')
     : 'all';
@@ -133,12 +143,12 @@ export function IconTileFolderStrip({
     // Scoped mode: only one section exists. Pin active tile to the scoped
     // folder; skip IntersectionObserver.
     if (scopedFolder !== null) {
-      const slug = tabs.find((t) => t.folder === scopedFolder)?.slug ?? 'all';
+      const slug = visibleTabs.find((t) => t.folder === scopedFolder)?.slug ?? 'all';
       setActiveSlug(slug);
       return;
     }
     if (typeof window === 'undefined') return;
-    const targets = tabs
+    const targets = visibleTabs
       .map((t) => document.getElementById(t.slug))
       .filter((el): el is HTMLElement => el !== null);
     if (targets.length === 0) return;
@@ -160,7 +170,7 @@ export function IconTileFolderStrip({
     );
     targets.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
-  }, [tabs, scopedFolder]);
+  }, [visibleTabs, scopedFolder]);
 
   /**
    * Build the href for a tile. Unscoped mode → hash-only (`#<slug>`).
@@ -213,7 +223,7 @@ export function IconTileFolderStrip({
             Icon={LayoutGrid}
           />
         </li>
-        {tabs.map((tab) => {
+        {visibleTabs.map((tab) => {
           const Icon = FOLDER_ICON[tab.folder];
           const label =
             WEDDING_FOLDER_SHORT_LABEL[tab.folder] ?? tab.label;

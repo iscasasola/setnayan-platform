@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · perf(nav): instant tab revisits (router-cache window) + site-editor fetch parallelization
+
+**Context:** Owner directive 2026-06-03 — *"make loading of home, guests, services, website, and more run without loading or blank intervals."* This lands the two pieces the same-day app-wide-skeletons work did NOT cover. Those skeletons fix the WRONG-shape flash on *first* visit; this fixes the RE-LOAD on *revisit* (Next 15's client Router Cache defaults to 0s, so re-tapping a tab you saw seconds ago refetched + re-skeletoned every time), plus the Website tab's slow first paint.
+
+**What changed (apps/web):**
+- **`next.config.ts`** — added `experimental.staleTimes { dynamic: 60, static: 300 }`. Re-tapping a recently-viewed dashboard tab within the window is now instant from the client Router Cache — no server round-trip, no skeleton at all. Confirmed a recognized key in Next 15.5.18's config schema.
+- **`site-editor/[eventId]/page.tsx`** — the Website tab's editor (a top-level route outside the dashboard layout) ran **6 sequential** Supabase awaits. Parallelized membership + event + guests + orders into one `Promise.all` (only the slug-dependent QR render stays sequential): 6 sequential awaits → 2 phases. Pairs with its `BoardPageSkeleton` loading shell.
+
+**Why staleTimes is safe:** every dashboard mutation runs through a Server Action that calls `revalidatePath()` (100+ call sites across `app/` + `lib/`), busting the client cache for the touched route — so a couple never sees stale data after they change something themselves. The 60s window only affects passive re-navigation.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean · `next build` success. Complementary to the app-wide skeleton system; shipped from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** None — pure perceived-performance / UX; no feature, pricing, schema, or workflow change.
+
+
 ## 2026-06-03 · fix(0023): demo-vendor "Create" works on production while admin demo mode is on
 
 **Context:** Owner tapped **Create demo vendors** on the live `/admin/demo-vendors` (setnayan.com) and reported *"the progress bar shows but it ends and does not complete."* Root cause: the one-click create's first request (`POST /api/admin/demo/seed { phase:'start' }`) hit the prod safety guard and returned **403** — so the bar flashed at ~5% then the red "Disabled on production" banner replaced it. Working as designed, but it blocked the owner's actual intent: they had **demo mode ON** (the yellow banner, with its Dec 1 2026 cleanup deadline) and were deliberately populating the live deployment. Owner approved (2026-06-03, via AskUserQuestion) allowing it.

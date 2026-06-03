@@ -1,4 +1,4 @@
-import { deriveMonogram, resolveMonogram } from '@/lib/monogram';
+import { deriveMonogram, resolveMonogram, resolveMonogramDesign } from '@/lib/monogram';
 
 /**
  * Circular monogram badge — iteration 0000 § event switcher (locked 2026-05-15).
@@ -16,6 +16,11 @@ type Event = {
   display_name: string | null;
   monogram_text: string | null;
   monogram_color: string | null;
+  // Onboarding free-monogram design (owner-locked 2026-06-03). When present,
+  // the badge renders the couple's chosen font + ink instead of the legacy
+  // serif-italic + color. Optional — older / non-onboarding events have neither.
+  monogram_frame_key?: string | null;
+  monogram_font_key?: string | null;
 };
 
 type Size = 'sm' | 'md';
@@ -39,15 +44,36 @@ export function EventMonogram({
     monogram_text: event.monogram_text,
     monogram_color: event.monogram_color,
   });
+  // When the couple designed a monogram in onboarding (frame + font keys),
+  // render their initials in the chosen font + ink — letters-forward, no frame
+  // (the ornate frame is illegible at ~28px). Otherwise keep the legacy
+  // serif-italic + color badge so older / non-onboarding events are unchanged.
+  const design = resolveMonogramDesign({
+    monogram_frame_key: event.monogram_frame_key,
+    monogram_font_key: event.monogram_font_key,
+  });
+  const ink = design?.color ?? color;
   const { box, text: textSize } = SIZE_TOKENS[size];
 
   return (
     <span
       aria-hidden
-      className={`inline-flex shrink-0 items-center justify-center rounded-full border bg-cream font-serif italic font-semibold ${box} ${textSize} ${
-        className ?? ''
-      }`.trim()}
-      style={{ color, borderColor: color }}
+      className={`inline-flex shrink-0 items-center justify-center rounded-full border bg-cream font-semibold ${
+        design ? '' : 'font-serif italic'
+      } ${box} ${textSize} ${className ?? ''}`
+        .replace(/\s+/g, ' ')
+        .trim()}
+      style={{
+        color: ink,
+        borderColor: ink,
+        ...(design
+          ? {
+              fontFamily: design.fontFamily,
+              fontStyle: design.fontStyle,
+              letterSpacing: design.letterSpacing,
+            }
+          : {}),
+      }}
     >
       {text}
     </span>

@@ -30,6 +30,14 @@ export type EventRow = {
   monogram_text: string | null;
   monogram_color: string | null;
   /**
+   * Onboarding free-monogram design (owner-locked 2026-06-03 — the couple's
+   * chosen {frame, font} preset persisted by app/onboarding/wedding). The
+   * event switcher renders this as the couple's icon (letters-forward in the
+   * chosen font + ink). Optional: older / non-onboarding events have neither.
+   */
+  monogram_frame_key?: string | null;
+  monogram_font_key?: string | null;
+  /**
    * Today's Focus subscription status · production column kept the
    * concierge_status name even after the 2026-05-24 8th-row spec lock
    * specced renaming to todays_focus_status (the rename never shipped
@@ -91,6 +99,8 @@ export const fetchUserEvents = cache(async (
          venue_address,
          monogram_text,
          monogram_color,
+         monogram_frame_key,
+         monogram_font_key,
          concierge_status
        )`,
     )

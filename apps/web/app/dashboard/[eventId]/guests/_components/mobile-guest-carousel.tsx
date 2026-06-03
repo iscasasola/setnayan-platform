@@ -208,6 +208,47 @@ export function MobileGuestCarousel({
 
   const currentRsvp = searchParams.get('rsvp') ?? '';
 
+  // --- Bottom-sheet height + drag-to-close (owner 2026-06-03) ---
+  // The sheet opens to ONLY the height the active panel needs — Summary's 2×2
+  // count grid is taller than Search's single compose bar, etc. — instead of a
+  // fixed third of the screen. The grabber is also draggable: drag down to snap
+  // closed (grabber only), up to snap open; a tap toggles. The keyboard-docked
+  // heights (kbOpen) are unchanged.
+  const GRABBER_H = 36; // h-9 grabber strip
+  // Per-panel open heights incl. the grabber — Summary · Search · Add · Customize.
+  const PANEL_OPEN_H = [200, 108, 196, 196];
+  const openH = PANEL_OPEN_H[active] ?? 200;
+  const [dragH, setDragH] = useState<number | null>(null);
+  const dragRef = useRef<{ startY: number; startH: number; moved: boolean } | null>(null);
+  const restingH = collapsed ? GRABBER_H : openH;
+
+  const onGrabberDown = (e: React.PointerEvent) => {
+    if (kbOpen) return;
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+    dragRef.current = { startY: e.clientY, startH: restingH, moved: false };
+    setDragH(restingH);
+  };
+  const onGrabberMove = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+    if (Math.abs(e.clientY - d.startY) > 3) d.moved = true;
+    setDragH(Math.max(GRABBER_H, Math.min(d.startH - (e.clientY - d.startY), openH)));
+  };
+  const onGrabberUp = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+    dragRef.current = null;
+    if (!d.moved) {
+      // A tap (no real drag) just toggles open/closed.
+      setCollapsed((c) => !c);
+    } else {
+      // Snap to whichever end the drag finished closer to.
+      const finalH = Math.max(GRABBER_H, Math.min(d.startH - (e.clientY - d.startY), openH));
+      setCollapsed(finalH < (GRABBER_H + openH) / 2);
+    }
+    setDragH(null);
+  };
+
   return (
     <>
       {/* in-flow spacer covering the panel sheet + the bottom-nav strip so the
@@ -216,12 +257,13 @@ export function MobileGuestCarousel({
         aria-hidden
         className="h-[calc(var(--gcar-h)+4rem+env(safe-area-inset-bottom))] transition-[height] duration-200 ease-out lg:hidden"
         style={
-          // Keep the collapse-grabber feature, but do NOT collapse this spacer
-          // when the keyboard opens — that 348px→0 shift was the reflow that
-          // made iOS deliver the tap to a guest card (owner-reported 2026-06-03).
-          !kbOpen && collapsed
-            ? { height: 'calc(2.25rem + 4rem + env(safe-area-inset-bottom))' }
-            : undefined
+          // Mirror the sheet's resting height so the guest list's bottom padding
+          // tracks the panel exactly (per-panel open height, or just the grabber
+          // when collapsed). NOT collapsed when the keyboard is up — that
+          // 348px→0 reflow was the iOS tap-delivery bug (owner-reported 2026-06-03).
+          kbOpen
+            ? undefined
+            : { height: `calc(${restingH}px + 4rem + env(safe-area-inset-bottom))` }
         }
       />
 
@@ -232,13 +274,11 @@ export function MobileGuestCarousel({
           of this sheet and BECAME the bottom nav, so this sheet now holds only
           the active panel. */}
       <div
-        className={`fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 flex h-[var(--gcar-h)] flex-col overflow-hidden rounded-t-2xl bg-cream shadow-[0_-12px_30px_-18px_rgba(30,34,41,0.28)] ring-1 ring-ink/10 lg:hidden ${kbOpen ? '' : 'transition-[height] duration-200 ease-out'}`}
+        className={`fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 flex h-[var(--gcar-h)] max-h-[85dvh] flex-col overflow-hidden rounded-t-2xl bg-cream shadow-[0_-12px_30px_-18px_rgba(30,34,41,0.28)] ring-1 ring-ink/10 lg:hidden ${kbOpen || dragH !== null ? '' : 'transition-[height] duration-200 ease-out'}`}
         style={
           kbOpen
             ? { bottom: kbInset, height: active === 2 ? 190 : active === 1 ? 84 : undefined }
-            : collapsed
-              ? { height: '2.25rem' }
-              : undefined
+            : { height: dragH ?? restingH }
         }
       >
         {/* Grabber — tap to collapse the panel down to this handle so the guest
@@ -246,10 +286,13 @@ export function MobileGuestCarousel({
         {!kbOpen && (
           <button
             type="button"
-            onClick={() => setCollapsed((c) => !c)}
+            onPointerDown={onGrabberDown}
+            onPointerMove={onGrabberMove}
+            onPointerUp={onGrabberUp}
+            onPointerCancel={onGrabberUp}
             aria-label={collapsed ? 'Expand panel' : 'Collapse panel'}
             aria-expanded={!collapsed}
-            className="flex h-9 shrink-0 items-center justify-center gap-2 text-ink/40 transition-colors active:text-ink/70"
+            className="flex h-9 shrink-0 touch-none cursor-grab items-center justify-center gap-2 text-ink/40 transition-colors active:cursor-grabbing active:text-ink/70"
           >
             <span aria-hidden className="h-1.5 w-9 rounded-full bg-ink/25" />
             <ChevronDown
@@ -306,7 +349,7 @@ export function MobileGuestCarousel({
               the search bar"). The filters + sort live in bottom sheets opened
               from the icons; the input docks flush above the keyboard. */}
           <section
-            className={`flex w-full shrink-0 snap-center flex-col px-4 py-3 ${
+            className={`flex w-full shrink-0 snap-center flex-col overflow-y-auto px-4 py-3 ${
               kbOpen ? 'justify-end' : 'justify-start'
             }`}
           >
@@ -342,7 +385,7 @@ export function MobileGuestCarousel({
           {/* 3 — Add: inline quick-entry form. justify-end when the keyboard is
               up so the two inputs sit flush above it. */}
           <section
-            className={`flex w-full shrink-0 snap-center flex-col px-4 py-3 ${
+            className={`flex w-full shrink-0 snap-center flex-col overflow-y-auto px-4 py-3 ${
               kbOpen ? 'justify-end' : 'justify-center'
             }`}
           >
@@ -858,7 +901,7 @@ function CustomizePanel({
   // the selection isn't stranded behind the entry button.
   if (!selectMode && count === 0) {
     return (
-      <section className="flex w-full shrink-0 snap-center flex-col items-center justify-center gap-3 px-6 py-3 text-center">
+      <section className="flex w-full shrink-0 snap-center flex-col items-center justify-center gap-3 overflow-y-auto px-6 py-3 text-center">
         <p className="text-sm font-semibold text-ink">Select &amp; assign</p>
         <p className="max-w-[260px] text-xs leading-snug text-ink/55">
           Pick several guests, then set their side, role, or group in one go.
@@ -876,7 +919,7 @@ function CustomizePanel({
   }
 
   return (
-    <section className="flex w-full shrink-0 snap-center flex-col justify-center gap-3 px-4 py-3">
+    <section className="flex w-full shrink-0 snap-center flex-col justify-center gap-3 overflow-y-auto px-4 py-3">
       <div className="flex items-center justify-between gap-3">
         <label className="inline-flex items-center gap-2 text-sm text-ink">
           <input

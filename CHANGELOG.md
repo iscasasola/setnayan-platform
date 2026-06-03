@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(guests): draggable panel sheet — snap-to-close + per-panel content height
+
+**Context:** Owner — "I want the collapse to animate and also draggable with snap to close. Opening it will only open up the needed height of the carousel, depends on the input included." The sheet collapsed/expanded via a tap on the grabber to a fixed height (`--gcar-h` 280px). Two upgrades requested: a real drag gesture, and an open height that fits each panel rather than a fixed third of the screen.
+
+**What changed (`apps/web/app/dashboard/[eventId]/guests/_components/mobile-guest-carousel.tsx`):**
+- **Per-panel open height** — the sheet now opens to a height sized to the active panel (`PANEL_OPEN_H = [200, 108, 196, 196]` for Summary · Search · Add · Customize, incl. the 36px grabber), instead of a single `--gcar-h`. Search (one compose-bar row) opens short; Summary (2×2 count grid) opens taller. Switching panels animates the height. Each panel is `overflow-y-auto` so content never clips if a height is slightly tight.
+- **Draggable grabber with snap** — pointer-drag on the grabber tracks the finger live (transition disabled mid-drag), and on release snaps to whichever end (open or collapsed/grabber-only) the drag finished nearer; a tap still toggles. `touch-none` on the grabber stops the page scrolling mid-drag; `setPointerCapture` keeps the drag tracking past the handle.
+- **List reflows in sync** — the in-flow spacer mirrors the sheet's resting height, so the guest list bottom-padding tracks the panel (builds on #857).
+- **Keyboard path preserved** — the `kbOpen` docked heights (190/84) + the iOS tap-delivery fix (spacer not collapsed when the keyboard is up) are untouched. Horizontal swipe between panels is unchanged.
+
+**Verification:** Reviewed for type-soundness (`React.PointerEvent` handlers mirror the file's existing `React.KeyboardEvent` usage; all heights are deterministic constants — no runtime measurement). CI (typecheck + production build) is the gate before merge; on-device feel (drag threshold, per-panel heights) to be confirmed by owner on the Vercel prod deploy, since the dashboard is auth-gated and can't render without Supabase env locally.
+
+**SPEC IMPACT:** None — interaction polish on an existing surface; no SKU, schema, copy, or workflow change.
+
+---
+
 ## 2026-06-03 · feat(marketplace): demo vendors get real per-category details, richer packages & images
 
 **Commit:** see merge commit on this PR.

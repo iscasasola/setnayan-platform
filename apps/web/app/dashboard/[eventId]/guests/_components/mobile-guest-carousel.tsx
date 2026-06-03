@@ -215,11 +215,33 @@ export function MobileGuestCarousel({
   // closed (grabber only), up to snap open; a tap toggles. The keyboard-docked
   // heights (kbOpen) are unchanged.
   const GRABBER_H = 36; // h-9 grabber strip
-  // Per-panel open heights incl. the grabber — Summary · Search · Add · Customize.
-  const PANEL_OPEN_H = [200, 108, 196, 196];
-  const openH = PANEL_OPEN_H[active] ?? 200;
+  // The sheet opens to EXACTLY the active panel's content height (measured), so
+  // it stays at its minimum and the guest list above keeps the most room. The
+  // Search panel (one compose bar) ends up far shorter than Summary (2×2 count
+  // grid), etc. Falls back to a sane default until the first measurement lands;
+  // content taller than 60% of the screen scrolls inside the panel.
+  const [openH, setOpenH] = useState(176);
   const [dragH, setDragH] = useState<number | null>(null);
   const dragRef = useRef<{ startY: number; startH: number; moved: boolean } | null>(null);
+
+  useEffect(() => {
+    if (kbOpen) return; // keyboard path uses its own docked height
+    const section = trackRef.current?.children[active] as HTMLElement | undefined;
+    if (!section) return;
+    const measure = () => {
+      const cap = Math.round(window.innerHeight * 0.6);
+      setOpenH(Math.min(GRABBER_H + section.scrollHeight, cap));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(section);
+    window.addEventListener('resize', measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [active, kbOpen]);
+
   const restingH = collapsed ? GRABBER_H : openH;
 
   const onGrabberDown = (e: React.PointerEvent) => {
@@ -307,11 +329,11 @@ export function MobileGuestCarousel({
         <div
           ref={trackRef}
           onScroll={onScroll}
-          className="flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className={`flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${kbOpen ? '' : 'items-start'}`}
         >
           {/* 1 — Summary: animated RSVP counts (also filter links) */}
-          <section className="w-full shrink-0 snap-center overflow-y-auto px-4 py-3">
-            <div className="grid h-full grid-cols-2 content-center gap-2.5">
+          <section className="w-full shrink-0 snap-center max-h-full overflow-y-auto px-4 py-3">
+            <div className="grid grid-cols-2 gap-2.5">
               <StatBox
                 label="Total"
                 value={total}
@@ -349,7 +371,7 @@ export function MobileGuestCarousel({
               the search bar"). The filters + sort live in bottom sheets opened
               from the icons; the input docks flush above the keyboard. */}
           <section
-            className={`flex w-full shrink-0 snap-center flex-col overflow-y-auto px-4 py-3 ${
+            className={`flex w-full shrink-0 snap-center max-h-full flex-col overflow-y-auto px-4 py-3 ${
               kbOpen ? 'justify-end' : 'justify-start'
             }`}
           >
@@ -385,7 +407,7 @@ export function MobileGuestCarousel({
           {/* 3 — Add: inline quick-entry form. justify-end when the keyboard is
               up so the two inputs sit flush above it. */}
           <section
-            className={`flex w-full shrink-0 snap-center flex-col overflow-y-auto px-4 py-3 ${
+            className={`flex w-full shrink-0 snap-center max-h-full flex-col overflow-y-auto px-4 py-3 ${
               kbOpen ? 'justify-end' : 'justify-center'
             }`}
           >
@@ -823,8 +845,8 @@ function QuickAddInlineForm({ eventId, kbOpen }: { eventId: string; kbOpen: bool
     // session count move above them. justify-end docks the stack to the
     // bottom while the keyboard is up.
     <div
-      className={`flex h-full flex-col gap-3 ${
-        kbOpen ? 'justify-end' : 'justify-center'
+      className={`flex flex-col gap-3 ${
+        kbOpen ? 'h-full justify-end' : ''
       }`}
     >
       {addError ? (
@@ -901,7 +923,7 @@ function CustomizePanel({
   // the selection isn't stranded behind the entry button.
   if (!selectMode && count === 0) {
     return (
-      <section className="flex w-full shrink-0 snap-center flex-col items-center justify-center gap-3 overflow-y-auto px-6 py-3 text-center">
+      <section className="flex w-full shrink-0 snap-center max-h-full flex-col items-center justify-center gap-3 overflow-y-auto px-6 py-3 text-center">
         <p className="text-sm font-semibold text-ink">Select &amp; assign</p>
         <p className="max-w-[260px] text-xs leading-snug text-ink/55">
           Pick several guests, then set their side, role, or group in one go.
@@ -919,7 +941,7 @@ function CustomizePanel({
   }
 
   return (
-    <section className="flex w-full shrink-0 snap-center flex-col justify-center gap-3 overflow-y-auto px-4 py-3">
+    <section className="flex w-full shrink-0 snap-center max-h-full flex-col justify-center gap-3 overflow-y-auto px-4 py-3">
       <div className="flex items-center justify-between gap-3">
         <label className="inline-flex items-center gap-2 text-sm text-ink">
           <input

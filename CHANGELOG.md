@@ -23,6 +23,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · fix(guests): mobile panel hugs its content (minimum height) → maximum guest list
+
+**Context:** Owner — the per-panel fixed heights barely differed (200/196/196), so the sheet looked uniform and ate a third of the screen. "Keep the height at minimum so we can have maximum visual for the guest list," and keep the focused text input docked to the bottom near the keyboard.
+
+**What changed (`apps/web/app/dashboard/[eventId]/guests/_components/mobile-guest-carousel.tsx`):**
+- **Measured content height** — replaced the fixed `PANEL_OPEN_H` array with a runtime measurement: the open sheet is now `grabber + the active panel's scrollHeight`, capped at 60% of the screen (taller content scrolls inside the panel). Each panel hugs its own content, so Search (one compose bar) is far shorter than Summary (2×2 count grid), and the guest list above gets the most room. A `ResizeObserver` re-measures on panel switch + content changes.
+- **Hug, don't stretch** — the track is `items-start` (keyboard closed) and every panel `max-h-full overflow-y-auto`, so `scrollHeight` reports true content height in all cases; Summary's grid dropped `h-full content-center`; the Add form dropped its `h-full`/`justify-center` so it hugs.
+- **Keyboard docking preserved** — when an input is focused, the sheet still docks above the keyboard (`bottom: kbInset`) with the inputs rendered last + `justify-end`, so the lowest text field sits flush against the keyboard. (Add form keeps `h-full justify-end` only while `kbOpen`.)
+
+**Verification:** Reviewed for type-soundness + RO-loop safety (height set is idempotent; `scrollHeight` is invariant to the sheet height with `items-start`+`max-h-full`). CI typecheck + production build green before merge; per-panel feel confirmed by owner on the Vercel prod deploy (auth-gated page, no local Supabase env).
+
+**SPEC IMPACT:** None — interaction sizing polish; no SKU, schema, copy, or workflow change.
+
+---
+
 ## 2026-06-03 · refactor(customer-more): de-dupe the mobile /more grid + brand-voice copy polish
 
 **Context:** "Less stressful" pass on the customer dashboard. The mobile `/more` overflow page (the 5th bottom-nav tab's landing) rendered EVERY entry from `buildCustomerNavGroups` — including the four surfaces that are already permanent bottom tabs (Home · Guests · Services · Website). So a host saw those four (plus Home a second time under the "Today" group) repeated as cards on `/more`, contradicting the page's own subtitle ("the rest live here") and padding the grid with ~5 redundant cards.

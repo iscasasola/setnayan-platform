@@ -8,6 +8,19 @@
 
 ---
 
+## [PENDING] 2026-06-03 — "Planning reminders" on/off toggle SHIPPED (0025 Settings)
+
+**Why:** The free recommended-deadline reminders ship on by default; couples can now turn them off in Settings (the quiet opt-out, no fork). New `users.reminders_enabled` column + a Settings toggle that gates the Home `recommended_deadline` source.
+
+**Owner action:** push migration `20260801000000_users_reminders_enabled.sql` (`supabase db push`) so the column exists.
+
+**Spec corpus update (owner walks via Cowork):**
+1. **`~/Documents/Claude/Projects/Setnayan/0025_profile_settings/`** — record the "Planning reminders: on/off" toggle (default on · `users.reminders_enabled` · gates the Home recommended-deadline reminders). Completes the toggle follow-up flagged on the recommended-deadline reminders item.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Free recommended-deadline vendor reminders now SHIP (Today's Focus replacement)
 
 **Why:** The retired Today's Focus wizard's "recommended deadline to book each vendor" job is now delivered free in the Home "Upcoming" stream — full vendor set, on by default, no fork/paywall (owner-confirmed model). Code is live; the planning spec should record the concrete behavior.

@@ -12,8 +12,11 @@
  * scripts/seed-demo-vendors.ts) so chunked output matches the CLI exactly
  * (per-category RNG keyed on (batchId, service)).
  *
- * Admin-only. Non-prod only (the seed refuses prod — demo vendors are
- * staging-only). Audit-logged.
+ * Admin-only. Non-prod by default; on PRODUCTION it runs only while admin
+ * demo mode is on (the same banner switch) — demo vendors are hidden from
+ * real users unless demo mode is enabled, so this can't leak. With demo mode
+ * off, prod stays hard-blocked. Scoped relaxation of the staging-only lock,
+ * owner-approved 2026-06-03. Audit-logged.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -27,6 +30,7 @@ import {
   fetchReviewEventPool,
   seedCategory,
 } from '@/scripts/seed-demo-vendors';
+import { isDemoMode } from '@/lib/demo-mode';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -47,30 +51,39 @@ async function requireAdmin() {
   const isAdmin =
     profile?.is_internal || profile?.is_team_member || profile?.account_type === 'admin';
   if (!isAdmin) return { ok: false as const, status: 403, error: 'Admin only.' };
-  return { ok: true as const, userId: user.id, email: profile?.email ?? user.email };
+  return { ok: true as const, userId: user.id, email: profile?.email ?? user.email, profile };
 }
 
 const SUPABASE_URL =
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL ?? '';
 
-function prodGuard(): NextResponse | null {
-  if (!isNonProdUrl(SUPABASE_URL)) {
-    return NextResponse.json(
-      {
-        error:
-          'Disabled on production — demo vendors are staging-only. Run this on a deployment pointed at a non-prod Supabase.',
-      },
-      { status: 403 },
-    );
-  }
-  return null;
+// Non-prod is always allowed. On production we allow seeding ONLY while admin
+// demo mode is on for THIS request — the same switch that surfaces `is_demo`
+// vendors in the marketplace + shows the banner. Demo vendors stay hidden from
+// real users when demo mode is off, so this can't leak. Without demo mode,
+// prod stays hard-blocked (the accident guard). Owner-approved 2026-06-03 —
+// scoped relaxation of the "demo vendors are staging-only" lock.
+function prodGuard(demoOn: boolean): NextResponse | null {
+  if (isNonProdUrl(SUPABASE_URL)) return null;
+  if (demoOn) return null;
+  return NextResponse.json(
+    {
+      error:
+        'Disabled on production unless demo mode is on. Turn on demo mode (the banner toggle) first, then run Create again — or run this on a non-prod Supabase deployment.',
+    },
+    { status: 403 },
+  );
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const auth = await requireAdmin();
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const blocked = prodGuard();
+  // Demo mode is admin-only by construction; `auth` already proved admin, so
+  // this just reads the per-request flag (cookie `setnayan_demo_mode=1`, sent
+  // automatically with this same-origin POST, or `?demo=1`).
+  const demoOn = isDemoMode(req, auth.profile);
+  const blocked = prodGuard(demoOn);
   if (blocked) return blocked;
 
   let body: Record<string, unknown>;
@@ -98,7 +111,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       action: 'demo_vendors_create_start',
       target_table: 'vendor_profiles',
       target_id: null,
-      after_json: { deleted_count: count ?? 0, batch_id: batchId, total_categories: services.length },
+      after_json: {
+        deleted_count: count ?? 0,
+        batch_id: batchId,
+        total_categories: services.length,
+        on_production: !isNonProdUrl(SUPABASE_URL),
+        demo_mode: demoOn,
+      },
       actor_user_id: auth.userId,
       reason: 'One-click demo-vendor create — cleanup + start via admin UI',
     });

@@ -4,6 +4,25 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · fix(0016): onboarding completion overlay can no longer strand the couple ("Creating your personalized dashboard" hang)
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner report (real iPhone, production) — the final onboarding screen sat forever on "Creating your personalized dashboard / Building your personalized dashboard…" and never reached the dashboard. Root cause was a set of unguarded async paths around the completion overlay: any one of them left the blocking overlay up with no error and no way to retry (the retry guard `committingRef` also stayed locked).
+
+**What changed:**
+- **`app/onboarding/wedding/_components/onboarding-shell.tsx`** — (1) `handleFinish` now wraps `await commitOnboardingWedding(...)` in try/catch. Previously a *rejected* server action (a 500, a serverless function timeout, or a dropped RSC transport on a wobbly mobile connection) rejected the awaited promise unhandled, so `committingRef` stayed `true` and the overlay stayed up forever — the exact reported symptom. On reject we now unwind (`finishing`/`committing`/ref reset) and surface the existing retry error. (2) `goToDashboard` gains a navigation watchdog: if the client router wedges or `router.push` silently no-ops, a hard `window.location.assign` fires `ANALYZING_HOLD_MS + 4000ms` after the tap (guarded on still being on `/onboarding`, so it's a no-op on the happy path once navigation succeeds).
+- **`lib/analytics.ts`** — `captureEvent`'s fire-and-forget `fetch` is now bounded by a 2s `AbortController`. It is `await`ed inside the onboarding commit's request path, so an unbounded hang could drag the serverless function to its timeout → the commit rejected → (pre-fix) the couple was stranded. This honors the module's own stated contract ("never let analytics block the response").
+- **`app/onboarding/wedding/actions.ts`** — the shortlist/anchor seed block is now wrapped try/catch. `recomputeReceptionAnchor` runs after the event row is created but wasn't error-checked; a throw there rejected the whole commit *after* the event existed, so a client retry created a DUPLICATE event. The surrounding code already declared this block "best-effort"; this enforces it.
+
+**Verification:** `pnpm -F web typecheck` clean · `next lint` on the 3 files clean. The failure-mode paths (reject / timeout / wedged router) are not exercisable in a happy-path preview; happy-path behavior is unchanged (the watchdog no-ops once navigation succeeds; the try/catch wraps the same statements).
+
+**SPEC IMPACT:** None. Pure resilience/error-handling fix — no SKU, schema, workflow, copy, or branding change (the user-facing error string already existed).
+
+**Follow-up (not in this PR):** the commit is still non-idempotent on the *other* failure branches (e.g. `event_members` insert fails → returns `ok:false` → a retry creates a second event). A durable fix needs a client-supplied idempotency key + server dedup — flagged for the owner; out of scope for this hang fix.
+
+---
+
 ## 2026-06-03 · feat(0006,0016): music compatibility score — vendors ranked by song overlap + per-card cue (compatibility PR 4)
 
 **Commit:** see merge commit on this PR.

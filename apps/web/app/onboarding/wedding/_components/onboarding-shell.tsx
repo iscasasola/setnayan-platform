@@ -1825,7 +1825,28 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
       } catch {
         /* prefetch is best-effort */
       }
-      window.setTimeout(() => router.push(base), ANALYZING_HOLD_MS);
+      // Warm SPA transition after the deliberate hold.
+      window.setTimeout(() => {
+        try {
+          router.push(base);
+        } catch {
+          window.location.assign(base);
+        }
+      }, ANALYZING_HOLD_MS);
+      // Stranding watchdog (owner report 2026-06-03: stuck forever on "Creating
+      // your personalized dashboard"). If the client router wedges or the push
+      // silently no-ops, force a hard navigation — a real page load always works
+      // even when the SPA router is stuck, so the couple can never be trapped on
+      // the overlay. A successful push has already left /onboarding by now, so on
+      // the happy path this is a no-op.
+      window.setTimeout(() => {
+        if (
+          typeof window !== 'undefined' &&
+          window.location.pathname.startsWith('/onboarding')
+        ) {
+          window.location.assign(base);
+        }
+      }, ANALYZING_HOLD_MS + 4000);
     };
 
     // Idempotent: event already exists (back-then-forward) — show the overlay + go.
@@ -1845,30 +1866,44 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
     setFinishing(true);
     committingRef.current = true;
     setCommitting(true);
-    const res = await commitOnboardingWedding(buildCommitPayload(state));
-    committingRef.current = false;
-    setCommitting(false);
-    if (res.ok) {
-      setCommittedEventId(res.eventId);
-      try {
-        localStorage.removeItem(ONBOARDING_DRAFT_KEY);
-      } catch {
-        /* non-fatal */
+    try {
+      const res = await commitOnboardingWedding(buildCommitPayload(state));
+      committingRef.current = false;
+      setCommitting(false);
+      if (res.ok) {
+        setCommittedEventId(res.eventId);
+        try {
+          localStorage.removeItem(ONBOARDING_DRAFT_KEY);
+        } catch {
+          /* non-fatal */
+        }
+        // DON'T reset the in-memory state here. setState({...EMPTY_ONBOARDING_STATE})
+        // flips step→0, which flashed the welcome screen under the overlay before
+        // navigation (owner 2026-06-02: "it initially loaded to the first screen of
+        // the onboarding before it proceeded to the dashboard"). Clearing the draft
+        // above already makes a re-open blank; the committedEventId guard keeps the
+        // persist effect from re-writing it. The overlay stays up, then we navigate.
+        goToDashboard(res.eventId);
+      } else if (res.error === 'not_authenticated') {
+        // Session lost mid-flow — drop the overlay + bounce to the account gate.
+        setFinishing(false);
+        setCommitError('Please create your account to save your plan.');
+        setState((s) => ({ ...s, step: 11 }));
+      } else {
+        // Surface the error + let them retry — don't strand them on the overlay.
+        setFinishing(false);
+        setCommitError('Something went wrong saving your plan. Please try again.');
       }
-      // DON'T reset the in-memory state here. setState({...EMPTY_ONBOARDING_STATE})
-      // flips step→0, which flashed the welcome screen under the overlay before
-      // navigation (owner 2026-06-02: "it initially loaded to the first screen of
-      // the onboarding before it proceeded to the dashboard"). Clearing the draft
-      // above already makes a re-open blank; the committedEventId guard keeps the
-      // persist effect from re-writing it. The overlay stays up, then we navigate.
-      goToDashboard(res.eventId);
-    } else if (res.error === 'not_authenticated') {
-      // Session lost mid-flow — drop the overlay + bounce to the account gate.
-      setFinishing(false);
-      setCommitError('Please create your account to save your plan.');
-      setState((s) => ({ ...s, step: 11 }));
-    } else {
-      // Surface the error + let them retry — don't strand them on the overlay.
+    } catch (err) {
+      // The server action REJECTED outright — a 500, a serverless function
+      // timeout, or a dropped RSC transport on a wobbly mobile connection. With
+      // no catch the awaited promise rejected unhandled, so committingRef stayed
+      // locked and the overlay stayed up forever with no error + no way to retry
+      // (owner report 2026-06-03: "never loaded"). Unwind everything + let them
+      // tap finish again.
+      console.error('[onboarding] commit rejected', err);
+      committingRef.current = false;
+      setCommitting(false);
       setFinishing(false);
       setCommitError('Something went wrong saving your plan. Please try again.');
     }
@@ -1882,15 +1917,17 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
       {finishing && (
         <div className="fin-overlay" role="status" aria-live="polite" aria-busy="true">
           <div className="fin-inner">
-            <svg className="fin-mark" viewBox="0 0 5333.3335 5333.3335" role="img" aria-label="Setnayan">
+            <div className="fin-loader">
+              <div className="fin-spinner" aria-hidden="true" />
+              <svg className="fin-mark" viewBox="0 0 5333.3335 5333.3335" role="img" aria-label="Setnayan">
               <path
                 d="M 1859.526,3749.781 C 1458.028,3717.757 1065.454,3548.554 758.3406,3241.44 451.2286,2934.328 282.2397,2541.742 250.2195,2140.255 l 1326.8215,1.536 V 661.7647 C 1368.543,727.4195 1172.067,841.5416 1006.804,1006.804 768.3191,1245.29 633.8543,1548.261 602.7217,1859.526 H 250 C 282.024,1458.028 451.2265,1065.455 758.3406,758.3406 1065.453,451.2287 1458.039,282.2396 1859.526,250.2195 V 2422.739 H 661.7647 c 65.6549,208.498 179.7773,404.975 345.0393,570.237 238.486,238.486 541.457,372.95 852.722,404.083 z m 280.948,0 1.537,-1609.307 h 280.948 v 1197.761 c 208.498,-65.655 404.974,-179.776 570.237,-345.039 238.485,-238.486 372.95,-541.457 404.082,-852.722 H 3750 c -32.024,401.498 -201.226,794.071 -508.341,1101.185 -307.112,307.112 -699.697,476.101 -1101.185,508.122 z m 0,-1890.255 c 32.025,-401.498 201.227,-794.073 508.341,-1101.1854 0.658,-0.6584 1.316,-1.3173 1.975,-1.9754 -80.395,-42.041 -163.892,-76.0428 -249.331,-101.7389 -85.439,-25.696 -172.821,-43.0864 -260.985,-51.9046 V 250.2195 c 401.497,32.0253 794.073,201.0094 1101.185,508.1211 307.114,307.1134 476.317,699.6874 508.341,1101.1854 h -352.722 c -31.132,-311.265 -165.597,-614.236 -404.082,-852.722 -15.719,-15.7189 -32.464,-29.741 -48.727,-44.5564 -15.975,14.4789 -31.774,29.1397 -47.191,44.5564 -238.485,238.486 -372.95,541.457 -404.082,852.722 z"
                 fill="#cb9e4b"
                 fillRule="nonzero"
                 transform="matrix(1.3333333,0,0,-1.3333333,0,5333.3333)"
               />
-            </svg>
-            <div className="fin-spinner" aria-hidden="true" />
+              </svg>
+            </div>
             <div className="fin-title">Creating your personalized dashboard</div>
             <div className="fin-sub">{ANALYZING_STAGES[finStage]}</div>
           </div>

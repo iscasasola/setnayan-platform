@@ -88,12 +88,14 @@ export function buildCustomerBottomNav(eventId: string): BottomNavItem[] {
       activeMatch: `${base}/vendors`,
     },
     {
-      // Slot 4 · Website — public landing-page hub + invitation editor.
+      // Slot 4 · Website — opens the full-screen Reels site editor
+      // (/site-editor). Flipped 2026-06-03 from the retired journey scroll;
+      // the invitation editor stays under this tab's active-state.
       key: 'website',
       label: 'Website',
-      href: `${base}/website`,
+      href: `/site-editor/${eventId}`,
       icon: Globe,
-      activeMatch: [`${base}/website`, `${base}/invitation`],
+      activeMatch: [`/site-editor/${eventId}`, `${base}/invitation`],
     },
     {
       // Slot 5 · More — catch-all for every surface that isn't a dedicated

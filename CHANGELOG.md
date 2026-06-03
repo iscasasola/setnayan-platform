@@ -4,6 +4,28 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(site-editor): flip the Website doorway to the editor + retire the journey scroll (Phase 2)
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Phase 2 of the 2026-06-01 flip sequence (Phase 1 = card-parity, shipped PR #821). Owner directive: "make the editor the page and remove everything else." The full-screen Reels editor (`/site-editor/[eventId]`) is now the canonical wedding-website surface; the journey scroll (`/dashboard/[eventId]/website`, PR #704) is retired.
+
+**What ships:**
+
+- **Nav doorway → editor.** `customer-nav-config.ts` (desktop sidebar) + `customer-bottom-nav.tsx` (mobile slot 4) "Website" now point to `/site-editor/${eventId}` (was `${base}/website`). Tapping Website opens the full-screen editor directly, on mobile and desktop.
+- **Journey route retired → redirect.** `/dashboard/[eventId]/website/page.tsx` is now a thin server redirect to `/site-editor/[eventId]` (not a 404), so bookmarks, deep-links, the animated-monogram back-links, and the onboarding prefetch all land on the editor. The former journey render (Steps 1–5 + Free-vs-Pro) is gone.
+- **Editor wiring updated for the flip.** ✕ now closes to the event dashboard home (`/dashboard/[eventId]`) instead of the (now-redirecting) journey page — no loop. The Settings "Manage URL / Set your URL" cards + the no-slug preview CTA now deep-link to the **invitation editor** (`/dashboard/[eventId]/invitation`), which hosts the canonical shared `SlugField` + `updateEventSlug` action — so slug/URL management is fully preserved.
+- **Incidental build-unblock (NOT part of the flip):** `main` was red on `tsc` from PR #827's swipe-delete (`e.touches[0].clientX/Y` unguarded under `noUncheckedIndexedAccess`, in `guest-list-multiselect.tsx`). Added a behavior-preserving null-guard so this PR — and `main` — typecheck green again. Flagged separately because it's unrelated to the flip but was blocking CI for every in-flight PR.
+
+**Dead code (safe to delete in a follow-up cleanup):** `website/_components/{journey,pro-upgrade-panel,pro-website-panel,copy-button}.tsx` + `website/actions.ts` (`updateEventSlugFromWebsite`) — nothing imports them now.
+
+**Verification:** `pnpm -F web typecheck` ✓ · `pnpm -F web lint` ✓ (no new warnings on edited files) · `pnpm -F web build` ✓.
+
+**SPEC IMPACT:** Yes. The couple's "Website" doorway now opens the Reels editor; the journey scroll is retired (redirects). Iteration 0021 (couple dashboard Website tab) + the 2026-06-01 "Reels-style editor" decision-log row need the Phase-2 flip recorded. Logged as a `[PENDING]` COWORK_INBOX item.
+
+---
+
+
 ## 2026-06-03 · feat(0001): couple detail shows a LIVE VIEW of their editorial (wedding) page + touches[0] typecheck fix
 
 **Commit:** to be filled after commit.

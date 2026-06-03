@@ -10,8 +10,12 @@
  * the list / changing details."
  *
  * Layout: the guest list scrolls in the top region; this component docks a
- * fixed, ~one-third-height carousel above the customer bottom nav. It is
- * four swipeable panels (owner directive 2026-06-02 — the top is now JUST
+ * fixed, ~one-third-height carousel at the bottom of the screen. In FOCUS
+ * MODE (owner directive 2026-06-03) the global 5-tab bottom nav is hidden on
+ * the Guests page, so this carousel's tab strip IS the page's bottom
+ * navigation — it docks flush to the bottom safe-area (no longer offset 64px
+ * above the nav). It is four swipeable panels (owner directive 2026-06-02 —
+ * the top is now JUST
  * the guest list, so the RSVP counts that used to sit in the page's top
  * StatsStrip move into the Summary panel here):
  *   1. Summary  — [Total][Attending][Pending][Declined] as boxed,
@@ -30,8 +34,9 @@
  *
  * Height comes from `--gcar-h` set on the page <section>; the component
  * renders an in-flow spacer of the same height so the guest list's last
- * rows clear the fixed carousel. Sits at z-40 (above page content); the
- * bottom nav is z-30 below it.
+ * rows clear the fixed carousel. Sits at z-40 (above page content). The
+ * global bottom nav is suppressed on the Guests route (CustomerBottomNav
+ * returns null in focus mode), so nothing renders beneath the carousel.
  */
 
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
@@ -160,7 +165,7 @@ export function MobileGuestCarousel({
           "window above / panel below" separation (owner directive 2026-06-03,
           fixes the old doubled border-t + tab border-b that looked like two
           overlapping lines). */}
-      <div className="fixed inset-x-0 bottom-[calc(64px+env(safe-area-inset-bottom))] z-40 h-[var(--gcar-h)] overflow-hidden rounded-t-2xl bg-cream shadow-[0_-12px_30px_-18px_rgba(30,34,41,0.28)] ring-1 ring-ink/10 lg:hidden">
+      <div className="fixed inset-x-0 bottom-[env(safe-area-inset-bottom)] z-40 h-[var(--gcar-h)] overflow-hidden rounded-t-2xl bg-cream shadow-[0_-12px_30px_-18px_rgba(30,34,41,0.28)] ring-1 ring-ink/10 lg:hidden">
         {/* panel tabs (tap to jump; swipe also works) — no bottom border; the
             active pill + the panels' own padding delineate the strip. */}
         <div className="flex h-10 items-stretch gap-1 px-2 pb-1.5 pt-2">

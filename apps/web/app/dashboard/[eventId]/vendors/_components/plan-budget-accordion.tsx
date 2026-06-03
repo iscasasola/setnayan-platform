@@ -238,8 +238,12 @@ const PBA_CSS = `
 .pba .chip.start{color:var(--gold-deep);background:rgba(197,160,89,.1);box-shadow:inset 0 0 0 1px rgba(197,160,89,.4)}
 .pba .chip.next{color:var(--ink-soft);background:rgba(30,34,41,.06)}
 
-/* ---- Carousel rail + 300px cards ---- */
-.pba .rail{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:0 20px 6px;scrollbar-width:none}
+/* ---- Carousel rail + 300px cards ----
+   Leading/trailing runway = max(20px, calc(50% - 150px)) (150px = half a 300px
+   card) so the FIRST and LAST cards have room to scroll to the CENTER snap. The
+   old flat 20px gave no runway, so edge cards stuck at the left/right and could
+   never reach scroll-snap-align:center. */
+.pba .rail{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:0 max(20px, calc(50% - 150px)) 6px;scrollbar-width:none}
 .pba .rail::-webkit-scrollbar{display:none}
 .pba .card{position:relative;flex:0 0 300px;scroll-snap-align:center;display:flex;flex-direction:column}
 .pba .v{position:relative;display:flex;flex-direction:column;flex:1 1 auto;min-height:300px;background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;text-decoration:none;color:inherit;transition:border-color .35s var(--ease),box-shadow .35s var(--ease)}

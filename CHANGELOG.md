@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · fix(services): center-snap runway so the first & last category cards can reach center
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner report — on the couple's **Services** list (the Plan+Budget accordion category rails), the **first and last cards could never snap to center**. With `scroll-snap-align: center` and a flat `padding: 0 20px` on the rail, the first card stuck at the left edge and the last at the right — neither had the scroll runway to reach the center snap point.
+
+**What ships (`plan-budget-accordion.tsx` · 1 CSS rule):** `.pba .rail` inline padding `0 20px` → **`0 max(20px, calc(50% - 150px))`** (150px = half a 300px `.card`). That gives each rail half-a-rail-minus-half-a-card of leading/trailing runway, so the first and last cards now have room to scroll to `scroll-snap-align: center`. `max(20px, …)` preserves the old 20px minimum on narrow rails where the calc goes ≤ 0. No JS / markup / snap-type change — `scroll-snap-type: x mandatory` + the per-card `center` align are untouched.
+
+**SPEC IMPACT:** None (CSS-only snap-runway fix on an existing surface).
+
+**Verification:** CSS-only; `calc()` / `max()` are valid padding values. The visual snap is flagged for owner check on the Vercel preview (first/last card now reach center). Local typecheck not runnable in this worktree (no `node_modules`) → CI gates types/lint/build.
+
 ## 2026-06-03 · feat(schedule): typed Preparation items — vendors/couples place meeting & payment schedules
 
 **Commit:** see merge commit on this PR.

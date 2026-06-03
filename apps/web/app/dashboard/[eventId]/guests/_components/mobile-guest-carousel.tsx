@@ -47,7 +47,7 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { BarChart3, Check, ChevronLeft, Search, SlidersHorizontal, UserPlus, X } from 'lucide-react';
+import { ArrowUpDown, BarChart3, Check, ChevronLeft, Search, SlidersHorizontal, UserPlus, X } from 'lucide-react';
 import {
   ROLE_LABELS,
   SIDE_LABELS,
@@ -144,6 +144,10 @@ export function MobileGuestCarousel({
   // Collapse the panel sheet down to just its grabber handle so the guest list
   // above stretches (owner 2026-06-03). The keyboard state takes precedence.
   const [collapsed, setCollapsed] = useState(false);
+  // Filter / sort bottom sheets opened from the search compose-bar icons
+  // (owner directive 2026-06-03 — Messenger-style icons left of the search).
+  const [filterSheet, setFilterSheet] = useState(false);
+  const [sortSheet, setSortSheet] = useState(false);
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -231,7 +235,7 @@ export function MobileGuestCarousel({
         className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 flex h-[var(--gcar-h)] flex-col overflow-hidden rounded-t-2xl bg-cream shadow-[0_-12px_30px_-18px_rgba(30,34,41,0.28)] ring-1 ring-ink/10 lg:hidden"
         style={
           kbOpen
-            ? { bottom: kbInset, height: active === 2 ? 190 : undefined }
+            ? { bottom: kbInset, height: active === 2 ? 190 : active === 1 ? 84 : undefined }
             : collapsed
               ? { height: '2.25rem' }
               : undefined
@@ -291,106 +295,43 @@ export function MobileGuestCarousel({
             </div>
           </section>
 
-          {/* 2 — Find: search + the 4-dimension filter (Side · RSVP · Role ·
-              Group), laid out to fit WITHOUT vertical scroll (owner directive
-              2026-06-03 — "show all of these without scrolling"). Side + RSVP
-              are inline segmented toggles (small fixed sets); Role + Group are
-              dropdowns (larger/variable), two-up to save height; Sort is a
-              compact dropdown. Tags stay searchable via the box above + get an
-              optional dropdown only when the couple added custom tags. */}
+          {/* 2 — Find: Messenger-style compose bar — the search input with
+              filter + sort as icons on its LEFT (owner directive 2026-06-03 —
+              "filtering and sorting will be similar to the icons on the left of
+              the search bar"). The filters + sort live in bottom sheets opened
+              from the icons; the input docks flush above the keyboard. */}
           <section
-            className={`flex w-full shrink-0 snap-center flex-col gap-2.5 overflow-y-auto px-4 py-3 ${
+            className={`flex w-full shrink-0 snap-center flex-col px-4 py-3 ${
               kbOpen ? 'justify-end' : 'justify-start'
             }`}
           >
-            {/* SIDE — segmented. "Bride"/"Groom" include both-side guests,
-                matching the desktop team filter, so there's no separate Both. */}
-            <SegRow label="Side">
-              <Seg href={buildHref({ team: null })} active={teamFilter === 'all'}>
-                All
-              </Seg>
-              <Seg href={buildHref({ team: 'bride' })} active={teamFilter === 'bride'}>
-                Bride
-              </Seg>
-              <Seg href={buildHref({ team: 'groom' })} active={teamFilter === 'groom'}>
-                Groom
-              </Seg>
-            </SegRow>
-
-            {/* RSVP — segmented */}
-            <SegRow label="RSVP">
-              <Seg href={buildHref({ rsvp: null })} active={!currentRsvp}>
-                All
-              </Seg>
-              <Seg href={buildHref({ rsvp: 'attending' })} active={currentRsvp === 'attending'}>
-                Going
-              </Seg>
-              <Seg href={buildHref({ rsvp: 'pending' })} active={currentRsvp === 'pending'}>
-                Pending
-              </Seg>
-              <Seg href={buildHref({ rsvp: 'declined' })} active={currentRsvp === 'declined'}>
-                Declined
-              </Seg>
-            </SegRow>
-
-            {/* ROLE + GROUP — dropdowns. They share the ?view param, so picking
-                one resets the other to "All" (the server filters by one at a
-                time). Two-up to keep the whole panel within one screen. */}
-            <div className="grid grid-cols-2 gap-2">
-              <SelectFilter
-                label="Role"
-                allLabel="All roles"
-                value={!currentGroupId && activeView !== 'all' ? activeView : ''}
-                options={views
-                  .filter((v) => v.key !== 'all')
-                  .map((v) => ({ value: v.key, label: v.label }))}
-                onChange={(v) => router.push(buildHref({ view: v || null }))}
-              />
-              <SelectFilter
-                label="Group"
-                allLabel="All groups"
-                value={currentGroupId ?? ''}
-                disabled={groups.length === 0}
-                options={groups.map((g) => ({ value: g.group_id, label: g.label }))}
-                onChange={(v) => router.push(buildHref({ view: v ? `group:${v}` : null }))}
-              />
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setFilterSheet(true)}
+                aria-label="Filter guests"
+                className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink/55 hover:bg-ink/5 hover:text-ink"
+              >
+                <SlidersHorizontal className="h-[22px] w-[22px]" strokeWidth={1.75} aria-hidden />
+                {hasActiveFilter || teamFilter !== 'all' || currentRsvp ? (
+                  <span
+                    aria-hidden
+                    className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-terracotta ring-2 ring-cream"
+                  />
+                ) : null}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSortSheet(true)}
+                aria-label="Sort guests"
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink/55 hover:bg-ink/5 hover:text-ink"
+              >
+                <ArrowUpDown className="h-[22px] w-[22px]" strokeWidth={1.75} aria-hidden />
+              </button>
+              <div className="flex-1">
+                <LiveSearch initialValue={q} placeholder="Search names, roles…" />
+              </div>
             </div>
-
-            {/* TAGS — optional dropdown, only when custom tags exist. */}
-            {tags.length > 0 ? (
-              <SelectFilter
-                label="Tags"
-                allLabel="All tags"
-                value={activeTag}
-                options={tags.map((t) => ({ value: t, label: t }))}
-                onChange={(v) => router.push(buildHref({ tag: v || null }))}
-              />
-            ) : null}
-
-            {/* SORT dropdown + Clear-all */}
-            <div className="flex items-center gap-2">
-              <SelectFilter
-                className="flex-1"
-                label="Sort"
-                value={currentSort}
-                options={sorts.map((s) => ({ value: s.key, label: s.label }))}
-                onChange={(v) => router.push(buildHref({ sort: v }))}
-              />
-              {hasActiveFilter || teamFilter !== 'all' || currentRsvp ? (
-                <Link
-                  href={buildHref({ team: null, rsvp: null, view: null, tag: null })}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-2 text-[11px] font-medium text-ink/55 hover:bg-ink/5 hover:text-ink"
-                >
-                  <X className="h-3 w-3" strokeWidth={2} aria-hidden />
-                  Clear
-                </Link>
-              ) : null}
-            </div>
-
-            {/* Search box LAST so it sits flush above the keyboard (owner
-                directive 2026-06-03 — "place the search box at the bottom and
-                above it are the filters"). */}
-            <LiveSearch initialValue={q} placeholder="Name, side, role, group…" />
           </section>
 
           {/* 3 — Add: inline quick-entry form. justify-end when the keyboard is
@@ -464,6 +405,155 @@ export function MobileGuestCarousel({
         eventId={eventId}
         groups={groups}
       />
+
+      {/* Filter bottom sheet — opened from the compose-bar filter icon. Reuses
+          the SegRow/Seg/SelectFilter controls; each writes a URL param so the
+          list updates live behind the sheet (owner directive 2026-06-03). */}
+      {filterSheet ? (
+        <div
+          className="fixed inset-0 z-50 lg:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Filter guests"
+        >
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={() => setFilterSheet(false)}
+            className="absolute inset-0 bg-ink/40 backdrop-blur-[1px]"
+          />
+          <div className="absolute inset-x-0 bottom-0 max-h-[80vh] space-y-4 overflow-y-auto rounded-t-2xl border-t border-ink/10 bg-cream p-4 pb-[calc(16px+env(safe-area-inset-bottom))] shadow-[0_-16px_40px_-20px_rgba(30,34,41,0.4)]">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold text-ink">Filter</h2>
+              {hasActiveFilter || teamFilter !== 'all' || currentRsvp ? (
+                <Link
+                  href={buildHref({ team: null, rsvp: null, view: null, tag: null })}
+                  onClick={() => setFilterSheet(false)}
+                  className="ml-auto inline-flex items-center gap-1 text-[12px] font-medium text-ink/55 hover:text-ink"
+                >
+                  <X className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+                  Clear all
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setFilterSheet(false)}
+                  aria-label="Close"
+                  className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-full text-ink/60 hover:bg-ink/5"
+                >
+                  <X className="h-4 w-4" strokeWidth={2} aria-hidden />
+                </button>
+              )}
+            </div>
+
+            <SegRow label="Side">
+              <Seg href={buildHref({ team: null })} active={teamFilter === 'all'}>
+                All
+              </Seg>
+              <Seg href={buildHref({ team: 'bride' })} active={teamFilter === 'bride'}>
+                Bride
+              </Seg>
+              <Seg href={buildHref({ team: 'groom' })} active={teamFilter === 'groom'}>
+                Groom
+              </Seg>
+            </SegRow>
+
+            <SegRow label="RSVP">
+              <Seg href={buildHref({ rsvp: null })} active={!currentRsvp}>
+                All
+              </Seg>
+              <Seg href={buildHref({ rsvp: 'attending' })} active={currentRsvp === 'attending'}>
+                Going
+              </Seg>
+              <Seg href={buildHref({ rsvp: 'pending' })} active={currentRsvp === 'pending'}>
+                Pending
+              </Seg>
+              <Seg href={buildHref({ rsvp: 'declined' })} active={currentRsvp === 'declined'}>
+                Declined
+              </Seg>
+            </SegRow>
+
+            <div className="grid grid-cols-2 gap-2">
+              <SelectFilter
+                label="Role"
+                allLabel="All roles"
+                value={!currentGroupId && activeView !== 'all' ? activeView : ''}
+                options={views
+                  .filter((v) => v.key !== 'all')
+                  .map((v) => ({ value: v.key, label: v.label }))}
+                onChange={(v) => router.push(buildHref({ view: v || null }))}
+              />
+              <SelectFilter
+                label="Group"
+                allLabel="All groups"
+                value={currentGroupId ?? ''}
+                disabled={groups.length === 0}
+                options={groups.map((g) => ({ value: g.group_id, label: g.label }))}
+                onChange={(v) => router.push(buildHref({ view: v ? `group:${v}` : null }))}
+              />
+            </div>
+
+            {tags.length > 0 ? (
+              <SelectFilter
+                label="Tags"
+                allLabel="All tags"
+                value={activeTag}
+                options={tags.map((t) => ({ value: t, label: t }))}
+                onChange={(v) => router.push(buildHref({ tag: v || null }))}
+              />
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Sort bottom sheet — opened from the compose-bar sort icon. */}
+      {sortSheet ? (
+        <div
+          className="fixed inset-0 z-50 lg:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Sort guests"
+        >
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={() => setSortSheet(false)}
+            className="absolute inset-0 bg-ink/40 backdrop-blur-[1px]"
+          />
+          <div className="absolute inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto rounded-t-2xl border-t border-ink/10 bg-cream p-4 pb-[calc(16px+env(safe-area-inset-bottom))] shadow-[0_-16px_40px_-20px_rgba(30,34,41,0.4)]">
+            <div className="mb-3 flex items-center gap-2">
+              <h2 className="text-sm font-semibold text-ink">Sort by</h2>
+              <button
+                type="button"
+                onClick={() => setSortSheet(false)}
+                aria-label="Close"
+                className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-full text-ink/60 hover:bg-ink/5"
+              >
+                <X className="h-4 w-4" strokeWidth={2} aria-hidden />
+              </button>
+            </div>
+            <div className="grid gap-1">
+              {sorts.map((s) => (
+                <Link
+                  key={s.key}
+                  href={buildHref({ sort: s.key })}
+                  onClick={() => setSortSheet(false)}
+                  className={`flex items-center justify-between rounded-xl px-4 py-3 text-sm transition-colors ${
+                    currentSort === s.key
+                      ? 'bg-terracotta/10 font-semibold text-terracotta-700'
+                      : 'text-ink/80 hover:bg-ink/5'
+                  }`}
+                >
+                  {s.label}
+                  {currentSort === s.key ? (
+                    <Check className="h-4 w-4" strokeWidth={2} aria-hidden />
+                  ) : null}
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }

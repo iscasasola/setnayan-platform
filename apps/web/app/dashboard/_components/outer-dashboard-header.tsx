@@ -114,6 +114,22 @@ export function OuterDashboardHeader({
     </Link>
   );
 
+  // Upper-right avatar = the primary event's logo (the couple's framed
+  // onboarding monogram), owner-locked 2026-06-03 "the avatar IS the event's
+  // logo". A customer can host many events but has only one account photo, so
+  // the per-event logo — anchored to the same primary event the switcher uses —
+  // is the right identity here. ProfileMenu falls back to the account initial
+  // when there's no event or the event has no designed monogram.
+  const profileMonogram = primaryEvent
+    ? {
+        display_name: primaryEvent.display_name,
+        monogram_text: primaryEvent.monogram_text,
+        monogram_color: primaryEvent.monogram_color,
+        monogram_frame_key: primaryEvent.monogram_frame_key,
+        monogram_font_key: primaryEvent.monogram_font_key,
+      }
+    : null;
+
   return (
     <>
       {/* Mobile: sticky top strip (< lg / < 1024px). Hidden on desktop —
@@ -123,21 +139,15 @@ export function OuterDashboardHeader({
           {monogramAffordance}
 
           <div className="flex items-center gap-2">
-            <Link
-              href="/vendors"
-              aria-label="Vendor marketplace"
-              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-medium text-ink/70 hover:bg-ink/5 hover:text-ink sm:px-3"
-            >
-              <Store aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              <span className="hidden sm:inline">Marketplace</span>
-            </Link>
-            <RoleSwitchPill
-              currentRole="customer"
-              hasCustomerAccess
-              hasVendorAccess={hasVendorAccess}
-              hasAdminAccess={hasAdminAccess}
-              vendorProfiles={vendorProfiles}
-            />
+            {/* Marketplace (Store) link + Switch View pill REMOVED from the
+                mobile top bar per owner directive 2026-06-03 — extends the
+                event-scoped top-nav removal to the non-event customer routes
+                (Profile / Notifications / Create-event) for a consistent top
+                bar. Both stay reachable: Marketplace via in-app entry points +
+                the desktop sidebar below; role-switch via the event-switcher
+                dropdown + the desktop sidebar. The desktop sidebar (below)
+                intentionally keeps both per the owner's scope choice
+                ("non-event top bar", NOT the desktop sidebar). */}
             <UnreadBellBadge
               userId={userId}
               initialUnread={unreadCount}
@@ -145,7 +155,7 @@ export function OuterDashboardHeader({
               ariaBaseLabel="Notifications"
               ariaUnreadSuffix="unread"
             />
-            <ProfileMenu email={email} ariaLabel="Account menu" />
+            <ProfileMenu email={email} monogram={profileMonogram} ariaLabel="Account menu" />
           </div>
         </div>
       </header>
@@ -199,7 +209,7 @@ export function OuterDashboardHeader({
                 ariaBaseLabel="Notifications"
                 ariaUnreadSuffix="unread"
               />
-              <ProfileMenu email={email} ariaLabel="Account menu" />
+              <ProfileMenu email={email} monogram={profileMonogram} ariaLabel="Account menu" />
             </div>
           </div>
         </div>

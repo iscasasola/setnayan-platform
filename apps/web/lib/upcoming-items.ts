@@ -576,25 +576,63 @@ async function fetchRecommendedDeadlineItems(
     if (group) lockedGroups.add(group);
   }
 
+  // Admin-managed deadlines (planning_deadlines · category-level service rows)
+  // are the source of truth; PLAN_GROUPS.monthsBefore is the FALLBACK when a
+  // category has no row — or when the table isn't applied yet (a missing table
+  // returns an error → empty map → every category falls back to code, no crash).
+  const { data: deadlineRows } = await supabase
+    .from('planning_deadlines')
+    .select('ref_key, offset_value, offset_unit')
+    .eq('kind', 'service')
+    .eq('scope', 'category')
+    .eq('is_active', true);
+  const deadlineMap = new Map<string, { value: number; unit: string }>();
+  for (const r of (deadlineRows ?? []) as Array<{
+    ref_key: string;
+    offset_value: number;
+    offset_unit: string;
+  }>) {
+    deadlineMap.set(r.ref_key, { value: r.offset_value, unit: r.offset_unit });
+  }
+
   return PLAN_GROUPS.filter(
     (g) => g.countsTowardLockable !== false && !lockedGroups.has(g.id),
   )
     .map((g) => {
+      const override = deadlineMap.get(g.id);
       const date = new Date(wedding);
-      date.setMonth(date.getMonth() - g.monthsBefore);
-      return { g, date };
+      // `months` drives the brand-voice copy — set only when the deadline is
+      // expressed in whole months (the common case), null for week/day offsets.
+      let months: number | null = g.monthsBefore;
+      if (override) {
+        if (override.unit === 'week') {
+          date.setDate(date.getDate() - override.value * 7);
+          months = null;
+        } else if (override.unit === 'day') {
+          date.setDate(date.getDate() - override.value);
+          months = null;
+        } else {
+          date.setMonth(date.getMonth() - override.value);
+          months = override.value;
+        }
+      } else {
+        date.setMonth(date.getMonth() - g.monthsBefore);
+      }
+      return { g, date, months };
     })
     .filter(({ date }) => date.getTime() > now.getTime())
     .sort((a, b) => a.date.getTime() - b.date.getTime())
     .slice(0, RECOMMENDED_DEADLINE_CAP)
-    .map(({ g, date }) => ({
+    .map(({ g, date, months }) => ({
       id: `recommended_deadline:${g.id}`,
       source: 'recommended_deadline' as const,
       category: 'recommended_deadline' as const,
       date,
       daysFromNow: daysBetween(date, now),
       title: `Book your ${g.label}`,
-      subtitle: `Recommended deadline — most couples have this booked about ${g.monthsBefore} months before the wedding.`,
+      subtitle: months
+        ? `Recommended deadline — most couples have this booked about ${months} months before the wedding.`
+        : 'Recommended deadline to have this booked.',
       href: `/dashboard/${eventId}/vendors`,
     }));
 }

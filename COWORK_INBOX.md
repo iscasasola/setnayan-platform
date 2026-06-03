@@ -23,6 +23,18 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Drive surface is cron-free (0009 release + token refresh)
+
+**Why:** Both Drive-surface crons were dormant (no scheduler wired). Capture auto-sync (Phase 2) + the "Release to Drive" action now drain via Next 15 `after()`; OAuth tokens refresh on-demand. No crons.
+
+**Spec updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/0009_photo_delivery/0009_photo_delivery.md`** — replace any "Cloudflare Queue worker / external cron runner / photo-delivery-tick" copy-mechanism language with: the release + capture auto-sync copy to Drive via Next 15 `after()` background tasks (no cron); access tokens refresh on-demand in the consumers.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Schedule Preparation is now HYBRID (couple + booked-vendor manual items)
 
 **Why:** The manual-prep-items fast-follow that the #840 [PENDING] (below) called out as DEFERRED has now landed in code — **and** a vendor-add path was added on top. The couple's `/schedule` **Preparation** agenda is no longer read-only: it is **hybrid**. This supersedes the "manual prep items — DEFERRED" bullet in the #840 entry below (that bullet's predicted `event_preparation_items` table is exactly what shipped, except host-scope uses the canonical `current_couple_event_ids()` helper rather than `event_moderators`).

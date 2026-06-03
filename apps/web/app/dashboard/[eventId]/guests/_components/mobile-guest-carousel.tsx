@@ -420,10 +420,10 @@ function AnimatedCount({ value }: { value: number }) {
 /**
  * Inline quick-entry form for the Add carousel panel.
  *
- * Flow:
- *   Enter on first name  → moves focus to last name (or ends if field is empty)
+ * Flow (endless cycle — there is no "finish" key; the panel simply stays
+ * ready for the next guest. Owner directive 2026-06-03: no more double-Enter):
+ *   Enter on first name  → moves focus to last name (no-op if first is empty)
  *   Enter on last name   → adds the guest, clears both fields, loops to first name
- *   Enter on empty first name field after adding ≥ 1 guest → "double Enter" → done
  */
 function QuickAddInlineForm({ eventId }: { eventId: string }) {
   const router = useRouter();
@@ -431,7 +431,6 @@ function QuickAddInlineForm({ eventId }: { eventId: string }) {
   const [last, setLast] = useState('');
   const [busy, setBusy] = useState(false);
   const [count, setCount] = useState(0);
-  const [done, setDone] = useState(false);
   const [addError, setAddError] = useState('');
   const firstRef = useRef<HTMLInputElement>(null);
   const lastRef = useRef<HTMLInputElement>(null);
@@ -470,11 +469,9 @@ function QuickAddInlineForm({ eventId }: { eventId: string }) {
   const handleFirstKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== 'Enter') return;
     e.preventDefault();
-    if (!first.trim()) {
-      // Empty first name + Enter = "double Enter" = finish session
-      if (count > 0) setDone(true);
-      return;
-    }
+    // Empty first name + Enter is a no-op — the rapid-add loop never "finishes"
+    // (owner directive 2026-06-03: no more double-Enter to end the session).
+    if (!first.trim()) return;
     lastRef.current?.focus();
   };
 
@@ -488,28 +485,6 @@ function QuickAddInlineForm({ eventId }: { eventId: string }) {
 
   const inputCls =
     'w-full rounded-xl border border-ink/15 bg-cream px-4 py-3 text-sm text-ink placeholder:text-ink/35 focus:border-terracotta focus:outline-none disabled:opacity-50';
-
-  if (done) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-        <span className="text-3xl">✓</span>
-        <p className="text-sm font-medium text-ink">
-          {count} {count === 1 ? 'guest' : 'guests'} added
-        </p>
-        <button
-          type="button"
-          onClick={() => {
-            setDone(false);
-            setCount(0);
-            setTimeout(() => firstRef.current?.focus(), 50);
-          }}
-          className="rounded-lg border border-ink/15 px-4 py-2 text-sm text-ink/70 hover:bg-ink/5"
-        >
-          Add more
-        </button>
-      </div>
-    );
-  }
 
   return (
     <div className="flex h-full flex-col justify-center gap-3">
@@ -544,8 +519,7 @@ function QuickAddInlineForm({ eventId }: { eventId: string }) {
         <p className="text-center text-xs font-medium text-rose-600">{addError}</p>
       ) : (
         <p className="text-center text-[11px] leading-snug text-ink/40">
-          Enter after first name moves to last name · Enter after last name adds &amp; loops back ·
-          Double Enter on empty first name to finish
+          Enter after first name moves to last name · Enter after last name adds &amp; loops back
         </p>
       )}
 

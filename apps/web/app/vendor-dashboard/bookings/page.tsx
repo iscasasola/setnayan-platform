@@ -282,6 +282,8 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
                   dueDate: it.dueDate,
                   label: it.label,
                   notes: it.notes,
+                  kind: it.kind,
+                  amountPhp: it.amountPhp,
                 }))
               : [];
             return (

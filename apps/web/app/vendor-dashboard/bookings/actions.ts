@@ -43,6 +43,26 @@ function parseDateInput(raw: FormDataEntryValue | null): string | null {
   return t;
 }
 
+type PrepKind = 'task' | 'meeting' | 'payment';
+
+/** Normalize the `kind` field; anything unexpected falls back to 'task'. */
+function parseKind(raw: FormDataEntryValue | null): PrepKind {
+  return raw === 'meeting' || raw === 'payment' ? raw : 'task';
+}
+
+/**
+ * Parse the optional ₱ amount for a payment item. Non-negative number or null.
+ * Throws on a present-but-invalid value. Mirrors CHECK (amount_php >= 0).
+ */
+function parseAmountPhp(raw: FormDataEntryValue | null): number | null {
+  if (typeof raw !== 'string' || raw.trim().length === 0) return null;
+  const n = Number.parseFloat(raw.trim());
+  if (!Number.isFinite(n) || n < 0) {
+    throw new Error('Enter a valid amount (₱0 or more).');
+  }
+  return Math.round(n * 100) / 100;
+}
+
 /**
  * Confirm the signed-in user owns `vendorProfileId` AND that vendor holds an
  * ACCEPTED thread on `eventId`. Returns true iff both hold. This mirrors the
@@ -101,6 +121,15 @@ export async function vendorAddPreparationItem(formData: FormData): Promise<void
 
   const notes = trimToNull(formData.get('notes'), 2000);
 
+  // Typed items (2026-06-03): a booked vendor may place a generic task, a
+  // meeting, or a payment schedule entry on the couple's agenda. A payment
+  // requires a positive amount.
+  const kind = parseKind(formData.get('kind'));
+  const amountPhp = parseAmountPhp(formData.get('amount_php'));
+  if (kind === 'payment' && (amountPhp === null || amountPhp <= 0)) {
+    throw new Error('Enter the payment amount in pesos.');
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -123,6 +152,8 @@ export async function vendorAddPreparationItem(formData: FormData): Promise<void
     due_date: dueDate,
     label,
     notes,
+    kind,
+    amount_php: kind === 'payment' ? amountPhp : null,
     source_tag: 'vendor_prep',
     created_by: user.id,
   });

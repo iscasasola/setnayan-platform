@@ -87,14 +87,44 @@ export function PreparationAgendaView({
   );
 }
 
+/**
+ * The visual a row paints with. Autofill rows use their own `source`. A manual
+ * row borrows an autofill visual based on its `kind`: a `meeting` item looks
+ * like the Meeting source, a `payment` item like the Payment source, and a
+ * `task` item keeps the plain "manual" look. This is purely presentational —
+ * the row stays `source: 'manual'` for the delete-control / sourceLabel logic.
+ */
+function displaySourceFor(item: PreparationItem): PreparationSource {
+  if (item.source === 'manual') {
+    if (item.kind === 'meeting') return 'meeting';
+    if (item.kind === 'payment') return 'payment';
+  }
+  return item.source;
+}
+
+/**
+ * Chip label. Typed manual rows (meeting/payment) read like the autofill
+ * ("Meeting" / "Payment") so the schedule speaks one vocabulary; their
+ * "added by you / a vendor" context lives in the subtitle. Plain manual tasks
+ * keep their per-row `sourceLabel` chip ("Added by you" / "From {vendor}").
+ */
+function chipLabelFor(item: PreparationItem, display: PreparationSource): string {
+  if (item.source === 'manual' && (item.kind === 'meeting' || item.kind === 'payment')) {
+    return PREPARATION_SOURCE_LABEL[display];
+  }
+  return item.sourceLabel ?? PREPARATION_SOURCE_LABEL[item.source];
+}
+
 function PreparationRow({ eventId, item }: { eventId: string; item: PreparationItem }) {
-  const Icon = iconFor(item.source);
+  const display = displaySourceFor(item);
+  const Icon = iconFor(display);
+  const chipLabel = chipLabelFor(item, display);
   const overdue = item.daysFromNow < 0;
 
   const body = (
     <div
       className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 sm:px-4 sm:py-3 ${containerStylesFor(
-        item.source,
+        display,
       )}`}
     >
       <div className="flex w-12 shrink-0 flex-col items-center sm:w-14">
@@ -112,7 +142,7 @@ function PreparationRow({ eventId, item }: { eventId: string; item: PreparationI
       <span
         aria-hidden
         className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${iconStylesFor(
-          item.source,
+          display,
         )}`}
       >
         <Icon className="h-4 w-4" strokeWidth={1.75} />
@@ -126,11 +156,11 @@ function PreparationRow({ eventId, item }: { eventId: string; item: PreparationI
       <div className="flex shrink-0 flex-col items-end gap-1">
         <span
           className={`max-w-[8.5rem] truncate rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] ${chipStylesFor(
-            item.source,
+            display,
           )}`}
-          title={item.sourceLabel ?? PREPARATION_SOURCE_LABEL[item.source]}
+          title={chipLabel}
         >
-          {item.sourceLabel ?? PREPARATION_SOURCE_LABEL[item.source]}
+          {chipLabel}
         </span>
         {item.amountPhp !== undefined ? (
           <span className="font-mono text-xs text-ink/70">

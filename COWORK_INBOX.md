@@ -8,6 +8,30 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Preparation items can now be TYPED (meeting + payment schedules)
+
+**Why:** Owner follow-up to PR #845. #845 let couples + booked vendors place **generic** dated tasks on the couple's `/schedule` **Preparation** agenda. The owner asked that those items be able to be **typed** — **meeting schedules** and **payment schedules**, not only tasks. This extends the hybrid Preparation surface; it does not change the four autofill sources.
+
+**What landed (code):**
+
+1. **Typed items, couple + vendor.** Both the couple's "+ Add to schedule" modal and the vendor's "Add to prep schedule" modal (on each accepted booking in `/vendor-dashboard/bookings`) gain a **Task / Meeting / Payment** picker. **Meeting** items show on the agenda with the same Meeting tag/icon as the autofilled vendor meetings; **Payment** items show with the same Payment tag/icon **plus a ₱ amount** (amount required, validated > 0); **Task** items are unchanged from #845. A vendor's own added items list shows the type glyph + amount inline.
+2. **Schema reason (record this — it's a deliberate design constraint).** Typed items are stored on `event_preparation_items` (the #845 table), **NOT** on `event_vendor_line_items` (budget) or `vendor_meetings`. Those two tables key to the couple's **TEXT-named** `event_vendors.vendor_id`, not the platform `vendor_profile_id`, so a platform vendor can't be RLS-scoped to write them. `event_preparation_items` already has the correct `vendor_profile_id` RLS.
+3. **Limitation (record this).** A payment placed on the Preparation schedule is a **planning reminder only** — it does **NOT** post to the couple's **Budget ledger** (iteration 0007 `event_vendor_line_items` / `event_vendor_payments`). Surfacing prep-payments in the budget (or vice-versa) is a possible future enhancement.
+
+**NEW migration — `20260730000000_event_preparation_item_kinds.sql` (owner must push):** additive `ALTER TABLE event_preparation_items ADD COLUMN kind VARCHAR(16) DEFAULT 'task' CHECK (kind IN ('task','meeting','payment'))` + `amount_php NUMERIC(12,2) CHECK (amount_php IS NULL OR amount_php >= 0)`. **No RLS change** (the #845 row policies already cover the new columns). The app **graceful-degrades** until it's applied: existing rows read as plain tasks (`SELECT *` + `kind ?? 'task'` / `amount_php ?? null`), and the whole manual source still returns empty if the #845 table itself isn't pushed.
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/0021_couple_dashboard_fully_purchased/0021_couple_dashboard_fully_purchased.md`** — update the Schedule → Preparation surface: hand-added prep items can now be **typed** (Task / Meeting / Payment). Document that a couple-added Meeting renders like an autofilled vendor meeting and a couple-added Payment renders like an autofilled payment (with a ₱ amount).
+2. **`~/Documents/Claude/Projects/Setnayan/0022_vendor_dashboard/0022_vendor_dashboard.md`** — record that a booked vendor (accepted chat thread) can place a **meeting** or **payment** schedule (not just a generic task) on the couple's Preparation schedule from their Bookings view, including the required amount on payments.
+3. **`~/Documents/Claude/Projects/Setnayan/0007_budget_expenses/0007_budget_expenses.md`** — add a note: a payment placed on the Preparation schedule (0021) is a **planning reminder only** and does NOT appear in the Budget ledger; the two surfaces are not yet linked. Flag the link-up as a possible future enhancement.
+
+**Cross-ref:** supersedes nothing in the #845 entry below — it's strictly additive on top of it. See `CHANGELOG.md` 2026-06-03 "typed Preparation items" for the full file list + verification.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Onboarding congrats vendor stat is now REAL marketplace counts (not "best-fit vendors from 2,400+")
 
 **Why:** The `/onboarding/wedding` congrats screen's third stat tile previously showed a fabricated **"N best-fit vendors from 2,400+"** (`N` = picked-categories × 5, floored at 12; "2,400+" hardcoded). Owner 2026-06-03: *"30 vendors and total 2400+ vendors is not actual results. want true results only."* Code now renders REAL `vendor_market_stats` head-counts — **"{matched} that fit your wedding · from {total}"** — using the same published-pool + compatibility definition as the `/vendors` marketplace, and **auto-hides** the tile when no real count can be computed. The money + hours tiles are unchanged.

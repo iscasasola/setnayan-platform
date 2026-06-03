@@ -83,10 +83,28 @@ export const PREPARATION_SOURCE_LABEL: Record<PreparationSource, string> = {
   manual: 'Added',
 };
 
+/**
+ * The "kind" of a manual (`event_preparation_items`) row — drives which
+ * autofill visual a hand-added item borrows. A vendor or couple can place a
+ * generic `task`, a `meeting` schedule (renders with the Meeting tag/icon,
+ * same as the autofilled vendor_meetings rows), or a `payment` schedule
+ * (renders with the Payment tag/icon + a ₱ amount, same as the autofilled
+ * vendor payment milestones). Autofill rows leave this `undefined` — their
+ * visual is driven by `source` alone. Defaults to 'task' when the
+ * kind/amount_php columns are absent on a pre-migration deploy.
+ */
+export type PreparationItemKind = 'task' | 'meeting' | 'payment';
+
 export type PreparationItem = {
   /** Stable id — unique per source + row. React key. */
   id: string;
   source: PreparationSource;
+  /**
+   * Manual rows only. When set, the row borrows the autofill visual for that
+   * kind ('meeting' → Meeting tag/icon, 'payment' → Payment tag/icon + amount,
+   * 'task' → the plain manual style). Undefined on autofill rows.
+   */
+  kind?: PreparationItemKind;
   /** The date this item is anchored to (a due date, deadline, or start). */
   date: Date;
   /** Whole-day diff between `now` and `date` (negative = overdue/past). */
@@ -180,6 +198,10 @@ type PreparationItemRow = {
   label: string;
   notes: string | null;
   source_tag: string;
+  // Added by 20260730000000 (typed items). Optional here so a pre-migration
+  // `select('*')` (columns absent) still type-checks; we coalesce below.
+  kind?: string | null;
+  amount_php?: string | number | null;
 };
 
 // ----------------------------------------------------------------------------
@@ -479,9 +501,12 @@ async function fetchManualItems(
   eventId: string,
   now: Date,
 ): Promise<PreparationItem[]> {
+  // SELECT * (not an explicit column list) so the new `kind` / `amount_php`
+  // columns don't error on a pre-migration deploy where they don't exist yet
+  // — we read them defensively below (kind ?? 'task', amount ?? null).
   const { data, error } = await supabase
     .from('event_preparation_items')
-    .select('item_id, vendor_profile_id, due_date, label, notes, source_tag')
+    .select('*')
     .eq('event_id', eventId)
     .order('due_date', { ascending: true });
   if (error) {
@@ -532,14 +557,33 @@ async function fetchManualItems(
     const sourceLabel = fromVendor
       ? `From ${vendorLabel ?? 'your vendor'}`
       : 'Added by you';
+
+    // Typed items (20260730000000). `kind` / `amount_php` may be absent on a
+    // pre-migration deploy (SELECT * returns no such keys) → default to a
+    // generic task with no amount, preserving the old behavior exactly.
+    const kind: PreparationItemKind =
+      row.kind === 'meeting' || row.kind === 'payment' ? row.kind : 'task';
+    const amount =
+      kind === 'payment' && row.amount_php != null
+        ? toPhp(row.amount_php)
+        : null;
+
+    // The subtitle leads with notes when present; otherwise it carries the
+    // "who added this" context (so a typed Meeting/Payment row whose chip now
+    // reads "Meeting"/"Payment" still shows it was added by you / a vendor).
     const subtitle = (row.notes ?? '').trim() || sourceLabel;
+
     items.push({
       id: `manual:${row.item_id}`,
       source: 'manual',
+      kind,
       date,
       daysFromNow: daysBetween(date, now),
       title: row.label,
       subtitle,
+      // Surface the amount on payment rows so the agenda renders it the same
+      // way it formats autofilled vendor-payment amounts.
+      ...(amount != null ? { amountPhp: amount } : {}),
       sourceLabel,
       isManual: true,
       itemId: row.item_id,
@@ -565,6 +609,10 @@ export type VendorAddedPrepItem = {
   dueDate: string;
   label: string;
   notes: string | null;
+  /** 'task' | 'meeting' | 'payment' — defaults to 'task' pre-migration. */
+  kind: PreparationItemKind;
+  /** Whole/decimal pesos on payment rows; null otherwise. */
+  amountPhp: number | null;
 };
 
 export async function fetchVendorPreparationItemsByEvent(
@@ -572,9 +620,10 @@ export async function fetchVendorPreparationItemsByEvent(
   vendorProfileId: string,
 ): Promise<Map<string, VendorAddedPrepItem[]>> {
   const byEvent = new Map<string, VendorAddedPrepItem[]>();
+  // SELECT * so the new kind/amount_php columns don't error pre-migration.
   const { data, error } = await supabase
     .from('event_preparation_items')
-    .select('item_id, event_id, due_date, label, notes')
+    .select('*')
     .eq('vendor_profile_id', vendorProfileId)
     .order('due_date', { ascending: true });
   if (error) {
@@ -583,22 +632,23 @@ export async function fetchVendorPreparationItemsByEvent(
     }
     return byEvent;
   }
-  for (const row of (data ?? []) as Array<{
-    item_id: string;
-    event_id: string;
-    due_date: string;
-    label: string;
-    notes: string | null;
-  }>) {
-    const list = byEvent.get(row.event_id) ?? [];
+  const vendorRows = (data ?? []) as Array<PreparationItemRow & { event_id: string }>;
+  for (const r of vendorRows) {
+    const kind: PreparationItemKind =
+      r.kind === 'meeting' || r.kind === 'payment' ? r.kind : 'task';
+    const amountPhp =
+      kind === 'payment' && r.amount_php != null ? toPhp(r.amount_php) : null;
+    const list = byEvent.get(r.event_id) ?? [];
     list.push({
-      itemId: row.item_id,
-      eventId: row.event_id,
-      dueDate: row.due_date,
-      label: row.label,
-      notes: row.notes,
+      itemId: r.item_id,
+      eventId: r.event_id,
+      dueDate: r.due_date,
+      label: r.label,
+      notes: r.notes,
+      kind,
+      amountPhp,
     });
-    byEvent.set(row.event_id, list);
+    byEvent.set(r.event_id, list);
   }
   return byEvent;
 }

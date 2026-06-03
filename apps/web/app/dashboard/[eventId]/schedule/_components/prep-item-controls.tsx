@@ -27,12 +27,14 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { CalendarPlus, Loader2, Plus, Trash2, X } from 'lucide-react';
 import { addPreparationItem, deletePreparationItem } from '../prep-actions';
+import { PrepKindPicker, type PrepKind } from './prep-kind-picker';
 
 // ── Add ─────────────────────────────────────────────────────────────────
 
 export function AddPreparationItem({ eventId }: { eventId: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [kind, setKind] = useState<PrepKind>('task');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const overlayRef = useRef<HTMLDivElement | null>(null);
@@ -58,16 +60,21 @@ export function AddPreparationItem({ eventId }: { eventId: string }) {
     if (isPending) return;
     setOpen(false);
     setErrorMessage(null);
+    setKind('task');
   }
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
+    // The picker drives `kind` via React state, not a native field — stamp it
+    // onto the payload so the server action sees it.
+    fd.set('kind', kind);
     startTransition(async () => {
       try {
         await addPreparationItem(fd);
         setOpen(false);
         setErrorMessage(null);
+        setKind('task');
         router.refresh();
       } catch (err) {
         setErrorMessage(
@@ -133,20 +140,51 @@ export function AddPreparationItem({ eventId }: { eventId: string }) {
 
             <form onSubmit={onSubmit} className="space-y-4">
               <input type="hidden" name="event_id" value={eventId} />
+              <PrepKindPicker value={kind} onChange={setKind} disabled={isPending} />
               <label className="block space-y-1">
-                <span className="block text-xs font-medium text-ink">What is it?</span>
+                <span className="block text-xs font-medium text-ink">
+                  {kind === 'meeting'
+                    ? 'Meeting title'
+                    : kind === 'payment'
+                      ? 'What is this payment for?'
+                      : 'What is it?'}
+                </span>
                 <input
                   ref={labelRef}
                   name="label"
                   required
                   maxLength={200}
-                  placeholder="e.g. Final dress fitting"
+                  placeholder={
+                    kind === 'meeting'
+                      ? 'e.g. Final venue walkthrough'
+                      : kind === 'payment'
+                        ? 'e.g. Caterer balance'
+                        : 'e.g. Final dress fitting'
+                  }
                   className="input-field"
                   disabled={isPending}
                 />
               </label>
+              {kind === 'payment' ? (
+                <label className="block space-y-1">
+                  <span className="block text-xs font-medium text-ink">Amount (₱)</span>
+                  <input
+                    name="amount_php"
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="0.01"
+                    required
+                    placeholder="e.g. 25000"
+                    className="input-field"
+                    disabled={isPending}
+                  />
+                </label>
+              ) : null}
               <label className="block space-y-1">
-                <span className="block text-xs font-medium text-ink">When?</span>
+                <span className="block text-xs font-medium text-ink">
+                  {kind === 'meeting' ? 'When?' : kind === 'payment' ? 'Due date' : 'When?'}
+                </span>
                 <input
                   name="due_date"
                   type="date"

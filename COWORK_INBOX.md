@@ -8,6 +8,35 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Admin song dedup tool + compatibility build COMPLETE (0023/0006)
+
+**Why:** PR 6 (final) — an admin surface to merge near-duplicate master songs + remove junk, keeping the compatibility overlap clean. The whole compatibility build (PRs 1–6) is now shipped.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`0023_admin_console.md`** — add the **Songs** surface (`/admin/songs`, nav by Taxonomy): search the master catalogue, merge duplicates (re-points vendor repertoires + couple picks, deletes the dup), remove junk.
+2. **`Vendor_Compatibility_and_Master_Songlist_2026-06-03.md`** — mark the build COMPLETE (PRs 1–6): foundation+seed · vendor "Your repertoire" · couple picks → event_song_picks · the overlap score+cue on the music cards · the admin dedup tool. **Open refinements** (noted in the PR 4 item): explicit Best/Next-best section-headers, the marketplace + Category-Search cue, and the **catering food-look** parallel (the catering twin of this whole subsystem).
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "feat(0023,0006): admin song dedup…". Needs migration `20260731000000` pushed.
+
+---
+
+## [PENDING] 2026-06-03 — Admin deadline table: schema landed (PR 1/3 of the per-leaf deadline build)
+
+**Why:** Step 1 of making the recommended-deadline reminders admin-editable (owner: "ship this both"). The `planning_deadlines` table + seed now exist; the admin UI + read-path follow.
+
+**What landed (code):** migration `20260802000000_planning_deadlines.sql` — the unified deadline table (`kind`/`ref_key`/`scope`/`offset_value`+`offset_unit`/`applies_to`/`is_active`), admin-write + authenticated-read RLS, seeded with 26 service category defaults (from `PLAN_GROUPS.monthsBefore`) + 3 statutory documents.
+
+**Owner action:** push migration `20260802000000_planning_deadlines.sql` (`supabase db push`).
+
+**Spec corpus update (owner walks via Cowork):**
+1. **`~/Documents/Claude/Projects/Setnayan/0023_admin_console/`** + the planning/deadline spec — record the admin-managed `planning_deadlines` table: per-category defaults + per-leaf overrides via **inheritance-with-override**, a **"missing deadline" flag**, distinct from the vendor delivery plan. Reminders read from it (PR 3); admin edits in `/admin/taxonomy` (PR 2).
+
+**Still to build:** PR 2 (`/admin/taxonomy` deadline column + missing-flag + edit) · PR 3 (wire `lib/upcoming-items.ts` to read the table, code stays as fallback).
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Music compatibility score shipped (0006/0016)
 
 **Why:** PR 4 of the compatibility build — music vendors are ranked by song overlap with the couple's picks + cards show the match. The "≥90% Best / <90% Next-best" intent is realized via re-rank + label.

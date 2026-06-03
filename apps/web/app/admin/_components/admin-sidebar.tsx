@@ -75,6 +75,7 @@ import {
   Tag,
   Globe,
   Megaphone,
+  Music,
   TrendingUp,
   Activity,
   WifiOff,
@@ -295,6 +296,13 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         label: 'Taxonomy',
         href: '/admin/taxonomy',
         icon: Tag,
+      },
+      {
+        key: 'songs',
+        label: 'Songs',
+        href: '/admin/songs',
+        icon: Music,
+        matchPrefix: '/admin/songs',
       },
       {
         key: 'website',

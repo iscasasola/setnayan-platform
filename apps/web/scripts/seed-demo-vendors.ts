@@ -1617,6 +1617,125 @@ function computeCompleteness(
 }
 
 // ===========================================================================
+// LOCATION DETAIL + SYNTHETIC REVIEWS (demo realism)
+// ===========================================================================
+//
+// District-level addresses + synthetic reviews/ratings so demo vendors can
+// exercise search, compare, and "best match" ranking. Reviews reuse the
+// archived `TEST-REVIEW · %` synthetic-event pool created by
+// migrations/20260607000000_seed_vendor_reviews.sql (vendor_reviews.event_id is
+// NOT NULL) and set couple_user_id = NULL — the self-review trigger
+// (20260515030000) short-circuits on NULL, so service-role inserts pass.
+// Ratings surface via the vendor_review_stats matview (refreshed per INSERT
+// statement) so reviews are accumulated + bulk-inserted in large chunks → the
+// matview refreshes only a handful of times, not once per category.
+
+const CITY_DISTRICTS: Record<string, readonly string[]> = {
+  manila: ['Malate', 'Ermita', 'Binondo', 'Intramuros', 'Sampaloc'],
+  'quezon-city': ['Diliman', 'Cubao', 'Kamuning', 'Loyola Heights', 'Tomas Morato'],
+  makati: ['Poblacion', 'Salcedo Village', 'Legazpi Village', 'San Lorenzo', 'Rockwell'],
+  pasig: ['Ortigas Center', 'Kapitolyo', 'San Antonio', 'Ugong'],
+  bgc: ['Uptown BGC', 'Forbes Town', 'Serendra', 'McKinley Hill'],
+  taguig: ['Western Bicutan', 'Signal Village', 'FTI Complex', 'Lower Bicutan'],
+  'cebu-city': ['Lahug', 'Banilad', 'Capitol Site', 'Guadalupe', 'IT Park'],
+  mactan: ['Punta Engaño', 'Maribago', 'Marigondon'],
+  'lapu-lapu': ['Basak', 'Gun-ob', 'Pajo'],
+  'davao-city': ['Poblacion', 'Lanang', 'Matina', 'Buhangin', 'Talomo'],
+  tagaytay: ['Kaybagal', 'Maharlika', 'Silang Junction', 'Mendez Crossing'],
+  boracay: ['Station 1', 'Station 2', 'Station 3', 'Diniwid'],
+};
+
+function pickDistrict(rng: () => number, city: CityRow): string {
+  const pool = CITY_DISTRICTS[city.slug];
+  return pool && pool.length > 0 ? pickFrom(rng, pool) : city.name;
+}
+
+const REVIEW_BODIES_POSITIVE: readonly string[] = [
+  'Sobrang ganda ng output — super worth it! Highly recommend to other couples.',
+  'So professional and accommodating from start to finish. Salamat!',
+  'Grabe, the team really delivered — our guests kept complimenting them.',
+  'On time, organized, and the quality exceeded our expectations. 10/10.',
+  'Best decision for our wedding. Galing nila talaga, no regrets.',
+  'Communication was smooth and they really listened to what we wanted.',
+  'Worth every peso. Will definitely recommend to friends getting married.',
+  'Ang bait ng buong team and very patient with all our requests. Thank you!',
+];
+
+const REVIEW_BODIES_MIXED: readonly string[] = [
+  'Maganda naman ang final output, na-delay lang nang konti ang communication.',
+  'Decent service overall, but the coordination could be a little better.',
+  'Okay naman — though we expected a bit more for the price.',
+  'Good quality, pero medyo mabagal ang responses during prep.',
+];
+
+const VENDOR_REVIEW_REPLIES: readonly string[] = [
+  'Maraming salamat! It was a pleasure working with you both. Congrats!',
+  'Thank you for trusting us with your big day!',
+  'Salamat sa review — we loved being part of your celebration.',
+  'Thank you! Sana makasama namin kayo ulit sa future events.',
+];
+
+function clampStar(n: number): number {
+  return Math.max(1, Math.min(5, Math.round(n)));
+}
+
+// Synthetic-event pool that satisfies vendor_reviews.event_id (NOT NULL FK).
+// Reuses the archived `TEST-REVIEW · %` events from migration 20260607000000.
+// Returns [] (→ reviews skipped) if that migration isn't on the target DB.
+async function fetchReviewEventPool(admin: SupabaseClient): Promise<string[]> {
+  const { data, error } = await admin
+    .from('events')
+    .select('event_id')
+    .like('display_name', 'TEST-REVIEW · %')
+    .limit(60);
+  if (error) {
+    console.warn(`Review event pool fetch failed (skipping reviews): ${error.message}`);
+    return [];
+  }
+  return (data ?? []).map((r) => (r as { event_id: string }).event_id);
+}
+
+// Generate 0-10 reviews for one vendor. Each vendor gets a hidden baseline
+// quality so vendors genuinely differ (for compare + ranking). Every row uses
+// couple_user_id = NULL + a random event from the pool; the five 1-5 ratings
+// are drawn around the baseline.
+function generateVendorReviews(
+  rng: () => number,
+  vendorProfileId: string,
+  eventPool: string[],
+): Array<Record<string, unknown>> {
+  const baseline = 3.6 + rng() * 1.3; // mean ⭐ in [3.6, 4.9]
+  const count = rng() < 0.15 ? 0 : 1 + Math.floor(rng() * 10); // ~15% have none
+  const rows: Array<Record<string, unknown>> = [];
+  for (let n = 0; n < count; n++) {
+    const overall = clampStar(baseline + (rng() - 0.5) * 1.6);
+    const sub = () => clampStar(overall + (rng() < 0.6 ? 0 : rng() < 0.5 ? -1 : 1));
+    const daysAgo = 1 + Math.floor(rng() * 364);
+    const createdAt = new Date(Date.now() - daysAgo * 86_400_000).toISOString();
+    const hasReply = rng() < 0.2;
+    rows.push({
+      vendor_profile_id: vendorProfileId,
+      event_id: pickFrom(rng, eventPool),
+      couple_user_id: null,
+      rating_overall: overall,
+      rating_communication: sub(),
+      rating_quality: sub(),
+      rating_value: sub(),
+      rating_on_time: sub(),
+      body:
+        rng() < 0.6
+          ? pickFrom(rng, overall >= 4 ? REVIEW_BODIES_POSITIVE : REVIEW_BODIES_MIXED)
+          : null,
+      vendor_reply: hasReply ? pickFrom(rng, VENDOR_REVIEW_REPLIES) : null,
+      vendor_reply_at: hasReply ? createdAt : null,
+      created_at: createdAt,
+      updated_at: createdAt,
+    });
+  }
+  return rows;
+}
+
+// ===========================================================================
 // SEED RUNNER
 // ===========================================================================
 
@@ -1753,10 +1872,22 @@ async function seed(args: SeedArgs): Promise<void> {
   const schemaMap = await fetchResolvedSchemas(admin);
   console.log(`Attribute schemas resolved: ${schemaMap.size}`);
 
+  // Synthetic-event pool for reviews (empty → reviews skipped, logged).
+  const reviewEventPool = await fetchReviewEventPool(admin);
+  console.log(
+    reviewEventPool.length > 0
+      ? `Review event pool: ${reviewEventPool.length} synthetic events`
+      : `Review event pool EMPTY — demo reviews skipped (apply migration 20260607000000 to enable).`,
+  );
+  // Reviews are accumulated across all categories, then bulk-inserted after the
+  // loop so the vendor_review_stats matview refreshes only a few times.
+  const allReviews: Array<Record<string, unknown>> = [];
+
   // 4. Iterate canonical services, build vendor rows + child rows
   let totalVendorsCreated = 0;
   let totalServicesCreated = 0;
   let totalAttrsCreated = 0;
+  let totalReviewsCreated = 0;
 
   for (const service of services) {
     // Seeded RNG per (batchId, service) for stable repro within a run
@@ -1786,6 +1917,7 @@ async function seed(args: SeedArgs): Promise<void> {
       // pin to the same coordinates
       const jitterLat = (rng() - 0.5) * 0.024;
       const jitterLng = (rng() - 0.5) * 0.024;
+      const district = pickDistrict(rng, city);
       const businessName = buildBusinessName(rng, service, kindWord);
       // Slug: demo-<batch-prefix>-<service>-<i>-<city>
       const slug = `demo-${batchId.slice(0, 8)}-${service.replace(/_/g, '-')}-${i + 1}-${city.slug}`;
@@ -1803,12 +1935,12 @@ async function seed(args: SeedArgs): Promise<void> {
         created_by_admin_user_id: null,
         is_demo: true,
         demo_batch_id: batchId,
-        business_name: `Demo · ${businessName}`,
+        business_name: businessName,
         business_slug: slug,
         tagline: `${kindWord} for Filipino weddings, based in ${city.name}.`,
         services: [service, coarse],
         location_city: city.name,
-        hq_address: `${city.name}, Philippines`,
+        hq_address: `${district}, ${city.name}, Philippines`,
         hq_latitude: Number((city.lat + jitterLat).toFixed(7)),
         hq_longitude: Number((city.lng + jitterLng).toFixed(7)),
         is_published: true,
@@ -1999,10 +2131,33 @@ async function seed(args: SeedArgs): Promise<void> {
     }
     totalAttrsCreated += attrsToInsert.length;
 
+    // 7. Generate per-vendor reviews (accumulated; bulk-inserted after the loop).
+    if (reviewEventPool.length > 0) {
+      for (const vendorProfileId of insertedIds) {
+        for (const review of generateVendorReviews(rng, vendorProfileId, reviewEventPool)) {
+          allReviews.push(review);
+        }
+      }
+    }
+
     // Compact progress line
     process.stdout.write(
       `  ${service.padEnd(40)} ${String(insertedIds.length).padStart(3)} vendors\n`,
     );
+  }
+
+  // 8. Bulk-insert all accumulated reviews in large chunks (the matview refresh
+  //    trigger is per-statement, so fewer/larger statements = fewer refreshes).
+  for (let chunk = 0; chunk < allReviews.length; chunk += 1000) {
+    const slice = allReviews.slice(chunk, chunk + 1000);
+    const { error } = await admin.from('vendor_reviews').insert(slice);
+    if (error) {
+      if (!String(error.message).match(/duplicate key/i)) {
+        throw new Error(`Insert vendor_reviews chunk ${chunk}: ${error.message}`);
+      }
+    } else {
+      totalReviewsCreated += slice.length;
+    }
   }
 
   console.log(`\n=== Seed complete ===`);
@@ -2010,6 +2165,7 @@ async function seed(args: SeedArgs): Promise<void> {
   console.log(`Vendor rows:    ${totalVendorsCreated}`);
   console.log(`Service rows:   ${totalServicesCreated}`);
   console.log(`Attr rows:      ${totalAttrsCreated}`);
+  console.log(`Review rows:    ${totalReviewsCreated}`);
   console.log(
     `\nTo view in admin: /admin/demo-vendors\n` +
       `To preview in marketplace: /vendors?demo=1  (Agent 2 ships this flag)\n` +

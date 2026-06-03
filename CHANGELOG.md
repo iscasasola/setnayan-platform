@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(marketplace): demo vendors get reviews/ratings, district addresses & real names
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Follow-up to the demo-vendor enrichment (next entry). Owner wants demo vendors realistic enough to test the real flows — **find → compare → "pick the best service for the customer."** Gaps that remained: demo vendors had **0 reviews / 0 stars** (so any "best"/compare ranking couldn't differentiate them), addresses were city-level only, and names carried a `Demo ·` prefix.
+
+**What ships (`scripts/seed-demo-vendors.ts`, seed-only — no migration):**
+
+1. **Synthetic reviews + ratings.** Each demo vendor gets a hidden baseline quality + 0–10 reviews (~15% get none) with five 1-5 sub-axis ratings drawn around the baseline, a Filipino-voice `body` (~60%), and an occasional `vendor_reply` (~20%). Reviews set `couple_user_id = NULL` (the self-review trigger `20260515030000` short-circuits on NULL) and reuse the archived `TEST-REVIEW · %` event pool from migration `20260607000000` for the NOT-NULL `event_id` FK (skipped with a logged warning if that pool is absent). Accumulated across categories + bulk-inserted in 1000-row chunks so the `vendor_review_stats` matview (refreshed per INSERT statement) refreshes only a few times. Ratings surface via that view; reviews cascade-delete with the batch's vendors.
+2. **District-level addresses.** New per-city district pool (Makati→Poblacion/Salcedo/…, Cebu→Lahug/Banilad/…); `hq_address` becomes `"{District}, {City}, Philippines"` (real lat-lng unchanged).
+3. **Real-looking names.** Dropped the `Demo ·` business-name prefix. `is_demo=TRUE` (the flag, not the name) still drives `/admin/demo-vendors`, marketplace exclusion, and `?demo=1`; slugs still start `demo-`.
+
+**SPEC IMPACT:** None — synthetic demo/simulation data only (no schema, SKU, or workflow change; reuses the existing `vendor_reviews` table + `TEST-REVIEW · %` event pool).
+
+**Verification:** `tsc --noEmit` + `next lint` green. Offline harness (400 vendors): clean invariants (ratings 1-5, `couple_user_id` null, `event_id` from pool, reply/reply_at consistent), 15% zero-review vendors, per-vendor mean ⭐ spread 3.0–5.0 (clear differentiation), positive skew. **Owner-actionable:** run the seed on **staging** then check `/vendors?demo=1&sort=highest_rated` + the compare view's Rating row + a demo `/v/[slug]` (no prefix, district address). The "best match" recommender (the 4th owner ask) is a separate follow-up that builds on these ratings.
+
 ## 2026-06-03 · feat(marketplace): demo vendors get real per-category details, richer packages & images
 
 **Commit:** see merge commit on this PR.

@@ -65,6 +65,7 @@ import {
   TestTube,
   CalendarDays,
   MapPin,
+  Church,
   DollarSign,
   Tag as TagIcon,
   Sparkles,
@@ -217,6 +218,15 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         // /admin/venues/[id] + /admin/venues/new both reached from list —
         // matchPrefix keeps Venues lit on detail + create surfaces.
         matchPrefix: '/admin/venues',
+      },
+      {
+        // Per-religion launch gate (iteration 0043) — readiness counts +
+        // open/coming-soon/disable. Sits in Directory next to Venues since
+        // it reads the same supply (vendors + ceremonial venues).
+        key: 'wedding-types',
+        label: 'Wedding types',
+        href: '/admin/wedding-types',
+        icon: Church,
       },
     ],
   },

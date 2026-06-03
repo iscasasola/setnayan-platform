@@ -114,6 +114,22 @@ export function OuterDashboardHeader({
     </Link>
   );
 
+  // Upper-right avatar = the primary event's logo (the couple's framed
+  // onboarding monogram), owner-locked 2026-06-03 "the avatar IS the event's
+  // logo". A customer can host many events but has only one account photo, so
+  // the per-event logo — anchored to the same primary event the switcher uses —
+  // is the right identity here. ProfileMenu falls back to the account initial
+  // when there's no event or the event has no designed monogram.
+  const profileMonogram = primaryEvent
+    ? {
+        display_name: primaryEvent.display_name,
+        monogram_text: primaryEvent.monogram_text,
+        monogram_color: primaryEvent.monogram_color,
+        monogram_frame_key: primaryEvent.monogram_frame_key,
+        monogram_font_key: primaryEvent.monogram_font_key,
+      }
+    : null;
+
   return (
     <>
       {/* Mobile: sticky top strip (< lg / < 1024px). Hidden on desktop —
@@ -139,7 +155,7 @@ export function OuterDashboardHeader({
               ariaBaseLabel="Notifications"
               ariaUnreadSuffix="unread"
             />
-            <ProfileMenu email={email} ariaLabel="Account menu" />
+            <ProfileMenu email={email} monogram={profileMonogram} ariaLabel="Account menu" />
           </div>
         </div>
       </header>
@@ -193,7 +209,7 @@ export function OuterDashboardHeader({
                 ariaBaseLabel="Notifications"
                 ariaUnreadSuffix="unread"
               />
-              <ProfileMenu email={email} ariaLabel="Account menu" />
+              <ProfileMenu email={email} monogram={profileMonogram} ariaLabel="Account menu" />
             </div>
           </div>
         </div>

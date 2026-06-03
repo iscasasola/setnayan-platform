@@ -23,6 +23,25 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Iteration 0001: mobile Guests carousel — select-and-assign Customize + folded filters + side/role/group sort
+
+**Why:** Owner directives 2026-06-03 reshaped the mobile Guests page (the lower-third 4-panel carousel). The shipped behavior now differs from how iteration 0001 describes the mobile guest-list controls, so the spec should be updated to match.
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/0001_creating_guest_list/0001_creating_guest_list.md`** — update the mobile carousel section:
+   - **Customize panel** is no longer the View/Groups/Tags filters. It is now **select-and-assign**: a "Select guests" entry button → checkboxes appear on each guest card → a select-all checkbox + live "N selected" count + an **Assign** button live in the panel → Assign opens a **bottom sheet** offering **Side / Role / Group**, where Group includes a text box to **create a new group** on the spot. Backed by the existing bulk server actions (`bulkApplyRoleAndGroup`, `createGuestGroup`).
+   - **Search & sort panel** now also hosts the **View / Groups / Tags filter chips** (folded in from the old Customize panel) under a "Filter" heading, plus the search box (matches name · side · role · group · RSVP) and the sort pills.
+   - **Sort** options now include **Side · Role · Group** in addition to Last name / First name / RSVP / Newest.
+   - **Header removed on mobile:** the "Guest list / N guests" title is desktop-only; the Summary panel carries the count on phones.
+   - **Carousel chrome:** docked as a raised sheet (rounded top + soft shadow + single hairline), no doubled border.
+
+2. **`~/Documents/Claude/Projects/Setnayan/DECISION_LOG.md`** (corpus root) — append a 2026-06-03 row: "Mobile Guests carousel: Customize → select-and-assign (Side/Role/Group + create-group bottom sheet); View/Groups/Tags filters fold into Search & sort; sort gains Side/Role/Group; mobile header removed (Summary carries count). Desktop unchanged (table + floating SelectionBar). Files: `apps/web/app/dashboard/[eventId]/guests/{page.tsx, _components/mobile-guest-carousel.tsx, guest-list-multiselect.tsx, guest-selection-store.ts}`."
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]` here.
+
+---
+
 ## [PENDING] 2026-05-22 — Iteration 0021: tiered wedding-date precision + vendor calendar intersection (Task #39)
 
 **Why:** Owner-confirmed V1 pilot-blocking feature (CLAUDE.md decision log Task #39, 2026-05-22). The event date model changes from "specific day required" to a 3-precision tier (year / month / day). Spec corpus needs the canonical decision-log row + iteration 0021 § 10 supersession note + new schema column documented.

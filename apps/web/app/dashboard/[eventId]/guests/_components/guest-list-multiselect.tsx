@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown, Trash2, X, UserPlus } from 'lucide-react';
 import { ConfirmForm } from '@/app/_components/confirm-form';
+import { guestSelection, useGuestSelection } from './guest-selection-store';
 import {
   bulkApplyRoleAndGroup,
   bulkSoftDeleteGuests,
@@ -31,8 +32,11 @@ import { ROLE_GROUP_CHIP, ROLE_GROUP_LABELS, roleGroupOf } from '@/lib/role-grou
 // Role groupings for the bulk-assign dropdown. Keeps the spec-locked
 // 20-value role enum but presents it grouped so hosts can scan quickly.
 // Mirrors the sidebar VIEW_FILTERS ordering for muscle-memory consistency.
-type RoleSection = { label: string; roles: GuestRole[] };
-const BULK_ROLE_SECTIONS: RoleSection[] = [
+export type RoleSection = { label: string; roles: GuestRole[] };
+// Exported so the mobile Assign bottom sheet (MobileGuestCarousel) shows the
+// SAME grouped role picker as the desktop SelectionBar — single source of
+// truth for the spec-locked 20-value role enum.
+export const BULK_ROLE_SECTIONS: RoleSection[] = [
   { label: ROLE_GROUP_LABELS.couple, roles: ['bride', 'groom'] },
   // VIP family — owner directive 2026-05-23 PM (PR #424 lock).
   // 4 roles for Tier-1 seating auto-fill per iteration 0008.
@@ -82,42 +86,40 @@ export function GuestListMultiselect({
   groupMemberships,
   currentGroupId,
 }: Props) {
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Selection lives in the shared external store so the mobile carousel's
+  // Customize panel (a sibling component) shows the live count / select-all
+  // and the desktop SelectionBar stay in lockstep (owner directive
+  // 2026-06-03). `selectMode` only gates the MOBILE card checkbox; the
+  // desktop table keeps its always-on checkbox column.
+  const { selectMode, ids: selectedIds, set: selectedSet } = useGuestSelection();
   const [showNewGroupForm, setShowNewGroupForm] = useState(false);
 
-  const toggleOne = useCallback((id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
-
   const allIds = useMemo(() => guests.map((g) => g.guest_id), [guests]);
-  const allSelected = selected.size > 0 && selected.size === allIds.length;
-  const someSelected = selected.size > 0 && !allSelected;
+  const allSelected =
+    selectedIds.length > 0 && selectedIds.length === allIds.length;
+  const someSelected = selectedIds.length > 0 && !allSelected;
 
-  const toggleAll = useCallback(() => {
-    setSelected((prev) => (prev.size === allIds.length ? new Set() : new Set(allIds)));
-  }, [allIds]);
-
-  const clearSelection = useCallback(() => setSelected(new Set()), []);
-
-  const selectedIds = useMemo(() => Array.from(selected), [selected]);
+  const toggleAll = () =>
+    allSelected ? guestSelection.clear() : guestSelection.setAll(allIds);
 
   return (
     <div className="space-y-4">
-      {selected.size > 0 ? (
-        <SelectionBar
-          eventId={eventId}
-          count={selected.size}
-          selectedIds={selectedIds}
-          groups={groups}
-          onClear={clearSelection}
-          showNewGroupForm={showNewGroupForm}
-          setShowNewGroupForm={setShowNewGroupForm}
-        />
+      {/* Floating bulk-action bar — DESKTOP ONLY (lg+). On phones + tablets
+          the carousel's Customize panel + Assign bottom sheet own bulk
+          actions (owner directive 2026-06-03), so the floating bar would be
+          redundant chrome there. */}
+      {selectedIds.length > 0 ? (
+        <div className="hidden lg:block">
+          <SelectionBar
+            eventId={eventId}
+            count={selectedIds.length}
+            selectedIds={selectedIds}
+            groups={groups}
+            onClear={() => guestSelection.clear()}
+            showNewGroupForm={showNewGroupForm}
+            setShowNewGroupForm={setShowNewGroupForm}
+          />
+        </div>
       ) : null}
 
       {/* Desktop · table with checkbox column. Mirrors the prior
@@ -164,8 +166,8 @@ export function GuestListMultiselect({
                 guest={guest}
                 eventId={eventId}
                 palette={palette}
-                selected={selected.has(guest.guest_id)}
-                onToggle={() => toggleOne(guest.guest_id)}
+                selected={selectedSet.has(guest.guest_id)}
+                onToggle={() => guestSelection.toggle(guest.guest_id)}
                 groupIds={groupMemberships[guest.guest_id] ?? []}
                 groupsById={Object.fromEntries(groups.map((g) => [g.group_id, g]))}
                 currentGroupId={currentGroupId}
@@ -183,8 +185,9 @@ export function GuestListMultiselect({
             guest={guest}
             eventId={eventId}
             palette={palette}
-            selected={selected.has(guest.guest_id)}
-            onToggle={() => toggleOne(guest.guest_id)}
+            selectMode={selectMode}
+            selected={selectedSet.has(guest.guest_id)}
+            onToggle={() => guestSelection.toggle(guest.guest_id)}
             groupIds={groupMemberships[guest.guest_id] ?? []}
             groupsById={Object.fromEntries(groups.map((g) => [g.group_id, g]))}
             currentGroupId={currentGroupId}
@@ -644,6 +647,7 @@ function MobileCard({
   guest,
   eventId,
   palette,
+  selectMode,
   selected,
   onToggle,
   groupIds,
@@ -653,6 +657,7 @@ function MobileCard({
   guest: GuestRow;
   eventId: string;
   palette: RolePalette;
+  selectMode: boolean;
   selected: boolean;
   onToggle: () => void;
   groupIds: string[];
@@ -665,15 +670,19 @@ function MobileCard({
         selected ? 'border-terracotta/60 bg-terracotta/[0.05]' : 'border-ink/10'
       }`}
     >
-      <label className="flex items-center justify-center">
-        <input
-          type="checkbox"
-          checked={selected}
-          onChange={onToggle}
-          aria-label={`Select ${guestDisplayName(guest)}`}
-          className="h-5 w-5 rounded border-ink/30 text-terracotta focus:ring-terracotta"
-        />
-      </label>
+      {/* Checkbox appears only in select mode (owner directive 2026-06-03) —
+          a clean card by default, the leading checkbox once "Select" is on. */}
+      {selectMode ? (
+        <label className="flex items-center justify-center">
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onToggle}
+            aria-label={`Select ${guestDisplayName(guest)}`}
+            className="h-5 w-5 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+          />
+        </label>
+      ) : null}
       <Link
         href={`/dashboard/${eventId}/guests/${guest.guest_id}`}
         className="flex flex-1 items-center gap-3 min-w-0"
@@ -839,7 +848,11 @@ function RoleChips({ guest, palette }: { guest: GuestRow; palette: RolePalette }
   const extras = guest.extra_roles ?? [];
   return (
     <span className="inline-flex flex-wrap items-center gap-1">
-      <RoleChips guest={guest} palette={palette} />
+      {/* primary role chip — render <RoleChip>, NOT <RoleChips> (self).
+          Rendering RoleChips here was infinite self-recursion → stack
+          overflow → SSR 500 on the Guests page (the un-merged
+          claude/fix-rolechips-recursion branch chased this). */}
+      <RoleChip role={guest.role} palette={palette} />
       {extras.map((r) => (
         <span
           key={r}

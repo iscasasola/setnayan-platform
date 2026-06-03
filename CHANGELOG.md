@@ -28,6 +28,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(0001): mobile Guests carousel — select-and-assign Customize, folded filters, side/role/group sort, cleaner sheet
+
+**Commit:** to be filled after commit.
+
+**Context:** Owner reviewed the mobile Guests page (the lower-third 4-panel carousel: Summary · Search & sort · Add · Customize) and gave five directives.
+
+**What shipped (`apps/web/app/dashboard/[eventId]/guests/`):**
+
+1. **Doubled line + separation (carousel container).** The carousel had a `border-t` on its container AND a `border-b` under the tab row ~40px apart — read as two overlapping lines. Replaced with a single raised-sheet treatment: `rounded-t-2xl` + soft upward shadow + one hairline `ring-1 ring-ink/10`, and dropped the tab-row bottom border. One clean "window above / panel below" separation.
+2. **Removed the mobile header.** The `<header>` ("Guest list / N guests") was visible on all sizes; now `hidden lg:flex` (desktop only). On mobile the Summary panel already carries the count.
+3. **Sort axes.** `SORT_OPTIONS` gains **Side · Role · Group** alongside the existing Last/First/RSVP/Newest (`role` already existed). New `sortCompare` cases: Side ranks bride→groom→both; Group sorts by each guest's first (alphabetical) custom-group label via `buildGroupSortKey`, ungrouped last. (Search already matched name/side/role/group/RSVP server-side — placeholder sharpened to "Name, side, role, group…".)
+4. **Filters folded into Search & sort.** The View / Groups / Tags filter chips (displaced from Customize) now live under the Search & sort panel as a "Filter" section.
+5. **Customize = select-and-assign.** New shared selection store (`guest-selection-store.ts`, `useSyncExternalStore`) bridges the list's checkboxes and the carousel. Tap **Select** → checkboxes appear on the mobile cards (gated on `selectMode`); the panel shows a **select-all checkbox + live count + Assign**. **Assign** opens a bottom sheet with **Side / Role / Group**, where Group has a create-new-group text box. Each choice dispatches the existing `bulkApplyRoleAndGroup` / `createGuestGroup` server action for the selection, then optimistically clears + closes. Desktop's floating `SelectionBar` is now `hidden lg:block` (mobile/tablet use the carousel); `BULK_ROLE_SECTIONS` exported for reuse so the sheet's role picker matches desktop exactly.
+
+**Verification:** `tsc --noEmit` clean; `next lint` clean for all four files (no new warnings). Visual/interactive confirmation via the PR's Vercel preview (the authed Guests page needs a real session + seeded event, not reproducible in a bare local dev server).
+
+**SPEC IMPACT:** Iteration **0001** (guest list) mobile UX changes — Customize is now select-and-assign (was filters), filters fold into Search & sort, and sort gains Side/Role/Group. Spec corpus `0001_creating_guest_list/0001_creating_guest_list.md` should reflect the new mobile carousel behavior. See `COWORK_INBOX.md` `[PENDING] 2026-06-03`.
+
 ## 2026-05-22 · docs(0001): flag guest_role bride/groom enum prod-push gap (Task #49)
 
 **Commit:** to be filled after commit.

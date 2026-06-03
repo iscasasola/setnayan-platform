@@ -9,7 +9,7 @@ import {
   useTransition,
 } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, Plus, X } from 'lucide-react';
+import { AlertTriangle, X } from 'lucide-react';
 import {
   ROLE_LABELS,
   SIDE_LABELS,
@@ -463,16 +463,9 @@ export function QuickAddSheet({
 
   return (
     <>
-      {/* mobile FAB trigger */}
-      <button
-        type="button"
-        aria-label="Add guest"
-        onClick={() => setOpen(true)}
-        className="fixed bottom-20 right-4 z-30 inline-flex h-14 w-14 items-center justify-center rounded-full bg-mulberry text-cream shadow-lg shadow-mulberry/30 hover:bg-mulberry-600 sm:hidden"
-      >
-        <Plus aria-hidden className="h-6 w-6" strokeWidth={2} />
-      </button>
-
+      {/* Mobile has no FAB: adding is handled by the carousel's "Add" panel
+          (QuickAddInlineForm). This sheet opens on desktop only, via
+          OpenQuickAddButton → OPEN_EVENT. */}
       {open ? (
         <div className="fixed inset-0 z-40">
           <button

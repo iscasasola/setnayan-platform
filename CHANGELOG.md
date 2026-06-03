@@ -21,6 +21,92 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **Verification:** `tsc --noEmit` + `next lint` green in-worktree. An offline generator harness (catering schema + the 5 shared groups, 8 vendors) confirmed: every visibility-minimum field filled incl. `service_regions`, avg completeness ~82, `required_if` enforced (paid_tasting⇒tasting_fee, willing_to_travel⇒dest_fee). **Owner-actionable:** the full seed run is on **staging** (script refuses prod via the project-ref guard; needs a non-prod `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`) — then visual-check `/admin/demo-vendors`, `/vendors?demo=1` (logos on cards), and a demo `/v/[slug]` (Details + gallery). CI gates types/lint/production build.
 
+---
+
+## 2026-06-03 · polish(guests): collapse/expand animates the guest list in sync with the panel sheet
+
+**Context:** Owner — "we want the collapse to have animation and expansion." The panel sheet already animated its own height (`transition-[height] duration-200 ease-out`, #854), but the **in-flow spacer** that reserves room for the sheet had no transition — so on collapse/expand the sheet slid smoothly while the guest list area *snapped* instantly. The gesture read as half-animated.
+
+**What changed (`apps/web/app/dashboard/[eventId]/guests/_components/mobile-guest-carousel.tsx`):** Added the same `transition-[height] duration-200 ease-out` to the spacer `<div>` so its height animates in lockstep with the sheet. Now both the sheet and the list reflow ease over the same 200ms — collapse and expand are one cohesive motion. The keyboard-open path is untouched (the spacer still holds full height when `kbOpen`, preserving the iOS tap-delivery fix from earlier today).
+
+**Verification:** Confirmed the sheet's existing height transition fires both directions (concrete 280px ↔ 2.25rem, not `auto`, so it animates); the spacer's only height change is collapse↔expand, so the added transition animates exactly that and nothing else. Visual confirmation via the Vercel prod deploy (auth-gated page; no local Supabase env).
+
+**SPEC IMPACT:** None — animation polish; no SKU, schema, copy, or workflow change.
+
+---
+
+## 2026-06-03 · fix(guests): remove the redundant mobile "+" add FAB (leftover behind the panel sheet)
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner screenshot — a mulberry "+" floating action button was still rendering on the mobile Guests page, peeking out from behind the collapsed panel sheet near the **Customize** nav item. It's a leftover: the FAB (`fixed bottom-20 right-4 z-30 … bg-mulberry … sm:hidden`) was the old mobile trigger for `QuickAddSheet`, but mobile adding is now handled by the carousel's **Add** panel (`QuickAddInlineForm`). At `z-30` it sat *behind* the `z-40` sheet, so only a sliver showed.
+
+**What changed (`apps/web/app/dashboard/[eventId]/guests/_components/quick-add-sheet.tsx`):** Removed the mobile FAB `<button>` (and its now-unused `Plus` import). `QuickAddSheet` itself is unchanged and still opens on **desktop** via `OpenQuickAddButton` → `OPEN_EVENT` (the header is `lg:flex`, desktop-only), so desktop add is untouched; mobile add continues through the carousel Add panel. Replaced the removed markup with a comment documenting why there is no mobile FAB.
+
+**Verification:** Confirmed the FAB was the only `setOpen(true)` on mobile and that the desktop event-listener trigger remains; grep confirms no other `Plus` reference and no second bottom-anchored FAB in the guests dir. Visual confirmation via the Vercel prod deploy (auth-gated page; no local Supabase env).
+
+**SPEC IMPACT:** None — dead-UI removal; no SKU, schema, copy, or workflow change.
+
+---
+
+## 2026-06-03 · fix(guests): clearer collapse grabber — chevron + animated height
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Follow-up to the collapsible Guests panel (PR #850). The collapse mechanism works (verified in an isolated repro — tap → sheet shrinks to the handle, guest list stretches), but the grabber was a single faint `bg-ink/15` pill with an instant (un-animated) height change, so the affordance was easy to miss and the collapse hard to notice ("does not collapse"). Make it unmistakable.
+
+**What ships (`mobile-guest-carousel.tsx`):** (1) the grabber gains a **chevron** (`ChevronDown`, rotates 180° when collapsed) beside a more-visible `bg-ink/25` pill, in `text-ink/40` with an `active:` press state — clearly a tap-to-collapse control; (2) the sheet **animates** its height (`transition-[height] duration-200 ease-out`) so collapse/expand visibly slides — gated on `!kbOpen` so the iOS keyboard-pin (PR #841) stays instant with no typing jank.
+
+**SPEC IMPACT:** None (affordance + animation polish on the PR #850 collapse).
+
+**Verification:** Type-safe by inspection (chevron import + a rotate class + a conditional transition class). Flagged for owner preview check. CI gates types/lint/build.
+
+## 2026-06-03 · refactor(onboarding): unique `.onbw` CSS scope for the wedding onboarding flow (was global `.pba`) — kills the collision at the source
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Follow-up hardening to the `fix(services)` entry below. The wedding onboarding flow ships a **global** stylesheet (`apps/web/app/onboarding/wedding/_styles/onboarding.css`, imported in `onboarding-shell.tsx`) that scoped every rule under the generic class `.pba` — including `.pba{display:flex;justify-content:center}` plus a `.pba *{margin:0;padding:0}` reset on its root. A plain `.css` import in the App Router is global and persists app-wide, so that `.pba` could leak onto any other surface using the same class. It already did once (the Services Plan+Budget accordion, fixed by renaming that surface to `.pbacc`). This change removes the root cause so it can't recur.
+
+**What changed:**
+
+- **`onboarding.css`** — renamed the scope `.pba` → `.onbw` (onboarding-wedding) across all 525 selectors (whole-token swap; verified there are no `.pba`-prefixed substring classes like `.pblock`, so nothing else was touched). Expanded the file header to document the `.onbw` scope, the collision history, and the re-scope instruction ("prepend `.onbw` to every rule") for future ports.
+- **`onboarding-shell.tsx`** — the single root `className="pba"` → `"onbw"`; updated its two header-comment references.
+- The locked prototype `Onboarding_Wedding_Flow_2026-06-01.html` is **unchanged** — it never used `.pba` (it scopes under `.phone`/`body`); the `.pba` prefix was only added during the manual re-scope/port step, so just the code + its porter-facing comments needed updating. No Cowork edit required.
+
+**Verification:** `tsc --noEmit` clean; `next lint` clean for the onboarding files. Real-browser render check (the actual renamed CSS inlined against a representative `.onbw > .phone > .top/.body/.bottom` structure): the `.onbw` scope correctly styles the phone frame (430px), gold progress bar, the screen heading + chips, and the mulberry Continue CTA — rendering is identical to before (same rules, new scope name). App-wide grep confirms `.pba` is dead as a live class (remaining mentions are explanatory comments only); `.onbw` (onboarding) and `.pbacc` (accordion) are now distinct, collision-proof scopes.
+
+**SPEC IMPACT:** None — pure CSS-scoping refactor; no SKU, schema, copy, or workflow change. Resolves the latent architecture risk flagged in the `fix(services)` entry below.
+
+---
+
+## 2026-06-03 · fix(services): Plan+Budget budget-bar rendered as a left side-nav — `.pba` CSS scope collided with onboarding's global stylesheet
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner reported the couple **Services** tab's dark "budget bar" rendering as a vertical **side-nav on the left** instead of a top row (mobile screenshot, setnayan.com). Root cause is a global-CSS class-name collision. The Plan+Budget accordion (`plan-budget-accordion.tsx`) scopes its injected `<style>` under `.pba`. The wedding onboarding flow's **global** stylesheet (`apps/web/app/onboarding/wedding/_styles/onboarding.css`, imported in `onboarding-shell.tsx`) *also* scoped under `.pba` and set `.pba{display:flex;justify-content:center}` plus a `.pba *{margin:0;padding:0}` reset on its root. A plain `.css` import in the App Router is global and persists app-wide once loaded, so that leaked `display:flex` turned the accordion's sticky top budget bar into a stretched flex-**column** on the left (the cover content became the right column). The accordion's own `.pba` rule set `position:relative` but never `display`, so it could not override the leak.
+
+**What changed (`plan-budget-accordion.tsx`):** Renamed the accordion's CSS scope `.pba` → `.pbacc` (Plan-Budget-ACCordion) — every selector in the injected `PBA_CSS` string (226 scope tokens) plus the root element's `className`. `.pba` and `.pbacc` are distinct class tokens, so onboarding's `.pba{display:flex}` / `.pba *{…}` no longer match the accordion root or its descendants, and the surface reverts to its intended block layout with the budget bar pinned on top. Added a prominent header comment documenting why it must NOT be renamed back. (The onboarding side is hardened separately in the `refactor(onboarding)` entry above — both surfaces now own unique scopes.)
+
+**Verification:** Reproduced the exact bug and confirmed the fix in a real browser — an isolated repro of onboarding's global `.pba` leak against the accordion's real top-bar markup: root `.pba` → black bar becomes a left column (matches the report); root `.pbacc` → black bar correctly on top. `tsc --noEmit` clean; `next lint` clean for the changed file.
+
+**SPEC IMPACT:** None — pure CSS-scoping bugfix; no SKU, schema, copy, or workflow change.
+
+---
+
+## 2026-06-03 · tweak(guests): fixed 280px height for the mobile panel sheet (was a screen-proportion clamp)
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner — set the lower carousel (the 4-panel sheet on the mobile Guests page) to a concrete height instead of a fraction of the screen. The previous value `clamp(208px, 33vh, 288px)` only approximated "a third": it capped at 288px on tall phones (less than a third) and floored at 208px on short ones (more than a third), so the sheet height drifted by device.
+
+**What changed (`apps/web/app/dashboard/[eventId]/guests/page.tsx`):** `--gcar-h` (the sheet's *expanded* height — the collapse feature from the entry below still toggles between this and the 2.25rem grabber) is now a fixed `280px`. Sized to the tallest panel (**Find**: search + Side/RSVP toggles + Role/Group + Sort), which the design requires to fit without vertical scroll; 280px sits right at the old clamp's upper bound, so it's a proven-good size. The sheet's own 36px grabber leaves ~244px of panel area — enough for the Find panel in the common (no custom tags) case; the rarer with-tags variant falls back to the panel's existing internal scroll.
+
+**Verification:** Type-trivial string-literal swap inside an existing `style` object (no logic/type surface). Visual confirmation deferred to the Vercel PR preview (local dev can't render the auth-gated dashboard without Supabase env).
+
+**SPEC IMPACT:** None — sizing tweak only; no SKU, schema, copy, or workflow change. Aligns with the existing "lower-third carousel" owner directive captured in the component header.
+
+---
+
 ## 2026-06-03 · feat(guests): collapsible mobile panel — tap the grabber to stretch the guest list
 
 **Commit:** see merge commit on this PR.

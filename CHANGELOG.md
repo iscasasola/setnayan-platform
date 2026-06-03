@@ -15,9 +15,39 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **Effect:** all religions stay live now (owner kept everything live) — this is the decision/control surface: flip a religion to "coming soon" and it greys in both pickers until reopened. **No migration** (uses the existing iteration-0043 `wedding_type_launch_status` table; `current_vendor_count` left as a future cache — readiness is computed live).
 
-**Verification:** `tsc --noEmit` exit 0 · `next lint` clean. Shipped from an isolated worktree off `origin/main`.
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean · full CI green (production build + e2e + lighthouse). Shipped from an isolated worktree off `origin/main`.
 
 **SPEC IMPACT:** Yes — iteration **0023** gains a Wedding-types admin surface; **0043** launch gate now wired to onboarding + readiness counts. See `COWORK_INBOX.md`.
+
+## 2026-06-03 · perf(nav): instant tab revisits (router-cache window) + site-editor fetch parallelization
+
+**Context:** Owner directive 2026-06-03 — *"make loading of home, guests, services, website, and more run without loading or blank intervals."* This lands the two pieces the same-day app-wide-skeletons work did NOT cover. Those skeletons fix the WRONG-shape flash on *first* visit; this fixes the RE-LOAD on *revisit* (Next 15's client Router Cache defaults to 0s, so re-tapping a tab you saw seconds ago refetched + re-skeletoned every time), plus the Website tab's slow first paint.
+
+**What changed (apps/web):**
+- **`next.config.ts`** — added `experimental.staleTimes { dynamic: 60, static: 300 }`. Re-tapping a recently-viewed dashboard tab within the window is now instant from the client Router Cache — no server round-trip, no skeleton at all. Confirmed a recognized key in Next 15.5.18's config schema.
+- **`site-editor/[eventId]/page.tsx`** — the Website tab's editor (a top-level route outside the dashboard layout) ran **6 sequential** Supabase awaits. Parallelized membership + event + guests + orders into one `Promise.all` (only the slug-dependent QR render stays sequential): 6 sequential awaits → 2 phases. Pairs with its `BoardPageSkeleton` loading shell.
+
+**Why staleTimes is safe:** every dashboard mutation runs through a Server Action that calls `revalidatePath()` (100+ call sites across `app/` + `lib/`), busting the client cache for the touched route — so a couple never sees stale data after they change something themselves. The 60s window only affects passive re-navigation.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean · `next build` success. Complementary to the app-wide skeleton system; shipped from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** None — pure perceived-performance / UX; no feature, pricing, schema, or workflow change.
+
+
+## 2026-06-03 · fix(0023): demo-vendor "Create" works on production while admin demo mode is on
+
+**Context:** Owner tapped **Create demo vendors** on the live `/admin/demo-vendors` (setnayan.com) and reported *"the progress bar shows but it ends and does not complete."* Root cause: the one-click create's first request (`POST /api/admin/demo/seed { phase:'start' }`) hit the prod safety guard and returned **403** — so the bar flashed at ~5% then the red "Disabled on production" banner replaced it. Working as designed, but it blocked the owner's actual intent: they had **demo mode ON** (the yellow banner, with its Dec 1 2026 cleanup deadline) and were deliberately populating the live deployment. Owner approved (2026-06-03, via AskUserQuestion) allowing it.
+
+**What changed (`apps/web/app/api/admin/demo/seed/route.ts` — one file):**
+- `prodGuard()` → `prodGuard(demoOn)`: non-prod is always allowed (unchanged); on production it now allows seeding **only while admin demo mode is on for the request** (`isDemoMode(req, profile)` — the `setnayan_demo_mode` cookie, sent automatically with the same-origin POST, or `?demo=1`). With demo mode **off**, prod stays hard-blocked (the accident guard) with a clearer message ("Turn on demo mode first…").
+- `requireAdmin()` now returns the admin `profile` so the route evaluates the admin-only demo-mode predicate with no extra Supabase round-trip.
+- `start`-phase audit row now records `on_production` + `demo_mode` for traceability.
+
+**Why this is safe:** the public marketplace (`/vendors`, `/v/[slug]`, compare) only surfaces `is_demo=TRUE` rows when demo mode is explicitly on (`lib/demo-mode.ts` is admin-only; `vendors/page.tsx`: *"exclusively a demo-mode read"*). Seeding synthetic, `is_demo`-tagged vendors into the prod DB therefore does **not** change what real couples or vendors see, and the one-click **Cleanup ALL** wipes them (hard deadline Dec 1 2026, already in the banner). The CLI seed's own `assertNotProd` hard-exit is untouched — this only relaxes the admin-UI path, which already requires an admin session.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean (only pre-existing warnings in unrelated files, untouched) · no schema/migration/SKU change. Shipped from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** Yes — scoped relaxation of the locked *"demo vendors are staging-only · the seed refuses prod"* engineering guard: demo-vendor creation is now permitted **on production while admin demo mode is on**. Recorded in `DECISION_LOG.md` (2026-06-03). See `COWORK_INBOX.md`.
 
 ## 2026-06-03 · fix(0001,0021): guests carousel stops vibrating + Services rail cards peek (mobile)
 

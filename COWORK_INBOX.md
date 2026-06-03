@@ -22,6 +22,20 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Demo-vendor "Create" allowed on production under demo mode (0023 admin console)
+
+**Why:** Owner clicked **Create demo vendors** on the live admin and the progress bar wouldn't complete — the prod safety guard 403'd the first request. Owner approved (2026-06-03) relaxing the guard so the one-click create works **on production only while admin demo mode is on** (the same banner switch). Demo vendors are `is_demo`-tagged and hidden from real users unless demo mode is on, so it can't leak; **Cleanup ALL** wipes them (Dec 1 2026 deadline).
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **0023 admin console** (demo-vendor tooling section) — note that the demo-vendor seed/Create endpoint is non-prod by default but is permitted on production while admin demo mode is active; with demo mode off, production stays blocked.
+2. **CLAUDE.md / DECISION_LOG** — the "demo vendors are staging-only" guard is now scoped: prod is allowed under admin demo mode. (Already appended to `DECISION_LOG.md` 2026-06-03 — this item is for the iteration-spec mirror.)
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "demo-vendor Create works on production while admin demo mode is on". One file (`apps/web/app/api/admin/demo/seed/route.ts`), no migration.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Mobile Services-tab rail cards peek + Guests panel sizing (0001/0021/0006)
 
 **Why:** Owner review of the customer dashboard on mobile. Two fixes shipped (see `CHANGELOG.md` 2026-06-03 "fix(0001,0021): guests carousel stops vibrating + Services rail cards peek"): (1) the Guests lower-third panel carousel no longer vibrates — a ResizeObserver height-feedback-loop fix that restores the intended hug-content behavior (no behavior change); (2) Services-tab rail cards (vendor picks + in-app service cards + the Digital Services rail) now use a responsive width `min(300px, calc(100vw - 96px))` so the next card peeks ~20px on phones (the "there's more to swipe" cue), still capped at 300px on tablet/desktop.

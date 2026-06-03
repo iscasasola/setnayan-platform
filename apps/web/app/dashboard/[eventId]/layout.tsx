@@ -291,6 +291,13 @@ export default async function EventLayout({ children, params }: Props) {
         />
         <ProfileMenu
           email={user.email ?? ''}
+          monogram={{
+            display_name: event.display_name,
+            monogram_text: event.monogram_text,
+            monogram_color: event.monogram_color,
+            monogram_frame_key: event.monogram_frame_key,
+            monogram_font_key: event.monogram_font_key,
+          }}
           ariaLabel={tr('common.profile')}
         />
       </div>

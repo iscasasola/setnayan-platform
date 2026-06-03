@@ -8,6 +8,24 @@
 
 ---
 
+## [PENDING] 2026-06-04 — Wedding tradition roster locked at EIGHT: Jewish + Born Again added (0043, 0044, spec 0000)
+
+**Why:** Owner-directed — "add Jewish and Born Again. Lock this 8 … full build incl. the taxonomy." Born Again is now its own selectable tradition (split out of the "Christian" umbrella); Jewish is added and activates the `kosher_*` faith_compatibility tags that previously had no ceremony_type to trigger them. Extends (does not replace) the same-day Chinese-activation inbox item below.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`0043_wedding_type_picker`** — list the canonical roster as **8 active traditions**: Catholic · Civil · INC · Christian · Muslim · Cultural · Chinese · Jewish · Born Again (+ Mixed as the interfaith pairing). Note: **Born Again is distinct from Christian** (the Christian option's blurb no longer says "Born Again"). The onboarding "ceremony tradition" step renders as a **fixed 4-column × 2-row grid of 8 chips** (no "coming soon" tier).
+2. **`0044_per_category_schemas`** — under `faith_compatibility` couple-side default filtering, add the new ceremony_type → filter mappings: `jewish` → `kosher_certified OR kosher_compatible`; `born_again` → alcohol-free (Born Again typically abstains from alcohol). The broad `compatible_ceremony_types[]` vendor-fit gate already covers all 8; this documents the per-attribute deep filter for V1.1+ (code wires the broad gate now; the auto-attribute-filter for jewish/born_again is the same V1.1 refinement as the existing muslim/inc ones).
+3. **Spec 0000 (onboarding)** — the ceremony-tradition screen shows 8 chips in a 4×2 grid; all selectable.
+4. **`DECISION_LOG.md`** — append: `| 2026-06-04 | Wedding tradition roster locked at 8 — Jewish + Born Again added as fully selectable; Born Again split from Christian; onboarding chips → 4×2 grid; wired into vendor compatible_ceremony_types + /vendors faith filter | 0043 + 0044 + onboarding + migration 20260807000000 |`
+
+**Owner action:** push migration `20260807000000_add_jewish_bornagain_ceremony_types.sql` (`supabase db push`) — *done in-session by Claude Code if applied immediately after merge; confirm before marking done.*
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-04 "feat(0043,0044): lock 8 wedding traditions". Related to the Chinese-activation item below.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Demo-vendor "Create" allowed on production under demo mode (0023 admin console)
 
 **Why:** Owner clicked **Create demo vendors** on the live admin and the progress bar wouldn't complete — the prod safety guard 403'd the first request. Owner approved (2026-06-03) relaxing the guard so the one-click create works **on production only while admin demo mode is on** (the same banner switch). Demo vendors are `is_demo`-tagged and hidden from real users unless demo mode is on, so it can't leak; **Cleanup ALL** wipes them (Dec 1 2026 deadline).

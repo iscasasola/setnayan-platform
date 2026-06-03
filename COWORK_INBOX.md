@@ -8,6 +8,20 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Mobile Services-tab rail cards peek + Guests panel sizing (0001/0021/0006)
+
+**Why:** Owner review of the customer dashboard on mobile. Two fixes shipped (see `CHANGELOG.md` 2026-06-03 "fix(0001,0021): guests carousel stops vibrating + Services rail cards peek"): (1) the Guests lower-third panel carousel no longer vibrates — a ResizeObserver height-feedback-loop fix that restores the intended hug-content behavior (no behavior change); (2) Services-tab rail cards (vendor picks + in-app service cards + the Digital Services rail) now use a responsive width `min(300px, calc(100vw - 96px))` so the next card peeks ~20px on phones (the "there's more to swipe" cue), still capped at 300px on tablet/desktop.
+
+**Spec corpus update (owner walks via Cowork):**
+1. **Iteration 0021 (Couple Dashboard)** + **0001 (Guest List)** — note the mobile Guests panel hugs its active panel's measured content (capped at 60vh; taller content scrolls inside the panel).
+2. **Iteration 0021** + **0006 (Vendors Management)** — note the Services-tab rail cards peek the next card on mobile (responsive card width) so couples see the rail scrolls; desktop card width unchanged.
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "fix(0001,0021): guests carousel stops vibrating…". No migration, no SKU.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Per-religion wedding traditions guide (0043) — VALIDATE CONTENT
 
 **Why:** Owner-directed ("create onboarding that follows the traditions of each religion"). New `lib/wedding-traditions.ts` drives a "What to expect — your {religion} wedding" guide on /paperwork (overview + officiant/ceremony/food/custom items per religion), companion to the existing per-religion document/deadline engine.

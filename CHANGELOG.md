@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · fix(0001,0021): guests carousel stops vibrating + Services rail cards peek (mobile)
+
+**Context:** Owner review of the customer dashboard on mobile — (1) the Guests lower-third panel carousel "vibrated and didn't expand completely"; (2) on the Services tab the rail cards filled the screen with no hint of the next one.
+
+**What changed:**
+- **Guests carousel (`mobile-guest-carousel.tsx`):** the panel sheet measures `section.scrollHeight` to hug content, but each panel was `max-h-full` (= 100% of the track, i.e. derived from the very sheet height the measurement *sets*) while a `ResizeObserver` watched that same section — a feedback loop the sheet's `transition-[height]` rendered as visible jitter, settling below full height. Fix: cap the panels with a FIXED `max-h-[calc(60dvh-2.25rem)]` (track height at the 60vh cap, minus the 36px grabber) so `scrollHeight` is the true intrinsic content height and can't change when the sheet grows — loop broken; the "hug content / scroll past 60vh" behavior is preserved.
+- **Services rail cards (`plan-budget-accordion.tsx`):** card width `flex:0 0 300px` → `min(300px, calc(100vw - 96px))`, runway floor `max(20px, …) → max(32px, …)`. On phones the card is the viewport minus ~96px so prev/next cards peek ~20px each edge; capped at 300px so the 760px desktop `.body` is unchanged. Covers vendor picks (`.card`), in-app Setnayan service cards (`.card.svc`) and the Digital Services rail — they all share `.card`, so the one change makes every Services-tab rail card peek.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean (no new findings) · `next build` clean (full route table incl. `/dashboard/[eventId]/guests` + `/vendors`). Built from an isolated worktree off `origin/main` with deps installed. Mobile-gesture/keyboard behavior flagged for owner device check. No migration, no SKU.
+
+**SPEC IMPACT:** Minor — Services-tab rail cards now peek the next card on mobile (responsive card width); the Guests panel change is a bugfix that restores intended hug-content behavior (no behavior/pricing/schema change). See `COWORK_INBOX.md`.
+
 ## 2026-06-03 · feat(0043): per-religion wedding traditions guide on /paperwork
 
 **Context:** Owner-directed — *"create onboarding that follows the traditions of each religion."* The per-religion document + deadline engine already exists (`lib/paperwork.ts` `DOCUMENTS_BY_CEREMONY_TYPE` — Catholic Pre-Cana/banns/canonical-interview, Muslim Sharia counseling, INC counseling, each with lead-time deadlines that already flow into /paperwork + the /schedule Preparation agenda + Home reminders). The missing piece was the human-readable "what to expect" overview per religion.

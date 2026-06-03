@@ -12,12 +12,11 @@
  * live here" promise and doubled the visual load on a host who's already
  * stretched. They're filtered out via BOTTOM_NAV_KEYS below.
  *
- * Today's Focus is intentionally KEPT. The bottom bar has no Today tab and
- * event-home no longer links to /today (WizardHero was lifted out of
- * event-home 2026-05-24), so this card is the SOLE mobile entry point to
- * the Today's Focus wizard. Removing it would orphan /today on mobile,
- * which the orphan-prevention lock forbids
- * ([[feedback_setnayan_orphan_prevention]]).
+ * Today's Focus was RETIRED 2026-06-03 — the 9/65-card planning wizard is
+ * superseded by onboarding (upfront scoping) + the per-service deadline
+ * timeline (lib/upcoming-items.ts → Home). Its entry is gone from
+ * buildCustomerNavGroups, so it no longer appears on this grid (or the
+ * desktop sidebar); /today now redirects to event-home.
  *
  * Desktop never lands here — CustomerMobileLanding is lg:hidden and desktop
  * users get the full sidebar tree (customer-sidebar.tsx), which still shows
@@ -45,8 +44,7 @@ export const metadata = { title: 'More · Setnayan' };
  * NavItem keys already surfaced as always-visible bottom-nav tabs
  * (customer-bottom-nav.tsx · buildCustomerBottomNav). Filtered out of the
  * /more grid so it shows ONLY true overflow. Mirror of the bottom-nav key
- * set; 'todays-focus' is deliberately NOT here (see header WHY — it's the
- * only mobile path to /today).
+ * set — keep in sync with buildCustomerBottomNav there.
  */
 const BOTTOM_NAV_KEYS = new Set(['home', 'guests', 'vendors', 'website']);
 
@@ -57,10 +55,6 @@ const BOTTOM_NAV_KEYS = new Set(['home', 'guests', 'vendors', 'website']);
  * BOTTOM_NAV_KEYS filter — the four bottom-tab keys carry no entry here.
  */
 const DESCRIPTIONS: Record<string, string> = {
-  // Today group
-  'todays-focus':
-    "Your daily planning focus — today's one step, plus a peek at what's coming up.",
-
   // Plan group
   seating:
     'Tables, place cards, and the seating chart editor. Drag to swap, long-press for guest details.',

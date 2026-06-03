@@ -4,6 +4,27 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · refactor(todays-focus): retire the Today's Focus wizard surface (keep the deadline logic)
+
+**Context:** Owner confirmed the 9-card/65-card Today's Focus planning wizard is no longer the model — couples are guided by (1) **onboarding** (upfront scoping of what they want) + (2) the **per-service deadline timeline** (counted back from the wedding date). The paid SKU behind it (the "Concierge" rebrand) was already switched off (`CONCIERGE_ENABLED=false`), so the only couple-facing remnant was the `/today` wizard reachable via two nav links. Owner directive: retire the surface, **keep the Filipino-wedding deadline logic.**
+
+**Safety check first (the owner's explicit constraint):** the Filipino-wedding statutory deadlines (Pre-Cana −60d · marriage-license-validity −120d · PSA/CENOMAR −180d) live in `lib/upcoming-items.ts` `PAPERWORK_DEADLINES`, pure-computed from `event_date` + `ceremony_type` and surfaced on event-home via `fetchUpcomingItems()` — **fully independent of the wizard.** This change does not touch that lib, so the deadlines are preserved.
+
+**What changed (5 files · −122 net lines):**
+- **`today/page.tsx`** — the `<WizardHero>` render (150 lines) becomes a 34-line **redirect to event-home**, so existing links / bookmarks / V1 "Today's Focus active" emails don't 404. Wizard components (`wizard-hero.tsx`, `wizard-cards/`, `lib/wizard.ts`) + the dormant Concierge machinery are left on disk as a quick-revert path.
+- **`customer-nav-config.ts`** — removed the `'today'` nav group (Today's Focus + Home); **Home is preserved**, promoted to the top of the `Plan` group. Dropped the now-unused `Focus` icon import. Drives both the desktop sidebar and the `/more` grid, so Today's Focus disappears from both.
+- **`customer-bottom-nav.tsx`** — removed `/today` from the More-tab `activeMatch` (dead after the redirect) + updated the header doc.
+- **`more/page.tsx`** — removed the now-dead `todays-focus` description + corrected the comment that had said the card was "intentionally KEPT."
+- **`customer-sidebar.tsx`** — updated the 7-group → 6-group IA doc comment.
+
+**NOT in this change (deliberately deferred · needs owner sign-off):**
+- The dormant infra teardown — `events.concierge_*` columns, the `/admin/concierge-abuse` queue, the `TODAYS_FOCUS` catalog SKU, the wizard task sequences. All invisible to couples; a later schema-cleanup pass.
+- **Onboarding still SELLS "Today's Focus" (₱1,499) in the Essential Bundle** (`onboarding-shell.tsx`) — pulling a product from a curated bundle is an owner pricing decision. Flagged in `COWORK_INBOX.md`.
+
+**Verification:** `tsc --noEmit` green (exit 0). Dashboard is auth-gated (Supabase session + real event), so no local preview render — CI build is the gate. Pure nav-config / route-redirect / comment change.
+
+**SPEC IMPACT:** Yes — iteration 0016 (Today's Focus / Concierge). The couple-facing wizard surface is retired (route redirects, nav entry removed); the deadline logic that fed it is preserved in `lib/upcoming-items.ts`. Decision-log row + the onboarding-bundle question are queued in `COWORK_INBOX.md`.
+
 ## 2026-06-03 · feat(0000): onboarding free monogram → event-switcher icon
 
 **Commit:** see merge commit on this PR.

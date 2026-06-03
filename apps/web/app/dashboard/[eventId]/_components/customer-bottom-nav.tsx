@@ -12,15 +12,15 @@
  *   2. Guests   — Guest list (+ sponsors + hosts on mobile)
  *   3. Vendors  — Marketplace + event-scoped vendor management
  *   4. Website  — Public landing-page hub (+ invitation editor)
- *   5. More     — Everything else (Today's Focus · Add-ons · Activity ·
- *                 Schedule · Budget · Messages · Contracts · Seating ·
- *                 Orders · Disputes · Event QR · Hosts · Profile · For you)
- *                 via the /more landing page.
+ *   5. More     — Everything else (Add-ons · Activity · Schedule · Budget ·
+ *                 Messages · Contracts · Seating · Orders · Disputes ·
+ *                 Event QR · Hosts · Profile · For you) via the /more
+ *                 landing page.
  *
  * WHY this set: owner directive 2026-06-02 — the personalized menu +
  * activity move INSIDE Home (not separate tabs), and the primary nav is
  * Home · Guests · Vendors · Website · More. Add-ons loses its dedicated
- * tab and joins More; Today's Focus, Activity, and the /for-you "see all"
+ * tab and joins More; Activity and the /for-you "see all"
  * page are reachable via More + the home surface. Per
  * [[feedback_setnayan_orphan_prevention]] every demoted route is
  * enumerated in More's activeMatch (reachable AND lights up correctly) and
@@ -106,8 +106,6 @@ export function buildCustomerBottomNav(eventId: string): BottomNavItem[] {
       icon: Menu,
       activeMatch: [
         `${base}/more`,
-        // Today's Focus — route ships, lives under More.
-        `${base}/today`,
         // Paid Setnayan services hub (Papic · Panood · Patiktok · Mood
         // Board · etc. — mood-board sub-routes live under /add-ons).
         `${base}/add-ons`,

@@ -4,6 +4,25 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(0021,0010,0004): make all in-app service tiles clickable (unlock-all-to-check)
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner directive — *"for now we want to unlock all to check."* After religions + events, the only user-facing "coming soon" gates left in the in-app services catalog were 3 non-clickable tiles. Two map to REAL, already-built routes that simply weren't surfaced. (The bigger remaining locks — 8 not-built pricing SKUs, Concierge kill-switch, OAuth credentials, offline daemon — hide unbuilt/partial features and were intentionally left alone; flipping them surfaces stubs/broken flows, not checkable features.)
+
+**What changed (catalog-only — `lib/add-ons-catalog.ts`):**
+- **Monogram Creator** — repointed `monogram-creator` (dead route) → `animated-monogram` (the real iteration-0004 monogram studio) + `coming_soon → web_v1`.
+- **Mood Board** — added a catalog entry (`web_v1`) surfacing the real `/add-ons/mood-board` route (0010), which was built but absent from the services grid.
+- **Landing Page** + **Music Creator** — `coming_soon → web_v1` so they're clickable; they land on their polite `[addon]` info pages (no 404).
+
+Propagates to both the `/add-ons` launcher grid and the Services-tab in-category rails (both import the catalog). Both real routes verified to render for any couple — ownership only changes content (no purchase gate / notFound for non-owners).
+
+**Verification:** `tsc --noEmit` exit 0.
+
+**SPEC IMPACT:** Minor — iterations 0004 (monogram) / 0010 (mood board) / 0021 (services tab): Monogram Creator + Mood Board are now reachable from the in-app services grid; Landing Page + Music Creator are clickable-to-placeholder. No SKU/pricing change. See `COWORK_INBOX.md`.
+
+---
+
 ## 2026-06-03 · feat(admin): one-click "Create demo vendors" (chunked seed) on /admin/demo-vendors
 
 **Commit:** see merge commit on this PR.

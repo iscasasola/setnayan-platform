@@ -75,6 +75,7 @@ export async function AfterPartyMusicCard({
       ceremonyType,
       venueSetting,
       excludeVendorIds: excludeMarketplaceIds,
+      matchEventId: eventId,
       limit: 100,
     }),
     fetchBookedMarketplaceVendorIdsForDate(admin, eventId, eventDate),

@@ -151,3 +151,41 @@ export async function syncEventSongPicks(
     .from('event_song_picks')
     .upsert(rows, { onConflict: 'event_id,song_id', ignoreDuplicates: true });
 }
+
+/** The couple's chosen song_ids (the match query set). Empty on no picks / error. */
+export async function fetchEventSongPickIds(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<number[]> {
+  const { data, error } = await supabase
+    .from('event_song_picks')
+    .select('song_id')
+    .eq('event_id', eventId);
+  if (error || !data) return [];
+  return (data as { song_id: number }[]).map((r) => r.song_id);
+}
+
+/**
+ * Per-vendor count of how many of `pickIds` each vendor performs — the music
+ * compatibility overlap numerator. One batched query (vendors × picks both
+ * bounded), so cheap even for a 100-vendor candidate pool. Vendors with no
+ * matching repertoire are simply absent from the map (caller treats as 0).
+ */
+export async function fetchVendorSongOverlaps(
+  supabase: SupabaseClient,
+  vendorIds: readonly string[],
+  pickIds: readonly number[],
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  if (!vendorIds.length || !pickIds.length) return out;
+  const { data, error } = await supabase
+    .from('vendor_songs')
+    .select('vendor_profile_id, song_id')
+    .in('vendor_profile_id', vendorIds as string[])
+    .in('song_id', pickIds as number[]);
+  if (error || !data) return out;
+  for (const r of data as { vendor_profile_id: string }[]) {
+    out.set(r.vendor_profile_id, (out.get(r.vendor_profile_id) ?? 0) + 1);
+  }
+  return out;
+}

@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · perf(ux): haptics Settings toggle + parallelize 8 query waterfalls
+
+**Context:** Two owner-requested follow-ups to PR #892 (app-wide loading skeletons + global tap haptics) — "both": wire a Settings switch for the haptics, and sweep pages for the same sequential-`await` waterfall the Guests page had.
+
+**What changed:**
+- **Haptic-feedback toggle (`dashboard/profile/_components/haptics-toggle.tsx`):** iOS-style switch in the customer Profile → Appearance section, next to the theme picker (the established home for device/appearance prefs — theme switching is likewise customer-profile-only). Writes the `setnayan-haptics` localStorage key GlobalHaptics reads; fires a `confirm` pulse on enable so the change is felt. `data-no-haptic` on the switch keeps toggling-off silent.
+- **Reactive `GlobalHaptics` (`app/_components/global-haptics.tsx`):** re-reads the flag LIVE on a `setnayan-haptics-change` event (+ cross-tab `storage`) instead of bailing out at mount, so the toggle applies with no page reload.
+- **8 query-waterfall folds** — independent sequential reads collapsed into one `Promise.all` each (each verified independent; auth/guard chains + dependent reads left sequential): `add-ons/papic` (4→1) · `vendor-dashboard/manpower` (3→1) · `vendor-dashboard/bookings` (2→1) · `vendor-dashboard/repertoire` (2→1) · `dashboard/[eventId]/hosts` (2→1) · `dashboard/[eventId]/sponsors` (2→1) · `admin/vendors` (2→1) · `admin/disputes` (2→1, FK lookups). The audit confirmed event-home + both dashboard layouts are ALREADY parallelized (untouched); `site-editor/[eventId]` was parallelized concurrently by a separate PR, so its (superior, 4-read) version was taken on merge; 2 MEDIUM candidates (`earnings`, `vendors` conditional) skipped as more invasive for marginal gain.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean (2 pre-existing warnings, untouched) · production build green. Shipped from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** None — UX polish + server-side read parallelization (no SKU / schema / route / workflow change). The haptics toggle realizes the "future Settings → Appearance toggle" flagged in PR #892.
+
 ## 2026-06-03 · feat(0023/0044): DB-backed taxonomy tree — Phase 1 foundation (non-breaking)
 
 **Context:** Owner — *"build it"* (the `/admin/taxonomy` visual editor + DB-backed taxonomy from the 2026-06-03 ♾️ "Admin Finalize = permanent live publish" lock). Today the taxonomy STRUCTURE lives only in the code constant `lib/taxonomy.ts` (`TAXONOMY_MAP` · 10 parents → 54 tiles → 199 canonicals); 19 consumers read it synchronously, including the live `/vendors` marketplace. This is **Phase 1 of a multi-PR build** — the DB foundation, deliberately **non-breaking**.

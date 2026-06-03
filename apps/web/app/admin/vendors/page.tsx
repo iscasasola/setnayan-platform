@@ -72,22 +72,27 @@ export default async function AdminVendorsPage({ searchParams }: Props) {
     }
   }
 
-  const { data, error } = await query;
+  // Main (claimed) vendor list + the unclaimed admin-owned vendors are
+  // independent reads — one parallel batch instead of two serial round-trips
+  // (owner perf pass 2026-06-03). The invite lookup below stays sequential
+  // (it needs the unclaimed ids).
+  const [{ data, error }, { data: unclaimedRaw }] = await Promise.all([
+    query,
+    // 2026-05-21 — unclaimed admin-owned vendors (user_id NULL); their live
+    // admin invite is joined below to render claim URL + expiry.
+    admin
+      .from('vendor_profiles')
+      .select(
+        'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,location_city,contact_email,is_published,public_visibility,created_at',
+      )
+      .is('user_id', null)
+      .order('created_at', { ascending: false })
+      .limit(50),
+  ]);
   if (error) {
     logQueryError('AdminVendorsPage (vendor_profiles)', error);
   }
   const vendors = (data ?? []) as VendorRow[];
-
-  // 2026-05-21 — fetch the unclaimed admin-owned vendors (user_id NULL).
-  // Join in their live admin invite so we can render claim URL + expiry.
-  const { data: unclaimedRaw } = await admin
-    .from('vendor_profiles')
-    .select(
-      'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,location_city,contact_email,is_published,public_visibility,created_at',
-    )
-    .is('user_id', null)
-    .order('created_at', { ascending: false })
-    .limit(50);
   const unclaimedProfiles = (unclaimedRaw ?? []) as VendorRow[];
 
   // Fetch the matching live admin invites (status='pending', source='admin')

@@ -29,6 +29,28 @@ function trimToNull(raw: FormDataEntryValue | null, max: number): string | null 
   return t.slice(0, max);
 }
 
+type PrepKind = 'task' | 'meeting' | 'payment';
+
+/** Normalize the `kind` field; anything unexpected falls back to 'task'. */
+function parseKind(raw: FormDataEntryValue | null): PrepKind {
+  return raw === 'meeting' || raw === 'payment' ? raw : 'task';
+}
+
+/**
+ * Parse the optional ₱ amount for a payment item. Returns a non-negative
+ * number, or null when absent. Throws on a present-but-invalid value so the
+ * form surfaces a clear message. Mirrors the CHECK (amount_php >= 0) guard.
+ */
+function parseAmountPhp(raw: FormDataEntryValue | null): number | null {
+  if (typeof raw !== 'string' || raw.trim().length === 0) return null;
+  const n = Number.parseFloat(raw.trim());
+  if (!Number.isFinite(n) || n < 0) {
+    throw new Error('Enter a valid amount (₱0 or more).');
+  }
+  // Two-decimal precision to match NUMERIC(12,2).
+  return Math.round(n * 100) / 100;
+}
+
 /**
  * Validate a `<input type="date">` value (YYYY-MM-DD). Returns the canonical
  * string or null if absent/malformed. We accept past dates too — a couple
@@ -63,6 +85,14 @@ export async function addPreparationItem(formData: FormData): Promise<void> {
 
   const notes = trimToNull(formData.get('notes'), 2000);
 
+  // Typed items (2026-06-03): the couple may place a generic task, a meeting,
+  // or a payment schedule entry. A payment requires a positive amount.
+  const kind = parseKind(formData.get('kind'));
+  const amountPhp = parseAmountPhp(formData.get('amount_php'));
+  if (kind === 'payment' && (amountPhp === null || amountPhp <= 0)) {
+    throw new Error('Enter the payment amount in pesos.');
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -70,12 +100,15 @@ export async function addPreparationItem(formData: FormData): Promise<void> {
   if (!user) redirect('/login');
 
   // RLS (event_prep_items_couple_all WITH CHECK) guarantees the event is the
-  // couple's own; vendor_profile_id stays NULL → couple-added row.
+  // couple's own; vendor_profile_id stays NULL → couple-added row. `kind`
+  // defaults to 'task' and amount_php is only stamped on payment rows.
   const { error } = await supabase.from('event_preparation_items').insert({
     event_id: eventId,
     due_date: dueDate,
     label,
     notes,
+    kind,
+    amount_php: kind === 'payment' ? amountPhp : null,
     source_tag: 'couple_manual',
     created_by: user.id,
   });

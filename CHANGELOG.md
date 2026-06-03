@@ -4,6 +4,43 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(schedule): typed Preparation items — vendors/couples place meeting & payment schedules
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner follow-up to PR #845 (hybrid Preparation items). #845 let couples + booked vendors place **generic** dated tasks on the couple's `/dashboard/[eventId]/schedule` **Preparation** agenda (backed by `event_preparation_items`, with working RLS: couple full CRUD via `current_couple_event_ids()`; booked vendors INSERT/manage their own via `current_vendor_ids()` gated to accepted `chat_threads`). The owner asked that those hand-added items be able to be **typed** — specifically **meeting schedules** and **payment schedules**, not only generic tasks — so they read on the agenda with the same Meeting / Payment vocabulary as the autofilled `vendor_meetings` / vendor-payment rows.
+
+**What ships:**
+
+- **Typed items end-to-end.** A couple or a booked vendor can now place a **Task** (as before), a **Meeting**, or a **Payment** on the Preparation schedule. Meeting items render with the SAME Meeting tag/icon (indigo `Users`) as the autofilled `vendor_meetings`; Payment items render with the SAME Payment tag/icon (amber `Wallet`) **plus the ₱ amount**, formatted exactly like the autofilled vendor-payment rows; Task items keep the prior manual style (mulberry `ListPlus`, "Added by you" / "From {vendor}" chip).
+- **`lib/preparation.ts`** — `fetchManualItems` + `fetchVendorPreparationItemsByEvent` now `SELECT *` (so the new columns can't error a pre-migration query) and read `kind = row.kind ?? 'task'` + `amount = row.amount_php ?? null`. New `PreparationItemKind` type + `kind`/`amountPhp` on the existing `PreparationItem` shape; the `isManual`/`canDelete`/`itemId`/`sourceLabel` logic from #845 is preserved verbatim. **GRACEFUL DEGRADE preserved twice over:** if the new columns are absent (pre-migration) every row coalesces to `kind='task'`/`amount=null`; if the whole table is absent (pre-#845) the source still catches `42P01` and returns `[]` (autofill-only).
+- **Agenda rendering (`preparation-agenda.tsx`)** — a presentational `displaySourceFor()` maps a manual row's `kind` to the autofill visual (meeting→Meeting, payment→Payment, task→manual) and `chipLabelFor()` labels typed rows "Meeting"/"Payment" (their "added by you / a vendor" context moves to the subtitle); the amount renders through the existing `amountPhp` slot. The row stays `source:'manual'` so the delete control still shows on manual/vendor rows only. Autofill rows are visually unchanged.
+- **Couple add UI (`prep-item-controls.tsx`)** + **Vendor add UI (`vendor-prep-add.tsx`)** — both modals gain a shared **Task / Meeting / Payment** segmented picker (new `prep-kind-picker.tsx`, imported across the dashboard↔vendor boundary so there's one source of truth) and a conditional **Amount (₱)** field shown only for Payment. Field copy adapts per type (e.g. "Meeting title" / "What is this payment for?" + "Due date"). The vendor's "already added" list now shows a Meeting/Payment glyph + the amount inline.
+- **Server actions** — `addPreparationItem` (couple) + `vendorAddPreparationItem` (vendor) gain `kind` + optional `amountPhp`; they stamp `kind` and `amount_php` (payment only), validate amount **> 0** for payments, and keep the existing label/date validation, `source_tag` stamping (`couple_manual` / `vendor_prep`), own-`vendor_profile_id` stamping, RLS-reliant authz + accepted-thread gate, and `revalidatePath`.
+
+**NEW migration — `supabase/migrations/20260730000000_event_preparation_item_kinds.sql` (owner-push; graceful-degrade until applied):** additive `ALTER TABLE public.event_preparation_items ADD COLUMN IF NOT EXISTS kind VARCHAR(16) NOT NULL DEFAULT 'task' CHECK (kind IN ('task','meeting','payment'))` + `amount_php NUMERIC(12,2) CHECK (amount_php IS NULL OR amount_php >= 0)`. **No RLS change** — #845's existing row-level policies already cover the new columns. Confirmed `20260729000000_event_preparation_items.sql` was the latest migration before this, so `20260730000000` is correctly the newest. **Do NOT auto-push** — owner pushes.
+
+**Schema reason (why this is on `event_preparation_items`, not the budget / meetings tables):** the existing `event_vendor_line_items` (budget payments) and `vendor_meetings` tables both key to `event_vendors` (the couple's TEXT-named vendor record) via `vendor_id`, **not** to the platform `vendor_profile_id`. A platform vendor cannot be RLS-scoped to those rows, so a vendor can't safely write to them. `event_preparation_items` already carries the correct `vendor_profile_id` RLS from #845, so typed items live there.
+
+**Known limitation (possible follow-up):** a vendor- or couple-placed **payment** here shows on the **Preparation schedule** only — it does **NOT** post to the couple's **Budget ledger** (`event_vendor_line_items` / `event_vendor_payments`, iteration 0007). It's a planning reminder, not an accounting entry. Wiring prep-payments into the budget ledger (or vice-versa) is a deliberate non-goal of this PR and a candidate fast-follow.
+
+**Files:**
+- `supabase/migrations/20260730000000_event_preparation_item_kinds.sql` (new — additive ALTER)
+- `apps/web/lib/preparation.ts` (`kind`/`amountPhp` on `PreparationItem` + `VendorAddedPrepItem`; `SELECT *` + coalesced reads)
+- `apps/web/app/dashboard/[eventId]/schedule/_components/preparation-agenda.tsx` (`displaySourceFor`/`chipLabelFor` typed rendering)
+- `apps/web/app/dashboard/[eventId]/schedule/_components/prep-kind-picker.tsx` (new — shared Task/Meeting/Payment segmented control)
+- `apps/web/app/dashboard/[eventId]/schedule/_components/prep-item-controls.tsx` (couple modal: picker + amount field)
+- `apps/web/app/dashboard/[eventId]/schedule/prep-actions.ts` (couple action: `kind` + `amountPhp`)
+- `apps/web/app/vendor-dashboard/bookings/_components/vendor-prep-add.tsx` (vendor modal: picker + amount field + typed "added" list)
+- `apps/web/app/vendor-dashboard/bookings/actions.ts` (vendor action: `kind` + `amountPhp`)
+- `apps/web/app/vendor-dashboard/bookings/page.tsx` (map `kind`/`amountPhp` through to the vendor control)
+
+**Verification:** `pnpm -F web typecheck` → 0 errors. `pnpm exec next lint --file <all 8 changed files>` → clean. `pnpm -F web build` → compiled successfully. (Pre-existing build warnings in untouched files — `<img>`, exhaustive-deps, sitemap/vendor-dashboard env-var notes — are unrelated to these changes.)
+
+**SPEC IMPACT:** Yes — 0021 (Schedule surface: Preparation items can now be typed Meeting/Payment), 0022 (vendor can place typed meeting/payment items from Bookings), and a 0007 note (prep-payments are NOT budget-ledger entries). Logged in `COWORK_INBOX.md`.
+
+---
+
 ## 2026-06-03 · fix(photo-delivery): make "Release to Drive" actually copy — cron-free via after()
 
 **Commit:** to be filled after commit.

@@ -30,6 +30,16 @@ supabase db push --db-url "$SUPABASE_DB_URL"
 
 **Check it worked:** open a couple's Schedule → **Preparation** tab, tap **+ Add to schedule**, add an item (label + date) → it appears in the month-grouped agenda with an "Added by you" chip and a delete control. As a booked vendor, open `/vendor-dashboard/bookings`, expand an **accepted** booking, tap **Add to prep schedule** → the item shows on the couple's Preparation agenda tagged "From {your business name}".
 
+### 2026-06-03 — push the typed-Preparation-items migration (~2 min · recommended)
+
+Push migration `supabase/migrations/20260730000000_event_preparation_item_kinds.sql` (typed prep items — **additive**; adds `kind` + `amount_php` columns to `event_preparation_items`, **no RLS change**). This lets couples + booked vendors place **Meeting** and **Payment** schedule entries on the Preparation agenda, not just generic tasks. The app **graceful-degrades** without it: existing and new prep items just read as plain tasks (no Meeting/Payment styling, no amount) until the columns exist. Push **after** `20260729000000` (the #845 table) — that one is the prerequisite.
+
+```bash
+supabase db push --db-url "$SUPABASE_DB_URL"
+```
+
+**Check it worked:** open a couple's Schedule → **Preparation** tab, tap **+ Add to schedule** → the modal now shows a **Task / Meeting / Payment** picker. Add a **Payment** (enter an amount in ₱) → it appears with the same amber Payment tag/icon as an autofilled vendor payment, showing the ₱ amount. Add a **Meeting** → it appears with the indigo Meeting tag/icon. The same picker appears on a booked vendor's **Add to prep schedule** modal in `/vendor-dashboard/bookings`. (Note: a payment placed here is a planning reminder only — it does **not** post to the couple's Budget ledger.)
+
 ### 2026-06-03 — push the couple-attending migration (~2 min · recommended)
 
 A new migration `supabase/migrations/20260725000000_guests_couple_attending.sql` makes the **bride & groom always Attending** at the database level (a trigger) and backfills existing couples. The app already coerces this on read, so the Guests page is correct without it — but push it so the **stored** RSVP value + every write path (CSV import, the public RSVP widget) stay consistent:

@@ -18,18 +18,30 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { CalendarPlus, Loader2, Plus, Trash2, X } from 'lucide-react';
+import { CalendarPlus, Loader2, Plus, Trash2, Users, Wallet, X } from 'lucide-react';
 import {
   vendorAddPreparationItem,
   vendorDeletePreparationItem,
 } from '../actions';
+import {
+  PrepKindPicker,
+  type PrepKind,
+} from '@/app/dashboard/[eventId]/schedule/_components/prep-kind-picker';
 
 export type VendorPrepItem = {
   itemId: string;
   dueDate: string;
   label: string;
   notes: string | null;
+  /** 'task' | 'meeting' | 'payment' — defaults to 'task' pre-migration. */
+  kind: PrepKind;
+  /** Pesos on payment rows; null otherwise. */
+  amountPhp: number | null;
 };
+
+function formatPhpShort(php: number): string {
+  return `₱${Math.round(php).toLocaleString('en-PH')}`;
+}
 
 function todayLocal(): string {
   const d = new Date();
@@ -62,6 +74,7 @@ export function VendorPrepForBooking({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [kind, setKind] = useState<PrepKind>('task');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const overlayRef = useRef<HTMLDivElement | null>(null);
@@ -85,16 +98,20 @@ export function VendorPrepForBooking({
     if (isPending) return;
     setOpen(false);
     setErrorMessage(null);
+    setKind('task');
   }
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
+    // The picker drives `kind` via React state — stamp it onto the payload.
+    fd.set('kind', kind);
     startTransition(async () => {
       try {
         await vendorAddPreparationItem(fd);
         setOpen(false);
         setErrorMessage(null);
+        setKind('task');
         router.refresh();
       } catch (err) {
         setErrorMessage(
@@ -125,20 +142,36 @@ export function VendorPrepForBooking({
 
       {items.length > 0 ? (
         <ul className="space-y-1">
-          {items.map((it) => (
-            <li
-              key={it.itemId}
-              className="flex items-center gap-2 rounded-md border border-mulberry/15 bg-mulberry/[0.03] px-2.5 py-1.5"
-            >
-              <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-ink/50">
-                {formatDateShort(it.dueDate)}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-xs text-ink/80">
-                {it.label}
-              </span>
-              <VendorDeletePrepItem itemId={it.itemId} label={it.label} />
-            </li>
-          ))}
+          {items.map((it) => {
+            const KindIcon =
+              it.kind === 'meeting' ? Users : it.kind === 'payment' ? Wallet : null;
+            return (
+              <li
+                key={it.itemId}
+                className="flex items-center gap-2 rounded-md border border-mulberry/15 bg-mulberry/[0.03] px-2.5 py-1.5"
+              >
+                <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-ink/50">
+                  {formatDateShort(it.dueDate)}
+                </span>
+                {KindIcon ? (
+                  <KindIcon
+                    aria-hidden
+                    className="h-3 w-3 shrink-0 text-mulberry"
+                    strokeWidth={1.75}
+                  />
+                ) : null}
+                <span className="min-w-0 flex-1 truncate text-xs text-ink/80">
+                  {it.label}
+                  {it.kind === 'payment' && it.amountPhp != null ? (
+                    <span className="ml-1 font-mono text-ink/60">
+                      · {formatPhpShort(it.amountPhp)}
+                    </span>
+                  ) : null}
+                </span>
+                <VendorDeletePrepItem itemId={it.itemId} label={it.label} />
+              </li>
+            );
+          })}
         </ul>
       ) : null}
 
@@ -184,20 +217,51 @@ export function VendorPrepForBooking({
             <form onSubmit={onSubmit} className="space-y-4">
               <input type="hidden" name="event_id" value={eventId} />
               <input type="hidden" name="vendor_profile_id" value={vendorProfileId} />
+              <PrepKindPicker value={kind} onChange={setKind} disabled={isPending} />
               <label className="block space-y-1">
-                <span className="block text-xs font-medium text-ink">What should they do?</span>
+                <span className="block text-xs font-medium text-ink">
+                  {kind === 'meeting'
+                    ? 'Meeting title'
+                    : kind === 'payment'
+                      ? 'What is this payment for?'
+                      : 'What should they do?'}
+                </span>
                 <input
                   ref={labelRef}
                   name="label"
                   required
                   maxLength={200}
-                  placeholder="e.g. Send final shot list"
+                  placeholder={
+                    kind === 'meeting'
+                      ? 'e.g. Pre-event consultation'
+                      : kind === 'payment'
+                        ? 'e.g. Package balance'
+                        : 'e.g. Send final shot list'
+                  }
                   className="input-field"
                   disabled={isPending}
                 />
               </label>
+              {kind === 'payment' ? (
+                <label className="block space-y-1">
+                  <span className="block text-xs font-medium text-ink">Amount (₱)</span>
+                  <input
+                    name="amount_php"
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="0.01"
+                    required
+                    placeholder="e.g. 15000"
+                    className="input-field"
+                    disabled={isPending}
+                  />
+                </label>
+              ) : null}
               <label className="block space-y-1">
-                <span className="block text-xs font-medium text-ink">By when?</span>
+                <span className="block text-xs font-medium text-ink">
+                  {kind === 'payment' ? 'Due date' : 'By when?'}
+                </span>
                 <input
                   name="due_date"
                   type="date"

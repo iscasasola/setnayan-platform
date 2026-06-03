@@ -17,15 +17,49 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 - **`photo-delivery-release.ts`** + **`/api/photo-delivery/disconnect`** + **photo-delivery `actions.ts`** — read/revoke the unified `provider='drive'` grant.
 - **`/api/oauth/drive/disconnect`** — the shared Drive disconnect now also clears `events.photo_delivery_*`.
 - **`/api/oauth/photo-delivery/callback`** — marked **DEPRECATED** (unreachable post-consolidation).
-- **Migration `20260727000000_drive_oauth_consolidation.sql`** — safety-net data backfill: renames pre-existing `'drive_photo_delivery'` grants → `'drive'` (conflict-safe). **No schema change; code does not depend on it** (Photo Delivery OAuth was gated on the pending verified-app review, so ~zero real grants exist).
+- **Migration `20260727000000_drive_oauth_consolidation.sql`** — safety-net data backfill: renames pre-existing `'drive_photo_delivery'` grants → `'drive'` (conflict-safe). **No schema change; code does not depend on it.**
 
 **Net result:** one consent, one registered redirect URI, one `provider='drive'` grant per event — powering Papic capture, Photo Delivery, and the drive-copy layer.
 
 **Pilot-safe:** no real Drive grants exist yet (#19g pending). Disconnect now means "disconnect Drive entirely" from either panel.
 
-**Verification:** `pnpm -F web` typecheck/lint/build run in CI. Admin Supabase client is untyped → no generated-type risk on the new selects/updates.
+**Verification:** full GitHub Actions suite green (typecheck+lint, production build, macOS/Windows build, e2e, lighthouse, bundle, secret scan).
 
-**SPEC IMPACT:** Yes. The owner now registers only **one** Drive redirect URI (`GOOGLE_DRIVE_OAUTH_REDIRECT_URI`); `PHOTO_DELIVERY_OAUTH_REDIRECT_URI` is retired. COWORK_INBOX item appended; folds into the existing Drive-copy keystone item (0009 rescope) + `API_Integration_Checklist.md`.
+**SPEC IMPACT:** Yes. The owner now registers only **one** Drive redirect URI (`GOOGLE_DRIVE_OAUTH_REDIRECT_URI`); `PHOTO_DELIVERY_OAUTH_REDIRECT_URI` is retired. COWORK_INBOX item appended.
+
+---
+
+## 2026-06-03 · feat(0001): keep the couple detail simple — remove the editorial live-view iframe
+
+**Commit:** to be filled after commit.
+
+**Context:** Owner clarification 2026-06-03 — "editorial" is just the same `/[slug]` page, which only becomes the editorial/recap view **after** the wedding (the existing day-of lifecycle's post/recap phase — nothing new to build). The couple's guest-detail should just show **their information, like any other guest. Keep it simple.**
+
+**What changed (`guests/[guestId]/page.tsx`):** Removed the `CoupleEditorialPreview` live-view iframe shipped in the prior PR — the `events.slug` fetch, the render block, the component, and the now-unused `ArrowUpRight` import. The couple's detail is back to the standard info form. The couple-foundation rules are **retained** (auto-Attending, can't-delete, role + RSVP locked, renamable) — those are correctness behavior, separate from the editorial page. The unrelated `e.touches[0]` typecheck guard stays (already on `main`).
+
+**Verification:** `tsc --noEmit` clean; `next lint` clean.
+
+**SPEC IMPACT:** Iteration **0001** — reverts the editorial-live-view spec note. "Editorial" = the `/[slug]` page's post-wedding recap state (day-of lifecycle, 0031), activating at end of wedding; couple detail = plain info. The prior `COWORK_INBOX.md` live-view entry is rewritten accordingly.
+
+---
+
+## 2026-06-03 · feat(home): compact "Your wedding details" card from onboarding data
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Delta #1 of the 2026-06-03 customer-dashboard chrome redesign (corpus `DECISION_LOG.md` "Customer dashboard chrome RE-LOCKED"). An audit found most of the redesign is already live (5-tab nav, Website tab, `/details` settings, Messages, top-bar Switch/bell), so this ports only the genuine new bits — starting with surfacing the couple's onboarding wedding details as one glanceable card on event Home.
+
+**What ships:**
+
+- **Compact "Your wedding details" card** on event Home — a keyed label→value list MERGING the events-row basics (Location · Venue · Guests · Budget · Style) with the two most service-defining onboarding style picks (Cuisine · Photo & video), plus a **"See all wedding settings →"** link to `/details`. Date + ceremony are omitted (the persistent top chrome already carries them).
+- **Reshapes the existing `PersonalizedMenu` `preview` variant** — the live Home already rendered this onboarding data as chips; it now renders the kv card. `/for-you` (the `full` variant) is byte-for-byte unchanged (chips + the full "what matters" dl). Gated on `variant === 'preview' && detailRows.length > 0`, so behavior is unchanged when rows aren't passed.
+- **New `buildWeddingDetailRows()` in `lib/personalized-menu.ts`** — reuses the existing `REGION_LABEL`/`VENUE_LABEL` maps + `style_preferences` cleaning; only present fields render, so the card never shows blanks.
+
+**Files:** `lib/personalized-menu.ts` · `app/dashboard/[eventId]/_components/personalized-menu.tsx` · `app/dashboard/[eventId]/page.tsx`.
+
+**Verification:** `pnpm -F web typecheck` ✓ · `pnpm -F web lint` (3 files) ✓ No ESLint warnings or errors. (Rebased onto current `main`, which already carries PR #830's `e.touches[0]` guard — the earlier `tsc` red on the stale base is gone.)
+
+**SPEC IMPACT:** Yes — iteration 0021 (couple dashboard Home) gains the "Your wedding details" card. The model is already locked in corpus `DECISION_LOG.md` ("Customer dashboard chrome RE-LOCKED", 2026-06-03); logged as a `[PENDING]` COWORK_INBOX item to update 0021's Home-surface section.
 
 ---
 

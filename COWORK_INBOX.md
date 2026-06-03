@@ -14,8 +14,22 @@
 
 **Spec corpus updates (owner walks via Cowork):**
 
-1. **`~/Documents/Claude/Projects/Setnayan/API_Integration_Checklist.md`** — Google Drive OAuth now needs **one** redirect URI only (`GOOGLE_DRIVE_OAUTH_REDIRECT_URI` → `…/api/oauth/drive/callback`). **Remove `PHOTO_DELIVERY_OAUTH_REDIRECT_URI`** (retired; the Photo Delivery connect routes through the Drive consent).
-2. **`~/Documents/Claude/Projects/Setnayan/0009_photo_delivery/0009_photo_delivery.md`** — note the OAuth model is now the single shared Drive connection (one consent, one grant `provider='drive'`); disconnecting Drive from either the Papic or Photo Delivery panel disconnects the shared connection. (Folds into the broader 0009 → universal Drive-copy-layer rescope in the keystone item below.)
+1. **`~/Documents/Claude/Projects/Setnayan/API_Integration_Checklist.md`** — Google Drive OAuth now needs **one** redirect URI only (`GOOGLE_DRIVE_OAUTH_REDIRECT_URI` → `…/api/oauth/drive/callback`). **Remove `PHOTO_DELIVERY_OAUTH_REDIRECT_URI`** (retired).
+2. **`~/Documents/Claude/Projects/Setnayan/0009_photo_delivery/0009_photo_delivery.md`** — note the OAuth model is now the single shared Drive connection (one consent, one grant `provider='drive'`); disconnecting Drive from either panel disconnects the shared connection.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
+## [PENDING] 2026-06-03 — Home: compact "Your wedding details" card (chrome redesign delta #1)
+
+**Why:** Delta #1 of the 2026-06-03 customer-dashboard chrome redesign landed in code — event Home now shows a compact "Your wedding details" card (Location · Venue · Guests · Budget · Style · Cuisine · Photo & video) built from onboarding data, with a "See all wedding settings →" link to `/details`. It reshapes the existing Home "Personalized" block (chips → kv card); `/for-you` keeps the chip view.
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/0021_couple_dashboard_fully_purchased/0021_couple_dashboard_fully_purchased.md`** — record that Home's onboarding/"Personalized" block now renders as the compact "Your wedding details" kv card (basics + cuisine/photo) with a "See all wedding settings" link to `/details`; the full chip + "what matters" view stays on `/for-you`.
+
+**Cross-ref:** corpus `DECISION_LOG.md` "Customer dashboard chrome RE-LOCKED" (2026-06-03) already locks the model; this records the code landing of delta #1 (of 4 — the other deltas: Messages top-bar icon, Schedule Preparation⇄Event Day, Service+Add-ons merge).
 
 **When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
 
@@ -37,15 +51,15 @@
 ---
 
 
-## [PENDING] 2026-06-03 — Iteration 0001: couple detail embeds a LIVE VIEW of their editorial (wedding) page
+## [PENDING] 2026-06-03 — Iteration 0001: couple detail stays simple (editorial = post-wedding /[slug], not embedded)
 
-**Why:** Owner directive 2026-06-03 — clicking the bride/groom shows "their future editorial page, as live view." Built: a phone-framed, same-origin iframe of their public `/[slug]` page on the couple's guest-detail. This **completes the "album / custom data" follow-up** parked in the couple-foundation entry below.
+**Why:** Owner clarification 2026-06-03 — **supersedes** the earlier "embed a live view of their editorial page" direction (it was shipped then reverted in code). Two points: (a) the couple's guest-detail should just show **their information, like any other guest — keep it simple** (no embedded page preview); (b) "editorial" is **the same `/[slug]` page**, which only **activates as the editorial/recap view at the end of the wedding** — i.e., the existing day-of lifecycle's post/recap phase (iteration 0031). Nothing separate to build now.
 
 **Spec corpus updates (owner walks via Cowork):**
 
-1. **`~/Documents/Claude/Projects/Setnayan/0001_creating_guest_list/0001_creating_guest_list.md`** — under the "Bride & Groom (foundation of the event)" block, replace the "album / custom data is a planned follow-up" note with: "Opening the bride or groom shows a **live view of their editorial page** — a phone-framed, same-origin iframe of their public wedding page (`/[slug]`) with Open (new tab) + Edit (→ Website surface) links, and a 'set it up' fallback when no slug exists yet. It reflects the page's current draft/live state ('their future page')."
+1. **`~/Documents/Claude/Projects/Setnayan/0001_creating_guest_list/0001_creating_guest_list.md`** — under "Bride & Groom (foundation of the event)": the couple's detail page shows their standard info (like any guest), with role + RSVP locked and no Remove button. There is **no** embedded editorial/page preview on the detail. Note that "editorial page" = the couple's `/[slug]` page in its **post-wedding recap state** (handled by the day-of lifecycle, iteration 0031), which turns on at the end of the wedding.
 
-2. **`~/Documents/Claude/Projects/Setnayan/DECISION_LOG.md`** (corpus root) — append a 2026-06-03 row: "Couple guest-detail embeds a live-view iframe of their `/[slug]` editorial page (Open + Edit links · no-slug fallback). Completes the parked couple album/custom-data item. Bundled a pre-existing `e.touches[0]` typecheck fix in guest-list-multiselect.tsx (main was red; merges aren't CI-gated). File: apps/web/app/dashboard/[eventId]/guests/[guestId]/page.tsx."
+2. **`~/Documents/Claude/Projects/Setnayan/DECISION_LOG.md`** (corpus root) — append a 2026-06-03 row: "Couple guest-detail kept simple (info only, like other guests) — the briefly-shipped editorial live-view iframe was reverted. 'Editorial' = the `/[slug]` page's post-wedding recap state (day-of lifecycle, 0031), activates at end of wedding; not a separate surface, not embedded in guest-detail. File: apps/web/app/dashboard/[eventId]/guests/[guestId]/page.tsx."
 
 **When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
 

@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(admin+home): planning_deadlines goes live — reminders read it + admin editor (PR 2+3 of 3)
+
+**Context:** Completes the admin deadline table (after PR 1's schema). The Home reminders now read the admin-set deadlines, and admins edit them in `/admin/taxonomy`. Owner: "do both."
+
+**Wiring (`lib/upcoming-items.ts` · the `recommended_deadline` source):** `fetchRecommendedDeadlineItems` reads `planning_deadlines` (kind='service', scope='category', is_active) into a map and uses each category's admin-set offset (month/week/day) for the reminder date + copy. **Falls back to `PLAN_GROUPS.monthsBefore`** per-category when there's no row — and if the table doesn't exist yet (migration unapplied), the query errors → empty map → every category falls back to code, no crash.
+
+**Admin editor (`/admin/taxonomy`):** a new "Recommended deadlines" section above the taxonomy viewer — lists the `planning_deadlines` rows (services + documents), each with an inline `offset_value` + `offset_unit` (days/weeks/months) edit via `updatePlanningDeadline` (new `actions.ts`; RLS `is_admin()` gates the write). Plus a **coverage flag**: which reminder categories have no deadline (using code fallback) — the category-level "missing deadline" surface. Per-leaf overrides + a leaf-level missing-flag are a noted follow-up (the leaf→category map lives in code, `TAXONOMY_MAP`, not the DB).
+
+**Verification:** `tsc --noEmit` green (exit 0). Admin route is auth-gated + needs the table applied — CI build is the gate; degrades gracefully pre-migration ("migration not applied yet" notice). **⚠️ Owner must `supabase db push` migration `20260802`.**
+
+**SPEC IMPACT:** Yes — 0023 admin gains the deadline editor; the Home reminders' deadline source becomes the admin table (was hardcoded). Inbox note added.
+
 ## 2026-06-03 · feat(0023,0006): admin song dedup/merge tool — master-catalogue hygiene (compatibility PR 6)
 
 **Commit:** see merge commit on this PR.

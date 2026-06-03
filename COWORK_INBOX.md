@@ -8,7 +8,21 @@
 
 ---
 
-## [PENDING] 2026-06-03 — Admin song dedup tool + compatibility build COMPLETE (0023/0006)
+## [PENDING] 2026-06-03 — Admin deadline table COMPLETE — reminders read it + admin editor (PR 2+3/3)
+
+**Why:** Finishes the 3-PR admin deadline build (owner: "ship this both" / "do both"). The Home recommended-deadline reminders now read `planning_deadlines`; admins edit the deadlines in `/admin/taxonomy`.
+
+**What landed (code):** `lib/upcoming-items.ts` reads `planning_deadlines` (service category rows) with `PLAN_GROUPS.monthsBefore` as fallback (incl. when the table isn't applied). `/admin/taxonomy` gains a "Recommended deadlines" editor (inline offset_value/offset_unit edit · `updatePlanningDeadline` action · RLS-gated) + a category-level coverage/"missing deadline" flag.
+
+**Owner action:** push migration `20260802000000_planning_deadlines.sql` so the table exists (reminders + editor run on code fallback until then).
+
+**Spec corpus update (owner walks via Cowork):**
+1. **`~/Documents/Claude/Projects/Setnayan/0023_admin_console/`** — record the `/admin/taxonomy` "Recommended deadlines" editor (admin sets the lock-by deadline per category/document · coverage flag · per-leaf overrides are a noted follow-up).
+2. **The planning/deadline spec** — the Home reminders' deadline source is now the admin `planning_deadlines` table (code = fallback).
+
+**Noted follow-up (not built):** per-leaf deadline overrides + leaf-level missing-flag in `/admin/taxonomy` (needs the leaf→category map, which is in code `TAXONOMY_MAP`, not the DB).
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
 
 **Why:** PR 6 (final) — an admin surface to merge near-duplicate master songs + remove junk, keeping the compatibility overlap clean. The whole compatibility build (PRs 1–6) is now shipped.
 

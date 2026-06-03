@@ -6,6 +6,8 @@ import {
   type WeddingFolder,
   type TaxonomyEntry,
 } from '@/lib/taxonomy';
+import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
+import { updatePlanningDeadline } from './actions';
 
 export const metadata = { title: 'Taxonomy · Admin' };
 
@@ -22,6 +24,18 @@ type Grouped = {
   folder: WeddingFolder;
   label: string;
   rows: Array<SchemaRow & { meta: TaxonomyEntry }>;
+};
+
+type DeadlineRow = {
+  deadline_id: string;
+  kind: string;
+  ref_key: string;
+  scope: string;
+  label: string | null;
+  offset_value: number;
+  offset_unit: string;
+  applies_to: string | null;
+  is_active: boolean;
 };
 
 type FaithKey = NonNullable<TaxonomyEntry['faith']>;
@@ -109,6 +123,31 @@ export default async function AdminTaxonomyPage() {
     return facets.length > 0;
   }).length;
 
+  // Admin-managed deadlines (planning_deadlines) — the recommended lock-by
+  // dates the Home reminders read. Service category rows + documents are
+  // editable below. A missing table (migration not applied) returns null → the
+  // section degrades to "0 set" + the coverage flag shows every category as
+  // falling back to code.
+  const { data: deadlineRowsRaw } = await admin
+    .from('planning_deadlines')
+    .select(
+      'deadline_id, kind, ref_key, scope, label, offset_value, offset_unit, applies_to, is_active',
+    )
+    .order('kind', { ascending: true })
+    .order('offset_value', { ascending: false });
+  const deadlines = (deadlineRowsRaw ?? []) as DeadlineRow[];
+
+  // Coverage flag — which of the reminder plan-groups have no category deadline
+  // (they fall back to PLAN_GROUPS.monthsBefore in code). This is the
+  // category-level "missing deadline" surface; per-leaf overrides are a
+  // follow-up (the leaf→category map lives in code, not the DB).
+  const serviceDeadlineKeys = new Set(
+    deadlines.filter((d) => d.kind === 'service' && d.scope === 'category').map((d) => d.ref_key),
+  );
+  const missingCategories = PLAN_GROUPS.filter(
+    (g) => g.countsTowardLockable !== false && !serviceDeadlineKeys.has(g.id),
+  );
+
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-8 space-y-2">
@@ -128,6 +167,79 @@ export default async function AdminTaxonomyPage() {
         <Stat label="Mapped to a folder" value={totalMapped} />
         <Stat label="With filter_facets" value={facetedCount} />
         <Stat label="Unmapped (drift)" value={unmapped.length} />
+      </section>
+
+      <section className="mb-10">
+        <header className="mb-2 flex items-baseline justify-between gap-3">
+          <h2 className="text-lg font-semibold tracking-tight text-ink">Recommended deadlines</h2>
+          <span className="font-mono text-xs text-ink/55">{deadlines.length} set</span>
+        </header>
+        <p className="mb-3 text-sm text-ink/60">
+          The lock-by dates the couple&apos;s Home reminders read (couple-side — distinct from the vendor&apos;s own delivery plan). A category with no row falls back to the code default. <strong>Months</strong> for services, <strong>days</strong> for documents — edit either.
+        </p>
+        {deadlines.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-ink/20 bg-cream/60 px-4 py-3 text-sm text-ink/60">
+            No deadline rows — the <code className="font-mono text-xs">planning_deadlines</code> migration isn&apos;t applied yet (<code className="font-mono text-xs">supabase db push</code>). Reminders run on code defaults until then.
+          </p>
+        ) : (
+          <>
+            {missingCategories.length > 0 ? (
+              <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+                ⚠ {missingCategories.length}{' '}
+                {missingCategories.length === 1 ? 'reminder category has' : 'reminder categories have'} no deadline (using code fallback):{' '}
+                {missingCategories.map((g) => g.label).join(', ')}
+              </p>
+            ) : (
+              <p className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-800">
+                ✓ Every reminder category has a deadline set.
+              </p>
+            )}
+            <ul className="divide-y divide-ink/10 rounded-xl border border-ink/10 bg-cream">
+              {deadlines.map((d) => (
+                <li key={d.deadline_id} className="flex flex-wrap items-center gap-3 px-4 py-3 sm:flex-nowrap">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate text-sm font-medium text-ink">{d.label ?? d.ref_key}</span>
+                      <Badge tone={d.kind === 'document' ? 'bg-blue-50 text-blue-700' : 'bg-ink/5 text-ink/55'}>
+                        {d.kind}
+                      </Badge>
+                      {d.scope === 'leaf' ? <Badge tone="bg-violet-50 text-violet-700">override</Badge> : null}
+                      {d.applies_to ? <Badge tone="bg-sky-50 text-sky-700">{d.applies_to}</Badge> : null}
+                      {!d.is_active ? <Badge tone="bg-rose-50 text-rose-700">off</Badge> : null}
+                    </div>
+                    <div className="mt-0.5 truncate font-mono text-[11px] text-ink/45">{d.ref_key}</div>
+                  </div>
+                  <form action={updatePlanningDeadline} className="flex shrink-0 items-center gap-2">
+                    <input type="hidden" name="deadline_id" value={d.deadline_id} />
+                    <input
+                      type="number"
+                      name="offset_value"
+                      defaultValue={d.offset_value}
+                      min={0}
+                      className="w-16 rounded-md border border-ink/15 bg-white px-2 py-1 text-sm text-ink"
+                    />
+                    <select
+                      name="offset_unit"
+                      defaultValue={d.offset_unit}
+                      className="rounded-md border border-ink/15 bg-white px-2 py-1 text-sm text-ink"
+                    >
+                      <option value="day">days</option>
+                      <option value="week">weeks</option>
+                      <option value="month">months</option>
+                    </select>
+                    <span className="text-xs text-ink/50">before</span>
+                    <button
+                      type="submit"
+                      className="rounded-md border border-ink/15 bg-white px-3 py-1 text-sm font-medium text-ink transition-colors hover:border-terracotta/50 hover:text-terracotta"
+                    >
+                      Save
+                    </button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
       </section>
 
       {WEDDING_FOLDER_ORDER.map((folder, idx) => {

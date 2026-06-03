@@ -8,6 +8,20 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Home: compact "Your wedding details" card (chrome redesign delta #1)
+
+**Why:** Delta #1 of the 2026-06-03 customer-dashboard chrome redesign landed in code — event Home now shows a compact "Your wedding details" card (Location · Venue · Guests · Budget · Style · Cuisine · Photo & video) built from onboarding data, with a "See all wedding settings →" link to `/details`. It reshapes the existing Home "Personalized" block (chips → kv card); `/for-you` keeps the chip view.
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/0021_couple_dashboard_fully_purchased/0021_couple_dashboard_fully_purchased.md`** — record that Home's onboarding/"Personalized" block now renders as the compact "Your wedding details" kv card (basics + cuisine/photo) with a "See all wedding settings" link to `/details`; the full chip + "what matters" view stays on `/for-you`.
+
+**Cross-ref:** corpus `DECISION_LOG.md` "Customer dashboard chrome RE-LOCKED" (2026-06-03) already locks the model; this records the code landing of delta #1 (of 4 — the other deltas: Messages top-bar icon, Schedule Preparation⇄Event Day, Service+Add-ons merge).
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Site Editor: Website-tab flip (Phase 2) — editor is now the page, journey scroll retired
 
 **Why:** Phase 2 of the flip sequence shipped — tapping "Website" now opens `/site-editor/[eventId]` (mobile + desktop), and the journey route `/dashboard/[eventId]/website` redirects to the editor. The spec corpus needs this recorded so future sessions know the journey scroll is retired and the editor is the canonical Website surface.

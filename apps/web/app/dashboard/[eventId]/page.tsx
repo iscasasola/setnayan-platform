@@ -93,7 +93,7 @@ import {
 } from '@/lib/paperwork';
 import { AuspiciousChip } from './_components/auspicious-chip';
 import { PersonalizedMenu } from './_components/personalized-menu';
-import { buildTasteChips, buildServiceFeatures } from '@/lib/personalized-menu';
+import { buildTasteChips, buildServiceFeatures, buildWeddingDetailRows } from '@/lib/personalized-menu';
 import { EventMetaLine } from './_components/event-meta-line';
 import { VendorAvailabilityIntersection } from './_components/vendor-availability-intersection';
 import { BudgetCountdownHeader } from './_components/budget-countdown-header';
@@ -1571,6 +1571,21 @@ export default async function EventHomePage({
     (event as { style_preferences?: Record<string, unknown> | null }).style_preferences ?? null,
   );
 
+  // Compact "Your wedding details" rows for the Home card (owner 2026-06-03) —
+  // keyed basics (location · venue · guests · budget · style) + the two most
+  // service-defining style picks (cuisine · photo/video), from the same events
+  // row. Date + ceremony are omitted — the persistent top chrome carries them.
+  // Empty fields are skipped, so the card never shows blanks.
+  const personalizedDetailRows = buildWeddingDetailRows({
+    venue_setting: eventVenueSetting,
+    estimated_pax: (event as { estimated_pax?: number | null }).estimated_pax ?? null,
+    estimated_budget_centavos: eventBudgetCentavos,
+    region: (event as { region?: string | null }).region ?? null,
+    mood_feel_key: (event as { mood_feel_key?: string | null }).mood_feel_key ?? null,
+    style_preferences:
+      (event as { style_preferences?: Record<string, unknown> | null }).style_preferences ?? null,
+  });
+
   return (
     // Column effect retired 2026-05-23 per owner directive — event home
     // renders as a single column on every breakpoint. Prior shape was a
@@ -1615,6 +1630,7 @@ export default async function EventHomePage({
         variant="preview"
         tasteChips={personalizedTaste}
         serviceFeatures={personalizedFeatures}
+        detailRows={personalizedDetailRows}
       />
 
       {/* Block 2 · Upcoming schedules — streams independently; renders only

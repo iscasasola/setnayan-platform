@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(0043): per-religion wedding traditions guide on /paperwork
+
+**Context:** Owner-directed — *"create onboarding that follows the traditions of each religion."* The per-religion document + deadline engine already exists (`lib/paperwork.ts` `DOCUMENTS_BY_CEREMONY_TYPE` — Catholic Pre-Cana/banns/canonical-interview, Muslim Sharia counseling, INC counseling, each with lead-time deadlines that already flow into /paperwork + the /schedule Preparation agenda + Home reminders). The missing piece was the human-readable "what to expect" overview per religion.
+
+**What changed:**
+- **New `lib/wedding-traditions.ts`:** `WEDDING_TRADITIONS_GUIDE` keyed by ceremony_type (catholic/civil/christian/inc/muslim/cultural/chinese/mixed/unknown). Each carries an overview + signature items tagged by the owner's dimensions — **officiant · ceremony · food · custom · paperwork** — + a "confirm with {officiant}" line. Chinese is seeded for forward-compat (coming-soon; never rendered until activated).
+- **`/paperwork` page:** a "What to expect — your {religion} wedding" guide section above the document checklist, rendered from the guide (renders nothing for an unset ceremony).
+
+**Honesty:** content is framed as general guidance ("traditions vary by family, parish, and region — confirm with your {officiant}"). The module header flags it NEEDS owner/clergy validation (especially INC / Muslim / Cultural / Chinese) and is a candidate to move to an admin-editable table once the copy is confirmed.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean. Shipped from an isolated worktree off `origin/main`. No migration, no SKU.
+
+**SPEC IMPACT:** Yes — iteration **0043** gains a per-religion traditions guide on the paperwork surface (companion to the existing per-religion document/deadline engine). See `COWORK_INBOX.md`.
+
 ## 2026-06-03 · chore(0000,0041): event_type enum guarantee + create-event copy (all-live)
 
 **Context:** Follow-up to the owner's "keep everything live" decision + the spec-0000 reconciliation. Two small gaps: (1) belt-and-suspenders the `event_type` enum so a Debut insert can never fail + add 3 roadmap types as seedable; (2) the create-event page still carried "only weddings live / tap to be notified" copy.

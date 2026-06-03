@@ -371,11 +371,20 @@ export async function commitOnboardingWedding(
       source: 'host_manual' as const,
     }));
   if (shortlistRows.length > 0) {
-    const { error: shortlistError } = await admin
-      .from('event_vendors')
-      .insert(shortlistRows);
-    if (!shortlistError) {
-      await recomputeReceptionAnchor(admin, insertedEvent.event_id);
+    // Best-effort: the event + membership are already committed, so a shortlist
+    // insert or anchor-recompute failure must NEVER reject the action. Without
+    // this try/catch a throw here (recomputeReceptionAnchor is not error-checked)
+    // rejected the whole commit AFTER the event row existed — the client saw a
+    // failure and a retry created a DUPLICATE event (owner report 2026-06-03).
+    try {
+      const { error: shortlistError } = await admin
+        .from('event_vendors')
+        .insert(shortlistRows);
+      if (!shortlistError) {
+        await recomputeReceptionAnchor(admin, insertedEvent.event_id);
+      }
+    } catch (shortlistErr) {
+      console.error('[onboarding] shortlist/anchor seed failed (non-fatal)', shortlistErr);
     }
   }
 

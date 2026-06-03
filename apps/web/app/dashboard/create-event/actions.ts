@@ -20,12 +20,21 @@ import { captureEvent } from '@/lib/analytics';
 // still wedding-themed, so non-wedding events render the dashboard tools
 // (guest list / budget / etc.) as generic event-planning utilities.
 //
-// gender_reveal was briefly in this list on 2026-05-20 (PR #177) then
-// pulled the same day per owner decision. The DB enum value stays in
-// place (migration 20260521050000) — unused enum values are harmless.
-// Re-enabling later is a one-line addition here + the matching tile flip
-// in event-type-picker.tsx.
-const ALLOWED_TYPES = ['wedding', 'debut'] as const;
+// All event types unlocked (owner-directed 2026-06-03 "unlock all events") —
+// mirrors the EVENT_TYPES `enabled` flip in event-types.ts. Every value here is
+// a member of the public.event_type enum (verified against prod). Non-wedding
+// types skip the wedding-only ceremony fields via the isWedding branch below.
+const ALLOWED_TYPES = [
+  'wedding',
+  'debut',
+  'gender_reveal',
+  'birthday',
+  'celebration',
+  'travel',
+  'corporate',
+  'tournament',
+  'christening',
+] as const;
 
 /* Retired 2026-05-28 V2 cutover */
 // V1 had a DIY / Trial / Paid choice card at the bottom of create-event.

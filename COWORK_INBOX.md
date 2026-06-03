@@ -23,6 +23,22 @@
 
 ---
 
+## [PENDING] 2026-06-03 — All event types unlocked: all 9 now creatable (0000/0041)
+
+**Why:** Owner directive — *"unlock all events."* Wedding + Debut were the only selectable event types; the other seven (Gender Reveal · Birthday · Celebration · Travel · Corporate · Tournament · Christening) shipped as "Coming soon." Now all nine are creatable. Two code gates flipped (`EVENT_TYPES[].enabled` in event-types.ts + `ALLOWED_TYPES` in create-event/actions.ts); the `public.event_type` enum already had all nine values — no migration.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **Iteration 0000 (event-type roster) + 0041 (multi-event roster)** — the "V1: wedding + debut; rest grow one event_type at a time as Coming soon" note is superseded: **all nine event types are live/creatable.**
+2. **CLAUDE.md decision log (corpus root)** — append a 2026-06-03 row: *"Unlock all events — all 9 event_type values flipped live (EVENT_TYPES.enabled + ALLOWED_TYPES); removes the one-at-a-time roadmap gate. Non-wedding planning surfaces remain wedding-tailored until V1.2+."*
+
+**Downstream note (track, not a blocker):** non-wedding events land on the wedding-tailored dashboard/planning experience until per-type surfaces are built — the same rough edge `debut` already has. To re-gate any type, flip its `enabled` back to `false` + drop it from `ALLOWED_TYPES`.
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "feat(0000,0041): unlock all event types". No migration.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — All wedding faiths unlocked: Christian / INC / Muslim / Cultural now active (0043/0016)
 
 **Why:** Owner directive — *"unlock all religions first."* The four faiths that shipped as "Coming Soon" in iteration 0043 (gated behind per-region vendor density via `wedding_type_launch_status`) are now **active** everywhere: the onboarding faith chips, both `ALLOWED_CEREMONIES` server constants, the create-event launch-status fallback, and the `wedding_type_launch_status` table (migration `20260803000000`, verified applied to prod). Onboarding has no tradition picker, so Muslim/Cultural commits default `ceremony_sub_type` (`general_muslim` / `other`) to satisfy the DB CHECK `events_sub_type_required_when_muslim_or_cultural`; create-event collects the specific tradition.

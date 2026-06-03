@@ -22,6 +22,43 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** Yes — iteration **0043** (wedding-type picker) gains a Chinese ceremony type (coming-soon). See `COWORK_INBOX.md`.
 
+## 2026-06-03 · fix(0016): onboarding completion overlay can no longer strand the couple ("Creating your personalized dashboard" hang)
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner report (real iPhone, production) — the final onboarding screen sat forever on "Creating your personalized dashboard / Building your personalized dashboard…" and never reached the dashboard. Root cause was a set of unguarded async paths around the completion overlay: any one of them left the blocking overlay up with no error and no way to retry (the retry guard `committingRef` also stayed locked).
+
+**What changed:**
+- **`app/onboarding/wedding/_components/onboarding-shell.tsx`** — (1) `handleFinish` now wraps `await commitOnboardingWedding(...)` in try/catch. Previously a *rejected* server action (a 500, a serverless function timeout, or a dropped RSC transport on a wobbly mobile connection) rejected the awaited promise unhandled, so `committingRef` stayed `true` and the overlay stayed up forever — the exact reported symptom. On reject we now unwind (`finishing`/`committing`/ref reset) and surface the existing retry error. (2) `goToDashboard` gains a navigation watchdog: if the client router wedges or `router.push` silently no-ops, a hard `window.location.assign` fires `ANALYZING_HOLD_MS + 4000ms` after the tap (guarded on still being on `/onboarding`, so it's a no-op on the happy path once navigation succeeds).
+- **`lib/analytics.ts`** — `captureEvent`'s fire-and-forget `fetch` is now bounded by a 2s `AbortController`. It is `await`ed inside the onboarding commit's request path, so an unbounded hang could drag the serverless function to its timeout → the commit rejected → (pre-fix) the couple was stranded. This honors the module's own stated contract ("never let analytics block the response").
+- **`app/onboarding/wedding/actions.ts`** — the shortlist/anchor seed block is now wrapped try/catch. `recomputeReceptionAnchor` runs after the event row is created but wasn't error-checked; a throw there rejected the whole commit *after* the event existed, so a client retry created a DUPLICATE event. The surrounding code already declared this block "best-effort"; this enforces it.
+
+**Verification:** `pnpm -F web typecheck` clean · `next lint` on the 3 files clean. The failure-mode paths (reject / timeout / wedged router) are not exercisable in a happy-path preview; happy-path behavior is unchanged (the watchdog no-ops once navigation succeeds; the try/catch wraps the same statements).
+
+**SPEC IMPACT:** None. Pure resilience/error-handling fix — no SKU, schema, workflow, copy, or branding change (the user-facing error string already existed).
+
+**Follow-up (not in this PR):** the commit is still non-idempotent on the *other* failure branches (e.g. `event_members` insert fails → returns `ok:false` → a retry creates a second event). A durable fix needs a client-supplied idempotency key + server dedup — flagged for the owner; out of scope for this hang fix.
+
+---
+
+## 2026-06-03 · feat(0000,0041): unlock all event types (all 9 now creatable)
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner directive — *"unlock all events."* The create-event picker shipped only **Wedding + Debut** as selectable; the other seven (Gender Reveal · Birthday · Celebration · Travel · Corporate · Tournament · Christening) rendered as "Coming soon" placeholders. The code's own comments flagged the unlock as a "one-line flip" — done here.
+
+**What changed:**
+- **`app/dashboard/create-event/_components/event-types.ts`** — `EVENT_TYPES[].enabled` flipped `false → true` for all seven coming-soon types. This single roster drives BOTH the full-page create-event picker AND the in-chrome add-event sheet.
+- **`app/dashboard/create-event/actions.ts`** — `ALLOWED_TYPES` widened from `['wedding','debut']` to all nine (server validation; a non-allowed type was redirected with an error).
+
+**No DB change:** the `public.event_type` enum already carries all nine values (verified by direct prod query: wedding · debut · gender_reveal · birthday · celebration · travel · corporate · tournament · christening). The create-event `isWedding` branch already writes NULL wedding-only fields (ceremony_type/venue_setting/etc.) for non-wedding events, and they redirect to the standard `/dashboard/{event_id}` — the path `debut` already exercises live.
+
+**Verification:** `tsc --noEmit` exit 0.
+
+**SPEC IMPACT:** Yes — iteration **0000** (event-type roster "V1: wedding + debut") + **0041** (multi-event roster "grows one event_type at a time") now describe all nine event types as live. The deliberate one-at-a-time rollout gate is removed. **Downstream caveat:** non-wedding events get the wedding-tailored dashboard/planning surfaces until per-type flows land (V1.2+) — the same rough edge `debut` has today. See `COWORK_INBOX.md`.
+
+---
+
 ## 2026-06-03 · feat(0043,0016): unlock all wedding faiths (Christian / INC / Muslim / Cultural now active)
 
 **Commit:** see merge commit on this PR.

@@ -152,6 +152,25 @@ export function MobileGuestCarousel({
   const kbInset = useKeyboardInset();
   const kbOpen = kbInset > 100;
 
+  // Broadcast the keyboard state to the page so the guest list (a sibling, not
+  // a child of this component) can shrink into a scroll zone above the sheet
+  // instead of having its top rows pushed off-screen. The page's injected
+  // <style> reads html[data-kb-open] + --kb-inset (owner-reported 2026-06-03).
+  useEffect(() => {
+    const el = document.documentElement;
+    if (kbOpen) {
+      el.style.setProperty('--kb-inset', `${kbInset}px`);
+      el.setAttribute('data-kb-open', '');
+    } else {
+      el.style.removeProperty('--kb-inset');
+      el.removeAttribute('data-kb-open');
+    }
+    return () => {
+      el.style.removeProperty('--kb-inset');
+      el.removeAttribute('data-kb-open');
+    };
+  }, [kbInset, kbOpen]);
+
   // Belt-and-suspenders: after a bulk apply redirects back with a flash, make
   // sure the Assign sheet is closed (the apply handler already closes it +
   // clears the selection optimistically; this covers any path that didn't).
@@ -208,6 +227,7 @@ export function MobileGuestCarousel({
       <div
         aria-hidden
         className="h-[calc(var(--gcar-h)+4rem+env(safe-area-inset-bottom))] lg:hidden"
+        style={kbOpen ? { height: 0 } : undefined}
       />
 
       {/* Panel content sheet — docked directly ABOVE the guest bottom nav (the
@@ -649,6 +669,9 @@ function QuickAddInlineForm({ eventId }: { eventId: string }) {
           type="text"
           inputMode="text"
           autoCapitalize="words"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
           placeholder="First name"
           value={first}
           onChange={(e) => setFirst(e.target.value)}
@@ -661,6 +684,9 @@ function QuickAddInlineForm({ eventId }: { eventId: string }) {
           type="text"
           inputMode="text"
           autoCapitalize="words"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
           placeholder="Last name"
           value={last}
           onChange={(e) => setLast(e.target.value)}

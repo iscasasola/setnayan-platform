@@ -1,11 +1,10 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { GetObjectCommand } from '@aws-sdk/client-s3';
-import { getR2Client, R2_BUCKETS } from '@/lib/r2';
 import {
   getDriveOAuthConfig,
   refreshDriveAccessToken,
 } from '@/lib/papic-drive';
+import { readR2Object, uploadFileToDrive } from '@/lib/drive-upload';
 import { emitNotification } from '@/lib/notification-emit';
 
 // 0009 Photo Delivery — release + tick business logic.
@@ -226,7 +225,7 @@ export async function processBatchForEvent(input: {
     const sourcePhotoId = art.source_photo_id as string;
     try {
       const bytes = await readR2Object(r2Key);
-      const driveFileId = await uploadToDrive({
+      const driveFileId = await uploadFileToDrive({
         accessToken,
         folderId,
         fileName: deriveFileNameFromKey(r2Key, sourcePhotoId),
@@ -468,69 +467,9 @@ async function ensureFreshAccessToken(input: {
   }
 }
 
-async function readR2Object(key: string): Promise<Uint8Array> {
-  const client = getR2Client();
-  if (!client) throw new Error('r2_not_configured');
-  const res = await client.send(
-    new GetObjectCommand({ Bucket: R2_BUCKETS.media, Key: key }),
-  );
-  if (!res.Body) throw new Error('r2_empty_body');
-  // AWS SDK v3 returns a Web ReadableStream in Node; transformToByteArray
-  // is on the SdkStream extension.
-  const stream = res.Body as unknown as {
-    transformToByteArray?: () => Promise<Uint8Array>;
-  };
-  if (typeof stream.transformToByteArray !== 'function') {
-    throw new Error('r2_stream_unsupported');
-  }
-  return await stream.transformToByteArray();
-}
-
-async function uploadToDrive(input: {
-  accessToken: string;
-  folderId: string;
-  fileName: string;
-  body: Uint8Array;
-}): Promise<string> {
-  const boundary = `setnayan-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  const metadata = {
-    name: input.fileName,
-    parents: [input.folderId],
-  };
-  const encoder = new TextEncoder();
-  const preamble = encoder.encode(
-    `--${boundary}\r\n` +
-      `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
-      `${JSON.stringify(metadata)}\r\n` +
-      `--${boundary}\r\n` +
-      `Content-Type: application/octet-stream\r\n\r\n`,
-  );
-  const closing = encoder.encode(`\r\n--${boundary}--`);
-
-  const body = new Uint8Array(preamble.length + input.body.length + closing.length);
-  body.set(preamble, 0);
-  body.set(input.body, preamble.length);
-  body.set(closing, preamble.length + input.body.length);
-
-  const res = await fetch(
-    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true',
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${input.accessToken}`,
-        'Content-Type': `multipart/related; boundary=${boundary}`,
-      },
-      body,
-    },
-  );
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`drive_upload_${res.status}:${text.slice(0, 200)}`);
-  }
-  const json = (await res.json()) as { id?: string };
-  if (!json.id) throw new Error('drive_upload_no_id');
-  return json.id;
-}
+// readR2Object + uploadToDrive moved to lib/drive-upload.ts (as readR2Object +
+// uploadFileToDrive) on 2026-06-03 — shared verbatim with the universal
+// Drive-copy layer (lib/drive-copy.ts) so there is one R2→Drive path, not two.
 
 function deriveFileNameFromKey(r2Key: string, fallbackId: string): string {
   const parts = r2Key.split('/');

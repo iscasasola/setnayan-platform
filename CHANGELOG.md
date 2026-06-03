@@ -4,6 +4,31 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(drive-copy): keystone — universal Google-Drive copy layer (R2 = system of record)
+
+**Commit:** to be filled after commit.
+
+**Context:** Owner storage lock 2026-06-03 (corpus `Storage_and_Drive_Copy_Architecture_2026-06-03.md` + `DECISION_LOG.md`): Cloudflare R2 is the **system of record**; Google Drive is the couple's **permanent copy** of six artifacts — Papic · Patiktok · Pabati · Pakanta · Monogram · QR codes. Panood is carved out (YouTube only). This PR is **Phase 1 (the keystone)** of the design-doc § 8 build plan: the shared copy module + its schema. Feeders (6), the cron tick, the R2 3-month compress job, and Drive quota handling are later PRs.
+
+**What ships:**
+
+- **Migration `20260726000000_drive_copy_layer_foundation.sql`** — generalized, additive copy-tracking schema (does NOT touch the live 0009 `photo_delivery_*` tables):
+  - `drive_copy_folders` — per-event Drive folder id cache (root + one subfolder per artifact type); `UNIQUE(event_id, kind)`.
+  - `drive_copy_artifacts` — per-file copy state across all six types; canonical dedupe `UNIQUE(event_id, r2_object_key)`; `copied_high_res` flag for the 3-month-window logic; pending-worker partial index. RLS enabled, **no policies** (service-role only — same convention as `photo_delivery_artifacts`).
+- **`apps/web/lib/drive-upload.ts`** (new) — shared low-level byte primitives extracted **verbatim** from `photo-delivery-release.ts`: `readR2Object` + `uploadFileToDrive` (now mimeType-aware) + `createDriveFolder`. One R2→Drive path, not two.
+- **`apps/web/lib/photo-delivery-release.ts`** — refactored to import the two primitives from `drive-upload.ts` (deleted its private copies). **Behavior-identical** — the live pilot Photo Delivery flow is unchanged.
+- **`apps/web/lib/drive-copy.ts`** (new) — the keystone: `pushToDriveCopy()` (feeder entry point) + `enqueueDriveCopy` + `runDriveCopyBatch` (copy worker) + `ensureArtifactFolder` (root + per-type subfolder via the cache) + `getEventDriveAccessToken` (reads `oauth_grants(provider='drive')`, refresh-on-expiry). Always safe to call: with no Drive grant it enqueues and copies later.
+
+**Seam (documented):** the layer reads the `provider='drive'` grant (Papic's original Drive connection); the live 0009 flow still uses its own `provider='drive_photo_delivery'` grant + folder. Collapsing both into one per-event "Connect Drive" is **Phase 0** (a later PR). Until then the layer is inert for events that only connected via Photo Delivery — feeders enqueue, the copy runs once a `drive` grant exists.
+
+**Pilot-safe:** purely additive schema + a new module with no callers yet + a behavior-identical refactor of one shared file. Nothing changes for pilot couples.
+
+**Verification:** `pnpm -F web typecheck`/`lint`/`build` not runnable in the `/tmp` worktree (no `node_modules` on the shared box) → relying on the full GitHub Actions CI gates (typecheck + lint + production build + e2e + bundle + secret scan). The admin Supabase client is untyped, so the new table/column references carry no generated-type risk; `events.event_date`/`display_name` selects mirror the existing `oauth/photo-delivery/callback` route verbatim.
+
+**SPEC IMPACT:** Yes. Implements the 2026-06-03 storage lock. The corpus design doc (`Storage_and_Drive_Copy_Architecture_2026-06-03.md` § 7) + `DECISION_LOG.md` 2026-06-03 row already capture the architecture; the iteration-spec edits (0009 rescope · 0011 Panood carve-out · 0012 · 0017 · 0036 · 0037/0004 · 0002 · `CLAUDE.md` storage line · pax docs) are owed via Cowork. Logged as a `[PENDING]` COWORK_INBOX item.
+
+---
+
 ## 2026-06-03 · feat(site-editor): migrate journey-page surfaces into the Reels editor carousels
 
 **Commit:** to be filled after commit.

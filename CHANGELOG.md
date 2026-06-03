@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · fix(guests): remove the redundant mobile "+" add FAB (leftover behind the panel sheet)
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner screenshot — a mulberry "+" floating action button was still rendering on the mobile Guests page, peeking out from behind the collapsed panel sheet near the **Customize** nav item. It's a leftover: the FAB (`fixed bottom-20 right-4 z-30 … bg-mulberry … sm:hidden`) was the old mobile trigger for `QuickAddSheet`, but mobile adding is now handled by the carousel's **Add** panel (`QuickAddInlineForm`). At `z-30` it sat *behind* the `z-40` sheet, so only a sliver showed.
+
+**What changed (`apps/web/app/dashboard/[eventId]/guests/_components/quick-add-sheet.tsx`):** Removed the mobile FAB `<button>` (and its now-unused `Plus` import). `QuickAddSheet` itself is unchanged and still opens on **desktop** via `OpenQuickAddButton` → `OPEN_EVENT` (the header is `lg:flex`, desktop-only), so desktop add is untouched; mobile add continues through the carousel Add panel. Replaced the removed markup with a comment documenting why there is no mobile FAB.
+
+**Verification:** Confirmed the FAB was the only `setOpen(true)` on mobile and that the desktop event-listener trigger remains; grep confirms no other `Plus` reference and no second bottom-anchored FAB in the guests dir. Visual confirmation via the Vercel prod deploy (auth-gated page; no local Supabase env).
+
+**SPEC IMPACT:** None — dead-UI removal; no SKU, schema, copy, or workflow change.
+
+---
+
 ## 2026-06-03 · fix(guests): clearer collapse grabber — chevron + animated height
 
 **Commit:** see merge commit on this PR.

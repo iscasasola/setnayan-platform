@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(admin): one-click "Create demo vendors" (chunked seed) on /admin/demo-vendors
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Creating demo vendors was CLI-only — the "Regenerate" button just cleaned up + printed the terminal command (a full seed exceeds one serverless request's envelope). Owner wanted a real one-click Create. Solution: the browser clicks once, then loops category-by-category against a small per-chunk API until done, with a progress bar — no single long request.
+
+**What ships (no migration):**
+1. **Seed core refactor (`scripts/seed-demo-vendors.ts`) — importable, not moved.** `export async function seedCategory()` (seeds one canonical_service's profiles/services/refinements, returns its review+block rows for the caller to bulk-insert); exported `fetchCanonicalServices`/`fetchResolvedSchemas`/`fetchReviewEventPool`/`cleanupBatch`/`findLatestDemoBatch` + `isNonProdUrl`; **guarded CLI entrypoint** so importing never auto-runs. CLI `seed()` calls `seedCategory` + keeps its end-of-run bulk insert — **behavior preserved** (per-category RNG keyed on `(batchId, service)` ⇒ chunked == CLI output).
+2. **Chunked seed API (`app/api/admin/demo/seed/route.ts`, nodejs).** `phase:'start'` (requireAdmin + **non-prod 403** + cleanup + return `{batchId, services, total}`); `phase:'chunk'` (seed `services[offset..offset+limit)` + insert that chunk's reviews/blocks + return progress). Mirrors the regenerate route's auth/audit.
+3. **One-click button (`demo-vendor-actions.tsx`).** "Create demo vendors" + vendors/category control → POSTs `start`, then loops `chunk` (3 categories/request) with a progress bar. Confirm-gated; surfaces the prod 403; `router.refresh()` on completion.
+
+**SPEC IMPACT:** Minor — `/admin/demo-vendors` (admin console, 0023) gains one-click demo seeding (was CLI-only). `[PENDING]` in `COWORK_INBOX.md`.
+
+**Verification:** `tsc --noEmit` + `next lint` green. Refactor-safety smoke tests: exports resolve (`seedCategory` etc.; `isNonProdUrl` staging→true / prod-ref→false), importing the module does **not** auto-run the seed, the CLI entrypoint still fires when run directly. CI gates the production build (route bundles `@/scripts/seed-demo-vendors`; fallback = lift the core to `lib/`). **Owner, on staging:** `/admin/demo-vendors` → Create demo vendors → progress bar → `/vendors?demo=1`; prod-pointed deploy returns 403.
+
 ## 2026-06-03 · fix(0016): onboarding completion overlay can no longer strand the couple ("Creating your personalized dashboard" hang)
 
 **Commit:** see merge commit on this PR.

@@ -8,6 +8,20 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Admin console gains one-click "Create demo vendors" (chunked seed · demo tooling)
+
+**Why:** Demo-vendor creation was terminal-only; the owner wanted a one-click button. `/admin/demo-vendors` now has a **Create demo vendors** button that seeds the marketplace category-by-category (chunked) via a new `/api/admin/demo/seed` route, with a progress bar. Non-prod-gated (refuses prod). Demo/testing tooling in the admin console — the 0023 spec should note it alongside Cleanup / Regenerate / Demo-inquiries.
+
+**What landed (code):** refactored `scripts/seed-demo-vendors.ts` to export `seedCategory` + helpers (CLI behavior preserved, entrypoint guarded); new chunked `POST /api/admin/demo/seed` (start + chunk, admin + non-prod gated); Create button + per-category control + progress loop in `demo-vendor-actions.tsx`.
+
+**Spec corpus update (owner via Cowork):** `~/Documents/Claude/Projects/Setnayan/0023_admin_console/` — note the Demo Vendors tooling now includes a one-click chunked **Create** (was CLI-only). Staging-only (prod-refused).
+
+**Not spec-impacting:** the seed-core refactor + chunk protocol are implementation.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — All event types unlocked: all 9 now creatable (0000/0041)
 
 **Why:** Owner directive — *"unlock all events."* Wedding + Debut were the only selectable event types; the other seven (Gender Reveal · Birthday · Celebration · Travel · Corporate · Tournament · Christening) shipped as "Coming soon." Now all nine are creatable. Two code gates flipped (`EVENT_TYPES[].enabled` in event-types.ts + `ALLOWED_TYPES` in create-event/actions.ts); the `public.event_type` enum already had all nine values — no migration.

@@ -8,6 +8,19 @@
 
 ---
 
+## [PENDING] 2026-06-03 — DB-backed taxonomy tree foundation: name `canonical_service_taxonomy` in 0023 §3.15 (0023/0044)
+
+**Why:** Phase 1 of the DB-backed taxonomy build (the ♾️ "Finalize = permanent publish" lock) shipped two tables. 0023 §3.15 "Build status" already describes `service_categories` gaining `parent_id`/`tier`/`sort_order` + `sample_photo_r2_key` — matches what shipped. The one addition to record: the `canonical_service` → tile mapping ships as a **dedicated `canonical_service_taxonomy` table** (canonical → `folder_id`/`tile_id` + facet flags), not as rows on `service_categories`.
+
+**Spec corpus update (owner walks via Cowork):**
+1. **0023 §3.15** — in the Build-status schema note, add `canonical_service_taxonomy` (the 199-row canonical→tile mapping + facet flags) alongside the `service_categories` tree; note both are seeded from `lib/taxonomy.ts` via `apps/web/scripts/gen-taxonomy-seed.ts` during the Phase-1 transition (non-breaking; consumers still read code until Phase 2).
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "DB-backed taxonomy tree — Phase 1 foundation".
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Per-religion vendor-readiness gate + admin surface (0043/0023)
 
 **Why:** Owner-directed ("INC needs INC-compatible services before we open it; the issue is ceremonial/officiants/food"). New `/admin/wedding-types` shows each religion's vendor + ceremonial-venue readiness (counted from `compatible_ceremony_types`) vs a threshold and lets admins open / hold / disable it. Flipping to coming-soon now greys the religion in BOTH the onboarding faith picker and the create-event picker (the gate is enforced couple-side).

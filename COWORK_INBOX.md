@@ -8,6 +8,21 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Customer mobile /more de-duped (bottom-nav tabs removed from the overflow grid)
+
+**Why:** "Less stressful" pass on the customer dashboard. The mobile `/more` overflow grid was re-listing the four permanent bottom-nav tabs (Home · Guests · Services · Website) as cards. They're now filtered out so `/more` shows true overflow only; **Today's Focus is kept** (it's the sole mobile entry to `/today` — event-home no longer links it since `WizardHero` moved out 2026-05-24). The desktop sidebar is unchanged (still shows every surface). Small nav-presentation refinement, worth a decision-log row for continuity with the other 2026-06-02/03 customer-nav rows.
+
+**Spec corpus update (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/DECISION_LOG.md`** — append a dated row:
+   `| 2026-06-03 | Customer mobile /more grid de-duped — the 4 bottom-nav tabs (Home·Guests·Services·Website) no longer repeat as cards; Today's Focus retained as the only mobile entry to /today; desktop sidebar unchanged. Copy polish: added find-date description, dropped dead orders/receipts keys, de-jargoned profile/add-ons/disputes cards. | apps/web/app/dashboard/[eventId]/more/page.tsx |`
+
+**Not spec-impacting (no action):** the copy/jargon polish + dead-key removal are presentation-only.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Public vendor profile now renders a per-category Details section + Portfolio gallery
 
 **Why:** Owner asked that the admin Demo Vendors seed make synthetic vendors *"provide the details and customization for each of the categories."* Implementing that surfaced that the iteration-0044 per-category attribute payloads (`vendor_service_attributes.attribute_payload`) had **no public render** at all — they only powered (future) filters/compare. To make the details visible, the public vendor profile gained two new sections. This is a small user-facing addition to the live `/v/[slug]` surface, so the specs should record it.

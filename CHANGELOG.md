@@ -4,6 +4,25 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(0023,0006): admin song dedup/merge tool — master-catalogue hygiene (compatibility PR 6)
+
+**Commit:** see merge commit on this PR.
+
+**Context:** PR 6 (final) of the vendor-compatibility build. Vendors type their repertoire freely, so the master `songs` catalogue accumulates near-duplicates ("Perfect" vs "Perfect - Ed Sheeran"). This admin surface merges them so the overlap score stays clean, + removes junk.
+
+**What changed:**
+- **`lib/songs.ts`** — `fetchSongsAdmin` (searchable master list) + `mergeSongs(admin, dupId, canonicalId)`: re-points every `vendor_songs` + `event_song_picks` from the dup to the canonical (idempotent upsert), then deletes the dup row. Sequential service-role writes (the `songs` DELETE policy is admin-only) — no extra migration, re-runnable.
+- **`app/admin/songs/{page,actions}.ts(x)`** — `/admin/songs`: search the catalogue + a merge form (Duplicate ID → Canonical ID) + per-row delete. Actions gated by the `/admin/pricing` `requireAdmin` pattern (the `/admin` layout already 404s non-admins; the actions re-check).
+- **`admin-sidebar.tsx`** — a "Songs" nav item (Music icon) by Taxonomy.
+
+**Verification:** `pnpm -F web typecheck` clean · `pnpm -F web lint` clean (my files) · `pnpm -F web build` ✓ (the `/admin/songs` route built).
+
+**SPEC IMPACT:** Iteration **0023** (admin console) gains the Songs catalogue surface; **0006** (compatibility). No new SKU. See `COWORK_INBOX.md`.
+
+**The compatibility build (PRs 1–6) is now complete** — schema + seed · vendor repertoire · couple picks · the score + cue · admin dedup. Owner action remains: push migration `20260731000000`.
+
+---
+
 ## 2026-06-03 · feat(schema): planning_deadlines table + seed — admin-managed deadline foundation (PR 1/3)
 
 **Context:** Step 1 of making the recommended-deadline reminders **admin-editable** instead of hardcoded (owner: "ship this both"). Creates the single deadline-config table + seeds it from the live values. No consumer yet — admin UI (PR 2) + read-path (PR 3) follow; migrations land first.

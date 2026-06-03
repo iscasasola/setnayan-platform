@@ -189,3 +189,78 @@ export async function fetchVendorSongOverlaps(
   }
   return out;
 }
+
+// ── Admin dedup / merge (the 0023 master-catalogue hygiene tool) ──────────────
+
+export type AdminSong = {
+  song_id: number;
+  title: string;
+  artist: string;
+  source: string;
+  is_curated_pick: boolean;
+};
+
+/** Admin master-catalogue list, searchable by title (all sources/flags shown). */
+export async function fetchSongsAdmin(
+  supabase: SupabaseClient,
+  q: string,
+): Promise<AdminSong[]> {
+  let query = supabase
+    .from('songs')
+    .select('song_id, title, artist, source, is_curated_pick')
+    .order('title', { ascending: true })
+    .limit(150);
+  const safe = q.replace(/[%,()]/g, ' ').trim();
+  if (safe) query = query.ilike('title', `%${safe}%`);
+  const { data } = await query;
+  return (data ?? []) as AdminSong[];
+}
+
+/**
+ * Merge a duplicate master song into the canonical one: re-point every vendor
+ * repertoire + couple pick from `dupId` to `canonicalId` (idempotent — skips
+ * links the target already has), then delete the now-orphaned dup row. Run with
+ * a service-role client (the `songs` DELETE policy is admin-only; this bypasses
+ * RLS). Sequential rather than a SQL function to avoid another migration — safe
+ * to re-run if interrupted.
+ */
+export async function mergeSongs(
+  admin: SupabaseClient,
+  dupId: number,
+  canonicalId: number,
+): Promise<void> {
+  if (dupId === canonicalId) return;
+
+  const { data: vs } = await admin
+    .from('vendor_songs')
+    .select('vendor_profile_id')
+    .eq('song_id', dupId);
+  if (vs && vs.length) {
+    await admin.from('vendor_songs').upsert(
+      (vs as { vendor_profile_id: string }[]).map((r) => ({
+        vendor_profile_id: r.vendor_profile_id,
+        song_id: canonicalId,
+      })),
+      { onConflict: 'vendor_profile_id,song_id', ignoreDuplicates: true },
+    );
+    await admin.from('vendor_songs').delete().eq('song_id', dupId);
+  }
+
+  const { data: ep } = await admin
+    .from('event_song_picks')
+    .select('event_id, source')
+    .eq('song_id', dupId);
+  if (ep && ep.length) {
+    await admin.from('event_song_picks').upsert(
+      (ep as { event_id: string; source: string }[]).map((r) => ({
+        event_id: r.event_id,
+        song_id: canonicalId,
+        source: r.source,
+      })),
+      { onConflict: 'event_id,song_id', ignoreDuplicates: true },
+    );
+    await admin.from('event_song_picks').delete().eq('song_id', dupId);
+  }
+
+  await admin.from('songs').delete().eq('song_id', dupId);
+}

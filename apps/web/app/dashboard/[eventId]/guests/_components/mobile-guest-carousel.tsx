@@ -560,7 +560,13 @@ function QuickAddInlineForm({ eventId }: { eventId: string }) {
       setFirst('');
       setLast('');
       router.refresh();
-      firstRef.current?.focus();
+      // Return the cursor to First name for the next rapid entry. DEFERRED a
+      // tick on purpose: at this point the inputs are still disabled={busy}
+      // (busy resets in the finally below, which hasn't run yet), and focus()
+      // is a no-op on a disabled element — so a synchronous call here silently
+      // failed to loop back (owner-reported 2026-06-03). The timeout lets React
+      // flush busy=false + re-enable the field first. Mirrors QuickAddSheet.
+      setTimeout(() => firstRef.current?.focus(), 0);
     } catch {
       setAddError('Something went wrong — try again.');
     } finally {

@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(0021,0006): nest in-app Setnayan services INSIDE the Vendors-tab category rails
+
+**Context:** In-app services rendered as a standalone launcher grid (`InAppServicesSection`) BELOW the Plan+Budget accordion — i.e. not inside the categories (owner, twice: "in app services are still not inside the categories"). `Digital_Services_Cross_Surface_Map_2026-06-03.md` §2-3 locks them INTO their canonical category with a ✦ Setnayan badge, floated to the top. This is the **presentation-nest** step (owner-picked over the full vendor-model convergence).
+
+**What changed:**
+- **`lib/add-ons-catalog.ts`** — new `category: InAppServiceCategory` (`PlanGroupId | 'digital_services' | 'tool'`) on every entry, the single placement source. Save-the-Date / Papic / Panood → `photography` · Patiktok → `photobooth` · LED (Pailaw) → `led_background` · Animated Monogram → `digital_services` · the rest (Orders / Playlist / QR / Photo Delivery / Paprint / Indoor Blueprint / Landing Page / Music Creator) → `tool`.
+- **`plan-budget-accordion.tsx`** — module maps (`SVC_BY_GROUP` / `DIGITAL_SVCS` / `TOOL_SVCS`); a full-bleed poster `InAppServiceCard` **prepended (float-to-top)** into each matching category rail as a supplementary ✦ Setnayan card (live/web_v1 link to setup; coming_soon static, never linked — its `/add-ons` route may not exist); a synthetic **Design › Digital Services** rail; a compact **"Tools & extras"** strip in the end-spacer above the recap. Supplementary + non-saturating — never a pick, no Lock/Remove, budget rollup + Compare untouched. A category with a Setnayan service but no picks now shows its rail (not the slim empty row).
+- **`vendors/page.tsx`** — dropped the standalone `<InAppServicesSection>`; **deleted** `in-app-services-section.tsx`.
+
+**Verification:** `tsc --noEmit` clean (whole app) · `next lint` clean (changed files; only pre-existing warnings elsewhere) · a runtime `tsx` partition check confirmed the grouping + that nested links resolve to real routes. The authed couple-dashboard surface isn't renderable locally (no env / seed / running server) — visual check belongs on the PR's Vercel preview.
+
+**SPEC IMPACT:** Iteration **0021** couple-dashboard Services tab + the Digital Services cross-surface map §2. Presentation step only; the full **vendor-model convergence** (§3 — source the list from the first-party Setnayan vendor account + choice-driven pre-add on category selection) and **fleshing out Digital Services** (add Pakanta / Pro Website / Live Venue Photo Wall to the catalog with valid setup routes — only the coming-soon Animated Monogram is present today) remain follow-ups. See `COWORK_INBOX.md`.
+
+---
+
 ## 2026-06-03 · feat(0023,0006): admin song dedup/merge tool — master-catalogue hygiene (compatibility PR 6)
 
 **Commit:** see merge commit on this PR.

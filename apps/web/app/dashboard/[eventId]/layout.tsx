@@ -1,6 +1,4 @@
-import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { Store } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { fetchUserEvents } from '@/lib/events';
@@ -245,31 +243,17 @@ export default async function EventLayout({ children, params }: Props) {
         vendorProfiles={roles.vendorProfiles}
       />
       <div className="flex items-center gap-2">
-        {/* Marketplace link uses --m-orange-4 hover state to match the
-            v2.1 ghost button treatment. Resting state stays in slate so
-            the chrome doesn't read as a heavy CTA. */}
-        <Link
-          href="/vendors"
-          aria-label="Vendor marketplace"
-          className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-medium hover:bg-[var(--m-orange-4)] sm:px-3"
-          style={{ color: 'var(--m-slate)' }}
-        >
-          <Store aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          <span className="hidden sm:inline">Marketplace</span>
-        </Link>
-        {/* Mobile-only Switch View pill — desktop renders it in the
-            sidebar footer slot via SidebarShell.sidebarFooter prop
-            (see below) per the 2026-05-29 standardization across the
-            3 doorways. */}
-        <div className="lg:hidden">
-          <RoleSwitchPill
-            currentRole="customer"
-            hasCustomerAccess
-            hasVendorAccess={roles.hasVendorAccess}
-            hasAdminAccess={roles.hasAdminAccess}
-            vendorProfiles={roles.vendorProfiles}
-          />
-        </div>
+        {/* Marketplace (Store) link + mobile Switch View pill REMOVED from
+            the event-scoped top nav per owner directive 2026-06-03 (circled
+            both icons on the mobile top strip; "remove these 2 on top nav").
+            Neither function is orphaned:
+            • Marketplace `/vendors` stays reachable via the home
+              marketplace-tease-strip CTA, the "Browse your matched services"
+              button, and every plan-card folder link.
+            • Role-switching (Shop / Admin consoles) stays reachable via the
+              EventSwitcher dropdown's "Switch view" rows (left monogram caret)
+              on mobile, plus the desktop sidebar-footer pill (sidebarFooterPill
+              below). */}
         {/* Messages icon + unread badge (iteration 0019; badge follow-up to
             the icon-only link from PR #837). Read-state lands via the
             chat_thread_reads marker (migration

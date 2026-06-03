@@ -8,6 +8,20 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Top nav: Marketplace + Switch View icons removed from the customer top bar (0000/0021)
+
+**Why:** Owner directive (mobile screenshot, both icons circled): *"remove these 2 on top nav."* The 🏪 Marketplace link and the 👤﹀ Switch View (role-switch) pill are gone from the customer **top bar** — event-scoped (`[eventId]/layout.tsx`) AND non-event routes (`outer-dashboard-header.tsx`). The desktop **left sidebar** intentionally KEEPS both (owner scope: "non-event top bar", not the desktop sidebar). Nothing orphaned (Marketplace via the home tease-strip / "Browse matched services" / plan cards / sidebar; role-switch via the event-switcher dropdown's "Switch view" rows + sidebar).
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`0000_app_shell_and_navigation/0000_app_shell_and_navigation.md`** — the "single-strip top-nav (locked 2026-05-14)" description should drop the Marketplace link + the always-visible Switch View pill from the **top strip**; note both now live only in the desktop sidebar, and role-switch is also in the event-switcher dropdown.
+2. **`0021_couple_dashboard_fully_purchased/0021_*.md`** — update the couple-dashboard chrome/top-bar description to match: top bar = event-switcher monogram · Messages · Bell · Profile-monogram (no Marketplace, no Switch View pill).
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "chore(0000,0021): remove Marketplace (Store) + Switch View…". No migration, no SKU.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Admin song dedup tool + compatibility build COMPLETE (0023/0006)
 
 **Why:** PR 6 (final) — an admin surface to merge near-duplicate master songs + remove junk, keeping the compatibility overlap clean. The whole compatibility build (PRs 1–6) is now shipped.

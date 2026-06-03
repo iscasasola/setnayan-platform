@@ -91,6 +91,7 @@ const FAITH_PHOTO: Record<OnboardingFaith, { img: string; cap: string }> = {
   inc: { img: 'wed_inc', cap: 'An INC wedding' },
   muslim: { img: 'wed_muslim', cap: 'A Muslim wedding' },
   cultural: { img: 'wed_cultural', cap: 'A traditional Filipino wedding' },
+  chinese: { img: 'wed_chinese', cap: 'A Chinese wedding' },
 };
 
 const ROLE_OPTIONS: { value: OnboardingRole; title: string; desc: string }[] = [
@@ -121,12 +122,16 @@ const RECEPTION_SETTING_LABEL: Record<string, string> = {
 // Previously catholic-only with the other four behind `soon: true`. The DB
 // `wedding_type_launch_status` rows are flipped to 'active' in the same change
 // (migration 20260803000000) so create-event mirrors this.
+// Chinese (added 2026-06-03) is the lone coming_soon faith — shown but gated
+// until vendor density can cater it (launch_status row seeded coming_soon in
+// migration 20260804000000); flip `soon` to false when it activates.
 const FAITH_CHIPS: { value: OnboardingFaith; label: string; soon: boolean }[] = [
   { value: 'catholic', label: 'Catholic', soon: false },
   { value: 'christian', label: 'Christian', soon: false },
   { value: 'inc', label: 'INC', soon: false },
   { value: 'muslim', label: 'Muslim', soon: false },
   { value: 'cultural', label: 'Cultural', soon: false },
+  { value: 'chinese', label: 'Chinese', soon: true },
 ];
 
 /* ── monogram designs (owner 2026-06-02 — single "Generate another design" cycles

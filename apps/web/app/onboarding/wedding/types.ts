@@ -33,7 +33,8 @@ export type OnboardingFaith =
   | 'christian'
   | 'inc'
   | 'muslim'
-  | 'cultural';
+  | 'cultural'
+  | 'chinese';
 
 /** Current screen index — 0-based into the SCREEN_SEQUENCE array. */
 export type OnboardingStep = number;

@@ -10,7 +10,7 @@
  *   - dashboard CeremonyTypeModal (Task #37) — chip-driven setter on
  *     existing events whose ceremony_type was left NULL by older flows.
  *
- * Surfaces share the same 7 options, the same one-line descriptions, and
+ * Surfaces share the same 8 options, the same one-line descriptions, and
  * the same brand-voice. Extracting here keeps both copies aligned: any
  * future option-list change lands once.
  *
@@ -26,6 +26,7 @@ export type CeremonyTypeKey =
   | 'christian'
   | 'muslim'
   | 'cultural'
+  | 'chinese'
   | 'mixed';
 
 type CeremonyOption = {
@@ -64,6 +65,11 @@ export const CEREMONY_TYPE_OPTIONS: CeremonyOption[] = [
     key: 'cultural',
     label: 'Cultural',
     description: 'Indigenous Filipino tradition (Maranao, Tausug, Maguindanao, Sama, Yakan, other)',
+  },
+  {
+    key: 'chinese',
+    label: 'Chinese',
+    description: 'Tea ceremony and Chinese customs, often with a church or civil rite',
   },
   {
     key: 'mixed',

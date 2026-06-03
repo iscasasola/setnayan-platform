@@ -8,6 +8,21 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Chinese wedding added as a coming-soon ceremony type (0043)
+
+**Why:** Owner-directed ("on weddings, also add chinese wedding"). Chinese (Tsinoy — tea ceremony + Chinese customs) joins the wedding-type lineup as **coming soon** — shown everywhere but gated until vendor density can cater it (owner: "show them and prepare these … when the vendors are enough"). It's the lone coming_soon faith now that the others were unlocked the same day.
+
+**Spec corpus update (owner walks via Cowork):**
+1. **The iteration-0043 wedding-type-picker spec** (the doc covering `ceremony_type` + `wedding_type_launch_status`) — add `chinese` to the ceremony-type roster: label "Chinese", description "Tea ceremony and Chinese customs, often with a church or civil rite", status **coming soon** (surfaced + notify-me; not yet selectable). Note the activation gate = vendor density (the same model the other faiths used before they were unlocked), and that admins can already tag Chinese-compatible venues/vendors to build that supply.
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "feat(0043): add Chinese wedding…". New hero `public/onboarding/wed_chinese.webp`.
+
+**Owner action:** push migration `20260804000000_add_chinese_ceremony_type.sql` (`supabase db push`).
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — All wedding faiths unlocked: Christian / INC / Muslim / Cultural now active (0043/0016)
 
 **Why:** Owner directive — *"unlock all religions first."* The four faiths that shipped as "Coming Soon" in iteration 0043 (gated behind per-region vendor density via `wedding_type_launch_status`) are now **active** everywhere: the onboarding faith chips, both `ALLOWED_CEREMONIES` server constants, the create-event launch-status fallback, and the `wedding_type_launch_status` table (migration `20260803000000`, verified applied to prod). Onboarding has no tradition picker, so Muslim/Cultural commits default `ceremony_sub_type` (`general_muslim` / `other`) to satisfy the DB CHECK `events_sub_type_required_when_muslim_or_cultural`; create-event collects the specific tradition.

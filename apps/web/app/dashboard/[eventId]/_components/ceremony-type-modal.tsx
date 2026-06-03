@@ -111,6 +111,18 @@ export function CeremonyTypeModal({ eventId, currentValue, onClose }: Props) {
             value={selected}
             onChange={setSelected}
             legend="Wedding type"
+            // 'chinese' is coming_soon (mirrors wedding_type_launch_status; the
+            // other faiths were unlocked 2026-06-03). Not settable here until it
+            // activates — the create-event picker greys it the same way, and the
+            // setEventCeremonyType server action would reject it regardless.
+            isOptionDisabled={(key) => key === 'chinese'}
+            renderOptionBadge={(key) =>
+              key === 'chinese' ? (
+                <span className="rounded-full bg-ink/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-ink/60">
+                  Coming soon
+                </span>
+              ) : null
+            }
           />
         </div>
 

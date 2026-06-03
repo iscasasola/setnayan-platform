@@ -23,6 +23,63 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · perf(nav): instant tab revisits (router-cache window) + site-editor fetch parallelization
+
+**Context:** Owner directive 2026-06-03 — *"make loading of home, guests, services, website, and more run without loading or blank intervals."* This lands the two pieces the same-day app-wide-skeletons work did NOT cover. Those skeletons fix the WRONG-shape flash on *first* visit; this fixes the RE-LOAD on *revisit* (Next 15's client Router Cache defaults to 0s, so re-tapping a tab you saw seconds ago refetched + re-skeletoned every time), plus the Website tab's slow first paint.
+
+**What changed (apps/web):**
+- **`next.config.ts`** — added `experimental.staleTimes { dynamic: 60, static: 300 }`. Re-tapping a recently-viewed dashboard tab within the window is now instant from the client Router Cache — no server round-trip, no skeleton at all. Confirmed a recognized key in Next 15.5.18's config schema.
+- **`site-editor/[eventId]/page.tsx`** — the Website tab's editor (a top-level route outside the dashboard layout) ran **6 sequential** Supabase awaits. Parallelized membership + event + guests + orders into one `Promise.all` (only the slug-dependent QR render stays sequential): 6 sequential awaits → 2 phases. Pairs with its `BoardPageSkeleton` loading shell.
+
+**Why staleTimes is safe:** every dashboard mutation runs through a Server Action that calls `revalidatePath()` (100+ call sites across `app/` + `lib/`), busting the client cache for the touched route — so a couple never sees stale data after they change something themselves. The 60s window only affects passive re-navigation.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean · `next build` success. Complementary to the app-wide skeleton system; shipped from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** None — pure perceived-performance / UX; no feature, pricing, schema, or workflow change.
+
+
+## 2026-06-03 · fix(0023): demo-vendor "Create" works on production while admin demo mode is on
+
+**Context:** Owner tapped **Create demo vendors** on the live `/admin/demo-vendors` (setnayan.com) and reported *"the progress bar shows but it ends and does not complete."* Root cause: the one-click create's first request (`POST /api/admin/demo/seed { phase:'start' }`) hit the prod safety guard and returned **403** — so the bar flashed at ~5% then the red "Disabled on production" banner replaced it. Working as designed, but it blocked the owner's actual intent: they had **demo mode ON** (the yellow banner, with its Dec 1 2026 cleanup deadline) and were deliberately populating the live deployment. Owner approved (2026-06-03, via AskUserQuestion) allowing it.
+
+**What changed (`apps/web/app/api/admin/demo/seed/route.ts` — one file):**
+- `prodGuard()` → `prodGuard(demoOn)`: non-prod is always allowed (unchanged); on production it now allows seeding **only while admin demo mode is on for the request** (`isDemoMode(req, profile)` — the `setnayan_demo_mode` cookie, sent automatically with the same-origin POST, or `?demo=1`). With demo mode **off**, prod stays hard-blocked (the accident guard) with a clearer message ("Turn on demo mode first…").
+- `requireAdmin()` now returns the admin `profile` so the route evaluates the admin-only demo-mode predicate with no extra Supabase round-trip.
+- `start`-phase audit row now records `on_production` + `demo_mode` for traceability.
+
+**Why this is safe:** the public marketplace (`/vendors`, `/v/[slug]`, compare) only surfaces `is_demo=TRUE` rows when demo mode is explicitly on (`lib/demo-mode.ts` is admin-only; `vendors/page.tsx`: *"exclusively a demo-mode read"*). Seeding synthetic, `is_demo`-tagged vendors into the prod DB therefore does **not** change what real couples or vendors see, and the one-click **Cleanup ALL** wipes them (hard deadline Dec 1 2026, already in the banner). The CLI seed's own `assertNotProd` hard-exit is untouched — this only relaxes the admin-UI path, which already requires an admin session.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean (only pre-existing warnings in unrelated files, untouched) · no schema/migration/SKU change. Shipped from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** Yes — scoped relaxation of the locked *"demo vendors are staging-only · the seed refuses prod"* engineering guard: demo-vendor creation is now permitted **on production while admin demo mode is on**. Recorded in `DECISION_LOG.md` (2026-06-03). See `COWORK_INBOX.md`.
+
+## 2026-06-03 · fix(0001,0021): guests carousel stops vibrating + Services rail cards peek (mobile)
+
+**Context:** Owner review of the customer dashboard on mobile — (1) the Guests lower-third panel carousel "vibrated and didn't expand completely"; (2) on the Services tab the rail cards filled the screen with no hint of the next one.
+
+**What changed:**
+- **Guests carousel (`mobile-guest-carousel.tsx`):** the panel sheet measures `section.scrollHeight` to hug content, but each panel was `max-h-full` (= 100% of the track, i.e. derived from the very sheet height the measurement *sets*) while a `ResizeObserver` watched that same section — a feedback loop the sheet's `transition-[height]` rendered as visible jitter, settling below full height. Fix: cap the panels with a FIXED `max-h-[calc(60dvh-2.25rem)]` (track height at the 60vh cap, minus the 36px grabber) so `scrollHeight` is the true intrinsic content height and can't change when the sheet grows — loop broken; the "hug content / scroll past 60vh" behavior is preserved.
+- **Services rail cards (`plan-budget-accordion.tsx`):** card width `flex:0 0 300px` → `min(300px, calc(100vw - 96px))`, runway floor `max(20px, …) → max(32px, …)`. On phones the card is the viewport minus ~96px so prev/next cards peek ~20px each edge; capped at 300px so the 760px desktop `.body` is unchanged. Covers vendor picks (`.card`), in-app Setnayan service cards (`.card.svc`) and the Digital Services rail — they all share `.card`, so the one change makes every Services-tab rail card peek.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean (no new findings) · `next build` clean (full route table incl. `/dashboard/[eventId]/guests` + `/vendors`). Built from an isolated worktree off `origin/main` with deps installed. Mobile-gesture/keyboard behavior flagged for owner device check. No migration, no SKU.
+
+**SPEC IMPACT:** Minor — Services-tab rail cards now peek the next card on mobile (responsive card width); the Guests panel change is a bugfix that restores intended hug-content behavior (no behavior/pricing/schema change). See `COWORK_INBOX.md`.
+
+## 2026-06-03 · perf/ux(0000,0001,0021,0022,0023): app-wide loading skeletons + global tap haptics
+
+**Context:** Owner report — *"why is it so slow to transfer to guests from summary."* The lag was mostly *perceived*: tapping a dashboard tab gave no instant feedback. Only 4 segment-level `loading.tsx` existed, so ~160 child routes froze on their server reads (or inherited the wrong-shaped event-home skeleton) until every Supabase query (~50–200 ms RTT each from Singapore) returned. Owner follow-up: *"apply [it] on all loading-able areas … we want an animation loading so they do not feel they are waiting too long. also apply interaction on buttons and haptic feedbacks."*
+
+**What changed:**
+- **Shared skeleton system — `components/skeletons/index.tsx`:** primitives (`Sk`/`SkLine`/`SkCircle`/`Screen`) + 8 self-contained page templates (List/Grid/Form/Detail/Table/Feed/Board/Page). All server components → **zero added client JS**. `aria-busy` + one sr-only "Loading…" per screen.
+- **Shimmer — `globals.css`:** new `.skeleton` class (GPU-only `background-position` sweep over the existing ink/6 % base) + `@keyframes sk-shimmer`. Auto-frozen to a static block by the existing `prefers-reduced-motion` guard.
+- **151 new route-local `loading.tsx`** (4 → 155) across customer dashboard, vendor-dashboard, admin, and guest/public dynamic routes — each mirrors its page's shape. Guests is bespoke (replicates the mobile focus-mode `.shell-topbar` / safe-area wrapper → no layout jump). Excluded by design: static marketing, onboarding (preloaded per golden-rules), `print` + `api` routes.
+- **Global tap haptics — `app/_components/global-haptics.tsx` (mounted in `providers.tsx`):** one passive `pointerdown` listener fires a light `tick` on any interactive control app-wide (was firing in only 3 vendor components). Reuses `lib/haptics.ts` (Android vibrate + iOS-17.4 switch path; no-op elsewhere). Opt-out via `[data-no-haptic]` or `localStorage setnayan-haptics=off`. The press-scale CSS (owner-locked 2026-05-31) is untouched.
+- **Guests perf — `guests/page.tsx`:** folded the share-invite token read (`fetchJoinUrl`) into the existing `Promise.all` — it had been a 5th *sequential* round-trip. One fewer Singapore RTT per Guests visit.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean (only 2 pre-existing warnings, untouched) · production build green · the 151 new loaders are server components, so the 200 KB shared-bundle ceiling is unaffected. Shipped from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** None — presentation-layer UX polish (no SKU, schema, route, or workflow change). Extends the owner-locked 2026-05-31 button-press-feedback direction app-wide per the 2026-06-03 directive.
+
 ## 2026-06-03 · feat(0016): wedding onboarding caters all faiths — faith-adaptive ceremony venue + de-churched copy
 
 **Context:** Owner — *"fix all gaps and adjust our wedding onboarding to be able to cater all different religious weddings."* The faith picker was unlocked but the flow stayed church-centric (ceremony-venue picker = Church/Garden/Beach/Civil only; copy said "church, chapel… 'I do'").

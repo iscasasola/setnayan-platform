@@ -117,6 +117,29 @@ const nextConfig: NextConfig = {
     // some builds. Listing here is a no-op when SWC already tree-shakes
     // and a meaningful TBT win when it doesn't.
     optimizePackageImports: ['lucide-react'],
+    // Client-side Router Cache window. Next.js 15 defaults staleTimes.dynamic
+    // to 0, so EVERY in-app navigation — even tapping back to a tab you
+    // viewed seconds ago — refetches the RSC payload from the server and
+    // re-shows a loading skeleton. For the event dashboard (Home · Guests ·
+    // Services · Website · More) that makes tab-switching feel like a fresh
+    // page load every time instead of a native app.
+    //
+    // The per-route loading.tsx skeletons (PR #892) fix the WRONG-shape flash
+    // on first visit; this fixes the RE-LOAD on revisit. `dynamic: 60` caches
+    // the rendered route client-side for 60s: re-tapping a recently-viewed tab
+    // inside the window is instant — no server round-trip, no skeleton at all.
+    // `static: 300` does the same for prefetchable static routes.
+    //
+    // SAFE because every dashboard mutation runs through a Server Action that
+    // calls revalidatePath() (100+ call sites across app/ + lib/), which busts
+    // the client cache for the touched route — so a couple never sees stale
+    // data after they change something themselves. The 60s window only affects
+    // passive re-navigation, where 60s-old planning data is indistinguishable
+    // from fresh. Tune `dynamic` up for more "instant", down for fresher.
+    staleTimes: {
+      dynamic: 60,
+      static: 300,
+    },
   },
   // PWA service worker + manifest must be reachable with no auth and no
   // middleware rewriting — the matcher in middleware.ts already excludes them.

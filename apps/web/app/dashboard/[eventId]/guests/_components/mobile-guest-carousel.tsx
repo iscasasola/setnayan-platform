@@ -220,6 +220,18 @@ export function MobileGuestCarousel({
   // Search panel (one compose bar) ends up far shorter than Summary (2×2 count
   // grid), etc. Falls back to a sane default until the first measurement lands;
   // content taller than 60% of the screen scrolls inside the panel.
+  //
+  // CRITICAL — no measurement feedback loop. We read `section.scrollHeight` and
+  // size the sheet from it. For that read to be stable the section's own height
+  // must NOT depend on the sheet height: the panels are capped with a FIXED
+  // `max-h-[calc(60dvh-2.25rem)]` (the track height when the sheet is at its
+  // 60vh cap, minus the 36px grabber) — NOT `max-h-full` (which is 100% of the
+  // track, i.e. derived from the very height this effect sets). With the fixed
+  // cap, scrollHeight is the true intrinsic content height and can't change when
+  // the sheet grows, so the ResizeObserver never re-fires from its own resize.
+  // (The earlier `max-h-full` made the section resize whenever openH changed →
+  // ResizeObserver → re-measure → the `transition-[height]` animated each tiny
+  // correction = the sheet "vibrated" and never settled at full height.)
   const [openH, setOpenH] = useState(176);
   const [dragH, setDragH] = useState<number | null>(null);
   const dragRef = useRef<{ startY: number; startH: number; moved: boolean } | null>(null);
@@ -332,7 +344,7 @@ export function MobileGuestCarousel({
           className={`flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${kbOpen ? '' : 'items-start'}`}
         >
           {/* 1 — Summary: animated RSVP counts (also filter links) */}
-          <section className="w-full shrink-0 snap-center max-h-full overflow-y-auto px-4 py-3">
+          <section className="w-full shrink-0 snap-center max-h-[calc(60dvh-2.25rem)] overflow-y-auto px-4 py-3">
             <div className="grid grid-cols-2 gap-2.5">
               <StatBox
                 label="Total"
@@ -371,7 +383,7 @@ export function MobileGuestCarousel({
               the search bar"). The filters + sort live in bottom sheets opened
               from the icons; the input docks flush above the keyboard. */}
           <section
-            className={`flex w-full shrink-0 snap-center max-h-full flex-col overflow-y-auto px-4 py-3 ${
+            className={`flex w-full shrink-0 snap-center max-h-[calc(60dvh-2.25rem)] flex-col overflow-y-auto px-4 py-3 ${
               kbOpen ? 'justify-end' : 'justify-start'
             }`}
           >
@@ -407,7 +419,7 @@ export function MobileGuestCarousel({
           {/* 3 — Add: inline quick-entry form. justify-end when the keyboard is
               up so the two inputs sit flush above it. */}
           <section
-            className={`flex w-full shrink-0 snap-center max-h-full flex-col overflow-y-auto px-4 py-3 ${
+            className={`flex w-full shrink-0 snap-center max-h-[calc(60dvh-2.25rem)] flex-col overflow-y-auto px-4 py-3 ${
               kbOpen ? 'justify-end' : 'justify-center'
             }`}
           >
@@ -923,7 +935,7 @@ function CustomizePanel({
   // the selection isn't stranded behind the entry button.
   if (!selectMode && count === 0) {
     return (
-      <section className="flex w-full shrink-0 snap-center max-h-full flex-col items-center justify-center gap-3 overflow-y-auto px-6 py-3 text-center">
+      <section className="flex w-full shrink-0 snap-center max-h-[calc(60dvh-2.25rem)] flex-col items-center justify-center gap-3 overflow-y-auto px-6 py-3 text-center">
         <p className="text-sm font-semibold text-ink">Select &amp; assign</p>
         <p className="max-w-[260px] text-xs leading-snug text-ink/55">
           Pick several guests, then set their side, role, or group in one go.
@@ -941,7 +953,7 @@ function CustomizePanel({
   }
 
   return (
-    <section className="flex w-full shrink-0 snap-center max-h-full flex-col justify-center gap-3 overflow-y-auto px-4 py-3">
+    <section className="flex w-full shrink-0 snap-center max-h-[calc(60dvh-2.25rem)] flex-col justify-center gap-3 overflow-y-auto px-4 py-3">
       <div className="flex items-center justify-between gap-3">
         <label className="inline-flex items-center gap-2 text-sm text-ink">
           <input

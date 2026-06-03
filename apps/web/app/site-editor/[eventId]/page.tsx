@@ -48,13 +48,41 @@ export default async function SiteEditorPage({
 
   const supabase = await createClient();
 
-  // Couple-membership guard (replicated from EventLayout — see WHY above).
-  const { data: membership, error: membershipError } = await supabase
-    .from('event_members')
-    .select('member_type')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id)
-    .maybeSingle();
+  // The four independent reads (membership · event · guests · pro-upgrade
+  // orders) fire CONCURRENTLY — collapsing four sequential Singapore round
+  // trips (~50-200ms each) into one. The couple-membership gate (replicated
+  // from EventLayout — see WHY above) is applied AFTER the batch resolves;
+  // RLS already scopes every row to the caller, so reading before the
+  // couple-check leaks nothing. Only the QR render — which needs the resolved
+  // event slug — stays sequential. Net: 6 sequential awaits → 2 phases, so the
+  // Website tab (this route, outside the dashboard layout) reaches its editor
+  // faster behind PR #892's BoardPageSkeleton loading shell.
+  const [membershipRes, eventRes, guests, ordersRes] = await Promise.all([
+    supabase
+      .from('event_members')
+      .select('member_type')
+      .eq('event_id', eventId)
+      .eq('user_id', user.id)
+      .maybeSingle(),
+    supabase
+      .from('events')
+      .select('event_id, display_name, event_date, slug, monogram_text, monogram_color')
+      .eq('event_id', eventId)
+      .maybeSingle(),
+    fetchGuestsByEvent(supabase, eventId),
+    // Pro-upgrade ownership — Monogram Hero (₱1,999) + Live Schedule (₱999),
+    // the two inline-buy widget upgrades the Event tab surfaces. Scoped to just
+    // those SKUs, matching the website hub's fetch so the editor and the
+    // journey page agree on owned-state.
+    supabase
+      .from('orders')
+      .select('service_key, status')
+      .eq('event_id', eventId)
+      .in('service_key', ['monogram_hero_upgrade', 'pro_widget_schedule'])
+      .not('status', 'in', '("cancelled","refunded","lapsed")'),
+  ]);
+
+  const { data: membership, error: membershipError } = membershipRes;
   if (membershipError) {
     logQueryError(
       'SiteEditorPage (event_members)',
@@ -67,14 +95,9 @@ export default async function SiteEditorPage({
     notFound();
   }
 
-  const { data: event } = await supabase
-    .from('events')
-    .select('event_id, display_name, event_date, slug, monogram_text, monogram_color')
-    .eq('event_id', eventId)
-    .maybeSingle();
+  const event = eventRes.data;
   if (!event) notFound();
 
-  const guests = await fetchGuestsByEvent(supabase, eventId);
   const stats = computeGuestStats(guests);
 
   const monogram = resolveMonogram(event);
@@ -93,22 +116,15 @@ export default async function SiteEditorPage({
     ? publicLandingUrl.replace(/^https?:\/\//, '')
     : null;
 
-  // Pro-upgrade ownership — Monogram Hero (₱1,999) + Live Schedule (₱999), the
-  // two inline-buy widget upgrades the Event tab surfaces. Scoped to just those
-  // SKUs, matching the website hub's fetch so the editor and the journey page
-  // agree on owned-state. Graceful-degrade to empty (cards show their Upgrade
-  // CTA) on a pre-bootstrap DB where the orders table is missing — never crash.
-  let ownedOrders: { service_key: string | null; status: string }[] = [];
-  const { data: ordersData, error: ordersError } = await supabase
-    .from('orders')
-    .select('service_key, status')
-    .eq('event_id', eventId)
-    .in('service_key', ['monogram_hero_upgrade', 'pro_widget_schedule'])
-    .not('status', 'in', '("cancelled","refunded","lapsed")');
-  if (ordersError) {
-    logQueryError('SiteEditorPage (orders)', ordersError, { event_id: eventId }, 'graceful_degrade');
+  // Graceful-degrade to empty (cards show their Upgrade CTA) on a pre-bootstrap
+  // DB where the orders table is missing — never crash.
+  if (ordersRes.error) {
+    logQueryError('SiteEditorPage (orders)', ordersRes.error, { event_id: eventId }, 'graceful_degrade');
   }
-  ownedOrders = (ordersData ?? []) as typeof ownedOrders;
+  const ownedOrders = (ordersRes.data ?? []) as {
+    service_key: string | null;
+    status: string;
+  }[];
 
   return (
     <SiteEditor

@@ -4,6 +4,25 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · fix(photo-delivery): make "Release to Drive" actually copy — cron-free via after()
+
+**Commit:** to be filled after commit.
+
+**Context:** Follow-up to the Drive-copy phases. The 0009 Photo Delivery "Release to Drive" button enqueued photos but relied on `/api/cron/photo-delivery-tick` to copy them — and **that cron has no scheduler wired** (no `vercel.json` crons, no scheduled Actions), so in prod the release never actually delivered. Same dormant-cron problem the Phase 2 rework fixed for capture auto-sync.
+
+**What ships:**
+
+- **`releasePhotoDelivery`** (`add-ons/photo-delivery/actions.ts`) — after `enqueueRelease`, drains the release in the **background with `after()`** (loops `processBatchForEvent` up to 40 batches, then returns; any remainder drains on the next release or a capture's own auto-sync). The action returns immediately; best-effort, never blocks the UI.
+- **`oauth-refresh` cron** — left as-is, documented as **redundant**: the Drive token consumers (`getEventDriveAccessToken`, `ensureFreshAccessToken`) already refresh the access token **on-demand**, which is the cron-free equivalent. Not relied upon.
+
+**Net:** the whole Drive surface is now genuinely cron-free — capture auto-sync (Phase 2) and manual release (this PR) both copy via `after()`; the 2 dormant cron endpoints are unused.
+
+**Pilot-safe:** one server action gains a bounded background drain; no schema, no new owner action, no cron.
+
+**SPEC IMPACT:** Minor — closes the gap that 0009 Photo Delivery never actually copied in prod. COWORK note for the 0009 cron→`after()` wording.
+
+---
+
 ## 2026-06-03 · feat(schedule): hybrid Preparation — couple + vendor manual items
 
 **Commit:** see merge commit on this PR.

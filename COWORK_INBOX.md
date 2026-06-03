@@ -32,6 +32,21 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Onboarding congrats vendor stat is now REAL marketplace counts (not "best-fit vendors from 2,400+")
+
+**Why:** The `/onboarding/wedding` congrats screen's third stat tile previously showed a fabricated **"N best-fit vendors from 2,400+"** (`N` = picked-categories × 5, floored at 12; "2,400+" hardcoded). Owner 2026-06-03: *"30 vendors and total 2400+ vendors is not actual results. want true results only."* Code now renders REAL `vendor_market_stats` head-counts — **"{matched} that fit your wedding · from {total}"** — using the same published-pool + compatibility definition as the `/vendors` marketplace, and **auto-hides** the tile when no real count can be computed. The money + hours tiles are unchanged.
+
+**What landed (code):** new server action `getOnboardingVendorCounts`; tile rewritten to real counts with auto-hide; fabricated `VENDORS_PER_CATEGORY` + `vendors` savings field removed (`apps/web/app/onboarding/wedding/{actions.ts, _components/onboarding-shell.tsx}`). No migration.
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/Onboarding_Wedding_Flow_2026-06-01.html`** (line ~949) — the congrats stat tile reads `best-fit vendors from 2,400+` with a hardcoded `data-count="48"`. Update the prototype copy + behavior to the shipped version: **"{matched} that fit your wedding · from {total}"** sourced from real marketplace counts, and note that it **auto-hides** when uncomputable. Drop the fabricated "2,400+" platform string from this tile.
+2. **`~/Documents/Claude/Projects/Setnayan/Time_and_Money_Saved_Model_2026-06-01.md`** — the "filtered N vendors for you" display wow-stat (row 1) and the "2,400-vendor pool" references should clarify that the **onboarding congrats vendor tile now uses real `vendor_market_stats` counts** (matched / total), not a per-category multiplier or the platform-pool figure. The money + hours model is untouched.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Drive surface is cron-free (0009 release + token refresh)
 
 **Why:** Both Drive-surface crons were dormant (no scheduler wired). Capture auto-sync (Phase 2) + the "Release to Drive" action now drain via Next 15 `after()`; OAuth tokens refresh on-demand. No crons.

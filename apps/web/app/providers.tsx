@@ -21,6 +21,7 @@ import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persist
 
 import { getQueryClient } from '@/lib/query-client';
 import { DeferredObservability } from './_components/deferred-observability';
+import { GlobalHaptics } from './_components/global-haptics';
 import { PostHogProvider } from './_components/posthog-provider';
 import { ThemeProvider, type ThemeMode } from './_components/theme-provider';
 
@@ -129,6 +130,12 @@ export function Providers({
           untouched and continues to capture server errors eagerly.
         */}
         <DeferredObservability />
+        {/*
+          App-wide tap haptics — one passive pointerdown listener fires a
+          light `tick` on any interactive control. Owner directive 2026-06-03.
+          Renders nothing; no-ops on engines without haptic support.
+        */}
+        <GlobalHaptics />
       </PersistQueryClientProvider>
     </ThemeProvider>
   );

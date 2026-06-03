@@ -4,6 +4,25 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(home): free recommended-deadline vendor reminders — the Today's Focus replacement
+
+**Context:** The retired Today's Focus wizard's job — telling couples the *recommended deadline* to book each vendor — is now delivered free, no fork and no paywall, inside the existing Home "Upcoming" stream. Owner direction: full vendor set, on by default.
+
+**The data already existed.** Rather than inventing claims, this reuses the owner-authored `monthsBefore` already on every `PLAN_GROUPS` entry ([wedding-plan-groups.ts](apps/web/lib/wedding-plan-groups.ts)) — documented as the recommended **lock-by** deadline ("aim to have this locked N months before the wedding"): ceremony venue/coordinator 12mo · officiant/catering/photography 9 · attire 8 · HMUA/florals 6 · host 5 · cake/cocktail/invites 4 · LED/photobooth/rings 3 · accommodation/logistics 2. Same dates the plan-grid advertises, so the reminder and the grid never disagree.
+
+**What ships:**
+- **New `recommended_deadline` source in `lib/upcoming-items.ts`** (`fetchRecommendedDeadlineItems`): for each plan-group category the couple hasn't **locked** a vendor in (resolved via `statusOfVendor` + `canonicalServiceToPlanGroupId` against `event_vendors`), emits a reminder dated `wedding_date − monthsBefore`. Forward-looking only, sorted soonest-first, **capped at 5** so it never floods. Entry-point cards (`countsTowardLockable === false`) are skipped. Skips events with no wedding date.
+- **Renderer** (`upcoming-schedules.tsx`): a `CalendarClock` icon + gentle violet styling — calm, not urgent.
+- **Graceful-degrade fallbacks** in the two async wrappers gain the new `sourceCounts` key.
+
+**Behavior:** a couple sees *"Book your Photography & Video — recommended deadline, most couples have this booked about 9 months before the wedding."* As they lock each vendor, its reminder drops and the next deadline surfaces. No new screen.
+
+**Admin table is next:** these code `monthsBefore` values are the **seed** for the admin-managed per-leaf deadline table (V1.x · inheritance-with-override · "missing deadline" flag). Once that lands, this source reads from the table with the code values as fallback — no visible change for couples.
+
+**Verification:** `tsc --noEmit` green (exit 0). Dashboard is auth-gated, so no local preview — CI build is the gate.
+
+**SPEC IMPACT:** Implements the free recommended-deadline guidance from the Today's-Focus-retired decision queued in `COWORK_INBOX.md`. Inbox note added for the 0016 spec. Follow-ups (separate): the admin per-leaf deadline table, and the Settings "Planning reminders: on/off" opt-out toggle — default-on ships here.
+
 ## 2026-06-03 · feat(0016,0006): couple onboarding music picks → event_song_picks (compatibility PR 3)
 
 **Commit:** see merge commit on this PR.

@@ -47,6 +47,12 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { findSku } from './sku-catalog';
+import {
+  PLAN_GROUPS,
+  canonicalServiceToPlanGroupId,
+  statusOfVendor,
+  type PlanGroupId,
+} from './wedding-plan-groups';
 
 // ----------------------------------------------------------------------------
 // Public types
@@ -57,14 +63,16 @@ export type UpcomingItemSource =
   | 'schedule_block'
   | 'vendor_payment'
   | 'setnayan_sku_expiry'
-  | 'document_deadline';
+  | 'document_deadline'
+  | 'recommended_deadline';
 
 export type UpcomingItemCategory =
   | 'meeting'
   | 'payment'
   | 'document'
   | 'renewal'
-  | 'schedule';
+  | 'schedule'
+  | 'recommended_deadline';
 
 export type UpcomingItem = {
   /** Stable id — unique per source + row. Used as React key. */
@@ -511,18 +519,94 @@ export type FetchUpcomingItemsResult = {
   sourceCounts: Record<UpcomingItemSource, number>;
 };
 
+// ----------------------------------------------------------------------------
+// Source 6 — recommended-deadline reminders (free planning guidance)
+//
+// For each plan-group category the couple hasn't LOCKED a vendor in yet,
+// surface the recommended LOCK-BY deadline, dated at wedding_date −
+// monthsBefore. PLAN_GROUPS.monthsBefore IS that deadline ("aim to have this
+// locked N months before the wedding"), the same date the home plan-grid
+// advertises — so the reminder and the grid never disagree. This is the free
+// replacement for the retired Today's Focus wizard's "recommended deadline"
+// job ([[project_setnayan_todays_focus_retired]]) — no fork, no paywall.
+//
+// SEED NOTE: these code values are the initial seed for the admin-managed
+// per-leaf deadline table (V1.x · inheritance-with-override). Once that table
+// lands, this source reads from it with these PLAN_GROUPS values as the
+// fallback. Until then, the owner-authored code values drive the reminders.
+//
+// Forward-looking only: deadlines already passed are dropped by the merged
+// stream's future filter. Entry-point plan cards (countsTowardLockable ===
+// false — Live band, Stylist, Dance instructor, After-party DJ, Bridal car,
+// Guest shuttle) are skipped; their picks bucket under a primary card that
+// already carries the reminder. Capped so it never floods the stream.
+// ----------------------------------------------------------------------------
+
+const RECOMMENDED_DEADLINE_CAP = 5;
+
+async function fetchRecommendedDeadlineItems(
+  supabase: SupabaseClient,
+  eventId: string,
+  eventDate: string | null,
+  now: Date,
+): Promise<UpcomingItem[]> {
+  if (!eventDate) return [];
+  const wedding = new Date(`${eventDate}T12:00:00`);
+  if (Number.isNaN(wedding.getTime())) return [];
+
+  // Plan-groups that already have a LOCKED vendor → no deadline reminder.
+  const { data: vendors } = await supabase
+    .from('event_vendors')
+    .select('category, status')
+    .eq('event_id', eventId);
+
+  const lockedGroups = new Set<PlanGroupId>();
+  for (const v of (vendors ?? []) as Array<{
+    category: string | null;
+    status: string | null;
+  }>) {
+    if (!v.category || statusOfVendor(v.status) !== 'locked') continue;
+    const group = canonicalServiceToPlanGroupId(v.category);
+    if (group) lockedGroups.add(group);
+  }
+
+  return PLAN_GROUPS.filter(
+    (g) => g.countsTowardLockable !== false && !lockedGroups.has(g.id),
+  )
+    .map((g) => {
+      const date = new Date(wedding);
+      date.setMonth(date.getMonth() - g.monthsBefore);
+      return { g, date };
+    })
+    .filter(({ date }) => date.getTime() > now.getTime())
+    .sort((a, b) => a.date.getTime() - b.date.getTime())
+    .slice(0, RECOMMENDED_DEADLINE_CAP)
+    .map(({ g, date }) => ({
+      id: `recommended_deadline:${g.id}`,
+      source: 'recommended_deadline' as const,
+      category: 'recommended_deadline' as const,
+      date,
+      daysFromNow: daysBetween(date, now),
+      title: `Book your ${g.label}`,
+      subtitle: `Recommended deadline — most couples have this booked about ${g.monthsBefore} months before the wedding.`,
+      href: `/dashboard/${eventId}/vendors`,
+    }));
+}
+
 export async function fetchUpcomingItems(
   input: FetchUpcomingItemsInput,
 ): Promise<FetchUpcomingItemsResult> {
   const { supabase, eventId, eventDate, ceremonyType, now } = input;
   const limit = input.limit ?? 10;
 
-  const [meetings, scheduleBlocks, vendorPayments, skuRenewals] = await Promise.all([
-    fetchVendorMeetings(supabase, eventId, now),
-    fetchScheduleBlockItems(supabase, eventId, now),
-    fetchVendorPaymentItems(supabase, eventId, now),
-    fetchSkuRenewalItems(supabase, eventId, now),
-  ]);
+  const [meetings, scheduleBlocks, vendorPayments, skuRenewals, recommendedDeadlines] =
+    await Promise.all([
+      fetchVendorMeetings(supabase, eventId, now),
+      fetchScheduleBlockItems(supabase, eventId, now),
+      fetchVendorPaymentItems(supabase, eventId, now),
+      fetchSkuRenewalItems(supabase, eventId, now),
+      fetchRecommendedDeadlineItems(supabase, eventId, eventDate, now),
+    ]);
 
   // Source 5 — pure-computed, no fetch.
   const documentDeadlines = buildDocumentDeadlines(eventId, eventDate, ceremonyType, now);
@@ -533,6 +617,7 @@ export async function fetchUpcomingItems(
     ...vendorPayments,
     ...skuRenewals,
     ...documentDeadlines,
+    ...recommendedDeadlines,
   ]
     .filter((item) => item.date.getTime() > now.getTime())
     .sort((a, b) => a.date.getTime() - b.date.getTime());
@@ -556,6 +641,7 @@ export async function fetchUpcomingItems(
     vendor_payment: vendorPayments.length,
     setnayan_sku_expiry: skuRenewals.length,
     document_deadline: documentDeadlines.length,
+    recommended_deadline: recommendedDeadlines.length,
   };
 
   return { items, paymentItemsNext30d, sourceCounts };

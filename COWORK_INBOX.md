@@ -8,6 +8,20 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Wedding onboarding faith-adaptive ceremony venue + de-churched copy (0016)
+
+**Why:** Owner — "fix all gaps… cater all different religious weddings." Faith-adaptive ceremony venue (Church/Chapel/Mosque/Temple by faith + universal Garden/Beach/Civil/Same) + de-churched copy. (Chinese activation = #889, deduped on merge.)
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **0016 onboarding** — the ceremony-venue step is now faith-adaptive (each faith's house of worship; Cultural = outdoor/ancestral) + universal settings; copy de-churched.
+2. **CLAUDE.md decision log** — 2026-06-03 row: *"Wedding onboarding faith-inclusive — faith-adaptive ceremony venue (mosque/temple photos via Recraft) + de-churched copy."*
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "wedding onboarding caters all faiths".
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Per-religion wedding traditions guide (0043) — VALIDATE CONTENT
 
 **Why:** Owner-directed ("create onboarding that follows the traditions of each religion"). New `lib/wedding-traditions.ts` drives a "What to expect — your {religion} wedding" guide on /paperwork (overview + officiant/ceremony/food/custom items per religion), companion to the existing per-religion document/deadline engine.

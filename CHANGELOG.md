@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(0016): wedding onboarding caters all faiths — faith-adaptive ceremony venue + de-churched copy
+
+**Context:** Owner — *"fix all gaps and adjust our wedding onboarding to be able to cater all different religious weddings."* The faith picker was unlocked but the flow stayed church-centric (ceremony-venue picker = Church/Garden/Beach/Civil only; copy said "church, chapel… 'I do'").
+
+**What changed (`onboarding-shell.tsx`):**
+- **Faith-adaptive ceremony venue** — `CEREMONY_OPTS` → `ceremonyOptsFor(faith)`: each picked faith contributes its house of worship (Catholic/Christian → Church · INC → Chapel · Muslim → **Mosque** · Chinese → **Temple**; Cultural = outdoor/ancestral) + universal Garden/Beach/Civil/Same-as-reception. Mixed shows both. Two matching 520×520 photos generated via Recraft (`ceremony_mosque.webp` · `ceremony_temple.webp`).
+- **De-churched copy** — "A church wedding" → "A faith ceremony"; "Where will you say 'I do'?" → "Where will you hold your ceremony?"; venue blurb → "church, mosque, temple, garden, or civil hall"; groom role "at the altar" → "at the front".
+
+Chinese activation shipped in parallel via **#889** — overlapping `ALLOWED_*` additions deduped on merge; my redundant same-timestamp migration dropped in favor of #889's.
+
+**Verification:** `tsc --noEmit` exit 0. **SPEC IMPACT:** Yes — iteration 0016: faith-appropriate ceremony venue for all six faiths. See `COWORK_INBOX.md`.
+
+---
+
 ## 2026-06-03 · feat(0043): per-religion wedding traditions guide on /paperwork
 
 **Context:** Owner-directed — *"create onboarding that follows the traditions of each religion."* The per-religion document + deadline engine already exists (`lib/paperwork.ts` `DOCUMENTS_BY_CEREMONY_TYPE` — Catholic Pre-Cana/banns/canonical-interview, Muslim Sharia counseling, INC counseling, each with lead-time deadlines that already flow into /paperwork + the /schedule Preparation agenda + Home reminders). The missing piece was the human-readable "what to expect" overview per religion.

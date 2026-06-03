@@ -112,12 +112,25 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
 
   const admin = createAdminClient();
 
-  // Event meta — used for the invitation template + page header.
-  const { data: eventRow } = await admin
-    .from('events')
-    .select('display_name, event_date, ceremony_type, venue_name')
-    .eq('event_id', eventId)
-    .maybeSingle();
+  // Event meta + sponsor rows both key off eventId and are independent — one
+  // parallel batch instead of two serial reads (owner perf pass 2026-06-03).
+  const [{ data: eventRow }, { data: sponsorRows }] = await Promise.all([
+    // Event meta — used for the invitation template + page header.
+    admin
+      .from('events')
+      .select('display_name, event_date, ceremony_type, venue_name')
+      .eq('event_id', eventId)
+      .maybeSingle(),
+    // Sponsors — all rows on this event.
+    admin
+      .from('event_sponsors')
+      .select(
+        'id, event_id, pair_index, sponsor_tier, side, full_name, relationship_note, email, phone, invitation_status, invitation_sent_at, responded_at, decline_note, linked_guest_id',
+      )
+      .eq('event_id', eventId)
+      .order('pair_index', { ascending: true, nullsFirst: false })
+      .order('created_at', { ascending: true }),
+  ]);
   const event = (eventRow as EventMini | null) ?? {
     display_name: null,
     event_date: null,
@@ -126,16 +139,6 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
   };
   const eventName = event.display_name ?? 'Your event';
   const coupleNames = event.display_name ?? 'we';
-
-  // Sponsors — pull all rows on this event.
-  const { data: sponsorRows } = await admin
-    .from('event_sponsors')
-    .select(
-      'id, event_id, pair_index, sponsor_tier, side, full_name, relationship_note, email, phone, invitation_status, invitation_sent_at, responded_at, decline_note, linked_guest_id',
-    )
-    .eq('event_id', eventId)
-    .order('pair_index', { ascending: true, nullsFirst: false })
-    .order('created_at', { ascending: true });
   const sponsors = (sponsorRows ?? []) as SponsorRow[];
 
   // Highest pair_index already in use — guards the picker.

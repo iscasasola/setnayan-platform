@@ -18,10 +18,11 @@
  * natural "press then lock". Anything that should stay silent opts out with a
  * `data-no-haptic` attribute on itself or an ancestor.
  *
- * Disable globally by setting localStorage `setnayan-haptics` = `off` (a future
- * Settings → Appearance toggle, iteration 0025, writes this key). Default ON.
- * On unsupported engines (desktop, older iOS) haptic() is already a no-op, so
- * this is harmless everywhere.
+ * Enable/disable LIVE via the Settings → Appearance "Haptic feedback" toggle
+ * (dashboard/profile, iteration 0025): it writes localStorage `setnayan-haptics`
+ * (`off` disables) and dispatches `setnayan-haptics-change`, which this listener
+ * re-reads without a page reload. Default ON. On unsupported engines (desktop,
+ * older iOS) haptic() is already a no-op, so this is harmless everywhere.
  */
 
 import { useEffect } from 'react';
@@ -39,17 +40,28 @@ const INTERACTIVE = [
   '.button-secondary',
 ].join(',');
 
+function readEnabled(): boolean {
+  try {
+    return window.localStorage.getItem('setnayan-haptics') !== 'off';
+  } catch {
+    return true; // storage blocked (private mode) — leave enabled
+  }
+}
+
 export function GlobalHaptics() {
   useEffect(() => {
-    let enabled = true;
-    try {
-      enabled = window.localStorage.getItem('setnayan-haptics') !== 'off';
-    } catch {
-      /* storage blocked (private mode) — leave enabled */
-    }
-    if (!enabled) return;
+    // Held in a closure variable (not bailed-out-at-mount) so the Settings
+    // toggle can re-enable haptics live without a page reload.
+    let enabled = readEnabled();
+    const refresh = () => {
+      enabled = readEnabled();
+    };
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'setnayan-haptics') refresh();
+    };
 
     function onPointerDown(e: PointerEvent) {
+      if (!enabled) return;
       // Primary pointer only — ignore right/middle click + secondary contacts.
       if (e.button !== 0) return;
       const target = e.target as Element | null;
@@ -70,12 +82,17 @@ export function GlobalHaptics() {
       capture: true,
       passive: true,
     });
-    return () =>
+    window.addEventListener('setnayan-haptics-change', refresh);
+    window.addEventListener('storage', onStorage);
+    return () => {
       document.removeEventListener(
         'pointerdown',
         onPointerDown,
         { capture: true } as EventListenerOptions,
       );
+      window.removeEventListener('setnayan-haptics-change', refresh);
+      window.removeEventListener('storage', onStorage);
+    };
   }, []);
 
   return null;

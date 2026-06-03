@@ -21,6 +21,7 @@
  * pattern) once the copy is validated.
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CeremonyType } from './paperwork';
 
 // Chinese is coming-soon (no couple can hold ceremony_type='chinese' yet), but
@@ -164,3 +165,42 @@ export const WEDDING_TRADITIONS_GUIDE: Record<TraditionGuideKey, WeddingTraditio
     confirmWith: '',
   },
 };
+
+/**
+ * DB row shape for an admin-editable tradition item
+ * (table `wedding_tradition_items`, migration 20260807000000).
+ */
+export type TraditionItemRow = {
+  item_id: string;
+  ceremony_type: string;
+  dimension: TraditionDimension;
+  label: string;
+  note: string;
+  sort_order: number;
+  is_active: boolean;
+};
+
+/**
+ * Active tradition items for a religion, from the admin-editable table, ordered
+ * by sort_order. Returns null when the table is empty, absent (pre-migration),
+ * or unreadable — so the caller (the /paperwork guide) falls back to the code
+ * defaults in WEDDING_TRADITIONS_GUIDE. The deploy is therefore safe before the
+ * migration is pushed and before an admin loads the starter content.
+ */
+export async function fetchTraditionItems(
+  supabase: SupabaseClient,
+  ceremonyType: string,
+): Promise<TraditionItem[] | null> {
+  const { data, error } = await supabase
+    .from('wedding_tradition_items')
+    .select('dimension, label, note, sort_order, is_active')
+    .eq('ceremony_type', ceremonyType)
+    .eq('is_active', true)
+    .order('sort_order', { ascending: true });
+  if (error || !data || data.length === 0) return null;
+  return data.map((r) => ({
+    dimension: r.dimension as TraditionDimension,
+    label: r.label as string,
+    note: (r.note as string | null) ?? '',
+  }));
+}

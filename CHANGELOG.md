@@ -11,17 +11,81 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Also fixes two gaps left by the same-day Chinese work:** `chinese` was missing from the vendor-side `compatible_ceremony_types` picker (`vendor-dashboard/profile`) AND from the `/vendors` marketplace faith filter (`FaithKey`) — both now include chinese + the two new faiths.
 
 **What changed:**
-- **Migration `20260807000000_add_jewish_bornagain_ceremony_types.sql`:** widens the 4 ceremony_type CHECK constraints (`events.ceremony_type` — NULL-preserving — `events.secondary_ceremony_type`, `wedding_type_launch_status`, `couple_wedding_type_notify_signups`) to permit `jewish` + `born_again`; seeds both `wedding_type_launch_status` rows as `active`. `vendor_profiles.compatible_ceremony_types` is a free `TEXT[]` (no element CHECK) → no change.
+- **Migration `20260808000000_add_jewish_bornagain_ceremony_types.sql`:** widens the 4 ceremony_type CHECK constraints (`events.ceremony_type` — NULL-preserving — `events.secondary_ceremony_type`, `wedding_type_launch_status`, `couple_wedding_type_notify_signups`) to permit `jewish` + `born_again`; seeds both `wedding_type_launch_status` rows as `active`. `vendor_profiles.compatible_ceremony_types` is a free `TEXT[]` (no element CHECK) → no change.
 - **Shared `ceremony-type-radio-group.tsx`:** `CeremonyTypeKey` += jewish, born_again; 2 new `CEREMONY_TYPE_OPTIONS`; narrowed the `christian` description (dropped "Born Again", now its own option). Propagates to the dashboard `ceremony-type-modal` automatically.
 - **Onboarding (`onboarding-shell.tsx` + `types.ts`):** `OnboardingFaith` += 2; `FAITH_CHIPS` += 2 (8 total, `soon:false`); `FAITH_PHOTO` += 2 heroes (`wed_jewish.webp` / `wed_bornagain.webp`, 720×900 ~55–62 KB); `WORSHIP_OPT` += jewish (synagogue) / born_again (church). **`onboarding.css`:** `#screen-faith .chips` → `display:grid; grid-template-columns:repeat(4,minmax(0,1fr))` (the 4×2 lock).
 - **Commit allow-lists (server):** `jewish` + `born_again` added to `ALLOWED_CEREMONIES`/`ALLOWED_SECONDARY` in onboarding + create-event actions, `NOTIFY_FAITHS` (create-event), `ALLOWED_CEREMONY_TYPES` (dashboard `[eventId]/actions`).
 - **Create-event picker:** `wedding-type-picker` `SECONDARY_LABELS` += 2 (exhaustive Record); `page.tsx` launch-status fallback += 2 active. Primary options render via the shared radio group gated by `launchStatus` (now active).
 - **Taxonomy / vendor side:** `vendor-dashboard/profile` `CEREMONY_TYPES` += chinese (retroactive) + jewish + born_again; admin `venues/_constants` + `venue-form` label map += 2; `/vendors` marketplace faith filter — `FaithKey`, `CoupleFaith`, `mapCeremonyTypeToFaith`, `FAITH_URL_TO_KEY`, `FAITH_KEY_TO_URL`, `FAITH_KEY_TO_LABEL`, `FAITH_KEYS_ORDER`, `crossFolderFaithCounts` all += chinese + jewish + born_again.
-- Couple-side vendor matching needs no change — the `matchEvent` filter reads the raw `event.ceremony_type` against `compatible_ceremony_types`, so a Jewish/Born-Again couple auto-filters correctly.
+- Couple-side vendor matching needs no change — the `matchEvent` filter reads the raw `event.ceremony_type` against `compatible_ceremony_types`.
+- **Merge note:** rebased onto the same-day "admin-editable wedding traditions" PR (guide-content table); `FAITH_CHIPS` remains hardcoded there, so the picker additions stand. Renumbered this migration `20260807→20260808` to avoid a timestamp collision with `20260807000000_wedding_tradition_items.sql`.
 
 **Verification:** Type-trivial (literals into already-keyed unions + the exhaustive maps they force — `SECONDARY_LABELS`, `FAITH_PHOTO`, venue label map, the 4 `FaithKey` Records — all updated). Self-audit confirms `born_again` landed in 14 files and no data list carries `chinese` without it. No local typecheck (fresh worktree has no deps) — relying on the PR's required `typecheck + lint` + `production build` + Vercel preview. Hero images generated via Recraft, downsized + re-encoded to WebP with PIL. Shipped from an isolated worktree off `origin/main`.
 
 **SPEC IMPACT:** Yes — the wedding-tradition roster is now 8 (Born Again split from Christian; Jewish added). See `COWORK_INBOX.md` for the 0043 / 0044 / spec-0000 updates.
+
+## 2026-06-03 · feat(0043,0023): admin-editable wedding traditions table
+
+**Context:** Owner-directed ("do all sequentially" — step 3 of the per-religion work). Makes the per-religion "What to expect" guide content (shipped as code in #890) editable in-app — which is also the validation path for it (owner corrects INC / Muslim / Cultural / Chinese specifics without a deploy).
+
+**What changed:**
+- **Migration `20260807000000_wedding_tradition_items.sql` (owner-push):** new `wedding_tradition_items` table (ceremony_type · dimension · label · note · sort_order · is_active), public-read + admin-write RLS. Created **empty** — admins load the code defaults on demand.
+- **`lib/wedding-traditions.ts`:** `fetchTraditionItems()` reads active rows for a religion (null on empty/absent/error → caller falls back to the code `WEDDING_TRADITIONS_GUIDE`); `TraditionItemRow` type.
+- **`/paperwork` guide:** renders table items when present, else the code defaults (graceful — safe before the migration is pushed / content loaded).
+- **New admin surface `/admin/wedding-traditions`** (+ Directory nav): per-religion edit / add / remove / reorder + active toggle, and a "Load starter content" button that copies the code defaults into the table for any religion with no rows (idempotent — never clobbers edits). `requireAdmin` + admin-client writes.
+
+**Honesty:** the code defaults (fallback + seed source) stay flagged as starter guidance needing clergy validation; this surface is how that validation happens.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean · full CI green. Shipped from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** Yes — iteration **0023** gains a Wedding-traditions editor; **0043** traditions content is now DB-backed + admin-editable. See `COWORK_INBOX.md`.
+
+## 2026-06-03 · perf(ux): haptics Settings toggle + parallelize 8 query waterfalls
+
+**Context:** Two owner-requested follow-ups to PR #892 (app-wide loading skeletons + global tap haptics) — "both": wire a Settings switch for the haptics, and sweep pages for the same sequential-`await` waterfall the Guests page had.
+
+**What changed:**
+- **Haptic-feedback toggle (`dashboard/profile/_components/haptics-toggle.tsx`):** iOS-style switch in the customer Profile → Appearance section, next to the theme picker (the established home for device/appearance prefs — theme switching is likewise customer-profile-only). Writes the `setnayan-haptics` localStorage key GlobalHaptics reads; fires a `confirm` pulse on enable so the change is felt. `data-no-haptic` on the switch keeps toggling-off silent.
+- **Reactive `GlobalHaptics` (`app/_components/global-haptics.tsx`):** re-reads the flag LIVE on a `setnayan-haptics-change` event (+ cross-tab `storage`) instead of bailing out at mount, so the toggle applies with no page reload.
+- **8 query-waterfall folds** — independent sequential reads collapsed into one `Promise.all` each (each verified independent; auth/guard chains + dependent reads left sequential): `add-ons/papic` (4→1) · `vendor-dashboard/manpower` (3→1) · `vendor-dashboard/bookings` (2→1) · `vendor-dashboard/repertoire` (2→1) · `dashboard/[eventId]/hosts` (2→1) · `dashboard/[eventId]/sponsors` (2→1) · `admin/vendors` (2→1) · `admin/disputes` (2→1, FK lookups). The audit confirmed event-home + both dashboard layouts are ALREADY parallelized (untouched); `site-editor/[eventId]` was parallelized concurrently by a separate PR, so its (superior, 4-read) version was taken on merge; 2 MEDIUM candidates (`earnings`, `vendors` conditional) skipped as more invasive for marginal gain.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean (2 pre-existing warnings, untouched) · production build green. Shipped from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** None — UX polish + server-side read parallelization (no SKU / schema / route / workflow change). The haptics toggle realizes the "future Settings → Appearance toggle" flagged in PR #892.
+
+## 2026-06-03 · feat(0023/0044): DB-backed taxonomy tree — Phase 1 foundation (non-breaking)
+
+**Context:** Owner — *"build it"* (the `/admin/taxonomy` visual editor + DB-backed taxonomy from the 2026-06-03 ♾️ "Admin Finalize = permanent live publish" lock). Today the taxonomy STRUCTURE lives only in the code constant `lib/taxonomy.ts` (`TAXONOMY_MAP` · 10 parents → 54 tiles → 199 canonicals); 19 consumers read it synchronously, including the live `/vendors` marketplace. This is **Phase 1 of a multi-PR build** — the DB foundation, deliberately **non-breaking**.
+
+**What changed:**
+- **New migration `20260803000000_service_categories_tree_foundation.sql`** — two tables:
+  - `service_categories` — the browse tree (10 parents tier 1 + 54 tiles tier 2), self-referential `parent_id` + `tier` + `sort_order`, plus `scope` / `merged_into_category_id` / `sample_photo_r2_key` / `status` for the editor (Phase 3) and the §3.2c request review (Phase 4).
+  - `canonical_service_taxonomy` — 199 `canonical_service` → tile mappings + facet flags (faith / ph / setnayan / rental / dietary / tradition / marketplace_hidden / secondary_tiles).
+  - RLS mirrors `canonical_service_schemas` (0044): public `SELECT`, admin-only write via `public.is_admin()`. Idempotent (`ON CONFLICT DO UPDATE`).
+- **New generator `apps/web/scripts/gen-taxonomy-seed.ts`** — emits the seed SQL *from* `lib/taxonomy.ts` so the DB is a perfect mirror of code at landing; includes a referential-integrity guard that refuses to emit a seed that would FK-fail. Re-run after any `TAXONOMY_MAP` change until Phase 2 flips the source of truth.
+
+**Non-breaking:** no consumer reads the new tables yet — `lib/taxonomy.ts` stays the authored source. Phase 2 (read-through behind the existing API + the 19-consumer sync→async flip) is the high-risk step and lands separately after this is proven.
+
+**Verification:** generator integrity guard exits 0 (no FK violations) · embedded seed byte-identical to validated generator output · 64 distinct category ids · `BEGIN`/`COMMIT` balanced. Full `tsc`/`next build` runs on CI (worktree has no local node_modules).
+
+**SPEC IMPACT:** Minor — implements already-locked 0023 §3.15 + DECISION_LOG ♾️ 2026-06-03. One detail to reflect in 0023 §3.15: the canonical→tile mapping ships as a dedicated `canonical_service_taxonomy` table (the spec described the tree on `service_categories` but didn't name where canonical mappings live). See `COWORK_INBOX.md`.
+
+---
+
+## 2026-06-03 · feat(0043,0023): per-religion vendor-readiness gate + admin control
+
+**Context:** Owner-directed — *"INC needs INC-compatible services before we open it … the only usual issue is the ceremonial and officiants and food."* A way to see each wedding religion's vendor readiness and open/hold it accordingly.
+
+**What changed:**
+- **New `lib/religion-readiness.ts`:** `fetchReligionReadiness()` counts, per religion, published vendors + ceremonial venues tagged `compatible_ceremony_types ⊇ religion` (GIN-indexed); `fetchActiveCeremonyTypes()` returns the active religions for the couple-facing gate (null on error → callers fall back to all-available).
+- **New admin surface `/admin/wedding-types`** (+ Directory nav entry): per-religion status (Live / Coming soon / Disabled) · live vendor + ceremonial-venue counts vs an editable threshold · Ready / Building-supply badge · Open / Hold / Disable controls + threshold editor. `requireAdmin` + admin-client writes to `wedding_type_launch_status`.
+- **Gate now enforced couple-side:** the onboarding faith picker is data-driven from the launch status (greyed + non-selectable when a religion isn't active), matching the create-event picker which already reads the table. Graceful fallback (status read fails → existing all-available behavior).
+
+**Effect:** all religions stay live now (owner kept everything live) — this is the decision/control surface: flip a religion to "coming soon" and it greys in both pickers until reopened. **No migration** (uses the existing iteration-0043 `wedding_type_launch_status` table; `current_vendor_count` left as a future cache — readiness is computed live).
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean · full CI green (production build + e2e + lighthouse). Shipped from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** Yes — iteration **0023** gains a Wedding-types admin surface; **0043** launch gate now wired to onboarding + readiness counts. See `COWORK_INBOX.md`.
 
 ## 2026-06-03 · perf(nav): instant tab revisits (router-cache window) + site-editor fetch parallelization
 

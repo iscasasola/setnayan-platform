@@ -1,4 +1,4 @@
--- 20260807000000_add_jewish_bornagain_ceremony_types.sql
+-- 20260808000000_add_jewish_bornagain_ceremony_types.sql
 -- Owner-directed 2026-06-04: lock the wedding ceremony-tradition set at EIGHT and
 -- ship Jewish + Born Again as FULLY SELECTABLE (not coming-soon), alongside
 -- Catholic / Civil / INC / Christian / Muslim / Cultural / Chinese.

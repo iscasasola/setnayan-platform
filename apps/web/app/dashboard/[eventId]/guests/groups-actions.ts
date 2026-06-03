@@ -512,7 +512,7 @@ export async function bulkSoftDeleteGuests(
   // IS NULL is RLS-safe (couple sees their own event's guests).
   const { data: rows, error: readErr } = await supabase
     .from('guests')
-    .select('guest_id, rsvp_status, first_name, last_name, display_name')
+    .select('guest_id, role, rsvp_status, first_name, last_name, display_name')
     .eq('event_id', eventId)
     .in('guest_id', guestIds)
     .is('deleted_at', null);
@@ -522,6 +522,20 @@ export async function bulkSoftDeleteGuests(
   }
   if (!rows || rows.length === 0) {
     redirect(backToList(eventId, { error: 'no_selection' }));
+  }
+
+  // Couple gate (owner directive 2026-06-03) — the bride & groom are the
+  // foundation of the event and can never be removed. Block the whole batch if
+  // any is selected so the host gets a couple-specific message rather than the
+  // RSVP-gate copy (the couple is always Attending, which would trip it).
+  if (rows.some((r) => r.role === 'bride' || r.role === 'groom')) {
+    redirect(
+      backToList(eventId, {
+        error: encodeURIComponent(
+          "The bride and groom can't be removed — they're the foundation of the event. Deselect them and try again.",
+        ),
+      }),
+    );
   }
 
   // RSVP-set gate. If ANY selected guest has a non-pending RSVP, block

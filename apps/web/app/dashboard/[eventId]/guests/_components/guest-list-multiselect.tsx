@@ -37,7 +37,9 @@ export type RoleSection = { label: string; roles: GuestRole[] };
 // SAME grouped role picker as the desktop SelectionBar — single source of
 // truth for the spec-locked 20-value role enum.
 export const BULK_ROLE_SECTIONS: RoleSection[] = [
-  { label: ROLE_GROUP_LABELS.couple, roles: ['bride', 'groom'] },
+  // Bride & groom omitted (owner directive 2026-06-03) — the couple is set at
+  // event creation and is the foundation of the event; they're renamable but
+  // not a role you bulk-assign, so they don't appear in the role picker.
   // VIP family — owner directive 2026-05-23 PM (PR #424 lock).
   // 4 roles for Tier-1 seating auto-fill per iteration 0008.
   {

@@ -1,8 +1,9 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { enqueueDriveCopy } from '@/lib/drive-copy';
+import { enqueueDriveCopy, runDriveCopyBatch } from '@/lib/drive-copy';
 
 // Papic · paparazzo (claimer) actions — the public photo-crew surface.
 //
@@ -131,10 +132,12 @@ export async function recordSeatCapture(
     return { ok: false, error: insertError.message.slice(0, 80) };
   }
 
-  // Auto-sync this capture into the couple's Google Drive (Phase 2). Enqueue
-  // only — the /api/cron/drive-copy-tick worker does the R2->Drive copy; no-op
-  // until the couple connects Drive. Best-effort: never fail a capture on a
-  // sync hiccup, and dedup is per drive_copy_artifacts.r2_object_key.
+  // Auto-sync this capture into the couple's Google Drive (Phase 2), cron-free:
+  // enqueue the artifact, then copy it in the BACKGROUND with after() so the
+  // action returns immediately. No-op until the couple connects Drive;
+  // best-effort (a sync hiccup never fails a capture); dedup is per
+  // drive_copy_artifacts.r2_object_key. The manual "Release to Drive" backfills
+  // anything a dropped background task missed.
   try {
     await enqueueDriveCopy({
       eventId: seat.event_id as string,
@@ -148,8 +151,11 @@ export async function recordSeatCapture(
         },
       ],
     });
+    after(() =>
+      runDriveCopyBatch({ eventId: seat.event_id as string }).catch(() => {}),
+    );
   } catch {
-    // best-effort — the manual "Release to Drive" path still backfills later
+    // best-effort
   }
 
   const { count } = await supabase

@@ -4,23 +4,81 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-03 · feat(drive-copy): Phase 2 — Papic auto-sync feeder + drive-copy drain cron
+## 2026-06-03 · feat(drive-copy): Phase 2 — Papic auto-sync feeder (cron-free, via after())
 
 **Commit:** to be filled after commit.
 
-**Context:** Phase 2 of the storage build plan, after Phase 0's OAuth consolidation. **Finding:** 5 of the 6 source services (Patiktok, Pabati, Pakanta, Monogram, QR) have no R2-artifact pipeline yet (stubs / client-side), so there is nothing to feed for them — their feeders are one-line `pushToDriveCopy(...)` calls added when each render/generation pipeline lands. **Papic** is the one real producer and is wired now (owner-chosen "auto-sync now").
+**Context:** Phase 2 of the storage build plan. **Finding:** 5 of the 6 source services (Patiktok, Pabati, Pakanta, Monogram, QR) have no R2-artifact pipeline yet (stubs / client-side), so there is nothing to feed for them — one-line `pushToDriveCopy(...)` calls land with each future pipeline. **Papic** is the one real producer and is wired now.
+
+**Cron-free** — the repo's 2 existing cron endpoints have no scheduler (no `vercel.json` crons, no scheduled Actions), so a polling cron would've been dead on arrival. The drain runs in the background of the capture request via Next 15 `after()`.
 
 **What ships:**
 
-- **`/api/cron/drive-copy-tick`** (new) — drain worker: finds events with pending `drive_copy_artifacts` and copies one batch each into the couple's Drive (`x-cron-secret` gated, reuses `OAUTH_REFRESH_CRON_SECRET`, models on `photo-delivery-tick`). **Owner action:** point an external cron (Cloudflare/Vercel) at it on a 1–2 min cadence.
-- **Papic auto-sync feeders** — `papic/actions.ts` (paparazzo capture) + `api/papic/guest-capture` (guest disposable camera) now `enqueueDriveCopy('papic', …)` on every capture. Enqueue-only (fast); the cron does the R2→Drive copy. No-op until Drive is connected.
-- **Folder unify** — `drive-copy.ts` routes `papic` artifacts to the couple's existing `events.photo_delivery_folder_id` (the same folder the manual "Release to Drive" worker uses).
-- **Dedup** — `enqueueRelease` now skips photos already auto-synced (matched on `r2_object_key` against copied `drive_copy_artifacts`), so a photo is never copied twice.
-- **Latent fix** — `readR2Object` strips a leading `r2://<bucket>/` prefix, so prefixed papic keys (guest captures) read correctly (also fixes the existing release worker for those keys).
+- **Papic auto-sync feeders** — `papic/actions.ts` (paparazzo capture) + `api/papic/guest-capture` (guest disposable camera): `enqueueDriveCopy('papic', …)` then `after(() => runDriveCopyBatch({ eventId }))`. The response returns immediately; the R2→Drive copy runs in the background. No-op until Drive is connected; best-effort (never fails a capture).
+- **Folder unify** — `drive-copy.ts` routes `papic` artifacts to the couple's existing `events.photo_delivery_folder_id` (same folder as the manual "Release to Drive" worker).
+- **Dedup** — `enqueueRelease` skips photos already auto-synced (matched on `r2_object_key`); it also backfills anything a dropped background task missed.
+- **Latent fix** — `readR2Object` strips a leading `r2://<bucket>/` prefix (also fixes the existing release worker for prefixed papic keys).
 
-**Pilot-safe:** auto-sync is best-effort + enqueue-only (never fails a capture); the manual release path keeps working and now dedups. No migration. No real Drive grants exist yet (#19g pending).
+**Pilot-safe:** best-effort + enqueue-first (the row persists even if the background copy is dropped); manual release still works + dedups. No migration. No cron. No new owner action.
 
-**SPEC IMPACT:** Yes (minor). Papic now auto-syncs to Drive (the pax-pricing "photos land in your Drive" behavior). New owner action: external cron trigger for `/api/cron/drive-copy-tick`. The other 5 feeders attach as their pipelines land.
+**SPEC IMPACT:** Yes (minor). Papic auto-syncs to Drive (the pax-pricing "photos land in your Drive" behavior), cron-free. The other 5 feeders attach as their pipelines land.
+
+---
+
+## 2026-06-03 · feat(schedule): Preparation ⇄ Event Day toggle
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Delta #3 of the 2026-06-03 customer-dashboard chrome redesign (corpus `DECISION_LOG.md` "Customer dashboard chrome RE-LOCKED"). The redesign asked for the couple's `/schedule` page to carry a **Preparation ⇄ Event Day** toggle: "Event Day" = the existing editable day-of timeline, "Preparation" = a NEW read-only agenda of dated planning items leading up to the wedding that auto-fills from payments + concierge milestones. This is a **net-new V1 surface** — the prototype intent, shipped with only the data real tables support. No new table, no migration: Preparation is pure read-only aggregation of EXISTING dated data.
+
+**What ships:**
+
+- **URL-driven segmented toggle** at the top of `/schedule` — `Preparation | Event Day` via `?view=preparation` / `?view=event-day` (bookmarkable, SSR-resolved, works without JS — each segment is a real prefetched `<Link>`). With no param the page defaults to **Preparation when there are prep items**, else opens straight on **Event Day** so empty-prep couples aren't met with a blank agenda. The Preparation segment carries a live count badge.
+- **Event Day mode = the existing blocks UI, untouched.** The add-block form, per-block cards (inline time editor + visibility toggle + delete), and empty state were lifted verbatim into an `EventDayView` helper — behavior is byte-for-byte identical to before.
+- **Preparation mode = a date-sorted, read-only agenda grouped by month.** Each row: date · label · a source chip (Payment / Paperwork / Meeting / Milestone) · optional amount, with overdue rows flagged in rose so a couple sees what slipped. A small legend explains that the agenda auto-fills (couples don't add rows by hand here). Honest empty state with deep-links to Budget + Paperwork (date-aware copy when no wedding date is set yet). Clean Editorial tokens (cream/ink/terracotta/mulberry + amber/blue/indigo source accents) consistent with Home's "Upcoming" surface.
+
+**Data sources — exactly what was wired vs deferred** (`lib/preparation.ts` `fetchPreparationAgenda`, each source graceful-degrades independently):
+
+- ✅ **Payment** — `event_vendor_line_items.due_date` (host-entered vendor payment milestones). Amount + vendor name + label; fully-paid lines dropped (sums `event_vendor_payments` per line, mirroring `renderBudgetIcs`). Deep-links to `/budget`.
+- ✅ **Paperwork** — `event_paperwork` rows with the "complete by" date derived via `lib/paperwork.ts` `completeByDate(document_type, event_date)`; `received` docs dropped. Deep-links to `/paperwork`.
+- ✅ **Meeting** — `vendor_meetings.starts_at` (consultations, tastings, fittings, site visits). Deep-links to the vendor's page.
+- ✅ **Milestone** (the "concierge"-flavored derived dates) — computed statutory windows from `events.event_date` + `ceremony_type`: PSA/CENOMAR −180d, marriage-license window −120d, Pre-Cana cutoff −60d (Catholic only). Same thresholds as `lib/upcoming-items.ts`. Deep-links to `/paperwork`.
+- ❌ **DEFERRED — manual / user-added prep items.** Would require a NEW table (couple-authored agenda rows). Out of scope for this additive, no-migration PR. Documented as a fast-follow in `COWORK_INBOX.md`.
+- ❌ **ABSENT — orders due dates.** The `orders` table has **no due-date column** (only `created_at` / `paid_at` / `reviewed_at` / `expires_at`). `expires_at` is a *subscription-renewal* date, already surfaced on Home + Orders; it is **not** a wedding-preparation milestone, so it is intentionally omitted from Preparation.
+- ❌ **ABSENT — Concierge / Today's Focus per-step milestones.** The 0016 wizard (`/today`) is an ordered card list with **no per-step due/target date column**. The only concierge-adjacent dated data is the statutory windows, wired above as the Milestone source.
+
+**Home untouched.** The lean-home 3-block rule (PersonalizedMenu · UpcomingSchedules · ActivityFeed, owner-locked 2026-06-02) is fully respected — `apps/web/app/dashboard/[eventId]/page.tsx` was **not modified**. The `/schedule` toggle is the entire deliverable; the existing `UpcomingSchedules` block already aggregates the same kinds of dated items for Home via `lib/upcoming-items.ts` and needed no change.
+
+**Files:**
+
+- `apps/web/lib/preparation.ts` — NEW. The aggregator + types (`PreparationItem` / `PreparationGroup` / `PreparationAgenda`, `fetchPreparationAgenda`). Source map + deferred-sources rationale documented in the file header.
+- `apps/web/app/dashboard/[eventId]/schedule/_components/schedule-mode-toggle.tsx` — NEW. Client segmented control (URL-driven, count badge).
+- `apps/web/app/dashboard/[eventId]/schedule/_components/preparation-agenda.tsx` — NEW. Read-only presentational agenda view + legend + empty state.
+- `apps/web/app/dashboard/[eventId]/schedule/page.tsx` — wired the toggle + view resolution + event-row fetch (`event_date` + `ceremony_type` for the agenda math); extracted the existing blocks UI into `EventDayView` (behavior unchanged).
+
+**Verification:** `pnpm -F web typecheck` clean (0 errors); `next lint` clean ("No ESLint warnings or errors") on all four changed files.
+
+**SPEC IMPACT:** **Yes.** Iteration **0021** (couple dashboard — Schedule surface gains the Preparation⇄Event Day mode) plus the cross-refs to the schedule spec / iteration **0007** (budget payment due dates feed Preparation) and iteration **0016** (Concierge has no per-step dated milestone — only statutory windows feed Preparation; manual prep entry deferred). Logged as `[PENDING] 2026-06-03` in `COWORK_INBOX.md`.
+
+---
+
+## 2026-06-03 · feat(services): surface in-app add-ons inside the Services tab
+
+**Commit:** see merge commit.
+
+**Context:** Delta #4 of the 2026-06-03 customer-dashboard chrome redesign (corpus `DECISION_LOG.md` "Customer dashboard chrome RE-LOCKED"). Vendors + in-app services should live in one tab so couples never need to jump to a separate Add-ons route to discover features.
+
+**What ships:**
+- **`apps/web/lib/add-ons-catalog.ts`** — new shared catalog module extracted from add-ons/page.tsx. Exports `ADD_ONS`, `AddOnEntry`, `AddOnStatus`, and the `addOnHref()` helper. Single source of truth consumed by both the full poster grid and the new compact section.
+- **`apps/web/app/dashboard/[eventId]/add-ons/page.tsx`** — refactored to import `ADD_ONS` + `addOnHref` from the shared catalog. Behaviour is byte-for-byte identical; no duplicated list.
+- **`apps/web/app/dashboard/[eventId]/vendors/_components/in-app-services-section.tsx`** — new server component: "In-app services & add-ons" section with a compact landscape mini-card grid (horizontal-scroll on mobile, 4-col on desktop). Cards reuse the per-service animated poster backgrounds (base + motion layers + lower-third gradient mask) from the shared catalog. Filters to live + web_v1 add-ons only; coming-soon items discoverable on the full `/add-ons` page. "See all" + "View all add-ons" links keep the canonical route reachable.
+- **`apps/web/app/dashboard/[eventId]/vendors/page.tsx`** — wraps the return in a fragment; renders `<InAppServicesSection eventId={eventId} />` below `<PlanBudgetAccordion>`.
+
+**Verification:** `pnpm -F web typecheck` — 0 errors. `next lint` on all 4 changed files — 0 warnings/errors.
+
+**SPEC IMPACT:** Yes.
+- **Iteration 0006** (`0006_vendors_management/`) — the Vendors tab (renamed Services in the chrome redesign) now also surfaces in-app services. Spec should note the dual-entry-point pattern.
+- **Add-ons hub** (`0021_couple_dashboard_fully_purchased/`) — record that the compact add-ons grid now lives inside the Services tab as a second entry point (canonical `/add-ons` route unchanged).
 
 ---
 

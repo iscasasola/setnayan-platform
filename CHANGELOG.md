@@ -18,6 +18,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** None — pure perceived-performance / UX; no feature, pricing, schema, or workflow change.
 
+## 2026-06-03 · fix(0001,0021): guests carousel stops vibrating + Services rail cards peek (mobile)
+
+**Context:** Owner review of the customer dashboard on mobile — (1) the Guests lower-third panel carousel "vibrated and didn't expand completely"; (2) on the Services tab the rail cards filled the screen with no hint of the next one.
+
+**What changed:**
+- **Guests carousel (`mobile-guest-carousel.tsx`):** the panel sheet measures `section.scrollHeight` to hug content, but each panel was `max-h-full` (= 100% of the track, i.e. derived from the very sheet height the measurement *sets*) while a `ResizeObserver` watched that same section — a feedback loop the sheet's `transition-[height]` rendered as visible jitter, settling below full height. Fix: cap the panels with a FIXED `max-h-[calc(60dvh-2.25rem)]` (track height at the 60vh cap, minus the 36px grabber) so `scrollHeight` is the true intrinsic content height and can't change when the sheet grows — loop broken; the "hug content / scroll past 60vh" behavior is preserved.
+- **Services rail cards (`plan-budget-accordion.tsx`):** card width `flex:0 0 300px` → `min(300px, calc(100vw - 96px))`, runway floor `max(20px, …) → max(32px, …)`. On phones the card is the viewport minus ~96px so prev/next cards peek ~20px each edge; capped at 300px so the 760px desktop `.body` is unchanged. Covers vendor picks (`.card`), in-app Setnayan service cards (`.card.svc`) and the Digital Services rail — they all share `.card`, so the one change makes every Services-tab rail card peek.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean (no new findings) · `next build` clean (full route table incl. `/dashboard/[eventId]/guests` + `/vendors`). Built from an isolated worktree off `origin/main` with deps installed. Mobile-gesture/keyboard behavior flagged for owner device check. No migration, no SKU.
+
+**SPEC IMPACT:** Minor — Services-tab rail cards now peek the next card on mobile (responsive card width); the Guests panel change is a bugfix that restores intended hug-content behavior (no behavior/pricing/schema change). See `COWORK_INBOX.md`.
+
 ## 2026-06-03 · perf/ux(0000,0001,0021,0022,0023): app-wide loading skeletons + global tap haptics
 
 **Context:** Owner report — *"why is it so slow to transfer to guests from summary."* The lag was mostly *perceived*: tapping a dashboard tab gave no instant feedback. Only 4 segment-level `loading.tsx` existed, so ~160 child routes froze on their server reads (or inherited the wrong-shaped event-home skeleton) until every Supabase query (~50–200 ms RTT each from Singapore) returned. Owner follow-up: *"apply [it] on all loading-able areas … we want an animation loading so they do not feel they are waiting too long. also apply interaction on buttons and haptic feedbacks."*

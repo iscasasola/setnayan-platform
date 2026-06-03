@@ -40,6 +40,16 @@ supabase db push --db-url "$SUPABASE_DB_URL"
 
 **Check it worked:** open the Guests page for any event — the bride & groom show **Attending** (not Pending) and the Pending count drops. (They already show Attending in the UI via read-coercion; this makes the database agree.)
 
+### 2026-06-03 — push the Messages unread-badge migration (~2 min · recommended)
+
+**push migration `20260728000000_chat_thread_reads.sql`** (Messages unread badge — additive; badge shows 0 until applied).
+
+```bash
+supabase db push --db-url "$SUPABASE_DB_URL"
+```
+
+It adds the `chat_thread_reads` read marker + the `count_unread_message_threads()` function the Messages icon's unread badge reads from. The app is already deployed and safe without it — `countUnreadMessages()` graceful-degrades to **0** when the table/function isn't present yet, so the badge simply shows nothing until you push. **Check it worked:** open a couple dashboard, have a vendor send a message in a thread you haven't opened — a count badge appears on the Messages icon; open the thread and it clears.
+
 ### Today's 17 merges (for awareness)
 
 | Area | PR | What it shipped |

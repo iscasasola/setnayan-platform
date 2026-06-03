@@ -36,6 +36,62 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(drive-copy): Phase 2 — Papic auto-sync feeder (cron-free, via after())
+
+**Commit:** to be filled after commit.
+
+**Context:** Phase 2 of the storage build plan. **Finding:** 5 of the 6 source services (Patiktok, Pabati, Pakanta, Monogram, QR) have no R2-artifact pipeline yet (stubs / client-side), so there is nothing to feed for them — one-line `pushToDriveCopy(...)` calls land with each future pipeline. **Papic** is the one real producer and is wired now.
+
+**Cron-free** — the repo's 2 existing cron endpoints have no scheduler (no `vercel.json` crons, no scheduled Actions), so a polling cron would've been dead on arrival. The drain runs in the background of the capture request via Next 15 `after()`.
+
+**What ships:**
+
+- **Papic auto-sync feeders** — `papic/actions.ts` (paparazzo capture) + `api/papic/guest-capture` (guest disposable camera): `enqueueDriveCopy('papic', …)` then `after(() => runDriveCopyBatch({ eventId }))`. The response returns immediately; the R2→Drive copy runs in the background. No-op until Drive is connected; best-effort (never fails a capture).
+- **Folder unify** — `drive-copy.ts` routes `papic` artifacts to the couple's existing `events.photo_delivery_folder_id` (same folder as the manual "Release to Drive" worker).
+- **Dedup** — `enqueueRelease` skips photos already auto-synced (matched on `r2_object_key`); it also backfills anything a dropped background task missed.
+- **Latent fix** — `readR2Object` strips a leading `r2://<bucket>/` prefix (also fixes the existing release worker for prefixed papic keys).
+
+**Pilot-safe:** best-effort + enqueue-first (the row persists even if the background copy is dropped); manual release still works + dedups. No migration. No cron. No new owner action.
+
+**SPEC IMPACT:** Yes (minor). Papic auto-syncs to Drive (the pax-pricing "photos land in your Drive" behavior), cron-free. The other 5 feeders attach as their pipelines land.
+
+---
+
+## 2026-06-03 · feat(messages): unread badge on the Messages icon
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Follow-up to chrome-redesign **delta #2** (PR #837), which shipped the `MessageSquare` link in the couple top bar **icon-only** — its own comment flagged "No unread badge: chat_messages has no per-message read tracking column in V1 … Badge can be added in a follow-up once a read-receipts migration lands." This PR is that follow-up: it adds the per-user/per-thread read marker chat never had, computes an unread-thread count from it, and lights the Messages icon the same way the bell is lit.
+
+**What ships:**
+
+- **Unread badge on the Messages icon** in the event-scoped couple top bar (`app/dashboard/[eventId]/layout.tsx`). New client component `app/_components/unread-messages-badge.tsx` mirrors `unread-bell-badge.tsx` exactly — same pill styling (terracotta dot, `9+` cap, `font-mono text-[9px]`), `aria-label "Messages · N unread messages"`, server-rendered initial count + Supabase Realtime resync on `chat_messages` INSERT (the table is already in the `supabase_realtime` publication per `20260514140000`, and Realtime honors RLS so a client only gets events for threads it can SELECT).
+- **Read-state that didn't exist before.** `countUnreadMessages(supabase, userId?)` in `lib/chat.ts` calls the new `count_unread_message_threads()` RPC; a thread is unread when it has a message from *someone else* (`sender_user_id IS DISTINCT FROM auth.uid()`) newer than the viewer's `last_read_at` (or they've never read it).
+- **Mark-read on open.** Server action `markThreadRead(threadId)` in `lib/chat-actions.ts` upserts `chat_thread_reads (thread_id, user_id=auth.uid(), last_read_at=now())` on `onConflict (thread_id,user_id)`. Called on render in the couple thread page **and** the vendor thread page (parity).
+- **Graceful-degrade is the whole safety story.** Both `countUnreadMessages` and `markThreadRead` log + no-op/return-0 on ANY error — most importantly when the table/function isn't in the schema yet (`isMissingRelationError`). The deploy is therefore safe **before** the migration is applied: the badge simply reads 0 and opening a thread never fails. Mirrors `countUnread`'s graceful-to-0 in `lib/notifications.ts`.
+
+**NEW migration — `supabase/migrations/20260728000000_chat_thread_reads.sql` (OWNER-PUSH):**
+
+- Additive only. `CREATE TABLE IF NOT EXISTS public.chat_thread_reads (thread_id, user_id, last_read_at, PK(thread_id,user_id))` with FKs to `chat_threads(thread_id)` + `users(user_id)` ON DELETE CASCADE; index on `user_id`; **RLS enabled at create**; `chat_thread_reads_self_all` policy = a user manages only `user_id = auth.uid()` rows. Plus `count_unread_message_threads()` (SECURITY DEFINER · STABLE · `GRANT EXECUTE … authenticated`).
+- **One correction vs the drafted SQL:** the draft scoped vendor-side threads with `current_vendor_ids()`, but that helper is a **NULL-returning stub** in `20260512000000_setnayan_base.sql` (vendor_team_members lands in 0022, stub never repointed). The helper the 0019 chat RLS actually uses for vendor-thread scoping is **`current_vendor_profile_ids()`** (`vendor_profiles WHERE user_id = auth.uid()`), matching `chat_threads.vendor_profile_id → vendor_profiles(vendor_profile_id)`. Swapped to that so the vendor-side count actually works. All other column names (`users.user_id`, `chat_threads.{thread_id,event_id,vendor_profile_id}`, `chat_messages.{thread_id,sender_user_id,created_at}`, `current_couple_event_ids()`) matched the live schema verbatim.
+- **Do NOT `supabase db push`** — owner applies migrations. Until then the badge shows 0.
+
+**Files:**
+
+- `supabase/migrations/20260728000000_chat_thread_reads.sql` (new)
+- `apps/web/lib/chat.ts` — `countUnreadMessages()` + error-detect import
+- `apps/web/lib/chat-actions.ts` — `markThreadRead()` + error-detect import
+- `apps/web/app/_components/unread-messages-badge.tsx` (new)
+- `apps/web/app/dashboard/[eventId]/layout.tsx` — fetch `initialUnread`, swap icon-only link → `<UnreadMessagesBadge>` (dropped now-unused `MessageSquare` import)
+- `apps/web/app/dashboard/[eventId]/messages/[threadId]/page.tsx` — `markThreadRead` on render
+- `apps/web/app/vendor-dashboard/messages/[threadId]/page.tsx` — `markThreadRead` on render
+
+**Verification:** `pnpm -F web typecheck` → 0 errors. `pnpm exec next lint --file <6 changed app/lib files>` → no warnings/errors. `pnpm -F web build` → ✓ Compiled successfully · 113/113 static pages (the only build warnings are pre-existing + in untouched routes: sitemap `Missing SUPABASE env vars` locally, `/vendor-dashboard` dynamic-server `cookies`/`searchParams` notices).
+
+**SPEC IMPACT: Yes** — iteration **0019** (Communications: chat gains a per-user/per-thread read marker `chat_thread_reads` + `count_unread_message_threads()` RPC; previously "Read receipts … deferred") and **0021** (couple dashboard chrome: the Messages icon now carries an unread badge alongside the bell). `[PENDING]` logged in `COWORK_INBOX.md`.
+
+---
+
 ## 2026-06-03 · feat(schedule): Preparation ⇄ Event Day toggle
 
 **Commit:** see merge commit on this PR.

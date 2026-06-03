@@ -72,6 +72,37 @@ const PANELS = [
 
 const SIDES: GuestSide[] = ['bride', 'groom', 'both'];
 
+// useKeyboardInset — the on-screen keyboard's height in px (0 when closed) via
+// the VisualViewport API. iOS Safari keeps window.innerHeight at the full
+// LAYOUT height and shrinks visualViewport when the keyboard opens, so the gap
+// below the visual viewport IS the keyboard (+ its accessory bar). We use it to
+// pin the fixed sheet directly above the keyboard instead of letting iOS float
+// it into the middle of the screen with dead space (owner-reported 2026-06-03).
+function useKeyboardInset(): number {
+  const [inset, setInset] = useState(0);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    let raf = 0;
+    const update = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const gap = window.innerHeight - vv.height - vv.offsetTop;
+        setInset(gap > 0 ? Math.round(gap) : 0);
+      });
+    };
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    update();
+    return () => {
+      cancelAnimationFrame(raf);
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+    };
+  }, []);
+  return inset;
+}
+
 export function MobileGuestCarousel({
   eventId,
   q,
@@ -113,6 +144,32 @@ export function MobileGuestCarousel({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
+
+  // When the keyboard is open, pin the sheet right above it (and hide the
+  // bottom nav) so typing in Add/Search isn't shoved into the middle of the
+  // screen — the guest list keeps the rest of the height. The > 100 guard
+  // ignores small visual-viewport jitters so only a real keyboard triggers it.
+  const kbInset = useKeyboardInset();
+  const kbOpen = kbInset > 100;
+
+  // Broadcast the keyboard state to the page so the guest list (a sibling, not
+  // a child of this component) can shrink into a scroll zone above the sheet
+  // instead of having its top rows pushed off-screen. The page's injected
+  // <style> reads html[data-kb-open] + --kb-inset (owner-reported 2026-06-03).
+  useEffect(() => {
+    const el = document.documentElement;
+    if (kbOpen) {
+      el.style.setProperty('--kb-inset', `${kbInset}px`);
+      el.setAttribute('data-kb-open', '');
+    } else {
+      el.style.removeProperty('--kb-inset');
+      el.removeAttribute('data-kb-open');
+    }
+    return () => {
+      el.style.removeProperty('--kb-inset');
+      el.removeAttribute('data-kb-open');
+    };
+  }, [kbInset, kbOpen]);
 
   // Belt-and-suspenders: after a bulk apply redirects back with a flash, make
   // sure the Assign sheet is closed (the apply handler already closes it +
@@ -170,6 +227,7 @@ export function MobileGuestCarousel({
       <div
         aria-hidden
         className="h-[calc(var(--gcar-h)+4rem+env(safe-area-inset-bottom))] lg:hidden"
+        style={kbOpen ? { height: 0 } : undefined}
       />
 
       {/* Panel content sheet — docked directly ABOVE the guest bottom nav (the
@@ -178,7 +236,14 @@ export function MobileGuestCarousel({
           below". Owner directive 2026-06-03: the 4 menus moved OUT of the top
           of this sheet and BECAME the bottom nav, so this sheet now holds only
           the active panel. */}
-      <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 h-[var(--gcar-h)] overflow-hidden rounded-t-2xl bg-cream shadow-[0_-12px_30px_-18px_rgba(30,34,41,0.28)] ring-1 ring-ink/10 lg:hidden">
+      <div
+        className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 h-[var(--gcar-h)] overflow-hidden rounded-t-2xl bg-cream shadow-[0_-12px_30px_-18px_rgba(30,34,41,0.28)] ring-1 ring-ink/10 lg:hidden"
+        style={
+          kbOpen
+            ? { bottom: kbInset, height: active === 2 ? 190 : undefined }
+            : undefined
+        }
+      >
         {/* swipe track — 4 panels, scroll-snap; full sheet height now that the
             tab strip moved to the bottom nav. Tap a nav item OR swipe to jump. */}
         <div
@@ -338,7 +403,9 @@ export function MobileGuestCarousel({
           sheet above to that panel; the active panel highlights here. */}
       <nav
         aria-label="Guest panels"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-ink/10 bg-cream/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+        className={`fixed inset-x-0 bottom-0 z-40 border-t border-ink/10 bg-cream/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden ${
+          kbOpen ? 'hidden' : ''
+        }`}
       >
         <ul className="grid grid-cols-4 px-1 py-1">
           {PANELS.map((p, i) => {
@@ -602,6 +669,9 @@ function QuickAddInlineForm({ eventId }: { eventId: string }) {
           type="text"
           inputMode="text"
           autoCapitalize="words"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
           placeholder="First name"
           value={first}
           onChange={(e) => setFirst(e.target.value)}
@@ -614,6 +684,9 @@ function QuickAddInlineForm({ eventId }: { eventId: string }) {
           type="text"
           inputMode="text"
           autoCapitalize="words"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
           placeholder="Last name"
           value={last}
           onChange={(e) => setLast(e.target.value)}

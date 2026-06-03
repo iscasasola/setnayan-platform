@@ -69,6 +69,9 @@ export function LiveSearch({
   return (
     <input
       type="search"
+      autoComplete="off"
+      autoCorrect="off"
+      spellCheck={false}
       value={value}
       onChange={(e) => {
         const next = e.target.value;

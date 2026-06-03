@@ -271,10 +271,18 @@ export async function ensureArtifactFolder(input: {
 
   const { data: ev } = await admin
     .from('events')
-    .select('display_name, event_date')
+    .select('display_name, event_date, photo_delivery_folder_id')
     .eq('event_id', input.eventId)
     .maybeSingle();
   if (!ev) return null;
+
+  // Papic shares the couple's existing Photo Delivery folder so the manual
+  // "Release to Drive" worker and this auto-sync feeder write to the SAME
+  // Drive folder (dedup is per drive_copy_artifacts.r2_object_key). The other
+  // artifact types each get their own subfolder under the event root.
+  if (input.artifactType === 'papic' && ev.photo_delivery_folder_id) {
+    return ev.photo_delivery_folder_id as string;
+  }
 
   const rootName = buildPhotoDeliveryFolderName({
     displayName: (ev.display_name as string | null) ?? 'Setnayan Event',

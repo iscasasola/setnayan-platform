@@ -31,6 +31,33 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Drive-copy Phase 2: Papic auto-sync (cron-free)
+
+**Why:** Papic captures now auto-sync to the couple's Google Drive — cron-free, via Next 15 `after()` (background copy in the capture request). The 5 other artifact feeders await their services' render/generation pipelines.
+
+**Spec updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/0012_paparazzi/0012_papic.md`** + pax-pricing docs — note Papic photos **auto-sync** to the couple's Drive on capture (background `after()` copy, no cron); the manual "Release to Drive" remains as a backfill and dedups against auto-synced photos.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
+## [PENDING] 2026-06-03 — Messages icon unread badge + chat read-state (delta #2 follow-up)
+
+**Why:** The Messages icon shipped icon-only in PR #837 (chrome-redesign delta #2). This PR adds the unread badge — which required giving chat a read-state it never had. A new per-user/per-thread read marker (`chat_thread_reads`) + an unread-thread count function (`count_unread_message_threads()`) land via additive migration `20260728000000_chat_thread_reads.sql` (RLS-at-create; **owner-push**). The badge mirrors the bell and graceful-degrades to 0 until the migration is applied.
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/0019_communications/0019_communications.md`** — chat now has a **per-user/per-thread read marker** `chat_thread_reads (thread_id, user_id, last_read_at, PK(thread_id,user_id))` (RLS: a user manages only their own rows) and a `count_unread_message_threads()` RPC (SECURITY DEFINER) returning the count of threads with a message from someone else newer than the viewer's `last_read_at`. A thread is marked read (`last_read_at = now()`) when the user opens it (both the couple and vendor thread pages). This is the first slice of the "Read receipts / read state" item the 0019 spec previously listed as **deferred** — it's a per-thread *last-read marker* (drives the unread badge), **not** per-message receipts or per-message "seen" ticks, which remain deferred.
+2. **`~/Documents/Claude/Projects/Setnayan/0021_couple_dashboard_fully_purchased/0021_couple_dashboard_fully_purchased.md`** — the couple top-bar **Messages icon now carries an unread badge** (terracotta dot, `9+` cap), alongside the existing notification bell. Server-rendered initial count + Realtime resync on new messages.
+
+**Implementation note for the spec:** the vendor-side thread scoping in the count function uses the existing `current_vendor_profile_ids()` helper (NOT the `current_vendor_ids()` stub, which returns NULL because `vendor_team_members` is a 0022 concern). No new helper was introduced.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Schedule Preparation⇄Event Day toggle (chrome redesign delta #3)
 
 **Why:** Delta #3 of the 2026-06-03 customer-dashboard chrome redesign landed in code. The couple's `/schedule` page now has a `Preparation | Event Day` toggle. **Event Day** = the existing editable day-of timeline (unchanged). **Preparation** = a NEW read-only, month-grouped agenda that auto-fills from existing dated data — no new table.

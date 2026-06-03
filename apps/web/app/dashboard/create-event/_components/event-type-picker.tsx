@@ -2,12 +2,12 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import type { CeremonyTypeKey } from '@/app/_components/ceremony-type-radio-group';
 import { createWeddingEvent } from '../actions';
 import { WeddingTypePicker, type LaunchStatusRow } from './wedding-type-picker';
 import { EVENT_TYPES, type EventTypeKey, type EventTypeRow } from './event-types';
+import { EventTypeCarousel } from './event-type-carousel';
 
 /* Retired 2026-05-28 V2 cutover */
 // V1 surfaced a DIY / Concierge ₱2,499 / 3-day-trial choice card at the
@@ -36,8 +36,6 @@ type EventTypePickerProps = {
 };
 
 export function EventTypePicker({ launchStatus }: EventTypePickerProps) {
-  const N = EVENT_TYPES.length;
-  const [centerIdx, setCenterIdx] = useState(0);
   const [selectedKey, setSelectedKey] = useState<EventTypeKey | null>(null);
   // ConciergeChoice locked to 'diy' on every new event in V2 — hosts
   // upgrade to Today's Focus from the dashboard post-creation.
@@ -46,21 +44,6 @@ export function EventTypePicker({ launchStatus }: EventTypePickerProps) {
   // disabled until the host explicitly chooses one. Non-wedding event_types
   // don't render the picker and are allowed to submit without it.
   const [ceremonyType, setCeremonyType] = useState<CeremonyTypeKey | null>(null);
-
-  // Modulo helper that keeps the index positive when going backwards — this
-  // is what gives the carousel its "infinite" feel: rewinding from index 0
-  // wraps to the last tile, advancing past the last tile wraps back to 0.
-  // The math always lands in [0, N-1], so the lookup is non-null by
-  // construction — the `!` assertion is what tells TS (under
-  // noUncheckedIndexedAccess) that the result can't be undefined.
-  const at = (i: number): EventTypeRow => EVENT_TYPES[((i % N) + N) % N]!;
-
-  const goPrev = () => setCenterIdx((i) => (i - 1 + N) % N);
-  const goNext = () => setCenterIdx((i) => (i + 1) % N);
-
-  const tilePrev = at(centerIdx - 1);
-  const tileCenter = at(centerIdx);
-  const tileNext = at(centerIdx + 1);
 
   const selected = selectedKey
     ? (EVENT_TYPES.find((t) => t.key === selectedKey) ?? null)
@@ -78,57 +61,11 @@ export function EventTypePicker({ launchStatus }: EventTypePickerProps) {
   return (
     <>
       <section aria-label="Event type" className="space-y-4">
-        <div className="flex items-stretch gap-2 sm:gap-3">
-          <ArrowButton dir="prev" onClick={goPrev} />
-
-          <div className="grid min-w-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-3">
-            <Tile
-              type={tilePrev}
-              isActive={false}
-              isSelected={selectedKey === tilePrev.key}
-              onSelect={handleSelect}
-              className="hidden sm:flex"
-            />
-            <Tile
-              type={tileCenter}
-              isActive
-              isSelected={selectedKey === tileCenter.key}
-              onSelect={handleSelect}
-            />
-            <Tile
-              type={tileNext}
-              isActive={false}
-              isSelected={selectedKey === tileNext.key}
-              onSelect={handleSelect}
-              className="hidden sm:flex"
-            />
-          </div>
-
-          <ArrowButton dir="next" onClick={goNext} />
-        </div>
-
-        <div
-          role="tablist"
-          aria-label="Event type pages"
-          className="flex justify-center gap-2"
-        >
-          {EVENT_TYPES.map((t, i) => {
-            const active = i === centerIdx;
-            return (
-              <button
-                key={t.key}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                aria-label={`Show ${t.label}`}
-                onClick={() => setCenterIdx(i)}
-                className={`h-2 rounded-full transition-all ${
-                  active ? 'w-6 bg-terracotta' : 'w-2 bg-ink/20 hover:bg-ink/40'
-                }`}
-              />
-            );
-          })}
-        </div>
+        <EventTypeCarousel
+          selectedKey={selectedKey}
+          onSelect={handleSelect}
+          sizes="(max-width: 640px) 80vw, (max-width: 1024px) 40vw, 256px"
+        />
       </section>
 
       {selected ? (
@@ -235,72 +172,3 @@ export function EventTypePicker({ launchStatus }: EventTypePickerProps) {
    Focus separately on /pricing. Every new event lands in DIY by default;
    hosts upgrade later from the dashboard if they want the daily planner. */
 
-function Tile({
-  type,
-  isActive,
-  isSelected,
-  onSelect,
-  className,
-}: {
-  type: EventTypeRow;
-  isActive: boolean;
-  isSelected: boolean;
-  onSelect: (type: EventTypeRow) => void;
-  className?: string;
-}) {
-  const base =
-    'relative flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition-all';
-
-  const state = type.enabled
-    ? isSelected
-      ? 'border-terracotta bg-terracotta/5 ring-2 ring-terracotta/30'
-      : 'border-ink/15 bg-cream hover:border-terracotta/50 hover:bg-terracotta/[0.04]'
-    : 'cursor-not-allowed border-ink/10 bg-ink/[0.03] opacity-60';
-
-  const emphasis = isActive ? '' : 'sm:scale-[0.92] sm:opacity-70';
-
-  return (
-    <button
-      type="button"
-      onClick={() => onSelect(type)}
-      disabled={!type.enabled}
-      aria-pressed={isSelected}
-      aria-disabled={!type.enabled}
-      className={`${base} ${state} ${emphasis} ${className ?? ''}`.trim()}
-    >
-      <span aria-hidden className="text-2xl">
-        {type.emoji}
-      </span>
-      <span className="text-base font-medium text-ink">{type.label}</span>
-      {!type.enabled ? (
-        <span className="absolute right-3 top-3 rounded-full bg-ink/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/60">
-          Coming soon
-        </span>
-      ) : (
-        <span className="rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta">
-          V1
-        </span>
-      )}
-    </button>
-  );
-}
-
-function ArrowButton({
-  dir,
-  onClick,
-}: {
-  dir: 'prev' | 'next';
-  onClick: () => void;
-}) {
-  const Icon = dir === 'prev' ? ChevronLeft : ChevronRight;
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={dir === 'prev' ? 'Previous event type' : 'Next event type'}
-      className="inline-flex h-10 w-10 shrink-0 items-center justify-center self-center rounded-full border border-ink/15 bg-cream text-ink/70 transition-colors hover:border-terracotta/40 hover:bg-terracotta/10 hover:text-terracotta"
-    >
-      <Icon aria-hidden className="h-5 w-5" strokeWidth={2} />
-    </button>
-  );
-}

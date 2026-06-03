@@ -34,7 +34,6 @@ import { canonicalServicesForFolder } from '@/lib/vendor-counts';
 import type { WeddingFolder } from '@/lib/taxonomy';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { PlanBudgetAccordion } from './_components/plan-budget-accordion';
-import { InAppServicesSection } from './_components/in-app-services-section';
 
 export const metadata = { title: 'Vendors' };
 
@@ -325,12 +324,11 @@ export default async function VendorsPage({ params }: Props) {
     marketPoolCount,
   });
 
-  return (
-    <>
-      <PlanBudgetAccordion model={model} eventId={eventId} />
-      <InAppServicesSection eventId={eventId} />
-    </>
-  );
+  // In-app Setnayan services now nest INSIDE the accordion's category rails
+  // (✦ Setnayan cards, float-to-top) + a Design › Digital Services rail + a
+  // "Tools & extras" strip — the standalone InAppServicesSection launcher grid
+  // was retired (Digital_Services_Cross_Surface_Map_2026-06-03.md §2).
+  return <PlanBudgetAccordion model={model} eventId={eventId} />;
 }
 
 /**

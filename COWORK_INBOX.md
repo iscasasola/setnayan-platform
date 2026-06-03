@@ -10,20 +10,56 @@
 
 ## [PENDING] 2026-06-03 — All wedding faiths unlocked: Christian / INC / Muslim / Cultural now active (0043/0016)
 
-**Why:** Owner directive — *"unlock all religions first."* The four faiths that shipped as "Coming Soon" in iteration 0043 (gated behind per-region vendor density via `wedding_type_launch_status`) are now **active** everywhere: the onboarding faith chips, both `ALLOWED_CEREMONIES` server constants, the create-event launch-status fallback, and the `wedding_type_launch_status` table (migration `20260803000000`). Onboarding has no tradition picker, so Muslim/Cultural commits default `ceremony_sub_type` (`general_muslim` / `other`) to satisfy the DB CHECK `events_sub_type_required_when_muslim_or_cultural`; create-event collects the specific tradition.
+**Why:** Owner directive — *"unlock all religions first."* The four faiths that shipped as "Coming Soon" in iteration 0043 (gated behind per-region vendor density via `wedding_type_launch_status`) are now **active** everywhere: the onboarding faith chips, both `ALLOWED_CEREMONIES` server constants, the create-event launch-status fallback, and the `wedding_type_launch_status` table (migration `20260803000000`, verified applied to prod). Onboarding has no tradition picker, so Muslim/Cultural commits default `ceremony_sub_type` (`general_muslim` / `other`) to satisfy the DB CHECK `events_sub_type_required_when_muslim_or_cultural`; create-event collects the specific tradition.
 
 **Spec corpus updates (owner walks via Cowork):**
 1. **The `wedding_type_launch_status` design (iteration 0043) + any "V1.1 visible faiths: catholic + civil active" note** — superseded: **all six ceremony types are active.** Record that the per-region vendor-density threshold gate is overridden (owner chose a global unlock); a future re-gate would flip rows back to `coming_soon`.
 2. **`0016_step_by_step_plan_builder` / the onboarding faith step (`OnboardingFaith`)** — no longer marks four faiths "Coming Soon"; all five chips selectable. Note the onboarding-side default sub-type for Muslim/Cultural (onboarding has no tradition picker; create-event does) — couples refine the exact tradition later from the dashboard.
 3. **CLAUDE.md decision log (corpus root)** — append a 2026-06-03 row: *"Unlock all religions — christian/inc/muslim/cultural flipped to active in `wedding_type_launch_status` + the onboarding/create-event hardcoded mirrors; overrides the per-region vendor-density activation gate."*
 
-**Cross-ref:** `CHANGELOG.md` 2026-06-03 "feat(0043,0016): unlock all wedding faiths". Migration `20260803000000` (applied as part of this ship).
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "feat(0043,0016): unlock all wedding faiths". Migration `20260803000000` (verified applied to prod).
 
 **When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
 
 ---
 
-## [PENDING] 2026-06-03 — Top nav: Marketplace + Switch View icons removed from the customer top bar (0000/0021)
+## [PENDING] 2026-06-03 — In-app services nested INTO the Vendors-tab categories (0021)
+
+**Why:** Owner (twice) — "in app services are still not inside the categories." The standalone in-app-services launcher grid in the couple Services tab was retired; Setnayan services now render INSIDE their canonical category rails (✦ Setnayan, float-to-top) per `Digital_Services_Cross_Surface_Map_2026-06-03.md` §2.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`0021_couple_dashboard_fully_purchased.md`** — the Services tab no longer shows a separate in-app-services launcher. Save-the-Date / Papic / Panood appear inside *Photography & Video*; Patiktok inside *Photobooth*; LED (Pailaw) inside *LED Background*; Animated Monogram under a new *Design › Digital Services* rail — all as ✦ Setnayan supplementary cards floated to the top. Non-category tools (Orders / Playlist / Custom QR / Photo Delivery / Paprint / Indoor Blueprint) move to a compact "Tools & extras" strip above the recap.
+2. **`Digital_Services_Cross_Surface_Map_2026-06-03.md`** — mark §2 "Customer · in-app Services tab" as IMPLEMENTED (presentation step). Record the remaining follow-ups: **§3 vendor-model convergence** (source the pre-add list from the first-party Setnayan vendor account's listings + choice-driven pre-add on onboarding category selection, retiring the hardcoded catalog) and **add Pakanta / Pro Website / Live Venue Photo Wall** to the add-ons catalog with valid setup routes so the Digital Services rail carries its full 5-member set (today only the coming-soon Animated Monogram is present).
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "feat(0021,0006): nest in-app Setnayan services…".
+## [PENDING] 2026-06-03 — Event-type picker is now a hero-photo carousel (0000)
+
+**Why:** Owner ask (screenshot): *"change how events look like. we want a carousel but like hero photos. let them scroll all the possible events."* The emoji-tile event-type picker is now a swipeable scroll-snap filmstrip of full-bleed hero photos — shared by the event-switcher add-event sheet AND the full `/dashboard/create-event` page. 9 Recraft hero photos added at `public/event-types/`.
+
+**Spec corpus update (owner walks via Cowork):**
+1. **`0000_app_shell_and_navigation/0000_app_shell_and_navigation.md`** — the event-type picker / "What kind of event are you planning?" description should change from emoji tiles to the **hero-photo carousel**: horizontal swipe through all event types · live types = colour photo + "Available" badge + tap-to-continue · coming-soon types = grayscale + "Coming soon" + inert. Also update the add-event sheet subtitle to *"Weddings and debuts are live now. Swipe through to see what's on the way — more event types unlock over time."* (the old line promised a notify-on-launch flow that does not exist).
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "feat(0000): event-type picker → swipeable hero-photo carousel". No migration, no SKU.
+
+**Open follow-up (not built):** a real "notify me when this opens" action on coming-soon cards (the old copy implied it).
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
+## [PENDING] 2026-06-03 — Admin deadline table COMPLETE — reminders read it + admin editor (PR 2+3/3)
+
+**Why:** Finishes the 3-PR admin deadline build (owner: "ship this both" / "do both"). The Home recommended-deadline reminders now read `planning_deadlines`; admins edit the deadlines in `/admin/taxonomy`.
+
+**What landed (code):** `lib/upcoming-items.ts` reads `planning_deadlines` (service category rows) with `PLAN_GROUPS.monthsBefore` as fallback. `/admin/taxonomy` gains a "Recommended deadlines" editor (inline offset edit · `updatePlanningDeadline` action · RLS-gated) + a category-level coverage/"missing deadline" flag.
+
+**Spec corpus update (owner walks via Cowork):**
+1. **`0023_admin_console/`** — record the `/admin/taxonomy` "Recommended deadlines" editor (admin sets the lock-by deadline per category/document · coverage flag · per-leaf overrides a noted follow-up).
+2. **The planning/deadline spec** — the Home reminders' deadline source is now the admin `planning_deadlines` table (code = fallback).
+
+**Noted follow-up (not built):** per-leaf deadline overrides + leaf-level missing-flag (needs the leaf→category map, in code `TAXONOMY_MAP`, not the DB).
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
 
 **Why:** Owner directive (mobile screenshot, both icons circled): *"remove these 2 on top nav."* The 🏪 Marketplace link and the 👤﹀ Switch View (role-switch) pill are gone from the customer **top bar** — event-scoped (`[eventId]/layout.tsx`) AND non-event routes (`outer-dashboard-header.tsx`). The desktop **left sidebar** intentionally KEEPS both (owner scope: "non-event top bar", not the desktop sidebar). Nothing orphaned (Marketplace via the home tease-strip / "Browse matched services" / plan cards / sidebar; role-switch via the event-switcher dropdown's "Switch view" rows + sidebar).
 

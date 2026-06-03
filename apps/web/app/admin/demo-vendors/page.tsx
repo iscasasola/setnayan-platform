@@ -28,7 +28,7 @@
  */
 
 import Link from 'next/link';
-import { Database, Trash2, RotateCcw, MapPin, ExternalLink, AlertTriangle } from 'lucide-react';
+import { Database, Trash2, RotateCcw, MapPin, ExternalLink, AlertTriangle, MessageSquare } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { TAXONOMY_MAP, WEDDING_FOLDER_LABEL, WEDDING_FOLDER_ORDER, type WeddingFolder } from '@/lib/taxonomy';
 import { DemoVendorActions } from './_components/demo-vendor-actions';
@@ -176,6 +176,15 @@ export default async function DemoVendorsAdminPage() {
           <code className="rounded bg-ink/5 px-1 py-0.5 text-[12px]">?demo=1</code>{' '}
           (Agent 2&apos;s gate).
         </p>
+        <div className="pt-1">
+          <Link
+            href="/admin/demo-vendors/inquiries"
+            className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-sm font-medium text-ink/80 hover:bg-ink/10"
+          >
+            <MessageSquare className="h-4 w-4" />
+            Demo inquiries — read &amp; respond as the vendor →
+          </Link>
+        </div>
         <p className="rounded-md border-l-4 border-amber-500 bg-amber-50 px-3 py-2 text-sm text-amber-900">
           <AlertTriangle className="mb-0.5 mr-1 inline-block h-4 w-4" />
           <strong>Hard cleanup deadline:</strong> 2026-12-01 (public launch). All demo

@@ -4,6 +4,28 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(0006,0016): music compatibility score — vendors ranked by song overlap + per-card cue (compatibility PR 4)
+
+**Commit:** see merge commit on this PR.
+
+**Context:** PR 4 of the vendor-compatibility build — the payoff. Music vendors are ranked by how much of the couple's chosen songs (`event_song_picks`, PR 3) they actually perform (`vendor_songs`, PR 2), and each card shows the match. Promote-but-never-limit: matches float up, nobody is excluded.
+
+**What changed:**
+- **`lib/songs.ts`** — `fetchEventSongPickIds` (the couple's pick set) + `fetchVendorSongOverlaps` (one batched count of each candidate's overlap with the picks).
+- **`lib/wizard-recommendations.ts`** — `fetchWizardVendorRecommendations` gains an optional `matchEventId` arg + optional return fields (`song_overlap_count` / `song_pick_total` / `match_label` 'best' [≥90%] / 'next_best'). For a music-category query with a matched event + picks: over-fetch a 100-candidate pool, compute overlap, **stable-sort by overlap DESC** (preserves the ad_rank → review ladder within ties), trim to limit. Non-music / no-event queries take the EXACT prior path (zero extra reads). All 24 callers safe (optional fields, no strict mapping).
+- **Wiring** — the two music wizard cards (`music-entertainment-card`, `after-party-music-card`) pass `matchEventId: eventId` on the initial fetch; `searchVendorRecommendations` forwards it so in-card search re-ranks too.
+- **Cue** — `vendor-pick-grid-card.tsx` renders a per-card "♪ Best match · plays N of your M songs" pill, shown ONLY when the vendor performs ≥1 of the couple's songs (degrades to nothing — no "plays 0").
+
+**Verification:** `pnpm -F web typecheck` clean · `pnpm -F web lint` clean (only the pre-existing `aria-disabled` warning in this file) · `pnpm -F web build` ✓.
+
+**SPEC IMPACT:** Iteration **0006/0016** (the compatibility model). The "≥90% = Best matches / <90% = Next best options" intent is realized via the float-to-top re-rank + the "Best match" label; explicit grouped section-headers + extending the cue to the /vendors marketplace + Category-Search overlay are noted refinements (those don't go through the recommender). No new SKU. See `COWORK_INBOX.md`.
+
+**Owner action:** still push migration `20260731000000` for any of this to light up (empty `vendor_songs`/`event_song_picks` → no overlap → graceful no-op, current ranking unchanged).
+
+**Next:** PR 6 — admin dedup/merge tool for the master song catalogue.
+
+---
+
 ## 2026-06-03 · feat(settings): "Planning reminders" on/off toggle (couple opt-out)
 
 **Context:** The free recommended-deadline reminders ship **on by default**; this is the quiet opt-out the owner asked for — no up-front fork, just a Settings switch.

@@ -8,6 +8,18 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Music compatibility score shipped (0006/0016)
+
+**Why:** PR 4 of the compatibility build — music vendors are ranked by song overlap with the couple's picks + cards show the match. The "≥90% Best / <90% Next-best" intent is realized via re-rank + label.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`Vendor_Compatibility_and_Master_Songlist_2026-06-03.md`** — note the score SHIPPED on the wizard music cards: `fetchWizardVendorRecommendations` re-ranks music vendors by overlap (float-to-top, never-exclude) + the per-card "Best match · plays N of M songs" cue. Optional `matchEventId` + optional fields. **Refinements still open:** explicit Best/Next-best section-headers (vs the current re-rank+label realization), and extending the cue to the `/vendors` marketplace + the Category Search overlay (those surfaces don't go through the recommender → need separate wiring).
+2. **`0006` / `0016`** — record the music matching is live end-to-end (PRs 1–4).
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "feat(0006,0016): music compatibility score…". Needs migration `20260731000000` pushed.
+
+---
+
 ## [PENDING] 2026-06-03 — "Planning reminders" on/off toggle SHIPPED (0025 Settings)
 
 **Why:** The free recommended-deadline reminders ship on by default; couples can now turn them off in Settings (the quiet opt-out, no fork). New `users.reminders_enabled` column + a Settings toggle that gates the Home `recommended_deadline` source.

@@ -8,6 +8,8 @@ import { unlockCategoryWithInquiry } from '@/app/dashboard/[eventId]/vendors/_ac
 import { fetchWizardVendorRecommendations } from '@/lib/wizard-recommendations';
 import { recomputeReceptionAnchor } from '@/lib/events';
 import { defaultInvitedToForRole } from '@/lib/guests';
+import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
+import { canonicalServicesForTile, canonicalServicesForFolder } from '@/lib/vendor-counts';
 
 /**
  * commitOnboardingWedding — the single lazy DB commit for the /onboarding/wedding
@@ -508,5 +510,131 @@ export async function searchOnboardingReceptionVenues(input: {
     }));
   } catch {
     return [];
+  }
+}
+
+/* Resolve a planning-group id → its canonical services, the SAME way the
+   Services-tab Category Search does (category-search.ts canonicalsForGroup):
+   subcategoryHint → catalogTile → catalogFolder. Kept in lock-step so the
+   onboarding count and the dashboard's "vendors in your categories" agree. */
+function canonicalsForOnboardingGroup(groupId: string): string[] {
+  const g = PLAN_GROUPS.find((x) => x.id === groupId);
+  if (!g) return [];
+  if (g.subcategoryHint) return [g.subcategoryHint];
+  if (g.catalogTile) return canonicalServicesForTile(g.catalogTile);
+  return canonicalServicesForFolder(g.catalogFolder);
+}
+
+export type OnboardingVendorCounts = { matched: number; total: number };
+
+/**
+ * getOnboardingVendorCounts — REAL marketplace counts for the congrats screen's
+ * third stat tile (step 13), replacing the fabricated `max(categories×5, 12)` +
+ * the hardcoded "2,400+" label (owner 2026-06-03: "15 out of 2400+ vendors is
+ * fake. we want real numbers only." → AskUserQuestion "Real marketplace counts").
+ *
+ * Criteria-based (NO eventId — the event row isn't created until the commit, and
+ * congrats renders before it), so it counts straight off vendor_market_stats
+ * using the SAME published-pool + NULL-safe ceremony/venue compat filters
+ * fetchWizardVendorRecommendations uses, scoped to the canonical services of the
+ * couple's PICKED categories — i.e. the same pool definition the Services tab's
+ * marketPoolCount uses:
+ *
+ *   total   = published vendors (verified + coming_soon, real business_name)
+ *             across the couple's picked categories. Empty picks → the whole
+ *             published marketplace (still a real pool, not a category scope).
+ *   matched = of those, the ones that FIT the wedding — compatible with the
+ *             couple's ceremony_type (+ secondary for interfaith) AND venue
+ *             setting, NULL-safe admit-never-exclude (same as the marketplace).
+ *
+ * Returns null — and the tile AUTO-HIDES, never fabricates — when a count can't
+ * be computed (query error) or there is no real pool to narrow (total ≤ 0, or
+ * matched ≤ 0 so we never show a discouraging "0 fit you"). Reads
+ * vendor_market_stats (public via /vendors) → no auth gate. Never throws.
+ */
+export async function getOnboardingVendorCounts(input: {
+  kind: 'religious' | 'civil' | 'mixed' | null;
+  faith: string[];
+  receptionSettings: string[];
+  picks: string[];
+}): Promise<OnboardingVendorCounts | null> {
+  // Derive ceremony_type + secondary the SAME way the commit + reception search
+  // do, so the NULL-safe ceremony filter admits faith-agnostic vendors.
+  let ceremonyType: string | null = null;
+  let secondary: string | null = null;
+  if (input.kind === 'civil') {
+    ceremonyType = 'civil';
+  } else if (input.kind === 'mixed') {
+    ceremonyType = 'mixed';
+    secondary =
+      input.faith.find((f) => (ALLOWED_SECONDARY as readonly string[]).includes(f)) ?? null;
+  } else if (input.kind === 'religious') {
+    const primary = input.faith[0];
+    ceremonyType =
+      primary && (ALLOWED_CEREMONIES as readonly string[]).includes(primary)
+        ? primary
+        : 'catholic';
+  }
+  const venueSetting =
+    (input.receptionSettings ?? [])
+      .map((k) => RECEPTION_TO_VENUE_SETTING[k])
+      .find((v): v is string => Boolean(v)) ?? null;
+
+  // Picked categories → canonical service union (same resolver the Services-tab
+  // Category Search uses). Empty union → count the whole published marketplace.
+  const canonicalUnion = Array.from(
+    new Set(
+      (input.picks ?? [])
+        .map((p) => PICK_TO_GROUP[p])
+        .filter((g): g is string => Boolean(g))
+        .flatMap((groupId) => canonicalsForOnboardingGroup(groupId)),
+    ),
+  );
+
+  const ceremonyValues = Array.from(
+    new Set([ceremonyType, secondary].filter((v): v is string => typeof v === 'string' && v.length > 0)),
+  );
+
+  const admin = createAdminClient();
+  // Published-pool base (verified + coming_soon, real business_name), scoped to
+  // the couple's categories when they picked any.
+  const base = () => {
+    let q = admin
+      .from('vendor_market_stats')
+      .select('vendor_profile_id', { count: 'exact', head: true })
+      .in('public_visibility', ['verified', 'coming_soon'])
+      .not('business_name', 'is', null)
+      .neq('business_name', '');
+    if (canonicalUnion.length > 0) q = q.overlaps('services', canonicalUnion);
+    return q;
+  };
+
+  try {
+    const [totalRes, matchedRes] = await Promise.all([
+      base(),
+      (() => {
+        let q = base();
+        if (ceremonyValues.length > 0) {
+          q = q.or(
+            [
+              'compatible_ceremony_types.is.null',
+              ...ceremonyValues.map((v) => `compatible_ceremony_types.cs.{${v}}`),
+            ].join(','),
+          );
+        }
+        if (venueSetting) {
+          q = q.or(`compatible_venue_settings.is.null,compatible_venue_settings.cs.{${venueSetting}}`);
+        }
+        return q;
+      })(),
+    ]);
+
+    if (totalRes.error || matchedRes.error) return null;
+    const total = totalRes.count ?? 0;
+    const matched = Math.min(matchedRes.count ?? 0, total); // defensive: matched ⊆ total
+    if (total <= 0 || matched <= 0) return null; // never fabricate / never discourage
+    return { matched, total };
+  } catch {
+    return null;
   }
 }

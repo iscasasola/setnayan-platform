@@ -276,10 +276,24 @@ export default async function GuestsPage({ params, searchParams }: Props) {
        the moment the host navigates away. -mt-6 cancels the <main py-6>
        top-padding so the page content sits flush under the bottom-nav. */
     <section
-      className="-mt-6 space-y-6"
+      className="-mt-6 space-y-6 pt-[calc(env(safe-area-inset-top)+3.25rem)] lg:pt-0"
       style={{ ['--gcar-h' as string]: 'clamp(208px, 33vh, 288px)' }}
     >
       <style>{`.shell-topbar{display:none}`}</style>
+
+      {/* Focus-mode exit (mobile only) — owner directive 2026-06-03. On the
+          Guests page the global bottom nav is replaced by the carousel's own
+          menu, so this floating X is the single way back to event home. Fixed
+          top-left, safe-area-aware, z-50 above the scrolling list; the section
+          pt above clears the first row so the X never sits on a guest. Desktop
+          keeps the sidebar, so it's lg:hidden. */}
+      <Link
+        href={`/dashboard/${eventId}`}
+        aria-label="Back to dashboard home"
+        className="fixed left-3 top-[calc(env(safe-area-inset-top)+0.5rem)] z-50 inline-flex h-9 w-9 items-center justify-center rounded-full bg-cream/95 text-ink/70 shadow-[0_4px_14px_-6px_rgba(30,34,41,0.5)] ring-1 ring-ink/10 backdrop-blur transition-colors hover:bg-cream hover:text-ink lg:hidden"
+      >
+        <X className="h-5 w-5" strokeWidth={2} aria-hidden />
+      </Link>
       {/* Header is DESKTOP-ONLY (owner directive 2026-06-03 — "remove GUEST
           LIST / N guests since we already have Summary below"). On mobile the
           carousel's Summary panel carries the count; the top is just the list. */}

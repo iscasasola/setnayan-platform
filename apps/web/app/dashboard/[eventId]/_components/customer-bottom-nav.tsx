@@ -43,6 +43,7 @@
  * Server Component to the Client BottomNav trips Next.js serialization.
  */
 
+import { usePathname } from 'next/navigation';
 import { Home, Users, Store, Globe, Menu } from 'lucide-react';
 import { BottomNav } from '@/app/_components/nav/bottom-nav';
 import type { BottomNavItem } from '@/app/_components/nav/types';
@@ -148,5 +149,19 @@ export function buildCustomerBottomNav(eventId: string): BottomNavItem[] {
  * destination route exists.
  */
 export function CustomerBottomNav({ eventId }: { eventId: string }) {
+  const pathname = usePathname();
+
+  // FOCUS MODE — Guests page (owner directive 2026-06-03). The Guests list
+  // runs as a "takeover": its lower-third carousel's own tab menu (Summary ·
+  // Search & sort · Add · Customize) REPLACES the global 5-tab bottom nav,
+  // and a floating X (top-left) is the single exit back to event home. So we
+  // suppress this nav on the exact list route. Scoped to `/guests` only —
+  // sub-pages (/guests/import, /guests/quick) and the sibling people routes
+  // (/sponsors, /hosts) keep the standard nav, so no surface is orphaned
+  // (the X returns to Home, where the full nav is available again).
+  // usePathname() is populated during SSR for client components, so the nav
+  // is absent from first paint on /guests — no hide-flash.
+  if (pathname === `/dashboard/${eventId}/guests`) return null;
+
   return <BottomNav items={buildCustomerBottomNav(eventId)} />;
 }

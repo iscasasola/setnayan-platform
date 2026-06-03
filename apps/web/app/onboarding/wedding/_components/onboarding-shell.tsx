@@ -79,7 +79,7 @@ const BUNDLE_ASSET = (key: string) => `/onboarding/bundle/${key}.webp`;
 
 /* Kind → hero photo + caption (prototype setKindPhoto). */
 const KIND_PHOTO: Record<OnboardingKind, { img: string; cap: string }> = {
-  religious: { img: 'wed_catholic', cap: 'A church wedding' },
+  religious: { img: 'wed_catholic', cap: 'A faith ceremony' },
   civil: { img: 'wed_civil', cap: 'A city-hall ceremony' },
   mixed: { img: 'wed_mixed', cap: 'A blended celebration' },
 };
@@ -96,7 +96,7 @@ const FAITH_PHOTO: Record<OnboardingFaith, { img: string; cap: string }> = {
 
 const ROLE_OPTIONS: { value: OnboardingRole; title: string; desc: string }[] = [
   { value: 'bride', title: 'Bride', desc: 'Walking down the aisle.' },
-  { value: 'groom', title: 'Groom', desc: 'Waiting at the altar.' },
+  { value: 'groom', title: 'Groom', desc: 'Waiting at the front.' },
   { value: 'helper', title: 'Someone helping', desc: 'A parent, planner, or part of the entourage.' },
 ];
 
@@ -264,7 +264,7 @@ const PICK_GROUPS: PickGroup[] = [
 const ALL_CATS = PICK_GROUPS.flatMap((g) => g.rows.flat().map((c) => c.cat));
 const PICK_INFO: Record<string, { g: string; d: string }> = {
   reception: { g: 'Venue', d: 'Where your celebration happens — the dinner, the program, and the dancing.' },
-  ceremony: { g: 'Venue', d: 'The church, chapel, or garden where you say "I do."' },
+  ceremony: { g: 'Venue', d: 'Where you exchange vows — church, mosque, temple, garden, or civil hall.' },
   coordinator: { g: 'Planning', d: 'Runs your timeline and vendors so you can just enjoy the day.' },
   catering: { g: 'Feast', d: 'Food and service for your guests — buffet, plated, or family-style.' },
   cake: { g: 'Feast', d: 'Your wedding cake and dessert centerpiece.' },
@@ -361,7 +361,37 @@ const FEELLBL: Record<string, string> = { timeless: 'Timeless', modern: 'Modern'
 const FEEL_CHIPS = ['timeless', 'modern', 'boho', 'rustic', 'glam', 'royalty', 'filipiniana', 'others'];
 /* photo-card option sets: [emoji, label, prefs-photo-key] */
 const RECEPTION_SETTINGS: [string, string, string][] = [['✨', 'Hotel ballroom', 'setting_ballroom'], ['🎪', 'Events place', 'setting_events_place'], ['🏛️', 'Heritage', 'setting_heritage'], ['🍽️', 'Restaurant', 'setting_restaurant'], ['🌿', 'Garden', 'setting_garden'], ['🏖️', 'Beach', 'setting_beach'], ['🌴', 'Resort / destination', 'setting_resort']];
-const CEREMONY_OPTS: [string, string, string][] = [['⛪', 'Church', 'ceremony_church'], ['🌿', 'Garden', 'ceremony_garden'], ['🏖️', 'Beach', 'ceremony_beach'], ['🏛️', 'Civil registrar', 'ceremony_civil'], ['🎪', 'Same as reception', 'ceremony_same_reception']];
+// Ceremony venue options are FAITH-ADAPTIVE — Setnayan caters every tradition,
+// not just church weddings. Each picked faith contributes its house of worship
+// (deduped); the universal settings always follow. Civil / no-faith couples get
+// the universal set only. (owner-directed 2026-06-03 "cater all religious weddings".)
+const WORSHIP_OPT: Partial<Record<OnboardingFaith, [string, string, string]>> = {
+  catholic: ['⛪', 'Church', 'ceremony_church'],
+  christian: ['⛪', 'Church', 'ceremony_church'],
+  inc: ['⛪', 'Chapel', 'ceremony_church'],
+  muslim: ['🕌', 'Mosque', 'ceremony_mosque'],
+  chinese: ['🛕', 'Temple', 'ceremony_temple'],
+  // cultural: indigenous Filipino ceremonies are outdoor / ancestral — no single
+  //   house of worship; the universal options below cover them.
+};
+const UNIVERSAL_CEREMONY_OPTS: [string, string, string][] = [
+  ['🌿', 'Garden', 'ceremony_garden'],
+  ['🏖️', 'Beach', 'ceremony_beach'],
+  ['🏛️', 'Civil registrar', 'ceremony_civil'],
+  ['🎪', 'Same as reception', 'ceremony_same_reception'],
+];
+function ceremonyOptsFor(faith: OnboardingFaith[]): [string, string, string][] {
+  const worship: [string, string, string][] = [];
+  const seen = new Set<string>();
+  for (const f of faith) {
+    const w = WORSHIP_OPT[f];
+    if (w && !seen.has(w[2])) {
+      seen.add(w[2]);
+      worship.push(w);
+    }
+  }
+  return [...worship, ...UNIVERSAL_CEREMONY_OPTS];
+}
 const CUISINE_OPTS: [string, string, string][] = [['🍲', 'Filipino', 'cuisine_filipino'], ['🥢', 'Asian', 'cuisine_asian'], ['🌍', 'International', 'cuisine_international'], ['🥘', 'Spanish', 'cuisine_spanish'], ['🍝', 'Italian', 'cuisine_italian'], ['✨', 'Fusion', 'cuisine_fusion']];
 const SERVICE_STYLES = ['Plated', 'Buffet', 'Family-style', 'Stations'];
 const PV_LOOKS: [string, string, string][] = [['📸', 'Photojournalistic', 'pv_photojournalistic'], ['🤍', 'Classic', 'pv_classic'], ['📰', 'Editorial', 'pv_editorial'], ['🎞️', 'Fine-art / film', 'pv_fineart'], ['🎬', 'Cinematic', 'pv_cinematic']];
@@ -563,7 +593,7 @@ function StyleSubStepper({
 
   const META: Record<string, { eb: string; q: string; sub: string }> = {
     reception: { eb: 'Reception', q: 'What setting do you love?', sub: 'Open to a few? Tap them all — we float matching venues to the top.' },
-    ceremony: { eb: 'Ceremony', q: 'Where will you say “I do”?', sub: 'We’ll match officiants and venues that fit.' },
+    ceremony: { eb: 'Ceremony', q: 'Where will you hold your ceremony?', sub: 'We’ll match officiants and venues that fit your tradition.' },
     catering: { eb: 'Catering', q: 'Pick your cuisine', sub: 'Open to a few cuisines? Tap them all.' },
     photo_video: { eb: 'Photo & Video', q: 'Your look', sub: 'Mix a couple — we’ll match teams who shoot that way.' },
     music: { eb: 'Music', q: 'Your songs', sub: 'Tap the ones you love — they jump to the top. Pick at least 10; we’ll build the rest of your playlist.' },
@@ -586,7 +616,7 @@ function StyleSubStepper({
     body = (
       <div data-single>
         <div className="pgrid">
-          {CEREMONY_OPTS.map(([e, l, k]) => (
+          {ceremonyOptsFor(faith).map(([e, l, k]) => (
             <PCard key={k} emoji={e} label={l} photoKey={k} selected={prefs.ceremony === k} onClick={() => onPrefs({ ceremony: k })} />
           ))}
         </div>

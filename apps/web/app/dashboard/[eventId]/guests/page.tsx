@@ -112,7 +112,11 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   if (!user) redirect('/login');
   const supabase = await createClient();
 
-  const [guests, eventRow, groups, membershipsMap] = await Promise.all([
+  // All reads fire in ONE parallel batch — including the share-invite token,
+  // which used to run as a 5th *sequential* round-trip after this block (owner
+  // perf pass 2026-06-03). Folding it in drops one Singapore RTT off every
+  // visit to the Guests tab.
+  const [guests, eventRow, groups, membershipsMap, joinUrl] = await Promise.all([
     fetchGuestsByEvent(supabase, eventId),
     supabase
       .from('events')
@@ -121,6 +125,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       .maybeSingle(),
     fetchGuestGroupsByEvent(supabase, eventId),
     fetchGroupMembershipsByEvent(supabase, eventId),
+    fetchJoinUrl(supabase, eventId),
   ]);
   // Log silent palette-read errors so a future ADD COLUMN regression
   // would surface in Sentry instead of falling through to an empty
@@ -244,7 +249,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
 
   const stats = computeGuestStats(guests);
   const allTags = uniqueTags(guests);
-  const joinUrl = await fetchJoinUrl(supabase, eventId);
   const flash = pickFlash(search);
 
   // Team Bride / Team Groom counts — "both" counts to both sides on

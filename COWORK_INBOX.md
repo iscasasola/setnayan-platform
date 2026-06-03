@@ -8,6 +8,21 @@
 
 ---
 
+## [PENDING] 2026-06-03 — All wedding faiths unlocked: Christian / INC / Muslim / Cultural now active (0043/0016)
+
+**Why:** Owner directive — *"unlock all religions first."* The four faiths that shipped as "Coming Soon" in iteration 0043 (gated behind per-region vendor density via `wedding_type_launch_status`) are now **active** everywhere: the onboarding faith chips, both `ALLOWED_CEREMONIES` server constants, the create-event launch-status fallback, and the `wedding_type_launch_status` table (migration `20260803000000`, verified applied to prod). Onboarding has no tradition picker, so Muslim/Cultural commits default `ceremony_sub_type` (`general_muslim` / `other`) to satisfy the DB CHECK `events_sub_type_required_when_muslim_or_cultural`; create-event collects the specific tradition.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **The `wedding_type_launch_status` design (iteration 0043) + any "V1.1 visible faiths: catholic + civil active" note** — superseded: **all six ceremony types are active.** Record that the per-region vendor-density threshold gate is overridden (owner chose a global unlock); a future re-gate would flip rows back to `coming_soon`.
+2. **`0016_step_by_step_plan_builder` / the onboarding faith step (`OnboardingFaith`)** — no longer marks four faiths "Coming Soon"; all five chips selectable. Note the onboarding-side default sub-type for Muslim/Cultural (onboarding has no tradition picker; create-event does) — couples refine the exact tradition later from the dashboard.
+3. **CLAUDE.md decision log (corpus root)** — append a 2026-06-03 row: *"Unlock all religions — christian/inc/muslim/cultural flipped to active in `wedding_type_launch_status` + the onboarding/create-event hardcoded mirrors; overrides the per-region vendor-density activation gate."*
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "feat(0043,0016): unlock all wedding faiths". Migration `20260803000000` (verified applied to prod).
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — In-app services nested INTO the Vendors-tab categories (0021)
 
 **Why:** Owner (twice) — "in app services are still not inside the categories." The standalone in-app-services launcher grid in the couple Services tab was retired; Setnayan services now render INSIDE their canonical category rails (✦ Setnayan, float-to-top) per `Digital_Services_Cross_Surface_Map_2026-06-03.md` §2.

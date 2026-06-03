@@ -28,7 +28,8 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
   // Iteration 0043 — read which faiths are active in this region so the
   // picker can render Coming Soon cards correctly. RLS lets anon + auth
   // read the table; if the query fails (auth blip, db hiccup) we fall
-  // back to "catholic + civil active" which is the V1.1 launch baseline.
+  // back to the all-active baseline (owner-directed 2026-06-03 "unlock all
+  // religions"; migration 20260803000000 flips every row to 'active').
   const supabase = await createClient();
   const { data: launchRows } = await supabase
     .from('wedding_type_launch_status')
@@ -38,10 +39,10 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
   const launchStatus: LaunchStatusRow[] = (launchRows as LaunchStatusRow[] | null) ?? [
     { ceremony_type: 'catholic',  status: 'active' },
     { ceremony_type: 'civil',     status: 'active' },
-    { ceremony_type: 'christian', status: 'coming_soon' },
-    { ceremony_type: 'inc',       status: 'coming_soon' },
-    { ceremony_type: 'muslim',    status: 'coming_soon' },
-    { ceremony_type: 'cultural',  status: 'coming_soon' },
+    { ceremony_type: 'christian', status: 'active' },
+    { ceremony_type: 'inc',       status: 'active' },
+    { ceremony_type: 'muslim',    status: 'active' },
+    { ceremony_type: 'cultural',  status: 'active' },
   ];
 
   return (

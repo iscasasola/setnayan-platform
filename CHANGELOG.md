@@ -4,6 +4,27 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(0043,0016): unlock all wedding faiths (Christian / INC / Muslim / Cultural now active)
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner directive — *"unlock all religions first."* Iteration 0043 shipped only **catholic + civil** as active faiths; **christian / inc / muslim / cultural** rendered as "Coming Soon" (gated behind per-region vendor density). Religions were gated in **five** places — the onboarding faith chips, two `ALLOWED_CEREMONIES` server constants (onboarding + create-event), the create-event launch-status fallback, and the canonical `wedding_type_launch_status` table. All five are now opened.
+
+**What changed:**
+- **`app/onboarding/wedding/_components/onboarding-shell.tsx`** — `FAITH_CHIPS` flips Christian/INC/Muslim/Cultural `soon: true → false` (selectable, no "soon" badge).
+- **`app/onboarding/wedding/actions.ts`** — widened `ALLOWED_CEREMONIES` (non-Catholic primaries were silently **coerced to `catholic`** on commit) + new `DEFAULT_SUB_TYPE` so the insert defaults `ceremony_sub_type` for Muslim→`general_muslim` / Cultural→`other`. **Avoids a constraint trap:** the DB CHECK `events_sub_type_required_when_muslim_or_cultural` requires a non-null sub-type, and onboarding has no tradition picker — without the default every Muslim/Cultural commit would fail with a Postgres error.
+- **`app/dashboard/create-event/actions.ts`** — widened `ALLOWED_CEREMONIES`. The picker is data-driven by `wedding_type_launch_status` and already collects + validates the Muslim/Cultural tradition sub-type, so this completes that path.
+- **`app/dashboard/create-event/page.tsx`** — launch-status fallback flipped all-active.
+- **`supabase/migrations/20260803000000_unlock_all_wedding_types.sql`** — idempotent UPDATE flipping every `wedding_type_launch_status` row to `active` (stamps `activated_at` only where still NULL).
+
+**Verification:** `tsc --noEmit` exit 0 (full project, 0 errors) + full CI green (production build · Playwright e2e · Lighthouse · desktop builds). Prod `wedding_type_launch_status` verified all-`active` by direct query (migration auto-applied on file-write).
+
+**Owner action:** none for the migration — already applied to prod (verified).
+
+**SPEC IMPACT:** Yes — iteration **0043** (`wedding_type_launch_status` "V1.1: catholic + civil active") + the **0016** onboarding faith step + the CLAUDE.md decision log now describe all six ceremony types as active. The per-region vendor-density activation gate is overridden globally (owner's choice). See `COWORK_INBOX.md`.
+
+---
+
 ## 2026-06-03 · feat(0021,0006): nest in-app Setnayan services INSIDE the Vendors-tab category rails
 
 **Context:** In-app services rendered as a standalone launcher grid (`InAppServicesSection`) BELOW the Plan+Budget accordion — i.e. not inside the categories (owner, twice: "in app services are still not inside the categories"). `Digital_Services_Cross_Surface_Map_2026-06-03.md` §2-3 locks them INTO their canonical category with a ✦ Setnayan badge, floated to the top. This is the **presentation-nest** step (owner-picked over the full vendor-model convergence).

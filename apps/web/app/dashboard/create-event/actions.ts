@@ -44,7 +44,20 @@ type ConciergeChoice = (typeof ALLOWED_CONCIERGE_CHOICES)[number];
 // muslim / cultural) are intentionally NOT in ALLOWED_CEREMONIES — the
 // picker blocks them client-side and routes interest to
 // couple_wedding_type_notify_signups via notifyWhenWeddingTypeLaunches below.
-const ALLOWED_CEREMONIES = ['catholic', 'civil', 'mixed'] as const;
+// All faiths unlocked (owner-directed 2026-06-03 "unlock all religions").
+// Previously ['catholic','civil','mixed'] with christian/inc/muslim/cultural
+// blocked client-side. The picker is data-driven by wedding_type_launch_status
+// (now all 'active') and already collects + validates the muslim/cultural
+// tradition sub-type, so widening this list completes the create-event unlock.
+const ALLOWED_CEREMONIES = [
+  'catholic',
+  'civil',
+  'mixed',
+  'christian',
+  'inc',
+  'muslim',
+  'cultural',
+] as const;
 const ALLOWED_VENUES = [
   'banquet_hall',
   'garden',

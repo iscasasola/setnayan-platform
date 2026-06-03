@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · perf(ux): haptics Settings toggle + parallelize 9 query waterfalls
+
+**Context:** Two owner-requested follow-ups to PR #892 (app-wide loading skeletons + global tap haptics) — "both": wire a Settings switch for the haptics, and sweep pages for the same sequential-`await` waterfall the Guests page had.
+
+**What changed:**
+- **Haptic-feedback toggle (`dashboard/profile/_components/haptics-toggle.tsx`):** iOS-style switch in the customer Profile → Appearance section, next to the theme picker (the established home for device/appearance prefs — theme switching is likewise customer-profile-only). Writes the `setnayan-haptics` localStorage key GlobalHaptics reads; fires a `confirm` pulse on enable so the change is felt. `data-no-haptic` on the switch keeps toggling-off silent.
+- **Reactive `GlobalHaptics` (`app/_components/global-haptics.tsx`):** re-reads the flag LIVE on a `setnayan-haptics-change` event (+ cross-tab `storage`) instead of bailing out at mount, so the toggle applies with no page reload.
+- **9 query-waterfall folds** — independent sequential reads collapsed into one `Promise.all` each (each verified independent; auth/guard chains + dependent reads left sequential): `add-ons/papic` (4→1) · `vendor-dashboard/manpower` (3→1) · `site-editor/[eventId]` (3→1: guests + QR render + orders) · `vendor-dashboard/bookings` (2→1) · `vendor-dashboard/repertoire` (2→1) · `dashboard/[eventId]/hosts` (2→1) · `dashboard/[eventId]/sponsors` (2→1) · `admin/vendors` (2→1) · `admin/disputes` (2→1, FK lookups). The audit confirmed event-home + both dashboard layouts are ALREADY parallelized (untouched); 2 MEDIUM candidates (`earnings`, `vendors` conditional) skipped as more invasive for marginal gain.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean (2 pre-existing warnings, untouched) · production build green. Shipped from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** None — UX polish + server-side read parallelization (no SKU / schema / route / workflow change). The haptics toggle realizes the "future Settings → Appearance toggle" flagged in PR #892.
+
 ## 2026-06-03 · perf/ux(0000,0001,0021,0022,0023): app-wide loading skeletons + global tap haptics
 
 **Context:** Owner report — *"why is it so slow to transfer to guests from summary."* The lag was mostly *perceived*: tapping a dashboard tab gave no instant feedback. Only 4 segment-level `loading.tsx` existed, so ~160 child routes froze on their server reads (or inherited the wrong-shaped event-home skeleton) until every Supabase query (~50–200 ms RTT each from Singapore) returned. Owner follow-up: *"apply [it] on all loading-able areas … we want an animation loading so they do not feel they are waiting too long. also apply interaction on buttons and haptic feedbacks."*

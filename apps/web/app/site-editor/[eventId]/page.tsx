@@ -74,41 +74,48 @@ export default async function SiteEditorPage({
     .maybeSingle();
   if (!event) notFound();
 
-  const guests = await fetchGuestsByEvent(supabase, eventId);
-  const stats = computeGuestStats(guests);
-
+  // Cheap sync derivations the QR render needs — compute before the batch.
   const monogram = resolveMonogram(event);
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
-
   const publicLandingUrl = event.slug
     ? buildEventLandingUrl({ appUrl, slug: event.slug })
     : null;
-
-  const masterQrSvg = event.slug
-    ? await renderEventLandingQrSvg({ appUrl, slug: event.slug, monogram })
-    : null;
-
   const slugDisplay = publicLandingUrl
     ? publicLandingUrl.replace(/^https?:\/\//, '')
     : null;
 
-  // Pro-upgrade ownership — Monogram Hero (₱1,999) + Live Schedule (₱999), the
-  // two inline-buy widget upgrades the Event tab surfaces. Scoped to just those
-  // SKUs, matching the website hub's fetch so the editor and the journey page
-  // agree on owned-state. Graceful-degrade to empty (cards show their Upgrade
-  // CTA) on a pre-bootstrap DB where the orders table is missing — never crash.
-  let ownedOrders: { service_key: string | null; status: string }[] = [];
-  const { data: ordersData, error: ordersError } = await supabase
-    .from('orders')
-    .select('service_key, status')
-    .eq('event_id', eventId)
-    .in('service_key', ['monogram_hero_upgrade', 'pro_widget_schedule'])
-    .not('status', 'in', '("cancelled","refunded","lapsed")');
-  if (ordersError) {
-    logQueryError('SiteEditorPage (orders)', ordersError, { event_id: eventId }, 'graceful_degrade');
+  // Guest list, the master landing-page QR render, and the Pro-upgrade order
+  // check are mutually independent (all key off the event) — one parallel batch
+  // instead of three serial round-trips (owner perf pass 2026-06-03). Orders
+  // graceful-degrades to empty (cards show their Upgrade CTA) on a pre-bootstrap
+  // DB where the table is missing — never crash. The two upgrade SKUs match the
+  // website hub's fetch so the editor and journey page agree on owned-state.
+  const [guests, masterQrSvg, ordersRes] = await Promise.all([
+    fetchGuestsByEvent(supabase, eventId),
+    event.slug
+      ? renderEventLandingQrSvg({ appUrl, slug: event.slug, monogram })
+      : Promise.resolve(null),
+    supabase
+      .from('orders')
+      .select('service_key, status')
+      .eq('event_id', eventId)
+      .in('service_key', ['monogram_hero_upgrade', 'pro_widget_schedule'])
+      .not('status', 'in', '("cancelled","refunded","lapsed")'),
+  ]);
+  const stats = computeGuestStats(guests);
+  if (ordersRes.error) {
+    logQueryError(
+      'SiteEditorPage (orders)',
+      ordersRes.error,
+      { event_id: eventId },
+      'graceful_degrade',
+    );
   }
-  ownedOrders = (ordersData ?? []) as typeof ownedOrders;
+  const ownedOrders = (ordersRes.data ?? []) as {
+    service_key: string | null;
+    status: string;
+  }[];
 
   return (
     <SiteEditor

@@ -238,37 +238,40 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       ? 'google_drive_only'
       : 'setnayan_r2';
 
-  // --- Drive OAuth grant lookup ---
-  // RLS scopes oauth_grants by event_id IN current_event_ids(), so the
-  // regular anon client is fine here — no service role needed for the read.
-  const { data: grantRaw } = await supabase
-    .from('oauth_grants')
-    .select(
-      'grant_id, external_account_display, granted_at, metadata',
-    )
-    .eq('event_id', eventId)
-    .eq('provider', 'drive')
-    .is('revoked_at', null)
-    .maybeSingle();
+  // Drive-grant lookup, Papic-seat ownership, the seat SKU price, and platform
+  // settings are four mutually independent reads — one parallel batch instead
+  // of four serial round-trips (owner perf pass 2026-06-03). The price/settings
+  // reads keep their own `.catch` fallbacks, so a failure in one never rejects
+  // the batch or breaks the always-rendered Papic page.
+  const [grantRaw, ownsPapicSeats, papicSeatsSku, platformSettings] =
+    await Promise.all([
+      // Drive OAuth grant — RLS scopes oauth_grants by event_id IN
+      // current_event_ids(), so the anon client is fine (no service role).
+      supabase
+        .from('oauth_grants')
+        .select('grant_id, external_account_display, granted_at, metadata')
+        .eq('event_id', eventId)
+        .eq('provider', 'drive')
+        .is('revoked_at', null)
+        .maybeSingle()
+        .then((r) => r.data ?? null),
+      // Photo-crew ownership — graceful-degrades to false on a missing table.
+      eventOwnsPapicSeats(supabase, eventId),
+      // Seat SKU price + platform settings each tolerate failure (.catch).
+      formatV2Sku(PAPIC_SEATS_SERVICE_KEY).catch(() => null),
+      fetchPlatformSettings(supabase).catch(() => null),
+    ]);
   const driveGrant = (grantRaw ?? null) as DriveGrant | null;
 
   // --- Graceful-fallback flag ---
   // When GOOGLE_DRIVE_OAUTH_CLIENT_ID is unset the Drive radio renders as
-  // disabled with a "coming soon" caption underneath. The Setnayan-R2
-  // option still works. This decouples shipping the V1 surface from the
-  // owner-side Google Cloud verified-app review (1-4 wk window).
+  // disabled with a "coming soon" caption underneath. The Setnayan-R2 option
+  // still works. Decouples shipping the V1 surface from the owner-side Google
+  // Cloud verified-app review (1-4 wk window).
   const driveConfig = getDriveOAuthConfig();
   const driveOAuthReady = driveConfig.ready;
 
-  // --- Papic photo-crew (PAPIC_SEATS) ownership + buy-CTA inputs ---
-  // The crew card below routes owners to the real /crew management surface and
-  // non-owners into apply-then-pay checkout. eventOwnsPapicSeats graceful-
-  // degrades to false on a missing table, and the price/settings reads tolerate
-  // failure (.catch), so this never breaks the always-rendered Papic page.
-  const ownsPapicSeats = await eventOwnsPapicSeats(supabase, eventId);
-  const papicSeatsSku = await formatV2Sku(PAPIC_SEATS_SERVICE_KEY).catch(() => null);
   const papicSeatsPricePhp = papicSeatsSku?.price_php ?? PAPIC_SEATS_PRICE_PHP;
-  const platformSettings = await fetchPlatformSettings(supabase).catch(() => null);
 
   const totalSeats = MOCK_SEATS.length;
   const claimedSeats = MOCK_SEATS.filter((s) => s.claimedBy !== null).length;

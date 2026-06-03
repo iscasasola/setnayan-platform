@@ -65,15 +65,16 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
 
-  const threads = await fetchVendorThreads(supabase, profile.vendor_profile_id);
-
-  // Hybrid Preparation (2026-06-03) — the prep items THIS vendor has added,
-  // keyed by event_id, so each accepted booking can show + manage them.
-  // Graceful-degrades to an empty map pre-migration.
-  const vendorPrepByEvent = await fetchVendorPreparationItemsByEvent(
-    supabase,
-    profile.vendor_profile_id,
-  );
+  // Threads + this vendor's prep items both key off the vendor id and are
+  // independent — one parallel batch instead of two serial reads (owner perf
+  // pass 2026-06-03). threadIds below still derives from `threads`, so the
+  // unread/latest-message Promise.all stays sequential after this.
+  const [threads, vendorPrepByEvent] = await Promise.all([
+    fetchVendorThreads(supabase, profile.vendor_profile_id),
+    // Hybrid Preparation (2026-06-03) — prep items THIS vendor has added,
+    // keyed by event_id; graceful-degrades to an empty map pre-migration.
+    fetchVendorPreparationItemsByEvent(supabase, profile.vendor_profile_id),
+  ]);
 
   // Pull latest message per thread for preview + unread inference.
   const threadIds = threads.map((t) => t.thread_id);

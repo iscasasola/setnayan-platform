@@ -155,34 +155,41 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
     new Set(rows.map((r) => r.opened_by_user_id).filter((v): v is string => Boolean(v))),
   );
 
+  // The vendor-name + opener-user FK lookups both derive from `rows` but not
+  // from each other — one parallel batch instead of two serial round-trips
+  // (owner perf pass 2026-06-03). An empty id list resolves to {data:[]} with
+  // no query (same pattern as vendor-dashboard/bookings).
+  const [{ data: vendorData }, { data: openerData }] = await Promise.all([
+    vendorIds.length > 0
+      ? admin
+          .from('vendor_profiles')
+          .select('vendor_profile_id, business_name')
+          .in('vendor_profile_id', vendorIds)
+      : Promise.resolve({ data: [] }),
+    openerIds.length > 0
+      ? admin
+          .from('users')
+          .select('user_id, display_name, email')
+          .in('user_id', openerIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
   const vendorMap = new Map<string, string>();
-  if (vendorIds.length > 0) {
-    const { data } = await admin
-      .from('vendor_profiles')
-      .select('vendor_profile_id, business_name')
-      .in('vendor_profile_id', vendorIds);
-    for (const v of data ?? []) {
-      vendorMap.set(
-        v.vendor_profile_id as string,
-        ((v.business_name as string | null) ?? '').trim() || 'Unnamed vendor',
-      );
-    }
+  for (const v of vendorData ?? []) {
+    vendorMap.set(
+      v.vendor_profile_id as string,
+      ((v.business_name as string | null) ?? '').trim() || 'Unnamed vendor',
+    );
   }
 
   const openerMap = new Map<string, { name: string; email: string | null }>();
-  if (openerIds.length > 0) {
-    const { data } = await admin
-      .from('users')
-      .select('user_id, display_name, email')
-      .in('user_id', openerIds);
-    for (const u of data ?? []) {
-      const display = ((u.display_name as string | null) ?? '').trim();
-      const email = ((u.email as string | null) ?? '').trim() || null;
-      openerMap.set(u.user_id as string, {
-        name: display || email || 'Unknown',
-        email,
-      });
-    }
+  for (const u of openerData ?? []) {
+    const display = ((u.display_name as string | null) ?? '').trim();
+    const email = ((u.email as string | null) ?? '').trim() || null;
+    openerMap.set(u.user_id as string, {
+      name: display || email || 'Unknown',
+      email,
+    });
   }
 
   // Stats banner — current quarter only. We want the banner to read as a

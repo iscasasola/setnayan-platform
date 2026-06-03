@@ -60,30 +60,35 @@ export default async function VendorManpowerPage() {
     redirect('/vendor-dashboard/verify');
   }
 
-  // Read vendor's wallet balance to surface "token balance" reassurance.
-  const { data: wallet } = await supabase
-    .from('vendor_wallets')
-    .select('purchased_tokens, earned_tokens')
-    .eq('vendor_id', vendor.vendor_profile_id)
-    .maybeSingle();
+  // Wallet balance + this vendor's gigs + the events they're linked to all key
+  // off the same vendor id and don't consume each other — one parallel batch
+  // instead of three serial round-trips (owner perf pass 2026-06-03). The
+  // open-gigs read below stays sequential (it needs eligibleEventIds).
+  const [{ data: wallet }, { data: myGigs }, { data: eventLinks }] =
+    await Promise.all([
+      // Wallet balance — surfaces the "token balance" reassurance.
+      supabase
+        .from('vendor_wallets')
+        .select('purchased_tokens, earned_tokens')
+        .eq('vendor_id', vendor.vendor_profile_id)
+        .maybeSingle(),
+      // 1. Vendor's accepted/completed/cancelled gigs (vendor_profile_id match).
+      supabase
+        .from('manpower_gigs')
+        .select(
+          'gig_id, event_id, posted_by_user_id, vendor_profile_id, gig_label, cash_amount_php_centavos, handshake_tokens_consumed, status, posted_at, accepted_at, completed_at, cancelled_at, cancellation_reason, notes, bir_exempt_note',
+        )
+        .eq('vendor_profile_id', vendor.vendor_profile_id)
+        .order('posted_at', { ascending: false }),
+      // 2. Events the vendor is involved with (→ open gigs below).
+      supabase
+        .from('event_vendors')
+        .select('event_id')
+        .eq('marketplace_vendor_id', vendor.vendor_profile_id),
+    ]);
 
   const totalTokens =
     (wallet?.earned_tokens ?? 0) + (wallet?.purchased_tokens ?? 0);
-
-  // 1. Vendor's accepted/completed/cancelled gigs (where vendor_profile_id matches).
-  const { data: myGigs } = await supabase
-    .from('manpower_gigs')
-    .select(
-      'gig_id, event_id, posted_by_user_id, vendor_profile_id, gig_label, cash_amount_php_centavos, handshake_tokens_consumed, status, posted_at, accepted_at, completed_at, cancelled_at, cancellation_reason, notes, bir_exempt_note',
-    )
-    .eq('vendor_profile_id', vendor.vendor_profile_id)
-    .order('posted_at', { ascending: false });
-
-  // 2. Open gigs on events the vendor is involved with.
-  const { data: eventLinks } = await supabase
-    .from('event_vendors')
-    .select('event_id')
-    .eq('marketplace_vendor_id', vendor.vendor_profile_id);
 
   const eligibleEventIds = Array.from(
     new Set((eventLinks ?? []).map((row) => row.event_id)),

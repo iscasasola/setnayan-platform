@@ -43,7 +43,7 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
     { ceremony_type: 'inc',       status: 'active' },
     { ceremony_type: 'muslim',    status: 'active' },
     { ceremony_type: 'cultural',  status: 'active' },
-    { ceremony_type: 'chinese',   status: 'coming_soon' },
+    { ceremony_type: 'chinese',   status: 'active' },
   ];
 
   return (

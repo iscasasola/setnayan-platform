@@ -66,6 +66,7 @@ const ALLOWED_CEREMONIES = [
   'inc',
   'muslim',
   'cultural',
+  'chinese',
 ] as const;
 const ALLOWED_VENUES = [
   'banquet_hall',
@@ -76,7 +77,7 @@ const ALLOWED_VENUES = [
   'outdoor_tent',
   'civil_registrar',
 ] as const;
-const ALLOWED_SECONDARY = ['catholic', 'civil', 'inc', 'christian', 'muslim', 'cultural'] as const;
+const ALLOWED_SECONDARY = ['catholic', 'civil', 'inc', 'christian', 'muslim', 'cultural', 'chinese'] as const;
 const ALLOWED_MUSLIM_SUB = [
   'maranao',
   'tausug',

@@ -8,6 +8,20 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Wedding onboarding caters all faiths + Chinese activated (0016/0043)
+
+**Why:** Owner — "fix all gaps and adjust our wedding onboarding to be able to cater all different religious weddings." Faith-adaptive ceremony venue (Church/Chapel/Mosque/Temple by faith + universal Garden/Beach/Civil/Same), de-churched copy, and the 6th faith Chinese fully wired + activated (was gated coming-soon in migration 20260804).
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **0016 onboarding / 0043 ceremony types** — the wedding onboarding caters all six faiths (catholic/christian/inc/muslim/cultural/chinese). Ceremony venue is faith-adaptive (each faith's house of worship + universal settings; Cultural = outdoor/ancestral). Chinese is ACTIVE (overrides the coming-soon gate seeded in migration 20260804).
+2. **CLAUDE.md decision log** — 2026-06-03 row: *"Wedding onboarding made faith-inclusive — faith-adaptive ceremony venue (mosque/temple photos generated via Recraft), de-churched copy, Chinese ceremony type activated (migration 20260806000000). Caters all 6 faiths."*
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "wedding onboarding caters all faiths". Migration `20260806000000` (re-asserts + builds on `20260804`).
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Spec 0000 event-type picker: reconcile to "all event types live, no notify" (0000/0041)
 
 **Why:** Owner chose "keep everything live" (don't re-gate #884's all-events-live). So spec 0000's picker section — which the #882 carousel update left describing "only Wedding+Debut live, the other nine coming-soon, 11 types, tap-to-be-notified" — is now wrong and should be reconciled to the shipped code.

@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(0016,0043): wedding onboarding caters all faiths (faith-adaptive ceremony venue + Chinese active + de-churched copy)
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner — *"fix all gaps and adjust our wedding onboarding to be able to cater all different religious weddings."* The faith picker was unlocked earlier today, but the rest of the flow stayed church-centric: the ceremony-venue picker offered only Church/Garden/Beach/Civil, copy said "church, chapel… 'I do'", and the 6th faith (Chinese) was gated + missing from the active set.
+
+**What changed:**
+- **Faith-adaptive ceremony venue** (`onboarding-shell.tsx`) — `CEREMONY_OPTS` → `ceremonyOptsFor(faith)`: each picked faith contributes its house of worship (Catholic/Christian → Church · INC → Chapel · Muslim → **Mosque** · Chinese → **Temple**; Cultural = outdoor/ancestral via the universal options), then universal Garden/Beach/Civil registrar/Same-as-reception. Mixed weddings show both houses of worship. Two new matching photos generated via Recraft (`ceremony_mosque.webp` · `ceremony_temple.webp`, 520×520).
+- **De-churched copy** — kind caption "A church wedding" → "A faith ceremony"; ceremony prompt "Where will you say 'I do'?" → "Where will you hold your ceremony?"; ceremony venue blurb → "church, mosque, temple, garden, or civil hall"; groom role "Waiting at the altar" → "at the front".
+- **Chinese faith fully wired + activated** — `FAITH_CHIPS` chinese `soon:false`; added to `ALLOWED_CEREMONIES` + `ALLOWED_SECONDARY` (onboarding + create-event); create-event launch-status fallback → active; migration `20260806000000` flips the `wedding_type_launch_status` row to active (self-sufficiently re-asserting 20260804's constraint widening). Chinese needs no sub_type (the DB CHECK only gates muslim/cultural).
+
+**Verification:** `tsc --noEmit` exit 0. New images 520×520 webp (~20KB/11KB), matched to the existing ceremony set.
+
+**SPEC IMPACT:** Yes — iteration 0016 (onboarding) + 0043 (ceremony types): the wedding onboarding now caters all six faiths (Catholic · Christian · INC · Muslim · Cultural · Chinese), not just church weddings; Chinese activated (overrides its coming-soon gate from 20260804). See `COWORK_INBOX.md`.
+
+---
+
 ## 2026-06-03 · chore(0000,0041): event_type enum guarantee + create-event copy (all-live)
 
 **Context:** Follow-up to the owner's "keep everything live" decision + the spec-0000 reconciliation. Two small gaps: (1) belt-and-suspenders the `event_type` enum so a Debut insert can never fail + add 3 roadmap types as seedable; (2) the create-event page still carried "only weddings live / tap to be notified" copy.

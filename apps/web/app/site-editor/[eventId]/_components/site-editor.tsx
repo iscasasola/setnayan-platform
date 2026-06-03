@@ -3,14 +3,19 @@
 import Link from 'next/link';
 import { useCallback, useRef, useState, type ReactNode } from 'react';
 import {
+  Aperture,
   ArrowUpRight,
   CalendarCheck,
+  CalendarClock,
   Camera,
   Check,
   CheckCircle2,
   Clock,
+  Cloud,
   Copy,
   Download,
+  Eye,
+  Film,
   Heart,
   ImagePlus,
   Images,
@@ -20,6 +25,7 @@ import {
   List,
   Lock,
   MailCheck,
+  MonitorPlay,
   Moon,
   Newspaper,
   Palette,
@@ -29,13 +35,17 @@ import {
   Settings,
   Share2,
   Shirt,
+  Sparkles,
   Star,
   Sun,
+  Tv,
   Users,
   Video,
+  Wand2,
   X,
 } from 'lucide-react';
 import { useTheme, type ThemeMode } from '@/app/_components/theme-provider';
+import { findSku, formatCentavosPhp } from '@/lib/sku-catalog';
 
 /**
  * Site Editor — full-screen, Reels-style wedding-website editor.
@@ -73,6 +83,17 @@ import { useTheme, type ThemeMode } from '@/app/_components/theme-provider';
  * coming-soon (Phase 4 not built).
  */
 
+/**
+ * The two inline-buy widget upgrades (iteration 0004). These are the ONLY paid
+ * surfaces rendered inline in the editor: each shows its catalog price + an
+ * Upgrade CTA (→ shared checkout) or an "Active" badge once owned. Every other
+ * service (Panood / Papic / Patiktok / Custom QR / Drive) is a NAVIGATION card
+ * into its `/add-ons/<key>` page, which owns its own pricing + buy state — the
+ * locked website wiring rule (see journey.tsx docstring · V2.1 Amendment #3).
+ */
+const MONOGRAM_HERO_SKU = 'monogram_hero_upgrade';
+const LIVE_SCHEDULE_SKU = 'pro_widget_schedule';
+
 type Tab = 'settings' | 'rsvp' | 'event' | 'editorial';
 
 const TAB_TITLE: Record<Tab, string> = {
@@ -89,6 +110,8 @@ export type SiteEditorProps = {
   slugDisplay: string | null;
   masterQrSvg: string | null;
   stats: { attending: number; pending: number; declined: number };
+  /** Non-cancelled orders for the two inline Pro SKUs — drives owned-state. */
+  ownedOrders: { service_key: string | null; status: string }[];
 };
 
 export function SiteEditor(props: SiteEditorProps) {
@@ -330,6 +353,50 @@ function StatRow({ icon, label, value }: { icon: ReactNode; label: string; value
   );
 }
 
+/* Inline Pro upgrade card — catalog price + owned-state. The Upgrade CTA hands
+   off to the shared checkout (/orders/new); we never rebuild payment per-card.
+   The only inline-buy surface in the editor (see the SKU-constants note). */
+function ProCard({
+  eventId,
+  icon,
+  title,
+  sub,
+  desc,
+  skuKey,
+  fallbackPrice,
+  owned,
+}: {
+  eventId: string;
+  icon: ReactNode;
+  title: string;
+  sub: string;
+  desc: string;
+  skuKey: string;
+  fallbackPrice: string;
+  owned: boolean;
+}) {
+  const sku = findSku(skuKey);
+  const price = sku ? formatCentavosPhp(sku.priceCentavos) : fallbackPrice;
+  return (
+    <Card icon={icon} title={title} sub={sub}>
+      <Desc>{desc}</Desc>
+      <div className="mt-0.5 flex items-baseline justify-between gap-2">
+        <span className="text-xl font-semibold tracking-tight">{price}</span>
+        <span className="text-[11px] text-ink/55">one-time, this event</span>
+      </div>
+      {owned ? (
+        <p className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-emerald-300/70 bg-emerald-50 text-[12.5px] font-semibold text-emerald-800 [&_svg]:h-4 [&_svg]:w-4 dark:border-emerald-400/40 dark:bg-emerald-500/10 dark:text-emerald-300">
+          <CheckCircle2 aria-hidden /> Active on this event
+        </p>
+      ) : (
+        <CardLink href={`/dashboard/${eventId}/orders/new?service=${skuKey}`}>
+          <Sparkles aria-hidden /> Upgrade
+        </CardLink>
+      )}
+    </Card>
+  );
+}
+
 /* ─────────────────────────── SETTINGS cards ─────────────────────────── */
 
 function settingsCards(p: SiteEditorProps): ReactNode[] {
@@ -373,6 +440,18 @@ function settingsCards(p: SiteEditorProps): ReactNode[] {
       ) : (
         <Desc>Set your wedding URL first — your QR code is generated from it.</Desc>
       )}
+    </Card>,
+    <Card key="drive" icon={<Cloud />} title="Keep your photos" sub="Sync to Google Drive">
+      <Desc>Connect Google Drive so every photo from your day lands in your own folder — yours to keep.</Desc>
+      <CardLink href={`/dashboard/${p.eventId}/add-ons/photo-delivery`} ghost>
+        <Cloud aria-hidden /> Set up Drive sync
+      </CardLink>
+    </Card>,
+    <Card key="guest-qr" icon={<QrCode />} title="Custom QR per guest" sub="A personal QR for everyone">
+      <Desc>Give each guest a personal QR, dressed in your monogram and colors, that opens their own invitation.</Desc>
+      <CardLink href={`/dashboard/${p.eventId}/add-ons/custom-qr-guest`} ghost>
+        <QrCode aria-hidden /> Set up guest QRs
+      </CardLink>
     </Card>,
     <ThemeCard key="theme" />,
   ];
@@ -456,7 +535,10 @@ function rsvpCards(p: SiteEditorProps): ReactNode[] {
 /* ─────────────────────────── EVENT cards ─────────────────────────── */
 
 function eventCards(p: SiteEditorProps): ReactNode[] {
+  const ownsMonogramHero = p.ownedOrders.some((o) => o.service_key === MONOGRAM_HERO_SKU);
+  const ownsLiveSchedule = p.ownedOrders.some((o) => o.service_key === LIVE_SCHEDULE_SKU);
   return [
+    /* ── Before the day — your page's content ── */
     <Card key="branding" icon={<Pencil />} title="Branding" sub="Monogram & names">
       <Desc>Your monogram and how your names appear across your invitation and live page.</Desc>
       <CardLink href={`/dashboard/${p.eventId}/invitation`} ghost>
@@ -469,6 +551,17 @@ function eventCards(p: SiteEditorProps): ReactNode[] {
         <ImagePlus aria-hidden /> Edit hero photo
       </CardLink>
     </Card>,
+    <ProCard
+      key="monogram-hero"
+      eventId={p.eventId}
+      icon={<Wand2 />}
+      title="Monogram Hero"
+      sub="Animated monogram · Pro"
+      desc="Your monogram draws itself in on page load, over your own video or photo background."
+      skuKey={MONOGRAM_HERO_SKU}
+      fallbackPrice="₱1,999"
+      owned={ownsMonogramHero}
+    />,
     <Card key="moments" icon={<Camera />} title="Photo moments" sub="Set the guest vibe">
       <Desc>Tell guests how you&rsquo;d like the day captured — cameras welcome, phones down, or paparazzo only.</Desc>
       <CardLink href={`/dashboard/${p.eventId}/website/photo-moments`} ghost>
@@ -492,6 +585,54 @@ function eventCards(p: SiteEditorProps): ReactNode[] {
       <CardLink href={`/dashboard/${p.eventId}/add-ons/save-the-date`} ghost>
         <ArrowUpRight aria-hidden /> Browse templates
       </CardLink>
+    </Card>,
+    /* ── On the day — what goes live while guests celebrate. Each service is a
+       navigation card into its /add-ons/<key> page, which owns its pricing +
+       buy state (the locked website wiring rule). ── */
+    ...(p.publicLandingUrl
+      ? [
+          <Card key="dayof" icon={<Eye />} title="Preview day-of mode" sub="See what guests see on the day">
+            <Desc>Your live page from one hour before to eight hours after — exactly as guests see it.</Desc>
+            <CardLink href={`${p.publicLandingUrl}?preview=day_of`} external ghost>
+              <ArrowUpRight aria-hidden /> Open day-of preview
+            </CardLink>
+          </Card>,
+        ]
+      : []),
+    <Card key="panood" icon={<Tv />} title="Live stream — Panood" sub="Broadcast your ceremony">
+      <Desc>Broadcast your ceremony to the guests who can&rsquo;t be there in person.</Desc>
+      <CardLink href={`/dashboard/${p.eventId}/add-ons/panood`} ghost>
+        <ArrowUpRight aria-hidden /> Set up Panood
+      </CardLink>
+    </Card>,
+    <ProCard
+      key="live-schedule"
+      eventId={p.eventId}
+      icon={<CalendarClock />}
+      title="Live Schedule"
+      sub="Happening-now highlight · Pro"
+      desc="Light up the 'happening now' moment on your schedule and auto-scroll it for guests."
+      skuKey={LIVE_SCHEDULE_SKU}
+      fallbackPrice="₱999"
+      owned={ownsLiveSchedule}
+    />,
+    <Card key="papic" icon={<Aperture />} title="Candid capture — Papic" sub="Guest cameras & paparazzo seats">
+      <Desc>Turn your guests&rsquo; phones into a shared candid camera, and add dedicated seats for the shooters you pick.</Desc>
+      <CardLink href={`/dashboard/${p.eventId}/add-ons/papic`} ghost>
+        <ArrowUpRight aria-hidden /> Set up Papic
+      </CardLink>
+    </Card>,
+    <Card key="patiktok" icon={<Film />} title="Patiktok booth" sub="A vertical-reel booth">
+      <Desc>A vertical-reel booth your guests can play with during the celebration.</Desc>
+      <CardLink href={`/dashboard/${p.eventId}/add-ons/patiktok`} ghost>
+        <ArrowUpRight aria-hidden /> Set up Patiktok
+      </CardLink>
+    </Card>,
+    <Card key="photowall" icon={<MonitorPlay />} title="Live photo wall" sub="Guest photos on the venue screen" soon>
+      <Desc>Guest photos appear on the venue screen as they&rsquo;re taken.</Desc>
+      <span className="self-start rounded-full border border-ink/10 px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.14em] text-ink/40">
+        Coming soon
+      </span>
     </Card>,
   ];
 }

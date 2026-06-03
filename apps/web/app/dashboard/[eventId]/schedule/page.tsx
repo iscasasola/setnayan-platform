@@ -9,6 +9,7 @@ import {
   formatBlockTimeRange,
   type ScheduleBlockRow,
 } from '@/lib/schedule';
+import { fetchPreparationAgenda } from '@/lib/preparation';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
   createScheduleBlock,
@@ -20,35 +21,113 @@ import {
 // edited on the time." Client component owns the view → edit form
 // toggle + calls the existing updateScheduleBlock server action.
 import { BlockTimeEditor } from './_components/block-time-editor';
+// Preparation ⇄ Event Day toggle (chrome redesign delta #3, 2026-06-03).
+// The toggle is a URL-driven segmented control; the agenda is a read-only
+// aggregation of EXISTING dated data (payments / paperwork / meetings /
+// statutory milestones) — see lib/preparation.ts for the source map.
+import { ScheduleModeToggle } from './_components/schedule-mode-toggle';
+import { PreparationAgendaView } from './_components/preparation-agenda';
 
 export const metadata = { title: 'Schedule' };
 
-type Props = { params: Promise<{ eventId: string }> };
+type ScheduleView = 'preparation' | 'event-day';
 
-export default async function CoupleSchedulePage({ params }: Props) {
+type Props = {
+  params: Promise<{ eventId: string }>;
+  searchParams: Promise<{ view?: string }>;
+};
+
+export default async function CoupleSchedulePage({ params, searchParams }: Props) {
   const { eventId } = await params;
+  const { view: viewParam } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const blocks = await fetchScheduleBlocks(supabase, eventId);
-  const publicCount = blocks.filter((b) => b.is_public).length;
+  // Pull the event row (for event_date + ceremony_type that drive the
+  // Preparation agenda's statutory-milestone + paperwork-deadline math),
+  // the day-of blocks, and the aggregated Preparation agenda in parallel.
+  // Defensive maybeSingle — a missing event row falls through to nulls,
+  // which the agenda treats as "no wedding date yet".
+  const [eventRes, blocks] = await Promise.all([
+    supabase
+      .from('events')
+      .select('event_id, event_date, ceremony_type')
+      .eq('event_id', eventId)
+      .maybeSingle(),
+    fetchScheduleBlocks(supabase, eventId),
+  ]);
+  const eventRow = eventRes.data as
+    | { event_id: string; event_date: string | null; ceremony_type: string | null }
+    | null;
+  const eventDate = eventRow?.event_date ?? null;
+  const ceremonyType = eventRow?.ceremony_type ?? null;
+
+  const agenda = await fetchPreparationAgenda({
+    supabase,
+    eventId,
+    eventDate,
+    ceremonyType,
+    now: new Date(),
+  });
+
+  // Resolve the active view. Explicit `?view=` wins (bookmarkable). With no
+  // param, default to Preparation when there's something to prepare; else
+  // open straight on the day-of timeline so empty-prep couples aren't met
+  // with a blank agenda.
+  const active: ScheduleView =
+    viewParam === 'preparation' || viewParam === 'event-day'
+      ? viewParam
+      : agenda.items.length > 0
+        ? 'preparation'
+        : 'event-day';
 
   return (
     <section className="space-y-6">
-      <header className="space-y-2">
+      <header className="space-y-3">
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Schedule</h1>
         <p className="max-w-prose text-base text-ink/65">
-          Build your wedding-day timeline. Public blocks show up on every guest&rsquo;s
-          invitation site with a live &ldquo;happening now&rdquo; highlight as the day
-          unfolds. Drafts stay private until you flip them visible.
+          {active === 'preparation'
+            ? 'Your run-up to the wedding — every dated step, gathered from your payments, paperwork, and vendor meetings, sorted by month. Read-only here; tap any item to manage it on its own page.'
+            : 'Build your wedding-day timeline. Public blocks show up on every guest’s invitation site with a live “happening now” highlight as the day unfolds. Drafts stay private until you flip them visible.'}
         </p>
-        <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
-          {blocks.length} block{blocks.length === 1 ? '' : 's'} · {publicCount} public
-        </p>
+        <ScheduleModeToggle active={active} prepCount={agenda.items.length} />
       </header>
+
+      {active === 'preparation' ? (
+        <PreparationAgendaView
+          eventId={eventId}
+          agenda={agenda}
+          hasEventDate={eventDate !== null}
+        />
+      ) : (
+        <EventDayView eventId={eventId} blocks={blocks} />
+      )}
+    </section>
+  );
+}
+
+/**
+ * Event Day mode — the existing editable day-of timeline. Behavior is
+ * unchanged from before the Preparation toggle landed: the add-block form,
+ * the per-block cards with inline time editing + visibility toggle +
+ * delete, and the empty state all render exactly as they did.
+ */
+function EventDayView({
+  eventId,
+  blocks,
+}: {
+  eventId: string;
+  blocks: ScheduleBlockRow[];
+}) {
+  const publicCount = blocks.filter((b) => b.is_public).length;
+  return (
+    <div className="space-y-6">
+      <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
+        {blocks.length} block{blocks.length === 1 ? '' : 's'} · {publicCount} public
+      </p>
 
       <AddBlockForm eventId={eventId} />
 
@@ -74,7 +153,7 @@ export default async function CoupleSchedulePage({ params }: Props) {
           ))}
         </ul>
       )}
-    </section>
+    </div>
   );
 }
 

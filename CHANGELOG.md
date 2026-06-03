@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · tweak(guests): fixed 280px height for the mobile panel sheet (was a screen-proportion clamp)
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner — set the lower carousel (the 4-panel sheet on the mobile Guests page) to a concrete height instead of a fraction of the screen. The previous value `clamp(208px, 33vh, 288px)` only approximated "a third": it capped at 288px on tall phones (less than a third) and floored at 208px on short ones (more than a third), so the sheet height drifted by device.
+
+**What changed (`apps/web/app/dashboard/[eventId]/guests/page.tsx`):** `--gcar-h` (the sheet's *expanded* height — the collapse feature from the entry below still toggles between this and the 2.25rem grabber) is now a fixed `280px`. Sized to the tallest panel (**Find**: search + Side/RSVP toggles + Role/Group + Sort), which the design requires to fit without vertical scroll; 280px sits right at the old clamp's upper bound, so it's a proven-good size. The sheet's own 36px grabber leaves ~244px of panel area — enough for the Find panel in the common (no custom tags) case; the rarer with-tags variant falls back to the panel's existing internal scroll.
+
+**Verification:** Type-trivial string-literal swap inside an existing `style` object (no logic/type surface). Visual confirmation deferred to the Vercel PR preview (local dev can't render the auth-gated dashboard without Supabase env).
+
+**SPEC IMPACT:** None — sizing tweak only; no SKU, schema, copy, or workflow change. Aligns with the existing "lower-third carousel" owner directive captured in the component header.
+
+---
+
 ## 2026-06-03 · feat(guests): collapsible mobile panel — tap the grabber to stretch the guest list
 
 **Commit:** see merge commit on this PR.

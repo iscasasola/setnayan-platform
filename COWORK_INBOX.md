@@ -17,6 +17,21 @@
 2. **`Digital_Services_Cross_Surface_Map_2026-06-03.md`** — mark §2 "Customer · in-app Services tab" as IMPLEMENTED (presentation step). Record the remaining follow-ups: **§3 vendor-model convergence** (source the pre-add list from the first-party Setnayan vendor account's listings + choice-driven pre-add on onboarding category selection, retiring the hardcoded catalog) and **add Pakanta / Pro Website / Live Venue Photo Wall** to the add-ons catalog with valid setup routes so the Digital Services rail carries its full 5-member set (today only the coming-soon Animated Monogram is present).
 
 **Cross-ref:** `CHANGELOG.md` 2026-06-03 "feat(0021,0006): nest in-app Setnayan services…".
+## [PENDING] 2026-06-03 — Event-type picker is now a hero-photo carousel (0000)
+
+**Why:** Owner ask (screenshot): *"change how events look like. we want a carousel but like hero photos. let them scroll all the possible events."* The emoji-tile event-type picker is now a swipeable scroll-snap filmstrip of full-bleed hero photos — shared by the event-switcher add-event sheet AND the full `/dashboard/create-event` page. 9 Recraft hero photos added at `public/event-types/`.
+
+**Spec corpus update (owner walks via Cowork):**
+1. **`0000_app_shell_and_navigation/0000_app_shell_and_navigation.md`** — the event-type picker / "What kind of event are you planning?" description should change from emoji tiles to the **hero-photo carousel**: horizontal swipe through all event types · live types = colour photo + "Available" badge + tap-to-continue · coming-soon types = grayscale + "Coming soon" + inert. Also update the add-event sheet subtitle to *"Weddings and debuts are live now. Swipe through to see what's on the way — more event types unlock over time."* (the old line promised a notify-on-launch flow that does not exist).
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "feat(0000): event-type picker → swipeable hero-photo carousel". No migration, no SKU.
+
+**Open follow-up (not built):** a real "notify me when this opens" action on coming-soon cards (the old copy implied it).
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Admin deadline table COMPLETE — reminders read it + admin editor (PR 2+3/3)
 
 **Why:** Finishes the 3-PR admin deadline build (owner: "ship this both" / "do both"). The Home recommended-deadline reminders now read `planning_deadlines`; admins edit the deadlines in `/admin/taxonomy`.

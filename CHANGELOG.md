@@ -16,6 +16,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `tsc --noEmit` clean (whole app) · `next lint` clean (changed files; only pre-existing warnings elsewhere) · a runtime `tsx` partition check confirmed the grouping + that nested links resolve to real routes. The authed couple-dashboard surface isn't renderable locally (no env / seed / running server) — visual check belongs on the PR's Vercel preview.
 
 **SPEC IMPACT:** Iteration **0021** couple-dashboard Services tab + the Digital Services cross-surface map §2. Presentation step only; the full **vendor-model convergence** (§3 — source the list from the first-party Setnayan vendor account + choice-driven pre-add on category selection) and **fleshing out Digital Services** (add Pakanta / Pro Website / Live Venue Photo Wall to the catalog with valid setup routes — only the coming-soon Animated Monogram is present today) remain follow-ups. See `COWORK_INBOX.md`.
+## 2026-06-03 · feat(0000): event-type picker → swipeable hero-photo carousel (shared)
+
+**Context:** Owner ask (mobile screenshot of the event-switcher add-event sheet): *"change how events look like. we want a carousel but like hero photos. let them scroll all the possible events."* The picker rendered emoji tiles (💍 Wedding, 👑 Debut, …) one-at-a-time behind prev/next arrows.
+
+**What changed:**
+- **New `app/dashboard/create-event/_components/event-type-carousel.tsx`** — a shared client component: a horizontal scroll-snap **filmstrip** of full-bleed hero-photo cards, one per `EVENT_TYPES` entry. Native swipe/scroll *is* the "scroll all the possible events" interaction; arrows + dots below track the centred card (rAF-throttled nearest-centre). Live types show a gold "Available" badge; coming-soon types render **grayscale** + inert with a "Coming soon" badge; the full-page picker adds a gold selected ring + "Selected" badge.
+- **`app/dashboard/[eventId]/_components/event-switcher.tsx`** (the screenshot's sheet) + **`app/dashboard/create-event/_components/event-type-picker.tsx`** (full page) now both render the shared carousel — the old per-surface emoji-tile carousels (`Tile` / `ArrowButton` / manual index state) are deleted. Switcher cards route on tap (Wedding → `/onboarding/wedding` · Debut → `/dashboard/create-event`); full-page cards select-then-reveal the name form as before.
+- Switcher subtitle copy corrected: the prior *"tap an upcoming tile to be notified"* promised a notify flow that was never built (the disabled tile was inert) → now *"Weddings and debuts are live now. Swipe through to see what's on the way — more event types unlock over time."*
+- **9 new hero photos** at `public/event-types/{key}.webp` (Recraft, Filipino-context, warm-editorial grade, 4:5; recompressed 15.5 MB → 541 KB, in line with the onboarding webp set).
+
+**Verification:** `tsc --noEmit` exit 0 + `next lint` clean on all touched files; no dangling refs; no dependent tests. All 9 photos eyeballed (premium + cohesive). Live in-browser preview NOT run — the surfaces are auth+DB-gated and this env lacks `NEXT_PUBLIC_SUPABASE_*` (middleware builds the Supabase client per request), so the dev server 500s. Shipped from an isolated worktree off `origin/main` to keep unrelated in-progress changes out of the diff. No migration, no SKU.
+
+**SPEC IMPACT:** Yes — iteration **0000** describes the event-type picker as emoji tiles; it's now a hero-photo carousel, with the switcher copy change. See `COWORK_INBOX.md`.
+
 ## 2026-06-03 · fix(0000,0021,0022,0023): event-logo monogram in vendor/admin switcher + customer non-event avatar
 
 **Commit:** see merge commit on this PR.

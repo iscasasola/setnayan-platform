@@ -4,6 +4,28 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · fix(onboarding): congrats vendor stat → real marketplace counts
+
+**Commit:** see merge commit on this PR.
+
+**Context:** The `/onboarding/wedding` congrats screen (step 13, "You did the hard part") rendered a third stat tile reading **"N best-fit vendors from 2,400+"** where `N` was fabricated as `max(picked_categories × 5, 12)` and "2,400+" was a hardcoded string — neither was a real count. Owner 2026-06-03, re-raised from a live screenshot showing "30 … from 2,400+": *"30 vendors and total 2400+ vendors is not actual results. want true results only."* This ships the **never-merged** fix originally written on `claude/onb-real-vendor-counts` (commit `4af4f6c` — it had no PR and went 66 commits stale, which is why the live site still showed the fake numbers); cherry-picked clean onto current `main` and re-verified.
+
+**What ships:**
+
+- **NEW server action `getOnboardingVendorCounts` (`app/onboarding/wedding/actions.ts`)** — criteria-based (NO `eventId`; congrats renders before the event row is committed, mirroring `searchOnboardingReceptionVenues`). Two exact head-counts off `vendor_market_stats`: `total` = published vendors (`public_visibility ∈ {verified, coming_soon}` + non-empty `business_name`) across the canonical services of the couple's picked categories; `matched` = that same pool narrowed by NULL-safe ceremony/venue compatibility (admit-never-exclude). This is the **identical published-pool definition** the `/vendors` marketplace + Services tab use (`lib/vendor-counts.ts`), so the tile agrees with what the couple actually sees in the marketplace.
+- **Tile now renders real counts** — `{matched}` + "that fit your wedding · from {total}" (thousands-formatted). **AUTO-HIDES** when a count can't be computed (query error, or `total ≤ 0`, or `matched ≤ 0` so it never shows a discouraging "0 fit you") — never fabricates (RA 10173 honesty).
+- **Removed the fabricated source** — dropped `VENDORS_PER_CATEGORY` + the `vendors` field from `computeOnboardingSavings`. The **money + hours** tiles are UNCHANGED (approved Time & Money Saved model; owner objected only to the vendor tile). Fetched once on step-13 entry via a guarded `useEffect`.
+
+**Files:**
+- `apps/web/app/onboarding/wedding/actions.ts` (new `getOnboardingVendorCounts` + canonical-service resolver)
+- `apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx` (fetch on step-13, real-count tile w/ auto-hide, drop fabricated field)
+
+**Verification:** `pnpm -F web typecheck` → 0 errors. `pnpm -F web lint` → no new warnings (remaining are pre-existing, in untouched files). Dependency + column audit on current `main`: `PLAN_GROUPS`, `canonicalServicesForTile/Folder`, `ALLOWED_CEREMONIES/SECONDARY`, `RECEPTION_TO_VENUE_SETTING`, `PICK_TO_GROUP`, `createAdminClient` all present; `vendor_market_stats` published-pool columns match `lib/vendor-counts.ts`. No migration.
+
+**SPEC IMPACT: Yes.** The fabricated copy lives in the spec corpus (`Onboarding_Wedding_Flow_2026-06-01.html` tile + `Time_and_Money_Saved_Model_2026-06-01.md` "2,400-vendor pool" / "filtered N vendors" notes). Cowork worklist entry appended.
+
+---
+
 ## 2026-06-03 · fix(photo-delivery): make "Release to Drive" actually copy — cron-free via after()
 
 **Commit:** to be filled after commit.

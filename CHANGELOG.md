@@ -4,6 +4,25 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(0000): chrome monogram = the full framed onboarding monogram + exact fonts + event logo
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Follow-up to PR #863 (monogram → switcher icon), closing the 3 parked items per owner directives 2026-06-03: **(1)** *"we want what the monogram looks like on the onboarding"* → render the actual gold FRAME, not letters-forward; **(2)** *"yes exact font"* → load the real display faces; **(3)** *"that will be the logo of the event"* → the upper-right profile avatar becomes the event's monogram/logo.
+
+**What changed:**
+- **Framed render (`event-monogram.tsx` + `lib/monogram.ts`):** when an event carries an onboarding design, `EventMonogram` now renders the **actual gold frame webp** (`/onboarding/mono/{frame}.webp`) + initials in the chosen font + ink — the onboarding medallion, scaled to chrome size — instead of the letters-forward circle. `resolveMonogramDesign` returns a validated `frameKey`; new `lg` (44px) size for the avatar. Letters-forward stays the fallback for a design with no frame; legacy initials circle for non-onboarding events.
+- **Exact fonts (`app/layout.tsx`):** Cinzel · Playfair Display · Great Vibes loaded via `next/font/google` (vars `--font-cinzel` / `--font-playfair` / `--font-script`); `MONO_FONT_STACK` now points at them, so every design renders in its true face (Cormorant was already loaded).
+- **Avatar = event logo (`profile-menu.tsx` + event layout):** `ProfileMenu` accepts an optional `monogram`; when present the upper-right avatar IS the event's framed monogram (its logo), not the email initial. The event layout passes the event's monogram; non-event chrome (admin / vendor / `/dashboard` root) keeps the initial — backward compatible.
+
+**Verification:** `pnpm -F web typecheck` clean · `pnpm -F web lint` clean (only the pre-existing `<img>` warning in this file, unrelated) · `pnpm -F web build` succeeds (validates the 3 new fonts + the render). Couldn't screenshot live (auth-gated chrome) — **flagged for owner eyeball**, esp. legibility of the ornate frame at the 28/36px switcher sizes (the 44px avatar reads best).
+
+**SPEC IMPACT:** Iteration **0000** (event switcher) + **0021** §2.0c (profile avatar) + corpus `DECISION_LOG`. **Supersedes the prior "letters-forward" framing** — the chrome monogram is now the FULL framed onboarding monogram in the exact font, and the upper-right avatar is the event logo. See `COWORK_INBOX.md`.
+
+**Next:** owner eyeball; if the ornate frame is too small at the 28/36px switcher sizes, bump the chrome monogram sizes (quick follow-up).
+
+---
+
 ## 2026-06-03 · refactor(onboarding): drop ₱1,499 "Today's Focus" from the Your-Plan bundles (it's free now)
 
 **Context:** Follow-through on the Today's Focus retirement ([PR #866]) — owner confirmed the planning guidance (deadline + "start-looking" reminders) is **free**, not a paid tier. But onboarding's "Your Plan" Essential Bundle still listed **"Today's Focus · planning" at ₱1,499**, selling a surface that no longer exists.

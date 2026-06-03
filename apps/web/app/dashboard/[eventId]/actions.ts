@@ -209,6 +209,7 @@ const ALLOWED_CEREMONY_TYPES = [
   'christian',
   'muslim',
   'cultural',
+  'chinese',
   'mixed',
 ] as const;
 type AllowedCeremonyType = (typeof ALLOWED_CEREMONY_TYPES)[number];

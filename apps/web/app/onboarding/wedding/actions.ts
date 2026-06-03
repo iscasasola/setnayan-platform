@@ -62,6 +62,7 @@ const ALLOWED_CEREMONIES = [
   'inc',
   'muslim',
   'cultural',
+  'chinese',
 ] as const;
 // Default tradition for the two sub-type-requiring faiths, since onboarding
 // doesn't collect a specific tradition (create-event does). The couple can
@@ -77,6 +78,7 @@ const ALLOWED_SECONDARY = [
   'christian',
   'muslim',
   'cultural',
+  'chinese',
 ] as const;
 // Fallback when the couple skipped the reception "setting" pick. The CHECK
 // constraint requires a value for wedding events; the couple refines it later.

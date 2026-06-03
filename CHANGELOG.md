@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · polish(guests): collapse/expand animates the guest list in sync with the panel sheet
+
+**Context:** Owner — "we want the collapse to have animation and expansion." The panel sheet already animated its own height (`transition-[height] duration-200 ease-out`, #854), but the **in-flow spacer** that reserves room for the sheet had no transition — so on collapse/expand the sheet slid smoothly while the guest list area *snapped* instantly. The gesture read as half-animated.
+
+**What changed (`apps/web/app/dashboard/[eventId]/guests/_components/mobile-guest-carousel.tsx`):** Added the same `transition-[height] duration-200 ease-out` to the spacer `<div>` so its height animates in lockstep with the sheet. Now both the sheet and the list reflow ease over the same 200ms — collapse and expand are one cohesive motion. The keyboard-open path is untouched (the spacer still holds full height when `kbOpen`, preserving the iOS tap-delivery fix from earlier today).
+
+**Verification:** Confirmed the sheet's existing height transition fires both directions (concrete 280px ↔ 2.25rem, not `auto`, so it animates); the spacer's only height change is collapse↔expand, so the added transition animates exactly that and nothing else. Visual confirmation via the Vercel prod deploy (auth-gated page; no local Supabase env).
+
+**SPEC IMPACT:** None — animation polish; no SKU, schema, copy, or workflow change.
+
+---
+
 ## 2026-06-03 · fix(guests): remove the redundant mobile "+" add FAB (leftover behind the panel sheet)
 
 **Commit:** see merge commit on this PR.

@@ -8,6 +8,17 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Onboarding writes couple song picks to event_song_picks (0016)
+
+**Why:** PR 3 of the compatibility build — the couple's onboarding music picks now persist to `event_song_picks` (the match-read source), not just the display-only `music_playlist_seed`.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`0016_step_by_step_plan_builder.md`** (or the Onboarding Blueprint music-picker step) — note that the picker now writes `event_song_picks` (couple ↔ master songs) at commit, in addition to `music_playlist_seed`. This is the couple side of the music compatibility overlap (`Vendor_Compatibility_and_Master_Songlist_2026-06-03`).
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "feat(0016,0006): couple onboarding music picks → event_song_picks". Pairs with PR 2 (vendor repertoire). Needs migration `20260731000000` pushed to function.
+
+---
+
 ## [PENDING] 2026-06-03 — Vendor "Your repertoire" surface added (0022 spec)
 
 **Why:** PR 2 of the compatibility build landed a new vendor-dashboard surface — music vendors build their song set list (the vendor side of the master-songlist compatibility overlap).

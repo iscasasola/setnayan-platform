@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · refactor(onboarding): drop ₱1,499 "Today's Focus" from the Your-Plan bundles (it's free now)
+
+**Context:** Follow-through on the Today's Focus retirement ([PR #866]) — owner confirmed the planning guidance (deadline + "start-looking" reminders) is **free**, not a paid tier. But onboarding's "Your Plan" Essential Bundle still listed **"Today's Focus · planning" at ₱1,499**, selling a surface that no longer exists.
+
+**What changed (`apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx`, one file):** removed the `today_focus` key from all five bundle maps — `BUNDLE_ITEMS` (label), `BUNDLE_BENEFIT` (copy), `BUNDLE_GROUPS` (category), the `essential` tier's `add: [...]` array, and `SVC` (pricing). The savings counter recomputes itself (it sums `SVC[k]` over `bundleItemsFor()` with a `?? {out:0,set:0}` fallback, so dropping the item just removes it from the total).
+
+**Net effect:** the Essential Bundle returns to the owner's original 2026-06-01 spec — **Advanced Website + Papic for guests + Same-Day Edit (3 items)** — and the "You save" figure drops by Today's Focus's old `{out: 20000, set: 1499}` contribution. The cumulative higher tiers (Simple/Classic/Grand/Grand Fiesta) inherit the change since they build on Essential.
+
+**Verification:** `tsc --noEmit` green (exit 0); zero remaining `today_focus` refs in onboarding. Visual check via the PR's Vercel preview (onboarding is public, not auth-gated).
+
+**SPEC IMPACT:** None on the bundle *spec* — this realigns the code to the owner's 2026-06-01 "Essential = 3 items" definition (the code had drifted by prepending Today's Focus). Closes the "owner decision needed" flagged on the Today's-Focus-retired inbox item.
+
 ## 2026-06-03 · feat(0006/0044): master song list + vendor repertoire + couple song picks — compatibility foundation (PR 1)
 
 **Commit:** see merge commit on this PR.

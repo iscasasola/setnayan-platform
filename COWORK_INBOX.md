@@ -33,7 +33,7 @@
 
 2. **`~/Documents/Claude/Projects/Setnayan/0016_step_by_step_plan_builder/`** — record that the couple-facing wizard surface is retired in code (route redirects, nav entry gone); the iteration's deadline logic survives in the deadline-timeline surface. The Concierge/Today's Focus SKU + trial/abuse machinery remain on disk but dormant.
 
-**⚠️ OWNER DECISION NEEDED (pricing — NOT actioned in code):** Onboarding's "Your Plan" **Essential Bundle still lists "Today's Focus · planning" as a ₱1,499 add-on** (`apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx` — `today_focus` in the add-on metadata + the `essential` bundle's `add: [...]`). With the surface retired, that bundle sells a product with no destination. **Decide:** pull `today_focus` from the onboarding bundles (recommended), or keep selling a planning product (then we'd re-scope what it delivers). Pulling it also touches the savings-counter math (it has an `{out, set}` pricing pair).
+**✅ RESOLVED 2026-06-03 (owner: "we keep it free"):** Today's Focus is **free** — `today_focus` pulled from onboarding's bundle maps (`onboarding-shell.tsx`: label / benefit / group / `essential` tier / `SVC`). The Essential Bundle realigns to the owner's original 2026-06-01 spec (Advanced Website + Papic for guests + Same-Day Edit, 3 items); the savings counter recomputes automatically. **No bundle-spec change needed** (code now matches spec). The free deadline + "start-looking" reminder feature is the next build.
 
 **When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
 

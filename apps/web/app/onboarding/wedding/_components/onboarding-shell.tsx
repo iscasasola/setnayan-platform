@@ -1100,11 +1100,10 @@ function DateCalendar({
    PRICE-FOLLOWER: in production the bundle reads each service's live price from the admin Add-on
    Management menu (iteration 0023 §3.12 / service_catalog); SVC below is the prototype demo stand-in. */
 const BUNDLE_ITEMS: Record<string, string> = {
-  today_focus: "Today's Focus · planning", advanced_website: 'Advanced Website', papic_guest: 'Papic for guests', sde: 'Same-Day Edit', guest_stories: 'Guest Stories', pabati: 'Pabati guestbook', papic_seats: 'Papic · 5 seats', animated_monogram: 'Animated Monogram', thank_you: 'Thank-You Video', pakanta: 'Pakanta · your song', custom_qr: 'Custom QR per guest', panood: 'Panood livestream', live_background: 'Live Background', live_photowall: 'Live Photo Wall', indoor_blueprint: 'Indoor Blueprint', high_res: 'High-Res Archive',
+  advanced_website: 'Advanced Website', papic_guest: 'Papic for guests', sde: 'Same-Day Edit', guest_stories: 'Guest Stories', pabati: 'Pabati guestbook', papic_seats: 'Papic · 5 seats', animated_monogram: 'Animated Monogram', thank_you: 'Thank-You Video', pakanta: 'Pakanta · your song', custom_qr: 'Custom QR per guest', panood: 'Panood livestream', live_background: 'Live Background', live_photowall: 'Live Photo Wall', indoor_blueprint: 'Indoor Blueprint', high_res: 'High-Res Archive',
 };
 /* Plain-language benefit copy — functional outcome + emotional anchor (JTBD · Bundle_Benefits_Best_Practices_2026-06-02.md). */
 const BUNDLE_BENEFIT: Record<string, string> = {
-  today_focus: "A week-by-week plan that tells you exactly what to do next — so you're never the bride lying awake at 2am wondering if you forgot something.",
   advanced_website: "One link replaces 200 group-chat messages. RSVP, schedule, dress code, photos — your guests find their own answers, you stay present.",
   papic_guest: "Every guest's phone becomes a camera — their candids land in your gallery live, so you keep the unposed moments a single photographer would miss.",
   sde: "A 3-minute wedding film, edited and screened the same night at your reception — the rare gift of reliving your day with the people who lived it with you.",
@@ -1123,7 +1122,7 @@ const BUNDLE_BENEFIT: Record<string, string> = {
 };
 /* JTBD grouping — preparation → the day → memories (research Finding #4). */
 const BUNDLE_GROUPS: Record<string, string> = {
-  today_focus: 'plan', advanced_website: 'plan', custom_qr: 'plan', indoor_blueprint: 'plan', animated_monogram: 'plan',
+  advanced_website: 'plan', custom_qr: 'plan', indoor_blueprint: 'plan', animated_monogram: 'plan',
   papic_guest: 'celebrate', papic_seats: 'celebrate', sde: 'celebrate', guest_stories: 'celebrate', pabati: 'celebrate', panood: 'celebrate', live_background: 'celebrate', live_photowall: 'celebrate',
   thank_you: 'remember', pakanta: 'remember', high_res: 'remember',
 };
@@ -1136,7 +1135,7 @@ const BUNDLE_GROUP_INTRO: Record<string, string> = {
 };
 const HIGH_RES_FREE: Record<string, boolean> = { high_res: true }; // free baseline (2026-06-01) — flagged on the card
 const BUNDLE_TIERS: { key: string; name: string; add: string[] }[] = [
-  { key: 'essential', name: 'Essential Bundle', add: ['today_focus', 'advanced_website', 'papic_guest', 'sde'] },
+  { key: 'essential', name: 'Essential Bundle', add: ['advanced_website', 'papic_guest', 'sde'] },
   { key: 'simple', name: 'Simple Bundle', add: ['guest_stories', 'pabati'] },
   { key: 'classic', name: 'Classic Bundle', add: ['papic_seats', 'animated_monogram', 'thank_you', 'pakanta', 'custom_qr'] },
   { key: 'grand', name: 'Grand Bundle', add: ['panood', 'live_background', 'live_photowall', 'indoor_blueprint'] },
@@ -1144,7 +1143,7 @@ const BUNDLE_TIERS: { key: string; name: string; add: string[] }[] = [
 ];
 /* out = market-equivalent "if hired separately" (admin-editable) · set = Setnayan price (pax items scale in admin). */
 const SVC: Record<string, { out: number; set: number }> = {
-  today_focus: { out: 20000, set: 1499 }, advanced_website: { out: 25000, set: 5499 }, papic_guest: { out: 32000, set: 2999 }, sde: { out: 35000, set: 3499 }, guest_stories: { out: 8000, set: 1999 }, pabati: { out: 12000, set: 999 }, papic_seats: { out: 75000, set: 2999 }, animated_monogram: { out: 15500, set: 2499 }, thank_you: { out: 60000, set: 5499 }, pakanta: { out: 12500, set: 2499 }, custom_qr: { out: 5000, set: 1499 }, panood: { out: 17500, set: 3499 }, live_background: { out: 20000, set: 2499 }, live_photowall: { out: 18000, set: 2499 }, indoor_blueprint: { out: 12500, set: 1499 }, high_res: { out: 5000, set: 0 },
+  advanced_website: { out: 25000, set: 5499 }, papic_guest: { out: 32000, set: 2999 }, sde: { out: 35000, set: 3499 }, guest_stories: { out: 8000, set: 1999 }, pabati: { out: 12000, set: 999 }, papic_seats: { out: 75000, set: 2999 }, animated_monogram: { out: 15500, set: 2499 }, thank_you: { out: 60000, set: 5499 }, pakanta: { out: 12500, set: 2499 }, custom_qr: { out: 5000, set: 1499 }, panood: { out: 17500, set: 3499 }, live_background: { out: 20000, set: 2499 }, live_photowall: { out: 18000, set: 2499 }, indoor_blueprint: { out: 12500, set: 1499 }, high_res: { out: 5000, set: 0 },
 };
 const pesoB = (n: number) => '₱' + Math.round(n).toLocaleString('en-US');
 /* Comma thousands-separators for the numeric text boxes (guest count + budget).

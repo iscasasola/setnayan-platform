@@ -8,6 +8,19 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Drive OAuth consolidated to one per-event connect (Phase 0)
+
+**Why:** Phase 0 collapsed the two Google Drive connections (Papic `provider='drive'` + Photo Delivery `provider='drive_photo_delivery'`) into one. The owner-facing setup + the 0009 spec change as a result.
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/API_Integration_Checklist.md`** — Google Drive OAuth now needs **one** redirect URI only (`GOOGLE_DRIVE_OAUTH_REDIRECT_URI` → `…/api/oauth/drive/callback`). **Remove `PHOTO_DELIVERY_OAUTH_REDIRECT_URI`** (retired).
+2. **`~/Documents/Claude/Projects/Setnayan/0009_photo_delivery/0009_photo_delivery.md`** — note the OAuth model is now the single shared Drive connection (one consent, one grant `provider='drive'`); disconnecting Drive from either panel disconnects the shared connection.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Messages icon in dashboard top bar (chrome redesign delta #2)
 
 **Why:** Delta #2 of the 2026-06-03 customer-dashboard chrome redesign landed in code — a `MessageSquare` icon link is now in the top bar right cluster (adjacent to the notifications bell), linking to the couple's vendor thread list (`/dashboard/[eventId]/messages`). No unread badge (V1 has no read-tracking column on `chat_messages`).

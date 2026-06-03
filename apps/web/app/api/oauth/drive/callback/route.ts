@@ -34,15 +34,26 @@ export const dynamic = 'force-dynamic';
 
 const STATE_TTL_MIN = 10;
 
+// Phase 0: this callback serves both the Papic Drive connect (returnTo='papic')
+// and the Photo Delivery connect (returnTo='photo-delivery'). The return target
+// is recovered from the oauth_state provider marker.
+type ReturnTo = 'papic' | 'photo-delivery';
+
+function pagePath(returnTo: ReturnTo, eventId: string): string {
+  return `/dashboard/${eventId}/add-ons/${returnTo}`;
+}
+
 function redirectWithError(
   origin: URL,
   eventId: string | null,
   reason: string,
+  returnTo: ReturnTo = 'papic',
 ): NextResponse {
   const target = eventId
-    ? new URL(`/dashboard/${eventId}/add-ons/papic`, origin)
+    ? new URL(pagePath(returnTo, eventId), origin)
     : new URL('/dashboard', origin);
-  target.searchParams.set('drive_error', reason);
+  // Papic page reads ?drive_error=; the Photo Delivery panel reads ?error=.
+  target.searchParams.set(returnTo === 'photo-delivery' ? 'error' : 'drive_error', reason);
   return NextResponse.redirect(target);
 }
 
@@ -64,28 +75,35 @@ export async function GET(req: NextRequest) {
   const admin = createAdminClient();
 
   // 1. Pull state row + verify freshness, then delete (single-use).
+  //    Phase 0 consolidation: this callback now serves BOTH the Papic Drive
+  //    connect (state provider='drive') and the Photo Delivery connect (state
+  //    provider='drive_photo_delivery' — a return-page marker only; the grant
+  //    we write is always provider='drive'). One consent, one redirect URI,
+  //    one grant.
   const { data: stateRow } = await admin
     .from('oauth_state')
     .select('state_token, event_id, provider, initiated_by, created_at')
     .eq('state_token', state)
-    .eq('provider', 'drive')
+    .in('provider', ['drive', 'drive_photo_delivery'])
     .maybeSingle();
   if (!stateRow) {
     return redirectWithError(url, null, 'state_not_found');
   }
   const eventId = stateRow.event_id as string;
+  const returnTo: ReturnTo =
+    stateRow.provider === 'drive_photo_delivery' ? 'photo-delivery' : 'papic';
   const createdAt = new Date(stateRow.created_at as string).getTime();
   const ageMin = (Date.now() - createdAt) / 60_000;
   await admin.from('oauth_state').delete().eq('state_token', state);
   if (ageMin > STATE_TTL_MIN) {
-    return redirectWithError(url, eventId, 'state_expired');
+    return redirectWithError(url, eventId, 'state_expired', returnTo);
   }
 
   // 2. Config sanity-check (should never fail if /start succeeded, but
   //    defend against rotation between start + callback).
   const config = getDriveOAuthConfig();
   if (!config.ready) {
-    return redirectWithError(url, eventId, 'not_configured');
+    return redirectWithError(url, eventId, 'not_configured', returnTo);
   }
 
   // 3. Exchange code -> tokens
@@ -102,6 +120,7 @@ export async function GET(req: NextRequest) {
       url,
       eventId,
       `exchange_failed:${(e as Error).message.slice(0, 64)}`,
+      returnTo,
     );
   }
 
@@ -109,7 +128,7 @@ export async function GET(req: NextRequest) {
     // With prompt=consent forced, Google should always return one. If we
     // don't get one, surface a clear error instead of silently persisting
     // a grant that we won't be able to refresh later.
-    return redirectWithError(url, eventId, 'no_refresh_token');
+    return redirectWithError(url, eventId, 'no_refresh_token', returnTo);
   }
 
   // 4. Fetch user info (best-effort — failure here doesn't block the
@@ -144,6 +163,7 @@ export async function GET(req: NextRequest) {
       url,
       eventId,
       `folder_bootstrap_failed:${(e as Error).message.slice(0, 64)}`,
+      returnTo,
     );
   }
 
@@ -187,10 +207,29 @@ export async function GET(req: NextRequest) {
       url,
       eventId,
       `persist_failed:${upsertError.message.slice(0, 64)}`,
+      returnTo,
     );
   }
 
-  const target = new URL(`/dashboard/${eventId}/add-ons/papic`, url);
-  target.searchParams.set('drive_connected', '1');
+  // Phase 0: mirror the Photo Delivery panel-facing fields so a single Drive
+  // connect lights up BOTH Papic and Photo Delivery. The release worker reads
+  // events.photo_delivery_folder_id; point it at the connected folder root.
+  await admin
+    .from('events')
+    .update({
+      photo_delivery_provider: 'google_drive',
+      photo_delivery_folder_id: folderTree.rootFolderId,
+      photo_delivery_folder_name: folderTree.rootFolderName,
+      photo_delivery_account_email: userInfo?.email ?? null,
+      photo_delivery_oauth_expires_at: expiresAt,
+      photo_delivery_status: 'connected',
+    })
+    .eq('event_id', eventId);
+
+  const target = new URL(pagePath(returnTo, eventId), url);
+  target.searchParams.set(
+    returnTo === 'photo-delivery' ? 'connected' : 'drive_connected',
+    '1',
+  );
   return NextResponse.redirect(target);
 }

@@ -12,6 +12,13 @@ import {
 
 // Iteration 0009 Photo Delivery — Google Drive OAuth callback.
 //
+// ⚠️ DEPRECATED as of Phase 0 (drive-oauth-consolidation, 2026-06-03). The
+// Photo Delivery connect now routes through the canonical Drive consent +
+// redirect URI, so Google redirects to /api/oauth/drive/callback and this
+// route is no longer reached by the app. Retained only until the owner removes
+// PHOTO_DELIVERY_OAUTH_REDIRECT_URI from Google Cloud; full deletion is a
+// follow-up. Do not add new callers.
+//
 // GET /api/oauth/photo-delivery/callback?code=<code>&state=<state>
 //
 // Mirrors Papic's /api/oauth/drive/callback. Differences:

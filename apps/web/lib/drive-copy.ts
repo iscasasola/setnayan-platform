@@ -25,12 +25,12 @@ import {
 // Byte primitives: lib/drive-upload.ts (shared with 0009 Photo Delivery).
 //
 // OAuth grant: this layer reads the per-event Drive grant at
-// oauth_grants(provider='drive') — the original Papic Drive connection. The
-// live 0009 Photo Delivery flow still uses its own provider='drive_photo_delivery'
-// grant + folder; collapsing both into a single per-event "Connect Drive" is
-// Phase 0 of the build plan (a later PR). Until then this layer is a no-op for
-// events that have only ever connected via the Photo Delivery flow — feeders
-// still enqueue, and the copy runs the moment a 'drive' grant exists.
+// oauth_grants(provider='drive'). As of Phase 0 (drive-oauth-consolidation)
+// this is the SINGLE per-event Drive connection — the Papic connect and the
+// Photo Delivery connect both flow through the canonical Drive consent +
+// /api/oauth/drive/callback and write provider='drive'. Any event with a
+// connected Drive is visible here; feeders that run before a connect just
+// enqueue, and the copy runs the moment the grant exists.
 // ============================================================================
 
 export const DRIVE_COPY_ARTIFACT_TYPES = [

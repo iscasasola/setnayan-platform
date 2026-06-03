@@ -4,6 +4,31 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(drive-copy): Phase 0 — consolidate the two Drive OAuth flows into one per-event connect
+
+**Commit:** to be filled after commit.
+
+**Context:** Phase 0 of the storage build plan (`Storage_and_Drive_Copy_Architecture_2026-06-03.md` § 8), following the Phase 1 keystone. An event could previously hold **two** Google Drive connections — `oauth_grants(provider='drive')` (Papic connect) and `provider='drive_photo_delivery'` (Photo Delivery connect) — each its own consent, redirect URI, and folder. The Phase-1 drive-copy layer reads `provider='drive'`, so a couple who connected only via Photo Delivery was invisible to it. This unifies them into **one** per-event "Connect Drive".
+
+**What ships:**
+
+- **`/api/oauth/photo-delivery/start`** — now uses the canonical Drive OAuth config (`getDriveOAuthConfig`), so the Photo Delivery connect goes through the **same Google consent + redirect URI** as Papic (→ `/api/oauth/drive/callback`). It still writes an `oauth_state` row with `provider='drive_photo_delivery'` purely as a **return-page marker**.
+- **`/api/oauth/drive/callback`** — now serves **both** connects: accepts `oauth_state.provider ∈ {drive, drive_photo_delivery}`, always upserts the grant as `provider='drive'`, **mirrors `events.photo_delivery_*`** connected-state, and redirects back to the right panel.
+- **`photo-delivery-release.ts`** + **`/api/photo-delivery/disconnect`** + **photo-delivery `actions.ts`** — read/revoke the unified `provider='drive'` grant.
+- **`/api/oauth/drive/disconnect`** — the shared Drive disconnect now also clears `events.photo_delivery_*`.
+- **`/api/oauth/photo-delivery/callback`** — marked **DEPRECATED** (unreachable post-consolidation).
+- **Migration `20260727000000_drive_oauth_consolidation.sql`** — safety-net data backfill: renames pre-existing `'drive_photo_delivery'` grants → `'drive'` (conflict-safe). **No schema change; code does not depend on it.**
+
+**Net result:** one consent, one registered redirect URI, one `provider='drive'` grant per event — powering Papic capture, Photo Delivery, and the drive-copy layer.
+
+**Pilot-safe:** no real Drive grants exist yet (#19g pending). Disconnect now means "disconnect Drive entirely" from either panel.
+
+**Verification:** full GitHub Actions suite green (typecheck+lint, production build, macOS/Windows build, e2e, lighthouse, bundle, secret scan).
+
+**SPEC IMPACT:** Yes. The owner now registers only **one** Drive redirect URI (`GOOGLE_DRIVE_OAUTH_REDIRECT_URI`); `PHOTO_DELIVERY_OAUTH_REDIRECT_URI` is retired. COWORK_INBOX item appended.
+
+---
+
 ## 2026-06-03 · feat(chrome): Messages icon in the dashboard top bar
 
 **Commit:** see merge commit on this PR.

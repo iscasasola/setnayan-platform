@@ -180,11 +180,13 @@ export async function disconnectPhotoDelivery(formData: FormData) {
   const admin = createAdminClient();
 
   // Revoke at Google + mark grant revoked (best-effort).
+  // Phase 0: revokes the single shared Drive grant (provider='drive') — see the
+  // matching note in /api/photo-delivery/disconnect.
   const { data: grant } = await admin
     .from('oauth_grants')
     .select('grant_id, refresh_token, revoked_at')
     .eq('event_id', auth.eventId)
-    .eq('provider', 'drive_photo_delivery')
+    .eq('provider', 'drive')
     .maybeSingle();
 
   if (grant && !grant.revoked_at && grant.refresh_token) {

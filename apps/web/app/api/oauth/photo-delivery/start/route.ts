@@ -4,25 +4,26 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import {
   buildDriveAuthorizeUrl,
   generateDriveStateToken,
+  getDriveOAuthConfig,
 } from '@/lib/papic-drive';
-import { getPhotoDeliveryOAuthConfig } from '@/lib/photo-delivery-drive';
 
 // Iteration 0009 Photo Delivery — Google Drive OAuth start.
 //
 // GET /api/oauth/photo-delivery/start?event_id=<uuid>
 //
-// Mirrors the Papic /api/oauth/drive/start route. Differences:
-//   - Reads PHOTO_DELIVERY_OAUTH_REDIRECT_URI (distinct from Papic's
-//     GOOGLE_DRIVE_OAUTH_REDIRECT_URI so Google can dispatch consent
-//     callbacks to the right iteration).
-//   - Inserts oauth_state with provider='drive_photo_delivery' (added by
-//     the PR 3 migration extending the provider CHECK).
+// Phase 0 consolidation (Storage_and_Drive_Copy_Architecture_2026-06-03.md):
+// the Photo Delivery connect now routes through the SAME Google consent +
+// redirect URI as the Papic Drive connect (getDriveOAuthConfig →
+// /api/oauth/drive/callback). One consent screen, one registered redirect URI,
+// one provider='drive' grant per event. This route keeps inserting an
+// oauth_state row with provider='drive_photo_delivery' purely as a
+// return-page marker so the shared callback knows to redirect back to the
+// Photo Delivery panel (the grant it writes is always provider='drive').
 //
-// Graceful fallback: when PHOTO_DELIVERY_OAUTH_REDIRECT_URI is unset (the
-// owner hasn't yet registered the URI in Google Cloud + Vercel), the
-// route returns a 503 with a structured payload. The Photo Delivery
-// panel surfaces a "coming soon — admin setup pending" placeholder
-// under the Connect button until that owner action completes.
+// Graceful fallback: when GOOGLE_DRIVE_OAUTH_* is unset (the owner hasn't yet
+// registered the Drive redirect URI in Google Cloud + Vercel), the route
+// returns a 503 with a structured payload and the panel shows a "coming soon —
+// admin setup pending" placeholder until that owner action completes.
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -55,11 +56,11 @@ export async function GET(req: NextRequest) {
   }
 
   // --- Graceful fallback when env vars missing ---
-  const config = getPhotoDeliveryOAuthConfig();
+  const config = getDriveOAuthConfig();
   if (!config.ready) {
     return NextResponse.json(
       {
-        error: 'photo_delivery_oauth_not_configured',
+        error: 'drive_oauth_not_configured',
         message: 'Setnayan admin setup is still in progress. Check back soon.',
         missing: config.missing,
       },

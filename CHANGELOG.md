@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(schema): planning_deadlines table + seed — admin-managed deadline foundation (PR 1/3)
+
+**Context:** Step 1 of making the recommended-deadline reminders **admin-editable** instead of hardcoded (owner: "ship this both"). Creates the single deadline-config table + seeds it from the live values. No consumer yet — admin UI (PR 2) + read-path (PR 3) follow; migrations land first.
+
+**Migration `20260802000000_planning_deadlines.sql`:** `planning_deadlines` — `kind` (service/milestone/document) · `ref_key` (plan-group id for category defaults · canonical_service leaf for overrides · or milestone/document key) · `scope` (category/leaf) · `offset_value`+`offset_unit` (month/week/day) · `applies_to` (e.g. pre-cana=catholic) · `is_active` · `UNIQUE(kind, ref_key, scope)`. RLS: admin `FOR ALL` via `public.is_admin()` + authenticated `SELECT`. **Seed:** 26 service category defaults from `PLAN_GROUPS.monthsBefore` + 3 statutory documents from `PAPERWORK_DEADLINES` (PSA 180d · license 120d · Pre-Cana 60d/catholic).
+
+**Granularity = inheritance-with-override** (owner-approved): leaves inherit their category default; admins override specific leaves; the future "missing deadline" flag fires only when a leaf *and* its parent have none. The couple's *lock-by* deadline — distinct from the vendor's delivery plan (Service Schedule).
+
+**Verification:** SQL reviewed against repo patterns (`public.is_admin()` · `gen_random_uuid()` · policy form all have precedent). SQL-only. **⚠️ Owner must `supabase db push`.**
+
+**SPEC IMPACT:** Yes — new admin capability (0023) + the planning/deadline model becomes admin-owned config (was code). Inbox note added.
+
 ## 2026-06-03 · feat(0006,0016): music compatibility score — vendors ranked by song overlap + per-card cue (compatibility PR 4)
 
 **Commit:** see merge commit on this PR.

@@ -8,6 +8,19 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Drive-copy layer keystone (R2 = system of record · 6-artifact Drive copy)
+
+**Why:** Code shipped Phase 1 (keystone) of the 2026-06-03 storage lock — the universal Google-Drive copy layer (`lib/drive-copy.ts` + `drive_copy_*` schema). The architecture, retention model, and the exact per-file iteration edits are already written up in the corpus design doc; this item is the reminder to walk that worklist via Cowork.
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **Apply `~/Documents/Claude/Projects/Setnayan/Storage_and_Drive_Copy_Architecture_2026-06-03.md` § 7 (Cowork worklist)** — the per-file edits: `CLAUDE.md` storage line (retire "R2 hot 90 days / IA cold 5 years" → 3-month high-res→compress + Drive copy) · **0009** rescope (photographer Drive folder → universal copy layer) · **0011** Panood carve-out (+ delete the offline-note "recording → R2 archive → Drive" line) · **0012** (retire "R2 → Drive at T+30d") · **0017** · **0036** · **0037/0004** · **0002** · pax-pricing docs (name the 6-artifact set + 3-month rule). Each `.md` edit → regen its `.docx` mirror.
+2. **`~/Documents/Claude/Projects/Setnayan/DECISION_LOG.md`** — ✅ already carries the 2026-06-03 "Storage & Drive-copy architecture LOCKED" row (added when the design doc landed). No action.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]` here.
+
+---
+
 ## [PENDING] 2026-06-03 — Site Editor: card-parity with the journey page (Phase 1 of the Website-tab flip)
 
 **Why:** The Reels editor (`/site-editor/[eventId]`) now carries every vital surface from the journey page (`/dashboard/[eventId]/website`) as carousel cards — the prerequisite for ④ "flip the Website tab to the editor" in the 2026-06-01 flip sequence. The spec corpus needs the decision-log row + a note on iteration 0021 so future sessions don't re-derive the editor's card set or the inline-buy-vs-navigation rule.

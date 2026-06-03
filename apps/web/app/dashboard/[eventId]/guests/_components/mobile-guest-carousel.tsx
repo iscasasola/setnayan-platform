@@ -22,12 +22,14 @@
  *   1. Summary  — [Total][Attending][Pending][Declined] as boxed,
  *                 animated count-up boxes; each box is also an RSVP filter
  *                 link, so mobile keeps RSVP filtering (Total clears it)
- *   2. Find     — LiveSearch (writes ?q=, debounced) + Sort pills
+ *   2. Find     — LiveSearch + the 4-dimension filter laid out to fit with
+ *                 NO vertical scroll: Side + RSVP as segmented toggles, Role
+ *                 + Group (+ Tags when present) as dropdowns, plus a Sort
+ *                 dropdown (owner directive 2026-06-03)
  *   3. Add      — opens the existing QuickAddSheet (rapid add + dup detect
  *                 + multi-role) + Quick-add list + Import CSV
- *   4. Customize — View / Groups / Tags filters that customize what the
- *                 list shows (the desktop FacetsSidebar facets, otherwise
- *                 lg:block-only and unreachable on a phone)
+ *   4. Customize — select guests + bulk-assign Side / Role / Group via the
+ *                 Assign sheet
  *
  * Supersedes the single docked MobileActionBar. The 4-item bottom nav (the
  * guest menus, rendered below the sheet) jumps between panels; horizontal
@@ -86,6 +88,7 @@ export function MobileGuestCarousel({
   attending,
   pending,
   declined,
+  teamFilter,
 }: {
   eventId: string;
   q: string;
@@ -102,12 +105,14 @@ export function MobileGuestCarousel({
   attending: number;
   pending: number;
   declined: number;
+  teamFilter: 'all' | 'bride' | 'groom';
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
   const [assignOpen, setAssignOpen] = useState(false);
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   // Belt-and-suspenders: after a bulk apply redirects back with a flash, make
   // sure the Assign sheet is closed (the apply handler already closes it +
@@ -215,94 +220,99 @@ export function MobileGuestCarousel({
             </div>
           </section>
 
-          {/* 2 — Find: search + sort + filters. Search matches name · side ·
-              role · group · RSVP (server haystack). Sort + the View / Groups /
-              Tags filters fold in here now that Customize is select-and-assign
-              (owner directive 2026-06-03). */}
-          <section className="w-full shrink-0 snap-center space-y-4 overflow-y-auto px-4 py-3">
+          {/* 2 — Find: search + the 4-dimension filter (Side · RSVP · Role ·
+              Group), laid out to fit WITHOUT vertical scroll (owner directive
+              2026-06-03 — "show all of these without scrolling"). Side + RSVP
+              are inline segmented toggles (small fixed sets); Role + Group are
+              dropdowns (larger/variable), two-up to save height; Sort is a
+              compact dropdown. Tags stay searchable via the box above + get an
+              optional dropdown only when the couple added custom tags. */}
+          <section className="w-full shrink-0 snap-center space-y-2.5 overflow-y-auto px-4 py-3">
             <LiveSearch initialValue={q} placeholder="Name, side, role, group…" />
 
-            <div>
-              <h3 className="mb-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
-                Sort
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {sorts.map((s) => (
-                  <Pill key={s.key} href={buildHref({ sort: s.key })} active={currentSort === s.key}>
-                    {s.label}
-                  </Pill>
-                ))}
-              </div>
+            {/* SIDE — segmented. "Bride"/"Groom" include both-side guests,
+                matching the desktop team filter, so there's no separate Both. */}
+            <SegRow label="Side">
+              <Seg href={buildHref({ team: null })} active={teamFilter === 'all'}>
+                All
+              </Seg>
+              <Seg href={buildHref({ team: 'bride' })} active={teamFilter === 'bride'}>
+                Bride
+              </Seg>
+              <Seg href={buildHref({ team: 'groom' })} active={teamFilter === 'groom'}>
+                Groom
+              </Seg>
+            </SegRow>
+
+            {/* RSVP — segmented */}
+            <SegRow label="RSVP">
+              <Seg href={buildHref({ rsvp: null })} active={!currentRsvp}>
+                All
+              </Seg>
+              <Seg href={buildHref({ rsvp: 'attending' })} active={currentRsvp === 'attending'}>
+                Going
+              </Seg>
+              <Seg href={buildHref({ rsvp: 'pending' })} active={currentRsvp === 'pending'}>
+                Pending
+              </Seg>
+              <Seg href={buildHref({ rsvp: 'declined' })} active={currentRsvp === 'declined'}>
+                Declined
+              </Seg>
+            </SegRow>
+
+            {/* ROLE + GROUP — dropdowns. They share the ?view param, so picking
+                one resets the other to "All" (the server filters by one at a
+                time). Two-up to keep the whole panel within one screen. */}
+            <div className="grid grid-cols-2 gap-2">
+              <SelectFilter
+                label="Role"
+                allLabel="All roles"
+                value={!currentGroupId && activeView !== 'all' ? activeView : ''}
+                options={views
+                  .filter((v) => v.key !== 'all')
+                  .map((v) => ({ value: v.key, label: v.label }))}
+                onChange={(v) => router.push(buildHref({ view: v || null }))}
+              />
+              <SelectFilter
+                label="Group"
+                allLabel="All groups"
+                value={currentGroupId ?? ''}
+                disabled={groups.length === 0}
+                options={groups.map((g) => ({ value: g.group_id, label: g.label }))}
+                onChange={(v) => router.push(buildHref({ view: v ? `group:${v}` : null }))}
+              />
             </div>
 
-            <div>
-              <div className="mb-2 flex items-center justify-between">
-                <h3 className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
-                  Filter
-                </h3>
-                {hasActiveFilter ? (
-                  <Link
-                    href={buildHref({ view: null, tag: null })}
-                    className="inline-flex items-center gap-1 text-[11px] text-ink/55 hover:text-ink"
-                  >
-                    <X className="h-3 w-3" strokeWidth={2} aria-hidden />
-                    Clear
-                  </Link>
-                ) : null}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {views.map((v) => (
-                  <Pill
-                    key={v.key}
-                    href={buildHref({ view: v.key === 'all' ? null : v.key })}
-                    active={!currentGroupId && activeView === v.key}
-                  >
-                    {v.label}
-                  </Pill>
-                ))}
-              </div>
-            </div>
-
-            {groups.length > 0 ? (
-              <div>
-                <h3 className="mb-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
-                  Groups
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {groups.map((g) => (
-                    <Pill
-                      key={g.group_id}
-                      href={buildHref({ view: `group:${g.group_id}` })}
-                      active={currentGroupId === g.group_id}
-                    >
-                      {g.label}
-                      {typeof g.member_count === 'number' ? (
-                        <span className="ml-1 opacity-60">{g.member_count}</span>
-                      ) : null}
-                    </Pill>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
+            {/* TAGS — optional dropdown, only when custom tags exist. */}
             {tags.length > 0 ? (
-              <div>
-                <h3 className="mb-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
-                  Tags
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {tags.map((t) => (
-                    <Pill
-                      key={t}
-                      href={buildHref({ tag: activeTag === t ? null : t })}
-                      active={activeTag === t}
-                    >
-                      {t}
-                    </Pill>
-                  ))}
-                </div>
-              </div>
+              <SelectFilter
+                label="Tags"
+                allLabel="All tags"
+                value={activeTag}
+                options={tags.map((t) => ({ value: t, label: t }))}
+                onChange={(v) => router.push(buildHref({ tag: v || null }))}
+              />
             ) : null}
+
+            {/* SORT dropdown + Clear-all */}
+            <div className="flex items-center gap-2">
+              <SelectFilter
+                className="flex-1"
+                label="Sort"
+                value={currentSort}
+                options={sorts.map((s) => ({ value: s.key, label: s.label }))}
+                onChange={(v) => router.push(buildHref({ sort: v }))}
+              />
+              {hasActiveFilter || teamFilter !== 'all' || currentRsvp ? (
+                <Link
+                  href={buildHref({ team: null, rsvp: null, view: null, tag: null })}
+                  className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-2 text-[11px] font-medium text-ink/55 hover:bg-ink/5 hover:text-ink"
+                >
+                  <X className="h-3 w-3" strokeWidth={2} aria-hidden />
+                  Clear
+                </Link>
+              ) : null}
+            </div>
           </section>
 
           {/* 3 — Add: inline quick-entry form */}
@@ -373,7 +383,21 @@ export function MobileGuestCarousel({
   );
 }
 
-function Pill({
+// SegRow / Seg — an iOS-style segmented toggle (label + a connected pill
+// group) for the small fixed-set filters (Side, RSVP). Each Seg is a Link
+// that flips one URL param, so filters compose and survive refresh.
+function SegRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="w-10 shrink-0 font-mono text-[10px] uppercase tracking-[0.08em] text-ink/45">
+        {label}
+      </span>
+      <div className="flex flex-1 gap-0.5 rounded-lg bg-ink/5 p-0.5">{children}</div>
+    </div>
+  );
+}
+
+function Seg({
   href,
   active,
   children,
@@ -385,12 +409,61 @@ function Pill({
   return (
     <Link
       href={href}
-      className={`inline-flex items-center rounded-full px-3 py-1.5 text-sm transition-colors ${
-        active ? 'bg-terracotta text-cream' : 'bg-ink/5 text-ink/70 hover:bg-ink/10'
+      aria-current={active ? 'true' : undefined}
+      className={`flex-1 rounded-md py-1.5 text-center text-[11px] font-medium transition-colors ${
+        active ? 'bg-cream text-terracotta-700 shadow-sm ring-1 ring-ink/5' : 'text-ink/55 hover:text-ink'
       }`}
     >
       {children}
     </Link>
+  );
+}
+
+// SelectFilter — a compact native <select> (label prefix + value) for the
+// larger / variable-length filters (Role, Group, Tags) and Sort. Native on
+// purpose: the OS picker handles long option lists without taking panel
+// height. onChange navigates via the router (client) using the shared
+// buildHref so the change merges with the live params.
+function SelectFilter({
+  label,
+  value,
+  options,
+  onChange,
+  allLabel,
+  disabled,
+  className,
+}: {
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (value: string) => void;
+  allLabel?: string;
+  disabled?: boolean;
+  className?: string;
+}) {
+  return (
+    <label
+      className={`flex min-w-0 items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-2.5 py-2 ${
+        disabled ? 'opacity-50' : 'focus-within:border-terracotta'
+      } ${className ?? ''}`}
+    >
+      <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.08em] text-ink/45">
+        {label}
+      </span>
+      <select
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+        className="min-w-0 flex-1 truncate bg-transparent text-[12px] font-medium text-ink focus:outline-none disabled:cursor-not-allowed"
+      >
+        {allLabel ? <option value="">{allLabel}</option> : null}
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 

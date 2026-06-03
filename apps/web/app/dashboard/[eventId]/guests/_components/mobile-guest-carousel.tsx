@@ -214,7 +214,7 @@ export function MobileGuestCarousel({
           guest list's last rows clear both fixed elements */}
       <div
         aria-hidden
-        className="h-[calc(var(--gcar-h)+4rem+env(safe-area-inset-bottom))] lg:hidden"
+        className="h-[calc(var(--gcar-h)+4rem+env(safe-area-inset-bottom))] transition-[height] duration-200 ease-out lg:hidden"
         style={
           // Keep the collapse-grabber feature, but do NOT collapse this spacer
           // when the keyboard opens — that 348px→0 shift was the reflow that

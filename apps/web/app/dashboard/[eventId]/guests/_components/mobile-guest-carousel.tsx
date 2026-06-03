@@ -47,7 +47,7 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { BarChart3, Check, ChevronLeft, Search, SlidersHorizontal, UserPlus, X } from 'lucide-react';
+import { BarChart3, Check, ChevronDown, ChevronLeft, Search, SlidersHorizontal, UserPlus, X } from 'lucide-react';
 import {
   ROLE_LABELS,
   SIDE_LABELS,
@@ -228,7 +228,7 @@ export function MobileGuestCarousel({
           of this sheet and BECAME the bottom nav, so this sheet now holds only
           the active panel. */}
       <div
-        className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 flex h-[var(--gcar-h)] flex-col overflow-hidden rounded-t-2xl bg-cream shadow-[0_-12px_30px_-18px_rgba(30,34,41,0.28)] ring-1 ring-ink/10 lg:hidden"
+        className={`fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 flex h-[var(--gcar-h)] flex-col overflow-hidden rounded-t-2xl bg-cream shadow-[0_-12px_30px_-18px_rgba(30,34,41,0.28)] ring-1 ring-ink/10 lg:hidden ${kbOpen ? '' : 'transition-[height] duration-200 ease-out'}`}
         style={
           kbOpen
             ? { bottom: kbInset, height: active === 2 ? 190 : undefined }
@@ -245,9 +245,14 @@ export function MobileGuestCarousel({
             onClick={() => setCollapsed((c) => !c)}
             aria-label={collapsed ? 'Expand panel' : 'Collapse panel'}
             aria-expanded={!collapsed}
-            className="flex h-9 shrink-0 items-center justify-center"
+            className="flex h-9 shrink-0 items-center justify-center gap-2 text-ink/40 transition-colors active:text-ink/70"
           >
-            <span aria-hidden className="h-1.5 w-10 rounded-full bg-ink/15" />
+            <span aria-hidden className="h-1.5 w-9 rounded-full bg-ink/25" />
+            <ChevronDown
+              aria-hidden
+              strokeWidth={2.5}
+              className={`h-4 w-4 transition-transform ${collapsed ? 'rotate-180' : ''}`}
+            />
           </button>
         )}
         {/* swipe track — 4 panels, scroll-snap; full sheet height now that the

@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · fix(guests): clearer collapse grabber — chevron + animated height
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Follow-up to the collapsible Guests panel (PR #850). The collapse mechanism works (verified in an isolated repro — tap → sheet shrinks to the handle, guest list stretches), but the grabber was a single faint `bg-ink/15` pill with an instant (un-animated) height change, so the affordance was easy to miss and the collapse hard to notice ("does not collapse"). Make it unmistakable.
+
+**What ships (`mobile-guest-carousel.tsx`):** (1) the grabber gains a **chevron** (`ChevronDown`, rotates 180° when collapsed) beside a more-visible `bg-ink/25` pill, in `text-ink/40` with an `active:` press state — clearly a tap-to-collapse control; (2) the sheet **animates** its height (`transition-[height] duration-200 ease-out`) so collapse/expand visibly slides — gated on `!kbOpen` so the iOS keyboard-pin (PR #841) stays instant with no typing jank.
+
+**SPEC IMPACT:** None (affordance + animation polish on the PR #850 collapse).
+
+**Verification:** Type-safe by inspection (chevron import + a rotate class + a conditional transition class). Flagged for owner preview check. CI gates types/lint/build.
+
 ## 2026-06-03 · refactor(onboarding): unique `.onbw` CSS scope for the wedding onboarding flow (was global `.pba`) — kills the collision at the source
 
 **Commit:** see merge commit on this PR.

@@ -8,6 +8,18 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Drive surface is cron-free (0009 release + token refresh)
+
+**Why:** Both Drive-surface crons were dormant (no scheduler wired). Capture auto-sync (Phase 2) + the "Release to Drive" action now drain via Next 15 `after()`; OAuth tokens refresh on-demand. No crons.
+
+**Spec updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/0009_photo_delivery/0009_photo_delivery.md`** — replace any "Cloudflare Queue worker / external cron runner / photo-delivery-tick" copy-mechanism language with: the release + capture auto-sync copy to Drive via Next 15 `after()` background tasks (no cron); access tokens refresh on-demand in the consumers.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Drive-copy Phase 2: Papic auto-sync (cron-free)
 
 **Why:** Papic captures now auto-sync to the couple's Google Drive — cron-free, via Next 15 `after()` (background copy in the capture request). The 5 other artifact feeders await their services' render/generation pipelines.

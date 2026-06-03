@@ -8,6 +8,11 @@ import {
   type VendorThreadWithEvent,
 } from '@/lib/chat';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { fetchVendorPreparationItemsByEvent } from '@/lib/preparation';
+import {
+  VendorPrepForBooking,
+  type VendorPrepItem,
+} from './_components/vendor-prep-add';
 
 export const metadata = { title: 'Bookings · Vendor' };
 
@@ -61,6 +66,14 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
   if (!profile) redirect('/vendor-dashboard');
 
   const threads = await fetchVendorThreads(supabase, profile.vendor_profile_id);
+
+  // Hybrid Preparation (2026-06-03) — the prep items THIS vendor has added,
+  // keyed by event_id, so each accepted booking can show + manage them.
+  // Graceful-degrades to an empty map pre-migration.
+  const vendorPrepByEvent = await fetchVendorPreparationItemsByEvent(
+    supabase,
+    profile.vendor_profile_id,
+  );
 
   // Pull latest message per thread for preview + unread inference.
   const threadIds = threads.map((t) => t.thread_id);
@@ -258,11 +271,27 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
               if (d > 0) return `${r.event.event_date} · in ${d} day${d === 1 ? '' : 's'}`;
               return `${r.event.event_date} · ${Math.abs(d)} day${Math.abs(d) === 1 ? '' : 's'} ago`;
             })();
+            // Hybrid Preparation (2026-06-03) — the vendor may add dated
+            // prep items only for ACCEPTED bookings (RLS gates the insert to
+            // accepted threads; we gate the UI to match). Undated bookings
+            // are fine — the prep item carries its own date.
+            const isAccepted = r.inquiry_status === 'accepted';
+            const prepItems: VendorPrepItem[] = isAccepted
+              ? (vendorPrepByEvent.get(r.event_id) ?? []).map((it) => ({
+                  itemId: it.itemId,
+                  dueDate: it.dueDate,
+                  label: it.label,
+                  notes: it.notes,
+                }))
+              : [];
             return (
-              <li key={r.thread_id}>
+              <li
+                key={r.thread_id}
+                className="overflow-hidden rounded-xl border border-ink/10 bg-cream"
+              >
                 <Link
                   href={`/vendor-dashboard/messages/${r.thread_id}`}
-                  className="group flex items-start justify-between gap-3 rounded-xl border border-ink/10 bg-cream p-4 transition-colors hover:border-terracotta/40 hover:bg-terracotta/5"
+                  className="group flex items-start justify-between gap-3 p-4 transition-colors hover:bg-terracotta/5"
                 >
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -295,6 +324,16 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
                     strokeWidth={1.75}
                   />
                 </Link>
+                {isAccepted ? (
+                  <div className="border-t border-ink/10 px-4 py-3">
+                    <VendorPrepForBooking
+                      eventId={r.event_id}
+                      vendorProfileId={profile.vendor_profile_id}
+                      eventName={r.event?.display_name ?? 'this event'}
+                      items={prepItems}
+                    />
+                  </div>
+                ) : null}
               </li>
             );
           })}

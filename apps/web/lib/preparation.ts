@@ -60,14 +60,27 @@ import { completeByDate, DOCUMENT_META, type PaperworkDocumentType } from './pap
 // Public types
 // ----------------------------------------------------------------------------
 
-/** Source tag rendered as a chip on each row + drives the icon/tone. */
-export type PreparationSource = 'payment' | 'paperwork' | 'meeting' | 'milestone';
+/**
+ * Source tag rendered as a chip on each row + drives the icon/tone. The
+ * first four are the read-only autofill sources (PR #840). `manual` is the
+ * hybrid layer added 2026-06-03 — a couple-added OR vendor-added row from
+ * the `event_preparation_items` table. Manual rows carry a delete control
+ * (see `isManual` / `itemId` below) and their chip is overridden per-row
+ * via `sourceLabel` ("Added by you" vs "From {vendor}").
+ */
+export type PreparationSource =
+  | 'payment'
+  | 'paperwork'
+  | 'meeting'
+  | 'milestone'
+  | 'manual';
 
 export const PREPARATION_SOURCE_LABEL: Record<PreparationSource, string> = {
   payment: 'Payment',
   paperwork: 'Paperwork',
   meeting: 'Meeting',
   milestone: 'Milestone',
+  manual: 'Added',
 };
 
 export type PreparationItem = {
@@ -86,6 +99,23 @@ export type PreparationItem = {
   amountPhp?: number;
   /** On-platform deep-link for tap-through. */
   href?: string;
+  /**
+   * Per-row chip label override. Autofill rows leave this undefined and
+   * fall back to PREPARATION_SOURCE_LABEL[source]. Manual rows set it to
+   * "Added by you" (couple_manual) or "From {vendor business name}"
+   * (vendor_prep) so the source of a hand-added item is unmistakable.
+   */
+  sourceLabel?: string;
+  /**
+   * Hybrid layer only. When true, this row is a real
+   * `event_preparation_items` row the current user is allowed to remove —
+   * the agenda renders a delete control wired to `deletePreparationItem`.
+   * Autofill rows (payment/paperwork/meeting/milestone) leave this falsy;
+   * they are owned + edited on their own surface and stay read-only here.
+   */
+  isManual?: boolean;
+  /** The `event_preparation_items.item_id` — present iff `isManual`. */
+  itemId?: string;
 };
 
 export type PreparationGroup = {
@@ -141,6 +171,15 @@ type VendorMeetingRow = {
   mode: string;
   title: string;
   location: string | null;
+};
+
+type PreparationItemRow = {
+  item_id: string;
+  vendor_profile_id: string | null;
+  due_date: string;
+  label: string;
+  notes: string | null;
+  source_tag: string;
 };
 
 // ----------------------------------------------------------------------------
@@ -420,6 +459,151 @@ function buildStatutoryMilestones(
 }
 
 // ----------------------------------------------------------------------------
+// Source 5 — manual + vendor-added items (event_preparation_items)
+//
+// The hybrid layer (2026-06-03). Unlike sources 1–4 this is the ONE source
+// backed by a NEW table, so it must graceful-degrade hard: on a stale
+// deploy where the migration hasn't been pushed, the table is missing
+// (Postgres 42P01) and we return [] — the Preparation tab keeps rendering
+// from the autofill alone.
+//
+// `couple_manual` rows are couple-authored ("Added by you"); `vendor_prep`
+// rows were added by a booked vendor ("From {business name}"). Both carry
+// isManual=true + the item_id so the agenda can show a delete control. RLS
+// already scopes the SELECT to rows the caller may see; this query never
+// leaks another event's items.
+// ----------------------------------------------------------------------------
+
+async function fetchManualItems(
+  supabase: SupabaseClient,
+  eventId: string,
+  now: Date,
+): Promise<PreparationItem[]> {
+  const { data, error } = await supabase
+    .from('event_preparation_items')
+    .select('item_id, vendor_profile_id, due_date, label, notes, source_tag')
+    .eq('event_id', eventId)
+    .order('due_date', { ascending: true });
+  if (error) {
+    // Missing table on a pre-migration deploy → autofill-only. Any other
+    // error (RLS edge, transient) also degrades to [] rather than throwing
+    // the whole agenda; we log non-missing errors for diagnosis.
+    if (!isMissingRelation(error)) {
+      console.error('[preparation] manual items:', error.message);
+    }
+    return [];
+  }
+  const rows = (data ?? []) as PreparationItemRow[];
+  if (rows.length === 0) return [];
+
+  // Resolve vendor business names for vendor_prep rows in one batched read.
+  const vendorProfileIds = Array.from(
+    new Set(
+      rows
+        .filter((r) => r.vendor_profile_id)
+        .map((r) => r.vendor_profile_id as string),
+    ),
+  );
+  const vendorName = new Map<string, string>();
+  if (vendorProfileIds.length > 0) {
+    const { data: vendors } = await supabase
+      .from('vendor_profiles')
+      .select('vendor_profile_id, business_name')
+      .in('vendor_profile_id', vendorProfileIds);
+    for (const v of (vendors ?? []) as Array<{
+      vendor_profile_id: string;
+      business_name: string | null;
+    }>) {
+      const name = (v.business_name ?? '').trim();
+      if (name) vendorName.set(v.vendor_profile_id, name);
+    }
+  }
+
+  const items: PreparationItem[] = [];
+  for (const row of rows) {
+    // due_date is a DATE (no time) — anchor to noon local for stable buckets,
+    // mirroring the payment + paperwork sources.
+    const date = new Date(`${row.due_date}T12:00:00`);
+    if (Number.isNaN(date.getTime())) continue;
+    const fromVendor = row.source_tag === 'vendor_prep' && row.vendor_profile_id;
+    const vendorLabel = fromVendor
+      ? vendorName.get(row.vendor_profile_id as string)
+      : undefined;
+    const sourceLabel = fromVendor
+      ? `From ${vendorLabel ?? 'your vendor'}`
+      : 'Added by you';
+    const subtitle = (row.notes ?? '').trim() || sourceLabel;
+    items.push({
+      id: `manual:${row.item_id}`,
+      source: 'manual',
+      date,
+      daysFromNow: daysBetween(date, now),
+      title: row.label,
+      subtitle,
+      sourceLabel,
+      isManual: true,
+      itemId: row.item_id,
+    });
+  }
+  return items;
+}
+
+// ----------------------------------------------------------------------------
+// Vendor-side read — the items THIS vendor has added, keyed by event
+//
+// Powers the vendor Bookings view's "what I've added" list + per-item delete.
+// RLS (event_prep_items_vendor_read) already restricts the SELECT to rows the
+// vendor authored or can see; we additionally filter to vendor_profile_id so
+// the vendor sees only their OWN added rows here (couple-added rows on the
+// same event are not the vendor's to manage). Graceful-degrades to {} when
+// the table is missing on a pre-migration deploy.
+// ----------------------------------------------------------------------------
+
+export type VendorAddedPrepItem = {
+  itemId: string;
+  eventId: string;
+  dueDate: string;
+  label: string;
+  notes: string | null;
+};
+
+export async function fetchVendorPreparationItemsByEvent(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+): Promise<Map<string, VendorAddedPrepItem[]>> {
+  const byEvent = new Map<string, VendorAddedPrepItem[]>();
+  const { data, error } = await supabase
+    .from('event_preparation_items')
+    .select('item_id, event_id, due_date, label, notes')
+    .eq('vendor_profile_id', vendorProfileId)
+    .order('due_date', { ascending: true });
+  if (error) {
+    if (!isMissingRelation(error)) {
+      console.error('[preparation] vendor items:', error.message);
+    }
+    return byEvent;
+  }
+  for (const row of (data ?? []) as Array<{
+    item_id: string;
+    event_id: string;
+    due_date: string;
+    label: string;
+    notes: string | null;
+  }>) {
+    const list = byEvent.get(row.event_id) ?? [];
+    list.push({
+      itemId: row.item_id,
+      eventId: row.event_id,
+      dueDate: row.due_date,
+      label: row.label,
+      notes: row.notes,
+    });
+    byEvent.set(row.event_id, list);
+  }
+  return byEvent;
+}
+
+// ----------------------------------------------------------------------------
 // Public API
 // ----------------------------------------------------------------------------
 
@@ -445,16 +629,23 @@ export async function fetchPreparationAgenda(
 ): Promise<PreparationAgenda> {
   const { supabase, eventId, eventDate, ceremonyType, now } = input;
 
-  const [payments, paperwork, meetings] = await Promise.all([
+  const [payments, paperwork, meetings, manual] = await Promise.all([
     fetchPaymentItems(supabase, eventId, now),
     fetchPaperworkItems(supabase, eventId, eventDate, now),
     fetchMeetingItems(supabase, eventId, now),
+    // Source 5 — hybrid manual + vendor-added rows. Graceful-degrades to []
+    // when event_preparation_items doesn't exist yet (pre-migration deploy).
+    fetchManualItems(supabase, eventId, now),
   ]);
   const milestones = buildStatutoryMilestones(eventId, eventDate, ceremonyType, now);
 
-  const items = [...payments, ...paperwork, ...meetings, ...milestones].sort(
-    (a, b) => a.date.getTime() - b.date.getTime(),
-  );
+  const items = [
+    ...payments,
+    ...paperwork,
+    ...meetings,
+    ...milestones,
+    ...manual,
+  ].sort((a, b) => a.date.getTime() - b.date.getTime());
 
   // Bucket by calendar month, months ascending (matches the already-sorted
   // items order). Overdue items land in their real month so the couple can
@@ -483,6 +674,7 @@ export async function fetchPreparationAgenda(
     paperwork: paperwork.length,
     meeting: meetings.length,
     milestone: milestones.length,
+    manual: manual.length,
   };
 
   return { items, groups, sourceCounts };

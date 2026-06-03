@@ -17,11 +17,27 @@
 **Owner action:** push migration `20260802000000_planning_deadlines.sql` (`supabase db push`).
 
 **Spec corpus update (owner walks via Cowork):**
-1. **`~/Documents/Claude/Projects/Setnayan/0023_admin_console/`** + the planning/deadline spec — record the admin-managed `planning_deadlines` table: per-category defaults + per-leaf overrides via **inheritance-with-override**, a **"missing deadline" flag** on uncovered leaves, distinct from the vendor delivery plan (Service Schedule). The couple's recommended-deadline reminders read from it (PR 3); admin edits it in `/admin/taxonomy` (PR 2).
+1. **`~/Documents/Claude/Projects/Setnayan/0023_admin_console/`** + the planning/deadline spec — record the admin-managed `planning_deadlines` table: per-category defaults + per-leaf overrides via **inheritance-with-override**, a **"missing deadline" flag**, distinct from the vendor delivery plan. Reminders read from it (PR 3); admin edits in `/admin/taxonomy` (PR 2).
 
 **Still to build:** PR 2 (`/admin/taxonomy` deadline column + missing-flag + edit) · PR 3 (wire `lib/upcoming-items.ts` to read the table, code stays as fallback).
 
 **When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
+## [PENDING] 2026-06-03 — Music compatibility score shipped (0006/0016)
+
+**Why:** PR 4 of the compatibility build — music vendors are ranked by song overlap with the couple's picks + cards show the match. The "≥90% Best / <90% Next-best" intent is realized via re-rank + label.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`Vendor_Compatibility_and_Master_Songlist_2026-06-03.md`** — note the score SHIPPED on the wizard music cards: `fetchWizardVendorRecommendations` re-ranks music vendors by overlap (float-to-top, never-exclude) + the per-card "Best match · plays N of M songs" cue. Optional `matchEventId` + optional fields. **Refinements still open:** explicit Best/Next-best section-headers (vs the current re-rank+label realization), and extending the cue to the `/vendors` marketplace + the Category Search overlay (those surfaces don't go through the recommender → need separate wiring).
+2. **`0006` / `0016`** — record the music matching is live end-to-end (PRs 1–4).
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "feat(0006,0016): music compatibility score…". Needs migration `20260731000000` pushed.
+
+---
+
+## [PENDING] 2026-06-03 — "Planning reminders" on/off toggle SHIPPED (0025 Settings)
 
 **Why:** The free recommended-deadline reminders ship on by default; couples can now turn them off in Settings (the quiet opt-out, no fork). New `users.reminders_enabled` column + a Settings toggle that gates the Home `recommended_deadline` source.
 

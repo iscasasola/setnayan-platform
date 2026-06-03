@@ -6,18 +6,37 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ## 2026-06-03 · feat(schema): planning_deadlines table + seed — admin-managed deadline foundation (PR 1/3)
 
-**Context:** Step 1 of making the recommended-deadline reminders **admin-editable** instead of hardcoded (owner: "ship this both"). Creates the single deadline-config table + seeds it from the live values. No consumer yet — the admin UI (PR 2) + read-path (PR 3) follow; migrations land first.
+**Context:** Step 1 of making the recommended-deadline reminders **admin-editable** instead of hardcoded (owner: "ship this both"). Creates the single deadline-config table + seeds it from the live values. No consumer yet — admin UI (PR 2) + read-path (PR 3) follow; migrations land first.
 
-**Migration `20260802000000_planning_deadlines.sql`:**
-- `planning_deadlines` — `kind` (service/milestone/document) · `ref_key` (plan-group id for category defaults · canonical_service leaf for overrides · or milestone/document key) · `scope` (category/leaf) · `offset_value`+`offset_unit` (month/week/day) · `applies_to` (ceremony-type filter, e.g. pre-cana=catholic) · `is_active`. `UNIQUE(kind, ref_key, scope)`.
-- **RLS:** admin `FOR ALL` via `public.is_admin()` + authenticated `SELECT` (global config, no PII) — copies the moodboard_library_assets pattern.
-- **Seed:** 26 service category defaults from `PLAN_GROUPS.monthsBefore` (ceremony/coordinator 12mo … logistics 2mo) + 3 statutory documents from `PAPERWORK_DEADLINES` (PSA 180d · license 120d · Pre-Cana 60d/catholic).
+**Migration `20260802000000_planning_deadlines.sql`:** `planning_deadlines` — `kind` (service/milestone/document) · `ref_key` (plan-group id for category defaults · canonical_service leaf for overrides · or milestone/document key) · `scope` (category/leaf) · `offset_value`+`offset_unit` (month/week/day) · `applies_to` (e.g. pre-cana=catholic) · `is_active` · `UNIQUE(kind, ref_key, scope)`. RLS: admin `FOR ALL` via `public.is_admin()` + authenticated `SELECT`. **Seed:** 26 service category defaults from `PLAN_GROUPS.monthsBefore` + 3 statutory documents from `PAPERWORK_DEADLINES` (PSA 180d · license 120d · Pre-Cana 60d/catholic).
 
-**Granularity = inheritance-with-override** (owner-approved): leaves inherit their category default; admins override specific leaves; the future "missing deadline" flag fires only when a leaf *and* its parent have none. Seeding the 26 category defaults means day one isn't a wall of flags. This is the couple's *lock-by* deadline — distinct from the vendor's delivery plan (Service Schedule).
+**Granularity = inheritance-with-override** (owner-approved): leaves inherit their category default; admins override specific leaves; the future "missing deadline" flag fires only when a leaf *and* its parent have none. The couple's *lock-by* deadline — distinct from the vendor's delivery plan (Service Schedule).
 
-**Verification:** SQL reviewed against repo patterns (`public.is_admin()` 20260512000000:164 · `gen_random_uuid()` + `USING (public.is_admin())` precedents). `tsc`/build unaffected (SQL-only). **⚠️ Owner must `supabase db push`.** CI's migration-timestamp guard validates ordering.
+**Verification:** SQL reviewed against repo patterns (`public.is_admin()` · `gen_random_uuid()` · policy form all have precedent). SQL-only. **⚠️ Owner must `supabase db push`.**
 
-**SPEC IMPACT:** Yes — new admin capability (0023) + the planning/deadline model; the deadlines become admin-owned config (was code). Inbox note added.
+**SPEC IMPACT:** Yes — new admin capability (0023) + the planning/deadline model becomes admin-owned config (was code). Inbox note added.
+
+## 2026-06-03 · feat(0006,0016): music compatibility score — vendors ranked by song overlap + per-card cue (compatibility PR 4)
+
+**Commit:** see merge commit on this PR.
+
+**Context:** PR 4 of the vendor-compatibility build — the payoff. Music vendors are ranked by how much of the couple's chosen songs (`event_song_picks`, PR 3) they actually perform (`vendor_songs`, PR 2), and each card shows the match. Promote-but-never-limit: matches float up, nobody is excluded.
+
+**What changed:**
+- **`lib/songs.ts`** — `fetchEventSongPickIds` (the couple's pick set) + `fetchVendorSongOverlaps` (one batched count of each candidate's overlap with the picks).
+- **`lib/wizard-recommendations.ts`** — `fetchWizardVendorRecommendations` gains an optional `matchEventId` arg + optional return fields (`song_overlap_count` / `song_pick_total` / `match_label` 'best' [≥90%] / 'next_best'). For a music-category query with a matched event + picks: over-fetch a 100-candidate pool, compute overlap, **stable-sort by overlap DESC** (preserves the ad_rank → review ladder within ties), trim to limit. Non-music / no-event queries take the EXACT prior path (zero extra reads). All 24 callers safe (optional fields, no strict mapping).
+- **Wiring** — the two music wizard cards (`music-entertainment-card`, `after-party-music-card`) pass `matchEventId: eventId` on the initial fetch; `searchVendorRecommendations` forwards it so in-card search re-ranks too.
+- **Cue** — `vendor-pick-grid-card.tsx` renders a per-card "♪ Best match · plays N of your M songs" pill, shown ONLY when the vendor performs ≥1 of the couple's songs (degrades to nothing — no "plays 0").
+
+**Verification:** `pnpm -F web typecheck` clean · `pnpm -F web lint` clean (only the pre-existing `aria-disabled` warning in this file) · `pnpm -F web build` ✓.
+
+**SPEC IMPACT:** Iteration **0006/0016** (the compatibility model). The "≥90% = Best matches / <90% = Next best options" intent is realized via the float-to-top re-rank + the "Best match" label; explicit grouped section-headers + extending the cue to the /vendors marketplace + Category-Search overlay are noted refinements (those don't go through the recommender). No new SKU. See `COWORK_INBOX.md`.
+
+**Owner action:** still push migration `20260731000000` for any of this to light up (empty `vendor_songs`/`event_song_picks` → no overlap → graceful no-op, current ranking unchanged).
+
+**Next:** PR 6 — admin dedup/merge tool for the master song catalogue.
+
+---
 
 ## 2026-06-03 · feat(settings): "Planning reminders" on/off toggle (couple opt-out)
 

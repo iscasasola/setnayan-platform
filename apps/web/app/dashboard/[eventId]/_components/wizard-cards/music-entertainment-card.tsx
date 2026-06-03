@@ -77,6 +77,7 @@ export async function MusicEntertainmentCard({
       ceremonyType,
       venueSetting,
       excludeVendorIds: excludeMarketplaceIds,
+      matchEventId: eventId,
       limit: 100,
     }),
     fetchBookedMarketplaceVendorIdsForDate(admin, eventId, eventDate),

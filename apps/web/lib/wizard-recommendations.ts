@@ -29,6 +29,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { r2PublicUrl, R2_BUCKETS } from '@/lib/r2';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
+import {
+  MUSIC_CANONICALS,
+  fetchEventSongPickIds,
+  fetchVendorSongOverlaps,
+} from '@/lib/songs';
 
 /** Single vendor recommendation row · shape consumed by VendorPickCard
  *  AND the new visual VendorPickGridCard. */
@@ -116,6 +121,15 @@ export type WizardVendorRec = {
     photo_url: string;
     service_name: string | null;
   }>;
+  /** Music compatibility (Vendor_Compatibility_and_Master_Songlist_2026-06-03).
+   *  Set ONLY on a music-category query carrying `matchEventId` whose event has
+   *  song picks. `song_overlap_count` = how many of the couple's chosen songs
+   *  this vendor performs; `song_pick_total` = the couple's pick count;
+   *  `match_label` = 'best' (≥90% of the picks) / 'next_best' (<90%). Absent on
+   *  non-music / no-pick queries → cards render no cue (degrades gracefully). */
+  song_overlap_count?: number;
+  song_pick_total?: number;
+  match_label?: 'best' | 'next_best';
 };
 
 type Args = {
@@ -146,6 +160,11 @@ type Args = {
    *  tagline. NULL/empty string = no search filter (default rank order
    *  still applies). Used by the grid card's search submit. */
   searchQuery?: string;
+  /** The browsing couple's event_id. When set AND the category is a music act,
+   *  vendors are re-ranked by how much of the couple's song picks
+   *  (`event_song_picks`) they perform, and each row gets a match label. Omit
+   *  (or non-music category) → exact prior behavior, no extra reads. */
+  matchEventId?: string;
 };
 
 /**
@@ -165,6 +184,16 @@ export async function fetchWizardVendorRecommendations(
 ): Promise<WizardVendorRec[]> {
   const limit = args.limit ?? 15;
   if (args.canonicalServices.length === 0) return [];
+
+  // Music compatibility (Vendor_Compatibility_and_Master_Songlist_2026-06-03):
+  // for a music-category query with a couple's event, over-fetch a wider pool so
+  // we can re-rank by song overlap (matches float up, never excludes) before
+  // trimming to `limit`. Non-music / no-event queries take the exact prior path
+  // (fetchLimit === limit · no extra reads).
+  const isMusicMatch =
+    !!args.matchEventId &&
+    args.canonicalServices.some((s) => MUSIC_CANONICALS.has(s));
+  const fetchLimit = isMusicMatch ? Math.max(limit, 100) : limit;
 
   let query = admin
     .from('vendor_market_stats')
@@ -243,7 +272,7 @@ export async function fetchWizardVendorRecommendations(
     .order('ad_rank', { ascending: false, nullsFirst: false })
     .order('review_count', { ascending: false, nullsFirst: false })
     .order('avg_rating_overall', { ascending: false, nullsFirst: false })
-    .limit(limit);
+    .limit(fetchLimit);
 
   const { data, error } = await query;
   if (error || !data) return [];
@@ -255,7 +284,7 @@ export async function fetchWizardVendorRecommendations(
   // batched IN-lookups so a 100-vendor result set hits the DB twice
   // instead of N+1. Fail-soft on either side · the card keeps rendering
   // the vendor row even if photos / verification can't be resolved.
-  const baseRows = data as unknown as Omit<
+  let baseRows = data as unknown as Omit<
     WizardVendorRec,
     | 'primary_photo_url'
     | 'verification_state'
@@ -264,6 +293,35 @@ export async function fetchWizardVendorRecommendations(
     | 'services_preview'
     | 'screen_name'
   >[];
+  if (baseRows.length === 0) return [];
+
+  // Song-overlap score + re-rank (music match only). `overlapByVendor` stays
+  // empty otherwise, so the final map adds no match fields and the order is
+  // unchanged. The sort is stable (Node/V8), preserving ad_rank → review order
+  // within equal-overlap groups.
+  const overlapByVendor = new Map<string, { count: number; total: number }>();
+  if (isMusicMatch) {
+    const pickIds = await fetchEventSongPickIds(admin, args.matchEventId!);
+    if (pickIds.length > 0) {
+      const poolIds = baseRows.map((r) => r.vendor_profile_id);
+      const overlaps = await fetchVendorSongOverlaps(admin, poolIds, pickIds);
+      for (const id of poolIds) {
+        overlapByVendor.set(id, {
+          count: overlaps.get(id) ?? 0,
+          total: pickIds.length,
+        });
+      }
+      baseRows = [...baseRows].sort(
+        (a, b) =>
+          (overlapByVendor.get(b.vendor_profile_id)?.count ?? 0) -
+          (overlapByVendor.get(a.vendor_profile_id)?.count ?? 0),
+      );
+    }
+  }
+
+  // Over-fetched for the music re-rank → trim to the requested cap before the
+  // (more expensive) photo / meta enrichment.
+  baseRows = baseRows.slice(0, limit);
   const vendorIds = baseRows.map((r) => r.vendor_profile_id);
   if (vendorIds.length === 0) return [];
 
@@ -381,6 +439,18 @@ export async function fetchWizardVendorRecommendations(
             }))
         : [];
 
+    const overlap = overlapByVendor.get(row.vendor_profile_id);
+    const matchFields =
+      overlap && overlap.total > 0
+        ? {
+            song_overlap_count: overlap.count,
+            song_pick_total: overlap.total,
+            match_label: (overlap.count / overlap.total >= 0.9
+              ? 'best'
+              : 'next_best') as 'best' | 'next_best',
+          }
+        : {};
+
     return {
       ...row,
       primary_photo_url: firstPhotoKey
@@ -391,6 +461,7 @@ export async function fetchWizardVendorRecommendations(
       screen_name: meta?.screen_name ?? null,
       presentation_pattern: presentationPattern,
       services_preview,
+      ...matchFields,
     } as WizardVendorRec;
   });
 }

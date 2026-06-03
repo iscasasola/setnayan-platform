@@ -1312,6 +1312,7 @@ export async function searchVendorRecommendations(
     venueSetting: args.venueSetting,
     excludeVendorIds: args.excludeVendorIds,
     searchQuery: args.query,
+    matchEventId: args.eventId,
     limit: args.limit ?? 100,
   });
 }

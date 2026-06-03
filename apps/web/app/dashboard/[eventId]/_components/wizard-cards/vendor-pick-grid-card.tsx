@@ -51,6 +51,7 @@ import {
   ChevronRight,
   Lock,
   MapPin,
+  Music,
   Plus,
   Search,
   Star,
@@ -1454,6 +1455,19 @@ function VendorGridCardRow({
         {isCertified ? (
           <p className="text-[11px] leading-snug text-emerald-800/85">
             Documents reviewed by Setnayan.
+          </p>
+        ) : null}
+
+        {/* Music compatibility cue — shown only when this vendor performs at
+            least one of the couple's chosen songs (degrades to nothing
+            otherwise). "Best match" = ≥90% of the picks. */}
+        {typeof rec.song_overlap_count === 'number' && rec.song_overlap_count > 0 ? (
+          <p className="inline-flex w-fit items-center gap-1 rounded-full bg-terracotta/10 px-2 py-0.5 text-[11px] font-medium text-terracotta">
+            <Music aria-hidden className="h-3 w-3" strokeWidth={2} />
+            <span>
+              {rec.match_label === 'best' ? 'Best match · ' : ''}
+              plays {rec.song_overlap_count} of your {rec.song_pick_total} songs
+            </span>
           </p>
         ) : null}
 

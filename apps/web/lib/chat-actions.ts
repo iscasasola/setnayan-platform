@@ -6,6 +6,57 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchThreadById } from './chat';
 import { emitNotification } from './notification-emit';
+import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
+
+/**
+ * Mark a thread as read for the current user — stamps (or refreshes)
+ * chat_thread_reads.last_read_at = now() for (thread_id, auth.uid()). Called on
+ * render when a user opens a thread (couple + vendor thread pages) so the
+ * Messages-icon unread badge clears for threads they've actually seen.
+ *
+ * Takes a plain threadId (not FormData) so it can be invoked directly from a
+ * server component's render path. NO-OP on ANY error — most importantly when
+ * the chat_thread_reads table doesn't exist yet because the owner hasn't pushed
+ * migration 20260728000000_chat_thread_reads.sql. Opening a thread must never
+ * fail just because read-tracking isn't live; the unread count simply stays
+ * stale (reads 0 via the same-migration RPC) until the migration lands. RLS on
+ * the table already restricts writes to user_id = auth.uid(); we set user_id
+ * explicitly to satisfy the WITH CHECK.
+ */
+export async function markThreadRead(threadId: string): Promise<void> {
+  if (typeof threadId !== 'string' || threadId.length === 0) return;
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('chat_thread_reads')
+      .upsert(
+        { thread_id: threadId, user_id: user.id, last_read_at: new Date().toISOString() },
+        { onConflict: 'thread_id,user_id' },
+      );
+    if (error) {
+      // Pre-migration (table absent) or a transient RLS/network error — log
+      // and move on. Reading a thread is never blocked by read-marker writes.
+      logQueryError(
+        'markThreadRead',
+        error,
+        { thread_id: threadId, missing_relation: isMissingRelationError(error) },
+        'graceful_degrade',
+      );
+    }
+  } catch (caught) {
+    logQueryError(
+      'markThreadRead (threw)',
+      caught instanceof Error ? caught : new Error(String(caught)),
+      { thread_id: threadId },
+      'graceful_degrade',
+    );
+  }
+}
 
 /**
  * Decides whether the current user is the couple or the vendor on a thread,

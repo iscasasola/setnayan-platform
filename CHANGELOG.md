@@ -4,6 +4,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(0016,0006): couple onboarding music picks → event_song_picks (compatibility PR 3)
+
+**Commit:** see merge commit on this PR.
+
+**Context:** PR 3 of the vendor-compatibility build. The couple's onboarding music picks (the top-100 picker → `events.music_playlist_seed`, display-only) now ALSO write to `event_song_picks` — the couple side of the music compatibility overlap (vendor `vendor_songs` ∩ couple `event_song_picks`). Pairs with PR 2 (vendor "Your repertoire").
+
+**What changed:**
+- **`lib/songs.ts`** — `syncEventSongPicks(client, eventId, picks)`: parses each `"Title|Artist"` pick, resolves to (or creates) a master song via `findOrCreateSongId`, and upserts `event_song_picks` (idempotent, `source='onboarding'`).
+- **`app/onboarding/wedding/actions.ts`** — `commitOnboardingWedding` calls it (service-role `admin` client, RLS-bypass) right after the event + couple membership are created, **wrapped in try/catch** so it can NEVER fail the commit (e.g. before migration `20260731000000` is pushed → tables absent → swallowed + logged).
+
+**Verification:** `pnpm -F web typecheck` clean · `pnpm -F web lint` clean (my files) · `pnpm -F web build` ✓ (`/onboarding/wedding`). Foundation/data only — no UI change. The picks are mostly the seeded MUSIC100, so they resolve to existing master rows (no inserts).
+
+**SPEC IMPACT:** Iteration **0016** (onboarding) + **0006** (compatibility). `music_playlist_seed` stays for display; `event_song_picks` is the match-read source. No new SKU. See `COWORK_INBOX.md`.
+
+**Next:** the compatibility **score** in `fetchWizardVendorRecommendations` (music vendors ranked by song overlap) + the 90% "Best / Next best" split + cards.
+
+---
+
 ## 2026-06-03 · feat(0022,0006): vendor "Your repertoire" — music acts build their song set list (compatibility PR 2)
 
 **Commit:** see merge commit on this PR.

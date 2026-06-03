@@ -124,3 +124,30 @@ export async function findOrCreateSongId(
     .maybeSingle();
   return (again?.song_id as number) ?? null;
 }
+
+/**
+ * Sync a couple's chosen songs (the onboarding "Title|Artist" picks) into
+ * event_song_picks — the couple side of the music compatibility overlap. Each
+ * label resolves to (or creates) a master song; picks upsert idempotently.
+ * Intended to run with a service-role client during the onboarding commit
+ * (RLS bypass) — and to be wrapped by the caller so it can never fail the
+ * commit (e.g. before migration 20260731000000 is pushed).
+ */
+export async function syncEventSongPicks(
+  client: SupabaseClient,
+  eventId: string,
+  picks: readonly string[],
+): Promise<void> {
+  if (!picks?.length) return;
+  const rows: { event_id: string; song_id: number; source: string }[] = [];
+  for (const lbl of picks) {
+    if (typeof lbl !== 'string' || !lbl.includes('|')) continue;
+    const [title, artist = ''] = lbl.split('|');
+    const songId = await findOrCreateSongId(client, title ?? '', artist);
+    if (songId) rows.push({ event_id: eventId, song_id: songId, source: 'onboarding' });
+  }
+  if (!rows.length) return;
+  await client
+    .from('event_song_picks')
+    .upsert(rows, { onConflict: 'event_id,song_id', ignoreDuplicates: true });
+}

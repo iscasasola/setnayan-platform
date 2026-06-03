@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { syncEventSongPicks } from '@/lib/songs';
 import { generateUniqueSlug } from '@/lib/slugs';
 import { captureEvent } from '@/lib/analytics';
 import { unlockCategoryWithInquiry } from '@/app/dashboard/[eventId]/vendors/_actions/unlock-category';
@@ -301,6 +302,16 @@ export async function commitOnboardingWedding(
   });
   if (memberError) {
     return { ok: false, error: memberError.message };
+  }
+
+  // Couple's music picks → event_song_picks (the couple side of the music
+  // compatibility overlap · Vendor_Compatibility_and_Master_Songlist_2026-06-03).
+  // Non-fatal: if the master-songlist tables aren't migrated yet (20260731000000)
+  // this throws — swallow it; the onboarding commit must never fail on it.
+  try {
+    await syncEventSongPicks(admin, insertedEvent.event_id, payload.musicPlaylistSeed ?? []);
+  } catch (songPickErr) {
+    console.error('[onboarding] event_song_picks sync failed (non-fatal)', songPickErr);
   }
 
   await captureEvent({

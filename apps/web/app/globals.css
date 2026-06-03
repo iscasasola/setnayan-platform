@@ -198,6 +198,39 @@
   .input-field {
     @apply h-11 w-full rounded-md border border-ink/20 bg-cream px-3 text-base text-ink placeholder-ink/40 transition-colors focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta;
   }
+
+  /*
+   * .skeleton — animated loading placeholder (owner directive 2026-06-03,
+   * app-wide "we want an animation loading so they do not feel they are
+   * waiting too long"). A GPU-only background-position sweep over an ink/6%
+   * base that matches the existing animate-pulse loaders. Size + radius come
+   * from Tailwind utilities ON the element; this class owns colour + motion,
+   * so don't add `bg-*` utilities to a `.skeleton` block.
+   *
+   * The global `prefers-reduced-motion: reduce` block above freezes the sweep
+   * to a static block (still reads as structure) for motion-sensitive
+   * visitors — no per-element guard needed. Consumed by
+   * `@/components/skeletons`.
+   */
+  .skeleton {
+    background-color: rgb(30 34 41 / 0.06);
+    background-image: linear-gradient(
+      90deg,
+      rgb(30 34 41 / 0) 0%,
+      rgb(255 255 255 / 0.6) 50%,
+      rgb(30 34 41 / 0) 100%
+    );
+    background-size: 200% 100%;
+    background-position: -150% 0;
+    background-repeat: no-repeat;
+    animation: sk-shimmer 1.5s ease-in-out infinite;
+  }
+}
+
+@keyframes sk-shimmer {
+  to {
+    background-position: 150% 0;
+  }
 }
 
 /*

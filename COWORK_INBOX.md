@@ -8,7 +8,20 @@
 
 ---
 
-## [PENDING] 2026-06-03 — "Planning reminders" on/off toggle SHIPPED (0025 Settings)
+## [PENDING] 2026-06-03 — Admin deadline table: schema landed (PR 1/3 of the per-leaf deadline build)
+
+**Why:** Step 1 of making the recommended-deadline reminders admin-editable (owner: "ship this both"). The `planning_deadlines` table + seed now exist; the admin UI + read-path follow.
+
+**What landed (code):** migration `20260802000000_planning_deadlines.sql` — the unified deadline table (`kind`/`ref_key`/`scope`/`offset_value`+`offset_unit`/`applies_to`/`is_active`), admin-write + authenticated-read RLS, seeded with 26 service category defaults (from `PLAN_GROUPS.monthsBefore`) + 3 statutory documents.
+
+**Owner action:** push migration `20260802000000_planning_deadlines.sql` (`supabase db push`).
+
+**Spec corpus update (owner walks via Cowork):**
+1. **`~/Documents/Claude/Projects/Setnayan/0023_admin_console/`** + the planning/deadline spec — record the admin-managed `planning_deadlines` table: per-category defaults + per-leaf overrides via **inheritance-with-override**, a **"missing deadline" flag** on uncovered leaves, distinct from the vendor delivery plan (Service Schedule). The couple's recommended-deadline reminders read from it (PR 3); admin edits it in `/admin/taxonomy` (PR 2).
+
+**Still to build:** PR 2 (`/admin/taxonomy` deadline column + missing-flag + edit) · PR 3 (wire `lib/upcoming-items.ts` to read the table, code stays as fallback).
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
 
 **Why:** The free recommended-deadline reminders ship on by default; couples can now turn them off in Settings (the quiet opt-out, no fork). New `users.reminders_enabled` column + a Settings toggle that gates the Home `recommended_deadline` source.
 

@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(schema): planning_deadlines table + seed — admin-managed deadline foundation (PR 1/3)
+
+**Context:** Step 1 of making the recommended-deadline reminders **admin-editable** instead of hardcoded (owner: "ship this both"). Creates the single deadline-config table + seeds it from the live values. No consumer yet — the admin UI (PR 2) + read-path (PR 3) follow; migrations land first.
+
+**Migration `20260802000000_planning_deadlines.sql`:**
+- `planning_deadlines` — `kind` (service/milestone/document) · `ref_key` (plan-group id for category defaults · canonical_service leaf for overrides · or milestone/document key) · `scope` (category/leaf) · `offset_value`+`offset_unit` (month/week/day) · `applies_to` (ceremony-type filter, e.g. pre-cana=catholic) · `is_active`. `UNIQUE(kind, ref_key, scope)`.
+- **RLS:** admin `FOR ALL` via `public.is_admin()` + authenticated `SELECT` (global config, no PII) — copies the moodboard_library_assets pattern.
+- **Seed:** 26 service category defaults from `PLAN_GROUPS.monthsBefore` (ceremony/coordinator 12mo … logistics 2mo) + 3 statutory documents from `PAPERWORK_DEADLINES` (PSA 180d · license 120d · Pre-Cana 60d/catholic).
+
+**Granularity = inheritance-with-override** (owner-approved): leaves inherit their category default; admins override specific leaves; the future "missing deadline" flag fires only when a leaf *and* its parent have none. Seeding the 26 category defaults means day one isn't a wall of flags. This is the couple's *lock-by* deadline — distinct from the vendor's delivery plan (Service Schedule).
+
+**Verification:** SQL reviewed against repo patterns (`public.is_admin()` 20260512000000:164 · `gen_random_uuid()` + `USING (public.is_admin())` precedents). `tsc`/build unaffected (SQL-only). **⚠️ Owner must `supabase db push`.** CI's migration-timestamp guard validates ordering.
+
+**SPEC IMPACT:** Yes — new admin capability (0023) + the planning/deadline model; the deadlines become admin-owned config (was code). Inbox note added.
+
 ## 2026-06-03 · feat(settings): "Planning reminders" on/off toggle (couple opt-out)
 
 **Context:** The free recommended-deadline reminders ship **on by default**; this is the quiet opt-out the owner asked for — no up-front fork, just a Settings switch.

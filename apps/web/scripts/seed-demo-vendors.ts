@@ -2006,7 +2006,11 @@ async function seed(args: SeedArgs): Promise<void> {
         compatible_ceremony_types: ['catholic', 'civil', 'christian'],
         compatible_venue_settings: ['banquet_hall', 'garden', 'heritage'],
         event_types: ['wedding'],
-        contact_email: `bookings+demo@setnayan.local`,
+        // Unique per vendor (slug is unique, no `_`/LIKE-metachars) so a
+        // couple's "Message" flow (startThreadByVendorEmail → .maybeSingle()
+        // on contact_email) resolves to exactly this demo vendor. A shared
+        // address made that lookup ambiguous → couples couldn't inquire.
+        contact_email: `${slug}@demo.setnayan.local`,
       });
 
       local.push({

@@ -27,6 +27,24 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Admin console gains a demo-vendor inquiry responder (demo-testing tool)
+
+**Why:** To test the customer↔vendor inquiry round-trip with demo vendors (which are unclaimed, so no real vendor account receives the messages), the admin console gained a responder surface. It's demo/testing tooling that lives in the admin console, so the 0023 admin spec + the 0019 communications spec should note it.
+
+**What landed (code):**
+1. **`/admin/demo-vendors/inquiries`** (+ `/[threadId]`) — lists inquiry threads addressed to `is_demo=TRUE` vendors and lets an admin **Accept / Decline / reply as the vendor**, via the service-role client (chat tables have no admin RLS policy). Double-gated: admin-only + demo-only. Replies post as `sender_role='vendor'`; Accept fires the existing name-reveal trigger.
+2. **Unique demo contact emails** — `scripts/seed-demo-vendors.ts` now sets `contact_email = {slug}@demo.setnayan.local` (was a single shared address that broke the couple's thread-start lookup).
+
+**Spec corpus updates (owner walks via Cowork):**
+1. `~/Documents/Claude/Projects/Setnayan/0023_admin_console/` — note the demo-only "Demo inquiries" responder under the Demo Vendors tooling (admin replies to demo-vendor inquiries as the vendor; service-role; never touches real vendors).
+2. `~/Documents/Claude/Projects/Setnayan/0019_communications/` — note that demo-vendor inquiry threads are handled by the admin responder (unclaimed demo vendors have no owning user to receive them).
+
+**Not spec-impacting:** the unique-email seed change is demo data.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Correct monogram→switcher spec to real column names (binding now SHIPPED)
 
 **Why:** The onboarding free-monogram → event-switcher icon binding is now LIVE in code (the couple's chosen font + ink renders as their switcher icon). Two corrections to the corpus rows written earlier today:

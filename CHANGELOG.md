@@ -25,6 +25,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** Yes — iteration 0016 (Today's Focus / Concierge). The couple-facing wizard surface is retired (route redirects, nav entry removed); the deadline logic that fed it is preserved in `lib/upcoming-items.ts`. Decision-log row + the onboarding-bundle question are queued in `COWORK_INBOX.md`.
 
+## 2026-06-03 · feat(admin): demo-vendor inquiry responder + unique demo contact emails
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner wants to test the customer↔vendor inquiry round-trip without managing thousands of vendor logins — "demo vendor = one account for all." Demo vendors are unclaimed (`user_id=NULL`) so no one receives their inquiries, AND they all shared one `contact_email`, which made the couple's `startThreadByVendorEmail` `.maybeSingle()` lookup ambiguous → couples couldn't even start a thread with a specific demo vendor. The app is 1:1 vendor↔user, so the answer is an admin-operated responder, not a mega-account.
+
+**What ships (no migration):**
+1. **Unique demo contact emails (`scripts/seed-demo-vendors.ts`).** `contact_email` → `${slug}@demo.setnayan.local` (slug is unique) so a couple's "Message" flow resolves to exactly one demo vendor. Re-seed to apply.
+2. **Admin responder (`/admin/demo-vendors/inquiries` + `/[threadId]`).** Lists every inquiry thread whose vendor is `is_demo=TRUE` (couple/event label only — no PII) and lets an admin **Accept / Decline / reply as the vendor**. Server actions use the service-role client (chat tables have no admin RLS policy) and are double-gated: admin-only (`isAdminProfile`) + the thread's vendor must be `is_demo=TRUE` (never touches a real vendor's thread). Accept fires the existing name-reveal trigger; reply inserts a `sender_role='vendor'` message (`sender_user_id=NULL`). Messages render server-side (realtime would be RLS-blocked for an admin); each action refreshes the route. Linked from the Demo Vendors page; sidebar `matchPrefix` keeps it lit.
+
+**SPEC IMPACT:** Minor — adds a demo-only responder sub-surface under the existing `/admin/demo-vendors` tooling (admin console, iteration 0023) that exercises the 0019 inquiry flow. Logged in `COWORK_INBOX.md`. (Claimed demo vendors still use the real vendor dashboard; this is for unclaimed ones.)
+
+**Verification:** `tsc --noEmit` + `next lint` green. **Owner round-trip on staging** (after re-seed): as a couple (with an event) → Follow + Message a demo vendor → as admin → `/admin/demo-vendors/inquiries` → Accept → reply → couple sees the reply + revealed vendor name. (Service-role DB writes can't be harnessed offline.)
+
 ## 2026-06-03 · feat(0000): onboarding free monogram → event-switcher icon
 
 **Commit:** see merge commit on this PR.

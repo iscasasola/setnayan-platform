@@ -37,6 +37,12 @@ export async function UpcomingSchedulesAsync({
   now,
 }: Props) {
   const supabase = await createClient();
+  const { data: prefRow } = await supabase
+    .from('users')
+    .select('reminders_enabled')
+    .eq('user_id', userId)
+    .maybeSingle();
+  const remindersEnabled = prefRow?.reminders_enabled ?? true;
   const upcoming = await (async () => {
     try {
       return await fetchUpcomingItems({
@@ -45,6 +51,7 @@ export async function UpcomingSchedulesAsync({
         eventDate,
         ceremonyType,
         now,
+        remindersEnabled,
         limit: 10,
       });
     } catch (caught) {

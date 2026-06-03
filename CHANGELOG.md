@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(settings): "Planning reminders" on/off toggle (couple opt-out)
+
+**Context:** The free recommended-deadline reminders ship **on by default**; this is the quiet opt-out the owner asked for — no up-front fork, just a Settings switch.
+
+**What ships:**
+- **Migration** `20260801000000_users_reminders_enabled.sql` — `users.reminders_enabled BOOLEAN NOT NULL DEFAULT TRUE` (per-user, matching the existing scalar-pref pattern: planner_mode / theme / locale). No RLS change. **Owner must `supabase db push` this before the toggle works end-to-end.**
+- **Settings UI** (`dashboard/profile/page.tsx`, the existing `#settings` section) — an On/Off "Planning reminders" toggle mirroring the Planner-mode pattern, wired to `updateRemindersEnabled` (`profile/actions.ts`).
+- **Gate** (`lib/upcoming-items.ts`) — `FetchUpcomingItemsInput.remindersEnabled`; when false the `recommended_deadline` source is skipped (payments / meetings / statutory deadlines still show). Both Home async wrappers read `users.reminders_enabled` and pass it; a missing column (pre-migration) degrades to reminders-on, no crash.
+
+**Verification:** `tsc --noEmit` green (exit 0). Dashboard is auth-gated — CI build is the gate.
+
+**SPEC IMPACT:** Minor — iteration 0025 Settings gains the "Planning reminders" toggle + `users.reminders_enabled`. Inbox note added.
+
 ## 2026-06-03 · feat(home): free recommended-deadline vendor reminders — the Today's Focus replacement
 
 **Context:** The retired Today's Focus wizard's job — telling couples the *recommended deadline* to book each vendor — is now delivered free, no fork and no paywall, inside the existing Home "Upcoming" stream. Owner direction: full vendor set, on by default.

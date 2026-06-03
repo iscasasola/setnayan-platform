@@ -16,6 +16,7 @@ import {
   updateLocalePreference,
   updatePersonalInfo,
   updatePlannerMode,
+  updateRemindersEnabled,
 } from './actions';
 
 export const metadata = { title: 'Profile' };
@@ -55,7 +56,7 @@ export default async function ProfilePage({ searchParams }: Props) {
   const { data: profile, error: profileErr } = await supabase
     .from('users')
     .select(
-      'public_id, email, display_name, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, theme_preference, planner_mode, marketing_opt_in, created_at',
+      'public_id, email, display_name, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, theme_preference, planner_mode, marketing_opt_in, reminders_enabled, created_at',
     )
     .eq('user_id', user.id)
     .maybeSingle();
@@ -77,6 +78,7 @@ export default async function ProfilePage({ searchParams }: Props) {
   const rawTheme = profile?.theme_preference;
   const activeThemeMode: ThemeMode = isThemeMode(rawTheme) ? rawTheme : 'auto';
   const activePlannerMode = (profile?.planner_mode ?? 'guided') as 'guided' | 'diy';
+  const remindersOn = (profile?.reminders_enabled ?? true) as boolean;
   // Iteration 0025 — runtime EN/TL toggle. The DB enum also has 'ceb' but the
   // UI exposes EN/TL only; anything else falls back to EN in the toggle.
   const activeLocale: 'en' | 'tl' = profile?.locale === 'tl' ? 'tl' : 'en';
@@ -326,6 +328,61 @@ export default async function ProfilePage({ searchParams }: Props) {
                     ) : null}
                   </span>
                   <span className="text-xs text-ink/55">{mode.tagline}</span>
+                </button>
+              </form>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="mt-10 space-y-4">
+        <div className="space-y-1">
+          <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+            Planning reminders
+          </h2>
+          <p className="text-sm text-ink/60">
+            Friendly nudges on your Home tab for when to book each vendor and
+            handle key documents. On by default — turn off to plan on your own
+            clock.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {(
+            [
+              {
+                key: 'true' as const,
+                label: 'On',
+                tagline: 'Show recommended deadlines on your Home tab',
+              },
+              {
+                key: 'false' as const,
+                label: 'Off',
+                tagline: 'Hide them · plan on your own clock',
+              },
+            ]
+          ).map((opt) => {
+            const isActive = (opt.key === 'true') === remindersOn;
+            return (
+              <form key={opt.key} action={updateRemindersEnabled}>
+                <input type="hidden" name="reminders_enabled" value={opt.key} />
+                <button
+                  type="submit"
+                  disabled={isActive}
+                  className={`group flex w-full flex-col items-start gap-1 rounded-xl border p-4 text-left transition-colors ${
+                    isActive
+                      ? 'border-terracotta bg-terracotta/5'
+                      : 'border-ink/10 bg-cream hover:border-terracotta/50'
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-ink">{opt.label}</span>
+                    {isActive ? (
+                      <span className="rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700">
+                        Active
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="text-xs text-ink/55">{opt.tagline}</span>
                 </button>
               </form>
             );

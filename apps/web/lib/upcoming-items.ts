@@ -505,6 +505,12 @@ export type FetchUpcomingItemsInput = {
   eventDate: string | null;
   ceremonyType: string | null | undefined;
   now: Date;
+  /**
+   * Couple's "Planning reminders" toggle (users.reminders_enabled). When
+   * explicitly false, the `recommended_deadline` source is skipped. Undefined
+   * / true keeps reminders on (the default).
+   */
+  remindersEnabled?: boolean;
   /** Maximum merged items returned. Defaults to 10. */
   limit?: number;
 };
@@ -596,7 +602,7 @@ async function fetchRecommendedDeadlineItems(
 export async function fetchUpcomingItems(
   input: FetchUpcomingItemsInput,
 ): Promise<FetchUpcomingItemsResult> {
-  const { supabase, eventId, eventDate, ceremonyType, now } = input;
+  const { supabase, eventId, eventDate, ceremonyType, now, remindersEnabled } = input;
   const limit = input.limit ?? 10;
 
   const [meetings, scheduleBlocks, vendorPayments, skuRenewals, recommendedDeadlines] =
@@ -605,7 +611,10 @@ export async function fetchUpcomingItems(
       fetchScheduleBlockItems(supabase, eventId, now),
       fetchVendorPaymentItems(supabase, eventId, now),
       fetchSkuRenewalItems(supabase, eventId, now),
-      fetchRecommendedDeadlineItems(supabase, eventId, eventDate, now),
+      // Gated by the couple's "Planning reminders" toggle (default on).
+      remindersEnabled === false
+        ? Promise.resolve<UpcomingItem[]>([])
+        : fetchRecommendedDeadlineItems(supabase, eventId, eventDate, now),
     ]);
 
   // Source 5 — pure-computed, no fetch.

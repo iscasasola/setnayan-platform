@@ -219,3 +219,30 @@ export async function updatePlannerMode(formData: FormData) {
 
   revalidatePath('/dashboard', 'layout');
 }
+
+// Couple-side "Planning reminders" on/off (2026-06-03). Toggles
+// users.reminders_enabled, which gates the free recommended-deadline
+// reminders on the Home "Upcoming" stream (lib/upcoming-items.ts source
+// `recommended_deadline`). Default on; this is the quiet opt-out.
+export async function updateRemindersEnabled(formData: FormData) {
+  const raw = formData.get('reminders_enabled');
+  if (raw !== 'true' && raw !== 'false') {
+    throw new Error('Invalid reminders preference');
+  }
+  const enabled = raw === 'true';
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const { error } = await supabase
+    .from('users')
+    .update({ reminders_enabled: enabled, updated_at: new Date().toISOString() })
+    .eq('user_id', user.id);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath('/dashboard', 'layout');
+}

@@ -1,12 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ChevronDown } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { formatEventDate } from '@/lib/events';
 import { EventMonogram } from '@/app/_components/event-monogram';
-import { EVENT_TYPES } from '@/app/dashboard/create-event/_components/event-types';
+import { EventTypeCarousel } from '@/app/dashboard/create-event/_components/event-type-carousel';
 
 /**
  * Event switcher — iteration 0000 chrome (locked 2026-05-14 single-strip
@@ -94,9 +95,9 @@ export function EventSwitcher({
   hasAdminAccess,
   vendorProfiles,
 }: Props) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<View>('events');
-  const [typeIdx, setTypeIdx] = useState(0);
   const [mounted, setMounted] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const sheetRef = useRef<HTMLDivElement | null>(null);
@@ -166,26 +167,15 @@ export function EventSwitcher({
     }
   };
 
-  // Carousel modulo helper — keeps the index in [0, N-1] so rewinding past 0
-  // wraps to the last tile and advancing past the last wraps to 0. The `!` is
-  // what tells TS (under noUncheckedIndexedAccess) the lookup is non-null.
-  const N = EVENT_TYPES.length;
-  const at = (i: number) => EVENT_TYPES[((i % N) + N) % N]!;
-  const centerType = at(typeIdx);
-  const goPrevType = () => setTypeIdx((i) => (i - 1 + N) % N);
-  const goNextType = () => setTypeIdx((i) => (i + 1) % N);
-
   // Shared popover body — rendered into BOTH the desktop dropdown and the
   // mobile bottom sheet. Exactly one wrapper is visible per breakpoint.
   function renderMenu() {
     if (view === 'addtype') {
-      // Enabled tiles route: Wedding → the onboarding flow (captures
+      // Enabled cards route on tap: Wedding → the onboarding flow (captures
       // names/date/region/pax/budget/style + commits the event); every other
-      // enabled type (debut) → the full create-event page. Coming-soon types
-      // are non-interactive.
-      const href =
-        centerType.key === 'wedding' ? '/onboarding/wedding' : '/dashboard/create-event';
-
+      // enabled type (debut) → the full create-event page. Coming-soon cards
+      // are inert. The hero-photo filmstrip + arrows + dots all live in the
+      // shared EventTypeCarousel (also used by the full-page picker).
       return (
         <div className="max-h-[72vh] overflow-y-auto p-1">
           <button
@@ -200,79 +190,20 @@ export function EventSwitcher({
             What kind of event are you planning?
           </p>
           <p className="mb-3 px-1 text-xs text-ink/55">
-            Weddings are live today. Swipe through to see what&apos;s on the way — tap
-            an upcoming tile to be notified when it opens.
+            Weddings and debuts are live now. Swipe through to see what&apos;s on the
+            way — more event types unlock over time.
           </p>
 
-          <div className="flex items-stretch gap-2">
-            <button
-              type="button"
-              onClick={goPrevType}
-              aria-label="Previous event type"
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center self-center rounded-full border border-ink/15 bg-cream text-ink/70 transition-colors hover:border-terracotta/40 hover:bg-terracotta/10 hover:text-terracotta"
-            >
-              <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
-            </button>
-
-            <div className="min-w-0 flex-1">
-              {centerType.enabled ? (
-                <Link
-                  href={href}
-                  onClick={closeMenu}
-                  className="relative flex flex-col items-center gap-2 rounded-2xl border border-terracotta/40 bg-terracotta/5 px-4 py-6 text-center transition-colors hover:bg-terracotta/10"
-                >
-                  <span aria-hidden className="text-3xl">
-                    {centerType.emoji}
-                  </span>
-                  <span className="text-base font-medium text-ink">{centerType.label}</span>
-                  <span className="rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta">
-                    Continue &rarr;
-                  </span>
-                </Link>
-              ) : (
-                <div
-                  aria-disabled
-                  className="relative flex cursor-not-allowed flex-col items-center gap-2 rounded-2xl border border-ink/10 bg-ink/[0.03] px-4 py-6 text-center opacity-70"
-                >
-                  <span aria-hidden className="text-3xl">
-                    {centerType.emoji}
-                  </span>
-                  <span className="text-base font-medium text-ink">{centerType.label}</span>
-                  <span className="rounded-full bg-ink/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/60">
-                    Coming soon
-                  </span>
-                </div>
-              )}
-            </div>
-
-            <button
-              type="button"
-              onClick={goNextType}
-              aria-label="Next event type"
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center self-center rounded-full border border-ink/15 bg-cream text-ink/70 transition-colors hover:border-terracotta/40 hover:bg-terracotta/10 hover:text-terracotta"
-            >
-              <ChevronRight aria-hidden className="h-5 w-5" strokeWidth={2} />
-            </button>
-          </div>
-
-          <div className="mt-3 flex justify-center gap-2" role="tablist" aria-label="Event type pages">
-            {EVENT_TYPES.map((t, i) => {
-              const active = i === typeIdx;
-              return (
-                <button
-                  key={t.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  aria-label={`Show ${t.label}`}
-                  onClick={() => setTypeIdx(i)}
-                  className={`h-2 rounded-full transition-all ${
-                    active ? 'w-6 bg-terracotta' : 'w-2 bg-ink/20 hover:bg-ink/40'
-                  }`}
-                />
-              );
-            })}
-          </div>
+          <EventTypeCarousel
+            ctaLabel="Continue &rarr;"
+            sizes="(max-width: 640px) 78vw, 248px"
+            onSelect={(type) => {
+              const href =
+                type.key === 'wedding' ? '/onboarding/wedding' : '/dashboard/create-event';
+              closeMenu();
+              router.push(href);
+            }}
+          />
         </div>
       );
     }
@@ -282,10 +213,7 @@ export function EventSwitcher({
       <div className="max-h-[72vh] overflow-y-auto">
         <button
           type="button"
-          onClick={() => {
-            setTypeIdx(0);
-            setView('addtype');
-          }}
+          onClick={() => setView('addtype')}
           className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-medium text-terracotta-700 hover:bg-terracotta/10"
         >
           <span

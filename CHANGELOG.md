@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · fix(0023): demo-vendor "Create" works on production while admin demo mode is on
+
+**Context:** Owner tapped **Create demo vendors** on the live `/admin/demo-vendors` (setnayan.com) and reported *"the progress bar shows but it ends and does not complete."* Root cause: the one-click create's first request (`POST /api/admin/demo/seed { phase:'start' }`) hit the prod safety guard and returned **403** — so the bar flashed at ~5% then the red "Disabled on production" banner replaced it. Working as designed, but it blocked the owner's actual intent: they had **demo mode ON** (the yellow banner, with its Dec 1 2026 cleanup deadline) and were deliberately populating the live deployment. Owner approved (2026-06-03, via AskUserQuestion) allowing it.
+
+**What changed (`apps/web/app/api/admin/demo/seed/route.ts` — one file):**
+- `prodGuard()` → `prodGuard(demoOn)`: non-prod is always allowed (unchanged); on production it now allows seeding **only while admin demo mode is on for the request** (`isDemoMode(req, profile)` — the `setnayan_demo_mode` cookie, sent automatically with the same-origin POST, or `?demo=1`). With demo mode **off**, prod stays hard-blocked (the accident guard) with a clearer message ("Turn on demo mode first…").
+- `requireAdmin()` now returns the admin `profile` so the route evaluates the admin-only demo-mode predicate with no extra Supabase round-trip.
+- `start`-phase audit row now records `on_production` + `demo_mode` for traceability.
+
+**Why this is safe:** the public marketplace (`/vendors`, `/v/[slug]`, compare) only surfaces `is_demo=TRUE` rows when demo mode is explicitly on (`lib/demo-mode.ts` is admin-only; `vendors/page.tsx`: *"exclusively a demo-mode read"*). Seeding synthetic, `is_demo`-tagged vendors into the prod DB therefore does **not** change what real couples or vendors see, and the one-click **Cleanup ALL** wipes them (hard deadline Dec 1 2026, already in the banner). The CLI seed's own `assertNotProd` hard-exit is untouched — this only relaxes the admin-UI path, which already requires an admin session.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean (only pre-existing warnings in unrelated files, untouched) · no schema/migration/SKU change. Shipped from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** Yes — scoped relaxation of the locked *"demo vendors are staging-only · the seed refuses prod"* engineering guard: demo-vendor creation is now permitted **on production while admin demo mode is on**. Recorded in `DECISION_LOG.md` (2026-06-03). See `COWORK_INBOX.md`.
+
 ## 2026-06-03 · perf/ux(0000,0001,0021,0022,0023): app-wide loading skeletons + global tap haptics
 
 **Context:** Owner report — *"why is it so slow to transfer to guests from summary."* The lag was mostly *perceived*: tapping a dashboard tab gave no instant feedback. Only 4 segment-level `loading.tsx` existed, so ~160 child routes froze on their server reads (or inherited the wrong-shaped event-home skeleton) until every Supabase query (~50–200 ms RTT each from Singapore) returned. Owner follow-up: *"apply [it] on all loading-able areas … we want an animation loading so they do not feel they are waiting too long. also apply interaction on buttons and haptic feedbacks."*

@@ -6,19 +6,31 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ## 2026-06-03 · feat(0016): wedding onboarding caters all faiths — faith-adaptive ceremony venue + de-churched copy
 
-**Commit:** see merge commit on this PR.
-
-**Context:** Owner — *"fix all gaps and adjust our wedding onboarding to be able to cater all different religious weddings."* The faith picker was unlocked, but the flow stayed church-centric (ceremony-venue picker = Church/Garden/Beach/Civil only; copy said "church, chapel… 'I do'"). Chinese activation shipped in parallel via **PR #889** — this PR's overlapping code (chips / `ALLOWED_*` additions) deduped cleanly on merge, and my redundant same-timestamp migration was dropped in favor of #889's `20260806000000`. The unique additions here: the faith-adaptive venue + de-churched copy.
+**Context:** Owner — *"fix all gaps and adjust our wedding onboarding to be able to cater all different religious weddings."* The faith picker was unlocked but the flow stayed church-centric (ceremony-venue picker = Church/Garden/Beach/Civil only; copy said "church, chapel… 'I do'").
 
 **What changed (`onboarding-shell.tsx`):**
-- **Faith-adaptive ceremony venue** — `CEREMONY_OPTS` → `ceremonyOptsFor(faith)`: each picked faith contributes its house of worship (Catholic/Christian → Church · INC → Chapel · Muslim → **Mosque** · Chinese → **Temple**; Cultural = outdoor/ancestral via the universal options), then universal Garden/Beach/Civil registrar/Same-as-reception. Mixed shows both. Two matching 520×520 photos generated via Recraft (`ceremony_mosque.webp` · `ceremony_temple.webp`).
-- **De-churched copy** — kind caption "A church wedding" → "A faith ceremony"; ceremony prompt "Where will you say 'I do'?" → "Where will you hold your ceremony?"; venue blurb → "church, mosque, temple, garden, or civil hall"; groom role "at the altar" → "at the front".
+- **Faith-adaptive ceremony venue** — `CEREMONY_OPTS` → `ceremonyOptsFor(faith)`: each picked faith contributes its house of worship (Catholic/Christian → Church · INC → Chapel · Muslim → **Mosque** · Chinese → **Temple**; Cultural = outdoor/ancestral) + universal Garden/Beach/Civil/Same-as-reception. Mixed shows both. Two matching 520×520 photos generated via Recraft (`ceremony_mosque.webp` · `ceremony_temple.webp`).
+- **De-churched copy** — "A church wedding" → "A faith ceremony"; "Where will you say 'I do'?" → "Where will you hold your ceremony?"; venue blurb → "church, mosque, temple, garden, or civil hall"; groom role "at the altar" → "at the front".
 
-**Verification:** `tsc --noEmit` exit 0. New images matched to the existing ceremony set.
+Chinese activation shipped in parallel via **#889** — overlapping `ALLOWED_*` additions deduped on merge; my redundant same-timestamp migration dropped in favor of #889's.
 
-**SPEC IMPACT:** Yes — iteration 0016: the wedding onboarding now offers a faith-appropriate ceremony venue for all six faiths, not just church weddings. See `COWORK_INBOX.md`.
+**Verification:** `tsc --noEmit` exit 0. **SPEC IMPACT:** Yes — iteration 0016: faith-appropriate ceremony venue for all six faiths. See `COWORK_INBOX.md`.
 
 ---
+
+## 2026-06-03 · feat(0043): per-religion wedding traditions guide on /paperwork
+
+**Context:** Owner-directed — *"create onboarding that follows the traditions of each religion."* The per-religion document + deadline engine already exists (`lib/paperwork.ts` `DOCUMENTS_BY_CEREMONY_TYPE` — Catholic Pre-Cana/banns/canonical-interview, Muslim Sharia counseling, INC counseling, each with lead-time deadlines that already flow into /paperwork + the /schedule Preparation agenda + Home reminders). The missing piece was the human-readable "what to expect" overview per religion.
+
+**What changed:**
+- **New `lib/wedding-traditions.ts`:** `WEDDING_TRADITIONS_GUIDE` keyed by ceremony_type (catholic/civil/christian/inc/muslim/cultural/chinese/mixed/unknown). Each carries an overview + signature items tagged by the owner's dimensions — **officiant · ceremony · food · custom · paperwork** — + a "confirm with {officiant}" line. (Chinese was activated the same day in PR #889, so its guide now serves real couples.)
+- **`/paperwork` page:** a "What to expect — your {religion} wedding" guide section above the document checklist (renders nothing for an unset ceremony).
+
+**Honesty:** content is framed as general guidance ("traditions vary by family, parish, and region — confirm with your {officiant}"). The module header flags it NEEDS owner/clergy validation (especially INC / Muslim / Cultural / Chinese) and is a candidate to move to an admin-editable table once the copy is confirmed.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean. Shipped from an isolated worktree off `origin/main`. No migration, no SKU.
+
+**SPEC IMPACT:** Yes — iteration **0043** gains a per-religion traditions guide on the paperwork surface (companion to the existing per-religion document/deadline engine). See `COWORK_INBOX.md`.
 
 ## 2026-06-03 · feat(0043): activate Chinese wedding — fully selectable (supersedes same-day coming-soon)
 

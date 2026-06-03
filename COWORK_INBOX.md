@@ -10,13 +10,30 @@
 
 ## [PENDING] 2026-06-03 — Wedding onboarding faith-adaptive ceremony venue + de-churched copy (0016)
 
-**Why:** Owner — "fix all gaps… cater all different religious weddings." Faith-adaptive ceremony venue (Church/Chapel/Mosque/Temple by faith + universal Garden/Beach/Civil/Same) + de-churched copy. (Chinese activation shipped in parallel via #889; this PR's overlapping code deduped on merge.)
+**Why:** Owner — "fix all gaps… cater all different religious weddings." Faith-adaptive ceremony venue (Church/Chapel/Mosque/Temple by faith + universal Garden/Beach/Civil/Same) + de-churched copy. (Chinese activation = #889, deduped on merge.)
 
 **Spec corpus updates (owner walks via Cowork):**
-1. **0016 onboarding** — the ceremony-venue step is now faith-adaptive: each faith's house of worship (Cultural = outdoor/ancestral, covered by the universal options) + universal Garden/Beach/Civil/Same. Copy de-churched ("A faith ceremony" / "Where will you hold your ceremony?" / venue blurb / groom role).
-2. **CLAUDE.md decision log** — 2026-06-03 row: *"Wedding onboarding made faith-inclusive — faith-adaptive ceremony venue (mosque/temple photos via Recraft) + de-churched copy. (Chinese activation = #889.)"*
+1. **0016 onboarding** — the ceremony-venue step is now faith-adaptive (each faith's house of worship; Cultural = outdoor/ancestral) + universal settings; copy de-churched.
+2. **CLAUDE.md decision log** — 2026-06-03 row: *"Wedding onboarding faith-inclusive — faith-adaptive ceremony venue (mosque/temple photos via Recraft) + de-churched copy."*
 
 **Cross-ref:** `CHANGELOG.md` 2026-06-03 "wedding onboarding caters all faiths".
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
+## [PENDING] 2026-06-03 — Per-religion wedding traditions guide (0043) — VALIDATE CONTENT
+
+**Why:** Owner-directed ("create onboarding that follows the traditions of each religion"). New `lib/wedding-traditions.ts` drives a "What to expect — your {religion} wedding" guide on /paperwork (overview + officiant/ceremony/food/custom items per religion), companion to the existing per-religion document/deadline engine.
+
+**⚠️ NEEDS VALIDATION (the important part):** the per-religion content is STARTER guidance drafted from general PH knowledge. Before launch, validate each religion's specifics — **especially INC, Muslim, Cultural, and Chinese** — ideally with clergy / an official source. The user-facing copy already says "general guidance — confirm with your {officiant}," so it's honest, but the specifics should be confirmed/corrected.
+
+**Spec corpus update (owner walks via Cowork):**
+1. **The iteration-0043 wedding spec** — record the per-religion traditions guide (officiant/ceremony/food/custom dimensions, surfaced on /paperwork) alongside the existing per-religion document/deadline engine.
+
+**To apply validated edits:** correct the per-religion items in `apps/web/lib/wedding-traditions.ts` (or, when ready, we move it to an admin-editable table — mirrors the planning_deadlines pattern). Send corrections and I'll apply them.
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "feat(0043): per-religion wedding traditions guide". No migration.
 
 **When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
 

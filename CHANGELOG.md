@@ -18,6 +18,25 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** Yes — iteration **0000** describes the event-type picker as emoji tiles; it's now a hero-photo carousel, with the switcher copy change. See `COWORK_INBOX.md`.
 
+## 2026-06-03 · fix(0000,0021,0022,0023): event-logo monogram in vendor/admin switcher + customer non-event avatar
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner reported that the event switcher on the **vendor + admin** doorways rendered the *basic* serif-italic monogram instead of the couple's customized onboarding monogram, and that the **customer non-event** upper-right avatar showed the account initial rather than the event logo. `EventMonogram` only renders the couple's real design when it receives `monogram_frame_key` + `monogram_font_key`; the customer event-scoped chrome forwarded them, but three chrome paths dropped them.
+
+**What changed:**
+- **`app/_components/dashboard-event-switcher.tsx`** — the shared vendor/admin switcher wrapper now types + forwards `monogram_frame_key`/`monogram_font_key` to the `EventSwitcher` anchor (was silently omitted → legacy basic badge).
+- **`app/admin/layout.tsx` + `app/vendor-dashboard/layout.tsx`** — the `switcherEvents` map now carries both keys, so the anchor **and** the dropdown rows render the customized monogram.
+- **`app/dashboard/_components/outer-dashboard-header.tsx`** — the customer *non-event* chrome (`/dashboard` root, `/profile`, `/notifications`, `/create-event`, `/api-keys`) now passes the **primary event's** monogram to `ProfileMenu`, so the upper-right avatar is the event logo (falls back to the account initial only when there's no event / no designed monogram). The event-scoped customer chrome already did this; this closes the gap.
+
+**Scope note:** Vendor/admin upper-right keeps its display-name + Sign-out cluster (owner choice 2026-06-03 — no avatar added there). Data was already fetched — `fetchUserEvents` selects both columns; the fix only threads them through. No schema / query change.
+
+**Verification:** `tsc --noEmit` clean · `next lint` clean (the 4 files). Logged-in browser check not run (dashboards are auth-gated; the running preview is the spec-corpus prototype server, not the app) — the fix feeds the same data into the same `EventMonogram` / `ProfileMenu` paths already proven on the customer event-scoped chrome.
+
+**SPEC IMPACT:** None — brings code in line with the already-locked 2026-06-03 decisions ("the switcher renders the couple's customized onboarding monogram" + "the avatar IS the event's logo"). No Cowork action.
+
+---
+
 ## 2026-06-03 · feat(admin+home): planning_deadlines goes live — reminders read it + admin editor (PR 2+3 of 3)
 
 **Context:** Completes the admin deadline table (after PR 1's schema). The Home reminders now read the admin-set deadlines, and admins edit them in `/admin/taxonomy`. Owner: "do both."

@@ -8,6 +8,25 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Today's Focus wizard surface RETIRED (onboarding + deadline timeline supersede it)
+
+**Why:** Owner confirmed the 9-card/65-card Today's Focus planning wizard is no longer the model. Couples are guided by onboarding (upfront scoping) + the per-service deadline timeline (counted back from the wedding date, `lib/upcoming-items.ts`). The paid SKU was already off (`CONCIERGE_ENABLED=false`). Code retired the couple-facing surface; the deadline logic is preserved.
+
+**What landed (code):** `/today` now redirects to event-home; the `'today'` nav group is removed (Home preserved, moved to the top of `Plan`); `/today` references cleaned from the bottom-nav match + `/more` grid + sidebar docs. The wizard components + dormant Concierge DB/admin/SKU infra are left on disk (not yet torn down). The Filipino-wedding statutory deadlines (Pre-Cana / marriage-license / PSA-CENOMAR) are untouched — they live in `lib/upcoming-items.ts`, independent of the wizard.
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/DECISION_LOG.md`** — append a dated row:
+   `| 2026-06-03 | Today's Focus wizard SURFACE retired — /today redirects to event-home, nav entry removed (Home kept, moved into Plan). Superseded by onboarding (scoping) + the per-service deadline timeline (lib/upcoming-items.ts, counted back from wedding date). Filipino-wedding statutory deadlines PRESERVED there. Paid SKU was already off (CONCIERGE_ENABLED=false). Dormant infra teardown (concierge_* columns, admin abuse queue, TODAYS_FOCUS catalog SKU, wizard sequences) deliberately deferred to a later schema-cleanup pass. | apps/web/app/dashboard/[eventId]/today/page.tsx + customer-nav-config.ts |`
+
+2. **`~/Documents/Claude/Projects/Setnayan/0016_step_by_step_plan_builder/`** — record that the couple-facing wizard surface is retired in code (route redirects, nav entry gone); the iteration's deadline logic survives in the deadline-timeline surface. The Concierge/Today's Focus SKU + trial/abuse machinery remain on disk but dormant.
+
+**⚠️ OWNER DECISION NEEDED (pricing — NOT actioned in code):** Onboarding's "Your Plan" **Essential Bundle still lists "Today's Focus · planning" as a ₱1,499 add-on** (`apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx` — `today_focus` in the add-on metadata + the `essential` bundle's `add: [...]`). With the surface retired, that bundle sells a product with no destination. **Decide:** pull `today_focus` from the onboarding bundles (recommended), or keep selling a planning product (then we'd re-scope what it delivers). Pulling it also touches the savings-counter math (it has an `{out, set}` pricing pair).
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Admin console gains a demo-vendor inquiry responder (demo-testing tool)
 
 **Why:** To test the customer↔vendor inquiry round-trip with demo vendors (which are unclaimed, so no real vendor account receives the messages), the admin console gained a responder surface. It's demo/testing tooling that lives in the admin console, so the 0023 admin spec + the 0019 communications spec should note it.

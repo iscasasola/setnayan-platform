@@ -23,17 +23,18 @@
  * desktop. The 5-item mobile BottomNav lives in customer-bottom-nav.tsx
  * alongside this file.
  *
- * 7 GROUPS (per canonical IA — same logical buckets the admin sidebar
- * established at PR #606, adapted to the 19 customer surfaces):
- *   1. Today         — Today's Focus · Home (the daily-driver entrypoints)
- *   2. Plan          — Guests · Seating · Schedule · Vendors
- *   3. Spend         — Budget (Orders + Receipts retired 2026-05-30
+ * 6 GROUPS (per canonical IA — same logical buckets the admin sidebar
+ * established at PR #606, adapted to the customer surfaces). The 'Today'
+ * group was retired 2026-06-03 with the Today's Focus wizard; Home moved to
+ * the top of Plan:
+ *   1. Plan          — Home · Guests · Seating · Schedule · Services · Find your date
+ *   2. Spend         — Budget (Orders + Receipts retired 2026-05-30
  *                       per owner directive · routes still reachable
  *                       via order-confirmation emails + /add-ons)
- *   4. Communicate   — Messages · Contracts
- *   5. Share         — Website · Add-ons · Mood Board
- *   6. After         — Activity · Disputes · Event QR
- *   7. Settings      — Hosts · Profile
+ *   3. Communicate   — Messages · Contracts
+ *   4. Share         — Website · Add-ons · Mood Board
+ *   5. After         — Activity · Disputes · Event QR
+ *   6. Settings      — Hosts · Profile
  *
  * REMOVED from the brief vs the original ship spec:
  *   - "Privacy" under Settings — /dashboard/profile/privacy doesn't exist

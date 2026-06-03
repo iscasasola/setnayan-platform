@@ -38,7 +38,6 @@
  */
 
 import {
-  Focus,
   Home,
   Users,
   LayoutGrid,
@@ -76,32 +75,24 @@ export function buildCustomerNavGroups(eventId: string): NavGroup[] {
 
   return [
     {
-      key: 'today',
-      label: 'Today',
+      key: 'plan',
+      label: 'Plan',
       items: [
         {
-          key: 'todays-focus',
-          label: "Today's Focus",
-          href: `${base}/today`,
-          icon: Focus,
-        },
-        {
+          // Home — the event hub. Promoted to the top of Plan when the
+          // 'Today' group was retired alongside the Today's Focus wizard
+          // (2026-06-03 · superseded by onboarding scoping + the per-service
+          // deadline timeline in lib/upcoming-items.ts; /today now redirects
+          // to event-home). Sentinel matchPrefix so the strict-prefix branch
+          // never fires — only the exact-equality branch keeps Home lit
+          // (every other event route shares the `${base}/` prefix; CLAUDE.md
+          // 2026-05-22 PR #311 documents the prefix-vs-exact trap).
           key: 'home',
           label: 'Home',
           href: base,
           icon: Home,
-          // Sentinel matchPrefix so the strict-prefix branch never fires.
-          // Only the exact-equality branch keeps Home lit — same pattern
-          // as bottom-nav.tsx Home tab (CLAUDE.md 2026-05-22 PR #311
-          // documents the prefix-vs-exact trap).
           matchPrefix: '__home__',
         },
-      ],
-    },
-    {
-      key: 'plan',
-      label: 'Plan',
-      items: [
         {
           key: 'guests',
           label: 'Guests',

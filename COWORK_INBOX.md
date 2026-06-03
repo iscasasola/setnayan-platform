@@ -8,15 +8,31 @@
 
 ---
 
-## [PENDING] 2026-06-03 — Wedding onboarding caters all faiths + Chinese activated (0016/0043)
+## [PENDING] 2026-06-03 — Wedding onboarding faith-adaptive ceremony venue + de-churched copy (0016)
 
-**Why:** Owner — "fix all gaps and adjust our wedding onboarding to be able to cater all different religious weddings." Faith-adaptive ceremony venue (Church/Chapel/Mosque/Temple by faith + universal Garden/Beach/Civil/Same), de-churched copy, and the 6th faith Chinese fully wired + activated (was gated coming-soon in migration 20260804).
+**Why:** Owner — "fix all gaps… cater all different religious weddings." Faith-adaptive ceremony venue (Church/Chapel/Mosque/Temple by faith + universal Garden/Beach/Civil/Same) + de-churched copy. (Chinese activation shipped in parallel via #889; this PR's overlapping code deduped on merge.)
 
 **Spec corpus updates (owner walks via Cowork):**
-1. **0016 onboarding / 0043 ceremony types** — the wedding onboarding caters all six faiths (catholic/christian/inc/muslim/cultural/chinese). Ceremony venue is faith-adaptive (each faith's house of worship + universal settings; Cultural = outdoor/ancestral). Chinese is ACTIVE (overrides the coming-soon gate seeded in migration 20260804).
-2. **CLAUDE.md decision log** — 2026-06-03 row: *"Wedding onboarding made faith-inclusive — faith-adaptive ceremony venue (mosque/temple photos generated via Recraft), de-churched copy, Chinese ceremony type activated (migration 20260806000000). Caters all 6 faiths."*
+1. **0016 onboarding** — the ceremony-venue step is now faith-adaptive: each faith's house of worship (Cultural = outdoor/ancestral, covered by the universal options) + universal Garden/Beach/Civil/Same. Copy de-churched ("A faith ceremony" / "Where will you hold your ceremony?" / venue blurb / groom role).
+2. **CLAUDE.md decision log** — 2026-06-03 row: *"Wedding onboarding made faith-inclusive — faith-adaptive ceremony venue (mosque/temple photos via Recraft) + de-churched copy. (Chinese activation = #889.)"*
 
-**Cross-ref:** `CHANGELOG.md` 2026-06-03 "wedding onboarding caters all faiths". Migration `20260806000000` (re-asserts + builds on `20260804`).
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "wedding onboarding caters all faiths".
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
+## [PENDING] 2026-06-03 — Chinese wedding is now ACTIVE / fully selectable (0043) — supersedes the coming-soon item below
+
+**Why:** Owner reviewed the live onboarding "ceremony tradition" screen and decided Chinese ships **fully selectable**, not coming-soon. This reverses the same-day coming-soon decision captured in the `[PENDING] … Chinese wedding added as a coming-soon ceremony type` item further down. A lone gated faith was inconsistent now that the other six are active.
+
+**Spec corpus update (owner walks via Cowork):**
+1. Wherever the wedding-type / ceremony-tradition lineup is specified (iteration **0043** wedding-types + spec **0000** onboarding "ceremony tradition" screen), list **Chinese (Tsinoy — tea ceremony + Chinese customs, often with a church or civil rite) as an ACTIVE, selectable tradition**, alongside Catholic / Civil / Christian / INC / Muslim / Cultural. Remove any "coming soon" / "gated until vendor density" framing for Chinese.
+2. **`DECISION_LOG.md`** — append: `| 2026-06-03 | Chinese wedding activated as a fully selectable ceremony type (supersedes same-day coming-soon) | onboarding + create-event + dashboard-modal allow-lists + migration 20260806000000 |`
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "feat(0043): activate Chinese wedding — fully selectable". **Supersedes** the `[PENDING] 2026-06-03 — Chinese wedding added as a coming-soon ceremony type (0043)` item below — action both as one edit (make Chinese active, drop the coming-soon language entirely).
+
+**Owner action:** push migration `20260806000000_activate_chinese_ceremony_type.sql` (`supabase db push`).
 
 **When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
 

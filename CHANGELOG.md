@@ -4,22 +4,39 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-03 · feat(0016,0043): wedding onboarding caters all faiths (faith-adaptive ceremony venue + Chinese active + de-churched copy)
+## 2026-06-03 · feat(0016): wedding onboarding caters all faiths — faith-adaptive ceremony venue + de-churched copy
 
 **Commit:** see merge commit on this PR.
 
-**Context:** Owner — *"fix all gaps and adjust our wedding onboarding to be able to cater all different religious weddings."* The faith picker was unlocked earlier today, but the rest of the flow stayed church-centric: the ceremony-venue picker offered only Church/Garden/Beach/Civil, copy said "church, chapel… 'I do'", and the 6th faith (Chinese) was gated + missing from the active set.
+**Context:** Owner — *"fix all gaps and adjust our wedding onboarding to be able to cater all different religious weddings."* The faith picker was unlocked, but the flow stayed church-centric (ceremony-venue picker = Church/Garden/Beach/Civil only; copy said "church, chapel… 'I do'"). Chinese activation shipped in parallel via **PR #889** — this PR's overlapping code (chips / `ALLOWED_*` additions) deduped cleanly on merge, and my redundant same-timestamp migration was dropped in favor of #889's `20260806000000`. The unique additions here: the faith-adaptive venue + de-churched copy.
 
-**What changed:**
-- **Faith-adaptive ceremony venue** (`onboarding-shell.tsx`) — `CEREMONY_OPTS` → `ceremonyOptsFor(faith)`: each picked faith contributes its house of worship (Catholic/Christian → Church · INC → Chapel · Muslim → **Mosque** · Chinese → **Temple**; Cultural = outdoor/ancestral via the universal options), then universal Garden/Beach/Civil registrar/Same-as-reception. Mixed weddings show both houses of worship. Two new matching photos generated via Recraft (`ceremony_mosque.webp` · `ceremony_temple.webp`, 520×520).
-- **De-churched copy** — kind caption "A church wedding" → "A faith ceremony"; ceremony prompt "Where will you say 'I do'?" → "Where will you hold your ceremony?"; ceremony venue blurb → "church, mosque, temple, garden, or civil hall"; groom role "Waiting at the altar" → "at the front".
-- **Chinese faith fully wired + activated** — `FAITH_CHIPS` chinese `soon:false`; added to `ALLOWED_CEREMONIES` + `ALLOWED_SECONDARY` (onboarding + create-event); create-event launch-status fallback → active; migration `20260806000000` flips the `wedding_type_launch_status` row to active (self-sufficiently re-asserting 20260804's constraint widening). Chinese needs no sub_type (the DB CHECK only gates muslim/cultural).
+**What changed (`onboarding-shell.tsx`):**
+- **Faith-adaptive ceremony venue** — `CEREMONY_OPTS` → `ceremonyOptsFor(faith)`: each picked faith contributes its house of worship (Catholic/Christian → Church · INC → Chapel · Muslim → **Mosque** · Chinese → **Temple**; Cultural = outdoor/ancestral via the universal options), then universal Garden/Beach/Civil registrar/Same-as-reception. Mixed shows both. Two matching 520×520 photos generated via Recraft (`ceremony_mosque.webp` · `ceremony_temple.webp`).
+- **De-churched copy** — kind caption "A church wedding" → "A faith ceremony"; ceremony prompt "Where will you say 'I do'?" → "Where will you hold your ceremony?"; venue blurb → "church, mosque, temple, garden, or civil hall"; groom role "at the altar" → "at the front".
 
-**Verification:** `tsc --noEmit` exit 0. New images 520×520 webp (~20KB/11KB), matched to the existing ceremony set.
+**Verification:** `tsc --noEmit` exit 0. New images matched to the existing ceremony set.
 
-**SPEC IMPACT:** Yes — iteration 0016 (onboarding) + 0043 (ceremony types): the wedding onboarding now caters all six faiths (Catholic · Christian · INC · Muslim · Cultural · Chinese), not just church weddings; Chinese activated (overrides its coming-soon gate from 20260804). See `COWORK_INBOX.md`.
+**SPEC IMPACT:** Yes — iteration 0016: the wedding onboarding now offers a faith-appropriate ceremony venue for all six faiths, not just church weddings. See `COWORK_INBOX.md`.
 
 ---
+
+## 2026-06-03 · feat(0043): activate Chinese wedding — fully selectable (supersedes same-day coming-soon)
+
+**Context:** Owner reviewed the live onboarding "ceremony tradition" screen and decided Chinese should ship as a **fully selectable** tradition, not "coming soon." Reverses the same-day #885 decision that seeded Chinese as the lone gated faith — inconsistent now that Catholic/Civil/Christian/INC/Muslim/Cultural are all active. UX call: a couple planning a Tsinoy wedding picks "Chinese" and continues, exactly like every other tradition.
+
+**What changed:**
+- **Migration `20260806000000_activate_chinese_ceremony_type.sql`:** `UPDATE wedding_type_launch_status SET status='active'` for the `chinese`/`all` row (idempotent — only flips if not already active; `activated_at = COALESCE(activated_at, now())`) + an `ON CONFLICT DO NOTHING` active-insert safety net. No CHECK-constraint change — `20260804000000` already permits `chinese`.
+- **Onboarding (`onboarding-shell.tsx`):** `FAITH_CHIPS` chinese `soon:true → false` — chip now clickable.
+- **Onboarding commit (`onboarding/wedding/actions.ts`):** `chinese` added to `ALLOWED_CEREMONIES` (was silently coerced to `catholic` on submit) + `ALLOWED_SECONDARY` (Mixed, e.g. Catholic + Chinese tea ceremony).
+- **Create-event picker (`create-event/page.tsx`):** launch-status fallback baseline chinese `coming_soon → active` (picker is data-driven by `wedding_type_launch_status`; the DB-row flip and this fallback together make it selectable).
+- **Create-event commit (`create-event/actions.ts`):** `chinese` added to `ALLOWED_CEREMONIES` + `ALLOWED_SECONDARY`.
+- **Edit modal (`ceremony-type-modal.tsx`):** removed the `isOptionDisabled`/`renderOptionBadge` chinese coming-soon gating (both props optional) — chinese now selectable on existing events.
+- **Edit-modal commit (`[eventId]/actions.ts`):** `chinese` added to `ALLOWED_CEREMONY_TYPES` (`setEventCeremonyType`).
+- Left correct/untouched: shared `ceremony-type-radio-group.tsx` (chinese option already present from #885), `NOTIFY_FAITHS` (chinese stays — same as every other active faith), admin venue form, `wed_chinese.webp` hero.
+
+**Verification:** Type-trivial change (string literals into unions already widened with `chinese` by #885, one boolean flip, removed optional props, one SQL file). No local typecheck — the fresh worktree has no installed deps; relying on the PR's required `typecheck + lint` + `production build` checks and the Vercel preview deploy (which renders the real onboarding flow). Shipped from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** Yes — supersedes the same-day "Chinese = coming soon" note. Chinese is now an **active** wedding ceremony type everywhere it's offered. See `COWORK_INBOX.md` (updates the prior coming-soon PENDING item).
 
 ## 2026-06-03 · chore(0000,0041): event_type enum guarantee + create-event copy (all-live)
 

@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(admin): one-click "Create demo vendors" (chunked seed) on /admin/demo-vendors
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Creating demo vendors was CLI-only — the "Regenerate" button just cleaned up + printed the terminal command (a full seed exceeds one serverless request's envelope). Owner wanted a real one-click Create. Solution: the browser clicks once, then loops category-by-category against a small per-chunk API until done, with a progress bar — no single long request.
+
+**What ships (no migration):**
+1. **Seed core refactor (`scripts/seed-demo-vendors.ts`) — importable, not moved.** Extracted `export async function seedCategory()` (seeds one canonical_service's profiles/services/refinements, returns its review+block rows for the caller to bulk-insert); exported `fetchCanonicalServices`/`fetchResolvedSchemas`/`fetchReviewEventPool`/`cleanupBatch`/`findLatestDemoBatch` + `isNonProdUrl`; **guarded the CLI entrypoint** so importing the module never auto-runs the seed. CLI `seed()` now calls `seedCategory` + keeps its end-of-run bulk insert — **behavior preserved** (per-category RNG keyed on `(batchId, service)` ⇒ chunked output == CLI output).
+2. **Chunked seed API (`app/api/admin/demo/seed/route.ts`, nodejs).** `phase:'start'` (requireAdmin + **non-prod 403 guard** + cleanup is_demo + return `{batchId, services, total}`); `phase:'chunk'` (seed `services[offset..offset+limit)` via `seedCategory`, insert that chunk's reviews/blocks, return progress). Mirrors the regenerate route's auth/audit.
+3. **One-click button (`demo-vendor-actions.tsx`).** "Create demo vendors" + a vendors/category control → POSTs `start`, then loops `chunk` (3 categories/request) until done with a progress bar. Confirm-gated (it cleans first); surfaces the prod 403; `router.refresh()` on completion.
+
+**SPEC IMPACT:** Minor — `/admin/demo-vendors` (admin console, 0023) gains one-click demo seeding (was CLI-only). `[PENDING]` in `COWORK_INBOX.md`.
+
+**Verification:** `tsc --noEmit` + `next lint` green. Refactor-safety smoke tests: the module's exports resolve (`seedCategory`/`fetchCanonicalServices`/`fetchResolvedSchemas`/`fetchReviewEventPool` = functions; `isNonProdUrl` staging→true / prod-ref→false), importing it does **not** auto-run the seed, and the CLI entrypoint still fires when run directly. CI gates the production build (the route bundles `@/scripts/seed-demo-vendors`; fallback if it ever rejects: lift the core to `lib/`). **Owner, on staging:** `/admin/demo-vendors` → Create demo vendors → progress bar → `/vendors?demo=1`; the same button on a prod-pointed deploy returns 403.
+
 ## 2026-06-03 · feat(0043,0016): unlock all wedding faiths (Christian / INC / Muslim / Cultural now active)
 
 **Commit:** see merge commit on this PR.

@@ -8,6 +8,20 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Admin console gains one-click "Create demo vendors" (chunked seed · demo tooling)
+
+**Why:** Demo-vendor creation was terminal-only; the owner wanted a one-click button. `/admin/demo-vendors` now has a **Create demo vendors** button that seeds the marketplace category-by-category (chunked) via a new `/api/admin/demo/seed` route, with a progress bar. Non-prod-gated (refuses prod). It's demo/testing tooling living in the admin console, so the 0023 spec should note it alongside the existing Cleanup / Regenerate / Demo-inquiries surfaces.
+
+**What landed (code):** refactored `scripts/seed-demo-vendors.ts` to export `seedCategory` + helpers (CLI behavior preserved, entrypoint guarded); new chunked `POST /api/admin/demo/seed` (start + chunk, admin + non-prod gated); Create button + per-category control + progress loop in `demo-vendor-actions.tsx`.
+
+**Spec corpus update (owner via Cowork):** `~/Documents/Claude/Projects/Setnayan/0023_admin_console/` — note the Demo Vendors tooling now includes a one-click chunked **Create** (was CLI-only), in addition to Cleanup ALL / Cleanup batch / Regenerate / Demo inquiries. Staging-only (prod-refused).
+
+**Not spec-impacting:** the seed-core refactor + the chunk protocol are implementation.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — All wedding faiths unlocked: Christian / INC / Muslim / Cultural now active (0043/0016)
 
 **Why:** Owner directive — *"unlock all religions first."* The four faiths that shipped as "Coming Soon" in iteration 0043 (gated behind per-region vendor density via `wedding_type_launch_status`) are now **active** everywhere: the onboarding faith chips, both `ALLOWED_CEREMONIES` server constants, the create-event launch-status fallback, and the `wedding_type_launch_status` table (migration `20260803000000`, verified applied to prod). Onboarding has no tradition picker, so Muslim/Cultural commits default `ceremony_sub_type` (`general_muslim` / `other`) to satisfy the DB CHECK `events_sub_type_required_when_muslim_or_cultural`; create-event collects the specific tradition.

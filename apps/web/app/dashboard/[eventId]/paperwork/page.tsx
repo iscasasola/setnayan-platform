@@ -34,7 +34,9 @@ import {
 import {
   WEDDING_TRADITIONS_GUIDE,
   DIMENSION_LABEL,
+  fetchTraditionItems,
   type TraditionGuideKey,
+  type TraditionItem,
 } from '@/lib/wedding-traditions';
 import {
   markPaperworkReceived,
@@ -78,6 +80,10 @@ export default async function PaperworkPage({ params }: Props) {
   }
 
   const ceremony = resolveCeremonyType(event.ceremony_type);
+  // Per-religion traditions: admin-editable rows from wedding_tradition_items
+  // when present, else the code defaults in TraditionsGuide. Null on
+  // empty/absent/error (pre-migration or before an admin loads starter content).
+  const traditionItems = await fetchTraditionItems(supabase, ceremony);
   const expectedDocs = DOCUMENTS_BY_CEREMONY_TYPE[ceremony];
 
   // Resolve r2 display URLs for any existing uploads. The FileUpload
@@ -146,7 +152,7 @@ export default async function PaperworkPage({ params }: Props) {
         )}
       </header>
 
-      <TraditionsGuide ceremony={ceremony} />
+      <TraditionsGuide ceremony={ceremony} items={traditionItems} />
 
       {needsSeed ? (
         <SeedPrompt eventId={eventId} ceremonyLabel={ceremonyLabel(ceremony)} />
@@ -203,9 +209,19 @@ export default async function PaperworkPage({ params }: Props) {
  * the same ceremony_type as the document checklist below. Renders nothing for
  * an unset ceremony (the header + document prompts already cover that case).
  */
-function TraditionsGuide({ ceremony }: { ceremony: TraditionGuideKey }) {
+function TraditionsGuide({
+  ceremony,
+  items,
+}: {
+  ceremony: TraditionGuideKey;
+  items?: TraditionItem[] | null;
+}) {
   const guide = WEDDING_TRADITIONS_GUIDE[ceremony];
-  if (!guide || guide.items.length === 0) return null;
+  if (!guide) return null;
+  // Admin-edited rows from wedding_tradition_items override the code defaults
+  // when present; otherwise fall back to the seeded WEDDING_TRADITIONS_GUIDE.
+  const display = items && items.length > 0 ? items : guide.items;
+  if (display.length === 0) return null;
   return (
     <section className="space-y-4 rounded-xl border border-terracotta/20 bg-terracotta/[0.03] p-5">
       <div className="space-y-1">
@@ -218,7 +234,7 @@ function TraditionsGuide({ ceremony }: { ceremony: TraditionGuideKey }) {
         <p className="max-w-prose text-sm text-ink/70">{guide.overview}</p>
       </div>
       <ul className="grid gap-3 sm:grid-cols-2">
-        {guide.items.map((item) => (
+        {display.map((item) => (
           <li
             key={`${item.dimension}-${item.label}`}
             className="rounded-lg border border-ink/10 bg-cream p-3"

@@ -8,6 +8,22 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Wedding traditions now admin-editable (0043/0023)
+
+**Why:** Step 3 of the per-religion work. The "What to expect" guide content (shipped as code in #890) is now editable in-app at `/admin/wedding-traditions` (edit / add / remove / reorder per religion; "Load starter content" copies the code defaults in). This is the validation path — the owner corrects the per-religion specifics (esp. INC / Muslim / Cultural / Chinese) without a deploy.
+
+**Spec corpus update (owner walks via Cowork):**
+1. **`0023_admin_console`** — add the **Wedding traditions** editor (Directory group): per-religion item CRUD + "Load starter content."
+2. **The iteration-0043 wedding spec** — note the traditions guide content is now DB-backed (`wedding_tradition_items`), admin-editable, with the code `WEDDING_TRADITIONS_GUIDE` as the fallback + seed source.
+
+**Owner action:** push migration `20260807000000_wedding_tradition_items.sql` (`supabase db push`), then on `/admin/wedding-traditions` click "Load starter content" and validate/correct each religion's items.
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "feat(0043,0023): admin-editable wedding traditions table".
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — DB-backed taxonomy tree foundation: name `canonical_service_taxonomy` in 0023 §3.15 (0023/0044)
 
 **Why:** Phase 1 of the DB-backed taxonomy build (the ♾️ "Finalize = permanent publish" lock) shipped two tables. 0023 §3.15 "Build status" already describes `service_categories` gaining `parent_id`/`tier`/`sort_order` + `sample_photo_r2_key` — matches what shipped. The one addition to record: the `canonical_service` → tile mapping ships as a **dedicated `canonical_service_taxonomy` table** (canonical → `folder_id`/`tile_id` + facet flags), not as rows on `service_categories`.

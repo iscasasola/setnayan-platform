@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(0043,0023): admin-editable wedding traditions table
+
+**Context:** Owner-directed ("do all sequentially" — step 3 of the per-religion work). Makes the per-religion "What to expect" guide content (shipped as code in #890) editable in-app — which is also the validation path for it (owner corrects INC / Muslim / Cultural / Chinese specifics without a deploy).
+
+**What changed:**
+- **Migration `20260807000000_wedding_tradition_items.sql` (owner-push):** new `wedding_tradition_items` table (ceremony_type · dimension · label · note · sort_order · is_active), public-read + admin-write RLS. Created **empty** — admins load the code defaults on demand.
+- **`lib/wedding-traditions.ts`:** `fetchTraditionItems()` reads active rows for a religion (null on empty/absent/error → caller falls back to the code `WEDDING_TRADITIONS_GUIDE`); `TraditionItemRow` type.
+- **`/paperwork` guide:** renders table items when present, else the code defaults (graceful — safe before the migration is pushed / content loaded).
+- **New admin surface `/admin/wedding-traditions`** (+ Directory nav): per-religion edit / add / remove / reorder + active toggle, and a "Load starter content" button that copies the code defaults into the table for any religion with no rows (idempotent — never clobbers edits). `requireAdmin` + admin-client writes.
+
+**Honesty:** the code defaults (fallback + seed source) stay flagged as starter guidance needing clergy validation; this surface is how that validation happens.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean · full CI green. Shipped from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** Yes — iteration **0023** gains a Wedding-traditions editor; **0043** traditions content is now DB-backed + admin-editable. See `COWORK_INBOX.md`.
+
 ## 2026-06-03 · perf(ux): haptics Settings toggle + parallelize 8 query waterfalls
 
 **Context:** Two owner-requested follow-ups to PR #892 (app-wide loading skeletons + global tap haptics) — "both": wire a Settings switch for the haptics, and sweep pages for the same sequential-`await` waterfall the Guests page had.

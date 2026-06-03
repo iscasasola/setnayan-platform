@@ -425,11 +425,13 @@ async function ensureFreshAccessToken(input: {
   eventId: string;
 }): Promise<string | null> {
   const admin = createAdminClient();
+  // Phase 0: Photo Delivery now reads the single unified Drive grant
+  // (provider='drive'), shared with Papic + the drive-copy layer.
   const { data: grant } = await admin
     .from('oauth_grants')
     .select('grant_id, refresh_token, access_token, access_token_expires_at, revoked_at')
     .eq('event_id', input.eventId)
-    .eq('provider', 'drive_photo_delivery')
+    .eq('provider', 'drive')
     .maybeSingle();
   if (!grant || grant.revoked_at) return null;
 

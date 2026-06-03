@@ -55,11 +55,14 @@ export async function POST(req: NextRequest) {
   const admin = createAdminClient();
 
   // Pull the grant first so we can revoke at Google.
+  // Phase 0: "disconnect Photo Delivery" now revokes the single shared Drive
+  // grant (provider='drive') — the one connection that also powers Papic + the
+  // drive-copy layer. One Drive connect, one disconnect.
   const { data: grant } = await admin
     .from('oauth_grants')
     .select('grant_id, refresh_token, revoked_at')
     .eq('event_id', eventId)
-    .eq('provider', 'drive_photo_delivery')
+    .eq('provider', 'drive')
     .maybeSingle();
 
   if (grant && !grant.revoked_at && grant.refresh_token) {

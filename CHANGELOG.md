@@ -24,6 +24,56 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(drive-copy): Phase 0 — consolidate the two Drive OAuth flows into one per-event connect
+
+**Commit:** to be filled after commit.
+
+**Context:** Phase 0 of the storage build plan (`Storage_and_Drive_Copy_Architecture_2026-06-03.md` § 8), following the Phase 1 keystone. An event could previously hold **two** Google Drive connections — `oauth_grants(provider='drive')` (Papic connect) and `provider='drive_photo_delivery'` (Photo Delivery connect) — each its own consent, redirect URI, and folder. The Phase-1 drive-copy layer reads `provider='drive'`, so a couple who connected only via Photo Delivery was invisible to it. This unifies them into **one** per-event "Connect Drive".
+
+**What ships:**
+
+- **`/api/oauth/photo-delivery/start`** — now uses the canonical Drive OAuth config (`getDriveOAuthConfig`), so the Photo Delivery connect goes through the **same Google consent + redirect URI** as Papic (→ `/api/oauth/drive/callback`). It still writes an `oauth_state` row with `provider='drive_photo_delivery'` purely as a **return-page marker**.
+- **`/api/oauth/drive/callback`** — now serves **both** connects: accepts `oauth_state.provider ∈ {drive, drive_photo_delivery}`, always upserts the grant as `provider='drive'`, **mirrors `events.photo_delivery_*`** connected-state, and redirects back to the right panel.
+- **`photo-delivery-release.ts`** + **`/api/photo-delivery/disconnect`** + **photo-delivery `actions.ts`** — read/revoke the unified `provider='drive'` grant.
+- **`/api/oauth/drive/disconnect`** — the shared Drive disconnect now also clears `events.photo_delivery_*`.
+- **`/api/oauth/photo-delivery/callback`** — marked **DEPRECATED** (unreachable post-consolidation).
+- **Migration `20260727000000_drive_oauth_consolidation.sql`** — safety-net data backfill: renames pre-existing `'drive_photo_delivery'` grants → `'drive'` (conflict-safe). **No schema change; code does not depend on it.**
+
+**Net result:** one consent, one registered redirect URI, one `provider='drive'` grant per event — powering Papic capture, Photo Delivery, and the drive-copy layer.
+
+**Pilot-safe:** no real Drive grants exist yet (#19g pending). Disconnect now means "disconnect Drive entirely" from either panel.
+
+**Verification:** full GitHub Actions suite green (typecheck+lint, production build, macOS/Windows build, e2e, lighthouse, bundle, secret scan).
+
+**SPEC IMPACT:** Yes. The owner now registers only **one** Drive redirect URI (`GOOGLE_DRIVE_OAUTH_REDIRECT_URI`); `PHOTO_DELIVERY_OAUTH_REDIRECT_URI` is retired. COWORK_INBOX item appended.
+
+---
+
+## 2026-06-03 · feat(chrome): Messages icon in the dashboard top bar
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Delta #2 of the 2026-06-03 customer-dashboard chrome redesign (corpus `DECISION_LOG.md` "Customer dashboard chrome RE-LOCKED"). Adds a Facebook-pattern Messages icon to the couple dashboard top bar right cluster, adjacent to the notifications bell.
+
+**What ships:**
+
+- `MessageSquare` (lucide-react) icon link added to the right cluster of the event-scoped top bar in `apps/web/app/dashboard/[eventId]/layout.tsx`, placed between the `RoleSwitchPill` (mobile-only) and `UnreadBellBadge`.
+- Links to `/dashboard/${eventId}/messages` (the couple's vendor thread list, iteration 0019).
+- `aria-label="Messages"` for accessibility.
+- Styled exactly like `UnreadBellBadge`: `h-9 w-9 rounded-full border border-ink/15 bg-cream text-ink/70 hover:border-terracotta/40 hover:text-terracotta` — Clean Editorial tokens throughout.
+- **No unread badge:** `chat_messages` has no per-message `read_at` / `is_read` column in V1. There is no clean count source without a DB migration. Badge can be added once a read-receipts migration lands in a follow-up PR.
+- Renders on both mobile and desktop (the top bar is shared across all breakpoints).
+
+**Files changed:**
+
+- `apps/web/app/dashboard/[eventId]/layout.tsx` — added `MessageSquare` to the lucide import; inserted the Messages `<Link>` element.
+
+**Verification:** `pnpm -F web typecheck` → 0 errors. `next lint --file app/dashboard/[eventId]/layout.tsx` → No ESLint warnings or errors.
+
+**SPEC IMPACT:** Yes — **iteration 0021** (couple dashboard chrome) and **iteration 0019** (communications / messages). The top bar now carries a Messages shortcut. Spec corpus should record this icon's presence in the couple dashboard chrome description. See `COWORK_INBOX.md [PENDING] 2026-06-03 — Messages icon` for the worklist entry.
+
+---
+
 ## 2026-06-03 · feat(0001): keep the couple detail simple — remove the editorial live-view iframe
 
 **Commit:** to be filled after commit.
@@ -55,6 +105,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `pnpm -F web typecheck` ✓ · `pnpm -F web lint` (3 files) ✓ No ESLint warnings or errors. (Rebased onto current `main`, which already carries PR #830's `e.touches[0]` guard — the earlier `tsc` red on the stale base is gone.)
 
 **SPEC IMPACT:** Yes — iteration 0021 (couple dashboard Home) gains the "Your wedding details" card. The model is already locked in corpus `DECISION_LOG.md` ("Customer dashboard chrome RE-LOCKED", 2026-06-03); logged as a `[PENDING]` COWORK_INBOX item to update 0021's Home-surface section.
+
+---
+
+## 2026-06-03 · feat(taxonomy): add Design › Digital Services tile + re-group the 3 Setnayan digital canonicals
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner directive (2026-06-03) — surface a new **Digital Services** child tile under the DESIGN parent in the marketplace taxonomy, the home for Setnayan's digital/AI productions (Pakanta · Animated Monogram · Pro Website · Live Venue Photo Wall · Live Background/Pailaw). Code-only re-grouping (mirrors the 2026-05-31 shrink — no migration, every canonical preserved).
+
+**What ships (`apps/web/lib/taxonomy.ts` only):**
+
+- **New tile `digital_services`** added to the `WeddingTile` union, `WEDDING_TILE_ORDER` (after `led_wall`), `TILE_PARENT` (`→ 'design'`), `WEDDING_TILE_LABEL` (`'Digital Services'`) and `WEDDING_TILE_SLUG` (`'digital-services'`). DESIGN now has 8 tiles.
+- **Re-pointed 3 existing Setnayan canonicals** to it: `setnayan_custom_monogram` (was `stylist_decorator`), `setnayan_pailaw` (was `led_wall`), `setnayan_pakanta` (was `program / wedding_singer` → now `design / digital_services`). Pakanta leaves the Program music shelf. `LED Wall` reverts to 3rd-party walls only; `Stylist / Decorator` loses the monogram option.
+- **No new canonicals, no DB migration.** `setnayan_patiktok` already sits under `photo_booth` (no change). The V2 retail catalog (`platform_retail_catalog_v2`) is flat (no category column) and already carries these SKUs at owner-locked prices — nothing to seed.
+
+**SPEC IMPACT:** Already reflected in the spec corpus this session (no Cowork action pending) — `Digital_Services_Cross_Surface_Map_2026-06-03.md` (new authoritative map) + `Vendor_Taxonomy_Shrink_2026-05-30.md` + `Service_Specifications_2026-06-02.md` + the `0006/0022/0023/0015/0021` + `Onboarding_Blueprint` surface specs + the `DECISION_LOG.md` 2026-06-03 rows. Open item flagged to owner: a Pailaw/Live-Background V2 SKU is absent from `platform_retail_catalog_v2` (needs an owner-confirmed price — not invented here); the dashboard/website/onboarding HTML prototypes update separately.
+
+**Verification:** Additive tile + 3 re-points; all exhaustive `Record<WeddingTile,…>` maps (`TILE_PARENT` · `WEDDING_TILE_LABEL` · `WEDDING_TILE_SLUG`) updated so `tsc` stays exhaustive; a repo-wide grep found no other exhaustive `WeddingTile` map or tile-icon map. Local typecheck not runnable in this worktree (no `node_modules`) → CI clean-install runs typecheck/lint/build/Lighthouse/Vercel-preview.
 
 ---
 

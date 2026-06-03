@@ -23,6 +23,34 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Drive OAuth consolidated to one per-event connect (Phase 0)
+
+**Why:** Phase 0 collapsed the two Google Drive connections (Papic `provider='drive'` + Photo Delivery `provider='drive_photo_delivery'`) into one. The owner-facing setup + the 0009 spec change as a result.
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/API_Integration_Checklist.md`** — Google Drive OAuth now needs **one** redirect URI only (`GOOGLE_DRIVE_OAUTH_REDIRECT_URI` → `…/api/oauth/drive/callback`). **Remove `PHOTO_DELIVERY_OAUTH_REDIRECT_URI`** (retired).
+2. **`~/Documents/Claude/Projects/Setnayan/0009_photo_delivery/0009_photo_delivery.md`** — note the OAuth model is now the single shared Drive connection (one consent, one grant `provider='drive'`); disconnecting Drive from either panel disconnects the shared connection.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
+## [PENDING] 2026-06-03 — Messages icon in dashboard top bar (chrome redesign delta #2)
+
+**Why:** Delta #2 of the 2026-06-03 customer-dashboard chrome redesign landed in code — a `MessageSquare` icon link is now in the top bar right cluster (adjacent to the notifications bell), linking to the couple's vendor thread list (`/dashboard/[eventId]/messages`). No unread badge (V1 has no read-tracking column on `chat_messages`).
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/0021_couple_dashboard_fully_purchased/0021_couple_dashboard_fully_purchased.md`** — add to the top bar chrome description: a Messages icon (`MessageSquare`, same styling as the bell, aria-label "Messages") sits between the role-switch pill and the notifications bell. Links to the couple's thread list. No unread badge in V1; badge deferred pending a `read_at` migration on `chat_messages`.
+2. **`~/Documents/Claude/Projects/Setnayan/0019_communications/0019_communications.md`** — note that the couple can access their thread list from the persistent top bar icon (not only from the sidebar nav item).
+
+**Cross-ref:** corpus `DECISION_LOG.md` "Customer dashboard chrome RE-LOCKED" (2026-06-03).
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Home: compact "Your wedding details" card (chrome redesign delta #1)
 
 **Why:** Delta #1 of the 2026-06-03 customer-dashboard chrome redesign landed in code — event Home now shows a compact "Your wedding details" card (Location · Venue · Guests · Budget · Style · Cuisine · Photo & video) built from onboarding data, with a "See all wedding settings →" link to `/details`. It reshapes the existing Home "Personalized" block (chips → kv card); `/for-you` keeps the chip view.

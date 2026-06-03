@@ -8,6 +8,22 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Wedding traditions now admin-editable (0043/0023)
+
+**Why:** Step 3 of the per-religion work. The "What to expect" guide content (shipped as code in #890) is now editable in-app at `/admin/wedding-traditions` (edit / add / remove / reorder per religion; "Load starter content" copies the code defaults in). This is the validation path — the owner corrects the per-religion specifics (esp. INC / Muslim / Cultural / Chinese) without a deploy.
+
+**Spec corpus update (owner walks via Cowork):**
+1. **`0023_admin_console`** — add the **Wedding traditions** editor (Directory group): per-religion item CRUD + "Load starter content."
+2. **The iteration-0043 wedding spec** — note the traditions guide content is now DB-backed (`wedding_tradition_items`), admin-editable, with the code `WEDDING_TRADITIONS_GUIDE` as the fallback + seed source.
+
+**Owner action:** push migration `20260807000000_wedding_tradition_items.sql` (`supabase db push`), then on `/admin/wedding-traditions` click "Load starter content" and validate/correct each religion's items.
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "feat(0043,0023): admin-editable wedding traditions table".
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Per-religion vendor-readiness gate + admin surface (0043/0023)
 
 **Why:** Owner-directed ("INC needs INC-compatible services before we open it; the issue is ceremonial/officiants/food"). New `/admin/wedding-types` shows each religion's vendor + ceremonial-venue readiness (counted from `compatible_ceremony_types`) vs a threshold and lets admins open / hold / disable it. Flipping to coming-soon now greys the religion in BOTH the onboarding faith picker and the create-event picker (the gate is enforced couple-side).

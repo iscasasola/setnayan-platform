@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · perf/ux(0000,0001,0021,0022,0023): app-wide loading skeletons + global tap haptics
+
+**Context:** Owner report — *"why is it so slow to transfer to guests from summary."* The lag was mostly *perceived*: tapping a dashboard tab gave no instant feedback. Only 4 segment-level `loading.tsx` existed, so ~160 child routes froze on their server reads (or inherited the wrong-shaped event-home skeleton) until every Supabase query (~50–200 ms RTT each from Singapore) returned. Owner follow-up: *"apply [it] on all loading-able areas … we want an animation loading so they do not feel they are waiting too long. also apply interaction on buttons and haptic feedbacks."*
+
+**What changed:**
+- **Shared skeleton system — `components/skeletons/index.tsx`:** primitives (`Sk`/`SkLine`/`SkCircle`/`Screen`) + 8 self-contained page templates (List/Grid/Form/Detail/Table/Feed/Board/Page). All server components → **zero added client JS**. `aria-busy` + one sr-only "Loading…" per screen.
+- **Shimmer — `globals.css`:** new `.skeleton` class (GPU-only `background-position` sweep over the existing ink/6 % base) + `@keyframes sk-shimmer`. Auto-frozen to a static block by the existing `prefers-reduced-motion` guard.
+- **151 new route-local `loading.tsx`** (4 → 155) across customer dashboard, vendor-dashboard, admin, and guest/public dynamic routes — each mirrors its page's shape. Guests is bespoke (replicates the mobile focus-mode `.shell-topbar` / safe-area wrapper → no layout jump). Excluded by design: static marketing, onboarding (preloaded per golden-rules), `print` + `api` routes.
+- **Global tap haptics — `app/_components/global-haptics.tsx` (mounted in `providers.tsx`):** one passive `pointerdown` listener fires a light `tick` on any interactive control app-wide (was firing in only 3 vendor components). Reuses `lib/haptics.ts` (Android vibrate + iOS-17.4 switch path; no-op elsewhere). Opt-out via `[data-no-haptic]` or `localStorage setnayan-haptics=off`. The press-scale CSS (owner-locked 2026-05-31) is untouched.
+- **Guests perf — `guests/page.tsx`:** folded the share-invite token read (`fetchJoinUrl`) into the existing `Promise.all` — it had been a 5th *sequential* round-trip. One fewer Singapore RTT per Guests visit.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean (only 2 pre-existing warnings, untouched) · production build green · the 151 new loaders are server components, so the 200 KB shared-bundle ceiling is unaffected. Shipped from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** None — presentation-layer UX polish (no SKU, schema, route, or workflow change). Extends the owner-locked 2026-05-31 button-press-feedback direction app-wide per the 2026-06-03 directive.
+
 ## 2026-06-03 · chore(0000,0041): event_type enum guarantee + create-event copy (all-live)
 
 **Context:** Follow-up to the owner's "keep everything live" decision + the spec-0000 reconciliation. Two small gaps: (1) belt-and-suspenders the `event_type` enum so a Debut insert can never fail + add 3 roadmap types as seedable; (2) the create-event page still carried "only weddings live / tap to be notified" copy.

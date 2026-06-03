@@ -1735,6 +1735,47 @@ function generateVendorReviews(
   return rows;
 }
 
+const CALENDAR_BLOCK_LABELS: readonly string[] = [
+  'Booked', 'Reserved', 'Unavailable', 'Out of town', 'Prior event',
+];
+
+// UTC-midnight ISO for `daysFromNow` — minute 0 + second 0 satisfies the
+// vendor_calendar_blocks 30-minute-granularity / zero-second CHECK constraints
+// across whole- and half-hour session timezones.
+function isoMidnight(daysFromNow: number): string {
+  const d = new Date(Date.now() + daysFromNow * 86_400_000);
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${day}T00:00:00.000Z`;
+}
+
+// 2-8 full-day busy blocks spread over the next ~12 months. Sparse on purpose
+// so the mutual-availability intersection (lib/vendor-availability.ts) narrows
+// as a couple locks more vendors without collapsing to "no days work".
+function generateCalendarBlocks(
+  rng: () => number,
+  vendorProfileId: string,
+): Array<Record<string, unknown>> {
+  const count = intBetween(rng, 2, 8);
+  const used = new Set<number>();
+  const rows: Array<Record<string, unknown>> = [];
+  for (let n = 0; n < count; n++) {
+    let day = 7 + Math.floor(rng() * 350);
+    for (let guard = 0; used.has(day) && guard < 5; guard++) day = 7 + Math.floor(rng() * 350);
+    used.add(day);
+    rows.push({
+      vendor_profile_id: vendorProfileId,
+      blocked_at: isoMidnight(day),
+      blocked_until: isoMidnight(day + 1),
+      block_label: pickFrom(rng, CALENDAR_BLOCK_LABELS),
+      block_source: 'manual',
+      is_private: rng() < 0.8,
+    });
+  }
+  return rows;
+}
+
 // ===========================================================================
 // SEED RUNNER
 // ===========================================================================
@@ -1752,8 +1793,8 @@ function parseArgs(argv: string[]): SeedArgs {
     append: false,
     dryRun: false,
     limit: null,
-    vendorsMin: 5,
-    vendorsMax: 10,
+    vendorsMin: 20,
+    vendorsMax: 50,
   };
   for (const a of argv.slice(2)) {
     if (a === '--append') args.append = true;
@@ -1882,12 +1923,15 @@ async function seed(args: SeedArgs): Promise<void> {
   // Reviews are accumulated across all categories, then bulk-inserted after the
   // loop so the vendor_review_stats matview refreshes only a few times.
   const allReviews: Array<Record<string, unknown>> = [];
+  // Calendar blocks (busy dates) accumulated + bulk-inserted after the loop.
+  const allBlocks: Array<Record<string, unknown>> = [];
 
   // 4. Iterate canonical services, build vendor rows + child rows
   let totalVendorsCreated = 0;
   let totalServicesCreated = 0;
   let totalAttrsCreated = 0;
   let totalReviewsCreated = 0;
+  let totalBlocksCreated = 0;
 
   for (const service of services) {
     // Seeded RNG per (batchId, service) for stable repro within a run
@@ -2140,6 +2184,14 @@ async function seed(args: SeedArgs): Promise<void> {
       }
     }
 
+    // 7b. Generate per-vendor calendar blocks (busy dates) so the mutual-
+    //     schedule narrowing (lib/vendor-availability.ts) is testable.
+    for (const vendorProfileId of insertedIds) {
+      for (const block of generateCalendarBlocks(rng, vendorProfileId)) {
+        allBlocks.push(block);
+      }
+    }
+
     // Compact progress line
     process.stdout.write(
       `  ${service.padEnd(40)} ${String(insertedIds.length).padStart(3)} vendors\n`,
@@ -2160,12 +2212,23 @@ async function seed(args: SeedArgs): Promise<void> {
     }
   }
 
+  // 9. Bulk-insert calendar blocks (cascade-delete with their vendor on cleanup).
+  for (let chunk = 0; chunk < allBlocks.length; chunk += 1000) {
+    const slice = allBlocks.slice(chunk, chunk + 1000);
+    const { error } = await admin.from('vendor_calendar_blocks').insert(slice);
+    if (error) {
+      throw new Error(`Insert vendor_calendar_blocks chunk ${chunk}: ${error.message}`);
+    }
+    totalBlocksCreated += slice.length;
+  }
+
   console.log(`\n=== Seed complete ===`);
   console.log(`Batch ID:       ${batchId}`);
   console.log(`Vendor rows:    ${totalVendorsCreated}`);
   console.log(`Service rows:   ${totalServicesCreated}`);
   console.log(`Attr rows:      ${totalAttrsCreated}`);
   console.log(`Review rows:    ${totalReviewsCreated}`);
+  console.log(`Block rows:     ${totalBlocksCreated}`);
   console.log(
     `\nTo view in admin: /admin/demo-vendors\n` +
       `To preview in marketplace: /vendors?demo=1  (Agent 2 ships this flag)\n` +

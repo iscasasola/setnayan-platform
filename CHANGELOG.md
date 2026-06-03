@@ -17,6 +17,25 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** None — UX polish + server-side read parallelization (no SKU / schema / route / workflow change). The haptics toggle realizes the "future Settings → Appearance toggle" flagged in PR #892.
 
+## 2026-06-03 · feat(0023/0044): DB-backed taxonomy tree — Phase 1 foundation (non-breaking)
+
+**Context:** Owner — *"build it"* (the `/admin/taxonomy` visual editor + DB-backed taxonomy from the 2026-06-03 ♾️ "Admin Finalize = permanent live publish" lock). Today the taxonomy STRUCTURE lives only in the code constant `lib/taxonomy.ts` (`TAXONOMY_MAP` · 10 parents → 54 tiles → 199 canonicals); 19 consumers read it synchronously, including the live `/vendors` marketplace. This is **Phase 1 of a multi-PR build** — the DB foundation, deliberately **non-breaking**.
+
+**What changed:**
+- **New migration `20260803000000_service_categories_tree_foundation.sql`** — two tables:
+  - `service_categories` — the browse tree (10 parents tier 1 + 54 tiles tier 2), self-referential `parent_id` + `tier` + `sort_order`, plus `scope` / `merged_into_category_id` / `sample_photo_r2_key` / `status` for the editor (Phase 3) and the §3.2c request review (Phase 4).
+  - `canonical_service_taxonomy` — 199 `canonical_service` → tile mappings + facet flags (faith / ph / setnayan / rental / dietary / tradition / marketplace_hidden / secondary_tiles).
+  - RLS mirrors `canonical_service_schemas` (0044): public `SELECT`, admin-only write via `public.is_admin()`. Idempotent (`ON CONFLICT DO UPDATE`).
+- **New generator `apps/web/scripts/gen-taxonomy-seed.ts`** — emits the seed SQL *from* `lib/taxonomy.ts` so the DB is a perfect mirror of code at landing; includes a referential-integrity guard that refuses to emit a seed that would FK-fail. Re-run after any `TAXONOMY_MAP` change until Phase 2 flips the source of truth.
+
+**Non-breaking:** no consumer reads the new tables yet — `lib/taxonomy.ts` stays the authored source. Phase 2 (read-through behind the existing API + the 19-consumer sync→async flip) is the high-risk step and lands separately after this is proven.
+
+**Verification:** generator integrity guard exits 0 (no FK violations) · embedded seed byte-identical to validated generator output · 64 distinct category ids · `BEGIN`/`COMMIT` balanced. Full `tsc`/`next build` runs on CI (worktree has no local node_modules).
+
+**SPEC IMPACT:** Minor — implements already-locked 0023 §3.15 + DECISION_LOG ♾️ 2026-06-03. One detail to reflect in 0023 §3.15: the canonical→tile mapping ships as a dedicated `canonical_service_taxonomy` table (the spec described the tree on `service_categories` but didn't name where canonical mappings live). See `COWORK_INBOX.md`.
+
+---
+
 ## 2026-06-03 · feat(0043,0023): per-religion vendor-readiness gate + admin control
 
 **Context:** Owner-directed — *"INC needs INC-compatible services before we open it … the only usual issue is the ceremonial and officiants and food."* A way to see each wedding religion's vendor readiness and open/hold it accordingly.

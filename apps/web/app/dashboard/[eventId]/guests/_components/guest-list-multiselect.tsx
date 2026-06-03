@@ -839,7 +839,11 @@ function RoleChips({ guest, palette }: { guest: GuestRow; palette: RolePalette }
   const extras = guest.extra_roles ?? [];
   return (
     <span className="inline-flex flex-wrap items-center gap-1">
-      <RoleChips guest={guest} palette={palette} />
+      {/* primary role chip — render <RoleChip>, NOT <RoleChips> (self).
+          Rendering RoleChips here was infinite self-recursion → stack
+          overflow → SSR 500 on the Guests page (the un-merged
+          claude/fix-rolechips-recursion branch chased this). */}
+      <RoleChip role={guest.role} palette={palette} />
       {extras.map((r) => (
         <span
           key={r}

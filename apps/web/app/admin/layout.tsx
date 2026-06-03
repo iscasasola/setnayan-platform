@@ -90,6 +90,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     is_primary: e.is_primary,
     monogram_text: e.monogram_text,
     monogram_color: e.monogram_color,
+    // Carry the onboarding free-monogram design (owner-locked 2026-06-03) so the
+    // switcher's anchor + dropdown rows render the couple's REAL customized
+    // monogram, matching the customer doorway (the basic-badge bug otherwise).
+    monogram_frame_key: e.monogram_frame_key,
+    monogram_font_key: e.monogram_font_key,
   }));
 
   const badge = profile?.is_internal

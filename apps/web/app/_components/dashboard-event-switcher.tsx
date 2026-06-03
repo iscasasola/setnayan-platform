@@ -42,6 +42,12 @@ type PrimaryEventData = {
   event_date: string | null;
   monogram_text: string | null;
   monogram_color: string | null;
+  // Onboarding free-monogram design (owner-locked 2026-06-03). Forwarded so the
+  // vendor + admin doorways' anchor renders the couple's REAL customized
+  // monogram — without these keys EventMonogram falls back to the legacy
+  // serif-italic "basic" badge (the bug the owner saw on vendor/admin chrome).
+  monogram_frame_key?: string | null;
+  monogram_font_key?: string | null;
 };
 
 type Props = {
@@ -72,6 +78,8 @@ export function DashboardEventSwitcher({ primaryEvent, switcherEvents }: Props) 
       currentEventDate={primaryEvent.event_date}
       currentMonogramText={primaryEvent.monogram_text}
       currentMonogramColor={primaryEvent.monogram_color}
+      currentMonogramFrameKey={primaryEvent.monogram_frame_key}
+      currentMonogramFontKey={primaryEvent.monogram_font_key}
       events={switcherEvents}
       hasVendorAccess={false}
       hasAdminAccess={false}

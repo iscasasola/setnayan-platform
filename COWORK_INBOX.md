@@ -8,6 +8,20 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Per-religion vendor-readiness gate + admin surface (0043/0023)
+
+**Why:** Owner-directed ("INC needs INC-compatible services before we open it; the issue is ceremonial/officiants/food"). New `/admin/wedding-types` shows each religion's vendor + ceremonial-venue readiness (counted from `compatible_ceremony_types`) vs a threshold and lets admins open / hold / disable it. Flipping to coming-soon now greys the religion in BOTH the onboarding faith picker and the create-event picker (the gate is enforced couple-side).
+
+**Spec corpus update (owner walks via Cowork):**
+1. **`0023_admin_console`** — add the **Wedding types** surface (Directory group): per-religion launch status + vendor/ceremonial-venue readiness counts + Open/Hold/Disable + editable threshold.
+2. **The iteration-0043 wedding spec** — note the launch gate is now wired to the onboarding faith picker (data-driven from `wedding_type_launch_status`), and readiness = published vendors + ceremonial venues tagged compatible with the religion (officiant/ceremony/food being the religion-specific roles).
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "feat(0043,0023): per-religion vendor-readiness gate". No migration.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Per-religion wedding traditions guide (0043) — VALIDATE CONTENT
 
 **Why:** Owner-directed ("create onboarding that follows the traditions of each religion"). New `lib/wedding-traditions.ts` drives a "What to expect — your {religion} wedding" guide on /paperwork (overview + officiant/ceremony/food/custom items per religion), companion to the existing per-religion document/deadline engine.

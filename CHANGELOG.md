@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(0043,0023): per-religion vendor-readiness gate + admin control
+
+**Context:** Owner-directed — *"INC needs INC-compatible services before we open it … the only usual issue is the ceremonial and officiants and food."* A way to see each wedding religion's vendor readiness and open/hold it accordingly.
+
+**What changed:**
+- **New `lib/religion-readiness.ts`:** `fetchReligionReadiness()` counts, per religion, published vendors + ceremonial venues tagged `compatible_ceremony_types ⊇ religion` (GIN-indexed); `fetchActiveCeremonyTypes()` returns the active religions for the couple-facing gate (null on error → callers fall back to all-available).
+- **New admin surface `/admin/wedding-types`** (+ Directory nav entry): per-religion status (Live / Coming soon / Disabled) · live vendor + ceremonial-venue counts vs an editable threshold · Ready / Building-supply badge · Open / Hold / Disable controls + threshold editor. `requireAdmin` + admin-client writes to `wedding_type_launch_status`.
+- **Gate now enforced couple-side:** the onboarding faith picker is data-driven from the launch status (greyed + non-selectable when a religion isn't active), matching the create-event picker which already reads the table. Graceful fallback (status read fails → existing all-available behavior).
+
+**Effect:** all religions stay live now (owner kept everything live) — this is the decision/control surface: flip a religion to "coming soon" and it greys in both pickers until reopened. **No migration** (uses the existing iteration-0043 `wedding_type_launch_status` table; `current_vendor_count` left as a future cache — readiness is computed live).
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean. Shipped from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** Yes — iteration **0023** gains a Wedding-types admin surface; **0043** launch gate now wired to onboarding + readiness counts. See `COWORK_INBOX.md`.
+
 ## 2026-06-03 · feat(0043): per-religion wedding traditions guide on /paperwork
 
 **Context:** Owner-directed — *"create onboarding that follows the traditions of each religion."* The per-religion document + deadline engine already exists (`lib/paperwork.ts` `DOCUMENTS_BY_CEREMONY_TYPE` — Catholic Pre-Cana/banns/canonical-interview, Muslim Sharia counseling, INC counseling, each with lead-time deadlines that already flow into /paperwork + the /schedule Preparation agenda + Home reminders). The missing piece was the human-readable "what to expect" overview per religion.

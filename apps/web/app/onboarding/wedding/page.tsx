@@ -21,6 +21,7 @@
  */
 import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
+import { fetchActiveCeremonyTypes } from '@/lib/religion-readiness';
 import { OnboardingShell } from './_components/onboarding-shell';
 
 export const metadata: Metadata = {
@@ -52,8 +53,19 @@ export default async function OnboardingWeddingPage({
 }) {
   const sp = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return <OnboardingShell authed={!!user} resume={sp.resume === '1'} />;
+  // Fetch the active wedding religions alongside auth so the faith picker can
+  // gate on the launch status (admin /admin/wedding-types flips these). Returns
+  // null on any read error → the shell falls back to its built-in soon flags.
+  const [userRes, activeFaiths] = await Promise.all([
+    supabase.auth.getUser(),
+    fetchActiveCeremonyTypes(supabase),
+  ]);
+  const user = userRes.data.user;
+  return (
+    <OnboardingShell
+      authed={!!user}
+      resume={sp.resume === '1'}
+      activeFaiths={activeFaiths}
+    />
+  );
 }

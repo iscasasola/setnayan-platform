@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import {
   Armchair,
-  ArrowUpRight,
   Camera,
   Check,
   ChevronDown,
@@ -177,22 +176,6 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
     (r) => r !== 'bride' && r !== 'groom' && !(r in singletonHolders),
   );
 
-  // Couple only — surface a LIVE VIEW of their public wedding page (their
-  // "editorial page", owner directive 2026-06-03). It's the /[slug] page they
-  // build from the Website surface; we embed it same-origin in an iframe so the
-  // host sees exactly what guests will see, draft or live ("their future page").
-  // Couple-only query — skip the round-trip for everyone else.
-  let editorialPath: string | null = null;
-  if (isCouple) {
-    const { data: ev } = await supabase
-      .from('events')
-      .select('slug')
-      .eq('event_id', eventId)
-      .maybeSingle();
-    const slug = (ev?.slug as string | null) ?? null;
-    editorialPath = slug ? `/${slug}` : null;
-  }
-
   // Pull the +1 guest row (if any) so the edit form can show the
   // current state of this primary's +1 — name (or TBA placeholder),
   // whether the +1 has confirmed their name via /[slug]/welcome, etc.
@@ -336,13 +319,6 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
         >
           {errorMessage}
         </p>
-      ) : null}
-
-      {/* Couple only — a LIVE VIEW of their public wedding page ("editorial
-          page", owner directive 2026-06-03), shown above the edit form so it's
-          the first thing you see when you open the bride or groom. */}
-      {isCouple ? (
-        <CoupleEditorialPreview eventId={eventId} editorialPath={editorialPath} />
       ) : null}
 
       <form action={updateAction} className="space-y-6">
@@ -832,82 +808,5 @@ function Select({
         ))}
       </select>
     </div>
-  );
-}
-
-/**
- * Couple-only "editorial page" live view (owner directive 2026-06-03).
- *
- * Embeds the couple's public wedding page (`/[slug]`) in a phone-framed,
- * same-origin iframe so the host sees exactly what guests will see — draft or
- * live ("their future editorial page, as live view"). No frame-blocking
- * headers exist (next.config.ts headers() only touches /sw.js + /manifest.json),
- * so the same-origin embed renders. `loading="lazy"` keeps it off the detail
- * page's first paint. Falls back to a "set it up" prompt when no slug is set.
- */
-function CoupleEditorialPreview({
-  eventId,
-  editorialPath,
-}: {
-  eventId: string;
-  editorialPath: string | null;
-}) {
-  return (
-    <section className="space-y-3 rounded-xl border border-ink/10 bg-cream/60 p-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-medium uppercase tracking-[0.15em] text-ink/55">
-            Editorial page
-          </h2>
-          <p className="text-xs text-ink/55">
-            A live view of the couple&rsquo;s wedding page.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {editorialPath ? (
-            <a
-              href={editorialPath}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 rounded-md border border-ink/20 bg-cream px-3 py-1.5 text-xs font-medium text-ink transition-colors hover:border-ink/40"
-            >
-              Open
-              <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-            </a>
-          ) : null}
-          <Link
-            href={`/dashboard/${eventId}/website`}
-            className="inline-flex items-center rounded-md border border-ink/20 bg-cream px-3 py-1.5 text-xs font-medium text-ink transition-colors hover:border-ink/40"
-          >
-            Edit
-          </Link>
-        </div>
-      </div>
-
-      {editorialPath ? (
-        <div className="mx-auto w-full max-w-[340px]">
-          <div className="overflow-hidden rounded-[2rem] border-[6px] border-ink/85 bg-ink shadow-lg">
-            <iframe
-              src={editorialPath}
-              title="The couple's wedding page — live preview"
-              loading="lazy"
-              className="block h-[600px] w-full bg-cream"
-            />
-          </div>
-        </div>
-      ) : (
-        <div className="rounded-lg border border-dashed border-ink/20 bg-cream p-6 text-center">
-          <p className="text-sm text-ink/65">
-            Their wedding page isn&rsquo;t set up yet.
-          </p>
-          <Link
-            href={`/dashboard/${eventId}/website`}
-            className="mt-3 inline-flex items-center rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
-          >
-            Set up their page
-          </Link>
-        </div>
-      )}
-    </section>
   );
 }

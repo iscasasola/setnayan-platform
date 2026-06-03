@@ -24,15 +24,15 @@
 ---
 
 
-## [PENDING] 2026-06-03 — Iteration 0001: couple detail embeds a LIVE VIEW of their editorial (wedding) page
+## [PENDING] 2026-06-03 — Iteration 0001: couple detail stays simple (editorial = post-wedding /[slug], not embedded)
 
-**Why:** Owner directive 2026-06-03 — clicking the bride/groom shows "their future editorial page, as live view." Built: a phone-framed, same-origin iframe of their public `/[slug]` page on the couple's guest-detail. This **completes the "album / custom data" follow-up** parked in the couple-foundation entry below.
+**Why:** Owner clarification 2026-06-03 — **supersedes** the earlier "embed a live view of their editorial page" direction (it was shipped then reverted in code). Two points: (a) the couple's guest-detail should just show **their information, like any other guest — keep it simple** (no embedded page preview); (b) "editorial" is **the same `/[slug]` page**, which only **activates as the editorial/recap view at the end of the wedding** — i.e., the existing day-of lifecycle's post/recap phase (iteration 0031). Nothing separate to build now.
 
 **Spec corpus updates (owner walks via Cowork):**
 
-1. **`~/Documents/Claude/Projects/Setnayan/0001_creating_guest_list/0001_creating_guest_list.md`** — under the "Bride & Groom (foundation of the event)" block, replace the "album / custom data is a planned follow-up" note with: "Opening the bride or groom shows a **live view of their editorial page** — a phone-framed, same-origin iframe of their public wedding page (`/[slug]`) with Open (new tab) + Edit (→ Website surface) links, and a 'set it up' fallback when no slug exists yet. It reflects the page's current draft/live state ('their future page')."
+1. **`~/Documents/Claude/Projects/Setnayan/0001_creating_guest_list/0001_creating_guest_list.md`** — under "Bride & Groom (foundation of the event)": the couple's detail page shows their standard info (like any guest), with role + RSVP locked and no Remove button. There is **no** embedded editorial/page preview on the detail. Note that "editorial page" = the couple's `/[slug]` page in its **post-wedding recap state** (handled by the day-of lifecycle, iteration 0031), which turns on at the end of the wedding.
 
-2. **`~/Documents/Claude/Projects/Setnayan/DECISION_LOG.md`** (corpus root) — append a 2026-06-03 row: "Couple guest-detail embeds a live-view iframe of their `/[slug]` editorial page (Open + Edit links · no-slug fallback). Completes the parked couple album/custom-data item. Bundled a pre-existing `e.touches[0]` typecheck fix in guest-list-multiselect.tsx (main was red; merges aren't CI-gated). File: apps/web/app/dashboard/[eventId]/guests/[guestId]/page.tsx."
+2. **`~/Documents/Claude/Projects/Setnayan/DECISION_LOG.md`** (corpus root) — append a 2026-06-03 row: "Couple guest-detail kept simple (info only, like other guests) — the briefly-shipped editorial live-view iframe was reverted. 'Editorial' = the `/[slug]` page's post-wedding recap state (day-of lifecycle, 0031), activates at end of wedding; not a separate surface, not embedded in guest-detail. File: apps/web/app/dashboard/[eventId]/guests/[guestId]/page.tsx."
 
 **When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
 

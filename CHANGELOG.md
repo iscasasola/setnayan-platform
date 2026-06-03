@@ -23,6 +23,40 @@ Propagates to both the `/add-ons` launcher grid and the Services-tab in-category
 
 ---
 
+## 2026-06-03 · feat(admin): one-click "Create demo vendors" (chunked seed) on /admin/demo-vendors
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Creating demo vendors was CLI-only — the "Regenerate" button just cleaned up + printed the terminal command (a full seed exceeds one serverless request's envelope). Owner wanted a real one-click Create. Solution: the browser clicks once, then loops category-by-category against a small per-chunk API until done, with a progress bar — no single long request.
+
+**What ships (no migration):**
+1. **Seed core refactor (`scripts/seed-demo-vendors.ts`) — importable, not moved.** `export async function seedCategory()` (seeds one canonical_service's profiles/services/refinements, returns its review+block rows for the caller to bulk-insert); exported `fetchCanonicalServices`/`fetchResolvedSchemas`/`fetchReviewEventPool`/`cleanupBatch`/`findLatestDemoBatch` + `isNonProdUrl`; **guarded CLI entrypoint** so importing never auto-runs. CLI `seed()` calls `seedCategory` + keeps its end-of-run bulk insert — **behavior preserved** (per-category RNG keyed on `(batchId, service)` ⇒ chunked == CLI output).
+2. **Chunked seed API (`app/api/admin/demo/seed/route.ts`, nodejs).** `phase:'start'` (requireAdmin + **non-prod 403** + cleanup + return `{batchId, services, total}`); `phase:'chunk'` (seed `services[offset..offset+limit)` + insert that chunk's reviews/blocks + return progress). Mirrors the regenerate route's auth/audit.
+3. **One-click button (`demo-vendor-actions.tsx`).** "Create demo vendors" + vendors/category control → POSTs `start`, then loops `chunk` (3 categories/request) with a progress bar. Confirm-gated; surfaces the prod 403; `router.refresh()` on completion.
+
+**SPEC IMPACT:** Minor — `/admin/demo-vendors` (admin console, 0023) gains one-click demo seeding (was CLI-only). `[PENDING]` in `COWORK_INBOX.md`.
+
+**Verification:** `tsc --noEmit` + `next lint` green. Refactor-safety smoke tests: exports resolve (`seedCategory` etc.; `isNonProdUrl` staging→true / prod-ref→false), importing the module does **not** auto-run the seed, the CLI entrypoint still fires when run directly. CI gates the production build (route bundles `@/scripts/seed-demo-vendors`; fallback = lift the core to `lib/`). **Owner, on staging:** `/admin/demo-vendors` → Create demo vendors → progress bar → `/vendors?demo=1`; prod-pointed deploy returns 403.
+
+## 2026-06-03 · fix(0016): onboarding completion overlay can no longer strand the couple ("Creating your personalized dashboard" hang)
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner report (real iPhone, production) — the final onboarding screen sat forever on "Creating your personalized dashboard / Building your personalized dashboard…" and never reached the dashboard. Root cause was a set of unguarded async paths around the completion overlay: any one of them left the blocking overlay up with no error and no way to retry (the retry guard `committingRef` also stayed locked).
+
+**What changed:**
+- **`app/onboarding/wedding/_components/onboarding-shell.tsx`** — (1) `handleFinish` now wraps `await commitOnboardingWedding(...)` in try/catch. Previously a *rejected* server action (a 500, a serverless function timeout, or a dropped RSC transport on a wobbly mobile connection) rejected the awaited promise unhandled, so `committingRef` stayed `true` and the overlay stayed up forever — the exact reported symptom. On reject we now unwind (`finishing`/`committing`/ref reset) and surface the existing retry error. (2) `goToDashboard` gains a navigation watchdog: if the client router wedges or `router.push` silently no-ops, a hard `window.location.assign` fires `ANALYZING_HOLD_MS + 4000ms` after the tap (guarded on still being on `/onboarding`, so it's a no-op on the happy path once navigation succeeds).
+- **`lib/analytics.ts`** — `captureEvent`'s fire-and-forget `fetch` is now bounded by a 2s `AbortController`. It is `await`ed inside the onboarding commit's request path, so an unbounded hang could drag the serverless function to its timeout → the commit rejected → (pre-fix) the couple was stranded. This honors the module's own stated contract ("never let analytics block the response").
+- **`app/onboarding/wedding/actions.ts`** — the shortlist/anchor seed block is now wrapped try/catch. `recomputeReceptionAnchor` runs after the event row is created but wasn't error-checked; a throw there rejected the whole commit *after* the event existed, so a client retry created a DUPLICATE event. The surrounding code already declared this block "best-effort"; this enforces it.
+
+**Verification:** `pnpm -F web typecheck` clean · `next lint` on the 3 files clean. The failure-mode paths (reject / timeout / wedged router) are not exercisable in a happy-path preview; happy-path behavior is unchanged (the watchdog no-ops once navigation succeeds; the try/catch wraps the same statements).
+
+**SPEC IMPACT:** None. Pure resilience/error-handling fix — no SKU, schema, workflow, copy, or branding change (the user-facing error string already existed).
+
+**Follow-up (not in this PR):** the commit is still non-idempotent on the *other* failure branches (e.g. `event_members` insert fails → returns `ok:false` → a retry creates a second event). A durable fix needs a client-supplied idempotency key + server dedup — flagged for the owner; out of scope for this hang fix.
+
+---
+
 ## 2026-06-03 · feat(0000,0041): unlock all event types (all 9 now creatable)
 
 **Commit:** see merge commit on this PR.

@@ -95,6 +95,12 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
     (clean(formData.get('meal_preference')) || null) as MealPreference | null;
   const dietary_restrictions = clean(formData.get('dietary_restrictions')) || null;
   const rsvp_status = (clean(formData.get('rsvp_status')) || 'pending') as RsvpStatus;
+  // Bride & groom are the foundation of the event — always Attending, never
+  // Pending (owner directive 2026-06-03). Force it regardless of the submitted
+  // value; the DB trigger (migration 20260725000000) enforces the same, this
+  // keeps the action self-consistent.
+  const effectiveRsvp: RsvpStatus =
+    role === 'bride' || role === 'groom' ? 'attending' : rsvp_status;
   const photo_consent = clean(formData.get('photo_consent')) === 'on';
   // Plus-one toggle · owner directive 2026-05-23 PM. Host approves
   // permission only; the +1's name + RSVP confirmation lands on the
@@ -149,12 +155,12 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
       mobile,
       meal_preference,
       dietary_restrictions,
-      rsvp_status,
+      rsvp_status: effectiveRsvp,
       photo_consent,
       plus_one_allowed,
       notes,
       invited_to_blocks,
-      rsvp_responded_at: ['attending', 'declined'].includes(rsvp_status) ? new Date().toISOString() : null,
+      rsvp_responded_at: ['attending', 'declined'].includes(effectiveRsvp) ? new Date().toISOString() : null,
       updated_at: new Date().toISOString(),
     })
     .eq('event_id', eventId)
@@ -197,7 +203,7 @@ export async function softDeleteGuest(
   // gate; this single-guest path mirrors it for consistency.
   const { data: row, error: readErr } = await supabase
     .from('guests')
-    .select('rsvp_status, first_name, last_name, display_name')
+    .select('role, rsvp_status, first_name, last_name, display_name')
     .eq('event_id', eventId)
     .eq('guest_id', guestId)
     .is('deleted_at', null)
@@ -210,6 +216,17 @@ export async function softDeleteGuest(
   }
   if (!row) {
     redirect(`/dashboard/${eventId}/guests?error=not_found`);
+  }
+  // The bride & groom are the foundation of the event — renamable, never
+  // removable (owner directive 2026-06-03). Checked before the RSVP gate so
+  // the couple gets the right message (they're always Attending, which would
+  // otherwise trip the generic "already RSVP'd" copy).
+  if (row.role === 'bride' || row.role === 'groom') {
+    redirect(
+      `/dashboard/${eventId}/guests/${guestId}?error=${encodeURIComponent(
+        "The bride and groom are the foundation of the event and can't be removed.",
+      )}`,
+    );
   }
   if (row.rsvp_status !== 'pending') {
     const displayName =

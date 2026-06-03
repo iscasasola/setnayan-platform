@@ -22,11 +22,30 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **Pilot-safe:** the journey page (PR #704) is **untouched** and remains the working Website surface; this PR is additive to the already-shipped (but not-yet-primary) editor route. Nothing breaks for pilot couples.
 
-**Verification:** `pnpm -F web typecheck` ✓ · `pnpm -F web lint` ✓ (no new warnings on the two edited files) · `pnpm -F web build` ✓.
+**Verification:** `pnpm -F web typecheck` ✓ · `pnpm -F web lint` ✓ (no new warnings on the two edited files) · `pnpm -F web build` ✓ · full GitHub Actions CI suite ✓ (build macOS + Windows, production build, Lighthouse, Playwright e2e, bundle size, secret scan, typecheck + lint).
 
 **SPEC IMPACT:** Yes. The canonical Website-editor surface now carries the full card set, including the **₱1,999 Monogram Hero** + **₱999 Live Schedule** inline upgrades and the Panood / Papic / Patiktok / Drive / Custom-QR navigation cards. The 2026-06-01 "Reels-style editor" decision-log row + iteration 0021 (couple dashboard Website tab) need a follow-up note that the editor reached card-parity with the journey page (Phase 1 of the flip). Logged as a `[PENDING]` COWORK_INBOX item.
 
 ---
+
+## 2026-06-03 · feat(0001): bride & groom are the event's foundation — auto-Attending, undeletable, role-locked
+
+**Commit:** to be filled after commit.
+
+**Context:** Owner directive 2026-06-03 — the bride & groom are the foundation of the event: RSVP is automatically **Attending** (never Pending), they **can't be deleted**, they **can be renamed**, and "Bride/Groom" is hidden from the assignable **role** pickers. Clicking them opens their full detail (a richer album / custom-data surface is a separate follow-up pending owner spec).
+
+**What shipped (`apps/web/.../guests/` + migration):**
+
+1. **Auto-Attending.** New migration `20260725000000_guests_couple_attending.sql` — a `BEFORE INSERT OR UPDATE` trigger forces `rsvp_status='attending'` whenever `role IN ('bride','groom')`, plus a backfill for existing couples. The app also coerces on read (`coupleAttending` in `lib/guests.ts`, applied in `fetchGuestsByEvent` + `fetchGuestById`) so the UI is correct the instant this ships, before the migration is pushed. `updateGuest` forces it write-side too.
+2. **Undeletable.** `softDeleteGuest` (single) + `bulkSoftDeleteGuests` (bulk) block bride/groom with a "foundation of the event" message, checked before the RSVP gate. The detail page hides the "Remove guest" button for the couple.
+3. **Renamable.** Name fields stay editable on the couple's detail form.
+4. **Hidden from Roles.** Bride/Groom removed from `BULK_ROLE_SECTIONS` (desktop SelectionBar + mobile Assign sheet), the new-guest role picker, and the detail-page role select. On the couple's own detail the role is read-only ("Foundation · locked") with a hidden input so the form still posts it; RSVP shows a locked "Attending · always".
+
+**Verification:** `tsc --noEmit` clean; `next lint` clean for all changed files.
+
+**Owner action:** push the migration (`supabase db push`) so the DB-stored value + every write path (CSV import, public RSVP) match the UI — see `OWNER_ACTIONS.md` 2026-06-03 item. The feature works in the UI without it (read-coercion); stored rsvp_status stays Pending until pushed.
+
+**SPEC IMPACT:** Iteration **0001** — bride/groom RSVP/role/delete semantics. Logged in `COWORK_INBOX.md` `[PENDING] 2026-06-03 (couple foundation)`.
 
 ## 2026-06-03 · feat(0001): mobile Guests carousel — select-and-assign Customize, folded filters, side/role/group sort, cleaner sheet
 

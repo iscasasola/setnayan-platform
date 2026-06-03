@@ -6,7 +6,7 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ## 2026-06-03 · feat(site-editor): flip the Website doorway to the editor + retire the journey scroll (Phase 2)
 
-**Commit:** to be filled after commit.
+**Commit:** see merge commit on this PR.
 
 **Context:** Phase 2 of the 2026-06-01 flip sequence (Phase 1 = card-parity, shipped PR #821). Owner directive: "make the editor the page and remove everything else." The full-screen Reels editor (`/site-editor/[eventId]`) is now the canonical wedding-website surface; the journey scroll (`/dashboard/[eventId]/website`, PR #704) is retired.
 
@@ -24,6 +24,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **SPEC IMPACT:** Yes. The couple's "Website" doorway now opens the Reels editor; the journey scroll is retired (redirects). Iteration 0021 (couple dashboard Website tab) + the 2026-06-01 "Reels-style editor" decision-log row need the Phase-2 flip recorded. Logged as a `[PENDING]` COWORK_INBOX item.
 
 ---
+
+
+## 2026-06-03 · feat(0001): couple detail shows a LIVE VIEW of their editorial (wedding) page + touches[0] typecheck fix
+
+**Commit:** to be filled after commit.
+
+**Context:** Owner directive 2026-06-03 (completes the deferred couple "album / custom data" item) — clicking the bride or groom shows **their future editorial page as a live view**. Their "editorial page" is their public wedding page at `/[slug]`.
+
+**What shipped:**
+
+1. **Editorial live view (`guests/[guestId]/page.tsx`).** Couple-only: fetch `events.slug`, then render a phone-framed, **same-origin** `<iframe src="/{slug}">` ("Editorial page" · live) above the edit form, with **Open** (new tab) + **Edit** (→ `/dashboard/[eventId]/website`) links. `loading="lazy"` keeps it off first paint. When no slug is set yet, a "Their wedding page isn't set up yet → Set up their page" fallback. Same-origin framing is safe — `next.config.ts` `headers()` sets no `X-Frame-Options` / CSP `frame-ancestors` (only touches `/sw.js` + `/manifest.json`).
+2. **Pre-existing typecheck fix (`_components/guest-list-multiselect.tsx`).** `main` was red on `tsc`: the mobile swipe-to-delete card read `e.touches[0].clientX` (possibly-undefined under `noUncheckedIndexedAccess`). Guarded with `const t = e.touches[0]; if (t) …` — also hardens a real runtime crash. (Slipped onto `main` because merges aren't gated on the typecheck check.)
+
+**Verification:** `tsc --noEmit` clean (it was *failing* on `main` before the touch guard); `next lint` clean for changed files. Visual confirmation via the PR's Vercel preview.
+
+**SPEC IMPACT:** Iteration **0001** — the couple's guest-detail now embeds a live view of their `/[slug]` page (touches 0002/0015/0021). Completes the "album / custom data" follow-up flagged in the 2026-06-03 couple-foundation entry. Logged in `COWORK_INBOX.md` `[PENDING] 2026-06-03 (couple editorial live view)`.
 
 ## 2026-06-03 · feat(drive-copy): keystone — universal Google-Drive copy layer (R2 = system of record)
 

@@ -814,8 +814,14 @@ function SwipeToDelete({
       {/* Front card — translates on swipe; opaque (bg-cream on the child) so it
           fully covers the Delete action when closed. */}
       <div
-        onTouchStart={(e) => begin(e.touches[0].clientX, e.touches[0].clientY)}
-        onTouchMove={(e) => move(e.touches[0].clientX, e.touches[0].clientY)}
+        onTouchStart={(e) => {
+          const t = e.touches[0];
+          if (t) begin(t.clientX, t.clientY);
+        }}
+        onTouchMove={(e) => {
+          const t = e.touches[0];
+          if (t) move(t.clientX, t.clientY);
+        }}
         onTouchEnd={end}
         onTouchCancel={end}
         onClickCapture={(e) => {

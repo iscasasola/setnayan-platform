@@ -7,6 +7,9 @@ import {
   Geist,
   Instrument_Serif,
   JetBrains_Mono,
+  Cinzel,
+  Playfair_Display,
+  Great_Vibes,
 } from 'next/font/google';
 import Script from 'next/script';
 import './globals.css';
@@ -55,6 +58,31 @@ const dmMono = DM_Mono({
   display: 'swap',
   weight: ['400', '500'],
   variable: '--font-mono',
+});
+
+// Monogram display faces — the couple's onboarding monogram renders in its
+// EXACT chosen face in the dashboard chrome (event switcher + profile avatar),
+// matching the onboarding medallion. Owner-locked 2026-06-03 ("yes exact font").
+const cinzel = Cinzel({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['400', '600'],
+  variable: '--font-cinzel',
+});
+
+const playfairDisplay = Playfair_Display({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['400', '600'],
+  style: ['normal', 'italic'],
+  variable: '--font-playfair',
+});
+
+const greatVibes = Great_Vibes({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: '400',
+  variable: '--font-script',
 });
 
 // v2.1 marketing typography (Setnayan Vendor Keynote template package · CLAUDE.md
@@ -271,7 +299,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en-PH"
-      className={`${cormorant.variable} ${manrope.variable} ${dmMono.variable} ${sairaCondensed.variable} ${geist.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable}`}
+      className={`${cormorant.variable} ${manrope.variable} ${dmMono.variable} ${sairaCondensed.variable} ${geist.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable} ${cinzel.variable} ${playfairDisplay.variable} ${greatVibes.variable}`}
     >
       <head>
         {/*

@@ -86,10 +86,12 @@ const MONO_INK_HEX: Record<MonoInkKey, string> = {
   ink: '#1E2229',
 };
 
-// Font-family stacks. Cormorant is loaded app-wide (var(--font-display));
-// Playfair / Cinzel / Great Vibes are not yet loaded on the dashboard, so the
-// stacks degrade gracefully (elegant serif / system cursive). Loading the
-// exact display faces into the chrome is a follow-up polish.
+// Font-family stacks — all four faces are now loaded in the dashboard chrome
+// via next/font/google (app/layout.tsx · owner "yes exact font" 2026-06-03):
+// Cormorant = var(--font-display) · Playfair = var(--font-playfair) · Cinzel =
+// var(--font-cinzel) · Great Vibes = var(--font-script). So the chrome monogram
+// renders in the couple's exact chosen face, matching the onboarding medallion.
+// Fallbacks stay for safety.
 const MONO_FONT_STACK: Record<
   MonoFontKey,
   { fontFamily: string; fontStyle: 'italic' | 'normal'; letterSpacing: string }
@@ -100,23 +102,30 @@ const MONO_FONT_STACK: Record<
     letterSpacing: '0.01em',
   },
   playfair: {
-    fontFamily: "'Playfair Display', var(--font-display), Georgia, serif",
+    fontFamily: "var(--font-playfair), 'Playfair Display', Georgia, serif",
     fontStyle: 'italic',
     letterSpacing: '0.01em',
   },
   cinzel: {
-    fontFamily: "'Cinzel', var(--font-display), Georgia, serif",
+    fontFamily: "var(--font-cinzel), 'Cinzel', Georgia, serif",
     fontStyle: 'normal',
     letterSpacing: '0.04em',
   },
   script: {
-    fontFamily: "'Great Vibes', 'Snell Roundhand', cursive",
+    fontFamily: "var(--font-script), 'Great Vibes', 'Snell Roundhand', cursive",
     fontStyle: 'normal',
     letterSpacing: '0.02em',
   },
 };
 
+// The frame webps shipped under public/onboarding/mono/. Validate the stored
+// frame key before building the <EventMonogram> background URL.
+const VALID_FRAMES = new Set<string>([...MONO_DESIGNS.map((d) => d.frame), 'deco_diamond']);
+
 export type MonogramDesignStyle = {
+  /** Gold frame webp key (public/onboarding/mono/{frameKey}.webp), or null for
+   *  a design that has only a font key. Drives the framed chrome-icon render. */
+  frameKey: string | null;
   color: string;
   fontFamily: string;
   fontStyle: 'italic' | 'normal';
@@ -124,12 +133,14 @@ export type MonogramDesignStyle = {
 };
 
 /**
- * Resolve the couple's onboarding-designed monogram into CSS for the switcher
- * icon. Returns null when the event has no designed monogram (older or non-
- * onboarding events) — callers fall back to the legacy text+color rendering.
+ * Resolve the couple's onboarding-designed monogram into CSS for the chrome
+ * monogram (event switcher + profile avatar). Returns null when the event has
+ * no designed monogram (older or non-onboarding events) — callers fall back to
+ * the legacy text+color rendering.
  *
- * Ink is recovered from the (frame, font) preset; the font key drives the
- * family. Defensive fallbacks keep it total for any unexpected key value.
+ * frame + font + ink recover the EXACT onboarding design, so the chrome icon is
+ * the couple's real framed monogram scaled down. Defensive fallbacks keep it
+ * total for any unexpected key value.
  */
 export function resolveMonogramDesign(input: {
   monogram_frame_key?: string | null;
@@ -153,7 +164,11 @@ export function resolveMonogramDesign(input: {
       : 'cormorant');
   const stack = MONO_FONT_STACK[font];
 
+  const resolvedFrame =
+    frameKey && VALID_FRAMES.has(frameKey) ? frameKey : design?.frame ?? null;
+
   return {
+    frameKey: resolvedFrame,
     color: MONO_INK_HEX[ink],
     fontFamily: stack.fontFamily,
     fontStyle: stack.fontStyle,

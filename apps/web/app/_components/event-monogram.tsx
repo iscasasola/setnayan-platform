@@ -23,11 +23,12 @@ type Event = {
   monogram_font_key?: string | null;
 };
 
-type Size = 'sm' | 'md';
+type Size = 'sm' | 'md' | 'lg';
 
-const SIZE_TOKENS: Record<Size, { box: string; text: string }> = {
-  sm: { box: 'h-7 w-7', text: 'text-[10px]' },
-  md: { box: 'h-9 w-9', text: 'text-xs' },
+const SIZE_TOKENS: Record<Size, { box: string; text: string; px: number }> = {
+  sm: { box: 'h-7 w-7', text: 'text-[10px]', px: 28 },
+  md: { box: 'h-9 w-9', text: 'text-xs', px: 36 },
+  lg: { box: 'h-11 w-11', text: 'text-sm', px: 44 },
 };
 
 export function EventMonogram({
@@ -53,8 +54,48 @@ export function EventMonogram({
     monogram_font_key: event.monogram_font_key,
   });
   const ink = design?.color ?? color;
-  const { box, text: textSize } = SIZE_TOKENS[size];
+  const { box, text: textSize, px } = SIZE_TOKENS[size];
 
+  // Framed — the couple's REAL onboarding monogram: the gold frame webp + their
+  // initials in the chosen font + ink, exactly like the onboarding medallion,
+  // scaled to chrome size (owner "what the monogram looks like on the
+  // onboarding" 2026-06-03). The frame IS the shape → no border/circle.
+  if (design?.frameKey) {
+    return (
+      <span
+        aria-hidden
+        className={`relative inline-flex shrink-0 items-center justify-center ${box} ${
+          className ?? ''
+        }`
+          .replace(/\s+/g, ' ')
+          .trim()}
+        style={{
+          backgroundImage: `url(/onboarding/mono/${design.frameKey}.webp)`,
+          backgroundSize: 'contain',
+          backgroundRepeat: 'no-repeat',
+          backgroundPosition: 'center',
+        }}
+      >
+        <span
+          style={{
+            color: ink,
+            fontFamily: design.fontFamily,
+            fontStyle: design.fontStyle,
+            letterSpacing: design.letterSpacing,
+            fontSize: `${Math.max(7, Math.round(px * 0.28))}px`,
+            lineHeight: 1,
+            whiteSpace: 'nowrap',
+            fontWeight: 600,
+          }}
+        >
+          {text}
+        </span>
+      </span>
+    );
+  }
+
+  // Letters-forward (a design with no frame) or legacy (no design): a bordered
+  // cream circle with the initials in the chosen / fallback face.
   return (
     <span
       aria-hidden

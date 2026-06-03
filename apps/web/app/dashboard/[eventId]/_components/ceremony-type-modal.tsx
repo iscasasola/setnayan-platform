@@ -107,22 +107,14 @@ export function CeremonyTypeModal({ eventId, currentValue, onClose }: Props) {
         </header>
 
         <div className="flex-1 overflow-y-auto px-6 py-4">
+          {/* All wedding types — incl. 'chinese' (activated 2026-06-03,
+              migration 20260806000000) — are selectable. setEventCeremonyType's
+              ALLOWED_CEREMONY_TYPES allow-list and the create-event picker now
+              all include chinese. */}
           <CeremonyTypeRadioGroup
             value={selected}
             onChange={setSelected}
             legend="Wedding type"
-            // 'chinese' is coming_soon (mirrors wedding_type_launch_status; the
-            // other faiths were unlocked 2026-06-03). Not settable here until it
-            // activates — the create-event picker greys it the same way, and the
-            // setEventCeremonyType server action would reject it regardless.
-            isOptionDisabled={(key) => key === 'chinese'}
-            renderOptionBadge={(key) =>
-              key === 'chinese' ? (
-                <span className="rounded-full bg-ink/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-ink/60">
-                  Coming soon
-                </span>
-              ) : null
-            }
           />
         </div>
 

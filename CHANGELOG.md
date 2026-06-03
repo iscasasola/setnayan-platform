@@ -4,6 +4,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(0043): activate Chinese wedding — fully selectable (supersedes same-day coming-soon)
+
+**Context:** Owner reviewed the live onboarding "ceremony tradition" screen and decided Chinese should ship as a **fully selectable** tradition, not "coming soon." Reverses the same-day #885 decision that seeded Chinese as the lone gated faith — inconsistent now that Catholic/Civil/Christian/INC/Muslim/Cultural are all active. UX call: a couple planning a Tsinoy wedding picks "Chinese" and continues, exactly like every other tradition.
+
+**What changed:**
+- **Migration `20260806000000_activate_chinese_ceremony_type.sql`:** `UPDATE wedding_type_launch_status SET status='active'` for the `chinese`/`all` row (idempotent — only flips if not already active; `activated_at = COALESCE(activated_at, now())`) + an `ON CONFLICT DO NOTHING` active-insert safety net. No CHECK-constraint change — `20260804000000` already permits `chinese`.
+- **Onboarding (`onboarding-shell.tsx`):** `FAITH_CHIPS` chinese `soon:true → false` — chip now clickable.
+- **Onboarding commit (`onboarding/wedding/actions.ts`):** `chinese` added to `ALLOWED_CEREMONIES` (was silently coerced to `catholic` on submit) + `ALLOWED_SECONDARY` (Mixed, e.g. Catholic + Chinese tea ceremony).
+- **Create-event picker (`create-event/page.tsx`):** launch-status fallback baseline chinese `coming_soon → active` (picker is data-driven by `wedding_type_launch_status`; the DB-row flip and this fallback together make it selectable).
+- **Create-event commit (`create-event/actions.ts`):** `chinese` added to `ALLOWED_CEREMONIES` + `ALLOWED_SECONDARY`.
+- **Edit modal (`ceremony-type-modal.tsx`):** removed the `isOptionDisabled`/`renderOptionBadge` chinese coming-soon gating (both props optional) — chinese now selectable on existing events.
+- **Edit-modal commit (`[eventId]/actions.ts`):** `chinese` added to `ALLOWED_CEREMONY_TYPES` (`setEventCeremonyType`).
+- Left correct/untouched: shared `ceremony-type-radio-group.tsx` (chinese option already present from #885), `NOTIFY_FAITHS` (chinese stays — same as every other active faith), admin venue form, `wed_chinese.webp` hero.
+
+**Verification:** Type-trivial change (string literals into unions already widened with `chinese` by #885, one boolean flip, removed optional props, one SQL file). No local typecheck — the fresh worktree has no installed deps; relying on the PR's required `typecheck + lint` + `production build` checks and the Vercel preview deploy (which renders the real onboarding flow). Shipped from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** Yes — supersedes the same-day "Chinese = coming soon" note. Chinese is now an **active** wedding ceremony type everywhere it's offered. See `COWORK_INBOX.md` (updates the prior coming-soon PENDING item).
+
 ## 2026-06-03 · chore(0000,0041): event_type enum guarantee + create-event copy (all-live)
 
 **Context:** Follow-up to the owner's "keep everything live" decision + the spec-0000 reconciliation. Two small gaps: (1) belt-and-suspenders the `event_type` enum so a Debut insert can never fail + add 3 roadmap types as seedable; (2) the create-event page still carried "only weddings live / tap to be notified" copy.

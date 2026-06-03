@@ -16,6 +16,52 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Verification:** `tsc --noEmit` clean (whole app) · `next lint` clean (changed files; only pre-existing warnings elsewhere) · a runtime `tsx` partition check confirmed the grouping + that nested links resolve to real routes. The authed couple-dashboard surface isn't renderable locally (no env / seed / running server) — visual check belongs on the PR's Vercel preview.
 
 **SPEC IMPACT:** Iteration **0021** couple-dashboard Services tab + the Digital Services cross-surface map §2. Presentation step only; the full **vendor-model convergence** (§3 — source the list from the first-party Setnayan vendor account + choice-driven pre-add on category selection) and **fleshing out Digital Services** (add Pakanta / Pro Website / Live Venue Photo Wall to the catalog with valid setup routes — only the coming-soon Animated Monogram is present today) remain follow-ups. See `COWORK_INBOX.md`.
+## 2026-06-03 · fix(0000,0021,0022,0023): event-logo monogram in vendor/admin switcher + customer non-event avatar
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner reported that the event switcher on the **vendor + admin** doorways rendered the *basic* serif-italic monogram instead of the couple's customized onboarding monogram, and that the **customer non-event** upper-right avatar showed the account initial rather than the event logo. `EventMonogram` only renders the couple's real design when it receives `monogram_frame_key` + `monogram_font_key`; the customer event-scoped chrome forwarded them, but three chrome paths dropped them.
+
+**What changed:**
+- **`app/_components/dashboard-event-switcher.tsx`** — the shared vendor/admin switcher wrapper now types + forwards `monogram_frame_key`/`monogram_font_key` to the `EventSwitcher` anchor (was silently omitted → legacy basic badge).
+- **`app/admin/layout.tsx` + `app/vendor-dashboard/layout.tsx`** — the `switcherEvents` map now carries both keys, so the anchor **and** the dropdown rows render the customized monogram.
+- **`app/dashboard/_components/outer-dashboard-header.tsx`** — the customer *non-event* chrome (`/dashboard` root, `/profile`, `/notifications`, `/create-event`, `/api-keys`) now passes the **primary event's** monogram to `ProfileMenu`, so the upper-right avatar is the event logo (falls back to the account initial only when there's no event / no designed monogram). The event-scoped customer chrome already did this; this closes the gap.
+
+**Scope note:** Vendor/admin upper-right keeps its display-name + Sign-out cluster (owner choice 2026-06-03 — no avatar added there). Data was already fetched — `fetchUserEvents` selects both columns; the fix only threads them through. No schema / query change.
+
+**Verification:** `tsc --noEmit` clean · `next lint` clean (the 4 files). Logged-in browser check not run (dashboards are auth-gated; the running preview is the spec-corpus prototype server, not the app) — the fix feeds the same data into the same `EventMonogram` / `ProfileMenu` paths already proven on the customer event-scoped chrome.
+
+**SPEC IMPACT:** None — brings code in line with the already-locked 2026-06-03 decisions ("the switcher renders the couple's customized onboarding monogram" + "the avatar IS the event's logo"). No Cowork action.
+
+---
+
+## 2026-06-03 · feat(admin+home): planning_deadlines goes live — reminders read it + admin editor (PR 2+3 of 3)
+
+**Context:** Completes the admin deadline table (after PR 1's schema). The Home reminders now read the admin-set deadlines, and admins edit them in `/admin/taxonomy`. Owner: "do both."
+
+**Wiring (`lib/upcoming-items.ts`):** `fetchRecommendedDeadlineItems` reads `planning_deadlines` (service category rows) and uses each category's admin-set offset (month/week/day) for the reminder; **falls back to `PLAN_GROUPS.monthsBefore`** per-category (incl. if the table isn't applied → empty map → code, no crash).
+
+**Admin editor (`/admin/taxonomy`):** a "Recommended deadlines" section — lists the rows (services + documents) with inline `offset_value`/`offset_unit` edit via `updatePlanningDeadline` (new `actions.ts`, RLS-gated) + a category-level coverage/"missing deadline" flag. Per-leaf overrides are a noted follow-up (the leaf→category map is in code `TAXONOMY_MAP`, not the DB).
+
+**Verification:** `tsc --noEmit` green. Admin route auth-gated + needs the table — CI build is the gate; degrades gracefully pre-migration.
+
+**SPEC IMPACT:** Yes — 0023 admin gains the deadline editor; the Home reminders' deadline source becomes the admin table. Inbox note added.
+
+## 2026-06-03 · chore(0000,0021): remove Marketplace (Store) + Switch View (role-switch) icons from the customer top nav
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Owner directive (mobile screenshot, both icons circled): *"remove these 2 on top nav."* The customer top bar carried a 🏪 **Marketplace** link (`/vendors`) and the 👤﹀ **Switch View** `RoleSwitchPill` (the always-visible role-switch). Owner scope choice: remove from BOTH the event-scoped top bar AND the non-event customer top bar; **keep** the desktop left-sidebar instances.
+
+**What changed:**
+- **`app/dashboard/[eventId]/layout.tsx`** — dropped the Marketplace `<Link>` + the mobile (`lg:hidden`) `RoleSwitchPill` from the event-scoped `topBar`; removed the now-unused `Link` + `Store` imports. The top bar is now: event-switcher monogram · Messages · Bell · Profile-monogram. The desktop sidebar-footer `RoleSwitchPill` (`sidebarFooterPill`) is untouched.
+- **`app/dashboard/_components/outer-dashboard-header.tsx`** — dropped the same two from the mobile `<header>` strip (non-event routes: Profile / Notifications / Create-event). The desktop left-sidebar bottom strip keeps both per the owner's scope choice; all three imports (`Store`, `Link`, `RoleSwitchPill`) remain in use there.
+
+**Nothing orphaned:** Marketplace `/vendors` stays reachable via the home marketplace-tease-strip CTA, the "Browse your matched services" button, every plan-card folder link, and the desktop sidebar. Role-switching stays in the EventSwitcher dropdown's "Switch view" rows (Shop / Admin consoles) + the desktop sidebar.
+
+**Verification:** `next lint` clean on both files · `tsc --noEmit` exit 0 (full project, 0 errors). Shipped from an isolated worktree off `origin/main` to keep unrelated in-progress changes out of the diff.
+
+**SPEC IMPACT:** Yes — the iteration **0000** "single-strip top-nav (locked 2026-05-14)" + the **0021** couple-dashboard chrome described a top nav that included the Marketplace link and the always-visible Switch View pill. Both are now removed from the top bar (retained in the desktop sidebar). See `COWORK_INBOX.md`.
 
 ---
 

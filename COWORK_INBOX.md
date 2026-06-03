@@ -8,6 +8,18 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Commit the vendor-compatibility design lock in the corpus
+
+**Why:** The compatibility build started (code PR 1 = the master-song-list foundation migration). Its design lock was authored directly in the corpus this session but is **uncommitted** (co-mingled with other in-progress Cowork work):
+- NEW `Vendor_Compatibility_and_Master_Songlist_2026-06-03.md` (+ `.docx`) — the full design (master song list compiled from vendor submissions · compatibility score 0–100% · 90% "next best options" · never-exclude · card cue replaces fabricated social-proof · build sequence · owner-tunable knobs: threshold 90% / weights 60-30-10).
+- A `DECISION_LOG.md` row ("🎵🎯 Vendor compatibility scoring + master song list — DESIGN-LOCKED").
+
+**Action:** commit these in the corpus (your next Cowork batch). No spec CONTENT change needed — they're written; this is just the commit. Extends `Vendor_Match_Personalization_2026-06-01.md` (makes Layer B numeric).
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "feat(0006/0044): master song list … compatibility foundation (PR 1)".
+
+---
+
 ## [PENDING] 2026-06-03 — Today's Focus wizard surface RETIRED (onboarding + deadline timeline supersede it)
 
 **Why:** Owner confirmed the 9-card/65-card Today's Focus planning wizard is no longer the model. Couples are guided by onboarding (upfront scoping) + the per-service deadline timeline (counted back from the wedding date, `lib/upcoming-items.ts`). The paid SKU was already off (`CONCIERGE_ENABLED=false`). Code retired the couple-facing surface; the deadline logic is preserved.

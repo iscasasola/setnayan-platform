@@ -4,6 +4,28 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(0006/0044): master song list + vendor repertoire + couple song picks — compatibility foundation (PR 1)
+
+**Commit:** see merge commit on this PR.
+
+**Context:** First PR of the vendor-compatibility build (design lock: corpus `Vendor_Compatibility_and_Master_Songlist_2026-06-03.md`, owner-locked 2026-06-03). Owner's model: bands/singers/orchestras place the songs they perform → compiled into one shared **master song list**; couples pick from the same list; music-vendor **compatibility = song overlap** (`|picks ∩ repertoire| / |picks|`) — matches float up, nobody is hidden, `<90%` is labeled "next best options." Today there is no compatibility score (ranking = `ad_rank → review_count → avg_rating_overall`), the music schema stores only song COUNTS (never titles), and `event_vendor_preferences` / `music_playlist_seed` are captured but read by zero matchers. This lands the missing data substrate.
+
+**What changed — new migration `20260731000000_master_song_list_foundation.sql` (additive · owner-push):**
+- **`songs`** — master catalogue, one deduped record per `(title, artist)` (generated `normalized_key` UNIQUE → `ON CONFLICT` no-op collapses duplicates). **Seeded with the curated `MUSIC100`** (the 100 songs the onboarding picker already uses, `is_curated_pick=TRUE`) so couple picks + vendor repertoires share identity. Public read · authenticated insert · admin-only edit/delete · a `songs_nonadmin_guard` trigger (created AFTER the seed) stops non-admins minting curated/seed songs (no picker pollution).
+- **`vendor_songs`** — each music vendor ↔ master songs they perform. Public read · vendor-owned write (`vendor_profile_id IN current_vendor_ids()`).
+- **`event_song_picks`** — the couple ↔ master songs they want. Host-scoped (`event_id IN current_event_ids()`, same idiom as `event_vendor_preferences`). Supersedes the display-only `events.music_playlist_seed` for matching.
+- RLS at `CREATE TABLE` time (canonical helpers `is_admin` / `current_vendor_ids` / `current_event_ids`); reverse-lookup indexes on `song_id`.
+
+**Verification:** migration self-check — 100 seed songs · 3 tables · 3 RLS-enabled · balanced dollar-quote · doubled COMMENT apostrophes · all 3 canonical helpers referenced. No app code, no behavior change (foundation only). *(Migration runs on owner `supabase db push` — not exercised by typecheck/lint/build.)*
+
+**SPEC IMPACT:** Design already authored in the corpus — `Vendor_Compatibility_and_Master_Songlist_2026-06-03.md` + the `DECISION_LOG.md` row (both 2026-06-03). No pending spec CONTENT; the corpus doc just needs committing in the owner's next Cowork batch (written, co-mingled with other uncommitted corpus work). See `COWORK_INBOX.md`.
+
+**Owner action:** push migration `20260731000000` (`supabase db push`).
+
+**Next PRs (per the design):** vendor "Your repertoire" capture (0022) → onboarding picker → master (0016) → compatibility score in `fetchWizardVendorRecommendations` → 90% split + card rendering → admin dedup/merge (0023).
+
+---
+
 ## 2026-06-03 · refactor(todays-focus): retire the Today's Focus wizard surface (keep the deadline logic)
 
 **Context:** Owner confirmed the 9-card/65-card Today's Focus planning wizard is no longer the model — couples are guided by (1) **onboarding** (upfront scoping of what they want) + (2) the **per-service deadline timeline** (counted back from the wedding date). The paid SKU behind it (the "Concierge" rebrand) was already switched off (`CONCIERGE_ENABLED=false`), so the only couple-facing remnant was the `/today` wizard reachable via two nav links. Owner directive: retire the surface, **keep the Filipino-wedding deadline logic.**

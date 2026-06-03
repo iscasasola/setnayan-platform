@@ -5,6 +5,7 @@ import {
   Users,
   Flag,
   CalendarRange,
+  ListPlus,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -13,6 +14,10 @@ import {
   type PreparationItem,
   type PreparationSource,
 } from '@/lib/preparation';
+import {
+  AddPreparationItem,
+  DeletePreparationItemButton,
+} from './prep-item-controls';
 
 /**
  * PreparationAgendaView — read-only render of the Preparation mode on
@@ -25,13 +30,16 @@ import {
  * · optional amount. Overdue rows (negative daysFromNow) get a quiet
  * "overdue" relative tag in terracotta so a couple sees what slipped.
  *
- * READ-ONLY by design: every dated item is owned + edited on its own
- * surface (Budget / Paperwork / a vendor's page). Rows deep-link there.
- * Manual user-added agenda items are intentionally NOT here — that needs a
- * new table and is a documented fast-follow.
+ * Mostly read-only: the autofill rows (Payment / Paperwork / Meeting /
+ * Milestone) are owned + edited on their own surface (Budget / Paperwork / a
+ * vendor's page) and deep-link there. The HYBRID layer (2026-06-03) adds
+ * manual rows the couple can add via the "+ Add to schedule" control and
+ * delete inline — plus vendor-added rows (source 'manual', backed by
+ * event_preparation_items). Manual rows carry an inline delete button; the
+ * autofill rows stay read-only here.
  *
- * Clean Editorial tokens only (cream / ink / terracotta / emerald / blue /
- * indigo accents) — consistent with the Home "Upcoming" surface.
+ * Clean Editorial tokens only (cream / ink / terracotta / mulberry / emerald
+ * / blue / indigo accents) — consistent with the Home "Upcoming" surface.
  */
 
 export function PreparationAgendaView({
@@ -49,12 +57,17 @@ export function PreparationAgendaView({
 
   return (
     <div className="space-y-7">
-      <PreparationLegend sourceCounts={agenda.sourceCounts} />
+      <div className="space-y-3">
+        <div className="flex justify-end">
+          <AddPreparationItem eventId={eventId} />
+        </div>
+        <PreparationLegend sourceCounts={agenda.sourceCounts} />
+      </div>
       {agenda.groups.map((group) => (
         <section key={group.key} aria-labelledby={`prep-month-${group.key}`} className="space-y-3">
           <h2
             id={`prep-month-${group.key}`}
-            className="sticky top-0 z-[1] -mx-1 bg-paper/85 px-1 py-1 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55 backdrop-blur"
+            className="sticky top-0 z-[1] -mx-1 bg-cream/85 px-1 py-1 font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55 backdrop-blur"
           >
             {group.label}
             <span className="ml-2 text-ink/35">
@@ -64,7 +77,7 @@ export function PreparationAgendaView({
           <ul className="space-y-2">
             {group.items.map((item) => (
               <li key={item.id}>
-                <PreparationRow item={item} />
+                <PreparationRow eventId={eventId} item={item} />
               </li>
             ))}
           </ul>
@@ -74,7 +87,7 @@ export function PreparationAgendaView({
   );
 }
 
-function PreparationRow({ item }: { item: PreparationItem }) {
+function PreparationRow({ eventId, item }: { eventId: string; item: PreparationItem }) {
   const Icon = iconFor(item.source);
   const overdue = item.daysFromNow < 0;
 
@@ -112,16 +125,24 @@ function PreparationRow({ item }: { item: PreparationItem }) {
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1">
         <span
-          className={`rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] ${chipStylesFor(
+          className={`max-w-[8.5rem] truncate rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] ${chipStylesFor(
             item.source,
           )}`}
+          title={item.sourceLabel ?? PREPARATION_SOURCE_LABEL[item.source]}
         >
-          {PREPARATION_SOURCE_LABEL[item.source]}
+          {item.sourceLabel ?? PREPARATION_SOURCE_LABEL[item.source]}
         </span>
         {item.amountPhp !== undefined ? (
           <span className="font-mono text-xs text-ink/70">
             ₱{Math.round(item.amountPhp).toLocaleString('en-PH')}
           </span>
+        ) : null}
+        {item.isManual && item.itemId ? (
+          <DeletePreparationItemButton
+            eventId={eventId}
+            itemId={item.itemId}
+            label={item.title}
+          />
         ) : null}
       </div>
     </div>
@@ -173,6 +194,7 @@ const SOURCE_PLAIN_LABEL: Record<PreparationSource, string> = {
   paperwork: 'paperwork deadlines',
   meeting: 'vendor meetings',
   milestone: 'planning milestones',
+  manual: 'items you or your vendors added',
 };
 
 function PreparationEmptyState({
@@ -188,19 +210,20 @@ function PreparationEmptyState({
       <p className="text-sm font-medium text-ink">Nothing to prepare yet.</p>
       <p className="mx-auto mt-1 max-w-md text-xs text-ink/60">
         {hasEventDate
-          ? 'As you add vendor payment due dates, schedule vendor meetings, or start your paperwork, those dated steps will gather here automatically — sorted by month, all the way up to your wedding day.'
-          : 'Set your wedding date first, then add vendor payment due dates and start your paperwork. Those dated steps will gather here automatically, sorted by month.'}
+          ? 'As you add vendor payment due dates, schedule vendor meetings, or start your paperwork, those dated steps will gather here automatically — sorted by month, all the way up to your wedding day. You can also add your own steps below.'
+          : 'Set your wedding date first, then add vendor payment due dates and start your paperwork. Those dated steps will gather here automatically, sorted by month. You can also add your own steps below.'}
       </p>
-      <div className="mt-4 flex flex-wrap justify-center gap-2">
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+        <AddPreparationItem eventId={eventId} />
         <Link
           href={`/dashboard/${eventId}/budget`}
-          className="rounded-md border border-ink/15 bg-paper px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta/50 hover:text-terracotta"
+          className="rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta/50 hover:text-terracotta"
         >
           Open budget
         </Link>
         <Link
           href={`/dashboard/${eventId}/paperwork`}
-          className="rounded-md border border-ink/15 bg-paper px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta/50 hover:text-terracotta"
+          className="rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-terracotta/50 hover:text-terracotta"
         >
           Open paperwork
         </Link>
@@ -221,6 +244,8 @@ function iconFor(source: PreparationSource): LucideIcon {
       return Users;
     case 'milestone':
       return Flag;
+    case 'manual':
+      return ListPlus;
     default:
       return CalendarRange;
   }
@@ -234,6 +259,8 @@ function iconStylesFor(source: PreparationSource): string {
       return 'bg-blue-50 text-blue-700';
     case 'meeting':
       return 'bg-indigo-50 text-indigo-700';
+    case 'manual':
+      return 'bg-mulberry/10 text-mulberry';
     case 'milestone':
     default:
       return 'bg-mulberry/10 text-mulberry';
@@ -246,8 +273,10 @@ function containerStylesFor(source: PreparationSource): string {
       return 'border-amber-200/70 bg-amber-50/40';
     case 'paperwork':
       return 'border-blue-200/70 bg-blue-50/30';
+    case 'manual':
+      return 'border-mulberry/20 bg-mulberry/[0.04]';
     default:
-      return 'border-ink/10 bg-paper';
+      return 'border-ink/10 bg-cream';
   }
 }
 
@@ -259,6 +288,8 @@ function chipStylesFor(source: PreparationSource): string {
       return 'bg-blue-100 text-blue-800';
     case 'meeting':
       return 'bg-indigo-100 text-indigo-800';
+    case 'manual':
+      return 'bg-mulberry/10 text-mulberry';
     case 'milestone':
     default:
       return 'bg-mulberry/10 text-mulberry';

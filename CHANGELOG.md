@@ -4,6 +4,38 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(schedule): hybrid Preparation — couple + vendor manual items
+
+**Commit:** see merge commit on this PR.
+
+**Context:** Completes the Preparation hybrid the owner asked for after the 2026-06-03 chrome-redesign delta #3 (PR #840). #840 shipped the couple's `/schedule` **Preparation** mode as a READ-ONLY auto-aggregation (`lib/preparation.ts` merges vendor payment due dates, paperwork deadlines, vendor meetings, statutory milestones) and explicitly DEFERRED manual entry to a fast-follow needing a new table (logged in `COWORK_INBOX.md` [PENDING] 2026-06-03). This PR ships that deferred manual-entry layer **and** adds a vendor-add path: (a) the couple can add their own dated prep items + delete items (incl. dismissing vendor-added ones); (b) booked vendors can push items onto the couple's prep schedule from their Bookings view. The autofill is untouched; the new rows merge into the same date-sorted, month-grouped agenda.
+
+**What ships:**
+
+- **NEW source in `lib/preparation.ts`** — `fetchManualItems(eventId)` reads `event_preparation_items` and maps each row to the EXISTING `PreparationItem` shape (`date`=`due_date`, `label`→`title`, per-row chip `sourceLabel`: "Added by you" for `couple_manual` / "From {vendor business name}" for `vendor_prep` — `vendor_profiles.business_name` joined; carries `itemId` + `isManual` so the agenda renders a delete control). Merged into `fetchPreparationAgenda`'s `Promise.all` + `sourceCounts`. New `'manual'` member on `PreparationSource` (icon `ListPlus`, mulberry accent). **GRACEFUL DEGRADE:** the new source catches `42P01` (and any error) → returns `[]`, so the agenda still renders autofill-only before the migration is pushed.
+- **Couple add/delete UI** — a "+ Add to schedule" control on the Preparation agenda (+ in the empty state) opens the canonical Setnayan modal (bottom-sheet on mobile via `items-end → sm:items-center`, ESC + backdrop dismiss) with fields label / date / optional notes → `addPreparationItem`. Deletable rows (the `event_preparation_items` rows only — NOT autofill rows) get an inline `Trash2` → `deletePreparationItem`.
+- **Vendor add/delete UI** — on `/vendor-dashboard/bookings`, each **accepted** booking gets an "Add to prep schedule" control + a list of the items that vendor has added (with per-item delete). `vendorAddPreparationItem` stamps `source_tag='vendor_prep'` + the vendor's own `vendor_profile_id`; gated to accepted threads in the action (RLS also enforces). `vendorDeletePreparationItem` removes the vendor's own rows.
+- **Server actions** — input validation (label 1–200, valid `YYYY-MM-DD`; past dates allowed so they surface as "overdue"), correct field stamping, RLS-reliant authz, `revalidatePath`, graceful error surfacing to the form.
+- **Token fix (incidental):** swapped three latent `bg-paper` classes (undefined token, silently no-op'd in #840) → `bg-cream` in the agenda month-header + meeting/milestone row + empty-state buttons. Purely additive cosmetics.
+
+**NEW migration — `supabase/migrations/20260729000000_event_preparation_items.sql` (owner-push; graceful-degrade until applied):** additive `event_preparation_items` table (`item_id` PK, `event_id`→`events`, nullable `vendor_profile_id`→`vendor_profiles` (NULL = couple-added), `due_date`, `label` CHECK 1–200, `notes`, `source_tag` default `couple_manual`, `created_by`→`users`, timestamps), 2 indexes, RLS-at-create. **RLS model:** couple = full CRUD on their own event's items via `current_couple_event_ids()` (incl. deleting vendor-added rows); vendor = SELECT items they authored OR for events with an `accepted` `chat_threads` row; INSERT only for accepted-thread events stamping their own `vendor_profile_id`; UPDATE/DELETE only their own rows (all via `current_vendor_ids()`). **Schema verified against migrations** — all column/helper names in the supplied SQL matched the live schema (`events(event_id)`, `vendor_profiles(vendor_profile_id)`, `users(user_id)`, `current_couple_event_ids()` + `current_vendor_ids()` both GRANTed to authenticated, `chat_threads.vendor_profile_id` + `inquiry_status='accepted'`); **no column-name fixes needed.** Wrapped in `BEGIN/COMMIT` + idempotent guards to match repo migration convention. **Do NOT auto-push** — owner pushes.
+
+**Files:**
+- `supabase/migrations/20260729000000_event_preparation_items.sql` (new)
+- `apps/web/lib/preparation.ts` (new `manual` source + `fetchManualItems` + `fetchVendorPreparationItemsByEvent` + type extensions)
+- `apps/web/app/dashboard/[eventId]/schedule/prep-actions.ts` (new — couple add/delete actions)
+- `apps/web/app/dashboard/[eventId]/schedule/_components/prep-item-controls.tsx` (new — couple add modal + delete button)
+- `apps/web/app/dashboard/[eventId]/schedule/_components/preparation-agenda.tsx` (wire controls + `manual` styling + per-row delete + chip override)
+- `apps/web/app/vendor-dashboard/bookings/actions.ts` (new — vendor add/delete actions)
+- `apps/web/app/vendor-dashboard/bookings/_components/vendor-prep-add.tsx` (new — vendor add modal + per-item delete)
+- `apps/web/app/vendor-dashboard/bookings/page.tsx` (fetch vendor items + render control on accepted bookings)
+
+**Verification:** `pnpm -F web typecheck` → 0 errors. `pnpm exec next lint --file <changed>` → no warnings or errors. `pnpm -F web build` → ✓ Compiled successfully, 113/113 pages generated (remaining warnings are all pre-existing, in untouched files: `<img>`, exhaustive-deps, a11y on other pages; the sitemap/`vendor-dashboard` "dynamic server usage / missing SUPABASE env" lines are expected env-less static-gen noise).
+
+**SPEC IMPACT: Yes.** New `event_preparation_items` table + hybrid Preparation behavior touches: **0021** (couple dashboard / Schedule surface — Preparation is now hybrid, not read-only); **0007** (budget) + **0016** (Concierge) schedule cross-refs; **0006** (vendors) + **0022** (vendor dashboard — booked vendors can add prep items). Cowork worklist entry appended; supersedes the deferral in the #840 [PENDING].
+
+---
+
 ## 2026-06-03 · feat(schedule): Preparation ⇄ Event Day toggle
 
 **Commit:** see merge commit on this PR.

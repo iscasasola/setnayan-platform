@@ -8,6 +8,23 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Per-religion wedding traditions guide (0043) — VALIDATE CONTENT
+
+**Why:** Owner-directed ("create onboarding that follows the traditions of each religion"). New `lib/wedding-traditions.ts` drives a "What to expect — your {religion} wedding" guide on /paperwork (overview + officiant/ceremony/food/custom items per religion), companion to the existing per-religion document/deadline engine.
+
+**⚠️ NEEDS VALIDATION (the important part):** the per-religion content is STARTER guidance drafted from general PH knowledge. Before launch, validate each religion's specifics — **especially INC, Muslim, Cultural, and Chinese** — ideally with clergy / an official source. The user-facing copy already says "general guidance — confirm with your {officiant}," so it's honest, but the specifics should be confirmed/corrected.
+
+**Spec corpus update (owner walks via Cowork):**
+1. **The iteration-0043 wedding spec** — record the per-religion traditions guide (officiant/ceremony/food/custom dimensions, surfaced on /paperwork) alongside the existing per-religion document/deadline engine.
+
+**To apply validated edits:** correct the per-religion items in `apps/web/lib/wedding-traditions.ts` (or, when ready, we move it to an admin-editable table — mirrors the planning_deadlines pattern). Send corrections and I'll apply them.
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03 "feat(0043): per-religion wedding traditions guide". No migration.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-03 — Chinese wedding is now ACTIVE / fully selectable (0043) — supersedes the coming-soon item below
 
 **Why:** Owner reviewed the live onboarding "ceremony tradition" screen and decided Chinese ships **fully selectable**, not coming-soon. This reverses the same-day coming-soon decision captured in the `[PENDING] … Chinese wedding added as a coming-soon ceremony type` item further down. A lone gated faith was inconsistent now that the other six are active.

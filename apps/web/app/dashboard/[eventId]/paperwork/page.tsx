@@ -32,6 +32,11 @@ import {
   type PaperworkRow,
 } from '@/lib/paperwork';
 import {
+  WEDDING_TRADITIONS_GUIDE,
+  DIMENSION_LABEL,
+  type TraditionGuideKey,
+} from '@/lib/wedding-traditions';
+import {
   markPaperworkReceived,
   markPaperworkRequested,
   seedPaperworkForEvent,
@@ -141,6 +146,8 @@ export default async function PaperworkPage({ params }: Props) {
         )}
       </header>
 
+      <TraditionsGuide ceremony={ceremony} />
+
       {needsSeed ? (
         <SeedPrompt eventId={eventId} ceremonyLabel={ceremonyLabel(ceremony)} />
       ) : null}
@@ -189,6 +196,50 @@ export default async function PaperworkPage({ params }: Props) {
 // ---------------------------------------------------------------------
 // Components
 // ---------------------------------------------------------------------
+
+/**
+ * Per-religion traditions & process overview (the "follow the traditions of
+ * each religion" surface). Data lives in lib/wedding-traditions.ts, keyed by
+ * the same ceremony_type as the document checklist below. Renders nothing for
+ * an unset ceremony (the header + document prompts already cover that case).
+ */
+function TraditionsGuide({ ceremony }: { ceremony: TraditionGuideKey }) {
+  const guide = WEDDING_TRADITIONS_GUIDE[ceremony];
+  if (!guide || guide.items.length === 0) return null;
+  return (
+    <section className="space-y-4 rounded-xl border border-terracotta/20 bg-terracotta/[0.03] p-5">
+      <div className="space-y-1">
+        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta-700">
+          What to expect
+        </h2>
+        <p className="text-lg font-semibold tracking-tight text-ink">
+          Your {guide.label} wedding
+        </p>
+        <p className="max-w-prose text-sm text-ink/70">{guide.overview}</p>
+      </div>
+      <ul className="grid gap-3 sm:grid-cols-2">
+        {guide.items.map((item) => (
+          <li
+            key={`${item.dimension}-${item.label}`}
+            className="rounded-lg border border-ink/10 bg-cream p-3"
+          >
+            <span className="inline-block rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/55">
+              {DIMENSION_LABEL[item.dimension]}
+            </span>
+            <p className="mt-1.5 text-sm font-medium text-ink">{item.label}</p>
+            <p className="mt-0.5 text-xs text-ink/65">{item.note}</p>
+          </li>
+        ))}
+      </ul>
+      {guide.confirmWith ? (
+        <p className="text-xs text-ink/55">
+          General guidance to help you plan — traditions vary by family, parish,
+          and region. Confirm the specifics with {guide.confirmWith}.
+        </p>
+      ) : null}
+    </section>
+  );
+}
 
 function BackLink({ eventId }: { eventId: string }) {
   return (

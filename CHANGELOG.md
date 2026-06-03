@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(0043): per-religion wedding traditions guide on /paperwork
+
+**Context:** Owner-directed — *"create onboarding that follows the traditions of each religion."* The per-religion document + deadline engine already exists (`lib/paperwork.ts` `DOCUMENTS_BY_CEREMONY_TYPE` — Catholic Pre-Cana/banns/canonical-interview, Muslim Sharia counseling, INC counseling, each with lead-time deadlines that already flow into /paperwork + the /schedule Preparation agenda + Home reminders). The missing piece was the human-readable "what to expect" overview per religion.
+
+**What changed:**
+- **New `lib/wedding-traditions.ts`:** `WEDDING_TRADITIONS_GUIDE` keyed by ceremony_type (catholic/civil/christian/inc/muslim/cultural/chinese/mixed/unknown). Each carries an overview + signature items tagged by the owner's dimensions — **officiant · ceremony · food · custom · paperwork** — + a "confirm with {officiant}" line. (Chinese was activated the same day in PR #889, so its guide now serves real couples.)
+- **`/paperwork` page:** a "What to expect — your {religion} wedding" guide section above the document checklist (renders nothing for an unset ceremony).
+
+**Honesty:** content is framed as general guidance ("traditions vary by family, parish, and region — confirm with your {officiant}"). The module header flags it NEEDS owner/clergy validation (especially INC / Muslim / Cultural / Chinese) and is a candidate to move to an admin-editable table once the copy is confirmed.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean. Shipped from an isolated worktree off `origin/main`. No migration, no SKU.
+
+**SPEC IMPACT:** Yes — iteration **0043** gains a per-religion traditions guide on the paperwork surface (companion to the existing per-religion document/deadline engine). See `COWORK_INBOX.md`.
+
 ## 2026-06-03 · feat(0043): activate Chinese wedding — fully selectable (supersedes same-day coming-soon)
 
 **Context:** Owner reviewed the live onboarding "ceremony tradition" screen and decided Chinese should ship as a **fully selectable** tradition, not "coming soon." Reverses the same-day #885 decision that seeded Chinese as the lone gated faith — inconsistent now that Catholic/Civil/Christian/INC/Muslim/Cultural are all active. UX call: a couple planning a Tsinoy wedding picks "Chinese" and continues, exactly like every other tradition.

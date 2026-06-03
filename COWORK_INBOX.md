@@ -8,6 +8,21 @@
 
 ---
 
+## [PENDING] 2026-06-03 — Site Editor: card-parity with the journey page (Phase 1 of the Website-tab flip)
+
+**Why:** The Reels editor (`/site-editor/[eventId]`) now carries every vital surface from the journey page (`/dashboard/[eventId]/website`) as carousel cards — the prerequisite for ④ "flip the Website tab to the editor" in the 2026-06-01 flip sequence. The spec corpus needs the decision-log row + a note on iteration 0021 so future sessions don't re-derive the editor's card set or the inline-buy-vs-navigation rule.
+
+**Spec corpus updates (owner walks via Cowork):**
+
+1. **`~/Documents/Claude/Projects/Setnayan/DECISION_LOG.md`** — append a 2026-06-03 row (date order):
+   > **🪟 Couple Website editor — journey-page → editor card migration (Phase ②/③ of the 2026-06-01 flip sequence).** The `/site-editor` carousels now reach card-parity with the journey page. **Settings** + Keep-your-photos/Google-Drive sync (→ 0009 photo-delivery `/add-ons/photo-delivery`) + Custom QR per guest (→ `/add-ons/custom-qr-guest`). **Event** + Monogram Hero (₱1,999 · inline buy) + Preview day-of mode (`?preview=day_of`) + Live stream Panood + Live Schedule (₱999 · inline buy) + Papic (candid + paparazzo seats, merged) + Patiktok booth + Live photo wall (coming soon). **Wiring rule honored:** only the two Pro widget upgrades (Monogram Hero `monogram_hero_upgrade` + Live Schedule `pro_widget_schedule`) are inline-buy (mirrors the journey page's `ProUpgradePanel` — catalog price via `findSku`/`formatCentavosPhp`, owned-state via `orders`, CTA → `/orders/new?service=<sku>`); every other service is a **navigation card into its `/add-ons/<key>` page, which owns its pricing + buy state** (journey.tsx docstring · V2.1 Amendment #3). The owner's earlier "full inline tools for all 5 services" was reconciled to the wiring rule to avoid duplicating the canonical buy/config flows + the V2 pax-based pricing. **Open decision:** whether to also inline the Panood/Papic/Patiktok configurators (a deliberate departure from the wiring rule) — deferred. **Pilot-safe:** journey page (PR #704) untouched; the entry-flip + journey retirement is the next PR (Phase 2). Files: `apps/web/app/site-editor/[eventId]/page.tsx` (+`ownedOrders` fetch) · `_components/site-editor.tsx` (+`ProCard`, 2 Settings cards, 6 Event cards).
+
+2. **`~/Documents/Claude/Projects/Setnayan/0021_couple_dashboard_fully_purchased/0021_couple_dashboard_fully_purchased.md`** — note that the Website tab's canonical surface is the Reels editor card set (Settings/RSVP/Event/Editorial carousels), and that once the Phase-2 flip lands, tapping "Website" opens `/site-editor/[eventId]` rather than the journey scroll (which is retained as a fallback route).
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]` here.
+
+---
+
 ## [PENDING] 2026-06-03 — Iteration 0001: bride & groom are the event's foundation (auto-Attending · undeletable · role-locked)
 
 **Why:** Owner directive 2026-06-03 — the couple (bride & groom) are foundational: auto-Attending, can't be deleted, renamable, and hidden from the assignable role pickers. The 0001 spec should capture these rules.

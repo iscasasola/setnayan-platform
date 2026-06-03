@@ -4,6 +4,30 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · feat(site-editor): migrate journey-page surfaces into the Reels editor carousels
+
+**Commit:** to be filled after commit.
+
+**Context:** The full-screen Reels editor (`/site-editor/[eventId]`, PR #719, 2026-06-01) shipped with 4 tabs but only a subset of the surfaces on the journey page it's meant to replace (`/dashboard/[eventId]/website`, PR #704). Per the 2026-06-01 decision-log flip sequence (① foundation → ② preview-follows-tab → ③ deepen per-tab tooling → ④ flip the Website tab to the editor), the editor must reach card-parity before the entry-flip. This session's owner directive: map every vital journey-page surface into the editor's Settings / Event carousels as cards. **Phase 1 = the cards (this PR). The entry-flip + journey-page retirement is Phase 2 (a later PR).**
+
+**What ships:**
+
+- **`apps/web/app/site-editor/[eventId]/page.tsx`** — adds the Pro-upgrade `ownedOrders` fetch (scoped to `monogram_hero_upgrade` + `pro_widget_schedule`, the two inline-buy widget upgrades), graceful-degrading to empty if the `orders` table is missing on a pre-bootstrap DB; passes `ownedOrders` to `SiteEditor`. Mirrors the journey page's fetch so the two surfaces agree on owned-state.
+- **`apps/web/app/site-editor/[eventId]/_components/site-editor.tsx`:**
+  - **Settings carousel** + **Keep your photos — Google Drive** (nav → `/add-ons/photo-delivery`) + **Custom QR per guest** (nav → `/add-ons/custom-qr-guest`).
+  - **Event carousel** + **Monogram Hero** (Pro ₱1,999, inline buy) after Hero photo; + on-the-day cluster: **Preview day-of mode** (external `?preview=day_of`, conditional on slug), **Live stream — Panood** (nav), **Live Schedule** (Pro ₱999, inline buy), **Candid capture — Papic** (nav; the journey's two Papic rows merged), **Patiktok booth** (nav), **Live photo wall** (coming soon).
+  - New **`ProCard`** component — catalog price via `findSku`/`formatCentavosPhp`, owned-state via `ownedOrders`, Upgrade CTA → `/dashboard/[eventId]/orders/new?service=<sku>`. Lifts the journey page's `ProUpgradePanel` pattern into the carousel `Card` shell.
+
+**Architecture decision (load-bearing):** Only the **two Pro widget upgrades are inline-buy** (matching the existing `ProUpgradePanel`). Every other service — Panood / Papic / Patiktok / Custom-QR / Drive — is a **navigation card into its `/add-ons/<key>` page, which owns its own pricing + buy state**, per the locked website wiring rule (journey.tsx docstring · V2.1 Amendment #3). The earlier "full inline tools for all 5 services" intent was reconciled to this rule to avoid duplicating the canonical buy/config flows (incl. the V2 pax-based pricing). Whether to inline the Panood/Papic/Patiktok configurators too is deferred as an explicit owner decision.
+
+**Pilot-safe:** the journey page (PR #704) is **untouched** and remains the working Website surface; this PR is additive to the already-shipped (but not-yet-primary) editor route. Nothing breaks for pilot couples.
+
+**Verification:** `pnpm -F web typecheck` ✓ · `pnpm -F web lint` ✓ (no new warnings on the two edited files) · `pnpm -F web build` ✓ · full GitHub Actions CI suite ✓ (build macOS + Windows, production build, Lighthouse, Playwright e2e, bundle size, secret scan, typecheck + lint).
+
+**SPEC IMPACT:** Yes. The canonical Website-editor surface now carries the full card set, including the **₱1,999 Monogram Hero** + **₱999 Live Schedule** inline upgrades and the Panood / Papic / Patiktok / Drive / Custom-QR navigation cards. The 2026-06-01 "Reels-style editor" decision-log row + iteration 0021 (couple dashboard Website tab) need a follow-up note that the editor reached card-parity with the journey page (Phase 1 of the flip). Logged as a `[PENDING]` COWORK_INBOX item.
+
+---
+
 ## 2026-06-03 · feat(0001): bride & groom are the event's foundation — auto-Attending, undeletable, role-locked
 
 **Commit:** to be filled after commit.

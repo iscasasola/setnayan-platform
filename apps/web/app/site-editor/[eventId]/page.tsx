@@ -93,6 +93,23 @@ export default async function SiteEditorPage({
     ? publicLandingUrl.replace(/^https?:\/\//, '')
     : null;
 
+  // Pro-upgrade ownership — Monogram Hero (₱1,999) + Live Schedule (₱999), the
+  // two inline-buy widget upgrades the Event tab surfaces. Scoped to just those
+  // SKUs, matching the website hub's fetch so the editor and the journey page
+  // agree on owned-state. Graceful-degrade to empty (cards show their Upgrade
+  // CTA) on a pre-bootstrap DB where the orders table is missing — never crash.
+  let ownedOrders: { service_key: string | null; status: string }[] = [];
+  const { data: ordersData, error: ordersError } = await supabase
+    .from('orders')
+    .select('service_key, status')
+    .eq('event_id', eventId)
+    .in('service_key', ['monogram_hero_upgrade', 'pro_widget_schedule'])
+    .not('status', 'in', '("cancelled","refunded","lapsed")');
+  if (ordersError) {
+    logQueryError('SiteEditorPage (orders)', ordersError, { event_id: eventId }, 'graceful_degrade');
+  }
+  ownedOrders = (ordersData ?? []) as typeof ownedOrders;
+
   return (
     <SiteEditor
       eventId={eventId}
@@ -101,6 +118,7 @@ export default async function SiteEditorPage({
       slugDisplay={slugDisplay}
       masterQrSvg={masterQrSvg}
       stats={{ attending: stats.attending, pending: stats.pending, declined: stats.declined }}
+      ownedOrders={ownedOrders}
     />
   );
 }

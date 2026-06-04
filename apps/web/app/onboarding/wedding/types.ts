@@ -96,8 +96,18 @@ export interface OnboardingState {
   /** Flexible-window end, ISO yyyy-mm-dd (null until the end is picked). Maps to events.date_window_end. */
   windowEnd: string | null;
 
-  /** Region key (screen 6) — area match for vendor coverage. Maps to events.region. */
+  /** Region key (screen 6) — area match for vendor coverage. Maps to events.region.
+   *  Now DERIVED from the primary pick in `places` (kept for the existing region-scoped
+   *  venue/vendor fetches + the screen-13 recap label). */
   region: string | null;
+
+  /**
+   * Location picks (screen 6) — up to 2 area keys from the Top-30 location step:
+   * a curated city key (e.g. `tagaytay`), or `p:<norm>:<region>` for a long-tail
+   * PSGC place. Scopes the reception-venue search; `region` + the committed venue
+   * lat/lng are derived from places[0]. Supersedes the single-select region picker.
+   */
+  places: string[];
 
   /** Exact guest count (screen 7) — may be <50 or >500. Maps to events.estimated_pax. */
   pax: number | null;
@@ -230,6 +240,7 @@ export const EMPTY_ONBOARDING_STATE: OnboardingState = {
   windowStart: null,
   windowEnd: null,
   region: null,
+  places: [],
   pax: null,
   budgetBand: null,
   budgetAmount: null,

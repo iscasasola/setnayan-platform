@@ -8,6 +8,18 @@
 
 ---
 
+## [PENDING] 2026-06-04 — Top-30 location step PORTED to the app (Onboarding Blueprint §3.0 / App_Build_Status)
+
+**Why:** The search-box + Top-30-wedding-spots location step (Onboarding_Blueprint §3.0 · reworked 2026-06-04 · prototyped in `Onboarding_Wedding_Flow_2026-06-01.html`) was spec'd + prototyped + had its 30 photos + PSGC dataset generated, but was **never built into the app** — onboarding still ran the single-select region picker. It is now **LIVE** (replaces the picker; couple picks up to 2 areas; commit stamps `events.venue_latitude/longitude`; region derived from the primary pick).
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`App_Build_Status.md`** — mark the onboarding **location step (screen 6 · Top-30 search)** as SHIPPED (was a spec-ahead-of-code gap).
+2. **`Onboarding_Blueprint_2026-05-30.md` §3.0** — parity caveats vs the prototype: the carousel↔results **swap** replaces the slide-down animation (results-rise kept); long-tail PSGC places carry **region-centroid** coords (the 30 curated cities keep precise coords).
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
 ## [PENDING] 2026-06-04 — onboarding role/kind in a row + tradition chips as a carousel (Onboarding Blueprint + prototype)
 
 **Why:** Owner reworked three wedding-onboarding steps live: **role** (Bride/Groom/Someone helping) + **kind** (Religious/Civil/Mixed) now render **3 choices in one row**; the 8 **ceremony-tradition** chips now render as a **single-row horizontal carousel** instead of the 4×2 grid. Code shipped ahead of the spec/prototype.

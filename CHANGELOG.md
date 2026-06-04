@@ -4,6 +4,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(0016): Top-30 reception-anchored location step ported into onboarding (screen 6)
+
+**Context:** Owner: the onboarding region step "still shows the NCR/Calabarzon cards, not the new one we created." The search-box + **Top-30-wedding-spots** redesign was fully spec'd (Onboarding_Blueprint §3.0 · reworked 2026-06-04), prototyped (`Onboarding_Wedding_Flow_2026-06-01.html`), and had its **30 city photos + full PSGC dataset** generated — but was **never ported into the app**. Live onboarding still ran the single-select region picker. This ports the locked design.
+
+**What changed** (replaces the region picker at `#screen-region`):
+- **`_data/wedding-cities.ts`** — 72 curated cities `{k,n,r,rk,lat,lon,top?,nug?}` + `TOP30` rank order + helpers (`cityByKey`, `REGION_CENTROID`, `normPlace`, `kmBetween` haversine, `resolvePick`).
+- **`_data/ph-places.ts`** — full PSGC set (1,665 places · all 17 regions), **lazy-loaded** on first search (own chunk — no initial-bundle bloat).
+- **`public/onboarding/cities/*.webp`** — 30 city photos (the carousel).
+- **`_components/location-step.tsx`** — idle → Top-30 carousel (photo + per-city nugget, ranked); type → curated-first then full-PSGC search (≤30 rows); "Near me" → GPS nearest-first (haversine); pick **up to 2** areas → removable chips.
+- **`onboarding-shell.tsx`** — swapped the render for `<LocationStep>`; added `state.places` (≤2 keys); derives `region` (`cagayan-valley→cagayan` kept in the existing vocab) from the primary pick so existing region-scoped fetches + recap still work; gate now `places.length ≥ 1`; commit stamps `events.venue_latitude/longitude`. Retired REGNUG / REGION_TOP / REGION_MORE / regionExpanded.
+- **`types.ts` / `actions.ts`** — `places: string[]` on state; `venueLatitude/Longitude` on the commit payload + events insert. **No migration** (`events.venue_latitude/longitude` already exist).
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean. Isolated worktree off `origin/main`.
+
+**Deferred (minor):** the prototype's carousel slide-down-on-type animation (we swap carousel↔results; the results-rise animation is kept); long-tail PSGC places use region-centroid coords (the 30 curated cities keep precise coords).
+
+**SPEC IMPACT:** Lands the long-pending **app** port of Onboarding_Blueprint §3.0 location step. → `COWORK_INBOX.md` (App_Build_Status: mark screen-6 location step SHIPPED).
+
 ## 2026-06-04 · style(onboarding): role + kind choices in one row · tradition chips as a 1-row carousel
 
 **Context:** Owner, walking the wedding onboarding screen-by-screen — *"place the 3 choices in 1 row"* (role: Bride / Groom / Someone helping), *"place the 3 in 1 row also"* (kind: Religious / Civil / Mixed), and *"carousel this also in 1 row"* (the 8 ceremony-tradition chips, until now a 4×2 grid).

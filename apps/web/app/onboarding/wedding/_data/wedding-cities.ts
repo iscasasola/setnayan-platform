@@ -96,3 +96,16 @@ export const kmBetween = (a: { lat: number; lon: number }, b: { lat: number; lon
     s = Math.sin(dLat / 2) ** 2 + Math.cos((a.lat * Math.PI) / 180) * Math.cos((b.lat * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
   return Math.round(2 * R * Math.asin(Math.sqrt(s)));
 };
+
+/* Resolve a pick key → its region key + venue coords, for the parent to derive
+   events.region + venue_latitude/longitude. Curated keys hit the city table;
+   long-tail PSGC keys (`p:<norm>:<rk>`) fall back to the region centroid. */
+export const resolvePick = (k: string): { rk: string | null; lat: number | null; lon: number | null } => {
+  // keep events.region in the existing onboarding vocabulary (REGLABEL / onboardingRegionToPsgc use `cagayan`)
+  const norm = (rk: string | null): string | null => (rk === 'cagayan-valley' ? 'cagayan' : rk);
+  const c = cityByKey(k);
+  if (c) return { rk: norm(c.rk), lat: c.lat, lon: c.lon };
+  const rk = k.includes(':') ? k.split(':').pop() ?? null : null;
+  const cc = rk ? REGION_CENTROID[rk] : undefined;
+  return { rk: norm(rk), lat: cc?.[0] ?? null, lon: cc?.[1] ?? null };
+};

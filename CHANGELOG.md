@@ -4,6 +4,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(0023): /admin/taxonomy editor — reorder tiles (Phase 3c)
+
+**Context:** Completes the editor's structural toolset. The catalog reads tile order from the snapshot (2b·2), so reordering shows on the live `/vendors` browse with no deploy.
+
+**What changed:**
+- **`actions.ts`** — `moveTaxonomyNode` (service-role, audit-logged): swaps a tile's `sort_order` with its adjacent sibling (same parent + tier), up or down; no-ops at the edge.
+- **`page.tsx`** — ▲▼ reorder buttons per tile in the editor tree.
+
+**Editor now covers:** rename · re-map · add · delete · **reorder** — the full set of structural ops over the live taxonomy, all audit-logged.
+
+**Verification:** `tsc --noEmit` 0 errors · `next lint` clean.
+
+**SPEC IMPACT:** None — implements (more of) the locked 0023 §3.15 editor.
+
+**Taxonomy-editor track — remaining (honest):** **2b·3** (client nav read-through) is a **no-op** — those 5 components only read editor-immutable folder slugs / short-labels / order, so flipping them changes nothing. The genuinely-remaining spec items are **larger / blocked**: the §3.15 **two-admin gate** + **drag-to-move** UX + **grandchildren / leaf↔branch** machinery (modest marginal value over the existing admin-gate + audit-log + orphan-guards), and **§3.2c vendor-request review (Phase 4)**, which is **upstream-blocked** on the 0022 vendor "add a category" flow (separate iteration — needs scope sign-off).
+
+---
+
 ## 2026-06-04 · fix(0044/demo): diversify demo venue settings + plug BGC region hole (leaf-match follow-up)
 
 **Context:** Follow-up to the leaf-match wiring (#915). Two data-layer gaps surfaced once region/venue filtering went live:

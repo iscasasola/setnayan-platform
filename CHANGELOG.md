@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · fix(onboarding): location-pick chip × button — crisp centered SVG icon
+
+**Context:** Owner — *"fix the close button of Tagaytay."* The `×` glyph on the selected-area chip rendered slightly high/cramped.
+
+**What changed:** Replaced the `{'×'}` glyph in `.locchip-x` with a centered **SVG ×** (two crossing strokes), and bumped the button to a **24px** tap target — a clean, perfectly-centered close affordance.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean.
+
+**SPEC IMPACT:** None (cosmetic).
+
 ## 2026-06-04 · style(onboarding): Near-me Top-30 results render as photo cards (location step)
 
 **Context:** Owner — on the "Where will it be?" step, when the couple taps **"Near me"** and a result is one of the **Top-30 wedding destinations**, the card should use the **same background photo** the Top-30 carousel uses, instead of a plain text row.

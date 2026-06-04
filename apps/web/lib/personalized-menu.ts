@@ -1,17 +1,20 @@
 import type { TasteChip } from '@/app/dashboard/[eventId]/_components/personalized-menu';
 
 /**
- * Mapper for the PersonalizedMenu surface (home + /for-you).
+ * Mapper for the couple's match-criteria surfaces.
  *
  * WHAT (owner correction 2026-06-02): turns the `events` row into the
  * couple's CURATED MATCH CRITERIA — the information they gave at
  * onboarding/event-creation that Setnayan filters + sorts the vendor
  * search by. NOT their shortlisted vendors (that's the Vendors tab).
  *
- * Kept in ONE place so the home block and the /for-you page render
- * identical criteria. Built only from production `events` columns; the
- * richer per-category onboarding preferences (cuisine / photo-video style /
- * music vibe / dietary detail) are V1.x — they feed in here when captured.
+ * `buildTasteChips` is the live consumer: it feeds the "Matching you on"
+ * strip at the top of the Vendors/Services tab (match-criteria-strip.tsx,
+ * owner 2026-06-04). Built only from production `events` columns; the richer
+ * per-category onboarding preferences (cuisine / photo-video style / music
+ * vibe / dietary detail) are V1.x — they feed in here when captured.
+ * (`buildServiceFeatures` / `buildWeddingDetailRows` fed the now-retired
+ * PersonalizedMenu card — pending dead-code removal.)
  */
 
 // Exported so the Personalization page (/dashboard/[eventId]/details) renders

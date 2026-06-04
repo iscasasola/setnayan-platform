@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(dashboard/services): "Matching you on" criteria strip + retire /for-you (0021)
+
+**Context:** Owner — *"where is the personalization page? will we just place it on services instead?"* After the cockpit refactor removed the home recap and orphaned the standalone `/for-you` page, the couple's match criteria (date · region · ceremony · venue · guests · style · budget — what Setnayan filters + sorts services by) had no live home. This lands the planned **PR2**: surface the criteria as a compact strip **where the couple browses services**, with the full editable record staying at `/details`.
+
+**What changed:**
+- **New `_components/match-criteria-strip.tsx`** (server, presentational) — a compact "**Matching you on**" band: Sparkles eyebrow + the criteria as chips + a "**Refine**" pill → the editable Personalization page (`/details`). Reuses `buildTasteChips` (lib/personalized-menu) so the chips are exactly what the search runs on; mirrors the retired PersonalizedMenu card's chip styling; honest empty state when no criteria are captured.
+- **`vendors/page.tsx`** (Services tab) — renders the strip **above** the Plan+Budget accordion (wrapped in `space-y-4`). Extended the existing `events` SELECT (+`event_date_precision`, `secondary_ceremony_type`, `region`, `estimated_pax`, `mood_feel_key`, `date_mode`/`date_candidates`/`date_window_start`/`date_window_end`) and reuses the same budget fetch — no new query. Committed date wins, else the onboarding candidate/window capture (handled inside `buildTasteChips`).
+- **`for-you/page.tsx`** — **retired**: now a permanent redirect to the Services (Vendors) tab; deleted `for-you/loading.tsx`. Its home-preview entry point was already gone (cockpit refactor), so it was orphaned.
+- **`customer-bottom-nav.tsx`** — dropped the `/for-you` activeMatch entry + refreshed the stale Home/More doc comments (Home is the cockpit; criteria live on the Services strip; `/details` is the editable page).
+- **Comments** — `personalized-menu.tsx` + `lib/personalized-menu.ts` headers note the PersonalizedMenu card is now unrendered (kept only for the `TasteChip` type) — dead-code removal flagged as a follow-up.
+
+**Verify:** `tsc --noEmit` + `next lint` green (only pre-existing warnings, none in changed files). No migration; no schema change.
+
+**SPEC IMPACT:** Completes the 0021 couple-home cockpit move — personalization is no longer a standalone `/for-you` page; the at-a-glance criteria surface as a "Matching you on" strip on the Vendors/Services tab, with `/details` as the full editable record. Lands directly in the corpus (`DECISION_LOG.md` + `0021_couple_dashboard_fully_purchased`) per the direct-edit authorization. (Follow-up: remove the now-dead PersonalizedMenu component + `buildServiceFeatures`/`buildWeddingDetailRows`.)
+
 ## 2026-06-04 · feat(dashboard/home): live days·hrs·min·sec countdown (0021)
 
 **Context:** Owner — *"days, hours, minutes, seconds."* The cockpit countdown showed a static "N days to go"; make it a live ticking timer.

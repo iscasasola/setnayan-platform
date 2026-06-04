@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · refactor(vendors/workspace): cleanups + Setnayan-service payment-mode framing
+
+**Context:** Follow-ups to the service-scoped workspace reframe (PR #965). Owner asked to land the remaining items we discussed. The first-party Setnayan-service nuance: those picks still showed the external-vendor chrome (hand-entered Costing, cancel/dispute), which is wrong — Setnayan services are **apply-then-pay** (pay → upload payment screenshot → verified within 24 hrs), so they should point at the Orders flow instead.
+
+**What changed:**
+- **`apps/web/lib/budget.ts`** — added `fetchVendorBudgetSummary(supabase, eventId, vendorId)`: a single-vendor budget fetch (own row + line items + payments + only this vendor's pricing lookup). `fetchBudgetSnapshot` is **byte-for-byte unchanged** so the budget page carries zero risk.
+- **`…/workspace/page.tsx`**:
+  - **Overfetch fix** — calls `fetchVendorBudgetSummary` instead of pulling the whole event's `fetchBudgetSnapshot` and `.find()`-ing one vendor.
+  - **Write-on-render fix** — removed the render-time `ensureAutoShareInvite` self-heal (a write during a GET / prefetch). When a locked manual vendor has no live invite, the claim section now renders an explicit **"Create a shareable invite link"** action.
+  - **Setnayan-service framing** — for `is_setnayan_service` picks, the host Costing form + cancel/dispute are hidden and replaced by a **"Managed by Setnayan"** card explaining apply → pay → upload-screenshot → 24-hr-verify, linking to `/dashboard/[eventId]/orders`.
+  - **URL hardening** — contract `file_url` + vendor `logo_url` pass a `safeHttpUrl()` http(s)-only guard before rendering as `<a href>` / `<img src>` (defense-in-depth vs a stored `javascript:` / `data:` URL).
+- **`…/workspace/actions.ts`** — removed the two dead exports (`advanceWorkspaceStatus` / `advanceWorkspaceStatusForm`, zero callers); added `createAutoShareInviteAction` (the explicit action behind the write-on-render fix).
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean. Auth-gated RSC route — relying on the production-build CI.
+
+**SPEC IMPACT:** First-party **Setnayan services** in the per-service workspace now hide the host Costing/cancel/dispute chrome and surface an apply-then-pay "Managed by Setnayan → Orders" card. The remaining **inline per-service order status** panel is **blocked** — no FK from an `event_vendors` pick to a `service_orders` row, and adding a Setnayan service doesn't create one; needs a schema link (owner decision pending). Spec delta to land directly in the corpus (`DECISION_LOG.md` + `0006`/`0021`/`0034`) per the new direct-edit authorization. Cleanups are internal — no spec impact.
+
 ## 2026-06-04 · feat(0022): Vendor agents — role-aware RLS scoping (Phase 2b)
 
 **Context:** The payoff of the multi-user vendor workspace. The whole vendor data layer was OWNER-ONLY at the RLS level, so non-owner admins/agents could read nothing. Phase 2b makes it role-aware: **owner/admin see everything; agents see only their assigned services + the customers tied to them** (a couple's `event_vendors.service_id` → the booked `vendor_services`). Couple-side access is untouched.

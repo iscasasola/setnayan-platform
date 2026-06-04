@@ -47,11 +47,28 @@ import {
   Upload,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
 import { formatCentavosPhp } from '@/lib/vendor-packages';
 import { updateVendorCosts } from '../../actions';
 import { createAutoShareInviteAction } from './actions';
 import { fetchVendorBudgetSummary } from '@/lib/budget';
+import { fetchPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
+import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
+// First-party Setnayan-service order-and-pay (owner directive 2026-06-04):
+// reuse the SAME apply-then-pay surface the add-on SKUs use (InlineCheckoutDrawer
+// + platform_settings receiving accounts), with a Setnayan admin accepting the
+// payment at /admin/payments. Interim until the automated payment system goes
+// live (2027-01-01). The order is keyed by a stable per-service key so this page
+// can surface its live status.
+import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
+import {
+  fetchOrdersForEvent,
+  ORDER_STATUS_LABEL,
+  ORDER_STATUS_TONE,
+  type OrderRow,
+} from '@/lib/orders';
 import { buildClaimUrl, fetchActiveAutoShareInvite } from '@/lib/vendor-invites';
 import { ClaimLinkShare } from './_components/claim-link-share';
 import {
@@ -332,6 +349,25 @@ export default async function VendorWorkspacePage({ params }: Props) {
     console.error('[VendorWorkspacePage] fetchVendorBudgetSummary threw', e);
   }
 
+  // Off-platform direct-pay: the vendor's PUBLISHED payment destinations,
+  // resolved server-side via the secure helper (proves event ownership through
+  // the couple RLS client before reading the owner-RLS'd table via the admin
+  // client). Feeds the embedded VendorItemizationCard's "Pay {vendor} directly"
+  // sheet. For off-platform/manual vendors the helper returns [] and the sheet
+  // trigger collapses to the quiet "coordinate in chat" hint. Best-effort: a
+  // failure degrades to [] rather than 500-ing the workspace.
+  let directPayMethods: CoupleFacingMethod[] = [];
+  try {
+    directPayMethods = await fetchPublishedMethodsForCouple({
+      authedClient: supabase,
+      adminClient: createAdminClient(),
+      eventId,
+      eventVendorId: ev.vendor_id,
+    });
+  } catch {
+    directPayMethods = [];
+  }
+
   const contracts = (contractsRes.data ?? []) as Array<{
     contract_id: string;
     public_id: string;
@@ -452,6 +488,47 @@ export default async function VendorWorkspacePage({ params }: Props) {
   const serviceTitle = packageHeader?.name ?? categoryLabel;
   const serviceDescription = packageHeader?.description ?? null;
   const attribution = isSetnayanService ? 'Provided by Setnayan' : `by ${displayName}`;
+
+  // --------------------------------------------------------------------------
+  // First-party Setnayan-service order-and-pay (interim · owner 2026-06-04)
+  //
+  // Setnayan's own services are paid TO Setnayan (not a third-party vendor), so
+  // the couple pays through the same inline apply-then-pay drawer the add-on
+  // SKUs use, and a Setnayan admin accepts the payment at /admin/payments. We
+  // key the order by a stable per-service key so we can surface its live status
+  // right here. Price precedence mirrors the hero: package locked total (already
+  // centavos) → snapshot itemized (pesos→centavos) → host total_cost_php (pesos
+  // →centavos). centavos so the drawer's BigInt voucher math is exact.
+  // --------------------------------------------------------------------------
+  const setnayanServiceKey = `setnayan_service__${ev.category}`;
+  const setnayanServiceCentavos =
+    packageHeader?.priceCentavos != null && packageHeader.priceCentavos > 0
+      ? Math.round(packageHeader.priceCentavos)
+      : vendorBudgetSummary && vendorBudgetSummary.itemizedTotal > 0
+        ? Math.round(vendorBudgetSummary.itemizedTotal * 100)
+        : Number(ev.total_cost_php) > 0
+          ? Math.round(Number(ev.total_cost_php) * 100)
+          : 0;
+
+  let setnayanSettings: Awaited<
+    ReturnType<typeof fetchPlatformSettings>
+  > | null = null;
+  let setnayanOrders: OrderRow[] = [];
+  if (isSetnayanService) {
+    const [settingsResolved, ordersResolved] = await Promise.all([
+      fetchPlatformSettings(supabase).catch(() => null),
+      fetchOrdersForEvent(supabase, eventId).catch(() => [] as OrderRow[]),
+    ]);
+    setnayanSettings = settingsResolved;
+    setnayanOrders = ordersResolved.filter(
+      (o) => o.service_key === setnayanServiceKey,
+    );
+  }
+  // Latest non-terminal order for this service (orders come back newest-first).
+  const activeSetnayanOrder =
+    setnayanOrders.find(
+      (o) => o.status !== 'cancelled' && o.status !== 'refunded',
+    ) ?? null;
 
   const stage = inferStage(ev.status);
   const depositPaidFormatted = formatPHP(ev.deposit_paid_php);
@@ -719,6 +796,7 @@ export default async function VendorWorkspacePage({ params }: Props) {
               summary={vendorBudgetSummary}
               eventId={eventId}
               variant="embed"
+              directPayMethods={directPayMethods}
             />
           ) : (
             <p className="text-xs text-ink/55">
@@ -965,23 +1043,91 @@ export default async function VendorWorkspacePage({ params }: Props) {
             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-mulberry/10 text-mulberry">
               <Sparkles aria-hidden className="h-4.5 w-4.5" strokeWidth={1.75} />
             </div>
-            <div className="min-w-0 space-y-1">
-              <h2 id="managed-heading" className="text-sm font-semibold text-ink">
-                Managed by Setnayan
-              </h2>
-              <p className="text-xs text-ink/70">
-                This is a Setnayan service, so there&rsquo;s no separate vendor to
-                pay. Apply, settle the amount via the instructions we send, then
-                upload your payment screenshot — we verify and activate within 24
-                hours.
-              </p>
-              <Link
-                href={`/dashboard/${eventId}/orders`}
-                className="mt-2 inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-mulberry/30 bg-cream px-3 py-2 text-xs font-medium text-mulberry transition-colors hover:bg-mulberry/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-              >
-                <Receipt aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                Pay &amp; track in your Orders
-              </Link>
+            <div className="min-w-0 flex-1 space-y-3">
+              <div className="space-y-1">
+                <h2
+                  id="managed-heading"
+                  className="text-sm font-semibold text-ink"
+                >
+                  Managed by Setnayan
+                </h2>
+                <p className="text-xs text-ink/70">
+                  This is a first-party Setnayan service, so you pay Setnayan
+                  directly — there&rsquo;s no separate vendor. Send your payment,
+                  upload the screenshot, and our team verifies and activates it
+                  within one business day.
+                </p>
+              </div>
+
+              {/* Live status of this service's order, if one exists. */}
+              {activeSetnayanOrder ? (
+                <div className="flex flex-wrap items-center gap-2 rounded-xl border border-mulberry/15 bg-cream/70 px-3 py-2.5">
+                  <span
+                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${ORDER_STATUS_TONE[activeSetnayanOrder.status]}`}
+                  >
+                    {ORDER_STATUS_LABEL[activeSetnayanOrder.status]}
+                  </span>
+                  <span className="font-mono text-[11px] text-ink/55">
+                    {activeSetnayanOrder.reference_code}
+                  </span>
+                  <span className="text-xs font-medium text-ink">
+                    {formatPHP(activeSetnayanOrder.requested_total_php)}
+                  </span>
+                  <Link
+                    href={`/dashboard/${eventId}/orders/${activeSetnayanOrder.order_id}`}
+                    className="ml-auto inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-mulberry/30 bg-cream px-2.5 py-1.5 text-[11px] font-medium text-mulberry transition-colors hover:bg-mulberry/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+                  >
+                    <Receipt aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                    Track / upload proof
+                  </Link>
+                </div>
+              ) : null}
+
+              {/* Pay surface — same inline apply-then-pay drawer the add-on SKUs
+                  use, pre-filled with this service's price + Setnayan's own
+                  BDO/GCash receiving accounts. Admin accepts at /admin/payments. */}
+              {setnayanServiceCentavos > 0 && setnayanSettings ? (
+                <div className="space-y-2">
+                  <InlineCheckoutDrawer
+                    serviceKey={setnayanServiceKey}
+                    displayName={serviceTitle}
+                    originalPriceCentavos={String(setnayanServiceCentavos)}
+                    eventId={eventId}
+                    settings={{
+                      bdo_account_name: setnayanSettings.bdo_account_name,
+                      bdo_account_number: setnayanSettings.bdo_account_number,
+                      bdo_qr_url: setnayanSettings.bdo_qr_url,
+                      gcash_account_name: setnayanSettings.gcash_account_name,
+                      gcash_number: setnayanSettings.gcash_number,
+                      gcash_qr_url: setnayanSettings.gcash_qr_url,
+                    }}
+                    triggerLabel={
+                      activeSetnayanOrder ? 'Pay again' : 'Pay for this service'
+                    }
+                    triggerClassName="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-mulberry px-5 py-2.5 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+                  />
+                  <p className="text-[11px] leading-relaxed text-ink/55">
+                    You&rsquo;re paying Setnayan, not a third-party vendor. Until
+                    our automated payment system goes live, our team confirms each
+                    transfer by hand — keep your reference code and screenshot
+                    handy.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-xs text-ink/70">
+                    We&rsquo;ll confirm the exact amount for this service and email
+                    you payment instructions with a reference code.
+                  </p>
+                  <Link
+                    href={`/dashboard/${eventId}/orders`}
+                    className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-mulberry/30 bg-cream px-3 py-2 text-xs font-medium text-mulberry transition-colors hover:bg-mulberry/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+                  >
+                    <Receipt aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                    Track in your Orders
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         </section>

@@ -10,17 +10,35 @@
 
 ## [PENDING] 2026-06-04 — REVERTED: role/kind/faith immersive full-bleed undone (back to cards)
 
-**Why:** Owner — *"undo the full screens."* The immersive full-bleed redesign of role/kind/faith (the earlier PENDING item) is **reverted**: role + kind are back to title + description + radio-circle cards (3-in-a-row); faith back to its 1-row chip carousel; no full-bleed. The welcome stays full-bleed.
+**Why:** Owner — *"undo the full screens."* The immersive redesign of role/kind/faith is **reverted**: role + kind back to title + description + radio-circle cards (3-in-a-row); faith back to its 1-row chip carousel; no full-bleed. The welcome stays full-bleed.
 
-**Spec corpus updates (owner walks via Cowork):** the earlier *"role/kind/faith immersive full-bleed + chip carousels"* item is **superseded** — leave these three screens as the card/carousel layout in the Blueprint/prototype (do **not** apply the immersive treatment to them).
+**Spec corpus updates (owner walks via Cowork):** the earlier *"role/kind/faith immersive full-bleed + chip carousels"* item is **superseded** — leave these three screens as the card/carousel layout (do **not** apply the immersive treatment).
 
 **When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+## [PENDING] 2026-06-04 — Growth surface: demo-mode preview + CSV export + event breakdowns (0023)
+
+**Why:** Follow-ups to the `/admin/growth` surface. (1) **Demo-mode preview** — when an admin has demo mode on, the page shows deterministic *illustrative* curves (badged "Illustrative demo data") so the surface's shape is visible before real data accrues; no DB writes, nothing polluted. (2) **CSV export** — an admin-gated `GET /admin/growth/export` returns a tidy/long-format CSV of population + growth curves + conversion + breakdowns (honors range + demo flag). (3) **Breakdowns** — current composition of **events by type** (the 6-value `event_type` enum) and **events by region** (`events.region` slug, null→Unspecified).
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`0023_admin_console.md`** (the Growth subsection added with the surface) — note the three additions: demo-mode illustrative preview, CSV export endpoint, and the Events-by-type + Events-by-region breakdown cards.
+2. No pricing/schema impact — all additive, no migration.
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
+## [PENDING] 2026-06-04 — welcome photo cover-fit + location picks share-row (refines prior onboarding items)
 
 **Why:** Owner — backgrounds must fill the space **without distortion** (the welcome hero was stretched by the parallax shader); the location-step **pick chips share the row** (1 = full width · 2 = 50/50). Bug-fix refinements to the already-pending welcome + location-step items.
 
 **Spec corpus updates (owner walks via Cowork):** fold into the existing welcome + location-step notes — the welcome hero **fills via cover (no distortion)**; the location step's selected-area chips are **equal-size + share the row** (1 full · 2 split 50/50).
 
 **When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
+## [PENDING] 2026-06-04 — role/kind/faith onboarding now immersive full-bleed + chip carousels (Onboarding Blueprint / prototype)
 
 **Why:** Owner unified the role, kind, and tradition screens into the welcome's full-bleed pattern: photo fills the screen; choices are equal-size, title-only chip carousels (no radio circles); the picked option's description shows in the header sub-text.
 

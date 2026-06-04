@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · chore(dashboard): remove dead PersonalizedMenu component + unused menu builders (0021)
+
+**Context:** PR #978 moved the couple's personalization onto the Services tab (the "Matching you on" strip), leaving the old `PersonalizedMenu` card rendered nowhere — home dropped it in the cockpit refactor and `/for-you` is now a redirect. It survived only because it still exported the `TasteChip` type. This removes the dead code.
+
+**What changed:**
+- Moved `export type TasteChip = { label: string }` into `lib/personalized-menu.ts` (its natural home — `buildTasteChips` returns `TasteChip[]`); removed the lib's cross-import from the component; repointed `match-criteria-strip.tsx` to import it from `@/lib/personalized-menu`.
+- **Deleted** `app/dashboard/[eventId]/_components/personalized-menu.tsx` (the unrendered `PersonalizedMenu` card · ~190 lines).
+- **Deleted** the now-unused lib exports + private helpers — `buildServiceFeatures`, `buildWeddingDetailRows`, `ServiceFeature`, `WeddingDetailRow`, `SERVICE_FEATURE_LABELS`, `SERVICE_FEATURE_ORDER`, `cleanFeatureValue`, `featureValueString`, `budgetValueBare`, `stylePrefValue` — and dropped the orphaned `style_preferences` field from `EventTasteSource`. Verified **zero importers** before each deletion. **Kept** everything `buildTasteChips`/`formatWeddingDateLabel` + the `/details` page still use (`EventTasteSource`, `CEREMONY_LABEL`/`VENUE_LABEL`/`REGION_LABEL`, `titleCase`, `formatBudget`, `fmtISODate`).
+- Net **−379 / +11** lines.
+
+**Verify:** `tsc --noEmit` + `next lint` green (only pre-existing warnings). **No behavior change** — nothing rendered this code.
+
+**SPEC IMPACT:** None — internal dead-code removal; closes the follow-up flagged in the 2026-06-05 "personalization → Services strip" row.
+
 ## 2026-06-05 · feat(payments): direct-pay Sheet — couple trigger + admin preview (0034 · 0023)
 
 **Context:** Owner — *"create a customer direct pay sheet to connect to vendors and can also be used by us [the admin]."* PR #969 shipped the off-platform `VendorDirectPay` as an always-expanded inline rail inside the budget/workspace payment cards. This promotes it into a focused **"Pay {vendor} directly" button → house Sheet** (bottom sheet on mobile · right drawer on desktop), wires it onto the per-service workspace embed (which was rendering empty), and reuses the same sheet on the admin moderation surface so a moderator previews a destination exactly as couples see it.

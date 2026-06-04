@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Sparkles, SlidersHorizontal } from 'lucide-react';
-import type { TasteChip } from './personalized-menu';
+import type { TasteChip } from '@/lib/personalized-menu';
 
 /**
  * MatchCriteriaStrip — the compact "Matching you on" band at the top of the

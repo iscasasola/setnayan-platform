@@ -4,21 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-04 · feat(onboarding): free monogram animations — 5 auto-matched entrance effects
+## 2026-06-04 · feat(onboarding): free monogram animation — Trace (letters draw themselves)
 
-**Context:** After previewing a 12-motion gallery, the owner locked monogram **animation as a FREE feature** with 5 effects, **auto-matched per lockup design**: infinity→**Trace** · bar→**Letter-by-letter** · duo→**Bloom** · framed→**Ink bleed** · script→**Living gold**. The other 7 motions (Gold shimmer, Glow pulse, Ring spin-in, Unveil, Drop & settle, Handwritten, Fade & rise) stay reserved for the paid Animated Monogram (₱2,499) so that SKU keeps a differentiator.
+**Context:** After previewing a 12-motion gallery the owner chose **animation as a FREE feature**, then refined to a single, cohesive effect: **Trace** — *"use the trace on the onboarding,"* with the lettered designs drawing as *"letters draw themselves."* So every onboarding monogram now self-draws: each letter's outline strokes on like a pen and then fills, the ∞ and the bar's divider draw as lines, and the filigree ring settles in. (This supersedes the briefly-built auto-matched-per-design approach in this same PR.) The other gallery motions stay reserved for the paid Animated Monogram (₱2,499) so that SKU keeps a differentiator.
 
-**What changed (pure CSS + 2 tiny tsx tweaks — no schema, no per-render cost = ₱0):**
-- `onboarding.css` — appended 6 keyframes + per-style entrance animations matched to each lockup; `script` glyphs become a flowing gold gradient (`background-clip:text`, guarded by `@supports`). The effect follows the lockup class, so no data/persistence is needed; the drawing path (`infinity`) uses a normalized `pathLength=1` stroke.
-- `mono-lockup.tsx` — `pathLength={1}` on the ∞ path for the Trace draw-on.
-- `onboarding-shell.tsx` — `<MonoLockup key={monogramDesign}>` so "Generate another design" remounts and replays the matched effect; first arrival is covered by the screen's `display:none→flex` restart.
-- **Accessibility:** all motion is wrapped in `@media (prefers-reduced-motion: no-preference)`; reduced-motion users get the static final look (the base style).
+**What changed (no schema, no per-render cost = ₱0):**
+- `mono-lockup.tsx` — **rewritten** to render each glyph as an SVG `<text>` (so the outline can be stroke-drawn) across all five lockups (bar · duo · script · framed · infinity), emitting `.mt-*` markup; final filled look is identical to plain text.
+- `onboarding.css` — new `.mt-*` trace stylesheet: per-glyph outline draw (`stroke-dasharray`) → fill, the ∞ + divider line draw, the filigree ring `mt-framein`, names settle last, with responsive `clamp()` sizing. The older `.lk-*` lockup + per-design effect CSS is now inert (MonoLockup no longer emits `.lk-*`) — kept for a clean diff, prune later.
+- `onboarding-shell.tsx` — `<MonoLockup key={monogramDesign}>` so "Generate another design" remounts and replays the draw; first arrival is covered by the screen's `display:none→flex` restart.
+- **Accessibility:** all motion gated on `@media (prefers-reduced-motion: no-preference)`; reduced-motion users get the clean filled monogram (the base look) with no animation.
 
-**Verification:** `tsc --noEmit` exit 0 · `next lint app/onboarding` clean · faithful headless-chromium render of all 5 effects on the REAL lockup markup confirmed the entrance arcs (∞ draws, letters stagger, duo blooms, framed sharpens from blur, script flows gold).
+**Verification:** `tsc --noEmit` exit 0 · `next lint app/onboarding` clean · faithful headless-chromium render of all 5 lockups against the REAL `onboarding.css` confirmed the draw arc (outlines stroke on → fill → names settle) and the final static fidelity.
 
 **Scope:** onboarding monogram screen only (where the design picker lives). Propagating the animated lockup to landing/QR/invitation surfaces rides with the earlier staged propagation follow-up.
 
-**SPEC IMPACT:** 0037 Animated Monogram — monogram animation is now a FREE feature (5 effects, auto-matched per design); the paid ₱2,499 SKU is repositioned to sell bespoke artwork + the 7 premium effects + cross-surface propagation. Logged to COWORK_INBOX.
+**SPEC IMPACT:** 0037 Animated Monogram — monogram animation is now a FREE feature (the **Trace** self-draw, all designs); the paid ₱2,499 SKU is repositioned to sell bespoke artwork + premium effects + cross-surface propagation. Logged to COWORK_INBOX.
 
 ## 2026-06-04 · fix(dashboard/home): countdown targets the earliest chosen date until settled (0021)
 

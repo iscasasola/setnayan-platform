@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · revert(onboarding): undo the immersive full-bleed on role/kind/faith — back to the card layout
+
+**Context:** Owner — *"undo the full screens"* → chose *"back to the old cards."* Reverts the immersive redesign of the three choice screens; the welcome is left as-is.
+
+**What changed:**
+- Removed the `data-immersive` hook + the full-bleed CSS block (photo-as-background, overlaid title/chips, scrims).
+- **Role + Kind:** the title-only chip carousels reverted to the **title + description + radio-circle cards** (the 3-in-a-row card layout); the sub-text is static again (no description-on-pick).
+- **Faith:** back to the 1-row chip carousel (non-full-bleed).
+- **Untouched:** the welcome (full-bleed hero + depth parallax + new copy) and the location step.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean. No `data-immersive`/`choicechips` leftovers.
+
+**SPEC IMPACT:** Reverts the immersive role/kind/faith treatment. → `COWORK_INBOX.md` (supersedes the immersive item).
+
 ## 2026-06-04 · fix(onboarding): welcome photo cover-fit (no distortion) + location picks share the row
 
 **Context:** Owner — *"the first slide's photo is distorted; just fill the space to not distort it; all background feel should not be distorted, just fill the space"* + *"keep the location choices consistent in length and height — the two buttons equally share a row, but if one only, they fill the row."*

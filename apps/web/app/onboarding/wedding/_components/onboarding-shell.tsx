@@ -1977,11 +1977,7 @@ export function OnboardingShell({
           </div>
         </div>
       )}
-      <div
-        className="phone"
-        data-welcome={step === 0 ? '' : undefined}
-        data-immersive={step === 1 || step === 2 || step === 3 ? '' : undefined}
-      >
+      <div className="phone" data-welcome={step === 0 ? '' : undefined}>
         {/* top — brand + progress */}
         <div className="top">
           <div className="brandrow">
@@ -2040,11 +2036,7 @@ export function OnboardingShell({
             <div className="viewzone">
               <div className="eyebrow">About you</div>
               <h1 className="q">Who are you in this wedding?</h1>
-              <p className="sub">
-                {role
-                  ? (ROLE_OPTIONS.find((o) => o.value === role)?.desc ?? '')
-                  : 'This account is just you — your partner can join as a co-host anytime.'}
-              </p>
+              <p className="sub">This account is just you {'—'} your partner can join as a co-host anytime.</p>
               <figure className="rolephoto">
                 <HeroImg src={ASSET('role')} />
                 <figcaption className="rolecap">
@@ -2053,15 +2045,15 @@ export function OnboardingShell({
               </figure>
             </div>
             <div className="tapzone">
-              <div className="chips choicechips" data-single="">
+              <div className="stack" data-single="">
                 {ROLE_OPTIONS.map((o) => (
-                  <span
-                    key={o.value}
-                    className={`chip${sel(role === o.value)}`}
-                    onClick={() => selectRole(o.value)}
-                  >
-                    {o.title}
-                  </span>
+                  <div key={o.value} className={`opt${sel(role === o.value)}`} onClick={() => selectRole(o.value)}>
+                    <div className="otrow">
+                      <div className="ot">{o.title}</div>
+                      <span className="check" />
+                    </div>
+                    <div className="od">{o.desc}</div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -2072,11 +2064,7 @@ export function OnboardingShell({
             <div className="viewzone">
               <div className="eyebrow">Your wedding</div>
               <h1 className="q">What kind of wedding?</h1>
-              <p className="sub">
-                {kind
-                  ? (KIND_OPTIONS.find((o) => o.value === kind)?.desc ?? '')
-                  : 'This shapes your timeline, your paperwork, and which vendors we show.'}
-              </p>
+              <p className="sub">This shapes your timeline, your paperwork, and which vendors we show.</p>
               <figure className="kindphoto">
                 <HeroImg src={ASSET(kindPhoto.img)} />
                 <figcaption className="kindcap">
@@ -2085,15 +2073,15 @@ export function OnboardingShell({
               </figure>
             </div>
             <div className="tapzone">
-              <div className="chips choicechips" data-single="">
+              <div className="stack" data-single="">
                 {KIND_OPTIONS.map((o) => (
-                  <span
-                    key={o.value}
-                    className={`chip${sel(kind === o.value)}`}
-                    onClick={() => selectKind(o.value)}
-                  >
-                    {o.title}
-                  </span>
+                  <div key={o.value} className={`opt${sel(kind === o.value)}`} onClick={() => selectKind(o.value)}>
+                    <div className="otrow">
+                      <div className="ot">{o.title}</div>
+                      <span className="check" />
+                    </div>
+                    <div className="od">{o.desc}</div>
+                  </div>
                 ))}
               </div>
             </div>

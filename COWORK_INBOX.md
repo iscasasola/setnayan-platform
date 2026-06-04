@@ -8,7 +8,13 @@
 
 ---
 
-## [PENDING] 2026-06-04 — welcome photo cover-fit + location picks share-row (refines prior onboarding items)
+## [PENDING] 2026-06-04 — REVERTED: role/kind/faith immersive full-bleed undone (back to cards)
+
+**Why:** Owner — *"undo the full screens."* The immersive full-bleed redesign of role/kind/faith (the earlier PENDING item) is **reverted**: role + kind are back to title + description + radio-circle cards (3-in-a-row); faith back to its 1-row chip carousel; no full-bleed. The welcome stays full-bleed.
+
+**Spec corpus updates (owner walks via Cowork):** the earlier *"role/kind/faith immersive full-bleed + chip carousels"* item is **superseded** — leave these three screens as the card/carousel layout in the Blueprint/prototype (do **not** apply the immersive treatment to them).
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
 
 **Why:** Owner — backgrounds must fill the space **without distortion** (the welcome hero was stretched by the parallax shader); the location-step **pick chips share the row** (1 = full width · 2 = 50/50). Bug-fix refinements to the already-pending welcome + location-step items.
 

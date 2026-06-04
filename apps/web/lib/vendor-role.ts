@@ -63,15 +63,23 @@ export async function resolveVendorRole(
 }
 
 /**
- * Nav item keys an agent/viewer may see in Phase 1. Owner/admin always see
- * the full nav. Phase 2 expands this to the agent's operational surfaces
- * (Services / Bookings / Messages) once per-service data scoping lands.
+ * Nav item keys an agent/viewer may see. Owner/admin always see the full nav.
+ * Phase 2b opened the agent's operational surfaces (Services / Bookings /
+ * Messages) now that per-service + per-customer RLS scoping is live — an agent
+ * sees only their assigned services and the customers tied to them.
  */
-export const VENDOR_SCOPED_NAV_ITEM_KEYS: ReadonlySet<string> = new Set(['overview']);
+export const VENDOR_SCOPED_NAV_ITEM_KEYS: ReadonlySet<string> = new Set([
+  'overview',
+  'services',
+  'bookings',
+  'messages',
+]);
 
-/** Bottom-nav tab keys an agent/viewer may see in Phase 1 (Home + More). */
+/** Bottom-nav tab keys an agent/viewer may see (Home · Bookings · Messages · More). */
 export const VENDOR_SCOPED_BOTTOM_NAV_KEYS: ReadonlySet<string> = new Set([
   'profile', // the Home tab (key kept as 'profile' for localStorage continuity)
+  'bookings',
+  'messages',
   'more',
 ]);
 

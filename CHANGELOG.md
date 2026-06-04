@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(onboarding): design-4 filigree frame + persist monogram_style
+
+**Context:** Follow-up to PR #960 (5 live-typography monogram lockups). Owner: design 4 (framed) should use a **generated ornate gold filigree circle** showing **both initials**, and we should **propagate** the chosen lockup past onboarding — which needs the chosen *style* persisted (it was being thrown away at commit, leaving downstream surfaces with only frame+font).
+
+**What changed:**
+- **Design 4 frame** — generated a transparent vector filigree ring (Recraft `vector_illustration` → `apps/web/public/onboarding/mono/filigree.svg`, 237 gold-gradient paths, hollow center, no background); design 4 now points at `filigree` (was the reused floral `wreath`) and renders both initials. New `.onbw .lk-framed .lk-frame[data-frame="filigree"]` rule.
+- **Persist style** — new nullable column `events.monogram_style` (CHECK ∈ bar·script·duo·framed·infinity), `supabase/migrations/20260817000000_event_monogram_style.sql`; onboarding commit (`onboarding-shell.tsx`) + `actions.ts` now write it. **Applied to prod directly** (idempotent `ADD COLUMN IF NOT EXISTS`) because `supabase db push` is blocked by an unrelated history divergence (see SPEC IMPACT).
+- **Sync `lib/monogram.ts`** — replaced the stale 10-preset `MONO_DESIGNS` with the 5-style model; `resolveMonogramDesign` accepts + returns `style` (style-authoritative, falls back to frame+font for pre-2026-06-04 events); `VALID_FRAMES` made exhaustive (legacy frames + filigree) so already-onboarded couples keep their framed icon; new `monogramFrameAssetUrl()` serves `.svg` for filigree, `.webp` for legacy.
+- **Thread through** `lib/events.ts` select + `EventMonogram` (chrome switcher / profile icon). Chrome stays letters-forward at small size; the returned `style` is the foundation for the bigger-surface rollout.
+
+**Verification:** `tsc --noEmit` exit 0 (pre- and post-merge) · `next lint` clean on changed dirs (only a pre-existing `<img>` warning in `profile-menu.tsx`) · `monogram_style` column + `events_monogram_style_check` constraint verified live in prod.
+
+**Staged (NOT in this PR), with reasons:** full lockup on the **QR center** (needs style-aware SVG compositing in `monogramOverlaySvg`) and a **big in-app preview** (needs the `.onbw`-scoped lockup CSS extracted to a shared sheet — author-flagged refactor). The **paid Animated Monogram hero (0037 · ₱2,499)** is deliberately untouched.
+
+**SPEC IMPACT:** 0037 — design 4 is now a generated filigree frame (both initials); `events.monogram_style` is the new persistence for the chosen lockup. Also flags a **migration-history divergence** — remote has `20260820000000` applied with no repo file, blocking `supabase db push` team-wide. Logged to COWORK_INBOX.
+
 ## 2026-06-04 · feat(0022): Vendor agents — per-service assignment (Phase 2a)
 
 **Context:** Phase 2 of the vendor multi-user workspace (after the Phase-1 role-aware shell, #962). The owner wants agents to "see only the services + customers they manage." Investigation confirmed the customer↔service link exists (`event_vendors.service_id` → the booked `vendor_services` row), so per-service scoping is feasible. This is **Phase 2a — the assignment foundation**: owners/admins assign agents to specific services. Phase 2b consumes it (scopes the agent's dashboard reads + nav to assigned services + their customers, via RLS).

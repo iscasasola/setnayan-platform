@@ -8,6 +8,19 @@
 
 ---
 
+## [PENDING] 2026-06-04 — "Where your day stands" cover made directive + in-rail loop coaching (0021 Vendors / Plan & Budget)
+
+**Why:** Customers couldn't tell what to do on the Vendors "Where your day stands" overview once they'd started — the Find→Shortlist→Lock loop was taught ONLY on the empty cover. Added an action-first banner, a persistent loop legend, a first-run coachmark, and a point-of-action Lock helper.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`Vendors_Plan_Budget_Tab_Spec_2026-05-31.md` §2 (the "Where your day stands" overview)** — document the new populated-cover structure: (a) an action-first **"Do this next"** banner promoting the single most-urgent category (verb adapts: Start with / Lock your / Choose your), (b) a persistent **Find → Shortlist → Lock** legend, (c) the deadline list renamed **"What to lock next" → "Also coming up"** (now the `dueList` remainder, since the banner owns the top item), (d) the calm "You're on pace" state.
+2. **Same spec — new "first-run coaching" note** — a dismissible coachmark at the top of the category list (Tap / Compare / Lock this pick) + a one-time Lock helper under the first lockable card, both shown only while the couple has shortlisted but locked nothing (`localStorage` `pba_coach_v1`), self-retiring after the first lock.
+3. **Cover CTA copy** — "Swipe to start viewing the services" → **"Swipe up to view your services"**.
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
 ## [PENDING] 2026-06-04 — Vendor request-a-category governance shipped (0023 §3.2c / 0022)
 
 **Why:** Closes the expandable-taxonomy governance loop — vendors propose categories they can't find, admins resolve them. New `taxonomy_category_requests` table.

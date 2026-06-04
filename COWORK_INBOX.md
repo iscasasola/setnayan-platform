@@ -8,6 +8,17 @@
 
 ---
 
+## [PENDING] 2026-06-04 — Near-me Top-30 results are now photo cards (Onboarding Blueprint §3.0 / prototype)
+
+**Why:** On the location step ("Where will it be?"), when the couple taps "Near me," any result that's a Top-30 wedding destination now renders as a **photo card** (same `/onboarding/cities/{key}.webp` art the Top-30 carousel uses) instead of a plain text row. Non-Top-30 Near-me results + all search results stay plain rows.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`Onboarding_Blueprint_2026-05-30.md` §3.0** (+ the location step in `Onboarding_Wedding_Flow_2026-06-01.html`) — note that Near-me results matching a Top-30 destination upgrade to the carousel photo-card treatment (scrim + region / city / nugget over the city photo).
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
 ## [PENDING] 2026-06-04 — welcome copy + brand + CTA refreshed (Onboarding Blueprint / prototype)
 
 **Why:** Owner reworked the welcome screen — new header/subhead, a ~20% brand bump + tagline, and a stronger CTA.

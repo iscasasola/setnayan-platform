@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · style(onboarding): Near-me Top-30 results render as photo cards (location step)
+
+**Context:** Owner — on the "Where will it be?" step, when the couple taps **"Near me"** and a result is one of the **Top-30 wedding destinations**, the card should use the **same background photo** the Top-30 carousel uses, instead of a plain text row.
+
+**What changed** (`_components/location-step.tsx` + `_styles/onboarding.css`):
+- New `nearActive` flag (true only on the Near-me results list — `!query && mode==='near' && userPos`). In that list, a row whose city is in `TOP30` now renders as a **`.locphoto` photo card** (city `/onboarding/cities/{key}.webp` background + the carousel's scrim / region / city / nugget + check + selected-gold states), reusing the existing `loccard-*` classes for 1:1 visual parity. Non-Top-30 Near-me results and all search results stay as plain `.locrow` rows.
+- New `.locphoto` CSS (full-width photo row, ~112px) + `.locphoto-km` distance pill.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` ✔ no warnings or errors. Isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** Minor — the prototype/blueprint show Near-me results as plain rows; Top-30 ones are now photo cards. → `COWORK_INBOX.md`.
+
 ## 2026-06-04 · style(onboarding): welcome copy + brand bump/tagline + stronger CTA
 
 **Context:** Owner — new header + subhead for the welcome, plus (from the recommendations table = "photo 2") the brand bump + tagline and a stronger CTA.

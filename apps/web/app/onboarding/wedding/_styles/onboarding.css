@@ -185,6 +185,14 @@
 .onbw .locrow .od{font-size:12px;margin-top:2px;}
 .onbw .locnug{font-family:var(--sans);font-size:11px;line-height:1.3;color:var(--ink-soft);margin-top:3px;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;}
 .onbw .km{color:var(--gold-deep);font-weight:700;}
+/* ── 2026-06-04 (owner): Near-me results that are Top-30 destinations render as photo cards (same art as the carousel) ── */
+.onbw .locphoto{position:relative;display:block;width:100%;box-sizing:border-box;min-height:112px;border-radius:14px;overflow:hidden;border:1.5px solid transparent;background-color:#2a1a22;background-size:cover;background-position:center;background-repeat:no-repeat;box-shadow:0 6px 18px rgba(30,34,41,.16);cursor:pointer;text-align:left;padding:0;flex:0 0 auto;scroll-snap-align:start;transition:transform .14s ease,border-color .15s ease,box-shadow .15s ease;-webkit-tap-highlight-color:transparent;}
+.onbw .locphoto:active{transform:scale(.99);}
+.onbw .locphoto.sel{border-color:var(--gold);box-shadow:0 6px 20px rgba(197,160,89,.42);}
+.onbw .locphoto.sel .loccard-check{background:var(--gold);border-color:var(--gold);box-shadow:inset 0 0 0 3px #1e2229;}
+.onbw .locphoto .loccard-city{font-size:17px;margin:1px 0 3px;}
+.onbw .locphoto .loccard-nug{-webkit-line-clamp:2;}
+.onbw .locphoto-km{font-family:var(--mono);font-style:normal;font-weight:500;font-size:10.5px;letter-spacing:.02em;color:rgba(255,255,255,.82);}
 
 /* ── 2026-06-04 (owner): welcome = full-bleed hero · brand + button float over the photo · slow Ken-Burns drift ── */
 /* top + bottom bars overlay the photo (no white bands); body padding cleared so the hero fills the whole phone */

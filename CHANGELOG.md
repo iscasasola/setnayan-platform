@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · perf(nav): global top loading bar (future-proof catch-all)
+
+**Context:** Owner directive 2026-06-04 — *"we want it to be future proof"*: every route, including ones not written yet, should show a loading indicator on navigation. A root `app/loading.tsx` skeleton fallback can't do this — it makes Next.js prerender a static shell for every route at build, which runs the top-level service-role DB fetches of ~55 admin/dashboard pages (no `force-dynamic`) and breaks the build. The robust, zero-build-impact mechanism is a client-side global progress bar (the GitHub / Vercel / Linear pattern).
+
+**What changed (apps/web):**
+- **`app/_components/nav-progress.tsx`** (new) — a `'use client'` top progress bar mirroring the GlobalHaptics pattern. Slim `--m-orange` (Royal Champagne Gold) bar fixed to the top of the viewport. STARTS on a same-origin, path-changing `<a>` click (capture phase) or back/forward (popstate); DEBOUNCED ~120ms so instant Router-Cache revisits (the `staleTimes` window) show nothing; COMPLETES on `usePathname()` change, with a 10s safety timer so it can never hang. Renders null on the server + first paint (no hydration mismatch).
+- **`app/layout.tsx`** — mounts `<NavProgress />` once at the top of `<body>`.
+
+Pure client → ZERO static-generation impact (build stays 117/117), and it automatically covers EVERY current + future route. Pairs with the per-route `loading.tsx` skeletons (#892 + follow-ups): skeletons give the shaped wait on important routes, this is the universal "never frozen" catch-all.
+
+**Verification:** `tsc --noEmit` ✓ · `next lint` clean (no new warnings) ✓ · `next build` ✓ (117/117 static pages — the pure-client bar does NOT perturb static gen the way a root loading.tsx does). Shipped from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** None — perceived-performance / UX only.
+
+
 ## 2026-06-04 · feat(0023/0044): DB-backed taxonomy — marketplace bucketing (Phase 2b·1)
 
 **Context:** Phase 2b flips the live `/vendors` marketplace onto the DB read-through (Phase 2a's `getTaxonomy()`). This first slice flips the **bucketing** — which canonical_services belong to a tile/folder — the surface an admin changes by re-mapping a vendor's category.

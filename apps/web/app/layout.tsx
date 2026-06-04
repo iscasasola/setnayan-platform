@@ -18,6 +18,7 @@ import { ClientTypeDetector } from './_components/client-type-detector';
 import { DemoModeBanner } from './_components/demo-mode-banner';
 import { OfflineDaemonMount } from './_components/offline-daemon-mount';
 import { PilotModeBanner } from './_components/pilot-mode-banner';
+import { NavProgress } from './_components/nav-progress';
 import { Providers } from './providers';
 import { themeBootstrapScript } from './_components/theme-provider';
 
@@ -341,6 +342,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         ) : null}
       </head>
       <body className="min-h-dvh bg-cream font-sans text-ink antialiased">
+        {/* Global top loading bar — the future-proof catch-all that shows a
+            loading indicator on EVERY route navigation (incl. routes without
+            their own loading.tsx, and any added later). Pure client → no
+            static-generation impact. See _components/nav-progress.tsx. */}
+        <NavProgress />
         <PilotModeBanner />
         {/*
           DemoModeBanner is admin-only (the server component itself

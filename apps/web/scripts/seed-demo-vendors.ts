@@ -136,6 +136,35 @@ function pickWeightedCity(rng: () => number): CityRow {
   return CITIES[CITIES.length - 1]!;
 }
 
+// A reception venue IS a place, so it carries ONE specific venue setting (the
+// couple's reception-style pick filters on it). City-correlated for realism —
+// Boracay venues are beachfront, Tagaytay are garden/ridge, NCR are hotel
+// ballrooms + heritage houses, etc. Derived from (city, index) so it's
+// deterministic WITHOUT consuming the RNG stream (keeps every other generated
+// field byte-identical to the pre-change seed). Values are the events
+// .venue_setting CHECK set (banquet_hall · garden · beach · destination ·
+// heritage · outdoor_tent). NON-venue vendors get NULL = "works at any venue"
+// (a photographer/caterer isn't tied to a setting) — see the insert below.
+const VENUE_SETTINGS_BY_CITY: Record<string, readonly string[]> = {
+  Boracay: ['beach', 'beach', 'destination'],
+  Tagaytay: ['garden', 'garden', 'destination', 'banquet_hall'],
+  Mactan: ['beach', 'destination', 'banquet_hall'],
+  'Lapu-Lapu': ['beach', 'destination'],
+  'Cebu City': ['banquet_hall', 'heritage', 'garden'],
+  'Davao City': ['banquet_hall', 'garden', 'outdoor_tent'],
+};
+// NCR + any unlisted city → mostly hotel ballrooms, some heritage + garden.
+const VENUE_SETTINGS_DEFAULT: readonly string[] = [
+  'banquet_hall',
+  'banquet_hall',
+  'heritage',
+  'garden',
+];
+function venueSettingFor(cityName: string, index: number): string {
+  const options = VENUE_SETTINGS_BY_CITY[cityName] ?? VENUE_SETTINGS_DEFAULT;
+  return options[index % options.length]!;
+}
+
 // ===========================================================================
 // DETERMINISTIC RNG (seeded mulberry32)
 // ===========================================================================
@@ -1946,7 +1975,14 @@ export async function seedCategory(
           `https://picsum.photos/seed/snp${(i * 4 + j) % 60}/600/400`,
       ),
       compatible_ceremony_types: ['catholic', 'civil', 'christian'],
-      compatible_venue_settings: ['banquet_hall', 'garden', 'heritage'],
+      // Reception venues declare ONE setting (the couple's reception-style pick
+      // filters on it); every other vendor is venue-agnostic → NULL = "works at
+      // any venue" (NULL-safe-admits in the marketplace). The old uniform
+      // ['banquet_hall','garden','heritage'] both (a) made the venue filter
+      // useless — every venue matched every pick — and (b) wrongly EXCLUDED all
+      // service vendors from beach/destination weddings.
+      compatible_venue_settings:
+        coarse === 'venue' ? [venueSettingFor(city.name, i)] : null,
       event_types: ['wedding'],
       contact_email: `${slug}@demo.setnayan.local`,
     });

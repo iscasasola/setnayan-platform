@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · fix(0044/demo): diversify demo venue settings + plug BGC region hole (leaf-match follow-up)
+
+**Context:** Follow-up to the leaf-match wiring (#915). Two data-layer gaps surfaced once region/venue filtering went live:
+1. **Every demo venue shared `compatible_venue_settings: ['banquet_hall','garden','heritage']`** — so the couple's reception-style pick (garden / beach / banquet_hall …) matched *every* venue: the filter was wired but couldn't bite. Worse, that same uniform array sat on **non-venue** vendors too, which **wrongly excluded every photographer/caterer/etc. from beach + destination weddings** (those settings weren't in the array, and the marketplace filter is `compatible_venue_settings.is.null OR …cs.{setting}`).
+2. **`BGC`** is a demo city but was missing from `regionForCity`'s map, so BGC vendors resolved to "unknown region" and leaked into every region's results (a hole in #915's effective-region fallback).
+
+**Fix:**
+- **`scripts/seed-demo-vendors.ts`** — new `venueSettingFor(city, index)` (deterministic on city+index, so it does NOT perturb the RNG stream). Reception venues (`coarse === 'venue'`) now get **one** city-correlated setting (Boracay→beach, Tagaytay→garden/destination, NCR→banquet_hall/heritage, …); **every non-venue vendor gets `NULL`** = "works at any venue". So the venue filter actually narrows, and service vendors stop being excluded from beach/destination weddings.
+- **`lib/regions.ts`** — added `bgc` / `bonifacio global city` / `fort bonifacio` → `NCR`.
+
+**Effect:** after a demo re-Create (`/admin/demo-vendors`), a garden couple sees only garden venues; a beach couple keeps all their photographers/caterers. The BGC fix is live immediately (runtime).
+
+**Verification:** `tsc --noEmit` exit 0 (the seed is in tsconfig `include`) · `next lint` clean · no migration · seed change takes effect on re-Create. Built from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** None — demo-data realism + region-map completeness. The venue-setting model itself is unchanged; the deeper venue **refinement** schema (hotel-vs-events-place granularity, capacity) remains the `COWORK_INBOX.md` → `0044` item.
+
 ## 2026-06-04 · docs(cowork): flag spec↔code divergence on the event-type picker (all-live)
 
 **Context:** A Cowork pass applied the #882 carousel note to spec `0000` as "Wedding + Debut live · 11 types · nine coming-soon" — but production is **all 9 event types live** (#884 "unlock all events" + owner's "keep everything live"). The spec now contradicts the code; the "keep everything live" decision was never logged to the corpus.

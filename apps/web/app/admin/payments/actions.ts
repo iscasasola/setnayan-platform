@@ -27,6 +27,9 @@ import { appendLedger } from '@/lib/ledger';
 // Other SKUs in pilot just transition to 'paid'/'fulfilled' via the existing
 // promoteOrder branch — per-SKU activation hooks are V1.x scope.
 import { activateConcierge } from '@/app/dashboard/profile/concierge/actions';
+// Vendor "Additional Branch" activation — maps a paid branch order
+// (service_key vendor_additional_branch__{branch_id}) back to its branch.
+import { branchIdFromServiceKey } from '@/lib/vendor-branches';
 
 // SKU code for Today's Focus. Same string lib/concierge.ts + sku-catalog +
 // stress-test-lock-unlock.ts use. Pulled out as a constant so the brittle
@@ -284,6 +287,37 @@ export async function approvePayment(formData: FormData) {
         // events row via Supabase Studio + re-run activation. Log + move
         // on so the parent approval flow completes.
         console.error('[approvePayment] Today\'s Focus activation threw:', e);
+      }
+    }
+
+    // Vendor "Additional Branch" activation hook (owner-locked 2026-06-05).
+    // When the approved order is a branch subscription (service_key
+    // vendor_additional_branch__{branch_id}), flip that branch active and
+    // stamp the order's 28-day period. Mirrors the Today's Focus hook above:
+    // non-fatal, idempotent, runs only after the order is 'paid'.
+    const branchId = order?.service_key
+      ? branchIdFromServiceKey(order.service_key)
+      : null;
+    if (branchId) {
+      try {
+        const expiresAt = new Date(Date.now() + 28 * 24 * 60 * 60 * 1000).toISOString();
+        await admin
+          .from('vendor_branches')
+          .update({ branch_subscription_active: true, cancelled_at: null })
+          .eq('branch_id', branchId);
+        await admin
+          .from('orders')
+          .update({ expires_at: expiresAt, updated_at: new Date().toISOString() })
+          .eq('order_id', payment.order_id);
+        await appendLedger(admin, {
+          order_id: payment.order_id,
+          event_type: 'service_activated',
+          actor_user_id: userId,
+          actor_role: 'admin',
+          metadata: { service_key: order?.service_key ?? null, branch_id: branchId },
+        });
+      } catch (e) {
+        console.error('[approvePayment] branch activation threw:', e);
       }
     }
   }

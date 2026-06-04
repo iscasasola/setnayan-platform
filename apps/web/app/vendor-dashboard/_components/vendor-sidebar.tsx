@@ -96,6 +96,7 @@ import {
   Users,
   Wallet,
   Coins,
+  Building2,
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { Wordmark } from '@/app/_components/brand-marks';
@@ -179,6 +180,11 @@ export const VENDOR_NAV_GROUPS: NavGroup[] = [
       { key: 'tokens', label: 'Tokens', href: '/vendor-dashboard/tokens', icon: Coins, matchPrefix: '/vendor-dashboard/tokens' },
       { key: 'manpower', label: 'Manpower', href: '/vendor-dashboard/manpower', icon: HardHat, matchPrefix: '/vendor-dashboard/manpower' },
       { key: 'redeem-code', label: 'Redeem code', href: '/vendor-dashboard/redeem-code', icon: Tag, matchPrefix: '/vendor-dashboard/redeem-code' },
+      // Branches — Enterprise sub-location accounts (owner-locked 2026-06-05).
+      // Owner/admin only: 'branches' is absent from VENDOR_SCOPED_NAV_ITEM_KEYS
+      // so filterVendorNavGroups hides it from agents/viewers. The page + the
+      // create/cancel actions re-check tier=enterprise + role server-side.
+      { key: 'branches', label: 'Branches', href: '/vendor-dashboard/branches', icon: Building2, matchPrefix: '/vendor-dashboard/branches' },
       { key: 'team', label: 'Team & Setnayan', href: '/vendor-dashboard/team', icon: Users, matchPrefix: '/vendor-dashboard/team' },
     ],
   },

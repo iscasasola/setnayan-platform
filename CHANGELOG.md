@@ -4,6 +4,25 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(0022): vendor Branches — Enterprise sub-location accounts (apply-then-pay)
+
+**Context:** Owner — *"vendors can have multiple accounts depending on their plans."* The last item of the multi-user vendor workspace. Owner picked: **build now · ₱1,000 / 28 days · Enterprise-only** (resolving the live-site price/gate contradiction). The `vendor_branches` table existed with correct RLS but had zero app code.
+
+**What changed** (no migration):
+- New **`/vendor-dashboard/branches`** surface (owner/admin only · Enterprise-gated). Lists branches with status (active / pending payment / cancelled), an add-branch form (name · city · service radius · BDO or GCash), per-branch cancel, and BDO/GCash pay instructions while anything is pending. Non-Enterprise vendors see an upsell card.
+- New **`lib/vendor-branches.ts`** — fee constants (₱1,000 / 28-day), the `vendor_additional_branch__{branch_id}` service-key convention (mirrors `setnayan_service__{category}`), `fetchVendorBranches` (joins each branch to its activation order's reference code), status derivation.
+- New **`branches/actions.ts`** — `createBranch` (server-guards **tier=enterprise + owner/admin role**; inserts the branch inactive + an apply-then-pay `orders` row (`event_id` NULL · ₱1,000 · reference code) + a pending `payments` row, rolling back on failure) and `cancelBranch`. Reuses iteration 0034 wholesale — no new payment store, no new SKU catalog row (price passed explicitly).
+- **`approvePayment`** gains an activation hook (mirrors the Today's-Focus hook): approving a `vendor_additional_branch__*` order flips that branch `branch_subscription_active = true`, stamps the order's 28-day `expires_at`, and writes a ledger row. Non-fatal + idempotent.
+- **Nav**: "Branches" added to the vendor Business group — owner/admin only (absent from `VENDOR_SCOPED_NAV_ITEM_KEYS`, so `filterVendorNavGroups` hides it from agents/viewers; the mobile `/more` landing inherits it).
+
+**Verify:** `tsc` + `next lint` + `next build` green (`/vendor-dashboard/branches` ƒ dynamic). **DB-verified via rolled-back impersonation** (set the test vendor Enterprise + seeded an agent): owner inserts branch + order + payment ✓ · owner sees branch ✓ · admin activation flip → active ✓ · **agent insert blocked** ✓ · agent sees 0 branches ✓. No migration — `vendor_branches` RLS is already owner+admin via `current_vendor_profile_ids()`.
+
+**V1 limitation (flagged):** auto-renewal / auto-lapse after 28 days is manual for V1 (the suffixed service_key is deliberately excluded from the generic subscription sweep) — V1.x. Branch-scoped service/agent grouping also deferred to V1.x.
+
+**SPEC IMPACT:** 0022 — Branches now BUILT (Enterprise · ₱1,000/28d · apply-then-pay; price + gate owner-locked 2026-06-05). Landing direct in corpus (DECISION_LOG + 0022 .md).
+
+---
+
 ## 2026-06-05 · chore(scripts): virtual test-account seed toolkit (customer/vendor/admin scenarios)
 
 **Context:** Owner wants reusable, log-in-able accounts (one per role doorway) to play cross-user scenarios on the live site. No `SUPABASE_SERVICE_ROLE_KEY` is available locally, so these run over `SUPABASE_DB_URL` via `supabase db query` — they create the Supabase auth users directly in SQL (the `auth.admin` REST path isn't reachable without the service key).

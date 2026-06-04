@@ -35,7 +35,7 @@ const AXES: ReadonlyArray<ReviewAxis> = [
 ];
 
 type Props = {
-  params: Promise<{ eventId: string; eventVendorId: string }>;
+  params: Promise<{ eventId: string; vendorId: string }>;
   searchParams: Promise<{ blocked?: string; appeal_filed?: string }>;
 };
 
@@ -49,7 +49,7 @@ type EventVendorLookup = {
 };
 
 export default async function CoupleReviewVendorPage({ params, searchParams }: Props) {
-  const { eventId, eventVendorId } = await params;
+  const { eventId, vendorId } = await params;
   const search = await searchParams;
   const supabase = await createClient();
   const {
@@ -60,7 +60,7 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
   const { data: ev } = await supabase
     .from('event_vendors')
     .select('vendor_id, event_id, vendor_name, category, contact_email, status')
-    .eq('vendor_id', eventVendorId)
+    .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
     .maybeSingle();
   const eventVendor = ev as EventVendorLookup | null;
@@ -141,7 +141,7 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
     return (
       <SelfReviewBlockedState
         eventId={eventId}
-        eventVendorId={eventVendor.vendor_id}
+        vendorId={eventVendor.vendor_id}
         vendorProfileId={vendorProfile.vendor_profile_id}
         vendorName={vendorProfile.business_name || eventVendor.vendor_name}
         signal={blockSignal}
@@ -291,14 +291,14 @@ function NoLinkedProfileState({
 
 function SelfReviewBlockedState({
   eventId,
-  eventVendorId,
+  vendorId,
   vendorProfileId,
   vendorName,
   signal,
   appealFiled,
 }: {
   eventId: string;
-  eventVendorId: string;
+  vendorId: string;
   vendorProfileId: string;
   vendorName: string;
   signal: SelfReviewSignal;
@@ -348,7 +348,7 @@ function SelfReviewBlockedState({
       ) : (
         <AppealForm
           eventId={eventId}
-          eventVendorId={eventVendorId}
+          vendorId={vendorId}
           vendorProfileId={vendorProfileId}
           vendorName={vendorName}
           signal={signal}
@@ -360,13 +360,13 @@ function SelfReviewBlockedState({
 
 function AppealForm({
   eventId,
-  eventVendorId,
+  vendorId,
   vendorProfileId,
   vendorName,
   signal,
 }: {
   eventId: string;
-  eventVendorId: string;
+  vendorId: string;
   vendorProfileId: string;
   vendorName: string;
   signal: SelfReviewSignal;
@@ -377,7 +377,7 @@ function AppealForm({
       className="space-y-4 rounded-xl border border-amber-200 bg-amber-50 p-5"
     >
       <input type="hidden" name="event_id" value={eventId} />
-      <input type="hidden" name="event_vendor_id" value={eventVendorId} />
+      <input type="hidden" name="event_vendor_id" value={vendorId} />
       <input type="hidden" name="vendor_profile_id" value={vendorProfileId} />
       <input type="hidden" name="matched_signal" value={signal} />
       <header className="space-y-1">

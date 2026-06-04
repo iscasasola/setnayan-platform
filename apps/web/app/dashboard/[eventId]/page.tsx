@@ -1589,6 +1589,10 @@ export default async function EventHomePage({
         eventName={(event as { display_name?: string | null }).display_name ?? 'Your wedding'}
         eventDate={event.event_date}
         eventDatePrecision={eventDatePrecision}
+        dateMode={(event as { date_mode?: string | null }).date_mode ?? null}
+        dateCandidates={(event as { date_candidates?: string[] | null }).date_candidates ?? null}
+        dateWindowStart={(event as { date_window_start?: string | null }).date_window_start ?? null}
+        dateWindowEnd={(event as { date_window_end?: string | null }).date_window_end ?? null}
         venueLabel={countdownVenueLabel}
         lockedCount={lockedVendorCount}
         totalLockable={totalLockableCategories}

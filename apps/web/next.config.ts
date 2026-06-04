@@ -84,6 +84,33 @@ const remoteImagePatterns = [
   },
 ].filter((p): p is NonNullable<typeof p> => p !== null);
 
+// Global security headers applied to every response — the safe, non-breaking
+// subset: HSTS · MIME-sniff lock · clickjacking · referrer trim · powerful-
+// feature lockdown. (Pre-public-pilot hardening § B1 ·
+// Pre_Public_Pilot_Hardening_2026-06-04.md.)
+//
+// We intentionally ship ONLY `frame-ancestors 'self'` for CSP — NOT a full
+// resource/script CSP. A strict default-src/script-src would have to enumerate
+// every external origin we load (Supabase · Sentry ingest · PostHog · R2 ·
+// Maya · YouTube · Google Fonts · Vercel) AND would break the inline
+// Babel-standalone keynote decks under public/keynote/* — so a tested
+// resource-CSP is a deliberate follow-up, not this change.
+//
+// `frame-ancestors 'self'` (not 'none') + `X-Frame-Options: SAMEORIGIN` block
+// external clickjacking while still allowing the dashboard's same-origin
+// landing-page live-preview iframe to render.
+const securityHeaders = [
+  { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  {
+    key: 'Permissions-Policy',
+    value: 'camera=(self), microphone=(self), geolocation=(self), browsing-topics=()',
+  },
+  { key: 'Content-Security-Policy', value: "frame-ancestors 'self'" },
+];
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   // Standalone build per kickoff brief — produces a self-contained server bundle
@@ -145,6 +172,13 @@ const nextConfig: NextConfig = {
   // middleware rewriting — the matcher in middleware.ts already excludes them.
   async headers() {
     return [
+      {
+        // Security headers on every route — pages, API, static assets, and the
+        // /keynote decks. See `securityHeaders` above for why CSP is
+        // frame-ancestors-only for now.
+        source: '/(.*)',
+        headers: securityHeaders,
+      },
       {
         source: '/sw.js',
         headers: [

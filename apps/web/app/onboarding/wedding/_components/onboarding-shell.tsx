@@ -61,6 +61,7 @@ import {
   type OnboardingState,
 } from '../types';
 import { LocationStep } from './location-step';
+import { WelcomeParallax } from './welcome-parallax';
 import { resolvePick } from '../_data/wedding-cities';
 
 /* Full 15-screen flow (welcome..budget..picker..prefs..account..find..congrats..plan). */
@@ -69,7 +70,7 @@ const PHASE_SCREENS = 15;
 /* Primary-button label per screen (prototype nextLabel[]). Index 10 (prefs) is
  * overridden at render time by the sub-stepper ("Continue" / "Looks good"); index
  * 14 (plan) flips to "Continue to checkout" once the bundle is added. */
-const NEXT_LABEL = ['Let’s go', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Create account', 'Continue', 'Continue', 'Done'];
+const NEXT_LABEL = ['Build my free plan', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Create account', 'Continue', 'Continue', 'Done'];
 /* Which screens show a Skip button (prototype canSkip[]): picker/name/region/account/congrats/plan not skippable, prefs/find are. */
 const CAN_SKIP = [false, false, false, true, false, true, false, true, true, false, true, false, true, false, false];
 
@@ -2009,6 +2010,7 @@ export function OnboardingShell({
               Skip
             </button>
           </div>
+          {step === 0 && <div className="brandtag">Wedding planning, simplified</div>}
           <div className="bar">
             <div className="barfill" style={{ width: `${((step + 1) / FLOW_TOTAL) * 100}%` }} />
           </div>
@@ -2019,13 +2021,10 @@ export function OnboardingShell({
           {/* 1 WELCOME */}
           <section className={`screen welcomescreen${step === 0 ? ' active' : ''}`}>
             <div className="welcomehero">
-              <HeroImg src={ASSET('welcome')} />
+              <WelcomeParallax src={ASSET('welcome')} depthSrc="/onboarding/welcome-depth.png" />
               <div className="welcomeoverlay">
-                <h1>Let{'’'}s plan your wedding.</h1>
-                <p>
-                  A few quick questions and we{'’'}ll build a plan made for <i>your</i> day
-                  {' — '}every vendor sorted to fit. Free to start, always.
-                </p>
+                <h1>Start with the view. We{'’'}ll handle the details.</h1>
+                <p>Tell us your date. Get a free wedding plan + matched vendors in minutes.</p>
               </div>
             </div>
           </section>
@@ -2484,7 +2483,19 @@ export function OnboardingShell({
             <h1 className="q" style={{ fontSize: 30 }}>{findHeading}</h1>
             <p className="sub">Sorted for you: your style first, then everyone available. <b>Tap one to shortlist.</b></p>
             {venuesLoading && (
-              <div className="vload">Finding reception venues that fit your wedding…</div>
+              <div className="vskel-wrap" aria-live="polite" aria-busy="true">
+                <div className="grouplbl">★ Finding the best venues for you…</div>
+                {[0, 1, 2].map((i) => (
+                  <div className="vcard vskel" key={i}>
+                    <div className="vimg vskel-box" />
+                    <div className="vbody">
+                      <div className="vskel-line vskel-box" style={{ width: '64%' }} />
+                      <div className="vskel-line sm vskel-box" style={{ width: '46%' }} />
+                      <div className="vskel-line sm vskel-box" style={{ width: '30%' }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
             {!venuesLoading && venues && venues.length > 0 && (
               <>

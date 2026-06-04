@@ -44,6 +44,25 @@ export function LocationStep({
   const [ph, setPh] = useState<PhPlace[] | null>(null); // full PSGC set, lazy-loaded
   const phByKey = useRef<Record<string, WeddingCity>>({});
 
+  // Grow-in-place split: when a 2nd area is added, collapse the new chip to width 0 for one frame
+  // so it grows out from the gap instead of sliding in from off-screen.
+  const prevValRef = useRef<string[]>(value);
+  const [enterKey, setEnterKey] = useState<string | null>(null);
+  useEffect(() => {
+    const added = value.find((k) => !prevValRef.current.includes(k)) ?? null;
+    prevValRef.current = value;
+    if (!added) return;
+    setEnterKey(added);
+    let r2 = 0;
+    const r1 = requestAnimationFrame(() => {
+      r2 = requestAnimationFrame(() => setEnterKey((cur) => (cur === added ? null : cur)));
+    });
+    return () => {
+      cancelAnimationFrame(r1);
+      cancelAnimationFrame(r2);
+    };
+  }, [value]);
+
   // Lazy-load the ~80KB PSGC set the first time the couple searches.
   useEffect(() => {
     if (query.trim() && !ph) {
@@ -131,6 +150,8 @@ export function LocationStep({
   }
   const list: Row[] = rows ?? [];
   const showCarousel = rows === null;
+  // Near-me results that are Top-30 destinations render as photo cards (same art the carousel uses).
+  const nearActive = !showCarousel && !q && mode === 'near' && Boolean(userPos);
 
   return (
     <>
@@ -140,7 +161,7 @@ export function LocationStep({
         <p className="sub">
           {'Pick up to 2 areas you’re considering — we’ll show venues there, and only the vendors who serve your area.'}
         </p>
-        <div className="locpicks" aria-live="polite">
+        <div className="locpicks" data-count={value.length} aria-live="polite">
           {value.length === 0 ? (
             <span className="locpicks-empty">
               {'Tap a destination, search any city, or use “Near me”.'}
@@ -149,15 +170,17 @@ export function LocationStep({
             value.map((k) => {
               const c = resolve(k);
               return (
-                <span key={k} className="locchip">
-                  {c?.n ?? k}
+                <span key={k} className={`locchip${enterKey === k ? ' loc-enter' : ''}`}>
+                  <span className="locchip-label">{c?.n ?? k}</span>
                   <button
                     type="button"
                     className="locchip-x"
                     aria-label={`Remove ${c?.n ?? k}`}
                     onClick={() => toggle(k)}
                   >
-                    {'×'}
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+                      <path d="M7 7l10 10M17 7L7 17" />
+                    </svg>
                   </button>
                 </span>
               );
@@ -200,6 +223,30 @@ export function LocationStep({
             <div className="locresults rise">
               {list.map(({ c, d }) => {
                 const on = value.includes(c.k);
+                // Near-me result that's a Top-30 destination → photo card (same
+                // background art the carousel uses), not a plain text row.
+                if (nearActive && TOP30.includes(c.k)) {
+                  return (
+                    <button
+                      type="button"
+                      key={c.k}
+                      className={`locphoto${on ? ' sel' : ''}`}
+                      style={{ backgroundImage: `url(/onboarding/cities/${c.k}.webp)` }}
+                      onClick={() => toggle(c.k)}
+                      aria-pressed={on}
+                    >
+                      <span className="loccard-check" />
+                      <span className="loccard-scrim">
+                        <span className="loccard-region">{c.r}</span>
+                        <span className="loccard-city">
+                          {c.n}
+                          {d != null && <span className="locphoto-km"> · {d} km</span>}
+                        </span>
+                        {c.nug && <span className="loccard-nug">{c.nug}</span>}
+                      </span>
+                    </button>
+                  );
+                }
                 return (
                   <div
                     key={c.k}

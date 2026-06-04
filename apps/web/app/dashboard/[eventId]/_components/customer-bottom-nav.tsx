@@ -4,24 +4,23 @@
  * CustomerBottomNav — customer mobile primary nav.
  *
  * 5 TABS (owner directive 2026-06-02):
- *   1. Home     — Event-home. Holds the personalized menu (the couple's
- *                 wedding shape + the services they've added) AND the
- *                 activity feed, inline — the two surfaces couples return
- *                 to. (The full personalized menu lives at /for-you as the
- *                 home preview's "See all" target — not a nav tab.)
+ *   1. Home     — Event-home cockpit: live countdown · Today's focus ·
+ *                 upcoming schedules · activity feed. (The couple's match
+ *                 criteria moved to the "Matching you on" strip on the
+ *                 Vendors/Services tab — see match-criteria-strip.tsx.)
  *   2. Guests   — Guest list (+ sponsors + hosts on mobile)
  *   3. Vendors  — Marketplace + event-scoped vendor management
  *   4. Website  — Public landing-page hub (+ invitation editor)
  *   5. More     — Everything else (Add-ons · Activity · Schedule · Budget ·
  *                 Messages · Contracts · Seating · Orders · Disputes ·
- *                 Event QR · Hosts · Profile · For you) via the /more
+ *                 Event QR · Hosts · Profile) via the /more
  *                 landing page.
  *
  * WHY this set: owner directive 2026-06-02 — the personalized menu +
  * activity move INSIDE Home (not separate tabs), and the primary nav is
  * Home · Guests · Vendors · Website · More. Add-ons loses its dedicated
- * tab and joins More; Activity and the /for-you "see all"
- * page are reachable via More + the home surface. Per
+ * tab and joins More; Activity is reachable via More + the home
+ * surface. Per
  * [[feedback_setnayan_orphan_prevention]] every demoted route is
  * enumerated in More's activeMatch (reachable AND lights up correctly) and
  * the desktop sidebar keeps full access.
@@ -111,10 +110,10 @@ export function buildCustomerBottomNav(eventId: string): BottomNavItem[] {
         `${base}/add-ons`,
         // Activity feed full page (also surfaced inline on Home).
         `${base}/activity`,
-        // For-you full personalized menu ("see all" from the Home preview).
-        `${base}/for-you`,
-        // Edit match criteria (region · feel · budget) — "Edit" on the
-        // Personalized block. CLAUDE.md 2026-06-02 "do both" · step 1.
+        // Personalization — the couple's match criteria (region · feel ·
+        // budget · …), now surfaced as the "Matching you on" strip on the
+        // Vendors/Services tab; /details is its full editable page. The old
+        // /for-you "see all" route was retired (redirects to Vendors).
         `${base}/details`,
         // Messages + Contracts
         `${base}/messages`,

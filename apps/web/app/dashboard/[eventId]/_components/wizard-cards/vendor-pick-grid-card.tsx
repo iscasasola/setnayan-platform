@@ -54,6 +54,7 @@ import {
   Music,
   Plus,
   Search,
+  Sparkles,
   Star,
   X,
 } from 'lucide-react';
@@ -1468,6 +1469,16 @@ function VendorGridCardRow({
               {rec.match_label === 'best' ? 'Best match · ' : ''}
               plays {rec.song_overlap_count} of your {rec.song_pick_total} songs
             </span>
+          </p>
+        ) : null}
+
+        {/* Preference-match cue — shown only when the vendor's facet tags
+            overlap the couple's saved preferences on ≥1 dimension (degrades to
+            nothing otherwise). Vendor_Match_Personalization_2026-06-01 §8/§9. */}
+        {rec.preference_matched ? (
+          <p className="inline-flex w-fit items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+            <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />
+            <span>Matches your preference</span>
           </p>
         ) : null}
 

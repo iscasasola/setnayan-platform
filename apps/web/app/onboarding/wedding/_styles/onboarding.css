@@ -321,3 +321,117 @@
 .onbw .lk-inf .lk-icap{position:absolute;top:50%;font-family:var(--serif);font-style:italic;font-weight:600;font-size:clamp(40px,11vw,52px);color:var(--mulberry);line-height:1;}
 .onbw .lk-inf .lk-icap-l{left:30%;transform:translate(-50%,-50%);}
 .onbw .lk-inf .lk-icap-r{left:70%;transform:translate(-50%,-50%);}
+
+/* ── Free monogram entrance effects · owner-locked 2026-06-04 (auto-matched per design) ──
+   infinity→Trace · bar→Letter-by-letter · duo→Bloom · framed→Ink bleed · script→Living gold.
+   The effect follows the lockup style — pure CSS, no data, no per-render cost (₱0). Screens are
+   display:none until .active, so these fire when the name screen opens; <MonoLockup key={design}>
+   remounts to replay them on each "Generate another design". prefers-reduced-motion → no motion
+   (the base lockup styles above ARE the final visible look). */
+@keyframes lk-draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+@keyframes lk-fadeup{from{opacity:0;transform:translateY(11px)}to{opacity:1;transform:none}}
+@keyframes lk-bloom{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
+@keyframes lk-ink{from{opacity:0;filter:blur(13px)}to{opacity:1;filter:blur(0)}}
+@keyframes lk-capdraw{from{opacity:0;transform:translate(-50%,-50%) scale(.82)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+@keyframes lk-flow{from{background-position:0% 50%}to{background-position:300% 50%}}
+
+/* script → Living gold: gold gradient through the glyphs (static color base; flows under motion) */
+.onbw .lk-script .lk-scap,.onbw .lk-script .lk-samp{
+  background:linear-gradient(100deg,#A88340 0%,#E4C77E 26%,#A88340 50%,#E4C77E 74%,#A88340 100%);
+  background-size:300% 100%;}
+@supports ((-webkit-background-clip:text) or (background-clip:text)){
+  .onbw .lk-script .lk-scap,.onbw .lk-script .lk-samp{
+    -webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;}
+}
+
+@media (prefers-reduced-motion: no-preference){
+  /* infinity → Trace — the ∞ draws itself, then the initials settle in */
+  .onbw .lk-inf .lk-infsvg path{stroke-dasharray:1;animation:lk-draw 1.5s ease-in-out both;}
+  .onbw .lk-inf .lk-icap{animation:lk-capdraw .6s ease-out both;animation-delay:1s;}
+  .onbw .lk-inf .lk-names{animation:lk-fadeup .55s ease-out both;animation-delay:1.3s;}
+  /* bar → Letter by letter */
+  .onbw .lk-bar .lk-row>*{animation:lk-fadeup .5s ease-out both;}
+  .onbw .lk-bar .lk-row>*:nth-child(1){animation-delay:.05s;}
+  .onbw .lk-bar .lk-row>*:nth-child(2){animation-delay:.2s;}
+  .onbw .lk-bar .lk-row>*:nth-child(3){animation-delay:.35s;}
+  .onbw .lk-bar .lk-names{animation:lk-fadeup .5s ease-out both;animation-delay:.52s;}
+  /* duo → Bloom */
+  .onbw .lk-duo .lk-drow{animation:lk-bloom .62s cubic-bezier(.2,.8,.3,1) both;}
+  .onbw .lk-duo .lk-names{animation:lk-fadeup .5s ease-out both;animation-delay:.3s;}
+  /* framed → Ink bleed — the whole framed lockup blurs into focus */
+  .onbw .lk-framed{animation:lk-ink .85s ease-out both;}
+  /* script → Living gold flow + names settle */
+  .onbw .lk-script .lk-scap,.onbw .lk-script .lk-samp{animation:lk-flow 5s linear infinite;}
+  .onbw .lk-script .lk-names{animation:lk-fadeup .55s ease-out both;animation-delay:.5s;}
+}
+
+/* ── Trace monogram · letters draw themselves (owner-locked 2026-06-04) ───────
+   Every onboarding lockup animates with the Trace effect: each letter is an SVG
+   <text> whose outline strokes on then fills; the ∞ + bar divider draw as lines;
+   the filigree ring traces itself on. MonoLockup now emits .mt-* markup, so the older
+   .lk-* lockup + per-design effect CSS above is inert (kept for a clean diff —
+   prune later). All motion is gated on prefers-reduced-motion; the base filled
+   state IS the final, accessible look. */
+.onbw .mono-lk .mt-g{overflow:visible;display:block;}
+.onbw .mono-lk .mt-gt{fill:var(--mulberry);}
+.onbw .mono-lk .mt-corm{font-family:var(--serif);font-style:italic;font-weight:600;font-size:66px;}
+.onbw .mono-lk .mt-play{font-family:'Playfair Display',Georgia,serif;font-style:italic;font-weight:600;font-size:62px;}
+.onbw .mono-lk .mt-cin{font-family:'Cinzel',Georgia,serif;font-weight:600;font-size:28px;}
+.onbw .mono-lk .mt-scr{font-family:'Great Vibes','Snell Roundhand',cursive;font-size:96px;}
+.onbw .mono-lk .mt-amp{font-family:var(--serif);font-style:italic;font-size:30px;fill:var(--gold-deep);}
+.onbw .mono-lk .mt-samp,.onbw .mono-lk .mt-fc{fill:var(--gold-deep);}
+.onbw .mono-lk .mt-row{display:flex;align-items:center;justify-content:center;gap:clamp(4px,1.6vw,7px);}
+.onbw .mono-lk .mt-row.mt-tight{gap:0;}
+.onbw .mono-lk .mt-cap{width:clamp(50px,15vw,66px);height:auto;}
+.onbw .mono-lk .mt-cap2{margin-left:-.22em;}
+.onbw .mono-lk .mt-line{width:clamp(26px,8vw,32px);height:auto;flex:0 0 auto;}
+.onbw .mono-lk .mt-line line{stroke:var(--gold-deep);stroke-width:1.4;}
+.onbw .mono-lk .mt-srow{display:flex;justify-content:center;}
+.onbw .mono-lk .mt-scriptsvg{width:clamp(176px,52vw,212px);height:auto;}
+.onbw .mono-lk.mt-framed .mt-frame{position:relative;width:clamp(150px,46vw,190px);aspect-ratio:1;display:flex;align-items:center;justify-content:center;}
+.onbw .mono-lk.mt-framed .mt-frame::before{content:"";position:absolute;inset:0;z-index:0;background:center/contain no-repeat;filter:drop-shadow(0 3px 8px rgba(165,131,89,.2));pointer-events:none;}
+.onbw .mono-lk.mt-framed .mt-frame[data-frame="filigree"]::before{background-image:url(/onboarding/mono/filigree.svg);}
+.onbw .mono-lk.mt-framed .mt-fcaps{position:relative;z-index:1;width:clamp(74px,24vw,92px);height:auto;}
+.onbw .mono-lk.mt-inf .mt-infwrap{position:relative;width:clamp(186px,54vw,232px);aspect-ratio:200/92;}
+.onbw .mono-lk.mt-inf .mt-infsvg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;}
+.onbw .mono-lk.mt-inf .mt-infsvg path{fill:none;stroke:url(#mt-gold);stroke-width:3.2;stroke-linecap:round;filter:drop-shadow(0 2px 4px rgba(165,131,89,.3));}
+.onbw .mono-lk.mt-inf .mt-ic{position:absolute;top:50%;width:clamp(46px,14vw,60px);height:auto;}
+.onbw .mono-lk.mt-inf .mt-ic-l{left:30%;transform:translate(-50%,-50%);}
+.onbw .mono-lk.mt-inf .mt-ic-r{left:70%;transform:translate(-50%,-50%);}
+.onbw .mono-lk.mt-inf .mt-ic .mt-gt{font-size:46px;}
+.onbw .mono-lk .mt-names{font-family:var(--serif);font-weight:600;text-transform:uppercase;letter-spacing:.16em;font-size:clamp(11.5px,3vw,13px);color:var(--ink-soft);}
+
+@keyframes mt-draw{to{stroke-dashoffset:0}}
+@keyframes mt-draw1{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+@keyframes mt-fill{to{fill-opacity:1}}
+@keyframes mt-fade{from{opacity:0}to{opacity:1}}
+@keyframes mt-framein{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
+/* the filigree ring is 237 FILLED gold paths (not strokable), so it "draws" via an
+   animated conic mask — a clockwise pen-sweep with a soft 12° leading edge. A
+   registered <angle> custom property is what makes the conic interpolate; on
+   browsers without @property the mask var is invalid → the full ring just shows. */
+@property --mt-sweep{syntax:"<angle>";inherits:false;initial-value:0deg;}
+@keyframes mt-trace{from{--mt-sweep:0deg}to{--mt-sweep:360deg}}
+
+@media (prefers-reduced-motion: no-preference){
+  /* letters draw: outline strokes on, then fill fades in */
+  .onbw .mono-lk .mt-gt{fill-opacity:0;stroke:var(--mulberry);stroke-width:.7;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:340;stroke-dashoffset:340;animation:mt-draw 1s ease forwards,mt-fill .45s ease forwards .85s;}
+  .onbw .mono-lk .mt-amp,.onbw .mono-lk .mt-samp,.onbw .mono-lk .mt-fc{stroke:var(--gold-deep);}
+  .onbw .mono-lk .mt-scr{stroke-width:.5;stroke-dasharray:300;stroke-dashoffset:300;}
+  .onbw .mono-lk .mt-line line{stroke-dasharray:80;stroke-dashoffset:80;animation:mt-draw 1s ease forwards;}
+  /* the ∞ draws itself */
+  .onbw .mono-lk.mt-inf .mt-infsvg path{stroke-dasharray:1;stroke-dashoffset:1;animation:mt-draw1 1.4s ease-in-out forwards;}
+  /* the filigree ring traces itself on (clockwise pen sweep), then its caps draw */
+  .onbw .mono-lk.mt-framed .mt-frame::before{-webkit-mask:conic-gradient(#000 calc(var(--mt-sweep) - 12deg),rgba(0,0,0,0) var(--mt-sweep));mask:conic-gradient(#000 calc(var(--mt-sweep) - 12deg),rgba(0,0,0,0) var(--mt-sweep));animation:mt-trace 1.15s ease-in-out forwards;}
+  .onbw .mono-lk.mt-framed .mt-fc{stroke-width:.5;stroke-dasharray:170;stroke-dashoffset:170;animation:mt-draw 1s ease forwards .6s,mt-fill .4s ease forwards 1.45s;}
+  .onbw .mono-lk.mt-framed .mt-fc2{animation-delay:.72s,1.57s;}
+  /* names settle last */
+  .onbw .mono-lk .mt-names{opacity:0;animation:mt-fade .5s ease forwards 1.2s;}
+  /* stagger — d2/d3 may sit on the glyph <svg> or the <text> itself */
+  .onbw .mono-lk .mt-d2 .mt-gt,.onbw .mono-lk .mt-gt.mt-d2{animation-delay:.16s,1.01s;}
+  .onbw .mono-lk .mt-d3 .mt-gt,.onbw .mono-lk .mt-gt.mt-d3{animation-delay:.32s,1.17s;}
+  .onbw .mono-lk .mt-d2 line{animation-delay:.16s;}
+  /* infinity caps appear after the ∞ */
+  .onbw .mono-lk.mt-inf .mt-ic .mt-gt{animation-delay:.95s,1.55s;}
+  .onbw .mono-lk.mt-inf .mt-ic.mt-d2 .mt-gt{animation-delay:1.05s,1.65s;}
+}

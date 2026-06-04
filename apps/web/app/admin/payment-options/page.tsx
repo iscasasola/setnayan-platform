@@ -6,6 +6,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import {
   ALLOWED_LINK_DOMAINS,
+  type CoupleFacingMethod,
   type ModerationStatus,
   type PaymentMethodType,
   type VendorPaymentMethodRow,
@@ -15,6 +16,7 @@ import {
   holdPaymentMethod,
   removePaymentMethod,
 } from './actions';
+import { DirectPayPreviewButton } from '@/app/dashboard/[eventId]/_components/vendor-direct-pay';
 
 export const metadata = { title: 'Payment options · Admin' };
 
@@ -342,8 +344,27 @@ function ActionRow({
   row: CardRow;
   surface: 'needs_review' | 'published';
 }) {
+  // Faithful preview of what the couple sees for THIS destination — reuses the
+  // exact couple-facing sheet (disclosure + method card). Read-only: admins
+  // moderate, they don't pay vendors. Lets a moderator confirm a bank/QR/link
+  // reads correctly before approving it.
+  const previewMethod: CoupleFacingMethod = {
+    payment_method_id: row.payment_method_id,
+    method_type: row.method_type,
+    label: row.label,
+    provider: row.provider,
+    account_name: row.account_name,
+    account_number: row.account_number,
+    decoded_destination: row.decoded_destination,
+    link_url: row.link_url,
+    link_domain: row.link_domain,
+    note: row.note,
+    is_primary: row.is_primary,
+    qr_display_url: row.qr_display_url,
+  };
   return (
     <div className="flex flex-wrap items-center gap-2 border-t border-ink/10 pt-4">
+      <DirectPayPreviewButton vendorName={row.business_name} methods={[previewMethod]} />
       {surface === 'needs_review' && row.moderation_status !== 'approved' ? (
         <form action={approvePaymentMethod}>
           <input

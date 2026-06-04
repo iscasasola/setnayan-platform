@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · style(onboarding): find-vendor skeleton loader (shimmering placeholder cards)
+
+**Context:** Owner — the find-vendor step fetches reception venues from the marketplace, and the blank wait read as "nothing happening." Show a clear loading state as the venues populate.
+
+**What changed:** Replaced the sparse one-line "Finding reception venues…" with a **skeleton loader** — a "★ Finding the best venues for you…" header + **3 shimmering placeholder cards** that mimic the real venue cards (image + name + meta lines). When the fetch resolves, the real cards swap in with minimal layout jump. Shimmer auto-disabled under `prefers-reduced-motion`.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean.
+
+**SPEC IMPACT:** None (loading-state polish on the find-vendor step).
+
 ## 2026-06-04 · style(onboarding): location picks split/combine animation (iOS-style)
 
 **Context:** Owner — *"create an iOS animation, the splitting into 2 and/or combining"* (location pick chips).

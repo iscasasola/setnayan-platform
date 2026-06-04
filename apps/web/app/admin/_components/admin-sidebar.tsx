@@ -82,6 +82,7 @@ import {
   Activity,
   WifiOff,
   BarChart3,
+  LineChart,
   Settings,
   Wallet,
 } from 'lucide-react';
@@ -370,8 +371,19 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
   },
   {
     key: 'funnels',
-    label: 'Funnels',
+    // Group label widened to "Insights" 2026-06-04 when the Growth surface
+    // (population + growth-over-time + guest→account conversion) joined
+    // Funnels here. Group KEY stays 'funnels' so the persisted section-open
+    // state (setnayan.nav.section.funnels.open) survives the relabel.
+    label: 'Insights',
     items: [
+      {
+        key: 'growth',
+        label: 'Growth',
+        href: '/admin/growth',
+        icon: LineChart,
+        matchPrefix: '/admin/growth',
+      },
       {
         key: 'funnels',
         label: 'Funnels',

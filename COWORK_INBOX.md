@@ -8,6 +8,19 @@
 
 ---
 
+## [PENDING] 2026-06-04 — Admin Growth & Population surface added (/admin/growth · 0023)
+
+**Why:** Owner directive — surface platform progress as *actual population* (current totals) + *growth over time* for vendors · services · events · customers · guests, plus *guest → account-holder conversion*. Shipped as a new admin surface `/admin/growth` (population tiles + per-entity cumulative/net-new sparklines + conversion section), computed live from each entity's `created_at` (no migration) and the `event_members.guest_id` linkage. Conversion definition owner-locked **"any linked account"** (a guest-list row tied to a real Setnayan account via QR scan or invite link; rate = converted ÷ non-removed guests, all-time).
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`0023_admin_console.md` §1** — the admin console gains a **29th surface, "Growth"**, under a renamed **"Insights"** group (was "Funnels"; now holds Funnels + Growth). Update the surface count + the group list (Funnels → Insights). Mobile: Growth lives under the **More** tab (alongside Funnels) per the existing mobile-overflow pattern (also reflected in §1's "Mobile uses a 5-tab bottom nav" note).
+2. **`0023_admin_console.md`** (new subsection, e.g. §3.17) — spec the Growth surface: **Population now** tiles (account holders · customers · vendors[+published] · services[+active] · events · guests); **Growth over time** per entity (cumulative curve + net-new per period · range 3/6/12 months · 12 buckets); **Guest→Account conversion** (rate · converted/total · new-in-range · median days-to-convert) with the **"any linked account"** definition locked (via `event_members.guest_id` + `member_type='guest'`).
+3. **`App_Build_Status.md`** — add `/admin/growth` (0023) as SHIPPED.
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
 ## [PENDING] 2026-06-04 — welcome screen now full-bleed + animated (Onboarding Blueprint / prototype)
 
 **Why:** Owner wanted the welcome hero to fill the whole screen with the button floating over it (white bands removed) + a slow "camera drifting" motion. Shipped as **full-bleed + CSS Ken-Burns** (no Higgsfield needed; a real moving-clouds video loop is an optional later upgrade).

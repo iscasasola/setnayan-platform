@@ -17,9 +17,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **Deliberately NOT shipped:** a full resource/script CSP (`default-src`/`script-src`). It would have to enumerate every external origin we load (Supabase · Sentry · PostHog · R2 · Maya · YouTube · Google Fonts) and would break the inline Babel-standalone keynote decks under `public/keynote/*`. Tracked as a tested follow-up in the hardening doc.
 
-**Verification:** Static config change (no new imports/logic). Gated on the required CI checks (typecheck + production build + Vercel preview) before merge; confirm headers on the preview via `curl -I`. No local build run (fresh worktree, deps not installed).
+**Verification:** Static config change (no new imports/logic). All required CI checks green on PR #939 (typecheck + lint · production build · lighthouse · playwright e2e · Vercel preview).
 
 **SPEC IMPACT:** None — the hardening posture is already captured in the corpus (`Pre_Public_Pilot_Hardening_2026-06-04.md` + DECISION_LOG 2026-06-04). The pre-existing public-`/api/v1/vendors` vs "no public API in V1" drift is logged there for Cowork; it is not introduced by this change.
+
+## 2026-06-04 · feat(0023): Admin Growth & Population surface (/admin/growth)
+
+**Context:** Owner — make statistics of the progress of the app: both *actual population* (current totals) and *growth over time* for vendors · services · events · customers · guests, plus *guest → account-holder conversion*. No existing admin surface showed multi-entity population + growth curves, and conversion was computed nowhere (the Overview shows point-in-time counts only; Funnels is step-conversion; Operations & Hiring is vendor-signup + hiring-forecast). Owner picked a dedicated `/admin/growth` page and the **"any linked account"** conversion definition.
+
+**What changed** (additive — new surface + nav entries, no migration):
+- **`lib/admin/growth-stats.ts`** (new) — `fetchGrowthStats(range)`: population head-counts; per-entity weekly **cumulative + net-new** series (12 fixed buckets; baseline + per-boundary `count:'exact', head:true` — exact, indexed-only, no 1000-row truncation); **guest→account conversion** via `event_members.guest_id` + `member_type='guest'` (cumulative by `joined_at`, all-time rate = converted ÷ non-removed guests, median days-to-convert from a bounded embedded read). Per-section error isolation. No migration — all five entity tables already carry `created_at`.
+- **`app/admin/growth/page.tsx`** (new) — server component: range picker (GET form · 3/6/12 months · mirrors /admin/funnels), Population-now tiles, per-entity growth cards with hand-rolled **SVG cumulative sparkline + net-new bars** (no chart lib in the repo), conversion section. v2.1 `--m-*` chrome; responsive.
+- **`app/admin/_components/admin-sidebar.tsx`** — Funnels group relabeled **"Insights"** (group key stays `funnels` so persisted open-state survives); adds **Growth** item (LineChart).
+- **`app/admin/_components/admin-bottom-nav.tsx`** — `/admin/growth` added to the mobile **More** tab's activeMatch.
+- **`app/admin/more/page.tsx`** — **Growth** card added to the mobile More landing (orphan-prevention · 1:1 with the sidebar).
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean · `next build` exit 0 (`/admin/growth` registered as ƒ dynamic, beside `/admin/funnels`). Built in an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** Iteration 0023 gains a **29th admin surface ("Growth")** and the **Funnels group → "Insights"** (Funnels + Growth). → `COWORK_INBOX.md` [PENDING]: update 0023 §1 group list + surface count, add a Growth subsection, lock the conversion definition (any linked account), and mark `/admin/growth` SHIPPED in `App_Build_Status.md`.
 
 ## 2026-06-04 · style(onboarding): welcome screen full-bleed hero + button-over-photo + Ken-Burns drift
 

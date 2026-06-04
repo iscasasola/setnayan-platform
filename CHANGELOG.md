@@ -19,6 +19,20 @@ No new table, no migration, no new SKU, no wallet UI. Stays inside the locked 00
 
 **SPEC IMPACT:** Minor. (1) Couple-side direct-pay presentation refinement (rail → Sheet) on the already-spec'd 0007/0034/0025 surfaces. (2) New admin "Preview as couple" affordance on the 0023 `/admin/payment-options` moderation surface. Corpus delta lands directly in `DECISION_LOG.md` per the 2026-06-04 direct-edit authorization (COWORK_INBOX is wound down — no new `[PENDING]` rows).
 
+## 2026-06-05 · assets(onboarding): refresh Catholic + Chinese ceremony-tradition hero photos
+
+**Context:** The wedding-onboarding "what kind of wedding → ceremony tradition" step (`apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx`) shows a hero photo per faith. The Catholic photo was a flat empty-aisle shot and the Chinese photo was a generic tea-ceremony stand-in. Owner asked for (1) a dramatic Catholic cathedral kiss — stained glass, smoke, single cinematic spotlight on the couple, dark-but-peaceful nave, crowd in the pews; and (2) an opulent "expensively rich" Chinese wedding — bride (left) · groom (center) · bridesmaid (right) talking in a gold ballroom.
+
+**What changed:** Replaced two static onboarding hero assets (bytes only — no code/markup change; the picker already references these filenames):
+- `apps/web/public/onboarding/wed_catholic.webp` — new cathedral kiss (760×950, ~48KB).
+- `apps/web/public/onboarding/wed_chinese.webp` — new opulent ballroom trio (760×950, ~94KB).
+
+Both generated via Recraft (recraftv3, `realistic_image`) and optimized with PIL to the existing 760×950 / 4:5 onboarding-asset spec.
+
+**Verification:** Visual review of both processed WebPs · dimensions + byte sizes match the existing onboarding hero set (760×950, 44–108KB range) · `git status` shows exactly the two asset files changed. No code touched, so no typecheck/lint surface.
+
+**SPEC IMPACT:** Corpus design masters under `~/Documents/Claude/Projects/Setnayan/assets/faith/` are the spec-side originals. `wed_catholic.webp` master was refreshed in the prior session; `wed_chinese.webp` master refreshed directly this session (Cowork direct-edit authorization). No Cowork pending item required.
+
 ## 2026-06-04 · feat(dashboard/home): live days·hrs·min·sec countdown (0021)
 
 **Context:** Owner — *"days, hours, minutes, seconds."* The cockpit countdown showed a static "N days to go"; make it a live ticking timer.

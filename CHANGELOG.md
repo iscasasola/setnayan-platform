@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · fix(onboarding): location picks grow-in-place split + equal-size faith chips
+
+**Context:** Owner — the split animation *"just moved in from the right screen"* (the new chip slid in from off-screen), and *"make these [faith] buttons consistent in height and length."*
+
+**What changed:**
+- **Grow-in-place split.** The location-pick split no longer slides the new chip in from off-screen. `.locpicks` is now `overflow:hidden`, and a newly-added chip is collapsed to width 0 for one frame (`loc-enter`, via a double-rAF in `LocationStep`) so it **grows out from the gap** while the existing chip shrinks 100%→50% — total width stays ~100% throughout, no off-screen slide.
+- **Equal-size faith chips.** `#screen-faith .chip` → fixed `106px` width + `46px` min-height, centered — Catholic / Muslim / INC / Chinese / Born Again / … are now uniform.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean.
+
+**SPEC IMPACT:** None (animation fix + chip sizing).
+
 ## 2026-06-04 · style(onboarding): find-vendor skeleton loader (shimmering placeholder cards)
 
 **Context:** Owner — the find-vendor step fetches reception venues from the marketplace, and the blank wait read as "nothing happening." Show a clear loading state as the venues populate.

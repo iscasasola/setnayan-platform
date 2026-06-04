@@ -1,40 +1,37 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo } from 'react';
 
 /**
- * Theme Provider — Light / Dark / Auto.
+ * Theme Provider — LIGHT-LOCKED.
  *
- * WHY: Brand pivot 2026-05-22 (CLAUDE.md decision-log). Owner directive:
- * "make our default color be like facebook white and blue. and remove the
- * personalization of colors. It will be light, dark, auto. just like ios".
+ * WHY: Owner directive 2026-06-04 — "the app used to adjust automatic to light
+ * and dark theme. disable this and just always keep it light theme." This
+ * reverts the 2026-05-22 brand-pivot Light / Dark / Auto trio (CLAUDE.md
+ * decision-log). Setnayan now renders in the light Clean-Editorial palette on
+ * every dashboard / marketing surface, ignoring the OS `prefers-color-scheme`
+ * AND any previously-stored `users.theme_preference` / `localStorage.theme`.
  *
- * Replaces the 5-theme system (Setnayan Default · Victorian · Classy · iOS ·
- * Forest Theme) locked 2026-05-15 row 5. The Setnayan brand now flips to
- * Facebook white + blue in light mode and Facebook dark + brighter blue in
- * dark mode; mode selection is the only personalization remaining.
+ * WHY KEEP THE PROVIDER: ~7 components call `useTheme()` (site-editor, dashboard
+ * layout, onboarding shell, a few vendor rows). Rather than refactor every
+ * call-site, the provider + `useTheme()` API are KEPT but hard-locked: `mode`
+ * and `resolvedTheme` are always `'light'`, and `setMode` is a no-op. The
+ * `.dark` class is never applied (and is actively stripped on mount in case a
+ * stale cached HTML shell shipped with it). Re-enabling Dark/Auto later is a
+ * small revert of this file + the bootstrap script.
  *
- * MODES
- *   - 'light' — force Facebook white + blue, ignore system preference
- *   - 'dark'  — force Facebook dark + blue, ignore system preference
- *   - 'auto'  — read `prefers-color-scheme` at runtime (DEFAULT)
+ * HOW IT STAYS LIGHT BY CONSTRUCTION: `darkMode: 'class'` in tailwind.config.ts
+ * means every `dark:` variant + every `html.dark` token override in globals.css
+ * keys off the `.dark` class on <html>. globals.css carries NO
+ * `@media (prefers-color-scheme: dark)` rule, so with `.dark` never present,
+ * all dark styling stays inert → light, regardless of the device setting.
  *
- * STORAGE
- *   - `localStorage.theme` — fast read on every page load (FOUC defense)
- *   - `users.theme_preference` — durable Supabase value, synced via the
- *     `updateThemePreference` server action in profile/actions.ts
+ * DORMANT: the `users.theme_preference` column + its `updateThemePreference`
+ * server action are left in place (unread) so the revert is trivial.
  *
- * FOUC DEFENSE
- *   - An inline script in `<head>` (rendered by app/layout.tsx) reads
- *     localStorage and applies the `dark` class to <html> BEFORE first paint
- *     so light/dark toggles never flash the wrong palette.
- *   - This client component then takes over after hydration, reacting to
- *     system preference changes when mode === 'auto'.
- *
- * COUPLE-LANDING PAGE OUT OF SCOPE: The wedding landing page chrome at
+ * COUPLE-LANDING PAGE OUT OF SCOPE: the wedding landing page chrome at
  * `app/[slug]/page.tsx` is driven by the couple's mood-board palette per
- * iteration 0010 + 0002. This provider does NOT touch that surface — the
- * `dark` class on <html> is ignored by the couple-landing render path.
+ * iteration 0010 + 0002 — never touched by this provider.
  */
 
 export type ThemeMode = 'light' | 'dark' | 'auto';
@@ -45,98 +42,43 @@ export function isThemeMode(value: unknown): value is ThemeMode {
   return value === 'light' || value === 'dark' || value === 'auto';
 }
 
-const STORAGE_KEY = 'theme';
-
 interface ThemeContextValue {
   mode: ThemeMode;
   resolvedTheme: 'light' | 'dark';
   setMode: (mode: ThemeMode) => void;
 }
 
+// Frozen light-locked context value. `setMode` is intentionally a no-op — the
+// app no longer exposes a way to switch modes (owner 2026-06-04).
+const LIGHT_LOCKED: ThemeContextValue = {
+  mode: 'light',
+  resolvedTheme: 'light',
+  setMode: () => {},
+};
+
 const ThemeContext = createContext<ThemeContextValue | null>(null);
-
-function resolveSystemTheme(): 'light' | 'dark' {
-  if (typeof window === 'undefined') return 'light';
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-}
-
-function applyHtmlClass(resolved: 'light' | 'dark') {
-  if (typeof document === 'undefined') return;
-  const root = document.documentElement;
-  if (resolved === 'dark') {
-    root.classList.add('dark');
-  } else {
-    root.classList.remove('dark');
-  }
-}
 
 export function ThemeProvider({
   children,
-  initialMode = 'auto',
 }: {
   children: React.ReactNode;
-  /** SSR-resolved initial mode from `users.theme_preference`. Defaults to 'auto'. */
+  /**
+   * Retained for call-site compatibility (app/providers.tsx still passes the
+   * SSR-resolved mode). Ignored — the app is light-locked.
+   */
   initialMode?: ThemeMode;
 }) {
-  // Start from SSR-passed mode so server + first client render agree. The
-  // hydration-time effect below reconciles with localStorage if the user
-  // has changed mode in another tab.
-  const [mode, setModeState] = useState<ThemeMode>(initialMode);
-  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
-
-  // On mount: reconcile with localStorage (cross-tab updates + anonymous
-  // visitors who picked a mode before signing up).
+  // Defend against a stale `.dark` class from a previously-cached HTML shell
+  // (old service-worker response, bfcache restore, etc.). The bootstrap script
+  // in <head> already strips it before first paint; this is the post-hydration
+  // belt-and-suspenders pass.
   useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (isThemeMode(stored) && stored !== mode) {
-        setModeState(stored);
-      }
-    } catch {
-      // localStorage may be disabled (Safari private mode + iframe sandboxes).
-      // Fall through to the SSR-passed initialMode silently.
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Apply mode → class + listen for system preference changes when 'auto'.
-  useEffect(() => {
-    const apply = () => {
-      const resolved = mode === 'auto' ? resolveSystemTheme() : mode;
-      setResolvedTheme(resolved);
-      applyHtmlClass(resolved);
-    };
-    apply();
-
-    if (mode !== 'auto') return;
-
-    // Listen for system preference changes in auto mode. matchMedia change
-    // events fire whenever the user flips dark mode in their OS settings.
-    const mql = window.matchMedia('(prefers-color-scheme: dark)');
-    const onChange = () => apply();
-    if (mql.addEventListener) {
-      mql.addEventListener('change', onChange);
-      return () => mql.removeEventListener('change', onChange);
-    } else {
-      // Safari <14 fallback
-      mql.addListener(onChange);
-      return () => mql.removeListener(onChange);
-    }
-  }, [mode]);
-
-  const setMode = useCallback((next: ThemeMode) => {
-    setModeState(next);
-    try {
-      window.localStorage.setItem(STORAGE_KEY, next);
-    } catch {
-      // Swallow — see useEffect note above.
+    if (typeof document !== 'undefined') {
+      document.documentElement.classList.remove('dark');
     }
   }, []);
 
-  const value = useMemo<ThemeContextValue>(
-    () => ({ mode, resolvedTheme, setMode }),
-    [mode, resolvedTheme, setMode],
-  );
+  const value = useMemo(() => LIGHT_LOCKED, []);
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
@@ -152,33 +94,16 @@ export function useTheme(): ThemeContextValue {
 /**
  * FOUC-safe inline script for `<head>` injection in app/layout.tsx.
  *
- * Runs synchronously before first paint, reads localStorage, computes resolved
- * theme, applies the `dark` class to <html>. Wrapped in try/catch so a corrupt
- * localStorage or disabled storage doesn't blank the page.
- *
- * Why this lives as a string export instead of a React component: the script
- * MUST run before React hydration to avoid a light→dark flash. <Script> with
- * strategy="beforeInteractive" works but adds Next.js machinery; an inline
- * <script dangerouslySetInnerHTML> is faster + survives without next/script.
+ * The app is light-locked (owner 2026-06-04), so this simply guarantees the
+ * `.dark` class is absent before first paint — defending against a stale cached
+ * shell that shipped with `.dark` already on <html>. Kept as a string export so
+ * layout.tsx's reference stays valid. Runs synchronously, wrapped in try/catch
+ * so a missing API never blanks the page.
  */
 export const themeBootstrapScript = `
 (function() {
   try {
-    var stored = localStorage.getItem('${STORAGE_KEY}');
-    var mode = (stored === 'light' || stored === 'dark' || stored === 'auto') ? stored : 'auto';
-    var resolved;
-    if (mode === 'auto') {
-      resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    } else {
-      resolved = mode;
-    }
-    if (resolved === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  } catch (_e) {
-    // localStorage disabled or matchMedia missing — leave default (light).
-  }
+    document.documentElement.classList.remove('dark');
+  } catch (_e) {}
 })();
 `;

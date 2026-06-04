@@ -8,8 +8,6 @@ import { fetchUserEvents } from '@/lib/events';
 import { restartTour } from '@/lib/tour-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { makeT } from '@/lib/i18n';
-import { isThemeMode, type ThemeMode } from '@/app/_components/theme-provider';
-import { ThemeModePicker } from './_components/theme-mode-picker';
 import { HapticsToggle } from './_components/haptics-toggle';
 import {
   changePassword,
@@ -31,9 +29,9 @@ type Props = {
   }>;
 };
 
-// 2026-05-22 brand pivot: 5-theme array retired. Theme picker is now a
-// 3-mode (Light · Dark · Auto) ThemeModePicker client component. See
-// _components/theme-mode-picker.tsx and CLAUDE.md decision-log.
+// Light-locked 2026-06-04: the theme picker (Light · Dark · Auto) was removed —
+// Setnayan always renders light. `users.theme_preference` is left dormant. See
+// _components/theme-provider.tsx and CLAUDE.md decision-log.
 
 export default async function ProfilePage({ searchParams }: Props) {
   const search = await searchParams;
@@ -57,7 +55,7 @@ export default async function ProfilePage({ searchParams }: Props) {
   const { data: profile, error: profileErr } = await supabase
     .from('users')
     .select(
-      'public_id, email, display_name, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, theme_preference, planner_mode, marketing_opt_in, reminders_enabled, created_at',
+      'public_id, email, display_name, phone, profile_photo_url, account_type, is_internal, is_team_member, locale, planner_mode, marketing_opt_in, reminders_enabled, created_at',
     )
     .eq('user_id', user.id)
     .maybeSingle();
@@ -70,14 +68,6 @@ export default async function ProfilePage({ searchParams }: Props) {
     );
   }
 
-  // 2026-05-22 brand pivot: theme_preference now holds 'light' | 'dark' | 'auto'.
-  // Defensive fallback to 'auto' covers (a) anonymous shouldn't reach here, and
-  // (b) the migration in 20260606000000_users_theme_preference_three_mode.sql
-  // remaps legacy 'setnayan_default' / 'victorian' / 'classy' / 'forest_champagne'
-  // to 'light' and legacy 'ios' to 'auto' — any stale rows that escape the
-  // migration also fall back to 'auto' here.
-  const rawTheme = profile?.theme_preference;
-  const activeThemeMode: ThemeMode = isThemeMode(rawTheme) ? rawTheme : 'auto';
   const activePlannerMode = (profile?.planner_mode ?? 'guided') as 'guided' | 'diy';
   const remindersOn = (profile?.reminders_enabled ?? true) as boolean;
   // Iteration 0025 — runtime EN/TL toggle. The DB enum also has 'ceb' but the
@@ -449,20 +439,13 @@ export default async function ProfilePage({ searchParams }: Props) {
       <section className="mt-10 space-y-4">
         <div className="space-y-1">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Appearance
+            Feedback
           </h2>
           <p className="text-sm text-ink/60">
-            Light, Dark, or Auto — just like iOS. Your wedding landing page keeps
-            its own palette from the mood board; this only changes how Setnayan looks
-            for you.
+            A gentle tap when you press buttons, on phones that support it. Turn
+            it off if you prefer silent taps.
           </p>
         </div>
-        {/*
-          2026-05-22 brand pivot: client component so the picker applies the
-          mode INSTANTLY (no full page reload) while a transition persists the
-          choice to `users.theme_preference` in the background.
-        */}
-        <ThemeModePicker initialMode={activeThemeMode} />
         <HapticsToggle />
       </section>
 

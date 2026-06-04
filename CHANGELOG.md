@@ -4,6 +4,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(0023): /admin/taxonomy editor — rename nodes + re-map canonicals (Phase 3 MVP)
+
+**Context:** Phases 1–2b·1 built the DB-backed taxonomy + read-through. This adds the **editor** — the admin-facing payoff of the ♾️ "Admin Finalize = permanent live publish" lock — so an admin can reshape the taxonomy and see it live with no deploy.
+
+**What changed:**
+- **`app/admin/taxonomy/actions.ts`** — `requireAdmin()` (role re-check) + two service-role, audit-logged actions: `renameTaxonomyNode` (rename a parent/tile in `service_categories`) and `remapCanonical` (move a `canonical_service` to a different tile + parent in `canonical_service_taxonomy`). Each writes `admin_audit_log` (action · before/after · actor) and `revalidatePath('/admin/taxonomy'` + `'/vendors')`.
+- **`app/admin/taxonomy/page.tsx`** — a **live rename tree** (every parent + tile inline-editable), a **re-map select** on each canonical row, a success/error banner (`?ok`/`?error`), and `force-dynamic` (the page does top-level DB reads — keeps a future root `loading.tsx` from pulling it into build-time static gen).
+
+**The loop, closed:** rename a tile → `getTaxonomy()` reflects it; re-map a canonical → `getCanonicalBuckets()` re-buckets the `/vendors` marketplace — both live, no deploy.
+
+**MVP scope:** rename + re-map (the two highest-value ops, both already wired to the read-through). The full §3.15 vision — drag-to-move, add/delete, leaf↔branch, the §3.2c request-review ghost cards, two-admin gating — is staged (Phase 3b).
+
+**Verification:** `tsc --noEmit` 0 errors · `next lint` clean.
+
+**SPEC IMPACT:** None — implements (a subset of) the locked 0023 §3.15 editor.
+
+---
+
 ## 2026-06-04 · fix(0021): vendor-pick badge collision — rename `.v`/`.b` so `.pbacc .v` can't match (real fix)
 
 **Context:** The earlier portal fix (#908) did NOT resolve the distorted picker — the VERIFIED badge still ballooned into a giant cream stadium (VERIFIED top-center, column layout, ~300px tall — the exact `.pbacc .v` signature). The portal *should* have escaped `.pbacc` (it's a normal div, not `<body>`), so the live failure is most likely stale PWA/tab JS — but the portal was a fragile, structural-only fix.

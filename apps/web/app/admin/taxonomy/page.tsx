@@ -5,9 +5,12 @@ import {
 } from '@/lib/taxonomy';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
-import { updatePlanningDeadline } from './actions';
+import { updatePlanningDeadline, renameTaxonomyNode, remapCanonical } from './actions';
 
 export const metadata = { title: 'Taxonomy · Admin' };
+// Top-level DB reads (admin client + getTaxonomy) — keep this route dynamic so a
+// future root app/loading.tsx can't pull it into build-time static generation.
+export const dynamic = 'force-dynamic';
 
 type SchemaRow = {
   canonical_service: string;
@@ -61,7 +64,12 @@ const PHASE_TONE: Record<string, string> = {
   'V1.5+': 'bg-rose-50 text-rose-800',
 };
 
-export default async function AdminTaxonomyPage() {
+export default async function AdminTaxonomyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ ok?: string; error?: string }>;
+}) {
+  const sp = await searchParams;
   const admin = createAdminClient();
   const { data: rows } = await admin
     .from('canonical_service_schemas')
@@ -165,6 +173,13 @@ export default async function AdminTaxonomyPage() {
         </p>
       </header>
 
+      {sp.ok ? (
+        <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{sp.ok}</div>
+      ) : null}
+      {sp.error ? (
+        <div className="mb-6 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{sp.error}</div>
+      ) : null}
+
       <section className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Total rows" value={totalRows} />
         <Stat label="Mapped to a folder" value={totalMapped} />
@@ -245,6 +260,32 @@ export default async function AdminTaxonomyPage() {
         )}
       </section>
 
+      <section className="mb-10">
+        <header className="mb-2 flex items-baseline justify-between gap-3">
+          <h2 className="text-lg font-semibold tracking-tight text-ink">
+            Tree · edit names{' '}
+            <span className="font-normal text-ink/55">(live — saves to the DB, no deploy)</span>
+          </h2>
+          <span className="font-mono text-xs text-ink/55">
+            {tax.source === 'db' ? 'editing the DB tree' : 'fallback — DB unseeded'}
+          </span>
+        </header>
+        <div className="space-y-4 rounded-xl border border-ink/10 bg-cream p-4">
+          {tax.folderOrder.map((folder) => (
+            <div key={folder}>
+              <NodeRenameForm id={folder} label={tax.folderLabel[folder] ?? folder} kind="Parent" />
+              <ul className="ml-3 mt-2 space-y-1.5 border-l border-ink/10 pl-3">
+                {(tax.tilesByParent[folder] ?? []).map((tile) => (
+                  <li key={tile}>
+                    <NodeRenameForm id={tile} label={tax.tileLabel[tile] ?? tile} kind="Tile" />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {tax.folderOrder.map((folder, idx) => {
         const bucket = buckets.get(folder);
         if (!bucket) return null;
@@ -308,6 +349,28 @@ export default async function AdminTaxonomyPage() {
                           {row.shared_attribute_groups.length} shared
                         </Badge>
                       </div>
+                      <form action={remapCanonical} className="flex shrink-0 items-center gap-1.5">
+                        <input type="hidden" name="canonical_service" value={row.canonical_service} />
+                        <select
+                          name="tile_id"
+                          defaultValue={row.meta.tile ?? ''}
+                          aria-label={`Move ${row.canonical_service} to tile`}
+                          className="max-w-[150px] rounded-md border border-ink/15 bg-white px-1.5 py-1 text-xs text-ink"
+                        >
+                          {row.meta.tile ? null : <option value="">— unmapped —</option>}
+                          {tax.tileOrder.map((t) => (
+                            <option key={t} value={t}>
+                              {tax.tileLabel[t] ?? t}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="submit"
+                          className="rounded-md border border-ink/15 bg-white px-2 py-1 text-[11px] font-medium text-ink transition-colors hover:border-terracotta/50 hover:text-terracotta"
+                        >
+                          Move
+                        </button>
+                      </form>
                     </li>
                   );
                 })}
@@ -345,6 +408,30 @@ function Stat({ label, value }: { label: string; value: number }) {
       <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">{label}</p>
       <p className="mt-1 text-2xl font-semibold tracking-tight text-ink">{value}</p>
     </div>
+  );
+}
+
+function NodeRenameForm({ id, label, kind }: { id: string; label: string; kind: string }) {
+  return (
+    <form action={renameTaxonomyNode} className="flex items-center gap-2">
+      <span className="w-12 shrink-0 font-mono text-[10px] uppercase tracking-[0.1em] text-ink/45">
+        {kind}
+      </span>
+      <input type="hidden" name="id" value={id} />
+      <input
+        name="label_en"
+        defaultValue={label}
+        aria-label={`Rename ${id}`}
+        className="min-w-0 flex-1 rounded-md border border-ink/15 bg-white px-2 py-1 text-sm text-ink"
+      />
+      <span className="hidden font-mono text-[10px] text-ink/40 sm:inline">{id}</span>
+      <button
+        type="submit"
+        className="shrink-0 rounded-md border border-ink/15 bg-white px-3 py-1 text-xs font-medium text-ink transition-colors hover:border-terracotta/50 hover:text-terracotta"
+      >
+        Save
+      </button>
+    </form>
   );
 }
 

@@ -8,7 +8,14 @@
 
 ---
 
-## [PENDING] 2026-06-04 — app light-locked: Light/Dark/Auto theme switch + OS dark-mode auto-follow removed (0021 / 0025 / DECISION_LOG)
+## [PENDING] 2026-06-04 — welcome copy + brand + CTA refreshed (Onboarding Blueprint / prototype)
+
+**Why:** Owner reworked the welcome screen — new header/subhead, a ~20% brand bump + tagline, and a stronger CTA.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`Onboarding_Blueprint_2026-05-30.md`** (+ welcome in `Onboarding_Wedding_Flow_2026-06-01.html`) — header **"Start with the view. We'll handle the details."**; subhead **"Tell us your date. Get a free wedding plan + matched vendors in minutes."**; brand bumped ~20% with tagline **"Wedding planning, simplified"**; CTA **"Build my free plan"** (was "Let's go").
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
 
 **Why:** Owner — *"the app used to adjust automatic to light and dark theme. disable this and just always keep it light theme."* Reverts the 2026-05-22 brand-pivot Light/Dark/Auto trio. The app now renders light on every dashboard/marketing surface, ignoring the device `prefers-color-scheme` and any stored preference. Code: `ThemeProvider` hard-locked to light; profile **Appearance** theme picker removed (section re-headlined "Feedback", Haptics toggle kept); in-editor **Theme** card removed from the site-editor; `viewport.themeColor` pinned white. The `users.theme_preference` column + `updateThemePreference` action + `html.dark` CSS are left dormant for a trivial revert.
 

@@ -334,6 +334,7 @@ export async function declineInquiry(formData: FormData) {
       vendorProfileId: thread.vendor_profile_id,
       threadId: thread.thread_id,
       type: 'inquiry_declined',
+      reason,
     });
   }
 
@@ -355,6 +356,9 @@ async function notifyCoupleOfInquiryOutcome(args: {
   vendorProfileId: string;
   threadId: string;
   type: 'inquiry_accepted' | 'inquiry_declined';
+  /** Vendor's decline reason (declined only) · surfaced to the couple so the
+   *  "no" crosses the wire. Anonymity preserved — no vendor name with it. */
+  reason?: string | null;
 }): Promise<void> {
   const admin = createAdminClient();
   const accepted = args.type === 'inquiry_accepted';
@@ -384,7 +388,9 @@ async function notifyCoupleOfInquiryOutcome(args: {
         : 'A vendor declined your inquiry',
       body: accepted
         ? 'Your chat is open — send a message to keep planning together.'
-        : 'They are not available — browse similar vendors to keep your options open.',
+        : args.reason
+          ? `Why: “${args.reason}” — browse similar vendors to keep your options open.`
+          : 'They are not available — browse similar vendors to keep your options open.',
       relatedUrl: accepted
         ? `/dashboard/${args.eventId}/messages/${args.threadId}`
         : `/dashboard/${args.eventId}/vendors`,

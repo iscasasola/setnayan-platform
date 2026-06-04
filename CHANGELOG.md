@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(0006): event_vendors.category_key — taxonomy-keyed storage (PR-1 expand · fully-taxonomy-driven onboarding)
+
+**Context:** Owner ratified **fully taxonomy-driven onboarding** (2026-06-04) — the picker, the couple's stored selection, and auto-inquiries all derive from the live taxonomy, so a new tile auto-appears with no deploy. This **reverses the locked "couple-side `vendor_category` does NOT auto-expand" decision**. Spec: `Onboarding_Taxonomy_Driven_Spec_2026-06-04.md`. This is **PR-1 of 4 (expand-only · no behavior change)**.
+
+**What changed:** migration `20260815000000_event_vendors_category_key_taxonomy.sql`:
+- Adds nullable `event_vendors.category_key TEXT`, **FK → `service_categories(id)` `ON DELETE RESTRICT`** (the RESTRICT doubles as the "a running event can't lose a chosen category when an admin deletes its tile" guard) + a btree index.
+- **Backfills** `category_key` from the legacy `vendor_category` enum via the authoritative bridge (`lib/vendor-category-taxonomy.ts`): 24 clean 1:1, 2 coarse-alias → primary tile, 4 couple-only exempt → NULL. An `EXISTS (… tier 2)` guard makes every written value FK-valid; `IS NULL` makes it idempotent.
+- The legacy `category` enum column is **UNTOUCHED** (still NOT NULL, still source of truth). No RLS change (ADD COLUMN inherits the 0006 policies).
+
+**Drift found + handled:** the PG `vendor_category` enum has **36** values but the TS `VendorCategory` type / bridge cover only **30** — the 6 attire alters (`bridal_gown`/`groom_suit`/`bridal_shoes`/`groom_shoes`/`entourage_attire`/`parents_attire`) drifted out. The backfill covers all 36. The TS-type catch-up is a PR-2/3 cleanup.
+
+**Verification:** expand-only + idempotent (`IF NOT EXISTS` / `DO $$…duplicate_object` / `IS NULL` / `EXISTS tier-2`). No app code changed in PR-1. Not yet applied to prod (apply via `supabase db push --db-url "$SUPABASE_DB_URL"`).
+
+**SPEC IMPACT:** Reverses the couple-side-curation lock + adds `category_key` to 0006. → `COWORK_INBOX.md` (decision-log reversal row + 0006/0000/0021/0007 fold-in).
+
 ## 2026-06-04 · style(onboarding): Near-me Top-30 results render as photo cards (location step)
 
 **Context:** Owner — on the "Where will it be?" step, when the couple taps **"Near me"** and a result is one of the **Top-30 wedding destinations**, the card should use the **same background photo** the Top-30 carousel uses, instead of a plain text row.

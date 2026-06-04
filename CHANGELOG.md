@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · assets(onboarding): real Filipino faith ceremony photos (8 traditions)
+
+**Context:** Owner — the ceremony/tradition photos should show **actual Filipino couples mid-ceremony with guests**, ethnicity-tuned per religion.
+
+**What changed:** Regenerated all 8 faith hero photos (`public/onboarding/wed_{catholic,christian,inc,muslim,cultural,chinese,jewish,bornagain}.webp`) via Recraft — authentic Filipino couples performing their tradition's ceremony with guests:
+- **Catholic** (church altar + priest) · **Christian** (garden floral arch) · **Born Again** (modern evangelical stage + worship band) · **INC** (clean modern worship hall, **no cross/crucifix or icons** — the INC distinctive) · **Muslim** (Maranao traditional attire + canopy) · **Cultural** (Igorot/Cordillera) · **Chinese** (red/gold tea ceremony, subtle East-Asian features) · **Jewish** (chuppah + kippah/tallit).
+- Ethnicity-tuned per the owner's note. Downscaled to 760×950 WebP (~545 KB total).
+
+**Verification:** Asset swap only — same filenames/keys, no code change.
+
+**SPEC IMPACT:** None (asset refresh; FAITH_PHOTO keys unchanged).
+
 ## 2026-06-04 · feat(0023/0022): vendor "request a category" governance (taxonomy Phase 4)
 
 **Context:** The last gap in the DB-backed-taxonomy initiative — letting a vendor REQUEST a category they can't find and an admin resolve it. Closes 0023 §3.2c (the "there's always a place for what you do" promise — no "Other" bucket).

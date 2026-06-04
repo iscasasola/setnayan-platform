@@ -208,7 +208,7 @@ export default function OfflineDiagnostic() {
             Couldn&rsquo;t read queue stats: {loadError}
           </p>
         ) : (
-          <div className="overflow-hidden rounded border border-ink/10">
+          <div className="overflow-x-auto rounded border border-ink/10">
             <table className="m-table w-full text-sm">
               <thead>
                 <tr className="bg-cream-soft text-left">

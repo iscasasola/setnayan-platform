@@ -109,7 +109,7 @@ export default async function DemoInquiriesPage() {
           Follow, and Message. The inquiry will appear here.
         </p>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-ink/10 bg-cream">
+        <div className="overflow-x-auto rounded-xl border border-ink/10 bg-cream">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-ink/10 bg-ink/5 text-left text-[11px] uppercase tracking-wider text-ink/55">

@@ -113,19 +113,19 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     icon: Menu,
     activeMatch: [
       '/admin/more',
-      // Content group
-      '/admin/brain',
-      '/admin/moodboard-library',
-      '/admin/taxonomy',
-      '/admin/website',
-      '/admin/ads',
-      // Operations group
+      // Insights group (2026-06-04 remap — now also holds the old Operations surfaces)
+      '/admin/growth',
+      '/admin/funnels',
       '/admin/operations-hiring',
       '/admin/telemetry',
       '/admin/offline',
-      // Insights group
-      '/admin/growth',
-      '/admin/funnels',
+      // Manage group (2026-06-04 remap — old Content + Settings)
+      '/admin/brain',
+      '/admin/moodboard-library',
+      '/admin/taxonomy',
+      '/admin/songs',
+      '/admin/website',
+      '/admin/ads',
       // Settings group. Note: `/admin/settings/payment-methods` will ALSO
       // match the Money tab above (via the same `/admin/settings/payment-methods`
       // prefix). This is acceptable dual-highlight because the iteration

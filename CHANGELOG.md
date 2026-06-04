@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · fix(onboarding): location-pick chip × button — crisp centered SVG icon
+
+**Context:** Owner — *"fix the close button of Tagaytay."* The `×` glyph rendered slightly high/cramped.
+
+**What changed:** Replaced the `{'×'}` glyph in `.locchip-x` with a centered **SVG ×** + a **24px** tap target.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean.
+
+**SPEC IMPACT:** None (cosmetic).
+
 ## 2026-06-04 · feat(0006): event_vendors.category_key — taxonomy-keyed storage (PR-1 expand · fully-taxonomy-driven onboarding)
 
 **Context:** Owner ratified **fully taxonomy-driven onboarding** (2026-06-04) — the picker, the couple's stored selection, and auto-inquiries all derive from the live taxonomy, so a new tile auto-appears with no deploy. This **reverses the locked "couple-side `vendor_category` does NOT auto-expand" decision**. Spec: `Onboarding_Taxonomy_Driven_Spec_2026-06-04.md`. This is **PR-1 of 4 (expand-only · no behavior change)**.

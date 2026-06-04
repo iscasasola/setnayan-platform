@@ -159,7 +159,9 @@ export function LocationStep({
                     aria-label={`Remove ${c?.n ?? k}`}
                     onClick={() => toggle(k)}
                   >
-                    {'×'}
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+                      <path d="M7 7l10 10M17 7L7 17" />
+                    </svg>
                   </button>
                 </span>
               );

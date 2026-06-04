@@ -44,9 +44,9 @@ export const CEREMONY_TYPE_OPTIONS: CeremonyOption[] = [
     description: 'Mass at a Catholic church with priest, ninong/ninang, cord & veil',
   },
   {
-    key: 'civil',
-    label: 'Civil',
-    description: 'City hall ceremony with witnesses',
+    key: 'muslim',
+    label: 'Muslim',
+    description: 'Nikah ceremony with imam',
   },
   {
     key: 'inc',
@@ -54,14 +54,19 @@ export const CEREMONY_TYPE_OPTIONS: CeremonyOption[] = [
     description: 'Iglesia ni Cristo ceremony with minister',
   },
   {
+    key: 'chinese',
+    label: 'Chinese',
+    description: 'Tea ceremony and Chinese customs, often with a church or civil rite',
+  },
+  {
+    key: 'born_again',
+    label: 'Born Again',
+    description: 'Born Again / Pentecostal Christian ceremony',
+  },
+  {
     key: 'christian',
     label: 'Christian',
     description: 'Protestant, Evangelical, or other Christian ceremony',
-  },
-  {
-    key: 'muslim',
-    label: 'Muslim',
-    description: 'Nikah ceremony with imam',
   },
   {
     key: 'cultural',
@@ -69,19 +74,14 @@ export const CEREMONY_TYPE_OPTIONS: CeremonyOption[] = [
     description: 'Indigenous Filipino tradition (Maranao, Tausug, Maguindanao, Sama, Yakan, other)',
   },
   {
-    key: 'chinese',
-    label: 'Chinese',
-    description: 'Tea ceremony and Chinese customs, often with a church or civil rite',
-  },
-  {
     key: 'jewish',
     label: 'Jewish',
     description: 'Ceremony under a chuppah with a rabbi and ketubah signing',
   },
   {
-    key: 'born_again',
-    label: 'Born Again',
-    description: 'Born Again / Pentecostal Christian ceremony',
+    key: 'civil',
+    label: 'Civil',
+    description: 'City hall ceremony with witnesses',
   },
   {
     key: 'mixed',

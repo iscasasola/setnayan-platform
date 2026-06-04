@@ -74,14 +74,14 @@ const CULTURAL_SUB_TYPES = [
 
 const SECONDARY_LABELS: Record<Exclude<CeremonyType, 'mixed'>, string> = {
   catholic: 'Catholic',
-  civil: 'Civil',
-  inc: 'INC',
-  christian: 'Christian',
   muslim: 'Muslim',
-  cultural: 'Cultural',
+  inc: 'INC',
   chinese: 'Chinese',
-  jewish: 'Jewish',
   born_again: 'Born Again',
+  christian: 'Christian',
+  cultural: 'Cultural',
+  jewish: 'Jewish',
+  civil: 'Civil',
 };
 
 type Props = {

@@ -1,11 +1,9 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
-  TAXONOMY_MAP,
-  WEDDING_FOLDER_LABEL,
-  WEDDING_FOLDER_ORDER,
   type WeddingFolder,
   type TaxonomyEntry,
 } from '@/lib/taxonomy';
+import { getTaxonomy } from '@/lib/taxonomy-db';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import { updatePlanningDeadline } from './actions';
 
@@ -77,14 +75,18 @@ export default async function AdminTaxonomyPage() {
   // Bucket each row into a wedding folder via TAXONOMY_MAP. Unknown keys land
   // in a separate "Unmapped" group so admins can spot drift between DB seeds
   // and the lib/taxonomy.ts metadata map.
+  // DB-backed taxonomy (Phase 2): the tree + canonical mapping are read from
+  // service_categories + canonical_service_taxonomy, falling back to the
+  // lib/taxonomy.ts constant if the tables are unseeded — see lib/taxonomy-db.ts.
+  const tax = await getTaxonomy();
   const buckets = new Map<WeddingFolder, Grouped>();
-  for (const folder of WEDDING_FOLDER_ORDER) {
-    buckets.set(folder, { folder, label: WEDDING_FOLDER_LABEL[folder], rows: [] });
+  for (const folder of tax.folderOrder) {
+    buckets.set(folder, { folder, label: tax.folderLabel[folder] ?? folder, rows: [] });
   }
   const unmapped: SchemaRow[] = [];
 
   for (const row of schemas) {
-    const meta = TAXONOMY_MAP[row.canonical_service];
+    const meta = tax.map[row.canonical_service];
     if (!meta) {
       unmapped.push(row);
       continue;
@@ -156,9 +158,10 @@ export default async function AdminTaxonomyPage() {
         </p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Taxonomy</h1>
         <p className="text-base text-ink/65">
-          Read-only viewer over <code className="font-mono text-sm">canonical_service_schemas</code>, grouped into the 12 PH-grounded wedding folders from
-          {' '}<code className="font-mono text-sm">Vendor_Taxonomy_V1_Master.md</code>. Faith badges surface conditionally on
-          {' '}<code className="font-mono text-sm">events.ceremony_type</code> per iteration 0043; phase badges show launch sequencing.
+          Read-only viewer over <code className="font-mono text-sm">canonical_service_schemas</code>, grouped into the 10 wedding parents via the{' '}
+          <strong>{tax.source === 'db' ? 'DB-backed taxonomy' : 'code fallback'}</strong>{' '}(<code className="font-mono text-sm">service_categories</code> + <code className="font-mono text-sm">canonical_service_taxonomy</code>
+          {tax.source === 'fallback' ? ' — tables unseeded, using lib/taxonomy.ts' : ''}). Faith badges surface conditionally on
+          {' '}<code className="font-mono text-sm">events.ceremony_type</code>; phase badges show launch sequencing.
         </p>
       </header>
 
@@ -242,7 +245,7 @@ export default async function AdminTaxonomyPage() {
         )}
       </section>
 
-      {WEDDING_FOLDER_ORDER.map((folder, idx) => {
+      {tax.folderOrder.map((folder, idx) => {
         const bucket = buckets.get(folder);
         if (!bucket) return null;
         return (

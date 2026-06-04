@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · ui(0043): re-order wedding-tradition chips by prevalence + spend (owner-decided)
+
+**Context:** Owner set the canonical tradition order — prevalence-led, with Chinese promoted into row 1 on its high-spend profile and Jewish last. Applied to every couple-facing ordered list so onboarding, create-event, and the marketplace filter agree.
+
+**What changed (pure display reorder — no logic, no schema, no migration):**
+- **Onboarding `FAITH_CHIPS` (the 4×2 grid):** Catholic · Muslim · INC · Chinese / Born Again · Christian · Cultural · Jewish.
+- **Shared `CEREMONY_TYPE_OPTIONS` (create-event picker + dashboard `ceremony-type-modal`):** same religion order, with **Civil + Mixed trailing** as the non-religious / combination options.
+- **`SECONDARY_LABELS` (create-event Mixed secondary picker):** same order, Civil trailing.
+- **`/vendors` `FAITH_KEYS_ORDER` (marketplace faith filter):** same 8-religion order.
+- Left as-is: vendor-profile + admin-venue tag checklists (vendor/admin-facing; can align on request).
+
+**Verification:** Pure array/object-key reorder (28 insertions / 28 deletions); no value or type change, no exhaustive-map breakage. Relying on CI `typecheck + lint` + `production build`.
+
+**SPEC IMPACT:** Minor — the 0043 / spec-0000 chip order should read Catholic · Muslim · INC · Chinese · Born Again · Christian · Cultural · Jewish. See `COWORK_INBOX.md`.
+
 ## 2026-06-04 · ui(0021,0001): dashboard scale consistency — Guests + Website editor adopt the canonical card metric
 
 **Context:** Owner directive — *"keep our dashboard design consistent and use that kind of height and icon size and font size for guests, websites."* The couple dashboard's canonical card chrome (the `/more` landing cards · `dashboard/[eventId]/_components/customer-mobile-landing.tsx`) is the reference: a 40px (`h-10 w-10`) `rounded-md` leading icon chip, a 20px (`h-5 w-5`) glyph, a `text-base font-semibold` label, `text-xs` sub-text, and `min-h-[44px]` tap targets. The Guests page and the full-screen Website "site-editor" (the **Website** bottom-nav doorway → `/site-editor/[eventId]`) had drifted smaller (`h-9`/`h-7` chips, `h-[18px]`/`h-4` glyphs, `text-[12.5px]`/`text-[14.5px]` labels), so they read as a separate, denser surface.

@@ -22,6 +22,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** Reverses the 2026-05-22 Light/Dark/Auto brand-pivot lock — affects **0021** (theme system / Appearance), **0025** (Profile Settings → Appearance tab), and the corpus **DECISION_LOG**. → `COWORK_INBOX.md`.
 
+## 2026-06-04 · feat(0023): Growth surface — demo-mode data, CSV export, event breakdowns
+
+**Context:** Follow-ups to the just-shipped `/admin/growth` surface (PR #938): the owner asked to (b) seed demo data so the curves show shape pre-pilot, and (c) add a CSV export + extra breakdowns (per-region / per-event-type). (a) — a live admin screenshot — is handled out-of-band against the deployed site.
+
+**What changed** (additive, no migration):
+- **`lib/admin/growth-stats.ts`** — new `buildDemoGrowthStats(range)`: deterministic synthetic population + 5 rising series + ~42% conversion + breakdowns, `demo:true`, NO DB reads (stable screenshots). New `fetchBreakdowns()` (one bounded `events` read → events-by-type via enum-label map + events-by-region via uppercased `region` slug, null→Unspecified, sorted desc, `sampled` flag). `GrowthStats` gains `demo` + `breakdowns`.
+- **`app/admin/growth/page.tsx`** — reads the admin demo-mode cookie/flag (page is already admin-gated by the layout); in demo mode renders the synthetic stats with an **"Illustrative demo data"** badge. New **Breakdowns** section (Events by type + Events by region bar lists). New **Export CSV** button.
+- **`app/admin/growth/export/route.ts`** (new) — admin-gated GET (re-checks admin since route handlers bypass the layout guard; 404 for non-admins). Honors `range` + the demo flag (export matches what's on screen). Returns a tidy/long-format `text/csv` attachment (section,series,period,value) covering population + per-entity growth curves + conversion + breakdowns.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean · `next build` exit 0 (`/admin/growth` + `/admin/growth/export` both ƒ dynamic). Isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** Extends the 0023 Growth surface (still the same 29th surface). → `COWORK_INBOX.md` [PENDING]: note the demo-mode preview, CSV export, and event type/region breakdowns in the 0023 Growth subsection.
+
 ## 2026-06-04 · fix(onboarding): welcome photo cover-fit (no distortion) + location picks share the row
 
 **Context:** Owner — *"the first slide's photo is distorted; just fill the space to not distort it; all background feel should not be distorted, just fill the space"* + *"keep the location choices consistent in length and height — the two buttons equally share a row, but if one only, they fill the row."*

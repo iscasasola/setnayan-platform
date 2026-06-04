@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(dashboard/home): live days·hrs·min·sec countdown (0021)
+
+**Context:** Owner — *"days, hours, minutes, seconds."* The cockpit countdown showed a static "N days to go"; make it a live ticking timer.
+
+**What changed** (`apps/web/app/dashboard/[eventId]/_components/`):
+- New **`live-countdown.tsx`** (client) — ticks every second, rendering **days · hrs · min · sec** with `tabular-nums` + fixed-width segments (no per-second jitter). At/after the date → "Today" (within 24h) then "Just married".
+- `event-countdown-header.tsx` (server) restructured: resolves the target date (committed `event_date` → earliest `date_candidates` → `date_window_start`), computes the target as **PH-midnight (`+08:00`) of that date**, and passes `targetMs` + the server clock to `<LiveCountdown>` so the first paint matches between server and client (no hydration mismatch — both seed from `serverNowMs`). The date line shows the exact target date; a small caption ("Earliest of N possible dates" / "Earliest in your date window" / "Tentative — not locked yet") appears while the date isn't committed.
+
+**Verify:** `tsc --noEmit` + `next lint` green. No migration, no new query (`now` already passed; date fields already in the events SELECT).
+
+**SPEC IMPACT:** Refines the 0021 cockpit countdown (now a live d/h/m/s timer counting to PH-midnight of the earliest chosen date). Folds into the existing "couple Home cockpit" COWORK_INBOX item / 0021.
+
 ## 2026-06-04 · feat(0022): Vendor agents — role-aware RLS scoping (Phase 2b)
 
 **Context:** The payoff of the multi-user vendor workspace. The whole vendor data layer was OWNER-ONLY at the RLS level, so non-owner admins/agents could read nothing. Phase 2b makes it role-aware: **owner/admin see everything; agents see only their assigned services + the customers tied to them** (a couple's `event_vendors.service_id` → the booked `vendor_services`). Couple-side access is untouched.

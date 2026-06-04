@@ -4,6 +4,53 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(0022): Vendor agents — per-service assignment (Phase 2a)
+
+**Context:** Phase 2 of the vendor multi-user workspace (after the Phase-1 role-aware shell, #962). The owner wants agents to "see only the services + customers they manage." Investigation confirmed the customer↔service link exists (`event_vendors.service_id` → the booked `vendor_services` row), so per-service scoping is feasible. This is **Phase 2a — the assignment foundation**: owners/admins assign agents to specific services. Phase 2b consumes it (scopes the agent's dashboard reads + nav to assigned services + their customers, via RLS).
+
+**What changed:**
+- **Migration `20260816000000_vendor_service_agents.sql`** (new table, RLS, **applied to prod**) — `vendor_service_agents(vendor_service_id, vendor_team_member_id)`. RLS: any vendor member reads the map; **owner/admin manage** (via `current_vendor_ids('admin')`). On-delete-cascade from both parents.
+- **`lib/vendor-team.ts`** — `fetchAssignableServices()` + `fetchAgentServiceAssignments()` (member→service-ids map, scoped to the vendor's own services).
+- **`app/vendor-dashboard/team/actions.ts`** — `setVendorAgentServices()` (replace-on-save; clamps selection to the vendor's own services; RLS enforces owner/admin).
+- **`app/vendor-dashboard/team/page.tsx`** — under each **agent** member, a checkbox row of the vendor's services (pre-checked from current assignments) → Save.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean · `next build` exit 0 · migration dry-run showed only this file pending, then applied to prod. Isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** 0022 — new `vendor_service_agents` table + per-service agent assignment UI (the spec'd-but-unbuilt scoping foundation). Phase 2b (agent-scoped reads + RLS on services/threads + admins-see-all resolution + nav expansion) is next. → `COWORK_INBOX.md` [PENDING].
+
+## 2026-06-04 · refactor(vendors/workspace): service-scoped per-vendor workspace page
+
+**Context:** Owner — clicking a finalized **service card** in the plan landed the couple on a page framed entirely around the *vendor* (big vendor header, hand-entered Costing, claim-link, cancel/dispute), with the thing they actually clicked — the **service/package** — buried as a small "What's included" list halfway down. Chosen approach: reframe the page to be **service-scoped** — lead with the booked service/package, demote the vendor to a "by {vendor}" attribution line. The URL's `[eventVendorId]` is the `event_vendors.vendor_id` PK, which binds to at most one locked package, so this needed no route/URL/schema change.
+
+**What changed** (all in `apps/web/app/dashboard/[eventId]/vendors/[eventVendorId]/workspace/page.tsx`):
+- **Service hero** replaces the vendor-identity header: package name (fallback: category label) as the H1, package blurb under it, **price** from the locked package (`event_vendor_packages.total_locked_centavos` → `vendor_packages.total_price_centavos`, rendered via `formatCentavosPhp` — centavos, NOT the peso `formatPHP`), and a small **"by {vendor}"** attribution line with the logo. Reads `vendor_profiles.is_setnayan_service` → renders **"Provided by Setnayan"** for first-party services.
+- **"What's included"** (the package's `vendor_package_items`) promoted to directly under the hero.
+- Added a best-effort fetch of the package header (`event_vendor_packages` status/total + `vendor_packages` name/description/price) — only for `status='locked'` bookings; any null falls back to category-label title + notes, never a 500.
+- **Order & payment status** stepper collapsed from 5 stages to the **3 truthful ones** (Plan finalized → Downpayment paid → Delivered) — `workspace_status` is never written in V1 (its only writer ships unwired), so the 2 middle stages could never light up. Driven off `inferStage(vendor_status)`. Payments (the `VendorItemizationCard` embed) sits under the stepper.
+- Vendor-coordination surfaces (Conversation/Documents/Schedules), the Costing form, and the claim-link block **demoted** below the service surfaces.
+- **Removed the dead "Package details" placeholder section** (Task #27 stub) — it duplicated the new hero and double-rendered `ev.notes`. Notes now render **once** in a dedicated "Your notes" block.
+- **Dropped the double-fetch**: the standalone `event_vendor_line_items` + `event_vendor_payments` queries (header sums) are gone; header money now comes from the `fetchBudgetSnapshot` summary already loaded for the embed. −2 queries.
+- **Timezone**: `formatMeetingDate`/`formatPaymentDate` now pin `Asia/Manila` (matches the 6 other files that do).
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean (no warnings; confirms no dangling imports after the section removal) · render matrix reasoned over the 3 pick shapes (marketplace-package / manual-no-package / Setnayan-service) · deep-link anchors `#conversation`/`#documents`/`#payments` preserved. Isolated worktree off `origin/main`. Auth-gated RSC route — not browser-previewable without a seeded session.
+
+**SPEC IMPACT:** The per-vendor workspace surface is reframed from vendor-scoped to **service-scoped** (service/package as the hero; vendor demoted to attribution; 3-state truthful status stepper; first-party Setnayan services show "Provided by Setnayan"). This surface came from the 2026-05-22 owner directive and is **not currently in the spec corpus**. → record in `DECISION_LOG.md` + the relevant iteration (0006 vendors mgmt / 0021 couple dashboard). Logged in `COWORK_INBOX.md`. Fast-follows (deferred, not in this PR): strip Costing/dispute chrome from first-party Setnayan services + real 0034 order-and-pay panel; `fetchBudgetSnapshot` per-vendor overfetch; `ensureAutoShareInvite` write-on-render; dead `workspace/actions.ts` exports.
+
+## 2026-06-04 · feat(0000): event-type "feel photo" picker (replaces the bars) + per-event step study
+
+**Context:** Owner reversed the same-day minimal "bar" picker — *"we do not want the lines. we want photos without the carousel indicators. just photos of how the event would feel like"* + *"clickable on the center when the photo is fully visible. it needs to snap."* Also asked for a study of which wedding-onboarding steps each event type drops.
+
+**What changed** (`apps/web/app/dashboard/create-event/_components/`):
+- **New `event-type-photo-picker.tsx`** — a horizontal, scroll-snapping deck of full-bleed event "feel" photos (`/public/event-types/{key}.webp` via `next/image`). NO dots/arrows/bars; neighbours peek dimmed + scaled so the centered photo is the focus; each carries the event name + a one-line tagline + a "Begin →" affordance that appears only on the centered card. Snap-mandatory + snap-stop; tapping the centered photo fires `onSelect` (→ onboarding / inline-form), tapping a side photo snaps it to center. Centers Wedding on mount.
+- **`event-type-picker.tsx`** — renders `EventTypePhotoPicker` instead of the bar picker (same `onSelect` / `onboardingHref` routing).
+- **Deleted `event-type-bar-picker.tsx`** (the bars — superseded).
+
+**Per-event step study (separate deliverable, sourced/PH-aware):** 8 of 15 wedding steps are universal (Welcome/Region/Guests/Budget/Account/Find-vendor/Congrats/Plan — copy-swap only); **Kind + Faith/ceremony + ceremony-venue + wedding-documents DROP for all event types except christening** (keeps a light parish/rite + ninong/ninang); per-event work concentrates in Role + Identity + service-picker + style via 2–3 swap-in questions. Recommends one parameterized shell. Folds into the per-event build plan.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` (create-event dir) clean · interaction (snap + center-click + peeking neighbours) approved via the standalone prototype (real authed render on the Vercel preview).
+
+**SPEC IMPACT:** 0000 — the create-event picker is a feel-photo deck (no carousel indicators; tap centered to begin), superseding the bar picker ([#961]). Per-event onboarding step recommendation captured. → `COWORK_INBOX.md`.
+
 ## 2026-06-04 · feat(0023): Admin dashboard remap — 6 groups + mobile table + orphan fixes
 
 **Context:** Owner directive — make the admin console seamless + simple, especially on mobile. Companion to the vendor remap (PR #962). Desktop had 8 sidebar groups; mobile had 4 data tables that overflowed the viewport (the real "manage on mobile" defects from the earlier study).

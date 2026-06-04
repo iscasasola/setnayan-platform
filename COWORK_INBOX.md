@@ -8,6 +8,36 @@
 
 ---
 
+## [PENDING] 2026-06-04 — Vendor agents: per-service assignment · Phase 2a (0022)
+
+**Why:** Phase 2 of the vendor multi-user workspace — agents see only the services + customers they manage. Phase 2a ships the assignment foundation: a new `vendor_service_agents` table (RLS: members read, owner/admin manage) + a per-agent service-assignment UI on the Team page. The customer link is `event_vendors.service_id` → booked `vendor_services`. Migration applied to prod.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`0022_vendor_dashboard.md` §2.6a** — record that `vendor_service_agents(vendor_service_id, vendor_team_member_id)` is now BUILT (was spec-only), with the Team-page assignment UI (owner/admin assign agents to services). Note the customer derivation: an agent's customers = events whose `event_vendors.service_id` is one of the agent's assigned services.
+2. Note the **Phase 2b** follow-up (not yet built): agent-scoped dashboard reads (Services/Bookings/Messages filtered to assigned) enforced via RLS, admins-see-everything data resolution, agent nav expansion, and route guards.
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
+## [PENDING] 2026-06-04 — per-vendor workspace reframed vendor-scoped → service-scoped (0006 / 0021)
+
+**Why:** Clicking a finalized **service card** landed the couple on a page framed around the *vendor*, not the *service* they clicked. Reframed so the booked service/package is the hero (name · blurb · inclusions · price · status) and the vendor is a secondary "by {vendor}" attribution line. Owner-chosen 2026-06-04. This surface (`/dashboard/[eventId]/vendors/[eventVendorId]/workspace`) traces to the 2026-05-22 owner directive and was never written into the spec corpus.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`DECISION_LOG.md`** — add a row: *"2026-06-04 · Per-vendor workspace page is service-scoped — service/package is the hero (name/blurb/inclusions/price/order-status); vendor demoted to a 'by {vendor}' attribution; status stepper collapsed to 3 truthful stages (Plan finalized → Downpayment paid → Delivered); first-party Setnayan services render 'Provided by Setnayan'. URL's `vendor_id` PK already binds one service context — no route/schema change."*
+2. **`0006_vendors_management/0006_vendors_management.md`** (and/or **`0021_couple_dashboard_fully_purchased.md`**) — document the per-service workspace surface: the section order (service hero · what's included · order & payment status + payments · conversation · documents · schedules · marketplace info · costing · your notes · claim-link), reached by clicking a finalized service card.
+
+**Fast-follows to note (deferred, NOT in this PR):**
+- First-party **Setnayan service** chrome: hide the host Costing form + cancel/dispute, show a real **iteration-0034 order-and-pay** status panel (Setnayan services are order-and-pay, not host-tracked).
+- `fetchBudgetSnapshot` per-vendor overfetch (pulls all vendors, `.find()`s one).
+- `ensureAutoShareInvite` write-on-render (page.tsx) → move into finalize / a server action.
+- Two dead `workspace/actions.ts` exports (`advanceWorkspaceStatus`/`advanceWorkspaceStatusForm`) — wire or delete.
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
 ## [PENDING] 2026-06-04 — Admin dashboard remap: 6 groups + mobile table/orphan fixes (0023)
 
 **Why:** Owner directive to simplify the admin console + fix mobile. Desktop sidebar collapsed **8 → 6 groups**; 4 mobile-overflowing tables fixed; the `/admin/songs` mobile orphan reached.
@@ -20,13 +50,13 @@
 
 ---
 
-## [PENDING] 2026-06-04 — Minimal event-type "bar picker" + tap-to-onboarding (0000 · per-event onboarding P1)
+## [PENDING] 2026-06-04 — Event-type "feel photo" picker + tap-to-onboarding (0000 · per-event onboarding)
 
-**Why:** Owner directive — the create-event event picker should be "nothing but the choice of events": a minimal bar strip; tapping a type jumps straight into that event's onboarding. Replaces the hero-photo carousel + the name-form-first flow on the full-page create-event surface. Phase 1 of the per-event tailored-onboarding build (each event type gets its own onboarding mimicking the wedding flow — Debut next).
+**Why:** Owner directive — the create-event event picker should be **photos of how each event feels**, with NO carousel indicators (no dots/arrows/bars); tap the centered (fully-visible) photo to begin → jumps straight into that event's onboarding. (Supersedes the same-day minimal "bar" picker — owner reversed the bars to feel-photos.) Part of the per-event tailored-onboarding build (each event type gets its own onboarding mimicking the wedding flow — Debut next).
 
 **Spec corpus updates (owner walks via Cowork):**
-1. **`0000_app_shell_and_navigation.md`** — the create-event "swipeable hero-photo carousel of event types" is replaced by a **minimal bar picker**: a row of bars (one per type) between ‹ › chevrons; the focused bar is gold + taller; tap a bar to pick. **Tapping routes straight into that event's onboarding** (Wedding → `/onboarding/wedding` today; each other type as its tailored onboarding lands) — the intermediate "Continue →" card and the name-form-first step are gone for onboarding-backed types. The in-chrome add-event bottom sheet keeps the hero carousel (unchanged).
-2. **`0016_*` onboarding (or a new per-event-onboarding spec)** — onboarding generalizes from wedding-only to **per-event**: each type gets a fully-tailored flow (own questions, palette, photos, copy, DB mapping) built on a **shared engine** (`app/onboarding/_shared/`); event-specific data lands in an additive `events.attributes JSONB`. Roll-out is exemplar-first (Debut), then one type per iteration (christening, birthday, gender_reveal, celebration, corporate, travel, tournament). Architecture + per-type sketches: repo plan `.claude/plans/curious-swimming-journal.md`.
+1. **`0000_app_shell_and_navigation.md`** — the create-event "swipeable hero-photo carousel of event types" becomes a **feel-photo picker**: a horizontal, scroll-snapping deck of full-bleed event photos (`/public/event-types/{type}.webp`), **no dots/arrows/bars** — neighbours peek dimmed so the centered photo is the focus; each photo carries the event name + a one-line "feel" tagline + a "Begin →" that shows only on the centered card. **Tap the centered photo to begin** → routes straight into that event's onboarding (Wedding → `/onboarding/wedding` today; each other type as its tailored onboarding lands). Tapping a side photo snaps it to center. The intermediate "Continue →" card and the name-form-first step are gone for onboarding-backed types; the in-chrome add-event bottom sheet keeps its hero carousel (unchanged).
+2. **`0016_*` onboarding (or a new per-event-onboarding spec)** — onboarding generalizes from wedding-only to **per-event** on a **shared engine** (`app/onboarding/_shared/`); event-specific data lands in an additive `events.attributes JSONB`. **Per-event step study (sourced, PH-aware):** 8 of 15 steps are UNIVERSAL (Welcome · Region · Guests · Budget · Account · Find-vendor · Congrats · Plan — copy-swap only); **Kind + Faith/ceremony + wedding-documents + ceremony-venue DROP for all except christening** (which keeps a light parish/rite + adds ninong/ninang godparents); the per-event work is the Role + Identity (names/monogram) + service-picker + style steps via 2–3 swap-in questions. Cross-cutting params: identity (couple / single name / company+logo / team crest), guest-count shape (1/2/3 numbers), date shape (single / window / range / multi-week). Roll-out exemplar-first (Debut), then one per iteration. Full matrix + per-type notes + sources captured for the build.
 
 **When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
 

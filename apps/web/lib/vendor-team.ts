@@ -82,3 +82,51 @@ export async function enrichTeamWithUsers(
     display_name: byId.get(m.user_id)?.display_name ?? null,
   }));
 }
+
+// ── Per-service agent assignment (Phase 2a) ───────────────────────────────
+
+export type AssignableService = {
+  vendor_service_id: string;
+  category: string;
+  is_active: boolean;
+};
+
+/** The vendor's own services — the assignable set for agent scoping. */
+export async function fetchAssignableServices(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+): Promise<AssignableService[]> {
+  const { data, error } = await supabase
+    .from('vendor_services')
+    .select('vendor_service_id,category,is_active')
+    .eq('vendor_profile_id', vendorProfileId)
+    .order('category', { ascending: true });
+  if (error) throw new Error(`fetchAssignableServices failed: ${error.message}`);
+  return (data ?? []) as AssignableService[];
+}
+
+/**
+ * Map of vendor_team_member_id → assigned vendor_service_ids, scoped to this
+ * vendor's own services (so a member's assignments from another vendor never
+ * leak in). Used to pre-check the assignment boxes on the Team page.
+ */
+export async function fetchAgentServiceAssignments(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+): Promise<Record<string, string[]>> {
+  const services = await fetchAssignableServices(supabase, vendorProfileId);
+  const serviceIds = services.map((s) => s.vendor_service_id);
+  if (serviceIds.length === 0) return {};
+  const { data, error } = await supabase
+    .from('vendor_service_agents')
+    .select('vendor_team_member_id,vendor_service_id')
+    .in('vendor_service_id', serviceIds);
+  if (error) throw new Error(`fetchAgentServiceAssignments failed: ${error.message}`);
+  const map: Record<string, string[]> = {};
+  for (const row of data ?? []) {
+    const memberId = (row as { vendor_team_member_id: string }).vendor_team_member_id;
+    const serviceId = (row as { vendor_service_id: string }).vendor_service_id;
+    (map[memberId] ??= []).push(serviceId);
+  }
+  return map;
+}

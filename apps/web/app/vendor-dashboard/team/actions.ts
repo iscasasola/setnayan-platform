@@ -201,3 +201,64 @@ export async function removeVendorTeamMember(formData: FormData) {
   revalidatePath('/vendor-dashboard/team');
   redirect('/vendor-dashboard/team?saved=1');
 }
+
+/**
+ * Phase 2a — set which services an agent is assigned to. Replaces the member's
+ * assignment rows with the submitted selection. Owner/admin only (enforced by
+ * RLS on vendor_service_agents via current_vendor_ids('admin')); the action
+ * also clamps the selection to the vendor's own services defensively.
+ */
+export async function setVendorAgentServices(formData: FormData) {
+  const { supabase, profile } = await ensureOwner();
+
+  const memberIdRaw = formData.get('vendor_team_member_id');
+  if (typeof memberIdRaw !== 'string' || memberIdRaw.length === 0) {
+    return redirect('/vendor-dashboard/team?error=Missing+member+id');
+  }
+
+  // The member must belong to THIS vendor.
+  const { data: member } = await supabase
+    .from('vendor_team_members')
+    .select('vendor_team_member_id')
+    .eq('vendor_team_member_id', memberIdRaw)
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .maybeSingle();
+  if (!member) {
+    return redirect('/vendor-dashboard/team?error=Member+not+found');
+  }
+
+  // Clamp the submitted ids to the vendor's own services.
+  const { data: services } = await supabase
+    .from('vendor_services')
+    .select('vendor_service_id')
+    .eq('vendor_profile_id', profile.vendor_profile_id);
+  const valid = new Set(
+    (services ?? []).map((s) => (s as { vendor_service_id: string }).vendor_service_id),
+  );
+  const selected = formData
+    .getAll('service_ids')
+    .filter((v): v is string => typeof v === 'string' && valid.has(v));
+
+  // Replace this member's assignments: clear, then insert the selection.
+  const { error: delErr } = await supabase
+    .from('vendor_service_agents')
+    .delete()
+    .eq('vendor_team_member_id', memberIdRaw);
+  if (delErr) {
+    return redirect(`/vendor-dashboard/team?error=${encodeURIComponent(delErr.message)}`);
+  }
+  if (selected.length > 0) {
+    const { error: insErr } = await supabase.from('vendor_service_agents').insert(
+      selected.map((vendor_service_id) => ({
+        vendor_service_id,
+        vendor_team_member_id: memberIdRaw,
+      })),
+    );
+    if (insErr) {
+      return redirect(`/vendor-dashboard/team?error=${encodeURIComponent(insErr.message)}`);
+    }
+  }
+
+  revalidatePath('/vendor-dashboard/team');
+  redirect('/vendor-dashboard/team?saved=1');
+}

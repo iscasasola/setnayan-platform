@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(0006): vendor detail page shows the generic placeholder photo too
+
+**Context:** Completes the follow-up flagged in the prior placeholder PR (#917). The vendor detail page `/v/[slug]` hid its Portfolio section entirely when a vendor had no photos, leaving the page without a service photo.
+
+**What changed (`app/v/[slug]/page.tsx`):** when a vendor has **no portfolio photos** (`portfolioUrls.length === 0`), a hero banner now renders the bundled `VENDOR_PLACEHOLDER_PHOTO` at the top of the page (above the logo + name). Vendors *with* portfolio photos are unchanged — their gallery already shows them, so no banner. Applies to real and demo vendors alike (owner: "it can apply to real vendors as well").
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean. Isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** None — completes the already-flagged placeholder behavior (the `COWORK_INBOX.md` item from #917 named the detail page as the follow-up; now done).
+
 ## 2026-06-04 · feat(0006/0021): generic placeholder photo for vendors with no photo
 
 **Context:** Owner — *"for vendors with no photo for their service, we must have at least a generic placeholder photo."* The marketplace card + the category picker fell back to **initials** (a monogram tile), not a photo, when a vendor had no usable image.

@@ -4,6 +4,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · revert(theme): light-lock the app — disable OS dark-mode auto-follow + remove the Light/Dark/Auto switch
+
+**Context:** Owner — *"the app used to adjust automatic to light and dark theme. disable this and just always keep it light theme."* Reverts the 2026-05-22 brand-pivot Light/Dark/Auto trio (which made the app follow the device `prefers-color-scheme`). Setnayan now renders in the light Clean-Editorial palette on every dashboard / marketing surface, ignoring the OS setting and any previously-stored preference.
+
+**What changed:**
+- **`app/_components/theme-provider.tsx`** — hard-locked to light. The `useTheme()` API is kept (≈7 consumers call it) but `mode`/`resolvedTheme` are always `'light'`, `setMode` is a no-op, and the `.dark` class is never applied (stripped on mount + by the bootstrap script). The FOUC bootstrap script is reduced to "strip `.dark`" so a stale cached shell can't paint dark.
+- **`app/layout.tsx`** — `viewport.themeColor` pinned to a single `#FFFFFF` (dropped the `prefers-color-scheme: dark → #18191A` variant) so a dark-mode device no longer tints the browser chrome dark against the light page.
+- **`app/dashboard/profile/page.tsx`** — removed the **Appearance** theme picker; the section is re-headlined **"Feedback"** and keeps the existing Haptics toggle. Dropped the now-unused theme imports + the `theme_preference` read.
+- **`app/dashboard/profile/_components/theme-mode-picker.tsx`** — deleted (orphaned).
+- **`app/site-editor/[eventId]/_components/site-editor.tsx`** — removed the in-editor **Theme** card (it flipped the same global theme) + its now-unused imports; refreshed the doc comment.
+- **`app/globals.css`** — header comment updated; the `html.dark` token overrides are LEFT dormant (now unreachable).
+
+**Dormant (not removed, for a trivial revert):** the `users.theme_preference` column + its `updateThemePreference` server action (now unread) + the `html.dark` CSS blocks. Because `darkMode: 'class'` (tailwind.config.ts) and globals.css has **no** `@media (prefers-color-scheme: dark)` rule, never adding `.dark` makes the app light by construction — every `dark:` variant simply goes inert.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean (only pre-existing warnings, none in touched files) · production build green. No tests reference the theme system.
+
+**SPEC IMPACT:** Reverses the 2026-05-22 Light/Dark/Auto brand-pivot lock — affects **0021** (theme system / Appearance), **0025** (Profile Settings → Appearance tab), and the corpus **DECISION_LOG**. → `COWORK_INBOX.md`.
+
 ## 2026-06-04 · revert(onboarding): undo the immersive full-bleed on role/kind/faith — back to the card layout
 
 **Context:** Owner — *"undo the full screens"* → chose *"back to the old cards."* Reverts the immersive redesign of the three choice screens; the welcome is left as-is.

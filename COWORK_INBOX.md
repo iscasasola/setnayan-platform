@@ -8,6 +8,20 @@
 
 ---
 
+## [PENDING] 2026-06-04 — app light-locked: Light/Dark/Auto theme switch + OS dark-mode auto-follow removed (0021 / 0025 / DECISION_LOG)
+
+**Why:** Owner — *"the app used to adjust automatic to light and dark theme. disable this and just always keep it light theme."* Reverts the 2026-05-22 brand-pivot Light/Dark/Auto trio. The app now renders light on every dashboard/marketing surface, ignoring the device `prefers-color-scheme` and any stored preference. Code: `ThemeProvider` hard-locked to light; profile **Appearance** theme picker removed (section re-headlined "Feedback", Haptics toggle kept); in-editor **Theme** card removed from the site-editor; `viewport.themeColor` pinned white. The `users.theme_preference` column + `updateThemePreference` action + `html.dark` CSS are left dormant for a trivial revert.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`DECISION_LOG.md`** — append: `| 2026-06-04 | App light-locked — Light/Dark/Auto theme switch + OS dark-mode auto-follow removed; renders light everywhere | Owner "just always keep it light theme"; reverts the 2026-05-22 brand-pivot trio; theme_preference column + html.dark CSS left dormant for trivial revert |`.
+2. **`0021_couple_dashboard_fully_purchased/`** — the 5-theme→3-mode (Light/Dark/Auto) "theme system + runtime theme picker" notes are superseded: the runtime theme picker is **removed**; the app is **light-only**.
+3. **`0025_profile_settings/`** — the **Appearance** tab no longer offers Light/Dark/Auto (theme picker removed); it now carries only the Haptics ("Feedback") toggle. Consider renaming the tab.
+4. (Optional) any spec copy describing "just like iOS · light/dark/auto" appearance — reword to light-only.
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
 ## [PENDING] 2026-06-04 — REVERTED: role/kind/faith immersive full-bleed undone (back to cards)
 
 **Why:** Owner — *"undo the full screens."* The immersive redesign of role/kind/faith is **reverted**: role + kind back to title + description + radio-circle cards (3-in-a-row); faith back to its 1-row chip carousel; no full-bleed. The welcome stays full-bleed.

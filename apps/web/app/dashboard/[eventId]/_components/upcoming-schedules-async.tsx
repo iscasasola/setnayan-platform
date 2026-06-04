@@ -78,7 +78,15 @@ export async function UpcomingSchedulesAsync({
     }
   })();
 
-  return <UpcomingSchedules eventId={eventId} items={upcoming.items} now={now} />;
+  return (
+    <UpcomingSchedules
+      eventId={eventId}
+      items={upcoming.items}
+      now={now}
+      headingLabel="Needs you"
+      emptyLabel="You're all caught up — nothing needs you right now."
+    />
+  );
 }
 
 /**

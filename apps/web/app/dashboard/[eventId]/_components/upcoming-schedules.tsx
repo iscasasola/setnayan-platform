@@ -39,9 +39,14 @@ type Props = {
   /** Server-passed clock so relative tags are stable between
    *  render and hydration. */
   now: Date;
+  /** Section heading. Defaults to "Upcoming"; Home passes "Needs you". */
+  headingLabel?: string;
+  /** Empty-state copy. Defaults to the calendar hint; Home passes an
+   *  "all caught up" message (which also drops the down-arrow). */
+  emptyLabel?: string;
 };
 
-export function UpcomingSchedules({ eventId, items, now }: Props) {
+export function UpcomingSchedules({ eventId, items, now, headingLabel, emptyLabel }: Props) {
   if (items.length === 0) {
     return (
       <section aria-labelledby="upcoming-heading" className="space-y-3">
@@ -49,11 +54,13 @@ export function UpcomingSchedules({ eventId, items, now }: Props) {
           id="upcoming-heading"
           className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55"
         >
-          Upcoming
+          {headingLabel ?? 'Upcoming'}
         </h2>
         <p className="flex items-center gap-2 rounded-xl border border-dashed border-ink/15 bg-cream px-4 py-3 text-sm text-ink/65">
-          <span>Nothing on the calendar yet — your next steps are below</span>
-          <ArrowDown aria-hidden className="h-3.5 w-3.5 text-terracotta" strokeWidth={1.75} />
+          <span>{emptyLabel ?? 'Nothing on the calendar yet — your next steps are below'}</span>
+          {emptyLabel ? null : (
+            <ArrowDown aria-hidden className="h-3.5 w-3.5 text-terracotta" strokeWidth={1.75} />
+          )}
         </p>
       </section>
     );
@@ -66,7 +73,7 @@ export function UpcomingSchedules({ eventId, items, now }: Props) {
           id="upcoming-heading"
           className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55"
         >
-          Upcoming
+          {headingLabel ?? 'Upcoming'}
         </h2>
         <Link
           href={`/dashboard/${eventId}/schedule`}

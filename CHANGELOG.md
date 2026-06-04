@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(dashboard/home): couple Home cockpit — countdown + Today's Focus + Needs you (0021 / 0016)
+
+**Context:** Owner — *"fix the first page customers see (the customer dashboard home). Not too much text; updates, guides, and a quick what-to-do-next."* After a side-by-side prototype review, the lean 2026-06-02 home (the "Your wedding details" recap + Upcoming + Activity) is reshaped into a **cockpit** that answers "what now?" in five beats. The text-heavy match-criteria recap leaves Home; it returns at the top of **Services** as an editable "Matching you on" strip (follow-up PR); the full editable record stays at `/details`.
+
+**What changed** (`apps/web/app/dashboard/[eventId]/`):
+- **New `_components/event-countdown-header.tsx`** — the emotional anchor: couple names + big days-to-go + date/venue + a thin "X of N vendors locked" bar. Pure server component; derived from the events row + the lock count already computed on the page (no new queries). No-date → a quiet "add your date" link.
+- **Re-wired `TodaysOneThing`** (the single-focus "Today's Focus" hero) back onto Home as the "Do it" beat — `pickTodaysOneThing(eventVendors, event_date, now)` + `countUnlockedCategories`. This is the original lightweight **vendor-derived** hero, **not** the retired Today's-Focus wizard or the (off) paid Concierge. Dormant on disk since the 2026-06-02 lean pass; re-wiring needed no new data (same `eventVendors` array PlanningGroups used).
+- **Reframed Upcoming → "Needs you"** — `UpcomingSchedules` gains optional `headingLabel`/`emptyLabel` props (defaults unchanged); the home wrapper passes "Needs you" + an "all caught up" empty state. Same five-source data.
+- **Removed the `PersonalizedMenu` recap** from Home + its now-orphaned compute (`personalizedDate/Taste/Features/DetailRows`, `eventCeremonyType`, `eventVenueSetting`, `eventBudgetCentavos`) and the `buildTasteChips/Features/WeddingDetailRows` + `PersonalizedMenu` imports. Added a calm "Browse your matched services" doorway (replaces the CTA that lived inside the recap).
+- Home render order: day-of trio (wedding-day only) → **Countdown → Today's Focus → Needs you → Recent activity → marketplace doorway**.
+
+**Verify:** `tsc --noEmit` + `next lint` green (only pre-existing warnings, none in touched files). Worktree off origin/main. No migration (reads existing columns). Visual pass deferred to the PR's Vercel preview (dashboard is auth-gated).
+
+**SPEC IMPACT:** Reverses part of the 2026-06-02 "lean Home = 3 blocks" shape (0021) and re-surfaces a "Today's Focus" next-action hero (0016 framing — the lightweight hero, not the retired wizard/Concierge). The match-criteria recap is slated to move to the top of Services (PR2, not in this change). → COWORK_INBOX + DECISION_LOG.
+
 ## 2026-06-04 · refactor(vendors/workspace): service-scoped per-vendor workspace page
 
 **Context:** Owner — clicking a finalized **service card** in the plan landed the couple on a page framed entirely around the *vendor* (big vendor header, hand-entered Costing, claim-link, cancel/dispute), with the thing they actually clicked — the **service/package** — buried as a small "What's included" list halfway down. Chosen approach: reframe the page to be **service-scoped** — lead with the booked service/package, demote the vendor to a "by {vendor}" attribution line. The URL's `[eventVendorId]` is the `event_vendors.vendor_id` PK, which binds to at most one locked package, so this needed no route/URL/schema change.

@@ -8,7 +8,7 @@
 
 ---
 
-## [PENDING] 2026-06-04 — "Where your day stands" cover made directive + in-rail loop coaching (0021 Vendors / Plan & Budget)
+## [DONE 2026-06-04] — "Where your day stands" cover made directive + in-rail loop coaching (0021 Vendors / Plan & Budget)
 
 **Why:** Customers couldn't tell what to do on the Vendors "Where your day stands" overview once they'd started — the Find→Shortlist→Lock loop was taught ONLY on the empty cover. Added an action-first banner, a persistent loop legend, a first-run coachmark, and a point-of-action Lock helper.
 
@@ -17,7 +17,7 @@
 2. **Same spec — new "first-run coaching" note** — a dismissible coachmark at the top of the category list (Tap / Compare / Lock this pick) + a one-time Lock helper under the first lockable card, both shown only while the couple has shortlisted but locked nothing (`localStorage` `pba_coach_v1`), self-retiring after the first lock.
 3. **Cover CTA copy** — "Swipe to start viewing the services" → **"Swipe up to view your services"**.
 
-**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+**Done 2026-06-04 (Claude Code Cowork pass):** `Vendors_Plan_Budget_Tab_Spec_2026-05-31.md` §2.B rewritten (the directive "Where your day stands" cover) + §2.D first-run-coaching note added; `.docx` mirror regenerated; `DECISION_LOG.md` row appended. Corpus edits left uncommitted in the working tree for owner review.
 
 ---
 

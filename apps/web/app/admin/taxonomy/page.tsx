@@ -11,6 +11,7 @@ import {
   remapCanonical,
   createTaxonomyNode,
   deleteTaxonomyNode,
+  moveTaxonomyNode,
 } from './actions';
 
 export const metadata = { title: 'Taxonomy · Admin' };
@@ -286,6 +287,30 @@ export default async function AdminTaxonomyPage({
                     <div className="min-w-0 flex-1">
                       <NodeRenameForm id={tile} label={tax.tileLabel[tile] ?? tile} kind="Tile" />
                     </div>
+                    <form action={moveTaxonomyNode}>
+                      <input type="hidden" name="id" value={tile} />
+                      <input type="hidden" name="direction" value="up" />
+                      <button
+                        type="submit"
+                        aria-label={`Move ${tile} up`}
+                        title="Move up"
+                        className="shrink-0 rounded-md border border-ink/15 bg-white px-1.5 py-1 text-[11px] text-ink/70 transition-colors hover:border-ink/40"
+                      >
+                        ▲
+                      </button>
+                    </form>
+                    <form action={moveTaxonomyNode}>
+                      <input type="hidden" name="id" value={tile} />
+                      <input type="hidden" name="direction" value="down" />
+                      <button
+                        type="submit"
+                        aria-label={`Move ${tile} down`}
+                        title="Move down"
+                        className="shrink-0 rounded-md border border-ink/15 bg-white px-1.5 py-1 text-[11px] text-ink/70 transition-colors hover:border-ink/40"
+                      >
+                        ▼
+                      </button>
+                    </form>
                     <form action={deleteTaxonomyNode}>
                       <input type="hidden" name="id" value={tile} />
                       <button

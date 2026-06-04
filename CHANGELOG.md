@@ -20,7 +20,25 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **Verification:** `tsc --noEmit` exit 0 · `next lint` clean (5 files) · migration applied via `supabase db push` (dry-run-confirmed only-pending) + confirmed on remote. Isolated worktree off `origin/main`.
 
-**SPEC IMPACT:** New `vendor_profiles.venue_type` + `venue_type` filtering in onboarding; `event_type` + `pax` now scope the dashboard marketplace. **Capacity + venue_type both landed as first-class `vendor_profiles` columns** (pragmatic, like `venue_directory.capacity_*`/`venue_type`) rather than 0044 `attribute_payload`. Owner action on `COWORK_INBOX.md` → `0044`: ratify the fine `venue_type` vocabulary (currently `hotel_ballroom · events_place · restaurant · garden · beach · heritage · resort` — kept in lock-step across the migration comment, `RECEPTION_TO_VENUE_TYPE`, and the seed) and fold it into the venue refinement schema + the `venue_setting`↔`venue_directory.venue_type`↔`vendor_profiles.venue_type` reconciliation. **Schedule** (vendor calendar availability) remains the one deferred dimension — needs the calendar system populated.
+**SPEC IMPACT:** New `vendor_profiles.venue_type` + `venue_type` filtering in onboarding; `event_type` + `pax` now scope the dashboard marketplace. **Capacity + venue_type both landed as first-class `vendor_profiles` columns** (pragmatic, like `venue_directory.capacity_*`/`venue_type`) rather than 0044 `attribute_payload`. Owner action on `COWORK_INBOX.md` → `0044`: ratify the fine `venue_type` vocabulary (`hotel_ballroom · events_place · restaurant · garden · beach · heritage · resort` — kept in lock-step across the migration comment, `RECEPTION_TO_VENUE_TYPE`, and the seed) and fold it into the venue refinement schema + the `venue_setting`↔`venue_directory.venue_type`↔`vendor_profiles.venue_type` reconciliation. **Schedule** (vendor calendar availability) remains the one deferred dimension.
+
+## 2026-06-04 · feat(0023): /admin/taxonomy editor — reorder tiles (Phase 3c)
+
+**Context:** Completes the editor's structural toolset. The catalog reads tile order from the snapshot (2b·2), so reordering shows on the live `/vendors` browse with no deploy.
+
+**What changed:**
+- **`actions.ts`** — `moveTaxonomyNode` (service-role, audit-logged): swaps a tile's `sort_order` with its adjacent sibling (same parent + tier), up or down; no-ops at the edge.
+- **`page.tsx`** — ▲▼ reorder buttons per tile in the editor tree.
+
+**Editor now covers:** rename · re-map · add · delete · **reorder** — the full set of structural ops over the live taxonomy, all audit-logged.
+
+**Verification:** `tsc --noEmit` 0 errors · `next lint` clean.
+
+**SPEC IMPACT:** None — implements (more of) the locked 0023 §3.15 editor.
+
+**Taxonomy-editor track — remaining (honest):** **2b·3** (client nav read-through) is a **no-op** — those 5 components only read editor-immutable folder slugs / short-labels / order. The genuinely-remaining spec items are **larger / blocked**: the §3.15 **two-admin gate** + **drag-to-move** UX + **grandchildren / leaf↔branch** machinery (modest marginal value over the existing admin-gate + audit-log + orphan-guards), and **§3.2c vendor-request review (Phase 4)**, **upstream-blocked** on the 0022 vendor "add a category" flow (separate iteration — needs scope sign-off).
+
+---
 
 ## 2026-06-04 · feat(0044/0016): Pax dimension — venue capacity filter (leaf-match · "apply everything" 2/4)
 

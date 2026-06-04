@@ -8,6 +8,17 @@
 
 ---
 
+## [PENDING] 2026-06-04 — welcome screen now full-bleed + animated (Onboarding Blueprint / prototype)
+
+**Why:** Owner wanted the welcome hero to fill the whole screen with the button floating over it (white bands removed) + a slow "camera drifting" motion. Shipped as **full-bleed + CSS Ken-Burns** (no Higgsfield needed; a real moving-clouds video loop is an optional later upgrade).
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`Onboarding_Blueprint_2026-05-30.md`** (+ the welcome screen in `Onboarding_Wedding_Flow_2026-06-01.html`) — welcome hero is now **full-bleed** (top + bottom bars transparent-overlay; brand floats over the photo; button floats over a bottom scrim) with a **slow Ken-Burns drift**. Note the optional future upgrade: a real moving-clouds **video loop** (R2-hosted, muted autoplay).
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
 ## [PENDING] 2026-06-04 — Top-30 location step PORTED to the app (Onboarding Blueprint §3.0 / App_Build_Status)
 
 **Why:** The search-box + Top-30-wedding-spots location step (Onboarding_Blueprint §3.0 · reworked 2026-06-04 · prototyped in `Onboarding_Wedding_Flow_2026-06-01.html`) was spec'd + prototyped + had its 30 photos + PSGC dataset generated, but was **never built into the app** — onboarding still ran the single-select region picker. It is now **LIVE** (replaces the picker; couple picks up to 2 areas; commit stamps `events.venue_latitude/longitude`; region derived from the primary pick).

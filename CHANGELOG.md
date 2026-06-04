@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · refactor(vendors): rename route segment [eventVendorId] → [vendorId]
+
+**Context:** The dynamic route segment was named `[eventVendorId]`, but it carries `event_vendors.vendor_id` (the row PK) — the misleading name tripped up the service-scoped work. Renamed to `[vendorId]`. Cosmetic only; the URL path (`/dashboard/{eventId}/vendors/{id}/{workspace|review}`) is unchanged.
+
+**What changed:** `git mv` of `apps/web/app/dashboard/[eventId]/vendors/[eventVendorId]` → `[vendorId]` (moves `workspace/` + `review/`), and renamed the route-param identifier `eventVendorId` → `vendorId` in `workspace/page.tsx` + `review/page.tsx` (param type · destructure · `.eq('vendor_id', …)` · the local review prop) + path comments. Preserved: the `ensureAutoShareInvite({ eventVendorId })` lib-arg key and `review/actions.ts`'s `event_vendor_id` form-field locals (unrelated to the route param). No links changed — external callers build the URL by value, not param name.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean. Production-build CI validates the Next.js param-key↔folder match.
+
+**SPEC IMPACT:** None (internal route-param rename; URL unchanged).
+
 ## 2026-06-04 · refactor(vendors/workspace): cleanups + Setnayan-service payment-mode framing
 
 **Context:** Follow-ups to the service-scoped workspace reframe (PR #965). Owner asked to land the remaining items we discussed. The first-party Setnayan-service nuance: those picks still showed the external-vendor chrome (hand-entered Costing, cancel/dispute), which is wrong — Setnayan services are **apply-then-pay** (pay → upload payment screenshot → verified within 24 hrs), so they should point at the Orders flow instead.

@@ -24,6 +24,20 @@ All wide-angle, symmetrical, couple-centered with the bride's train as a recurri
 
 **SPEC IMPACT:** Corpus design masters `~/Documents/Claude/Projects/Setnayan/assets/faith/wed_*.webp` refreshed directly for all 8 (Cowork direct-edit authorization). No Cowork pending item required.
 
+## 2026-06-05 · feat(admin/queues): mobile triage action feed (0023)
+
+**Context:** Owner — *"study the admin dashboard for mobile."* The admin remap (#963) deferred the highest-value mobile change to its own PR: replacing the flat 7-card Queues menu with a prioritized action feed. This delivers it.
+
+**What changed** (`apps/web/app/admin/queues/`):
+- `/admin/queues` is now a **live triage action feed** instead of a static `MobileLandingGrid` menu. The page (server component) fetches the open-count for all 7 queues in one `Promise.all` — payments (`pending`), verify (`coming_soon`), disputes (`open`), force-majeure (`open`/`under_review`), reviews (appeals `decided_at IS NULL`), help (`new`/`in_progress`), Today's-Focus abuse (`pending_review`) — using the exact filters each queue page uses, so the number on the row matches what the admin sees on arrival.
+- New presentational **`_components/queues-triage-feed.tsx`**: a single prioritized list, **busiest queue first**, each row a 64px tap target (icon · label · 1-line context · live count) routing straight into the queue. Open queues show a champagne-gold count pill; clear queues show a check; a momentarily-unavailable count degrades to a chevron (the row still routes — no 500). Header tally: "N items need your attention" / "You're all caught up."
+- Stays **`lg:hidden`** exactly like the menu it replaces — desktop admins use the sidebar tree, untouched. Every row maps 1:1 to a sidebar entry (orphan-prevention preserved).
+
+**Verify:** `tsc --noEmit` + `next lint` + `next build` green. No migration; reuses the count pattern already on `/admin` (Home).
+
+**SPEC IMPACT:** 0023 §5 — the admin mobile Queues surface is now a triage action feed (supersedes the card-menu landing). Landing direct in corpus (DECISION_LOG + 0023 .md).
+
+---
 ## 2026-06-05 · chore(dashboard): remove dead PersonalizedMenu component + unused menu builders (0021)
 
 **Context:** PR #978 moved the couple's personalization onto the Services tab (the "Matching you on" strip), leaving the old `PersonalizedMenu` card rendered nowhere — home dropped it in the cockpit refactor and `/for-you` is now a redirect. It survived only because it still exported the `TasteChip` type. This removes the dead code.

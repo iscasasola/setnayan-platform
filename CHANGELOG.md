@@ -4,6 +4,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · refactor(vendors/workspace): service-scoped per-vendor workspace page
+
+**Context:** Owner — clicking a finalized **service card** in the plan landed the couple on a page framed entirely around the *vendor* (big vendor header, hand-entered Costing, claim-link, cancel/dispute), with the thing they actually clicked — the **service/package** — buried as a small "What's included" list halfway down. Chosen approach: reframe the page to be **service-scoped** — lead with the booked service/package, demote the vendor to a "by {vendor}" attribution line. The URL's `[eventVendorId]` is the `event_vendors.vendor_id` PK, which binds to at most one locked package, so this needed no route/URL/schema change.
+
+**What changed** (all in `apps/web/app/dashboard/[eventId]/vendors/[eventVendorId]/workspace/page.tsx`):
+- **Service hero** replaces the vendor-identity header: package name (fallback: category label) as the H1, package blurb under it, **price** from the locked package (`event_vendor_packages.total_locked_centavos` → `vendor_packages.total_price_centavos`, rendered via `formatCentavosPhp` — centavos, NOT the peso `formatPHP`), and a small **"by {vendor}"** attribution line with the logo. Reads `vendor_profiles.is_setnayan_service` → renders **"Provided by Setnayan"** for first-party services.
+- **"What's included"** (the package's `vendor_package_items`) promoted to directly under the hero.
+- Added a best-effort fetch of the package header (`event_vendor_packages` status/total + `vendor_packages` name/description/price) — only for `status='locked'` bookings; any null falls back to category-label title + notes, never a 500.
+- **Order & payment status** stepper collapsed from 5 stages to the **3 truthful ones** (Plan finalized → Downpayment paid → Delivered) — `workspace_status` is never written in V1 (its only writer ships unwired), so the 2 middle stages could never light up. Driven off `inferStage(vendor_status)`. Payments (the `VendorItemizationCard` embed) sits under the stepper.
+- Vendor-coordination surfaces (Conversation/Documents/Schedules), the Costing form, and the claim-link block **demoted** below the service surfaces.
+- **Removed the dead "Package details" placeholder section** (Task #27 stub) — it duplicated the new hero and double-rendered `ev.notes`. Notes now render **once** in a dedicated "Your notes" block.
+- **Dropped the double-fetch**: the standalone `event_vendor_line_items` + `event_vendor_payments` queries (header sums) are gone; header money now comes from the `fetchBudgetSnapshot` summary already loaded for the embed. −2 queries.
+- **Timezone**: `formatMeetingDate`/`formatPaymentDate` now pin `Asia/Manila` (matches the 6 other files that do).
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean (no warnings; confirms no dangling imports after the section removal) · render matrix reasoned over the 3 pick shapes (marketplace-package / manual-no-package / Setnayan-service) · deep-link anchors `#conversation`/`#documents`/`#payments` preserved. Isolated worktree off `origin/main`. Auth-gated RSC route — not browser-previewable without a seeded session.
+
+**SPEC IMPACT:** The per-vendor workspace surface is reframed from vendor-scoped to **service-scoped** (service/package as the hero; vendor demoted to attribution; 3-state truthful status stepper; first-party Setnayan services show "Provided by Setnayan"). This surface came from the 2026-05-22 owner directive and is **not currently in the spec corpus**. → record in `DECISION_LOG.md` + the relevant iteration (0006 vendors mgmt / 0021 couple dashboard). Logged in `COWORK_INBOX.md`. Fast-follows (deferred, not in this PR): strip Costing/dispute chrome from first-party Setnayan services + real 0034 order-and-pay panel; `fetchBudgetSnapshot` per-vendor overfetch; `ensureAutoShareInvite` write-on-render; dead `workspace/actions.ts` exports.
+
 ## 2026-06-04 · feat(0021/vendors): "Where your day stands" — make the cover DIRECTIVE + teach the loop
 
 **Context:** Owner — as a customer landing on the Vendors tab's "Where your day stands" overview, then swiping up into the category rails, it wasn't clear *what to do*. The Find→Shortlist→Lock loop was explained ONLY on the EMPTY cover; the moment the couple had a single pick, all guidance vanished and they were dropped into bare rails. Chosen approach: **both** an action-first cover AND in-rail coaching.

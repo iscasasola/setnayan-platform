@@ -1,41 +1,31 @@
 // ============================================================================
-// /dashboard/[eventId]/vendors/[eventVendorId]/workspace — Per-vendor workspace
+// /dashboard/[eventId]/vendors/[eventVendorId]/workspace — Per-SERVICE workspace
 //
-// Owner directive 2026-05-22 (verbatim):
-//   "click finalized vendor → land on dedicated page with conversation +
-//    payments + documents + schedules + status (plan_finalized →
-//    downpayment → 2nd payment → final · etc.)"
+// Service-scoped reframe (2026-06-04). This is the page a couple lands on when
+// they click a finalized SERVICE card in their plan. It leads with the booked
+// service/package — name · blurb · inclusions · price · order status — and
+// demotes the vendor to a "by {vendor}" attribution line.
 //
-// Single per-vendor landing page consolidating five workspace surfaces:
-//   1. Header           — vendor identity + LOCKED chip + Switch vendor CTA
-//   2. Status stepper   — payment-stage progress (event_vendors.workspace_status
-//                          fallbacks to vendor_status enum for legacy rows)
-//   3. Conversation     — link out to chat thread (orphan-prevention: deep-link
-//                          when thread exists, fall back to /messages list)
-//   4. Payments         — event_vendor_line_items milestones + payment history
-//   5. Documents        — vendor_contracts list + upload affordance (future)
-//   6. Schedules        — vendor_meetings upcoming + add affordance (future)
-//   7. Package          — event_vendor_packages section (no-op until that
-//                          table lands — Task #27)
+// The route's [eventVendorId] is the event_vendors.vendor_id PK, which binds
+// to AT MOST ONE locked package (event_vendor_package_id → event_vendor_packages
+// → vendor_packages + vendor_package_items). So one URL == one service context;
+// no route or schema change was needed to make this service-scoped.
 //
-// V1 minimum scope (per the directive's STEP 6):
-//   - Renders all sections with existing data sources
-//   - Header + stepper + payment list + meeting list + contract list visible
-//   - Inline CRUD deferred to V1.1 — actions.ts ships the server actions but
-//     the workspace page links to existing surfaces (/messages, /contracts)
-//     for new-record creation in V1
-//   - Package section renders empty-state until event_vendor_packages exists
+// Supersedes the vendor-first layout from the 2026-05-22 owner directive.
+// Section order: service hero · what's included · order & payment status +
+// payments · conversation · documents · schedules · marketplace info ·
+// costing (host's 3-line total) · your notes · bring-vendor-onto-Setnayan.
 //
-// RLS handles auth — the layout above already gates on event membership; the
-// page just selects against event_vendors filtered by both event_id +
-// vendor_id. notFound() when the row is missing or RLS denies.
+// Unit boundary: event_vendors.*_php are PESOS; the vendor_packages /
+// event_vendor_packages / vendor_package_items *_centavos columns are CENTAVOS.
+// Package money is rendered via formatCentavosPhp (÷100); peso columns via the
+// local formatPHP. Never cross the two.
 //
-// Entry points (orphan-prevention per feedback_setnayan_orphan_prevention):
-//   - finalized-chip-strip.tsx:252 chip click target (re-wired in this PR)
-//   - planning-groups.tsx:744 LockedCard "View contract" CTA → ?#documents
-//   - planning-groups.tsx:755 LockedCard "Open thread" CTA → ?#conversation
-//   - vendor list page may add a workspace link in V1.1 (currently links to
-//     /review for delivered+complete vendors only — workspace is broader)
+// RLS handles auth — event membership gates the row; notFound() when the
+// event_vendors row is missing or RLS denies.
+//
+// Deep-link anchors PRESERVED (other surfaces link to them, e.g.
+// planning-groups.tsx): #conversation · #documents · #payments.
 // ============================================================================
 
 import Link from 'next/link';
@@ -56,6 +46,7 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
+import { formatCentavosPhp } from '@/lib/vendor-packages';
 import { updateVendorCosts } from '../../actions';
 import { fetchBudgetSnapshot } from '@/lib/budget';
 import {
@@ -76,56 +67,46 @@ import {
   fetchMarketplaceReviews,
 } from '../../../_components/vendor-marketplace-info';
 
-export const metadata = { title: 'Vendor workspace · Setnayan' };
+export const metadata = { title: 'Service workspace · Setnayan' };
 
 type Props = {
   params: Promise<{ eventId: string; eventVendorId: string }>;
 };
 
 // ----------------------------------------------------------------------------
-// workspace_status stepper
+// Order & payment status stepper — 3 truthful stages.
 //
-// Maps event_vendors.workspace_status (new column from 20260604130000) to a
-// 5-stage stepper that fits the common Filipino-wedding payment patterns:
+// `event_vendors.workspace_status` (the 7-value column from migration
+// 20260604130000) is NOT written anywhere in V1 — its only writer,
+// advanceWorkspaceStatus in this folder's actions.ts, ships unwired. So the
+// stepper is driven off the vendor_status enum, which is the only signal that
+// actually moves. That yields exactly three reachable stages:
 //
-//   plan_finalized        → "Plan finalized"
-//   downpayment_paid      → "Downpayment paid"
-//   second_payment_paid   → "Second payment paid" (or "_due" — pending state)
-//   paid_in_full          → "Paid in full"
-//   delivered             → "Delivered"
+//   'contracted'        → 'plan_finalized'
+//   'deposit_paid'      → 'downpayment_paid'
+//   'delivered'/'complete' → 'delivered'
 //
-// Fallback inference from vendor_status enum when workspace_status IS NULL:
-//   - 'contracted'        → 'plan_finalized'
-//   - 'deposit_paid'      → 'downpayment_paid'
-//   - 'delivered'         → 'delivered'
-//   - 'complete'          → 'delivered'  (treat as past-delivered)
+// (The old 5-stage stepper advertised "Second payment paid" + "Paid in full",
+// which could never light up. Collapsed here so the UI tells the truth. Wiring
+// the richer states is a deferred follow-up — see the workspace actions.ts.)
 // ----------------------------------------------------------------------------
 
-type WorkspaceStage =
-  | 'plan_finalized'
-  | 'downpayment_paid'
-  | 'second_payment_paid'
-  | 'paid_in_full'
-  | 'delivered';
+type WorkspaceStage = 'plan_finalized' | 'downpayment_paid' | 'delivered';
 
 const STAGE_ORDER: ReadonlyArray<WorkspaceStage> = [
   'plan_finalized',
   'downpayment_paid',
-  'second_payment_paid',
-  'paid_in_full',
   'delivered',
 ];
 
 const STAGE_LABEL: Record<WorkspaceStage, string> = {
   plan_finalized: 'Plan finalized',
   downpayment_paid: 'Downpayment paid',
-  second_payment_paid: 'Second payment paid',
-  paid_in_full: 'Paid in full',
   delivered: 'Delivered',
 };
 
-function inferStageFromVendorStatus(status: string): WorkspaceStage | null {
-  switch (status) {
+function inferStage(vendorStatus: string): WorkspaceStage | null {
+  switch (vendorStatus) {
     case 'contracted':
       return 'plan_finalized';
     case 'deposit_paid':
@@ -138,36 +119,9 @@ function inferStageFromVendorStatus(status: string): WorkspaceStage | null {
   }
 }
 
-function resolveStage(
-  workspaceStatus: string | null,
-  vendorStatus: string,
-): WorkspaceStage | null {
-  if (workspaceStatus === null) {
-    return inferStageFromVendorStatus(vendorStatus);
-  }
-  // workspace_status has 7 raw values; the stepper collapses *_due rows into
-  // the previous *_paid stage (a "due" state means waiting on the host, not
-  // a separate completed stage).
-  switch (workspaceStatus) {
-    case 'plan_finalized':
-      return 'plan_finalized';
-    case 'downpayment_paid':
-    case 'second_payment_due':
-      return 'downpayment_paid';
-    case 'second_payment_paid':
-    case 'final_payment_due':
-      return 'second_payment_paid';
-    case 'paid_in_full':
-      return 'paid_in_full';
-    case 'delivered':
-      return 'delivered';
-    default:
-      return null;
-  }
-}
-
 // ----------------------------------------------------------------------------
-// formatPHP — local helper matching planning-groups.tsx convention
+// formatPHP — peso formatter for event_vendors.*_php columns. (Package money
+// uses formatCentavosPhp from @/lib/vendor-packages instead.)
 // ----------------------------------------------------------------------------
 
 function formatPHP(value: number | string | null | undefined): string | null {
@@ -190,6 +144,7 @@ function formatMeetingDate(iso: string): string {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
+    timeZone: 'Asia/Manila',
   }).format(d);
 }
 
@@ -199,6 +154,7 @@ function formatPaymentDate(iso: string): string {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
+    timeZone: 'Asia/Manila',
   }).format(d);
 }
 
@@ -251,32 +207,27 @@ export default async function VendorWorkspacePage({ params }: Props) {
   // ----------------------------------------------------------------------
   // Auto-share-link invite (2026-05-22 owner directive).
   //
-  // Broadened 2026-05-22 PM per owner directive: ANY vendor without a
-  // Setnayan account (marketplace_vendor_id IS NULL) gets the claim-link
-  // CTA — not just host-typed manual vendors. Includes venue_directory
-  // entries (e.g. seeded Conrad Manila / Pink Sisters Convent) that the
-  // host locked from /venues, custom-typed names, and any other source
-  // that doesn't end with a real Setnayan vendor profile.
+  // ANY vendor without a Setnayan account (marketplace_vendor_id IS NULL) gets
+  // the claim-link CTA — host-typed manual vendors, venue_directory entries,
+  // etc. The post-signup hook (applyClaimAutoLink) populates
+  // marketplace_vendor_id when the vendor registers via the claim URL.
   //
-  // The post-signup hook (applyClaimAutoLink in vendor-invite-actions.ts)
-  // populates event_vendor_relationships.marketplace_vendor_id when the
-  // vendor registers via the claim URL — works regardless of which
-  // source column initially pointed at the vendor row.
+  // NOTE (deferred follow-up): the self-heal ensureAutoShareInvite below writes
+  // during render — should move into finalize / a server action. Left as-is in
+  // this reframe PR.
   // ----------------------------------------------------------------------
   const needsInvite = ev.marketplace_vendor_id === null;
   let autoShareInvite = needsInvite
     ? await fetchActiveAutoShareInvite(supabase, ev.vendor_id)
     : null;
-  // Self-heal path — if the vendor is in a state that warrants an invite
-  // (no marketplace link · status locked or beyond) but no auto_share_link
-  // row exists yet (e.g. finalize fired before this feature shipped, OR
-  // the vendor was linked via venue_directory which bypasses finalize's
-  // ensureAutoShareInvite hook, OR the invite insert failed at lock time),
-  // generate one on this render so the host always sees a fresh shareable
-  // link. Idempotent — if the row already exists it just gets re-read.
-  if (needsInvite && !autoShareInvite && (ev.status === 'contracted'
-    || ev.status === 'deposit_paid' || ev.status === 'delivered'
-    || ev.status === 'complete')) {
+  if (
+    needsInvite &&
+    !autoShareInvite &&
+    (ev.status === 'contracted' ||
+      ev.status === 'deposit_paid' ||
+      ev.status === 'delivered' ||
+      ev.status === 'complete')
+  ) {
     autoShareInvite = await ensureAutoShareInvite(supabase, {
       eventVendorId: ev.vendor_id,
       invitedByUserId: user.id,
@@ -285,20 +236,12 @@ export default async function VendorWorkspacePage({ params }: Props) {
     });
   }
 
-  // Parallel fetches for the 5 panel data sources + the per-vendor budget
-  // snapshot (drives the embedded VendorItemizationCard inside the Payments
-  // section, owner directive 2026-05-22) + the three marketplace-info
-  // surfaces (services · contact · reviews) when the vendor is marketplace-
-  // linked.
-  //
-  // None of these are critical-path — if any fail (e.g. RLS edge case, table
-  // doesn't exist on prod yet), we render the empty state for that section
-  // rather than crashing the page. Budget snapshot is wrapped in a defensive
-  // catch because fetchBudgetSnapshot throws on Postgres errors; we treat
-  // any throw as "no budget data available" + show the polite empty state.
+  // Parallel fetches for the panel data sources + the three marketplace-info
+  // surfaces. None are critical-path — any failure renders that section's empty
+  // state rather than crashing. The per-vendor budget snapshot (fetched below)
+  // now also supplies the hero money, so the old standalone line-item / payment
+  // fetches are gone.
   const [
-    lineItemsRes,
-    paymentsRes,
     contractsRes,
     meetingsRes,
     marketplaceProfileRes,
@@ -307,24 +250,7 @@ export default async function VendorWorkspacePage({ params }: Props) {
     marketplaceContactData,
     marketplaceReviewsData,
   ] = await Promise.all([
-    // 1. Payment milestones
-    supabase
-      .from('event_vendor_line_items')
-      .select('line_item_id, label, amount_php, due_date, sort_order, created_at')
-      .eq('event_id', eventId)
-      .eq('vendor_id', eventVendorId)
-      .order('sort_order', { ascending: true })
-      .order('created_at', { ascending: true }),
-
-    // 2. Payment history
-    supabase
-      .from('event_vendor_payments')
-      .select('payment_id, line_item_id, amount_php, paid_at, method, reference, notes, created_at')
-      .eq('event_id', eventId)
-      .eq('vendor_id', eventVendorId)
-      .order('paid_at', { ascending: false }),
-
-    // 3. Contracts (RLS scopes to host-on-event)
+    // Contracts (RLS scopes to host-on-event)
     ev.marketplace_vendor_id
       ? supabase
           .from('vendor_contracts')
@@ -335,7 +261,7 @@ export default async function VendorWorkspacePage({ params }: Props) {
           .order('created_at', { ascending: false })
       : Promise.resolve({ data: [], error: null }),
 
-    // 4. Upcoming meetings
+    // Upcoming meetings
     supabase
       .from('vendor_meetings')
       .select('meeting_id, starts_at, ends_at, mode, title, location, agenda, notes')
@@ -343,17 +269,17 @@ export default async function VendorWorkspacePage({ params }: Props) {
       .eq('vendor_id', eventVendorId)
       .order('starts_at', { ascending: true }),
 
-    // 5. Marketplace profile (for richer header — logo, business name)
+    // Marketplace profile — logo, business name, city, + is_setnayan_service
+    // (drives the "Provided by Setnayan" attribution).
     ev.marketplace_vendor_id
       ? supabase
           .from('vendor_profiles')
-          .select('business_name, business_slug, logo_url, city')
+          .select('business_name, business_slug, logo_url, city, is_setnayan_service')
           .eq('vendor_profile_id', ev.marketplace_vendor_id)
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
 
-    // 6. Chat thread for deep-link (orphan-prevention — link to specific thread
-    //    when it exists, fall back to /messages list otherwise)
+    // Chat thread for deep-link (orphan-prevention)
     ev.marketplace_vendor_id
       ? supabase
           .from('chat_threads')
@@ -363,10 +289,8 @@ export default async function VendorWorkspacePage({ params }: Props) {
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
 
-    // 7-9. Marketplace info — only fetch when the event_vendors row points
-    //      at a marketplace vendor_profile. Each helper handles its own
-    //      42P01 / 42703 graceful-degrade so a missing migration on prod
-    //      surfaces as an empty card, not a 500.
+    // Marketplace info — services / contact / reviews. Each helper handles its
+    // own 42P01 / 42703 graceful-degrade.
     ev.marketplace_vendor_id
       ? fetchMarketplaceServices(supabase, ev.marketplace_vendor_id)
       : Promise.resolve([]),
@@ -390,11 +314,9 @@ export default async function VendorWorkspacePage({ params }: Props) {
         }),
   ]);
 
-  // Budget snapshot — fetched after the main Promise.all so the throw-on-
-  // error path doesn't take down the whole page. We need the per-vendor
-  // VendorBudgetSummary so the embedded VendorItemizationCard can render
-  // identically to the budget page. fetchBudgetSnapshot pulls every
-  // vendor's data; we filter to just this vendor below.
+  // Budget snapshot — fetched after the main Promise.all so a throw doesn't take
+  // down the page. Supplies the embedded VendorItemizationCard AND the hero's
+  // "Price / Paid so far" surfaces (itemizedTotal / paidTotal, both pesos).
   let vendorBudgetSummary: Awaited<ReturnType<typeof fetchBudgetSnapshot>>['vendors'][number] | null = null;
   try {
     const snapshot = await fetchBudgetSnapshot(supabase, eventId);
@@ -404,26 +326,6 @@ export default async function VendorWorkspacePage({ params }: Props) {
     // eslint-disable-next-line no-console
     console.error('[VendorWorkspacePage] fetchBudgetSnapshot threw', e);
   }
-
-  const lineItems = (lineItemsRes.data ?? []) as Array<{
-    line_item_id: string;
-    label: string;
-    amount_php: number | string;
-    due_date: string | null;
-    sort_order: number;
-    created_at: string;
-  }>;
-
-  const payments = (paymentsRes.data ?? []) as Array<{
-    payment_id: string;
-    line_item_id: string | null;
-    amount_php: number | string;
-    paid_at: string;
-    method: string | null;
-    reference: string | null;
-    notes: string | null;
-    created_at: string;
-  }>;
 
   const contracts = (contractsRes.data ?? []) as Array<{
     contract_id: string;
@@ -453,60 +355,74 @@ export default async function VendorWorkspacePage({ params }: Props) {
     business_slug: string | null;
     logo_url: string | null;
     city: string | null;
+    is_setnayan_service: boolean | null;
   } | null;
 
   const chatThread = (chatThreadRes.data ?? null) as { thread_id: string } | null;
 
-  // Derived display values
-  const displayName = marketplaceProfile?.business_name ?? ev.vendor_name;
-  const categoryLabel =
-    (VENDOR_CATEGORY_LABEL as Record<string, string>)[ev.category] ?? 'Vendor';
-  const stage = resolveStage(ev.workspace_status, ev.status);
-  const totalCostFormatted = formatPHP(ev.total_cost_php);
-  const depositPaidFormatted = formatPHP(ev.deposit_paid_php);
+  // --------------------------------------------------------------------------
+  // The booked service/package — the HERO of this page.
+  //
+  // Two-hop FK: event_vendors.event_vendor_package_id →
+  // event_vendor_packages.booking_id → .package_id → vendor_packages +
+  // vendor_package_items. Only 'locked' bookings are treated as a live header
+  // (mirrors lib/budget.ts). Best-effort: any null result falls back to the
+  // category-label service title + host notes, never a 500.
+  // --------------------------------------------------------------------------
+  let packageHeader: {
+    name: string;
+    description: string | null;
+    priceCentavos: number | null;
+  } | null = null;
+  let packageItems: { service_description: string; is_default_included: boolean }[] = [];
 
-  // Sum payments for the "Total paid" header surface.
-  const totalPaidNumeric = payments.reduce((sum, p) => {
-    const n = typeof p.amount_php === 'string' ? Number(p.amount_php) : p.amount_php;
-    return sum + (Number.isFinite(n) ? n : 0);
-  }, 0);
-  const totalPaidFormatted = totalPaidNumeric > 0 ? formatPHP(totalPaidNumeric) : null;
-
-  // Sum line items for the "Plan total" surface (vs ev.total_cost_php which is
-  // the host's at-finalize estimate). When milestones exist they're the
-  // canonical total; otherwise we fall back to event_vendors.total_cost_php.
-  const milestonesTotal = lineItems.reduce((sum, li) => {
-    const n = typeof li.amount_php === 'string' ? Number(li.amount_php) : li.amount_php;
-    return sum + (Number.isFinite(n) ? n : 0);
-  }, 0);
-  const planTotalFormatted =
-    lineItems.length > 0 ? formatPHP(milestonesTotal) : totalCostFormatted;
-
-  // What's included (CLAUDE.md 2026-05-31): when this booking was locked from a
-  // marketplace package, surface the package's line items so the couple sees
-  // exactly what it covers. Two-hop FK: event_vendors.event_vendor_package_id →
-  // event_vendor_packages.booking_id → .package_id → vendor_package_items.
-  // Best-effort (public-read marketplace data) — empty result falls back to the
-  // booking notes in the JSX below.
-  let packageItems: {
-    service_description: string;
-    is_default_included: boolean;
-  }[] = [];
   if (ev.event_vendor_package_id) {
-    const { data: bookingPkg } = await supabase
+    const { data: bookingRow } = await supabase
       .from('event_vendor_packages')
-      .select('package_id')
+      .select('package_id, status, total_locked_centavos')
       .eq('booking_id', ev.event_vendor_package_id)
       .maybeSingle();
-    const pkgId = (bookingPkg as { package_id: string } | null)?.package_id;
-    if (pkgId) {
-      const { data: items } = await supabase
-        .from('vendor_package_items')
-        .select('service_description, is_default_included, display_order')
-        .eq('package_id', pkgId)
-        .order('display_order', { ascending: true });
+    const booking = bookingRow as {
+      package_id: string;
+      status: string;
+      total_locked_centavos: number | string | null;
+    } | null;
+
+    if (booking && booking.status === 'locked' && booking.package_id) {
+      const [{ data: pkgRowRaw }, { data: itemsRaw }] = await Promise.all([
+        supabase
+          .from('vendor_packages')
+          .select('package_name, description, total_price_centavos')
+          .eq('package_id', booking.package_id)
+          .maybeSingle(),
+        supabase
+          .from('vendor_package_items')
+          .select('service_description, is_default_included, display_order')
+          .eq('package_id', booking.package_id)
+          .order('display_order', { ascending: true }),
+      ]);
+
+      const pkg = pkgRowRaw as {
+        package_name: string;
+        description: string | null;
+        total_price_centavos: number | string | null;
+      } | null;
+
+      if (pkg) {
+        const lockedTotal =
+          booking.total_locked_centavos != null ? Number(booking.total_locked_centavos) : null;
+        const listTotal =
+          pkg.total_price_centavos != null ? Number(pkg.total_price_centavos) : null;
+        packageHeader = {
+          name: pkg.package_name,
+          description: pkg.description,
+          // Prefer the host's actual locked total; fall back to list price.
+          priceCentavos: lockedTotal && lockedTotal > 0 ? lockedTotal : listTotal,
+        };
+      }
+
       packageItems = (
-        (items ?? []) as Array<{
+        (itemsRaw ?? []) as Array<{
           service_description: string;
           is_default_included: boolean;
         }>
@@ -517,7 +433,38 @@ export default async function VendorWorkspacePage({ params }: Props) {
     }
   }
 
-  // 3-line total = Service + Transport + Food allowance (nulls → ₱0).
+  // --------------------------------------------------------------------------
+  // Derived display values
+  // --------------------------------------------------------------------------
+  const displayName = marketplaceProfile?.business_name ?? ev.vendor_name;
+  const isSetnayanService = marketplaceProfile?.is_setnayan_service === true;
+  const categoryLabel =
+    (VENDOR_CATEGORY_LABEL as Record<string, string>)[ev.category] ?? 'Service';
+
+  // Service-scoped hero: package name is the service title; the category is the
+  // fallback when this pick isn't tied to a locked package (manual/off-platform).
+  const serviceTitle = packageHeader?.name ?? categoryLabel;
+  const serviceDescription = packageHeader?.description ?? null;
+  const attribution = isSetnayanService ? 'Provided by Setnayan' : `by ${displayName}`;
+
+  const stage = inferStage(ev.status);
+  const depositPaidFormatted = formatPHP(ev.deposit_paid_php);
+
+  // Hero price precedence: package locked total (centavos) → snapshot itemized
+  // (pesos) → host's total_cost_php (pesos).
+  const heroPriceFormatted =
+    packageHeader?.priceCentavos != null
+      ? formatCentavosPhp(packageHeader.priceCentavos)
+      : vendorBudgetSummary
+        ? formatPHP(vendorBudgetSummary.itemizedTotal)
+        : formatPHP(ev.total_cost_php);
+
+  const paidSoFarFormatted =
+    vendorBudgetSummary && vendorBudgetSummary.paidTotal > 0
+      ? formatPHP(vendorBudgetSummary.paidTotal)
+      : depositPaidFormatted;
+
+  // 3-line total = Service + Transport + Food allowance (the Costing form).
   const serviceCostNum = Number(ev.total_cost_php ?? 0) || 0;
   const transportNum = Number(ev.transport_php ?? 0) || 0;
   const foodNum = Number(ev.food_allowance_php ?? 0) || 0;
@@ -542,43 +489,47 @@ export default async function VendorWorkspacePage({ params }: Props) {
       </Link>
 
       {/* ============================================================== */}
-      {/* Section 1 — Header                                               */}
+      {/* Section 1 — Service hero (vendor demoted to attribution)        */}
       {/* ============================================================== */}
       <section
         aria-labelledby="vendor-workspace-header"
         className="rounded-2xl border border-emerald-300/40 bg-emerald-50/40 p-5 sm:p-6"
       >
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex min-w-0 items-start gap-4">
-            {/* Avatar — logo or initials */}
-            <div className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-full border border-ink/10 bg-cream sm:h-16 sm:w-16">
-              {marketplaceProfile?.logo_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={marketplaceProfile.logo_url}
-                  alt=""
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <span className="font-display text-xl text-ink/55 italic">
-                  {displayName.charAt(0).toUpperCase()}
-                </span>
-              )}
-            </div>
+          <div className="min-w-0 space-y-1.5">
+            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+              {categoryLabel}
+            </p>
+            <h1
+              id="vendor-workspace-header"
+              className="font-display text-2xl italic tracking-tight text-ink sm:text-3xl"
+            >
+              {serviceTitle}
+            </h1>
+            {serviceDescription ? (
+              <p className="max-w-prose text-sm text-ink/70">{serviceDescription}</p>
+            ) : null}
 
-            <div className="min-w-0 space-y-1">
-              <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                {categoryLabel}
+            {/* Vendor attribution — secondary line, small avatar */}
+            <div className="flex items-center gap-2 pt-1">
+              <div className="grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-full border border-ink/10 bg-cream">
+                {marketplaceProfile?.logo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={marketplaceProfile.logo_url}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span className="font-display text-xs text-ink/55 italic">
+                    {displayName.charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-ink/65">
+                {attribution}
+                {marketplaceProfile?.city ? ` · ${marketplaceProfile.city}` : ''}
               </p>
-              <h1
-                id="vendor-workspace-header"
-                className="font-display text-2xl italic tracking-tight text-ink sm:text-3xl"
-              >
-                {displayName}
-              </h1>
-              {marketplaceProfile?.city ? (
-                <p className="text-xs text-ink/60">{marketplaceProfile.city}</p>
-              ) : null}
             </div>
           </div>
 
@@ -592,10 +543,10 @@ export default async function VendorWorkspacePage({ params }: Props) {
         <dl className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
           <div>
             <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-              Plan total
+              Price
             </dt>
             <dd className="mt-1 text-sm font-semibold text-ink">
-              {planTotalFormatted ?? '—'}
+              {heroPriceFormatted ?? '—'}
             </dd>
           </div>
           <div>
@@ -603,7 +554,7 @@ export default async function VendorWorkspacePage({ params }: Props) {
               Paid so far
             </dt>
             <dd className="mt-1 text-sm font-semibold text-ink">
-              {totalPaidFormatted ?? depositPaidFormatted ?? '—'}
+              {paidSoFarFormatted ?? '—'}
             </dd>
           </div>
           {ev.contact_email || ev.contact_phone ? (
@@ -618,29 +569,16 @@ export default async function VendorWorkspacePage({ params }: Props) {
           ) : null}
         </dl>
 
-        {/* Action row — Switch vendor (destructive, links to vendor
-         *  tracker for the existing confirm-modal flow), cancel booking
-         *  (when no downpayment yet), or request refund / dispute (when
-         *  downpayment has landed). Per CLAUDE.md 2026-05-24
-         *  "Lock/delete/overlap architecture" Rule 1: status routes the
-         *  CTA. `contracted` + no deposit → cancel. `deposit_paid` and
-         *  beyond OR any deposit_paid_php > 0 → dispute flow.
-         *
-         *  Note: `considering` / `shortlisted` rows can't reach this
-         *  workspace page (the LockedCard variant is only rendered for
-         *  confirmed picks per planning-groups.tsx) — so we don't need
-         *  the existing Trash2 deleteVendor path here. */}
+        {/* Action row — All services + (cancel | dispute) per status. */}
         <div className="mt-5 flex flex-wrap gap-2">
           <Link
             href={`/dashboard/${eventId}/vendors`}
             className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 py-2 text-xs font-medium text-ink/70 transition-colors hover:border-ink/30 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
           >
-            All vendors
+            All services
           </Link>
           {(() => {
-            // Mirror the server-side DOWNPAID_STATUSES set + deposit
-            // signal from cancelBookingAsHost. Keep the conditional
-            // local so the workspace page stays self-contained.
+            // Mirror the server-side downpaid signal from cancelBookingAsHost.
             const downpaid =
               ev.status === 'deposit_paid' ||
               ev.status === 'delivered' ||
@@ -656,7 +594,6 @@ export default async function VendorWorkspacePage({ params }: Props) {
             if (downpaid || hasDeposit) {
               return <DisputeLinkButton eventId={eventId} variant="cta" />;
             }
-            // `contracted` and no deposit → safe to cancel.
             if (ev.status === 'contracted') {
               return (
                 <CancelBookingButton
@@ -668,234 +605,58 @@ export default async function VendorWorkspacePage({ params }: Props) {
                 />
               );
             }
-            // Any other status (considering / shortlisted) shouldn't
-            // surface this page in practice — render nothing rather
-            // than the wrong CTA.
             return null;
           })()}
         </div>
       </section>
 
       {/* ============================================================== */}
-      {/* Section 1a — What's included (package inclusions / notes)        */}
+      {/* Section 2 — What's included (the service's inclusions)          */}
       {/* ============================================================== */}
-      {packageItems.length > 0 || ev.notes ? (
+      {packageItems.length > 0 ? (
         <section
           aria-labelledby="included-heading"
           className="rounded-2xl border border-ink/10 bg-white/60 p-5 sm:p-6"
         >
           <h2
             id="included-heading"
-            className="mb-3 font-display text-lg italic text-ink"
+            className="mb-3 flex items-center gap-2 font-display text-lg italic text-ink"
           >
+            <PackageIcon aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
             What&apos;s included
           </h2>
-          {packageItems.length > 0 ? (
-            <ul className="space-y-2">
-              {packageItems.map((it, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm text-ink/80">
-                  <CheckCircle2
-                    aria-hidden
-                    className={`mt-0.5 h-4 w-4 shrink-0 ${it.is_default_included ? 'text-terracotta' : 'text-ink/30'}`}
-                    strokeWidth={1.75}
-                  />
-                  <span>
-                    {it.service_description}
-                    {it.is_default_included ? '' : ' (optional add-on)'}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="whitespace-pre-line text-sm text-ink/70">{ev.notes}</p>
-          )}
-        </section>
-      ) : null}
-
-      {/* ============================================================== */}
-      {/* Section 1c — Costing (3-line total the couple edits)            */}
-      {/* ============================================================== */}
-      <section
-        aria-labelledby="costing-heading"
-        className="rounded-2xl border border-ink/10 bg-white/60 p-5 sm:p-6"
-      >
-        <h2
-          id="costing-heading"
-          className="mb-1 font-display text-lg italic text-ink"
-        >
-          Costing
-        </h2>
-        <p className="mb-4 text-xs text-ink/55">
-          The amount you&apos;ll budget is the service price + transport + food
-          allowance. Leave a line blank to count it as ₱0.
-        </p>
-        <form action={updateVendorCosts} className="space-y-3">
-          <input type="hidden" name="event_id" value={eventId} />
-          <input type="hidden" name="vendor_id" value={ev.vendor_id} />
-
-          {[
-            { name: 'total_cost_php', label: 'Service price', value: ev.total_cost_php },
-            { name: 'transport_php', label: 'Transport cost', value: ev.transport_php },
-            { name: 'food_allowance_php', label: 'Food allowance', value: ev.food_allowance_php },
-          ].map((line) => (
-            <label
-              key={line.name}
-              className="flex items-center justify-between gap-3 text-sm"
-            >
-              <span className="text-ink/65">{line.label}</span>
-              <span className="inline-flex items-center gap-1">
-                <span className="text-ink/40">₱</span>
-                <input
-                  name={line.name}
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  inputMode="decimal"
-                  defaultValue={line.value ?? ''}
-                  className="w-32 rounded-md border border-ink/15 bg-white px-2 py-1 text-right font-medium text-ink focus:border-terracotta focus:outline-none"
+          <ul className="space-y-2">
+            {packageItems.map((it, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm text-ink/80">
+                <CheckCircle2
+                  aria-hidden
+                  className={`mt-0.5 h-4 w-4 shrink-0 ${it.is_default_included ? 'text-terracotta' : 'text-ink/30'}`}
+                  strokeWidth={1.75}
                 />
-              </span>
-            </label>
-          ))}
-
-          <div className="flex items-center justify-between border-t border-ink/10 pt-3">
-            <span className="text-sm font-medium text-ink">Total</span>
-            <span className="font-display text-lg italic text-ink">
-              {formatPHP(rolledTotalNum) ?? '₱0'}
-            </span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-ink/65">Deposit paid</span>
-            <span className="font-medium text-ink">{depositPaidFormatted ?? '—'}</span>
-          </div>
-
-          <button
-            type="submit"
-            className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-          >
-            Save costs
-          </button>
-        </form>
-      </section>
-
-      {/* ============================================================== */}
-      {/* Section 1b — Bring this vendor onto Setnayan                     */}
-      {/* ============================================================== */}
-      {/* Renders when the locked vendor is a manual contact (no Setnayan  */}
-      {/* account). Surfaces a shareable claim link the host sends to the  */}
-      {/* vendor via Viber/Messenger/SMS/email/etc. — the vendor opens it, */}
-      {/* registers a free vendor account, and applyClaimAutoLink fires:   */}
-      {/* event_vendors.marketplace_vendor_id ← new vendor_profile_id.     */}
-      {/* CLAUDE.md 2026-05-22 owner directive.                             */}
-      {needsInvite && autoShareInvite && autoShareInvite.status === 'pending' ? (
-        <section
-          aria-labelledby="claim-invite-heading"
-          className="rounded-2xl border border-amber-300/60 bg-amber-50/60 p-5 sm:p-6"
-        >
-          <header className="flex items-start gap-3">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-amber-100 text-amber-800">
-              <LinkIcon aria-hidden className="h-4.5 w-4.5" strokeWidth={1.75} />
-            </div>
-            <div className="min-w-0 space-y-1">
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-amber-800">
-                Bring this vendor onto Setnayan
-              </p>
-              <h2
-                id="claim-invite-heading"
-                className="text-sm font-semibold text-ink"
-              >
-                Send {displayName} this link
-              </h2>
-              <p className="text-xs text-ink/70">
-                They don&rsquo;t have a Setnayan account yet. Share this link
-                so they can register a free vendor account and see the
-                schedule you&rsquo;ve locked for them.
-              </p>
-            </div>
-          </header>
-
-          <div className="mt-4">
-            <ClaimLinkShare
-              claimUrl={buildClaimUrl(autoShareInvite.claim_token)}
-              shareTitle={`Setnayan invite for ${displayName}`}
-              shareText={`Hi! I added you on Setnayan for our wedding. Claim your free vendor account here:`}
-            />
-          </div>
-
-          <p className="mt-3 text-[11px] text-ink/55">
-            Free vendor account · launch promo runs through 30 Jan 2027 ·
-            Link expires in 90 days
-          </p>
-        </section>
-      ) : needsInvite && autoShareInvite && autoShareInvite.status === 'claimed' ? (
-        <section
-          aria-labelledby="claim-linked-heading"
-          className="rounded-2xl border border-emerald-200/80 bg-emerald-50/60 p-5"
-        >
-          <header className="flex items-start gap-3">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-800">
-              <UserCheck aria-hidden className="h-4.5 w-4.5" strokeWidth={1.75} />
-            </div>
-            <div className="min-w-0 space-y-1">
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-emerald-800">
-                Linked to vendor account
-              </p>
-              <h2
-                id="claim-linked-heading"
-                className="text-sm font-semibold text-ink"
-              >
-                {displayName} joined Setnayan
-              </h2>
-              <p className="text-xs text-ink/70">
-                Chat unlocks below. They can confirm details, upload
-                contracts, and sync their schedule directly with you.
-              </p>
-            </div>
-          </header>
-        </section>
-      ) : needsInvite && autoShareInvite && autoShareInvite.status === 'expired' ? (
-        <section
-          aria-labelledby="claim-expired-heading"
-          className="rounded-2xl border border-ink/15 bg-cream/60 p-5"
-        >
-          <header className="flex items-start gap-3">
-            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ink/5 text-ink/55">
-              <LinkIcon aria-hidden className="h-4.5 w-4.5" strokeWidth={1.75} />
-            </div>
-            <div className="min-w-0 space-y-1">
-              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
-                Invite link expired
-              </p>
-              <h2
-                id="claim-expired-heading"
-                className="text-sm font-semibold text-ink/85"
-              >
-                The previous invite link is no longer active
-              </h2>
-              <p className="text-xs text-ink/65">
-                Re-lock this vendor to generate a fresh link, or reach out to
-                them using the contact details above.
-              </p>
-            </div>
-          </header>
+                <span>
+                  {it.service_description}
+                  {it.is_default_included ? '' : ' (optional add-on)'}
+                </span>
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
 
       {/* ============================================================== */}
-      {/* Section 2 — Status stepper                                       */}
+      {/* Section 3 — Order & payment status (stepper + payments)         */}
       {/* ============================================================== */}
       <section aria-labelledby="status-heading" className="space-y-3">
         <h2
           id="status-heading"
           className="font-mono text-xs uppercase tracking-[0.18em] text-ink/65"
         >
-          Status
+          Order &amp; payment status
         </h2>
 
-        <ol className="grid grid-cols-5 gap-1 sm:gap-2" role="list">
+        <ol className="grid grid-cols-3 gap-1 sm:gap-2" role="list">
           {STAGE_ORDER.map((s, idx) => {
-            const reached =
-              stage !== null && STAGE_ORDER.indexOf(stage) >= idx;
+            const reached = stage !== null && STAGE_ORDER.indexOf(stage) >= idx;
             const isCurrent = stage === s;
             const Icon = reached ? CheckCircle2 : Circle;
             return (
@@ -913,15 +674,11 @@ export default async function VendorWorkspacePage({ params }: Props) {
                     isCurrent ? 'ring-2 ring-emerald-300/60 ring-offset-2' : '',
                   ].join(' ')}
                 >
-                  <Icon
-                    aria-hidden
-                    className="h-3.5 w-3.5"
-                    strokeWidth={2}
-                  />
+                  <Icon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
                 </div>
                 <span
                   className={[
-                    'text-[10px] leading-tight sm:text-xs',
+                    'text-[11px] leading-tight sm:text-xs',
                     reached ? 'text-ink/85' : 'text-ink/45',
                     isCurrent ? 'font-semibold' : '',
                   ].join(' ')}
@@ -935,18 +692,43 @@ export default async function VendorWorkspacePage({ params }: Props) {
 
         {stage === null ? (
           <p className="text-xs text-ink/55">
-            No payment progress recorded yet. Add a payment milestone below to
-            start tracking.
+            No payment progress recorded yet. Log a payment below as money moves.
           </p>
         ) : null}
+
+        {/* Payments — embeds the same itemization card the budget page uses. */}
+        <div
+          id="payments"
+          className="space-y-3 rounded-xl border border-ink/10 bg-cream/60 p-5"
+        >
+          <header className="flex items-center justify-between gap-3">
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-ink">
+              <PiggyBank aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+              Payments
+            </h3>
+          </header>
+
+          {vendorBudgetSummary ? (
+            <VendorItemizationCard
+              summary={vendorBudgetSummary}
+              eventId={eventId}
+              variant="embed"
+            />
+          ) : (
+            <p className="text-xs text-ink/55">
+              No payment milestones added yet. Add a line item or log a payment
+              as money moves to {displayName}.
+            </p>
+          )}
+        </div>
       </section>
 
       {/* ============================================================== */}
-      {/* Sections 3-6 — Two-column on desktop, stacked on mobile          */}
+      {/* Coordination — Conversation / Documents / Schedules (2-col)     */}
       {/* ============================================================== */}
       <div className="grid gap-5 lg:grid-cols-2">
         {/* ----------------------------------------------------------- */}
-        {/* Section 3 — Conversation                                     */}
+        {/* Conversation                                                 */}
         {/* ----------------------------------------------------------- */}
         <section
           id="conversation"
@@ -1005,54 +787,7 @@ export default async function VendorWorkspacePage({ params }: Props) {
         </section>
 
         {/* ----------------------------------------------------------- */}
-        {/* Section 4 — Payments                                         */}
-        {/*                                                              */}
-        {/* Owner directive 2026-05-22 — embed the per-vendor budget     */}
-        {/* itemization (Line Items + Payments form from /budget) inside */}
-        {/* this card. Renders the SAME VendorItemizationCard component  */}
-        {/* the budget page uses, in 'embed' variant (drops the outer    */}
-        {/* article chrome since this card already supplies it).         */}
-        {/*                                                              */}
-        {/* The empty state below applies when fetchBudgetSnapshot failed*/}
-        {/* outright OR returned no row for this vendor (rare race —     */}
-        {/* event_vendors row exists but snapshot query lost it). Both   */}
-        {/* fall back to the same polite empty state.                    */}
-        {/* ----------------------------------------------------------- */}
-        <section
-          id="payments"
-          aria-labelledby="payments-heading"
-          className="space-y-3 rounded-xl border border-ink/10 bg-cream/60 p-5"
-        >
-          <header className="flex items-center justify-between gap-3">
-            <h2
-              id="payments-heading"
-              className="flex items-center gap-2 text-sm font-semibold text-ink"
-            >
-              <PiggyBank
-                aria-hidden
-                className="h-4 w-4 text-terracotta"
-                strokeWidth={1.75}
-              />
-              Payments
-            </h2>
-          </header>
-
-          {vendorBudgetSummary ? (
-            <VendorItemizationCard
-              summary={vendorBudgetSummary}
-              eventId={eventId}
-              variant="embed"
-            />
-          ) : (
-            <p className="text-xs text-ink/55">
-              No payment milestones added yet. Add a line item or log a payment
-              below as money moves to {displayName}.
-            </p>
-          )}
-        </section>
-
-        {/* ----------------------------------------------------------- */}
-        {/* Section 5 — Documents                                        */}
+        {/* Documents                                                    */}
         {/* ----------------------------------------------------------- */}
         <section
           id="documents"
@@ -1131,7 +866,7 @@ export default async function VendorWorkspacePage({ params }: Props) {
         </section>
 
         {/* ----------------------------------------------------------- */}
-        {/* Section 6 — Schedules                                        */}
+        {/* Schedules                                                    */}
         {/* ----------------------------------------------------------- */}
         <section
           id="schedules"
@@ -1182,13 +917,8 @@ export default async function VendorWorkspacePage({ params }: Props) {
       </div>
 
       {/* ============================================================== */}
-      {/* Section 6.5 — Marketplace info (marketplace-linked vendors only) */}
+      {/* Marketplace info (marketplace-linked vendors only)              */}
       {/* ============================================================== */}
-      {/* Owner directive 2026-05-22 — surface Services + Contact + Reviews */}
-      {/* from the vendor's marketplace profile. Skipped entirely for       */}
-      {/* off-platform vendors (no marketplace_vendor_id) since the data    */}
-      {/* simply doesn't exist for them. The Conversation card above        */}
-      {/* already explains the off-platform state.                          */}
       {ev.marketplace_vendor_id ? (
         <VendorMarketplaceInfo
           services={marketplaceServicesData}
@@ -1205,45 +935,187 @@ export default async function VendorWorkspacePage({ params }: Props) {
       ) : null}
 
       {/* ============================================================== */}
-      {/* Section 7 — Package                                              */}
+      {/* Costing — host's 3-line total (Service + Transport + Food)      */}
+      {/* Demoted below the service surfaces; still how the couple tracks  */}
+      {/* transport + crew-meal on top of the service price.              */}
       {/* ============================================================== */}
-      {/* No-op until event_vendor_packages table lands (Task #27). Renders */}
-      {/* a calm empty-state so the surface is visible but doesn't crash    */}
-      {/* the page. Once the table exists, this section will fetch + render  */}
-      {/* the locked-in package details (deliverables, line items, terms).  */}
       <section
-        id="package"
-        aria-labelledby="package-heading"
-        className="space-y-3 rounded-xl border border-dashed border-ink/15 bg-cream/40 p-5"
+        aria-labelledby="costing-heading"
+        className="rounded-2xl border border-ink/10 bg-white/60 p-5 sm:p-6"
       >
-        <header className="flex items-center justify-between gap-3">
-          <h2
-            id="package-heading"
-            className="flex items-center gap-2 text-sm font-semibold text-ink/75"
-          >
-            <PackageIcon
-              aria-hidden
-              className="h-4 w-4 text-ink/45"
-              strokeWidth={1.75}
-            />
-            Package details
-          </h2>
-        </header>
-        <p className="text-xs text-ink/55">
-          The package breakdown lands here once we ship the package builder.
-          For now, see Documents above for the signed contract.
+        <h2
+          id="costing-heading"
+          className="mb-1 font-display text-lg italic text-ink"
+        >
+          Costing
+        </h2>
+        <p className="mb-4 text-xs text-ink/55">
+          What you&apos;ll budget is the service price + transport + food
+          allowance. Leave a line blank to count it as ₱0.
         </p>
-        {ev.notes ? (
-          <div className="rounded-lg bg-cream/70 px-3 py-2">
-            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-              Your notes
-            </p>
-            <p className="mt-1 whitespace-pre-line text-xs text-ink/80">
-              {ev.notes}
-            </p>
+        <form action={updateVendorCosts} className="space-y-3">
+          <input type="hidden" name="event_id" value={eventId} />
+          <input type="hidden" name="vendor_id" value={ev.vendor_id} />
+
+          {[
+            { name: 'total_cost_php', label: 'Service price', value: ev.total_cost_php },
+            { name: 'transport_php', label: 'Transport cost', value: ev.transport_php },
+            { name: 'food_allowance_php', label: 'Food allowance', value: ev.food_allowance_php },
+          ].map((line) => (
+            <label
+              key={line.name}
+              className="flex items-center justify-between gap-3 text-sm"
+            >
+              <span className="text-ink/65">{line.label}</span>
+              <span className="inline-flex items-center gap-1">
+                <span className="text-ink/40">₱</span>
+                <input
+                  name={line.name}
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  inputMode="decimal"
+                  defaultValue={line.value ?? ''}
+                  className="w-32 rounded-md border border-ink/15 bg-white px-2 py-1 text-right font-medium text-ink focus:border-terracotta focus:outline-none"
+                />
+              </span>
+            </label>
+          ))}
+
+          <div className="flex items-center justify-between border-t border-ink/10 pt-3">
+            <span className="text-sm font-medium text-ink">Total</span>
+            <span className="font-display text-lg italic text-ink">
+              {formatPHP(rolledTotalNum) ?? '₱0'}
+            </span>
           </div>
-        ) : null}
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-ink/65">Deposit paid</span>
+            <span className="font-medium text-ink">{depositPaidFormatted ?? '—'}</span>
+          </div>
+
+          <button
+            type="submit"
+            className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+          >
+            Save costs
+          </button>
+        </form>
       </section>
+
+      {/* ============================================================== */}
+      {/* Your notes (single render, any pick that has them)              */}
+      {/* ============================================================== */}
+      {ev.notes ? (
+        <section
+          aria-labelledby="notes-heading"
+          className="rounded-2xl border border-ink/10 bg-cream/40 p-5"
+        >
+          <h2
+            id="notes-heading"
+            className="mb-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55"
+          >
+            Your notes
+          </h2>
+          <p className="whitespace-pre-line text-sm text-ink/80">{ev.notes}</p>
+        </section>
+      ) : null}
+
+      {/* ============================================================== */}
+      {/* Bring this vendor onto Setnayan (claim-link, demoted)           */}
+      {/* ============================================================== */}
+      {needsInvite && autoShareInvite && autoShareInvite.status === 'pending' ? (
+        <section
+          aria-labelledby="claim-invite-heading"
+          className="rounded-2xl border border-amber-300/60 bg-amber-50/60 p-5 sm:p-6"
+        >
+          <header className="flex items-start gap-3">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-amber-100 text-amber-800">
+              <LinkIcon aria-hidden className="h-4.5 w-4.5" strokeWidth={1.75} />
+            </div>
+            <div className="min-w-0 space-y-1">
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-amber-800">
+                Bring this vendor onto Setnayan
+              </p>
+              <h2
+                id="claim-invite-heading"
+                className="text-sm font-semibold text-ink"
+              >
+                Send {displayName} this link
+              </h2>
+              <p className="text-xs text-ink/70">
+                They don&rsquo;t have a Setnayan account yet. Share this link
+                so they can register a free vendor account and see the
+                schedule you&rsquo;ve locked for them.
+              </p>
+            </div>
+          </header>
+
+          <div className="mt-4">
+            <ClaimLinkShare
+              claimUrl={buildClaimUrl(autoShareInvite.claim_token)}
+              shareTitle={`Setnayan invite for ${displayName}`}
+              shareText={`Hi! I added you on Setnayan for our wedding. Claim your free vendor account here:`}
+            />
+          </div>
+
+          <p className="mt-3 text-[11px] text-ink/55">
+            Free vendor account · launch promo runs through 30 Jan 2027 ·
+            Link expires in 90 days
+          </p>
+        </section>
+      ) : needsInvite && autoShareInvite && autoShareInvite.status === 'claimed' ? (
+        <section
+          aria-labelledby="claim-linked-heading"
+          className="rounded-2xl border border-emerald-200/80 bg-emerald-50/60 p-5"
+        >
+          <header className="flex items-start gap-3">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-100 text-emerald-800">
+              <UserCheck aria-hidden className="h-4.5 w-4.5" strokeWidth={1.75} />
+            </div>
+            <div className="min-w-0 space-y-1">
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-emerald-800">
+                Linked to vendor account
+              </p>
+              <h2
+                id="claim-linked-heading"
+                className="text-sm font-semibold text-ink"
+              >
+                {displayName} joined Setnayan
+              </h2>
+              <p className="text-xs text-ink/70">
+                Chat unlocks above. They can confirm details, upload
+                contracts, and sync their schedule directly with you.
+              </p>
+            </div>
+          </header>
+        </section>
+      ) : needsInvite && autoShareInvite && autoShareInvite.status === 'expired' ? (
+        <section
+          aria-labelledby="claim-expired-heading"
+          className="rounded-2xl border border-ink/15 bg-cream/60 p-5"
+        >
+          <header className="flex items-start gap-3">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ink/5 text-ink/55">
+              <LinkIcon aria-hidden className="h-4.5 w-4.5" strokeWidth={1.75} />
+            </div>
+            <div className="min-w-0 space-y-1">
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">
+                Invite link expired
+              </p>
+              <h2
+                id="claim-expired-heading"
+                className="text-sm font-semibold text-ink/85"
+              >
+                The previous invite link is no longer active
+              </h2>
+              <p className="text-xs text-ink/65">
+                Re-lock this vendor to generate a fresh link, or reach out to
+                them using the contact details above.
+              </p>
+            </div>
+          </header>
+        </section>
+      ) : null}
     </div>
   );
 }

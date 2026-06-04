@@ -1,12 +1,12 @@
 // ============================================================================
-// /dashboard/[eventId]/vendors/[eventVendorId]/workspace — Per-SERVICE workspace
+// /dashboard/[eventId]/vendors/[vendorId]/workspace — Per-SERVICE workspace
 //
 // Service-scoped reframe (2026-06-04). This is the page a couple lands on when
 // they click a finalized SERVICE card in their plan. It leads with the booked
 // service/package — name · blurb · inclusions · price · order status — and
 // demotes the vendor to a "by {vendor}" attribution line.
 //
-// The route's [eventVendorId] is the event_vendors.vendor_id PK, which binds
+// The route's [vendorId] is the event_vendors.vendor_id PK, which binds
 // to AT MOST ONE locked package (event_vendor_package_id → event_vendor_packages
 // → vendor_packages + vendor_package_items). So one URL == one service context;
 // no route or schema change was needed to make this service-scoped.
@@ -69,7 +69,7 @@ import {
 export const metadata = { title: 'Service workspace · Setnayan' };
 
 type Props = {
-  params: Promise<{ eventId: string; eventVendorId: string }>;
+  params: Promise<{ eventId: string; vendorId: string }>;
 };
 
 // ----------------------------------------------------------------------------
@@ -175,7 +175,7 @@ function safeHttpUrl(url: string | null | undefined): string | null {
 // ----------------------------------------------------------------------------
 
 export default async function VendorWorkspacePage({ params }: Props) {
-  const { eventId, eventVendorId } = await params;
+  const { eventId, vendorId } = await params;
   const supabase = await createClient();
   const {
     data: { user },
@@ -190,7 +190,7 @@ export default async function VendorWorkspacePage({ params }: Props) {
     .select(
       'vendor_id, event_id, category, vendor_name, contact_email, contact_phone, status, workspace_status, total_cost_php, transport_php, food_allowance_php, deposit_paid_php, notes, marketplace_vendor_id, manual_vendor_id, event_vendor_package_id, created_at',
     )
-    .eq('vendor_id', eventVendorId)
+    .eq('vendor_id', vendorId)
     .eq('event_id', eventId)
     .maybeSingle();
 
@@ -271,7 +271,7 @@ export default async function VendorWorkspacePage({ params }: Props) {
       .from('vendor_meetings')
       .select('meeting_id, starts_at, ends_at, mode, title, location, agenda, notes')
       .eq('event_id', eventId)
-      .eq('vendor_id', eventVendorId)
+      .eq('vendor_id', vendorId)
       .order('starts_at', { ascending: true }),
 
     // Marketplace profile — logo, business name, city, + is_setnayan_service

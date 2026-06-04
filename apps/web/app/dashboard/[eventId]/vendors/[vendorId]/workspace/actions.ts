@@ -1,7 +1,7 @@
 'use server';
 
 // ============================================================================
-// /dashboard/[eventId]/vendors/[eventVendorId]/workspace/actions.ts
+// /dashboard/[eventId]/vendors/[vendorId]/workspace/actions.ts
 //
 // Server actions for the per-service workspace page.
 //

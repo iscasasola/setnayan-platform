@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { cache } from 'react';
 
 import {
   TAXONOMY_MAP,
@@ -7,6 +8,7 @@ import {
   type WeddingFolder,
   type WeddingTile,
 } from './taxonomy';
+import { getTaxonomy, type TaxonomySnapshot } from './taxonomy-db';
 import type { VendorPublicVisibility } from './vendor-visibility';
 
 /**
@@ -153,6 +155,52 @@ export const CANONICAL_SERVICES_BY_TILE: Map<WeddingTile, string[]> = (() => {
   map.set('filipiniana_barongs', [...FILIPINIANA_BARONG_CANONICALS]);
   return map;
 })();
+
+// ── DB-backed buckets (Phase 2b) ──────────────────────────────────────────
+// Same derivation as the two module-level IIFEs above, but from the live
+// taxonomy snapshot (service_categories + canonical_service_taxonomy), so a
+// vendor an admin re-maps to a different tile re-buckets WITHOUT a deploy. The
+// IIFE constants above remain the synchronous fallback for the not-yet-flipped
+// sync consumers (dashboard / actions / onboarding).
+function deriveBuckets(tax: TaxonomySnapshot): {
+  byFolder: Map<WeddingFolder, string[]>;
+  byTile: Map<WeddingTile, string[]>;
+} {
+  const byFolder = new Map<WeddingFolder, string[]>();
+  const byTile = new Map<WeddingTile, string[]>();
+  for (const [canonical, meta] of Object.entries(tax.map)) {
+    if (meta.marketplaceHidden) continue;
+    const fArr = byFolder.get(meta.folder) ?? [];
+    fArr.push(canonical);
+    byFolder.set(meta.folder, fArr);
+    if (meta.tile) {
+      const tArr = byTile.get(meta.tile) ?? [];
+      tArr.push(canonical);
+      byTile.set(meta.tile, tArr);
+    }
+    if (meta.secondary_tiles) {
+      for (const secondaryTile of meta.secondary_tiles) {
+        if (secondaryTile !== meta.tile) {
+          const arr = byTile.get(secondaryTile) ?? [];
+          if (!arr.includes(canonical)) arr.push(canonical);
+          byTile.set(secondaryTile, arr);
+        }
+        const secondaryFolder = tax.tileParent[secondaryTile];
+        if (secondaryFolder && secondaryFolder !== meta.folder) {
+          const arr = byFolder.get(secondaryFolder) ?? [];
+          if (!arr.includes(canonical)) arr.push(canonical);
+          byFolder.set(secondaryFolder, arr);
+        }
+      }
+    }
+  }
+  // Filipiniana & Barongs cross-view (explicit list; same vendors as the attire tiles).
+  byTile.set('filipiniana_barongs' as WeddingTile, [...FILIPINIANA_BARONG_CANONICALS]);
+  return { byFolder, byTile };
+}
+
+/** Live canonical→folder / canonical→tile buckets from the DB snapshot (fallback-safe). Cached per request. */
+export const getCanonicalBuckets = cache(async () => deriveBuckets(await getTaxonomy()));
 
 /** All marketplace-visible canonicals for a parent (read-only accessor). */
 export function canonicalServicesForFolder(folder: WeddingFolder): string[] {
@@ -304,7 +352,8 @@ export async function findTopVendorsByFolder(
     visibilities?: ReadonlyArray<VendorPublicVisibility>;
   },
 ): Promise<VendorPreviewRow[]> {
-  return topVendorsByServices(admin, CANONICAL_SERVICES_BY_FOLDER.get(args.folder) ?? [], {
+  const { byFolder } = await getCanonicalBuckets();
+  return topVendorsByServices(admin, byFolder.get(args.folder) ?? [], {
     limit: args.limit ?? 9,
     excludeVendorIds: args.excludeVendorIds,
     visibilities: args.visibilities ?? ['verified', 'coming_soon'],
@@ -324,7 +373,8 @@ export async function findTopVendorsByTile(
     visibilities?: ReadonlyArray<VendorPublicVisibility>;
   },
 ): Promise<VendorPreviewRow[]> {
-  return topVendorsByServices(admin, CANONICAL_SERVICES_BY_TILE.get(args.tile) ?? [], {
+  const { byTile } = await getCanonicalBuckets();
+  return topVendorsByServices(admin, byTile.get(args.tile) ?? [], {
     limit: args.limit ?? 9,
     excludeVendorIds: args.excludeVendorIds,
     visibilities: args.visibilities ?? ['verified', 'coming_soon'],

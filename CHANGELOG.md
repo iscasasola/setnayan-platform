@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · fix(0000): stop unexpected mobile zoom — native-app viewport hardening
+
+**Context:** Owner report — *"our screen sometimes zooms in unexpectedly and we lose the full-screen native-device feeling … we want it to feel like an app."* Root cause is **iOS Safari focus-zoom**: inputs are `font: inherit` (Tailwind preflight), so any field nested inside a `text-sm` / `text-xs` wrapper renders at 14px and Safari auto-zooms into it on focus and never fully settles back. It reads as "random" because it only fires on the sub-16px fields. The viewport was already correct (`width=device-width, initialScale=1, viewportFit=cover, maximumScale=5`) and `manifest.json` already ships `display: standalone` — so this is a CSS-only hardening, no viewport/manifest change.
+
+**What changed:**
+- **`apps/web/app/globals.css`** — appended one UNLAYERED block (must outrank the Tailwind `text-sm` utility; unlayered CSS beats any `@layer`, including `@layer utilities`):
+  - `@media (pointer: coarse)` → `input / select / textarea { font-size: 16px }` (excludes checkbox/radio/range/color). Kills iOS focus-zoom on touch devices; desktop form density (intentional 14px) is untouched.
+  - `html { touch-action: manipulation }` — disables double-tap-to-zoom + the legacy 300ms tap delay tree-wide (touch-action intersects through ancestors) while KEEPING pinch-zoom + panning.
+  - `html { overscroll-behavior: none }` — no pull-to-refresh / rubber-band bounce on the document scroller.
+- Deliberate pinch-zoom stays **enabled** (`maximumScale: 5` in `app/layout.tsx`) for WCAG 1.4.4 — only the unwanted zooms are removed.
+- No change to `app/layout.tsx` viewport (already correct). No global safe-area padding added — 23 components already consume `env(safe-area-inset-*)`, so a global rule would double up.
+
+**Verification:** CSS-only, appended after the final `@layer components` close (brace balance verified even, 86/86). typecheck + lint + production build + Lighthouse + Playwright e2e all green on this SHA. Shipped from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** None — platform-level input/viewport behavior; no SKU, schema, pricing, or feature-scope change.
+
 ## 2026-06-04 · ui(0001): guest carousel — every panel collapses to one compact row (Summary · Add · Customize)
 
 **Context:** Owner directive 2026-06-04 — on the customer dashboard Guests surface (mobile carousel + desktop quick-add), the panels sat taller than the Search row beside them. Owner: *"put the [First Name] [Last Name] in 1 row and remove text — keep it as low as search… can we also keep the customize 1 row? and summary 1 row?"* The Search panel is the height benchmark; every sibling panel now matches it.

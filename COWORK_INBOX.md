@@ -8,6 +8,18 @@
 
 ---
 
+## [PENDING] 2026-06-04 — Vendor dashboard remap (4 groups) + role-aware nav shell · Phase 1 (0022)
+
+**Why:** Owner directive to simplify the vendor dashboard + make it a multi-user workspace (owner/admin see all; agents scoped). Phase 1 ships the IA remap + role-aware nav shell; Phase 2 ships per-service data scoping (`vendor_service_agents` + RLS) + admins-see-all data resolution + route guards.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`0022_vendor_dashboard.md`** — desktop nav is now **4 groups** (Home · Work · Grow · Business), down from 6 (Pipeline+Communicate → Work; Money+Team → Business). Mobile bottom-nav unchanged for owner/admin (Home · Bookings · Messages · Earnings · More). Note the **role-aware nav shell**: agent/viewer see a scoped nav (Phase 1: Overview only) + a "you're on the team" home; owner/admin see everything.
+2. **`0022_vendor_dashboard.md` §2.6 (team/agents)** — record the Phase-1/Phase-2 split: roles resolved via `vendor_team_members`; agent per-service scoping (`vendor_service_agents`) + RLS lands in Phase 2.
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
 ## [PENDING] 2026-06-04 — "Where your day stands" cover made directive + in-rail loop coaching (0021 Vendors / Plan & Budget)
 
 **Why:** Customers couldn't tell what to do on the Vendors "Where your day stands" overview once they'd started — the Find→Shortlist→Lock loop was taught ONLY on the empty cover. Added an action-first banner, a persistent loop legend, a first-run coachmark, and a point-of-action Lock helper.

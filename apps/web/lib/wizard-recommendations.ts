@@ -175,6 +175,15 @@ type Args = {
    *  `vendor_profiles` (not the market_stats view), so it's resolved via a small
    *  candidate-pool lookup after the base fetch. Omit/0 = no pax scope. */
   pax?: number | null;
+  /** Couple's FINE reception venue type (`hotel_ballroom` · `events_place` ·
+   *  `restaurant` · `garden` · `beach` · `heritage` · `resort`) — the precise
+   *  pick the onboarding reception screen captures before it's collapsed to the
+   *  coarse `venue_setting` enum at commit. Distinguishes e.g. a hotel ballroom
+   *  from an events place (both `banquet_hall` under `venueSetting`). Filters
+   *  `vendor_profiles.venue_type` (resolved in the SAME candidate-pool lookup as
+   *  capacity). Hybrid NULL-safe: a vendor with NULL `venue_type` is admitted.
+   *  Omit = no venue-type scope. */
+  venueType?: string | null;
   /** Cap on rows. Default 15 for the legacy list VendorPickCard; the
    *  new visual VendorPickGridCard bumps to 100+ so its 15-per-page
    *  pagination has multiple pages to walk through. */
@@ -224,8 +233,11 @@ export async function fetchWizardVendorRecommendations(
   // the music re-rank — to keep a full `limit` of in-region rows.
   const needsRegionScope = !!args.region;
   const needsPaxScope = !!(args.pax && args.pax > 0);
+  const needsVenueTypeScope = !!args.venueType;
   const fetchLimit =
-    isMusicMatch || needsRegionScope || needsPaxScope ? Math.max(limit, 100) : limit;
+    isMusicMatch || needsRegionScope || needsPaxScope || needsVenueTypeScope
+      ? Math.max(limit, 100)
+      : limit;
 
   let query = admin
     .from('vendor_market_stats')
@@ -347,27 +359,40 @@ export async function fetchWizardVendorRecommendations(
     if (baseRows.length === 0) return [];
   }
 
-  // Pax scope (Hybrid · admit-unknown). capacity_max lives on vendor_profiles,
-  // not the market_stats view, so resolve it for the candidate pool with one
-  // small lookup, then drop venues that can't seat the wedding. A NULL
-  // capacity_max — every non-venue vendor + venues that haven't stated it — is
-  // admitted (no constraint). We over-fetched above so the slice still fills.
-  if (needsPaxScope) {
-    const pax = args.pax!;
-    const capIds = baseRows.map((r) => r.vendor_profile_id);
-    const { data: capRows } = await admin
+  // Pax + venue-type scope (Hybrid · admit-unknown). Both capacity_max and
+  // venue_type live on vendor_profiles, not the market_stats view, so resolve
+  // them for the candidate pool with ONE small lookup, then drop venues that
+  // can't seat the wedding (capacity_max < pax) or aren't the picked fine venue
+  // type. A NULL on either — every non-venue vendor + venues that haven't stated
+  // it — is admitted (no constraint). We over-fetched above so the slice fills.
+  if (needsPaxScope || needsVenueTypeScope) {
+    const pax = args.pax && args.pax > 0 ? args.pax : null;
+    const vType = args.venueType ?? null;
+    const attrIds = baseRows.map((r) => r.vendor_profile_id);
+    const { data: attrRows } = await admin
       .from('vendor_profiles')
-      .select('vendor_profile_id, capacity_max')
-      .in('vendor_profile_id', capIds);
-    const capById = new Map<string, number | null>(
-      (capRows ?? []).map((r) => {
-        const row = r as { vendor_profile_id: string; capacity_max: number | null };
-        return [row.vendor_profile_id, row.capacity_max ?? null];
+      .select('vendor_profile_id, capacity_max, venue_type')
+      .in('vendor_profile_id', attrIds);
+    const attrById = new Map<string, { cap: number | null; type: string | null }>(
+      (attrRows ?? []).map((r) => {
+        const row = r as {
+          vendor_profile_id: string;
+          capacity_max: number | null;
+          venue_type: string | null;
+        };
+        return [
+          row.vendor_profile_id,
+          { cap: row.capacity_max ?? null, type: row.venue_type ?? null },
+        ];
       }),
     );
     baseRows = baseRows.filter((r) => {
-      const cap = capById.get(r.vendor_profile_id) ?? null;
-      return cap === null || cap >= pax;
+      const a = attrById.get(r.vendor_profile_id);
+      const cap = a?.cap ?? null;
+      const type = a?.type ?? null;
+      const paxOk = pax === null || cap === null || cap >= pax;
+      const typeOk = vType === null || type === null || type === vType;
+      return paxOk && typeOk;
     });
     if (baseRows.length === 0) return [];
   }

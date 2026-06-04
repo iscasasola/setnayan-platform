@@ -1306,10 +1306,20 @@ export async function searchVendorRecommendations(
   }
 
   const admin = createAdminClient();
+  // Leaf-match parity (2026-06-04): scope to the event's type + guest count.
+  // (Region stays client-picker-driven on the grid; venue_type is onboarding-
+  // only — the dashboard carries just the coarse venue_setting.)
+  const { data: ev } = await admin
+    .from('events')
+    .select('event_type, estimated_pax')
+    .eq('event_id', args.eventId)
+    .maybeSingle();
   return fetchWizardVendorRecommendations(admin, {
     canonicalServices: args.canonicalServices,
     ceremonyType: args.ceremonyType,
     venueSetting: args.venueSetting,
+    eventType: (ev?.event_type as string | null) ?? null,
+    pax: (ev?.estimated_pax as number | null) ?? null,
     excludeVendorIds: args.excludeVendorIds,
     searchQuery: args.query,
     matchEventId: args.eventId,

@@ -4,6 +4,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(0044/0016): fine venue_type refinement + dashboard parity (leaf-match · "apply everything" 3-4/4)
+
+**Context:** Completes the Hybrid leaf-match. Two parts in one PR.
+
+**Part A — fine `venue_type` refinement (onboarding).** The reception screen captures a precise pick (hotel ballroom · events place · restaurant · garden · beach · heritage · resort), but it collapses to the coarse 7-value `events.venue_setting` enum at commit (hotel / events place / restaurant all → `banquet_hall`), so the couple couldn't distinguish a hotel ballroom from an events place. New **`vendor_profiles.venue_type`** (migration `20260810000000`, applied to prod · nullable TEXT, no CHECK — the canonical fine vocabulary is still being ratified via Cowork) lets a venue declare its precise type.
+- **`lib/wizard-recommendations.ts`** — new optional `venueType` arg, resolved + filtered in the SAME candidate-pool lookup as `capacity_max` (one query does both). Hybrid NULL-safe.
+- **`app/onboarding/wedding/actions.ts`** — `RECEPTION_TO_VENUE_TYPE` map (fine); `searchOnboardingReceptionVenues` + `getOnboardingVendorCounts` derive + pass `venueType` (count selects `venue_type` + a `venueTypeFit` predicate).
+- **`scripts/seed-demo-vendors.ts`** — `venueTypeFor(setting, index)`: `banquet_hall` fans out into hotel_ballroom / events_place / restaurant; deterministic (no RNG-stream perturbation).
+
+**Part B — dashboard marketplace parity (event-type + pax).** The dashboard search passed only ceremony + venue_setting (location was already handled via reception coords + the grid's client-side region picker). Added **event-type + pax** server-side:
+- **`vendors/_actions/category-search.ts`** + **`wizard-actions.ts` `searchVendorRecommendations`** — fetch the event's `event_type` + `estimated_pax`, pass `eventType` + `pax`. Region intentionally NOT server-forced (would fight the grid's region picker); venue_type stays onboarding-only (the dashboard stores just the coarse `venue_setting`).
+
+**Effect:** a couple wanting a *hotel ballroom* stops seeing events places (after a demo re-Create populates `venue_type`; existing NULL rows admitted = no regression). Dashboard searches now exclude non-wedding + over-capacity vendors. All new engine args are optional → the other call sites are untouched.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean (5 files) · migration applied via `supabase db push` (dry-run-confirmed only-pending) + confirmed on remote. Isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** New `vendor_profiles.venue_type` + `venue_type` filtering in onboarding; `event_type` + `pax` now scope the dashboard marketplace. **Capacity + venue_type both landed as first-class `vendor_profiles` columns** (pragmatic, like `venue_directory.capacity_*`/`venue_type`) rather than 0044 `attribute_payload`. Owner action on `COWORK_INBOX.md` → `0044`: ratify the fine `venue_type` vocabulary (`hotel_ballroom · events_place · restaurant · garden · beach · heritage · resort` — kept in lock-step across the migration comment, `RECEPTION_TO_VENUE_TYPE`, and the seed) and fold it into the venue refinement schema + the `venue_setting`↔`venue_directory.venue_type`↔`vendor_profiles.venue_type` reconciliation. **Schedule** (vendor calendar availability) remains the one deferred dimension.
+
 ## 2026-06-04 · feat(0023): /admin/taxonomy editor — reorder tiles (Phase 3c)
 
 **Context:** Completes the editor's structural toolset. The catalog reads tile order from the snapshot (2b·2), so reordering shows on the live `/vendors` browse with no deploy.

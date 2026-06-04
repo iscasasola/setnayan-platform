@@ -103,6 +103,21 @@ const RECEPTION_TO_VENUE_SETTING: Record<string, string> = {
   setting_resort: 'destination',
 };
 
+// FINE reception venue type — the precise pick before the coarse venue_setting
+// collapse above (hotel / events place / restaurant all → banquet_hall there).
+// Filters vendor_profiles.venue_type so a couple wanting a hotel ballroom isn't
+// shown events places. Vocabulary mirrors the demo seed + the (pending) 0044
+// venue refinement schema; keep the three in lock-step.
+const RECEPTION_TO_VENUE_TYPE: Record<string, string> = {
+  setting_ballroom: 'hotel_ballroom',
+  setting_events_place: 'events_place',
+  setting_restaurant: 'restaurant',
+  setting_heritage: 'heritage',
+  setting_garden: 'garden',
+  setting_beach: 'beach',
+  setting_resort: 'resort',
+};
+
 // Onboarding region slug (screen-6 · onboarding-shell REGLABEL keys) → PSGC
 // region code (vendor_profiles.hq_region · lib/regions.ts PH_REGIONS). The
 // shell's own slug set ('c-visayas', 'n-mindanao', 'abroad' …) differs from
@@ -574,12 +589,13 @@ export async function searchOnboardingReceptionVenues(input: {
         : 'catholic';
   }
 
-  // venue_setting from the couple's first reception "setting" pick (screen-10);
-  // null → no setting filter, show all reception venues.
-  const venueSetting =
-    (input.receptionSettings ?? [])
-      .map((k) => RECEPTION_TO_VENUE_SETTING[k])
-      .find((v): v is string => Boolean(v)) ?? null;
+  // venue_setting (coarse) + venue_type (fine) from the couple's first reception
+  // "setting" pick (screen-10); null → no filter, show all reception venues.
+  const firstSetting = (input.receptionSettings ?? []).find(
+    (k) => Boolean(RECEPTION_TO_VENUE_SETTING[k]),
+  );
+  const venueSetting = firstSetting ? RECEPTION_TO_VENUE_SETTING[firstSetting]! : null;
+  const venueType = firstSetting ? (RECEPTION_TO_VENUE_TYPE[firstSetting] ?? null) : null;
 
   const admin = createAdminClient();
   try {
@@ -591,6 +607,7 @@ export async function searchOnboardingReceptionVenues(input: {
       region: onboardingRegionToPsgc(input.region),
       eventType: 'wedding',
       pax: input.pax ?? null,
+      venueType,
       limit: 8,
     });
     return recs.map((r) => ({
@@ -680,10 +697,11 @@ export async function getOnboardingVendorCounts(input: {
         ? primary
         : 'catholic';
   }
-  const venueSetting =
-    (input.receptionSettings ?? [])
-      .map((k) => RECEPTION_TO_VENUE_SETTING[k])
-      .find((v): v is string => Boolean(v)) ?? null;
+  const firstSetting = (input.receptionSettings ?? []).find(
+    (k) => Boolean(RECEPTION_TO_VENUE_SETTING[k]),
+  );
+  const venueSetting = firstSetting ? RECEPTION_TO_VENUE_SETTING[firstSetting]! : null;
+  const venueType = firstSetting ? (RECEPTION_TO_VENUE_TYPE[firstSetting] ?? null) : null;
 
   // Picked categories → canonical service union (same resolver the Services-tab
   // Category Search uses). Empty union → count the whole published marketplace.
@@ -719,12 +737,13 @@ export async function getOnboardingVendorCounts(input: {
     compatible_venue_settings: string[] | null;
     event_types: string[] | null;
     capacity_max: number | null;
+    venue_type: string | null;
   };
   try {
     let q = admin
       .from('vendor_profiles')
       .select(
-        'hq_region,location_city,compatible_ceremony_types,compatible_venue_settings,event_types,capacity_max',
+        'hq_region,location_city,compatible_ceremony_types,compatible_venue_settings,event_types,capacity_max,venue_type',
       )
       .in('public_visibility', ['verified', 'coming_soon'])
       .not('business_name', 'is', null)
@@ -752,6 +771,7 @@ export async function getOnboardingVendorCounts(input: {
     const eventFit = (ets: string[] | null) => ets == null || ets.includes('wedding');
     const pax = input.pax && input.pax > 0 ? input.pax : null;
     const paxFit = (cap: number | null) => pax === null || cap === null || cap >= pax;
+    const venueTypeFit = (t: string | null) => venueType === null || t === null || t === venueType;
 
     const total = rows.length; // full category pool · region-agnostic denominator
     const matched = rows.filter(
@@ -760,7 +780,8 @@ export async function getOnboardingVendorCounts(input: {
         venueFit(r.compatible_venue_settings) &&
         regionFit(r.hq_region, r.location_city) &&
         eventFit(r.event_types) &&
-        paxFit(r.capacity_max),
+        paxFit(r.capacity_max) &&
+        venueTypeFit(r.venue_type),
     ).length;
     if (total <= 0 || matched <= 0) return null; // never fabricate / never discourage
     return { matched, total };

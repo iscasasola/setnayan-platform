@@ -184,6 +184,25 @@ function venueCapacityFor(setting: string, index: number): { min: number; max: n
   return { min: spec.min, max: spec.maxes[index % spec.maxes.length]! };
 }
 
+// FINE venue_type (20260810 migration) from the coarse setting. banquet_hall
+// fans out into hotel_ballroom / events_place / restaurant so the couple's
+// precise reception pick (which the coarse venue_setting can't tell apart) bites
+// — a "hotel ballroom" search stops surfacing events places. Values MUST match
+// RECEPTION_TO_VENUE_TYPE in onboarding/wedding/actions.ts. Deterministic on
+// (setting, index) → no RNG-stream perturbation.
+const VENUE_TYPE_BY_SETTING: Record<string, readonly string[]> = {
+  banquet_hall: ['hotel_ballroom', 'events_place', 'restaurant'],
+  garden: ['garden'],
+  beach: ['beach'],
+  heritage: ['heritage'],
+  destination: ['resort'],
+  outdoor_tent: ['events_place'],
+};
+function venueTypeFor(setting: string, index: number): string {
+  const options = VENUE_TYPE_BY_SETTING[setting] ?? ['events_place'];
+  return options[index % options.length]!;
+}
+
 // ===========================================================================
 // DETERMINISTIC RNG (seeded mulberry32)
 // ===========================================================================
@@ -1971,6 +1990,7 @@ export async function seedCategory(
     // the two insert fields stay consistent. Non-venue vendors → null/null.
     const vSetting = coarse === 'venue' ? venueSettingFor(city.name, i) : null;
     const vCap = vSetting ? venueCapacityFor(vSetting, i) : null;
+    const vType = vSetting ? venueTypeFor(vSetting, i) : null;
 
     vendorRows.push({
       user_id: null,
@@ -2010,6 +2030,7 @@ export async function seedCategory(
       // Pax dimension (20260809 migration) — only reception venues seat guests.
       capacity_min: vCap?.min ?? null,
       capacity_max: vCap?.max ?? null,
+      venue_type: vType,
       event_types: ['wedding'],
       contact_email: `${slug}@demo.setnayan.local`,
     });

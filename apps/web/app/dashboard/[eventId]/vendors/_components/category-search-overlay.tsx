@@ -56,6 +56,9 @@ const CSS = `
 .csov .r .badge{display:inline-flex;flex:0 0 auto;align-self:center;min-height:0;align-items:center;gap:3px;border-radius:999px;padding:2px 6px;line-height:1.4;white-space:nowrap;text-transform:uppercase}
 .csov .r .badge.vrf{color:var(--gold-deep);background:rgba(197,160,89,.16)}
 .csov .r .badge.bst{color:var(--mulberry);background:rgba(92,37,66,.1)}
+.csov .r .badge.mt{font-weight:600;color:var(--mulberry);background:rgba(92,37,66,.12)}
+.csov .r .badge.mt.good{color:var(--gold-deep);background:rgba(197,160,89,.18)}
+.csov .r .badge.mt.fair{color:var(--ink-soft);background:rgba(30,34,41,.06)}
 .csov .r .addbtn{flex:0 0 auto;align-self:center;border:1px solid var(--mulberry);background:var(--mulberry);color:#fff;border-radius:999px;padding:8px 14px;font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;min-height:38px;transition:transform .13s cubic-bezier(.2,.7,.2,1),opacity .2s}
 .csov .r .addbtn:active{transform:scale(.93)}
 .csov .r .addbtn:disabled{opacity:.6}
@@ -279,6 +282,11 @@ export function CategorySearchOverlay({
                 <div className="meta">
                   <div className="vn">{r.name}</div>
                   <div className="sub">
+                    <span
+                      className={`badge mt${r.compatTier === 'good' ? ' good' : r.compatTier === 'fair' ? ' fair' : ''}`}
+                    >
+                      {r.compatScore}% match
+                    </span>
                     {r.rating !== null && r.reviewCount ? (
                       <span className="stars">
                         ★ {r.rating.toFixed(1)} ({r.reviewCount})

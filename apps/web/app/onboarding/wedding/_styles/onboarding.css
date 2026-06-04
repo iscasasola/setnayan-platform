@@ -123,3 +123,146 @@
 .onbw .prefstep .pgrid:not(.strip){flex:1 1 auto;grid-auto-rows:1fr;align-content:stretch;min-height:0;}
 .onbw .prefstep .pgrid:not(.strip) .pcard{display:flex;flex-direction:column;}
 .onbw .prefstep .pgrid:not(.strip) .pcard .pimg{flex:1 1 auto;height:auto;min-height:74px;}
+
+/* ── 2026-06-04 (owner): role + kind → 3 choices in ONE row · tradition → 1-row carousel ── */
+/* Role + Kind: the 3 option cards sit side-by-side (equal third, equal height)
+   instead of stacked; title/check shrink a touch for the narrower column. Scoped
+   to the two screens — overrides the #screen-{role,kind} .opt padding above by
+   equal specificity + source order. A row is shorter than the stack, so the hero
+   photo keeps its room (Golden Rule 1: still one viewport). */
+.onbw #screen-role .stack,.onbw #screen-kind .stack{flex-direction:row;gap:9px;align-items:stretch;}
+.onbw #screen-role .opt,.onbw #screen-kind .opt{flex:1 1 0;min-width:0;display:flex;flex-direction:column;padding:13px 12px;}
+.onbw #screen-role .otrow,.onbw #screen-kind .otrow{align-items:flex-start;gap:6px;}
+.onbw #screen-role .ot,.onbw #screen-kind .ot{display:block;min-width:0;font-size:14.5px;line-height:1.2;}
+.onbw #screen-role .check,.onbw #screen-kind .check{width:18px;height:18px;}
+.onbw #screen-role .od,.onbw #screen-kind .od{font-size:11.5px;margin-top:5px;line-height:1.4;}
+
+/* Tradition (faith): the 8 chips become a single horizontal scroll-snap row
+   (carousel) instead of the 4×2 grid above — nowrap + overflow-x; each chip sizes
+   to its label and scrolls. 1 row instead of 2 → shorter vertically too. */
+.onbw #screen-faith .chips{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:8px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:4px;}
+.onbw #screen-faith .chips::-webkit-scrollbar{height:0;display:none;}
+.onbw #screen-faith .chip{flex:0 0 auto;scroll-snap-align:start;white-space:nowrap;}
+
+/* ── 2026-06-04 (owner): Top-30 reception-anchored location step (replaces the region picker) ── */
+.onbw #screen-region .viewzone{flex:0 0 auto;}
+.onbw #screen-region .tapzone{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;}
+.onbw .locpicks{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-top:12px;min-height:36px;}
+.onbw .locpicks-empty{font-family:var(--serif);font-style:italic;font-size:15px;color:var(--ink-soft);}
+.onbw .locchip{display:inline-flex;align-items:center;gap:8px;background:var(--ink);color:var(--paper);border-radius:999px;padding:7px 8px 7px 14px;font-size:13.5px;font-weight:600;animation:chippop .22s cubic-bezier(.2,.8,.3,1.3);}
+.onbw .locchip-x{appearance:none;border:0;background:rgba(255,255,255,.18);color:var(--paper);width:19px;height:19px;border-radius:50%;font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
+.onbw .locchip-x:hover{background:rgba(255,255,255,.34);}
+.onbw .locbar{display:flex;gap:8px;margin-top:12px;flex:0 0 auto;}
+.onbw .locresults-wrap{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;justify-content:flex-end;position:relative;}
+.onbw .locsearch{flex:1 1 auto;display:flex;align-items:center;gap:9px;background:var(--surface);border:1px solid var(--line-2);border-radius:14px;padding:0 14px;}
+.onbw .locsearch:focus-within{border-color:var(--gold);}
+.onbw .locsearch svg{flex:0 0 auto;width:17px;height:17px;color:var(--ink-faint);}
+.onbw .locsearch input{flex:1 1 auto;border:0;background:transparent;outline:none;font-family:var(--sans);font-size:15px;color:var(--ink);padding:14px 0;min-width:0;}
+.onbw .locsearch input::placeholder{color:var(--ink-faint);}
+.onbw .locgps{flex:0 0 auto;display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--line-2);border-radius:14px;padding:0 15px;font-family:var(--sans);font-size:13.5px;font-weight:700;color:var(--ink);cursor:pointer;transition:.18s;white-space:nowrap;}
+.onbw .locgps svg{width:16px;height:16px;flex:0 0 auto;}
+.onbw .locgps:hover{border-color:var(--gold);}
+.onbw .locgps.on{background:var(--gold);border-color:var(--gold);color:var(--ink);}
+.onbw .locgps.loading{opacity:.55;pointer-events:none;}
+.onbw .locresult-h{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:9px;flex:0 0 auto;}
+.onbw .locresults{display:flex;flex-direction:column;gap:8px;overflow-y:auto;min-height:0;flex:0 1 auto;max-height:clamp(220px,46vh,372px);padding-right:3px;-webkit-overflow-scrolling:touch;}
+.onbw .locresults.rise{animation:locRise .38s cubic-bezier(.2,.7,.3,1) both;}
+@keyframes locRise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.onbw .loccarousel{display:flex;gap:11px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;flex:0 0 auto;padding:3px 2px 9px;margin:0 -2px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.onbw .loccarousel::-webkit-scrollbar{height:0;width:0;}
+.onbw .loccard{scroll-snap-align:start;flex:0 0 auto;width:clamp(158px,46vw,178px);height:clamp(286px,40vh,344px);position:relative;border-radius:16px;overflow:hidden;border:1.5px solid transparent;background-color:#2a1a22;background-size:cover;background-position:center;background-repeat:no-repeat;box-shadow:0 8px 22px rgba(30,34,41,.18);cursor:pointer;text-align:left;padding:0;display:block;transition:transform .14s ease,border-color .15s ease,box-shadow .15s ease;-webkit-tap-highlight-color:transparent;}
+.onbw .loccard:active{transform:scale(.975);}
+.onbw .loccard.sel{border-color:var(--gold);box-shadow:0 8px 26px rgba(197,160,89,.42);}
+.onbw .loccard-rank{position:absolute;top:9px;left:10px;z-index:2;display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--gold);color:#1e2229;font-family:var(--mono);font-size:11px;font-weight:700;}
+.onbw .loccard-scrim{position:absolute;left:0;right:0;bottom:0;z-index:1;display:flex;flex-direction:column;gap:1px;padding:12px 12px 13px;background:linear-gradient(to top,rgba(18,16,22,.88) 0%,rgba(18,16,22,.52) 56%,transparent 100%);}
+.onbw .loccard-region{font-family:var(--mono);font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:#e7cf9b;}
+.onbw .loccard-city{font-family:var(--serif);font-style:italic;font-weight:600;font-size:19px;line-height:1.08;color:#fff;margin:1px 0 4px;}
+.onbw .loccard-nug{font-family:var(--sans);font-size:11px;line-height:1.33;color:rgba(255,255,255,.9);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+.onbw .loccard-check{position:absolute;top:9px;right:9px;z-index:2;width:21px;height:21px;border-radius:50%;border:1.5px solid rgba(255,255,255,.6);background:rgba(0,0,0,.2);}
+.onbw .loccard.sel .loccard-check{background:var(--gold);border-color:var(--gold);box-shadow:inset 0 0 0 3px #1e2229;}
+.onbw .locrow{padding:11px 14px;border-radius:13px;}
+.onbw .locrow .ot{font-size:15px;}
+.onbw .locrow .od{font-size:12px;margin-top:2px;}
+.onbw .locnug{font-family:var(--sans);font-size:11px;line-height:1.3;color:var(--ink-soft);margin-top:3px;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;}
+.onbw .km{color:var(--gold-deep);font-weight:700;}
+/* ── 2026-06-04 (owner): Near-me results that are Top-30 destinations render as photo cards (same art as the carousel) ── */
+.onbw .locphoto{position:relative;display:block;width:100%;box-sizing:border-box;min-height:112px;border-radius:14px;overflow:hidden;border:1.5px solid transparent;background-color:#2a1a22;background-size:cover;background-position:center;background-repeat:no-repeat;box-shadow:0 6px 18px rgba(30,34,41,.16);cursor:pointer;text-align:left;padding:0;flex:0 0 auto;scroll-snap-align:start;transition:transform .14s ease,border-color .15s ease,box-shadow .15s ease;-webkit-tap-highlight-color:transparent;}
+.onbw .locphoto:active{transform:scale(.99);}
+.onbw .locphoto.sel{border-color:var(--gold);box-shadow:0 6px 20px rgba(197,160,89,.42);}
+.onbw .locphoto.sel .loccard-check{background:var(--gold);border-color:var(--gold);box-shadow:inset 0 0 0 3px #1e2229;}
+.onbw .locphoto .loccard-city{font-size:17px;margin:1px 0 3px;}
+.onbw .locphoto .loccard-nug{-webkit-line-clamp:2;}
+.onbw .locphoto-km{font-family:var(--mono);font-style:normal;font-weight:500;font-size:10.5px;letter-spacing:.02em;color:rgba(255,255,255,.82);}
+
+/* ── 2026-06-04 (owner): welcome = full-bleed hero · brand + button float over the photo · slow Ken-Burns drift ── */
+/* top + bottom bars overlay the photo (no white bands); body padding cleared so the hero fills the whole phone */
+.onbw .phone[data-welcome] .top{position:absolute;left:0;right:0;top:0;background:linear-gradient(to bottom,rgba(18,16,22,.36),rgba(18,16,22,0));z-index:6;}
+.onbw .phone[data-welcome] .bar{display:none;}                 /* no progress bar on the welcome screen */
+.onbw .phone[data-welcome] .wm{color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.5);}   /* brand stays visible (Golden Rule 2), now legible over the photo */
+.onbw .phone[data-welcome] .body{padding:0;}
+.onbw .phone[data-welcome] .welcomescreen{flex:1 1 auto;min-height:0;}
+.onbw .phone[data-welcome] .welcomehero{margin:0;flex:1 1 auto;min-height:0;border-radius:0;}
+.onbw .phone[data-welcome] .welcomeoverlay{padding:32px 24px 112px;}   /* clear the floating button */
+.onbw .phone[data-welcome] .bottom{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(to top,rgba(18,16,22,.64) 16%,rgba(18,16,22,0));border-top:0;z-index:6;}
+/* slow "camera drifting" Ken-Burns on the hero photo (auto-disabled under prefers-reduced-motion via the global rule) */
+.onbw .phone[data-welcome] .welcomehero img{animation:kenburns 26s ease-in-out infinite alternate;}
+@keyframes kenburns{from{transform:scale(1.03) translate(0,0);}to{transform:scale(1.15) translate(-2.5%,-2%);}}
+
+/* ── 2026-06-04 (owner "add the moving clouds effect"): drifting cloud layer over the welcome sky ──
+   Recraft cloud texture (white on black · edges faded → seamless repeat-x) screen-blended over the
+   hero photo and slowly drifted. It's an ADDED high-cloud layer (the photo's own clouds stay still —
+   true photo-cloud motion needs a video loop). Auto-static under prefers-reduced-motion (global rule). */
+.onbw .phone[data-welcome] .welcomehero::after{
+  content:'';position:absolute;left:0;right:0;top:0;height:72%;z-index:1;pointer-events:none;
+  background:url(/onboarding/clouds-overlay.webp) repeat-x;background-size:1400px 100%;
+  mix-blend-mode:screen;opacity:.3;
+  -webkit-mask-image:linear-gradient(to bottom,transparent 0%,#000 20%,#000 68%,transparent 100%);
+  mask-image:linear-gradient(to bottom,transparent 0%,#000 20%,#000 68%,transparent 100%);
+  animation:clouddrift 100s linear infinite;
+}
+@keyframes clouddrift{from{background-position-x:0;}to{background-position-x:-1400px;}}
+/* ── 2026-06-04 (owner "animate the background making it have depth"): welcome hero depth-parallax ──
+   A WebGL canvas (depth-driven UV displacement, auto-orbit) overlays a plain <img> fallback. The
+   canvas fades in only once it has genuinely drawn; if WebGL/shaders fail or reduced-motion is set,
+   the <img> stays (the static Ken-Burns hero) — never broken. */
+.onbw .welcome-parallax-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:opacity .5s ease;}
+.onbw .welcome-parallax-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;opacity:0;transition:opacity .6s ease;}
+
+/* location picks: equal-size chips that share the row (1 pick = full width · 2 = 50/50, equal height) · owner 2026-06-04 */
+.onbw .locpicks{flex-wrap:nowrap;align-items:stretch;}
+.onbw .locpicks .locchip{flex:1 1 0;min-width:0;justify-content:space-between;gap:6px;}
+.onbw .locchip-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+
+/* welcome brand: bump ~20% + tagline under the wordmark (owner 2026-06-04 · recs "photo 2") */
+.onbw .phone[data-welcome] .blmark-img{width:31px;height:31px;}
+.onbw .phone[data-welcome] .wm{font-size:14.4px;}
+.onbw .brandtag{font-family:var(--sans);font-size:11px;font-weight:500;letter-spacing:.02em;color:rgba(255,255,255,.84);text-shadow:0 1px 6px rgba(0,0,0,.5);margin:-2px 0 8px 40px;}
+
+/* locchip × — crisp centered SVG icon + comfortable tap target (owner 2026-06-04 "fix the close button") */
+.onbw .locchip-x{width:24px;height:24px;background:rgba(255,255,255,.2);}
+.onbw .locchip-x svg{display:block;width:12px;height:12px;color:#fff;}
+.onbw .locchip-x:hover{background:rgba(255,255,255,.32);}
+
+/* location picks: iOS-style split-into-2 / combine — chip width animates between full-row (1 pick)
+   and half-row (2 picks); the new chip pops in (chippop), the remaining one expands on remove. (owner 2026-06-04) */
+.onbw .locpicks .locchip{flex:0 0 auto;transition:width .4s cubic-bezier(.2,.7,.3,1);}
+.onbw .locpicks[data-count="1"] .locchip{width:100%;}
+.onbw .locpicks[data-count="2"] .locchip{width:calc(50% - 3.5px);}
+
+/* find-vendor skeleton loader — shimmering placeholder cards while venues populate (owner 2026-06-04) */
+.onbw .vcard.vskel{cursor:default;pointer-events:none;}
+.onbw .vcard.vskel .vimg{background:rgba(30,34,41,.06);}
+.onbw .vskel-box{position:relative;overflow:hidden;}
+.onbw .vskel-box::after{content:'';position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.6) 50%,transparent 100%);animation:vshimmer 1.25s infinite;}
+@keyframes vshimmer{100%{transform:translateX(100%);}}
+.onbw .vskel .vskel-line{height:13px;border-radius:7px;background:rgba(30,34,41,.08);margin-bottom:9px;}
+.onbw .vskel .vskel-line.sm{height:10px;}
+
+/* location picks: grow-in-place split (no off-screen slide) — clip transient overflow + collapse the
+   newly-added chip to width 0 for one frame so it grows out from the gap. (owner 2026-06-04) */
+.onbw .locpicks{overflow:hidden;}
+.onbw .locpicks .locchip{transition:width .4s cubic-bezier(.2,.7,.3,1),padding .4s cubic-bezier(.2,.7,.3,1),opacity .3s ease;}
+.onbw .locpicks .locchip.loc-enter{width:0 !important;padding-left:0 !important;padding-right:0 !important;opacity:0;}
+
+/* faith (tradition) chips — consistent size: equal width + height (owner 2026-06-04) */
+.onbw #screen-faith .chip{flex:0 0 106px;min-height:46px;padding:10px 6px;justify-content:center;text-align:center;}

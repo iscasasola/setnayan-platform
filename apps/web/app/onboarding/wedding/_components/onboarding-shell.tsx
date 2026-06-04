@@ -60,6 +60,9 @@ import {
   type OnboardingRole,
   type OnboardingState,
 } from '../types';
+import { LocationStep } from './location-step';
+import { WelcomeParallax } from './welcome-parallax';
+import { resolvePick } from '../_data/wedding-cities';
 
 /* Full 15-screen flow (welcome..budget..picker..prefs..account..find..congrats..plan). */
 const PHASE_SCREENS = 15;
@@ -67,7 +70,7 @@ const PHASE_SCREENS = 15;
 /* Primary-button label per screen (prototype nextLabel[]). Index 10 (prefs) is
  * overridden at render time by the sub-stepper ("Continue" / "Looks good"); index
  * 14 (plan) flips to "Continue to checkout" once the bundle is added. */
-const NEXT_LABEL = ['Let’s go', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Create account', 'Continue', 'Continue', 'Done'];
+const NEXT_LABEL = ['Build my free plan', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Create account', 'Continue', 'Continue', 'Done'];
 /* Which screens show a Skip button (prototype canSkip[]): picker/name/region/account/congrats/plan not skippable, prefs/find are. */
 const CAN_SKIP = [false, false, false, true, false, true, false, true, true, false, true, false, true, false, false];
 
@@ -212,41 +215,15 @@ function effectiveBudgetPesos(band: string, amount: number | null, pax: number):
   return bandHi(b.med, pax);
 }
 
-/* ── region labels + nuggets (prototype REGLABEL/REGNUG) ── */
+/* ── region labels (prototype REGLABEL) — region key → display label for the screen-13 recap ── */
 const REGLABEL: Record<string, string> = {
   ncr: 'Metro Manila', calabarzon: 'CALABARZON', 'c-visayas': 'Central Visayas', 'w-visayas': 'Western Visayas',
   'c-luzon': 'Central Luzon', ilocos: 'Ilocos', cagayan: 'Cagayan Valley', bicol: 'Bicol', mimaropa: 'MIMAROPA',
   'e-visayas': 'Eastern Visayas', zamboanga: 'Zamboanga', 'n-mindanao': 'Northern Mindanao', davao: 'Davao',
   soccsksargen: 'SOCCSKSARGEN', caraga: 'Caraga', barmm: 'BARMM', car: 'Cordillera · CAR', abroad: 'Outside the PH',
 };
-const REGNUG: Record<string, string> = {
-  ncr: 'The grandest ballrooms and the most-booked names — every vendor you could dream of, minutes away.',
-  calabarzon: "Tagaytay's cool ridge and lakeside views — the country's favourite garden escape, an hour out.",
-  'c-visayas': 'Heritage churches and island resorts — a destination wedding without the passport.',
-  'w-visayas': "Boracay's powder-white sand and Iloilo's grand old churches — beach and heritage in one region.",
-  'c-luzon': "Kapampangan kitchens and Bulacan's grand halls — where Filipino feasting runs deepest.",
-  ilocos: "Centuries-old Vigan stone and Paoay's UNESCO church — vows wrapped in living history.",
-  cagayan: "Batanes' rolling hills and Ivatan stone houses, or Cagayan's Callao caves — wild, dramatic, far-north backdrops.",
-  bicol: "Mayon's perfect cone on the horizon — a volcano view no venue could ever fake.",
-  mimaropa: "Palawan's hidden lagoons and Puerto Princesa coves — the most cinematic island 'I do'.",
-  'e-visayas': 'San Juanico sunsets and quiet island chapels — intimate, and far from the crowds.',
-  zamboanga: "Vinta-sail colour and Asia's Latin City warmth — a wedding with real character.",
-  'n-mindanao': "Cagayan de Oro's rivers and Camiguin's volcanic isle — adventure meets celebration.",
-  davao: 'Mount Apo air, fine local fare and polished city venues — relaxed and grand at once.',
-  soccsksargen: "Lake Sebu's highland calm and Gen San's fresh feast — serene and generous.",
-  caraga: "Siargao's surf-town cool and golden island light — a laid-back, barefoot kind of beautiful.",
-  barmm: 'Lake Lanao heritage and rich Maranao artistry — a wedding with deep cultural soul.',
-  car: "Baguio pines and Sagada's cool highlands — crisp mountain air and evergreen views.",
-  abroad: "Getting married overseas? We'll still plan it with you — and bring your vendors on board.",
-};
-const REGION_TOP: { value: string; title: string; desc: string }[] = [
-  { value: 'ncr', title: 'Metro Manila · NCR', desc: 'Quezon City · Makati · Manila · Pasig' },
-  { value: 'calabarzon', title: 'CALABARZON', desc: 'Tagaytay · Batangas · Laguna · Cavite' },
-  { value: 'c-visayas', title: 'Central Visayas', desc: 'Cebu · Bohol' },
-  { value: 'w-visayas', title: 'Western Visayas', desc: 'Boracay · Iloilo · Bacolod' },
-  { value: 'c-luzon', title: 'Central Luzon', desc: 'Pampanga · Bulacan · Subic' },
-];
-const REGION_MORE = ['ilocos', 'cagayan', 'bicol', 'mimaropa', 'e-visayas', 'zamboanga', 'n-mindanao', 'davao', 'soccsksargen', 'caraga', 'barmm', 'car', 'abroad'];
+/* Region picker (REGNUG / REGION_TOP / REGION_MORE) retired 2026-06-04 — replaced by the
+   Top-30 location step (location-step.tsx). REGLABEL above is kept for the recap label. */
 
 /* ════════════ PHASE 3 — picker (screen 9) + style sub-stepper (screen 10) ════════════ */
 
@@ -1379,7 +1356,6 @@ export function OnboardingShell({
   const router = useRouter();
   const [state, setState] = useState<OnboardingState>(EMPTY_ONBOARDING_STATE);
   const [hydrated, setHydrated] = useState(false);
-  const [regionExpanded, setRegionExpanded] = useState(false);
   const [monoPop, setMonoPop] = useState(false);
   const popTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /* picker sticky-preview (local UI) + style sub-stepper index (local UI) */
@@ -1723,7 +1699,7 @@ export function OnboardingShell({
       case 5:
         return state.dateMode === 'specific' ? state.dateCandidates.length >= 1 : state.windowStart !== null && state.windowEnd !== null;
       case 6:
-        return state.region !== null;
+        return state.places.length >= 1;
       case 7:
         return state.pax !== null;
       case 8:
@@ -1780,8 +1756,7 @@ export function OnboardingShell({
   })();
 
   /* ── region nugget ── */
-  const regionKey = state.region ?? 'ncr';
-  const regionNug = { title: `Why ${REGLABEL[regionKey] ?? 'here'}`, line: REGNUG[regionKey] ?? '' };
+  // (region nugget retired — the Top-30 location step renders its own carousel + per-city nuggets)
 
   const sel = (cond: boolean) => (cond ? ' sel' : '');
 
@@ -1828,6 +1803,8 @@ export function OnboardingShell({
       kind: s.kind,
       faith: s.faith,
       region: s.region,
+      venueLatitude: s.places[0] ? resolvePick(s.places[0]).lat : null,
+      venueLongitude: s.places[0] ? resolvePick(s.places[0]).lon : null,
       pax: s.pax,
       budgetBand: s.budgetBand,
       budgetAmountCentavos:
@@ -2000,7 +1977,7 @@ export function OnboardingShell({
           </div>
         </div>
       )}
-      <div className="phone">
+      <div className="phone" data-welcome={step === 0 ? '' : undefined}>
         {/* top — brand + progress */}
         <div className="top">
           <div className="brandrow">
@@ -2033,6 +2010,7 @@ export function OnboardingShell({
               Skip
             </button>
           </div>
+          {step === 0 && <div className="brandtag">Wedding planning, simplified</div>}
           <div className="bar">
             <div className="barfill" style={{ width: `${((step + 1) / FLOW_TOTAL) * 100}%` }} />
           </div>
@@ -2043,13 +2021,10 @@ export function OnboardingShell({
           {/* 1 WELCOME */}
           <section className={`screen welcomescreen${step === 0 ? ' active' : ''}`}>
             <div className="welcomehero">
-              <HeroImg src={ASSET('welcome')} />
+              <WelcomeParallax src={ASSET('welcome')} depthSrc="/onboarding/welcome-depth.png" />
               <div className="welcomeoverlay">
-                <h1>Let{'’'}s plan your wedding.</h1>
-                <p>
-                  A few quick questions and we{'’'}ll build a plan made for <i>your</i> day
-                  {' — '}every vendor sorted to fit. Free to start, always.
-                </p>
+                <h1>Start with the view. We{'’'}ll handle the details.</h1>
+                <p>Tell us your date. Get a free wedding plan + matched vendors in minutes.</p>
               </div>
             </div>
           </section>
@@ -2265,63 +2240,12 @@ export function OnboardingShell({
 
           {/* 7 REGION — top-5 + Somewhere-else expand + 13 more + nugget */}
           <section className={`screen${step === 6 ? ' active' : ''}`} id="screen-region">
-            <div className="viewzone">
-              <div className="eyebrow">Where</div>
-              <h1 className="q">Where will it be?</h1>
-              <p className="sub">Top PH wedding regions — or open the full list. We only show vendors who cover your area.</p>
-              <div className="regnug">
-                <span className="ic" aria-hidden="true">{'✦'}</span>
-                <div className="regnug-tx">
-                  <div className="rt">{regionExpanded && !REGION_MORE.includes(regionKey) ? 'Anywhere in the Philippines' : regionNug.title}</div>
-                  <div className="rl">{regionExpanded && !REGION_MORE.includes(regionKey) ? 'Pick your region below — we match you with vendors who cover your area.' : regionNug.line}</div>
-                </div>
-              </div>
-            </div>
-            <div className="tapzone">
-              {!regionExpanded && (
-                <div className="stack">
-                  {REGION_TOP.map((o) => (
-                    <div
-                      key={o.value}
-                      className={`opt rowimg${sel(state.region === o.value)}`}
-                      onClick={() => patch({ region: o.value })}
-                    >
-                      <div className="otcol">
-                        <div className="ot">{o.title}</div>
-                        <div className="od">{o.desc}</div>
-                      </div>
-                      <span className="check" />
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div
-                className={`opt rowimg${regionExpanded ? ' expanded' : ''}`}
-                onClick={() => setRegionExpanded((v) => !v)}
-              >
-                <div className="otcol">
-                  <div className="ot">Somewhere else</div>
-                  <div className="od">Open every region — match by area.</div>
-                </div>
-                <span className="check" />
-              </div>
-              {regionExpanded && (
-                <div>
-                  <div className="moreback" onClick={() => setRegionExpanded(false)}>‹ Show top regions</div>
-                  <div className="regiongrid">
-                    {REGION_MORE.map((r) => (
-                      <span
-                        key={r}
-                        className={`regopt${sel(state.region === r)}`}
-                        onClick={() => patch({ region: r })}
-                      >
-                        {REGLABEL[r]}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+            <LocationStep
+              value={state.places}
+              onChange={(places) =>
+                patch({ places, region: places[0] ? resolvePick(places[0]).rk : null })
+              }
+            />
           </section>
 
           {/* 8 PAX — slider + exact box + tier photo */}
@@ -2559,7 +2483,19 @@ export function OnboardingShell({
             <h1 className="q" style={{ fontSize: 30 }}>{findHeading}</h1>
             <p className="sub">Sorted for you: your style first, then everyone available. <b>Tap one to shortlist.</b></p>
             {venuesLoading && (
-              <div className="vload">Finding reception venues that fit your wedding…</div>
+              <div className="vskel-wrap" aria-live="polite" aria-busy="true">
+                <div className="grouplbl">★ Finding the best venues for you…</div>
+                {[0, 1, 2].map((i) => (
+                  <div className="vcard vskel" key={i}>
+                    <div className="vimg vskel-box" />
+                    <div className="vbody">
+                      <div className="vskel-line vskel-box" style={{ width: '64%' }} />
+                      <div className="vskel-line sm vskel-box" style={{ width: '46%' }} />
+                      <div className="vskel-line sm vskel-box" style={{ width: '30%' }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
             {!venuesLoading && venues && venues.length > 0 && (
               <>

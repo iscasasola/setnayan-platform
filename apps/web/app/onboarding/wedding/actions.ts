@@ -210,6 +210,9 @@ export type OnboardingCommitPayload = {
   /** faith picks: [primary] for religious, [primary, secondary] for mixed, [] for civil */
   faith: string[];
   region: string | null;
+  /** reception-venue anchor coords, derived from the primary location pick (screen 6) → events.venue_latitude/longitude */
+  venueLatitude: number | null;
+  venueLongitude: number | null;
   pax: number | null;
   budgetBand: string | null;
   /** working-budget amount in centavos (band MAX for pax unless the couple typed/dragged a value) → events.estimated_budget_centavos */
@@ -341,6 +344,8 @@ export async function commitOnboardingWedding(
       bride_name: brideFullName || null,
       groom_name: groomFullName || null,
       region: payload.region,
+      venue_latitude: payload.venueLatitude,
+      venue_longitude: payload.venueLongitude,
       date_mode: dateMode,
       date_candidates: candidates.length ? candidates : null,
       date_window_start: windowStart,

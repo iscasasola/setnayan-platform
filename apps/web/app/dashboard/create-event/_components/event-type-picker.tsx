@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { createWeddingEvent } from '../actions';
 import { EVENT_TYPES, type EventTypeKey, type EventTypeRow } from './event-types';
-import { EventTypeBarPicker } from './event-type-bar-picker';
+import { EventTypePhotoPicker } from './event-type-photo-picker';
 
 /* Retired 2026-05-28 V2 cutover — the DIY / Concierge ₱2,499 / 3-day-trial
    choice card is gone. Every new event lands in DIY by default; the hidden
@@ -15,10 +15,11 @@ import { EventTypeBarPicker } from './event-type-bar-picker';
 type ConciergeChoice = 'diy';
 
 /**
- * Create-event surface — owner directive 2026-06-04: a minimal bar picker
- * ("nothing but the choice of events"). Tapping a bar jumps STRAIGHT into that
- * event's own onboarding when one exists (`onboardingHref`); otherwise it falls
- * back to the inline name form so the event still creates today.
+ * Create-event surface — owner directive 2026-06-04: a "feel photo" picker
+ * (full-bleed event photos, no carousel indicators; tap the centered photo to
+ * begin). Selecting a type jumps STRAIGHT into that event's own onboarding when
+ * one exists (`onboardingHref`); otherwise it falls back to the inline name
+ * form so the event still creates today.
  *
  * Wedding → /onboarding/wedding (the 15-screen guided flow). The other eight
  * types route into their tailored onboarding as it lands (Debut next); until
@@ -49,7 +50,7 @@ export function EventTypePicker() {
   return (
     <>
       <section aria-label="Event type">
-        <EventTypeBarPicker types={EVENT_TYPES} onSelect={handleSelect} />
+        <EventTypePhotoPicker types={EVENT_TYPES} onSelect={handleSelect} />
       </section>
 
       {selected ? (

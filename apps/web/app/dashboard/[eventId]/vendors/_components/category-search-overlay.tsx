@@ -126,6 +126,9 @@ export function CategorySearchOverlay({
   const [filterOpen, setFilterOpen] = useState(false);
   const [added, setAdded] = useState<Set<string>>(new Set());
   const [pendingId, setPendingId] = useState<string | null>(null);
+  // Vendor IDs whose logo <img> failed to load (e.g. picsum rate-limiting the
+  // demo placeholders) → fall back to the initials tile, not a broken-image icon.
+  const [failedLogos, setFailedLogos] = useState<Set<string>>(new Set());
   // draft filter state (committed on Apply)
   const [draftVerified, setDraftVerified] = useState(false);
   const [draftKm, setDraftKm] = useState<number | null>(null);
@@ -260,9 +263,20 @@ export function CategorySearchOverlay({
             return (
               <div className={`r${isAdded ? ' added' : ''}`} key={r.vendorProfileId}>
                 <div className="img">
-                  {r.logoUrl ? (
+                  {r.logoUrl && !failedLogos.has(r.vendorProfileId) ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={r.logoUrl} alt="" />
+                    <img
+                      src={r.logoUrl}
+                      alt=""
+                      onError={() =>
+                        setFailedLogos((s) => {
+                          if (s.has(r.vendorProfileId)) return s;
+                          const next = new Set(s);
+                          next.add(r.vendorProfileId);
+                          return next;
+                        })
+                      }
+                    />
                   ) : (
                     initials(r.name)
                   )}

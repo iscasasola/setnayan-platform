@@ -151,7 +151,7 @@ const MONO_DESIGNS: MonoDesign[] = [
   { style: 'bar', font: 'cormorant' },                  // 1 · serif caps | & | caps + names
   { style: 'script', font: 'script' },                  // 2 · Great Vibes  i & i (3 glyphs)
   { style: 'duo', font: 'playfair' },                   // 3 · serif caps, close / overlapping
-  { style: 'framed', font: 'cinzel', frame: 'wreath' }, // 4 · initials in an ornate gold frame
+  { style: 'framed', font: 'cinzel', frame: 'filigree' }, // 4 · initials in an ornate gold filigree frame
   { style: 'infinity', font: 'cormorant' },             // 5 · two caps linked by a gold ∞
 ];
 
@@ -1806,6 +1806,7 @@ export function OnboardingShell({
       windowEnd: s.windowEnd,
       monogramFrameKey: MONO_DESIGNS[s.monogramDesign]?.frame ?? null,
       monogramFontKey: MONO_DESIGNS[s.monogramDesign]?.font ?? null,
+      monogramStyle: MONO_DESIGNS[s.monogramDesign]?.style ?? null,
       moodFeelKey: s.prefs.feel,
       musicPlaylistSeed: s.prefs.music,
       // Phase A: persist the picker selections (auto-inquired best-fit per

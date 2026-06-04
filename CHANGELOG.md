@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(0023): Admin dashboard remap — 6 groups + mobile table + orphan fixes
+
+**Context:** Owner directive — make the admin console seamless + simple, especially on mobile. Companion to the vendor remap (PR #962). Desktop had 8 sidebar groups; mobile had 4 data tables that overflowed the viewport (the real "manage on mobile" defects from the earlier study).
+
+**What changed** (no migration):
+- **`admin-sidebar.tsx`** — desktop groups **8 → 6**: Home · Queues · Directory · Money · **Insights** (Growth · Funnels · Operations & Hiring · Telemetry · Offline daemon — absorbs the old Operations group) · **Manage** (Taxonomy · Website · Ads · Today's Focus brain · Moodboard library · Songs · Settings · Demo mode — merges the old Content + Settings, collapsed by default). Group keys reused (`funnels`→Insights, `content`→Manage) so persisted open-state survives; all item keys unchanged.
+- **Mobile table fixes (4)** — the surfaces flagged in the dashboard study that overflowed the viewport now scroll: `operations-hiring` (wrapped in `overflow-x-auto`), `demo-vendors` · `demo-vendors/inquiries` · `offline-diagnostic` (their `overflow-hidden` wrapper → `overflow-x-auto`, so wide tables scroll instead of clipping).
+- **Mobile orphan fix** — `/admin/songs` was missing from the mobile More tab + landing (added after the nav was last touched); now reachable (added to `admin-bottom-nav.tsx` activeMatch + a card on `/admin/more`). More activeMatch comments re-grouped to match the new Insights/Manage structure.
+
+**Deferred (next, flagged):** the unified mobile **Queues triage feed** (one prioritized action list across Payments/Verify/Disputes/Reviews/Help/Abuse with quick-approve + detail sheets) — a bigger feature, its own PR.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean · `next build` exit 0. Isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** 0023 — admin nav remap (8→6 groups) + mobile table/orphan fixes. → `COWORK_INBOX.md` [PENDING].
+
 ## 2026-06-04 · feat(0022): Vendor dashboard remap (4 groups) + role-aware nav shell (Phase 1)
 
 **Context:** Owner directive — make the vendor (and admin) dashboards seamless + simple, and turn the vendor account into a true multi-user workspace where main holders (owner/admin) see everything and agents see only their services + customers. Backbone already existed (`vendor_team_members` + role enum owner>admin>agent>viewer + `current_vendor_ids(min_role)`), but the dashboard never used roles (and `fetchOwnVendorProfile` is owner-only, so non-owner members couldn't load it). This is **Phase 1: the IA remap + role-aware nav shell**; per-service DATA scoping + route guards + admins-see-all data resolution are Phase 2 (owner-sequenced "remaps first, agents next").

@@ -19,6 +19,7 @@ import {
   Tag,
   Globe,
   Megaphone,
+  Music,
   TrendingUp,
   Activity,
   WifiOff,
@@ -55,6 +56,14 @@ const MORE_ITEMS: LandingItem[] = [
     icon: Tag,
     description:
       'Canonical vendor service categories and the 192-entry sub-category map.',
+  },
+  {
+    key: 'songs',
+    label: 'Songs',
+    href: '/admin/songs',
+    icon: Music,
+    description:
+      'The owned music-track library that scores rendered videos. Manage tracks and categories.',
   },
   {
     key: 'website',

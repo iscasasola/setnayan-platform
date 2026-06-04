@@ -8,6 +8,18 @@
 
 ---
 
+## [PENDING] 2026-06-04 — Admin dashboard remap: 6 groups + mobile table/orphan fixes (0023)
+
+**Why:** Owner directive to simplify the admin console + fix mobile. Desktop sidebar collapsed **8 → 6 groups**; 4 mobile-overflowing tables fixed; the `/admin/songs` mobile orphan reached.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`0023_admin_console.md` §1** — the admin console is now **6 sidebar groups**: Home · Queues · Directory · Money · **Insights** (Growth · Funnels · Operations & Hiring · Telemetry · Offline daemon — absorbs the old Operations group) · **Manage** (Taxonomy · Website · Ads · Today's Focus brain · Moodboard library · Songs · Settings · Demo mode — merges the old Content + Settings). Update the group list (was 8: Home/Queues/Directory/Money/Content/Operations/Funnels/Settings). Mobile bottom-nav unchanged (Home · Queues · Directory · Money · More); the More tab now also surfaces Songs.
+2. **`0023_admin_console.md` §5 (mobile)** — note the still-pending **unified mobile Queues triage feed** (one prioritized action list across the queues with quick-approve + detail sheets), deferred to its own PR.
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
 ## [PENDING] 2026-06-04 — Vendor dashboard remap (4 groups) + role-aware nav shell · Phase 1 (0022)
 
 **Why:** Owner directive to simplify the vendor dashboard + make it a multi-user workspace (owner/admin see all; agents scoped). Phase 1 ships the IA remap + role-aware nav shell; Phase 2 ships per-service data scoping (`vendor_service_agents` + RLS) + admins-see-all data resolution + route guards.

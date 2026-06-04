@@ -19,7 +19,65 @@
 
 ---
 
-## [PENDING] 2026-06-04 — welcome copy reworded + hero now depth-parallax (Onboarding Blueprint / prototype)
+## [PENDING] 2026-06-04 — welcome copy + brand + CTA refreshed (Onboarding Blueprint / prototype)
+
+**Why:** Owner reworked the welcome screen — new header/subhead, a ~20% brand bump + tagline, and a stronger CTA.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`Onboarding_Blueprint_2026-05-30.md`** (+ welcome in `Onboarding_Wedding_Flow_2026-06-01.html`) — header **"Start with the view. We'll handle the details."**; subhead **"Tell us your date. Get a free wedding plan + matched vendors in minutes."**; brand bumped ~20% with tagline **"Wedding planning, simplified"**; CTA **"Build my free plan"** (was "Let's go").
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+**Why:** Owner — *"the app used to adjust automatic to light and dark theme. disable this and just always keep it light theme."* Reverts the 2026-05-22 brand-pivot Light/Dark/Auto trio. The app now renders light on every dashboard/marketing surface, ignoring the device `prefers-color-scheme` and any stored preference. Code: `ThemeProvider` hard-locked to light; profile **Appearance** theme picker removed (section re-headlined "Feedback", Haptics toggle kept); in-editor **Theme** card removed from the site-editor; `viewport.themeColor` pinned white. The `users.theme_preference` column + `updateThemePreference` action + `html.dark` CSS are left dormant for a trivial revert.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`DECISION_LOG.md`** — append: `| 2026-06-04 | App light-locked — Light/Dark/Auto theme switch + OS dark-mode auto-follow removed; renders light everywhere | Owner "just always keep it light theme"; reverts the 2026-05-22 brand-pivot trio; theme_preference column + html.dark CSS left dormant for trivial revert |`.
+2. **`0021_couple_dashboard_fully_purchased/`** — the 5-theme→3-mode (Light/Dark/Auto) "theme system + runtime theme picker" notes are superseded: the runtime theme picker is **removed**; the app is **light-only**.
+3. **`0025_profile_settings/`** — the **Appearance** tab no longer offers Light/Dark/Auto (theme picker removed); it now carries only the Haptics ("Feedback") toggle. Consider renaming the tab.
+4. (Optional) any spec copy describing "just like iOS · light/dark/auto" appearance — reword to light-only.
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
+## [PENDING] 2026-06-04 — REVERTED: role/kind/faith immersive full-bleed undone (back to cards)
+
+**Why:** Owner — *"undo the full screens."* The immersive redesign of role/kind/faith is **reverted**: role + kind back to title + description + radio-circle cards (3-in-a-row); faith back to its 1-row chip carousel; no full-bleed. The welcome stays full-bleed.
+
+**Spec corpus updates (owner walks via Cowork):** the earlier *"role/kind/faith immersive full-bleed + chip carousels"* item is **superseded** — leave these three screens as the card/carousel layout (do **not** apply the immersive treatment).
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+## [PENDING] 2026-06-04 — Growth surface: demo-mode preview + CSV export + event breakdowns (0023)
+
+**Why:** Follow-ups to the `/admin/growth` surface. (1) **Demo-mode preview** — when an admin has demo mode on, the page shows deterministic *illustrative* curves (badged "Illustrative demo data") so the surface's shape is visible before real data accrues; no DB writes, nothing polluted. (2) **CSV export** — an admin-gated `GET /admin/growth/export` returns a tidy/long-format CSV of population + growth curves + conversion + breakdowns (honors range + demo flag). (3) **Breakdowns** — current composition of **events by type** (the 6-value `event_type` enum) and **events by region** (`events.region` slug, null→Unspecified).
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`0023_admin_console.md`** (the Growth subsection added with the surface) — note the three additions: demo-mode illustrative preview, CSV export endpoint, and the Events-by-type + Events-by-region breakdown cards.
+2. No pricing/schema impact — all additive, no migration.
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
+## [PENDING] 2026-06-04 — welcome photo cover-fit + location picks share-row (refines prior onboarding items)
+
+**Why:** Owner — backgrounds must fill the space **without distortion** (the welcome hero was stretched by the parallax shader); the location-step **pick chips share the row** (1 = full width · 2 = 50/50). Bug-fix refinements to the already-pending welcome + location-step items.
+
+**Spec corpus updates (owner walks via Cowork):** fold into the existing welcome + location-step notes — the welcome hero **fills via cover (no distortion)**; the location step's selected-area chips are **equal-size + share the row** (1 full · 2 split 50/50).
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
+## [PENDING] 2026-06-04 — role/kind/faith onboarding now immersive full-bleed + chip carousels (Onboarding Blueprint / prototype)
+
+**Why:** Owner unified the role, kind, and tradition screens into the welcome's full-bleed pattern: photo fills the screen; choices are equal-size, title-only chip carousels (no radio circles); the picked option's description shows in the header sub-text.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`Onboarding_Blueprint_2026-05-30.md`** (+ role/kind/faith screens in `Onboarding_Wedding_Flow_2026-06-01.html`) — these three screens are now **full-bleed immersive** (photo background + overlaid title/chips); choices are **equal-size, title-only chips in a carousel** (no descriptions on the button, no radio); the **selected option's description surfaces in the sub-text**. Supersedes the 2026-06-04 "role/kind 3-in-a-row cards" + "faith 1-row chip" notes.
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
 
 **Why:** Owner reworded the welcome screen + asked the hero photo to "have depth." Headline + sub changed; the hero now runs a WebGL depth-parallax (the exact photo, near/far displaced by a depth map as a slow camera orbits) over a bulletproof static-image fallback.
 

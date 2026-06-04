@@ -26,16 +26,16 @@
    * MODES:
    *   Light  → Warm Alabaster surface (#FBFBFA) + Deep Obsidian text
    *            (#1E2229) + Royal Champagne Gold accent (#C5A059) + Rich
-   *            Mulberry CTAs (#5C2542). Default.
-   *   Dark   → Deep Obsidian surface + Warm Alabaster text + brighter
-   *            champagne accent (#E0CCA0 reads on dark) + lighter mulberry
-   *            (#B8889C) for CTA visibility on dark surfaces.
-   *   Auto   → Reads `prefers-color-scheme` at runtime.
+   *            Mulberry CTAs (#5C2542). The ONLY mode (see LIGHT-LOCKED below).
+   *   Dark   → DISABLED 2026-06-04. The `html.dark` overrides below are kept
+   *            dormant (now unreachable) so re-enabling is a small revert.
    *
-   * IMPLEMENTATION: `darkMode: 'class'` in tailwind.config.ts. The
-   * ThemeProvider client component sets `dark` class on `<html>` based on
-   * localStorage + system preference. A FOUC-safe inline script in
-   * layout.tsx <head> applies the class before first paint.
+   * LIGHT-LOCKED 2026-06-04 (owner: "just always keep it light theme"): the
+   * Light/Dark/Auto switch + the OS `prefers-color-scheme` auto-follow were
+   * removed. The ThemeProvider never adds `.dark` and the FOUC script strips
+   * it, so with `darkMode: 'class'` (tailwind.config.ts) and NO
+   * `@media (prefers-color-scheme: dark)` rule in this file, the app renders
+   * light on every surface regardless of the device setting.
    *
    * LEGACY CLASS NAMES PRESERVED: Hundreds of components use `bg-cream`,
    * `text-ink`, `text-terracotta`. The slot names stay; the VALUES remap to

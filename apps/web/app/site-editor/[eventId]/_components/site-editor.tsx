@@ -19,16 +19,13 @@ import {
   Heart,
   ImagePlus,
   Images,
-  Laptop,
   LayoutGrid,
   Link2,
   List,
   Lock,
   MailCheck,
   MonitorPlay,
-  Moon,
   Newspaper,
-  Palette,
   PartyPopper,
   Pencil,
   QrCode,
@@ -37,14 +34,12 @@ import {
   Shirt,
   Sparkles,
   Star,
-  Sun,
   Tv,
   Users,
   Video,
   Wand2,
   X,
 } from 'lucide-react';
-import { useTheme, type ThemeMode } from '@/app/_components/theme-provider';
 import { findSku, formatCentavosPhp } from '@/lib/sku-catalog';
 
 /**
@@ -57,28 +52,25 @@ import { findSku, formatCentavosPhp } from '@/lib/sku-catalog';
  * leaves all dashboard nav behind, with a ✕ top-left to return — exactly the
  * Facebook Reels pattern. The only clean way to escape `EventLayout`'s chrome
  * is to live OUTSIDE its route subtree. The root layout (app/layout.tsx) still
- * wraps this route, so ThemeProvider + the FOUC theme script are intact —
- * which is what makes the Theme card here flip the whole app live.
+ * wraps this route.
  *
- * THEME ADAPTS (owner directive "the whole website to adapt to light and dark
- * theme"): every surface uses the legacy Clean-Editorial Tailwind classes
- * (bg-cream / text-ink / text-terracotta / bg-mulberry / bg-surface) whose
- * underlying `--color-*` tokens carry `html.dark` overrides in globals.css —
- * so the editor reskins automatically when the Theme card calls
- * useTheme().setMode(). NOTE: the `--m-*` tokens are light-only and are
- * deliberately NOT used here. The guest-facing landing page (/[slug]) stays
- * mood-board-styled, not dark-mode, per the 0010/0002 lock — that's why the
- * live preview iframe renders the couple's palette, not this editor's theme.
+ * LIGHT-LOCKED (owner 2026-06-04 "just always keep it light theme"): the editor
+ * uses the legacy Clean-Editorial Tailwind classes (bg-cream / text-ink /
+ * text-terracotta / bg-mulberry / bg-surface), which now always render light —
+ * the app dropped the Light/Dark/Auto switch, so the in-editor Theme card was
+ * removed. The guest-facing landing page (/[slug]) stays mood-board-styled per
+ * the 0010/0002 lock — that's why the live preview iframe renders the couple's
+ * palette, not the dashboard chrome.
  *
  * LAYOUT: mobile = column (preview on top ~44vh, tab nav pinned to the
  * bottom, swipe carousel above it). Desktop = row (preview on the left,
  * tab nav on top of the right panel, carousel below). Responsive via Tailwind
  * `lg:` — no device toggle (that was a review-only prototype affordance).
  *
- * PR #1 (foundation) scope: the Reels shell + the Theme card wired inline to
- * the live app theme system + QR display + every other tool card deep-linking
- * to its existing editor surface. Preview shows the live site; making it jump
- * to the RSVP / Event sections is the PR #2 follow-up (the public /[slug] page
+ * PR #1 (foundation) scope: the Reels shell + QR display + every other tool
+ * card deep-linking to its existing editor surface. Preview shows the live
+ * site; making it jump to the RSVP / Event sections is the PR #2 follow-up
+ * (the public /[slug] page
  * needs section targeting, which it does not have yet). Editorial = honest
  * coming-soon (Phase 4 not built).
  */
@@ -456,49 +448,7 @@ function settingsCards(p: SiteEditorProps): ReactNode[] {
         <QrCode aria-hidden /> Set up guest QRs
       </CardLink>
     </Card>,
-    <ThemeCard key="theme" />,
   ];
-}
-
-function ThemeCard() {
-  const { mode, setMode } = useTheme();
-  const options: { m: ThemeMode; label: string; icon: ReactNode }[] = [
-    { m: 'light', label: 'Light', icon: <Sun aria-hidden /> },
-    { m: 'dark', label: 'Dark', icon: <Moon aria-hidden /> },
-    { m: 'auto', label: 'Auto', icon: <Laptop aria-hidden /> },
-  ];
-  return (
-    <Card icon={<Palette />} title="Theme" sub="How your whole Setnayan adapts">
-      <div className="flex gap-1.5">
-        {options.map((o) => (
-          <button
-            key={o.m}
-            type="button"
-            onClick={() => setMode(o.m)}
-            aria-pressed={mode === o.m}
-            className={`flex min-h-[44px] flex-1 flex-col items-center justify-center gap-1 rounded-lg border py-2 text-sm font-semibold transition [&_svg]:h-5 [&_svg]:w-5 ${
-              mode === o.m
-                ? 'border-terracotta bg-terracotta text-cream'
-                : 'border-ink/20 text-ink hover:bg-ink/5'
-            }`}
-          >
-            {o.icon}
-            {o.label}
-          </button>
-        ))}
-      </div>
-      <Desc>
-        Light &amp; dark flow across your dashboard and this editor. Auto follows your device. Your guests&rsquo;
-        live page keeps its own palette.
-      </Desc>
-      <div className="mt-0.5 flex gap-1.5">
-        <span className="h-6 flex-1 rounded-md border border-ink/10 bg-cream" />
-        <span className="h-6 flex-1 rounded-md bg-terracotta" />
-        <span className="h-6 flex-1 rounded-md bg-mulberry" />
-        <span className="h-6 flex-1 rounded-md bg-ink" />
-      </div>
-    </Card>
-  );
 }
 
 /* ─────────────────────────── RSVP cards ─────────────────────────── */

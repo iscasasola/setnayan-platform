@@ -266,14 +266,12 @@ const organizationJsonLd = {
   //   ],
 };
 
-// 2026-05-22 brand pivot: theme-color responds to light vs dark mode so iOS
-// Safari + Android Chrome tint the URL bar to match the active palette.
-// Light → Facebook white. Dark → Facebook dark surface.
+// Light-locked 2026-06-04 (owner: "just always keep it light theme"). A single
+// white theme-color so iOS Safari + Android Chrome tint the URL bar to match the
+// always-light app — no `prefers-color-scheme: dark` variant, so a device in OS
+// dark mode no longer gets a dark chrome that mismatches the light page.
 export const viewport: Viewport = {
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#FFFFFF' },
-    { media: '(prefers-color-scheme: dark)', color: '#18191A' },
-  ],
+  themeColor: '#FFFFFF',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
@@ -304,11 +302,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     >
       <head>
         {/*
-          FOUC-safe theme bootstrap — 2026-05-22 brand pivot.
-          Runs synchronously before first paint, reads localStorage.theme,
-          applies `dark` class to <html> when resolved theme is dark. Keeps
-          light/dark toggles from flashing the wrong palette on cold loads.
-          See _components/theme-provider.tsx for the algorithm.
+          FOUC-safe theme bootstrap — light-locked 2026-06-04. Runs
+          synchronously before first paint and strips any stale `.dark` class
+          from <html> (e.g. a cached shell from before the light lock) so the
+          app always paints light. See _components/theme-provider.tsx.
         */}
         <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
         {/*

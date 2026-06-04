@@ -51,9 +51,9 @@ export function WelcomeParallax({
       'void main(){ uv = vec2(p.x*0.5+0.5, 0.5-p.y*0.5); gl_Position = vec4(p,0.0,1.0); }';
     const FS =
       'precision mediump float; varying vec2 uv;' +
-      'uniform sampler2D photo; uniform sampler2D depthMap; uniform vec2 off; uniform float zoom;' +
+      'uniform sampler2D photo; uniform sampler2D depthMap; uniform vec2 off; uniform float zoom; uniform vec2 cover;' +
       'void main(){' +
-      '  vec2 c = (uv - 0.5) / zoom + 0.5;' +
+      '  vec2 c = (uv - 0.5) * cover / zoom + 0.5;' +
       '  float d = texture2D(depthMap, c).r;' + // 0 far .. 1 near
       '  vec2 disp = (d - 0.45) * off;' + // near shifts more than far → parallax
       '  gl_FragColor = texture2D(photo, c + disp);' +
@@ -85,6 +85,7 @@ export function WelcomeParallax({
     gl.vertexAttribPointer(pLoc, 2, gl.FLOAT, false, 0, 0);
 
     const uOff = gl.getUniformLocation(prog, 'off');
+    const uCover = gl.getUniformLocation(prog, 'cover');
     gl.uniform1f(gl.getUniformLocation(prog, 'zoom'), 1.1); // overscan so displacement never reveals edges
     gl.uniform1i(gl.getUniformLocation(prog, 'photo'), 0);
     gl.uniform1i(gl.getUniformLocation(prog, 'depthMap'), 1);
@@ -103,10 +104,16 @@ export function WelcomeParallax({
     const texPhoto = makeTex(0);
     const texDepth = makeTex(1);
     let loaded = 0;
+    let photoW = 0;
+    let photoH = 0;
     const loadInto = (url: string, unit: number, tex: WebGLTexture | null) => {
       const im = new Image();
       im.crossOrigin = 'anonymous';
       im.onload = () => {
+        if (unit === 0) {
+          photoW = im.naturalWidth;
+          photoH = im.naturalHeight;
+        }
         gl.activeTexture(gl.TEXTURE0 + unit);
         gl.bindTexture(gl.TEXTURE_2D, tex);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, im);
@@ -134,6 +141,15 @@ export function WelcomeParallax({
     const tick = (now: number) => {
       if (disposed) return;
       const e = (now - start) / 1000;
+      // aspect-correct COVER (fill, no distortion): crop the photo to the canvas aspect
+      let cx = 1;
+      let cy = 1;
+      if (photoW && photoH && canvas.width && canvas.height) {
+        const r = photoW / photoH / (canvas.width / canvas.height);
+        if (r > 1) cx = 1 / r;
+        else cy = r;
+      }
+      gl.uniform2f(uCover, cx, cy);
       gl.uniform2f(uOff, Math.sin(e * 0.18) * 0.022, Math.cos(e * 0.13) * 0.015); // slow elliptical orbit
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       if (!revealed && loaded >= 2) {

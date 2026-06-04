@@ -313,7 +313,7 @@
 
 ---
 
-## [PENDING] 2026-06-03 — In-app services nested INTO the Vendors-tab categories (0021)
+## [DONE 2026-06-04] — In-app services nested INTO the Vendors-tab categories (0021)
 
 **Why:** Owner (twice) — "in app services are still not inside the categories." The standalone in-app-services launcher grid in the couple Services tab was retired; Setnayan services now render INSIDE their canonical category rails (✦ Setnayan, float-to-top) per `Digital_Services_Cross_Surface_Map_2026-06-03.md` §2.
 
@@ -322,6 +322,9 @@
 2. **`Digital_Services_Cross_Surface_Map_2026-06-03.md`** — mark §2 "Customer · in-app Services tab" as IMPLEMENTED (presentation step). Record the remaining follow-ups: **§3 vendor-model convergence** (source the pre-add list from the first-party Setnayan vendor account's listings + choice-driven pre-add on onboarding category selection, retiring the hardcoded catalog) and **add Pakanta / Pro Website / Live Venue Photo Wall** to the add-ons catalog with valid setup routes so the Digital Services rail carries its full 5-member set (today only the coming-soon Animated Monogram is present).
 
 **Cross-ref:** `CHANGELOG.md` 2026-06-03 "feat(0021,0006): nest in-app Setnayan services…".
+
+**✅ Applied to the spec corpus 2026-06-04** (this session, owner-directed): `DECISION_LOG.md` row + `Digital_Services_Cross_Surface_Map_2026-06-03.md` §5 (presentation-step-shipped + the remaining §3 follow-ups) + `.docx` mirror regenerated — left uncommitted in the corpus to ride with the owner's in-progress Cowork pass. `0021.md` already documented this model (lines 64–72), so it was left untouched.
+
 ## [PENDING] 2026-06-03 — Event-type picker is now a hero-photo carousel (0000)
 
 **Why:** Owner ask (screenshot): *"change how events look like. we want a carousel but like hero photos. let them scroll all the possible events."* The emoji-tile event-type picker is now a swipeable scroll-snap filmstrip of full-bleed hero photos — shared by the event-switcher add-event sheet AND the full `/dashboard/create-event` page. 9 Recraft hero photos added at `public/event-types/`.

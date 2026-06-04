@@ -19,6 +19,48 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **SPEC IMPACT:** 0022 — vendor-team admins reach owner parity across the vendor's owner-only tables (completes "main account holders see everything"). Landing direct in corpus (DECISION_LOG + 0022 .md).
 
 ---
+## 2026-06-05 · feat(admin/queues): mobile triage action feed (0023)
+
+**Context:** Owner — *"study the admin dashboard for mobile."* The admin remap (#963) deferred the highest-value mobile change to its own PR: replacing the flat 7-card Queues menu with a prioritized action feed. This delivers it.
+
+**What changed** (`apps/web/app/admin/queues/`):
+- `/admin/queues` is now a **live triage action feed** instead of a static `MobileLandingGrid` menu. The page (server component) fetches the open-count for all 7 queues in one `Promise.all` — payments (`pending`), verify (`coming_soon`), disputes (`open`), force-majeure (`open`/`under_review`), reviews (appeals `decided_at IS NULL`), help (`new`/`in_progress`), Today's-Focus abuse (`pending_review`) — using the exact filters each queue page uses, so the number on the row matches what the admin sees on arrival.
+- New presentational **`_components/queues-triage-feed.tsx`**: a single prioritized list, **busiest queue first**, each row a 64px tap target (icon · label · 1-line context · live count) routing straight into the queue. Open queues show a champagne-gold count pill; clear queues show a check; a momentarily-unavailable count degrades to a chevron (the row still routes — no 500). Header tally: "N items need your attention" / "You're all caught up."
+- Stays **`lg:hidden`** exactly like the menu it replaces — desktop admins use the sidebar tree, untouched. Every row maps 1:1 to a sidebar entry (orphan-prevention preserved).
+
+**Verify:** `tsc --noEmit` + `next lint` + `next build` green. No migration; reuses the count pattern already on `/admin` (Home).
+
+**SPEC IMPACT:** 0023 §5 — the admin mobile Queues surface is now a triage action feed (supersedes the card-menu landing). Landing direct in corpus (DECISION_LOG + 0023 .md).
+
+---
+## 2026-06-05 · chore(dashboard): remove dead PersonalizedMenu component + unused menu builders (0021)
+
+**Context:** PR #978 moved the couple's personalization onto the Services tab (the "Matching you on" strip), leaving the old `PersonalizedMenu` card rendered nowhere — home dropped it in the cockpit refactor and `/for-you` is now a redirect. It survived only because it still exported the `TasteChip` type. This removes the dead code.
+
+**What changed:**
+- Moved `export type TasteChip = { label: string }` into `lib/personalized-menu.ts` (its natural home — `buildTasteChips` returns `TasteChip[]`); removed the lib's cross-import from the component; repointed `match-criteria-strip.tsx` to import it from `@/lib/personalized-menu`.
+- **Deleted** `app/dashboard/[eventId]/_components/personalized-menu.tsx` (the unrendered `PersonalizedMenu` card · ~190 lines).
+- **Deleted** the now-unused lib exports + private helpers — `buildServiceFeatures`, `buildWeddingDetailRows`, `ServiceFeature`, `WeddingDetailRow`, `SERVICE_FEATURE_LABELS`, `SERVICE_FEATURE_ORDER`, `cleanFeatureValue`, `featureValueString`, `budgetValueBare`, `stylePrefValue` — and dropped the orphaned `style_preferences` field from `EventTasteSource`. Verified **zero importers** before each deletion. **Kept** everything `buildTasteChips`/`formatWeddingDateLabel` + the `/details` page still use (`EventTasteSource`, `CEREMONY_LABEL`/`VENUE_LABEL`/`REGION_LABEL`, `titleCase`, `formatBudget`, `fmtISODate`).
+- Net **−379 / +11** lines.
+
+**Verify:** `tsc --noEmit` + `next lint` green (only pre-existing warnings). **No behavior change** — nothing rendered this code.
+
+**SPEC IMPACT:** None — internal dead-code removal; closes the follow-up flagged in the 2026-06-05 "personalization → Services strip" row.
+
+## 2026-06-05 · feat(payments): direct-pay Sheet — couple trigger + admin preview (0034 · 0023)
+
+**Context:** Owner — *"create a customer direct pay sheet to connect to vendors and can also be used by us [the admin]."* PR #969 shipped the off-platform `VendorDirectPay` as an always-expanded inline rail inside the budget/workspace payment cards. This promotes it into a focused **"Pay {vendor} directly" button → house Sheet** (bottom sheet on mobile · right drawer on desktop), wires it onto the per-service workspace embed (which was rendering empty), and reuses the same sheet on the admin moderation surface so a moderator previews a destination exactly as couples see it.
+
+**What changed:**
+- **`apps/web/app/dashboard/[eventId]/_components/vendor-direct-pay.tsx`** — rail → Sheet. `VendorDirectPay` (props unchanged, so its two existing mount points need no edit) now renders a compact trigger + a one-line always-on reassurance ("You pay the vendor directly — Setnayan never holds this money") and opens the shared `Sheet` (`@/app/_components/sheet`) containing the **exact owner-locked RA 11967 disclosure** + the bank/QR/link method cards (all internals preserved 1:1). New export `DirectPayPreviewButton` (read-only "Preview as couple" trigger) reuses the same sheet. QR/link confirm modals bumped to `z-[60]` so they paint above the sheet.
+- **`…/vendors/[vendorId]/workspace/page.tsx`** — now resolves `fetchPublishedMethodsForCouple` (admin client + couple-RLS ownership proof, best-effort → `[]`) and passes `directPayMethods` to the embedded `VendorItemizationCard`. Previously the embed defaulted to `[]`, so the per-service workspace never surfaced the vendor's pay destinations — completeness fix matching the budget page.
+- **`app/admin/payment-options/page.tsx`** — each moderation card maps its `CardRow` → `CoupleFacingMethod` and renders `DirectPayPreviewButton` in the action row. Read-only; no money flow (admins moderate, they don't pay vendors).
+
+No new table, no migration, no new SKU, no wallet UI. Stays inside the locked 0034 order-and-pay posture (couple↔vendor money is off-platform; Setnayan never holds or reverses it). The always-on disclosure renders on every surface that shows a method.
+
+**Verify:** `tsc --noEmit` exit 0 · `next lint` clean · `next build` green (client `DirectPayPreviewButton` imports cleanly into the admin server page).
+
+**SPEC IMPACT:** Minor. (1) Couple-side direct-pay presentation refinement (rail → Sheet) on the already-spec'd 0007/0034/0025 surfaces. (2) New admin "Preview as couple" affordance on the 0023 `/admin/payment-options` moderation surface. Corpus delta lands directly in `DECISION_LOG.md` per the 2026-06-04 direct-edit authorization (COWORK_INBOX is wound down — no new `[PENDING]` rows).
 
 ## 2026-06-05 · feat(vendors/workspace): inline order-and-pay for first-party Setnayan services
 

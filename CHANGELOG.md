@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(0023/0044): DB-backed taxonomy read-through (Phase 2a) — layer + admin viewer
+
+**Context:** Phase 2 of the DB-backed-taxonomy build (the ♾️ "Admin Finalize = permanent live publish" lock). Phase 1 moved the taxonomy structure into `service_categories` + `canonical_service_taxonomy` (migration `20260803001000`, applied). This adds the **read-through layer** so server consumers read taxonomy from those tables — the prerequisite for admin edits going live without a deploy.
+
+**What changed:**
+- **New `lib/taxonomy-db.ts`** — `getTaxonomy()` (React-`cache()`d per request) reconstructs the full `TaxonomySnapshot` (folder/tile order, labels, slugs, `tilesByParent`, canonical `map`) from the two tables, mirroring the `lib/taxonomy.ts` constant shapes. **Falls back to the constant** on any error or unseeded tables, so it's behavior-preserving (the DB is seeded from the constant → byte-equivalent today). Reports `source: 'db' | 'fallback'`.
+- **`/admin/taxonomy` flipped** to `getTaxonomy()` — groups via the DB tree + mapping (was the code constant) and shows a DB-vs-fallback source indicator. First real consumer; admin-only, zero marketplace risk.
+
+**Scope:** the high-risk consumers (the live `/vendors` marketplace `page.tsx` + `vendor-counts.ts` module-level derivations + 7 client components) are **Phase 2b**, landing as focused follow-ups behind the same fallback.
+
+**Verification:** `tsc --noEmit` 0 errors · `next lint` clean on both files.
+
+**SPEC IMPACT:** None — implements the already-locked 0023 §3.15 read-through.
+
+---
+
 ## 2026-06-04 · feat(0043,0044): lock 8 wedding traditions — add Jewish + Born Again, fully selectable + on the taxonomy
 
 **Context:** Owner-directed — *"add Jewish and Born Again. Lock this 8 and make the choice in 4 columns, 2 rows … full build incl. the taxonomy."* Follows the same-day Chinese activation. Born Again is split out of the "Christian" umbrella into its own tradition; Jewish also resolves the dangling `kosher_*` tags already in the 0044 `faith_compatibility` group (which had no Jewish ceremony_type to trigger them). The onboarding tradition step locks to a fixed **4-col × 2-row grid of 8 chips**: Catholic · Christian · INC · Muslim / Cultural · Chinese · Jewish · Born Again.

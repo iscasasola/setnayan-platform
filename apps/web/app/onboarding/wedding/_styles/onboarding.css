@@ -311,6 +311,7 @@
 .onbw .lk-framed .lk-frame[data-frame="oval"]{background-image:url(/onboarding/mono/oval.webp);}
 .onbw .lk-framed .lk-frame[data-frame="crest"]{background-image:url(/onboarding/mono/crest.webp);}
 .onbw .lk-framed .lk-frame[data-frame="baroque"]{background-image:url(/onboarding/mono/baroque.webp);}
+.onbw .lk-framed .lk-frame[data-frame="filigree"]{background-image:url(/onboarding/mono/filigree.svg);}
 .onbw .lk-framed .lk-fcaps{font-family:'Cinzel',serif;font-weight:600;text-transform:uppercase;letter-spacing:.02em;font-size:clamp(26px,7vw,36px);color:var(--gold-deep);}
 
 /* 5 · infinity — two caps sitting in the loops of a gold ∞ that links them */

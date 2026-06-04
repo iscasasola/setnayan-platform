@@ -223,6 +223,7 @@ export type OnboardingCommitPayload = {
   windowEnd: string | null;
   monogramFrameKey: string | null;
   monogramFontKey: string | null;
+  monogramStyle: string | null;
   moodFeelKey: string | null;
   musicPlaylistSeed: string[];
   /** screen-9 picker selections (data-cat keys) — auto-inquired best-fit per resolved group */
@@ -355,6 +356,7 @@ export async function commitOnboardingWedding(
         typeof payload.budgetAmountCentavos === 'number' ? payload.budgetAmountCentavos : null,
       monogram_frame_key: payload.monogramFrameKey,
       monogram_font_key: payload.monogramFontKey,
+      monogram_style: payload.monogramStyle,
       mood_feel_key: payload.moodFeelKey,
       music_playlist_seed: payload.musicPlaylistSeed?.length
         ? payload.musicPlaylistSeed

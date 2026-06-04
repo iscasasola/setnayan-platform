@@ -8,7 +8,13 @@
 
 ---
 
-## [PENDING] 2026-06-04 — role/kind/faith onboarding now immersive full-bleed + chip carousels (Onboarding Blueprint / prototype)
+## [PENDING] 2026-06-04 — welcome photo cover-fit + location picks share-row (refines prior onboarding items)
+
+**Why:** Owner — backgrounds must fill the space **without distortion** (the welcome hero was stretched by the parallax shader); the location-step **pick chips share the row** (1 = full width · 2 = 50/50). Bug-fix refinements to the already-pending welcome + location-step items.
+
+**Spec corpus updates (owner walks via Cowork):** fold into the existing welcome + location-step notes — the welcome hero **fills via cover (no distortion)**; the location step's selected-area chips are **equal-size + share the row** (1 full · 2 split 50/50).
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
 
 **Why:** Owner unified the role, kind, and tradition screens into the welcome's full-bleed pattern: photo fills the screen; choices are equal-size, title-only chip carousels (no radio circles); the picked option's description shows in the header sub-text.
 

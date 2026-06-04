@@ -4,6 +4,26 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · assets(onboarding): unify all 8 religious ceremony-tradition hero photos to one inspirational angle
+
+**Context:** Owner gave a reference shot (wide-angle cathedral, couple centered and intimate at the altar, the venue's grandeur filling the frame, bright + awe-inspiring but the couple still reads as real people) and asked for "the angles for all religious ceremony tradition … relatable but inspirational on how a beautiful wedding is." Goal: one cohesive art direction across the whole faith picker, each tradition in its own authentic grand venue. This supersedes the 2026-06-05 dark-smoke Catholic + gold-ballroom Chinese so the set is consistent.
+
+**What changed:** Regenerated all 8 religious-faith onboarding hero assets (`apps/web/public/onboarding/wed_*.webp`, bytes only — the faith picker in `onboarding-shell.tsx` already references these filenames):
+- `wed_catholic` — ornate baroque cathedral, dome frescoes, couple at the marble altar
+- `wed_christian` — outdoor garden ceremony under a floral arch (matches its "garden Christian" caption)
+- `wed_inc` — cream-and-white gothic-line chapel with ornate grillework
+- `wed_muslim` — elegant hall with Islamic arches + geometric tilework (nikah)
+- `wed_chinese` — grand red-and-gold traditional ceremonial hall (replaces the ballroom trio; regenerated once to remove an AI-text artifact)
+- `wed_bornagain` — bright modern worship hall
+- `wed_cultural` — historic Filipino Spanish-colonial stone church, barong + Filipiniana, wedding cord
+- `wed_jewish` — flower-draped chuppah in a luminous grand hall
+
+All wide-angle, symmetrical, couple-centered with the bride's train as a recurring hero element. Generated via Recraft (recraftv3, `realistic_image`), optimized with PIL to the existing 760×950 / 4:5 onboarding-asset spec (58–148KB). Civil + Mixed (non-religious "kind" photos) left unchanged.
+
+**Verification:** Visual review of every generated image (Chinese regenerated to drop garbled signage text) · all 8 are 760×950 · `git status` shows exactly the 8 asset files. No code touched, so no typecheck/lint surface.
+
+**SPEC IMPACT:** Corpus design masters `~/Documents/Claude/Projects/Setnayan/assets/faith/wed_*.webp` refreshed directly for all 8 (Cowork direct-edit authorization). No Cowork pending item required.
+
 ## 2026-06-05 · chore(dashboard): remove dead PersonalizedMenu component + unused menu builders (0021)
 
 **Context:** PR #978 moved the couple's personalization onto the Services tab (the "Matching you on" strip), leaving the old `PersonalizedMenu` card rendered nowhere — home dropped it in the cockpit refactor and `/for-you` is now a redirect. It survived only because it still exported the `TasteChip` type. This removes the dead code.

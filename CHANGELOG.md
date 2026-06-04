@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · style(onboarding): location picks split/combine animation (iOS-style)
+
+**Context:** Owner — *"create an iOS animation, the splitting into 2 and/or combining"* (location pick chips).
+
+**What changed:** Added `data-count={value.length}` to `.locpicks`; the chip **width transitions** between full-row (1 pick) and half-row (2 picks) with a smooth ease — adding a 2nd area **splits** the row (the existing chip shrinks to 50% as the new one pops in via `chippop`), removing one **combines** back (the remaining chip expands to full width). CSS-only, no new dependency.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean.
+
+**SPEC IMPACT:** None (cosmetic polish on the location step).
+
 ## 2026-06-04 · fix(onboarding): location-pick chip × button — crisp centered SVG icon
 
 **Context:** Owner — *"fix the close button of Tagaytay."* The `×` glyph rendered slightly high/cramped.

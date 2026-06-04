@@ -142,7 +142,7 @@ export function LocationStep({
         <p className="sub">
           {'Pick up to 2 areas you’re considering — we’ll show venues there, and only the vendors who serve your area.'}
         </p>
-        <div className="locpicks" aria-live="polite">
+        <div className="locpicks" data-count={value.length} aria-live="polite">
           {value.length === 0 ? (
             <span className="locpicks-empty">
               {'Tap a destination, search any city, or use “Near me”.'}

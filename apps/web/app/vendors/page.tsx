@@ -57,7 +57,7 @@ import {
 import {
   fetchTopVendorNamesByService,
   fetchVendorCountsByService,
-  CANONICAL_SERVICES_BY_TILE,
+  getCanonicalBuckets,
   type VendorCount,
 } from '@/lib/vendor-counts';
 import { FolderVendorsSection } from './_components/folder-vendors-section';
@@ -1089,7 +1089,7 @@ export default async function VendorsMarketplacePage({ searchParams }: Props) {
   // catch-all expansion — one overlaps clause handles both the tile's own
   // canonicals and its cross-listings. Takes precedence over `?category=`.
   if (filters.tile) {
-    const tileServices = CANONICAL_SERVICES_BY_TILE.get(filters.tile) ?? [];
+    const tileServices = (await getCanonicalBuckets()).byTile.get(filters.tile) ?? [];
     if (tileServices.length > 0) {
       query = query.overlaps('services', tileServices);
     }
@@ -2448,7 +2448,7 @@ async function CatalogView({
   for (const tile of WEDDING_TILE_ORDER) {
     const parent = TILE_PARENT[tile];
     if (parent === 'venue') continue;
-    const canonicals = CANONICAL_SERVICES_BY_TILE.get(tile) ?? [];
+    const canonicals = (await getCanonicalBuckets()).byTile.get(tile) ?? [];
     if (canonicals.length === 0) continue;
 
     // 10-parent tile model (2026-05-31): a tile shows if ANY of its

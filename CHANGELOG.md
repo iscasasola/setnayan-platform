@@ -4,6 +4,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(0023/0044): DB-backed taxonomy — marketplace bucketing (Phase 2b·1)
+
+**Context:** Phase 2b flips the live `/vendors` marketplace onto the DB read-through (Phase 2a's `getTaxonomy()`). This first slice flips the **bucketing** — which canonical_services belong to a tile/folder — the surface an admin changes by re-mapping a vendor's category.
+
+**What changed:**
+- **`lib/vendor-counts.ts`** — new `getCanonicalBuckets()` (cached) derives the canonical→folder / canonical→tile buckets from the live snapshot (same cross-view + secondary-tile logic as the module-level IIFEs, which stay as the sync fallback). `findTopVendorsByFolder` / `findTopVendorsByTile` now bucket via the snapshot.
+- **`app/vendors/page.tsx`** — the two `CANONICAL_SERVICES_BY_TILE.get(tile)` sites (the `?tile=` grid + catalog tile canonicals) now read `getCanonicalBuckets()`.
+
+**Behavior-preserving:** the DB is seeded from `lib/taxonomy.ts`, so the derived buckets are identical today; `getTaxonomy()` falls back to the constant on error/unseeded. Invisible now; becomes live the moment an admin re-maps a canonical.
+
+**Staged:** the page's ~45 tile-label/slug sites live in sync helpers (`taxonomyLabel`, `parseFilters`, `buildHref`, …) that need the snapshot threaded in — Phase 2b·2. The 7 client components (provider) — Phase 2b·3.
+
+**Verification:** `tsc --noEmit` 0 errors · `next lint` clean · full PR CI green on #906 (production build, Playwright e2e, Lighthouse, both OS builds).
+
+**SPEC IMPACT:** None — implements the locked 0023 §3.15 read-through.
+
+---
+
 ## 2026-06-04 · perf(nav): loading shells for the auth + onboarding entry points
 
 **Context:** Continuing the "every gap shows a loading screen, never blank" pass. PR #892 covered 155 dashboard + guest-facing routes; the guest landing (`/[slug]` · `/v/[slug]` · `/venue/[slug]`), receipts and vendor-claim were already covered. The remaining cold-load gaps were the **auth + onboarding entry points**, which had no `loading.tsx`.

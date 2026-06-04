@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(0006/0021): generic placeholder photo for vendors with no photo
+
+**Context:** Owner — *"for vendors with no photo for their service, we must have at least a generic placeholder photo."* The marketplace card + the category picker fell back to **initials** (a monogram tile), not a photo, when a vendor had no usable image.
+
+**What changed:**
+- **New asset `apps/web/public/placeholders/vendor.webp`** — a tasteful, neutral wedding-venue scene (generated via Recraft, 1280×720, ~73 KB), service-agnostic so it reads as a premium placeholder for any vendor type. Bundled in `/public` → always available, CDN-served, never rate-limited (unlike the demo picsum images).
+- **`lib/vendors.ts`** — new `VENDOR_PLACEHOLDER_PHOTO = '/placeholders/vendor.webp'` constant.
+- **Marketplace card (`vendor-card.tsx` · `VendorHero`):** the image resolves primary-photo → logo → **placeholder photo** (was → initials). Always renders an `<Image>` now; the bare-initials tile is gone.
+- **Category picker (`category-search-overlay.tsx`):** the 64 px tile falls back to the placeholder photo on a missing/failed logo (was initials). Retired the now-unused `initials()` helper.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean · CI build covers the new asset + Next/Image. Isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** Yes (minor) — vendor listings (marketplace card + plan picker) now always show at least a generic placeholder photo when a vendor has no image, instead of an initials monogram. See `COWORK_INBOX.md`.
+
 ## 2026-06-04 · feat(0023/0044): marketplace catalog reads the DB taxonomy (Phase 2b·2)
 
 **Context:** Completes the public-marketplace read-through. 2b·1 flipped vendor *bucketing*; this flips the catalog's *labels + order + structure*, so admin **renames and re-orders** (via the Phase 3 editor) show on the live `/vendors` browse — not just re-mapping.

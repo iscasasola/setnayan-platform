@@ -54,6 +54,7 @@ import {
   type TaxonomyEntry,
   type TaxonomyPhase,
 } from '@/lib/taxonomy';
+import { getTaxonomy } from '@/lib/taxonomy-db';
 import {
   fetchTopVendorNamesByService,
   fetchVendorCountsByService,
@@ -2359,6 +2360,24 @@ async function CatalogView({
    *  precedence. */
   faithFilter: FaithKey | null;
 }) {
+  // Phase 2b·2 — read the taxonomy from the DB snapshot so admin renames /
+  // re-orders show on the live marketplace catalog (fallback-safe: getTaxonomy
+  // → lib/taxonomy.ts constant). Local shadows so every reference in
+  // CatalogView resolves to the snapshot without per-site edits.
+  // Casts restore the original constants' exact-key Record types (the snapshot
+  // is keyed by string; it carries the same keys, seeded from the constant) so
+  // every existing reference type-checks unchanged under noUncheckedIndexedAccess.
+  const tax = await getTaxonomy();
+  const TAXONOMY_MAP = tax.map;
+  const WEDDING_FOLDER_ORDER = tax.folderOrder;
+  const WEDDING_FOLDER_LABEL = tax.folderLabel as Record<WeddingFolder, string>;
+  const WEDDING_FOLDER_SHORT_LABEL = tax.folderShortLabel as Record<WeddingFolder, string>;
+  const WEDDING_FOLDER_SLUG = tax.folderSlug as Record<WeddingFolder, string>;
+  const WEDDING_TILE_LABEL = tax.tileLabel as Record<WeddingTile, string>;
+  const WEDDING_TILE_SLUG = tax.tileSlug as Record<WeddingTile, string>;
+  const WEDDING_TILE_ORDER = tax.tileOrder;
+  const WEDDING_TILES_BY_PARENT = tax.tilesByParent as Record<WeddingFolder, WeddingTile[]>;
+  const TILE_PARENT = tax.tileParent as Record<WeddingTile, WeddingFolder>;
   // Single round-trip per page render — both reads are admin-scoped because
   // anonymous visitors hit this route and `vendor_profiles` is gated by RLS.
   // 2026-05-22 evening — also fetch the demo vendor ID list so the inline
@@ -3021,13 +3040,14 @@ function VenueFilterBanner({
 // above this banner is still active — a click on any other folder chip
 // preserves scope (they want THAT folder); the "Browse all folders" link
 // drops the scope entirely.
-function ScopedFolderBanner({ folder }: { folder: WeddingFolder }) {
+async function ScopedFolderBanner({ folder }: { folder: WeddingFolder }) {
+  const tax = await getTaxonomy();
   return (
     <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-ink/15 bg-cream px-4 py-3">
       <p className="text-sm text-ink/80">
         Showing{' '}
         <span className="font-medium text-ink">
-          {WEDDING_FOLDER_LABEL[folder]}
+          {tax.folderLabel[folder] ?? folder}
         </span>{' '}
         only — the other 11 folders are hidden so you can focus.
       </p>

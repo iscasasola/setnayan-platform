@@ -18,6 +18,18 @@ Both generated via Recraft (recraftv3, `realistic_image`) and optimized with PIL
 
 **SPEC IMPACT:** Corpus design masters under `~/Documents/Claude/Projects/Setnayan/assets/faith/` are the spec-side originals. `wed_catholic.webp` master was refreshed in the prior session; `wed_chinese.webp` master refreshed directly this session (Cowork direct-edit authorization). No Cowork pending item required.
 
+## 2026-06-04 · feat(dashboard/home): live days·hrs·min·sec countdown (0021)
+
+**Context:** Owner — *"days, hours, minutes, seconds."* The cockpit countdown showed a static "N days to go"; make it a live ticking timer.
+
+**What changed** (`apps/web/app/dashboard/[eventId]/_components/`):
+- New **`live-countdown.tsx`** (client) — ticks every second, rendering **days · hrs · min · sec** with `tabular-nums` + fixed-width segments (no per-second jitter). At/after the date → "Today" (within 24h) then "Just married".
+- `event-countdown-header.tsx` (server) restructured: resolves the target date (committed `event_date` → earliest `date_candidates` → `date_window_start`), computes the target as **PH-midnight (`+08:00`) of that date**, and passes `targetMs` + the server clock to `<LiveCountdown>` so the first paint matches between server and client (no hydration mismatch — both seed from `serverNowMs`). The date line shows the exact target date; a small caption ("Earliest of N possible dates" / "Earliest in your date window" / "Tentative — not locked yet") appears while the date isn't committed.
+
+**Verify:** `tsc --noEmit` + `next lint` green. No migration, no new query (`now` already passed; date fields already in the events SELECT).
+
+**SPEC IMPACT:** Refines the 0021 cockpit countdown (now a live d/h/m/s timer counting to PH-midnight of the earliest chosen date). Folds into the existing "couple Home cockpit" COWORK_INBOX item / 0021.
+
 ## 2026-06-04 · refactor(vendors): rename route segment [eventVendorId] → [vendorId]
 
 **Context:** The dynamic route segment was named `[eventVendorId]`, but it carries `event_vendors.vendor_id` (the row PK) — the misleading name tripped up the service-scoped work. Renamed to `[vendorId]`. Cosmetic only; the URL path (`/dashboard/{eventId}/vendors/{id}/{workspace|review}`) is unchanged.

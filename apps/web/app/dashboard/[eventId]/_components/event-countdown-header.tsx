@@ -1,31 +1,24 @@
 import Link from 'next/link';
 import { formatEventDateWithPrecision, type EventDatePrecision } from '@/lib/events';
-import { formatWeddingDateLabel } from '@/lib/personalized-menu';
+import { LiveCountdown } from './live-countdown';
 
 /**
  * EventCountdownHeader — the emotional anchor at the top of the couple Home.
  *
- * Couple-home-cockpit redesign (owner-approved prototype 2026-06-04). Home is
- * a cockpit, not a catalog: this header answers "how close are we?" at a
- * glance — the couple's names, a big days-to-go number, the date + venue, and
- * a thin "X of N vendors locked" progress bar so the host feels momentum
- * without reading a paragraph.
+ * Couple-home-cockpit redesign (owner-approved 2026-06-04). Home is a cockpit,
+ * not a catalog: this header answers "how close are we?" at a glance — the
+ * couple's names, a LIVE days · hours · minutes · seconds countdown to their
+ * event date, the date + venue, and a thin "X of N vendors locked" bar.
  *
  * Counts down to the EARLIEST chosen date until the couple settles on one
- * (owner 2026-06-04). Setnayan events can hold a not-yet-final date as a set of
- * `date_candidates` or a flexible `date_window` before committing a single
- * `event_date`; the countdown targets `event_date` once set, else the earliest
- * candidate, else the window start. While tentative, the label shows the date
- * state ("3 possible dates" / a window range / the single candidate) and the
- * number reads "days to earliest".
+ * (owner 2026-06-04): targets the committed `event_date`, else the earliest
+ * `date_candidates`, else the `date_window_start`. The ticking is a small
+ * client child (`<LiveCountdown>`); this server component owns the date
+ * resolution + label and passes the resolved target (PH-midnight ms) + the
+ * server clock so the first paint matches between server and client.
  *
- * Replaces the text-heavy "Your wedding details" recap as the Home lead. That
- * match-criteria recap moved to the top of Services; the full editable record
- * stays at /details.
- *
- * Pure server component — every value is derived from the events row + the
- * already-computed lock count (no new queries). `now` is passed in so the
- * countdown is stable between render and any downstream hydration.
+ * Server component — values derive from the events row + the already-computed
+ * lock count (no new queries).
  */
 
 type Props = {
@@ -49,11 +42,12 @@ type Props = {
   now: Date;
 };
 
-function daysUntil(isoDate: string, now: Date): number {
-  const target = new Date(`${isoDate}T00:00:00`);
-  const today = new Date(now);
-  today.setHours(0, 0, 0, 0);
-  return Math.round((target.getTime() - today.getTime()) / 86_400_000);
+// PH has no DST → Asia/Manila is a fixed +08:00. A wedding date is a calendar
+// date with no time, so the countdown targets PH-local midnight of that date —
+// a single instant the server and the client both agree on (so the live timer
+// hydrates without a mismatch).
+function targetMsFor(isoDate: string): number {
+  return new Date(`${isoDate}T00:00:00+08:00`).getTime();
 }
 
 export function EventCountdownHeader({
@@ -64,31 +58,36 @@ export function EventCountdownHeader({
   dateMode,
   dateCandidates,
   dateWindowStart,
-  dateWindowEnd,
+  // dateWindowEnd stays in Props (the page passes it) but isn't used here —
+  // reserved for a future window-range label; not destructured to avoid an
+  // unused-local.
   venueLabel,
   lockedCount,
   totalLockable,
   now,
 }: Props) {
-  // Earliest chosen date: the committed date wins; otherwise count down to the
-  // earliest candidate (ISO yyyy-mm-dd sorts chronologically), then the window
-  // start. `isTentative` = there's a target but the couple hasn't settled on one.
-  const earliestCandidate = (dateCandidates ?? [])
-    .filter(Boolean)
-    .slice()
-    .sort()[0];
-  const countdownDate = eventDate ?? earliestCandidate ?? dateWindowStart ?? null;
+  // Earliest chosen date: committed date wins; else the earliest candidate (ISO
+  // yyyy-mm-dd sorts chronologically); else the window start.
+  const candidates = (dateCandidates ?? []).filter(Boolean).slice().sort();
+  const countdownDate = eventDate ?? candidates[0] ?? dateWindowStart ?? null;
   const isTentative = !eventDate && countdownDate !== null;
-  const daysOut = countdownDate ? daysUntil(countdownDate, now) : null;
 
-  const dateLabel = eventDate
-    ? formatEventDateWithPrecision(eventDate, eventDatePrecision)
-    : formatWeddingDateLabel({
-        date_mode: dateMode,
-        date_candidates: dateCandidates,
-        date_window_start: dateWindowStart,
-        date_window_end: dateWindowEnd,
-      }) ?? (countdownDate ? formatEventDateWithPrecision(countdownDate, 'day') : null);
+  // Date line under the names. Committed → the date at its precision; tentative
+  // → the earliest target date itself (so the couple sees what the timer counts
+  // to), with the caption below explaining it's the earliest / not yet locked.
+  const dateLineLabel = !countdownDate
+    ? null
+    : eventDate
+      ? formatEventDateWithPrecision(eventDate, eventDatePrecision)
+      : formatEventDateWithPrecision(countdownDate, 'day');
+
+  const tentativeCaption = !isTentative
+    ? null
+    : candidates.length > 1
+      ? `Earliest of ${candidates.length} possible dates`
+      : dateMode === 'window' || (dateWindowStart !== null && countdownDate === dateWindowStart)
+        ? 'Earliest in your date window'
+        : 'Tentative — not locked yet';
 
   const pct =
     totalLockable > 0
@@ -110,49 +109,32 @@ export function EventCountdownHeader({
         {eventName}
       </h1>
 
-      <div className="mt-4 flex items-end justify-between gap-3">
-        <div>
-          {daysOut !== null && daysOut > 0 ? (
-            <p className="flex items-baseline gap-2">
-              <span className="font-display text-5xl leading-none text-mulberry">
-                {daysOut}
-              </span>
-              <span className="text-xs font-medium leading-tight text-ink/55">
-                {isTentative ? (
-                  <>
-                    days to
-                    <br />
-                    earliest
-                  </>
-                ) : (
-                  <>
-                    days
-                    <br />
-                    to go
-                  </>
-                )}
-              </span>
-            </p>
-          ) : daysOut === 0 ? (
-            <p className="font-display text-4xl leading-none text-mulberry">Today</p>
-          ) : daysOut !== null && !isTentative ? (
-            <p className="font-display text-3xl leading-none text-mulberry">Just married</p>
-          ) : (
-            <Link
-              href={`/dashboard/${eventId}/date-selection`}
-              className="text-sm font-medium text-terracotta hover:underline"
-            >
-              {isTentative ? 'Update your date' : 'Add your date to start the countdown'} &rarr;
-            </Link>
-          )}
-        </div>
-        {dateLabel ? (
-          <div className="text-right">
-            <p className="text-sm font-semibold text-ink">{dateLabel}</p>
-            {venueLabel ? <p className="mt-0.5 text-xs text-ink/55">{venueLabel}</p> : null}
-          </div>
-        ) : null}
+      {dateLineLabel || venueLabel ? (
+        <p className="mt-1.5 text-sm">
+          {dateLineLabel ? <span className="text-ink/75">{dateLineLabel}</span> : null}
+          {dateLineLabel && venueLabel ? <span className="text-ink/30"> · </span> : null}
+          {venueLabel ? <span className="text-ink/55">{venueLabel}</span> : null}
+        </p>
+      ) : null}
+
+      <div className="mt-4">
+        {countdownDate ? (
+          <LiveCountdown targetMs={targetMsFor(countdownDate)} serverNowMs={now.getTime()} />
+        ) : (
+          <Link
+            href={`/dashboard/${eventId}/date-selection`}
+            className="text-sm font-medium text-terracotta hover:underline"
+          >
+            Add your date to start the countdown &rarr;
+          </Link>
+        )}
       </div>
+
+      {tentativeCaption ? (
+        <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
+          {tentativeCaption}
+        </p>
+      ) : null}
 
       {totalLockable > 0 ? (
         <div className="mt-4">

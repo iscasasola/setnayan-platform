@@ -17,7 +17,52 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **Verification:** `tsc --noEmit` exit 0 · `next lint` exit 0 (no new warnings) · client/server boundary verified (both `'use client'` components import zero server-only code) · migration applied to prod + confirmed in remote history. Isolated worktree off origin/main. Auth-gated RSC routes — full production build + Lighthouse run in CI.
 
-**SPEC IMPACT:** New feature (V1-scope expansion, owner-approved "full send" 2026-06-04). Landed **directly in the corpus** (owner authorized direct corpus edits 2026-06-04, superseding COWORK_INBOX): `vendor_payment_methods` schema + the two locked sub-rules → **0034** · vendor surface → **0022** · Payment Options tab → **0025** · couple settlement rail → **0007** · admin moderation → **0023**; `DECISION_LOG.md` rows added. Fast-follow (deferred): wire the per-vendor **workspace** page as a second settlement mount point; real server-side QR image decode (V1 stores the vendor-declared destination, admin-verified). **Note:** prod's migration history holds a phantom `20260816000000` absent from `origin/main` (prod ahead of repo) — blocks clean `supabase db push` until the owner reconciles it; worked around non-destructively for this migration only.
+**SPEC IMPACT:** New feature (V1-scope expansion, owner-approved "full send" 2026-06-04). Landed **directly in the corpus** (owner authorized direct corpus edits 2026-06-04, superseding COWORK_INBOX): `vendor_payment_methods` schema + the two locked sub-rules → **0034** · vendor surface → **0022** · Payment Options tab → **0025** · couple settlement rail → **0007** · admin moderation → **0023**; `DECISION_LOG.md` rows added. Fast-follow (deferred): wire the per-vendor **workspace** page as a second settlement mount point; real server-side QR image decode (V1 stores the vendor-declared destination, admin-verified). **Migration-history note:** this migration was applied to prod while prod was briefly ahead of `origin/main` by `20260816000000` (vendor_service_agents, applied before its PR merged) — that transiently blocked `supabase db push`; `20260816000000` has since merged to main and the merge into this branch picks it up, so it is resolved.
+
+## 2026-06-04 · feat(dashboard/home): couple Home cockpit — countdown + Today's Focus + Needs you (0021 / 0016)
+
+**Context:** Owner — *"fix the first page customers see (the customer dashboard home). Not too much text; updates, guides, and a quick what-to-do-next."* After a side-by-side prototype review, the lean 2026-06-02 home (the "Your wedding details" recap + Upcoming + Activity) is reshaped into a **cockpit** that answers "what now?" in five beats. The text-heavy match-criteria recap leaves Home; it returns at the top of **Services** as an editable "Matching you on" strip (follow-up PR); the full editable record stays at `/details`.
+
+**What changed** (`apps/web/app/dashboard/[eventId]/`):
+- **New `_components/event-countdown-header.tsx`** — the emotional anchor: couple names + big days-to-go + date/venue + a thin "X of N vendors locked" bar. Pure server component; derived from the events row + the lock count already computed on the page (no new queries). No-date → a quiet "add your date" link.
+- **Re-wired `TodaysOneThing`** (the single-focus "Today's Focus" hero) back onto Home as the "Do it" beat — `pickTodaysOneThing(eventVendors, event_date, now)` + `countUnlockedCategories`. This is the original lightweight **vendor-derived** hero, **not** the retired Today's-Focus wizard or the (off) paid Concierge. Dormant on disk since the 2026-06-02 lean pass; re-wiring needed no new data (same `eventVendors` array PlanningGroups used).
+- **Reframed Upcoming → "Needs you"** — `UpcomingSchedules` gains optional `headingLabel`/`emptyLabel` props (defaults unchanged); the home wrapper passes "Needs you" + an "all caught up" empty state. Same five-source data.
+- **Removed the `PersonalizedMenu` recap** from Home + its now-orphaned compute (`personalizedDate/Taste/Features/DetailRows`, `eventCeremonyType`, `eventVenueSetting`, `eventBudgetCentavos`) and the `buildTasteChips/Features/WeddingDetailRows` + `PersonalizedMenu` imports. Added a calm "Browse your matched services" doorway (replaces the CTA that lived inside the recap).
+- Home render order: day-of trio (wedding-day only) → **Countdown → Today's Focus → Needs you → Recent activity → marketplace doorway**.
+
+**Verify:** `tsc --noEmit` + `next lint` green (only pre-existing warnings, none in touched files). Worktree off origin/main. No migration (reads existing columns). Visual pass deferred to the PR's Vercel preview (dashboard is auth-gated).
+
+**SPEC IMPACT:** Reverses part of the 2026-06-02 "lean Home = 3 blocks" shape (0021) and re-surfaces a "Today's Focus" next-action hero (0016 framing — the lightweight hero, not the retired wizard/Concierge). The match-criteria recap is slated to move to the top of Services (PR2, not in this change). → COWORK_INBOX + DECISION_LOG.
+
+## 2026-06-04 · feat(onboarding): design-4 filigree frame + persist monogram_style
+
+**Context:** Follow-up to PR #960 (5 live-typography monogram lockups). Owner: design 4 (framed) should use a **generated ornate gold filigree circle** showing **both initials**, and we should **propagate** the chosen lockup past onboarding — which needs the chosen *style* persisted (it was being thrown away at commit, leaving downstream surfaces with only frame+font).
+
+**What changed:**
+- **Design 4 frame** — generated a transparent vector filigree ring (Recraft `vector_illustration` → `apps/web/public/onboarding/mono/filigree.svg`, 237 gold-gradient paths, hollow center, no background); design 4 now points at `filigree` (was the reused floral `wreath`) and renders both initials. New `.onbw .lk-framed .lk-frame[data-frame="filigree"]` rule.
+- **Persist style** — new nullable column `events.monogram_style` (CHECK ∈ bar·script·duo·framed·infinity), `supabase/migrations/20260817000000_event_monogram_style.sql`; onboarding commit (`onboarding-shell.tsx`) + `actions.ts` now write it. **Applied to prod directly** (idempotent `ADD COLUMN IF NOT EXISTS`) because `supabase db push` is blocked by an unrelated history divergence (see SPEC IMPACT).
+- **Sync `lib/monogram.ts`** — replaced the stale 10-preset `MONO_DESIGNS` with the 5-style model; `resolveMonogramDesign` accepts + returns `style` (style-authoritative, falls back to frame+font for pre-2026-06-04 events); `VALID_FRAMES` made exhaustive (legacy frames + filigree) so already-onboarded couples keep their framed icon; new `monogramFrameAssetUrl()` serves `.svg` for filigree, `.webp` for legacy.
+- **Thread through** `lib/events.ts` select + `EventMonogram` (chrome switcher / profile icon). Chrome stays letters-forward at small size; the returned `style` is the foundation for the bigger-surface rollout.
+
+**Verification:** `tsc --noEmit` exit 0 (pre- and post-merge) · `next lint` clean on changed dirs (only a pre-existing `<img>` warning in `profile-menu.tsx`) · `monogram_style` column + `events_monogram_style_check` constraint verified live in prod.
+
+**Staged (NOT in this PR), with reasons:** full lockup on the **QR center** (needs style-aware SVG compositing in `monogramOverlaySvg`) and a **big in-app preview** (needs the `.onbw`-scoped lockup CSS extracted to a shared sheet — author-flagged refactor). The **paid Animated Monogram hero (0037 · ₱2,499)** is deliberately untouched.
+
+**SPEC IMPACT:** 0037 — design 4 is now a generated filigree frame (both initials); `events.monogram_style` is the new persistence for the chosen lockup. Also flags a **migration-history divergence** — remote has `20260820000000` applied with no repo file, blocking `supabase db push` team-wide. Logged to COWORK_INBOX.
+
+## 2026-06-04 · feat(0022): Vendor agents — per-service assignment (Phase 2a)
+
+**Context:** Phase 2 of the vendor multi-user workspace (after the Phase-1 role-aware shell, #962). The owner wants agents to "see only the services + customers they manage." Investigation confirmed the customer↔service link exists (`event_vendors.service_id` → the booked `vendor_services` row), so per-service scoping is feasible. This is **Phase 2a — the assignment foundation**: owners/admins assign agents to specific services. Phase 2b consumes it (scopes the agent's dashboard reads + nav to assigned services + their customers, via RLS).
+
+**What changed:**
+- **Migration `20260816000000_vendor_service_agents.sql`** (new table, RLS, **applied to prod**) — `vendor_service_agents(vendor_service_id, vendor_team_member_id)`. RLS: any vendor member reads the map; **owner/admin manage** (via `current_vendor_ids('admin')`). On-delete-cascade from both parents.
+- **`lib/vendor-team.ts`** — `fetchAssignableServices()` + `fetchAgentServiceAssignments()` (member→service-ids map, scoped to the vendor's own services).
+- **`app/vendor-dashboard/team/actions.ts`** — `setVendorAgentServices()` (replace-on-save; clamps selection to the vendor's own services; RLS enforces owner/admin).
+- **`app/vendor-dashboard/team/page.tsx`** — under each **agent** member, a checkbox row of the vendor's services (pre-checked from current assignments) → Save.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean · `next build` exit 0 · migration dry-run showed only this file pending, then applied to prod. Isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** 0022 — new `vendor_service_agents` table + per-service agent assignment UI (the spec'd-but-unbuilt scoping foundation). Phase 2b (agent-scoped reads + RLS on services/threads + admins-see-all resolution + nav expansion) is next. → `COWORK_INBOX.md` [PENDING].
 
 ## 2026-06-04 · refactor(vendors/workspace): service-scoped per-vendor workspace page
 

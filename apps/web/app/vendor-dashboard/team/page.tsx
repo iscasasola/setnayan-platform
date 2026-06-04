@@ -5,16 +5,20 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import {
   enrichTeamWithUsers,
+  fetchAgentServiceAssignments,
+  fetchAssignableServices,
   fetchVendorTeam,
   VENDOR_TEAM_ROLE_BLURB,
   VENDOR_TEAM_ROLE_LABEL,
   VENDOR_TEAM_ROLES,
+  type AssignableService,
   type VendorTeamRole,
 } from '@/lib/vendor-team';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
   inviteVendorTeamMember,
   removeVendorTeamMember,
+  setVendorAgentServices,
   updateVendorTeamMember,
 } from './actions';
 
@@ -46,6 +50,11 @@ export default async function VendorTeamPage({ searchParams }: Props) {
   // Need admin client to resolve member emails (public.users RLS is per-user).
   const admin = createAdminClient();
   const enriched = await enrichTeamWithUsers(admin, rows);
+  // Phase 2a — per-service agent assignment data.
+  const [services, assignments] = await Promise.all([
+    fetchAssignableServices(supabase, profile.vendor_profile_id),
+    fetchAgentServiceAssignments(supabase, profile.vendor_profile_id),
+  ]);
 
   return (
     <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
@@ -258,6 +267,14 @@ export default async function VendorTeamPage({ searchParams }: Props) {
                       </div>
                     </form>
                   )}
+
+                  {m.role === 'agent' ? (
+                    <AgentServiceAssignment
+                      memberId={m.vendor_team_member_id}
+                      services={services}
+                      assigned={assignments[m.vendor_team_member_id] ?? []}
+                    />
+                  ) : null}
                 </li>
               );
             })}
@@ -265,5 +282,72 @@ export default async function VendorTeamPage({ searchParams }: Props) {
         )}
       </section>
     </section>
+  );
+}
+
+function categoryLabel(category: string): string {
+  return category
+    .split(/[_-]/)
+    .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : w))
+    .join(' ');
+}
+
+/**
+ * Phase 2a — per-service assignment for an agent. The owner/admin checks the
+ * services this agent should manage; an agent then sees only those services +
+ * the customers tied to them (wired in Phase 2b). Replace-on-save semantics.
+ */
+function AgentServiceAssignment({
+  memberId,
+  services,
+  assigned,
+}: {
+  memberId: string;
+  services: AssignableService[];
+  assigned: string[];
+}) {
+  const assignedSet = new Set(assigned);
+  return (
+    <form
+      action={setVendorAgentServices}
+      className="mt-3 space-y-2 rounded-xl border border-emerald-200/70 bg-emerald-50/40 p-3"
+    >
+      <input type="hidden" name="vendor_team_member_id" value={memberId} />
+      <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-emerald-900/70">
+        Assigned services — this agent sees only these (and their customers)
+      </p>
+      {services.length === 0 ? (
+        <p className="text-xs text-ink/55">
+          Add services on the Services page first, then assign them here.
+        </p>
+      ) : (
+        <>
+          <div className="flex flex-wrap gap-2">
+            {services.map((s) => (
+              <label
+                key={s.vendor_service_id}
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-2.5 py-1 text-xs text-ink/80 hover:border-ink/30"
+              >
+                <input
+                  type="checkbox"
+                  name="service_ids"
+                  value={s.vendor_service_id}
+                  defaultChecked={assignedSet.has(s.vendor_service_id)}
+                  className="h-3.5 w-3.5 accent-emerald-600"
+                />
+                {categoryLabel(s.category)}
+                {s.is_active ? null : <span className="text-ink/40">(inactive)</span>}
+              </label>
+            ))}
+          </div>
+          <SubmitButton
+            className="inline-flex h-8 items-center justify-center rounded-md border border-emerald-300 bg-cream px-3 text-xs font-medium text-emerald-900 hover:border-emerald-500"
+            pendingLabel="Saving…"
+          >
+            Save assignments
+          </SubmitButton>
+        </>
+      )}
+    </form>
   );
 }

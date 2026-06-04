@@ -9,11 +9,8 @@ import {
   findTopVendorsByFolder,
   type VendorPreviewRow,
 } from '@/lib/vendor-counts';
-import {
-  WEDDING_FOLDER_LABEL,
-  WEDDING_FOLDER_SLUG,
-  type WeddingFolder,
-} from '@/lib/taxonomy';
+import { type WeddingFolder } from '@/lib/taxonomy';
+import { getTaxonomy } from '@/lib/taxonomy-db';
 import { resolveVendorDisplayName } from '@/lib/vendors';
 
 /**
@@ -79,8 +76,11 @@ export async function FolderVendorsSection({
   // tiles still surface the canonical_services as breadth.
   if (vendors.length === 0) return null;
 
-  const folderLabel = WEDDING_FOLDER_LABEL[folder];
-  const folderSlug = WEDDING_FOLDER_SLUG[folder];
+  // DB-backed labels — a folder renamed in /admin/taxonomy reflects here live
+  // (fallback-safe: getTaxonomy falls back to the lib/taxonomy.ts constant).
+  const tax = await getTaxonomy();
+  const folderLabel = tax.folderLabel[folder] ?? folder;
+  const folderSlug = tax.folderSlug[folder] ?? folder;
   const seeAllHref = focusedMode
     ? `/vendors?folder=${folderSlug}&from=plan#${folderSlug}`
     : `/vendors?folder=${folderSlug}#${folderSlug}`;

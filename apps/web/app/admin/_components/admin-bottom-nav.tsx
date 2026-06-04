@@ -123,7 +123,8 @@ const ADMIN_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
       '/admin/operations-hiring',
       '/admin/telemetry',
       '/admin/offline',
-      // Funnels group
+      // Insights group
+      '/admin/growth',
       '/admin/funnels',
       // Settings group. Note: `/admin/settings/payment-methods` will ALSO
       // match the Money tab above (via the same `/admin/settings/payment-methods`

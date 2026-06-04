@@ -6,17 +6,32 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ## 2026-06-04 · feat(onboarding): welcome hero depth-parallax + new copy
 
-**Context:** Owner — *"i want the exact photo but we want it to animate the background making it have depth"* + new welcome copy. (The cloud-overlay idea — PR #936 — is set aside per the owner's "no"; left unmerged.)
+**Context:** Owner — *"i want the exact photo but we want it to animate the background making it have depth"* + new welcome copy. (Cloud-overlay PR #936 set aside per the owner's "no"; left unmerged.)
 
 **What changed:**
 - **Copy:** headline → *"Wedding planning, without the chaos."*; sub → *"Answer a few questions. We'll find your vendors and build your plan — free to start."*
-- **`welcome-parallax.tsx`** (new) — a WebGL depth-parallax on the **exact** welcome photo: a fragment shader displaces UVs by a depth map × a slow auto-orbiting "camera" (near pixels shift more than far → real dimensional motion from one still). **Bulletproof fallback** — a plain `<img>` renders first and only hides once the canvas has genuinely drawn; if WebGL/shaders fail or reduced-motion is set, the `<img>` stays (the static Ken-Burns hero) — never broken.
-- **`public/onboarding/welcome-depth.png`** (4 KB) — approximate depth map (sky-far → ground-near gradient + a soft nearer region for the couple). Drop a true depth map (Depth-Anything/Immersity) at the same path for crisp object-parallax — no code change.
+- **`welcome-parallax.tsx`** (new) — WebGL depth-parallax on the **exact** welcome photo: a fragment shader displaces UVs by a depth map × a slow auto-orbiting camera (near shifts more than far → dimensional motion from one still). **Bulletproof fallback** — a plain `<img>` renders first and only hides once the canvas truly draws; WebGL/shader failure or reduced-motion → the static Ken-Burns hero stays. Never broken.
+- **`public/onboarding/welcome-depth.png`** (4 KB) — approximate depth map. Drop a true depth map (Depth-Anything/Immersity) at the same path for crisp object-parallax — no code change.
 - Wired into the welcome hero (replaces `HeroImg`) + CSS for the canvas/img layers.
 
-**Verification:** `tsc --noEmit` exit 0 · `next lint` clean. Photo is same-origin (`/onboarding/welcome.webp`) → no WebGL CORS issue.
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean. Photo same-origin → no WebGL CORS.
 
-**SPEC IMPACT:** New welcome copy + the hero now animates with depth parallax (an upgrade over the Ken-Burns from the prior PR). → `COWORK_INBOX.md` (welcome screen).
+**SPEC IMPACT:** New welcome copy + depth-parallax hero. → `COWORK_INBOX.md`.
+
+## 2026-06-04 · feat(0023): Admin Growth & Population surface (/admin/growth)
+
+**Context:** Owner — make statistics of the progress of the app: both *actual population* (current totals) and *growth over time* for vendors · services · events · customers · guests, plus *guest → account-holder conversion*. No existing admin surface showed multi-entity population + growth curves, and conversion was computed nowhere (the Overview shows point-in-time counts only; Funnels is step-conversion; Operations & Hiring is vendor-signup + hiring-forecast). Owner picked a dedicated `/admin/growth` page and the **"any linked account"** conversion definition.
+
+**What changed** (additive — new surface + nav entries, no migration):
+- **`lib/admin/growth-stats.ts`** (new) — `fetchGrowthStats(range)`: population head-counts; per-entity weekly **cumulative + net-new** series (12 fixed buckets; baseline + per-boundary `count:'exact', head:true` — exact, indexed-only, no 1000-row truncation); **guest→account conversion** via `event_members.guest_id` + `member_type='guest'` (cumulative by `joined_at`, all-time rate = converted ÷ non-removed guests, median days-to-convert from a bounded embedded read). Per-section error isolation. No migration — all five entity tables already carry `created_at`.
+- **`app/admin/growth/page.tsx`** (new) — server component: range picker (GET form · 3/6/12 months · mirrors /admin/funnels), Population-now tiles, per-entity growth cards with hand-rolled **SVG cumulative sparkline + net-new bars** (no chart lib in the repo), conversion section. v2.1 `--m-*` chrome; responsive.
+- **`app/admin/_components/admin-sidebar.tsx`** — Funnels group relabeled **"Insights"** (group key stays `funnels` so persisted open-state survives); adds **Growth** item (LineChart).
+- **`app/admin/_components/admin-bottom-nav.tsx`** — `/admin/growth` added to the mobile **More** tab's activeMatch.
+- **`app/admin/more/page.tsx`** — **Growth** card added to the mobile More landing (orphan-prevention · 1:1 with the sidebar).
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean · `next build` exit 0 (`/admin/growth` registered as ƒ dynamic, beside `/admin/funnels`). Built in an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** Iteration 0023 gains a **29th admin surface ("Growth")** and the **Funnels group → "Insights"** (Funnels + Growth). → `COWORK_INBOX.md` [PENDING]: update 0023 §1 group list + surface count, add a Growth subsection, lock the conversion definition (any linked account), and mark `/admin/growth` SHIPPED in `App_Build_Status.md`.
 
 ## 2026-06-04 · style(onboarding): welcome screen full-bleed hero + button-over-photo + Ken-Burns drift
 

@@ -14,9 +14,27 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 - **`_components/event-type-picker.tsx`** — renders the bar picker; tapping a type with an `onboardingHref` routes straight there (Wedding → onboarding, dropping the old intermediate "Continue →" card); types still on `null` fall back to the inline name form (`createWeddingEvent`). Removed the already-dead per-surface `WeddingTypePicker` / `wedding_type_launch_status` path + the "pick a type to name it" placeholder.
 - **`page.tsx`** — dropped the dead `launchStatus` fetch + imports; trimmed the subtitle to "Tap a type to begin."; `invalid_type` copy de-references "carousel".
 
-**Verification:** `tsc --noEmit` exit 0 · `next lint` (create-event dir) clean · interaction + look approved via the standalone prototype (real authed render confirms on the Vercel preview). Isolated worktree off `origin/main`.
+**Verification:** `tsc --noEmit` exit 0 · `next lint` (create-event dir) clean · CI green (typecheck+lint, production build, lighthouse, playwright, bundle size, secret scan, Vercel) · interaction + look approved via the standalone prototype. Isolated worktree off `origin/main`.
 
 **SPEC IMPACT:** 0000 — the create-event event-type picker is now a minimal bar carousel; tap routes straight into onboarding (replaces the hero-photo carousel + name-form-first flow on the full-page surface). Per-event onboarding roll-out begins (Debut next). → `COWORK_INBOX.md`.
+
+## 2026-06-04 · feat(0022): Vendor dashboard remap (4 groups) + role-aware nav shell (Phase 1)
+
+**Context:** Owner directive — make the vendor (and admin) dashboards seamless + simple, and turn the vendor account into a true multi-user workspace where main holders (owner/admin) see everything and agents see only their services + customers. Backbone already existed (`vendor_team_members` + role enum owner>admin>agent>viewer + `current_vendor_ids(min_role)`), but the dashboard never used roles (and `fetchOwnVendorProfile` is owner-only, so non-owner members couldn't load it). This is **Phase 1: the IA remap + role-aware nav shell**; per-service DATA scoping + route guards + admins-see-all data resolution are Phase 2 (owner-sequenced "remaps first, agents next").
+
+**What changed** (no migration):
+- **`lib/vendor-role.ts`** (new) — `resolveVendorRole()` (highest membership role, legacy owner fallback), `canManageVendor()` (owner/admin), and the Phase-1 nav policy (`filterVendorNavGroups`, scoped item/tab key sets). Single source of truth so Phase 2 expands agent surfaces in one place.
+- **`vendor-sidebar.tsx`** — desktop groups **6 → 4**: Home · **Work** (Bookings · Messages · Services · Contracts · Repertoire · Attributes) · **Grow** (Marketing · Verify · Reviews · Moodboard library) · **Business** (Earnings · Tokens · Manpower · Redeem code · Team). Group KEYS reused (`pipeline`/`marketing`/`money`) so persisted open-state survives; all item keys unchanged. Now `role`-aware (agent/viewer → Overview only).
+- **`vendor-bottom-nav.tsx`** — `role`-aware tabs (owner/admin full; agent/viewer → Home + More).
+- **`vendor-dashboard/layout.tsx`** — resolves the member role (parallel) and feeds sidebar + bottom-nav.
+- **`vendor-dashboard/more/page.tsx`** — role-filtered overflow groups.
+- **`vendor-dashboard/page.tsx`** — agent/viewer get a clear "you're on the team" landing instead of the owner "set up your profile" state.
+
+**Safety:** agents currently resolve to NULL vendor data via the owner-only `fetchOwnVendorProfile`, so no data is exposed by this change — the nav shell is purely structural. Phase 2 adds `vendor_service_agents` + RLS so agents see only assigned services/customers (and admins see all).
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean · `next build` exit 0. Isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** 0022 — vendor nav remap (4 groups) + role-aware shell. → `COWORK_INBOX.md` [PENDING].
 
 ## 2026-06-04 · feat(0021/vendors): "Where your day stands" — make the cover DIRECTIVE + teach the loop
 

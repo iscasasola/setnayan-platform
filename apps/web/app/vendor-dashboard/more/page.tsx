@@ -22,6 +22,8 @@
 
 import { VENDOR_NAV_GROUPS } from '../_components/vendor-sidebar';
 import { VendorMobileLanding } from '../_components/vendor-mobile-landing';
+import { createClient } from '@/lib/supabase/server';
+import { resolveVendorRole, filterVendorNavGroups } from '@/lib/vendor-role';
 
 export const metadata = { title: 'More · Vendor · Setnayan' };
 
@@ -85,12 +87,21 @@ const DESCRIPTIONS: Record<string, string> = {
     'Team members + Setnayan support. Add staff to manage replies, view bookings, or coordinate the day.',
 };
 
-export default function VendorMoreLanding() {
+export default async function VendorMoreLanding() {
+  // Role-aware overflow — owner/admin see every group; agent/viewer see only
+  // the scoped subset (Phase 1: Home). Mirrors the sidebar + bottom-nav filter.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const role = user ? await resolveVendorRole(supabase, user.id) : null;
+  const groups = filterVendorNavGroups(VENDOR_NAV_GROUPS, role);
+
   return (
     <VendorMobileLanding
       title="More"
       subtitle="Every vendor surface, one tap away. Tabs at the bottom cover the daily driver — the rest live here."
-      groups={VENDOR_NAV_GROUPS}
+      groups={groups}
       descriptions={DESCRIPTIONS}
     />
   );

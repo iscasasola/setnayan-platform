@@ -54,6 +54,8 @@
 import { Home, Briefcase, MessageSquare, Wallet, Menu } from 'lucide-react';
 import { BottomNav } from '@/app/_components/nav/bottom-nav';
 import type { BottomNavItem } from '@/app/_components/nav/types';
+import type { VendorTeamRole } from '@/lib/vendor-team';
+import { canManageVendor, VENDOR_SCOPED_BOTTOM_NAV_KEYS } from '@/lib/vendor-role';
 
 const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
   {
@@ -152,6 +154,12 @@ const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
  * over). Per [[feedback_setnayan_orphan_prevention]] each tab's destination
  * route is verified to exist on the codebase.
  */
-export function VendorBottomNav() {
-  return <BottomNav items={VENDOR_BOTTOM_NAV_ITEMS} />;
+export function VendorBottomNav({ role }: { role: VendorTeamRole | null }) {
+  // Role-aware tabs — owner/admin get the full strip; agent/viewer get the
+  // scoped subset (Phase 1: Home + More). Phase 2 expands agent tabs once
+  // per-service data scoping lands.
+  const items = canManageVendor(role)
+    ? VENDOR_BOTTOM_NAV_ITEMS
+    : VENDOR_BOTTOM_NAV_ITEMS.filter((i) => VENDOR_SCOPED_BOTTOM_NAV_KEYS.has(i.key));
+  return <BottomNav items={items} />;
 }

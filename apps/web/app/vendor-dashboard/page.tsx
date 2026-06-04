@@ -17,6 +17,7 @@ import {
   profileCompletion,
 } from '@/lib/vendor-profile';
 import { fetchVendorThreads } from '@/lib/chat';
+import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
 
 /**
  * /vendor-dashboard — vendor doorway HOME / Overview page.
@@ -121,6 +122,33 @@ function formatShortDate(eventDate: string | null): string {
   });
 }
 
+/**
+ * Team-member (agent/viewer) home — shown to non-owner members until Phase-2
+ * per-service scoping opens their assigned services + customers. Keeps the
+ * agent out of the owner "set up your profile" flow they can't act on.
+ */
+function AgentHome() {
+  return (
+    <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
+      <header className="mb-6 space-y-2">
+        <p className="m-eyebrow text-[color:var(--m-orange-2)]">Setnayan · Vendor</p>
+        <h1 className="m-display-tight text-3xl text-[color:var(--m-ink)] sm:text-4xl">
+          You&apos;re on the team
+        </h1>
+        <p className="max-w-prose text-base text-ink/65">
+          Your account is set up as a team member. The services and customers your
+          owner assigns to you will appear here — scoped access is rolling out
+          shortly. There&apos;s nothing you need to do right now.
+        </p>
+      </header>
+      <div className="m-card p-5 text-sm" style={{ color: 'var(--m-slate)' }}>
+        Need access to something now? Ask your vendor owner to assign you to the
+        services you&apos;ll be managing.
+      </div>
+    </div>
+  );
+}
+
 export default async function VendorHomePage() {
   let loaderState: LoaderState;
   try {
@@ -129,6 +157,15 @@ export default async function VendorHomePage() {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) redirect('/login');
+
+    // Role-aware home — agent/viewer members don't own the profile and (until
+    // Phase-2 per-service scoping lands) have no scoped data yet. Show them a
+    // clear team-member landing instead of the owner "set up your profile"
+    // state. Owner/admin fall through to the full overview below.
+    const vendorRole = await resolveVendorRole(supabase, user.id);
+    if (vendorRole && !canManageVendor(vendorRole)) {
+      return <AgentHome />;
+    }
 
     const profile = await fetchOwnVendorProfile(supabase, user.id);
 

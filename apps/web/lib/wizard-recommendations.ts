@@ -38,6 +38,7 @@ import {
   fetchEventSongPickIds,
   fetchVendorSongOverlaps,
 } from '@/lib/songs';
+import { fetchPreferenceMatches, type PreferenceMatch } from '@/lib/preference-match';
 import { regionForCity } from '@/lib/regions';
 import { getBatchVendorAvailableDays } from '@/lib/vendor-availability';
 
@@ -136,6 +137,16 @@ export type WizardVendorRec = {
   song_overlap_count?: number;
   song_pick_total?: number;
   match_label?: 'best' | 'next_best';
+  /** Layer-B preference match (Vendor_Match_Personalization_2026-06-01 §8/§9).
+   *  True when the vendor's `vendor_service_attributes` facet tags overlap the
+   *  couple's `event_vendor_preferences` on ≥1 dimension for a shared service.
+   *  Drives the "Matches your preference" float + badge + the % match pill's
+   *  refinement-fit dimension. `preference_matched_dimensions` = how many of the
+   *  couple's expressed dimensions the vendor satisfies. Absent on no-pref /
+   *  no-vendor-tag queries — inert until vendor facet-tagging coverage exists
+   *  (`vendor_service_attributes` is empty in prod today), so zero regression. */
+  preference_matched?: boolean;
+  preference_matched_dimensions?: number;
 };
 
 type Args = {
@@ -261,7 +272,12 @@ export async function fetchWizardVendorRecommendations(
   const needsPaxScope = !!(args.pax && args.pax > 0);
   const needsVenueTypeScope = !!args.venueType;
   const needsScheduleScope = !!(args.availableDateKeys && args.availableDateKeys.length > 0);
+  // Preference matching (Layer-B) over-fetches too, so a facet-matching vendor
+  // ranked outside the top-N by ad_rank can still float up. Inert until vendor
+  // facet tags exist, so this only widens the read when an event is in context.
+  const needsPreferenceMatch = !!args.matchEventId;
   const fetchLimit =
+    needsPreferenceMatch ||
     isMusicMatch ||
     needsRegionScope ||
     needsPaxScope ||
@@ -478,8 +494,32 @@ export async function fetchWizardVendorRecommendations(
     }
   }
 
-  // Over-fetched for the music re-rank → trim to the requested cap before the
-  // (more expensive) photo / meta enrichment.
+  // Preference-match score + re-rank (Layer-B · any category with an event).
+  // Mirror of the song-overlap block above, generalized from music to EVERY
+  // category: float vendors whose vendor_service_attributes facet tags overlap
+  // the couple's event_vendor_preferences, NEVER exclude. `prefByVendor` stays
+  // empty — no float, no match fields, order unchanged — when the couple has no
+  // prefs OR no vendor carries facet tags. Inert in prod until vendor
+  // facet-tagging coverage exists (vendor_service_attributes is empty today), so
+  // zero regression. Vendor_Match_Personalization_2026-06-01 §8/§9.
+  const prefByVendor: Map<string, PreferenceMatch> = args.matchEventId
+    ? await fetchPreferenceMatches(
+        admin,
+        args.matchEventId,
+        baseRows.map((r) => r.vendor_profile_id),
+        args.canonicalServices,
+      )
+    : new Map<string, PreferenceMatch>();
+  if (prefByVendor.size > 0) {
+    baseRows = [...baseRows].sort(
+      (a, b) =>
+        (prefByVendor.get(b.vendor_profile_id)?.matchedDimensions ?? 0) -
+        (prefByVendor.get(a.vendor_profile_id)?.matchedDimensions ?? 0),
+    );
+  }
+
+  // Over-fetched for the music + preference re-rank → trim to the requested cap
+  // before the (more expensive) photo / meta enrichment.
   baseRows = baseRows.slice(0, limit);
   const vendorIds = baseRows.map((r) => r.vendor_profile_id);
   if (vendorIds.length === 0) return [];
@@ -610,6 +650,15 @@ export async function fetchWizardVendorRecommendations(
           }
         : {};
 
+    const prefMatch = prefByVendor.get(row.vendor_profile_id);
+    const prefFields =
+      prefMatch && prefMatch.matched
+        ? {
+            preference_matched: true,
+            preference_matched_dimensions: prefMatch.matchedDimensions,
+          }
+        : {};
+
     return {
       ...row,
       primary_photo_url: firstPhotoKey
@@ -621,6 +670,7 @@ export async function fetchWizardVendorRecommendations(
       presentation_pattern: presentationPattern,
       services_preview,
       ...matchFields,
+      ...prefFields,
     } as WizardVendorRec;
   });
 }

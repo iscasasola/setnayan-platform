@@ -8,6 +8,16 @@
 
 ---
 
+## [PENDING] 2026-06-04 — Monogram design-4 filigree + monogram_style persistence (0037)
+
+**Why:** Follow-up to the 5-lockup monogram (PR #960). Design 4 now uses a generated ornate gold **filigree** circle (renders BOTH initials); the chosen lockup **style** is now persisted to `events.monogram_style` so it can propagate beyond onboarding.
+
+**Spec corpus updates (owner via Cowork):**
+1. **`0037_bespoke_monogram`** — record: design 4 = generated filigree frame (`public/onboarding/mono/filigree.svg`), renders BOTH initials (owner-chosen 2026-06-04); new `events.monogram_style` column (bar·script·duo·framed·infinity) persists the chosen lockup.
+2. **Propagation follow-up (open):** the full lockup is NOT yet on the QR center / invitation / save-the-date / a big in-app preview. QR center needs style-aware SVG compositing (`monogramOverlaySvg`); the in-app preview needs the onboarding `.onbw` lockup CSS extracted to a shared sheet. The paid Animated Monogram hero (0037 · ₱2,499) is intentionally excluded.
+
+**⚠ Ops (eng, not Cowork):** prod migration history has `20260820000000` applied with **no repo file**, which blocks `supabase db push` for everyone. `events.monogram_style` was applied directly (idempotent) to unblock this PR, but the divergence needs reconciling — locate/merge the `20260820000000` migration file, or `supabase migration repair`.
+
 ## [PENDING] 2026-06-04 — Vendor agents: per-service assignment · Phase 2a (0022)
 
 **Why:** Phase 2 of the vendor multi-user workspace — agents see only the services + customers they manage. Phase 2a ships the assignment foundation: a new `vendor_service_agents` table (RLS: members read, owner/admin manage) + a per-agent service-assignment UI on the Team page. The customer link is `event_vendors.service_id` → booked `vendor_services`. Migration applied to prod.

@@ -8,6 +8,18 @@
 
 ---
 
+## [PENDING] 2026-06-04 — Vendor request-a-category governance shipped (0023 §3.2c / 0022)
+
+**Why:** Closes the expandable-taxonomy governance loop — vendors propose categories they can't find, admins resolve them. New `taxonomy_category_requests` table.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`0023_admin_console.md` §3.2c** — the vendor-category review queue is LIVE on `/admin/taxonomy`: pending proposals render as ghost cards with four outcomes — **promote** (mints a canonical leaf under a chosen tile), **map-to-existing** (records `mapped_to_canonical`; the count per target is the **demand signal**), **keep-private**, **reject** (with reason). All outcomes audit-logged.
+2. **`0022_vendor_dashboard.md`** — the services editor has a "Don't see your service?" request form (`proposeCategory`); the vendor tracks resolution via a read-only status badge (Pending / Added ✓ / Use "X" / Kept private / Not added).
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
 ## [PENDING] 2026-06-04 — fully taxonomy-driven onboarding · PR-1 (couple-side enum → taxonomy-keyed TEXT) · REVERSES A LOCK
 
 **Why:** Owner ratified **fully taxonomy-driven onboarding** (2026-06-04): the picker + couple's stored category + auto-inquiries derive from the live taxonomy so new tiles auto-appear with no deploy. PR-1 (expand) adds `event_vendors.category_key TEXT` (FK → `service_categories`, backfilled from the legacy `vendor_category` enum). PRs 2–4 follow (picker-derive + adaptive rendering; reader cut-over; drop the enum). Full design: `Onboarding_Taxonomy_Driven_Spec_2026-06-04.md`.

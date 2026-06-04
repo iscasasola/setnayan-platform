@@ -73,6 +73,39 @@ export async function createVendorService(formData: FormData) {
   redirect('/vendor-dashboard/services?saved=1');
 }
 
+/**
+ * Vendor: propose a brand-new category for what they do but can't find in the
+ * picker — the "There's always a place for what you do" on-ramp (spec 0023
+ * §3.2c). Lands as a PENDING row in `taxonomy_category_requests` for an admin to
+ * resolve (promote / map-to-existing / keep-private / reject). RLS gates the
+ * insert to the vendor's own profile; the vendor tracks status read-only.
+ */
+export async function proposeCategory(formData: FormData) {
+  const { supabase, profile } = await ensureProfile();
+
+  const label = String(formData.get('proposed_label') ?? '').trim();
+  const note = String(formData.get('proposed_note') ?? '').trim() || null;
+  if (label.length < 2 || label.length > 80) {
+    return redirect(
+      `/vendor-dashboard/services?error=${encodeURIComponent('Category name must be 2–80 characters.')}`,
+    );
+  }
+
+  const { error } = await supabase.from('taxonomy_category_requests').insert({
+    proposed_by_vendor_id: profile.vendor_profile_id,
+    proposed_label: label,
+    proposed_note: note,
+  });
+  if (error) {
+    return redirect(
+      `/vendor-dashboard/services?error=${encodeURIComponent(error.message)}`,
+    );
+  }
+
+  revalidatePath('/vendor-dashboard/services');
+  redirect('/vendor-dashboard/services?requested=1');
+}
+
 export async function updateVendorService(formData: FormData) {
   const { supabase, profile } = await ensureProfile();
 

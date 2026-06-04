@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(0023/0022): vendor "request a category" governance (taxonomy Phase 4)
+
+**Context:** The last gap in the DB-backed-taxonomy initiative — letting a vendor REQUEST a category they can't find and an admin resolve it. Closes 0023 §3.2c (the "there's always a place for what you do" promise — no "Other" bucket).
+
+**Migration `20260811000000`** (applied to prod) — new `taxonomy_category_requests` table: a vendor-proposal inbox, deliberately decoupled from the live tree (`service_categories` / `canonical_service_taxonomy`) so un-reviewed input never pollutes the catalog. RLS: a vendor inserts/reads only their OWN requests (resolved through `vendor_profiles.user_id`, the 0044 pattern); admins resolve all. Indexes for the pending queue + the demand signal.
+
+**Vendor side** (`vendor-dashboard/services`) — new `proposeCategory` action + a "Don't see your service?" form on the services editor; the vendor sees their own requests with a live status badge (Pending review / Added ✓ / Use "X" / Kept for your listing / Not added).
+
+**Admin side** (`/admin/taxonomy`) — the four §3.2c outcomes as audit-logged, admin-gated server actions: **promote** (mints a real canonical leaf under a chosen tile — the same two-table write as `createCanonicalLeaf` — and marks the request promoted, first-vendor credit in the audit trail), **map** (points the request at an existing canonical → the count mapped to the same target is the **demand signal**), **keep-private**, **reject** (with reason). Pending requests render as dashed ghost cards with all four controls inline; a demand-signal banner flags canonicals with ≥2 mapped requests as promotion candidates.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean (no new warnings) · production build exit 0. Migration dry-run confirmed only-pending, then applied + confirmed on remote (`supabase migration list`). Isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** Vendors can now request a category (0022 services editor); admins resolve via the four outcomes with a demand signal (0023 §3.2c). The expandable-taxonomy governance loop is now closed end-to-end. → `COWORK_INBOX.md`.
+
 ## 2026-06-04 · style(onboarding): welcome → 1 photo · pax + budget self-describing number inputs
 
 **Context:** Owner — welcome showed "2 angles" (depth parallax); want 1 clean photo. And restructure the pax + budget inputs.

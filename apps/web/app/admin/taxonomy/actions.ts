@@ -483,3 +483,191 @@ export async function createCanonicalLeaf(formData: FormData) {
     )}`,
   );
 }
+
+// ── Vendor "request a category" review (taxonomy_category_requests · §3.2c) ───
+// A vendor's proposal lands as a PENDING request; an admin resolves it with one
+// of four outcomes. All audit-logged; the vendor tracks the result read-only.
+
+/**
+ * PROMOTE — mint a real canonical leaf for the request under a chosen tile, then
+ * mark the request `promoted` (the proposing vendor keeps first-vendor credit via
+ * the audit trail). Same two-table leaf write as `createCanonicalLeaf`.
+ */
+export async function promoteCategoryRequest(formData: FormData) {
+  const user = await requireAdmin();
+  const requestId = String(formData.get('request_id') ?? '').trim();
+  const tileId = String(formData.get('tile_id') ?? '').trim();
+  if (!requestId || !tileId) throw new Error('Missing request_id or tile_id');
+  const admin = createAdminClient();
+
+  const { data: req } = await admin
+    .from('taxonomy_category_requests')
+    .select('request_id, proposed_label, status')
+    .eq('request_id', requestId)
+    .maybeSingle();
+  if (!req) redirect(`${BASE}?error=${encodeURIComponent('Request not found.')}`);
+  if (req.status !== 'pending') {
+    redirect(`${BASE}?error=${encodeURIComponent('That request was already resolved.')}`);
+  }
+
+  const { data: tile } = await admin
+    .from('service_categories')
+    .select('id, parent_id, tier')
+    .eq('id', tileId)
+    .maybeSingle();
+  if (!tile || tile.tier !== 2 || !tile.parent_id) {
+    redirect(`${BASE}?error=${encodeURIComponent('Pick a valid tile.')}`);
+  }
+
+  const canonical = slugify(req.proposed_label, '_');
+  if (!canonical) {
+    redirect(`${BASE}?error=${encodeURIComponent('Label needs letters or numbers.')}`);
+  }
+
+  const [schemaDupe, taxDupe] = await Promise.all([
+    admin.from('canonical_service_schemas').select('canonical_service').eq('canonical_service', canonical).maybeSingle(),
+    admin.from('canonical_service_taxonomy').select('canonical_service').eq('canonical_service', canonical).maybeSingle(),
+  ]);
+  if (schemaDupe.data || taxDupe.data) {
+    redirect(
+      `${BASE}?error=${encodeURIComponent(`"${canonical}" already exists — use Map instead of Promote.`)}`,
+    );
+  }
+
+  const { error: schemaErr } = await admin.from('canonical_service_schemas').insert({
+    canonical_service: canonical,
+    schema_version: 1,
+    display_name_en: req.proposed_label,
+    shared_attribute_groups: [],
+    category_specific_attributes: {},
+    filter_facets: [],
+    required_for_visibility: {},
+    ranking_signal_weights: {},
+  });
+  if (schemaErr) redirect(`${BASE}?error=${encodeURIComponent(schemaErr.message)}`);
+
+  const { error: taxErr } = await admin.from('canonical_service_taxonomy').insert({
+    canonical_service: canonical,
+    folder_id: tile.parent_id,
+    tile_id: tileId,
+    phase: 'V1.1 base',
+    marketplace_hidden: false,
+    secondary_tiles: [],
+  });
+  if (taxErr) {
+    await admin.from('canonical_service_schemas').delete().eq('canonical_service', canonical);
+    redirect(`${BASE}?error=${encodeURIComponent(taxErr.message)}`);
+  }
+
+  await admin
+    .from('taxonomy_category_requests')
+    .update({
+      status: 'promoted',
+      mapped_to_canonical: canonical,
+      reviewed_by_admin_id: user.id,
+      reviewed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('request_id', requestId);
+
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.request_promote',
+    target_table: 'taxonomy_category_requests',
+    target_id: requestId,
+    after_json: { canonical_service: canonical, tile_id: tileId, label: req.proposed_label },
+    actor_user_id: user.id,
+  });
+
+  revalidatePath(BASE);
+  revalidatePath('/vendors');
+  redirect(`${BASE}?ok=${encodeURIComponent(`Promoted "${req.proposed_label}" → new service "${canonical}".`)}`);
+}
+
+/**
+ * MAP — "your X is our existing Y": point the request at an existing canonical.
+ * The count of requests mapped to the same target is the demand signal that the
+ * node has earned its own promotion later.
+ */
+export async function mapCategoryRequest(formData: FormData) {
+  const user = await requireAdmin();
+  const requestId = String(formData.get('request_id') ?? '').trim();
+  const canonical = String(formData.get('mapped_to_canonical') ?? '').trim();
+  if (!requestId || !canonical) throw new Error('Missing request_id or target');
+  const admin = createAdminClient();
+
+  const { data: target } = await admin
+    .from('canonical_service_taxonomy')
+    .select('canonical_service')
+    .eq('canonical_service', canonical)
+    .maybeSingle();
+  if (!target) {
+    redirect(`${BASE}?error=${encodeURIComponent('Pick an existing service to map to.')}`);
+  }
+
+  const { error } = await admin
+    .from('taxonomy_category_requests')
+    .update({
+      status: 'mapped',
+      mapped_to_canonical: canonical,
+      resolution_note: `Mapped to "${canonical}".`,
+      reviewed_by_admin_id: user.id,
+      reviewed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('request_id', requestId)
+    .eq('status', 'pending');
+  if (error) redirect(`${BASE}?error=${encodeURIComponent(error.message)}`);
+
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.request_map',
+    target_table: 'taxonomy_category_requests',
+    target_id: requestId,
+    after_json: { mapped_to_canonical: canonical },
+    actor_user_id: user.id,
+  });
+
+  revalidatePath(BASE);
+  redirect(`${BASE}?ok=${encodeURIComponent(`Mapped to "${canonical}".`)}`);
+}
+
+/**
+ * KEEP-PRIVATE or REJECT — the two terminal acknowledgements (no new node).
+ * `outcome` ∈ kept_private | rejected; an optional note is shown to the vendor.
+ */
+export async function resolveCategoryRequest(formData: FormData) {
+  const user = await requireAdmin();
+  const requestId = String(formData.get('request_id') ?? '').trim();
+  const outcome = String(formData.get('outcome') ?? '');
+  const note = String(formData.get('resolution_note') ?? '').trim() || null;
+  if (!requestId) throw new Error('Missing request_id');
+  if (outcome !== 'kept_private' && outcome !== 'rejected') {
+    throw new Error('Bad outcome');
+  }
+  const admin = createAdminClient();
+
+  const { error } = await admin
+    .from('taxonomy_category_requests')
+    .update({
+      status: outcome,
+      resolution_note: note,
+      reviewed_by_admin_id: user.id,
+      reviewed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('request_id', requestId)
+    .eq('status', 'pending');
+  if (error) redirect(`${BASE}?error=${encodeURIComponent(error.message)}`);
+
+  await admin.from('admin_audit_log').insert({
+    action: `taxonomy.request_${outcome}`,
+    target_table: 'taxonomy_category_requests',
+    target_id: requestId,
+    after_json: { status: outcome, resolution_note: note },
+    actor_user_id: user.id,
+  });
+
+  revalidatePath(BASE);
+  redirect(
+    `${BASE}?ok=${encodeURIComponent(outcome === 'kept_private' ? 'Kept private.' : 'Request rejected.')}`,
+  );
+}

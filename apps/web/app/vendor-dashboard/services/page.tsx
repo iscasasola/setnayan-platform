@@ -15,6 +15,7 @@ import {
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
   createVendorService,
+  proposeCategory,
   updateVendorService,
   toggleVendorServiceActive,
   deleteVendorService,
@@ -23,7 +24,15 @@ import {
 export const metadata = { title: 'Services · Vendor' };
 
 type Props = {
-  searchParams: Promise<{ saved?: string; error?: string; add?: string }>;
+  searchParams: Promise<{ saved?: string; error?: string; add?: string; requested?: string }>;
+};
+
+type CategoryRequestRow = {
+  request_id: string;
+  proposed_label: string;
+  status: 'pending' | 'promoted' | 'mapped' | 'kept_private' | 'rejected';
+  mapped_to_canonical: string | null;
+  resolution_note: string | null;
 };
 
 export default async function VendorServicesPage({ searchParams }: Props) {
@@ -39,6 +48,15 @@ export default async function VendorServicesPage({ searchParams }: Props) {
 
   const services = await fetchVendorServices(supabase, profile.vendor_profile_id);
   const selectedCategories = new Set(services.map((s) => s.category));
+
+  // The vendor's own category requests (RLS: own rows only) so they can track
+  // resolution. A missing table (migration not applied) degrades to [].
+  const { data: requestRows } = await supabase
+    .from('taxonomy_category_requests')
+    .select('request_id, proposed_label, status, mapped_to_canonical, resolution_note')
+    .eq('proposed_by_vendor_id', profile.vendor_profile_id)
+    .order('created_at', { ascending: false });
+  const myRequests = (requestRows ?? []) as CategoryRequestRow[];
 
   // If ?add=<category> is in the URL, the "Add service" form for that
   // category is the expanded one. Click any unselected category to expand.
@@ -81,6 +99,14 @@ export default async function VendorServicesPage({ searchParams }: Props) {
           className="rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
         >
           Services updated.
+        </p>
+      ) : null}
+      {search.requested ? (
+        <p
+          role="status"
+          className="rounded-md border border-emerald-300/60 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+        >
+          Thanks — we&rsquo;ll review your category request and get back to you. There&rsquo;s always a place for what you do.
         </p>
       ) : null}
 
@@ -341,7 +367,90 @@ export default async function VendorServicesPage({ searchParams }: Props) {
           )}
         </div>
       </div>
+
+      {/* Request a new category — the "There's always a place for what you do"
+          on-ramp (spec 0023 §3.2c). Lands as a pending taxonomy_category_request
+          for an admin to promote / map / keep-private / reject. */}
+      <section className="space-y-4 rounded-2xl border border-ink/10 bg-cream p-5">
+        <div className="space-y-1">
+          <h2 className="text-base font-semibold text-ink">Don&rsquo;t see your service?</h2>
+          <p className="max-w-prose text-sm text-ink/65">
+            Tell us what you do — we&rsquo;ll review it and add it to the directory.
+          </p>
+        </div>
+        <form
+          action={proposeCategory}
+          className="grid gap-3 sm:grid-cols-[2fr_3fr_auto] sm:items-end"
+        >
+          <Field label="Service name" htmlFor="propose-label">
+            <input
+              id="propose-label"
+              name="proposed_label"
+              required
+              minLength={2}
+              maxLength={80}
+              placeholder="e.g. Table Linen Rental"
+              className="input-field"
+            />
+          </Field>
+          <Field label="What is it? (optional)" htmlFor="propose-note">
+            <input
+              id="propose-note"
+              name="proposed_note"
+              maxLength={400}
+              placeholder="A sentence so we can place it right."
+              className="input-field"
+            />
+          </Field>
+          <SubmitButton className="button-primary" pendingLabel="Sending…">
+            Request
+          </SubmitButton>
+        </form>
+        {myRequests.length > 0 ? (
+          <ul className="divide-y divide-ink/10 rounded-xl border border-ink/10">
+            {myRequests.map((r) => (
+              <li
+                key={r.request_id}
+                className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm"
+              >
+                <span className="font-medium text-ink">{r.proposed_label}</span>
+                <RequestStatusBadge status={r.status} mapped={r.mapped_to_canonical} />
+                {r.resolution_note ? (
+                  <span className="text-xs text-ink/55">{r.resolution_note}</span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </section>
     </section>
+  );
+}
+
+function RequestStatusBadge({
+  status,
+  mapped,
+}: {
+  status: CategoryRequestRow['status'];
+  mapped: string | null;
+}) {
+  const map: Record<CategoryRequestRow['status'], { label: string; tone: string }> = {
+    pending: { label: 'Pending review', tone: 'bg-amber-100 text-amber-900' },
+    promoted: { label: 'Added to directory ✓', tone: 'bg-emerald-100 text-emerald-800' },
+    mapped: {
+      label: mapped ? `Use “${mapped}”` : 'Mapped to an existing category',
+      tone: 'bg-sky-100 text-sky-800',
+    },
+    kept_private: { label: 'Kept for your listing', tone: 'bg-ink/10 text-ink/70' },
+    rejected: { label: 'Not added', tone: 'bg-rose-100 text-rose-800' },
+  };
+  const { label, tone } = map[status];
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] ${tone}`}
+    >
+      {label}
+    </span>
   );
 }
 

@@ -44,6 +44,25 @@ export function LocationStep({
   const [ph, setPh] = useState<PhPlace[] | null>(null); // full PSGC set, lazy-loaded
   const phByKey = useRef<Record<string, WeddingCity>>({});
 
+  // Grow-in-place split: when a 2nd area is added, collapse the new chip to width 0 for one frame
+  // so it grows out from the gap instead of sliding in from off-screen.
+  const prevValRef = useRef<string[]>(value);
+  const [enterKey, setEnterKey] = useState<string | null>(null);
+  useEffect(() => {
+    const added = value.find((k) => !prevValRef.current.includes(k)) ?? null;
+    prevValRef.current = value;
+    if (!added) return;
+    setEnterKey(added);
+    let r2 = 0;
+    const r1 = requestAnimationFrame(() => {
+      r2 = requestAnimationFrame(() => setEnterKey((cur) => (cur === added ? null : cur)));
+    });
+    return () => {
+      cancelAnimationFrame(r1);
+      cancelAnimationFrame(r2);
+    };
+  }, [value]);
+
   // Lazy-load the ~80KB PSGC set the first time the couple searches.
   useEffect(() => {
     if (query.trim() && !ph) {
@@ -151,7 +170,7 @@ export function LocationStep({
             value.map((k) => {
               const c = resolve(k);
               return (
-                <span key={k} className="locchip">
+                <span key={k} className={`locchip${enterKey === k ? ' loc-enter' : ''}`}>
                   <span className="locchip-label">{c?.n ?? k}</span>
                   <button
                     type="button"

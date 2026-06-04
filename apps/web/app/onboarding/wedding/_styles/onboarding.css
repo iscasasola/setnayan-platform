@@ -244,3 +244,12 @@
 @keyframes vshimmer{100%{transform:translateX(100%);}}
 .onbw .vskel .vskel-line{height:13px;border-radius:7px;background:rgba(30,34,41,.08);margin-bottom:9px;}
 .onbw .vskel .vskel-line.sm{height:10px;}
+
+/* location picks: grow-in-place split (no off-screen slide) — clip transient overflow + collapse the
+   newly-added chip to width 0 for one frame so it grows out from the gap. (owner 2026-06-04) */
+.onbw .locpicks{overflow:hidden;}
+.onbw .locpicks .locchip{transition:width .4s cubic-bezier(.2,.7,.3,1),padding .4s cubic-bezier(.2,.7,.3,1),opacity .3s ease;}
+.onbw .locpicks .locchip.loc-enter{width:0 !important;padding-left:0 !important;padding-right:0 !important;opacity:0;}
+
+/* faith (tradition) chips — consistent size: equal width + height (owner 2026-06-04) */
+.onbw #screen-faith .chip{flex:0 0 106px;min-height:46px;padding:10px 6px;justify-content:center;text-align:center;}

@@ -47,11 +47,14 @@ import {
   Upload,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
 import { formatCentavosPhp } from '@/lib/vendor-packages';
 import { updateVendorCosts } from '../../actions';
 import { createAutoShareInviteAction } from './actions';
 import { fetchVendorBudgetSummary } from '@/lib/budget';
+import { fetchPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
+import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import { buildClaimUrl, fetchActiveAutoShareInvite } from '@/lib/vendor-invites';
 import { ClaimLinkShare } from './_components/claim-link-share';
 import {
@@ -330,6 +333,25 @@ export default async function VendorWorkspacePage({ params }: Props) {
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error('[VendorWorkspacePage] fetchVendorBudgetSummary threw', e);
+  }
+
+  // Off-platform direct-pay: the vendor's PUBLISHED payment destinations,
+  // resolved server-side via the secure helper (proves event ownership through
+  // the couple RLS client before reading the owner-RLS'd table via the admin
+  // client). Feeds the embedded VendorItemizationCard's "Pay {vendor} directly"
+  // sheet. For off-platform/manual vendors the helper returns [] and the sheet
+  // trigger collapses to the quiet "coordinate in chat" hint. Best-effort: a
+  // failure degrades to [] rather than 500-ing the workspace.
+  let directPayMethods: CoupleFacingMethod[] = [];
+  try {
+    directPayMethods = await fetchPublishedMethodsForCouple({
+      authedClient: supabase,
+      adminClient: createAdminClient(),
+      eventId,
+      eventVendorId: ev.vendor_id,
+    });
+  } catch {
+    directPayMethods = [];
   }
 
   const contracts = (contractsRes.data ?? []) as Array<{
@@ -719,6 +741,7 @@ export default async function VendorWorkspacePage({ params }: Props) {
               summary={vendorBudgetSummary}
               eventId={eventId}
               variant="embed"
+              directPayMethods={directPayMethods}
             />
           ) : (
             <p className="text-xs text-ink/55">

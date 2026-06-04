@@ -10,6 +10,20 @@
 // always-on disclosure the owner requires on every vendor-payment surface
 // (project_setnayan_vendor_payment_disclosure).
 //
+// PRESENTATION (2026-06-05): the method list no longer sits permanently
+// expanded inside the card. It's collapsed behind a single "Pay {vendor}
+// directly" button that opens the house Sheet primitive
+// (app/_components/sheet.tsx) — a bottom sheet on mobile, a right-docked
+// drawer on desktop. This declutters the budget/workspace cards while keeping
+// the disclosure + destinations one tap away. A one-line reassurance stays
+// visible BELOW the trigger so the "Setnayan doesn't hold this money" promise
+// is present even before the sheet is opened.
+//
+// REUSE: the same sheet is reused by the admin Payment-options moderation
+// surface via `DirectPayPreviewButton`, so an admin can preview a vendor's
+// destination(s) EXACTLY as a couple sees them before approving — read-only,
+// no money flow (admins moderate; they don't pay vendors).
+//
 // Security: the `methods` prop is fetched SERVER-SIDE via the secure helper
 // `fetchPublishedMethodsForCouple` (lib/vendor-payment-methods.server.ts),
 // which proves event ownership before reading the owner-RLS'd
@@ -21,19 +35,23 @@
 // /budget per-vendor cards and the per-vendor workspace embed.
 // ============================================================================
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import {
   AlertTriangle,
   Building2,
   Check,
+  ChevronRight,
   Copy,
+  Eye,
   ExternalLink,
   Link2,
   QrCode,
   ShieldAlert,
+  Wallet,
   X,
 } from 'lucide-react';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
+import { Sheet } from '@/app/_components/sheet';
 
 export type VendorDirectPayProps = {
   vendorName: string;
@@ -59,14 +77,157 @@ export function VendorDirectPay({ vendorName, methods }: VendorDirectPayProps) {
   }
 
   return (
-    <section aria-label={`Pay ${vendorName} directly`} className="space-y-3">
-      <header className="flex items-center gap-2">
-        <Building2 aria-hidden className="h-3.5 w-3.5 text-terracotta" strokeWidth={1.75} />
-        <h3 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          Pay this vendor directly
-        </h3>
-      </header>
+    <DirectPayTrigger
+      vendorName={vendorName}
+      methods={methods}
+      // Couple-facing variant — primary terracotta affordance + the always-on
+      // one-line reassurance beneath it.
+      variant="couple"
+    />
+  );
+}
 
+// ----------------------------------------------------------------------------
+// Admin preview trigger — reused on the admin Payment-options moderation
+// surface. Renders the SAME sheet a couple sees so a moderator can confirm a
+// bank/QR/link reads correctly before approving it. Read-only: there is no
+// money flow here, it's a faithful preview of the couple experience.
+// ----------------------------------------------------------------------------
+
+export function DirectPayPreviewButton({
+  vendorName,
+  methods,
+  label = 'Preview as couple',
+}: {
+  vendorName: string;
+  methods: CoupleFacingMethod[];
+  label?: string;
+}) {
+  if (methods.length === 0) return null;
+  return (
+    <DirectPayTrigger
+      vendorName={vendorName}
+      methods={methods}
+      variant="admin"
+      adminLabel={label}
+    />
+  );
+}
+
+// ----------------------------------------------------------------------------
+// Shared trigger + sheet. Owns the open/close state and the a11y heading id.
+// ----------------------------------------------------------------------------
+
+function DirectPayTrigger({
+  vendorName,
+  methods,
+  variant,
+  adminLabel,
+}: {
+  vendorName: string;
+  methods: CoupleFacingMethod[];
+  variant: 'couple' | 'admin';
+  adminLabel?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const headingId = useId();
+
+  const primary = methods.find((m) => m.is_primary) ?? methods[0];
+  const hint =
+    primary && methods.length === 1
+      ? methodTypeNoun(primary.method_type)
+      : `${methods.length} payment option${methods.length === 1 ? '' : 's'}`;
+
+  return (
+    <section
+      aria-label={`Pay ${vendorName} directly`}
+      className="space-y-1.5"
+    >
+      {variant === 'couple' ? (
+        <>
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            aria-haspopup="dialog"
+            className="group flex w-full items-center justify-between gap-3 rounded-xl border border-terracotta/30 bg-terracotta/[0.04] px-4 py-3 text-left transition-colors hover:border-terracotta/60 hover:bg-terracotta/[0.07]"
+          >
+            <span className="flex min-w-0 items-center gap-2.5">
+              <Wallet aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
+              <span className="flex min-w-0 flex-col">
+                <span className="truncate text-sm font-medium text-ink">
+                  Pay {vendorName} directly
+                </span>
+                <span className="truncate text-xs text-ink/55">{hint}</span>
+              </span>
+            </span>
+            <ChevronRight
+              aria-hidden
+              className="h-4 w-4 shrink-0 text-ink/40 transition-colors group-hover:text-terracotta"
+              strokeWidth={1.75}
+            />
+          </button>
+          {/* Always-on reassurance — visible BEFORE the sheet opens so the
+              "Setnayan doesn't hold this money" promise is never hidden behind
+              a tap (project_setnayan_vendor_payment_disclosure). The full
+              owner-locked disclosure renders inside the sheet. */}
+          <p className="text-[11px] leading-relaxed text-ink/45">
+            You pay the vendor directly — Setnayan never holds this money.
+          </p>
+        </>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-haspopup="dialog"
+          className="inline-flex h-9 items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 text-xs font-medium text-ink/75 transition-colors hover:border-terracotta/50 hover:text-terracotta"
+        >
+          <Eye aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          {adminLabel}
+        </button>
+      )}
+
+      <Sheet
+        open={open}
+        onClose={() => setOpen(false)}
+        labelledById={headingId}
+        title="Direct payment"
+      >
+        <div className="space-y-4 p-5">
+          <div className="space-y-1">
+            <h2 id={headingId} className="text-base font-semibold tracking-tight text-ink">
+              Pay {vendorName} directly
+            </h2>
+            <p className="text-xs text-ink/55">
+              Use one of the destinations below. Setnayan never handles the money.
+            </p>
+          </div>
+          <DirectPayBody vendorName={vendorName} methods={methods} />
+        </div>
+      </Sheet>
+    </section>
+  );
+}
+
+function methodTypeNoun(type: CoupleFacingMethod['method_type']): string {
+  if (type === 'bank') return 'Bank / e-wallet transfer';
+  if (type === 'qr') return 'Scan-to-pay QR';
+  return 'Payment link';
+}
+
+// ----------------------------------------------------------------------------
+// Sheet body — the always-on disclosure + the list of method cards. Shared by
+// the couple trigger and the admin preview trigger.
+// ----------------------------------------------------------------------------
+
+function DirectPayBody({
+  vendorName,
+  methods,
+}: {
+  vendorName: string;
+  methods: CoupleFacingMethod[];
+}) {
+  return (
+    <div className="space-y-3">
       {/* Always-on disclosure — EXACT owner-locked copy. Must render whenever
           any method is shown. Do not soften or paraphrase. */}
       <div
@@ -89,7 +250,7 @@ export function VendorDirectPay({ vendorName, methods }: VendorDirectPayProps) {
           </li>
         ))}
       </ul>
-    </section>
+    </div>
   );
 }
 
@@ -375,6 +536,9 @@ function LinkBody({
 }
 
 // --- shared modal shell ----------------------------------------------------
+// Sits at z-[60] so the QR / link confirmation paints ABOVE the parent Sheet
+// (which is z-50). Clicking this shell's backdrop closes only the modal, not
+// the underlying sheet.
 
 function ModalShell({
   title,
@@ -392,7 +556,7 @@ function ModalShell({
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
     >
       {/* Backdrop — click to dismiss. */}
       <button

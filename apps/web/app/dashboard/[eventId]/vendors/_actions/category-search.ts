@@ -120,7 +120,7 @@ export async function searchCategoryVendors(input: {
   const { data: ev } = await supabase
     .from('events')
     .select(
-      'venue_latitude, venue_longitude, ceremony_type, secondary_ceremony_type, venue_setting',
+      'venue_latitude, venue_longitude, ceremony_type, secondary_ceremony_type, venue_setting, event_type, estimated_pax',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -152,6 +152,13 @@ export async function searchCategoryVendors(input: {
     // (additive — never excludes). CLAUDE.md 2026-06-01 + 2026-06-02.
     secondaryCeremonyType: (ev.secondary_ceremony_type as string | null) ?? null,
     venueSetting: (ev.venue_setting as string | null) ?? null,
+    // Leaf-match parity with onboarding (2026-06-04): event-type + pax. Region
+    // is intentionally NOT forced here — the dashboard already scopes location
+    // via the reception coords + the grid's client-side region picker; a
+    // server-side region filter would fight that picker. Venue_type is
+    // onboarding-only (the dashboard stores just the coarse venue_setting).
+    eventType: (ev.event_type as string | null) ?? null,
+    pax: (ev.estimated_pax as number | null) ?? null,
     searchQuery: input.query,
     limit: 60,
   });

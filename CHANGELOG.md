@@ -4,6 +4,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(0043,0023): per-religion traditions accuracy pass + "Reset to latest" admin action
+
+**Context:** Owner-approved accuracy pass on the per-religion "What to expect" content (`lib/wedding-traditions.ts`), grounded in standard PH wedding practice — especially the flagged INC / Muslim / Cultural / Chinese — keeping the honest "confirm with your {officiant}" framing.
+
+**What changed:**
+- **`lib/wedding-traditions.ts`** — enriched all 8 religions: Catholic (Pre-Cana + canonical interview; certs "for marriage purposes"; veil/cord/arrhae), Civil (LGU pre-marriage counseling; 120-day license), Christian (registered solemnizing officer), **INC** (members in good standing / non-member baptism into the Church; Kapilya; alcohol-free + wholesome program), **Muslim** (Nikah/akad; mahr/wali/two witnesses; Walima; gender separation + modesty; halal; PD 1083 Shari'a registration), **Cultural** (datu/elder; sub-type captures the specific tradition; bride-price + family exchanges), **Chinese** (tea ceremony in seniority order; **auspicious date**; guo da li; red qipao; lauriat). Content remains starter guidance pending clergy confirmation.
+- **`/admin/wedding-traditions`** — new **"Reset all to latest starter content"** action (`resetTraditionsToDefaults`) + button: replaces every religion's items with the current code defaults (this accuracy pass), with a clear "discards manual edits" warning. Distinct from "Load starter content" (fills empty religions only). Lets the owner pull the improved content into the live `wedding_tradition_items` table in one click.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean. The `20260807000000` table is already applied in prod; the live content refreshes when an admin clicks Reset.
+
+**SPEC IMPACT:** Minor — iteration **0023** Wedding-traditions surface gains a "Reset all to latest starter content" action. Content stays owner/clergy-validatable in the editor.
+
 ## 2026-06-04 · fix(0000): add-event switcher copy → all-live (drop "more event types unlock over time")
 
 **Context:** Owner-approved follow-up. The event-switcher "+ Add event" sheet subtitle still read *"Weddings and debuts are live now. Swipe through to see what's on the way — more event types unlock over time"* — roadmap-flavored + contradictory now that all 9 event types are live ("keep everything live"). The create-event page header was already fixed (#888); this was the last stale string.

@@ -9,6 +9,7 @@ import {
   upsertTraditionItem,
   deleteTraditionItem,
   seedTraditionsFromDefaults,
+  resetTraditionsToDefaults,
 } from './actions';
 
 export const metadata = { title: 'Wedding traditions · Admin' };
@@ -53,14 +54,32 @@ export default async function WeddingTraditionsPage() {
           it. When a religion has no rows, the couple sees the built-in code
           defaults until you load + edit them.
         </p>
-        <form action={seedTraditionsFromDefaults}>
-          <SubmitButton
-            className="inline-flex items-center rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70"
-            pendingLabel="Loading…"
-          >
-            {totalRows === 0 ? 'Load starter content' : 'Load starter content for empty religions'}
-          </SubmitButton>
-        </form>
+        <div className="flex flex-wrap items-center gap-3">
+          <form action={seedTraditionsFromDefaults}>
+            <SubmitButton
+              className="inline-flex items-center rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70"
+              pendingLabel="Loading…"
+            >
+              {totalRows === 0 ? 'Load starter content' : 'Load starter content for empty religions'}
+            </SubmitButton>
+          </form>
+          {totalRows > 0 ? (
+            <form action={resetTraditionsToDefaults}>
+              <SubmitButton
+                className="inline-flex items-center rounded-md border border-ink/20 bg-cream px-4 py-2 text-sm font-medium text-ink hover:border-rose-300 hover:text-rose-700 disabled:opacity-70"
+                pendingLabel="Resetting…"
+              >
+                Reset all to latest starter content
+              </SubmitButton>
+            </form>
+          ) : null}
+        </div>
+        {totalRows > 0 ? (
+          <p className="text-xs text-ink/45">
+            &ldquo;Reset all&rdquo; replaces every religion&rsquo;s items with the current
+            built-in defaults (the latest accuracy pass) &mdash; it discards any manual edits.
+          </p>
+        ) : null}
       </header>
 
       {RELIGIONS.map((religion) => (

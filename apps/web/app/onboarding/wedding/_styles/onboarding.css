@@ -229,3 +229,9 @@
 .onbw .locchip-x{width:24px;height:24px;background:rgba(255,255,255,.2);}
 .onbw .locchip-x svg{display:block;width:12px;height:12px;color:#fff;}
 .onbw .locchip-x:hover{background:rgba(255,255,255,.32);}
+
+/* location picks: iOS-style split-into-2 / combine — chip width animates between full-row (1 pick)
+   and half-row (2 picks); the new chip pops in (chippop), the remaining one expands on remove. (owner 2026-06-04) */
+.onbw .locpicks .locchip{flex:0 0 auto;transition:width .4s cubic-bezier(.2,.7,.3,1);}
+.onbw .locpicks[data-count="1"] .locchip{width:100%;}
+.onbw .locpicks[data-count="2"] .locchip{width:calc(50% - 3.5px);}

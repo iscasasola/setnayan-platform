@@ -14,9 +14,78 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 - **`app/dashboard/[eventId]/_components/wizard-cards/vendor-pick-grid-card.tsx`** — an emerald **Sparkles "Matches your preference"** pill renders when `rec.preference_matched`, beside the existing music cue.
 - **New `scripts/seed-preference-match-demo.ts`** — companion to `seed-demo-vendors.ts`: reads the demo vendors' real facet payloads, frequency-ranks values per dimension, and writes ONE overlapping `event_vendor_preferences` row so the badge is reproducible end-to-end on a test/staging DB. Reuses the prod-ref safety gate (`isNonProdUrl`) — refuses to run against prod.
 
-**Verification:** `tsc --noEmit` exit 0 · `next lint` exit 0 (only pre-existing warnings, none in touched files) · production build green · a throwaway mock-client runtime harness exercised `fetchPreferenceMatches` across **7 cases / 14 assertions** (positive single- + multi-dimension overlap, service-scoping, and all four graceful-degrade paths) — all pass; deleted before commit (no test runner in-repo). **No migration** (both tables already exist). Isolated worktree off origin/main.
+**Verification:** `tsc --noEmit` exit 0 · `next lint` exit 0 (only pre-existing warnings, none in touched files) · production build green (re-run green after merging origin/main) · a throwaway mock-client runtime harness exercised `fetchPreferenceMatches` across **7 cases / 14 assertions** (positive single- + multi-dimension overlap, service-scoping, and all four graceful-degrade paths) — all pass; deleted before commit (no test runner in-repo). **No migration** (both tables already exist). Isolated worktree off origin/main.
 
 **SPEC IMPACT:** Activates the Layer-B match-read described in `Vendor_Match_Personalization_2026-06-01.md` §8/§9 (couple `event_vendor_preferences` ⋈ vendor `vendor_service_attributes`). **Inert in production** until vendors carry facet tags (founder-only marketplace · `vendor_service_attributes` empty today) — then lights up automatically, same posture as the foundation migrations' own comments. Logged direct to corpus `DECISION_LOG.md` (owner authorized direct corpus edits 2026-06-04, superseding COWORK_INBOX). Deeper sync — marking the §8/§9 read as **SHIPPED** in the `Vendor_Match_Personalization` `.md`/`.docx` — is a flagged fast-follow, proportionate to defer while the feature is inert.
+
+## 2026-06-05 · assets(onboarding): refresh Catholic + Chinese ceremony-tradition hero photos
+
+**Context:** The wedding-onboarding "what kind of wedding → ceremony tradition" step (`apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx`) shows a hero photo per faith. The Catholic photo was a flat empty-aisle shot and the Chinese photo was a generic tea-ceremony stand-in. Owner asked for (1) a dramatic Catholic cathedral kiss — stained glass, smoke, single cinematic spotlight on the couple, dark-but-peaceful nave, crowd in the pews; and (2) an opulent "expensively rich" Chinese wedding — bride (left) · groom (center) · bridesmaid (right) talking in a gold ballroom.
+
+**What changed:** Replaced two static onboarding hero assets (bytes only — no code/markup change; the picker already references these filenames):
+- `apps/web/public/onboarding/wed_catholic.webp` — new cathedral kiss (760×950, ~48KB).
+- `apps/web/public/onboarding/wed_chinese.webp` — new opulent ballroom trio (760×950, ~94KB).
+
+Both generated via Recraft (recraftv3, `realistic_image`) and optimized with PIL to the existing 760×950 / 4:5 onboarding-asset spec.
+
+**Verification:** Visual review of both processed WebPs · dimensions + byte sizes match the existing onboarding hero set (760×950, 44–108KB range) · `git status` shows exactly the two asset files changed. No code touched, so no typecheck/lint surface.
+
+**SPEC IMPACT:** Corpus design masters under `~/Documents/Claude/Projects/Setnayan/assets/faith/` are the spec-side originals. `wed_catholic.webp` master was refreshed in the prior session; `wed_chinese.webp` master refreshed directly this session (Cowork direct-edit authorization). No Cowork pending item required.
+
+## 2026-06-04 · feat(dashboard/home): live days·hrs·min·sec countdown (0021)
+
+**Context:** Owner — *"days, hours, minutes, seconds."* The cockpit countdown showed a static "N days to go"; make it a live ticking timer.
+
+**What changed** (`apps/web/app/dashboard/[eventId]/_components/`):
+- New **`live-countdown.tsx`** (client) — ticks every second, rendering **days · hrs · min · sec** with `tabular-nums` + fixed-width segments (no per-second jitter). At/after the date → "Today" (within 24h) then "Just married".
+- `event-countdown-header.tsx` (server) restructured: resolves the target date (committed `event_date` → earliest `date_candidates` → `date_window_start`), computes the target as **PH-midnight (`+08:00`) of that date**, and passes `targetMs` + the server clock to `<LiveCountdown>` so the first paint matches between server and client (no hydration mismatch — both seed from `serverNowMs`). The date line shows the exact target date; a small caption ("Earliest of N possible dates" / "Earliest in your date window" / "Tentative — not locked yet") appears while the date isn't committed.
+
+**Verify:** `tsc --noEmit` + `next lint` green. No migration, no new query (`now` already passed; date fields already in the events SELECT).
+
+**SPEC IMPACT:** Refines the 0021 cockpit countdown (now a live d/h/m/s timer counting to PH-midnight of the earliest chosen date). Folds into the existing "couple Home cockpit" COWORK_INBOX item / 0021.
+
+## 2026-06-04 · refactor(vendors): rename route segment [eventVendorId] → [vendorId]
+
+**Context:** The dynamic route segment was named `[eventVendorId]`, but it carries `event_vendors.vendor_id` (the row PK) — the misleading name tripped up the service-scoped work. Renamed to `[vendorId]`. Cosmetic only; the URL path (`/dashboard/{eventId}/vendors/{id}/{workspace|review}`) is unchanged.
+
+**What changed:** `git mv` of `apps/web/app/dashboard/[eventId]/vendors/[eventVendorId]` → `[vendorId]` (moves `workspace/` + `review/`), and renamed the route-param identifier `eventVendorId` → `vendorId` in `workspace/page.tsx` + `review/page.tsx` (param type · destructure · `.eq('vendor_id', …)` · the local review prop) + path comments. Preserved: the `ensureAutoShareInvite({ eventVendorId })` lib-arg key and `review/actions.ts`'s `event_vendor_id` form-field locals (unrelated to the route param). No links changed — external callers build the URL by value, not param name.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean. Production-build CI validates the Next.js param-key↔folder match.
+
+**SPEC IMPACT:** None (internal route-param rename; URL unchanged).
+
+## 2026-06-04 · refactor(vendors/workspace): cleanups + Setnayan-service payment-mode framing
+
+**Context:** Follow-ups to the service-scoped workspace reframe (PR #965). Owner asked to land the remaining items we discussed. The first-party Setnayan-service nuance: those picks still showed the external-vendor chrome (hand-entered Costing, cancel/dispute), which is wrong — Setnayan services are **apply-then-pay** (pay → upload payment screenshot → verified within 24 hrs), so they should point at the Orders flow instead.
+
+**What changed:**
+- **`apps/web/lib/budget.ts`** — added `fetchVendorBudgetSummary(supabase, eventId, vendorId)`: a single-vendor budget fetch (own row + line items + payments + only this vendor's pricing lookup). `fetchBudgetSnapshot` is **byte-for-byte unchanged** so the budget page carries zero risk.
+- **`…/workspace/page.tsx`**:
+  - **Overfetch fix** — calls `fetchVendorBudgetSummary` instead of pulling the whole event's `fetchBudgetSnapshot` and `.find()`-ing one vendor.
+  - **Write-on-render fix** — removed the render-time `ensureAutoShareInvite` self-heal (a write during a GET / prefetch). When a locked manual vendor has no live invite, the claim section now renders an explicit **"Create a shareable invite link"** action.
+  - **Setnayan-service framing** — for `is_setnayan_service` picks, the host Costing form + cancel/dispute are hidden and replaced by a **"Managed by Setnayan"** card explaining apply → pay → upload-screenshot → 24-hr-verify, linking to `/dashboard/[eventId]/orders`.
+  - **URL hardening** — contract `file_url` + vendor `logo_url` pass a `safeHttpUrl()` http(s)-only guard before rendering as `<a href>` / `<img src>` (defense-in-depth vs a stored `javascript:` / `data:` URL).
+- **`…/workspace/actions.ts`** — removed the two dead exports (`advanceWorkspaceStatus` / `advanceWorkspaceStatusForm`, zero callers); added `createAutoShareInviteAction` (the explicit action behind the write-on-render fix).
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean. Auth-gated RSC route — relying on the production-build CI.
+
+**SPEC IMPACT:** First-party **Setnayan services** in the per-service workspace now hide the host Costing/cancel/dispute chrome and surface an apply-then-pay "Managed by Setnayan → Orders" card. The remaining **inline per-service order status** panel is **blocked** — no FK from an `event_vendors` pick to a `service_orders` row, and adding a Setnayan service doesn't create one; needs a schema link (owner decision pending). Spec delta to land directly in the corpus (`DECISION_LOG.md` + `0006`/`0021`/`0034`) per the new direct-edit authorization. Cleanups are internal — no spec impact.
+
+## 2026-06-04 · feat(0022): Vendor agents — role-aware RLS scoping (Phase 2b)
+
+**Context:** The payoff of the multi-user vendor workspace. The whole vendor data layer was OWNER-ONLY at the RLS level, so non-owner admins/agents could read nothing. Phase 2b makes it role-aware: **owner/admin see everything; agents see only their assigned services + the customers tied to them** (a couple's `event_vendors.service_id` → the booked `vendor_services`). Couple-side access is untouched.
+
+**What changed:**
+- **Migration `20260821000000_vendor_role_aware_rls.sql` (applied to prod, verified):** redefines `current_vendor_profile_ids()` owner-only → **owner+admin** (propagates admin access to chat/follows/branches/boosters via every policy already using it); adds `agent_assigned_service_ids()` + `agent_customer_event_ids()`; makes `vendor_services` (owner/admin full · agent assigned) + `chat_threads`/`chat_messages` (add the agent's vendor+customer-events clause) role-aware; adds `vendor_profiles` member-read. Owner access guaranteed via the owner-direct path inside `current_vendor_profile_ids()`.
+- **`lib/vendor-profile.ts`** — `fetchOwnVendorProfile` is now membership-aware: a non-owner member (admin/agent) resolves their vendor via `vendor_team_members` so the dashboard loads for them.
+- **`lib/vendor-role.ts`** — agent nav expands to Services · Bookings · Messages (scoped); bottom-nav adds Bookings · Messages.
+- **`team/page.tsx` + `team/actions.ts`** — `/team` kept **owner-only** (it uses the RLS-bypassing admin client for emails), so the new member-aware resolution can't expose team management to non-owners.
+
+**Verification (DB-layer, rolled-back transaction · seeded agent + admin):** owner still sees all 191 services (no regression); a non-member sees 0; an **agent sees exactly the 1 assigned service, 0 money-table rows, 0 manage-all**; an **admin sees the vendor**. ✅ Plus `tsc`/`lint`/`build` green.
+
+**Migration-hygiene note:** prod had drift — `20260820000000_vendor_payment_methods` (an unmerged worktree) was applied to prod but not in git, and `20260817000000_event_monogram_style` is in git but **not applied** (Animated Monogram may be half-deployed). I reconciled non-destructively (no `migration repair`) to apply only this migration; the monogram + vendor-payments items remain for their owners to land.
+
+**SPEC IMPACT:** 0022 — vendor data layer is now role-aware (owner/admin all · agent scoped). Remaining (fast-follow): admin access to the other owner-direct tables (earnings/tokens/contracts/packages/ads) — a safe owner→owner+admin loosening. → `COWORK_INBOX.md` [PENDING].
 
 ## 2026-06-04 · feat(vendor-payments): off-platform vendor payment options ("How clients pay you")
 

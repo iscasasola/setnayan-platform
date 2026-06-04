@@ -364,6 +364,85 @@ async function buildVendorPricingLookup(
   return lookup;
 }
 
+/**
+ * Single-vendor variant of fetchBudgetSnapshot. Fetches ONLY this vendor's
+ * row + line items + payments (+ only this vendor's pricing lookup) and
+ * returns its VendorBudgetSummary — so per-vendor surfaces (e.g. the service
+ * workspace page) don't pull the whole event's budget just to render one card.
+ *
+ * The summary math mirrors the per-vendor block inside fetchBudgetSnapshot;
+ * kept inline (not extracted) so fetchBudgetSnapshot — which powers the budget
+ * page — stays byte-for-byte unchanged. Returns null when the event_vendors
+ * row is missing or RLS-denied.
+ */
+export async function fetchVendorBudgetSummary(
+  supabase: SupabaseClient,
+  eventId: string,
+  vendorId: string,
+): Promise<VendorBudgetSummary | null> {
+  const [vendorRes, lineItemsRes, paymentsRes] = await Promise.all([
+    supabase
+      .from('event_vendors')
+      .select(
+        'vendor_id,public_id,event_id,category,vendor_name,contact_email,contact_phone,status,total_cost_php,deposit_paid_php,notes,created_at,marketplace_vendor_id,event_vendor_package_id',
+      )
+      .eq('event_id', eventId)
+      .eq('vendor_id', vendorId)
+      .maybeSingle(),
+    supabase
+      .from('event_vendor_line_items')
+      .select('line_item_id,event_id,vendor_id,label,amount_php,due_date,sort_order,created_at')
+      .eq('event_id', eventId)
+      .eq('vendor_id', vendorId)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true }),
+    supabase
+      .from('event_vendor_payments')
+      .select(
+        'payment_id,event_id,vendor_id,line_item_id,amount_php,paid_at,method,reference,notes,created_at',
+      )
+      .eq('event_id', eventId)
+      .eq('vendor_id', vendorId)
+      .order('paid_at', { ascending: false }),
+  ]);
+
+  if (vendorRes.error || !vendorRes.data) return null;
+  const vendor = vendorRes.data as EventVendorRow;
+  const myLineItems = (lineItemsRes.data ?? []) as LineItemRow[];
+  const myPayments = (paymentsRes.data ?? []) as PaymentRow[];
+
+  const pricingLookup = await buildVendorPricingLookup(supabase, eventId, [vendor]);
+  const pricing = pricingLookup.get(vendor.vendor_id);
+  const priceSource: VendorPriceSource = pricing?.priceSource ?? 'manual';
+  const vendorControlledItems = pricing?.items ?? [];
+
+  const vendorControlledTotal = vendorControlledItems.reduce((acc, item) => acc + item.amount_php, 0);
+  const manualItemized = myLineItems.reduce((acc, li) => acc + Number(li.amount_php), 0);
+  const headline = Number(vendor.total_cost_php ?? 0);
+  let itemizedTotal: number;
+  if (vendorControlledTotal > 0 && manualItemized > 0) {
+    itemizedTotal = vendorControlledTotal + manualItemized;
+  } else if (vendorControlledTotal > 0) {
+    itemizedTotal = vendorControlledTotal;
+  } else if (manualItemized > 0) {
+    itemizedTotal = manualItemized;
+  } else {
+    itemizedTotal = headline;
+  }
+  const paidTotal = myPayments.reduce((acc, p) => acc + Number(p.amount_php), 0);
+
+  return {
+    vendor,
+    lineItems: myLineItems,
+    payments: myPayments,
+    itemizedTotal,
+    paidTotal,
+    remaining: Math.max(0, itemizedTotal - paidTotal),
+    priceSource,
+    vendorControlledItems,
+  };
+}
+
 export async function fetchBudgetSnapshot(
   supabase: SupabaseClient,
   eventId: string,

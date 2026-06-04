@@ -8,6 +8,18 @@
 
 ---
 
+## [PENDING] 2026-06-04 — onboarding role/kind in a row + tradition chips as a carousel (Onboarding Blueprint + prototype)
+
+**Why:** Owner reworked three wedding-onboarding steps live: **role** (Bride/Groom/Someone helping) + **kind** (Religious/Civil/Mixed) now render **3 choices in one row**; the 8 **ceremony-tradition** chips now render as a **single-row horizontal carousel** instead of the 4×2 grid. Code shipped ahead of the spec/prototype.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`Onboarding_Blueprint_2026-05-30.md` §3.0** — role + kind steps: the 3 options now sit in **one row** (was a vertical stack). Tradition step: the faith chips are a **1-row scroll carousel** — this **supersedes** the "2026-06-04: 8-faith lock → fixed 4-col × 2-row grid" note.
+2. **`Onboarding_Wedding_Flow_2026-06-01.html`** (prototype) — update the role / kind / tradition screens to the row + carousel layout so the prototype matches the app; `.docx` regen if applicable.
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
 ## [PENDING] 2026-06-04 — Taxonomy editor mints new leaves + couple-side vendor_category anchored to canonical (0023 / 0006 / 0044)
 
 **Why:** Owner — "set the taxonomy to be capable of growing and reformatting… the app relies on it." The `/admin/taxonomy` editor can now mint a brand-new bookable canonical leaf at runtime (no deploy), and the legacy couple-side `vendor_category` is now anchored to the canonical tile taxonomy.

@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · style(onboarding): role + kind choices in one row · tradition chips as a 1-row carousel
+
+**Context:** Owner, walking the wedding onboarding screen-by-screen — *"place the 3 choices in 1 row"* (role: Bride / Groom / Someone helping), *"place the 3 in 1 row also"* (kind: Religious / Civil / Mixed), and *"carousel this also in 1 row"* (the 8 ceremony-tradition chips, until now a 4×2 grid).
+
+**What changed:** CSS-only, in `apps/web/app/onboarding/wedding/_styles/onboarding.css` — scoped to `#screen-role` / `#screen-kind` / `#screen-faith`, appended at EOF to win the cascade; **no JSX/TSX touched**:
+- **Role + Kind** (`#screen-{role,kind} .stack`) flip from `flex-direction:column` to a **row of 3** equal-width / equal-height `.opt` cards (title, check, desc shrink slightly for the narrower column; selection styling + tap behaviour preserved).
+- **Tradition** (`#screen-faith .chips`) flips from the 2026-06-04 fixed **4-col × 2-row grid** to a **single horizontal scroll-snap carousel** (nowrap + overflow-x; chips size to their label).
+- Both are **shorter vertically** than before, so the hero photo keeps its room — Golden Rule 1 (one viewport) holds.
+
+**Verification:** CSS-only (no TS change); equal/higher specificity + source order over the prior rules. CI production build validates the bundle; Vercel preview on the PR for visual confirm.
+
+**SPEC IMPACT:** The onboarding prototype + blueprint still show these steps in their old layouts (role/kind stacked · faith 4×2 grid — the latter an explicit 2026-06-04 spec note now superseded). → `COWORK_INBOX.md` (Onboarding_Blueprint §3.0 role/kind/tradition + `Onboarding_Wedding_Flow_2026-06-01.html`).
+
 ## 2026-06-04 · fix(0023): mobile Directory landing missing Wedding types + Wedding traditions
 
 **Context:** Owner reported the **Wedding traditions** surface was unreachable on mobile. The `/admin/wedding-types` (#895) + `/admin/wedding-traditions` (#898) entries were added to the desktop sidebar's `ADMIN_NAV_GROUPS`, but the **mobile** Directory landing (`/admin/directory`) builds its tiles from a **separate hardcoded `DIRECTORY_ITEMS` array** (the "mobile landings consume the same nav groups" note was aspirational) — so both new surfaces were missing on mobile.

@@ -22,6 +22,52 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · ui(0021,0001): dashboard scale consistency — Guests + Website editor adopt the canonical card metric
+
+**Context:** Owner directive — *"keep our dashboard design consistent and use that kind of height and icon size and font size for guests, websites."* The couple dashboard's canonical card chrome (the `/more` landing cards · `dashboard/[eventId]/_components/customer-mobile-landing.tsx`) is the reference: a 40px (`h-10 w-10`) `rounded-md` leading icon chip, a 20px (`h-5 w-5`) glyph, a `text-base font-semibold` label, `text-xs` sub-text, and `min-h-[44px]` tap targets. The Guests page and the full-screen Website "site-editor" (the **Website** bottom-nav doorway → `/site-editor/[eventId]`) had drifted smaller (`h-9`/`h-7` chips, `h-[18px]`/`h-4` glyphs, `text-[12.5px]`/`text-[14.5px]` labels), so they read as a separate, denser surface.
+
+**What changed:**
+- **`apps/web/app/site-editor/[eventId]/_components/site-editor.tsx`** — Card shell (chip `h-9 rounded-lg`→`h-10 rounded-md`, glyph `h-[18px]`→`h-5`, title `text-[14.5px] font-bold`→`text-base font-semibold`, sub `text-[11px]`→`text-xs`); StatRow (chip `h-7`→`h-10`, glyph `h-4`→`h-5`, label/value→`text-base`); Theme toggle; every CTA / Pro-active-badge / Share button (`h-10`→`min-h-[44px]`, `text-[12.5px]`→`text-sm`); the copy button; the "Live — this URL is yours" line; the empty-state "Set your URL" button.
+- **`apps/web/app/dashboard/[eventId]/guests/page.tsx`** — the Seating cross-link row + the Share-invite disclosure (same chip / glyph / label bumps).
+- **Deliberately unchanged (consistency, not breakage):** the editor's 4-up tab bar + the mobile Guests carousel's bottom menu already match the dashboard's `BottomNav` scale (`h-[22px]` icon · `text-[10px]` label · `min-h-[56px]`) — raising them to the card scale would overflow the 4-up grid. Guest data rows, the RSVP stat tiles, and the editor's empty-state hero icons are data / stat / illustration classes and keep their own scale.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean (both files). Shipped from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** None — pure visual alignment to an existing canonical pattern; no SKU, schema, pricing, workflow, or branding change.
+
+## 2026-06-04 · fix(0000): stop unexpected mobile zoom — native-app viewport hardening
+
+**Context:** Owner report — *"our screen sometimes zooms in unexpectedly and we lose the full-screen native-device feeling … we want it to feel like an app."* Root cause is **iOS Safari focus-zoom**: inputs are `font: inherit` (Tailwind preflight), so any field nested inside a `text-sm` / `text-xs` wrapper renders at 14px and Safari auto-zooms into it on focus and never fully settles back. It reads as "random" because it only fires on the sub-16px fields. The viewport was already correct (`width=device-width, initialScale=1, viewportFit=cover, maximumScale=5`) and `manifest.json` already ships `display: standalone` — so this is a CSS-only hardening, no viewport/manifest change.
+
+**What changed:**
+- **`apps/web/app/globals.css`** — appended one UNLAYERED block (must outrank the Tailwind `text-sm` utility; unlayered CSS beats any `@layer`, including `@layer utilities`):
+  - `@media (pointer: coarse)` → `input / select / textarea { font-size: 16px }` (excludes checkbox/radio/range/color). Kills iOS focus-zoom on touch devices; desktop form density (intentional 14px) is untouched.
+  - `html { touch-action: manipulation }` — disables double-tap-to-zoom + the legacy 300ms tap delay tree-wide (touch-action intersects through ancestors) while KEEPING pinch-zoom + panning.
+  - `html { overscroll-behavior: none }` — no pull-to-refresh / rubber-band bounce on the document scroller.
+- Deliberate pinch-zoom stays **enabled** (`maximumScale: 5` in `app/layout.tsx`) for WCAG 1.4.4 — only the unwanted zooms are removed.
+- No change to `app/layout.tsx` viewport (already correct). No global safe-area padding added — 23 components already consume `env(safe-area-inset-*)`, so a global rule would double up.
+
+**Verification:** CSS-only, appended after the final `@layer components` close (brace balance verified even, 86/86). typecheck + lint + production build + Lighthouse + Playwright e2e all green on this SHA. Shipped from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** None — platform-level input/viewport behavior; no SKU, schema, pricing, or feature-scope change.
+
+## 2026-06-04 · ui(0001): guest carousel — every panel collapses to one compact row (Summary · Add · Customize)
+
+**Context:** Owner directive 2026-06-04 — on the customer dashboard Guests surface (mobile carousel + desktop quick-add), the panels sat taller than the Search row beside them. Owner: *"put the [First Name] [Last Name] in 1 row and remove text — keep it as low as search… can we also keep the customize 1 row? and summary 1 row?"* The Search panel is the height benchmark; every sibling panel now matches it.
+
+**What changed (apps/web · `guests/_components/`):**
+- **`mobile-guest-carousel.tsx`**
+  - **Summary** — the 4 RSVP stat boxes (Total · Attending · Pending · Declined) moved from a 2×2 grid to a single 4-across row (`grid-cols-2 gap-2.5` → `grid-cols-4 gap-2`). `StatBox` recompacted (smaller padding, `text-[8px]` no-wrap label, `text-[22px]` value, centered) so four fit cleanly down to ~320px-wide phones.
+  - **Add** (`QuickAddInlineForm`) — First + Last name now share one row (`grid grid-cols-2 gap-2`); removed the "Enter after first name moves to last name…" helper line. The session-count line only appears after the first add, so the default panel is a single input row. Keyboard-open docked height trimmed 190→120px to match.
+  - **Customize** (`CustomizePanel`) — entry state reduced to just the "Select guests" button (dropped the title + description paragraphs); active state collapsed from three stacked rows to one (`Select all` · `Assign N` · `Done`), with the count now shown inside the Assign button.
+- **`quick-add-sheet.tsx`** (desktop "Quick add" modal) — parity: dropped the "Name · ↵ jumps to last name…" helper line and put the two name inputs on one row.
+
+The panel sheet auto-measures its content height (ResizeObserver on `scrollHeight`), so each shortened panel shrinks the sheet to fit — no dead space. Enter-to-advance, duplicate detection, bulk-assign, and the RSVP filter-links are all unchanged; only layout + explanatory copy changed.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean (both files). Shipped from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** None — pure UI layout / copy on an owner-directed surface; no feature, pricing, schema, or workflow change.
+
 ## 2026-06-04 · feat(0023/0044): DB-backed taxonomy read-through (Phase 2a) — layer + admin viewer
 
 **Context:** Phase 2 of the DB-backed-taxonomy build (the ♾️ "Admin Finalize = permanent live publish" lock). Phase 1 moved the taxonomy structure into `service_categories` + `canonical_service_taxonomy` (migration `20260803001000`, applied). This adds the **read-through layer** so server consumers read taxonomy from those tables — the prerequisite for admin edits going live without a deploy.

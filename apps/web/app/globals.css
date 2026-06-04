@@ -616,3 +616,45 @@
     overflow: hidden;
   }
 }
+
+/* ----------------------------------------------------------------------------
+ * Native-app feel — kill UNEXPECTED zoom, keep deliberate pinch-zoom.
+ *
+ * Three real-device papercuts that make the installed PWA stop feeling like a
+ * native app:
+ *
+ *   1. iOS focus-zoom. Mobile Safari auto-zooms into any form field whose
+ *      *computed* font-size is < 16px and never fully settles back — the classic
+ *      "tapped a field and the whole screen zoomed in and won't let go" bug.
+ *      Inputs are `font: inherit` (Tailwind preflight), so a field nested inside
+ *      a `text-sm` / `text-xs` wrapper silently renders at 14px and trips it.
+ *      A 16px floor on text-entry controls is the fix. Scoped to `pointer:
+ *      coarse` so desktop form density (intentional 14px inputs) is untouched,
+ *      and left UNLAYERED on purpose so it outranks the Tailwind `text-sm`
+ *      utility — unlayered CSS beats any @layer, including @layer utilities.
+ *
+ *   2. Double-tap-to-zoom + the legacy 300ms tap delay. `touch-action:
+ *      manipulation` on the root removes both for the whole tree (touch-action
+ *      intersects down through ancestors) while KEEPING pinch-zoom and panning.
+ *
+ *   3. Pull-to-refresh / rubber-band overscroll on the document scroller —
+ *      `overscroll-behavior: none` stops the page bouncing like a web page.
+ *
+ * Deliberate pinch-zoom stays ENABLED (viewport `maximumScale: 5` in
+ * app/layout.tsx) for WCAG 1.4.4 reflow/zoom — we only remove the zooms the
+ * user never asked for, never the accessibility one.
+ * ------------------------------------------------------------------------- */
+@media (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+html {
+  /* Ancestor of all content → disables double-tap zoom site-wide, keeps pinch + scroll. */
+  touch-action: manipulation;
+  /* Root scroller → no pull-to-refresh / rubber-band bounce. */
+  overscroll-behavior: none;
+}

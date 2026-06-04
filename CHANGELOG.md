@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · style(onboarding): welcome screen full-bleed hero + button-over-photo + Ken-Burns drift
+
+**Context:** Owner — *"fill the whole screen with the photo … button stays but the white background is removed to stretch the photo further … make the background animate like the clouds slowly moving or camera slowly moving. do we need Higgsfield?"* Verdict: **no Higgsfield needed** — the "camera slowly moving" feel is a free CSS Ken-Burns; a real moving-clouds video (Higgsfield / Runway / Kling, R2-hosted muted loop) is an optional later upgrade. This ships the full-bleed + CSS drift.
+
+**What changed:** CSS-only + one hook — a new `data-welcome` attribute on `.phone` (set when `step === 0`) scopes everything to the welcome step:
+- Top + bottom bars become **transparent overlays** (no white bands) so the hero fills the whole phone; the **Setnayan brand stays visible** (Golden Rule 2) via a subtle top scrim + white wordmark; the progress bar is hidden on welcome.
+- Body padding cleared + hero margin/radius zeroed → **edge-to-edge photo**; the **"Let's go" button floats** over a soft bottom scrim; overlay text padded to clear it.
+- **Ken-Burns**: slow 26s scale+pan (`@keyframes kenburns`) on the hero `<img>`, auto-disabled under `prefers-reduced-motion` (global rule).
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean.
+
+**SPEC IMPACT:** The prototype/blueprint show the welcome hero as a bordered card; it's now full-bleed + animated. → `COWORK_INBOX.md`.
+
 ## 2026-06-04 · feat(0016): Top-30 reception-anchored location step ported into onboarding (screen 6)
 
 **Context:** Owner: the onboarding region step "still shows the NCR/Calabarzon cards, not the new one we created." The search-box + **Top-30-wedding-spots** redesign was fully spec'd (Onboarding_Blueprint §3.0 · reworked 2026-06-04), prototyped (`Onboarding_Wedding_Flow_2026-06-01.html`), and had its **30 city photos + full PSGC dataset** generated — but was **never ported into the app**. Live onboarding still ran the single-select region picker. This ports the locked design.

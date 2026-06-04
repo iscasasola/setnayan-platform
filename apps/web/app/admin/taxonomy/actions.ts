@@ -282,3 +282,64 @@ export async function deleteTaxonomyNode(formData: FormData) {
   revalidatePath('/vendors');
   redirect(`${BASE}?ok=${encodeURIComponent(`Deleted "${before.label_en}".`)}`);
 }
+
+/**
+ * Admin: reorder a tile within its parent by swapping `sort_order` with the
+ * adjacent sibling. The catalog reads tile order from the snapshot, so the
+ * marketplace re-orders live with no deploy. Audit-logged.
+ */
+export async function moveTaxonomyNode(formData: FormData) {
+  const user = await requireAdmin();
+  const id = String(formData.get('id') ?? '').trim();
+  const direction = String(formData.get('direction') ?? '');
+  if (!id) throw new Error('Missing node id');
+  if (direction !== 'up' && direction !== 'down') throw new Error('Bad direction');
+  const admin = createAdminClient();
+  const { data: node } = await admin
+    .from('service_categories')
+    .select('id, parent_id, tier, sort_order')
+    .eq('id', id)
+    .maybeSingle();
+  if (!node || node.parent_id == null) {
+    redirect(`${BASE}?error=${encodeURIComponent('This node can’t be moved.')}`);
+  }
+  // Adjacent sibling: same parent + tier, nearest sort_order in the direction.
+  const base = admin
+    .from('service_categories')
+    .select('id, sort_order')
+    .eq('parent_id', node.parent_id)
+    .eq('tier', node.tier);
+  const { data: sibling } =
+    direction === 'up'
+      ? await base
+          .lt('sort_order', node.sort_order)
+          .order('sort_order', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : await base
+          .gt('sort_order', node.sort_order)
+          .order('sort_order', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+  if (!sibling) redirect(`${BASE}?ok=${encodeURIComponent('Already at the edge.')}`);
+  // Swap (no unique constraint on sort_order, so the interim collision is fine).
+  await admin
+    .from('service_categories')
+    .update({ sort_order: sibling.sort_order, updated_at: new Date().toISOString() })
+    .eq('id', node.id);
+  await admin
+    .from('service_categories')
+    .update({ sort_order: node.sort_order, updated_at: new Date().toISOString() })
+    .eq('id', sibling.id);
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.move',
+    target_table: 'service_categories',
+    target_id: id,
+    before_json: { sort_order: node.sort_order },
+    after_json: { sort_order: sibling.sort_order, direction },
+    actor_user_id: user.id,
+  });
+  revalidatePath(BASE);
+  revalidatePath('/vendors');
+  redirect(`${BASE}?ok=${encodeURIComponent(`Moved ${direction}.`)}`);
+}

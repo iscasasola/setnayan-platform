@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · fix(0000): stop unexpected mobile zoom — native-app viewport hardening
+
+**Context:** Owner report — *"our screen sometimes zooms in unexpectedly and we lose the full-screen native-device feeling … we want it to feel like an app."* Root cause is **iOS Safari focus-zoom**: inputs are `font: inherit` (Tailwind preflight), so any field nested inside a `text-sm` / `text-xs` wrapper renders at 14px and Safari auto-zooms into it on focus and never fully settles back. It reads as "random" because it only fires on the sub-16px fields. The viewport was already correct (`width=device-width, initialScale=1, viewportFit=cover, maximumScale=5`) and `manifest.json` already ships `display: standalone` — so this is a CSS-only hardening, no viewport/manifest change.
+
+**What changed:**
+- **`apps/web/app/globals.css`** — appended one UNLAYERED block (must outrank the Tailwind `text-sm` utility; unlayered CSS beats any `@layer`, including `@layer utilities`):
+  - `@media (pointer: coarse)` → `input / select / textarea { font-size: 16px }` (excludes checkbox/radio/range/color). Kills iOS focus-zoom on touch devices; desktop form density (intentional 14px) is untouched.
+  - `html { touch-action: manipulation }` — disables double-tap-to-zoom + the legacy 300ms tap delay tree-wide (touch-action intersects through ancestors) while KEEPING pinch-zoom + panning.
+  - `html { overscroll-behavior: none }` — no pull-to-refresh / rubber-band bounce on the document scroller.
+- Deliberate pinch-zoom stays **enabled** (`maximumScale: 5` in `app/layout.tsx`) for WCAG 1.4.4 — only the unwanted zooms are removed.
+- No change to `app/layout.tsx` viewport (already correct). No global safe-area padding added — 23 components already consume `env(safe-area-inset-*)`, so a global rule would double up.
+
+**Verification:** CSS-only, appended after the final `@layer components` close (brace balance verified even, 86/86). No local typecheck (fresh worktree has no deps) — relying on the PR's required `typecheck + lint` + `production build` + Vercel preview. Shipped from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** None — platform-level input/viewport behavior; no SKU, schema, pricing, or feature-scope change.
+
 ## 2026-06-04 · feat(0043,0044): lock 8 wedding traditions — add Jewish + Born Again, fully selectable + on the taxonomy
 
 **Context:** Owner-directed — *"add Jewish and Born Again. Lock this 8 and make the choice in 4 columns, 2 rows … full build incl. the taxonomy."* Follows the same-day Chinese activation. Born Again is split out of the "Christian" umbrella into its own tradition; Jewish also resolves the dangling `kosher_*` tags already in the 0044 `faith_compatibility` group (which had no Jewish ceremony_type to trigger them). The onboarding tradition step locks to a fixed **4-col × 2-row grid of 8 chips**: Catholic · Christian · INC · Muslim / Cultural · Chinese · Jewish · Born Again.

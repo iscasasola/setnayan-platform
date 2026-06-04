@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(onboarding): welcome hero depth-parallax + new copy
+
+**Context:** Owner — *"i want the exact photo but we want it to animate the background making it have depth"* + new welcome copy. (Cloud-overlay PR #936 set aside per the owner's "no"; left unmerged.)
+
+**What changed:**
+- **Copy:** headline → *"Wedding planning, without the chaos."*; sub → *"Answer a few questions. We'll find your vendors and build your plan — free to start."*
+- **`welcome-parallax.tsx`** (new) — WebGL depth-parallax on the **exact** welcome photo: a fragment shader displaces UVs by a depth map × a slow auto-orbiting camera (near shifts more than far → dimensional motion from one still). **Bulletproof fallback** — a plain `<img>` renders first and only hides once the canvas truly draws; WebGL/shader failure or reduced-motion → the static Ken-Burns hero stays. Never broken.
+- **`public/onboarding/welcome-depth.png`** (4 KB) — approximate depth map. Drop a true depth map (Depth-Anything/Immersity) at the same path for crisp object-parallax — no code change.
+- Wired into the welcome hero (replaces `HeroImg`) + CSS for the canvas/img layers.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean. Photo same-origin → no WebGL CORS.
+
+**SPEC IMPACT:** New welcome copy + depth-parallax hero. → `COWORK_INBOX.md`.
+
 ## 2026-06-04 · feat(0023): Admin Growth & Population surface (/admin/growth)
 
 **Context:** Owner — make statistics of the progress of the app: both *actual population* (current totals) and *growth over time* for vendors · services · events · customers · guests, plus *guest → account-holder conversion*. No existing admin surface showed multi-entity population + growth curves, and conversion was computed nowhere (the Overview shows point-in-time counts only; Funnels is step-conversion; Operations & Hiring is vendor-signup + hiring-forecast). Owner picked a dedicated `/admin/growth` page and the **"any linked account"** conversion definition.

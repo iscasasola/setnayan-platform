@@ -8,6 +8,15 @@
 
 ---
 
+## [PENDING] 2026-06-04 — welcome copy reworded + hero now depth-parallax (Onboarding Blueprint / prototype)
+
+**Why:** Owner reworded the welcome screen + asked the hero photo to "have depth." Headline + sub changed; the hero now runs a WebGL depth-parallax (the exact photo, near/far displaced by a depth map as a slow camera orbits) over a bulletproof static-image fallback.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`Onboarding_Blueprint_2026-05-30.md`** (+ welcome in `Onboarding_Wedding_Flow_2026-06-01.html`) — copy: headline **"Wedding planning, without the chaos."**, sub **"Answer a few questions. We'll find your vendors and build your plan — free to start."**; hero motion now **depth-parallax** (supersedes the Ken-Burns note).
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
 ## [PENDING] 2026-06-04 — Admin Growth & Population surface added (/admin/growth · 0023)
 
 **Why:** Owner directive — surface platform progress as *actual population* (current totals) + *growth over time* for vendors · services · events · customers · guests, plus *guest → account-holder conversion*. Shipped as a new admin surface `/admin/growth` (population tiles + per-entity cumulative/net-new sparklines + conversion section), computed live from each entity's `created_at` (no migration) and the `event_members.guest_id` linkage. Conversion definition owner-locked **"any linked account"** (a guest-list row tied to a real Setnayan account via QR scan or invite link; rate = converted ÷ non-removed guests, all-time).

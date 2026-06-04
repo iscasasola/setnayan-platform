@@ -61,6 +61,7 @@ import {
   type OnboardingState,
 } from '../types';
 import { LocationStep } from './location-step';
+import { WelcomeParallax } from './welcome-parallax';
 import { resolvePick } from '../_data/wedding-cities';
 
 /* Full 15-screen flow (welcome..budget..picker..prefs..account..find..congrats..plan). */
@@ -2019,12 +2020,12 @@ export function OnboardingShell({
           {/* 1 WELCOME */}
           <section className={`screen welcomescreen${step === 0 ? ' active' : ''}`}>
             <div className="welcomehero">
-              <HeroImg src={ASSET('welcome')} />
+              <WelcomeParallax src={ASSET('welcome')} depthSrc="/onboarding/welcome-depth.png" />
               <div className="welcomeoverlay">
-                <h1>Let{'’'}s plan your wedding.</h1>
+                <h1>Wedding planning, without the chaos.</h1>
                 <p>
-                  A few quick questions and we{'’'}ll build a plan made for <i>your</i> day
-                  {' — '}every vendor sorted to fit. Free to start, always.
+                  Answer a few questions. We{'’'}ll find your vendors and build your plan
+                  {' — '}free to start.
                 </p>
               </div>
             </div>

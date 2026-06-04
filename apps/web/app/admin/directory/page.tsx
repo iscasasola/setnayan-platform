@@ -1,7 +1,7 @@
 /**
  * /admin/directory — mobile overflow landing for the Directory group.
  *
- * WHY: CLAUDE.md 2026-05-23 row 2 admin doorway mobile lock — 5 directory
+ * WHY: CLAUDE.md 2026-05-23 row 2 admin doorway mobile lock — the directory
  * surfaces compress into a card grid behind the Directory bottom-nav tab.
  * Per [[feedback_setnayan_orphan_prevention]] every NavItem here maps 1:1
  * to a sidebar entry in apps/web/app/admin/_components/admin-sidebar.tsx
@@ -14,6 +14,8 @@ import {
   TestTube,
   CalendarDays,
   MapPin,
+  Church,
+  BookOpen,
 } from 'lucide-react';
 import { MobileLandingGrid, type LandingItem } from '../_components/mobile-landing-grid';
 
@@ -59,6 +61,22 @@ const DIRECTORY_ITEMS: LandingItem[] = [
     icon: MapPin,
     description:
       'Venue directory. Add a new venue, edit existing, or open a venue page for review.',
+  },
+  {
+    key: 'wedding-types',
+    label: 'Wedding types',
+    href: '/admin/wedding-types',
+    icon: Church,
+    description:
+      'Per-religion launch gate — vendor and venue readiness vs an editable threshold; open, hold, or disable each wedding religion.',
+  },
+  {
+    key: 'wedding-traditions',
+    label: 'Wedding traditions',
+    href: '/admin/wedding-traditions',
+    icon: BookOpen,
+    description:
+      'Per-religion wedding-traditions content shown on the couple paperwork guide. Edit items, or reset to the latest starter content.',
   },
 ];
 

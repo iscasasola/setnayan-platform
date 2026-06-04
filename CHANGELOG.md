@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · fix(0023): mobile Directory landing missing Wedding types + Wedding traditions
+
+**Context:** Owner reported the **Wedding traditions** surface was unreachable on mobile. The `/admin/wedding-types` (#895) + `/admin/wedding-traditions` (#898) entries were added to the desktop sidebar's `ADMIN_NAV_GROUPS`, but the **mobile** Directory landing (`/admin/directory`) builds its tiles from a **separate hardcoded `DIRECTORY_ITEMS` array** (the "mobile landings consume the same nav groups" note was aspirational) — so both new surfaces were missing on mobile.
+
+**What changed:** Added the **Wedding types** (Church) + **Wedding traditions** (BookOpen) tiles to `DIRECTORY_ITEMS` in `app/admin/directory/page.tsx`, matching the sidebar order + icons. Both surfaces are now reachable on mobile (Directory tab) and desktop (sidebar).
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean.
+
+**SPEC IMPACT:** None (both surfaces already specced in 0023; this restores mobile reachability).
+
 ## 2026-06-04 · feat(0023/0044/0006): add-new-leaf editor + couple-side taxonomy validation + /vendors read-through
 
 **Context:** Owner — "set the taxonomy to be capable of growing and reformatting… our app will rely on that for vendors, services, onboarding." Most of the DB-backed-taxonomy stack already shipped (Phase 2a read-through · Phase 3 editor rename/remap/add/delete/reorder). This closes three remaining gaps in that initiative. (Re-baseline: the foundation + read-through + editor were already on `main` — this builds on them, it does not rebuild them.)

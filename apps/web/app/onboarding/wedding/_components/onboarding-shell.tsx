@@ -1521,11 +1521,12 @@ export function OnboardingShell({
       faith: state.faith,
       receptionSettings: state.prefs.reception,
       region: state.region,
+      pax: state.pax,
     })
       .then((rows) => setVenues(rows))
       .catch(() => setVenues([]))
       .finally(() => setVenuesLoading(false));
-  }, [step, venues, venuesLoading, state.kind, state.faith, state.prefs.reception, state.region]);
+  }, [step, venues, venuesLoading, state.kind, state.faith, state.prefs.reception, state.region, state.pax]);
 
   /* Congrats stat tile #3 — REAL marketplace counts (owner 2026-06-03: "we want
      real numbers only", replacing the fabricated max(categories×5,12) + "2,400+").
@@ -1539,10 +1540,11 @@ export function OnboardingShell({
       receptionSettings: state.prefs.reception,
       picks: state.picks,
       region: state.region,
+      pax: state.pax,
     })
       .then((c) => setVendorCounts(c))
       .catch(() => setVendorCounts(null));
-  }, [step, vendorCountsTried, state.kind, state.faith, state.prefs.reception, state.picks, state.region]);
+  }, [step, vendorCountsTried, state.kind, state.faith, state.prefs.reception, state.picks, state.region, state.pax]);
 
   /* picker chip tap — toggles the pick (multi), latches pickerTouched, updates the sticky preview. */
   const pickChip = (cat: string, label: string) => {

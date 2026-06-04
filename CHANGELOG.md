@@ -18,9 +18,27 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** None — implements (more of) the locked 0023 §3.15 editor.
 
-**Taxonomy-editor track — remaining (honest):** **2b·3** (client nav read-through) is a **no-op** — those 5 components only read editor-immutable folder slugs / short-labels / order, so flipping them changes nothing. The genuinely-remaining spec items are **larger / blocked**: the §3.15 **two-admin gate** + **drag-to-move** UX + **grandchildren / leaf↔branch** machinery (modest marginal value over the existing admin-gate + audit-log + orphan-guards), and **§3.2c vendor-request review (Phase 4)**, which is **upstream-blocked** on the 0022 vendor "add a category" flow (separate iteration — needs scope sign-off).
+**Taxonomy-editor track — remaining (honest):** **2b·3** (client nav read-through) is a **no-op** — those 5 components only read editor-immutable folder slugs / short-labels / order. The genuinely-remaining spec items are **larger / blocked**: the §3.15 **two-admin gate** + **drag-to-move** UX + **grandchildren / leaf↔branch** machinery (modest marginal value over the existing admin-gate + audit-log + orphan-guards), and **§3.2c vendor-request review (Phase 4)**, **upstream-blocked** on the 0022 vendor "add a category" flow (separate iteration — needs scope sign-off).
 
 ---
+
+## 2026-06-04 · feat(0044/0016): Pax dimension — venue capacity filter (leaf-match · "apply everything" 2/4)
+
+**Context:** Next leaf-match dimension after region + event-type (#915) and the demo diversification (#921). A reception venue that can't seat the couple's guest count shouldn't show — and the congrats count should reflect it.
+
+**Migration (`20260809000000_vendor_profiles_capacity.sql`, applied to prod):** adds `capacity_min` / `capacity_max` (nullable INT) to `vendor_profiles` + a partial index on `capacity_max`. **Deliberately NOT added to the `vendor_market_stats` view** — the matcher reads capacity via a small candidate-pool lookup instead, so the live marketplace read-path view is left byte-identical (zero view-replacement risk).
+
+**Wiring (all Hybrid · NULL `capacity_max` = no constraint → admitted):**
+- **`lib/wizard-recommendations.ts`** — new optional `pax` arg. When set, after the base fetch it resolves `capacity_max` for the candidate pool (one `vendor_profiles` lookup) and drops venues with `capacity_max < pax`. Over-fetch now also triggers on pax. Degrades gracefully if the column is ever absent (lookup errors → admit all).
+- **`app/onboarding/wedding/actions.ts`** — `searchOnboardingReceptionVenues` passes `pax`; `getOnboardingVendorCounts` gains a `paxFit` predicate and now sources its pool from `vendor_profiles` (same rows as the view + `capacity_max`), so pax narrows `matched` below `total` too.
+- **`onboarding-shell.tsx`** — passes `state.pax` into both calls.
+- **`scripts/seed-demo-vendors.ts`** — `venueCapacityFor(setting, index)` gives each demo reception venue a setting-correlated seated capacity (hotel ballrooms seat most, beach/heritage least), spread by index so a guest count actually narrows the set. Deterministic (no RNG-stream perturbation). Non-venue vendors stay NULL.
+
+**Effect:** a 225-pax couple's venue list + count drop venues that can't fit (after a demo re-Create populates capacity; existing demo rows are NULL = admitted, so no regression meanwhile). The other 5 engine call sites are untouched (`pax` optional).
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean (4 files) · migration applied via `supabase db push` (dry-run confirmed it was the only pending one; no backlog) and confirmed on remote. Built from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** New `vendor_profiles.capacity_min/max` columns; onboarding venue search + count now filter by **Pax**. Capacity landed as a first-class column (pragmatic, like `venue_directory.capacity_*`) rather than 0044 `attribute_payload` — note this on the `COWORK_INBOX.md` → `0044` venue-schema item (the venue refinement schema can reference these columns instead of re-modeling capacity). Remaining: dashboard parity (3/4), fine venue_type refinement (4/4); Schedule deferred.
 
 ## 2026-06-04 · fix(0044/demo): diversify demo venue settings + plug BGC region hole (leaf-match follow-up)
 

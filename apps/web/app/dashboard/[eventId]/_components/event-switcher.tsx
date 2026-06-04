@@ -190,8 +190,7 @@ export function EventSwitcher({
             What kind of event are you planning?
           </p>
           <p className="mb-3 px-1 text-xs text-ink/55">
-            Weddings and debuts are live now. Swipe through to see what&apos;s on the
-            way — more event types unlock over time.
+            Swipe through and tap the one you&apos;re planning.
           </p>
 
           <EventTypeCarousel

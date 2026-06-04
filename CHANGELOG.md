@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · fix(0000): add-event switcher copy → all-live (drop "more event types unlock over time")
+
+**Context:** Owner-approved follow-up. The event-switcher "+ Add event" sheet subtitle still read *"Weddings and debuts are live now. Swipe through to see what's on the way — more event types unlock over time"* — roadmap-flavored + contradictory now that all 9 event types are live ("keep everything live"). The create-event page header was already fixed (#888); this was the last stale string.
+
+**What changed:** `event-switcher.tsx` addtype subtitle → *"Swipe through and tap the one you're planning."* (accurate for all-live; no coming-soon / unlock implication).
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean.
+
+**SPEC IMPACT:** Minor — resolves the "noted follow-up" copy tweak flagged in spec `0000` §2.5 (add-event sheet line). The spec note is updated to match.
+
 ## 2026-06-04 · feat(0016): Schedule dimension — vendor availability filter (leaf-match · the last dimension)
 
 **Context:** The one deferred leaf-match dimension. A reception venue booked on every one of the couple's possible dates shouldn't show. The availability infrastructure already existed (`lib/vendor-availability.ts` · `vendor_calendar_blocks` · batched `getBatchVendorAvailableDays`, all cron-free read-time + failing-open), and the public `/vendors` marketplace already used it — but the leaf-match matcher + onboarding didn't. This wires it in.

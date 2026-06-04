@@ -61,7 +61,6 @@ import {
   type OnboardingState,
 } from '../types';
 import { LocationStep } from './location-step';
-import { WelcomeParallax } from './welcome-parallax';
 import { resolvePick } from '../_data/wedding-cities';
 
 /* Full 15-screen flow (welcome..budget..picker..prefs..account..find..congrats..plan). */
@@ -2021,7 +2020,7 @@ export function OnboardingShell({
           {/* 1 WELCOME */}
           <section className={`screen welcomescreen${step === 0 ? ' active' : ''}`}>
             <div className="welcomehero">
-              <WelcomeParallax src={ASSET('welcome')} depthSrc="/onboarding/welcome-depth.png" />
+              <HeroImg src={ASSET('welcome')} />
               <div className="welcomeoverlay">
                 <h1>Start with the view. We{'’'}ll handle the details.</h1>
                 <p>Tell us your date. Get a free wedding plan + matched vendors in minutes.</p>
@@ -2263,9 +2262,6 @@ export function OnboardingShell({
               </figure>
             </div>
             <div className="tapzone">
-              <div className="paxreadout">
-                <span>{pax}</span> <small>{pax === 1 ? 'guest' : 'guests'}</small>
-              </div>
               <input
                 type="range"
                 min={10}
@@ -2277,19 +2273,21 @@ export function OnboardingShell({
                 onChange={(e) => patch({ pax: parseInt(e.target.value, 10) })}
               />
               <div className="paxends"><span>10{'−'}</span><span>500+</span></div>
-              <div className="paxexactwrap">
-                <span className="paxexactlbl">Exact count</span>
+              <div className="numbox">
                 <input
                   type="text"
                   inputMode="numeric"
-                  className="paxexactinput"
-                  placeholder="type your count"
+                  className="numbox-input"
+                  placeholder="Number of guests"
                   value={state.pax == null ? '' : state.pax.toLocaleString('en-US')}
                   onChange={(e) => {
                     const d = e.target.value.replace(/[^\d]/g, '');
                     patch({ pax: d === '' ? null : parseInt(d, 10) });
                   }}
                 />
+                {state.pax != null && (
+                  <span className="numbox-suffix">{state.pax === 1 ? 'guest' : 'guests'}</span>
+                )}
               </div>
             </div>
           </section>
@@ -2337,30 +2335,31 @@ export function OnboardingShell({
                   />
                   <div className="paxends">
                     <span>{fmtPeso(budgetFloorV)} min</span>
+                    <span>{fmtPeso(budgetCeilingV)}+</span>
+                  </div>
+                  <div className="bdg-row">
+                    <div className="numbox numbox--peso">
+                      <span className="numbox-prefix">₱</span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        className="numbox-input bdg-amtinput"
+                        aria-label="Working budget in pesos"
+                        value={budgetFocused ? groupDigits(budgetInput) : budgetSliderVal.toLocaleString('en-US')}
+                        onFocus={() => {
+                          setBudgetFocused(true);
+                          setBudgetInput(String(budgetSliderVal));
+                        }}
+                        onChange={(e) => setBudgetInput(e.target.value.replace(/[^\d]/g, ''))}
+                        onBlur={commitBudgetInput}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                        }}
+                      />
+                    </div>
                     <button type="button" className="bdg-nolimit" onClick={() => applyBudget('nolimit', null)}>
                       No limit
                     </button>
-                    <span>{fmtPeso(budgetCeilingV)}+</span>
-                  </div>
-                  <div className="paxexactwrap bdg-amtwrap">
-                    <span className="paxexactlbl">Your budget</span>
-                    <span className="bdg-peso">₱</span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      className="paxexactinput bdg-amtinput"
-                      aria-label="Working budget in pesos"
-                      value={budgetFocused ? groupDigits(budgetInput) : budgetSliderVal.toLocaleString('en-US')}
-                      onFocus={() => {
-                        setBudgetFocused(true);
-                        setBudgetInput(String(budgetSliderVal));
-                      }}
-                      onChange={(e) => setBudgetInput(e.target.value.replace(/[^\d]/g, ''))}
-                      onBlur={commitBudgetInput}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                      }}
-                    />
                   </div>
                 </>
               )}

@@ -18,6 +18,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** Vendors can now request a category (0022 services editor); admins resolve via the four outcomes with a demand signal (0023 §3.2c). The expandable-taxonomy governance loop is now closed end-to-end. → `COWORK_INBOX.md`.
 
+## 2026-06-04 · style(onboarding): welcome → 1 photo · pax + budget self-describing number inputs
+
+**Context:** Owner — welcome showed "2 angles" (depth parallax); want 1 clean photo. And restructure the pax + budget inputs.
+
+**What changed:**
+- **Welcome → 1 photo.** Swapped `WelcomeParallax` → `HeroImg` (removed the depth parallax). Clean single photo + Ken-Burns.
+- **Pax input.** Removed the "N guests" readout + "Exact count" label; the box shows the number **+ "guests"/"guest"**.
+- **Budget input.** Removed "Your budget" + the separate ₱; the box shows **₱ + number**; **"No limit"** moved beside the box.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean.
+
+**SPEC IMPACT:** None.
+
 ## 2026-06-04 · style(onboarding): drifting cloud layer over the welcome hero sky
 
 **Context:** Owner — *"add the moving clouds effect."* No video generator is wired into this session (Recraft is stills-only), so a true "the photo's own clouds drift" clip can't be produced here. This adds the achievable version — a drifting cloud **layer** over the sky.

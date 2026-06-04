@@ -367,11 +367,11 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         className="group inline-flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-cream px-4 py-3 transition-colors hover:border-terracotta/40 hover:bg-terracotta/5"
       >
         <span className="flex items-center gap-3">
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
-            <LayoutGrid aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-terracotta/10 text-terracotta">
+            <LayoutGrid aria-hidden className="h-5 w-5" strokeWidth={1.75} />
           </span>
           <span className="flex flex-col">
-            <span className="text-sm font-semibold text-ink">Seating chart</span>
+            <span className="text-base font-semibold text-ink">Seating chart</span>
             <span className="text-xs text-ink/55">
               Tables, floor plan, who sits where
             </span>
@@ -672,9 +672,9 @@ function StatsStrip({
 function ShareInvite({ joinUrl }: { joinUrl: string }) {
   return (
     <details className="rounded-lg border border-ink/10 bg-cream">
-      <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium">
+      <summary className="cursor-pointer list-none px-4 py-3 text-base font-medium">
         <span className="inline-flex select-none items-center gap-2 text-ink">
-          <Link2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          <Link2 aria-hidden className="h-5 w-5" strokeWidth={1.75} />
           Share invite link
         </span>
         <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">

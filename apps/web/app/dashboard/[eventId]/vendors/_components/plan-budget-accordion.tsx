@@ -59,6 +59,11 @@ import {
 
 const LOCKED = new Set(['contracted', 'deposit_paid', 'delivered', 'complete']);
 
+// First-run guidance coachmark dismissal flag (owner 2026-06-04). One shared
+// key gates BOTH the top-of-list coachmark and the point-of-action Lock helper,
+// so dismissing the coachmark retires both.
+const COACH_KEY = 'pba_coach_v1';
+
 function isLocked(pick: AccordionPick): boolean {
   return pick.raw_status !== null && LOCKED.has(pick.raw_status);
 }
@@ -461,6 +466,45 @@ html.dark .pbacc .istep-n,
 html.dark .pbacc .cmpbtn,
 html.dark .pbacc .cmprow-price td{color:#C99DB0}
 
+/* ===== Guidance layer (owner 2026-06-04) — make the populated cover DIRECTIVE
+   and teach the loop in the rails. (1) .intro-next = action-first "do this next"
+   banner promoting the single most-urgent category to a tappable jump; (2)
+   .intro-loop = persistent Find→Shortlist→Lock legend so the mechanic no longer
+   vanishes after the first pick; (3) .pba-coach + .lockhint = one-time first-run
+   coachmark + point-of-action Lock helper, shown only while the couple has
+   shortlisted but locked nothing, dismissible (localStorage 'pba_coach_v1'). */
+.pbacc .intro-next{display:flex;align-items:center;gap:12px;padding:13px 15px;border-radius:16px;background:rgba(92,37,66,.06);border:1px solid rgba(92,37,66,.22);text-decoration:none;color:inherit}
+.pbacc .intro-next.calm{background:var(--card);border-color:var(--line)}
+.pbacc .intro-next .nx-ico{flex:0 0 auto;width:34px;height:34px;border-radius:999px;background:var(--mulberry);color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;line-height:1}
+.pbacc .intro-next.calm .nx-ico{background:rgba(92,37,66,.12);color:var(--mulberry)}
+.pbacc .intro-next .nx-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.pbacc .intro-next .nx-k{font-family:var(--mono);font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--mulberry)}
+.pbacc .intro-next.calm .nx-k{color:var(--ink-soft)}
+.pbacc .intro-next .nx-h{font-family:var(--serif);font-style:italic;font-weight:600;font-size:17px;line-height:1.12;color:var(--ink);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pbacc .intro-next .nx-d{font-family:var(--mono);font-size:9px;letter-spacing:.02em;color:var(--ink-soft);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pbacc .intro-next .nx-go{flex:0 0 auto;color:var(--mulberry);font-size:20px;line-height:1}
+.pbacc .intro-next.calm .nx-go{display:none}
+.pbacc .intro-loop{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:0 4px}
+.pbacc .intro-loop .lp{display:flex;align-items:center;gap:6px;min-width:0}
+.pbacc .intro-loop .lp-n{flex:0 0 auto;width:18px;height:18px;border-radius:999px;background:rgba(92,37,66,.1);color:var(--mulberry);font-family:var(--mono);font-size:9px;font-weight:600;display:flex;align-items:center;justify-content:center}
+.pbacc .intro-loop .lp-t{font-family:var(--mono);font-size:9px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft);white-space:nowrap}
+.pbacc .intro-loop .lp-sep{flex:0 0 auto;color:var(--ink-soft);opacity:.45;font-size:11px}
+.pbacc .pba-coach{position:relative;margin:14px 18px 2px;padding:14px 42px 14px 15px;border-radius:16px;background:rgba(197,160,89,.1);border:1px solid rgba(197,160,89,.4);animation:pba-rise .5s var(--ease) both}
+.pbacc .pba-coach .pc-k{font-family:var(--mono);font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-deep)}
+.pbacc .pba-coach .pc-h{font-family:var(--serif);font-style:italic;font-weight:600;font-size:16px;color:var(--ink);margin:2px 0 9px;line-height:1.2}
+.pbacc .pba-coach .pc-list{display:flex;flex-direction:column;gap:7px}
+.pbacc .pba-coach .pc-row{display:flex;gap:8px;font-family:var(--sans);font-size:12.5px;line-height:1.42;color:var(--ink-soft)}
+.pbacc .pba-coach .pc-b{flex:0 0 auto;font-weight:700;color:var(--mulberry)}
+.pbacc .pba-coach .pc-x{position:absolute;top:9px;right:9px;width:25px;height:25px;border:0;border-radius:999px;background:rgba(30,34,41,.07);color:var(--ink-soft);font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.pbacc .lockhint{margin-top:7px;font-family:var(--mono);font-size:8.5px;line-height:1.5;letter-spacing:.015em;color:var(--gold-deep);background:rgba(197,160,89,.1);border-radius:8px;padding:7px 9px}
+html.dark .pbacc .intro-next .nx-k,
+html.dark .pbacc .intro-next.calm .nx-ico,
+html.dark .pbacc .intro-next .nx-go,
+html.dark .pbacc .intro-loop .lp-n,
+html.dark .pbacc .pba-coach .pc-b{color:#C99DB0}
+html.dark .pbacc .pba-coach{background:rgba(197,160,89,.14);border-color:rgba(197,160,89,.45)}
+html.dark .pbacc .lockhint{background:rgba(197,160,89,.14)}
+
 /* ---- In-app Setnayan service cards (nested, supplementary, float-to-top) ----
    Rendered as the FIRST cards in a category rail (Papic/Panood/Save-the-Date →
    Photography & Video · Patiktok → Photobooth · LED → LED Background) + in the
@@ -525,6 +569,51 @@ export function PlanBudgetAccordion({
   // (replaces the marketplace jump). Scoped to one plan group.
   const [search, setSearch] = useState<{ groupId: string; label: string } | null>(null);
   const openSearch = (groupId: string, label: string) => setSearch({ groupId, label });
+
+  // ── First-run guidance (owner 2026-06-04) ────────────────────────────────
+  // The cover only taught the Find→Shortlist→Lock loop on its EMPTY state; once
+  // the couple had a single pick it vanished. This coachmark fills that gap. It
+  // shows at the top of the category list (what the eye hits on swipe-up) ONLY
+  // while they've shortlisted something but locked nothing yet — the "I have
+  // cards, now what?" moment — and self-retires after the first lock.
+  // Dismissible → localStorage. Default false on SSR (no hydration mismatch); a
+  // mount effect flips it on when eligible + not previously dismissed.
+  const coachEligible =
+    model.recap.shortlisted > 0 && model.recap.finalized === 0;
+  const [showCoach, setShowCoach] = useState(false);
+  useEffect(() => {
+    if (!coachEligible) {
+      setShowCoach(false);
+      return;
+    }
+    try {
+      setShowCoach(localStorage.getItem(COACH_KEY) !== 'dismissed');
+    } catch {
+      setShowCoach(true);
+    }
+  }, [coachEligible]);
+  const dismissCoach = () => {
+    setShowCoach(false);
+    try {
+      localStorage.setItem(COACH_KEY, 'dismissed');
+    } catch {
+      /* private mode — the dismissal just won't persist */
+    }
+  };
+  // The first card the couple can lock (first non-finalized child with an
+  // unlocked pick) — anchors the one-time "what Lock does" helper to the exact
+  // point of action. Keyed "groupId|vendorId" so a single string threads down.
+  const firstLockTarget = (() => {
+    for (const folder of model.folders) {
+      for (const child of folder.children) {
+        if (child.state === 'finalized') continue;
+        const pick = child.picks.find((p) => !isLocked(p));
+        if (pick) return `${child.groupId}|${pick.vendor_id}`;
+      }
+    }
+    return null;
+  })();
+  const lockHintKey = showCoach ? firstLockTarget : null;
 
   // Scroll-driven motion (prototype Plan_Budget_Accordion_2026-05-31.html):
   //   · sizeIntro   — the "Where your day stands" overview scales + fades as it
@@ -667,6 +756,40 @@ export function PlanBudgetAccordion({
             pile (Venue→…→Transport). Bounded per-folder <section>s would
             un-stick each head the moment its own section scrolled out. */}
         <div className="cats">
+          {showCoach && (
+            <div className="pba-coach" role="note">
+              <button
+                type="button"
+                className="pc-x"
+                aria-label="Dismiss tip"
+                onClick={dismissCoach}
+              >
+                ✕
+              </button>
+              <div className="pc-k">How this works</div>
+              <div className="pc-h">
+                You&rsquo;ve shortlisted some vendors — here&rsquo;s the next
+                move.
+              </div>
+              <div className="pc-list">
+                <div className="pc-row">
+                  <span className="pc-b">Tap</span>
+                  <span>a card to open the vendor and see the full details.</span>
+                </div>
+                <div className="pc-row">
+                  <span className="pc-b">Compare</span>
+                  <span>two or more side by side before you decide.</span>
+                </div>
+                <div className="pc-row">
+                  <span className="pc-b">Lock this pick</span>
+                  <span>
+                    on the one you choose — your budget updates and the vendor
+                    is notified. You can change it anytime.
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
           {model.folders.map((folder, index) => (
             <FolderSection
               key={folder.folder}
@@ -675,6 +798,7 @@ export function PlanBudgetAccordion({
               index={index}
               onCompare={setCompare}
               onOpenSearch={openSearch}
+              lockHintKey={lockHintKey}
             />
           ))}
           {/* Recap lives INSIDE .cats (not a sibling after it): the pile's
@@ -839,7 +963,7 @@ function Overview({
         </a>
 
         <p className="intro-cta">
-          Swipe to start viewing the services
+          Swipe up to view your services
           <span className="chev" aria-hidden>
             ↓
           </span>
@@ -869,6 +993,9 @@ function Overview({
       </div>
 
       <div className="intro-grid">
+        <NextAction model={model} eventId={eventId} />
+        <LoopLegend />
+
         <div className="irow3">
           <div className="ibox">
             <div className="ik">Estimate</div>
@@ -909,11 +1036,11 @@ function Overview({
           </div>
         )}
 
-        <WhatToLockNext model={model} eventId={eventId} />
+        <AlsoComingUp model={model} eventId={eventId} />
       </div>
 
       <p className="intro-cta">
-        Swipe to start viewing the services
+        Swipe up to view your services
         <span className="chev" aria-hidden>
           ↓
         </span>
@@ -922,37 +1049,131 @@ function Overview({
   );
 }
 
-function WhatToLockNext({
+// Surface-2 cover · the remaining due categories. NextAction promotes
+// dueList[0] into the hero banner, so this lists dueList[1..] under "Also
+// coming up" (and renders nothing when there's only the one). The calm / empty
+// cases are handled by NextAction's reassuring state — no list needed.
+function AlsoComingUp({
   model,
   eventId,
 }: {
   model: PlanBudgetModel;
   eventId: string;
 }) {
-  const hasDue = model.dueList.length > 0;
-  const calmUpNext = !hasDue && model.upNext ? model.upNext : null;
+  const more = model.dueList.slice(1);
+  if (more.length === 0) return null;
+  return (
+    <div className="ibox dl">
+      <div className="dl-tag">Also coming up</div>
+      {more.map((d) => (
+        <DueRow key={d.groupId} item={d} eventId={eventId} />
+      ))}
+    </div>
+  );
+}
 
-  if (!hasDue && !calmUpNext) {
+// Action-first "do this next" banner (owner 2026-06-04). Promotes the single
+// most-urgent category — dueList[0], else the calm upNext — into a tappable
+// jump to its rail, so the populated cover answers "what do I do?", not just
+// "what's the score?". Falls back to a reassuring, non-link calm state when
+// nothing's pressing. Verb adapts: never-locked → "Start with", overdue →
+// "Lock your", otherwise "Choose your".
+function NextAction({
+  model,
+  eventId,
+}: {
+  model: PlanBudgetModel;
+  eventId: string;
+}) {
+  const primary = model.dueList[0] ?? model.upNext ?? null;
+
+  if (!primary) {
     return (
-      <div className="ibox dl">
-        <div className="dl-tag">What to lock next</div>
-        <p className="dl-empty">
-          Nothing&rsquo;s urgent right now — you&rsquo;re ahead of the clock.
-        </p>
+      <div className="intro-next calm">
+        <span className="nx-ico" aria-hidden>
+          ✓
+        </span>
+        <span className="nx-main">
+          <span className="nx-k">You&rsquo;re on pace</span>
+          <span className="nx-h">
+            Nothing&rsquo;s urgent — browse any category below.
+          </span>
+        </span>
       </div>
     );
   }
 
+  const overdue = primary.timelineStatus === 'overdue';
+  const neverLocked = model.recap.finalized === 0;
+  const head = overdue
+    ? `Lock your ${primary.label}`
+    : neverLocked
+      ? `Start with ${primary.label}`
+      : `Choose your ${primary.label}`;
+  // optionCount = how many they've already shortlisted in this category.
+  const n = primary.optionCount;
+  const shortlistLine =
+    n === 0
+      ? 'Find one to shortlist'
+      : n === 1
+        ? '1 shortlisted — ready to lock'
+        : `${n} shortlisted — compare & lock one`;
+  const timeLine = overdue
+    ? `${Math.abs(primary.daysLeft)}d overdue`
+    : primary.timelineStatus === 'due_soon'
+      ? `${primary.daysLeft}d left`
+      : primary.timelineStatus === 'start_now'
+        ? 'time to start'
+        : null;
+  const sub = timeLine ? `${shortlistLine} · ${timeLine}` : shortlistLine;
+
   return (
-    <div className="ibox dl">
-      <div className="dl-tag">{hasDue ? 'What to lock next' : 'Next up'}</div>
-      {hasDue
-        ? model.dueList.map((d) => (
-            <DueRow key={d.groupId} item={d} eventId={eventId} />
-          ))
-        : calmUpNext && (
-            <DueRow item={calmUpNext} eventId={eventId} calm />
-          )}
+    <Link
+      href={`/dashboard/${eventId}/vendors#group-${primary.groupId}`}
+      className="intro-next"
+    >
+      <span className="nx-ico" aria-hidden>
+        →
+      </span>
+      <span className="nx-main">
+        <span className="nx-k">{overdue ? 'Now overdue' : 'Do this next'}</span>
+        <span className="nx-h">{head}</span>
+        <span className="nx-d">{sub}</span>
+      </span>
+      <span className="nx-go" aria-hidden>
+        ›
+      </span>
+    </Link>
+  );
+}
+
+// Persistent Find → Shortlist → Lock legend (owner 2026-06-04). The 3-step
+// "how it works" used to live ONLY on the empty cover; this keeps the mechanic
+// in view once the couple is actually working the rails.
+function LoopLegend() {
+  return (
+    <div
+      className="intro-loop"
+      aria-label="How it works: find, then shortlist, then lock"
+    >
+      <span className="lp">
+        <span className="lp-n">1</span>
+        <span className="lp-t">Find</span>
+      </span>
+      <span className="lp-sep" aria-hidden>
+        →
+      </span>
+      <span className="lp">
+        <span className="lp-n">2</span>
+        <span className="lp-t">Shortlist</span>
+      </span>
+      <span className="lp-sep" aria-hidden>
+        →
+      </span>
+      <span className="lp">
+        <span className="lp-n">3</span>
+        <span className="lp-t">Lock</span>
+      </span>
     </div>
   );
 }
@@ -1009,12 +1230,14 @@ function FolderSection({
   index,
   onCompare,
   onOpenSearch,
+  lockHintKey,
 }: {
   folder: AccordionFolder;
   eventId: string;
   index: number;
   onCompare: (child: AccordionChild) => void;
   onOpenSearch: (groupId: string, label: string) => void;
+  lockHintKey: string | null;
 }) {
   const hasLocked = folder.lockedTotal > 0;
   // Folders render always-open (the prototype model) so the scroll engine can
@@ -1058,6 +1281,7 @@ function FolderSection({
                 folderIndex={index}
                 onCompare={onCompare}
                 onOpenSearch={onOpenSearch}
+                lockHintKey={lockHintKey}
               />
             </div>
           ))
@@ -1084,6 +1308,7 @@ function ChildRail({
   folderIndex,
   onCompare,
   onOpenSearch,
+  lockHintKey,
 }: {
   child: AccordionChild;
   eventId: string;
@@ -1094,6 +1319,7 @@ function ChildRail({
   folderIndex: number;
   onCompare: (child: AccordionChild) => void;
   onOpenSearch: (groupId: string, label: string) => void;
+  lockHintKey: string | null;
 }) {
   // Setnayan in-app services that belong to this category — prepended to the
   // rail as supplementary ✦ Setnayan cards (float-to-top). A category with a
@@ -1154,6 +1380,7 @@ function ChildRail({
               eventId={eventId}
               groupId={child.groupId}
               groupLabel={child.label}
+              lockHintKey={lockHintKey}
             />
           ))}
           {/* Collapse on a hard-single finalize: the slot is filled (one
@@ -1206,14 +1433,20 @@ function VendorCardAtom({
   eventId,
   groupId,
   groupLabel,
+  lockHintKey,
 }: {
   pick: AccordionPick;
   eventId: string;
   groupId: PlanGroupId;
   groupLabel: string;
+  lockHintKey: string | null;
 }) {
   const [confirmRemove, setConfirmRemove] = useState(false);
   const locked = isLocked(pick);
+  // The one-time "what Lock does" helper attaches to exactly one card — the
+  // first lockable pick — while the first-run coachmark is live (see root).
+  const showLockHint =
+    lockHintKey !== null && lockHintKey === `${groupId}|${pick.vendor_id}`;
   const displayName =
     pick.marketplace_business_name ?? pick.vendor_name ?? 'Vendor';
   const photo =
@@ -1401,6 +1634,15 @@ function VendorCardAtom({
           vendorId={pick.vendor_id}
           vendorName={displayName}
         />
+      )}
+
+      {/* One-time helper under the first lockable card — demystifies what
+          "Lock this pick" actually commits to (owner 2026-06-04). */}
+      {!locked && showLockHint && (
+        <p className="lockhint">
+          Locking sets this as your pick, updates your budget, and lets the
+          vendor know — you can change it anytime.
+        </p>
       )}
 
       {/* Locked → "↩ Change pick" reverts to considering (re-expands the rail). */}

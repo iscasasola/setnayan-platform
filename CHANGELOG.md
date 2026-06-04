@@ -4,22 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
-## 2026-06-04 · feat(onboarding): monogram → 5 live-typography lockups (no frames)
+## 2026-06-04 · feat(0021/vendors): "Where your day stands" — make the cover DIRECTIVE + teach the loop
 
-**Context:** Owner sent 4 reference monograms with per-design rules — *"design 1 is two capital letters with their first name on the center and a vertical line with & sign… design 2 are 3 letter scripts… design 3 … without the vertical line and the letters are more close… design 5 is 2 capital letters that creates an infinity design… with the rules of each design, can we do this?"* plus *"no frame."*
+**Context:** Owner — as a customer landing on the Vendors tab's "Where your day stands" overview, then swiping up into the category rails, it wasn't clear *what to do*. The Find→Shortlist→Lock loop was explained ONLY on the EMPTY cover; the moment the couple had a single pick, all guidance vanished and they were dropped into bare rails. Chosen approach: **both** an action-first cover AND in-rail coaching.
 
-**What changed:** Replaced the 10 `{frame+font+ink}` image-frame monogram presets with **5 live-typography lockups** rendered from the couple's real initials + first names — new `apps/web/app/onboarding/wedding/_components/mono-lockup.tsx`:
-1. **bar** — two serif caps flanking a vertical line carrying `&`, first names below
-2. **script** — three Great Vibes glyphs (initial · `&` · initial), flowing
-3. **duo** — two Playfair caps pulled close / overlapping, no line
-4. **framed** — initials inside an ornate gold frame (reuses the #957 `wreath` art)
-5. **infinity** — two caps in the loops of a gold `∞` SVG that links them
+**What changed** (all in `apps/web/app/dashboard/[eventId]/vendors/_components/plan-budget-accordion.tsx`, scoped `.pbacc` CSS — no schema, no new SKU, no pricing):
+- **Action-first cover.** The populated overview now leads with a tappable **"Do this next"** banner (`NextAction`) that promotes the single most-urgent category (`dueList[0]` ?? `upNext`) into a jump to its rail. Verb adapts (never-locked → "Start with", overdue → "Lock your", else "Choose your"); sub-line derives from `optionCount` + the timeline status. Calm "You're on pace" state when nothing's pressing.
+- **Persistent loop legend.** A compact **Find → Shortlist → Lock** legend (`LoopLegend`) now stays in view on the populated cover (was empty-state-only).
+- **Deduped deadline list.** Old "What to lock next" box → **"Also coming up"** (`AlsoComingUp`), listing `dueList[1..]` (the banner owns `dueList[0]`); calm/empty cases handled by the banner.
+- **First-run coachmark.** A dismissible coachmark (`.pba-coach`) at the top of the category list teaches Tap / Compare / Lock — shown ONLY while `recap.shortlisted > 0 && recap.finalized === 0` (the "I have cards, now what?" moment), self-retires after the first lock, dismissal persisted in `localStorage['pba_coach_v1']`.
+- **Point-of-action Lock helper.** A one-time `.lockhint` under the first lockable card explains what "Lock this pick" commits to (sets pick · updates budget · notifies vendor · changeable). Same gate/dismissal as the coachmark, threaded via a single `lockHintKey` string (root → FolderSection → ChildRail → VendorCardAtom).
+- **CTA copy.** "Swipe to start viewing the services" → "Swipe up to view your services" (both cover states).
+- Dark-mode rules added for every new element.
 
-"Generate another design" cycles the 5; the mark stays razor-crisp at any size (no image gen except design 4's frame). `onboarding-shell.tsx`: new `MONO_DESIGNS` (5 × `{style,font,frame?}`), `MonoLockup` swapped in for the old `.mono-mark`, dead `monoMark` const removed. CSS appended to `onboarding.css` (`.mono-lk` + `.lk-bar/script/duo/framed/infinity`); the old `.mono-mark`/`.mono-letters` rules are now dead (left in place for a safe diff, prune later).
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean (no new warnings) · light + dark visual render confirmed against the component's real scoped CSS. Isolated worktree off `origin/main`.
 
-**Verification:** `tsc --noEmit` clean · `next lint app/onboarding` clean.
-
-**SPEC IMPACT:** 0037 Bespoke / "Animated" Monogram — the onboarding monogram designer is now a 5-style typographic lockup set, not the 10 decorative gold frames. Follow-up (NOT in this PR): persist the chosen `style` and propagate the lockup to the dashboard monogram card + event-switcher icon + invitation/QR/hero/save-the-date (those still render from `monogram_frame_key`/`monogram_font_key`). Logged to COWORK_INBOX.
+**SPEC IMPACT:** The "Where your day stands" overview (surface §2) gains an action-first banner + persistent loop legend; "What to lock next" → "Also coming up" (now the `dueList` remainder); new first-run coachmark + point-of-action Lock helper teach the loop in the rails; CTA copy updated. → `Vendors_Plan_Budget_Tab_Spec_2026-05-31.md` §2. Logged in `COWORK_INBOX.md`.
 
 ## 2026-06-04 · assets(onboarding): premium 2D monogram frames (11, transparent gold)
 

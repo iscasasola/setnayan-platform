@@ -8,21 +8,18 @@
 
 ---
 
-## [PENDING] 2026-06-04 — Onboarding monogram = 5 live-typography lockups (0037)
+## [DONE 2026-06-04] — "Where your day stands" cover made directive + in-rail loop coaching (0021 Vendors / Plan & Budget)
 
-**Why:** Owner replaced the decorative gold-frame monogram set with 5 typographic lockups driven by the couple's real initials + first names ("no frame"). Shipped in onboarding; the spec + downstream surfaces need to follow.
+**Why:** Customers couldn't tell what to do on the Vendors "Where your day stands" overview once they'd started — the Find→Shortlist→Lock loop was taught ONLY on the empty cover. Added an action-first banner, a persistent loop legend, a first-run coachmark, and a point-of-action Lock helper.
 
 **Spec corpus updates (owner walks via Cowork):**
-1. **`0037_bespoke_monogram` (and wherever the onboarding monogram designer is specced — 0000 / 0021)** — document the 5 designs + rules:
-   - **bar** — two serif capitals flanking a vertical line carrying `&`, first names below
-   - **script** — three calligraphy glyphs (initial · `&` · initial)
-   - **duo** — two serif capitals close / overlapping, no line
-   - **framed** — initials inside an ornate gold frame
-   - **infinity** — two capitals linked by a gold `∞`
-2. **Open follow-up to record:** persist the chosen style + propagate the lockup beyond onboarding (dashboard monogram card, event-switcher icon, invitation / QR / hero / save-the-date) — these still read `monogram_frame_key`/`monogram_font_key`; a `monogram_style` column (or equivalent) is needed.
-3. **Design-4 open questions:** it currently reuses the `wreath` gold frame and renders BOTH initials; the owner's reference showed a SINGLE letter in an ornate filigree circle — confirm (a) source/generate a matching filigree-circle frame, and (b) one initial vs. both.
+1. **`Vendors_Plan_Budget_Tab_Spec_2026-05-31.md` §2 (the "Where your day stands" overview)** — document the new populated-cover structure: (a) an action-first **"Do this next"** banner promoting the single most-urgent category (verb adapts: Start with / Lock your / Choose your), (b) a persistent **Find → Shortlist → Lock** legend, (c) the deadline list renamed **"What to lock next" → "Also coming up"** (now the `dueList` remainder, since the banner owns the top item), (d) the calm "You're on pace" state.
+2. **Same spec — new "first-run coaching" note** — a dismissible coachmark at the top of the category list (Tap / Compare / Lock this pick) + a one-time Lock helper under the first lockable card, both shown only while the couple has shortlisted but locked nothing (`localStorage` `pba_coach_v1`), self-retiring after the first lock.
+3. **Cover CTA copy** — "Swipe to start viewing the services" → **"Swipe up to view your services"**.
 
-**Rationale:** Keeps the spec aligned with the shipped onboarding experience and flags the cross-surface propagation + two open design questions.
+**Done 2026-06-04 (Claude Code Cowork pass):** `Vendors_Plan_Budget_Tab_Spec_2026-05-31.md` §2.B rewritten (the directive "Where your day stands" cover) + §2.D first-run-coaching note added; `.docx` mirror regenerated; `DECISION_LOG.md` row appended. Corpus edits left uncommitted in the working tree for owner review.
+
+---
 
 ## [PENDING] 2026-06-04 — Vendor request-a-category governance shipped (0023 §3.2c / 0022)
 

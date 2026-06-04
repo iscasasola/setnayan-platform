@@ -157,3 +157,128 @@ export async function remapCanonical(formData: FormData) {
   revalidatePath('/vendors');
   redirect(`${BASE}?ok=${encodeURIComponent('Re-mapped — the marketplace re-buckets live.')}`);
 }
+
+/** Slugify a label into a stable key (sep '_' for the id, '-' for the slug). */
+function slugify(label: string, sep: '_' | '-'): string {
+  return label
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^a-z0-9]+/g, sep)
+    .replace(new RegExp(`^\\${sep}+|\\${sep}+$`, 'g'), '');
+}
+
+/**
+ * Admin: add a new tile under a parent — the expandable-taxonomy core. The
+ * tile goes live on `/vendors` with no deploy (the catalog reads the snapshot),
+ * ready to receive re-mapped canonicals. Audit-logged.
+ */
+export async function createTaxonomyNode(formData: FormData) {
+  const user = await requireAdmin();
+  const parentId = String(formData.get('parent_id') ?? '').trim();
+  const label = String(formData.get('label_en') ?? '').trim();
+  if (!parentId) throw new Error('Missing parent_id');
+  if (label.length < 2 || label.length > 80) {
+    redirect(`${BASE}?error=${encodeURIComponent('Label must be 2–80 characters.')}`);
+  }
+  const id = slugify(label, '_');
+  const slug = slugify(label, '-');
+  if (!id || !slug) {
+    redirect(`${BASE}?error=${encodeURIComponent('Label needs letters or numbers.')}`);
+  }
+  const admin = createAdminClient();
+  const { data: parent } = await admin
+    .from('service_categories')
+    .select('id, tier')
+    .eq('id', parentId)
+    .maybeSingle();
+  if (!parent || parent.tier !== 1) {
+    redirect(`${BASE}?error=${encodeURIComponent('Pick a valid parent.')}`);
+  }
+  const { data: existing } = await admin
+    .from('service_categories')
+    .select('id')
+    .eq('id', id)
+    .maybeSingle();
+  if (existing) {
+    redirect(`${BASE}?error=${encodeURIComponent(`A node "${id}" already exists — pick a different label.`)}`);
+  }
+  const { data: lastSibling } = await admin
+    .from('service_categories')
+    .select('sort_order')
+    .eq('parent_id', parentId)
+    .order('sort_order', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextSort = ((lastSibling?.sort_order as number | undefined) ?? -1) + 1;
+  const row = {
+    id,
+    parent_id: parentId,
+    tier: 2,
+    kind: 'leaf',
+    label_en: label,
+    slug,
+    sort_order: nextSort,
+    scope: 'global',
+    marketplace_hidden: false,
+    status: 'active',
+  };
+  const { error } = await admin.from('service_categories').insert(row);
+  if (error) redirect(`${BASE}?error=${encodeURIComponent(error.message)}`);
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.create',
+    target_table: 'service_categories',
+    target_id: id,
+    after_json: row,
+    actor_user_id: user.id,
+  });
+  revalidatePath(BASE);
+  revalidatePath('/vendors');
+  redirect(`${BASE}?ok=${encodeURIComponent(`Added tile "${label}" under ${parentId}.`)}`);
+}
+
+/**
+ * Admin: delete a tile. Guarded against orphans — refuses if it has child nodes
+ * or any canonical_service still mapped to it (re-map those first). Parents are
+ * owner-managed and not deletable here. Audit-logged.
+ */
+export async function deleteTaxonomyNode(formData: FormData) {
+  const user = await requireAdmin();
+  const id = String(formData.get('id') ?? '').trim();
+  if (!id) throw new Error('Missing node id');
+  const admin = createAdminClient();
+  const { data: before } = await admin
+    .from('service_categories')
+    .select('id, tier, label_en, parent_id')
+    .eq('id', id)
+    .maybeSingle();
+  if (!before) redirect(`${BASE}?error=${encodeURIComponent('Node not found.')}`);
+  if (before.tier === 1) {
+    redirect(`${BASE}?error=${encodeURIComponent('Parents are owner-managed — can’t delete here.')}`);
+  }
+  const { count: childCount } = await admin
+    .from('service_categories')
+    .select('id', { count: 'exact', head: true })
+    .eq('parent_id', id);
+  if ((childCount ?? 0) > 0) {
+    redirect(`${BASE}?error=${encodeURIComponent('Has sub-categories — remove them first.')}`);
+  }
+  const { count: mappedCount } = await admin
+    .from('canonical_service_taxonomy')
+    .select('canonical_service', { count: 'exact', head: true })
+    .eq('tile_id', id);
+  if ((mappedCount ?? 0) > 0) {
+    redirect(`${BASE}?error=${encodeURIComponent(`${mappedCount} service(s) still mapped here — re-map them first.`)}`);
+  }
+  const { error } = await admin.from('service_categories').delete().eq('id', id);
+  if (error) redirect(`${BASE}?error=${encodeURIComponent(error.message)}`);
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.delete',
+    target_table: 'service_categories',
+    target_id: id,
+    before_json: before,
+    actor_user_id: user.id,
+  });
+  revalidatePath(BASE);
+  revalidatePath('/vendors');
+  redirect(`${BASE}?ok=${encodeURIComponent(`Deleted "${before.label_en}".`)}`);
+}

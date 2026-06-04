@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · chore(scripts): virtual test-account seed toolkit (customer/vendor/admin scenarios)
+
+**Context:** Owner wants reusable, log-in-able accounts (one per role doorway) to play cross-user scenarios on the live site. No `SUPABASE_SERVICE_ROLE_KEY` is available locally, so these run over `SUPABASE_DB_URL` via `supabase db query` — they create the Supabase auth users directly in SQL (the `auth.admin` REST path isn't reachable without the service key).
+
+**What changed (new dev-only scripts under `apps/web/scripts/`, no app/runtime code):**
+- **`seed-test-accounts.sql`** — single idempotent `DO` block. Creates 3 accounts (`couple/vendor/admin.test@setnayan.com`, shared password) with confirmed `auth.users` + `auth.identities` rows (token varchars `''` to avoid GoTrue's NULL-scan login bug; `identities.email` is GENERATED so it's omitted). Triggers fill `public.users` + `vendor_profiles`. Admin gets `is_team_member=true`. Seeds a wedding event, a hidden vendor listing (`is_demo=true` + `public_visibility=coming_soon` ⇒ excluded from public marketplace + verified-vendor stats), and **phase 1 = the couple's private shortlist** (`event_vendors` `considering`, linked via `marketplace_vendor_id`, mirroring `saveVendorToPicks`). Intentionally NO inquiry thread — so a shortlist's invisibility to the vendor is observable.
+- **`seed-inquiry.sql`** — phase 2: the couple sends the inquiry (`chat_threads` pending + opening `chat_messages`), the first vendor-visible signal (chat_threads has vendor-read RLS; `event_vendors` does not).
+- **`reset-test-accounts.sql`** — teardown (cascade-deletes the 3 tagged accounts + all their data).
+
+**Verification:** ran against prod DB — all 3 accounts login-ready (`encrypted_password` round-trips via `extensions.crypt`, `email_confirmed_at` set, 1 identity each, `role=authenticated`); shortlist-only baseline confirmed (event_vendors `considering` + 0 chat_threads). Does not trip `check-no-demo-in-prod` (pre-deadline, +1 demo vendor « 2000 threshold).
+
+**SPEC IMPACT:** None. Dev/test tooling only — no schema, no SKU, no product surface, no spec-corpus change.
+
+---
+
 ## 2026-06-05 · feat(0022): vendor admins see everything — owner+admin RLS on the vendor's owner-only tables
 
 **Context:** Owner — *"the main account holders of the vendor page can see everything"* (agents see only their assigned services + customers). Phase 2b (#972) made the CORE surfaces role-aware (profile / services / chat). This fast-follow closes the tail: a set of the vendor's OWN tables still gated vendor access on a direct owner-only check — or on the PLATFORM `is_admin()` / `account_type='admin'` (Setnayan staff, **not** the vendor's own team-admin) — so a vendor-team ADMIN couldn't see the business's packages, contracts, calendar, payouts, ad subscriptions, tax filings, or token vouchers.

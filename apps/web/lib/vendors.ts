@@ -518,3 +518,10 @@ export function resolveVendorDisplayName(input: VendorAnonymityInput): string {
     ? `${taxonomyLabel} · ${input.location_city}`
     : taxonomyLabel;
 }
+
+/**
+ * Generic placeholder shown when a vendor/service has no usable photo.
+ * Bundled in /public so it's always available — no external dependency,
+ * never rate-limited. Used by the marketplace card + the category picker.
+ */
+export const VENDOR_PLACEHOLDER_PHOTO = '/placeholders/vendor.webp';

@@ -8,6 +8,21 @@
 
 ---
 
+## [PENDING] 2026-06-04 — Vendor listings show a generic placeholder photo when a vendor has no photo (0006 / 0015 / 0021)
+
+**Why:** Owner — "for vendors with no photo for their service, we must have at least a generic placeholder photo." The marketplace card + the category picker previously fell back to an initials monogram; now they fall back to a bundled neutral placeholder photo (`apps/web/public/placeholders/vendor.webp`).
+
+**Spec corpus update (owner walks via Cowork):**
+1. **0006 (Vendors) / 0015 (Marketplace) / 0021 (Couple dashboard plan picker)** — note that a vendor/service with no uploaded photo renders a generic placeholder **photo** (not initials) on cards + in the "Add to your plan" picker.
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-04 "generic placeholder photo for vendors with no photo". Asset is Recraft-generated — swap for a curated/branded image anytime by replacing `apps/web/public/placeholders/vendor.webp`. No migration.
+
+**Follow-up:** the vendor **detail page** (`/v/[slug]`) hero/portfolio gallery isn't covered yet — extend the same placeholder there if desired.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-04 — Per-leaf "full-criteria" matching: 0044 refinement layer + Hybrid contract + venue-enum reconciliation (0044 / 0016 / 0006)
 
 **Why:** Owner goal (verbatim intent): *"each leaf gets filtered properly with all the refinements and information provided — Location · Schedule · Pax · Wedding Religion · Type of Event · refinements/details of the venue — they must all comply for each leaf category."* Audit found the marketplace/onboarding matcher (`fetchWizardVendorRecommendations`) applies only **category + ceremony + venue_setting** (the last two NULL-safe and demo-uniform). Of the couple's signals, **region, schedule/date, pax/capacity, event-type, and every per-leaf refinement** were unfiltered. Owner locked **Hybrid** match semantics + "quick wins now, spec the refinement layer." The code PR (CHANGELOG 2026-06-04 `feat(0016/0044)`) shipped the two quick wins that use existing columns — **region + event-type** — into onboarding. This entry specs the rest.

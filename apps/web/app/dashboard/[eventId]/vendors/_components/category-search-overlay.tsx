@@ -22,6 +22,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { saveVendorToPicks } from '@/app/vendors/actions';
 import { haptic } from '@/lib/haptics';
+import { VENDOR_PLACEHOLDER_PHOTO } from '@/lib/vendors';
 import {
   searchCategoryVendors,
   type CategoryVendorResult,
@@ -88,13 +89,6 @@ const CSS = `
 .csov .fapply{width:100%;margin-top:6px;border:0;background:var(--mulberry);color:#fff;border-radius:14px;min-height:48px;font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;transition:transform .13s cubic-bezier(.2,.7,.2,1)}
 .csov .fapply:active{transform:scale(.98)}
 `;
-
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '·';
-  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
-  return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
-}
 
 const RADIUS_CHIPS: ReadonlyArray<{ label: string; km: number | null }> = [
   { label: 'Any distance', km: null },
@@ -278,7 +272,8 @@ export function CategorySearchOverlay({
                       }
                     />
                   ) : (
-                    initials(r.name)
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={VENDOR_PLACEHOLDER_PHOTO} alt="" />
                   )}
                 </div>
                 <div className="meta">

@@ -58,7 +58,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { MapPin, Navigation, Sparkles, Star, ExternalLink } from 'lucide-react';
 
-import { displayServiceLabel, formatPhp, resolveVendorDisplayName } from '@/lib/vendors';
+import { displayServiceLabel, formatPhp, resolveVendorDisplayName, VENDOR_PLACEHOLDER_PHOTO } from '@/lib/vendors';
 import { formatStarRating } from '@/lib/reviews';
 import { haversineKm, formatDistanceKm } from '@/lib/distance';
 import { parseVisibility, isBookable } from '@/lib/vendor-visibility';
@@ -443,45 +443,29 @@ function VendorHero({
   logoUrl: string | null;
   name: string;
 }) {
-  const initials =
-    name
-      .split(/\s+/)
-      .map((p) => p.charAt(0).toUpperCase())
-      .filter((c) => c.length > 0)
-      .slice(0, 2)
-      .join('') || '?';
-
-  const src = photoUrl && isOptimizableImageUrl(photoUrl)
-    ? photoUrl
-    : logoUrl && isOptimizableImageUrl(logoUrl)
-      ? logoUrl
-      : null;
+  // Always render a photo: the vendor's primary photo, else their logo, else
+  // the bundled generic placeholder (owner: "vendors with no photo for their
+  // service must have at least a generic placeholder photo"). No bare-initials
+  // tile — a missing photo now reads as a real image, never an empty monogram.
+  const src =
+    photoUrl && isOptimizableImageUrl(photoUrl)
+      ? photoUrl
+      : logoUrl && isOptimizableImageUrl(logoUrl)
+        ? logoUrl
+        : VENDOR_PLACEHOLDER_PHOTO;
 
   // Full-row banner on all viewports per owner directive 2026-05-22 PM.
   // Heights step from 32 (mobile) → 40 (tablet+) → 48 (lg+) so the photo
   // scales with the card width when the marketplace grid widens.
-  if (src) {
-    return (
-      <div className="relative h-32 w-full shrink-0 overflow-hidden rounded-xl bg-ink/5 sm:h-40 lg:h-48">
-        <Image
-          src={src}
-          alt={name}
-          fill
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-          className="object-cover"
-        />
-      </div>
-    );
-  }
-
   return (
-    <div
-      aria-hidden
-      className="flex h-32 w-full shrink-0 items-center justify-center rounded-xl bg-terracotta/10 sm:h-40 lg:h-48"
-    >
-      <span className="font-mono text-3xl font-semibold tracking-tight text-terracotta-700 sm:text-4xl lg:text-5xl">
-        {initials}
-      </span>
+    <div className="relative h-32 w-full shrink-0 overflow-hidden rounded-xl bg-ink/5 sm:h-40 lg:h-48">
+      <Image
+        src={src}
+        alt={name}
+        fill
+        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+        className="object-cover"
+      />
     </div>
   );
 }

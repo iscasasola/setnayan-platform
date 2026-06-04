@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(onboarding): free monogram animations — 5 auto-matched entrance effects
+
+**Context:** After previewing a 12-motion gallery, the owner locked monogram **animation as a FREE feature** with 5 effects, **auto-matched per lockup design**: infinity→**Trace** · bar→**Letter-by-letter** · duo→**Bloom** · framed→**Ink bleed** · script→**Living gold**. The other 7 motions (Gold shimmer, Glow pulse, Ring spin-in, Unveil, Drop & settle, Handwritten, Fade & rise) stay reserved for the paid Animated Monogram (₱2,499) so that SKU keeps a differentiator.
+
+**What changed (pure CSS + 2 tiny tsx tweaks — no schema, no per-render cost = ₱0):**
+- `onboarding.css` — appended 6 keyframes + per-style entrance animations matched to each lockup; `script` glyphs become a flowing gold gradient (`background-clip:text`, guarded by `@supports`). The effect follows the lockup class, so no data/persistence is needed; the drawing path (`infinity`) uses a normalized `pathLength=1` stroke.
+- `mono-lockup.tsx` — `pathLength={1}` on the ∞ path for the Trace draw-on.
+- `onboarding-shell.tsx` — `<MonoLockup key={monogramDesign}>` so "Generate another design" remounts and replays the matched effect; first arrival is covered by the screen's `display:none→flex` restart.
+- **Accessibility:** all motion is wrapped in `@media (prefers-reduced-motion: no-preference)`; reduced-motion users get the static final look (the base style).
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint app/onboarding` clean · faithful headless-chromium render of all 5 effects on the REAL lockup markup confirmed the entrance arcs (∞ draws, letters stagger, duo blooms, framed sharpens from blur, script flows gold).
+
+**Scope:** onboarding monogram screen only (where the design picker lives). Propagating the animated lockup to landing/QR/invitation surfaces rides with the earlier staged propagation follow-up.
+
+**SPEC IMPACT:** 0037 Animated Monogram — monogram animation is now a FREE feature (5 effects, auto-matched per design); the paid ₱2,499 SKU is repositioned to sell bespoke artwork + the 7 premium effects + cross-surface propagation. Logged to COWORK_INBOX.
+
 ## 2026-06-04 · fix(dashboard/home): countdown targets the earliest chosen date until settled (0021)
 
 **Context:** Owner — *"countdown is the earliest wedding date chosen until it is down to 1 wedding date."* The cockpit countdown (PR #968) only used the committed `event_date`, so couples still in candidate/window mode (onboarding events with `date_candidates[]` or a flexible `date_window`, before a single date is committed) saw "add your date" instead of a live countdown.

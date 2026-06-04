@@ -8,6 +8,15 @@
 
 ---
 
+## [PENDING] 2026-06-04 — Free monogram animations (5 effects) + paid SKU repositioning (0037)
+
+**Why:** Owner locked monogram animation as a FREE feature. Free set = 5 effects auto-matched per lockup design (infinity→Trace · bar→Letter-by-letter · duo→Bloom · framed→Ink bleed · script→Living gold). Shipped in onboarding (CSS-only, ₱0).
+
+**Spec corpus updates (owner via Cowork):**
+1. **`0037_bespoke_monogram`** — add the FREE animation tier: 5 effects, auto-matched per design, pure CSS / no per-render cost. The paid Animated Monogram (₱2,499) is **repositioned** — it no longer sells "animation" generically; it sells the **bespoke unique mark** + the **7 premium effects** (Gold shimmer, Glow pulse, Ring spin-in, Unveil, Drop & settle, Handwritten, Fade & rise) + cross-surface propagation.
+2. **Decision-log row:** "Monogram animation = FREE (5 auto-matched effects); paid SKU keeps bespoke + 7 premium effects + propagation."
+3. **Open follow-up:** the animated lockup currently shows only on the onboarding monogram screen; propagation to landing / QR / invitation / save-the-date is still staged (needs the `.onbw` lockup CSS extracted to a shared sheet).
+
 ## [PENDING] 2026-06-04 — couple Home reshaped into a "what now?" cockpit (0021 / 0016)
 
 **Why:** Owner directive — *"fix the first page (customer dashboard home): not too much text; updates + guides + a quick what-to-do-next."* After a side-by-side prototype review, the lean 2026-06-02 home (the "Your wedding details" recap + Upcoming + Activity) is reshaped into a cockpit. Removing the recap from Home + re-surfacing a "Today's Focus" next-action hero touches owner-locked decisions, so the corpus needs to catch up. Shipped as PR #968.

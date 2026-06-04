@@ -94,7 +94,8 @@ export function MonoLockup({ design, bi, gi, brideName, groomName, pop }: Props)
     <div className="mono-lk lk-inf" style={popStyle} role="img" aria-label={label}>
       <div className="lk-infwrap">
         <svg className="lk-infsvg" viewBox="0 0 200 92" aria-hidden="true" focusable="false">
-          <path d="M100 46 C76 14 26 14 26 46 C26 78 76 78 100 46 C124 14 174 14 174 46 C174 78 124 78 100 46 Z" />
+          {/* pathLength=1 normalizes the stroke for the Trace draw-on (free effect) */}
+          <path pathLength={1} d="M100 46 C76 14 26 14 26 46 C26 78 76 78 100 46 C124 14 174 14 174 46 C174 78 124 78 100 46 Z" />
         </svg>
         <span className="lk-cap lk-icap lk-icap-l">{a}</span>
         <span className="lk-cap lk-icap lk-icap-r">{b}</span>

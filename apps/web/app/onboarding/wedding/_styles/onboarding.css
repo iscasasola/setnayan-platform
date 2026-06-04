@@ -321,3 +321,46 @@
 .onbw .lk-inf .lk-icap{position:absolute;top:50%;font-family:var(--serif);font-style:italic;font-weight:600;font-size:clamp(40px,11vw,52px);color:var(--mulberry);line-height:1;}
 .onbw .lk-inf .lk-icap-l{left:30%;transform:translate(-50%,-50%);}
 .onbw .lk-inf .lk-icap-r{left:70%;transform:translate(-50%,-50%);}
+
+/* ── Free monogram entrance effects · owner-locked 2026-06-04 (auto-matched per design) ──
+   infinity→Trace · bar→Letter-by-letter · duo→Bloom · framed→Ink bleed · script→Living gold.
+   The effect follows the lockup style — pure CSS, no data, no per-render cost (₱0). Screens are
+   display:none until .active, so these fire when the name screen opens; <MonoLockup key={design}>
+   remounts to replay them on each "Generate another design". prefers-reduced-motion → no motion
+   (the base lockup styles above ARE the final visible look). */
+@keyframes lk-draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+@keyframes lk-fadeup{from{opacity:0;transform:translateY(11px)}to{opacity:1;transform:none}}
+@keyframes lk-bloom{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
+@keyframes lk-ink{from{opacity:0;filter:blur(13px)}to{opacity:1;filter:blur(0)}}
+@keyframes lk-capdraw{from{opacity:0;transform:translate(-50%,-50%) scale(.82)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+@keyframes lk-flow{from{background-position:0% 50%}to{background-position:300% 50%}}
+
+/* script → Living gold: gold gradient through the glyphs (static color base; flows under motion) */
+.onbw .lk-script .lk-scap,.onbw .lk-script .lk-samp{
+  background:linear-gradient(100deg,#A88340 0%,#E4C77E 26%,#A88340 50%,#E4C77E 74%,#A88340 100%);
+  background-size:300% 100%;}
+@supports ((-webkit-background-clip:text) or (background-clip:text)){
+  .onbw .lk-script .lk-scap,.onbw .lk-script .lk-samp{
+    -webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;}
+}
+
+@media (prefers-reduced-motion: no-preference){
+  /* infinity → Trace — the ∞ draws itself, then the initials settle in */
+  .onbw .lk-inf .lk-infsvg path{stroke-dasharray:1;animation:lk-draw 1.5s ease-in-out both;}
+  .onbw .lk-inf .lk-icap{animation:lk-capdraw .6s ease-out both;animation-delay:1s;}
+  .onbw .lk-inf .lk-names{animation:lk-fadeup .55s ease-out both;animation-delay:1.3s;}
+  /* bar → Letter by letter */
+  .onbw .lk-bar .lk-row>*{animation:lk-fadeup .5s ease-out both;}
+  .onbw .lk-bar .lk-row>*:nth-child(1){animation-delay:.05s;}
+  .onbw .lk-bar .lk-row>*:nth-child(2){animation-delay:.2s;}
+  .onbw .lk-bar .lk-row>*:nth-child(3){animation-delay:.35s;}
+  .onbw .lk-bar .lk-names{animation:lk-fadeup .5s ease-out both;animation-delay:.52s;}
+  /* duo → Bloom */
+  .onbw .lk-duo .lk-drow{animation:lk-bloom .62s cubic-bezier(.2,.8,.3,1) both;}
+  .onbw .lk-duo .lk-names{animation:lk-fadeup .5s ease-out both;animation-delay:.3s;}
+  /* framed → Ink bleed — the whole framed lockup blurs into focus */
+  .onbw .lk-framed{animation:lk-ink .85s ease-out both;}
+  /* script → Living gold flow + names settle */
+  .onbw .lk-script .lk-scap,.onbw .lk-script .lk-samp{animation:lk-flow 5s linear infinite;}
+  .onbw .lk-script .lk-names{animation:lk-fadeup .55s ease-out both;animation-delay:.5s;}
+}

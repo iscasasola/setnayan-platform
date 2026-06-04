@@ -2129,7 +2129,11 @@ export function OnboardingShell({
               <h1 className="q">The two of you.</h1>
               <p className="sub">Bride &amp; groom — it goes on your invitation, website &amp; monogram.</p>
               <figure className="monogram">
+                {/* key by design index so "Generate another design" remounts the
+                    lockup → its matched free entrance effect replays on every cycle
+                    (screen display:none→flex covers the first arrival). */}
                 <MonoLockup
+                  key={state.monogramDesign}
                   design={monoDesign}
                   bi={firstInitial(state.brideFirstName)}
                   gi={firstInitial(state.groomFirstName)}

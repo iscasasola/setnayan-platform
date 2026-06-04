@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(security): global security headers (pre-public-pilot hardening § B1)
+
+**Context:** Owner pre-public-pilot hardening pass (corpus `Pre_Public_Pilot_Hardening_2026-06-04.md`). A same-day security audit found the data layer strong (RLS on all 134 tables; public API auth-gated + contact-masked) but the HTTP edge bare — `apps/web/next.config.ts` set **zero** security headers. This ships the safe, non-breaking subset. Rate limiting (§ B2) is owner-side Cloudflare-edge config (no app code), per the owner's choice.
+
+**What changed:** A global `headers()` entry (`source: '/(.*)'`) adds 6 headers to every response:
+- `Strict-Transport-Security: max-age=63072000; includeSubDomains` (HTTPS-only; `preload` omitted to stay reversible)
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: SAMEORIGIN` **+** `Content-Security-Policy: frame-ancestors 'self'` — block external clickjacking while preserving the dashboard's same-origin landing-page preview iframe
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Permissions-Policy: camera=(self), microphone=(self), geolocation=(self), browsing-topics=()`
+
+**Deliberately NOT shipped:** a full resource/script CSP (`default-src`/`script-src`). It would have to enumerate every external origin we load (Supabase · Sentry · PostHog · R2 · Maya · YouTube · Google Fonts) and would break the inline Babel-standalone keynote decks under `public/keynote/*`. Tracked as a tested follow-up in the hardening doc.
+
+**Verification:** Static config change (no new imports/logic). All required CI checks green on PR #939 (typecheck + lint · production build · lighthouse · playwright e2e · Vercel preview).
+
+**SPEC IMPACT:** None — the hardening posture is already captured in the corpus (`Pre_Public_Pilot_Hardening_2026-06-04.md` + DECISION_LOG 2026-06-04). The pre-existing public-`/api/v1/vendors` vs "no public API in V1" drift is logged there for Cowork; it is not introduced by this change.
+
 ## 2026-06-04 · feat(onboarding): welcome hero depth-parallax + new copy
 
 **Context:** Owner — *"i want the exact photo but we want it to animate the background making it have depth"* + new welcome copy. (Cloud-overlay PR #936 set aside per the owner's "no"; left unmerged.)

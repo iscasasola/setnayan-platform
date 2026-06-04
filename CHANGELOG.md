@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(0022): Vendor agents — per-service assignment (Phase 2a)
+
+**Context:** Phase 2 of the vendor multi-user workspace (after the Phase-1 role-aware shell, #962). The owner wants agents to "see only the services + customers they manage." Investigation confirmed the customer↔service link exists (`event_vendors.service_id` → the booked `vendor_services` row), so per-service scoping is feasible. This is **Phase 2a — the assignment foundation**: owners/admins assign agents to specific services. Phase 2b consumes it (scopes the agent's dashboard reads + nav to assigned services + their customers, via RLS).
+
+**What changed:**
+- **Migration `20260816000000_vendor_service_agents.sql`** (new table, RLS, **applied to prod**) — `vendor_service_agents(vendor_service_id, vendor_team_member_id)`. RLS: any vendor member reads the map; **owner/admin manage** (via `current_vendor_ids('admin')`). On-delete-cascade from both parents.
+- **`lib/vendor-team.ts`** — `fetchAssignableServices()` + `fetchAgentServiceAssignments()` (member→service-ids map, scoped to the vendor's own services).
+- **`app/vendor-dashboard/team/actions.ts`** — `setVendorAgentServices()` (replace-on-save; clamps selection to the vendor's own services; RLS enforces owner/admin).
+- **`app/vendor-dashboard/team/page.tsx`** — under each **agent** member, a checkbox row of the vendor's services (pre-checked from current assignments) → Save.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean · `next build` exit 0 · migration dry-run showed only this file pending, then applied to prod. Isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** 0022 — new `vendor_service_agents` table + per-service agent assignment UI (the spec'd-but-unbuilt scoping foundation). Phase 2b (agent-scoped reads + RLS on services/threads + admins-see-all resolution + nav expansion) is next. → `COWORK_INBOX.md` [PENDING].
+
 ## 2026-06-04 · refactor(vendors/workspace): service-scoped per-vendor workspace page
 
 **Context:** Owner — clicking a finalized **service card** in the plan landed the couple on a page framed entirely around the *vendor* (big vendor header, hand-entered Costing, claim-link, cancel/dispute), with the thing they actually clicked — the **service/package** — buried as a small "What's included" list halfway down. Chosen approach: reframe the page to be **service-scoped** — lead with the booked service/package, demote the vendor to a "by {vendor}" attribution line. The URL's `[eventVendorId]` is the `event_vendors.vendor_id` PK, which binds to at most one locked package, so this needed no route/URL/schema change.

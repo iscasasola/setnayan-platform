@@ -126,3 +126,45 @@ export async function seedTraditionsFromDefaults() {
   }
   revalidatePath('/admin/wedding-traditions');
 }
+
+/**
+ * Replace ALL tradition items with the current code defaults
+ * (WEDDING_TRADITIONS_GUIDE) — deletes every existing row first, so it discards
+ * any manual edits. Use it to pull in a fresh / improved starter set across all
+ * religions at once. Distinct from seedTraditionsFromDefaults (which only fills
+ * religions that have no rows).
+ */
+export async function resetTraditionsToDefaults() {
+  await requireAdmin();
+  const admin = createAdminClient();
+
+  const rows: Array<Record<string, unknown>> = [];
+  for (const [key, guide] of Object.entries(WEDDING_TRADITIONS_GUIDE)) {
+    if (key === 'unknown') continue;
+    guide.items.forEach((item, i) => {
+      rows.push({
+        ceremony_type: key,
+        dimension: item.dimension,
+        label: item.label,
+        note: item.note,
+        sort_order: i * 10,
+        is_active: true,
+      });
+    });
+  }
+
+  // Delete-all (the `not is null` filter matches every row — supabase requires
+  // a filter on delete), then re-insert. The window between the two is tiny +
+  // admin-only; a couple loading /paperwork mid-reset falls back to the code
+  // defaults (identical content), so there is no broken state.
+  const { error: delErr } = await admin
+    .from('wedding_tradition_items')
+    .delete()
+    .not('item_id', 'is', null);
+  if (delErr) throw new Error(delErr.message);
+  if (rows.length > 0) {
+    const { error: insErr } = await admin.from('wedding_tradition_items').insert(rows);
+    if (insErr) throw new Error(insErr.message);
+  }
+  revalidatePath('/admin/wedding-traditions');
+}

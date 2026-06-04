@@ -18,6 +18,28 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** The taxonomy editor can now **mint a new bookable canonical leaf** (schema stub + tile mapping + optional refinement) at runtime — extends 0023 §3.15 beyond rename/remap/add-tile/delete/reorder. Couple-side `vendor_category` is now **anchored to the canonical taxonomy** (new A/B/C mapping). → `COWORK_INBOX.md` (0023 + 0006).
 
+## 2026-06-04 · feat(0043,0023): per-religion traditions accuracy pass + "Reset to latest" admin action
+
+**Context:** Owner-approved accuracy pass on the per-religion "What to expect" content (`lib/wedding-traditions.ts`), grounded in standard PH wedding practice — especially the flagged INC / Muslim / Cultural / Chinese — keeping the honest "confirm with your {officiant}" framing.
+
+**What changed:**
+- **`lib/wedding-traditions.ts`** — enriched all 8 religions: Catholic (Pre-Cana + canonical interview; certs "for marriage purposes"; veil/cord/arrhae), Civil (LGU pre-marriage counseling; 120-day license), Christian (registered solemnizing officer), **INC** (members in good standing / non-member baptism into the Church; Kapilya; alcohol-free + wholesome program), **Muslim** (Nikah/akad; mahr/wali/two witnesses; Walima; gender separation + modesty; halal; PD 1083 Shari'a registration), **Cultural** (datu/elder; sub-type captures the specific tradition; bride-price + family exchanges), **Chinese** (tea ceremony in seniority order; **auspicious date**; guo da li; red qipao; lauriat). Content remains starter guidance pending clergy confirmation.
+- **`/admin/wedding-traditions`** — new **"Reset all to latest starter content"** action (`resetTraditionsToDefaults`) + button: replaces every religion's items with the current code defaults (this accuracy pass), with a clear "discards manual edits" warning. Distinct from "Load starter content" (fills empty religions only). Lets the owner pull the improved content into the live `wedding_tradition_items` table in one click.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean. The `20260807000000` table is already applied in prod; the live content refreshes when an admin clicks Reset.
+
+**SPEC IMPACT:** Minor — iteration **0023** Wedding-traditions surface gains a "Reset all to latest starter content" action. Content stays owner/clergy-validatable in the editor.
+
+## 2026-06-04 · fix(0000): add-event switcher copy → all-live (drop "more event types unlock over time")
+
+**Context:** Owner-approved follow-up. The event-switcher "+ Add event" sheet subtitle still read *"Weddings and debuts are live now. Swipe through to see what's on the way — more event types unlock over time"* — roadmap-flavored + contradictory now that all 9 event types are live ("keep everything live"). The create-event page header was already fixed (#888); this was the last stale string.
+
+**What changed:** `event-switcher.tsx` addtype subtitle → *"Swipe through and tap the one you're planning."* (accurate for all-live; no coming-soon / unlock implication).
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean.
+
+**SPEC IMPACT:** Minor — resolves the "noted follow-up" copy tweak flagged in spec `0000` §2.5 (add-event sheet line). The spec note is updated to match.
+
 ## 2026-06-04 · feat(0016): Schedule dimension — vendor availability filter (leaf-match · the last dimension)
 
 **Context:** The one deferred leaf-match dimension. A reception venue booked on every one of the couple's possible dates shouldn't show. The availability infrastructure already existed (`lib/vendor-availability.ts` · `vendor_calendar_blocks` · batched `getBatchVendorAvailableDays`, all cron-free read-time + failing-open), and the public `/vendors` marketplace already used it — but the leaf-match matcher + onboarding didn't. This wires it in.

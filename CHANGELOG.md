@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · chore(dashboard): remove dead PersonalizedMenu component + unused menu builders (0021)
+
+**Context:** PR #978 moved the couple's personalization onto the Services tab (the "Matching you on" strip), leaving the old `PersonalizedMenu` card rendered nowhere — home dropped it in the cockpit refactor and `/for-you` is now a redirect. It survived only because it still exported the `TasteChip` type. This removes the dead code.
+
+**What changed:**
+- Moved `export type TasteChip = { label: string }` into `lib/personalized-menu.ts` (its natural home — `buildTasteChips` returns `TasteChip[]`); removed the lib's cross-import from the component; repointed `match-criteria-strip.tsx` to import it from `@/lib/personalized-menu`.
+- **Deleted** `app/dashboard/[eventId]/_components/personalized-menu.tsx` (the unrendered `PersonalizedMenu` card · ~190 lines).
+- **Deleted** the now-unused lib exports + private helpers — `buildServiceFeatures`, `buildWeddingDetailRows`, `ServiceFeature`, `WeddingDetailRow`, `SERVICE_FEATURE_LABELS`, `SERVICE_FEATURE_ORDER`, `cleanFeatureValue`, `featureValueString`, `budgetValueBare`, `stylePrefValue` — and dropped the orphaned `style_preferences` field from `EventTasteSource`. Verified **zero importers** before each deletion. **Kept** everything `buildTasteChips`/`formatWeddingDateLabel` + the `/details` page still use (`EventTasteSource`, `CEREMONY_LABEL`/`VENUE_LABEL`/`REGION_LABEL`, `titleCase`, `formatBudget`, `fmtISODate`).
+- Net **−379 / +11** lines.
+
+**Verify:** `tsc --noEmit` + `next lint` green (only pre-existing warnings). **No behavior change** — nothing rendered this code.
+
+**SPEC IMPACT:** None — internal dead-code removal; closes the follow-up flagged in the 2026-06-05 "personalization → Services strip" row.
+
 ## 2026-06-05 · feat(matcher): Layer-B "matches your preference" float on the vendor matcher (0044 / Vendor_Match_Personalization)
 
 **Context:** The couple-side `event_vendor_preferences` (migration `20260721000000`) and vendor-side `vendor_service_attributes` (iteration 0044) tables were shipped as **foundation only** — storage with no read wired, because the live marketplace is founder-only so `vendor_service_attributes` carries no facet tags yet. This PR lands the **match-read** those migrations were built to enable: the Layer-B "matches your preference" sort from `Vendor_Match_Personalization_2026-06-01.md` §8/§9. It mirrors the existing **song-overlap re-rank** exactly, generalized from music to every category.

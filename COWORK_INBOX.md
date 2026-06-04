@@ -8,6 +8,24 @@
 
 ---
 
+## [PENDING] 2026-06-04 — per-vendor workspace reframed vendor-scoped → service-scoped (0006 / 0021)
+
+**Why:** Clicking a finalized **service card** landed the couple on a page framed around the *vendor*, not the *service* they clicked. Reframed so the booked service/package is the hero (name · blurb · inclusions · price · status) and the vendor is a secondary "by {vendor}" attribution line. Owner-chosen 2026-06-04. This surface (`/dashboard/[eventId]/vendors/[eventVendorId]/workspace`) traces to the 2026-05-22 owner directive and was never written into the spec corpus.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`DECISION_LOG.md`** — add a row: *"2026-06-04 · Per-vendor workspace page is service-scoped — service/package is the hero (name/blurb/inclusions/price/order-status); vendor demoted to a 'by {vendor}' attribution; status stepper collapsed to 3 truthful stages (Plan finalized → Downpayment paid → Delivered); first-party Setnayan services render 'Provided by Setnayan'. URL's `vendor_id` PK already binds one service context — no route/schema change."*
+2. **`0006_vendors_management/0006_vendors_management.md`** (and/or **`0021_couple_dashboard_fully_purchased.md`**) — document the per-service workspace surface: the section order (service hero · what's included · order & payment status + payments · conversation · documents · schedules · marketplace info · costing · your notes · claim-link), reached by clicking a finalized service card.
+
+**Fast-follows to note (deferred, NOT in this PR):**
+- First-party **Setnayan service** chrome: hide the host Costing form + cancel/dispute, show a real **iteration-0034 order-and-pay** status panel (Setnayan services are order-and-pay, not host-tracked).
+- `fetchBudgetSnapshot` per-vendor overfetch (pulls all vendors, `.find()`s one).
+- `ensureAutoShareInvite` write-on-render (page.tsx) → move into finalize / a server action.
+- Two dead `workspace/actions.ts` exports (`advanceWorkspaceStatus`/`advanceWorkspaceStatusForm`) — wire or delete.
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
 ## [PENDING] 2026-06-04 — Admin dashboard remap: 6 groups + mobile table/orphan fixes (0023)
 
 **Why:** Owner directive to simplify the admin console + fix mobile. Desktop sidebar collapsed **8 → 6 groups**; 4 mobile-overflowing tables fixed; the `/admin/songs` mobile orphan reached.

@@ -6,16 +6,29 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ## 2026-06-04 · style(onboarding): welcome → 1 photo · pax + budget self-describing number inputs
 
-**Context:** Owner — the welcome was showing "2 angles" (the depth parallax overlaying a shifted copy); want 1 clean photo. And restructure the pax + budget inputs.
+**Context:** Owner — welcome showed "2 angles" (depth parallax); want 1 clean photo. And restructure the pax + budget inputs.
 
 **What changed:**
-- **Welcome → 1 photo.** Removed the WebGL depth-parallax (swapped `WelcomeParallax` → `HeroImg`); the welcome hero is now the clean single photo (cover + Ken-Burns drift). `welcome-parallax.tsx` + `welcome-depth.png` now unused.
-- **Pax input.** Removed the big "N guests" readout + the "Exact count" label; the input is a self-describing box showing the number **+ "guests"/"guest"**.
-- **Budget input.** Removed the "Your budget" label + the separate ₱; the box shows **₱ + the number**; **"No limit"** moved out of the min/max row to sit **beside the budget box** (tighter row).
+- **Welcome → 1 photo.** Swapped `WelcomeParallax` → `HeroImg` (removed the depth parallax). Clean single photo + Ken-Burns.
+- **Pax input.** Removed the "N guests" readout + "Exact count" label; the box shows the number **+ "guests"/"guest"**.
+- **Budget input.** Removed "Your budget" + the separate ₱; the box shows **₱ + number**; **"No limit"** moved beside the box.
 
 **Verification:** `tsc --noEmit` exit 0 · `next lint` clean.
 
-**SPEC IMPACT:** None (onboarding pax/budget input layout + welcome photo).
+**SPEC IMPACT:** None.
+
+## 2026-06-04 · style(onboarding): drifting cloud layer over the welcome hero sky
+
+**Context:** Owner — *"add the moving clouds effect."* No video generator is wired into this session (Recraft is stills-only), so a true "the photo's own clouds drift" clip can't be produced here. This adds the achievable version — a drifting cloud **layer** over the sky.
+
+**What changed:** CSS + one asset (extends the `data-welcome` welcome screen):
+- `public/onboarding/clouds-overlay.webp` (51 KB) — a Recraft cloud texture (white clouds on black), Pillow-processed to **fade its left/right edges to black** so it tiles seamlessly under a screen blend.
+- `.welcomehero::after` — texture `repeat-x`, **`mix-blend-mode:screen`** (only the light clouds show over the photo), masked to the upper sky (fades out before the couple), `opacity:.3`, drifting via `@keyframes clouddrift` (100 s). Auto-static under `prefers-reduced-motion`.
+- It's an **added** high-cloud layer — the photo's own clouds stay still; the true effect needs a video loop (Higgsfield/Runway/Kling), offered as a follow-up.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean. **Held for owner review on the Vercel preview** (subjective hero look) before merge.
+
+**SPEC IMPACT:** Extends the welcome-screen item already in `COWORK_INBOX.md` (welcome now full-bleed + animated + a drifting cloud layer). None new.
 
 ## 2026-06-04 · fix(onboarding): location picks grow-in-place split + equal-size faith chips
 

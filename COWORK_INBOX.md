@@ -8,6 +8,36 @@
 
 ---
 
+## [PENDING] 2026-06-04 — Per-leaf "full-criteria" matching: 0044 refinement layer + Hybrid contract + venue-enum reconciliation (0044 / 0016 / 0006)
+
+**Why:** Owner goal (verbatim intent): *"each leaf gets filtered properly with all the refinements and information provided — Location · Schedule · Pax · Wedding Religion · Type of Event · refinements/details of the venue — they must all comply for each leaf category."* Audit found the marketplace/onboarding matcher (`fetchWizardVendorRecommendations`) applies only **category + ceremony + venue_setting** (the last two NULL-safe and demo-uniform). Of the couple's signals, **region, schedule/date, pax/capacity, event-type, and every per-leaf refinement** were unfiltered. Owner locked **Hybrid** match semantics + "quick wins now, spec the refinement layer." The code PR (CHANGELOG 2026-06-04 `feat(0016/0044)`) shipped the two quick wins that use existing columns — **region + event-type** — into onboarding. This entry specs the rest.
+
+**Decisions already locked by owner (record them in the spec):**
+- **Hybrid match semantics.** For each leaf, hard-filter the *objective, always-present* dimensions; *rank* (never exclude) on the *soft/sparse* ones; a vendor missing a soft field is **admitted, not hidden** (admit-unknown, exclude-known-mismatch); **never show an empty list** ("N exact matches" then "others available").
+- **Per-leaf applicability.** "All comply" = all *applicable* dims comply. Each leaf declares which global dims apply + *how* (e.g. Location is `fixed` for a venue but a coverage `radius` for a photographer; Pax/capacity applies to venue/catering/mobile-bar, not to a songwriter; Religion gates officiant/catering/music, etc.).
+
+**Spec-corpus updates (owner walks via Cowork):**
+
+1. **`0044_per_category_schemas/0044_per_category_schemas.md`** — add a **Reception Venue** (`canonical_service: 'venue'`) category schema (it's NOT among the 15 V1.1 schemas today). Refinements (leaf-only, each with a `sample_photo_r2_key` per the [[refinements terminology]] lock):
+   - `venue_type` (multi/single-select): **hotel_ballroom · events_place · garden · beach · heritage · restaurant · resort/destination · rooftop · clubhouse · tent/marquee** (final list owner-to-confirm) — the precise type the couple picks on the reception-setting screen, which today is **collapsed 7→5** by `RECEPTION_TO_VENUE_SETTING` (hotel/events-place/restaurant all → `banquet_hall`). Stop collapsing.
+   - `capacity_min` / `capacity_max` (int, pax) — drives the **Pax** dimension (couple's guest count vs venue capacity). New column/refinement; today only `venue_directory` carries capacity, `vendor_profiles` venues don't.
+   - `indoor_outdoor`, `parking_capacity`, `in_house_catering` (bool), `corkage_allowed` (bool) — owner-to-confirm the V1 set.
+   Add an **applicability block** to the schema framework: per leaf, `location_mode ∈ {fixed,radius,n/a}`, `needs_capacity`, `needs_date`, `needs_religion`, `event_types[]`, + the leaf's `filter_facets` with a **NULL rule per facet** (admit | exclude). This is the machine-readable form of "which of the 6 dims apply to this leaf."
+
+2. **Venue-vocabulary reconciliation** (note in `0044` + `0006_vendors_management`): there are **two** venue-type vocabularies — `vendor_profiles.compatible_venue_settings` / `events.venue_setting` (coarse: `banquet_hall · garden · heritage · beach · destination`) vs `venue_directory.venue_type` (rich: `hotel_ballroom · destination_resort · …`). The code even flags the mismatch (`lib/venue-recommendations.ts`). Pick ONE canonical vocabulary (recommend the richer `venue_type`) and map the coarse enum onto it; specify the migration direction.
+
+3. **Schedule/Pax dimensions** (note in `0016` + `0044`): **Schedule** = vendor availability on the wedding date — today `vendor_calendar_blocks` exists but is dashboard/eventId-gated and most vendors have no calendar; onboarding has the candidate dates but doesn't check. **Pax** needs the `capacity_*` refinement above. Spec how both feed the matcher (and how NULL/absent calendar or capacity is treated under Hybrid — admit-unknown).
+
+4. **Data-population prerequisite** (note in `0044` + the demo-seed playbook): Hybrid hard-filtering only works on data that exists. Today demo vendors are **uniform** on ceremony/venue compat and have **NULL `hq_region`** + no refinements/capacity. Spec: (a) make refinements `required_for_visibility` for the relevant leaves, and (b) **diversify the demo seed** (`scripts/seed-demo-vendors.ts`) — vary `venue_type`/capacity/region, and set `hq_region` (or backfill demo rows) so the count's matched<total reflects real refinement narrowing, not just region.
+
+5. **`DECISION_LOG.md`** — append: `| 2026-06-04 | Per-leaf matching = Hybrid (hard-filter objective dims · rank sparse ones · admit-unknown/exclude-known-mismatch · never empty); each leaf declares applicable globals + its refinements; "all comply" = all *applicable* comply. Quick wins (region + event-type) shipped to onboarding; venue refinement schema + capacity + venue-enum reconciliation + schedule/pax = 0044 follow-up. | onboarding actions.ts + lib/wizard-recommendations.ts + 0044 venue schema |`
+
+**Code already landed (for reference, do NOT re-spec):** `region` + `eventType` optional args on `fetchWizardVendorRecommendations`; `ONBOARDING_REGION_TO_PSGC`; onboarding venue search + counts region/event-type aware. See CHANGELOG 2026-06-04.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-04 — Wedding-tradition chip ORDER set (0043 / spec 0000)
 
 **Why:** Owner set the canonical display order (prevalence-led, Chinese promoted on its high-spend profile, Jewish last): **Catholic · Muslim · INC · Chinese · Born Again · Christian · Cultural · Jewish** (rendered as a 4×2 grid). In the create-event picker, **Civil + Mixed trail** the eight religions.

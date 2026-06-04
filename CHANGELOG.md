@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · docs(cowork): flag spec↔code divergence on the event-type picker (all-live)
+
+**Context:** A Cowork pass applied the #882 carousel note to spec `0000` as "Wedding + Debut live · 11 types · nine coming-soon" — but production is **all 9 event types live** (#884 "unlock all events" + owner's "keep everything live"). The spec now contradicts the code; the "keep everything live" decision was never logged to the corpus.
+
+**What changed (docs only, no code):** Added a prominent top `[PENDING]` item to `COWORK_INBOX.md` that consolidates + corrects the event-type-picker + per-religion cluster — instructs the next Cowork pass to (1) correct `0000` to **all-live** (live roster = the 9 in `event-types.ts`, incl. Gender Reveal, excl. Anniversary/Graduation/Reunion; no coming-soon tier, no notify), (2) log the decision in `DECISION_LOG.md`, and (3) land the per-religion items (Chinese active, the `/admin/wedding-types` gate, the `/admin/wedding-traditions` editor) in `0043_wedding_type_picker.md` + `0023_admin_console.md`.
+
+**Decision (owner):** option **B** — code stays all-live; the spec is corrected to match (not re-gated to Wedding+Debut).
+
+**SPEC IMPACT:** Yes — directs the `0000` / `0023` / `0043` corrections via Cowork. No code change in this commit.
+
 ## 2026-06-04 · feat(0006): vendor detail page shows the generic placeholder photo too
 
 **Context:** Completes the follow-up flagged in the prior placeholder PR (#917). The vendor detail page `/v/[slug]` hid its Portfolio section entirely when a vendor had no photos, leaving the page without a service photo.

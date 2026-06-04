@@ -8,6 +8,25 @@
 
 ---
 
+## [PENDING] 2026-06-04 — ⚠️ READ FIRST · event-type picker is ALL-LIVE (correct the spec) + per-religion items to land (0000 / 0023 / 0043)
+
+**This consolidates + corrects the event-type-picker + per-religion cluster below (the #882/#884/#885/#888/#889/#890/#895/#898 items). A prior Cowork pass applied the #882 carousel note to `0000` as "Wedding + Debut live · 11 types · the other nine coming-soon." THAT IS NOW WRONG — apply the all-live version below instead.**
+
+**Owner decision = "keep everything live"** (#884 "unlock all events"): every event type is live/creatable in production. The code is NOT being re-gated. So the spec must move to match the code:
+
+1. **`0000_app_shell_and_navigation.md`** — the event-type picker is a swipeable hero-photo carousel where **ALL event types are live / tappable** (full-color, gold "Available"): Wedding → onboarding flow; Debut + Birthday + Celebration + Travel + Corporate + Tournament + Christening + Gender Reveal → create-event form. **Remove the "Wedding+Debut live / nine coming-soon / 11 types" language a prior pass added, plus the notify-me line — there is no "coming soon" tier and no notify flow.** The live roster is the **9 in `apps/web/app/dashboard/create-event/_components/event-types.ts`** — it INCLUDES **Gender Reveal** and does NOT include Anniversary / Graduation / Reunion (those are enum-seedable only, not picker cards).
+2. **Log the decision** in `DECISION_LOG.md` (it was never captured in the corpus): `| 2026-06-03 | Owner: "keep everything live" — all 9 event types stay live/creatable (not re-gated to Wedding+Debut); all 6 wedding religions stay live. Spec 0000 picker corrected to all-live, no coming-soon tier, no notify. | 0000/0041 · #884 |`
+
+**Per-religion items to land** (still pending — detailed entries for #885/#889/#890/#895/#898 are below):
+3. **`0043_wedding_type_picker.md`** — **Chinese** ceremony type (now ACTIVE/selectable) · the per-religion **vendor-readiness gate** (admin opens a religion when its officiant/ceremonial-venue/catering vendors cross a threshold; greys the religion in onboarding + create-event when held) · the per-religion **traditions guide** on `/paperwork` (now DB-backed + admin-editable).
+4. **`0023_admin_console.md`** — two new Directory surfaces: **Wedding types** (`/admin/wedding-types`, the launch gate) + **Wedding traditions** (`/admin/wedding-traditions`, the content editor).
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-03/04 (#882 carousel · #884 unlock-events · #885/#889 Chinese · #888 enum+copy · #890 traditions guide · #895 gate · #898 traditions table). **When the all-live `0000` correction + items 3–4 are applied, mark the superseded picker items below `[DONE]` too.**
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-04 — Vendor listings show a generic placeholder photo when a vendor has no photo (0006 / 0015 / 0021)
 
 **Why:** Owner — "for vendors with no photo for their service, we must have at least a generic placeholder photo." The marketplace card + the category picker previously fell back to an initials monogram; now they fall back to a bundled neutral placeholder photo (`apps/web/public/placeholders/vendor.webp`).

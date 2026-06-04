@@ -4,7 +4,6 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { VENDOR_TEAM_ROLES, type VendorTeamRole } from '@/lib/vendor-team';
 
 const ROLE_SET: ReadonlySet<string> = new Set(VENDOR_TEAM_ROLES);
@@ -28,7 +27,15 @@ async function ensureOwner() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
-  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  // Team management is OWNER-only in V1 (vendor_team_members write RLS is
+  // owner-scoped). Resolve the OWNED profile directly — NOT the now
+  // member-aware fetchOwnVendorProfile — so a non-owner member (admin/agent)
+  // can't reach team management.
+  const { data: profile } = await supabase
+    .from('vendor_profiles')
+    .select('vendor_profile_id')
+    .eq('user_id', user.id)
+    .maybeSingle();
   if (!profile) redirect('/vendor-dashboard');
   return { supabase, profile, currentUserId: user.id };
 }

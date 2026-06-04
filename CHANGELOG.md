@@ -21,6 +21,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** First-party **Setnayan services** in the per-service workspace now hide the host Costing/cancel/dispute chrome and surface an apply-then-pay "Managed by Setnayan → Orders" card. The remaining **inline per-service order status** panel is **blocked** — no FK from an `event_vendors` pick to a `service_orders` row, and adding a Setnayan service doesn't create one; needs a schema link (owner decision pending). Spec delta to land directly in the corpus (`DECISION_LOG.md` + `0006`/`0021`/`0034`) per the new direct-edit authorization. Cleanups are internal — no spec impact.
 
+## 2026-06-04 · feat(0022): Vendor agents — role-aware RLS scoping (Phase 2b)
+
+**Context:** The payoff of the multi-user vendor workspace. The whole vendor data layer was OWNER-ONLY at the RLS level, so non-owner admins/agents could read nothing. Phase 2b makes it role-aware: **owner/admin see everything; agents see only their assigned services + the customers tied to them** (a couple's `event_vendors.service_id` → the booked `vendor_services`). Couple-side access is untouched.
+
+**What changed:**
+- **Migration `20260821000000_vendor_role_aware_rls.sql` (applied to prod, verified):** redefines `current_vendor_profile_ids()` owner-only → **owner+admin** (propagates admin access to chat/follows/branches/boosters via every policy already using it); adds `agent_assigned_service_ids()` + `agent_customer_event_ids()`; makes `vendor_services` (owner/admin full · agent assigned) + `chat_threads`/`chat_messages` (add the agent's vendor+customer-events clause) role-aware; adds `vendor_profiles` member-read. Owner access guaranteed via the owner-direct path inside `current_vendor_profile_ids()`.
+- **`lib/vendor-profile.ts`** — `fetchOwnVendorProfile` is now membership-aware: a non-owner member (admin/agent) resolves their vendor via `vendor_team_members` so the dashboard loads for them.
+- **`lib/vendor-role.ts`** — agent nav expands to Services · Bookings · Messages (scoped); bottom-nav adds Bookings · Messages.
+- **`team/page.tsx` + `team/actions.ts`** — `/team` kept **owner-only** (it uses the RLS-bypassing admin client for emails), so the new member-aware resolution can't expose team management to non-owners.
+
+**Verification (DB-layer, rolled-back transaction · seeded agent + admin):** owner still sees all 191 services (no regression); a non-member sees 0; an **agent sees exactly the 1 assigned service, 0 money-table rows, 0 manage-all**; an **admin sees the vendor**. ✅ Plus `tsc`/`lint`/`build` green.
+
+**Migration-hygiene note:** prod had drift — `20260820000000_vendor_payment_methods` (an unmerged worktree) was applied to prod but not in git, and `20260817000000_event_monogram_style` is in git but **not applied** (Animated Monogram may be half-deployed). I reconciled non-destructively (no `migration repair`) to apply only this migration; the monogram + vendor-payments items remain for their owners to land.
+
+**SPEC IMPACT:** 0022 — vendor data layer is now role-aware (owner/admin all · agent scoped). Remaining (fast-follow): admin access to the other owner-direct tables (earnings/tokens/contracts/packages/ads) — a safe owner→owner+admin loosening. → `COWORK_INBOX.md` [PENDING].
+
 ## 2026-06-04 · feat(vendor-payments): off-platform vendor payment options ("How clients pay you")
 
 **Context:** Owner — vendors should publish their OWN payment destinations so couples pay them **directly, off-platform** (a payment link, an uploaded QR, or bank/e-wallet details), shown on the couple's settlement screen the moment they book. Fills the empty `direct` rail of the locked "vendor↔customer money is always off-platform · RA 11967 non-party-publisher" posture — Setnayan takes 0% and never holds the money. Two owner-locked sub-rules: **payment LINKS are Pro & Enterprise only** (most-abused surface; QR + bank stay open to all tiers), and a **standing platform-wide vigilance disclosure** (anywhere a vendor payment is shown, state Setnayan doesn't control/hold it + caution the customer to verify).

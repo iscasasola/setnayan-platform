@@ -141,7 +141,29 @@ export async function fetchOwnVendorProfile(
       hq_longitude: null,
     } as typeof data;
   }
-  if (!data) return null;
+  if (!data) {
+    // Member path (Phase 2b) — the user doesn't OWN a vendor_profiles row but
+    // may be a team member (admin / agent / viewer). Resolve their vendor via
+    // vendor_team_members, then fetch that profile by id. The
+    // `vendor_profiles_member_read` RLS policy admits members; agent data
+    // scoping happens on the per-table policies (services / chat), not here.
+    const { data: memberships } = await supabase
+      .from('vendor_team_members')
+      .select('vendor_profile_id')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true })
+      .limit(1);
+    const memberVendorProfileId = (memberships?.[0] as { vendor_profile_id?: string } | undefined)
+      ?.vendor_profile_id;
+    if (!memberVendorProfileId) return null;
+    const { data: byId } = await supabase
+      .from('vendor_profiles')
+      .select(FULL_VENDOR_PROFILE_SELECT)
+      .eq('vendor_profile_id', memberVendorProfileId)
+      .maybeSingle();
+    if (!byId) return null;
+    data = byId;
+  }
   // Defensive: column has NOT NULL DEFAULT '{}' so this is null only if the
   // migration hasn't run yet. Normalise so callers can assume an array.
   // Same defensive default for `show_team_bookings_in_backend_count` — the

@@ -716,13 +716,13 @@ const FAITH_KEY_TO_LABEL: Record<FaithKey, string> = {
 };
 const FAITH_KEYS_ORDER: ReadonlyArray<FaithKey> = [
   'Catholic',
-  'Christian',
-  'INC',
   'Muslim',
-  'Cultural',
+  'INC',
   'Chinese',
-  'Jewish',
   'Born Again',
+  'Christian',
+  'Cultural',
+  'Jewish',
 ];
 
 /**

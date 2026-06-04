@@ -8,6 +8,20 @@
 
 ---
 
+## [PENDING] 2026-06-04 — Wedding-tradition chip ORDER set (0043 / spec 0000)
+
+**Why:** Owner set the canonical display order (prevalence-led, Chinese promoted on its high-spend profile, Jewish last): **Catholic · Muslim · INC · Chinese · Born Again · Christian · Cultural · Jewish** (rendered as a 4×2 grid). In the create-event picker, **Civil + Mixed trail** the eight religions.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`0043_wedding_type_picker`** + **spec 0000** onboarding "ceremony tradition" screen — show the eight in this order.
+2. **`DECISION_LOG.md`** — append: `| 2026-06-04 | Wedding-tradition chip order set: Catholic·Muslim·INC·Chinese·Born Again·Christian·Cultural·Jewish (prevalence + Chinese promoted on spend; Jewish last) | onboarding FAITH_CHIPS + shared CEREMONY_TYPE_OPTIONS + create-event SECONDARY_LABELS + /vendors FAITH_KEYS_ORDER |`
+
+**Cross-ref:** `CHANGELOG.md` 2026-06-04 "ui(0043): re-order wedding-tradition chips". Sub-detail of the roster item directly below.
+
+**When done:** flip `[PENDING]` → `[DONE 2026-06-XX]`.
+
+---
+
 ## [PENDING] 2026-06-04 — Wedding tradition roster locked at EIGHT: Jewish + Born Again added (0043, 0044, spec 0000)
 
 **Why:** Owner-directed — "add Jewish and Born Again. Lock this 8 … full build incl. the taxonomy." Born Again is now its own selectable tradition (split out of the "Christian" umbrella); Jewish is added and activates the `kosher_*` faith_compatibility tags that previously had no ceremony_type to trigger them. Extends (does not replace) the Chinese-activation inbox item below.

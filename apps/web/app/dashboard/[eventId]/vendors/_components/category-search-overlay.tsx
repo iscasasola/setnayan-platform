@@ -19,6 +19,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { saveVendorToPicks } from '@/app/vendors/actions';
 import { haptic } from '@/lib/haptics';
 import {
@@ -115,6 +116,9 @@ export function CategorySearchOverlay({
 }) {
   const [query, setQuery] = useState('');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
+  // Portal mount guard — see the createPortal note near the return.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const [maxKm, setMaxKm] = useState<number | null>(null);
   const [results, setResults] = useState<CategoryVendorResult[]>([]);
   const [hasCoords, setHasCoords] = useState(false);
@@ -218,7 +222,17 @@ export function CategorySearchOverlay({
         hasCoords ? 'near you' : 'available'
       }`;
 
-  return (
+  // Render in a portal at <body> so the overlay is NOT a DOM descendant of the
+  // plan-budget-accordion (`.pbacc`). That accordion injects a GLOBAL <style>
+  // using generic class names this overlay also reuses (`.v`, `.img`, `.meta`,
+  // `.vn`, `.stars`). As a descendant, `.pbacc .v` (min-height:300px; flex:1 1
+  // auto) bled into the verified `badge v`, ballooning it into a giant pill.
+  // Portaling to <body> removes the descendant relationship, killing every
+  // `.pbacc *` bleed at once. (A position:fixed full-screen overlay belongs at
+  // <body> anyway.)
+  if (!mounted) return null;
+
+  return createPortal(
     <div className="csov" role="dialog" aria-modal="true" aria-label={`Add ${label} to your plan`}>
       <style>{CSS}</style>
 
@@ -342,6 +356,7 @@ export function CategorySearchOverlay({
           </div>
         </>
       ) : null}
-    </div>
+    </div>,
+    document.body,
   );
 }

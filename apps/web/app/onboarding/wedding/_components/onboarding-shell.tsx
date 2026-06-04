@@ -130,13 +130,13 @@ const RECEPTION_SETTING_LABEL: Record<string, string> = {
 // commit allow-list below.
 const FAITH_CHIPS: { value: OnboardingFaith; label: string; soon: boolean }[] = [
   { value: 'catholic', label: 'Catholic', soon: false },
-  { value: 'christian', label: 'Christian', soon: false },
-  { value: 'inc', label: 'INC', soon: false },
   { value: 'muslim', label: 'Muslim', soon: false },
-  { value: 'cultural', label: 'Cultural', soon: false },
+  { value: 'inc', label: 'INC', soon: false },
   { value: 'chinese', label: 'Chinese', soon: false },
-  { value: 'jewish', label: 'Jewish', soon: false },
   { value: 'born_again', label: 'Born Again', soon: false },
+  { value: 'christian', label: 'Christian', soon: false },
+  { value: 'cultural', label: 'Cultural', soon: false },
+  { value: 'jewish', label: 'Jewish', soon: false },
 ];
 
 /* ── monogram designs (owner 2026-06-02 — single "Generate another design" cycles

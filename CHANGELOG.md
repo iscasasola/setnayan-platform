@@ -16,11 +16,53 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **Staged:** the page's ~45 tile-label/slug sites live in sync helpers (`taxonomyLabel`, `parseFilters`, `buildHref`, …) that need the snapshot threaded in — Phase 2b·2. The 7 client components (provider) — Phase 2b·3.
 
-**Verification:** `tsc --noEmit` 0 errors · `next lint` clean on both files.
+**Verification:** `tsc --noEmit` 0 errors · `next lint` clean · full PR CI green on #906 (production build, Playwright e2e, Lighthouse, both OS builds).
 
 **SPEC IMPACT:** None — implements the locked 0023 §3.15 read-through.
 
 ---
+
+## 2026-06-04 · perf(nav): loading shells for the auth + onboarding entry points
+
+**Context:** Continuing the "every gap shows a loading screen, never blank" pass. PR #892 covered 155 dashboard + guest-facing routes; the guest landing (`/[slug]` · `/v/[slug]` · `/venue/[slug]`), receipts and vendor-claim were already covered. The remaining cold-load gaps were the **auth + onboarding entry points**, which had no `loading.tsx`.
+
+**What changed (apps/web):**
+- **`app/login/loading.tsx` + `app/signup/loading.tsx`** — auth-card skeletons mirroring the centered `.m-login-card` / `.m-signup-card` layout (brand panel + form), so sign-in / create-account never flash blank on a cold load.
+- **`app/onboarding/wedding/loading.tsx`** — a neutral full-screen phone-frame placeholder for the FIRST server render of the onboarding wizard (navigation between onboarding screens stays instant/preloaded per the golden rules).
+
+**Deliberately NOT added — a root `app/loading.tsx` global fallback.** A root loading boundary makes Next.js generate a *static shell* for every route at build time, which executes top-level page code during prerender. `/admin/taxonomy` (and potentially other admin pages) fetch live DB data at the top without `force-dynamic`, so shell generation ran those fetches and **failed the build** (proven: clean `main` builds 117/117; adding the root fallback fails at `/admin/taxonomy`). A safe global catch-all needs those build-time-fetching pages marked `force-dynamic` first — deferred as a separate cleanup. The proven pattern is per-route loaders (this PR + #892).
+
+**Verification:** `tsc --noEmit` ✓ · `next lint` clean ✓ · `next build` ✓ (117/117 static pages). Shipped from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** None — perceived-performance / UX only.
+
+
+## 2026-06-04 · fix(0021): vendor-pick "Add to your plan" overlay — portal to <body> (kills .pbacc CSS bleed)
+
+**Context:** Owner screenshot — the category-search picker ("Add to your plan → Reception venue") cards were distorted: the **VERIFIED badge ballooned into a giant cream stadium pill** and the vendor name centered. Surfaced once the demo-vendor marketplace was populated (most demo vendors are verified, so the badge renders).
+
+**Root cause — generic-classname CSS bleed.** `CategorySearchOverlay` injects a **global** `<style>{CSS}</style>` and is rendered as a DOM **child of the plan-budget-accordion** (`.pbacc`), which ALSO injects a global `<style>` using the same ultra-generic class names. The accordion's vendor-CARD rule `.pbacc .v { flex:1 1 auto; min-height:300px; … }` matched the overlay's verified badge `<span className="badge v">` (it carries class `v`), so the badge inherited `min-height:300px` + `flex:1 1 auto` while keeping the badge's own `border-radius:999px` → a tall cream stadium. The same mechanism bled `.pbacc .img/.meta/.vn/.stars` into the overlay's matching elements (the centered name, etc.).
+
+**Fix (one file, `category-search-overlay.tsx`):** render the overlay via `createPortal(…, document.body)` (behind a mount guard). It's a `position:fixed` full-screen modal, so `<body>` is its correct home anyway — and as a body child it's no longer a descendant of `.pbacc`, so **every `.pbacc *` descendant rule stops matching at once**. No class renames, no per-property CSS resets — the structural fix removes the whole bleed class. Bonus: `position:fixed` is now viewport-relative regardless of any ancestor stacking context.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean (overlay file: no findings) · no schema/SKU change. Built from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** None — rendering bugfix (the picker's look mirrors the owner-locked prototype; this restores it). No behavior/pricing/schema change.
+
+## 2026-06-04 · ui(0043): re-order wedding-tradition chips by prevalence + spend (owner-decided)
+
+**Context:** Owner set the canonical tradition order — prevalence-led, with Chinese promoted into row 1 on its high-spend profile and Jewish last. Applied to every couple-facing ordered list so onboarding, create-event, and the marketplace filter agree.
+
+**What changed (pure display reorder — no logic, no schema, no migration):**
+- **Onboarding `FAITH_CHIPS` (the 4×2 grid):** Catholic · Muslim · INC · Chinese / Born Again · Christian · Cultural · Jewish.
+- **Shared `CEREMONY_TYPE_OPTIONS` (create-event picker + dashboard `ceremony-type-modal`):** same religion order, with **Civil + Mixed trailing** as the non-religious / combination options.
+- **`SECONDARY_LABELS` (create-event Mixed secondary picker):** same order, Civil trailing.
+- **`/vendors` `FAITH_KEYS_ORDER` (marketplace faith filter):** same 8-religion order.
+- Left as-is: vendor-profile + admin-venue tag checklists (vendor/admin-facing; can align on request).
+
+**Verification:** Pure array/object-key reorder (28 insertions / 28 deletions); no value or type change, no exhaustive-map breakage. Relying on CI `typecheck + lint` + `production build`.
+
+**SPEC IMPACT:** Minor — the 0043 / spec-0000 chip order should read Catholic · Muslim · INC · Chinese · Born Again · Christian · Cultural · Jewish. See `COWORK_INBOX.md`.
 
 ## 2026-06-04 · ui(0021,0001): dashboard scale consistency — Guests + Website editor adopt the canonical card metric
 

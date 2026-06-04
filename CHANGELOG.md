@@ -17,6 +17,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** Extends the 0023 Growth surface (still the same 29th surface). → `COWORK_INBOX.md` [PENDING]: note the demo-mode preview, CSV export, and event type/region breakdowns in the 0023 Growth subsection.
 
+## 2026-06-04 · fix(onboarding): welcome photo cover-fit (no distortion) + location picks share the row
+
+**Context:** Owner — *"the first slide's photo is distorted; just fill the space to not distort it; all background feel should not be distorted, just fill the space"* + *"keep the location choices consistent in length and height — the two buttons equally share a row, but if one only, they fill the row."*
+
+**What changed:**
+- **Welcome parallax distortion fixed.** The WebGL shader mapped the photo's full UV to the canvas, **stretching** the landscape photo into the tall phone. Added an aspect-correct `cover` uniform (crops to the canvas aspect, computed from photo + canvas dimensions each frame) so the photo **fills without distorting** — depth parallax retained. (Other screens already use `object-fit:cover`.)
+- **Location picks share the row.** The selected-area chips (`.locpicks`) are now equal-size: `flex:1` each + `flex-wrap:nowrap` → **1 pick fills the row · 2 split 50/50**, equal height; the label ellipsis-truncates (wrapped in `.locchip-label`).
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean.
+
+**SPEC IMPACT:** Refines the welcome (cover/no-distort) + location-step (pick chips) items already in `COWORK_INBOX.md`.
+
 ## 2026-06-04 · feat(onboarding): immersive role/kind/faith screens — full-bleed photo + chip carousel
 
 **Context:** Owner, on the role + kind + tradition screens — *"make photos here full screen too · create make it a carousel · just leave the main button name, remove the circles, equal length and height buttons · sub text will show on top as they pick."* Unifies role/kind/faith into one immersive pattern (matching the welcome's full-bleed).

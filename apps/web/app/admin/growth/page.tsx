@@ -1,17 +1,21 @@
-import { LineChart } from 'lucide-react';
+import { cookies } from 'next/headers';
+import { LineChart, Download } from 'lucide-react';
 import {
   fetchGrowthStats,
+  buildDemoGrowthStats,
   GROWTH_RANGE_OPTIONS,
   type GrowthRangeKey,
   type GrowthSeries,
   type ConversionStats,
   type SeriesPoint,
+  type BreakdownRow,
 } from '@/lib/admin/growth-stats';
+import { DEMO_MODE_COOKIE_NAME } from '@/lib/demo-mode';
 
 export const metadata = { title: 'Growth · Admin' };
 
 type Props = {
-  searchParams: Promise<{ range?: string }>;
+  searchParams: Promise<{ range?: string; demo?: string }>;
 };
 
 const nf = new Intl.NumberFormat('en-PH');
@@ -21,9 +25,19 @@ function parseRange(raw: string | undefined): GrowthRangeKey {
 }
 
 export default async function AdminGrowthPage({ searchParams }: Props) {
-  const { range: rawRange } = await searchParams;
+  const { range: rawRange, demo: rawDemo } = await searchParams;
   const range = parseRange(rawRange);
-  const stats = await fetchGrowthStats(range);
+  // The /admin layout 404s non-admins, so by the time this renders the viewer
+  // is an admin — reading the demo cookie/flag directly here is safe.
+  const cookieStore = await cookies();
+  const demoActive =
+    cookieStore.get(DEMO_MODE_COOKIE_NAME)?.value === '1' ||
+    rawDemo === '1' ||
+    rawDemo === 'on';
+  const stats = demoActive
+    ? buildDemoGrowthStats(range)
+    : await fetchGrowthStats(range);
+  const exportHref = `/admin/growth/export?range=${range}${demoActive ? '&demo=1' : ''}`;
   const rangeLabel =
     GROWTH_RANGE_OPTIONS.find((o) => o.value === range)?.label ?? 'window';
 
@@ -31,13 +45,29 @@ export default async function AdminGrowthPage({ searchParams }: Props) {
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
         <p className="m-eyebrow text-[color:var(--m-orange-2)]">Setnayan · Internal ops</p>
-        <h1 className="m-display-tight text-3xl text-[color:var(--m-ink)] sm:text-4xl">
-          Growth &amp; Population
-        </h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="m-display-tight text-3xl text-[color:var(--m-ink)] sm:text-4xl">
+            Growth &amp; Population
+          </h1>
+          {stats.demo ? (
+            <span className="rounded-full border border-amber-300/70 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-800">
+              Illustrative demo data
+            </span>
+          ) : null}
+        </div>
         <p className="max-w-prose text-base text-ink/65">
-          Where the platform stands today, and how it&apos;s grown over the{' '}
-          {rangeLabel.toLowerCase()}. Counts are live from the platform&apos;s own
-          tables; curves track cumulative totals across the window.
+          {stats.demo ? (
+            <>
+              Sample figures so you can see the shape of this surface before real
+              data accrues. Turn off demo mode to see live counts.
+            </>
+          ) : (
+            <>
+              Where the platform stands today, and how it&apos;s grown over the{' '}
+              {rangeLabel.toLowerCase()}. Counts are live from the platform&apos;s
+              own tables; curves track cumulative totals across the window.
+            </>
+          )}
         </p>
       </header>
 
@@ -67,6 +97,14 @@ export default async function AdminGrowthPage({ searchParams }: Props) {
         <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
           Since {stats.sinceIso.slice(0, 10)}
         </span>
+        <a
+          href={exportHref}
+          className="button-secondary ml-auto inline-flex h-9 items-center gap-1.5 px-3 text-xs"
+          download
+        >
+          <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+          Export CSV
+        </a>
       </form>
 
       {stats.errors.length > 0 ? (
@@ -124,6 +162,20 @@ export default async function AdminGrowthPage({ searchParams }: Props) {
         />
         <ConversionCard c={stats.conversion} rangeLabel={rangeLabel} />
       </section>
+
+      {/* ── BREAKDOWNS ─────────────────────────────────────────────── */}
+      <section className="mb-4">
+        <SectionHeading
+          title="Breakdowns"
+          blurb={`Current composition of events by type and region${
+            stats.breakdowns.sampled ? ' (sampled)' : ''
+          }.`}
+        />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <BreakdownCard title="Events by type" rows={stats.breakdowns.eventsByType} />
+          <BreakdownCard title="Events by region" rows={stats.breakdowns.eventsByRegion} />
+        </div>
+      </section>
     </div>
   );
 }
@@ -153,6 +205,48 @@ function SectionHeading({
         <p className="text-xs text-ink/55">{blurb}</p>
       </div>
     </header>
+  );
+}
+
+function BreakdownCard({ title, rows }: { title: string; rows: BreakdownRow[] }) {
+  const max = Math.max(1, ...rows.map((r) => r.count));
+  const total = rows.reduce((sum, r) => sum + r.count, 0);
+  return (
+    <div className="m-card p-5">
+      <p className="m-label-mono mb-3" style={{ color: 'var(--m-slate-2)' }}>
+        {title}
+      </p>
+      {rows.length === 0 ? (
+        <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
+          No data yet.
+        </p>
+      ) : (
+        <ul className="space-y-2.5">
+          {rows.map((r) => {
+            const pct = total > 0 ? Math.round((r.count / total) * 100) : 0;
+            return (
+              <li key={r.key} className="space-y-1">
+                <div className="flex items-baseline justify-between gap-2 text-sm">
+                  <span style={{ color: 'var(--m-ink)' }}>{r.label}</span>
+                  <span className="tabular-nums" style={{ color: 'var(--m-slate)' }}>
+                    {nf.format(r.count)} · {pct}%
+                  </span>
+                </div>
+                <span
+                  aria-hidden
+                  className="block h-2 rounded-full"
+                  style={{
+                    width: `${Math.max(2, (r.count / max) * 100)}%`,
+                    background: 'var(--m-orange)',
+                    opacity: 0.55,
+                  }}
+                />
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 }
 

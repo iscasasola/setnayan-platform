@@ -8,6 +8,19 @@
 
 ---
 
+## [PENDING] 2026-06-04 — Vendor agents: role-aware RLS scoping · Phase 2b (0022)
+
+**Why:** The vendor data layer was owner-only at the RLS level; Phase 2b makes it role-aware. Owner/admin see everything; agents see only their assigned services + the customers tied to them (`event_vendors.service_id`). DB-verified (rolled-back impersonation) + applied to prod.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`0022_vendor_dashboard.md` §2.6 / RLS notes** — record that the vendor data layer is now role-aware: `current_vendor_profile_ids()` redefined owner-only → owner+admin; `agent_assigned_service_ids()` + `agent_customer_event_ids()` helpers; `vendor_services` + `chat_threads`/`chat_messages` admit agents by assignment; `/team` stays owner-only. Agents see only assigned services + their customers.
+2. **Fast-follow (note, not yet built):** admin access to the remaining owner-direct tables (earnings/payouts/tokens/contracts/packages/ads) — a safe owner→owner+admin loosening to complete "admins see everything."
+3. **⚠ Migration hygiene (owner action):** prod drift exists — `20260820000000_vendor_payment_methods` is applied to prod but unmerged (commit `ce41cfc7`); `20260817000000_event_monogram_style` is merged but **not applied** (Animated Monogram likely half-deployed). Land the vendor-payments PR + apply the monogram migration.
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
 ## [PENDING] 2026-06-04 — Vendor agents: per-service assignment · Phase 2a (0022)
 
 **Why:** Phase 2 of the vendor multi-user workspace — agents see only the services + customers they manage. Phase 2a ships the assignment foundation: a new `vendor_service_agents` table (RLS: members read, owner/admin manage) + a per-agent service-assignment UI on the Team page. The customer link is `event_vendors.service_id` → booked `vendor_services`. Migration applied to prod.

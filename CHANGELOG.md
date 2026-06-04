@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · style(onboarding): drifting cloud layer over the welcome hero sky
+
+**Context:** Owner — *"add the moving clouds effect."* No video generator is wired into this session (Recraft is stills-only), so a true "the photo's own clouds drift" clip can't be produced here. This adds the achievable version — a drifting cloud **layer** over the sky.
+
+**What changed:** CSS + one asset (extends the `data-welcome` welcome screen):
+- `public/onboarding/clouds-overlay.webp` (51 KB) — a Recraft cloud texture (white clouds on black), Pillow-processed to **fade its left/right edges to black** so it tiles seamlessly under a screen blend.
+- `.welcomehero::after` — texture `repeat-x`, **`mix-blend-mode:screen`** (only the light clouds show over the photo), masked to the upper sky (fades out before the couple), `opacity:.3`, drifting via `@keyframes clouddrift` (100 s). Auto-static under `prefers-reduced-motion`.
+- It's an **added** high-cloud layer — the photo's own clouds stay still; the true effect needs a video loop (Higgsfield/Runway/Kling), offered as a follow-up.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean. **Held for owner review on the Vercel preview** (subjective hero look) before merge.
+
+**SPEC IMPACT:** Extends the welcome-screen item already in `COWORK_INBOX.md` (welcome now full-bleed + animated + a drifting cloud layer). None new.
+
 ## 2026-06-04 · fix(onboarding): location picks grow-in-place split + equal-size faith chips
 
 **Context:** Owner — the split animation *"just moved in from the right screen"* (the new chip slid in from off-screen), and *"make these [faith] buttons consistent in height and length."*

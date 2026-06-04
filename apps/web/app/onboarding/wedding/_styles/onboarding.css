@@ -208,6 +208,19 @@
 .onbw .phone[data-welcome] .welcomehero img{animation:kenburns 26s ease-in-out infinite alternate;}
 @keyframes kenburns{from{transform:scale(1.03) translate(0,0);}to{transform:scale(1.15) translate(-2.5%,-2%);}}
 
+/* ── 2026-06-04 (owner "add the moving clouds effect"): drifting cloud layer over the welcome sky ──
+   Recraft cloud texture (white on black · edges faded → seamless repeat-x) screen-blended over the
+   hero photo and slowly drifted. It's an ADDED high-cloud layer (the photo's own clouds stay still —
+   true photo-cloud motion needs a video loop). Auto-static under prefers-reduced-motion (global rule). */
+.onbw .phone[data-welcome] .welcomehero::after{
+  content:'';position:absolute;left:0;right:0;top:0;height:72%;z-index:1;pointer-events:none;
+  background:url(/onboarding/clouds-overlay.webp) repeat-x;background-size:1400px 100%;
+  mix-blend-mode:screen;opacity:.3;
+  -webkit-mask-image:linear-gradient(to bottom,transparent 0%,#000 20%,#000 68%,transparent 100%);
+  mask-image:linear-gradient(to bottom,transparent 0%,#000 20%,#000 68%,transparent 100%);
+  animation:clouddrift 100s linear infinite;
+}
+@keyframes clouddrift{from{background-position-x:0;}to{background-position-x:-1400px;}}
 /* ── 2026-06-04 (owner "animate the background making it have depth"): welcome hero depth-parallax ──
    A WebGL canvas (depth-driven UV displacement, auto-orbit) overlays a plain <img> fallback. The
    canvas fades in only once it has genuinely drawn; if WebGL/shaders fail or reduced-motion is set,

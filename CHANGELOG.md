@@ -4,6 +4,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(0023/0044): DB-backed taxonomy read-through (Phase 2a) — layer + admin viewer
+
+**Context:** Phase 2 of the DB-backed-taxonomy build (the ♾️ "Admin Finalize = permanent live publish" lock). Phase 1 moved the taxonomy structure into `service_categories` + `canonical_service_taxonomy` (migration `20260803001000`, applied). This adds the **read-through layer** so server consumers read taxonomy from those tables — the prerequisite for admin edits going live without a deploy.
+
+**What changed:**
+- **New `lib/taxonomy-db.ts`** — `getTaxonomy()` (React-`cache()`d per request) reconstructs the full `TaxonomySnapshot` (folder/tile order, labels, slugs, `tilesByParent`, canonical `map`) from the two tables, mirroring the `lib/taxonomy.ts` constant shapes. **Falls back to the constant** on any error or unseeded tables, so it's behavior-preserving (the DB is seeded from the constant → byte-equivalent today). Reports `source: 'db' | 'fallback'`.
+- **`/admin/taxonomy` flipped** to `getTaxonomy()` — groups via the DB tree + mapping (was the code constant) and shows a DB-vs-fallback source indicator. First real consumer; admin-only, zero marketplace risk.
+
+**Scope:** the high-risk consumers (the live `/vendors` marketplace `page.tsx` + `vendor-counts.ts` module-level derivations + 7 client components) are **Phase 2b**, landing as focused follow-ups behind the same fallback.
+
+**Verification:** `tsc --noEmit` 0 errors · `next lint` clean on both files.
+
+**SPEC IMPACT:** None — implements the already-locked 0023 §3.15 read-through.
+
+---
+
 ## 2026-06-03 · fix(0023): demo-vendor Create reliably passes the demo-mode gate on production
 
 **Context:** Follow-up to the same-day "demo-vendor Create works on production while admin demo mode is on" change. Owner reported it *still* wouldn't go on the live admin. Root cause: the server allowed prod only when it could read the `setnayan_demo_mode` signal on the request, and that signal wasn't reliably reaching the `POST /api/admin/demo/seed` call (it depends on the httpOnly cookie surviving the same-origin fetch). The page also still carried stale copy claiming demo seeding is "staging/dev only," reinforcing the confusion.

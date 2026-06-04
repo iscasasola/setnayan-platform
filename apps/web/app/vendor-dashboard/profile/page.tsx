@@ -43,6 +43,9 @@ const CEREMONY_TYPES: ReadonlyArray<{ key: string; label: string }> = [
   { key: 'christian', label: 'Christian' },
   { key: 'muslim', label: 'Muslim' },
   { key: 'cultural', label: 'Cultural' },
+  { key: 'chinese', label: 'Chinese' },
+  { key: 'jewish', label: 'Jewish' },
+  { key: 'born_again', label: 'Born Again' },
   { key: 'mixed', label: 'Mixed / interfaith' },
 ];
 

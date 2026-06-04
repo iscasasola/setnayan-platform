@@ -4,6 +4,27 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(0043,0044): lock 8 wedding traditions — add Jewish + Born Again, fully selectable + on the taxonomy
+
+**Context:** Owner-directed — *"add Jewish and Born Again. Lock this 8 and make the choice in 4 columns, 2 rows … full build incl. the taxonomy."* Follows the same-day Chinese activation. Born Again is split out of the "Christian" umbrella into its own tradition; Jewish also resolves the dangling `kosher_*` tags already in the 0044 `faith_compatibility` group (which had no Jewish ceremony_type to trigger them). The onboarding tradition step locks to a fixed **4-col × 2-row grid of 8 chips**: Catholic · Christian · INC · Muslim / Cultural · Chinese · Jewish · Born Again.
+
+**Also fixes two gaps left by the same-day Chinese work:** `chinese` was missing from the vendor-side `compatible_ceremony_types` picker (`vendor-dashboard/profile`) AND from the `/vendors` marketplace faith filter (`FaithKey`) — both now include chinese + the two new faiths.
+
+**What changed:**
+- **Migration `20260808000000_add_jewish_bornagain_ceremony_types.sql`:** widens the 4 ceremony_type CHECK constraints (`events.ceremony_type` — NULL-preserving — `events.secondary_ceremony_type`, `wedding_type_launch_status`, `couple_wedding_type_notify_signups`) to permit `jewish` + `born_again`; seeds both `wedding_type_launch_status` rows as `active`. `vendor_profiles.compatible_ceremony_types` is a free `TEXT[]` (no element CHECK) → no change.
+- **Shared `ceremony-type-radio-group.tsx`:** `CeremonyTypeKey` += jewish, born_again; 2 new `CEREMONY_TYPE_OPTIONS`; narrowed the `christian` description (dropped "Born Again", now its own option). Propagates to the dashboard `ceremony-type-modal` automatically.
+- **Onboarding (`onboarding-shell.tsx` + `types.ts`):** `OnboardingFaith` += 2; `FAITH_CHIPS` += 2 (8 total, `soon:false`); `FAITH_PHOTO` += 2 heroes (`wed_jewish.webp` / `wed_bornagain.webp`, 720×900 ~55–62 KB); `WORSHIP_OPT` += jewish (synagogue) / born_again (church). **`onboarding.css`:** `#screen-faith .chips` → `display:grid; grid-template-columns:repeat(4,minmax(0,1fr))` (the 4×2 lock).
+- **Commit allow-lists (server):** `jewish` + `born_again` added to `ALLOWED_CEREMONIES`/`ALLOWED_SECONDARY` in onboarding + create-event actions, `NOTIFY_FAITHS` (create-event), `ALLOWED_CEREMONY_TYPES` (dashboard `[eventId]/actions`).
+- **Create-event picker:** `wedding-type-picker` `SECONDARY_LABELS` += 2 (exhaustive Record); `page.tsx` launch-status fallback += 2 active. Primary options render via the shared radio group gated by `launchStatus` (now active).
+- **Taxonomy / vendor side:** `vendor-dashboard/profile` `CEREMONY_TYPES` += chinese (retroactive) + jewish + born_again; admin `venues/_constants` + `venue-form` label map += 2; `/vendors` marketplace faith filter — `FaithKey`, `CoupleFaith`, `mapCeremonyTypeToFaith`, `FAITH_URL_TO_KEY`, `FAITH_KEY_TO_URL`, `FAITH_KEY_TO_LABEL`, `FAITH_KEYS_ORDER`, `crossFolderFaithCounts` all += chinese + jewish + born_again.
+- Couple-side vendor matching needs no change — the `matchEvent` filter reads the raw `event.ceremony_type` against `compatible_ceremony_types`.
+- **Merge note:** rebased onto the same-day "admin-editable wedding traditions" PR (guide-content table); `FAITH_CHIPS` remains hardcoded there, so the picker additions stand. Renumbered this migration `20260807→20260808` to avoid a timestamp collision with `20260807000000_wedding_tradition_items.sql`.
+- **Pre-existing `main` breakage also fixed (owner-approved 2026-06-04):** two earlier PRs both used `20260803000000` — `unlock_all_wedding_types` (applied to prod) and `service_categories_tree_foundation` (never applied). The collision made `supabase db push` silently skip the taxonomy-tree DDL on prod (so `service_categories` + `canonical_service_taxonomy` were never created) and failed the `migration timestamp guard` on every PR. Renumbered the **unapplied** `service_categories_tree_foundation` → `20260803001000` (guard's recommended offset; nothing references its tables, `CREATE TABLE IF NOT EXISTS` is idempotent). Unblocks CI repo-wide and lets the taxonomy tables finally apply on the next push.
+
+**Verification:** Type-trivial (literals into already-keyed unions + the exhaustive maps they force — `SECONDARY_LABELS`, `FAITH_PHOTO`, venue label map, the 4 `FaithKey` Records — all updated). Self-audit confirms `born_again` landed in 14 files and no data list carries `chinese` without it. No local typecheck (fresh worktree has no deps) — relying on the PR's required `typecheck + lint` + `production build` + Vercel preview. Hero images generated via Recraft, downsized + re-encoded to WebP with PIL. Shipped from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** Yes — the wedding-tradition roster is now 8 (Born Again split from Christian; Jewish added). See `COWORK_INBOX.md` for the 0043 / 0044 / spec-0000 updates.
+
 ## 2026-06-03 · feat(0043,0023): admin-editable wedding traditions table
 
 **Context:** Owner-directed ("do all sequentially" — step 3 of the per-religion work). Makes the per-religion "What to expect" guide content (shipped as code in #890) editable in-app — which is also the validation path for it (owner corrects INC / Muslim / Cultural / Chinese specifics without a deploy).

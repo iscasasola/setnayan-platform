@@ -27,6 +27,8 @@ export type CeremonyTypeKey =
   | 'muslim'
   | 'cultural'
   | 'chinese'
+  | 'jewish'
+  | 'born_again'
   | 'mixed';
 
 type CeremonyOption = {
@@ -54,7 +56,7 @@ export const CEREMONY_TYPE_OPTIONS: CeremonyOption[] = [
   {
     key: 'christian',
     label: 'Christian',
-    description: 'Born Again, Evangelical, or other Christian ceremony',
+    description: 'Protestant, Evangelical, or other Christian ceremony',
   },
   {
     key: 'muslim',
@@ -70,6 +72,16 @@ export const CEREMONY_TYPE_OPTIONS: CeremonyOption[] = [
     key: 'chinese',
     label: 'Chinese',
     description: 'Tea ceremony and Chinese customs, often with a church or civil rite',
+  },
+  {
+    key: 'jewish',
+    label: 'Jewish',
+    description: 'Ceremony under a chuppah with a rabbi and ketubah signing',
+  },
+  {
+    key: 'born_again',
+    label: 'Born Again',
+    description: 'Born Again / Pentecostal Christian ceremony',
   },
   {
     key: 'mixed',

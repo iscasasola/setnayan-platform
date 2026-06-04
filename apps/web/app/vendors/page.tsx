@@ -91,6 +91,9 @@ type CoupleFaith =
   | 'INC'
   | 'Muslim'
   | 'Cultural'
+  | 'Chinese'
+  | 'Jewish'
+  | 'Born Again'
   | null;
 
 function mapCeremonyTypeToFaith(ceremonyType: string): CoupleFaith {
@@ -105,6 +108,12 @@ function mapCeremonyTypeToFaith(ceremonyType: string): CoupleFaith {
       return 'Muslim';
     case 'cultural':
       return 'Cultural';
+    case 'chinese':
+      return 'Chinese';
+    case 'jewish':
+      return 'Jewish';
+    case 'born_again':
+      return 'Born Again';
     default:
       return null;
   }
@@ -674,13 +683,16 @@ function parseFilters(
  * INC stays uppercase as the label (it's an organization name —
  * Iglesia Ni Cristo) but the URL param is `inc` for consistency.
  */
-export type FaithKey = 'Catholic' | 'Christian' | 'INC' | 'Muslim' | 'Cultural';
+export type FaithKey = 'Catholic' | 'Christian' | 'INC' | 'Muslim' | 'Cultural' | 'Chinese' | 'Jewish' | 'Born Again';
 const FAITH_URL_TO_KEY: Record<string, FaithKey> = {
   catholic: 'Catholic',
   christian: 'Christian',
   inc: 'INC',
   muslim: 'Muslim',
   cultural: 'Cultural',
+  chinese: 'Chinese',
+  jewish: 'Jewish',
+  born_again: 'Born Again',
 };
 const FAITH_KEY_TO_URL: Record<FaithKey, string> = {
   Catholic: 'catholic',
@@ -688,6 +700,9 @@ const FAITH_KEY_TO_URL: Record<FaithKey, string> = {
   INC: 'inc',
   Muslim: 'muslim',
   Cultural: 'cultural',
+  Chinese: 'chinese',
+  Jewish: 'jewish',
+  'Born Again': 'born_again',
 };
 const FAITH_KEY_TO_LABEL: Record<FaithKey, string> = {
   Catholic: 'Catholic',
@@ -695,6 +710,9 @@ const FAITH_KEY_TO_LABEL: Record<FaithKey, string> = {
   INC: 'INC',
   Muslim: 'Muslim',
   Cultural: 'Cultural',
+  Chinese: 'Chinese',
+  Jewish: 'Jewish',
+  'Born Again': 'Born Again',
 };
 const FAITH_KEYS_ORDER: ReadonlyArray<FaithKey> = [
   'Catholic',
@@ -702,6 +720,9 @@ const FAITH_KEYS_ORDER: ReadonlyArray<FaithKey> = [
   'INC',
   'Muslim',
   'Cultural',
+  'Chinese',
+  'Jewish',
+  'Born Again',
 ];
 
 /**
@@ -2598,6 +2619,9 @@ async function CatalogView({
     INC: 0,
     Muslim: 0,
     Cultural: 0,
+    Chinese: 0,
+    Jewish: 0,
+    'Born Again': 0,
   };
   for (const row of schemas) {
     const meta = TAXONOMY_MAP[row.canonical_service];

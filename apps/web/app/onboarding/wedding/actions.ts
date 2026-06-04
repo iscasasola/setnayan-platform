@@ -11,6 +11,7 @@ import { recomputeReceptionAnchor } from '@/lib/events';
 import { defaultInvitedToForRole } from '@/lib/guests';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import { canonicalServicesForTile, canonicalServicesForFolder } from '@/lib/vendor-counts';
+import { regionForCity } from '@/lib/regions';
 
 /**
  * commitOnboardingWedding — the single lazy DB commit for the /onboarding/wedding
@@ -101,6 +102,41 @@ const RECEPTION_TO_VENUE_SETTING: Record<string, string> = {
   setting_beach: 'beach',
   setting_resort: 'destination',
 };
+
+// Onboarding region slug (screen-6 · onboarding-shell REGLABEL keys) → PSGC
+// region code (vendor_profiles.hq_region · lib/regions.ts PH_REGIONS). The
+// shell's own slug set ('c-visayas', 'n-mindanao', 'abroad' …) differs from
+// match-criteria.ts REGION_OPTIONS, so this map is keyed to what the wizard
+// actually stores in state.region. `abroad` → null = no region scope (couple
+// marrying overseas · show the full pool). Unknown slug → null (no scope) so a
+// future region addition degrades to "everywhere" rather than zero results.
+const ONBOARDING_REGION_TO_PSGC: Record<string, string> = {
+  ncr: 'NCR',
+  calabarzon: 'IV-A',
+  'c-visayas': 'VII',
+  'w-visayas': 'VI',
+  'c-luzon': 'III',
+  ilocos: 'I',
+  cagayan: 'II',
+  bicol: 'V',
+  mimaropa: 'IV-B',
+  'e-visayas': 'VIII',
+  zamboanga: 'IX',
+  'n-mindanao': 'X',
+  davao: 'XI',
+  soccsksargen: 'XII',
+  caraga: 'XIII',
+  barmm: 'BARMM',
+  car: 'CAR',
+  // abroad → (absent) → null → no region scope
+};
+
+/** Onboarding region slug → PSGC code, or null when the couple has no
+ *  region-scopable pick (unset · `abroad` · unrecognized slug). */
+function onboardingRegionToPsgc(region: string | null | undefined): string | null {
+  if (!region) return null;
+  return ONBOARDING_REGION_TO_PSGC[region] ?? null;
+}
 
 // Picker key (53 fine taxonomy services, screen-9) → PLAN_GROUP id (26 planning
 // groups). The auto-inquire loop resolves each pick to its group, then fires
@@ -512,6 +548,10 @@ export async function searchOnboardingReceptionVenues(input: {
   kind: 'religious' | 'civil' | 'mixed' | null;
   faith: string[];
   receptionSettings: string[];
+  /** Onboarding region slug (screen-6 · state.region). Scopes venues to the
+   *  couple's area — a reception venue IS its location, so an out-of-region
+   *  venue can't serve the wedding. null/abroad/unset → no region scope. */
+  region?: string | null;
 }): Promise<OnboardingVenueResult[]> {
   // Derive ceremony_type + secondary the SAME way the commit does, so the
   // NULL-safe ceremony filter admits faith-agnostic reception venues.
@@ -545,6 +585,8 @@ export async function searchOnboardingReceptionVenues(input: {
       ceremonyType,
       secondaryCeremonyType: secondary,
       venueSetting,
+      region: onboardingRegionToPsgc(input.region),
+      eventType: 'wedding',
       limit: 8,
     });
     return recs.map((r) => ({
@@ -591,9 +633,11 @@ export type OnboardingVendorCounts = { matched: number; total: number };
  *   total   = published vendors (verified + coming_soon, real business_name)
  *             across the couple's picked categories. Empty picks → the whole
  *             published marketplace (still a real pool, not a category scope).
- *   matched = of those, the ones that FIT the wedding — compatible with the
- *             couple's ceremony_type (+ secondary for interfaith) AND venue
- *             setting, NULL-safe admit-never-exclude (same as the marketplace).
+ *   matched = of those, the ones that FIT the wedding — couple's ceremony_type
+ *             (+ secondary for interfaith) AND venue setting AND region (city
+ *             fallback) AND event_type='wedding', Hybrid NULL-safe admit-unknown
+ *             / exclude-known-mismatch (same predicates as the marketplace). So
+ *             region/event-type narrow `matched` below `total` — a real "N of M".
  *
  * Returns null — and the tile AUTO-HIDES, never fabricates — when a count can't
  * be computed (query error) or there is no real pool to narrow (total ≤ 0, or
@@ -605,6 +649,11 @@ export async function getOnboardingVendorCounts(input: {
   faith: string[];
   receptionSettings: string[];
   picks: string[];
+  /** Onboarding region slug (screen-6 · state.region). Narrows `matched` to
+   *  the couple's area (effective region w/ city fallback). `total` stays the
+   *  full category pool, so region shows as a real narrowing in "N of M".
+   *  null/abroad/unset → no region narrowing. */
+  region?: string | null;
 }): Promise<OnboardingVendorCounts | null> {
   // Derive ceremony_type + secondary the SAME way the commit + reception search
   // do, so the NULL-safe ceremony filter admits faith-agnostic vendors.
@@ -643,43 +692,61 @@ export async function getOnboardingVendorCounts(input: {
     new Set([ceremonyType, secondary].filter((v): v is string => typeof v === 'string' && v.length > 0)),
   );
 
+  const psgcRegion = onboardingRegionToPsgc(input.region);
+
   const admin = createAdminClient();
-  // Published-pool base (verified + coming_soon, real business_name), scoped to
-  // the couple's categories when they picked any.
-  const base = () => {
+  // Pull the published pool (verified + coming_soon · real business_name ·
+  // scoped to the couple's picked categories) ONCE, then compute total +
+  // matched in JS. We fetch rows rather than two head-counts because the region
+  // dimension needs the regionForCity(location_city) fallback that SQL can't
+  // express for the demo + legacy rows whose hq_region backfill is NULL. total +
+  // matched share the one fetched set so `matched ⊆ total` holds by construction.
+  type PoolRow = {
+    hq_region: string | null;
+    location_city: string | null;
+    compatible_ceremony_types: string[] | null;
+    compatible_venue_settings: string[] | null;
+    event_types: string[] | null;
+  };
+  try {
     let q = admin
       .from('vendor_market_stats')
-      .select('vendor_profile_id', { count: 'exact', head: true })
+      .select(
+        'hq_region,location_city,compatible_ceremony_types,compatible_venue_settings,event_types',
+      )
       .in('public_visibility', ['verified', 'coming_soon'])
       .not('business_name', 'is', null)
-      .neq('business_name', '');
+      .neq('business_name', '')
+      .limit(5000); // ceiling well above the V1 pool · keeps `total` exact
     if (canonicalUnion.length > 0) q = q.overlaps('services', canonicalUnion);
-    return q;
-  };
+    const { data, error } = await q;
+    if (error || !data) return null;
+    const rows = data as PoolRow[];
 
-  try {
-    const [totalRes, matchedRes] = await Promise.all([
-      base(),
-      (() => {
-        let q = base();
-        if (ceremonyValues.length > 0) {
-          q = q.or(
-            [
-              'compatible_ceremony_types.is.null',
-              ...ceremonyValues.map((v) => `compatible_ceremony_types.cs.{${v}}`),
-            ].join(','),
-          );
-        }
-        if (venueSetting) {
-          q = q.or(`compatible_venue_settings.is.null,compatible_venue_settings.cs.{${venueSetting}}`);
-        }
-        return q;
-      })(),
-    ]);
+    // Hybrid fit predicates · NULL-safe admit-unknown, exclude-known-mismatch —
+    // identical semantics to fetchWizardVendorRecommendations, so this count and
+    // the step-12 venue list agree on what "fits".
+    const ceremonyFit = (cer: string[] | null) =>
+      ceremonyValues.length === 0 ||
+      cer == null ||
+      ceremonyValues.some((v) => cer.includes(v));
+    const venueFit = (ven: string[] | null) =>
+      !venueSetting || ven == null || ven.includes(venueSetting);
+    const regionFit = (hq: string | null, city: string | null) => {
+      if (!psgcRegion) return true;
+      const eff = hq ?? regionForCity(city);
+      return eff === null || eff === psgcRegion;
+    };
+    const eventFit = (ets: string[] | null) => ets == null || ets.includes('wedding');
 
-    if (totalRes.error || matchedRes.error) return null;
-    const total = totalRes.count ?? 0;
-    const matched = Math.min(matchedRes.count ?? 0, total); // defensive: matched ⊆ total
+    const total = rows.length; // full category pool · region-agnostic denominator
+    const matched = rows.filter(
+      (r) =>
+        ceremonyFit(r.compatible_ceremony_types) &&
+        venueFit(r.compatible_venue_settings) &&
+        regionFit(r.hq_region, r.location_city) &&
+        eventFit(r.event_types),
+    ).length;
     if (total <= 0 || matched <= 0) return null; // never fabricate / never discourage
     return { matched, total };
   } catch {

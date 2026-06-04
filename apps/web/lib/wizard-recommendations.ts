@@ -14,16 +14,20 @@
  * avg_rating_overall → most-recent. Setnayan-Pay-enabled / verified
  * vendors float to the top via ad_rank.
  *
- * Compat filters mirror the marketplace's existing scoring:
- *   - `compatible_ceremony_types[]` overlap with event.ceremony_type
- *   - `compatible_venue_settings[]` overlap with event.venue_setting
- *   - region within ~100km of event.venue_latitude/venue_longitude
- *     (loose · gracefully degrades to "no region match" when event has
- *     no venue locked yet)
+ * Compat filters mirror the marketplace's existing scoring. All are OPTIONAL
+ * (omit the arg → that dimension isn't scoped · exact prior behavior):
+ *   - `compatible_ceremony_types[]` overlap with event.ceremony_type (`ceremonyType`)
+ *   - `compatible_venue_settings[]` overlap with event.venue_setting (`venueSetting`)
+ *   - region scope by PSGC code (`region`) · effective region = hq_region, or
+ *     regionForCity(location_city) for rows the backfill left NULL · narrowed
+ *     in JS after the over-fetch (the 2026-06-04 leaf-match wiring · supersedes
+ *     the never-wired "~100km of venue_lat/lon" intent this doc once described)
+ *   - event-type scope by `event_types[]` membership (`eventType`)
  *
- * NULL safety: a vendor row with compatible_ceremony_types = NULL means
- * "compatible with all ceremonies" (same OR-clause as the religion-
- * default filter from CLAUDE.md 2026-05-22 PR #305). Same for venue.
+ * NULL safety (Hybrid · admit-unknown, exclude-known-mismatch): a vendor row
+ * with compatible_ceremony_types = NULL means "compatible with all ceremonies"
+ * (same OR-clause as the religion-default filter from CLAUDE.md 2026-05-22
+ * PR #305). Same for venue, event_types, and effective region.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -34,6 +38,7 @@ import {
   fetchEventSongPickIds,
   fetchVendorSongOverlaps,
 } from '@/lib/songs';
+import { regionForCity } from '@/lib/regions';
 
 /** Single vendor recommendation row · shape consumed by VendorPickCard
  *  AND the new visual VendorPickGridCard. */
@@ -149,6 +154,20 @@ type Args = {
   /** events.venue_setting · null when not picked yet · used to filter
    *  to compatible-venue vendors. */
   venueSetting: string | null;
+  /** Couple's region · PSGC code (NCR / IV-A / VII …). When set, results are
+   *  scoped to that region under the Hybrid match contract: a vendor's
+   *  EFFECTIVE region — `hq_region`, or `regionForCity(location_city)` for the
+   *  demo + legacy rows the 20260620 backfill left NULL — must equal it, EXCEPT
+   *  genuinely-unknown-region rows (no hq_region + unrecognized city), which are
+   *  admitted so unknown coverage is never hidden. Omit = no region scope
+   *  (exact prior behavior). Applied as a post-query JS narrowing, so the fetch
+   *  over-reads to keep a full `limit` of in-region rows. */
+  region?: string | null;
+  /** Couple's event type · `'wedding'` in V1. NULL-safe OR on `event_types[]`:
+   *  admits vendors with no declared types (covers all), excludes ones that
+   *  declare only OTHER event types (e.g. corporate-only). Omit = no event-type
+   *  scope (exact prior behavior). */
+  eventType?: string | null;
   /** Cap on rows. Default 15 for the legacy list VendorPickCard; the
    *  new visual VendorPickGridCard bumps to 100+ so its 15-per-page
    *  pagination has multiple pages to walk through. */
@@ -193,7 +212,11 @@ export async function fetchWizardVendorRecommendations(
   const isMusicMatch =
     !!args.matchEventId &&
     args.canonicalServices.some((s) => MUSIC_CANONICALS.has(s));
-  const fetchLimit = isMusicMatch ? Math.max(limit, 100) : limit;
+  // Region scoping narrows in JS after the fetch (effective region needs the
+  // location_city fallback SQL can't express), so over-fetch — same trick as
+  // the music re-rank — to keep a full `limit` of in-region rows.
+  const needsRegionScope = !!args.region;
+  const fetchLimit = isMusicMatch || needsRegionScope ? Math.max(limit, 100) : limit;
 
   let query = admin
     .from('vendor_market_stats')
@@ -238,6 +261,13 @@ export async function fetchWizardVendorRecommendations(
     query = query.or(
       `compatible_venue_settings.is.null,compatible_venue_settings.cs.{${args.venueSetting}}`,
     );
+  }
+
+  // Event-type scope · same NULL-safe OR shape. A vendor with no declared
+  // event_types is admitted (covers all); one that lists them must include the
+  // couple's type — excludes e.g. corporate-only vendors from a wedding search.
+  if (args.eventType) {
+    query = query.or(`event_types.is.null,event_types.cs.{${args.eventType}}`);
   }
 
   // Free-text search · ilike on business_name | location_city | tagline.
@@ -294,6 +324,19 @@ export async function fetchWizardVendorRecommendations(
     | 'screen_name'
   >[];
   if (baseRows.length === 0) return [];
+
+  // Region scope (Hybrid · admit-unknown, exclude-known-mismatch). Effective
+  // region = hq_region, or regionForCity(location_city) for rows the 20260620
+  // backfill couldn't set (demo data + legacy off-platform vendors). A NULL
+  // effective region = unknown coverage → admitted, never hidden. We
+  // over-fetched above so a full `limit` of in-region rows survives this.
+  if (args.region) {
+    baseRows = baseRows.filter((r) => {
+      const eff = r.hq_region ?? regionForCity(r.location_city);
+      return eff === null || eff === args.region;
+    });
+    if (baseRows.length === 0) return [];
+  }
 
   // Song-overlap score + re-rank (music match only). `overlapByVendor` stays
   // empty otherwise, so the final map adds no match fields and the order is

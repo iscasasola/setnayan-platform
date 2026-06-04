@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(0016/0044): onboarding leaf-match — location + event-type filters wired (Hybrid)
+
+**Context:** Owner audit of onboarding (the step-12 "Find your first vendor" venue list + the step-13 congrats "N that fit your wedding · from M" tile). Two gaps: the reception search showed out-of-region venues (Boracay/Tagaytay for a Metro Manila couple), and the tile read "1,801 of 1,801" — because `fetchWizardVendorRecommendations` + `getOnboardingVendorCounts` filtered ONLY on (NULL-safe, demo-uniform) ceremony + venue_setting compat. Region, event-type, capacity, and per-leaf refinements weren't applied at all. Owner locked **Hybrid** match semantics (hard-filter the objective/always-present dims, rank the soft/sparse ones, never show an empty list) + "quick wins now, spec the refinement layer."
+
+**Quick-win wiring (this PR):**
+- **`lib/wizard-recommendations.ts`** — engine gains two OPTIONAL args (omit = exact prior behavior, so the 5 other call sites are untouched):
+  - `eventType` — NULL-safe OR on `event_types[]` (admits undeclared, excludes e.g. corporate-only from a wedding search).
+  - `region` (PSGC code) — scoped by EFFECTIVE region = `hq_region` ?? `regionForCity(location_city)`. The city fallback is essential: the demo seed + legacy rows have NULL `hq_region`, so a naive SQL filter wouldn't bite. NULL effective region = unknown → admitted (Hybrid). Applied as a post-fetch JS narrowing with an over-fetch (`max(limit,100)`), same pattern as the music re-rank.
+- **`app/onboarding/wedding/actions.ts`** — new `ONBOARDING_REGION_TO_PSGC` map (the wizard's own region slugs → PSGC; `abroad`/unknown → no scope). `searchOnboardingReceptionVenues` passes `region` + `eventType:'wedding'`. `getOnboardingVendorCounts` rewritten to compute total + matched in ONE JS pass over the pool (region needs the city fallback SQL can't express): `total` = full category pool (region-agnostic denominator), `matched` = fits ceremony + venue + region + event-type — so region/event-type now narrow `matched` below `total` (a real "N of M").
+- **`onboarding-shell.tsx`** — passes `state.region` into both calls.
+
+**Effect (demo data):** a Metro Manila couple's venue list drops the Boracay/Tagaytay rows; the tile goes from "1,801 of 1,801" to (≈) the NCR-fit subset of 1,801. The residual matched≈total *within* a region (compat arrays are demo-uniform) is the refinement layer's job — see `COWORK_INBOX.md`.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean (3 changed files) · additive optional args (no behavior change when omitted). No migration — uses existing `hq_region` / `event_types` / `location_city` columns (view `20260620…` already exposes them). NOT run in a live preview — apps/web has no Supabase env in the build shell; owner confirms in the running app. Built from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** Onboarding now scopes vendors by **region + event-type** (was: ceremony + venue only). The deeper per-leaf **refinement** model (venue type / capacity / …), the `venue_setting` ↔ `venue_directory.venue_type` reconciliation, and the formal **Hybrid leaf-match contract** are specced as a `[PENDING]` item in `COWORK_INBOX.md` → `0044_per_category_schemas`.
+
 ## 2026-06-04 · feat(0023): /admin/taxonomy editor — rename nodes + re-map canonicals (Phase 3 MVP)
 
 **Context:** Phases 1–2b·1 built the DB-backed taxonomy + read-through. This adds the **editor** — the admin-facing payoff of the ♾️ "Admin Finalize = permanent live publish" lock — so an admin can reshape the taxonomy and see it live with no deploy.

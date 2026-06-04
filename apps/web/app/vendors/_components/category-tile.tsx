@@ -2,11 +2,11 @@ import Link from 'next/link';
 import { Star } from 'lucide-react';
 
 import {
-  WEDDING_FOLDER_SHORT_LABEL,
   type TaxonomyEntry,
   type TaxonomyPhase,
   type WeddingFolder,
 } from '@/lib/taxonomy';
+import { getTaxonomy } from '@/lib/taxonomy-db';
 import type { VendorCount } from '@/lib/vendor-counts';
 
 export type CategoryTileData = {
@@ -78,7 +78,7 @@ function deriveState(data: CategoryTileData): TileState {
   return isLivePhase(data.meta.phase) ? { kind: 'recruiting' } : { kind: 'future' };
 }
 
-export function CategoryTile({
+export async function CategoryTile({
   data,
   focusedMode = false,
 }: {
@@ -93,6 +93,15 @@ export function CategoryTile({
   focusedMode?: boolean;
 }) {
   const state = deriveState(data);
+  // DB-backed folder hint — a parent renamed in /admin/taxonomy reflects in the
+  // "Also under …" cross-listing line live. Only fetched for cross-listed tiles
+  // (getTaxonomy is request-cached + falls back to the lib/taxonomy.ts constant).
+  let primaryFolderHintLabel: string | null = null;
+  if (data.primaryFolderHint) {
+    const tax = await getTaxonomy();
+    primaryFolderHintLabel =
+      tax.folderShortLabel[data.primaryFolderHint] ?? data.primaryFolderHint;
+  }
   // 10-parent model: tile cards drill into the tile-scoped grid (?tile=);
   // legacy canonical cards keep the ?category= drill-in.
   const drillParam = data.tileSlug
@@ -141,9 +150,9 @@ export function CategoryTile({
                 Catering folder understand "this is a hotel — primary home
                 is Planning, but it provides catering too." Owner directive
                 verbatim: "most hotels also provide catering." */}
-          {data.primaryFolderHint ? (
+          {primaryFolderHintLabel ? (
             <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/40">
-              Also under {WEDDING_FOLDER_SHORT_LABEL[data.primaryFolderHint]}
+              Also under {primaryFolderHintLabel}
             </p>
           ) : null}
         </div>

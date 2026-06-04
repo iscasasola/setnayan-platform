@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(0023/0044/0006): add-new-leaf editor + couple-side taxonomy validation + /vendors read-through
+
+**Context:** Owner — "set the taxonomy to be capable of growing and reformatting… our app will rely on that for vendors, services, onboarding." Most of the DB-backed-taxonomy stack already shipped (Phase 2a read-through · Phase 3 editor rename/remap/add/delete/reorder). This closes three remaining gaps in that initiative. (Re-baseline: the foundation + read-through + editor were already on `main` — this builds on them, it does not rebuild them.)
+
+**Slice 2 — mint a new bookable leaf from `/admin/taxonomy` (no deploy).** New `createCanonicalLeaf` action writes BOTH tables a leaf needs: a `canonical_service_schemas` stub (→ appears in the vendor onboarding "add a service" picker via `listCanonicalServices`, taggable, refinement-ready) + a `canonical_service_taxonomy` mapping under a chosen tile (→ `/vendors` buckets it live via `getCanonicalBuckets`). Optional starter refinement seeds the first `multi_select` attribute (e.g. `table_linen_rental` under Stylist/Decorator + a Customization refinement: plain · custom_monogram · custom_logo). Service-role + audit-logged; rolls back the schema stub if the mapping insert fails. New "Add a new service" form on the editor page — this is the editor's first **leaf-minting** capability (prior actions only remapped existing canonicals).
+
+**Slice 3 — couple-side `vendor_category` → canonical anchoring (`lib/vendor-category-taxonomy.ts`).** Anchors the legacy 30-value `event_vendors.category` vocabulary to the canonical tile taxonomy. A/B/C bucket study: **24 clean-1:1** · **2 coarse aliases** (band_dj → live_band+dj · transportation → bridal_car+guest_shuttle) · **4 exempt couple-only** (officiant auto-resolves from venue · church_fees is a budget line · security has no tile · misc). Drift is compile-time-enforced (exhaustive `Record<VendorCategory>` + `WeddingTile`-typed targets — a renamed/removed tile or a new unclassified category fails `tsc`) + a runtime `validateVendorCategoryMapping()` surfaced as a couple-side anchoring diagnostic on the admin taxonomy page.
+
+**Slice 1 — `/vendors` child-component read-through.** `folder-vendors-section.tsx` + `category-tile.tsx` (now async) read folder labels from `getTaxonomy()` instead of the constant, so a parent renamed in the editor reflects in the section header + the "Also under …" cross-listing hint (Phase 2b·2 had deferred these as a "no-op" assuming folder labels were editor-immutable — but `renameTaxonomyNode` has no tier guard, so parents ARE renamable). Dashboard planning-grid consumers stay on the constant by design (they read editor-immutable folder SLUGS for deep-links · the immutable-key invariant).
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean (no new warnings) · production build exit 0. Foundation migration `20260803001000` already applied to prod (verified via `supabase migration list`) — **no migration in this PR**. Isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** The taxonomy editor can now **mint a new bookable canonical leaf** (schema stub + tile mapping + optional refinement) at runtime — extends 0023 §3.15 beyond rename/remap/add-tile/delete/reorder. Couple-side `vendor_category` is now **anchored to the canonical taxonomy** (new A/B/C mapping). → `COWORK_INBOX.md` (0023 + 0006).
+
 ## 2026-06-04 · feat(0043,0023): per-religion traditions accuracy pass + "Reset to latest" admin action
 
 **Context:** Owner-approved accuracy pass on the per-religion "What to expect" content (`lib/wedding-traditions.ts`), grounded in standard PH wedding practice — especially the flagged INC / Muslim / Cultural / Chinese — keeping the honest "confirm with your {officiant}" framing.

@@ -4,12 +4,14 @@ import {
   type TaxonomyEntry,
 } from '@/lib/taxonomy';
 import { getTaxonomy } from '@/lib/taxonomy-db';
+import { validateVendorCategoryMapping } from '@/lib/vendor-category-taxonomy';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import {
   updatePlanningDeadline,
   renameTaxonomyNode,
   remapCanonical,
   createTaxonomyNode,
+  createCanonicalLeaf,
   deleteTaxonomyNode,
   moveTaxonomyNode,
 } from './actions';
@@ -140,6 +142,12 @@ export default async function AdminTaxonomyPage({
     return facets.length > 0;
   }).length;
 
+  // Couple-side anchoring — are all legacy vendor_category values still mapped to
+  // a live canonical tile? Surfaces drift if an admin deleted/re-keyed a tile the
+  // couple-side budget list (event_vendors.category) points at. See
+  // lib/vendor-category-taxonomy.ts for the A/B/C bucket study.
+  const coupleSideDrift = validateVendorCategoryMapping(tax);
+
   // Admin-managed deadlines (planning_deadlines) — the recommended lock-by
   // dates the Home reminders read. Service category rows + documents are
   // editable below. A missing table (migration not applied) returns null → the
@@ -193,6 +201,27 @@ export default async function AdminTaxonomyPage({
         <Stat label="With filter_facets" value={facetedCount} />
         <Stat label="Unmapped (drift)" value={unmapped.length} />
       </section>
+
+      <p
+        className={`mb-8 -mt-4 rounded-lg border px-4 py-2 text-sm ${
+          coupleSideDrift.length === 0
+            ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+            : 'border-amber-200 bg-amber-50 text-amber-900'
+        }`}
+      >
+        {coupleSideDrift.length === 0 ? (
+          <>
+            ✓ Couple-side anchoring — every <code className="font-mono text-xs">vendor_category</code> maps
+            to a live canonical tile (or is intentionally exempt: officiant · church_fees · security · misc).
+          </>
+        ) : (
+          <>
+            ⚠ {coupleSideDrift.length} couple-side{' '}
+            {coupleSideDrift.length === 1 ? 'category points' : 'categories point'} at a missing tile:{' '}
+            {coupleSideDrift.map((d) => `${d.category} → ${d.missingTiles.join(', ')}`).join(' · ')}
+          </>
+        )}
+      </p>
 
       <section className="mb-10">
         <header className="mb-2 flex items-baseline justify-between gap-3">
@@ -351,6 +380,96 @@ export default async function AdminTaxonomyPage({
             </div>
           ))}
         </div>
+      </section>
+
+      <section className="mb-10">
+        <header className="mb-2 flex items-baseline justify-between gap-3">
+          <h2 className="text-lg font-semibold tracking-tight text-ink">
+            Add a new service{' '}
+            <span className="font-normal text-ink/55">
+              (a bookable leaf — appears on /vendors + onboarding live, no deploy)
+            </span>
+          </h2>
+        </header>
+        <p className="mb-3 text-sm text-ink/60">
+          Mints a brand-new canonical service under a tile. Writes the{' '}
+          <code className="font-mono text-xs">canonical_service_schemas</code> stub (so vendors can
+          add it during onboarding) and the{' '}
+          <code className="font-mono text-xs">canonical_service_taxonomy</code> mapping (so the
+          marketplace buckets it). Optionally seed its first refinement.
+        </p>
+        <form
+          action={createCanonicalLeaf}
+          className="grid gap-3 rounded-xl border border-emerald-300/50 bg-emerald-50/30 p-4 sm:grid-cols-2"
+        >
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium text-ink/75">Service name</span>
+            <input
+              name="display_name_en"
+              required
+              placeholder="e.g. Table Linen Rental"
+              className="rounded-md border border-ink/15 bg-white px-2 py-1.5 text-sm text-ink"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium text-ink/75">Under tile</span>
+            <select
+              name="tile_id"
+              required
+              defaultValue=""
+              className="rounded-md border border-ink/15 bg-white px-2 py-1.5 text-sm text-ink"
+            >
+              <option value="" disabled>
+                — pick a tile —
+              </option>
+              {tax.folderOrder.map((folder) => (
+                <optgroup key={folder} label={tax.folderLabel[folder] ?? folder}>
+                  {(tax.tilesByParent[folder] ?? []).map((t) => (
+                    <option key={t} value={t}>
+                      {tax.tileLabel[t] ?? t}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium text-ink/75">
+              Starter refinement <span className="text-ink/45">(optional)</span>
+            </span>
+            <input
+              name="refinement_label"
+              placeholder="e.g. Customization"
+              className="rounded-md border border-ink/15 bg-white px-2 py-1.5 text-sm text-ink"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium text-ink/75">
+              Refinement options <span className="text-ink/45">(comma-separated)</span>
+            </span>
+            <input
+              name="refinement_options"
+              placeholder="e.g. plain, custom monogram, custom logo"
+              className="rounded-md border border-ink/15 bg-white px-2 py-1.5 text-sm text-ink"
+            />
+          </label>
+          <div className="flex items-center gap-4 sm:col-span-2">
+            <label className="flex items-center gap-1.5 text-sm text-ink/75">
+              <input type="checkbox" name="is_rental" className="h-4 w-4" />
+              Rental
+            </label>
+            <label className="flex items-center gap-1.5 text-sm text-ink/75">
+              <input type="checkbox" name="is_ph" className="h-4 w-4" />
+              PH-specific
+            </label>
+            <button
+              type="submit"
+              className="ml-auto rounded-md border border-emerald-300 bg-white px-4 py-1.5 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-50"
+            >
+              Add service
+            </button>
+          </div>
+        </form>
       </section>
 
       {tax.folderOrder.map((folder, idx) => {

@@ -8,6 +8,18 @@
 
 ---
 
+## [PENDING] 2026-06-04 — Taxonomy editor mints new leaves + couple-side vendor_category anchored to canonical (0023 / 0006 / 0044)
+
+**Why:** Owner — "set the taxonomy to be capable of growing and reformatting… the app relies on it." The `/admin/taxonomy` editor can now mint a brand-new bookable canonical leaf at runtime (no deploy), and the legacy couple-side `vendor_category` is now anchored to the canonical tile taxonomy.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`0023_admin_console.md` §3.15** — the taxonomy editor's capability set now includes **mint-a-new-leaf**: `createCanonicalLeaf` writes a `canonical_service_schemas` stub (so the service appears in vendor onboarding + is refinement-ready) + a `canonical_service_taxonomy` mapping under a chosen tile (so /vendors buckets it), with an optional starter `multi_select` refinement. Audit-logged · service-role · schema-stub rollback on mapping failure. (Adds to the existing rename / re-map / add-tile / delete / reorder set.)
+2. **`0006_vendors_management.md`** (+ a note in `0044_per_category_schemas.md`) — the couple-side `vendor_category` enum is now anchored to the canonical marketplace taxonomy via `lib/vendor-category-taxonomy.ts`: **A** 24 clean-1:1 · **B** 2 coarse aliases (band_dj → Live Band+DJ · transportation → Bridal Car+Guest Shuttle) · **C** 4 exempt couple-only (officiant · church_fees · security · misc). Drift is compile-time-enforced + runtime-validated (couple-side anchoring diagnostic on the admin taxonomy page).
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
 ## [DONE 2026-06-04] — event-type picker corrected to ALL-LIVE + per-religion items applied (0000 / 0023 / 0043 / DECISION_LOG)
 
 **✅ APPLIED DIRECTLY 2026-06-04** (owner instruction "check cowork; if not done, do it yourself") — corpus commits `e6b9269` (0000) + `70f26bf` (0043 / 0023 / DECISION_LOG + .docx). Closes the whole event-type-picker + per-religion cluster (the #882/#884/#885/#888/#889/#890/#895/#898 items below — **all done**):

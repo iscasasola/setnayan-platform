@@ -235,3 +235,12 @@
 .onbw .locpicks .locchip{flex:0 0 auto;transition:width .4s cubic-bezier(.2,.7,.3,1);}
 .onbw .locpicks[data-count="1"] .locchip{width:100%;}
 .onbw .locpicks[data-count="2"] .locchip{width:calc(50% - 3.5px);}
+
+/* find-vendor skeleton loader — shimmering placeholder cards while venues populate (owner 2026-06-04) */
+.onbw .vcard.vskel{cursor:default;pointer-events:none;}
+.onbw .vcard.vskel .vimg{background:rgba(30,34,41,.06);}
+.onbw .vskel-box{position:relative;overflow:hidden;}
+.onbw .vskel-box::after{content:'';position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.6) 50%,transparent 100%);animation:vshimmer 1.25s infinite;}
+@keyframes vshimmer{100%{transform:translateX(100%);}}
+.onbw .vskel .vskel-line{height:13px;border-radius:7px;background:rgba(30,34,41,.08);margin-bottom:9px;}
+.onbw .vskel .vskel-line.sm{height:10px;}

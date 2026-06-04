@@ -2483,7 +2483,19 @@ export function OnboardingShell({
             <h1 className="q" style={{ fontSize: 30 }}>{findHeading}</h1>
             <p className="sub">Sorted for you: your style first, then everyone available. <b>Tap one to shortlist.</b></p>
             {venuesLoading && (
-              <div className="vload">Finding reception venues that fit your wedding…</div>
+              <div className="vskel-wrap" aria-live="polite" aria-busy="true">
+                <div className="grouplbl">★ Finding the best venues for you…</div>
+                {[0, 1, 2].map((i) => (
+                  <div className="vcard vskel" key={i}>
+                    <div className="vimg vskel-box" />
+                    <div className="vbody">
+                      <div className="vskel-line vskel-box" style={{ width: '64%' }} />
+                      <div className="vskel-line sm vskel-box" style={{ width: '46%' }} />
+                      <div className="vskel-line sm vskel-box" style={{ width: '30%' }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
             {!venuesLoading && venues && venues.length > 0 && (
               <>

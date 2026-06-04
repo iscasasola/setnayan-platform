@@ -8,6 +8,20 @@
 
 ---
 
+## [PENDING] 2026-06-04 — Setnayan-service workspace = apply-then-pay framing + inline-order-status BLOCKED (0006 / 0034)
+
+**Why:** First-party Setnayan services rendered the external-vendor chrome (hand-entered Costing, cancel/dispute) on the per-service workspace — wrong, since they're apply-then-pay (pay → upload payment screenshot → verified within 24 hrs). The page now hides that chrome for `is_setnayan_service` picks and shows a "Managed by Setnayan → pay & track in Orders" card.
+
+**Blocker to record (owner decision):** there is **no link from an `event_vendors` Setnayan-service pick to its `service_orders` (0034) row** — orders are keyed by `service_key` + event, `event_vendors` has no `service_key` / `order_id`, and adding a Setnayan service doesn't create an order. So a true **inline per-service order/payment status panel** can't be built without either (a) `event_vendors.service_order_id` (nullable FK) + wiring the Setnayan-service add flow to create/associate a 0034 order, or (b) a fragile heuristic match. Deferred pending owner direction.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`0006_vendors_management.md` / `0021_couple_dashboard_fully_purchased.md`** — note that first-party Setnayan services on the per-service workspace are apply-then-pay (no host Costing/dispute), pointing to the Orders surface.
+2. **`0034_payments_and_cart.md`** — record the open gap: Setnayan in-app services (vendor-listing model) have no order linkage; decide whether to add `event_vendors.service_order_id` + create-order-on-add so per-service order status can render inline.
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
 ## [PENDING] 2026-06-04 — Vendor agents: per-service assignment · Phase 2a (0022)
 
 **Why:** Phase 2 of the vendor multi-user workspace — agents see only the services + customers they manage. Phase 2a ships the assignment foundation: a new `vendor_service_agents` table (RLS: members read, owner/admin manage) + a per-agent service-assignment UI on the Team page. The customer link is `event_vendors.service_id` → booked `vendor_services`. Migration applied to prod.

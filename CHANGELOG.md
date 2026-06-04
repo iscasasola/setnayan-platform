@@ -22,6 +22,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · fix(0021): vendor-pick logos fall back to initials on load error (picsum rate-limit)
+
+**Context:** With the badge collision fixed (#911), the picker cards revealed a second issue — logos render as broken-image icons. The demo seed sets `logo_url` to `picsum.photos/seed/…/800/600` (+ 1200×800 portfolio); ~4,900 vendors × big images hammers picsum, which rate-limits, so the plain `<img>` fails. (The overlay uses a raw `<img>`, not next/image, so the `next.config` allow-list doesn't help it.)
+
+**Fix (`category-search-overlay.tsx`):** added a `failedLogos` Set + an `onError` on the logo `<img>`. On load failure the vendor falls back to the existing **initials tile** (the same elegant placeholder used when there's no logo) instead of a broken-image icon. Host-agnostic — helps any flaky/unreachable logo, not just demo picsum.
+
+**Note (follow-up, not in this PR):** the root of the broken *photos* is the seed requesting 800×600 placeholders at scale. To make demo photos load reliably, shrink the seed's picsum sizes (e.g. 256×192) and re-Create; the fallback keeps the UI clean meanwhile.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean · no schema/SKU change. Isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** None — rendering robustness.
+
 ## 2026-06-04 · fix(0021): vendor-pick badge collision — rename `.v`/`.b` so `.pbacc .v` can't match (real fix)
 
 **Context:** The earlier portal fix (#908) did NOT resolve the distorted picker — the VERIFIED badge still ballooned into a giant cream stadium (VERIFIED top-center, column layout, ~300px tall — the exact `.pbacc .v` signature). The portal *should* have escaped `.pbacc` (it's a normal div, not `<body>`), so the live failure is most likely stale PWA/tab JS — but the portal was a fragile, structural-only fix.

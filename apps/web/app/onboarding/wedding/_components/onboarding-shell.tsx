@@ -2127,9 +2127,14 @@ export function OnboardingShell({
             <div className="viewzone">
               <div className="eyebrow">Your wedding</div>
               <h1 className="q">The two of you.</h1>
-              <p className="sub">Bride &amp; groom — it goes on your invitation, website &amp; monogram.</p>
               <figure className="monogram">
+                {/* key by design index so "Generate another design" remounts the
+                    lockup → its Trace effect (letters + filigree draw themselves)
+                    replays on every cycle (screen display:none→flex covers the
+                    first arrival). The mark propagates to the couple's invitation,
+                    website, save-the-date, live background, livestream + videos. */}
                 <MonoLockup
+                  key={state.monogramDesign}
                   design={monoDesign}
                   bi={firstInitial(state.brideFirstName)}
                   gi={firstInitial(state.groomFirstName)}

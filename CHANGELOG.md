@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · assets(onboarding): premium 2D monogram frames (11, transparent gold)
+
+**Context:** Owner — *"update the Monogram Frames … We want 2D Premium wedding frame designs."*
+
+**What changed:** Regenerated all 11 monogram frames (`public/onboarding/mono/{wreath,crest,square,oval,laurel,botanical,ribbon,flourish,art_deco,baroque,deco_diamond}.webp`) via Recraft as **premium 2D gold frames** — delicate gold linework, **transparent background**, **empty center** for the couple's monogram letters. Generated with `digital_illustration` + `transparent_background` (real alpha); prompts strip "wedding/couple" words so Recraft doesn't fill the center with figures. 512×512 transparent WebP. Same keys → asset swap only.
+
+**Verification:** Asset swap (same filenames/`data-frame` keys) — no code change. QC'd on a contact sheet.
+
+**SPEC IMPACT:** None (monogram frame asset refresh).
+
 ## 2026-06-04 · assets(onboarding): real Filipino faith ceremony photos (8 traditions)
 
 **Context:** Owner — the ceremony/tradition photos should show **actual Filipino couples mid-ceremony with guests**, ethnicity-tuned per religion.

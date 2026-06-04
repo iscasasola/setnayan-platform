@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(0000): minimal event-type "bar picker" + tap straight into onboarding (P1 of per-event onboarding)
+
+**Context:** Owner directive 2026-06-04 — the create-event event picker should be "nothing but the choice of events": a minimal row of bars (one per event type) between ‹ › chevrons; tap a bar to pick → jump STRAIGHT into that event's onboarding. Prototype approved this session. Phase 1 of a larger approved build — each event type gets its own fully-tailored onboarding mimicking the wedding flow's concept (shared engine + per-event route/palette/content/commit), exemplar-first with Debut. Plan: `.claude/plans/curious-swimming-journal.md`.
+
+**What changed** (`apps/web/app/dashboard/create-event/`):
+- **New `_components/event-type-bar-picker.tsx`** — replaces the hero-photo carousel on the full-page create-event surface. A row of bars; the focused bar is gold (`terracotta` = Champagne Gold) + taller with an equalizer falloff; ‹ › chevrons / arrow keys / swipe browse; tap a bar to pick. Roving tabindex for keyboard; the focused type's emoji + name + caption render below the strip so the unlabeled bars stay legible. The shared `event-type-carousel.tsx` is **untouched** (still used by the in-chrome add-event sheet `event-switcher.tsx`).
+- **`_components/event-types.ts`** — each row gains `onboardingHref`; Wedding → `/onboarding/wedding`, the rest `null` (filled in as each tailored onboarding lands).
+- **`_components/event-type-picker.tsx`** — renders the bar picker; tapping a type with an `onboardingHref` routes straight there (Wedding → onboarding, dropping the old intermediate "Continue →" card); types still on `null` fall back to the inline name form (`createWeddingEvent`). Removed the already-dead per-surface `WeddingTypePicker` / `wedding_type_launch_status` path + the "pick a type to name it" placeholder.
+- **`page.tsx`** — dropped the dead `launchStatus` fetch + imports; trimmed the subtitle to "Tap a type to begin."; `invalid_type` copy de-references "carousel".
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` (create-event dir) clean · CI green (typecheck+lint, production build, lighthouse, playwright, bundle size, secret scan, Vercel) · interaction + look approved via the standalone prototype. Isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** 0000 — the create-event event-type picker is now a minimal bar carousel; tap routes straight into onboarding (replaces the hero-photo carousel + name-form-first flow on the full-page surface). Per-event onboarding roll-out begins (Debut next). → `COWORK_INBOX.md`.
+
 ## 2026-06-04 · feat(0022): Vendor dashboard remap (4 groups) + role-aware nav shell (Phase 1)
 
 **Context:** Owner directive — make the vendor (and admin) dashboards seamless + simple, and turn the vendor account into a true multi-user workspace where main holders (owner/admin) see everything and agents see only their services + customers. Backbone already existed (`vendor_team_members` + role enum owner>admin>agent>viewer + `current_vendor_ids(min_role)`), but the dashboard never used roles (and `fetchOwnVendorProfile` is owner-only, so non-owner members couldn't load it). This is **Phase 1: the IA remap + role-aware nav shell**; per-service DATA scoping + route guards + admins-see-all data resolution are Phase 2 (owner-sequenced "remaps first, agents next").

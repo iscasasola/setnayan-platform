@@ -552,6 +552,9 @@ export async function searchOnboardingReceptionVenues(input: {
    *  couple's area — a reception venue IS its location, so an out-of-region
    *  venue can't serve the wedding. null/abroad/unset → no region scope. */
   region?: string | null;
+  /** Couple's guest count (screen · state.pax). Drops venues that can't seat
+   *  the wedding (capacity_max < pax). null/0 → no pax scope. */
+  pax?: number | null;
 }): Promise<OnboardingVenueResult[]> {
   // Derive ceremony_type + secondary the SAME way the commit does, so the
   // NULL-safe ceremony filter admits faith-agnostic reception venues.
@@ -587,6 +590,7 @@ export async function searchOnboardingReceptionVenues(input: {
       venueSetting,
       region: onboardingRegionToPsgc(input.region),
       eventType: 'wedding',
+      pax: input.pax ?? null,
       limit: 8,
     });
     return recs.map((r) => ({
@@ -654,6 +658,10 @@ export async function getOnboardingVendorCounts(input: {
    *  full category pool, so region shows as a real narrowing in "N of M".
    *  null/abroad/unset → no region narrowing. */
   region?: string | null;
+  /** Couple's guest count (state.pax). Narrows `matched` further — venues that
+   *  can't seat the wedding (capacity_max < pax) drop out. null/0 → no pax
+   *  narrowing. */
+  pax?: number | null;
 }): Promise<OnboardingVendorCounts | null> {
   // Derive ceremony_type + secondary the SAME way the commit + reception search
   // do, so the NULL-safe ceremony filter admits faith-agnostic vendors.
@@ -701,18 +709,22 @@ export async function getOnboardingVendorCounts(input: {
   // dimension needs the regionForCity(location_city) fallback that SQL can't
   // express for the demo + legacy rows whose hq_region backfill is NULL. total +
   // matched share the one fetched set so `matched ⊆ total` holds by construction.
+  // Sourced from vendor_profiles (not the market_stats view) because capacity_max
+  // for the pax filter lives there; rows are identical (the view is just
+  // vendor_profiles + LEFT JOINs) and the admin client bypasses RLS.
   type PoolRow = {
     hq_region: string | null;
     location_city: string | null;
     compatible_ceremony_types: string[] | null;
     compatible_venue_settings: string[] | null;
     event_types: string[] | null;
+    capacity_max: number | null;
   };
   try {
     let q = admin
-      .from('vendor_market_stats')
+      .from('vendor_profiles')
       .select(
-        'hq_region,location_city,compatible_ceremony_types,compatible_venue_settings,event_types',
+        'hq_region,location_city,compatible_ceremony_types,compatible_venue_settings,event_types,capacity_max',
       )
       .in('public_visibility', ['verified', 'coming_soon'])
       .not('business_name', 'is', null)
@@ -738,6 +750,8 @@ export async function getOnboardingVendorCounts(input: {
       return eff === null || eff === psgcRegion;
     };
     const eventFit = (ets: string[] | null) => ets == null || ets.includes('wedding');
+    const pax = input.pax && input.pax > 0 ? input.pax : null;
+    const paxFit = (cap: number | null) => pax === null || cap === null || cap >= pax;
 
     const total = rows.length; // full category pool · region-agnostic denominator
     const matched = rows.filter(
@@ -745,7 +759,8 @@ export async function getOnboardingVendorCounts(input: {
         ceremonyFit(r.compatible_ceremony_types) &&
         venueFit(r.compatible_venue_settings) &&
         regionFit(r.hq_region, r.location_city) &&
-        eventFit(r.event_types),
+        eventFit(r.event_types) &&
+        paxFit(r.capacity_max),
     ).length;
     if (total <= 0 || matched <= 0) return null; // never fabricate / never discourage
     return { matched, total };

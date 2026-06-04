@@ -61,6 +61,7 @@ import {
   type OnboardingState,
 } from '../types';
 import { LocationStep } from './location-step';
+import { MonoLockup, type MonoDesign } from './mono-lockup';
 import { resolvePick } from '../_data/wedding-cities';
 
 /* Full 15-screen flow (welcome..budget..picker..prefs..account..find..congrats..plan). */
@@ -141,23 +142,17 @@ const FAITH_CHIPS: { value: OnboardingFaith; label: string; soon: boolean }[] = 
   { value: 'jewish', label: 'Jewish', soon: false },
 ];
 
-/* ── monogram designs (owner 2026-06-02 — single "Generate another design" cycles
-   10 curated {frame + font + ink} presets; replaced the separate Frame/Font cyclers).
-   frame → /onboarding/mono/{frame}.webp · font → [data-font] CSS · ink → [data-ink] CSS.
-   The couple's live initials render inside; commit derives monogram_frame/font_key from
-   the active design. Library set — refine the 10 with the owner's inspirations later. */
-type MonoDesign = { frame: string; font: string; ink: string };
+/* ── monogram designs (owner 2026-06-04 — 5 live-typography lockups; replaced the
+   10 {frame+font+ink} image presets). MonoLockup (./mono-lockup) renders each by
+   its .lk-* class from the couple's real initials + first names, so the mark stays
+   crisp at any size. Only design 4 (framed) uses an image — the ornate gold frame.
+   "Generate another design" cycles these; commit still derives monogram_frame/font_key. */
 const MONO_DESIGNS: MonoDesign[] = [
-  { frame: 'wreath', font: 'cormorant', ink: 'mulberry' }, // floral · italic serif · wine
-  { frame: 'oval', font: 'playfair', ink: 'ink' },         // oval cartouche · Playfair · ink
-  { frame: 'crest', font: 'cinzel', ink: 'gold' },         // heraldic crest · engraved caps · gold
-  { frame: 'botanical', font: 'script', ink: 'mulberry' }, // botanical · Great Vibes · wine
-  { frame: 'laurel', font: 'cormorant', ink: 'gold' },     // laurel · italic serif · gold
-  { frame: 'ribbon', font: 'playfair', ink: 'mulberry' },  // ribbon · Playfair · wine
-  { frame: 'flourish', font: 'script', ink: 'ink' },       // flourish · script · ink
-  { frame: 'square', font: 'cinzel', ink: 'ink' },         // deco square · caps · ink
-  { frame: 'art_deco', font: 'cinzel', ink: 'gold' },      // art-deco · caps · gold
-  { frame: 'baroque', font: 'cormorant', ink: 'mulberry' },// baroque · italic serif · wine
+  { style: 'bar', font: 'cormorant' },                  // 1 · serif caps | & | caps + names
+  { style: 'script', font: 'script' },                  // 2 · Great Vibes  i & i (3 glyphs)
+  { style: 'duo', font: 'playfair' },                   // 3 · serif caps, close / overlapping
+  { style: 'framed', font: 'cinzel', frame: 'wreath' }, // 4 · initials in an ornate gold frame
+  { style: 'infinity', font: 'cormorant' },             // 5 · two caps linked by a gold ∞
 ];
 
 /* ── pax tier photos (prototype PAXTIERS) ── */
@@ -1574,12 +1569,6 @@ export function OnboardingShell({
     const w = (s || '').replace(/[^A-Za-z]/g, '');
     return w ? w[0]!.toUpperCase() : '';
   };
-  const monoMark = (() => {
-    const bi = firstInitial(state.brideFirstName);
-    const gi = firstInitial(state.groomFirstName);
-    if (bi && gi) return `${bi} & ${gi}`;
-    return bi || gi || '··';
-  })();
   const bumpMono = () => {
     setMonoPop(true);
     if (popTimer.current) clearTimeout(popTimer.current);
@@ -2139,15 +2128,14 @@ export function OnboardingShell({
               <h1 className="q">The two of you.</h1>
               <p className="sub">Bride &amp; groom — it goes on your invitation, website &amp; monogram.</p>
               <figure className="monogram">
-                <div
-                  className={`mono-mark${monoMark.length > 2 ? ' long' : ''}`}
-                  data-frame={monoDesign.frame}
-                  data-font={monoDesign.font}
-                  data-ink={monoDesign.ink}
-                  style={monoPop ? { transform: 'scale(1.05)' } : undefined}
-                >
-                  <span className="mono-letters">{monoMark}</span>
-                </div>
+                <MonoLockup
+                  design={monoDesign}
+                  bi={firstInitial(state.brideFirstName)}
+                  gi={firstInitial(state.groomFirstName)}
+                  brideName={state.brideFirstName}
+                  groomName={state.groomFirstName}
+                  pop={monoPop}
+                />
               </figure>
             </div>
             <div className="tapzone">

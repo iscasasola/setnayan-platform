@@ -26,7 +26,43 @@
 
 ---
 
-## [PENDING] 2026-06-04 — "Where your day stands" cover made directive + in-rail loop coaching (0021 Vendors / Plan & Budget)
+## [PENDING] 2026-06-04 — Admin dashboard remap: 6 groups + mobile table/orphan fixes (0023)
+
+**Why:** Owner directive to simplify the admin console + fix mobile. Desktop sidebar collapsed **8 → 6 groups**; 4 mobile-overflowing tables fixed; the `/admin/songs` mobile orphan reached.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`0023_admin_console.md` §1** — the admin console is now **6 sidebar groups**: Home · Queues · Directory · Money · **Insights** (Growth · Funnels · Operations & Hiring · Telemetry · Offline daemon — absorbs the old Operations group) · **Manage** (Taxonomy · Website · Ads · Today's Focus brain · Moodboard library · Songs · Settings · Demo mode — merges the old Content + Settings). Update the group list (was 8: Home/Queues/Directory/Money/Content/Operations/Funnels/Settings). Mobile bottom-nav unchanged (Home · Queues · Directory · Money · More); the More tab now also surfaces Songs.
+2. **`0023_admin_console.md` §5 (mobile)** — note the still-pending **unified mobile Queues triage feed** (one prioritized action list across the queues with quick-approve + detail sheets), deferred to its own PR.
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
+## [PENDING] 2026-06-04 — Minimal event-type "bar picker" + tap-to-onboarding (0000 · per-event onboarding P1)
+
+**Why:** Owner directive — the create-event event picker should be "nothing but the choice of events": a minimal bar strip; tapping a type jumps straight into that event's onboarding. Replaces the hero-photo carousel + the name-form-first flow on the full-page create-event surface. Phase 1 of the per-event tailored-onboarding build (each event type gets its own onboarding mimicking the wedding flow — Debut next).
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`0000_app_shell_and_navigation.md`** — the create-event "swipeable hero-photo carousel of event types" is replaced by a **minimal bar picker**: a row of bars (one per type) between ‹ › chevrons; the focused bar is gold + taller; tap a bar to pick. **Tapping routes straight into that event's onboarding** (Wedding → `/onboarding/wedding` today; each other type as its tailored onboarding lands) — the intermediate "Continue →" card and the name-form-first step are gone for onboarding-backed types. The in-chrome add-event bottom sheet keeps the hero carousel (unchanged).
+2. **`0016_*` onboarding (or a new per-event-onboarding spec)** — onboarding generalizes from wedding-only to **per-event**: each type gets a fully-tailored flow (own questions, palette, photos, copy, DB mapping) built on a **shared engine** (`app/onboarding/_shared/`); event-specific data lands in an additive `events.attributes JSONB`. Roll-out is exemplar-first (Debut), then one type per iteration (christening, birthday, gender_reveal, celebration, corporate, travel, tournament). Architecture + per-type sketches: repo plan `.claude/plans/curious-swimming-journal.md`.
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
+## [PENDING] 2026-06-04 — Vendor dashboard remap (4 groups) + role-aware nav shell · Phase 1 (0022)
+
+**Why:** Owner directive to simplify the vendor dashboard + make it a multi-user workspace (owner/admin see all; agents scoped). Phase 1 ships the IA remap + role-aware nav shell; Phase 2 ships per-service data scoping (`vendor_service_agents` + RLS) + admins-see-all data resolution + route guards.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`0022_vendor_dashboard.md`** — desktop nav is now **4 groups** (Home · Work · Grow · Business), down from 6 (Pipeline+Communicate → Work; Money+Team → Business). Mobile bottom-nav unchanged for owner/admin (Home · Bookings · Messages · Earnings · More). Note the **role-aware nav shell**: agent/viewer see a scoped nav (Phase 1: Overview only) + a "you're on the team" home; owner/admin see everything.
+2. **`0022_vendor_dashboard.md` §2.6 (team/agents)** — record the Phase-1/Phase-2 split: roles resolved via `vendor_team_members`; agent per-service scoping (`vendor_service_agents`) + RLS lands in Phase 2.
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
+## [DONE 2026-06-04] — "Where your day stands" cover made directive + in-rail loop coaching (0021 Vendors / Plan & Budget)
 
 **Why:** Customers couldn't tell what to do on the Vendors "Where your day stands" overview once they'd started — the Find→Shortlist→Lock loop was taught ONLY on the empty cover. Added an action-first banner, a persistent loop legend, a first-run coachmark, and a point-of-action Lock helper.
 
@@ -35,7 +71,7 @@
 2. **Same spec — new "first-run coaching" note** — a dismissible coachmark at the top of the category list (Tap / Compare / Lock this pick) + a one-time Lock helper under the first lockable card, both shown only while the couple has shortlisted but locked nothing (`localStorage` `pba_coach_v1`), self-retiring after the first lock.
 3. **Cover CTA copy** — "Swipe to start viewing the services" → **"Swipe up to view your services"**.
 
-**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+**Done 2026-06-04 (Claude Code Cowork pass):** `Vendors_Plan_Budget_Tab_Spec_2026-05-31.md` §2.B rewritten (the directive "Where your day stands" cover) + §2.D first-run-coaching note added; `.docx` mirror regenerated; `DECISION_LOG.md` row appended. Corpus edits left uncommitted in the working tree for owner review.
 
 ---
 

@@ -11,6 +11,7 @@ import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { SidebarShell } from '@/app/_components/nav/sidebar-shell';
 import { VendorSidebar } from './_components/vendor-sidebar';
 import { VendorBottomNav } from './_components/vendor-bottom-nav';
+import { resolveVendorRole } from '@/lib/vendor-role';
 
 /**
  * Vendor dashboard layout — v2.1 Navigation Phase 2 (vendor doorway).
@@ -69,7 +70,7 @@ export default async function VendorDashboardLayout({
   if (!user) redirect(loginRedirectPath('/vendor-dashboard'));
   const supabase = await createClient();
 
-  const [profileRes, unreadCount, roles, events] = await Promise.all([
+  const [profileRes, unreadCount, roles, events, vendorRole] = await Promise.all([
     supabase
       .from('users')
       .select('account_type, email, display_name, deleted_at')
@@ -91,6 +92,10 @@ export default async function VendorDashboardLayout({
       );
       return [] as Awaited<ReturnType<typeof fetchUserEvents>>;
     }),
+    // Vendor team role for the role-aware nav shell (owner/admin = full nav,
+    // agent/viewer = scoped). Resolved here so both the sidebar + bottom-nav
+    // render from one source. Independent of the others → safe in Promise.all.
+    resolveVendorRole(supabase, user.id),
   ]);
   const profile = profileRes.data;
 
@@ -202,7 +207,7 @@ export default async function VendorDashboardLayout({
 
   return (
     <>
-      <SidebarShell sidebar={<VendorSidebar />} sidebarFooter={switchViewPill} topBar={topBar}>
+      <SidebarShell sidebar={<VendorSidebar role={vendorRole} />} sidebarFooter={switchViewPill} topBar={topBar}>
         {/* Pad the bottom on mobile so BottomNav doesn't cover the last
             row of content. SidebarShell already handles the desktop
             sidebar offset via its lg:pl-[var(--shell-main-offset)] math. */}
@@ -211,7 +216,7 @@ export default async function VendorDashboardLayout({
       {/* Mobile BottomNav — auto-hides at lg via lg:hidden inside the
           BottomNav primitive. Sits outside SidebarShell so it doesn't
           inherit the desktop sidebar offset. */}
-      <VendorBottomNav />
+      <VendorBottomNav role={vendorRole} />
     </>
   );
 }

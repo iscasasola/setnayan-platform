@@ -295,86 +295,12 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    key: 'content',
-    label: 'Content',
-    items: [
-      {
-        key: 'brain',
-        // Brand-layer label per CLAUDE.md 2026-05-28 brand cutover.
-        label: "Today's Focus brain",
-        href: '/admin/brain',
-        icon: Brain,
-      },
-      {
-        key: 'moodboard-library',
-        label: 'Moodboard library',
-        href: '/admin/moodboard-library',
-        icon: Palette,
-      },
-      {
-        key: 'taxonomy',
-        label: 'Taxonomy',
-        href: '/admin/taxonomy',
-        icon: Tag,
-      },
-      {
-        key: 'songs',
-        label: 'Songs',
-        href: '/admin/songs',
-        icon: Music,
-        matchPrefix: '/admin/songs',
-      },
-      {
-        key: 'website',
-        label: 'Website',
-        href: '/admin/website',
-        icon: Globe,
-      },
-      {
-        key: 'ads',
-        label: 'Ads',
-        href: '/admin/ads',
-        icon: Megaphone,
-      },
-    ],
-  },
-  {
-    key: 'operations',
-    label: 'Operations',
-    items: [
-      {
-        key: 'operations-hiring',
-        label: 'Operations & Hiring',
-        href: '/admin/operations-hiring',
-        icon: TrendingUp,
-      },
-      {
-        // FORWARD-REFERENCE: Phase E telemetry sprint ships this route in
-        // a parallel agent dispatch per the Phase 3 brief. Until that PR
-        // lands, link 404s — acceptable per brief for parallel sprint
-        // coordination.
-        key: 'telemetry',
-        label: 'Telemetry',
-        href: '/admin/telemetry',
-        icon: Activity,
-      },
-      {
-        // FORWARD-REFERENCE: Phase G offline-daemon sprint ships this
-        // route in a parallel agent dispatch. Until then link 404s —
-        // acceptable per brief.
-        key: 'offline',
-        label: 'Offline daemon',
-        href: '/admin/offline',
-        icon: WifiOff,
-      },
-    ],
-  },
-  {
+    // REMAP 2026-06-04 — admin groups 8 → 6 for a simpler console.
+    // "Insights" now also absorbs the old Operations group (Operations &
+    // Hiring · Telemetry · Offline daemon) — all analytics/ops monitoring.
+    // Group KEY stays 'funnels' so persisted open-state survives; item keys
+    // unchanged so no surface orphans on the mobile More landing.
     key: 'funnels',
-    // Group label widened to "Insights" 2026-06-04 when the Growth surface
-    // (population + growth-over-time + guest→account conversion) joined
-    // Funnels here. Group KEY stays 'funnels' so the persisted section-open
-    // state (setnayan.nav.section.funnels.open) survives the relabel.
     label: 'Insights',
     items: [
       {
@@ -390,15 +316,76 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/funnels',
         icon: BarChart3,
       },
+      {
+        key: 'operations-hiring',
+        label: 'Operations & Hiring',
+        href: '/admin/operations-hiring',
+        icon: TrendingUp,
+      },
+      {
+        // FORWARD-REFERENCE until the Phase E telemetry sprint lands.
+        key: 'telemetry',
+        label: 'Telemetry',
+        href: '/admin/telemetry',
+        icon: Activity,
+      },
+      {
+        // FORWARD-REFERENCE until the Phase G offline-daemon sprint lands.
+        key: 'offline',
+        label: 'Offline daemon',
+        href: '/admin/offline',
+        icon: WifiOff,
+      },
     ],
   },
   {
-    key: 'settings',
-    label: 'Settings',
-    // Low-traffic group — collapse by default to keep the Operations +
-    // Funnels groups closer to the fold without forcing a scroll.
+    // REMAP 2026-06-04 — "Manage" merges the old Content + Settings groups
+    // (low-traffic config: catalogs, marketing site, platform settings).
+    // Group KEY stays 'content' for open-state continuity; item keys
+    // unchanged. Collapsed by default to keep higher-traffic groups above
+    // the fold.
+    key: 'content',
+    label: 'Manage',
     defaultOpen: false,
     items: [
+      {
+        key: 'taxonomy',
+        label: 'Taxonomy',
+        href: '/admin/taxonomy',
+        icon: Tag,
+      },
+      {
+        key: 'website',
+        label: 'Website',
+        href: '/admin/website',
+        icon: Globe,
+      },
+      {
+        key: 'ads',
+        label: 'Ads',
+        href: '/admin/ads',
+        icon: Megaphone,
+      },
+      {
+        // Brand-layer label per CLAUDE.md 2026-05-28 brand cutover.
+        key: 'brain',
+        label: "Today's Focus brain",
+        href: '/admin/brain',
+        icon: Brain,
+      },
+      {
+        key: 'moodboard-library',
+        label: 'Moodboard library',
+        href: '/admin/moodboard-library',
+        icon: Palette,
+      },
+      {
+        key: 'songs',
+        label: 'Songs',
+        href: '/admin/songs',
+        icon: Music,
+        matchPrefix: '/admin/songs',
+      },
       {
         key: 'settings',
         label: 'Settings',
@@ -410,10 +397,7 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/settings',
       },
       {
-        // Demo mode kept here so it stays reachable post-restructure.
-        // /admin/settings/page.tsx doesn't currently link to it — making
-        // it a sidebar entry preserves discoverability per
-        // [[feedback_setnayan_orphan_prevention]].
+        // Kept reachable post-restructure per orphan-prevention.
         key: 'demo-mode',
         label: 'Demo mode',
         href: '/admin/settings/demo-mode',

@@ -224,7 +224,8 @@ export default async function OperationsHiringPage() {
           </span>
         </div>
         {roadmap.length > 0 ? (
-          <table className="mt-3 w-full text-sm">
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-ink/10 text-left text-xs font-medium uppercase tracking-wide text-ink/50">
                 <th className="py-2">Hire by</th>
@@ -253,7 +254,8 @@ export default async function OperationsHiringPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+            </table>
+          </div>
         ) : (
           <p className="mt-3 text-sm text-ink/50">Roadmap not seeded — run migration.</p>
         )}

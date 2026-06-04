@@ -22,6 +22,53 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** The per-vendor workspace surface is reframed from vendor-scoped to **service-scoped** (service/package as the hero; vendor demoted to attribution; 3-state truthful status stepper; first-party Setnayan services show "Provided by Setnayan"). This surface came from the 2026-05-22 owner directive and is **not currently in the spec corpus**. → record in `DECISION_LOG.md` + the relevant iteration (0006 vendors mgmt / 0021 couple dashboard). Logged in `COWORK_INBOX.md`. Fast-follows (deferred, not in this PR): strip Costing/dispute chrome from first-party Setnayan services + real 0034 order-and-pay panel; `fetchBudgetSnapshot` per-vendor overfetch; `ensureAutoShareInvite` write-on-render; dead `workspace/actions.ts` exports.
 
+## 2026-06-04 · feat(0023): Admin dashboard remap — 6 groups + mobile table + orphan fixes
+
+**Context:** Owner directive — make the admin console seamless + simple, especially on mobile. Companion to the vendor remap (PR #962). Desktop had 8 sidebar groups; mobile had 4 data tables that overflowed the viewport (the real "manage on mobile" defects from the earlier study).
+
+**What changed** (no migration):
+- **`admin-sidebar.tsx`** — desktop groups **8 → 6**: Home · Queues · Directory · Money · **Insights** (Growth · Funnels · Operations & Hiring · Telemetry · Offline daemon — absorbs the old Operations group) · **Manage** (Taxonomy · Website · Ads · Today's Focus brain · Moodboard library · Songs · Settings · Demo mode — merges the old Content + Settings, collapsed by default). Group keys reused (`funnels`→Insights, `content`→Manage) so persisted open-state survives; all item keys unchanged.
+- **Mobile table fixes (4)** — the surfaces flagged in the dashboard study that overflowed the viewport now scroll: `operations-hiring` (wrapped in `overflow-x-auto`), `demo-vendors` · `demo-vendors/inquiries` · `offline-diagnostic` (their `overflow-hidden` wrapper → `overflow-x-auto`, so wide tables scroll instead of clipping).
+- **Mobile orphan fix** — `/admin/songs` was missing from the mobile More tab + landing (added after the nav was last touched); now reachable (added to `admin-bottom-nav.tsx` activeMatch + a card on `/admin/more`). More activeMatch comments re-grouped to match the new Insights/Manage structure.
+
+**Deferred (next, flagged):** the unified mobile **Queues triage feed** (one prioritized action list across Payments/Verify/Disputes/Reviews/Help/Abuse with quick-approve + detail sheets) — a bigger feature, its own PR.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean · `next build` exit 0. Isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** 0023 — admin nav remap (8→6 groups) + mobile table/orphan fixes. → `COWORK_INBOX.md` [PENDING].
+
+## 2026-06-04 · feat(0000): minimal event-type "bar picker" + tap straight into onboarding (P1 of per-event onboarding)
+
+**Context:** Owner directive 2026-06-04 — the create-event event picker should be "nothing but the choice of events": a minimal row of bars (one per event type) between ‹ › chevrons; tap a bar to pick → jump STRAIGHT into that event's onboarding. Prototype approved this session. Phase 1 of a larger approved build — each event type gets its own fully-tailored onboarding mimicking the wedding flow's concept (shared engine + per-event route/palette/content/commit), exemplar-first with Debut. Plan: `.claude/plans/curious-swimming-journal.md`.
+
+**What changed** (`apps/web/app/dashboard/create-event/`):
+- **New `_components/event-type-bar-picker.tsx`** — replaces the hero-photo carousel on the full-page create-event surface. A row of bars; the focused bar is gold (`terracotta` = Champagne Gold) + taller with an equalizer falloff; ‹ › chevrons / arrow keys / swipe browse; tap a bar to pick. Roving tabindex for keyboard; the focused type's emoji + name + caption render below the strip so the unlabeled bars stay legible. The shared `event-type-carousel.tsx` is **untouched** (still used by the in-chrome add-event sheet `event-switcher.tsx`).
+- **`_components/event-types.ts`** — each row gains `onboardingHref`; Wedding → `/onboarding/wedding`, the rest `null` (filled in as each tailored onboarding lands).
+- **`_components/event-type-picker.tsx`** — renders the bar picker; tapping a type with an `onboardingHref` routes straight there (Wedding → onboarding, dropping the old intermediate "Continue →" card); types still on `null` fall back to the inline name form (`createWeddingEvent`). Removed the already-dead per-surface `WeddingTypePicker` / `wedding_type_launch_status` path + the "pick a type to name it" placeholder.
+- **`page.tsx`** — dropped the dead `launchStatus` fetch + imports; trimmed the subtitle to "Tap a type to begin."; `invalid_type` copy de-references "carousel".
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` (create-event dir) clean · CI green (typecheck+lint, production build, lighthouse, playwright, bundle size, secret scan, Vercel) · interaction + look approved via the standalone prototype. Isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** 0000 — the create-event event-type picker is now a minimal bar carousel; tap routes straight into onboarding (replaces the hero-photo carousel + name-form-first flow on the full-page surface). Per-event onboarding roll-out begins (Debut next). → `COWORK_INBOX.md`.
+
+## 2026-06-04 · feat(0022): Vendor dashboard remap (4 groups) + role-aware nav shell (Phase 1)
+
+**Context:** Owner directive — make the vendor (and admin) dashboards seamless + simple, and turn the vendor account into a true multi-user workspace where main holders (owner/admin) see everything and agents see only their services + customers. Backbone already existed (`vendor_team_members` + role enum owner>admin>agent>viewer + `current_vendor_ids(min_role)`), but the dashboard never used roles (and `fetchOwnVendorProfile` is owner-only, so non-owner members couldn't load it). This is **Phase 1: the IA remap + role-aware nav shell**; per-service DATA scoping + route guards + admins-see-all data resolution are Phase 2 (owner-sequenced "remaps first, agents next").
+
+**What changed** (no migration):
+- **`lib/vendor-role.ts`** (new) — `resolveVendorRole()` (highest membership role, legacy owner fallback), `canManageVendor()` (owner/admin), and the Phase-1 nav policy (`filterVendorNavGroups`, scoped item/tab key sets). Single source of truth so Phase 2 expands agent surfaces in one place.
+- **`vendor-sidebar.tsx`** — desktop groups **6 → 4**: Home · **Work** (Bookings · Messages · Services · Contracts · Repertoire · Attributes) · **Grow** (Marketing · Verify · Reviews · Moodboard library) · **Business** (Earnings · Tokens · Manpower · Redeem code · Team). Group KEYS reused (`pipeline`/`marketing`/`money`) so persisted open-state survives; all item keys unchanged. Now `role`-aware (agent/viewer → Overview only).
+- **`vendor-bottom-nav.tsx`** — `role`-aware tabs (owner/admin full; agent/viewer → Home + More).
+- **`vendor-dashboard/layout.tsx`** — resolves the member role (parallel) and feeds sidebar + bottom-nav.
+- **`vendor-dashboard/more/page.tsx`** — role-filtered overflow groups.
+- **`vendor-dashboard/page.tsx`** — agent/viewer get a clear "you're on the team" landing instead of the owner "set up your profile" state.
+
+**Safety:** agents currently resolve to NULL vendor data via the owner-only `fetchOwnVendorProfile`, so no data is exposed by this change — the nav shell is purely structural. Phase 2 adds `vendor_service_agents` + RLS so agents see only assigned services/customers (and admins see all).
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean · `next build` exit 0. Isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** 0022 — vendor nav remap (4 groups) + role-aware shell. → `COWORK_INBOX.md` [PENDING].
+
 ## 2026-06-04 · feat(0021/vendors): "Where your day stands" — make the cover DIRECTIVE + teach the loop
 
 **Context:** Owner — as a customer landing on the Vendors tab's "Where your day stands" overview, then swiping up into the category rails, it wasn't clear *what to do*. The Find→Shortlist→Lock loop was explained ONLY on the EMPTY cover; the moment the couple had a single pick, all guidance vanished and they were dropped into bare rails. Chosen approach: **both** an action-first cover AND in-rail coaching.

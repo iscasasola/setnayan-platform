@@ -41,6 +41,8 @@ import {
   MessageCircle,
   Package as PackageIcon,
   PiggyBank,
+  Receipt,
+  Sparkles,
   UserCheck,
   Upload,
 } from 'lucide-react';
@@ -48,12 +50,9 @@ import { createClient } from '@/lib/supabase/server';
 import { VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
 import { formatCentavosPhp } from '@/lib/vendor-packages';
 import { updateVendorCosts } from '../../actions';
-import { fetchBudgetSnapshot } from '@/lib/budget';
-import {
-  buildClaimUrl,
-  ensureAutoShareInvite,
-  fetchActiveAutoShareInvite,
-} from '@/lib/vendor-invites';
+import { createAutoShareInviteAction } from './actions';
+import { fetchVendorBudgetSummary } from '@/lib/budget';
+import { buildClaimUrl, fetchActiveAutoShareInvite } from '@/lib/vendor-invites';
 import { ClaimLinkShare } from './_components/claim-link-share';
 import {
   CancelBookingButton,
@@ -158,6 +157,19 @@ function formatPaymentDate(iso: string): string {
   }).format(d);
 }
 
+// Defense-in-depth: contract file URLs + vendor logo URLs are vendor-controlled.
+// Only allow http(s) so a stored `javascript:` / `data:` URL can't execute when
+// rendered as an <a href> or <img src>. Returns null for anything else.
+function safeHttpUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    return u.protocol === 'http:' || u.protocol === 'https:' ? url : null;
+  } catch {
+    return null;
+  }
+}
+
 // ----------------------------------------------------------------------------
 // Page component
 // ----------------------------------------------------------------------------
@@ -212,29 +224,22 @@ export default async function VendorWorkspacePage({ params }: Props) {
   // etc. The post-signup hook (applyClaimAutoLink) populates
   // marketplace_vendor_id when the vendor registers via the claim URL.
   //
-  // NOTE (deferred follow-up): the self-heal ensureAutoShareInvite below writes
-  // during render — should move into finalize / a server action. Left as-is in
-  // this reframe PR.
+  // Read-only here: minting an invite is a write, and a GET render (incl.
+  // Next.js prefetch) must never write. The invite is normally created at
+  // finalize time; if a locked manual vendor still has none, the claim section
+  // renders an explicit "Create link" action (createAutoShareInviteAction).
   // ----------------------------------------------------------------------
   const needsInvite = ev.marketplace_vendor_id === null;
-  let autoShareInvite = needsInvite
+  const autoShareInvite = needsInvite
     ? await fetchActiveAutoShareInvite(supabase, ev.vendor_id)
     : null;
-  if (
+  const canOfferInvite =
     needsInvite &&
     !autoShareInvite &&
     (ev.status === 'contracted' ||
       ev.status === 'deposit_paid' ||
       ev.status === 'delivered' ||
-      ev.status === 'complete')
-  ) {
-    autoShareInvite = await ensureAutoShareInvite(supabase, {
-      eventVendorId: ev.vendor_id,
-      invitedByUserId: user.id,
-      businessName: ev.vendor_name,
-      serviceCategory: ev.category,
-    });
-  }
+      ev.status === 'complete');
 
   // Parallel fetches for the panel data sources + the three marketplace-info
   // surfaces. None are critical-path — any failure renders that section's empty
@@ -314,17 +319,17 @@ export default async function VendorWorkspacePage({ params }: Props) {
         }),
   ]);
 
-  // Budget snapshot — fetched after the main Promise.all so a throw doesn't take
-  // down the page. Supplies the embedded VendorItemizationCard AND the hero's
+  // Per-vendor budget summary — single-vendor fetch (NOT the whole event's
+  // snapshot). Supplies the embedded VendorItemizationCard AND the hero's
   // "Price / Paid so far" surfaces (itemizedTotal / paidTotal, both pesos).
-  let vendorBudgetSummary: Awaited<ReturnType<typeof fetchBudgetSnapshot>>['vendors'][number] | null = null;
+  // Wrapped defensively — buildVendorPricingLookup graceful-degrades, but a
+  // hard Postgres error shouldn't take down the page.
+  let vendorBudgetSummary: Awaited<ReturnType<typeof fetchVendorBudgetSummary>> = null;
   try {
-    const snapshot = await fetchBudgetSnapshot(supabase, eventId);
-    vendorBudgetSummary =
-      snapshot.vendors.find((s) => s.vendor.vendor_id === ev.vendor_id) ?? null;
+    vendorBudgetSummary = await fetchVendorBudgetSummary(supabase, eventId, ev.vendor_id);
   } catch (e) {
     // eslint-disable-next-line no-console
-    console.error('[VendorWorkspacePage] fetchBudgetSnapshot threw', e);
+    console.error('[VendorWorkspacePage] fetchVendorBudgetSummary threw', e);
   }
 
   const contracts = (contractsRes.data ?? []) as Array<{
@@ -437,6 +442,7 @@ export default async function VendorWorkspacePage({ params }: Props) {
   // Derived display values
   // --------------------------------------------------------------------------
   const displayName = marketplaceProfile?.business_name ?? ev.vendor_name;
+  const logoUrl = safeHttpUrl(marketplaceProfile?.logo_url);
   const isSetnayanService = marketplaceProfile?.is_setnayan_service === true;
   const categoryLabel =
     (VENDOR_CATEGORY_LABEL as Record<string, string>)[ev.category] ?? 'Service';
@@ -513,10 +519,10 @@ export default async function VendorWorkspacePage({ params }: Props) {
             {/* Vendor attribution — secondary line, small avatar */}
             <div className="flex items-center gap-2 pt-1">
               <div className="grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-full border border-ink/10 bg-cream">
-                {marketplaceProfile?.logo_url ? (
+                {logoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={marketplaceProfile.logo_url}
+                    src={logoUrl}
                     alt=""
                     className="h-full w-full object-cover"
                   />
@@ -577,7 +583,7 @@ export default async function VendorWorkspacePage({ params }: Props) {
           >
             All services
           </Link>
-          {(() => {
+          {!isSetnayanService && (() => {
             // Mirror the server-side downpaid signal from cancelBookingAsHost.
             const downpaid =
               ev.status === 'deposit_paid' ||
@@ -827,20 +833,28 @@ export default async function VendorWorkspacePage({ params }: Props) {
             </p>
           ) : (
             <ul className="space-y-2">
-              {contracts.map((c) => (
+              {contracts.map((c) => {
+                const fileHref = safeHttpUrl(c.file_url);
+                return (
                 <li
                   key={c.contract_id}
                   className="flex items-center justify-between gap-3 rounded-lg border border-ink/10 bg-cream/80 px-3 py-2"
                 >
                   <div className="min-w-0 flex-1">
-                    <a
-                      href={c.file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block truncate text-sm font-medium text-ink hover:text-terracotta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-                    >
-                      {c.title}
-                    </a>
+                    {fileHref ? (
+                      <a
+                        href={fileHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block truncate text-sm font-medium text-ink hover:text-terracotta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+                      >
+                        {c.title}
+                      </a>
+                    ) : (
+                      <span className="block truncate text-sm font-medium text-ink/70">
+                        {c.title}
+                      </span>
+                    )}
                     <p className="text-[10px] text-ink/55">
                       Uploaded {formatPaymentDate(c.created_at)}
                     </p>
@@ -860,7 +874,8 @@ export default async function VendorWorkspacePage({ params }: Props) {
                       : c.status.replace(/_/g, ' ')}
                   </span>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           )}
         </section>
@@ -935,20 +950,52 @@ export default async function VendorWorkspacePage({ params }: Props) {
       ) : null}
 
       {/* ============================================================== */}
-      {/* Costing — host's 3-line total (Service + Transport + Food)      */}
-      {/* Demoted below the service surfaces; still how the couple tracks  */}
-      {/* transport + crew-meal on top of the service price.              */}
+      {/* Payment mode                                                     */}
+      {/* First-party Setnayan services aren't hand-tracked — payment runs */}
+      {/* through the order flow (apply → pay → upload screenshot →        */}
+      {/* verified within 24 hrs). External vendors keep the 3-line Costing */}
+      {/* total (service + transport + crew-meal).                         */}
       {/* ============================================================== */}
-      <section
-        aria-labelledby="costing-heading"
-        className="rounded-2xl border border-ink/10 bg-white/60 p-5 sm:p-6"
-      >
-        <h2
-          id="costing-heading"
-          className="mb-1 font-display text-lg italic text-ink"
+      {isSetnayanService ? (
+        <section
+          aria-labelledby="managed-heading"
+          className="rounded-2xl border border-mulberry/20 bg-mulberry/5 p-5 sm:p-6"
         >
-          Costing
-        </h2>
+          <div className="flex items-start gap-3">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-mulberry/10 text-mulberry">
+              <Sparkles aria-hidden className="h-4.5 w-4.5" strokeWidth={1.75} />
+            </div>
+            <div className="min-w-0 space-y-1">
+              <h2 id="managed-heading" className="text-sm font-semibold text-ink">
+                Managed by Setnayan
+              </h2>
+              <p className="text-xs text-ink/70">
+                This is a Setnayan service, so there&rsquo;s no separate vendor to
+                pay. Apply, settle the amount via the instructions we send, then
+                upload your payment screenshot — we verify and activate within 24
+                hours.
+              </p>
+              <Link
+                href={`/dashboard/${eventId}/orders`}
+                className="mt-2 inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-mulberry/30 bg-cream px-3 py-2 text-xs font-medium text-mulberry transition-colors hover:bg-mulberry/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+              >
+                <Receipt aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                Pay &amp; track in your Orders
+              </Link>
+            </div>
+          </div>
+        </section>
+      ) : (
+        <section
+          aria-labelledby="costing-heading"
+          className="rounded-2xl border border-ink/10 bg-white/60 p-5 sm:p-6"
+        >
+          <h2
+            id="costing-heading"
+            className="mb-1 font-display text-lg italic text-ink"
+          >
+            Costing
+          </h2>
         <p className="mb-4 text-xs text-ink/55">
           What you&apos;ll budget is the service price + transport + food
           allowance. Leave a line blank to count it as ₱0.
@@ -1000,7 +1047,8 @@ export default async function VendorWorkspacePage({ params }: Props) {
             Save costs
           </button>
         </form>
-      </section>
+        </section>
+      )}
 
       {/* ============================================================== */}
       {/* Your notes (single render, any pick that has them)              */}
@@ -1114,6 +1162,43 @@ export default async function VendorWorkspacePage({ params }: Props) {
               </p>
             </div>
           </header>
+        </section>
+      ) : canOfferInvite ? (
+        <section
+          aria-labelledby="claim-create-heading"
+          className="rounded-2xl border border-amber-300/60 bg-amber-50/60 p-5 sm:p-6"
+        >
+          <header className="flex items-start gap-3">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-amber-100 text-amber-800">
+              <LinkIcon aria-hidden className="h-4.5 w-4.5" strokeWidth={1.75} />
+            </div>
+            <div className="min-w-0 space-y-1">
+              <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-amber-800">
+                Bring this vendor onto Setnayan
+              </p>
+              <h2 id="claim-create-heading" className="text-sm font-semibold text-ink">
+                Invite {displayName} with a free account
+              </h2>
+              <p className="text-xs text-ink/70">
+                They don&rsquo;t have a Setnayan account yet. Create a shareable
+                link to send them — they register free and can see the schedule
+                you&rsquo;ve locked for them.
+              </p>
+            </div>
+          </header>
+          <form action={createAutoShareInviteAction} className="mt-4">
+            <input type="hidden" name="event_id" value={eventId} />
+            <input type="hidden" name="vendor_id" value={ev.vendor_id} />
+            <input type="hidden" name="business_name" value={ev.vendor_name} />
+            <input type="hidden" name="category" value={ev.category} />
+            <button
+              type="submit"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-amber-400/60 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900 transition-colors hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+            >
+              <LinkIcon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+              Create a shareable invite link
+            </button>
+          </form>
         </section>
       ) : null}
     </div>

@@ -52,9 +52,9 @@ const CSS = `
 .csov .r .vn{font-family:var(--serif);font-style:italic;font-size:17px;font-weight:600;line-height:1.12;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .csov .r .sub{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:3px;font-family:var(--mono);font-size:8.5px;letter-spacing:.03em;color:var(--ink-soft)}
 .csov .r .stars{color:var(--gold-deep);letter-spacing:0}
-.csov .r .badge{display:inline-flex;align-items:center;gap:3px;border-radius:999px;padding:2px 6px;text-transform:uppercase}
-.csov .r .badge.v{color:var(--gold-deep);background:rgba(197,160,89,.16)}
-.csov .r .badge.b{color:var(--mulberry);background:rgba(92,37,66,.1)}
+.csov .r .badge{display:inline-flex;flex:0 0 auto;align-self:center;min-height:0;align-items:center;gap:3px;border-radius:999px;padding:2px 6px;line-height:1.4;white-space:nowrap;text-transform:uppercase}
+.csov .r .badge.vrf{color:var(--gold-deep);background:rgba(197,160,89,.16)}
+.csov .r .badge.bst{color:var(--mulberry);background:rgba(92,37,66,.1)}
 .csov .r .addbtn{flex:0 0 auto;align-self:center;border:1px solid var(--mulberry);background:var(--mulberry);color:#fff;border-radius:999px;padding:8px 14px;font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;min-height:38px;transition:transform .13s cubic-bezier(.2,.7,.2,1),opacity .2s}
 .csov .r .addbtn:active{transform:scale(.93)}
 .csov .r .addbtn:disabled{opacity:.6}
@@ -276,8 +276,8 @@ export function CategorySearchOverlay({
                       </span>
                     ) : null}
                     {r.distanceKm !== null ? <span>{r.distanceKm} km</span> : r.city ? <span>{r.city}</span> : null}
-                    {r.verified ? <span className="badge v">Verified</span> : null}
-                    {r.boosted ? <span className="badge b">Featured</span> : null}
+                    {r.verified ? <span className="badge vrf">Verified</span> : null}
+                    {r.boosted ? <span className="badge bst">Featured</span> : null}
                   </div>
                 </div>
                 <button

@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · fix(0021): vendor-pick badge collision — rename `.v`/`.b` so `.pbacc .v` can't match (real fix)
+
+**Context:** The earlier portal fix (#908) did NOT resolve the distorted picker — the VERIFIED badge still ballooned into a giant cream stadium (VERIFIED top-center, column layout, ~300px tall — the exact `.pbacc .v` signature). The portal *should* have escaped `.pbacc` (it's a normal div, not `<body>`), so the live failure is most likely stale PWA/tab JS — but the portal was a fragile, structural-only fix.
+
+**Real, source-level fix (`category-search-overlay.tsx`):** the overlay's verified/featured badges were `className="badge v"` / `"badge b"`. The plan-budget-accordion's vendor-CARD rule `.pbacc .v { flex:1 1 auto; min-height:300px; flex-direction:column }` matched the badge purely because of the **`v` class**. Renamed the badge modifiers `v → vrf` and `b → bst` (CSS + JSX) so `.pbacc .v` can **never** match the badge — independent of DOM nesting, the portal, or specificity. Also hardened `.csov .r .badge` with `flex:0 0 auto; align-self:center; min-height:0; white-space:nowrap` so no rule can ever balloon a badge again. The portal (#908) stays as defense-in-depth.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean · no stray `badge v`/`badge b` left · no schema/SKU change. Built from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** None — rendering bugfix.
+
 ## 2026-06-04 · perf(nav): global top loading bar (future-proof catch-all)
 
 **Context:** Owner directive 2026-06-04 — *"we want it to be future proof"*: every route, including ones not written yet, should show a loading indicator on navigation. A root `app/loading.tsx` skeleton fallback can't do this — it makes Next.js prerender a static shell for every route at build, which runs the top-level service-role DB fetches of ~55 admin/dashboard pages (no `force-dynamic`) and breaks the build. The robust, zero-build-impact mechanism is a client-side global progress bar (the GitHub / Vercel / Linear pattern).
@@ -17,7 +27,6 @@ Pure client → ZERO static-generation impact (build stays 117/117), and it auto
 **Verification:** `tsc --noEmit` ✓ · `next lint` clean (no new warnings) ✓ · `next build` ✓ (117/117 static pages — the pure-client bar does NOT perturb static gen the way a root loading.tsx does). Shipped from an isolated worktree off `origin/main`.
 
 **SPEC IMPACT:** None — perceived-performance / UX only.
-
 
 ## 2026-06-04 · feat(0023/0044): DB-backed taxonomy — marketplace bucketing (Phase 2b·1)
 

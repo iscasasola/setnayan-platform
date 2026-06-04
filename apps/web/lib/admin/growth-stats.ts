@@ -98,14 +98,28 @@ export type ConversionStats = {
   sampleSize: number;
 };
 
+export type BreakdownRow = { key: string; label: string; count: number };
+
+export type Breakdowns = {
+  /** Events by event_type (current snapshot). */
+  eventsByType: BreakdownRow[];
+  /** Events by region slug (current snapshot · null → Unspecified). */
+  eventsByRegion: BreakdownRow[];
+  /** True if the read hit its row cap — counts are then a sample, not exact. */
+  sampled: boolean;
+};
+
 export type GrowthStats = {
   range: GrowthRangeKey;
   rangeDays: number;
   sinceIso: string;
   generatedAtIso: string;
+  /** True when figures are illustrative demo data (admin demo-mode), not live. */
+  demo: boolean;
   population: Population;
   series: GrowthSeries[];
   conversion: ConversionStats;
+  breakdowns: Breakdowns;
   errors: string[];
 };
 
@@ -267,6 +281,64 @@ async function medianDaysToConvert(
   }
 }
 
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  wedding: 'Weddings',
+  birthday: 'Birthdays',
+  celebration: 'Celebrations',
+  travel: 'Travel',
+  corporate: 'Corporate',
+  burial: 'Burials',
+};
+
+/** Display label for an events.region slug (lowercase key, e.g. 'ncr'). */
+function regionLabel(slug: string | null): string {
+  if (!slug) return 'Unspecified';
+  return slug.toUpperCase().replace(/_/g, ' ');
+}
+
+const BREAKDOWN_ROW_CAP = 5000;
+
+/**
+ * Current-snapshot composition of events by type + region. One bounded read
+ * grouped in JS (events is the smallest core entity). `sampled` flags the rare
+ * case where the row cap is hit, so the UI can say "sampled" rather than imply
+ * an exact count. Degrades to empty arrays on error (never breaks the page).
+ */
+async function fetchBreakdowns(admin: Admin): Promise<Breakdowns> {
+  try {
+    const { data, error } = await admin
+      .from('events')
+      .select('event_type, region')
+      .limit(BREAKDOWN_ROW_CAP);
+    if (error) throw new Error(error.message);
+    const rows = data ?? [];
+    const byType = new Map<string, number>();
+    const byRegion = new Map<string, number>();
+    for (const row of rows) {
+      const t = typeof row.event_type === 'string' ? row.event_type : 'unknown';
+      byType.set(t, (byType.get(t) ?? 0) + 1);
+      const r = typeof row.region === 'string' && row.region ? row.region : '__none__';
+      byRegion.set(r, (byRegion.get(r) ?? 0) + 1);
+    }
+    const toRows = (
+      m: Map<string, number>,
+      labelFn: (k: string) => string,
+    ): BreakdownRow[] =>
+      [...m.entries()]
+        .map(([key, count]) => ({ key, label: labelFn(key), count }))
+        .sort((a, b) => b.count - a.count);
+    return {
+      eventsByType: toRows(byType, (k) => EVENT_TYPE_LABELS[k] ?? k),
+      eventsByRegion: toRows(byRegion, (k) =>
+        regionLabel(k === '__none__' ? null : k),
+      ),
+      sampled: rows.length >= BREAKDOWN_ROW_CAP,
+    };
+  } catch {
+    return { eventsByType: [], eventsByRegion: [], sampled: false };
+  }
+}
+
 /**
  * The one entry point the /admin/growth page calls. Computes population,
  * per-entity growth series, and guest→account conversion for the given range.
@@ -362,14 +434,129 @@ export async function fetchGrowthStats(range: GrowthRangeKey): Promise<GrowthSta
     };
   }
 
+  const breakdowns = await fetchBreakdowns(admin);
+
   return {
     range: opt.value,
     rangeDays: opt.days,
     sinceIso,
     generatedAtIso: now.toISOString(),
+    demo: false,
     population,
     series,
     conversion,
+    breakdowns,
     errors,
+  };
+}
+
+/**
+ * Illustrative synthetic stats for admin DEMO MODE so the surface shows shape
+ * before real data accrues. NO DB reads — deterministic curves (stable
+ * screenshots). The page badges this clearly as demo data and only uses it
+ * when an admin has demo mode on; it never affects real-data rendering.
+ */
+export function buildDemoGrowthStats(range: GrowthRangeKey): GrowthStats {
+  const opt = GROWTH_RANGE_OPTIONS.find((o) => o.value === range) ?? {
+    value: '6m' as GrowthRangeKey,
+    label: 'Past 6 months',
+    days: 180,
+  };
+  const now = new Date();
+  const { start, ends } = bucketBoundaries(now, opt.days);
+
+  // ease-out curve from a baseline up to a target total (integer cumulative).
+  const curve = (baseline: number, total: number): number[] => {
+    const span = total - baseline;
+    return ends.map((_, i) => {
+      const t = (i + 1) / GROWTH_BUCKETS;
+      const eased = 1 - Math.pow(1 - t, 1.8);
+      return Math.round(baseline + span * eased);
+    });
+  };
+
+  const SPECS: Record<EntityKey, { baseline: number; total: number }> = {
+    customers: { baseline: 40, total: 320 },
+    vendors: { baseline: 22, total: 145 },
+    services: { baseline: 60, total: 410 },
+    events: { baseline: 28, total: 240 },
+    guests: { baseline: 520, total: 5400 },
+  };
+
+  const series: GrowthSeries[] = ENTITY_KEYS.map((key) => {
+    const { baseline, total } = SPECS[key];
+    const cumulative = curve(baseline, total);
+    const last = cumulative[cumulative.length - 1] ?? total;
+    return {
+      key,
+      label: ENTITY_LABELS[key],
+      total: last,
+      baseline,
+      newInRange: last - baseline,
+      points: toPoints(baseline, cumulative, ends),
+    };
+  });
+  const totalByKey = Object.fromEntries(series.map((s) => [s.key, s.total])) as Record<
+    EntityKey,
+    number
+  >;
+
+  const population: Population = {
+    accountHolders: totalByKey.customers + totalByKey.vendors + 6,
+    customers: totalByKey.customers,
+    vendors: totalByKey.vendors,
+    vendorsPublished: Math.round(totalByKey.vendors * 0.8),
+    services: totalByKey.services,
+    servicesActive: Math.round(totalByKey.services * 0.92),
+    events: totalByKey.events,
+    guests: totalByKey.guests,
+  };
+
+  const convBaseline = 180;
+  const convTotal = Math.round(totalByKey.guests * 0.42);
+  const convCumulative = curve(convBaseline, convTotal);
+  const convLast = convCumulative[convCumulative.length - 1] ?? convTotal;
+  const conversion: ConversionStats = {
+    totalGuests: totalByKey.guests,
+    converted: convLast,
+    rate: totalByKey.guests > 0 ? convLast / totalByKey.guests : 0,
+    baseline: convBaseline,
+    newInRange: convLast - convBaseline,
+    points: toPoints(convBaseline, convCumulative, ends),
+    medianDaysToConvert: 8,
+    sampleSize: convLast - convBaseline,
+  };
+
+  const ev = totalByKey.events;
+  const breakdowns: Breakdowns = {
+    eventsByType: [
+      { key: 'wedding', label: 'Weddings', count: Math.round(ev * 0.74) },
+      { key: 'birthday', label: 'Birthdays', count: Math.round(ev * 0.12) },
+      { key: 'celebration', label: 'Celebrations', count: Math.round(ev * 0.08) },
+      { key: 'corporate', label: 'Corporate', count: Math.round(ev * 0.04) },
+      { key: 'travel', label: 'Travel', count: Math.round(ev * 0.02) },
+    ],
+    eventsByRegion: [
+      { key: 'ncr', label: 'NCR', count: Math.round(ev * 0.38) },
+      { key: 'calabarzon', label: 'CALABARZON', count: Math.round(ev * 0.21) },
+      { key: 'central-visayas', label: 'CENTRAL-VISAYAS', count: Math.round(ev * 0.16) },
+      { key: 'central-luzon', label: 'CENTRAL-LUZON', count: Math.round(ev * 0.12) },
+      { key: 'davao', label: 'DAVAO', count: Math.round(ev * 0.08) },
+      { key: '__none__', label: 'Unspecified', count: Math.round(ev * 0.05) },
+    ],
+    sampled: false,
+  };
+
+  return {
+    range: opt.value,
+    rangeDays: opt.days,
+    sinceIso: start.toISOString(),
+    generatedAtIso: now.toISOString(),
+    demo: true,
+    population,
+    series,
+    conversion,
+    breakdowns,
+    errors: [],
   };
 }

@@ -8,6 +8,20 @@
 
 ---
 
+## [PENDING] 2026-06-04 — fully taxonomy-driven onboarding · PR-1 (couple-side enum → taxonomy-keyed TEXT) · REVERSES A LOCK
+
+**Why:** Owner ratified **fully taxonomy-driven onboarding** (2026-06-04): the picker + couple's stored category + auto-inquiries derive from the live taxonomy so new tiles auto-appear with no deploy. PR-1 (expand) adds `event_vendors.category_key TEXT` (FK → `service_categories`, backfilled from the legacy `vendor_category` enum). PRs 2–4 follow (picker-derive + adaptive rendering; reader cut-over; drop the enum). Full design: `Onboarding_Taxonomy_Driven_Spec_2026-06-04.md`.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`DECISION_LOG.md`** — add the reversal row: *"2026-06-04 · Couple-side onboarding is fully taxonomy-driven; `event_vendors.category` enum → TEXT keyed on `service_categories`; supersedes the 2026-05-30 'couple side does not auto-expand' lock."*
+2. **`Onboarding_Taxonomy_Driven_Spec_2026-06-04.md`** — fold the ratified design into iterations **0000** (taxonomy-driven picker + adaptive rendering), **0006** (`vendor_category` → TEXT), **0021** (couple plan), **0007** (budget reads category).
+3. **`CLAUDE.md` (corpus)** — the couple-side "28-enum does NOT auto-expand" architecture line is now **superseded**.
+4. Drift to record: PG `vendor_category` enum (36 values) vs TS `VendorCategory` (30) — the 6 attire alters need adding to `lib/vendors.ts` + the bridge (tracked for PR-2/3).
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
 ## [PENDING] 2026-06-04 — welcome screen now full-bleed + animated (Onboarding Blueprint / prototype)
 
 **Why:** Owner wanted the welcome hero to fill the whole screen with the button floating over it (white bands removed) + a slow "camera drifting" motion. Shipped as **full-bleed + CSS Ken-Burns** (no Higgsfield needed; a real moving-clouds video loop is an optional later upgrade).

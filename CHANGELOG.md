@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(0000): event-type "feel photo" picker (replaces the bars) + per-event step study
+
+**Context:** Owner reversed the same-day minimal "bar" picker — *"we do not want the lines. we want photos without the carousel indicators. just photos of how the event would feel like"* + *"clickable on the center when the photo is fully visible. it needs to snap."* Also asked for a study of which wedding-onboarding steps each event type drops.
+
+**What changed** (`apps/web/app/dashboard/create-event/_components/`):
+- **New `event-type-photo-picker.tsx`** — a horizontal, scroll-snapping deck of full-bleed event "feel" photos (`/public/event-types/{key}.webp` via `next/image`). NO dots/arrows/bars; neighbours peek dimmed + scaled so the centered photo is the focus; each carries the event name + a one-line tagline + a "Begin →" affordance that appears only on the centered card. Snap-mandatory + snap-stop; tapping the centered photo fires `onSelect` (→ onboarding / inline-form), tapping a side photo snaps it to center. Centers Wedding on mount.
+- **`event-type-picker.tsx`** — renders `EventTypePhotoPicker` instead of the bar picker (same `onSelect` / `onboardingHref` routing).
+- **Deleted `event-type-bar-picker.tsx`** (the bars — superseded).
+
+**Per-event step study (separate deliverable, sourced/PH-aware):** 8 of 15 wedding steps are universal (Welcome/Region/Guests/Budget/Account/Find-vendor/Congrats/Plan — copy-swap only); **Kind + Faith/ceremony + ceremony-venue + wedding-documents DROP for all event types except christening** (keeps a light parish/rite + ninong/ninang); per-event work concentrates in Role + Identity + service-picker + style via 2–3 swap-in questions. Recommends one parameterized shell. Folds into the per-event build plan.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` (create-event dir) clean · interaction (snap + center-click + peeking neighbours) approved via the standalone prototype (real authed render on the Vercel preview).
+
+**SPEC IMPACT:** 0000 — the create-event picker is a feel-photo deck (no carousel indicators; tap centered to begin), superseding the bar picker ([#961]). Per-event onboarding step recommendation captured. → `COWORK_INBOX.md`.
+
 ## 2026-06-04 · feat(0023): Admin dashboard remap — 6 groups + mobile table + orphan fixes
 
 **Context:** Owner directive — make the admin console seamless + simple, especially on mobile. Companion to the vendor remap (PR #962). Desktop had 8 sidebar groups; mobile had 4 data tables that overflowed the viewport (the real "manage on mobile" defects from the earlier study).

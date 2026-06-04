@@ -19,6 +19,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **SPEC IMPACT:** None — perceived-performance / UX only.
 
 
+## 2026-06-04 · fix(0021): vendor-pick "Add to your plan" overlay — portal to <body> (kills .pbacc CSS bleed)
+
+**Context:** Owner screenshot — the category-search picker ("Add to your plan → Reception venue") cards were distorted: the **VERIFIED badge ballooned into a giant cream stadium pill** and the vendor name centered. Surfaced once the demo-vendor marketplace was populated (most demo vendors are verified, so the badge renders).
+
+**Root cause — generic-classname CSS bleed.** `CategorySearchOverlay` injects a **global** `<style>{CSS}</style>` and is rendered as a DOM **child of the plan-budget-accordion** (`.pbacc`), which ALSO injects a global `<style>` using the same ultra-generic class names. The accordion's vendor-CARD rule `.pbacc .v { flex:1 1 auto; min-height:300px; … }` matched the overlay's verified badge `<span className="badge v">` (it carries class `v`), so the badge inherited `min-height:300px` + `flex:1 1 auto` while keeping the badge's own `border-radius:999px` → a tall cream stadium. The same mechanism bled `.pbacc .img/.meta/.vn/.stars` into the overlay's matching elements (the centered name, etc.).
+
+**Fix (one file, `category-search-overlay.tsx`):** render the overlay via `createPortal(…, document.body)` (behind a mount guard). It's a `position:fixed` full-screen modal, so `<body>` is its correct home anyway — and as a body child it's no longer a descendant of `.pbacc`, so **every `.pbacc *` descendant rule stops matching at once**. No class renames, no per-property CSS resets — the structural fix removes the whole bleed class. Bonus: `position:fixed` is now viewport-relative regardless of any ancestor stacking context.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean (overlay file: no findings) · no schema/SKU change. Built from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** None — rendering bugfix (the picker's look mirrors the owner-locked prototype; this restores it). No behavior/pricing/schema change.
+
 ## 2026-06-04 · ui(0043): re-order wedding-tradition chips by prevalence + spend (owner-decided)
 
 **Context:** Owner set the canonical tradition order — prevalence-led, with Chinese promoted into row 1 on its high-spend profile and Jewish last. Applied to every couple-facing ordered list so onboarding, create-event, and the marketplace filter agree.

@@ -14,6 +14,7 @@ import {
   isCanonicalService,
   resolveVendorDisplayName,
   serviceGroupOf,
+  VENDOR_PLACEHOLDER_PHOTO,
   type ServiceGroupKey,
   type VendorCategory,
 } from '@/lib/vendors';
@@ -687,6 +688,22 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
             initial fallback + alt text all surface the safe placeholder
             while the vendor's name is hidden. */}
         {isComingSoon ? <ComingSoonBanner vendorName={displayLabel} /> : null}
+        {/* Owner directive: a vendor with no photo for their service still
+            shows at least a generic placeholder photo. With no portfolio, a
+            hero banner renders the bundled placeholder so the page never looks
+            empty. Vendors WITH portfolio photos show those in the gallery
+            below (no banner needed). */}
+        {portfolioUrls.length === 0 ? (
+          <div className="relative mb-6 h-44 w-full overflow-hidden rounded-2xl bg-ink/5 sm:h-56 lg:h-64">
+            <Image
+              src={VENDOR_PLACEHOLDER_PHOTO}
+              alt={displayLabel}
+              fill
+              sizes="(max-width: 1024px) 100vw, 768px"
+              className="object-cover"
+            />
+          </div>
+        ) : null}
         <section className="flex flex-col items-start gap-6 border-b border-ink/10 pb-8 sm:flex-row">
           <Logo logoUrl={vendor.logo_url} name={displayLabel} />
           <div className="min-w-0 space-y-2">

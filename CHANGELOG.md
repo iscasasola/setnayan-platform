@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(onboarding): monogram → 5 live-typography lockups (no frames)
+
+**Context:** Owner sent 4 reference monograms with per-design rules — *"design 1 is two capital letters with their first name on the center and a vertical line with & sign… design 2 are 3 letter scripts… design 3 … without the vertical line and the letters are more close… design 5 is 2 capital letters that creates an infinity design… with the rules of each design, can we do this?"* plus *"no frame."*
+
+**What changed:** Replaced the 10 `{frame+font+ink}` image-frame monogram presets with **5 live-typography lockups** rendered from the couple's real initials + first names — new `apps/web/app/onboarding/wedding/_components/mono-lockup.tsx`:
+1. **bar** — two serif caps flanking a vertical line carrying `&`, first names below
+2. **script** — three Great Vibes glyphs (initial · `&` · initial), flowing
+3. **duo** — two Playfair caps pulled close / overlapping, no line
+4. **framed** — initials inside an ornate gold frame (reuses the #957 `wreath` art)
+5. **infinity** — two caps in the loops of a gold `∞` SVG that links them
+
+"Generate another design" cycles the 5; the mark stays razor-crisp at any size (no image gen except design 4's frame). `onboarding-shell.tsx`: new `MONO_DESIGNS` (5 × `{style,font,frame?}`), `MonoLockup` swapped in for the old `.mono-mark`, dead `monoMark` const removed. CSS appended to `onboarding.css` (`.mono-lk` + `.lk-bar/script/duo/framed/infinity`); the old `.mono-mark`/`.mono-letters` rules are now dead (left in place for a safe diff, prune later).
+
+**Verification:** `tsc --noEmit` clean · `next lint app/onboarding` clean.
+
+**SPEC IMPACT:** 0037 Bespoke / "Animated" Monogram — the onboarding monogram designer is now a 5-style typographic lockup set, not the 10 decorative gold frames. Follow-up (NOT in this PR): persist the chosen `style` and propagate the lockup to the dashboard monogram card + event-switcher icon + invitation/QR/hero/save-the-date (those still render from `monogram_frame_key`/`monogram_font_key`). Logged to COWORK_INBOX.
+
 ## 2026-06-04 · assets(onboarding): premium 2D monogram frames (11, transparent gold)
 
 **Context:** Owner — *"update the Monogram Frames … We want 2D Premium wedding frame designs."*

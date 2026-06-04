@@ -279,3 +279,44 @@
 .onbw .bdg-row .numbox{flex:1 1 auto;margin-top:0;}
 .onbw .bdg-row .bdg-nolimit{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;border:1px solid var(--line-2);background:var(--surface);border-radius:11px;padding:0 15px;font-family:var(--sans);font-size:12.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;transition:border-color .15s,color .15s;}
 .onbw .bdg-row .bdg-nolimit:hover{border-color:var(--gold);color:var(--ink);}
+
+/* ── monogram lockups (owner 2026-06-04 · 5 live-typography designs) ───────────
+   .mono-lk is the cycled mark on #screen-name. MonoLockup picks the .lk-* class:
+   bar | script | duo | framed | infinity. Supersedes the .mono-mark frame images
+   (those rules above are now dead — left for safe diff, can be pruned later). */
+.onbw .mono-lk{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(12px,3vh,22px);width:100%;text-align:center;transition:transform .16s ease;}
+.onbw .lk-names{font-family:var(--serif);font-weight:600;text-transform:uppercase;letter-spacing:.16em;font-size:clamp(11.5px,3vw,14px);color:var(--ink-soft);line-height:1.45;max-width:20ch;}
+.onbw .lk-cap{font-family:var(--serif);font-weight:600;font-style:normal;color:var(--mulberry);line-height:.86;}
+
+/* 1 · bar — two caps flanking a vertical line carrying the & */
+.onbw .lk-bar .lk-row{display:flex;align-items:center;justify-content:center;gap:clamp(16px,4.6vw,26px);}
+.onbw .lk-bar .lk-cap{font-size:clamp(62px,17vw,90px);}
+.onbw .lk-bar .lk-div{position:relative;width:1.5px;align-self:stretch;min-height:clamp(54px,15vw,78px);background:linear-gradient(var(--gold),var(--gold-deep));}
+.onbw .lk-bar .lk-amp{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--paper);padding:5px 2px;font-family:var(--serif);font-style:italic;font-weight:600;font-size:clamp(16px,4.4vw,21px);color:var(--gold-deep);}
+
+/* 2 · script — three Great Vibes glyphs (initial & initial), flowing */
+.onbw .lk-script .lk-srow{display:flex;align-items:center;justify-content:center;color:var(--mulberry);}
+.onbw .lk-script .lk-scap{font-family:'Great Vibes',cursive;font-weight:400;font-size:clamp(76px,21vw,108px);line-height:.7;}
+.onbw .lk-script .lk-samp{font-family:'Great Vibes',cursive;font-weight:400;font-size:clamp(50px,14vw,72px);color:var(--gold-deep);margin:0 -.08em;align-self:center;}
+
+/* 3 · duo — two serif caps pulled close / slightly overlapping, no line */
+.onbw .lk-duo .lk-drow{display:flex;align-items:flex-end;justify-content:center;}
+.onbw .lk-duo .lk-cap{font-family:'Playfair Display',serif;font-weight:600;font-size:clamp(76px,20vw,104px);line-height:.82;}
+.onbw .lk-duo .lk-cap2{margin-left:-.2em;}
+
+/* 4 · framed — initials inside an ornate gold frame */
+.onbw .lk-framed .lk-frame{position:relative;width:clamp(170px,48vw,210px);aspect-ratio:1;display:flex;align-items:center;justify-content:center;background-repeat:no-repeat;background-position:center;background-size:contain;filter:drop-shadow(0 3px 8px rgba(165,131,89,.18));}
+.onbw .lk-framed .lk-frame[data-frame="wreath"]{background-image:url(/onboarding/mono/wreath.webp);}
+.onbw .lk-framed .lk-frame[data-frame="laurel"]{background-image:url(/onboarding/mono/laurel.webp);}
+.onbw .lk-framed .lk-frame[data-frame="oval"]{background-image:url(/onboarding/mono/oval.webp);}
+.onbw .lk-framed .lk-frame[data-frame="crest"]{background-image:url(/onboarding/mono/crest.webp);}
+.onbw .lk-framed .lk-frame[data-frame="baroque"]{background-image:url(/onboarding/mono/baroque.webp);}
+.onbw .lk-framed .lk-fcaps{font-family:'Cinzel',serif;font-weight:600;text-transform:uppercase;letter-spacing:.02em;font-size:clamp(26px,7vw,36px);color:var(--gold-deep);}
+
+/* 5 · infinity — two caps sitting in the loops of a gold ∞ that links them */
+.onbw .lk-inf .lk-infwrap{position:relative;width:clamp(186px,52vw,236px);height:clamp(94px,26vw,118px);}
+.onbw .lk-inf .lk-infsvg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;}
+.onbw .lk-inf .lk-infsvg path{fill:none;stroke:var(--gold);stroke-width:3;stroke-linecap:round;filter:drop-shadow(0 2px 4px rgba(165,131,89,.3));}
+.onbw .lk-inf .lk-icap{position:absolute;top:50%;font-family:var(--serif);font-style:italic;font-weight:600;font-size:clamp(40px,11vw,52px);color:var(--mulberry);line-height:1;}
+.onbw .lk-inf .lk-icap-l{left:30%;transform:translate(-50%,-50%);}
+.onbw .lk-inf .lk-icap-r{left:70%;transform:translate(-50%,-50%);}

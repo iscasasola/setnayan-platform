@@ -8,6 +8,22 @@
 
 ---
 
+## [PENDING] 2026-06-04 — Onboarding monogram = 5 live-typography lockups (0037)
+
+**Why:** Owner replaced the decorative gold-frame monogram set with 5 typographic lockups driven by the couple's real initials + first names ("no frame"). Shipped in onboarding; the spec + downstream surfaces need to follow.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`0037_bespoke_monogram` (and wherever the onboarding monogram designer is specced — 0000 / 0021)** — document the 5 designs + rules:
+   - **bar** — two serif capitals flanking a vertical line carrying `&`, first names below
+   - **script** — three calligraphy glyphs (initial · `&` · initial)
+   - **duo** — two serif capitals close / overlapping, no line
+   - **framed** — initials inside an ornate gold frame
+   - **infinity** — two capitals linked by a gold `∞`
+2. **Open follow-up to record:** persist the chosen style + propagate the lockup beyond onboarding (dashboard monogram card, event-switcher icon, invitation / QR / hero / save-the-date) — these still read `monogram_frame_key`/`monogram_font_key`; a `monogram_style` column (or equivalent) is needed.
+3. **Design-4 open questions:** it currently reuses the `wreath` gold frame and renders BOTH initials; the owner's reference showed a SINGLE letter in an ornate filigree circle — confirm (a) source/generate a matching filigree-circle frame, and (b) one initial vs. both.
+
+**Rationale:** Keeps the spec aligned with the shipped onboarding experience and flags the cross-surface propagation + two open design questions.
+
 ## [PENDING] 2026-06-04 — Vendor request-a-category governance shipped (0023 §3.2c / 0022)
 
 **Why:** Closes the expandable-taxonomy governance loop — vendors propose categories they can't find, admins resolve them. New `taxonomy_category_requests` table.

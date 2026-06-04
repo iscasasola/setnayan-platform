@@ -22,6 +22,14 @@
 
 ---
 
+## [PENDING] 2026-06-04 — REVERTED: role/kind/faith immersive full-bleed undone (back to cards)
+
+**Why:** Owner — *"undo the full screens."* The immersive redesign of role/kind/faith is **reverted**: role + kind back to title + description + radio-circle cards (3-in-a-row); faith back to its 1-row chip carousel; no full-bleed. The welcome stays full-bleed.
+
+**Spec corpus updates (owner walks via Cowork):** the earlier *"role/kind/faith immersive full-bleed + chip carousels"* item is **superseded** — leave these three screens as the card/carousel layout (do **not** apply the immersive treatment).
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
 ## [PENDING] 2026-06-04 — Growth surface: demo-mode preview + CSV export + event breakdowns (0023)
 
 **Why:** Follow-ups to the `/admin/growth` surface. (1) **Demo-mode preview** — when an admin has demo mode on, the page shows deterministic *illustrative* curves (badged "Illustrative demo data") so the surface's shape is visible before real data accrues; no DB writes, nothing polluted. (2) **CSV export** — an admin-gated `GET /admin/growth/export` returns a tidy/long-format CSV of population + growth curves + conversion + breakdowns (honors range + demo flag). (3) **Breakdowns** — current composition of **events by type** (the 6-value `event_type` enum) and **events by region** (`events.region` slug, null→Unspecified).

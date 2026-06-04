@@ -22,6 +22,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** Reverses the 2026-05-22 Light/Dark/Auto brand-pivot lock — affects **0021** (theme system / Appearance), **0025** (Profile Settings → Appearance tab), and the corpus **DECISION_LOG**. → `COWORK_INBOX.md`.
 
+## 2026-06-04 · revert(onboarding): undo the immersive full-bleed on role/kind/faith — back to the card layout
+
+**Context:** Owner — *"undo the full screens"* → chose *"back to the old cards."* Reverts the immersive redesign of the three choice screens; the welcome is left as-is.
+
+**What changed:**
+- Removed the `data-immersive` hook + the full-bleed CSS block (photo-as-background, overlaid title/chips, scrims).
+- **Role + Kind:** the title-only chip carousels reverted to the **title + description + radio-circle cards** (3-in-a-row); the sub-text is static again (no description-on-pick).
+- **Faith:** back to the 1-row chip carousel (non-full-bleed).
+- **Untouched:** the welcome (full-bleed hero + depth parallax + new copy) and the location step.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean.
+
+**SPEC IMPACT:** Reverts the immersive role/kind/faith treatment. → `COWORK_INBOX.md`.
+
 ## 2026-06-04 · feat(0023): Growth surface — demo-mode data, CSV export, event breakdowns
 
 **Context:** Follow-ups to the just-shipped `/admin/growth` surface (PR #938): the owner asked to (b) seed demo data so the curves show shape pre-pilot, and (c) add a CSV export + extra breakdowns (per-region / per-event-type). (a) — a live admin screenshot — is handled out-of-band against the deployed site.

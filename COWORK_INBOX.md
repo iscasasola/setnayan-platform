@@ -8,6 +8,18 @@
 
 ---
 
+## [PENDING] 2026-06-04 — Vendor agents: per-service assignment · Phase 2a (0022)
+
+**Why:** Phase 2 of the vendor multi-user workspace — agents see only the services + customers they manage. Phase 2a ships the assignment foundation: a new `vendor_service_agents` table (RLS: members read, owner/admin manage) + a per-agent service-assignment UI on the Team page. The customer link is `event_vendors.service_id` → booked `vendor_services`. Migration applied to prod.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`0022_vendor_dashboard.md` §2.6a** — record that `vendor_service_agents(vendor_service_id, vendor_team_member_id)` is now BUILT (was spec-only), with the Team-page assignment UI (owner/admin assign agents to services). Note the customer derivation: an agent's customers = events whose `event_vendors.service_id` is one of the agent's assigned services.
+2. Note the **Phase 2b** follow-up (not yet built): agent-scoped dashboard reads (Services/Bookings/Messages filtered to assigned) enforced via RLS, admins-see-everything data resolution, agent nav expansion, and route guards.
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
 ## [PENDING] 2026-06-04 — Admin dashboard remap: 6 groups + mobile table/orphan fixes (0023)
 
 **Why:** Owner directive to simplify the admin console + fix mobile. Desktop sidebar collapsed **8 → 6 groups**; 4 mobile-overflowing tables fixed; the `/admin/songs` mobile orphan reached.

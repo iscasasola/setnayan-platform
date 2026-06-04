@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(onboarding): welcome hero depth-parallax + new copy
+
+**Context:** Owner — *"i want the exact photo but we want it to animate the background making it have depth"* + new welcome copy. (The cloud-overlay idea — PR #936 — is set aside per the owner's "no"; left unmerged.)
+
+**What changed:**
+- **Copy:** headline → *"Wedding planning, without the chaos."*; sub → *"Answer a few questions. We'll find your vendors and build your plan — free to start."*
+- **`welcome-parallax.tsx`** (new) — a WebGL depth-parallax on the **exact** welcome photo: a fragment shader displaces UVs by a depth map × a slow auto-orbiting "camera" (near pixels shift more than far → real dimensional motion from one still). **Bulletproof fallback** — a plain `<img>` renders first and only hides once the canvas has genuinely drawn; if WebGL/shaders fail or reduced-motion is set, the `<img>` stays (the static Ken-Burns hero) — never broken.
+- **`public/onboarding/welcome-depth.png`** (4 KB) — approximate depth map (sky-far → ground-near gradient + a soft nearer region for the couple). Drop a true depth map (Depth-Anything/Immersity) at the same path for crisp object-parallax — no code change.
+- Wired into the welcome hero (replaces `HeroImg`) + CSS for the canvas/img layers.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean. Photo is same-origin (`/onboarding/welcome.webp`) → no WebGL CORS issue.
+
+**SPEC IMPACT:** New welcome copy + the hero now animates with depth parallax (an upgrade over the Ken-Burns from the prior PR). → `COWORK_INBOX.md` (welcome screen).
+
 ## 2026-06-04 · style(onboarding): welcome screen full-bleed hero + button-over-photo + Ken-Burns drift
 
 **Context:** Owner — *"fill the whole screen with the photo … button stays but the white background is removed to stretch the photo further … make the background animate like the clouds slowly moving or camera slowly moving. do we need Higgsfield?"* Verdict: **no Higgsfield needed** — the "camera slowly moving" feel is a free CSS Ken-Burns; a real moving-clouds video (Higgsfield / Runway / Kling, R2-hosted muted loop) is an optional later upgrade. This ships the full-bleed + CSS drift.

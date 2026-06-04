@@ -8,7 +8,14 @@
 
 ---
 
-## [PENDING] 2026-06-04 — welcome screen now full-bleed + animated (Onboarding Blueprint / prototype)
+## [PENDING] 2026-06-04 — welcome copy reworded + hero now depth-parallax (Onboarding Blueprint / prototype)
+
+**Why:** Owner reworded the welcome screen and asked the hero photo to "have depth." Headline + sub changed; the hero now runs a WebGL depth-parallax (the exact photo, near/far displaced by a depth map as a slow camera orbits) over a bulletproof static-image fallback.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`Onboarding_Blueprint_2026-05-30.md`** (+ welcome screen in `Onboarding_Wedding_Flow_2026-06-01.html`) — welcome copy: headline **"Wedding planning, without the chaos."**, sub **"Answer a few questions. We'll find your vendors and build your plan — free to start."**; hero motion is now **depth-parallax** (supersedes the plain Ken-Burns note). Optional future upgrade: a true depth map for crisp object-parallax.
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
 
 **Why:** Owner wanted the welcome hero to fill the whole screen with the button floating over it (white bands removed) + a slow "camera drifting" motion. Shipped as **full-bleed + CSS Ken-Burns** (no Higgsfield needed; a real moving-clouds video loop is an optional later upgrade).
 

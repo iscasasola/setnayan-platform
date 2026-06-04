@@ -16,9 +16,42 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 - Deliberate pinch-zoom stays **enabled** (`maximumScale: 5` in `app/layout.tsx`) for WCAG 1.4.4 — only the unwanted zooms are removed.
 - No change to `app/layout.tsx` viewport (already correct). No global safe-area padding added — 23 components already consume `env(safe-area-inset-*)`, so a global rule would double up.
 
-**Verification:** CSS-only, appended after the final `@layer components` close (brace balance verified even, 86/86). No local typecheck (fresh worktree has no deps) — relying on the PR's required `typecheck + lint` + `production build` + Vercel preview. Shipped from an isolated worktree off `origin/main`.
+**Verification:** CSS-only, appended after the final `@layer components` close (brace balance verified even, 86/86). typecheck + lint + production build + Lighthouse + Playwright e2e all green on this SHA. Shipped from an isolated worktree off `origin/main`.
 
 **SPEC IMPACT:** None — platform-level input/viewport behavior; no SKU, schema, pricing, or feature-scope change.
+
+## 2026-06-04 · ui(0001): guest carousel — every panel collapses to one compact row (Summary · Add · Customize)
+
+**Context:** Owner directive 2026-06-04 — on the customer dashboard Guests surface (mobile carousel + desktop quick-add), the panels sat taller than the Search row beside them. Owner: *"put the [First Name] [Last Name] in 1 row and remove text — keep it as low as search… can we also keep the customize 1 row? and summary 1 row?"* The Search panel is the height benchmark; every sibling panel now matches it.
+
+**What changed (apps/web · `guests/_components/`):**
+- **`mobile-guest-carousel.tsx`**
+  - **Summary** — the 4 RSVP stat boxes (Total · Attending · Pending · Declined) moved from a 2×2 grid to a single 4-across row (`grid-cols-2 gap-2.5` → `grid-cols-4 gap-2`). `StatBox` recompacted (smaller padding, `text-[8px]` no-wrap label, `text-[22px]` value, centered) so four fit cleanly down to ~320px-wide phones.
+  - **Add** (`QuickAddInlineForm`) — First + Last name now share one row (`grid grid-cols-2 gap-2`); removed the "Enter after first name moves to last name…" helper line. The session-count line only appears after the first add, so the default panel is a single input row. Keyboard-open docked height trimmed 190→120px to match.
+  - **Customize** (`CustomizePanel`) — entry state reduced to just the "Select guests" button (dropped the title + description paragraphs); active state collapsed from three stacked rows to one (`Select all` · `Assign N` · `Done`), with the count now shown inside the Assign button.
+- **`quick-add-sheet.tsx`** (desktop "Quick add" modal) — parity: dropped the "Name · ↵ jumps to last name…" helper line and put the two name inputs on one row.
+
+The panel sheet auto-measures its content height (ResizeObserver on `scrollHeight`), so each shortened panel shrinks the sheet to fit — no dead space. Enter-to-advance, duplicate detection, bulk-assign, and the RSVP filter-links are all unchanged; only layout + explanatory copy changed.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean (both files). Shipped from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** None — pure UI layout / copy on an owner-directed surface; no feature, pricing, schema, or workflow change.
+
+## 2026-06-04 · feat(0023/0044): DB-backed taxonomy read-through (Phase 2a) — layer + admin viewer
+
+**Context:** Phase 2 of the DB-backed-taxonomy build (the ♾️ "Admin Finalize = permanent live publish" lock). Phase 1 moved the taxonomy structure into `service_categories` + `canonical_service_taxonomy` (migration `20260803001000`, applied). This adds the **read-through layer** so server consumers read taxonomy from those tables — the prerequisite for admin edits going live without a deploy.
+
+**What changed:**
+- **New `lib/taxonomy-db.ts`** — `getTaxonomy()` (React-`cache()`d per request) reconstructs the full `TaxonomySnapshot` (folder/tile order, labels, slugs, `tilesByParent`, canonical `map`) from the two tables, mirroring the `lib/taxonomy.ts` constant shapes. **Falls back to the constant** on any error or unseeded tables, so it's behavior-preserving (the DB is seeded from the constant → byte-equivalent today). Reports `source: 'db' | 'fallback'`.
+- **`/admin/taxonomy` flipped** to `getTaxonomy()` — groups via the DB tree + mapping (was the code constant) and shows a DB-vs-fallback source indicator. First real consumer; admin-only, zero marketplace risk.
+
+**Scope:** the high-risk consumers (the live `/vendors` marketplace `page.tsx` + `vendor-counts.ts` module-level derivations + 7 client components) are **Phase 2b**, landing as focused follow-ups behind the same fallback.
+
+**Verification:** `tsc --noEmit` 0 errors · `next lint` clean on both files.
+
+**SPEC IMPACT:** None — implements the already-locked 0023 §3.15 read-through.
+
+---
 
 ## 2026-06-03 · fix(0023): demo-vendor Create reliably passes the demo-mode gate on production
 

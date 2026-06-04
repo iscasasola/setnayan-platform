@@ -6,6 +6,8 @@
 >
 > **Maintained by:** Claude Code sessions append new `[PENDING]` items here whenever a code change has spec impact. This is the single bridge between repo work and the spec corpus — `CHANGELOG.md` is the full history; this file is the active worklist.
 
+> **⚠ 2026-06-04 — winding down.** The owner **permanently authorized Claude Code to edit the spec corpus DIRECTLY** (see `CLAUDE.md` → "Cowork — the spec-update boundary"). New spec deltas now land directly in `~/Documents/Claude/Projects/Setnayan/` (`DECISION_LOG.md` → iteration `.md` → `.docx`), **not** as `[PENDING]` rows here. The items below are the pre-authorization backlog — action them directly in the corpus, then delete. No new items are appended.
+
 ---
 
 ## [PENDING] 2026-06-04 — couple Home reshaped into a "what now?" cockpit (0021 / 0016)

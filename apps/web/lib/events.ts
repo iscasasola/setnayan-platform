@@ -37,6 +37,7 @@ export type EventRow = {
    */
   monogram_frame_key?: string | null;
   monogram_font_key?: string | null;
+  monogram_style?: string | null;
   /**
    * Today's Focus subscription status · production column kept the
    * concierge_status name even after the 2026-05-24 8th-row spec lock
@@ -101,6 +102,7 @@ export const fetchUserEvents = cache(async (
          monogram_color,
          monogram_frame_key,
          monogram_font_key,
+         monogram_style,
          concierge_status
        )`,
     )

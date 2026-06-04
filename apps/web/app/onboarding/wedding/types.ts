@@ -77,9 +77,9 @@ export interface OnboardingState {
   groomLastName: string;
   /**
    * Monogram design index into MONO_DESIGNS (screen 4 · free styling). Each design
-   * is a curated {frame + font + ink} preset; the "Generate another design" button
-   * cycles through 10 (owner 2026-06-02 — replaced the separate Frame/Font cyclers).
-   * Commit derives events.monogram_frame_key + monogram_font_key from the active design.
+   * is a live-typography lockup {style + font + frame?} (owner 2026-06-04 — the 5
+   * lockups bar · script · duo · framed · infinity); "Generate another design" cycles them.
+   * Commit derives events.monogram_style + monogram_frame_key + monogram_font_key.
    */
   monogramDesign: number;
 

@@ -10,7 +10,7 @@
 
 ## [PENDING] 2026-06-04 — couple Home reshaped into a "what now?" cockpit (0021 / 0016)
 
-**Why:** Owner directive — *"fix the first page (customer dashboard home): not too much text; updates + guides + a quick what-to-do-next."* After a side-by-side prototype review, the lean 2026-06-02 home (the "Your wedding details" recap + Upcoming + Activity) is reshaped into a cockpit. Removing the recap from Home + re-surfacing a "Today's Focus" next-action hero touches owner-locked decisions, so the corpus needs to catch up.
+**Why:** Owner directive — *"fix the first page (customer dashboard home): not too much text; updates + guides + a quick what-to-do-next."* After a side-by-side prototype review, the lean 2026-06-02 home (the "Your wedding details" recap + Upcoming + Activity) is reshaped into a cockpit. Removing the recap from Home + re-surfacing a "Today's Focus" next-action hero touches owner-locked decisions, so the corpus needs to catch up. Shipped as PR #968.
 
 **Spec corpus updates (owner walks via Cowork):**
 1. **`DECISION_LOG.md`** — add a row: *"2026-06-04 · Couple dashboard Home (0021) reshaped from the 2026-06-02 lean 3-block layout into a 'what now?' cockpit: Countdown header (names + days-to-go + X/N vendors locked) → Today's Focus single next-action hero (the lightweight vendor-derived `pickTodaysOneThing` resolver — NOT the retired Today's-Focus wizard or the paid Concierge) → Needs you (Upcoming reframed) → Recent activity → marketplace doorway. The 'Your wedding details' match-criteria recap is removed from Home and moves to the top of Services as an editable 'Matching you on' strip; the full editable record stays at /details; /for-you folds into /details."*
@@ -20,6 +20,28 @@
 **Follow-ups (NOT in this PR):**
 - PR2: the Services "Matching you on" editable criteria strip + Refine → /details; fold the read-only `/for-you` into `/details`.
 - Some archival top-of-file comments in `page.tsx` still describe the wizard-era state (harmless; left to avoid churn on a sensitive file).
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
+## [PENDING] 2026-06-04 — Monogram design-4 filigree + monogram_style persistence (0037)
+
+**Why:** Follow-up to the 5-lockup monogram (PR #960). Design 4 now uses a generated ornate gold **filigree** circle (renders BOTH initials); the chosen lockup **style** is now persisted to `events.monogram_style` so it can propagate beyond onboarding.
+
+**Spec corpus updates (owner via Cowork):**
+1. **`0037_bespoke_monogram`** — record: design 4 = generated filigree frame (`public/onboarding/mono/filigree.svg`), renders BOTH initials (owner-chosen 2026-06-04); new `events.monogram_style` column (bar·script·duo·framed·infinity) persists the chosen lockup.
+2. **Propagation follow-up (open):** the full lockup is NOT yet on the QR center / invitation / save-the-date / a big in-app preview. QR center needs style-aware SVG compositing (`monogramOverlaySvg`); the in-app preview needs the onboarding `.onbw` lockup CSS extracted to a shared sheet. The paid Animated Monogram hero (0037 · ₱2,499) is intentionally excluded.
+
+**⚠ Ops (eng, not Cowork):** prod migration history has `20260820000000` applied with **no repo file**, which blocks `supabase db push` for everyone. `events.monogram_style` was applied directly (idempotent) to unblock this PR, but the divergence needs reconciling — locate/merge the `20260820000000` migration file, or `supabase migration repair`.
+
+## [PENDING] 2026-06-04 — Vendor agents: per-service assignment · Phase 2a (0022)
+
+**Why:** Phase 2 of the vendor multi-user workspace — agents see only the services + customers they manage. Phase 2a ships the assignment foundation: a new `vendor_service_agents` table (RLS: members read, owner/admin manage) + a per-agent service-assignment UI on the Team page. The customer link is `event_vendors.service_id` → booked `vendor_services`. Migration applied to prod.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`0022_vendor_dashboard.md` §2.6a** — record that `vendor_service_agents(vendor_service_id, vendor_team_member_id)` is now BUILT (was spec-only), with the Team-page assignment UI (owner/admin assign agents to services). Note the customer derivation: an agent's customers = events whose `event_vendors.service_id` is one of the agent's assigned services.
+2. Note the **Phase 2b** follow-up (not yet built): agent-scoped dashboard reads (Services/Bookings/Messages filtered to assigned) enforced via RLS, admins-see-everything data resolution, agent nav expansion, and route guards.
 
 **When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
 

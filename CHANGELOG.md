@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(payments): direct-pay Sheet — couple trigger + admin preview (0034 · 0023)
+
+**Context:** Owner — *"create a customer direct pay sheet to connect to vendors and can also be used by us [the admin]."* PR #969 shipped the off-platform `VendorDirectPay` as an always-expanded inline rail inside the budget/workspace payment cards. This promotes it into a focused **"Pay {vendor} directly" button → house Sheet** (bottom sheet on mobile · right drawer on desktop), wires it onto the per-service workspace embed (which was rendering empty), and reuses the same sheet on the admin moderation surface so a moderator previews a destination exactly as couples see it.
+
+**What changed:**
+- **`apps/web/app/dashboard/[eventId]/_components/vendor-direct-pay.tsx`** — rail → Sheet. `VendorDirectPay` (props unchanged, so its two existing mount points need no edit) now renders a compact trigger + a one-line always-on reassurance ("You pay the vendor directly — Setnayan never holds this money") and opens the shared `Sheet` (`@/app/_components/sheet`) containing the **exact owner-locked RA 11967 disclosure** + the bank/QR/link method cards (all internals preserved 1:1). New export `DirectPayPreviewButton` (read-only "Preview as couple" trigger) reuses the same sheet. QR/link confirm modals bumped to `z-[60]` so they paint above the sheet.
+- **`…/vendors/[vendorId]/workspace/page.tsx`** — now resolves `fetchPublishedMethodsForCouple` (admin client + couple-RLS ownership proof, best-effort → `[]`) and passes `directPayMethods` to the embedded `VendorItemizationCard`. Previously the embed defaulted to `[]`, so the per-service workspace never surfaced the vendor's pay destinations — completeness fix matching the budget page.
+- **`app/admin/payment-options/page.tsx`** — each moderation card maps its `CardRow` → `CoupleFacingMethod` and renders `DirectPayPreviewButton` in the action row. Read-only; no money flow (admins moderate, they don't pay vendors).
+
+No new table, no migration, no new SKU, no wallet UI. Stays inside the locked 0034 order-and-pay posture (couple↔vendor money is off-platform; Setnayan never holds or reverses it). The always-on disclosure renders on every surface that shows a method.
+
+**Verify:** `tsc --noEmit` exit 0 · `next lint` clean · `next build` green (client `DirectPayPreviewButton` imports cleanly into the admin server page).
+
+**SPEC IMPACT:** Minor. (1) Couple-side direct-pay presentation refinement (rail → Sheet) on the already-spec'd 0007/0034/0025 surfaces. (2) New admin "Preview as couple" affordance on the 0023 `/admin/payment-options` moderation surface. Corpus delta lands directly in `DECISION_LOG.md` per the 2026-06-04 direct-edit authorization (COWORK_INBOX is wound down — no new `[PENDING]` rows).
+
 ## 2026-06-05 · feat(vendors/workspace): inline order-and-pay for first-party Setnayan services
 
 **Context:** Owner directive — *"can we apply this vendor direct-pay to our services as well, and admin will accept the payments?"* (interim until the automated payment system goes live **2027-01-01**). This unblocks the inline per-service order status that the 2026-06-04 PR #973 entry flagged as blocked. Key finding: the whole apply-then-pay spine **already ships** — couples pay Setnayan's own BDO/GCash receiving accounts (`platform_settings`), the `InlineCheckoutDrawer` already does pay + screenshot + reference in one surface on the 7 add-on SKU pages, and **`/admin/payments`** already lets an admin accept (`approvePayment` → payment `matched` + optional order `paid`) / reject / request-resubmit. The only gap was that a Setnayan-service **pick** (an `event_vendors` row with `is_setnayan_service`) had no inline way to pay — it just linked to an Orders list with no create-entry (the old `/orders/new` was retired for the drawer). So this is a **reuse**, not new payment infra. No schema change, no new payment store, no bridge column.

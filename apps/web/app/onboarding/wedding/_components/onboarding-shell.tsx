@@ -1522,11 +1522,14 @@ export function OnboardingShell({
       receptionSettings: state.prefs.reception,
       region: state.region,
       pax: state.pax,
+      // Only the discrete "specific" dates schedule-filter venues; a flexible
+      // window-mode couple isn't date-constrained, so leave it unscoped.
+      dateCandidates: state.dateMode === 'specific' ? state.dateCandidates : undefined,
     })
       .then((rows) => setVenues(rows))
       .catch(() => setVenues([]))
       .finally(() => setVenuesLoading(false));
-  }, [step, venues, venuesLoading, state.kind, state.faith, state.prefs.reception, state.region, state.pax]);
+  }, [step, venues, venuesLoading, state.kind, state.faith, state.prefs.reception, state.region, state.pax, state.dateMode, state.dateCandidates]);
 
   /* Congrats stat tile #3 — REAL marketplace counts (owner 2026-06-03: "we want
      real numbers only", replacing the fabricated max(categories×5,12) + "2,400+").

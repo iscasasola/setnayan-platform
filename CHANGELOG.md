@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(0016): Schedule dimension — vendor availability filter (leaf-match · the last dimension)
+
+**Context:** The one deferred leaf-match dimension. A reception venue booked on every one of the couple's possible dates shouldn't show. The availability infrastructure already existed (`lib/vendor-availability.ts` · `vendor_calendar_blocks` · batched `getBatchVendorAvailableDays`, all cron-free read-time + failing-open), and the public `/vendors` marketplace already used it — but the leaf-match matcher + onboarding didn't. This wires it in.
+
+**Wiring (Hybrid · failing-open):**
+- **`lib/wizard-recommendations.ts`** — new optional `availableDateKeys` arg (YYYY-MM-DD). When set, after the base fetch it reads the candidate pool's calendars (one batched `getBatchVendorAvailableDays` over the candidates' span) and keeps a vendor only if it's FREE on ≥1 candidate date — dropping vendors whose `vendor_calendar_blocks` cover all of them. A vendor with **no blocks is fully available** (the V1 calendar default), so **Setnayan always-on services + any vendor who hasn't marked a calendar pass through** — no `is_setnayan_service` special-case needed. New `dateSpanFromKeys` helper. Over-fetch triggers on schedule too.
+- **`app/onboarding/wedding/actions.ts`** — `searchOnboardingReceptionVenues` takes `dateCandidates`, passes them as `availableDateKeys`.
+- **`onboarding-shell.tsx`** — passes `state.dateCandidates` **only in `dateMode==='specific'`** (a flexible window-mode couple isn't date-constrained, so it's left unscoped).
+
+**Scope choices (deliberate):** schedule filters the **browse list** (the step-12 venue search), **not** the congrats **count** — the count stays on the durable structural dims (region/event-type/religion/venue/pax/venue_type) rather than a transient per-date availability that fluctuates as vendors book. Dashboard `category-search` adopting `availableDateKeys` is a clean follow-up (the `/vendors` marketplace already has its own availability gate). **No migration** (table exists). Activates on **real vendor calendar data** — demo vendors have no blocks (all fail-open to available), so demo won't narrow until vendors mark dates.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean (3 files) · no migration · failing-open preserved (no-calendar / read-error → admit). Isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** Onboarding venue search now scopes by **Schedule** (vendor calendar availability) — completing the Hybrid leaf-match's six dimensions (Location · Event-Type · Religion · Venue-type+setting · Pax · Schedule). Reuses the existing `vendor_calendar_blocks` model — no new schema. Note on `COWORK_INBOX.md` → `0044`: the leaf-match contract is now fully wired; remaining 0044 work is the refinement-schema formalization + venue-vocabulary reconciliation (unchanged).
+
 ## 2026-06-04 · feat(0044/0016): fine venue_type refinement + dashboard parity (leaf-match · "apply everything" 3-4/4)
 
 **Context:** Completes the Hybrid leaf-match. Two parts in one PR.

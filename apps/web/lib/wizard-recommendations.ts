@@ -39,6 +39,7 @@ import {
   fetchVendorSongOverlaps,
 } from '@/lib/songs';
 import { regionForCity } from '@/lib/regions';
+import { getBatchVendorAvailableDays } from '@/lib/vendor-availability';
 
 /** Single vendor recommendation row · shape consumed by VendorPickCard
  *  AND the new visual VendorPickGridCard. */
@@ -184,6 +185,16 @@ type Args = {
    *  capacity). Hybrid NULL-safe: a vendor with NULL `venue_type` is admitted.
    *  Omit = no venue-type scope. */
   venueType?: string | null;
+  /** Couple's candidate wedding dates as YYYY-MM-DD keys (the onboarding
+   *  "possible dates", or a single committed date). When set, a vendor is kept
+   *  only if it's FREE on at least one of them — drops vendors whose
+   *  `vendor_calendar_blocks` cover every candidate date. Hybrid + failing-open
+   *  (the locked V1 default in lib/vendor-availability): a vendor with NO blocks
+   *  is fully available → admitted; so Setnayan always-on services + any vendor
+   *  who hasn't marked their calendar pass through. Resolved via the batched
+   *  `getBatchVendorAvailableDays` over the candidates' span. Omit/empty = no
+   *  schedule scope. */
+  availableDateKeys?: ReadonlyArray<string>;
   /** Cap on rows. Default 15 for the legacy list VendorPickCard; the
    *  new visual VendorPickGridCard bumps to 100+ so its 15-per-page
    *  pagination has multiple pages to walk through. */
@@ -213,6 +224,21 @@ type Args = {
  * state. The visual VendorPickGridCard reads both; the legacy list-only
  * VendorPickCard ignores them.
  */
+
+/** Min/max of YYYY-MM-DD keys → a local-midnight Date span for the calendar
+ *  reader (ISO keys sort lexically = chronologically). Null if none parse. */
+function dateSpanFromKeys(
+  keys: ReadonlyArray<string>,
+): { start: Date; end: Date } | null {
+  const valid = keys.filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k)).slice().sort();
+  if (valid.length === 0) return null;
+  const toDate = (k: string) => {
+    const [y, m, d] = k.split('-').map(Number);
+    return new Date(y!, m! - 1, d!);
+  };
+  return { start: toDate(valid[0]!), end: toDate(valid[valid.length - 1]!) };
+}
+
 export async function fetchWizardVendorRecommendations(
   admin: SupabaseClient,
   args: Args,
@@ -234,8 +260,13 @@ export async function fetchWizardVendorRecommendations(
   const needsRegionScope = !!args.region;
   const needsPaxScope = !!(args.pax && args.pax > 0);
   const needsVenueTypeScope = !!args.venueType;
+  const needsScheduleScope = !!(args.availableDateKeys && args.availableDateKeys.length > 0);
   const fetchLimit =
-    isMusicMatch || needsRegionScope || needsPaxScope || needsVenueTypeScope
+    isMusicMatch ||
+    needsRegionScope ||
+    needsPaxScope ||
+    needsVenueTypeScope ||
+    needsScheduleScope
       ? Math.max(limit, 100)
       : limit;
 
@@ -395,6 +426,32 @@ export async function fetchWizardVendorRecommendations(
       return paxOk && typeOk;
     });
     if (baseRows.length === 0) return [];
+  }
+
+  // Schedule scope (Hybrid · failing-open). Keep a vendor only if it's FREE on
+  // ≥1 candidate date — drops vendors whose vendor_calendar_blocks cover EVERY
+  // candidate. Batched availability read (one round trip over the candidates'
+  // span). A vendor with no blocks is fully available (the V1 calendar default),
+  // so Setnayan always-on services + any vendor who hasn't marked a calendar
+  // pass through. We over-fetched above so the slice still fills.
+  if (needsScheduleScope) {
+    const keys = args.availableDateKeys!;
+    const span = dateSpanFromKeys(keys);
+    if (span) {
+      const schedIds = baseRows.map((r) => r.vendor_profile_id);
+      const availByVendor = await getBatchVendorAvailableDays(
+        admin,
+        schedIds,
+        span.start,
+        span.end,
+      );
+      baseRows = baseRows.filter((r) => {
+        const avail = availByVendor.get(r.vendor_profile_id);
+        if (!avail) return true; // absent from the batch → failing-open (admit)
+        return keys.some((k) => avail.has(k));
+      });
+      if (baseRows.length === 0) return [];
+    }
   }
 
   // Song-overlap score + re-rank (music match only). `overlapByVendor` stays

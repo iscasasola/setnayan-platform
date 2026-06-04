@@ -570,6 +570,11 @@ export async function searchOnboardingReceptionVenues(input: {
   /** Couple's guest count (screen · state.pax). Drops venues that can't seat
    *  the wedding (capacity_max < pax). null/0 → no pax scope. */
   pax?: number | null;
+  /** Couple's specific candidate dates (YYYY-MM-DD · state.dateCandidates, only
+   *  in dateMode='specific'). Drops venues booked on EVERY candidate; keeps any
+   *  free on ≥1. Failing-open (no calendar = available). Empty/omit → no scope
+   *  (a flexible/window-mode couple isn't schedule-filtered). */
+  dateCandidates?: string[];
 }): Promise<OnboardingVenueResult[]> {
   // Derive ceremony_type + secondary the SAME way the commit does, so the
   // NULL-safe ceremony filter admits faith-agnostic reception venues.
@@ -608,6 +613,7 @@ export async function searchOnboardingReceptionVenues(input: {
       eventType: 'wedding',
       pax: input.pax ?? null,
       venueType,
+      availableDateKeys: input.dateCandidates,
       limit: 8,
     });
     return recs.map((r) => ({

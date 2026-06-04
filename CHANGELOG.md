@@ -4,6 +4,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(0023/0044): marketplace catalog reads the DB taxonomy (Phase 2b·2)
+
+**Context:** Completes the public-marketplace read-through. 2b·1 flipped vendor *bucketing*; this flips the catalog's *labels + order + structure*, so admin **renames and re-orders** (via the Phase 3 editor) show on the live `/vendors` browse — not just re-mapping.
+
+**What changed (`app/vendors/page.tsx`):**
+- **`CatalogView`** (the tile-grid browse) fetches `getTaxonomy()` once and **locally shadows** the 10 taxonomy maps (`WEDDING_FOLDER_*`, `WEDDING_TILE_*`, `WEDDING_TILES_BY_PARENT`, `TILE_PARENT`, `TAXONOMY_MAP`) → every existing reference resolves to the DB snapshot with zero per-site edits. Casts restore the exact-key Record types so it type-checks unchanged under `noUncheckedIndexedAccess`.
+- **`ScopedFolderBanner`** → async, reads the folder label from the snapshot.
+- Slug-based routing (`parseFilters`/`buildHref`), the module-level search autocomplete, and the SEO JSON-LD stay on the constant (slugs are stable; threading those is a small follow-up).
+
+**Behavior-preserving:** the DB is seeded from `lib/taxonomy.ts` (identical today); `getTaxonomy()` falls back to the constant on error. Invisible now; live the moment an admin edits.
+
+**Verification:** `tsc --noEmit` 0 errors · `next lint` clean.
+
+**SPEC IMPACT:** None — implements the locked 0023 §3.15 read-through.
+
+---
+
 ## 2026-06-04 · feat(0016/0044): onboarding leaf-match — location + event-type filters wired (Hybrid)
 
 **Context:** Owner audit of onboarding (the step-12 "Find your first vendor" venue list + the step-13 congrats "N that fit your wedding · from M" tile). Two gaps: the reception search showed out-of-region venues (Boracay/Tagaytay for a Metro Manila couple), and the tile read "1,801 of 1,801" — because `fetchWizardVendorRecommendations` + `getOnboardingVendorCounts` filtered ONLY on (NULL-safe, demo-uniform) ceremony + venue_setting compat. Region, event-type, capacity, and per-leaf refinements weren't applied at all. Owner locked **Hybrid** match semantics (hard-filter the objective/always-present dims, rank the soft/sparse ones, never show an empty list) + "quick wins now, spec the refinement layer."

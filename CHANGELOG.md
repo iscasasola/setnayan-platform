@@ -4,6 +4,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(0023): /admin/taxonomy editor — add + delete tiles (Phase 3b)
+
+**Context:** Extends the Phase 3 editor with the **expandable-taxonomy** core. With 2b·2 in, a newly-added tile renders on the live `/vendors` catalog with no deploy — so admins can grow the taxonomy on real vendor demand.
+
+**What changed:**
+- **`actions.ts`** — two new service-role, audit-logged actions: `createTaxonomyNode` (add a tile under a parent — slugifies the label into a stable id+slug, appends to the parent's sort order, guards id collisions) and `deleteTaxonomyNode` (**guarded against orphans** — refuses if the node has child nodes or any `canonical_service` still mapped to it; parents are owner-managed, not deletable here).
+- **`page.tsx`** — the tree gains a **＋ add-tile** form per parent and a **✕ delete** button per tile.
+
+**Loop:** add a tile → `getTaxonomy()` / `CatalogView` render it live (ready to receive re-mapped canonicals); delete an empty tile → gone everywhere. No deploy.
+
+**Staged (Phase 3c):** drag-to-move, grandchildren / leaf↔branch conversion, two-admin gating, the §3.2c request-review ghost cards.
+
+**Verification:** `tsc --noEmit` 0 errors · `next lint` clean.
+
+**SPEC IMPACT:** None — implements (more of) the locked 0023 §3.15 editor.
+
+---
+
 ## 2026-06-04 · feat(0006): vendor detail page shows the generic placeholder photo too
 
 **Context:** Completes the follow-up flagged in the prior placeholder PR (#917). The vendor detail page `/v/[slug]` hid its Portfolio section entirely when a vendor had no photos, leaving the page without a service photo.

@@ -5,7 +5,13 @@ import {
 } from '@/lib/taxonomy';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
-import { updatePlanningDeadline, renameTaxonomyNode, remapCanonical } from './actions';
+import {
+  updatePlanningDeadline,
+  renameTaxonomyNode,
+  remapCanonical,
+  createTaxonomyNode,
+  deleteTaxonomyNode,
+} from './actions';
 
 export const metadata = { title: 'Taxonomy · Admin' };
 // Top-level DB reads (admin client + getTaxonomy) — keep this route dynamic so a
@@ -263,7 +269,7 @@ export default async function AdminTaxonomyPage({
       <section className="mb-10">
         <header className="mb-2 flex items-baseline justify-between gap-3">
           <h2 className="text-lg font-semibold tracking-tight text-ink">
-            Tree · edit names{' '}
+            Tree · edit / add / remove{' '}
             <span className="font-normal text-ink/55">(live — saves to the DB, no deploy)</span>
           </h2>
           <span className="font-mono text-xs text-ink/55">
@@ -276,10 +282,46 @@ export default async function AdminTaxonomyPage({
               <NodeRenameForm id={folder} label={tax.folderLabel[folder] ?? folder} kind="Parent" />
               <ul className="ml-3 mt-2 space-y-1.5 border-l border-ink/10 pl-3">
                 {(tax.tilesByParent[folder] ?? []).map((tile) => (
-                  <li key={tile}>
-                    <NodeRenameForm id={tile} label={tax.tileLabel[tile] ?? tile} kind="Tile" />
+                  <li key={tile} className="flex items-center gap-1.5">
+                    <div className="min-w-0 flex-1">
+                      <NodeRenameForm id={tile} label={tax.tileLabel[tile] ?? tile} kind="Tile" />
+                    </div>
+                    <form action={deleteTaxonomyNode}>
+                      <input type="hidden" name="id" value={tile} />
+                      <button
+                        type="submit"
+                        aria-label={`Delete ${tile}`}
+                        title="Delete — blocked if services are still mapped here"
+                        className="shrink-0 rounded-md border border-rose-200 bg-white px-2 py-1 text-[11px] font-medium text-rose-700 transition-colors hover:bg-rose-50"
+                      >
+                        ✕
+                      </button>
+                    </form>
                   </li>
                 ))}
+                <li>
+                  <form
+                    action={createTaxonomyNode}
+                    className="flex items-center gap-2 rounded-md border border-dashed border-emerald-300/60 bg-emerald-50/30 px-2 py-1.5"
+                  >
+                    <input type="hidden" name="parent_id" value={folder} />
+                    <span className="w-12 shrink-0 font-mono text-[10px] uppercase tracking-[0.1em] text-emerald-700/70">
+                      ＋ tile
+                    </span>
+                    <input
+                      name="label_en"
+                      placeholder="New tile name…"
+                      aria-label={`Add a tile under ${folder}`}
+                      className="min-w-0 flex-1 rounded-md border border-ink/15 bg-white px-2 py-1 text-sm text-ink"
+                    />
+                    <button
+                      type="submit"
+                      className="shrink-0 rounded-md border border-emerald-300 bg-white px-3 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-50"
+                    >
+                      Add
+                    </button>
+                  </form>
+                </li>
               </ul>
             </div>
           ))}

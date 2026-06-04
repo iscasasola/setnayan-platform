@@ -11,6 +11,8 @@
 
 V1 web surface is **functionally complete**. Pre-launch sprint closed 2026-05-13 (19 iterations). 2026-05-14 then landed **28 PRs** across two waves.
 
+**2026-06-04 — /admin/taxonomy editor: add + delete tiles (Phase 3b · 0023).** The expandable-taxonomy core. New audit-logged actions `createTaxonomyNode` (add a tile under a parent · slugified id/slug · collision-guarded) + `deleteTaxonomyNode` (orphan-guarded — refuses if children or mapped canonicals; parents not deletable). Tree UI gains ＋add-tile per parent + ✕delete per tile. With 2b·2 in, a new tile renders live on `/vendors` (no deploy), ready for re-mapped canonicals. Staged (Phase 3c): drag-to-move, grandchildren/leaf↔branch, two-admin gate, §3.2c request-review. typecheck + lint green. SPEC IMPACT none.
+
 **2026-06-04 — placeholder photo extended to the vendor detail page (0006).** Completes the #917 follow-up: `/v/[slug]` hid its Portfolio section when a vendor had no photos. Now, with no portfolio, a hero banner renders the bundled `VENDOR_PLACEHOLDER_PHOTO` at the top (above logo+name); vendors with photos are unchanged. Real + demo. `tsc`+`lint` green. **SPEC IMPACT: none.**
 
 **2026-06-04 — generic placeholder photo for photo-less vendors (0006/0021).** Owner: "vendors with no photo for their service must have at least a generic placeholder photo." Added a bundled neutral wedding-venue placeholder (`public/placeholders/vendor.webp`, Recraft, ~73KB) + `VENDOR_PLACEHOLDER_PHOTO` constant; the marketplace card (`VendorHero`) + the category picker now fall back to it instead of an initials monogram. Always-available, CDN-served, never rate-limited. `tsc`+`lint` green. **SPEC IMPACT: yes (minor)** → `COWORK_INBOX.md`. (Detail page `/v/[slug]` gallery = optional follow-up.)

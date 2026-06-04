@@ -10,6 +10,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { makeT } from '@/lib/i18n';
 import { isThemeMode, type ThemeMode } from '@/app/_components/theme-provider';
 import { ThemeModePicker } from './_components/theme-mode-picker';
+import { HapticsToggle } from './_components/haptics-toggle';
 import {
   changePassword,
   softDeleteAccount,
@@ -462,6 +463,7 @@ export default async function ProfilePage({ searchParams }: Props) {
           choice to `users.theme_preference` in the background.
         */}
         <ThemeModePicker initialMode={activeThemeMode} />
+        <HapticsToggle />
       </section>
 
       <section className="mt-10 space-y-4">

@@ -80,6 +80,8 @@ const SECONDARY_LABELS: Record<Exclude<CeremonyType, 'mixed'>, string> = {
   muslim: 'Muslim',
   cultural: 'Cultural',
   chinese: 'Chinese',
+  jewish: 'Jewish',
+  born_again: 'Born Again',
 };
 
 type Props = {

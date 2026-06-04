@@ -92,6 +92,8 @@ const FAITH_PHOTO: Record<OnboardingFaith, { img: string; cap: string }> = {
   muslim: { img: 'wed_muslim', cap: 'A Muslim wedding' },
   cultural: { img: 'wed_cultural', cap: 'A traditional Filipino wedding' },
   chinese: { img: 'wed_chinese', cap: 'A Chinese wedding' },
+  jewish: { img: 'wed_jewish', cap: 'A Jewish wedding' },
+  born_again: { img: 'wed_bornagain', cap: 'A Born Again wedding' },
 };
 
 const ROLE_OPTIONS: { value: OnboardingRole; title: string; desc: string }[] = [
@@ -133,6 +135,8 @@ const FAITH_CHIPS: { value: OnboardingFaith; label: string; soon: boolean }[] = 
   { value: 'muslim', label: 'Muslim', soon: false },
   { value: 'cultural', label: 'Cultural', soon: false },
   { value: 'chinese', label: 'Chinese', soon: false },
+  { value: 'jewish', label: 'Jewish', soon: false },
+  { value: 'born_again', label: 'Born Again', soon: false },
 ];
 
 /* ── monogram designs (owner 2026-06-02 — single "Generate another design" cycles
@@ -371,6 +375,8 @@ const WORSHIP_OPT: Partial<Record<OnboardingFaith, [string, string, string]>> = 
   inc: ['⛪', 'Chapel', 'ceremony_church'],
   muslim: ['🕌', 'Mosque', 'ceremony_mosque'],
   chinese: ['🛕', 'Temple', 'ceremony_temple'],
+  jewish: ['🕍', 'Synagogue', 'ceremony_synagogue'],
+  born_again: ['⛪', 'Church', 'ceremony_church'],
   // cultural: indigenous Filipino ceremonies are outdoor / ancestral — no single
   //   house of worship; the universal options below cover them.
 };

@@ -41,6 +41,8 @@ const CEREMONY_TYPE_LABEL: Record<(typeof CEREMONY_TYPES)[number], string> = {
   muslim: 'Muslim',
   cultural: 'Cultural',
   chinese: 'Chinese',
+  jewish: 'Jewish',
+  born_again: 'Born Again',
   civil: 'Civil',
 };
 

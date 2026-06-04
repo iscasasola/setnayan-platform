@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · style(onboarding): welcome copy + brand bump/tagline + stronger CTA
+
+**Context:** Owner — new header + subhead for the welcome, plus (from the recommendations table = "photo 2") the brand bump + tagline and a stronger CTA.
+
+**What changed (welcome screen):**
+- **Header:** *"Start with the view. We'll handle the details."*
+- **Subhead:** *"Tell us your date. Get a free wedding plan + matched vendors in minutes."*
+- **Brand:** the SETNAYAN mark + wordmark bumped **~20%** (welcome only) + a tagline **"Wedding planning, simplified"** under the wordmark.
+- **CTA:** *"Let's go"* → **"Build my free plan"** (`NEXT_LABEL[0]`; swap to "Match me with vendors" is one word).
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean.
+
+**SPEC IMPACT:** Welcome copy + brand + CTA updated. → `COWORK_INBOX.md`.
+
 ## 2026-06-04 · revert(theme): light-lock the app — disable OS dark-mode auto-follow + remove the Light/Dark/Auto switch
 
 **Context:** Owner — *"the app used to adjust automatic to light and dark theme. disable this and just always keep it light theme."* Reverts the 2026-05-22 brand-pivot Light/Dark/Auto trio (which made the app follow the device `prefers-color-scheme`). Setnayan now renders in the light Clean-Editorial palette on every dashboard / marketing surface, ignoring the OS setting and any previously-stored preference.

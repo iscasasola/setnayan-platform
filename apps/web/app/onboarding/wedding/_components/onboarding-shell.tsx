@@ -70,7 +70,7 @@ const PHASE_SCREENS = 15;
 /* Primary-button label per screen (prototype nextLabel[]). Index 10 (prefs) is
  * overridden at render time by the sub-stepper ("Continue" / "Looks good"); index
  * 14 (plan) flips to "Continue to checkout" once the bundle is added. */
-const NEXT_LABEL = ['Let’s go', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Create account', 'Continue', 'Continue', 'Done'];
+const NEXT_LABEL = ['Build my free plan', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Continue', 'Create account', 'Continue', 'Continue', 'Done'];
 /* Which screens show a Skip button (prototype canSkip[]): picker/name/region/account/congrats/plan not skippable, prefs/find are. */
 const CAN_SKIP = [false, false, false, true, false, true, false, true, true, false, true, false, true, false, false];
 
@@ -2010,6 +2010,7 @@ export function OnboardingShell({
               Skip
             </button>
           </div>
+          {step === 0 && <div className="brandtag">Wedding planning, simplified</div>}
           <div className="bar">
             <div className="barfill" style={{ width: `${((step + 1) / FLOW_TOTAL) * 100}%` }} />
           </div>
@@ -2022,11 +2023,8 @@ export function OnboardingShell({
             <div className="welcomehero">
               <WelcomeParallax src={ASSET('welcome')} depthSrc="/onboarding/welcome-depth.png" />
               <div className="welcomeoverlay">
-                <h1>Wedding planning, without the chaos.</h1>
-                <p>
-                  Answer a few questions. We{'’'}ll find your vendors and build your plan
-                  {' — '}free to start.
-                </p>
+                <h1>Start with the view. We{'’'}ll handle the details.</h1>
+                <p>Tell us your date. Get a free wedding plan + matched vendors in minutes.</p>
               </div>
             </div>
           </section>

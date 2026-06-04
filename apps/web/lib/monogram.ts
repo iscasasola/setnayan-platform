@@ -63,20 +63,21 @@ export function resolveMonogram(event: {
  * larger onboarding medallion + the Website-editor monogram.
  * ──────────────────────────────────────────────────────────────────────── */
 
+export type MonoStyle = 'bar' | 'script' | 'duo' | 'framed' | 'infinity';
 type MonoFontKey = 'cormorant' | 'playfair' | 'cinzel' | 'script';
 type MonoInkKey = 'mulberry' | 'gold' | 'ink';
 
-const MONO_DESIGNS: { frame: string; font: MonoFontKey; ink: MonoInkKey }[] = [
-  { frame: 'wreath', font: 'cormorant', ink: 'mulberry' },
-  { frame: 'oval', font: 'playfair', ink: 'ink' },
-  { frame: 'crest', font: 'cinzel', ink: 'gold' },
-  { frame: 'botanical', font: 'script', ink: 'mulberry' },
-  { frame: 'laurel', font: 'cormorant', ink: 'gold' },
-  { frame: 'ribbon', font: 'playfair', ink: 'mulberry' },
-  { frame: 'flourish', font: 'script', ink: 'ink' },
-  { frame: 'square', font: 'cinzel', ink: 'ink' },
-  { frame: 'art_deco', font: 'cinzel', ink: 'gold' },
-  { frame: 'baroque', font: 'cormorant', ink: 'mulberry' },
+// The 5 live-typography lockups (owner 2026-06-04) — MUST mirror MONO_DESIGNS in
+// app/onboarding/wedding/_components/onboarding-shell.tsx. `frame` is null for the
+// four type-only lockups; only `framed` carries the ornate gold filigree frame.
+// `ink` drives the chrome icon color (letters-forward at switcher size). A single
+// shared source is a later refactor.
+const MONO_DESIGNS: { style: MonoStyle; frame: string | null; font: MonoFontKey; ink: MonoInkKey }[] = [
+  { style: 'bar', frame: null, font: 'cormorant', ink: 'mulberry' },
+  { style: 'script', frame: null, font: 'script', ink: 'mulberry' },
+  { style: 'duo', frame: null, font: 'playfair', ink: 'mulberry' },
+  { style: 'framed', frame: 'filigree', font: 'cinzel', ink: 'gold' },
+  { style: 'infinity', frame: null, font: 'cormorant', ink: 'mulberry' },
 ];
 
 // Ink hexes mirror app/onboarding/wedding/_styles/onboarding.css :root.
@@ -118,13 +119,33 @@ const MONO_FONT_STACK: Record<
   },
 };
 
-// The frame webps shipped under public/onboarding/mono/. Validate the stored
-// frame key before building the <EventMonogram> background URL.
-const VALID_FRAMES = new Set<string>([...MONO_DESIGNS.map((d) => d.frame), 'deco_diamond']);
+// Frame assets shipped under public/onboarding/mono/. Kept EXHAUSTIVE (legacy
+// 10-preset frames + the 2026-06-04 filigree frame) so already-onboarded couples
+// whose events stored a legacy frame key still render their framed chrome icon.
+// Validate the stored frame key before building the <EventMonogram> background URL.
+const VALID_FRAMES = new Set<string>([
+  'wreath', 'oval', 'crest', 'botanical', 'laurel', 'ribbon',
+  'flourish', 'square', 'art_deco', 'baroque', 'deco_diamond',
+  'filigree',
+]);
+
+/**
+ * Public URL for a monogram frame asset. Legacy frames ship as raster .webp;
+ * the 2026-06-04 filigree frame ships as a crisp transparent .svg.
+ */
+export function monogramFrameAssetUrl(frameKey: string): string {
+  return frameKey === 'filigree'
+    ? '/onboarding/mono/filigree.svg'
+    : `/onboarding/mono/${frameKey}.webp`;
+}
 
 export type MonogramDesignStyle = {
-  /** Gold frame webp key (public/onboarding/mono/{frameKey}.webp), or null for
-   *  a design that has only a font key. Drives the framed chrome-icon render. */
+  /** The chosen lockup style (bar · script · duo · framed · infinity), or null
+   *  for legacy events resolved only by frame+font. Lets bigger surfaces render
+   *  the exact lockup; the chrome icon stays letters-forward regardless. */
+  style: MonoStyle | null;
+  /** Frame asset key — pass to monogramFrameAssetUrl() for the URL (.webp legacy
+   *  / .svg filigree). null for the four type-only lockups. */
   frameKey: string | null;
   color: string;
   fontFamily: string;
@@ -145,12 +166,17 @@ export type MonogramDesignStyle = {
 export function resolveMonogramDesign(input: {
   monogram_frame_key?: string | null;
   monogram_font_key?: string | null;
+  monogram_style?: string | null;
 }): MonogramDesignStyle | null {
   const frameKey = input.monogram_frame_key ?? null;
   const fontKey = input.monogram_font_key ?? null;
-  if (!frameKey && !fontKey) return null;
+  const styleKey = input.monogram_style ?? null;
+  if (!frameKey && !fontKey && !styleKey) return null;
 
+  // Prefer the persisted style (authoritative since 2026-06-04). Fall back to
+  // frame+font matching for events onboarded before monogram_style existed.
   const design =
+    (styleKey ? MONO_DESIGNS.find((d) => d.style === styleKey) : undefined) ??
     MONO_DESIGNS.find((d) => d.frame === frameKey && d.font === fontKey) ??
     MONO_DESIGNS.find((d) => d.frame === frameKey) ??
     MONO_DESIGNS.find((d) => d.font === fontKey) ??
@@ -168,6 +194,7 @@ export function resolveMonogramDesign(input: {
     frameKey && VALID_FRAMES.has(frameKey) ? frameKey : design?.frame ?? null;
 
   return {
+    style: design?.style ?? null,
     frameKey: resolvedFrame,
     color: MONO_INK_HEX[ink],
     fontFamily: stack.fontFamily,

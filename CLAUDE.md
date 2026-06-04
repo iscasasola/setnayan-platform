@@ -20,22 +20,24 @@ The Setnayan V1 implementation. **All product specs and decision logs live OUTSI
 **After ANY non-trivial code change you must:**
 
 1. Append a `CHANGELOG.md` entry with: date, commit SHA, what changed, and a `SPEC IMPACT:` line (even if it says "None")
-2. If `SPEC IMPACT` is **not** "None", also append a `[PENDING]` entry to `COWORK_INBOX.md` with: the affected spec file path under `~/Documents/Claude/Projects/Setnayan/`, the exact content to add/change, and a short rationale. This is the owner's worklist for Cowork — keep it concise and actionable.
+2. If `SPEC IMPACT` is **not** "None", apply the spec edit **directly** in the corpus at `~/Documents/Claude/Projects/Setnayan/` (per the 2026-06-04 direct-edit authorization — see "Cowork — the spec-update boundary" below), following the `COWORK.md` sequence. No longer append `[PENDING]` to `COWORK_INBOX.md`.
 3. Update `STATUS.md` if the project state advanced (new step, new iteration, new known gap)
 4. Commit all doc updates in the same commit as the code change
 
 ## Cowork — the spec-update boundary
 
-The specs at `~/Documents/Claude/Projects/Setnayan/` are managed by the owner via **Cowork** (a non-developer mode for navigating + editing project files). The repo and the spec folder must NEVER silently diverge.
+The specs at `~/Documents/Claude/Projects/Setnayan/` are the canonical product corpus. The repo and the spec folder must NEVER silently diverge.
 
-**Hard rule:**
+**Owner authorization (2026-06-04 · standing):** Claude Code is **permanently authorized to edit the spec corpus directly**, superseding the prior "do NOT edit the corpus / flag for Cowork / append `[PENDING]` to `COWORK_INBOX.md`" rule. The project has moved past formal Cowork spec-design into rapid prototype/build iteration.
 
-- If a code change implies a spec change (new SKU pricing, schema column rename, retired feature, new workflow, branding update, etc.), **do NOT edit files in `~/Documents/Claude/Projects/Setnayan/` directly.**
-- Instead, in your session response, surface the spec impact and **explicitly remind the owner**: *"Please update `<path-to-affected-spec.md>` via Cowork to reflect this change."*
-- Log the impact in the corresponding `CHANGELOG.md` entry with file path + reason.
-- Append a `[PENDING]` entry to `COWORK_INBOX.md` so the owner has a clean worklist instead of having to scan `CHANGELOG.md` history for what still needs Cowork's attention.
+**How to apply a spec-impacting change:**
 
-Cowork is not a CLI tool you can invoke. It's the owner's editorial process. Your job is to flag what needs Cowork's attention, not to bypass it.
+- Edit the affected corpus files directly, following the **`COWORK.md` decision-update sequence**: `DECISION_LOG.md` row → affected iteration `.md` → regenerate the `.docx` mirror via pandoc → update memory + `MEMORY.md`.
+- Still log the impact in the corresponding `CHANGELOG.md` entry (file path + reason) so repo history stays complete.
+- **Surface — don't silently change — load-bearing or uncertain decisions** (locked SKUs, schema renames, retired features, branding): flag them for owner sign-off in your response even as you apply the edit.
+- The **code repos keep their worktree + PR workflow.** Direct corpus-edit authorization does NOT extend to repo code.
+
+`COWORK_INBOX.md` is retained only as a historical worklist of pre-authorization pending items; new spec deltas land directly in the corpus, not as `[PENDING]` rows.
 
 ## Locked decisions you must respect
 

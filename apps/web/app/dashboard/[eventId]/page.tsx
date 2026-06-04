@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import {
   Send,
+  ArrowRight,
   Briefcase,
   Sparkles,
   MessageSquare,
@@ -86,14 +87,15 @@ import { MarketplaceTeaseStrip } from './_components/marketplace-tease-strip';
 // underlying split-pane primitive lives on in the lg desktop sidebar
 // (bottom-nav.tsx + sidebar-resize-handle.tsx) — those usages are
 // unchanged.
-import { buildCrossCategoryRecommendations } from '@/lib/wedding-plan-groups';
+import { buildCrossCategoryRecommendations, PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import {
   summarize as summarizePaperwork,
   type PaperworkRow,
 } from '@/lib/paperwork';
 import { AuspiciousChip } from './_components/auspicious-chip';
-import { PersonalizedMenu } from './_components/personalized-menu';
-import { buildTasteChips, buildServiceFeatures, buildWeddingDetailRows } from '@/lib/personalized-menu';
+import { EventCountdownHeader } from './_components/event-countdown-header';
+import { TodaysOneThing } from './_components/todays-one-thing';
+import { pickTodaysOneThing, countUnlockedCategories } from '@/lib/todays-one-thing';
 import { EventMetaLine } from './_components/event-meta-line';
 import { VendorAvailabilityIntersection } from './_components/vendor-availability-intersection';
 import { BudgetCountdownHeader } from './_components/budget-countdown-header';
@@ -1275,10 +1277,10 @@ export default async function EventHomePage({
     };
   });
 
-  const eventCeremonyType =
-    (event as { ceremony_type?: string | null }).ceremony_type ?? null;
-  const eventVenueSetting =
-    (event as { venue_setting?: string | null }).venue_setting ?? null;
+  // eventCeremonyType + eventVenueSetting removed with the PersonalizedMenu
+  // recap (couple-home-cockpit 2026-06-04) — their only consumer. Ceremony
+  // type is read inline by the Needs-you (Upcoming) wrapper below; venue now
+  // lives on the Services "Matching you on" strip.
 
   // Cross-category vendor recommendations (CLAUDE.md 2026-05-22 owner
   // directive). For every marketplace vendor the host has picked, fetch
@@ -1317,19 +1319,13 @@ export default async function EventHomePage({
     }>,
   });
 
-  // Today's one thing — single-focus hero (owner directive 2026-05-22,
-  // Headspace-pattern). Resolves the host's #1 most-urgent planning
-  // task from the same `eventVendors` array PlanningGroups uses, so
-  // the hero and the grid below it agree on lock state. Returns null
-  // when (a) the event has no wedding_date, or (b) every category is
-  // already locked — the hero card distinguishes the two via the
-  // `weddingDateMissing` prop.
-  // pickTodaysOneThing + countUnlockedCategories computations retired in
-  // the WizardHero swap (iteration 0016 · Phase 1). The wizard reads
-  // events.wizard_state JSONB to decide the active focus, not the
-  // vendor-derived heuristic. Quick-revert path: re-import the helpers
-  // above + restore these two consts + the <TodaysOneThing> JSX render.
-  // See @/lib/wizard.ts `resolveWizardFocus` for the new resolver.
+  // Today's Focus computation moved UP into the couple-home-cockpit block
+  // (2026-06-04) — see `todaysTask` / `remainingTaskCount` near the render.
+  // The single-focus hero (owner directive 2026-05-22, Headspace-pattern)
+  // resolves the host's #1 unlocked task from the same `eventVendors` array
+  // so the hero agrees with the plan's lock state. (The 2026-06-02 → 06-03
+  // WizardHero/Today's-Focus-wizard surface was retired; this is the original
+  // lightweight vendor-derived hero, NOT the wizard or the paid Concierge.)
 
   // Next 15 Steps · Parallel Work Map — REMOVED 2026-05-24 (owner directive).
   // Today's Focus carousel + the 22-card Plan grid below cover the same
@@ -1477,14 +1473,9 @@ export default async function EventHomePage({
   }, 0);
   const committedCentavos = Math.round((paidOrdersTotalPhp + contractedVendorsTotalPhp) * 100);
 
-  // Target budget — populated by the Budget Setter at
-  // /dashboard/[eventId]/budget (migration 20260604030000 added the
-  // events.estimated_budget_centavos column). Defensive optional read
-  // in case a fresh deploy lands the SELECT before the migration
-  // applies in production; NULL surfaces the "Set your budget" CTA in
-  // BudgetCountdownHeader without crashing the page.
-  const eventBudgetCentavos =
-    (event as { estimated_budget_centavos?: number | null }).estimated_budget_centavos ?? null;
+  // eventBudgetCentavos removed with the PersonalizedMenu recap
+  // (couple-home-cockpit 2026-06-04) — its only consumer. Budget now lives on
+  // Services (the "Matching you on" strip + budget summary), not Home.
 
   // Upcoming items + money-in-flight derivation moved into
   // MoneyAndUpcomingAsync (2026-05-30 Phase 2 — Suspense streaming).
@@ -1529,62 +1520,32 @@ export default async function EventHomePage({
       .then(() => undefined);
   }
 
-  // Lean home (owner directive 2026-06-02 · CLAUDE.md) — the personalized
-  // menu preview is built from production data the page already loaded
-  // (the events row + event_vendors). No new fetches. The onboarding
-  // "taste" (feel/dietary/style) is not captured in production yet, so it
-  // is intentionally not fabricated here.
-  const personalizedDate = event.event_date
-    ? formatEventDateWithPrecision(event.event_date, eventDatePrecision)
-    : null;
-  // Curated match criteria (owner correction 2026-06-02) — the onboarding/
-  // event-creation info we FILTER + SORT the vendor search by (date · region
-  // · ceremony + secondary · venue · guests · style · budget). NOT the
-  // couple's shortlisted vendors (that's the Vendors tab).
-  const personalizedTaste = buildTasteChips(
-    {
-      event_date: event.event_date,
-      ceremony_type: eventCeremonyType,
-      secondary_ceremony_type:
-        (event as { secondary_ceremony_type?: string | null }).secondary_ceremony_type ?? null,
-      venue_setting: eventVenueSetting,
-      estimated_pax: (event as { estimated_pax?: number | null }).estimated_pax ?? null,
-      estimated_budget_centavos: eventBudgetCentavos,
-      region: (event as { region?: string | null }).region ?? null,
-      mood_feel_key: (event as { mood_feel_key?: string | null }).mood_feel_key ?? null,
-      // Onboarding-v2 date capture — the date chip falls back to candidate
-      // date(s)/window when event_date hasn't settled (onboarding events).
-      date_mode: (event as { date_mode?: string | null }).date_mode ?? null,
-      date_candidates: (event as { date_candidates?: string[] | null }).date_candidates ?? null,
-      date_window_start:
-        (event as { date_window_start?: string | null }).date_window_start ?? null,
-      date_window_end: (event as { date_window_end?: string | null }).date_window_end ?? null,
-    },
-    personalizedDate,
-  );
-
-  // "What matters for your services" — per-service style picks captured at
-  // onboarding (events.style_preferences). Display only (owner 2026-06-02:
-  // "the features that matter for the different services"). Empty for events
-  // with no captured prefs → the card renders the chips alone.
-  const personalizedFeatures = buildServiceFeatures(
-    (event as { style_preferences?: Record<string, unknown> | null }).style_preferences ?? null,
-  );
-
-  // Compact "Your wedding details" rows for the Home card (owner 2026-06-03) —
-  // keyed basics (location · venue · guests · budget · style) + the two most
-  // service-defining style picks (cuisine · photo/video), from the same events
-  // row. Date + ceremony are omitted — the persistent top chrome carries them.
-  // Empty fields are skipped, so the card never shows blanks.
-  const personalizedDetailRows = buildWeddingDetailRows({
-    venue_setting: eventVenueSetting,
-    estimated_pax: (event as { estimated_pax?: number | null }).estimated_pax ?? null,
-    estimated_budget_centavos: eventBudgetCentavos,
-    region: (event as { region?: string | null }).region ?? null,
-    mood_feel_key: (event as { mood_feel_key?: string | null }).mood_feel_key ?? null,
-    style_preferences:
-      (event as { style_preferences?: Record<string, unknown> | null }).style_preferences ?? null,
-  });
+  // Couple-home-cockpit (owner-approved prototype 2026-06-04). Home leads with
+  // the emotional anchor (countdown) + the single highest-priority next action
+  // ("Today's Focus"), NOT the text-heavy match-criteria recap (which moved to
+  // the top of Services; the full editable record stays at /details). Every
+  // input below is derived from data the page already loaded — no new fetches.
+  //
+  // Today's Focus: the host's #1 unlocked planning task, resolved from the same
+  // `eventVendors` array (so the hero agrees with the plan lock-state) and
+  // anchored on the wedding date. Returns null when (a) no wedding_date, or
+  // (b) every lockable category is already locked — the card distinguishes the
+  // two via `weddingDateMissing`.
+  const todaysTask = pickTodaysOneThing(eventVendors, event.event_date, now);
+  const remainingTaskCount = countUnlockedCategories(eventVendors);
+  const weddingDateMissing = !event.event_date;
+  // "X of N vendors locked" for the countdown progress bar. N = lockable
+  // plan-groups (entry-point cards excluded), matching the resolver's universe
+  // so the header and the focus card agree. locked = N − unlocked.
+  const totalLockableCategories = PLAN_GROUPS.filter(
+    (g) => g.countsTowardLockable !== false,
+  ).length;
+  const lockedVendorCount = Math.max(0, totalLockableCategories - remainingTaskCount);
+  // Venue label for the countdown — venue_name when set, else region.
+  const countdownVenueLabel =
+    (event as { venue_name?: string | null }).venue_name ??
+    (event as { region?: string | null }).region ??
+    null;
 
   return (
     // Column effect retired 2026-05-23 per owner directive — event home
@@ -1612,30 +1573,46 @@ export default async function EventHomePage({
         />
       ) : null}
 
-      {/* Lean home (owner directive 2026-06-02 · CLAUDE.md). Home keeps
-       *  exactly THREE content blocks: (1) the personalized menu (the
-       *  couple's wedding shape from onboarding + the services they've
-       *  added), (2) upcoming schedules, (3) the activity feed. Everything
-       *  else that used to render here — the welcome header, date/ceremony
-       *  meta line, stage strip, budget countdown, finalized chips,
-       *  marketplace tease, the 12-card plan grid, the 9-tool "Your Plan",
-       *  the nav grid, money-in-flight — owns its own tab/route and is
-       *  reachable via the bottom-nav More tab + the desktop sidebar. (The
-       *  couple name + event date live in the persistent top chrome.) The
-       *  FULL personalized menu lives at /for-you (the home preview's
-       *  "See all" target). The day-of trio above stays — it's the
-       *  wedding-day takeover (iteration 0031), null in normal planning. */}
-      <PersonalizedMenu
+      {/* Couple-home-cockpit (owner-approved prototype 2026-06-04). Home is a
+       *  cockpit, not a catalog — five beats answering "what now?":
+       *  1) the countdown (emotional anchor), 2) Today's Focus (the single
+       *  next action), 3) Needs you (time-bound items that need the host),
+       *  4) Recent activity (updates), 5) one doorway into the matched
+       *  marketplace. The match-criteria recap moved to the top of Services;
+       *  the full editable record lives at /details. Everything else — the
+       *  plan grid, the services storefront, the nav tiles, money-in-flight —
+       *  owns its own tab, reachable via the bottom-nav + desktop sidebar.
+       *  The day-of trio above stays — wedding-day takeover (iteration 0031),
+       *  null in normal planning. */}
+      <EventCountdownHeader
         eventId={eventId}
-        variant="preview"
-        tasteChips={personalizedTaste}
-        serviceFeatures={personalizedFeatures}
-        detailRows={personalizedDetailRows}
+        eventName={(event as { display_name?: string | null }).display_name ?? 'Your wedding'}
+        eventDate={event.event_date}
+        eventDatePrecision={eventDatePrecision}
+        dateMode={(event as { date_mode?: string | null }).date_mode ?? null}
+        dateCandidates={(event as { date_candidates?: string[] | null }).date_candidates ?? null}
+        dateWindowStart={(event as { date_window_start?: string | null }).date_window_start ?? null}
+        dateWindowEnd={(event as { date_window_end?: string | null }).date_window_end ?? null}
+        venueLabel={countdownVenueLabel}
+        lockedCount={lockedVendorCount}
+        totalLockable={totalLockableCategories}
+        now={now}
       />
 
-      {/* Block 2 · Upcoming schedules — streams independently; renders only
-       *  the schedules panel (not money-in-flight). See
-       *  _components/upcoming-schedules-async.tsx. */}
+      {/* Today's Focus — the one prioritized next action (or set-your-date /
+       *  all-locked variants). Resolved server-side; dormant since the
+       *  2026-06-02 lean pass, re-wired here as the cockpit's "Do it" beat. */}
+      <TodaysOneThing
+        eventId={eventId}
+        topPriorityTask={todaysTask}
+        weddingDateMissing={weddingDateMissing}
+        totalRemainingTasks={remainingTaskCount}
+      />
+
+      {/* Needs you — the time-bound items that need the host (vendor replies,
+       *  payment milestones, statutory deadlines). Same UpcomingSchedules
+       *  surface, reframed from a passive "Upcoming" calendar via the async
+       *  wrapper's headingLabel/emptyLabel props. Streams independently. */}
       <Suspense fallback={<UpcomingSchedulesSkeleton />}>
         <UpcomingSchedulesAsync
           eventId={eventId}
@@ -1646,6 +1623,7 @@ export default async function EventHomePage({
         />
       </Suspense>
 
+      {/* Recent activity — what's changed since last visit. */}
       <Suspense fallback={<ActivityFeedSkeleton />}>
         <ActivityFeedAsync
           eventId={eventId}
@@ -1654,6 +1632,25 @@ export default async function EventHomePage({
           seeAllLabel={tr('cta.see_all')}
         />
       </Suspense>
+
+      {/* One calm doorway into the matched marketplace — replaces the CTA that
+       *  used to live inside the removed recap card. */}
+      <Link
+        href={`/dashboard/${eventId}/vendors`}
+        className="flex items-center justify-between gap-3 rounded-2xl border border-dashed border-ink/15 bg-cream/60 px-4 py-4 transition-colors hover:bg-cream"
+      >
+        <span>
+          <span className="block text-sm font-semibold text-ink">
+            Browse your matched services
+          </span>
+          <span className="mt-0.5 block text-xs text-ink/55">
+            Matched to your date, venue &amp; style
+          </span>
+        </span>
+        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-terracotta/10 text-terracotta">
+          <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+        </span>
+      </Link>
     </>
   );
 }

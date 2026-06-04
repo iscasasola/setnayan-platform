@@ -130,6 +130,17 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         matchPrefix: '/admin/payments',
       },
       {
+        // Vendor off-platform payment-options moderation (fraud screen for
+        // vendor-published bank/QR/link payment destinations). Setnayan never
+        // holds the money — approving only screens links/QRs before couples
+        // see them.
+        key: 'payment-options',
+        label: 'Payment options',
+        href: '/admin/payment-options',
+        icon: CreditCard,
+        matchPrefix: '/admin/payment-options',
+      },
+      {
         key: 'verify',
         label: 'Verify',
         href: '/admin/verify',

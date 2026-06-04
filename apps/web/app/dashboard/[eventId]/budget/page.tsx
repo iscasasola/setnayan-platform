@@ -2,9 +2,12 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Download, TrendingUp } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchBudgetSnapshot, formatPhp } from '@/lib/budget';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
+import { fetchPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
+import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import { BudgetSetter } from './_components/budget-setter';
 import { VendorItemizationCard } from '../_components/vendor-itemization-card';
 
@@ -92,6 +95,34 @@ export default async function BudgetPage({ params }: Props) {
   const hasAnyVendors = snapshot.vendors.length > 0;
   const hasFinalizedVendors = finalizedVendors.length > 0;
 
+  // Off-platform direct-pay: resolve each finalized vendor's PUBLISHED
+  // payment destinations server-side via the secure helper. It proves the
+  // couple owns the event_vendor row (RLS client) before reading the
+  // owner-RLS'd vendor_payment_methods table through the admin client, so
+  // couples never query payment methods directly. For off-platform/manual
+  // vendors (no marketplace profile) the helper returns [] and the card's
+  // VendorDirectPay block shows a quiet "coordinate in chat" hint.
+  // s.vendor.vendor_id IS the event_vendors.vendor_id the helper expects as
+  // `eventVendorId`. Fetched in parallel; any single failure degrades to []
+  // for that vendor rather than failing the whole page.
+  const adminClient = createAdminClient();
+  const directPayEntries = await Promise.all(
+    finalizedVendors.map(async (s): Promise<[string, CoupleFacingMethod[]]> => {
+      try {
+        const methods = await fetchPublishedMethodsForCouple({
+          authedClient: supabase,
+          adminClient,
+          eventId,
+          eventVendorId: s.vendor.vendor_id,
+        });
+        return [s.vendor.vendor_id, methods];
+      } catch {
+        return [s.vendor.vendor_id, []];
+      }
+    }),
+  );
+  const directPayByVendor = new Map<string, CoupleFacingMethod[]>(directPayEntries);
+
   return (
     <section className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
@@ -152,7 +183,12 @@ export default async function BudgetPage({ params }: Props) {
           <ul className="space-y-4">
             {finalizedVendors.map((s) => (
               <li key={s.vendor.vendor_id}>
-                <VendorItemizationCard summary={s} eventId={eventId} variant="card" />
+                <VendorItemizationCard
+                  summary={s}
+                  eventId={eventId}
+                  variant="card"
+                  directPayMethods={directPayByVendor.get(s.vendor.vendor_id) ?? []}
+                />
               </li>
             ))}
           </ul>

@@ -1,4 +1,9 @@
-import { deriveMonogram, resolveMonogram, resolveMonogramDesign } from '@/lib/monogram';
+import {
+  deriveMonogram,
+  resolveMonogram,
+  resolveMonogramDesign,
+  monogramFrameAssetUrl,
+} from '@/lib/monogram';
 
 /**
  * Circular monogram badge — iteration 0000 § event switcher (locked 2026-05-15).
@@ -21,6 +26,9 @@ type Event = {
   // serif-italic + color. Optional — older / non-onboarding events have neither.
   monogram_frame_key?: string | null;
   monogram_font_key?: string | null;
+  // Lockup style (bar · script · duo · framed · infinity) — owner 2026-06-04.
+  // Authoritative when present; resolveMonogramDesign falls back to frame+font.
+  monogram_style?: string | null;
 };
 
 type Size = 'sm' | 'md' | 'lg';
@@ -52,6 +60,7 @@ export function EventMonogram({
   const design = resolveMonogramDesign({
     monogram_frame_key: event.monogram_frame_key,
     monogram_font_key: event.monogram_font_key,
+    monogram_style: event.monogram_style,
   });
   const ink = design?.color ?? color;
   const { box, text: textSize, px } = SIZE_TOKENS[size];
@@ -70,7 +79,7 @@ export function EventMonogram({
           .replace(/\s+/g, ' ')
           .trim()}
         style={{
-          backgroundImage: `url(/onboarding/mono/${design.frameKey}.webp)`,
+          backgroundImage: `url(${monogramFrameAssetUrl(design.frameKey)})`,
           backgroundSize: 'contain',
           backgroundRepeat: 'no-repeat',
           backgroundPosition: 'center',

@@ -6,6 +6,8 @@
 >
 > **Maintained by:** Claude Code sessions append new `[PENDING]` items here whenever a code change has spec impact. This is the single bridge between repo work and the spec corpus — `CHANGELOG.md` is the full history; this file is the active worklist.
 
+> **⚠ 2026-06-04 — winding down.** The owner **permanently authorized Claude Code to edit the spec corpus DIRECTLY** (see `CLAUDE.md` → "Cowork — the spec-update boundary"). New spec deltas now land directly in `~/Documents/Claude/Projects/Setnayan/` (`DECISION_LOG.md` → iteration `.md` → `.docx`), **not** as `[PENDING]` rows here. The items below are the pre-authorization backlog — action them directly in the corpus, then delete. No new items are appended.
+
 ---
 
 ## [PENDING] 2026-06-04 — Vendor agents: role-aware RLS scoping · Phase 2b (0022)
@@ -18,6 +20,35 @@
 3. **⚠ Migration hygiene (owner action):** prod drift exists — `20260820000000_vendor_payment_methods` is applied to prod but unmerged (commit `ce41cfc7`); `20260817000000_event_monogram_style` is merged but **not applied** (Animated Monogram likely half-deployed). Land the vendor-payments PR + apply the monogram migration.
 
 **When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
+## [PENDING] 2026-06-04 — couple Home reshaped into a "what now?" cockpit (0021 / 0016)
+
+**Why:** Owner directive — *"fix the first page (customer dashboard home): not too much text; updates + guides + a quick what-to-do-next."* After a side-by-side prototype review, the lean 2026-06-02 home (the "Your wedding details" recap + Upcoming + Activity) is reshaped into a cockpit. Removing the recap from Home + re-surfacing a "Today's Focus" next-action hero touches owner-locked decisions, so the corpus needs to catch up. Shipped as PR #968.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`DECISION_LOG.md`** — add a row: *"2026-06-04 · Couple dashboard Home (0021) reshaped from the 2026-06-02 lean 3-block layout into a 'what now?' cockpit: Countdown header (names + days-to-go + X/N vendors locked) → Today's Focus single next-action hero (the lightweight vendor-derived `pickTodaysOneThing` resolver — NOT the retired Today's-Focus wizard or the paid Concierge) → Needs you (Upcoming reframed) → Recent activity → marketplace doorway. The 'Your wedding details' match-criteria recap is removed from Home and moves to the top of Services as an editable 'Matching you on' strip; the full editable record stays at /details; /for-you folds into /details."*
+2. **`0021_couple_dashboard_fully_purchased/0021_couple_dashboard_fully_purchased.md`** — replace the lean-3-block Home description with the 5-beat cockpit (Countdown · Today's Focus · Needs you · Recent activity · marketplace doorway); note the recap's move to Services + the full record at /details.
+3. **`0016_*` (Today's Focus)** — clarify that the couple Home surfaces a lightweight single-action "Today's Focus" hero (vendor-derived deadline resolver); distinct from the retired 9/65-card wizard + the (off) paid Concierge SKU.
+
+**Follow-ups (NOT in this PR):**
+- PR2: the Services "Matching you on" editable criteria strip + Refine → /details; fold the read-only `/for-you` into `/details`.
+- Some archival top-of-file comments in `page.tsx` still describe the wizard-era state (harmless; left to avoid churn on a sensitive file).
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
+## [PENDING] 2026-06-04 — Monogram design-4 filigree + monogram_style persistence (0037)
+
+**Why:** Follow-up to the 5-lockup monogram (PR #960). Design 4 now uses a generated ornate gold **filigree** circle (renders BOTH initials); the chosen lockup **style** is now persisted to `events.monogram_style` so it can propagate beyond onboarding.
+
+**Spec corpus updates (owner via Cowork):**
+1. **`0037_bespoke_monogram`** — record: design 4 = generated filigree frame (`public/onboarding/mono/filigree.svg`), renders BOTH initials (owner-chosen 2026-06-04); new `events.monogram_style` column (bar·script·duo·framed·infinity) persists the chosen lockup.
+2. **Propagation follow-up (open):** the full lockup is NOT yet on the QR center / invitation / save-the-date / a big in-app preview. QR center needs style-aware SVG compositing (`monogramOverlaySvg`); the in-app preview needs the onboarding `.onbw` lockup CSS extracted to a shared sheet. The paid Animated Monogram hero (0037 · ₱2,499) is intentionally excluded.
+
+**⚠ Ops (eng, not Cowork):** prod migration history has `20260820000000` applied with **no repo file**, which blocks `supabase db push` for everyone. `events.monogram_style` was applied directly (idempotent) to unblock this PR, but the divergence needs reconciling — locate/merge the `20260820000000` migration file, or `supabase migration repair`.
 
 ---
 

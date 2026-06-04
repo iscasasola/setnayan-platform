@@ -343,3 +343,143 @@ export async function moveTaxonomyNode(formData: FormData) {
   revalidatePath('/vendors');
   redirect(`${BASE}?ok=${encodeURIComponent(`Moved ${direction}.`)}`);
 }
+
+/**
+ * Admin: mint a BRAND-NEW bookable canonical service (a "leaf") under a chosen
+ * tile — the capability that lets the taxonomy GROW from the editor with no
+ * deploy (the ♾️ "Finalize = permanent live publish" lock). A leaf lives in two
+ * tables, so we write both atomically-ish (schema first, then mapping, rolling
+ * back the schema if the mapping insert fails):
+ *   • canonical_service_schemas    — the attribute-schema row, so the service
+ *     shows in the vendor onboarding "add a service" picker
+ *     (listCanonicalServices reads this table) and can carry refinements.
+ *   • canonical_service_taxonomy   — the tile placement + facet flags, so the
+ *     /vendors marketplace buckets it (getCanonicalBuckets reads this) the
+ *     moment it's added.
+ *
+ * An optional starter refinement seeds the leaf's first category-specific
+ * attribute as a `multi_select` (e.g. a "Customization" refinement with
+ * options plain · custom_monogram · custom_logo for a new table-linen-rental
+ * service). Audit-logged.
+ */
+export async function createCanonicalLeaf(formData: FormData) {
+  const user = await requireAdmin();
+  const tileId = String(formData.get('tile_id') ?? '').trim();
+  const label = String(formData.get('display_name_en') ?? '').trim();
+  const isRental = formData.get('is_rental') === 'on';
+  const isPh = formData.get('is_ph') === 'on';
+  const refinementLabel = String(formData.get('refinement_label') ?? '').trim();
+  const refinementOptionsRaw = String(formData.get('refinement_options') ?? '').trim();
+
+  if (!tileId) throw new Error('Missing tile_id');
+  if (label.length < 2 || label.length > 80) {
+    redirect(`${BASE}?error=${encodeURIComponent('Service name must be 2–80 characters.')}`);
+  }
+  const canonical = slugify(label, '_');
+  if (!canonical) {
+    redirect(`${BASE}?error=${encodeURIComponent('Name needs letters or numbers.')}`);
+  }
+
+  const admin = createAdminClient();
+
+  // Destination must exist + be a tier-2 tile; derive its parent folder so the
+  // mapping's folder_id stays consistent with remapCanonical's invariant.
+  const { data: tile } = await admin
+    .from('service_categories')
+    .select('id, parent_id, tier')
+    .eq('id', tileId)
+    .maybeSingle();
+  if (!tile || tile.tier !== 2 || !tile.parent_id) {
+    redirect(`${BASE}?error=${encodeURIComponent('Pick a valid tile.')}`);
+  }
+
+  // The key must be free in BOTH leaf tables (schema PK + mapping PK).
+  const [schemaDupeRes, taxDupeRes] = await Promise.all([
+    admin
+      .from('canonical_service_schemas')
+      .select('canonical_service')
+      .eq('canonical_service', canonical)
+      .maybeSingle(),
+    admin
+      .from('canonical_service_taxonomy')
+      .select('canonical_service')
+      .eq('canonical_service', canonical)
+      .maybeSingle(),
+  ]);
+  if (schemaDupeRes.data || taxDupeRes.data) {
+    redirect(
+      `${BASE}?error=${encodeURIComponent(`A service "${canonical}" already exists — pick a different name.`)}`,
+    );
+  }
+
+  // Optional starter refinement → one multi_select category-specific attribute.
+  const categoryAttrs: Record<string, unknown> = {};
+  if (refinementLabel && refinementOptionsRaw) {
+    const fieldKey = slugify(refinementLabel, '_');
+    const options = refinementOptionsRaw
+      .split(',')
+      .map((o) => slugify(o, '_'))
+      .filter(Boolean);
+    if (fieldKey && options.length > 0) {
+      categoryAttrs[fieldKey] = {
+        type: 'multi_select',
+        label: refinementLabel,
+        options,
+      };
+    }
+  }
+
+  // 1. Schema stub — appears in onboarding, taggable, refinement-ready.
+  const { error: schemaErr } = await admin.from('canonical_service_schemas').insert({
+    canonical_service: canonical,
+    schema_version: 1,
+    display_name_en: label,
+    shared_attribute_groups: [],
+    category_specific_attributes: categoryAttrs,
+    filter_facets: [],
+    required_for_visibility: {},
+    ranking_signal_weights: {},
+  });
+  if (schemaErr) redirect(`${BASE}?error=${encodeURIComponent(schemaErr.message)}`);
+
+  // 2. Tile placement — /vendors buckets it live.
+  const { error: taxErr } = await admin.from('canonical_service_taxonomy').insert({
+    canonical_service: canonical,
+    folder_id: tile.parent_id,
+    tile_id: tileId,
+    phase: 'V1.1 base',
+    is_ph: isPh,
+    is_rental: isRental,
+    is_setnayan: false,
+    is_tradition: false,
+    marketplace_hidden: false,
+    secondary_tiles: [],
+  });
+  if (taxErr) {
+    // Roll back the schema stub so a half-created leaf can't linger.
+    await admin.from('canonical_service_schemas').delete().eq('canonical_service', canonical);
+    redirect(`${BASE}?error=${encodeURIComponent(taxErr.message)}`);
+  }
+
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.create_leaf',
+    target_table: 'canonical_service_taxonomy',
+    target_id: canonical,
+    after_json: {
+      canonical_service: canonical,
+      folder_id: tile.parent_id,
+      tile_id: tileId,
+      display_name_en: label,
+      category_specific_attributes: categoryAttrs,
+    },
+    actor_user_id: user.id,
+  });
+
+  revalidatePath(BASE);
+  revalidatePath('/vendors');
+  redirect(
+    `${BASE}?ok=${encodeURIComponent(
+      `Added service "${label}" under ${tileId}${refinementLabel ? ` with a "${refinementLabel}" refinement` : ''}.`,
+    )}`,
+  );
+}

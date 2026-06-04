@@ -16,11 +16,23 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **MVP scope:** rename + re-map (the two highest-value ops, both already wired to the read-through). The full §3.15 vision — drag-to-move, add/delete, leaf↔branch, the §3.2c request-review ghost cards, two-admin gating — is staged (Phase 3b).
 
-**Verification:** `tsc --noEmit` 0 errors · `next lint` clean.
+**Verification:** `tsc --noEmit` 0 errors · `next lint` clean · full PR CI green on #913 (production build, typecheck+lint).
 
 **SPEC IMPACT:** None — implements (a subset of) the locked 0023 §3.15 editor.
 
 ---
+
+## 2026-06-04 · fix(demo): seed images from a small batch-stable Picsum pool (so demo photos actually load)
+
+**Context:** "Why are there no photos?" The demo seed gave every vendor a **unique** `picsum.photos/seed/…-${i}/800/600` logo (+ unique 1200×800 portfolio shots). At ~4,900 vendors that's thousands of distinct large image requests from one IP → Picsum rate-limits → images fail (and fall back to initials per #912). So no photos.
+
+**Fix (`scripts/seed-demo-vendors.ts`):** placeholders now pull from a small, batch-stable pool — `snl${i % 40}` (≈40 logos) at **400×300** and `snp${(i*4+j) % 60}` (≈60 photos) at **600×400**, reused across the whole marketplace instead of one unique image per vendor. The browser caches ~100 images total (vs ~4,900 unique) and Picsum stops throttling, so photos load. Sizes are display-appropriate (64px logo tile / portfolio gallery), not 800×600. Repeats across vendors are acceptable for demo data (owner-confirmed earlier).
+
+**Owner action:** tap **Create demo vendors** once more to re-seed with the pooled image URLs (existing vendors keep the old per-vendor URLs until re-created).
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean · demo-only, no schema/SKU change. Isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** None — demo-data tooling.
 
 ## 2026-06-04 · fix(0021): vendor-pick logos fall back to initials on load error (picsum rate-limit)
 

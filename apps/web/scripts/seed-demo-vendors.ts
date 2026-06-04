@@ -165,6 +165,25 @@ function venueSettingFor(cityName: string, index: number): string {
   return options[index % options.length]!;
 }
 
+// Reception-venue seated capacity (Pax dimension · 20260809 migration). Range is
+// correlated with the setting (hotel ballrooms seat the most, beach/heritage the
+// least) and spread by index so a couple's guest count actually narrows the set —
+// e.g. a 225-pax wedding clears most banquet halls but few small beach venues.
+// Deterministic on (setting, index) → no RNG-stream perturbation. ONLY reception
+// venues get a capacity; every other vendor stays NULL (no constraint).
+const VENUE_CAPACITY_BY_SETTING: Record<string, { min: number; maxes: readonly number[] }> = {
+  banquet_hall: { min: 150, maxes: [250, 350, 500, 600] },
+  garden: { min: 80, maxes: [150, 220, 300, 350] },
+  beach: { min: 50, maxes: [100, 150, 200, 250] },
+  destination: { min: 60, maxes: [120, 180, 250, 300] },
+  heritage: { min: 50, maxes: [100, 150, 200, 250] },
+  outdoor_tent: { min: 100, maxes: [200, 300, 400, 500] },
+};
+function venueCapacityFor(setting: string, index: number): { min: number; max: number } {
+  const spec = VENUE_CAPACITY_BY_SETTING[setting] ?? VENUE_CAPACITY_BY_SETTING.banquet_hall!;
+  return { min: spec.min, max: spec.maxes[index % spec.maxes.length]! };
+}
+
 // ===========================================================================
 // DETERMINISTIC RNG (seeded mulberry32)
 // ===========================================================================
@@ -1947,6 +1966,12 @@ export async function seedCategory(
       profile.numPackagesRange[1],
     );
 
+    // Reception venues carry ONE setting + a seated capacity (the couple's
+    // venue-style + guest-count filters bite on these). Computed once, here, so
+    // the two insert fields stay consistent. Non-venue vendors → null/null.
+    const vSetting = coarse === 'venue' ? venueSettingFor(city.name, i) : null;
+    const vCap = vSetting ? venueCapacityFor(vSetting, i) : null;
+
     vendorRows.push({
       user_id: null,
       created_by_admin_user_id: null,
@@ -1981,8 +2006,10 @@ export async function seedCategory(
       // ['banquet_hall','garden','heritage'] both (a) made the venue filter
       // useless — every venue matched every pick — and (b) wrongly EXCLUDED all
       // service vendors from beach/destination weddings.
-      compatible_venue_settings:
-        coarse === 'venue' ? [venueSettingFor(city.name, i)] : null,
+      compatible_venue_settings: vSetting ? [vSetting] : null,
+      // Pax dimension (20260809 migration) — only reception venues seat guests.
+      capacity_min: vCap?.min ?? null,
+      capacity_max: vCap?.max ?? null,
       event_types: ['wedding'],
       contact_email: `${slug}@demo.setnayan.local`,
     });

@@ -168,6 +168,13 @@ type Args = {
    *  declare only OTHER event types (e.g. corporate-only). Omit = no event-type
    *  scope (exact prior behavior). */
   eventType?: string | null;
+  /** Couple's guest count · `events.estimated_pax`. When set, a vendor whose
+   *  `capacity_max` is below it is dropped (a venue that can't seat the wedding).
+   *  Hybrid NULL-safe: a vendor with NULL `capacity_max` — every non-venue, plus
+   *  venues that haven't stated capacity — is admitted. `capacity_max` lives on
+   *  `vendor_profiles` (not the market_stats view), so it's resolved via a small
+   *  candidate-pool lookup after the base fetch. Omit/0 = no pax scope. */
+  pax?: number | null;
   /** Cap on rows. Default 15 for the legacy list VendorPickCard; the
    *  new visual VendorPickGridCard bumps to 100+ so its 15-per-page
    *  pagination has multiple pages to walk through. */
@@ -216,7 +223,9 @@ export async function fetchWizardVendorRecommendations(
   // location_city fallback SQL can't express), so over-fetch — same trick as
   // the music re-rank — to keep a full `limit` of in-region rows.
   const needsRegionScope = !!args.region;
-  const fetchLimit = isMusicMatch || needsRegionScope ? Math.max(limit, 100) : limit;
+  const needsPaxScope = !!(args.pax && args.pax > 0);
+  const fetchLimit =
+    isMusicMatch || needsRegionScope || needsPaxScope ? Math.max(limit, 100) : limit;
 
   let query = admin
     .from('vendor_market_stats')
@@ -334,6 +343,31 @@ export async function fetchWizardVendorRecommendations(
     baseRows = baseRows.filter((r) => {
       const eff = r.hq_region ?? regionForCity(r.location_city);
       return eff === null || eff === args.region;
+    });
+    if (baseRows.length === 0) return [];
+  }
+
+  // Pax scope (Hybrid · admit-unknown). capacity_max lives on vendor_profiles,
+  // not the market_stats view, so resolve it for the candidate pool with one
+  // small lookup, then drop venues that can't seat the wedding. A NULL
+  // capacity_max — every non-venue vendor + venues that haven't stated it — is
+  // admitted (no constraint). We over-fetched above so the slice still fills.
+  if (needsPaxScope) {
+    const pax = args.pax!;
+    const capIds = baseRows.map((r) => r.vendor_profile_id);
+    const { data: capRows } = await admin
+      .from('vendor_profiles')
+      .select('vendor_profile_id, capacity_max')
+      .in('vendor_profile_id', capIds);
+    const capById = new Map<string, number | null>(
+      (capRows ?? []).map((r) => {
+        const row = r as { vendor_profile_id: string; capacity_max: number | null };
+        return [row.vendor_profile_id, row.capacity_max ?? null];
+      }),
+    );
+    baseRows = baseRows.filter((r) => {
+      const cap = capById.get(r.vendor_profile_id) ?? null;
+      return cap === null || cap >= pax;
     });
     if (baseRows.length === 0) return [];
   }

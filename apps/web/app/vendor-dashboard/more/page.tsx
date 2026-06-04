@@ -71,6 +71,8 @@ const DESCRIPTIONS: Record<string, string> = {
   // Money group
   earnings:
     "What you've earned across direct bookings. Setnayan never takes a cut — this is your ledger.",
+  'payment-options':
+    'The ways couples can pay you directly — bank, e-wallet, QR, or a payment link. Setnayan takes 0% and never touches this money.',
   tokens:
     'Token wallet balance and history. Purchased plus earned vouchers, with expiry windows.',
   manpower:

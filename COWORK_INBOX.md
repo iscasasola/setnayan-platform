@@ -6,6 +6,21 @@
 >
 > **Maintained by:** Claude Code sessions append new `[PENDING]` items here whenever a code change has spec impact. This is the single bridge between repo work and the spec corpus — `CHANGELOG.md` is the full history; this file is the active worklist.
 
+> **⚠ 2026-06-04 — winding down.** The owner **permanently authorized Claude Code to edit the spec corpus DIRECTLY** (see `CLAUDE.md` → "Cowork — the spec-update boundary"). New spec deltas now land directly in `~/Documents/Claude/Projects/Setnayan/` (`DECISION_LOG.md` → iteration `.md` → `.docx`), **not** as `[PENDING]` rows here. The items below are the pre-authorization backlog — action them directly in the corpus, then delete. No new items are appended.
+
+---
+
+## [PENDING] 2026-06-04 — Vendor agents: role-aware RLS scoping · Phase 2b (0022)
+
+**Why:** The vendor data layer was owner-only at the RLS level; Phase 2b makes it role-aware. Owner/admin see everything; agents see only their assigned services + the customers tied to them (`event_vendors.service_id`). DB-verified (rolled-back impersonation) + applied to prod.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`0022_vendor_dashboard.md` §2.6 / RLS notes** — record that the vendor data layer is now role-aware: `current_vendor_profile_ids()` redefined owner-only → owner+admin; `agent_assigned_service_ids()` + `agent_customer_event_ids()` helpers; `vendor_services` + `chat_threads`/`chat_messages` admit agents by assignment; `/team` stays owner-only. Agents see only assigned services + their customers.
+2. **Fast-follow (note, not yet built):** admin access to the remaining owner-direct tables (earnings/payouts/tokens/contracts/packages/ads) — a safe owner→owner+admin loosening to complete "admins see everything."
+3. **⚠ Migration hygiene (owner action):** prod drift exists — `20260820000000_vendor_payment_methods` is applied to prod but unmerged (commit `ce41cfc7`); `20260817000000_event_monogram_style` is merged but **not applied** (Animated Monogram likely half-deployed). Land the vendor-payments PR + apply the monogram migration.
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
 ---
 
 ## [PENDING] 2026-06-04 — Free monogram animation = Trace (letters draw themselves) + paid SKU repositioning (0037)
@@ -43,6 +58,8 @@
 2. **Propagation follow-up (open):** the full lockup is NOT yet on the QR center / invitation / save-the-date / a big in-app preview. QR center needs style-aware SVG compositing (`monogramOverlaySvg`); the in-app preview needs the onboarding `.onbw` lockup CSS extracted to a shared sheet. The paid Animated Monogram hero (0037 · ₱2,499) is intentionally excluded.
 
 **⚠ Ops (eng, not Cowork):** prod migration history has `20260820000000` applied with **no repo file**, which blocks `supabase db push` for everyone. `events.monogram_style` was applied directly (idempotent) to unblock this PR, but the divergence needs reconciling — locate/merge the `20260820000000` migration file, or `supabase migration repair`.
+
+---
 
 ## [PENDING] 2026-06-04 — Vendor agents: per-service assignment · Phase 2a (0022)
 

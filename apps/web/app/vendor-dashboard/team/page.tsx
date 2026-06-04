@@ -2,7 +2,6 @@ import { redirect } from 'next/navigation';
 import { Mail, Trash2, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import {
   enrichTeamWithUsers,
   fetchAgentServiceAssignments,
@@ -43,7 +42,15 @@ export default async function VendorTeamPage({ searchParams }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  // Owner-only: team management (incl. the admin-client email enrichment
+  // below, which bypasses RLS) must not be reachable by non-owner members.
+  // Resolve the OWNED profile directly — not the member-aware
+  // fetchOwnVendorProfile — so agents/admins can't load this surface.
+  const { data: profile } = await supabase
+    .from('vendor_profiles')
+    .select('vendor_profile_id')
+    .eq('user_id', user.id)
+    .maybeSingle();
   if (!profile) redirect('/vendor-dashboard');
 
   const rows = await fetchVendorTeam(supabase, profile.vendor_profile_id);

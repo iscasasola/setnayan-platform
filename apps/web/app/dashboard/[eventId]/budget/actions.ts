@@ -253,6 +253,14 @@ export async function logPayment(formData: FormData) {
   const explicitNotes = nullIfBlank(formData.get('notes'));
   const notes = explicitNotes ?? vendorControlledLabel;
 
+  // Optional receipt screenshot the host attaches to their own payment
+  // record. Couples pay vendors off-platform, so this is the host's
+  // evidence of the transfer — NOT a Setnayan-verified proof. The
+  // FileUpload widget submits an `r2://media/…` ref; absent an upload the
+  // field is blank → stored NULL. Column added by migration
+  // 20260820000000_vendor_payment_methods.sql (nullable TEXT).
+  const proofR2Key = nullIfBlank(formData.get('proof_r2_key'));
+
   const { error } = await supabase.from('event_vendor_payments').insert({
     event_id: eventId,
     vendor_id: vendorId,
@@ -262,6 +270,7 @@ export async function logPayment(formData: FormData) {
     method: nullIfBlank(formData.get('method')),
     reference: nullIfBlank(formData.get('reference')),
     notes,
+    proof_r2_key: proofR2Key,
   });
   if (error) throw new Error(error.message);
 

@@ -60,7 +60,10 @@ import {
   type VendorPriceSource,
 } from '@/lib/budget';
 import { VENDOR_CATEGORY_LABEL, VENDOR_STATUS_LABEL, VENDOR_STATUS_TONE } from '@/lib/vendors';
+import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { FileUpload } from '@/app/_components/file-upload';
+import { VendorDirectPay } from '@/app/dashboard/[eventId]/_components/vendor-direct-pay';
 import {
   addLineItem,
   deleteLineItem,
@@ -78,12 +81,21 @@ export type VendorItemizationCardProps = {
    *           page where the surrounding chrome carries the vendor identity.
    */
   variant?: 'card' | 'embed';
+  /**
+   * The vendor's PUBLISHED off-platform payment destinations, fetched
+   * server-side by the caller via fetchPublishedMethodsForCouple (couples
+   * pay vendors directly; Setnayan never holds the money). Defaults to []
+   * — for off-platform/manual vendors the helper returns [] and the
+   * VendorDirectPay block renders a quiet "coordinate in chat" hint.
+   */
+  directPayMethods?: CoupleFacingMethod[];
 };
 
 export function VendorItemizationCard({
   summary,
   eventId,
   variant = 'card',
+  directPayMethods = [],
 }: VendorItemizationCardProps) {
   const {
     vendor,
@@ -123,6 +135,8 @@ export function VendorItemizationCard({
           vendorControlledItems={vendorControlledItems}
           eventId={eventId}
           vendorId={vendor.vendor_id}
+          vendorName={vendor.vendor_name}
+          directPayMethods={directPayMethods}
         />
       </div>
     </>
@@ -449,16 +463,27 @@ function PaymentSection({
   vendorControlledItems,
   eventId,
   vendorId,
+  vendorName,
+  directPayMethods,
 }: {
   payments: PaymentRow[];
   lineItems: LineItemRow[];
   vendorControlledItems: VendorControlledLineItem[];
   eventId: string;
   vendorId: string;
+  vendorName: string;
+  directPayMethods: CoupleFacingMethod[];
 }) {
   const hasVendorControlled = vendorControlledItems.length > 0;
   return (
     <section className="space-y-3 p-5">
+      {/* Off-platform direct-pay surface — the vendor's published payment
+          destinations + the always-on "Setnayan doesn't hold this money"
+          disclosure. Rendered just above the payment log so the host sees
+          HOW to pay before they record THAT they paid. Methods are fetched
+          server-side via the secure helper (see budget/page.tsx). */}
+      <VendorDirectPay vendorName={vendorName} methods={directPayMethods} />
+
       <header className="flex items-center gap-2">
         <Receipt aria-hidden className="h-3.5 w-3.5 text-emerald-700" strokeWidth={1.75} />
         <h3 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
@@ -571,8 +596,23 @@ function PaymentSection({
           placeholder="Reference #"
           className="input-field h-9 py-0 text-xs"
         />
+        {/* Optional receipt screenshot — couples pay vendors off-platform, so
+            this is their own record of the transfer (not a Setnayan-verified
+            proof). Emits an `r2://media/…` ref via a hidden input that
+            logPayment reads as `proof_r2_key`. */}
+        <div className="col-span-2 sm:col-span-4">
+          <FileUpload
+            name="proof_r2_key"
+            bucket="media"
+            pathPrefix={`events/${eventId}/payment-proof`}
+            maxSizeMB={5}
+            acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
+            label="Attach receipt (optional)"
+            variant="wide"
+          />
+        </div>
         <SubmitButton
-          className="col-span-1 inline-flex items-center justify-center gap-1 rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-emerald-800 disabled:opacity-70"
+          className="col-span-2 inline-flex items-center justify-center gap-1 rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-emerald-800 disabled:opacity-70 sm:col-span-4"
           pendingLabel="Logging…"
         >
           <Plus className="h-3.5 w-3.5" strokeWidth={2} />

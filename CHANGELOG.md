@@ -4,6 +4,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · ui(0001): guest carousel — every panel collapses to one compact row (Summary · Add · Customize)
+
+**Context:** Owner directive 2026-06-04 — on the customer dashboard Guests surface (mobile carousel + desktop quick-add), the panels sat taller than the Search row beside them. Owner: *"put the [First Name] [Last Name] in 1 row and remove text — keep it as low as search… can we also keep the customize 1 row? and summary 1 row?"* The Search panel is the height benchmark; every sibling panel now matches it.
+
+**What changed (apps/web · `guests/_components/`):**
+- **`mobile-guest-carousel.tsx`**
+  - **Summary** — the 4 RSVP stat boxes (Total · Attending · Pending · Declined) moved from a 2×2 grid to a single 4-across row (`grid-cols-2 gap-2.5` → `grid-cols-4 gap-2`). `StatBox` recompacted (smaller padding, `text-[8px]` no-wrap label, `text-[22px]` value, centered) so four fit cleanly down to ~320px-wide phones.
+  - **Add** (`QuickAddInlineForm`) — First + Last name now share one row (`grid grid-cols-2 gap-2`); removed the "Enter after first name moves to last name…" helper line. The session-count line only appears after the first add, so the default panel is a single input row. Keyboard-open docked height trimmed 190→120px to match.
+  - **Customize** (`CustomizePanel`) — entry state reduced to just the "Select guests" button (dropped the title + description paragraphs); active state collapsed from three stacked rows to one (`Select all` · `Assign N` · `Done`), with the count now shown inside the Assign button.
+- **`quick-add-sheet.tsx`** (desktop "Quick add" modal) — parity: dropped the "Name · ↵ jumps to last name…" helper line and put the two name inputs on one row.
+
+The panel sheet auto-measures its content height (ResizeObserver on `scrollHeight`), so each shortened panel shrinks the sheet to fit — no dead space. Enter-to-advance, duplicate detection, bulk-assign, and the RSVP filter-links are all unchanged; only layout + explanatory copy changed.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean (both files). Shipped from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** None — pure UI layout / copy on an owner-directed surface; no feature, pricing, schema, or workflow change.
+
+
 ## 2026-06-03 · perf(nav): instant tab revisits (router-cache window) + site-editor fetch parallelization
 
 **Context:** Owner directive 2026-06-03 — *"make loading of home, guests, services, website, and more run without loading or blank intervals."* This lands the two pieces the same-day app-wide-skeletons work did NOT cover. Those skeletons fix the WRONG-shape flash on *first* visit; this fixes the RE-LOAD on *revisit* (Next 15's client Router Cache defaults to 0s, so re-tapping a tab you saw seconds ago refetched + re-skeletoned every time), plus the Website tab's slow first paint.

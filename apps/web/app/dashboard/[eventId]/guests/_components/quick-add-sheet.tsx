@@ -612,52 +612,48 @@ export function QuickAddSheet({
                 </div>
               ) : null}
 
-              {/* names */}
+              {/* names — first + last on one row, compact like the search field */}
               <div className="space-y-2">
-                <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
-                  Name{' '}
-                  <span className="ml-1 normal-case text-ink/35">
-                    ↵ jumps to last name · ↵ again saves &amp; starts the next
-                  </span>
-                </p>
-                <input
-                  ref={fnRef}
-                  value={fn}
-                  onChange={(e) => {
-                    setFn(e.target.value);
-                    setDupDismissed(false);
-                    setError(null);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      lnRef.current?.focus();
-                    }
-                  }}
-                  placeholder="First name"
-                  autoComplete="off"
-                  enterKeyHint="next"
-                  className="input-field w-full"
-                />
-                <input
-                  ref={lnRef}
-                  value={ln}
-                  onChange={(e) => {
-                    setLn(e.target.value);
-                    setDupDismissed(false);
-                    setError(null);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      primary(true);
-                    }
-                  }}
-                  placeholder="Last name"
-                  autoComplete="off"
-                  enterKeyHint="done"
-                  className="input-field w-full"
-                />
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    ref={fnRef}
+                    value={fn}
+                    onChange={(e) => {
+                      setFn(e.target.value);
+                      setDupDismissed(false);
+                      setError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        lnRef.current?.focus();
+                      }
+                    }}
+                    placeholder="First name"
+                    autoComplete="off"
+                    enterKeyHint="next"
+                    className="input-field w-full"
+                  />
+                  <input
+                    ref={lnRef}
+                    value={ln}
+                    onChange={(e) => {
+                      setLn(e.target.value);
+                      setDupDismissed(false);
+                      setError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        primary(true);
+                      }
+                    }}
+                    placeholder="Last name"
+                    autoComplete="off"
+                    enterKeyHint="done"
+                    className="input-field w-full"
+                  />
+                </div>
 
                 {dupActive ? (
                   <div className="space-y-2 rounded-xl border border-amber-300/70 bg-amber-50 p-3">

@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-03 · fix(0023): demo-vendor Create reliably passes the demo-mode gate on production
+
+**Context:** Follow-up to the same-day "demo-vendor Create works on production while admin demo mode is on" change. Owner reported it *still* wouldn't go on the live admin. Root cause: the server allowed prod only when it could read the `setnayan_demo_mode` signal on the request, and that signal wasn't reliably reaching the `POST /api/admin/demo/seed` call (it depends on the httpOnly cookie surviving the same-origin fetch). The page also still carried stale copy claiming demo seeding is "staging/dev only," reinforcing the confusion.
+
+**What changed:**
+- **`app/admin/demo-vendors/page.tsx`** — computes demo mode server-side (`isAdminDemoModeOn()`, mirroring `<DemoModeBanner>`: `setnayan_demo_mode='1'` cookie + admin profile) and passes `demoMode` to `<DemoVendorActions>`. Replaced the stale "Agent 2 ships in PR 2 … staging/dev only" note with accurate copy (demo vendors hidden from real visitors; surface only under demo mode; states whether your session is in demo mode).
+- **`_components/demo-vendor-actions.tsx`** — accepts a `demoMode` prop and sends it (`demoMode: true`) in every `start`/`chunk` request body.
+- **`api/admin/demo/seed/route.ts`** — parses the body before the prod guard and treats an explicit `body.demoMode === true` (from an already-admin-authenticated request) as the deliberate-demo signal, alongside the cookie/`?demo=1` path. Robust against the cookie not reaching the fetch; still admin-gated, so it's an intent signal, not an auth bypass.
+
+**Net effect:** when the demo-mode banner is showing (cookie set + admin), the page computes `demoMode=true`, the Create button relays it, and the seed runs on production — no dependence on cookie-over-fetch. Demo mode off → prod still blocked (accident guard) with the clearer message.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean (only pre-existing warnings) · no schema/migration/SKU change. Shipped from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** None — implementation hardening of the 2026-06-03 "prod allowed under admin demo mode" decision already recorded in `DECISION_LOG.md`; plus a stale-admin-copy fix. No product/pricing/schema change.
+
 ## 2026-06-04 · feat(0043,0044): lock 8 wedding traditions — add Jewish + Born Again, fully selectable + on the taxonomy
 
 **Context:** Owner-directed — *"add Jewish and Born Again. Lock this 8 and make the choice in 4 columns, 2 rows … full build incl. the taxonomy."* Follows the same-day Chinese activation. Born Again is split out of the "Christian" umbrella into its own tradition; Jewish also resolves the dangling `kosher_*` tags already in the 0044 `faith_compatibility` group (which had no Jewish ceremony_type to trigger them). The onboarding tradition step locks to a fixed **4-col × 2-row grid of 8 chips**: Catholic · Christian · INC · Muslim / Cultural · Chinese · Jewish · Born Again.

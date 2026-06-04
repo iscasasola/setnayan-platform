@@ -79,19 +79,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const auth = await requireAdmin();
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  // Demo mode is admin-only by construction; `auth` already proved admin, so
-  // this just reads the per-request flag (cookie `setnayan_demo_mode=1`, sent
-  // automatically with this same-origin POST, or `?demo=1`).
-  const demoOn = isDemoMode(req, auth.profile);
-  const blocked = prodGuard(demoOn);
-  if (blocked) return blocked;
-
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
   }
+
+  // Demo mode is admin-only by construction; `auth` already proved admin.
+  // The deliberate-demo signal can arrive two ways: the per-request flag
+  // (`setnayan_demo_mode` cookie / `?demo=1`) read by isDemoMode, OR an
+  // explicit `demoMode:true` from the demo-vendors admin page, which computes
+  // demo mode server-side (the same cookie the sitewide banner reads) and
+  // passes it down. The body flag is the robust path — it doesn't depend on
+  // the httpOnly cookie surviving the client fetch (the actual reason a prod
+  // Create could 403 while the banner shows demo mode on). Not an auth bypass:
+  // admin is enforced above, so this is purely the deliberate-intent gate.
+  const demoOn = isDemoMode(req, auth.profile) || body.demoMode === true;
+  const blocked = prodGuard(demoOn);
+  if (blocked) return blocked;
 
   const admin = createAdminClient();
   const phase = String(body.phase ?? '');

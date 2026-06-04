@@ -8,6 +8,18 @@
 
 ---
 
+## [PENDING] 2026-06-04 — Vendor request-a-category governance shipped (0023 §3.2c / 0022)
+
+**Why:** Closes the expandable-taxonomy governance loop — vendors propose categories they can't find, admins resolve them. New `taxonomy_category_requests` table.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`0023_admin_console.md` §3.2c** — the vendor-category review queue is LIVE on `/admin/taxonomy`: pending proposals render as ghost cards with four outcomes — **promote** (mints a canonical leaf under a chosen tile), **map-to-existing** (records `mapped_to_canonical`; the count per target is the **demand signal**), **keep-private**, **reject** (with reason). All outcomes audit-logged.
+2. **`0022_vendor_dashboard.md`** — the services editor has a "Don't see your service?" request form (`proposeCategory`); the vendor tracks resolution via a read-only status badge (Pending / Added ✓ / Use "X" / Kept private / Not added).
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
 ## [PENDING] 2026-06-04 — Taxonomy editor mints new leaves + couple-side vendor_category anchored to canonical (0023 / 0006 / 0044)
 
 **Why:** Owner — "set the taxonomy to be capable of growing and reformatting… the app relies on it." The `/admin/taxonomy` editor can now mint a brand-new bookable canonical leaf at runtime (no deploy), and the legacy couple-side `vendor_category` is now anchored to the canonical tile taxonomy.

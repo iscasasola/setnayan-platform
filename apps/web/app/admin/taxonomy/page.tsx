@@ -14,6 +14,9 @@ import {
   createCanonicalLeaf,
   deleteTaxonomyNode,
   moveTaxonomyNode,
+  promoteCategoryRequest,
+  mapCategoryRequest,
+  resolveCategoryRequest,
 } from './actions';
 
 export const metadata = { title: 'Taxonomy · Admin' };
@@ -148,6 +151,47 @@ export default async function AdminTaxonomyPage({
   // lib/vendor-category-taxonomy.ts for the A/B/C bucket study.
   const coupleSideDrift = validateVendorCategoryMapping(tax);
 
+  // Vendor "request a category" queue (§3.2c). Pending = the review queue;
+  // mapped history feeds the demand signal. Missing table (migration not yet
+  // applied) → []. Pending requests resolve to a vendor business_name for the
+  // ghost-card byline.
+  type ReqRow = {
+    request_id: string;
+    proposed_label: string;
+    proposed_note: string | null;
+    status: string;
+    mapped_to_canonical: string | null;
+    proposed_by_vendor_id: string;
+  };
+  const { data: reqRows } = await admin
+    .from('taxonomy_category_requests')
+    .select('request_id, proposed_label, proposed_note, status, mapped_to_canonical, proposed_by_vendor_id')
+    .order('created_at', { ascending: false });
+  const allRequests = (reqRows ?? []) as ReqRow[];
+  const pendingRequests = allRequests.filter((r) => r.status === 'pending');
+  const reqVendorName = new Map<string, string>();
+  const reqVendorIds = [...new Set(pendingRequests.map((r) => r.proposed_by_vendor_id))];
+  if (reqVendorIds.length > 0) {
+    const { data: vps } = await admin
+      .from('vendor_profiles')
+      .select('vendor_profile_id, business_name')
+      .in('vendor_profile_id', reqVendorIds);
+    for (const vp of (vps ?? []) as Array<{ vendor_profile_id: string; business_name: string | null }>) {
+      reqVendorName.set(vp.vendor_profile_id, vp.business_name ?? 'a vendor');
+    }
+  }
+  // Demand signal: a canonical with many requests mapped to it has earned its
+  // own promotion (owner-gated, demand-driven expansion · §3.2c).
+  const demandCounts = new Map<string, number>();
+  for (const r of allRequests) {
+    if (r.status === 'mapped' && r.mapped_to_canonical) {
+      demandCounts.set(r.mapped_to_canonical, (demandCounts.get(r.mapped_to_canonical) ?? 0) + 1);
+    }
+  }
+  const demandSignals = [...demandCounts.entries()]
+    .filter(([, n]) => n >= 2)
+    .sort((a, b) => b[1] - a[1]);
+
   // Admin-managed deadlines (planning_deadlines) — the recommended lock-by
   // dates the Home reminders read. Service category rows + documents are
   // editable below. A missing table (migration not applied) returns null → the
@@ -222,6 +266,126 @@ export default async function AdminTaxonomyPage({
           </>
         )}
       </p>
+
+      <section className="mb-10">
+        <header className="mb-2 flex items-baseline justify-between gap-3">
+          <h2 className="text-lg font-semibold tracking-tight text-ink">
+            Vendor category requests{' '}
+            <span className="font-normal text-ink/55">(§3.2c — promote · map · keep-private · reject)</span>
+          </h2>
+          <span className="font-mono text-xs text-ink/55">{pendingRequests.length} pending</span>
+        </header>
+        {demandSignals.length > 0 ? (
+          <p className="mb-3 rounded-lg border border-sky-200 bg-sky-50 px-4 py-2 text-sm text-sky-900">
+            📈 Demand signal — repeatedly requested, mapped to:{' '}
+            {demandSignals.map(([c, n]) => `${c} (${n})`).join(' · ')}. Consider promoting to its own node.
+          </p>
+        ) : null}
+        {pendingRequests.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-ink/15 bg-cream/60 px-4 py-3 text-sm text-ink/55">
+            No pending requests. Vendor proposals from the services editor land here.
+          </p>
+        ) : (
+          <ul className="space-y-3">
+            {pendingRequests.map((r) => (
+              <li
+                key={r.request_id}
+                className="space-y-2 rounded-xl border border-dashed border-amber-300 bg-amber-50/40 p-3"
+              >
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <span className="text-sm font-semibold text-ink">{r.proposed_label}</span>
+                  <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
+                    from {reqVendorName.get(r.proposed_by_vendor_id) ?? 'a vendor'}
+                  </span>
+                </div>
+                {r.proposed_note ? <p className="text-xs text-ink/65">{r.proposed_note}</p> : null}
+                <div className="flex flex-wrap items-end gap-2">
+                  <form action={promoteCategoryRequest} className="flex items-center gap-1">
+                    <input type="hidden" name="request_id" value={r.request_id} />
+                    <select
+                      name="tile_id"
+                      defaultValue=""
+                      required
+                      aria-label="Promote under tile"
+                      className="max-w-[160px] rounded-md border border-ink/15 bg-white px-1.5 py-1 text-xs text-ink"
+                    >
+                      <option value="" disabled>
+                        promote under tile…
+                      </option>
+                      {tax.folderOrder.map((folder) => (
+                        <optgroup key={folder} label={tax.folderLabel[folder] ?? folder}>
+                          {(tax.tilesByParent[folder] ?? []).map((t) => (
+                            <option key={t} value={t}>
+                              {tax.tileLabel[t] ?? t}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                    <button
+                      type="submit"
+                      className="rounded-md border border-emerald-300 bg-white px-2 py-1 text-[11px] font-medium text-emerald-700 hover:bg-emerald-50"
+                    >
+                      Promote ✓
+                    </button>
+                  </form>
+                  <form action={mapCategoryRequest} className="flex items-center gap-1">
+                    <input type="hidden" name="request_id" value={r.request_id} />
+                    <select
+                      name="mapped_to_canonical"
+                      defaultValue=""
+                      required
+                      aria-label="Map to existing service"
+                      className="max-w-[160px] rounded-md border border-ink/15 bg-white px-1.5 py-1 text-xs text-ink"
+                    >
+                      <option value="" disabled>
+                        map to existing…
+                      </option>
+                      {schemas.map((s) => (
+                        <option key={s.canonical_service} value={s.canonical_service}>
+                          {s.display_name_en}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="submit"
+                      className="rounded-md border border-sky-300 bg-white px-2 py-1 text-[11px] font-medium text-sky-700 hover:bg-sky-50"
+                    >
+                      Map →
+                    </button>
+                  </form>
+                  <form action={resolveCategoryRequest}>
+                    <input type="hidden" name="request_id" value={r.request_id} />
+                    <input type="hidden" name="outcome" value="kept_private" />
+                    <button
+                      type="submit"
+                      className="rounded-md border border-ink/20 bg-white px-2 py-1 text-[11px] font-medium text-ink/70 hover:border-ink/40"
+                    >
+                      Keep private
+                    </button>
+                  </form>
+                  <form action={resolveCategoryRequest} className="flex items-center gap-1">
+                    <input type="hidden" name="request_id" value={r.request_id} />
+                    <input type="hidden" name="outcome" value="rejected" />
+                    <input
+                      name="resolution_note"
+                      placeholder="reason (optional)"
+                      aria-label="Reject reason"
+                      className="w-28 rounded-md border border-ink/15 bg-white px-1.5 py-1 text-[11px] text-ink"
+                    />
+                    <button
+                      type="submit"
+                      className="rounded-md border border-rose-200 bg-white px-2 py-1 text-[11px] font-medium text-rose-700 hover:bg-rose-50"
+                    >
+                      Reject
+                    </button>
+                  </form>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section className="mb-10">
         <header className="mb-2 flex items-baseline justify-between gap-3">

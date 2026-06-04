@@ -185,6 +185,14 @@
 .onbw .locrow .od{font-size:12px;margin-top:2px;}
 .onbw .locnug{font-family:var(--sans);font-size:11px;line-height:1.3;color:var(--ink-soft);margin-top:3px;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;}
 .onbw .km{color:var(--gold-deep);font-weight:700;}
+/* ── 2026-06-04 (owner): Near-me results that are Top-30 destinations render as photo cards (same art as the carousel) ── */
+.onbw .locphoto{position:relative;display:block;width:100%;box-sizing:border-box;min-height:112px;border-radius:14px;overflow:hidden;border:1.5px solid transparent;background-color:#2a1a22;background-size:cover;background-position:center;background-repeat:no-repeat;box-shadow:0 6px 18px rgba(30,34,41,.16);cursor:pointer;text-align:left;padding:0;flex:0 0 auto;scroll-snap-align:start;transition:transform .14s ease,border-color .15s ease,box-shadow .15s ease;-webkit-tap-highlight-color:transparent;}
+.onbw .locphoto:active{transform:scale(.99);}
+.onbw .locphoto.sel{border-color:var(--gold);box-shadow:0 6px 20px rgba(197,160,89,.42);}
+.onbw .locphoto.sel .loccard-check{background:var(--gold);border-color:var(--gold);box-shadow:inset 0 0 0 3px #1e2229;}
+.onbw .locphoto .loccard-city{font-size:17px;margin:1px 0 3px;}
+.onbw .locphoto .loccard-nug{-webkit-line-clamp:2;}
+.onbw .locphoto-km{font-family:var(--mono);font-style:normal;font-weight:500;font-size:10.5px;letter-spacing:.02em;color:rgba(255,255,255,.82);}
 
 /* ── 2026-06-04 (owner): welcome = full-bleed hero · brand + button float over the photo · slow Ken-Burns drift ── */
 /* top + bottom bars overlay the photo (no white bands); body padding cleared so the hero fills the whole phone */
@@ -199,3 +207,20 @@
 /* slow "camera drifting" Ken-Burns on the hero photo (auto-disabled under prefers-reduced-motion via the global rule) */
 .onbw .phone[data-welcome] .welcomehero img{animation:kenburns 26s ease-in-out infinite alternate;}
 @keyframes kenburns{from{transform:scale(1.03) translate(0,0);}to{transform:scale(1.15) translate(-2.5%,-2%);}}
+
+/* ── 2026-06-04 (owner "animate the background making it have depth"): welcome hero depth-parallax ──
+   A WebGL canvas (depth-driven UV displacement, auto-orbit) overlays a plain <img> fallback. The
+   canvas fades in only once it has genuinely drawn; if WebGL/shaders fail or reduced-motion is set,
+   the <img> stays (the static Ken-Burns hero) — never broken. */
+.onbw .welcome-parallax-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:opacity .5s ease;}
+.onbw .welcome-parallax-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;opacity:0;transition:opacity .6s ease;}
+
+/* location picks: equal-size chips that share the row (1 pick = full width · 2 = 50/50, equal height) · owner 2026-06-04 */
+.onbw .locpicks{flex-wrap:nowrap;align-items:stretch;}
+.onbw .locpicks .locchip{flex:1 1 0;min-width:0;justify-content:space-between;gap:6px;}
+.onbw .locchip-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+
+/* welcome brand: bump ~20% + tagline under the wordmark (owner 2026-06-04 · recs "photo 2") */
+.onbw .phone[data-welcome] .blmark-img{width:31px;height:31px;}
+.onbw .phone[data-welcome] .wm{font-size:14.4px;}
+.onbw .brandtag{font-family:var(--sans);font-size:11px;font-weight:500;letter-spacing:.02em;color:rgba(255,255,255,.84);text-shadow:0 1px 6px rgba(0,0,0,.5);margin:-2px 0 8px 40px;}

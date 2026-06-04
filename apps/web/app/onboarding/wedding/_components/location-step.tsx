@@ -131,6 +131,8 @@ export function LocationStep({
   }
   const list: Row[] = rows ?? [];
   const showCarousel = rows === null;
+  // Near-me results that are Top-30 destinations render as photo cards (same art the carousel uses).
+  const nearActive = !showCarousel && !q && mode === 'near' && Boolean(userPos);
 
   return (
     <>
@@ -150,7 +152,7 @@ export function LocationStep({
               const c = resolve(k);
               return (
                 <span key={k} className="locchip">
-                  {c?.n ?? k}
+                  <span className="locchip-label">{c?.n ?? k}</span>
                   <button
                     type="button"
                     className="locchip-x"
@@ -200,6 +202,30 @@ export function LocationStep({
             <div className="locresults rise">
               {list.map(({ c, d }) => {
                 const on = value.includes(c.k);
+                // Near-me result that's a Top-30 destination → photo card (same
+                // background art the carousel uses), not a plain text row.
+                if (nearActive && TOP30.includes(c.k)) {
+                  return (
+                    <button
+                      type="button"
+                      key={c.k}
+                      className={`locphoto${on ? ' sel' : ''}`}
+                      style={{ backgroundImage: `url(/onboarding/cities/${c.k}.webp)` }}
+                      onClick={() => toggle(c.k)}
+                      aria-pressed={on}
+                    >
+                      <span className="loccard-check" />
+                      <span className="loccard-scrim">
+                        <span className="loccard-region">{c.r}</span>
+                        <span className="loccard-city">
+                          {c.n}
+                          {d != null && <span className="locphoto-km"> · {d} km</span>}
+                        </span>
+                        {c.nug && <span className="loccard-nug">{c.nug}</span>}
+                      </span>
+                    </button>
+                  );
+                }
                 return (
                   <div
                     key={c.k}

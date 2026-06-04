@@ -13,11 +13,154 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 - **Backfills** `category_key` from the legacy `vendor_category` enum via the authoritative bridge (`lib/vendor-category-taxonomy.ts`): 24 clean 1:1, 2 coarse-alias → primary tile, 4 couple-only exempt → NULL. An `EXISTS (… tier 2)` guard makes every written value FK-valid; `IS NULL` makes it idempotent.
 - The legacy `category` enum column is **UNTOUCHED** (still NOT NULL, still source of truth). No RLS change (ADD COLUMN inherits the 0006 policies).
 
-**Drift found + handled:** the PG `vendor_category` enum has **36** values but the TS `VendorCategory` type / bridge cover only **30** — the 6 attire alters (`bridal_gown`/`groom_suit`/`bridal_shoes`/`groom_shoes`/`entourage_attire`/`parents_attire`) drifted out. The backfill covers all 36 (attire alters → brides/grooms/womens attire). The TS-type catch-up is a PR-2/3 cleanup.
+**Drift found + handled:** the PG `vendor_category` enum has **36** values but the TS `VendorCategory` type / bridge cover only **30** — the 6 attire alters (`bridal_gown`/`groom_suit`/`bridal_shoes`/`groom_shoes`/`entourage_attire`/`parents_attire`) drifted out. The backfill covers all 36. The TS-type catch-up is a PR-2/3 cleanup.
 
 **Verification:** expand-only + idempotent (`IF NOT EXISTS` / `DO $$…duplicate_object` / `IS NULL` / `EXISTS tier-2`). No app code changed in PR-1. Not yet applied to prod (apply via `supabase db push --db-url "$SUPABASE_DB_URL"`).
 
 **SPEC IMPACT:** Reverses the couple-side-curation lock + adds `category_key` to 0006. → `COWORK_INBOX.md` (decision-log reversal row + 0006/0000/0021/0007 fold-in).
+
+## 2026-06-04 · style(onboarding): Near-me Top-30 results render as photo cards (location step)
+
+**Context:** Owner — on the "Where will it be?" step, when the couple taps **"Near me"** and a result is one of the **Top-30 wedding destinations**, the card should use the **same background photo** the Top-30 carousel uses, instead of a plain text row.
+
+**What changed** (`_components/location-step.tsx` + `_styles/onboarding.css`):
+- New `nearActive` flag (true only on the Near-me results list — `!query && mode==='near' && userPos`). In that list, a row whose city is in `TOP30` now renders as a **`.locphoto` photo card** (city `/onboarding/cities/{key}.webp` background + the carousel's scrim / region / city / nugget + check + selected-gold states), reusing the existing `loccard-*` classes for 1:1 visual parity. Non-Top-30 Near-me results and all search results stay as plain `.locrow` rows.
+- New `.locphoto` CSS (full-width photo row, ~112px) + `.locphoto-km` distance pill.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` ✔ no warnings or errors. Isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** Minor — the prototype/blueprint show Near-me results as plain rows; Top-30 ones are now photo cards. → `COWORK_INBOX.md`.
+
+## 2026-06-04 · style(onboarding): welcome copy + brand bump/tagline + stronger CTA
+
+**Context:** Owner — new header + subhead for the welcome, plus (from the recommendations table = "photo 2") the brand bump + tagline and a stronger CTA.
+
+**What changed (welcome screen):**
+- **Header:** *"Start with the view. We'll handle the details."*
+- **Subhead:** *"Tell us your date. Get a free wedding plan + matched vendors in minutes."*
+- **Brand:** the SETNAYAN mark + wordmark bumped **~20%** (welcome only) + a tagline **"Wedding planning, simplified"** under the wordmark.
+- **CTA:** *"Let's go"* → **"Build my free plan"** (`NEXT_LABEL[0]`; swap to "Match me with vendors" is one word).
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean.
+
+**SPEC IMPACT:** Welcome copy + brand + CTA updated. → `COWORK_INBOX.md`.
+
+## 2026-06-04 · revert(theme): light-lock the app — disable OS dark-mode auto-follow + remove the Light/Dark/Auto switch
+
+**Context:** Owner — *"the app used to adjust automatic to light and dark theme. disable this and just always keep it light theme."* Reverts the 2026-05-22 brand-pivot Light/Dark/Auto trio (which made the app follow the device `prefers-color-scheme`). Setnayan now renders in the light Clean-Editorial palette on every dashboard / marketing surface, ignoring the OS setting and any previously-stored preference.
+
+**What changed:**
+- **`app/_components/theme-provider.tsx`** — hard-locked to light. The `useTheme()` API is kept (≈7 consumers call it) but `mode`/`resolvedTheme` are always `'light'`, `setMode` is a no-op, and the `.dark` class is never applied (stripped on mount + by the bootstrap script). The FOUC bootstrap script is reduced to "strip `.dark`" so a stale cached shell can't paint dark.
+- **`app/layout.tsx`** — `viewport.themeColor` pinned to a single `#FFFFFF` (dropped the `prefers-color-scheme: dark → #18191A` variant) so a dark-mode device no longer tints the browser chrome dark against the light page.
+- **`app/dashboard/profile/page.tsx`** — removed the **Appearance** theme picker; the section is re-headlined **"Feedback"** and keeps the existing Haptics toggle. Dropped the now-unused theme imports + the `theme_preference` read.
+- **`app/dashboard/profile/_components/theme-mode-picker.tsx`** — deleted (orphaned).
+- **`app/site-editor/[eventId]/_components/site-editor.tsx`** — removed the in-editor **Theme** card (it flipped the same global theme) + its now-unused imports; refreshed the doc comment.
+- **`app/globals.css`** — header comment updated; the `html.dark` token overrides are LEFT dormant (now unreachable).
+
+**Dormant (not removed, for a trivial revert):** the `users.theme_preference` column + its `updateThemePreference` server action (now unread) + the `html.dark` CSS blocks. Because `darkMode: 'class'` (tailwind.config.ts) and globals.css has **no** `@media (prefers-color-scheme: dark)` rule, never adding `.dark` makes the app light by construction — every `dark:` variant simply goes inert.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean (only pre-existing warnings, none in touched files) · production build green. No tests reference the theme system.
+
+**SPEC IMPACT:** Reverses the 2026-05-22 Light/Dark/Auto brand-pivot lock — affects **0021** (theme system / Appearance), **0025** (Profile Settings → Appearance tab), and the corpus **DECISION_LOG**. → `COWORK_INBOX.md`.
+
+## 2026-06-04 · revert(onboarding): undo the immersive full-bleed on role/kind/faith — back to the card layout
+
+**Context:** Owner — *"undo the full screens"* → chose *"back to the old cards."* Reverts the immersive redesign of the three choice screens; the welcome is left as-is.
+
+**What changed:**
+- Removed the `data-immersive` hook + the full-bleed CSS block (photo-as-background, overlaid title/chips, scrims).
+- **Role + Kind:** the title-only chip carousels reverted to the **title + description + radio-circle cards** (3-in-a-row); the sub-text is static again (no description-on-pick).
+- **Faith:** back to the 1-row chip carousel (non-full-bleed).
+- **Untouched:** the welcome (full-bleed hero + depth parallax + new copy) and the location step.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean.
+
+**SPEC IMPACT:** Reverts the immersive role/kind/faith treatment. → `COWORK_INBOX.md`.
+
+## 2026-06-04 · feat(0023): Growth surface — demo-mode data, CSV export, event breakdowns
+
+**Context:** Follow-ups to the just-shipped `/admin/growth` surface (PR #938): the owner asked to (b) seed demo data so the curves show shape pre-pilot, and (c) add a CSV export + extra breakdowns (per-region / per-event-type). (a) — a live admin screenshot — is handled out-of-band against the deployed site.
+
+**What changed** (additive, no migration):
+- **`lib/admin/growth-stats.ts`** — new `buildDemoGrowthStats(range)`: deterministic synthetic population + 5 rising series + ~42% conversion + breakdowns, `demo:true`, NO DB reads (stable screenshots). New `fetchBreakdowns()` (one bounded `events` read → events-by-type via enum-label map + events-by-region via uppercased `region` slug, null→Unspecified, sorted desc, `sampled` flag). `GrowthStats` gains `demo` + `breakdowns`.
+- **`app/admin/growth/page.tsx`** — reads the admin demo-mode cookie/flag (page is already admin-gated by the layout); in demo mode renders the synthetic stats with an **"Illustrative demo data"** badge. New **Breakdowns** section (Events by type + Events by region bar lists). New **Export CSV** button.
+- **`app/admin/growth/export/route.ts`** (new) — admin-gated GET (re-checks admin since route handlers bypass the layout guard; 404 for non-admins). Honors `range` + the demo flag (export matches what's on screen). Returns a tidy/long-format `text/csv` attachment (section,series,period,value) covering population + per-entity growth curves + conversion + breakdowns.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean · `next build` exit 0 (`/admin/growth` + `/admin/growth/export` both ƒ dynamic). Isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** Extends the 0023 Growth surface (still the same 29th surface). → `COWORK_INBOX.md` [PENDING]: note the demo-mode preview, CSV export, and event type/region breakdowns in the 0023 Growth subsection.
+
+## 2026-06-04 · fix(onboarding): welcome photo cover-fit (no distortion) + location picks share the row
+
+**Context:** Owner — *"the first slide's photo is distorted; just fill the space to not distort it; all background feel should not be distorted, just fill the space"* + *"keep the location choices consistent in length and height — the two buttons equally share a row, but if one only, they fill the row."*
+
+**What changed:**
+- **Welcome parallax distortion fixed.** The WebGL shader mapped the photo's full UV to the canvas, **stretching** the landscape photo into the tall phone. Added an aspect-correct `cover` uniform (crops to the canvas aspect, computed from photo + canvas dimensions each frame) so the photo **fills without distorting** — depth parallax retained. (Other screens already use `object-fit:cover`.)
+- **Location picks share the row.** The selected-area chips (`.locpicks`) are now equal-size: `flex:1` each + `flex-wrap:nowrap` → **1 pick fills the row · 2 split 50/50**, equal height; the label ellipsis-truncates (wrapped in `.locchip-label`).
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean.
+
+**SPEC IMPACT:** Refines the welcome (cover/no-distort) + location-step (pick chips) items already in `COWORK_INBOX.md`.
+
+## 2026-06-04 · feat(onboarding): immersive role/kind/faith screens — full-bleed photo + chip carousel
+
+**Context:** Owner, on the role + kind + tradition screens — *"make photos here full screen too · create make it a carousel · just leave the main button name, remove the circles, equal length and height buttons · sub text will show on top as they pick."* Unifies role/kind/faith into one immersive pattern (matching the welcome's full-bleed).
+
+**What changed** (CSS + render, scoped to a new `data-immersive` hook on `.phone` for steps 1–3):
+- **Full-bleed photo** — the hero fills the whole phone; top/bottom bars float transparent; title (top) + choices (bottom) overlay it with scrims + white text (brand stays visible).
+- **Choices = equal-size, title-only chip carousel** — role (Bride/Groom/Someone helping) + kind (Religious/Civil/Mixed) converted from radio cards to chips (no descriptions, **no radio circles**); horizontal scroll-snap; equal width + height per screen.
+- **Picked option's description → sub-text** — selecting a role/kind surfaces its description in the header sub (e.g. "Walking down the aisle."), replacing the static sub.
+- **Faith** chips also equal-size + full-bleed (the tradition screen from the prior request).
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean.
+
+**SPEC IMPACT:** role/kind/faith are now immersive full-bleed with chip carousels + dynamic sub-text. → `COWORK_INBOX.md`.
+
+## 2026-06-04 · feat(security): global security headers (pre-public-pilot hardening § B1)
+
+**Context:** Owner pre-public-pilot hardening pass (corpus `Pre_Public_Pilot_Hardening_2026-06-04.md`). A same-day security audit found the data layer strong (RLS on all 134 tables; public API auth-gated + contact-masked) but the HTTP edge bare — `apps/web/next.config.ts` set **zero** security headers. This ships the safe, non-breaking subset. Rate limiting (§ B2) is owner-side Cloudflare-edge config (no app code), per the owner's choice.
+
+**What changed:** A global `headers()` entry (`source: '/(.*)'`) adds 6 headers to every response:
+- `Strict-Transport-Security: max-age=63072000; includeSubDomains` (HTTPS-only; `preload` omitted to stay reversible)
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: SAMEORIGIN` **+** `Content-Security-Policy: frame-ancestors 'self'` — block external clickjacking while preserving the dashboard's same-origin landing-page preview iframe
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Permissions-Policy: camera=(self), microphone=(self), geolocation=(self), browsing-topics=()`
+
+**Deliberately NOT shipped:** a full resource/script CSP (`default-src`/`script-src`). It would have to enumerate every external origin we load (Supabase · Sentry · PostHog · R2 · Maya · YouTube · Google Fonts) and would break the inline Babel-standalone keynote decks under `public/keynote/*`. Tracked as a tested follow-up in the hardening doc.
+
+**Verification:** Static config change (no new imports/logic). All required CI checks green on PR #939 (typecheck + lint · production build · lighthouse · playwright e2e · Vercel preview).
+
+**SPEC IMPACT:** None — the hardening posture is already captured in the corpus (`Pre_Public_Pilot_Hardening_2026-06-04.md` + DECISION_LOG 2026-06-04). The pre-existing public-`/api/v1/vendors` vs "no public API in V1" drift is logged there for Cowork; it is not introduced by this change.
+
+## 2026-06-04 · feat(onboarding): welcome hero depth-parallax + new copy
+
+**Context:** Owner — *"i want the exact photo but we want it to animate the background making it have depth"* + new welcome copy. (Cloud-overlay PR #936 set aside per the owner's "no"; left unmerged.)
+
+**What changed:**
+- **Copy:** headline → *"Wedding planning, without the chaos."*; sub → *"Answer a few questions. We'll find your vendors and build your plan — free to start."*
+- **`welcome-parallax.tsx`** (new) — WebGL depth-parallax on the **exact** welcome photo: a fragment shader displaces UVs by a depth map × a slow auto-orbiting camera (near shifts more than far → dimensional motion from one still). **Bulletproof fallback** — a plain `<img>` renders first and only hides once the canvas truly draws; WebGL/shader failure or reduced-motion → the static Ken-Burns hero stays. Never broken.
+- **`public/onboarding/welcome-depth.png`** (4 KB) — approximate depth map. Drop a true depth map (Depth-Anything/Immersity) at the same path for crisp object-parallax — no code change.
+- Wired into the welcome hero (replaces `HeroImg`) + CSS for the canvas/img layers.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean. Photo same-origin → no WebGL CORS.
+
+**SPEC IMPACT:** New welcome copy + depth-parallax hero. → `COWORK_INBOX.md`.
+
+## 2026-06-04 · feat(0023): Admin Growth & Population surface (/admin/growth)
+
+**Context:** Owner — make statistics of the progress of the app: both *actual population* (current totals) and *growth over time* for vendors · services · events · customers · guests, plus *guest → account-holder conversion*. No existing admin surface showed multi-entity population + growth curves, and conversion was computed nowhere (the Overview shows point-in-time counts only; Funnels is step-conversion; Operations & Hiring is vendor-signup + hiring-forecast). Owner picked a dedicated `/admin/growth` page and the **"any linked account"** conversion definition.
+
+**What changed** (additive — new surface + nav entries, no migration):
+- **`lib/admin/growth-stats.ts`** (new) — `fetchGrowthStats(range)`: population head-counts; per-entity weekly **cumulative + net-new** series (12 fixed buckets; baseline + per-boundary `count:'exact', head:true` — exact, indexed-only, no 1000-row truncation); **guest→account conversion** via `event_members.guest_id` + `member_type='guest'` (cumulative by `joined_at`, all-time rate = converted ÷ non-removed guests, median days-to-convert from a bounded embedded read). Per-section error isolation. No migration — all five entity tables already carry `created_at`.
+- **`app/admin/growth/page.tsx`** (new) — server component: range picker (GET form · 3/6/12 months · mirrors /admin/funnels), Population-now tiles, per-entity growth cards with hand-rolled **SVG cumulative sparkline + net-new bars** (no chart lib in the repo), conversion section. v2.1 `--m-*` chrome; responsive.
+- **`app/admin/_components/admin-sidebar.tsx`** — Funnels group relabeled **"Insights"** (group key stays `funnels` so persisted open-state survives); adds **Growth** item (LineChart).
+- **`app/admin/_components/admin-bottom-nav.tsx`** — `/admin/growth` added to the mobile **More** tab's activeMatch.
+- **`app/admin/more/page.tsx`** — **Growth** card added to the mobile More landing (orphan-prevention · 1:1 with the sidebar).
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean · `next build` exit 0 (`/admin/growth` registered as ƒ dynamic, beside `/admin/funnels`). Built in an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** Iteration 0023 gains a **29th admin surface ("Growth")** and the **Funnels group → "Insights"** (Funnels + Growth). → `COWORK_INBOX.md` [PENDING]: update 0023 §1 group list + surface count, add a Growth subsection, lock the conversion definition (any linked account), and mark `/admin/growth` SHIPPED in `App_Build_Status.md`.
 
 ## 2026-06-04 · style(onboarding): welcome screen full-bleed hero + button-over-photo + Ken-Burns drift
 

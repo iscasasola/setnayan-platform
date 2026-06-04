@@ -14,9 +14,100 @@
 
 **Spec corpus updates (owner walks via Cowork):**
 1. **`DECISION_LOG.md`** — add the reversal row: *"2026-06-04 · Couple-side onboarding is fully taxonomy-driven; `event_vendors.category` enum → TEXT keyed on `service_categories`; supersedes the 2026-05-30 'couple side does not auto-expand' lock."*
-2. **`Onboarding_Taxonomy_Driven_Spec_2026-06-04.md`** — fold the ratified design into iterations **0000** (taxonomy-driven picker + adaptive rendering), **0006** (`vendor_category` → TEXT), **0021** (couple plan), **0007** (budget reads category).
+2. **`Onboarding_Taxonomy_Driven_Spec_2026-06-04.md`** — fold the ratified design into iterations **0000** (taxonomy-driven picker + adaptive rendering), **0006** (`vendor_category` → TEXT), **0021** (couple plan), **0007** (budget reads category). NOTE the converged §0: onboarding = available-only, dashboard = show-all, listings supply-gated, EN-only.
 3. **`CLAUDE.md` (corpus)** — the couple-side "28-enum does NOT auto-expand" architecture line is now **superseded**.
 4. Drift to record: PG `vendor_category` enum (36 values) vs TS `VendorCategory` (30) — the 6 attire alters need adding to `lib/vendors.ts` + the bridge (tracked for PR-2/3).
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
+## [PENDING] 2026-06-04 — Near-me Top-30 results are now photo cards (Onboarding Blueprint §3.0 / prototype)
+
+**Why:** On the location step ("Where will it be?"), when the couple taps "Near me," any result that's a Top-30 wedding destination now renders as a **photo card** (same `/onboarding/cities/{key}.webp` art the Top-30 carousel uses) instead of a plain text row. Non-Top-30 Near-me results + all search results stay plain rows.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`Onboarding_Blueprint_2026-05-30.md` §3.0** (+ the location step in `Onboarding_Wedding_Flow_2026-06-01.html`) — note that Near-me results matching a Top-30 destination upgrade to the carousel photo-card treatment (scrim + region / city / nugget over the city photo).
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
+## [PENDING] 2026-06-04 — welcome copy + brand + CTA refreshed (Onboarding Blueprint / prototype)
+
+**Why:** Owner reworked the welcome screen — new header/subhead, a ~20% brand bump + tagline, and a stronger CTA.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`Onboarding_Blueprint_2026-05-30.md`** (+ welcome in `Onboarding_Wedding_Flow_2026-06-01.html`) — header **"Start with the view. We'll handle the details."**; subhead **"Tell us your date. Get a free wedding plan + matched vendors in minutes."**; brand bumped ~20% with tagline **"Wedding planning, simplified"**; CTA **"Build my free plan"** (was "Let's go").
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+**Why:** Owner — *"the app used to adjust automatic to light and dark theme. disable this and just always keep it light theme."* Reverts the 2026-05-22 brand-pivot Light/Dark/Auto trio. The app now renders light on every dashboard/marketing surface, ignoring the device `prefers-color-scheme` and any stored preference. Code: `ThemeProvider` hard-locked to light; profile **Appearance** theme picker removed (section re-headlined "Feedback", Haptics toggle kept); in-editor **Theme** card removed from the site-editor; `viewport.themeColor` pinned white. The `users.theme_preference` column + `updateThemePreference` action + `html.dark` CSS are left dormant for a trivial revert.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`DECISION_LOG.md`** — append: `| 2026-06-04 | App light-locked — Light/Dark/Auto theme switch + OS dark-mode auto-follow removed; renders light everywhere | Owner "just always keep it light theme"; reverts the 2026-05-22 brand-pivot trio; theme_preference column + html.dark CSS left dormant for trivial revert |`.
+2. **`0021_couple_dashboard_fully_purchased/`** — the 5-theme→3-mode (Light/Dark/Auto) "theme system + runtime theme picker" notes are superseded: the runtime theme picker is **removed**; the app is **light-only**.
+3. **`0025_profile_settings/`** — the **Appearance** tab no longer offers Light/Dark/Auto (theme picker removed); it now carries only the Haptics ("Feedback") toggle. Consider renaming the tab.
+4. (Optional) any spec copy describing "just like iOS · light/dark/auto" appearance — reword to light-only.
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
+## [PENDING] 2026-06-04 — REVERTED: role/kind/faith immersive full-bleed undone (back to cards)
+
+**Why:** Owner — *"undo the full screens."* The immersive redesign of role/kind/faith is **reverted**: role + kind back to title + description + radio-circle cards (3-in-a-row); faith back to its 1-row chip carousel; no full-bleed. The welcome stays full-bleed.
+
+**Spec corpus updates (owner walks via Cowork):** the earlier *"role/kind/faith immersive full-bleed + chip carousels"* item is **superseded** — leave these three screens as the card/carousel layout (do **not** apply the immersive treatment).
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+## [PENDING] 2026-06-04 — Growth surface: demo-mode preview + CSV export + event breakdowns (0023)
+
+**Why:** Follow-ups to the `/admin/growth` surface. (1) **Demo-mode preview** — when an admin has demo mode on, the page shows deterministic *illustrative* curves (badged "Illustrative demo data") so the surface's shape is visible before real data accrues; no DB writes, nothing polluted. (2) **CSV export** — an admin-gated `GET /admin/growth/export` returns a tidy/long-format CSV of population + growth curves + conversion + breakdowns (honors range + demo flag). (3) **Breakdowns** — current composition of **events by type** (the 6-value `event_type` enum) and **events by region** (`events.region` slug, null→Unspecified).
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`0023_admin_console.md`** (the Growth subsection added with the surface) — note the three additions: demo-mode illustrative preview, CSV export endpoint, and the Events-by-type + Events-by-region breakdown cards.
+2. No pricing/schema impact — all additive, no migration.
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
+## [PENDING] 2026-06-04 — welcome photo cover-fit + location picks share-row (refines prior onboarding items)
+
+**Why:** Owner — backgrounds must fill the space **without distortion** (the welcome hero was stretched by the parallax shader); the location-step **pick chips share the row** (1 = full width · 2 = 50/50). Bug-fix refinements to the already-pending welcome + location-step items.
+
+**Spec corpus updates (owner walks via Cowork):** fold into the existing welcome + location-step notes — the welcome hero **fills via cover (no distortion)**; the location step's selected-area chips are **equal-size + share the row** (1 full · 2 split 50/50).
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
+## [PENDING] 2026-06-04 — role/kind/faith onboarding now immersive full-bleed + chip carousels (Onboarding Blueprint / prototype)
+
+**Why:** Owner unified the role, kind, and tradition screens into the welcome's full-bleed pattern: photo fills the screen; choices are equal-size, title-only chip carousels (no radio circles); the picked option's description shows in the header sub-text.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`Onboarding_Blueprint_2026-05-30.md`** (+ role/kind/faith screens in `Onboarding_Wedding_Flow_2026-06-01.html`) — these three screens are now **full-bleed immersive** (photo background + overlaid title/chips); choices are **equal-size, title-only chips in a carousel** (no descriptions on the button, no radio); the **selected option's description surfaces in the sub-text**. Supersedes the 2026-06-04 "role/kind 3-in-a-row cards" + "faith 1-row chip" notes.
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+**Why:** Owner reworded the welcome screen + asked the hero photo to "have depth." Headline + sub changed; the hero now runs a WebGL depth-parallax (the exact photo, near/far displaced by a depth map as a slow camera orbits) over a bulletproof static-image fallback.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`Onboarding_Blueprint_2026-05-30.md`** (+ welcome in `Onboarding_Wedding_Flow_2026-06-01.html`) — copy: headline **"Wedding planning, without the chaos."**, sub **"Answer a few questions. We'll find your vendors and build your plan — free to start."**; hero motion now **depth-parallax** (supersedes the Ken-Burns note).
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+## [PENDING] 2026-06-04 — Admin Growth & Population surface added (/admin/growth · 0023)
+
+**Why:** Owner directive — surface platform progress as *actual population* (current totals) + *growth over time* for vendors · services · events · customers · guests, plus *guest → account-holder conversion*. Shipped as a new admin surface `/admin/growth` (population tiles + per-entity cumulative/net-new sparklines + conversion section), computed live from each entity's `created_at` (no migration) and the `event_members.guest_id` linkage. Conversion definition owner-locked **"any linked account"** (a guest-list row tied to a real Setnayan account via QR scan or invite link; rate = converted ÷ non-removed guests, all-time).
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`0023_admin_console.md` §1** — the admin console gains a **29th surface, "Growth"**, under a renamed **"Insights"** group (was "Funnels"; now holds Funnels + Growth). Update the surface count + the group list (Funnels → Insights). Mobile: Growth lives under the **More** tab (alongside Funnels) per the existing mobile-overflow pattern (also reflected in §1's "Mobile uses a 5-tab bottom nav" note).
+2. **`0023_admin_console.md`** (new subsection, e.g. §3.17) — spec the Growth surface: **Population now** tiles (account holders · customers · vendors[+published] · services[+active] · events · guests); **Growth over time** per entity (cumulative curve + net-new per period · range 3/6/12 months · 12 buckets); **Guest→Account conversion** (rate · converted/total · new-in-range · median days-to-convert) with the **"any linked account"** definition locked (via `event_members.guest_id` + `member_type='guest'`).
+3. **`App_Build_Status.md`** — add `/admin/growth` (0023) as SHIPPED.
 
 **When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
 

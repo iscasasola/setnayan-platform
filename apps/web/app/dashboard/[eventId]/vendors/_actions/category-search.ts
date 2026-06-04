@@ -29,6 +29,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveVendorDisplayName } from '@/lib/vendors';
 import { fetchWizardVendorRecommendations } from '@/lib/wizard-recommendations';
+import { computeCompatScore } from '@/lib/compat-score';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import {
   canonicalServicesForTile,
@@ -46,6 +47,14 @@ export type CategoryVendorResult = {
   distanceKm: number | null;
   verified: boolean;
   boosted: boolean;
+  /** Compatibility score (0–100) + tier · lib/compat-score · the §2 GATE+SCORE
+   *  soft layer (Customer_Vendor_Marketplace_Architecture_2026-06-04 §2).
+   *  DISPLAY-only in this PR — the result ORDER stays the owner-locked
+   *  2026-05-31 tier ladder (Favorites → Boosted → top-reviews → nearest).
+   *  Re-ranking the non-boosted tier by score is a separate, sign-off-gated
+   *  change. */
+  compatScore: number;
+  compatTier: 'strong' | 'good' | 'fair';
   /** Already in this event's picks → render "✓ Added", not an Add button. */
   alreadyAdded: boolean;
 };
@@ -209,6 +218,13 @@ export async function searchCategoryVendors(input: {
         ? Math.round(distanceKm(lat as number, lng as number, vLat, vLng) * 10) / 10
         : null;
     const adRank = (r.ad_rank as number | null) ?? 0;
+    const { score: compatScore, tier: compatTier } = computeCompatScore({
+      distanceKm: dKm,
+      avgRating: r.avg_rating_overall ?? null,
+      reviewCount: r.review_count ?? null,
+      verified: r.public_visibility === 'verified',
+      boosted: adRank > 0,
+    });
     return {
       vendorProfileId: r.vendor_profile_id,
       name,
@@ -219,6 +235,8 @@ export async function searchCategoryVendors(input: {
       distanceKm: dKm,
       verified: r.public_visibility === 'verified',
       boosted: adRank > 0,
+      compatScore,
+      compatTier,
       alreadyAdded: addedIds.has(r.vendor_profile_id),
       _adRank: adRank,
       _reviews: r.review_count ?? 0,
@@ -269,6 +287,8 @@ export async function searchCategoryVendors(input: {
     distanceKm: s.distanceKm,
     verified: s.verified,
     boosted: s.boosted,
+    compatScore: s.compatScore,
+    compatTier: s.compatTier,
     alreadyAdded: s.alreadyAdded,
   }));
 

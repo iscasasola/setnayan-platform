@@ -311,7 +311,7 @@ export function MobileGuestCarousel({
         className={`fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 flex h-[var(--gcar-h)] max-h-[85dvh] flex-col overflow-hidden rounded-t-2xl bg-cream shadow-[0_-12px_30px_-18px_rgba(30,34,41,0.28)] ring-1 ring-ink/10 lg:hidden ${kbOpen || dragH !== null ? '' : 'transition-[height] duration-200 ease-out'}`}
         style={
           kbOpen
-            ? { bottom: kbInset, height: active === 2 ? 190 : active === 1 ? 84 : undefined }
+            ? { bottom: kbInset, height: active === 2 ? 120 : active === 1 ? 84 : undefined }
             : { height: dragH ?? restingH }
         }
       >
@@ -343,9 +343,10 @@ export function MobileGuestCarousel({
           onScroll={onScroll}
           className={`flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${kbOpen ? '' : 'items-start'}`}
         >
-          {/* 1 — Summary: animated RSVP counts (also filter links) */}
+          {/* 1 — Summary: animated RSVP counts (also filter links). Four
+              stats sit on ONE row so the panel is as low as the search row. */}
           <section className="w-full shrink-0 snap-center max-h-[calc(60dvh-2.25rem)] overflow-y-auto px-4 py-3">
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-4 gap-2">
               <StatBox
                 label="Total"
                 value={total}
@@ -740,14 +741,14 @@ function StatBox({
   return (
     <Link
       href={href}
-      className={`flex flex-col justify-center rounded-xl border px-3.5 py-2 transition-colors ${
+      className={`flex flex-col items-center justify-center rounded-xl border px-1.5 py-1.5 text-center transition-colors ${
         active ? 'border-terracotta bg-terracotta/5' : 'border-ink/10 hover:border-ink/25'
       }`}
     >
-      <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-ink/50">
+      <span className="font-mono text-[8px] uppercase tracking-[0.04em] text-ink/50 whitespace-nowrap">
         {label}
       </span>
-      <span className={`mt-0.5 text-[26px] font-semibold leading-tight tabular-nums ${tint}`}>
+      <span className={`text-[22px] font-semibold leading-tight tabular-nums ${tint}`}>
         <AnimatedCount value={value} />
       </span>
     </Link>
@@ -853,9 +854,10 @@ function QuickAddInlineForm({ eventId, kbOpen }: { eventId: string; kbOpen: bool
 
   return (
     // Inputs LAST so they sit flush above the keyboard (owner directive
-    // 2026-06-03 — "keyboard then straight to the text box"); the helper +
-    // session count move above them. justify-end docks the stack to the
-    // bottom while the keyboard is up.
+    // 2026-06-03 — "keyboard then straight to the text box"); the session
+    // count moves above them. First + last share one row so the panel sits
+    // as low as the search row beside it. justify-end docks to the bottom
+    // while the keyboard is up.
     <div
       className={`flex flex-col gap-3 ${
         kbOpen ? 'h-full justify-end' : ''
@@ -863,19 +865,13 @@ function QuickAddInlineForm({ eventId, kbOpen }: { eventId: string; kbOpen: bool
     >
       {addError ? (
         <p className="text-center text-xs font-medium text-rose-600">{addError}</p>
-      ) : (
-        <p className="text-center text-[11px] leading-snug text-ink/40">
-          Enter after first name moves to last name · Enter after last name adds &amp; loops back
-        </p>
-      )}
-
-      {count > 0 && !addError && (
+      ) : count > 0 ? (
         <p className="text-center text-xs text-ink/50">
           {count} {count === 1 ? 'guest' : 'guests'} added this session
         </p>
-      )}
+      ) : null}
 
-      <div className="space-y-2">
+      <div className="grid grid-cols-2 gap-2">
         <input
           ref={firstRef}
           type="text"
@@ -935,11 +931,7 @@ function CustomizePanel({
   // the selection isn't stranded behind the entry button.
   if (!selectMode && count === 0) {
     return (
-      <section className="flex w-full shrink-0 snap-center max-h-[calc(60dvh-2.25rem)] flex-col items-center justify-center gap-3 overflow-y-auto px-6 py-3 text-center">
-        <p className="text-sm font-semibold text-ink">Select &amp; assign</p>
-        <p className="max-w-[260px] text-xs leading-snug text-ink/55">
-          Pick several guests, then set their side, role, or group in one go.
-        </p>
+      <section className="flex w-full shrink-0 snap-center max-h-[calc(60dvh-2.25rem)] flex-col items-center justify-center overflow-y-auto px-6 py-3 text-center">
         <button
           type="button"
           onClick={() => guestSelection.enter()}
@@ -953,46 +945,40 @@ function CustomizePanel({
   }
 
   return (
-    <section className="flex w-full shrink-0 snap-center max-h-[calc(60dvh-2.25rem)] flex-col justify-center gap-3 overflow-y-auto px-4 py-3">
-      <div className="flex items-center justify-between gap-3">
-        <label className="inline-flex items-center gap-2 text-sm text-ink">
-          <input
-            type="checkbox"
-            checked={allSelected}
-            ref={(el) => {
-              if (el) el.indeterminate = someSelected;
-            }}
-            onChange={() =>
-              allSelected
-                ? guestSelection.clear()
-                : guestSelection.setAll(allVisibleIds)
-            }
-            aria-label={allSelected ? 'Deselect all' : 'Select all guests in view'}
-            className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
-          />
-          Select all
-        </label>
-        <button
-          type="button"
-          onClick={() => guestSelection.exit()}
-          className="text-[11px] font-medium text-ink/55 hover:text-ink"
-        >
-          Done
-        </button>
-      </div>
-
-      <p className="text-center text-sm">
-        <span className="text-base font-semibold text-terracotta-700">{count}</span>{' '}
-        <span className="text-ink/60">selected</span>
-      </p>
+    <section className="flex w-full shrink-0 snap-center max-h-[calc(60dvh-2.25rem)] flex-row items-center justify-between gap-2 overflow-y-auto px-4 py-3">
+      <label className="inline-flex shrink-0 items-center gap-2 text-sm text-ink">
+        <input
+          type="checkbox"
+          checked={allSelected}
+          ref={(el) => {
+            if (el) el.indeterminate = someSelected;
+          }}
+          onChange={() =>
+            allSelected
+              ? guestSelection.clear()
+              : guestSelection.setAll(allVisibleIds)
+          }
+          aria-label={allSelected ? 'Deselect all' : 'Select all guests in view'}
+          className="h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
+        />
+        Select all
+      </label>
 
       <button
         type="button"
         onClick={onAssign}
         disabled={count === 0}
-        className="inline-flex items-center justify-center gap-2 rounded-xl bg-mulberry px-4 py-3 text-sm font-semibold text-cream hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-40"
+        className="inline-flex items-center justify-center gap-2 rounded-xl bg-mulberry px-4 py-2.5 text-sm font-semibold text-cream hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-40"
       >
         Assign{count > 0 ? ` ${count}` : ''}
+      </button>
+
+      <button
+        type="button"
+        onClick={() => guestSelection.exit()}
+        className="shrink-0 text-[11px] font-medium text-ink/55 hover:text-ink"
+      >
+        Done
       </button>
     </section>
   );

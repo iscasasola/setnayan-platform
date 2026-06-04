@@ -368,7 +368,7 @@
 /* ── Trace monogram · letters draw themselves (owner-locked 2026-06-04) ───────
    Every onboarding lockup animates with the Trace effect: each letter is an SVG
    <text> whose outline strokes on then fills; the ∞ + bar divider draw as lines;
-   the filigree ring settles in. MonoLockup now emits .mt-* markup, so the older
+   the filigree ring traces itself on. MonoLockup now emits .mt-* markup, so the older
    .lk-* lockup + per-design effect CSS above is inert (kept for a clean diff —
    prune later). All motion is gated on prefers-reduced-motion; the base filled
    state IS the final, accessible look. */
@@ -388,9 +388,10 @@
 .onbw .mono-lk .mt-line line{stroke:var(--gold-deep);stroke-width:1.4;}
 .onbw .mono-lk .mt-srow{display:flex;justify-content:center;}
 .onbw .mono-lk .mt-scriptsvg{width:clamp(176px,52vw,212px);height:auto;}
-.onbw .mono-lk.mt-framed .mt-frame{width:clamp(150px,46vw,190px);aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:center/contain no-repeat;filter:drop-shadow(0 3px 8px rgba(165,131,89,.2));}
-.onbw .mono-lk.mt-framed .mt-frame[data-frame="filigree"]{background-image:url(/onboarding/mono/filigree.svg);}
-.onbw .mono-lk.mt-framed .mt-fcaps{width:clamp(74px,24vw,92px);height:auto;}
+.onbw .mono-lk.mt-framed .mt-frame{position:relative;width:clamp(150px,46vw,190px);aspect-ratio:1;display:flex;align-items:center;justify-content:center;}
+.onbw .mono-lk.mt-framed .mt-frame::before{content:"";position:absolute;inset:0;z-index:0;background:center/contain no-repeat;filter:drop-shadow(0 3px 8px rgba(165,131,89,.2));pointer-events:none;}
+.onbw .mono-lk.mt-framed .mt-frame[data-frame="filigree"]::before{background-image:url(/onboarding/mono/filigree.svg);}
+.onbw .mono-lk.mt-framed .mt-fcaps{position:relative;z-index:1;width:clamp(74px,24vw,92px);height:auto;}
 .onbw .mono-lk.mt-inf .mt-infwrap{position:relative;width:clamp(186px,54vw,232px);aspect-ratio:200/92;}
 .onbw .mono-lk.mt-inf .mt-infsvg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;}
 .onbw .mono-lk.mt-inf .mt-infsvg path{fill:none;stroke:url(#mt-gold);stroke-width:3.2;stroke-linecap:round;filter:drop-shadow(0 2px 4px rgba(165,131,89,.3));}
@@ -405,6 +406,12 @@
 @keyframes mt-fill{to{fill-opacity:1}}
 @keyframes mt-fade{from{opacity:0}to{opacity:1}}
 @keyframes mt-framein{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
+/* the filigree ring is 237 FILLED gold paths (not strokable), so it "draws" via an
+   animated conic mask — a clockwise pen-sweep with a soft 12° leading edge. A
+   registered <angle> custom property is what makes the conic interpolate; on
+   browsers without @property the mask var is invalid → the full ring just shows. */
+@property --mt-sweep{syntax:"<angle>";inherits:false;initial-value:0deg;}
+@keyframes mt-trace{from{--mt-sweep:0deg}to{--mt-sweep:360deg}}
 
 @media (prefers-reduced-motion: no-preference){
   /* letters draw: outline strokes on, then fill fades in */
@@ -414,10 +421,10 @@
   .onbw .mono-lk .mt-line line{stroke-dasharray:80;stroke-dashoffset:80;animation:mt-draw 1s ease forwards;}
   /* the ∞ draws itself */
   .onbw .mono-lk.mt-inf .mt-infsvg path{stroke-dasharray:1;stroke-dashoffset:1;animation:mt-draw1 1.4s ease-in-out forwards;}
-  /* filigree ring settles in, then its caps draw */
-  .onbw .mono-lk.mt-framed .mt-frame{opacity:0;animation:mt-framein .7s cubic-bezier(.2,.8,.3,1) forwards;}
-  .onbw .mono-lk.mt-framed .mt-fc{stroke-width:.5;stroke-dasharray:170;stroke-dashoffset:170;animation:mt-draw 1s ease forwards .45s,mt-fill .4s ease forwards 1.25s;}
-  .onbw .mono-lk.mt-framed .mt-fc2{animation-delay:.6s,1.4s;}
+  /* the filigree ring traces itself on (clockwise pen sweep), then its caps draw */
+  .onbw .mono-lk.mt-framed .mt-frame::before{-webkit-mask:conic-gradient(#000 calc(var(--mt-sweep) - 12deg),rgba(0,0,0,0) var(--mt-sweep));mask:conic-gradient(#000 calc(var(--mt-sweep) - 12deg),rgba(0,0,0,0) var(--mt-sweep));animation:mt-trace 1.15s ease-in-out forwards;}
+  .onbw .mono-lk.mt-framed .mt-fc{stroke-width:.5;stroke-dasharray:170;stroke-dashoffset:170;animation:mt-draw 1s ease forwards .6s,mt-fill .4s ease forwards 1.45s;}
+  .onbw .mono-lk.mt-framed .mt-fc2{animation-delay:.72s,1.57s;}
   /* names settle last */
   .onbw .mono-lk .mt-names{opacity:0;animation:mt-fade .5s ease forwards 1.2s;}
   /* stagger — d2/d3 may sit on the glyph <svg> or the <text> itself */

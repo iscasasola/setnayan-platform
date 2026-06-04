@@ -2,7 +2,8 @@
    Five curated designs driven by the couple's real initials + first names, and
    — owner-locked 2026-06-04 — every design animates with the "Trace" effect: the
    letters DRAW THEMSELVES (outline strokes on like a pen, then fills), the ∞ and
-   the bar's divider draw as lines, the filigree ring settles in. Letters are SVG
+   the bar's divider draw as lines, the filigree ring traces itself on (a clockwise
+   conic-mask pen-sweep, since its 237 filled paths can't be stroked). Letters are SVG
    <text> so the outline can be stroke-drawn; the final filled look is identical
    to plain text. All motion is gated on prefers-reduced-motion in onboarding.css.
 

@@ -1976,7 +1976,7 @@ export function OnboardingShell({
           </div>
         </div>
       )}
-      <div className="phone">
+      <div className="phone" data-welcome={step === 0 ? '' : undefined}>
         {/* top — brand + progress */}
         <div className="top">
           <div className="brandrow">

@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(onboarding): immersive role/kind/faith screens — full-bleed photo + chip carousel
+
+**Context:** Owner, on the role + kind + tradition screens — *"make photos here full screen too · create make it a carousel · just leave the main button name, remove the circles, equal length and height buttons · sub text will show on top as they pick."* Unifies role/kind/faith into one immersive pattern (matching the welcome's full-bleed).
+
+**What changed** (CSS + render, scoped to a new `data-immersive` hook on `.phone` for steps 1–3):
+- **Full-bleed photo** — the hero fills the whole phone; top/bottom bars float transparent; title (top) + choices (bottom) overlay it with scrims + white text (brand stays visible).
+- **Choices = equal-size, title-only chip carousel** — role (Bride/Groom/Someone helping) + kind (Religious/Civil/Mixed) converted from radio cards to chips (no descriptions, **no radio circles**); horizontal scroll-snap; equal width + height per screen.
+- **Picked option's description → sub-text** — selecting a role/kind surfaces its description in the header sub (e.g. "Walking down the aisle."), replacing the static sub.
+- **Faith** chips also equal-size + full-bleed (the tradition screen from the prior request).
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean.
+
+**SPEC IMPACT:** role/kind/faith are now immersive full-bleed with chip carousels + dynamic sub-text. → `COWORK_INBOX.md`.
+
 ## 2026-06-04 · feat(security): global security headers (pre-public-pilot hardening § B1)
 
 **Context:** Owner pre-public-pilot hardening pass (corpus `Pre_Public_Pilot_Hardening_2026-06-04.md`). A same-day security audit found the data layer strong (RLS on all 134 tables; public API auth-gated + contact-masked) but the HTTP edge bare — `apps/web/next.config.ts` set **zero** security headers. This ships the safe, non-breaking subset. Rate limiting (§ B2) is owner-side Cloudflare-edge config (no app code), per the owner's choice.

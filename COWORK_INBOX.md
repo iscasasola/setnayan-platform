@@ -8,7 +8,14 @@
 
 ---
 
-## [PENDING] 2026-06-04 — welcome copy reworded + hero now depth-parallax (Onboarding Blueprint / prototype)
+## [PENDING] 2026-06-04 — role/kind/faith onboarding now immersive full-bleed + chip carousels (Onboarding Blueprint / prototype)
+
+**Why:** Owner unified the role, kind, and tradition screens into the welcome's full-bleed pattern: photo fills the screen; choices are equal-size, title-only chip carousels (no radio circles); the picked option's description shows in the header sub-text.
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`Onboarding_Blueprint_2026-05-30.md`** (+ role/kind/faith screens in `Onboarding_Wedding_Flow_2026-06-01.html`) — these three screens are now **full-bleed immersive** (photo background + overlaid title/chips); choices are **equal-size, title-only chips in a carousel** (no descriptions on the button, no radio); the **selected option's description surfaces in the sub-text**. Supersedes the 2026-06-04 "role/kind 3-in-a-row cards" + "faith 1-row chip" notes.
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
 
 **Why:** Owner reworded the welcome screen + asked the hero photo to "have depth." Headline + sub changed; the hero now runs a WebGL depth-parallax (the exact photo, near/far displaced by a depth map as a slow camera orbits) over a bulletproof static-image fallback.
 

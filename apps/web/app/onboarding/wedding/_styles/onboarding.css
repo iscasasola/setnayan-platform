@@ -206,3 +206,34 @@
    the <img> stays (the static Ken-Burns hero) — never broken. */
 .onbw .welcome-parallax-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:opacity .5s ease;}
 .onbw .welcome-parallax-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;opacity:0;transition:opacity .6s ease;}
+
+/* ── 2026-06-04 (owner): immersive choice screens — role / kind / faith full-bleed photo + chip carousel ──
+   Photo fills the whole phone; the title (top) + the choice chips (bottom) overlay it with scrims; top/bottom
+   bars float transparent (welcome treatment). Choices are equal-size title-only chips (no radio); the picked
+   option's description shows in the sub-text. Scoped to data-immersive (steps 1–3). */
+.onbw .phone[data-immersive] .top{position:absolute;left:0;right:0;top:0;background:linear-gradient(to bottom,rgba(18,16,22,.5),rgba(18,16,22,0));z-index:6;}
+.onbw .phone[data-immersive] .wm{color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.55);}
+.onbw .phone[data-immersive] .stepc{color:rgba(255,255,255,.85);}
+.onbw .phone[data-immersive] .bar{background:rgba(255,255,255,.28);}
+.onbw .phone[data-immersive] .skip{color:rgba(255,255,255,.9);}
+.onbw .phone[data-immersive] .btn-back{border-color:rgba(255,255,255,.55);color:#fff;background:rgba(0,0,0,.14);}
+.onbw .phone[data-immersive] .body{padding:0;}
+.onbw .phone[data-immersive] .bottom{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(to top,rgba(18,16,22,.66) 14%,rgba(18,16,22,0));border-top:0;z-index:6;}
+.onbw #screen-role,.onbw #screen-kind,.onbw #screen-faith{position:relative;}
+.onbw .phone[data-immersive] #screen-role .rolephoto,
+.onbw .phone[data-immersive] #screen-kind .kindphoto,
+.onbw .phone[data-immersive] #screen-faith .faithphoto{position:absolute;inset:0;width:100%;height:100%;margin:0;border-radius:0;box-shadow:none;z-index:0;}
+.onbw .phone[data-immersive] .rolecap,.onbw .phone[data-immersive] .kindcap,.onbw .phone[data-immersive] .faithcap{display:none;}
+.onbw .phone[data-immersive] .viewzone{position:relative;z-index:1;flex:0 0 auto;padding:48px 20px 0;}
+.onbw .phone[data-immersive] .viewzone::before{content:'';position:absolute;left:0;right:0;top:0;height:300px;background:linear-gradient(to bottom,rgba(18,16,22,.66) 8%,transparent);z-index:-1;pointer-events:none;}
+.onbw .phone[data-immersive] .viewzone .eyebrow{color:#e7cf9b;}
+.onbw .phone[data-immersive] .viewzone h1.q{color:#fff;text-shadow:0 2px 16px rgba(0,0,0,.6);}
+.onbw .phone[data-immersive] .viewzone .sub{color:rgba(255,255,255,.95);text-shadow:0 1px 10px rgba(0,0,0,.55);max-width:32ch;min-height:2.7em;}
+.onbw .phone[data-immersive] .tapzone{position:relative;z-index:1;flex:0 0 auto;margin-top:auto;padding:0 0 98px;}
+.onbw .phone[data-immersive] .tapzone::before{content:'';position:absolute;left:0;right:0;bottom:0;top:-50px;background:linear-gradient(to top,rgba(18,16,22,.72) 42%,rgba(18,16,22,0));z-index:-1;pointer-events:none;}
+.onbw #screen-role .chips,.onbw #screen-kind .chips,.onbw #screen-faith .chips{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:9px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:2px 20px;}
+.onbw #screen-role .chips::-webkit-scrollbar,.onbw #screen-kind .chips::-webkit-scrollbar,.onbw #screen-faith .chips::-webkit-scrollbar{height:0;display:none;}
+.onbw #screen-role .chip,.onbw #screen-kind .chip,.onbw #screen-faith .chip{flex:0 0 auto;scroll-snap-align:start;display:inline-flex;align-items:center;justify-content:center;text-align:center;white-space:normal;line-height:1.18;min-height:54px;padding:8px;border-radius:16px;}
+.onbw #screen-role .chip{width:120px;}
+.onbw #screen-kind .chip{width:106px;}
+.onbw #screen-faith .chip{width:104px;font-size:13.5px;}

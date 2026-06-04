@@ -21,16 +21,23 @@
 // non-wedding events — so this is the documented one-line flip (+ ALLOWED_TYPES
 // in create-event/actions.ts). Non-wedding events land on the standard dashboard
 // (wedding-tailored planning surfaces fill in per-type in V1.2+).
+// `onboardingHref` — owner directive 2026-06-04: tapping a type in the minimal
+// bar picker (event-type-bar-picker.tsx) jumps STRAIGHT into that event's own
+// tailored onboarding. Wedding ships first (/onboarding/wedding); each other
+// type gets its `onboardingHref` filled in as its tailored onboarding lands
+// (Debut next — see the per-event roll-out). Types still on `null` fall back to
+// the inline create-event name form (createWeddingEvent writes NULL wedding
+// fields for them) so they keep creating an event today.
 export const EVENT_TYPES = [
-  { key: 'wedding', label: 'Wedding', emoji: '💍', enabled: true },
-  { key: 'debut', label: 'Debut', emoji: '👑', enabled: true },
-  { key: 'gender_reveal', label: 'Gender Reveal', emoji: '🎈', enabled: true },
-  { key: 'birthday', label: 'Birthday', emoji: '🎂', enabled: true },
-  { key: 'celebration', label: 'Celebration', emoji: '🥂', enabled: true },
-  { key: 'travel', label: 'Travel', emoji: '✈️', enabled: true },
-  { key: 'corporate', label: 'Corporate', emoji: '🏢', enabled: true },
-  { key: 'tournament', label: 'Tournament', emoji: '🏆', enabled: true },
-  { key: 'christening', label: 'Christening', emoji: '🕯️', enabled: true },
+  { key: 'wedding', label: 'Wedding', emoji: '💍', enabled: true, onboardingHref: '/onboarding/wedding' },
+  { key: 'debut', label: 'Debut', emoji: '👑', enabled: true, onboardingHref: null },
+  { key: 'gender_reveal', label: 'Gender Reveal', emoji: '🎈', enabled: true, onboardingHref: null },
+  { key: 'birthday', label: 'Birthday', emoji: '🎂', enabled: true, onboardingHref: null },
+  { key: 'celebration', label: 'Celebration', emoji: '🥂', enabled: true, onboardingHref: null },
+  { key: 'travel', label: 'Travel', emoji: '✈️', enabled: true, onboardingHref: null },
+  { key: 'corporate', label: 'Corporate', emoji: '🏢', enabled: true, onboardingHref: null },
+  { key: 'tournament', label: 'Tournament', emoji: '🏆', enabled: true, onboardingHref: null },
+  { key: 'christening', label: 'Christening', emoji: '🕯️', enabled: true, onboardingHref: null },
 ] as const;
 
 export type EventTypeKey = (typeof EVENT_TYPES)[number]['key'];

@@ -8,6 +8,18 @@
 
 ---
 
+## [PENDING] 2026-06-04 — Minimal event-type "bar picker" + tap-to-onboarding (0000 · per-event onboarding P1)
+
+**Why:** Owner directive — the create-event event picker should be "nothing but the choice of events": a minimal bar strip; tapping a type jumps straight into that event's onboarding. Replaces the hero-photo carousel + the name-form-first flow on the full-page create-event surface. Phase 1 of the per-event tailored-onboarding build (each event type gets its own onboarding mimicking the wedding flow — Debut next).
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`0000_app_shell_and_navigation.md`** — the create-event "swipeable hero-photo carousel of event types" is replaced by a **minimal bar picker**: a row of bars (one per type) between ‹ › chevrons; the focused bar is gold + taller; tap a bar to pick. **Tapping routes straight into that event's onboarding** (Wedding → `/onboarding/wedding` today; each other type as its tailored onboarding lands) — the intermediate "Continue →" card and the name-form-first step are gone for onboarding-backed types. The in-chrome add-event bottom sheet keeps the hero carousel (unchanged).
+2. **`0016_*` onboarding (or a new per-event-onboarding spec)** — onboarding generalizes from wedding-only to **per-event**: each type gets a fully-tailored flow (own questions, palette, photos, copy, DB mapping) built on a **shared engine** (`app/onboarding/_shared/`); event-specific data lands in an additive `events.attributes JSONB`. Roll-out is exemplar-first (Debut), then one type per iteration (christening, birthday, gender_reveal, celebration, corporate, travel, tournament). Architecture + per-type sketches: repo plan `.claude/plans/curious-swimming-journal.md`.
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
 ## [PENDING] 2026-06-04 — "Where your day stands" cover made directive + in-rail loop coaching (0021 Vendors / Plan & Budget)
 
 **Why:** Customers couldn't tell what to do on the Vendors "Where your day stands" overview once they'd started — the Find→Shortlist→Lock loop was taught ONLY on the empty cover. Added an action-first banner, a persistent loop legend, a first-run coachmark, and a point-of-action Lock helper.

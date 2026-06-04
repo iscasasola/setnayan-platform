@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(0023): Admin Growth & Population surface (/admin/growth)
+
+**Context:** Owner — make statistics of the progress of the app: both *actual population* (current totals) and *growth over time* for vendors · services · events · customers · guests, plus *guest → account-holder conversion*. No existing admin surface showed multi-entity population + growth curves, and conversion was computed nowhere (the Overview shows point-in-time counts only; Funnels is step-conversion; Operations & Hiring is vendor-signup + hiring-forecast). Owner picked a dedicated `/admin/growth` page and the **"any linked account"** conversion definition.
+
+**What changed** (additive — new surface + nav entries, no migration):
+- **`lib/admin/growth-stats.ts`** (new) — `fetchGrowthStats(range)`: population head-counts; per-entity weekly **cumulative + net-new** series (12 fixed buckets; baseline + per-boundary `count:'exact', head:true` — exact, indexed-only, no 1000-row truncation); **guest→account conversion** via `event_members.guest_id` + `member_type='guest'` (cumulative by `joined_at`, all-time rate = converted ÷ non-removed guests, median days-to-convert from a bounded embedded read). Per-section error isolation. No migration — all five entity tables already carry `created_at`.
+- **`app/admin/growth/page.tsx`** (new) — server component: range picker (GET form · 3/6/12 months · mirrors /admin/funnels), Population-now tiles, per-entity growth cards with hand-rolled **SVG cumulative sparkline + net-new bars** (no chart lib in the repo), conversion section. v2.1 `--m-*` chrome; responsive.
+- **`app/admin/_components/admin-sidebar.tsx`** — Funnels group relabeled **"Insights"** (group key stays `funnels` so persisted open-state survives); adds **Growth** item (LineChart).
+- **`app/admin/_components/admin-bottom-nav.tsx`** — `/admin/growth` added to the mobile **More** tab's activeMatch.
+- **`app/admin/more/page.tsx`** — **Growth** card added to the mobile More landing (orphan-prevention · 1:1 with the sidebar).
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean · `next build` exit 0 (`/admin/growth` registered as ƒ dynamic, beside `/admin/funnels`). Built in an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** Iteration 0023 gains a **29th admin surface ("Growth")** and the **Funnels group → "Insights"** (Funnels + Growth). → `COWORK_INBOX.md` [PENDING]: update 0023 §1 group list + surface count, add a Growth subsection, lock the conversion definition (any linked account), and mark `/admin/growth` SHIPPED in `App_Build_Status.md`.
+
 ## 2026-06-04 · feat(0016): Top-30 reception-anchored location step ported into onboarding (screen 6)
 
 **Context:** Owner: the onboarding region step "still shows the NCR/Calabarzon cards, not the new one we created." The search-box + **Top-30-wedding-spots** redesign was fully spec'd (Onboarding_Blueprint §3.0 · reworked 2026-06-04), prototyped (`Onboarding_Wedding_Flow_2026-06-01.html`), and had its **30 city photos + full PSGC dataset** generated — but was **never ported into the app**. Live onboarding still ran the single-select region picker. This ports the locked design.

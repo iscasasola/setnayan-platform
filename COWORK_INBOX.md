@@ -8,6 +8,19 @@
 
 ---
 
+## [PENDING] 2026-06-04 — Admin Growth & Population surface added (/admin/growth · 0023)
+
+**Why:** Owner directive — surface platform progress as *actual population* (current totals) + *growth over time* for vendors · services · events · customers · guests, plus *guest → account-holder conversion*. Shipped as a new admin surface `/admin/growth` (population tiles + per-entity cumulative/net-new sparklines + conversion section), computed live from each entity's `created_at` (no migration) and the `event_members.guest_id` linkage. Conversion definition owner-locked **"any linked account"** (a guest-list row tied to a real Setnayan account via QR scan or invite link; rate = converted ÷ non-removed guests, all-time).
+
+**Spec corpus updates (owner walks via Cowork):**
+1. **`0023_admin_console.md` §1** — the admin console gains a **29th surface, "Growth"**, under a renamed **"Insights"** group (was "Funnels"; now holds Funnels + Growth). Update the surface count + the group list (Funnels → Insights). Mobile: Growth lives under the **More** tab (alongside Funnels) per the existing mobile-overflow pattern (also reflected in §1's "Mobile uses a 5-tab bottom nav" note).
+2. **`0023_admin_console.md`** (new subsection, e.g. §3.17) — spec the Growth surface: **Population now** tiles (account holders · customers · vendors[+published] · services[+active] · events · guests); **Growth over time** per entity (cumulative curve + net-new per period · range 3/6/12 months · 12 buckets); **Guest→Account conversion** (rate · converted/total · new-in-range · median days-to-convert) with the **"any linked account"** definition locked (via `event_members.guest_id` + `member_type='guest'`).
+3. **`App_Build_Status.md`** — add `/admin/growth` (0023) as SHIPPED.
+
+**When done:** flip `[PENDING]` → `[DONE <YYYY-MM-DD>]`.
+
+---
+
 ## [PENDING] 2026-06-04 — Top-30 location step PORTED to the app (Onboarding Blueprint §3.0 / App_Build_Status)
 
 **Why:** The search-box + Top-30-wedding-spots location step (Onboarding_Blueprint §3.0 · reworked 2026-06-04 · prototyped in `Onboarding_Wedding_Flow_2026-06-01.html`) was spec'd + prototyped + had its 30 photos + PSGC dataset generated, but was **never built into the app** — onboarding still ran the single-select region picker. It is now **LIVE** (replaces the picker; couple picks up to 2 areas; commit stamps `events.venue_latitude/longitude`; region derived from the primary pick).

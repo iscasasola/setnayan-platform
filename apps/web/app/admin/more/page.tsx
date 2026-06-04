@@ -23,6 +23,7 @@ import {
   Activity,
   WifiOff,
   BarChart3,
+  LineChart,
   Settings,
 } from 'lucide-react';
 import { MobileLandingGrid, type LandingItem } from '../_components/mobile-landing-grid';
@@ -96,7 +97,15 @@ const MORE_ITEMS: LandingItem[] = [
     description:
       'Offline sync queue and conflict resolution. Forward-reference — ships with the next refresh.',
   },
-  // Funnels group
+  // Insights group
+  {
+    key: 'growth',
+    label: 'Growth',
+    href: '/admin/growth',
+    icon: LineChart,
+    description:
+      'Population now + growth over time for vendors, services, events, customers, and guests — plus guest→account conversion.',
+  },
   {
     key: 'funnels',
     label: 'Funnels',

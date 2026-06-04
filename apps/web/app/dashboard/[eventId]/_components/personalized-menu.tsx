@@ -5,6 +5,12 @@ import type { ServiceFeature, WeddingDetailRow } from '@/lib/personalized-menu';
 /**
  * PersonalizedMenu — the couple's match-criteria surface.
  *
+ * STATUS 2026-06-04: currently unrendered. Home moved to the cockpit layout
+ * and /for-you was retired, so this card has no call site; the live criteria
+ * surface is the compact match-criteria-strip.tsx on the Vendors/Services tab.
+ * This file is kept for the exported `TasteChip` type (still consumed by the
+ * strip + lib/personalized-menu) — pending dead-code removal.
+ *
  * WHAT IT IS (owner correction 2026-06-02): the CURATED INFORMATION the
  * couple gave at onboarding/event-creation that Setnayan uses to FILTER +
  * SORT their vendor search — date · region · ceremony (→ faith + dietary) ·

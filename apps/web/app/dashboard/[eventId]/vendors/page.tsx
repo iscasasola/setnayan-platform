@@ -34,6 +34,9 @@ import { canonicalServicesForFolder } from '@/lib/vendor-counts';
 import type { WeddingFolder } from '@/lib/taxonomy';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { PlanBudgetAccordion } from './_components/plan-budget-accordion';
+import { MatchCriteriaStrip } from '../_components/match-criteria-strip';
+import { buildTasteChips } from '@/lib/personalized-menu';
+import { formatEventDateWithPrecision, type EventDatePrecision } from '@/lib/events';
 
 export const metadata = { title: 'Vendors' };
 
@@ -46,11 +49,21 @@ type Props = {
 
 type EventBudgetRow = {
   event_date: string | null;
+  event_date_precision: string | null;
   estimated_budget_centavos: number | null;
   venue_latitude: number | null;
   venue_longitude: number | null;
   ceremony_type: string | null;
+  secondary_ceremony_type: string | null;
   venue_setting: string | null;
+  // Match-criteria columns for the "Matching you on" strip (buildTasteChips).
+  region: string | null;
+  estimated_pax: number | null;
+  mood_feel_key: string | null;
+  date_mode: string | null;
+  date_candidates: string[] | null;
+  date_window_start: string | null;
+  date_window_end: string | null;
 };
 
 export default async function VendorsPage({ params }: Props) {
@@ -69,7 +82,7 @@ export default async function VendorsPage({ params }: Props) {
     supabase
       .from('events')
       .select(
-        'event_date, estimated_budget_centavos, venue_latitude, venue_longitude, ceremony_type, venue_setting',
+        'event_date, event_date_precision, estimated_budget_centavos, venue_latitude, venue_longitude, ceremony_type, secondary_ceremony_type, venue_setting, region, estimated_pax, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end',
       )
       .eq('id', eventId)
       .maybeSingle(),
@@ -324,11 +337,29 @@ export default async function VendorsPage({ params }: Props) {
     marketPoolCount,
   });
 
+  // "Matching you on" strip (owner 2026-06-04) — the couple's curated match
+  // criteria (date · region · ceremony · venue · guests · style · budget) shown
+  // where they browse services, with "Refine" → the editable Personalization
+  // page (/details). Same buildTasteChips source the retired home/for-you block
+  // used: the committed date wins, else the onboarding candidate/window capture
+  // (handled inside buildTasteChips). Chips render only for present criteria.
+  const matchPrecision =
+    (ev?.event_date_precision as EventDatePrecision | null | undefined) ?? 'day';
+  const matchFormattedDate = ev?.event_date
+    ? formatEventDateWithPrecision(ev.event_date, matchPrecision)
+    : null;
+  const matchChips = ev ? buildTasteChips(ev, matchFormattedDate) : [];
+
   // In-app Setnayan services now nest INSIDE the accordion's category rails
   // (✦ Setnayan cards, float-to-top) + a Design › Digital Services rail + a
   // "Tools & extras" strip — the standalone InAppServicesSection launcher grid
   // was retired (Digital_Services_Cross_Surface_Map_2026-06-03.md §2).
-  return <PlanBudgetAccordion model={model} eventId={eventId} />;
+  return (
+    <div className="space-y-4">
+      <MatchCriteriaStrip eventId={eventId} chips={matchChips} />
+      <PlanBudgetAccordion model={model} eventId={eventId} />
+    </div>
+  );
 }
 
 /**

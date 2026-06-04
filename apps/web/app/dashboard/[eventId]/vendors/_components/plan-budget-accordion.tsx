@@ -39,6 +39,7 @@ import Link from 'next/link';
 
 import { formatPhp } from '@/lib/vendors';
 import { formatDistanceKm } from '@/lib/distance';
+import { computeCompatScore } from '@/lib/compat-score';
 import { deleteVendor } from '../actions';
 import { haptic } from '@/lib/haptics';
 import { CategorySearchOverlay } from './category-search-overlay';
@@ -309,6 +310,10 @@ const PBA_CSS = `
 .pbacc .bdg.verified{color:#2e7d4f;background:rgba(46,125,79,.1)}
 .pbacc .bdg.setnayan{color:var(--mulberry);background:rgba(92,37,66,.1)}
 .pbacc .bdg.rec{color:var(--gold-deep);background:rgba(197,160,89,.16)}
+.pbacc .bdg.match{font-weight:700}
+.pbacc .bdg.match.strong{color:#2e7d4f;background:rgba(46,125,79,.16)}
+.pbacc .bdg.match.good{color:var(--gold-deep);background:rgba(197,160,89,.2)}
+.pbacc .bdg.match.fair{color:var(--ink-soft);background:rgba(30,34,41,.08)}
 .pbacc .v .price{font-family:var(--serif);font-style:italic;font-weight:600;font-size:21px;color:var(--ink);margin-top:auto;padding-top:7px}
 .pbacc .v .linked{margin-top:auto;padding-top:9px;font-family:var(--mono);font-size:10px;letter-spacing:.03em;color:var(--mulberry);font-weight:500;line-height:1.4}
 /* "👀 N also eyeing your date" — an interest/in-demand cue, NOT an error. Gentle
@@ -1236,6 +1241,22 @@ function VendorCardAtom({
       : (pick.marketplace_city ?? null);
   const verified = pick.is_verified === true;
   const setnayan = pick.is_setnayan_service === true;
+
+  // Per-candidate compatibility % (Architecture §2 · GATE+SCORE). Shown only
+  // for marketplace candidates — off-platform/manual picks carry no signal,
+  // and 1st-party Setnayan services are supplementary (never ranked against the
+  // market). The scorer admits-unknown: distance + reviews + verification drive
+  // it today; refinement + date-headroom sit at a neutral baseline until 0044
+  // per-service detail data lands, then the spread sharpens on its own.
+  const match =
+    pick.marketplace_business_name && !setnayan
+      ? computeCompatScore({
+          distanceKm,
+          avgRating: rating,
+          reviewCount,
+          verified,
+        })
+      : null;
   const recommendedReason =
     typeof pick.recommended_reason === 'string' && pick.recommended_reason
       ? pick.recommended_reason
@@ -1286,8 +1307,16 @@ function VendorCardAtom({
             </div>
           )}
 
-          {(verified || setnayan || recommendedReason) && (
+          {(match || verified || setnayan || recommendedReason) && (
             <div className="badges">
+              {match && (
+                <span
+                  className={`bdg match ${match.tier}`}
+                  title="How well this candidate fits your event — based on distance, reviews, and verification. Sharpens as vendors fill in their service details."
+                >
+                  {match.score}% match
+                </span>
+              )}
               {verified && <span className="bdg verified">Verified</span>}
               {setnayan && <span className="bdg setnayan">Setnayan</span>}
               {recommendedReason && (
@@ -1593,6 +1622,16 @@ function CompareSheet({
     if (typeof pick.recommended_reason === 'string' && pick.recommended_reason) {
       badges.push(pick.recommended_reason);
     }
+    // Same per-candidate compatibility % the cards show (Architecture §2).
+    const match =
+      pick.marketplace_business_name && pick.is_setnayan_service !== true
+        ? computeCompatScore({
+            distanceKm,
+            avgRating: rating,
+            reviewCount,
+            verified: pick.is_verified === true,
+          })
+        : null;
     return {
       id: pick.vendor_id,
       name,
@@ -1601,6 +1640,7 @@ function CompareSheet({
       rating,
       reviewCount,
       dist,
+      match,
       badges: badges.length ? badges.join(' · ') : '—',
     };
   });
@@ -1613,6 +1653,10 @@ function CompareSheet({
     .map((v) => v.rating)
     .filter((n): n is number => n !== null);
   const maxRating = ratings.length ? Math.max(...ratings) : null;
+  const matchScores = vendors
+    .map((v) => v.match?.score ?? null)
+    .filter((n): n is number => n !== null);
+  const maxMatch = matchScores.length ? Math.max(...matchScores) : null;
 
   return (
     <div
@@ -1644,6 +1688,19 @@ function CompareSheet({
                 <th>Vendor</th>
                 {vendors.map((v) => (
                   <td key={v.id}>{v.name}</td>
+                ))}
+              </tr>
+              <tr>
+                <th>Match</th>
+                {vendors.map((v) => (
+                  <td key={v.id}>
+                    {v.match !== null ? `${v.match.score}%` : '—'}
+                    {v.match !== null &&
+                      v.match.score === maxMatch &&
+                      matchScores.length > 1 && (
+                        <span className="cmpwin">Best match</span>
+                      )}
+                  </td>
                 ))}
               </tr>
               <tr className="cmprow-price">

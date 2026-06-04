@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · perf(nav): loading shells for the auth + onboarding entry points
+
+**Context:** Continuing the "every gap shows a loading screen, never blank" pass. PR #892 covered 155 dashboard + guest-facing routes; the guest landing (`/[slug]` · `/v/[slug]` · `/venue/[slug]`), receipts and vendor-claim were already covered. The remaining cold-load gaps were the **auth + onboarding entry points**, which had no `loading.tsx`.
+
+**What changed (apps/web):**
+- **`app/login/loading.tsx` + `app/signup/loading.tsx`** — auth-card skeletons mirroring the centered `.m-login-card` / `.m-signup-card` layout (brand panel + form), so sign-in / create-account never flash blank on a cold load.
+- **`app/onboarding/wedding/loading.tsx`** — a neutral full-screen phone-frame placeholder for the FIRST server render of the onboarding wizard (navigation between onboarding screens stays instant/preloaded per the golden rules).
+
+**Deliberately NOT added — a root `app/loading.tsx` global fallback.** A root loading boundary makes Next.js generate a *static shell* for every route at build time, which executes top-level page code during prerender. `/admin/taxonomy` (and potentially other admin pages) fetch live DB data at the top without `force-dynamic`, so shell generation ran those fetches and **failed the build** (proven: clean `main` builds 117/117; adding the root fallback fails at `/admin/taxonomy`). A safe global catch-all needs those build-time-fetching pages marked `force-dynamic` first — deferred as a separate cleanup. The proven pattern is per-route loaders (this PR + #892).
+
+**Verification:** `tsc --noEmit` ✓ · `next lint` clean ✓ · `next build` ✓ (117/117 static pages). Shipped from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** None — perceived-performance / UX only.
+
+
 ## 2026-06-04 · fix(0021): vendor-pick "Add to your plan" overlay — portal to <body> (kills .pbacc CSS bleed)
 
 **Context:** Owner screenshot — the category-search picker ("Add to your plan → Reception venue") cards were distorted: the **VERIFIED badge ballooned into a giant cream stadium pill** and the vendor name centered. Surfaced once the demo-vendor marketplace was populated (most demo vendors are verified, so the badge renders).

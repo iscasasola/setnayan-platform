@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(0022): vendor admins see everything — owner+admin RLS on the vendor's owner-only tables
+
+**Context:** Owner — *"the main account holders of the vendor page can see everything"* (agents see only their assigned services + customers). Phase 2b (#972) made the CORE surfaces role-aware (profile / services / chat). This fast-follow closes the tail: a set of the vendor's OWN tables still gated vendor access on a direct owner-only check — or on the PLATFORM `is_admin()` / `account_type='admin'` (Setnayan staff, **not** the vendor's own team-admin) — so a vendor-team ADMIN couldn't see the business's packages, contracts, calendar, payouts, ad subscriptions, tax filings, or token vouchers.
+
+**What changed** (`supabase/migrations/20260822000000_vendor_admin_table_access.sql`, **applied to prod**):
+- One ADDITIVE owner+admin RLS policy (`<table>_team_admin`) on **12** owner-only vendor tables, keyed on `current_vendor_profile_ids()` (= direct owner UNION owner/admin team members). **FOR ALL** where the owner had read/write (`vendor_packages` · `vendor_contracts` · `vendor_calendar_blocks` · `vendor_service_attributes` · `vendor_payment_methods`); **FOR SELECT** where the owner had read-only (`vendor_payouts` · `vendor_ad_subscriptions` · `vendor_2307_filings` · `manpower_gigs` · `supplier_vendor_skus` · `vendor_disputes` · `earned_token_vouchers` [vendor_id-keyed]).
+- Existing owner policies LEFT UNTOUCHED — Postgres OR's permissive policies, so this only GRANTS (never revokes). The owner is inside `current_vendor_profile_ids()` → provably un-regressed; agents / viewers / strangers match no clause → stay locked out. The vendor's OWN data, shared with the vendor's OWN chosen admin (no cross-tenant exposure).
+
+**Verify:** rolled-back impersonation txn (applied the migration + seeded a team admin/agent): **12/12 policies valid · owner unregressed (sees) · admin GAINED parity (sees) · agent stays scoped out (0) · stranger locked out (0)**. Applied to prod via **monogram-isolation** — the unapplied out-of-order `20260817` monogram migration left exactly as-is (owner's to deploy; drift unchanged). RLS-only, **no app code** (#972 already routes admins to their vendor via membership-aware `fetchOwnVendorProfile`).
+
+**Out of scope (flagged for owner):** `vendor_active_ads` · `vendor_active_tools` · `vendor_market_stats` · `vendor_self_comp_caps` have RLS enabled but ZERO policies (service-role-only; even the owner can't read them via the authed client) — a separate pre-existing condition, not a team-admin gap.
+
+**SPEC IMPACT:** 0022 — vendor-team admins reach owner parity across the vendor's owner-only tables (completes "main account holders see everything"). Landing direct in corpus (DECISION_LOG + 0022 .md).
+
+---
 ## 2026-06-05 · assets(onboarding): unify all 8 religious ceremony-tradition hero photos to one inspirational angle
 
 **Context:** Owner gave a reference shot (wide-angle cathedral, couple centered and intimate at the altar, the venue's grandeur filling the frame, bright + awe-inspiring but the couple still reads as real people) and asked for "the angles for all religious ceremony tradition … relatable but inspirational on how a beautiful wedding is." Goal: one cohesive art direction across the whole faith picker, each tradition in its own authentic grand venue. This supersedes the 2026-06-05 dark-smoke Catholic + gold-ballroom Chinese so the set is consistent.

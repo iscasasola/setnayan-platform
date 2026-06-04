@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · fix(0021): vendor-pick badge collision — rename `.v`/`.b` so `.pbacc .v` can't match (real fix)
+
+**Context:** The earlier portal fix (#908) did NOT resolve the distorted picker — the VERIFIED badge still ballooned into a giant cream stadium (VERIFIED top-center, column layout, ~300px tall — the exact `.pbacc .v` signature). The portal *should* have escaped `.pbacc` (it's a normal div, not `<body>`), so the live failure is most likely stale PWA/tab JS — but the portal was a fragile, structural-only fix.
+
+**Real, source-level fix (`category-search-overlay.tsx`):** the overlay's verified/featured badges were `className="badge v"` / `"badge b"`. The plan-budget-accordion's vendor-CARD rule `.pbacc .v { flex:1 1 auto; min-height:300px; flex-direction:column }` matched the badge purely because of the **`v` class**. Renamed the badge modifiers `v → vrf` and `b → bst` (CSS + JSX) so `.pbacc .v` can **never** match the badge — independent of DOM nesting, the portal, or specificity. Also hardened `.csov .r .badge` with `flex:0 0 auto; align-self:center; min-height:0; white-space:nowrap` so no rule can ever balloon a badge again. The portal (#908) stays as defense-in-depth.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean · no stray `badge v`/`badge b` left · no schema/SKU change. Built from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** None — rendering bugfix.
+
 ## 2026-06-04 · feat(0023/0044): DB-backed taxonomy — marketplace bucketing (Phase 2b·1)
 
 **Context:** Phase 2b flips the live `/vendors` marketplace onto the DB read-through (Phase 2a's `getTaxonomy()`). This first slice flips the **bucketing** — which canonical_services belong to a tile/folder — the surface an admin changes by re-mapping a vendor's category.

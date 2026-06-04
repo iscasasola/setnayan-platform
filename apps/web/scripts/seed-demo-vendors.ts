@@ -1933,11 +1933,17 @@ export async function seedCategory(
       hq_longitude: Number((city.lng + jitterLng).toFixed(7)),
       is_published: true,
       public_visibility: 'verified',
-      logo_url: `https://picsum.photos/seed/setnayan-demo-${coarse}-${batchId.slice(0, 8)}-${i}/800/600`,
+      // Placeholders pull from a SMALL, batch-stable pool of Picsum seeds
+      // (~40 logos + ~60 photos reused across the whole marketplace) rather
+      // than a unique image per vendor. The old per-vendor seeds meant ~4,900
+      // unique 800×600 requests, which made Picsum rate-limit the IP so the
+      // images failed to load. A bounded pool lets the browser cache them, and
+      // the sizes are display-appropriate (logo tile / portfolio gallery).
+      logo_url: `https://picsum.photos/seed/snl${i % 40}/400/300`,
       portfolio_r2_keys: Array.from(
         { length: 4 + (i % 3) },
         (_v, j) =>
-          `https://picsum.photos/seed/setnayan-demo-${coarse}-${batchId.slice(0, 8)}-${i}-p${j}/1200/800`,
+          `https://picsum.photos/seed/snp${(i * 4 + j) % 60}/600/400`,
       ),
       compatible_ceremony_types: ['catholic', 'civil', 'christian'],
       compatible_venue_settings: ['banquet_hall', 'garden', 'heritage'],

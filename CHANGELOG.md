@@ -21,6 +21,36 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** Onboarding now scopes vendors by **region + event-type** (was: ceremony + venue only). The deeper per-leaf **refinement** model (venue type / capacity / …), the `venue_setting` ↔ `venue_directory.venue_type` reconciliation, and the formal **Hybrid leaf-match contract** are specced as a `[PENDING]` item in `COWORK_INBOX.md` → `0044_per_category_schemas`.
 
+## 2026-06-04 · feat(0023): /admin/taxonomy editor — rename nodes + re-map canonicals (Phase 3 MVP)
+
+**Context:** Phases 1–2b·1 built the DB-backed taxonomy + read-through. This adds the **editor** — the admin-facing payoff of the ♾️ "Admin Finalize = permanent live publish" lock — so an admin can reshape the taxonomy and see it live with no deploy.
+
+**What changed:**
+- **`app/admin/taxonomy/actions.ts`** — `requireAdmin()` (role re-check) + two service-role, audit-logged actions: `renameTaxonomyNode` (rename a parent/tile in `service_categories`) and `remapCanonical` (move a `canonical_service` to a different tile + parent in `canonical_service_taxonomy`). Each writes `admin_audit_log` (action · before/after · actor) and `revalidatePath('/admin/taxonomy'` + `'/vendors')`.
+- **`app/admin/taxonomy/page.tsx`** — a **live rename tree** (every parent + tile inline-editable), a **re-map select** on each canonical row, a success/error banner (`?ok`/`?error`), and `force-dynamic` (the page does top-level DB reads — keeps a future root `loading.tsx` from pulling it into build-time static gen).
+
+**The loop, closed:** rename a tile → `getTaxonomy()` reflects it; re-map a canonical → `getCanonicalBuckets()` re-buckets the `/vendors` marketplace — both live, no deploy.
+
+**MVP scope:** rename + re-map (the two highest-value ops, both already wired to the read-through). The full §3.15 vision — drag-to-move, add/delete, leaf↔branch, the §3.2c request-review ghost cards, two-admin gating — is staged (Phase 3b).
+
+**Verification:** `tsc --noEmit` 0 errors · `next lint` clean · full PR CI green on #913 (production build, typecheck+lint).
+
+**SPEC IMPACT:** None — implements (a subset of) the locked 0023 §3.15 editor.
+
+---
+
+## 2026-06-04 · fix(demo): seed images from a small batch-stable Picsum pool (so demo photos actually load)
+
+**Context:** "Why are there no photos?" The demo seed gave every vendor a **unique** `picsum.photos/seed/…-${i}/800/600` logo (+ unique 1200×800 portfolio shots). At ~4,900 vendors that's thousands of distinct large image requests from one IP → Picsum rate-limits → images fail (and fall back to initials per #912). So no photos.
+
+**Fix (`scripts/seed-demo-vendors.ts`):** placeholders now pull from a small, batch-stable pool — `snl${i % 40}` (≈40 logos) at **400×300** and `snp${(i*4+j) % 60}` (≈60 photos) at **600×400**, reused across the whole marketplace instead of one unique image per vendor. The browser caches ~100 images total (vs ~4,900 unique) and Picsum stops throttling, so photos load. Sizes are display-appropriate (64px logo tile / portfolio gallery), not 800×600. Repeats across vendors are acceptable for demo data (owner-confirmed earlier).
+
+**Owner action:** tap **Create demo vendors** once more to re-seed with the pooled image URLs (existing vendors keep the old per-vendor URLs until re-created).
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean · demo-only, no schema/SKU change. Isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** None — demo-data tooling.
+
 ## 2026-06-04 · fix(0021): vendor-pick logos fall back to initials on load error (picsum rate-limit)
 
 **Context:** With the badge collision fixed (#911), the picker cards revealed a second issue — logos render as broken-image icons. The demo seed sets `logo_url` to `picsum.photos/seed/…/800/600` (+ 1200×800 portfolio); ~4,900 vendors × big images hammers picsum, which rate-limits, so the plain `<img>` fails. (The overlay uses a raw `<img>`, not next/image, so the `next.config` allow-list doesn't help it.)

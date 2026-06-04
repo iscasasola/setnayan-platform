@@ -21,6 +21,28 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** The "Where your day stands" overview (surface §2) gains an action-first banner + persistent loop legend; "What to lock next" → "Also coming up" (now the `dueList` remainder); new first-run coachmark + point-of-action Lock helper teach the loop in the rails; CTA copy updated. → `Vendors_Plan_Budget_Tab_Spec_2026-05-31.md` §2. Logged in `COWORK_INBOX.md`.
 
+## 2026-06-04 · assets(onboarding): premium 2D monogram frames (11, transparent gold)
+
+**Context:** Owner — *"update the Monogram Frames … We want 2D Premium wedding frame designs."*
+
+**What changed:** Regenerated all 11 monogram frames (`public/onboarding/mono/{wreath,crest,square,oval,laurel,botanical,ribbon,flourish,art_deco,baroque,deco_diamond}.webp`) via Recraft as **premium 2D gold frames** — delicate gold linework, **transparent background**, **empty center** for the couple's monogram letters. Generated with `digital_illustration` + `transparent_background` (real alpha); prompts strip "wedding/couple" words so Recraft doesn't fill the center with figures. 512×512 transparent WebP. Same keys → asset swap only.
+
+**Verification:** Asset swap (same filenames/`data-frame` keys) — no code change. QC'd on a contact sheet.
+
+**SPEC IMPACT:** None (monogram frame asset refresh).
+
+## 2026-06-04 · assets(onboarding): real Filipino faith ceremony photos (8 traditions)
+
+**Context:** Owner — the ceremony/tradition photos should show **actual Filipino couples mid-ceremony with guests**, ethnicity-tuned per religion.
+
+**What changed:** Regenerated all 8 faith hero photos (`public/onboarding/wed_{catholic,christian,inc,muslim,cultural,chinese,jewish,bornagain}.webp`) via Recraft — authentic Filipino couples performing their tradition's ceremony with guests:
+- **Catholic** (church altar + priest) · **Christian** (garden floral arch) · **Born Again** (modern evangelical stage + worship band) · **INC** (clean modern worship hall, **no cross/crucifix or icons** — the INC distinctive) · **Muslim** (Maranao traditional attire + canopy) · **Cultural** (Igorot/Cordillera) · **Chinese** (red/gold tea ceremony, subtle East-Asian features) · **Jewish** (chuppah + kippah/tallit).
+- Ethnicity-tuned per the owner's note. Downscaled to 760×950 WebP (~545 KB total).
+
+**Verification:** Asset swap only — same filenames/keys, no code change.
+
+**SPEC IMPACT:** None (asset refresh; FAITH_PHOTO keys unchanged).
+
 ## 2026-06-04 · feat(0023/0022): vendor "request a category" governance (taxonomy Phase 4)
 
 **Context:** The last gap in the DB-backed-taxonomy initiative — letting a vendor REQUEST a category they can't find and an admin resolve it. Closes 0023 §3.2c (the "there's always a place for what you do" promise — no "Other" bucket).

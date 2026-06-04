@@ -26,6 +26,10 @@ type Props = {
   totalCount: number;
   batchId?: string;
   compact?: boolean;
+  /** True when the admin's session has demo mode on (computed server-side by
+   *  the page). Sent to the seed API so prod Create works without depending on
+   *  the httpOnly cookie surviving the fetch. */
+  demoMode?: boolean;
 };
 
 type ResultState =
@@ -41,7 +45,7 @@ type CreateState =
   | { kind: 'done'; vendors: number }
   | { kind: 'error'; message: string };
 
-export function DemoVendorActions({ totalCount, batchId, compact }: Props) {
+export function DemoVendorActions({ totalCount, batchId, compact, demoMode }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<ResultState>({ kind: 'idle' });
@@ -117,7 +121,7 @@ export function DemoVendorActions({ totalCount, batchId, compact }: Props) {
     const res = await fetch('/api/admin/demo/seed', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, demoMode: demoMode === true }),
     });
     const body = await res.json();
     if (!res.ok) throw new Error(body?.error ?? `HTTP ${res.status}`);

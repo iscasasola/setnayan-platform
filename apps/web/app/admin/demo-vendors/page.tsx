@@ -30,6 +30,9 @@
 import Link from 'next/link';
 import { Database, Trash2, RotateCcw, MapPin, ExternalLink, AlertTriangle, MessageSquare } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { cookies } from 'next/headers';
+import { createClient } from '@/lib/supabase/server';
+import { DEMO_MODE_COOKIE_NAME, isAdminProfile } from '@/lib/demo-mode';
 import { TAXONOMY_MAP, WEDDING_FOLDER_LABEL, WEDDING_FOLDER_ORDER, type WeddingFolder } from '@/lib/taxonomy';
 import { DemoVendorActions } from './_components/demo-vendor-actions';
 
@@ -64,8 +67,29 @@ function shortBatchId(uuid: string): string {
   return uuid.slice(0, 8);
 }
 
+// Mirrors <DemoModeBanner>: demo mode is on when the admin's session carries
+// the cookie. Computed server-side so the Create button can pass it to the
+// seed API explicitly (robust against the httpOnly cookie not surviving the
+// client fetch — the actual reason a prod Create could 403 with demo mode on).
+async function isAdminDemoModeOn(): Promise<boolean> {
+  const cookieStore = await cookies();
+  if (cookieStore.get(DEMO_MODE_COOKIE_NAME)?.value !== '1') return false;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return false;
+  const { data: profile } = await supabase
+    .from('users')
+    .select('account_type, is_internal, is_team_member')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  return isAdminProfile(profile);
+}
+
 export default async function DemoVendorsAdminPage() {
   const admin = createAdminClient();
+  const demoMode = await isAdminDemoModeOn();
 
   // Aggregate counts — full table scan over is_demo=TRUE rows. The partial
   // index on vendor_profiles_is_demo_idx makes this cheap.
@@ -261,10 +285,12 @@ export default async function DemoVendorsAdminPage() {
           </Link>
         </div>
         <p className="mt-2 text-xs text-ink/55">
-          Note: Agent 2 (the demo-mode flag) ships in PR 2 of this workstream.
-          Until that PR lands, demo vendors may appear in public browse
-          regardless of the URL flag — that&apos;s why staging/dev are the only
-          environments running the seed.
+          Demo vendors are hidden from real visitors — they surface in browse
+          only while demo mode is on (open any page with{' '}
+          <code className="rounded bg-ink/5 px-1">?demo=1</code>).{' '}
+          {demoMode
+            ? 'Demo mode is on for your session, so Create works here.'
+            : 'Turn demo mode on before using Create on production.'}
         </p>
       </section>
 
@@ -272,7 +298,7 @@ export default async function DemoVendorsAdminPage() {
       <section className="mb-8">
         <h2 className="mb-3 text-lg font-semibold">Actions</h2>
         <div className="rounded-xl border border-ink/10 bg-cream p-4">
-          <DemoVendorActions totalCount={totalDemoVendors} />
+          <DemoVendorActions totalCount={totalDemoVendors} demoMode={demoMode} />
           <div className="mt-4 rounded-md bg-ink/5 p-3 font-mono text-[12px] text-ink/75">
             <p className="mb-1 text-ink/55">Seed a fresh batch from terminal:</p>
             <p>

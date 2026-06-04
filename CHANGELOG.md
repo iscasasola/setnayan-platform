@@ -19,6 +19,18 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** New feature (V1-scope expansion, owner-approved "full send" 2026-06-04). Landed **directly in the corpus** (owner authorized direct corpus edits 2026-06-04, superseding COWORK_INBOX): `vendor_payment_methods` schema + the two locked sub-rules → **0034** · vendor surface → **0022** · Payment Options tab → **0025** · couple settlement rail → **0007** · admin moderation → **0023**; `DECISION_LOG.md` rows added. Fast-follow (deferred): wire the per-vendor **workspace** page as a second settlement mount point; real server-side QR image decode (V1 stores the vendor-declared destination, admin-verified). **Migration-history note:** this migration was applied to prod while prod was briefly ahead of `origin/main` by `20260816000000` (vendor_service_agents, applied before its PR merged) — that transiently blocked `supabase db push`; `20260816000000` has since merged to main and the merge into this branch picks it up, so it is resolved.
 
+## 2026-06-04 · fix(dashboard/home): countdown targets the earliest chosen date until settled (0021)
+
+**Context:** Owner — *"countdown is the earliest wedding date chosen until it is down to 1 wedding date."* The cockpit countdown (PR #968) only used the committed `event_date`, so couples still in candidate/window mode (onboarding events with `date_candidates[]` or a flexible `date_window`, before a single date is committed) saw "add your date" instead of a live countdown.
+
+**What changed** (`apps/web/app/dashboard/[eventId]/`):
+- `_components/event-countdown-header.tsx` resolves the countdown target as **`event_date` → earliest `date_candidates` → `date_window_start`**. ISO `yyyy-mm-dd` candidates sort chronologically, so `[0]` is the earliest. While tentative (no committed date), the number reads "days to earliest" and the right label shows the date state via the existing `formatWeddingDateLabel` ("3 possible dates" / a window range / the single candidate). A past tentative date nudges "Update your date →"; truly no date keeps "Add your date →". Committed date is unchanged ("days to go" + the exact date).
+- `page.tsx` passes `date_mode` / `date_candidates` / `date_window_start` / `date_window_end` (already in the events SELECT) to the header. No new query.
+
+**Verify:** `tsc --noEmit` + `next lint` green. No migration.
+
+**SPEC IMPACT:** Refines the 0021 cockpit countdown semantics (earliest-chosen-date until the couple settles on one). Capture under the existing "couple Home cockpit" COWORK_INBOX item / 0021 + DECISION_LOG — no new worklist item.
+
 ## 2026-06-04 · feat(dashboard/home): couple Home cockpit — countdown + Today's Focus + Needs you (0021 / 0016)
 
 **Context:** Owner — *"fix the first page customers see (the customer dashboard home). Not too much text; updates, guides, and a quick what-to-do-next."* After a side-by-side prototype review, the lean 2026-06-02 home (the "Your wedding details" recap + Upcoming + Activity) is reshaped into a **cockpit** that answers "what now?" in five beats. The text-heavy match-criteria recap leaves Home; it returns at the top of **Services** as an editable "Matching you on" strip (follow-up PR); the full editable record stays at `/details`.

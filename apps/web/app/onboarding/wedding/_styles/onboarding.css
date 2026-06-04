@@ -253,3 +253,16 @@
 
 /* faith (tradition) chips — consistent size: equal width + height (owner 2026-06-04) */
 .onbw #screen-faith .chip{flex:0 0 106px;min-height:46px;padding:10px 6px;justify-content:center;text-align:center;}
+
+/* pax + budget self-describing number boxes (owner 2026-06-04): pax → "N guests", budget → "₱N";
+   "No limit" moves beside the budget box. Replaces the readout / labels / separate ₱ sign. */
+.onbw .numbox{display:flex;align-items:center;gap:6px;background:var(--paper);border:1px solid var(--gold);border-radius:11px;padding:10px 14px;min-height:46px;margin-top:14px;}
+.onbw .numbox:focus-within{border-color:var(--mulberry);}
+.onbw .numbox-input{flex:1 1 auto;min-width:0;border:0;background:transparent;outline:none;font-family:var(--sans);font-size:15px;font-weight:600;color:var(--ink);padding:0;text-align:right;}
+.onbw .numbox-input::placeholder{color:var(--ink-faint);font-weight:500;}
+.onbw .numbox-suffix,.onbw .numbox-prefix{font-family:var(--sans);font-size:14px;font-weight:600;color:var(--ink-soft);flex:0 0 auto;}
+.onbw .numbox--peso .numbox-prefix{font-family:var(--serif);font-size:17px;color:var(--ink);font-weight:600;}
+.onbw .bdg-row{display:flex;align-items:stretch;gap:9px;margin-top:14px;}
+.onbw .bdg-row .numbox{flex:1 1 auto;margin-top:0;}
+.onbw .bdg-row .bdg-nolimit{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;border:1px solid var(--line-2);background:var(--surface);border-radius:11px;padding:0 15px;font-family:var(--sans);font-size:12.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;transition:border-color .15s,color .15s;}
+.onbw .bdg-row .bdg-nolimit:hover{border-color:var(--gold);color:var(--ink);}

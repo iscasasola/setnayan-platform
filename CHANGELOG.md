@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · style(onboarding): welcome → 1 photo · pax + budget self-describing number inputs
+
+**Context:** Owner — the welcome was showing "2 angles" (the depth parallax overlaying a shifted copy); want 1 clean photo. And restructure the pax + budget inputs.
+
+**What changed:**
+- **Welcome → 1 photo.** Removed the WebGL depth-parallax (swapped `WelcomeParallax` → `HeroImg`); the welcome hero is now the clean single photo (cover + Ken-Burns drift). `welcome-parallax.tsx` + `welcome-depth.png` now unused.
+- **Pax input.** Removed the big "N guests" readout + the "Exact count" label; the input is a self-describing box showing the number **+ "guests"/"guest"**.
+- **Budget input.** Removed the "Your budget" label + the separate ₱; the box shows **₱ + the number**; **"No limit"** moved out of the min/max row to sit **beside the budget box** (tighter row).
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean.
+
+**SPEC IMPACT:** None (onboarding pax/budget input layout + welcome photo).
+
 ## 2026-06-04 · fix(onboarding): location picks grow-in-place split + equal-size faith chips
 
 **Context:** Owner — the split animation *"just moved in from the right screen"* (the new chip slid in from off-screen), and *"make these [faith] buttons consistent in height and length."*

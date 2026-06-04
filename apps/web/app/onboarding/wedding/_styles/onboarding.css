@@ -199,3 +199,10 @@
 /* slow "camera drifting" Ken-Burns on the hero photo (auto-disabled under prefers-reduced-motion via the global rule) */
 .onbw .phone[data-welcome] .welcomehero img{animation:kenburns 26s ease-in-out infinite alternate;}
 @keyframes kenburns{from{transform:scale(1.03) translate(0,0);}to{transform:scale(1.15) translate(-2.5%,-2%);}}
+
+/* ── 2026-06-04 (owner "animate the background making it have depth"): welcome hero depth-parallax ──
+   A WebGL canvas (depth-driven UV displacement, auto-orbit) overlays a plain <img> fallback. The
+   canvas fades in only once it has genuinely drawn; if WebGL/shaders fail or reduced-motion is set,
+   the <img> stays (the static Ken-Burns hero) — never broken. */
+.onbw .welcome-parallax-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:opacity .5s ease;}
+.onbw .welcome-parallax-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;opacity:0;transition:opacity .6s ease;}

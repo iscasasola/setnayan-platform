@@ -150,7 +150,7 @@ export function LocationStep({
               const c = resolve(k);
               return (
                 <span key={k} className="locchip">
-                  {c?.n ?? k}
+                  <span className="locchip-label">{c?.n ?? k}</span>
                   <button
                     type="button"
                     className="locchip-x"

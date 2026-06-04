@@ -237,3 +237,8 @@
 .onbw #screen-role .chip{width:120px;}
 .onbw #screen-kind .chip{width:106px;}
 .onbw #screen-faith .chip{width:104px;font-size:13.5px;}
+
+/* location picks: equal-size chips that share the row (1 pick = full width · 2 = 50/50, equal height) · owner 2026-06-04 */
+.onbw .locpicks{flex-wrap:nowrap;align-items:stretch;}
+.onbw .locpicks .locchip{flex:1 1 0;min-width:0;justify-content:space-between;gap:6px;}
+.onbw .locchip-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}

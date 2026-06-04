@@ -284,17 +284,17 @@ function Card({
 }) {
   return (
     <div className="flex h-full flex-col gap-3 rounded-2xl border border-ink/10 bg-surface p-4">
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-3">
         <span
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg [&_svg]:h-[18px] [&_svg]:w-[18px] ${
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md [&_svg]:h-5 [&_svg]:w-5 ${
             soon ? 'bg-ink/10 text-ink/40' : 'bg-terracotta/15 text-terracotta'
           }`}
         >
           {icon}
         </span>
-        <span className="text-[14.5px] font-bold leading-tight">
+        <span className="text-base font-semibold leading-tight">
           {title}
-          <small className="mt-0.5 block text-[11px] font-medium text-ink/55">{sub}</small>
+          <small className="mt-0.5 block text-xs font-medium text-ink/55">{sub}</small>
         </span>
       </div>
       {children}
@@ -317,7 +317,7 @@ function CardLink({
   download?: string;
 }) {
   const base =
-    'inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg text-[12.5px] font-semibold transition [&_svg]:h-[15px] [&_svg]:w-[15px]';
+    'inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg py-2 text-sm font-semibold transition [&_svg]:h-4 [&_svg]:w-4';
   const skin = ghost
     ? 'border border-ink/20 text-ink hover:bg-ink/5'
     : 'bg-mulberry text-cream hover:bg-mulberry-600';
@@ -341,17 +341,17 @@ function CardLink({
 }
 
 function Desc({ children }: { children: ReactNode }) {
-  return <p className="text-[12px] leading-relaxed text-ink/55">{children}</p>;
+  return <p className="text-xs leading-relaxed text-ink/55">{children}</p>;
 }
 
 function StatRow({ icon, label, value }: { icon: ReactNode; label: string; value: number }) {
   return (
-    <div className="flex items-center gap-2.5 rounded-lg border border-ink/10 px-3 py-2">
-      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-terracotta/15 text-terracotta [&_svg]:h-4 [&_svg]:w-4">
+    <div className="flex items-center gap-3 rounded-lg border border-ink/10 px-3 py-2">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-terracotta/15 text-terracotta [&_svg]:h-5 [&_svg]:w-5">
         {icon}
       </span>
-      <span className="flex-1 text-[12.5px] font-semibold">{label}</span>
-      <span className="text-[13px] font-bold text-terracotta">{value}</span>
+      <span className="flex-1 text-base font-semibold">{label}</span>
+      <span className="text-base font-bold text-terracotta">{value}</span>
     </div>
   );
 }
@@ -385,10 +385,10 @@ function ProCard({
       <Desc>{desc}</Desc>
       <div className="mt-0.5 flex items-baseline justify-between gap-2">
         <span className="text-xl font-semibold tracking-tight">{price}</span>
-        <span className="text-[11px] text-ink/55">one-time, this event</span>
+        <span className="text-xs text-ink/55">one-time, this event</span>
       </div>
       {owned ? (
-        <p className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-emerald-300/70 bg-emerald-50 text-[12.5px] font-semibold text-emerald-800 [&_svg]:h-4 [&_svg]:w-4 dark:border-emerald-400/40 dark:bg-emerald-500/10 dark:text-emerald-300">
+        <p className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-emerald-300/70 bg-emerald-50 py-2 text-sm font-semibold text-emerald-800 [&_svg]:h-4 [&_svg]:w-4 dark:border-emerald-400/40 dark:bg-emerald-500/10 dark:text-emerald-300">
           <CheckCircle2 aria-hidden /> Active on this event
         </p>
       ) : (
@@ -411,8 +411,8 @@ function settingsCards(p: SiteEditorProps): ReactNode[] {
             <span className="truncate font-mono text-[12px] text-ink/70">{p.slugDisplay}</span>
             {p.publicLandingUrl && <CopyUrl url={p.publicLandingUrl} />}
           </div>
-          <div className="flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400">
-            <CheckCircle2 aria-hidden className="h-3.5 w-3.5" /> Live — this URL is yours.
+          <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+            <CheckCircle2 aria-hidden className="h-4 w-4" /> Live — this URL is yours.
           </div>
           <CardLink href={`/dashboard/${p.eventId}/invitation`} ghost>
             <Pencil aria-hidden /> Manage URL
@@ -476,7 +476,7 @@ function ThemeCard() {
             type="button"
             onClick={() => setMode(o.m)}
             aria-pressed={mode === o.m}
-            className={`flex flex-1 flex-col items-center gap-1 rounded-lg border py-2 text-[12px] font-semibold transition [&_svg]:h-4 [&_svg]:w-4 ${
+            className={`flex min-h-[44px] flex-1 flex-col items-center justify-center gap-1 rounded-lg border py-2 text-sm font-semibold transition [&_svg]:h-5 [&_svg]:w-5 ${
               mode === o.m
                 ? 'border-terracotta bg-terracotta text-cream'
                 : 'border-ink/20 text-ink hover:bg-ink/5'
@@ -687,7 +687,7 @@ function PreviewNoSlug({ eventId }: { eventId: string }) {
       </p>
       <Link
         href={`/dashboard/${eventId}/invitation`}
-        className="inline-flex h-10 items-center gap-2 rounded-lg bg-mulberry px-5 text-[12.5px] font-semibold text-cream transition hover:bg-mulberry-600"
+        className="inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-mulberry px-5 text-sm font-semibold text-cream transition hover:bg-mulberry-600"
       >
         <Pencil aria-hidden className="h-4 w-4" /> Set your URL
       </Link>
@@ -709,7 +709,7 @@ function CopyUrl({ url }: { url: string }) {
           setTimeout(() => setCopied(false), 1600);
         });
       }}
-      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-ink/55 transition hover:bg-ink/5 [&_svg]:h-4 [&_svg]:w-4"
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-ink/55 transition hover:bg-ink/5 [&_svg]:h-5 [&_svg]:w-5"
     >
       {copied ? <Check aria-hidden className="text-emerald-600" /> : <Copy aria-hidden />}
     </button>
@@ -727,7 +727,7 @@ function ShareUrl({ url }: { url: string }) {
           void navigator.clipboard?.writeText(url);
         }
       }}
-      className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-ink/20 text-[12.5px] font-semibold text-ink transition hover:bg-ink/5 [&_svg]:h-[15px] [&_svg]:w-[15px]"
+      className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-ink/20 py-2 text-sm font-semibold text-ink transition hover:bg-ink/5 [&_svg]:h-4 [&_svg]:w-4"
     >
       <Share2 aria-hidden /> Share
     </button>

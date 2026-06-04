@@ -4,6 +4,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · ui(0021,0001): dashboard scale consistency — Guests + Website editor adopt the canonical card metric
+
+**Context:** Owner directive — *"keep our dashboard design consistent and use that kind of height and icon size and font size for guests, websites."* The couple dashboard's canonical card chrome (the `/more` landing cards · `dashboard/[eventId]/_components/customer-mobile-landing.tsx`) is the reference: a 40px (`h-10 w-10`) `rounded-md` leading icon chip, a 20px (`h-5 w-5`) glyph, a `text-base font-semibold` label, `text-xs` sub-text, and `min-h-[44px]` tap targets. The Guests page and the full-screen Website "site-editor" (the **Website** bottom-nav doorway → `/site-editor/[eventId]`) had drifted smaller (`h-9`/`h-7` chips, `h-[18px]`/`h-4` glyphs, `text-[12.5px]`/`text-[14.5px]` labels), so they read as a separate, denser surface.
+
+**What changed:**
+- **`apps/web/app/site-editor/[eventId]/_components/site-editor.tsx`** — Card shell (chip `h-9 rounded-lg`→`h-10 rounded-md`, glyph `h-[18px]`→`h-5`, title `text-[14.5px] font-bold`→`text-base font-semibold`, sub `text-[11px]`→`text-xs`); StatRow (chip `h-7`→`h-10`, glyph `h-4`→`h-5`, label/value→`text-base`); Theme toggle; every CTA / Pro-active-badge / Share button (`h-10`→`min-h-[44px]`, `text-[12.5px]`→`text-sm`); the copy button; the "Live — this URL is yours" line; the empty-state "Set your URL" button.
+- **`apps/web/app/dashboard/[eventId]/guests/page.tsx`** — the Seating cross-link row + the Share-invite disclosure (same chip / glyph / label bumps).
+- **Deliberately unchanged (consistency, not breakage):** the editor's 4-up tab bar + the mobile Guests carousel's bottom menu already match the dashboard's `BottomNav` scale (`h-[22px]` icon · `text-[10px]` label · `min-h-[56px]`) — raising them to the card scale would overflow the 4-up grid. Guest data rows, the RSVP stat tiles, and the editor's empty-state hero icons are data / stat / illustration classes and keep their own scale.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint` clean (both files). Shipped from an isolated worktree off `origin/main`.
+
+**SPEC IMPACT:** None — pure visual alignment to an existing canonical pattern; no SKU, schema, pricing, workflow, or branding change.
+
 ## 2026-06-04 · fix(0000): stop unexpected mobile zoom — native-app viewport hardening
 
 **Context:** Owner report — *"our screen sometimes zooms in unexpectedly and we lose the full-screen native-device feeling … we want it to feel like an app."* Root cause is **iOS Safari focus-zoom**: inputs are `font: inherit` (Tailwind preflight), so any field nested inside a `text-sm` / `text-xs` wrapper renders at 14px and Safari auto-zooms into it on focus and never fully settles back. It reads as "random" because it only fires on the sub-16px fields. The viewport was already correct (`width=device-width, initialScale=1, viewportFit=cover, maximumScale=5`) and `manifest.json` already ships `display: standalone` — so this is a CSS-only hardening, no viewport/manifest change.

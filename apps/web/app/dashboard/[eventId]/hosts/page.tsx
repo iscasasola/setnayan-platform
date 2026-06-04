@@ -81,23 +81,23 @@ export default async function EventHostsPage({ params, searchParams }: Props) {
   if (!isHost) redirect('/dashboard');
 
   const admin = createAdminClient();
-  const { data: eventRow } = await admin
-    .from('events')
-    .select('display_name')
-    .eq('event_id', eventId)
-    .maybeSingle();
+  // Event name + moderator rows both key off eventId and don't depend on each
+  // other — one parallel batch instead of two serial reads (owner perf pass
+  // 2026-06-03). The accepted-host user lookup below stays sequential (it needs
+  // the userIds derived from these rows).
+  const [{ data: eventRow }, { data: rows }] = await Promise.all([
+    admin.from('events').select('display_name').eq('event_id', eventId).maybeSingle(),
+    // All moderator rows (accepted + pending); revoked (removed_at) filtered out.
+    admin
+      .from('event_moderators')
+      .select(
+        'moderator_id, user_id, role_subtype, display_label, invitation_email, invitation_sent_at, invitation_expires_at, accepted_at, invitation_token',
+      )
+      .eq('event_id', eventId)
+      .is('removed_at', null)
+      .order('accepted_at', { ascending: true }),
+  ]);
   const eventName = (eventRow as { display_name: string | null } | null)?.display_name ?? 'Your event';
-
-  // Fetch all moderator rows for this event (accepted + pending). Revoked
-  // rows are filtered out (removed_at not null).
-  const { data: rows } = await admin
-    .from('event_moderators')
-    .select(
-      'moderator_id, user_id, role_subtype, display_label, invitation_email, invitation_sent_at, invitation_expires_at, accepted_at, invitation_token',
-    )
-    .eq('event_id', eventId)
-    .is('removed_at', null)
-    .order('accepted_at', { ascending: true });
 
   const all = (rows ?? []) as ModeratorRow[];
   const accepted = all.filter((r) => r.accepted_at);

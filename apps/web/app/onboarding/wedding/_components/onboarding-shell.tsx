@@ -92,6 +92,8 @@ const FAITH_PHOTO: Record<OnboardingFaith, { img: string; cap: string }> = {
   muslim: { img: 'wed_muslim', cap: 'A Muslim wedding' },
   cultural: { img: 'wed_cultural', cap: 'A traditional Filipino wedding' },
   chinese: { img: 'wed_chinese', cap: 'A Chinese wedding' },
+  jewish: { img: 'wed_jewish', cap: 'A Jewish wedding' },
+  born_again: { img: 'wed_bornagain', cap: 'A Born Again wedding' },
 };
 
 const ROLE_OPTIONS: { value: OnboardingRole; title: string; desc: string }[] = [
@@ -133,6 +135,8 @@ const FAITH_CHIPS: { value: OnboardingFaith; label: string; soon: boolean }[] = 
   { value: 'muslim', label: 'Muslim', soon: false },
   { value: 'cultural', label: 'Cultural', soon: false },
   { value: 'chinese', label: 'Chinese', soon: false },
+  { value: 'jewish', label: 'Jewish', soon: false },
+  { value: 'born_again', label: 'Born Again', soon: false },
 ];
 
 /* ── monogram designs (owner 2026-06-02 — single "Generate another design" cycles
@@ -371,6 +375,8 @@ const WORSHIP_OPT: Partial<Record<OnboardingFaith, [string, string, string]>> = 
   inc: ['⛪', 'Chapel', 'ceremony_church'],
   muslim: ['🕌', 'Mosque', 'ceremony_mosque'],
   chinese: ['🛕', 'Temple', 'ceremony_temple'],
+  jewish: ['🕍', 'Synagogue', 'ceremony_synagogue'],
+  born_again: ['⛪', 'Church', 'ceremony_church'],
   // cultural: indigenous Filipino ceremonies are outdoor / ancestral — no single
   //   house of worship; the universal options below cover them.
 };
@@ -1355,7 +1361,21 @@ function CountUp({ value, prefix = '', suffix = '', active }: { value: number; p
   );
 }
 
-export function OnboardingShell({ authed, resume }: { authed: boolean; resume: boolean }) {
+export function OnboardingShell({
+  authed,
+  resume,
+  activeFaiths = null,
+}: {
+  authed: boolean;
+  resume: boolean;
+  /**
+   * Active wedding religions from wedding_type_launch_status (the per-religion
+   * launch gate, admin-controlled at /admin/wedding-types). When provided, a
+   * faith chip is greyed/non-selectable unless its value is in this list. Null
+   * (read failed) → fall back to the built-in `soon` flags on FAITH_CHIPS.
+   */
+  activeFaiths?: string[] | null;
+}) {
   const router = useRouter();
   const [state, setState] = useState<OnboardingState>(EMPTY_ONBOARDING_STATE);
   const [hydrated, setHydrated] = useState(false);
@@ -2109,17 +2129,23 @@ export function OnboardingShell({ authed, resume }: { authed: boolean; resume: b
                 </div>
               ) : (
                 <div className="chips" {...(faithView.mode === 'religious' ? { 'data-single': '' } : { 'data-max': '2' })}>
-                  {FAITH_CHIPS.map((c) => (
-                    <span
-                      key={c.value}
-                      className={`chip${sel(faith.includes(c.value))}${c.soon ? ' is-soon' : ''}`}
-                      onClick={c.soon ? undefined : () => selectFaith(c.value)}
-                      aria-disabled={c.soon || undefined}
-                    >
-                      {c.label}
-                      {c.soon && <span className="soon">soon</span>}
-                    </span>
-                  ))}
+                  {FAITH_CHIPS.map((c) => {
+                    // Gate on the launch status when we have it (admin
+                    // /admin/wedding-types); fall back to the built-in soon
+                    // flag if the status read was unavailable.
+                    const soon = activeFaiths ? !activeFaiths.includes(c.value) : c.soon;
+                    return (
+                      <span
+                        key={c.value}
+                        className={`chip${sel(faith.includes(c.value))}${soon ? ' is-soon' : ''}`}
+                        onClick={soon ? undefined : () => selectFaith(c.value)}
+                        aria-disabled={soon || undefined}
+                      >
+                        {c.label}
+                        {soon && <span className="soon">soon</span>}
+                      </span>
+                    );
+                  })}
                 </div>
               )}
             </div>

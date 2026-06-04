@@ -67,6 +67,8 @@ const ALLOWED_CEREMONIES = [
   'muslim',
   'cultural',
   'chinese',
+  'jewish',
+  'born_again',
 ] as const;
 const ALLOWED_VENUES = [
   'banquet_hall',
@@ -77,7 +79,7 @@ const ALLOWED_VENUES = [
   'outdoor_tent',
   'civil_registrar',
 ] as const;
-const ALLOWED_SECONDARY = ['catholic', 'civil', 'inc', 'christian', 'muslim', 'cultural', 'chinese'] as const;
+const ALLOWED_SECONDARY = ['catholic', 'civil', 'inc', 'christian', 'muslim', 'cultural', 'chinese', 'jewish', 'born_again'] as const;
 const ALLOWED_MUSLIM_SUB = [
   'maranao',
   'tausug',
@@ -302,7 +304,7 @@ export async function createWeddingEvent(formData: FormData) {
 // plain { ok } object instead of redirecting because the picker calls this
 // from a client component over fetch and uses the result to flip the inline
 // UI between "submitting → sent → error" states without leaving the form.
-const NOTIFY_FAITHS = ['catholic', 'civil', 'inc', 'christian', 'muslim', 'cultural', 'chinese'] as const;
+const NOTIFY_FAITHS = ['catholic', 'civil', 'inc', 'christian', 'muslim', 'cultural', 'chinese', 'jewish', 'born_again'] as const;
 
 export async function notifyWhenWeddingTypeLaunches(
   formData: FormData,

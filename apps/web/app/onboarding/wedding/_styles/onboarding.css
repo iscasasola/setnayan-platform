@@ -62,6 +62,9 @@
 .onbw .chip.sel .soon{color:rgba(30,34,41,.55);}
 .onbw .chip.is-soon{opacity:.5;cursor:not-allowed;}
 .onbw .chip.is-soon .soon{opacity:1;}
+/* ── 2026-06-04: 8-faith lock → fixed 4-col × 2-row grid on the tradition step ── */
+.onbw #screen-faith .chips{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;}
+.onbw #screen-faith .chip{padding:11px 8px;font-size:13px;line-height:1.2;text-align:center;min-height:46px;}
 .onbw .opt.sel{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset;background:var(--gold-wash);}
 .onbw .regopt{color:var(--ink-soft);}
 .onbw .regopt.sel{background:var(--gold);color:var(--ink);border-color:var(--gold);}

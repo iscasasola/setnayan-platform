@@ -4,6 +4,24 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-04 · feat(0023): /admin/taxonomy editor — rename nodes + re-map canonicals (Phase 3 MVP)
+
+**Context:** Phases 1–2b·1 built the DB-backed taxonomy + read-through. This adds the **editor** — the admin-facing payoff of the ♾️ "Admin Finalize = permanent live publish" lock — so an admin can reshape the taxonomy and see it live with no deploy.
+
+**What changed:**
+- **`app/admin/taxonomy/actions.ts`** — `requireAdmin()` (role re-check) + two service-role, audit-logged actions: `renameTaxonomyNode` (rename a parent/tile in `service_categories`) and `remapCanonical` (move a `canonical_service` to a different tile + parent in `canonical_service_taxonomy`). Each writes `admin_audit_log` (action · before/after · actor) and `revalidatePath('/admin/taxonomy'` + `'/vendors')`.
+- **`app/admin/taxonomy/page.tsx`** — a **live rename tree** (every parent + tile inline-editable), a **re-map select** on each canonical row, a success/error banner (`?ok`/`?error`), and `force-dynamic` (the page does top-level DB reads — keeps a future root `loading.tsx` from pulling it into build-time static gen).
+
+**The loop, closed:** rename a tile → `getTaxonomy()` reflects it; re-map a canonical → `getCanonicalBuckets()` re-buckets the `/vendors` marketplace — both live, no deploy.
+
+**MVP scope:** rename + re-map (the two highest-value ops, both already wired to the read-through). The full §3.15 vision — drag-to-move, add/delete, leaf↔branch, the §3.2c request-review ghost cards, two-admin gating — is staged (Phase 3b).
+
+**Verification:** `tsc --noEmit` 0 errors · `next lint` clean · full PR CI green on #913 (production build, typecheck+lint).
+
+**SPEC IMPACT:** None — implements (a subset of) the locked 0023 §3.15 editor.
+
+---
+
 ## 2026-06-04 · fix(demo): seed images from a small batch-stable Picsum pool (so demo photos actually load)
 
 **Context:** "Why are there no photos?" The demo seed gave every vendor a **unique** `picsum.photos/seed/…-${i}/800/600` logo (+ unique 1200×800 portfolio shots). At ~4,900 vendors that's thousands of distinct large image requests from one IP → Picsum rate-limits → images fail (and fall back to initials per #912). So no photos.

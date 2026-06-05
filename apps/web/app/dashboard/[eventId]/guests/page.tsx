@@ -20,7 +20,11 @@ import {
   type GuestStats,
   type RsvpStatus,
 } from '@/lib/guests';
-import { filterByRoleGroup, ROLE_GROUP_LABELS } from '@/lib/role-groups';
+import {
+  filterByRoleGroup,
+  ROLE_GROUP_LABELS,
+  roleImportanceRank,
+} from '@/lib/role-groups';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -36,12 +40,18 @@ import {
 export const metadata = { title: 'Guests' };
 
 const SORT_OPTIONS = [
+  // Importance — owner directive 2026-06-05 ("guest is always arranged based on
+  // their importance in the wedding. Bride will always be #1 then groom. then
+  // everyone else follows depending on their role."). The DEFAULT arrangement;
+  // bride/groom are pinned first under EVERY sort (see sortCompare).
+  { value: 'importance', label: 'Importance' },
   { value: 'last_name', label: 'Last name (A–Z)' },
   { value: 'first_name', label: 'First name (A–Z)' },
-  // Side / Role / Group — owner directive 2026-06-03 ("sort by side, role or
-  // group"), added alongside the existing alphabetical / RSVP / newest sorts.
+  // Side / Group — owner directive 2026-06-03 ("sort by side, role or group").
+  // The old alphabetical-by-enum "role" sort was retired 2026-06-05 in favor of
+  // the importance sort above — that IS what "by role" meaningfully means for a
+  // wedding (a curated hierarchy, not A–Z by enum string).
   { value: 'side', label: 'Side' },
-  { value: 'role', label: 'Role' },
   { value: 'group', label: 'Group' },
   { value: 'rsvp', label: 'RSVP status' },
   { value: 'newest', label: 'Newest first' },
@@ -150,7 +160,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   const teamFilter: 'all' | 'bride' | 'groom' =
     teamRaw === 'bride' || teamRaw === 'groom' ? teamRaw : 'all';
   const tagFilter = (search.tag ?? '').trim();
-  const sort = (search.sort ?? 'last_name') as SortKey;
+  const sort = (search.sort ?? 'importance') as SortKey;
 
   // Custom-group view detection — view param is "group:<group_id>"
   // when the host has clicked a custom group in the sidebar.
@@ -490,12 +500,32 @@ function lastNameThenFirst(a: GuestRow, b: GuestRow): number {
   );
 }
 
+// Bride first, groom second, everyone else after — the couple is the event
+// foundation and is pinned first under EVERY sort (owner 2026-06-05).
+function coupleRank(g: GuestRow): number {
+  return g.role === 'bride' ? 0 : g.role === 'groom' ? 1 : 2;
+}
+
+// A guest's wedding-importance rank = their MOST important role (primary or
+// extra), so a Bridesmaid who's also a Principal Sponsor ranks by the higher
+// of the two. Lower = more important. See ROLE_IMPORTANCE in role-groups.
+function guestImportanceRank(g: GuestRow): number {
+  return Math.min(...[g.role, ...(g.extra_roles ?? [])].map(roleImportanceRank));
+}
+
 function sortCompare(
   a: GuestRow,
   b: GuestRow,
   sort: SortKey,
   groupKey?: Map<string, string>,
 ): number {
+  // Bride/Groom are pinned first under EVERY sort — only when neither row is
+  // the couple does the chosen sort decide order (owner 2026-06-05 "Bride will
+  // always be #1 then groom").
+  const ca = coupleRank(a);
+  const cb = coupleRank(b);
+  if (ca !== cb) return ca - cb;
+
   const rsvpRank: Record<RsvpStatus, number> = {
     attending: 0,
     pending: 1,
@@ -503,6 +533,11 @@ function sortCompare(
     declined: 3,
   };
   switch (sort) {
+    case 'importance':
+      return (
+        guestImportanceRank(a) - guestImportanceRank(b) ||
+        lastNameThenFirst(a, b)
+      );
     case 'first_name':
       return a.first_name.localeCompare(b.first_name);
     case 'side':
@@ -520,8 +555,6 @@ function sortCompare(
     }
     case 'rsvp':
       return rsvpRank[a.rsvp_status] - rsvpRank[b.rsvp_status];
-    case 'role':
-      return a.role.localeCompare(b.role);
     case 'newest':
       return b.created_at.localeCompare(a.created_at);
     case 'last_name':

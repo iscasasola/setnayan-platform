@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(onboarding): Your Plan v2 — à-la-carte in-app services (bundle retired) + 1–5 inquiry stepper
+
+**Context:** Owner punch-list on the shipped Your Plan: drop the one-shot bundle, replace it with a browsable in-app-services flow (carousel + per-service detail + savings → interested summary → Purchase Now), and turn the inquiry opt-in into a 1–5 "inquiries per category" stepper. Mockup-verified at 375px (3 phones) before porting. PR #1021.
+
+**What changed** (`app/onboarding/wedding/` + the shared `unlock-category` action):
+- **Bundle removed** — `MatchedBundle` + all bundle-only constants deleted; `BUNDLE_ITEMS/BUNDLE_BENEFIT/SVC/BUNDLE_ASSET` kept + reused by the new screens.
+- **Two new screens** (flow 15→17; terminal commit moves 14→16): **15 Boost & enhance** (focused service detail — benefit + Setnayan price + *"you save ₱X vs hiring [role]"* — over a swipeable carousel; multi-select → `interestedServices`) and **16 Services you're interested in** (summary + totals + **Purchase Now** + a quiet **continue-free** link).
+- **Purchase Now** commits the event, persists the picks to `events.style_preferences.interested_services`, and routes to the dashboard **Services** tab to pay per service (existing 0034 apply-then-pay — *no new cart, no mid-onboarding charge*). Continue-free drops the picks + lands on Home.
+- **Inquiry opt-in → "Reach my best matches"** + a **1–5 per-category stepper** (default 3). The commit fan-out inquires the **top-N best-fit per picked category** via `unlockCategoryWithInquiry({ count })` — extended with an optional `count` (default 1, so the dashboard unlock-more caller is unchanged); idempotent via `chat_threads UNIQUE`.
+- **Step machine**: `PHASE_SCREENS`/`SCREEN_SEQUENCE`/`NEXT_LABEL`/`CAN_SKIP` extended; screen 16 hides the global CTA + carries its own buttons (like the account gate).
+
+**Verify:** `tsc --noEmit` + `next lint` + `next build` green. **No migration**. Owner-checked on the Vercel preview before merge.
+
+**SPEC IMPACT:** Your Plan back-half — the à-la-carte in-app-services flow replaces the bundle (Blueprint §3.2) + prototype #screen-plan + DECISION_LOG. Flagged follow-up: screen-15 cards use the in-shell `SVC` demo prices (same flag the bundle carried) — production should read live price + build-status from the v2 customer catalog.
+
 ## 2026-06-05 · feat(vendor-payments): server-side QR decode (anti-swap) — fast-follow
 
 **Context:** Fast-follow to the vendor payment-options feature (PR #969). The QR method's "where it sends money" was vendor-declared (typed); now Setnayan **decodes the uploaded QR server-side** so the stored `decoded_destination` is what the image ACTUALLY encodes — the anti-swap guarantee from the locked rule. (The other deferred fast-follow — wiring the per-vendor workspace page as a 2nd couple settlement mount point — was already landed in main, so this PR is just the decode.)

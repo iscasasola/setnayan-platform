@@ -174,6 +174,15 @@ export interface OnboardingState {
   guidanceOptIn: boolean;
   sendTopInquiries: boolean;
 
+  /**
+   * Your Plan v2 (screen 14/16 · owner 2026-06-05). inquiriesPerCategory → how many best-fit
+   * vendors to inquire per picked category when sendTopInquiries is on (1–5 · default 3).
+   * interestedServices → paid in-app service keys the couple selected on screen 15, carried to
+   * screen 16's summary + Purchase Now.
+   */
+  inquiriesPerCategory: number;
+  interestedServices: string[];
+
   /** ISO timestamp of last save — for debugging stale drafts. */
   lastSavedAt: string;
 }
@@ -215,7 +224,7 @@ export interface OnboardingPrefs {
  * (Blueprint §3.1a) — not just the screens shipped this phase — so it doesn't
  * read "complete" at the Phase-1 boundary. Phase 1 renders 4 of these 15.
  */
-export const FLOW_TOTAL = 15;
+export const FLOW_TOTAL = 17;
 
 /** Localstorage key for the in-flight draft. Single namespace per browser. */
 export const ONBOARDING_DRAFT_KEY = 'setnayan_onboarding_wedding_draft_v1';
@@ -270,6 +279,8 @@ export const EMPTY_ONBOARDING_STATE: OnboardingState = {
   shortlist: [],
   guidanceOptIn: true,
   sendTopInquiries: false,
+  inquiriesPerCategory: 3,
+  interestedServices: [],
   lastSavedAt: '',
 };
 
@@ -295,7 +306,9 @@ export const SCREEN_SEQUENCE = [
   'account',  // 11  account-or-skip gate (demo in onboarding; real auth + events-row commit in Phase 5)
   'find',     // 12  find-your-first-vendor demo + BYO-vendor bottom-sheet
   'congrats', // 13  "You did the hard part" — savings counter
-  'plan',     // 14  Your Plan — freebies + the budget-matched bundle
+  'plan',     // 14  Your Plan — free value + the two asks
+  'services', // 15  Boost & enhance — paid in-app services carousel + detail
+  'services_summary', // 16  Services you're interested in + Purchase Now
 ] as const;
 
 export type ScreenId = (typeof SCREEN_SEQUENCE)[number];

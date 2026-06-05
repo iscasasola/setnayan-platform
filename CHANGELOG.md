@@ -4,6 +4,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(budget): Budget Planner UI — couple planner + admin tuning/seeding/insights
+
+**Context:** Owner — *"we want couple and admin pages for this."* The full loop on top of the 2026-06-05 allocation engine + capture table (PR #996): the couple-facing planner that turns the pure engine into a real screen, and the admin surface that fuels + governs it. Design: corpus `Budget_Planner_Allocation_Engine_2026-06-05.md`.
+
+**What changed** (`apps/web/`, `supabase/`):
+- **Migration `20260826000000_budget_planner_config_benchmarks.sql`** (**APPLIED to prod** via monogram-isolation) — `budget_allocation_config` (singleton engine knobs) + `budget_leaf_benchmarks` (the 26 PLAN_GROUPS, seeded with labels + **NULL prices** for the admin to fill — never invented). RLS: admin-all + authenticated-read (non-PII config).
+- **`lib/budget-allocation-data.ts`** (new) — server resolver `resolveAllocationInputs` (event budget/pax + admin benchmarks + config + thin market medians from solo `vendor_services` → engine-ready `LeafInput`s) + `fetchAllocationAggregates` (service-role, **k-anonymity min-N gated, de-identified** — admins never see raw rows).
+- **Couple planner** `app/dashboard/[eventId]/budget/_components/budget-allocation-planner.tsx` (new) + wired into the budget page. Runs the **pure engine client-side** (instant tilt, no round-trips): per-service suggested ₱ + range + share + confidence chip, cushion / over-budget / shortfall, peso-pin tilt sheet (Splurge / Standard / Save dial + free ₱ + reset-to-suggested), Save → snapshot. Guide-never-rule throughout. `budget/allocation-actions.ts` (new) writes the snapshot (couple-own RLS).
+- **Admin** `app/admin/budget-planner/page.tsx` + `actions.ts` (new) — benchmark seeding table, engine-knob form, de-identified insights (min-N gated, empty until data). Nav entry in the Money group (sidebar + mobile landing + bottom-nav).
+
+**Verification:** `tsc --noEmit` clean (full project) · `next lint` clean on all new files. Engine logic 20/20 harness (PR #996). Migration applied to prod via monogram-isolation — the owner's pending `20260817` monogram migration left untouched; `20260824` decisions table already on prod.
+
+**SPEC IMPACT:** Builds the 0007 planner surface + the 0023 admin controls specced 2026-06-05. Corpus 0007/0023 + `DECISION_LOG.md` updated this session (Cowork direct-edit).
+
 ## 2026-06-05 · feat(0022): branch-scoped service grouping (Branches V1.x complete)
 
 **Context:** The second half of the Branches V1.x "yes" — assign each service to a branch so a multi-location Enterprise vendor can organize its catalog per site. (Auto-lapse + Renew + ₱999 shipped in #995.)

@@ -660,3 +660,17 @@
 .onbw .svc-tot-promo{margin-top:3px;}
 .onbw .svc-tot-was{font-size:12px;color:var(--ink-faint);text-decoration:line-through;}
 .onbw .svc-tot-tag{font-family:var(--mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--mulberry);background:var(--paper);border:1px solid var(--gold);border-radius:999px;padding:2px 7px;margin-left:7px;}
+
+/* Step 15 (Boost & enhance) — fill layout (owner 2026-06-05): the big poster stretches
+   to fill the screen, the dpad keeps its natural height, and the carousel + its label
+   snap to the bottom. Mirrors the budget/role/kind photo-fill pattern above. */
+.onbw #screen-services .svc-detail{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;margin-bottom:0;}
+.onbw #screen-services .svc-poster{flex:1 1 auto;height:auto;min-height:128px;}
+.onbw #screen-services .svc-dpad{flex:0 0 auto;}
+
+/* Step 16 (Your picks · terminal) — fit the page (owner 2026-06-05): the grand total
+   stays pinned on top, the picks list is framed and scrolls in between, and the totals
+   + Purchase/continue buttons pin to the bottom (no whole-page scroll). */
+.onbw #screen-services-summary.screen.active{flex:1 1 auto;min-height:0;}
+.onbw .svc-rows-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;margin:0 -2px;padding:2px 2px 0;scrollbar-width:none;}
+.onbw .svc-rows-scroll::-webkit-scrollbar{display:none;}

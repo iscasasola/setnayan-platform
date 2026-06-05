@@ -44,6 +44,7 @@ import '../_styles/onboarding.css';
 import {
   commitOnboardingWedding,
   searchOnboardingReceptionVenues,
+  getOnboardingVendorCounts,
   type OnboardingCommitPayload,
   type OnboardingVenueResult,
 } from '../actions';
@@ -1373,15 +1374,20 @@ export function OnboardingShell({
   const [prefIdx, setPrefIdx] = useState(0);
   /* Phase-4 local UI: BYO bottom-sheet (12) · in-app-services detail focus (15) */
   const [focusedService, setFocusedService] = useState('');
+  /* Step-14 "Reach my best matches" gate: matchAvail = did the AI find best-fit
+     vendors (getOnboardingVendorCounts ≠ null)? null = not yet fetched → card hidden. */
+  const [matchAvail, setMatchAvail] = useState<boolean | null>(null);
+  const [matchTried, setMatchTried] = useState(false);
   const toggleInterested = (key: string) =>
     patch({
       interestedServices: state.interestedServices.includes(key)
         ? state.interestedServices.filter((x) => x !== key)
         : [...state.interestedServices, key],
     });
-  // Your Plan opt-ins (screen 14 · owner 2026-06-05) live in OnboardingState (state.guidanceOptIn
-  // default ON · state.sendTopInquiries default OFF) so they reach buildCommitPayload(s) without a
-  // stale-closure read — toggled via the shared `patch` helper.
+  // Your Plan opt-ins (screen 14) live in OnboardingState so they reach buildCommitPayload(s)
+  // without a stale-closure read. state.guidanceOptIn (default ON) is still a toggle via `patch`.
+  // sendTopInquiries is NO LONGER a toggle (owner 2026-06-05) — it's driven by match availability:
+  // the matchAvail fetch sets it true iff the AI found best-fit vendors (else false → no fan-out).
   /* WAVE 2 (find-vendor, step 12): REAL reception venues, fetched once on entry
      (criteria-based search — the event doesn't exist yet). null = not loaded. */
   const [venues, setVenues] = useState<OnboardingVenueResult[] | null>(null);
@@ -1569,6 +1575,27 @@ export function OnboardingShell({
         setTimeout(() => setVenuesLoading(false), wait);
       });
   }, [step, venues, venuesLoading, state.kind, state.faith, state.prefs.reception, state.region, state.pax, state.dateMode, state.dateCandidates]);
+
+  /* Step-14 "Reach my best matches" gate (owner 2026-06-05): the card only shows when
+     the AI actually found best-fit vendors. getOnboardingVendorCounts returns null when
+     there are no real matches (it never reports a discouraging "0 fit you"), so a non-null
+     result = matches exist → show the card + drive the inquiry fan-out (sendTopInquiries);
+     null / error → hide it + never fan out. Fetched once on the congrats→plan stretch
+     (step ≥ 13) so it's ready by step 14. */
+  useEffect(() => {
+    if (step < 13 || matchTried) return;
+    setMatchTried(true);
+    getOnboardingVendorCounts({
+      kind: state.kind,
+      faith: state.faith,
+      receptionSettings: state.prefs.reception,
+      picks: state.picks,
+      region: state.region,
+      pax: state.pax,
+    })
+      .then((c) => { const ok = c !== null; setMatchAvail(ok); setState((s) => ({ ...s, sendTopInquiries: ok })); })
+      .catch(() => { setMatchAvail(false); setState((s) => ({ ...s, sendTopInquiries: false })); });
+  }, [step, matchTried, state.kind, state.faith, state.prefs.reception, state.picks, state.region, state.pax]);
 
   /* Pre-add the pick-matched recommended in-app services when the couple reaches Boost &
      enhance (owner 2026-06-05 · "Matched to their picks"). One-time latch (servicesSeeded) so a
@@ -2762,23 +2789,20 @@ export function OnboardingShell({
               </div>
               <button type="button" role="switch" aria-checked={state.guidanceOptIn} aria-label="Keep guiding me, free" className={`opt-sw${state.guidanceOptIn ? ' on' : ''}`} onClick={() => patch({ guidanceOptIn: !state.guidanceOptIn })}><span className="opt-knob" /></button>
             </div>
-            <div className="optcard optcard-col">
-              <div className="opt-row">
+            {matchAvail === true && (
+              <div className="optcard optcard-col">
                 <div className="opt-main">
                   <div className="opt-h">Reach my best matches</div>
                   <div className="opt-d">We&apos;ll send your first inquiry to the best-fit vendors we found. You can always do this yourself later.</div>
                 </div>
-                <button type="button" role="switch" aria-checked={state.sendTopInquiries} aria-label="Send my first inquiry to my best matches" className={`opt-sw${state.sendTopInquiries ? ' on' : ''}`} onClick={() => patch({ sendTopInquiries: !state.sendTopInquiries })}><span className="opt-knob" /></button>
-              </div>
-              {state.sendTopInquiries && (
                 <div className="opt-step">
                   <span className="opt-step-l">inquiries per category</span>
                   <button type="button" className="opt-step-b" aria-label="Fewer inquiries" onClick={() => patch({ inquiriesPerCategory: Math.max(1, state.inquiriesPerCategory - 1) })}>−</button>
                   <span className="opt-step-v">{state.inquiriesPerCategory}</span>
                   <button type="button" className="opt-step-b" aria-label="More inquiries" onClick={() => patch({ inquiriesPerCategory: Math.min(5, state.inquiriesPerCategory + 1) })}>+</button>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </section>
 
           {/* 15 BOOST & ENHANCE — paid in-app services: focused detail + bottom carousel (owner 2026-06-05) */}
@@ -2840,21 +2864,22 @@ export function OnboardingShell({
               <div className="svc-empty">No add-ons selected — and that&apos;s perfectly fine. Your free plan already has everything you need to start.</div>
             ) : (
               <>
-                {state.interestedServices.map((k) => {
-                  const p = SVC[k] ?? { out: 0, set: 0 };
-                  const save = Math.max(0, p.out - p.set);
-                  return (
-                    <div className="svc-row" key={k}>
-                      <div className="svc-row-th" style={{ backgroundImage: `url('${BUNDLE_ASSET(k)}')` }} />
-                      <div className="svc-row-m"><div className="svc-row-n">{BUNDLE_ITEMS[k] ?? k}{recommendedSet.has(k) ? <span className="svc-rec">Recommended</span> : null}</div>{save > 0 && <div className="svc-row-save">save {pesoB(save)}</div>}</div>
-                      <div className="svc-row-p">{pesoB(p.set)}</div>
-                      <button type="button" className="svc-row-x" aria-label={`Remove ${BUNDLE_ITEMS[k] ?? k}`} onClick={() => toggleInterested(k)}>×</button>
-                    </div>
-                  );
-                })}
+                <div className="svc-rows-scroll">
+                  {state.interestedServices.map((k) => {
+                    const p = SVC[k] ?? { out: 0, set: 0 };
+                    const save = Math.max(0, p.out - p.set);
+                    return (
+                      <div className="svc-row" key={k}>
+                        <div className="svc-row-th" style={{ backgroundImage: `url('${BUNDLE_ASSET(k)}')` }} />
+                        <div className="svc-row-m"><div className="svc-row-n">{BUNDLE_ITEMS[k] ?? k}{recommendedSet.has(k) ? <span className="svc-rec">Recommended</span> : null}</div>{save > 0 && <div className="svc-row-save">save {pesoB(save)}</div>}</div>
+                        <div className="svc-row-p">{pesoB(p.set)}</div>
+                        <button type="button" className="svc-row-x" aria-label={`Remove ${BUNDLE_ITEMS[k] ?? k}`} onClick={() => toggleInterested(k)}>×</button>
+                      </div>
+                    );
+                  })}
+                </div>
                 {(() => {
                   const setTotal = state.interestedServices.reduce((s, k) => s + (SVC[k]?.set ?? 0), 0);
-                  const saveTotal = state.interestedServices.reduce((s, k) => s + Math.max(0, (SVC[k]?.out ?? 0) - (SVC[k]?.set ?? 0)), 0);
                   const promo = Math.round(setTotal * ONBOARDING_PROMO);
                   const due = setTotal - promo;
                   return (
@@ -2862,7 +2887,6 @@ export function OnboardingShell({
                       <div className="svc-tot-k">{state.interestedServices.length} {state.interestedServices.length === 1 ? 'service' : 'services'} · total</div>
                       <div className="svc-tot-promo"><span className="svc-tot-was">{pesoB(setTotal)}</span><span className="svc-tot-tag">−20% onboarding promo</span></div>
                       <div className="svc-tot-a">{pesoB(due)}</div>
-                      {(saveTotal + promo) > 0 && <div className="svc-tot-s">You save {pesoB(saveTotal + promo)} vs hiring elsewhere</div>}
                     </div>
                   );
                 })()}

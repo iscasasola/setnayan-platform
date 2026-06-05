@@ -4,6 +4,16 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · chore(onboarding): new role-screen photo (bride · groom · maid of honor)
+
+**Context:** Owner — *"change the photo here. we want a photo of a bride (left), groom (center) and the maid of honor (right) chatting and laughing."* The "Who are you in this wedding?" role screen (step 1) hero (`ASSET('role')`).
+
+**What changed:** Replaced `apps/web/public/onboarding/role.webp` with a new image matching the brief — bride on the left (white lace gown + bouquet), groom centre (cream barong tagalog), maid of honor on the right, all chatting and laughing at a warm heritage venue. Generated via Recraft (`realistic_image` · `natural_light`), downscaled to 1280×720 lossy WebP (68 KB) to keep the original's 16:9 footprint and a lean payload. Caption ("You and your people.") and all code unchanged.
+
+**SPEC IMPACT:** None — asset swap only.
+
+---
+
 ## 2026-06-05 · fix(onboarding): no prefilled defaults (date / religion / guests / budget) + deliberate venue loading
 
 **Context:** Owner — *"onboarding should have no starting value to any of the pages. no initial date, no initial guests, no initial budget, no initial religion. all inputs should not have a value."* Plus: *"add a loading … as it populates the vendors for the reception venue."* `EMPTY_ONBOARDING_STATE` was already empty (`dateCandidates: []`, `faith: []`, `pax: null`, `budgetBand/Amount: null`) — but each screen seeded a cosmetic default at render time, so the couple saw answers they never gave. The per-step `canContinue` gate already required real values (date ≥1, `pax !== null`, `budgetBand !== null`, etc.), so the seeds were display-only and even produced an inconsistent "looks filled but Continue is disabled" state.

@@ -18,6 +18,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** The corpus prototype `Onboarding_Wedding_Flow_2026-06-01.html` renders Reception/Ceremony as plain grids and Service-style as wrapping chips — now superseded by carousels everywhere. A `DECISION_LOG.md` row is landing directly in the corpus; the prototype itself is a separate reconciliation (already flagged stale).
 
+## 2026-06-05 · feat(onboarding): venue search expands by serviceability rings (region rings, not hard-drop)
+
+**Context:** Owner design session on the find-first-vendor step (12), which showed every venue under one "★ Matches your preference" group. Owner's model: surface *everything serviceable* by expanding outward in concentric rings, and hard-cut only the impossible. Region was a **hard filter** (out-of-area venues dropped) — owner locked it to **ring** instead: in-area first, then "Farther afield" behind Expand. Capacity-can't-fit, booked-date, and wrong-ceremony are *already* hard-removed by the leaf-match engine (which matches the owner's remove rule), so this PR only changes region + the presentation.
+
+**What changed** (`app/onboarding/wedding/`):
+- **`actions.ts` — `searchOnboardingReceptionVenues` now rings region.** Pass 1 (region-scoped) → `tier:'native'` (rings 1–2). When a region is scoped, Pass 2 re-runs WITHOUT region and subtracts the natives → `tier:'travel'` (ring 3 · ≤6): out-of-area venues that still pass every OTHER leaf dim (capacity/ceremony/venue_type/date) are no longer dropped. `OnboardingVenueResult` gains `tier:'native'|'travel'`.
+- **`onboarding-shell.tsx` — ring-split render.** "★ Matches your preference" (natives) → **Expand search — see N farther venues** → "Farther afield — outside your area" (travels, `Outside your area` flag). A 🚫 remove-note explains the real hard cuts; a mulberry note bridges to the reception-anchor model (every later vendor ringed by who can REACH the venue, far ones flagged "travel fee may apply"). Sub copy → "…then everyone who can host you."
+- **`_styles/onboarding.css`** — `.softflag` (amber demote chip) + `.removednote` (dashed remove note).
+
+**Verify:** `tsc --noEmit` clean; `next lint` clean for the changed files (only pre-existing warnings elsewhere). Founder-only marketplace today → travels usually empty (no Expand shown) until vendor density grows; native list + notes render as before. No migration.
+
+**SPEC IMPACT:** Region flips from hard-filter to **ringed** in the leaf-match contract. Logged in corpus `DECISION_LOG.md` (2026-06-05) + prototype `Onboarding_Wedding_Flow_2026-06-01.html` step 13 rebuilt to match. Pending corpus mirrors: leaf-match region-ringed note · 0007 Transportation cross-ref · 0022 vendor radius/travel control. **Deferred (need data, not fakeable per "real numbers only"):** budget demote-flag (no price in venue search), style ring-1/2 sub-split (engine doesn't return `compatible_venue_settings`).
+
 ## 2026-06-05 · fix(onboarding): un-stretch the Church ceremony photo (Style step)
 
 **Context:** Owner spotted the **Church** card on the wedding-onboarding *"Where will you hold your ceremony?"* Style step looking **stretched** — the couple rendered unnaturally tall/narrow. Root cause is the asset, not the layout: the five `ceremony_*.webp` cards were generated **1820×1024 → resized into 520×520** (a non-uniform squish, per the 2026-06-01 corpus decision-log row), baking a ~1.78× vertical stretch into the source pixels. `.pcard .pimg.haspic` already uses `background-size:cover`, so the CSS faithfully renders the baked-in distortion. Only `ceremony_church` reads as broken (its composition exposes it); garden/beach/civil/same_reception read natural and are left untouched.

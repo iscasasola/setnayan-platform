@@ -14,6 +14,25 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · fix(onboarding): no prefilled defaults (date / religion / guests / budget) + deliberate venue loading
+
+**Context:** Owner — *"onboarding should have no starting value to any of the pages. no initial date, no initial guests, no initial budget, no initial religion. all inputs should not have a value."* Plus: *"add a loading … as it populates the vendors for the reception venue."* `EMPTY_ONBOARDING_STATE` was already empty (`dateCandidates: []`, `faith: []`, `pax: null`, `budgetBand/Amount: null`) — but each screen seeded a cosmetic default at render time, so the couple saw answers they never gave. The per-step `canContinue` gate already required real values (date ≥1, `pax !== null`, `budgetBand !== null`, etc.), so the seeds were display-only and even produced an inconsistent "looks filled but Continue is disabled" state.
+
+**What changed** (`apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx` only):
+- **Date:** `DateCalendar`'s `multi` no longer seeds `[new Date(seed)]` — it opens with no date selected (calendar still shows a month to navigate). `setMode` no longer re-seeds a date when toggling back to *Specific*; the *Flexible window* still seeds a starter range since that responds to an explicit mode choice.
+- **Religion:** choosing a religious *kind* no longer pre-selects `['catholic']` (`selectKind` → `faith: []`); the faith preview photo shows a neutral placeholder ("Pick your tradition") until a chip is tapped, instead of defaulting to the Catholic photo.
+- **Guests:** the count box was already empty when `pax` is null; now the slider rests at min with no fill and the preview photo/caption show a neutral "Drag or type your headcount" state until a number is entered.
+- **Budget:** new `budgetSet = state.budgetBand != null` gate — until the couple sets a budget, the amount box is empty (placeholder "Your budget", no pre-fill on focus), the slider rests at min with no fill, and the feel photo shows a neutral "Set your number to preview the feel it buys" state instead of defaulting to *classic*.
+- **Venue loading:** the reception-venue search already showed a `venuesLoading` skeleton ("Finding the best venues for you…"); it now holds for a minimum ~700ms so the search always reads as a deliberate moment as vendors populate, never a flash.
+
+**Not changed (flagged for owner):** the step-9 "What would you love?" picker still auto-fills a budget-matched starter set (`budgetStarterPicks`). That's a curated suggestion, not a typed value, so I left it — say the word and I'll clear it too so the picker starts empty.
+
+**Verification:** TSX syntax parse clean (0 errors) · no orphaned vars (`seed`/`clampMax`/`budgetView`/etc. still referenced) · empty states are exactly what `canContinue` already assumed (Continue stays disabled until each value is set) · full `tsc`/lint/build/e2e in PR CI + Vercel preview for visual review. Isolated worktree off origin/main (incl. #989).
+
+**SPEC IMPACT:** None — removes cosmetic default-seeding so the UI matches the already-empty `EMPTY_ONBOARDING_STATE` + existing validation; no schema, SKU, copy-of-record, or flow change.
+
+---
+
 ## 2026-06-05 · feat(onboarding/0016): iTunes song preview in the music step — album cover = play button
 
 **Context:** Owner — *"how about the preview itunes?"* The onboarding music step listed songs as plain title/artist text. The Song Bank spec (`Onboarding_Style_and_Song_Bank_2026-06-04` §5, LOCKED) wants each song's **album cover to BE the play surface** — tap to hear the 30-sec iTunes preview. This implements that for the music step's existing 100-song picker.
@@ -28,6 +47,7 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 **Follow-ups:** full Song Bank — searchable 390-song catalogue (results-on-top / bottom-pinned search) + DB-cache of `apple_track_id`/`preview_url`/`artwork` (§5.4).
 
 **SPEC IMPACT:** 0016 — the music step gains the locked album-cover-play-button + 30-sec iTunes preview (Song Bank §5).
+---
 
 ## 2026-06-05 · fix(onboarding): wedding-date "What your dates share" nugget moved above the calendar
 

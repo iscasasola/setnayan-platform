@@ -13,11 +13,22 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 - Derive `confirmedBookingsCount` from the already-fetched `threadsAll` (no extra round-trip): `threadsAll.filter(t => t.inquiry_status === 'accepted').length`. `fetchVendorThreads` reads `chat_threads`, which **does** have vendor-read RLS (`current_vendor_profile_ids()`), and `inquiry_status` is already selected.
 - This matches the canonical "booking = accepted thread" definition in `bookings/actions.ts` (`isBookingForEvent`). Refreshed the two stale doc comments that described the old event_vendors source.
 
-**Verification:** `tsc --noEmit` clean (exit 0) · ESLint clean (exit 0, 0 findings) · data-path checked against the seeded vendor `vendor.test@setnayan.com` (0 accepted threads in the shortlist-only baseline → tile correctly shows 0; will now reflect real accepted bookings). Full production build runs in CI.
+**Verification:** `tsc --noEmit` clean (exit 0) · ESLint clean (exit 0, 0 findings) · CI production build + typecheck+lint green · data-path checked against the seeded vendor `vendor.test@setnayan.com` (0 accepted threads in the shortlist-only baseline → tile correctly shows 0; will now reflect real accepted bookings).
 
 **SPEC IMPACT:** None — display-only metric correctness fix; no schema, SKU, or product-surface change.
 
 ---
+
+## 2026-06-05 · feat(onboarding/0037): monogram Trace animation now loops on the name screen
+
+**Context:** Owner — *"can we make the animation of monogram loop."* The free monogram **Trace** self-draw (PR #971) played once on arrival/remount; the owner wants it to keep replaying while the name screen is shown.
+
+**What changed** (`apps/web/app/onboarding/wedding/_components/onboarding-shell.tsx`):
+- A `step === 4`-gated interval bumps a `monoReplay` tick every ~4.5s and weaves it into the `MonoLockup` key (`design:replay`), remounting the lockup so the tuned one-shot Trace replays — a clean **draw → hold (~2.6s) → redraw** loop that preserves the existing staggered choreography (letters → ∞/divider → filigree sweep → names). Cleared on leaving the screen; **skipped under `prefers-reduced-motion`** (those users keep the static filled mark). No CSS/keyframe changes.
+
+**Verification:** `tsc --noEmit` exit 0 · `next lint app/onboarding` clean. Isolated worktree off origin/main.
+
+**SPEC IMPACT:** 0037 Animated Monogram — the free Trace animation now **loops** on the onboarding name screen (draw → hold → redraw), reduced-motion-gated. Minor refinement of the PR #971 Trace feature; reflected directly in the corpus per the direct-edit authorization.
 
 ## 2026-06-05 · feat(0022): vendor Branches — Enterprise sub-location accounts (apply-then-pay)
 

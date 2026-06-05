@@ -1437,6 +1437,19 @@ export function OnboardingShell({
 
   const isCivil = kind === 'civil';
 
+  // Loop the monogram Trace (owner 2026-06-04 "make the animation of monogram
+  // loop"): while the name screen (4) is shown, replay the self-draw every few
+  // seconds by bumping the lockup key below — reusing the tuned one-shot Trace
+  // as a clean draw → hold → redraw loop. Gated to step 4 + prefers-reduced-
+  // motion (reduced-motion users keep the static filled mark, no replay).
+  const [monoReplay, setMonoReplay] = useState(0);
+  useEffect(() => {
+    if (step !== 4) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const id = window.setInterval(() => setMonoReplay((n) => n + 1), 4500);
+    return () => window.clearInterval(id);
+  }, [step]);
+
   /* ── style sub-stepper queue (prototype buildPrefs) ── */
   const prefQueue = useMemo(() => prefQueueFrom(state.picks), [state.picks]);
 
@@ -2128,13 +2141,15 @@ export function OnboardingShell({
               <div className="eyebrow">Your wedding</div>
               <h1 className="q">The two of you.</h1>
               <figure className="monogram">
-                {/* key by design index so "Generate another design" remounts the
-                    lockup → its Trace effect (letters + filigree draw themselves)
-                    replays on every cycle (screen display:none→flex covers the
-                    first arrival). The mark propagates to the couple's invitation,
-                    website, save-the-date, live background, livestream + videos. */}
+                {/* key by design index + a periodic replay tick so the Trace
+                    effect (letters + filigree draw themselves) LOOPS: it replays
+                    on "Generate another design" (design change) AND every ~4.5s
+                    while this screen is shown (monoReplay) as a draw → hold →
+                    redraw loop — gated to step 4 + prefers-reduced-motion above.
+                    The mark propagates to the couple's invitation, website,
+                    save-the-date, live background, livestream + videos. */}
                 <MonoLockup
-                  key={state.monogramDesign}
+                  key={`${state.monogramDesign}:${monoReplay}`}
                   design={monoDesign}
                   bi={firstInitial(state.brideFirstName)}
                   gi={firstInitial(state.groomFirstName)}

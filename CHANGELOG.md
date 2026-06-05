@@ -15,6 +15,20 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** The corpus copy `assets/prefs/ceremony_church.webp` is the same distorted file and the 2026-06-01 `DECISION_LOG.md` row documents the squish pipeline (`Pillow 520²`). Corpus copy refreshed + a DECISION_LOG row added directly (authorized corpus edit) recording the fix and that future pref-photo regenerations must **cover-crop to square, never squish**.
 
+## 2026-06-05 · fix(onboarding): faith step shows a "no religion chosen" hero (wed_none) instead of a blank
+
+**Context:** The ceremony-tradition (faith) step rendered a *blank* hero until a faith was picked — the no-selection default was `firstF ? FAITH_PHOTO[firstF] : { img: '', cap: 'Pick your tradition' }`, and the empty `img` made `HeroImg` show nothing. Owner reported it as "still none."
+
+**What changed** (`app/onboarding/wedding/`):
+- New asset `public/onboarding/wed_none.webp` (760×950, matches the faith-hero frame) — a couple silhouetted indoors looking out a wall of windows, each pane framing one of the 8 ceremony venues at sunset (Catholic · Muslim · INC · Chinese · Born Again · Christian · Cultural · Jewish).
+- `onboarding-shell.tsx`: the no-selection faith default `{ img: '', cap: 'Pick your tradition' }` -> `{ img: 'wed_none', cap: 'Pick your tradition' }`. Per-faith `FAITH_PHOTO` heroes are unchanged; `HeroImg` already keys on `src`.
+
+**Verify:** Single type-safe field change + a static asset; tsc/lint/build via CI + Vercel preview.
+
+**SPEC IMPACT:** None new — aligns the app with the corpus prototype `Onboarding_Wedding_Flow_2026-06-01.html` + `assets/wed_none.webp` (already in the spec `DECISION_LOG.md`).
+
+---
+
 ## 2026-06-05 · fix(onboarding): require faith/date/pax/budget (remove Skip) + picker cards fill with the photo
 
 **Context:** Owner feedback on the live flow: (1) remove **Skip** from *Your Ceremony Tradition · When's the Big Day · How many guests · Your Working Budget* — these drive matching and shouldn't be bypassable; (2) on **"What would you love?"** the picker photo-cards should have the photo fill the whole card; (3) a reported count bug — *"select adds one on the parent category, but deselect won't go back to 0."*

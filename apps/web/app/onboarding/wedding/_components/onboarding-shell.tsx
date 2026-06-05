@@ -1717,7 +1717,7 @@ export function OnboardingShell({
       h1: 'Your ceremony tradition',
       sub: 'We’ll match vendors who know your faith’s protocols — and pre-set things like halal catering.',
       // No faith picked yet → neutral placeholder (gradient) instead of defaulting to Catholic.
-      photo: firstF ? FAITH_PHOTO[firstF] : { img: '', cap: 'Pick your tradition' },
+      photo: firstF ? FAITH_PHOTO[firstF] : { img: 'wed_none', cap: 'Pick your tradition' },
     };
   })();
 

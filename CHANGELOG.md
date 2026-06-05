@@ -4,6 +4,21 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 ---
 
+## 2026-06-05 · feat(onboarding): picker → category photo-carousels + shared carousel affordances (more →/end-line) + start empty
+
+**Context:** Owner — wanted the step-9 "What would you love?" picker to **start empty**, to feel less cluttered ("keep it one scroll but make it not feel too long"), and then to apply the same carousel cues to **all** onboarding carousels. The picker was a 53-text-chip wall under a sticky preview panel (broke the no-scroll / photo-forward onboarding golden rules); the only other carousel (style-prefs cuisine + photo/video strips) had no scroll affordances.
+
+**What changed** (`onboarding-shell.tsx` + `onboarding.css`):
+- **New reusable `<Rail>`** — wraps any horizontal carousel and self-describes via classes toggled on scroll: a floating **`›` "more"** chevron + right-edge fade when there's more to the right, a **left-edge fade** once you've scrolled, and a **vertical end-line** at the end. Rows that already fit get `.flat` and show none of it. Uses a scroll listener + `ResizeObserver` + a post-image settle re-measure.
+- **Picker redesign** — the preview panel + chip rows are replaced by **one row per taxonomy parent**, each a `<Rail>` of per-service **`<PickCard>`** photo-cards (the existing 53 `public/onboarding/picker/*.webp`). Tap = gold ring + check; category header shows a live count badge; the sub-line shows `N selected`. Service descriptions (`PICK_INFO`) move to each card's `title`/`aria-label` (hover/AT, no visual clutter).
+- **Start empty** — removed the budget-matched auto-seed (`budgetStarterPicks` + its only-here `PRIORITY_TIERS`/`BAND_LEVEL`/`ALL_CATS`). Nothing is pre-selected; `canContinue` already required `picks.length > 0`, so Continue stays disabled until the couple taps one.
+- **Applied `<Rail>` to the other carousels** — the two style-prefs strips (`.pgrid.strip`: cuisine + photo/video looks) now get the same affordances.
+
+**Verification:** TSX syntax parse clean · no orphaned identifiers (removed `pickerPreview`, `budgetStarterPicks`, `PRIORITY_TIERS`, `BAND_LEVEL`, `ALL_CATS`) · design validated in an HTML proto with the real photos before porting (carousel cues confirmed: more-chevron, edge fades, end-line). Full `tsc`/lint/build/e2e in PR CI + Vercel preview for visual review. Isolated worktree off origin/main.
+
+**SPEC IMPACT:** Onboarding picker — the corpus onboarding proto (`Onboarding_Wedding_Flow_2026-06-01.html`) + any 0016/picker spec text still show the old chip picker with a budget-seeded starter set. They should be updated to the **category photo-carousel, start-empty** design + the shared carousel affordances. (Flagged for Cowork / corpus follow-up.)
+
+---
 ## 2026-06-05 · feat(onboarding): "Set the mood" feel picker → swipeable carousel
 
 **Context:** Owner — *"set the mood must be carousel as well."* The wedding onboarding's Style steps were inconsistent: Cuisine and Photo & Video already used the swipeable photo-card film-strip, but the palette / **"Set the mood"** step still picked the feel with flat text chips.

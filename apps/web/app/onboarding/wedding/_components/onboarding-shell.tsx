@@ -237,7 +237,6 @@ const PICK_GROUPS: PickGroup[] = [
   { label: 'Prints', rows: [[{ cat: 'printing', label: 'Printing' }, { cat: 'souvenirs', label: 'Souvenirs / giveaways' }]] },
   { label: 'Transport', rows: [[{ cat: 'bridal_car', label: 'Bridal car' }], [{ cat: 'guest_shuttle', label: 'Guest shuttle' }, { cat: 'escort', label: 'Escort' }]] },
 ];
-const ALL_CATS = PICK_GROUPS.flatMap((g) => g.rows.flat().map((c) => c.cat));
 const PICK_INFO: Record<string, { g: string; d: string }> = {
   reception: { g: 'Venue', d: 'Where your celebration happens — the dinner, the program, and the dancing.' },
   ceremony: { g: 'Venue', d: 'Where you exchange vows — church, mosque, temple, garden, or civil hall.' },
@@ -293,23 +292,6 @@ const PICK_INFO: Record<string, { g: string; d: string }> = {
   guest_shuttle: { g: 'Transport', d: 'Shuttles to bring your guests to the venue.' },
   escort: { g: 'Transport', d: 'A security or motorcade escort for the convoy.' },
 };
-/* budget-appropriate starter set — essentials first, scale up with budget (prototype PRIORITY_TIERS + applyBudgetHighlight). */
-const PRIORITY_TIERS: string[][] = [
-  ['reception', 'ceremony', 'photo_video', 'bride_attire'],
-  ['catering', 'groom_attire', 'hmua'],
-  ['cake', 'coordinator', 'florist', 'host_mc'],
-  ['lights_sound', 'bridal_car', 'printing', 'dj'],
-  ['mobile_bar', 'photo_booth', 'women_attire', 'men_attire', 'stylist'],
-];
-const BAND_LEVEL: Record<string, number> = { essentials: 0, simple: 1, classic: 2, elevated: 3, premium: 4, luxury: 5, nolimit: 5 };
-function budgetStarterPicks(band: string): string[] {
-  const lvl = BAND_LEVEL[band] ?? 2;
-  if (lvl >= 5) return [...ALL_CATS]; // luxury — as many vendors as possible
-  const set = new Set<string>();
-  for (let t = 0; t <= lvl; t++) (PRIORITY_TIERS[t] ?? []).forEach((k) => set.add(k));
-  return [...set];
-}
-
 /* ── style sub-stepper data (prototype LEANPREF + FEELS + MUSIC100) ── */
 const MUSIC_CATS = ['live_band', 'choir', 'orchestra', 'wedding_singer', 'dj', 'performers'];
 const AESTHETIC_CATS = ['stylist', 'florist', 'cake', 'led_wall', 'printing', 'bride_attire', 'groom_attire', 'women_attire', 'men_attire'];
@@ -390,6 +372,61 @@ function PCard({ emoji, label, photoKey, selected, onClick }: { emoji: string; l
         <span className="ck" />
       </div>
     </div>
+  );
+}
+
+/* ── Reusable horizontal carousel with edge affordances ── applied to every
+   onboarding carousel (owner 2026-06-05): a "more →" chevron + edge fades while
+   there's more to scroll either way, and a vertical end-line once you reach the
+   end. Rows that already fit show none of it ('flat'). */
+function Rail({ children, className }: { children: ReactNode; className?: string }) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const railRef = useRef<HTMLDivElement>(null);
+  const sync = useCallback(() => {
+    const el = railRef.current;
+    const w = wrapRef.current;
+    if (!el || !w) return;
+    const max = el.scrollWidth - el.clientWidth;
+    const flat = max <= 6;
+    w.classList.toggle('flat', flat);
+    w.classList.toggle('canl', !flat && el.scrollLeft > 4);
+    w.classList.toggle('canr', !flat && el.scrollLeft < max - 4);
+  }, []);
+  useEffect(() => {
+    sync();
+    const el = railRef.current;
+    if (!el) return;
+    el.addEventListener('scroll', sync, { passive: true });
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(sync) : null;
+    ro?.observe(el);
+    const t = setTimeout(sync, 350); // re-measure once card photos settle
+    return () => {
+      el.removeEventListener('scroll', sync);
+      ro?.disconnect();
+      clearTimeout(t);
+    };
+  }, [sync]);
+  return (
+    <div className="railwrap" ref={wrapRef}>
+      <div className={`rail${className ? ` ${className}` : ''}`} ref={railRef}>
+        {children}
+        <span className="railend" aria-hidden="true" />
+      </div>
+      <span className="fade l" aria-hidden="true" />
+      <span className="fade r" aria-hidden="true" />
+      <span className="chev" aria-hidden="true">›</span>
+    </div>
+  );
+}
+
+/* Picker service card — per-service photo + label + select check (owner 2026-06-05). */
+function PickCard({ cat, label, desc, selected, onClick }: { cat: string; label: string; desc?: string; selected: boolean; onClick: () => void }) {
+  return (
+    <button type="button" className={`svccard${selected ? ' sel' : ''}`} onClick={onClick} aria-pressed={selected} title={desc} aria-label={desc ? `${label} — ${desc}` : label}>
+      <span className="svcph" style={{ backgroundImage: `url(${PICKER_ASSET(cat)})` }} />
+      <span className="svcck" aria-hidden="true">✓</span>
+      <span className="svclb">{label}</span>
+    </button>
   );
 }
 
@@ -497,11 +534,11 @@ function StyleSubStepper({
   } else if (dim === 'catering') {
     body = (
       <>
-        <div className="pgrid strip">
+        <Rail className="pgrid strip">
           {CUISINE_OPTS.map(([e, l, k]) => (
             <PCard key={k} emoji={e} label={l} photoKey={k} selected={prefs.cuisine.includes(k)} onClick={() => onPrefs({ cuisine: toggleArr(prefs.cuisine, k) })} />
           ))}
-        </div>
+        </Rail>
         <PBlock label="Service style">
           <div className="chips" data-single>
             {SERVICE_STYLES.map((s) => (
@@ -519,11 +556,11 @@ function StyleSubStepper({
   } else if (dim === 'photo_video') {
     body = (
       <>
-        <div className="pgrid strip">
+        <Rail className="pgrid strip">
           {PV_LOOKS.map(([e, l, k]) => (
             <PCard key={k} emoji={e} label={l} photoKey={k} selected={prefs.pvLook.includes(k)} onClick={() => onPrefs({ pvLook: toggleArr(prefs.pvLook, k) })} />
           ))}
-        </div>
+        </Rail>
         <PBlock label="What do you need?">
           <div className="chips" data-single>
             {PV_NEEDS.map((s) => (
@@ -1238,7 +1275,6 @@ export function OnboardingShell({
   const [monoPop, setMonoPop] = useState(false);
   const popTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /* picker sticky-preview (local UI) + style sub-stepper index (local UI) */
-  const [pickerPreview, setPickerPreview] = useState<{ cat: string; name: string }>({ cat: 'reception', name: 'Reception venue' });
   const [prefIdx, setPrefIdx] = useState(0);
   /* Phase-4 local UI: budget-matched bundle add (screen 14) · BYO bottom-sheet (12) */
   const [bundleAdded, setBundleAdded] = useState(false);
@@ -1391,13 +1427,7 @@ export function OnboardingShell({
     [state.step, prefIdx, prefQueue.length, authed],
   );
 
-  /* "What would you love?" auto-highlights a budget-appropriate starter set (prototype applyBudgetHighlight),
-     re-seeding only while untouched — once the couple edits a chip, pickerTouched latches and we stop. */
-  useEffect(() => {
-    if (step === 9 && !state.pickerTouched) {
-      patch({ picks: budgetStarterPicks(state.budgetBand ?? 'classic') });
-    }
-  }, [step, state.pickerTouched, state.budgetBand, patch]);
+  /* The "What would you love?" picker starts empty — nothing pre-selected (owner 2026-06-05). */
 
   /* Find-vendor (step 12): fetch REAL reception venues once on entry — the same
      criteria-based engine the dashboard reception search uses (no eventId). Cached
@@ -1445,9 +1475,8 @@ export function OnboardingShell({
       .catch(() => setVendorCounts(null));
   }, [step, vendorCountsTried, state.kind, state.faith, state.prefs.reception, state.picks, state.region, state.pax]);
 
-  /* picker chip tap — toggles the pick (multi), latches pickerTouched, updates the sticky preview. */
-  const pickChip = (cat: string, label: string) => {
-    setPickerPreview({ cat, name: label });
+  /* picker card tap — toggles the pick (multi); latches pickerTouched. */
+  const pickChip = (cat: string) => {
     setState((s) => {
       const has = s.picks.includes(cat);
       return { ...s, picks: has ? s.picks.filter((x) => x !== cat) : [...s.picks, cat], pickerTouched: true };
@@ -2302,32 +2331,36 @@ export function OnboardingShell({
           {/* 9 PICKER — "What would you love?" (53 services grouped by the 10 parents) */}
           <section className={`screen${step === 9 ? ' active' : ''}`} id="screen-picker">
             <div className="eyebrow">What you{'’'}re after</div>
-            <h1 className="q" style={{ marginBottom: 18 }}>What would you love?</h1>
-            <div className="picker-preview" id="pickerPreview" data-cat={pickerPreview.cat}>
-              <div className="pp-photo">
-                <HeroImg src={PICKER_ASSET(pickerPreview.cat)} />
-                <div className="pp-cap">
-                  <div className="pp-cat" id="ppCat">{(PICK_INFO[pickerPreview.cat]?.g ?? '').toUpperCase()}</div>
-                  <div className="pp-name" id="ppName">{pickerPreview.name}</div>
-                </div>
-              </div>
-              <div className="pp-desc" id="ppDesc">{PICK_INFO[pickerPreview.cat]?.d ?? ''}</div>
-            </div>
-            <p className="picker-sub">Tap everything you want — preview what each one provides above.</p>
-            {PICK_GROUPS.map((g) => (
-              <div key={g.label}>
-                <div className="grouplbl">{g.label}</div>
-                {g.rows.map((row, ri) => (
-                  <div className="chips" key={`${g.label}-${ri}`}>
-                    {row.map((c) => (
-                      <span key={c.cat} className={`chip${sel(state.picks.includes(c.cat))}`} data-cat={c.cat} onClick={() => pickChip(c.cat, c.label)}>
-                        {c.label}
-                      </span>
-                    ))}
+            <h1 className="q" style={{ marginBottom: 6 }}>What would you love?</h1>
+            <p className="picker-sub">
+              Tap everything you{'’'}d love — nothing{'’'}s pre-selected. Each category swipes sideways.
+              {state.picks.length > 0 && (
+                <>
+                  {' '}
+                  <b>{state.picks.length} selected.</b>
+                </>
+              )}
+            </p>
+            {/* One row per taxonomy parent — each a photo-card carousel with the shared
+                Rail affordances (more → / end-line). Starts empty (owner 2026-06-05). */}
+            {PICK_GROUPS.map((g) => {
+              const all = g.rows.flat();
+              const n = all.filter((c) => state.picks.includes(c.cat)).length;
+              return (
+                <div className="pickcat" key={g.label}>
+                  <div className={`pickcatlbl${n > 0 ? ' has' : ''}`}>
+                    <span className="nm">{g.label}</span>
+                    <span className="ct">{n}</span>
+                    <span className="rule" />
                   </div>
-                ))}
-              </div>
-            ))}
+                  <Rail className="pickrail">
+                    {all.map((c) => (
+                      <PickCard key={c.cat} cat={c.cat} label={c.label} desc={PICK_INFO[c.cat]?.d} selected={state.picks.includes(c.cat)} onClick={() => pickChip(c.cat)} />
+                    ))}
+                  </Rail>
+                </div>
+              );
+            })}
           </section>
 
           {/* 10 PREFERENCES — style sub-stepper (one focused screen per picked dimension) */}

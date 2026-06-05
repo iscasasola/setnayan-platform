@@ -17,6 +17,19 @@ Append-only log of every meaningful code change. Newest at top. Each entry inclu
 
 **SPEC IMPACT:** The app's onboarding monogram (5-lockup "Generate another design", added 2026-06-04) is **app-only** — the corpus prototype `Onboarding_Wedding_Flow_2026-06-01.html` `#screen-name` still has the older tap-to-cycle / 6-combo mark, so it was already diverged. A `DECISION_LOG.md` row is landing directly in the corpus (authorized direct edit); the prototype's monogram section is flagged stale (a full reconciliation to the app's lockup approach is a separate task). Relates to the open 2026-06-04 monogram items (Trace animation · 0037 · the unapplied `event_monogram_style` migration).
 
+## 2026-06-05 · feat(onboarding): Your Plan — powerful Freebies value block (relabels + pill fix)
+
+**Context:** Owner on the shipped Your Plan — *"we want this to be more modern than just frames. create a powerful way to present the Freebies."* Plus: the free **Monogram**/**Website** should read "Basic" (vs the paid Animated Monogram / Pro Website), and the opt-in toggle rendered as a circle, not a pill. Mockup-verified at 375px before porting.
+
+**What changed** (`app/onboarding/wedding/`):
+- **`FreeValueSlider` rebuilt into a value showcase** — a gold "everything you get · free" block leading with a big serif **₱-total + hours hero** (counts up on entry) over a meter, then cards that **strike the "elsewhere" price → a mulberry *Free*** (gold left-spine + ghost index), closing on a mulberry **seal** tally. Replaces the plain bordered rail + the separate `.plansave`/`.planfree` blocks (the slider is now self-contained).
+- **Relabels** in `FREE_TOOL_DRIVERS`: "Your wedding website" → **"Basic website"**, "Your monogram" → **"Basic monogram"**.
+- **Toggle is a real pill now** — `.opt-sw` widened (48×28, 22px knob, distinct off-track) so it no longer reads as a circle.
+
+**Verify:** `tsc --noEmit` + `next lint` + `next build` green. No migration (pure presentation; same `computeOnboardingSavings` data).
+
+**SPEC IMPACT:** Your Plan Freebies presentation (Blueprint §3.2 + prototype #screen-plan) — corpus mirror to follow. The à-la-carte in-app-services flow (remove bundle + screens 15–16 + 1–5 inquiry stepper) is the next PR (PR-b).
+
 ## 2026-06-05 · feat(onboarding): Your Plan reframed free-first — value slider + two opt-ins
 
 **Context:** Owner — *"fix the your plan part of the onboarding. show what you get for free… in a slider… how much time they save and what free services they get with their price if bought outside. then ask if they want to continue using our AI service to guide them, and if they want us to send inquiries to the top 3 services we found."* Screen 14 led with the paid bundle and listed freebies as one paragraph; it now leads with the free value, quantified, then asks.

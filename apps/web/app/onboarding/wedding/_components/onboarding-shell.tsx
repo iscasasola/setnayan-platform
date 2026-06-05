@@ -1191,7 +1191,7 @@ const FREE_TOOL_DRIVERS: ReadonlyArray<{
   key: string; label: string; blurb: string; vsRole: string;
   money: (c: SavingsInputs) => number; hours: (c: SavingsInputs) => number;
 }> = [
-  { key: 'website', label: 'Your wedding website', blurb: 'RSVP, your event site, and an editorial page — built for you.', vsRole: 'a hired web developer', money: () => 14999, hours: () => 50 },
+  { key: 'website', label: 'Basic website', blurb: 'RSVP, your event site, and an editorial page — built for you.', vsRole: 'a hired web developer', money: () => 14999, hours: () => 50 },
   { key: 'drive', label: 'Photos on your Google Drive', blurb: 'Every original synced to your own Drive, yours to keep.', vsRole: 'a USB-and-delivery service', money: () => 5000, hours: () => 5 },
   { key: 'filtering', label: 'Smart vendor matching', blurb: 'We filter the whole market down to the vendors that fit your wedding.', vsRole: "a planner's vendor sourcing", money: () => 4999, hours: (c) => 3 * c.categories },
   { key: 'mood', label: 'Mood board', blurb: 'One styled board your vendors actually follow.', vsRole: 'a styling consult', money: () => 3999, hours: () => 5 },
@@ -1205,7 +1205,7 @@ const FREE_TOOL_DRIVERS: ReadonlyArray<{
   { key: 'songlist', label: 'Songlist maker', blurb: 'Your must-play and do-not-play list for the band or DJ.', vsRole: 'a music planner', money: () => 1499, hours: () => 3 },
   { key: 'datealigner', label: 'Wedding date aligner', blurb: 'The best date your top vendors can all actually make.', vsRole: 'a date consult', money: () => 1499, hours: () => 3 },
   { key: 'foodplanner', label: 'Food planner', blurb: 'Menu plus dietary, allergy, and halal prefs for your caterer.', vsRole: 'a menu planner', money: () => 1499, hours: () => 4 },
-  { key: 'monogram', label: 'Your monogram', blurb: 'A custom mark for your wedding, generated in seconds.', vsRole: 'a designer', money: () => 1499, hours: () => 4 },
+  { key: 'monogram', label: 'Basic monogram', blurb: 'A custom mark for your wedding, generated in seconds.', vsRole: 'a designer', money: () => 1499, hours: () => 4 },
   { key: 'qr', label: 'Branded QR', blurb: 'One scan opens everything for your guests.', vsRole: 'an invitation designer', money: () => 999, hours: () => 2 },
   { key: 'fanout', label: 'One-tap inquiries', blurb: 'Reach your top matches in one tap — not one chat at a time.', vsRole: 'messaging each vendor yourself', money: () => 0, hours: (c) => 0.5 * c.categories },
   { key: 'chat', label: 'All chats in one place', blurb: 'Every vendor thread in one app, not scattered across Viber and email.', vsRole: 'chasing replies everywhere', money: () => 0, hours: (c) => 0.5 * c.lockedVendors },
@@ -1252,32 +1252,38 @@ function FreeValueSlider({ tools, money, hours, active }: { tools: FreeToolValue
     .slice()
     .sort((a, b) => b.money - a.money || b.hours - a.hours);
   return (
-    <div className="fvslider" role="group" aria-label="What you get free">
+    <section className="freeblock" aria-label="What you get free">
+      <div className="fb-pad">
+        <div className="fb-eyebrow">Everything you get · free</div>
+        <div className="fb-hero">
+          <span className="fb-amt"><CountUp value={money} prefix="₱" active={active} /></span>
+          <span className="fb-hrs">+ <CountUp value={hours} suffix=" hours" active={active} /></span>
+        </div>
+        <div className="fb-lbl">Tools a wedding planner would charge you for. Yours, ₱0 — forever.</div>
+        <div className="fb-meter"><i /></div>
+      </div>
       <div className="fvs-track">
-        {cards.map((t) => (
-          <article className="fvs-card" key={t.key}>
-            <div className="fvs-card-top">
-              <div className="fvs-label">{t.label}</div>
-              <div className="fvs-blurb">{t.blurb}</div>
-            </div>
+        {cards.map((t, i) => (
+          <article className="fvs-card" key={t.key} data-i={String(i + 1).padStart(2, '0')}>
+            <div className="fvs-label">{t.label}</div>
+            <div className="fvs-blurb">{t.blurb}</div>
             <div className="fvs-foot">
-              {t.hours >= 1 && <span className="fvs-time">⏱ ~{Math.round(t.hours)} hrs saved</span>}
-              {t.money > 0 ? (
-                <span className="fvs-money">{pesoB(t.money)}<span className="fvs-vs">if you hired {t.vsRole}</span></span>
-              ) : (
-                <span className="fvs-money fvs-free">Free, always<span className="fvs-vs">instead of {t.vsRole}</span></span>
-              )}
+              <div className="fvs-price">
+                {t.money > 0 && <span className="fvs-was">{pesoB(t.money)}</span>}
+                <span className="fvs-free">Free</span>
+                <span className="fvs-vs">{t.money > 0 ? `vs ${t.vsRole}` : `instead of ${t.vsRole}`}</span>
+              </div>
+              {t.hours >= 1 && <span className="fvs-hrs">⏱ {Math.round(t.hours)}h</span>}
             </div>
           </article>
         ))}
         <article className="fvs-card fvs-tally" key="__tally">
-          <div className="fvs-tally-lbl">Altogether, free</div>
-          <div className="fvs-tally-amt"><CountUp value={money} prefix="₱" active={active} /><span className="fvs-tally-dot">·</span><CountUp value={hours} suffix=" hrs" active={active} /></div>
-          <div className="fvs-tally-sub">Every tool here is yours, ₱0, forever — plus one-place chat, bring-your-own-vendor, and verified-vendor safety.</div>
+          <div className="fvs-tally-lbl">All of it</div>
+          <div className="fvs-tally-amt"><CountUp value={money} prefix="₱" active={active} /> · <CountUp value={hours} suffix="h" active={active} /></div>
+          <div className="fvs-tally-sub">Yours, ₱0, forever — plus one-place chat, bring-your-own-vendor &amp; verified-vendor safety.</div>
         </article>
       </div>
-      <div className="fvs-hint">Swipe — see what each would cost you elsewhere →</div>
-    </div>
+    </section>
   );
 }
 
@@ -2625,15 +2631,7 @@ export function OnboardingShell({
             <div className="eyebrow">Your plan</div>
             <h1 className="q" style={{ fontSize: 31, lineHeight: 1.08 }}><span>{coupleDisplay}</span></h1>
             <p className="sub" style={{ marginTop: -3 }}>Your wedding, planned.</p>
-            <div className="plansave">
-              <div className="ps-amt"><CountUp value={savings.money} prefix="₱" active={step === 14} /> <span className="ps-and">·</span> <CountUp value={savings.hours} suffix=" hrs" active={step === 14} /></div>
-              <div className="ps-lbl">already saved — free, just by planning here</div>
-            </div>
-            <div className="planfree">
-              <div className="ph">All your freebies</div>
-              <div className="pp">Yours, ₱0 forever — here&apos;s what each would cost you elsewhere.</div>
-              <FreeValueSlider tools={savings.breakdown} money={savings.money} hours={savings.hours} active={step === 14} />
-            </div>
+            <FreeValueSlider tools={savings.breakdown} money={savings.money} hours={savings.hours} active={step === 14} />
             <div className="grouplbl">A little help, if you want it</div>
             <div className="optcard">
               <div className="opt-main">
